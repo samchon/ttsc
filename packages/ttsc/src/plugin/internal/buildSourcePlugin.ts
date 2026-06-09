@@ -240,15 +240,15 @@ function compileSourcePlugin(opts: {
  *
  * The lock is an atomic `mkdir` on `<cacheDir>.lock`. The winner builds and
  * publishes the binary; every loser polls for that binary to appear and reuses
- * it. A loser that waits past `PLUGIN_BUILD_LOCK_STEAL_MS` (the builder
- * crashed without publishing) steals the abandoned lock and retries. This is
- * the same shape as `withBuildLock` in the runtime hooks, keyed on the plugin
- * binary's existence instead of a JSON meta marker.
+ * it. A loser that waits past `PLUGIN_BUILD_LOCK_STEAL_MS` (the builder crashed
+ * without publishing) steals the abandoned lock and retries. This is the same
+ * shape as `withBuildLock` in the runtime hooks, keyed on the plugin binary's
+ * existence instead of a JSON meta marker.
  *
  * Correctness still rests on `publishBuiltBinary`'s atomic rename: the lock is
- * an optimisation to avoid duplicate work, not the only guard against a
- * corrupt binary, so a stolen lock that races a slow builder cannot ship a
- * half-written file.
+ * an optimisation to avoid duplicate work, not the only guard against a corrupt
+ * binary, so a stolen lock that races a slow builder cannot ship a half-written
+ * file.
  */
 function buildUnderPluginLock(
   cacheDir: string,
@@ -274,7 +274,10 @@ function buildUnderPluginLock(
         // unlocked build — correctness is preserved by the atomic publish.
         return build();
       }
-      const waited = waitForPluginBinary(binaryPath, PLUGIN_BUILD_LOCK_STEAL_MS);
+      const waited = waitForPluginBinary(
+        binaryPath,
+        PLUGIN_BUILD_LOCK_STEAL_MS,
+      );
       if (waited) {
         touchCacheEntry(cacheDir);
         return binaryPath;

@@ -2,20 +2,20 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies ttsx preserves an `enum`'s *runtime object* when it builds a raw
- * `.ts` source-distribution dependency under that dependency's own tsconfig (the
- * path-2 `runBuild` route).
+ * Verifies ttsx preserves an `enum`'s _runtime object_ when it builds a raw
+ * `.ts` source-distribution dependency under that dependency's own tsconfig
+ * (the path-2 `runBuild` route).
  *
  * The existing enum coverage exercises the published-ESM-under-node_modules
  * transpile path (`load`-hook `transform` mode). This case is the general build
  * path: a package that ships its own `tsconfig.json` and re-exports an `enum`
- * used both as a *type* and as a runtime value (reverse mapping + member access).
- * A full tsgo build must emit the enum IIFE so both directions work at runtime;
- * if ttsx merely type-stripped the dependency, the enum object would be gone and
- * the member access / reverse mapping would be `undefined`.
+ * used both as a _type_ and as a runtime value (reverse mapping + member
+ * access). A full tsgo build must emit the enum IIFE so both directions work at
+ * runtime; if ttsx merely type-stripped the dependency, the enum object would
+ * be gone and the member access / reverse mapping would be `undefined`.
  *
- * 1. Install an ESM `enum-dep` that ships its own `tsconfig.json` and re-exports
- *    a numeric `enum`.
+ * 1. Install an ESM `enum-dep` that ships its own `tsconfig.json` and re-exports a
+ *    numeric `enum`.
  * 2. Run ttsx against an entry that reads an enum member and its reverse mapping.
  * 3. Assert the dependency executed and produced the enum runtime values.
  */

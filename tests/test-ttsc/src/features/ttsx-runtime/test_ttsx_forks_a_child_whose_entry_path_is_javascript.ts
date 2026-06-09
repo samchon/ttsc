@@ -8,11 +8,11 @@ import assert from "node:assert/strict";
  * Libraries like `tgrid` (used by `@nestia/benchmark`) fork a servant via
  * `child_process.fork(__dirname + "/servant.js")` — a `.js` path. Under
  * run-from-source `__dirname` is the source tree, which ships only the `.ts`,
- * so the child's main module would die with `Cannot find module servant.js`.
- * A tgrid master then waits on the dead child's handshake forever (the
- * benchmark CI job hung until the 60-minute timeout). The resolve hook must map
- * the absolute `.js` main entry — which reaches the hook with no `parentURL` —
- * to its `.ts` source.
+ * so the child's main module would die with `Cannot find module servant.js`. A
+ * tgrid master then waits on the dead child's handshake forever (the benchmark
+ * CI job hung until the 60-minute timeout). The resolve hook must map the
+ * absolute `.js` main entry — which reaches the hook with no `parentURL` — to
+ * its `.ts` source.
  *
  * 1. Create a project whose entry forks `node child.js`, but only `child.ts`
  *    exists on disk.

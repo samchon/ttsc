@@ -30,7 +30,9 @@ func TestEmitWithPluginTransformerMixedFactory(t *testing.T) {
   writeProjectFile(t, root, "dep.ts", "export const foo = (x: number): number => x;\n")
   writeProjectFile(t, root, "index.ts", "export const a = 0;\n")
   prog, _, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true})
-  if err != nil { t.Fatal(err) }
+  if err != nil {
+    t.Fatal(err)
+  }
   defer prog.Close()
 
   // typia 글로벌 factory 대역 (ec와 무관한 독립 factory)
@@ -44,12 +46,14 @@ func TestEmitWithPluginTransformerMixedFactory(t *testing.T) {
 
     var visitor *shimast.NodeVisitor
     visit := func(node *shimast.Node) *shimast.Node {
-      if node == nil { return node }
+      if node == nil {
+        return node
+      }
       if node.Kind == shimast.KindNumericLiteral && node.Text() == "0" {
         // 검증 트리: 바깥 노드는 indep, namespace 참조만 ec.Factory
-        ref := ec.Factory.NewGeneratedNameForNode(modSpec)              // <-- emit ec
+        ref := ec.Factory.NewGeneratedNameForNode(modSpec)                                                       // <-- emit ec
         access := indep.NewPropertyAccessExpression(ref, nil, indep.NewIdentifier("foo"), shimast.NodeFlagsNone) // <-- indep
-        arg := indep.NewNumericLiteral("123", 0)                        // <-- indep
+        arg := indep.NewNumericLiteral("123", 0)                                                                 // <-- indep
         return indep.NewCallExpression(access, nil, nil, indep.NewNodeList([]*shimast.Node{arg}), shimast.NodeFlagsNone)
       }
       if node.Kind == shimast.KindSourceFile {
@@ -67,11 +71,15 @@ func TestEmitWithPluginTransformerMixedFactory(t *testing.T) {
   if _, err := prog.EmitWithPluginTransformer(transform, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
     emitted[filepath.Base(fileName)] = text
     return nil
-  }); err != nil { t.Fatal(err) }
+  }); err != nil {
+    t.Fatal(err)
+  }
   js := emitted["index.js"]
   t.Logf("index.js:\n%s", js)
   bind := regexp.MustCompile(`const (\w+) = [^\n]*require\("\./dep"\)`).FindStringSubmatch(js)
-  if bind == nil { t.Fatalf("no require binding:\n%s", js) }
+  if bind == nil {
+    t.Fatalf("no require binding:\n%s", js)
+  }
   if !strings.Contains(js, "exports.a = "+bind[1]+".foo(123);") {
     t.Fatalf("mixed-factory ref not aliased to %q:\n%s", bind[1], js)
   }

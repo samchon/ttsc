@@ -23,9 +23,9 @@ func TestEmitWithPluginTransformerTypeOnlySyntaxFullyErased(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{"compilerOptions":{"module":"commonjs","target":"es2020","outDir":"bin","strict":true},"files":["index.ts"]}`)
   writeProjectFile(t, root, "index.ts", strings.Join([]string{
-    "type Greeting<T extends string> = `hello ${T}`;",                       // template literal type
-    "type IsString<T> = T extends string ? true : false;",                   // conditional type
-    "type Flags<T> = { [K in keyof T]: boolean };",                          // mapped type
+    "type Greeting<T extends string> = `hello ${T}`;",     // template literal type
+    "type IsString<T> = T extends string ? true : false;", // conditional type
+    "type Flags<T> = { [K in keyof T]: boolean };",        // mapped type
     "interface Shape { readonly id: number; readonly label: Greeting<\"x\">; }",
     "export type Probe = IsString<Flags<Shape>>;",
     "export const runtime: number = 0;",
@@ -73,16 +73,16 @@ func TestEmitWithPluginTransformerTypeOnlySyntaxFullyErased(t *testing.T) {
 
   // Tokens that exist ONLY inside the type-level syntax. None may survive.
   leaks := map[string]string{
-    "Greeting":        "template-literal type alias name leaked",
-    "IsString":        "conditional type alias name leaked",
-    "Flags":           "mapped type alias name leaked",
-    "Shape":           "interface name leaked",
-    "Probe":           "exported type alias name leaked",
-    "hello ${":        "template literal type body leaked",
-    "extends":         "conditional/generic constraint syntax leaked",
-    "keyof":           "mapped type `keyof` leaked",
-    "interface":       "interface declaration leaked",
-    "readonly":        "interface readonly modifier leaked",
+    "Greeting":  "template-literal type alias name leaked",
+    "IsString":  "conditional type alias name leaked",
+    "Flags":     "mapped type alias name leaked",
+    "Shape":     "interface name leaked",
+    "Probe":     "exported type alias name leaked",
+    "hello ${":  "template literal type body leaked",
+    "extends":   "conditional/generic constraint syntax leaked",
+    "keyof":     "mapped type `keyof` leaked",
+    "interface": "interface declaration leaked",
+    "readonly":  "interface readonly modifier leaked",
   }
   for token, msg := range leaks {
     if strings.Contains(js, token) {

@@ -2,19 +2,19 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies ttsx preserves the *runtime values* a namespace exports when it
+ * Verifies ttsx preserves the _runtime values_ a namespace exports when it
  * builds a raw `.ts` source-distribution dependency under that dependency's own
  * tsconfig (the path-2 `runBuild` route).
  *
  * The existing type-strip-cannot-elide test only covers a namespace that holds
- * *types* (so the whole import elides). This case is the complement: a package
+ * _types_ (so the whole import elides). This case is the complement: a package
  * ships a `type` + `namespace` merge under one name (`ArrayRepeatedNullable`)
- * where the namespace carries real *runtime* members (a function and a const),
+ * where the namespace carries real _runtime_ members (a function and a const),
  * imported as a value and actually called at runtime. A full tsgo build must
  * emit the namespace IIFE (`(function (NS) { ... })(NS || ...)`) so the members
  * exist at link time; if ttsx type-stripped the dependency instead of building
- * it, the namespace value export would vanish and the call would throw
- * `is not a function` / `undefined`.
+ * it, the namespace value export would vanish and the call would throw `is not
+ * a function` / `undefined`.
  *
  * 1. Install an ESM `built-dep` that ships its own `tsconfig.json` and a
  *    `type`+`namespace` merge whose namespace exports runtime members.

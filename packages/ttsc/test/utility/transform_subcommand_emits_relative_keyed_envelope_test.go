@@ -21,11 +21,11 @@ import (
 //
 // Layout:
 //
-//   root/ext.ts          (outside cwd -> absolute slash key)
-//   root/proj/           (== cwd)
-//   root/proj/tsconfig.json  files: ["a.ts","b.ts","../ext.ts"]
-//   root/proj/a.ts
-//   root/proj/b.ts
+//  root/ext.ts          (outside cwd -> absolute slash key)
+//  root/proj/           (== cwd)
+//  root/proj/tsconfig.json  files: ["a.ts","b.ts","../ext.ts"]
+//  root/proj/a.ts
+//  root/proj/b.ts
 //
 // No linked plugin is needed: the transform subcommand prints the project text
 // regardless, and that is exactly the path that must not collapse to empty.
