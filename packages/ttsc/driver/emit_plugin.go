@@ -130,13 +130,17 @@ func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimas
 // in the same EmitContext as the builtin chain (type-erase, import-elision,
 // module-transform, ...). No text-splice and no hand-rolled import aliasing:
 // tsgo's module-transform aliases the plugins' injected imports itself.
+//
+// Because this bypasses tsgo's own emitter, it reproduces the emitter's
+// source-map step via PrintFileWithSourceMap: a `sourceMap` / `inlineSourceMap`
+// build emits a `.js.map` (and `//# sourceMappingURL=` trailer) just like a
+// plain build, even when a transform expanded one source line into many.
 func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
   if p == nil || p.TSProgram == nil {
     return nil, errors.New("driver: nil program")
   }
   host := &pluginEmitHost{program: p.TSProgram, emitResolver: p.Checker.GetEmitResolver()}
   options := p.TSProgram.Options()
-  newLine := options.NewLine.GetNewLineCharacter()
   for _, sf := range shimcompiler.GetSourceFilesToEmit(host, nil, false) {
     ec := shimprinter.NewEmitContext()
     out := sf
@@ -154,11 +158,19 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       out = tr.TransformSourceFile(out)
     }
     paths := shimcompiler.GetOutputPathsFor(sf, options, host, false)
-    writer := shimprinter.NewTextWriter(newLine, 0)
-    p2 := shimprinter.NewPrinter(shimprinter.PrinterOptions{NewLine: options.NewLine}, shimprinter.PrintHandlers{}, ec)
-    p2.Write(out.AsNode(), out, writer, nil)
-    if err := writeFile(paths.JsFilePath(), writer.String(), nil); err != nil {
+    // Print through the source-map-aware helper so a `sourceMap` /
+    // `inlineSourceMap` build still gets its `.js.map` and sourceMappingURL
+    // trailer: the hand-assembled emit pipeline does not run tsgo's emitter, so
+    // the source-map step printSourceFile would otherwise perform has to happen
+    // here. With maps off this is the same bare-printer output as before.
+    printed := shimcompiler.PrintFileWithSourceMap(ec, out.AsNode(), out, options, host, paths.JsFilePath(), paths.SourceMapFilePath())
+    if err := writeFile(paths.JsFilePath(), printed.JS, nil); err != nil {
       return nil, err
+    }
+    if printed.MapPath != "" {
+      if err := writeFile(printed.MapPath, printed.MapText, nil); err != nil {
+        return nil, err
+      }
     }
   }
   return nil, nil
