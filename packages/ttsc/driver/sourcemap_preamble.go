@@ -6,16 +6,20 @@ import (
   "strings"
 )
 
-// inlineSourceMapMarker is the prefix tsgo writes before an inline (base64) JS
-// source map, from sourcemap.Generator.Base64DataURL. The map JSON follows,
-// StdEncoding-base64'd, up to the end of the line.
-const inlineSourceMapMarker = "sourceMappingURL=data:application/json;base64,"
+// inlineSourceMapMarker is the full trailer tsgo writes before an inline
+// (base64) source map: `//# sourceMappingURL=` (the comment) followed by
+// sourcemap.Generator.Base64DataURL's `data:application/json;base64,` prefix.
+// Anchoring on the comment form (not the bare `sourceMappingURL=`) keeps a
+// stray `data:` string literal elsewhere in the output from being mistaken for
+// the trailer. The map JSON follows, StdEncoding-base64'd, to the line's end.
+const inlineSourceMapMarker = "//# sourceMappingURL=data:application/json;base64,"
 
 // AdjustEmittedSourceMap corrects a source map that a source-level preamble
 // shifted, given one emitted output file's name and text. It dispatches on the
-// shape: an external `.map` file carries the map JSON directly; any other output
-// (a `.js`/`.d.ts` with `inlineSourceMap`) carries it base64-embedded in a
-// `//# sourceMappingURL=data:...` trailer. Returns (text, false) when there is
+// shape: an external `.map` file carries the map JSON directly; a JS/declaration
+// output with `inlineSourceMap` carries it base64-embedded in a
+// `//# sourceMappingURL=data:...` trailer. Non-map, non-JS/declaration outputs
+// (e.g. `.tsbuildinfo`) are never scanned. Returns (text, false) when there is
 // nothing to correct (no preamble, no map, or unparseable).
 //
 // This is the single entry point every map-emitting path funnels through so the
@@ -26,15 +30,33 @@ func AdjustEmittedSourceMap(fileName, text string, dropLines int) (string, bool)
   if dropLines <= 0 {
     return text, false
   }
-  if strings.HasSuffix(strings.ToLower(fileName), ".map") {
+  lower := strings.ToLower(fileName)
+  if strings.HasSuffix(lower, ".map") {
     return AdjustSourceMapForPreamble(text, dropLines)
+  }
+  if !isInlineSourceMapCarrier(lower) {
+    return text, false
   }
   return adjustInlineSourceMap(text, dropLines)
 }
 
+// isInlineSourceMapCarrier reports whether an emitted file can carry an inline
+// `//# sourceMappingURL=data:...` trailer (a JavaScript or declaration output),
+// so other outputs (`.tsbuildinfo`, `.json`, ...) are never scanned for the
+// marker and cannot be corrupted by a coincidental match.
+func isInlineSourceMapCarrier(lowerName string) bool {
+  for _, suffix := range []string{".js", ".jsx", ".mjs", ".cjs", ".d.ts", ".d.mts", ".d.cts"} {
+    if strings.HasSuffix(lowerName, suffix) {
+      return true
+    }
+  }
+  return false
+}
+
 // adjustInlineSourceMap rewrites the base64 map embedded in a
 // `//# sourceMappingURL=data:application/json;base64,<...>` trailer of an emitted
-// JS/declaration file, leaving the rest of the text untouched.
+// JS/declaration file, leaving the rest of the text untouched. The data URL is
+// the file's last line, so LastIndex lands on the real trailer.
 func adjustInlineSourceMap(text string, dropLines int) (string, bool) {
   marker := strings.LastIndex(text, inlineSourceMapMarker)
   if marker < 0 {
@@ -45,7 +67,7 @@ func adjustInlineSourceMap(text string, dropLines int) (string, bool) {
   for end < len(text) && text[end] != '\n' && text[end] != '\r' {
     end++
   }
-  raw, err := base64.StdEncoding.DecodeString(text[start:end])
+  raw, err := base64.StdEncoding.DecodeString(strings.TrimRight(text[start:end], " \t"))
   if err != nil {
     return text, false
   }

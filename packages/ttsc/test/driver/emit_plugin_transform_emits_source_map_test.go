@@ -42,7 +42,11 @@ func TestEmitWithPluginTransformerEmitsSourceMap(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-  writeProjectFile(t, root, "index.ts", "export const a = 0;\n")
+  // Three authored statements on distinct lines (0, 1, 2). A single-line source
+  // would make the "maps to the right line" assertion below unfalsifiable —
+  // every mapping would be line 0 trivially. With three lines a collapse-to-one
+  // or off-by-N bug produces the wrong source-line set and fails.
+  writeProjectFile(t, root, "index.ts", "export const a = 0;\nexport const b = 1;\nexport const c = 2;\n")
   prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true})
   if err != nil {
     t.Fatal(err)
@@ -122,18 +126,26 @@ func TestEmitWithPluginTransformerEmitsSourceMap(t *testing.T) {
   }
 
   // Presence is not enough: decode the mappings and prove they point at the real
-  // authored line. The source is a single line (`export const a = 0;`), so every
-  // mapping must resolve to source line 0 — the 50 synthetic statements the
-  // transform prepended are positionless and must contribute no mapping. A map
-  // that recorded positions against the transformed file, or collapsed onto the
-  // wrong line, would still satisfy the presence checks above but fail here.
+  // authored lines. The three statements live on source lines 0, 1, 2; the 50
+  // synthetic statements the transform prepended are positionless and contribute
+  // no mapping. So the decoded source-line set must be exactly {0, 1, 2}. A map
+  // that recorded positions against the transformed file, collapsed every
+  // mapping onto one line, or was off by the 50 injected lines would still pass
+  // the presence checks above but fail here.
   segments := parseMappings(parsed.Mappings)
   if len(segments) == 0 {
     t.Fatalf("decoded no source mappings from: %q", parsed.Mappings)
   }
+  seen := map[int]bool{}
   for _, s := range segments {
-    if s.srcLine != 0 {
-      t.Fatalf("mapping points at source line %d, but the authored source has only line 0", s.srcLine)
+    if s.srcLine < 0 || s.srcLine > 2 {
+      t.Fatalf("mapping points at source line %d, but the authored source has only lines 0-2", s.srcLine)
+    }
+    seen[s.srcLine] = true
+  }
+  for line := 0; line <= 2; line++ {
+    if !seen[line] {
+      t.Fatalf("no mapping resolves to authored source line %d; got set %v", line, seen)
     }
   }
 }
