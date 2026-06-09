@@ -1,10 +1,25 @@
 package driver
 
 import (
+  "bytes"
   "encoding/base64"
   "encoding/json"
   "strings"
 )
+
+// marshalSourceMapJSON encodes a source-map value WITHOUT Go's default HTML
+// escaping, so `<`, `>`, and `&` in embedded source text (`sourcesContent`)
+// stay literal — matching TypeScript-Go's serializer and avoiding a byte-level
+// divergence from the maps tsgo emits natively.
+func marshalSourceMapJSON(v any) ([]byte, error) {
+  var buf bytes.Buffer
+  encoder := json.NewEncoder(&buf)
+  encoder.SetEscapeHTML(false)
+  if err := encoder.Encode(v); err != nil {
+    return nil, err
+  }
+  return bytes.TrimRight(buf.Bytes(), "\n"), nil
+}
 
 // inlineSourceMapMarker is the full trailer tsgo writes before an inline
 // (base64) source map: `//# sourceMappingURL=` (the comment) followed by
@@ -26,6 +41,11 @@ const inlineSourceMapMarker = "//# sourceMappingURL=data:application/json;base64
 // preamble correction is applied uniformly — the utility host's WriteFile (tsgo
 // native emit) and the driver's plugin-transform emit (EmitWithPluginTransformers,
 // e.g. typia + @ttsc/banner) both call it, external and inline alike.
+//
+// NOTE: this is NOT idempotent — applying it twice shifts source lines up by
+// dropLines twice. Each emit path must call it exactly once per file; a writeFile
+// passed to an emit path that already self-corrects (EmitWithPluginTransformers)
+// must not call it again.
 func AdjustEmittedSourceMap(fileName, text string, dropLines int) (string, bool) {
   if dropLines <= 0 {
     return text, false
@@ -128,7 +148,7 @@ func AdjustSourceMapForPreamble(mapText string, dropLines int) (string, bool) {
   if !changed {
     return mapText, false
   }
-  encoded, err := json.Marshal(rewritten)
+  encoded, err := marshalSourceMapJSON(rewritten)
   if err != nil {
     return mapText, false
   }
@@ -142,7 +162,7 @@ func AdjustSourceMapForPreamble(mapText string, dropLines int) (string, bool) {
   if stripped, ok := stripPreambleFromSourcesContent(doc["sourcesContent"], dropLines, mask); ok {
     doc["sourcesContent"] = stripped
   }
-  out, err := json.Marshal(doc)
+  out, err := marshalSourceMapJSON(doc)
   if err != nil {
     return mapText, false
   }
@@ -180,7 +200,7 @@ func stripPreambleFromSourcesContent(rawContent json.RawMessage, dropLines int, 
   if !changed {
     return nil, false
   }
-  encoded, err := json.Marshal(contents)
+  encoded, err := marshalSourceMapJSON(contents)
   if err != nil {
     return nil, false
   }
