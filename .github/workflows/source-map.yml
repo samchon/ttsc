@@ -1,0 +1,55 @@
+name: source-map
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/source-map.yml"
+      - "experimental/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: source-map-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  Ubuntu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # Only build + pack the current platform (ttsc-linux-x64) — the source-map
+      # harness installs ttsc.tgz + ttsc-linux-x64.tgz only. The full
+      # cross-platform matrix takes ~20 min for tarballs we never consume.
+      TTSC_TARBALLS_CURRENT: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: |
+            packages/ttsc/go.sum
+            tests/go-transformer/go.mod
+
+      - name: Install ttsc dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build ttsc tarballs (current platform only)
+        run: pnpm package:tgz
+
+      - name: Verify typia source maps
+        run: pnpm run experimental:source-map -- --skip-pack
