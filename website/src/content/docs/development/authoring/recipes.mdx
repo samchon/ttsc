@@ -287,6 +287,8 @@ Unrecovered Go panics surface as exit-2 with the stack on stderr; the host does 
 
 Prefer AST transforms and TypeScript-Go printing so source maps stay owned by the compiler. The public plugin contract does not provide generated JavaScript text as a source-map-bearing edit target.
 
+Because the compiler owns emission, `sourceMap`, `inlineSourceMap`, and `inlineSources` keep working through transforms: an emit-phase transform that expands one call into many lines still produces a valid map (the generated code maps back to the original call site), and a source-level preamble such as `@ttsc/banner` does not shift the mappings — `.js.map` and `.d.ts.map` continue to point at the real source, and `inlineSources` embeds the real source text (the preamble is stripped back out so the embedded copy stays aligned).
+
 ## Watch Mode
 
 `ttsc --watch` starts a fresh plugin process for each invocation. The source build cache avoids rebuilding the Go binary after the first run, but every rebuild still pays process startup and backend initialization. Keep state in files under `outDir` if needed; do not rely on process globals.

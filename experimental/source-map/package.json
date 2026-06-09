@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "@ttsc/experimental-source-map",
+  "version": "0.0.0",
+  "description": "Experimental check that ttsc emits correct JavaScript source maps when typia expands code",
+  "scripts": {
+    "start": "node --experimental-strip-types src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT"
+}

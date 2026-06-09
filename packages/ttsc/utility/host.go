@@ -302,17 +302,40 @@ func setLinkedPluginManifest(input string) func() {
   }
 }
 
-// makeSourcePreambleWriteFile returns a WriteFile callback that injects
-// prog.SourcePreamble at the top of every emitted output file that supports
-// it. Returns nil when no preamble is needed (empty preamble, nil program, or
-// RemoveComments enabled), which tells the caller to use the default writer.
+// makeSourcePreambleWriteFile returns a WriteFile callback that keeps a source
+// preamble (e.g. @ttsc/banner's copyright block) consistent in the output.
+//
+// The preamble is injected at the SOURCE level (sourcePreambleFS prepends it
+// before TypeScript-Go parses), which has two output consequences this callback
+// reconciles:
+//
+//   - The preamble shifts every recorded source coordinate down by its line
+//     count, so emitted source maps (external `.js.map` / `.d.ts.map`, or inline
+//     base64 maps embedded in the JS/d.ts) point past the real source.
+//     AdjustEmittedSourceMap undoes that shift on every emitted file. It must run
+//     even when RemoveComments strips the banner text from the JS/d.ts, because
+//     the source is preamble-injected regardless of RemoveComments.
+//   - The banner text itself is ensured in the `.js` / `.d.ts` output, only when
+//     comments are kept; RemoveComments deliberately drops it. (For a banner
+//     build the banner is already source-injected, so this is a no-op safety net;
+//     it never runs on an inline map's JS that the line above already corrected,
+//     because the banner is present there.)
+//
+// Returns nil only when there is no preamble at all (nil program or empty
+// preamble), telling the caller to use the default writer.
 func makeSourcePreambleWriteFile(prog *driver.Program) shimcompiler.WriteFile {
-  if prog == nil || prog.SourcePreamble == "" || shouldRemoveComments(prog) {
+  if prog == nil || prog.SourcePreamble == "" {
     return nil
   }
+  preamble := prog.SourcePreamble
+  dropLines := strings.Count(preamble, "\n")
+  injectBanner := !shouldRemoveComments(prog)
   return func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    if shouldEnsureSourcePreamble(fileName, text, prog.SourcePreamble) {
-      text = driver.ApplySourcePreamble(text, prog.SourcePreamble)
+    if adjusted, ok := driver.AdjustEmittedSourceMap(fileName, text, dropLines); ok {
+      text = adjusted
+    }
+    if injectBanner && shouldEnsureSourcePreamble(fileName, text, preamble) {
+      text = driver.ApplySourcePreamble(text, preamble)
     }
     return driver.DefaultWriteFile(fileName, text)
   }
