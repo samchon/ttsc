@@ -17,8 +17,8 @@ import assert from "node:assert/strict";
  * "module"`) and written with ECMAScript module syntax, so a plain type-strip
  * would leave its `export` dangling; the lowering must turn it into CommonJS.
  *
- * 1. The entry writes `src/generated/leaf.ts` (an `export const`) at runtime,
- *    then `require`s it.
+ * 1. The entry writes `src/generated/leaf.ts` (an `export const`) at runtime, then
+ *    `require`s it.
  * 2. Run ttsx against the entry.
  * 3. Assert the generated module loaded and produced its value.
  */

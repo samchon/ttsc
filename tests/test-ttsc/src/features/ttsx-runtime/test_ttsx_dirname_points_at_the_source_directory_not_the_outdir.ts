@@ -5,15 +5,15 @@ import assert from "node:assert/strict";
  * Verifies ttsx runs the entry from source, so `__dirname` is the source
  * directory rather than the configured `outDir`.
  *
- * ttsx is a ts-node-style runner: it type-checks and builds the project, then
+ * Ttsx is a ts-node-style runner: it type-checks and builds the project, then
  * executes the entry _at its source path_ with the build served under that URL.
  * A file that exists only in the source tree (never emitted) must therefore be
  * readable relative to `__dirname`. This pins the run-from-source contract that
  * lets `DynamicExecutor`-style harnesses discover sibling `.ts` files by
  * `__dirname`.
  *
- * 1. Create a CommonJS project with `outDir: "dist"` and a `marker.txt` that
- *    lives only under `src/`.
+ * 1. Create a CommonJS project with `outDir: "dist"` and a `marker.txt` that lives
+ *    only under `src/`.
  * 2. Run ttsx against the entry, which reads `__dirname + "/marker.txt"`.
  * 3. Assert the source-only file was found and printed.
  */

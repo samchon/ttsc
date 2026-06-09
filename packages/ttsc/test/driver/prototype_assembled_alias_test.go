@@ -28,8 +28,8 @@ func (h *assembledEmitHost) SourceFiles() []*shimast.SourceFile { return h.progr
 func (h *assembledEmitHost) UseCaseSensitiveFileNames() bool {
   return h.program.UseCaseSensitiveFileNames()
 }
-func (h *assembledEmitHost) GetCurrentDirectory() string   { return h.program.GetCurrentDirectory() }
-func (h *assembledEmitHost) CommonSourceDirectory() string { return h.program.CommonSourceDirectory() }
+func (h *assembledEmitHost) GetCurrentDirectory() string    { return h.program.GetCurrentDirectory() }
+func (h *assembledEmitHost) CommonSourceDirectory() string  { return h.program.CommonSourceDirectory() }
 func (h *assembledEmitHost) IsEmitBlocked(file string) bool { return h.program.IsEmitBlocked(file) }
 func (h *assembledEmitHost) WriteFile(fileName string, text string) error {
   return h.program.Host().FS().WriteFile(fileName, text)

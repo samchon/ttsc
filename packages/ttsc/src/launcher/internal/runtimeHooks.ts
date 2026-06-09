@@ -362,8 +362,10 @@ function emitOrphanAsCommonJs(filename: string): string | null {
   }
 }
 
-/** Cache root for lowered orphan sources, shared per run (and across runs when
- * `TTSC_CACHE_DIR` points at a persisted directory). */
+/**
+ * Cache root for lowered orphan sources, shared per run (and across runs when
+ * `TTSC_CACHE_DIR` points at a persisted directory).
+ */
 function orphanCacheRoot(): string {
   const base =
     process.env.TTSC_CACHE_DIR && process.env.TTSC_CACHE_DIR.length !== 0
@@ -372,9 +374,11 @@ function orphanCacheRoot(): string {
   return path.join(base, "ttsx-orphan-cjs");
 }
 
-/** Content-addressed cache path for one orphan file's CommonJS lowering, keyed
- * by source bytes and the tsgo binary so a tsgo bump invalidates it. `null` when
- * the source cannot be read. */
+/**
+ * Content-addressed cache path for one orphan file's CommonJS lowering, keyed
+ * by source bytes and the tsgo binary so a tsgo bump invalidates it. `null`
+ * when the source cannot be read.
+ */
 function orphanCacheFile(filename: string, tsgo: string): string | null {
   let source: Buffer;
   try {
@@ -392,9 +396,11 @@ function orphanCacheFile(filename: string, tsgo: string): string | null {
   return path.join(orphanCacheRoot(), `${key}.js`);
 }
 
-/** Write the lowered source to its cache path atomically (temp + rename), so a
+/**
+ * Write the lowered source to its cache path atomically (temp + rename), so a
  * concurrent reader never sees a half-written file. Best-effort: a failure just
- * means the next process re-lowers. */
+ * means the next process re-lowers.
+ */
 function writeOrphanCache(cacheFile: string, lowered: string): void {
   try {
     fs.mkdirSync(path.dirname(cacheFile), { recursive: true });

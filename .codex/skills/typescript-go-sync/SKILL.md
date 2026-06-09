@@ -1,3 +1,8 @@
+---
+name: typescript-go-sync
+description: Keeping packages/ttsc/shim/* synced with typescript-go and complete for plugin authors. Read before adding a re-export, bumping the pinned typescript-go version, or chasing a missing AST/transform/printer/emit API a plugin needs.
+---
+
 # TypeScript-Go Shim Sync
 
 ## Why the shim exists

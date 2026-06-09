@@ -9,9 +9,9 @@ import assert from "node:assert/strict";
  * name (`Brand`) where the namespace holds only types, then import that name as
  * a value-shaped binding used solely in type positions. A full tsgo build
  * resolves the type and elides the import entirely; Node's isolated
- * type-stripping cannot, so the ESM named import would dangle
- * (`does not provide an export named 'Brand'`) at link time. ttsx must therefore
- * find the dependency's own `tsconfig.json` and build it.
+ * type-stripping cannot, so the ESM named import would dangle (`does not
+ * provide an export named 'Brand'`) at link time. ttsx must therefore find the
+ * dependency's own `tsconfig.json` and build it.
  *
  * 1. Install an ESM `built-dep` that ships its own `tsconfig.json` and a
  *    `type`+`namespace` merge imported for its type only.
