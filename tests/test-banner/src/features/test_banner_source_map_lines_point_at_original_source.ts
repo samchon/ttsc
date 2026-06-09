@@ -131,8 +131,9 @@ function decodeSourceLines(mappings: string): number[] {
     for (const segment of group.split(",")) {
       if (segment === "") continue;
       const fields = decodeSegment(segment);
-      if (fields.length < 4) continue;
-      sourceLine += fields[2];
+      const sourceLineDelta = fields[2];
+      if (sourceLineDelta === undefined) continue;
+      sourceLine += sourceLineDelta;
       lines.push(sourceLine);
     }
   }

@@ -66,8 +66,9 @@ export const test_banner_inline_source_map_lines_point_at_original_source =
     const match = js.match(
       /sourceMappingURL=data:application\/json;base64,([A-Za-z0-9+/=]+)/,
     );
-    assert.ok(match, "emitted JS must carry an inline base64 source map");
-    const map = JSON.parse(Buffer.from(match[1], "base64").toString("utf8"));
+    const base64 = match?.[1];
+    assert.ok(base64, "emitted JS must carry an inline base64 source map");
+    const map = JSON.parse(Buffer.from(base64, "base64").toString("utf8"));
     assert.equal(map.version, 3, "inline map must be a v3 source map");
 
     const sourceLines = decodeSourceLines(map.mappings);
@@ -118,8 +119,9 @@ function decodeSourceLines(mappings: string): number[] {
     for (const segment of group.split(",")) {
       if (segment === "") continue;
       const fields = decodeSegment(segment);
-      if (fields.length < 4) continue;
-      sourceLine += fields[2];
+      const sourceLineDelta = fields[2];
+      if (sourceLineDelta === undefined) continue;
+      sourceLine += sourceLineDelta;
       lines.push(sourceLine);
     }
   }
