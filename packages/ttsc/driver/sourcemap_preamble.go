@@ -123,7 +123,8 @@ func AdjustSourceMapForPreamble(mapText string, dropLines int) (string, bool) {
   if err := json.Unmarshal(rawMappings, &mappings); err != nil {
     return mapText, false
   }
-  rewritten, changed := shiftMappingSources(mappings, dropLines, preambleSourceMask(doc["sources"]))
+  mask := preambleSourceMask(doc["sources"])
+  rewritten, changed := shiftMappingSources(mappings, dropLines, mask)
   if !changed {
     return mapText, false
   }
@@ -132,11 +133,58 @@ func AdjustSourceMapForPreamble(mapText string, dropLines int) (string, bool) {
     return mapText, false
   }
   doc["mappings"] = encoded
+  // Under `inlineSources` the map embeds the source TEXT in `sourcesContent`, and
+  // that text is the preamble-injected source (sourcePreambleFS prepended the
+  // preamble before parsing). Strip the leading dropLines preamble lines from
+  // each preamble-injected source so the embedded text lines up with the
+  // now-corrected mappings; otherwise a debugger using sourcesContent shows the
+  // banner and every line is off by dropLines.
+  if stripped, ok := stripPreambleFromSourcesContent(doc["sourcesContent"], dropLines, mask); ok {
+    doc["sourcesContent"] = stripped
+  }
   out, err := json.Marshal(doc)
   if err != nil {
     return mapText, false
   }
   return string(out), true
+}
+
+// stripPreambleFromSourcesContent removes the leading dropLines lines (the
+// injected preamble) from each non-null `sourcesContent` entry whose source was
+// preamble-injected (per mask). Returns the re-encoded array and true when it
+// changed anything, or (nil, false) when there is no sourcesContent to adjust.
+func stripPreambleFromSourcesContent(rawContent json.RawMessage, dropLines int, mask []bool) (json.RawMessage, bool) {
+  if len(rawContent) == 0 {
+    return nil, false
+  }
+  var contents []*string
+  if err := json.Unmarshal(rawContent, &contents); err != nil {
+    return nil, false
+  }
+  changed := false
+  for i, content := range contents {
+    if content == nil {
+      continue
+    }
+    if mask != nil && i < len(mask) && !mask[i] {
+      continue
+    }
+    parts := strings.SplitN(*content, "\n", dropLines+1)
+    if len(parts) <= dropLines {
+      continue
+    }
+    rest := parts[dropLines]
+    contents[i] = &rest
+    changed = true
+  }
+  if !changed {
+    return nil, false
+  }
+  encoded, err := json.Marshal(contents)
+  if err != nil {
+    return nil, false
+  }
+  return encoded, true
 }
 
 // preambleSourceMask decodes a source map's `sources` array into a per-index flag
