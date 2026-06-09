@@ -1,3 +1,8 @@
+---
+name: project
+description: What ttsc is, the workspace layout, and the canonical commands.
+---
+
 # Project Outline
 
 ## Product Contract

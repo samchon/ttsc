@@ -1,3 +1,8 @@
+---
+name: documentation
+description: READMEs and website guides. Read before writing or modifying docs.
+---
+
 # Documentation
 
 ## READMEs

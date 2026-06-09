@@ -1,3 +1,8 @@
+---
+name: benchmark
+description: Benchmark runner, fixture repos, and publication. Read before running, modifying, or publishing benchmark results.
+---
+
 # Benchmark
 
 ## What it measures
