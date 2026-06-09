@@ -2,6 +2,7 @@ package driver
 
 import (
   "errors"
+  "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
@@ -164,6 +165,22 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
     // the source-map step printSourceFile would otherwise perform has to happen
     // here. With maps off this is the same bare-printer output as before.
     printed := shimcompiler.PrintFileWithSourceMap(ec, out.AsNode(), out, options, host, paths.JsFilePath(), paths.SourceMapFilePath())
+    // A source-level preamble (e.g. @ttsc/banner linked into a typia host) shifts
+    // the map's source coordinates; correct them here too, so the
+    // preamble-plus-transform combination is not left uncorrected the way it
+    // would be if only the utility host's WriteFile patched maps. Covers both the
+    // external `.js.map` and an inline base64 map embedded in the JS.
+    if p.SourcePreamble != "" {
+      dropLines := strings.Count(p.SourcePreamble, "\n")
+      if adjusted, ok := AdjustEmittedSourceMap(paths.JsFilePath(), printed.JS, dropLines); ok {
+        printed.JS = adjusted
+      }
+      if printed.MapPath != "" {
+        if adjusted, ok := AdjustEmittedSourceMap(printed.MapPath, printed.MapText, dropLines); ok {
+          printed.MapText = adjusted
+        }
+      }
+    }
     if err := writeFile(paths.JsFilePath(), printed.JS, nil); err != nil {
       return nil, err
     }

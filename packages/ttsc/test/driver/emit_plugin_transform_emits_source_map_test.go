@@ -120,6 +120,22 @@ func TestEmitWithPluginTransformerEmitsSourceMap(t *testing.T) {
   if !foundSource {
     t.Fatalf("source map sources do not reference index.ts: %v", parsed.Sources)
   }
+
+  // Presence is not enough: decode the mappings and prove they point at the real
+  // authored line. The source is a single line (`export const a = 0;`), so every
+  // mapping must resolve to source line 0 — the 50 synthetic statements the
+  // transform prepended are positionless and must contribute no mapping. A map
+  // that recorded positions against the transformed file, or collapsed onto the
+  // wrong line, would still satisfy the presence checks above but fail here.
+  segments := parseMappings(parsed.Mappings)
+  if len(segments) == 0 {
+    t.Fatalf("decoded no source mappings from: %q", parsed.Mappings)
+  }
+  for _, s := range segments {
+    if s.srcLine != 0 {
+      t.Fatalf("mapping points at source line %d, but the authored source has only line 0", s.srcLine)
+    }
+  }
 }
 
 // keysOf returns the keys of a string map for diagnostic messages.

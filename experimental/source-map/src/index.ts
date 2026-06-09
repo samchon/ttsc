@@ -197,12 +197,10 @@ function verifySourceMap() {
   assert(fs.existsSync(mapFile), "ttsc must emit dist/main.js.map");
 
   const js = fs.readFileSync(jsFile, "utf8");
-  // Confirm typia actually expanded the call: the generated validator pulls in
-  // typia's internal helpers, so the one-liner became many lines.
-  assert(
-    js.includes("typia") && /__typia_transform__|_io0|_is/.test(js),
-    "emitted JavaScript must contain typia's expanded validator (transform ran)",
-  );
+
+  // Source-map assertions run FIRST and independently of the transform-ran check
+  // below, so a future change to typia's emitted helper identifiers can never
+  // mask a genuine source-map regression (the whole point of this CI).
   assert(
     /\/\/#\s*sourceMappingURL=main\.js\.map\s*$/m.test(js),
     "emitted JavaScript must end with a //# sourceMappingURL= trailer",
@@ -231,6 +229,14 @@ function verifySourceMap() {
   assert(
     typeof map.file === "string" && map.file.endsWith("main.js"),
     `source map "file" must point at the emitted JavaScript, got ${JSON.stringify(map.file)}`,
+  );
+
+  // Separately confirm typia actually expanded the call (so the map is for the
+  // generated validator, not an untransformed file). A miss here is reported as
+  // its own failure, never as a source-map failure.
+  assert(
+    js.includes("typia") && /__typia_transform__|_io0|_is/.test(js),
+    "emitted JavaScript must contain typia's expanded validator (transform ran)",
   );
 
   console.log(
