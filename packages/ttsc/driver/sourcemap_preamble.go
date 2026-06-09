@@ -144,22 +144,27 @@ func AdjustSourceMapForPreamble(mapText string, dropLines int) (string, bool) {
     return mapText, false
   }
   mask := preambleSourceMask(doc["sources"])
-  rewritten, changed := shiftMappingSources(mappings, dropLines, mask)
-  if !changed {
-    return mapText, false
-  }
-  encoded, err := marshalSourceMapJSON(rewritten)
-  if err != nil {
-    return mapText, false
-  }
-  doc["mappings"] = encoded
+  rewritten, mappingsChanged := shiftMappingSources(mappings, dropLines, mask)
   // Under `inlineSources` the map embeds the source TEXT in `sourcesContent`, and
   // that text is the preamble-injected source (sourcePreambleFS prepended the
   // preamble before parsing). Strip the leading dropLines preamble lines from
   // each preamble-injected source so the embedded text lines up with the
-  // now-corrected mappings; otherwise a debugger using sourcesContent shows the
-  // banner and every line is off by dropLines.
-  if stripped, ok := stripPreambleFromSourcesContent(doc["sourcesContent"], dropLines, mask); ok {
+  // corrected mappings; otherwise a debugger using sourcesContent shows the
+  // banner and every line is off by dropLines. This is computed independently of
+  // the mapping shift: a comment-only or empty source file has no mappings to
+  // shift, yet its embedded sourcesContent still carries the preamble.
+  stripped, contentChanged := stripPreambleFromSourcesContent(doc["sourcesContent"], dropLines, mask)
+  if !mappingsChanged && !contentChanged {
+    return mapText, false
+  }
+  if mappingsChanged {
+    encoded, err := marshalSourceMapJSON(rewritten)
+    if err != nil {
+      return mapText, false
+    }
+    doc["mappings"] = encoded
+  }
+  if contentChanged {
     doc["sourcesContent"] = stripped
   }
   out, err := marshalSourceMapJSON(doc)
