@@ -302,20 +302,57 @@ func setLinkedPluginManifest(input string) func() {
   }
 }
 
-// makeSourcePreambleWriteFile returns a WriteFile callback that injects
-// prog.SourcePreamble at the top of every emitted output file that supports
-// it. Returns nil when no preamble is needed (empty preamble, nil program, or
-// RemoveComments enabled), which tells the caller to use the default writer.
+// makeSourcePreambleWriteFile returns a WriteFile callback that keeps a source
+// preamble (e.g. @ttsc/banner's copyright block) consistent in the output.
+//
+// The preamble is injected at the SOURCE level (sourcePreambleFS prepends it
+// before TypeScript-Go parses), which has two output consequences this callback
+// reconciles:
+//
+//   - The preamble shifts every recorded source coordinate down by its line
+//     count, so emitted `.js.map` / `.d.ts.map` files point past the real source.
+//     AdjustSourceMapForPreamble undoes that shift. It must run even when
+//     RemoveComments strips the banner text from the JS/d.ts, because the source
+//     is preamble-injected regardless of RemoveComments.
+//   - The banner text itself is ensured in the `.js` / `.d.ts` output, only when
+//     comments are kept; RemoveComments deliberately drops it.
+//
+// Returns nil only when there is no preamble at all (nil program or empty
+// preamble), telling the caller to use the default writer.
 func makeSourcePreambleWriteFile(prog *driver.Program) shimcompiler.WriteFile {
-  if prog == nil || prog.SourcePreamble == "" || shouldRemoveComments(prog) {
+  if prog == nil || prog.SourcePreamble == "" {
     return nil
   }
+  preamble := prog.SourcePreamble
+  dropLines := strings.Count(preamble, "\n")
+  injectBanner := !shouldRemoveComments(prog)
   return func(fileName, text string, _ *shimcompiler.WriteFileData) error {
-    if shouldEnsureSourcePreamble(fileName, text, prog.SourcePreamble) {
-      text = driver.ApplySourcePreamble(text, prog.SourcePreamble)
+    switch {
+    case isSourceMapOutputTarget(fileName):
+      if adjusted, ok := driver.AdjustSourceMapForPreamble(text, dropLines); ok {
+        text = adjusted
+      }
+    case injectBanner && shouldEnsureSourcePreamble(fileName, text, preamble):
+      text = driver.ApplySourcePreamble(text, preamble)
     }
     return driver.DefaultWriteFile(fileName, text)
   }
+}
+
+// isSourceMapOutputTarget reports whether fileName is a JavaScript or
+// declaration source-map output whose mappings must be corrected for the
+// source-level preamble injection.
+func isSourceMapOutputTarget(fileName string) bool {
+  lower := strings.ToLower(filepath.ToSlash(fileName))
+  for _, suffix := range []string{
+    ".js.map", ".jsx.map", ".mjs.map", ".cjs.map",
+    ".d.ts.map", ".d.mts.map", ".d.cts.map",
+  } {
+    if strings.HasSuffix(lower, suffix) {
+      return true
+    }
+  }
+  return false
 }
 
 // shouldRemoveComments reports whether the compiler options ask tsgo to strip
