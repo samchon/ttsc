@@ -78,6 +78,13 @@ interface LoadResult {
   shortCircuit?: boolean;
 }
 
+interface ServedSource {
+  source: string;
+  moduleOption?: string;
+  emittedFile?: string;
+  sourceFile?: string;
+}
+
 type NextResolve = (
   specifier: string,
   context: ResolveContext,
@@ -169,7 +176,7 @@ function installCommonJsHook(): void {
     module: { _compile(source: string, filename: string): void },
     filename: string,
   ): void => {
-    module._compile(resolveServedSource(filename).source, filename);
+    module._compile(resolveRuntimeSource(filename).source, filename);
   };
   for (const extension of [".ts", ".tsx", ".cts"]) {
     extensions[extension] = compile;
@@ -231,11 +238,30 @@ function load(
   if (!isTypeScriptSource(filename)) {
     return nextLoad(url, context);
   }
-  const { source, moduleOption } = resolveServedSource(filename, url);
+  const { format, source } = resolveRuntimeSource(filename, url);
   return {
-    format: moduleFormat(filename, moduleOption),
+    format,
     shortCircuit: true,
     source,
+  };
+}
+
+function resolveRuntimeSource(
+  filename: string,
+  url: string = pathToFileURL(filename).href,
+): { format: string; source: string } {
+  const served = resolveServedSource(filename, url);
+  const format = moduleFormat(filename, served.moduleOption);
+  return {
+    format,
+    source:
+      format === "commonjs"
+        ? exposeCommonJsStarExports(
+            served.source,
+            served.emittedFile,
+            served.sourceFile,
+          )
+        : served.source,
   };
 }
 
@@ -249,11 +275,11 @@ function load(
 function resolveServedSource(
   filename: string,
   url: string = pathToFileURL(filename).href,
-): { source: string; moduleOption?: string } {
+): ServedSource {
   const real = realPath(filename);
   const served = serveEntryEmit(real);
   if (served !== null) {
-    return { moduleOption: manifest()?.moduleOption, source: served };
+    return { moduleOption: manifest()?.moduleOption, ...served };
   }
   const built = serveDependencyEmit(real);
   if (built !== null) {
@@ -261,6 +287,7 @@ function resolveServedSource(
   }
   return {
     moduleOption: undefined,
+    sourceFile: filename,
     source: transformOrphanSource(filename, url),
   };
 }
@@ -349,7 +376,10 @@ function emitOrphanAsCommonJs(filename: string): string | null {
       ],
       { cwd: path.dirname(filename), encoding: "utf8" },
     );
-    const emitted = parseFirstEmittedFile(outputText(res.stdout));
+    const emitted = pickEmittedJavaScript(
+      filename,
+      parseEmittedFiles(outputText(res.stdout)),
+    );
     const lowered = emitted === null ? null : readFileOrNull(emitted);
     if (lowered !== null && cacheFile !== null) {
       writeOrphanCache(cacheFile, lowered);
@@ -390,6 +420,8 @@ function orphanCacheFile(filename: string, tsgo: string): string | null {
     .createHash("sha256")
     .update(tsgo)
     .update("\0")
+    .update("ttsx-cjs-star-exports-v2")
+    .update("\0")
     .update(source)
     .digest("hex")
     .slice(0, 32);
@@ -412,15 +444,294 @@ function writeOrphanCache(cacheFile: string, lowered: string): void {
   }
 }
 
-/** First `TSFILE:` path tsgo printed under `--listEmittedFiles`, or `null`. */
-function parseFirstEmittedFile(stdout: string): string | null {
+/** `TSFILE:` paths tsgo printed under `--listEmittedFiles`. */
+function parseEmittedFiles(stdout: string): string[] {
+  const files: string[] = [];
   for (const line of stdout.split(/\r?\n/)) {
     const match = line.match(/^TSFILE:\s*(.+)$/);
     if (match?.[1]) {
-      return match[1].trim();
+      files.push(match[1].trim());
+    }
+  }
+  return files;
+}
+
+/** Pick the emitted JavaScript corresponding to the source file requested. */
+function pickEmittedJavaScript(
+  filename: string,
+  emittedFiles: readonly string[],
+): string | null {
+  const stem = path
+    .basename(filename)
+    .replace(/\.[cm]?tsx?$/i, "")
+    .toLowerCase();
+  const candidates = emittedFiles.filter((file) => {
+    const parsed = path.parse(file);
+    return (
+      parsed.name.toLowerCase() === stem && /\.(?:[cm]?js)$/i.test(parsed.base)
+    );
+  });
+  if (candidates.length === 1) {
+    return candidates[0]!;
+  }
+  return emittedFiles.find((file) => /\.(?:[cm]?js)$/i.test(file)) ?? null;
+}
+
+/**
+ * Make TypeScript-Go's CommonJS `export *` output visible to Node's
+ * ESM-from-CJS named export scanner.
+ *
+ * Tsgo lowers star re-exports to `__exportStar(require("./x"), exports)`.
+ * Runtime CommonJS consumers see the getters that helper installs, but Node's
+ * ESM linker only exposes named imports it can statically identify from
+ * `exports.name = ...` assignments. For relative star re-exports whose emitted
+ * target is available, replace the helper call with explicit configurable
+ * export placeholders followed by the same `__createBinding` getter install.
+ */
+function exposeCommonJsStarExports(
+  source: string,
+  emittedFile: string | undefined,
+  sourceFile: string | undefined,
+): string {
+  if (!source.includes("__exportStar(")) {
+    return source;
+  }
+  const reserved = collectStaticCommonJsExportNames(source);
+  let index = 0;
+  return source.replace(
+    /^(\s*)__exportStar\(\s*require\((["'])([^"']+)\2\)\s*,\s*exports\s*\);/gm,
+    (statement: string, indent: string, _quote: string, specifier: string) => {
+      const names = [
+        ...collectStarExportNames(emittedFile, sourceFile, specifier),
+      ].filter(
+        (name) =>
+          name !== "default" &&
+          name !== "__esModule" &&
+          isIdentifierName(name) &&
+          !reserved.has(name),
+      );
+      if (names.length === 0) {
+        return statement;
+      }
+      for (const name of names) {
+        reserved.add(name);
+      }
+      const receiver = `__ttsx_export_star_${index++}`;
+      return [
+        `${indent}${names.map((name) => `exports.${name}`).join(" = ")} = void 0;`,
+        `${indent}var ${receiver} = require(${JSON.stringify(specifier)});`,
+        ...names.map(
+          (name) =>
+            `${indent}__createBinding(exports, ${receiver}, ${JSON.stringify(name)});`,
+        ),
+      ].join("\n");
+    },
+  );
+}
+
+function collectStarExportNames(
+  emittedFile: string | undefined,
+  sourceFile: string | undefined,
+  specifier: string,
+): Set<string> {
+  if (emittedFile !== undefined) {
+    const emittedTarget = resolveEmittedRequire(emittedFile, specifier);
+    if (emittedTarget !== null) {
+      return collectCommonJsExportNames(emittedTarget, new Set());
+    }
+  }
+  if (sourceFile !== undefined) {
+    const sourceTarget = resolveSourceSpecifier(sourceFile, specifier);
+    if (sourceTarget !== null) {
+      return collectTypeScriptExportNames(sourceTarget, new Set());
+    }
+  }
+  return new Set();
+}
+
+function collectCommonJsExportNames(
+  emittedFile: string,
+  seen: Set<string>,
+): Set<string> {
+  const real = realPath(emittedFile);
+  if (seen.has(real)) {
+    return new Set();
+  }
+  seen.add(real);
+  const source = readFileOrNull(real);
+  if (source === null) {
+    return new Set();
+  }
+  const names = collectStaticCommonJsExportNames(source);
+  for (const specifier of collectExportStarSpecifiers(source)) {
+    const target = resolveEmittedRequire(real, specifier);
+    if (target === null) {
+      continue;
+    }
+    for (const name of collectCommonJsExportNames(target, seen)) {
+      if (name !== "default" && name !== "__esModule" && !names.has(name)) {
+        names.add(name);
+      }
+    }
+  }
+  return names;
+}
+
+function collectStaticCommonJsExportNames(source: string): Set<string> {
+  const names = new Set<string>();
+  const pattern =
+    /(?:^|[^\w$])(?:exports|module\.exports)\.([A-Za-z_$][\w$]*)\s*=/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(source)) !== null) {
+    names.add(match[1]!);
+  }
+  return names;
+}
+
+function collectTypeScriptExportNames(
+  sourceFile: string,
+  seen: Set<string>,
+): Set<string> {
+  const real = realPath(sourceFile);
+  if (seen.has(real)) {
+    return new Set();
+  }
+  seen.add(real);
+  const source = readFileOrNull(real);
+  if (source === null) {
+    return new Set();
+  }
+  const text = stripComments(source);
+  const names = new Set<string>();
+
+  collectMatches(
+    text,
+    /\bexport\s+(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:const|let|var|function|class|enum|namespace)\s+([A-Za-z_$][\w$]*)/g,
+    names,
+  );
+  collectMatches(
+    text,
+    /\bexport\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+["'][^"']+["']/g,
+    names,
+  );
+
+  const clausePattern =
+    /\bexport\s+(?!type\b)\{([^}]+)\}(?:\s+from\s+["'][^"']+["'])?/g;
+  let clause: RegExpExecArray | null;
+  while ((clause = clausePattern.exec(text)) !== null) {
+    for (const name of parseExportClauseNames(clause[1]!)) {
+      names.add(name);
+    }
+  }
+
+  const starPattern = /\bexport\s+\*\s+from\s+["']([^"']+)["']/g;
+  let star: RegExpExecArray | null;
+  while ((star = starPattern.exec(text)) !== null) {
+    const target = resolveSourceSpecifier(real, star[1]!);
+    if (target === null) {
+      continue;
+    }
+    for (const name of collectTypeScriptExportNames(target, seen)) {
+      if (name !== "default" && !names.has(name)) {
+        names.add(name);
+      }
+    }
+  }
+  return names;
+}
+
+function collectMatches(
+  source: string,
+  pattern: RegExp,
+  names: Set<string>,
+): void {
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(source)) !== null) {
+    names.add(match[1]!);
+  }
+}
+
+function parseExportClauseNames(clause: string): string[] {
+  return clause
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => !part.startsWith("type "))
+    .map((part) => {
+      const pieces = part.split(/\s+as\s+/);
+      return pieces[pieces.length - 1]?.trim() ?? "";
+    })
+    .filter(isIdentifierName);
+}
+
+function collectExportStarSpecifiers(source: string): string[] {
+  const specifiers: string[] = [];
+  const pattern =
+    /^(\s*)__exportStar\(\s*require\((["'])([^"']+)\2\)\s*,\s*exports\s*\);/gm;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(source)) !== null) {
+    specifiers.push(match[3]!);
+  }
+  return specifiers;
+}
+
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\r\n]*/g, "");
+}
+
+function resolveEmittedRequire(
+  emittedFile: string,
+  specifier: string,
+): string | null {
+  if (!isRelativeSpecifier(specifier)) {
+    return null;
+  }
+  const base = path.resolve(path.dirname(emittedFile), specifier);
+  if (path.extname(base).length !== 0) {
+    return isFile(base) ? base : null;
+  }
+  for (const extension of [".js", ".cjs", ".mjs"] as const) {
+    const candidate = base + extension;
+    if (isFile(candidate)) {
+      return candidate;
+    }
+  }
+  for (const extension of [".js", ".cjs", ".mjs"] as const) {
+    const candidate = path.join(base, `index${extension}`);
+    if (isFile(candidate)) {
+      return candidate;
     }
   }
   return null;
+}
+
+function resolveSourceSpecifier(
+  sourceFile: string,
+  specifier: string,
+): string | null {
+  if (!isRelativeSpecifier(specifier)) {
+    return null;
+  }
+  const base = path.resolve(path.dirname(sourceFile), specifier);
+  if (path.extname(base).length !== 0) {
+    return isFile(base) ? base : null;
+  }
+  for (const extension of TYPESCRIPT_EXTENSIONS) {
+    const candidate = base + extension;
+    if (isFile(candidate)) {
+      return candidate;
+    }
+  }
+  for (const extension of TYPESCRIPT_EXTENSIONS) {
+    const candidate = path.join(base, `index${extension}`);
+    if (isFile(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function isIdentifierName(name: string): boolean {
+  return /^[A-Za-z_$][\w$]*$/.test(name);
 }
 
 /**
@@ -435,7 +746,7 @@ function parseFirstEmittedFile(stdout: string): string | null {
  * `rootDir` cannot have a mirrored emit, so it falls through to the dependency
  * paths.
  */
-function serveEntryEmit(real: string): string | null {
+function serveEntryEmit(real: string): ServedSource | null {
   const m = manifest();
   if (m === null) {
     return null;
@@ -449,7 +760,13 @@ function serveEntryEmit(real: string): string | null {
     projectRoot: m.rootDir,
     sourceFile: real,
   });
-  return readFileOrNull(emitted);
+  if (emitted === null) {
+    return null;
+  }
+  const source = readFileOrNull(emitted);
+  return source === null
+    ? null
+    : { emittedFile: emitted, source, sourceFile: real };
 }
 
 /**
@@ -474,9 +791,7 @@ function isWithin(real: string, directory: string): boolean {
  * tsconfig (transform plugins included), so a source-shipping package that
  * needs a transform behaves correctly at runtime.
  */
-function serveDependencyEmit(
-  real: string,
-): { source: string; moduleOption?: string } | null {
+function serveDependencyEmit(real: string): ServedSource | null {
   const tsconfig = nearestTsconfig(real);
   if (tsconfig === null) {
     return null;
@@ -495,8 +810,18 @@ function serveDependencyEmit(
     projectRoot: built.rootDir,
     sourceFile: real,
   });
+  if (emitted === null) {
+    return null;
+  }
   const source = readFileOrNull(emitted);
-  return source === null ? null : { moduleOption: built.moduleOption, source };
+  return source === null
+    ? null
+    : {
+        emittedFile: emitted,
+        moduleOption: built.moduleOption,
+        source,
+        sourceFile: real,
+      };
 }
 
 /** On-disk completion marker for a built dependency, shared across processes. */

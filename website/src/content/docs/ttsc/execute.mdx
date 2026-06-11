@@ -32,6 +32,8 @@ The type-check covers your whole program, but at runtime your dependencies are l
 
 These hooks are runtime-only and never weaken the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included, so a type error in a dependency's source fails the run before anything executes. A genuinely missing module still throws `ERR_MODULE_NOT_FOUND`. This makes `ttsx` strictly stronger than `tsx`: a full type-check plus the same runtime reach.
 
+When an ESM entry imports named bindings from a CommonJS-classified source package, `ttsx` also exposes names re-exported through nested `export *` barrels. Node's CommonJS interop can miss those names because TypeScript-Go lowers them through dynamic helper calls, so the runtime hook makes the emitted CommonJS names visible without changing the package's CommonJS `require` path.
+
 ## Pass arguments to the script
 
 Use `--` to separate `ttsx` flags from the script's own args:
