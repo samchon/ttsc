@@ -555,11 +555,18 @@ function collectStarExportNames(
   return new Set();
 }
 
+const commonJsExportNameCache = new Map<string, ReadonlySet<string>>();
+const typeScriptExportNameCache = new Map<string, ReadonlySet<string>>();
+
 function collectCommonJsExportNames(
   emittedFile: string,
   seen: Set<string>,
 ): Set<string> {
   const real = realPath(emittedFile);
+  const cached = commonJsExportNameCache.get(real);
+  if (cached !== undefined) {
+    return new Set(cached);
+  }
   if (seen.has(real)) {
     return new Set();
   }
@@ -580,6 +587,7 @@ function collectCommonJsExportNames(
       }
     }
   }
+  commonJsExportNameCache.set(real, new Set(names));
   return names;
 }
 
@@ -599,6 +607,10 @@ function collectTypeScriptExportNames(
   seen: Set<string>,
 ): Set<string> {
   const real = realPath(sourceFile);
+  const cached = typeScriptExportNameCache.get(real);
+  if (cached !== undefined) {
+    return new Set(cached);
+  }
   if (seen.has(real)) {
     return new Set();
   }
@@ -643,6 +655,7 @@ function collectTypeScriptExportNames(
       }
     }
   }
+  typeScriptExportNameCache.set(real, new Set(names));
   return names;
 }
 
