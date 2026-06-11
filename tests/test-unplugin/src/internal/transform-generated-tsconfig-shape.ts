@@ -17,14 +17,15 @@ async function assertGeneratedTsconfigOmitsBaseUrl() {
     TestUnpluginProject.mainFile(root),
     TestUnpluginProject.mainSource(root),
     resolveOptions({
+      // Options sit at the entry top level: the protocol forwards the whole
+      // plugins[i] entry as the plugin's config object, and a nested
+      // `config: {...}` would silently fall back to the default operation.
       plugins: [
         {
           transform: "./plugin.cjs",
-          config: {
-            operation: "assert-absolute-alias-paths",
-            key: "@lib",
-          },
           name: "fixture",
+          operation: "assert-absolute-alias-paths",
+          key: "@lib",
         },
       ],
     }),
