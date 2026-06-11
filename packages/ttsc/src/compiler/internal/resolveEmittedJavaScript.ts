@@ -23,6 +23,12 @@ export function resolveEmittedJavaScript(options: {
   emittedFiles?: readonly string[];
   outDir: string;
   projectRoot: string;
+  /**
+   * Whether to scan `outDir` when `emittedFiles` does not identify a match.
+   * Defaults to true. Set to false only when `emittedFiles` is already a
+   * complete snapshot of the JavaScript outputs.
+   */
+  scanOutDir?: boolean;
   sourceFile: string;
 }): string | null {
   const exact = resolveExactEmittedFile(
@@ -43,15 +49,18 @@ export function resolveEmittedJavaScript(options: {
   // full recursive scan of `outDir`. Trailing-stem scoring still pins the right
   // file regardless of how deep the shifted prefix is.
   const primary = bestStemMatch(
-    options.emittedFiles ?? listJavaScriptFiles(options.outDir),
+    options.emittedFiles ??
+      (options.scanOutDir === false
+        ? []
+        : listEmittedJavaScriptFiles(options.outDir)),
     options.sourceFile,
   );
   if (primary !== null && fs.existsSync(primary)) {
     return primary;
   }
-  if (options.emittedFiles !== undefined) {
+  if (options.emittedFiles !== undefined && options.scanOutDir !== false) {
     const fromDir = bestStemMatch(
-      listJavaScriptFiles(options.outDir),
+      listEmittedJavaScriptFiles(options.outDir),
       options.sourceFile,
     );
     if (fromDir !== null && fs.existsSync(fromDir)) {
@@ -105,7 +114,7 @@ function resolveExactEmittedFile(
  * explicit stack instead of recursion to avoid call-stack overflow on deep
  * directory trees. Non-existent roots are silently skipped.
  */
-function listJavaScriptFiles(root: string): string[] {
+export function listEmittedJavaScriptFiles(root: string): string[] {
   const out: string[] = [];
   const stack = [root];
   while (stack.length !== 0) {
