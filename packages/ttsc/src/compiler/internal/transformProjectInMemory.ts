@@ -22,6 +22,10 @@ import {
 } from "./sharedHostHelpers";
 import { outputText, spawnNative } from "./spawnNative";
 
+type TransformProjectOptions = ITtscCompilerContext & {
+  nativeTimeoutMs?: number;
+};
+
 /**
  * Transform a project and capture TypeScript source output in memory.
  *
@@ -37,7 +41,7 @@ import { outputText, spawnNative } from "./spawnNative";
  * @returns A `{ result, typescript }` pair where `typescript` maps output paths
  *   to their transformed TypeScript source text.
  */
-export function transformProjectInMemory(options: ITtscCompilerContext): {
+export function transformProjectInMemory(options: TransformProjectOptions): {
   result: TtscBuildResult;
   typescript: Record<string, string>;
 } {
@@ -55,7 +59,7 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
 
 /** Return true when the project or the call-level options declare any plugins. */
 function hasConfiguredPlugins(
-  options: ITtscCompilerContext,
+  options: TransformProjectOptions,
   project: ITtscParsedProjectConfig,
 ): boolean {
   return hasProjectPluginEntries(project, options.plugins);
@@ -67,7 +71,7 @@ function hasConfiguredPlugins(
  * check-stage plugins pass and no transform-stage plugins are declared.
  */
 function transformProjectWithNativeHost(
-  options: ITtscCompilerContext,
+  options: TransformProjectOptions,
   project: ITtscParsedProjectConfig,
 ): {
   result: TtscBuildResult;
@@ -84,6 +88,7 @@ function transformProjectWithNativeHost(
     {
       cwd: project.root,
       env: { ...process.env, ...options.env },
+      timeout: options.nativeTimeoutMs,
     },
   );
   if (res.error) {
@@ -108,7 +113,7 @@ function transformProjectWithNativeHost(
 }
 
 function transformProjectWithPlugins(
-  options: ITtscCompilerContext,
+  options: TransformProjectOptions,
   cwd: string,
   project: ITtscParsedProjectConfig,
 ): {
@@ -162,6 +167,7 @@ function transformProjectWithPlugins(
     {
       cwd: project.root,
       env: nativePluginEnv(options, tsgoBinary, loaded.nativePlugins, plugin),
+      timeout: options.nativeTimeoutMs,
     },
   );
   if (res.error) {
@@ -190,7 +196,7 @@ function transformProjectWithPlugins(
  * failure. Returns the aggregated `TtscBuildResult` (status 0 when all pass).
  */
 function runNativeChecks(
-  options: ITtscCompilerContext,
+  options: TransformProjectOptions,
   project: ITtscParsedProjectConfig,
   tsgoBinary: string,
   nativePlugins: readonly ITtscLoadedNativePlugin[],
@@ -209,6 +215,7 @@ function runNativeChecks(
       {
         cwd: project.root,
         env: nativePluginEnv(options, tsgoBinary, nativePlugins, plugin),
+        timeout: options.nativeTimeoutMs,
       },
     );
     if (res.error) {
@@ -283,7 +290,7 @@ function serializeNativePlugins(
  * `TTSC_LINKED_PLUGINS_JSON` when linked sources are present.
  */
 function nativePluginEnv(
-  options: ITtscCompilerContext,
+  options: TransformProjectOptions,
   tsgoBinary: string,
   nativePlugins?: readonly ITtscLoadedNativePlugin[],
   plugin?: ITtscLoadedNativePlugin,

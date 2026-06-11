@@ -1159,22 +1159,52 @@ function buildMissingDependencySource(
   metaPath: string,
   sourceFile: string,
 ): BuiltProject {
+  const sourceFiles = collectSiblingTypeScriptSources(sourceFile);
   const transformed = tryTransformDependencySourceShard(
     tsconfig,
     emitDir,
     metaPath,
     sourceFile,
+    sourceFiles,
   );
   if (transformed !== null) {
     return transformed;
+  }
+  if (sourceFiles.length > 1) {
+    const single = tryTransformDependencySourceShard(
+      tsconfig,
+      emitDir,
+      metaPath,
+      sourceFile,
+      [sourceFile],
+    );
+    if (single !== null) {
+      return single;
+    }
   }
   const shard = tryBuildDependencySourceShard(
     tsconfig,
     emitDir,
     metaPath,
     sourceFile,
+    sourceFiles,
   );
-  return shard ?? buildDependency(tsconfig, emitDir, metaPath);
+  if (shard !== null) {
+    return shard;
+  }
+  if (sourceFiles.length > 1) {
+    const single = tryBuildDependencySourceShard(
+      tsconfig,
+      emitDir,
+      metaPath,
+      sourceFile,
+      [sourceFile],
+    );
+    if (single !== null) {
+      return single;
+    }
+  }
+  return buildDependency(tsconfig, emitDir, metaPath);
 }
 
 function tryTransformDependencySourceShard(
@@ -1182,6 +1212,7 @@ function tryTransformDependencySourceShard(
   emitDir: string,
   metaPath: string,
   sourceFile: string,
+  sourceFiles: readonly string[],
 ): BuiltProject | null {
   const project = readDependencyProjectMeta(tsconfig);
   const tempDir = fs.mkdtempSync(
@@ -1195,7 +1226,7 @@ function tryTransformDependencySourceShard(
     fs.writeFileSync(
       tempConfig,
       JSON.stringify(
-        dependencyShardConfig(tsconfig, project, sourceFile),
+        dependencyShardConfig(tsconfig, project, sourceFiles),
         null,
         2,
       ),
@@ -1208,6 +1239,7 @@ function tryTransformDependencySourceShard(
       env: process.env,
       projectRoot: project.projectRoot,
       tsconfig: tempConfig,
+      nativeTimeoutMs: dependencyTransformShardTimeoutMs(),
     });
     if (transformed.result.status !== 0) {
       return null;
@@ -1281,6 +1313,7 @@ function tryBuildDependencySourceShard(
   emitDir: string,
   metaPath: string,
   sourceFile: string,
+  sourceFiles: readonly string[],
 ): BuiltProject | null {
   const project = readDependencyProjectMeta(tsconfig);
   const tempDir = fs.mkdtempSync(
@@ -1291,7 +1324,7 @@ function tryBuildDependencySourceShard(
     fs.writeFileSync(
       tempConfig,
       JSON.stringify(
-        dependencyShardConfig(tsconfig, project, sourceFile),
+        dependencyShardConfig(tsconfig, project, sourceFiles),
         null,
         2,
       ),
@@ -1389,17 +1422,21 @@ function collectSiblingTypeScriptSources(sourceFile: string): string[] {
 function dependencyShardConfig(
   tsconfig: string,
   project: DependencyProjectMeta,
-  sourceFile: string,
+  sourceFiles: readonly string[],
 ): Record<string, unknown> {
   return {
     extends: tsconfig,
-    files: collectSiblingTypeScriptSources(sourceFile),
+    files: sourceFiles,
     // Some native sidecars read their plugin options from the tsconfig text
     // they are passed rather than from the resolved config object. Keep the
     // inherited plugin declaration visible without moving it into
     // compilerOptions, which would break relative plugin base directories.
     ttscPluginOptionsMirror: project.projectOptions.plugins,
   };
+}
+
+function dependencyTransformShardTimeoutMs(): number {
+  return 10 * 60 * 1000;
 }
 
 function writeTransformedSources(

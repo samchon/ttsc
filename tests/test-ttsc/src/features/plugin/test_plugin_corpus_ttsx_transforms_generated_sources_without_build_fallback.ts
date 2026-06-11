@@ -134,35 +134,44 @@ func runTransform(args []string) int {
   flags := flag.NewFlagSet("transform", flag.ContinueOnError)
   flags.SetOutput(os.Stderr)
   cwd := flags.String("cwd", "", "project directory")
-  _ = flags.String("tsconfig", "", "tsconfig")
+  tsconfig := flags.String("tsconfig", "", "tsconfig")
   _ = flags.String("plugins-json", "", "ordered plugin descriptors")
   if err := flags.Parse(args); err != nil {
     return 2
   }
   root := projectRoot(*cwd)
+  files, err := selectedTypeScriptFiles(root, *tsconfig)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+  generated := 0
+  for _, file := range files {
+    if strings.Contains(filepath.ToSlash(file), "/src/generated/") {
+      generated++
+    }
+  }
+  if generated > 1 {
+    fmt.Fprintln(os.Stderr, "generated-transform-plugin: batch transform should fall back to a single file")
+    return 2
+  }
   typescript := map[string]string{}
   out := map[string]any{
     "diagnostics": []any{},
     "typescript":  typescript,
   }
-  err := filepath.WalkDir(filepath.Join(root, "src"), func(file string, entry fs.DirEntry, err error) error {
-    if err != nil || entry.IsDir() || filepath.Ext(file) != ".ts" {
-      return err
-    }
+  for _, file := range files {
     rel, err := filepath.Rel(root, file)
     if err != nil {
-      return err
+      fmt.Fprintln(os.Stderr, err)
+      return 2
     }
     text, err := os.ReadFile(file)
     if err != nil {
-      return err
+      fmt.Fprintln(os.Stderr, err)
+      return 2
     }
     typescript[filepath.ToSlash(rel)] = transformTypeScript(string(text))
-    return nil
-  })
-  if err != nil {
-    fmt.Fprintln(os.Stderr, err)
-    return 2
   }
   if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
     fmt.Fprintln(os.Stderr, err)
@@ -180,6 +189,41 @@ func projectRoot(cwd string) string {
     return "."
   }
   return root
+}
+
+func selectedTypeScriptFiles(root string, tsconfig string) ([]string, error) {
+  if tsconfig != "" {
+    var parsed struct {
+      Files []string
+    }
+    text, err := os.ReadFile(tsconfig)
+    if err != nil {
+      return nil, err
+    }
+    if err := json.Unmarshal(text, &parsed); err != nil {
+      return nil, err
+    }
+    if len(parsed.Files) != 0 {
+      files := make([]string, 0, len(parsed.Files))
+      for _, file := range parsed.Files {
+        if filepath.IsAbs(file) {
+          files = append(files, file)
+        } else {
+          files = append(files, filepath.Join(filepath.Dir(tsconfig), file))
+        }
+      }
+      return files, nil
+    }
+  }
+  files := []string{}
+  err := filepath.WalkDir(filepath.Join(root, "src"), func(file string, entry fs.DirEntry, err error) error {
+    if err != nil || entry.IsDir() || filepath.Ext(file) != ".ts" {
+      return err
+    }
+    files = append(files, file)
+    return nil
+  })
+  return files, err
 }
 
 func emitJavaScript(root string, outDir string) int {
