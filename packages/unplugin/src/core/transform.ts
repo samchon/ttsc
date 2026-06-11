@@ -10,6 +10,10 @@ import { TtscCompiler } from "ttsc";
 import type { TransformResult } from "unplugin";
 
 import type { ResolvedTtscUnpluginOptions } from "./options";
+import {
+  absolutizePathsTarget,
+  readEffectiveTsconfigPaths,
+} from "./tsconfigPaths";
 
 /**
  * The normalised transform result type that this module produces.
@@ -111,9 +115,7 @@ export async function transformTtsc(
   }
 
   const tsconfig = resolveTsconfig(file, options.project);
-  const tsconfigDir = path.dirname(tsconfig);
-  const baseUrl = resolveBaseUrl(tsconfigDir, options.compilerOptions);
-  const aliasPaths = createAliasPaths(baseUrl, aliases);
+  const aliasPaths = createAliasPaths(aliases);
   const key = createTransformCacheKey({
     aliasPaths,
     compilerOptions: options.compilerOptions,
@@ -140,7 +142,6 @@ export async function transformTtsc(
   if (transformed === undefined) {
     transformed = transformProject({
       aliasPaths,
-      baseUrl,
       compilerOptions: options.compilerOptions,
       currentFile: file,
       currentSource: source,
@@ -337,7 +338,6 @@ function hashText(input: string | Buffer): string {
 
 async function transformProject(props: {
   aliasPaths: Record<string, string[]>;
-  baseUrl: string;
   compilerOptions: Record<string, unknown>;
   currentFile: string;
   currentSource: string;
@@ -370,7 +370,6 @@ async function transformProject(props: {
 
 function createTransformTsconfig(props: {
   aliasPaths: Record<string, string[]>;
-  baseUrl: string;
   compilerOptions: Record<string, unknown>;
   tsconfig: string;
 }): { path: string; dispose: () => void } {
@@ -416,9 +415,10 @@ function createTransformTsconfig(props: {
  * tsconfig must be converted to an absolute path before writing the generated
  * file. Otherwise TypeScript-Go resolves it against the temp dir.
  *
- * Also inserts a synthetic `baseUrl` equal to `tsconfigDir` when `paths` is
- * provided but `baseUrl` is absent — TypeScript requires `baseUrl` alongside
- * `paths` when the latter contains non-absolute targets.
+ * `paths` targets are absolutized for the same reason, with the extra twist
+ * that TypeScript-Go rejects bare non-relative targets outright (TS5090) and
+ * has removed `baseUrl` (TS5102), so anchoring them as absolute paths is the
+ * only temp-dir-safe encoding. No synthetic `baseUrl` is ever written.
  */
 function normalizeCompilerOptionsForGeneratedTsconfig(
   compilerOptions: Record<string, unknown>,
@@ -426,7 +426,7 @@ function normalizeCompilerOptionsForGeneratedTsconfig(
 ): Record<string, unknown> {
   const output = { ...compilerOptions };
   // Scalar path fields: resolve each against the original tsconfig directory.
-  for (const key of ["baseUrl", "declarationDir", "outDir", "rootDir"]) {
+  for (const key of ["declarationDir", "outDir", "rootDir"]) {
     if (typeof output[key] === "string") {
       output[key] = path.resolve(tsconfigDir, output[key]);
     }
@@ -439,8 +439,14 @@ function normalizeCompilerOptionsForGeneratedTsconfig(
       );
     }
   }
-  if (hasPaths(output.paths) && typeof output.baseUrl !== "string") {
-    output.baseUrl = tsconfigDir;
+  const paths = readPaths(output.paths);
+  if (Object.keys(paths).length !== 0) {
+    output.paths = Object.fromEntries(
+      Object.entries(paths).map(([key, targets]) => [
+        key,
+        targets.map((target) => absolutizePathsTarget(tsconfigDir, target)),
+      ]),
+    );
   }
   if (Array.isArray(output.plugins)) {
     output.plugins = output.plugins.map((entry) =>
@@ -467,30 +473,35 @@ function normalizePluginConfigForGeneratedTsconfig(
   return output;
 }
 
+/**
+ * Build the `paths` overlay that forwards bundler aliases to the compiler.
+ *
+ * Because the generated tsconfig `extends` the project one and TypeScript
+ * merges `compilerOptions` per option key, declaring `paths` here replaces the
+ * project's own `paths` wholesale. The overlay therefore re-states the
+ * project's effective mappings first, so tsconfig-only aliases keep resolving;
+ * inline `compilerOptions.paths` from the plugin options ride on top, and the
+ * bundler aliases win last — they mirror what the bundler will actually do at
+ * resolve time.
+ *
+ * No `baseUrl` is emitted: TypeScript-Go removed the option (TS5102), and all
+ * targets are absolute so none is needed.
+ */
 function createAliasCompilerOptions(props: {
   aliasPaths: Record<string, string[]>;
-  baseUrl: string;
   compilerOptions: Record<string, unknown>;
+  tsconfig: string;
 }): Record<string, unknown> {
   if (Object.keys(props.aliasPaths).length === 0) {
     return {};
   }
   return {
-    baseUrl: toCompilerPath(props.baseUrl, props.compilerOptions),
     paths: {
+      ...readEffectiveTsconfigPaths(props.tsconfig),
       ...readPaths(props.compilerOptions.paths),
       ...props.aliasPaths,
     },
   };
-}
-
-function hasPaths(value: unknown): boolean {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.keys(value).length !== 0
-  );
 }
 
 function readPaths(value: unknown): Record<string, string[]> {
@@ -512,28 +523,14 @@ function readPaths(value: unknown): Record<string, string[]> {
   return output;
 }
 
-function resolveBaseUrl(
-  tsconfigDir: string,
-  compilerOptions: Record<string, unknown>,
-): string {
-  return typeof compilerOptions.baseUrl === "string"
-    ? path.resolve(tsconfigDir, compilerOptions.baseUrl)
-    : tsconfigDir;
-}
-
-function toCompilerPath(
-  absoluteBaseUrl: string,
-  compilerOptions: Record<string, unknown>,
-): string {
-  return typeof compilerOptions.baseUrl === "string"
-    ? compilerOptions.baseUrl
-    : absoluteBaseUrl;
-}
-
-function createAliasPaths(
-  baseUrl: string,
-  aliases: unknown,
-): Record<string, string[]> {
+/**
+ * Convert bundler aliases into absolute `paths` mappings.
+ *
+ * Targets are written as absolute paths on purpose: the generated tsconfig
+ * lives in a system temp directory, where TypeScript-Go would reject bare
+ * relative targets (TS5090) and anchor `./`-style ones at the wrong directory.
+ */
+function createAliasPaths(aliases: unknown): Record<string, string[]> {
   const paths: Record<string, string[]> = {};
   for (const alias of normalizeAliases(aliases)) {
     if (typeof alias.find !== "string" || alias.find.length === 0) {
@@ -546,10 +543,11 @@ function createAliasPaths(
     if (key.length === 0) {
       continue;
     }
-    const replacement = path.isAbsolute(alias.replacement)
-      ? alias.replacement
-      : path.resolve(process.cwd(), alias.replacement);
-    const target = normalizePath(path.relative(baseUrl, replacement) || ".");
+    const target = normalizePath(
+      path.isAbsolute(alias.replacement)
+        ? alias.replacement
+        : path.resolve(process.cwd(), alias.replacement),
+    );
     paths[key] = [target];
     paths[`${key}/*`] = [`${target}/*`];
   }
