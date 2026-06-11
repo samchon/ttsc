@@ -220,8 +220,24 @@ function linkVirtualEntry(
     }
     return;
   }
+  if (
+    process.platform === "win32" &&
+    entry.isSymbolicLink() &&
+    isDirectorySymlinkTarget(realEntry)
+  ) {
+    fs.symlinkSync(realEntry, virtualEntry, "junction");
+    return;
+  }
   // Symlinks (and other special entries) are re-symlinked as-is.
   fs.symlinkSync(realEntry, virtualEntry);
+}
+
+function isDirectorySymlinkTarget(realEntry: string): boolean {
+  try {
+    return fs.statSync(realEntry).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 /**
