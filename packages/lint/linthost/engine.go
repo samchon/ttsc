@@ -534,6 +534,12 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
   // Context for every (node, rule) pair, which on a large program meant
   // millions of short-lived heap allocations and the GC pressure they
   // carry. Rules never mutate their Context, so reuse is safe.
+  //
+  // Declaration files only bind rules that opt into them (see
+  // declaration_rules.go): value-level rules can never fire on a `.d.ts`,
+  // so dispatching to them is pure overhead on declaration-heavy trees.
+  declarationFile := file.IsDeclarationFile
+  bound := 0
   byKind := make([][]boundRule, len(e.rules))
   ctxByRule := make(map[string]*Context, len(e.enabled))
   for kind, rules := range e.rules {
@@ -541,6 +547,9 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
       continue
     }
     for _, rule := range rules {
+      if declarationFile && !ruleVisitsDeclarationFiles(rule) {
+        continue
+      }
       name := rule.Name()
       ctx, built := ctxByRule[name]
       if !built {
@@ -563,6 +572,7 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
         continue
       }
       byKind[kind] = append(byKind[kind], boundRule{rule: rule, ctx: ctx})
+      bound++
     }
   }
 
@@ -572,23 +582,30 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
   // the heap on every invocation; converting to a method value with a
   // cached function field removes that allocation from the hot path —
   // ~38 % of pre-Opt-4 CPU was in the inner ForEachChild closure.
-  w := &lintFileWalker{byKind: byKind, collect: collect}
-  w.childCB = w.visitChild
+  //
+  // With no bound rules at all (every active rule was filtered out, e.g.
+  // a declaration file where nothing opted in) the walk cannot produce a
+  // finding, so it is skipped entirely; inline directives are still
+  // parsed below so unknown-directive warnings stay file-complete.
+  if bound != 0 {
+    w := &lintFileWalker{byKind: byKind, collect: collect}
+    w.childCB = w.visitChild
 
-  // SourceFile dispatches into its statement list directly; we walk
-  // statements explicitly so the file node itself can be inspected by
-  // rules (e.g., `ban-ts-comment` reads CommentDirectives off the
-  // SourceFile).
-  if k := int(shimast.KindSourceFile); k >= 0 && k < len(byKind) {
-    for _, bound := range byKind[k] {
-      runRuleCheck(bound.rule, bound.ctx, file.AsNode(), collect)
+    // SourceFile dispatches into its statement list directly; we walk
+    // statements explicitly so the file node itself can be inspected by
+    // rules (e.g., `ban-ts-comment` reads CommentDirectives off the
+    // SourceFile).
+    if k := int(shimast.KindSourceFile); k >= 0 && k < len(byKind) {
+      for _, bound := range byKind[k] {
+        runRuleCheck(bound.rule, bound.ctx, file.AsNode(), collect)
+      }
     }
-  }
 
-  statements := file.Statements
-  if statements != nil {
-    for _, stmt := range statements.Nodes {
-      w.walk(stmt)
+    statements := file.Statements
+    if statements != nil {
+      for _, stmt := range statements.Nodes {
+        w.walk(stmt)
+      }
     }
   }
   directives := parseLintInlineDirectives(file)

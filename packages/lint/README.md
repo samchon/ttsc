@@ -1132,6 +1132,8 @@ export default {
 
 Contributor rules emit autofixes the same way built-ins do, call `ctx.ReportFix(node, message, edits...)` or `ctx.ReportRangeFix(pos, end, message, edits...)`. The `rule/astutil` package re-exports the byte-range helpers built-ins use (`NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`). See the [contributor autofix path](https://ttsc.dev/docs/development/walkthroughs/lint#the-contributor-autofix-path) section for the full contract and an example.
 
+Contributor rules run on declaration files (`.d.ts`) by default. The engine skips its own value-level rules there — executable grammar cannot appear in a declaration file — but it cannot infer a third-party rule's shape, so contributors keep the conservative default. A rule that only inspects executable code can implement the optional `rule.DeclarationFileRule` marker (`VisitsDeclarationFiles() bool { return false }`) to get the same skip and save the dispatch on declaration-heavy projects.
+
 ## Sponsors
 
 [![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)

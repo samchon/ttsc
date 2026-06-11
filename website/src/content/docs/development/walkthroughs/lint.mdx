@@ -265,6 +265,8 @@ type Rule interface {
 
 Three methods. `Name()` is the user-facing rule name (`"no-debugger"`, `"demo/no-demo"`); `Visits()` returns the AST kinds the rule cares about; `Check` is invoked once per relevant node. The optional `FormatRule` extension adds an `IsFormat() bool` method that tags the rule as belonging to the format-class.
 
+Declaration files (`.d.ts`, `.d.mts`, `.d.cts`) are dispatched selectively. Executable grammar cannot appear in a declaration file, so the engine skips built-in value-level rules there instead of paying the dispatch on declaration-heavy projects. Three doors stay open: format rules always run (so `ttsc format` / `ttsc fix` keep covering hand-written `.d.ts`), built-in type/comment/naming rules participate through the curated allowlist in `linthost/declaration_rules.go`, and contributor rules run by default. A contributor whose rule only inspects executable code can implement the optional `rule.DeclarationFileRule` marker — `VisitsDeclarationFiles() bool { return false }` — to opt out of declaration files and skip the wasted dispatch.
+
 ### Registry
 
 ```go

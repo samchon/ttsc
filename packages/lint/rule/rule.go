@@ -97,6 +97,21 @@ type FormatRule interface {
   IsFormat() bool
 }
 
+// DeclarationFileRule is an optional marker contributors implement to
+// control whether their rule runs on declaration-file inputs (`.d.ts`,
+// `.d.mts`, `.d.cts`). The engine skips most built-in rules on declaration
+// files because value-level grammar cannot appear there; contributor rules
+// keep the conservative default — they DO run on declaration files — since
+// the host cannot infer a third-party rule's shape (mirror of the implicit
+// checker default). A contributor whose rule inspects executable code only
+// can implement this with `return false` to skip declaration files and
+// save the dispatch on declaration-heavy projects; returning `true` is
+// equivalent to not implementing the interface at all.
+type DeclarationFileRule interface {
+  Rule
+  VisitsDeclarationFiles() bool
+}
+
 // Reporter is the engine-supplied callback that records a finding. The
 // host implements this and passes it to `NewContext` when invoking a
 // contributor rule.

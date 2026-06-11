@@ -75,6 +75,18 @@ func (a contributorAdapter) NeedsTypeChecker() bool {
   return true
 }
 
+// VisitsDeclarationFiles keeps contributor rules running on declaration
+// files unless the contributor opts out through the public
+// `rule.DeclarationFileRule` marker. Same conservative-default reasoning
+// as NeedsTypeChecker: the host cannot infer a third-party rule's grammar
+// shape, and a wrong skip silently loses findings.
+func (a contributorAdapter) VisitsDeclarationFiles() bool {
+  if dr, ok := a.inner.(rule.DeclarationFileRule); ok {
+    return dr.VisitsDeclarationFiles()
+  }
+  return true
+}
+
 // formatContributorAdapter is the FormatRule-tagged variant of
 // contributorAdapter. Wrapping the lint-only adapter (rather than
 // duplicating its method set) keeps the marker addition trivial and
