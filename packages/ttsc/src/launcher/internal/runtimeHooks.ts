@@ -1180,7 +1180,7 @@ function buildDependency(
  * source set, fall back to its source-to-source transform output and emit that
  * transformed source without plugins.
  *
- * Only siblings whose emitted JavaScript is absent are refreshed:
+ * Only sources whose emitted JavaScript is absent are refreshed:
  * already-emitted files stay out of the plugin pass, while files created in the
  * same runtime turn are processed together.
  */
@@ -1192,7 +1192,7 @@ function buildMissingDependencySource(
 ): BuiltProject {
   const project = readDependencyProjectMeta(tsconfig);
   const emittedFiles = listEmittedJavaScriptFiles(emitDir);
-  const sourceFiles = collectMissingSiblingTypeScriptSources(
+  const sourceFiles = collectMissingProjectTypeScriptSources(
     sourceFile,
     emitDir,
     emittedFiles,
@@ -1423,22 +1423,16 @@ function writeDependencyCacheMeta(
   );
 }
 
-function collectMissingSiblingTypeScriptSources(
+function collectMissingProjectTypeScriptSources(
   sourceFile: string,
   emitDir: string,
   emittedFiles: readonly string[],
   rootDir: string,
 ): string[] {
-  const directory = path.dirname(sourceFile);
-  const missing = fs
-    .readdirSync(directory)
-    .map((entry) => path.join(directory, entry))
+  const scanRoot = missingSourceScanRoot(sourceFile, rootDir);
+  const missing = collectTypeScriptSources(scanRoot)
     .filter(
-      (candidate) => candidate === sourceFile || isTypeScriptSource(candidate),
-    )
-    .filter(isFile)
-    .filter(
-      // Entry-project siblings may already be served from the manifest emitDir
+      // Entry-project sources may already be served from the manifest emitDir
       // even though the runtime dependency cache has never seen them.
       (candidate) =>
         emittedJavaScriptMissing(candidate, emitDir, emittedFiles, rootDir) &&
@@ -1446,6 +1440,48 @@ function collectMissingSiblingTypeScriptSources(
     )
     .sort();
   return missing.includes(sourceFile) ? missing : [sourceFile];
+}
+
+function missingSourceScanRoot(sourceFile: string, rootDir: string): string {
+  const realSource = realPath(sourceFile);
+  const realRoot = realPath(rootDir);
+  if (path.dirname(realRoot) === realRoot || !isWithin(realSource, realRoot)) {
+    return path.dirname(sourceFile);
+  }
+  return rootDir;
+}
+
+function collectTypeScriptSources(root: string): string[] {
+  const sources: string[] = [];
+  const stack = [root];
+  while (stack.length !== 0) {
+    const directory = stack.pop()!;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(directory, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const candidate = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (!isSkippedSourceDirectory(entry.name)) {
+          stack.push(candidate);
+        }
+      } else if (entry.isFile() && isRuntimeTypeScriptSource(candidate)) {
+        sources.push(candidate);
+      }
+    }
+  }
+  return sources.sort();
+}
+
+function isSkippedSourceDirectory(name: string): boolean {
+  return name === ".git" || name === "node_modules";
+}
+
+function isRuntimeTypeScriptSource(filename: string): boolean {
+  return isTypeScriptSource(filename) && !/\.d\.[cm]?ts$/i.test(filename);
 }
 
 function emittedJavaScriptMissing(

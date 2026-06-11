@@ -18,9 +18,9 @@ import {
  * 1. Build an entry that creates and requires generated TypeScript files.
  * 2. Use a native plugin whose `transform` command rewrites `cacheMarker(...)` but
  *    whose runtime `build` fallback is rejected.
- * 3. Assert already-emitted siblings are not re-transformed, simultaneously
- *    generated misses are transformed together, and every import prints
- *    transformed uppercase values.
+ * 3. Assert already-emitted sources are not re-transformed, simultaneously
+ *    generated misses in different directories are transformed together, and
+ *    every import prints transformed uppercase values.
  */
 export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_fallback =
   () => {
@@ -41,7 +41,9 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
           `const path = require("node:path");`,
           ``,
           `const dir = path.join(__dirname, "generated");`,
+          `const otherDir = path.join(__dirname, "other");`,
           `fs.mkdirSync(dir, { recursive: true });`,
+          `fs.mkdirSync(otherDir, { recursive: true });`,
           `fs.writeFileSync(path.join(__dirname, "..", "runtime-started.txt"), "started\\n");`,
           `const marker = "cache" + "Marker";`,
           ``,
@@ -50,11 +52,11 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
           `  'export const value = ' + marker + '("first");\\n',`,
           `);`,
           `fs.writeFileSync(`,
-          `  path.join(dir, "second.ts"),`,
+          `  path.join(otherDir, "second.ts"),`,
           `  'export const value = ' + marker + '("second");\\n',`,
           `);`,
           `console.log(require("./generated/first").value);`,
-          `console.log(require("./generated/second").value);`,
+          `console.log(require("./other/second").value);`,
           ``,
           `fs.writeFileSync(`,
           `  path.join(dir, "third.ts"),`,
@@ -177,7 +179,7 @@ func runTransform(args []string) int {
     if strings.HasSuffix(slash, "/src/generated/first.ts") {
       hasFirst = true
     }
-    if strings.HasSuffix(slash, "/src/generated/second.ts") {
+    if strings.HasSuffix(slash, "/src/other/second.ts") {
       hasSecond = true
     }
   }
