@@ -299,7 +299,11 @@ function isRelativeSpecifier(specifier: string): boolean {
  * commas before handing off to `JSON.parse`.
  */
 function parseJsonc(input: string): unknown {
-  return JSON.parse(stripTrailingCommas(stripComments(input)));
+  return JSON.parse(stripTrailingCommas(stripComments(stripLeadingBom(input))));
+}
+
+function stripLeadingBom(input: string): string {
+  return input.charCodeAt(0) === 0xfeff ? input.slice(1) : input;
 }
 
 /**
