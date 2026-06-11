@@ -1190,15 +1190,24 @@ function tryTransformDependencySourceShardAdaptive(
   sourceFile: string,
   sourceFiles: readonly string[],
 ): BuiltProject | null {
-  const transformed = tryTransformDependencySourceShard(
-    tsconfig,
-    emitDir,
-    metaPath,
-    sourceFile,
-    sourceFiles,
-  );
-  if (transformed !== null || sourceFiles.length <= 1) {
-    return transformed;
+  const key =
+    sourceFiles.length <= 1
+      ? undefined
+      : dependencyTransformShardFailureKey(tsconfig, sourceFiles);
+  if (key === undefined || !failedDependencyTransformShards.has(key)) {
+    const transformed = tryTransformDependencySourceShard(
+      tsconfig,
+      emitDir,
+      metaPath,
+      sourceFile,
+      sourceFiles,
+    );
+    if (transformed !== null || sourceFiles.length <= 1) {
+      return transformed;
+    }
+    if (key !== undefined) {
+      failedDependencyTransformShards.add(key);
+    }
   }
   const narrowed = narrowSourceFilesToSourceHalf(sourceFiles, sourceFile);
   return narrowed.length === sourceFiles.length
@@ -1490,7 +1499,16 @@ function dependencyShardConfig(
 function dependencyTransformShardTimeoutMs(): number {
   // A generated-source shard is an optimistic fast path. If a native sidecar
   // cannot finish it quickly, split the shard instead of blocking the caller.
-  return 90 * 1000;
+  return 30 * 1000;
+}
+
+const failedDependencyTransformShards = new Set<string>();
+
+function dependencyTransformShardFailureKey(
+  tsconfig: string,
+  sourceFiles: readonly string[],
+): string {
+  return [tsconfig, ...sourceFiles].join("\0");
 }
 
 function narrowSourceFilesToSourceHalf(
