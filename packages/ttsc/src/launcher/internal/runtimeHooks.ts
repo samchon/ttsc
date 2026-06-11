@@ -804,14 +804,27 @@ function serveDependencyEmit(real: string): ServedSource | null {
     // this single file rather than failing the whole run.
     return null;
   }
-  const emitted = resolveEmittedJavaScript({
+  let emitted = resolveEmittedJavaScript({
     emittedFiles: built.emittedFiles,
     outDir: built.emitDir,
     projectRoot: built.rootDir,
     sourceFile: real,
   });
   if (emitted === null) {
-    return null;
+    try {
+      built = ensureProjectBuilt(tsconfig, true);
+    } catch {
+      return null;
+    }
+    emitted = resolveEmittedJavaScript({
+      emittedFiles: built.emittedFiles,
+      outDir: built.emitDir,
+      projectRoot: built.rootDir,
+      sourceFile: real,
+    });
+    if (emitted === null) {
+      return null;
+    }
   }
   const source = readFileOrNull(emitted);
   return source === null
@@ -842,10 +855,15 @@ interface DependencyCacheMeta {
  * (or a second import in this one) reuses, and concurrent first-builders are
  * serialised by an atomic lock directory.
  */
-function ensureProjectBuilt(tsconfig: string): BuiltProject {
-  const cached = builtProjects.get(tsconfig);
-  if (cached !== undefined) {
-    return cached;
+function ensureProjectBuilt(
+  tsconfig: string,
+  force: boolean = false,
+): BuiltProject {
+  if (!force) {
+    const cached = builtProjects.get(tsconfig);
+    if (cached !== undefined) {
+      return cached;
+    }
   }
   const key = crypto
     .createHash("sha256")
@@ -857,15 +875,21 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
   const metaPath = path.join(root, `${key}.json`);
   const lockDir = path.join(root, `${key}.lock`);
 
-  const reuse = readDependencyCache(emitDir, metaPath);
-  if (reuse !== null) {
-    builtProjects.set(tsconfig, reuse);
-    return reuse;
+  if (!force) {
+    const reuse = readDependencyCache(emitDir, metaPath);
+    if (reuse !== null) {
+      builtProjects.set(tsconfig, reuse);
+      return reuse;
+    }
   }
 
   fs.mkdirSync(root, { recursive: true });
-  const built = withBuildLock(lockDir, metaPath, emitDir, () =>
-    buildDependency(tsconfig, emitDir, metaPath),
+  const built = withBuildLock(
+    lockDir,
+    metaPath,
+    emitDir,
+    () => buildDependency(tsconfig, emitDir, metaPath),
+    force,
   );
   builtProjects.set(tsconfig, built);
   return built;
@@ -905,12 +929,20 @@ function withBuildLock(
   metaPath: string,
   emitDir: string,
   build: () => BuiltProject,
+  force: boolean = false,
 ): BuiltProject {
   const stealAfterMs = 600_000;
   for (;;) {
     try {
       fs.mkdirSync(lockDir);
     } catch {
+      if (force) {
+        if (waitForLockRelease(lockDir, stealAfterMs)) {
+          continue;
+        }
+        fs.rmSync(lockDir, { force: true, recursive: true });
+        continue;
+      }
       const waited = waitForDependencyCache(emitDir, metaPath, stealAfterMs);
       if (waited !== null) {
         return waited;
@@ -919,8 +951,13 @@ function withBuildLock(
       continue;
     }
     try {
-      const reuse = readDependencyCache(emitDir, metaPath);
-      return reuse ?? build();
+      if (!force) {
+        const reuse = readDependencyCache(emitDir, metaPath);
+        if (reuse !== null) {
+          return reuse;
+        }
+      }
+      return build();
     } finally {
       fs.rmSync(lockDir, { force: true, recursive: true });
     }
@@ -941,6 +978,20 @@ function waitForDependencyCache(
     }
     if (Date.now() - startedAt > timeoutMs) {
       return null;
+    }
+    sleepSync(50);
+  }
+}
+
+/** Wait for an in-flight forced rebuild to release its lock. */
+function waitForLockRelease(lockDir: string, timeoutMs: number): boolean {
+  const startedAt = Date.now();
+  for (;;) {
+    if (!fs.existsSync(lockDir)) {
+      return true;
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      return false;
     }
     sleepSync(50);
   }
