@@ -67,7 +67,13 @@ const unpluginFactory: UnpluginFactory<
       if (!isTransformTarget(file)) {
         return undefined;
       }
-      return transformTtsc(file, source, options, aliases, transformCache);
+      return transformTtsc(file, source, options, aliases, transformCache, {
+        // Register plugin-reported dependencies (the transform envelope's
+        // `dependencies` lists) so type-only inputs invalidate this module
+        // in watch mode; bundlers erase type-only imports from their own
+        // module graph and would otherwise serve stale generated code.
+        addWatchFile: (watched) => this.addWatchFile(watched),
+      });
     },
   };
 };
@@ -79,6 +85,7 @@ export type {
   TtscUnpluginCompilerOptionsJson,
   TtscUnpluginOptions,
 } from "./options";
+export type { TtscTransformHooks } from "./transform";
 export { createTtscTransformCache, resolveOptions, transformTtsc, unplugin };
 
 export default unplugin;

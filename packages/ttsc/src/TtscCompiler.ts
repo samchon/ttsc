@@ -236,6 +236,7 @@ interface ProjectResult {
 }
 
 interface ProjectTransformation {
+  dependencies?: Record<string, string[]>;
   result: TtscBuildResult;
   typescript: Record<string, string>;
 }
@@ -362,17 +363,20 @@ function createProcessDiagnostic(
 function toCompilerTransformation(
   project: ProjectTransformation,
 ): ITtscCompilerTransformation {
-  const { result, typescript } = project;
+  const { dependencies, result, typescript } = project;
+  const dependencyField = dependencies === undefined ? {} : { dependencies };
   if (result.status === 0 && !hasErrorDiagnostics(result.diagnostics)) {
     return {
       ...(result.diagnostics.length === 0
         ? {}
         : { diagnostics: result.diagnostics }),
+      ...dependencyField,
       type: "success",
       typescript,
     };
   }
   return {
+    ...dependencyField,
     diagnostics:
       result.diagnostics.length === 0
         ? [createProcessDiagnostic(result)]

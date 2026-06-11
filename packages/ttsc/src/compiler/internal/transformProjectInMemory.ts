@@ -38,6 +38,7 @@ import { outputText, spawnNative } from "./spawnNative";
  *   to their transformed TypeScript source text.
  */
 export function transformProjectInMemory(options: ITtscCompilerContext): {
+  dependencies?: Record<string, string[]>;
   result: TtscBuildResult;
   typescript: Record<string, string>;
 } {
@@ -70,6 +71,7 @@ function transformProjectWithNativeHost(
   options: ITtscCompilerContext,
   project: ITtscParsedProjectConfig,
 ): {
+  dependencies?: Record<string, string[]>;
   result: TtscBuildResult;
   typescript: Record<string, string>;
 } {
@@ -97,6 +99,9 @@ function transformProjectWithNativeHost(
     outputText(res.stderr),
   );
   return {
+    ...(output.dependencies === undefined
+      ? {}
+      : { dependencies: output.dependencies }),
     result: {
       diagnostics: output.diagnostics,
       status: res.status ?? 1,
@@ -112,6 +117,7 @@ function transformProjectWithPlugins(
   cwd: string,
   project: ITtscParsedProjectConfig,
 ): {
+  dependencies?: Record<string, string[]>;
   result: TtscBuildResult;
   typescript: Record<string, string>;
 } {
@@ -149,6 +155,9 @@ function transformProjectWithPlugins(
   if (transformers.length === 0) {
     const transformed = transformProjectWithNativeHost(options, project);
     return {
+      ...(transformed.dependencies === undefined
+        ? {}
+        : { dependencies: transformed.dependencies }),
       result: appendBuildOutput(checked, transformed.result),
       typescript: transformed.typescript,
     };
@@ -180,6 +189,9 @@ function transformProjectWithPlugins(
     stderr: outputText(res.stderr),
   };
   return {
+    ...(output.dependencies === undefined
+      ? {}
+      : { dependencies: output.dependencies }),
     result: appendBuildOutput(checked, result),
     typescript: output.typescript,
   };
@@ -312,16 +324,23 @@ function nativePluginEnv(
  * The `typescript` field must be a `Record<string, string>`. Any other shape is
  * treated as a protocol error and throws with the stderr/stdout context. JSON
  * parse errors are also wrapped with the same context message.
+ *
+ * The optional `dependencies` field (per-file consulted-source lists, see
+ * `ITtscCompilerTransformation`) is forwarded when well-formed; entries that
+ * are not string arrays are dropped rather than failing the transform — the
+ * field is advisory watch metadata, not output.
  */
 function parseNativeTransformOutput(
   stdout: string,
   stderr: string,
 ): {
+  dependencies?: Record<string, string[]>;
   diagnostics: ITtscCompilerDiagnostic[];
   typescript: Record<string, string>;
 } {
   try {
     const parsed = JSON.parse(stdout) as {
+      dependencies?: Record<string, string[]>;
       diagnostics?: ITtscCompilerDiagnostic[];
       typescript?: Record<string, string>;
     };
@@ -330,7 +349,9 @@ function parseNativeTransformOutput(
         "ttsc: native transform host did not return a TypeScript source map",
       );
     }
+    const dependencies = parseDependencyLists(parsed.dependencies);
     return {
+      ...(dependencies === undefined ? {} : { dependencies }),
       diagnostics: Array.isArray(parsed.diagnostics) ? parsed.diagnostics : [],
       typescript: parsed.typescript,
     };
@@ -343,6 +364,31 @@ function parseNativeTransformOutput(
         "ttsc: native transform host returned no output",
     );
   }
+}
+
+/**
+ * Normalize the optional `dependencies` envelope field into a record of string
+ * arrays, or `undefined` when absent or carrying nothing usable.
+ */
+function parseDependencyLists(
+  value: unknown,
+): Record<string, string[]> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const output: Record<string, string[]> = {};
+  for (const [key, entries] of Object.entries(value)) {
+    if (!Array.isArray(entries)) {
+      continue;
+    }
+    const files = entries.filter(
+      (entry): entry is string => typeof entry === "string",
+    );
+    if (files.length !== 0) {
+      output[key] = files;
+    }
+  }
+  return Object.keys(output).length === 0 ? undefined : output;
 }
 
 /** Type guard: true when `value` is a non-null, non-array object of strings. */

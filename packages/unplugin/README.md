@@ -277,6 +277,10 @@ const options: TtscUnpluginOptions = {
 - `compilerOptions`: temporary override layered on the selected project config.
 - `plugins`: direct `ttsc` plugin list override, or `false` to disable plugins.
 
+### Watch Mode and HMR
+
+Transform plugins may report, per file, the source files they consulted (the transform envelope's `dependencies` field — see the [plugin protocol](https://ttsc.dev/docs/development/concepts/protocol#transform)). The adapter registers each reported path with the bundler via `addWatchFile`, so editing a type that only a generated validator depends on invalidates the module in watch mode even though the bundler erased the type-only import from its graph.
+
 ## Sponsors
 
 [![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)

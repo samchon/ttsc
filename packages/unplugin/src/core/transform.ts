@@ -76,6 +76,21 @@ export function createTtscTransformCache(): TtscTransformCache {
 }
 
 /**
+ * Hooks the bundler adapter passes into {@link transformTtsc} so transform
+ * side-channels (currently the plugin-reported dependency list) reach the
+ * bundler without leaking extra fields on the returned `TransformResult`.
+ */
+export interface TtscTransformHooks {
+  /**
+   * Invoked once per absolute dependency path the plugin reported for the
+   * transformed file (`dependencies` in the transform envelope). Adapters
+   * forward this to the bundler's `addWatchFile` so type-only inputs
+   * participate in HMR invalidation.
+   */
+  addWatchFile?: (file: string) => void;
+}
+
+/**
  * Apply the ttsc plugin transform to a single source file.
  *
  * The function is intentionally project-scoped: it compiles the entire tsconfig
@@ -94,6 +109,9 @@ export function createTtscTransformCache(): TtscTransformCache {
  *   object).
  * @param cache - Optional per-build cache; cleared by the caller on
  *   `buildStart`.
+ * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
+ *   Dependency notifications fire on cache hits too — watch registrations are
+ *   per build, not per compilation.
  */
 export async function transformTtsc(
   id: string,
@@ -101,6 +119,7 @@ export async function transformTtsc(
   options: ResolvedTtscUnpluginOptions,
   aliases?: unknown,
   cache?: TtscTransformCache,
+  hooks?: TtscTransformHooks,
 ): Promise<TtscTransformResult | undefined> {
   const clean = stripQuery(id);
   if (clean.includes("\0")) {
@@ -133,6 +152,11 @@ export async function transformTtsc(
         projectRoot: cached.projectRoot,
         result: cached.result,
       });
+      notifyFileDependencies(hooks, {
+        file,
+        projectRoot: cached.projectRoot,
+        result: cached.result,
+      });
       return createTransformResult(source, code);
     }
     cache?.delete(key);
@@ -153,7 +177,81 @@ export async function transformTtsc(
   const { projectRoot, result } = await transformed;
   reportSuccessDiagnostics(result);
   const code = selectTransformedSource({ file, projectRoot, result });
+  notifyFileDependencies(hooks, { file, projectRoot, result });
   return createTransformResult(source, code);
+}
+
+/**
+ * Forward the plugin-reported dependency list for `file` to the adapter's
+ * `addWatchFile` hook.
+ *
+ * The transform envelope's `dependencies` keys mirror the `typescript` keys
+ * (project-relative); values may be project-relative or absolute. Every path is
+ * absolutized against the project root and deduplicated, and the file itself is
+ * dropped — the bundler already watches the module it transforms.
+ */
+function notifyFileDependencies(
+  hooks: TtscTransformHooks | undefined,
+  props: {
+    file: string;
+    projectRoot: string;
+    result: ITtscCompilerTransformation;
+  },
+): void {
+  const addWatchFile = hooks?.addWatchFile;
+  if (addWatchFile === undefined) {
+    return;
+  }
+  for (const dependency of selectFileDependencies(props)) {
+    addWatchFile(dependency);
+  }
+}
+
+/**
+ * Extract the absolute, deduplicated dependency list for a single file from the
+ * compiler result. Mirrors {@link selectTransformedSource}'s key lookup: fast
+ * project-relative match first, then a resolve-based scan. Returns an empty
+ * list on exceptions or when the plugin reported nothing.
+ */
+function selectFileDependencies(props: {
+  file: string;
+  projectRoot: string;
+  result: ITtscCompilerTransformation;
+}): string[] {
+  if (props.result.type === "exception") {
+    return [];
+  }
+  const dependencies = props.result.dependencies;
+  if (dependencies === undefined) {
+    return [];
+  }
+  const key = toProjectKey(props.projectRoot, props.file);
+  let entries = dependencies[key];
+  if (entries === undefined) {
+    for (const [candidate, candidateEntries] of Object.entries(dependencies)) {
+      if (path.resolve(props.projectRoot, candidate) === props.file) {
+        entries = candidateEntries;
+        break;
+      }
+    }
+  }
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+  const output: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (typeof entry !== "string" || entry.length === 0) {
+      continue;
+    }
+    const absolute = path.resolve(props.projectRoot, entry);
+    if (absolute === props.file || seen.has(absolute)) {
+      continue;
+    }
+    seen.add(absolute);
+    output.push(absolute);
+  }
+  return output;
 }
 
 /**

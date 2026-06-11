@@ -334,11 +334,16 @@ Project-wide source transform used by `ttsc.transform()` and in-memory callers. 
   "diagnostics": [],
   "typescript": {
     "src/main.ts": "export const value = 1;\n"
+  },
+  "dependencies": {
+    "src/main.ts": ["src/types.ts"]
   }
 }
 ```
 
 Each value in `typescript` is written to disk **verbatim**. The host does not re-parse or re-render. If your plugin mutated the AST, you must run a printer over the file before placing its text in the map; the canonical path is `shimprinter.NewPrinter(...)` → `shimprinter.EmitSourceFile(printer, file)`. Returning `file.Text()` after AST mutation will silently round-trip the original source. See `packages/ttsc/utility/host.go::RunTransform` for the reference implementation.
+
+`dependencies` is optional advisory metadata: per transformed file (same keys as `typescript`), the source files whose content influenced that output beyond the file itself — for a type-driven generator, the declaration files it read through the Checker. Paths may be project-relative or absolute; the host passes them through verbatim on `ttsc.transform()` results, and `@ttsc/unplugin` registers them as bundler watch files so type-only inputs invalidate the module in HMR. Dev-mode bundlers erase type-only imports from their module graph, so without this field an edit to a consulted type serves stale generated code until a cold restart. Omit the field (or a file's entry) when there is nothing to report; malformed entries are dropped, never fatal.
 
 For leaf-text mutations (string-literal, identifier, numeric-literal `.Text`), the printer reads original source text via `getTextOfNode` when the node is non-synthesized and has a parent. See [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes) for the synthesize-flag invariant the rewrite must follow.
 
