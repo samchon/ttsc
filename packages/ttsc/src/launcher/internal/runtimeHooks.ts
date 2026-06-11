@@ -892,7 +892,7 @@ function rebuildProjectForMissingSource(
     metaPath,
     emitDir,
     sourceFile,
-    () => buildDependency(tsconfig, emitDir, metaPath),
+    () => buildMissingDependencySource(tsconfig, emitDir, metaPath, sourceFile),
   );
   builtProjects.set(tsconfig, built);
   return built;
@@ -1087,11 +1087,11 @@ function buildDependency(
   emitDir: string,
   metaPath: string,
 ): BuiltProject {
-  const project = readProjectConfig({ cwd: path.dirname(tsconfig), tsconfig });
+  const project = readDependencyProjectMeta(tsconfig);
   fs.rmSync(metaPath, { force: true });
   fs.rmSync(emitDir, { force: true, recursive: true });
   const result = runBuild({
-    cwd: project.root,
+    cwd: project.projectRoot,
     emit: true,
     forceListEmittedFiles: true,
     outDir: emitDir,
@@ -1125,20 +1125,142 @@ function buildDependency(
         .join("\n"),
     );
   }
-  const rootDir =
-    typeof project.compilerOptions.rootDir === "string"
-      ? project.compilerOptions.rootDir
-      : project.root;
-  const moduleOption =
-    typeof project.compilerOptions.module === "string"
-      ? project.compilerOptions.module
-      : undefined;
+  writeDependencyCacheMeta(metaPath, project);
+  return {
+    emitDir,
+    emittedFiles: undefined,
+    moduleOption: project.moduleOption,
+    rootDir: project.rootDir,
+  };
+}
+
+/**
+ * Fill a cache miss for a generated source. Try a narrow sibling-directory emit
+ * first so generated test corpora do not rebuild a large plugin project once
+ * per feature group. If that shape does not produce the requested file, fall
+ * back to the existing full-project rebuild.
+ */
+function buildMissingDependencySource(
+  tsconfig: string,
+  emitDir: string,
+  metaPath: string,
+  sourceFile: string,
+): BuiltProject {
+  const shard = tryBuildDependencySourceShard(
+    tsconfig,
+    emitDir,
+    metaPath,
+    sourceFile,
+  );
+  return shard ?? buildDependency(tsconfig, emitDir, metaPath);
+}
+
+function tryBuildDependencySourceShard(
+  tsconfig: string,
+  emitDir: string,
+  metaPath: string,
+  sourceFile: string,
+): BuiltProject | null {
+  const project = readDependencyProjectMeta(tsconfig);
+  const tempDir = fs.mkdtempSync(
+    path.join(dependencyCacheRoot(), "source-shard-"),
+  );
+  const tempConfig = path.join(tempDir, "tsconfig.json");
+  try {
+    fs.writeFileSync(
+      tempConfig,
+      JSON.stringify(
+        {
+          extends: tsconfig,
+          files: collectSiblingTypeScriptSources(sourceFile),
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    const result = runBuild({
+      cwd: project.projectRoot,
+      emit: true,
+      forceListEmittedFiles: true,
+      outDir: emitDir,
+      quiet: true,
+      skipDiagnosticsCheck: true,
+      tsconfig: tempConfig,
+    });
+    const built: BuiltProject = {
+      emitDir,
+      emittedFiles:
+        result.emittedFiles && result.emittedFiles.length !== 0
+          ? result.emittedFiles
+          : undefined,
+      moduleOption: project.moduleOption,
+      rootDir: project.rootDir,
+    };
+    const emitted = resolveEmittedJavaScript({
+      emittedFiles: built.emittedFiles,
+      outDir: built.emitDir,
+      projectRoot: built.rootDir,
+      sourceFile,
+    });
+    if (emitted === null || readFileOrNull(emitted) === null) {
+      return null;
+    }
+    writeDependencyCacheMeta(metaPath, project);
+    return built;
+  } catch {
+    return null;
+  } finally {
+    fs.rmSync(tempDir, { force: true, recursive: true });
+  }
+}
+
+interface DependencyProjectMeta {
+  moduleOption?: string;
+  projectRoot: string;
+  rootDir: string;
+}
+
+function readDependencyProjectMeta(tsconfig: string): DependencyProjectMeta {
+  const project = readProjectConfig({ cwd: path.dirname(tsconfig), tsconfig });
+  return {
+    moduleOption:
+      typeof project.compilerOptions.module === "string"
+        ? project.compilerOptions.module
+        : undefined,
+    projectRoot: project.root,
+    rootDir:
+      typeof project.compilerOptions.rootDir === "string"
+        ? project.compilerOptions.rootDir
+        : project.root,
+  };
+}
+
+function writeDependencyCacheMeta(
+  metaPath: string,
+  project: DependencyProjectMeta,
+): void {
   fs.writeFileSync(
     metaPath,
-    JSON.stringify({ moduleOption, rootDir } satisfies DependencyCacheMeta),
+    JSON.stringify({
+      moduleOption: project.moduleOption,
+      rootDir: project.rootDir,
+    } satisfies DependencyCacheMeta),
     "utf8",
   );
-  return { emitDir, emittedFiles: undefined, moduleOption, rootDir };
+}
+
+function collectSiblingTypeScriptSources(sourceFile: string): string[] {
+  const directory = path.dirname(sourceFile);
+  const siblings = fs
+    .readdirSync(directory)
+    .map((entry) => path.join(directory, entry))
+    .filter(
+      (candidate) => candidate === sourceFile || isTypeScriptSource(candidate),
+    )
+    .filter(isFile)
+    .sort();
+  return siblings.length === 0 ? [sourceFile] : siblings;
 }
 
 function dependencyCacheRoot(): string {
