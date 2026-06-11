@@ -1160,7 +1160,7 @@ function buildMissingDependencySource(
   sourceFile: string,
 ): BuiltProject {
   const sourceFiles = collectSiblingTypeScriptSources(sourceFile);
-  const transformed = tryTransformDependencySourceShard(
+  const transformed = tryTransformDependencySourceShardAdaptive(
     tsconfig,
     emitDir,
     metaPath,
@@ -1170,19 +1170,7 @@ function buildMissingDependencySource(
   if (transformed !== null) {
     return transformed;
   }
-  if (sourceFiles.length > 1) {
-    const single = tryTransformDependencySourceShard(
-      tsconfig,
-      emitDir,
-      metaPath,
-      sourceFile,
-      [sourceFile],
-    );
-    if (single !== null) {
-      return single;
-    }
-  }
-  const shard = tryBuildDependencySourceShard(
+  const shard = tryBuildDependencySourceShardAdaptive(
     tsconfig,
     emitDir,
     metaPath,
@@ -1192,19 +1180,36 @@ function buildMissingDependencySource(
   if (shard !== null) {
     return shard;
   }
-  if (sourceFiles.length > 1) {
-    const single = tryBuildDependencySourceShard(
-      tsconfig,
-      emitDir,
-      metaPath,
-      sourceFile,
-      [sourceFile],
-    );
-    if (single !== null) {
-      return single;
-    }
-  }
   return buildDependency(tsconfig, emitDir, metaPath);
+}
+
+function tryTransformDependencySourceShardAdaptive(
+  tsconfig: string,
+  emitDir: string,
+  metaPath: string,
+  sourceFile: string,
+  sourceFiles: readonly string[],
+): BuiltProject | null {
+  const transformed = tryTransformDependencySourceShard(
+    tsconfig,
+    emitDir,
+    metaPath,
+    sourceFile,
+    sourceFiles,
+  );
+  if (transformed !== null || sourceFiles.length <= 1) {
+    return transformed;
+  }
+  const narrowed = narrowSourceFilesToSourceHalf(sourceFiles, sourceFile);
+  return narrowed.length === sourceFiles.length
+    ? null
+    : tryTransformDependencySourceShardAdaptive(
+        tsconfig,
+        emitDir,
+        metaPath,
+        sourceFile,
+        narrowed,
+      );
 }
 
 function tryTransformDependencySourceShard(
@@ -1308,6 +1313,35 @@ function tryTransformDependencySourceShard(
   }
 }
 
+function tryBuildDependencySourceShardAdaptive(
+  tsconfig: string,
+  emitDir: string,
+  metaPath: string,
+  sourceFile: string,
+  sourceFiles: readonly string[],
+): BuiltProject | null {
+  const shard = tryBuildDependencySourceShard(
+    tsconfig,
+    emitDir,
+    metaPath,
+    sourceFile,
+    sourceFiles,
+  );
+  if (shard !== null || sourceFiles.length <= 1) {
+    return shard;
+  }
+  const narrowed = narrowSourceFilesToSourceHalf(sourceFiles, sourceFile);
+  return narrowed.length === sourceFiles.length
+    ? null
+    : tryBuildDependencySourceShardAdaptive(
+        tsconfig,
+        emitDir,
+        metaPath,
+        sourceFile,
+        narrowed,
+      );
+}
+
 function tryBuildDependencySourceShard(
   tsconfig: string,
   emitDir: string,
@@ -1409,7 +1443,7 @@ function writeDependencyCacheMeta(
 // Keep generated corpus refreshes bounded; large native transform batches can
 // outlive the caller's whole test job, while one-file refreshes repeat the
 // native program load for every generated file in the same feature directory.
-const MAX_DEPENDENCY_SOURCE_SHARD_FILES = 64;
+const MAX_DEPENDENCY_SOURCE_SHARD_FILES = 32;
 
 function collectSiblingTypeScriptSources(sourceFile: string): string[] {
   const directory = path.dirname(sourceFile);
@@ -1454,7 +1488,22 @@ function dependencyShardConfig(
 }
 
 function dependencyTransformShardTimeoutMs(): number {
-  return 10 * 60 * 1000;
+  // A generated-source shard is an optimistic fast path. If a native sidecar
+  // cannot finish it quickly, split the shard instead of blocking the caller.
+  return 90 * 1000;
+}
+
+function narrowSourceFilesToSourceHalf(
+  sourceFiles: readonly string[],
+  sourceFile: string,
+): readonly string[] {
+  const index = sourceFiles.indexOf(sourceFile);
+  if (index < 0) {
+    return [sourceFile];
+  }
+  const size = Math.ceil(sourceFiles.length / 2);
+  const start = Math.floor(index / size) * size;
+  return sourceFiles.slice(start, start + size);
 }
 
 function writeTransformedSources(

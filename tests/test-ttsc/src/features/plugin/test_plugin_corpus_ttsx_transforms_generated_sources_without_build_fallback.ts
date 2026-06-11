@@ -20,8 +20,9 @@ import {
  * 2. Use a native plugin whose `transform` command rewrites `cacheMarker(...)` but
  *    whose `build` command rejects generated runtime fallbacks.
  * 3. Assert small-batch failure falls back to single-file transform, large
- *    generated directories are transformed in bounded chunks, and every import
- *    prints transformed uppercase values.
+ *    generated directories split down to a passing bounded chunk instead of
+ *    single-file repetition, and every import prints transformed uppercase
+ *    values.
  */
 export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_fallback =
   () => {
@@ -66,6 +67,7 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
           `  path.join(dir, "third.ts"),`,
           `  'export const value = ' + marker + '("third");\\n',`,
           `);`,
+          `console.log(require("./generated/extra-0").value);`,
           `console.log(require("./generated/third").value);`,
           `const markerFile = path.join(__dirname, "..", "large-batch-transform-attempted.txt");`,
           `if (fs.existsSync(markerFile)) throw new Error("oversized generated transform batch was attempted");`,
@@ -87,6 +89,7 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
     assert.deepEqual(result.stdout.trim().split(/\r?\n/), [
       "FIRST",
       "SECOND",
+      "EXTRA-0",
       "THIRD",
     ]);
   };
@@ -166,14 +169,26 @@ func runTransform(args []string) int {
     return 2
   }
   generated := 0
+  hasExtraZero := false
   for _, file := range files {
     if strings.Contains(filepath.ToSlash(file), "/src/generated/") {
       generated++
     }
+    if strings.HasSuffix(filepath.ToSlash(file), "/src/generated/extra-0.ts") {
+      hasExtraZero = true
+    }
   }
-  if generated > 64 {
+  if generated > 32 {
     _ = os.WriteFile(filepath.Join(root, "large-batch-transform-attempted.txt"), []byte("oversized batch attempted\n"), 0o644)
     fmt.Fprintln(os.Stderr, "generated-transform-plugin: oversized generated batches should be chunked")
+    return 2
+  }
+  if generated > 16 {
+    fmt.Fprintln(os.Stderr, "generated-transform-plugin: large generated batches should be split")
+    return 2
+  }
+  if generated == 1 && hasExtraZero {
+    fmt.Fprintln(os.Stderr, "generated-transform-plugin: adaptive split should not fall back to a single extra file")
     return 2
   }
   if generated == 2 {
