@@ -54,7 +54,9 @@ func parseTS(t *testing.T, source string) *shimast.SourceFile {
 func parseTSFile(t *testing.T, fileName, source string) *shimast.SourceFile {
   t.Helper()
   opts := shimast.SourceFileParseOptions{
-    FileName: fileName,
+    // The tsgo parser asserts on normalized absolute paths; Windows
+    // t.TempDir() callers would otherwise panic it with backslashes.
+    FileName: filepath.ToSlash(fileName),
   }
   file := shimparser.ParseSourceFile(opts, source, shimcore.ScriptKindTS)
   if file == nil {
@@ -74,7 +76,8 @@ func parseTSFile(t *testing.T, fileName, source string) *shimast.SourceFile {
 func parseTSXFile(t *testing.T, fileName, source string) *shimast.SourceFile {
   t.Helper()
   opts := shimast.SourceFileParseOptions{
-    FileName: fileName,
+    // Same normalization as parseTSFile — see the comment there.
+    FileName: filepath.ToSlash(fileName),
   }
   file := shimparser.ParseSourceFile(opts, source, shimcore.ScriptKindTSX)
   if file == nil {

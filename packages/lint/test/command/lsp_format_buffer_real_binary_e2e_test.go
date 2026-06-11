@@ -200,8 +200,12 @@ func flattenedLintTestFilenames(t *testing.T) map[string]struct{} {
 }
 
 // retargetGoWorkRoot rewrites the `use` entry that points at oldRoot in the
-// go.work at path so it points at newRoot instead. go.work stores paths with
-// forward slashes (see scripts/test-go-lint.cjs), so both forms are matched.
+// go.work at path so it points at newRoot instead. scripts/test-go-lint.cjs
+// writes the scratch module entry as the self-relative "." (absolute temp
+// paths fail Go's workspace membership check on Windows), which after
+// copyTree already points at the copied module — nothing to rewrite then.
+// An absolute oldRoot entry (forward slashes, see the runner) is still
+// retargeted for older scratch layouts.
 func retargetGoWorkRoot(t *testing.T, path, oldRoot, newRoot string) {
   t.Helper()
   data, err := os.ReadFile(path)
@@ -213,11 +217,25 @@ func retargetGoWorkRoot(t *testing.T, path, oldRoot, newRoot string) {
   newSlash := filepath.ToSlash(newRoot)
   replaced := strings.ReplaceAll(text, oldSlash, newSlash)
   if replaced == text {
+    if hasSelfRelativeGoWorkUse(text) {
+      return
+    }
     t.Fatalf("go.work did not reference scratch root %q to retarget:\n%s", oldSlash, text)
   }
   if err := os.WriteFile(path, []byte(replaced), 0o644); err != nil {
     t.Fatalf("write go.work: %v", err)
   }
+}
+
+// hasSelfRelativeGoWorkUse reports whether the go.work text contains a
+// self-relative `use` entry ("." on its own line inside the use block).
+func hasSelfRelativeGoWorkUse(text string) bool {
+  for _, line := range strings.Split(text, "\n") {
+    if strings.TrimSpace(line) == "." {
+      return true
+    }
+  }
+  return false
 }
 
 // copyTree recursively copies the file tree at src into dst, preserving regular

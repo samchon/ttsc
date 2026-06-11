@@ -44,7 +44,10 @@ try {
   });
   copyGoTestsFlat(lintTestsDir, path.join(scratch, "linthost"));
 
-  const useDirs = [scratch];
+  // "." instead of the absolute scratch path: Windows Go canonicalizes the
+  // temp directory differently than Node spells it and rejects the absolute
+  // entry from the workspace (see scripts/test-go-lint.cjs).
+  const useDirs = ["."];
   if (fs.existsSync(path.join(ttscDir, "go.mod"))) useDirs.push(ttscDir);
   walkForGoMod(path.join(ttscDir, "shim"), useDirs);
 

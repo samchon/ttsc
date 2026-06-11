@@ -502,8 +502,11 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
 
   text := content
   converged := false
+  // The tsgo parser asserts on normalized (forward-slash) absolute paths;
+  // `target` comes from filepath.Abs and carries backslashes on Windows.
+  parseName := filepath.ToSlash(target)
   for pass := 0; pass < maxFormatPasses; pass++ {
-    file := shimparser.ParseSourceFile(shimast.SourceFileParseOptions{FileName: target}, text, scriptKind)
+    file := shimparser.ParseSourceFile(shimast.SourceFileParseOptions{FileName: parseName}, text, scriptKind)
     if file == nil {
       // Match the disk path: a buffer we can't parse is a benign no-op, not a
       // hard error — don't fight the editor's own diagnostics on a dirty buffer.

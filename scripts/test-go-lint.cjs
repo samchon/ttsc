@@ -48,7 +48,12 @@ try {
   //   - the lint package (whose tests we're running),
   //   - packages/ttsc itself (required for shim resolution),
   //   - every shim/* under packages/ttsc with a go.mod.
-  const useDirs = [scratch];
+  // The scratch module is referenced as "." rather than by absolute path:
+  // on Windows, Go canonicalizes the temp directory differently than
+  // Node's mkdtemp spells it, and the absolute entry fails the workspace
+  // membership check ("directory linthost is contained in a module that is
+  // not one of the workspace modules").
+  const useDirs = ["."];
   if (fs.existsSync(path.join(ttscDir, "go.mod"))) {
     useDirs.push(ttscDir);
   }
