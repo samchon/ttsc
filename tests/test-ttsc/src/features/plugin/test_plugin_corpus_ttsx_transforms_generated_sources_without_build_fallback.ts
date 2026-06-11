@@ -35,6 +35,11 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
         `,
         "go-plugin/go.mod": `module generated-transform-plugin\n\ngo 1.26\n`,
         "go-plugin/main.go": GO_PLUGIN,
+        "packages/other/package.json": JSON.stringify({
+          name: "other-package",
+          private: true,
+        }),
+        "packages/other/src/unrelated.ts": `export const value = cacheMarker("unrelated");\n`,
         ...prebuiltGeneratedSources(),
         "src/main.ts": [
           `const fs = require("node:fs");`,
@@ -69,6 +74,7 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
       {
         compilerOptions: {
           plugins: [{ transform: "./plugin.cjs" }],
+          rootDir: ".",
         },
       },
     );
@@ -174,6 +180,10 @@ func runTransform(args []string) int {
     slash := filepath.ToSlash(file)
     if strings.Contains(slash, "/src/generated/prebuilt-") {
       fmt.Fprintln(os.Stderr, "generated-transform-plugin: prebuilt siblings should not be retransformed")
+      return 2
+    }
+    if strings.Contains(slash, "/packages/other/") {
+      fmt.Fprintln(os.Stderr, "generated-transform-plugin: nested packages should not be transformed for generated source misses")
       return 2
     }
     if strings.HasSuffix(slash, "/src/generated/first.ts") {

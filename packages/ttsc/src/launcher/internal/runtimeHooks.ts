@@ -790,6 +790,14 @@ function isWithin(real: string, directory: string): boolean {
   return real.startsWith(prefix);
 }
 
+function samePath(left: string, right: string): boolean {
+  const normalizedLeft = path.resolve(left);
+  const normalizedRight = path.resolve(right);
+  return process.platform === "win32"
+    ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
+    : normalizedLeft === normalizedRight;
+}
+
 /**
  * Build the project that owns `real` (nearest `tsconfig.json` above its real
  * path) and return its emitted JavaScript, or `null` when no tsconfig owns it
@@ -1456,11 +1464,32 @@ function missingSourceScanRoot(sourceFile: string, rootDir: string): string {
   if (path.dirname(realRoot) === realRoot || !isWithin(realSource, realRoot)) {
     return path.dirname(sourceFile);
   }
-  return rootDir;
+  return nearestPackageRoot(realSource, realRoot) ?? rootDir;
+}
+
+function nearestPackageRoot(
+  sourceFile: string,
+  rootDir: string,
+): string | null {
+  let directory = path.dirname(sourceFile);
+  for (;;) {
+    if (isFile(path.join(directory, "package.json"))) {
+      return directory;
+    }
+    if (samePath(directory, rootDir)) {
+      return null;
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory || !isWithin(parent, rootDir)) {
+      return null;
+    }
+    directory = parent;
+  }
 }
 
 function collectTypeScriptSources(root: string): string[] {
   const sources: string[] = [];
+  const resolvedRoot = path.resolve(root);
   const stack = [root];
   while (stack.length !== 0) {
     const directory = stack.pop()!;
@@ -1473,7 +1502,10 @@ function collectTypeScriptSources(root: string): string[] {
     for (const entry of entries) {
       const candidate = path.join(directory, entry.name);
       if (entry.isDirectory()) {
-        if (!isSkippedSourceDirectory(entry.name)) {
+        if (
+          !isSkippedSourceDirectory(entry.name) &&
+          !isNestedPackageRoot(candidate, resolvedRoot)
+        ) {
           stack.push(candidate);
         }
       } else if (entry.isFile() && isRuntimeTypeScriptSource(candidate)) {
@@ -1486,6 +1518,13 @@ function collectTypeScriptSources(root: string): string[] {
 
 function isSkippedSourceDirectory(name: string): boolean {
   return name === ".git" || name === "node_modules";
+}
+
+function isNestedPackageRoot(directory: string, root: string): boolean {
+  const resolved = path.resolve(directory);
+  return (
+    !samePath(resolved, root) && isFile(path.join(resolved, "package.json"))
+  );
 }
 
 function isRuntimeTypeScriptSource(filename: string): boolean {
