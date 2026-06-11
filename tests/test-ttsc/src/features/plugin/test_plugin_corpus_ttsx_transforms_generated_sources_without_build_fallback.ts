@@ -10,19 +10,17 @@ import {
  * Verifies plugin corpus: ttsx transforms generated sources without build
  * fallback.
  *
- * Generated files created after ttsx's entry build must still receive transform
- * plugin output. This pins the source-to-source cache-miss path: the plugin's
- * `build` command intentionally fails once `src/generated` exists, so the test
- * only passes when the runtime miss is satisfied by the plugin `transform`
- * command and then emitted without plugins.
+ * Files created after ttsx's entry build must still receive transform plugin
+ * output. This pins the source-to-source cache-miss path: the entry marks
+ * runtime execution before writing new files, so the plugin's `build` command
+ * rejects any fallback rebuild after that point.
  *
  * 1. Build an entry that creates and requires generated TypeScript files.
  * 2. Use a native plugin whose `transform` command rewrites `cacheMarker(...)` but
- *    whose `build` command rejects generated runtime fallbacks.
- * 3. Assert small-batch failure falls back to single-file transform, large
- *    generated directories split down to a passing bounded chunk instead of
- *    single-file repetition, and every import prints transformed uppercase
- *    values.
+ *    whose runtime `build` fallback is rejected.
+ * 3. Assert already-emitted siblings are not re-transformed, simultaneously
+ *    generated misses are transformed together, and every import prints
+ *    transformed uppercase values.
  */
 export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_fallback =
   () => {
@@ -37,40 +35,32 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
         `,
         "go-plugin/go.mod": `module generated-transform-plugin\n\ngo 1.26\n`,
         "go-plugin/main.go": GO_PLUGIN,
+        ...prebuiltGeneratedSources(),
         "src/main.ts": [
           `const fs = require("node:fs");`,
           `const path = require("node:path");`,
           ``,
           `const dir = path.join(__dirname, "generated");`,
           `fs.mkdirSync(dir, { recursive: true });`,
+          `fs.writeFileSync(path.join(__dirname, "..", "runtime-started.txt"), "started\\n");`,
           `const marker = "cache" + "Marker";`,
           ``,
           `fs.writeFileSync(`,
           `  path.join(dir, "first.ts"),`,
           `  'export const value = ' + marker + '("first");\\n',`,
           `);`,
-          `console.log(require("./generated/first").value);`,
-          ``,
           `fs.writeFileSync(`,
           `  path.join(dir, "second.ts"),`,
           `  'export const value = ' + marker + '("second");\\n',`,
           `);`,
+          `console.log(require("./generated/first").value);`,
           `console.log(require("./generated/second").value);`,
           ``,
-          `for (let index = 0; index < 70; index += 1) {`,
-          `  fs.writeFileSync(`,
-          `    path.join(dir, "extra-" + index + ".ts"),`,
-          `    'export const value = ' + marker + '("extra-' + index + '");\\n',`,
-          `  );`,
-          `}`,
           `fs.writeFileSync(`,
           `  path.join(dir, "third.ts"),`,
           `  'export const value = ' + marker + '("third");\\n',`,
           `);`,
-          `console.log(require("./generated/extra-0").value);`,
           `console.log(require("./generated/third").value);`,
-          `const markerFile = path.join(__dirname, "..", "large-batch-transform-attempted.txt");`,
-          `if (fs.existsSync(markerFile)) throw new Error("oversized generated transform batch was attempted");`,
           ``,
         ].join("\n"),
       },
@@ -89,10 +79,18 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
     assert.deepEqual(result.stdout.trim().split(/\r?\n/), [
       "FIRST",
       "SECOND",
-      "EXTRA-0",
       "THIRD",
     ]);
   };
+
+function prebuiltGeneratedSources(): Record<string, string> {
+  const files: Record<string, string> = {};
+  for (let index = 0; index < 8; index += 1) {
+    files[`src/generated/prebuilt-${index}.ts`] =
+      `export const value = cacheMarker("prebuilt-${index}");\n`;
+  }
+  return files;
+}
 
 const GO_PLUGIN = String.raw`
 package main
@@ -146,7 +144,7 @@ func runBuild(args []string) int {
     return 2
   }
   root := projectRoot(*cwd)
-  if _, err := os.Stat(filepath.Join(root, "src", "generated")); err == nil {
+  if _, err := os.Stat(filepath.Join(root, "runtime-started.txt")); err == nil {
     fmt.Fprintln(os.Stderr, "generated-transform-plugin: build fallback should not run for generated sources")
     return 2
   }
@@ -168,31 +166,23 @@ func runTransform(args []string) int {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  generated := 0
-  hasExtraZero := false
+  hasFirst := false
+  hasSecond := false
   for _, file := range files {
-    if strings.Contains(filepath.ToSlash(file), "/src/generated/") {
-      generated++
+    slash := filepath.ToSlash(file)
+    if strings.Contains(slash, "/src/generated/prebuilt-") {
+      fmt.Fprintln(os.Stderr, "generated-transform-plugin: prebuilt siblings should not be retransformed")
+      return 2
     }
-    if strings.HasSuffix(filepath.ToSlash(file), "/src/generated/extra-0.ts") {
-      hasExtraZero = true
+    if strings.HasSuffix(slash, "/src/generated/first.ts") {
+      hasFirst = true
+    }
+    if strings.HasSuffix(slash, "/src/generated/second.ts") {
+      hasSecond = true
     }
   }
-  if generated > 32 {
-    _ = os.WriteFile(filepath.Join(root, "large-batch-transform-attempted.txt"), []byte("oversized batch attempted\n"), 0o644)
-    fmt.Fprintln(os.Stderr, "generated-transform-plugin: oversized generated batches should be chunked")
-    return 2
-  }
-  if generated > 16 {
-    fmt.Fprintln(os.Stderr, "generated-transform-plugin: large generated batches should be split")
-    return 2
-  }
-  if generated == 1 && hasExtraZero {
-    fmt.Fprintln(os.Stderr, "generated-transform-plugin: adaptive split should not fall back to a single extra file")
-    return 2
-  }
-  if generated == 2 {
-    fmt.Fprintln(os.Stderr, "generated-transform-plugin: batch transform should fall back to a single file")
+  if hasFirst != hasSecond {
+    fmt.Fprintln(os.Stderr, "generated-transform-plugin: files created together should be transformed together")
     return 2
   }
   typescript := map[string]string{}

@@ -16,7 +16,6 @@ export function spawnNative(
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     encoding?: BufferEncoding;
-    timeout?: number;
   },
 ) {
   const viaNode = /\.(?:[cm]?js|ts)$/i.test(binary);
@@ -31,7 +30,6 @@ export function spawnNative(
       encoding: options.encoding ?? "utf8",
       env: options.env,
       maxBuffer: 1024 * 1024 * 256,
-      timeout: options.timeout,
       windowsHide: true,
     },
   );
