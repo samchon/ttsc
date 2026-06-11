@@ -812,7 +812,7 @@ function serveDependencyEmit(real: string): ServedSource | null {
   });
   if (emitted === null) {
     try {
-      built = ensureProjectBuilt(tsconfig, true);
+      built = rebuildProjectForMissingSource(tsconfig, real);
     } catch {
       return null;
     }
@@ -855,44 +855,67 @@ interface DependencyCacheMeta {
  * (or a second import in this one) reuses, and concurrent first-builders are
  * serialised by an atomic lock directory.
  */
-function ensureProjectBuilt(
-  tsconfig: string,
-  force: boolean = false,
-): BuiltProject {
-  if (!force) {
-    const cached = builtProjects.get(tsconfig);
-    if (cached !== undefined) {
-      return cached;
-    }
+function ensureProjectBuilt(tsconfig: string): BuiltProject {
+  const cached = builtProjects.get(tsconfig);
+  if (cached !== undefined) {
+    return cached;
   }
+  const { emitDir, lockDir, metaPath, root } = dependencyCachePaths(tsconfig);
+
+  const reuse = readDependencyCache(emitDir, metaPath);
+  if (reuse !== null) {
+    builtProjects.set(tsconfig, reuse);
+    return reuse;
+  }
+
+  fs.mkdirSync(root, { recursive: true });
+  const built = withBuildLock(lockDir, metaPath, emitDir, () =>
+    buildDependency(tsconfig, emitDir, metaPath),
+  );
+  builtProjects.set(tsconfig, built);
+  return built;
+}
+
+/**
+ * Rebuild a dependency cache only when the exact runtime source is absent.
+ * Concurrent refreshes first wait for the active builder, then reuse its output
+ * if it now contains the requested source.
+ */
+function rebuildProjectForMissingSource(
+  tsconfig: string,
+  sourceFile: string,
+): BuiltProject {
+  const { emitDir, lockDir, metaPath, root } = dependencyCachePaths(tsconfig);
+  fs.mkdirSync(root, { recursive: true });
+  const built = withBuildLockForSource(
+    lockDir,
+    metaPath,
+    emitDir,
+    sourceFile,
+    () => buildDependency(tsconfig, emitDir, metaPath),
+  );
+  builtProjects.set(tsconfig, built);
+  return built;
+}
+
+function dependencyCachePaths(tsconfig: string): {
+  emitDir: string;
+  lockDir: string;
+  metaPath: string;
+  root: string;
+} {
   const key = crypto
     .createHash("sha256")
     .update(tsconfig)
     .digest("hex")
     .slice(0, 16);
   const root = dependencyCacheRoot();
-  const emitDir = path.join(root, key);
-  const metaPath = path.join(root, `${key}.json`);
-  const lockDir = path.join(root, `${key}.lock`);
-
-  if (!force) {
-    const reuse = readDependencyCache(emitDir, metaPath);
-    if (reuse !== null) {
-      builtProjects.set(tsconfig, reuse);
-      return reuse;
-    }
-  }
-
-  fs.mkdirSync(root, { recursive: true });
-  const built = withBuildLock(
-    lockDir,
-    metaPath,
-    emitDir,
-    () => buildDependency(tsconfig, emitDir, metaPath),
-    force,
-  );
-  builtProjects.set(tsconfig, built);
-  return built;
+  return {
+    emitDir: path.join(root, key),
+    lockDir: path.join(root, `${key}.lock`),
+    metaPath: path.join(root, `${key}.json`),
+    root,
+  };
 }
 
 /** Reuse a dependency another process (or an earlier import) already built. */
@@ -917,6 +940,24 @@ function readDependencyCache(
   };
 }
 
+function readDependencyCacheForSource(
+  emitDir: string,
+  metaPath: string,
+  sourceFile: string,
+): BuiltProject | null {
+  const cached = readDependencyCache(emitDir, metaPath);
+  if (cached === null) {
+    return null;
+  }
+  const emitted = resolveEmittedJavaScript({
+    emittedFiles: cached.emittedFiles,
+    outDir: cached.emitDir,
+    projectRoot: cached.rootDir,
+    sourceFile,
+  });
+  return emitted === null ? null : cached;
+}
+
 /**
  * Run `build` while holding an exclusive lock for this dependency, re-checking
  * the cache once the lock is held (a concurrent builder may have just
@@ -929,20 +970,12 @@ function withBuildLock(
   metaPath: string,
   emitDir: string,
   build: () => BuiltProject,
-  force: boolean = false,
 ): BuiltProject {
   const stealAfterMs = 600_000;
   for (;;) {
     try {
       fs.mkdirSync(lockDir);
     } catch {
-      if (force) {
-        if (waitForLockRelease(lockDir, stealAfterMs)) {
-          continue;
-        }
-        fs.rmSync(lockDir, { force: true, recursive: true });
-        continue;
-      }
       const waited = waitForDependencyCache(emitDir, metaPath, stealAfterMs);
       if (waited !== null) {
         return waited;
@@ -951,11 +984,48 @@ function withBuildLock(
       continue;
     }
     try {
-      if (!force) {
-        const reuse = readDependencyCache(emitDir, metaPath);
-        if (reuse !== null) {
-          return reuse;
-        }
+      const reuse = readDependencyCache(emitDir, metaPath);
+      if (reuse !== null) {
+        return reuse;
+      }
+      return build();
+    } finally {
+      fs.rmSync(lockDir, { force: true, recursive: true });
+    }
+  }
+}
+
+function withBuildLockForSource(
+  lockDir: string,
+  metaPath: string,
+  emitDir: string,
+  sourceFile: string,
+  build: () => BuiltProject,
+): BuiltProject {
+  const stealAfterMs = 600_000;
+  for (;;) {
+    try {
+      fs.mkdirSync(lockDir);
+    } catch {
+      const waited = waitForDependencyCacheForSource(
+        lockDir,
+        emitDir,
+        metaPath,
+        sourceFile,
+        stealAfterMs,
+      );
+      if (waited !== null) {
+        return waited;
+      }
+      if (fs.existsSync(lockDir)) {
+        fs.rmSync(lockDir, { force: true, recursive: true });
+      }
+      continue;
+    }
+    try {
+      const reuse = readDependencyCacheForSource(emitDir, metaPath, sourceFile);
+      if (reuse !== null) {
+        return reuse;
       }
       return build();
     } finally {
@@ -983,15 +1053,24 @@ function waitForDependencyCache(
   }
 }
 
-/** Wait for an in-flight forced rebuild to release its lock. */
-function waitForLockRelease(lockDir: string, timeoutMs: number): boolean {
+function waitForDependencyCacheForSource(
+  lockDir: string,
+  emitDir: string,
+  metaPath: string,
+  sourceFile: string,
+  timeoutMs: number,
+): BuiltProject | null {
   const startedAt = Date.now();
   for (;;) {
+    const reuse = readDependencyCacheForSource(emitDir, metaPath, sourceFile);
+    if (reuse !== null) {
+      return reuse;
+    }
     if (!fs.existsSync(lockDir)) {
-      return true;
+      return null;
     }
     if (Date.now() - startedAt > timeoutMs) {
-      return false;
+      return null;
     }
     sleepSync(50);
   }
@@ -1009,6 +1088,7 @@ function buildDependency(
   metaPath: string,
 ): BuiltProject {
   const project = readProjectConfig({ cwd: path.dirname(tsconfig), tsconfig });
+  fs.rmSync(metaPath, { force: true });
   fs.rmSync(emitDir, { force: true, recursive: true });
   const result = runBuild({
     cwd: project.root,
