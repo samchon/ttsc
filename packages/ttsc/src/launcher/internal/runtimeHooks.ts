@@ -7,6 +7,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import {
+  type EmittedJavaScriptResolver,
+  createEmittedJavaScriptResolver,
   listEmittedJavaScriptFiles,
   resolveEmittedJavaScript,
 } from "../../compiler/internal/resolveEmittedJavaScript";
@@ -1430,12 +1432,18 @@ function collectMissingProjectTypeScriptSources(
   rootDir: string,
 ): string[] {
   const scanRoot = missingSourceScanRoot(sourceFile, rootDir);
+  const emittedResolver = createEmittedJavaScriptResolver({
+    emittedFiles,
+    outDir: emitDir,
+    projectRoot: rootDir,
+    scanOutDir: false,
+  });
   const missing = collectTypeScriptSources(scanRoot)
     .filter(
       // Entry-project sources may already be served from the manifest emitDir
       // even though the runtime dependency cache has never seen them.
       (candidate) =>
-        emittedJavaScriptMissing(candidate, emitDir, emittedFiles, rootDir) &&
+        emittedJavaScriptMissing(candidate, emittedResolver) &&
         serveEntryEmit(realPath(candidate)) === null,
     )
     .sort();
@@ -1486,17 +1494,9 @@ function isRuntimeTypeScriptSource(filename: string): boolean {
 
 function emittedJavaScriptMissing(
   sourceFile: string,
-  emitDir: string,
-  emittedFiles: readonly string[],
-  rootDir: string,
+  emittedResolver: EmittedJavaScriptResolver,
 ): boolean {
-  const emitted = resolveEmittedJavaScript({
-    emittedFiles,
-    outDir: emitDir,
-    projectRoot: rootDir,
-    scanOutDir: false,
-    sourceFile,
-  });
+  const emitted = emittedResolver.resolve(sourceFile);
   return readFileOrNull(emitted) === null;
 }
 
