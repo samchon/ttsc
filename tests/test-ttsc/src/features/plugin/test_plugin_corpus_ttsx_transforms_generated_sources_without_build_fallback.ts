@@ -16,10 +16,12 @@ import {
  * only passes when the runtime miss is satisfied by the plugin `transform`
  * command and then emitted without plugins.
  *
- * 1. Build an entry that creates and requires two generated TypeScript files.
+ * 1. Build an entry that creates and requires generated TypeScript files.
  * 2. Use a native plugin whose `transform` command rewrites `cacheMarker(...)` but
  *    whose `build` command rejects generated runtime fallbacks.
- * 3. Assert both generated imports print transformed uppercase values.
+ * 3. Assert small-batch failure falls back to single-file transform, large
+ *    generated directories skip the batch attempt, and every import prints
+ *    transformed uppercase values.
  */
 export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_fallback =
   () => {
@@ -54,6 +56,20 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
           `);`,
           `console.log(require("./generated/second").value);`,
           ``,
+          `for (let index = 0; index < 20; index += 1) {`,
+          `  fs.writeFileSync(`,
+          `    path.join(dir, "extra-" + index + ".ts"),`,
+          `    'export const value = ' + marker + '("extra-' + index + '");\\n',`,
+          `  );`,
+          `}`,
+          `fs.writeFileSync(`,
+          `  path.join(dir, "third.ts"),`,
+          `  'export const value = ' + marker + '("third");\\n',`,
+          `);`,
+          `console.log(require("./generated/third").value);`,
+          `const markerFile = path.join(__dirname, "..", "large-batch-transform-attempted.txt");`,
+          `if (fs.existsSync(markerFile)) throw new Error("large generated transform batch was attempted");`,
+          ``,
         ].join("\n"),
       },
       {
@@ -68,7 +84,11 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
       env: { PATH: goPath() },
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.deepEqual(result.stdout.trim().split(/\r?\n/), ["FIRST", "SECOND"]);
+    assert.deepEqual(result.stdout.trim().split(/\r?\n/), [
+      "FIRST",
+      "SECOND",
+      "THIRD",
+    ]);
   };
 
 const GO_PLUGIN = String.raw`
@@ -150,6 +170,11 @@ func runTransform(args []string) int {
     if strings.Contains(filepath.ToSlash(file), "/src/generated/") {
       generated++
     }
+  }
+  if generated > 16 {
+    _ = os.WriteFile(filepath.Join(root, "large-batch-transform-attempted.txt"), []byte("large batch attempted\n"), 0o644)
+    fmt.Fprintln(os.Stderr, "generated-transform-plugin: large generated batches should be skipped")
+    return 2
   }
   if generated > 1 {
     fmt.Fprintln(os.Stderr, "generated-transform-plugin: batch transform should fall back to a single file")

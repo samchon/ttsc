@@ -1406,6 +1406,10 @@ function writeDependencyCacheMeta(
   );
 }
 
+// Keep generated corpus refreshes bounded; large native transform batches can
+// outlive the caller's whole test job before the single-file fallback runs.
+const MAX_DEPENDENCY_SOURCE_SHARD_FILES = 16;
+
 function collectSiblingTypeScriptSources(sourceFile: string): string[] {
   const directory = path.dirname(sourceFile);
   const siblings = fs
@@ -1416,7 +1420,12 @@ function collectSiblingTypeScriptSources(sourceFile: string): string[] {
     )
     .filter(isFile)
     .sort();
-  return siblings.length === 0 ? [sourceFile] : siblings;
+  if (siblings.length === 0) {
+    return [sourceFile];
+  }
+  return siblings.length > MAX_DEPENDENCY_SOURCE_SHARD_FILES
+    ? [sourceFile]
+    : siblings;
 }
 
 function dependencyShardConfig(
