@@ -1207,6 +1207,8 @@ function buildMissingDependencySource(
     emitDir,
     emittedFiles,
     project.rootDir,
+    dependencyCacheCompletedAt(metaPath) ??
+      (isEntryProjectTsconfig(tsconfig) ? runtimeManifestCompletedAt() : null),
   );
   const shard = tryBuildDependencySourceShard(
     project,
@@ -1433,11 +1435,31 @@ function writeDependencyCacheMeta(
   );
 }
 
+function dependencyCacheCompletedAt(metaPath: string): number | null {
+  return fileModifiedAt(metaPath);
+}
+
+function runtimeManifestCompletedAt(): number | null {
+  const manifestPath = process.env.TTSX_RUNTIME_MANIFEST;
+  return manifestPath === undefined || manifestPath.length === 0
+    ? null
+    : fileModifiedAt(manifestPath);
+}
+
+function fileModifiedAt(file: string): number | null {
+  try {
+    return fs.statSync(file).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
 function collectMissingProjectTypeScriptSources(
   sourceFile: string,
   emitDir: string,
   emittedFiles: readonly string[],
   rootDir: string,
+  cacheCompletedAt: number | null,
 ): string[] {
   const scanRoot = missingSourceScanRoot(sourceFile, rootDir);
   const emittedResolver = createEmittedJavaScriptResolver({
@@ -1446,16 +1468,49 @@ function collectMissingProjectTypeScriptSources(
     projectRoot: rootDir,
     scanOutDir: false,
   });
+  const requestedSource = realPath(sourceFile);
   const missing = collectTypeScriptSources(scanRoot)
     .filter(
-      // Entry-project sources may already be served from the manifest emitDir
-      // even though the runtime dependency cache has never seen them.
-      (candidate) =>
-        emittedJavaScriptMissing(candidate, emittedResolver) &&
-        serveEntryEmit(realPath(candidate)) === null,
+      // The cache marker is the dependency meta file, or the runtime manifest
+      // for entry-project misses before a dependency meta exists. Sources older
+      // than that marker are ordinary project files the owning tsconfig chose
+      // not to emit; runtime miss batching should only add files that can have
+      // appeared after the completed build. The requested source is kept
+      // regardless so a low-resolution filesystem clock cannot hide it.
+      (candidate) => {
+        const realCandidate = realPath(candidate);
+        if (
+          !samePath(realCandidate, requestedSource) &&
+          !sourceMayPostdateDependencyCache(realCandidate, cacheCompletedAt)
+        ) {
+          return false;
+        }
+        // Entry-project sources may already be served from the manifest emitDir
+        // even though the runtime dependency cache has never seen them.
+        return (
+          emittedJavaScriptMissing(realCandidate, emittedResolver) &&
+          serveEntryEmit(realCandidate) === null
+        );
+      },
     )
     .sort();
-  return missing.includes(sourceFile) ? missing : [sourceFile];
+  return missing.some((candidate) => samePath(candidate, sourceFile))
+    ? missing
+    : [sourceFile];
+}
+
+function sourceMayPostdateDependencyCache(
+  sourceFile: string,
+  cacheCompletedAt: number | null,
+): boolean {
+  if (cacheCompletedAt === null) {
+    return true;
+  }
+  try {
+    return fs.statSync(sourceFile).mtimeMs >= cacheCompletedAt;
+  } catch {
+    return false;
+  }
 }
 
 function missingSourceScanRoot(sourceFile: string, rootDir: string): string {

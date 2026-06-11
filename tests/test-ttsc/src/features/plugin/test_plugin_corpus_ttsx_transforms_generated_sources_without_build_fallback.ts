@@ -19,8 +19,9 @@ import {
  * 2. Use a native plugin whose `transform` command rewrites `cacheMarker(...)` but
  *    whose runtime `build` fallback is rejected.
  * 3. Assert already-emitted sources are not re-transformed, simultaneously
- *    generated misses in different directories are transformed together, and
- *    every import prints transformed uppercase values.
+ *    generated misses in different directories are transformed together,
+ *    pre-existing unbuilt files stay out of the miss batch, and every import
+ *    prints transformed uppercase values.
  */
 export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_fallback =
   () => {
@@ -40,6 +41,7 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
           private: true,
         }),
         "packages/other/src/unrelated.ts": `export const value = cacheMarker("unrelated");\n`,
+        "legacy/unrelated.ts": `export const value = cacheMarker("legacy");\n`,
         ...prebuiltGeneratedSources(),
         "src/main.ts": [
           `const fs = require("node:fs");`,
@@ -184,6 +186,10 @@ func runTransform(args []string) int {
     }
     if strings.Contains(slash, "/packages/other/") {
       fmt.Fprintln(os.Stderr, "generated-transform-plugin: nested packages should not be transformed for generated source misses")
+      return 2
+    }
+    if strings.Contains(slash, "/legacy/") {
+      fmt.Fprintln(os.Stderr, "generated-transform-plugin: pre-existing unbuilt sources should not be transformed for generated source misses")
       return 2
     }
     if strings.HasSuffix(slash, "/src/generated/first.ts") {
