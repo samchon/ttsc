@@ -20,8 +20,8 @@ import {
  * 2. Use a native plugin whose `transform` command rewrites `cacheMarker(...)` but
  *    whose `build` command rejects generated runtime fallbacks.
  * 3. Assert small-batch failure falls back to single-file transform, large
- *    generated directories skip the batch attempt, and every import prints
- *    transformed uppercase values.
+ *    generated directories are transformed in bounded chunks, and every import
+ *    prints transformed uppercase values.
  */
 export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_fallback =
   () => {
@@ -68,7 +68,7 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
           `);`,
           `console.log(require("./generated/third").value);`,
           `const markerFile = path.join(__dirname, "..", "large-batch-transform-attempted.txt");`,
-          `if (fs.existsSync(markerFile)) throw new Error("large generated transform batch was attempted");`,
+          `if (fs.existsSync(markerFile)) throw new Error("oversized generated transform batch was attempted");`,
           ``,
         ].join("\n"),
       },
@@ -172,11 +172,11 @@ func runTransform(args []string) int {
     }
   }
   if generated > 16 {
-    _ = os.WriteFile(filepath.Join(root, "large-batch-transform-attempted.txt"), []byte("large batch attempted\n"), 0o644)
-    fmt.Fprintln(os.Stderr, "generated-transform-plugin: large generated batches should be skipped")
+    _ = os.WriteFile(filepath.Join(root, "large-batch-transform-attempted.txt"), []byte("oversized batch attempted\n"), 0o644)
+    fmt.Fprintln(os.Stderr, "generated-transform-plugin: oversized generated batches should be chunked")
     return 2
   }
-  if generated > 1 {
+  if generated == 2 {
     fmt.Fprintln(os.Stderr, "generated-transform-plugin: batch transform should fall back to a single file")
     return 2
   }
