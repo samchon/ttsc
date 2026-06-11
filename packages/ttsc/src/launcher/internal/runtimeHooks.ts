@@ -1409,7 +1409,7 @@ function writeDependencyCacheMeta(
 // Keep generated corpus refreshes bounded; large native transform batches can
 // outlive the caller's whole test job, while one-file refreshes repeat the
 // native program load for every generated file in the same feature directory.
-const MAX_DEPENDENCY_SOURCE_SHARD_FILES = 16;
+const MAX_DEPENDENCY_SOURCE_SHARD_FILES = 64;
 
 function collectSiblingTypeScriptSources(sourceFile: string): string[] {
   const directory = path.dirname(sourceFile);

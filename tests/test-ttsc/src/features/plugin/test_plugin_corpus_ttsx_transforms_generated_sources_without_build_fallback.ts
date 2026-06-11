@@ -56,7 +56,7 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
           `);`,
           `console.log(require("./generated/second").value);`,
           ``,
-          `for (let index = 0; index < 20; index += 1) {`,
+          `for (let index = 0; index < 70; index += 1) {`,
           `  fs.writeFileSync(`,
           `    path.join(dir, "extra-" + index + ".ts"),`,
           `    'export const value = ' + marker + '("extra-' + index + '");\\n',`,
@@ -171,7 +171,7 @@ func runTransform(args []string) int {
       generated++
     }
   }
-  if generated > 16 {
+  if generated > 64 {
     _ = os.WriteFile(filepath.Join(root, "large-batch-transform-attempted.txt"), []byte("oversized batch attempted\n"), 0o644)
     fmt.Fprintln(os.Stderr, "generated-transform-plugin: oversized generated batches should be chunked")
     return 2
