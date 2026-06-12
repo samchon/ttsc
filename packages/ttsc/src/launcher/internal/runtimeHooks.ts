@@ -1205,15 +1205,16 @@ function buildDependency(
 
 /**
  * Fill a cache miss for a source that appeared after the owning project was
- * built. Prefer the plugin build path because the runtime needs JavaScript
- * emitted under the original tsconfig. Entry-project replays stay on the build
- * path; other dependency refreshes may still fall back to a source-to-source
- * transform when a plugin cannot build the narrow source set directly.
+ * built. Entry-project replays prefer the source-to-source path: it preserves
+ * transform hosts whose JavaScript emit path is not equivalent to their source
+ * transform path for runtime-generated files. Other dependency
+ * refreshes still prefer the build path because the runtime needs JavaScript
+ * emitted under the dependency's own tsconfig.
  *
  * Only sources whose emitted JavaScript is absent are refreshed. Entry-project
- * replay batches the current miss set so a generated feature directory pays
- * one native build; if that batch cannot build, it falls back to the requested
- * source and lets TypeScript pull in that file's import graph.
+ * replay batches the current miss set so a generated feature directory pays one
+ * native transform; if that batch cannot build, the fallback paths let
+ * TypeScript pull in the requested file's import graph.
  */
 function buildMissingDependencySource(
   tsconfig: string,
@@ -1222,8 +1223,7 @@ function buildMissingDependencySource(
   sourceFile: string,
 ): BuiltProject {
   const project = readDependencyProjectMeta(tsconfig);
-  const replayEntryProjectPlugins = shouldReplayEntryProjectPlugins(tsconfig);
-  const requestedSourceFiles = [sourceFile];
+  const replayTransformFirst = shouldReplayEntryProjectTransform(tsconfig);
   const emittedFiles = listEmittedJavaScriptFiles(emitDir);
   const sourceFiles = collectMissingProjectTypeScriptSources(
     sourceFile,
@@ -1233,6 +1233,19 @@ function buildMissingDependencySource(
     dependencyCacheCompletedAt(metaPath) ??
       (isEntryProjectTsconfig(tsconfig) ? runtimeManifestCompletedAt() : null),
   );
+  if (replayTransformFirst) {
+    const transformed = tryTransformDependencySourceShard(
+      project,
+      tsconfig,
+      emitDir,
+      metaPath,
+      sourceFile,
+      sourceFiles,
+    );
+    if (transformed !== null) {
+      return transformed;
+    }
+  }
   const shard = tryBuildDependencySourceShard(
     project,
     tsconfig,
@@ -1244,27 +1257,14 @@ function buildMissingDependencySource(
   if (shard !== null) {
     return shard;
   }
-  if (replayEntryProjectPlugins && sourceFiles.length !== 1) {
-    const requestedShard = tryBuildDependencySourceShard(
-      project,
-      tsconfig,
-      emitDir,
-      metaPath,
-      sourceFile,
-      requestedSourceFiles,
-    );
-    if (requestedShard !== null) {
-      return requestedShard;
-    }
-  }
-  if (!replayEntryProjectPlugins) {
+  if (!replayTransformFirst) {
     const transformed = tryTransformDependencySourceShard(
       project,
       tsconfig,
       emitDir,
       metaPath,
       sourceFile,
-      requestedSourceFiles,
+      sourceFiles,
     );
     if (transformed !== null) {
       return transformed;
@@ -1273,7 +1273,7 @@ function buildMissingDependencySource(
   return buildDependency(tsconfig, emitDir, metaPath);
 }
 
-function shouldReplayEntryProjectPlugins(tsconfig: string): boolean {
+function shouldReplayEntryProjectTransform(tsconfig: string): boolean {
   if (!isEntryProjectTsconfig(tsconfig)) {
     return false;
   }
