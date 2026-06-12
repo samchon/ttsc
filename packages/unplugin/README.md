@@ -118,6 +118,28 @@ const nextConfig = {
 export default withTtsc(nextConfig);
 ```
 
+`withTtsc` covers Next.js builds that go through webpack. When Next.js runs on Turbopack (`next dev --turbopack`), wire the Turbopack loader rules below instead.
+
+### Turbopack
+
+Turbopack has no JS plugin API, but it runs webpack loaders through `turbopack.rules` — and a ttsc transform is exactly loader-shaped (TypeScript source in, transformed source out). `@ttsc/unplugin/turbopack` is that standalone loader:
+
+```js
+// next.config.mjs
+/** @type {import("next").NextConfig} */
+const nextConfig = {
+  turbopack: {
+    rules: {
+      "*.ts": { loaders: ["@ttsc/unplugin/turbopack"] },
+      "*.tsx": { loaders: ["@ttsc/unplugin/turbopack"] },
+    },
+  },
+};
+export default nextConfig;
+```
+
+Pass options through the rule's `options` object: `{ loader: "@ttsc/unplugin/turbopack", options: { project: "tsconfig.build.json" } }`. The loader keeps a per-worker compiler cache (Turbopack runs loaders in a worker pool) and returns the source unchanged for declaration files, `node_modules` paths, and transforms that produce no change.
+
 ### Farm
 
 ```ts
@@ -253,11 +275,12 @@ Supported entrypoints are:
 - `@ttsc/unplugin/rolldown`
 - `@ttsc/unplugin/webpack`
 - `@ttsc/unplugin/rspack`
+- `@ttsc/unplugin/turbopack`
 - `@ttsc/unplugin/farm`
 - `@ttsc/unplugin/next`
 - `@ttsc/unplugin/bun`
 
-Each entrypoint supports ESM import and CJS require. In CommonJS configs, read the default export from `require("@ttsc/unplugin/vite").default`.
+Each entrypoint supports ESM import and CJS require. In CommonJS configs, read the default export from `require("@ttsc/unplugin/vite").default`. `@ttsc/unplugin/turbopack` is not an unplugin factory but a standalone webpack loader — reference it by module name inside `turbopack.rules` instead of calling it.
 
 ### Options
 

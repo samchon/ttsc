@@ -51,6 +51,11 @@
       "import": "./lib/rspack.mjs",
       "default": "./lib/rspack.js"
     },
+    "./turbopack": {
+      "types": "./lib/turbopack.d.ts",
+      "import": "./lib/turbopack.mjs",
+      "default": "./lib/turbopack.js"
+    },
     "./vite": {
       "types": "./lib/vite.d.ts",
       "import": "./lib/vite.mjs",

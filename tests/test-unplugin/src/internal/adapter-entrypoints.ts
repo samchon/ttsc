@@ -55,6 +55,7 @@ async function assertAdapterEntrypointsSupportEsmDefaultImport() {
     "rolldown",
     "rollup",
     "rspack",
+    "turbopack",
     "vite",
     "webpack",
   ]) {
@@ -82,6 +83,7 @@ function assertAdapterEntrypointsSupportCjsRequire() {
     "rolldown",
     "rollup",
     "rspack",
+    "turbopack",
     "vite",
     "webpack",
   ]) {

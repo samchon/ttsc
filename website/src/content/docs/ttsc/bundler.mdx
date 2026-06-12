@@ -77,6 +77,26 @@ export default withTtsc({
 });
 ```
 
+`withTtsc` covers the webpack path. On Turbopack (`next dev --turbopack`), use the loader rules below instead.
+
+## Turbopack
+
+Turbopack has no JS plugin API, but it runs webpack loaders through `turbopack.rules`, and a ttsc transform is loader-shaped: TypeScript source in, transformed source out. Reference the standalone loader by module name (do not call it):
+
+```js
+// next.config.mjs
+export default {
+  turbopack: {
+    rules: {
+      "*.ts": { loaders: ["@ttsc/unplugin/turbopack"] },
+      "*.tsx": { loaders: ["@ttsc/unplugin/turbopack"] },
+    },
+  },
+};
+```
+
+Options go through the rule's `options` object (`{ loader: "@ttsc/unplugin/turbopack", options: { project: "tsconfig.build.json" } }`).
+
 ## Farm
 
 ```ts
