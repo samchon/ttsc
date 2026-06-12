@@ -176,7 +176,7 @@ function installCommonJsHook(): void {
     module: { _compile(source: string, filename: string): void },
     filename: string,
   ): void => {
-    module._compile(resolveRuntimeSource(filename).source, filename);
+    module._compile(resolveServedSource(filename).source, filename);
   };
   for (const extension of [".ts", ".tsx", ".cts"]) {
     extensions[extension] = compile;
