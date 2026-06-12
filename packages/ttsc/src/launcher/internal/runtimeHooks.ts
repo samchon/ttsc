@@ -16,6 +16,7 @@ import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
 import { transformProjectInMemory } from "../../compiler/internal/transformProjectInMemory";
+import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 
 /**
  * Synchronous Node module hooks installed (via `module.registerHooks`) in the
@@ -112,6 +113,8 @@ interface RuntimeManifest {
   emittedFiles?: readonly string[];
   /** The entry tsconfig's `module` option, deciding emit CJS/ESM per file. */
   moduleOption?: string;
+  /** Native plugins already resolved and built for the entry project. */
+  nativePlugins?: readonly ITtscLoadedNativePlugin[];
   /** Root directory for per-dependency build output. */
   depCacheDir: string;
 }
@@ -1152,6 +1155,7 @@ function buildDependency(
   fs.rmSync(metaPath, { force: true });
   fs.rmSync(emitDir, { force: true, recursive: true });
   const result = runBuild({
+    nativePlugins: runtimeNativePluginsFor(tsconfig),
     cwd: project.projectRoot,
     emit: true,
     forceListEmittedFiles: true,
@@ -1376,6 +1380,7 @@ function tryBuildDependencySourceShard(
       cwd: project.projectRoot,
       emit: true,
       forceListEmittedFiles: true,
+      nativePlugins: runtimeNativePluginsFor(tsconfig),
       outDir: emitDir,
       projectRoot: project.projectRoot,
       quiet: true,
@@ -1714,6 +1719,21 @@ function isEntryProjectTsconfig(tsconfig: string): boolean {
     realPath(path.dirname(tsconfig)).toLowerCase() ===
       realPath(m.projectRoot).toLowerCase()
   );
+}
+
+function runtimeNativePluginsFor(
+  tsconfig: string,
+): readonly ITtscLoadedNativePlugin[] | undefined {
+  const m = manifest();
+  if (
+    m === null ||
+    m.nativePlugins === undefined ||
+    m.nativePlugins.length === 0 ||
+    !isEntryProjectTsconfig(tsconfig)
+  ) {
+    return undefined;
+  }
+  return m.nativePlugins;
 }
 
 /** Owning-tsconfig cache keyed by directory, mirroring `packageTypeCache`. */

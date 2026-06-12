@@ -277,6 +277,7 @@ function runPreparedEntry(
         emitDir: execution.emitDir,
         emittedFiles: execution.emittedFiles,
         moduleOption: execution.moduleOption,
+        nativePlugins: execution.nativePlugins,
         projectRoot: execution.projectRoot,
         rootDir: execution.rootDir,
       }),

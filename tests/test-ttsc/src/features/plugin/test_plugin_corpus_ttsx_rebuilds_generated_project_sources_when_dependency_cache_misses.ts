@@ -31,10 +31,17 @@ export const test_plugin_corpus_ttsx_rebuilds_generated_project_sources_when_dep
     const root = commonJsProject(
       {
         "plugin.cjs": `
+          const fs = require("node:fs");
           const path = require("node:path");
           module.exports = (context) => {
             const expected = path.resolve(__dirname);
             const actual = path.resolve(context.projectRoot);
+            if (fs.existsSync(path.join(__dirname, "runtime-started.txt"))) {
+              throw new Error(
+                "generated-cache-plugin: runtime source shards should reuse " +
+                  "the loaded native plugin",
+              );
+            }
             if (actual !== expected) {
               throw new Error(
                 "generated-cache-plugin: expected projectRoot " +
