@@ -798,18 +798,13 @@ function serveDependencyEmit(real: string): ServedSource | null {
   }
   let built: BuiltProject;
   try {
-    built = ensureProjectBuilt(tsconfig);
+    built = ensureProjectBuilt(tsconfig, real);
   } catch {
     // The owning project produced no emit at all; fall back to type-stripping
     // this single file rather than failing the whole run.
     return null;
   }
-  const emitted = resolveEmittedJavaScript({
-    emittedFiles: built.emittedFiles,
-    outDir: built.emitDir,
-    projectRoot: built.rootDir,
-    sourceFile: real,
-  });
+  const emitted = resolveBuiltJavaScript(built, real);
   if (emitted === null) {
     return null;
   }
@@ -830,21 +825,31 @@ interface DependencyCacheMeta {
   moduleOption?: string;
 }
 
+interface DependencyProjectMeta {
+  moduleOption?: string;
+  projectRoot: string;
+  rootDir: string;
+}
+
 /**
- * Build the project that owns a dependency once per run and share the result
- * across every process the program spawns.
+ * Build the project that owns a dependency and share the result across every
+ * process the program spawns.
  *
  * A program (a benchmark, a worker pool) can fan out into many child processes,
  * each of which inherits the runtime manifest and would otherwise rebuild every
  * dependency from scratch — and worse, several at once into the same directory,
  * corrupting each other. So the build output is content-keyed under the shared
  * per-run cache: a finished build leaves a meta marker that any later process
- * (or a second import in this one) reuses, and concurrent first-builders are
- * serialised by an atomic lock directory.
+ * (or a second import in this one) reuses only when it contains the requested
+ * source's emitted JavaScript. Runtime-generated sources that appear after the
+ * first build extend the same cache under the same atomic lock.
  */
-function ensureProjectBuilt(tsconfig: string): BuiltProject {
+function ensureProjectBuilt(tsconfig: string, sourceFile: string): BuiltProject {
   const cached = builtProjects.get(tsconfig);
-  if (cached !== undefined) {
+  if (
+    cached !== undefined &&
+    resolveBuiltJavaScript(cached, sourceFile) !== null
+  ) {
     return cached;
   }
   const key = crypto
@@ -857,18 +862,42 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
   const metaPath = path.join(root, `${key}.json`);
   const lockDir = path.join(root, `${key}.lock`);
 
-  const reuse = readDependencyCache(emitDir, metaPath);
+  const reuse = readDependencyCacheForSource(emitDir, metaPath, sourceFile);
   if (reuse !== null) {
     builtProjects.set(tsconfig, reuse);
     return reuse;
   }
 
   fs.mkdirSync(root, { recursive: true });
-  const built = withBuildLock(lockDir, metaPath, emitDir, () =>
-    buildDependency(tsconfig, emitDir, metaPath),
+  const built = withBuildLock(lockDir, metaPath, emitDir, sourceFile, () =>
+    buildDependencyForSource(tsconfig, emitDir, metaPath, sourceFile),
   );
   builtProjects.set(tsconfig, built);
   return built;
+}
+
+function resolveBuiltJavaScript(
+  built: BuiltProject,
+  sourceFile: string,
+): string | null {
+  const emitted = resolveEmittedJavaScript({
+    emittedFiles: built.emittedFiles,
+    outDir: built.emitDir,
+    projectRoot: built.rootDir,
+    sourceFile,
+  });
+  return readFileOrNull(emitted) === null ? null : emitted;
+}
+
+function readDependencyCacheForSource(
+  emitDir: string,
+  metaPath: string,
+  sourceFile: string,
+): BuiltProject | null {
+  const reuse = readDependencyCache(emitDir, metaPath);
+  return reuse !== null && resolveBuiltJavaScript(reuse, sourceFile) !== null
+    ? reuse
+    : null;
 }
 
 /** Reuse a dependency another process (or an earlier import) already built. */
@@ -904,6 +933,7 @@ function withBuildLock(
   lockDir: string,
   metaPath: string,
   emitDir: string,
+  sourceFile: string,
   build: () => BuiltProject,
 ): BuiltProject {
   const stealAfterMs = 600_000;
@@ -911,15 +941,28 @@ function withBuildLock(
     try {
       fs.mkdirSync(lockDir);
     } catch {
-      const waited = waitForDependencyCache(emitDir, metaPath, stealAfterMs);
+      const waited = waitForDependencyCache(
+        lockDir,
+        emitDir,
+        metaPath,
+        sourceFile,
+        stealAfterMs,
+      );
       if (waited !== null) {
+        if (waited === "timeout") {
+          fs.rmSync(lockDir, { force: true, recursive: true });
+          continue;
+        }
         return waited;
       }
-      fs.rmSync(lockDir, { force: true, recursive: true });
       continue;
     }
     try {
-      const reuse = readDependencyCache(emitDir, metaPath);
+      const reuse = readDependencyCacheForSource(
+        emitDir,
+        metaPath,
+        sourceFile,
+      );
       return reuse ?? build();
     } finally {
       fs.rmSync(lockDir, { force: true, recursive: true });
@@ -929,18 +972,23 @@ function withBuildLock(
 
 /** Poll for a concurrent builder's completion, up to `timeoutMs`. */
 function waitForDependencyCache(
+  lockDir: string,
   emitDir: string,
   metaPath: string,
+  sourceFile: string,
   timeoutMs: number,
-): BuiltProject | null {
+): BuiltProject | "timeout" | null {
   const startedAt = Date.now();
   for (;;) {
-    const reuse = readDependencyCache(emitDir, metaPath);
+    const reuse = readDependencyCacheForSource(emitDir, metaPath, sourceFile);
     if (reuse !== null) {
       return reuse;
     }
-    if (Date.now() - startedAt > timeoutMs) {
+    if (!fs.existsSync(lockDir)) {
       return null;
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      return "timeout";
     }
     sleepSync(50);
   }
@@ -956,11 +1004,14 @@ function buildDependency(
   tsconfig: string,
   emitDir: string,
   metaPath: string,
+  project: DependencyProjectMeta = readDependencyProjectMeta(tsconfig),
+  clean = true,
 ): BuiltProject {
-  const project = readProjectConfig({ cwd: path.dirname(tsconfig), tsconfig });
-  fs.rmSync(emitDir, { force: true, recursive: true });
+  if (clean) {
+    fs.rmSync(emitDir, { force: true, recursive: true });
+  }
   const result = runBuild({
-    cwd: project.root,
+    cwd: project.projectRoot,
     emit: true,
     forceListEmittedFiles: true,
     outDir: emitDir,
@@ -994,21 +1045,61 @@ function buildDependency(
         .join("\n"),
     );
   }
-  const rootDir =
-    typeof project.compilerOptions.rootDir === "string"
-      ? project.compilerOptions.rootDir
-      : project.root;
-  const moduleOption =
-    typeof project.compilerOptions.module === "string"
-      ? project.compilerOptions.module
-      : undefined;
+  writeDependencyCacheMeta(metaPath, project);
+  return {
+    emitDir,
+    emittedFiles: undefined,
+    moduleOption: project.moduleOption,
+    rootDir: project.rootDir,
+  };
+}
+
+function buildDependencyForSource(
+  tsconfig: string,
+  emitDir: string,
+  metaPath: string,
+  _sourceFile: string,
+): BuiltProject {
+  const project = readDependencyProjectMeta(tsconfig);
+  const existing = readDependencyCache(emitDir, metaPath);
+  return buildDependency(
+    tsconfig,
+    emitDir,
+    metaPath,
+    project,
+    existing === null,
+  );
+}
+
+function readDependencyProjectMeta(tsconfig: string): DependencyProjectMeta {
+  const project = readProjectConfig({ cwd: path.dirname(tsconfig), tsconfig });
+  return {
+    moduleOption:
+      typeof project.compilerOptions.module === "string"
+        ? project.compilerOptions.module
+        : undefined,
+    projectRoot: project.root,
+    rootDir:
+      typeof project.compilerOptions.rootDir === "string"
+        ? project.compilerOptions.rootDir
+        : project.root,
+  };
+}
+
+function writeDependencyCacheMeta(
+  metaPath: string,
+  project: DependencyProjectMeta,
+): void {
   fs.writeFileSync(
     metaPath,
-    JSON.stringify({ moduleOption, rootDir } satisfies DependencyCacheMeta),
+    JSON.stringify({
+      moduleOption: project.moduleOption,
+      rootDir: project.rootDir,
+    } satisfies DependencyCacheMeta),
     "utf8",
   );
-  return { emitDir, emittedFiles: undefined, moduleOption, rootDir };
 }
+
 
 function dependencyCacheRoot(): string {
   const m = manifest();
