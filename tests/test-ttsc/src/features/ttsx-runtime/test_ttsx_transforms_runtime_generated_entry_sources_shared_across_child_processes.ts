@@ -36,6 +36,8 @@ export const test_ttsx_transforms_runtime_generated_entry_sources_shared_across_
         include: ["src"],
       }),
       "src/main.ts": [
+        `export {};`,
+        ``,
         `declare const __dirname: string;`,
         `declare const process: {`,
         `  execPath: string;`,
@@ -91,6 +93,8 @@ export const test_ttsx_transforms_runtime_generated_entry_sources_shared_across_
         ``,
       ].join("\n"),
       "src/worker.ts": [
+        `export {};`,
+        ``,
         `declare const console: { log(message: string): void };`,
         `declare const process: { argv: string[] };`,
         `declare function require<T = unknown>(specifier: string): T;`,
