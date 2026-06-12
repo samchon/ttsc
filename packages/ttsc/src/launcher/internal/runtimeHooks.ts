@@ -491,8 +491,6 @@ function orphanCacheFile(filename: string, tsgo: string): string | null {
     .createHash("sha256")
     .update(tsgo)
     .update("\0")
-    .update("ttsx-cjs-star-exports-v2")
-    .update("\0")
     .update(source)
     .digest("hex")
     .slice(0, 32);
