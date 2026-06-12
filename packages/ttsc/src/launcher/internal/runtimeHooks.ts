@@ -115,6 +115,8 @@ interface RuntimeManifest {
   moduleOption?: string;
   /** Native plugins already resolved and built for the entry project. */
   nativePlugins?: readonly ITtscLoadedNativePlugin[];
+  /** Root directory for source-plugin binary cache, when ttsx set one. */
+  pluginCacheDir?: string;
   /** Root directory for per-dependency build output. */
   depCacheDir: string;
 }
@@ -1155,6 +1157,7 @@ function buildDependency(
   fs.rmSync(metaPath, { force: true });
   fs.rmSync(emitDir, { force: true, recursive: true });
   const result = runBuild({
+    cacheDir: runtimePluginCacheDir(),
     nativePlugins: runtimeNativePluginsFor(tsconfig),
     cwd: project.projectRoot,
     emit: true,
@@ -1279,9 +1282,10 @@ function tryTransformDependencySourceShard(
     );
     const transformed = transformProjectInMemory({
       binary: project.tsgoBinary,
-      cacheDir: dependencyCacheRoot(),
+      cacheDir: runtimePluginCacheDir(),
       cwd: project.projectRoot,
       env: process.env,
+      nativePlugins: runtimeNativePluginsFor(tsconfig),
       projectRoot: project.projectRoot,
       tsconfig: tempConfig,
     });
@@ -1313,6 +1317,7 @@ function tryTransformDependencySourceShard(
       "utf8",
     );
     const result = runBuild({
+      cacheDir: runtimePluginCacheDir(),
       binary: project.tsgoBinary,
       cwd: tempProjectRoot,
       emit: true,
@@ -1377,6 +1382,7 @@ function tryBuildDependencySourceShard(
     );
     const result = runBuild({
       binary: project.tsgoBinary,
+      cacheDir: runtimePluginCacheDir(),
       cwd: project.projectRoot,
       emit: true,
       forceListEmittedFiles: true,
@@ -1710,6 +1716,11 @@ function dependencyCacheRoot(): string {
   return m !== null && m.depCacheDir.length !== 0
     ? m.depCacheDir
     : path.join(os.tmpdir(), "ttsx-dep");
+}
+
+function runtimePluginCacheDir(): string | undefined {
+  const m = manifest();
+  return m?.pluginCacheDir;
 }
 
 function isEntryProjectTsconfig(tsconfig: string): boolean {

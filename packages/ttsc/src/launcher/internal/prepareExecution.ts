@@ -37,6 +37,7 @@ export function prepareExecution(
   entryFile: string;
   moduleOption?: string;
   nativePlugins?: readonly ITtscLoadedNativePlugin[];
+  pluginCacheDir?: string;
   projectRoot: string;
   rootDir: string;
 } {
@@ -64,6 +65,7 @@ export function prepareExecution(
       entryFile: emittedEntry,
       moduleOption: context.moduleOption,
       nativePlugins,
+      pluginCacheDir: context.pluginCacheDir,
       projectRoot: context.root,
       rootDir: context.runtimeRootDir,
     };

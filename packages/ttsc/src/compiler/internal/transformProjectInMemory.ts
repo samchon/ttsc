@@ -22,6 +22,19 @@ import {
 } from "./sharedHostHelpers";
 import { outputText, spawnNative } from "./spawnNative";
 
+interface TransformProjectInMemoryOptions extends ITtscCompilerContext {
+  /**
+   * Pre-resolved native plugins for an internal replay.
+   *
+   * `ttsx` uses this when a runtime cache miss needs a source-to-source
+   * transform of newly generated entry-project files. The parent ttsx process
+   * already loaded and built the plugins, so reusing those descriptors keeps
+   * the replay on the same binaries instead of compiling source plugins again
+   * under a temporary cache.
+   */
+  nativePlugins?: readonly ITtscLoadedNativePlugin[];
+}
+
 /**
  * Transform a project and capture TypeScript source output in memory.
  *
@@ -37,7 +50,9 @@ import { outputText, spawnNative } from "./spawnNative";
  * @returns A `{ result, typescript }` pair where `typescript` maps output paths
  *   to their transformed TypeScript source text.
  */
-export function transformProjectInMemory(options: ITtscCompilerContext): {
+export function transformProjectInMemory(
+  options: TransformProjectInMemoryOptions,
+): {
   result: TtscBuildResult;
   typescript: Record<string, string>;
 } {
@@ -108,21 +123,24 @@ function transformProjectWithNativeHost(
 }
 
 function transformProjectWithPlugins(
-  options: ITtscCompilerContext,
+  options: TransformProjectInMemoryOptions,
   cwd: string,
   project: ITtscParsedProjectConfig,
 ): {
   result: TtscBuildResult;
   typescript: Record<string, string>;
 } {
-  const loaded = loadProjectPlugins({
-    binary: resolveBinary(options) ?? "",
-    cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
-    cwd,
-    entries: options.plugins,
-    projectRoot: options.projectRoot,
-    tsconfig: project.path,
-  });
+  const loaded =
+    options.nativePlugins !== undefined
+      ? { nativePlugins: options.nativePlugins, project }
+      : loadProjectPlugins({
+          binary: resolveBinary(options) ?? "",
+          cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
+          cwd,
+          entries: options.plugins,
+          projectRoot: options.projectRoot,
+          tsconfig: project.path,
+        });
   const checks = loaded.nativePlugins.filter(
     (plugin) => plugin.stage === "check",
   );

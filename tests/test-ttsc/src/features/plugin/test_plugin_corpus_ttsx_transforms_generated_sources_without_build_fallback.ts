@@ -81,17 +81,33 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
       },
     );
 
-    const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], {
-      cwd: root,
-      env: { PATH: goPath() },
-    });
+    const result = spawn(
+      ttsxBin,
+      ["--cwd", root, "--cache-dir", ".ttsx-cache", "src/main.ts"],
+      {
+        cwd: root,
+        env: { PATH: goPath() },
+      },
+    );
     assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.equal(
+      countMatches(
+        result.stderr,
+        /building source plugin "generated-transform-plugin"/g,
+      ),
+      1,
+      result.stderr,
+    );
     assert.deepEqual(result.stdout.trim().split(/\r?\n/), [
       "FIRST",
       "SECOND",
       "THIRD",
     ]);
   };
+
+function countMatches(text: string, pattern: RegExp): number {
+  return [...text.matchAll(pattern)].length;
+}
 
 function prebuiltGeneratedSources(): Record<string, string> {
   const files: Record<string, string> = {};
