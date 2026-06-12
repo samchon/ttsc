@@ -821,6 +821,26 @@ function serveDependencyEmit(real: string): ServedSource | null {
     // this single file rather than failing the whole run.
     return null;
   }
+  const served = serveBuiltDependency(built, real);
+  if (served !== null) {
+    return served;
+  }
+  // Runtime-generated sources can appear after this tsconfig's shared build
+  // marker was written. If the requested file is absent from that emit, rebuild
+  // only this dependency project instead of falling back to an untransformed TS
+  // orphan.
+  try {
+    built = rebuildProjectForMissingSource(tsconfig);
+  } catch {
+    return null;
+  }
+  return serveBuiltDependency(built, real);
+}
+
+function serveBuiltDependency(
+  built: BuiltProject,
+  real: string,
+): ServedSource | null {
   const emitted = resolveEmittedJavaScript({
     emittedFiles: built.emittedFiles,
     outDir: built.emitDir,
@@ -864,15 +884,7 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
   if (cached !== undefined) {
     return cached;
   }
-  const key = crypto
-    .createHash("sha256")
-    .update(tsconfig)
-    .digest("hex")
-    .slice(0, 16);
-  const root = dependencyCacheRoot();
-  const emitDir = path.join(root, key);
-  const metaPath = path.join(root, `${key}.json`);
-  const lockDir = path.join(root, `${key}.lock`);
+  const { emitDir, lockDir, metaPath, root } = dependencyCachePaths(tsconfig);
 
   const reuse = readDependencyCache(emitDir, metaPath);
   if (reuse !== null) {
@@ -886,6 +898,40 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
   );
   builtProjects.set(tsconfig, built);
   return built;
+}
+
+function rebuildProjectForMissingSource(tsconfig: string): BuiltProject {
+  const { emitDir, lockDir, metaPath, root } = dependencyCachePaths(tsconfig);
+  builtProjects.delete(tsconfig);
+  fs.rmSync(metaPath, { force: true });
+  fs.mkdirSync(root, { recursive: true });
+  const built = withBuildLock(lockDir, metaPath, emitDir, () =>
+    buildDependency(tsconfig, emitDir, metaPath),
+  );
+  builtProjects.set(tsconfig, built);
+  return built;
+}
+
+interface DependencyCachePaths {
+  emitDir: string;
+  lockDir: string;
+  metaPath: string;
+  root: string;
+}
+
+function dependencyCachePaths(tsconfig: string): DependencyCachePaths {
+  const key = crypto
+    .createHash("sha256")
+    .update(tsconfig)
+    .digest("hex")
+    .slice(0, 16);
+  const root = dependencyCacheRoot();
+  return {
+    emitDir: path.join(root, key),
+    lockDir: path.join(root, `${key}.lock`),
+    metaPath: path.join(root, `${key}.json`),
+    root,
+  };
 }
 
 /** Reuse a dependency another process (or an earlier import) already built. */
