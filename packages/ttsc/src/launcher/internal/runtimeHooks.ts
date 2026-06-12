@@ -1210,11 +1210,10 @@ function buildDependency(
  * source set, fall back to its source-to-source transform output and emit that
  * transformed source without plugins.
  *
- * Only sources whose emitted JavaScript is absent are refreshed. Native build
- * fallback can batch files created in the same runtime turn, but source-to-
- * source transform replay stays demand-driven: the requested source is enough
- * for TypeScript to pull in its import graph without transforming sibling
- * generated tests that are not being loaded yet.
+ * Only sources whose emitted JavaScript is absent are refreshed. Entry-project
+ * replay stays demand-driven: the requested source is enough for TypeScript to
+ * pull in its import graph without compiling sibling generated tests that are
+ * not being loaded yet.
  */
 function buildMissingDependencySource(
   tsconfig: string,
@@ -1223,16 +1222,27 @@ function buildMissingDependencySource(
   sourceFile: string,
 ): BuiltProject {
   const project = readDependencyProjectMeta(tsconfig);
-  const replayTransformFirst = shouldReplayEntryProjectTransform(tsconfig);
-  const transformSourceFiles = [sourceFile];
-  if (replayTransformFirst) {
+  const replayEntryProjectPlugins = shouldReplayEntryProjectPlugins(tsconfig);
+  const requestedSourceFiles = [sourceFile];
+  if (replayEntryProjectPlugins) {
+    const shard = tryBuildDependencySourceShard(
+      project,
+      tsconfig,
+      emitDir,
+      metaPath,
+      sourceFile,
+      requestedSourceFiles,
+    );
+    if (shard !== null) {
+      return shard;
+    }
     const transformed = tryTransformDependencySourceShard(
       project,
       tsconfig,
       emitDir,
       metaPath,
       sourceFile,
-      transformSourceFiles,
+      requestedSourceFiles,
     );
     if (transformed !== null) {
       return transformed;
@@ -1258,14 +1268,14 @@ function buildMissingDependencySource(
   if (shard !== null) {
     return shard;
   }
-  if (!replayTransformFirst) {
+  if (!replayEntryProjectPlugins) {
     const transformed = tryTransformDependencySourceShard(
       project,
       tsconfig,
       emitDir,
       metaPath,
       sourceFile,
-      transformSourceFiles,
+      requestedSourceFiles,
     );
     if (transformed !== null) {
       return transformed;
@@ -1274,7 +1284,7 @@ function buildMissingDependencySource(
   return buildDependency(tsconfig, emitDir, metaPath);
 }
 
-function shouldReplayEntryProjectTransform(tsconfig: string): boolean {
+function shouldReplayEntryProjectPlugins(tsconfig: string): boolean {
   if (!isEntryProjectTsconfig(tsconfig)) {
     return false;
   }
