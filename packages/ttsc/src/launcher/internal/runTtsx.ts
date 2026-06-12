@@ -273,12 +273,19 @@ function runPreparedEntry(
     fs.writeFileSync(
       manifestPath,
       JSON.stringify({
+        binary: parsed.binary,
+        cacheDir: execution.pluginCacheDir,
+        checkers: parsed.checkers,
         depCacheDir,
         emitDir: execution.emitDir,
         emittedFiles: execution.emittedFiles,
         moduleOption: execution.moduleOption,
+        passthrough: parsed.tsgoFlags,
+        plugins: parsed.noPlugins ? false : undefined,
         projectRoot: execution.projectRoot,
         rootDir: execution.rootDir,
+        singleThreaded: parsed.singleThreaded,
+        tsconfig: execution.tsconfig,
       }),
       "utf8",
     );

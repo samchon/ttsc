@@ -102,6 +102,8 @@ If you currently use `tsx`: switching is one command; ergonomics are the same.
 
 `ttsx` uses the same `tsconfig.json` and plugins as `ttsc`. If a lint or check plugin reports an error, the script never runs. Transform plugins rewrite the code before it executes.
 
+If a script writes new `.ts` files inside its own project and then loads them, `ttsx` compiles that generated source directory on demand with the same tsconfig and transform plugins. The generated-source emit is content-keyed, so child processes can share it without reusing stale output when a later generated file appears.
+
 Compiled JavaScript is temporary and cleaned after the script exits. Source plugin binaries still use the shared ttsc plugin cache, so repeated runs do not rebuild unchanged Go sidecars. Use `--cache-dir` when you want both the temporary runtime output root and the source-plugin binary cache anchored in a known directory. Relative `--cache-dir` values resolve from `--cwd`; `ttsx` places runtime output under `<cache-dir>/project/<pid>` and plugin binaries under `<cache-dir>/plugins`. The runtime project subtree is still removed after each run. Use `npx ttsc clean --cache-dir <dir>` to wipe an explicit plugin cache.
 
 ## See also

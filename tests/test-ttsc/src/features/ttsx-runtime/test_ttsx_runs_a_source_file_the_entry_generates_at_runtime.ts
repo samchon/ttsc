@@ -8,10 +8,10 @@ import assert from "node:assert/strict";
  * A program can generate sources and import them in the same run — a test
  * corpus that writes thousands of feature files, then loads them. Those files
  * do not exist when `prepareExecution` type-checks and emits the entry project,
- * so the entry build never emits them. When one is later required, no build
- * owns its on-disk output, so the runtime hooks must still compile it on demand
- * (the orphan single-file path) and run it correctly. This pins that path: a
- * file created after the build must load and execute, not fail as missing.
+ * so the entry build never emits them. When one is later required, the runtime
+ * hooks must still compile its generated source directory under the entry
+ * project's tsconfig and run it correctly. This pins that path: a file created
+ * after the build must load and execute, not fail as missing.
  *
  * The generated file is CommonJS-classified (the project has no `type:
  * "module"`) and written with ECMAScript module syntax, so a plain type-strip

@@ -19,17 +19,20 @@ import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
  * compile gate. The owning entry project is type-checked and built up front (by
  * `prepareExecution`, with its transform plugins such as typia); these hooks
  * serve that build under the source URLs so `__dirname`/`import.meta.url` keep
- * pointing at the source tree. Three load paths:
+ * pointing at the source tree. Four load paths:
  *
  * 1. A `.ts` belonging to the entry project → serve the pre-built emitted JS
  *    (transform plugins already applied), mapped by the project's `rootDir`.
- * 2. Any other raw `.ts` dependency (a published or workspace package that ships
+ * 2. A `.ts` generated inside the entry project after that build is batched
+ *    with its generated source tree under the entry tsconfig/plugins and served
+ *    from the content-keyed emit cache.
+ * 3. Any other raw `.ts` dependency (a published or workspace package that ships
  *    source) → build its own owning `tsconfig.json` once via `runBuild` and
  *    serve the emit. A real build (not a type-strip) is required because Node's
  *    type-stripping cannot do cross-file type-only elision — e.g. a
  *    value-shaped import of a type+namespace merge survives stripping and
  *    dangles at runtime.
- * 3. No owning tsconfig → transform the lone file by the format it resolves to: a
+ * 4. No owning tsconfig → transform the lone file by the format it resolves to: a
  *    CommonJS-classified file (`.cts`, or a `.ts` in a package without `type:
  *    "module"`) is lowered to CommonJS through a tsgo single-file emit so its
  *    `export` syntax becomes `module.exports`; any other (ESM) file keeps the
@@ -96,8 +99,16 @@ type NextLoad = (url: string, context: LoadContext) => LoadResult;
  * describes the already-built entry project so the hooks can serve its emit.
  */
 interface RuntimeManifest {
+  /** Explicit TypeScript-Go binary forwarded from the parent ttsx command. */
+  binary?: string;
+  /** Source-plugin cache root forwarded from `--cache-dir`, when configured. */
+  cacheDir?: string;
+  /** TypeScript-Go checker count forwarded from the parent ttsx command. */
+  checkers?: number;
   /** Project root of the entry's owning tsconfig. */
   projectRoot: string;
+  /** Project config that owned the original entry. */
+  tsconfig: string;
   /** Source-tree root the emit mirrors (tsgo strips this prefix). */
   rootDir: string;
   /** Directory holding the entry project's emitted JavaScript. */
@@ -106,8 +117,14 @@ interface RuntimeManifest {
   emittedFiles?: readonly string[];
   /** The entry tsconfig's `module` option, deciding emit CJS/ESM per file. */
   moduleOption?: string;
+  /** Plugin override forwarded from the parent ttsx command. */
+  plugins?: false;
+  /** TypeScript-Go passthrough flags forwarded from the parent ttsx command. */
+  passthrough?: readonly string[];
   /** Root directory for per-dependency build output. */
   depCacheDir: string;
+  /** Single-threaded parse/check/emit flag from the parent ttsx command. */
+  singleThreaded?: boolean;
 }
 
 let manifestCache: RuntimeManifest | null | undefined;
@@ -231,6 +248,7 @@ interface BuiltProject {
   moduleOption?: string;
 }
 const builtProjects = new Map<string, BuiltProject>();
+const generatedEntryProjects = new Map<string, BuiltProject>();
 
 /** File URLs whose CommonJS source was reached from an ESM parent import. */
 const commonJsNamedInteropUrls = new Set<string>();
@@ -339,9 +357,9 @@ function moduleOptionForSource(filename: string): string | undefined {
 /**
  * Resolve the JavaScript to run for a TypeScript source file, in priority
  * order: the entry project's pre-built emit (transform plugins applied), a
- * built raw `.ts` dependency, or — when no tsconfig owns it — a `mode:
- * "transform"` type-strip. Shared by the ESM `load` hook and the CommonJS
- * `require` handler.
+ * generated entry-project source directory build, a built raw `.ts` dependency,
+ * or — when no tsconfig owns it — a `mode: "transform"` type-strip. Shared by
+ * the ESM `load` hook and the CommonJS `require` handler.
  */
 function resolveServedSource(
   filename: string,
@@ -351,6 +369,10 @@ function resolveServedSource(
   const served = serveEntryEmit(real);
   if (served !== null) {
     return { moduleOption: manifest()?.moduleOption, ...served };
+  }
+  const generated = serveGeneratedEntryEmit(real);
+  if (generated !== null) {
+    return generated;
   }
   const built = serveDependencyEmit(real);
   if (built !== null) {
@@ -802,6 +824,177 @@ function isWithin(real: string, directory: string): boolean {
 }
 
 /**
+ * Build a runtime-generated entry-project source directory on demand.
+ *
+ * Files created after `prepareExecution` cannot be in the entry build's emit
+ * list, but they still belong to the entry project and must use the same
+ * transform plugins. Treating them as ordinary dependencies is wrong because
+ * the dependency cache is keyed by tsconfig and is shared by child processes:
+ * the first generated feature directory would make every later directory see a
+ * stale emit. Instead, batch the generated source tree under the requested
+ * directory and key the cache by its content hash.
+ */
+function serveGeneratedEntryEmit(real: string): ServedSource | null {
+  const m = manifest();
+  if (m === null || !isWithin(real, m.rootDir)) {
+    return null;
+  }
+  const directory = path.dirname(real);
+  const sourceFiles = listGeneratedSourceFiles(directory);
+  if (!sourceFiles.includes(real)) {
+    return null;
+  }
+  const built = ensureGeneratedEntryDirectoryBuilt(m, directory, sourceFiles);
+  return serveBuiltDependency(built, real);
+}
+
+function ensureGeneratedEntryDirectoryBuilt(
+  m: RuntimeManifest,
+  directory: string,
+  sourceFiles: readonly string[],
+): BuiltProject {
+  const signature = generatedSourceSignature(directory, sourceFiles);
+  const key = crypto
+    .createHash("sha256")
+    .update(m.tsconfig)
+    .update("\0")
+    .update(directory)
+    .update("\0")
+    .update(signature)
+    .digest("hex")
+    .slice(0, 32);
+  const cached = generatedEntryProjects.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const root = path.join(dependencyCacheRoot(), "generated");
+  const emitDir = path.join(root, key);
+  const metaPath = path.join(root, `${key}.json`);
+  const lockDir = path.join(root, `${key}.lock`);
+  const tsconfig = path.join(root, `${key}.tsconfig.json`);
+
+  const reuse = readDependencyCache(emitDir, metaPath);
+  if (reuse !== null) {
+    generatedEntryProjects.set(key, reuse);
+    return reuse;
+  }
+
+  fs.mkdirSync(root, { recursive: true });
+  const built = withBuildLock(lockDir, metaPath, emitDir, () =>
+    buildGeneratedEntryDirectory(m, sourceFiles, emitDir, metaPath, tsconfig),
+  );
+  generatedEntryProjects.set(key, built);
+  return built;
+}
+
+function buildGeneratedEntryDirectory(
+  m: RuntimeManifest,
+  sourceFiles: readonly string[],
+  emitDir: string,
+  metaPath: string,
+  tsconfig: string,
+): BuiltProject {
+  fs.rmSync(emitDir, { force: true, recursive: true });
+  fs.writeFileSync(
+    tsconfig,
+    JSON.stringify(
+      {
+        extends: m.tsconfig,
+        files: sourceFiles,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  const result = runBuild({
+    binary: m.binary,
+    cacheDir: m.cacheDir,
+    checkers: m.checkers,
+    cwd: m.projectRoot,
+    emit: true,
+    forceListEmittedFiles: true,
+    outDir: emitDir,
+    passthrough: m.passthrough,
+    plugins: m.plugins,
+    projectRoot: m.projectRoot,
+    quiet: true,
+    singleThreaded: m.singleThreaded,
+    skipDiagnosticsCheck: true,
+    tsconfig,
+  });
+  if (!emittedAnything(emitDir)) {
+    throw new Error(
+      [
+        `ttsx: generated source build produced no output for ${tsconfig}`,
+        result.stderr || result.stdout,
+      ]
+        .filter((line) => line.trim().length !== 0)
+        .join("\n"),
+    );
+  }
+  writeDependencyMeta(metaPath, {
+    moduleOption: m.moduleOption,
+    rootDir: m.rootDir,
+  });
+  return {
+    emitDir,
+    emittedFiles:
+      result.emittedFiles && result.emittedFiles.length !== 0
+        ? result.emittedFiles
+        : undefined,
+    moduleOption: m.moduleOption,
+    rootDir: m.rootDir,
+  };
+}
+
+function listGeneratedSourceFiles(directory: string): string[] {
+  const output: string[] = [];
+  collectGeneratedSourceFiles(directory, output);
+  return output.sort();
+}
+
+function collectGeneratedSourceFiles(directory: string, output: string[]): void {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(directory, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const full = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      collectGeneratedSourceFiles(full, output);
+    } else if (
+      entry.isFile() &&
+      isTypeScriptSource(entry.name) &&
+      !isDeclarationSource(entry.name)
+    ) {
+      output.push(realPath(full));
+    }
+  }
+}
+
+function generatedSourceSignature(
+  directory: string,
+  sourceFiles: readonly string[],
+): string {
+  const hash = crypto.createHash("sha256");
+  for (const file of sourceFiles) {
+    hash.update(path.relative(directory, file));
+    hash.update("\0");
+    hash.update(fs.readFileSync(file));
+    hash.update("\0");
+  }
+  return hash.digest("hex");
+}
+
+function isDeclarationSource(filename: string): boolean {
+  return /\.d\.[cm]?ts$/i.test(filename) || /\.d\.tsx$/i.test(filename);
+}
+
+/**
  * Build the project that owns `real` (nearest `tsconfig.json` above its real
  * path) and return its emitted JavaScript, or `null` when no tsconfig owns it
  * or the project does not emit it. The build honours the dependency's own
@@ -825,16 +1018,7 @@ function serveDependencyEmit(real: string): ServedSource | null {
   if (served !== null) {
     return served;
   }
-  // Runtime-generated sources can appear after this tsconfig's shared build
-  // marker was written. If the requested file is absent from that emit, rebuild
-  // only this dependency project instead of falling back to an untransformed TS
-  // orphan.
-  try {
-    built = rebuildProjectForMissingSource(tsconfig);
-  } catch {
-    return null;
-  }
-  return serveBuiltDependency(built, real);
+  return null;
 }
 
 function serveBuiltDependency(
@@ -892,18 +1076,6 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
     return reuse;
   }
 
-  fs.mkdirSync(root, { recursive: true });
-  const built = withBuildLock(lockDir, metaPath, emitDir, () =>
-    buildDependency(tsconfig, emitDir, metaPath),
-  );
-  builtProjects.set(tsconfig, built);
-  return built;
-}
-
-function rebuildProjectForMissingSource(tsconfig: string): BuiltProject {
-  const { emitDir, lockDir, metaPath, root } = dependencyCachePaths(tsconfig);
-  builtProjects.delete(tsconfig);
-  fs.rmSync(metaPath, { force: true });
   fs.mkdirSync(root, { recursive: true });
   const built = withBuildLock(lockDir, metaPath, emitDir, () =>
     buildDependency(tsconfig, emitDir, metaPath),
@@ -1065,12 +1237,15 @@ function buildDependency(
     typeof project.compilerOptions.module === "string"
       ? project.compilerOptions.module
       : undefined;
-  fs.writeFileSync(
-    metaPath,
-    JSON.stringify({ moduleOption, rootDir } satisfies DependencyCacheMeta),
-    "utf8",
-  );
+  writeDependencyMeta(metaPath, { moduleOption, rootDir });
   return { emitDir, emittedFiles: undefined, moduleOption, rootDir };
+}
+
+function writeDependencyMeta(
+  metaPath: string,
+  meta: DependencyCacheMeta,
+): void {
+  fs.writeFileSync(metaPath, JSON.stringify(meta), "utf8");
 }
 
 function dependencyCacheRoot(): string {
