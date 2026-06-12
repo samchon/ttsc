@@ -29,11 +29,9 @@ export function prepareExecution(
   emitDir: string;
   emittedFiles?: readonly string[];
   entryFile: string;
-  pluginCacheDir?: string;
   moduleOption?: string;
   projectRoot: string;
   rootDir: string;
-  tsconfig: string;
 } {
   const context = createProjectContext(
     path.resolve(options.cwd ?? process.cwd()),
@@ -56,11 +54,9 @@ export function prepareExecution(
       emitDir: context.emitDir,
       emittedFiles: context.emittedFiles ?? undefined,
       entryFile: emittedEntry,
-      pluginCacheDir: context.pluginCacheDir,
       moduleOption: context.moduleOption,
       projectRoot: context.root,
       rootDir: context.runtimeRootDir,
-      tsconfig: context.tsconfig,
     };
   } catch (error) {
     removeRuntimeOutput(context.processDir);
