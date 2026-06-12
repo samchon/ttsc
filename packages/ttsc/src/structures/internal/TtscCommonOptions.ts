@@ -1,4 +1,5 @@
 import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
+import type { ITtscLoadedNativePlugin } from "./ITtscLoadedNativePlugin";
 
 /**
  * Internal options shared by the CLI build, single-file emit, and runtime
@@ -49,4 +50,14 @@ export interface TtscCommonOptions {
    * - `undefined`: use the project config entries as written.
    */
   plugins?: readonly ITtscProjectPluginConfig[] | false;
+  /**
+   * Pre-resolved native plugins for an internal build replay.
+   *
+   * `ttsx` uses this when runtime hooks need to build generated sources from
+   * the entry project after the parent process has already resolved and built
+   * the same plugin sources. Supplying the loaded descriptors keeps the replay
+   * on the same binaries instead of rebuilding source plugins from a temporary
+   * tsconfig wrapper.
+   */
+  nativePlugins?: readonly ITtscLoadedNativePlugin[];
 }

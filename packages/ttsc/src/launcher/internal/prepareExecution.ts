@@ -3,8 +3,14 @@ import os from "node:os";
 import path from "node:path";
 
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
+import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
+import {
+  hasProjectPluginEntries,
+  loadProjectPlugins,
+} from "../../plugin/internal/loadProjectPlugins";
+import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 
 /** Subdirectory name that isolates concurrent ttsx processes by PID. */
@@ -30,6 +36,8 @@ export function prepareExecution(
   emittedFiles?: readonly string[];
   entryFile: string;
   moduleOption?: string;
+  nativePlugins?: readonly ITtscLoadedNativePlugin[];
+  pluginCacheDir?: string;
   projectRoot: string;
   rootDir: string;
 } {
@@ -49,12 +57,15 @@ export function prepareExecution(
     if (emittedEntry === null) {
       throw new Error(`ttsx: emitted entry not found for ${entryFile}`);
     }
+    const nativePlugins = loadRuntimeNativePlugins(context, options);
     return {
       cleanupDir: context.processDir,
       emitDir: context.emitDir,
       emittedFiles: context.emittedFiles ?? undefined,
       entryFile: emittedEntry,
       moduleOption: context.moduleOption,
+      nativePlugins,
+      pluginCacheDir: context.pluginCacheDir,
       projectRoot: context.root,
       rootDir: context.runtimeRootDir,
     };
@@ -83,6 +94,7 @@ function createProjectContext(
   const processDir = path.join(cacheDir, "project", PROCESS_CACHE_KEY);
   const virtualRoot = path.join(processDir, "fs");
   return {
+    project,
     tsconfig,
     root,
     cacheDir,
@@ -105,6 +117,24 @@ function createProjectContext(
     built: false,
     emittedFiles: undefined as string[] | undefined,
   };
+}
+
+function loadRuntimeNativePlugins(
+  context: ReturnType<typeof createProjectContext>,
+  options: NonNullable<Parameters<typeof prepareExecution>[1]>,
+): readonly ITtscLoadedNativePlugin[] | undefined {
+  if (!hasProjectPluginEntries(context.project, options.plugins)) {
+    return undefined;
+  }
+  const loaded = loadProjectPlugins({
+    binary: resolveBinary(options) ?? "",
+    cacheDir: context.pluginCacheDir ?? options.env?.TTSC_CACHE_DIR,
+    cwd: context.root,
+    entries: options.plugins,
+    projectRoot: context.root,
+    tsconfig: context.tsconfig,
+  });
+  return loaded.nativePlugins.length === 0 ? undefined : loaded.nativePlugins;
 }
 
 function resolveRuntimeSourceRoot(

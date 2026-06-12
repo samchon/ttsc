@@ -867,17 +867,7 @@ function resolveExecutionContext(
   const tsconfig = project.path;
   const projectRoot = project.root;
   const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
-  const hasPlugins = hasProjectPluginEntries(project, options.plugins);
-  const loaded = hasPlugins
-    ? loadProjectPlugins({
-        binary: resolveBinary(options) ?? "",
-        cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
-        cwd,
-        entries: options.plugins,
-        projectRoot,
-        tsconfig,
-      })
-    : { nativePlugins: [] };
+  const loaded = resolveNativePlugins(options, project, cwd, projectRoot);
   return {
     cwd,
     nativePlugins: loaded.nativePlugins,
@@ -889,6 +879,28 @@ function resolveExecutionContext(
     tsgo,
     tsconfig,
   };
+}
+
+function resolveNativePlugins(
+  options: TtscCommonOptions & { tsconfig?: string },
+  project: ReturnType<typeof readProjectConfig>,
+  cwd: string,
+  projectRoot: string,
+): { nativePlugins: readonly ITtscLoadedNativePlugin[] } {
+  if (options.nativePlugins !== undefined) {
+    return { nativePlugins: options.nativePlugins };
+  }
+  if (!hasProjectPluginEntries(project, options.plugins)) {
+    return { nativePlugins: [] };
+  }
+  return loadProjectPlugins({
+    binary: resolveBinary(options) ?? "",
+    cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
+    cwd,
+    entries: options.plugins,
+    projectRoot,
+    tsconfig: project.path,
+  });
 }
 
 /**
