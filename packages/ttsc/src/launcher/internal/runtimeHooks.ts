@@ -1665,7 +1665,11 @@ function dependencyShardConfig(
 ): Record<string, unknown> {
   return {
     extends: tsconfig,
+    // Keep the shard file-list driven even when the base config has a broad
+    // top-level `include` such as `src`. The listed files still pull their
+    // normal import graph into the program.
     files: sourceFiles,
+    include: [],
     // Some native sidecars read their plugin options from the tsconfig text
     // they are passed rather than from the resolved config object. Keep the
     // inherited plugin declaration visible without moving it into
