@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import {
   assert,
   commonJsProject,
@@ -16,8 +19,8 @@ import {
  * rejects any fallback rebuild after that point.
  *
  * 1. Build an entry that creates and requires generated TypeScript files.
- * 2. Use a native plugin whose `transform` command rewrites `cacheMarker(...)` but
- *    whose runtime `build` fallback is rejected.
+ * 2. Use a native plugin whose `transform` command rewrites `cacheMarker(...)`
+ *    and whose runtime `build` fallback leaves a marker before rejecting.
  * 3. Assert already-emitted sources are not re-transformed, simultaneously
  *    generated misses in different directories are transformed together,
  *    pre-existing unbuilt files stay out of the miss batch, and every import
@@ -90,6 +93,11 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
       },
     );
     assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.equal(
+      fs.existsSync(path.join(root, "runtime-build-fallback.txt")),
+      false,
+      result.stderr || result.stdout,
+    );
     assert.equal(
       countMatches(
         result.stderr,
@@ -171,6 +179,7 @@ func runBuild(args []string) int {
   }
   root := projectRoot(*cwd)
   if _, err := os.Stat(filepath.Join(root, "runtime-started.txt")); err == nil {
+    _ = os.WriteFile(filepath.Join(root, "runtime-build-fallback.txt"), []byte("build fallback\n"), 0o644)
     fmt.Fprintln(os.Stderr, "generated-transform-plugin: build fallback should not run for generated sources")
     return 2
   }

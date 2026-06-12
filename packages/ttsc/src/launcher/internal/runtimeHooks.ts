@@ -1230,6 +1230,20 @@ function buildMissingDependencySource(
     dependencyCacheCompletedAt(metaPath) ??
       (isEntryProjectTsconfig(tsconfig) ? runtimeManifestCompletedAt() : null),
   );
+  const replayTransformFirst = shouldReplayEntryProjectTransform(tsconfig);
+  if (replayTransformFirst) {
+    const transformed = tryTransformDependencySourceShard(
+      project,
+      tsconfig,
+      emitDir,
+      metaPath,
+      sourceFile,
+      sourceFiles,
+    );
+    if (transformed !== null) {
+      return transformed;
+    }
+  }
   const shard = tryBuildDependencySourceShard(
     project,
     tsconfig,
@@ -1241,18 +1255,31 @@ function buildMissingDependencySource(
   if (shard !== null) {
     return shard;
   }
-  const transformed = tryTransformDependencySourceShard(
-    project,
-    tsconfig,
-    emitDir,
-    metaPath,
-    sourceFile,
-    sourceFiles,
-  );
-  if (transformed !== null) {
-    return transformed;
+  if (!replayTransformFirst) {
+    const transformed = tryTransformDependencySourceShard(
+      project,
+      tsconfig,
+      emitDir,
+      metaPath,
+      sourceFile,
+      sourceFiles,
+    );
+    if (transformed !== null) {
+      return transformed;
+    }
   }
   return buildDependency(tsconfig, emitDir, metaPath);
+}
+
+function shouldReplayEntryProjectTransform(tsconfig: string): boolean {
+  if (!isEntryProjectTsconfig(tsconfig)) {
+    return false;
+  }
+  const plugins = manifest()?.nativePlugins;
+  return (
+    plugins !== undefined &&
+    plugins.some((plugin) => plugin.stage === "transform")
+  );
 }
 
 function tryTransformDependencySourceShard(
