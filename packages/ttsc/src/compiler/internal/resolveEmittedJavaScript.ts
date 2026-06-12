@@ -18,28 +18,13 @@ import { isOutsideRelativePath } from "./paths";
  *
  * Returns `null` when no matching output file is found on disk.
  */
-export interface EmittedJavaScriptResolverOptions {
+export function resolveEmittedJavaScript(options: {
   /** Pre-computed list of emitted paths; when absent `outDir` is scanned. */
   emittedFiles?: readonly string[];
   outDir: string;
   projectRoot: string;
-  /**
-   * Whether to scan `outDir` when `emittedFiles` does not identify a match.
-   * Defaults to true. Set to false only when `emittedFiles` is already a
-   * complete snapshot of the JavaScript outputs.
-   */
-  scanOutDir?: boolean;
-}
-
-export interface EmittedJavaScriptResolver {
-  resolve(sourceFile: string): string | null;
-}
-
-export function resolveEmittedJavaScript(
-  options: EmittedJavaScriptResolverOptions & {
-    sourceFile: string;
-  },
-): string | null {
+  sourceFile: string;
+}): string | null {
   const exact = resolveExactEmittedFile(
     options.outDir,
     options.projectRoot,
@@ -49,22 +34,24 @@ export function resolveEmittedJavaScript(
     return exact;
   }
 
-  // Score the pre-computed emit list first. When it yields nothing because the
-  // list is incomplete, or because tsgo shifted the output prefix, fall back to
-  // scanning `outDir`. Trailing-stem scoring still pins the right file.
+  // Score the pre-computed emit list first (cheap). When it yields nothing —
+  // because the list is incomplete (a native transform host such as typia emits
+  // without printing the `--listEmittedFiles` lines) or because the emit landed
+  // at a path the exact mirror did not predict (tsgo shifts every output path
+  // when the program pulls a raw-`.ts` dependency that sits outside `rootDir`,
+  // so it strips the common source root rather than `rootDir`) — fall back to a
+  // full recursive scan of `outDir`. Trailing-stem scoring still pins the right
+  // file regardless of how deep the shifted prefix is.
   const primary = bestStemMatch(
-    options.emittedFiles ??
-      (options.scanOutDir === false
-        ? []
-        : listEmittedJavaScriptFiles(options.outDir)),
+    options.emittedFiles ?? listJavaScriptFiles(options.outDir),
     options.sourceFile,
   );
   if (primary !== null && fs.existsSync(primary)) {
     return primary;
   }
-  if (options.emittedFiles !== undefined && options.scanOutDir !== false) {
+  if (options.emittedFiles !== undefined) {
     const fromDir = bestStemMatch(
-      listEmittedJavaScriptFiles(options.outDir),
+      listJavaScriptFiles(options.outDir),
       options.sourceFile,
     );
     if (fromDir !== null && fs.existsSync(fromDir)) {
@@ -72,46 +59,6 @@ export function resolveEmittedJavaScript(
     }
   }
   return null;
-}
-
-export function createEmittedJavaScriptResolver(
-  options: EmittedJavaScriptResolverOptions,
-): EmittedJavaScriptResolver {
-  const primary = createStemMatcher(
-    options.emittedFiles ??
-      (options.scanOutDir === false
-        ? []
-        : listEmittedJavaScriptFiles(options.outDir)),
-  );
-  let scanned: StemMatcher | undefined;
-
-  return {
-    resolve(sourceFile) {
-      const exact = resolveExactEmittedFile(
-        options.outDir,
-        options.projectRoot,
-        sourceFile,
-      );
-      if (exact && fs.existsSync(exact)) {
-        return exact;
-      }
-
-      const fromPrimary = primary.match(sourceFile);
-      if (fromPrimary !== null && fs.existsSync(fromPrimary)) {
-        return fromPrimary;
-      }
-      if (options.emittedFiles !== undefined && options.scanOutDir !== false) {
-        scanned ??= createStemMatcher(
-          listEmittedJavaScriptFiles(options.outDir),
-        );
-        const fromDir = scanned.match(sourceFile);
-        if (fromDir !== null && fs.existsSync(fromDir)) {
-          return fromDir;
-        }
-      }
-      return null;
-    },
-  };
 }
 
 /** Highest trailing-stem-scoring JavaScript output among `files`, or `null`. */
@@ -130,37 +77,6 @@ function bestStemMatch(
     }
   }
   return best;
-}
-
-interface StemMatcher {
-  match(sourceFile: string): string | null;
-}
-
-function createStemMatcher(files: readonly string[]): StemMatcher {
-  const bySuffix = new Map<string, string>();
-  for (const file of files) {
-    if (!isJavaScriptOutput(file)) continue;
-    const segments = pathStemSegments(file);
-    for (let index = 0; index < segments.length; index += 1) {
-      const key = segments.slice(index).join("/");
-      if (!bySuffix.has(key)) {
-        bySuffix.set(key, file);
-      }
-    }
-  }
-
-  return {
-    match(sourceFile) {
-      const segments = pathStemSegments(sourceFile);
-      for (let index = 0; index < segments.length; index += 1) {
-        const file = bySuffix.get(segments.slice(index).join("/"));
-        if (file !== undefined) {
-          return file;
-        }
-      }
-      return null;
-    },
-  };
 }
 
 /**
@@ -189,7 +105,7 @@ function resolveExactEmittedFile(
  * explicit stack instead of recursion to avoid call-stack overflow on deep
  * directory trees. Non-existent roots are silently skipped.
  */
-export function listEmittedJavaScriptFiles(root: string): string[] {
+function listJavaScriptFiles(root: string): string[] {
   const out: string[] = [];
   const stack = [root];
   while (stack.length !== 0) {
@@ -208,14 +124,21 @@ export function listEmittedJavaScriptFiles(root: string): string[] {
 }
 
 /**
- * Count the consecutive trailing path-stem segments shared by `outPath` and
- * `srcPath` after both are stripped of their extensions and normalized.
+ * Count the number of consecutive trailing path-stem segments that `outPath`
+ * and `srcPath` share when both are stripped of their extensions and normalised
+ * to forward slashes.
  *
- * Example: `dist/lib/foo.js` vs `src/lib/foo.ts` returns 2 (`lib`, `foo`).
+ * Example: `dist/lib/foo.js` vs `src/lib/foo.ts` → 2 (`lib`, `foo`).
  */
 function sharedSourceStemSegments(outPath: string, srcPath: string): number {
-  const a = pathStemSegments(outPath);
-  const b = pathStemSegments(srcPath);
+  const stripExtAndSplit = (location: string): string[] => {
+    const normalized = location.replace(/\\/g, "/");
+    return normalized
+      .slice(0, normalized.length - path.extname(normalized).length)
+      .split("/");
+  };
+  const a = stripExtAndSplit(outPath);
+  const b = stripExtAndSplit(srcPath);
   const count = Math.min(a.length, b.length);
   let shared = 0;
   for (let i = 1; i <= count; i += 1) {
@@ -225,16 +148,9 @@ function sharedSourceStemSegments(outPath: string, srcPath: string): number {
   return shared;
 }
 
-function pathStemSegments(location: string): string[] {
-  const normalized = location.replace(/\\/g, "/");
-  return normalized
-    .slice(0, normalized.length - path.extname(normalized).length)
-    .split("/");
-}
-
 /**
  * Map a TypeScript source extension to its JavaScript output counterpart.
- * `.mts` maps to `.mjs`, `.cts` maps to `.cjs`, everything else maps to `.js`.
+ * `.mts` → `.mjs`, `.cts` → `.cjs`, everything else → `.js`.
  */
 function emittedJavaScriptExtension(filename: string): string {
   switch (path.extname(filename).toLowerCase()) {

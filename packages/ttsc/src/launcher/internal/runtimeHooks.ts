@@ -6,17 +6,11 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
-import {
-  type EmittedJavaScriptResolver,
-  createEmittedJavaScriptResolver,
-  listEmittedJavaScriptFiles,
-  resolveEmittedJavaScript,
-} from "../../compiler/internal/resolveEmittedJavaScript";
+import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
 import { transformProjectInMemory } from "../../compiler/internal/transformProjectInMemory";
-import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 
 /**
  * Synchronous Node module hooks installed (via `module.registerHooks`) in the
@@ -113,10 +107,6 @@ interface RuntimeManifest {
   emittedFiles?: readonly string[];
   /** The entry tsconfig's `module` option, deciding emit CJS/ESM per file. */
   moduleOption?: string;
-  /** Native plugins already resolved and built for the entry project. */
-  nativePlugins?: readonly ITtscLoadedNativePlugin[];
-  /** Root directory for source-plugin binary cache, when ttsx set one. */
-  pluginCacheDir?: string;
   /** Root directory for per-dependency build output. */
   depCacheDir: string;
 }
@@ -560,18 +550,11 @@ function collectStarExportNames(
   return new Set();
 }
 
-const commonJsExportNameCache = new Map<string, ReadonlySet<string>>();
-const typeScriptExportNameCache = new Map<string, ReadonlySet<string>>();
-
 function collectCommonJsExportNames(
   emittedFile: string,
   seen: Set<string>,
 ): Set<string> {
   const real = realPath(emittedFile);
-  const cached = commonJsExportNameCache.get(real);
-  if (cached !== undefined) {
-    return new Set(cached);
-  }
   if (seen.has(real)) {
     return new Set();
   }
@@ -592,7 +575,6 @@ function collectCommonJsExportNames(
       }
     }
   }
-  commonJsExportNameCache.set(real, new Set(names));
   return names;
 }
 
@@ -612,10 +594,6 @@ function collectTypeScriptExportNames(
   seen: Set<string>,
 ): Set<string> {
   const real = realPath(sourceFile);
-  const cached = typeScriptExportNameCache.get(real);
-  if (cached !== undefined) {
-    return new Set(cached);
-  }
   if (seen.has(real)) {
     return new Set();
   }
@@ -660,7 +638,6 @@ function collectTypeScriptExportNames(
       }
     }
   }
-  typeScriptExportNameCache.set(real, new Set(names));
   return names;
 }
 
@@ -808,14 +785,6 @@ function isWithin(real: string, directory: string): boolean {
   return real.startsWith(prefix);
 }
 
-function samePath(left: string, right: string): boolean {
-  const normalizedLeft = path.resolve(left);
-  const normalizedRight = path.resolve(right);
-  return process.platform === "win32"
-    ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
-    : normalizedLeft === normalizedRight;
-}
-
 /**
  * Build the project that owns `real` (nearest `tsconfig.json` above its real
  * path) and return its emitted JavaScript, or `null` when no tsconfig owns it
@@ -852,7 +821,6 @@ function serveDependencyEmit(real: string): ServedSource | null {
     emittedFiles: built.emittedFiles,
     outDir: built.emitDir,
     projectRoot: built.rootDir,
-    scanOutDir: built.emittedFiles !== undefined ? false : undefined,
     sourceFile: real,
   });
   if (emitted === null) {
@@ -865,7 +833,6 @@ function serveDependencyEmit(real: string): ServedSource | null {
       emittedFiles: built.emittedFiles,
       outDir: built.emitDir,
       projectRoot: built.rootDir,
-      scanOutDir: built.emittedFiles !== undefined ? false : undefined,
       sourceFile: real,
     });
     if (emitted === null) {
@@ -931,10 +898,6 @@ function rebuildProjectForMissingSource(
   tsconfig: string,
   sourceFile: string,
 ): BuiltProject {
-  const cached = builtProjects.get(tsconfig);
-  if (cached !== undefined && builtProjectContainsSource(cached, sourceFile)) {
-    return cached;
-  }
   const { emitDir, lockDir, metaPath, root } = dependencyCachePaths(tsconfig);
   fs.mkdirSync(root, { recursive: true });
   const built = withBuildLockForSource(
@@ -946,21 +909,6 @@ function rebuildProjectForMissingSource(
   );
   builtProjects.set(tsconfig, built);
   return built;
-}
-
-function builtProjectContainsSource(
-  built: BuiltProject,
-  sourceFile: string,
-): boolean {
-  return (
-    resolveEmittedJavaScript({
-      emittedFiles: built.emittedFiles,
-      outDir: built.emitDir,
-      projectRoot: built.rootDir,
-      scanOutDir: built.emittedFiles !== undefined ? false : undefined,
-      sourceFile,
-    }) !== null
-  );
 }
 
 function dependencyCachePaths(tsconfig: string): {
@@ -994,7 +942,7 @@ function readDependencyCache(
   } catch {
     return null;
   }
-  if (!hasEmittedJavaScriptFile(emitDir)) {
+  if (!emittedAnything(emitDir)) {
     return null;
   }
   return {
@@ -1018,7 +966,6 @@ function readDependencyCacheForSource(
     emittedFiles: cached.emittedFiles,
     outDir: cached.emitDir,
     projectRoot: cached.rootDir,
-    scanOutDir: cached.emittedFiles !== undefined ? false : undefined,
     sourceFile,
   });
   return emitted === null ? null : cached;
@@ -1157,8 +1104,6 @@ function buildDependency(
   fs.rmSync(metaPath, { force: true });
   fs.rmSync(emitDir, { force: true, recursive: true });
   const result = runBuild({
-    cacheDir: runtimePluginCacheDir(),
-    nativePlugins: runtimeNativePluginsFor(tsconfig),
     cwd: project.projectRoot,
     emit: true,
     forceListEmittedFiles: true,
@@ -1178,13 +1123,12 @@ function buildDependency(
     skipDiagnosticsCheck: true,
     tsconfig,
   });
-  const emittedFiles = dependencyEmittedFiles(result.emittedFiles, emitDir);
   // Success is "the project wrote JavaScript", not "the build reported a file
   // list": a native transform host (typia, @ttsc/banner, …) emits without
   // printing the `--listEmittedFiles` lines, so `result.emittedFiles` is empty
   // even on a clean build. A genuinely empty output directory is the real
   // failure; the caller then falls back to type-stripping the one file.
-  if (emittedFiles.length === 0) {
+  if (!emittedAnything(emitDir)) {
     throw new Error(
       [
         `ttsx: dependency build produced no output for ${tsconfig}`,
@@ -1197,7 +1141,7 @@ function buildDependency(
   writeDependencyCacheMeta(metaPath, project);
   return {
     emitDir,
-    emittedFiles,
+    emittedFiles: undefined,
     moduleOption: project.moduleOption,
     rootDir: project.rootDir,
   };
@@ -1205,16 +1149,14 @@ function buildDependency(
 
 /**
  * Fill a cache miss for a source that appeared after the owning project was
- * built. Entry-project replays prefer the source-to-source path: it preserves
- * transform hosts whose JavaScript emit path is not equivalent to their source
- * transform path for runtime-generated files. Other dependency
- * refreshes still prefer the build path because the runtime needs JavaScript
- * emitted under the dependency's own tsconfig.
+ * built. Prefer the plugin build path because the runtime needs JavaScript
+ * emitted under the original tsconfig. If a plugin cannot build the narrow
+ * source set, fall back to its source-to-source transform output and emit that
+ * transformed source without plugins.
  *
- * Only sources whose emitted JavaScript is absent are refreshed. Entry-project
- * replay batches the current miss set so a generated feature directory pays one
- * native transform; if that batch cannot build, the fallback paths let
- * TypeScript pull in the requested file's import graph.
+ * Only siblings whose emitted JavaScript is absent are refreshed:
+ * already-emitted files stay out of the plugin pass, while files created in the
+ * same runtime turn are processed together.
  */
 function buildMissingDependencySource(
   tsconfig: string,
@@ -1223,29 +1165,11 @@ function buildMissingDependencySource(
   sourceFile: string,
 ): BuiltProject {
   const project = readDependencyProjectMeta(tsconfig);
-  const replayTransformFirst = shouldReplayEntryProjectTransform(tsconfig);
-  const emittedFiles = listEmittedJavaScriptFiles(emitDir);
-  const sourceFiles = collectMissingProjectTypeScriptSources(
+  const sourceFiles = collectMissingSiblingTypeScriptSources(
     sourceFile,
     emitDir,
-    emittedFiles,
     project.rootDir,
-    dependencyCacheCompletedAt(metaPath) ??
-      (isEntryProjectTsconfig(tsconfig) ? runtimeManifestCompletedAt() : null),
   );
-  if (replayTransformFirst) {
-    const transformed = tryTransformDependencySourceShard(
-      project,
-      tsconfig,
-      emitDir,
-      metaPath,
-      sourceFile,
-      sourceFiles,
-    );
-    if (transformed !== null) {
-      return transformed;
-    }
-  }
   const shard = tryBuildDependencySourceShard(
     project,
     tsconfig,
@@ -1257,31 +1181,18 @@ function buildMissingDependencySource(
   if (shard !== null) {
     return shard;
   }
-  if (!replayTransformFirst) {
-    const transformed = tryTransformDependencySourceShard(
-      project,
-      tsconfig,
-      emitDir,
-      metaPath,
-      sourceFile,
-      sourceFiles,
-    );
-    if (transformed !== null) {
-      return transformed;
-    }
+  const transformed = tryTransformDependencySourceShard(
+    project,
+    tsconfig,
+    emitDir,
+    metaPath,
+    sourceFile,
+    sourceFiles,
+  );
+  if (transformed !== null) {
+    return transformed;
   }
   return buildDependency(tsconfig, emitDir, metaPath);
-}
-
-function shouldReplayEntryProjectTransform(tsconfig: string): boolean {
-  if (!isEntryProjectTsconfig(tsconfig)) {
-    return false;
-  }
-  const plugins = manifest()?.nativePlugins;
-  return (
-    plugins !== undefined &&
-    plugins.some((plugin) => plugin.stage === "transform")
-  );
 }
 
 function tryTransformDependencySourceShard(
@@ -1311,10 +1222,9 @@ function tryTransformDependencySourceShard(
     );
     const transformed = transformProjectInMemory({
       binary: project.tsgoBinary,
-      cacheDir: runtimePluginCacheDir(),
+      cacheDir: dependencyCacheRoot(),
       cwd: project.projectRoot,
       env: process.env,
-      nativePlugins: runtimeNativePluginsFor(tsconfig),
       projectRoot: project.projectRoot,
       tsconfig: tempConfig,
     });
@@ -1346,7 +1256,6 @@ function tryTransformDependencySourceShard(
       "utf8",
     );
     const result = runBuild({
-      cacheDir: runtimePluginCacheDir(),
       binary: project.tsgoBinary,
       cwd: tempProjectRoot,
       emit: true,
@@ -1359,12 +1268,12 @@ function tryTransformDependencySourceShard(
       skipDiagnosticsCheck: true,
       tsconfig: tempEmitConfig,
     });
-    if (result.status !== 0) {
-      return null;
-    }
     const built: BuiltProject = {
       emitDir,
-      emittedFiles: dependencyEmittedFiles(result.emittedFiles, emitDir),
+      emittedFiles:
+        result.emittedFiles && result.emittedFiles.length !== 0
+          ? result.emittedFiles
+          : undefined,
       moduleOption: project.moduleOption,
       rootDir: project.rootDir,
     };
@@ -1372,7 +1281,6 @@ function tryTransformDependencySourceShard(
       emittedFiles: built.emittedFiles,
       outDir: built.emitDir,
       projectRoot: built.rootDir,
-      scanOutDir: false,
       sourceFile,
     });
     if (emitted === null || readFileOrNull(emitted) === null) {
@@ -1410,24 +1318,20 @@ function tryBuildDependencySourceShard(
       "utf8",
     );
     const result = runBuild({
-      binary: project.tsgoBinary,
-      cacheDir: runtimePluginCacheDir(),
       cwd: project.projectRoot,
       emit: true,
       forceListEmittedFiles: true,
-      nativePlugins: runtimeNativePluginsFor(tsconfig),
       outDir: emitDir,
-      projectRoot: project.projectRoot,
       quiet: true,
       skipDiagnosticsCheck: true,
       tsconfig: tempConfig,
     });
-    if (result.status !== 0) {
-      return null;
-    }
     const built: BuiltProject = {
       emitDir,
-      emittedFiles: dependencyEmittedFiles(result.emittedFiles, emitDir),
+      emittedFiles:
+        result.emittedFiles && result.emittedFiles.length !== 0
+          ? result.emittedFiles
+          : undefined,
       moduleOption: project.moduleOption,
       rootDir: project.rootDir,
     };
@@ -1435,7 +1339,6 @@ function tryBuildDependencySourceShard(
       emittedFiles: built.emittedFiles,
       outDir: built.emitDir,
       projectRoot: built.rootDir,
-      scanOutDir: false,
       sourceFile,
     });
     if (emitted === null || readFileOrNull(emitted) === null) {
@@ -1490,172 +1393,42 @@ function writeDependencyCacheMeta(
   );
 }
 
-function dependencyCacheCompletedAt(metaPath: string): number | null {
-  return fileModifiedAt(metaPath);
-}
-
-function runtimeManifestCompletedAt(): number | null {
-  const manifestPath = process.env.TTSX_RUNTIME_MANIFEST;
-  return manifestPath === undefined || manifestPath.length === 0
-    ? null
-    : fileModifiedAt(manifestPath);
-}
-
-function fileModifiedAt(file: string): number | null {
-  try {
-    return fs.statSync(file).mtimeMs;
-  } catch {
-    return null;
-  }
-}
-
-function collectMissingProjectTypeScriptSources(
+function collectMissingSiblingTypeScriptSources(
   sourceFile: string,
   emitDir: string,
-  emittedFiles: readonly string[],
   rootDir: string,
-  cacheCompletedAt: number | null,
 ): string[] {
-  const scanRoot = missingSourceScanRoot(sourceFile, rootDir);
-  const emittedResolver = createEmittedJavaScriptResolver({
-    emittedFiles,
-    outDir: emitDir,
-    projectRoot: rootDir,
-    scanOutDir: false,
-  });
-  const requestedSource = realPath(sourceFile);
-  const missing = collectTypeScriptSources(scanRoot)
+  const directory = path.dirname(sourceFile);
+  const missing = fs
+    .readdirSync(directory)
+    .map((entry) => path.join(directory, entry))
     .filter(
-      // The cache marker is the dependency meta file, or the runtime manifest
-      // for entry-project misses before a dependency meta exists. Sources older
-      // than that marker are ordinary project files the owning tsconfig chose
-      // not to emit; runtime miss batching should only add files that can have
-      // appeared after the completed build. The requested source is kept
-      // regardless so a low-resolution filesystem clock cannot hide it.
-      (candidate) => {
-        const realCandidate = realPath(candidate);
-        if (
-          !samePath(realCandidate, requestedSource) &&
-          !sourceMayPostdateDependencyCache(realCandidate, cacheCompletedAt)
-        ) {
-          return false;
-        }
-        // Entry-project sources may already be served from the manifest emitDir
-        // even though the runtime dependency cache has never seen them.
-        return (
-          emittedJavaScriptMissing(realCandidate, emittedResolver) &&
-          serveEntryEmit(realCandidate) === null
-        );
-      },
+      (candidate) => candidate === sourceFile || isTypeScriptSource(candidate),
+    )
+    .filter(isFile)
+    .filter(
+      // Entry-project siblings may already be served from the manifest emitDir
+      // even though the runtime dependency cache has never seen them.
+      (candidate) =>
+        emittedJavaScriptMissing(candidate, emitDir, rootDir) &&
+        serveEntryEmit(realPath(candidate)) === null,
     )
     .sort();
-  return missing.some((candidate) => samePath(candidate, sourceFile))
-    ? missing
-    : [sourceFile];
-}
-
-function sourceMayPostdateDependencyCache(
-  sourceFile: string,
-  cacheCompletedAt: number | null,
-): boolean {
-  if (cacheCompletedAt === null) {
-    return true;
-  }
-  try {
-    return fs.statSync(sourceFile).mtimeMs >= cacheCompletedAt;
-  } catch {
-    return false;
-  }
-}
-
-function missingSourceScanRoot(sourceFile: string, rootDir: string): string {
-  const realSource = realPath(sourceFile);
-  const realRoot = realPath(rootDir);
-  if (path.dirname(realRoot) === realRoot || !isWithin(realSource, realRoot)) {
-    return path.dirname(sourceFile);
-  }
-  return nearestPackageRoot(realSource, realRoot) ?? rootDir;
-}
-
-function nearestPackageRoot(
-  sourceFile: string,
-  rootDir: string,
-): string | null {
-  let directory = path.dirname(sourceFile);
-  for (;;) {
-    if (isFile(path.join(directory, "package.json"))) {
-      return directory;
-    }
-    if (samePath(directory, rootDir)) {
-      return null;
-    }
-    const parent = path.dirname(directory);
-    if (parent === directory || !isWithin(parent, rootDir)) {
-      return null;
-    }
-    directory = parent;
-  }
-}
-
-function collectTypeScriptSources(root: string): string[] {
-  const sources: string[] = [];
-  const resolvedRoot = path.resolve(root);
-  const stack = [root];
-  while (stack.length !== 0) {
-    const directory = stack.pop()!;
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(directory, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      const candidate = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        if (
-          !isSkippedSourceDirectory(entry.name) &&
-          !isNestedPackageRoot(candidate, resolvedRoot)
-        ) {
-          stack.push(candidate);
-        }
-      } else if (entry.isFile() && isRuntimeTypeScriptSource(candidate)) {
-        sources.push(candidate);
-      }
-    }
-  }
-  return sources.sort();
-}
-
-function isSkippedSourceDirectory(name: string): boolean {
-  return name === ".git" || name === "node_modules";
-}
-
-function isNestedPackageRoot(directory: string, root: string): boolean {
-  const resolved = path.resolve(directory);
-  return (
-    !samePath(resolved, root) && isFile(path.join(resolved, "package.json"))
-  );
-}
-
-function isRuntimeTypeScriptSource(filename: string): boolean {
-  return isTypeScriptSource(filename) && !/\.d\.[cm]?ts$/i.test(filename);
+  return missing.includes(sourceFile) ? missing : [sourceFile];
 }
 
 function emittedJavaScriptMissing(
   sourceFile: string,
-  emittedResolver: EmittedJavaScriptResolver,
-): boolean {
-  const emitted = emittedResolver.resolve(sourceFile);
-  return readFileOrNull(emitted) === null;
-}
-
-function dependencyEmittedFiles(
-  emittedFiles: readonly string[] | undefined,
   emitDir: string,
-): readonly string[] {
-  return emittedFiles && emittedFiles.length !== 0
-    ? emittedFiles
-    : listEmittedJavaScriptFiles(emitDir);
+  rootDir: string,
+): boolean {
+  const emitted = resolveEmittedJavaScript({
+    emittedFiles: undefined,
+    outDir: emitDir,
+    projectRoot: rootDir,
+    sourceFile,
+  });
+  return readFileOrNull(emitted) === null;
 }
 
 function dependencyShardConfig(
@@ -1665,11 +1438,7 @@ function dependencyShardConfig(
 ): Record<string, unknown> {
   return {
     extends: tsconfig,
-    // Keep the shard file-list driven even when the base config has a broad
-    // top-level `include` such as `src`. The listed files still pull their
-    // normal import graph into the program.
     files: sourceFiles,
-    include: [],
     // Some native sidecars read their plugin options from the tsconfig text
     // they are passed rather than from the resolved config object. Keep the
     // inherited plugin declaration visible without moving it into
@@ -1751,11 +1520,6 @@ function dependencyCacheRoot(): string {
     : path.join(os.tmpdir(), "ttsx-dep");
 }
 
-function runtimePluginCacheDir(): string | undefined {
-  const m = manifest();
-  return m?.pluginCacheDir;
-}
-
 function isEntryProjectTsconfig(tsconfig: string): boolean {
   const m = manifest();
   return (
@@ -1763,21 +1527,6 @@ function isEntryProjectTsconfig(tsconfig: string): boolean {
     realPath(path.dirname(tsconfig)).toLowerCase() ===
       realPath(m.projectRoot).toLowerCase()
   );
-}
-
-function runtimeNativePluginsFor(
-  tsconfig: string,
-): readonly ITtscLoadedNativePlugin[] | undefined {
-  const m = manifest();
-  if (
-    m === null ||
-    m.nativePlugins === undefined ||
-    m.nativePlugins.length === 0 ||
-    !isEntryProjectTsconfig(tsconfig)
-  ) {
-    return undefined;
-  }
-  return m.nativePlugins;
 }
 
 /** Owning-tsconfig cache keyed by directory, mirroring `packageTypeCache`. */
@@ -2049,7 +1798,7 @@ function isFile(candidate: string): boolean {
 }
 
 /** True when `directory` holds at least one emitted JavaScript file (any depth). */
-function hasEmittedJavaScriptFile(directory: string): boolean {
+function emittedAnything(directory: string): boolean {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(directory, { withFileTypes: true });
@@ -2059,7 +1808,7 @@ function hasEmittedJavaScriptFile(directory: string): boolean {
   for (const entry of entries) {
     const full = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (hasEmittedJavaScriptFile(full)) {
+      if (emittedAnything(full)) {
         return true;
       }
     } else if (entry.isFile() && /\.(?:[cm]?js)$/i.test(entry.name)) {

@@ -1,6 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
-
 import {
   assert,
   commonJsProject,
@@ -19,12 +16,11 @@ import {
  * rejects any fallback rebuild after that point.
  *
  * 1. Build an entry that creates and requires generated TypeScript files.
- * 2. Use a native plugin whose `transform` command rewrites `cacheMarker(...)`
- *    and whose runtime `build` fallback leaves a marker before rejecting.
- * 3. Assert already-emitted sources are not re-transformed, simultaneously
- *    generated misses in different directories are transformed together,
- *    pre-existing unbuilt files stay out of the miss batch, and every import
- *    prints transformed uppercase values.
+ * 2. Use a native plugin whose `transform` command rewrites `cacheMarker(...)` but
+ *    whose runtime `build` fallback is rejected.
+ * 3. Assert already-emitted siblings are not re-transformed, simultaneously
+ *    generated misses are transformed together, and every import prints
+ *    transformed uppercase values.
  */
 export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_fallback =
   () => {
@@ -39,21 +35,13 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
         `,
         "go-plugin/go.mod": `module generated-transform-plugin\n\ngo 1.26\n`,
         "go-plugin/main.go": GO_PLUGIN,
-        "packages/other/package.json": JSON.stringify({
-          name: "other-package",
-          private: true,
-        }),
-        "packages/other/src/unrelated.ts": `export const value = cacheMarker("unrelated");\n`,
-        "legacy/unrelated.ts": `export const value = cacheMarker("legacy");\n`,
         ...prebuiltGeneratedSources(),
         "src/main.ts": [
           `const fs = require("node:fs");`,
           `const path = require("node:path");`,
           ``,
           `const dir = path.join(__dirname, "generated");`,
-          `const otherDir = path.join(__dirname, "other");`,
           `fs.mkdirSync(dir, { recursive: true });`,
-          `fs.mkdirSync(otherDir, { recursive: true });`,
           `fs.writeFileSync(path.join(__dirname, "..", "runtime-started.txt"), "started\\n");`,
           `const marker = "cache" + "Marker";`,
           ``,
@@ -62,11 +50,11 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
           `  'export const value = ' + marker + '("first");\\n',`,
           `);`,
           `fs.writeFileSync(`,
-          `  path.join(otherDir, "second.ts"),`,
+          `  path.join(dir, "second.ts"),`,
           `  'export const value = ' + marker + '("second");\\n',`,
           `);`,
           `console.log(require("./generated/first").value);`,
-          `console.log(require("./other/second").value);`,
+          `console.log(require("./generated/second").value);`,
           ``,
           `fs.writeFileSync(`,
           `  path.join(dir, "third.ts"),`,
@@ -79,43 +67,21 @@ export const test_plugin_corpus_ttsx_transforms_generated_sources_without_build_
       {
         compilerOptions: {
           plugins: [{ transform: "./plugin.cjs" }],
-          rootDir: ".",
         },
       },
     );
 
-    const result = spawn(
-      ttsxBin,
-      ["--cwd", root, "--cache-dir", ".ttsx-cache", "src/main.ts"],
-      {
-        cwd: root,
-        env: { PATH: goPath() },
-      },
-    );
+    const result = spawn(ttsxBin, ["--cwd", root, "src/main.ts"], {
+      cwd: root,
+      env: { PATH: goPath() },
+    });
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.equal(
-      fs.existsSync(path.join(root, "runtime-build-fallback.txt")),
-      false,
-      result.stderr || result.stdout,
-    );
-    assert.equal(
-      countMatches(
-        result.stderr,
-        /building source plugin "generated-transform-plugin"/g,
-      ),
-      1,
-      result.stderr,
-    );
     assert.deepEqual(result.stdout.trim().split(/\r?\n/), [
       "FIRST",
       "SECOND",
       "THIRD",
     ]);
   };
-
-function countMatches(text: string, pattern: RegExp): number {
-  return [...text.matchAll(pattern)].length;
-}
 
 function prebuiltGeneratedSources(): Record<string, string> {
   const files: Record<string, string> = {};
@@ -179,7 +145,6 @@ func runBuild(args []string) int {
   }
   root := projectRoot(*cwd)
   if _, err := os.Stat(filepath.Join(root, "runtime-started.txt")); err == nil {
-    _ = os.WriteFile(filepath.Join(root, "runtime-build-fallback.txt"), []byte("build fallback\n"), 0o644)
     fmt.Fprintln(os.Stderr, "generated-transform-plugin: build fallback should not run for generated sources")
     return 2
   }
@@ -209,18 +174,10 @@ func runTransform(args []string) int {
       fmt.Fprintln(os.Stderr, "generated-transform-plugin: prebuilt siblings should not be retransformed")
       return 2
     }
-    if strings.Contains(slash, "/packages/other/") {
-      fmt.Fprintln(os.Stderr, "generated-transform-plugin: nested packages should not be transformed for generated source misses")
-      return 2
-    }
-    if strings.Contains(slash, "/legacy/") {
-      fmt.Fprintln(os.Stderr, "generated-transform-plugin: pre-existing unbuilt sources should not be transformed for generated source misses")
-      return 2
-    }
     if strings.HasSuffix(slash, "/src/generated/first.ts") {
       hasFirst = true
     }
-    if strings.HasSuffix(slash, "/src/other/second.ts") {
+    if strings.HasSuffix(slash, "/src/generated/second.ts") {
       hasSecond = true
     }
   }
