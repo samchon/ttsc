@@ -1210,9 +1210,11 @@ function buildDependency(
  * source set, fall back to its source-to-source transform output and emit that
  * transformed source without plugins.
  *
- * Only sources whose emitted JavaScript is absent are refreshed:
- * already-emitted files stay out of the plugin pass, while files created in the
- * same runtime turn are processed together.
+ * Only sources whose emitted JavaScript is absent are refreshed. Native build
+ * fallback can batch files created in the same runtime turn, but source-to-
+ * source transform replay stays demand-driven: the requested source is enough
+ * for TypeScript to pull in its import graph without transforming sibling
+ * generated tests that are not being loaded yet.
  */
 function buildMissingDependencySource(
   tsconfig: string,
@@ -1221,6 +1223,21 @@ function buildMissingDependencySource(
   sourceFile: string,
 ): BuiltProject {
   const project = readDependencyProjectMeta(tsconfig);
+  const replayTransformFirst = shouldReplayEntryProjectTransform(tsconfig);
+  const transformSourceFiles = [sourceFile];
+  if (replayTransformFirst) {
+    const transformed = tryTransformDependencySourceShard(
+      project,
+      tsconfig,
+      emitDir,
+      metaPath,
+      sourceFile,
+      transformSourceFiles,
+    );
+    if (transformed !== null) {
+      return transformed;
+    }
+  }
   const emittedFiles = listEmittedJavaScriptFiles(emitDir);
   const sourceFiles = collectMissingProjectTypeScriptSources(
     sourceFile,
@@ -1230,20 +1247,6 @@ function buildMissingDependencySource(
     dependencyCacheCompletedAt(metaPath) ??
       (isEntryProjectTsconfig(tsconfig) ? runtimeManifestCompletedAt() : null),
   );
-  const replayTransformFirst = shouldReplayEntryProjectTransform(tsconfig);
-  if (replayTransformFirst) {
-    const transformed = tryTransformDependencySourceShard(
-      project,
-      tsconfig,
-      emitDir,
-      metaPath,
-      sourceFile,
-      sourceFiles,
-    );
-    if (transformed !== null) {
-      return transformed;
-    }
-  }
   const shard = tryBuildDependencySourceShard(
     project,
     tsconfig,
@@ -1262,7 +1265,7 @@ function buildMissingDependencySource(
       emitDir,
       metaPath,
       sourceFile,
-      sourceFiles,
+      transformSourceFiles,
     );
     if (transformed !== null) {
       return transformed;
