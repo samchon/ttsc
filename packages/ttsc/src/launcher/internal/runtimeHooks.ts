@@ -730,17 +730,6 @@ function resolveSourceSpecifier(
   }
   const base = path.resolve(path.dirname(sourceFile), specifier);
   if (path.extname(base).length !== 0) {
-    const extension = path.extname(base).toLowerCase();
-    const tsExtensions = JS_TO_TS_EXTENSIONS.get(extension);
-    if (tsExtensions !== undefined) {
-      const stem = base.slice(0, base.length - extension.length);
-      for (const tsExtension of tsExtensions) {
-        const candidate = stem + tsExtension;
-        if (isFile(candidate)) {
-          return candidate;
-        }
-      }
-    }
     return isFile(base) ? base : null;
   }
   for (const extension of TYPESCRIPT_EXTENSIONS) {

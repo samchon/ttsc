@@ -39,10 +39,10 @@ export const test_ttsx_exposes_nested_cjs_source_star_exports_to_esm_named_impor
         version: "1.0.0",
         exports: { ".": "./src/index.ts" },
       }),
-      "node_modules/lib/src/index.ts": `export * from "./middle.js";\n`,
+      "node_modules/lib/src/index.ts": `export * from "./middle";\n`,
       "node_modules/lib/src/middle.ts": [
         `export * from "./inner";`,
-        `export * as grouped from "./leaf.js";`,
+        `export * as grouped from "./leaf";`,
         ``,
       ].join("\n"),
       "node_modules/lib/src/inner.ts": [
