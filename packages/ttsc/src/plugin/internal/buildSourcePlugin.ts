@@ -1125,6 +1125,10 @@ function shouldPruneDirectory(name: string): boolean {
 
 function shouldOmitSourceFile(name: string): boolean {
   if (GENERATED_WORKSPACE_FILES.has(name)) return true;
+  // `go build` ignores test files. Keep plugin binary cache keys aligned with
+  // the files that can affect the built sidecar, otherwise large native test
+  // suites make every cache lookup hash irrelevant source.
+  if (name.endsWith("_test.go")) return true;
   // npm-pack tarballs and macOS/Windows editor sidecars are local
   // build artifacts that drift independently of the Go source. They
   // would otherwise enter the cache key and bust the cached binary on
