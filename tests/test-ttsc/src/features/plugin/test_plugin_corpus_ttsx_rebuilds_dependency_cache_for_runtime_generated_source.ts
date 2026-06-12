@@ -29,7 +29,6 @@ export const test_plugin_corpus_ttsx_rebuilds_dependency_cache_for_runtime_gener
   () => {
     const root = commonJsProject({
       "src/main.ts": [
-        `declare const console: { log(message: string): void };`,
         `declare const process: { cwd(): string };`,
         `declare function require<T = unknown>(name: string): T;`,
         `const fs = require<{`,
