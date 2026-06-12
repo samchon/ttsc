@@ -612,7 +612,7 @@ function collectStarExportNames(
   if (sourceFile !== undefined) {
     const sourceTarget = resolveSourceSpecifier(sourceFile, specifier);
     if (sourceTarget !== null) {
-      return collectTypeScriptExportNames(sourceTarget, new Set());
+      return collectSourceCommonJsExportNames(sourceTarget, new Set());
     }
   }
   return new Set();
@@ -657,7 +657,7 @@ function collectStaticCommonJsExportNames(source: string): Set<string> {
   return names;
 }
 
-function collectTypeScriptExportNames(
+function collectSourceCommonJsExportNames(
   sourceFile: string,
   seen: Set<string>,
 ): Set<string> {
@@ -666,70 +666,22 @@ function collectTypeScriptExportNames(
     return new Set();
   }
   seen.add(real);
-  const source = readFileOrNull(real);
-  if (source === null) {
-    return new Set();
-  }
-  const text = stripComments(source);
-  const names = new Set<string>();
-
-  collectMatches(
-    text,
-    /\bexport\s+(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:const|let|var|function|class|enum|namespace)\s+([A-Za-z_$][\w$]*)/g,
-    names,
-  );
-  collectMatches(
-    text,
-    /\bexport\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+["'][^"']+["']/g,
-    names,
-  );
-
-  const clausePattern =
-    /\bexport\s+(?!type\b)\{([^}]+)\}(?:\s+from\s+["'][^"']+["'])?/g;
-  let clause: RegExpExecArray | null;
-  while ((clause = clausePattern.exec(text)) !== null) {
-    for (const name of parseExportClauseNames(clause[1]!)) {
-      names.add(name);
-    }
-  }
-
-  const starPattern = /\bexport\s+\*\s+from\s+["']([^"']+)["']/g;
-  let star: RegExpExecArray | null;
-  while ((star = starPattern.exec(text)) !== null) {
-    const target = resolveSourceSpecifier(real, star[1]!);
+  const source =
+    emitOrphanAsCommonJs(real) ??
+    transformOrphanSource(real, pathToFileURL(real).href);
+  const names = collectStaticCommonJsExportNames(source);
+  for (const specifier of collectExportStarSpecifiers(source)) {
+    const target = resolveSourceSpecifier(real, specifier);
     if (target === null) {
       continue;
     }
-    for (const name of collectTypeScriptExportNames(target, seen)) {
-      if (name !== "default" && !names.has(name)) {
+    for (const name of collectSourceCommonJsExportNames(target, seen)) {
+      if (name !== "default" && name !== "__esModule" && !names.has(name)) {
         names.add(name);
       }
     }
   }
   return names;
-}
-
-function collectMatches(
-  source: string,
-  pattern: RegExp,
-  names: Set<string>,
-): void {
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(source)) !== null) {
-    names.add(match[1]!);
-  }
-}
-
-function parseExportClauseNames(clause: string): string[] {
-  return clause
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => !part.startsWith("type "))
-    .map((part) => {
-      const pieces = part.split(/\s+as\s+/);
-      return pieces[pieces.length - 1]?.trim() ?? "";
-    })
-    .filter(isIdentifierName);
 }
 
 function collectExportStarSpecifiers(source: string): string[] {
@@ -741,10 +693,6 @@ function collectExportStarSpecifiers(source: string): string[] {
     specifiers.push(match[3]!);
   }
   return specifiers;
-}
-
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\r\n]*/g, "");
 }
 
 function resolveEmittedRequire(
@@ -782,6 +730,17 @@ function resolveSourceSpecifier(
   }
   const base = path.resolve(path.dirname(sourceFile), specifier);
   if (path.extname(base).length !== 0) {
+    const extension = path.extname(base).toLowerCase();
+    const tsExtensions = JS_TO_TS_EXTENSIONS.get(extension);
+    if (tsExtensions !== undefined) {
+      const stem = base.slice(0, base.length - extension.length);
+      for (const tsExtension of tsExtensions) {
+        const candidate = stem + tsExtension;
+        if (isFile(candidate)) {
+          return candidate;
+        }
+      }
+    }
     return isFile(base) ? base : null;
   }
   for (const extension of TYPESCRIPT_EXTENSIONS) {
