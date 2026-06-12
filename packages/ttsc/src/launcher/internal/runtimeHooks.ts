@@ -1372,10 +1372,12 @@ function tryBuildDependencySourceShard(
       "utf8",
     );
     const result = runBuild({
+      binary: project.tsgoBinary,
       cwd: project.projectRoot,
       emit: true,
       forceListEmittedFiles: true,
       outDir: emitDir,
+      projectRoot: project.projectRoot,
       quiet: true,
       skipDiagnosticsCheck: true,
       tsconfig: tempConfig,

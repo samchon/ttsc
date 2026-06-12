@@ -32,9 +32,21 @@ export const test_plugin_corpus_ttsx_rebuilds_generated_project_sources_when_dep
       {
         "plugin.cjs": `
           const path = require("node:path");
-          module.exports = {
-            name: "generated-cache-plugin",
-            source: path.resolve(__dirname, "go-plugin"),
+          module.exports = (context) => {
+            const expected = path.resolve(__dirname);
+            const actual = path.resolve(context.projectRoot);
+            if (actual !== expected) {
+              throw new Error(
+                "generated-cache-plugin: expected projectRoot " +
+                  expected +
+                  ", received " +
+                  actual,
+              );
+            }
+            return {
+              name: "generated-cache-plugin",
+              source: path.resolve(__dirname, "go-plugin"),
+            };
           };
         `,
         "go-plugin/go.mod": `module generated-cache-plugin\n\ngo 1.26\n`,
@@ -45,6 +57,7 @@ export const test_plugin_corpus_ttsx_rebuilds_generated_project_sources_when_dep
           ``,
           `const dir = path.join(__dirname, "generated");`,
           `fs.mkdirSync(dir, { recursive: true });`,
+          `fs.writeFileSync(path.join(__dirname, "..", "runtime-started.txt"), "started\\n");`,
           `const marker = "cache" + "Marker";`,
           ``,
           `fs.writeFileSync(`,
@@ -118,7 +131,7 @@ func runBuild(args []string) int {
   flags := flag.NewFlagSet("build", flag.ContinueOnError)
   flags.SetOutput(os.Stderr)
   cwd := flags.String("cwd", "", "project directory")
-  _ = flags.String("tsconfig", "", "tsconfig")
+  tsconfig := flags.String("tsconfig", "", "tsconfig")
   _ = flags.String("plugins-json", "", "ordered plugin descriptors")
   _ = flags.Bool("emit", false, "emit")
   _ = flags.Bool("quiet", false, "quiet")
@@ -135,6 +148,10 @@ func runBuild(args []string) int {
       fmt.Fprintln(os.Stderr, err)
       return 2
     }
+  }
+  if _, err := os.Stat(filepath.Join(root, "runtime-started.txt")); err == nil && samePath(*tsconfig, filepath.Join(root, "tsconfig.json")) {
+    fmt.Fprintln(os.Stderr, "generated-cache-plugin: full rebuild should not run for generated sources")
+    return 2
   }
   sourceRoot := filepath.Join(root, "src")
   err := filepath.WalkDir(sourceRoot, func(file string, entry fs.DirEntry, err error) error {
@@ -163,6 +180,18 @@ func runBuild(args []string) int {
     return 2
   }
   return 0
+}
+
+func samePath(left string, right string) bool {
+  absoluteLeft, err := filepath.Abs(left)
+  if err != nil {
+    return false
+  }
+  absoluteRight, err := filepath.Abs(right)
+  if err != nil {
+    return false
+  }
+  return filepath.Clean(absoluteLeft) == filepath.Clean(absoluteRight)
 }
 
 func transform(source string) string {
