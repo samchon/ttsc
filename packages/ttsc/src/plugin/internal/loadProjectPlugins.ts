@@ -12,6 +12,7 @@ import type { TtscPluginStage } from "../../structures/TtscPluginStage";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import { buildSourcePlugin } from "./buildSourcePlugin";
+import { installPluginEntryResolveHook } from "./installPluginEntryResolveHook";
 
 const GO_MOD_SEARCH_MAX_DEPTH = 3;
 
@@ -80,6 +81,11 @@ export function loadProjectPlugins(options: {
       project,
     };
   }
+
+  // A descriptor entry may import sibling modules from source (a package root
+  // that re-exports its runtime alongside the descriptor); without this the
+  // first extensionless / `.ts`-only relative import crashes the load.
+  installPluginEntryResolveHook();
 
   const context = {
     binary: options.binary,
