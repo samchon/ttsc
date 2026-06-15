@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { registerHooks } from "node:module";
+import { registerHooks, stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -13,6 +13,9 @@ const RESOLVABLE_EXTENSIONS = [
   ".mjs",
   ".cjs",
 ] as const;
+
+/** TypeScript source extensions the load hook strips in-process. */
+const TYPESCRIPT_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts"] as const;
 
 /**
  * JavaScript extension → the TypeScript source extensions it may have been
@@ -42,31 +45,55 @@ type NextResolve = (
   context: ResolveContext,
 ) => ResolveResult;
 
+interface LoadContext {
+  readonly format?: string | null;
+  readonly conditions?: string[];
+  readonly importAttributes?: Record<string, string | undefined>;
+}
+
+interface LoadResult {
+  format: string | null | undefined;
+  source?: string | ArrayBuffer | NodeJS.TypedArray;
+  shortCircuit?: boolean;
+}
+
+type NextLoad = (url: string, context: LoadContext) => LoadResult;
+
 let installed = false;
 
 /**
- * Install a resolve hook so a plugin descriptor entry can import sibling
- * modules from source.
+ * Install hooks so a plugin descriptor entry can be a `.ts` source module that
+ * imports sibling files.
  *
- * ttsc loads a plugin's JS descriptor (the `transform` entry) during plugin
+ * ttsc loads a plugin's JS descriptor (its `transform` entry) during plugin
  * bootstrap, on the launcher thread — before any runtime source-loading hooks
  * are live. A descriptor entry is usually a lone module, but a plugin may
- * legitimately ship inside a package whose entry `import`s other files (e.g. a
- * package root that re-exports its runtime alongside the descriptor). Node's
- * own resolver then rejects the first extensionless / `.ts`-only relative
- * specifier with `ERR_MODULE_NOT_FOUND` and kills the whole load even though
- * the descriptor itself is valid — punishing a plugin merely for having
- * imports.
+ * legitimately ship inside a package whose entry `import`s other files from
+ * source (a package root that re-exports its runtime alongside the descriptor).
+ * Without help, Node rejects the first extensionless / `.ts`-only relative
+ * specifier (`ERR_MODULE_NOT_FOUND`) and, once that is resolved, chokes on the
+ * un-stripped type syntax (`Unexpected token '<'`) — punishing a valid plugin
+ * merely for being written in TypeScript with imports.
  *
- * This hook rescues exactly those specifiers, and only after Node's resolver
- * has already thrown, so a successful resolution is never perturbed and a
- * genuinely missing module still surfaces its original error. Idempotent.
+ * Two hooks cover that:
+ * - `resolve` rescues an extensionless / `.js`-for-`.ts` relative specifier
+ *   Node already rejected (a successful resolution is never perturbed);
+ * - `load` strips the type syntax of a `.ts` source in-process, so the
+ *   descriptor graph runs without a project build — and therefore without
+ *   re-entering the plugin's own transform (no self-hosting cycle).
+ *
+ * Bun is skipped: it transpiles `.ts` and resolves extensionless relative
+ * imports natively, and does not implement these `registerHooks`, so installing
+ * them there is both unnecessary and disruptive. Idempotent.
  */
 export function installPluginEntryResolveHook(): void {
   if (installed) {
     return;
   }
   installed = true;
+  if (typeof (globalThis as { Bun?: unknown }).Bun !== "undefined") {
+    return;
+  }
   registerHooks({
     resolve(
       specifier: string,
@@ -86,6 +113,23 @@ export function installPluginEntryResolveHook(): void {
           format: formatForUrl(rescued),
         };
       }
+    },
+    load(url: string, context: LoadContext, nextLoad: NextLoad): LoadResult {
+      if (!url.startsWith("file:")) {
+        return nextLoad(url, context);
+      }
+      const filename = fileURLToPath(url);
+      if (!isTypeScriptSource(filename)) {
+        return nextLoad(url, context);
+      }
+      return {
+        format: formatForUrl(url) ?? "module",
+        shortCircuit: true,
+        source: stripTypeScriptTypes(fs.readFileSync(filename, "utf8"), {
+          mode: "transform",
+          sourceUrl: url,
+        }),
+      };
     },
   });
 }
@@ -139,10 +183,11 @@ function probeRescuableSpecifier(
 }
 
 /**
- * Classify the module format of a rescued source file. A source `.ts`/`.tsx`
- * is loaded as an ES module (its `import`/`export` syntax handled as ESM)
- * instead of deferring to the package `type`, so an ESM-authored entry inside a
- * type-less package still loads rather than failing to "parse as CommonJS".
+ * Classify the module format of a rescued or stripped source file. A source
+ * `.ts`/`.tsx` is loaded as an ES module (its `import`/`export` syntax handled
+ * as ESM) instead of deferring to the package `type`, so an ESM-authored entry
+ * inside a type-less package still loads rather than failing to "parse as
+ * CommonJS".
  */
 function formatForUrl(url: string): "module" | "commonjs" | undefined {
   if (url.endsWith(".cts") || url.endsWith(".cjs")) {
@@ -157,6 +202,10 @@ function formatForUrl(url: string): "module" | "commonjs" | undefined {
     return "module";
   }
   return undefined;
+}
+
+function isTypeScriptSource(filename: string): boolean {
+  return TYPESCRIPT_EXTENSIONS.some((extension) => filename.endsWith(extension));
 }
 
 function isRelativeSpecifier(specifier: string): boolean {
