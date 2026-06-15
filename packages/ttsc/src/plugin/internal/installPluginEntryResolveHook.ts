@@ -80,7 +80,11 @@ export function installPluginEntryResolveHook(): void {
         if (rescued === null) {
           throw error;
         }
-        return { shortCircuit: true, url: rescued };
+        return {
+          shortCircuit: true,
+          url: rescued,
+          format: formatForUrl(rescued),
+        };
       }
     },
   });
@@ -132,6 +136,27 @@ function probeRescuableSpecifier(
     }
   }
   return null;
+}
+
+/**
+ * Classify the module format of a rescued source file. A source `.ts`/`.tsx`
+ * is loaded as an ES module (its `import`/`export` syntax handled as ESM)
+ * instead of deferring to the package `type`, so an ESM-authored entry inside a
+ * type-less package still loads rather than failing to "parse as CommonJS".
+ */
+function formatForUrl(url: string): "module" | "commonjs" | undefined {
+  if (url.endsWith(".cts") || url.endsWith(".cjs")) {
+    return "commonjs";
+  }
+  if (
+    url.endsWith(".mts") ||
+    url.endsWith(".mjs") ||
+    url.endsWith(".ts") ||
+    url.endsWith(".tsx")
+  ) {
+    return "module";
+  }
+  return undefined;
 }
 
 function isRelativeSpecifier(specifier: string): boolean {
