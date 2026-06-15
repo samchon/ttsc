@@ -27,6 +27,7 @@ type ProjectPluginEntry = {
 type PackageManifest = {
   dependencies?: Record<string, unknown>;
   devDependencies?: Record<string, unknown>;
+  exports?: unknown;
   name?: unknown;
   ttsc?: unknown;
 };
@@ -861,7 +862,178 @@ function resolvePluginRequest(specifier: string, projectRoot: string): string {
   if (isRelativePluginSpecifier(specifier)) {
     return resolveRealPath(path.resolve(projectRoot, specifier));
   }
+  // A package whose main `.` entry is a runtime barrel cannot double as a
+  // plugin descriptor entry: loading it during plugin bootstrap drags the
+  // runtime in (and, for a self-hosting transform like typia, deadlocks —
+  // loading the transform would have to build the runtime the transform
+  // emits). Such a package opts in with a `ttsc` export condition that points
+  // at a runtime-free descriptor; honour it here, scoped to plugin resolution.
+  const conditioned = resolvePluginExportCondition(specifier, projectRoot);
+  if (conditioned !== null) {
+    return conditioned;
+  }
   return resolveRealPath(require.resolve(specifier, { paths: [projectRoot] }));
+}
+
+/** Condition names ttsc activates when resolving a plugin entry's package `exports`. */
+const PLUGIN_EXPORT_CONDITIONS: readonly string[] = [
+  "ttsc",
+  "node",
+  "require",
+  "default",
+];
+
+/**
+ * Resolve a bare plugin specifier under the dedicated `ttsc` export condition.
+ *
+ * A package whose `.` entry is a runtime barrel (e.g. `typia`, whose index
+ * re-exports the whole validator runtime) cannot serve as the plugin descriptor
+ * entry: loading it during plugin bootstrap pulls the runtime in and, for a
+ * self-hosting transform, forms a cycle. Such a package opts in by adding a
+ * `ttsc` condition to its `exports` that points at a runtime-free descriptor:
+ *
+ *   "exports": { ".": { "ttsc": "./lib/transform.js", "default": "./lib/index.js" } }
+ *
+ * The condition is honoured ONLY here, scoped to plugin-entry resolution. A
+ * process-wide `--conditions=ttsc` would also redirect the package's normal
+ * `import`s to the descriptor and break its runtime, so it must not be used.
+ *
+ * Returns an absolute path when the package opts in, or `null` to fall back to
+ * the normal `require.resolve` — no `exports`, no `ttsc` branch for the
+ * requested subpath, or an unresolved/missing target — so a package that does
+ * not opt in resolves exactly as it did before.
+ */
+function resolvePluginExportCondition(
+  specifier: string,
+  baseDir: string,
+): string | null {
+  const split = splitPackageSpecifier(specifier);
+  if (split === null) {
+    return null;
+  }
+  const packageJson = resolveDependencyPackageJson(split.packageName, baseDir);
+  if (packageJson === undefined) {
+    return null;
+  }
+  const exportsField = readPackageManifest(packageJson)?.exports;
+  if (exportsField === undefined) {
+    return null;
+  }
+  const target = selectExportTarget(exportsField, split.subpath);
+  // Only take over when the package actually opts in with a `ttsc` condition
+  // for this subpath; otherwise defer so behaviour is unchanged for every
+  // package that does not.
+  if (target === undefined || !containsCondition(target, "ttsc")) {
+    return null;
+  }
+  const resolved = resolveConditionalTarget(target, PLUGIN_EXPORT_CONDITIONS);
+  if (resolved === null || !resolved.startsWith("./")) {
+    return null;
+  }
+  const file = path.resolve(path.dirname(packageJson), resolved);
+  return fs.existsSync(file) ? resolveRealPath(file) : null;
+}
+
+/**
+ * Split a bare specifier into its package name and the `.`-prefixed subpath it
+ * addresses (`"typia"` → `.`, `"typia/lib/transform"` → `./lib/transform`,
+ * `"@scope/pkg/sub"` → `./sub`). Returns `null` for a relative/empty specifier
+ * or a malformed scoped name.
+ */
+function splitPackageSpecifier(
+  specifier: string,
+): { packageName: string; subpath: string } | null {
+  if (specifier.length === 0 || specifier.startsWith(".")) {
+    return null;
+  }
+  const segments = specifier.split("/");
+  const nameSegments = specifier.startsWith("@") ? 2 : 1;
+  if (segments.length < nameSegments) {
+    return null;
+  }
+  const rest = segments.slice(nameSegments).join("/");
+  return {
+    packageName: segments.slice(0, nameSegments).join("/"),
+    subpath: rest.length === 0 ? "." : `./${rest}`,
+  };
+}
+
+/**
+ * The `exports` entry addressing `subpath`, applying Node's rule that an
+ * `exports` value with no `.`-prefixed keys is sugar for the `.` target.
+ * Returns `undefined` when no entry addresses the subpath.
+ */
+function selectExportTarget(exportsField: unknown, subpath: string): unknown {
+  if (typeof exportsField === "string" || Array.isArray(exportsField)) {
+    return subpath === "." ? exportsField : undefined;
+  }
+  if (typeof exportsField !== "object" || exportsField === null) {
+    return undefined;
+  }
+  const record = exportsField as Record<string, unknown>;
+  const isSubpathMap = Object.keys(record).some(
+    (key) => key === "." || key.startsWith("./"),
+  );
+  if (!isSubpathMap) {
+    // Conditions object: the whole value is the `.` target.
+    return subpath === "." ? exportsField : undefined;
+  }
+  return subpath in record ? record[subpath] : undefined;
+}
+
+/** True when condition key `condition` appears anywhere in a (nested) target. */
+function containsCondition(target: unknown, condition: string): boolean {
+  if (Array.isArray(target)) {
+    return target.some((entry) => containsCondition(entry, condition));
+  }
+  if (typeof target !== "object" || target === null) {
+    return false;
+  }
+  return Object.entries(target).some(
+    ([key, value]) => key === condition || containsCondition(value, condition),
+  );
+}
+
+/**
+ * Resolve a (possibly conditional) export target to a relative file string,
+ * honouring `conditions` — a string is the target, an array is a fallback list,
+ * an object picks the first key in the active condition set (package key order
+ * wins, as Node does), and an explicit `null` blocks the target.
+ */
+function resolveConditionalTarget(
+  target: unknown,
+  conditions: readonly string[],
+): string | null {
+  if (typeof target === "string") {
+    return target;
+  }
+  if (target === null || target === undefined) {
+    return null;
+  }
+  if (Array.isArray(target)) {
+    for (const entry of target) {
+      const resolved = resolveConditionalTarget(entry, conditions);
+      if (resolved !== null) {
+        return resolved;
+      }
+    }
+    return null;
+  }
+  if (typeof target !== "object") {
+    return null;
+  }
+  const active = new Set(conditions);
+  for (const [key, value] of Object.entries(
+    target as Record<string, unknown>,
+  )) {
+    if (active.has(key)) {
+      const resolved = resolveConditionalTarget(value, conditions);
+      if (resolved !== null) {
+        return resolved;
+      }
+    }
+  }
+  return null;
 }
 
 function resolveRealPath(location: string): string {

@@ -36,6 +36,29 @@ The rule and its three invariants (explicit wins; `name` must match dependency s
 { "ttsc": { "plugin": { "transform": "my-ttsc-plugin" } } }
 ```
 
+### Runtime-library packages: the `ttsc` export condition
+
+When the plugin ships in a package whose main `.` entry is a **runtime barrel** — a library that re-exports its whole runtime (e.g. `typia`, whose index pulls in the validator runtime) — that entry cannot double as the plugin descriptor. `ttsc` loads the descriptor during plugin bootstrap, _before_ it builds the sidecar binary, so evaluating the barrel drags the runtime in (and, for a self-hosting transform, deadlocks: loading the transform would have to build the runtime the transform emits).
+
+Expose a **runtime-free** descriptor under a dedicated `ttsc` export condition. `ttsc` honours it only when resolving a plugin entry, so the package's normal imports keep resolving to the runtime:
+
+```jsonc
+// package.json
+{
+  "exports": {
+    ".": {
+      // runtime-free descriptor — only ttsc resolves this
+      "ttsc": "./lib/transform.js",
+      // the runtime barrel — every other import
+      "default": "./lib/index.js"
+    }
+  },
+  "ttsc": { "plugin": { "transform": "my-runtime-lib" } }
+}
+```
+
+The condition is scoped to plugin-entry resolution; it is never applied process-wide (a global `--conditions=ttsc` would also divert `import "my-runtime-lib"` to the descriptor and break the runtime). A package that declares no `ttsc` condition resolves exactly as before.
+
 ## Typed Config
 
 For structured options, marshal the config map back into a typed struct:
