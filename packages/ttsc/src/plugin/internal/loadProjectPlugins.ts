@@ -665,9 +665,23 @@ function loadDescriptorViaTtsx(
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-plugin-descriptor-"));
   const out = path.join(dir, "descriptor.json");
   const shim = path.join(dir, "load-descriptor.mts");
+  // ttsx type-checks and builds the shim's own project, so it needs a tsconfig
+  // to anchor on; a minimal one is enough (the shim is `@ts-nocheck`).
+  fs.writeFileSync(
+    path.join(dir, "tsconfig.json"),
+    JSON.stringify({
+      compilerOptions: {
+        module: "nodenext",
+        moduleResolution: "nodenext",
+        skipLibCheck: true,
+        target: "es2022",
+      },
+    }),
+  );
   fs.writeFileSync(
     shim,
     [
+      `// @ts-nocheck`,
       `import { writeFileSync } from "node:fs";`,
       `import { pathToFileURL } from "node:url";`,
       `const mod = await import(pathToFileURL(process.env.TTSC_PLUGIN_ENTRY).href);`,
