@@ -1075,7 +1075,12 @@ function buildDependency(
     // can itself depend on a transform (e.g. a fixture whose values are built
     // with `typia.createRandom`), and its runtime behaviour is wrong without it.
     // `runBuild` runs on this main thread, so its plugin resolution works the
-    // same as the entry build's.
+    // same as the entry build's. The exception is loading a plugin descriptor
+    // (`TTSC_PLUGIN_DESCRIPTOR_LOAD`): there the descriptor's own — possibly
+    // self-hosting — transform must NOT run, or it re-enters plugin loading and
+    // deadlocks, so every dependency in that graph builds with plugins off.
+    plugins:
+      process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1" ? false : undefined,
     quiet: true,
     // Emit only: the entry project's up-front check is the type gate. A
     // dependency build pulls its own transitive sources into the program and

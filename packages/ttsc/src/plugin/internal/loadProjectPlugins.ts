@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import childProcess from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -6,7 +6,6 @@ import path from "node:path";
 
 import { findNearestGoMod } from "../../compiler/internal/paths";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
-import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import type { ITtscPlugin } from "../../structures/ITtscPlugin";
 import type { ITtscPluginContributor } from "../../structures/ITtscPluginContributor";
 import type { ITtscPluginFactoryContext } from "../../structures/ITtscPluginFactoryContext";
@@ -583,7 +582,7 @@ function loadPluginEntry(
     }
 
     const request = resolvePluginRequest(specifier, baseDir);
-    const mod = requirePluginEntry(request) as {
+    const mod = requirePluginEntry(request, context) as {
       createTtscPlugin?: TtscPluginFactory;
       default?: ITtscPlugin | TtscPluginFactory;
     } & Partial<Record<"plugin", ITtscPlugin | TtscPluginFactory>>;
@@ -613,163 +612,106 @@ function loadPluginEntry(
 }
 
 /**
- * Require a plugin descriptor entry, compiling it from TypeScript source on the
- * fly when Node cannot load it directly.
+ * Require a plugin descriptor entry, falling back to `ttsx` when Node cannot
+ * load a `.ts` source entry directly.
  *
  * A descriptor entry that is `.ts` source — especially a package root that
  * re-exports a runtime alongside the descriptor — fails Node's loader on its
- * first extensionless import or un-stripped type. When that happens and the
- * entry has an owning tsconfig, build that project **with plugins disabled** (a
- * type-aware emit that, by skipping the plugins, never re-enters the plugin's
- * own transform — no self-hosting cycle and no cross-file elision bugs) and
- * require the emitted JavaScript instead. A package that loads directly (a
- * compiled descriptor, or Bun's native `.ts`) never reaches the fallback.
+ * first extensionless import or un-stripped type, and its imports can fan out
+ * into a whole transitive graph of source packages. Rather than reimplement
+ * that graph build, run the entry through `ttsx`, which already builds each
+ * `.ts` dependency on demand. The run is forced plugins-off across the whole
+ * graph (`--no-plugins` for the entry, `TTSC_PLUGIN_DESCRIPTOR_LOAD` for every
+ * dependency), so the descriptor's own — possibly self-hosting — transform
+ * never runs and cannot deadlock. A package that loads directly (a compiled
+ * descriptor, or Bun's native `.ts`) never reaches the fallback.
  */
-function requirePluginEntry(request: string): unknown {
+function requirePluginEntry(
+  request: string,
+  context: ITtscPluginFactoryContext,
+): unknown {
   try {
     return require(request);
   } catch (error) {
-    const compiled = compilePluginEntryFromSource(request);
-    if (compiled === null) {
+    if (!TS_SOURCE_PATTERN.test(request)) {
       throw error;
     }
-    return require(compiled);
+    const descriptor = loadDescriptorViaTtsx(request, context);
+    if (descriptor === undefined) {
+      throw error;
+    }
+    return { default: descriptor };
   }
 }
 
 const TS_SOURCE_PATTERN = /\.(?:[cm]?ts|tsx)$/i;
 
-interface BuiltPluginEntryProject {
-  emitDir: string;
-  emittedFiles?: readonly string[];
-  rootDir: string;
-}
-
-const pluginEntryProjectCache = new Map<
-  string,
-  BuiltPluginEntryProject | null
->();
-
-function compilePluginEntryFromSource(request: string): string | null {
-  if (!TS_SOURCE_PATTERN.test(request)) {
-    return null;
-  }
-  const tsconfig = nearestPluginTsconfig(request);
-  if (tsconfig === null) {
-    return null;
-  }
-  let built = pluginEntryProjectCache.get(tsconfig);
-  if (built === undefined) {
-    built = buildPluginEntryProject(tsconfig);
-    pluginEntryProjectCache.set(tsconfig, built);
-  }
-  if (built === null) {
-    return null;
-  }
-  return resolveEmittedJavaScript({
-    emittedFiles: built.emittedFiles,
-    outDir: built.emitDir,
-    projectRoot: built.rootDir,
-    sourceFile: resolveRealPath(request),
-  });
-}
-
-function buildPluginEntryProject(
-  tsconfig: string,
-): BuiltPluginEntryProject | null {
-  try {
-    // Lazy require: `runBuild` imports this module, so a static import would be
-    // a load-time cycle. The call happens at runtime, after both are defined.
-    const { runBuild } =
-      require("../../compiler/internal/runBuild") as typeof import("../../compiler/internal/runBuild");
-    const project = readProjectConfig({
-      cwd: path.dirname(tsconfig),
-      tsconfig,
-    });
-    const key = crypto
-      .createHash("sha256")
-      .update(tsconfig)
-      .digest("hex")
-      .slice(0, 16);
-    const emitDir = path.join(os.tmpdir(), "ttsc-plugin-entry", key);
-    fs.rmSync(emitDir, { force: true, recursive: true });
-    const result = runBuild({
-      cwd: project.root,
-      emit: true,
-      forceListEmittedFiles: true,
-      outDir: emitDir,
-      // Disable the project's own plugins: only the descriptor's JavaScript is
-      // needed, and running the (possibly self-referential) transform here
-      // would deadlock. Emit-only — the consuming build is the real type gate.
-      plugins: false,
-      quiet: true,
-      skipDiagnosticsCheck: true,
-      tsconfig,
-    });
-    if (!emittedAnything(emitDir)) {
-      return null;
-    }
-    const rootDir =
-      typeof project.compilerOptions.rootDir === "string"
-        ? path.isAbsolute(project.compilerOptions.rootDir)
-          ? project.compilerOptions.rootDir
-          : path.resolve(project.root, project.compilerOptions.rootDir)
-        : project.root;
-    return {
-      emitDir,
-      emittedFiles:
-        result.emittedFiles && result.emittedFiles.length !== 0
-          ? result.emittedFiles
-          : undefined,
-      rootDir,
-    };
-  } catch {
-    return null;
-  }
-}
-
 /**
- * Nearest `tsconfig.json` at or above `file`, stopping at a `node_modules`
- * boundary (a published dependency that ships raw `.ts` without its own
- * tsconfig has no owning project to build, and is left to Node's loader).
+ * Evaluate a `.ts` plugin descriptor entry in a child `ttsx` process and return
+ * the descriptor it produces. A generated shim imports the entry, invokes its
+ * factory with `context`, and writes the descriptor as JSON; `ttsx` runs the
+ * shim with plugins disabled across the whole graph. Returns `undefined` when
+ * `ttsx` is unavailable, so the caller can rethrow the original load error.
  */
-function nearestPluginTsconfig(file: string): string | null {
-  let directory = path.dirname(resolveRealPath(file));
-  for (;;) {
-    if (path.basename(directory) === "node_modules") {
-      return null;
-    }
-    const candidate = path.join(directory, "tsconfig.json");
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-    const parent = path.dirname(directory);
-    if (parent === directory) {
-      return null;
-    }
-    directory = parent;
+function loadDescriptorViaTtsx(
+  request: string,
+  context: ITtscPluginFactoryContext,
+): unknown {
+  const node = process.env.TTSC_NODE_BINARY ?? process.execPath;
+  const ttsx = process.env.TTSC_TTSX_BINARY;
+  if (ttsx === undefined || ttsx.length === 0) {
+    return undefined;
   }
-}
-
-/** True when `directory` holds at least one emitted JavaScript file (any depth). */
-function emittedAnything(directory: string): boolean {
-  let entries: fs.Dirent[];
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-plugin-descriptor-"));
+  const out = path.join(dir, "descriptor.json");
+  const shim = path.join(dir, "load-descriptor.mts");
+  fs.writeFileSync(
+    shim,
+    [
+      `import { writeFileSync } from "node:fs";`,
+      `import { pathToFileURL } from "node:url";`,
+      `const mod = await import(pathToFileURL(process.env.TTSC_PLUGIN_ENTRY).href);`,
+      `const context = JSON.parse(process.env.TTSC_PLUGIN_CONTEXT);`,
+      `const candidate = mod.createTtscPlugin ?? mod.default ?? mod.plugin ?? mod;`,
+      `const descriptor =`,
+      `  typeof candidate === "function" ? candidate(context) : candidate;`,
+      `writeFileSync(process.env.TTSC_PLUGIN_DESCRIPTOR_OUT, JSON.stringify(descriptor));`,
+      ``,
+    ].join("\n"),
+  );
   try {
-    entries = fs.readdirSync(directory, { withFileTypes: true });
-  } catch {
-    return false;
-  }
-  for (const entry of entries) {
-    const full = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      if (emittedAnything(full)) {
-        return true;
-      }
-    } else if (entry.isFile() && /\.(?:[cm]?js)$/i.test(entry.name)) {
-      return true;
+    const result = childProcess.spawnSync(node, [ttsx, "--no-plugins", shim], {
+      cwd: context.projectRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        TTSC_PLUGIN_CONTEXT: JSON.stringify({
+          binary: context.binary,
+          cwd: context.cwd,
+          plugin: context.plugin,
+          projectRoot: context.projectRoot,
+          tsconfig: context.tsconfig,
+        }),
+        TTSC_PLUGIN_DESCRIPTOR_LOAD: "1",
+        TTSC_PLUGIN_DESCRIPTOR_OUT: out,
+        TTSC_PLUGIN_ENTRY: request,
+      },
+      windowsHide: true,
+    });
+    if (result.status !== 0 || !fs.existsSync(out)) {
+      throw new Error(
+        [
+          `ttsc: failed to load plugin descriptor "${request}" through ttsx`,
+          result.stderr || result.stdout || "",
+        ]
+          .filter((line) => line.trim().length !== 0)
+          .join("\n"),
+      );
     }
+    return JSON.parse(fs.readFileSync(out, "utf8"));
+  } finally {
+    fs.rmSync(dir, { force: true, recursive: true });
   }
-  return false;
 }
 
 function withPluginLoaderEnv<T>(run: () => T): T {
