@@ -36,11 +36,11 @@ The rule and its three invariants (explicit wins; `name` must match dependency s
 { "ttsc": { "plugin": { "transform": "my-ttsc-plugin" } } }
 ```
 
-### Runtime-library packages: the `ttsc` export condition
+### Runtime-library packages: keep the descriptor lightweight
 
-When the plugin ships in a package whose main `.` entry is a **runtime barrel** — a library that re-exports its whole runtime (e.g. `typia`, whose index pulls in the validator runtime) — that entry cannot double as the plugin descriptor. `ttsc` loads the descriptor during plugin bootstrap, _before_ it builds the sidecar binary, so evaluating the barrel drags the runtime in (and, for a self-hosting transform, deadlocks: loading the transform would have to build the runtime the transform emits).
+A plugin may ship in a package whose main `.` entry is a **runtime barrel** — a library that re-exports its whole runtime (e.g. `typia`, whose index pulls in the validator runtime). That barrel still works as a descriptor entry: when Node cannot load the `.ts` source directly, `ttsc` runs it through `ttsx` with plugins disabled across the whole graph — a type-aware build that never re-enters the package's own transform and builds no Go binary — then reads the descriptor it produces.
 
-Expose a **runtime-free** descriptor under a dedicated `ttsc` export condition. `ttsc` honours it only when resolving a plugin entry, so the package's normal imports keep resolving to the runtime:
+It works, but it compiles the package's TypeScript source graph each time the descriptor loads. To skip that cost, point `ttsc` at a **runtime-free** descriptor entry — a dedicated subpath (`"transform": "my-runtime-lib/lib/transform"`) or a `ttsc` export condition, which `ttsc` honours only when resolving a plugin entry so the package's normal imports keep resolving to the runtime:
 
 ```jsonc
 // package.json
