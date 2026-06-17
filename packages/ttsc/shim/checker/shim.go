@@ -210,3 +210,18 @@ func Checker_getBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*i
   }
   return checkerGetBaseTypes(recv, t)
 }
+
+//go:linkname checkerGetMinArgumentCount github.com/microsoft/typescript-go/internal/checker.(*Checker).getMinArgumentCount
+func checkerGetMinArgumentCount(recv *innerchecker.Checker, signature *innerchecker.Signature) int
+
+// Checker_getMinArgumentCount returns the minimum number of required arguments
+// a call/construct signature accepts (parameters before the first optional or
+// rest parameter). A type-transform plugin uses this to gate the single-
+// required-parameter constructor strategy (`new C(x)`) and single-arg static
+// factory (`C.from(x)`). Returns 0 if recv or signature is nil.
+func Checker_getMinArgumentCount(recv *innerchecker.Checker, signature *innerchecker.Signature) int {
+  if recv == nil || signature == nil {
+    return 0
+  }
+  return checkerGetMinArgumentCount(recv, signature)
+}
