@@ -31,7 +31,8 @@
     "build": "rimraf lib && tsgo && cp ../../README.md README.md",
     "go:build": "node ../../scripts/go.cjs build-native",
     "go:vet": "node ../../scripts/go.cjs vet ./...",
-    "shim:audit": "node ../../scripts/shim-audit.cjs"
+    "shim:audit": "node ../../scripts/shim-audit.cjs",
+    "shim:audit:test": "node ../../scripts/shim-audit-test.cjs"
   },
   "repository": {
     "type": "git",
