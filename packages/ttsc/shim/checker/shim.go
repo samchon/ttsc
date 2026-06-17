@@ -294,7 +294,15 @@ func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol 
 // seed is the ELEMENT S — from a genuine array-typed parameter `(seed: S[])` —
 // whose seed is the array S[]: getTypeOfSymbol yields `S[]` for BOTH, so without
 // this flag they are indistinguishable and the rest case decodes the wrong
-// shape. Returns false if signature is nil.
+// shape.
+//
+// The rest ELEMENT is the seed ONLY when the rest parameter is the sole value
+// parameter, i.e. `Signature_hasRestParameter(sig) && Signature_parameterCount(sig) == 1`.
+// A leading-required + rest-tail signature `(s: S, ...r: R[])` also has a rest
+// parameter (this returns true), but its seed is the FIRST parameter S — read it
+// from Signature_parameters(sig)[0], NOT the rest element — matching
+// ClassifiableSeed, whose `[infer P, ...Rest]` arm picks P=S there. Returns
+// false if signature is nil.
 func Signature_hasRestParameter(signature *innerchecker.Signature) bool {
   if signature == nil {
     return false
@@ -304,10 +312,14 @@ func Signature_hasRestParameter(signature *innerchecker.Signature) bool {
 
 // Checker_getRestTypeOfSignature returns the ELEMENT type of the signature's
 // rest parameter (`...xs: S[]` -> S; a tuple rest unwraps to its element too),
-// which is the seed type for a rest-only single-argument constructor/factory —
+// which is the seed type for a rest-ONLY single-argument constructor/factory —
 // matching ClassifiableSeed, which unwraps the rest to its element. When the
-// signature has NO rest parameter it falls back to `any` upstream, so gate the
-// call on Signature_hasRestParameter. Returns nil if recv or signature is nil.
+// signature has NO rest parameter it falls back to `any` upstream; and a
+// leading-required + rest-tail `(s: S, ...r: R[])` has a rest parameter yet its
+// seed is the FIRST parameter S, not the rest element. So take the rest element
+// only when `Signature_hasRestParameter(sig) && Signature_parameterCount(sig) == 1`;
+// otherwise read Signature_parameters(sig)[0]. Returns nil if recv or signature
+// is nil.
 func Checker_getRestTypeOfSignature(recv *innerchecker.Checker, signature *innerchecker.Signature) *innerchecker.Type {
   if recv == nil || signature == nil {
     return nil

@@ -24,9 +24,11 @@ var _ = func(c *Checker, instanceType *Type) {
 
   // `new C(seed)` strategy: construct signatures -> arity (min args +
   // parameter count, together disambiguating `()` from `(x?)`) -> return type
-  // -> the seed parameter's type. A rest-only first parameter `(...xs: S[])`
-  // takes its seed from the rest ELEMENT (getRestTypeOfSignature), not the
-  // array getTypeOfSymbol yields; Signature_hasRestParameter selects which.
+  // -> the seed parameter's type. The seed is Signature_parameters[0]'s type,
+  // EXCEPT a rest-ONLY parameter `(...xs: S[])` — when
+  // `hasRestParameter && parameterCount == 1` — whose seed is the rest ELEMENT
+  // (getRestTypeOfSignature). A leading-required + rest-tail `(s, ...r)` still
+  // has hasRestParameter true but its seed is the first parameter S.
   for _, sig := range Checker_getSignaturesOfType(c, ctorType, SignatureKindConstruct) {
     _ = Checker_getMinArgumentCount(c, sig)
     _ = Signature_parameterCount(sig)
