@@ -251,3 +251,23 @@ func Checker_getReturnTypeOfSignature(recv *innerchecker.Checker, signature *inn
   }
   return recv.GetReturnTypeOfSignature(signature)
 }
+
+// Signature_parameterCount returns the number of declared value parameters of a
+// call/construct signature. A rest parameter counts as one and the `this`
+// parameter is excluded (it is held separately from the value parameters).
+//
+// Checker_getMinArgumentCount alone cannot tell a zero-parameter signature
+// (`()` — minimum 0) from a single-optional-parameter one (`(x?)` — also
+// minimum 0). A type-transform plugin needs that distinction to replicate the
+// type-level "single meaningful argument" rule — a FIRST parameter must exist
+// and every later parameter must be optional or rest — as
+// `Signature_parameterCount(sig) >= 1 && Checker_getMinArgumentCount(c, sig) <= 1`.
+// Without it the `new C(x)` / `C.from(x)` strategies silently fall back to field
+// copy for every optional-first constructor or factory. Returns 0 if signature
+// is nil.
+func Signature_parameterCount(signature *innerchecker.Signature) int {
+  if signature == nil {
+    return 0
+  }
+  return len(signature.Parameters())
+}

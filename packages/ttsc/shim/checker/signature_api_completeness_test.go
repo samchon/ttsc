@@ -20,5 +20,9 @@ var _ = func(c *Checker, t *Type) {
   for _, sig := range Checker_getSignaturesOfType(c, t, SignatureKindConstruct) {
     _ = Checker_getMinArgumentCount(c, sig)
     _ = Checker_getReturnTypeOfSignature(c, sig)
+    // parameterCount disambiguates `()` from `(x?)`, which getMinArgumentCount
+    // (0 for both) cannot — the plugin needs it to honor an optional-first
+    // constructor/factory instead of silently falling back to field copy.
+    _ = Signature_parameterCount(sig)
   }
 }
