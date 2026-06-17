@@ -106,7 +106,7 @@ var linknameRe = regexp.MustCompile(`//go:linkname\s+\S+\s+` +
 func scanShimReachable(shimRoot string) (reachable, error) {
   r := reachable{}
   fset := token.NewFileSet()
-  for dir, pkgSuffix := range shimDirs {
+  for dir := range shimDirs {
     paths, _ := filepath.Glob(filepath.Join(shimRoot, dir, "*.go"))
     for _, p := range paths {
       src, err := os.ReadFile(p)
@@ -115,7 +115,7 @@ func scanShimReachable(shimRoot string) (reachable, error) {
       }
       // linkname directives live in comments, so scan raw text too.
       for _, m := range linknameRe.FindAllStringSubmatch(string(src), -1) {
-        r.add(strings.TrimPrefix(m[1], ""), m[2])
+        r.add(m[1], m[2])
       }
       f, err := parser.ParseFile(fset, p, src, parser.SkipObjectResolution)
       if err != nil {
@@ -149,18 +149,47 @@ func scanShimReachable(shimRoot string) (reachable, error) {
         }
         return true
       })
-      _ = pkgSuffix
     }
   }
   return r, nil
+}
+
+// checkShimDirCoverage fails if any immediate sub-directory of the shim root
+// that contains Go source is not registered in shimDirs. This keeps the audit's
+// package list honest: a newly-added shim cannot escape the gate by omission.
+func checkShimDirCoverage(shimRoot string) error {
+  entries, err := os.ReadDir(shimRoot)
+  if err != nil {
+    return err
+  }
+  var unmapped []string
+  for _, e := range entries {
+    if !e.IsDir() {
+      continue
+    }
+    if _, ok := shimDirs[e.Name()]; ok {
+      continue
+    }
+    if goFiles, _ := filepath.Glob(filepath.Join(shimRoot, e.Name(), "*.go")); len(goFiles) > 0 {
+      unmapped = append(unmapped, e.Name())
+    }
+  }
+  if len(unmapped) > 0 {
+    sort.Strings(unmapped)
+    return fmt.Errorf("shim dir(s) not registered in shimDirs (would escape the audit): %s\n"+
+      "  add them to shimDirs in tools/shim_audit/main.go", strings.Join(unmapped, ", "))
+  }
+  return nil
 }
 
 // loadInner loads the upstream internal packages via go/types, anchored in a
 // shim module that requires typescript-go (same trick gen_shims uses).
 func loadInner(anchorDir string) (map[string]*packages.Package, error) {
   var full []string
+  expected := map[string]bool{}
   for _, suffix := range shimDirs {
     full = append(full, internalPrefix+suffix)
+    expected[suffix] = true
   }
   loaded, err := packages.Load(&packages.Config{
     Dir:  anchorDir,
@@ -170,14 +199,33 @@ func loadInner(anchorDir string) (map[string]*packages.Package, error) {
     return nil, err
   }
   out := map[string]*packages.Package{}
+  errored := map[string]string{}
   for _, p := range loaded {
+    suffix := strings.TrimPrefix(p.PkgPath, internalPrefix)
     if len(p.Errors) > 0 {
-      for _, e := range p.Errors {
-        fmt.Fprintln(os.Stderr, "shim_audit: load:", e)
-      }
+      errored[suffix] = p.Errors[0].Error()
       continue
     }
-    out[strings.TrimPrefix(p.PkgPath, internalPrefix)] = p
+    out[suffix] = p
+  }
+  // A package that fails to load (or is missing entirely) must FAIL the audit,
+  // never be silently skipped — otherwise a load error in any environment turns
+  // the gate into a no-op that passes blind.
+  var failed []string
+  for suffix := range expected {
+    if _, ok := out[suffix]; ok {
+      continue
+    }
+    msg := errored[suffix]
+    if msg == "" {
+      msg = "did not load"
+    }
+    failed = append(failed, suffix+": "+msg)
+  }
+  if len(failed) > 0 {
+    sort.Strings(failed)
+    return nil, fmt.Errorf("%d shim package(s) failed to load (audit would be incomplete):\n  %s",
+      len(failed), strings.Join(failed, "\n  "))
   }
   return out, nil
 }
@@ -279,6 +327,13 @@ func main() {
   anchor := flag.String("anchor", "./shim/ast", "module dir anchoring the typescript-go require")
   shimRoot := flag.String("shim", "./shim", "shim root directory")
   flag.Parse()
+
+  // A shim directory that is not registered in shimDirs would silently escape
+  // every check — close that hole before doing anything else.
+  if err := checkShimDirCoverage(*shimRoot); err != nil {
+    fmt.Fprintln(os.Stderr, "shim_audit:", err)
+    os.Exit(2)
+  }
 
   r, err := scanShimReachable(*shimRoot)
   if err != nil {
