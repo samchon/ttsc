@@ -160,11 +160,24 @@ func scanShimReachable(shimRoot string) (reachable, error) {
   return r, nil
 }
 
+// hasShimSource reports whether dir holds non-test Go source — i.e. an actual
+// shim re-export package, not a test-only directory like ast/test (whose only
+// *.go are *_test.go and which is not part of the re-export surface).
+func hasShimSource(dir string) bool {
+  goFiles, _ := filepath.Glob(filepath.Join(dir, "*.go"))
+  for _, f := range goFiles {
+    if !strings.HasSuffix(f, "_test.go") {
+      return true
+    }
+  }
+  return false
+}
+
 // checkShimDirCoverage fails if any sub-directory of the shim root (at ANY
-// depth) that contains Go source is not registered in shimDirs. This keeps the
-// audit's package list honest: a newly-added shim — including a NESTED package
-// like vfs/osvfs that a non-recursive, immediate-children scan would miss —
-// cannot escape the gate by omission.
+// depth) that contains non-test Go source is not registered in shimDirs. This
+// keeps the audit's package list honest: a newly-added shim — including a
+// NESTED package like vfs/osvfs that a non-recursive, immediate-children scan
+// would miss — cannot escape the gate by omission.
 func checkShimDirCoverage(shimRoot string) error {
   var unmapped []string
   var walk func(dir, rel string) error
@@ -181,10 +194,8 @@ func checkShimDirCoverage(shimRoot string) error {
       if rel != "" {
         childRel = rel + "/" + e.Name()
       }
-      if _, ok := shimDirs[childRel]; !ok {
-        if goFiles, _ := filepath.Glob(filepath.Join(dir, e.Name(), "*.go")); len(goFiles) > 0 {
-          unmapped = append(unmapped, childRel)
-        }
+      if _, ok := shimDirs[childRel]; !ok && hasShimSource(filepath.Join(dir, e.Name())) {
+        unmapped = append(unmapped, childRel)
       }
       if err := walk(filepath.Join(dir, e.Name()), childRel); err != nil {
         return err
