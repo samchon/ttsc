@@ -60,3 +60,11 @@ TTSC_TARBALLS_CURRENT=1 pnpm package:tgz
 ```
 
 Install the produced tarballs into `../typia` (or another consumer) and run a relevant typia test that exercises the new API. The `experimental/tarballs/index.ts` flow is what CI uses; `--current` / `TTSC_TARBALLS_CURRENT=1` packs only the current-platform package for a quick loop.
+
+## Mechanical completeness gate
+
+`packages/ttsc/tools/shim_audit` enforces shim completeness in CI (the `shim-audit` job runs `pnpm --filter ttsc shim:audit`) so the recurring "missing re-export" class cannot return. It treats the shim as a closure: if a type is aliased, everything reachable from it should be reachable through the shim. Three layers:
+
+- **Enum families (zero-tolerance).** `shim/<pkg>/enums_gen.go` re-exports every member of every exposed enum; the gate fails on any partial enum. After a typescript-go bump, run `go run ./tools/shim_audit -fix` (from the tool's dir) to regenerate. This is the `SignatureKindConstruct` (#230) class.
+- **Reachable funcs / escaping types (ratcheted).** `tools/shim_audit/baseline.json` grandfathers the current backlog; the gate fails on any *new* gap. Expose the symbol, or run `-write-baseline` to accept it deliberately.
+- **Unexported helpers.** Closure cannot predict these (a new consumer's first ask for an internal helper); the audit lists them as a demand pool. Expose with the `//go:linkname` pattern above (`Checker_getMinArgumentCount` is the worked example).

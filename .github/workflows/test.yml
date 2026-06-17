@@ -26,6 +26,7 @@ jobs:
       matrix:
         include:
           - { name: go, run: "pnpm run test:go && pnpm --filter ttsc go:vet" }
+          - { name: shim-audit, run: "pnpm --filter ttsc shim:audit" }
           - { name: typecheck, run: "pnpm run check:flags && pnpm run test:typecheck" }
           - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
           - { name: lint, run: "pnpm --filter @ttsc/test-lint start" }
