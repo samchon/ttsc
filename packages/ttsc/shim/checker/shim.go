@@ -271,3 +271,19 @@ func Signature_parameterCount(signature *innerchecker.Signature) int {
   }
   return len(signature.Parameters())
 }
+
+// Signature_parameters returns the declared value-parameter symbols of a
+// call/construct signature, in declaration order, excluding the synthetic
+// `this` parameter. The first element is the seed parameter of a `new C(seed)`
+// constructor or a `C.from(seed)` factory; feeding it to Checker_getTypeOfSymbol
+// yields the seed TYPE the plugin must decode before constructing the instance.
+//
+// Signature_parameterCount is len() of this slice; the slice itself is needed
+// because detection (count + min-args) is not enough — emission requires the
+// seed parameter's type. Returns nil if signature is nil.
+func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol {
+  if signature == nil {
+    return nil
+  }
+  return signature.Parameters()
+}
