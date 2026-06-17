@@ -225,3 +225,29 @@ func Checker_getMinArgumentCount(recv *innerchecker.Checker, signature *innerche
   }
   return checkerGetMinArgumentCount(recv, signature)
 }
+
+// Checker_getSignaturesOfType returns the call or construct signatures declared
+// on t, selected by kind (SignatureKindCall / SignatureKindConstruct). This is
+// the producer companion to Checker_getMinArgumentCount and
+// Checker_getReturnTypeOfSignature: without it the *Signature those two consume
+// could not be obtained. A type-transform plugin uses the construct signatures
+// of a class's constructor type to detect the `new C(x)` strategy and the call
+// signatures of a static `from` member to detect the `C.from(x)` strategy.
+// Returns nil if recv or t is nil.
+func Checker_getSignaturesOfType(recv *innerchecker.Checker, t *innerchecker.Type, kind innerchecker.SignatureKind) []*innerchecker.Signature {
+  if recv == nil || t == nil {
+    return nil
+  }
+  return recv.GetSignaturesOfType(t, kind)
+}
+
+// Checker_getReturnTypeOfSignature returns the return type of signature, used to
+// verify that a static `from(x)` factory actually returns the class instance
+// type before selecting the `C.from(x)` construction strategy. Returns nil if
+// recv or signature is nil.
+func Checker_getReturnTypeOfSignature(recv *innerchecker.Checker, signature *innerchecker.Signature) *innerchecker.Type {
+  if recv == nil || signature == nil {
+    return nil
+  }
+  return recv.GetReturnTypeOfSignature(signature)
+}
