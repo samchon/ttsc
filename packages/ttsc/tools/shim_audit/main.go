@@ -82,6 +82,8 @@ var shimDirs = map[string]string{
   "tsoptions":        "tsoptions",
   "tspath":           "tspath",
   "vfs":              "vfs",
+  "vfs/cachedvfs":    "vfs/cachedvfs",
+  "vfs/osvfs":        "vfs/osvfs",
 }
 
 // reachable holds, per upstream package suffix, the set of upstream symbol names
@@ -158,25 +160,40 @@ func scanShimReachable(shimRoot string) (reachable, error) {
   return r, nil
 }
 
-// checkShimDirCoverage fails if any immediate sub-directory of the shim root
-// that contains Go source is not registered in shimDirs. This keeps the audit's
-// package list honest: a newly-added shim cannot escape the gate by omission.
+// checkShimDirCoverage fails if any sub-directory of the shim root (at ANY
+// depth) that contains Go source is not registered in shimDirs. This keeps the
+// audit's package list honest: a newly-added shim — including a NESTED package
+// like vfs/osvfs that a non-recursive, immediate-children scan would miss —
+// cannot escape the gate by omission.
 func checkShimDirCoverage(shimRoot string) error {
-  entries, err := os.ReadDir(shimRoot)
-  if err != nil {
-    return err
-  }
   var unmapped []string
-  for _, e := range entries {
-    if !e.IsDir() {
-      continue
+  var walk func(dir, rel string) error
+  walk = func(dir, rel string) error {
+    entries, err := os.ReadDir(dir)
+    if err != nil {
+      return err
     }
-    if _, ok := shimDirs[e.Name()]; ok {
-      continue
+    for _, e := range entries {
+      if !e.IsDir() {
+        continue
+      }
+      childRel := e.Name()
+      if rel != "" {
+        childRel = rel + "/" + e.Name()
+      }
+      if _, ok := shimDirs[childRel]; !ok {
+        if goFiles, _ := filepath.Glob(filepath.Join(dir, e.Name(), "*.go")); len(goFiles) > 0 {
+          unmapped = append(unmapped, childRel)
+        }
+      }
+      if err := walk(filepath.Join(dir, e.Name()), childRel); err != nil {
+        return err
+      }
     }
-    if goFiles, _ := filepath.Glob(filepath.Join(shimRoot, e.Name(), "*.go")); len(goFiles) > 0 {
-      unmapped = append(unmapped, e.Name())
-    }
+    return nil
+  }
+  if err := walk(shimRoot, ""); err != nil {
+    return err
   }
   if len(unmapped) > 0 {
     sort.Strings(unmapped)
@@ -326,6 +343,66 @@ func pkgIsShimmed(suffix string) (string, bool) {
   return "", false
 }
 
+// commonPrefix returns the longest common string prefix of names ("" if the
+// slice is empty or the names share no prefix).
+func commonPrefix(names []string) string {
+  if len(names) == 0 {
+    return ""
+  }
+  p := names[0]
+  for _, n := range names[1:] {
+    for !strings.HasPrefix(n, p) {
+      p = p[:len(p)-1]
+      if p == "" {
+        return ""
+      }
+    }
+  }
+  return p
+}
+
+// attachUntypedConsts groups untyped exported consts into enum families by name.
+// go/types reports a bit-reuse const like `ObjectFlagsContainsSpread = 1 << 22`
+// as a plain int (no enum type), so its family must be recovered from the name.
+// Each enum offers two candidate prefixes: its TYPE NAME, and — when distinct
+// and >=3 chars — the common prefix of its already-typed members (the
+// abbreviation case: OuterExpressionKinds' members are OEK*, including the
+// untyped OEKExcludeJSDocTypeAssertion that carries no OuterExpressionKinds
+// prefix). A const joins the family of its LONGEST matching prefix; a match must
+// extend the prefix with an uppercase letter (a member-name boundary). Returns
+// enum-type-name -> attached const names.
+func attachUntypedConsts(enumNames []string, typedMembers map[string][]string, untyped []string) map[string][]string {
+  type cand struct{ prefix, enum string }
+  var cands []cand
+  for _, en := range enumNames {
+    cands = append(cands, cand{en, en})
+    if lcp := commonPrefix(typedMembers[en]); len(lcp) >= 3 &&
+      !strings.HasPrefix(lcp, en) && !strings.HasPrefix(en, lcp) {
+      cands = append(cands, cand{lcp, en})
+    }
+  }
+  sort.Slice(cands, func(i, j int) bool {
+    if len(cands[i].prefix) != len(cands[j].prefix) {
+      return len(cands[i].prefix) > len(cands[j].prefix)
+    }
+    if cands[i].prefix != cands[j].prefix {
+      return cands[i].prefix < cands[j].prefix
+    }
+    return cands[i].enum < cands[j].enum
+  })
+  out := map[string][]string{}
+  for _, cn := range untyped {
+    for _, c := range cands {
+      if len(cn) > len(c.prefix) && strings.HasPrefix(cn, c.prefix) &&
+        cn[len(c.prefix)] >= 'A' && cn[len(c.prefix)] <= 'Z' {
+        out[c.enum] = append(out[c.enum], cn)
+        break
+      }
+    }
+  }
+  return out
+}
+
 // Finding kinds.
 type finding struct {
   kind   string // ENUM / FUNC / ESCAPE
@@ -396,8 +473,7 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
     // be typed. This is essential: an enum whose members are ALL untyped (every
     // member `= iota` / `1<<n` with no annotation, e.g. printer's
     // GeneratedIdentifierFlags) would otherwise never register as a family, and
-    // a partial re-export of exactly the #230 class would pass the gate. A
-    // length-then-lexical sort makes the prefix attribution below deterministic.
+    // a partial re-export of exactly the #230 class would pass the gate.
     var enumNames []string
     for _, name := range scope.Names() {
       tn, ok := scope.Lookup(name).(*types.TypeName)
@@ -412,12 +488,6 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
         enumNames = append(enumNames, name)
       }
     }
-    sort.Slice(enumNames, func(i, j int) bool {
-      if len(enumNames[i]) != len(enumNames[j]) {
-        return len(enumNames[i]) > len(enumNames[j])
-      }
-      return enumNames[i] < enumNames[j]
-    })
 
     var basicConsts []string // exported consts with an unnamed basic type
     for _, name := range scope.Names() {
@@ -433,17 +503,19 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
         basicConsts = append(basicConsts, name)
       }
     }
-    // Attach each untyped const to the longest enum-type-name prefix it carries
-    // (followed by an uppercase letter), which is its family by tsgo convention.
-    for _, cn := range basicConsts {
-      for _, en := range enumNames {
-        if len(cn) > len(en) && strings.HasPrefix(cn, en) && cn[len(en)] >= 'A' && cn[len(en)] <= 'Z' {
-          key := suffix + "." + en
-          constsByType[key] = append(constsByType[key], cn)
-          typeKey[key] = [2]string{suffix, en}
-          break
-        }
-      }
+    // Attach each untyped const to its enum family by name. attachUntypedConsts
+    // matches the longest of each enum's prefixes — the type name, plus the
+    // abbreviation prefix shared by its typed members — so untyped+unprefixed
+    // members (e.g. OuterExpressionKinds' OEKExcludeJSDocTypeAssertion = 1<<6)
+    // are not silently dropped from the #230 enum-closure check.
+    typedMembers := make(map[string][]string, len(enumNames))
+    for _, en := range enumNames {
+      typedMembers[en] = constsByType[suffix+"."+en]
+    }
+    for en, consts := range attachUntypedConsts(enumNames, typedMembers, basicConsts) {
+      key := suffix + "." + en
+      constsByType[key] = append(constsByType[key], consts...)
+      typeKey[key] = [2]string{suffix, en}
     }
     for key, names := range constsByType {
       tk := typeKey[key]
@@ -569,6 +641,13 @@ func escapingTypes(sig *types.Signature, r reachable) [][2]string {
   return out
 }
 
+// walkNamed visits the internal named types syntactically reachable from t and
+// calls fn for each, descending pointers, slices, arrays, maps and channels —
+// the shapes tsgo's exported signatures actually use. By design (TIER-3 escape
+// detection is best-effort, ratcheted by baseline.json — not the airtight enum
+// layer) it does NOT descend into struct fields, interface/func element types,
+// or a generic Named's type arguments; an escaping type reachable only through
+// one of those is left to the baseline.
 func walkNamed(t types.Type, fn func(ps, tn string, exported bool)) {
   switch x := t.(type) {
   case *types.Pointer:
@@ -757,6 +836,11 @@ func shimPackageName(dir string) string {
 // gaps, re-exporting each missing member so the family is complete. Const
 // re-exports carry no behavior and no ABI risk, so closing the whole family is
 // always safe — and makes the #230 class structurally impossible.
+//
+// A member REMOVAL across a typescript-go bump is the one case -fix does not
+// auto-heal: a package whose last gap disappears is not rewritten here, so a
+// stale enums_gen.go still referencing the removed symbol must be deleted by
+// hand (the native build catches the dangling reference).
 func runFix(findings []finding, shimRoot string) {
   byPkg := map[string][]string{}
   for _, f := range findings {
@@ -781,10 +865,11 @@ func runFix(findings []finding, shimRoot string) {
     alias := "inner" + pkgName
     var b strings.Builder
     b.WriteString("// Code generated by packages/ttsc/tools/shim_audit -fix. DO NOT EDIT.\n//\n")
-    b.WriteString("// Closes every exposed enum family: re-exports each upstream member so a\n")
-    b.WriteString("// plugin that can name the enum type can name all of its values. Prevents\n")
-    b.WriteString("// the #230 class (a sibling const silently missing). Regenerate after a\n")
-    b.WriteString("// typescript-go bump with `pnpm --filter ttsc shim:audit -fix`.\n\n")
+    b.WriteString("// Completes every exposed enum family: re-exports each member not already\n")
+    b.WriteString("// re-exported elsewhere in the shim package, so a plugin that can name the\n")
+    b.WriteString("// enum type can name all of its values. Prevents the #230 class (a sibling\n")
+    b.WriteString("// const silently missing). Regenerate after a typescript-go bump with\n")
+    b.WriteString("// `pnpm --filter ttsc shim:audit -fix`.\n\n")
     fmt.Fprintf(&b, "package %s\n\n", pkgName)
     fmt.Fprintf(&b, "import %s %q\n\n", alias, internalPrefix+pkg)
     b.WriteString("const (\n")
@@ -882,14 +967,14 @@ func runCheck(findings []finding, path string) {
   }
   if len(enumGaps) > 0 {
     fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d enum-family member(s) of an EXPOSED enum are not re-exported.\n", len(enumGaps))
-    fmt.Fprintf(os.Stderr, "  This is the #230 class. Fix mechanically: `go run ./tools/shim_audit -fix`.\n")
+    fmt.Fprintf(os.Stderr, "  This is the #230 class. Fix mechanically: `pnpm --filter ttsc shim:audit -fix`.\n")
     for _, f := range enumGaps {
       fmt.Fprintf(os.Stderr, "    ENUM   %s.%s\n", f.pkg, f.symbol)
     }
   }
   if len(newGaps) > 0 {
     fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d new reachable gap(s) not in the baseline.\n", len(newGaps))
-    fmt.Fprintf(os.Stderr, "  Expose them in the shim, or accept deliberately: `go run ./tools/shim_audit -write-baseline`.\n")
+    fmt.Fprintf(os.Stderr, "  Expose them in the shim, or accept deliberately: `pnpm --filter ttsc shim:audit -write-baseline`.\n")
     for _, f := range newGaps {
       fmt.Fprintf(os.Stderr, "    %-6s %s.%s — %s\n", f.kind, f.pkg, f.symbol, f.detail)
     }
