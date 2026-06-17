@@ -24,23 +24,31 @@ var _ = func(c *Checker, instanceType *Type) {
 
   // `new C(seed)` strategy: construct signatures -> arity (min args +
   // parameter count, together disambiguating `()` from `(x?)`) -> return type
-  // -> the seed parameter's type (Signature_parameters[0] fed to getTypeOfSymbol).
+  // -> the seed parameter's type. A rest-only first parameter `(...xs: S[])`
+  // takes its seed from the rest ELEMENT (getRestTypeOfSignature), not the
+  // array getTypeOfSymbol yields; Signature_hasRestParameter selects which.
   for _, sig := range Checker_getSignaturesOfType(c, ctorType, SignatureKindConstruct) {
     _ = Checker_getMinArgumentCount(c, sig)
     _ = Signature_parameterCount(sig)
     _ = Checker_getReturnTypeOfSignature(c, sig)
+    if Signature_hasRestParameter(sig) {
+      _ = Checker_getRestTypeOfSignature(c, sig)
+    }
     for _, p := range Signature_parameters(sig) {
       _ = Checker_getTypeOfSymbol(c, p)
     }
   }
 
   // `C.from(seed)` strategy: static `from` member -> its call signatures, read
-  // identically (arity, return type, seed parameter type).
+  // identically (arity, return type, seed parameter / rest element type).
   fromType := Checker_getTypeOfPropertyOfType(c, ctorType, "from")
   for _, sig := range Checker_getSignaturesOfType(c, fromType, SignatureKindCall) {
     _ = Checker_getMinArgumentCount(c, sig)
     _ = Signature_parameterCount(sig)
     _ = Checker_getReturnTypeOfSignature(c, sig)
+    if Signature_hasRestParameter(sig) {
+      _ = Checker_getRestTypeOfSignature(c, sig)
+    }
     for _, p := range Signature_parameters(sig) {
       _ = Checker_getTypeOfSymbol(c, p)
     }

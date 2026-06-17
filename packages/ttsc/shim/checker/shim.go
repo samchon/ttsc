@@ -287,3 +287,30 @@ func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol 
   }
   return signature.Parameters()
 }
+
+// Signature_hasRestParameter reports whether the signature's last value
+// parameter is a rest parameter (`...xs: S[]`). It is the signal a from/new
+// transform needs to tell a rest-only single-seed call `(...xs: S[])` — whose
+// seed is the ELEMENT S — from a genuine array-typed parameter `(seed: S[])` —
+// whose seed is the array S[]: getTypeOfSymbol yields `S[]` for BOTH, so without
+// this flag they are indistinguishable and the rest case decodes the wrong
+// shape. Returns false if signature is nil.
+func Signature_hasRestParameter(signature *innerchecker.Signature) bool {
+  if signature == nil {
+    return false
+  }
+  return signature.HasRestParameter()
+}
+
+// Checker_getRestTypeOfSignature returns the ELEMENT type of the signature's
+// rest parameter (`...xs: S[]` -> S; a tuple rest unwraps to its element too),
+// which is the seed type for a rest-only single-argument constructor/factory —
+// matching ClassifiableSeed, which unwraps the rest to its element. When the
+// signature has NO rest parameter it falls back to `any` upstream, so gate the
+// call on Signature_hasRestParameter. Returns nil if recv or signature is nil.
+func Checker_getRestTypeOfSignature(recv *innerchecker.Checker, signature *innerchecker.Signature) *innerchecker.Type {
+  if recv == nil || signature == nil {
+    return nil
+  }
+  return recv.GetRestTypeOfSignature(signature)
+}
