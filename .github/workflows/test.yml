@@ -46,6 +46,7 @@ jobs:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: |
             packages/ttsc/go.sum
+            packages/ttsc/tools/shim_audit/go.sum
             tests/go-transformer/go.mod
 
       - uses: pnpm/action-setup@v4

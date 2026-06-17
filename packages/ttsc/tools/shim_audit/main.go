@@ -97,7 +97,7 @@ func (r reachable) add(pkg, name string) {
 
 // linknameRe captures the trailing symbol name of a go:linkname target like
 // `...internal/checker.(*Checker).getMinArgumentCount` or `...checker.foo`.
-var linknameRe = regexp.MustCompile(`//go:linkname\s+\S+\s+` +
+var linknameRe = regexp.MustCompile(`(?m)^//go:linkname\s+\S+\s+` +
   regexp.QuoteMeta("github.com/microsoft/typescript-go/internal/") +
   `([A-Za-z0-9_/]+)\.(?:\(\*?[A-Za-z0-9_]+\)\.)?([A-Za-z0-9_]+)`)
 
@@ -372,9 +372,36 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
     // a bit position and drops the `ObjectFlags` annotation). go/types sees
     // those as plain ints, so a strict type-based grouping silently misses
     // them — a real blind spot the closure check must not have.
-    constsByType := map[string][]string{} // "pkg.Type" -> const names
+    constsByType := map[string][]string{} // "pkg.Type" -> member const names
     typeKey := map[string][2]string{}     // "pkg.Type" -> {pkgSuffix, typeName}
-    var basicConsts []string              // exported consts with a basic (untyped) type
+
+    // Seed a family for every exported named basic (int/string) type in this
+    // package, keyed by the TYPE — not by whether any of its consts happens to
+    // be typed. This is essential: an enum whose members are ALL untyped (every
+    // member `= iota` / `1<<n` with no annotation, e.g. printer's
+    // GeneratedIdentifierFlags) would otherwise never register as a family, and
+    // a partial re-export of exactly the #230 class would pass the gate. A
+    // length-then-lexical sort makes the prefix attribution below deterministic.
+    var enumNames []string
+    for _, name := range scope.Names() {
+      tn, ok := scope.Lookup(name).(*types.TypeName)
+      if !ok || !tn.Exported() || tn.IsAlias() {
+        continue
+      }
+      if named, ok := tn.Type().(*types.Named); ok {
+        if _, isBasic := named.Underlying().(*types.Basic); isBasic {
+          enumNames = append(enumNames, name)
+        }
+      }
+    }
+    sort.Slice(enumNames, func(i, j int) bool {
+      if len(enumNames[i]) != len(enumNames[j]) {
+        return len(enumNames[i]) > len(enumNames[j])
+      }
+      return enumNames[i] < enumNames[j]
+    })
+
+    var basicConsts []string // exported consts with an unnamed basic type
     for _, name := range scope.Names() {
       c, ok := scope.Lookup(name).(*types.Const)
       if !ok || !c.Exported() {
@@ -388,19 +415,10 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
         basicConsts = append(basicConsts, name)
       }
     }
-    // A confirmed enum family is a named type in THIS package that already
-    // has at least one typed const. Attach untyped consts whose name carries
-    // the family's type-name prefix (followed by an uppercase letter) to the
-    // longest matching family.
-    enumNames := make([]string, 0, len(typeKey))
-    for _, tk := range typeKey {
-      if tk[0] == suffix {
-        enumNames = append(enumNames, tk[1])
-      }
-    }
-    sort.Slice(enumNames, func(i, j int) bool { return len(enumNames[i]) > len(enumNames[j]) })
+    // Attach each untyped const to the longest enum-type-name prefix it carries
+    // (followed by an uppercase letter), which is its family by tsgo convention.
     for _, cn := range basicConsts {
-      for _, en := range enumNames { // longest-prefix-first
+      for _, en := range enumNames {
         if len(cn) > len(en) && strings.HasPrefix(cn, en) && cn[len(en)] >= 'A' && cn[len(en)] <= 'Z' {
           key := suffix + "." + en
           constsByType[key] = append(constsByType[key], cn)
@@ -442,8 +460,7 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
       }
     }
 
-    // CHECK 2 (FUNC): exported pkg-level funcs over already-reachable types.
-    // CHECK 3 (ESCAPE) seed + unexported pool: walk exported funcs & methods.
+    // CHECK 2 (FUNC) + CHECK 3 (ESCAPE) over exported package-level funcs.
     for _, name := range scope.Names() {
       obj := scope.Lookup(name)
       fn, ok := obj.(*types.Func)
@@ -457,14 +474,25 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
       if r.has(suffix, name) {
         continue
       }
+      // ESCAPE: an exported type in this func's signature that isn't aliased —
+      // a plugin could obtain/pass the value but cannot name its type. This must
+      // cover free functions, not just methods: `func GetFoo() *UnexposedType`
+      // is invisible to the FUNC check (its result isn't reachable) yet leaks an
+      // unnameable type.
+      for _, esc := range escapingTypes(sig, r) {
+        findings = append(findings, finding{"ESCAPE", esc[0], esc[1],
+          "appears in exported func " + name + " but is not aliased"})
+      }
+      // FUNC: every param/result already reachable — usable but not exposed.
       if tupleReachable(sig.Params(), r) && tupleReachable(sig.Results(), r) {
         findings = append(findings, finding{"FUNC", suffix, name,
           "all params/results already reachable — usable but not exposed"})
       }
     }
 
-    // CHECK 3 (ESCAPE) + unexported pool, over each EXPOSED named type's
-    // method set in this package.
+    // CHECK 3 (ESCAPE) + unexported pool, over the FULL method set of each
+    // EXPOSED named type — including methods promoted from embedded types, which
+    // named.Method(i) would miss (e.g. printer.NodeFactory embeds ast.NodeFactory).
     for _, name := range scope.Names() {
       tn, ok := scope.Lookup(name).(*types.TypeName)
       if !ok || !r.has(suffix, name) {
@@ -474,8 +502,12 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
       if !ok {
         continue
       }
-      for i := 0; i < named.NumMethods(); i++ {
-        m := named.Method(i)
+      mset := types.NewMethodSet(types.NewPointer(named))
+      for i := 0; i < mset.Len(); i++ {
+        m, ok := mset.At(i).Obj().(*types.Func)
+        if !ok {
+          continue
+        }
         if !m.Exported() {
           if isUsefulUnexported(m, r) {
             unexportedPool = append(unexportedPool, finding{"UNEXPORTED", suffix,
@@ -795,15 +827,28 @@ func runCheck(findings []finding, path string) {
   }
 
   var enumGaps, newGaps []finding
+  live := map[string]bool{}
   for _, f := range findings {
     switch f.kind {
     case "ENUM":
       enumGaps = append(enumGaps, f)
     case "FUNC", "ESCAPE":
+      live[findingKey(f)] = true
       if !accepted[findingKey(f)] {
         newGaps = append(newGaps, f)
       }
     }
+  }
+  // Non-failing hygiene note: baseline lines that no longer match a gap (the
+  // symbol got exposed) are dead weight; the ratchet stays safe but suggest a prune.
+  var stale int
+  for k := range accepted {
+    if !live[k] {
+      stale++
+    }
+  }
+  if stale > 0 {
+    fmt.Fprintf(os.Stderr, "shim_audit: note: %d baseline entr(y/ies) no longer match a gap; prune with -write-baseline\n", stale)
   }
 
   if len(enumGaps) == 0 && len(newGaps) == 0 {
