@@ -29,10 +29,14 @@
 // unexported method/func pool of exposed types as a triage list so the demand
 // side has a bounded candidate set.
 //
-// Usage (from packages/ttsc):
+// Usage. This is its own Go module, so run it from its own directory (or via
+// `pnpm --filter ttsc shim:audit [mode]`, which is what CI uses):
 //
-//  go run ./tools/shim_audit            # human report to stdout
-//  go run ./tools/shim_audit -md        # markdown report
+//  cd packages/ttsc/tools/shim_audit
+//  go run . -anchor ../../shim/ast -shim ../../shim           # human report
+//  go run . -md     -anchor ../../shim/ast -shim ../../shim   # markdown report
+//  go run . -fix    -anchor ../../shim/ast -shim ../../shim   # regenerate enum closure
+//  go run . -check  -anchor ../../shim/ast -shim ../../shim   # CI gate
 //
 // "Reachable" is computed from what the shim source textually references: every
 // `inner<pkg>.Symbol` selector and every //go:linkname target name. That set is
@@ -230,18 +234,30 @@ func loadInner(anchorDir string) (map[string]*packages.Package, error) {
   return out, nil
 }
 
-// namedInfo returns the defining package suffix and name of a named type, when
-// it is a typescript-go internal type.
+// namedInfo returns the defining package suffix and name of a named OR
+// alias-to-named type, when it is a typescript-go internal type. Handling
+// *types.Alias matters: an enum declared `type PragmaKindFlags = uint8` (a Go
+// type alias to a basic) gives its member consts an *types.Alias type, and a
+// bare *types.Named assertion would drop them — leaving a partial re-export of
+// that #230-class enum invisible to the zero-tolerance ENUM check.
 func namedInfo(t types.Type) (pkgSuffix, name string, ok bool) {
-  n, isNamed := t.(*types.Named)
-  if !isNamed || n.Obj().Pkg() == nil {
+  var obj *types.TypeName
+  switch n := t.(type) {
+  case *types.Named:
+    obj = n.Obj()
+  case *types.Alias:
+    obj = n.Obj()
+  default:
     return "", "", false
   }
-  path := n.Obj().Pkg().Path()
+  if obj.Pkg() == nil {
+    return "", "", false
+  }
+  path := obj.Pkg().Path()
   if !strings.HasPrefix(path, internalPrefix) {
     return "", "", false
   }
-  return strings.TrimPrefix(path, internalPrefix), n.Obj().Name(), true
+  return strings.TrimPrefix(path, internalPrefix), obj.Name(), true
 }
 
 // isReachable reports whether a plugin holding only shim-exposed types could
@@ -385,13 +401,15 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
     var enumNames []string
     for _, name := range scope.Names() {
       tn, ok := scope.Lookup(name).(*types.TypeName)
-      if !ok || !tn.Exported() || tn.IsAlias() {
+      if !ok || !tn.Exported() {
         continue
       }
-      if named, ok := tn.Type().(*types.Named); ok {
-        if _, isBasic := named.Underlying().(*types.Basic); isBasic {
-          enumNames = append(enumNames, name)
-        }
+      // Underlying() resolves through both *types.Named and *types.Alias, so an
+      // enum declared as a basic type alias (`type PragmaKindFlags = uint8`) is
+      // seeded as a family just like a defined type — otherwise its untyped
+      // members would attach to nothing.
+      if _, isBasic := tn.Type().Underlying().(*types.Basic); isBasic {
+        enumNames = append(enumNames, name)
       }
     }
     sort.Slice(enumNames, func(i, j int) bool {
@@ -588,14 +606,21 @@ func sigString(sig *types.Signature) string {
 }
 
 func dedupe(in []finding) []finding {
-  seen := map[string]bool{}
+  // Keep the lexicographically smallest detail per key so the report text is
+  // deterministic when a type is reached through more than one path (map
+  // iteration order would otherwise flap the human-readable detail). The
+  // gate/baseline key is kind|pkg|symbol only, so this never affects pass/fail.
+  idx := map[string]int{}
   var out []finding
   for _, f := range in {
     k := f.kind + "|" + f.pkg + "|" + f.symbol
-    if seen[k] {
+    if i, ok := idx[k]; ok {
+      if f.detail < out[i].detail {
+        out[i].detail = f.detail
+      }
       continue
     }
-    seen[k] = true
+    idx[k] = len(out)
     out = append(out, f)
   }
   sort.Slice(out, func(i, j int) bool {
@@ -759,7 +784,7 @@ func runFix(findings []finding, shimRoot string) {
     b.WriteString("// Closes every exposed enum family: re-exports each upstream member so a\n")
     b.WriteString("// plugin that can name the enum type can name all of its values. Prevents\n")
     b.WriteString("// the #230 class (a sibling const silently missing). Regenerate after a\n")
-    b.WriteString("// typescript-go bump with `go run ./tools/shim_audit -fix`.\n\n")
+    b.WriteString("// typescript-go bump with `pnpm --filter ttsc shim:audit -fix`.\n\n")
     fmt.Fprintf(&b, "package %s\n\n", pkgName)
     fmt.Fprintf(&b, "import %s %q\n\n", alias, internalPrefix+pkg)
     b.WriteString("const (\n")

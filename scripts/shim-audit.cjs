@@ -16,7 +16,10 @@ const result = cp.spawnSync(
   ["run", ".", mode, "-anchor", "../../shim/ast", "-shim", "../../shim"],
   {
     cwd: toolDir,
-    env: { ...process.env, PATH: goPath() },
+    // -mod=readonly keeps the gate hermetic: loading the inner packages must
+    // never mutate a shim module's go.sum (it would dirty the tree); an actually
+    // missing entry should fail loudly, e.g. after a typescript-go bump.
+    env: { ...process.env, PATH: goPath(), GOFLAGS: "-mod=readonly" },
     stdio: "inherit",
     windowsHide: true,
   },
