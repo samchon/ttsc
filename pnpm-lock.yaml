@@ -379,9 +379,6 @@ importers:
       '@types/node':
         specifier: catalog:utils
         version: 25.9.1
-      ts-legacy:
-        specifier: catalog:typescript
-        version: typescript@6.0.3
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
