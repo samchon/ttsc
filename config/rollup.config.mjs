@@ -1,4 +1,8 @@
 import typescript from "@rollup/plugin-typescript";
+// The native TypeScript 7 (`typescript`) compiler ships no classic JS API, so
+// `@rollup/plugin-typescript` is driven by the legacy v6 compiler pinned as the
+// `ts-legacy` alias.
+import ts from "ts-legacy";
 
 export default {
   input: "src/index.ts",
@@ -14,6 +18,7 @@ export default {
   },
   plugins: [
     typescript({
+      typescript: ts,
       tsconfig: "tsconfig.json",
       module: "esnext",
       moduleResolution: "bundler",

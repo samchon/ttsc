@@ -12,11 +12,10 @@
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@ttsc/testing": "workspace:*",
     "@types/node": "catalog:utils",
-    "@typescript/native-preview": "catalog:tsgo",
     "esbuild": "^0.25.12",
     "rollup": "^4.60.3",
     "ttsc": "workspace:*",
-    "typescript": "^6.0.3",
+    "typescript": "catalog:typescript",
     "vite": "^7.1.12"
   }
 }

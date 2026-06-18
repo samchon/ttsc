@@ -12,7 +12,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "rimraf lib && tsgo"
+    "build": "rimraf lib && tsc"
   },
   "keywords": [
     "ttsc",
@@ -36,9 +36,9 @@
   ],
   "devDependencies": {
     "@types/node": "catalog:utils",
-    "@typescript/native-preview": "catalog:tsgo",
     "rimraf": "catalog:utils",
-    "ttsc": "workspace:*"
+    "ttsc": "workspace:*",
+    "typescript": "catalog:typescript"
   },
   "repository": {
     "type": "git",

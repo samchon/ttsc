@@ -72,7 +72,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rimraf lib && tsgo --emitDeclarationOnly && rollup -c"
+    "build": "rimraf lib && tsc --emitDeclarationOnly && rollup -c"
   },
   "keywords": [
     "ttsc",
@@ -97,16 +97,16 @@
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
     "@types/node": "catalog:utils",
-    "@typescript/native-preview": "catalog:tsgo",
     "esbuild": "^0.25.12",
     "rimraf": "catalog:utils",
     "rollup": "^4.60.3",
     "rollup-plugin-auto-external": "^2.0.0",
     "rollup-plugin-node-externals": "^9.0.1",
     "tinyglobby": "^0.2.16",
+    "ts-legacy": "catalog:typescript-legacy",
     "tslib": "^2.8.1",
     "ttsc": "workspace:*",
-    "typescript": "^6.0.3",
+    "typescript": "catalog:typescript",
     "vite": "^7.1.12"
   },
   "repository": {

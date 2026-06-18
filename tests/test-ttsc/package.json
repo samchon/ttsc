@@ -14,7 +14,7 @@
     "@ttsc/strip": "workspace:*",
     "@ttsc/testing": "workspace:*",
     "@types/node": "catalog:utils",
-    "@typescript/native-preview": "catalog:tsgo",
-    "ttsc": "workspace:*"
+    "ttsc": "workspace:*",
+    "typescript": "catalog:typescript"
   }
 }

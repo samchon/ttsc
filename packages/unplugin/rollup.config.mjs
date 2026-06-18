@@ -4,6 +4,10 @@ import typescript from "@rollup/plugin-typescript";
 import autoExternal from "rollup-plugin-auto-external";
 import nodeExternals from "rollup-plugin-node-externals";
 import { globSync } from "tinyglobby";
+// The native TypeScript 7 (`typescript`) compiler ships no classic JS API, so
+// `@rollup/plugin-typescript` is driven by the legacy v6 compiler pinned as the
+// `ts-legacy` alias.
+import ts from "ts-legacy";
 
 const inputs = globSync("./src/**/*.ts");
 const externalPackages = ["ttsc", "unplugin"];
@@ -38,6 +42,7 @@ export default {
     }),
     commonjs(),
     typescript({
+      typescript: ts,
       compilerOptions: {
         declaration: false,
         declarationMap: false,

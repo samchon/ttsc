@@ -6,12 +6,12 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "build": "rimraf lib && tsgo"
+    "build": "rimraf lib && tsc"
   },
   "devDependencies": {
     "@ttsc/lint": "workspace:*",
     "@types/node": "catalog:utils",
-    "@typescript/native-preview": "catalog:tsgo",
-    "rimraf": "catalog:utils"
+    "rimraf": "catalog:utils",
+    "typescript": "catalog:typescript"
   }
 }
