@@ -5,7 +5,7 @@ packages:
   - 'website'
 catalogs:
   tsgo:
-    '@typescript/native-preview': 7.0.0-dev.20260617.2
+    '@typescript/native-preview': 7.0.0-dev.20260618.1
   rollup:
     '@rollup/plugin-commonjs': ^29.0.0
     '@rollup/plugin-node-resolve': ^16.0.3
