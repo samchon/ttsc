@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory, { Expression } from "@ttsc/factory";
+import factory, { type Expression } from "@ttsc/factory";
 
 import { id, print } from "../../internal/helpers";
 
