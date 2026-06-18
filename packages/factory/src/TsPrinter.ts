@@ -1,4 +1,12 @@
-import type { ModifierLike, Node, SourceFile, Statement } from "./ast";
+import type {
+  Block,
+  Expression,
+  ModifierLike,
+  Node,
+  SourceFile,
+  Statement,
+  TypeNode,
+} from "./ast";
 import type { SynthesizedComment } from "./comments";
 import {
   getSyntheticLeadingComments,
@@ -18,34 +26,13 @@ import {
 } from "./internal/doc";
 import { NodeFlags, SyntaxKind } from "./syntax";
 
-/** Options for {@link TsPrinter}. */
-export interface TsPrinterOptions {
-  /** Maximum line width before groups break. Defaults to `80`. */
-  printWidth?: number;
-  /** Indentation unit. Defaults to two spaces. */
-  indent?: string;
-  /** New line sequence. Defaults to `"\n"` (LineFeed). */
-  newLine?: string;
-}
-
-const escapeString = (text: string, singleQuote?: boolean): string => {
-  const escaped: string = text
-    .replace(/\\/g, "\\\\")
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "\\r")
-    .replace(/\t/g, "\\t");
-  return singleQuote === true
-    ? `'${escaped.replace(/'/g, "\\'")}'`
-    : `"${escaped.replace(/"/g, '\\"')}"`;
-};
-
 /**
  * Printer turning {@link factory} produced AST nodes into TypeScript source
  * text.
  *
  * The printer is a width-aware pretty-printer: it builds a Prettier-style
  * document for the {@link Node} discriminated union and lays it out against
- * {@link TsPrinterOptions.printWidth}. Lists (arguments, parameters, generic
+ * {@link TsPrinter.IProps.printWidth}. Lists (arguments, parameters, generic
  * arguments, array / object members, ...) print on one line when they fit and
  * break onto indented lines — with trailing commas — when they do not. Every
  * `node.kind` narrows to its concrete type, so the walk is fully type-checked;
@@ -65,7 +52,7 @@ export class TsPrinter {
   private readonly indent_: string;
   private readonly newLine_: string;
 
-  public constructor(options: TsPrinterOptions = {}) {
+  public constructor(options: TsPrinter.IProps = {}) {
     this.printWidth_ = options.printWidth ?? 80;
     this.indent_ = options.indent ?? "  ";
     this.newLine_ = options.newLine ?? "\n";
@@ -221,6 +208,17 @@ export class TsPrinter {
     );
   }
 
+  private args(args: readonly Expression[]): Doc {
+    return this.delim(
+      "(",
+      args.map((a) => this.expressionForDisallowedComma(a)),
+      ")",
+      {
+        trailingComma: true,
+      },
+    );
+  }
+
   private modifiers(
     mods: readonly ModifierLike[] | undefined,
     decoratorsOnNewLine: boolean,
@@ -334,7 +332,7 @@ export class TsPrinter {
       case "Token":
         return node.token;
       case "Decorator":
-        return concat(["@", this.emit(node.expression)]);
+        return concat(["@", this.leftSideExpression(node.expression)]);
 
       /* literals */
       case "StringLiteral":
@@ -348,7 +346,7 @@ export class TsPrinter {
       case "ArrayLiteralExpression":
         return this.delim(
           "[",
-          node.elements.map((e) => this.emit(e)),
+          node.elements.map((e) => this.expressionForDisallowedComma(e)),
           "]",
           { trailingComma: true, forceBreak: node.multiLine === true },
         );
@@ -367,66 +365,86 @@ export class TsPrinter {
         return concat([
           this.emit(node.name),
           ": ",
-          this.emit(node.initializer),
+          this.expressionForDisallowedComma(node.initializer),
         ]);
       case "ShorthandPropertyAssignment":
         return concat([
           this.emit(node.name),
           node.objectAssignmentInitializer
-            ? concat([" = ", this.emit(node.objectAssignmentInitializer)])
+            ? concat([
+                " = ",
+                this.expressionForDisallowedComma(
+                  node.objectAssignmentInitializer,
+                ),
+              ])
             : "",
         ]);
       case "SpreadAssignment":
-        return concat(["...", this.emit(node.expression)]);
+        return concat([
+          "...",
+          this.expressionForDisallowedComma(node.expression),
+        ]);
       case "PropertyAccessExpression":
-        return concat([this.emit(node.expression), ".", this.emit(node.name)]);
+        return concat([
+          this.leftSideExpression(node.expression),
+          ".",
+          this.emit(node.name),
+        ]);
       case "ElementAccessExpression":
         return concat([
-          this.emit(node.expression),
+          this.leftSideExpression(node.expression),
           "[",
-          this.emit(node.argumentExpression),
+          this.expressionForDisallowedComma(node.argumentExpression),
           "]",
         ]);
       case "CallExpression":
         return concat([
-          this.emit(node.expression),
+          this.leftSideExpression(node.expression),
           this.typeArguments(node.typeArguments),
-          this.params(node.arguments),
+          this.args(node.arguments),
         ]);
       case "NewExpression":
         return concat([
           "new ",
-          this.emit(node.expression),
+          this.newExpressionTarget(node.expression),
           this.typeArguments(node.typeArguments),
-          this.params(node.arguments ?? []),
+          this.args(node.arguments ?? []),
         ]);
       case "ParenthesizedExpression":
         return concat(["(", this.emit(node.expression), ")"]);
       case "BinaryExpression":
         return group(
           concat([
-            this.emit(node.left),
+            this.binaryOperand(node.operator, node.left, true),
             " ",
             node.operator,
-            indent(concat([line, this.emit(node.right)])),
+            indent(
+              concat([
+                line,
+                this.binaryOperand(node.operator, node.right, false, node.left),
+              ]),
+            ),
           ]),
         );
       case "PrefixUnaryExpression":
-        return concat([node.operator, this.emit(node.operand)]);
+        return concat([
+          node.operator,
+          this.prefixUnaryOperand(node.operand, node.operator),
+        ]);
       case "PostfixUnaryExpression":
-        return concat([this.emit(node.operand), node.operator]);
+        return concat([this.postfixUnaryOperand(node.operand), node.operator]);
       case "ConditionalExpression":
         return group(
           concat([
-            this.emit(node.condition),
+            this.conditionalCondition(node.condition),
             indent(
               concat([
                 line,
                 "? ",
-                this.emit(node.whenTrue),
+                this.conditionalBranch(node.whenTrue),
                 line,
                 ": ",
-                this.emit(node.whenFalse),
+                this.conditionalBranch(node.whenFalse),
               ]),
             ),
           ]),
@@ -438,7 +456,7 @@ export class TsPrinter {
           this.params(node.parameters),
           this.optType(node.type),
           " => ",
-          this.emit(node.body),
+          this.arrowFunctionBody(node.body),
         ]);
       case "FunctionExpression":
         return concat([
@@ -454,24 +472,27 @@ export class TsPrinter {
         ]);
       case "AsExpression":
         return concat([
-          this.emit(node.expression),
+          this.assertionExpressionOperand(node.expression),
           " as ",
           this.emit(node.type),
         ]);
       case "SatisfiesExpression":
         return concat([
-          this.emit(node.expression),
+          this.assertionExpressionOperand(node.expression),
           " satisfies ",
           this.emit(node.type),
         ]);
       case "NonNullExpression":
-        return concat([this.emit(node.expression), "!"]);
+        return concat([this.leftSideExpression(node.expression), "!"]);
       case "SpreadElement":
-        return concat(["...", this.emit(node.expression)]);
+        return concat([
+          "...",
+          this.expressionForDisallowedComma(node.expression),
+        ]);
       case "AwaitExpression":
-        return concat(["await ", this.emit(node.expression)]);
+        return concat(["await ", this.prefixUnaryOperand(node.expression)]);
       case "TypeOfExpression":
-        return concat(["typeof ", this.emit(node.expression)]);
+        return concat(["typeof ", this.prefixUnaryOperand(node.expression)]);
 
       /* types */
       case "KeywordTypeNode":
@@ -484,15 +505,9 @@ export class TsPrinter {
       case "ArrayTypeNode":
         return concat([this.postfixTypeOperand(node.elementType), "[]"]);
       case "UnionTypeNode":
-        return this.binaryType(
-          "|",
-          node.types.map((t) => this.emit(t)),
-        );
+        return this.binaryType("|", node.types);
       case "IntersectionTypeNode":
-        return this.binaryType(
-          "&",
-          node.types.map((t) => this.emit(t)),
-        );
+        return this.binaryType("&", node.types);
       case "LiteralTypeNode":
         return this.emit(node.literal);
       case "TypeLiteralNode":
@@ -516,7 +531,11 @@ export class TsPrinter {
       case "ParenthesizedTypeNode":
         return concat(["(", this.emit(node.type), ")"]);
       case "TypeOperatorNode":
-        return concat([node.operator, " ", this.emit(node.type)]);
+        return concat([
+          node.operator,
+          " ",
+          this.typeOperatorOperand(node.type, node.operator),
+        ]);
       case "IndexedAccessTypeNode":
         return concat([
           this.postfixTypeOperand(node.objectType),
@@ -576,7 +595,12 @@ export class TsPrinter {
           this.emit(node.name),
           node.questionToken ? "?" : "",
           this.optType(node.type),
-          node.initializer ? concat([" = ", this.emit(node.initializer)]) : "",
+          node.initializer
+            ? concat([
+                " = ",
+                this.expressionForDisallowedComma(node.initializer),
+              ])
+            : "",
         ]);
       case "HeritageClause":
         return concat([
@@ -616,10 +640,18 @@ export class TsPrinter {
           this.emit(node.name),
           node.exclamationToken ? "!" : "",
           this.optType(node.type),
-          node.initializer ? concat([" = ", this.emit(node.initializer)]) : "",
+          node.initializer
+            ? concat([
+                " = ",
+                this.expressionForDisallowedComma(node.initializer),
+              ])
+            : "",
         ]);
       case "ExpressionStatement":
-        return concat([this.emit(node.expression), ";"]);
+        return concat([
+          this.expressionStatementExpression(node.expression),
+          ";",
+        ]);
       case "ReturnStatement":
         return node.expression
           ? concat(["return ", this.emit(node.expression), ";"])
@@ -670,7 +702,12 @@ export class TsPrinter {
             ? this.emit(node.questionOrExclamationToken)
             : "",
           this.optType(node.type),
-          node.initializer ? concat([" = ", this.emit(node.initializer)]) : "",
+          node.initializer
+            ? concat([
+                " = ",
+                this.expressionForDisallowedComma(node.initializer),
+              ])
+            : "",
           ";",
         ]);
       case "MethodDeclaration":
@@ -755,7 +792,12 @@ export class TsPrinter {
       case "EnumMember":
         return concat([
           this.emit(node.name),
-          node.initializer ? concat([" = ", this.emit(node.initializer)]) : "",
+          node.initializer
+            ? concat([
+                " = ",
+                this.expressionForDisallowedComma(node.initializer),
+              ])
+            : "",
         ]);
 
       /* imports & exports */
@@ -822,7 +864,10 @@ export class TsPrinter {
         return concat([
           this.modifiers(node.modifiers, false),
           node.isExportEquals ? "export = " : "export default ",
-          this.emit(node.expression),
+          this.exportAssignmentExpression(
+            node.expression,
+            node.isExportEquals === true,
+          ),
           ";",
         ]);
 
@@ -1030,9 +1075,9 @@ export class TsPrinter {
         ]);
       case "ConditionalTypeNode":
         return concat([
-          this.emit(node.checkType),
+          this.conditionalTypeCheckOperand(node.checkType),
           " extends ",
-          this.emit(node.extendsType),
+          this.conditionalTypeExtendsOperand(node.extendsType),
           " ? ",
           this.emit(node.trueType),
           " : ",
@@ -1083,9 +1128,9 @@ export class TsPrinter {
           this.emit(node.type),
         ]);
       case "OptionalTypeNode":
-        return concat([this.emit(node.type), "?"]);
+        return concat([this.postfixTypeOperand(node.type), "?"]);
       case "RestTypeNode":
-        return concat(["...", this.emit(node.type)]);
+        return concat(["...", this.postfixTypeOperand(node.type)]);
       case "ImportTypeNode":
         return concat([
           node.isTypeOf ? "typeof " : "",
@@ -1126,10 +1171,13 @@ export class TsPrinter {
           concat(node.templateSpans.map((s) => this.emit(s))),
         ]);
       case "TemplateSpan":
-        return concat([this.emit(node.expression), this.emit(node.literal)]);
+        return concat([
+          this.expressionForDisallowedComma(node.expression),
+          this.emit(node.literal),
+        ]);
       case "TaggedTemplateExpression":
         return concat([
-          this.emit(node.tag),
+          this.leftSideExpression(node.tag),
           this.typeArguments(node.typeArguments),
           this.emit(node.template),
         ]);
@@ -1137,12 +1185,14 @@ export class TsPrinter {
         return concat([
           "yield",
           node.asteriskToken ? "*" : "",
-          node.expression ? concat([" ", this.emit(node.expression)]) : "",
+          node.expression
+            ? concat([" ", this.expressionForDisallowedComma(node.expression)])
+            : "",
         ]);
       case "DeleteExpression":
-        return concat(["delete ", this.emit(node.expression)]);
+        return concat(["delete ", this.prefixUnaryOperand(node.expression)]);
       case "VoidExpression":
-        return concat(["void ", this.emit(node.expression)]);
+        return concat(["void ", this.prefixUnaryOperand(node.expression)]);
       case "RegularExpressionLiteral":
         return node.text;
       case "ClassExpression":
@@ -1163,7 +1213,11 @@ export class TsPrinter {
           node.elements.map((e) => this.emit(e)),
         );
       case "ComputedPropertyName":
-        return concat(["[", this.emit(node.expression), "]"]);
+        return concat([
+          "[",
+          this.expressionForDisallowedComma(node.expression),
+          "]",
+        ]);
       case "OmittedExpression":
         return "";
       case "BindingElement":
@@ -1171,7 +1225,12 @@ export class TsPrinter {
           node.dotDotDotToken ? "..." : "",
           node.propertyName ? concat([this.emit(node.propertyName), ": "]) : "",
           this.emit(node.name),
-          node.initializer ? concat([" = ", this.emit(node.initializer)]) : "",
+          node.initializer
+            ? concat([
+                " = ",
+                this.expressionForDisallowedComma(node.initializer),
+              ])
+            : "",
         ]);
       case "ObjectBindingPattern":
         return this.delim(
@@ -1192,31 +1251,31 @@ export class TsPrinter {
           "<",
           this.emit(node.type),
           ">",
-          this.emit(node.expression),
+          this.prefixUnaryOperand(node.expression),
         ]);
       case "PropertyAccessChain":
         return concat([
-          this.emit(node.expression),
+          this.leftSideExpression(node.expression),
           node.questionDotToken ? "?." : ".",
           this.emit(node.name),
         ]);
       case "ElementAccessChain":
         return concat([
-          this.emit(node.expression),
+          this.leftSideExpression(node.expression),
           node.questionDotToken ? "?." : "",
           "[",
-          this.emit(node.argumentExpression),
+          this.expressionForDisallowedComma(node.argumentExpression),
           "]",
         ]);
       case "CallChain":
         return concat([
-          this.emit(node.expression),
+          this.leftSideExpression(node.expression),
           node.questionDotToken ? "?." : "",
           this.typeArguments(node.typeArguments),
-          this.params(node.arguments),
+          this.args(node.arguments),
         ]);
       case "NonNullChain":
-        return concat([this.emit(node.expression), "!"]);
+        return concat([this.leftSideExpression(node.expression), "!"]);
 
       /* jsx */
       case "JsxElement":
@@ -1540,16 +1599,478 @@ export class TsPrinter {
    * parenthesizing the lower-precedence type forms that would otherwise
    * re-associate — matching the legacy printer's parenthesizer rules.
    */
-  private postfixTypeOperand(type: Node): Doc {
-    const parenthesize: boolean =
+  private parenthesizedExpression(expression: Expression): Doc {
+    return expression.kind === "ParenthesizedExpression"
+      ? this.emit(expression)
+      : concat(["(", this.emit(expression), ")"]);
+  }
+
+  private expressionForDisallowedComma(expression: Expression): Doc {
+    return this.expressionPrecedence(expression) > ExpressionPrecedence.Comma
+      ? this.emit(expression)
+      : this.parenthesizedExpression(expression);
+  }
+
+  private leftSideExpression(expression: Expression): Doc {
+    return this.isLeftHandSideExpression(expression)
+      ? this.emit(expression)
+      : this.parenthesizedExpression(expression);
+  }
+
+  private newExpressionTarget(expression: Expression): Doc {
+    return expression.kind !== "CallExpression" &&
+      expression.kind !== "CallChain" &&
+      (expression.kind !== "NewExpression" ||
+        expression.arguments !== undefined) &&
+      this.isLeftHandSideExpression(expression)
+      ? this.emit(expression)
+      : this.parenthesizedExpression(expression);
+  }
+
+  private prefixUnaryOperand(operand: Expression, operator?: SyntaxKind): Doc {
+    const body: Doc = this.isUnaryExpression(operand)
+      ? this.emit(operand)
+      : this.parenthesizedExpression(operand);
+    return this.needsPrefixUnaryGap(operator, operand)
+      ? concat([" ", body])
+      : body;
+  }
+
+  private postfixUnaryOperand(operand: Expression): Doc {
+    return this.isLeftHandSideExpression(operand)
+      ? this.emit(operand)
+      : this.parenthesizedExpression(operand);
+  }
+
+  private conditionalCondition(condition: Expression): Doc {
+    return this.expressionPrecedence(condition) >
+      ExpressionPrecedence.Conditional
+      ? this.emit(condition)
+      : this.parenthesizedExpression(condition);
+  }
+
+  private conditionalBranch(branch: Expression): Doc {
+    return this.expressionForDisallowedComma(branch);
+  }
+
+  private arrowFunctionBody(body: Block | Expression): Doc {
+    return body.kind === "Block"
+      ? this.emit(body)
+      : this.expressionNeedsConciseBodyParentheses(body)
+        ? this.parenthesizedExpression(body)
+        : this.emit(body);
+  }
+
+  private expressionStatementExpression(expression: Expression): Doc {
+    return this.expressionNeedsStatementParentheses(expression)
+      ? this.parenthesizedExpression(expression)
+      : this.emit(expression);
+  }
+
+  private exportAssignmentExpression(
+    expression: Expression,
+    isExportEquals: boolean,
+  ): Doc {
+    return isExportEquals
+      ? this.expressionForDisallowedComma(expression)
+      : this.expressionNeedsExportDefaultParentheses(expression)
+        ? this.parenthesizedExpression(expression)
+        : this.emit(expression);
+  }
+
+  private assertionExpressionOperand(expression: Expression): Doc {
+    return this.expressionPrecedence(expression) >=
+      ExpressionPrecedence.Relational
+      ? this.expressionForDisallowedComma(expression)
+      : this.parenthesizedExpression(expression);
+  }
+
+  private binaryOperand(
+    operator: SyntaxKind,
+    operand: Expression,
+    isLeftSide: boolean,
+    leftOperand?: Expression,
+  ): Doc {
+    return this.binaryOperandNeedsParentheses(
+      operator,
+      operand,
+      isLeftSide,
+      leftOperand,
+    )
+      ? this.parenthesizedExpression(operand)
+      : this.emit(operand);
+  }
+
+  private binaryOperandNeedsParentheses(
+    operator: SyntaxKind,
+    operand: Expression,
+    isLeftSide: boolean,
+    leftOperand?: Expression,
+  ): boolean {
+    if (operand.kind === "ParenthesizedExpression") return false;
+    if (
+      operator === SyntaxKind.AsteriskAsteriskToken &&
+      isLeftSide &&
+      this.expressionPrecedence(operand) === ExpressionPrecedence.Unary
+    )
+      return true;
+    if (
+      operand.kind === "BinaryExpression" &&
+      this.mixingBinaryOperatorsRequiresParentheses(operator, operand.operator)
+    )
+      return true;
+
+    const operatorPrecedence: ExpressionPrecedence =
+      this.binaryOperatorPrecedence(operator);
+    const operandPrecedence: ExpressionPrecedence =
+      this.expressionPrecedence(operand);
+    if (
+      !isLeftSide &&
+      operand.kind === "ArrowFunction" &&
+      operatorPrecedence > ExpressionPrecedence.Assignment
+    )
+      return true;
+    if (operandPrecedence < operatorPrecedence) return true;
+    if (operandPrecedence > operatorPrecedence) return false;
+
+    if (isLeftSide)
+      return this.binaryOperatorAssociativity(operator) === Associativity.Right;
+    if (operand.kind === "BinaryExpression" && operand.operator === operator) {
+      if (this.operatorHasAssociativeProperty(operator)) return false;
+      if (
+        operator === SyntaxKind.PlusToken &&
+        leftOperand !== undefined &&
+        this.literalKindOfBinaryPlusOperand(leftOperand) !== undefined &&
+        this.literalKindOfBinaryPlusOperand(leftOperand) ===
+          this.literalKindOfBinaryPlusOperand(operand)
+      )
+        return false;
+    }
+    return this.expressionAssociativity(operand) === Associativity.Left;
+  }
+
+  private expressionPrecedence(expression: Expression): ExpressionPrecedence {
+    switch (expression.kind) {
+      case "CommaListExpression":
+        return ExpressionPrecedence.Comma;
+      case "YieldExpression":
+        return ExpressionPrecedence.Yield;
+      case "ConditionalExpression":
+        return ExpressionPrecedence.Conditional;
+      case "BinaryExpression":
+        return this.binaryOperatorPrecedence(expression.operator);
+      case "AsExpression":
+      case "SatisfiesExpression":
+        return ExpressionPrecedence.Relational;
+      case "TypeAssertion":
+      case "PrefixUnaryExpression":
+      case "TypeOfExpression":
+      case "VoidExpression":
+      case "DeleteExpression":
+      case "AwaitExpression":
+      case "NonNullExpression":
+      case "NonNullChain":
+        return ExpressionPrecedence.Unary;
+      case "PostfixUnaryExpression":
+        return ExpressionPrecedence.Update;
+      case "CallExpression":
+      case "CallChain":
+        return ExpressionPrecedence.LeftHandSide;
+      case "NewExpression":
+      case "TaggedTemplateExpression":
+      case "PropertyAccessExpression":
+      case "PropertyAccessChain":
+      case "ElementAccessExpression":
+      case "ElementAccessChain":
+      case "MetaProperty":
+        return ExpressionPrecedence.Member;
+      default:
+        return ExpressionPrecedence.Primary;
+    }
+  }
+
+  private expressionAssociativity(expression: Expression): Associativity {
+    switch (expression.kind) {
+      case "NewExpression":
+        return expression.arguments === undefined
+          ? Associativity.Right
+          : Associativity.Left;
+      case "PrefixUnaryExpression":
+      case "TypeOfExpression":
+      case "VoidExpression":
+      case "DeleteExpression":
+      case "AwaitExpression":
+      case "ConditionalExpression":
+      case "YieldExpression":
+        return Associativity.Right;
+      case "BinaryExpression":
+        return this.binaryOperatorAssociativity(expression.operator);
+      default:
+        return Associativity.Left;
+    }
+  }
+
+  private binaryOperatorPrecedence(operator: SyntaxKind): ExpressionPrecedence {
+    switch (operator) {
+      case SyntaxKind.CommaToken:
+        return ExpressionPrecedence.Comma;
+      case SyntaxKind.EqualsToken:
+      case SyntaxKind.PlusEqualsToken:
+      case SyntaxKind.MinusEqualsToken:
+      case SyntaxKind.AsteriskEqualsToken:
+      case SyntaxKind.SlashEqualsToken:
+      case SyntaxKind.QuestionQuestionEqualsToken:
+        return ExpressionPrecedence.Assignment;
+      case SyntaxKind.QuestionQuestionToken:
+      case SyntaxKind.BarBarToken:
+        return ExpressionPrecedence.LogicalOR;
+      case SyntaxKind.AmpersandAmpersandToken:
+        return ExpressionPrecedence.LogicalAND;
+      case SyntaxKind.BarToken:
+        return ExpressionPrecedence.BitwiseOR;
+      case SyntaxKind.CaretToken:
+        return ExpressionPrecedence.BitwiseXOR;
+      case SyntaxKind.AmpersandToken:
+        return ExpressionPrecedence.BitwiseAND;
+      case SyntaxKind.EqualsEqualsToken:
+      case SyntaxKind.ExclamationEqualsToken:
+      case SyntaxKind.EqualsEqualsEqualsToken:
+      case SyntaxKind.ExclamationEqualsEqualsToken:
+        return ExpressionPrecedence.Equality;
+      case SyntaxKind.LessThanToken:
+      case SyntaxKind.LessThanEqualsToken:
+      case SyntaxKind.GreaterThanToken:
+      case SyntaxKind.GreaterThanEqualsToken:
+      case SyntaxKind.InstanceOfKeyword:
+      case SyntaxKind.InKeyword:
+      case SyntaxKind.AsKeyword:
+      case SyntaxKind.SatisfiesKeyword:
+        return ExpressionPrecedence.Relational;
+      case SyntaxKind.LessThanLessThanToken:
+      case SyntaxKind.GreaterThanGreaterThanToken:
+      case SyntaxKind.GreaterThanGreaterThanGreaterThanToken:
+        return ExpressionPrecedence.Shift;
+      case SyntaxKind.PlusToken:
+      case SyntaxKind.MinusToken:
+        return ExpressionPrecedence.Additive;
+      case SyntaxKind.AsteriskToken:
+      case SyntaxKind.SlashToken:
+      case SyntaxKind.PercentToken:
+        return ExpressionPrecedence.Multiplicative;
+      case SyntaxKind.AsteriskAsteriskToken:
+        return ExpressionPrecedence.Exponentiation;
+      default:
+        return ExpressionPrecedence.Invalid;
+    }
+  }
+
+  private binaryOperatorAssociativity(operator: SyntaxKind): Associativity {
+    switch (operator) {
+      case SyntaxKind.AsteriskAsteriskToken:
+      case SyntaxKind.EqualsToken:
+      case SyntaxKind.PlusEqualsToken:
+      case SyntaxKind.MinusEqualsToken:
+      case SyntaxKind.AsteriskEqualsToken:
+      case SyntaxKind.SlashEqualsToken:
+      case SyntaxKind.QuestionQuestionEqualsToken:
+        return Associativity.Right;
+      default:
+        return Associativity.Left;
+    }
+  }
+
+  private mixingBinaryOperatorsRequiresParentheses(
+    left: SyntaxKind,
+    right: SyntaxKind,
+  ): boolean {
+    return (
+      (left === SyntaxKind.QuestionQuestionToken &&
+        (right === SyntaxKind.AmpersandAmpersandToken ||
+          right === SyntaxKind.BarBarToken)) ||
+      (right === SyntaxKind.QuestionQuestionToken &&
+        (left === SyntaxKind.AmpersandAmpersandToken ||
+          left === SyntaxKind.BarBarToken))
+    );
+  }
+
+  private operatorHasAssociativeProperty(operator: SyntaxKind): boolean {
+    return (
+      operator === SyntaxKind.AsteriskToken ||
+      operator === SyntaxKind.BarToken ||
+      operator === SyntaxKind.AmpersandToken ||
+      operator === SyntaxKind.CaretToken ||
+      operator === SyntaxKind.CommaToken
+    );
+  }
+
+  private literalKindOfBinaryPlusOperand(
+    expression: Expression,
+  ): string | undefined {
+    switch (expression.kind) {
+      case "StringLiteral":
+      case "NumericLiteral":
+      case "BigIntLiteral":
+        return expression.kind;
+      case "BinaryExpression": {
+        if (expression.operator !== SyntaxKind.PlusToken) return undefined;
+        const left: string | undefined = this.literalKindOfBinaryPlusOperand(
+          expression.left,
+        );
+        return left !== undefined &&
+          left === this.literalKindOfBinaryPlusOperand(expression.right)
+          ? left
+          : undefined;
+      }
+      default:
+        return undefined;
+    }
+  }
+
+  private isUnaryExpression(expression: Expression): boolean {
+    return this.expressionPrecedence(expression) >= ExpressionPrecedence.Unary;
+  }
+
+  private isLeftHandSideExpression(expression: Expression): boolean {
+    switch (expression.kind) {
+      case "ArrowFunction":
+      case "ClassExpression":
+      case "FunctionExpression":
+      case "NumericLiteral":
+      case "ObjectLiteralExpression":
+        return false;
+      default:
+        break;
+    }
+    return (
+      this.expressionPrecedence(expression) >=
+        ExpressionPrecedence.LeftHandSide ||
+      expression.kind === "NonNullExpression" ||
+      expression.kind === "NonNullChain"
+    );
+  }
+
+  private expressionNeedsStatementParentheses(expression: Expression): boolean {
+    const leftmost: Expression = this.leftmostExpression(expression);
+    return (
+      leftmost.kind === "FunctionExpression" ||
+      leftmost.kind === "ObjectLiteralExpression"
+    );
+  }
+
+  private expressionNeedsConciseBodyParentheses(
+    expression: Expression,
+  ): boolean {
+    return (
+      this.expressionPrecedence(expression) <= ExpressionPrecedence.Comma ||
+      this.leftmostExpression(expression).kind === "ObjectLiteralExpression"
+    );
+  }
+
+  private expressionNeedsExportDefaultParentheses(
+    expression: Expression,
+  ): boolean {
+    const leftmost: Expression = this.leftmostExpression(expression);
+    return (
+      this.expressionPrecedence(expression) <= ExpressionPrecedence.Comma ||
+      leftmost.kind === "ClassExpression" ||
+      leftmost.kind === "FunctionExpression"
+    );
+  }
+
+  private leftmostExpression(expression: Expression): Expression {
+    switch (expression.kind) {
+      case "AsExpression":
+      case "CallExpression":
+      case "CallChain":
+      case "ElementAccessExpression":
+      case "ElementAccessChain":
+      case "NonNullExpression":
+      case "NonNullChain":
+      case "PropertyAccessExpression":
+      case "PropertyAccessChain":
+      case "SatisfiesExpression":
+        return this.leftmostExpression(expression.expression);
+      case "BinaryExpression":
+        return this.leftmostExpression(expression.left);
+      case "ConditionalExpression":
+        return this.leftmostExpression(expression.condition);
+      case "TaggedTemplateExpression":
+        return this.leftmostExpression(expression.tag);
+      default:
+        return expression;
+    }
+  }
+
+  private needsPrefixUnaryGap(
+    operator: SyntaxKind | undefined,
+    operand: Expression,
+  ): boolean {
+    if (operator === undefined || operand.kind !== "PrefixUnaryExpression")
+      return false;
+    return (
+      (operator === SyntaxKind.PlusToken &&
+        (operand.operator === SyntaxKind.PlusToken ||
+          operand.operator === SyntaxKind.PlusPlusToken)) ||
+      (operator === SyntaxKind.MinusToken &&
+        (operand.operator === SyntaxKind.MinusToken ||
+          operand.operator === SyntaxKind.MinusMinusToken))
+    );
+  }
+
+  private parenthesizedType(type: TypeNode): Doc {
+    return type.kind === "ParenthesizedTypeNode"
+      ? this.emit(type)
+      : concat(["(", this.emit(type), ")"]);
+  }
+
+  private conditionalTypeCheckOperand(type: TypeNode): Doc {
+    return type.kind === "FunctionTypeNode" ||
+      type.kind === "ConstructorTypeNode" ||
+      type.kind === "ConditionalTypeNode"
+      ? this.parenthesizedType(type)
+      : this.emit(type);
+  }
+
+  private conditionalTypeExtendsOperand(type: TypeNode): Doc {
+    return type.kind === "ConditionalTypeNode"
+      ? this.parenthesizedType(type)
+      : this.emit(type);
+  }
+
+  private typeOperatorOperand(type: TypeNode, operator: SyntaxKind): Doc {
+    return this.typeOperatorOperandNeedsParentheses(type, operator)
+      ? this.parenthesizedType(type)
+      : this.emit(type);
+  }
+
+  private typeOperatorOperandNeedsParentheses(
+    type: TypeNode,
+    operator?: SyntaxKind,
+  ): boolean {
+    return (
       type.kind === "UnionTypeNode" ||
       type.kind === "IntersectionTypeNode" ||
       type.kind === "FunctionTypeNode" ||
       type.kind === "ConstructorTypeNode" ||
       type.kind === "ConditionalTypeNode" ||
+      (operator === SyntaxKind.ReadonlyKeyword &&
+        type.kind === "TypeOperatorNode")
+    );
+  }
+
+  private postfixTypeOperand(type: TypeNode): Doc {
+    return this.postfixTypeOperandNeedsParentheses(type)
+      ? this.parenthesizedType(type)
+      : this.emit(type);
+  }
+
+  private postfixTypeOperandNeedsParentheses(type: TypeNode): boolean {
+    return (
       type.kind === "InferTypeNode" ||
-      type.kind === "TypeOperatorNode";
-    return parenthesize ? concat(["(", this.emit(type), ")"]) : this.emit(type);
+      type.kind === "TypeOperatorNode" ||
+      type.kind === "TypeQueryNode" ||
+      this.typeOperatorOperandNeedsParentheses(type)
+    );
   }
 
   /** Render a JSDoc tag's trailing comment, prefixed with a space when present. */
@@ -1563,7 +2084,10 @@ export class TsPrinter {
   }
 
   /** Width-aware `|` / `&` type list with leading-operator breaks. */
-  private binaryType(operator: string, parts: Doc[]): Doc {
+  private binaryType(operator: "|" | "&", types: readonly TypeNode[]): Doc {
+    const parts: Doc[] = this.flattenBinaryTypes(operator, types).map((type) =>
+      this.binaryTypeOperand(operator, type),
+    );
     if (parts.length === 1) return parts[0]!;
     return group(
       indent(
@@ -1575,6 +2099,39 @@ export class TsPrinter {
     );
   }
 
+  private flattenBinaryTypes(
+    operator: "|" | "&",
+    types: readonly TypeNode[],
+  ): TypeNode[] {
+    const flattened: TypeNode[] = [];
+    for (const type of types)
+      if (operator === "|" && type.kind === "UnionTypeNode")
+        flattened.push(...this.flattenBinaryTypes(operator, type.types));
+      else if (operator === "&" && type.kind === "IntersectionTypeNode")
+        flattened.push(...this.flattenBinaryTypes(operator, type.types));
+      else flattened.push(type);
+    return flattened;
+  }
+
+  private binaryTypeOperand(operator: "|" | "&", type: TypeNode): Doc {
+    return this.binaryTypeOperandNeedsParentheses(operator, type)
+      ? this.parenthesizedType(type)
+      : this.emit(type);
+  }
+
+  private binaryTypeOperandNeedsParentheses(
+    operator: "|" | "&",
+    type: TypeNode,
+  ): boolean {
+    return (
+      type.kind === "FunctionTypeNode" ||
+      type.kind === "ConstructorTypeNode" ||
+      type.kind === "ConditionalTypeNode" ||
+      type.kind === "UnionTypeNode" ||
+      (operator === "|" && type.kind === "IntersectionTypeNode")
+    );
+  }
+
   private unsupported(node: never): never {
     throw new Error(
       `@ttsc/factory: TsPrinter cannot print node of kind "${
@@ -1583,3 +2140,60 @@ export class TsPrinter {
     );
   }
 }
+
+export namespace TsPrinter {
+  /** Options for {@link TsPrinter}. */
+  export interface IProps {
+    /** Maximum line width before groups break. Defaults to `80`. */
+    printWidth?: number;
+    /** Indentation unit. Defaults to two spaces. */
+    indent?: string;
+    /** New line sequence. Defaults to `"\n"` (LineFeed). */
+    newLine?: string;
+  }
+}
+
+const escapeString = (text: string, singleQuote?: boolean): string => {
+  const escaped: string = text
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r")
+    .replace(/\t/g, "\\t");
+  return singleQuote === true
+    ? `'${escaped.replace(/'/g, "\\'")}'`
+    : `"${escaped.replace(/"/g, '\\"')}"`;
+};
+
+const ExpressionPrecedence = {
+  Comma: 0,
+  Yield: 2,
+  Assignment: 3,
+  Conditional: 4,
+  LogicalOR: 5,
+  LogicalAND: 6,
+  BitwiseOR: 7,
+  BitwiseXOR: 8,
+  BitwiseAND: 9,
+  Equality: 10,
+  Relational: 11,
+  Shift: 12,
+  Additive: 13,
+  Multiplicative: 14,
+  Exponentiation: 15,
+  Unary: 16,
+  Update: 17,
+  LeftHandSide: 18,
+  Member: 19,
+  Primary: 20,
+  Invalid: -1,
+} as const;
+
+type ExpressionPrecedence =
+  (typeof ExpressionPrecedence)[keyof typeof ExpressionPrecedence];
+
+const Associativity = {
+  Left: "left",
+  Right: "right",
+} as const;
+
+type Associativity = (typeof Associativity)[keyof typeof Associativity];

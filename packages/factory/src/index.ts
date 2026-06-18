@@ -22,7 +22,6 @@ import * as factory from "./factory/index";
 export * as factory from "./factory/index";
 export { SyntaxKind, NodeFlags } from "./syntax";
 export { TsPrinter } from "./TsPrinter";
-export type { TsPrinterOptions } from "./TsPrinter";
 export {
   addSyntheticLeadingComment,
   addSyntheticTrailingComment,

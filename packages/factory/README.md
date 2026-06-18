@@ -65,11 +65,12 @@ factory.createKeywordTypeNode(SyntaxKind.StringKeyword); // string
 A **width-aware** printer implemented directly (not a wrapper over `ts.Printer`). Like Prettier, it keeps lists on one line when they fit within `printWidth` and breaks them — with trailing commas — when they don't.
 
 ```typescript
-const printer = new TsPrinter({
+const props: TsPrinter.IProps = {
   printWidth: 80, // default 80
   indent: "  ", //   default two spaces
   newLine: "\n", //  default LineFeed
-});
+};
+const printer = new TsPrinter(props);
 
 printer.print(node); // print one node (or a SourceFile)
 printer.printNodes([a, b, c]); // print many nodes, joined by new lines
