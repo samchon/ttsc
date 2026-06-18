@@ -103,7 +103,7 @@
     "rollup-plugin-auto-external": "^2.0.0",
     "rollup-plugin-node-externals": "^9.0.1",
     "tinyglobby": "^0.2.16",
-    "ts-legacy": "catalog:typescript-legacy",
+    "ts-legacy": "catalog:typescript",
     "tslib": "^2.8.1",
     "ttsc": "workspace:*",
     "typescript": "catalog:typescript",

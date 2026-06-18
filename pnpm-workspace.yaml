@@ -6,12 +6,10 @@ packages:
 catalogs:
   typescript:
     typescript: 7.0.1-rc
-  typescript-legacy:
     # Native TypeScript 7 drops the classic JS compiler API, so the legacy v6
-    # compiler is retained for `typescript-eslint` (peer `typescript <6.1.0`,
-    # exposed as `typescript`) and for `@rollup/plugin-typescript` / the factory
-    # parity oracle (exposed as the `ts-legacy` alias).
-    typescript: ~6.0.3
+    # compiler is retained under the `ts-legacy` alias for
+    # `@rollup/plugin-typescript`, `typescript-eslint`, and the factory parity
+    # oracle.
     ts-legacy: 'npm:typescript@~6.0.3'
   rollup:
     '@rollup/plugin-commonjs': ^29.0.0

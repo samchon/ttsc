@@ -45,7 +45,7 @@
     "prettier-plugin-jsdoc": "^1.8.0",
     "rimraf": "catalog:utils",
     "rollup": "catalog:rollup",
-    "ts-legacy": "catalog:typescript-legacy",
+    "ts-legacy": "catalog:typescript",
     "typescript": "catalog:typescript"
   }
 }

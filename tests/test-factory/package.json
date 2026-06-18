@@ -12,7 +12,7 @@
     "@ttsc/factory": "workspace:*",
     "@ttsc/testing": "workspace:*",
     "@types/node": "catalog:utils",
-    "ts-legacy": "catalog:typescript-legacy",
+    "ts-legacy": "catalog:typescript",
     "ttsc": "workspace:*",
     "typescript": "catalog:typescript"
   }

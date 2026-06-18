@@ -14,8 +14,8 @@
     "@types/node": "catalog:utils",
     "eslint": "^10.3.0",
     "lint-contributor-demo": "workspace:*",
+    "ts-legacy": "catalog:typescript",
     "ttsc": "workspace:*",
-    "typescript": "catalog:typescript-legacy",
     "typescript-eslint": "^8.59.2"
   }
 }
