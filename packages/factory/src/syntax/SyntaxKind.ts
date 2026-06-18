@@ -5,12 +5,12 @@
  * modifier / operator tokens this hand-written factory and printer understand.
  * Each member's value is its **own source text** (e.g. `QuestionToken = "?"`),
  * so a token renders to source by reading its value directly — no lookup table.
- * It is a string-valued `const enum`, so references inline to the literal with
- * no runtime object.
+ * It is a string-valued enum (deliberately not `const enum`, so consumers
+ * compiled with `isolatedModules` can still reference its members).
  *
  * @author Jeongho Nam - https://github.com/samchon
  */
-export const enum SyntaxKind {
+export enum SyntaxKind {
   // keyword type nodes & literal keywords
   AnyKeyword = "any",
   UnknownKeyword = "unknown",

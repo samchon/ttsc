@@ -6,12 +6,12 @@
  * value is the keyword it implies (`Let = "let"`, `Const = "const"`), so the
  * printer reads it directly. `Namespace` is accepted for API parity — the
  * printer renders the `module` / `namespace` keyword from the module name kind,
- * not from this flag. A string-valued `const enum`, so references inline with
- * no runtime object.
+ * not from this flag. A string-valued enum (deliberately not `const enum`, so
+ * consumers compiled with `isolatedModules` can still reference its members).
  *
  * @author Jeongho Nam - https://github.com/samchon
  */
-export const enum NodeFlags {
+export enum NodeFlags {
   None = "",
   Let = "let",
   Const = "const",
