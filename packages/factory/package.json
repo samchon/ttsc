@@ -8,8 +8,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "rimraf lib && ttsc && rollup -c",
-    "dev": "ttsc --watch",
+    "build": "rimraf lib && tsgo -p . && rollup -c",
+    "dev": "tsgo -p . --watch",
     "prepack": "pnpm run build"
   },
   "repository": {
@@ -30,8 +30,7 @@
     "rollup": "catalog:rollup",
     "rollup-plugin-auto-external": "catalog:rollup",
     "rollup-plugin-node-externals": "catalog:rollup",
-    "tinyglobby": "^0.2.12",
-    "ttsc": "workspace:*"
+    "tinyglobby": "^0.2.12"
   },
   "sideEffects": false,
   "files": [

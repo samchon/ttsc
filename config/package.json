@@ -1,5 +1,14 @@
 {
   "private": true,
   "name": "@ttsc/config",
-  "version": "0.15.6"
+  "version": "0.15.6",
+  "description": "Shared build configuration for ttsc packages.",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "catalog:rollup",
+    "@rollup/plugin-node-resolve": "catalog:rollup",
+    "rollup": "catalog:rollup",
+    "rollup-plugin-auto-external": "catalog:rollup",
+    "rollup-plugin-node-externals": "catalog:rollup",
+    "tinyglobby": "^0.2.12"
+  }
 }

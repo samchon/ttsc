@@ -1,5 +1,3 @@
-import { factory } from "./factory";
-
 /**
  * Hand-written, dependency-free re-implementation of the legacy TypeScript AST
  * factory (`ts.factory`) and printer (`ts.Printer`).
@@ -8,7 +6,7 @@ import { factory } from "./factory";
  * import factory, { SyntaxKind, TsPrinter } from "@ttsc/factory";
  * ```
  *
- * - `factory` (default export) — the node factory.
+ * - `factory` — the node factory namespace (also the default export).
  * - {@link TsPrinter} — renders factory nodes to TypeScript source text.
  * - {@link SyntaxKind} / {@link NodeFlags} — token & flag enums.
  * - Outline AST types (`Expression`, `Statement`, `TypeNode`, ...).
@@ -18,11 +16,15 @@ import { factory } from "./factory";
  *
  * @author Jeongho Nam - https://github.com/samchon
  */
-export { factory };
-export type { NodeFactory } from "./factory";
+export * as factory from "./factory/index";
 export { SyntaxKind, NodeFlags, tokenToString } from "./syntax";
 export { TsPrinter } from "./TsPrinter";
 export type { TsPrinterOptions } from "./TsPrinter";
 export type * from "./ast";
+
+import * as factory from "./factory/index";
+
+/** Outline of the legacy `ts.NodeFactory`. */
+export type NodeFactory = typeof factory;
 
 export default factory;
