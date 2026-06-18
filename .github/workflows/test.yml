@@ -29,6 +29,7 @@ jobs:
           - { name: shim-audit, run: "pnpm --filter ttsc shim:audit:test && pnpm --filter ttsc shim:audit" }
           - { name: typecheck, run: "pnpm run check:flags && pnpm run test:typecheck" }
           - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
+          - { name: factory, run: "pnpm --filter @ttsc/test-factory start" }
           - { name: lint, run: "pnpm --filter @ttsc/test-lint start" }
           - { name: paths, run: "pnpm --filter @ttsc/test-paths start" }
           - { name: strip, run: "pnpm --filter @ttsc/test-strip start" }

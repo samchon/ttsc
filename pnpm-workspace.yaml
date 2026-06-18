@@ -6,6 +6,12 @@ packages:
 catalogs:
   tsgo:
     '@typescript/native-preview': 7.0.0-dev.20260617.2
+  rollup:
+    '@rollup/plugin-commonjs': ^29.0.0
+    '@rollup/plugin-node-resolve': ^16.0.3
+    rollup: ^4.56.0
+    rollup-plugin-auto-external: ^2.0.0
+    rollup-plugin-node-externals: ^8.1.2
   utils:
     '@nestia/e2e': ^11.2.0
     '@types/node': ^25.3.0
