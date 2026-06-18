@@ -122,14 +122,15 @@ await Bun.build({
 
 `@ttsc/unplugin` reads your existing `tsconfig.json`, same plugins, same configs (`lint.config.ts`, `banner.config.ts`, …). For most projects no adapter-specific options are needed.
 
-If the bundler invokes from a different cwd, or you want a non-default tsconfig:
+To point at a non-default config file, pass `project` (resolved from `process.cwd()`):
 
 ```ts
 ttsc({
-  cwd: process.cwd(),
   project: "tsconfig.build.json",
 });
 ```
+
+Two more options layer on top of that config: `compilerOptions` for a one-off override without another config file, and `plugins` to replace the project's plugin list (`plugins: false` disables them). See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin#configuration) for the full set.
 
 ## When do I use this vs the `ttsc` CLI?
 

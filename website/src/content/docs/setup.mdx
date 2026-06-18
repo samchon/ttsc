@@ -85,7 +85,41 @@ That's it. From here you can:
 
 - **Run a script directly**: `npx ttsx src/index.ts`. Type-checks, then executes. See [TTSC · Execute](/docs/ttsc/execute).
 - **Add a transform plugin**: e.g. [typia](https://typia.io) for runtime validators generated from your types.
+- **Run inside a bundler**: Vite, Webpack, Rollup, and friends, see below.
 - **Wire your editor**: install the VS Code extension below to show TypeScript errors and supported `ttsc` plugin diagnostics while you code.
+
+## Bundlers (Vite, Webpack, Rollup, …)
+
+When a bundler owns the build, the `ttsc` CLI never runs, so its plugin pass would be skipped. Install [`@ttsc/unplugin`](/docs/ttsc/bundler) to run the same pass from inside the bundler:
+
+```bash
+npm install -D @ttsc/unplugin
+```
+
+Add the adapter for your bundler. It reads the same `tsconfig.json`, so your plugins and `lint.config.ts` apply unchanged, no extra config for most projects.
+
+```ts
+// vite.config.ts
+import ttsc from "@ttsc/unplugin/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [ttsc()],
+});
+```
+
+```ts
+// rollup.config.ts
+import ttsc from "@ttsc/unplugin/rollup";
+
+export default {
+  input: "src/index.ts",
+  output: { dir: "dist", format: "esm" },
+  plugins: [ttsc()],
+};
+```
+
+Adapters ship for Vite, Rollup, Rolldown, esbuild, Webpack, Rspack, Next.js, Turbopack, Farm, and Bun. Import the entrypoint that matches your bundler (`@ttsc/unplugin/webpack`, `@ttsc/unplugin/esbuild`, and so on). See [Bundler integration](/docs/ttsc/bundler) for every adapter, the `project` / `compilerOptions` / `plugins` options, and watch-mode behavior.
 
 ## Editor (VS Code)
 
