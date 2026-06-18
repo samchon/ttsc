@@ -1290,20 +1290,11 @@ export class TsPrinter {
         return concat([this.emit(node.namespace), ":", this.emit(node.name)]);
 
       /* synthetic / emit-internal */
-      case "SyntaxList":
-        return join(
-          " ",
-          node.children.map((c) => this.emit(c)),
-        );
       case "Bundle":
         return join(
           hardline,
           node.sourceFiles.map((s) => this.emit(s)),
         );
-      case "RedirectedSourceFile":
-        return this.emit(node.redirectTarget);
-      case "SyntheticReferenceExpression":
-        return this.emit(node.expression);
       case "PartiallyEmittedExpression":
         return this.emit(node.expression);
       case "ImportAttribute":
@@ -1320,10 +1311,8 @@ export class TsPrinter {
               ),
               " }",
             ]);
-      case "SyntheticExpression":
       case "NotEmittedStatement":
       case "NotEmittedTypeElement":
-      case "MissingDeclaration":
         return "";
 
       /* jsdoc — types */

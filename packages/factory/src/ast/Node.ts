@@ -11,7 +11,6 @@ import type { GetAccessorDeclaration } from "./declarations/GetAccessorDeclarati
 import type { ImportEqualsDeclaration } from "./declarations/ImportEqualsDeclaration";
 import type { InterfaceDeclaration } from "./declarations/InterfaceDeclaration";
 import type { MethodDeclaration } from "./declarations/MethodDeclaration";
-import type { MissingDeclaration } from "./declarations/MissingDeclaration";
 import type { ModuleBlock } from "./declarations/ModuleBlock";
 import type { ModuleDeclaration } from "./declarations/ModuleDeclaration";
 import type { NamespaceExportDeclaration } from "./declarations/NamespaceExportDeclaration";
@@ -59,8 +58,6 @@ import type { ShorthandPropertyAssignment } from "./expressions/ShorthandPropert
 import type { SpreadAssignment } from "./expressions/SpreadAssignment";
 import type { SpreadElement } from "./expressions/SpreadElement";
 import type { StringLiteral } from "./expressions/StringLiteral";
-import type { SyntheticExpression } from "./expressions/SyntheticExpression";
-import type { SyntheticReferenceExpression } from "./expressions/SyntheticReferenceExpression";
 import type { TaggedTemplateExpression } from "./expressions/TaggedTemplateExpression";
 import type { TemplateExpression } from "./expressions/TemplateExpression";
 import type { TemplateHead } from "./expressions/TemplateHead";
@@ -72,9 +69,7 @@ import type { TypeOfExpression } from "./expressions/TypeOfExpression";
 import type { VoidExpression } from "./expressions/VoidExpression";
 import type { YieldExpression } from "./expressions/YieldExpression";
 import type { Bundle } from "./file/Bundle";
-import type { RedirectedSourceFile } from "./file/RedirectedSourceFile";
 import type { SourceFile } from "./file/SourceFile";
-import type { SyntaxList } from "./file/SyntaxList";
 import type { ExportAssignment } from "./imports/ExportAssignment";
 import type { ExportDeclaration } from "./imports/ExportDeclaration";
 import type { ExportSpecifier } from "./imports/ExportSpecifier";
@@ -413,14 +408,9 @@ export type Node =
   | JSDocUnknownTag
   | JSDocUnknownType
   | JSDocVariadicType
-  | SyntaxList
   | Bundle
-  | RedirectedSourceFile
-  | SyntheticExpression
-  | SyntheticReferenceExpression
   | PartiallyEmittedExpression
   | NotEmittedStatement
   | NotEmittedTypeElement
-  | MissingDeclaration
   | ImportAttribute
   | ImportAttributes;
