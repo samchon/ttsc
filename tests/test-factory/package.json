@@ -13,7 +13,7 @@
     "@ttsc/testing": "workspace:*",
     "@types/node": "catalog:utils",
     "@typescript/native-preview": "catalog:tsgo",
-    "ttsc": "workspace:*",
-    "typescript": "~6.0.3"
+    "ts-legacy": "npm:typescript@~6.0.3",
+    "ttsc": "workspace:*"
   }
 }

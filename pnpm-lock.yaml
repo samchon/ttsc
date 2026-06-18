@@ -364,12 +364,12 @@ importers:
       '@typescript/native-preview':
         specifier: catalog:tsgo
         version: 7.0.0-dev.20260618.1
+      ts-legacy:
+        specifier: npm:typescript@~6.0.3
+        version: typescript@6.0.3
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
-      typescript:
-        specifier: ~6.0.3
-        version: 6.0.3
 
   tests/test-lint:
     devDependencies:

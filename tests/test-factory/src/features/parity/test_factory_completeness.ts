@@ -1,12 +1,15 @@
 import ttscFactory from "@ttsc/factory";
 import fs from "node:fs";
 import path from "node:path";
-import ts from "typescript";
+import ts from "ts-legacy";
 
 /**
  * Prove that `@ttsc/factory` mirrors every non-deprecated **public** `create*`
  * member of the legacy `ts.factory`, against a real (legacy) `typescript`
- * install.
+ * install. The workspace `typescript` is now the native TypeScript 7 compiler,
+ * which drops the JS `ts.factory` surface, so the legacy v6 compiler is pinned
+ * under the `ts-legacy` alias (`npm:typescript@~6.0.3`) purely for this parity
+ * oracle.
  *
  * The required surface is the public `NodeFactory` interface parsed from the
  * real `typescript.d.ts`. Two categories are exempt:
