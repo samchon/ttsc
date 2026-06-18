@@ -45,7 +45,7 @@
     "tailwindcss": "^4.1.12",
     "tgrid": "^1.0.3",
     "tstl": "^3.0.0",
-    "typescript": "~5.9.3",
+    "typescript": "~7.0.1-rc",
     "typia": "13.0.0-dev.20260605.1"
   },
   "devDependencies": {
