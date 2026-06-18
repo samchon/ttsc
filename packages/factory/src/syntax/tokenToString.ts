@@ -88,6 +88,10 @@ const TEXTS: { [key in SyntaxKind]: string } = {
   [SyntaxKind.MinusEqualsToken]: "-=",
   [SyntaxKind.AsteriskEqualsToken]: "*=",
   [SyntaxKind.SlashEqualsToken]: "/=",
+
+  // comment trivia are not tokens; they carry no standalone source text
+  [SyntaxKind.SingleLineCommentTrivia]: "",
+  [SyntaxKind.MultiLineCommentTrivia]: "",
 };
 
 /** Render a {@link SyntaxKind} token to its source text (e.g. `===`, `string`). */

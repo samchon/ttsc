@@ -1,4 +1,9 @@
 import type { ModifierLike, Node, SourceFile, Statement } from "./ast";
+import type { SynthesizedComment } from "./comments";
+import {
+  getSyntheticLeadingComments,
+  getSyntheticTrailingComments,
+} from "./comments";
 import type { Doc } from "./internal/doc";
 import {
   concat,
@@ -11,7 +16,7 @@ import {
   printDocToString,
   softline,
 } from "./internal/doc";
-import { tokenToString } from "./syntax";
+import { SyntaxKind, tokenToString } from "./syntax";
 
 /** Options for {@link TsPrinter}. */
 export interface TsPrinterOptions {
@@ -241,6 +246,59 @@ export class TsPrinter {
   }
 
   private emit(node: Node): Doc {
+    const body: Doc = this.emitNode(node);
+    const leading: SynthesizedComment[] | undefined =
+      getSyntheticLeadingComments(node);
+    const trailing: SynthesizedComment[] | undefined =
+      getSyntheticTrailingComments(node);
+    if (
+      (leading === undefined || leading.length === 0) &&
+      (trailing === undefined || trailing.length === 0)
+    )
+      return body;
+    const parts: Doc[] = [];
+    if (leading !== undefined)
+      for (const comment of leading) parts.push(this.leadingComment(comment));
+    parts.push(body);
+    if (trailing !== undefined)
+      for (const comment of trailing) parts.push(this.trailingComment(comment));
+    return concat(parts);
+  }
+
+  /** Render a leading comment followed by its node separator. */
+  private leadingComment(comment: SynthesizedComment): Doc {
+    // a `//` comment must terminate the line; a `/* */` honours its own flag
+    const newLine: boolean =
+      comment.kind === SyntaxKind.SingleLineCommentTrivia ||
+      comment.hasTrailingNewLine === true;
+    return concat([this.commentBody(comment), newLine ? hardline : " "]);
+  }
+
+  /** Render a trailing comment preceded by its node separator. */
+  private trailingComment(comment: SynthesizedComment): Doc {
+    const newLine: boolean =
+      comment.kind === SyntaxKind.SingleLineCommentTrivia ||
+      comment.hasTrailingNewLine === true;
+    return concat([
+      comment.hasLeadingNewLine === true ? hardline : " ",
+      this.commentBody(comment),
+      newLine ? hardline : "",
+    ]);
+  }
+
+  /** Render the delimited comment body, re-flowing embedded line breaks. */
+  private commentBody(comment: SynthesizedComment): Doc {
+    if (comment.kind === SyntaxKind.SingleLineCommentTrivia)
+      return concat(["//", comment.text]);
+    // re-emit embedded newlines as hardlines so each line re-indents in place
+    return concat([
+      "/*",
+      join(hardline, comment.text.replace(/\r\n?/g, "\n").split("\n")),
+      "*/",
+    ]);
+  }
+
+  private emitNode(node: Node): Doc {
     switch (node.kind) {
       /* names & tokens */
       case "Identifier":

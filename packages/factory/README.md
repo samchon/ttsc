@@ -47,6 +47,7 @@ Once a project migrates its tool-chain to the **TypeScript-Go** (tsgo, `>= 7.x`)
 | `factory` (default export) | The node factory; `createXxx` mirror the legacy signatures. |
 | `TsPrinter` | Renders factory nodes to TypeScript source text. |
 | `SyntaxKind`, `NodeFlags` | Outline token & flag enums. |
+| `addSyntheticLeadingComment` | Attach `//` / `/* */` comments to a node. |
 | Outline AST types | `Expression`, `Statement`, `TypeNode`, `Node`, ... |
 
 ### `factory`
@@ -86,6 +87,38 @@ factory.createCallExpression(id("foo"), undefined, [a, b]); // foo(a, b)
 //   argumentThree,
 // )
 ```
+
+### Comments
+
+Attach leading / trailing comments with the legacy `ts.addSyntheticLeadingComment` family. The printer renders them in place — multi-line bodies re-indent with their node, so JSDoc on a nested member stays aligned.
+
+```typescript
+import factory, {
+  SyntaxKind,
+  TsPrinter,
+  addSyntheticLeadingComment,
+} from "@ttsc/factory";
+
+const node = addSyntheticLeadingComment(
+  factory.createTypeAliasDeclaration(
+    undefined,
+    "ID",
+    undefined,
+    factory.createKeywordTypeNode(SyntaxKind.StringKeyword),
+  ),
+  SyntaxKind.MultiLineCommentTrivia,
+  "*\n * The identifier.\n ",
+  true,
+);
+
+new TsPrinter().print(node);
+// /**
+//  * The identifier.
+//  */
+// type ID = string;
+```
+
+Companion helpers: `addSyntheticTrailingComment`, `get`/`setSyntheticLeadingComments`, `get`/`setSyntheticTrailingComments`.
 
 ## Coverage
 

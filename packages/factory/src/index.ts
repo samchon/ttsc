@@ -1,3 +1,5 @@
+import * as factory from "./factory/index";
+
 /**
  * Hand-written, dependency-free re-implementation of the legacy TypeScript AST
  * factory (`ts.factory`) and printer (`ts.Printer`).
@@ -9,6 +11,7 @@
  * - `factory` — the node factory namespace (also the default export).
  * - {@link TsPrinter} — renders factory nodes to TypeScript source text.
  * - {@link SyntaxKind} / {@link NodeFlags} — token & flag enums.
+ * - {@link addSyntheticLeadingComment} — attach `//` / `/* *\/` comments.
  * - Outline AST types (`Expression`, `Statement`, `TypeNode`, ...).
  *
  * No `typescript` module is imported anywhere; the logic is implemented
@@ -20,9 +23,16 @@ export * as factory from "./factory/index";
 export { SyntaxKind, NodeFlags, tokenToString } from "./syntax";
 export { TsPrinter } from "./TsPrinter";
 export type { TsPrinterOptions } from "./TsPrinter";
+export {
+  addSyntheticLeadingComment,
+  addSyntheticTrailingComment,
+  getSyntheticLeadingComments,
+  getSyntheticTrailingComments,
+  setSyntheticLeadingComments,
+  setSyntheticTrailingComments,
+} from "./comments";
+export type { SynthesizedComment } from "./comments";
 export type * from "./ast";
-
-import * as factory from "./factory/index";
 
 /** Outline of the legacy `ts.NodeFactory`. */
 export type NodeFactory = typeof factory;

@@ -105,4 +105,8 @@ export enum SyntaxKind {
   MinusEqualsToken,
   AsteriskEqualsToken,
   SlashEqualsToken,
+
+  // comment trivia (used by addSyntheticLeadingComment / addSyntheticTrailingComment)
+  SingleLineCommentTrivia,
+  MultiLineCommentTrivia,
 }
