@@ -7,7 +7,11 @@ Three packages, one `lint.config.ts`, one VS Code extension. Five minutes.
 - **Node.js** 18 or later.
 - A TypeScript project: anything with a `tsconfig.json` works.
 
-## Install
+## ttsc CLI
+
+The standalone path: `ttsc` type-checks, lints, and emits from the command line.
+
+### Install
 
 ```bash
 npm install -D ttsc @ttsc/lint @typescript/native-preview
@@ -17,7 +21,7 @@ npm install -D ttsc @ttsc/lint @typescript/native-preview
 
 `@typescript/native-preview` is the TypeScript-Go preview that `ttsc` runs on. The TypeScript team versions it separately, so it's a sibling package, pin it in your project and `ttsc` picks it up from `node_modules`.
 
-## Minimal `tsconfig.json`
+### `tsconfig.json`
 
 If you don't already have one:
 
@@ -37,7 +41,7 @@ If you don't already have one:
 
 Same shape as a `tsc` project, `ttsc` reads the same fields.
 
-## Minimal `lint.config.ts`
+### `lint.config.ts`
 
 Drop this next to `tsconfig.json` so `@ttsc/lint` knows which rules to enable:
 
@@ -61,7 +65,7 @@ export default {
 
 `rules` sets severity per lint rule. `format` is a Prettier-style block, the keys mirror `.prettierrc`. See [Lint & Prettier](/docs/lint) for the full catalog.
 
-## First build
+### First build
 
 ```ts
 // src/index.ts
@@ -81,16 +85,13 @@ npx ttsc format     # rewrite source files with the format rules
 node dist/index.js  # run the emit
 ```
 
-That's it. From here you can:
+From here you can run a script directly with `npx ttsx src/index.ts` (type-checks, then executes, see [TTSC · Execute](/docs/ttsc/execute)), or add a transform plugin like [typia](https://typia.io) for runtime validators generated from your types.
 
-- **Run a script directly**: `npx ttsx src/index.ts`. Type-checks, then executes. See [TTSC · Execute](/docs/ttsc/execute).
-- **Add a transform plugin**: e.g. [typia](https://typia.io) for runtime validators generated from your types.
-- **Run inside a bundler**: Vite, Webpack, Rollup, and friends, see below.
-- **Wire your editor**: install the VS Code extension below to show TypeScript errors and supported `ttsc` plugin diagnostics while you code.
+## Bundlers (@ttsc/unplugin)
 
-## Bundlers (Vite, Webpack, Rollup, …)
+When a bundler owns the build, the `ttsc` CLI never runs, so its plugin pass would be skipped. [`@ttsc/unplugin`](/docs/ttsc/bundler) runs the same pass from inside the bundler.
 
-When a bundler owns the build, the `ttsc` CLI never runs, so its plugin pass would be skipped. Install [`@ttsc/unplugin`](/docs/ttsc/bundler) to run the same pass from inside the bundler:
+### Install
 
 ```bash
 npm install -D @ttsc/unplugin
@@ -131,6 +132,8 @@ Adapters ship for Vite, Rollup, Rolldown, esbuild, Webpack, Rspack, Next.js, Tur
 
 The VS Code extension reads your project's `ttsc` setup, so editor diagnostics match your build.
 
+### Install
+
 Install it from the VS Code Marketplace: open the Extensions view, search `ttsc`, and pick the one by `samchon`. From a shell:
 
 ```bash
@@ -145,7 +148,11 @@ What it adds:
 - Multi-root workspaces are supported. Add packages as VS Code workspace folders when each package should keep its own `ttsc`, `@typescript/native-preview`, and plugin config active.
 - Command Palette: `ttsc: Restart language server`, `ttsc: Fix all lint issues`, and `ttsc: Format document`. The lint and format commands need a plugin that provides them, such as `@ttsc/lint`.
 
-To turn on format-on-save, point the default formatter at `samchon.ttsc` and enable `editor.formatOnSave` in `.vscode/settings.json`:
+If diagnostics don't appear after install, open **View → Output**, select **ttsc** from the dropdown, and read the server log.
+
+### Format on save
+
+Point the default formatter at `samchon.ttsc` and enable `editor.formatOnSave` in `.vscode/settings.json`:
 
 ```jsonc
 "[typescript][typescriptreact]": {
@@ -155,8 +162,6 @@ To turn on format-on-save, point the default formatter at `samchon.ttsc` and ena
 ```
 
 Lint **fixes** stay off-save by default (they can change code meaning), opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
-
-If diagnostics don't appear after install, open **View → Output**, select **ttsc** from the dropdown, and read the server log.
 
 Full reference: [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode).
 
