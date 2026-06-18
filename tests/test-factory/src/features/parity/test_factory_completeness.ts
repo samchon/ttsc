@@ -91,3 +91,23 @@ export const test_factory_completeness = (): void => {
         `function(s):\n${missing.map((name) => `  - ${name}`).join("\n")}`,
     );
 };
+
+/**
+ * The reverse guard: every `create*` that `@ttsc/factory` exposes must be a real
+ * `ts.factory` member.
+ *
+ * This fails loudly if a factory function is invented (a typo, or a name that
+ * never existed in the legacy compiler), so the surface can only ever be a
+ * subset of the genuine `ts.factory`.
+ */
+export const test_factory_has_no_phantom_functions = (): void => {
+  const real: ReadonlySet<string> = new Set(realFactoryNames());
+  const phantom: string[] = [...ttscFactoryNames()]
+    .filter((name) => !real.has(name))
+    .sort();
+  if (phantom.length !== 0)
+    throw new Error(
+      `@ttsc/factory exposes ${phantom.length} create* function(s) absent from ` +
+        `the real ts.factory:\n${phantom.map((name) => `  - ${name}`).join("\n")}`,
+    );
+};
