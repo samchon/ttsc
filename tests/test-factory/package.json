@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-factory",
-  "version": "0.15.8",
+  "version": "0.15.9",
   "description": "@ttsc/factory behavior feature tests.",
   "type": "module",
   "scripts": {

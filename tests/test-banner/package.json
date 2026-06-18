@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-banner",
-  "version": "0.15.8",
+  "version": "0.15.9",
   "description": "@ttsc/banner project-shape feature tests.",
   "type": "module",
   "scripts": {

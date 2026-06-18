@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/testing",
-  "version": "0.15.8",
+  "version": "0.15.9",
   "description": "Shared test-only helpers for ttsc workspace packages.",
   "type": "module",
   "exports": {
