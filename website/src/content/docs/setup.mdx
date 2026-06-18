@@ -14,12 +14,12 @@ The standalone path: `ttsc` type-checks, lints, and emits from the command line.
 ### Install
 
 ```bash
-npm install -D ttsc @ttsc/lint @typescript/native-preview
+npm install -D ttsc @ttsc/lint typescript@rc
 ```
 
 `pnpm` / `yarn` / `bun` work the same way (substitute `add` for `install`).
 
-`@typescript/native-preview` is the TypeScript-Go preview that `ttsc` runs on. The TypeScript team versions it separately, so it's a sibling package, pin it in your project and `ttsc` picks it up from `node_modules`.
+`typescript` is the TypeScript-Go native compiler that `ttsc` runs on. The TypeScript team versions it separately, so it's a sibling package, pin it in your project and `ttsc` picks it up from `node_modules`.
 
 ### `tsconfig.json`
 
@@ -145,7 +145,7 @@ What it adds:
 - TypeScript-Go hover, navigation, completions, and diagnostics.
 - Supported `ttsc` plugin diagnostics and actions. `@ttsc/lint` adds lint diagnostics plus fix-all and format actions.
 - **Format on save** with `@ttsc/lint`'s format rules: formats the live (unsaved) buffer on every save. Lint fixes stay off-save by default. Enable it below.
-- Multi-root workspaces are supported. Add packages as VS Code workspace folders when each package should keep its own `ttsc`, `@typescript/native-preview`, and plugin config active.
+- Multi-root workspaces are supported. Add packages as VS Code workspace folders when each package should keep its own `ttsc`, `typescript`, and plugin config active.
 - Command Palette: `ttsc: Restart language server`, `ttsc: Fix all lint issues`, and `ttsc: Format document`. The lint and format commands need a plugin that provides them, such as `@ttsc/lint`.
 
 If diagnostics don't appear after install, open **View → Output**, select **ttsc** from the dropdown, and read the server log.

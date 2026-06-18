@@ -21,10 +21,10 @@ Benchmarked against the legacy `tsc` + `eslint`/`prettier` path on real reposito
 
 ### Install
 
-Install `ttsc`, `@ttsc/lint`, and the native TypeScript preview package:
+Install `ttsc`, `@ttsc/lint`, and the native TypeScript compiler:
 
 ```bash
-npm install -D ttsc @ttsc/lint @typescript/native-preview
+npm install -D ttsc @ttsc/lint typescript@rc
 ```
 
 ### Commands
@@ -79,7 +79,7 @@ Use `@ttsc/unplugin` when a bundler owns your build.
 It runs `ttsc` plugins inside supported bundlers.
 
 ```bash
-npm install -D ttsc @ttsc/lint @typescript/native-preview
+npm install -D ttsc @ttsc/lint typescript@rc
 npm install -D @ttsc/unplugin
 ```
 

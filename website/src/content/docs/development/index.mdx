@@ -68,4 +68,4 @@ v1 protocol, still moving. Don't publish `ttsc` as a peer dependency yet. Treat 
 
 - Node.js 18+: install from [nodejs.org/download](https://nodejs.org/en/download) if you don't have it.
 - Go 1.22+ for direct `go test` / `go vet` against your plugin: install from [go.dev/dl](https://go.dev/dl/). `ttsc`'s bundled toolchain (shipped in the platform package) is what actually builds plugins on consumer machines; a system Go is only needed for local-dev workflows. The shipped plugins (and the `go.mod` examples in this chapter) target `go 1.26` because that is the bundled SDK; the bundled toolchain satisfies the `go` directive regardless of your system Go version.
-- A consumer test fixture with `ttsc` and `@typescript/native-preview` installed.
+- A consumer test fixture with `ttsc` and `typescript` installed.

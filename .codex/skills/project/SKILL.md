@@ -9,9 +9,9 @@ description: What ttsc is, the workspace layout, and the canonical commands.
 
 `ttsc` is a standalone TypeScript-Go compiler, runtime, plugin host, and LSP host. It ships three CLIs and a plugin protocol:
 
-- `ttsc`: build, check, watch, and source-to-source transform on top of `@typescript/native-preview`.
+- `ttsc`: build, check, watch, and source-to-source transform on top of `typescript` (the native TypeScript-Go compiler).
 - `ttsx`: run a TypeScript entrypoint after a real type-check (a typed `tsx`/`ts-node`).
-- `ttscserver`: LSP host wrapping `tsgo --lsp --stdio` and proxying JSON-RPC so ttsc plugin diagnostics, code actions, and `workspace/executeCommand` handlers reach the editor through one stream.
+- `ttscserver`: LSP host wrapping `tsc --lsp --stdio` and proxying JSON-RPC so ttsc plugin diagnostics, code actions, and `workspace/executeCommand` handlers reach the editor through one stream.
 - Plugins: Go source packages that share TypeScript-Go's AST/Checker. Executable `package main` sources build as sidecars; non-`main` transform packages link into a native host. `ttsc` builds plugin source on demand and caches the binary.
 
 The contract is general-purpose. Downstream projects like `typia` and `nestia` are compatibility fixtures, not the product definition.

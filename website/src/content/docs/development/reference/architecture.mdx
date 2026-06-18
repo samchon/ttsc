@@ -22,7 +22,7 @@ When `ttsc` sees a plugin `source` descriptor:
 The cache key for a built plugin binary is `sha256` of, in order:
 
 1. `ttsc=${ttscVersion}`
-2. `tsgo=${tsgoVersion}`: the resolved `@typescript/native-preview` version.
+2. `tsgo=${tsgoVersion}`: the resolved `typescript` version.
 3. `platform=${process.platform}/${process.arch}`
 4. `entry=${plugin entry package relative to its go.mod}`
 5. `go=${resolveGoCompilerIdentity(goBinary)}`: the resolved Go binary's file content hash and `go version` text, not the install path.
