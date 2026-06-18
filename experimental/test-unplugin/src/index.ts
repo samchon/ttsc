@@ -1,5 +1,6 @@
 import cp from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
@@ -24,7 +25,11 @@ const registryDependencies = [
   "rollup",
   "react",
   "react-dom",
-  "typescript@7.0.1-rc",
+  // Native TypeScript 7 ships no classic JS compiler API, which Next's built-in
+  // TypeScript integration loads at build start. ttsc instead receives the
+  // workspace `tsc` binary through TTSC_TSGO_BINARY (set in `run`), so the
+  // consumer only needs the legacy compiler here to satisfy Next.
+  "typescript@~6.0.3",
   "vite",
   "webpack",
   "webpack-cli",
@@ -40,6 +45,27 @@ const adapterEntrypoints = [
   "vite",
   "webpack",
 ];
+
+const requireFromRoot = createRequire(path.join(root, "package.json"));
+
+/**
+ * Absolute path to the workspace's native `tsc` binary, forwarded to ttsc via
+ * TTSC_TSGO_BINARY (see `run`). This lets the experimental consumer omit the
+ * native `typescript` package, which Next would otherwise discover and fail on
+ * (its TypeScript integration cannot load native TypeScript 7).
+ */
+function resolveTscBinary() {
+  const packageJson = requireFromRoot.resolve("typescript/package.json");
+  const platformPackageJson = createRequire(packageJson).resolve(
+    `@typescript/typescript-${process.platform}-${process.arch}/package.json`,
+  );
+  return path.join(
+    path.dirname(platformPackageJson),
+    "lib",
+    process.platform === "win32" ? "tsc.exe" : "tsc",
+  );
+}
+const TSC_BINARY = resolveTscBinary();
 
 main();
 
@@ -809,18 +835,27 @@ function tarball(name) {
 
 function run(command, cwd) {
   console.log(`$ ${command}`);
-  const result = cp.execSync(command, {
-    cwd,
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      npm_config_cache: path.join(os.tmpdir(), "ttsc-npm-cache"),
-    },
-    maxBuffer: 1024 * 1024 * 64,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (result) process.stdout.write(result);
-  return { stdout: result };
+  try {
+    const result = cp.execSync(command, {
+      cwd,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        npm_config_cache: path.join(os.tmpdir(), "ttsc-npm-cache"),
+        // ttsc resolves the native `tsc` binary from here, so the consumer need
+        // not install the native `typescript` package (Next cannot load it).
+        TTSC_TSGO_BINARY: TSC_BINARY,
+      },
+      maxBuffer: 1024 * 1024 * 64,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (result) process.stdout.write(result);
+    return { stdout: result };
+  } catch (error) {
+    if (error.stdout) process.stdout.write(error.stdout);
+    if (error.stderr) process.stderr.write(error.stderr);
+    throw error;
+  }
 }
 
 function runNode(args, cwd, label) {
