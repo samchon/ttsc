@@ -3,7 +3,19 @@ import { asEntityName } from "../internal/asEntityName";
 import { make } from "../internal/make";
 
 /**
- * Create a {@link TypeReferenceNode}.
+ * Create a {@link TypeReferenceNode}: a named type reference such as
+ * `Array<string>` or `ns.Foo`.
+ *
+ * The type name prints first and may be a qualified name, followed by the type
+ * arguments as `<...>` when present. With no type arguments only the bare name
+ * prints. A string name is normalized to an entity name.
+ *
+ * Given the name `Array` and a single `string` type argument, the printer
+ * renders:
+ *
+ * ```ts
+ * Array<string>;
+ * ```
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param typeName The referenced type name.

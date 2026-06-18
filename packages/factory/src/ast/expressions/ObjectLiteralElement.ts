@@ -1,3 +1,6 @@
+import type { GetAccessorDeclaration } from "../declarations/GetAccessorDeclaration";
+import type { MethodDeclaration } from "../declarations/MethodDeclaration";
+import type { SetAccessorDeclaration } from "../declarations/SetAccessorDeclaration";
 import type { PropertyAssignment } from "./PropertyAssignment";
 import type { ShorthandPropertyAssignment } from "./ShorthandPropertyAssignment";
 import type { SpreadAssignment } from "./SpreadAssignment";
@@ -10,4 +13,7 @@ import type { SpreadAssignment } from "./SpreadAssignment";
 export type ObjectLiteralElement =
   | PropertyAssignment
   | ShorthandPropertyAssignment
-  | SpreadAssignment;
+  | SpreadAssignment
+  | MethodDeclaration
+  | GetAccessorDeclaration
+  | SetAccessorDeclaration;

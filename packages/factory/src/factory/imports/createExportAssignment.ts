@@ -2,7 +2,18 @@ import type { ExportAssignment, Expression, ModifierLike } from "../../ast";
 import { make } from "../internal/make";
 
 /**
- * Create a {@link ExportAssignment}.
+ * Create an {@link ExportAssignment}: an `export default` or `export =`
+ * statement that exports a single expression.
+ *
+ * Set `isExportEquals` to `true` for the CommonJS-style `export =` form;
+ * otherwise the node prints as `export default`. The `expression` is the value
+ * being exported.
+ *
+ * Given the identifier `foo` with `isExportEquals` false, this prints:
+ *
+ * ```ts
+ * export default foo;
+ * ```
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.

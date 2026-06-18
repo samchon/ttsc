@@ -8,11 +8,21 @@ import { make } from "../internal/make";
 import { createIdentifier } from "../names/createIdentifier";
 
 /**
- * Create a {@link PropertyAccessExpression}.
+ * Create a {@link PropertyAccessExpression}: a dotted member access like `a.b`.
+ *
+ * `expression` is the receiver and `name` is the accessed member; a string
+ * `name` is wrapped in an identifier. The printer joins them with a single dot
+ * and no surrounding space.
+ *
+ * With `expression` of `a` and `name` of `b`, the printer emits:
+ *
+ * ```ts
+ * a.b;
+ * ```
  *
  * @author Jeongho Nam - https://github.com/samchon
- * @param expression The expression.
- * @param name The name.
+ * @param expression The receiver expression.
+ * @param name The accessed member name.
  * @returns The created {@link PropertyAccessExpression}.
  */
 export const createPropertyAccessExpression = (

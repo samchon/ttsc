@@ -7,12 +7,22 @@ import type {
 import { make } from "../internal/make";
 
 /**
- * Create a {@link IndexSignatureDeclaration}.
+ * Create an {@link IndexSignatureDeclaration}: a `[key: K]: V` index signature.
+ *
+ * Any modifiers print first (for example `readonly`), then the single key
+ * parameter inside `[...]`, then `: ` followed by the value type.
+ *
+ * Given no modifiers, a `key: string` parameter, and a `number` value type, the
+ * printer renders:
+ *
+ * ```ts
+ * [key: string]: number
+ * ```
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.
- * @param parameters The parameters.
- * @param type The type.
+ * @param parameters The index parameter list.
+ * @param type The value type.
  * @returns The created {@link IndexSignatureDeclaration}.
  */
 export const createIndexSignature = (

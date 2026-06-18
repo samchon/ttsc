@@ -1,4 +1,9 @@
 import type { ModifierLike, Node, SourceFile, Statement } from "./ast";
+import type { SynthesizedComment } from "./comments";
+import {
+  getSyntheticLeadingComments,
+  getSyntheticTrailingComments,
+} from "./comments";
 import type { Doc } from "./internal/doc";
 import {
   concat,
@@ -11,7 +16,7 @@ import {
   printDocToString,
   softline,
 } from "./internal/doc";
-import { tokenToString } from "./syntax";
+import { NodeFlags, SyntaxKind } from "./syntax";
 
 /** Options for {@link TsPrinter}. */
 export interface TsPrinterOptions {
@@ -142,13 +147,36 @@ export class TsPrinter {
     );
   }
 
-  /** Semicolon-separated member block (`{ a; b }`), e.g. interfaces. */
-  private memberBlock(items: Doc[], forceBreak: boolean): Doc {
-    if (items.length === 0) return "{}";
+  /**
+   * Semicolon-separated member block (`{ a; b }`), e.g. interfaces.
+   *
+   * A bare {@link import("./ast").Identifier} member acts as a blank-line spacer
+   * (the legacy `createIdentifier("\n")` codegen idiom): it inserts an empty
+   * line between members and carries no `;` terminator, matching the legacy
+   * printer.
+   */
+  private memberBlock(members: readonly Node[], forceBreak: boolean): Doc {
+    const inner: Doc[] = [];
+    let first: boolean = true;
+    let blank: boolean = false;
+    for (const member of members) {
+      if (member.kind === "Identifier") {
+        blank = true;
+        continue;
+      }
+      if (!first) inner.push(";", line);
+      if (blank) {
+        inner.push(hardline);
+        blank = false;
+      }
+      inner.push(this.emit(member));
+      first = false;
+    }
+    if (inner.length === 0) return "{}";
     return group(
       concat([
         "{",
-        indent(concat([line, join(concat([";", line]), items)])),
+        indent(concat([line, concat(inner)])),
         ifBreak(";"),
         line,
         "}",
@@ -169,13 +197,14 @@ export class TsPrinter {
   }
 
   private typeArguments(args: readonly Node[] | undefined): Doc {
+    // type-argument / type-parameter lists disallow a trailing comma (TS1009)
     return args && args.length
       ? this.delim(
           "<",
           args.map((a) => this.emit(a)),
           ">",
           {
-            trailingComma: true,
+            trailingComma: false,
           },
         )
       : "";
@@ -241,6 +270,59 @@ export class TsPrinter {
   }
 
   private emit(node: Node): Doc {
+    const body: Doc = this.emitNode(node);
+    const leading: SynthesizedComment[] | undefined =
+      getSyntheticLeadingComments(node);
+    const trailing: SynthesizedComment[] | undefined =
+      getSyntheticTrailingComments(node);
+    if (
+      (leading === undefined || leading.length === 0) &&
+      (trailing === undefined || trailing.length === 0)
+    )
+      return body;
+    const parts: Doc[] = [];
+    if (leading !== undefined)
+      for (const comment of leading) parts.push(this.leadingComment(comment));
+    parts.push(body);
+    if (trailing !== undefined)
+      for (const comment of trailing) parts.push(this.trailingComment(comment));
+    return concat(parts);
+  }
+
+  /** Render a leading comment followed by its node separator. */
+  private leadingComment(comment: SynthesizedComment): Doc {
+    // a `//` comment must terminate the line; a `/* */` honours its own flag
+    const newLine: boolean =
+      comment.kind === SyntaxKind.SingleLineCommentTrivia ||
+      comment.hasTrailingNewLine === true;
+    return concat([this.commentBody(comment), newLine ? hardline : " "]);
+  }
+
+  /** Render a trailing comment preceded by its node separator. */
+  private trailingComment(comment: SynthesizedComment): Doc {
+    const newLine: boolean =
+      comment.kind === SyntaxKind.SingleLineCommentTrivia ||
+      comment.hasTrailingNewLine === true;
+    return concat([
+      comment.hasLeadingNewLine === true ? hardline : " ",
+      this.commentBody(comment),
+      newLine ? hardline : "",
+    ]);
+  }
+
+  /** Render the delimited comment body, re-flowing embedded line breaks. */
+  private commentBody(comment: SynthesizedComment): Doc {
+    if (comment.kind === SyntaxKind.SingleLineCommentTrivia)
+      return concat(["//", comment.text]);
+    // re-emit embedded newlines as hardlines so each line re-indents in place
+    return concat([
+      "/*",
+      join(hardline, comment.text.replace(/\r\n?/g, "\n").split("\n")),
+      "*/",
+    ]);
+  }
+
+  private emitNode(node: Node): Doc {
     switch (node.kind) {
       /* names & tokens */
       case "Identifier":
@@ -250,7 +332,7 @@ export class TsPrinter {
       case "QualifiedName":
         return concat([this.emit(node.left), ".", this.emit(node.right)]);
       case "Token":
-        return tokenToString(node.token);
+        return node.token;
       case "Decorator":
         return concat(["@", this.emit(node.expression)]);
 
@@ -325,14 +407,14 @@ export class TsPrinter {
           concat([
             this.emit(node.left),
             " ",
-            tokenToString(node.operator),
+            node.operator,
             indent(concat([line, this.emit(node.right)])),
           ]),
         );
       case "PrefixUnaryExpression":
-        return concat([tokenToString(node.operator), this.emit(node.operand)]);
+        return concat([node.operator, this.emit(node.operand)]);
       case "PostfixUnaryExpression":
-        return concat([this.emit(node.operand), tokenToString(node.operator)]);
+        return concat([this.emit(node.operand), node.operator]);
       case "ConditionalExpression":
         return group(
           concat([
@@ -393,14 +475,14 @@ export class TsPrinter {
 
       /* types */
       case "KeywordTypeNode":
-        return tokenToString(node.keyword);
+        return node.keyword;
       case "TypeReferenceNode":
         return concat([
           this.emit(node.typeName),
           this.typeArguments(node.typeArguments),
         ]);
       case "ArrayTypeNode":
-        return concat([this.emit(node.elementType), "[]"]);
+        return concat([this.postfixTypeOperand(node.elementType), "[]"]);
       case "UnionTypeNode":
         return this.binaryType(
           "|",
@@ -414,10 +496,7 @@ export class TsPrinter {
       case "LiteralTypeNode":
         return this.emit(node.literal);
       case "TypeLiteralNode":
-        return this.memberBlock(
-          node.members.map((m) => this.emit(m)),
-          false,
-        );
+        return this.memberBlock(node.members, false);
       case "FunctionTypeNode":
         return concat([
           this.typeArguments(node.typeParameters),
@@ -437,14 +516,10 @@ export class TsPrinter {
       case "ParenthesizedTypeNode":
         return concat(["(", this.emit(node.type), ")"]);
       case "TypeOperatorNode":
-        return concat([
-          tokenToString(node.operator),
-          " ",
-          this.emit(node.type),
-        ]);
+        return concat([node.operator, " ", this.emit(node.type)]);
       case "IndexedAccessTypeNode":
         return concat([
-          this.emit(node.objectType),
+          this.postfixTypeOperand(node.objectType),
           "[",
           this.emit(node.indexType),
           "]",
@@ -505,7 +580,7 @@ export class TsPrinter {
         ]);
       case "HeritageClause":
         return concat([
-          tokenToString(node.token),
+          node.token,
           " ",
           join(
             ", ",
@@ -522,7 +597,11 @@ export class TsPrinter {
         ]);
       case "VariableDeclarationList": {
         const keyword: string =
-          node.flags === 2 ? "const" : node.flags === 1 ? "let" : "var";
+          node.flags === NodeFlags.Const
+            ? "const"
+            : node.flags === NodeFlags.Let
+              ? "let"
+              : "var";
         return concat([
           keyword,
           " ",
@@ -637,10 +716,7 @@ export class TsPrinter {
           this.typeArguments(node.typeParameters),
           this.heritage(node.heritageClauses),
           " ",
-          this.memberBlock(
-            node.members.map((m) => this.emit(m)),
-            true,
-          ),
+          this.memberBlock(node.members, true),
         ]);
       case "TypeAliasDeclaration":
         return concat([
@@ -966,14 +1042,14 @@ export class TsPrinter {
         return concat(["infer ", this.emit(node.typeParameter)]);
       case "MappedTypeNode": {
         const ro = node.readonlyToken
-          ? tokenToString(node.readonlyToken.token) === "readonly"
+          ? node.readonlyToken.token === "readonly"
             ? "readonly "
-            : `${tokenToString(node.readonlyToken.token)}readonly `
+            : `${node.readonlyToken.token}readonly `
           : "";
         const q = node.questionToken
-          ? tokenToString(node.questionToken.token) === "?"
+          ? node.questionToken.token === "?"
             ? "?"
-            : `${tokenToString(node.questionToken.token)}?`
+            : `${node.questionToken.token}?`
           : "";
         return concat([
           "{ ",
@@ -1080,11 +1156,7 @@ export class TsPrinter {
           this.statementBlock(node.members.map((m) => this.emit(m))),
         ]);
       case "MetaProperty":
-        return concat([
-          tokenToString(node.keywordToken),
-          ".",
-          this.emit(node.name),
-        ]);
+        return concat([node.keywordToken, ".", this.emit(node.name)]);
       case "CommaListExpression":
         return join(
           ", ",
@@ -1146,9 +1218,348 @@ export class TsPrinter {
       case "NonNullChain":
         return concat([this.emit(node.expression), "!"]);
 
+      /* jsx */
+      case "JsxElement":
+        return group(
+          concat([
+            this.emit(node.openingElement),
+            indent(
+              concat(
+                node.children.map((c) => concat([softline, this.emit(c)])),
+              ),
+            ),
+            softline,
+            this.emit(node.closingElement),
+          ]),
+        );
+      case "JsxSelfClosingElement":
+        return concat([
+          "<",
+          this.emit(node.tagName),
+          this.typeArguments(node.typeArguments),
+          this.emit(node.attributes),
+          " />",
+        ]);
+      case "JsxOpeningElement":
+        return concat([
+          "<",
+          this.emit(node.tagName),
+          this.typeArguments(node.typeArguments),
+          this.emit(node.attributes),
+          ">",
+        ]);
+      case "JsxClosingElement":
+        return concat(["</", this.emit(node.tagName), ">"]);
+      case "JsxFragment":
+        return group(
+          concat([
+            this.emit(node.openingFragment),
+            indent(
+              concat(
+                node.children.map((c) => concat([softline, this.emit(c)])),
+              ),
+            ),
+            softline,
+            this.emit(node.closingFragment),
+          ]),
+        );
+      case "JsxOpeningFragment":
+        return "<>";
+      case "JsxClosingFragment":
+        return "</>";
+      case "JsxText":
+        return node.text;
+      case "JsxAttribute":
+        return node.initializer === undefined
+          ? this.emit(node.name)
+          : concat([this.emit(node.name), "=", this.emit(node.initializer)]);
+      case "JsxAttributes":
+        return node.properties.length === 0
+          ? ""
+          : concat(node.properties.map((p) => concat([" ", this.emit(p)])));
+      case "JsxSpreadAttribute":
+        return concat(["{...", this.emit(node.expression), "}"]);
+      case "JsxExpression":
+        return concat([
+          "{",
+          node.dotDotDotToken ? "..." : "",
+          node.expression ? this.emit(node.expression) : "",
+          "}",
+        ]);
+      case "JsxNamespacedName":
+        return concat([this.emit(node.namespace), ":", this.emit(node.name)]);
+
+      /* synthetic / emit-internal */
+      case "Bundle":
+        return join(
+          hardline,
+          node.sourceFiles.map((s) => this.emit(s)),
+        );
+      case "PartiallyEmittedExpression":
+        return this.emit(node.expression);
+      case "ImportAttribute":
+        return concat([this.emit(node.name), ": ", this.emit(node.value)]);
+      case "ImportAttributes":
+        return node.elements.length === 0
+          ? concat([node.token, " {}"])
+          : concat([
+              node.token,
+              " { ",
+              join(
+                ", ",
+                node.elements.map((e) => this.emit(e)),
+              ),
+              " }",
+            ]);
+      case "NotEmittedStatement":
+      case "NotEmittedTypeElement":
+        return "";
+
+      /* jsdoc — types */
+      case "JSDocAllType":
+        return "*";
+      case "JSDocUnknownType":
+        return "?";
+      case "JSDocNonNullableType":
+        return node.postfix
+          ? concat([this.emit(node.type), "!"])
+          : concat(["!", this.emit(node.type)]);
+      case "JSDocNullableType":
+        return node.postfix
+          ? concat([this.emit(node.type), "?"])
+          : concat(["?", this.emit(node.type)]);
+      case "JSDocOptionalType":
+        return concat([this.emit(node.type), "="]);
+      case "JSDocVariadicType":
+        return concat(["...", this.emit(node.type)]);
+      case "JSDocNamepathType":
+        return this.emit(node.type);
+      case "JSDocFunctionType":
+        return concat([
+          "function(",
+          join(
+            ", ",
+            node.parameters.map((p) => this.emit(p)),
+          ),
+          ")",
+          node.type ? concat([": ", this.emit(node.type)]) : "",
+        ]);
+      case "JSDocTypeExpression":
+        return concat(["{", this.emit(node.type), "}"]);
+      case "JSDocNameReference":
+        return this.emit(node.name);
+      case "JSDocMemberName":
+        return concat([this.emit(node.left), "#", this.emit(node.right)]);
+      case "JSDocLink":
+        return concat([
+          "{@link ",
+          node.name ? this.emit(node.name) : "",
+          node.text,
+          "}",
+        ]);
+      case "JSDocLinkCode":
+        return concat([
+          "{@linkcode ",
+          node.name ? this.emit(node.name) : "",
+          node.text,
+          "}",
+        ]);
+      case "JSDocLinkPlain":
+        return concat([
+          "{@linkplain ",
+          node.name ? this.emit(node.name) : "",
+          node.text,
+          "}",
+        ]);
+      case "JSDocText":
+        return node.text;
+      case "JSDocTypeLiteral":
+        return concat([
+          join(
+            hardline,
+            (node.jsDocPropertyTags ?? []).map((t) => this.emit(t)),
+          ),
+          node.isArrayType ? "[]" : "",
+        ]);
+      case "JSDocSignature":
+        return join(
+          hardline,
+          [
+            ...(node.typeParameters ?? []),
+            ...node.parameters,
+            ...(node.type ? [node.type] : []),
+          ].map((t) => this.emit(t)),
+        );
+      case "JSDoc": {
+        const body: Doc =
+          node.comment === undefined
+            ? ""
+            : typeof node.comment === "string"
+              ? node.comment
+              : concat(node.comment.map((c) => this.emit(c)));
+        const lines: Doc[] = [concat([" * ", body])];
+        for (const tag of node.tags ?? [])
+          lines.push(concat([" * ", this.emit(tag)]));
+        return concat([
+          "/**",
+          hardline,
+          join(hardline, lines),
+          hardline,
+          " */",
+        ]);
+      }
+
+      /* jsdoc — tags */
+      case "JSDocTypeTag":
+      case "JSDocThisTag":
+      case "JSDocEnumTag":
+      case "JSDocSatisfiesTag":
+        return concat([
+          "@",
+          this.emit(node.tagName),
+          " ",
+          this.emit(node.typeExpression),
+          this.jsDocComment(node.comment),
+        ]);
+      case "JSDocReturnTag":
+      case "JSDocThrowsTag":
+        return concat([
+          "@",
+          this.emit(node.tagName),
+          node.typeExpression
+            ? concat([" ", this.emit(node.typeExpression)])
+            : "",
+          this.jsDocComment(node.comment),
+        ]);
+      case "JSDocAuthorTag":
+      case "JSDocClassTag":
+      case "JSDocPublicTag":
+      case "JSDocPrivateTag":
+      case "JSDocProtectedTag":
+      case "JSDocReadonlyTag":
+      case "JSDocOverrideTag":
+      case "JSDocDeprecatedTag":
+      case "JSDocUnknownTag":
+        return concat([
+          "@",
+          this.emit(node.tagName),
+          this.jsDocComment(node.comment),
+        ]);
+      case "JSDocAugmentsTag":
+      case "JSDocImplementsTag":
+        return concat([
+          "@",
+          this.emit(node.tagName),
+          " {",
+          this.emit(node.class),
+          "}",
+          this.jsDocComment(node.comment),
+        ]);
+      case "JSDocParameterTag":
+      case "JSDocPropertyTag": {
+        const name: Doc = node.isBracketed
+          ? concat(["[", this.emit(node.name), "]"])
+          : this.emit(node.name);
+        const type: Doc | undefined = node.typeExpression
+          ? this.emit(node.typeExpression)
+          : undefined;
+        const main: Doc = node.isNameFirst
+          ? concat([name, type ? concat([" ", type]) : ""])
+          : concat([type ? concat([type, " "]) : "", name]);
+        return concat([
+          "@",
+          this.emit(node.tagName),
+          " ",
+          main,
+          this.jsDocComment(node.comment),
+        ]);
+      }
+      case "JSDocSeeTag":
+        return concat([
+          "@",
+          this.emit(node.tagName),
+          node.name ? concat([" ", this.emit(node.name)]) : "",
+          this.jsDocComment(node.comment),
+        ]);
+      case "JSDocOverloadTag":
+      case "JSDocCallbackTag": {
+        const full: Doc =
+          node.kind === "JSDocCallbackTag" && node.fullName
+            ? concat([" ", this.emit(node.fullName)])
+            : "";
+        return concat([
+          "@",
+          this.emit(node.tagName),
+          full,
+          hardline,
+          this.emit(node.typeExpression),
+          this.jsDocComment(node.comment),
+        ]);
+      }
+      case "JSDocImportTag":
+        return concat([
+          "@",
+          this.emit(node.tagName),
+          " ",
+          node.importClause
+            ? concat([this.emit(node.importClause), " from "])
+            : "",
+          this.emit(node.moduleSpecifier),
+          this.jsDocComment(node.comment),
+        ]);
+      case "JSDocTemplateTag":
+        return concat([
+          "@",
+          this.emit(node.tagName),
+          node.constraint ? concat([" ", this.emit(node.constraint)]) : "",
+          " ",
+          join(
+            ", ",
+            node.typeParameters.map((t) => this.emit(t)),
+          ),
+          this.jsDocComment(node.comment),
+        ]);
+      case "JSDocTypedefTag":
+        return concat([
+          "@",
+          this.emit(node.tagName),
+          node.typeExpression
+            ? concat([" ", this.emit(node.typeExpression)])
+            : "",
+          node.fullName ? concat([" ", this.emit(node.fullName)]) : "",
+          this.jsDocComment(node.comment),
+        ]);
+
       default:
         return this.unsupported(node);
     }
+  }
+
+  /**
+   * Emit a type in the operand position of a postfix type (`T[]`, `T[K]`),
+   * parenthesizing the lower-precedence type forms that would otherwise
+   * re-associate — matching the legacy printer's parenthesizer rules.
+   */
+  private postfixTypeOperand(type: Node): Doc {
+    const parenthesize: boolean =
+      type.kind === "UnionTypeNode" ||
+      type.kind === "IntersectionTypeNode" ||
+      type.kind === "FunctionTypeNode" ||
+      type.kind === "ConstructorTypeNode" ||
+      type.kind === "ConditionalTypeNode" ||
+      type.kind === "InferTypeNode" ||
+      type.kind === "TypeOperatorNode";
+    return parenthesize ? concat(["(", this.emit(type), ")"]) : this.emit(type);
+  }
+
+  /** Render a JSDoc tag's trailing comment, prefixed with a space when present. */
+  private jsDocComment(comment: string | readonly Node[] | undefined): Doc {
+    if (comment === undefined) return "";
+    if (typeof comment === "string")
+      return comment.length ? concat([" ", comment]) : "";
+    return comment.length
+      ? concat([" ", concat(comment.map((c) => this.emit(c)))])
+      : "";
   }
 
   /** Width-aware `|` / `&` type list with leading-operator breaks. */

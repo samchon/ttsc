@@ -2,7 +2,18 @@ import type { ConditionalExpression, Expression, Token } from "../../ast";
 import { make } from "../internal/make";
 
 /**
- * Create a {@link ConditionalExpression}.
+ * Create a {@link ConditionalExpression}: a ternary `condition ? whenTrue :
+ * whenFalse`.
+ *
+ * The `_questionToken` and `_colonToken` parameters exist only for signature
+ * parity with the legacy factory and are ignored: the printer always emits `?`
+ * and `:`, each surrounded by a single space.
+ *
+ * Given condition `cond` and branches `a` and `b`, the printer emits:
+ *
+ * ```ts
+ * cond ? a : b;
+ * ```
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param condition The condition.

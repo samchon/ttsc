@@ -3,12 +3,20 @@ import { SyntaxKind } from "../../syntax";
 import { createBinaryExpression } from "./createBinaryExpression";
 
 /**
- * Convenience wrapper that builds the corresponding expression node.
+ * Create a signed right-shift expression: `left >> right`.
+ *
+ * Thin wrapper over {@link createBinaryExpression} with the `>>` operator.
+ *
+ * With `left` of `a` and `right` of `b`, the printer emits:
+ *
+ * ```ts
+ * a >> b;
+ * ```
  *
  * @author Jeongho Nam - https://github.com/samchon
- * @param left The left.
- * @param right The right.
- * @returns The created expression.
+ * @param left The left-hand operand.
+ * @param right The right-hand operand.
+ * @returns The created {@link BinaryExpression}.
  */
 export const createRightShift = (
   left: Expression,

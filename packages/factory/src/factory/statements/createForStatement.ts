@@ -7,7 +7,23 @@ import type {
 import { make } from "../internal/make";
 
 /**
- * Create a {@link ForStatement}.
+ * Create a {@link ForStatement}: a C-style `for (init; cond; inc) ...` loop.
+ *
+ * The `initializer` runs once before the loop (a declaration list or an
+ * expression), `condition` is tested before each pass, and `incrementor` runs
+ * after each pass; `statement` is the body. Each of the three header parts is
+ * optional, so passing `undefined` for all of them yields the infinite `for (;
+ * ; )` form.
+ *
+ * With an `initializer` of `let i = 0`, a `condition` of `i < 10`, an
+ * `incrementor` of `i++`, and a `statement` block calling `use(i)`, the result
+ * is:
+ *
+ * ```ts
+ * for (let i = 0; i < 10; i++) {
+ *   use(i);
+ * }
+ * ```
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param initializer The initializer.

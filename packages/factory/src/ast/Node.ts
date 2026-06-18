@@ -46,6 +46,7 @@ import type { ObjectBindingPattern } from "./expressions/ObjectBindingPattern";
 import type { ObjectLiteralExpression } from "./expressions/ObjectLiteralExpression";
 import type { OmittedExpression } from "./expressions/OmittedExpression";
 import type { ParenthesizedExpression } from "./expressions/ParenthesizedExpression";
+import type { PartiallyEmittedExpression } from "./expressions/PartiallyEmittedExpression";
 import type { PostfixUnaryExpression } from "./expressions/PostfixUnaryExpression";
 import type { PrefixUnaryExpression } from "./expressions/PrefixUnaryExpression";
 import type { PropertyAccessChain } from "./expressions/PropertyAccessChain";
@@ -67,10 +68,13 @@ import type { TypeAssertion } from "./expressions/TypeAssertion";
 import type { TypeOfExpression } from "./expressions/TypeOfExpression";
 import type { VoidExpression } from "./expressions/VoidExpression";
 import type { YieldExpression } from "./expressions/YieldExpression";
+import type { Bundle } from "./file/Bundle";
 import type { SourceFile } from "./file/SourceFile";
 import type { ExportAssignment } from "./imports/ExportAssignment";
 import type { ExportDeclaration } from "./imports/ExportDeclaration";
 import type { ExportSpecifier } from "./imports/ExportSpecifier";
+import type { ImportAttribute } from "./imports/ImportAttribute";
+import type { ImportAttributes } from "./imports/ImportAttributes";
 import type { ImportClause } from "./imports/ImportClause";
 import type { ImportDeclaration } from "./imports/ImportDeclaration";
 import type { ImportSpecifier } from "./imports/ImportSpecifier";
@@ -78,6 +82,62 @@ import type { NamedExports } from "./imports/NamedExports";
 import type { NamedImports } from "./imports/NamedImports";
 import type { NamespaceExport } from "./imports/NamespaceExport";
 import type { NamespaceImport } from "./imports/NamespaceImport";
+import type { JSDoc } from "./jsdoc/JSDoc";
+import type { JSDocAllType } from "./jsdoc/JSDocAllType";
+import type { JSDocAugmentsTag } from "./jsdoc/JSDocAugmentsTag";
+import type { JSDocAuthorTag } from "./jsdoc/JSDocAuthorTag";
+import type { JSDocCallbackTag } from "./jsdoc/JSDocCallbackTag";
+import type { JSDocClassTag } from "./jsdoc/JSDocClassTag";
+import type { JSDocDeprecatedTag } from "./jsdoc/JSDocDeprecatedTag";
+import type { JSDocEnumTag } from "./jsdoc/JSDocEnumTag";
+import type { JSDocFunctionType } from "./jsdoc/JSDocFunctionType";
+import type { JSDocImplementsTag } from "./jsdoc/JSDocImplementsTag";
+import type { JSDocImportTag } from "./jsdoc/JSDocImportTag";
+import type { JSDocLink } from "./jsdoc/JSDocLink";
+import type { JSDocLinkCode } from "./jsdoc/JSDocLinkCode";
+import type { JSDocLinkPlain } from "./jsdoc/JSDocLinkPlain";
+import type { JSDocMemberName } from "./jsdoc/JSDocMemberName";
+import type { JSDocNameReference } from "./jsdoc/JSDocNameReference";
+import type { JSDocNamepathType } from "./jsdoc/JSDocNamepathType";
+import type { JSDocNonNullableType } from "./jsdoc/JSDocNonNullableType";
+import type { JSDocNullableType } from "./jsdoc/JSDocNullableType";
+import type { JSDocOptionalType } from "./jsdoc/JSDocOptionalType";
+import type { JSDocOverloadTag } from "./jsdoc/JSDocOverloadTag";
+import type { JSDocOverrideTag } from "./jsdoc/JSDocOverrideTag";
+import type { JSDocParameterTag } from "./jsdoc/JSDocParameterTag";
+import type { JSDocPrivateTag } from "./jsdoc/JSDocPrivateTag";
+import type { JSDocPropertyTag } from "./jsdoc/JSDocPropertyTag";
+import type { JSDocProtectedTag } from "./jsdoc/JSDocProtectedTag";
+import type { JSDocPublicTag } from "./jsdoc/JSDocPublicTag";
+import type { JSDocReadonlyTag } from "./jsdoc/JSDocReadonlyTag";
+import type { JSDocReturnTag } from "./jsdoc/JSDocReturnTag";
+import type { JSDocSatisfiesTag } from "./jsdoc/JSDocSatisfiesTag";
+import type { JSDocSeeTag } from "./jsdoc/JSDocSeeTag";
+import type { JSDocSignature } from "./jsdoc/JSDocSignature";
+import type { JSDocTemplateTag } from "./jsdoc/JSDocTemplateTag";
+import type { JSDocText } from "./jsdoc/JSDocText";
+import type { JSDocThisTag } from "./jsdoc/JSDocThisTag";
+import type { JSDocThrowsTag } from "./jsdoc/JSDocThrowsTag";
+import type { JSDocTypeExpression } from "./jsdoc/JSDocTypeExpression";
+import type { JSDocTypeLiteral } from "./jsdoc/JSDocTypeLiteral";
+import type { JSDocTypeTag } from "./jsdoc/JSDocTypeTag";
+import type { JSDocTypedefTag } from "./jsdoc/JSDocTypedefTag";
+import type { JSDocUnknownTag } from "./jsdoc/JSDocUnknownTag";
+import type { JSDocUnknownType } from "./jsdoc/JSDocUnknownType";
+import type { JSDocVariadicType } from "./jsdoc/JSDocVariadicType";
+import type { JsxAttribute } from "./jsx/JsxAttribute";
+import type { JsxAttributes } from "./jsx/JsxAttributes";
+import type { JsxClosingElement } from "./jsx/JsxClosingElement";
+import type { JsxClosingFragment } from "./jsx/JsxClosingFragment";
+import type { JsxElement } from "./jsx/JsxElement";
+import type { JsxExpression } from "./jsx/JsxExpression";
+import type { JsxFragment } from "./jsx/JsxFragment";
+import type { JsxNamespacedName } from "./jsx/JsxNamespacedName";
+import type { JsxOpeningElement } from "./jsx/JsxOpeningElement";
+import type { JsxOpeningFragment } from "./jsx/JsxOpeningFragment";
+import type { JsxSelfClosingElement } from "./jsx/JsxSelfClosingElement";
+import type { JsxSpreadAttribute } from "./jsx/JsxSpreadAttribute";
+import type { JsxText } from "./jsx/JsxText";
 import type { Decorator } from "./names/Decorator";
 import type { Identifier } from "./names/Identifier";
 import type { PrivateIdentifier } from "./names/PrivateIdentifier";
@@ -99,6 +159,7 @@ import type { ForOfStatement } from "./statements/ForOfStatement";
 import type { ForStatement } from "./statements/ForStatement";
 import type { IfStatement } from "./statements/IfStatement";
 import type { LabeledStatement } from "./statements/LabeledStatement";
+import type { NotEmittedStatement } from "./statements/NotEmittedStatement";
 import type { ReturnStatement } from "./statements/ReturnStatement";
 import type { SwitchStatement } from "./statements/SwitchStatement";
 import type { ThrowStatement } from "./statements/ThrowStatement";
@@ -125,6 +186,7 @@ import type { LiteralTypeNode } from "./types/LiteralTypeNode";
 import type { MappedTypeNode } from "./types/MappedTypeNode";
 import type { MethodSignature } from "./types/MethodSignature";
 import type { NamedTupleMember } from "./types/NamedTupleMember";
+import type { NotEmittedTypeElement } from "./types/NotEmittedTypeElement";
 import type { OptionalTypeNode } from "./types/OptionalTypeNode";
 import type { ParenthesizedTypeNode } from "./types/ParenthesizedTypeNode";
 import type { PropertySignature } from "./types/PropertySignature";
@@ -289,4 +351,66 @@ export type Node =
   | VoidExpression
   | WhileStatement
   | WithStatement
-  | YieldExpression;
+  | YieldExpression
+  | JsxAttribute
+  | JsxAttributes
+  | JsxClosingElement
+  | JsxClosingFragment
+  | JsxElement
+  | JsxExpression
+  | JsxFragment
+  | JsxNamespacedName
+  | JsxOpeningElement
+  | JsxOpeningFragment
+  | JsxSelfClosingElement
+  | JsxSpreadAttribute
+  | JsxText
+  | JSDoc
+  | JSDocAllType
+  | JSDocAugmentsTag
+  | JSDocAuthorTag
+  | JSDocCallbackTag
+  | JSDocClassTag
+  | JSDocDeprecatedTag
+  | JSDocEnumTag
+  | JSDocFunctionType
+  | JSDocImplementsTag
+  | JSDocImportTag
+  | JSDocLink
+  | JSDocLinkCode
+  | JSDocLinkPlain
+  | JSDocMemberName
+  | JSDocNamepathType
+  | JSDocNameReference
+  | JSDocNonNullableType
+  | JSDocNullableType
+  | JSDocOptionalType
+  | JSDocOverloadTag
+  | JSDocOverrideTag
+  | JSDocParameterTag
+  | JSDocPrivateTag
+  | JSDocPropertyTag
+  | JSDocProtectedTag
+  | JSDocPublicTag
+  | JSDocReadonlyTag
+  | JSDocReturnTag
+  | JSDocSatisfiesTag
+  | JSDocSeeTag
+  | JSDocSignature
+  | JSDocTemplateTag
+  | JSDocText
+  | JSDocThisTag
+  | JSDocThrowsTag
+  | JSDocTypedefTag
+  | JSDocTypeExpression
+  | JSDocTypeLiteral
+  | JSDocTypeTag
+  | JSDocUnknownTag
+  | JSDocUnknownType
+  | JSDocVariadicType
+  | Bundle
+  | PartiallyEmittedExpression
+  | NotEmittedStatement
+  | NotEmittedTypeElement
+  | ImportAttribute
+  | ImportAttributes;

@@ -11,15 +11,28 @@ import { asPropertyName } from "../internal/asPropertyName";
 import { make } from "../internal/make";
 
 /**
- * Create a {@link MethodSignature}.
+ * Create a {@link MethodSignature}: a `name(params): T` method signature for an
+ * interface or type literal.
+ *
+ * Any modifiers print first, then the name, then a `?` when the question token
+ * is present, then optional type parameters as `<...>`, the parameter list, and
+ * the return type as `: Type` when present. A string name is normalized to a
+ * property name node.
+ *
+ * Given the name `greet`, one `name: string` parameter, and a `void` return
+ * type, the printer renders:
+ *
+ * ```ts
+ * greet(name: string): void
+ * ```
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.
- * @param name The name.
+ * @param name The method name.
  * @param questionToken The optional marker (`?`), if any.
  * @param typeParameters The generic type parameters, if any.
  * @param parameters The parameters.
- * @param type The type.
+ * @param type The return type, if any.
  * @returns The created {@link MethodSignature}.
  */
 export const createMethodSignature = (

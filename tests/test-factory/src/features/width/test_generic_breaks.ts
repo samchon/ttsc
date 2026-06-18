@@ -19,6 +19,7 @@ export const test_generic_breaks = (): void => {
         kw(SyntaxKind.NumberKeyword),
       ]),
     ),
-    ["Map<", "  string,", "  number,", ">"].join("\n"),
+    // type-argument lists take no trailing comma (TS1009), unlike value lists
+    ["Map<", "  string,", "  number", ">"].join("\n"),
   );
 };

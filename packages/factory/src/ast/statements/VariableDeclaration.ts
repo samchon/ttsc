@@ -1,5 +1,5 @@
+import type { BindingName } from "../expressions/BindingName";
 import type { Expression } from "../expressions/Expression";
-import type { Identifier } from "../names/Identifier";
 import type { Token } from "../names/Token";
 import type { TypeNode } from "../types/TypeNode";
 
@@ -14,8 +14,8 @@ export interface VariableDeclaration {
   /** Discriminant tag; always `"VariableDeclaration"`. */
   kind: "VariableDeclaration";
 
-  /** The name. */
-  name: Identifier;
+  /** The name; a {@link BindingName} allows array / object destructuring. */
+  name: BindingName;
 
   /** The definite-assignment marker (`!`), if any. */
   exclamationToken?: Token;
