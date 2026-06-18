@@ -225,3 +225,104 @@ func Checker_getMinArgumentCount(recv *innerchecker.Checker, signature *innerche
   }
   return checkerGetMinArgumentCount(recv, signature)
 }
+
+// Checker_getSignaturesOfType returns the call or construct signatures declared
+// on t, selected by kind (SignatureKindCall / SignatureKindConstruct). This is
+// the producer companion to Checker_getMinArgumentCount and
+// Checker_getReturnTypeOfSignature: without it the *Signature those two consume
+// could not be obtained. A type-transform plugin uses the construct signatures
+// of a class's constructor type to detect the `new C(x)` strategy and the call
+// signatures of a static `from` member to detect the `C.from(x)` strategy.
+// Returns nil if recv or t is nil.
+func Checker_getSignaturesOfType(recv *innerchecker.Checker, t *innerchecker.Type, kind innerchecker.SignatureKind) []*innerchecker.Signature {
+  if recv == nil || t == nil {
+    return nil
+  }
+  return recv.GetSignaturesOfType(t, kind)
+}
+
+// Checker_getReturnTypeOfSignature returns the return type of signature, used to
+// verify that a static `from(x)` factory actually returns the class instance
+// type before selecting the `C.from(x)` construction strategy. Returns nil if
+// recv or signature is nil.
+func Checker_getReturnTypeOfSignature(recv *innerchecker.Checker, signature *innerchecker.Signature) *innerchecker.Type {
+  if recv == nil || signature == nil {
+    return nil
+  }
+  return recv.GetReturnTypeOfSignature(signature)
+}
+
+// Signature_parameterCount returns the number of declared value parameters of a
+// call/construct signature. A rest parameter counts as one and the `this`
+// parameter is excluded (it is held separately from the value parameters).
+//
+// Checker_getMinArgumentCount alone cannot tell a zero-parameter signature
+// (`()` — minimum 0) from a single-optional-parameter one (`(x?)` — also
+// minimum 0). A type-transform plugin needs that distinction to replicate the
+// type-level "single meaningful argument" rule — a FIRST parameter must exist
+// and every later parameter must be optional or rest — as
+// `Signature_parameterCount(sig) >= 1 && Checker_getMinArgumentCount(c, sig) <= 1`.
+// Without it the `new C(x)` / `C.from(x)` strategies silently fall back to field
+// copy for every optional-first constructor or factory. Returns 0 if signature
+// is nil.
+func Signature_parameterCount(signature *innerchecker.Signature) int {
+  if signature == nil {
+    return 0
+  }
+  return len(signature.Parameters())
+}
+
+// Signature_parameters returns the declared value-parameter symbols of a
+// call/construct signature, in declaration order, excluding the synthetic
+// `this` parameter. The first element is the seed parameter of a `new C(seed)`
+// constructor or a `C.from(seed)` factory; feeding it to Checker_getTypeOfSymbol
+// yields the seed TYPE the plugin must decode before constructing the instance.
+//
+// Signature_parameterCount is len() of this slice; the slice itself is needed
+// because detection (count + min-args) is not enough — emission requires the
+// seed parameter's type. Returns nil if signature is nil.
+func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol {
+  if signature == nil {
+    return nil
+  }
+  return signature.Parameters()
+}
+
+// Signature_hasRestParameter reports whether the signature's last value
+// parameter is a rest parameter (`...xs: S[]`). It is the signal a from/new
+// transform needs to tell a rest-only single-seed call `(...xs: S[])` — whose
+// seed is the ELEMENT S — from a genuine array-typed parameter `(seed: S[])` —
+// whose seed is the array S[]: getTypeOfSymbol yields `S[]` for BOTH, so without
+// this flag they are indistinguishable and the rest case decodes the wrong
+// shape.
+//
+// The rest ELEMENT is the seed ONLY when the rest parameter is the sole value
+// parameter, i.e. `Signature_hasRestParameter(sig) && Signature_parameterCount(sig) == 1`.
+// A leading-required + rest-tail signature `(s: S, ...r: R[])` also has a rest
+// parameter (this returns true), but its seed is the FIRST parameter S — read it
+// from Signature_parameters(sig)[0], NOT the rest element — matching
+// ClassifiableSeed, whose `[infer P, ...Rest]` arm picks P=S there. Returns
+// false if signature is nil.
+func Signature_hasRestParameter(signature *innerchecker.Signature) bool {
+  if signature == nil {
+    return false
+  }
+  return signature.HasRestParameter()
+}
+
+// Checker_getRestTypeOfSignature returns the ELEMENT type of the signature's
+// rest parameter (`...xs: S[]` -> S; a tuple rest unwraps to its element too),
+// which is the seed type for a rest-ONLY single-argument constructor/factory —
+// matching ClassifiableSeed, which unwraps the rest to its element. When the
+// signature has NO rest parameter it falls back to `any` upstream; and a
+// leading-required + rest-tail `(s: S, ...r: R[])` has a rest parameter yet its
+// seed is the FIRST parameter S, not the rest element. So take the rest element
+// only when `Signature_hasRestParameter(sig) && Signature_parameterCount(sig) == 1`;
+// otherwise read Signature_parameters(sig)[0]. Returns nil if recv or signature
+// is nil.
+func Checker_getRestTypeOfSignature(recv *innerchecker.Checker, signature *innerchecker.Signature) *innerchecker.Type {
+  if recv == nil || signature == nil {
+    return nil
+  }
+  return recv.GetRestTypeOfSignature(signature)
+}
