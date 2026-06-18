@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "name": "@ttsc/test-factory",
+  "version": "0.15.6",
+  "description": "@ttsc/factory behavior feature tests.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"
+  },
+  "devDependencies": {
+    "@nestia/e2e": "catalog:utils",
+    "@ttsc/factory": "workspace:*",
+    "@ttsc/testing": "workspace:*",
+    "@types/node": "catalog:utils",
+    "@typescript/native-preview": "catalog:tsgo",
+    "ttsc": "workspace:*"
+  }
+}

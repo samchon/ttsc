@@ -1,0 +1,72 @@
+{
+  "name": "@ttsc/factory",
+  "version": "0.15.6",
+  "description": "Self-contained legacy-style TypeScript AST factory and printer for source code generation, surviving the TypeScript-Go (tsgo) migration. Zero dependencies, no `typescript` import.",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rimraf lib && ttsc && rollup -c",
+    "dev": "ttsc --watch",
+    "prepack": "pnpm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samchon/ttsc/issues"
+  },
+  "homepage": "https://ttsc.dev",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "catalog:rollup",
+    "@rollup/plugin-node-resolve": "catalog:rollup",
+    "@typescript/native-preview": "catalog:tsgo",
+    "rimraf": "catalog:utils",
+    "rollup": "catalog:rollup",
+    "rollup-plugin-auto-external": "catalog:rollup",
+    "rollup-plugin-node-externals": "catalog:rollup",
+    "tinyglobby": "^0.2.12",
+    "ttsc": "workspace:*"
+  },
+  "sideEffects": false,
+  "files": [
+    "README.md",
+    "package.json",
+    "lib",
+    "src"
+  ],
+  "keywords": [
+    "typescript",
+    "tsgo",
+    "typescript-go",
+    "factory",
+    "printer",
+    "ast",
+    "code-generation",
+    "codegen",
+    "transform",
+    "transformer",
+    "compiler",
+    "emit",
+    "source-code"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "main": "lib/index.js",
+    "module": "lib/index.mjs",
+    "types": "lib/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./lib/index.d.ts",
+        "import": "./lib/index.mjs",
+        "default": "./lib/index.js"
+      },
+      "./package.json": "./package.json"
+    }
+  }
+}
