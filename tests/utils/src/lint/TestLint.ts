@@ -51,22 +51,22 @@ const LINT_PACKAGE_DIR = path.join(
 );
 
 // The fixture tmpdir doesn't `pnpm install` its own deps — that would be
-// far too slow. Instead we resolve the tsgo binary from the workspace
+// far too slow. Instead we resolve the native `tsc` binary from the workspace
 // once and forward it to every spawned ttsc via env vars (matches the
 // shared testing project helper's strategy).
 const TSGO_BINARY = (function resolveTsgoBinary() {
   const packageJson = TestProject.REQUIRE_FROM_TEST.resolve(
-    "@typescript/native-preview/package.json",
+    "typescript/package.json",
     { paths: [TestProject.WORKSPACE_ROOT] },
   );
-  const requireFromNativePreview = createRequire(packageJson);
-  const platformPackageJson = requireFromNativePreview.resolve(
-    `@typescript/native-preview-${process.platform}-${process.arch}/package.json`,
+  const requireFromTypeScript = createRequire(packageJson);
+  const platformPackageJson = requireFromTypeScript.resolve(
+    `@typescript/typescript-${process.platform}-${process.arch}/package.json`,
   );
   return path.join(
     path.dirname(platformPackageJson),
     "lib",
-    process.platform === "win32" ? "tsgo.exe" : "tsgo",
+    process.platform === "win32" ? "tsc.exe" : "tsc",
   );
 })();
 

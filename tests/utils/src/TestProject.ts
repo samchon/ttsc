@@ -74,7 +74,10 @@ export namespace TestProject {
     "bin",
     process.platform === "win32" ? "ttsc.exe" : "ttsc",
   );
-  /** TypeScript-Go binary supplied by the pinned native-preview dependency. */
+  /**
+   * Native TypeScript (`tsc`) binary supplied by the pinned `typescript`
+   * dependency.
+   */
   export const TSGO_BINARY = resolveTsgoBinary();
 
   /**
@@ -215,22 +218,22 @@ export namespace TestProject {
     return spawn(process.execPath, [file], options);
   }
 
-  /** Resolve the pinned TypeScript-Go binary through native-preview's package. */
+  /**
+   * Resolve the pinned native TypeScript `tsc` binary through the `typescript`
+   * package.
+   */
   export function resolveTsgoBinary() {
-    const packageJson = REQUIRE_FROM_TEST.resolve(
-      "@typescript/native-preview/package.json",
-      {
-        paths: [WORKSPACE_ROOT],
-      },
-    );
-    const requireFromNativePreview = createRequire(packageJson);
-    const platformPackageJson = requireFromNativePreview.resolve(
-      `@typescript/native-preview-${process.platform}-${process.arch}/package.json`,
+    const packageJson = REQUIRE_FROM_TEST.resolve("typescript/package.json", {
+      paths: [WORKSPACE_ROOT],
+    });
+    const requireFromTypeScript = createRequire(packageJson);
+    const platformPackageJson = requireFromTypeScript.resolve(
+      `@typescript/typescript-${process.platform}-${process.arch}/package.json`,
     );
     return path.join(
       path.dirname(platformPackageJson),
       "lib",
-      process.platform === "win32" ? "tsgo.exe" : "tsgo",
+      process.platform === "win32" ? "tsc.exe" : "tsc",
     );
   }
 

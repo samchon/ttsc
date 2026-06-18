@@ -13,7 +13,7 @@ import (
 // TestLSPServerRejectsMissingTsgoBinary verifies the native wrapper refuses to
 // start without an explicit upstream tsgo executable.
 //
-// The JavaScript launcher normally resolves @typescript/native-preview and
+// The JavaScript launcher normally resolves typescript and
 // passes TTSC_TSGO_BINARY. Direct native hosts need the same contract; otherwise
 // ttscserver might accidentally run a stale tsgo from PATH.
 //

@@ -12,8 +12,8 @@
     "@ttsc/factory": "workspace:*",
     "@ttsc/testing": "workspace:*",
     "@types/node": "catalog:utils",
-    "@typescript/native-preview": "catalog:tsgo",
+    "ts-legacy": "catalog:typescript",
     "ttsc": "workspace:*",
-    "typescript": "~6.0.3"
+    "typescript": "catalog:typescript"
   }
 }

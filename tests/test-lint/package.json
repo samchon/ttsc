@@ -11,7 +11,6 @@
     "@ttsc/lint": "workspace:*",
     "@ttsc/testing": "workspace:*",
     "@types/node": "catalog:utils",
-    "ttsc": "workspace:*",
-    "typescript": "^6.0.3"
+    "ttsc": "workspace:*"
   }
 }

@@ -103,11 +103,11 @@
   "devDependencies": {
     "@types/node": "catalog:utils",
     "@types/vscode": "^1.94.0",
-    "@typescript/native-preview": "catalog:tsgo",
     "@vscode/vsce": "^3.6.1",
     "esbuild": "^0.25.12",
     "rimraf": "catalog:utils",
     "ttsc": "workspace:*",
+    "typescript": "catalog:typescript",
     "vscode-languageclient": "^9.0.1"
   }
 }

@@ -57,7 +57,7 @@ type LSPServerOptions struct {
   // directory. An empty string is rejected before any process starts.
   Cwd string
   // TsgoBinary is the absolute path to the project-selected
-  // @typescript/native-preview executable.
+  // native TypeScript (typescript) executable.
   TsgoBinary string
   // Source contributes ttsc plugin diagnostics / code actions /
   // executeCommand handling. Nil falls back to NullPluginSource{}.

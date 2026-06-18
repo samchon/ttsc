@@ -27,9 +27,9 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "node build/build-wasm.cjs && rimraf lib && tsgo -p .",
+    "build": "node build/build-wasm.cjs && rimraf lib && tsc -p .",
     "build:wasm": "node build/build-wasm.cjs",
-    "build:ts": "rimraf lib && tsgo -p .",
+    "build:ts": "rimraf lib && tsc -p .",
     "prepack": "node build/pack-prepare.cjs --stash",
     "postpack": "node build/pack-prepare.cjs --restore"
   },
@@ -45,7 +45,7 @@
   "homepage": "https://ttsc.dev",
   "devDependencies": {
     "@types/node": "catalog:utils",
-    "@typescript/native-preview": "catalog:tsgo",
-    "rimraf": "catalog:utils"
+    "rimraf": "catalog:utils",
+    "typescript": "catalog:typescript"
   }
 }

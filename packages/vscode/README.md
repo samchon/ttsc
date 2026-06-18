@@ -17,12 +17,12 @@ Use it when the project already runs `ttsc`. Add `@ttsc/lint` when you also want
 - **VS Code** 1.94 or later.
 - **Node.js** 18 or later.
 - A workspace with `tsconfig.json` or `jsconfig.json`.
-- Project-installed `ttsc`, `@typescript/native-preview`, and the `ttsc` plugins you want editor diagnostics from.
+- Project-installed `ttsc`, `typescript`, and the `ttsc` plugins you want editor diagnostics from.
 
 Install the common project dependencies:
 
 ```bash
-npm install -D ttsc @typescript/native-preview @ttsc/lint
+npm install -D ttsc typescript@rc @ttsc/lint
 ```
 
 `@ttsc/lint` is optional for TypeScript-Go language features, but required for the lint and format commands shown below.
@@ -106,7 +106,7 @@ Lint fixes stay off-save by default because they can change code meaning. Run `t
 - Diagnostics reported by other LSP-capable `ttsc` plugins.
 - `ttsc: Fix all lint issues`, `ttsc: Format document`, and `ttsc: Restart language server` in the command palette.
 - Format on save with the `format` block from `lint.config.*`.
-- Multi-root workspace support. Each package can use its own `ttsc`, `@typescript/native-preview`, `tsconfig.json`, and `lint.config.*`.
+- Multi-root workspace support. Each package can use its own `ttsc`, `typescript`, `tsconfig.json`, and `lint.config.*`.
 
 Save the file before relying on lint diagnostics or running the command-palette lint and format commands. Format-on-save works on the live editor buffer.
 

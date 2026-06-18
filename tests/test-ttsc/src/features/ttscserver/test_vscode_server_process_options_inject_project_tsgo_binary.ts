@@ -9,10 +9,10 @@ import path from "node:path";
  *
  * The extension launches the workspace's `ttscserver`, but the native server
  * still needs the matching project-local TypeScript-Go executable. This pins
- * the helper that resolves `@typescript/native-preview` from the project and
- * passes the platform package's `tsgo` path through `TTSC_TSGO_BINARY`.
+ * the helper that resolves `typescript` from the project and passes the
+ * platform package's `tsc` path through `TTSC_TSGO_BINARY`.
  *
- * 1. Create a package-shaped project with fake `@typescript/native-preview` and
+ * 1. Create a package-shaped project with a fake `typescript` package and its
  *    platform package manifests.
  * 2. Import the VS Code resolution helper through Node's TypeScript loader.
  * 3. Assert `serverProcessOptions` keeps `cwd` and injects the resolved binary.
@@ -21,34 +21,29 @@ export const test_vscode_server_process_options_inject_project_tsgo_binary =
   () => {
     const root = TestProject.WORKSPACE_ROOT;
     const project = TestProject.tmpdir("vscode-server-process-options-");
-    const nativePreview = path.join(
-      project,
-      "node_modules",
-      "@typescript",
-      "native-preview",
-    );
+    const nativePreview = path.join(project, "node_modules", "typescript");
     const platformPackage = path.join(
       project,
       "node_modules",
       "@typescript",
-      `native-preview-${process.platform}-${process.arch}`,
+      `typescript-${process.platform}-${process.arch}`,
     );
     const binary = path.join(
       platformPackage,
       "lib",
-      process.platform === "win32" ? "tsgo.exe" : "tsgo",
+      process.platform === "win32" ? "tsc.exe" : "tsc",
     );
     fs.mkdirSync(nativePreview, { recursive: true });
     fs.mkdirSync(path.dirname(binary), { recursive: true });
     fs.writeFileSync(
       path.join(nativePreview, "package.json"),
-      JSON.stringify({ name: "@typescript/native-preview" }, null, 2),
+      JSON.stringify({ name: "typescript" }, null, 2),
     );
     fs.writeFileSync(
       path.join(platformPackage, "package.json"),
       JSON.stringify(
         {
-          name: `@typescript/native-preview-${process.platform}-${process.arch}`,
+          name: `@typescript/typescript-${process.platform}-${process.arch}`,
         },
         null,
         2,

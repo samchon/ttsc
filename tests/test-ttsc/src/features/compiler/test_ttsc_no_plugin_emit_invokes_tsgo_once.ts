@@ -16,7 +16,7 @@ import {
  * fake project-local tsgo records every invocation so the assertion is about
  * process count, not wall-clock timing.
  *
- * 1. Install a fake project-local `@typescript/native-preview` binary.
+ * 1. Install a fake project-local `typescript` binary.
  * 2. Run `ttsc --emit` on a project with no ttsc plugins.
  * 3. Assert one tsgo invocation, the internal `--noEmitOnError` guard, and one
  *    emitted JavaScript file.

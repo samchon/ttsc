@@ -4,8 +4,13 @@ packages:
   - 'tests/*'
   - 'website'
 catalogs:
-  tsgo:
-    '@typescript/native-preview': 7.0.0-dev.20260618.1
+  typescript:
+    typescript: 7.0.1-rc
+    # Native TypeScript 7 drops the classic JS compiler API, so the legacy v6
+    # compiler is retained under the `ts-legacy` alias for
+    # `@rollup/plugin-typescript`, `typescript-eslint`, and the factory parity
+    # oracle.
+    ts-legacy: 'npm:typescript@~6.0.3'
   rollup:
     '@rollup/plugin-commonjs': ^29.0.0
     '@rollup/plugin-node-resolve': ^16.0.3

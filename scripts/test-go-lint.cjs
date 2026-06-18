@@ -87,17 +87,17 @@ try {
 }
 
 function resolveTsgoBinary() {
-  const packageJson = require.resolve("@typescript/native-preview/package.json", {
+  const packageJson = require.resolve("typescript/package.json", {
     paths: [root],
   });
-  const requireFromNativePreview = createRequire(packageJson);
-  const platformPackageJson = requireFromNativePreview.resolve(
-    `@typescript/native-preview-${process.platform}-${process.arch}/package.json`,
+  const requireFromTypeScript = createRequire(packageJson);
+  const platformPackageJson = requireFromTypeScript.resolve(
+    `@typescript/typescript-${process.platform}-${process.arch}/package.json`,
   );
   return path.join(
     path.dirname(platformPackageJson),
     "lib",
-    process.platform === "win32" ? "tsgo.exe" : "tsgo",
+    process.platform === "win32" ? "tsc.exe" : "tsc",
   );
 }
 

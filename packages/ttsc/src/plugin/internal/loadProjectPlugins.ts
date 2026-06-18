@@ -994,7 +994,10 @@ function resolvePluginRequest(specifier: string, projectRoot: string): string {
   return resolveRealPath(require.resolve(specifier, { paths: [projectRoot] }));
 }
 
-/** Condition names ttsc activates when resolving a plugin entry's package `exports`. */
+/**
+ * Condition names ttsc activates when resolving a plugin entry's package
+ * `exports`.
+ */
 const PLUGIN_EXPORT_CONDITIONS: readonly string[] = [
   "ttsc",
   "node",
@@ -1011,7 +1014,8 @@ const PLUGIN_EXPORT_CONDITIONS: readonly string[] = [
  * self-hosting transform, forms a cycle. Such a package opts in by adding a
  * `ttsc` condition to its `exports` that points at a runtime-free descriptor:
  *
- *   "exports": { ".": { "ttsc": "./lib/transform.js", "default": "./lib/index.js" } }
+ * "exports": { ".": { "ttsc": "./lib/transform.js", "default": "./lib/index.js"
+ * } }
  *
  * The condition is honoured ONLY here, scoped to plugin-entry resolution. A
  * process-wide `--conditions=ttsc` would also redirect the package's normal
@@ -1201,9 +1205,7 @@ function readTsgoVersion(projectRoot: string): string {
     const projectRequire = createRequire(
       path.join(projectRoot, "package.json"),
     );
-    const pkgPath = projectRequire.resolve(
-      "@typescript/native-preview/package.json",
-    );
+    const pkgPath = projectRequire.resolve("typescript/package.json");
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
       version?: string;
     };

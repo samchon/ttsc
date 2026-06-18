@@ -8,8 +8,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "rimraf lib && tsgo && rollup -c",
-    "dev": "tsgo -p . --watch",
+    "build": "rimraf lib && tsc && rollup -c",
+    "dev": "tsc -p . --watch",
     "prepack": "pnpm run build"
   },
   "repository": {
@@ -23,9 +23,9 @@
   },
   "homepage": "https://ttsc.dev",
   "devDependencies": {
-    "@typescript/native-preview": "catalog:tsgo",
     "rimraf": "catalog:utils",
-    "rollup": "catalog:rollup"
+    "rollup": "catalog:rollup",
+    "typescript": "catalog:typescript"
   },
   "sideEffects": false,
   "files": [

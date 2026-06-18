@@ -431,19 +431,19 @@ function walkForGoMod(dir, out) {
 }
 
 function resolveTsgoBinary() {
-  const packageJson = require.resolve("@typescript/native-preview/package.json", {
+  const packageJson = require.resolve("typescript/package.json", {
     paths: [root],
   });
-  const requireFromNativePreview = require("node:module").createRequire(
+  const requireFromTypeScript = require("node:module").createRequire(
     packageJson,
   );
-  const platformPackageJson = requireFromNativePreview.resolve(
-    `@typescript/native-preview-${process.platform}-${process.arch}/package.json`,
+  const platformPackageJson = requireFromTypeScript.resolve(
+    `@typescript/typescript-${process.platform}-${process.arch}/package.json`,
   );
   return path.join(
     path.dirname(platformPackageJson),
     "lib",
-    process.platform === "win32" ? "tsgo.exe" : "tsgo",
+    process.platform === "win32" ? "tsc.exe" : "tsc",
   );
 }
 

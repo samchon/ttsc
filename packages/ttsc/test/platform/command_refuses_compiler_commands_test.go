@@ -12,8 +12,8 @@ import (
 // plugin-selected sidecar instead of trying to inspect a consumer project here.
 //
 // This scenario covers both labels in the shared build/check refusal branch.
-// The diagnostic mentions @typescript/native-preview because that boundary is
-// the reason these commands are owned by the JavaScript launcher.
+// The diagnostic mentions typescript because that boundary is the reason these
+// commands are owned by the JavaScript launcher.
 //
 // 1. Invoke build and check through run.
 // 2. Capture stdout and stderr for each command.
@@ -23,7 +23,7 @@ func TestCommandRefusesCompilerCommands(t *testing.T) {
     code, stdout, stderr := runPlatformCommand(t, command)
     if code != 2 || stdout != "" ||
       !strings.Contains(stderr, command+" is provided by the JavaScript ttsc CLI") ||
-      !strings.Contains(stderr, "@typescript/native-preview") {
+      !strings.Contains(stderr, "typescript") {
       t.Fatalf("%s refusal mismatch: code=%d stdout=%q stderr=%q", command, code, stdout, stderr)
     }
   }

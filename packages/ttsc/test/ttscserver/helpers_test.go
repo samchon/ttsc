@@ -71,10 +71,10 @@ func tsgoBinaryForCommandTest(t *testing.T) string {
   }
   script := `
 const path = require("node:path");
-const root = path.dirname(require.resolve("@typescript/native-preview/package.json", { paths: [process.cwd()] }));
-const platformPackage = "@typescript/native-preview-" + process.platform + "-" + process.arch;
+const root = path.dirname(require.resolve("typescript/package.json", { paths: [process.cwd()] }));
+const platformPackage = "@typescript/typescript-" + process.platform + "-" + process.arch;
 const platformRoot = path.dirname(require.resolve(platformPackage + "/package.json", { paths: [root] }));
-process.stdout.write(path.join(platformRoot, "lib", process.platform === "win32" ? "tsgo.exe" : "tsgo"));
+process.stdout.write(path.join(platformRoot, "lib", process.platform === "win32" ? "tsc.exe" : "tsc"));
 `
   cmd := exec.Command("node", "-e", script)
   cmd.Dir = packageRoot(t)

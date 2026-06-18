@@ -11,7 +11,7 @@ import (
 // TestRunLSPUsesTsgoEnvironment verifies TTSC_TSGO_BINARY feeds the native host
 // when no --tsgo flag is present.
 //
-// The JavaScript launcher resolves @typescript/native-preview and passes the
+// The JavaScript launcher resolves typescript and passes the
 // absolute path through this environment variable, keeping the Go binary thin
 // and independent of Node's module resolver.
 //

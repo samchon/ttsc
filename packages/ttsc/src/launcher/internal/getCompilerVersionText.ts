@@ -5,7 +5,7 @@ import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
 
-/** Format the CLI version banner from the wrapper package and resolved tsgo. */
+/** Format the CLI version banner from the wrapper package and resolved tsc. */
 export function getCompilerVersionText(
   options: TtscCommonOptions = {},
 ): string {

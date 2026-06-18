@@ -1,7 +1,7 @@
 // Platform helper binary shipped by the per-OS `ttsc-*` packages.
 //
 // The real compiler and runner commands live in the JavaScript launchers so
-// they can resolve the consuming project's `@typescript/native-preview` and
+// they can resolve the consuming project's `typescript` and
 // plugin descriptors. This binary only supplies version/platform metadata and
 // a tiny demo command for package smoke tests.
 package main
@@ -55,7 +55,7 @@ func run(args []string) int {
   case "build", "check":
     fmt.Fprintf(
       stderr,
-      "ttsc platform helper: %s is provided by the JavaScript ttsc CLI using the consuming project's @typescript/native-preview, or by a plugin-selected native sidecar.\n",
+      "ttsc platform helper: %s is provided by the JavaScript ttsc CLI using the consuming project's typescript, or by a plugin-selected native sidecar.\n",
       args[0],
     )
     return 2
@@ -85,7 +85,7 @@ ttsc platform helper.
 
 This binary is a small compatibility helper shipped by @ttsc platform packages.
 Compiler and runner commands are provided by the JavaScript ttsc/ttsx launchers,
-which resolve the consuming project's @typescript/native-preview binary and any
+which resolve the consuming project's typescript binary and any
 plugin-selected native sidecar.
 
 Usage:

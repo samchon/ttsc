@@ -22,7 +22,7 @@ for (const project of projects) {
   const label = path.relative(workspaceRoot, project);
   console.log(`typecheck ${label}`);
   const result = child_process.spawnSync(
-    "tsgo",
+    "tsc",
     ["--noEmit", "-p", path.join(project, "tsconfig.json")],
     {
       cwd: workspaceRoot,

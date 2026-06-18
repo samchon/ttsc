@@ -14,7 +14,7 @@ const platformPackage = `@ttsc/${platformKey}`;
 const platformTarball = `ttsc-${platformKey}`;
 const currentPackageTarballs = ["banner", "lint", "paths", "strip", "unplugin"];
 const packageTarballs = ["banner", "lint", "paths", "strip"];
-const registryDependencies = ["@typescript/native-preview"];
+const registryDependencies = ["typescript@7.0.1-rc"];
 
 main();
 

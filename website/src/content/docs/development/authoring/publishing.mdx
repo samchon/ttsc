@@ -33,15 +33,15 @@ The plugin protocol is stable across patch releases. Minor releases may add new 
 ```json
 "peerDependencies": {
   "ttsc": ">=0.13.0 <0.14.0",
-  "@typescript/native-preview": "*"
+  "typescript": "*"
 },
 "peerDependenciesMeta": {
   "ttsc": { "optional": false },
-  "@typescript/native-preview": { "optional": false }
+  "typescript": { "optional": false }
 }
 ```
 
-The consumer project supplies `ttsc` and the active `@typescript/native-preview` runtime; your plugin should not carry them in `dependencies`. Use `peerDependencies` to assert the compatibility window. Update the version range every time you re-test against a new `ttsc` release.
+The consumer project supplies `ttsc` and the active `typescript` runtime; your plugin should not carry them in `dependencies`. Use `peerDependencies` to assert the compatibility window. Update the version range every time you re-test against a new `ttsc` release.
 
 ## Required Package Contents
 
@@ -63,7 +63,7 @@ The tarball contains Go source, not a prebuilt plugin binary. `ttsc` builds that
 
 ## Dependencies
 
-Published plugin packages carry their JS descriptor and Go source, while the consumer project supplies `ttsc` and the active `@typescript/native-preview` runtime.
+Published plugin packages carry their JS descriptor and Go source, while the consumer project supplies `ttsc` and the active `typescript` runtime.
 
 Plugin `go.mod` files use `require` lines for host modules. `ttsc` owns `github.com/samchon/ttsc/packages/ttsc`, `github.com/microsoft/typescript-go`, and `github.com/microsoft/typescript-go/shim/...` through its build overlay. Plugin-specific wrappers live under the plugin's own Go module.
 
@@ -96,7 +96,7 @@ TARBALL=$(ls *.tgz | tail -n1)
 WORKDIR=$(mktemp -d)
 cd "$WORKDIR"
 npm init -y >/dev/null
-npm install --no-save "${OLDPWD}/${TARBALL}" ttsc @typescript/native-preview
+npm install --no-save "${OLDPWD}/${TARBALL}" ttsc typescript@rc
 
 # 3. Write a smallest reproducible tsconfig and source file.
 cat > tsconfig.json <<'JSON'

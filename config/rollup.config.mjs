@@ -1,3 +1,6 @@
+// `@rollup/plugin-typescript` statically imports the classic `typescript` JS
+// API, which native TypeScript 7 drops. This package pins a legacy v6
+// `typescript`, so the plugin's peer resolves to v6 here.
 import typescript from "@rollup/plugin-typescript";
 
 export default {

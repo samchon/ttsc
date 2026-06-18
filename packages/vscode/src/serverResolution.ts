@@ -380,29 +380,27 @@ function quoteWindowsArg(arg: string): string {
 }
 
 /**
- * Locate the platform-specific `tsgo` binary installed alongside
- * `@typescript/native-preview` in the project rooted at `base`.
+ * Locate the platform-specific native `tsc` binary installed alongside
+ * `typescript` in the project rooted at `base`.
  */
 export function resolveTsgoBinary(base: string): string | undefined {
   try {
     const requireFromBase = createRequire(
       path.join(base, "__ttsc_vscode_resolve__.cjs"),
     );
-    const packageJson = requireFromBase.resolve(
-      "@typescript/native-preview/package.json",
-    );
+    const packageJson = requireFromBase.resolve("typescript/package.json");
     const packageRoot = path.dirname(packageJson);
     const requireFromTsgo = createRequire(
       path.join(packageRoot, "__ttsc_vscode_resolve__.cjs"),
     );
-    const platformPackage = `@typescript/native-preview-${process.platform}-${process.arch}`;
+    const platformPackage = `@typescript/typescript-${process.platform}-${process.arch}`;
     const platformPackageJson = requireFromTsgo.resolve(
       `${platformPackage}/package.json`,
     );
     const binary = path.join(
       path.dirname(platformPackageJson),
       "lib",
-      process.platform === "win32" ? "tsgo.exe" : "tsgo",
+      process.platform === "win32" ? "tsc.exe" : "tsc",
     );
     return fs.existsSync(binary) ? binary : undefined;
   } catch {

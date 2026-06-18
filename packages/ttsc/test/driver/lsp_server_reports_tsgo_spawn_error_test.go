@@ -14,7 +14,7 @@ import (
 // TestLSPServerReportsTsgoSpawnError verifies process-start failures keep the
 // tsgo command context in the returned error.
 //
-// Missing or non-executable @typescript/native-preview binaries should produce
+// Missing or non-executable typescript binaries should produce
 // an actionable upstream failure instead of a generic proxy shutdown.
 //
 // 1. Point TsgoBinary at a missing absolute path.

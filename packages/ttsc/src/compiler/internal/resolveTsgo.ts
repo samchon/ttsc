@@ -3,25 +3,25 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 /**
- * Resolve the consumer project's TypeScript-Go preview binary and metadata.
+ * Resolve the consumer project's native TypeScript (`tsc`) binary and metadata.
  *
  * Resolution order:
  *
  * 1. `opts.binary` or `TTSC_TSGO_BINARY` env var — must be an existing absolute
  *    path; returns `{ binary, packageJson: "", packageRoot, version: "custom"
  *    }`.
- * 2. `@typescript/native-preview` resolved from the project `cwd`.
- * 3. `@typescript/native-preview` resolved from `opts.resolveFrom` (for test
- *    harnesses and embedders that anchor to a different directory).
+ * 2. `typescript` resolved from the project `cwd`.
+ * 3. `typescript` resolved from `opts.resolveFrom` (for test harnesses and
+ *    embedders that anchor to a different directory).
  *
  * Throws a descriptive error when the package or platform binary is missing so
  * callers never have to reason about undefined binary paths.
  */
 export function resolveTsgo(
   opts: {
-    /** Explicit path to a tsgo binary; bypasses package resolution. */
+    /** Explicit path to a native `tsc` binary; bypasses package resolution. */
     binary?: string;
-    /** Directory from which to discover `@typescript/native-preview`. */
+    /** Directory from which to discover `typescript`. */
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     /**
@@ -48,28 +48,28 @@ export function resolveTsgo(
   }
 
   const cwd = path.resolve(opts.cwd ?? process.cwd());
-  // Resolve the package.json of @typescript/native-preview.
+  // Resolve the package.json of typescript.
   // Try cwd first, then the optional resolveFrom anchor.
   let packageJson: string;
   packageJson =
-    resolveNativePreviewPackageJson(path.join(cwd, "package.json")) ??
+    resolveTypeScriptPackageJson(path.join(cwd, "package.json")) ??
     (opts.resolveFrom
-      ? resolveNativePreviewPackageJson(opts.resolveFrom)
+      ? resolveTypeScriptPackageJson(opts.resolveFrom)
       : undefined) ??
     "";
   if (!packageJson) {
     throw new Error(
       [
-        "ttsc: @typescript/native-preview is required.",
-        "Install the TypeScript-Go preview in the consuming project:",
-        "  npm i -D @typescript/native-preview",
+        "ttsc: typescript is required.",
+        "Install the native TypeScript compiler in the consuming project:",
+        "  npm i -D typescript",
       ].join("\n"),
     );
   }
 
   const manifest = readPackageJson(packageJson);
   const packageRoot = path.dirname(packageJson);
-  const platformPackage = `@typescript/native-preview-${process.platform}-${process.arch}`;
+  const platformPackage = `@typescript/typescript-${process.platform}-${process.arch}`;
   const platformResolver = createRequire(packageJson);
   let platformPackageJson: string;
   try {
@@ -79,8 +79,8 @@ export function resolveTsgo(
   } catch {
     throw new Error(
       [
-        `ttsc: platform-specific TypeScript-Go binary not found (${platformPackage}).`,
-        "Reinstall @typescript/native-preview with optional dependencies enabled.",
+        `ttsc: platform-specific TypeScript binary not found (${platformPackage}).`,
+        "Reinstall typescript with optional dependencies enabled.",
       ].join("\n"),
     );
   }
@@ -89,10 +89,10 @@ export function resolveTsgo(
   const binary = path.join(
     platformRoot,
     "lib",
-    process.platform === "win32" ? "tsgo.exe" : "tsgo",
+    process.platform === "win32" ? "tsc.exe" : "tsc",
   );
   if (!fs.existsSync(binary)) {
-    throw new Error(`ttsc: TypeScript-Go executable not found: ${binary}`);
+    throw new Error(`ttsc: TypeScript executable not found: ${binary}`);
   }
   return {
     binary,
@@ -107,15 +107,13 @@ export function resolveTsgo(
 }
 
 /**
- * Attempt to resolve the `package.json` of `@typescript/native-preview`
- * starting from `from` (a package.json path or directory). Returns `undefined`
- * when the package is not resolvable from that location.
+ * Attempt to resolve the `package.json` of `typescript` starting from `from` (a
+ * package.json path or directory). Returns `undefined` when the package is not
+ * resolvable from that location.
  */
-function resolveNativePreviewPackageJson(from: string): string | undefined {
+function resolveTypeScriptPackageJson(from: string): string | undefined {
   try {
-    return createRequire(from).resolve(
-      "@typescript/native-preview/package.json",
-    );
+    return createRequire(from).resolve("typescript/package.json");
   } catch {
     return undefined;
   }

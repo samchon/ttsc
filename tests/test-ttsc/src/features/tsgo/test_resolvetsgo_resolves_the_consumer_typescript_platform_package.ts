@@ -6,44 +6,38 @@ import path from "node:path";
 import { resolveTsgo } from "../../../../../packages/ttsc/lib/compiler/internal/resolveTsgo.js";
 
 /**
- * Verifies resolveTsgo resolves the consumer's `@typescript/native-preview`
- * platform package.
+ * Verifies resolveTsgo resolves the consumer's `typescript` platform package.
  *
  * The normal resolution path walks from `cwd` into `node_modules` to find
- * `@typescript/native-preview`, reads its version and `gitHead`, then locates
- * the platform-specific sibling package that contains the actual `tsgo` binary.
- * Pins the full resolution contract so changes to the package naming scheme or
- * binary location are caught before they silently fall back to a system-level
- * tsgo.
+ * `typescript`, reads its version and `gitHead`, then locates the
+ * platform-specific `@typescript/typescript-<platform>-<arch>` sibling package
+ * that contains the actual `tsc` binary. Pins the full resolution contract so
+ * changes to the package naming scheme or binary location are caught before
+ * they silently fall back to a system-level compiler.
  *
- * 1. Materialize a fake `@typescript/native-preview` tree with both the root and
- *    platform-specific packages under a temp `node_modules`.
+ * 1. Materialize a fake `typescript` tree with the root package and the
+ *    platform-specific package under a temp `node_modules`.
  * 2. Call `resolveTsgo` with `cwd` pointing at the temp directory.
  * 3. Assert `binary`, `version`, and `gitHead` all match the fake package
  *    metadata.
  */
-export const test_resolvetsgo_resolves_the_consumer_native_preview_platform_package =
+export const test_resolvetsgo_resolves_the_consumer_typescript_platform_package =
   () => {
     const root = TestProject.tmpdir("ttsc-tsgo-test-");
-    const nativeRoot = path.join(
-      root,
-      "node_modules",
-      "@typescript",
-      "native-preview",
-    );
+    const nativeRoot = path.join(root, "node_modules", "typescript");
     const platformRoot = path.join(
       root,
       "node_modules",
       "@typescript",
-      `native-preview-${process.platform}-${process.arch}`,
+      `typescript-${process.platform}-${process.arch}`,
     );
     fs.mkdirSync(nativeRoot, { recursive: true });
     fs.mkdirSync(path.join(platformRoot, "lib"), { recursive: true });
     fs.writeFileSync(
       path.join(nativeRoot, "package.json"),
       JSON.stringify({
-        name: "@typescript/native-preview",
-        version: "7.0.0-dev.consumer",
+        name: "typescript",
+        version: "7.0.1-rc.consumer",
         gitHead: "abc123",
       }),
       "utf8",
@@ -51,15 +45,15 @@ export const test_resolvetsgo_resolves_the_consumer_native_preview_platform_pack
     fs.writeFileSync(
       path.join(platformRoot, "package.json"),
       JSON.stringify({
-        name: `@typescript/native-preview-${process.platform}-${process.arch}`,
-        version: "7.0.0-dev.consumer",
+        name: `@typescript/typescript-${process.platform}-${process.arch}`,
+        version: "7.0.1-rc.consumer",
       }),
       "utf8",
     );
     const binary = path.join(
       platformRoot,
       "lib",
-      process.platform === "win32" ? "tsgo.exe" : "tsgo",
+      process.platform === "win32" ? "tsc.exe" : "tsc",
     );
     fs.writeFileSync(binary, "", "utf8");
 
@@ -68,7 +62,7 @@ export const test_resolvetsgo_resolves_the_consumer_native_preview_platform_pack
       env: {},
     });
 
-    assert.equal(resolved.version, "7.0.0-dev.consumer");
+    assert.equal(resolved.version, "7.0.1-rc.consumer");
     assert.equal(resolved.gitHead, "abc123");
     assert.equal(resolved.binary, binary);
   };

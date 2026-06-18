@@ -15,7 +15,7 @@ import {
  * loaded. A project-level `noEmit: true` is already a check-only build, so ttsc
  * must not add emit-only guard flags that send tsgo down its slower emit path.
  *
- * 1. Install a fake project-local `@typescript/native-preview` binary.
+ * 1. Install a fake project-local `typescript` binary.
  * 2. Run `ttsc` on a project whose tsconfig declares `noEmit: true`.
  * 3. Assert the forwarded tsgo invocation includes `--noEmit`, omits
  *    `--noEmitOnError`, and writes no JavaScript output.

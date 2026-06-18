@@ -34,7 +34,7 @@ ttsc-plugin-debugger-strip/
 }
 ```
 
-The `files` field includes the Go source because `ttsc` builds it on the consumer machine. Published manifests keep `ttsc` and `@typescript/native-preview` out of package `dependencies`; the consumer project supplies them. See [Publishing → Pin against ttsc](/docs/development/authoring/publishing#pin-against-ttsc) for the `peerDependencies` pattern. The `name` field must equal the consumer's dependency string for auto-discovery. See [Concepts → Auto-discovery](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries).
+The `files` field includes the Go source because `ttsc` builds it on the consumer machine. Published manifests keep `ttsc` and `typescript` out of package `dependencies`; the consumer project supplies them. See [Publishing → Pin against ttsc](/docs/development/authoring/publishing#pin-against-ttsc) for the `peerDependencies` pattern. The `name` field must equal the consumer's dependency string for auto-discovery. See [Concepts → Auto-discovery](/docs/development/concepts#auto-discovery-vs-explicit-plugin-entries).
 
 ## 2. Write the Descriptor
 
@@ -355,7 +355,7 @@ What matters:
 Consumer install:
 
 ```bash
-npm i -D ttsc @typescript/native-preview /path/to/ttsc-plugin-debugger-strip
+npm i -D ttsc typescript@rc /path/to/ttsc-plugin-debugger-strip
 ```
 
 Consumer `package.json`:
@@ -366,7 +366,7 @@ Consumer `package.json`:
   "private": true,
   "devDependencies": {
     "ttsc": "^0.11.0",
-    "@typescript/native-preview": "^0.4.0",
+    "typescript": "^7.0.1-rc",
     "ttsc-plugin-debugger-strip": "0.1.0"
   }
 }

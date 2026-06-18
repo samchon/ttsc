@@ -11,13 +11,13 @@ import {
 /**
  * Verifies ttsx executes JavaScript emitted by the consumer-local tsgo.
  *
- * Ttsx resolves `tsgo` from the project's own `@typescript/native-preview`
- * install rather than from the workspace binary. This test replaces that
- * install with a scripted stub that writes a custom `.js` file and logs its
- * arguments, so we can confirm both that ttsx used it and that the resulting
- * `.js` was executed.
+ * Ttsx resolves the native compiler from the project's own `typescript` install
+ * rather than from the workspace binary. This test replaces that install with a
+ * scripted stub that writes a custom `.js` file and logs its arguments, so we
+ * can confirm both that ttsx used it and that the resulting `.js` was
+ * executed.
  *
- * 1. Install a fake `@typescript/native-preview` into the project.
+ * 1. Install a fake `typescript` into the project.
  * 2. Run ttsx without the workspace tsgo override (`spawnWithoutTsgoOverride`).
  * 3. Assert the fake tsgo's output was executed (not the original source).
  */

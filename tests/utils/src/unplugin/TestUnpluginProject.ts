@@ -450,19 +450,22 @@ export namespace TestUnpluginProject {
     );
   }
 
-  /** Resolve TypeScript-Go for unplugin tests that call transform APIs directly. */
+  /**
+   * Resolve the native TypeScript `tsc` binary for unplugin tests that call
+   * transform APIs directly.
+   */
   export function resolveTsgoBinary() {
     const packageJson = TestProject.REQUIRE_FROM_TEST.resolve(
-      "@typescript/native-preview/package.json",
+      "typescript/package.json",
     );
-    const requireFromNativePreview = createRequire(packageJson);
-    const platformPackageJson = requireFromNativePreview.resolve(
-      `@typescript/native-preview-${process.platform}-${process.arch}/package.json`,
+    const requireFromTypeScript = createRequire(packageJson);
+    const platformPackageJson = requireFromTypeScript.resolve(
+      `@typescript/typescript-${process.platform}-${process.arch}/package.json`,
     );
     return path.join(
       path.dirname(platformPackageJson),
       "lib",
-      process.platform === "win32" ? "tsgo.exe" : "tsgo",
+      process.platform === "win32" ? "tsc.exe" : "tsc",
     );
   }
 }

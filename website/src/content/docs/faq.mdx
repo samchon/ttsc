@@ -2,7 +2,7 @@
 
 ## Is `ttsc` a fork of TypeScript?
 
-No. `ttsc` is a separate binary built on top of `@typescript/native-preview` (the official TypeScript-Go preview). It uses the upstream compiler and adds a plugin model around it.
+No. `ttsc` is a separate binary built on top of `typescript` (the official TypeScript-Go native compiler). It uses the upstream compiler and adds a plugin model around it.
 
 ## How does this differ from `ttypescript` / `ts-patch`?
 
@@ -24,7 +24,7 @@ Yes, though it's usually unnecessary. The most common case is keeping `tsc` for 
 
 ## Do I have to install `@ttsc/lint`?
 
-No, `ttsc` works without it. But the whole point of the toolchain is the pair. Without `@ttsc/lint` you keep `eslint`+`prettier` as separate tools and lose the "single compile pass" benefit. The recommended install is `npm install -D ttsc @ttsc/lint @typescript/native-preview`.
+No, `ttsc` works without it. But the whole point of the toolchain is the pair. Without `@ttsc/lint` you keep `eslint`+`prettier` as separate tools and lose the "single compile pass" benefit. The recommended install is `npm install -D ttsc @ttsc/lint typescript@rc`.
 
 ## How do I migrate from `eslint` + `prettier`?
 
@@ -94,7 +94,7 @@ code --install-extension samchon.ttsc
 
 Yes. Each package has its own `tsconfig.json` and its own `lint.config.ts`. `ttsc` reads from the directory it's invoked in (or `-p path/to/tsconfig.json`). `pnpm` / `npm` / `yarn` workspaces all work.
 
-For VS Code, add packages as workspace folders when each package should keep its own `ttsc`, `@typescript/native-preview`, and plugin config. Save files before relying on plugin diagnostics, lint fixes, or format edits.
+For VS Code, add packages as workspace folders when each package should keep its own `ttsc`, `typescript`, and plugin config. Save files before relying on plugin diagnostics, lint fixes, or format edits.
 
 ## Source maps and declaration maps?
 

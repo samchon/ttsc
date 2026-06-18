@@ -14,10 +14,10 @@ import {
  * The version path shares `spawnNative` with build paths so first-run package
  * installs whose platform binary lacks POSIX executable bits still work. The
  * normal banner test uses the workspace binary, so this case uses a local fake
- * native-preview package and removes its executable bits before invoking ttsc.
+ * `typescript` package and removes its executable bits before invoking ttsc.
  *
- * 1. Create a project-local fake `@typescript/native-preview`.
- * 2. On POSIX, remove executable bits from the fake `tsgo`.
+ * 1. Create a project-local fake `typescript` package.
+ * 2. On POSIX, remove executable bits from the fake `tsc`.
  * 3. Run `ttsc --version` without workspace tsgo overrides.
  * 4. Assert the fake version is printed and the binary was repaired.
  */
@@ -43,9 +43,9 @@ process.exit(1);
       root,
       "node_modules",
       "@typescript",
-      `native-preview-${process.platform}-${process.arch}`,
+      `typescript-${process.platform}-${process.arch}`,
       "lib",
-      "tsgo",
+      "tsc",
     );
     fs.chmodSync(tsgo, 0o644);
 

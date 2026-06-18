@@ -7,7 +7,7 @@ updates:
     schedule:
       interval: "daily"
     allow:
-      - dependency-name: "@typescript/native-preview"
+      - dependency-name: "typescript"
     labels:
       - "dependencies"
       - "typescript-go"

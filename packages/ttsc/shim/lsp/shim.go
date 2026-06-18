@@ -2,7 +2,7 @@
 //
 // Minimal shim of tsgo's internal/lsp package. Hand-written instead of
 // generated so the surface stays narrow for custom in-process host
-// experiments. The shipped ttscserver wraps `tsgo --lsp --stdio` as an
+// experiments. The shipped ttscserver wraps `tsc --lsp --stdio` as an
 // external process and does not import this package. The marker on the
 // first line tells gen_shims to skip this file.
 package lsp
