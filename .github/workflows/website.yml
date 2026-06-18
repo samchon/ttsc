@@ -58,7 +58,7 @@ jobs:
       # helper, so the wasm package must be built before `next build`.
       # @ttsc/playground is the website worker's `@ttsc/playground` import;
       # rspack resolves the package via its `main` field (`lib/src/index.js`),
-      # which only exists after `tsgo -p .` runs.
+      # which only exists after `tsc -p .` runs.
       - name: Build @ttsc/wasm
         run: pnpm --filter @ttsc/wasm build
 
