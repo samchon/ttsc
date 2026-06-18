@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/unplugin",
-  "version": "0.15.6",
+  "version": "0.15.7",
   "description": "Bundler adapters for ttsc plugins.",
   "main": "lib/index.js",
   "module": "lib/index.mjs",
