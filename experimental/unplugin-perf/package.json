@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "@ttsc/experimental-unplugin-perf",
+  "version": "0.0.0",
+  "description": "Reproduces and measures the @ttsc/unplugin per-module cache cost",
+  "scripts": {
+    "start": "node --experimental-strip-types src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT"
+}

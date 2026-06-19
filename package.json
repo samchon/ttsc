@@ -10,6 +10,7 @@
     "experimental:install": "pnpm --dir experimental/install start -- --pack-current",
     "experimental:unplugin": "pnpm --dir experimental/test-unplugin start -- --pack-current",
     "experimental:source-map": "pnpm --dir experimental/source-map start -- --pack-current",
+    "experimental:unplugin-perf": "pnpm --dir experimental/unplugin-perf start",
     "format": "pnpm run gen:flags && prettier --write \"**/*.ts\" \"**/*.md\" \"**/*.mdx\" && pnpm run format:go",
     "format:go": "git ls-files -z \"*.go\" | xargs -0 ./.vscode/gofmt-2spaces.sh -w",
     "gen:flags": "node --experimental-strip-types packages/ttsc/scripts/gen-flags.mts",
