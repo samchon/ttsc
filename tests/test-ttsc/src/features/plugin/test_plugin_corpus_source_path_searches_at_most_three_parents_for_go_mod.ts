@@ -34,10 +34,10 @@ export const test_plugin_corpus_source_path_searches_at_most_three_parents_for_g
     fs.writeFileSync(
       path.join(root, "plugin.cjs"),
       `const path = require("node:path");
-module.exports = {
+module.exports = (context) => ({
   name: "go-source-plugin-too-deep",
-  source: path.resolve(__dirname, "go-plugin", "a", "b", "c", "d"),
-};
+  source: path.resolve(context.dirname, "go-plugin", "a", "b", "c", "d"),
+});
 `,
     );
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {

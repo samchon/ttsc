@@ -130,12 +130,14 @@ When modes need to cooperate inside one transform emit pass, keep those modes in
 Declare a transform plugin descriptor that points at an executable `package main` source:
 
 ```js
-module.exports = {
+module.exports = (context) => ({
   name: "my-transform-plugin",
-  source: path.resolve(__dirname, "plugin"),
+  source: path.resolve(context.dirname, "plugin"),
   stage: "transform",
-};
+});
 ```
+
+`context.dirname` is the descriptor module's own directory, the load-mode-independent replacement for `__dirname` (undefined when `ttsc` loads the descriptor through `ttsx` or as ESM).
 
 Accept the transform-stage command set:
 
@@ -152,11 +154,11 @@ my-plugin build     --cwd=/project --tsconfig=/project/tsconfig.json --plugins-j
 For a transform that should run inside the selected native host, point the descriptor at a non-`main` package:
 
 ```js
-module.exports = {
+module.exports = (context) => ({
   name: "my-transform-plugin",
-  source: path.resolve(__dirname, "driver"),
+  source: path.resolve(context.dirname, "driver"),
   stage: "transform",
-};
+});
 ```
 
 The linked package does not receive argv directly. It registers hooks from `init()` and the native host invokes those hooks during `check`, `transform`, or `build`:
@@ -178,11 +180,11 @@ Use this shape when your plugin only needs the shared transform hooks and does n
 Use `stage: "check"` for diagnostics before emit:
 
 ```js
-module.exports = {
+module.exports = (context) => ({
   name: "my-check-plugin",
-  source: path.resolve(__dirname, "plugin"),
+  source: path.resolve(context.dirname, "plugin"),
   stage: "check",
-};
+});
 ```
 
 Implement:

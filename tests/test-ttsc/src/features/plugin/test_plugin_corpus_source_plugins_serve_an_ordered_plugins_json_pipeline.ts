@@ -39,7 +39,7 @@ export const test_plugin_corpus_source_plugins_serve_an_ordered_plugins_json_pip
       `const path = require("node:path");
 module.exports = (context) => ({
   name: context.plugin.name,
-  source: path.resolve(__dirname, "go-plugin"),
+  source: path.resolve(context.dirname, "go-plugin"),
 });
 `,
     );

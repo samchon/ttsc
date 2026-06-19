@@ -23,18 +23,18 @@ export const test_ttsc_transform_plugins_fake_names_do_not_bypass_shared_host_er
       {
         "src/main.ts": `export const value = "x";\n`,
         "plugins/fake-banner.cjs": `
-        module.exports = {
+        module.exports = (context) => ({
           name: "@ttsc/banner",
-          source: require("node:path").resolve(__dirname, "..", "fake-banner"),
+          source: require("node:path").resolve(context.dirname, "..", "fake-banner"),
           stage: "transform",
-        };
+        });
       `,
         "plugins/fake-strip.cjs": `
-        module.exports = {
+        module.exports = (context) => ({
           name: "@ttsc/strip",
-          source: require("node:path").resolve(__dirname, "..", "fake-strip"),
+          source: require("node:path").resolve(context.dirname, "..", "fake-strip"),
           stage: "transform",
-        };
+        });
       `,
         "fake-banner/go.mod": "module example.com/fakebanner\n\ngo 1.26\n",
         "fake-banner/main.go": "package main\n\nfunc main() {}\n",

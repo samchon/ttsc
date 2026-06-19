@@ -40,16 +40,16 @@ export const test_ttsc_utility_plugins_paths_side_loads_into_driver_host =
         include: ["src"],
       }),
       "plugins/driver-host.cjs": `
-        module.exports = {
+        module.exports = (context) => ({
           name: "driver-host",
           source: require("node:path").resolve(
-            __dirname,
+            context.dirname,
             "..",
             "go-host",
             "cmd",
             "driver-host"
           ),
-        };
+        });
       `,
       "go-host/go.mod": [
         "module example.com/driverhost",

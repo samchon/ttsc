@@ -1,6 +1,6 @@
 const path = require("node:path");
 
-module.exports = {
+module.exports = (context) => ({
   name: "go-source-plugin-properties",
-  source: path.resolve(__dirname, "go-plugin"),
-};
+  source: path.resolve(context.dirname, "go-plugin"),
+});

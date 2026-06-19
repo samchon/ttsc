@@ -98,6 +98,8 @@ type TtscPluginDescriptor = {
 type TtscPluginFactoryContext<TConfig> = {
   binary: string;
   cwd: string;
+  dirname: string;
+  filename: string;
   plugin: TConfig;
   projectRoot: string;
   tsconfig: string;
@@ -122,7 +124,7 @@ export default function createTtscBanner(
   }
   return {
     name: "@ttsc/banner",
-    source: path.resolve(__dirname, "..", "driver"),
+    source: path.resolve(context.dirname, "..", "driver"),
     stage: "transform",
   };
 }
@@ -131,7 +133,7 @@ export default function createTtscBanner(
 Three load-bearing lines in the returned descriptor:
 
 - `name: "@ttsc/banner"`: optional diagnostic label. Routing is not based on this value.
-- `source: path.resolve(__dirname, "..", "driver")`: absolute path to the linked Go package. `__dirname` is the directory holding the compiled `lib/index.js`; `..` steps up to the package root; `driver` is the Go source folder that calls `driver.RegisterPlugin`.
+- `source: path.resolve(context.dirname, "..", "driver")`: absolute path to the linked Go package. `context.dirname` is the directory holding the compiled `lib/index.js` (the load-mode-independent replacement for `__dirname`, which is undefined when a descriptor loads as `.ts` source or ESM); `..` steps up to the package root; `driver` is the Go source folder that calls `driver.RegisterPlugin`.
 - `stage: "transform"`: declares this plugin participates in the AST transform path. Because this descriptor points at linked `driver/`, the selected native host receives `check`, `transform`, and `build` while banner participates through `driver.RegisterPlugin`. Omit `stage` and you get the same default.
 
 The factory's one piece of factory-time work is validating `context.plugin`. The original `compilerOptions.plugins[i]` entry. The single banner-specific key the tsconfig entry accepts is `configFile`; any other key (typically a stale inline option) is rejected with a specific error that points the user at the dedicated `banner.config.*` file. The rest of the context, `context.tsconfig`, the absolute path of the active tsconfig; `context.cwd`, the resolved project directory, banner leaves unused. Other plugins specialise the descriptor with it: `@ttsc/lint`'s factory reads `context.plugin.configFile` to locate the lint config and discover contributor packages.

@@ -30,10 +30,10 @@ export const test_plugin_corpus_source_path_can_point_directly_at_go_mod =
     fs.writeFileSync(
       path.join(root, "plugin.cjs"),
       `const path = require("node:path");
-module.exports = {
+module.exports = (context) => ({
   name: "go-source-plugin",
-  source: path.resolve(__dirname, "go-plugin", "go.mod"),
-};
+  source: path.resolve(context.dirname, "go-plugin", "go.mod"),
+});
 `,
     );
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {

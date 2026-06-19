@@ -34,7 +34,7 @@ export const test_plugin_corpus_createttscplugin_export_is_accepted_as_a_native_
         exports.createTtscPlugin = (context) => ({
           name: context.plugin.name,
           source: require("node:path").resolve(
-            __dirname,
+            context.dirname,
             "..",
             "go-plugin",
             "cmd",

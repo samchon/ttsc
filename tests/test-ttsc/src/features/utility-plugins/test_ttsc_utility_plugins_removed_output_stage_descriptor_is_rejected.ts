@@ -20,11 +20,11 @@ export const test_ttsc_utility_plugins_removed_output_stage_descriptor_is_reject
       {
         "src/main.ts": `export const value = "x";\n`,
         "plugins/output.cjs": `
-        module.exports = {
+        module.exports = (context) => ({
           name: "legacy-output",
-          source: require("node:path").resolve(__dirname, "..", "plugin"),
+          source: require("node:path").resolve(context.dirname, "..", "plugin"),
           stage: "output",
-        };
+        });
       `,
         "plugin/go.mod": "module example.com/legacyoutput\n\ngo 1.26\n",
         "plugin/main.go": "package main\n\nfunc main() {}\n",

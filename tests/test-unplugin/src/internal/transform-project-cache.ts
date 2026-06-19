@@ -168,7 +168,7 @@ function createCacheProject(options: ICacheProjectOptions): {
       "",
       "module.exports = (context) => ({",
       '  name: context.plugin.name ?? "cache-probe",',
-      '  source: path.resolve(__dirname, "go-plugin"),',
+      '  source: path.resolve(context.dirname, "go-plugin"),',
       "});",
       "",
     ].join("\n"),

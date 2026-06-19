@@ -30,7 +30,9 @@ module.exports = function createTtscStrip(context) {
   }
   return {
     name: "@ttsc/strip",
-    source: path.resolve(__dirname, "..", "driver"),
+    // `context.dirname` is this descriptor's own directory in every load mode —
+    // the ESM-safe replacement for `__dirname`.
+    source: path.resolve(context.dirname, "..", "driver"),
     stage: "transform",
   };
 };

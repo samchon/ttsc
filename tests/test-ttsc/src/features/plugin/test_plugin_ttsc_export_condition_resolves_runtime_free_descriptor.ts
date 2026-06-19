@@ -79,7 +79,7 @@ export const test_plugin_ttsc_export_condition_resolves_runtime_free_descriptor 
 module.exports = (context) => ({
   name: context.plugin.name,
   source: path.resolve(
-    __dirname,
+    context.dirname,
     "..",
     "..",
     "go-plugin",

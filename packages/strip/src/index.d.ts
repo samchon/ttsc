@@ -1,12 +1,22 @@
 /**
  * Plugin descriptor factory consumed by ttsc's package discovery.
  *
- * `@ttsc/strip` is configured through a `strip.config.*` file, never through
- * the factory context — the factory only returns the native descriptor.
+ * `@ttsc/strip` is configured through a `strip.config.*` file, not through
+ * inline plugin options. The factory reads only `context.dirname` to locate its
+ * own Go `source` (the load-mode-independent replacement for `__dirname`) and
+ * returns the native descriptor.
  *
  * @internal
  */
-declare function createTtscStrip(context: unknown): {
+declare function createTtscStrip(context: {
+  /**
+   * Absolute directory of this descriptor module; the Go `source` resolves from
+   * it.
+   */
+  dirname: string;
+  /** Original tsconfig plugin entry, validated for unsupported keys. */
+  plugin?: Record<string, unknown>;
+}): {
   name: string;
   source: string;
   stage: "transform";

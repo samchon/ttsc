@@ -264,9 +264,9 @@ function createProject(options: MeasureOptions): string {
     [
       'const path = require("node:path");',
       "",
-      "module.exports = () => ({",
+      "module.exports = (context) => ({",
       '  name: "perf-fixture",',
-      '  source: path.resolve(__dirname, "go-plugin"),',
+      '  source: path.resolve(context.dirname, "go-plugin"),',
       "});",
       "",
     ].join("\n"),

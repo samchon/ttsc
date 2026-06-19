@@ -17,9 +17,16 @@ export namespace TestUtilityPlugins {
    * suitable for invoking `createTtscPlugin` exported by each utility package.
    */
   export function factoryContext(name: string) {
+    // Mirror what the ttsc host injects: the resolved descriptor module's own
+    // path and directory. Each factory resolves its Go `source` from `dirname`.
+    const filename = TestProject.REQUIRE_FROM_TEST.resolve(
+      path.join(TestProject.WORKSPACE_ROOT, "packages", name),
+    );
     return {
       binary: "",
       cwd: TestProject.WORKSPACE_ROOT,
+      dirname: path.dirname(filename),
+      filename,
       plugin: { transform: `@ttsc/${name}` },
       projectRoot: TestProject.WORKSPACE_ROOT,
       tsconfig: path.join(TestProject.WORKSPACE_ROOT, "tsconfig.json"),

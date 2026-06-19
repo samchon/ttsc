@@ -35,6 +35,16 @@ type TtscPluginFactoryContext<TConfig> = {
   binary: string;
   /** Working directory of the ttsc invocation. */
   cwd: string;
+  /**
+   * Absolute path to the directory holding this descriptor module — the
+   * load-mode-independent replacement for `__dirname`.
+   */
+  dirname: string;
+  /**
+   * Absolute path to this descriptor module — the load-mode-independent
+   * replacement for `__filename`.
+   */
+  filename: string;
   /** The raw plugin entry from `compilerOptions.plugins[]`. */
   plugin: TConfig;
   /** Absolute path to the project root (directory containing tsconfig). */
@@ -83,8 +93,10 @@ export default function createTtscBanner(
   return {
     name: "@ttsc/banner",
     // Point at the `driver/` directory one level above `lib/` in the
-    // installed package tree (where the Go sources live).
-    source: path.resolve(__dirname, "..", "driver"),
+    // installed package tree (where the Go sources live). `context.dirname`
+    // is this descriptor's own directory in every load mode, unlike the
+    // CommonJS `__dirname`, which is undefined under a `.ts`-source or ESM load.
+    source: path.resolve(context.dirname, "..", "driver"),
     stage: "transform",
   };
 }

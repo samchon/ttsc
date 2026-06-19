@@ -32,20 +32,20 @@ export const test_plugin_corpus_composes_does_not_propagate_transitively =
         { transform: "./plugins/c.cjs" },
       ],
       {
-        "plugins/a.cjs": `module.exports = {
+        "plugins/a.cjs": `module.exports = (context) => ({
   name: "compose-a",
-  source: require("node:path").resolve(__dirname, "..", "go-a", "cmd", "ttsc-go-transformer"),
+  source: require("node:path").resolve(context.dirname, "..", "go-a", "cmd", "ttsc-go-transformer"),
   composes: ["compose-b"],
-};\n`,
-        "plugins/b.cjs": `module.exports = {
+});\n`,
+        "plugins/b.cjs": `module.exports = (context) => ({
   name: "compose-b",
-  source: require("node:path").resolve(__dirname, "..", "go-b", "cmd", "ttsc-go-transformer"),
+  source: require("node:path").resolve(context.dirname, "..", "go-b", "cmd", "ttsc-go-transformer"),
   composes: ["compose-c"],
-};\n`,
-        "plugins/c.cjs": `module.exports = {
+});\n`,
+        "plugins/c.cjs": `module.exports = (context) => ({
   name: "compose-c",
-  source: require("node:path").resolve(__dirname, "missing-go-c"),
-};\n`,
+  source: require("node:path").resolve(context.dirname, "missing-go-c"),
+});\n`,
       },
     );
     copyDirectory(

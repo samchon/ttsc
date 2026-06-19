@@ -25,7 +25,7 @@ const path = require("node:path");
 
 module.exports = (context) => ({
   name: "my-plugin",
-  source: path.resolve(__dirname, "go-plugin"),
+  source: path.resolve(context.dirname, "go-plugin"),
   stage: "transform",
 });
 ```
@@ -36,6 +36,8 @@ module.exports = (context) => ({
 {
   binary: string;
   cwd: string;
+  dirname: string;
+  filename: string;
   plugin: ITtscProjectPluginConfig;
   projectRoot: string;
   tsconfig: string;
@@ -46,7 +48,17 @@ module.exports = (context) => ({
 
 `context.binary` is the absolute `ttsc` native helper selected for this invocation. It is not the plugin sidecar binary and not the JavaScript launcher. Most descriptors do not need it; it exists for advanced factories that need to inspect the active native host.
 
-**Descriptors must be ESM-safe.** A descriptor compiled to CommonJS and loaded by `ttsc`'s direct `require()` keeps `__dirname`/`__filename`/`require`. But when `ttsc` loads a descriptor shipped as `.ts` source — through `ttsx` — or as ESM, those ambient globals are **undefined**, so a `source` derived from `__dirname` silently mis-resolves. To locate your own package independently of the load mode, anchor a `node:module` resolver on `context.projectRoot`, which works in both CommonJS and ESM:
+`context.filename` is the absolute path to the resolved descriptor module `ttsc` loaded for this entry, and `context.dirname` is its containing directory. They are the load-mode-independent replacement for `__filename`/`__dirname` (see ESM-safety below).
+
+**Descriptors must be ESM-safe.** A descriptor compiled to CommonJS and loaded by `ttsc`'s direct `require()` keeps `__dirname`/`__filename`/`require`. But when `ttsc` loads a descriptor shipped as `.ts` source — through `ttsx` — or as ESM, those ambient globals are **undefined**, so a `source` derived from `__dirname` silently mis-resolves. Use `context.dirname`/`context.filename` instead — `ttsc` populates them in every load mode, so they are the direct drop-in for `__dirname`/`__filename`:
+
+```ts
+import path from "node:path";
+
+// source: path.resolve(context.dirname, "go-plugin")
+```
+
+If you instead need to locate your package by name (for example to read its installed `package.json`), anchor a `node:module` resolver on `context.projectRoot`, which also works in both CommonJS and ESM:
 
 ```ts
 import { createRequire } from "node:module";
@@ -71,7 +83,7 @@ export function createTtscPlugin(
 ) {
   return {
     name: "my-plugin",
-    source: path.resolve(__dirname, "go-plugin"),
+    source: path.resolve(context.dirname, "go-plugin"),
     stage: "transform",
   };
 }
@@ -103,7 +115,7 @@ interface ITtscPluginContributor {
 Field rules:
 
 - `name`: optional display label for diagnostics and build messages. Routing is not based on package identity.
-- `source`: Go package directory or `go.mod` file. A `package main` source builds as an executable sidecar. A non-`main` transform source is linked into the selected native host and must register itself through `driver.RegisterPlugin`. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path. A compiled-CommonJS descriptor can base it on `__dirname`, but a `.ts`-source or ESM descriptor must resolve from `context.projectRoot` instead (see [ESM-safety](#manifest) above), since `__dirname` is undefined there.
+- `source`: Go package directory or `go.mod` file. A `package main` source builds as an executable sidecar. A non-`main` transform source is linked into the selected native host and must register itself through `driver.RegisterPlugin`. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path. A compiled-CommonJS descriptor can base it on `__dirname`, but a `.ts`-source or ESM descriptor must base it on `context.dirname` (or resolve from `context.projectRoot`) instead (see [ESM-safety](#manifest) above), since `__dirname` is undefined there.
 - `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle.
 - `stage`: plugin kind. Omit for `"transform"`.
 - `capabilities`: optional host behaviors a strict sidecar would otherwise reject or not understand. Set `threadingArgs` only when the sidecar accepts `--singleThreaded` and `--checkers`; set `diagnosticsTiming` only when it accepts `--diagnostics`/`--extendedDiagnostics` and may print timing detail to stdout. Set `lsp` only when the sidecar implements the `ttscserver` LSP verbs below.
@@ -189,12 +201,12 @@ The first fires during `ttsc build` / `ttsc check`; the second during `ttsc tran
 Executable plugins that want to share one compiler host can opt in through the `composes` field on their descriptor:
 
 ```ts
-module.exports = {
+module.exports = (context) => ({
   name: "my-aggregate-plugin",
-  source: path.resolve(__dirname, "go-plugin"),
+  source: path.resolve(context.dirname, "go-plugin"),
   stage: "transform",
   composes: ["my-feature-a", "my-feature-b"],
-};
+});
 ```
 
 When ttsc loads the descriptors of `my-feature-a` and `my-feature-b` from the project's `compilerOptions.plugins`, it reroutes their build target to the aggregate's `source`. All three names remain in the `--plugins-json` payload so the aggregate sidecar can dispatch by `name`. The aggregate must implement the dispatch logic itself; ttsc only redirects the binary.
@@ -220,7 +232,7 @@ import path from "node:path";
 
 module.exports = (context) => ({
   name: "@ttsc/lint",
-  source: path.resolve(__dirname, "plugin"),
+  source: path.resolve(context.dirname, "plugin"),
   stage: "check",
   contributors: [
     { name: "demo", source: "/abs/path/to/lint-contributor-demo/rules" },

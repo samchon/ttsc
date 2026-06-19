@@ -34,7 +34,7 @@ export const test_plugin_corpus_default_export_factory_is_accepted_as_a_native_d
         exports.default = (context) => ({
           name: context.plugin.name,
           source: require("node:path").resolve(
-            __dirname,
+            context.dirname,
             "..",
             "go-plugin",
             "cmd",

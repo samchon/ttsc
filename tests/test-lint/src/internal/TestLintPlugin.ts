@@ -52,6 +52,10 @@ export namespace TestLintPlugin {
     return {
       binary: "",
       cwd: process.cwd(),
+      // Mirror what the ttsc host injects: the descriptor module's own path and
+      // directory. The factory resolves its Go `source` from `dirname`.
+      dirname: path.dirname(DESCRIPTOR_PATH),
+      filename: DESCRIPTOR_PATH,
       plugin,
       projectRoot: PACKAGE_ROOT,
       tsconfig: path.join(PACKAGE_ROOT, "tsconfig.json"),

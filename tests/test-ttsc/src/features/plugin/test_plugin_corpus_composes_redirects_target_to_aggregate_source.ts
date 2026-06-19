@@ -28,15 +28,15 @@ export const test_plugin_corpus_composes_redirects_target_to_aggregate_source =
         { transform: "./plugins/target.cjs", suffix: ":Z" },
       ],
       {
-        "plugins/aggregate.cjs": `module.exports = {
+        "plugins/aggregate.cjs": `module.exports = (context) => ({
   name: "compose-aggregate",
-  source: require("node:path").resolve(__dirname, "..", "go-plugin", "cmd", "ttsc-go-transformer"),
+  source: require("node:path").resolve(context.dirname, "..", "go-plugin", "cmd", "ttsc-go-transformer"),
   composes: ["compose-target"],
-};\n`,
-        "plugins/target.cjs": `module.exports = {
+});\n`,
+        "plugins/target.cjs": `module.exports = (context) => ({
   name: "compose-target",
-  source: require("node:path").resolve(__dirname, "missing-go-target"),
-};\n`,
+  source: require("node:path").resolve(context.dirname, "missing-go-target"),
+});\n`,
       },
     );
     copyDirectory(

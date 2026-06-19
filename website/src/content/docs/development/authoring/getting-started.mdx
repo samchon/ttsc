@@ -45,17 +45,17 @@ The `files` field includes the Go source because `ttsc` builds it on the consume
 ```js
 const path = require("node:path");
 
-module.exports = function createHelloPlugin() {
+module.exports = function createHelloPlugin(context) {
   return {
     name: "ttsc-plugin-hello",
-    source: path.resolve(__dirname, "plugin"),
+    source: path.resolve(context.dirname, "plugin"),
     stage: "transform",
   };
 };
 ```
 
 - `name`: human-readable name shown in errors and logs.
-- `source`: Go command package directory. Absolute, derived from `__dirname`.
+- `source`: Go command package directory. Absolute, derived from `context.dirname` (the directory of this descriptor module, the load-mode-independent replacement for `__dirname`, which is undefined when `ttsc` loads the descriptor through `ttsx` or as ESM).
 - `stage: "transform"`: participate in the AST transform path. Because this example points at an executable `package main` sidecar, the host can spawn `check`, `transform`, and `build` subcommands.
 
 ## 3. Write the Go Module

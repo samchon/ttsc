@@ -23,16 +23,16 @@ export const test_plugin_corpus_composes_rejects_cycle_between_two_plugins =
     const root = pluginProject(
       [{ transform: "./plugins/a.cjs" }, { transform: "./plugins/b.cjs" }],
       {
-        "plugins/a.cjs": `module.exports = {
+        "plugins/a.cjs": `module.exports = (context) => ({
   name: "compose-a",
-  source: require("node:path").resolve(__dirname, "go-a"),
+  source: require("node:path").resolve(context.dirname, "go-a"),
   composes: ["compose-b"],
-};\n`,
-        "plugins/b.cjs": `module.exports = {
+});\n`,
+        "plugins/b.cjs": `module.exports = (context) => ({
   name: "compose-b",
-  source: require("node:path").resolve(__dirname, "go-b"),
+  source: require("node:path").resolve(context.dirname, "go-b"),
   composes: ["compose-a"],
-};\n`,
+});\n`,
         "plugins/go-a/go.mod": "module example.com/composea\n\ngo 1.26\n",
         "plugins/go-a/main.go": "package main\nfunc main() {}\n",
         "plugins/go-b/go.mod": "module example.com/composeb\n\ngo 1.26\n",

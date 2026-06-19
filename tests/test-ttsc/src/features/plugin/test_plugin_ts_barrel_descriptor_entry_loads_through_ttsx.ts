@@ -89,14 +89,11 @@ export const test_plugin_ts_barrel_descriptor_entry_loads_through_ttsx = () => {
   fs.writeFileSync(
     path.join(pkg, "src", "descriptor.ts"),
     `import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-
-export default (context: { plugin: { name: string } }) => ({
+export default (context: { plugin: { name: string }; dirname: string }) => ({
   name: context.plugin.name,
   source: path.resolve(
-    here,
+    context.dirname,
     "..",
     "..",
     "..",

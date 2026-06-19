@@ -104,7 +104,7 @@ module.exports = function createTtscStrip(context) {
   }
   return {
     name: "@ttsc/strip",
-    source: path.resolve(__dirname, "..", "driver"),
+    source: path.resolve(context.dirname, "..", "driver"),
     stage: "transform",
   };
 };

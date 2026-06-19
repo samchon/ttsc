@@ -37,14 +37,16 @@ export interface ITtscPlugin {
    *
    * Relative paths are resolved from the consumer project root. Package
    * descriptors published in npm packages should normally return absolute paths
-   * based on their own descriptor directory.
+   * based on their own descriptor directory — derive them from a factory's
+   * `context.dirname` (the load-mode-independent replacement for `__dirname`,
+   * which is undefined when ttsc loads the descriptor through ttsx or as ESM).
    *
    * Common layouts:
    *
-   * - `source: path.resolve(__dirname, "src")` when a package descriptor keeps
-   *   its Go command in `src`.
-   * - `source: path.resolve(__dirname, "plugin")` when a published package has a
-   *   dedicated Go plugin folder.
+   * - `source: path.resolve(context.dirname, "src")` when a package descriptor
+   *   keeps its Go command in `src`.
+   * - `source: path.resolve(context.dirname, "plugin")` when a published package
+   *   has a dedicated Go plugin folder.
    * - `source: "plugin"` only for project-local descriptors where the consumer
    *   project root owns the `plugin` directory.
    * - `source: "go.mod"` when the consumer project root itself is the command

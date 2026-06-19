@@ -29,11 +29,11 @@ export const test_plugin_corpus_check_plugin_output_does_not_suppress_typescript
   () => {
     const root = commonJsProject(
       {
-        "plugins/check.cjs": `module.exports = {
+        "plugins/check.cjs": `module.exports = (context) => ({
         name: "warning-check",
-        source: require("node:path").resolve(__dirname, "check-go"),
+        source: require("node:path").resolve(context.dirname, "check-go"),
         stage: "check",
-      };\n`,
+      });\n`,
         "plugins/check-go/go.mod":
           "module example.com/warningcheck\n\ngo 1.26\n",
         "plugins/check-go/main.go": [

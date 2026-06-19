@@ -570,7 +570,7 @@ function orderNativePlugins(
 
 function loadPluginEntry(
   entry: ITtscProjectPluginConfig,
-  context: ITtscPluginFactoryContext,
+  base: Omit<ITtscPluginFactoryContext, "dirname" | "filename">,
   baseDir: string,
 ): ITtscPlugin {
   return withPluginLoaderEnv(() => {
@@ -582,6 +582,16 @@ function loadPluginEntry(
     }
 
     const request = resolvePluginRequest(specifier, baseDir);
+    // `dirname`/`filename` are per-entry: each plugin entry resolves to its own
+    // descriptor module, so they are derived here from the resolved `request`
+    // rather than carried on the shared base context. They give factories a
+    // load-mode-independent stand-in for `__dirname`/`__filename`, which are
+    // undefined when a descriptor loads through ttsx or as ESM.
+    const context: ITtscPluginFactoryContext = {
+      ...base,
+      dirname: path.dirname(request),
+      filename: request,
+    };
     const mod = requirePluginEntry(request, context) as {
       createTtscPlugin?: TtscPluginFactory;
       default?: ITtscPlugin | TtscPluginFactory;
@@ -702,6 +712,8 @@ function loadDescriptorViaTtsx(
         TTSC_PLUGIN_CONTEXT: JSON.stringify({
           binary: context.binary,
           cwd: context.cwd,
+          dirname: context.dirname,
+          filename: context.filename,
           plugin: context.plugin,
           projectRoot: context.projectRoot,
           tsconfig: context.tsconfig,
@@ -853,8 +865,10 @@ function resolveGoPackageDir(source: string, label: string): string {
       `ttsc: plugin "${label}" source does not exist: ${source}\n` +
         `  Plugin descriptors run without CommonJS globals: __dirname, __filename, ` +
         `and require are undefined when ttsc loads a descriptor through ttsx or as ESM. ` +
-        `If this path was derived from one of them, resolve it from context.projectRoot ` +
-        `instead, e.g. createRequire(path.join(context.projectRoot, "package.json"))` +
+        `If this path was derived from one of them, use context.dirname / ` +
+        `context.filename (the descriptor's own directory and file, populated in ` +
+        `every load mode), or resolve it from context.projectRoot, e.g. ` +
+        `createRequire(path.join(context.projectRoot, "package.json"))` +
         `.resolve("<your-package>/package.json").`,
     );
   }

@@ -53,7 +53,7 @@ function nativePlugin(): string {
     module.exports = (context) => ({
       name: context.plugin.name,
       source: require("node:path").resolve(
-        __dirname,
+        context.dirname,
         "..",
         "go-plugin",
         "cmd",
@@ -93,7 +93,7 @@ function writeRelativePackagePlugin(
 module.exports = (context) => ({
   name: context.plugin.name,
   source: path.resolve(
-    __dirname,
+    context.dirname,
     "..",
     "..",
     "go-plugin",

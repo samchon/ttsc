@@ -257,10 +257,10 @@ function writeTransformPlugin() {
     [
       'const path = require("node:path");',
       "",
-      "module.exports = function createUnpluginTransform() {",
+      "module.exports = function createUnpluginTransform(context) {",
       "  return {",
       '    name: "experimental-unplugin-transform",',
-      '    source: path.resolve(__dirname, "unplugin-transform-go"),',
+      '    source: path.resolve(context.dirname, "unplugin-transform-go"),',
       "  };",
       "};",
       "",

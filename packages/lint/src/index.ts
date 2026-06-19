@@ -37,6 +37,10 @@ type TtscPluginDescriptor = {
 type TtscPluginFactoryContext<TConfig> = {
   binary: string;
   cwd: string;
+  /** This descriptor's own directory — the ESM-safe replacement for `__dirname`. */
+  dirname: string;
+  /** This descriptor's own path — the ESM-safe replacement for `__filename`. */
+  filename: string;
   plugin: TConfig;
   projectRoot: string;
   tsconfig: string;
@@ -119,7 +123,10 @@ export default function createTtscPlugin(
     capabilities: { diagnosticsTiming: true, lsp: true, threadingArgs: true },
     name: "@ttsc/lint",
     reportsTypeScriptDiagnostics: true,
-    source: path.resolve(__dirname, "..", "plugin"),
+    // `context.dirname` is this descriptor's own directory in every load mode —
+    // the ESM-safe replacement for `__dirname`, which is undefined when ttsc
+    // loads a descriptor as `.ts` source or ESM.
+    source: path.resolve(context.dirname, "..", "plugin"),
     stage: "check",
   };
   if (contributors.length > 0) {

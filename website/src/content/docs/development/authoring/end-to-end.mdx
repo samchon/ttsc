@@ -43,10 +43,10 @@ The `files` field includes the Go source because `ttsc` builds it on the consume
 ```js
 const path = require("node:path");
 
-module.exports = function createDebuggerStripPlugin() {
+module.exports = function createDebuggerStripPlugin(context) {
   return {
     name: "ttsc-plugin-debugger-strip",
-    source: path.resolve(__dirname, "plugin"),
+    source: path.resolve(context.dirname, "plugin"),
     stage: "transform",
   };
 };
