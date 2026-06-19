@@ -211,6 +211,24 @@ func Checker_getBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*i
   return checkerGetBaseTypes(recv, t)
 }
 
+//go:linkname checkerGetDeclaredTypeOfSymbol github.com/microsoft/typescript-go/internal/checker.(*Checker).getDeclaredTypeOfSymbol
+func checkerGetDeclaredTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerchecker.Type
+
+// Checker_getDeclaredTypeOfSymbol returns the declared (instance) type of a
+// class or interface symbol. Unlike Checker_getTypeOfSymbol — which yields the
+// constructor (static) type of a class symbol — the result IS a
+// ClassOrInterface type and is therefore safe to feed back into
+// Checker_getBaseTypes. This lets a consumer resolve a generic base's symbol to
+// its declared type and keep walking the base chain past the generic boundary
+// where getBaseTypes would otherwise dead-end (a Reference/Anonymous type has a
+// nil AsInterfaceType()). Returns nil if recv or symbol is nil.
+func Checker_getDeclaredTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerchecker.Type {
+  if recv == nil || symbol == nil {
+    return nil
+  }
+  return checkerGetDeclaredTypeOfSymbol(recv, symbol)
+}
+
 //go:linkname checkerGetMinArgumentCount github.com/microsoft/typescript-go/internal/checker.(*Checker).getMinArgumentCount
 func checkerGetMinArgumentCount(recv *innerchecker.Checker, signature *innerchecker.Signature) int
 
