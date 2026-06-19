@@ -133,10 +133,13 @@ export default (context: {
       dirname: string;
       filename: string;
     };
-    // The descriptor entry resolved by ttsc is the package's barrel `index.ts`.
+    // The descriptor entry resolved by ttsc is the package's barrel `index.ts`,
+    // and `dirname` is its directory. Both are checked against the expected
+    // on-disk paths independently (not just `dirname === path.dirname(filename)`,
+    // which the loader satisfies by construction) so a divergence would surface.
     assert.equal(
       recorded.filename,
       fs.realpathSync(path.join(pkg, "src", "index.ts")),
     );
-    assert.equal(recorded.dirname, path.dirname(recorded.filename));
+    assert.equal(recorded.dirname, fs.realpathSync(path.join(pkg, "src")));
   };
