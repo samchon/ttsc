@@ -570,7 +570,7 @@ function orderNativePlugins(
 
 function loadPluginEntry(
   entry: ITtscProjectPluginConfig,
-  context: ITtscPluginFactoryContext,
+  context: Omit<ITtscPluginFactoryContext, "dirname" | "filename">,
   baseDir: string,
 ): ITtscPlugin {
   return withPluginLoaderEnv(() => {
@@ -582,7 +582,15 @@ function loadPluginEntry(
     }
 
     const request = resolvePluginRequest(specifier, baseDir);
-    const mod = requirePluginEntry(request, context) as {
+    // The descriptor loads through ttsx (`.ts` source) or as ESM (`.mjs`), where
+    // the ambient `__dirname`/`__filename`/`require` are undefined. Hand the
+    // resolved entry's dir/file to the factory so it can self-locate regardless.
+    const factoryContext: ITtscPluginFactoryContext = {
+      ...context,
+      dirname: path.dirname(request),
+      filename: request,
+    };
+    const mod = requirePluginEntry(request, factoryContext) as {
       createTtscPlugin?: TtscPluginFactory;
       default?: ITtscPlugin | TtscPluginFactory;
     } & Partial<Record<"plugin", ITtscPlugin | TtscPluginFactory>>;
@@ -592,7 +600,7 @@ function loadPluginEntry(
       mod.plugin ??
       (mod as unknown as ITtscPlugin | TtscPluginFactory);
     if (typeof candidate === "function") {
-      const plugin = candidate(context);
+      const plugin = candidate(factoryContext);
       if (!isTtscPlugin(plugin)) {
         throw new Error(
           `ttsc: plugin "${specifier}" does not export a valid ttsc plugin`,
@@ -702,6 +710,8 @@ function loadDescriptorViaTtsx(
         TTSC_PLUGIN_CONTEXT: JSON.stringify({
           binary: context.binary,
           cwd: context.cwd,
+          dirname: context.dirname,
+          filename: context.filename,
           plugin: context.plugin,
           projectRoot: context.projectRoot,
           tsconfig: context.tsconfig,

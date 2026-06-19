@@ -98,6 +98,8 @@ type TtscPluginDescriptor = {
 type TtscPluginFactoryContext<TConfig> = {
   binary: string;
   cwd: string;
+  dirname: string;
+  filename: string;
   plugin: TConfig;
   projectRoot: string;
   tsconfig: string;

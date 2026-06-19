@@ -33,6 +33,28 @@ export interface ITtscPluginFactoryContext<T = ITtscProjectPluginConfig> {
   cwd: string;
 
   /**
+   * Absolute path to the directory holding the resolved descriptor module.
+   *
+   * The ESM-safe analog of `__dirname`, mirroring Node's `import.meta.dirname`.
+   * Use it to locate the plugin's own package without ambient CommonJS globals:
+   * ttsc loads a `.ts`-source descriptor through `ttsx`, and may load a `.mjs`
+   * descriptor as ESM, where the ambient `__dirname`/`__filename`/`require` are
+   * all undefined. Anchor package-relative paths here, e.g.
+   * `path.resolve(context.dirname, "go-plugin")`.
+   */
+  dirname: string;
+
+  /**
+   * Absolute path to the resolved descriptor module file.
+   *
+   * The ESM-safe analog of `__filename`, mirroring Node's
+   * `import.meta.filename` — the file `compilerOptions.plugins[].transform` (or
+   * a package `ttsc` export condition) pointed at. Most descriptors only need
+   * {@link ITtscPluginFactoryContext.dirname}; this is provided for parity.
+   */
+  filename: string;
+
+  /**
    * Original `compilerOptions.plugins[]` entry that loaded this plugin.
    *
    * Ttsc reserves `transform` and `enabled`. Every other property is
