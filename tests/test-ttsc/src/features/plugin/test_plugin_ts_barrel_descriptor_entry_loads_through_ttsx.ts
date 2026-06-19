@@ -27,8 +27,8 @@ import {
  *    tsconfig) whose `transform` is the barrel `index.ts` re-exporting
  *    `./runtime` and the `./descriptor` factory.
  * 2. Run ttsc with `--emit` against a project that depends on it.
- * 3. Assert zero exit and that the descriptor's transform ran
- *    (`"BARREL:plugin"` in the emit), proving the barrel loaded through ttsx.
+ * 3. Assert zero exit and that the descriptor's transform ran (`"BARREL:plugin"`
+ *    in the emit), proving the barrel loaded through ttsx.
  */
 export const test_plugin_ts_barrel_descriptor_entry_loads_through_ttsx = () => {
   const root = commonJsProject({

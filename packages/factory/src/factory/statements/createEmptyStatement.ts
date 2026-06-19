@@ -10,9 +10,6 @@ import { make } from "../internal/make";
  *
  * The result is a single semicolon:
  *
- * ```ts
- * ```
- *
  * @author Jeongho Nam - https://github.com/samchon
  * @returns The created {@link EmptyStatement}.
  */

@@ -44,6 +44,8 @@ export default {
 };
 ```
 
+The adapter emits transformed **TypeScript**, not JavaScript. Plain Rollup does not compile TypeScript itself, so add a downstream TypeScript-to-JavaScript step after `ttsc()` (an esbuild- or swc-based Rollup plugin, for example) — otherwise the build fails parsing the type syntax. Bundlers that strip types on their own (Vite, esbuild, Bun) need no extra step.
+
 ## esbuild
 
 ```ts

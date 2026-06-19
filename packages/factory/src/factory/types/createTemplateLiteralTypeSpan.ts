@@ -15,7 +15,7 @@ import { make } from "../internal/make";
  * when it closes the template. A span only renders meaningfully inside a
  * template literal type; on its own it is just a fragment.
  *
- * Given a `number` type and a `px` tail inside a ``width:${...}`` template, the
+ * Given a `number` type and a `px` tail inside a `width:${...}` template, the
  * printer renders:
  *
  * ```ts

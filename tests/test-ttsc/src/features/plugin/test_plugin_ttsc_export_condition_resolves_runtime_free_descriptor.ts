@@ -24,12 +24,12 @@ import {
  * points at a runtime-free descriptor; ttsc must resolve the descriptor and
  * never touch the barrel.
  *
- * 1. A `node_modules/barrel-plugin` package exposes
- *    `exports["."] = { ttsc: "./descriptor.cjs", default: "./barrel.cjs" }`,
- *    where `barrel.cjs` throws on load and `descriptor.cjs` is a valid factory.
+ * 1. A `node_modules/barrel-plugin` package exposes `exports["."] = { ttsc:
+ *    "./descriptor.cjs", default: "./barrel.cjs" }`, where `barrel.cjs` throws
+ *    on load and `descriptor.cjs` is a valid factory.
  * 2. Run ttsc with `--emit` against a project that depends on it.
- * 3. Assert zero exit, the descriptor's transform ran (`"TTSCCOND:plugin"` in
- *    the emit), and the barrel's load-time error never appears.
+ * 3. Assert zero exit, the descriptor's transform ran (`"TTSCCOND:plugin"` in the
+ *    emit), and the barrel's load-time error never appears.
  */
 export const test_plugin_ttsc_export_condition_resolves_runtime_free_descriptor =
   () => {

@@ -42,10 +42,13 @@ export interface TtscTransformAlias {
 /**
  * A single entry in the per-build transform cache.
  *
- * Stores the full compiler result together with SHA-256 hashes of every input
- * file. On subsequent transforms the cached entry is validated by comparing
- * fresh hashes against {@link inputHashes}; a mismatch triggers a full
- * re-transform of the project.
+ * Stores the full compiler result together with SHA-256 hashes of every project
+ * input file. On subsequent transforms the cached entry is validated by
+ * re-hashing the project and comparing against {@link inputHashes}; a mismatch
+ * triggers a full re-transform. Both sides hash the same set of files (the
+ * project directory walk), so the comparison is meaningful — keying the
+ * compiler's out-of-walk output paths on only one side is what made the cache
+ * miss on every module.
  */
 export interface TtscCachedProjectTransform {
   /**
@@ -302,6 +305,27 @@ export function createTransformResult(
   return { code };
 }
 
+/**
+ * Validate a cached project transform against the current on-disk project
+ * state.
+ *
+ * Re-hashes every file under the project root and overlays the current module's
+ * in-memory source, then compares the snapshot against the one captured when
+ * the result was produced. Any input under the project root changing — the
+ * module itself or a sibling the plugin reads — invalidates the entry and
+ * forces a re-transform. Out-of-walk inputs a plugin pulls in (`node_modules`
+ * declarations, sibling-package sources) are not seen here; adapters invalidate
+ * on those through the reported `dependencies` → `addWatchFile` → the bundler's
+ * next `buildStart` cache clear.
+ *
+ * Both this snapshot and {@link collectInputHashes} draw their keys from the
+ * exact same {@link collectProjectInputHashes} walk, so the two always agree on
+ * the key universe. The earlier implementation overlaid the compiler's output
+ * keys here on only one side; those keys include out-of-walk program inputs
+ * (`node_modules` declarations, sibling-package sources), so the snapshots
+ * never matched and the cache missed on every module — re-transforming the
+ * whole project once per file on any project that imports a typed dependency.
+ */
 function matchesCachedSource(
   cached: TtscCachedProjectTransform,
   file: string,
@@ -314,33 +338,24 @@ function matchesCachedSource(
 }
 
 /**
- * Build the complete input-hash snapshot stored alongside a fresh compiler
- * result.
+ * Build the input-hash snapshot stored alongside a fresh compiler result.
  *
- * Combines filesystem hashes for every file in the project directory with
- * hashes for each emitted TypeScript output key (the compiler may have read
- * files not visible via the directory walk). The in-memory source for the file
- * that triggered the build is overlaid last to capture unsaved editor content
- * correctly.
+ * Hashes every file under the project directory — the exact universe
+ * {@link matchesCachedSource} re-hashes to validate — then overlays the
+ * in-memory source for the module that triggered the compile so unsaved editor
+ * content is captured correctly.
+ *
+ * Only the project's own files are hashed. Out-of-walk program inputs the
+ * compiler also read (`node_modules` declarations, sibling-package sources) are
+ * deliberately excluded: the validator never reproduces those keys, so keying
+ * them here would make every snapshot comparison fail and the cache never hit.
  */
 function collectInputHashes(props: {
   currentFile: string;
   currentSource: string;
   projectRoot: string;
-  result: ITtscCompilerTransformation;
 }): Record<string, string> {
   const hashes = collectProjectInputHashes(props.projectRoot);
-  if (props.result.type !== "exception") {
-    for (const key of Object.keys(props.result.typescript)) {
-      const file = path.resolve(props.projectRoot, key);
-      try {
-        hashes[key] = hashText(fs.readFileSync(file, "utf8"));
-      } catch {
-        // A plugin may synthesize a virtual TypeScript file. It should not
-        // decide cache reuse for real source files.
-      }
-    }
-  }
   // Overlay the in-memory source so unsaved edits invalidate the cache.
   hashes[toProjectKey(props.projectRoot, props.currentFile)] = hashText(
     props.currentSource,
@@ -456,7 +471,6 @@ async function transformProject(props: {
         currentFile: props.currentFile,
         currentSource: props.currentSource,
         projectRoot,
-        result,
       }),
       projectRoot,
       result,

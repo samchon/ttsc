@@ -1,0 +1,3 @@
+# esbuild bundle the unplugin-perf experiment writes here so the
+# external ttsc/unplugin imports resolve; it is removed after import.
+.tmp-perf-*.mjs
