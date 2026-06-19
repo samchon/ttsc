@@ -309,11 +309,14 @@ export function createTransformResult(
  * Validate a cached project transform against the current on-disk project
  * state.
  *
- * Re-hashes every project input and overlays the current module's in-memory
- * source, then compares the snapshot against the one captured when the result
- * was produced. Any project file changing — the module itself, a sibling the
- * plugin reads, a plugin-declared dependency — invalidates the entry and forces
- * a re-transform.
+ * Re-hashes every file under the project root and overlays the current module's
+ * in-memory source, then compares the snapshot against the one captured when
+ * the result was produced. Any input under the project root changing — the
+ * module itself or a sibling the plugin reads — invalidates the entry and
+ * forces a re-transform. Out-of-walk inputs a plugin pulls in (`node_modules`
+ * declarations, sibling-package sources) are not seen here; adapters invalidate
+ * on those through the reported `dependencies` → `addWatchFile` → the bundler's
+ * next `buildStart` cache clear.
  *
  * Both this snapshot and {@link collectInputHashes} draw their keys from the
  * exact same {@link collectProjectInputHashes} walk, so the two always agree on
