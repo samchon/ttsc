@@ -2,6 +2,7 @@
   "private": true,
   "name": "@ttsc/experimental-unplugin-perf",
   "version": "0.0.0",
+  "type": "module",
   "description": "Reproduces and measures the @ttsc/unplugin per-module cache cost",
   "scripts": {
     "start": "node --experimental-strip-types src/index.ts"

@@ -57,12 +57,14 @@ async function runProjectBuild(options: ICacheProjectOptions): Promise<{
 }
 
 /**
- * Asserts the per-build cache transforms a multi-file project exactly once and
- * serves every other module from cache.
+ * Asserts the per-build cache compiles a multi-file project once and serves
+ * every other module from cache — the happy-path baseline.
  *
- * A single `transformTtsc` over N modules sharing one cache must spawn the
- * native transform once; the remaining modules read their output from the
- * cached whole-project result.
+ * Every compiler output key sits inside the project walk, so this holds on both
+ * the old and fixed code; the out-of-walk regression is pinned separately by
+ * {@link assertCacheHitsDespiteOutOfWalkOutputKey}. A single `transformTtsc`
+ * over N modules sharing one cache must spawn the native transform once; the
+ * remaining modules read their output from the cached whole-project result.
  */
 async function assertCacheTransformsMultiFileProjectOnce(): Promise<void> {
   const { pluginRuns, outputs } = await runProjectBuild({ fileCount: 6 });

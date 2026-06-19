@@ -213,7 +213,9 @@ function instrumentReadFileSync(): {
   ) {
     counter.calls += 1;
     const result = original.apply(this, args as never);
-    counter.bytes += typeof result === "string" ? result.length : result.length;
+    // `.length` is bytes for a Buffer and characters for a string; either is a
+    // fine order-of-magnitude signal for this experiment.
+    counter.bytes += result.length;
     return result;
   } as typeof fs.readFileSync;
   counter.restore = () => {
