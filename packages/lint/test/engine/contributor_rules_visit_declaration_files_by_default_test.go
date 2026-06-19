@@ -12,8 +12,10 @@ import (
 // implement the public DeclarationFileRule marker.
 type declarationDefaultContributor struct{}
 
-func (declarationDefaultContributor) Name() string           { return "demo/declaration-default" }
-func (declarationDefaultContributor) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+func (declarationDefaultContributor) Name() string { return "demo/declaration-default" }
+func (declarationDefaultContributor) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindSourceFile}
+}
 func (declarationDefaultContributor) Check(ctx *rule.Context, node *shimast.Node) {
 }
 

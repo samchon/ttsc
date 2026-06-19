@@ -297,7 +297,9 @@ function shouldExposeCommonJsNamedExports(
     return false;
   }
   const parentFile = fileURLToPath(parentURL);
-  if (moduleFormat(parentFile, moduleOptionForSource(parentFile)) !== "module") {
+  if (
+    moduleFormat(parentFile, moduleOptionForSource(parentFile)) !== "module"
+  ) {
     return false;
   }
   const filename = fileURLToPath(url);
@@ -325,7 +327,10 @@ function moduleOptionForSource(filename: string): string | undefined {
   }
   let moduleOption: string | undefined;
   try {
-    const project = readProjectConfig({ cwd: path.dirname(tsconfig), tsconfig });
+    const project = readProjectConfig({
+      cwd: path.dirname(tsconfig),
+      tsconfig,
+    });
     moduleOption =
       typeof project.compilerOptions.module === "string"
         ? project.compilerOptions.module

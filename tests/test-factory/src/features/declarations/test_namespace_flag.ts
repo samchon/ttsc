@@ -14,7 +14,14 @@ export const test_namespace_flag = (): void => {
   const constX = factory.createVariableStatement(
     undefined,
     factory.createVariableDeclarationList(
-      [factory.createVariableDeclaration(id("x"), undefined, undefined, num("1"))],
+      [
+        factory.createVariableDeclaration(
+          id("x"),
+          undefined,
+          undefined,
+          num("1"),
+        ),
+      ],
       NodeFlags.Const,
     ),
   );

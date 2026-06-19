@@ -18,8 +18,18 @@ export const test_destructuring_declaration = (): void => {
           [
             factory.createVariableDeclaration(
               factory.createArrayBindingPattern([
-                factory.createBindingElement(undefined, undefined, "a", undefined),
-                factory.createBindingElement(undefined, undefined, "b", undefined),
+                factory.createBindingElement(
+                  undefined,
+                  undefined,
+                  "a",
+                  undefined,
+                ),
+                factory.createBindingElement(
+                  undefined,
+                  undefined,
+                  "b",
+                  undefined,
+                ),
               ]),
               undefined,
               undefined,

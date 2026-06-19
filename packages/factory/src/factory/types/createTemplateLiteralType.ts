@@ -6,7 +6,7 @@ import type {
 import { make } from "../internal/make";
 
 /**
- * Create a {@link TemplateLiteralTypeNode}: a ``id-${string}`` template literal
+ * Create a {@link TemplateLiteralTypeNode}: a `id-${string}` template literal
  * type.
  *
  * The head supplies the leading text up to the first `${`, then each span

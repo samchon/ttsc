@@ -18,10 +18,7 @@ export const test_negative_literal_type = (): void => {
         "T",
         undefined,
         factory.createLiteralTypeNode(
-          factory.createPrefixUnaryExpression(
-            SyntaxKind.MinusToken,
-            num("1"),
-          ),
+          factory.createPrefixUnaryExpression(SyntaxKind.MinusToken, num("1")),
         ),
       ),
     ),

@@ -15,7 +15,7 @@ import { make } from "../internal/make";
  * The printer writes the tag directly against the template with no space
  * between them.
  *
- * With `tag` of `tag` and a template of ``hi``, the printer emits:
+ * With `tag` of `tag` and a template of `hi`, the printer emits:
  *
  * ```ts
  * tag`hi`;
