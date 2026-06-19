@@ -46,6 +46,17 @@ module.exports = (context) => ({
 
 `context.binary` is the absolute `ttsc` native helper selected for this invocation. It is not the plugin sidecar binary and not the JavaScript launcher. Most descriptors do not need it; it exists for advanced factories that need to inspect the active native host.
 
+**Descriptors must be ESM-safe.** A descriptor compiled to CommonJS and loaded by `ttsc`'s direct `require()` keeps `__dirname`/`__filename`/`require`. But when `ttsc` loads a descriptor shipped as `.ts` source — through `ttsx` — or as ESM, those ambient globals are **undefined**, so a `source` derived from `__dirname` silently mis-resolves. To locate your own package independently of the load mode, anchor a `node:module` resolver on `context.projectRoot`, which works in both CommonJS and ESM:
+
+```ts
+import { createRequire } from "node:module";
+import path from "node:path";
+
+const requireFrom = createRequire(path.join(context.projectRoot, "package.json"));
+const pkgRoot = path.dirname(requireFrom.resolve("my-plugin/package.json"));
+// source: path.resolve(pkgRoot, "go-plugin")
+```
+
 ```ts
 import * as path from "node:path";
 import type { ITtscPluginFactoryContext } from "ttsc";
@@ -92,7 +103,7 @@ interface ITtscPluginContributor {
 Field rules:
 
 - `name`: optional display label for diagnostics and build messages. Routing is not based on package identity.
-- `source`: Go package directory or `go.mod` file. A `package main` source builds as an executable sidecar. A non-`main` transform source is linked into the selected native host and must register itself through `driver.RegisterPlugin`. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path based on `__dirname`.
+- `source`: Go package directory or `go.mod` file. A `package main` source builds as an executable sidecar. A non-`main` transform source is linked into the selected native host and must register itself through `driver.RegisterPlugin`. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path. A compiled-CommonJS descriptor can base it on `__dirname`, but a `.ts`-source or ESM descriptor must resolve from `context.projectRoot` instead (see [ESM-safety](#manifest) above), since `__dirname` is undefined there.
 - `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle.
 - `stage`: plugin kind. Omit for `"transform"`.
 - `capabilities`: optional host behaviors a strict sidecar would otherwise reject or not understand. Set `threadingArgs` only when the sidecar accepts `--singleThreaded` and `--checkers`; set `diagnosticsTiming` only when it accepts `--diagnostics`/`--extendedDiagnostics` and may print timing detail to stdout. Set `lsp` only when the sidecar implements the `ttscserver` LSP verbs below.

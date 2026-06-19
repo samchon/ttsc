@@ -844,7 +844,19 @@ function resolveNativeSourceKind(
 
 function resolveGoPackageDir(source: string, label: string): string {
   if (!fs.existsSync(source)) {
-    throw new Error(`ttsc: plugin "${label}" source does not exist: ${source}`);
+    // A descriptor factory runs without CommonJS globals when ttsc loads it
+    // through ttsx or as ESM — `__dirname`/`__filename`/`require` are undefined,
+    // so a `source` derived from them mis-resolves (often against cwd) and lands
+    // here. Name that failure mode explicitly instead of leaving a bare
+    // not-found path: the breakage is otherwise silent. (See #248.)
+    throw new Error(
+      `ttsc: plugin "${label}" source does not exist: ${source}\n` +
+        `  Plugin descriptors run without CommonJS globals: __dirname, __filename, ` +
+        `and require are undefined when ttsc loads a descriptor through ttsx or as ESM. ` +
+        `If this path was derived from one of them, resolve it from context.projectRoot ` +
+        `instead, e.g. createRequire(path.join(context.projectRoot, "package.json"))` +
+        `.resolve("<your-package>/package.json").`,
+    );
   }
   const stat = fs.statSync(source);
   if (stat.isFile() && path.basename(source) === "go.mod") {
