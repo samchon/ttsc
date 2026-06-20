@@ -95,3 +95,18 @@ export async function assertWithTtscPublishesWorkerEnv(): Promise<void> {
     assert.equal(process.env[ENV_KEY], "{}");
   });
 }
+
+/**
+ * Asserts withTtsc adds a `transformer` block even when the input config has
+ * none — spreading an absent `transformer` must not crash and must still yield
+ * a valid `babelTransformerPath`, while unrelated top-level keys survive.
+ */
+export async function assertWithTtscAddsTransformerWhenAbsent(): Promise<void> {
+  await withCleanEnv(async () => {
+    const { withTtsc } = await TestMetroRuntime.loadIndex();
+    const config = withTtsc({ projectRoot: "/workspace/app" });
+    assert.equal(config.projectRoot, "/workspace/app");
+    assert.equal(typeof config.transformer.babelTransformerPath, "string");
+    assert.match(config.transformer.babelTransformerPath, /transformer\.js$/);
+  });
+}

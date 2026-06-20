@@ -20,6 +20,7 @@ import {
 } from "@ttsc/unplugin/api";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
+import path from "node:path";
 
 import type { ResolvedTtscMetroOptions } from "./core/options";
 import { resolveOptionsFromEnv } from "./core/options";
@@ -51,12 +52,39 @@ function options(): ResolvedTtscMetroOptions {
 }
 
 /**
+ * Resolve Metro's per-file `filename` to an absolute path.
+ *
+ * Metro hands the babel transformer a path **relative to `projectRoot`** (it
+ * reads the file via `fs.readFileSync(path.resolve(projectRoot, filename))`)
+ * and passes `projectRoot` inside `options`. The ttsc pass needs an absolute
+ * path that matches a key in the compiled program, so resolve against
+ * `projectRoot` — never `process.cwd()`, which differs from `projectRoot` in
+ * monorepos and when Metro is launched from a parent directory. Getting this
+ * wrong makes every file look "outside the project" and silently skips the
+ * plugin pass.
+ */
+export function resolveAbsoluteFilename(
+  filename: string,
+  options?: Record<string, unknown>,
+): string {
+  if (path.isAbsolute(filename)) {
+    return filename;
+  }
+  const projectRoot =
+    options !== undefined && typeof options.projectRoot === "string"
+      ? options.projectRoot
+      : process.cwd();
+  return path.resolve(projectRoot, filename);
+}
+
+/**
  * Metro transform entry point.
  *
  * Runs the ttsc plugin pass on TypeScript files, then delegates to the upstream
- * Expo/React-Native Babel transformer to produce the AST Metro expects. All
- * original Metro params are forwarded to the upstream call; only `src` is
- * replaced with the ttsc-transformed source.
+ * Expo/React-Native Babel transformer to produce the AST Metro expects. The
+ * upstream call receives Metro's original params (notably the project-relative
+ * `filename`, which Babel expects); only `src` is replaced with the
+ * ttsc-transformed source.
  */
 export async function transform(params: {
   src: string;
@@ -66,8 +94,9 @@ export async function transform(params: {
 }): Promise<{ ast: object }> {
   const opts = options();
   const upstream = resolveUpstreamTransformer(opts.upstreamTransformer);
+  const filename = resolveAbsoluteFilename(params.filename, params.options);
 
-  if (!shouldTransform(params.filename, opts)) {
+  if (!shouldTransform(filename, opts)) {
     return upstream.transform(params);
   }
 
@@ -75,7 +104,7 @@ export async function transform(params: {
   try {
     unpluginOptions ??= resolveOptions(opts.ttsc);
     const result = await transformTtsc(
-      params.filename,
+      filename,
       params.src,
       unpluginOptions,
       undefined,
@@ -100,33 +129,68 @@ export async function transform(params: {
  * Metro transform-cache key.
  *
  * Metro already content-hashes each file, so this only has to invalidate when
- * the transformer itself changes: package version + resolved options + upstream
- * key. NOTE: this does not encode the tsconfig / plugin configuration or
- * cross-file type dependencies, so after editing those (or a depended-upon
- * type) run Metro with `--reset-cache`. See the README "Caveats" section and
+ * the transformer itself changes: package version + resolved options + the
+ * upstream transformer's own key (forwarded Metro's args, e.g. `projectRoot`,
+ * so a `babel.config.js` change still busts the cache). Resolving the upstream
+ * is deliberately non-fatal here — a missing peer must not crash cache-key
+ * computation. NOTE: this does not encode the tsconfig / plugin configuration
+ * or cross-file type dependencies, so after editing those (or a depended-upon
+ * type) run Metro with `--reset-cache`. See the README "Caveats" and
  * samchon/ttsc#255.
  */
-export function getCacheKey(): string {
+export function getCacheKey(...args: unknown[]): string {
   const opts = options();
-  const upstream = resolveUpstreamTransformer(opts.upstreamTransformer);
-
   const hash = createHash("sha256");
   hash.update(`@ttsc/metro:${packageVersion()}`);
   hash.update(
-    JSON.stringify({
+    stableStringify({
       ttsc: opts.ttsc,
       include: opts.include,
       exclude: opts.exclude,
       upstreamTransformer: opts.upstreamTransformer ?? null,
     }),
   );
-  if (upstream.getCacheKey !== undefined) {
-    hash.update(upstream.getCacheKey());
+  const upstreamKey = upstreamCacheKey(opts.upstreamTransformer, args);
+  if (upstreamKey.length !== 0) {
+    hash.update(upstreamKey);
   }
   return hash.digest("hex");
 }
 
-function shouldTransform(
+/**
+ * Fold the upstream transformer's cache key in, defensively. Forwards Metro's
+ * own `getCacheKey` arguments so the upstream's babelrc-derived key is
+ * preserved, and never throws: a missing peer or a throwing upstream
+ * `getCacheKey` yields an empty contribution rather than failing the whole
+ * build's cache keying.
+ */
+function upstreamCacheKey(
+  upstreamTransformer: string | undefined,
+  args: unknown[],
+): string {
+  let upstream;
+  try {
+    upstream = resolveUpstreamTransformer(upstreamTransformer);
+  } catch {
+    return "";
+  }
+  if (upstream.getCacheKey === undefined) {
+    return "";
+  }
+  try {
+    return String(upstream.getCacheKey(...args) ?? "");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Decide whether a file should run through the ttsc pass. Only TypeScript
+ * sources (`.ts`/`.tsx`/`.cts`/`.mts`, excluding `.d.ts`) qualify; `exclude`
+ * substrings win over `include`, and an empty `include` means "all TypeScript".
+ * Exported for unit testing.
+ */
+export function shouldTransform(
   filename: string,
   opts: ResolvedTtscMetroOptions,
 ): boolean {
@@ -162,4 +226,21 @@ function packageVersion(): string {
   } catch {
     return "0";
   }
+}
+
+/**
+ * JSON-serialise with object keys sorted recursively, so two semantically equal
+ * option sets always hash to the same cache key regardless of property order.
+ */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    return `{${Object.entries(value)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }

@@ -92,9 +92,12 @@ export function resolveOptionsFromEnv(): ResolvedTtscMetroOptions {
       compilerOptions: parsed.compilerOptions,
       ...("plugins" in parsed ? { plugins: parsed.plugins } : {}),
     },
-    upstreamTransformer: parsed.upstreamTransformer,
-    include: parsed.include ?? [],
-    exclude: parsed.exclude ?? [],
+    upstreamTransformer:
+      typeof parsed.upstreamTransformer === "string"
+        ? parsed.upstreamTransformer
+        : undefined,
+    include: toStringArray(parsed.include),
+    exclude: toStringArray(parsed.exclude),
   };
 }
 
@@ -104,10 +107,24 @@ function parse(raw: string | undefined): TtscMetroOptions {
   }
   try {
     const value: unknown = JSON.parse(raw);
-    return typeof value === "object" && value !== null
+    // Only a plain object is a valid payload; arrays, `null`, numbers, strings,
+    // and booleans (all valid JSON) degrade to defaults rather than leaking a
+    // wrong-shaped value downstream.
+    return typeof value === "object" && value !== null && !Array.isArray(value)
       ? (value as TtscMetroOptions)
       : {};
   } catch {
     return {};
   }
+}
+
+/**
+ * Coerce an untrusted env value into a `string[]`. A non-array (e.g. the common
+ * mistake of passing a bare string for `include`/`exclude`) becomes `[]` so the
+ * worker never calls `.some` on a non-array and crashes.
+ */
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
 }

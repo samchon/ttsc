@@ -98,3 +98,54 @@ export async function assertOptionsFallBackOnMalformedEnv(): Promise<void> {
     assert.deepEqual(resolved.exclude, []);
   });
 }
+
+/**
+ * Asserts valid JSON that is not a plain object (array, `null`, number, string,
+ * boolean) degrades to defaults — the non-object branch of `parse`, distinct
+ * from the malformed-JSON catch. An array in particular must not slip through
+ * the `typeof === "object"` guard.
+ */
+export async function assertNonObjectEnvFallsBackToDefaults(): Promise<void> {
+  for (const raw of ["[1,2,3]", "null", "42", '"hello"', "true"]) {
+    await withEnv(raw, async (mod) => {
+      const resolved = mod.resolveOptionsFromEnv();
+      assert.equal(resolved.ttsc.project, undefined, raw);
+      assert.equal(resolved.upstreamTransformer, undefined, raw);
+      assert.deepEqual(resolved.include, [], raw);
+      assert.deepEqual(resolved.exclude, [], raw);
+    });
+  }
+}
+
+/**
+ * Asserts an empty-string env payload (distinct from an unset var) degrades to
+ * defaults — the `raw.length === 0` half of the guard in `parse`.
+ */
+export async function assertEmptyStringEnvFallsBackToDefaults(): Promise<void> {
+  await withEnv("", async (mod) => {
+    const resolved = mod.resolveOptionsFromEnv();
+    assert.equal(resolved.ttsc.project, undefined);
+    assert.deepEqual(resolved.include, []);
+    assert.deepEqual(resolved.exclude, []);
+  });
+}
+
+/**
+ * Asserts untrusted include/exclude values are coerced to string arrays: a bare
+ * string (a common mistake) becomes `[]`, and non-string entries are filtered
+ * out — so the worker never calls `.some` on a non-array and crashes. Valid
+ * sibling fields (here `plugins: false`) still resolve.
+ */
+export async function assertInvalidIncludeExcludeCoerced(): Promise<void> {
+  const raw = JSON.stringify({
+    include: ["a", 1, "b", null],
+    exclude: "everything",
+    plugins: false,
+  });
+  await withEnv(raw, async (mod) => {
+    const resolved = mod.resolveOptionsFromEnv();
+    assert.deepEqual(resolved.include, ["a", "b"]);
+    assert.deepEqual(resolved.exclude, []);
+    assert.equal(resolved.ttsc.plugins, false);
+  });
+}

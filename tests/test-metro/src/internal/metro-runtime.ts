@@ -38,6 +38,11 @@ export namespace TestMetroRuntime {
     return import(libUrl("core/options"));
   }
 
+  /** Load the internal upstream-resolution module. */
+  export async function loadUpstream(): Promise<any> {
+    return import(libUrl("core/upstream"));
+  }
+
   // The transformer keeps module-level singletons (resolved options + transform
   // cache), exactly as Metro loads it once per worker. To exercise distinct
   // option sets across cases, each load is cache-busted with a unique query so
@@ -46,7 +51,7 @@ export namespace TestMetroRuntime {
 
   /**
    * Load a fresh instance of the transformer module (`transform`,
-   * `getCacheKey`).
+   * `getCacheKey`, …).
    */
   export async function loadFreshTransformer(): Promise<any> {
     freshCounter += 1;
@@ -54,15 +59,16 @@ export namespace TestMetroRuntime {
   }
 
   let fakeUpstreamPath: string | undefined;
+  let fakeUpstreamNoCacheKeyPath: string | undefined;
 
   /**
    * Write (once) a fake upstream Metro transformer and return its absolute
    * path.
    *
-   * The fake echoes everything it receives back inside the returned `ast`, so a
-   * test can assert exactly what the ttsc stage handed downstream (the original
-   * source for pass-through files, the plugin-transformed source otherwise)
-   * without needing a real Babel/Expo transformer.
+   * `transform` echoes everything it receives back inside the returned `ast`,
+   * so a test can assert exactly what the ttsc stage handed downstream.
+   * `getCacheKey` echoes its forwarded arguments, so a test can prove the args
+   * (e.g. `projectRoot`) reach the upstream key.
    */
   export function fakeUpstreamPathOnDisk(): string {
     if (fakeUpstreamPath !== undefined) {
@@ -84,7 +90,9 @@ export namespace TestMetroRuntime {
         "    },",
         "  };",
         "};",
-        'exports.getCacheKey = function () { return "fake-upstream-cache-key"; };',
+        "exports.getCacheKey = function (...args) {",
+        '  return "fake-upstream:" + JSON.stringify(args[0] ?? null);',
+        "};",
         "",
       ].join("\n"),
       "utf8",
@@ -94,9 +102,56 @@ export namespace TestMetroRuntime {
   }
 
   /**
-   * Set the worker-env options, load a fresh transformer, run one transform,
-   * and always restore the previous env. Mirrors how Metro invokes the
-   * transformer with worker-side options coming from {@link withTtsc}.
+   * A fake upstream that exports `transform` only (no `getCacheKey`), to
+   * exercise the branch where the upstream contributes no cache key.
+   */
+  export function fakeUpstreamWithoutCacheKeyOnDisk(): string {
+    if (fakeUpstreamNoCacheKeyPath !== undefined) {
+      return fakeUpstreamNoCacheKeyPath;
+    }
+    const dir = TestProject.tmpdir("ttsc-metro-upstream-nokey-");
+    const file = path.join(dir, "upstream.cjs");
+    fs.writeFileSync(
+      file,
+      [
+        "exports.transform = async function (params) {",
+        "  return { ast: { __fakeUpstream: true, src: params.src } };",
+        "};",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    fakeUpstreamNoCacheKeyPath = file;
+    return file;
+  }
+
+  /**
+   * Set the worker-env options, load a fresh transformer, run `body`, and
+   * always restore the previous env. Used by transform and cache-key tests that
+   * need a worker scoped to a specific option set.
+   */
+  export async function withTransformerEnv(
+    options: Record<string, unknown>,
+    body: (mod: any) => unknown,
+  ): Promise<any> {
+    const { ENV_KEY, serializeOptions } = await loadOptions();
+    const previous = process.env[ENV_KEY];
+    process.env[ENV_KEY] = serializeOptions(options);
+    try {
+      const mod = await loadFreshTransformer();
+      return await body(mod);
+    } finally {
+      if (previous === undefined) {
+        delete process.env[ENV_KEY];
+      } else {
+        process.env[ENV_KEY] = previous;
+      }
+    }
+  }
+
+  /**
+   * Convenience over {@link withTransformerEnv}: run one transform and return
+   * its result.
    */
   export async function runTransform(props: {
     options: Record<string, unknown>;
@@ -107,18 +162,8 @@ export namespace TestMetroRuntime {
       [key: string]: unknown;
     };
   }): Promise<{ ast: Record<string, unknown> }> {
-    const { ENV_KEY, serializeOptions } = await loadOptions();
-    const previous = process.env[ENV_KEY];
-    process.env[ENV_KEY] = serializeOptions(props.options);
-    try {
-      const mod = await loadFreshTransformer();
-      return await mod.transform({ options: {}, ...props.params });
-    } finally {
-      if (previous === undefined) {
-        delete process.env[ENV_KEY];
-      } else {
-        process.env[ENV_KEY] = previous;
-      }
-    }
+    return withTransformerEnv(props.options, (mod) =>
+      mod.transform({ options: {}, ...props.params }),
+    );
   }
 }
