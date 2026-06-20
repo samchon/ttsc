@@ -1,0 +1,84 @@
+{
+  "name": "@ttsc/metro",
+  "version": "0.16.3",
+  "description": "Metro (React Native / Expo) adapter for ttsc plugins.",
+  "main": "lib/index.js",
+  "module": "lib/index.mjs",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.mjs",
+      "default": "./lib/index.js"
+    },
+    "./transformer": {
+      "types": "./lib/transformer.d.ts",
+      "import": "./lib/transformer.mjs",
+      "default": "./lib/transformer.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rimraf lib && tsc --emitDeclarationOnly && rollup -c"
+  },
+  "keywords": [
+    "ttsc",
+    "metro",
+    "react-native",
+    "expo",
+    "typescript",
+    "tsgo"
+  ],
+  "files": [
+    "README.md",
+    "lib",
+    "src"
+  ],
+  "dependencies": {
+    "@ttsc/unplugin": "workspace:*"
+  },
+  "peerDependencies": {
+    "@expo/metro-config": "*",
+    "@react-native/metro-babel-transformer": "*",
+    "metro-react-native-babel-transformer": "*"
+  },
+  "peerDependenciesMeta": {
+    "@expo/metro-config": {
+      "optional": true
+    },
+    "@react-native/metro-babel-transformer": {
+      "optional": true
+    },
+    "metro-react-native-babel-transformer": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^29.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@types/node": "catalog:utils",
+    "rimraf": "catalog:utils",
+    "rollup": "^4.60.3",
+    "rollup-plugin-auto-external": "^2.0.0",
+    "rollup-plugin-node-externals": "^9.0.1",
+    "tinyglobby": "^0.2.16",
+    "tslib": "^2.8.1",
+    "ttsc": "workspace:*",
+    "typescript": "catalog:typescript"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samchon/ttsc"
+  },
+  "author": "Jeongho Nam",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samchon/ttsc/issues"
+  },
+  "homepage": "https://ttsc.dev",
+  "sideEffects": false,
+  "packageManager": "pnpm@10.6.4"
+}
