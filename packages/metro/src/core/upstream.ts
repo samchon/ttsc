@@ -19,10 +19,8 @@ export interface UpstreamTransformer {
   getCacheKey?: () => string;
 }
 
-let cached: UpstreamTransformer | undefined;
-
 /**
- * Resolve (and memoise) the upstream Metro Babel transformer to delegate to.
+ * Resolve the upstream Metro Babel transformer to delegate to.
  *
  * Detection order, most specific first:
  *
@@ -33,14 +31,13 @@ let cached: UpstreamTransformer | undefined;
  *
  * These are declared as optional peers and resolved at runtime against the
  * consumer project, so the adapter carries no Metro/Expo dependency itself.
+ * Resolution is not memoised here — Node's own module cache already makes the
+ * repeated `require` a cheap lookup, and keeping no module-level state lets a
+ * changed `upstreamTransformer` always take effect.
  */
 export function resolveUpstreamTransformer(
   customPath?: string,
 ): UpstreamTransformer {
-  if (cached !== undefined) {
-    return cached;
-  }
-
   if (customPath !== undefined && customPath.length !== 0) {
     const upstream = tryRequire(customPath);
     if (upstream === undefined) {
@@ -48,7 +45,6 @@ export function resolveUpstreamTransformer(
         `[@ttsc/metro] Could not load the configured upstream transformer: ${customPath}`,
       );
     }
-    cached = upstream;
     return upstream;
   }
 
@@ -59,7 +55,6 @@ export function resolveUpstreamTransformer(
   ]) {
     const upstream = tryRequire(candidate);
     if (upstream !== undefined) {
-      cached = upstream;
       return upstream;
     }
   }

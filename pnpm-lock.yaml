@@ -432,6 +432,21 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ttsc
 
+  tests/test-metro:
+    devDependencies:
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.9.1
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
+      typescript:
+        specifier: catalog:typescript
+        version: 7.0.1-rc
+
   tests/test-paths:
     devDependencies:
       '@ttsc/paths':
