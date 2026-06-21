@@ -35,8 +35,8 @@ export interface TtscUnpluginOptions {
  * Fully-resolved plugin options with all defaults applied.
  *
  * Produced by {@link resolveOptions}; consumed internally by the transform
- * pipeline. Every field is present and normalised — callers should not
- * construct this type directly.
+ * pipeline. Every field is present and normalised; callers should not construct
+ * this type directly.
  */
 export interface ResolvedTtscUnpluginOptions {
   /** Compiler-options overlay applied on top of the discovered tsconfig. */

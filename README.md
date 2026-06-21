@@ -49,29 +49,6 @@ Rewrite source files in place with the `@ttsc/lint` format rules:
 npx ttsc format
 ```
 
-### VS Code Extension
-
-Install the VS Code extension for live TypeScript-Go editor features plus saved-state ttsc plugin diagnostics and actions.
-
-Install it from the VS Code Marketplace by searching `ttsc`, or run:
-
-```bash
-npx @ttsc/vscode
-```
-
-Then turn on format-on-save in `.vscode/settings.json`:
-
-```jsonc
-"[typescript][typescriptreact]": {
-  "editor.defaultFormatter": "samchon.ttsc",
-  "editor.formatOnSave": true
-}
-```
-
-Lint fixes stay off-save by default; opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
-
-See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements and settings.
-
 ### Bundlers
 
 Use `@ttsc/unplugin` when a bundler owns your build.
@@ -108,6 +85,50 @@ Supported bundlers:
 - Bun
 
 See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin) for full setup and adapter options.
+
+### React Native / Expo
+
+React Native and Expo bundle with Metro, so the `ttsc` CLI and `@ttsc/unplugin` never run. `@ttsc/metro` is a Metro transformer that runs `ttsc` plugins on each TypeScript file, then hands the result to your existing Expo or React-Native Babel transformer.
+
+```bash
+npm install -D ttsc @ttsc/lint typescript@rc
+npm install -D @ttsc/metro
+```
+
+Wrap your Metro config (CommonJS, the standard for `metro.config.js`):
+
+```js
+// metro.config.js (Expo)
+const { getDefaultConfig } = require("expo/metro-config");
+const { withTtsc } = require("@ttsc/metro");
+
+module.exports = withTtsc(getDefaultConfig(__dirname));
+```
+
+For bare React Native, wrap `getDefaultConfig` from `@react-native/metro-config` instead. See [`@ttsc/metro`](https://github.com/samchon/ttsc/tree/master/packages/metro) for options and the v1 caveats.
+
+### VS Code Extension
+
+Install the VS Code extension for live TypeScript-Go editor features plus saved-state ttsc plugin diagnostics and actions.
+
+Install it from the VS Code Marketplace by searching `ttsc`, or run:
+
+```bash
+npx @ttsc/vscode
+```
+
+Then turn on format-on-save in `.vscode/settings.json`:
+
+```jsonc
+"[typescript][typescriptreact]": {
+  "editor.defaultFormatter": "samchon.ttsc",
+  "editor.formatOnSave": true
+}
+```
+
+Lint fixes stay off-save by default; opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
+
+See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements and settings.
 
 ## Plugins
 
@@ -207,6 +228,7 @@ See the [Programmatic API guide](https://ttsc.dev/docs/ttsc/api) for the full li
 - [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
 - [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.
+- [`@ttsc/metro`](https://github.com/samchon/ttsc/tree/master/packages/metro): runs `ttsc` plugins inside Metro for React Native and Expo.
 
 Plugin authors should start from the [`Guide Documents`](https://ttsc.dev/docs).
 

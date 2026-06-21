@@ -1,5 +1,5 @@
 /**
- * @ttsc/unplugin — bundler-agnostic ttsc plugin adapter.
+ * @ttsc/unplugin: bundler-agnostic ttsc plugin adapter.
  *
  * Re-exports the unified `unplugin` instance that carries named bundler
  * adapters (`.vite`, `.rollup`, `.rolldown`, `.webpack`, `.rspack`, `.esbuild`,

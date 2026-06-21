@@ -122,7 +122,7 @@ export default withTtsc(nextConfig);
 
 ### Turbopack
 
-Turbopack has no JS plugin API, but it runs webpack loaders through `turbopack.rules` — and a ttsc transform is exactly loader-shaped (TypeScript source in, transformed source out). `@ttsc/unplugin/turbopack` is that standalone loader:
+Turbopack has no JS plugin API, but it runs webpack loaders through `turbopack.rules`, and a ttsc transform is exactly loader-shaped (TypeScript source in, transformed source out). `@ttsc/unplugin/turbopack` is that standalone loader:
 
 ```js
 // next.config.mjs
@@ -280,7 +280,7 @@ Supported entrypoints are:
 - `@ttsc/unplugin/next`
 - `@ttsc/unplugin/bun`
 
-Each entrypoint supports ESM import and CJS require. In CommonJS configs, read the default export from `require("@ttsc/unplugin/vite").default`. `@ttsc/unplugin/turbopack` is not an unplugin factory but a standalone webpack loader — reference it by module name inside `turbopack.rules` instead of calling it.
+Each entrypoint supports ESM import and CJS require. In CommonJS configs, read the default export from `require("@ttsc/unplugin/vite").default`. `@ttsc/unplugin/turbopack` is not an unplugin factory but a standalone webpack loader; reference it by module name inside `turbopack.rules` instead of calling it.
 
 ### Options
 
@@ -302,7 +302,7 @@ const options: TtscUnpluginOptions = {
 
 ### Watch Mode and HMR
 
-Transform plugins may report, per file, the source files they consulted (the transform envelope's `dependencies` field — see the [plugin protocol](https://ttsc.dev/docs/development/concepts/protocol#transform)). The adapter registers each reported path with the bundler via `addWatchFile`, so editing a type that only a generated validator depends on invalidates the module in watch mode even though the bundler erased the type-only import from its graph.
+Transform plugins may report, per file, the source files they consulted (the transform envelope's `dependencies` field, see the [plugin protocol](https://ttsc.dev/docs/development/concepts/protocol#transform)). The adapter registers each reported path with the bundler via `addWatchFile`, so editing a type that only a generated validator depends on invalidates the module in watch mode even though the bundler erased the type-only import from its graph.
 
 ## Sponsors
 

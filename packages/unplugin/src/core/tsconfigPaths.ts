@@ -10,8 +10,8 @@ import path from "node:path";
  * is the whole object from the nearest config in the chain that declares one
  * (own config first, then `extends` entries in reverse priority order).
  * Relative targets are anchored at the directory of the config that declares
- * them — TypeScript-Go resolves inherited relative `paths` against the
- * declaring file, not the extending one.
+ * them. TypeScript-Go resolves inherited relative `paths` against the declaring
+ * file, not the extending one.
  *
  * The generated transform tsconfig replaces `paths` wholesale (standard
  * `extends` semantics), so the alias overlay must re-state these base mappings
@@ -71,7 +71,7 @@ interface IDeclaredPaths {
 /**
  * Locate the nearest `compilerOptions.paths` declaration in the `extends` chain
  * rooted at `tsconfig`. The own config wins over its bases; within an `extends`
- * array, later entries win over earlier ones. `seen` breaks circular chains —
+ * array, later entries win over earlier ones. `seen` breaks circular chains;
  * the compiler reports the actual config error.
  */
 function findDeclaredPaths(
@@ -132,7 +132,7 @@ function extendsSpecifiers(extended: unknown): string[] {
  * Resolve an `extends` specifier to an absolute config path using TypeScript's
  * rules: absolute paths and relative specifiers get `.json` /
  * `tsconfig.json`-directory fallbacks; bare specifiers go through Node's module
- * resolver scoped to the declaring config. Returns `null` instead of throwing —
+ * resolver scoped to the declaring config. Returns `null` instead of throwing;
  * the compiler reports unresolvable `extends` itself.
  */
 function resolveExtendsConfig(
@@ -205,7 +205,7 @@ function resolveRealPath(location: string): string {
 
 /**
  * Parse a JSONC (JSON with Comments) string by stripping comments and trailing
- * commas before handing off to `JSON.parse`. A leading UTF-8 BOM is dropped —
+ * commas before handing off to `JSON.parse`. A leading UTF-8 BOM is dropped;
  * `JSON.parse` rejects it, and this reader must not lose `paths` for a config
  * the compiler accepts.
  */

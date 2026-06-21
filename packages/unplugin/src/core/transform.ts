@@ -46,7 +46,7 @@ export interface TtscTransformAlias {
  * input file. On subsequent transforms the cached entry is validated by
  * re-hashing the project and comparing against {@link inputHashes}; a mismatch
  * triggers a full re-transform. Both sides hash the same set of files (the
- * project directory walk), so the comparison is meaningful — keying the
+ * project directory walk), so the comparison is meaningful; keying the
  * compiler's out-of-walk output paths on only one side is what made the cache
  * miss on every module.
  */
@@ -113,7 +113,7 @@ export interface TtscTransformHooks {
  * @param cache - Optional per-build cache; cleared by the caller on
  *   `buildStart`.
  * @param hooks - Optional adapter callbacks; see {@link TtscTransformHooks}.
- *   Dependency notifications fire on cache hits too — watch registrations are
+ *   Dependency notifications fire on cache hits too; watch registrations are
  *   per build, not per compilation.
  */
 export async function transformTtsc(
@@ -191,7 +191,7 @@ export async function transformTtsc(
  * The transform envelope's `dependencies` keys mirror the `typescript` keys
  * (project-relative); values may be project-relative or absolute. Every path is
  * absolutized against the project root and deduplicated, and the file itself is
- * dropped — the bundler already watches the module it transforms.
+ * dropped; the bundler already watches the module it transforms.
  */
 function notifyFileDependencies(
   hooks: TtscTransformHooks | undefined,
@@ -311,9 +311,9 @@ export function createTransformResult(
  *
  * Re-hashes every file under the project root and overlays the current module's
  * in-memory source, then compares the snapshot against the one captured when
- * the result was produced. Any input under the project root changing — the
- * module itself or a sibling the plugin reads — invalidates the entry and
- * forces a re-transform. Out-of-walk inputs a plugin pulls in (`node_modules`
+ * the result was produced. Any input under the project root changing (the
+ * module itself or a sibling the plugin reads) invalidates the entry and forces
+ * a re-transform. Out-of-walk inputs a plugin pulls in (`node_modules`
  * declarations, sibling-package sources) are not seen here; adapters invalidate
  * on those through the reported `dependencies` → `addWatchFile` → the bundler's
  * next `buildStart` cache clear.
@@ -323,8 +323,8 @@ export function createTransformResult(
  * the key universe. The earlier implementation overlaid the compiler's output
  * keys here on only one side; those keys include out-of-walk program inputs
  * (`node_modules` declarations, sibling-package sources), so the snapshots
- * never matched and the cache missed on every module — re-transforming the
- * whole project once per file on any project that imports a typed dependency.
+ * never matched and the cache missed on every module; re-transforming the whole
+ * project once per file on any project that imports a typed dependency.
  */
 function matchesCachedSource(
   cached: TtscCachedProjectTransform,
@@ -340,8 +340,8 @@ function matchesCachedSource(
 /**
  * Build the input-hash snapshot stored alongside a fresh compiler result.
  *
- * Hashes every file under the project directory — the exact universe
- * {@link matchesCachedSource} re-hashes to validate — then overlays the
+ * Hashes every file under the project directory (the exact universe
+ * {@link matchesCachedSource} re-hashes to validate), then overlays the
  * in-memory source for the module that triggered the compile so unsaved editor
  * content is captured correctly.
  *
@@ -593,7 +593,7 @@ function normalizePluginConfigForGeneratedTsconfig(
  * project's own `paths` wholesale. The overlay therefore re-states the
  * project's effective mappings first, so tsconfig-only aliases keep resolving;
  * inline `compilerOptions.paths` from the plugin options ride on top, and the
- * bundler aliases win last — they mirror what the bundler will actually do at
+ * bundler aliases win last; they mirror what the bundler will actually do at
  * resolve time.
  *
  * No `baseUrl` is emitted: TypeScript-Go removed the option (TS5102), and all
@@ -838,7 +838,7 @@ function formatUnknownError(error: unknown): string {
  * If `tsconfig` is supplied it is returned as-is (absolute) or resolved from
  * `process.cwd()` (relative). Otherwise the function walks ancestor directories
  * starting at `file`'s directory, returning the first `tsconfig.json` found.
- * Falls back to `<cwd>/tsconfig.json` when no ancestor contains one — the
+ * Falls back to `<cwd>/tsconfig.json` when no ancestor contains one; the
  * compiler will error if that file does not exist, which is the correct
  * behavior for a mis-configured project.
  */
@@ -856,7 +856,7 @@ function resolveTsconfig(file: string, tsconfig?: string): string {
       return candidate;
     }
     const parent = path.dirname(current);
-    // Reached filesystem root — stop walking.
+    // Reached filesystem root, stop walking.
     if (parent === current) {
       break;
     }

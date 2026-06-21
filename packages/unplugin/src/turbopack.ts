@@ -57,7 +57,7 @@ const transformCache = createTtscTransformCache();
  *
  * Pass {@link TtscUnpluginOptions} through the rule's `options` object. The
  * loader returns the source unchanged for declaration files, `node_modules`
- * paths, and transforms that produce no change — mirroring the unplugin
+ * paths, and transforms that produce no change, mirroring the unplugin
  * adapters' `transformInclude` filter, since a broad rule glob routes
  * everything matching the extension through the loader.
  */

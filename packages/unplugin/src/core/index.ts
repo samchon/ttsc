@@ -20,7 +20,7 @@ export const sourceFilePattern = /\.[cm]?tsx?$/;
 /** Matches any path segment that is a `node_modules` directory (cross-platform). */
 const nodeModulesPattern = /(?:^|[/\\])node_modules(?:[/\\]|$)/;
 /**
- * Matches virtual module ids — Rollup/Vite use a leading NUL byte (`\0`) as
+ * Matches virtual module ids: Rollup/Vite use a leading NUL byte (`\0`) as
  * convention.
  */
 const virtualModulePattern = /\0/;

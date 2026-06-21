@@ -35,6 +35,7 @@ jobs:
           - { name: strip, run: "pnpm --filter @ttsc/test-strip start" }
           - { name: ttsc, run: "pnpm --filter @ttsc/test-ttsc start" }
           - { name: unplugin, run: "pnpm --filter @ttsc/test-unplugin start" }
+          - { name: metro, run: "pnpm --filter @ttsc/test-metro start" }
     steps:
       - uses: actions/checkout@v4
 
