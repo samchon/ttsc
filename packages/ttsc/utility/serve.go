@@ -48,9 +48,10 @@ type serveUpdateResponse struct {
 //   - {"update":"<path>","content":"<text>"} applies new content for the file
 //     and re-transforms, so subsequent transform requests reflect the edit.
 //
-// One resident process can serve every Metro worker or an editor session, which
-// removes the per-call recompile the transform subcommand incurs and lets edits
-// be reflected without respawning the host (samchon/ttsc#255).
+// One resident process answers a request stream without recompiling the project
+// per call and reflects edits without respawning the host. Sharing one host
+// across separate worker processes (a Metro worker pool) is tracked in
+// samchon/ttsc#255.
 //
 // in and out are explicit so the request loop is testable; the utility-host
 // command wires them to os.Stdin and os.Stdout.

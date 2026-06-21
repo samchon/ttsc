@@ -36,8 +36,6 @@ export class ResidentTransformProcess {
   private readonly reader: Interface;
   private readonly pending: PendingRequest[] = [];
   private stderr = "";
-  private exitCode: number | null = null;
-  private exitSignal: NodeJS.Signals | null = null;
   private failure: Error | undefined;
 
   public constructor(options: ResidentTransformProcessOptions) {
@@ -50,7 +48,8 @@ export class ResidentTransformProcess {
       windowsHide: true,
     });
     const stdout = this.child.stdout;
-    if (stdout === null || this.child.stdin === null) {
+    const stdin = this.child.stdin;
+    if (stdout === null || stdin === null) {
       this.child.kill();
       throw new Error("ttsc: resident transform host has no stdio pipes");
     }
@@ -68,10 +67,14 @@ export class ResidentTransformProcess {
       this.stderr = (this.stderr + text).slice(-STDERR_TAIL_LIMIT);
     });
     this.child.on("error", (error) => this.fail(error));
-    this.child.on("exit", (code, signal) => {
-      this.exitCode = code;
-      this.exitSignal = signal;
-    });
+    // A dead host's pipes emit "error" (EPIPE on POSIX, often ECONNRESET on
+    // Windows). Without these listeners Node turns a pipe error into an uncaught
+    // exception that crashes the whole consumer process; route them through
+    // fail() (stderr is non-critical) so a pipe death fails in-flight requests
+    // instead, and also closes the window where stdin.destroyed has not flipped.
+    stdin.on("error", (error) => this.fail(error));
+    stdout.on("error", (error) => this.fail(error));
+    this.child.stderr?.on("error", () => {});
   }
 
   /**
@@ -179,9 +182,13 @@ export class ResidentTransformProcess {
     if (detail.length !== 0) {
       return new Error(detail);
     }
-    const signal = this.exitSignal === null ? "" : `, signal ${this.exitSignal}`;
+    // Read the child's own exit fields (set synchronously by Node) so the
+    // message is accurate even before this instance's "exit" handler would run.
+    const code = this.child.exitCode;
+    const signalCode = this.child.signalCode;
+    const signal = signalCode === null ? "" : `, signal ${signalCode}`;
     return new Error(
-      `ttsc: resident transform host exited (code ${this.exitCode ?? "null"}${signal})`,
+      `ttsc: resident transform host exited (code ${code ?? "null"}${signal})`,
     );
   }
 }

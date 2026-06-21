@@ -146,7 +146,7 @@ try {
 }
 ```
 
-The constructor takes the same [`ITtscCompilerContext`](#context-options) and launches the host synchronously; the project compiles lazily, so the first `transformFile` resolves once that compile lands.
+The constructor takes the same [`ITtscCompilerContext`](#context-options) and launches the host synchronously; the host compiles in the background, so the first `transformFile` resolves once that compile lands.
 
 - `transformFile(name)` → `Promise<string | undefined>`. The file's post-plugin TypeScript source. A relative `name` resolves against the project root. Resolves `undefined` when the file is outside the compiled program. Rejects when the project failed to compile, carrying the host's diagnostics in the rejection.
 - `updateFile(name, content)` → `Promise<boolean>`. Apply new in-memory content for a file and re-transform. Returns whether the rebuild succeeded; `false` means the edit did not compile and the previous transform is still in effect.

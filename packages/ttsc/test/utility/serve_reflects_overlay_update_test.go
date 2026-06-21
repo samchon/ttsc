@@ -93,36 +93,42 @@ func TestUtilityServeReflectsOverlayUpdate(t *testing.T) {
   }
 }
 
-// TestUtilityServeUpdateFailureKeepsPreviousTransform verifies that an update
-// that does not compile leaves the previous transform in effect (reply
-// updated:false), and that the failed edit is rolled back so a later valid
-// update still succeeds rather than staying wedged on the broken buffer.
+// TestUtilityServeUpdateFailureRollsBackAndRecovers verifies that an update that
+// does not compile leaves the previous transform in effect (reply updated:false),
+// and that the failed edit is rolled back out of the overlay so a later valid
+// update to a DIFFERENT file still succeeds rather than staying wedged on the
+// broken buffer.
 //
 // This is the load-bearing half of the update contract (samchon/ttsc#255): an
 // editor sends a transient broken buffer mid-keystroke, and the resident host
 // must neither crash nor corrupt the cache, and must recover on the next good
-// edit.
+// edit. The recovery edit targets b.ts, not the broken a.ts, so it can only
+// compile if a.ts's rejected buffer was rolled back; a same-file recovery would
+// pass even without rollback because it overwrites the broken override.
 //
-// 1. Transform index.ts (value 1).
-// 2. Update with a type error; assert updated:false and that a transform still
-//    returns the original value 1.
-// 3. Update with valid new content; assert updated:true and the new value, which
-//    only holds if the broken edit was rolled back out of the overlay.
-func TestUtilityServeUpdateFailureKeepsPreviousTransform(t *testing.T) {
+// 1. Update a.ts with a type error; assert updated:false and a.ts still
+//    transforms to its original value.
+// 2. Update b.ts with valid content; assert updated:true, which holds only if
+//    a.ts was rolled back (otherwise the rebuild still sees a.ts broken).
+// 3. Transform b.ts and confirm the new value.
+func TestUtilityServeUpdateFailureRollsBackAndRecovers(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
   "compilerOptions": { "module": "commonjs", "target": "es2020", "noEmit": true },
-  "files": ["index.ts"]
+  "files": ["a.ts", "b.ts"]
 }
 `)
-  writeProjectFile(t, root, "index.ts", `export const value: number = 1;
+  writeProjectFile(t, root, "a.ts", `export const a: number = 1;
 `)
-  index := filepath.Join(root, "index.ts")
+  writeProjectFile(t, root, "b.ts", `export const b: number = 10;
+`)
+  aPath := filepath.Join(root, "a.ts")
+  bPath := filepath.Join(root, "b.ts")
 
-  requests := serveUpdateLine(t, index, "export const value: number = \"oops\";\n") + "\n" +
-    serveRequestLine(t, index) + "\n" +
-    serveUpdateLine(t, index, "export const value: number = 3;\n") + "\n" +
-    serveRequestLine(t, index) + "\n"
+  requests := serveUpdateLine(t, aPath, "export const a: number = \"oops\";\n") + "\n" +
+    serveRequestLine(t, aPath) + "\n" +
+    serveUpdateLine(t, bPath, "export const b: number = 20;\n") + "\n" +
+    serveRequestLine(t, bPath) + "\n"
 
   var out bytes.Buffer
   code := utility.RunServe(strings.NewReader(requests), &out, []string{"--cwd", root})
@@ -156,14 +162,14 @@ func TestUtilityServeUpdateFailureKeepsPreviousTransform(t *testing.T) {
     t.Fatalf("decode reply 2: %v (%q)", err, lines[2])
   }
   if !recovered.Updated {
-    t.Fatalf("a valid update after a failed one should succeed (rollback): %q", lines[2])
+    t.Fatalf("a valid update to b.ts must succeed, proving a.ts was rolled back: %q", lines[2])
   }
 
   var after serveResponse
   if err := json.Unmarshal([]byte(lines[3]), &after); err != nil {
     t.Fatalf("decode reply 3: %v (%q)", err, lines[3])
   }
-  if !after.Found || !strings.Contains(after.TypeScript, "3") {
-    t.Fatalf("resident host did not recover to the valid update: %q", lines[3])
+  if !after.Found || !strings.Contains(after.TypeScript, "20") {
+    t.Fatalf("resident host did not reflect the recovery update: %q", lines[3])
   }
 }
