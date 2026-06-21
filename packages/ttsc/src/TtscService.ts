@@ -52,15 +52,37 @@ export class TtscService {
    * carries the host's diagnostics so callers can surface a real build error.
    */
   public async transformFile(fileName: string): Promise<string | undefined> {
-    const absolute = path.isAbsolute(fileName)
-      ? fileName
-      : path.resolve(this.projectRoot, fileName);
-    const reply = await this.resident.transformFile(absolute);
-    return reply.found ? reply.typescript : undefined;
+    const reply = await this.resident.request({
+      file: this.absolutePath(fileName),
+    });
+    return reply.found === true && typeof reply.typescript === "string"
+      ? reply.typescript
+      : undefined;
+  }
+
+  /**
+   * Apply new in-memory content for one file and re-transform the project, so a
+   * subsequent {@link transformFile} reflects the edit without restarting the
+   * host. Returns whether the re-transform succeeded; `false` means the edit did
+   * not compile and the previous transform is still in effect. A relative
+   * `fileName` is resolved against the project root.
+   */
+  public async updateFile(fileName: string, content: string): Promise<boolean> {
+    const reply = await this.resident.request({
+      content,
+      update: this.absolutePath(fileName),
+    });
+    return reply.updated === true;
   }
 
   /** Terminate the resident host and reject any in-flight requests. */
   public dispose(): void {
     this.resident.dispose();
+  }
+
+  private absolutePath(fileName: string): string {
+    return path.isAbsolute(fileName)
+      ? fileName
+      : path.resolve(this.projectRoot, fileName);
   }
 }

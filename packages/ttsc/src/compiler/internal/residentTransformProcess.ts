@@ -1,15 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
 
-/**
- * One reply from the resident `serve` host: the transformed TypeScript for the
- * requested file, and whether the resident program actually had that file.
- */
-export interface ResidentTransformReply {
-  found: boolean;
-  typescript: string;
-}
-
 /** Options for spawning the resident transform host. */
 export interface ResidentTransformProcessOptions {
   args: readonly string[];
@@ -20,7 +11,7 @@ export interface ResidentTransformProcessOptions {
 
 interface PendingRequest {
   reject: (reason: Error) => void;
-  resolve: (reply: ResidentTransformReply) => void;
+  resolve: (reply: Record<string, unknown>) => void;
 }
 
 /**
@@ -77,10 +68,14 @@ export class ResidentTransformProcess {
   }
 
   /**
-   * Request the transformed TypeScript for one absolute file path. Rejects when
-   * the host has already failed or exited, or if writing the request fails.
+   * Send one request to the host and resolve with its parsed JSON reply. The
+   * host answers in FIFO order, so the caller interprets the reply shape by the
+   * payload it sent (a transform reply vs an update reply). Rejects when the
+   * host has already failed or exited, or if writing the request fails.
    */
-  public transformFile(file: string): Promise<ResidentTransformReply> {
+  public request(
+    payload: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     if (this.failure !== undefined) {
       return Promise.reject(this.failure);
     }
@@ -90,12 +85,12 @@ export class ResidentTransformProcess {
         new Error("ttsc: resident transform host stdin is closed"),
       );
     }
-    return new Promise<ResidentTransformReply>((resolve, reject) => {
-      const request: PendingRequest = { reject, resolve };
-      this.pending.push(request);
-      stdin.write(`${JSON.stringify({ file })}\n`, (error) => {
+    return new Promise<Record<string, unknown>>((resolve, reject) => {
+      const pending: PendingRequest = { reject, resolve };
+      this.pending.push(pending);
+      stdin.write(`${JSON.stringify(payload)}\n`, (error) => {
         if (error) {
-          this.removePending(request);
+          this.removePending(pending);
           reject(error);
         }
       });
@@ -169,19 +164,22 @@ export class ResidentTransformProcess {
 }
 
 /**
- * Parse one reply line. A malformed line (the host emits `{}` for a request it
- * could not decode) degrades to a not-found reply rather than throwing, so one
- * bad line never rejects a request that the FIFO has already advanced past.
+ * Parse one reply line into a plain object. A malformed line degrades to an
+ * empty object rather than throwing, so one bad line never rejects a request the
+ * FIFO has already advanced past; the caller reads missing fields as absent.
  */
-function parseReply(line: string): ResidentTransformReply {
-  let parsed: { found?: unknown; typescript?: unknown };
+function parseReply(line: string): Record<string, unknown> {
   try {
-    parsed = JSON.parse(line) as { found?: unknown; typescript?: unknown };
+    const parsed = JSON.parse(line) as unknown;
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as Record<string, unknown>;
+    }
   } catch {
-    return { found: false, typescript: "" };
+    // A non-object or unparseable line is treated as an empty reply.
   }
-  return {
-    found: parsed.found === true,
-    typescript: typeof parsed.typescript === "string" ? parsed.typescript : "",
-  };
+  return {};
 }
