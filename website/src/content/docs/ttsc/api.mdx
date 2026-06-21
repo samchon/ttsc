@@ -125,6 +125,37 @@ Cleanup target order:
 2. Else if `TTSC_CACHE_DIR` is set (in `context.env` or `process.env`) → remove that override's plugin cache plus legacy project-local caches.
 3. Otherwise → remove the default global plugin cache plus legacy project-local caches.
 
+## Resident transform service (`TtscService`)
+
+`TtscService` is the resident, incremental counterpart to [`transform()`](#transform). Where `transform()` reloads and recompiles the whole project on every call, `TtscService` compiles the project once into a warm host and then answers per-file requests from it. A single process that transforms many files (a watch server, an editor, a long-running codegen tool) pays the project compile once.
+
+```ts
+import { TtscService } from "ttsc";
+
+const service = new TtscService({ cwd: "/abs/path/to/project" });
+try {
+  // The file's post-plugin TypeScript, or undefined when it is not in the program.
+  const code = await service.transformFile("src/index.ts");
+
+  // Apply an unsaved edit and re-transform; a later transformFile reflects it.
+  const ok = await service.updateFile("src/index.ts", "export const x: number = 2;\n");
+
+  const next = await service.transformFile("src/index.ts");
+} finally {
+  service.dispose();
+}
+```
+
+The constructor takes the same [`ITtscCompilerContext`](#context-options) and launches the host synchronously; the project compiles lazily, so the first `transformFile` resolves once that compile lands.
+
+- `transformFile(name)` → `Promise<string | undefined>`. The file's post-plugin TypeScript source. A relative `name` resolves against the project root. Resolves `undefined` when the file is outside the compiled program. Rejects when the project failed to compile, carrying the host's diagnostics in the rejection.
+- `updateFile(name, content)` → `Promise<boolean>`. Apply new in-memory content for a file and re-transform. Returns whether the rebuild succeeded; `false` means the edit did not compile and the previous transform is still in effect.
+- `dispose()`. Terminate the resident host and reject any in-flight requests. Always call it (use `try`/`finally`) so the host process does not leak.
+
+`TtscService` runs through the linked-plugin host, the only host that serves resident requests, so the project must declare at least one transform-stage plugin. It is source-to-source: it returns TypeScript, never JS or `.d.ts` (use [`compile()`](#compile) for emit).
+
+The service is resident within one process. It does not share a host across separate worker processes (for example a Metro worker pool); each process that constructs a `TtscService` runs its own host. A shared cross-process daemon is tracked in [#255](https://github.com/samchon/ttsc/issues/255).
+
 ## Context options
 
 [`ITtscCompilerContext`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/src/structures/ITtscCompilerContext.ts):
@@ -179,7 +210,9 @@ See [`ITtscProjectPluginConfig`](https://github.com/samchon/ttsc/blob/master/pac
 
 ### Long-lived service
 
-Build one `TtscCompiler` per watched project at startup. Call `prepare()` once, then `compile()` whenever you need a fresh build. There is no incremental mode today, every `compile()` reloads the project, so the construction cost is just descriptor wiring, not the compile itself.
+Build one `TtscCompiler` per watched project at startup. Call `prepare()` once, then `compile()` whenever you need a fresh build; each `compile()` reloads the project, so the construction cost is just descriptor wiring, not the compile itself.
+
+When the long-lived tool transforms the same project's files repeatedly rather than emitting full builds, use [`TtscService`](#resident-transform-service-ttscservice) instead: it keeps the host warm and answers per-file transform requests without recompiling per call.
 
 ### CI warmup
 
@@ -196,4 +229,4 @@ Pair this with caching `TTSC_CACHE_DIR` between CI runs to skip the rebuild on s
 
 ## Stability
 
-`TtscCompiler`, the result types, and `ITtscCompilerContext` are the public programmatic surface. CLI launchers, binary resolution helpers, project config parsing utilities, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.
+`TtscCompiler`, `TtscService`, the result types, and `ITtscCompilerContext` are the public programmatic surface. CLI launchers, binary resolution helpers, project config parsing utilities, and native build helpers stay internal, depending on them will break. The package `exports` field enforces this.

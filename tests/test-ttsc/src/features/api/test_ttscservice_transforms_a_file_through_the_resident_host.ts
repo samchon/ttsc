@@ -41,7 +41,7 @@ export const test_ttscservice_transforms_a_file_through_the_resident_host =
       const first = await service.transformFile(path.join(root, "src", "main.ts"));
       assert.ok(first, "resident host returned no output for src/main.ts");
       // The banner is a source-preamble plugin, so its block must appear in the
-      // transformed TypeScript exactly once — proof the linked plugins ran
+      // transformed TypeScript exactly once, proof the linked plugins ran
       // inside the resident host, not just a source pass-through.
       TestUtilityPlugins.assertSingleBanner(first, "utility combo");
 

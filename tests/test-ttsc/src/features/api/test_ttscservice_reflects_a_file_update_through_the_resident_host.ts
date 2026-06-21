@@ -11,8 +11,8 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  *
  * The incremental half of the resident host (samchon/ttsc#255): an editor or
  * watch consumer feeds an unsaved buffer through `updateFile`, and the next
- * `transformFile` must return the edited source — re-run through the linked
- * plugins — without restarting the host. This is what makes the service
+ * `transformFile` must return the edited source, re-run through the linked
+ * plugins, without restarting the host. This is what makes the service
  * incremental rather than merely resident.
  *
  * Uses the shared utility-plugins fixture (banner/paths/strip share one linked

@@ -10,7 +10,7 @@ import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
  * Where {@link TtscCompiler.transform} spawns a fresh process and recompiles the
  * whole project on every call, `TtscService` keeps one long-lived host warm: it
  * compiles the project once and then answers per-file transform requests from
- * that warm program. This is the resident host of samchon/ttsc#255 — a single
+ * that warm program. This is the resident host of samchon/ttsc#255: a single
  * service shared across Metro workers or an editor session pays the project
  * compile once instead of once per file.
  *
