@@ -128,6 +128,30 @@ export default {
 
 Adapters ship for Vite, Rollup, Rolldown, esbuild, Webpack, Rspack, Next.js, Turbopack, Farm, and Bun. Import the entrypoint that matches your bundler (`@ttsc/unplugin/webpack`, `@ttsc/unplugin/esbuild`, and so on). See [Bundler integration](/docs/ttsc/bundler) for every adapter, the `project` / `compilerOptions` / `plugins` options, and watch-mode behavior.
 
+## React Native / Expo (@ttsc/metro)
+
+React Native and Expo bundle with Metro, not a web bundler, so the `ttsc` CLI and `@ttsc/unplugin` never run.
+
+[`@ttsc/metro`](/docs/ttsc/bundler) is a Metro transformer that runs the same plugin pass on each TypeScript file, then hands the result to your existing Expo or React-Native Babel transformer.
+
+### Install
+
+```bash
+npm install -D @ttsc/metro
+```
+
+### `metro.config.js`
+
+```js
+// Expo (CommonJS, the standard for metro.config.js)
+const { getDefaultConfig } = require("expo/metro-config");
+const { withTtsc } = require("@ttsc/metro");
+
+module.exports = withTtsc(getDefaultConfig(__dirname));
+```
+
+For bare React Native, wrap `getDefaultConfig` from `@react-native/metro-config` instead. It reads the same `tsconfig.json`, so your plugins and `lint.config.ts` apply unchanged. See [Bundler integration](/docs/ttsc/bundler) for the options and the v1 caveats.
+
 ## Editor (VS Code)
 
 The VS Code extension reads your project's `ttsc` setup, so editor diagnostics match your build.
