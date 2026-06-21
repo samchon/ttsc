@@ -14,14 +14,14 @@ import (
 // program when the edited file's import/reference graph is unchanged.
 type Session struct {
   cwd     string
-  overlay *overlayFS
+  overlay *OverlayFS
   prog    *Program
 }
 
 // NewSession loads the project over an overlay filesystem and keeps the
 // resulting program resident. cwd must be absolute; tsconfig may be relative.
 func NewSession(cwd, tsconfig string, options LoadProgramOptions) (*Session, []Diagnostic, error) {
-  overlay := newOverlayFS(DefaultFS())
+  overlay := NewOverlayFS(DefaultFS())
   options.FS = overlay
   prog, diags, err := LoadProgram(cwd, tsconfig, options)
   if err != nil {
@@ -38,7 +38,7 @@ func NewSession(cwd, tsconfig string, options LoadProgramOptions) (*Session, []D
 // (true) or had to rebuild it because the file's import/reference graph changed
 // (false).
 func (s *Session) Apply(absPath, content string) bool {
-  s.overlay.set(absPath, content)
+  s.overlay.Set(absPath, content)
   name := absPath
   if file := s.prog.SourceFile(absPath); file != nil {
     name = file.FileName()

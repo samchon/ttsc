@@ -10,12 +10,13 @@ import (
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  "github.com/microsoft/typescript-go/shim/vfs"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// hostOptions is the parsed form of the flags accepted by all three
-// subcommands (check, build, transform).
+// hostOptions is the parsed form of the flags accepted by the subcommands
+// (check, build, transform, serve).
 type hostOptions struct {
   cwd            string
   emit           bool
@@ -28,6 +29,10 @@ type hostOptions struct {
   singleThreaded bool
   checkers       int
   tsgoArgs       []string
+  // fs overrides the filesystem the program loads from. Only the resident serve
+  // host sets it (to an OverlayFS), so build/check/transform leave it nil and
+  // LoadProgram falls back to the default filesystem.
+  fs vfs.FS
 }
 
 // transformResult is the JSON envelope written to stdout by RunTransform.
@@ -251,6 +256,7 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []driver.PluginEntry
     SingleThreaded: opts.singleThreaded,
     Checkers:       opts.checkers,
     TsgoArgs:       opts.tsgoArgs,
+    FS:             opts.fs,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "ttsc utility: %v\n", err)
