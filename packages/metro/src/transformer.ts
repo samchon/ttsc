@@ -58,7 +58,7 @@ function options(): ResolvedTtscMetroOptions {
  * reads the file via `fs.readFileSync(path.resolve(projectRoot, filename))`)
  * and passes `projectRoot` inside `options`. The ttsc pass needs an absolute
  * path that matches a key in the compiled program, so resolve against
- * `projectRoot` — never `process.cwd()`, which differs from `projectRoot` in
+ * `projectRoot`, never `process.cwd()`, which differs from `projectRoot` in
  * monorepos and when Metro is launched from a parent directory. Getting this
  * wrong makes every file look "outside the project" and silently skips the
  * plugin pass.
@@ -117,7 +117,7 @@ export async function transform(params: {
       transformedSrc = result.code;
     }
   } catch (error) {
-    // A file that is not part of the tsconfig program is not a build error —
+    // A file that is not part of the tsconfig program is not a build error,
     // pass it through untransformed. Genuine compile/type failures propagate so
     // Metro surfaces them, matching the other ttsc bundler integrations.
     if (!isFileOutsideProject(error)) {
@@ -135,7 +135,7 @@ export async function transform(params: {
  * the transformer itself changes: package version + resolved options + the
  * upstream transformer's own key (forwarded Metro's args, e.g. `projectRoot`,
  * so a `babel.config.js` change still busts the cache). Resolving the upstream
- * is deliberately non-fatal here — a missing peer must not crash cache-key
+ * is deliberately non-fatal here: a missing peer must not crash cache-key
  * computation. NOTE: this does not encode the tsconfig / plugin configuration
  * or cross-file type dependencies, so after editing those (or a depended-upon
  * type) run Metro with `--reset-cache`. See the README "Caveats" and
@@ -215,7 +215,7 @@ export function shouldTransform(
 /**
  * `transformTtsc` throws `"ttsc transform did not return output for <file>"`
  * when the requested file is not part of the compiled program (e.g. excluded
- * from the tsconfig). That case is non-fatal — the file should pass through.
+ * from the tsconfig). That case is non-fatal: the file should pass through.
  */
 function isFileOutsideProject(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);

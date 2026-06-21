@@ -3,8 +3,8 @@ import { assertNonObjectEnvFallsBackToDefaults } from "../../internal/metro-opti
 /**
  * Verifies options fall back to defaults on a non-object env payload.
  *
- * Valid JSON that is not a plain object — an array, `null`, a number, a string,
- * a boolean — must degrade to defaults via the non-object branch of `parse`
+ * Valid JSON that is not a plain object (an array, `null`, a number, a string,
+ * a boolean) must degrade to defaults via the non-object branch of `parse`
  * (distinct from the malformed-JSON catch). An array in particular must not
  * slip through the `typeof === "object"` guard and reach the worker.
  *

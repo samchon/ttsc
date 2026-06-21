@@ -4,7 +4,7 @@ import { assertAutoDetectsInPriorityOrder } from "../../internal/metro-upstream"
  * Verifies upstream auto-detection tries candidates in priority order.
  *
  * With no explicit `upstreamTransformer`, the adapter must prefer Expo, then
- * modern React Native, then the legacy package — picking the first resolvable
+ * modern React Native, then the legacy package, picking the first resolvable
  * one. A wrong order would, e.g., pick the legacy transformer in an Expo
  * project.
  *

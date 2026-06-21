@@ -91,7 +91,7 @@ export async function assertNonIncludedPathPassesThrough(): Promise<void> {
 }
 
 /**
- * Asserts every Metro transform parameter — not just `src`/`filename` — reaches
+ * Asserts every Metro transform parameter (not just `src`/`filename`) reaches
  * the upstream transformer. A custom transformer that dropped `options` or
  * sibling fields would break Metro's downstream Babel stage.
  */
@@ -156,7 +156,7 @@ export async function assertRunsTtscPluginPassOnTypeScript(): Promise<void> {
   assert.equal(result.ast.__fakeUpstream, true);
   TestUnpluginProject.assertTransformedToPlugin(result.ast.src as string);
   // The transform-path spread must preserve sibling params (options/plugins),
-  // not just `src` — a regression dropping them would break Metro's Babel stage.
+  // not just `src`, a regression dropping them would break Metro's Babel stage.
   assert.equal((result.ast.options as Record<string, unknown>).platform, "ios");
   assert.deepEqual(result.ast.plugins, ["babel-plugin-foo"]);
 }
@@ -213,7 +213,7 @@ export async function assertAcceptsAllTypeScriptExtensions(): Promise<void> {
 
 /**
  * Asserts `shouldTransform` rejects declaration files and non-TypeScript
- * extensions (`.d.ts`/`.d.mts`, `.js`/`.jsx`, `.json`, `.css`) — they pass
+ * extensions (`.d.ts`/`.d.mts`, `.js`/`.jsx`, `.json`, `.css`): they pass
  * straight through to the upstream transformer.
  */
 export async function assertRejectsNonTypeScriptExtensions(): Promise<void> {
@@ -325,7 +325,7 @@ export async function assertCacheKeyForwardsAndFoldsUpstreamKey(): Promise<void>
 
 /**
  * Asserts `getCacheKey` does not throw when the configured upstream cannot be
- * resolved — cache-key computation must degrade, not crash the whole build.
+ * resolved: cache-key computation must degrade, not crash the whole build.
  */
 export async function assertCacheKeySurvivesMissingUpstream(): Promise<void> {
   const key = await TestMetroRuntime.withTransformerEnv(
@@ -338,7 +338,7 @@ export async function assertCacheKeySurvivesMissingUpstream(): Promise<void> {
 
 /**
  * Asserts `getCacheKey` does not throw when the upstream's own `getCacheKey`
- * throws — the inner guard must swallow it and still produce a valid key.
+ * throws: the inner guard must swallow it and still produce a valid key.
  */
 export async function assertCacheKeySurvivesThrowingUpstreamCacheKey(): Promise<void> {
   const throwing = TestMetroRuntime.fakeUpstreamThrowingCacheKeyOnDisk();
@@ -374,7 +374,7 @@ export async function assertOutsideProjectFilePassesThrough(): Promise<void> {
 
 /**
  * End-to-end: asserts a genuine compile/plugin failure propagates (the
- * `isFileOutsideProject` FALSE branch — rethrow), and is NOT swallowed as an
+ * `isFileOutsideProject` FALSE branch, rethrow), and is NOT swallowed as an
  * out-of-project case. Requires the native compiler → CI-only.
  */
 export async function assertGenuineCompileErrorPropagates(): Promise<void> {

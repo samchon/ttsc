@@ -101,7 +101,7 @@ export async function assertOptionsFallBackOnMalformedEnv(): Promise<void> {
 
 /**
  * Asserts valid JSON that is not a plain object (array, `null`, number, string,
- * boolean) degrades to defaults — the non-object branch of `parse`, distinct
+ * boolean) degrades to defaults: the non-object branch of `parse`, distinct
  * from the malformed-JSON catch. An array in particular must not slip through
  * the `typeof === "object"` guard.
  */
@@ -119,7 +119,7 @@ export async function assertNonObjectEnvFallsBackToDefaults(): Promise<void> {
 
 /**
  * Asserts an empty-string env payload (distinct from an unset var) degrades to
- * defaults — the `raw.length === 0` half of the guard in `parse`.
+ * defaults: the `raw.length === 0` half of the guard in `parse`.
  */
 export async function assertEmptyStringEnvFallsBackToDefaults(): Promise<void> {
   await withEnv("", async (mod) => {
@@ -133,7 +133,7 @@ export async function assertEmptyStringEnvFallsBackToDefaults(): Promise<void> {
 /**
  * Asserts untrusted include/exclude values are coerced to string arrays: a bare
  * string (a common mistake) becomes `[]`, and non-string entries are filtered
- * out — so the worker never calls `.some` on a non-array and crashes. Valid
+ * out, so the worker never calls `.some` on a non-array and crashes. Valid
  * sibling fields (here `plugins: false`) still resolve.
  */
 export async function assertInvalidIncludeExcludeCoerced(): Promise<void> {

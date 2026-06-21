@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
  * Runtime import helpers for the built `@ttsc/metro` package.
  *
  * Tests load the compiled ESM output through file URLs so they validate the
- * package exactly as Node loads it after a build — the same approach the
+ * package exactly as Node loads it after a build, the same approach the
  * `@ttsc/unplugin` suite uses for its adapters.
  */
 export namespace TestMetroRuntime {

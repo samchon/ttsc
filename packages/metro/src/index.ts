@@ -1,5 +1,5 @@
 /**
- * `@ttsc/metro` — Metro (React Native / Expo) adapter for ttsc plugins.
+ * `@ttsc/metro`: Metro (React Native / Expo) adapter for ttsc plugins.
  *
  * Metro bundles with Babel, which strips TypeScript types and never runs ttsc
  * plugins, so neither the `ttsc` CLI nor `@ttsc/unplugin` can reach an RN/Expo
@@ -39,7 +39,7 @@ export type {
 } from "./core/options";
 
 /**
- * Minimal structural type for a Metro config object — avoids a hard dependency
+ * Minimal structural type for a Metro config object, avoids a hard dependency
  * on Metro's types while letting {@link withTtsc} preserve the caller's exact
  * config type.
  */
@@ -57,12 +57,12 @@ interface MetroConfigLike {
  * Sets `transformer.babelTransformerPath` to this package's transformer and
  * publishes the resolved options to Metro's worker processes via the
  * {@link ENV_KEY} environment variable (the workers never see this call, so env
- * is the transport — see `core/options.ts`). Compatible with Expo's
+ * is the transport, see `core/options.ts`). Compatible with Expo's
  * `getDefaultConfig()` and bare React Native alike.
  *
  * With no `options`, the transformer auto-discovers `tsconfig.json` and runs
- * the plugins configured there — the standard ttsc model. Pass `options` only
- * to override the project path, plugin list, or include/exclude filters.
+ * the plugins configured there: the standard ttsc model. Pass `options` only to
+ * override the project path, plugin list, or include/exclude filters.
  */
 export function withTtsc<T extends MetroConfigLike>(
   config: T,

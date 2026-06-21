@@ -5,7 +5,7 @@ import { assertWithTtscPreservesExistingConfig } from "../../internal/metro-conf
  *
  * Real Metro configs (especially Expo's `getDefaultConfig`) carry many resolver
  * and transformer settings. withTtsc must add only `babelTransformerPath` and
- * leave everything else — including existing `transformer` fields — intact,
+ * leave everything else, including existing `transformer` fields, intact,
  * rather than replacing the transformer block wholesale.
  *
  * 1. Wrap a config carrying unrelated top-level keys and existing transformer

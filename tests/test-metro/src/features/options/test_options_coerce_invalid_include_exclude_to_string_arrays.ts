@@ -5,7 +5,7 @@ import { assertInvalidIncludeExcludeCoerced } from "../../internal/metro-options
  *
  * `include`/`exclude` cross the config→worker boundary as untrusted JSON. A
  * bare string (a common mistake) or non-string entries would make
- * `shouldTransform` call `.some` on a non-array — crashing every worker. The
+ * `shouldTransform` call `.some` on a non-array, crashing every worker. The
  * resolver must coerce to a filtered `string[]` while still resolving valid
  * sibling fields.
  *

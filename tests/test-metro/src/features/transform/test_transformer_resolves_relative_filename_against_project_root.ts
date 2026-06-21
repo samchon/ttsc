@@ -6,7 +6,7 @@ import { assertResolvesRelativeFilenameAgainstProjectRoot } from "../../internal
  *
  * Metro hands the babel transformer a path relative to `projectRoot` and passes
  * `projectRoot` in options. Resolving against `process.cwd()` instead would, in
- * monorepos / non-root launches, point the ttsc pass at a non-existent path —
+ * monorepos / non-root launches, point the ttsc pass at a non-existent path,
  * making every file look "outside the project" and silently skipping plugins.
  *
  * 1. Resolve a relative filename with an explicit `projectRoot`.

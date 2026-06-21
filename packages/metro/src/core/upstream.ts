@@ -42,7 +42,7 @@ export const UPSTREAM_CANDIDATES = [
  *
  * These are declared as optional peers and resolved at runtime against the
  * consumer project, so the adapter carries no Metro/Expo dependency itself.
- * Resolution is not memoised — Node's own module cache already makes the
+ * Resolution is not memoised: Node's own module cache already makes the
  * repeated `require` a cheap lookup, and keeping no module-level state lets a
  * changed `upstreamTransformer` always take effect.
  *

@@ -43,7 +43,7 @@ module.exports = withTtsc(getDefaultConfig(__dirname));
 
 ## Configuration
 
-By default `@ttsc/metro` finds the nearest `tsconfig.json` from the file being transformed and runs the plugins configured there — the standard `ttsc` model. If that is the config you want, `withTtsc(getDefaultConfig(__dirname))` is enough.
+By default `@ttsc/metro` finds the nearest `tsconfig.json` from the file being transformed and runs the plugins configured there: the standard `ttsc` model. If that is the config you want, `withTtsc(getDefaultConfig(__dirname))` is enough.
 
 Options are the second argument and mirror `@ttsc/unplugin`, plus a few Metro-specific knobs:
 
@@ -74,7 +74,7 @@ The plugin contract, `tsconfig` discovery, and per-build cache are identical to 
 
 ## Caveats (v1)
 
-- **Cost model.** This release reuses `@ttsc/unplugin`'s transform core, which type-checks the whole `tsconfig` project and caches the result per process. Metro runs transforms in a multi-process worker pool, so the project is compiled once per worker (on that worker's first file). A resident, incremental, per-file compiler shared across workers is the planned optimization — tracked in [samchon/ttsc#255](https://github.com/samchon/ttsc/issues/255).
+- **Cost model.** This release reuses `@ttsc/unplugin`'s transform core, which type-checks the whole `tsconfig` project and caches the result per process. Metro runs transforms in a multi-process worker pool, so the project is compiled once per worker (on that worker's first file). A resident, incremental, per-file compiler shared across workers is the planned optimization, tracked in [samchon/ttsc#255](https://github.com/samchon/ttsc/issues/255).
 - **Cache invalidation.** Metro keys its transform cache on per-file content plus a static transformer key. A `ttsc` transform can depend on a _type_ in another file; editing that type does not change the dependent file's content, so Metro may serve a stale transform. After changing `tsconfig`/plugin configuration or a depended-upon type, restart Metro with `--reset-cache`.
 - **Type errors fail the build.** The `ttsc` pass type-checks; a project type error surfaces as a Metro build error, matching the other `ttsc` bundler integrations.
 

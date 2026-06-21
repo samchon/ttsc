@@ -6,7 +6,7 @@ import { TestMetroRuntime } from "./metro-runtime";
 const nodeRequire = createRequire(import.meta.url);
 
 /**
- * Asserts the CommonJS build — the one Metro actually `require()`s — loads and
+ * Asserts the CommonJS build (the one Metro actually `require()`s) loads and
  * runs.
  *
  * Every other test loads the `.mjs` (ESM) build, where `import.meta.url` is

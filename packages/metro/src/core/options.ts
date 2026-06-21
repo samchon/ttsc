@@ -62,7 +62,7 @@ export interface ResolvedTtscMetroOptions {
  * Metro forks its transform workers (jest-worker) from the process that loaded
  * `metro.config.js`, so a variable set on `process.env` before Metro boots is
  * inherited by every worker. This is the only channel `withTtsc`'s arguments
- * can reach the transformer through — the worker never sees the `withTtsc`
+ * can reach the transformer through: the worker never sees the `withTtsc`
  * call.
  */
 export const ENV_KEY = "TTSC_METRO_OPTIONS";
@@ -80,8 +80,8 @@ export function serializeOptions(options: TtscMetroOptions): string {
  *
  * Reads {@link ENV_KEY}; when it is unset or malformed the adapter falls back to
  * defaults, which means "auto-discover `tsconfig.json` and read its configured
- * plugins" — the standard ttsc behaviour, and the right thing for a project
- * that called `withTtsc(config)` with no explicit options.
+ * plugins", the standard ttsc behaviour, and the right thing for a project that
+ * called `withTtsc(config)` with no explicit options.
  */
 export function resolveOptionsFromEnv(): ResolvedTtscMetroOptions {
   const raw = process.env[ENV_KEY];

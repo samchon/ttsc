@@ -74,7 +74,7 @@ export async function assertWithTtscPreservesExistingConfig(): Promise<void> {
 
 /**
  * Asserts `withTtsc` publishes resolved options to the worker env so Metro's
- * transformer processes — which never see the `withTtsc` call — can read them.
+ * transformer processes, which never see the `withTtsc` call, can read them.
  */
 export async function assertWithTtscPublishesWorkerEnv(): Promise<void> {
   await withCleanEnv(async () => {
@@ -98,8 +98,8 @@ export async function assertWithTtscPublishesWorkerEnv(): Promise<void> {
 
 /**
  * Asserts withTtsc adds a `transformer` block even when the input config has
- * none — spreading an absent `transformer` must not crash and must still yield
- * a valid `babelTransformerPath`, while unrelated top-level keys survive.
+ * none: spreading an absent `transformer` must not crash and must still yield a
+ * valid `babelTransformerPath`, while unrelated top-level keys survive.
  */
 export async function assertWithTtscAddsTransformerWhenAbsent(): Promise<void> {
   await withCleanEnv(async () => {
