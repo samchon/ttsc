@@ -8,4 +8,5 @@
  */
 
 export * from "./TtscCompiler";
+export * from "./TtscService";
 export * from "./structures/index";
