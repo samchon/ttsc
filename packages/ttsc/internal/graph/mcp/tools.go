@@ -19,7 +19,7 @@ func toolsListResult() any {
     "tools": []any{
       map[string]any{
         "name":        "graph_explore",
-        "description": "The compiler's own graph of the project's top-level declarations. For a symbol or file, returns its source plus its checker-resolved calls, type references, and heritage (in both directions) and its blast radius. Use it first to trace how the code works; open files for detail below the top level (method bodies, variable-bound callables).",
+        "description": "The compiler's own graph of the project's top-level declarations. For a symbol or file, returns its source plus its checker-resolved calls, type references, and heritage (in both directions) and its blast radius. Answer architecture and flow questions from it — the top-level structure is usually the whole answer; open a file only for logic inside a method or a variable-bound callable, which it does not model.",
         "inputSchema": map[string]any{
           "type": "object",
           "properties": map[string]any{

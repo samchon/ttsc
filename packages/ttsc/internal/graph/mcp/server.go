@@ -29,12 +29,12 @@ const defaultProtocolVersion = "2025-06-18"
 // channel through which the server advises an agent; nothing is written to disk.
 const serverInstructions = "ttsc-graph is this project's checker-resolved code graph: its nodes are the " +
   "top-level declarations and its edges (calls, type references, heritage) are the TypeScript compiler's " +
-  "own resolution, not a textual guess. For a question about how the code works, call graph_explore " +
-  "first, with a symbol name or the salient nouns of the question (e.g. \"render update canvas element\", " +
-  "not the whole sentence). It returns each declaration's source, those edges in both directions, and its " +
-  "blast radius — enough to trace the top-level design without grepping. It does not model method bodies " +
-  "or variable-bound callables, so open a file for detail below the top level. Use graph_diagnostics for " +
-  "type errors."
+  "own resolution, not a textual guess. For an architecture or flow question — how the pieces fit, what " +
+  "relates to a symbol, a blast radius — call graph_explore first (a symbol name, or the salient nouns of " +
+  "the question, e.g. \"render update canvas element\") and answer from it: the top-level structure it " +
+  "returns is usually the whole answer, so you need not grep. Open a file only when the question turns on " +
+  "logic inside a method or a variable-bound callable, which the graph does not model. Use " +
+  "graph_diagnostics for type errors."
 
 // Server answers MCP requests from a resident Program and the graph built from
 // it. The Program/graph may be supplied eagerly or built in the background; ready
