@@ -117,11 +117,24 @@ type request struct {
   Params  json.RawMessage `json:"params,omitempty"`
 }
 
+// response is one JSON-RPC 2.0 reply. Its MarshalJSON enforces the spec
+// invariant that a reply carries exactly one of result | error: a success reply
+// always includes result (even a falsy one, which `omitempty` would wrongly
+// drop), and an error reply never includes result.
 type response struct {
-  JSONRPC string          `json:"jsonrpc"`
-  ID      json.RawMessage `json:"id"`
-  Result  any             `json:"result,omitempty"`
-  Error   *rpcError       `json:"error,omitempty"`
+  ID     json.RawMessage
+  Result any
+  Error  *rpcError
+}
+
+func (r response) MarshalJSON() ([]byte, error) {
+  wire := map[string]any{"jsonrpc": "2.0", "id": r.ID}
+  if r.Error != nil {
+    wire["error"] = r.Error
+  } else {
+    wire["result"] = r.Result
+  }
+  return json.Marshal(wire)
 }
 
 type rpcError struct {
@@ -129,25 +142,29 @@ type rpcError struct {
   Message string `json:"message"`
 }
 
-// JSON-RPC error codes used here (a subset of the spec).
+// JSON-RPC 2.0 error codes used here (a subset of the spec).
 const (
+  codeParseError     = -32700
   codeMethodNotFound = -32601
   codeInvalidParams  = -32602
   codeInternal       = -32603
 )
 
 // Handle dispatches one JSON-RPC message and returns the response bytes to write.
-// It returns (nil, false) for a notification (no id) or input it cannot parse,
-// since neither warrants a reply on the stdio stream.
+// It returns (nil, false) only for a notification (a well-formed request with no
+// id), which warrants no reply; malformed JSON is answered with a null-id parse
+// error so a client awaiting a reply does not hang.
 func (s *Server) Handle(raw []byte) ([]byte, bool) {
   var req request
   if err := json.Unmarshal(raw, &req); err != nil {
-    return nil, false
+    // The id is unrecoverable from unparseable input, so reply with a null id
+    // per JSON-RPC 2.0 §4.2 rather than going silent.
+    return reply(response{ID: json.RawMessage("null"), Error: &rpcError{Code: codeParseError, Message: "parse error"}})
   }
   if len(req.ID) == 0 {
     return nil, false
   }
-  resp := response{JSONRPC: "2.0", ID: req.ID}
+  resp := response{ID: req.ID}
   switch req.Method {
   case "initialize":
     resp.Result = initializeResult(req.Params)
@@ -165,6 +182,12 @@ func (s *Server) Handle(raw []byte) ([]byte, bool) {
   default:
     resp.Error = &rpcError{Code: codeMethodNotFound, Message: "method not found: " + req.Method}
   }
+  return reply(resp)
+}
+
+// reply marshals a response for the transport. The controlled result/error
+// shapes here always marshal, so the (nil,false) path is defensive only.
+func reply(resp response) ([]byte, bool) {
   out, err := json.Marshal(resp)
   if err != nil {
     return nil, false

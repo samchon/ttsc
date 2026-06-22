@@ -354,10 +354,21 @@ func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
   if err := s.ensureLoaded(); err != nil {
     return nil, &rpcError{Code: codeInternal, Message: "graph not available: " + err.Error()}
   }
-  path, ok := s.resolveFile(in.File)
-  if !ok {
+  matches := s.resolveFile(in.File)
+  switch len(matches) {
+  case 0:
     return textResult(fmt.Sprintf("No project source file matches %q.", in.File)), nil
+  case 1:
+    // resolved to a single file, handled below
+  default:
+    var b strings.Builder
+    fmt.Fprintf(&b, "%q matches %d files; pass a longer path fragment to disambiguate:\n", in.File, len(matches))
+    for _, m := range matches {
+      fmt.Fprintf(&b, "  %s\n", m)
+    }
+    return textResult(strings.TrimRight(b.String(), "\n")), nil
   }
+  path := matches[0]
   found := graph.FileDiagnostics(s.prog, path)
   if len(found) == 0 {
     return textResult(fmt.Sprintf("No diagnostics for %s.", path)), nil
@@ -369,19 +380,23 @@ func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
   return textResult(strings.TrimRight(b.String(), "\n")), nil
 }
 
-// resolveFile maps a tool's file argument to a program source-file path: an exact
-// match if present, otherwise the unique source file whose path ends with the
-// argument. Returns ("", false) when nothing matches.
-func (s *Server) resolveFile(file string) (string, bool) {
+// resolveFile maps a tool's file argument to program source-file paths. An exact
+// path match wins outright; otherwise it returns every source file whose path
+// ends with the argument on a path-segment boundary (so "main.ts" matches
+// "src/main.ts" but not "src/domain.ts"). Returning all matches lets the caller
+// reject an ambiguous fragment instead of silently picking an arbitrary file.
+func (s *Server) resolveFile(file string) []string {
   for _, source := range s.prog.SourceFiles() {
     if source.FileName() == file {
-      return file, true
+      return []string{file}
     }
   }
+  needle := "/" + file
+  var matches []string
   for _, source := range s.prog.SourceFiles() {
-    if strings.HasSuffix(source.FileName(), file) {
-      return source.FileName(), true
+    if strings.HasSuffix(source.FileName(), needle) {
+      matches = append(matches, source.FileName())
     }
   }
-  return "", false
+  return matches
 }

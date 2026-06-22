@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 /**
@@ -8,8 +9,11 @@ import path from "node:path";
  * Resolution order:
  *
  * 1. `TTSC_GRAPH_BINARY` env var, when set to an absolute path.
- * 2. The per-platform npm package `@ttsc/<platform>-<arch>/bin/ttscgraph[.exe]`,
- *    installed transitively through `ttsc`.
+ * 2. The per-platform npm package `@ttsc/<platform>-<arch>/bin/ttscgraph[.exe]`.
+ *    That package carries `ttsc`, `ttscserver`, and `ttscgraph` together and is
+ *    an `optionalDependency` of `ttsc`, not of this launcher, so it is resolved
+ *    from `ttsc`'s location. Resolving from here directly would fail under
+ *    pnpm/Yarn-PnP, which link the platform package only into `ttsc`'s tree.
  */
 export function resolveGraphBinary(
   env: NodeJS.ProcessEnv = process.env,
@@ -19,7 +23,8 @@ export function resolveGraphBinary(
   }
   const exe = process.platform === "win32" ? "ttscgraph.exe" : "ttscgraph";
   try {
-    return require.resolve(
+    const fromTtsc = createRequire(require.resolve("ttsc/package.json"));
+    return fromTtsc.resolve(
       `@ttsc/${process.platform}-${process.arch}/bin/${exe}`,
     );
   } catch {

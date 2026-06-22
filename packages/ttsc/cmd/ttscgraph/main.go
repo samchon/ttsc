@@ -133,9 +133,22 @@ Usage:
   ttscgraph --help
 
 Options:
-  --stdio              Serve MCP over stdin/stdout (the only transport).
+  --stdio              Serve MCP over stdin/stdout (the default transport).
   --cwd <dir>          Project root (defaults to the process working directory).
   --tsconfig <path>    Project tsconfig path (default: tsconfig.json).
+
+Large-repository daemon (advanced):
+  --daemon               Build the Program once and serve many connections over a
+                         loopback (127.0.0.1) port, so a multi-minute type-check
+                         is not repeated per session.
+  --connect <host:port>  Proxy this process's stdio to a running daemon.
+  --port-file <path>     Daemon: write the chosen host:port here (mode 0600).
+  --idle <dur>           Daemon: exit after this idle period (default 5m; 0 off).
+
+  Security: the daemon's loopback port is UNAUTHENTICATED. Any process on the
+  machine that connects can read this project's source through the graph, so run
+  it only on a single-user host. The @ttsc/graph launcher never starts the
+  daemon; stdio is the default.
 
 Typical embedding:
   An agent's MCP client spawns ttscgraph through the @ttsc/graph launcher, which

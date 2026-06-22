@@ -21,6 +21,41 @@ export function resolveTtscgraphBinary(): string {
   return path.join(path.dirname(TestProject.NATIVE_BINARY), exe);
 }
 
+/**
+ * Spawn `ttscgraph --daemon`: build the Program once and serve many proxy
+ * connections over a localhost port, writing the chosen `host:port` to
+ * `portFile`. The returned child is the long-lived daemon the caller must
+ * kill.
+ *
+ * `--idle 0` disables the idle-exit timer so the daemon never removes the port
+ * file or shuts down out from under a slow test; the caller owns its lifetime.
+ */
+export function spawnDaemon(
+  cwd: string,
+  portFile: string,
+  tsconfig = "tsconfig.json",
+): ChildProcessWithoutNullStreams {
+  return spawn(
+    resolveTtscgraphBinary(),
+    [
+      "--daemon",
+      "--cwd",
+      cwd,
+      "--tsconfig",
+      tsconfig,
+      "--port-file",
+      portFile,
+      "--idle",
+      "0",
+    ],
+    {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env },
+      windowsHide: true,
+    },
+  );
+}
+
 interface Pending {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
@@ -40,11 +75,20 @@ export class TtsgraphClient {
   private readonly pending = new Map<number, Pending>();
 
   static start(cwd: string): TtsgraphClient {
-    return new TtsgraphClient(resolveTtscgraphBinary(), cwd);
+    return new TtsgraphClient(["--stdio", "--cwd", cwd]);
   }
 
-  private constructor(binary: string, cwd: string) {
-    this.child = spawn(binary, ["--stdio", "--cwd", cwd], {
+  /**
+   * Drive a `ttscgraph --connect <addr>` proxy exactly like the stdio client:
+   * the proxy pipes this stdio to a warm daemon, so the same JSON-RPC handshake
+   * and `endStdin`/`waitForExit` lifecycle apply transparently.
+   */
+  static connect(addr: string): TtsgraphClient {
+    return new TtsgraphClient(["--connect", addr]);
+  }
+
+  private constructor(args: string[]) {
+    this.child = spawn(resolveTtscgraphBinary(), args, {
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env },
       windowsHide: true,

@@ -1,6 +1,7 @@
 package main
 
 import (
+  "errors"
   "fmt"
   "io"
   "net"
@@ -35,7 +36,7 @@ func runDaemon(cwd, tsconfig, portFile string, idle time.Duration) int {
     }
     defer func() { _ = os.Remove(portFile) }()
   }
-  fmt.Fprintf(stdout, "ttscgraph daemon listening on %s\n", addr)
+  fmt.Fprintf(stderr, "ttscgraph daemon listening on %s\n", addr)
 
   var (
     mu     sync.Mutex
@@ -47,15 +48,17 @@ func runDaemon(cwd, tsconfig, portFile string, idle time.Duration) int {
       ticker := time.NewTicker(30 * time.Second)
       defer ticker.Stop()
       for range ticker.C {
+        // Decide and exit while holding mu so a connection accepted just after a
+        // quiet check cannot register as active and begin serving only to be
+        // killed mid-handshake by the os.Exit below.
         mu.Lock()
-        quiet := active == 0 && time.Since(last) > idle
-        mu.Unlock()
-        if quiet {
+        if active == 0 && time.Since(last) > idle {
           if portFile != "" {
             _ = os.Remove(portFile)
           }
           os.Exit(0)
         }
+        mu.Unlock()
       }
     }()
   }
@@ -63,7 +66,11 @@ func runDaemon(cwd, tsconfig, portFile string, idle time.Duration) int {
   for {
     conn, err := listener.Accept()
     if err != nil {
-      return 0
+      if errors.Is(err, net.ErrClosed) {
+        return 0
+      }
+      fmt.Fprintf(stderr, "ttscgraph: daemon accept: %v\n", err)
+      return 1
     }
     mu.Lock()
     active++
