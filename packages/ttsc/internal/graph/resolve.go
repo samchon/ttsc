@@ -31,6 +31,8 @@ type Target struct {
   Symbol   *shimast.Symbol
   File     string
   External bool
+  Pos      int
+  End      int
 }
 
 // Resolve follows ref to the real declaration the checker binds it to. It
@@ -49,6 +51,11 @@ func Resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
     }
   }
   target := &Target{Symbol: symbol}
+  if len(symbol.Declarations) > 0 {
+    declaration := symbol.Declarations[0]
+    target.Pos = declaration.Pos()
+    target.End = declaration.End()
+  }
   if file := declarationFile(symbol); file != nil {
     target.File = file.FileName()
     target.External = file.IsDeclarationFile ||

@@ -28,6 +28,11 @@ type Node struct {
   Kind     NodeKind
   File     string
   External bool
+  // Pos and End bound the declaration in its source file (byte offsets). They
+  // are for display, never identity, so an edit that shifts them does not re-key
+  // the node.
+  Pos int
+  End int
 }
 
 // EdgeKind classifies a relationship between two nodes.

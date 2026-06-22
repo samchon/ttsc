@@ -108,13 +108,16 @@ func (s *Server) matchNodes(query string) []*graph.Node {
   return matches
 }
 
-// writeNodeRelations renders one node and its outgoing/incoming edges.
+// writeNodeRelations renders one node: a header with its source location, its
+// outgoing/incoming checker-resolved edges, a blast-radius estimate, and the
+// verbatim line-numbered declaration source.
 func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node) {
   external := ""
   if node.External {
     external = " (external)"
   }
-  fmt.Fprintf(b, "%s %s%s\n  %s\n", node.Kind, node.Name, external, node.File)
+  source, line := s.nodeSource(node)
+  fmt.Fprintf(b, "%s %s%s  %s:%d\n", node.Kind, node.Name, external, node.File, line)
   for _, edge := range s.graph.Edges {
     if edge.From == node.ID {
       if to := s.graph.Nodes[edge.To]; to != nil {
@@ -127,7 +130,66 @@ func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node) {
       }
     }
   }
+  if dependents := s.dependentCount(node); dependents > 0 {
+    fmt.Fprintf(b, "  blast radius: %d transitive dependent(s)\n", dependents)
+  }
+  if source != "" {
+    b.WriteString(numberLines(source, line))
+  }
   b.WriteString("\n")
+}
+
+// nodeSource returns the verbatim declaration text of node and its 1-based start
+// line, or ("", 0) when the source file is not in the program or the span is out
+// of range. Leading whitespace before the declaration is skipped so the slice
+// starts at the declaration keyword (or its leading doc comment).
+func (s *Server) nodeSource(node *graph.Node) (string, int) {
+  file := s.prog.SourceFile(node.File)
+  if file == nil {
+    return "", 0
+  }
+  text := file.Text()
+  if node.Pos < 0 || node.End > len(text) || node.Pos >= node.End {
+    return "", 0
+  }
+  start := node.Pos
+  for start < node.End && isSpace(text[start]) {
+    start++
+  }
+  return text[start:node.End], 1 + strings.Count(text[:start], "\n")
+}
+
+func isSpace(c byte) bool {
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r'
+}
+
+// numberLines prefixes each line of source with its absolute line number so the
+// agent can cite or edit by line without re-reading the file.
+func numberLines(source string, startLine int) string {
+  var b strings.Builder
+  for i, line := range strings.Split(source, "\n") {
+    fmt.Fprintf(&b, "  %d\t%s\n", startLine+i, line)
+  }
+  return b.String()
+}
+
+// dependentCount returns the number of distinct nodes that transitively depend
+// on node (reach it through an edge): a blast-radius estimate for an edit, walked
+// over the reverse adjacency.
+func (s *Server) dependentCount(node *graph.Node) int {
+  seen := map[string]bool{}
+  queue := []string{node.ID}
+  for len(queue) > 0 {
+    current := queue[0]
+    queue = queue[1:]
+    for _, edge := range s.graph.Edges {
+      if edge.To == current && !seen[edge.From] {
+        seen[edge.From] = true
+        queue = append(queue, edge.From)
+      }
+    }
+  }
+  return len(seen)
 }
 
 // diagnostics returns a file's tsc semantic diagnostics as text.

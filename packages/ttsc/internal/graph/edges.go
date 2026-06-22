@@ -223,6 +223,8 @@ func (g *Graph) ensureTargetNode(target *Target) string {
       Kind:     kind,
       File:     target.File,
       External: target.External,
+      Pos:      target.Pos,
+      End:      target.End,
     }
   }
   return id

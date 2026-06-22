@@ -80,5 +80,7 @@ func addNode(g *Graph, path string, node *shimast.Node, kind NodeKind) {
     Name: symbol.Name,
     Kind: kind,
     File: path,
+    Pos:  node.Pos(),
+    End:  node.End(),
   }
 }
