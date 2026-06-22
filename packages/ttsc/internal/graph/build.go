@@ -16,6 +16,7 @@ func Build(prog *driver.Program) *Graph {
   for _, file := range prog.SourceFiles() {
     collectDeclarations(g, file)
   }
+  g.addEdges(prog)
   return g
 }
 

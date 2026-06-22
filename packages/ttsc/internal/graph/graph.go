@@ -30,10 +30,28 @@ type Node struct {
   External bool
 }
 
+// EdgeKind classifies a relationship between two nodes.
+type EdgeKind string
+
+const (
+  // EdgeHeritage is an `extends` / `implements` relationship from a class or
+  // interface to a base it derives from.
+  EdgeHeritage EdgeKind = "heritage"
+)
+
+// Edge is a directed, checker-resolved relationship from one node to another,
+// both referenced by Node.ID.
+type Edge struct {
+  From string
+  To   string
+  Kind EdgeKind
+}
+
 // Graph is the in-memory adjacency the MCP tools query. Edges are added by the
 // resolution pass on top of the declaration nodes Build records.
 type Graph struct {
   Nodes map[string]*Node
+  Edges []*Edge
 }
 
 // nodeID builds the position-invariant identity for a symbol named name,
