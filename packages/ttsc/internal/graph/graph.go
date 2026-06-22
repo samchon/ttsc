@@ -40,6 +40,10 @@ const (
   // EdgeValueCall is a runtime call from one declaration to the function,
   // method, or constructor it invokes.
   EdgeValueCall EdgeKind = "value-call"
+  // EdgeTypeRef is a type-position reference from one declaration to a named
+  // type it mentions (a parameter, return, property, or alias type). It is not a
+  // runtime call, so an impact query can filter value edges from type edges.
+  EdgeTypeRef EdgeKind = "type-ref"
 )
 
 // Edge is a directed, checker-resolved relationship from one node to another,

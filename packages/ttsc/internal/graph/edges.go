@@ -17,6 +17,7 @@ func (g *Graph) addEdges(prog *driver.Program) {
   for _, file := range prog.SourceFiles() {
     g.collectHeritage(checker, file)
     g.collectCalls(checker, file)
+    g.collectTypeRefs(checker, file)
   }
 }
 
@@ -96,7 +97,7 @@ func (g *Graph) collectCalls(checker *shimchecker.Checker, file *shimast.SourceF
   }
   path := file.FileName()
   for _, statement := range file.Statements.Nodes {
-    from, ok := topLevelNodeID(path, statement)
+    from, ok := containerNodeID(path, statement)
     if !ok {
       continue
     }
@@ -104,10 +105,12 @@ func (g *Graph) collectCalls(checker *shimchecker.Checker, file *shimast.SourceF
   }
 }
 
-// topLevelNodeID returns the node id of a top-level declaration that can contain
-// calls (a function or class) and whether statement is one. Variable-bound
-// callables are added by a later pass.
-func topLevelNodeID(path string, statement *shimast.Node) (string, bool) {
+// containerNodeID returns the node id of a top-level declaration that can
+// contain references (a function, class, interface, or type alias) and whether
+// statement is one. Variable-bound callables are added by a later pass. Calls
+// only occur in function/class bodies, so attributing a call walk to an
+// interface or type alias is harmless: it finds none.
+func containerNodeID(path string, statement *shimast.Node) (string, bool) {
   symbol := statement.Symbol()
   if symbol == nil || symbol.Name == "" {
     return "", false
@@ -117,6 +120,10 @@ func topLevelNodeID(path string, statement *shimast.Node) (string, bool) {
     return nodeID(path, symbol.Name, NodeFunction), true
   case shimast.KindClassDeclaration:
     return nodeID(path, symbol.Name, NodeClass), true
+  case shimast.KindInterfaceDeclaration:
+    return nodeID(path, symbol.Name, NodeInterface), true
+  case shimast.KindTypeAliasDeclaration:
+    return nodeID(path, symbol.Name, NodeTypeAlias), true
   default:
     return "", false
   }
@@ -148,6 +155,54 @@ func (g *Graph) callEdge(checker *shimchecker.Checker, from string, callee *shim
     return
   }
   g.addEdge(from, to, EdgeValueCall)
+}
+
+// collectTypeRefs records a type-ref edge from each top-level function, class,
+// interface, or type alias to every named type it references in a type position
+// (parameter, return, property, and alias right-hand-side types). Type
+// references are first-class edges, which fits the ttsc thesis that types are
+// the unit of truth: an `import type` or annotation-only dependency relates two
+// symbols without any runtime call.
+func (g *Graph) collectTypeRefs(checker *shimchecker.Checker, file *shimast.SourceFile) {
+  if file.Statements == nil {
+    return
+  }
+  path := file.FileName()
+  for _, statement := range file.Statements.Nodes {
+    from, ok := containerNodeID(path, statement)
+    if !ok {
+      continue
+    }
+    g.typeRefsWithin(checker, from, statement)
+  }
+}
+
+// typeRefsWithin walks node's subtree and records a type-ref edge from `from` to
+// the resolved target of every type reference it finds.
+func (g *Graph) typeRefsWithin(checker *shimchecker.Checker, from string, node *shimast.Node) {
+  node.ForEachChild(func(child *shimast.Node) bool {
+    if child.Kind == shimast.KindTypeReference {
+      if ref := child.AsTypeReferenceNode(); ref != nil && ref.TypeName != nil {
+        g.typeRefEdge(checker, from, ref.TypeName)
+      }
+    }
+    g.typeRefsWithin(checker, from, child)
+    return false
+  })
+}
+
+// typeRefEdge resolves a type name to its declaration and records a type-ref
+// edge, skipping an unresolved name and a self-reference.
+func (g *Graph) typeRefEdge(checker *shimchecker.Checker, from string, typeName *shimast.Node) {
+  target := Resolve(checker, typeName)
+  if target == nil || target.Symbol == nil {
+    return
+  }
+  to := g.ensureTargetNode(target)
+  if to == "" || to == from {
+    return
+  }
+  g.addEdge(from, to, EdgeTypeRef)
 }
 
 // ensureTargetNode returns the node id for a resolved edge target, creating the
