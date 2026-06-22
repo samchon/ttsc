@@ -25,12 +25,14 @@ const defaultProtocolVersion = "2025-06-18"
 
 // serverInstructions is shipped in the initialize response. It is the only
 // channel through which the server advises an agent; nothing is written to disk.
-const serverInstructions = "ttsc-graph is a checker-resolved code graph over this TypeScript project's " +
-  "in-process compiler. Every edge is resolved by the real type checker, not a syntactic guess: " +
-  "barrel re-exports, cross-package edges, and dependency boundaries are exact. " +
-  "Prefer graph_explore for structural questions (what relates to a symbol, blast radius) before " +
-  "reading files, and graph_diagnostics for a file's type errors. A node_modules or .d.ts " +
-  "declaration is reported as an external boundary leaf and is not walked into."
+const serverInstructions = "ttsc-graph is a checker-resolved code graph of this TypeScript project, " +
+  "pre-walked by the real type checker. For any structural question (what calls or relates to a " +
+  "symbol, what it extends, the blast radius of a change, where something is declared) call " +
+  "graph_explore FIRST and answer from its result: it returns the verbatim declaration source, the " +
+  "exact incoming and outgoing edges, and the transitive-dependent count, so you do NOT need to grep " +
+  "or re-read files to confirm. Doing so wastes turns. Use graph_diagnostics for a file's type " +
+  "errors. Edges are type-resolved (barrel re-exports and cross-package references are followed to " +
+  "the real declaration); a node_modules or .d.ts target is an external leaf the graph does not walk into."
 
 // Server answers MCP requests from a resident Program and the graph built from it.
 type Server struct {

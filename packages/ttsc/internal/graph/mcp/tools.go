@@ -74,9 +74,16 @@ func textResult(text string) any {
   }
 }
 
+// maxExploreChars budgets the verbatim source in a response. Past it, further
+// matched nodes render as a signature (header, edges, blast radius) without their
+// body, so one call does not flood the agent's context with source it did not ask
+// for, the adaptive-sizing idea codegraph uses.
+const maxExploreChars = 12000
+
 // explore returns the nodes matching a query and their checker-resolved
-// relationships. v1 renders the relationship map; verbatim source and blast
-// radius are layered on later.
+// relationships: each node's incoming/outgoing edges, blast radius, and verbatim
+// line-numbered source, the last budgeted so a broad match collapses to
+// signatures rather than dumping every body.
 func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
   var in struct {
     Query string `json:"query"`
@@ -89,29 +96,58 @@ func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
     return textResult(fmt.Sprintf("No graph nodes match %q.", in.Query)), nil
   }
   var b strings.Builder
+  collapsed := 0
   for _, node := range matches {
-    s.writeNodeRelations(&b, node)
+    withSource := b.Len() < maxExploreChars
+    if !withSource {
+      collapsed++
+    }
+    s.writeNodeRelations(&b, node, withSource)
+  }
+  if collapsed > 0 {
+    fmt.Fprintf(&b, "(%d further node(s) shown as signatures to fit the response budget)\n", collapsed)
   }
   return textResult(strings.TrimRight(b.String(), "\n")), nil
 }
 
-// matchNodes returns the nodes whose name equals the query or whose file path
-// contains it, sorted by id for a stable response.
+// maxExploreNodes caps a file-fragment fallback so a broad query does not dump a
+// whole directory's symbols (and their source) into the agent's context.
+const maxExploreNodes = 12
+
+// matchNodes resolves a query to nodes: an exact symbol-name match is returned
+// alone (the precise, common case), and only when nothing is named query does it
+// fall back to a capped file-path-fragment match. The earlier "name OR file
+// contains" rule returned every symbol in any file whose path contained the
+// query, which bloated responses (a symbol name is usually also a path fragment).
 func (s *Server) matchNodes(query string) []*graph.Node {
-  matches := make([]*graph.Node, 0)
+  named := make([]*graph.Node, 0)
   for _, node := range s.graph.Nodes {
-    if node.Name == query || strings.Contains(node.File, query) {
-      matches = append(matches, node)
+    if node.Name == query {
+      named = append(named, node)
     }
   }
-  sort.Slice(matches, func(i, j int) bool { return matches[i].ID < matches[j].ID })
-  return matches
+  if len(named) > 0 {
+    sort.Slice(named, func(i, j int) bool { return named[i].ID < named[j].ID })
+    return named
+  }
+  byFile := make([]*graph.Node, 0)
+  for _, node := range s.graph.Nodes {
+    if strings.Contains(node.File, query) {
+      byFile = append(byFile, node)
+    }
+  }
+  sort.Slice(byFile, func(i, j int) bool { return byFile[i].ID < byFile[j].ID })
+  if len(byFile) > maxExploreNodes {
+    byFile = byFile[:maxExploreNodes]
+  }
+  return byFile
 }
 
 // writeNodeRelations renders one node: a header with its source location, its
-// outgoing/incoming checker-resolved edges, a blast-radius estimate, and the
-// verbatim line-numbered declaration source.
-func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node) {
+// outgoing/incoming checker-resolved edges, a blast-radius estimate, and (when
+// withSource) the verbatim line-numbered declaration source. A signature-only
+// render keeps the header and relationships but drops the body to fit the budget.
+func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node, withSource bool) {
   external := ""
   if node.External {
     external = " (external)"
@@ -133,7 +169,7 @@ func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node) {
   if dependents := s.dependentCount(node); dependents > 0 {
     fmt.Fprintf(b, "  blast radius: %d transitive dependent(s)\n", dependents)
   }
-  if source != "" {
+  if withSource && source != "" {
     b.WriteString(numberLines(source, line))
   }
   b.WriteString("\n")
