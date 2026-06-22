@@ -12,6 +12,7 @@ package mcp
 import (
   "encoding/json"
   "fmt"
+  "sync"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
@@ -50,6 +51,10 @@ type Server struct {
   graph    *graph.Graph
   degree   map[string]int
   loadErr  error
+  // mu serializes tool calls so one Server can back many daemon connections
+  // safely (the graph is read-only after build, but the checker behind
+  // graph_diagnostics is not concurrency-safe).
+  mu sync.Mutex
 }
 
 // NewServer builds the resident graph from an already-open Program immediately.
@@ -149,7 +154,9 @@ func (s *Server) Handle(raw []byte) ([]byte, bool) {
   case "tools/list":
     resp.Result = toolsListResult()
   case "tools/call":
+    s.mu.Lock()
     result, rpcErr := s.callTool(req.Params)
+    s.mu.Unlock()
     if rpcErr != nil {
       resp.Error = rpcErr
     } else {

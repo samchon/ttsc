@@ -17,6 +17,7 @@ import (
   "os"
   "runtime"
   "strings"
+  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph/mcp"
@@ -66,11 +67,19 @@ func run(args []string) int {
 func runServe(args []string) int {
   fs := flag.NewFlagSet("ttscgraph", flag.ContinueOnError)
   fs.SetOutput(stderr)
-  _ = fs.Bool("stdio", true, "serve MCP over stdin/stdout (the only transport)")
+  _ = fs.Bool("stdio", true, "serve MCP over stdin/stdout")
   cwdFlag := fs.String("cwd", "", "project root (defaults to process cwd)")
   tsconfigFlag := fs.String("tsconfig", "tsconfig.json", "project tsconfig path")
+  connectFlag := fs.String("connect", "", "proxy mode: pipe stdio to a running daemon at host:port")
+  daemonFlag := fs.Bool("daemon", false, "daemon mode: build once and serve many connections over a localhost port")
+  portFileFlag := fs.String("port-file", "", "daemon mode: write the chosen host:port here")
+  idleFlag := fs.Duration("idle", 5*time.Minute, "daemon mode: exit after this long with no connections (0 disables)")
   if err := fs.Parse(args); err != nil {
     return 2
+  }
+
+  if addr := strings.TrimSpace(*connectFlag); addr != "" {
+    return runConnect(addr)
   }
 
   cwd := strings.TrimSpace(*cwdFlag)
@@ -82,13 +91,18 @@ func runServe(args []string) int {
     }
     cwd = resolved
   }
-
+  tsconfig := strings.TrimSpace(*tsconfigFlag)
   mcp.Version = version
-  // NewLazyServer answers the MCP handshake immediately and type-checks the
-  // project in the background, so an agent sees the tools without waiting on a
-  // large project's load (and never hits the cold-start "tool not available"
-  // race). The first tool call blocks until the build lands.
-  server := mcp.NewLazyServer(cwd, strings.TrimSpace(*tsconfigFlag), driver.LoadProgramOptions{})
+
+  if *daemonFlag {
+    return runDaemon(cwd, tsconfig, strings.TrimSpace(*portFileFlag), *idleFlag)
+  }
+
+  // Default: single-process. NewLazyServer answers the MCP handshake immediately
+  // and type-checks the project in the background, so an agent sees the tools
+  // without waiting on the load and never hits the cold-start race. The first
+  // tool call blocks until the build lands.
+  server := mcp.NewLazyServer(cwd, tsconfig, driver.LoadProgramOptions{})
   if err := server.Serve(stdin, stdout); err != nil {
     fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
     return 1
