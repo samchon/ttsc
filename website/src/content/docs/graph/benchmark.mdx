@@ -1,0 +1,57 @@
+# Benchmark
+
+Two questions, the two codegraph also publishes: how completely does the graph resolve a real codebase, and does an agent spend less when it has the graph. Both are measured on real repositories with the harness in `experimental/graph-bench`.
+
+## Agent cost: does the graph save an agent's tokens
+
+This is a faithful port of codegraph's headline benchmark. For codegraph's own question it runs the Claude Code CLI headless twice against the same repository: once with the `@ttsc/graph` MCP server configured, once with an empty MCP config, both under `--strict-mcp-config` so the only difference is the graph. It records codegraph's metrics, total tokens summed across every assistant turn, tool-call count, cost, and wall time, and takes the median of N runs.
+
+A checker-resolved graph is TypeScript-only, so of codegraph's seven benchmark repositories only the two TypeScript ones are runnable: Excalidraw and VS Code. The other five are Python, Rust, Java, Go, and Swift.
+
+### Excalidraw
+
+Codegraph's question, "How does Excalidraw render and update canvas elements?", median of 3 runs on Claude Sonnet:
+
+| Metric     | Empty-MCP baseline | `@ttsc/graph` | Saved |
+| ---------- | ------------------ | ------------- | ----- |
+| Tokens     | 1,730,912          | 354,126       | 80%   |
+| Tool calls | 45                 | 4             | 91%   |
+| Cost       | $0.280             | $0.170        | 39%   |
+| Wall time  | 169s               | 51s           | 70%   |
+
+In all three graph runs the agent read zero files. It answered the architecture question from `graph_explore` alone, where the baseline grepped and read 18 to 29 files per run to reconstruct the same flow. For reference, codegraph reports 16% cheaper, 47% fewer tokens, and 58% fewer tool calls as its cross-repository headline.
+
+The numbers move with the model and the repository, so treat any single figure as a shape rather than a fixed claim, and take a larger median for a published number. The mechanism is stable: the graph hands the agent the relevant declarations, their checker-resolved relationships, and their source in a few calls, so it stops fanning out across files.
+
+### What made the difference
+
+Running this benchmark surfaced a real bug. The server originally type-checked the whole project before answering the MCP handshake, so on a repository of any size it sat in the `pending` state with no tools advertised, and the agent fell back to grep and read. The fix is lazy init: the server answers `initialize` and `tools/list` immediately and builds the resident `Program` in the background, so the agent always sees the tools and the first query blocks on the build. Two smaller fixes followed, ranking declarations against a natural-language query by name match and edge centrality so a flow question surfaces the right symbols, and bounding the response (edge cap, per-node source cap, total budget) so a broad match returns a few kilobytes instead of tens.
+
+## Structural: how completely does the graph resolve
+
+The structural benchmark loads a project's resident `Program`, builds the graph, and reports the node and edge counts plus the fair coverage, the share of symbol-bearing source files that have at least one resolved cross-file edge. Counts and coverage are deterministic; timings are indicative and only meaningful on a quiet host.
+
+Run against this repository's `packages/ttsc` (53 source files):
+
+| Measure       | Value                                              |
+| ------------- | -------------------------------------------------- |
+| Nodes         | 575 (66 external boundary leaves)                  |
+| Edges         | 1402 (heritage 2, value-call 1016, type-ref 384)   |
+| Fair coverage | 92.2% (47 of 51 symbol-bearing files cross-linked) |
+| Load time     | 81 ms (median)                                     |
+| Graph build   | 37 ms (median)                                     |
+
+The 92.2% is the coverage flex: that share of files has at least one checker-resolved cross-file edge. Build time is a real fraction of the (already fast) load on a small tree and shrinks as type-checking dominates on larger ones; the point is that extraction rides the `Program` the compiler already built, with no second compile.
+
+## Reproduce
+
+Both benchmarks live in `experimental/graph-bench` and need `claude` and `go` on `PATH`. The agent-cost A/B spends real Claude credits and is deliberately not wired into CI.
+
+```bash
+# Structural: counts and coverage on any project
+node experimental/graph-bench/bench.mjs --project=/abs/path --runs=5
+
+# Agent cost: codegraph's question, with vs without the graph, median of N
+node experimental/graph-bench/agent-ab.mjs --repo=excalidraw --runs=4
+node experimental/graph-bench/agent-ab.mjs --repo=vscode --runs=4 --model=opus
+```

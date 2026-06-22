@@ -4,6 +4,8 @@ A code-graph and diagnostics MCP server for coding agents, backed by `ttsc`'s in
 
 `@ttsc/graph` launches `ttscgraph`, a Model Context Protocol server that builds one resident `Program` for your project and answers structural questions from that warm type checker. Every edge it reports is resolved by the real checker, not a syntactic guess: barrel re-exports, cross-package edges, and dependency boundaries are exact. A `node_modules` or `.d.ts` declaration is reported as an external boundary leaf and is not walked into.
 
+On codegraph's own agent-cost benchmark, an agent answers an architecture question from the graph alone, reading zero files, for 80% fewer tokens and 91% fewer tool calls than the same agent without it. See the [benchmark](https://ttsc.dev/docs/graph/benchmark) for the numbers and method.
+
 ## When to use it
 
 Point a coding agent at it when you want the agent to answer "what relates to this symbol", "what is the blast radius of this change", or "what are the type errors in this file" without re-reading and re-parsing source on every turn.
