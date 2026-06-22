@@ -38,21 +38,21 @@ Read the coverage as the codegraph-style flex: 92.2% of symbol-bearing files hav
 
 ## Agent-cost A/B (`agent-ab.mjs`)
 
-The benchmark codegraph leads with: does an agent spend less when it has the graph? For each structural task it runs the Claude Code CLI headless twice, once with the `@ttsc/graph` MCP server configured and once without, and compares cost, output tokens, turns, and wall time. It spends real Claude credits, is non-deterministic, and is not wired into CI; run it on a quiet host with enough runs to take a median. Requires `claude` and `go` on `PATH`.
+A faithful port of codegraph's headline benchmark (its `scripts/agent-eval`). For codegraph's verbatim question per repo it runs the Claude Code CLI headless twice, once with the `@ttsc/graph` MCP server and once with an empty MCP config, both under `--strict-mcp-config`, and reports codegraph's metrics: tokens summed per assistant turn (not last-turn `result.usage`), tool-call count, cost, and wall time, median over N runs. Only codegraph's two TypeScript repos are runnable by a checker-resolved graph, `excalidraw` and `vscode` (the other five are Python/Rust/Java/Go/Swift). It spends real Claude credits, is non-deterministic, and is not wired into CI. Requires `claude` and `go` on `PATH`.
 
 ```bash
-node experimental/graph-bench/agent-ab.mjs                  # packages/ttsc, 1 run
-node experimental/graph-bench/agent-ab.mjs --project=/abs --runs=4
+node experimental/graph-bench/agent-ab.mjs --repo=excalidraw --runs=4
+node experimental/graph-bench/agent-ab.mjs --repo=vscode --runs=4 --model=opus
 ```
 
-An indicative single run over three structural questions about `packages/ttsc` (callers of a function, blast radius of a class, where a symbol is declared and what calls it):
+Median of 3 runs on `excalidraw`, codegraph's question "How does Excalidraw render and update canvas elements?", Sonnet:
 
 ```
-Totals (graph vs baseline):
-  cost           baseline $0.576  ->  graph $0.490  (-15.0%)
-  output tokens  baseline 5073    ->  graph 3727    (-26.5%)
-  turns          baseline 18      ->  graph 18      (0.0%)
-  wall time      baseline 107.9s  ->  graph 70.5s   (-34.6%)
+                graph vs empty-MCP baseline
+  tokens        354,126 vs 1,730,912   80% saved
+  tool calls    4       vs 45          91% saved
+  cost          $0.170  vs $0.280      39% saved
+  wall time     51s     vs 169s        70% saved
 ```
 
-This is one run (`--runs=1`), so treat it as a shape, not a published figure: roughly 15% cheaper and a quarter fewer output tokens with the graph, in line with codegraph's reported ~16% cheaper. Take a median of several runs for a number worth quoting.
+In all three graph runs the agent read zero files (`read 0, grep 0`): it answered from graph_explore alone. This is on codegraph's own harness, question, metrics, and empty-MCP baseline, and exceeds codegraph's reported headline (16% cheaper, 47% fewer tokens, 58% fewer tool calls). The unlock was lazy-init: the server must answer the MCP handshake before it finishes type-checking the project, or it sits "pending" with no tools advertised and the agent falls back to grep. Numbers move with model and repo; take a larger median for a published figure.
