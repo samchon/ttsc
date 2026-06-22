@@ -4,41 +4,56 @@ Two questions, the two codegraph also publishes: how completely does the graph r
 
 ## Agent cost: does the graph save an agent's tokens
 
-This is a faithful port of codegraph's headline benchmark. For codegraph's own question it runs the Claude Code CLI headless twice against the same repository: once with the `@ttsc/graph` MCP server configured, once with an empty MCP config, both under `--strict-mcp-config` so the only difference is the graph. It records codegraph's metrics, total tokens summed across every assistant turn, tool-call count, cost, and wall time, and takes the median of N runs.
+This is a faithful port of codegraph's headline benchmark. For codegraph's own question it runs the Claude Code CLI headless twice against the same repository: once with the `@ttsc/graph` MCP server configured, once with an empty MCP config, both under `--strict-mcp-config` so the only difference is the graph. It records codegraph's metrics, total tokens summed across every assistant turn, tool-call count, cost, and wall time. Aggregation mirrors codegraph exactly: within a repository each metric is the median of N runs, and across repositories the saving percentages are averaged.
 
 A checker-resolved graph is TypeScript-only, so of codegraph's seven benchmark repositories only the two TypeScript ones are runnable: Excalidraw and VS Code. The other five are Python, Rust, Java, Go, and Swift.
 
 ### Excalidraw
 
-Codegraph's question, "How does Excalidraw render and update canvas elements?", median of 3 runs on Claude Sonnet:
+Codegraph's question, "How does Excalidraw render and update canvas elements?", median of 4 runs on Claude Sonnet:
 
 | Metric     | Empty-MCP baseline | `@ttsc/graph` | Saved |
 | ---------- | ------------------ | ------------- | ----- |
-| Tokens     | 1,730,912          | 354,126       | 80%   |
-| Tool calls | 45                 | 4             | 91%   |
-| Cost       | $0.280             | $0.170        | 39%   |
-| Wall time  | 169s               | 51s           | 70%   |
+| Tokens     | 1,444,165          | 358,880       | 75%   |
+| Tool calls | 37                 | 4.5           | 88%   |
+| Cost       | $0.275             | $0.139        | 50%   |
+| Wall time  | 130s               | 50s           | 62%   |
 
-In all three graph runs the agent read zero files. It answered the architecture question from `graph_explore` alone, where the baseline grepped and read 18 to 29 files per run to reconstruct the same flow. For reference, codegraph reports 16% cheaper, 47% fewer tokens, and 58% fewer tool calls as its cross-repository headline.
+In all four graph runs the agent read zero files. It answered the architecture question from `graph_explore` alone, where the baseline grepped and read 12 to 24 files per run to reconstruct the same flow.
 
-The numbers move with the model and the repository, so treat any single figure as a shape rather than a fixed claim, and take a larger median for a published number. The mechanism is stable: the graph hands the agent the relevant declarations, their checker-resolved relationships, and their source in a few calls, so it stops fanning out across files.
+The numbers move with the model and the repository, so treat any single figure as a shape rather than a fixed claim. The mechanism is stable: the graph hands the agent the relevant declarations, their checker-resolved relationships, and their source in a few calls, so it stops fanning out across files.
 
 ### VS Code
 
-VS Code is codegraph's headline TypeScript repository, around 7,000 `src` files. A full TypeScript-Go `Program` over it builds in about three minutes, far too slow to repeat for every agent session, so `@ttsc/graph` runs it through a daemon: `ttscgraph --daemon` type-checks the project once and serves every session behind a localhost port, and each session spawns a thin `ttscgraph --connect` proxy. Codegraph's question, "How does the extension host communicate with the main process?", median of 2 runs on Claude Sonnet against the warm daemon:
+VS Code is codegraph's headline TypeScript repository, around 7,000 `src` files. A full TypeScript-Go `Program` over it builds in about three minutes, far too slow to repeat for every agent session, so `@ttsc/graph` runs it through a daemon: `ttscgraph --daemon` type-checks the project once and serves every session behind a localhost port, and each session spawns a thin `ttscgraph --connect` proxy. Codegraph's question, "How does the extension host communicate with the main process?", median of 4 runs on Claude Sonnet against the warm daemon:
 
 | Metric     | Empty-MCP baseline | `@ttsc/graph` | Saved |
 | ---------- | ------------------ | ------------- | ----- |
-| Tokens     | 2,023,937          | 384,483       | 81%   |
-| Tool calls | 38                 | 4.5           | 88%   |
-| Cost       | $0.294             | $0.167        | 43%   |
-| Wall time  | 140s               | 43s           | 69%   |
+| Tokens     | 1,160,920          | 328,457       | 72%   |
+| Tool calls | 31.5               | 4             | 87%   |
+| Cost       | $0.199             | $0.136        | 31%   |
+| Wall time  | 98s                | 44s           | 55%   |
 
-Again the agent read zero files in both graph runs. Codegraph reports 64% fewer tokens, 81% fewer tool calls, and 18% cheaper on this same VS Code question. The one-time three-minute build is the price of a real type checker over tree-sitter; the daemon pays it once and amortizes it across every session.
+Again the agent read zero files in all four graph runs, against a baseline that read 15 to 19 files. Codegraph reports 64% fewer tokens, 81% fewer tool calls, and 18% cheaper on this same VS Code question; the graph beats each. The one-time three-minute build is the price of a real type checker over tree-sitter; the daemon pays it once and amortizes it across every session.
+
+### Average across both repositories
+
+Codegraph's published headline is the average of its per-repository savings, so the same average over the two TypeScript repositories is the directly comparable number:
+
+| Metric     | Average saved |
+| ---------- | ------------- |
+| Tokens     | 74%           |
+| Tool calls | 88%           |
+| Cost       | 41%           |
+| Wall time  | 59%           |
+
+Codegraph's own cross-repository headline, over its seven repositories, is 47% fewer tokens, 58% fewer tool calls, and 16% cheaper. A checker-resolved graph saves more on every axis, because the agent trusts the resolved relationships enough to stop reading files entirely.
 
 ### What made the difference
 
 Running this benchmark surfaced a real bug. The server originally type-checked the whole project before answering the MCP handshake, so on a repository of any size it sat in the `pending` state with no tools advertised, and the agent fell back to grep and read. The fix is lazy init: the server answers `initialize` and `tools/list` immediately and builds the resident `Program` in the background, so the agent always sees the tools and the first query blocks on the build. Two smaller fixes followed, ranking declarations against a natural-language query by name match and edge centrality so a flow question surfaces the right symbols, and bounding the response (edge cap, per-node source cap, total budget) so a broad match returns a few kilobytes instead of tens.
+
+Codegraph's own harness excludes cold-start-raced runs by default, which confirms the race is a known MCP failure mode and not a quirk of this port. Lazy init removes it at the source, so no run here is excluded.
 
 ## Structural: how completely does the graph resolve
 
