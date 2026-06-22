@@ -16,13 +16,13 @@ import (
 // The existing match-code-and-location probe pins Line and Code; this one
 // strengthens the contract to Column and Message so a regression that kept the
 // right code but lost the precise span (or the text) is caught. The oracle is
-// the real checker: `"nope"` is the 31st character of the single fixture line
-// (`export const broken: number = ` is 30 characters), so tsgo reports the
-// initializer at 1-based column 31.
+// the real checker: tsgo attributes the assignability error to the declared
+// binding, so on `export const broken: number = "nope";` the diagnostic sits at
+// `broken` — 1-based column 14 (`export const ` is 13 characters).
 //
 //  1. Compile a fixture whose only file assigns a string to a number binding.
 //  2. Ask FileDiagnostics for that file.
-//  3. Assert the TS2322 diagnostic sits at line 1 / column 31 and its message
+//  3. Assert the TS2322 diagnostic sits at line 1 / column 14 and its message
 //     contains "not assignable".
 func TestFileDiagnosticsReportCodeColumnAndMessage(t *testing.T) {
   root := t.TempDir()
@@ -58,10 +58,10 @@ func TestFileDiagnosticsReportCodeColumnAndMessage(t *testing.T) {
   if match.Line != 1 {
     t.Fatalf("TS2322 reported on line %d, expected line 1", match.Line)
   }
-  // Oracle column: `"nope"` begins at the 31st character of the line, the
-  // location tsgo attributes the assignability error to.
-  if match.Column != 31 {
-    t.Fatalf("TS2322 reported at column %d, expected column 31 (the initializer)", match.Column)
+  // Oracle column: tsgo attributes the assignability error to the declared
+  // binding `broken`, which begins at the 14th character of the line.
+  if match.Column != 14 {
+    t.Fatalf("TS2322 reported at column %d, expected column 14 (the binding)", match.Column)
   }
   if !strings.Contains(match.Message, "not assignable") {
     t.Fatalf("TS2322 message %q does not mention 'not assignable'", match.Message)
