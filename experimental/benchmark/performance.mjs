@@ -290,9 +290,10 @@ const PACKAGE_CONFIGS = {
     repoName: "ttsc-benchmark-vscode",
     repo: "https://github.com/samchon/ttsc-benchmark-vscode.git",
     packageManager: "npm",
-    installCommand: "npm install --legacy-peer-deps --ignore-scripts",
+    installCommand:
+      "npm install --legacy-peer-deps --ignore-scripts --prefer-online",
     installTarballsCommand: (specs) =>
-      `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`,
+      `npm install --legacy-peer-deps --ignore-scripts --prefer-online --save-dev ${specs}`,
     prepareCommand: "./node_modules/.bin/ttsc prepare -p src/tsconfig.json",
     filesRoot: "src",
     commands: compilerCommands({
@@ -947,7 +948,7 @@ function installIfNeeded(project, dir, branch) {
           )
         : pm === "yarn"
           ? yarnCommand("install --ignore-engines --update-checksums")
-          : "npm install --legacy-peer-deps");
+          : "npm install --legacy-peer-deps --prefer-online");
     const shouldForceInstall = !hasNodeModules || flags.has("--force-install");
     const install = () =>
       sh(cmd, dir, {
@@ -1039,7 +1040,7 @@ function installLocalTarballs(project, dir, branch) {
             ? yarnCommand(
                 `add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`,
               )
-            : `npm install --legacy-peer-deps --save-dev ${specs}`);
+            : `npm install --legacy-peer-deps --prefer-online --save-dev ${specs}`);
       process.stdout.write(
         `Installing local tarballs into ${path.basename(dir)}: ` +
           `${targets.map((target) => target.name).join(", ")}\n`,
@@ -1370,7 +1371,7 @@ function installPinnedTypeScriptGoRuntimeDeps(project, dir, branch) {
         ? yarnCommand(
             `add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`,
           )
-        : `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`;
+        : `npm install --legacy-peer-deps --ignore-scripts --prefer-online --save-dev ${specs}`;
   process.stdout.write(
     `Installing pinned TypeScript-Go runtime deps into ${path.basename(dir)}: ` +
       `typescript@${TYPESCRIPT_GO_VERSION}\n`,
