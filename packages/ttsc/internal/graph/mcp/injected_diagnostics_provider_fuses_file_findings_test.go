@@ -56,9 +56,12 @@ func TestInjectedDiagnosticsProviderFusesFileFindings(t *testing.T) {
     t.Fatal("could not locate widget in the fixture")
   }
 
+  // A lint finding uses code 0 (its rule is in the message), the convention the
+  // launcher serializes plugin/lint diagnostics with so they never collide with
+  // tsc's numeric codes.
   diagPath := filepath.Join(root, "lint-diagnostics.json")
   diagJSON := fmt.Sprintf(
-    `[{"file":%q,"start":%d,"line":1,"column":1,"code":7777,"message":"lint/no-foo: avoid foo"}]`,
+    `[{"file":%q,"start":%d,"line":1,"column":1,"code":0,"message":"lint/no-foo: avoid foo"}]`,
     file, off,
   )
   if err := os.WriteFile(diagPath, []byte(diagJSON), 0o644); err != nil {
@@ -68,7 +71,11 @@ func TestInjectedDiagnosticsProviderFusesFileFindings(t *testing.T) {
   server := mcp.NewServer(prog, mcp.InjectedDiagnosticsProvider(diagPath))
   text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"widget"}}}`)
 
-  if !strings.Contains(text, "TS7777") || !strings.Contains(text, "lint/no-foo") {
+  if !strings.Contains(text, "lint/no-foo") {
     t.Fatalf("graph_explore did not surface the injected lint finding on widget:\n%s", text)
+  }
+  // A code-0 finding renders without a "TS" prefix.
+  if strings.Contains(text, "TS0") {
+    t.Fatalf("code-0 lint finding rendered with a TS prefix:\n%s", text)
   }
 }

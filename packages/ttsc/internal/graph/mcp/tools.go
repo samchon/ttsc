@@ -7,6 +7,7 @@ import (
   "sort"
   "strings"
 
+  "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
@@ -33,7 +34,7 @@ func toolsListResult() any {
       },
       map[string]any{
         "name":        "graph_diagnostics",
-        "description": "The TypeScript compiler's type errors for one file, with the exact tsc code and location.",
+        "description": "The compiler's diagnostics for one file — TypeScript type errors, plus the project's @ttsc/lint rule violations and transform-plugin (typia, nestia) findings when it has them — each with its code and location, exactly as ttsc reports them.",
         "inputSchema": map[string]any{
           "type": "object",
           "properties": map[string]any{
@@ -287,7 +288,7 @@ func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node, withSo
         fmt.Fprintf(b, "    ... (%d more)\n", len(own)-maxNodeDiagnostics)
         break
       }
-      fmt.Fprintf(b, "    TS%d line %d: %s\n", d.Code, d.Line, d.Message)
+      fmt.Fprintf(b, "    %s\n", formatDiagnostic(d))
     }
   }
   if deps := s.dependents(node); len(deps) > 0 {
@@ -373,7 +374,21 @@ func (s *Server) dependents(node *graph.Node) map[string]bool {
   return seen
 }
 
-// diagnostics returns a file's tsc semantic diagnostics as text.
+// formatDiagnostic renders one diagnostic for a node listing. A tsc diagnostic
+// has a numeric code shown as "TSxxxx line N"; an injected lint/plugin finding
+// carries code 0 and a self-describing message (its rule is in the text), so the
+// "TS" prefix is dropped.
+func formatDiagnostic(d driver.Diagnostic) string {
+  if d.Code > 0 {
+    return fmt.Sprintf("TS%d line %d: %s", d.Code, d.Line, d.Message)
+  }
+  return fmt.Sprintf("line %d: %s", d.Line, d.Message)
+}
+
+// diagnostics returns a file's diagnostics as text. It reads the fused set, so
+// when a plugin-aware host has injected @ttsc/lint and transform-plugin findings
+// they appear here alongside the tsc errors, in the same code and location tsc
+// reports.
 func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
   var in struct {
     File string `json:"file"`
@@ -399,13 +414,22 @@ func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
     return textResult(strings.TrimRight(b.String(), "\n")), nil
   }
   path := matches[0]
-  found := graph.FileDiagnostics(s.prog, path)
+  found := make([]driver.Diagnostic, 0)
+  for _, d := range s.diags {
+    if d.File == path {
+      found = append(found, d)
+    }
+  }
   if len(found) == 0 {
     return textResult(fmt.Sprintf("No diagnostics for %s.", path)), nil
   }
   var b strings.Builder
   for _, d := range found {
-    fmt.Fprintf(&b, "%s:%d:%d TS%d %s\n", d.File, d.Line, d.Column, d.Code, d.Message)
+    if d.Code > 0 {
+      fmt.Fprintf(&b, "%s:%d:%d TS%d %s\n", d.File, d.Line, d.Column, d.Code, d.Message)
+    } else {
+      fmt.Fprintf(&b, "%s:%d:%d %s\n", d.File, d.Line, d.Column, d.Message)
+    }
   }
   return textResult(strings.TrimRight(b.String(), "\n")), nil
 }
