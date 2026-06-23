@@ -175,7 +175,8 @@ func forEachVariable(path string, statement *shimast.Node, fn func(string, *shim
 }
 
 // callsWithin walks node's subtree and records a value-call edge from `from` to
-// the resolved target of every call expression it finds.
+// the resolved target of every runtime use it finds: a call, a `new` expression,
+// a tagged template, or a JSX element's component.
 func (g *Graph) callsWithin(checker *shimchecker.Checker, from string, node *shimast.Node) {
   node.ForEachChild(func(child *shimast.Node) bool {
     switch child.Kind {
@@ -186,6 +187,21 @@ func (g *Graph) callsWithin(checker *shimchecker.Checker, from string, node *shi
     case shimast.KindNewExpression:
       if newExpr := child.AsNewExpression(); newExpr != nil && newExpr.Expression != nil {
         g.callEdge(checker, from, newExpr.Expression)
+      }
+    case shimast.KindTaggedTemplateExpression:
+      // A tagged template (styled`…`, gql`…`) is a call to its tag function.
+      if tagged := child.AsTaggedTemplateExpression(); tagged != nil && tagged.Tag != nil {
+        g.callEdge(checker, from, tagged.Tag)
+      }
+    case shimast.KindJsxSelfClosingElement:
+      // `<Component />` is a use of the component; an intrinsic tag (`<div />`)
+      // resolves to nothing and is dropped by callEdge.
+      if jsx := child.AsJsxSelfClosingElement(); jsx != nil && jsx.TagName != nil {
+        g.callEdge(checker, from, jsx.TagName)
+      }
+    case shimast.KindJsxOpeningElement:
+      if jsx := child.AsJsxOpeningElement(); jsx != nil && jsx.TagName != nil {
+        g.callEdge(checker, from, jsx.TagName)
       }
     }
     g.callsWithin(checker, from, child)
