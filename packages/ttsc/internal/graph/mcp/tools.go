@@ -19,7 +19,7 @@ func toolsListResult() any {
     "tools": []any{
       map[string]any{
         "name":        "graph_explore",
-        "description": "The project's compiler-resolved code graph. Given a query naming the symbols (or salient nouns) a question involves, it returns each matching declaration's source plus the TypeScript compiler's own resolution of the calls, types, and references between them — both directions, with file:line locations, diagnostics, and each symbol's change-impact. Name every symbol the question involves in one query and answer from the result, rather than grepping, reading files, or exploring one symbol per call.",
+        "description": "Call this instead of grep or Read for any question about how the code works. One call returns the verbatim line-numbered source of every symbol you name, plus what each one calls, what calls it, the types it touches, and what a change would break, all resolved by the TypeScript compiler itself. So it follows calls through callbacks, JSX, dynamic dispatch, barrel re-exports, path aliases, and across workspace packages, which grep cannot. One call replaces a dozen grep-and-read round-trips, for a fraction of the tokens. Name every symbol the question involves in one query (e.g. \"render update canvas Scene Renderer\") and answer from the result; do not grep, read files, or call once per symbol.",
         "inputSchema": map[string]any{
           "type": "object",
           "properties": map[string]any{
