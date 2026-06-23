@@ -137,7 +137,8 @@ func topLevelID(path string, statement *shimast.Node, kind NodeKind) string {
 }
 
 // forEachMember attributes a class/interface's method members to their method
-// node and its remaining members to the type node.
+// node and its remaining members to the type node, then attributes the
+// declaration's own class-level references to the type node.
 func forEachMember(path string, statement *shimast.Node, kind NodeKind, fn func(string, *shimast.Node)) {
   containerID := topLevelID(path, statement, kind)
   for _, member := range classMembers(statement) {
@@ -151,6 +152,41 @@ func forEachMember(path string, statement *shimast.Node, kind NodeKind, fn func(
       fn(containerID, member)
     }
   }
+  if containerID == "" {
+    return
+  }
+  // The references that live on the declaration itself rather than in a member
+  // belong to the type node: a decorator factory call (`@Injectable()`), a type
+  // parameter constraint (`<T extends Base>`), and a heritage type argument
+  // (`extends Base<Payload>`). The per-member walk above never sees these, so
+  // attribute each class-level subtree here or the edge is silently dropped.
+  for _, decorator := range statement.Decorators() {
+    fn(containerID, decorator)
+  }
+  for _, typeParam := range statement.TypeParameters() {
+    fn(containerID, typeParam)
+  }
+  for _, clause := range heritageClauses(statement) {
+    fn(containerID, clause)
+  }
+}
+
+// heritageClauses returns the heritage clause nodes (`extends` / `implements`)
+// of a class or interface declaration, or nil for anything else. Their type
+// arguments are type references attributed to the declaration; the base
+// expressions themselves become heritage edges in collectHeritage.
+func heritageClauses(statement *shimast.Node) []*shimast.Node {
+  switch statement.Kind {
+  case shimast.KindClassDeclaration:
+    if decl := statement.AsClassDeclaration(); decl != nil && decl.HeritageClauses != nil {
+      return decl.HeritageClauses.Nodes
+    }
+  case shimast.KindInterfaceDeclaration:
+    if decl := statement.AsInterfaceDeclaration(); decl != nil && decl.HeritageClauses != nil {
+      return decl.HeritageClauses.Nodes
+    }
+  }
+  return nil
 }
 
 // forEachVariable attributes each binding of a top-level variable statement to
