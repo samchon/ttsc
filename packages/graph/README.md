@@ -36,7 +36,7 @@ Anything from `node_modules` is left out, because that is not your code.
 
 On a public benchmark, the map cut an agent's token use by about **70%** and its tool calls by about **83%**. The agent stopped reading files almost entirely.
 
-See the [benchmark](https://ttsc.dev/docs/graph/benchmark) for the full numbers.
+See the [benchmark](https://ttsc.dev/docs/benchmark#code-graph-mcp) for the full numbers.
 
 ## Install
 
@@ -84,7 +84,7 @@ That is why it is exact, and why it is fast: nothing is recompiled to answer a q
 
 ## References
 
-`@ttsc/graph` is inspired by [codegraph](https://github.com/colbymchenry/codegraph), which gives agents a code graph over MCP. The [benchmark](https://ttsc.dev/docs/graph/benchmark) here is a faithful port of codegraph's.
+`@ttsc/graph` is inspired by [codegraph](https://github.com/colbymchenry/codegraph), which gives agents a code graph over MCP. The [benchmark](https://ttsc.dev/docs/benchmark#code-graph-mcp) here is a faithful port of codegraph's.
 
 The difference is how the map is built.
 
