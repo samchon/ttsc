@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T21:53:16.481Z",
+  "generatedAt": "2026-06-23T21:58:23.651Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -2134,6 +2134,68 @@
               "other": 0,
               "cost": 0.5883240000000001,
               "durMs": 93715,
+              "ok": true
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "vscode",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "Where does an extension host message get forwarded toward the main process?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 928555,
+              "cached": 785920,
+              "turns": 1,
+              "tools": 34,
+              "shell": 34,
+              "graph": 0,
+              "types": {
+                "agent_message": 10,
+                "command_execution": 34
+              },
+              "durMs": 127900,
+              "ok": true
+            }
+          ],
+          "graph": [
+            {
+              "tokens": 811497,
+              "cached": 683392,
+              "turns": 1,
+              "tools": 12,
+              "shell": 1,
+              "graph": 11,
+              "types": {
+                "agent_message": 13,
+                "mcp_tool_call": 11,
+                "command_execution": 1
+              },
+              "durMs": 119245,
+              "ok": true
+            }
+          ],
+          "guided": [
+            {
+              "tokens": 60637,
+              "cached": 29440,
+              "turns": 1,
+              "tools": 1,
+              "shell": 0,
+              "graph": 1,
+              "types": {
+                "agent_message": 2,
+                "mcp_tool_call": 1
+              },
+              "durMs": 51955,
               "ok": true
             }
           ]
