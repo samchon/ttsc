@@ -914,6 +914,7 @@ function setupClone(project, branch) {
         });
       }
     });
+    cleanupBenchmarkWorktree(dir, project);
   });
 }
 
@@ -941,11 +942,14 @@ function installIfNeeded(project, dir, branch) {
             "install --no-frozen-lockfile --config.minimumReleaseAge=0",
           )
         : pm === "yarn"
-          ? "YARN_CACHE_FOLDER=.yarn-cache yarn install --ignore-engines --update-checksums"
+          ? "yarn install --ignore-engines --update-checksums"
           : "npm install --legacy-peer-deps");
     const shouldForceInstall = !hasNodeModules || flags.has("--force-install");
     const install = () =>
-      sh(cmd, dir, { label: `install dependencies ${path.basename(dir)}` });
+      sh(cmd, dir, {
+        label: `install dependencies ${path.basename(dir)}`,
+        env: pm === "yarn" ? yarnCacheEnv() : undefined,
+      });
     if (mustRefreshTarballs) {
       let installed = false;
       withDependencyFileSnapshot(dir, () => {
@@ -1329,7 +1333,7 @@ function installPinnedTypeScriptGoRuntimeDeps(project, dir, branch) {
         ? `pnpm add -w -D --config.minimumReleaseAge=0 ${specs}`
         : `pnpm add --ignore-workspace --virtual-store-dir node_modules/.pnpm -D --config.minimumReleaseAge=0 ${specs}`
       : pm === "yarn"
-        ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
+        ? `yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
         : `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`;
   process.stdout.write(
     `Installing pinned TypeScript-Go runtime deps into ${path.basename(dir)}: ` +
@@ -1337,8 +1341,12 @@ function installPinnedTypeScriptGoRuntimeDeps(project, dir, branch) {
   );
   withDependencyFileSnapshot(dir, () => {
     scrubLocalTarballInstallState(dir, localTarballTargets(branch));
-    sh(cmd, dir);
+    sh(cmd, dir, { env: pm === "yarn" ? yarnCacheEnv() : undefined });
   });
+}
+
+function yarnCacheEnv() {
+  return { ...process.env, YARN_CACHE_FOLDER: ".yarn-cache" };
 }
 
 function hasPinnedTypeScriptGoRuntimeDeps(dir) {

@@ -20,6 +20,7 @@ interface AgentCell {
   effort?: string;
   fixtureBranch?: string;
   daemon?: boolean;
+  toolSetupMs?: number;
   runs?: number;
   tool?: string;
   question?: string;
@@ -86,6 +87,11 @@ function modelLabel(cell: AgentCell): string {
   if (cell.model === "gpt-5.5")
     return `GPT-5.5 (codex${cell.effort ? `/${cell.effort}` : ""})`;
   return `${cell.model} (${cell.harness})`;
+}
+
+function toolLabel(cell: AgentCell): string {
+  if ((cell.tool ?? "ttsc-graph") === "codegraph") return "codegraph";
+  return "@ttsc/graph";
 }
 
 // ---------------------------------------------------------------------------
@@ -299,7 +305,7 @@ function AgentCostSection({ cells }: { cells: AgentCell[] }) {
         eyebrow="Agent cost"
         title="What the code graph saves a coding agent"
         description="Each bar compares the baseline run with graph, and the optional second bar shows guided. Hover any bar for the raw median counts."
-        aside={`${cells.length} model${cells.length !== 1 ? "s" : ""}`}
+        aside={`${cells.length} cell${cells.length !== 1 ? "s" : ""}`}
       />
 
       <div className="divide-y divide-[#1a1f29]">
@@ -331,7 +337,7 @@ function AgentCostSection({ cells }: { cells: AgentCell[] }) {
 
           return (
             <div
-              key={`${cell.harness}:${cell.repo}:${cell.model}:${cell.effort ?? ""}:${cell.fixtureBranch ?? ""}:${cell.daemon === true ? "daemon" : "single"}`}
+              key={`${cell.harness}:${cell.tool ?? "ttsc-graph"}:${cell.repo}:${cell.model}:${cell.effort ?? ""}:${cell.fixtureBranch ?? ""}:${cell.daemon === true ? "daemon" : "single"}`}
               className="grid gap-5 px-5 py-5 md:grid-cols-[minmax(9rem,15rem)_minmax(0,1fr)] md:gap-6"
             >
               <div className="md:border-r md:border-[#1a1f29] md:pr-6">
@@ -339,12 +345,15 @@ function AgentCostSection({ cells }: { cells: AgentCell[] }) {
                   {modelLabel(cell)}
                 </p>
                 <p className="mt-1.5 font-mono text-[11px] text-neutral-500">
-                  {cell.repo} - {cell.harness}
+                  {cell.repo} - {toolLabel(cell)} - {cell.harness}
                   {cell.fixtureBranch ? ` - ${cell.fixtureBranch}` : ""}
                   {cell.daemon !== undefined
                     ? ` - ${cell.daemon ? "daemon" : "single"}`
                     : ""}
                   {cell.runs !== undefined ? ` - ${cell.runs} runs` : ""}
+                  {cell.toolSetupMs !== undefined
+                    ? ` - index ${fmtSecs(cell.toolSetupMs)}`
+                    : ""}
                 </p>
                 {cell.question ? (
                   <p className="mt-2 max-w-[18rem] text-[12px] italic leading-snug text-neutral-400">

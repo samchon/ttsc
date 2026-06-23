@@ -38,11 +38,13 @@ Read the coverage as the codegraph-style flex: 100% of symbol-bearing files have
 
 ## Agent-cost A/B (`agent-ab.mjs`)
 
-A faithful port of codegraph's headline benchmark (its `scripts/agent-eval`). For codegraph's verbatim question per repo it runs the Claude Code CLI headless twice, once with the `@ttsc/graph` MCP server and once with an empty MCP config, both under `--strict-mcp-config`, and reports codegraph's metrics: tokens summed per assistant turn (not last-turn `result.usage`), tool-call count, cost, and wall time, median over N runs. Only codegraph's two TypeScript repos are runnable by a checker-resolved graph, `excalidraw` and `vscode` (the other five are Python/Rust/Java/Go/Swift). It spends real Claude credits, is non-deterministic, and is not wired into CI. Requires `claude` and `go` on `PATH`.
+A faithful port of codegraph's headline benchmark (its `scripts/agent-eval`). For codegraph's verbatim question per repo it runs the Claude Code CLI headless twice, once with the `@ttsc/graph` MCP server and once with an empty MCP config, both under `--strict-mcp-config`, and reports codegraph's metrics: tokens summed per assistant turn (not last-turn `result.usage`), tool-call count, cost, and wall time, median over N runs. Pass `--cg=1` to point the graph arm at `codegraph` instead; the repo must have a `.codegraph/` index from `codegraph init`. Only codegraph's two TypeScript repos are runnable by a checker-resolved graph, `excalidraw` and `vscode` (the other five are Python/Rust/Java/Go/Swift). It spends real Claude credits, is non-deterministic, and is not wired into CI. Requires `claude` and `go` on `PATH`.
 
 ```bash
 node experimental/graph-bench/agent-ab.mjs --repo=excalidraw --runs=10 --model=sonnet
 node experimental/graph-bench/agent-ab.mjs --repo=vscode --runs=10 --model=sonnet
+codegraph init /abs/path/to/repo
+node experimental/graph-bench/agent-ab.mjs --repo=typeorm --repo-dir=/abs/path/to/repo --cg=1 --runs=1
 ```
 
 A cross-model companion, `agent-ab-codex.mjs`, drives OpenAI's codex (GPT-5.5) through a minimal temp `CODEX_HOME` (a copied auth + a generated config) so the user's global config does not leak into the measurement:
@@ -53,7 +55,7 @@ node experimental/graph-bench/agent-ab-codex.mjs --repo=excalidraw --runs=4
 
 ## Publish (`publish.mjs`)
 
-Each benchmark writes a local, git-ignored report (`report.json`, `agent-ab-report.json`, `agent-ab-codex-report.json`). `publish.mjs` folds whichever exist into the committed, served `website/public/benchmark/graph.json` — the graph sibling of the performance dashboard's `performance.json`. It merges in place: the structural block is replaced whole, and each agent cell is keyed by `(harness, repo, model)` and upserted, so running one repo/model at a time on a quiet host accumulates cells across separate runs. Only raw per-run samples are stored; medians and saved-percentages are derived by the reader, so the JSON never drifts from the prose.
+Each benchmark writes a local, git-ignored report (`report.json`, `agent-ab-report.json`, `agent-ab-codex-report.json`). `publish.mjs` folds whichever exist into the committed, served `website/public/benchmark/graph.json`, the graph sibling of the performance dashboard's `performance.json`. It merges in place: the structural block is replaced whole, and each agent cell is keyed by `(harness, tool, repo, model, effort, fixtureBranch)` and upserted, so running one repo/model at a time on a quiet host accumulates cells across separate runs. Only raw per-run samples are stored; medians and saved-percentages are derived by the reader, so the JSON never drifts from the prose.
 
 ```bash
 node experimental/graph-bench/publish.mjs            # fold every report found

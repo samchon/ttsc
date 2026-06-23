@@ -4,7 +4,7 @@ import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
 
 `@ttsc/graph` has its own benchmark, separate from the compiler timings above.
 
-It asks the two questions codegraph publishes: how completely does the graph resolve a real codebase, and does an agent spend less when it has the graph. Both run on real repositories through `experimental/benchmark/graph.mjs` and the lower-level harnesses in `experimental/graph-bench`, and the raw per-run samples are published to `website/public/benchmark/graph.json`.
+It asks the two questions codegraph publishes: how completely does the graph resolve a real codebase, and does an agent spend less when it has the graph. The agent-cost runner also benchmarks `codegraph` itself as a comparator. Both run on real repositories through `experimental/benchmark/graph.mjs` and the lower-level harnesses in `experimental/graph-bench`, and the raw per-run samples are published to `website/public/benchmark/graph.json`.
 
 The savings below are one axis. They are not the whole value.
 
@@ -14,7 +14,9 @@ The graph fuses static structure and live diagnostics into one checker-resolved 
 
 ## Agent cost: does the graph save an agent's tokens
 
-This is a faithful port of codegraph's headline benchmark. For codegraph's own question it runs the agent CLI headless twice against the same repository: once with the `@ttsc/graph` MCP server configured, once with an empty MCP config, both under `--strict-mcp-config` so the only difference is the graph. It records codegraph's metrics, total tokens summed across every assistant turn, tool-call count, cost, and wall time. Within a repository and model each metric is the median of N runs, as codegraph aggregates.
+This is a faithful port of codegraph's headline benchmark. For codegraph's own question it runs the agent CLI headless twice against the same repository: once with a graph MCP server configured, once with an empty MCP config, both under `--strict-mcp-config` so the only difference is the graph tool. It records codegraph's metrics, total tokens summed across every assistant turn, tool-call count, cost, and wall time. Within a repository, tool, and model each metric is the median of N runs, as codegraph aggregates.
+
+The tool axis is `@ttsc/graph` versus `codegraph`. `@ttsc/graph` builds from the live TypeScript `Program`; `codegraph` is served from a `.codegraph/` index produced by `codegraph init`. The runner records that index time as `toolSetupMs` beside the `codegraph` cells.
 
 The Excalidraw table below is **Claude Sonnet 4.6** (`claude-sonnet-4-6`) at reasoning effort `high`. Within each model both arms hold the model and effort fixed, so the only variable is the graph. The cross-model section repeats the same A/B on Opus 4.8 and GPT-5.5, because the figures move with the model.
 
@@ -92,10 +94,10 @@ The structural harness lives in `experimental/graph-bench`. The fixture-backed a
 node experimental/graph-bench/bench.mjs --project=/abs/path --runs=5
 
 # Agent cost: setup and run one fixture branch, then update graph.json
-node experimental/benchmark/graph.mjs --project=typeorm --models=sonnet,opus,codex
+node experimental/benchmark/graph.mjs --project=typeorm --models=sonnet,opus,codex --tools=ttsc-graph,codegraph
 
 # Full sweep: runs projects sequentially because the agent cells are expensive
-node experimental/benchmark/graph.mjs --all --models=sonnet,opus,codex
+node experimental/benchmark/graph.mjs --all --models=sonnet,opus,codex --tools=ttsc-graph,codegraph
 ```
 
 The runner writes `.work/graph/<timestamp>/report.json` and upserts only the measured cells in `website/public/benchmark/graph.json`. Use `--no-website` for a local-only run.

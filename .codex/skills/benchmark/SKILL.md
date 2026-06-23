@@ -9,7 +9,7 @@ description: Benchmark runner, fixture repos, and publication. Read before runni
 
 `ttsc + @ttsc/lint + ttsc format` versus the legacy `tsc + eslint + prettier` toolchain, on seven real-world TypeScript projects. `experimental/benchmark/performance.mjs` clones each fixture's three branches into `experimental/benchmark/.work/`, replays each cell `RUNS` times, and writes the medians to `website/public/benchmark/performance.json` for the public dashboard at https://ttsc.dev/benchmark.
 
-`experimental/benchmark/graph.mjs` is a separate AI-token benchmark for `@ttsc/graph`. It reuses the same fixture clones and setup path, runs projects sequentially, fixes reasoning effort to `high`, and upserts its own cells into `website/public/benchmark/graph.json`.
+`experimental/benchmark/graph.mjs` is a separate AI-token benchmark for `@ttsc/graph` and the `codegraph` comparator. It reuses the same fixture clones and setup path, runs projects sequentially, fixes reasoning effort to `high`, and upserts its own cells into `website/public/benchmark/graph.json`. The `codegraph` arm runs `codegraph init` before the agent cells, records that setup as `toolSetupMs`, local-ignores `.codegraph/`, and removes the index unless `--keep-codegraph-index` is passed.
 
 Cell ID = `project:branch:op:threading`.
 
@@ -30,7 +30,7 @@ node experimental/benchmark/performance.mjs --project=vue --no-website   # one f
 node experimental/benchmark/performance.mjs --verify-only                # one pass per cell, no timing
 node experimental/benchmark/performance.mjs --list                       # print resolved grid
 node experimental/benchmark/performance.mjs --sequential                 # clone, measure, delete one fixture at a time (low-disk)
-node experimental/benchmark/graph.mjs --project=typeorm                  # one graph AI-token fixture
+node experimental/benchmark/graph.mjs --project=typeorm --tools=ttsc-graph,codegraph # one graph AI-token fixture
 ```
 
 Option families:

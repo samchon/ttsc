@@ -302,7 +302,7 @@ line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 const reportName = `agent-ab-codex-report${guidance ? "-guided" : ""}.json`;
 fs.writeFileSync(
   path.join(here, reportName),
-  `${JSON.stringify({ repo: repoKey, fixtureBranch, repoDir, model, effort, runs, guidance, question, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", repo: repoKey, fixtureBranch, repoDir, model, effort, runs, guidance, question, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 cleanup([binary, withHome, withoutHome]);
@@ -321,10 +321,11 @@ function makeCodexHome(tag, serverArgs) {
   let toml = `model = '${model}'\nmodel_reasoning_effort = '${effort}'\n`;
   if (serverArgs) {
     if (cg) {
-      const a = ["serve", "--mcp", "--path", repoDir]
+      const command = process.platform === "win32" ? "cmd.exe" : "codegraph";
+      const a = codegraphServerArgs(repoDir)
         .map((x) => `'${x}'`)
         .join(", ");
-      toml += `\n[mcp_servers.codegraph]\ncommand = 'codegraph'\nargs = [${a}]\nenv = { CODEGRAPH_NO_DAEMON = "1" }\n`;
+      toml += `\n[mcp_servers.codegraph]\ncommand = '${command}'\nargs = [${a}]\nenv = { CODEGRAPH_NO_DAEMON = "1" }\n`;
     } else {
       const argList = serverArgs.map((a) => `'${a}'`).join(", ");
       toml += `\n[mcp_servers.ttscgraph]\ncommand = '${binary}'\nargs = [${argList}]\n`;
@@ -332,6 +333,13 @@ function makeCodexHome(tag, serverArgs) {
   }
   fs.writeFileSync(path.join(home, "config.toml"), toml);
   return home;
+}
+
+function codegraphServerArgs(targetRepoDir) {
+  const args = ["serve", "--mcp", "--path", targetRepoDir];
+  return process.platform === "win32"
+    ? ["/d", "/s", "/c", "codegraph", ...args]
+    : args;
 }
 
 function runCodex(question, codexHome) {

@@ -14,13 +14,13 @@ node performance.mjs --project=vue            # one fixture
 node performance.mjs --setup-only             # clone + install, no measurement
 node performance.mjs --list                   # print the cell grid and exit
 node performance.mjs --verbose                # tee child stdio for debugging
-node graph.mjs --project=typeorm              # one graph AI-token benchmark
-node graph.mjs --all --models=sonnet,opus,codex # full graph AI-token sweep
+node graph.mjs --project=typeorm --tools=ttsc-graph,codegraph # one graph AI-token benchmark
+node graph.mjs --all --models=sonnet,opus,codex --tools=ttsc-graph,codegraph # full graph AI-token sweep
 ```
 
 The first run packs the local `ttsc` workspace into tarballs, clones each fixture's three branches into `.work/`, installs the tarballs, runs `ttsc prepare`, then measures the matrix sequentially. Subsequent runs reuse the clones.
 
-`graph.mjs` reuses the same fixture clones and setup path, but it is separate from `performance.mjs` because it spends AI tokens. It runs projects sequentially, fixes reasoning effort to `high`, updates only its own cells in `website/public/benchmark/graph.json`, and writes a local report under `.work/graph/<timestamp>/`.
+`graph.mjs` reuses the same fixture clones and setup path, but it is separate from `performance.mjs` because it spends AI tokens. It runs projects sequentially, fixes reasoning effort to `high`, updates only its own cells in `website/public/benchmark/graph.json`, and writes a local report under `.work/graph/<timestamp>/`. Its tool axis is `ttsc-graph` and `codegraph`; the `codegraph` arm runs `codegraph init`, records the index time as `toolSetupMs`, local-ignores `.codegraph/`, and deletes the index after the run unless `--keep-codegraph-index` is set.
 
 ## The matrix
 
@@ -76,6 +76,18 @@ Per-project commands, install/prepare overrides, and prerequisites live in `PACK
 | `--verbose` | Tee child stdio (install / pack / build) live and add `[cmd]` / `[step]` / `[timer] start` traces. Default output is milestone-only; use this when an AI/agent run needs the full transcript for diagnosis. |
 | `--list` | Print the per-fixture cell grid and exit. |
 
+Graph-only flags:
+
+| Flag | Effect |
+| --- | --- |
+| `--models sonnet,opus,codex` | Select agent models for `graph.mjs`. `codex` resolves to `--codex-model` and always uses effort `high`. |
+| `--tools ttsc-graph,codegraph` | Select graph tools for `graph.mjs`. Use `all` for both. |
+| `--branch ttsc` / `--fixture-branch ttsc` | Select the fixture branch for `graph.mjs`; allowed values are `ttsc` and `ttsc-lint`. |
+| `--guidance=0` | Skip the guided arm that writes neutral `CLAUDE.md` / `AGENTS.md` instructions for graph usage. |
+| `--daemon=1` | Use the `ttscgraph` daemon for `@ttsc/graph` cells. `codegraph` manages its own index and does not use this path. |
+| `--no-codegraph-index` | Reuse an existing `.codegraph/` index instead of running `codegraph init`. |
+| `--keep-codegraph-index` | Keep `.codegraph/` after the run for inspection or reuse. |
+
 ## Environment overrides
 
 | Variable | Default | Meaning |
@@ -110,5 +122,6 @@ Per-project commands, install/prepare overrides, and prerequisites live in `PACK
 | `.work/report.json` | Same content plus per-sample timings, retry counts, and exit statuses. |
 | `.work/benchmark.checkpoint.json` | Same shape as `report.json`, rewritten after every cell so a Ctrl-C run leaves a resumable snapshot. |
 | `website/public/benchmark/performance.json` | Dashboard view consumed by https://ttsc.dev/benchmark. Merged in place, cells not re-measured in this run keep their previous values. Skip with `--no-website`, wipe and replace with `--reset`. |
+| `website/public/benchmark/graph.json` | Graph dashboard data. `graph.mjs` upserts only measured cells by harness, tool, repo, model, effort, fixture branch, and daemon mode. |
 
 `.work/` is git-ignored; results are an ephemeral artifact and never committed.

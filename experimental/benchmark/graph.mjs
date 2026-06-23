@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * One-shot AI token benchmark for @ttsc/graph on the performance fixtures.
+ * One-shot AI token benchmark for @ttsc/graph and codegraph on the
+ * performance fixtures.
  *
  * This runner intentionally stays separate from performance.mjs: it spends real
  * Claude/Codex credits, so it only runs when called explicitly. It reuses the
@@ -73,6 +74,7 @@ if (branch !== "ttsc" && branch !== "ttsc-lint")
 
 const selected = selectProjects(parsed);
 const models = splitList(parsed.values.models ?? parsed.values.model ?? "sonnet,opus,codex");
+const tools = selectTools(parsed.values.tools ?? parsed.values.tool ?? "ttsc-graph,codegraph");
 const runs = parsed.values.runs ?? "1";
 const guidance = parsed.values.guidance ?? "1";
 const daemon = parsed.values.daemon ?? "0";
@@ -123,6 +125,7 @@ if (parsed.flags.has("--setup-only")) {
 const report = {
   date: new Date().toISOString(),
   branch,
+  tools,
   runs: Number(runs),
   guidance: guidance === "1" || guidance === "true",
   daemon: daemon === "1" || daemon === "true",
@@ -138,24 +141,37 @@ for (const project of selected) {
   if (!fs.existsSync(path.join(repoDir, spec.tsconfig)))
     throw new Error(`missing graph tsconfig: ${path.join(repoDir, spec.tsconfig)}`);
 
-  for (const model of models) {
-    const { cell, websiteCell } = runAgentCell({
-      project,
-      spec,
-      repoDir,
-      model,
-      branch,
-      runs,
-      guidance,
-      daemon,
-      effort,
-      codexModel,
-      outDir,
-    });
-    report.cells.push(cell);
-    writeJson(path.join(outDir, "report.json"), report);
-    publishWebsiteCells([websiteCell]);
-    printCellSummary(cell);
+  let codegraphIndexMs = null;
+  try {
+    if (tools.includes("codegraph")) {
+      codegraphIndexMs = ensureCodegraphIndex(project, repoDir);
+    }
+
+    for (const tool of tools) {
+      for (const model of models) {
+        const { cell, websiteCell } = runAgentCell({
+          project,
+          spec,
+          repoDir,
+          tool,
+          codegraphIndexMs,
+          model,
+          branch,
+          runs,
+          guidance,
+          daemon,
+          effort,
+          codexModel,
+          outDir,
+        });
+        report.cells.push(cell);
+        writeJson(path.join(outDir, "report.json"), report);
+        publishWebsiteCells([websiteCell]);
+        printCellSummary(cell);
+      }
+    }
+  } finally {
+    if (tools.includes("codegraph")) cleanupCodegraphIndex(repoDir);
   }
 }
 
@@ -194,6 +210,8 @@ function runAgentCell({
   project,
   spec,
   repoDir,
+  tool,
+  codegraphIndexMs,
   model,
   branch,
   runs,
@@ -207,7 +225,7 @@ function runAgentCell({
   const harness = codex ? codexHarness : claudeHarness;
   const resolvedModel = codex ? (model === "codex" ? codexModel : model) : model;
   const logStem = `${project}-${branch}-${filenamePart(
-    codex ? `codex-${resolvedModel}` : resolvedModel,
+    `${tool}-${codex ? `codex-${resolvedModel}` : resolvedModel}`,
   )}`;
   const args = [
     harness,
@@ -219,10 +237,11 @@ function runAgentCell({
     `--daemon=${daemon}`,
     `--model=${resolvedModel}`,
   ];
+  if (tool === "codegraph") args.push("--cg=1");
   if (codex) args.push(`--effort=${effort}`);
 
   runChecked("node", args, {
-    label: `${project} ${branch} ${resolvedModel}`,
+    label: `${project} ${branch} ${tool} ${resolvedModel}`,
     logBase: path.join(outDir, logStem),
   });
 
@@ -238,6 +257,10 @@ function runAgentCell({
   const harnessName = codex ? "codex" : "claude-code";
   const websiteCell = {
     harness: harnessName,
+    tool,
+    ...(tool === "codegraph" && codegraphIndexMs != null
+      ? { toolSetupMs: codegraphIndexMs }
+      : {}),
     repo: data.repo ?? project,
     model: data.model ?? resolvedModel,
     ...(data.effort ? { effort: data.effort } : {}),
@@ -251,6 +274,10 @@ function runAgentCell({
     cell: {
       project,
       branch,
+      tool,
+      ...(tool === "codegraph" && codegraphIndexMs != null
+        ? { toolSetupMs: codegraphIndexMs }
+        : {}),
       harness: harnessName,
       model: resolvedModel,
       repoDir,
@@ -289,12 +316,71 @@ function publishWebsiteCells(cells) {
 function websiteCellKey(cell) {
   return JSON.stringify([
     cell.harness,
+    cell.tool ?? "ttsc-graph",
     cell.repo,
     cell.model,
     cell.effort ?? "",
     cell.fixtureBranch ?? "ttsc",
     cell.daemon === true ? "daemon" : "single",
   ]);
+}
+
+function ensureCodegraphIndex(project, repoDir) {
+  if (parsed.flags.has("--no-codegraph-index")) return null;
+  ensureCodegraphIgnored(repoDir);
+  cleanupCodegraphIndex(repoDir);
+  const start = process.hrtime.bigint();
+  const logStem = `codegraph-index-${project}`;
+  runChecked(...codegraphCommand(["init", repoDir]), {
+    label: `codegraph index ${project}`,
+    logBase: path.join(outDir, logStem),
+    cwd: repoRoot,
+  });
+  return Number(process.hrtime.bigint() - start) / 1e6;
+}
+
+function ensureCodegraphIgnored(repoDir) {
+  const exclude = path.join(repoDir, ".git", "info", "exclude");
+  if (!fs.existsSync(exclude)) return;
+  const text = fs.readFileSync(exclude, "utf8");
+  if (/^\.codegraph\/$/m.test(text)) return;
+  fs.appendFileSync(
+    exclude,
+    `${text.endsWith("\n") ? "" : "\n"}# generated by graph benchmark\n.codegraph/\n`,
+  );
+}
+
+function cleanupCodegraphIndex(repoDir) {
+  if (parsed.flags.has("--keep-codegraph-index")) return;
+  const root = path.resolve(repoDir);
+  const target = path.resolve(repoDir, ".codegraph");
+  const relative = path.relative(root, target);
+  if (
+    relative === "" ||
+    relative.startsWith("..") ||
+    path.isAbsolute(relative)
+  ) {
+    throw new Error(`refusing to remove codegraph index outside fixture: ${target}`);
+  }
+  fs.rmSync(target, { recursive: true, force: true });
+}
+
+function selectTools(value) {
+  const names = splitList(value);
+  const expanded = names.includes("all") ? ["ttsc-graph", "codegraph"] : names;
+  const allowed = new Set(["ttsc-graph", "codegraph"]);
+  if (expanded.length === 0)
+    throw new Error("--tools must contain ttsc-graph, codegraph, or all");
+  for (const name of expanded) {
+    if (!allowed.has(name))
+      throw new Error("--tools must contain ttsc-graph, codegraph, or all");
+  }
+  return [...new Set(expanded)];
+}
+
+function codegraphCommand(args) {
+  if (process.platform !== "win32") return ["codegraph", args];
+  return ["cmd.exe", ["/d", "/s", "/c", "codegraph", ...args]];
 }
 
 function filenamePart(value) {
@@ -372,7 +458,7 @@ function printCellSummary(cell) {
       ? ""
       : `, guided ${Math.round(summary.guided.tokens)} tok (${summary.guidedSavedPct}%)`;
   process.stdout.write(
-    `[graph] ${cell.project}@${cell.branch} ${cell.model}: ` +
+    `[graph] ${cell.project}@${cell.branch} ${cell.tool} ${cell.model}: ` +
       `baseline ${Math.round(summary.baseline.tokens)} tok, ` +
       `graph ${Math.round(summary.graph.tokens)} tok (${summary.graphSavedPct}%)` +
       `${guided}\n`,

@@ -241,13 +241,7 @@ if (useDaemon) {
 const withCfg = path.join(os.tmpdir(), `mcp-graph-${process.pid}.json`);
 const emptyCfg = path.join(os.tmpdir(), `mcp-empty-${process.pid}.json`);
 const serverCfg = cg
-  ? {
-      codegraph: {
-        command: "codegraph",
-        args: ["serve", "--mcp", "--path", repoDir],
-        env: { CODEGRAPH_NO_DAEMON: "1" },
-      },
-    }
+  ? { codegraph: codegraphServerConfig(repoDir) }
   : { "ttsc-graph": { command: binary, args: withArgs } };
 fs.writeFileSync(withCfg, JSON.stringify({ mcpServers: serverCfg }));
 fs.writeFileSync(emptyCfg, JSON.stringify({ mcpServers: {} }));
@@ -312,7 +306,7 @@ console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 const reportName = `agent-ab-report${guidance ? "-guided" : ""}.json`;
 fs.writeFileSync(
   path.join(here, reportName),
-  `${JSON.stringify({ repo: repoKey, fixtureBranch, repoDir, model, runs, guidance, question, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", repo: repoKey, fixtureBranch, repoDir, model, runs, guidance, question, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 try {
@@ -401,6 +395,21 @@ function runClaude(question, cfg) {
   );
   if (result.error) throw result.error;
   return parseStream(result.stdout ?? "");
+}
+
+function codegraphServerConfig(targetRepoDir) {
+  const args = ["serve", "--mcp", "--path", targetRepoDir];
+  return process.platform === "win32"
+    ? {
+        command: "cmd.exe",
+        args: ["/d", "/s", "/c", "codegraph", ...args],
+        env: { CODEGRAPH_NO_DAEMON: "1" },
+      }
+    : {
+        command: "codegraph",
+        args,
+        env: { CODEGRAPH_NO_DAEMON: "1" },
+      };
 }
 
 // parseStream mirrors codegraph's parse-bench-readme.mjs: tokens are summed over
