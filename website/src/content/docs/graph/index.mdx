@@ -6,7 +6,7 @@ import { Tabs } from "nextra/components";
 
 The point of difference is precision. Every edge the graph reports is resolved by the real TypeScript-Go checker, not a syntactic heuristic: a call through a barrel re-export lands on the sibling source that declares the symbol, a `workspace:*` dependency is followed as your own code, and a `node_modules` or `.d.ts` declaration is reported as an external boundary leaf the walk does not descend into. Because the server holds the `Program` open, a query is a method call on an already-built checker, not a fresh compile and not an external language-server round-trip.
 
-On codegraph's own agent-cost benchmark this lets an agent answer an architecture question from the graph alone, reading zero files, for 70% fewer tokens and 83% fewer tool calls than the same agent without it, averaged across two repositories. See the [Benchmark](./benchmark) for the full numbers and method.
+On codegraph's own agent-cost benchmark this lets an agent answer an architecture question from the graph alone, reading zero files, for 70% fewer tokens and 83% fewer tool calls than the same agent without it, averaged across two repositories. See the [Benchmark](/docs/benchmark#code-graph-mcp) for the full numbers and method.
 
 ## Install
 

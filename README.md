@@ -15,6 +15,8 @@ Benchmarked against the legacy `tsc` + `eslint`/`prettier` path on real reposito
 - **`@ttsc/lint`**: replaces `eslint` and `prettier`.
   - lint violations as TS compile errors.
   - format autofixes via `ttsc format`.
+- **`@ttsc/graph`**: a code map for coding agents, over MCP.
+  - what calls what, and a change's blast radius, from the type checker.
 - **plugin support**: compiler-powered libraries, such as `typia`.
 
 ## Setup
@@ -151,7 +153,7 @@ Point your agent's MCP client at it. For Claude Code:
 }
 ```
 
-On codegraph's own agent-cost benchmark it cuts an agent's tokens by 70% and tool calls by 83%, averaged across two repositories, with the agent reading zero files. See [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) and the [benchmark](https://ttsc.dev/docs/graph/benchmark).
+On codegraph's own agent-cost benchmark it cuts an agent's tokens by 70% and tool calls by 83%, averaged across two repositories, with the agent reading zero files. See [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) and the [benchmark](https://ttsc.dev/docs/benchmark#code-graph-mcp).
 
 ## Plugins
 
