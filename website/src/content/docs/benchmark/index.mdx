@@ -1,0 +1,13 @@
+import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
+
+# Benchmark
+
+`ttsc` publishes two separate benchmarks, each measuring a different question.
+
+[Compiler performance](/docs/benchmark/performance) measures how much wall-clock time changes when a real TypeScript project moves from the legacy `tsc` + `eslint` path to TypeScript-Go backed builds, checks, and linting. The dashboard covers build, type-check, lint, and format across a set of real open-source repositories, under both single-threaded and multi-threaded configurations.
+
+[Code Graph (MCP)](/docs/benchmark/graph) measures whether an agent spends fewer tokens and tool calls when it has the `@ttsc/graph` code map available. That page also covers structural coverage: how completely the graph resolves a real codebase's cross-file relationships.
+
+## Code Graph headline numbers
+
+<GraphBenchmark variant="summary" />

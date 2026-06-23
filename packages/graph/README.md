@@ -36,7 +36,7 @@ Anything from `node_modules` is left out, because that is not your code.
 
 On a public benchmark, a Claude agent answered reading zero files, cutting its token use by **77% to 86%** and its tool calls by **94% to 95%**.
 
-See the [benchmark](https://ttsc.dev/docs/benchmark#code-graph-mcp) for the full numbers.
+See the [benchmark](https://ttsc.dev/docs/benchmark/graph) for the full numbers.
 
 ## Install
 
@@ -86,7 +86,7 @@ That is why it is exact, and why it is fast: nothing is recompiled to answer a q
 
 ## References
 
-`@ttsc/graph` is inspired by [codegraph](https://github.com/colbymchenry/codegraph), which gives agents a code graph over MCP. The [benchmark](https://ttsc.dev/docs/benchmark#code-graph-mcp) here is a faithful port of codegraph's.
+`@ttsc/graph` is inspired by [codegraph](https://github.com/colbymchenry/codegraph), which gives agents a code graph over MCP. The [benchmark](https://ttsc.dev/docs/benchmark/graph) here is a faithful port of codegraph's.
 
 The difference is how the map is built.
 

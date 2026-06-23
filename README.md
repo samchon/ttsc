@@ -6,7 +6,7 @@
 
 A `typescript-go` toolchain for compiler-powered plugins and type-safe execution.
 
-Benchmarked against the legacy `tsc` + `eslint`/`prettier` path on real repositories; see the [benchmark guide](https://ttsc.dev/docs/benchmark) for per-project ratios.
+Benchmarked against the legacy `tsc` + `eslint`/`prettier` path on real repositories; see the [benchmark guide](https://ttsc.dev/docs/benchmark/performance) for per-project ratios.
 
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.
@@ -157,7 +157,7 @@ Point your agent's MCP client at it. For Claude Code:
 }
 ```
 
-On codegraph's own agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by 77% to 86% and tool calls by 94% to 95%. See [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) and the [benchmark](https://ttsc.dev/docs/benchmark#code-graph-mcp).
+On codegraph's own agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by 77% to 86% and tool calls by 94% to 95%. See [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
 
 Claude Code follows the server's instructions and uses the graph on its own. Codex is more conservative with third-party MCP tools and tends to fall back to the shell, so tell it directly: add a line to your `AGENTS.md` asking it to call `graph_explore` first. See [Setup](https://ttsc.dev/docs/setup#codex-and-other-tool-conservative-agents).
 
