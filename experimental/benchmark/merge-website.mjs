@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Merge per-(project, branch) partial benchmark reports into
- * `website/public/benchmark.json`.
+ * `website/public/benchmark/performance.json`.
  *
  * Used after collecting partial `experimental/benchmark/.work/report.json`
  * files into one directory. Each partial may live directly in that directory

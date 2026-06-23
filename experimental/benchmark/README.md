@@ -68,7 +68,7 @@ Per-project commands, install/prepare overrides, and prerequisites live in `PACK
 | `--force-install` | Reinstall even when `node_modules` is already present. |
 | `--allow-missing` | Tolerate fixtures whose clones failed setup instead of aborting. |
 | `--reset` | Discard the previous report; do not merge with prior measurements. |
-| `--no-website` | Do not publish into `website/public/benchmark.json`. |
+| `--no-website` | Do not publish into `website/public/benchmark/performance.json`. |
 | `--verbose` | Tee child stdio (install / pack / build) live and add `[cmd]` / `[step]` / `[timer] start` traces. Default output is milestone-only; use this when an AI/agent run needs the full transcript for diagnosis. |
 | `--list` | Print the per-fixture cell grid and exit. |
 
@@ -94,8 +94,8 @@ Per-project commands, install/prepare overrides, and prerequisites live in `PACK
 - Plugin binaries are built by `ttsc prepare` during setup, never during a measured run, so compiler timings do not include plugin build time.
 - Non-zero exits are classified from captured output. A `race` (TypeScript-Go data-race markers, `concurrent map`, `fatal error`, `panic:`, `DATA RACE`) is retried up to `RETRIES` times and the clean timing kept; a deterministic `error` is recorded as failed without retry.
 - Cells are measured **sequentially** so they do not compete for CPU.
-- `--sequential` is a separate, disk-cheap top-level mode: instead of cloning all fixtures up front, it clones one `(project, branch)`, measures its cells, deletes the clone, and moves to the next. The tarball pack runs once at the start. Per-project metadata (file count, legacy `typescript` version, host spec) is captured while each clone exists and reused for the final report. The published `website/public/benchmark.json` is merged in place after every cycle, so an interrupted sequential run leaves a resumable snapshot just like batch mode. Verify-only runs skip the per-cycle website write to avoid noisy host-metadata-only commits.
-- Publication sweeps run on an external quiet host, not in the repository's GitHub Actions workflows. `merge-website.mjs` can still fold partial `report.json` files into `website/public/benchmark.json` by id: missing partials keep their previous cells intact, fresh partials replace by id, and only the freshest partial that _carries measurements_ rotates the top-level `date` / `host` block.
+- `--sequential` is a separate, disk-cheap top-level mode: instead of cloning all fixtures up front, it clones one `(project, branch)`, measures its cells, deletes the clone, and moves to the next. The tarball pack runs once at the start. Per-project metadata (file count, legacy `typescript` version, host spec) is captured while each clone exists and reused for the final report. The published `website/public/benchmark/performance.json` is merged in place after every cycle, so an interrupted sequential run leaves a resumable snapshot just like batch mode. Verify-only runs skip the per-cycle website write to avoid noisy host-metadata-only commits.
+- Publication sweeps run on an external quiet host, not in the repository's GitHub Actions workflows. `merge-website.mjs` can still fold partial `report.json` files into `website/public/benchmark/performance.json` by id: missing partials keep their previous cells intact, fresh partials replace by id, and only the freshest partial that _carries measurements_ rotates the top-level `date` / `host` block.
 - At startup the runner checks `loadavg[0] / cpus()` and warns when the ratio exceeds 0.5, the fastest cells (`ttsc:build:single`, ~2–8 s) drift 20–60 % on a busy host. Override with `TTSC_BENCH_REQUIRE_QUIET=1` to error instead, or `TTSC_BENCH_SKIP_LOAD_CHECK=1` to silence.
 
 ## Output
@@ -105,6 +105,6 @@ Per-project commands, install/prepare overrides, and prerequisites live in `PACK
 | `.work/report.md` | Per-project Markdown table (`Branch \| Op \| Threading \| Median \| Samples \| Failure`) preceded by a `Host` block (OS, kernel, CPU, RAM, `node` / `ttsc` / `typescript` / `tsgo` versions). |
 | `.work/report.json` | Same content plus per-sample timings, retry counts, and exit statuses. |
 | `.work/benchmark.checkpoint.json` | Same shape as `report.json`, rewritten after every cell so a Ctrl-C run leaves a resumable snapshot. |
-| `website/public/benchmark.json` | Dashboard view consumed by https://ttsc.dev/benchmark. Merged in place, cells not re-measured in this run keep their previous values. Skip with `--no-website`, wipe and replace with `--reset`. |
+| `website/public/benchmark/performance.json` | Dashboard view consumed by https://ttsc.dev/benchmark. Merged in place, cells not re-measured in this run keep their previous values. Skip with `--no-website`, wipe and replace with `--reset`. |
 
 `.work/` is git-ignored; results are an ephemeral artifact and never committed.

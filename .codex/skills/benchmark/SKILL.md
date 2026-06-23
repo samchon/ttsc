@@ -7,7 +7,7 @@ description: Benchmark runner, fixture repos, and publication. Read before runni
 
 ## What it measures
 
-`ttsc + @ttsc/lint + ttsc format` versus the legacy `tsc + eslint + prettier` toolchain, on seven real-world TypeScript projects. The runner clones each fixture's three branches into `experimental/benchmark/.work/`, replays each cell `RUNS` times, and writes the medians to `website/public/benchmark.json` for the public dashboard at https://ttsc.dev/benchmark.
+`ttsc + @ttsc/lint + ttsc format` versus the legacy `tsc + eslint + prettier` toolchain, on seven real-world TypeScript projects. The runner clones each fixture's three branches into `experimental/benchmark/.work/`, replays each cell `RUNS` times, and writes the medians to `website/public/benchmark/performance.json` for the public dashboard at https://ttsc.dev/benchmark.
 
 Cell ID = `project:branch:op:threading`.
 
@@ -36,9 +36,9 @@ Option families:
 - **Setup**: `--setup-only`, `--no-setup`, `--no-install`, `--no-pack` (or `TTSC_BENCH_SKIP_PACK=1`), `--force-install`. Setup packs the local `ttsc` workspace into tarballs, clones the fixtures, installs the tarballs, and runs `ttsc prepare` so plugin binaries are warm before any measured cell.
 - **Sampling**: `TTSC_BENCH_RUNS` (5), `TTSC_BENCH_WARMUP` (1), `TTSC_BENCH_RETRIES` (2, applied only to `race`-classified failures). The reported number is the median; `min` and the full sample list stay in `report.json` for audit.
 - **Host gate**: `TTSC_BENCH_REQUIRE_QUIET=1` upgrades the load-average warning into a hard error and is set for every publication run; `TTSC_BENCH_SKIP_LOAD_CHECK=1` silences it for development iterations.
-- **Output**: `--no-website` skips merging into `website/public/benchmark.json`; `--reset` discards prior measurements instead of merging in place; `TTSC_BENCH_OUT` redirects the local report; `--verbose` tees child stdio with `[cmd]` / `[step]` / `[timer]` traces (default is milestone-only).
+- **Output**: `--no-website` skips merging into `website/public/benchmark/performance.json`; `--reset` discards prior measurements instead of merging in place; `TTSC_BENCH_OUT` redirects the local report; `--verbose` tees child stdio with `[cmd]` / `[step]` / `[timer]` traces (default is milestone-only).
 - **Disk-cheap mode**: `--sequential` (env `TTSC_BENCH_SEQUENTIAL=1`) holds only one `(project, branch)` clone in `.work/` at a time: clone, measure, delete, next. Incompatible with `--setup-only` / `--no-setup`.
-- **Publication host**: run publication sweeps on a quiet external host, then commit the resulting `website/public/benchmark.json`. `merge-website.mjs` remains available when merging partial `report.json` files by cell id.
+- **Publication host**: run publication sweeps on a quiet external host, then commit the resulting `website/public/benchmark/performance.json`. `merge-website.mjs` remains available when merging partial `report.json` files by cell id.
 
 Publication sweep:
 
@@ -46,7 +46,7 @@ Publication sweep:
 TTSC_BENCH_REQUIRE_QUIET=1 node experimental/benchmark/bench.mjs
 ```
 
-After the sweep, inspect the diff against `website/public/benchmark.json`: every fixture row present, row order preserved, host panel reflects the machine that produced the numbers.
+After the sweep, inspect the diff against `website/public/benchmark/performance.json`: every fixture row present, row order preserved, host panel reflects the machine that produced the numbers.
 
 ## Fixture repositories
 

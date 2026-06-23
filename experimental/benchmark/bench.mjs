@@ -57,7 +57,8 @@ const WEBSITE_JSON = path.resolve(
   REPO_ROOT,
   "website",
   "public",
-  "benchmark.json",
+  "benchmark",
+  "performance.json",
 );
 const REPORT_JSON = OUT.replace(/\.md$/, ".json");
 const CHECKPOINT_JSON =

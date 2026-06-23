@@ -51,4 +51,13 @@ A cross-model companion, `agent-ab-codex.mjs`, drives OpenAI's codex (GPT-5.5) t
 node experimental/graph-bench/agent-ab-codex.mjs --repo=excalidraw --runs=4
 ```
 
+## Publish (`publish.mjs`)
+
+Each benchmark writes a local, git-ignored report (`report.json`, `agent-ab-report.json`, `agent-ab-codex-report.json`). `publish.mjs` folds whichever exist into the committed, served `website/public/benchmark/graph.json` — the graph sibling of the performance dashboard's `performance.json`. It merges in place: the structural block is replaced whole, and each agent cell is keyed by `(harness, repo, model)` and upserted, so running one repo/model at a time on a quiet host accumulates cells across separate runs. Only raw per-run samples are stored; medians and saved-percentages are derived by the reader, so the JSON never drifts from the prose.
+
+```bash
+node experimental/graph-bench/publish.mjs            # fold every report found
+node experimental/graph-bench/publish.mjs --reset    # drop prior cells first
+```
+
 The published figures and the full method live at https://ttsc.dev/docs/graph/benchmark, the single source of truth. The headline: on Claude Sonnet 4.6 the graph cuts an agent's tokens by ~70% and tool calls by ~83% across the two repos, with the agent reading few or no files — and the win is model-dependent, since a thorough model like Opus reads source regardless of the tool. Running this surfaced the cold-start race: the server must answer the MCP handshake before it finishes type-checking, or it sits "pending" with no tools advertised and the agent falls back to grep; lazy init fixes it.
