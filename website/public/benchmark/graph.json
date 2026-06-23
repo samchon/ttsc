@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T22:35:59.738Z",
+  "generatedAt": "2026-06-23T22:38:15.067Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -2632,6 +2632,69 @@
               "other": 0,
               "cost": 0.2221435,
               "durMs": 16322,
+              "ok": true
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 7759.1223,
+        "repo": "shopping-backend",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "Which code builds the order creation request before persistence?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 238766,
+              "cached": 88960,
+              "turns": 1,
+              "tools": 11,
+              "shell": 11,
+              "graph": 0,
+              "types": {
+                "agent_message": 5,
+                "command_execution": 11
+              },
+              "durMs": 50411,
+              "ok": true
+            }
+          ],
+          "graph": [
+            {
+              "tokens": 279911,
+              "cached": 190976,
+              "turns": 1,
+              "tools": 10,
+              "shell": 6,
+              "graph": 4,
+              "types": {
+                "agent_message": 7,
+                "mcp_tool_call": 4,
+                "command_execution": 6
+              },
+              "durMs": 44406,
+              "ok": true
+            }
+          ],
+          "guided": [
+            {
+              "tokens": 192149,
+              "cached": 153728,
+              "turns": 1,
+              "tools": 5,
+              "shell": 0,
+              "graph": 5,
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 5
+              },
+              "durMs": 37063,
               "ok": true
             }
           ]
