@@ -88,110 +88,90 @@ const panelHeaderClass =
   "flex flex-wrap items-end justify-between gap-2 border-b border-[#262b36] bg-[#121620] px-4 py-3";
 
 /**
- * Paired before/after bars for one metric.
+ * One metric as a split usage bar.
  *
- * The baseline bar is always full-width (muted gray track). The graph bar's
- * WIDTH is graphMedian/baselineMedian of the track, so a large reduction (e.g.
- * 86% fewer tokens) renders as a short green sliver — the geometry matches the
- * meaning rather than filling the bar to the saved percentage.
- *
- * An optional third bar ("guided") is shown when the cell has a guided arm.
+ * The whole track is the empty-MCP baseline (100%). The left segment is how much
+ * the graph still uses (graphMedian / baselineMedian), the right segment is what
+ * it saves. So "86% saved" shows as a bar that is mostly the green "saved"
+ * region, never an 86%-full bar that could read as "86% remains". The raw token
+ * and tool counts appear only on hover (the bar's title); the percentages stay
+ * visible. An optional second row shows the guided (AGENTS.md) arm.
  */
-function SavingsBar({
-  pct,
-  label,
+function UsageBar({
+  metric,
+  baseMedian,
+  graphMedian,
   baselineRaw,
   graphRaw,
-  graphWidthPct,
-  guidedRaw,
-  guidedWidthPct,
-  guidedPct,
-  light,
+  rowLabel,
 }: {
-  pct: number;
-  label: string;
+  metric: string;
+  baseMedian: number;
+  graphMedian: number;
   baselineRaw: string;
   graphRaw: string;
-  graphWidthPct: number;
-  guidedRaw?: string;
-  guidedWidthPct?: number;
-  guidedPct?: number;
-  light?: boolean;
+  rowLabel?: string;
 }) {
-  const pctColor = light ? "text-emerald-400" : "text-emerald-300";
-  const graphBarColor = light ? "bg-emerald-600" : "bg-emerald-400";
-
+  const usedWidth =
+    baseMedian > 0 ? Math.min(100, (graphMedian / baseMedian) * 100) : 100;
+  const saved = pctSaved(baseMedian, graphMedian);
+  const used = 100 - saved;
   return (
-    <div className="space-y-1 py-1.5">
-      {/* Header row: metric label + "N% fewer" headline */}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <p className="min-w-0 flex-1 break-all font-mono text-[11px] text-neutral-400">
-          {label}
-        </p>
-        {pct > 0 ? (
-          <span className={`shrink-0 font-mono text-[11px] font-semibold ${pctColor}`}>
-            {pct}% fewer
-          </span>
-        ) : (
-          <span className="shrink-0 font-mono text-[11px] text-neutral-600">
-            no change
-          </span>
-        )}
+    <div
+      className="space-y-1"
+      title={`${metric}: baseline ${baselineRaw} ${"→"} ${rowLabel ? "with AGENTS.md " : ""}${graphRaw}`}
+    >
+      <div className="flex h-5 w-full overflow-hidden rounded bg-[#171d28]">
+        <div
+          className="h-full bg-neutral-500/80"
+          style={{ width: `${usedWidth}%` }}
+        />
+        <div className="h-full flex-1 bg-emerald-500" />
       </div>
-
-      {/* Baseline bar — always full width, muted */}
-      <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-right font-mono text-[10px] text-neutral-500">
-          baseline
+      <div className="flex justify-between font-mono text-[10px]">
+        <span className="text-neutral-400">
+          {used}% used{rowLabel ? ` (${rowLabel})` : ""}
         </span>
-        <div className="flex-1 overflow-hidden rounded bg-neutral-700/60">
-          <div className="flex h-5 w-full items-center justify-end rounded bg-neutral-600 px-2">
-            <span className="font-mono text-[10px] font-semibold text-neutral-300">
-              {baselineRaw}
-            </span>
-          </div>
-        </div>
+        <span className="text-emerald-300">{saved}% saved</span>
       </div>
+    </div>
+  );
+}
 
-      {/* Graph bar — width proportional to graph/baseline ratio */}
-      <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-right font-mono text-[10px] text-neutral-500">
-          graph
-        </span>
-        <div className="flex-1 overflow-hidden rounded bg-[#171d28]">
-          <div
-            className={`flex h-5 min-w-[1.5rem] items-center justify-end rounded px-2 ${graphBarColor}`}
-            style={{ width: `${Math.max(2, graphWidthPct)}%` }}
-          >
-            <span className="font-mono text-[10px] font-semibold text-emerald-950">
-              {graphRaw}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Guided arm (optional) */}
-      {guidedRaw !== undefined && guidedWidthPct !== undefined ? (
-        <div className="flex items-center gap-2">
-          <span className="w-16 shrink-0 text-right font-mono text-[10px] text-neutral-500">
-            guided
-          </span>
-          <div className="flex-1 overflow-hidden rounded bg-[#171d28]">
-            <div
-              className="flex h-5 min-w-[1.5rem] items-center justify-end rounded bg-emerald-600 px-2"
-              style={{ width: `${Math.max(2, guidedWidthPct)}%` }}
-            >
-              <span className="font-mono text-[10px] font-semibold text-emerald-950">
-                {guidedRaw}
-              </span>
-            </div>
-          </div>
-          {guidedPct !== undefined && guidedPct > 0 ? (
-            <span className="shrink-0 font-mono text-[10px] text-emerald-400">
-              {guidedPct}% fewer
-            </span>
-          ) : null}
-        </div>
+function SavingsBar({
+  metric,
+  baseMedian,
+  graphMedian,
+  baselineRaw,
+  graphRaw,
+  guided,
+}: {
+  metric: string;
+  baseMedian: number;
+  graphMedian: number;
+  baselineRaw: string;
+  graphRaw: string;
+  guided?: { median: number; raw: string };
+}) {
+  return (
+    <div className="space-y-1.5 py-1.5">
+      <p className="font-mono text-[11px] text-neutral-400">{metric}</p>
+      <UsageBar
+        metric={metric}
+        baseMedian={baseMedian}
+        graphMedian={graphMedian}
+        baselineRaw={baselineRaw}
+        graphRaw={graphRaw}
+      />
+      {guided ? (
+        <UsageBar
+          metric={metric}
+          baseMedian={baseMedian}
+          graphMedian={guided.median}
+          baselineRaw={baselineRaw}
+          graphRaw={guided.raw}
+          rowLabel="AGENTS.md"
+        />
       ) : null}
     </div>
   );
@@ -206,8 +186,8 @@ function AgentCostSection({ cells }: { cells: AgentCell[] }) {
             Agent cost
           </h2>
           <p className="mt-1 text-[13px] text-neutral-400">
-            Median tokens and tool calls: empty-MCP baseline vs. graph arm.
-            Shorter graph bar = less usage.
+            Each bar is the empty-MCP baseline. The grey part is what the graph
+            still uses, the green part is what it saves. Hover for the raw counts.
           </p>
         </div>
         <p className="font-mono text-[11px] uppercase text-neutral-500">
@@ -224,7 +204,6 @@ function AgentCostSection({ cells }: { cells: AgentCell[] }) {
           const baseTools = median(cell.samples.baseline.map((s) => s.tools));
           const graphTools = median(cell.samples.graph.map((s) => s.tools));
           const tokensPct = pctSaved(baseTokens, graphTokens);
-          const toolsPct = pctSaved(baseTools, graphTools);
 
           const guided = Array.isArray(cell.samples.guided)
             ? cell.samples.guided
@@ -262,63 +241,46 @@ function AgentCostSection({ cells }: { cells: AgentCell[] }) {
                     {tokensPct > 0 ? `${tokensPct}%` : "0%"}
                   </div>
                   <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-neutral-500">
-                    tokens fewer
+                    tokens saved
                   </div>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <SavingsBar
-                  label="tokens"
-                  pct={tokensPct}
+                  metric="tokens"
+                  baseMedian={baseTokens}
+                  graphMedian={graphTokens}
                   baselineRaw={fmt(Math.round(baseTokens))}
                   graphRaw={fmt(Math.round(graphTokens))}
-                  graphWidthPct={
-                    baseTokens > 0 ? (graphTokens / baseTokens) * 100 : 100
-                  }
-                  guidedRaw={
+                  guided={
                     guidedTokens !== undefined
-                      ? fmt(Math.round(guidedTokens))
-                      : undefined
-                  }
-                  guidedWidthPct={
-                    guidedTokens !== undefined && baseTokens > 0
-                      ? (guidedTokens / baseTokens) * 100
-                      : undefined
-                  }
-                  guidedPct={
-                    guidedTokens !== undefined
-                      ? pctSaved(baseTokens, guidedTokens)
+                      ? {
+                          median: guidedTokens,
+                          raw: fmt(Math.round(guidedTokens)),
+                        }
                       : undefined
                   }
                 />
                 <SavingsBar
-                  label="tool calls"
-                  pct={toolsPct}
+                  metric="tool calls"
+                  baseMedian={baseTools}
+                  graphMedian={graphTools}
                   baselineRaw={fmt(Math.round(baseTools))}
                   graphRaw={
                     graphTools % 1 === 0
                       ? fmt(Math.round(graphTools))
                       : graphTools.toFixed(1)
                   }
-                  graphWidthPct={
-                    baseTools > 0 ? (graphTools / baseTools) * 100 : 100
-                  }
-                  guidedRaw={
+                  guided={
                     guidedTools !== undefined
-                      ? guidedTools % 1 === 0
-                        ? fmt(Math.round(guidedTools))
-                        : guidedTools.toFixed(1)
-                      : undefined
-                  }
-                  guidedWidthPct={
-                    guidedTools !== undefined && baseTools > 0
-                      ? (guidedTools / baseTools) * 100
-                      : undefined
-                  }
-                  guidedPct={
-                    guidedTools !== undefined
-                      ? pctSaved(baseTools, guidedTools)
+                      ? {
+                          median: guidedTools,
+                          raw:
+                            guidedTools % 1 === 0
+                              ? fmt(Math.round(guidedTools))
+                              : guidedTools.toFixed(1),
+                        }
                       : undefined
                   }
                 />
