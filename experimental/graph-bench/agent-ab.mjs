@@ -16,7 +16,7 @@
 // Usage:
 //   node experimental/graph-bench/agent-ab.mjs --repo=excalidraw --runs=2
 //   node experimental/graph-bench/agent-ab.mjs --repo=vscode --runs=4 --model=opus
-//   node experimental/graph-bench/agent-ab.mjs --repo=typeorm --fixture-branch=ttsc
+//   node experimental/graph-bench/agent-ab.mjs --repo=typeorm --repo-dir=experimental/benchmark/.work/ttsc-benchmark-typeorm@ttsc
 import cp from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -108,7 +108,9 @@ if (fixtureBranch && !spec.fixtureUrl) {
 const corpus = args.corpus ?? path.join(os.tmpdir(), "graph-corpus");
 const cloneKey = fixtureBranch ? `${repoKey}@${fixtureBranch}` : repoKey;
 const repoUrl = fixtureBranch ? spec.fixtureUrl : spec.url;
-const repoDir = path.join(corpus, cloneKey);
+const repoDir = args["repo-dir"]
+  ? path.resolve(args["repo-dir"])
+  : path.join(corpus, cloneKey);
 
 // --guidance=1 adds a fairness condition: a neutral project instruction telling
 // the agent to prefer the code-graph MCP over grep. It names no specific tool and
@@ -136,11 +138,20 @@ Do not split symbols across calls or use grep/read/shell to trace or confirm ret
 // arm, leaving baseline/graph as the bare question.
 const GUIDED_PREFIX =
   "Follow this project's AGENTS.md instructions when answering.\n\n";
+let guidanceSnapshot = null;
+function snapshotGuidanceFiles() {
+  return ["CLAUDE.md", "AGENTS.md"].map((name) => {
+    const file = path.join(repoDir, name);
+    if (!fs.existsSync(file)) return { file, existed: false };
+    return { file, existed: true, content: fs.readFileSync(file, "utf8") };
+  });
+}
 function setGuidance(on) {
-  for (const name of ["CLAUDE.md", "AGENTS.md"]) {
-    const p = path.join(repoDir, name);
-    if (on) fs.writeFileSync(p, GUIDANCE);
-    else fs.rmSync(p, { force: true });
+  guidanceSnapshot ??= snapshotGuidanceFiles();
+  for (const entry of guidanceSnapshot) {
+    if (on) fs.writeFileSync(entry.file, GUIDANCE);
+    else if (entry.existed) fs.writeFileSync(entry.file, entry.content);
+    else fs.rmSync(entry.file, { force: true });
   }
 }
 
@@ -163,7 +174,10 @@ if (!cg) {
 }
 
 // 2. Clone the target repo (shallow) if absent.
-if (!fs.existsSync(repoDir)) {
+if (args["repo-dir"] && !fs.existsSync(repoDir)) {
+  throw new Error(`--repo-dir does not exist: ${repoDir}`);
+}
+if (!args["repo-dir"] && !fs.existsSync(repoDir)) {
   fs.mkdirSync(corpus, { recursive: true });
   console.log(
     `Cloning ${repoUrl}${fixtureBranch ? `#${fixtureBranch}` : ""} (shallow) -> ${repoDir} ...`,
@@ -184,14 +198,11 @@ if (!fs.existsSync(repoDir)) {
 }
 
 // 3. WITH = @ttsc/graph; WITHOUT = empty config. Both --strict-mcp-config.
-// A large repo (VS Code) is type-checked once by a daemon the per-session proxy
-// connects to, instead of rebuilt per session; small repos use the single-process
-// server directly.
+// Default runs stay single-process so setup/build cost remains part of the
+// measured cell. Pass --daemon=1 only for an explicitly amortized large-repo run.
 // codegraph manages its own indexing/daemon, so the ttscgraph daemon path (which
 // spawns the unbuilt `binary`) must be skipped under --cg.
-const useDaemon =
-  !cg &&
-  (args.daemon === "1" || args.daemon === "true" || repoKey === "vscode");
+const useDaemon = !cg && (args.daemon === "1" || args.daemon === "true");
 let daemon = null;
 let withArgs;
 if (useDaemon) {
@@ -301,7 +312,7 @@ console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 const reportName = `agent-ab-report${guidance ? "-guided" : ""}.json`;
 fs.writeFileSync(
   path.join(here, reportName),
-  `${JSON.stringify({ repo: repoKey, fixtureBranch, model, runs, guidance, question, samples }, null, 2)}\n`,
+  `${JSON.stringify({ repo: repoKey, fixtureBranch, repoDir, model, runs, guidance, question, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 try {

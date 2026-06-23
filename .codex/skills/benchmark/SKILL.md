@@ -7,7 +7,9 @@ description: Benchmark runner, fixture repos, and publication. Read before runni
 
 ## What it measures
 
-`ttsc + @ttsc/lint + ttsc format` versus the legacy `tsc + eslint + prettier` toolchain, on seven real-world TypeScript projects. The runner clones each fixture's three branches into `experimental/benchmark/.work/`, replays each cell `RUNS` times, and writes the medians to `website/public/benchmark/performance.json` for the public dashboard at https://ttsc.dev/benchmark.
+`ttsc + @ttsc/lint + ttsc format` versus the legacy `tsc + eslint + prettier` toolchain, on seven real-world TypeScript projects. `experimental/benchmark/performance.mjs` clones each fixture's three branches into `experimental/benchmark/.work/`, replays each cell `RUNS` times, and writes the medians to `website/public/benchmark/performance.json` for the public dashboard at https://ttsc.dev/benchmark.
+
+`experimental/benchmark/graph.mjs` is a separate AI-token benchmark for `@ttsc/graph`. It reuses the same fixture clones and setup path, runs projects sequentially, fixes reasoning effort to `high`, and upserts its own cells into `website/public/benchmark/graph.json`.
 
 Cell ID = `project:branch:op:threading`.
 
@@ -23,11 +25,12 @@ Methodology, per-axis interpretation, and dashboard tabs are documented in `webs
 ## Running
 
 ```bash
-node experimental/benchmark/bench.mjs                              # full matrix sweep
-node experimental/benchmark/bench.mjs --project=vue --no-website   # one fixture, do not touch dashboard
-node experimental/benchmark/bench.mjs --verify-only                # one pass per cell, no timing
-node experimental/benchmark/bench.mjs --list                       # print resolved grid
-node experimental/benchmark/bench.mjs --sequential                 # clone→measure→delete one fixture at a time (low-disk)
+node experimental/benchmark/performance.mjs                              # full matrix sweep
+node experimental/benchmark/performance.mjs --project=vue --no-website   # one fixture, do not touch dashboard
+node experimental/benchmark/performance.mjs --verify-only                # one pass per cell, no timing
+node experimental/benchmark/performance.mjs --list                       # print resolved grid
+node experimental/benchmark/performance.mjs --sequential                 # clone, measure, delete one fixture at a time (low-disk)
+node experimental/benchmark/graph.mjs --project=typeorm                  # one graph AI-token fixture
 ```
 
 Option families:
@@ -43,7 +46,7 @@ Option families:
 Publication sweep:
 
 ```bash
-TTSC_BENCH_REQUIRE_QUIET=1 node experimental/benchmark/bench.mjs
+TTSC_BENCH_REQUIRE_QUIET=1 node experimental/benchmark/performance.mjs
 ```
 
 After the sweep, inspect the diff against `website/public/benchmark/performance.json`: every fixture row present, row order preserved, host panel reflects the machine that produced the numbers.
@@ -53,7 +56,7 @@ After the sweep, inspect the diff against `website/public/benchmark/performance.
 Each fixture is a forked GitHub repo at `samchon/ttsc-benchmark-<name>`, plus `samchon/shopping-backend` for the plugin-heavy case. Every fixture carries three independent branches:
 
 - **`legacy`**: upstream source with stock `tsc`, `eslint`, and `prettier`. TypeScript pinned to the Legacy TypeScript version shown on the dashboard host panel (currently `v6.0.3`).
-- **`ttsc`**: same source as `legacy`, with `tsc` swapped for `ttsc` on `@typescript/native-preview` and the workspace configured to install `ttsc` from the tarball the runner packs.
+- **`ttsc`**: same source as `legacy`, with `tsc` swapped for `ttsc` on the pinned TypeScript-Go `typescript@rc` runtime and the workspace configured to install `ttsc` from the tarball the runner packs.
 - **`ttsc-lint`**: same source as `ttsc`, with `@ttsc/lint` folded into the compile pass so the `eslint` step is no longer invoked.
 
 ### Source parity
@@ -72,11 +75,11 @@ Edits go to the fixture repo on GitHub, not to the local clone. Setup runs `fetc
 
 Finish every fixture-branch edit by running the branch's own build, format, and lint commands (e.g. `pnpm build`, `prettier --write` or `ttsc format`, `eslint --fix`) until the tree is green, then commit and push. A half-finished tip pollutes every later run because the runner pulls upstream every setup.
 
-READMEs and prose docs inside a fixture repo follow the same writing rules as ttsc itself. See AGENTS.md `## Maintenance § Writing style` and `.codex/skills/documentation/SKILL.md § READMEs`.
+READMEs and prose docs inside a fixture repo follow the same writing rules as ttsc itself. See AGENTS.md `## Maintenance 짠 Writing style` and `.codex/skills/documentation/SKILL.md 짠 READMEs`.
 
 ### Other rules
 
 - **No tarball or built artifact in the fixture.** The runner packs and installs the local `ttsc` workspace during setup. The fixture repo must not carry pre-baked tarball paths, vendored `ttsc` builds, or stale `dist/` output.
 - **Pin major TypeScript in lockstep.** When the Legacy TypeScript headline version bumps, update every fixture's `legacy` branch in the same release so the `tsc` baseline stays one major across the matrix.
-- **Add fixtures by adding repos.** A new fixture means a new `samchon/ttsc-benchmark-<name>` repo carrying all three branches, plus a `PACKAGE_CONFIGS` entry at the top of `bench.mjs`. Multi-fixture tricks inside one repo are out of scope.
-- **Removed comparisons stay removed.** The `type-fest` fixture was dropped deliberately. The `tsgo` rows (raw `@typescript/native-preview` measured on the same `ttsc` clone for `build`/`noEmit`, cell ID `project:ttsc:tsgo:op:threading`) are a kept reference for native-preview launcher overhead, not eligible for the headline winner.
+- **Add fixtures by adding repos.** A new fixture means a new `samchon/ttsc-benchmark-<name>` repo carrying all three branches, plus a `PACKAGE_CONFIGS` entry at the top of `performance.mjs`. Multi-fixture tricks inside one repo are out of scope.
+- **Removed comparisons stay removed.** The `type-fest` fixture was dropped deliberately. The `tsgo` rows (raw TypeScript-Go measured on the same `ttsc` clone for `build`/`noEmit`, cell ID `project:ttsc:tsgo:op:threading`) are a kept reference for launcher overhead, not eligible for the headline winner.

@@ -9,14 +9,18 @@ This README is the runner reference. For the published numbers and result interp
 Prereq: `pnpm install` at the workspace root so the local `ttsc` workspace can be built and packed into tarballs.
 
 ```bash
-node bench.mjs                          # full sweep
-node bench.mjs --project=vue            # one fixture
-node bench.mjs --setup-only             # clone + install, no measurement
-node bench.mjs --list                   # print the cell grid and exit
-node bench.mjs --verbose                # tee child stdio for debugging
+node performance.mjs                          # full sweep
+node performance.mjs --project=vue            # one fixture
+node performance.mjs --setup-only             # clone + install, no measurement
+node performance.mjs --list                   # print the cell grid and exit
+node performance.mjs --verbose                # tee child stdio for debugging
+node graph.mjs --project=typeorm              # one graph AI-token benchmark
+node graph.mjs --all --models=sonnet,opus,codex # full graph AI-token sweep
 ```
 
 The first run packs the local `ttsc` workspace into tarballs, clones each fixture's three branches into `.work/`, installs the tarballs, runs `ttsc prepare`, then measures the matrix sequentially. Subsequent runs reuse the clones.
+
+`graph.mjs` reuses the same fixture clones and setup path, but it is separate from `performance.mjs` because it spends AI tokens. It runs projects sequentially, fixes reasoning effort to `high`, updates only its own cells in `website/public/benchmark/graph.json`, and writes a local report under `.work/graph/<timestamp>/`.
 
 ## The matrix
 
@@ -24,16 +28,16 @@ A **cell** is one `(project, branch, tool, op, threading)` measurement.
 
 - **Branches** (each fixture is a forked repo with all three):
   - `legacy`: stock `tsc` / `eslint` / `prettier`
-  - `ttsc`: `ttsc` over `@typescript/native-preview`
+  - `ttsc`: `ttsc` over the pinned TypeScript-Go `typescript@rc` runtime
   - `ttsc-lint`: `ttsc` with `@ttsc/lint` folded into the compile pass
 - **Ops**: `build` (emit), `noEmit` (type-check only), `eslint` (legacy only), `format` (legacy `prettier --check` vs `ttsc format`).
 - **Threading**: compiler and lint cells use `single` (`--singleThreaded`) plus `checkers2` / `checkers4` / `checkers8` (`--checkers N`). Legacy cells and `eslint` cells are `multi` only. Format keeps `single` plus the bare default `multi` row because `--checkers N` does not control formatter work.
 - **Tool resolution** (set per cell, recorded in the report):
-  - legacy → `tsc`, `eslint`, or `prettier` depending on op
-  - ttsc → `ttsc`; raw `@typescript/native-preview` is also measured as a parallel `tsgo` cell on the same clone so the ttsc launcher overhead is observable
-  - ttsc-lint → `ttsc+@ttsc/lint` for build/noEmit, `ttsc-format` for format
+  - legacy: `tsc`, `eslint`, or `prettier` depending on op
+  - ttsc: `ttsc`; raw TypeScript-Go is also measured as a parallel `tsgo` cell on the same clone so the ttsc launcher overhead is observable
+  - ttsc-lint: `ttsc+@ttsc/lint` for build/noEmit, `ttsc-format` for format
 
-Cell IDs follow `project:branch:op:threading`, with `:tsgo:` inserted before the op for raw native-preview cells (e.g. `vue:ttsc:tsgo:build:single`). Run `--list` to print the resolved grid for the selected fixtures.
+Cell IDs follow `project:branch:op:threading`, with `:tsgo:` inserted before the op for raw TypeScript-Go cells (e.g. `vue:ttsc:tsgo:build:single`). Run `--list` to print the resolved grid for the selected fixtures.
 
 ## Fixtures
 
@@ -47,7 +51,7 @@ Cell IDs follow `project:branch:op:threading`, with `:tsgo:` inserted before the
 | `vscode` | `samchon/ttsc-benchmark-vscode` | application monorepo | npm |
 | `shopping-backend` | `samchon/shopping-backend` | plugin-heavy service (typia/nestia source plugins) | pnpm |
 
-Per-project commands, install/prepare overrides, and prerequisites live in `PACKAGE_CONFIGS` at the top of `bench.mjs`.
+Per-project commands, install/prepare overrides, and prerequisites live in `PACKAGE_CONFIGS` at the top of `performance.mjs`.
 
 ## CLI flags
 

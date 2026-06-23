@@ -21,7 +21,7 @@
 // Usage:
 //   node experimental/graph-bench/agent-ab-codex.mjs --repo=excalidraw --runs=4
 //   node experimental/graph-bench/agent-ab-codex.mjs --repo=vscode --runs=4
-//   node experimental/graph-bench/agent-ab-codex.mjs --repo=typeorm --fixture-branch=ttsc
+//   node experimental/graph-bench/agent-ab-codex.mjs --repo=typeorm --repo-dir=experimental/benchmark/.work/ttsc-benchmark-typeorm@ttsc
 import cp from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -94,7 +94,7 @@ if (!spec)
   );
 const runs = Number(args.runs ?? 2);
 const model = args.model ?? "gpt-5.5";
-const effort = args.effort ?? "high";
+const effort = "high";
 const tsconfig = args.tsconfig ?? spec.tsconfig;
 const question = spec.question;
 if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
@@ -114,7 +114,9 @@ if (fixtureBranch && !spec.fixtureUrl) {
 const corpus = args.corpus ?? path.join(os.tmpdir(), "graph-corpus");
 const cloneKey = fixtureBranch ? `${repoKey}@${fixtureBranch}` : repoKey;
 const repoUrl = fixtureBranch ? spec.fixtureUrl : spec.url;
-const repoDir = path.join(corpus, cloneKey);
+const repoDir = args["repo-dir"]
+  ? path.resolve(args["repo-dir"])
+  : path.join(corpus, cloneKey);
 
 // --guidance=1 adds a fairness arm: a neutral project instruction (CLAUDE.md +
 // AGENTS.md) telling the agent to prefer the code-graph MCP over grep. It names no
@@ -137,11 +139,20 @@ Do not split symbols across calls or use grep/read/shell to trace or confirm ret
 // is prepended to the question ONLY in the guided arm.
 const GUIDED_PREFIX =
   "Follow this project's AGENTS.md instructions when answering.\n\n";
+let guidanceSnapshot = null;
+function snapshotGuidanceFiles() {
+  return ["CLAUDE.md", "AGENTS.md"].map((name) => {
+    const file = path.join(repoDir, name);
+    if (!fs.existsSync(file)) return { file, existed: false };
+    return { file, existed: true, content: fs.readFileSync(file, "utf8") };
+  });
+}
 function setGuidance(on) {
-  for (const name of ["CLAUDE.md", "AGENTS.md"]) {
-    const p = path.join(repoDir, name);
-    if (on) fs.writeFileSync(p, GUIDANCE);
-    else fs.rmSync(p, { force: true });
+  guidanceSnapshot ??= snapshotGuidanceFiles();
+  for (const entry of guidanceSnapshot) {
+    if (on) fs.writeFileSync(entry.file, GUIDANCE);
+    else if (entry.existed) fs.writeFileSync(entry.file, entry.content);
+    else fs.rmSync(entry.file, { force: true });
   }
 }
 
@@ -164,7 +175,10 @@ if (!cg) {
 }
 
 // 2. Clone the target repo (shallow) if absent.
-if (!fs.existsSync(repoDir)) {
+if (args["repo-dir"] && !fs.existsSync(repoDir)) {
+  throw new Error(`--repo-dir does not exist: ${repoDir}`);
+}
+if (!args["repo-dir"] && !fs.existsSync(repoDir)) {
   fs.mkdirSync(corpus, { recursive: true });
   console.log(
     `Cloning ${repoUrl}${fixtureBranch ? `#${fixtureBranch}` : ""} (shallow) -> ${repoDir} ...`,
@@ -184,12 +198,11 @@ if (!fs.existsSync(repoDir)) {
   );
 }
 
-// 3. A large repo is type-checked once by a daemon the MCP server connects to.
+// 3. Default runs stay single-process so setup/build cost remains part of the
+// measured cell. Pass --daemon=1 only for an explicitly amortized large-repo run.
 // codegraph manages its own indexing/daemon, so the ttscgraph daemon path (which
 // spawns the unbuilt `binary`) must be skipped under --cg.
-const useDaemon =
-  !cg &&
-  (args.daemon === "1" || args.daemon === "true" || repoKey === "vscode");
+const useDaemon = !cg && (args.daemon === "1" || args.daemon === "true");
 let daemon = null;
 let mcpArgs;
 if (useDaemon) {
@@ -289,7 +302,7 @@ line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 const reportName = `agent-ab-codex-report${guidance ? "-guided" : ""}.json`;
 fs.writeFileSync(
   path.join(here, reportName),
-  `${JSON.stringify({ repo: repoKey, fixtureBranch, model, effort, runs, guidance, question, samples }, null, 2)}\n`,
+  `${JSON.stringify({ repo: repoKey, fixtureBranch, repoDir, model, effort, runs, guidance, question, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 cleanup([binary, withHome, withoutHome]);

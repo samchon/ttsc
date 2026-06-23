@@ -17,6 +17,9 @@ interface AgentCell {
   harness: string;
   repo: string;
   model: string;
+  effort?: string;
+  fixtureBranch?: string;
+  daemon?: boolean;
   runs?: number;
   tool?: string;
   question?: string;
@@ -80,7 +83,8 @@ function fmtSecs(ms: number): string {
 function modelLabel(cell: AgentCell): string {
   if (cell.model === "sonnet") return "Claude Sonnet 4.6";
   if (cell.model === "opus") return "Claude Opus 4.8";
-  if (cell.model === "gpt-5.5") return "GPT-5.5 (codex)";
+  if (cell.model === "gpt-5.5")
+    return `GPT-5.5 (codex${cell.effort ? `/${cell.effort}` : ""})`;
   return `${cell.model} (${cell.harness})`;
 }
 
@@ -142,7 +146,7 @@ function SectionHeader({
 }
 
 // ---------------------------------------------------------------------------
-// Agent cost — the percentages are the hero
+// Agent cost: the percentages are the hero
 // ---------------------------------------------------------------------------
 
 /**
@@ -153,8 +157,7 @@ function SectionHeader({
  * is what it saves. So "86% saved" shows as a bar that is mostly the grey
  * "saved" region, never an 86%-full bar that could read as "86% remains". The
  * raw token and tool counts appear only on hover (the bar's title); the
- * percentages stay visible. An optional second row shows the guided (AGENTS.md)
- * arm.
+ * percentages stay visible. An optional second row shows the guided arm.
  */
 function UsageBar({
   metric,
@@ -175,41 +178,36 @@ function UsageBar({
     baseMedian > 0 ? Math.min(100, (graphMedian / baseMedian) * 100) : 100;
   const saved = pctSaved(baseMedian, graphMedian);
   const used = 100 - saved;
-  // A hair of cyan always shows so a 0%-saved row (used = 100%) still reads as
-  // a deliberately full cyan bar rather than an empty/broken track.
+  // A hair of cyan always shows so a 0%-saved row still reads as deliberate.
   const fillWidth = Math.max(1.5, usedWidth);
-  const guided = Boolean(rowLabel);
+  const comparisonLabel = rowLabel ?? "graph";
 
   return (
     <div
       className="space-y-1.5"
-      title={`${metric}: baseline ${baselineRaw} → ${
-        guided ? "with AGENTS.md " : ""
-      }${graphRaw}`}
+      title={`${metric}: baseline ${baselineRaw} -> ${comparisonLabel} ${graphRaw}`}
     >
       <div className="flex items-baseline justify-between font-mono text-[10px] uppercase tracking-wider">
         <span style={{ color: ACCENT }}>
           {used}% used
-          {guided ? (
+          {rowLabel ? (
             <span className="ml-1 text-neutral-500 normal-case tracking-normal">
-              · {rowLabel}
+              {rowLabel}
             </span>
           ) : null}
         </span>
         <span className="text-neutral-500">{saved}% saved</span>
       </div>
       <div className="relative h-3 w-full overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ring-white/[0.04]">
-        {/* saved region: subtle diagonal grey texture so it reads "reclaimed" */}
         <div className="absolute inset-0 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.035)_0,rgba(255,255,255,0.035)_6px,transparent_6px,transparent_12px)]" />
-        {/* used region: cyan fill with depth + glow */}
         <div
           className="relative h-full rounded-full"
           style={{
             width: `${fillWidth}%`,
-            background: guided
+            background: rowLabel
               ? `linear-gradient(90deg, ${ACCENT}aa, ${ACCENT}66)`
               : `linear-gradient(90deg, ${ACCENT}, #19b6c9)`,
-            boxShadow: guided
+            boxShadow: rowLabel
               ? "none"
               : `0 0 12px ${ACCENT}55, inset 0 1px 0 rgba(255,255,255,0.25)`,
           }}
@@ -243,7 +241,7 @@ function MetricBlock({
           {metric}
         </p>
         <p className="font-mono text-[10px] text-neutral-500">
-          {baselineRaw} → {graphRaw}
+          baseline {baselineRaw} to graph {graphRaw}
         </p>
       </div>
       <UsageBar
@@ -267,7 +265,7 @@ function MetricBlock({
   );
 }
 
-/** Oversized used / saved headline — the hero numerals of each model row. */
+/** Oversized used / saved headline: the hero numerals of each model row. */
 function SavingHeadline({ tokensPct }: { tokensPct: number }) {
   const used = 100 - tokensPct;
   return (
@@ -288,7 +286,7 @@ function SavingHeadline({ tokensPct }: { tokensPct: number }) {
       <div className="mt-1.5 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-500">
         <span style={{ color: ACCENT }}>used</span>
         <span className="text-neutral-700">/</span>
-        <span>saved · tokens</span>
+        <span>saved / tokens</span>
       </div>
     </div>
   );
@@ -300,7 +298,7 @@ function AgentCostSection({ cells }: { cells: AgentCell[] }) {
       <SectionHeader
         eyebrow="Agent cost"
         title="What the code graph saves a coding agent"
-        description="Each bar is the empty-MCP baseline. The cyan segment is what the graph still spends; the grey remainder is what it reclaims. Hover any bar for the raw median counts."
+        description="Each bar compares the baseline run with graph, and the optional second bar shows guided. Hover any bar for the raw median counts."
         aside={`${cells.length} model${cells.length !== 1 ? "s" : ""}`}
       />
 
@@ -333,7 +331,7 @@ function AgentCostSection({ cells }: { cells: AgentCell[] }) {
 
           return (
             <div
-              key={`${cell.harness}:${cell.repo}:${cell.model}`}
+              key={`${cell.harness}:${cell.repo}:${cell.model}:${cell.effort ?? ""}:${cell.fixtureBranch ?? ""}:${cell.daemon === true ? "daemon" : "single"}`}
               className="grid gap-5 px-5 py-5 md:grid-cols-[minmax(9rem,15rem)_minmax(0,1fr)] md:gap-6"
             >
               <div className="md:border-r md:border-[#1a1f29] md:pr-6">
@@ -341,12 +339,16 @@ function AgentCostSection({ cells }: { cells: AgentCell[] }) {
                   {modelLabel(cell)}
                 </p>
                 <p className="mt-1.5 font-mono text-[11px] text-neutral-500">
-                  {cell.repo} · {cell.harness}
-                  {cell.runs !== undefined ? ` · ${cell.runs} runs` : ""}
+                  {cell.repo} - {cell.harness}
+                  {cell.fixtureBranch ? ` - ${cell.fixtureBranch}` : ""}
+                  {cell.daemon !== undefined
+                    ? ` - ${cell.daemon ? "daemon" : "single"}`
+                    : ""}
+                  {cell.runs !== undefined ? ` - ${cell.runs} runs` : ""}
                 </p>
                 {cell.question ? (
                   <p className="mt-2 max-w-[18rem] text-[12px] italic leading-snug text-neutral-400">
-                    “{cell.question}”
+                    {cell.question}
                   </p>
                 ) : null}
                 <SavingHeadline tokensPct={tokensPct} />
@@ -415,7 +417,7 @@ function AgentCostSection({ cells }: { cells: AgentCell[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Structural coverage — elegant stat cards
+// Structural coverage: elegant stat cards
 // ---------------------------------------------------------------------------
 
 function StatCard({
@@ -479,7 +481,7 @@ function StructuralSection({ data }: { data: StructuralData }) {
   const coverage =
     data.coverage !== undefined
       ? `${(data.coverage * 100).toFixed(data.coverage === 1 ? 0 : 1)}`
-      : "—";
+      : "n/a";
   const coverageDetail =
     data.coveredFiles !== undefined && data.symbolFiles !== undefined
       ? `${data.coveredFiles} of ${data.symbolFiles} symbol-bearing files`
@@ -488,11 +490,11 @@ function StructuralSection({ data }: { data: StructuralData }) {
   const stats: Stat[] = [
     {
       label: "Source files",
-      value: data.sourceFiles !== undefined ? fmt(data.sourceFiles) : "—",
+      value: data.sourceFiles !== undefined ? fmt(data.sourceFiles) : "n/a",
     },
     {
       label: "Nodes",
-      value: data.nodes !== undefined ? fmt(data.nodes) : "—",
+      value: data.nodes !== undefined ? fmt(data.nodes) : "n/a",
       note:
         data.externalNodes !== undefined
           ? `${data.externalNodes} external`
@@ -500,7 +502,7 @@ function StructuralSection({ data }: { data: StructuralData }) {
     },
     {
       label: "Total edges",
-      value: data.totalEdges !== undefined ? fmt(data.totalEdges) : "—",
+      value: data.totalEdges !== undefined ? fmt(data.totalEdges) : "n/a",
       note: data.edges
         ? [
             data.edges.heritage !== undefined
@@ -514,13 +516,13 @@ function StructuralSection({ data }: { data: StructuralData }) {
               : null,
           ]
             .filter(Boolean)
-            .join(" · ")
+            .join(" / ")
         : undefined,
     },
     {
       label: "Fair coverage",
       value: coverage,
-      unit: coverage === "—" ? undefined : "%",
+      unit: coverage === "n/a" ? undefined : "%",
       note: coverageDetail,
       accent: true,
     },
@@ -529,13 +531,13 @@ function StructuralSection({ data }: { data: StructuralData }) {
   const timingStats: Stat[] = [];
   if (data.loadMsMedian !== undefined)
     timingStats.push({
-      label: "Load · median",
+      label: "Load median",
       value: `${Math.round(data.loadMsMedian)}`,
       unit: "ms",
     });
   if (data.buildMsMedian !== undefined)
     timingStats.push({
-      label: "Graph build · median",
+      label: "Graph build median",
       value: `${Math.round(data.buildMsMedian)}`,
       unit: "ms",
     });
@@ -609,7 +611,7 @@ export default function GraphBenchmark({
   if (error)
     return <Notice>Could not load graph benchmark data ({error}).</Notice>;
 
-  if (!report) return <Notice>Loading graph benchmark results…</Notice>;
+  if (!report) return <Notice>Loading graph benchmark results...</Notice>;
 
   const cells = report.agent?.cells ?? [];
 

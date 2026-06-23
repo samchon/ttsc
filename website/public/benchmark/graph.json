@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T07:57:00.417Z",
+  "generatedAt": "2026-06-23T18:31:12.876Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -384,6 +384,167 @@
               "shell": 43,
               "graph": 0,
               "durMs": 165000,
+              "ok": true
+            }
+          ]
+        }
+      },
+      {
+        "harness": "claude-code",
+        "repo": "typeorm",
+        "model": "sonnet",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How are relation options applied when repository.find() builds its query?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 1430087,
+              "tools": 47,
+              "reads": 18,
+              "grep": 10,
+              "graph": 0,
+              "other": 19,
+              "cost": 0.31149564999999996,
+              "durMs": 341537,
+              "ok": true
+            }
+          ],
+          "graph": [
+            {
+              "tokens": 257279,
+              "tools": 2,
+              "reads": 0,
+              "grep": 0,
+              "graph": 2,
+              "other": 0,
+              "cost": 0.1630121,
+              "durMs": 48529,
+              "ok": true
+            }
+          ],
+          "guided": [
+            {
+              "tokens": 121560,
+              "tools": 1,
+              "reads": 0,
+              "grep": 0,
+              "graph": 1,
+              "other": 0,
+              "cost": 0.10674929999999999,
+              "durMs": 36523,
+              "ok": true
+            }
+          ]
+        }
+      },
+      {
+        "harness": "claude-code",
+        "repo": "typeorm",
+        "model": "opus",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How are relation options applied when repository.find() builds its query?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 715498,
+              "tools": 11,
+              "reads": 5,
+              "grep": 0,
+              "graph": 0,
+              "other": 6,
+              "cost": 0.4319895,
+              "durMs": 64060,
+              "ok": true
+            }
+          ],
+          "graph": [
+            {
+              "tokens": 229152,
+              "tools": 2,
+              "reads": 0,
+              "grep": 0,
+              "graph": 2,
+              "other": 0,
+              "cost": 0.3219915,
+              "durMs": 28476,
+              "ok": true
+            }
+          ],
+          "guided": [
+            {
+              "tokens": 508560,
+              "tools": 5,
+              "reads": 3,
+              "grep": 0,
+              "graph": 2,
+              "other": 0,
+              "cost": 0.497026,
+              "durMs": 57056,
+              "ok": true
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "repo": "typeorm",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How are relation options applied when repository.find() builds its query?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 365617,
+              "cached": 212480,
+              "turns": 1,
+              "tools": 20,
+              "shell": 20,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 20
+              },
+              "durMs": 99688,
+              "ok": true
+            }
+          ],
+          "graph": [
+            {
+              "tokens": 602507,
+              "cached": 477184,
+              "turns": 1,
+              "tools": 20,
+              "shell": 15,
+              "graph": 5,
+              "types": {
+                "agent_message": 9,
+                "mcp_tool_call": 5,
+                "command_execution": 15
+              },
+              "durMs": 108789,
+              "ok": true
+            }
+          ],
+          "guided": [
+            {
+              "tokens": 242124,
+              "cached": 158464,
+              "turns": 1,
+              "tools": 5,
+              "shell": 0,
+              "graph": 5,
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 5
+              },
+              "durMs": 62804,
               "ok": true
             }
           ]
