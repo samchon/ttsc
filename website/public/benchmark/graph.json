@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T21:03:59.283Z",
+  "generatedAt": "2026-06-23T21:10:33.220Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -556,7 +556,7 @@
       {
         "harness": "claude-code",
         "tool": "codegraph",
-        "toolSetupMs": 45639.7754,
+        "toolSetupMs": 48022.9344,
         "repo": "typeorm",
         "model": "sonnet",
         "fixtureBranch": "ttsc",
@@ -566,40 +566,40 @@
         "samples": {
           "baseline": [
             {
-              "tokens": 1451769,
-              "tools": 40,
+              "tokens": 1585057,
+              "tools": 41,
               "reads": 17,
-              "grep": 4,
+              "grep": 0,
               "graph": 0,
-              "other": 19,
-              "cost": 0.32278800000000013,
-              "durMs": 308596,
+              "other": 24,
+              "cost": 0.35822145000000005,
+              "durMs": 165454,
               "ok": true
             }
           ],
           "graph": [
             {
-              "tokens": 1445873,
-              "tools": 41,
-              "reads": 17,
-              "grep": 4,
-              "graph": 1,
+              "tokens": 1606604,
+              "tools": 35,
+              "reads": 12,
+              "grep": 2,
+              "graph": 2,
               "other": 19,
-              "cost": 0.33661075000000007,
-              "durMs": 234565,
+              "cost": 0.34176274999999995,
+              "durMs": 131256,
               "ok": true
             }
           ],
           "guided": [
             {
-              "tokens": 339473,
+              "tokens": 330560,
               "tools": 3,
               "reads": 1,
               "grep": 0,
               "graph": 2,
               "other": 0,
-              "cost": 0.21163960000000004,
-              "durMs": 53630,
+              "cost": 0.206689,
+              "durMs": 44176,
               "ok": true
             }
           ]
