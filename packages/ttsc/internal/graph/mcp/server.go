@@ -46,7 +46,12 @@ type Server struct {
   prog     *driver.Program
   graph    *graph.Graph
   degree   map[string]int
-  loadErr  error
+  // diags is the project's diagnostics, computed once with the graph; diagsByNode
+  // attributes each to the declaration it occurs in, so graph_explore can fuse the
+  // live "what is broken" view onto the static structure it already serves.
+  diags       []driver.Diagnostic
+  diagsByNode map[string][]driver.Diagnostic
+  loadErr     error
   // mu serializes tool calls so one Server can back many daemon connections
   // safely (the graph is read-only after build, but the checker behind
   // graph_diagnostics is not concurrency-safe).
@@ -104,6 +109,37 @@ func (s *Server) setProgram(prog *driver.Program) {
     s.degree[edge.From]++
     s.degree[edge.To]++
   }
+  s.diags = prog.Diagnostics()
+  s.diagsByNode = attributeDiagnostics(s.graph, s.diags)
+}
+
+// attributeDiagnostics maps each diagnostic to the smallest graph node whose
+// source span contains it, so a type error lands on the declaration it occurs
+// in and graph_explore can show "this symbol is broken here" alongside its
+// edges. A diagnostic with no position, or one that falls between declarations
+// (a top-of-file import error), stays unattributed rather than smeared onto a
+// neighbor.
+func attributeDiagnostics(g *graph.Graph, diags []driver.Diagnostic) map[string][]driver.Diagnostic {
+  byNode := make(map[string][]driver.Diagnostic)
+  for _, d := range diags {
+    if d.Start == nil || d.File == "" {
+      continue
+    }
+    pos := *d.Start
+    var best *graph.Node
+    for _, node := range g.Nodes {
+      if node.File != d.File || pos < node.Pos || pos >= node.End {
+        continue
+      }
+      if best == nil || (node.End-node.Pos) < (best.End-best.Pos) {
+        best = node
+      }
+    }
+    if best != nil {
+      byNode[best.ID] = append(byNode[best.ID], d)
+    }
+  }
+  return byNode
 }
 
 type request struct {

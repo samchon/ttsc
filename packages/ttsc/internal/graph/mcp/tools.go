@@ -19,7 +19,7 @@ func toolsListResult() any {
     "tools": []any{
       map[string]any{
         "name":        "graph_explore",
-        "description": "The compiler's own code graph for a symbol or file: returns its source plus every checker-resolved relationship — what it calls (method-to-method and constructor calls included), the types it references, and its heritage, in both directions — with its blast radius. Answer architecture and flow questions from it; the edges are what you would otherwise grep for.",
+        "description": "The compiler's own code graph for a symbol or file: returns its source plus every checker-resolved relationship — what it calls (method-to-method and constructor calls included), the types it references, and its heritage, in both directions — with its blast radius and any live diagnostics on it. The blast radius also reports how many transitive dependents currently have errors, so before editing a symbol you can see the reach of the change over what is already broken. Answer architecture, flow, and change-impact questions from it; the edges are what you would otherwise grep for.",
         "inputSchema": map[string]any{
           "type": "object",
           "properties": map[string]any{
@@ -84,6 +84,10 @@ const maxExploreChars = 7000
 // maxEdgesPerDirection caps the incoming/outgoing edges listed per node so a
 // central symbol does not dump hundreds of relationships into the response.
 const maxEdgesPerDirection = 12
+
+// maxNodeDiagnostics caps the diagnostics listed on one node so a declaration
+// with many errors does not flood the response; the count is still reported.
+const maxNodeDiagnostics = 5
 
 // explore returns the nodes matching a query and their checker-resolved
 // relationships: each node's incoming/outgoing edges, blast radius, and verbatim
@@ -272,8 +276,32 @@ func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node, withSo
   if inMore > 0 {
     fmt.Fprintf(b, "  <- (%d more)\n", inMore)
   }
-  if dependents := s.dependentCount(node); dependents > 0 {
-    fmt.Fprintf(b, "  blast radius: %d transitive dependent(s)\n", dependents)
+  // The live view fused onto the static structure: the diagnostics that land on
+  // this declaration, and — the fix-safety angle — how much of its blast radius
+  // is already broken, so the reach of an edit over current errors is visible
+  // before the edit is made.
+  if own := s.diagsByNode[node.ID]; len(own) > 0 {
+    fmt.Fprintf(b, "  diagnostics here (%d):\n", len(own))
+    for i, d := range own {
+      if i >= maxNodeDiagnostics {
+        fmt.Fprintf(b, "    ... (%d more)\n", len(own)-maxNodeDiagnostics)
+        break
+      }
+      fmt.Fprintf(b, "    TS%d line %d: %s\n", d.Code, d.Line, d.Message)
+    }
+  }
+  if deps := s.dependents(node); len(deps) > 0 {
+    broken := 0
+    for id := range deps {
+      if len(s.diagsByNode[id]) > 0 {
+        broken++
+      }
+    }
+    if broken > 0 {
+      fmt.Fprintf(b, "  blast radius: %d transitive dependent(s), %d with current errors\n", len(deps), broken)
+    } else {
+      fmt.Fprintf(b, "  blast radius: %d transitive dependent(s)\n", len(deps))
+    }
   }
   if withSource && source != "" {
     b.WriteString(numberLines(source, line))
@@ -325,10 +353,11 @@ func numberLines(source string, startLine int) string {
   return b.String()
 }
 
-// dependentCount returns the number of distinct nodes that transitively depend
-// on node (reach it through an edge): a blast-radius estimate for an edit, walked
-// over the reverse adjacency.
-func (s *Server) dependentCount(node *graph.Node) int {
+// dependents returns the set of distinct node ids that transitively depend on
+// node (reach it through an edge): the blast radius of an edit, walked over the
+// reverse adjacency. The caller intersects it with the diagnostics index to show
+// how much of the reach is already broken.
+func (s *Server) dependents(node *graph.Node) map[string]bool {
   seen := map[string]bool{}
   queue := []string{node.ID}
   for len(queue) > 0 {
@@ -341,7 +370,7 @@ func (s *Server) dependentCount(node *graph.Node) int {
       }
     }
   }
-  return len(seen)
+  return seen
 }
 
 // diagnostics returns a file's tsc semantic diagnostics as text.
