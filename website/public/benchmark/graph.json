@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T21:26:03.349Z",
+  "generatedAt": "2026-06-23T21:28:22.069Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -1640,6 +1640,68 @@
               "other": 0,
               "cost": 0.47918800000000006,
               "durMs": 40300,
+              "ok": true
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 11057.8929,
+        "repo": "zod",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "Which internal parse method does a Zod schema's parse() call?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 265459,
+              "cached": 197376,
+              "turns": 1,
+              "tools": 11,
+              "shell": 11,
+              "graph": 0,
+              "types": {
+                "agent_message": 4,
+                "command_execution": 11
+              },
+              "durMs": 49141,
+              "ok": true
+            }
+          ],
+          "graph": [
+            {
+              "tokens": 268018,
+              "cached": 172800,
+              "turns": 1,
+              "tools": 5,
+              "shell": 0,
+              "graph": 5,
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 5
+              },
+              "durMs": 44653,
+              "ok": true
+            }
+          ],
+          "guided": [
+            {
+              "tokens": 257751,
+              "cached": 217728,
+              "turns": 1,
+              "tools": 6,
+              "shell": 0,
+              "graph": 6,
+              "types": {
+                "agent_message": 8,
+                "mcp_tool_call": 6
+              },
+              "durMs": 41298,
               "ok": true
             }
           ]
