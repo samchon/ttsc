@@ -28,6 +28,10 @@ const serverFile = path.join(
   outDir,
   npmOs === "win32" ? "ttscserver.exe" : "ttscserver",
 );
+const graphFile = path.join(
+  outDir,
+  npmOs === "win32" ? "ttscgraph.exe" : "ttscgraph",
+);
 const bundledGoDir = path.join(outDir, "go");
 
 fs.rmSync(outDir, { recursive: true, force: true });
@@ -85,11 +89,29 @@ cp.execFileSync(
   },
 );
 
+console.log(`Building ${manifest.name} -> ${path.relative(root, graphFile)}`);
+cp.execFileSync(
+  buildGo,
+  ["build", ...goBuildFlags, "-o", graphFile, "./cmd/ttscgraph"],
+  {
+    cwd: source,
+    env: {
+      ...process.env,
+      CGO_ENABLED: "0",
+      GOARCH: goarch,
+      GOOS: goos,
+      PATH: pathValue,
+    },
+    stdio: "inherit",
+  },
+);
+
 embedGoToolchain();
 
 if (npmOs !== "win32") {
   fs.chmodSync(outFile, 0o755);
   fs.chmodSync(serverFile, 0o755);
+  fs.chmodSync(graphFile, 0o755);
 }
 
 function resolveBuildGo() {

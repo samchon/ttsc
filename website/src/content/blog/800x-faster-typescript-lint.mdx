@@ -29,7 +29,7 @@ tags:
 >
 > It is also measured, and the reason is simple: once TypeScript-Go has already built the Program, lint should not start a second TypeScript pipeline.
 >
-> Benchmark: https://ttsc.dev/docs/benchmark
+> Benchmark: https://ttsc.dev/docs/benchmark/performance
 >
 > Repository: https://github.com/samchon/ttsc
 
@@ -73,7 +73,7 @@ That separation is important.
 
 ## 2. The 800x And 70x Numbers
 
-The headline numbers come from the public [`ttsc` benchmark](https://ttsc.dev/docs/benchmark). The reference project for this article is the VS Code fixture.
+The headline numbers come from the public [`ttsc` benchmark](https://ttsc.dev/docs/benchmark/performance). The reference project for this article is the VS Code fixture.
 
 That matters. I do not want to hide the benchmark behind a vague "large project" claim. The fixture is concrete, recognizable, and big enough that startup noise is not the whole story.
 
@@ -436,7 +436,7 @@ npx ttsc fix
 
 Read next:
 
-- Benchmark: https://ttsc.dev/docs/benchmark
+- Benchmark: https://ttsc.dev/docs/benchmark/performance
 - Lint overview: https://ttsc.dev/docs/lint
 - Format config: https://ttsc.dev/docs/lint/format
 - Rule catalog: https://ttsc.dev/docs/lint/rules

@@ -1,0 +1,20 @@
+import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
+import PerformanceSummary from "../../../components/benchmark/PerformanceSummary";
+
+# Benchmark
+
+`ttsc` publishes two separate benchmarks, each measuring a different question.
+
+## Compiler performance
+
+[The compiler-performance benchmark](/docs/benchmark/performance) measures how much wall-clock time changes when a real TypeScript project moves from the legacy `tsc` + `eslint` path to TypeScript-Go backed builds, checks, and linting. The dashboard covers build, type-check, lint, and format across real open-source repositories, single-threaded and multi-threaded.
+
+vscode — 6,093 TypeScript files across a large application monorepo — is the flagship example. At 8 checker workers, `ttsc` builds vscode in around 8 s versus roughly 94 s for legacy `tsc`, and type-checks it in around 6.5 s versus roughly 73 s. The full dashboard covers nestjs, vue, zod, typeorm, rxjs, and shopping-backend as well.
+
+<PerformanceSummary />
+
+## Code Graph (MCP)
+
+[The Code Graph benchmark](/docs/benchmark/graph) measures whether an agent spends fewer tokens and tool calls when it has the `@ttsc/graph` code map available. It also covers structural coverage: how completely the graph resolves a real codebase's cross-file relationships. The graph daemon is designed to serve large repos including vscode, though the agent-cost data below reflects the current excalidraw run.
+
+<GraphBenchmark variant="summary" />

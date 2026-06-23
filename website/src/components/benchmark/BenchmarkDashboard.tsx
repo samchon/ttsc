@@ -47,7 +47,7 @@ export default function BenchmarkDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/benchmark.json")
+    fetch("/benchmark/performance.json")
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json() as Promise<BenchmarkReport>;

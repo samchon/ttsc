@@ -13,6 +13,7 @@ run(["--filter", "@ttsc/metro", "build"]);
 run(["--filter", "@ttsc/wasm", "build"]);
 run(["--filter", "@ttsc/playground", "build"]);
 run(["--filter", "@ttsc/vscode", "build"]);
+run(["--filter", "@ttsc/graph", "build"]);
 
 for (const platformDir of listPlatformPackageDirs()) {
   console.log(`Building platform package: ${path.basename(platformDir)}`);

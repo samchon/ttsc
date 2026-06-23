@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "@ttsc/test-graph",
+  "version": "0.16.4",
+  "description": "@ttsc/graph MCP server end-to-end tests.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"
+  },
+  "devDependencies": {
+    "@ttsc/testing": "workspace:*",
+    "@types/node": "catalog:utils",
+    "ttsc": "workspace:*",
+    "typescript": "catalog:typescript"
+  }
+}

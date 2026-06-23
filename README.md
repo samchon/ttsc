@@ -6,7 +6,7 @@
 
 A `typescript-go` toolchain for compiler-powered plugins and type-safe execution.
 
-Benchmarked against the legacy `tsc` + `eslint`/`prettier` path on real repositories; see the [benchmark guide](https://ttsc.dev/docs/benchmark) for per-project ratios.
+Benchmarked against the legacy `tsc` + `eslint`/`prettier` path on real repositories; see the [benchmark guide](https://ttsc.dev/docs/benchmark/performance) for per-project ratios.
 
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.
@@ -15,6 +15,8 @@ Benchmarked against the legacy `tsc` + `eslint`/`prettier` path on real reposito
 - **`@ttsc/lint`**: replaces `eslint` and `prettier`.
   - lint violations as TS compile errors.
   - format autofixes via `ttsc format`.
+- **`@ttsc/graph`**: a code map for coding agents, over MCP.
+  - what calls what, and a change's blast radius, from the type checker.
 - **plugin support**: compiler-powered libraries, such as `typia`.
 
 ## Setup
@@ -130,6 +132,35 @@ Lint fixes stay off-save by default; opt in with `"editor.codeActionsOnSave": { 
 
 See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements and settings.
 
+### Coding Agents (MCP)
+
+`@ttsc/graph` gives a coding agent a checker-resolved map of your project, over MCP.
+
+It answers what relates to a symbol and what a change affects, straight from the type checker, so the agent stops grepping and re-reading files.
+
+It also carries the project's full diagnostics: type errors, `@ttsc/lint` violations, and plugin findings. They are fused onto the graph, so an agent sees a change's reach over what is already broken before editing.
+
+```bash
+npm install -D ttsc @ttsc/graph typescript@rc
+```
+
+Point your agent's MCP client at it. For Claude Code:
+
+```json
+{
+  "mcpServers": {
+    "ttsc-graph": {
+      "command": "npx",
+      "args": ["-y", "@ttsc/graph"]
+    }
+  }
+}
+```
+
+On codegraph's own agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by 77% to 86% and tool calls by 94% to 95%. See [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
+
+Claude Code follows the server's instructions and uses the graph on its own. Codex is more conservative with third-party MCP tools and tends to fall back to the shell, so tell it directly: add a line to your `AGENTS.md` asking it to call `graph_explore` first. See [Setup](https://ttsc.dev/docs/setup#codex-and-other-tool-conservative-agents).
+
 ## Plugins
 
 Plugins let libraries add compile-time checks, transforms, and type-driven code generation to normal `ttsc` and `ttsx` runs.
@@ -242,6 +273,7 @@ See the [Programmatic API guide](https://ttsc.dev/docs/ttsc/api) for the full li
 
 - [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners.
 - [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): lints and formats TypeScript source.
+- [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph): MCP server exposing a checker-resolved code graph and diagnostics to coding agents.
 - [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
 - [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.

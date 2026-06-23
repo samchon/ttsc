@@ -7,6 +7,7 @@ const meta: MetaRecord = {
   "-- features": { type: "separator", title: "📖 Features" },
   ttsc: "TTSC",
   lint: "Lint & Format",
+  graph: "Code Graph (MCP)",
   plugins: "Plugin Ecosystem",
 
   "-- authoring": { type: "separator", title: "🧰 Authoring" },

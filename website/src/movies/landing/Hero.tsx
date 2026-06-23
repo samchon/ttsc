@@ -35,6 +35,11 @@ const FLOW = [
     tone: "text-amber-300",
   },
   {
+    name: "@ttsc/graph",
+    text: "code map for coding agents, over MCP",
+    tone: "text-violet-300",
+  },
+  {
     name: "plugins",
     text: "AST + Checker before emit",
     tone: "text-rose-300",

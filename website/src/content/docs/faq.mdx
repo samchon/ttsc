@@ -12,7 +12,7 @@ No. `ttsc` is a separate binary built on top of `typescript` (the official TypeS
 
 ## How fast is `ttsc` compared to `tsc`?
 
-`ttsc` runs on the TypeScript-Go preview compiler, and `@ttsc/lint` adds a marginal cost (a single AST pass shared with the type-check, so no second parse) rather than the separate `tsc + eslint + prettier --check` stack. Speedups are measured against the legacy stack on real repositories; see the [benchmark guide](/docs/benchmark) for per-project ratios.
+`ttsc` runs on the TypeScript-Go preview compiler, and `@ttsc/lint` adds a marginal cost (a single AST pass shared with the type-check, so no second parse) rather than the separate `tsc + eslint + prettier --check` stack. Speedups are measured against the legacy stack on real repositories; see the [benchmark guide](/docs/benchmark/performance) for per-project ratios.
 
 ## Can I use `ttsc` with my existing `tsc` setup?
 

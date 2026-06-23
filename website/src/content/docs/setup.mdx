@@ -189,6 +189,55 @@ Lint **fixes** stay off-save by default (they can change code meaning), opt in w
 
 Full reference: [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode).
 
+## Coding agents (@ttsc/graph)
+
+[`@ttsc/graph`](/docs/graph) gives a coding agent a checker-resolved map of your project, over MCP.
+
+It answers what relates to a symbol and its blast radius, and it surfaces the project's full diagnostics — type errors, `@ttsc/lint` violations, and transform-plugin findings — so the agent stops grepping and re-reading source.
+
+Because both come from one warm checker, the graph also shows a change's reach over what is currently broken, before the edit.
+
+### Install
+
+```bash
+npm install -D ttsc @ttsc/graph typescript@rc
+```
+
+`@ttsc/graph` resolves the native `ttscgraph` binary from the `ttsc` platform package, so `ttsc` must be installed.
+
+### Configure your agent
+
+Add the server to your MCP client. For Claude Code:
+
+```json
+{
+  "mcpServers": {
+    "ttsc-graph": {
+      "command": "npx",
+      "args": ["-y", "@ttsc/graph"]
+    }
+  }
+}
+```
+
+Start the agent from your project root, or pass `--cwd` and `--tsconfig`. Usage guidance is delivered in the MCP `initialize` response; the server never writes into your `CLAUDE.md` or `AGENTS.md`. On codegraph's own agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by 77% to 86% and tool calls by 94% to 95%; see [Code Graph](/docs/graph) and its [Benchmark](/docs/benchmark/graph).
+
+### Codex and other tool-conservative agents
+
+Claude Code follows the `initialize` instructions and reaches for the graph on its own. No extra step is needed.
+
+Codex is more conservative. It treats a third-party MCP server's instructions as advisory and falls back to exploring with the shell, so it often never calls the graph at all. That is a reasonable security default — an MCP server should not silently steer your agent — but it means you have to ask for the graph yourself.
+
+Tell it directly, in your project `AGENTS.md`:
+
+```text
+This project is served by the ttsc-graph MCP server, a code graph resolved by the TypeScript compiler.
+
+For any question about how the code works, call graph_explore first, naming the symbols involved in one query, and answer from its result. Do not grep or read files to trace calls, types, or references — the graph has already resolved them.
+```
+
+With that one line, Codex (GPT-5.5) stops grepping and answers from the graph the way Claude does: its shell exploration drops to near zero and its token use falls in line with the Claude runs.
+
 ## See also
 
 - [FAQ](/docs/faq): common questions, gotchas, and migration tips.

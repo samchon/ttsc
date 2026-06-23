@@ -16,6 +16,7 @@ run(["--filter", "@ttsc/lint", "build"]);
 run(["--filter", "@ttsc/unplugin", "build"]);
 run(["--filter", "@ttsc/metro", "build"]);
 run(["--filter", "@ttsc/vscode", "build"]);
+run(["--filter", "@ttsc/graph", "build"]);
 run(["--filter", "lint-contributor-demo", "build"]);
 run(["--dir", platformDir, "build"]);
 

@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "name": "@ttsc/experimental-graph-bench",
+  "version": "0.0.0",
+  "description": "Benchmark @ttsc/graph: load vs extraction time, node/edge counts, and fair coverage on a real project.",
+  "type": "module",
+  "scripts": {
+    "start": "node bench.mjs"
+  }
+}

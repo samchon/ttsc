@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/darwin-x64",
   "version": "0.16.4",
-  "description": "macOS x64 native ttsc/ttscserver binaries and bundled Go compiler for ttsc.",
+  "description": "macOS x64 native ttsc/ttscserver/ttscgraph binaries and bundled Go compiler for ttsc.",
   "os": ["darwin"],
   "cpu": ["x64"],
   "scripts": {

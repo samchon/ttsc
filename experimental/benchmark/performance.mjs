@@ -13,14 +13,14 @@
  *
  * Useful modes:
  *
- * - `node bench.mjs --setup-only`
- * - `node bench.mjs --verify-only`
- * - `node bench.mjs --project vue --project rxjs`
- * - `node bench.mjs --project=vue --ttsc-build-only`
- * - `node bench.mjs --project=vue --only-ttsc-build --reset`
- * - `node bench.mjs --project=vue --only-ttsc-build --no-website`
- * - `node bench.mjs --project=vue --lint-only`
- * - `node bench.mjs --cell-filter=':ttsc:build:' vue zod`
+ * - `node performance.mjs --setup-only`
+ * - `node performance.mjs --verify-only`
+ * - `node performance.mjs --project vue --project rxjs`
+ * - `node performance.mjs --project=vue --ttsc-build-only`
+ * - `node performance.mjs --project=vue --only-ttsc-build --reset`
+ * - `node performance.mjs --project=vue --only-ttsc-build --no-website`
+ * - `node performance.mjs --project=vue --lint-only`
+ * - `node performance.mjs --cell-filter=':ttsc:build:' vue zod`
  *
  * Default output is milestone-only: phase timers, per-cell `run i: N ms`, and
  * short status lines ("Cloning X", "Installing X", "Reusing X"). Child process
@@ -57,7 +57,8 @@ const WEBSITE_JSON = path.resolve(
   REPO_ROOT,
   "website",
   "public",
-  "benchmark.json",
+  "benchmark",
+  "performance.json",
 );
 const REPORT_JSON = OUT.replace(/\.md$/, ".json");
 const CHECKPOINT_JSON =
@@ -89,17 +90,25 @@ const TTSC_VERSION = JSON.parse(
 // Pin the TypeScript-Go runtime to the repository lockfile, not whatever a
 // fixture happened to resolve. Fixtures will be normalized later so every ttsc
 // branch measures the same workspace runtime.
-const NATIVE_PREVIEW_VERSION =
-  readNativePreviewLockVersion(REPO_ROOT) ??
-  packageVersion(
-    path.join(REPO_ROOT, "node_modules", "@typescript", "native-preview"),
-  ) ??
-  readNativePreviewWorkspaceCatalogVersion(REPO_ROOT);
+const TYPESCRIPT_GO_VERSION =
+  readTypeScriptGoLockVersion(REPO_ROOT) ??
+  packageVersion(path.join(REPO_ROOT, "node_modules", "typescript")) ??
+  readTypeScriptGoWorkspaceCatalogVersion(REPO_ROOT);
 const PLATFORM_KEY = `${process.platform}-${process.arch}`;
 const PLATFORM_PACKAGE = `@ttsc/${PLATFORM_KEY}`;
-const NATIVE_PREVIEW_PLATFORM_PACKAGE = `@typescript/native-preview-${PLATFORM_KEY}`;
 const GENERATED_PNPM_WORKSPACE = 'packages:\n  - "."\n';
 const LEGACY_TYPESCRIPT_DISPLAY_VERSION = "v6.0.3";
+const TTSC_PLATFORM_PACKAGES = new Set([
+  "@ttsc/linux-x64",
+  "@ttsc/linux-arm",
+  "@ttsc/linux-arm64",
+  "@ttsc/darwin-x64",
+  "@ttsc/darwin-arm64",
+  "@ttsc/win32-x64",
+  "@ttsc/win32-arm64",
+]);
+const TYPESCRIPT_GO_LEGACY_PACKAGE_REGEXP =
+  /^@typescript\/native-preview(?:-.+)?$/;
 const LOCAL_TARBALLS = [
   {
     dir: "packages/ttsc",
@@ -281,9 +290,10 @@ const PACKAGE_CONFIGS = {
     repoName: "ttsc-benchmark-vscode",
     repo: "https://github.com/samchon/ttsc-benchmark-vscode.git",
     packageManager: "npm",
-    installCommand: "npm install --legacy-peer-deps --ignore-scripts",
+    installCommand:
+      "npm install --legacy-peer-deps --ignore-scripts --prefer-online",
     installTarballsCommand: (specs) =>
-      `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`,
+      `npm install --legacy-peer-deps --ignore-scripts --prefer-online --save-dev ${specs}`,
     prepareCommand: "./node_modules/.bin/ttsc prepare -p src/tsconfig.json",
     filesRoot: "src",
     commands: compilerCommands({
@@ -471,11 +481,11 @@ function packageVersion(dir) {
   }
 }
 
-function readNativePreviewLockVersion(repoRoot) {
+function readTypeScriptGoLockVersion(repoRoot) {
   try {
     const file = fs.readFileSync(path.join(repoRoot, "pnpm-lock.yaml"), "utf8");
     const match = file.match(
-      /^\s*'@typescript\/native-preview':\n\s+specifier:\s+[^\n]+\n\s+version:\s+([^\s#]+)\s*$/m,
+      /^\s*typescript:\n\s+specifier:\s+catalog:typescript\n\s+version:\s+([^\s#]+)\s*$/m,
     );
     if (match) return match[1].replace(/^['"]|['"]$/g, "");
   } catch {
@@ -484,14 +494,14 @@ function readNativePreviewLockVersion(repoRoot) {
   return undefined;
 }
 
-function readNativePreviewWorkspaceCatalogVersion(repoRoot) {
+function readTypeScriptGoWorkspaceCatalogVersion(repoRoot) {
   try {
     const file = fs.readFileSync(
       path.join(repoRoot, "pnpm-workspace.yaml"),
       "utf8",
     );
     const match = file.match(
-      /^\s*'@typescript\/native-preview':\s*([^\s#]+)\s*$/m,
+      /^\s*typescript:\s*([^\s#]+)\s*$/m,
     );
     if (match) return match[1].replace(/^['"]|['"]$/g, "");
   } catch {
@@ -519,7 +529,7 @@ function compilerCommands({ build, noEmit, eslint, format }) {
       build: normalizeSteps(build("ttsc")),
       noEmit: normalizeSteps(noEmit("ttsc")),
       // Direct tsgo invocation lives on the same `ttsc` clone as a second op
-      // so the chart can show the raw native-preview cost alongside ttsc and
+      // so the chart can show the raw TypeScript-Go cost alongside ttsc and
       // expose the per-invocation plugin-host overhead the ttsc launcher
       // carries.
       tsgoBuild: normalizeSteps(build("tsgo")),
@@ -642,6 +652,10 @@ function pnpmProjectCommand(root, command) {
     return `pnpm --ignore-workspace ${verb} --virtual-store-dir node_modules/.pnpm ${rest.join(" ")}`.trim();
   }
   return `pnpm --ignore-workspace ${command}`;
+}
+
+function yarnCommand(args) {
+  return `${process.platform === "win32" ? "corepack yarn" : "yarn"} ${args}`;
 }
 
 function commandForProject(cmd, root) {
@@ -867,42 +881,45 @@ function setupClone(project, branch) {
       });
     }
     cleanupBenchmarkWorktree(dir, project);
-    ensurePnpmWorkspaceBoundary(project, dir);
+    withDependencyFileSnapshot(dir, () => {
+      ensurePnpmWorkspaceBoundary(project, dir);
 
-    if (!flags.has("--no-install")) installIfNeeded(project, dir, branch);
+      if (!flags.has("--no-install")) installIfNeeded(project, dir, branch);
 
-    if (branch === "ttsc" || branch === "ttsc-lint") {
-      const pm = project.packageManager;
-      const cmd = project.prepareCommand
-        ? commandForProject(project.prepareCommand, dir)
-        : pm === "npm"
-          ? "npm exec -- ttsc prepare"
-          : pm === "pnpm"
-            ? pnpmProjectCommand(dir, "exec ttsc prepare")
-            : `${pm} exec ttsc prepare`;
-      const res = sh(cmd, dir, {
-        quiet: true,
-        check: false,
-        label: `ttsc prepare ${project.repoName}@${branch}`,
-      });
-      if (res.status !== 0) {
-        process.stdout.write(
-          `${project.repoName}@${branch}: ttsc prepare exited ${res.status}; ` +
-            `continuing only if this project has no source plugins\n`,
-        );
+      if (branch === "ttsc" || branch === "ttsc-lint") {
+        const pm = project.packageManager;
+        const cmd = project.prepareCommand
+          ? commandForProject(project.prepareCommand, dir)
+          : pm === "npm"
+            ? "npm exec -- ttsc prepare"
+            : pm === "pnpm"
+              ? pnpmProjectCommand(dir, "exec ttsc prepare")
+              : yarnCommand("exec ttsc prepare");
+        const res = sh(cmd, dir, {
+          quiet: true,
+          check: false,
+          label: `ttsc prepare ${project.repoName}@${branch}`,
+        });
+        if (res.status !== 0) {
+          process.stdout.write(
+            `${project.repoName}@${branch}: ttsc prepare exited ${res.status}; ` +
+              `continuing only if this project has no source plugins\n`,
+          );
+        }
       }
-    }
 
-    for (const step of normalizeSteps(project.prerequisites ?? [])) {
-      process.stdout.write(
-        `${project.repoName}@${branch}: prerequisite ${step.cmd}\n`,
-      );
-      sh(step.cmd, path.resolve(dir, step.cwd ?? "."), {
-        env: step.env ? { ...process.env, ...step.env } : process.env,
-        quiet: true,
-        label: `prerequisite ${project.repoName}@${branch}`,
-      });
-    }
+      for (const step of normalizeSteps(project.prerequisites ?? [])) {
+        process.stdout.write(
+          `${project.repoName}@${branch}: prerequisite ${step.cmd}\n`,
+        );
+        sh(step.cmd, path.resolve(dir, step.cwd ?? "."), {
+          env: step.env ? { ...process.env, ...step.env } : process.env,
+          quiet: true,
+          label: `prerequisite ${project.repoName}@${branch}`,
+        });
+      }
+    });
+    cleanupBenchmarkWorktree(dir, project);
   });
 }
 
@@ -930,28 +947,41 @@ function installIfNeeded(project, dir, branch) {
             "install --no-frozen-lockfile --config.minimumReleaseAge=0",
           )
         : pm === "yarn"
-          ? "YARN_CACHE_FOLDER=.yarn-cache yarn install --ignore-engines --update-checksums"
-          : "npm install --legacy-peer-deps");
-    if (!hasNodeModules || flags.has("--force-install")) {
-      process.stdout.write(`Installing ${path.basename(dir)} with ${pm}\n`);
-      const install = () =>
-        sh(cmd, dir, { label: `install dependencies ${path.basename(dir)}` });
-      if (mustRefreshTarballs) {
-        withDependencyFileSnapshot(dir, () => {
+          ? yarnCommand("install --ignore-engines --update-checksums")
+          : "npm install --legacy-peer-deps --prefer-online");
+    const shouldForceInstall = !hasNodeModules || flags.has("--force-install");
+    const install = () =>
+      sh(cmd, dir, {
+        label: `install dependencies ${path.basename(dir)}`,
+        env: pm === "yarn" ? yarnCacheEnv() : undefined,
+      });
+    if (mustRefreshTarballs) {
+      let installed = false;
+      withDependencyFileSnapshot(dir, () => {
+        const typeScriptGoChanged = scrubTypeScriptGoInstallState(dir);
+        if (shouldForceInstall || typeScriptGoChanged) {
+          process.stdout.write(`Installing ${path.basename(dir)} with ${pm}\n`);
           scrubLocalTarballInstallState(dir, localTarballTargets(branch));
           install();
-        });
-      } else {
-        install();
+          installed = true;
+        }
+      });
+      if (!installed) {
+        process.stdout.write(
+          `Reusing installed node_modules in ${path.basename(dir)}\n`,
+        );
       }
+    } else if (shouldForceInstall) {
+      process.stdout.write(`Installing ${path.basename(dir)} with ${pm}\n`);
+      install();
     } else {
       process.stdout.write(
         `Reusing installed node_modules in ${path.basename(dir)}\n`,
       );
     }
     if (mustRefreshTarballs) installLocalTarballs(project, dir, branch);
-    if (mustRefreshTarballs && !hasPinnedNativePreviewRuntimeDeps(dir)) {
-      installPinnedNativePreviewRuntimeDeps(project, dir, branch);
+    if (mustRefreshTarballs && !hasPinnedTypeScriptGoRuntimeDeps(dir)) {
+      installPinnedTypeScriptGoRuntimeDeps(project, dir, branch);
     }
   });
 }
@@ -1007,13 +1037,18 @@ function installLocalTarballs(project, dir, branch) {
             ? `pnpm add -w -D --config.minimumReleaseAge=0 ${specs}`
             : `pnpm add --ignore-workspace -D --config.minimumReleaseAge=0 ${specs}`
           : pm === "yarn"
-            ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
-            : `npm install --legacy-peer-deps --save-dev ${specs}`);
+            ? yarnCommand(
+                `add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`,
+              )
+            : `npm install --legacy-peer-deps --prefer-online --save-dev ${specs}`);
       process.stdout.write(
         `Installing local tarballs into ${path.basename(dir)}: ` +
           `${targets.map((target) => target.name).join(", ")}\n`,
       );
-      sh(cmd, dir, { label: `install local tarballs ${path.basename(dir)}` });
+      sh(cmd, dir, {
+        label: `install local tarballs ${path.basename(dir)}`,
+        env: pm === "yarn" ? yarnCacheEnv() : undefined,
+      });
     });
   });
 }
@@ -1097,6 +1132,32 @@ function scrubLocalTarballInstallState(dir, targets) {
   fs.rmSync(pnpmStoreLockfile, { force: true });
 }
 
+function scrubTypeScriptGoInstallState(dir) {
+  let changed = false;
+  for (const packageJson of findProjectFiles(dir, "package.json")) {
+    if (rewritePackageJsonTarballs(packageJson, {})) changed = true;
+  }
+  for (const lockfile of findProjectFiles(dir, [
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+  ])) {
+    const text = fs.readFileSync(lockfile, "utf8");
+    if (text.includes("@typescript/native-preview")) {
+      fs.rmSync(lockfile);
+      changed = true;
+    }
+  }
+  const pnpmStoreLockfile = path.join(
+    dir,
+    "node_modules",
+    ".pnpm",
+    "lock.yaml",
+  );
+  fs.rmSync(pnpmStoreLockfile, { force: true });
+  return changed;
+}
+
 function findProjectFiles(root, names) {
   const wanted = new Set(Array.isArray(names) ? names : [names]);
   const skip = new Set([".git", "node_modules", "dist", "lib", "out"]);
@@ -1117,7 +1178,8 @@ function findProjectFiles(root, names) {
 function rewritePackageJsonTarballs(file, specs) {
   const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
   let changed = false;
-  const rewriteMap = (map) => {
+  let needsTypeScriptGoPin = false;
+  const rewriteMap = (map, options = {}) => {
     if (!map || typeof map !== "object") return;
     for (const [name, spec] of Object.entries(specs)) {
       const current = map[name];
@@ -1126,19 +1188,70 @@ function rewritePackageJsonTarballs(file, specs) {
         changed = true;
       }
     }
+    let needsPlatformTarball = false;
+    for (const [name, current] of Object.entries(map)) {
+      if (
+        typeof current !== "string" ||
+        !current.includes("ttsc-tgz") ||
+        specs[name]
+      ) {
+        continue;
+      }
+      if (TTSC_PLATFORM_PACKAGES.has(name)) {
+        delete map[name];
+        needsPlatformTarball = true;
+        changed = true;
+      } else if (name === "ttsc" || name === "@ttsc/lint") {
+        delete map[name];
+        changed = true;
+      }
+    }
+    for (const name of Object.keys(map)) {
+      if (TYPESCRIPT_GO_LEGACY_PACKAGE_REGEXP.test(name)) {
+        delete map[name];
+        needsTypeScriptGoPin = true;
+        changed = true;
+      }
+    }
+    if (typeof map.typescript === "string") {
+      needsTypeScriptGoPin = true;
+      if (options.pinTypeScript && map.typescript !== TYPESCRIPT_GO_VERSION) {
+        map.typescript = TYPESCRIPT_GO_VERSION;
+        changed = true;
+      }
+    }
+    if (
+      needsPlatformTarball &&
+      specs[PLATFORM_PACKAGE] &&
+      map[PLATFORM_PACKAGE] !== specs[PLATFORM_PACKAGE]
+    ) {
+      map[PLATFORM_PACKAGE] = specs[PLATFORM_PACKAGE];
+      changed = true;
+    }
   };
   for (const key of [
     "dependencies",
     "devDependencies",
     "optionalDependencies",
-    "peerDependencies",
     "overrides",
     "resolutions",
   ]) {
-    rewriteMap(manifest[key]);
+    rewriteMap(manifest[key], { pinTypeScript: true });
   }
-  rewriteMap(manifest.pnpm?.overrides);
+  rewriteMap(manifest.peerDependencies);
+  rewriteMap(manifest.pnpm?.overrides, { pinTypeScript: true });
+  if (needsTypeScriptGoPin) {
+    const devDependencies =
+      manifest.devDependencies && typeof manifest.devDependencies === "object"
+        ? manifest.devDependencies
+        : (manifest.devDependencies = {});
+    if (devDependencies.typescript !== TYPESCRIPT_GO_VERSION) {
+      devDependencies.typescript = TYPESCRIPT_GO_VERSION;
+      changed = true;
+    }
+  }
   if (changed) fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");
+  return changed;
 }
 
 function rewriteTextTarballs(file, targets) {
@@ -1186,9 +1299,11 @@ function materializeLocalTarballs(targets, dir) {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-bench-tgz-"));
     fs.rmSync(packageDir, { recursive: true, force: true });
     fs.mkdirSync(path.dirname(packageDir), { recursive: true });
-    sh(`tar -xzf ${quote(path.join(TGZ, target.file))} -C ${quote(tmp)}`, dir, {
-      quiet: true,
-    });
+    sh(
+      `tar --force-local -xzf ${quote(tarPath(path.join(TGZ, target.file)))} -C ${quote(tarPath(tmp))}`,
+      dir,
+      { quiet: true },
+    );
     fs.cpSync(path.join(tmp, "package"), packageDir, { recursive: true });
     fs.rmSync(tmp, { recursive: true, force: true });
     linkPackageBins(packageDir, nodeModules);
@@ -1197,6 +1312,10 @@ function materializeLocalTarballs(targets, dir) {
     `Materialized local tarballs into ${path.basename(dir)}: ` +
       `${targets.map((target) => target.name).join(", ")}\n`,
   );
+}
+
+function tarPath(file) {
+  return process.platform === "win32" ? file.replace(/\\/g, "/") : file;
 }
 
 function linkPackageBins(packageDir, nodeModules) {
@@ -1213,17 +1332,31 @@ function linkPackageBins(packageDir, nodeModules) {
     const link = path.join(binDir, name);
     const target = path.relative(binDir, path.join(packageDir, bin));
     fs.rmSync(link, { force: true });
-    fs.symlinkSync(target, link);
+    fs.rmSync(`${link}.cmd`, { force: true });
+    try {
+      fs.symlinkSync(target, link);
+    } catch (error) {
+      if (process.platform !== "win32" || error?.code !== "EPERM") throw error;
+      writeWindowsBinShim(link, target);
+    }
   }
 }
 
-function installPinnedNativePreviewRuntimeDeps(project, dir, branch) {
-  const specs = [
-    `@typescript/native-preview@${NATIVE_PREVIEW_VERSION}`,
-    `${NATIVE_PREVIEW_PLATFORM_PACKAGE}@${NATIVE_PREVIEW_VERSION}`,
-  ]
-    .map(quote)
-    .join(" ");
+function writeWindowsBinShim(link, target) {
+  const cmdTarget = target.replace(/\//g, "\\");
+  const shTarget = target.replace(/\\/g, "/");
+  fs.writeFileSync(
+    `${link}.cmd`,
+    `@ECHO off\r\nnode "%~dp0\\${cmdTarget}" %*\r\n`,
+  );
+  fs.writeFileSync(
+    link,
+    `#!/bin/sh\nbasedir=$(dirname "$(echo "$0" | sed -e 's,\\\\,/,g')")\nexec node "$basedir/${shTarget}" "$@"\n`,
+  );
+}
+
+function installPinnedTypeScriptGoRuntimeDeps(project, dir, branch) {
+  const specs = quote(`typescript@${TYPESCRIPT_GO_VERSION}`);
   const pm = project.packageManager;
   // Mirror `installLocalTarballs` and bypass any fixture-side
   // `minimumReleaseAge` policy. The runtime dev tags publish on a daily-ish
@@ -1235,24 +1368,26 @@ function installPinnedNativePreviewRuntimeDeps(project, dir, branch) {
         ? `pnpm add -w -D --config.minimumReleaseAge=0 ${specs}`
         : `pnpm add --ignore-workspace --virtual-store-dir node_modules/.pnpm -D --config.minimumReleaseAge=0 ${specs}`
       : pm === "yarn"
-        ? `YARN_CACHE_FOLDER=.yarn-cache yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
-        : `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`;
+        ? yarnCommand(
+            `add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`,
+          )
+        : `npm install --legacy-peer-deps --ignore-scripts --prefer-online --save-dev ${specs}`;
   process.stdout.write(
     `Installing pinned TypeScript-Go runtime deps into ${path.basename(dir)}: ` +
-      `@typescript/native-preview@${NATIVE_PREVIEW_VERSION}, ` +
-      `${NATIVE_PREVIEW_PLATFORM_PACKAGE}@${NATIVE_PREVIEW_VERSION}\n`,
+      `typescript@${TYPESCRIPT_GO_VERSION}\n`,
   );
   withDependencyFileSnapshot(dir, () => {
     scrubLocalTarballInstallState(dir, localTarballTargets(branch));
-    sh(cmd, dir);
+    sh(cmd, dir, { env: pm === "yarn" ? yarnCacheEnv() : undefined });
   });
 }
 
-function hasPinnedNativePreviewRuntimeDeps(dir) {
-  return (
-    depVersion(dir, "@typescript/native-preview") === NATIVE_PREVIEW_VERSION &&
-    depVersion(dir, NATIVE_PREVIEW_PLATFORM_PACKAGE) === NATIVE_PREVIEW_VERSION
-  );
+function yarnCacheEnv() {
+  return { ...process.env, YARN_CACHE_FOLDER: ".yarn-cache" };
+}
+
+function hasPinnedTypeScriptGoRuntimeDeps(dir) {
+  return depVersion(dir, "typescript") === TYPESCRIPT_GO_VERSION;
 }
 
 function quote(value) {
@@ -1635,7 +1770,7 @@ function projectReportFor(project, measurements) {
       meta.legacyTypescript ??
         depVersion(cloneDir(project, "legacy"), "typescript"),
     ),
-    tsgo: NATIVE_PREVIEW_VERSION,
+    tsgo: TYPESCRIPT_GO_VERSION,
     measurements,
   };
 }
@@ -1698,7 +1833,7 @@ function hostSpec(projects) {
     typescript: displayLegacyTypescriptVersion(
       commonDepVersion(projects, "legacy", "typescript"),
     ),
-    tsgo: NATIVE_PREVIEW_VERSION,
+    tsgo: TYPESCRIPT_GO_VERSION,
   };
 }
 

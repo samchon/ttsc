@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/linux-arm",
   "version": "0.16.4",
-  "description": "Linux arm native ttsc/ttscserver binaries and bundled Go compiler for ttsc.",
+  "description": "Linux arm native ttsc/ttscserver/ttscgraph binaries and bundled Go compiler for ttsc.",
   "os": ["linux"],
   "cpu": ["arm"],
   "scripts": {

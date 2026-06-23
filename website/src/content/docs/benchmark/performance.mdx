@@ -1,6 +1,6 @@
-import BenchmarkDashboard from "../../components/benchmark/BenchmarkDashboard";
+import BenchmarkDashboard from "../../../components/benchmark/BenchmarkDashboard";
 
-# Benchmark
+# Compiler Performance
 
 This page measures the practical question behind `ttsc`: how much wall-clock time changes when a real TypeScript project moves from the legacy `tsc`/`eslint` path to TypeScript-Go backed builds, checks, and linting.
 
@@ -10,7 +10,7 @@ The fixtures are real repositories cloned into prepared `legacy`, `ttsc`, and `t
 
 ## Reading the Results
 
-The Summary tab keeps only the strongest result in each category. Build and Type-check compare one unit of work across the legacy compiler, `ttsc` in single-threaded and checker-pool modes. Raw `tsgo` rows are kept as a reference for native-preview overhead, but they are not eligible for the headline winner or per-project best ratio.
+The Summary tab keeps only the strongest result in each category. Build and Type-check compare one unit of work across the legacy compiler, `ttsc` in single-threaded and checker-pool modes. Raw `tsgo` rows are kept as a reference for TypeScript-Go launcher overhead, but they are not eligible for the headline winner or per-project best ratio.
 
 Lint is intentionally split out. The legacy path is `tsc + eslint`, two separate passes over the project. The `ttsc-lint` path runs `ttsc` with `@ttsc/lint` loaded and invokes those cells with `--diagnostics`, so the runner parses the lint sidecar's own `@ttsc/lint time` line instead of deriving lint cost from total-minus-total noise. The chart separates that measured lint portion from the rest of the compiler run. The rest stays blue because `@ttsc/lint` also builds a TypeScript-Go Program and reports normal TypeScript diagnostics for the project. If the same command also runs source transform hosts such as typia or nestia, the chart shows that transform-host time as a second compiler segment after the green lint segment, because that work is still part of the TypeScript compile path rather than ESLint-style lint work. The chart also shows the pure lint-to-lint ratio.
 
@@ -28,7 +28,7 @@ Fallback rows are labelled `delta est.` so the chart stays explicit about which 
 
 Each fixture is checked out as `legacy`, `ttsc`, and `ttsc-lint`. The `ttsc` branches run `ttsc prepare` before timing so plugin binary build time is not included in compiler measurements. No benchmark-only `tsconfig` is used; the runner invokes the repository's normal TypeScript configuration for the command being measured.
 
-The run count is configured by `TTSC_BENCH_RUNS` and `TTSC_BENCH_WARMUP`, and the chosen values are recorded in `website/public/benchmark.json` along with the raw per-run wall-clock samples, retry counts, deterministic failures, and, for `ttsc-lint` build/check cells, parsed `@ttsc/lint` timings. The dashboard reduces each cell's samples to its minimum at render time, so the published JSON never carries derived statistics that would drift out of sync with the chosen reduction. A missing bar means that project does not currently have a valid comparable command for that tool.
+The run count is configured by `TTSC_BENCH_RUNS` and `TTSC_BENCH_WARMUP`, and the chosen values are recorded in `website/public/benchmark/performance.json` along with the raw per-run wall-clock samples, retry counts, deterministic failures, and, for `ttsc-lint` build/check cells, parsed `@ttsc/lint` timings. The dashboard reduces each cell's samples to its minimum at render time, so the published JSON never carries derived statistics that would drift out of sync with the chosen reduction. A missing bar means that project does not currently have a valid comparable command for that tool.
 
 The host panel's **Legacy TypeScript** field is the installed `typescript` version in the fixture `legacy` clone. The current fixture set resolves to a single version, so the panel shows one value; if future fixtures diverge, the runner records per-project versions and the host panel reports that the value varies by fixture.
 
@@ -85,10 +85,10 @@ corepack enable
 pnpm install
 
 rm -rf experimental/benchmark/.work
-node experimental/benchmark/bench.mjs
+node experimental/benchmark/performance.mjs
 ```
 
-The runner defaults to **5 measured runs + 1 warmup** per cell. The dashboard takes the minimum across those samples, so more samples push the published number toward the noise-free best case rather than averaging it. Override with `TTSC_BENCH_RUNS` / `TTSC_BENCH_WARMUP` when you want a quicker spot-check (`TTSC_BENCH_RUNS=1 TTSC_BENCH_WARMUP=0` finishes a sweep in roughly half an hour but a single cold spike then sets the cell's number) or a steadier sampling run (e.g. `TTSC_BENCH_RUNS=10` doubles every sample and lowers the chance of an outlier squatting on the minimum). Results are written to `experimental/benchmark/.work/report.md`, `experimental/benchmark/.work/report.json`, and `website/public/benchmark.json`.
+The runner defaults to **5 measured runs + 1 warmup** per cell. The dashboard takes the minimum across those samples, so more samples push the published number toward the noise-free best case rather than averaging it. Override with `TTSC_BENCH_RUNS` / `TTSC_BENCH_WARMUP` when you want a quicker spot-check (`TTSC_BENCH_RUNS=1 TTSC_BENCH_WARMUP=0` finishes a sweep in roughly half an hour but a single cold spike then sets the cell's number) or a steadier sampling run (e.g. `TTSC_BENCH_RUNS=10` doubles every sample and lowers the chance of an outlier squatting on the minimum). Results are written to `experimental/benchmark/.work/report.md`, `experimental/benchmark/.work/report.json`, and `website/public/benchmark/performance.json`.
 
 The published snapshot pins every fixture's `legacy` branch to the **Legacy TypeScript** version shown in the host panel and on each project row (currently `v6.0.3`) so the `tsc` baseline reflects the same major version the `ttsc` rows run against. Earlier snapshots ran legacy on TypeScript 4.9.5 / 5.x; the matrix kept its shape but the cross-row comparison was apples-to-oranges. The fixtures' `ttsc` and `ttsc-lint` branches use the local tarballs packed by the runner.
 

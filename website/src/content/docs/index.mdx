@@ -55,6 +55,8 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 - **`@ttsc/lint`**: replaces `eslint` and `prettier`.
   - lint violations as TS compile errors.
   - format autofixes via `ttsc format`.
+- **`@ttsc/graph`**: a code map for coding agents, over MCP.
+  - what calls what, and a change's blast radius, from the type checker.
 - **plugin support**: compiler-powered libraries, such as `typia`.
 
 ## Setup
@@ -136,6 +138,35 @@ Supported bundlers:
 
 See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin) for full setup and adapter options.
 
+### Coding Agents (MCP)
+
+`@ttsc/graph` is an MCP server that gives a coding agent a map of your codebase.
+
+It answers "what relates to this symbol" or "what does this change affect" straight from the type checker, so the agent stops grepping and re-reading files.
+
+It also carries the project's full diagnostics: type errors, `@ttsc/lint` violations, and plugin findings. They are fused onto the graph, so an agent sees a change's reach over what is already broken before editing.
+
+```bash
+npm install -D ttsc @ttsc/graph typescript@rc
+```
+
+Point your agent's MCP client at it. For Claude Code:
+
+```json
+{
+  "mcpServers": {
+    "ttsc-graph": {
+      "command": "npx",
+      "args": ["-y", "@ttsc/graph"]
+    }
+  }
+}
+```
+
+On codegraph's own benchmark, Claude agents answer reading zero files, cutting tokens by 77% to 86% and tool calls by 94% to 95%.
+
+See [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) and the [benchmark](/docs/benchmark/graph).
+
 ## Plugins
 
 Plugins let libraries add compile-time checks, transforms, and type-driven code generation to normal `ttsc` and `ttsx` runs.
@@ -207,6 +238,7 @@ console.log(matched); // true
 
 - [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners.
 - [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): lints and formats TypeScript source.
+- [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph): MCP server exposing a checker-resolved code graph and diagnostics to coding agents.
 - [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
 - [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.

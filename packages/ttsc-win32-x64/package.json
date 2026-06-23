@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/win32-x64",
   "version": "0.16.4",
-  "description": "Windows x64 native ttsc/ttscserver binaries and bundled Go compiler for ttsc.",
+  "description": "Windows x64 native ttsc/ttscserver/ttscgraph binaries and bundled Go compiler for ttsc.",
   "os": ["win32"],
   "cpu": ["x64"],
   "scripts": {

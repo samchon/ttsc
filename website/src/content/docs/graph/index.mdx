@@ -1,0 +1,129 @@
+import { Tabs } from "nextra/components";
+
+# Code Graph (MCP)
+
+`@ttsc/graph` gives a coding agent a map of your TypeScript project, over MCP.
+
+It runs `ttscgraph`, a native binary that type-checks your project once and keeps it in memory. Every query is answered from that warm checker, not a fresh parse.
+
+So every relationship it reports is the compiler's own answer, not a guess from reading text.
+
+## One graph, two questions
+
+Most tools answer only one of these. This one answers both, from the same graph:
+
+- **What calls what.** The static structure: what a symbol calls, what depends on it, the types it touches, its heritage.
+- **What is broken, and how far it spreads.** The live diagnostics, fused onto that structure.
+
+That fusion is the point. `graph_explore` shows a symbol's own errors, and how many of the things that depend on it are already broken.
+
+So before you change a symbol, you can see the reach of the change over what is currently failing. That is fix-safety, not just a cheaper way to read code.
+
+No other tool fuses all three. A tree-sitter graph has no types and no errors. An editor's language server has errors but no structure graph. A linter is separate again. Only a graph built on the real checker holds the structure, the diagnostics, and the affected set in one place.
+
+On a public agent-cost benchmark a Claude agent answers reading zero files, cutting tokens by 77% to 86% and tool calls by 94% to 95%. See the [Benchmark](/docs/benchmark/graph) for the numbers and method.
+
+## What only the compiler can resolve
+
+A text search or a tree-sitter parse stops where the syntax stops. A real type checker does not. So these edges are correct where a text tool can only guess:
+
+- **pnpm / workspace monorepos.** A `workspace:*` dependency is followed into the sibling package's real source. A call across packages lands on the true declaration, not the barrel it passed through.
+- **Path aliases.** A `@app/*` import from `tsconfig` is resolved to the real file, so the edge is right where a text tool sees only the alias string.
+- **Barrel re-exports.** An `index.ts` that only re-exports is unwrapped to the file that actually declares the symbol.
+- **Your code vs the world.** Anything in `node_modules` or a `.d.ts` is reported as an outside boundary, not walked into. The graph stays your code.
+
+## Diagnostics
+
+`graph_diagnostics`, and the errors fused into `graph_explore`, are the project's full diagnostic set:
+
+- TypeScript type and compile errors.
+- `@ttsc/lint` rule violations.
+- Transform-plugin errors, from plugins like typia and nestia.
+
+The type errors come from the graph's resident `Program`.
+
+The lint and plugin findings come from a background `ttsc` check that runs your project's plugins, fused onto the same graph.
+
+So it reports what `ttsc` reports, at the same code and location.
+
+When that background check cannot run (no `ttsc`, no Go toolchain, or a project that does not compile), the graph falls back to the type errors alone.
+
+## Install
+
+`@ttsc/graph` resolves the native binary from the `ttsc` platform package, so install `ttsc` alongside it.
+
+```bash
+npm install -D ttsc @ttsc/graph typescript@rc
+```
+
+## Configure your agent
+
+Add the server to your MCP client. For Claude Code:
+
+```json
+{
+  "mcpServers": {
+    "ttsc-graph": {
+      "command": "npx",
+      "args": ["-y", "@ttsc/graph"]
+    }
+  }
+}
+```
+
+Start the agent from your project root, or point the server at a project explicitly:
+
+```bash
+npx @ttsc/graph --cwd ./packages/app --tsconfig tsconfig.json
+```
+
+Usage guidance is delivered in the MCP `initialize` response. The server never writes into your `CLAUDE.md`, `AGENTS.md`, or any other agent config file, so installing it has no side effects on your repository.
+
+## Tools
+
+<Tabs items={["graph_explore", "graph_diagnostics"]}>
+<Tabs.Tab>
+
+The primary tool. Give it a symbol name or a file-path fragment.
+
+For each matching node it returns the verbatim line-numbered source, its checker-resolved edges in both directions (`heritage`, `value-call`, `type-ref`), its blast radius of transitive dependents, its own diagnostics, and how many of those dependents are already broken.
+
+One call is usually enough context to stop, instead of fanning out to read files.
+
+```json
+{ "name": "graph_explore", "arguments": { "query": "PaymentService" } }
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+Every diagnostic for one file: type errors, `@ttsc/lint` violations, and transform-plugin findings, at the same code and location `ttsc` reports.
+
+```json
+{ "name": "graph_diagnostics", "arguments": { "file": "src/payment/service.ts" } }
+```
+
+</Tabs.Tab>
+</Tabs>
+
+## Edge kinds
+
+| Kind | Meaning |
+| --- | --- |
+| `heritage` | A class or interface `extends` / `implements` a base. |
+| `value-call` | A declaration or method calls a function, method, or constructor (`new T()`) at runtime. |
+| `type-ref` | A declaration mentions a named type in a type position. |
+
+Splitting `value-call` from `type-ref` lets an impact query separate "used at runtime" from "depends on this type".
+
+## Scope
+
+This is a v1. The nodes are the declarations and their methods, including the members of a `namespace`. The edges are the kinds above, resolved by the checker: a method-to-method call, a `new T()` constructor call, and a call from inside a top-level `const fn = () => …` are all edges.
+
+The diagnostics carry the full compile: type errors, lint, and transform plugins.
+
+A file watcher and on-disk persistence are not included yet. The node identity is position-invariant, so an incremental layer can be added later without re-keying the graph.
+
+## Environment
+
+- `TTSC_GRAPH_BINARY`: an absolute path to a `ttscgraph` binary, overriding platform resolution.

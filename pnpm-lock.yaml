@@ -122,6 +122,21 @@ importers:
         specifier: catalog:typescript
         version: 7.0.1-rc
 
+  packages/graph:
+    devDependencies:
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.9.1
+      rimraf:
+        specifier: catalog:utils
+        version: 6.1.3
+      ttsc:
+        specifier: workspace:*
+        version: link:../ttsc
+      typescript:
+        specifier: catalog:typescript
+        version: 7.0.1-rc
+
   packages/lint:
     devDependencies:
       '@types/node':
@@ -410,6 +425,21 @@ importers:
       ts-legacy:
         specifier: catalog:typescript
         version: typescript@6.0.3
+      ttsc:
+        specifier: workspace:*
+        version: link:../../packages/ttsc
+      typescript:
+        specifier: catalog:typescript
+        version: 7.0.1-rc
+
+  tests/test-graph:
+    devDependencies:
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.9.1
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc

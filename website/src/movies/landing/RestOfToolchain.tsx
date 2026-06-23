@@ -32,21 +32,12 @@ const CARDS = [
     accent: false,
   },
   {
-    name: "ttscserver",
-    tagline: "Editor",
+    name: "@ttsc/graph",
+    tagline: "Coding agents",
     description:
-      "Surface plugin diagnostics, quick fixes, and commands inside the TypeScript language stream.",
-    meta: "VS Code extension",
-    href: "/docs/setup#editor-vs-code",
-    accent: false,
-  },
-  {
-    name: "@ttsc/unplugin",
-    tagline: "Bundlers",
-    description:
-      "Bring the same source transform pipeline to Vite, Rollup, esbuild, Webpack, Next.js, Bun, and more.",
-    meta: "one adapter family",
-    href: "/docs/ttsc/bundler",
+      "Hand a coding agent a checker-resolved map of your codebase over MCP, so it stops grepping and re-reading files.",
+    meta: "MCP code graph",
+    href: "/docs/graph",
     accent: false,
   },
 ] as const;
@@ -97,7 +88,7 @@ export default function RestOfToolchain() {
         </FadeIn>
 
         <FadeIn delay={120}>
-          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {CARDS.map((card) => (
               <a
                 key={card.name}
