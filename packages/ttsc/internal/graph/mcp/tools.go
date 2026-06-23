@@ -19,13 +19,13 @@ func toolsListResult() any {
     "tools": []any{
       map[string]any{
         "name":        "graph_explore",
-        "description": "Call this instead of grep or Read for any question about how the code works. One call returns the verbatim line-numbered source of every symbol you name, plus what each one calls, what calls it, the types it touches, and what a change would break, all resolved by the TypeScript compiler itself. So it follows calls through callbacks, JSX, dynamic dispatch, barrel re-exports, path aliases, and across workspace packages, which grep cannot. One call replaces a dozen grep-and-read round-trips, for a fraction of the tokens. Name every symbol the question involves in one query (e.g. \"render update canvas Scene Renderer\") and answer from the result; do not grep, read files, or call once per symbol.",
+        "description": "Call once first for code-flow questions, instead of shell/grep/read. One broad query returns the current compiler-resolved TypeScript graph snapshot: source, calls, callers, types, and blast radius. Put the whole flow in `query`, e.g. \"repository find manager query builder\". Answer from the result; do not use shell/grep/read or one-symbol followups unless there is no match. After source edits, old results may be stale.",
         "inputSchema": map[string]any{
           "type": "object",
           "properties": map[string]any{
             "query": map[string]any{
               "type":        "string",
-              "description": "One or more symbol names (name every symbol the question involves, e.g. \"renderScene Scene Renderer\"), or a file path fragment (e.g. \"src/service\").",
+              "description": "Whole flow in one broad query, not one symbol: owner/action/nouns together, e.g. \"repository find manager query builder\".",
             },
           },
           "required": []any{"query"},
@@ -165,14 +165,14 @@ func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
 
 // exploreHeader prefixes every graph_explore response. It carries only the steer
 // that is relevant at the moment the agent reads a result and decides its next
-// move: the relationships are the compiler's own resolution (a trust signal that
-// they are exact), and the right way to go deeper is to name more symbols in
-// another query, not to shell out and re-read a path already resolved here. It
-// deliberately stops short of "do not read the source", because a budget-collapsed
-// or external node is shown as a signature with no body, and opening that file is
+// move: the relationships are a compiler-built graph snapshot (a trust signal),
+// and the right way to go deeper or refresh after edits is another broad graph
+// query, not shelling out and re-reading paths already resolved here. It
+// deliberately stops short of "never read source", because a budget-collapsed or
+// external node is shown as a signature with no body, and opening that file is
 // legitimate; what adds no precision is re-reading a path printed in full above.
-const exploreHeader = "These relationships are the compiler's exact resolution. To trace the flow deeper, name more " +
-  "symbols in another graph_explore — re-reading a path already resolved above adds cost, not precision.\n\n"
+const exploreHeader = "Compiler-resolved graph snapshot. Answer from this result. Do not shell/grep/read returned source. " +
+  "Call graph_explore again only for no match, missing symbols, or source edits.\n\n"
 
 // maxExploreNodes caps how many ranked nodes a query returns, so a broad
 // keyword query surfaces the most relevant declarations without flooding context.

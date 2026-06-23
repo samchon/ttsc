@@ -125,9 +125,9 @@ const guidance = args.guidance === "1" || args.guidance === "true";
 const cg = args.cg === "1" || args.cg === "true";
 const GUIDANCE = `# Code navigation
 
-For code-flow questions, prefer the code-graph MCP before broad grep/read.
-Query flows, not one name: owner + action + nouns, e.g. "repository find manager query builder".
-Do not fan out through files or grep to trace calls the graph shows. Do not re-read returned source unless it has no match, signatures only, or non-TS files.
+For code-flow questions, call the code-graph MCP before grep/read/shell.
+Ask one broad natural-language query: owner + action + nouns, e.g. "repository find manager query builder".
+Do not split symbols across calls or use grep/read/shell to trace or confirm returned source. Read files only for no match, signatures, or non-TS files.
 `;
 // The guided arm models how a normal user actually works: they keep an AGENTS.md
 // and, in the prompt, tell the agent to follow it. That elevates the project file
