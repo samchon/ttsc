@@ -140,6 +140,7 @@ export function runGraph(
     windowsHide: true,
   });
 
+  const workerPid = worker?.pid;
   try {
     worker?.kill();
   } catch {
@@ -150,6 +151,15 @@ export function runGraph(
       fs.rmSync(diagnosticsFile, { force: true });
     } catch {
       /* ignore */
+    }
+    // The worker writes atomically through `<file>.<pid>.tmp`; remove a leftover
+    // if it was killed mid-write, so a churning daemon does not litter tmpdir.
+    if (workerPid !== undefined) {
+      try {
+        fs.rmSync(`${diagnosticsFile}.${workerPid}.tmp`, { force: true });
+      } catch {
+        /* ignore */
+      }
     }
   }
 

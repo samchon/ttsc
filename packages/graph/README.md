@@ -70,7 +70,7 @@ Your agent now has two new abilities:
 | Ability | What it does |
 | --- | --- |
 | `graph_explore` | Look up a name or a file. Get back what it connects to — what it calls, what uses it, its types — and its source code. |
-| `graph_diagnostics` | Get the TypeScript errors in one file, exactly as `tsc` reports them. |
+| `graph_diagnostics` | Get the errors in one file: TypeScript type errors, plus your project's `@ttsc/lint` and plugin findings, as `ttsc` reports them. |
 
 You never call these yourself. Your agent uses them when it needs to.
 

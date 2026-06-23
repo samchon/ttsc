@@ -2,16 +2,16 @@ package graph
 
 import "github.com/samchon/ttsc/packages/ttsc/driver"
 
-// FileDiagnostics returns the resident program's diagnostics for the source file
-// at path, in the same code and location tsgo reports. Because the graph rides
-// the already-open Program, this is one Program.Diagnostics() call over the warm
-// checker, not a second compile and not an external language-server round-trip:
-// "what is wrong with this file" is answered from the same handle that built the
-// reference graph. These are the compiler's own diagnostics; lint findings are
-// deliberately not merged here, since @ttsc/lint is a separate Go module and
-// importing it would couple the graph binary to the lint engine across a module
-// boundary the workspace keeps apart (see linthost/host.go). Lint stays reachable
-// through @ttsc/lint's own CLI and LSP.
+// FileDiagnostics returns the resident program's compiler diagnostics for the
+// source file at path, in the same code and location tsgo reports. Because the
+// graph rides the already-open Program, this is one Program.Diagnostics() call
+// over the warm checker, not a second compile.
+//
+// This is the compiler-only slice: it carries the TypeScript semantic
+// diagnostics, not @ttsc/lint or transform-plugin findings. The MCP server fuses
+// those onto the graph separately, through diagnostic providers the launcher
+// feeds (see mcp.DiagnosticProvider). This helper and its tests pin the
+// compiler-diagnostic conversion (code, column, message) on its own.
 func FileDiagnostics(prog *driver.Program, path string) []driver.Diagnostic {
   out := make([]driver.Diagnostic, 0)
   for _, diagnostic := range prog.Diagnostics() {
