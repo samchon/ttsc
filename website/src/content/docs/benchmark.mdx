@@ -114,34 +114,34 @@ A checker-resolved graph is TypeScript-only, so of codegraph's seven benchmark r
 
 #### Excalidraw
 
-Codegraph's question, "How does Excalidraw render and update canvas elements?", median of 10 runs on Claude Sonnet 4.6:
+Codegraph's question, "How does Excalidraw render and update canvas elements?", median of 6 runs on Claude Sonnet 4.6:
 
 | Metric     | Empty-MCP baseline | `@ttsc/graph` | Saved |
 | ---------- | ------------------ | ------------- | ----- |
-| Tokens     | 1,877,370          | 396,283       | 79%   |
-| Tool calls | 51.5               | 4.5           | 91%   |
-| Cost       | $0.305             | $0.149        | 51%   |
-| Wall time  | 159s               | 56s           | 65%   |
+| Tokens     | 1,875,668          | 264,438       | 86%   |
+| Tool calls | 50                 | 2.5           | 95%   |
+| Cost       | $0.335             | $0.116        | 65%   |
+| Wall time  | 245s               | 41s           | 83%   |
 
-The agent read zero files in all ten graph runs. It answered from `graph_explore` alone. The baseline read 18 to 29 files per run to reconstruct the same flow.
+The agent read zero files in every graph run. It named the relevant symbols in one or two `graph_explore` calls and answered from the result, against a baseline that read 19 to 31 files per run to reconstruct the same flow.
 
-The mechanism is simple. The graph hands the agent the relevant declarations, their checker-resolved relationships, and their source in a few calls, so it stops fanning out across files.
+The graph hands the agent the relevant declarations, their checker-resolved relationships, and their source in a couple of calls, so it stops fanning out across files.
 
 #### The win holds across models
 
-The same Excalidraw A/B on two more models. Every figure is the median of the runs published to `graph.json`: ten per cell for the Claude models, two for GPT-5.5 via codex, so read the GPT-5.5 row as a direction, not a settled number.
+The same Excalidraw A/B on two more models, each the median of 6 runs in `graph.json`.
 
 | Model (Excalidraw) | Tokens saved | Tool calls saved | Graph behavior |
 | --- | --- | --- | --- |
-| Claude Sonnet 4.6 | 79% | 91% | answers from the graph, reads 0 files |
-| Claude Opus 4.8 | 68% | 86% | answers from the graph, reads 0 files |
-| GPT-5.5 (via codex) | 25% | 8% | rarely calls the graph; explores with the shell |
+| Claude Sonnet 4.6 | 86% | 95% | answers in ~2 calls, reads 0 files |
+| Claude Opus 4.8 | 77% | 94% | answers in ~3 calls, reads 0 files |
+| GPT-5.5 (via codex) | 0% | 5% | often does not call the graph at all; explores with the shell |
 
-Both Claude models read zero files in all ten graph runs and answer from the graph. Opus is the most thorough reader, and on an earlier graph it opened source throughout; on the current graph it stops at `graph_explore`.
+Both Claude models name the symbols they need in one broad query and answer from it, reading zero files. Opus, the more thorough reader, used to drill the flow one symbol at a time in nine calls; once a broad query returns the whole cluster, it batches like Sonnet and lands in three or four.
 
-The outlier is the codex harness driving GPT-5.5, which leans on the shell and calls the graph rarely. Where a model reaches for the graph it trusts the resolved relationships enough to stop reading files; where it does not, the graph cannot help it.
+GPT-5.5 through the codex harness is the exception, and an honest one. In half the graph runs it never calls `graph_explore` and explores entirely with the shell, so the median saving is zero. The server advertises the same tool and the same instructions to every client; whether the agent reaches for it is the harness's decision, not the graph's. This is the same lesson the cross-repository numbers teach — agent cost swings with the model and harness, not only the tool.
 
-Codegraph's own cross-repository headline, over its seven repositories, is 47% fewer tokens and 58% fewer tool calls. On this Excalidraw question a checker-resolved graph saves more, because the resolved relationships are exact enough that the agent stops re-reading the source.
+Codegraph's own cross-repository headline, over its seven repositories, is 47% fewer tokens and 58% fewer tool calls. On this Excalidraw question a checker-resolved graph saves far more for the agents that use it, because the resolved relationships are exact enough that they stop re-reading the source.
 
 #### VS Code, the large-repository path
 

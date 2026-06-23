@@ -34,7 +34,7 @@ The answer comes from the compiler, so it is precise. When one file just re-expo
 
 Anything from `node_modules` is left out, because that is not your code.
 
-On a public benchmark, a Claude agent answered reading zero files, cutting its token use by **68% to 79%** and its tool calls by **86% to 91%**.
+On a public benchmark, a Claude agent answered reading zero files, cutting its token use by **77% to 86%** and its tool calls by **94% to 95%**.
 
 See the [benchmark](https://ttsc.dev/docs/benchmark#code-graph-mcp) for the full numbers.
 

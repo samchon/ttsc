@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T05:49:09.008Z",
+  "generatedAt": "2026-06-23T07:57:00.417Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -27,230 +27,253 @@
         "harness": "claude-code",
         "repo": "excalidraw",
         "model": "sonnet",
-        "runs": 10,
+        "runs": 6,
         "question": "How does Excalidraw render and update canvas elements?",
         "samples": {
           "baseline": [
             {
-              "tokens": 1928515,
-              "tools": 56,
-              "reads": 22,
-              "grep": 13,
-              "graph": 0,
-              "other": 21,
-              "cost": 0.305904,
-              "durMs": 175784,
-              "ok": true
-            },
-            {
-              "tokens": 1901911,
+              "tokens": 2334964,
               "tools": 52,
-              "reads": 26,
-              "grep": 4,
+              "reads": 31,
+              "grep": 1,
               "graph": 0,
-              "other": 22,
-              "cost": 0.30934880000000003,
-              "durMs": 163729,
+              "cost": 0.409,
+              "durMs": 294000,
               "ok": true
             },
             {
-              "tokens": 2430094,
-              "tools": 58,
-              "reads": 24,
-              "grep": 7,
-              "graph": 0,
-              "other": 27,
-              "cost": 0.38741980000000004,
-              "durMs": 183317,
-              "ok": true
-            },
-            {
-              "tokens": 1566113,
-              "tools": 43,
-              "reads": 21,
-              "grep": 4,
-              "graph": 0,
-              "other": 18,
-              "cost": 0.2588374,
-              "durMs": 131936,
-              "ok": true
-            },
-            {
-              "tokens": 1792038,
+              "tokens": 1748106,
               "tools": 53,
-              "reads": 24,
-              "grep": 7,
+              "reads": 26,
+              "grep": 9,
               "graph": 0,
-              "other": 22,
-              "cost": 0.32269265,
-              "durMs": 192280,
+              "cost": 0.308,
+              "durMs": 232000,
               "ok": true
             },
             {
-              "tokens": 2139789,
-              "tools": 51,
-              "reads": 22,
-              "grep": 10,
+              "tokens": 1882738,
+              "tools": 48,
+              "reads": 25,
+              "grep": 6,
               "graph": 0,
-              "other": 19,
-              "cost": 0.3029212,
-              "durMs": 151826,
+              "cost": 0.328,
+              "durMs": 261000,
               "ok": true
             },
             {
-              "tokens": 1633903,
-              "tools": 41,
-              "reads": 24,
-              "grep": 0,
+              "tokens": 2304395,
+              "tools": 58,
+              "reads": 25,
+              "grep": 17,
               "graph": 0,
-              "other": 17,
-              "cost": 0.31697925,
-              "durMs": 187811,
+              "cost": 0.347,
+              "durMs": 226000,
               "ok": true
             },
             {
-              "tokens": 1524414,
-              "tools": 50,
-              "reads": 18,
-              "grep": 4,
-              "graph": 0,
-              "other": 28,
-              "cost": 0.2128214,
-              "durMs": 122222,
-              "ok": true
-            },
-            {
-              "tokens": 1955704,
-              "tools": 54,
-              "reads": 29,
-              "grep": 22,
-              "graph": 0,
-              "other": 3,
-              "cost": 0.24586230000000003,
-              "durMs": 132306,
-              "ok": true
-            },
-            {
-              "tokens": 1852829,
-              "tools": 50,
-              "reads": 22,
+              "tokens": 1868597,
+              "tools": 45,
+              "reads": 21,
               "grep": 2,
               "graph": 0,
-              "other": 26,
-              "cost": 0.3034066,
-              "durMs": 155073,
+              "cost": 0.342,
+              "durMs": 258000,
+              "ok": true
+            },
+            {
+              "tokens": 1442992,
+              "tools": 36,
+              "reads": 19,
+              "grep": 6,
+              "graph": 0,
+              "cost": 0.283,
+              "durMs": 184000,
               "ok": true
             }
           ],
           "graph": [
             {
-              "tokens": 442847,
-              "tools": 5,
-              "reads": 0,
-              "grep": 0,
-              "graph": 5,
-              "other": 0,
-              "cost": 0.2124973,
-              "durMs": 65675,
-              "ok": true
-            },
-            {
-              "tokens": 392256,
-              "tools": 4,
-              "reads": 0,
-              "grep": 0,
-              "graph": 4,
-              "other": 0,
-              "cost": 0.1422136,
-              "durMs": 58834,
-              "ok": true
-            },
-            {
-              "tokens": 756672,
-              "tools": 9,
-              "reads": 0,
-              "grep": 0,
-              "graph": 9,
-              "other": 0,
-              "cost": 0.22274110000000003,
-              "durMs": 67064,
-              "ok": true
-            },
-            {
-              "tokens": 280213,
+              "tokens": 340119,
               "tools": 3,
               "reads": 0,
               "grep": 0,
               "graph": 3,
-              "other": 0,
-              "cost": 0.10555959999999999,
-              "durMs": 52548,
+              "cost": 0.186,
+              "durMs": 48000,
               "ok": true
             },
             {
-              "tokens": 544229,
+              "tokens": 151647,
+              "tools": 1,
+              "reads": 0,
+              "grep": 0,
+              "graph": 1,
+              "cost": 0.072,
+              "durMs": 32000,
+              "ok": true
+            },
+            {
+              "tokens": 260748,
+              "tools": 2,
+              "reads": 0,
+              "grep": 0,
+              "graph": 2,
+              "cost": 0.107,
+              "durMs": 34000,
+              "ok": true
+            },
+            {
+              "tokens": 224452,
+              "tools": 2,
+              "reads": 0,
+              "grep": 0,
+              "graph": 2,
+              "cost": 0.095,
+              "durMs": 28000,
+              "ok": true
+            },
+            {
+              "tokens": 268128,
+              "tools": 3,
+              "reads": 0,
+              "grep": 0,
+              "graph": 3,
+              "cost": 0.125,
+              "durMs": 56000,
+              "ok": true
+            },
+            {
+              "tokens": 333918,
+              "tools": 3,
+              "reads": 0,
+              "grep": 0,
+              "graph": 3,
+              "cost": 0.141,
+              "durMs": 60000,
+              "ok": true
+            }
+          ]
+        }
+      },
+      {
+        "harness": "claude-code",
+        "repo": "excalidraw",
+        "model": "opus",
+        "runs": 6,
+        "question": "How does Excalidraw render and update canvas elements?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 1653517,
+              "tools": 52,
+              "reads": 20,
+              "grep": 5,
+              "graph": 0,
+              "cost": 0.346,
+              "durMs": 173000,
+              "ok": true
+            },
+            {
+              "tokens": 2359341,
+              "tools": 56,
+              "reads": 30,
+              "grep": 4,
+              "graph": 0,
+              "cost": 0.502,
+              "durMs": 247000,
+              "ok": true
+            },
+            {
+              "tokens": 2073881,
+              "tools": 48,
+              "reads": 29,
+              "grep": 2,
+              "graph": 0,
+              "cost": 0.455,
+              "durMs": 174000,
+              "ok": true
+            },
+            {
+              "tokens": 1985314,
+              "tools": 58,
+              "reads": 24,
+              "grep": 17,
+              "graph": 0,
+              "cost": 0.48,
+              "durMs": 222000,
+              "ok": true
+            },
+            {
+              "tokens": 2808013,
+              "tools": 84,
+              "reads": 39,
+              "grep": 2,
+              "graph": 0,
+              "cost": 0.666,
+              "durMs": 192000,
+              "ok": true
+            }
+          ],
+          "graph": [
+            {
+              "tokens": 268084,
+              "tools": 2,
+              "reads": 0,
+              "grep": 0,
+              "graph": 2,
+              "cost": 0.302,
+              "durMs": 72000,
+              "ok": true
+            },
+            {
+              "tokens": 421186,
+              "tools": 3,
+              "reads": 0,
+              "grep": 0,
+              "graph": 3,
+              "cost": 0.382,
+              "durMs": 41000,
+              "ok": true
+            },
+            {
+              "tokens": 1109476,
               "tools": 8,
-              "reads": 0,
-              "grep": 0,
-              "graph": 8,
-              "other": 0,
-              "cost": 0.1860466,
-              "durMs": 51958,
-              "ok": true
-            },
-            {
-              "tokens": 400310,
-              "tools": 5,
-              "reads": 0,
+              "reads": 3,
               "grep": 0,
               "graph": 5,
-              "other": 0,
-              "cost": 0.1623457,
-              "durMs": 72334,
+              "cost": 0.722,
+              "durMs": 96000,
               "ok": true
             },
             {
-              "tokens": 282409,
-              "tools": 3,
-              "reads": 0,
-              "grep": 0,
-              "graph": 3,
-              "other": 0,
-              "cost": 0.1127161,
-              "durMs": 42667,
-              "ok": true
-            },
-            {
-              "tokens": 374679,
-              "tools": 5,
-              "reads": 0,
-              "grep": 0,
-              "graph": 5,
-              "other": 0,
-              "cost": 0.1492164,
-              "durMs": 48916,
-              "ok": true
-            },
-            {
-              "tokens": 401051,
+              "tokens": 539086,
               "tools": 4,
               "reads": 0,
               "grep": 0,
               "graph": 4,
-              "other": 0,
-              "cost": 0.14891919999999997,
-              "durMs": 61240,
+              "cost": 0.481,
+              "durMs": 57000,
               "ok": true
             },
             {
-              "tokens": 282665,
+              "tokens": 1036825,
+              "tools": 10,
+              "reads": 2,
+              "grep": 3,
+              "graph": 5,
+              "cost": 0.753,
+              "durMs": 95000,
+              "ok": true
+            },
+            {
+              "tokens": 422181,
               "tools": 3,
               "reads": 0,
               "grep": 0,
               "graph": 3,
-              "other": 0,
-              "cost": 0.1016425,
-              "durMs": 30888,
+              "cost": 0.401,
+              "durMs": 57000,
               "ok": true
             }
           ]
@@ -261,300 +284,106 @@
         "repo": "excalidraw",
         "model": "gpt-5.5",
         "effort": "high",
-        "runs": 2,
+        "runs": 6,
         "question": "How does Excalidraw render and update canvas elements?",
         "samples": {
           "baseline": [
             {
-              "tokens": 1072881,
-              "cached": 944640,
-              "turns": 1,
-              "tools": 39,
-              "shell": 39,
+              "tokens": 708720,
+              "tools": 41,
+              "shell": 41,
               "graph": 0,
-              "types": {
-                "agent_message": 8,
-                "command_execution": 39
-              },
-              "durMs": 171694,
+              "durMs": 173000,
               "ok": true
             },
             {
-              "tokens": 891279,
-              "cached": 765440,
-              "turns": 1,
-              "tools": 34,
-              "shell": 34,
+              "tokens": 733178,
+              "tools": 33,
+              "shell": 33,
               "graph": 0,
-              "types": {
-                "agent_message": 9,
-                "command_execution": 34
-              },
-              "durMs": 148669,
+              "durMs": 151000,
+              "ok": true
+            },
+            {
+              "tokens": 870208,
+              "tools": 38,
+              "shell": 38,
+              "graph": 0,
+              "durMs": 151000,
+              "ok": true
+            },
+            {
+              "tokens": 1137624,
+              "tools": 49,
+              "shell": 49,
+              "graph": 0,
+              "durMs": 173000,
+              "ok": true
+            },
+            {
+              "tokens": 755435,
+              "tools": 47,
+              "shell": 47,
+              "graph": 0,
+              "durMs": 161000,
+              "ok": true
+            },
+            {
+              "tokens": 1062172,
+              "tools": 32,
+              "shell": 32,
+              "graph": 0,
+              "durMs": 153000,
               "ok": true
             }
           ],
           "graph": [
             {
-              "tokens": 761321,
-              "cached": 628352,
-              "turns": 1,
-              "tools": 39,
-              "shell": 39,
+              "tokens": 675843,
+              "tools": 41,
+              "shell": 41,
               "graph": 0,
-              "types": {
-                "agent_message": 10,
-                "command_execution": 39
-              },
-              "durMs": 162423,
+              "durMs": 137000,
               "ok": true
             },
             {
-              "tokens": 704545,
-              "cached": 602880,
-              "turns": 1,
-              "tools": 28,
-              "shell": 26,
+              "tokens": 599076,
+              "tools": 24,
+              "shell": 22,
               "graph": 2,
-              "types": {
-                "agent_message": 9,
-                "command_execution": 26,
-                "mcp_tool_call": 2
-              },
-              "durMs": 113292,
+              "durMs": 139000,
               "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "repo": "excalidraw",
-        "model": "opus",
-        "runs": 10,
-        "question": "How does Excalidraw render and update canvas elements?",
-        "samples": {
-          "baseline": [
+            },
             {
-              "tokens": 1400111,
-              "tools": 40,
-              "reads": 21,
-              "grep": 0,
+              "tokens": 963363,
+              "tools": 41,
+              "shell": 41,
               "graph": 0,
-              "other": 19,
-              "cost": 0.43338560000000004,
-              "durMs": 159536,
+              "durMs": 172000,
               "ok": true
             },
             {
-              "tokens": 2479325,
-              "tools": 64,
-              "reads": 40,
-              "grep": 16,
+              "tokens": 780591,
+              "tools": 32,
+              "shell": 27,
+              "graph": 5,
+              "durMs": 138000,
+              "ok": true
+            },
+            {
+              "tokens": 844309,
+              "tools": 34,
+              "shell": 32,
+              "graph": 2,
+              "durMs": 183000,
+              "ok": true
+            },
+            {
+              "tokens": 974803,
+              "tools": 43,
+              "shell": 43,
               "graph": 0,
-              "other": 8,
-              "cost": 0.43455374999999996,
-              "durMs": 262210,
-              "ok": true
-            },
-            {
-              "tokens": 2107558,
-              "tools": 63,
-              "reads": 28,
-              "grep": 5,
-              "graph": 0,
-              "other": 30,
-              "cost": 0.54897525,
-              "durMs": 143659,
-              "ok": true
-            },
-            {
-              "tokens": 2058973,
-              "tools": 58,
-              "reads": 27,
-              "grep": 10,
-              "graph": 0,
-              "other": 21,
-              "cost": 0.365775,
-              "durMs": 156152,
-              "ok": true
-            },
-            {
-              "tokens": 1644064,
-              "tools": 45,
-              "reads": 24,
-              "grep": 1,
-              "graph": 0,
-              "other": 20,
-              "cost": 0.44445785,
-              "durMs": 211012,
-              "ok": true
-            },
-            {
-              "tokens": 2310880,
-              "tools": 60,
-              "reads": 29,
-              "grep": 0,
-              "graph": 0,
-              "other": 31,
-              "cost": 0.5379364000000001,
-              "durMs": 224849,
-              "ok": true
-            },
-            {
-              "tokens": 3432954,
-              "tools": 78,
-              "reads": 36,
-              "grep": 14,
-              "graph": 0,
-              "other": 28,
-              "cost": 0.6717227,
-              "durMs": 147840,
-              "ok": true
-            },
-            {
-              "tokens": 2708128,
-              "tools": 82,
-              "reads": 41,
-              "grep": 4,
-              "graph": 0,
-              "other": 37,
-              "cost": 0.61894295,
-              "durMs": 223200,
-              "ok": true
-            },
-            {
-              "tokens": 2516911,
-              "tools": 82,
-              "reads": 34,
-              "grep": 22,
-              "graph": 0,
-              "other": 26,
-              "cost": 0.5097132500000001,
-              "durMs": 138778,
-              "ok": true
-            },
-            {
-              "tokens": 3651937,
-              "tools": 95,
-              "reads": 44,
-              "grep": 35,
-              "graph": 0,
-              "other": 16,
-              "cost": 0.7688130499999998,
-              "durMs": 194888,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 680389,
-              "tools": 7,
-              "reads": 0,
-              "grep": 0,
-              "graph": 7,
-              "other": 0,
-              "cost": 0.4697465,
-              "durMs": 66346,
-              "ok": true
-            },
-            {
-              "tokens": 915536,
-              "tools": 9,
-              "reads": 0,
-              "grep": 0,
-              "graph": 9,
-              "other": 0,
-              "cost": 0.609419,
-              "durMs": 63992,
-              "ok": true
-            },
-            {
-              "tokens": 767463,
-              "tools": 9,
-              "reads": 0,
-              "grep": 0,
-              "graph": 9,
-              "other": 0,
-              "cost": 0.495188,
-              "durMs": 48465,
-              "ok": true
-            },
-            {
-              "tokens": 749469,
-              "tools": 9,
-              "reads": 0,
-              "grep": 0,
-              "graph": 9,
-              "other": 0,
-              "cost": 0.5077615,
-              "durMs": 71477,
-              "ok": true
-            },
-            {
-              "tokens": 780451,
-              "tools": 9,
-              "reads": 0,
-              "grep": 0,
-              "graph": 9,
-              "other": 0,
-              "cost": 0.5248815,
-              "durMs": 64515,
-              "ok": true
-            },
-            {
-              "tokens": 645757,
-              "tools": 7,
-              "reads": 0,
-              "grep": 0,
-              "graph": 7,
-              "other": 0,
-              "cost": 0.4571985,
-              "durMs": 68043,
-              "ok": true
-            },
-            {
-              "tokens": 1073062,
-              "tools": 10,
-              "reads": 0,
-              "grep": 0,
-              "graph": 10,
-              "other": 0,
-              "cost": 0.626378,
-              "durMs": 79686,
-              "ok": true
-            },
-            {
-              "tokens": 801156,
-              "tools": 8,
-              "reads": 0,
-              "grep": 0,
-              "graph": 8,
-              "other": 0,
-              "cost": 0.508623,
-              "durMs": 63949,
-              "ok": true
-            },
-            {
-              "tokens": 633746,
-              "tools": 8,
-              "reads": 0,
-              "grep": 0,
-              "graph": 8,
-              "other": 0,
-              "cost": 0.4595055,
-              "durMs": 46619,
-              "ok": true
-            },
-            {
-              "tokens": 1055771,
-              "tools": 10,
-              "reads": 0,
-              "grep": 0,
-              "graph": 10,
-              "other": 0,
-              "cost": 0.655929,
-              "durMs": 69485,
+              "durMs": 165000,
               "ok": true
             }
           ]
