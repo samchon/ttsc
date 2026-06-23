@@ -71,7 +71,9 @@ const guidance = args.guidance === "1" || args.guidance === "true";
 const cg = args.cg === "1" || args.cg === "true";
 const GUIDANCE = `# Code navigation
 
-This project is served by a code-graph MCP server that maps the codebase with a real parser. For any question about how the code works, use that server's tools to look up the symbols involved and their relationships, and answer from the result. Do not grep or read files to trace calls, types, or references — the graph already resolved them.
+This project is served by a code-graph MCP server that maps the codebase with a real parser.
+
+For any question about how the code works, use that server's tools instead of grepping or reading files to trace calls, types, or references. Put every symbol the question involves into one query and answer in as few calls as you can; a flow usually needs only two or three. Do not call the tool once per symbol.
 `;
 function setGuidance(on) {
   for (const name of ["CLAUDE.md", "AGENTS.md"]) {
