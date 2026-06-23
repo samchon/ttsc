@@ -2,7 +2,7 @@
 
 Clone-based, reproducible matrix benchmark of the `ttsc` toolchain against stock `tsc`, `eslint`, and `prettier` across real-world TypeScript projects.
 
-This README is the runner reference. For the published numbers and result interpretation. Build vs type-check vs lint vs format comparisons, the multi-threaded vs single-threaded analysis, and per-fixture commentary. See https://ttsc.dev/benchmark (source: `website/src/content/docs/benchmark.mdx`).
+This README is the runner reference. For the published numbers and result interpretation. Build vs type-check vs lint vs format comparisons, the multi-threaded vs single-threaded analysis, and per-fixture commentary. See https://ttsc.dev/benchmark (source: `website/src/content/docs/benchmark/performance.mdx`).
 
 ## Quickstart
 

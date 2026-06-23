@@ -18,7 +18,7 @@ Cell ID = `project:branch:op:threading`.
 | Op | `build`, `noEmit`, `eslint` (legacy only), `format` |
 | Threading | `single`, `checkers2`, `checkers4`, `checkers8` (`format` keeps `single` + default `multi`) |
 
-Methodology, per-axis interpretation, and dashboard tabs are documented in `website/src/content/docs/benchmark.mdx`. Flags and env vars are tabled in `experimental/benchmark/README.md`. This skill covers the higher-level rules that those references assume.
+Methodology, per-axis interpretation, and dashboard tabs are documented in `website/src/content/docs/benchmark/performance.mdx`. Flags and env vars are tabled in `experimental/benchmark/README.md`. This skill covers the higher-level rules that those references assume.
 
 ## Running
 
