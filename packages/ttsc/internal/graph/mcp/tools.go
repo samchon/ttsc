@@ -7,7 +7,6 @@ import (
   "sort"
   "strings"
 
-  "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
@@ -380,8 +379,8 @@ func (s *Server) dependents(node *graph.Node) map[string]bool {
 // node nested within its source span. A class collects its methods' findings, so
 // exploring the class shows that its members are broken — the fix-safety signal
 // would otherwise sit only on the member nodes, which the agent has not named.
-func (s *Server) nodeDiagnostics(node *graph.Node) []driver.Diagnostic {
-  out := append([]driver.Diagnostic(nil), s.diagsByNode[node.ID]...)
+func (s *Server) nodeDiagnostics(node *graph.Node) []fusedDiagnostic {
+  out := append([]fusedDiagnostic(nil), s.diagsByNode[node.ID]...)
   for _, other := range s.graph.Nodes {
     if other.ID == node.ID || other.File != node.File {
       continue
@@ -393,23 +392,13 @@ func (s *Server) nodeDiagnostics(node *graph.Node) []driver.Diagnostic {
   return out
 }
 
-// tscCodeFloor is the lowest code @ttsc/lint and native plugins hash their rule
-// names to (RuleCode = 9000 + hash). TypeScript's own diagnostic codes stay
-// below it, so the code alone tells a compiler error from a plugin finding.
-const tscCodeFloor = 9000
-
-// isTscCode reports whether code is a TypeScript compiler diagnostic (shown as
-// "TSxxxx") rather than a plugin/lint finding (whose hashed code is meaningless,
-// so its rule travels in the message instead).
-func isTscCode(code int32) bool {
-  return code > 0 && code < tscCodeFloor
-}
-
-// formatDiagnostic renders one diagnostic for a node listing. A tsc diagnostic
-// shows its "TSxxxx" code; a plugin/lint finding drops the code (its rule is in
-// the message) and shows just the location and text.
-func formatDiagnostic(d driver.Diagnostic) string {
-  if isTscCode(d.Code) {
+// formatDiagnostic renders one diagnostic for a node listing. A compiler
+// diagnostic shows its "TSxxxx" code; a plugin/lint finding drops the code (its
+// hashed value is meaningless and its rule is already in the message) and shows
+// just the location and text. The origin is carried on the diagnostic, not
+// inferred from the code, since tsc codes are not bounded below the plugin band.
+func formatDiagnostic(d fusedDiagnostic) string {
+  if d.fromTsc {
     return fmt.Sprintf("TS%d line %d: %s", d.Code, d.Line, d.Message)
   }
   return fmt.Sprintf("line %d: %s", d.Line, d.Message)
@@ -445,7 +434,7 @@ func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
     return textResult(strings.TrimRight(b.String(), "\n")), nil
   }
   path := matches[0]
-  found := make([]driver.Diagnostic, 0)
+  found := make([]fusedDiagnostic, 0)
   for _, d := range s.diags {
     if d.File == path {
       found = append(found, d)
@@ -457,7 +446,7 @@ func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
   sortDiagnostics(found)
   var b strings.Builder
   for _, d := range found {
-    if isTscCode(d.Code) {
+    if d.fromTsc {
       fmt.Fprintf(&b, "%s:%d:%d TS%d %s\n", d.File, d.Line, d.Column, d.Code, d.Message)
     } else {
       fmt.Fprintf(&b, "%s:%d:%d %s\n", d.File, d.Line, d.Column, d.Message)
@@ -469,7 +458,7 @@ func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
 // sortDiagnostics orders diagnostics by source location so a file's findings
 // read top-to-bottom (the fused set otherwise lists the compiler's pass before
 // the injected plugin findings, regardless of line).
-func sortDiagnostics(diags []driver.Diagnostic) {
+func sortDiagnostics(diags []fusedDiagnostic) {
   sort.Slice(diags, func(i, j int) bool {
     if diags[i].Line != diags[j].Line {
       return diags[i].Line < diags[j].Line

@@ -367,16 +367,26 @@ func (g *Graph) ensureTargetNode(target *Target) string {
   }
   name := qualifiedName(target.Symbol)
   id := nodeID(target.File, name, kind)
-  if _, exists := g.Nodes[id]; !exists {
-    g.Nodes[id] = &Node{
-      ID:       id,
-      Name:     name,
-      Kind:     kind,
-      File:     target.File,
-      External: target.External,
-      Pos:      target.Pos,
-      End:      target.End,
-    }
+  if _, exists := g.Nodes[id]; exists {
+    return id
+  }
+  if !target.External {
+    // A workspace target Build did not record is a function-local or otherwise
+    // body-scoped declaration (Build records top-level declarations, namespace
+    // members, and class/interface members only). Its name is unqualified and
+    // position-free, so two same-named locals in different scopes would key the
+    // same id and merge into one node, fabricating false edges. Drop it — the
+    // same workspace-only discipline the NodeMethod branch already applies.
+    return ""
+  }
+  g.Nodes[id] = &Node{
+    ID:       id,
+    Name:     name,
+    Kind:     kind,
+    File:     target.File,
+    External: true,
+    Pos:      target.Pos,
+    End:      target.End,
   }
   return id
 }

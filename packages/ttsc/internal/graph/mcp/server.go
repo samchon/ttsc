@@ -32,6 +32,15 @@ var Version = "0.0.0-dev"
 // graph, on a read-only Program.
 type DiagnosticProvider func(*driver.Program) []driver.Diagnostic
 
+// fusedDiagnostic is a diagnostic tagged with its origin. The origin is tracked
+// explicitly rather than inferred from the code, because a TypeScript code is
+// NOT bounded below @ttsc/lint's hash band: the strict-null family (TS18046+) is
+// >= 9000, so a numeric split would strip the "TS" from a real compiler error.
+type fusedDiagnostic struct {
+  driver.Diagnostic
+  fromTsc bool
+}
+
 // defaultProtocolVersion is echoed when a client does not announce one.
 const defaultProtocolVersion = "2025-06-18"
 
@@ -71,8 +80,8 @@ type Server struct {
   // per query so a file-backed provider (the launcher's plugin diagnostics,
   // computed in the background) is picked up once it lands.
   tscDiags    []driver.Diagnostic
-  diags       []driver.Diagnostic
-  diagsByNode map[string][]driver.Diagnostic
+  diags       []fusedDiagnostic
+  diagsByNode map[string][]fusedDiagnostic
   // nodeLineRanges is each node's 1-based [startLine, endLine], so a diagnostic
   // that carries only a line — a plugin/lint finding parsed from ttsc's text
   // banner, which has no byte offset — can still be attributed to its declaration.
@@ -158,18 +167,43 @@ func (s *Server) setProgram(prog *driver.Program) {
 // after startup is picked up without restarting. Callers hold the tool-call
 // lock, so this runs serially with the queries that read the result.
 func (s *Server) refreshDiagnostics() {
-  var injected []driver.Diagnostic
+  // The compiler's own diagnostics are always present and authoritative for type
+  // errors — they must never be dropped. (A provider's check can return its lint
+  // findings ALONE: @ttsc/lint exits non-zero on an error, which short-circuits
+  // ttsc's check before the semantic pass, so the injected set is not a superset
+  // of the type errors. Replacing here would make real type errors vanish.)
+  fused := make([]fusedDiagnostic, 0, len(s.tscDiags))
+  seen := make(map[string]struct{}, len(s.tscDiags))
+  for _, d := range s.tscDiags {
+    fused = append(fused, fusedDiagnostic{Diagnostic: d, fromTsc: true})
+    seen[diagKey(d)] = struct{}{}
+  }
+  // Merge the providers' findings (lint, transform plugins), skipping any that
+  // duplicate a tsc diagnostic — so a provider that returns the full set (tsc +
+  // lint) does not double-list the type errors, and one that returns lint alone
+  // simply adds them.
   for _, provide := range s.diagProviders {
-    if provide != nil {
-      injected = append(injected, provide(s.prog)...)
+    if provide == nil {
+      continue
+    }
+    for _, d := range provide(s.prog) {
+      if _, dup := seen[diagKey(d)]; dup {
+        continue
+      }
+      seen[diagKey(d)] = struct{}{}
+      fused = append(fused, fusedDiagnostic{Diagnostic: d, fromTsc: false})
     }
   }
-  if len(injected) > 0 {
-    s.diags = injected
-  } else {
-    s.diags = s.tscDiags
-  }
-  s.diagsByNode = attributeDiagnostics(s.graph, s.nodeLineRanges, s.diags)
+  s.diags = fused
+  s.diagsByNode = attributeDiagnostics(s.graph, s.nodeLineRanges, fused)
+}
+
+// diagKey identifies a diagnostic by file, code, and line, the key the merge
+// uses to drop an injected duplicate of a tsc diagnostic. Lint/plugin codes live
+// in a hash band tsc never uses, so a lint finding never collides with a real
+// type error here.
+func diagKey(d driver.Diagnostic) string {
+  return fmt.Sprintf("%s\x00%d\x00%d", d.File, d.Code, d.Line)
 }
 
 // attributeDiagnostics maps each diagnostic to the smallest graph node that
@@ -179,8 +213,8 @@ func (s *Server) refreshDiagnostics() {
 // with only a line (a plugin finding parsed from ttsc's text banner) is placed
 // by line range. A finding that falls between declarations (a top-of-file import
 // error) stays unattributed rather than smeared onto a neighbor.
-func attributeDiagnostics(g *graph.Graph, lineRanges map[string][2]int, diags []driver.Diagnostic) map[string][]driver.Diagnostic {
-  byNode := make(map[string][]driver.Diagnostic)
+func attributeDiagnostics(g *graph.Graph, lineRanges map[string][2]int, diags []fusedDiagnostic) map[string][]fusedDiagnostic {
+  byNode := make(map[string][]fusedDiagnostic)
   for _, d := range diags {
     if d.File == "" {
       continue
@@ -202,7 +236,13 @@ func attributeDiagnostics(g *graph.Graph, lineRanges map[string][2]int, diags []
           size = lr[1] - lr[0]
         }
       }
-      if contains && (best == nil || size < bestSize) {
+      if !contains {
+        continue
+      }
+      // Smallest containing node wins; ties (two declarations sharing a line,
+      // reachable only on the line-only path) break on a stable key so the
+      // attribution is deterministic across Go's randomized map iteration.
+      if best == nil || size < bestSize || (size == bestSize && node.ID < best.ID) {
         best, bestSize = node, size
       }
     }
