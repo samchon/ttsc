@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T22:31:04.868Z",
+  "generatedAt": "2026-06-23T22:34:34.543Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -2528,6 +2528,58 @@
                 "command_execution": 6
               },
               "durMs": 57194,
+              "ok": true
+            }
+          ]
+        }
+      },
+      {
+        "harness": "claude-code",
+        "tool": "codegraph",
+        "toolSetupMs": 7759.1223,
+        "repo": "shopping-backend",
+        "model": "sonnet",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "Which code builds the order creation request before persistence?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 1026262,
+              "tools": 25,
+              "reads": 10,
+              "grep": 4,
+              "graph": 0,
+              "other": 11,
+              "cost": 0.21881649999999997,
+              "durMs": 121584,
+              "ok": true
+            }
+          ],
+          "graph": [
+            {
+              "tokens": 547288,
+              "tools": 17,
+              "reads": 9,
+              "grep": 5,
+              "graph": 0,
+              "other": 3,
+              "cost": 0.15957425000000003,
+              "durMs": 54307,
+              "ok": true
+            }
+          ],
+          "guided": [
+            {
+              "tokens": 365725,
+              "tools": 3,
+              "reads": 1,
+              "grep": 0,
+              "graph": 2,
+              "other": 0,
+              "cost": 0.1934331,
+              "durMs": 21791,
               "ok": true
             }
           ]
