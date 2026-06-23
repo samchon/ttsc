@@ -272,12 +272,29 @@ func (g *Graph) collectTypeRefs(checker *shimchecker.Checker, file *shimast.Sour
 }
 
 // typeRefsWithin walks node's subtree and records a type-ref edge from `from` to
-// the resolved target of every type reference it finds.
+// the resolved target of every type reference it finds. A plain named type is a
+// KindTypeReference; the two other type-position shapes that name a symbol are a
+// `typeof value` query and an `import("./m").Foo` type, whose name is an
+// EntityName rather than a TypeReference, so each is matched explicitly. A
+// surrounding `as` / `satisfies` expression needs no case of its own: the type
+// it carries is itself one of these nodes, which the recursion reaches.
 func (g *Graph) typeRefsWithin(checker *shimchecker.Checker, from string, node *shimast.Node) {
   node.ForEachChild(func(child *shimast.Node) bool {
-    if child.Kind == shimast.KindTypeReference {
+    switch child.Kind {
+    case shimast.KindTypeReference:
       if ref := child.AsTypeReferenceNode(); ref != nil && ref.TypeName != nil {
         g.typeRefEdge(checker, from, ref.TypeName)
+      }
+    case shimast.KindTypeQuery:
+      // `typeof value` in a type position depends on that value's type.
+      if query := child.AsTypeQueryNode(); query != nil && query.ExprName != nil {
+        g.typeRefEdge(checker, from, query.ExprName)
+      }
+    case shimast.KindImportType:
+      // `import("./m").Foo` references Foo through a dynamic import type; the
+      // module argument is a string literal and resolves to nothing.
+      if imp := child.AsImportTypeNode(); imp != nil && imp.Qualifier != nil {
+        g.typeRefEdge(checker, from, imp.Qualifier)
       }
     }
     g.typeRefsWithin(checker, from, child)
