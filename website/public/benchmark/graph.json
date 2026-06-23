@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T20:46:38.751Z",
+  "generatedAt": "2026-06-23T20:49:04.333Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -1090,6 +1090,58 @@
                 "mcp_tool_call": 2
               },
               "durMs": 30002,
+              "ok": true
+            }
+          ]
+        }
+      },
+      {
+        "harness": "claude-code",
+        "tool": "codegraph",
+        "toolSetupMs": 13462.5135,
+        "repo": "rxjs",
+        "model": "sonnet",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "Which code creates the Subscriber used by Observable.subscribe?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 285344,
+              "tools": 5,
+              "reads": 1,
+              "grep": 4,
+              "graph": 0,
+              "other": 0,
+              "cost": 0.1219139,
+              "durMs": 28838,
+              "ok": true
+            }
+          ],
+          "graph": [
+            {
+              "tokens": 281532,
+              "tools": 8,
+              "reads": 3,
+              "grep": 1,
+              "graph": 0,
+              "other": 4,
+              "cost": 0.13699414999999998,
+              "durMs": 74953,
+              "ok": true
+            }
+          ],
+          "guided": [
+            {
+              "tokens": 219489,
+              "tools": 2,
+              "reads": 1,
+              "grep": 0,
+              "graph": 1,
+              "other": 0,
+              "cost": 0.14674150000000002,
+              "durMs": 23937,
               "ok": true
             }
           ]
