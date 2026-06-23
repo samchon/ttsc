@@ -22,6 +22,15 @@ import (
 // overrides it from build metadata.
 var Version = "0.0.0-dev"
 
+// DiagnosticProvider contributes diagnostics beyond the tsc semantic pass,
+// computed over the same resident Program. It is the seam through which a
+// plugin-aware host injects @ttsc/lint findings and transform-plugin
+// diagnostics: the prebuilt ttscgraph registers none and stays tsc-only, while
+// a host built with the project's plugins linked supplies them, and the graph
+// fuses every source onto its nodes identically. A provider runs once, with the
+// graph, on a read-only Program.
+type DiagnosticProvider func(*driver.Program) []driver.Diagnostic
+
 // defaultProtocolVersion is echoed when a client does not announce one.
 const defaultProtocolVersion = "2025-06-18"
 
@@ -51,7 +60,11 @@ type Server struct {
   // live "what is broken" view onto the static structure it already serves.
   diags       []driver.Diagnostic
   diagsByNode map[string][]driver.Diagnostic
-  loadErr     error
+  // diagProviders contribute non-tsc diagnostics (lint, transform plugins) over
+  // the same Program; empty for the prebuilt binary, populated by a plugin-aware
+  // host. Set once at construction, read only inside setProgram.
+  diagProviders []DiagnosticProvider
+  loadErr       error
   // mu serializes tool calls so one Server can back many daemon connections
   // safely (the graph is read-only after build, but the checker behind
   // graph_diagnostics is not concurrency-safe).
@@ -59,9 +72,11 @@ type Server struct {
 }
 
 // NewServer builds the resident graph from an already-open Program immediately.
-// Used in-process and by tests, where the Program is on hand.
-func NewServer(prog *driver.Program) *Server {
-  s := &Server{ready: make(chan struct{})}
+// Used in-process and by tests, where the Program is on hand. Optional
+// diagnostic providers contribute lint / transform-plugin findings to the fused
+// graph.
+func NewServer(prog *driver.Program, providers ...DiagnosticProvider) *Server {
+  s := &Server{ready: make(chan struct{}), diagProviders: providers}
   s.setProgram(prog)
   close(s.ready)
   return s
@@ -73,8 +88,8 @@ func NewServer(prog *driver.Program) *Server {
 // (usually already done by the time an agent queries). This is the cold-start
 // fix: an eager build before the handshake leaves the server "pending" with no
 // tools advertised, and an agent falls back to reading files.
-func NewLazyServer(cwd, tsconfig string, options driver.LoadProgramOptions) *Server {
-  s := &Server{cwd: cwd, tsconfig: tsconfig, options: options, ready: make(chan struct{})}
+func NewLazyServer(cwd, tsconfig string, options driver.LoadProgramOptions, providers ...DiagnosticProvider) *Server {
+  s := &Server{cwd: cwd, tsconfig: tsconfig, options: options, ready: make(chan struct{}), diagProviders: providers}
   go s.load()
   return s
 }
@@ -110,6 +125,12 @@ func (s *Server) setProgram(prog *driver.Program) {
     s.degree[edge.To]++
   }
   s.diags = prog.Diagnostics()
+  for _, provide := range s.diagProviders {
+    if provide == nil {
+      continue
+    }
+    s.diags = append(s.diags, provide(prog)...)
+  }
   s.diagsByNode = attributeDiagnostics(s.graph, s.diags)
 }
 
