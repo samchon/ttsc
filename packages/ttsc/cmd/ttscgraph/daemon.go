@@ -21,7 +21,7 @@ import (
 // announced on stdout) for a launcher to discover; the daemon serves until it is
 // killed or has been idle past idle.
 func runDaemon(cwd, tsconfig, portFile string, idle time.Duration) int {
-  server := mcp.NewLazyServer(cwd, tsconfig, driver.LoadProgramOptions{})
+  server := mcp.NewLazyServer(cwd, tsconfig, driver.LoadProgramOptions{}, injectedDiagnosticProviders()...)
 
   listener, err := net.Listen("tcp", "127.0.0.1:0")
   if err != nil {

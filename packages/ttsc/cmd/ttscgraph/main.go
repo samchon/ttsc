@@ -102,12 +102,26 @@ func runServe(args []string) int {
   // and type-checks the project in the background, so an agent sees the tools
   // without waiting on the load and never hits the cold-start race. The first
   // tool call blocks until the build lands.
-  server := mcp.NewLazyServer(cwd, tsconfig, driver.LoadProgramOptions{})
+  server := mcp.NewLazyServer(cwd, tsconfig, driver.LoadProgramOptions{}, injectedDiagnosticProviders()...)
   if err := server.Serve(stdin, stdout); err != nil {
     fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
     return 1
   }
   return 0
+}
+
+// injectedDiagnosticProviders returns the diagnostic providers configured by the
+// environment. The @ttsc/graph launcher, after evaluating the project's
+// lint.config and running ttsc's plugin-aware check, sets
+// TTSC_GRAPH_DIAGNOSTICS_FILE to a JSON file of the project's @ttsc/lint and
+// transform-plugin findings, which the graph fuses onto its nodes. Unset — a
+// project without plugins, or a bare invocation — means tsc-only diagnostics.
+func injectedDiagnosticProviders() []mcp.DiagnosticProvider {
+  path := strings.TrimSpace(os.Getenv("TTSC_GRAPH_DIAGNOSTICS_FILE"))
+  if path == "" {
+    return nil
+  }
+  return []mcp.DiagnosticProvider{mcp.InjectedDiagnosticsProvider(path)}
 }
 
 func printVersion(w io.Writer) {
