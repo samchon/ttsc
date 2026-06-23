@@ -57,8 +57,29 @@ const model = args.model ?? "gpt-5.5";
 const effort = args.effort ?? "high";
 const tsconfig = args.tsconfig ?? spec.tsconfig;
 
-const corpus = path.join(os.tmpdir(), "graph-corpus");
+const corpus = args.corpus ?? path.join(os.tmpdir(), "graph-corpus");
 const repoDir = path.join(corpus, repoKey);
+
+// --guidance=1 adds a fairness arm: a neutral project instruction (CLAUDE.md +
+// AGENTS.md) telling the agent to prefer the code-graph MCP over grep. It names no
+// tool and leaks no answer, and the same text is used for @ttsc/graph and
+// codegraph. codex ignores an MCP server's own instructions but honors a project
+// AGENTS.md, so this measures the tool with and without that nudge.
+const guidance = args.guidance === "1" || args.guidance === "true";
+// --cg points the graph arm at codegraph instead of @ttsc/graph (repo must be
+// indexed with `codegraph init`), for an apples-to-apples comparison on codex.
+const cg = args.cg === "1" || args.cg === "true";
+const GUIDANCE = `# Code navigation
+
+This project is served by a code-graph MCP server that maps the codebase with a real parser. For any question about how the code works, use that server's tools to look up the symbols involved and their relationships, and answer from the result. Do not grep or read files to trace calls, types, or references — the graph already resolved them.
+`;
+function setGuidance(on) {
+  for (const name of ["CLAUDE.md", "AGENTS.md"]) {
+    const p = path.join(repoDir, name);
+    if (on) fs.writeFileSync(p, GUIDANCE);
+    else fs.rmSync(p, { force: true });
+  }
+}
 
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const goEnv = {
@@ -73,8 +94,10 @@ const binary = path.join(
   os.tmpdir(),
   `ttscgraph-codex-${process.pid}${process.platform === "win32" ? ".exe" : ""}`,
 );
-console.log("Building ttscgraph...");
-runOrThrow("go", ["build", "-o", binary, "./cmd/ttscgraph"], ttscDir, goEnv);
+if (!cg) {
+  console.log("Building ttscgraph...");
+  runOrThrow("go", ["build", "-o", binary, "./cmd/ttscgraph"], ttscDir, goEnv);
+}
 
 // 2. Clone the target repo (shallow) if absent.
 if (!fs.existsSync(repoDir)) {
@@ -133,17 +156,20 @@ const withHome = makeCodexHome("with", mcpArgs);
 const withoutHome = makeCodexHome("without", null);
 
 const arms = [
-  { name: "baseline", home: withoutHome },
-  { name: "graph", home: withHome },
+  { name: "baseline", home: withoutHome, guide: false },
+  { name: "graph", home: withHome, guide: false },
 ];
+if (guidance) arms.push({ name: "guided", home: withHome, guide: true });
 
 console.log(
-  `\ncodegraph A/B on ${repoKey} via codex — model ${model} (effort ${effort}), ${runs} run(s) x 2 arms`,
+  `\ncodegraph A/B on ${repoKey} via codex — model ${model} (effort ${effort}), ${runs} run(s) x ${arms.length} arms` +
+    (guidance ? " (+guided = graph with a project instruction to use it)" : ""),
 );
 console.log(`Q: ${spec.question}\n`);
 
-const samples = { baseline: [], graph: [] };
+const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
 for (const arm of arms) {
+  setGuidance(arm.guide);
   for (let r = 0; r < runs; r++) {
     const m = runCodex(spec.question, arm.home);
     samples[arm.name].push(m);
@@ -152,33 +178,34 @@ for (const arm of arms) {
         `(shell ${m.shell}, graph ${m.graph}), ${(m.durMs / 1000).toFixed(0)}s` +
         (m.ok ? "" : "  [FAILED]"),
     );
-    if (r === 0 && arm.name === "graph") {
+    if (r === 0 && arm.guide) {
       console.log(`    item types: ${JSON.stringify(m.types)}`);
     }
   }
 }
+setGuidance(false);
 
 const med = (arm, k) =>
   median(samples[arm].filter((m) => m.ok).map((m) => m[k]));
 const pct = (g, b) => (b === 0 ? 0 : Math.round((1 - g / b) * 100));
 const line = (label, k, fmt = (x) => x) => {
-  const b = med("baseline", k),
-    g = med("graph", k);
-  console.log(
-    `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(g)}  (${pct(g, b)}% saved)`,
-  );
+  const b = med("baseline", k);
+  let s = `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(med("graph", k))} (${pct(med("graph", k), b)}%)`;
+  if (guidance) s += `  ->  guided ${fmt(med("guided", k))} (${pct(med("guided", k), b)}%)`;
+  console.log(s);
 };
 
 console.log(
-  `\nMedian of ${runs} run(s), graph vs no-MCP baseline (codegraph metrics, codex/${model}):`,
+  `\nMedian of ${runs} run(s), vs no-MCP baseline (codegraph metrics, codex/${model}):`,
 );
 line("tokens", "tokens");
 line("tool calls", "tools");
 line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 
+const reportName = `agent-ab-codex-report${guidance ? "-guided" : ""}.json`;
 fs.writeFileSync(
-  path.join(here, "agent-ab-codex-report.json"),
-  `${JSON.stringify({ repo: repoKey, model, effort, runs, question: spec.question, samples }, null, 2)}\n`,
+  path.join(here, reportName),
+  `${JSON.stringify({ repo: repoKey, model, effort, runs, guidance, question: spec.question, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 cleanup([binary, withHome, withoutHome]);
@@ -196,8 +223,13 @@ function makeCodexHome(tag, serverArgs) {
   );
   let toml = `model = '${model}'\nmodel_reasoning_effort = '${effort}'\n`;
   if (serverArgs) {
-    const argList = serverArgs.map((a) => `'${a}'`).join(", ");
-    toml += `\n[mcp_servers.ttscgraph]\ncommand = '${binary}'\nargs = [${argList}]\n`;
+    if (cg) {
+      const a = ["serve", "--mcp", "--path", repoDir].map((x) => `'${x}'`).join(", ");
+      toml += `\n[mcp_servers.codegraph]\ncommand = 'codegraph'\nargs = [${a}]\nenv = { CODEGRAPH_NO_DAEMON = "1" }\n`;
+    } else {
+      const argList = serverArgs.map((a) => `'${a}'`).join(", ");
+      toml += `\n[mcp_servers.ttscgraph]\ncommand = '${binary}'\nargs = [${argList}]\n`;
+    }
   }
   fs.writeFileSync(path.join(home, "config.toml"), toml);
   return home;

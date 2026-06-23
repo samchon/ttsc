@@ -48,8 +48,33 @@ const runs = Number(args.runs ?? 2);
 const model = args.model ?? "sonnet";
 const tsconfig = args.tsconfig ?? spec.tsconfig;
 
-const corpus = path.join(os.tmpdir(), "graph-corpus");
+const corpus = args.corpus ?? path.join(os.tmpdir(), "graph-corpus");
 const repoDir = path.join(corpus, repoKey);
+
+// --guidance=1 adds a fairness condition: a neutral project instruction telling
+// the agent to prefer the code-graph MCP over grep. It names no specific tool and
+// leaks no answer, and the SAME text is used for @ttsc/graph and codegraph, so it
+// favors neither. Written as both CLAUDE.md and AGENTS.md so every agent reads it
+// in its own convention. The point is to measure each model with and without the
+// nudge, since a tool-conservative harness (codex) ignores MCP instructions but
+// honors a project file.
+const guidance = args.guidance === "1" || args.guidance === "true";
+// --cg points the "graph" arm at codegraph (colbymchenry/codegraph) instead of
+// @ttsc/graph, so the exact same A/B and guidance condition can be run against the
+// tool we ported, for an apples-to-apples comparison. The repo must already be
+// indexed (`codegraph init`).
+const cg = args.cg === "1" || args.cg === "true";
+const GUIDANCE = `# Code navigation
+
+This project is served by a code-graph MCP server that maps the codebase with a real parser. For any question about how the code works, use that server's tools to look up the symbols involved and their relationships, and answer from the result. Do not grep or read files to trace calls, types, or references — the graph already resolved them.
+`;
+function setGuidance(on) {
+  for (const name of ["CLAUDE.md", "AGENTS.md"]) {
+    const p = path.join(repoDir, name);
+    if (on) fs.writeFileSync(p, GUIDANCE);
+    else fs.rmSync(p, { force: true });
+  }
+}
 
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const goEnv = {
@@ -57,10 +82,12 @@ const goEnv = {
   PATH: fs.existsSync(goRoot) ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}` : process.env.PATH,
 };
 
-// 1. Build the MCP server binary.
+// 1. Build the MCP server binary (skipped for codegraph, which is a global CLI).
 const binary = path.join(os.tmpdir(), `ttscgraph-ab-${process.pid}${process.platform === "win32" ? ".exe" : ""}`);
-console.log("Building ttscgraph...");
-runOrThrow("go", ["build", "-o", binary, "./cmd/ttscgraph"], ttscDir, goEnv);
+if (!cg) {
+  console.log("Building ttscgraph...");
+  runOrThrow("go", ["build", "-o", binary, "./cmd/ttscgraph"], ttscDir, goEnv);
+}
 
 // 2. Clone the target repo (shallow) if absent.
 if (!fs.existsSync(repoDir)) {
@@ -92,20 +119,28 @@ if (useDaemon) {
 
 const withCfg = path.join(os.tmpdir(), `mcp-graph-${process.pid}.json`);
 const emptyCfg = path.join(os.tmpdir(), `mcp-empty-${process.pid}.json`);
-fs.writeFileSync(withCfg, JSON.stringify({ mcpServers: { "ttsc-graph": { command: binary, args: withArgs } } }));
+const serverCfg = cg
+  ? { codegraph: { command: "codegraph", args: ["serve", "--mcp", "--path", repoDir], env: { CODEGRAPH_NO_DAEMON: "1" } } }
+  : { "ttsc-graph": { command: binary, args: withArgs } };
+fs.writeFileSync(withCfg, JSON.stringify({ mcpServers: serverCfg }));
 fs.writeFileSync(emptyCfg, JSON.stringify({ mcpServers: {} }));
 
 const arms = [
-  { name: "baseline", cfg: emptyCfg },
-  { name: "graph", cfg: withCfg },
+  { name: "baseline", cfg: emptyCfg, guide: false },
+  { name: "graph", cfg: withCfg, guide: false },
 ];
+if (guidance) arms.push({ name: "guided", cfg: withCfg, guide: true });
 
-console.log(`\ncodegraph A/B on ${repoKey} — model ${model}, ${runs} run(s) x 2 arms`);
+console.log(
+  `\ncodegraph A/B on ${repoKey} — model ${model}, ${runs} run(s) x ${arms.length} arms` +
+    (guidance ? " (+guided = graph with a project instruction to use it)" : ""),
+);
 console.log(`Q: ${spec.question}\n`);
 
-const samples = { baseline: [], graph: [] };
+const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
 let spent = 0;
 for (const arm of arms) {
+  setGuidance(arm.guide);
   for (let r = 0; r < runs; r++) {
     const m = runClaude(spec.question, arm.cfg);
     samples[arm.name].push(m);
@@ -117,22 +152,26 @@ for (const arm of arms) {
     );
   }
 }
+setGuidance(false);
 
 const med = (arm, k) => median(samples[arm].filter((m) => m.ok).map((m) => m[k]));
 const pct = (g, b) => (b === 0 ? 0 : Math.round((1 - g / b) * 100));
 const line = (label, k, fmt = (x) => x) => {
-  const b = med("baseline", k), g = med("graph", k);
-  console.log(`  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(g)}  (${pct(g, b)}% saved)`);
+  const b = med("baseline", k);
+  let s = `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(med("graph", k))} (${pct(med("graph", k), b)}%)`;
+  if (guidance) s += `  ->  guided ${fmt(med("guided", k))} (${pct(med("guided", k), b)}%)`;
+  console.log(s);
 };
 
-console.log(`\nMedian of ${runs} run(s), graph vs empty-MCP baseline (codegraph metrics):`);
+console.log(`\nMedian of ${runs} run(s), vs empty-MCP baseline (codegraph metrics):`);
 line("tokens", "tokens");
 line("tool calls", "tools");
 line("cost", "cost", (x) => `$${x.toFixed(3)}`);
 line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 
-fs.writeFileSync(path.join(here, "agent-ab-report.json"), `${JSON.stringify({ repo: repoKey, model, runs, question: spec.question, samples }, null, 2)}\n`);
+const reportName = `agent-ab-report${guidance ? "-guided" : ""}.json`;
+fs.writeFileSync(path.join(here, reportName), `${JSON.stringify({ repo: repoKey, model, runs, guidance, question: spec.question, samples }, null, 2)}\n`);
 if (daemon) daemon.kill();
 try { fs.rmSync(binary, { force: true }); fs.rmSync(withCfg, { force: true }); fs.rmSync(emptyCfg, { force: true }); } catch { /* best effort */ }
 
