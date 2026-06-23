@@ -47,17 +47,22 @@ const defaultProtocolVersion = "2025-06-18"
 // serverInstructions is shipped in the initialize response. It is the only
 // channel through which the server advises an agent; nothing is written to disk.
 const serverInstructions = "ttsc-graph is this project's code graph, resolved by the TypeScript compiler itself. " +
-  "To understand how code works, use it instead of grepping or reading files.\n\n" +
+  "Use it instead of reading or grepping files: it is the same information, exact, in far fewer tokens and " +
+  "round-trips.\n\n" +
   "For any question about how the code works (architecture, a flow, a call path, or what a change affects), " +
   "call graph_explore FIRST, naming every symbol the question involves in one query (for example \"render " +
   "update canvas Scene Renderer\"). It returns each declaration's verbatim line-numbered source, plus the " +
-  "compiler's own resolution of the calls, types, and references between them, their file:line locations, and " +
-  "any errors. That is usually the only call you need. Answer from it.\n\n" +
+  "compiler's own resolution of the calls, types, and references between them, with file:line locations and " +
+  "any errors. That is Read-equivalent and is usually the only call you need. Answer from it.\n\n" +
   "Keep it to a few calls. A flow is two or three graph_explore calls at most, each naming several symbols, " +
   "not one call per symbol. To go further, widen a query with more names rather than calling again.\n\n" +
-  "Do not grep or read files to trace a call, a type, or a reference: the graph already resolved them, exactly, " +
-  "from a real type-check. Do not re-verify an edge with grep; it is the compiler's resolution, not a guess. " +
-  "Reach for Read only for what the graph does not cover, like configs or docs.\n\n" +
+  "Avoid these, they cost more for the same answer:\n" +
+  "- Do not grep or read files to find or trace a symbol, a call, a type, or a reference. graph_explore " +
+  "already resolved it from a real type-check.\n" +
+  "- Do not re-verify an edge graph_explore reported by grepping. It is the compiler's answer, not a guess.\n" +
+  "- Do not delegate exploration to a file-reading sub-agent. That repeats work the graph already did.\n" +
+  "- Do not call graph_explore once per symbol. Put them all into one query.\n" +
+  "- Reach for Read or Grep only for what the graph does not index, like configs or docs.\n\n" +
   "For one file's diagnostics, call graph_diagnostics: TypeScript errors, plus the project's @ttsc/lint and " +
   "transform-plugin findings."
 
