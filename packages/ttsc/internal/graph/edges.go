@@ -33,14 +33,20 @@ func (g *Graph) addEdge(from, to string, kind EdgeKind) {
   g.Edges = append(g.Edges, &Edge{From: from, To: to, Kind: kind})
 }
 
-// collectHeritage adds a heritage edge for every base of every top-level class
-// and interface in file.
+// collectHeritage adds a heritage edge for every base of every class and
+// interface in file, descending into namespace bodies so a namespaced class's
+// bases are resolved too.
 func (g *Graph) collectHeritage(checker *shimchecker.Checker, file *shimast.SourceFile) {
   if file.Statements == nil {
     return
   }
-  path := file.FileName()
-  for _, statement := range file.Statements.Nodes {
+  g.collectHeritageIn(checker, file.FileName(), file.Statements.Nodes)
+}
+
+// collectHeritageIn adds heritage edges for the class/interface statements in a
+// list — the file's top level, or a namespace body it recurses into.
+func (g *Graph) collectHeritageIn(checker *shimchecker.Checker, path string, statements []*shimast.Node) {
+  for _, statement := range statements {
     switch statement.Kind {
     case shimast.KindClassDeclaration:
       decl := statement.AsClassDeclaration()
@@ -52,6 +58,8 @@ func (g *Graph) collectHeritage(checker *shimchecker.Checker, file *shimast.Sour
       if decl != nil && decl.HeritageClauses != nil {
         g.heritageEdges(checker, path, statement, NodeInterface, decl.HeritageClauses.Nodes)
       }
+    case shimast.KindModuleDeclaration:
+      g.collectHeritageIn(checker, path, moduleStatements(statement))
     }
   }
 }
@@ -63,7 +71,7 @@ func (g *Graph) heritageEdges(checker *shimchecker.Checker, path string, node *s
   if symbol == nil || symbol.Name == "" {
     return
   }
-  from := nodeID(path, symbol.Name, kind)
+  from := nodeID(path, qualifiedName(symbol), kind)
   for _, clauseNode := range clauses {
     clause := clauseNode.AsHeritageClause()
     if clause == nil || clause.Types == nil {
@@ -107,7 +115,14 @@ func forEachContainer(path string, file *shimast.SourceFile, fn func(string, *sh
   if file.Statements == nil {
     return
   }
-  for _, statement := range file.Statements.Nodes {
+  forEachContainerIn(path, file.Statements.Nodes, fn)
+}
+
+// forEachContainerIn pairs each graph node with its subtree for a statement list
+// — the file's top level, or a namespace body it recurses into, so a call or
+// type reference made inside a namespace member is attributed to that member.
+func forEachContainerIn(path string, statements []*shimast.Node, fn func(string, *shimast.Node)) {
+  for _, statement := range statements {
     switch statement.Kind {
     case shimast.KindFunctionDeclaration:
       if id := topLevelID(path, statement, NodeFunction); id != "" {
@@ -123,17 +138,21 @@ func forEachContainer(path string, file *shimast.SourceFile, fn func(string, *sh
       forEachMember(path, statement, NodeInterface, fn)
     case shimast.KindVariableStatement:
       forEachVariable(path, statement, fn)
+    case shimast.KindModuleDeclaration:
+      forEachContainerIn(path, moduleStatements(statement), fn)
     }
   }
 }
 
-// topLevelID returns the node id for a named top-level declaration, or "".
+// topLevelID returns the node id for a named declaration, or "". The name is
+// namespace-qualified, so a namespaced declaration lands on the node the build
+// pass recorded.
 func topLevelID(path string, statement *shimast.Node, kind NodeKind) string {
   symbol := statement.Symbol()
   if symbol == nil || symbol.Name == "" {
     return ""
   }
-  return nodeID(path, symbol.Name, kind)
+  return nodeID(path, qualifiedName(symbol), kind)
 }
 
 // forEachMember attributes a class/interface's method members to their method
@@ -206,7 +225,7 @@ func forEachVariable(path string, statement *shimast.Node, fn func(string, *shim
     if symbol == nil || symbol.Name == "" {
       continue
     }
-    fn(nodeID(path, symbol.Name, NodeVariable), binding)
+    fn(nodeID(path, qualifiedName(symbol), NodeVariable), binding)
   }
 }
 
@@ -346,11 +365,12 @@ func (g *Graph) ensureTargetNode(target *Target) string {
     }
     return ""
   }
-  id := nodeID(target.File, target.Symbol.Name, kind)
+  name := qualifiedName(target.Symbol)
+  id := nodeID(target.File, name, kind)
   if _, exists := g.Nodes[id]; !exists {
     g.Nodes[id] = &Node{
       ID:       id,
-      Name:     target.Symbol.Name,
+      Name:     name,
       Kind:     kind,
       File:     target.File,
       External: target.External,
