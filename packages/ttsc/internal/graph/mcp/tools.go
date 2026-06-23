@@ -366,10 +366,10 @@ func (s *Server) dependents(node *graph.Node) map[string]bool {
   for len(queue) > 0 {
     current := queue[0]
     queue = queue[1:]
-    for _, edge := range s.graph.Edges {
-      if edge.To == current && !seen[edge.From] {
-        seen[edge.From] = true
-        queue = append(queue, edge.From)
+    for _, from := range s.reverseAdj[current] {
+      if !seen[from] {
+        seen[from] = true
+        queue = append(queue, from)
       }
     }
   }

@@ -73,5 +73,14 @@ func declarationFile(symbol *shimast.Symbol) *shimast.SourceFile {
   if len(symbol.Declarations) == 0 {
     return nil
   }
+  // Prefer a non-declaration-file declaration. A declaration-merged symbol (a
+  // class paired with an interface, or a function with a namespace) can list a
+  // `.d.ts` declaration first; classifying by it would mark a real workspace
+  // symbol external and sever it from the graph.
+  for _, declaration := range symbol.Declarations {
+    if file := shimast.GetSourceFileOfNode(declaration); file != nil && !file.IsDeclarationFile {
+      return file
+    }
+  }
   return shimast.GetSourceFileOfNode(symbol.Declarations[0])
 }

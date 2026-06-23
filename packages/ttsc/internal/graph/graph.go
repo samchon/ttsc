@@ -70,6 +70,9 @@ type Edge struct {
 type Graph struct {
   Nodes map[string]*Node
   Edges []*Edge
+  // seen deduplicates edges in O(1) during construction, so building a graph
+  // with N edges is O(N), not O(N²). Keyed by from\x00to\x00kind.
+  seen map[string]struct{}
 }
 
 // nodeID builds the position-invariant identity for a symbol named name,

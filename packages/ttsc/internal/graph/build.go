@@ -14,7 +14,7 @@ import (
 // is workspace source: External is false. External boundary leaves enter the
 // graph only as the resolved target of an edge (see Resolve).
 func Build(prog *driver.Program) *Graph {
-  g := &Graph{Nodes: map[string]*Node{}}
+  g := &Graph{Nodes: map[string]*Node{}, seen: map[string]struct{}{}}
   for _, file := range prog.SourceFiles() {
     collectDeclarations(g, file)
   }
@@ -204,8 +204,14 @@ func containerPrefix(symbol *shimast.Symbol) string {
 }
 
 // isNamespaceSymbol reports whether symbol is declared by a `namespace` / `module`
-// block, the container whose members the graph qualifies by name.
+// block, the container whose members the graph qualifies by name. A string-named
+// ambient module (`declare module "x"`) and the `global` augmentation scope are
+// also module declarations, but qualifying members by their quoted or internal
+// names would produce malformed ids, so they are excluded.
 func isNamespaceSymbol(symbol *shimast.Symbol) bool {
+  if strings.HasPrefix(symbol.Name, "\"") || strings.Contains(symbol.Name, "\xFE") {
+    return false
+  }
   for _, declaration := range symbol.Declarations {
     if declaration.Kind == shimast.KindModuleDeclaration {
       return true

@@ -23,13 +23,13 @@ func (g *Graph) addEdges(prog *driver.Program) {
 
 // addEdge records a from->to edge of the given kind, skipping a duplicate so a
 // caller that invokes the same function several times yields one edge, not one
-// per call site.
+// per call site. The dedup is an O(1) set lookup, so building N edges is O(N).
 func (g *Graph) addEdge(from, to string, kind EdgeKind) {
-  for _, edge := range g.Edges {
-    if edge.From == from && edge.To == to && edge.Kind == kind {
-      return
-    }
+  key := from + "\x00" + to + "\x00" + string(kind)
+  if _, exists := g.seen[key]; exists {
+    return
   }
+  g.seen[key] = struct{}{}
   g.Edges = append(g.Edges, &Edge{From: from, To: to, Kind: kind})
 }
 

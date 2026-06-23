@@ -59,6 +59,10 @@ type Server struct {
   prog     *driver.Program
   graph    *graph.Graph
   degree   map[string]int
+  // reverseAdj maps a node to the nodes that depend on it (the reverse of every
+  // edge), so the blast-radius walk is O(V+E) instead of rescanning all edges
+  // per step.
+  reverseAdj map[string][]string
   // tscDiags is the compiler's own diagnostics, computed once with the graph
   // (the Program is read-only after build). diags is the fused set — tscDiags
   // plus every provider's current output — and diagsByNode attributes each to the
@@ -133,9 +137,11 @@ func (s *Server) setProgram(prog *driver.Program) {
   s.prog = prog
   s.graph = graph.Build(prog)
   s.degree = make(map[string]int, len(s.graph.Nodes))
+  s.reverseAdj = make(map[string][]string, len(s.graph.Nodes))
   for _, edge := range s.graph.Edges {
     s.degree[edge.From]++
     s.degree[edge.To]++
+    s.reverseAdj[edge.To] = append(s.reverseAdj[edge.To], edge.From)
   }
   s.tscDiags = prog.Diagnostics()
   s.nodeLineRanges = computeNodeLineRanges(prog, s.graph)

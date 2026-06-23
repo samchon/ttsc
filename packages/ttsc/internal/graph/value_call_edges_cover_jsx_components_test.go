@@ -66,4 +66,17 @@ export function Parent(): JSX.Element {
   if !hasEdge(graph, parent, child, EdgeValueCall) {
     t.Fatalf("missing value-call edge Parent -> Child (JSX component use); edges: %v", graph.Edges)
   }
+
+  // The intrinsic `<div>` host element resolves to nothing and must add no edge.
+  // Without this negative twin, a regression that started resolving intrinsic
+  // tags would fill every React codebase's call graph with host-element noise
+  // while the positive assertion above still passed.
+  for _, edge := range graph.Edges {
+    if edge.From != parent {
+      continue
+    }
+    if to := graph.Nodes[edge.To]; to != nil && to.Name == "div" {
+      t.Fatalf("intrinsic <div> produced a spurious value-call edge from Parent: %v", edge)
+    }
+  }
 }
