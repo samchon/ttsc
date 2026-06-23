@@ -25,7 +25,7 @@ func toolsListResult() any {
           "properties": map[string]any{
             "query": map[string]any{
               "type":        "string",
-              "description": "A symbol name (e.g. \"MyClass\") or a file path fragment (e.g. \"src/service\").",
+              "description": "One or more symbol names (name every symbol the question involves, e.g. \"renderScene Scene Renderer\"), or a file path fragment (e.g. \"src/service\").",
             },
           },
           "required": []any{"query"},
@@ -49,6 +49,16 @@ func toolsListResult() any {
   }
 }
 
+// clip bounds a client-supplied string before it is echoed into an error or
+// "no match" message, so a pathological multi-megabyte name or query cannot turn
+// a small request into an equally large response on a shared daemon.
+func clip(s string, max int) string {
+  if len(s) <= max {
+    return s
+  }
+  return s[:max] + "…"
+}
+
 // callTool routes a tools/call request to the named tool.
 func (s *Server) callTool(params json.RawMessage) (any, *rpcError) {
   var call struct {
@@ -64,7 +74,7 @@ func (s *Server) callTool(params json.RawMessage) (any, *rpcError) {
   case "graph_diagnostics":
     return s.diagnostics(call.Arguments)
   default:
-    return nil, &rpcError{Code: codeInvalidParams, Message: "unknown tool: " + call.Name}
+    return nil, &rpcError{Code: codeInvalidParams, Message: "unknown tool: " + clip(call.Name, 80)}
   }
 }
 
@@ -134,7 +144,7 @@ func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
   s.refreshDiagnostics()
   matches := s.matchNodes(in.Query)
   if len(matches) == 0 {
-    return textResult(fmt.Sprintf("No graph nodes match %q.", in.Query)), nil
+    return textResult(fmt.Sprintf("No graph nodes match %q.", clip(in.Query, 200))), nil
   }
   budget := exploreBudget(len(queryTokens(in.Query)))
   var b strings.Builder
@@ -153,15 +163,16 @@ func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
   return textResult(strings.TrimRight(b.String(), "\n")), nil
 }
 
-// exploreHeader prefixes every graph_explore response. It restates the graph's
-// standing on each result, not only in the one-time initialize instructions, in
-// the precise terms that distinguish it from a model's own probabilistic recall:
-// this is a deterministic computation by the type checker, authoritative for the
-// relationships it reports, so re-reading the source to confirm is redundant
-// recomputation, not verification.
-const exploreHeader = "The compiler's own resolution — exact for the relationships it reports. Answer from it, not by " +
-  "re-reading the source; to follow the flow further, widen this query with more symbols rather than calling again " +
-  "one at a time.\n\n"
+// exploreHeader prefixes every graph_explore response. It carries only the steer
+// that is relevant on each result, not a copy of the one-time instructions: the
+// relationships are the compiler's own resolution (a trust signal that they are
+// exact, not a guess), and to go further the agent should widen this query rather
+// than fan out into many narrow calls. It deliberately does NOT say "do not read
+// the source", because a budget-collapsed or external node is rendered as a
+// signature with no body, and telling the agent not to open that file would be
+// wrong.
+const exploreHeader = "These relationships are the compiler's own resolution, exact for what it reports. To follow the " +
+  "flow further, add more symbols to this query rather than calling again one symbol at a time.\n\n"
 
 // maxExploreNodes caps how many ranked nodes a query returns, so a broad
 // keyword query surfaces the most relevant declarations without flooding context.
@@ -276,7 +287,11 @@ func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node, withSo
     external = " (external)"
   }
   source, line := s.nodeSource(node)
-  fmt.Fprintf(b, "%s %s%s  %s:%d\n", node.Kind, node.Name, external, s.relFile(node.File), line)
+  // The header cites declLine (the declaration keyword, past any doc comment), the
+  // same line the edges to this node report, so one node is cited at one line
+  // everywhere. The body below still renders from `line` (the source start), so a
+  // leading doc comment is shown with its own true line numbers.
+  fmt.Fprintf(b, "%s %s%s  %s:%d\n", node.Kind, node.Name, external, s.relFile(node.File), s.declLine(node))
   if !withSource {
     return // past the budget: a one-line signature, no edges or body
   }
@@ -384,12 +399,16 @@ func (s *Server) relFile(file string) string {
   if s.cwd == "" {
     return file
   }
-  root := strings.ReplaceAll(s.cwd, "\\", "/")
+  // Trim a trailing separator off the root so a cwd like "/project/" still
+  // matches "/project/src/...". Return the forward-slash-normalized form even for
+  // a path outside the root (a bundled lib), so every path in a response is
+  // consistently forward-slash rather than mixing in OS-native backslashes.
+  root := strings.TrimRight(strings.ReplaceAll(s.cwd, "\\", "/"), "/")
   f := strings.ReplaceAll(file, "\\", "/")
   if strings.HasPrefix(f, root+"/") {
     return f[len(root)+1:]
   }
-  return file
+  return f
 }
 
 // firstCodeOffset returns the index in src of the first non-trivia byte — past
@@ -544,12 +563,18 @@ func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
     return textResult(fmt.Sprintf("No diagnostics for %s.", path)), nil
   }
   sortDiagnostics(found)
+  // Print the program-matched canonical path, not each diagnostic's own File: the
+  // findings were selected by d.File == path, so this is identical for valid data,
+  // but it keeps the printed path inside the workspace even if an injected
+  // diagnostic ever carried a stray File, and it stays consistent with the
+  // relative paths graph_explore prints.
+  relPath := s.relFile(path)
   var b strings.Builder
   for _, d := range found {
     if d.fromTsc {
-      fmt.Fprintf(&b, "%s:%d:%d TS%d %s\n", d.File, d.Line, d.Column, d.Code, d.Message)
+      fmt.Fprintf(&b, "%s:%d:%d TS%d %s\n", relPath, d.Line, d.Column, d.Code, d.Message)
     } else {
-      fmt.Fprintf(&b, "%s:%d:%d %s\n", d.File, d.Line, d.Column, d.Message)
+      fmt.Fprintf(&b, "%s:%d:%d %s\n", relPath, d.Line, d.Column, d.Message)
     }
   }
   return textResult(strings.TrimRight(b.String(), "\n")), nil

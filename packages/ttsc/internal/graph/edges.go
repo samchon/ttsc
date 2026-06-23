@@ -132,6 +132,13 @@ func forEachContainerIn(path string, statements []*shimast.Node, fn func(string,
       if id := topLevelID(path, statement, NodeTypeAlias); id != "" {
         fn(id, statement)
       }
+    case shimast.KindEnumDeclaration:
+      // An enum is a recorded node (build.go), and a member initializer can call a
+      // function (`enum E { A = base() }`) or reference a type, so walk its body
+      // too or those edges are silently dropped.
+      if id := topLevelID(path, statement, NodeEnum); id != "" {
+        fn(id, statement)
+      }
     case shimast.KindClassDeclaration:
       forEachMember(path, statement, NodeClass, fn)
     case shimast.KindInterfaceDeclaration:

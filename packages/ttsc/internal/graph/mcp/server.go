@@ -347,7 +347,7 @@ func (s *Server) Handle(raw []byte) ([]byte, bool) {
       resp.Result = result
     }
   default:
-    resp.Error = &rpcError{Code: codeMethodNotFound, Message: "method not found: " + req.Method}
+    resp.Error = &rpcError{Code: codeMethodNotFound, Message: "method not found: " + clip(req.Method, 80)}
   }
   return reply(resp)
 }
