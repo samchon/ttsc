@@ -75,15 +75,15 @@ The structural benchmark loads a project's resident `Program`, builds the graph,
 
 Run against this repository's `packages/ttsc` (53 source files):
 
-| Measure       | Value                                              |
-| ------------- | -------------------------------------------------- |
-| Nodes         | 575 (66 external boundary leaves)                  |
-| Edges         | 1402 (heritage 2, value-call 1016, type-ref 384)   |
-| Fair coverage | 92.2% (47 of 51 symbol-bearing files cross-linked) |
-| Load time     | 81 ms (median)                                     |
-| Graph build   | 37 ms (median)                                     |
+| Measure       | Value                                               |
+| ------------- | --------------------------------------------------- |
+| Nodes         | 605 (71 external boundary leaves)                   |
+| Edges         | 1553 (heritage 2, value-call 1153, type-ref 398)    |
+| Fair coverage | 100.0% (50 of 50 symbol-bearing files cross-linked) |
+| Load time     | 77 ms (median)                                      |
+| Graph build   | 40 ms (median)                                      |
 
-The 92.2% is the coverage flex: that share of files has at least one checker-resolved cross-file edge. Build time is a real fraction of the (already fast) load on a small tree and shrinks as type-checking dominates on larger ones; the point is that extraction rides the `Program` the compiler already built, with no second compile.
+The 100% is the coverage flex: every symbol-bearing file has at least one checker-resolved cross-file edge. Modeling methods and their calls closed the gaps a top-level-only graph left (it was 92% before), which is the whole point — a method-to-method call is exactly the relationship an agent would otherwise open a file to find. Build time is a real fraction of the (already fast) load on a small tree and shrinks as type-checking dominates on larger ones; the point is that extraction rides the `Program` the compiler already built, with no second compile.
 
 ## Reproduce
 

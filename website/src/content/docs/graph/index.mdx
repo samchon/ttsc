@@ -67,14 +67,14 @@ The tsc semantic diagnostics for one file, in the same code and location `tsgo` 
 | Kind | Meaning |
 | --- | --- |
 | `heritage` | A class or interface `extends` / `implements` a base. |
-| `value-call` | A top-level declaration calls a top-level function at runtime. |
+| `value-call` | A declaration or method calls a function, method, or constructor (`new T()`) at runtime. |
 | `type-ref` | A declaration mentions a named type in a type position. |
 
 Splitting `value-call` from `type-ref` lets an impact query separate "used at runtime" from "depends on this type".
 
 ## Scope
 
-This is a v1. The nodes are top-level declarations and the edges are the kinds above, with diagnostics from the tsc semantic pass. It does not yet walk method bodies, `new` constructor calls, or variable-bound callables (a top-level `const fn = () => …`), so a call made only inside a method or from a const-bound function is not an edge; open the file for detail below the top level. A file watcher, on-disk persistence, and lint-merged diagnostics are also not included yet. The node identity is position-invariant, so an incremental layer can be added later without re-keying the graph.
+This is a v1. The nodes are the declarations and their methods; the edges are the kinds above, resolved by the checker — a method-to-method call, a `new T()` constructor call, and a call from inside a top-level `const fn = () => …` are all edges. Diagnostics come from the tsc semantic pass. A file watcher, on-disk persistence, and lint-merged diagnostics are not included yet. The node identity is position-invariant, so an incremental layer can be added later without re-keying the graph.
 
 ## Environment
 
