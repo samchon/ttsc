@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T20:59:34.190Z",
+  "generatedAt": "2026-06-23T21:03:59.283Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -493,6 +493,7 @@
       },
       {
         "harness": "codex",
+        "tool": "ttsc-graph",
         "repo": "typeorm",
         "model": "gpt-5.5",
         "effort": "high",
@@ -503,50 +504,50 @@
         "samples": {
           "baseline": [
             {
-              "tokens": 365617,
-              "cached": 212480,
+              "tokens": 625682,
+              "cached": 511872,
               "turns": 1,
-              "tools": 20,
-              "shell": 20,
+              "tools": 25,
+              "shell": 25,
               "graph": 0,
               "types": {
-                "agent_message": 8,
-                "command_execution": 20
+                "agent_message": 6,
+                "command_execution": 25
               },
-              "durMs": 99688,
+              "durMs": 101631,
               "ok": true
             }
           ],
           "graph": [
             {
-              "tokens": 602507,
-              "cached": 477184,
+              "tokens": 623347,
+              "cached": 517632,
               "turns": 1,
-              "tools": 20,
-              "shell": 15,
+              "tools": 17,
+              "shell": 12,
               "graph": 5,
               "types": {
-                "agent_message": 9,
+                "agent_message": 12,
                 "mcp_tool_call": 5,
-                "command_execution": 15
+                "command_execution": 12
               },
-              "durMs": 108789,
+              "durMs": 94324,
               "ok": true
             }
           ],
           "guided": [
             {
-              "tokens": 242124,
-              "cached": 158464,
+              "tokens": 190497,
+              "cached": 141696,
               "turns": 1,
-              "tools": 5,
+              "tools": 4,
               "shell": 0,
-              "graph": 5,
+              "graph": 4,
               "types": {
-                "agent_message": 6,
-                "mcp_tool_call": 5
+                "agent_message": 5,
+                "mcp_tool_call": 4
               },
-              "durMs": 62804,
+              "durMs": 61155,
               "ok": true
             }
           ]
