@@ -21,6 +21,7 @@
 // Usage:
 //   node experimental/graph-bench/agent-ab-codex.mjs --repo=excalidraw --runs=4
 //   node experimental/graph-bench/agent-ab-codex.mjs --repo=vscode --runs=4
+//   node experimental/graph-bench/agent-ab-codex.mjs --repo=typeorm --fixture-branch=ttsc
 import cp from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -31,70 +32,56 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
 
-// codegraph's TypeScript benchmark repos and their verbatim questions.
+// TypeScript benchmark repos and their medium-difficulty questions.
 const REPOS = {
   excalidraw: {
     url: "https://github.com/excalidraw/excalidraw",
     tsconfig: "tsconfig.json",
-    questions: {
-      headline: "How does Excalidraw redraw the scene when an element changes?",
-      medium:
-        "Which code path schedules a scene redraw after an element is changed?",
-    },
+    question: "Which code path schedules a scene redraw after an element is changed?",
   },
   vscode: {
     url: "https://github.com/microsoft/vscode",
+    fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vscode.git",
     tsconfig: "src/tsconfig.json",
-    questions: {
-      headline:
-        "How does a VS Code extension send a message to the main process?",
-      medium:
-        "Where does an extension host message get forwarded toward the main process?",
-    },
+    question:
+      "Where does an extension host message get forwarded toward the main process?",
   },
   nestjs: {
     url: "https://github.com/nestjs/nest",
+    fixtureUrl: "https://github.com/samchon/ttsc-benchmark-nestjs.git",
     tsconfig: "tsconfig.graph.json",
-    questions: {
-      headline:
-        "How does NestJS route an incoming request to a controller method?",
-      medium:
-        "Which code invokes the selected controller method for an HTTP route?",
-    },
+    question: "Which code invokes the selected controller method for an HTTP route?",
   },
   vue: {
     url: "https://github.com/vuejs/core",
+    fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vue.git",
     tsconfig: "tsconfig.graph.json",
-    questions: {
-      headline: "How does Vue re-render a component when a ref changes?",
-      medium:
-        "Which code schedules a component update after a ref value changes?",
-    },
+    question: "Which code schedules a component update after a ref value changes?",
   },
   zod: {
     url: "https://github.com/colinhacks/zod",
+    fixtureUrl: "https://github.com/samchon/ttsc-benchmark-zod.git",
     tsconfig: "tsconfig.graph.json",
-    questions: {
-      headline: "What happens when you call a Zod schema's parse() method?",
-      medium: "Which internal parse method does a Zod schema's parse() call?",
-    },
+    question: "Which internal parse method does a Zod schema's parse() call?",
   },
   typeorm: {
     url: "https://github.com/typeorm/typeorm",
+    fixtureUrl: "https://github.com/samchon/ttsc-benchmark-typeorm.git",
     tsconfig: "tsconfig.graph.json",
-    questions: {
-      headline: "What happens when you call a repository's find() method?",
-      medium:
-        "How are relation options applied when repository.find() builds its query?",
-    },
+    question:
+      "How are relation options applied when repository.find() builds its query?",
   },
   rxjs: {
     url: "https://github.com/ReactiveX/rxjs",
+    fixtureUrl: "https://github.com/samchon/ttsc-benchmark-rxjs.git",
     tsconfig: "tsconfig.graph.json",
-    questions: {
-      headline: "What happens when you subscribe to an observable?",
-      medium: "Which code creates the Subscriber used by Observable.subscribe?",
-    },
+    question: "Which code creates the Subscriber used by Observable.subscribe?",
+  },
+  "shopping-backend": {
+    url: "https://github.com/samchon/shopping-backend",
+    fixtureUrl: "https://github.com/samchon/shopping-backend.git",
+    tsconfig: "tsconfig.json",
+    question: "Which code builds the order creation request before persistence?",
   },
 };
 
@@ -109,13 +96,25 @@ const runs = Number(args.runs ?? 2);
 const model = args.model ?? "gpt-5.5";
 const effort = args.effort ?? "high";
 const tsconfig = args.tsconfig ?? spec.tsconfig;
-const difficulty = args.difficulty ?? "medium";
-const question =
-  spec.questions?.[difficulty] ?? spec.questions?.medium ?? spec.question;
-if (!question) throw new Error(`repo ${repoKey} has no ${difficulty} question`);
+const question = spec.question;
+if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
+
+const fixtureBranch = args["fixture-branch"];
+if (
+  fixtureBranch &&
+  fixtureBranch !== "ttsc" &&
+  fixtureBranch !== "ttsc-lint"
+) {
+  throw new Error("--fixture-branch must be 'ttsc' or 'ttsc-lint'");
+}
+if (fixtureBranch && !spec.fixtureUrl) {
+  throw new Error(`repo ${repoKey} has no performance fixture repo`);
+}
 
 const corpus = args.corpus ?? path.join(os.tmpdir(), "graph-corpus");
-const repoDir = path.join(corpus, repoKey);
+const cloneKey = fixtureBranch ? `${repoKey}@${fixtureBranch}` : repoKey;
+const repoUrl = fixtureBranch ? spec.fixtureUrl : spec.url;
+const repoDir = path.join(corpus, cloneKey);
 
 // --guidance=1 adds a fairness arm: a neutral project instruction (CLAUDE.md +
 // AGENTS.md) telling the agent to prefer the code-graph MCP over grep. It names no
@@ -167,10 +166,19 @@ if (!cg) {
 // 2. Clone the target repo (shallow) if absent.
 if (!fs.existsSync(repoDir)) {
   fs.mkdirSync(corpus, { recursive: true });
-  console.log(`Cloning ${spec.url} (shallow) -> ${repoDir} ...`);
+  console.log(
+    `Cloning ${repoUrl}${fixtureBranch ? `#${fixtureBranch}` : ""} (shallow) -> ${repoDir} ...`,
+  );
   runOrThrow(
     "git",
-    ["clone", "--depth", "1", spec.url, repoDir],
+    [
+      "clone",
+      "--depth",
+      "1",
+      ...(fixtureBranch ? ["--branch", fixtureBranch] : []),
+      repoUrl,
+      repoDir,
+    ],
     corpus,
     process.env,
   );
@@ -231,9 +239,10 @@ if (guidance) arms.push({ name: "guided", home: withHome, guide: true });
 
 console.log(
   `\ncodegraph A/B on ${repoKey} via codex — model ${model} (effort ${effort}), ${runs} run(s) x ${arms.length} arms` +
+    (fixtureBranch ? `, fixture ${fixtureBranch}` : "") +
     (guidance ? " (+guided = graph with a project instruction to use it)" : ""),
 );
-console.log(`Q (${difficulty}): ${question}\n`);
+console.log(`Q: ${question}\n`);
 
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
 try {
@@ -280,7 +289,7 @@ line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 const reportName = `agent-ab-codex-report${guidance ? "-guided" : ""}.json`;
 fs.writeFileSync(
   path.join(here, reportName),
-  `${JSON.stringify({ repo: repoKey, model, effort, runs, guidance, difficulty, question, samples }, null, 2)}\n`,
+  `${JSON.stringify({ repo: repoKey, fixtureBranch, model, effort, runs, guidance, question, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 cleanup([binary, withHome, withoutHome]);
