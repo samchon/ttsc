@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T20:52:07.128Z",
+  "generatedAt": "2026-06-23T20:55:37.159Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -391,6 +391,7 @@
       },
       {
         "harness": "claude-code",
+        "tool": "ttsc-graph",
         "repo": "typeorm",
         "model": "sonnet",
         "fixtureBranch": "ttsc",
@@ -400,40 +401,40 @@
         "samples": {
           "baseline": [
             {
-              "tokens": 1430087,
-              "tools": 47,
-              "reads": 18,
-              "grep": 10,
+              "tokens": 1357346,
+              "tools": 38,
+              "reads": 16,
+              "grep": 0,
               "graph": 0,
-              "other": 19,
-              "cost": 0.31149564999999996,
-              "durMs": 341537,
+              "other": 22,
+              "cost": 0.3162408,
+              "durMs": 155877,
               "ok": true
             }
           ],
           "graph": [
             {
-              "tokens": 257279,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "graph": 2,
-              "other": 0,
-              "cost": 0.1630121,
-              "durMs": 48529,
-              "ok": true
-            }
-          ],
-          "guided": [
-            {
-              "tokens": 121560,
+              "tokens": 148231,
               "tools": 1,
               "reads": 0,
               "grep": 0,
               "graph": 1,
               "other": 0,
-              "cost": 0.10674929999999999,
-              "durMs": 36523,
+              "cost": 0.1042146,
+              "durMs": 26783,
+              "ok": true
+            }
+          ],
+          "guided": [
+            {
+              "tokens": 121276,
+              "tools": 1,
+              "reads": 0,
+              "grep": 0,
+              "graph": 1,
+              "other": 0,
+              "cost": 0.10044130000000001,
+              "durMs": 18870,
               "ok": true
             }
           ]
