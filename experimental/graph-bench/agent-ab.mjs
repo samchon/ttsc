@@ -306,7 +306,7 @@ console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 const reportName = `agent-ab-report${guidance ? "-guided" : ""}.json`;
 fs.writeFileSync(
   path.join(here, reportName),
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", repo: repoKey, fixtureBranch, repoDir, model, runs, guidance, question, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", repo: repoKey, fixtureBranch, repoDir, model, daemon: useDaemon, runs, guidance, question, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 try {

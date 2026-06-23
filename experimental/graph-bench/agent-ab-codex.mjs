@@ -302,7 +302,7 @@ line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 const reportName = `agent-ab-codex-report${guidance ? "-guided" : ""}.json`;
 fs.writeFileSync(
   path.join(here, reportName),
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", repo: repoKey, fixtureBranch, repoDir, model, effort, runs, guidance, question, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", repo: repoKey, fixtureBranch, repoDir, model, effort, daemon: useDaemon, runs, guidance, question, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 cleanup([binary, withHome, withoutHome]);

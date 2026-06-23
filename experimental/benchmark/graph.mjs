@@ -141,13 +141,13 @@ for (const project of selected) {
   if (!fs.existsSync(path.join(repoDir, spec.tsconfig)))
     throw new Error(`missing graph tsconfig: ${path.join(repoDir, spec.tsconfig)}`);
 
-  let codegraphIndexMs = null;
-  try {
-    if (tools.includes("codegraph")) {
-      codegraphIndexMs = ensureCodegraphIndex(project, repoDir);
-    }
+  for (const tool of tools) {
+    let codegraphIndexMs = null;
+    try {
+      if (tool === "codegraph") {
+        codegraphIndexMs = ensureCodegraphIndex(project, repoDir);
+      }
 
-    for (const tool of tools) {
       for (const model of models) {
         const { cell, websiteCell } = runAgentCell({
           project,
@@ -169,9 +169,9 @@ for (const project of selected) {
         publishWebsiteCells([websiteCell]);
         printCellSummary(cell);
       }
+    } finally {
+      if (tool === "codegraph") cleanupCodegraphIndex(repoDir);
     }
-  } finally {
-    if (tools.includes("codegraph")) cleanupCodegraphIndex(repoDir);
   }
 }
 

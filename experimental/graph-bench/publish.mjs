@@ -82,6 +82,8 @@ function foldAgent(report, harness) {
     model: report.model,
     ...(report.effort ? { effort: report.effort } : {}),
     ...(report.fixtureBranch ? { fixtureBranch: report.fixtureBranch } : {}),
+    ...(report.daemon !== undefined ? { daemon: report.daemon } : {}),
+    ...(report.toolSetupMs !== undefined ? { toolSetupMs: report.toolSetupMs } : {}),
     runs: report.runs,
     question: report.question,
     samples: report.samples,
@@ -94,6 +96,7 @@ function foldAgent(report, harness) {
       c.model,
       c.effort ?? "",
       c.fixtureBranch ?? "",
+      c.daemon === true ? "daemon" : "single",
     ]);
   const at = out.agent.cells.findIndex((c) => key(c) === key(cell));
   if (at >= 0) out.agent.cells[at] = cell;
