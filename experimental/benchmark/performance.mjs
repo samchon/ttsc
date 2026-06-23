@@ -653,6 +653,10 @@ function pnpmProjectCommand(root, command) {
   return `pnpm --ignore-workspace ${command}`;
 }
 
+function yarnCommand(args) {
+  return `${process.platform === "win32" ? "corepack yarn" : "yarn"} ${args}`;
+}
+
 function commandForProject(cmd, root) {
   if (!/^pnpm\b/.test(cmd) || ownsPnpmWorkspace(root)) return cmd;
   if (/^pnpm\s+--ignore-workspace\b/.test(cmd)) return cmd;
@@ -889,7 +893,7 @@ function setupClone(project, branch) {
             ? "npm exec -- ttsc prepare"
             : pm === "pnpm"
               ? pnpmProjectCommand(dir, "exec ttsc prepare")
-              : `${pm} exec ttsc prepare`;
+              : yarnCommand("exec ttsc prepare");
         const res = sh(cmd, dir, {
           quiet: true,
           check: false,
@@ -942,7 +946,7 @@ function installIfNeeded(project, dir, branch) {
             "install --no-frozen-lockfile --config.minimumReleaseAge=0",
           )
         : pm === "yarn"
-          ? "yarn install --ignore-engines --update-checksums"
+          ? yarnCommand("install --ignore-engines --update-checksums")
           : "npm install --legacy-peer-deps");
     const shouldForceInstall = !hasNodeModules || flags.has("--force-install");
     const install = () =>
@@ -1032,7 +1036,9 @@ function installLocalTarballs(project, dir, branch) {
             ? `pnpm add -w -D --config.minimumReleaseAge=0 ${specs}`
             : `pnpm add --ignore-workspace -D --config.minimumReleaseAge=0 ${specs}`
           : pm === "yarn"
-            ? `yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
+            ? yarnCommand(
+                `add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`,
+              )
             : `npm install --legacy-peer-deps --save-dev ${specs}`);
       process.stdout.write(
         `Installing local tarballs into ${path.basename(dir)}: ` +
@@ -1336,7 +1342,9 @@ function installPinnedTypeScriptGoRuntimeDeps(project, dir, branch) {
         ? `pnpm add -w -D --config.minimumReleaseAge=0 ${specs}`
         : `pnpm add --ignore-workspace --virtual-store-dir node_modules/.pnpm -D --config.minimumReleaseAge=0 ${specs}`
       : pm === "yarn"
-        ? `yarn add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`
+        ? yarnCommand(
+            `add --dev --force --update-checksums --ignore-engines --ignore-workspace-root-check ${specs}`,
+          )
         : `npm install --legacy-peer-deps --ignore-scripts --save-dev ${specs}`;
   process.stdout.write(
     `Installing pinned TypeScript-Go runtime deps into ${path.basename(dir)}: ` +
