@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T21:58:23.651Z",
+  "generatedAt": "2026-06-23T22:15:03.293Z",
   "structural": {
     "project": "packages/ttsc",
     "tsconfig": "tsconfig.json",
@@ -2196,6 +2196,58 @@
                 "mcp_tool_call": 1
               },
               "durMs": 51955,
+              "ok": true
+            }
+          ]
+        }
+      },
+      {
+        "harness": "claude-code",
+        "tool": "codegraph",
+        "toolSetupMs": 679477.2477,
+        "repo": "vscode",
+        "model": "sonnet",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "Where does an extension host message get forwarded toward the main process?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 724755,
+              "tools": 23,
+              "reads": 9,
+              "grep": 8,
+              "graph": 0,
+              "other": 6,
+              "cost": 0.1528817,
+              "durMs": 198186,
+              "ok": true
+            }
+          ],
+          "graph": [
+            {
+              "tokens": 965168,
+              "tools": 30,
+              "reads": 16,
+              "grep": 10,
+              "graph": 0,
+              "other": 4,
+              "cost": 0.20216504999999999,
+              "durMs": 77492,
+              "ok": true
+            }
+          ],
+          "guided": [
+            {
+              "tokens": 354891,
+              "tools": 3,
+              "reads": 1,
+              "grep": 0,
+              "graph": 2,
+              "other": 0,
+              "cost": 0.1935207,
+              "durMs": 39628,
               "ok": true
             }
           ]
