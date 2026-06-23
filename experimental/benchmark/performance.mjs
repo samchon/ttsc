@@ -1298,9 +1298,11 @@ function materializeLocalTarballs(targets, dir) {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-bench-tgz-"));
     fs.rmSync(packageDir, { recursive: true, force: true });
     fs.mkdirSync(path.dirname(packageDir), { recursive: true });
-    sh(`tar -xzf ${quote(path.join(TGZ, target.file))} -C ${quote(tmp)}`, dir, {
-      quiet: true,
-    });
+    sh(
+      `tar --force-local -xzf ${quote(path.join(TGZ, target.file))} -C ${quote(tmp)}`,
+      dir,
+      { quiet: true },
+    );
     fs.cpSync(path.join(tmp, "package"), packageDir, { recursive: true });
     fs.rmSync(tmp, { recursive: true, force: true });
     linkPackageBins(packageDir, nodeModules);
