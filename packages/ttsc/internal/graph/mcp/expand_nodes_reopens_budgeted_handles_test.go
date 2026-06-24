@@ -125,7 +125,7 @@ func collapsedHandle(t *testing.T, text string) (string, string) {
     }
     for _, field := range fields {
       if strings.HasPrefix(field, "handle:n:") {
-        return strings.TrimPrefix(field, "handle:"), marker
+        return field, marker
       }
     }
   }
@@ -141,7 +141,7 @@ func nodeHandleFromText(t *testing.T, text string, prefix string) string {
     }
     for _, field := range strings.Fields(line) {
       if strings.HasPrefix(field, "handle:n:") {
-        return strings.TrimPrefix(field, "handle:")
+        return field
       }
     }
   }

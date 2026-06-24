@@ -775,7 +775,7 @@ func nodeHandle(id string) string {
 }
 
 func (s *Server) nodeByRef(ref string) *graph.Node {
-  ref = strings.TrimSpace(ref)
+  ref = normalizeNodeRef(ref)
   if ref == "" {
     return nil
   }
@@ -791,6 +791,14 @@ func (s *Server) nodeByRef(ref string) *graph.Node {
     }
   }
   return nil
+}
+
+func normalizeNodeRef(ref string) string {
+  ref = strings.TrimSpace(ref)
+  if strings.HasPrefix(ref, "handle:") {
+    ref = strings.TrimPrefix(ref, "handle:")
+  }
+  return ref
 }
 
 // fileBlocks renders one roster block per requested location, in input order, each
@@ -1671,7 +1679,7 @@ func (s *Server) writeValueCallExcerptsRanked(b *strings.Builder, node *graph.No
     }
     idx := edgeLineIndex(edge, source, sourceOffset, sourceLines)
     if idx < 0 {
-      idx = findLateCallLine(lines, memberName(to.Name))
+      idx = findLateCallLine(lines, sourceLines, memberName(to.Name))
     }
     if idx < 0 || seen[idx] {
       continue
@@ -1749,11 +1757,11 @@ func edgeLineIndex(edge *graph.Edge, source string, sourceOffset int, sourceLine
   return idx
 }
 
-func findLateCallLine(lines []string, member string) int {
+func findLateCallLine(lines []string, startLine int, member string) int {
   if member == "" {
     return -1
   }
-  for i := maxSourceLines; i < len(lines); i++ {
+  for i := startLine; i < len(lines); i++ {
     if containsCallLike(lines[i], member) {
       return i
     }
