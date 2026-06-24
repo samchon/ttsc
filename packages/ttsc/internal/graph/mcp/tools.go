@@ -533,6 +533,7 @@ func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node, withSo
   }
   if source != "" {
     b.WriteString(numberLines(source, line))
+    s.writeValueCallExcerpts(b, node, source, line)
   }
   b.WriteString("\n")
 }
@@ -629,6 +630,11 @@ func (s *Server) declLine(node *graph.Node) int {
 // (a giant union type, a long class) cannot blow the whole response open.
 const maxSourceLines = 16
 
+// maxCallExcerpts caps the late-body call snippets printed after a truncated
+// declaration. These snippets are tied to checker-resolved value-call edges, so
+// they preserve code-flow context without dumping the whole body.
+const maxCallExcerpts = 6
+
 // numberLines prefixes each line of source with its absolute line number so the
 // agent can cite or edit by line without re-reading the file, truncating a long
 // body to maxSourceLines.
@@ -643,6 +649,88 @@ func numberLines(source string, startLine int) string {
     fmt.Fprintf(&b, "  %d\t%s\n", startLine+i, line)
   }
   return b.String()
+}
+
+func (s *Server) writeValueCallExcerpts(b *strings.Builder, node *graph.Node, source string, startLine int) {
+  lines := strings.Split(source, "\n")
+  if len(lines) <= maxSourceLines {
+    return
+  }
+  shown := 0
+  seen := map[int]bool{}
+  for _, edge := range s.graph.Edges {
+    if edge.From != node.ID || edge.Kind != graph.EdgeValueCall {
+      continue
+    }
+    to := s.graph.Nodes[edge.To]
+    if to == nil {
+      continue
+    }
+    idx := findLateCallLine(lines, memberName(to.Name))
+    if idx < 0 || seen[idx] {
+      continue
+    }
+    if shown == 0 {
+      b.WriteString("  call excerpts after truncated body:\n")
+    }
+    seen[idx] = true
+    fmt.Fprintf(b, "  %d\t%s\n", startLine+idx, lines[idx])
+    shown++
+    if shown >= maxCallExcerpts {
+      b.WriteString("  ... (more value-call excerpts omitted)\n")
+      return
+    }
+  }
+}
+
+func memberName(name string) string {
+  if dot := strings.LastIndexByte(name, '.'); dot >= 0 {
+    return name[dot+1:]
+  }
+  return name
+}
+
+func findLateCallLine(lines []string, member string) int {
+  if member == "" {
+    return -1
+  }
+  for i := maxSourceLines; i < len(lines); i++ {
+    if containsCallLike(lines[i], member) {
+      return i
+    }
+  }
+  return -1
+}
+
+func containsCallLike(line string, member string) bool {
+  start := 0
+  for {
+    idx := strings.Index(line[start:], member)
+    if idx < 0 {
+      return false
+    }
+    idx += start
+    end := idx + len(member)
+    if isIdentifierBoundary(line, idx-1) {
+      rest := strings.TrimLeft(line[end:], " \t")
+      if strings.HasPrefix(rest, "(") || strings.HasPrefix(rest, "<") {
+        return true
+      }
+    }
+    start = end
+  }
+}
+
+func isIdentifierBoundary(line string, idx int) bool {
+  if idx < 0 {
+    return true
+  }
+  c := line[idx]
+  return !(c >= 'a' && c <= 'z') &&
+    !(c >= 'A' && c <= 'Z') &&
+    !(c >= '0' && c <= '9') &&
+    c != '_' &&
+    c != '$'
 }
 
 // dependents returns the set of distinct node ids that transitively depend on
