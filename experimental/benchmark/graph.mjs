@@ -203,12 +203,14 @@ function runSetup(projects, targetBranch) {
   });
 }
 
-// agentLabel maps a concrete model to a version-agnostic cell label. Claude tiers
-// (sonnet, opus) are already version-agnostic. Codex models collapse to a tier so
-// version bumps do not fork the grid: gpt-5.5 -> codex-gpt, gpt-5.4-mini ->
-// codex-gpt-mini. The exact id is recorded separately as modelVersion.
+// agentLabel maps a concrete model to a harness-qualified, version-agnostic cell
+// label, so every cell names both its agent (claude-code or codex) and its tier
+// without pinning an exact version that a release would churn: opus ->
+// claude-code-opus, sonnet -> claude-code-sonnet, gpt-5.5 -> codex-gpt,
+// gpt-5.4-mini -> codex-gpt-mini. The exact id is recorded separately as
+// modelVersion.
 function agentLabel(codex, resolvedModel) {
-  if (!codex) return resolvedModel;
+  if (!codex) return `claude-code-${resolvedModel}`;
   if (/mini/i.test(resolvedModel)) return "codex-gpt-mini";
   if (/nano/i.test(resolvedModel)) return "codex-gpt-nano";
   return "codex-gpt";
