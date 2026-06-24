@@ -139,8 +139,8 @@ func textResult(text string) any {
 // whole cluster, while narrow drillers stay cheap per call.
 const (
 	queryBudgetBase    = 6000
-	queryBudgetPerTerm = 3000
-	queryBudgetMax     = 16000
+	queryBudgetPerTerm = 4000
+	queryBudgetMax     = 30000
 )
 
 // queryBudget returns the verbatim-source budget for a query with terms salient
@@ -271,7 +271,14 @@ func (s *Server) withCallPath(seeds []*graph.Node, max int) []*graph.Node {
 		if depth[cur] >= maxDepth {
 			continue
 		}
-		for _, to := range s.forwardCallAdj[cur] {
+		// Follow the call flow forward, and at each step cross the dynamic-dispatch
+		// seam to any concrete implementors, so an interface method on the path
+		// brings its real body along instead of forcing a separate query.
+		next := s.forwardCallAdj[cur]
+		if impls := s.implementorsAdj[cur]; len(impls) > 0 {
+			next = append(append([]string(nil), next...), impls...)
+		}
+		for _, to := range next {
 			if inSet[to] {
 				continue
 			}

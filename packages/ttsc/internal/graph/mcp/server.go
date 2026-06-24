@@ -82,6 +82,11 @@ type Server struct {
 	// value-call edge), so a flow query can walk the downstream call path in one
 	// pass instead of the agent re-querying each hop.
 	forwardCallAdj map[string][]string
+	// implementorsAdj maps an interface or base to the declarations that implement
+	// or extend it (the reverse of every heritage edge), so the call path can cross
+	// the dynamic-dispatch seam from an interface method to its concrete body,
+	// which value-call edges stop at.
+	implementorsAdj map[string][]string
 	// tscDiags is the compiler's own diagnostics, computed once with the graph
 	// (the Program is read-only after build). diags is the fused set — tscDiags
 	// plus every provider's current output — and diagsByNode attributes each to the
@@ -172,12 +177,16 @@ func (s *Server) setProgram(prog *driver.Program) {
 	s.degree = make(map[string]int, len(s.graph.Nodes))
 	s.reverseAdj = make(map[string][]string, len(s.graph.Nodes))
 	s.forwardCallAdj = make(map[string][]string)
+	s.implementorsAdj = make(map[string][]string)
 	for _, edge := range s.graph.Edges {
 		s.degree[edge.From]++
 		s.degree[edge.To]++
 		s.reverseAdj[edge.To] = append(s.reverseAdj[edge.To], edge.From)
-		if edge.Kind == graph.EdgeValueCall {
+		switch edge.Kind {
+		case graph.EdgeValueCall:
 			s.forwardCallAdj[edge.From] = append(s.forwardCallAdj[edge.From], edge.To)
+		case graph.EdgeHeritage:
+			s.implementorsAdj[edge.To] = append(s.implementorsAdj[edge.To], edge.From)
 		}
 	}
 	s.tscDiags = prog.Diagnostics()

@@ -43,14 +43,14 @@ func TestExploreBoundsResponse(t *testing.T) {
   }
 
   // (c) Six process* functions each with a large body, so the verbatim source
-  // crosses the broad-query budget cap (exploreBudgetMax, 16000) and the later matches
-  // collapse to signatures. The statement lines are deliberately long so the
-  // rendered bodies exceed the byte budget.
+  // crosses the broad-query budget cap and the later matches collapse to
+  // signatures. The statement lines are deliberately long so the rendered bodies
+  // (truncated by line, not byte) exceed the byte budget across the six matches.
   for _, name := range []string{"processAlpha", "processBeta", "processGamma", "processDelta", "processEpsilon", "processZeta"} {
     fmt.Fprintf(&src, "export function %s(): number {\n", name)
     fmt.Fprintf(&src, "  let total%s: number = 0;\n", name)
     for i := 0; i < 40; i++ {
-      fmt.Fprintf(&src, "  total%s = total%s + %d + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 19 + 20;\n", name, name, i)
+      fmt.Fprintf(&src, "  total%s = total%s + %d + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 19 + 20 + 21 + 22 + 23 + 24 + 25 + 26 + 27 + 28 + 29 + 30 + 31 + 32 + 33 + 34 + 35 + 36 + 37 + 38 + 39 + 40;\n", name, name, i)
     }
     fmt.Fprintf(&src, "  return total%s;\n", name)
     src.WriteString("}\n")
