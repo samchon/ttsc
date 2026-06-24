@@ -135,10 +135,10 @@ const toolSetupMs =
 const cg = args.cg === "1" || args.cg === "true";
 const GUIDANCE = `# Code navigation
 
-For architecture/code-flow questions, prefer the code-graph MCP before grep/read.
+For architecture/code-flow questions, call the code-graph MCP before grep/read/shell.
 Query named symbols, files, or domain nouns; avoid generic words.
 Re-query when following returned symbols/files, narrowing, or after edits.
-Avoid duplicate graph calls; answer from graph when it has source/edges.
+Answer from graph when it has source/edges; do not grep/read to confirm.
 Read only for no match, non-TS files, edited source, or missing context.
 `;
 // The guided arm models how a normal user actually works: they keep an AGENTS.md

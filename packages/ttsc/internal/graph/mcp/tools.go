@@ -19,7 +19,7 @@ func toolsListResult() any {
     "tools": []any{
       map[string]any{
         "name":        "graph_explore",
-        "description": "Call first for TypeScript architecture/code-flow questions, before shell/grep/read. Query named symbols, files, or domain nouns; avoid generic words like code/method/request/main. The result is a compiler-resolved graph snapshot: source, calls, callers, types, and blast radius. Re-query when following returned symbols/files, narrowing the question, or after edits. Avoid duplicate graph calls; answer from graph when it has source/edges. Read only for no match, non-TS files, edited source, or missing context.",
+        "description": "Call first for TypeScript architecture/code-flow questions, before shell/grep/read. Query named symbols, files, or domain nouns; avoid generic words like code/method/request/main. The result is a compiler-resolved graph snapshot: source, calls, callers, types, and blast radius. Re-query when following returned symbols/files, narrowing the question, or after edits. Answer from graph when it has source/edges; do not grep/read to confirm returned graph source. Read only for no match, non-TS files, edited source, or missing context.",
         "inputSchema": map[string]any{
           "type": "object",
           "properties": map[string]any{
