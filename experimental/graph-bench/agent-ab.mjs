@@ -27,7 +27,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
 const ARCHITECTURE_QUESTION =
-  "Explain this project's code architecture. Name the main subsystems, the key files/classes/functions that connect them, and the control/data flow between those parts.";
+  "Map this project's code architecture as a short investigation. First identify the main subsystems. Then trace one representative user-facing operation end-to-end through the key files/classes/functions. Finally explain how data and control move between those parts and where a change would likely ripple.";
 
 // TypeScript benchmark repos and their medium-difficulty questions.
 const REPOS = {
