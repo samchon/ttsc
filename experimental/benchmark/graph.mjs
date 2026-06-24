@@ -522,6 +522,8 @@ function parseArgs(argv) {
       values.project = appendCsv(values.project, argv[++i]);
     } else if (arg.startsWith("--project=")) {
       values.project = appendCsv(values.project, arg.slice("--project=".length));
+    } else if (arg === "--question") {
+      values.question = argv[++i];
     } else if (arg.startsWith("--")) {
       const match = /^--([^=]+)=(.*)$/.exec(arg);
       if (match) values[match[1]] = match[2];
