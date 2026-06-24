@@ -96,7 +96,7 @@ const runs = Number(args.runs ?? 2);
 const model = args.model ?? "gpt-5.5";
 const effort = "high";
 const tsconfig = args.tsconfig ?? spec.tsconfig;
-const question = spec.question;
+const question = args.question ?? spec.question;
 if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
 
 const fixtureBranch = args["fixture-branch"];

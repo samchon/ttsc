@@ -237,6 +237,7 @@ function runAgentCell({
     `--daemon=${daemon}`,
     `--model=${resolvedModel}`,
   ];
+  if (parsed.values.question) args.push(`--question=${parsed.values.question}`);
   if (tool === "codegraph") args.push("--cg=1");
   if (codex) args.push(`--effort=${effort}`);
 
