@@ -45,7 +45,7 @@ const REPOS = {
     url: "https://github.com/nestjs/nest",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-nestjs.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Which RouterExecutionContext.create() path calls a controller handler?",
+    question: "Which RouterExecutionContext.create() path builds the handler callback?",
   },
   vue: {
     url: "https://github.com/vuejs/core",
@@ -65,7 +65,7 @@ const REPOS = {
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-typeorm.git",
     tsconfig: "tsconfig.graph.json",
     question:
-      "How are relation options applied when repository.find() builds its query?",
+      "How does Repository.find() reach FindOptionsUtils.applyRelationsRecursively?",
   },
   rxjs: {
     url: "https://github.com/ReactiveX/rxjs",
