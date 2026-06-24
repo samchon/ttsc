@@ -58,15 +58,15 @@ export function top(): number {
   server := mcp.NewServer(prog)
 
   // Forward: mid is broken, so its own diagnostic surfaces on its node.
-  midText := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"mid"}}}`)
+  midText := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"mid"}}}`)
   if !strings.Contains(midText, "diagnostics here") || !strings.Contains(midText, "TS2322") {
-    t.Fatalf("graph_explore did not surface mid's own diagnostic:\n%s", midText)
+    t.Fatalf("query_nodes did not surface mid's own diagnostic:\n%s", midText)
   }
 
   // Reverse: leaf is fine, but its blast radius reaches the broken mid — the
   // fix-safety signal read before editing leaf.
-  leafText := toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"leaf"}}}`)
+  leafText := toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"leaf"}}}`)
   if !strings.Contains(leafText, "with current errors") {
-    t.Fatalf("graph_explore did not report broken dependents in leaf's blast radius:\n%s", leafText)
+    t.Fatalf("query_nodes did not report broken dependents in leaf's blast radius:\n%s", leafText)
   }
 }

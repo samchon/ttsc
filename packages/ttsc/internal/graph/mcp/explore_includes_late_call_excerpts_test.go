@@ -10,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graph/mcp"
 )
 
-// TestExploreIncludesLateCallExcerpts verifies graph_explore keeps checker-known
+// TestExploreIncludesLateCallExcerpts verifies query_nodes keeps checker-known
 // call-flow context visible even when a long declaration body is truncated.
 //
 // Long methods are intentionally capped, but code-flow questions often need the
@@ -55,12 +55,12 @@ func TestExploreIncludesLateCallExcerpts(t *testing.T) {
   defer func() { _ = prog.Close() }()
 
   server := mcp.NewServer(prog)
-  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"lateFlow"}}}`)
+  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"lateFlow"}}}`)
   if !strings.Contains(text, "more lines)") {
-    t.Fatalf("graph_explore did not truncate the long body:\n%s", text)
+    t.Fatalf("query_nodes did not truncate the long body:\n%s", text)
   }
   if !strings.Contains(text, "call excerpts after truncated body:") ||
     !strings.Contains(text, "return helper()") {
-    t.Fatalf("graph_explore did not include the late value-call excerpt:\n%s", text)
+    t.Fatalf("query_nodes did not include the late value-call excerpt:\n%s", text)
   }
 }

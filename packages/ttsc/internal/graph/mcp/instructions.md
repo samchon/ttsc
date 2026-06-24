@@ -1,28 +1,31 @@
 # ttsc-graph
 
-A compiler-resolved graph of TypeScript relationships: calls, callers, types, ownership, blast radius. It mirrors the code, so an edit changes it; re-query after editing, not from an old result.
+A compiler-resolved graph of TypeScript relationships: calls, callers, types, ownership, blast radius. It mirrors the code; after an edit, query again, not from an old result.
 
-- **How does code connect?** Reach for `graph_explore` before grep: one broad query (owner + action + nouns); answer from its result.
-- **A file's errors, or all of them?** Call `graph_diagnostics` (omit the file for all).
-- **Graph can't answer** (no match, omitted source, non-TypeScript)? grep/read.
+- **How does code connect?** `query_nodes`: one broad query (owner + action + nouns), before grep.
+- **What is in a file?** `query_files` with the paths.
+- **A file's errors, or the whole project's?** `query_diagnostics`.
+- **No match, omitted source, or non-TypeScript?** grep/read.
 
-## Call `graph_explore` for relationship questions
+## Reach for `query_nodes` before grep
 
-**Call it first to trace how code connects:** callers, callees, type flow, ownership, blast radius.
+**Default to `query_nodes` for any relationship or code-flow question; do not fall into grep-first habits.** Repeated grep/read probes burn tokens reconstructing relationships the graph already resolved.
 
-- It returns a compiler-resolved snapshot: line-numbered source, calls, callers, types, blast radius.
+- One broad query (owner + action + domain nouns, e.g. `repository find manager query builder`) returns the matched declarations with their calls, callers, types, blast radius, and source.
+- The fuzzy match is the batch: a broad multi-noun query returns the whole cluster in one call, so you do not query one symbol at a time.
 - grep/read cannot assemble that, because the answer depends on resolved relationships, not on where a keyword appears.
 
-## Shape one broad query, not one-symbol probes
+## Outline a file with `query_files`
 
-**Put the whole flow into a single `query`: owner + action + domain nouns.** Example: `repository find manager query builder`.
+**Pass file paths to `query_files` to see their declarations as compact signatures**, one block per file, without bodies. Use it to learn a file's shape cheaply instead of reading the whole file; for a declaration's body, query its name with `query_nodes` or read the file.
 
-- Avoid lone-symbol lookups and generic navigation words; a flow-shaped query lets the graph rank the central nodes for you.
-- One well-aimed query usually beats several narrow ones, but there is no call limit.
+## Check errors with `query_diagnostics`
+
+**Pass `files` for specific files, or omit it for every current error across the project.** Each finding carries its tsc/lint code and location. `severity` keeps only errors or only warnings. Use the whole-project form after an edit to see what is now broken.
 
 ## Fall back to grep/read when the graph cannot answer
 
-**Switch to ordinary search and file reads when the graph does not fit:**
+**Switch to ordinary search and file reads only when the graph does not fit:**
 
 - No node matches the symbol.
 - The result omits source you still need.
@@ -30,16 +33,6 @@ A compiler-resolved graph of TypeScript relationships: calls, callers, types, ow
 - You need every literal occurrence of a string.
 
 `ttsc-graph` is a relationship graph, not a text index. Keyword counting and full-file dumps belong to grep and read.
-
-## Use `graph_diagnostics` to triage one file
-
-**Pass a file path (absolute, or a trailing fragment like `src/main.ts`) to get that file's errors:**
-
-- TypeScript type errors,
-- the project's `@ttsc/lint` rule violations,
-- transform-plugin (typia, nestia) findings,
-
-each with its code and location exactly as ttsc reports them. It inspects one file's problems; tracing relationships stays `graph_explore`'s job.
 
 ## Re-query freely
 
@@ -53,7 +46,8 @@ The one trap is reusing an earlier result: it predates any edit you made after i
 
 ## Final checklist
 
-- Relationship or flow question? Use `graph_explore` with one broad owner + action + noun query.
-- A file's errors, or the whole project's? Use `graph_diagnostics` with a path, or none for everything.
-- No match, omitted source, non-TypeScript, or literal text search? Use grep/read.
+- Relationship or flow question? `query_nodes` with one broad owner + action + noun query, before any grep.
+- Want a file's shape? `query_files` with its path.
+- A file's errors, or the whole project's? `query_diagnostics` with paths, or none for everything.
+- No match, omitted source, non-TypeScript, or literal text search? grep/read.
 - Edited a file since exploring? Query again; the result re-checks your edit.

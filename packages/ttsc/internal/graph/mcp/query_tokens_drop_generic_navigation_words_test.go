@@ -9,7 +9,7 @@ import (
 // queries keep domain anchors instead of generic navigation words.
 //
 // Broad code-flow questions often contain words such as "code", "method",
-// "request", or "main" that match high-degree symbols and make graph_explore
+// "request", or "main" that match high-degree symbols and make query_nodes
 // expensive before it is useful. This pins the tokenizer so prompt guidance can
 // ask for concise domain nouns without those generic terms dominating ranking.
 //

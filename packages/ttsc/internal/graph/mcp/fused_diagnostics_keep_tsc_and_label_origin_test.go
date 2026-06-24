@@ -74,7 +74,7 @@ func TestFusedDiagnosticsKeepTscAndLabelOrigin(t *testing.T) {
   }
 
   server := mcp.NewServer(prog, mcp.InjectedDiagnosticsProvider(diagPath))
-  text := toolText(t, server, fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_diagnostics","arguments":{"file":%q}}}`, "main.ts"))
+  text := toolText(t, server, fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_diagnostics","arguments":{"files":[%q]}}}`, "main.ts"))
 
   // The type error survives the injected lint finding...
   if !strings.Contains(text, "TS18048") {

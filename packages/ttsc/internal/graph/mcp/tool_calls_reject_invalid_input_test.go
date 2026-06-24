@@ -12,8 +12,8 @@ import (
 // TestToolCallsRejectInvalidInput verifies that each tools/call guard returns the
 // invalid-params code -32602 with a message naming the fault, so an agent gets an
 // actionable error instead of an empty or arbitrary result. It pins two rejection
-// guards (an unknown tool name and a blank graph_explore query) and confirms the
-// one input that is deliberately not a fault: a blank graph_diagnostics file means
+// guards (an unknown tool name and a blank query_nodes query) and confirms the
+// one input that is deliberately not a fault: a blank query_diagnostics file means
 // "the whole project", so it returns the project-wide listing, not an error.
 //
 //  1. Build the server from a minimal one-file fixture.
@@ -54,8 +54,8 @@ func TestToolCallsRejectInvalidInput(t *testing.T) {
 		t.Fatalf("unknown tool message did not name the fault: %v", unknown["message"])
 	}
 
-	// A blank graph_explore query is rejected.
-	blankQuery := errorOf(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"  "}}}`)
+	// A blank query_nodes query is rejected.
+	blankQuery := errorOf(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"  "}}}`)
 	if blankQuery["code"] != float64(-32602) {
 		t.Fatalf("blank query code was not -32602: %v", blankQuery["code"])
 	}
@@ -63,11 +63,11 @@ func TestToolCallsRejectInvalidInput(t *testing.T) {
 		t.Fatalf("blank query message did not mention non-empty: %v", blankQuery["message"])
 	}
 
-	// A blank graph_diagnostics file is not an error: it asks for the whole
+	// A blank query_diagnostics file is not an error: it asks for the whole
 	// project's diagnostics. The one-file fixture is clean, so the project-wide
 	// listing reports none rather than rejecting the call.
-	projectDiag := toolText(t, server, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"graph_diagnostics","arguments":{"file":""}}}`)
-	if !strings.Contains(projectDiag, "No diagnostics") {
+	projectDiag := toolText(t, server, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"query_diagnostics","arguments":{"files":[""]}}}`)
+	if !strings.Contains(projectDiag, "No error diagnostics") {
 		t.Fatalf("blank file did not return whole-project diagnostics: %v", projectDiag)
 	}
 }

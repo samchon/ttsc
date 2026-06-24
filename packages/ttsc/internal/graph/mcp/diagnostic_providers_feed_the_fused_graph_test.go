@@ -13,7 +13,7 @@ import (
 // uses: a diagnostic provider (standing in for the @ttsc/lint engine or a
 // transform plugin) contributes findings over the same Program, and they fuse
 // onto graph nodes exactly like the tsc diagnostics — so once a host links the
-// project's plugins, graph_explore surfaces lint and plugin violations through
+// project's plugins, query_nodes surfaces lint and plugin violations through
 // the path already exercised here, with no further change to the graph.
 func TestDiagnosticProvidersFeedTheFusedGraph(t *testing.T) {
   root := t.TempDir()
@@ -67,10 +67,10 @@ export function caller(): number {
   }
 
   server := mcp.NewServer(prog, provider)
-  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"target"}}}`)
+  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"target"}}}`)
 
   if !strings.Contains(text, "synthetic lint finding") {
-    t.Fatalf("graph_explore did not surface the injected provider diagnostic on target:\n%s", text)
+    t.Fatalf("query_nodes did not surface the injected provider diagnostic on target:\n%s", text)
   }
   // A plugin/lint code (>= 9000) renders without the "TS" prefix reserved for
   // TypeScript compiler diagnostics.

@@ -68,7 +68,7 @@ func TestInjectedBackslashPathNormalizesAndFuses(t *testing.T) {
   }
 
   server := mcp.NewServer(prog, mcp.InjectedDiagnosticsProvider(diagPath))
-  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"widget"}}}`)
+  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"widget"}}}`)
 
   if !strings.Contains(text, "lint/no-foo") {
     t.Fatalf("a backslash-pathed injected finding did not fuse (path not normalized):\n%s", text)

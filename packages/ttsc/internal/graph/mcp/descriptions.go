@@ -8,25 +8,33 @@ import (
 // Tool and schema descriptions are embedded from Markdown files so prompt
 // tuning stays reviewable text instead of long Go string literals.
 //
-//go:embed descriptions/graph_explore.md
-var graphExploreDescriptionMarkdown string
+//go:embed descriptions/query_nodes.md
+var queryNodesDescriptionMarkdown string
 
-//go:embed descriptions/graph_explore_query.md
-var graphExploreQueryDescriptionMarkdown string
+//go:embed descriptions/query_nodes_query.md
+var queryNodesQueryDescriptionMarkdown string
 
-//go:embed descriptions/graph_diagnostics.md
-var graphDiagnosticsDescriptionMarkdown string
+//go:embed descriptions/query_files.md
+var queryFilesDescriptionMarkdown string
 
-//go:embed descriptions/graph_diagnostics_file.md
-var graphDiagnosticsFileDescriptionMarkdown string
+//go:embed descriptions/query_files_locations.md
+var queryFilesLocationsDescriptionMarkdown string
 
-//go:embed descriptions/graph_diagnostics_severity.md
-var graphDiagnosticsSeverityDescriptionMarkdown string
+//go:embed descriptions/query_diagnostics.md
+var queryDiagnosticsDescriptionMarkdown string
+
+//go:embed descriptions/query_diagnostics_files.md
+var queryDiagnosticsFilesDescriptionMarkdown string
+
+//go:embed descriptions/query_diagnostics_severity.md
+var queryDiagnosticsSeverityDescriptionMarkdown string
 
 var (
-	graphExploreDescription             = strings.TrimSpace(graphExploreDescriptionMarkdown)
-	graphExploreQueryDescription        = strings.TrimSpace(graphExploreQueryDescriptionMarkdown)
-	graphDiagnosticsDescription         = strings.TrimSpace(graphDiagnosticsDescriptionMarkdown)
-	graphDiagnosticsFileDescription     = strings.TrimSpace(graphDiagnosticsFileDescriptionMarkdown)
-	graphDiagnosticsSeverityDescription = strings.TrimSpace(graphDiagnosticsSeverityDescriptionMarkdown)
+	queryNodesDescription               = strings.TrimSpace(queryNodesDescriptionMarkdown)
+	queryNodesQueryDescription          = strings.TrimSpace(queryNodesQueryDescriptionMarkdown)
+	queryFilesDescription               = strings.TrimSpace(queryFilesDescriptionMarkdown)
+	queryFilesLocationsDescription      = strings.TrimSpace(queryFilesLocationsDescriptionMarkdown)
+	queryDiagnosticsDescription         = strings.TrimSpace(queryDiagnosticsDescriptionMarkdown)
+	queryDiagnosticsFilesDescription    = strings.TrimSpace(queryDiagnosticsFilesDescriptionMarkdown)
+	queryDiagnosticsSeverityDescription = strings.TrimSpace(queryDiagnosticsSeverityDescriptionMarkdown)
 )

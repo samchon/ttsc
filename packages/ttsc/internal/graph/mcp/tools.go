@@ -10,41 +10,58 @@ import (
 	"github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
-// toolsListResult advertises the tool surface. Following codegraph's hard-won
-// lesson, graph_explore is the fat, agent-facing default that answers a
-// structural question in one round-trip; graph_diagnostics is the focused
-// "what's wrong with this file" tool.
+// toolsListResult advertises the tool surface: query_nodes is the fat,
+// agent-facing default that answers a relationship question in one round-trip;
+// query_files outlines a file's declarations; query_diagnostics is the focused
+// "what is broken" tool.
 func toolsListResult() any {
 	return map[string]any{
 		"tools": []any{
 			map[string]any{
-				"name":        "graph_explore",
-				"description": graphExploreDescription,
+				"name":        "query_nodes",
+				"description": queryNodesDescription,
 				"inputSchema": map[string]any{
 					"type": "object",
 					"properties": map[string]any{
 						"query": map[string]any{
 							"type":        "string",
-							"description": graphExploreQueryDescription,
+							"description": queryNodesQueryDescription,
 						},
 					},
 					"required": []any{"query"},
 				},
 			},
 			map[string]any{
-				"name":        "graph_diagnostics",
-				"description": graphDiagnosticsDescription,
+				"name":        "query_files",
+				"description": queryFilesDescription,
 				"inputSchema": map[string]any{
 					"type": "object",
 					"properties": map[string]any{
-						"file": map[string]any{
-							"type":        "string",
-							"description": graphDiagnosticsFileDescription,
+						"locations": map[string]any{
+							"type":        "array",
+							"items":       map[string]any{"type": "string"},
+							"description": queryFilesLocationsDescription,
+						},
+					},
+					"required": []any{"locations"},
+				},
+			},
+			map[string]any{
+				"name":        "query_diagnostics",
+				"description": queryDiagnosticsDescription,
+				"inputSchema": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"files": map[string]any{
+							"type":        "array",
+							"items":       map[string]any{"type": "string"},
+							"description": queryDiagnosticsFilesDescription,
 						},
 						"severity": map[string]any{
 							"type":        "string",
-							"enum":        []any{"error", "warning"},
-							"description": graphDiagnosticsSeverityDescription,
+							"enum":        []any{"error", "warning", "all"},
+							"default":     "error",
+							"description": queryDiagnosticsSeverityDescription,
 						},
 					},
 					"required": []any{},
@@ -74,10 +91,12 @@ func (s *Server) callTool(params json.RawMessage) (any, *rpcError) {
 		return nil, &rpcError{Code: codeInvalidParams, Message: "invalid tools/call params"}
 	}
 	switch call.Name {
-	case "graph_explore":
-		return s.explore(call.Arguments)
-	case "graph_diagnostics":
-		return s.diagnostics(call.Arguments)
+	case "query_nodes":
+		return s.queryNodes(call.Arguments)
+	case "query_files":
+		return s.queryFiles(call.Arguments)
+	case "query_diagnostics":
+		return s.queryDiagnostics(call.Arguments)
 	default:
 		return nil, &rpcError{Code: codeInvalidParams, Message: "unknown tool: " + clip(call.Name, 80)}
 	}
@@ -106,20 +125,20 @@ func textResult(text string) any {
 // broad-batching model dropped from 9 calls to 4 once a broad query returned the
 // whole cluster, while narrow drillers stay cheap per call.
 const (
-	exploreBudgetBase    = 6000
-	exploreBudgetPerTerm = 3000
-	exploreBudgetMax     = 16000
+	queryBudgetBase    = 6000
+	queryBudgetPerTerm = 3000
+	queryBudgetMax     = 16000
 )
 
-// exploreBudget returns the verbatim-source budget for a query with terms salient
+// queryBudget returns the verbatim-source budget for a query with terms salient
 // tokens: a base for the first symbol plus a per-extra-symbol increment, capped.
-func exploreBudget(terms int) int {
+func queryBudget(terms int) int {
 	if terms < 1 {
 		terms = 1
 	}
-	budget := exploreBudgetBase + exploreBudgetPerTerm*(terms-1)
-	if budget > exploreBudgetMax {
-		return exploreBudgetMax
+	budget := queryBudgetBase + queryBudgetPerTerm*(terms-1)
+	if budget > queryBudgetMax {
+		return queryBudgetMax
 	}
 	return budget
 }
@@ -132,16 +151,16 @@ const maxEdgesPerDirection = 12
 // with many errors does not flood the response; the count is still reported.
 const maxNodeDiagnostics = 5
 
-// explore returns the nodes matching a query and their checker-resolved
-// relationships: each node's incoming/outgoing edges, blast radius, and verbatim
-// line-numbered source, the last budgeted so a broad match collapses to
-// signatures rather than dumping every body.
-func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
+// queryNodes answers a relationship question: one broad fuzzy query returns the
+// matched declarations with their edges, blast radius, and budgeted source. The
+// fuzzy match is the batching mechanism, so a broad multi-noun query returns a
+// whole cluster in one call.
+func (s *Server) queryNodes(args json.RawMessage) (any, *rpcError) {
 	var in struct {
 		Query string `json:"query"`
 	}
 	if err := json.Unmarshal(args, &in); err != nil || strings.TrimSpace(in.Query) == "" {
-		return nil, &rpcError{Code: codeInvalidParams, Message: "graph_explore requires a non-empty 'query'"}
+		return nil, &rpcError{Code: codeInvalidParams, Message: "query_nodes requires a non-empty 'query'"}
 	}
 	if err := s.ensureLoaded(); err != nil {
 		return nil, &rpcError{Code: codeInternal, Message: "graph not available: " + err.Error()}
@@ -152,11 +171,49 @@ func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
 	if len(matches) == 0 {
 		return textResult(fmt.Sprintf("No graph nodes match %q.", clip(in.Query, 200))), nil
 	}
-	budget := exploreBudget(len(queryTokens(in.Query)))
+	return textResult(s.renderNodes(matches, queryBudget(len(queryTokens(in.Query))), "")), nil
+}
+
+// queryFiles outlines one or more files: each file's declarations as compact
+// signatures, one result block per requested location in input order. Bodies are
+// a query_nodes / read job.
+func (s *Server) queryFiles(args json.RawMessage) (any, *rpcError) {
+	var in struct {
+		Locations []string `json:"locations"`
+	}
+	if err := json.Unmarshal(args, &in); err != nil {
+		return nil, &rpcError{Code: codeInvalidParams, Message: "query_files: invalid arguments"}
+	}
+	locations := make([]string, 0, len(in.Locations))
+	for _, loc := range in.Locations {
+		if strings.TrimSpace(loc) != "" {
+			locations = append(locations, loc)
+		}
+	}
+	if len(locations) == 0 {
+		return nil, &rpcError{Code: codeInvalidParams, Message: "query_files requires a non-empty 'locations'"}
+	}
+	if err := s.ensureLoaded(); err != nil {
+		return nil, &rpcError{Code: codeInternal, Message: "graph not available: " + err.Error()}
+	}
+	s.refreshIfStale()
+	s.refreshDiagnostics()
+	return textBlocks(s.fileBlocks(locations)), nil
+}
+
+// renderNodes writes the standard graph view (header, each node's edges, blast
+// radius, and budgeted source) for a set of nodes, collapsing nodes past the
+// budget to a one-line signature so one call never floods the context. note is an
+// optional line prepended after the header (e.g. names that matched nothing).
+func (s *Server) renderNodes(nodes []*graph.Node, budget int, note string) string {
 	var b strings.Builder
 	b.WriteString(exploreHeader)
+	if note != "" {
+		b.WriteString(note)
+		b.WriteByte('\n')
+	}
 	collapsed := 0
-	for _, node := range matches {
+	for _, node := range nodes {
 		withSource := b.Len() < budget
 		if !withSource {
 			collapsed++
@@ -166,7 +223,53 @@ func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
 	if collapsed > 0 {
 		fmt.Fprintf(&b, "(%d further node(s) shown as signatures to fit the response budget)\n", collapsed)
 	}
-	return textResult(strings.TrimRight(b.String(), "\n")), nil
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// textBlocks wraps one text block per result item into the MCP content envelope
+// (always an object), preserving order: a multi-input call returns one content
+// block per requested name/location, in the order given, each headed with the
+// identifier it answers, so the agent can map results back to its inputs.
+func textBlocks(blocks []string) any {
+	content := make([]any, 0, len(blocks))
+	for _, t := range blocks {
+		content = append(content, map[string]any{"type": "text", "text": t})
+	}
+	return map[string]any{"content": content}
+}
+
+// fileBlocks renders one outline block per requested location, in input order,
+// each headed with the location. An outline lists a file's declarations as
+// compact signatures (kind, name, line, degree) without bodies or edges, so an
+// agent sees a file's shape cheaply; bodies are a query/Read job.
+func (s *Server) fileBlocks(locations []string) []string {
+	blocks := make([]string, 0, len(locations))
+	for _, loc := range locations {
+		var b strings.Builder
+		fmt.Fprintf(&b, "## %s\n", loc)
+		files := s.resolveFile(loc)
+		if len(files) == 0 {
+			fmt.Fprintf(&b, "No project source file matches %q.", loc)
+			blocks = append(blocks, b.String())
+			continue
+		}
+		sort.Strings(files)
+		for _, f := range files {
+			var nodes []*graph.Node
+			for _, node := range s.graph.Nodes {
+				if node.File == f {
+					nodes = append(nodes, node)
+				}
+			}
+			sort.Slice(nodes, func(i, j int) bool { return s.declLine(nodes[i]) < s.declLine(nodes[j]) })
+			fmt.Fprintf(&b, "%s (%d declarations):\n", s.relFile(f), len(nodes))
+			for _, node := range nodes {
+				fmt.Fprintf(&b, "  %s %s  :%d  (deg %d)\n", node.Kind, node.Name, s.declLine(node), s.degree[node.ID])
+			}
+		}
+		blocks = append(blocks, strings.TrimRight(b.String(), "\n"))
+	}
+	return blocks
 }
 
 // exploreHeader prefixes every graph_explore response. It carries only the steer
@@ -875,39 +978,63 @@ func formatDiagnostic(d fusedDiagnostic) string {
 // when a plugin-aware host has injected @ttsc/lint and transform-plugin findings
 // they appear here alongside the tsc errors, in the same code and location tsc
 // reports.
-func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
+func (s *Server) queryDiagnostics(args json.RawMessage) (any, *rpcError) {
 	var in struct {
-		File     string `json:"file"`
-		Severity string `json:"severity"`
+		Files    []string `json:"files"`
+		Severity string   `json:"severity"`
 	}
 	if err := json.Unmarshal(args, &in); err != nil {
-		return nil, &rpcError{Code: codeInvalidParams, Message: "graph_diagnostics: invalid arguments"}
+		return nil, &rpcError{Code: codeInvalidParams, Message: "query_diagnostics: invalid arguments"}
 	}
 	sev := strings.ToLower(strings.TrimSpace(in.Severity))
-	if sev != "" && sev != "error" && sev != "warning" {
-		return nil, &rpcError{Code: codeInvalidParams, Message: `graph_diagnostics 'severity' must be "error", "warning", or omitted`}
+	if sev == "" {
+		sev = "error"
+	}
+	if sev != "error" && sev != "warning" && sev != "all" {
+		return nil, &rpcError{Code: codeInvalidParams, Message: `query_diagnostics 'severity' must be "error", "warning", "all", or omitted`}
 	}
 	if err := s.ensureLoaded(); err != nil {
 		return nil, &rpcError{Code: codeInternal, Message: "graph not available: " + err.Error()}
 	}
 	s.refreshIfStale()
 	s.refreshDiagnostics()
-	if strings.TrimSpace(in.File) == "" {
+	locations := make([]string, 0, len(in.Files))
+	for _, f := range in.Files {
+		if strings.TrimSpace(f) != "" {
+			locations = append(locations, f)
+		}
+	}
+	// No files: the whole-project listing, one block.
+	if len(locations) == 0 {
 		return s.projectDiagnostics(sev), nil
 	}
-	matches := s.resolveFile(in.File)
+	// One block per requested file, in input order.
+	blocks := make([]string, 0, len(locations))
+	for _, loc := range locations {
+		blocks = append(blocks, s.fileDiagnosticsBlock(loc, sev))
+	}
+	return textBlocks(blocks), nil
+}
+
+// fileDiagnosticsBlock renders one file's diagnostics as a text block headed with
+// the requested location, applying the severity filter. It reports a no-match or
+// ambiguous-fragment hint instead of failing, so one bad path in a batch does not
+// sink the others.
+func (s *Server) fileDiagnosticsBlock(loc, sev string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "## %s\n", loc)
+	matches := s.resolveFile(loc)
 	switch len(matches) {
 	case 0:
-		return textResult(fmt.Sprintf("No project source file matches %q.", in.File)), nil
+		fmt.Fprintf(&b, "No project source file matches %q.", loc)
+		return b.String()
 	case 1:
-		// resolved to a single file, handled below
 	default:
-		var b strings.Builder
-		fmt.Fprintf(&b, "%q matches %d files; pass a longer path fragment to disambiguate:\n", in.File, len(matches))
+		fmt.Fprintf(&b, "%q matches %d files; pass a longer path fragment to disambiguate:\n", loc, len(matches))
 		for _, m := range matches {
-			fmt.Fprintf(&b, "  %s\n", m)
+			fmt.Fprintf(&b, "  %s\n", s.relFile(m))
 		}
-		return textResult(strings.TrimRight(b.String(), "\n")), nil
+		return strings.TrimRight(b.String(), "\n")
 	}
 	path := matches[0]
 	found := make([]fusedDiagnostic, 0)
@@ -916,17 +1043,12 @@ func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
 			found = append(found, d)
 		}
 	}
+	relPath := s.relFile(path)
 	if len(found) == 0 {
-		return textResult(fmt.Sprintf("No %sdiagnostics for %s.", severityLabel(sev), path)), nil
+		fmt.Fprintf(&b, "No %sdiagnostics for %s.", severityLabel(sev), relPath)
+		return b.String()
 	}
 	sortDiagnostics(found)
-	// Print the program-matched canonical path, not each diagnostic's own File: the
-	// findings were selected by d.File == path, so this is identical for valid data,
-	// but it keeps the printed path inside the workspace even if an injected
-	// diagnostic ever carried a stray File, and it stays consistent with the
-	// relative paths graph_explore prints.
-	relPath := s.relFile(path)
-	var b strings.Builder
 	for _, d := range found {
 		if d.fromTsc {
 			fmt.Fprintf(&b, "%s:%d:%d TS%d %s\n", relPath, d.Line, d.Column, d.Code, d.Message)
@@ -934,7 +1056,7 @@ func (s *Server) diagnostics(args json.RawMessage) (any, *rpcError) {
 			fmt.Fprintf(&b, "%s:%d:%d %s\n", relPath, d.Line, d.Column, d.Message)
 		}
 	}
-	return textResult(strings.TrimRight(b.String(), "\n")), nil
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // maxProjectDiagnostics caps the whole-project listing so a badly broken project
@@ -1007,9 +1129,10 @@ func severityMatches(d fusedDiagnostic, want string) bool {
 }
 
 // severityLabel renders the filter for a "No <label>diagnostics" message, with a
-// trailing space, or "" when unfiltered so the sentence reads naturally.
+// trailing space, or "" for the unfiltered ("all") case so the sentence reads
+// naturally.
 func severityLabel(want string) string {
-	if want == "" {
+	if want == "" || want == "all" {
 		return ""
 	}
 	return want + " "

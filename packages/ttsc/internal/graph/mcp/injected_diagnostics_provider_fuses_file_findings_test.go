@@ -15,7 +15,7 @@ import (
 // of plugin-aware diagnostics: a JSON file of host-supplied findings (the
 // @ttsc/lint and transform-plugin diagnostics the launcher computes) is read,
 // parsed, and fused onto the graph exactly like a tsc error — so once the
-// launcher writes the file, graph_explore surfaces lint and plugin violations
+// launcher writes the file, query_nodes surfaces lint and plugin violations
 // with no further change to the binary.
 func TestInjectedDiagnosticsProviderFusesFileFindings(t *testing.T) {
   root := t.TempDir()
@@ -69,10 +69,10 @@ func TestInjectedDiagnosticsProviderFusesFileFindings(t *testing.T) {
   }
 
   server := mcp.NewServer(prog, mcp.InjectedDiagnosticsProvider(diagPath))
-  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"widget"}}}`)
+  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"widget"}}}`)
 
   if !strings.Contains(text, "lint/no-foo") {
-    t.Fatalf("graph_explore did not surface the injected lint finding on widget:\n%s", text)
+    t.Fatalf("query_nodes did not surface the injected lint finding on widget:\n%s", text)
   }
   // A code-0 finding renders without a "TS" prefix.
   if strings.Contains(text, "TS0") {

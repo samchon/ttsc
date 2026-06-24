@@ -14,8 +14,8 @@ import (
 // TestServerDispatchesInitializeToolsAndCalls verifies the MCP server answers the
 // three request shapes an agent drives it with, over the resident graph: the
 // initialize handshake (echoing the protocol version and shipping guidance), the
-// tools/list advertisement, and tools/call for both graph_explore (relationship
-// map) and graph_diagnostics (tsc errors). It also confirms a notification (no
+// tools/list advertisement, and tools/call for both query_nodes (relationship
+// map) and query_diagnostics (tsc errors). It also confirms a notification (no
 // id) draws no reply.
 //
 //  1. Compile a fixture with a heritage edge (Sub extends Base) and a type error.
@@ -60,7 +60,7 @@ export const bad: number = "not a number";
   if info, _ := init["serverInfo"].(map[string]any); info == nil || info["name"] != "ttsc-graph" {
     t.Fatalf("initialize serverInfo missing or wrong: %v", init["serverInfo"])
   }
-  if text, _ := init["instructions"].(string); !strings.Contains(text, "graph_explore") {
+  if text, _ := init["instructions"].(string); !strings.Contains(text, "query_nodes") {
     t.Fatalf("initialize did not ship server instructions: %v", init["instructions"])
   }
 
@@ -72,41 +72,41 @@ export const bad: number = "not a number";
   // tools/list advertises both tools.
   list := result(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
   names := toolNames(t, list)
-  if !names["graph_explore"] || !names["graph_diagnostics"] {
+  if !names["query_nodes"] || !names["query_files"] || !names["query_diagnostics"] {
     t.Fatalf("tools/list missing expected tools: %v", names)
   }
   tools := toolsByName(t, list)
-  explore := tools["graph_explore"]
-  if desc, _ := explore["description"].(string); !strings.Contains(desc, "Call once first for code-flow questions") {
-    t.Fatalf("graph_explore did not use the embedded description: %v", desc)
+  nodes := tools["query_nodes"]
+  if desc, _ := nodes["description"].(string); !strings.Contains(desc, "One broad fuzzy query") {
+    t.Fatalf("query_nodes did not use the embedded description: %v", desc)
   }
-  exploreSchema := explore["inputSchema"].(map[string]any)
-  exploreProperties := exploreSchema["properties"].(map[string]any)
-  queryProperty := exploreProperties["query"].(map[string]any)
-  if desc, _ := queryProperty["description"].(string); !strings.Contains(desc, "Whole flow in one broad query") {
-    t.Fatalf("graph_explore query did not use the embedded description: %v", desc)
+  nodesSchema := nodes["inputSchema"].(map[string]any)
+  nodesProperties := nodesSchema["properties"].(map[string]any)
+  queryProperty := nodesProperties["query"].(map[string]any)
+  if desc, _ := queryProperty["description"].(string); !strings.Contains(desc, "broad search, not one symbol") {
+    t.Fatalf("query_nodes query did not use the embedded description: %v", desc)
   }
-  diagnostics := tools["graph_diagnostics"]
+  diagnostics := tools["query_diagnostics"]
   if desc, _ := diagnostics["description"].(string); !strings.Contains(desc, "exactly as ttsc reports them") {
-    t.Fatalf("graph_diagnostics did not use the embedded description: %v", desc)
+    t.Fatalf("query_diagnostics did not use the embedded description: %v", desc)
   }
   diagnosticsSchema := diagnostics["inputSchema"].(map[string]any)
   diagnosticsProperties := diagnosticsSchema["properties"].(map[string]any)
-  fileProperty := diagnosticsProperties["file"].(map[string]any)
-  if desc, _ := fileProperty["description"].(string); !strings.Contains(desc, "src/main.ts") {
-    t.Fatalf("graph_diagnostics file did not use the embedded description: %v", desc)
+  filesProperty := diagnosticsProperties["files"].(map[string]any)
+  if desc, _ := filesProperty["description"].(string); !strings.Contains(desc, "src/main.ts") {
+    t.Fatalf("query_diagnostics files did not use the embedded description: %v", desc)
   }
 
-  // graph_explore renders the heritage relationship for Sub.
-  exploreText := toolText(t, server, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"Sub"}}}`)
+  // query_nodes renders the heritage relationship for Sub.
+  exploreText := toolText(t, server, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"Sub"}}}`)
   if !strings.Contains(exploreText, "Sub") || !strings.Contains(exploreText, "Base") || !strings.Contains(exploreText, "heritage") {
-    t.Fatalf("graph_explore did not render the Sub -> Base heritage edge:\n%s", exploreText)
+    t.Fatalf("query_nodes did not render the Sub -> Base heritage edge:\n%s", exploreText)
   }
 
-  // graph_diagnostics surfaces the type error with its tsc code.
-  diag := toolText(t, server, `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"graph_diagnostics","arguments":{"file":"src/main.ts"}}}`)
+  // query_diagnostics surfaces the type error with its tsc code.
+  diag := toolText(t, server, `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"query_diagnostics","arguments":{"files":["src/main.ts"]}}}`)
   if !strings.Contains(diag, "TS2322") {
-    t.Fatalf("graph_diagnostics did not surface the TS2322 error:\n%s", diag)
+    t.Fatalf("query_diagnostics did not surface the TS2322 error:\n%s", diag)
   }
 
   // An unknown method is a JSON-RPC error, not a crash.

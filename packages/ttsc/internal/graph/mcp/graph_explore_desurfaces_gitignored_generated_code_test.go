@@ -58,7 +58,7 @@ export class AppService {
 	// Broad match: the generated class is de-surfaced, so its body is not dumped
 	// as a primary node. Its name may still appear as an edge target of the app
 	// code, which is the point: reachable, not dominant. The authored code ranks.
-	broad := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"client service"}}}`)
+	broad := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"client service"}}}`)
 	if strings.Contains(broad, "run(): number") {
 		t.Fatalf("git-ignored generated body was dumped as a primary match:\n%s", broad)
 	}
@@ -67,7 +67,7 @@ export class AppService {
 	}
 
 	// Exact name still reaches it, body and all.
-	exact := toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"ZzzGeneratedClient"}}}`)
+	exact := toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"ZzzGeneratedClient"}}}`)
 	if !strings.Contains(exact, "run(): number") {
 		t.Fatalf("exact-name query did not reach the git-ignored class body:\n%s", exact)
 	}

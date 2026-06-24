@@ -9,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graph/mcp"
 )
 
-// TestGraphExploreReturnsSourceAndBlastRadius verifies the fat graph_explore tool
+// TestGraphExploreReturnsSourceAndBlastRadius verifies the fat query_nodes tool
 // answers a structural question in one round-trip: it returns the matched node's
 // verbatim line-numbered source, its checker-resolved incoming call edge, and a
 // blast-radius count of transitive dependents, so an agent can stop instead of
@@ -57,15 +57,15 @@ export function top(): number {
   defer func() { _ = prog.Close() }()
 
   server := mcp.NewServer(prog)
-  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"leaf"}}}`)
+  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"leaf"}}}`)
 
   if !strings.Contains(text, "function leaf") {
-    t.Fatalf("graph_explore did not return verbatim source for leaf:\n%s", text)
+    t.Fatalf("query_nodes did not return verbatim source for leaf:\n%s", text)
   }
   if !strings.Contains(text, "value-call") {
-    t.Fatalf("graph_explore did not show the incoming call edge from mid:\n%s", text)
+    t.Fatalf("query_nodes did not show the incoming call edge from mid:\n%s", text)
   }
   if !strings.Contains(text, "blast radius: 2") {
-    t.Fatalf("graph_explore did not report 2 transitive dependents for leaf:\n%s", text)
+    t.Fatalf("query_nodes did not report 2 transitive dependents for leaf:\n%s", text)
   }
 }

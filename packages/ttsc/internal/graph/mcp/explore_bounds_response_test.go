@@ -10,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graph/mcp"
 )
 
-// TestExploreBoundsResponse verifies that graph_explore enforces its three render
+// TestExploreBoundsResponse verifies that query_nodes enforces its three render
 // budgets so one query cannot flood an agent's context: a long body is truncated
 // to maxSourceLines (32) with a "more lines" tail, a node with more than
 // maxEdgesPerDirection (12) incoming edges gets a "more" tail, and once the
@@ -80,21 +80,21 @@ func TestExploreBoundsResponse(t *testing.T) {
   server := mcp.NewServer(prog)
 
   // (a) A 40-line body is truncated with a "more lines" tail.
-  big := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"bigBody"}}}`)
+  big := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"bigBody"}}}`)
   if !strings.Contains(big, "more lines)") {
-    t.Fatalf("graph_explore did not truncate the long body:\n%s", big)
+    t.Fatalf("query_nodes did not truncate the long body:\n%s", big)
   }
 
   // (b) A node with 17 incoming edges carries a "<- (5 more)" tail: 17 minus the
   // 12-edge cap, and the direction (incoming) is pinned, not just any "more".
-  hub := toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"Hub"}}}`)
+  hub := toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"Hub"}}}`)
   if !strings.Contains(hub, "<- (5 more)") {
-    t.Fatalf("graph_explore did not cap the incoming edges at 12 with a '<- (5 more)' tail:\n%s", hub)
+    t.Fatalf("query_nodes did not cap the incoming edges at 12 with a '<- (5 more)' tail:\n%s", hub)
   }
 
   // (c) Three large bodies cross the char budget, collapsing later matches.
-  process := toolText(t, server, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"alpha beta gamma delta epsilon zeta"}}}`)
+  process := toolText(t, server, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"alpha beta gamma delta epsilon zeta"}}}`)
   if !strings.Contains(process, "shown as signatures to fit the response budget") {
-    t.Fatalf("graph_explore did not collapse later matches to signatures:\n%s", process)
+    t.Fatalf("query_nodes did not collapse later matches to signatures:\n%s", process)
   }
 }

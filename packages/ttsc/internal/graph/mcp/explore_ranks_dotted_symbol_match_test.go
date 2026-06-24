@@ -9,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graph/mcp"
 )
 
-// TestExploreRanksDottedSymbolMatch verifies graph_explore prefers a full dotted
+// TestExploreRanksDottedSymbolMatch verifies query_nodes prefers a full dotted
 // symbol mentioned in a natural-language query over same-owner siblings.
 //
 // Benchmark prompts often name methods as `Owner.method()`. Splitting only into
@@ -57,32 +57,32 @@ export class ShoppingOrderProvider {
   defer func() { _ = prog.Close() }()
 
   server := mcp.NewServer(prog)
-  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"ShoppingOrderProvider.create order path"}}}`)
+  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"ShoppingOrderProvider.create order path"}}}`)
 
   createAt := strings.Index(text, "method ShoppingOrderProvider.create")
   atAt := strings.Index(text, "method ShoppingOrderProvider.at")
   if createAt < 0 {
-    t.Fatalf("graph_explore did not return ShoppingOrderProvider.create:\n%s", text)
+    t.Fatalf("query_nodes did not return ShoppingOrderProvider.create:\n%s", text)
   }
   classAt := strings.Index(text, "class ShoppingOrderProvider")
   if classAt >= 0 && classAt < createAt {
-    t.Fatalf("graph_explore ranked owner class before dotted method match:\n%s", text)
+    t.Fatalf("query_nodes ranked owner class before dotted method match:\n%s", text)
   }
   if atAt >= 0 && atAt < createAt {
-    t.Fatalf("graph_explore ranked sibling method before dotted symbol match:\n%s", text)
+    t.Fatalf("query_nodes ranked sibling method before dotted symbol match:\n%s", text)
   }
 
-  text = toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"ShoppingOrderProvider create method"}}}`)
+  text = toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"ShoppingOrderProvider create method"}}}`)
   createAt = strings.Index(text, "method ShoppingOrderProvider.create")
   atAt = strings.Index(text, "method ShoppingOrderProvider.at")
   if createAt < 0 {
-    t.Fatalf("graph_explore did not return ShoppingOrderProvider.create for natural method query:\n%s", text)
+    t.Fatalf("query_nodes did not return ShoppingOrderProvider.create for natural method query:\n%s", text)
   }
   classAt = strings.Index(text, "class ShoppingOrderProvider")
   if classAt >= 0 && classAt < createAt {
-    t.Fatalf("graph_explore ranked owner class before natural method match:\n%s", text)
+    t.Fatalf("query_nodes ranked owner class before natural method match:\n%s", text)
   }
   if atAt >= 0 && atAt < createAt {
-    t.Fatalf("graph_explore ranked sibling method before natural method match:\n%s", text)
+    t.Fatalf("query_nodes ranked sibling method before natural method match:\n%s", text)
   }
 }

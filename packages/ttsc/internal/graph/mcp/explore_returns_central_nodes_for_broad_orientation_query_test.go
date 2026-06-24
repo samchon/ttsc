@@ -15,7 +15,7 @@ import (
 //
 // A natural new-developer prompt contains mostly generic words such as
 // "orientation", "entry points", and "execution flow". If those words drive name
-// matching, graph_explore either returns nothing or arbitrary symbols. The
+// matching, query_nodes either returns nothing or arbitrary symbols. The
 // fallback should instead return central project nodes so the agent can answer
 // from one graph snapshot.
 //
@@ -63,19 +63,19 @@ export function start(): number {
   defer func() { _ = prog.Close() }()
 
   server := mcp.NewServer(prog)
-  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"I'm new to this TypeScript project and only have a few minutes. Give me a practical codebase orientation: the main subsystems, the best entry points to start reading, and one representative execution flow that shows how the pieces fit together."}}}`)
+  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"I'm new to this TypeScript project and only have a few minutes. Give me a practical codebase orientation: the main subsystems, the best entry points to start reading, and one representative execution flow that shows how the pieces fit together."}}}`)
 
   if !strings.Contains(text, "function route") {
-    t.Fatalf("graph_explore did not return central nodes for broad orientation query:\n%s", text)
+    t.Fatalf("query_nodes did not return central nodes for broad orientation query:\n%s", text)
   }
 
-  text = toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"entry point main benchmark TypeORM"}}}`)
+  text = toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"entry point main benchmark TypeORM"}}}`)
   if !strings.Contains(text, "function route") {
-    t.Fatalf("graph_explore matched package-name noise instead of central nodes:\n%s", text)
+    t.Fatalf("query_nodes matched package-name noise instead of central nodes:\n%s", text)
   }
 
-  text = toolText(t, server, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"public entry point exports benchmark"}}}`)
+  text = toolText(t, server, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"public entry point exports benchmark"}}}`)
   if !strings.Contains(text, "function route") {
-    t.Fatalf("graph_explore did not return central nodes for public entry flow query:\n%s", text)
+    t.Fatalf("query_nodes did not return central nodes for public entry flow query:\n%s", text)
   }
 }

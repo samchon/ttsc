@@ -10,7 +10,7 @@ import (
 )
 
 // TestGraphDiagnosticsWithoutFileListsWholeProject verifies that calling
-// graph_diagnostics with no file returns every current diagnostic across the
+// query_diagnostics with no file returns every current diagnostic across the
 // project, grouped by file, instead of requiring one path.
 //
 // This is the post-edit "what is broken now" check: after a change an agent
@@ -19,7 +19,7 @@ import (
 // keeps each finding's tsc code, so the listing is actionable.
 //
 //  1. Build the server from a two-file fixture where both files have a type error.
-//  2. Call graph_diagnostics with empty arguments (no file).
+//  2. Call query_diagnostics with empty arguments (no file).
 //  3. Assert the result names both files, both TS2322 codes, and the count header.
 func TestGraphDiagnosticsWithoutFileListsWholeProject(t *testing.T) {
 	root := t.TempDir()
@@ -44,7 +44,7 @@ func TestGraphDiagnosticsWithoutFileListsWholeProject(t *testing.T) {
 	defer func() { _ = prog.Close() }()
 	server := mcp.NewServer(prog)
 
-	text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_diagnostics","arguments":{}}}`)
+	text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_diagnostics","arguments":{}}}`)
 
 	for _, want := range []string{"a.ts", "b.ts", "TS2322", "across 2 file"} {
 		if !strings.Contains(text, want) {

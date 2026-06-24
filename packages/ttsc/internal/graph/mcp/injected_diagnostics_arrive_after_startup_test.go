@@ -60,7 +60,7 @@ func TestInjectedDiagnosticsArriveAfterStartup(t *testing.T) {
   diagPath := filepath.Join(root, "lint-diagnostics.json")
   server := mcp.NewServer(prog, mcp.InjectedDiagnosticsProvider(diagPath))
 
-  before := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"widget"}}}`)
+  before := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"widget"}}}`)
   if strings.Contains(before, "lint/late-rule") {
     t.Fatalf("injected diagnostic surfaced before its file was written:\n%s", before)
   }
@@ -74,7 +74,7 @@ func TestInjectedDiagnosticsArriveAfterStartup(t *testing.T) {
     t.Fatal(err)
   }
 
-  after := toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"widget"}}}`)
+  after := toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"widget"}}}`)
   if !strings.Contains(after, "lint/late-rule") {
     t.Fatalf("late-arriving injected diagnostic was not picked up on the next query:\n%s", after)
   }

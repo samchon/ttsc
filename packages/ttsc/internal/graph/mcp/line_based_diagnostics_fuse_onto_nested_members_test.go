@@ -86,9 +86,9 @@ export function caller(): number {
 
   // Exploring the CLASS surfaces the finding that lands on its method (roll-up),
   // even though the finding has no byte offset (line-based attribution).
-  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"Service"}}}`)
+  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"Service"}}}`)
   if !strings.Contains(text, "no-explicit-any") {
-    t.Fatalf("graph_explore on the class did not surface the line-attributed finding on its method:\n%s", text)
+    t.Fatalf("query_nodes on the class did not surface the line-attributed finding on its method:\n%s", text)
   }
   if strings.Contains(text, "TS9123") {
     t.Fatalf("plugin-coded finding rendered with a TS prefix:\n%s", text)
