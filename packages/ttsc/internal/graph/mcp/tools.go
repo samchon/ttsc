@@ -245,6 +245,27 @@ func containsWholeWord(words map[string]bool, value string) bool {
   return words[strings.ToLower(value)]
 }
 
+func dottedNameParts(name string) (string, string, bool) {
+  dot := strings.LastIndexByte(name, '.')
+  if dot <= 0 || dot == len(name)-1 {
+    return "", "", false
+  }
+  owner := name[:dot]
+  if ownerDot := strings.LastIndexByte(owner, '.'); ownerDot >= 0 {
+    owner = owner[ownerDot+1:]
+  }
+  return strings.ToLower(owner), strings.ToLower(name[dot+1:]), true
+}
+
+func hasNonOwnerToken(tokens []string, owner string) bool {
+  for _, token := range tokens {
+    if token != owner {
+      return true
+    }
+  }
+  return false
+}
+
 func containsMemberWord(words map[string]bool, member string) bool {
   member = strings.ToLower(member)
   if words[member] {
@@ -254,7 +275,7 @@ func containsMemberWord(words map[string]bool, member string) bool {
     if len(word) >= 5 && strings.Contains(member, word) {
       return true
     }
-    if len(member) >= 5 && strings.Contains(word, member) {
+    if len(member) >= 8 && strings.Contains(word, member) {
       return true
     }
   }
@@ -262,19 +283,30 @@ func containsMemberWord(words map[string]bool, member string) bool {
 }
 
 func naturalDottedScore(name string, words map[string]bool) int {
-  dot := strings.LastIndexByte(name, '.')
-  if dot <= 0 || dot == len(name)-1 {
+  owner, member, ok := dottedNameParts(name)
+  if !ok {
     return 0
   }
-  owner := name[:dot]
-  if ownerDot := strings.LastIndexByte(owner, '.'); ownerDot >= 0 {
-    owner = owner[ownerDot+1:]
-  }
-  member := name[dot+1:]
   if !containsWholeWord(words, owner) || !containsMemberWord(words, member) {
     return 0
   }
   return 650
+}
+
+func containsSymbolPhrase(text string, name string) bool {
+  start := 0
+  for {
+    idx := strings.Index(text[start:], name)
+    if idx < 0 {
+      return false
+    }
+    idx += start
+    end := idx + len(name)
+    if isIdentifierBoundary(text, idx-1) && isIdentifierBoundary(text, end) {
+      return true
+    }
+    start = end
+  }
 }
 
 // matchNodes ranks declarations by relevance to query, which may be a symbol name
@@ -299,6 +331,8 @@ func (s *Server) matchNodes(query string) []*graph.Node {
   ranked := make([]scored, 0)
   for _, node := range s.graph.Nodes {
     name := strings.ToLower(node.Name)
+    owner, _, dottedName := dottedNameParts(name)
+    skipOwnerOnly := dottedName && hasNonOwnerToken(tokens, owner)
     score := 0
     dotted := false
     if name == whole {
@@ -310,10 +344,13 @@ func (s *Server) matchNodes(query string) []*graph.Node {
     } else if naturalScore := naturalDottedScore(name, words); naturalScore > 0 {
       score += naturalScore
       dotted = true
-    } else if len(name) >= 8 && strings.Contains(whole, name) {
+    } else if len(name) >= 8 && containsSymbolPhrase(whole, name) {
       score += 500
     }
     for _, token := range tokens {
+      if skipOwnerOnly && token == owner {
+        continue
+      }
       switch {
       case name == token:
         score += 100
@@ -722,7 +759,7 @@ func containsCallLike(line string, member string) bool {
 }
 
 func isIdentifierBoundary(line string, idx int) bool {
-  if idx < 0 {
+  if idx < 0 || idx >= len(line) {
     return true
   }
   c := line[idx]
