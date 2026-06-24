@@ -265,6 +265,18 @@ console.log(
 );
 console.log(`Q: ${question}\n`);
 
+const reportName = `agent-ab-report${guidance ? "-guided" : ""}.json`;
+const reportPath = args.report
+  ? path.resolve(args.report)
+  : path.join(here, reportName);
+const traceDir = args["trace-dir"]
+  ? path.resolve(args["trace-dir"])
+  : path.join(
+      path.dirname(reportPath),
+      `${path.basename(reportPath, path.extname(reportPath))}.traces`,
+    );
+fs.mkdirSync(traceDir, { recursive: true });
+
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
 let spent = 0;
 try {
@@ -272,7 +284,7 @@ try {
     setGuidance(arm.guide);
     const prompt = arm.guide ? GUIDED_PREFIX + question : question;
     for (let r = 0; r < runs; r++) {
-      const m = runClaude(prompt, arm.cfg);
+      const m = runClaude(prompt, arm.cfg, arm.name, r + 1);
       samples[arm.name].push(m);
       spent += m.cost;
       console.log(
@@ -309,12 +321,10 @@ line("cost", "cost", (x) => `$${x.toFixed(3)}`);
 line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 
-const reportName = `agent-ab-report${guidance ? "-guided" : ""}.json`;
-const reportPath = args.report ? path.resolve(args.report) : path.join(here, reportName);
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, daemon: useDaemon, runs, guidance, question, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, daemon: useDaemon, runs, guidance, question, traceDir, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 try {
@@ -371,7 +381,7 @@ function syncSleep(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-function runClaude(question, cfg) {
+function runClaude(question, cfg, armName, runNumber) {
   const result = cp.spawnSync(
     "claude",
     [
@@ -402,7 +412,12 @@ function runClaude(question, cfg) {
     },
   );
   if (result.error) throw result.error;
-  return parseStream(result.stdout ?? "");
+  const stdout = result.stdout ?? "";
+  const stderr = result.stderr ?? "";
+  const base = `${armName}-run-${runNumber}`;
+  fs.writeFileSync(path.join(traceDir, `${base}.stream.jsonl`), stdout);
+  if (stderr) fs.writeFileSync(path.join(traceDir, `${base}.stderr.log`), stderr);
+  return parseStream(stdout);
 }
 
 function codegraphServerConfig(targetRepoDir) {

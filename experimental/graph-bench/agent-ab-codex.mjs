@@ -263,13 +263,25 @@ console.log(
 );
 console.log(`Q: ${question}\n`);
 
+const reportName = `agent-ab-codex-report${guidance ? "-guided" : ""}.json`;
+const reportPath = args.report
+  ? path.resolve(args.report)
+  : path.join(here, reportName);
+const traceDir = args["trace-dir"]
+  ? path.resolve(args["trace-dir"])
+  : path.join(
+      path.dirname(reportPath),
+      `${path.basename(reportPath, path.extname(reportPath))}.traces`,
+    );
+fs.mkdirSync(traceDir, { recursive: true });
+
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
 try {
   for (const arm of arms) {
     setGuidance(arm.guide);
     const prompt = arm.guide ? GUIDED_PREFIX + question : question;
     for (let r = 0; r < runs; r++) {
-      const m = runCodex(prompt, arm.home);
+      const m = runCodex(prompt, arm.home, arm.name, r + 1);
       samples[arm.name].push(m);
       console.log(
         `  ${arm.name.padEnd(8)} run ${r + 1}: ${m.tokens} tok, ${m.tools} tools ` +
@@ -305,12 +317,10 @@ line("tokens", "tokens");
 line("tool calls", "tools");
 line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 
-const reportName = `agent-ab-codex-report${guidance ? "-guided" : ""}.json`;
-const reportPath = args.report ? path.resolve(args.report) : path.join(here, reportName);
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, effort, daemon: useDaemon, runs, guidance, question, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, effort, daemon: useDaemon, runs, guidance, question, traceDir, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 cleanup([binary, withHome, withoutHome]);
@@ -350,7 +360,7 @@ function codegraphServerArgs(targetRepoDir) {
     : args;
 }
 
-function runCodex(question, codexHome) {
+function runCodex(question, codexHome, armName, runNumber) {
   const start = Date.now();
   const result = cp.spawnSync(
     "codex",
@@ -374,7 +384,12 @@ function runCodex(question, codexHome) {
     },
   );
   if (result.error) throw result.error;
-  return parseStream(result.stdout ?? "", Date.now() - start);
+  const stdout = result.stdout ?? "";
+  const stderr = result.stderr ?? "";
+  const base = `${armName}-run-${runNumber}`;
+  fs.writeFileSync(path.join(traceDir, `${base}.stream.jsonl`), stdout);
+  if (stderr) fs.writeFileSync(path.join(traceDir, `${base}.stderr.log`), stderr);
+  return parseStream(stdout, Date.now() - start);
 }
 
 // parseStream sums per-turn usage (input + output) across turn.completed events,
