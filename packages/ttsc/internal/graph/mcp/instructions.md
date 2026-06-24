@@ -4,6 +4,6 @@
 - Query named symbols/files/domain nouns; avoid generic words.
 - Broad query: synthesize from first relevant result.
 - Re-query only for missing symbol/file, narrower follow-up, or edits.
-- Do not chase every edge; avoid duplicate graph/read calls.
+- Use edge locations for flow; avoid duplicate graph/read calls.
 - Read only for no match, non-TS, edited source, or missing context.
 - Use diagnostics for file errors.

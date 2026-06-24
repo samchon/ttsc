@@ -171,8 +171,8 @@ func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
 // deliberately stops short of "never read source", because a budget-collapsed or
 // external node is shown as a signature with no body, and opening that file is
 // legitimate; what adds no precision is re-reading a path printed in full above.
-const exploreHeader = "Compiler-resolved graph snapshot. Answer from this result; do not chase every edge. " +
-  "Do not shell/grep/read returned source. Call graph_explore again only for no match, missing symbols, or source edits.\n\n"
+const exploreHeader = "Compiler-resolved graph snapshot. Edge locations support code-flow summaries; do not expand every edge. " +
+  "Do not shell/grep/read returned source. Re-query only for no match, missing source body, or source edits.\n\n"
 
 // maxExploreNodes caps how many ranked nodes a query returns, so a broad
 // keyword query surfaces the most relevant declarations without flooding context.

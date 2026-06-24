@@ -77,7 +77,7 @@ export const bad: number = "not a number";
   }
   tools := toolsByName(t, list)
   explore := tools["graph_explore"]
-  if desc, _ := explore["description"].(string); !strings.Contains(desc, "do not chase every returned edge") {
+  if desc, _ := explore["description"].(string); !strings.Contains(desc, "Edge locations are usable evidence") {
     t.Fatalf("graph_explore did not use the embedded description: %v", desc)
   }
   exploreSchema := explore["inputSchema"].(map[string]any)
