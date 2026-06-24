@@ -474,12 +474,21 @@ func flowHelperNoise(node *graph.Node, query string, words map[string]bool) bool
   case strings.HasPrefix(member, "reject"):
     return !words["reject"] && !words["rejects"] && !words["rejected"]
   case strings.HasPrefix(member, "get"):
+    if strings.Contains(member, "jointype") {
+      return !wantsJoinType(words)
+    }
     return !words["get"] && !words["gets"] && !(strings.Contains(member, "join") && (words["join"] || words["joins"]))
   case strings.Contains(member, "eager"):
     return !words["eager"]
   default:
     return false
   }
+}
+
+func wantsJoinType(words map[string]bool) bool {
+  return words["type"] || words["types"] || words["inner"] || words["left"] ||
+    words["nullable"] || words["nullability"] || words["withdeleted"] ||
+    words["deleted"]
 }
 
 // maxPathNodes caps how many downstream call-path nodes a flow query pulls in

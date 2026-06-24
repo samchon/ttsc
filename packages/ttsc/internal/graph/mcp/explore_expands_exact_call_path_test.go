@@ -92,8 +92,13 @@ export class QueryBuilder {
 
   protected buildRelations(relations: Record<string, boolean>): void {
     for (const relationName of Object.keys(relations)) {
+      void this.getRelationJoinType();
       this.join(relationName);
     }
+  }
+
+  protected getRelationJoinType(): "inner" | "left" {
+    return "inner";
   }
 
   protected join(relationName: string): void {
@@ -174,6 +179,7 @@ export interface FindOptions {
     for _, noisy := range []string{
       "\nmethod Repository.findAndCount",
       "\nmethod Repository.query",
+      "\nmethod QueryBuilder.getRelationJoinType",
     } {
       if strings.Contains(text, noisy) {
         t.Fatalf("query_nodes rendered noisy sibling %s for query %q:\n%s", noisy, query, text)

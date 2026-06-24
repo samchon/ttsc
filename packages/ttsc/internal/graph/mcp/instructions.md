@@ -19,7 +19,7 @@ A compiler-resolved graph of TypeScript relationships: calls, callers, types, ow
 
 ## Expand exact nodes with `expand_nodes`
 
-**Use `expand_nodes` when `query_nodes` or `query_files` printed the right TypeScript declaration handle but not enough body.** It is deterministic: no fuzzy ranking, no file search, just the graph node(s) you named. `mode: "source"` returns declarations with relationships and a wider source window than discovery; `mode: "flow"` expands downstream value-call/value-access path nodes from those exact starting nodes.
+**Use `expand_nodes` when `query_nodes` or `query_files` printed the right TypeScript declaration handle but not enough body.** It is deterministic: no fuzzy ranking, no file search, just the graph node(s) you named. For call-path, relation-flow, lifecycle, dispatch, or "how does X reach Y" questions, prefer `mode: "flow"` from the printed handle(s); it stays on downstream value-call/value-access path evidence. Use `mode: "source"` when you need a wider body window for one specific declaration.
 
 ## Roster a file with `query_files`
 
