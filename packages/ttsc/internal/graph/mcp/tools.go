@@ -245,19 +245,12 @@ func containsWholeWord(words map[string]bool, value string) bool {
   return words[strings.ToLower(value)]
 }
 
-var naturalMemberStopwords = map[string]bool{
-  "option": true, "options": true, "query": true, "queries": true,
-}
-
 func containsMemberWord(words map[string]bool, member string) bool {
   member = strings.ToLower(member)
-  if words[member] && !naturalMemberStopwords[member] {
+  if words[member] {
     return true
   }
   for word := range words {
-    if naturalMemberStopwords[word] {
-      continue
-    }
     if len(word) >= 5 && strings.Contains(member, word) {
       return true
     }
