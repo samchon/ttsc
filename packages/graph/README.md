@@ -36,9 +36,9 @@ Code from `node_modules` is left out, since that is not your code.
 
 On a public benchmark, a Claude agent answered while reading zero files, cutting its token use by **77% to 86%** and its tool calls by **94% to 95%**. See the [benchmark](https://ttsc.dev/docs/benchmark/graph) for the full numbers.
 
-You can also browse the whole graph in 3D. This is vscode, 6,093 files, rendered as a navigable ontology, colored by declaration kind and edge kind (open the [live viewer](https://ttsc.dev/docs/graph/viewer) to orbit it):
+You can also browse the whole graph in 3D. This is TypeORM rendered as a navigable ontology, colored by declaration kind and edge kind (open the [live viewer](https://ttsc.dev/docs/graph/viewer) to orbit it):
 
-[![The vscode code graph rendered in 3D](https://ttsc.dev/graph/vscode-preview.png)](https://ttsc.dev/docs/graph/viewer)
+[![The TypeORM code graph rendered in 3D](https://ttsc.dev/graph/typeorm-preview.png)](https://ttsc.dev/docs/graph/viewer)
 
 ## Install
 
