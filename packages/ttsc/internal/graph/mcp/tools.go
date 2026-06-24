@@ -184,7 +184,8 @@ func (s *Server) queryNodes(args json.RawMessage) (any, *rpcError) {
 	if len(matches) == 0 {
 		return textResult(fmt.Sprintf("No graph nodes match %q.", clip(in.Query, 200))), nil
 	}
-	return textResult(s.renderNodes(matches, queryBudget(len(queryTokens(in.Query))), "")), nil
+	nodes := s.withCallPath(matches, maxPathNodes)
+	return textResult(s.renderNodes(nodes, queryBudget(len(queryTokens(in.Query))), "")), nil
 }
 
 // queryFiles renders a roster for one or more files: each file's adjacent files
@@ -238,6 +239,59 @@ func (s *Server) renderNodes(nodes []*graph.Node, budget int, note string) strin
 		fmt.Fprintf(&b, "(%d further node(s) shown as signatures to fit the response budget)\n", collapsed)
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// maxPathNodes caps how many downstream call-path nodes a flow query pulls in
+// beyond its direct matches, so one query returns the chain without a hub
+// exploding the response. The render budget collapses the tail past it.
+const maxPathNodes = 12
+
+// withCallPath appends to the matched seeds the declarations downstream of them
+// along value-call edges (the runtime call flow), breadth-first and bounded, so a
+// single flow query returns the chain (e.g. Repository -> EntityManager ->
+// SelectQueryBuilder -> QueryRunner) instead of forcing a follow-up query per hop.
+// Seeds, external nodes, and anything past the depth or node caps are skipped, and
+// the breadth-first order keeps the immediate next hops first so they render with
+// their bodies before the budget collapses the rest.
+func (s *Server) withCallPath(seeds []*graph.Node, max int) []*graph.Node {
+	const maxDepth = 5
+	inSet := make(map[string]bool, len(seeds))
+	depth := make(map[string]int, len(seeds))
+	queue := make([]string, 0, len(seeds))
+	for _, n := range seeds {
+		inSet[n.ID] = true
+		depth[n.ID] = 0
+		queue = append(queue, n.ID)
+	}
+	out := append([]*graph.Node(nil), seeds...)
+	added := 0
+	for len(queue) > 0 && added < max {
+		cur := queue[0]
+		queue = queue[1:]
+		if depth[cur] >= maxDepth {
+			continue
+		}
+		for _, to := range s.forwardCallAdj[cur] {
+			if inSet[to] {
+				continue
+			}
+			node := s.graph.Nodes[to]
+			// Skip external and git-ignored (generated) targets: the call path stays
+			// in authored code, the same de-surfacing the matcher applies, so one
+			// query does not dump a Prisma client body the agent did not ask for.
+			if node == nil || node.External || s.ignored[node.File] {
+				continue
+			}
+			inSet[to] = true
+			depth[to] = depth[cur] + 1
+			out = append(out, node)
+			queue = append(queue, to)
+			if added++; added >= max {
+				break
+			}
+		}
+	}
+	return out
 }
 
 // textBlocks wraps one text block per result item into the MCP content envelope
