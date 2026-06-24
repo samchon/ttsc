@@ -245,8 +245,13 @@ fs.mkdirSync(traceDir, { recursive: true });
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
 let spent = 0;
 const MAX_RUN_RETRIES = 4;
-for (const arm of arms) {
-  for (let r = 0; r < runs; r++) {
+// Run-major, not arm-major: for each run index do every arm back to back, so a
+// baseline/graph pair shares the same wall-clock window. Arm-major (all baseline,
+// then all graph) lets a time-varying condition like a 529 storm land on one arm
+// and not the other, biasing the comparison. Still strictly sequential, one
+// invocation at a time, so there is no resource contention between arms.
+for (let r = 0; r < runs; r++) {
+  for (const arm of arms) {
     // A failed run (a 529 overload, mostly) carries no usable sample, so retry it
     // in place rather than letting it thin the median. The trace file is keyed by
     // run number, so a successful retry overwrites the failed attempt.

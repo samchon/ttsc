@@ -246,8 +246,12 @@ fs.mkdirSync(traceDir, { recursive: true });
 
 const MAX_RUN_RETRIES = 4;
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
-for (const arm of arms) {
-  for (let r = 0; r < runs; r++) {
+// Run-major, not arm-major: for each run index do every arm back to back, so a
+// baseline/graph pair shares the same wall-clock window and a time-varying
+// condition (a rate-limit spell) cannot land on one arm and not the other. Still
+// strictly sequential, one invocation at a time, so the arms never contend.
+for (let r = 0; r < runs; r++) {
+  for (const arm of arms) {
     // A failed run (rate limit or an incomplete turn) carries no usable sample,
     // so retry it in place rather than letting it thin the median. The trace file
     // is keyed by run number, so a successful retry overwrites the failed attempt.
