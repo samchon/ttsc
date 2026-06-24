@@ -1,13 +1,25 @@
 # Tools
 
-`@ttsc/graph` exposes two MCP tools. An agent calls them on its own; you never invoke them by hand. Both answer from the resident `Program`, so the result is the compiler's own, at the same code and location `ttsc` reports.
+`@ttsc/graph` exposes three MCP tools. An agent calls them on its own; you never invoke them by hand. They all answer from the resident `Program`, so the result is the compiler's own, at the same code and location `ttsc` reports.
 
-## graph_explore
+Every tool returns the same MCP content envelope: one or more text blocks. The text is the rendered graph view; the structure is always this shape.
+
+```ts
+interface ToolResult {
+  content: {
+    type: "text";
+    /** The rendered graph view for one block (see each tool below). */
+    text: string;
+  }[];
+}
+```
+
+## query_nodes
 
 The primary tool. Its one argument is the query:
 
 ```ts
-interface GraphExploreArguments {
+interface QueryNodesArguments {
   /**
    * A symbol name, a file-path fragment, or the salient nouns of a
    * "how does X work" question. Name the whole flow in one broad query
@@ -18,45 +30,67 @@ interface GraphExploreArguments {
 }
 ```
 
-For each matching node it returns:
+It returns a single text block. That block renders each matched node with:
 
-- the verbatim, line-numbered source of the declaration;
+- the verbatim, line-numbered source of the declaration, capped per node by a budget that scales with how many symbols the query names;
 - its checker-resolved edges in both directions: `heritage`, `value-call`, `type-ref` (see [Edge kinds](#edge-kinds));
 - its blast radius, the transitive dependents a change would reach;
 - its own diagnostics, and how many of those dependents are already broken.
 
-One call is usually enough context to answer, instead of fanning out to read files.
+Nodes past the source budget collapse to a one-line signature, so one call never floods the context.
 
-```json
-{ "name": "graph_explore", "arguments": { "query": "repository find query builder" } }
+```ts
+type QueryNodesResult = ToolResult; // content has exactly one block
 ```
+
+One call is usually enough context to answer, instead of fanning out to read files.
 
 A query can name several symbols at once. The server ranks matches by name match and edge centrality, so a flow question such as "how is a payment charged" surfaces the cluster of declarations involved, not a single literal hit. The response is bounded, an edge cap, a per-node source cap, and a total budget that scales with how many symbols the query names, so a broad match returns a few kilobytes rather than the whole project.
 
-## graph_diagnostics
+## query_files
+
+Render one or more files in full. Its one argument is the list of locations:
+
+```ts
+interface QueryFilesArguments {
+  /**
+   * One or more source files, each an absolute path or a trailing
+   * fragment of one, e.g. ["src/main.ts", "src/foo.ts"].
+   */
+  locations: string[];
+}
+```
+
+It returns one text block per location, in input order, each headed with the location. A file is the objects inside it, so each block renders every declaration in the file with the same `query_nodes`-grade view: its edges, its diagnostics, its blast radius, and its verbatim line-numbered body. This is not a signature outline; the point of a file query is the declarations and how they relate, plus their code. Declarations past the response budget collapse to a one-line signature so one call never floods the context.
+
+```ts
+type QueryFilesResult = ToolResult; // one block per requested location, in input order
+```
+
+## query_diagnostics
 
 Both arguments are optional:
 
 ```ts
-interface GraphDiagnosticsArguments {
+interface QueryDiagnosticsArguments {
   /**
-   * An absolute path or a trailing fragment of one source file,
-   * e.g. "src/main.ts". Omit it for the whole project.
+   * One or more source files, each an absolute path or a trailing
+   * fragment of one, e.g. ["src/main.ts"]. Omit it for the whole project.
    */
-  file?: string;
+  files?: string[];
 
-  /** Keep only `error` or only `warning` findings. Omit for both. */
-  severity?: "error" | "warning";
+  /** Keep only `error`, only `warning`, or `all` findings. Defaults to `error`. */
+  severity?: "error" | "warning" | "all";
 }
 ```
 
-With `file`, it reports that one file's diagnostics, at the same code and location `ttsc` reports. With `file` omitted, it lists every current diagnostic across the project, grouped by file, for a "what is broken now" check after an edit.
+With `files`, it returns one text block per file, in input order, each headed with the location, at the same code and location `ttsc` reports. With `files` omitted, it returns a single block listing every current diagnostic across the project, grouped by file, for a "what is broken now" check after an edit. Each finding carries its location and, for a tsc error, its `TSxxxx` code.
 
-```json
-{ "name": "graph_diagnostics", "arguments": { "file": "src/payment/service.ts" } }
+```ts
+type QueryDiagnosticsResult = ToolResult; // one block per file, or a single project-wide block
 ```
 
-The diagnostics, here and in the errors fused into `graph_explore`, are the project's full set:
+The diagnostics, here and in the errors fused into `query_nodes`, are the project's full set:
 
 - TypeScript type and compile errors.
 - `@ttsc/lint` rule violations.

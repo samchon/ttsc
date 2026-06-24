@@ -33,7 +33,7 @@ Codegraph's question, "How does Excalidraw render and update canvas elements?", 
 | Cost       | $0.335             | $0.116        | 65%   |
 | Wall time  | 245s               | 41s           | 83%   |
 
-The agent read zero files in every graph run. It named the relevant symbols in one or two `graph_explore` calls and answered from the result, against a baseline that read 19 to 31 files per run to reconstruct the same flow.
+The agent read zero files in every graph run. It named the relevant symbols in one or two `query_nodes` calls and answered from the result, against a baseline that read 19 to 31 files per run to reconstruct the same flow.
 
 The graph hands the agent the relevant declarations, their checker-resolved relationships, and their source in a couple of calls, so it stops fanning out across files.
 

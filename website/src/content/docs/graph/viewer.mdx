@@ -2,7 +2,7 @@ import GraphViewer3D from "../../../components/graph/GraphViewer3D";
 
 # 3D Graph Viewer
 
-The same checker-resolved graph that `graph_explore` answers from, rendered as a navigable 3D ontology. Pick a benchmark example, or load a graph from your own project. Every node is a declaration (class, interface, function, method, type, enum, variable); every edge is one of the three resolved relationships the compiler reported.
+The same checker-resolved graph that `query_nodes` answers from, rendered as a navigable 3D ontology. Pick a benchmark example, or load a graph from your own project. Every node is a declaration (class, interface, function, method, type, enum, variable); every edge is one of the three resolved relationships the compiler reported.
 
 Drag to orbit, scroll to zoom, hover a node for its name, kind, and file.
 
@@ -10,21 +10,21 @@ Drag to orbit, scroll to zoom, hover a node for its name, kind, and file.
 
 ## Use it on your own project
 
-The fastest way is to run the viewer locally against your own project:
+Run the viewer locally:
 
 ```bash
 npx @ttsc/graph view
 ```
 
-`view` builds your project's graph, reduces it, and opens this same 3D viewer in your browser, served from a local port. Nothing leaves your machine.
+`view` builds your project's graph, reduces it, and opens this viewer in your browser from a local port. Nothing leaves your machine.
 
-To get the data as a file instead (to keep, share, or drop into "Load your own JSON" above):
+For the data as a file instead:
 
 ```bash
 npx @ttsc/graph dump --tsconfig tsconfig.json > graph.json
 ```
 
-`dump` prints the whole graph as JSON: every declaration and every edge, keyed by absolute path. The viewer reduces it client-side (drops `node_modules`, keeps the highest-degree nodes, relativizes paths) so a large project stays legible instead of a hairball. It also accepts an already-reduced payload, so a graph you trimmed yourself loads as-is.
+`dump` prints the whole graph as JSON: every declaration and edge, keyed by absolute path. The viewer reduces it client-side (drops `node_modules`, keeps the highest-degree nodes, relativizes paths) so a large project stays legible. It also takes an already-reduced payload, so a graph you trimmed yourself loads as-is.
 
 ## What the colors mean
 
@@ -34,4 +34,4 @@ Nodes are colored by declaration kind and sized by how many other declarations c
 - **type-ref**: a type-position reference (a parameter, return, property, or alias type).
 - **heritage**: an `extends` or `implements` relationship.
 
-External boundary leaves (anything in `node_modules` or a `.d.ts` lib) are dropped, since that is not your code.
+Anything in `node_modules` or a `.d.ts` lib is dropped; it is not your code.

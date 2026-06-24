@@ -21,7 +21,7 @@ Most tools answer only one of these. This one answers both, from the same graph:
 - **What calls what.** The static structure: what a symbol calls, what depends on it, the types it touches, its heritage.
 - **What is broken, and how far it spreads.** The live diagnostics, fused onto that structure.
 
-That fusion is the point. `graph_explore` shows a symbol's own errors, and how many of the things that depend on it are already broken.
+That fusion is the point. `query_nodes` shows a symbol's own errors, and how many of the things that depend on it are already broken.
 
 So before you change a symbol, you can see the reach of the change over what is currently failing. That is fix-safety, not just a cheaper way to read code.
 
@@ -64,5 +64,5 @@ Your agent picks the tools up from the MCP handshake and calls them when it need
 
 ## Next
 
-- [Tools](/docs/graph/tools): what `graph_explore` and `graph_diagnostics` return, the diagnostic sources, the edge kinds, and the current scope.
+- [Tools](/docs/graph/tools): what `query_nodes`, `query_files`, and `query_diagnostics` return, the diagnostic sources, the edge kinds, and the current scope.
 - [3D Viewer](/docs/graph/viewer): browse the whole graph in your browser, or load your own project.
