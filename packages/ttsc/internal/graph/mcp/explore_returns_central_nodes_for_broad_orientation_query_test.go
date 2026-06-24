@@ -32,7 +32,10 @@ func TestExploreReturnsCentralNodesForBroadOrientationQuery(t *testing.T) {
     "rootDir": "src",
     "outDir": "dist"
   },
-  "files": ["src/start.ts"]
+  "files": ["src/start.ts", "src/error.ts"]
+}
+`)
+  writeFile(t, filepath.Join(root, "src", "error.ts"), `export class TypeORMError extends Error {
 }
 `)
   writeFile(t, filepath.Join(root, "src", "service.ts"), `export function service(): number {
@@ -64,5 +67,10 @@ export function start(): number {
 
   if !strings.Contains(text, "function route") {
     t.Fatalf("graph_explore did not return central nodes for broad orientation query:\n%s", text)
+  }
+
+  text = toolText(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"graph_explore","arguments":{"query":"entry point main benchmark TypeORM"}}}`)
+  if !strings.Contains(text, "function route") {
+    t.Fatalf("graph_explore matched package-name noise instead of central nodes:\n%s", text)
   }
 }

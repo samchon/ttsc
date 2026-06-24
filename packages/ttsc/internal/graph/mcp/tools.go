@@ -187,15 +187,20 @@ var queryStopwords = map[string]bool{
   "this": true, "that": true, "it": true, "its": true, "work": true, "works": true,
   "use": true, "uses": true, "using": true, "from": true, "by": true, "an": true,
   "new": true, "only": true, "have": true, "few": true, "me": true, "give": true,
-  "one": true,
+  "one": true, "joining": true, "need": true, "fast": true, "identify": true,
   "quick": true, "practical": true, "typescript": true, "project": true,
   "codebase": true, "orientation": true, "onboarding": true, "overview": true,
   "architecture": true, "subsystem": true, "subsystems": true, "best": true,
   "entry": true, "point": true, "points": true, "start": true, "reading": true,
   "representative": true, "execution": true, "flow": true, "shows": true,
   "piece": true, "pieces": true, "fit": true, "together": true, "minutes": true,
-  "code": true, "path": true, "selected": true, "method": true, "methods": true,
+  "code": true, "map": true, "source": true, "read": true, "first": true,
+  "dependency": true, "public": true, "api": true, "internal": true,
+  "internals": true, "naming": true, "key": true, "file": true, "files": true,
+  "class": true, "classes": true, "function": true, "functions": true,
+  "path": true, "selected": true, "method": true, "methods": true,
   "request": true, "requests": true, "process": true, "main": true,
+  "benchmark": true,
   "build": true, "builds": true, "built": true, "create": true, "creates": true,
   "created": true, "creation": true,
   "before": true, "after": true, "when": true, "invokes": true, "invoke": true,
@@ -312,12 +317,9 @@ func (s *Server) matchNodes(query string) []*graph.Node {
 // no project-specific symbol. In that case returning central project nodes is
 // more useful than matching arbitrary generic words such as "flow" or "entry".
 func isBroadGraphQuery(query string, tokens []string) bool {
-  if len(tokens) != 0 {
-    return false
-  }
-  for _, marker := range []string{"architecture", "orientation", "onboarding", "overview", "subsystem", "entry point", "execution flow"} {
+  for _, marker := range []string{"architecture", "architecture map", "orientation", "onboarding", "overview", "subsystem", "entry point", "execution flow", "call flow", "dependency"} {
     if strings.Contains(query, marker) {
-      return true
+      return len(tokens) <= 1
     }
   }
   return false
