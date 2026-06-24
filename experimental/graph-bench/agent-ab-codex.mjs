@@ -32,7 +32,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
 const ARCHITECTURE_QUESTION =
-  "I'm onboarding to this TypeScript project and need a fast call-path briefing, not a directory survey. Pick one common user-facing API, such as a method a library user would call, and trace it from the public entry point through the internal implementation using symbol/call relationships. Name key files/classes/functions in order; keep it concise.";
+  "I'm onboarding to this TypeScript project and need a fast call-path briefing, not a directory survey. Pick one common exported API and trace it from the public entry point through the internal implementation using symbol/call relationships. Name key files/classes/functions in order; keep it concise.";
 
 // TypeScript benchmark repos and their medium-difficulty questions.
 const REPOS = {

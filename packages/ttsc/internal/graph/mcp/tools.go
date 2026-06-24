@@ -207,6 +207,8 @@ var queryStopwords = map[string]bool{
   "invoked": true, "call": true, "calls": true, "called": true, "used": true,
   "toward": true, "into": true, "log": true, "logs": true, "message": true,
   "messages": true, "extension": true, "host": true,
+  "apply": true, "applies": true, "applied": true, "option": true,
+  "options": true, "query": true, "queries": true,
 }
 
 // queryTokens lowercases query and splits it into salient alphanumeric tokens,

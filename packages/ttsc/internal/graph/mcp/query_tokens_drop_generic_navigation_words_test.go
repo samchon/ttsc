@@ -21,4 +21,10 @@ func TestQueryTokensDropGenericNavigationWords(t *testing.T) {
   if !reflect.DeepEqual(got, want) {
     t.Fatalf("queryTokens() = %#v; want %#v", got, want)
   }
+
+  got = queryTokens("How are relation options applied when repository.find() builds its query?")
+  want = []string{"relation", "repository", "find"}
+  if !reflect.DeepEqual(got, want) {
+    t.Fatalf("queryTokens() = %#v; want %#v", got, want)
+  }
 }
