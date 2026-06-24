@@ -26,8 +26,13 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
-const ARCHITECTURE_QUESTION =
-  "I'm onboarding to this TypeScript project and need a fast call-path briefing, not a directory survey. Pick one common exported API and trace it from the public entry point through the internal implementation using symbol/call relationships. Name key files/classes/functions in order; keep it concise.";
+// The shared structural question, kept as a markdown task spec so both harnesses
+// pose an identical, rigorous prompt: a verified hop-by-hop call path with
+// file:line citations for every node and edge, which a shallow grep guess cannot
+// satisfy. Holding both arms to that bar is what makes the token comparison fair.
+const ARCHITECTURE_QUESTION = fs
+  .readFileSync(path.join(here, "questions", "architecture-callpath.md"), "utf8")
+  .trim();
 
 // TypeScript benchmark repos and their medium-difficulty questions.
 const REPOS = {
