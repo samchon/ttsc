@@ -1,0 +1,29 @@
+import GraphViewer3D from "../../../components/graph/GraphViewer3D";
+
+# 3D Graph Viewer
+
+The same checker-resolved graph that `graph_explore` answers from, rendered as a navigable 3D ontology. Pick a benchmark example, or load a graph from your own project. Every node is a declaration (class, interface, function, method, type, enum, variable); every edge is one of the three resolved relationships the compiler reported.
+
+Drag to orbit, scroll to zoom, hover a node for its name, kind, and file.
+
+<GraphViewer3D />
+
+## Use it on your own project
+
+Produce the graph for your project, then drop the file into "Load your own JSON" above. Nothing leaves your browser: the file is read and reduced locally.
+
+```bash
+npx @ttsc/graph dump --tsconfig tsconfig.json > graph.json
+```
+
+`dump` builds the whole graph from your project's resident `Program` and prints it as JSON: every declaration and every edge, keyed by absolute path. The viewer reduces it client-side (drops `node_modules`, keeps the highest-degree nodes, relativizes paths) so a large project stays legible instead of a hairball. It also accepts an already-reduced payload, so a graph you trimmed yourself loads as-is.
+
+## What the colors mean
+
+Nodes are colored by declaration kind and sized by how many other declarations connect to them, so the load-bearing symbols stand out. Edges carry their kind:
+
+- **value-call**: a runtime use (a call, a `new T()`, a JSX component, a tagged template).
+- **type-ref**: a type-position reference (a parameter, return, property, or alias type).
+- **heritage**: an `extends` or `implements` relationship.
+
+External boundary leaves (anything in `node_modules` or a `.d.ts` lib) are dropped, since that is not your code.
