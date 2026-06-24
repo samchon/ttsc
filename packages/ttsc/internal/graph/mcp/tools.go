@@ -101,9 +101,9 @@ func textResult(text string) any {
 // broad-batching model dropped from 9 calls to 4 once a broad query returned the
 // whole cluster, while narrow drillers stay cheap per call.
 const (
-  exploreBudgetBase    = 3000
-  exploreBudgetPerTerm = 1000
-  exploreBudgetMax     = 6000
+  exploreBudgetBase    = 6000
+  exploreBudgetPerTerm = 3000
+  exploreBudgetMax     = 16000
 )
 
 // exploreBudget returns the verbatim-source budget for a query with terms salient
@@ -121,7 +121,7 @@ func exploreBudget(terms int) int {
 
 // maxEdgesPerDirection caps the incoming/outgoing edges listed per node so a
 // central symbol does not dump hundreds of relationships into the response.
-const maxEdgesPerDirection = 8
+const maxEdgesPerDirection = 12
 
 // maxNodeDiagnostics caps the diagnostics listed on one node so a declaration
 // with many errors does not flood the response; the count is still reported.
@@ -171,12 +171,12 @@ func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
 // deliberately stops short of "never read source", because a budget-collapsed or
 // external node is shown as a signature with no body, and opening that file is
 // legitimate; what adds no precision is re-reading a path printed in full above.
-const exploreHeader = "Compiler-resolved graph snapshot. Answer from this result; do not chase every edge. " +
-  "Do not shell/grep/read returned source. Call graph_explore again only for no match, missing symbols, or source edits.\n\n"
+const exploreHeader = "Compiler-resolved graph snapshot. Answer from this result. Do not shell/grep/read returned source. " +
+  "Call graph_explore again only for no match, missing symbols, or source edits.\n\n"
 
 // maxExploreNodes caps how many ranked nodes a query returns, so a broad
 // keyword query surfaces the most relevant declarations without flooding context.
-const maxExploreNodes = 8
+const maxExploreNodes = 12
 
 // queryStopwords are dropped so the salient nouns of a natural-language question
 // drive the match.
@@ -245,36 +245,105 @@ func containsWholeWord(words map[string]bool, value string) bool {
   return words[strings.ToLower(value)]
 }
 
-func containsMemberWord(words map[string]bool, member string) bool {
-  member = strings.ToLower(member)
-  if words[member] {
-    return true
-  }
-  for word := range words {
-    if len(word) >= 5 && strings.Contains(member, word) {
-      return true
-    }
-    if len(member) >= 5 && strings.Contains(word, member) {
-      return true
-    }
-  }
-  return false
-}
-
-func naturalDottedScore(name string, words map[string]bool) int {
+func dottedNameParts(name string) (string, string, bool) {
   dot := strings.LastIndexByte(name, '.')
   if dot <= 0 || dot == len(name)-1 {
-    return 0
+    return "", "", false
   }
   owner := name[:dot]
   if ownerDot := strings.LastIndexByte(owner, '.'); ownerDot >= 0 {
     owner = owner[ownerDot+1:]
   }
-  member := name[dot+1:]
+  return owner, name[dot+1:], true
+}
+
+var naturalMemberPartStopwords = map[string]bool{
+  "option": true, "options": true, "query": true, "queries": true,
+  "builder": true, "builders": true,
+}
+
+func containsMemberWord(words map[string]bool, member string) bool {
+  lower := strings.ToLower(member)
+  if words[lower] {
+    return true
+  }
+  parts := memberWords(member)
+  if len(parts) == 0 {
+    return false
+  }
+  matched := 0
+  scored := 0
+  for _, part := range parts {
+    if naturalMemberPartStopwords[part] {
+      continue
+    }
+    scored++
+    if words[part] {
+      matched++
+    }
+  }
+  if scored == 0 {
+    return false
+  }
+  if scored == 1 {
+    return matched == 1
+  }
+  first := parts[0]
+  return matched >= 2 && (naturalMemberPartStopwords[first] || words[first])
+}
+
+func memberWords(member string) []string {
+  words := make([]string, 0, 4)
+  start := -1
+  for i := 0; i < len(member); i++ {
+    c := member[i]
+    isAlphaNum :=
+      (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9')
+    if !isAlphaNum {
+      if start >= 0 {
+        words = append(words, strings.ToLower(member[start:i]))
+        start = -1
+      }
+      continue
+    }
+    if start < 0 {
+      start = i
+      continue
+    }
+    prev := member[i-1]
+    if c >= 'A' && c <= 'Z' && prev >= 'a' && prev <= 'z' {
+      words = append(words, strings.ToLower(member[start:i]))
+      start = i
+    }
+  }
+  if start >= 0 {
+    words = append(words, strings.ToLower(member[start:]))
+  }
+  return words
+}
+
+func naturalDottedScore(name string, words map[string]bool) int {
+  owner, member, ok := dottedNameParts(name)
+  if !ok {
+    return 0
+  }
   if !containsWholeWord(words, owner) || !containsMemberWord(words, member) {
     return 0
   }
   return 650
+}
+
+func exactMemberScore(name string, words map[string]bool) int {
+  _, member, ok := dottedNameParts(name)
+  if !ok {
+    return 0
+  }
+  if words[strings.ToLower(member)] {
+    return 550
+  }
+  return 0
 }
 
 // matchNodes ranks declarations by relevance to query, which may be a symbol name
@@ -307,8 +376,11 @@ func (s *Server) matchNodes(query string) []*graph.Node {
     if strings.Contains(name, ".") && strings.Contains(whole, name) {
       score += 900
       dotted = true
-    } else if naturalScore := naturalDottedScore(name, words); naturalScore > 0 {
+    } else if naturalScore := naturalDottedScore(node.Name, words); naturalScore > 0 {
       score += naturalScore
+      dotted = true
+    } else if memberScore := exactMemberScore(node.Name, words); memberScore > 0 {
+      score += memberScore
       dotted = true
     } else if len(name) >= 8 && strings.Contains(whole, name) {
       score += 500
@@ -628,7 +700,7 @@ func (s *Server) declLine(node *graph.Node) int {
 
 // maxSourceLines caps the verbatim body shown per node, so one large declaration
 // (a giant union type, a long class) cannot blow the whole response open.
-const maxSourceLines = 16
+const maxSourceLines = 32
 
 // maxCallExcerpts caps the late-body call snippets printed after a truncated
 // declaration. These snippets are tied to checker-resolved value-call edges, so

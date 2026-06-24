@@ -25,7 +25,7 @@ func TestExploreIncludesLateCallExcerpts(t *testing.T) {
   root := t.TempDir()
   var src strings.Builder
   src.WriteString("export function lateFlow(): number {\n")
-  for i := 0; i < 28; i++ {
+  for i := 0; i < 40; i++ {
     fmt.Fprintf(&src, "  const value%d = %d;\n", i, i)
   }
   src.WriteString("  return helper()\n")

@@ -1,1 +1,1 @@
-Architecture/code-flow query using named symbols, files, or domain nouns. For onboarding/overview, use one broad architecture query. Batch related names once; avoid generic words such as code, method, request, process, main, component, value, and route.
+Whole flow in one broad query, not one symbol: owner/action/nouns together, e.g. "repository find manager query builder".

@@ -77,13 +77,13 @@ export const bad: number = "not a number";
   }
   tools := toolsByName(t, list)
   explore := tools["graph_explore"]
-  if desc, _ := explore["description"].(string); !strings.Contains(desc, "do not chase every returned edge") {
+  if desc, _ := explore["description"].(string); !strings.Contains(desc, "Call once first for code-flow questions") {
     t.Fatalf("graph_explore did not use the embedded description: %v", desc)
   }
   exploreSchema := explore["inputSchema"].(map[string]any)
   exploreProperties := exploreSchema["properties"].(map[string]any)
   queryProperty := exploreProperties["query"].(map[string]any)
-  if desc, _ := queryProperty["description"].(string); !strings.Contains(desc, "Batch related names once") {
+  if desc, _ := queryProperty["description"].(string); !strings.Contains(desc, "Whole flow in one broad query") {
     t.Fatalf("graph_explore query did not use the embedded description: %v", desc)
   }
   diagnostics := tools["graph_diagnostics"]
