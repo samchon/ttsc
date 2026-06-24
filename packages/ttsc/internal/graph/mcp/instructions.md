@@ -17,7 +17,7 @@ A compiler-resolved graph of TypeScript relationships: calls, callers, types, ow
 
 ## Roster a file with `query_files`
 
-**Pass file paths to `query_files` for a cheap roster of each**: the declarations inside it (kind, name, line) and its adjacent files (what it reaches and is reached by), one block per file. Use it to find your way around a file, then `query_nodes` the symbol you care about for its relationships and source. It does not return bodies.
+**Pass file paths to `query_files` for a cheap roster of each**: the declarations inside it (kind, name, line) and its adjacent files (what it reaches and is reached by), one block per file. Use it to find your way around a file, then `query_nodes` the symbol you care about for its relationships and source. It does not return bodies, so reach for `query_nodes` to see one, never grep or re-read the file for a symbol it already listed.
 
 ## Check errors with `query_diagnostics`
 
