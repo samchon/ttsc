@@ -238,6 +238,8 @@ function runAgentCell({
     `--model=${resolvedModel}`,
   ];
   if (parsed.values.question) args.push(`--question=${parsed.values.question}`);
+  const sourceReport = path.join(outDir, `${logStem}.raw.json`);
+  args.push(`--report=${sourceReport}`);
   if (tool === "codegraph") args.push("--cg=1");
   if (codex) args.push(`--effort=${effort}`);
 
@@ -246,12 +248,6 @@ function runAgentCell({
     logBase: path.join(outDir, logStem),
   });
 
-  const sourceReport = path.join(
-    repoRoot,
-    "experimental",
-    "graph-bench",
-    `${codex ? "agent-ab-codex" : "agent-ab"}-report${isGuided(guidance) ? "-guided" : ""}.json`,
-  );
   const data = JSON.parse(fs.readFileSync(sourceReport, "utf8"));
   const copyPath = path.join(outDir, `${logStem}.json`);
   writeJson(copyPath, data);

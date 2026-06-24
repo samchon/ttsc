@@ -310,8 +310,10 @@ line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 
 const reportName = `agent-ab-report${guidance ? "-guided" : ""}.json`;
+const reportPath = args.report ? path.resolve(args.report) : path.join(here, reportName);
+fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
-  path.join(here, reportName),
+  reportPath,
   `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, daemon: useDaemon, runs, guidance, question, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
