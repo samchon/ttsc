@@ -1037,13 +1037,23 @@ func queryWords(query string) map[string]bool {
     if len(lower) >= 2 {
       words[lower] = true
     }
-    for _, part := range memberWords(field) {
-      if len(part) >= 2 {
-        words[part] = true
+    if splitsQueryField(field) {
+      for _, part := range memberWords(field) {
+        if len(part) >= 2 {
+          words[part] = true
+        }
       }
     }
   }
   return words
+}
+
+func splitsQueryField(field string) bool {
+  if field == "" {
+    return false
+  }
+  first := field[0]
+  return first >= 'a' && first <= 'z'
 }
 
 func containsWholeWord(words map[string]bool, value string) bool {

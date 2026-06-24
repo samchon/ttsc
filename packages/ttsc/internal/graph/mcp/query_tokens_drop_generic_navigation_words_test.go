@@ -33,9 +33,6 @@ func TestQueryWordsKeepCamelCaseParts(t *testing.T) {
   got := queryWords("SelectQueryBuilder joinAttributes relationPropertyPath")
   for _, want := range []string{
     "selectquerybuilder",
-    "select",
-    "query",
-    "builder",
     "joinattributes",
     "join",
     "attributes",
@@ -46,6 +43,15 @@ func TestQueryWordsKeepCamelCaseParts(t *testing.T) {
   } {
     if !got[want] {
       t.Fatalf("queryWords() did not keep %q in %#v", want, got)
+    }
+  }
+  for _, noise := range []string{
+    "select",
+    "query",
+    "builder",
+  } {
+    if got[noise] {
+      t.Fatalf("queryWords() split PascalCase owner word %q into %#v", noise, got)
     }
   }
 }
