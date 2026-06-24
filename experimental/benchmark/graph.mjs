@@ -203,17 +203,21 @@ function runSetup(projects, targetBranch) {
   });
 }
 
-// agentLabel maps a concrete model to a harness-qualified, version-agnostic cell
-// label, so every cell names both its agent (claude-code or codex) and its tier
-// without pinning an exact version that a release would churn: opus ->
-// claude-code-opus, sonnet -> claude-code-sonnet, gpt-5.5 -> codex-gpt,
-// gpt-5.4-mini -> codex-gpt-mini. The exact id is recorded separately as
-// modelVersion.
-function agentLabel(codex, resolvedModel) {
-  if (!codex) return `claude-code-${resolvedModel}`;
-  if (/mini/i.test(resolvedModel)) return "codex-gpt-mini";
-  if (/nano/i.test(resolvedModel)) return "codex-gpt-nano";
-  return "codex-gpt";
+// agentLabel turns a concrete model into a stable, harness-qualified cell label:
+// the agent that ran it plus the model tier, with the churny version number
+// dropped so a release does not fork the grid. The tier keeps every non-numeric
+// token of the id, so family and size survive without a hardcoded size list:
+// gpt-5.5 -> codex-gpt, gpt-5.4-mini -> codex-gpt-mini, gpt-6-nano ->
+// codex-gpt-nano. Claude tiers (sonnet, opus) carry no version, so they pass
+// through. The exact id is recorded separately as modelVersion.
+function agentLabel(resolvedModel) {
+  if (!resolvedModel.startsWith("gpt-"))
+    return `claude-code-${resolvedModel}`;
+  const tier = resolvedModel
+    .split("-")
+    .filter((token) => token && !/^[0-9.]+$/.test(token))
+    .join("-");
+  return `codex-${tier}`;
 }
 
 function runAgentCell({
@@ -237,7 +241,7 @@ function runAgentCell({
   // grid and website stay stable as OpenAI bumps versions (gpt-5.5 -> gpt-5.6
   // overwrites the same cell instead of forking a new one). The precise id is
   // kept in modelVersion below.
-  const label = agentLabel(codex, resolvedModel);
+  const label = agentLabel(resolvedModel);
   const logStem = `${project}-${branch}-${filenamePart(`${tool}-${label}`)}`;
   const args = [
     harness,
