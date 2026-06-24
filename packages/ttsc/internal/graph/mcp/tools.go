@@ -1541,10 +1541,85 @@ func (s *Server) writeFlowNode(b *strings.Builder, node *graph.Node, included ma
   s.writeNodeHeader(b, node)
   s.writeFlowValueEdges(b, node, included)
   if source, line, sourceOffset := s.nodeSourceRange(node); source != "" {
-    b.WriteString(numberLines(source, line, maxSourceLines))
-    s.writeValueCallExcerptsForQuery(b, node, source, line, sourceOffset, maxSourceLines, query)
+    s.writeFlowSourceWindows(b, node, included, source, line, sourceOffset)
   }
   b.WriteString("\n")
+}
+
+func (s *Server) writeFlowSourceWindows(b *strings.Builder, node *graph.Node, included map[string]bool, source string, startLine int, sourceOffset int) {
+  lines := strings.Split(source, "\n")
+  if len(lines) == 0 {
+    return
+  }
+  type lineWindow struct {
+    start int
+    end   int
+  }
+  windows := make([]lineWindow, 0, maxCallExcerptWindows)
+  if codeLine := firstCodeLineIndex(source); codeLine >= 0 {
+    end := codeLine
+    for end+1 < len(lines) && end-codeLine < 5 && !strings.Contains(lines[end], "{") {
+      end++
+    }
+    windows = append(windows, lineWindow{start: codeLine, end: end})
+  }
+  seen := map[int]bool{}
+  for _, edge := range s.graph.Edges {
+    if edge.From != node.ID || (edge.Kind != graph.EdgeValueCall && edge.Kind != graph.EdgeValueAccess) || !included[edge.To] {
+      continue
+    }
+    idx := edgeSourceLineIndex(edge, source, sourceOffset)
+    if idx < 0 || seen[idx] {
+      continue
+    }
+    seen[idx] = true
+    start := idx
+    end := idx + 3
+    if end >= len(lines) {
+      end = len(lines) - 1
+    }
+    windows = append(windows, lineWindow{start: start, end: end})
+    if len(windows) >= maxCallExcerptWindows {
+      break
+    }
+  }
+  if len(windows) <= 1 {
+    b.WriteString(numberLines(source, startLine, maxSourceLines))
+    return
+  }
+  sort.Slice(windows, func(i, j int) bool {
+    if windows[i].start != windows[j].start {
+      return windows[i].start < windows[j].start
+    }
+    return windows[i].end < windows[j].end
+  })
+  merged := windows[:0]
+  for _, window := range windows {
+    if len(merged) == 0 || window.start > merged[len(merged)-1].end+1 {
+      merged = append(merged, window)
+      continue
+    }
+    if window.end > merged[len(merged)-1].end {
+      merged[len(merged)-1].end = window.end
+    }
+  }
+  b.WriteString("  flow source windows:\n")
+  written := 0
+  last := -1
+  for _, window := range merged {
+    if window.start > last+1 {
+      b.WriteString("  ...\n")
+    }
+    for i := window.start; i <= window.end; i++ {
+      if written >= maxCallExcerptLines {
+        b.WriteString("  ... (more flow source omitted)\n")
+        return
+      }
+      fmt.Fprintf(b, "  %d\t%s\n", startLine+i, lines[i])
+      written++
+      last = i
+    }
+  }
 }
 
 func (s *Server) writeFlowValueEdges(b *strings.Builder, node *graph.Node, included map[string]bool) {
@@ -1655,6 +1730,14 @@ func firstCodeOffset(src string) int {
     }
   }
   return i
+}
+
+func firstCodeLineIndex(src string) int {
+  offset := firstCodeOffset(src)
+  if offset >= len(src) {
+    return -1
+  }
+  return strings.Count(src[:offset], "\n")
 }
 
 // declLine returns node's 1-based declaration line, skipping the leading doc
@@ -1823,14 +1906,18 @@ func memberName(name string) string {
 }
 
 func edgeLineIndex(edge *graph.Edge, source string, sourceOffset int, sourceLines int) int {
-  if edge.Pos < sourceOffset || edge.Pos >= sourceOffset+len(source) {
-    return -1
-  }
-  idx := strings.Count(source[:edge.Pos-sourceOffset], "\n")
+  idx := edgeSourceLineIndex(edge, source, sourceOffset)
   if idx < sourceLines {
     return -1
   }
   return idx
+}
+
+func edgeSourceLineIndex(edge *graph.Edge, source string, sourceOffset int) int {
+  if edge.Pos < sourceOffset || edge.Pos >= sourceOffset+len(source) {
+    return -1
+  }
+  return strings.Count(source[:edge.Pos-sourceOffset], "\n")
 }
 
 func findLateCallLine(lines []string, startLine int, member string) int {

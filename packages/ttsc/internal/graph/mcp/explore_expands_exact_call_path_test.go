@@ -60,6 +60,16 @@ export class Manager {
   }
 }
 
+export class FindOptionsUtils {
+  static rejectJoinOption(options: FindOptions): void {
+    void options;
+  }
+
+  static rejectStringArrayRelations(options: FindOptions): void {
+    void options;
+  }
+}
+
 export class QueryBuilder {
   private findOptions?: FindOptions;
   private expressionMap = new QueryExpressionMap();
@@ -67,6 +77,8 @@ export class QueryBuilder {
   constructor(private readonly entity: string) {}
 
   setFindOptions(findOptions: FindOptions): this {
+    FindOptionsUtils.rejectJoinOption(findOptions);
+    FindOptionsUtils.rejectStringArrayRelations(findOptions);
     this.findOptions = findOptions;
     this.applyFindOptions();
     return this;
@@ -165,6 +177,14 @@ export interface FindOptions {
     } {
       if strings.Contains(text, noisy) {
         t.Fatalf("query_nodes rendered noisy sibling %s for query %q:\n%s", noisy, query, text)
+      }
+    }
+    for _, guard := range []string{
+      "rejectJoinOption",
+      "rejectStringArrayRelations",
+    } {
+      if strings.Contains(text, guard) {
+        t.Fatalf("query_nodes rendered flow guard %s for query %q:\n%s", guard, query, text)
       }
     }
   }
