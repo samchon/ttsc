@@ -363,26 +363,7 @@ func (s *Server) renderNodes(nodes []*graph.Node, budget int, note string) strin
 }
 
 func (s *Server) renderExpandedNodes(nodes []*graph.Node, budget int, note string) string {
-  var b strings.Builder
-  b.WriteString(exploreHeader)
-  if note != "" {
-    b.WriteString(note)
-    b.WriteByte('\n')
-  }
-  b.WriteString("Exact source expansion; relationship edges are omitted here. Use query_nodes or expand_nodes mode:\"flow\" for graph relationships.\n")
-  collapsed := 0
-  sourceLines := expandedSourceLines(len(nodes))
-  for _, node := range nodes {
-    withSource := b.Len() < budget
-    if !withSource {
-      collapsed++
-    }
-    s.writeExpandedNodeSource(&b, node, withSource, sourceLines)
-  }
-  if collapsed > 0 {
-    fmt.Fprintf(&b, "(%d further node(s) shown as signatures to fit the response budget)\n", collapsed)
-  }
-  return strings.TrimRight(b.String(), "\n")
+  return s.renderNodesWithSourceLimit(nodes, budget, note, expandedSourceLines(len(nodes)))
 }
 
 func (s *Server) renderNodesWithSourceLimit(nodes []*graph.Node, budget int, note string, sourceLines int) string {
@@ -1571,18 +1552,6 @@ func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node, withSo
   if source, line, sourceOffset := s.nodeSourceRange(node); source != "" {
     b.WriteString(numberLines(source, line, sourceLines))
     s.writeValueCallExcerpts(b, node, source, line, sourceOffset, sourceLines)
-  }
-  b.WriteString("\n")
-}
-
-func (s *Server) writeExpandedNodeSource(b *strings.Builder, node *graph.Node, withSource bool, sourceLines int) {
-  s.writeNodeHeader(b, node)
-  if !withSource {
-    return
-  }
-  s.writeNodeDiagnosticsHere(b, node)
-  if source, line, _ := s.nodeSourceRange(node); source != "" {
-    b.WriteString(numberLines(source, line, sourceLines))
   }
   b.WriteString("\n")
 }

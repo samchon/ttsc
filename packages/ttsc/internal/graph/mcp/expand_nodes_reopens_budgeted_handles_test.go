@@ -109,53 +109,6 @@ func TestExpandNodesReturnsWiderExactSource(t *testing.T) {
   }
 }
 
-func TestExpandNodesSourceOmitsRelationshipEdges(t *testing.T) {
-  root := t.TempDir()
-  writeFile(t, filepath.Join(root, "tsconfig.json"), `{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "strict": true
-  },
-  "files": ["src/main.ts"]
-}
-`)
-  writeFile(t, filepath.Join(root, "src", "main.ts"), `
-export function caller(): string {
-  return callee();
-}
-
-export function callee(): string {
-  return "ok";
-}
-`)
-
-  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
-  if err != nil {
-    t.Fatal(err)
-  }
-  if len(diags) != 0 {
-    t.Fatalf("unexpected diagnostics: %v", diags)
-  }
-  defer func() { _ = prog.Close() }()
-
-  server := mcp.NewServer(prog)
-  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"caller"}}}`)
-  handle := nodeHandleFromText(t, text, "function caller")
-  expanded := toolText(t, server, fmt.Sprintf(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"expand_nodes","arguments":{"ids":[%q],"mode":"source"}}}`, handle))
-  for _, noisy := range []string{
-    "-> (value-call)",
-    "blast radius:",
-  } {
-    if strings.Contains(expanded, noisy) {
-      t.Fatalf("expand_nodes source rendered relationship noise %q:\n%s", noisy, expanded)
-    }
-  }
-  if !strings.Contains(expanded, "return callee();") {
-    t.Fatalf("expand_nodes source did not return the exact body:\n%s", expanded)
-  }
-}
-
 func collapsedHandle(t *testing.T, text string) (string, string) {
   t.Helper()
   for _, line := range strings.Split(text, "\n") {
