@@ -39,44 +39,49 @@ const REPOS = {
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vscode.git",
     tsconfig: "src/tsconfig.json",
     question:
-      "Where do extension-host log messages cross into MainThreadConsole?",
+      "How does VS Code route extension-host console logs to MainThreadConsole?",
   },
   nestjs: {
     url: "https://github.com/nestjs/nest",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-nestjs.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Which RouterExecutionContext path calls a controller handler?",
+    question:
+      "How does NestJS route an HTTP request through RouterExecutionContext to a controller handler?",
   },
   vue: {
     url: "https://github.com/vuejs/core",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vue.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Which reactive effect path triggers a render update after a ref changes?",
+    question:
+      "How does Vue propagate a ref change through reactivity to a component render update?",
   },
   zod: {
     url: "https://github.com/colinhacks/zod",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-zod.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Which ZodType parse path reaches the internal parser?",
+    question:
+      "How does Zod run a schema parse through ZodType and its internal parser?",
   },
   typeorm: {
     url: "https://github.com/typeorm/typeorm",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-typeorm.git",
     tsconfig: "tsconfig.graph.json",
     question:
-      "How are relation options applied when repository.find() builds its query?",
+      "How does TypeORM apply relation options when repository.find() builds a query?",
   },
   rxjs: {
     url: "https://github.com/ReactiveX/rxjs",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-rxjs.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Which Observable.subscribe path constructs the Subscriber?",
+    question:
+      "How does RxJS wire Observable.subscribe into Subscriber construction?",
   },
   "shopping-backend": {
     url: "https://github.com/samchon/shopping-backend",
     fixtureUrl: "https://github.com/samchon/shopping-backend.git",
     tsconfig: "tsconfig.json",
-    question: "Which ShoppingOrderProvider path assembles an order create input before saving?",
+    question:
+      "How does shopping-backend create and persist an order through ShoppingOrderProvider?",
   },
 };
 
@@ -131,10 +136,11 @@ const toolSetupMs =
 const cg = args.cg === "1" || args.cg === "true";
 const GUIDANCE = `# Code navigation
 
-For code-flow questions, call the code-graph MCP before grep/read/shell.
-Query concrete domain nouns or symbols; drop generic words like code, method, request, main.
-If results are broad/generic, re-query once with the best returned symbol or file.
-Answer from graph; read only for no match, signature-only, or non-TS files.
+For architecture/code-flow questions, prefer the code-graph MCP before grep/read.
+Query named symbols, files, or domain nouns; avoid generic words.
+Re-query when following returned symbols/files, narrowing, or after edits.
+Avoid duplicate graph calls; answer from graph when it has source/edges.
+Read only for no match, non-TS files, edited source, or missing context.
 `;
 // The guided arm models how a normal user actually works: they keep an AGENTS.md
 // and, in the prompt, tell the agent to follow it. That elevates the project file

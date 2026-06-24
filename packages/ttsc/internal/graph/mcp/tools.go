@@ -19,13 +19,13 @@ func toolsListResult() any {
     "tools": []any{
       map[string]any{
         "name":        "graph_explore",
-        "description": "Call first for TypeScript code-flow questions, before shell/grep/read. Query concrete domain nouns or symbols, not generic words like code/method/request/main. The result is a compiler-resolved graph snapshot: source, calls, callers, types, and blast radius. If the first result is broad or generic, re-query once with the best returned symbol or file. Answer from graph; read only for no match, signature-only output, non-TS files, or after source edits.",
+        "description": "Call first for TypeScript architecture/code-flow questions, before shell/grep/read. Query named symbols, files, or domain nouns; avoid generic words like code/method/request/main. The result is a compiler-resolved graph snapshot: source, calls, callers, types, and blast radius. Re-query when following returned symbols/files, narrowing the question, or after edits. Avoid duplicate graph calls; answer from graph when it has source/edges. Read only for no match, non-TS files, edited source, or missing context.",
         "inputSchema": map[string]any{
           "type": "object",
           "properties": map[string]any{
             "query": map[string]any{
               "type":        "string",
-              "description": "Concrete domain nouns or symbols for the flow. Avoid generic words such as code, method, request, process, main, component, value, and route.",
+              "description": "Architecture/code-flow query using named symbols, files, or domain nouns. Avoid generic words such as code, method, request, process, main, component, value, and route.",
             },
           },
           "required": []any{"query"},

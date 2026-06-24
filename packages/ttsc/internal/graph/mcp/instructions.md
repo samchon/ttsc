@@ -1,7 +1,8 @@
-`ttsc-graph` is the TypeScript compiler's relationship graph: symbols, calls, callers, source, types.
+`ttsc-graph` is the TS compiler graph: symbols, source, calls, callers, types.
 
-- For code-flow questions, call `graph_explore` before grep/read/shell.
-- Query concrete domain nouns or symbols; drop generic words like code, method, request, main.
-- If results are broad/generic, re-query once with the best returned symbol or file.
-- Answer from graph; read only for no match, signature-only, or non-TS files.
+- For architecture/code-flow, prefer `graph_explore` before grep/read.
+- Query named symbols, files, or domain nouns; avoid generic words.
+- Re-query when following returned symbols/files, narrowing, or after edits.
+- Avoid duplicate graph calls; answer from graph when it has source/edges.
+- Read only for no match, non-TS, edited source, or missing context.
 - Use `graph_diagnostics` for file errors.
