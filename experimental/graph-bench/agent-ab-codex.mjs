@@ -37,53 +37,53 @@ const REPOS = {
   excalidraw: {
     url: "https://github.com/excalidraw/excalidraw",
     tsconfig: "tsconfig.json",
-    question: "Which code path schedules a scene redraw after an element is changed?",
+    question: "Explain the code architecture of this project.",
   },
   vscode: {
     url: "https://github.com/microsoft/vscode",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vscode.git",
     tsconfig: "src/tsconfig.json",
     question:
-      "Where does $logExtensionHostMessage cross into MainThreadConsole?",
+      "Explain the code architecture of this project.",
   },
   nestjs: {
     url: "https://github.com/nestjs/nest",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-nestjs.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Which RouterExecutionContext.create() path builds the handler callback?",
+    question: "Explain the code architecture of this project.",
   },
   vue: {
     url: "https://github.com/vuejs/core",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vue.git",
     tsconfig: "tsconfig.graph.json",
     question:
-      "Which RefImpl.value and ReactiveEffect path triggers a render update after a ref changes?",
+      "Explain the code architecture of this project.",
   },
   zod: {
     url: "https://github.com/colinhacks/zod",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-zod.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Which ZodType.parse() path reaches the internal parser?",
+    question: "Explain the code architecture of this project.",
   },
   typeorm: {
     url: "https://github.com/typeorm/typeorm",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-typeorm.git",
     tsconfig: "tsconfig.graph.json",
     question:
-      "How does Repository.find() reach FindOptionsUtils.applyRelationsRecursively?",
+      "Explain the code architecture of this project.",
   },
   rxjs: {
     url: "https://github.com/ReactiveX/rxjs",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-rxjs.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Which Observable.subscribe() path constructs the Subscriber?",
+    question: "Explain the code architecture of this project.",
   },
   "shopping-backend": {
     url: "https://github.com/samchon/shopping-backend",
     fixtureUrl: "https://github.com/samchon/shopping-backend.git",
     tsconfig: "tsconfig.json",
     question:
-      "Which ShoppingOrderProvider.create() path assembles an order input before saving?",
+      "Explain the code architecture of this project.",
   },
 };
 
