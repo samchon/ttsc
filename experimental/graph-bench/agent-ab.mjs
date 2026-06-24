@@ -26,20 +26,22 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
-// The shared structural question, kept as a markdown task spec so both harnesses
-// pose an identical prompt. It aims for the middle: a real call-path briefing that
-// reaches past the public facade to the real work (so a shallow answer does not
-// pass), built by inference from symbol names and relationships the way a
-// developer reads code (so it does not force re-reading every file). It is
-// tool-neutral, naming no output shape, so neither grep nor the graph is handed
-// the format and the token comparison stays honest.
+// The question per repo, in codegraph's agent-eval style: a specific "how does
+// this concrete mechanism work" trace that names a real public API. A narrow,
+// mechanism-level question is what makes the comparison bite: a reader must dig
+// deep through the layers to answer it, while one targeted graph query pins the
+// cluster. resolveQuestion prefers an explicit override, then a per-repo file
+// (questions/<repo>.md), then the generic fallback.
 const ARCHITECTURE_QUESTION = fs
-  .readFileSync(
-    process.env.TTSC_BENCH_QUESTION_FILE ||
-      path.join(here, "questions", "architecture-callpath.md"),
-    "utf8",
-  )
+  .readFileSync(path.join(here, "questions", "architecture-callpath.md"), "utf8")
   .trim();
+function resolveQuestion(repoKey) {
+  if (process.env.TTSC_BENCH_QUESTION_FILE)
+    return fs.readFileSync(process.env.TTSC_BENCH_QUESTION_FILE, "utf8").trim();
+  const perRepo = path.join(here, "questions", `${repoKey}.md`);
+  if (fs.existsSync(perRepo)) return fs.readFileSync(perRepo, "utf8").trim();
+  return ARCHITECTURE_QUESTION;
+}
 
 // TypeScript benchmark repos and their medium-difficulty questions.
 const REPOS = {
@@ -102,7 +104,7 @@ if (!spec)
 const runs = Number(args.runs ?? 2);
 const model = args.model ?? "sonnet";
 const tsconfig = args.tsconfig ?? spec.tsconfig;
-const question = args.question ?? spec.question;
+const question = args.question ?? resolveQuestion(repoKey);
 if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
 
 const fixtureBranch = args["fixture-branch"];

@@ -139,8 +139,8 @@ func textResult(text string) any {
 // whole cluster, while narrow drillers stay cheap per call.
 const (
 	queryBudgetBase    = 6000
-	queryBudgetPerTerm = 4000
-	queryBudgetMax     = 30000
+	queryBudgetPerTerm = 3000
+	queryBudgetMax     = 16000
 )
 
 // queryBudget returns the verbatim-source budget for a query with terms salient
