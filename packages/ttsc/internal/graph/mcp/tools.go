@@ -226,6 +226,55 @@ func queryTokens(query string) []string {
   return tokens
 }
 
+func queryWords(query string) map[string]bool {
+  fields := strings.FieldsFunc(strings.ToLower(query), func(r rune) bool {
+    return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
+  })
+  words := make(map[string]bool, len(fields))
+  for _, field := range fields {
+    if len(field) >= 2 {
+      words[field] = true
+    }
+  }
+  return words
+}
+
+func containsWholeWord(words map[string]bool, value string) bool {
+  return words[strings.ToLower(value)]
+}
+
+func containsMemberWord(words map[string]bool, member string) bool {
+  member = strings.ToLower(member)
+  if words[member] {
+    return true
+  }
+  for word := range words {
+    if len(word) >= 5 && strings.Contains(member, word) {
+      return true
+    }
+    if len(member) >= 5 && strings.Contains(word, member) {
+      return true
+    }
+  }
+  return false
+}
+
+func naturalDottedScore(name string, words map[string]bool) int {
+  dot := strings.LastIndexByte(name, '.')
+  if dot <= 0 || dot == len(name)-1 {
+    return 0
+  }
+  owner := name[:dot]
+  if ownerDot := strings.LastIndexByte(owner, '.'); ownerDot >= 0 {
+    owner = owner[ownerDot+1:]
+  }
+  member := name[dot+1:]
+  if !containsWholeWord(words, owner) || !containsMemberWord(words, member) {
+    return 0
+  }
+  return 650
+}
+
 // matchNodes ranks declarations by relevance to query, which may be a symbol name
 // or the salient nouns of a natural-language question. A name is scored per query
 // token (exact > prefix > substring) plus a small centrality bonus (edge degree),
@@ -235,6 +284,7 @@ func queryTokens(query string) []string {
 func (s *Server) matchNodes(query string) []*graph.Node {
   whole := strings.ToLower(strings.TrimSpace(query))
   tokens := queryTokens(query)
+  words := queryWords(query)
   if isBroadGraphQuery(whole, tokens) {
     return s.centralNodes()
   }
@@ -254,6 +304,9 @@ func (s *Server) matchNodes(query string) []*graph.Node {
     }
     if strings.Contains(name, ".") && strings.Contains(whole, name) {
       score += 900
+      dotted = true
+    } else if naturalScore := naturalDottedScore(name, words); naturalScore > 0 {
+      score += naturalScore
       dotted = true
     } else if len(name) >= 8 && strings.Contains(whole, name) {
       score += 500
@@ -300,7 +353,7 @@ func (s *Server) matchNodes(query string) []*graph.Node {
       if !r.dotted {
         continue
       }
-      if dot := strings.IndexByte(strings.ToLower(r.node.Name), '.'); dot > 0 {
+      if dot := strings.LastIndexByte(strings.ToLower(r.node.Name), '.'); dot > 0 {
         dottedOwners[strings.ToLower(r.node.Name[:dot])] = true
       }
     }

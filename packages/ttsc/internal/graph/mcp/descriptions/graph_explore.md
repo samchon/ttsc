@@ -1,3 +1,3 @@
-Call first for TypeScript architecture/code-flow/public-API-flow questions, before shell/grep/read or file listing. Do not list files first; returned nodes include source paths. Query named symbols, files, or domain nouns; broad onboarding/overview queries may ask for architecture orientation once. Avoid generic words like code/method/request/main.
+Call first for TypeScript architecture/code-flow questions, before shell/grep/read. Query named symbols, files, or domain nouns; broad onboarding/overview queries may ask for architecture orientation once. Avoid generic words like code/method/request/main.
 
 The result is a compiler-resolved graph snapshot: source, calls, callers, types, and blast radius. For broad questions, synthesize from the first relevant result; do not chase every returned edge. Re-query only for a missing symbol/file, narrower follow-up, or after edits. Read only for no match, non-TS files, edited source, or missing context.
