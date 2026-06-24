@@ -240,18 +240,21 @@ func (s *Server) matchNodes(query string) []*graph.Node {
   }
 
   type scored struct {
-    node  *graph.Node
-    score int
+    node   *graph.Node
+    score  int
+    dotted bool
   }
   ranked := make([]scored, 0)
   for _, node := range s.graph.Nodes {
     name := strings.ToLower(node.Name)
     score := 0
+    dotted := false
     if name == whole {
       score += 1000
     }
     if strings.Contains(name, ".") && strings.Contains(whole, name) {
       score += 900
+      dotted = true
     } else if len(name) >= 8 && strings.Contains(whole, name) {
       score += 500
     }
@@ -283,7 +286,7 @@ func (s *Server) matchNodes(query string) []*graph.Node {
         score += degree
       }
     }
-    ranked = append(ranked, scored{node, score})
+    ranked = append(ranked, scored{node, score, dotted})
   }
   if len(ranked) > 0 {
     sort.Slice(ranked, func(i, j int) bool {
@@ -292,10 +295,24 @@ func (s *Server) matchNodes(query string) []*graph.Node {
       }
       return ranked[i].node.ID < ranked[j].node.ID
     })
+    dottedOwners := map[string]bool{}
+    for _, r := range ranked {
+      if !r.dotted {
+        continue
+      }
+      if dot := strings.IndexByte(strings.ToLower(r.node.Name), '.'); dot > 0 {
+        dottedOwners[strings.ToLower(r.node.Name[:dot])] = true
+      }
+    }
     out := make([]*graph.Node, 0, maxExploreNodes)
     for _, r := range ranked {
       if len(out) >= maxExploreNodes {
         break
+      }
+      if len(dottedOwners) > 0 &&
+        strings.ToLower(string(r.node.Kind)) == "class" &&
+        dottedOwners[strings.ToLower(r.node.Name)] {
+        continue
       }
       out = append(out, r.node)
     }
