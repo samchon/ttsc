@@ -42,10 +42,10 @@
     "prettier": "^3.4.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-force-graph-3d": "^1.29.1",
     "tailwindcss": "^4.1.12",
     "tgrid": "^1.0.3",
     "three": "^0.184.0",
+    "three-forcegraph": "^1.43.4",
     "tstl": "^3.0.0",
     "typescript": "~5.9.3",
     "typia": "13.0.0-dev.20260605.1"

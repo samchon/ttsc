@@ -1,46 +1,18 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import type { ChangeEvent, ComponentType } from "react";
+import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import {
+  toViewerPayload,
+  type ViewerLink,
   type ViewerNode,
   type ViewerPayload,
-  toViewerPayload,
 } from "./graphReduce";
 
-// react-force-graph-3d builds a three.js WebGL scene and touches `window` on
-// import, so it must never run during static export. Load it client-only.
-const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
-  ssr: false,
-}) as unknown as ComponentType<ForceProps>;
-
 // ---------------------------------------------------------------------------
-// Types
+// Examples — the benchmark fixtures graphed under /graph. vscode leads.
 // ---------------------------------------------------------------------------
-
-type FNode = ViewerNode & { x?: number; y?: number; z?: number };
-type FLink = { source: string | FNode; target: string | FNode; kind: string };
-
-interface ForceProps {
-  graphData: { nodes: FNode[]; links: FLink[] };
-  width?: number;
-  height?: number;
-  backgroundColor?: string;
-  nodeLabel?: (node: FNode) => string;
-  nodeColor?: (node: FNode) => string;
-  nodeVal?: (node: FNode) => number;
-  nodeOpacity?: number;
-  nodeRelSize?: number;
-  linkColor?: (link: FLink) => string;
-  linkWidth?: number | ((link: FLink) => number);
-  linkOpacity?: number;
-  enableNodeDrag?: boolean;
-  showNavInfo?: boolean;
-  cooldownTicks?: number;
-  warmupTicks?: number;
-}
 
 interface Example {
   id: string;
@@ -48,8 +20,6 @@ interface Example {
   note?: string;
 }
 
-// The benchmark fixtures, graphed and published under /graph by
-// experimental/graph-bench/viewer.mjs. vscode leads as the flagship.
 const EXAMPLES: Example[] = [
   { id: "vscode", label: "VS Code", note: "6,093 files" },
   { id: "typeorm", label: "TypeORM" },
@@ -99,6 +69,13 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// A handle the React shell uses to push data / tear down the imperative
+// three.js scene built once on mount.
+interface SceneHandle {
+  setData: (payload: ViewerPayload) => void;
+  dispose: () => void;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -111,13 +88,6 @@ function Notice({ children }: { children: React.ReactNode }) {
   );
 }
 
-function clone(payload: ViewerPayload): { nodes: FNode[]; links: FLink[] } {
-  return {
-    nodes: payload.nodes.map((n) => ({ ...n })),
-    links: payload.links.map((l) => ({ ...l })),
-  };
-}
-
 export default function GraphViewer3D() {
   const [exampleId, setExampleId] = useState<string>(EXAMPLES[0]!.id);
   const [uploadName, setUploadName] = useState<string | null>(null);
@@ -125,7 +95,8 @@ export default function GraphViewer3D() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const sceneRef = useRef<SceneHandle | null>(null);
+  const payloadRef = useRef<ViewerPayload | null>(null);
 
   // Load the selected example whenever it changes and no upload is active.
   useEffect(() => {
@@ -156,20 +127,196 @@ export default function GraphViewer3D() {
     };
   }, [exampleId, uploadName]);
 
+  // Build the three.js scene once on mount. Every rendering import is dynamic so
+  // nothing touches `window` during static export.
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    setWidth(el.clientWidth);
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) setWidth(entry.contentRect.width);
+    const container = containerRef.current;
+    if (!container) return;
+    let disposed = false;
+
+    void (async () => {
+      const THREE = await import("three");
+      const { OrbitControls } = await import(
+        "three/examples/jsm/controls/OrbitControls.js"
+      );
+      const ThreeForceGraph = (await import("three-forcegraph")).default;
+      if (disposed) return;
+
+      const width = container.clientWidth || 800;
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0c10);
+      scene.add(new THREE.AmbientLight(0xffffff, 2));
+      const key = new THREE.DirectionalLight(0xffffff, 0.8);
+      key.position.set(1, 1, 1);
+      scene.add(key);
+
+      const camera = new THREE.PerspectiveCamera(50, width / HEIGHT, 0.1, 1e6);
+      camera.position.set(0, 0, 320);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(width, HEIGHT);
+      container.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.18;
+
+      const graph = new ThreeForceGraph<ViewerNode, ViewerLink>()
+        .nodeId("id")
+        .nodeRelSize(4)
+        .nodeResolution(12)
+        .nodeOpacity(0.95)
+        .nodeVal((node) => 1 + Math.sqrt(node.degree))
+        .nodeColor((node) => NODE_COLORS[node.kind] ?? "#8b97a8")
+        .linkColor((link) => LINK_COLORS[link.kind] ?? "#ffffff55")
+        .linkOpacity(0.4)
+        .linkWidth(0)
+        .warmupTicks(20)
+        .cooldownTicks(160);
+      scene.add(graph);
+
+      // Frame the camera on the graph's bounding box at a 3/4 angle.
+      const fitCamera = () => {
+        const b = graph.getGraphBbox();
+        if (!b) return;
+        const cx = (b.x[0] + b.x[1]) / 2;
+        const cy = (b.y[0] + b.y[1]) / 2;
+        const cz = (b.z[0] + b.z[1]) / 2;
+        const radius = Math.max(
+          (b.x[1] - b.x[0]) / 2,
+          (b.y[1] - b.y[0]) / 2,
+          (b.z[1] - b.z[0]) / 2,
+          10,
+        );
+        const dist = radius * 2.6;
+        camera.position.set(cx + dist * 0.5, cy + dist * 0.32, cz + dist * 0.8);
+        camera.near = Math.max(0.1, dist / 200);
+        camera.far = dist * 20;
+        camera.updateProjectionMatrix();
+        controls.target.set(cx, cy, cz);
+        controls.update();
+      };
+      let fitTimer = 0;
+      graph.onEngineStop(() => fitCamera());
+
+      // Hover: raycast the node objects (each carries __data) for a tooltip.
+      const tooltip = document.createElement("div");
+      tooltip.style.cssText =
+        "position:absolute;display:none;pointer-events:none;z-index:10;max-width:22rem;padding:4px 7px;border-radius:6px;background:#0c0e13ee;border:1px solid #2a313e;font:11px ui-monospace,monospace;color:#e6edf3";
+      container.appendChild(tooltip);
+
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      let hoverNode: ViewerNode | null = null;
+      const onPointerMove = (event: PointerEvent) => {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObjects(graph.children, true);
+        hoverNode = null;
+        for (const hit of hits) {
+          let obj: import("three").Object3D | null = hit.object;
+          while (obj) {
+            const meta = obj as { __graphObjType?: string; __data?: unknown };
+            if (meta.__graphObjType === "node" && meta.__data) {
+              hoverNode = meta.__data as ViewerNode;
+              break;
+            }
+            obj = obj.parent;
+          }
+          if (hoverNode) break;
+        }
+        if (!hoverNode) {
+          tooltip.style.display = "none";
+          return;
+        }
+        tooltip.style.display = "block";
+        tooltip.style.left = `${event.clientX - rect.left + 12}px`;
+        tooltip.style.top = `${event.clientY - rect.top + 12}px`;
+        tooltip.innerHTML =
+          `${escapeHtml(hoverNode.name)}<br/>` +
+          `<span style="color:#8b97a8">${escapeHtml(hoverNode.kind)} · ${escapeHtml(hoverNode.file)}</span>`;
+      };
+      const onPointerLeave = () => {
+        hoverNode = null;
+        tooltip.style.display = "none";
+      };
+      renderer.domElement.addEventListener("pointermove", onPointerMove);
+      renderer.domElement.addEventListener("pointerleave", onPointerLeave);
+
+      let raf = 0;
+      const animate = () => {
+        raf = requestAnimationFrame(animate);
+        graph.tickFrame();
+        controls.update();
+        renderer.render(scene, camera);
+      };
+      animate();
+
+      const resize = new ResizeObserver(() => {
+        const w = container.clientWidth || width;
+        camera.aspect = w / HEIGHT;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, HEIGHT);
+      });
+      resize.observe(container);
+
+      const setData = (next: ViewerPayload) => {
+        graph.graphData({
+          nodes: next.nodes.map((n) => ({ ...n })),
+          links: next.links.map((l) => ({ ...l })),
+        });
+        // An early fit once the layout has spread, plus the final fit on stop.
+        window.clearTimeout(fitTimer);
+        fitTimer = window.setTimeout(() => {
+          if (!disposed) fitCamera();
+        }, 700);
+      };
+
+      sceneRef.current = {
+        setData,
+        dispose: () => {
+          cancelAnimationFrame(raf);
+          window.clearTimeout(fitTimer);
+          resize.disconnect();
+          renderer.domElement.removeEventListener("pointermove", onPointerMove);
+          renderer.domElement.removeEventListener(
+            "pointerleave",
+            onPointerLeave,
+          );
+          controls.dispose();
+          scene.remove(graph);
+          renderer.dispose();
+          renderer.domElement.remove();
+          tooltip.remove();
+        },
+      };
+
+      if (payloadRef.current) setData(payloadRef.current);
+    })().catch((err: unknown) => {
+      if (!disposed)
+        setError(err instanceof Error ? err.message : String(err));
     });
-    ro.observe(el);
-    return () => ro.disconnect();
+
+    return () => {
+      disposed = true;
+      sceneRef.current?.dispose();
+      sceneRef.current = null;
+    };
   }, []);
+
+  // Push new data into the scene whenever the payload changes.
+  useEffect(() => {
+    payloadRef.current = payload;
+    if (payload) sceneRef.current?.setData(payload);
+  }, [payload]);
 
   const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    event.target.value = ""; // allow re-uploading the same file
+    event.target.value = "";
     if (!file) return;
     setBusy(true);
     setError(null);
@@ -187,10 +334,6 @@ export default function GraphViewer3D() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const clearUpload = () => {
-    setUploadName(null); // re-triggers the example effect
   };
 
   const counts = payload?.counts;
@@ -228,7 +371,6 @@ export default function GraphViewer3D() {
           ) : null}
         </div>
 
-        {/* Controls: example pills + upload-your-own */}
         <div className="flex flex-wrap items-center gap-2 border-b border-[#222834] px-5 py-3">
           {EXAMPLES.map((ex) => {
             const active = !uploadName && ex.id === exampleId;
@@ -268,7 +410,7 @@ export default function GraphViewer3D() {
               {uploadName}
               <button
                 type="button"
-                onClick={clearUpload}
+                onClick={() => setUploadName(null)}
                 className="text-neutral-500 hover:text-neutral-200"
                 title="back to examples"
               >
@@ -284,35 +426,16 @@ export default function GraphViewer3D() {
           </p>
         ) : null}
 
-        <div ref={containerRef} className="relative" style={{ height: HEIGHT }}>
-          {width > 0 && payload ? (
-            <ForceGraph3D
-              graphData={clone(payload)}
-              width={width}
-              height={HEIGHT}
-              backgroundColor="#0a0c10"
-              nodeRelSize={4}
-              nodeOpacity={0.95}
-              nodeVal={(node) => 1 + Math.sqrt(node.degree)}
-              nodeColor={(node) => NODE_COLORS[node.kind] ?? "#8b97a8"}
-              nodeLabel={(node) =>
-                `<div style="font:11px ui-monospace,monospace;color:#e6edf3">` +
-                `${escapeHtml(node.name)}<br/>` +
-                `<span style="color:#8b97a8">${escapeHtml(node.kind)} · ${escapeHtml(node.file)}</span>` +
-                `</div>`
-              }
-              linkColor={(link) => LINK_COLORS[link.kind] ?? "#ffffff55"}
-              linkWidth={0.6}
-              linkOpacity={0.5}
-              enableNodeDrag={false}
-              showNavInfo={false}
-              cooldownTicks={120}
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center font-mono text-[12px] text-neutral-500">
+        <div
+          ref={containerRef}
+          className="relative"
+          style={{ height: HEIGHT }}
+        >
+          {!payload ? (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-[12px] text-neutral-500">
               {busy ? "Building the graph…" : "Loading…"}
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-[#222834] px-5 py-3 font-mono text-[10px] text-neutral-500">
