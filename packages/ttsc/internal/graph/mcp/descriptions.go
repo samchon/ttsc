@@ -14,6 +14,18 @@ var queryNodesDescriptionMarkdown string
 //go:embed descriptions/query_nodes_query.md
 var queryNodesQueryDescriptionMarkdown string
 
+//go:embed descriptions/query_nodes_mode.md
+var queryNodesModeDescriptionMarkdown string
+
+//go:embed descriptions/expand_nodes.md
+var expandNodesDescriptionMarkdown string
+
+//go:embed descriptions/expand_nodes_ids.md
+var expandNodesIDsDescriptionMarkdown string
+
+//go:embed descriptions/expand_nodes_mode.md
+var expandNodesModeDescriptionMarkdown string
+
 //go:embed descriptions/query_files.md
 var queryFilesDescriptionMarkdown string
 
@@ -32,6 +44,10 @@ var queryDiagnosticsSeverityDescriptionMarkdown string
 var (
   queryNodesDescription               = strings.TrimSpace(queryNodesDescriptionMarkdown)
   queryNodesQueryDescription          = strings.TrimSpace(queryNodesQueryDescriptionMarkdown)
+  queryNodesModeDescription           = strings.TrimSpace(queryNodesModeDescriptionMarkdown)
+  expandNodesDescription              = strings.TrimSpace(expandNodesDescriptionMarkdown)
+  expandNodesIDsDescription           = strings.TrimSpace(expandNodesIDsDescriptionMarkdown)
+  expandNodesModeDescription          = strings.TrimSpace(expandNodesModeDescriptionMarkdown)
   queryFilesDescription               = strings.TrimSpace(queryFilesDescriptionMarkdown)
   queryFilesLocationsDescription      = strings.TrimSpace(queryFilesLocationsDescriptionMarkdown)
   queryDiagnosticsDescription         = strings.TrimSpace(queryDiagnosticsDescriptionMarkdown)

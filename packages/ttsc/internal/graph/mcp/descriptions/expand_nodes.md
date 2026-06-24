@@ -1,0 +1,1 @@
+Exact expansion for handles printed by `query_nodes` or `query_files`. Use this when a graph result shows the right TypeScript declaration without enough source; do not grep/read a printed TypeScript path just to reopen it.

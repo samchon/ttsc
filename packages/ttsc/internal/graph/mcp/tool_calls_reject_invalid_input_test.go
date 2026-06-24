@@ -12,9 +12,10 @@ import (
 // TestToolCallsRejectInvalidInput verifies that each tools/call guard returns the
 // invalid-params code -32602 with a message naming the fault, so an agent gets an
 // actionable error instead of an empty or arbitrary result. It pins two rejection
-// guards (an unknown tool name and a blank query_nodes query) and confirms the
-// one input that is deliberately not a fault: a blank query_diagnostics file means
-// "the whole project", so it returns the project-wide listing, not an error.
+// guards (an unknown tool name, a blank query_nodes query, and invalid
+// expand_nodes arguments) and confirms the one input that is deliberately not a
+// fault: a blank query_diagnostics file means "the whole project", so it returns
+// the project-wide listing, not an error.
 //
 //  1. Build the server from a minimal one-file fixture.
 //  2. Drive a tools/call for each input.
@@ -63,10 +64,26 @@ func TestToolCallsRejectInvalidInput(t *testing.T) {
     t.Fatalf("blank query message did not mention non-empty: %v", blankQuery["message"])
   }
 
+  blankExpand := errorOf(t, server, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"expand_nodes","arguments":{"ids":[]}}}`)
+  if blankExpand["code"] != float64(-32602) {
+    t.Fatalf("blank expand code was not -32602: %v", blankExpand["code"])
+  }
+  if msg, _ := blankExpand["message"].(string); !strings.Contains(msg, "non-empty") {
+    t.Fatalf("blank expand message did not mention non-empty: %v", blankExpand["message"])
+  }
+
+  badMode := errorOf(t, server, `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"expand_nodes","arguments":{"ids":["n:deadbeef"],"mode":"impact"}}}`)
+  if badMode["code"] != float64(-32602) {
+    t.Fatalf("bad expand mode code was not -32602: %v", badMode["code"])
+  }
+  if msg, _ := badMode["message"].(string); !strings.Contains(msg, "source or flow") {
+    t.Fatalf("bad expand mode message did not name valid modes: %v", badMode["message"])
+  }
+
   // A blank query_diagnostics file is not an error: it asks for the whole
   // project's diagnostics. The one-file fixture is clean, so the project-wide
   // listing reports none rather than rejecting the call.
-  projectDiag := toolText(t, server, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"query_diagnostics","arguments":{"files":[""]}}}`)
+  projectDiag := toolText(t, server, `{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"query_diagnostics","arguments":{"files":[""]}}}`)
   if !strings.Contains(projectDiag, "No error diagnostics") {
     t.Fatalf("blank file did not return whole-project diagnostics: %v", projectDiag)
   }

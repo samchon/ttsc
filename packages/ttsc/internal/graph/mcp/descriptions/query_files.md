@@ -2,4 +2,4 @@ A roster of one or more source files: the file's adjacent files (the ones it rea
 
 Pass paths in `locations`; each file is answered as its own block, in input order.
 
-It is a cheap index for finding your way around a file: what is in it and what sits next to it. To see a listed declaration's relationships or body, query its name with query_nodes; do not grep or read the file for it.
+It is a cheap index for finding your way around a file: what is in it and what sits next to it. To see a listed declaration's relationships or body, call expand_nodes with its handle, or query_nodes when you need fuzzy relationship discovery.

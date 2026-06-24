@@ -3,6 +3,7 @@ package mcp
 import (
   "encoding/json"
   "fmt"
+  "hash/fnv"
   "os"
   "path/filepath"
   "sort"
@@ -35,8 +36,35 @@ func toolsListResult() any {
             "type":        "string",
             "description": queryNodesQueryDescription,
           },
+          "mode": map[string]any{
+            "type":        "string",
+            "enum":        []any{"auto", "search", "flow"},
+            "default":     "auto",
+            "description": queryNodesModeDescription,
+          },
         },
         "required": []any{"query"},
+      },
+    },
+    map[string]any{
+      "name":        "expand_nodes",
+      "description": expandNodesDescription,
+      "inputSchema": map[string]any{
+        "type": "object",
+        "properties": map[string]any{
+          "ids": map[string]any{
+            "type":        "array",
+            "items":       map[string]any{"type": "string"},
+            "description": expandNodesIDsDescription,
+          },
+          "mode": map[string]any{
+            "type":        "string",
+            "enum":        []any{"source", "flow"},
+            "default":     "source",
+            "description": expandNodesModeDescription,
+          },
+        },
+        "required": []any{"ids"},
       },
     },
   }
@@ -103,6 +131,8 @@ func (s *Server) callTool(params json.RawMessage) (any, *rpcError) {
   switch call.Name {
   case "query_nodes":
     return s.queryNodes(call.Arguments)
+  case "expand_nodes":
+    return s.expandNodes(call.Arguments)
   case "query_files":
     if !queryFilesEnabled() {
       return nil, &rpcError{Code: codeInvalidParams, Message: "unknown tool: query_files"}
@@ -171,9 +201,17 @@ const maxNodeDiagnostics = 5
 func (s *Server) queryNodes(args json.RawMessage) (any, *rpcError) {
   var in struct {
     Query string `json:"query"`
+    Mode  string `json:"mode"`
   }
   if err := json.Unmarshal(args, &in); err != nil || strings.TrimSpace(in.Query) == "" {
     return nil, &rpcError{Code: codeInvalidParams, Message: "query_nodes requires a non-empty 'query'"}
+  }
+  mode := strings.TrimSpace(in.Mode)
+  if mode == "" {
+    mode = "auto"
+  }
+  if mode != "auto" && mode != "search" && mode != "flow" {
+    return nil, &rpcError{Code: codeInvalidParams, Message: "query_nodes mode must be auto, search, or flow"}
   }
   if err := s.ensureLoaded(); err != nil {
     return nil, &rpcError{Code: codeInternal, Message: "graph not available: " + err.Error()}
@@ -189,13 +227,103 @@ func (s *Server) queryNodes(args json.RawMessage) (any, *rpcError) {
   // compiler-resolved calls inline; otherwise thorough agents re-query or read the
   // target files just to confirm the path. Plain symbol lookups stay lean.
   nodes := matches
-  callPath := os.Getenv("TTSC_GRAPH_CALLPATH") != "" || wantsCallPath(in.Query)
+  callPath := mode == "flow" || (mode == "auto" && (os.Getenv("TTSC_GRAPH_CALLPATH") != "" || wantsCallPath(in.Query)))
   if callPath {
     nodes = s.withCallPath(matches, maxPathNodes, in.Query)
     nodes = s.filterFlowNodes(nodes, in.Query)
     return textResult(s.renderFlowNodes(nodes, in.Query, "")), nil
   }
   return textResult(s.renderNodes(nodes, queryBudget(len(queryTokens(in.Query))), "")), nil
+}
+
+const (
+  maxExpandNodeRefs = 8
+  expandBudgetBase  = 18000
+  expandBudgetStep  = 9000
+  expandBudgetMax   = 48000
+)
+
+func expandBudget(nodes int) int {
+  if nodes < 1 {
+    nodes = 1
+  }
+  budget := expandBudgetBase + expandBudgetStep*(nodes-1)
+  if budget > expandBudgetMax {
+    return expandBudgetMax
+  }
+  return budget
+}
+
+// expandNodes reopens exact graph nodes by the short handles printed by
+// query_nodes/query_files. It is the deterministic follow-up path for budgeted
+// signatures: no fuzzy re-ranking and no shell read for TypeScript declarations
+// already known to the graph.
+func (s *Server) expandNodes(args json.RawMessage) (any, *rpcError) {
+  var in struct {
+    IDs  []string `json:"ids"`
+    Mode string   `json:"mode"`
+  }
+  if err := json.Unmarshal(args, &in); err != nil {
+    return nil, &rpcError{Code: codeInvalidParams, Message: "expand_nodes: invalid arguments"}
+  }
+  refs := make([]string, 0, len(in.IDs))
+  for _, id := range in.IDs {
+    if strings.TrimSpace(id) != "" {
+      refs = append(refs, id)
+    }
+  }
+  if len(refs) == 0 {
+    return nil, &rpcError{Code: codeInvalidParams, Message: "expand_nodes requires a non-empty 'ids' array"}
+  }
+  if len(refs) > maxExpandNodeRefs {
+    return nil, &rpcError{Code: codeInvalidParams, Message: fmt.Sprintf("expand_nodes accepts at most %d ids", maxExpandNodeRefs)}
+  }
+  mode := strings.TrimSpace(in.Mode)
+  if mode == "" {
+    mode = "source"
+  }
+  if mode != "source" && mode != "flow" {
+    return nil, &rpcError{Code: codeInvalidParams, Message: "expand_nodes mode must be source or flow"}
+  }
+  if err := s.ensureLoaded(); err != nil {
+    return nil, &rpcError{Code: codeInternal, Message: "graph not available: " + err.Error()}
+  }
+  s.refreshIfStale()
+  s.refreshDiagnostics()
+
+  nodes := make([]*graph.Node, 0, len(refs))
+  missing := make([]string, 0)
+  seen := map[string]bool{}
+  for _, ref := range refs {
+    node := s.nodeByRef(ref)
+    if node == nil {
+      missing = append(missing, ref)
+      continue
+    }
+    if seen[node.ID] {
+      continue
+    }
+    seen[node.ID] = true
+    nodes = append(nodes, node)
+  }
+  if len(nodes) == 0 {
+    return textResult(fmt.Sprintf("No graph nodes match handle(s): %s.", strings.Join(missing, ", "))), nil
+  }
+  note := ""
+  if len(missing) > 0 {
+    note = "Missing handle(s): " + strings.Join(missing, ", ")
+  }
+  if mode == "flow" {
+    names := make([]string, 0, len(nodes))
+    for _, node := range nodes {
+      names = append(names, node.Name)
+    }
+    flowQuery := strings.Join(names, " ")
+    nodes = s.withCallPath(nodes, maxPathNodes, flowQuery)
+    nodes = s.filterFlowNodes(nodes, flowQuery)
+    return textResult(s.renderFlowNodes(nodes, flowQuery, note)), nil
+  }
+  return textResult(s.renderNodes(nodes, expandBudget(len(nodes)), note)), nil
 }
 
 // queryFiles renders a roster for one or more files: each file's adjacent files
@@ -268,7 +396,7 @@ func (s *Server) renderFlowNodes(nodes []*graph.Node, query string, note string)
   }
   b.WriteString("Flow nodes:\n")
   for i, node := range nodes {
-    fmt.Fprintf(&b, "  %d. %s %s  %s:%d\n", i+1, node.Kind, node.Name, s.relFile(node.File), s.declLine(node))
+    fmt.Fprintf(&b, "  %d. %s %s  %s:%d  handle:%s\n", i+1, node.Kind, node.Name, s.relFile(node.File), s.declLine(node), nodeHandle(node.ID))
   }
   b.WriteByte('\n')
   for _, node := range nodes {
@@ -632,6 +760,31 @@ func textBlocks(blocks []string) any {
   return map[string]any{"content": content}
 }
 
+func nodeHandle(id string) string {
+  h := fnv.New64a()
+  _, _ = h.Write([]byte(id))
+  return fmt.Sprintf("n:%016x", h.Sum64())
+}
+
+func (s *Server) nodeByRef(ref string) *graph.Node {
+  ref = strings.TrimSpace(ref)
+  if ref == "" {
+    return nil
+  }
+  if node := s.graph.Nodes[ref]; node != nil {
+    return node
+  }
+  if !strings.HasPrefix(ref, "n:") {
+    return nil
+  }
+  for _, node := range s.graph.Nodes {
+    if nodeHandle(node.ID) == ref {
+      return node
+    }
+  }
+  return nil
+}
+
 // fileBlocks renders one roster block per requested location, in input order, each
 // headed with the location. The roster is a cheap index, not a content dump: the
 // file's adjacent files (the ones its declarations reach and are reached by, at
@@ -686,7 +839,7 @@ func (s *Server) fileBlocks(locations []string) []string {
         if node.External {
           external = " (external)"
         }
-        fmt.Fprintf(&b, "  %s %s%s  :%d\n", node.Kind, node.Name, external, s.declLine(node))
+        fmt.Fprintf(&b, "  %s %s%s  :%d  handle:%s\n", node.Kind, node.Name, external, s.declLine(node), nodeHandle(node.ID))
       }
     }
     blocks = append(blocks, strings.TrimRight(b.String(), "\n"))
@@ -727,11 +880,11 @@ func writeFileAdjacency(b *strings.Builder, label string, set map[string]bool) {
 const exploreHeader = "Compiler-resolved graph snapshot, current as of this call; a later source edit can make it stale. " +
   "Answer the whole flow from this result: the edges already give the downstream call path and blast radius, " +
   "so a node shown as an edge target is part of the answer, not a reason to re-query. " +
-  "Re-query only for no match, a node you need that was printed without a body, or source you have edited since. " +
-  "Do not shell/grep/read paths already printed here.\n\n"
+  "If a node you need was printed without a body, call expand_nodes with its handle. " +
+  "Re-query after source edits. Do not shell/grep/read TypeScript paths already printed here.\n\n"
 
 const flowHeader = "Compiler-resolved call flow, current as of this call. " +
-  "Answer from these exact path nodes, value-call edges, and code windows; do not shell/grep/read printed paths unless a required line is absent.\n\n"
+  "Answer from these exact path nodes, value-call/value-access edges, and code windows; expand handles for omitted TypeScript source.\n\n"
 
 // maxExploreNodes caps how many ranked nodes a query returns, so a broad
 // keyword query surfaces the most relevant declarations without flooding context.
@@ -1182,7 +1335,7 @@ func (s *Server) writeNodeHeader(b *strings.Builder, node *graph.Node) {
   if node.External {
     external = " (external)"
   }
-  fmt.Fprintf(b, "%s %s%s  %s:%d\n", node.Kind, node.Name, external, s.relFile(node.File), s.declLine(node))
+  fmt.Fprintf(b, "%s %s%s  %s:%d  handle:%s\n", node.Kind, node.Name, external, s.relFile(node.File), s.declLine(node), nodeHandle(node.ID))
 }
 
 // writeNodeEdges writes a node's checker-resolved relationships: its outgoing

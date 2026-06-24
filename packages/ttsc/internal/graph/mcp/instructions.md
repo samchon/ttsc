@@ -3,9 +3,10 @@
 A compiler-resolved graph of TypeScript relationships: calls, callers, types, ownership, blast radius. It mirrors the code; after an edit, query again, not from an old result.
 
 - **How does code connect?** `query_nodes`: one broad query (owner + action + nouns), before grep.
+- **Need more source for a printed TypeScript node?** `expand_nodes` with its `handle:n:...`.
 - **What is in a file, what is near it?** `query_files` with the paths: a roster of its declarations and adjacent files.
 - **A file's errors, or the whole project's?** `query_diagnostics`.
-- **No match, omitted source, or non-TypeScript?** grep/read.
+- **No match, non-TypeScript, or literal occurrence search?** grep/read.
 
 ## Reach for `query_nodes` before grep
 
@@ -13,11 +14,16 @@ A compiler-resolved graph of TypeScript relationships: calls, callers, types, ow
 
 - One broad query (owner + action + domain nouns, e.g. `repository find manager query builder`) returns the matched declarations with their calls, callers, types, blast radius, and source.
 - The fuzzy match is the batch: a broad multi-noun query returns the whole cluster in one call, so you do not query one symbol at a time, and an edge target shown in the result is part of the answer, not a reason to re-query or grep.
+- If a result shows the right TypeScript node but omits the body, copy its `handle:n:...` into `expand_nodes`.
 - grep/read cannot assemble that, because the answer depends on resolved relationships, not on where a keyword appears.
+
+## Expand exact nodes with `expand_nodes`
+
+**Use `expand_nodes` when `query_nodes` or `query_files` printed the right TypeScript declaration handle but not enough body.** It is deterministic: no fuzzy ranking, no file search, just the graph node(s) you named. `mode: "source"` returns declarations with relationships and source; `mode: "flow"` expands downstream value-call/value-access path nodes from those exact starting nodes.
 
 ## Roster a file with `query_files`
 
-**Pass file paths to `query_files` for a cheap roster of each**: the declarations inside it (kind, name, line) and its adjacent files (what it reaches and is reached by), one block per file. Use it to find your way around a file, then `query_nodes` the symbol you care about for its relationships and source. It does not return bodies, so reach for `query_nodes` to see one, never grep or re-read the file for a symbol it already listed.
+**Pass file paths to `query_files` for a cheap roster of each**: the declarations inside it (kind, name, line, handle) and its adjacent files (what it reaches and is reached by), one block per file. Use it to find your way around a file, then `expand_nodes` the handle you care about for relationships and source. Use `query_nodes` instead when you need fuzzy relationship discovery.
 
 ## Check errors with `query_diagnostics`
 
@@ -28,7 +34,6 @@ A compiler-resolved graph of TypeScript relationships: calls, callers, types, ow
 **Switch to ordinary search and file reads only when the graph does not fit:**
 
 - No node matches the symbol.
-- The result omits source you still need.
 - Non-TypeScript context: config, generated output, docs, JSON, other languages.
 - You need every literal occurrence of a string.
 
@@ -47,7 +52,8 @@ The one trap is reusing an earlier result: it predates any edit you made after i
 ## Final checklist
 
 - Relationship or flow question? `query_nodes` with one broad owner + action + noun query, before any grep.
-- Need a file's roster? `query_files` with its path: its declarations and adjacent files.
+- Need a file's roster? `query_files` with its path: its declarations, handles, and adjacent files.
+- Need source for a listed/omitted TypeScript declaration? `expand_nodes` with its handle.
 - A file's errors, or the whole project's? `query_diagnostics` with paths, or none for everything.
-- No match, omitted source, non-TypeScript, or literal text search? grep/read.
+- No match, non-TypeScript, or literal text search? grep/read.
 - Edited a file since exploring? Query again; the result re-checks your edit.

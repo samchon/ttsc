@@ -69,10 +69,10 @@ export const bad: number = "not a number";
     t.Fatalf("a notification drew a reply: %s", out)
   }
 
-  // tools/list advertises both tools.
+  // tools/list advertises the graph tools.
   list := result(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
   names := toolNames(t, list)
-  if !names["query_nodes"] || !names["query_files"] || !names["query_diagnostics"] {
+  if !names["query_nodes"] || !names["expand_nodes"] || !names["query_files"] || !names["query_diagnostics"] {
     t.Fatalf("tools/list missing expected tools: %v", names)
   }
   tools := toolsByName(t, list)
@@ -85,6 +85,14 @@ export const bad: number = "not a number";
   queryProperty := nodesProperties["query"].(map[string]any)
   if desc, _ := queryProperty["description"].(string); !strings.Contains(desc, "broad search, not one symbol") {
     t.Fatalf("query_nodes query did not use the embedded description: %v", desc)
+  }
+  modeProperty := nodesProperties["mode"].(map[string]any)
+  if desc, _ := modeProperty["description"].(string); !strings.Contains(desc, "flow") {
+    t.Fatalf("query_nodes mode did not use the embedded description: %v", desc)
+  }
+  expand := tools["expand_nodes"]
+  if desc, _ := expand["description"].(string); !strings.Contains(desc, "Exact expansion") {
+    t.Fatalf("expand_nodes did not use the embedded description: %v", desc)
   }
   diagnostics := tools["query_diagnostics"]
   if desc, _ := diagnostics["description"].(string); !strings.Contains(desc, "exactly as ttsc reports them") {
