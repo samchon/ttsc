@@ -184,7 +184,14 @@ func (s *Server) queryNodes(args json.RawMessage) (any, *rpcError) {
 	if len(matches) == 0 {
 		return textResult(fmt.Sprintf("No graph nodes match %q.", clip(in.Query, 200))), nil
 	}
-	nodes := s.withCallPath(matches, maxPathNodes)
+	// The downstream call-path walk is opt-in (TTSC_GRAPH_CALLPATH): for a specific
+	// mechanism question the agent already queries narrowly, so expanding the chain
+	// just floods the budget with bodiless signature stubs and inflates the response
+	// without dropping the call count. Default to the lean matched cluster.
+	nodes := matches
+	if os.Getenv("TTSC_GRAPH_CALLPATH") != "" {
+		nodes = s.withCallPath(matches, maxPathNodes)
+	}
 	return textResult(s.renderNodes(nodes, queryBudget(len(queryTokens(in.Query))), "")), nil
 }
 
