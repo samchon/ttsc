@@ -284,7 +284,7 @@ try {
     setGuidance(arm.guide);
     const prompt = arm.guide ? GUIDED_PREFIX + question : question;
     for (let r = 0; r < runs; r++) {
-      const m = runClaude(prompt, arm.cfg, arm.name, r + 1, arm.guide);
+      const m = runClaude(prompt, arm.cfg, arm.name, r + 1);
       samples[arm.name].push(m);
       spent += m.cost;
       console.log(
@@ -381,9 +381,9 @@ function syncSleep(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-function runClaude(question, cfg, armName, runNumber, guide) {
-  // Keep no-guidance arms isolated from parent AGENTS.md/CLAUDE.md, and prevent
-  // Claude's built-in Agent tool from turning an MCP benchmark into subagent IO.
+function runClaude(question, cfg, armName, runNumber) {
+  // Prevent Claude's built-in Agent tool from turning an MCP benchmark into
+  // subagent IO. Do not use --bare here: it disables OAuth/keychain auth.
   const claudeArgs = [
     "-p",
     "--output-format",
@@ -403,7 +403,6 @@ function runClaude(question, cfg, armName, runNumber, guide) {
     "--mcp-config",
     cfg,
   ];
-  if (!guide) claudeArgs.splice(1, 0, "--bare");
   const result = cp.spawnSync(
     "claude",
     claudeArgs,
