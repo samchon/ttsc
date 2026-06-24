@@ -27,7 +27,6 @@ interface AgentCell {
   samples: {
     baseline: AgentSample[];
     graph: AgentSample[];
-    guided?: AgentSample[];
   };
 }
 
@@ -161,12 +160,8 @@ interface ModelGroup {
   runs?: number;
   codegraphSetupMs?: number;
   baseline: Metrics;
-  // Each tool is measured twice: `graph` is the MCP server alone; `guided` is
-  // the same A/B with an AGENTS.md line telling the agent to use the tool.
   ttsc?: Metrics;
-  ttscGuided?: Metrics;
   codegraph?: Metrics;
-  codegraphGuided?: Metrics;
 }
 
 interface ProjectGroup {
@@ -201,12 +196,6 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
           );
           const baselineSamples = modelCells.flatMap((c) => c.samples.baseline);
           const head = modelCells[0]!;
-          const guidedOf = (cell?: AgentCell): Metrics | undefined =>
-            cell &&
-            Array.isArray(cell.samples.guided) &&
-            cell.samples.guided.length > 0
-              ? medianMetrics(cell.samples.guided)
-              : undefined;
           return {
             model: head.model,
             label: modelLabel(head),
@@ -215,11 +204,9 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
             codegraphSetupMs: codegraphCell?.toolSetupMs,
             baseline: medianMetrics(baselineSamples),
             ttsc: ttscCell ? medianMetrics(ttscCell.samples.graph) : undefined,
-            ttscGuided: guidedOf(ttscCell),
             codegraph: codegraphCell
               ? medianMetrics(codegraphCell.samples.graph)
               : undefined,
-            codegraphGuided: guidedOf(codegraphCell),
           };
         })
         .sort((a, b) => modelOrder(a.model) - modelOrder(b.model));
@@ -239,10 +226,6 @@ const BASELINE_FILL = "#4b5563";
 const TTSC_FILL = `linear-gradient(90deg, ${ACCENT}, #19b6c9)`;
 const CODEGRAPH_FILL = "linear-gradient(90deg, #f5b042, #d97706)";
 const CODEGRAPH_TEXT = "#f5b042";
-// The instructed (AGENTS.md-guided) arm of each tool: same hue, dimmed, so a
-// glance reads it as the lighter companion of the MCP-only bar above it.
-const TTSC_GUIDED_FILL = `linear-gradient(90deg, ${ACCENT}66, #19b6c966)`;
-const CODEGRAPH_GUIDED_FILL = "linear-gradient(90deg, #f5b04266, #d9770666)";
 
 const panelClass =
   "overflow-hidden rounded-lg border border-[#222834] bg-[#0c0e13] shadow-[0_24px_60px_rgba(0,0,0,0.35)]";
@@ -398,15 +381,6 @@ function MetricGroup({ metric, model }: { metric: Metric; model: ModelGroup }) {
       fill: TTSC_FILL,
       textColor: ACCENT,
     });
-  if (model.ttscGuided)
-    bars.push({
-      key: "ttsc-guided",
-      label: "@ttsc/graph",
-      mode: "instr",
-      value: model.ttscGuided[metric.key],
-      fill: TTSC_GUIDED_FILL,
-      textColor: ACCENT,
-    });
   if (model.codegraph)
     bars.push({
       key: "codegraph",
@@ -414,15 +388,6 @@ function MetricGroup({ metric, model }: { metric: Metric; model: ModelGroup }) {
       mode: "mcp",
       value: model.codegraph[metric.key],
       fill: CODEGRAPH_FILL,
-      textColor: CODEGRAPH_TEXT,
-    });
-  if (model.codegraphGuided)
-    bars.push({
-      key: "codegraph-guided",
-      label: "codegraph",
-      mode: "instr",
-      value: model.codegraphGuided[metric.key],
-      fill: CODEGRAPH_GUIDED_FILL,
       textColor: CODEGRAPH_TEXT,
     });
 
@@ -504,7 +469,7 @@ function ProjectPanel({
         title={repoLabel(group.repo)}
         description={
           group.question ??
-          "Median tokens, tool calls and wall time per model, against the empty-MCP baseline. Each tool is shown twice: mcp (the server alone) and instr (with an AGENTS.md line telling the agent to use it)."
+          "Median tokens, tool calls and wall time per model, against the empty-MCP baseline. Each tool is shown as mcp (the server alone)."
         }
         aside={aside}
       />
@@ -520,8 +485,7 @@ function ProjectPanel({
         <LegendDot fill={ACCENT} label="@ttsc/graph" />
         <LegendDot fill={CODEGRAPH_TEXT} label="codegraph" />
         <span className="text-neutral-600">
-          mcp = server only · instr = + AGENTS.md · ↓ saved vs baseline · ↑ over
-          baseline
+          mcp = server only · ↓ saved vs baseline · ↑ over baseline
         </span>
       </div>
     </section>

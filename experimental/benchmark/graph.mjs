@@ -76,7 +76,6 @@ const selected = selectProjects(parsed);
 const models = splitList(parsed.values.models ?? parsed.values.model ?? "sonnet,opus,codex");
 const tools = selectTools(parsed.values.tools ?? parsed.values.tool ?? "ttsc-graph,codegraph");
 const runs = parsed.values.runs ?? "1";
-const guidance = parsed.values.guidance ?? "1";
 const daemon = parsed.values.daemon ?? "0";
 const effort = "high";
 const codexModel = parsed.values["codex-model"] ?? "gpt-5.5";
@@ -127,7 +126,6 @@ const report = {
   branch,
   tools,
   runs: Number(runs),
-  guidance: guidance === "1" || guidance === "true",
   daemon: daemon === "1" || daemon === "true",
   outDir,
   cells: [],
@@ -158,7 +156,6 @@ for (const project of selected) {
           model,
           branch,
           runs,
-          guidance,
           daemon,
           effort,
           codexModel,
@@ -215,7 +212,6 @@ function runAgentCell({
   model,
   branch,
   runs,
-  guidance,
   daemon,
   effort,
   codexModel,
@@ -233,7 +229,6 @@ function runAgentCell({
     `--repo-dir=${repoDir}`,
     `--tsconfig=${spec.tsconfig}`,
     `--runs=${runs}`,
-    `--guidance=${guidance}`,
     `--daemon=${daemon}`,
     `--model=${resolvedModel}`,
   ];
@@ -430,13 +425,10 @@ function graphTarballTargets() {
 function summarize(data) {
   const baseline = armSummary(data.samples.baseline);
   const graph = armSummary(data.samples.graph);
-  const guided = data.samples.guided ? armSummary(data.samples.guided) : null;
   return {
     baseline,
     graph,
-    guided,
     graphSavedPct: savedPct(baseline.tokens, graph.tokens),
-    guidedSavedPct: guided ? savedPct(baseline.tokens, guided.tokens) : null,
   };
 }
 
@@ -450,15 +442,10 @@ function armSummary(samples) {
 
 function printCellSummary(cell) {
   const { summary } = cell;
-  const guided =
-    summary.guided == null
-      ? ""
-      : `, guided ${Math.round(summary.guided.tokens)} tok (${summary.guidedSavedPct}%)`;
   process.stdout.write(
     `[graph] ${cell.project}@${cell.branch} ${cell.tool} ${cell.model}: ` +
       `baseline ${Math.round(summary.baseline.tokens)} tok, ` +
-      `graph ${Math.round(summary.graph.tokens)} tok (${summary.graphSavedPct}%)` +
-      `${guided}\n`,
+      `graph ${Math.round(summary.graph.tokens)} tok (${summary.graphSavedPct}%)\n`,
   );
 }
 
@@ -544,10 +531,6 @@ function splitList(value) {
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
-}
-
-function isGuided(value) {
-  return value === "1" || value === "true";
 }
 
 function savedPct(baseline, value) {

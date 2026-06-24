@@ -118,12 +118,6 @@ const repoDir = args["repo-dir"]
   ? path.resolve(args["repo-dir"])
   : path.join(corpus, cloneKey);
 
-// --guidance=1 adds a fairness arm: a neutral project instruction (CLAUDE.md +
-// AGENTS.md) telling the agent to prefer the code-graph MCP over grep. It names no
-// tool and leaks no answer, and the same text is used for @ttsc/graph and
-// codegraph. codex ignores an MCP server's own instructions but honors a project
-// AGENTS.md, so this measures the tool with and without that nudge.
-const guidance = args.guidance === "1" || args.guidance === "true";
 const toolSetupMs =
   args["tool-setup-ms"] === undefined
     ? undefined
@@ -131,36 +125,6 @@ const toolSetupMs =
 // --cg points the graph arm at codegraph instead of @ttsc/graph (repo must be
 // indexed with `codegraph init`), for an apples-to-apples comparison on codex.
 const cg = args.cg === "1" || args.cg === "true";
-const GUIDANCE = `# Code navigation
-
-For architecture/code-flow questions, prefer the code-graph MCP before grep/read.
-Query named symbols, files, or domain nouns; avoid generic words.
-Re-query when following returned symbols/files, narrowing, or after edits.
-Avoid duplicate graph calls; answer from graph when it has source/edges.
-Read only for no match, non-TS files, edited source, or missing context.
-`;
-// The guided arm models how a normal user actually works: they keep an AGENTS.md
-// and tell the agent, in the prompt, to follow it. That elevates the project file
-// to the authority of the user's own words — the channel codex honors most — so it
-// is prepended to the question ONLY in the guided arm.
-const GUIDED_PREFIX =
-  "Follow this project's AGENTS.md instructions when answering.\n\n";
-let guidanceSnapshot = null;
-function snapshotGuidanceFiles() {
-  return ["CLAUDE.md", "AGENTS.md"].map((name) => {
-    const file = path.join(repoDir, name);
-    if (!fs.existsSync(file)) return { file, existed: false };
-    return { file, existed: true, content: fs.readFileSync(file, "utf8") };
-  });
-}
-function setGuidance(on) {
-  guidanceSnapshot ??= snapshotGuidanceFiles();
-  for (const entry of guidanceSnapshot) {
-    if (on) fs.writeFileSync(entry.file, GUIDANCE);
-    else if (entry.existed) fs.writeFileSync(entry.file, entry.content);
-    else fs.rmSync(entry.file, { force: true });
-  }
-}
 
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const goEnv = {
@@ -251,19 +215,17 @@ const withHome = makeCodexHome("with", mcpArgs);
 const withoutHome = makeCodexHome("without", null);
 
 const arms = [
-  { name: "baseline", home: withoutHome, guide: false },
-  { name: "graph", home: withHome, guide: false },
+  { name: "baseline", home: withoutHome },
+  { name: "graph", home: withHome },
 ];
-if (guidance) arms.push({ name: "guided", home: withHome, guide: true });
 
 console.log(
   `\ncodegraph A/B on ${repoKey} via codex — model ${model} (effort ${effort}), ${runs} run(s) x ${arms.length} arms` +
-    (fixtureBranch ? `, fixture ${fixtureBranch}` : "") +
-    (guidance ? " (+guided = graph with a project instruction to use it)" : ""),
+    (fixtureBranch ? `, fixture ${fixtureBranch}` : ""),
 );
 console.log(`Q: ${question}\n`);
 
-const reportName = `agent-ab-codex-report${guidance ? "-guided" : ""}.json`;
+const reportName = "agent-ab-codex-report.json";
 const reportPath = args.report
   ? path.resolve(args.report)
   : path.join(here, reportName);
@@ -276,27 +238,16 @@ const traceDir = args["trace-dir"]
 fs.mkdirSync(traceDir, { recursive: true });
 
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
-try {
-  for (const arm of arms) {
-    setGuidance(arm.guide);
-    const prompt = arm.guide ? GUIDED_PREFIX + question : question;
-    for (let r = 0; r < runs; r++) {
-      const m = runCodex(prompt, arm.home, arm.name, r + 1);
-      samples[arm.name].push(m);
-      console.log(
-        `  ${arm.name.padEnd(8)} run ${r + 1}: ${m.tokens} tok, ${m.tools} tools ` +
-          `(shell ${m.shell}, graph ${m.graph}), ${(m.durMs / 1000).toFixed(0)}s` +
-          (m.ok ? "" : "  [FAILED]"),
-      );
-      if (r === 0 && arm.guide) {
-        console.log(`    item types: ${JSON.stringify(m.types)}`);
-      }
-    }
+for (const arm of arms) {
+  for (let r = 0; r < runs; r++) {
+    const m = runCodex(question, arm.home, arm.name, r + 1);
+    samples[arm.name].push(m);
+    console.log(
+      `  ${arm.name.padEnd(8)} run ${r + 1}: ${m.tokens} tok, ${m.tools} tools ` +
+        `(shell ${m.shell}, graph ${m.graph}), ${(m.durMs / 1000).toFixed(0)}s` +
+        (m.ok ? "" : "  [FAILED]"),
+    );
   }
-} finally {
-  // Always strip the guidance files, even on a mid-run throw, so a later
-  // no-guidance run cannot inherit them and taint its baseline/graph arms.
-  setGuidance(false);
 }
 
 const med = (arm, k) =>
@@ -304,9 +255,7 @@ const med = (arm, k) =>
 const pct = (g, b) => (b === 0 ? 0 : Math.round((1 - g / b) * 100));
 const line = (label, k, fmt = (x) => x) => {
   const b = med("baseline", k);
-  let s = `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(med("graph", k))} (${pct(med("graph", k), b)}%)`;
-  if (guidance)
-    s += `  ->  guided ${fmt(med("guided", k))} (${pct(med("guided", k), b)}%)`;
+  const s = `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(med("graph", k))} (${pct(med("graph", k), b)}%)`;
   console.log(s);
 };
 
@@ -320,7 +269,7 @@ line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, effort, daemon: useDaemon, runs, guidance, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, effort, daemon: useDaemon, runs, question, traceDir, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 cleanup([binary, withHome, withoutHome]);

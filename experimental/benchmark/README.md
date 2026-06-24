@@ -83,7 +83,6 @@ Graph-only flags:
 | `--models sonnet,opus,codex` | Select agent models for `graph.mjs`. `codex` resolves to `--codex-model` and always uses effort `high`. |
 | `--tools ttsc-graph,codegraph` | Select graph tools for `graph.mjs`. Use `all` for both. |
 | `--branch ttsc` / `--fixture-branch ttsc` | Select the fixture branch for `graph.mjs`; allowed values are `ttsc` and `ttsc-lint`. |
-| `--guidance=0` | Skip the guided arm that writes neutral `CLAUDE.md` / `AGENTS.md` instructions for graph usage. |
 | `--daemon=1` | Use the `ttscgraph` daemon for `@ttsc/graph` cells. `codegraph` manages its own index and does not use this path. |
 | `--no-codegraph-index` | Reuse an existing `.codegraph/` index instead of running `codegraph init`. |
 | `--keep-codegraph-index` | Keep `.codegraph/` after the run for inspection or reuse. |

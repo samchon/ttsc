@@ -112,54 +112,14 @@ const repoDir = args["repo-dir"]
   ? path.resolve(args["repo-dir"])
   : path.join(corpus, cloneKey);
 
-// --guidance=1 adds a fairness condition: a neutral project instruction telling
-// the agent to prefer the code-graph MCP over grep. It names no specific tool and
-// leaks no answer, and the SAME text is used for @ttsc/graph and codegraph, so it
-// favors neither. Written as both CLAUDE.md and AGENTS.md so every agent reads it
-// in its own convention. The point is to measure each model with and without the
-// nudge, since a tool-conservative harness (codex) ignores MCP instructions but
-// honors a project file.
-const guidance = args.guidance === "1" || args.guidance === "true";
 const toolSetupMs =
   args["tool-setup-ms"] === undefined
     ? undefined
     : Number(args["tool-setup-ms"]);
 // --cg points the "graph" arm at codegraph (colbymchenry/codegraph) instead of
-// @ttsc/graph, so the exact same A/B and guidance condition can be run against the
-// tool we ported, for an apples-to-apples comparison. The repo must already be
-// indexed (`codegraph init`).
+// @ttsc/graph, so the exact same A/B can be run against the tool we ported, for an
+// apples-to-apples comparison. The repo must already be indexed (`codegraph init`).
 const cg = args.cg === "1" || args.cg === "true";
-const GUIDANCE = `# Code navigation
-
-For architecture/code-flow questions, prefer the code-graph MCP before grep/read.
-Query named symbols, files, or domain nouns; avoid generic words.
-Re-query when following returned symbols/files, narrowing, or after edits.
-Avoid duplicate graph calls; answer from graph when it has source/edges.
-Read only for no match, non-TS files, edited source, or missing context.
-`;
-// The guided arm models how a normal user actually works: they keep an AGENTS.md
-// and, in the prompt, tell the agent to follow it. That elevates the project file
-// to the authority of the user's own words — the channel a tool-conservative
-// harness (codex) honors most — so it is added to the question ONLY in the guided
-// arm, leaving baseline/graph as the bare question.
-const GUIDED_PREFIX =
-  "Follow this project's AGENTS.md instructions when answering.\n\n";
-let guidanceSnapshot = null;
-function snapshotGuidanceFiles() {
-  return ["CLAUDE.md", "AGENTS.md"].map((name) => {
-    const file = path.join(repoDir, name);
-    if (!fs.existsSync(file)) return { file, existed: false };
-    return { file, existed: true, content: fs.readFileSync(file, "utf8") };
-  });
-}
-function setGuidance(on) {
-  guidanceSnapshot ??= snapshotGuidanceFiles();
-  for (const entry of guidanceSnapshot) {
-    if (on) fs.writeFileSync(entry.file, GUIDANCE);
-    else if (entry.existed) fs.writeFileSync(entry.file, entry.content);
-    else fs.rmSync(entry.file, { force: true });
-  }
-}
 
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const goEnv = {
@@ -253,19 +213,17 @@ fs.writeFileSync(withCfg, JSON.stringify({ mcpServers: serverCfg }));
 fs.writeFileSync(emptyCfg, JSON.stringify({ mcpServers: {} }));
 
 const arms = [
-  { name: "baseline", cfg: emptyCfg, guide: false },
-  { name: "graph", cfg: withCfg, guide: false },
+  { name: "baseline", cfg: emptyCfg },
+  { name: "graph", cfg: withCfg },
 ];
-if (guidance) arms.push({ name: "guided", cfg: withCfg, guide: true });
 
 console.log(
   `\ncodegraph A/B on ${repoKey} — model ${model}, ${runs} run(s) x ${arms.length} arms` +
-    (fixtureBranch ? `, fixture ${fixtureBranch}` : "") +
-    (guidance ? " (+guided = graph with a project instruction to use it)" : ""),
+    (fixtureBranch ? `, fixture ${fixtureBranch}` : ""),
 );
 console.log(`Q: ${question}\n`);
 
-const reportName = `agent-ab-report${guidance ? "-guided" : ""}.json`;
+const reportName = "agent-ab-report.json";
 const reportPath = args.report
   ? path.resolve(args.report)
   : path.join(here, reportName);
@@ -279,26 +237,18 @@ fs.mkdirSync(traceDir, { recursive: true });
 
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
 let spent = 0;
-try {
-  for (const arm of arms) {
-    setGuidance(arm.guide);
-    const prompt = arm.guide ? GUIDED_PREFIX + question : question;
-    for (let r = 0; r < runs; r++) {
-      const m = runClaude(prompt, arm.cfg, arm.name, r + 1);
-      samples[arm.name].push(m);
-      spent += m.cost;
-      console.log(
-        `  ${arm.name.padEnd(8)} run ${r + 1}: $${m.cost.toFixed(3)}, ${m.tokens} tok, ${m.tools} tools ` +
-          `(read ${m.reads}, grep ${m.grep}, graph ${m.graph}), ${(m.durMs / 1000).toFixed(0)}s` +
-          (m.ok ? "" : "  [FAILED]") +
-          `  [running $${spent.toFixed(2)}]`,
-      );
-    }
+for (const arm of arms) {
+  for (let r = 0; r < runs; r++) {
+    const m = runClaude(question, arm.cfg, arm.name, r + 1);
+    samples[arm.name].push(m);
+    spent += m.cost;
+    console.log(
+      `  ${arm.name.padEnd(8)} run ${r + 1}: $${m.cost.toFixed(3)}, ${m.tokens} tok, ${m.tools} tools ` +
+        `(read ${m.reads}, grep ${m.grep}, graph ${m.graph}), ${(m.durMs / 1000).toFixed(0)}s` +
+        (m.ok ? "" : "  [FAILED]") +
+        `  [running $${spent.toFixed(2)}]`,
+    );
   }
-} finally {
-  // Always strip the guidance files, even on a mid-run throw, so a later
-  // no-guidance run cannot inherit them and taint its baseline/graph arms.
-  setGuidance(false);
 }
 
 const med = (arm, k) =>
@@ -306,9 +256,7 @@ const med = (arm, k) =>
 const pct = (g, b) => (b === 0 ? 0 : Math.round((1 - g / b) * 100));
 const line = (label, k, fmt = (x) => x) => {
   const b = med("baseline", k);
-  let s = `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(med("graph", k))} (${pct(med("graph", k), b)}%)`;
-  if (guidance)
-    s += `  ->  guided ${fmt(med("guided", k))} (${pct(med("guided", k), b)}%)`;
+  const s = `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(med("graph", k))} (${pct(med("graph", k), b)}%)`;
   console.log(s);
 };
 
@@ -324,7 +272,7 @@ console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, daemon: useDaemon, runs, guidance, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, daemon: useDaemon, runs, question, traceDir, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 try {
