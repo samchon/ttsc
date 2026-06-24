@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import path from "node:path";
 
 import { TtscService } from "../../../../../packages/ttsc/lib/index.js";
-import { tsgo } from "../../internal/compiler";
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
+import { tsgo } from "../../internal/compiler";
 
 /**
  * Verifies TtscService reflects a file update through the resident host.
@@ -42,13 +42,21 @@ export const test_ttscservice_reflects_a_file_update_through_the_resident_host =
       );
       assert.ok(before, "resident host returned no output before the update");
       TestUtilityPlugins.assertSingleBanner(before, "utility combo");
-      assert.match(before, /join\(/, "fixture should call join before the edit");
+      assert.match(
+        before,
+        /join\(/,
+        "fixture should call join before the edit",
+      );
 
       const updated = await service.updateFile(
         path.join(root, "src", "main.ts"),
         'export const marker: string = "RESIDENT_EDIT";\n',
       );
-      assert.equal(updated, true, "the resident host failed to apply the update");
+      assert.equal(
+        updated,
+        true,
+        "the resident host failed to apply the update",
+      );
 
       const after = await service.transformFile("src/main.ts");
       assert.ok(after, "resident host returned no output after the update");

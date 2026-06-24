@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import path from "node:path";
 
 import { TtscService } from "../../../../../packages/ttsc/lib/index.js";
-import { tsgo } from "../../internal/compiler";
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
+import { tsgo } from "../../internal/compiler";
 
 /**
  * Verifies TtscService transforms files through one resident host.
@@ -14,7 +14,8 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  * per-file requests from it (samchon/ttsc#255). This is the path a Metro worker
  * pool or an editor session reuses, so it must (1) run the linked transform
  * plugins inside the resident host, (2) serve a stable cached result across
- * calls, and (3) report a file outside the program as absent rather than error.
+ * calls, and (3) report a file outside the program as absent rather than
+ * error.
  *
  * Uses the shared utility-plugins fixture (banner/paths/strip share one linked
  * host; lint is a check plugin the resident transform path ignores). Exercises
@@ -38,7 +39,9 @@ export const test_ttscservice_transforms_a_file_through_the_resident_host =
       },
     });
     try {
-      const first = await service.transformFile(path.join(root, "src", "main.ts"));
+      const first = await service.transformFile(
+        path.join(root, "src", "main.ts"),
+      );
       assert.ok(first, "resident host returned no output for src/main.ts");
       // The banner is a source-preamble plugin, so its block must appear in the
       // transformed TypeScript exactly once, proof the linked plugins ran
@@ -65,7 +68,11 @@ export const test_ttscservice_transforms_a_file_through_the_resident_host =
         service.transformFile("src/main.ts"),
         service.transformFile(path.join(root, "stray.ts")),
       ]);
-      assert.equal(mainAgain, first, "concurrent in-program request was misrouted");
+      assert.equal(
+        mainAgain,
+        first,
+        "concurrent in-program request was misrouted",
+      );
       assert.equal(
         strayConcurrent,
         undefined,

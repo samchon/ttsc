@@ -1,13 +1,13 @@
 package mcp_test
 
 import (
-	"fmt"
-	"path/filepath"
-	"strings"
-	"testing"
+  "fmt"
+  "path/filepath"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
-	"github.com/samchon/ttsc/packages/ttsc/internal/graph/mcp"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/internal/graph/mcp"
 )
 
 // TestExploreExpandsExactCallPath verifies query_nodes expands a public method
@@ -27,8 +27,8 @@ import (
 //  3. Assert the downstream path bodies appear and the sibling findAndCount does
 //     not crowd the result.
 func TestExploreExpandsExactCallPath(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "tsconfig.json"), `{
+  root := t.TempDir()
+  writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
@@ -37,7 +37,7 @@ func TestExploreExpandsExactCallPath(t *testing.T) {
   "files": ["src/main.ts"]
 }
 `)
-	writeFile(t, filepath.Join(root, "src", "main.ts"), `
+  writeFile(t, filepath.Join(root, "src", "main.ts"), `
 export class Repository {
   constructor(private readonly manager: Manager) {}
 
@@ -97,39 +97,39 @@ export interface FindOptions {
 }
 `)
 
-	prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(diags) != 0 {
-		t.Fatalf("unexpected parse diagnostics: %v", diags)
-	}
-	defer func() { _ = prog.Close() }()
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected parse diagnostics: %v", diags)
+  }
+  defer func() { _ = prog.Close() }()
 
-	server := mcp.NewServer(prog)
-	for _, query := range []string{
-		"How are relation options applied when Repository.find() builds its query? Trace the call path from the public find method to where the relations are resolved and joined into the query.",
-		"Repository find options relations query builder apply relations joins",
-	} {
-		text := toolText(t, server, fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":%q}}}`, query))
-		for _, want := range []string{
-			"method Repository.find",
-			"method Manager.find",
-			"method QueryBuilder.setFindOptions",
-			"method QueryBuilder.applyFindOptions",
-			"method QueryBuilder.buildRelations",
-		} {
-			if !strings.Contains(text, want) {
-				t.Fatalf("query_nodes did not include %s for query %q in the expanded path:\n%s", want, query, text)
-			}
-		}
-		for _, noisy := range []string{
-			"\nmethod Repository.findAndCount",
-			"\nmethod Repository.query",
-		} {
-			if strings.Contains(text, noisy) {
-				t.Fatalf("query_nodes rendered noisy sibling %s for query %q:\n%s", noisy, query, text)
-			}
-		}
-	}
+  server := mcp.NewServer(prog)
+  for _, query := range []string{
+    "How are relation options applied when Repository.find() builds its query? Trace the call path from the public find method to where the relations are resolved and joined into the query.",
+    "Repository find options relations query builder apply relations joins",
+  } {
+    text := toolText(t, server, fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":%q}}}`, query))
+    for _, want := range []string{
+      "method Repository.find",
+      "method Manager.find",
+      "method QueryBuilder.setFindOptions",
+      "method QueryBuilder.applyFindOptions",
+      "method QueryBuilder.buildRelations",
+    } {
+      if !strings.Contains(text, want) {
+        t.Fatalf("query_nodes did not include %s for query %q in the expanded path:\n%s", want, query, text)
+      }
+    }
+    for _, noisy := range []string{
+      "\nmethod Repository.findAndCount",
+      "\nmethod Repository.query",
+    } {
+      if strings.Contains(text, noisy) {
+        t.Fatalf("query_nodes rendered noisy sibling %s for query %q:\n%s", noisy, query, text)
+      }
+    }
+  }
 }

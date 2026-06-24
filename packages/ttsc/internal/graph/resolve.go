@@ -51,15 +51,14 @@ func Resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
     }
   }
   target := &Target{Symbol: symbol}
-  if len(symbol.Declarations) > 0 {
-    declaration := symbol.Declarations[0]
+  if declaration := declarationNode(symbol); declaration != nil {
     target.Pos = declaration.Pos()
     target.End = declaration.End()
-  }
-  if file := declarationFile(symbol); file != nil {
-    target.File = file.FileName()
-    target.External = file.IsDeclarationFile ||
-      strings.Contains(target.File, "/node_modules/")
+    if file := shimast.GetSourceFileOfNode(declaration); file != nil {
+      target.File = file.FileName()
+      target.External = file.IsDeclarationFile ||
+        strings.Contains(target.File, "/node_modules/")
+    }
   }
   return target
 }
@@ -70,6 +69,13 @@ func Resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
 // false, so a pnpm `workspace:*` sibling resolves to its real source here and is
 // not misclassified as external by Resolve.
 func declarationFile(symbol *shimast.Symbol) *shimast.SourceFile {
+  if declaration := declarationNode(symbol); declaration != nil {
+    return shimast.GetSourceFileOfNode(declaration)
+  }
+  return nil
+}
+
+func declarationNode(symbol *shimast.Symbol) *shimast.Node {
   if len(symbol.Declarations) == 0 {
     return nil
   }
@@ -78,9 +84,19 @@ func declarationFile(symbol *shimast.Symbol) *shimast.SourceFile {
   // `.d.ts` declaration first; classifying by it would mark a real workspace
   // symbol external and sever it from the graph.
   for _, declaration := range symbol.Declarations {
-    if file := shimast.GetSourceFileOfNode(declaration); file != nil && !file.IsDeclarationFile {
-      return file
+    if file := shimast.GetSourceFileOfNode(declaration); file != nil && !file.IsDeclarationFile && declaration.Body() != nil {
+      return declaration
     }
   }
-  return shimast.GetSourceFileOfNode(symbol.Declarations[0])
+  for _, declaration := range symbol.Declarations {
+    if file := shimast.GetSourceFileOfNode(declaration); file != nil && !file.IsDeclarationFile {
+      return declaration
+    }
+  }
+  for _, declaration := range symbol.Declarations {
+    if declaration.Body() != nil {
+      return declaration
+    }
+  }
+  return symbol.Declarations[0]
 }

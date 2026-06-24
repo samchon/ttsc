@@ -1,8 +1,8 @@
 package mcp
 
 import (
-	_ "embed"
-	"strings"
+  _ "embed"
+  "strings"
 )
 
 // Tool and schema descriptions are embedded from Markdown files so prompt
@@ -30,11 +30,11 @@ var queryDiagnosticsFilesDescriptionMarkdown string
 var queryDiagnosticsSeverityDescriptionMarkdown string
 
 var (
-	queryNodesDescription               = strings.TrimSpace(queryNodesDescriptionMarkdown)
-	queryNodesQueryDescription          = strings.TrimSpace(queryNodesQueryDescriptionMarkdown)
-	queryFilesDescription               = strings.TrimSpace(queryFilesDescriptionMarkdown)
-	queryFilesLocationsDescription      = strings.TrimSpace(queryFilesLocationsDescriptionMarkdown)
-	queryDiagnosticsDescription         = strings.TrimSpace(queryDiagnosticsDescriptionMarkdown)
-	queryDiagnosticsFilesDescription    = strings.TrimSpace(queryDiagnosticsFilesDescriptionMarkdown)
-	queryDiagnosticsSeverityDescription = strings.TrimSpace(queryDiagnosticsSeverityDescriptionMarkdown)
+  queryNodesDescription               = strings.TrimSpace(queryNodesDescriptionMarkdown)
+  queryNodesQueryDescription          = strings.TrimSpace(queryNodesQueryDescriptionMarkdown)
+  queryFilesDescription               = strings.TrimSpace(queryFilesDescriptionMarkdown)
+  queryFilesLocationsDescription      = strings.TrimSpace(queryFilesLocationsDescriptionMarkdown)
+  queryDiagnosticsDescription         = strings.TrimSpace(queryDiagnosticsDescriptionMarkdown)
+  queryDiagnosticsFilesDescription    = strings.TrimSpace(queryDiagnosticsFilesDescriptionMarkdown)
+  queryDiagnosticsSeverityDescription = strings.TrimSpace(queryDiagnosticsSeverityDescriptionMarkdown)
 )

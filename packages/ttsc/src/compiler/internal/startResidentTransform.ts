@@ -1,19 +1,22 @@
 import path from "node:path";
 
+import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
-import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
 import { readProjectConfig } from "./project/readProjectConfig";
+import { ResidentTransformProcess } from "./residentTransformProcess";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
-import { ResidentTransformProcess } from "./residentTransformProcess";
 import {
   assertSharedHostCompatibility,
   linkedTransformPlugins,
   selectSharedHostPlugin,
 } from "./sharedHostHelpers";
 
-/** A started resident transform host plus the project root its keys are relative to. */
+/**
+ * A started resident transform host plus the project root its keys are relative
+ * to.
+ */
 export interface StartedResidentTransform {
   process: ResidentTransformProcess;
   projectRoot: string;
@@ -28,11 +31,11 @@ export interface StartedResidentTransform {
  * startup and then answers per-file requests, so one caller pays the project
  * compile once and reuses it across its own per-file requests.
  *
- * Resident mode runs through the linked-plugin shared host (`cmd/utility-host`),
- * which is the only binary that exposes `serve`. It therefore requires at least
- * one transform-stage plugin; executable transform hosts that own their own
- * process are not served and must use the per-call transform path. Check-stage
- * plugins are not run by the resident host.
+ * Resident mode runs through the linked-plugin shared host
+ * (`cmd/utility-host`), which is the only binary that exposes `serve`. It
+ * therefore requires at least one transform-stage plugin; executable transform
+ * hosts that own their own process are not served and must use the per-call
+ * transform path. Check-stage plugins are not run by the resident host.
  */
 export function startResidentTransform(
   context: ITtscCompilerContext,
@@ -106,8 +109,9 @@ function residentEnv(
 }
 
 /**
- * Serialize the plugin list to the `--plugins-json` / `TTSC_LINKED_PLUGINS_JSON`
- * shape the native host reads: only the fields it needs, to keep the arg short.
+ * Serialize the plugin list to the `--plugins-json` /
+ * `TTSC_LINKED_PLUGINS_JSON` shape the native host reads: only the fields it
+ * needs, to keep the arg short.
  */
 function serializeNativePlugins(
   plugins: readonly ITtscLoadedNativePlugin[],

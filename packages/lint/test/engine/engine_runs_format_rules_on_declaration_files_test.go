@@ -14,10 +14,10 @@ import (
 // boundary as any other source, so the engine treats every FormatRule as
 // declaration-visiting without requiring a per-rule marker.
 //
-// 1. Parse `declare const x: number` (missing statement terminator).
-// 2. Mark it as a declaration source file.
-// 3. Run the engine with `format/semi` and assert the missing-semicolon
-//    finding is reported.
+//  1. Parse `declare const x: number` (missing statement terminator).
+//  2. Mark it as a declaration source file.
+//  3. Run the engine with `format/semi` and assert the missing-semicolon
+//     finding is reported.
 func TestEngineRunsFormatRulesOnDeclarationFiles(t *testing.T) {
   file := parseTS(t, "declare const x: number")
   file.IsDeclarationFile = true

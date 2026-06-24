@@ -1,6 +1,6 @@
 /**
- * Shape of `public/benchmark/performance.json` — the committed, served benchmark result
- * file.
+ * Shape of `public/benchmark/performance.json` — the committed, served
+ * benchmark result file.
  *
  * This file is the single canonical schema: the benchmark runner
  * (`experimental/benchmark/bench.mjs`) emits exactly this shape, and the

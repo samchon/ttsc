@@ -4,20 +4,21 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TtscService } from "../../../../../packages/ttsc/lib/index.js";
-import { tsgo } from "../../internal/compiler";
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
+import { tsgo } from "../../internal/compiler";
 
 /**
  * Verifies TtscService.transformFile rejects when the project does not compile.
  *
- * The documented contract: a transform request rejects (rather than resolving to
- * an empty or stale result) when the resident host failed to compile the
+ * The documented contract: a transform request rejects (rather than resolving
+ * to an empty or stale result) when the resident host failed to compile the
  * project, so a real build error reaches the caller. The host exits non-zero at
  * startup on a type error, and the client surfaces that as a rejected request.
  *
  * Uses the shared utility-plugins fixture (so the constructor's plugin build
- * succeeds and the only failure is the type error), then breaks one source file.
- * Exercises the real native compiler and a Go linked host, so it runs in CI.
+ * succeeds and the only failure is the type error), then breaks one source
+ * file. Exercises the real native compiler and a Go linked host, so it runs in
+ * CI.
  *
  * 1. Copy the fixture and replace src/main.ts with a non-compiling source.
  * 2. Construct a TtscService (the plugin build still succeeds).

@@ -20,8 +20,8 @@ interface ToolResult {
  *    error, then spawn ttscgraph against it.
  * 2. Drive initialize, tools/list, and tools/call for query_nodes and
  *    query_diagnostics.
- * 3. Assert the node relationship map, the TS2322 diagnostic, and a clean exit
- *    on stdin close.
+ * 3. Assert the node relationship map, the TS2322 diagnostic, and a clean exit on
+ *    stdin close.
  */
 export const test_ttscgraph_serves_explore_and_diagnostics_over_mcp =
   async () => {

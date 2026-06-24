@@ -11,11 +11,11 @@ import (
 )
 
 // TestExploreIncludesLateCallExcerpts verifies query_nodes keeps checker-known
-// call-flow context visible even when a long declaration body is truncated.
+// value-use context visible even when a long declaration body is truncated.
 //
 // Long methods are intentionally capped, but code-flow questions often need the
 // late call sites that explain why the returned edges matter. Printing concise
-// excerpts for checker-resolved value calls avoids a follow-up file read for the
+// excerpts for checker-resolved value uses avoids a follow-up file read for the
 // same source range.
 //
 //  1. Compile a function whose call to helper appears after the source-line cap.
@@ -59,7 +59,7 @@ func TestExploreIncludesLateCallExcerpts(t *testing.T) {
   if !strings.Contains(text, "more lines)") {
     t.Fatalf("query_nodes did not truncate the long body:\n%s", text)
   }
-  if !strings.Contains(text, "call excerpts after truncated body:") ||
+  if !strings.Contains(text, "value-use excerpts after truncated body:") ||
     !strings.Contains(text, "return helper()") {
     t.Fatalf("query_nodes did not include the late value-call excerpt:\n%s", text)
   }

@@ -7,8 +7,8 @@ import { tsgo } from "../../internal/compiler";
 /**
  * Verifies TtscService refuses a project with no transform-stage plugin.
  *
- * Resident mode runs through the linked-plugin shared host, the only binary that
- * exposes `serve`, so a project with only check plugins or none cannot be
+ * Resident mode runs through the linked-plugin shared host, the only binary
+ * that exposes `serve`, so a project with only check plugins or none cannot be
  * served. The constructor must fail fast with a clear message rather than
  * spawning a host that has no `serve` subcommand. This throw happens before any
  * Go build (the plugin set is empty), so it needs no toolchain.

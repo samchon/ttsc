@@ -11,105 +11,105 @@
 package main
 
 import (
-	"flag"
-	"fmt"
-	"io"
-	"os"
-	"runtime"
-	"strings"
-	"time"
+  "flag"
+  "fmt"
+  "io"
+  "os"
+  "runtime"
+  "strings"
+  "time"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
-	"github.com/samchon/ttsc/packages/ttsc/internal/graph/mcp"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/internal/graph/mcp"
 )
 
 // Build metadata; overwritten via -ldflags in release builds.
 var (
-	version = "0.0.0-dev"
-	commit  = "dev"
-	date    = "unknown"
+  version = "0.0.0-dev"
+  commit  = "dev"
+  date    = "unknown"
 )
 
 // Package-level streams so command tests can capture I/O without patching the
 // os globals.
 var (
-	stdout io.Writer = os.Stdout
-	stderr io.Writer = os.Stderr
-	stdin  io.Reader = os.Stdin
+  stdout io.Writer = os.Stdout
+  stderr io.Writer = os.Stderr
+  stdin  io.Reader = os.Stdin
 )
 
 // getwd is the seam command tests use to simulate a working-directory failure.
 var getwd = os.Getwd
 
 func main() {
-	os.Exit(run(os.Args[1:]))
+  os.Exit(run(os.Args[1:]))
 }
 
 // run dispatches top-level flags and returns an exit code. Called by main with
 // os.Args[1:] and overridden in tests with a synthetic argument slice.
 func run(args []string) int {
-	if len(args) > 0 {
-		switch args[0] {
-		case "-h", "--help", "help":
-			printHelp(stdout)
-			return 0
-		case "-v", "--version", "version":
-			printVersion(stdout)
-			return 0
-		case "dump":
-			return runDump(args[1:])
-		}
-	}
-	return runServe(args)
+  if len(args) > 0 {
+    switch args[0] {
+    case "-h", "--help", "help":
+      printHelp(stdout)
+      return 0
+    case "-v", "--version", "version":
+      printVersion(stdout)
+      return 0
+    case "dump":
+      return runDump(args[1:])
+    }
+  }
+  return runServe(args)
 }
 
 // runServe parses serve flags, loads the resident program, and serves MCP over
 // stdio. It returns 0 on a clean EOF shutdown, 1 on a load or runtime error, and
 // 2 on invalid invocation.
 func runServe(args []string) int {
-	fs := flag.NewFlagSet("ttscgraph", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	_ = fs.Bool("stdio", true, "serve MCP over stdin/stdout")
-	cwdFlag := fs.String("cwd", "", "project root (defaults to process cwd)")
-	tsconfigFlag := fs.String("tsconfig", "tsconfig.json", "project tsconfig path")
-	connectFlag := fs.String("connect", "", "proxy mode: pipe stdio to a running daemon at host:port")
-	daemonFlag := fs.Bool("daemon", false, "daemon mode: build once and serve many connections over a localhost port")
-	portFileFlag := fs.String("port-file", "", "daemon mode: write the chosen host:port here")
-	idleFlag := fs.Duration("idle", 5*time.Minute, "daemon mode: exit after this long with no connections (0 disables)")
-	if err := fs.Parse(args); err != nil {
-		return 2
-	}
+  fs := flag.NewFlagSet("ttscgraph", flag.ContinueOnError)
+  fs.SetOutput(stderr)
+  _ = fs.Bool("stdio", true, "serve MCP over stdin/stdout")
+  cwdFlag := fs.String("cwd", "", "project root (defaults to process cwd)")
+  tsconfigFlag := fs.String("tsconfig", "tsconfig.json", "project tsconfig path")
+  connectFlag := fs.String("connect", "", "proxy mode: pipe stdio to a running daemon at host:port")
+  daemonFlag := fs.Bool("daemon", false, "daemon mode: build once and serve many connections over a localhost port")
+  portFileFlag := fs.String("port-file", "", "daemon mode: write the chosen host:port here")
+  idleFlag := fs.Duration("idle", 5*time.Minute, "daemon mode: exit after this long with no connections (0 disables)")
+  if err := fs.Parse(args); err != nil {
+    return 2
+  }
 
-	if addr := strings.TrimSpace(*connectFlag); addr != "" {
-		return runConnect(addr)
-	}
+  if addr := strings.TrimSpace(*connectFlag); addr != "" {
+    return runConnect(addr)
+  }
 
-	cwd := strings.TrimSpace(*cwdFlag)
-	if cwd == "" {
-		resolved, err := getwd()
-		if err != nil {
-			fmt.Fprintf(stderr, "ttscgraph: could not resolve working directory: %v\n", err)
-			return 2
-		}
-		cwd = resolved
-	}
-	tsconfig := strings.TrimSpace(*tsconfigFlag)
-	mcp.Version = version
+  cwd := strings.TrimSpace(*cwdFlag)
+  if cwd == "" {
+    resolved, err := getwd()
+    if err != nil {
+      fmt.Fprintf(stderr, "ttscgraph: could not resolve working directory: %v\n", err)
+      return 2
+    }
+    cwd = resolved
+  }
+  tsconfig := strings.TrimSpace(*tsconfigFlag)
+  mcp.Version = version
 
-	if *daemonFlag {
-		return runDaemon(cwd, tsconfig, strings.TrimSpace(*portFileFlag), *idleFlag)
-	}
+  if *daemonFlag {
+    return runDaemon(cwd, tsconfig, strings.TrimSpace(*portFileFlag), *idleFlag)
+  }
 
-	// Default: single-process. NewLazyServer answers the MCP handshake immediately
-	// and type-checks the project in the background, so an agent sees the tools
-	// without waiting on the load and never hits the cold-start race. The first
-	// tool call blocks until the build lands.
-	server := mcp.NewLazyServer(cwd, tsconfig, driver.LoadProgramOptions{}, injectedDiagnosticProviders()...)
-	if err := server.Serve(stdin, stdout); err != nil {
-		fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
-		return 1
-	}
-	return 0
+  // Default: single-process. NewLazyServer answers the MCP handshake immediately
+  // and type-checks the project in the background, so an agent sees the tools
+  // without waiting on the load and never hits the cold-start race. The first
+  // tool call blocks until the build lands.
+  server := mcp.NewLazyServer(cwd, tsconfig, driver.LoadProgramOptions{}, injectedDiagnosticProviders()...)
+  if err := server.Serve(stdin, stdout); err != nil {
+    fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
+    return 1
+  }
+  return 0
 }
 
 // injectedDiagnosticProviders returns the diagnostic providers configured by the
@@ -119,28 +119,28 @@ func runServe(args []string) int {
 // transform-plugin findings, which the graph fuses onto its nodes. Unset — a
 // project without plugins, or a bare invocation — means tsc-only diagnostics.
 func injectedDiagnosticProviders() []mcp.DiagnosticProvider {
-	path := strings.TrimSpace(os.Getenv("TTSC_GRAPH_DIAGNOSTICS_FILE"))
-	if path == "" {
-		return nil
-	}
-	return []mcp.DiagnosticProvider{mcp.InjectedDiagnosticsProvider(path)}
+  path := strings.TrimSpace(os.Getenv("TTSC_GRAPH_DIAGNOSTICS_FILE"))
+  if path == "" {
+    return nil
+  }
+  return []mcp.DiagnosticProvider{mcp.InjectedDiagnosticsProvider(path)}
 }
 
 func printVersion(w io.Writer) {
-	fmt.Fprintf(
-		w,
-		"ttscgraph %s (commit %s, built %s, %s/%s, go %s)\n",
-		version,
-		commit,
-		date,
-		runtime.GOOS,
-		runtime.GOARCH,
-		runtime.Version(),
-	)
+  fmt.Fprintf(
+    w,
+    "ttscgraph %s (commit %s, built %s, %s/%s, go %s)\n",
+    version,
+    commit,
+    date,
+    runtime.GOOS,
+    runtime.GOARCH,
+    runtime.Version(),
+  )
 }
 
 func printHelp(w io.Writer) {
-	fmt.Fprintln(w, strings.TrimSpace(`
+  fmt.Fprintln(w, strings.TrimSpace(`
 ttscgraph — checker-resolved code graph + diagnostics over MCP for ttsc.
 
 Usage:

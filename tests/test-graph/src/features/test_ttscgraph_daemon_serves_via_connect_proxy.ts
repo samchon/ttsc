@@ -17,9 +17,8 @@ interface ToolResult {
  * large-repository primitive instead — a long-lived `--daemon` builds the
  * checker once, publishes its loopback address to a port file, and a transient
  * `--connect <addr>` proxy pipes an agent's stdio to that warm daemon. The same
- * observable nodes/diagnostics text must come back through the two-process
- * hop, proving the daemon's TCP listener and the proxy's stdio bridge both
- * work.
+ * observable nodes/diagnostics text must come back through the two-process hop,
+ * proving the daemon's TCP listener and the proxy's stdio bridge both work.
  *
  * 1. Materialize a project with a heritage edge (Sub extends Base) and a type
  *    error, spawn the daemon, and poll its port file for the loopback address.

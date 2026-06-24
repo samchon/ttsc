@@ -36,10 +36,9 @@ export function runDiagnosticsWorker(
     });
     const fromProject = createRequire(ttscPackageJson);
     const { TtscCompiler } = fromProject("ttsc") as {
-      TtscCompiler: new (context: {
-        cwd: string;
-        tsconfig?: string;
-      }) => { compile: () => unknown };
+      TtscCompiler: new (context: { cwd: string; tsconfig?: string }) => {
+        compile: () => unknown;
+      };
     };
 
     const result = new TtscCompiler({
@@ -51,7 +50,7 @@ export function runDiagnosticsWorker(
       result &&
       typeof result === "object" &&
       Array.isArray((result as { diagnostics?: unknown }).diagnostics)
-        ? ((result as { diagnostics: Record<string, unknown>[] }).diagnostics)
+        ? (result as { diagnostics: Record<string, unknown>[] }).diagnostics
         : [];
 
     const out = raw

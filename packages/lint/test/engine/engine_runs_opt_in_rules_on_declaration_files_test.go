@@ -15,10 +15,10 @@ import (
 // If the allowlist wiring regressed, declaration-heavy projects would lose
 // these findings without any error.
 //
-// 1. Parse `declare const x: any;`.
-// 2. Mark it as a declaration source file.
-// 3. Run the engine with `typescript/no-explicit-any` and assert the
-//    finding is reported.
+//  1. Parse `declare const x: any;`.
+//  2. Mark it as a declaration source file.
+//  3. Run the engine with `typescript/no-explicit-any` and assert the
+//     finding is reported.
 func TestEngineRunsOptInRulesOnDeclarationFiles(t *testing.T) {
   file := parseTS(t, "declare const x: any;")
   file.IsDeclarationFile = true

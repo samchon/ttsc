@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { createInterface, type Interface } from "node:readline";
+import { type Interface, createInterface } from "node:readline";
 
 /** Cap on retained stderr so a long-lived host cannot grow it without bound. */
 const STDERR_TAIL_LIMIT = 64 * 1024;
@@ -28,8 +28,8 @@ interface PendingRequest {
  * (`{"update":...,"content":...}`) with `{"updated":...}`.
  *
  * One resident process answers every request from one service instead of
- * spawning a fresh `transform` subprocess per call, so a single process pays the
- * project compile once (samchon/ttsc#255).
+ * spawning a fresh `transform` subprocess per call, so a single process pays
+ * the project compile once (samchon/ttsc#255).
  */
 export class ResidentTransformProcess {
   private readonly child: ChildProcess;
@@ -195,8 +195,9 @@ export class ResidentTransformProcess {
 
 /**
  * Parse one reply line into a plain object. A malformed line degrades to an
- * empty object rather than throwing, so one bad line never rejects a request the
- * FIFO has already advanced past; the caller reads missing fields as absent.
+ * empty object rather than throwing, so one bad line never rejects a request
+ * the FIFO has already advanced past; the caller reads missing fields as
+ * absent.
  */
 function parseReply(line: string): Record<string, unknown> {
   try {

@@ -1,11 +1,12 @@
 import path from "node:path";
 
-import { startResidentTransform } from "./compiler/internal/startResidentTransform";
 import type { ResidentTransformProcess } from "./compiler/internal/residentTransformProcess";
+import { startResidentTransform } from "./compiler/internal/startResidentTransform";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 
 /**
- * Resident, incremental transform service for the `ttsc` TypeScript-Go pipeline.
+ * Resident, incremental transform service for the `ttsc` TypeScript-Go
+ * pipeline.
  *
  * Where {@link TtscCompiler.transform} spawns a fresh process and recompiles the
  * whole project on every call, `TtscService` keeps one long-lived host warm: it
@@ -17,14 +18,15 @@ import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
  *
  * The shape mirrors a legacy TypeScript `LanguageService`: construct it against
  * a project context, ask it to transform individual files, and dispose it when
- * done. Construction is synchronous (it launches the host); the host compiles in
- * the background, so the first {@link transformFile} resolves once that compile
- * lands.
+ * done. Construction is synchronous (it launches the host); the host compiles
+ * in the background, so the first {@link transformFile} resolves once that
+ * compile lands.
  *
  * Resident mode runs through the linked-plugin shared host, so the project must
- * declare at least one transform-stage plugin; the constructor throws otherwise.
- * It does not run check-stage plugins (unlike {@link TtscCompiler.transform});
- * only the program's own type-checking gates an {@link updateFile}.
+ * declare at least one transform-stage plugin; the constructor throws
+ * otherwise. It does not run check-stage plugins (unlike
+ * {@link TtscCompiler.transform}); only the program's own type-checking gates an
+ * {@link updateFile}.
  */
 export class TtscService {
   private readonly resident: ResidentTransformProcess;
@@ -67,8 +69,8 @@ export class TtscService {
   /**
    * Apply new in-memory content for one file and re-transform the project, so a
    * subsequent {@link transformFile} reflects the edit without restarting the
-   * host. Returns whether the re-transform succeeded; `false` means the edit did
-   * not compile and the previous transform is still in effect. A relative
+   * host. Returns whether the re-transform succeeded; `false` means the edit
+   * did not compile and the previous transform is still in effect. A relative
    * `fileName` is resolved against the project root.
    */
   public async updateFile(fileName: string, content: string): Promise<boolean> {

@@ -36,10 +36,10 @@ func serveRequestLine(t *testing.T, file string) string {
 // keys its cache exactly like the transform envelope (project-relative paths)
 // and accepts absolute request paths.
 //
-// 1. Build a single-file project (no plugins, so transform yields the source).
-// 2. Feed RunServe the project file twice, then a non-project file.
-// 3. Assert the two project-file replies are identical (served from cache) and
-//    the non-project reply is not-found.
+//  1. Build a single-file project (no plugins, so transform yields the source).
+//  2. Feed RunServe the project file twice, then a non-project file.
+//  3. Assert the two project-file replies are identical (served from cache) and
+//     the non-project reply is not-found.
 func TestUtilityServeReturnsCachedPerFileTransform(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

@@ -106,11 +106,11 @@ func TestUtilityServeReflectsOverlayUpdate(t *testing.T) {
 // compile if a.ts's rejected buffer was rolled back; a same-file recovery would
 // pass even without rollback because it overwrites the broken override.
 //
-// 1. Update a.ts with a type error; assert updated:false and a.ts still
-//    transforms to its original value.
-// 2. Update b.ts with valid content; assert updated:true, which holds only if
-//    a.ts was rolled back (otherwise the rebuild still sees a.ts broken).
-// 3. Transform b.ts and confirm the new value.
+//  1. Update a.ts with a type error; assert updated:false and a.ts still
+//     transforms to its original value.
+//  2. Update b.ts with valid content; assert updated:true, which holds only if
+//     a.ts was rolled back (otherwise the rebuild still sees a.ts broken).
+//  3. Transform b.ts and confirm the new value.
 func TestUtilityServeUpdateFailureRollsBackAndRecovers(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

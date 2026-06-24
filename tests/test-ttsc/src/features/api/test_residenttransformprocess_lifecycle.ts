@@ -39,10 +39,10 @@ function spawnStub(stub: string): ResidentTransformProcess {
 }
 
 /**
- * Verifies the resident protocol client's lifecycle against a stub host:
- * FIFO matching of concurrent replies, dispose rejecting later requests, and a
- * host that dies mid-session rejecting the in-flight request without crashing
- * the consumer (the stream "error" handlers added for samchon/ttsc#255).
+ * Verifies the resident protocol client's lifecycle against a stub host: FIFO
+ * matching of concurrent replies, dispose rejecting later requests, and a host
+ * that dies mid-session rejecting the in-flight request without crashing the
+ * consumer (the stream "error" handlers added for samchon/ttsc#255).
  *
  * This is the direct regression test for the pipe-error hardening: reaching the
  * end of the host-death case is itself the no-crash assertion, because an
