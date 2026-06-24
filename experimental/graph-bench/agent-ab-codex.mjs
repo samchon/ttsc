@@ -32,11 +32,12 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
 // The shared structural question, kept as a markdown task spec so both harnesses
-// pose an identical prompt. It is deliberately tool-neutral: it demands a
-// complete, verified call path (traced to the real work, no guessed hops), not
-// our graph's output shape, so neither grep nor the graph is handed the answer's
-// format. The rigor stops a shallow guess from passing; the neutrality keeps the
-// token comparison honest.
+// pose an identical prompt. It aims for the middle: a real call-path briefing that
+// reaches past the public facade to the real work (so a shallow answer does not
+// pass), built by inference from symbol names and relationships the way a
+// developer reads code (so it does not force re-reading every file). It is
+// tool-neutral, naming no output shape, so neither grep nor the graph is handed
+// the format and the token comparison stays honest.
 const ARCHITECTURE_QUESTION = fs
   .readFileSync(path.join(here, "questions", "architecture-callpath.md"), "utf8")
   .trim();
