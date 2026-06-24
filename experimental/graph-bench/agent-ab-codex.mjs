@@ -37,53 +37,53 @@ const REPOS = {
   excalidraw: {
     url: "https://github.com/excalidraw/excalidraw",
     tsconfig: "tsconfig.json",
-    question: "Explain the code architecture of this project.",
+    question: "What code would be impacted by changing the scene redraw scheduling path?",
   },
   vscode: {
     url: "https://github.com/microsoft/vscode",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vscode.git",
     tsconfig: "src/tsconfig.json",
     question:
-      "Explain the code architecture of this project.",
+      "What code would be impacted by changing MainThreadConsole.$logExtensionHostMessage?",
   },
   nestjs: {
     url: "https://github.com/nestjs/nest",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-nestjs.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Explain the code architecture of this project.",
+    question: "What code would be impacted by changing RouterExecutionContext.create()?",
   },
   vue: {
     url: "https://github.com/vuejs/core",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vue.git",
     tsconfig: "tsconfig.graph.json",
     question:
-      "Explain the code architecture of this project.",
+      "What code would be impacted by changing RefImpl.value?",
   },
   zod: {
     url: "https://github.com/colinhacks/zod",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-zod.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Explain the code architecture of this project.",
+    question: "What code would be impacted by changing ZodType.parse()?",
   },
   typeorm: {
     url: "https://github.com/typeorm/typeorm",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-typeorm.git",
     tsconfig: "tsconfig.graph.json",
     question:
-      "Explain the code architecture of this project.",
+      "What code would be impacted by changing FindOptionsUtils.applyRelationsRecursively?",
   },
   rxjs: {
     url: "https://github.com/ReactiveX/rxjs",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-rxjs.git",
     tsconfig: "tsconfig.graph.json",
-    question: "Explain the code architecture of this project.",
+    question: "What code would be impacted by changing Observable.subscribe()?",
   },
   "shopping-backend": {
     url: "https://github.com/samchon/shopping-backend",
     fixtureUrl: "https://github.com/samchon/shopping-backend.git",
     tsconfig: "tsconfig.json",
     question:
-      "Explain the code architecture of this project.",
+      "What code would be impacted by changing ShoppingOrderProvider.create()?",
   },
 };
 
