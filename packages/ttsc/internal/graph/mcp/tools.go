@@ -19,13 +19,13 @@ func toolsListResult() any {
     "tools": []any{
       map[string]any{
         "name":        "graph_explore",
-        "description": "Call first for TypeScript architecture/code-flow questions, before shell/grep/read. Query named symbols, files, or domain nouns; avoid generic words like code/method/request/main. The result is a compiler-resolved graph snapshot: source, calls, callers, types, and blast radius. Re-query when following returned symbols/files, narrowing the question, or after edits. Avoid duplicate graph calls; answer from graph when it has source/edges. Read only for no match, non-TS files, edited source, or missing context.",
+        "description": "Call first for TypeScript architecture/code-flow questions, before shell/grep/read. Query named symbols, files, or domain nouns; avoid generic words like code/method/request/main. The result is a compiler-resolved graph snapshot: source, calls, callers, types, and blast radius. For broad questions, synthesize from the first relevant result; do not chase every returned edge. Re-query only for a missing symbol/file, narrower follow-up, or after edits. Read only for no match, non-TS files, edited source, or missing context.",
         "inputSchema": map[string]any{
           "type": "object",
           "properties": map[string]any{
             "query": map[string]any{
               "type":        "string",
-              "description": "Architecture/code-flow query using named symbols, files, or domain nouns. Avoid generic words such as code, method, request, process, main, component, value, and route.",
+              "description": "Architecture/code-flow query using named symbols, files, or domain nouns. Batch related names once; avoid generic words such as code, method, request, process, main, component, value, and route.",
             },
           },
           "required": []any{"query"},
@@ -171,8 +171,8 @@ func (s *Server) explore(args json.RawMessage) (any, *rpcError) {
 // deliberately stops short of "never read source", because a budget-collapsed or
 // external node is shown as a signature with no body, and opening that file is
 // legitimate; what adds no precision is re-reading a path printed in full above.
-const exploreHeader = "Compiler-resolved graph snapshot. Answer from this result. Do not shell/grep/read returned source. " +
-  "Call graph_explore again only for no match, missing symbols, or source edits.\n\n"
+const exploreHeader = "Compiler-resolved graph snapshot. Answer from this result; do not chase every edge. " +
+  "Do not shell/grep/read returned source. Call graph_explore again only for no match, missing symbols, or source edits.\n\n"
 
 // maxExploreNodes caps how many ranked nodes a query returns, so a broad
 // keyword query surfaces the most relevant declarations without flooding context.
