@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "prompts": [
+    {
+      "id": "typeorm-relation-find-joins-v1",
+      "repo": "typeorm",
+      "family": "known-chain-trace",
+      "file": "typeorm/relation-find-joins.md",
+      "gold": "typeorm/relation-find-joins.gold.json",
+      "fixtureBranch": "ttsc",
+      "tsconfig": "tsconfig.json",
+      "questionSha256": "0feeb62d9bb1b2ba304d5c18d8d80a77bb2f8e705057941411eb6a41207f1fd7"
+    },
+    {
+      "id": "typeorm-overview-v1",
+      "repo": "typeorm",
+      "family": "overview",
+      "file": "typeorm/overview.md",
+      "gold": "typeorm/overview.gold.json",
+      "fixtureBranch": "ttsc",
+      "tsconfig": "tsconfig.json",
+      "questionSha256": "87a570d37d9dbb36054ef5947db15d416035ddf25bd9ccc9e402c4384dbf175c"
+    },
+    {
+      "id": "nestjs-request-lifecycle-v1",
+      "repo": "nestjs",
+      "family": "framework-route-trace",
+      "file": "nestjs/request-lifecycle.md",
+      "gold": "nestjs/request-lifecycle.gold.json",
+      "fixtureBranch": "ttsc",
+      "tsconfig": "tsconfig.json",
+      "questionSha256": "840ace5e026bd362a9e25d7446c39578e4c434121e985c95fe2514471d237dd4"
+    }
+  ]
+}
