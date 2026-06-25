@@ -193,7 +193,7 @@ One beat for the logo.
 
 - TTSC keeps compile-time code generation alive
 
-- Linter and Graph reuse the same compiler state
+- Linter and Graph turn compiler state into toolchain state
 
 <!--
 Say: this talk is not "Go is faster". It is "the compiler substrate changed".
@@ -211,7 +211,7 @@ TypeScript 7 changes the foundation under TypeScript tools.
 
 - About **10x** faster on many projects
 
-- Compiler API and plugin ecosystem must adapt
+- Plugin ecosystem must adapt
 
 <!--
 Source is Microsoft's TypeScript 7 RC and native port posts.
@@ -291,7 +291,7 @@ Say: for normal users, compatibility is the headline. For tool authors, runtime 
 
 # 1.1. Good News
 
-Backend teams feel compiler latency every day.
+Backend teams pay compiler latency every day.
 
 - Monorepo type check
 
@@ -456,13 +456,13 @@ Say: one generic type call became UUID, email, integer, and range checks.
 
 Type information became runtime code.
 
-- `tags.Format<"uuid">` → UUID check
+- `tags.Format<"uuid">` -> UUID check
 
-- `tags.Format<"email">` → email check
+- `tags.Format<"email">` -> email check
 
-- `tags.Type<"uint32">` → integer range
+- `tags.Type<"uint32">` -> integer range
 
-- `tags.Maximum<100>` → boundary check
+- `tags.Maximum<100>` -> boundary check
 
 <!--
 Say: this is not reflection. It is ahead-of-time compilation.
@@ -592,7 +592,7 @@ The new compiler substrate breaks that assumption.
 
 - New compiler: Go process
 
-- Old hook: no longer the center
+- Old hook: unavailable
 
 <!--
 Say: TypeScript 7 can preserve language semantics while still breaking plugin hosting.
@@ -652,7 +652,7 @@ npx ttsc --watch
 
 - Watch
 
-- Host plugins
+- Host transformers
 
 <!--
 Say: command shape stays familiar. Compiler host changes.
@@ -720,9 +720,9 @@ Say: plugins join the TTSC host instead of mutating the compiler installation.
 
 Old model vs TTSC model:
 
-- `ts-patch` → hook into JavaScript compiler
+- `ts-patch` -> hook into JavaScript compiler
 
-- `ttsc` → host plugins on TypeScript-Go
+- `ttsc` -> host plugins on TypeScript-Go
 
 - User API stays TypeScript
 
@@ -869,7 +869,6 @@ The normal TypeScript check lane repeats work.
 ```bash
 npx tsc --noEmit
 npx eslint .
-npx prettier --check .
 ```
 
 - Same source tree
@@ -1055,7 +1054,7 @@ Linter is a separate TTSC chapter because it proves reuse.
 
 - Lint state
 
-- same substrate
+- Same substrate
 
 <!--
 Say: after transformer survival, linter is the first productivity dividend.
@@ -1111,7 +1110,7 @@ Grep does not know compiler facts.
 
 - Type vs value
 
-- call path
+- Call path
 
 <!--
 Say: the compiler already knows these relationships.
@@ -1129,7 +1128,7 @@ File search is a weak substitute for semantic context.
 
 - Generic call hides concrete type
 
-- dynamic import hides path
+- Dynamic import hides path
 
 <!--
 Say: agents need the graph before they need the file.
