@@ -26,7 +26,7 @@ import (
 // node set in hand and is where the redesign keeps that logic.
 
 // dumpSchemaVersion is the IGraphDump.schemaVersion this writer emits. Keep it in
-// lockstep with GRAPH_SCHEMA_VERSION in packages/graph/src/schema.
+// lockstep with TTSC_GRAPH_SCHEMA_VERSION in packages/graph/src/structures.
 const dumpSchemaVersion = 2
 
 // DumpEvidence is a 1-based source span grounding a node declaration or an edge
@@ -268,6 +268,11 @@ func (c *dumpContext) evidence(file string, pos, end int, includeText bool) *Dum
   if pos > len(text) {
     return nil
   }
+  // Node.Pos() and an expression's Pos() are the full-start: they include the
+  // leading whitespace and doc comments before the token. Advance to the first
+  // code character so the line/column point at the declaration, not its banner
+  // or its indentation.
+  pos = firstCodeOffset(text, pos)
   sl, sc := ls.at(pos)
   ev := &DumpEvidence{File: c.rel(file), StartLine: sl, StartCol: sc}
   if end > pos && end <= len(text) {
@@ -277,6 +282,38 @@ func (c *dumpContext) evidence(file string, pos, end int, includeText bool) *Dum
     }
   }
   return ev
+}
+
+// firstCodeOffset advances past leading trivia — whitespace, // line comments,
+// and /* */ block comments — from pos to the first code byte, or len(text) if
+// the rest is all trivia. It mirrors how a token's real start is found, so an
+// evidence span lands on the declaration rather than the comment above it.
+func firstCodeOffset(text string, pos int) int {
+  i := pos
+  for i < len(text) {
+    switch {
+    case text[i] == ' ' || text[i] == '\t' || text[i] == '\r' || text[i] == '\n':
+      i++
+    case text[i] == '/' && i+1 < len(text) && text[i+1] == '/':
+      i += 2
+      for i < len(text) && text[i] != '\n' {
+        i++
+      }
+    case text[i] == '/' && i+1 < len(text) && text[i+1] == '*':
+      i += 2
+      for i+1 < len(text) && !(text[i] == '*' && text[i+1] == '/') {
+        i++
+      }
+      if i+1 < len(text) {
+        i += 2
+      } else {
+        i = len(text)
+      }
+    default:
+      return i
+    }
+  }
+  return i
 }
 
 // edgeEvidence is the evidence for an edge's source expression, with a short
@@ -307,7 +344,8 @@ func excerpt(s string) string {
     s = s[:i]
   }
   if len(s) > 160 {
-    s = strings.TrimSpace(s[:160]) + "…"
+    // Drop a trailing partial UTF-8 rune so the excerpt cannot end mid-character.
+    s = strings.TrimSpace(strings.ToValidUTF8(s[:160], "")) + "…"
   }
   return s
 }
