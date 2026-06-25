@@ -1,5 +1,6 @@
 import { GraphModel } from "../model/GraphModel";
 import { IExpandProps, IExpandResult, runExpand } from "./expand";
+import { IQueryProps, IQueryResult, runQuery } from "./query";
 
 /**
  * The MCP tool surface, as a plain class. Each public method is one tool; its
@@ -64,6 +65,20 @@ export class GraphController {
    */
   public expand(props: IExpandProps): IExpandResult {
     return runExpand(this.graph, props);
+  }
+
+  /**
+   * Find the symbols and clusters most relevant to a natural query, even when
+   * you do not know the exact name. Mix code vocabulary and plain words;
+   * matches rank by exact and dotted names, CamelCase/subword overlap, file
+   * path, and how central the symbol is. Returns handles to follow with
+   * `expand` or `trace`.
+   *
+   * @param props The query and result cap
+   * @returns Ranked hits with handles
+   */
+  public query(props: IQueryProps): IQueryResult {
+    return runQuery(this.graph, props);
   }
 
   /**
