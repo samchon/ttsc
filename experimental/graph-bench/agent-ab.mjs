@@ -66,19 +66,19 @@ const REPOS = {
   nestjs: {
     url: "https://github.com/nestjs/nest",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-nestjs.git",
-    tsconfig: "tsconfig.graph.json",
+    tsconfig: "tsconfig.json",
     question: ARCHITECTURE_QUESTION,
   },
   vue: {
     url: "https://github.com/vuejs/core",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vue.git",
-    tsconfig: "tsconfig.graph.json",
+    tsconfig: "tsconfig.json",
     question: ARCHITECTURE_QUESTION,
   },
   zod: {
     url: "https://github.com/colinhacks/zod",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-zod.git",
-    tsconfig: "tsconfig.graph.json",
+    tsconfig: "tsconfig.json",
     question: ARCHITECTURE_QUESTION,
   },
   typeorm: {
@@ -90,7 +90,7 @@ const REPOS = {
   rxjs: {
     url: "https://github.com/ReactiveX/rxjs",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-rxjs.git",
-    tsconfig: "tsconfig.graph.json",
+    tsconfig: "tsconfig.json",
     question: ARCHITECTURE_QUESTION,
   },
   "shopping-backend": {

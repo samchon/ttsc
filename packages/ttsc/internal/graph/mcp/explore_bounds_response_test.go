@@ -10,12 +10,9 @@ import (
 	"github.com/samchon/ttsc/packages/ttsc/internal/graph/mcp"
 )
 
-// TestExploreBoundsResponse verifies that query_nodes enforces its three render
-// budgets so one query cannot flood an agent's context: a long body is truncated
-// to maxSourceLines (32) with a "more lines" tail, a node with more than
-// maxEdgesPerDirection (12) incoming edges gets a "more" tail, and once the
-// verbatim source crosses the query's budget cap — exploreBudgetMax (16000) — the remaining matched nodes collapse to
-// signatures.
+// TestExploreBoundsResponse verifies query_nodes stays a bounded index: source
+// bodies are omitted, dense edge lists report omitted counts, and broad matches
+// still return compact graph records.
 //
 //  1. Compile a fixture with a 40-statement function, a Hub type referenced by 17
 //     functions, and six large process* functions.
@@ -26,8 +23,8 @@ func TestExploreBoundsResponse(t *testing.T) {
 
 	var src strings.Builder
 
-	// (a) bigBody: a function whose body is 40 trivial statements, past the
-	// maxSourceLines (32) cap, so its render carries a "more lines" tail.
+	// (a) bigBody: a function whose body is 40 trivial statements. query_nodes
+	// must return its coordinates, not its body.
 	src.WriteString("export function bigBody(): void {\n")
 	for i := 0; i < 40; i++ {
 		fmt.Fprintf(&src, "  const a%d = 0;\n", i)
@@ -42,10 +39,8 @@ func TestExploreBoundsResponse(t *testing.T) {
 		fmt.Fprintf(&src, "export function u%d(h: Hub): void {}\n", i)
 	}
 
-	// (c) Six process* functions each with a large body, so the verbatim source
-	// crosses the broad-query budget cap and the later matches collapse to
-	// signatures. The statement lines are deliberately long so the rendered bodies
-	// (truncated by line, not byte) exceed the byte budget across the six matches.
+	// (c) Six process* functions each with a large body. The broad query should
+	// still return compact coordinates for all matches.
 	for _, name := range []string{"processAlpha", "processBeta", "processGamma", "processDelta", "processEpsilon", "processZeta"} {
 		fmt.Fprintf(&src, "export function %s(): number {\n", name)
 		fmt.Fprintf(&src, "  let total%s: number = 0;\n", name)

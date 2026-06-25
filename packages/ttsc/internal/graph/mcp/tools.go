@@ -662,13 +662,6 @@ func structuredToolResult(value any, summary string) any {
 
 // textResult remains only for defensive internal fallbacks; public tool paths
 // return typed objects through structuredToolResult.
-func textResult(text string) any {
-	value := map[string]any{
-		"message": text,
-	}
-	return structuredToolResult(value, text)
-}
-
 func (s *Server) exportResult(entries []exportEntry, offset int, limit int) queryExportsResult {
 	total := len(entries)
 	if offset > total {
@@ -2154,18 +2147,6 @@ func ownerOf(name string) string {
 		return ""
 	}
 	return strings.ToLower(owner)
-}
-
-// textBlocks wraps one text block per result item into the MCP content envelope
-// (always an object), preserving order: a multi-input call returns one content
-// block per requested name/location, in the order given, each headed with the
-// identifier it answers, so the agent can map results back to its inputs.
-func textBlocks(blocks []string) any {
-	content := make([]any, 0, len(blocks))
-	for _, t := range blocks {
-		content = append(content, map[string]any{"type": "text", "text": t})
-	}
-	return map[string]any{"content": content}
 }
 
 func nodeHandle(id string) string {
