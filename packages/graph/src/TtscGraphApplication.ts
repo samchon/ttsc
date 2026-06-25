@@ -1,8 +1,8 @@
 import { TtscGraphMemory } from "./model/TtscGraphMemory";
-import { runExpand } from "./server/expand";
-import { runOverview } from "./server/overview";
-import { runQuery } from "./server/query";
-import { runTrace } from "./server/trace";
+import { runExpand } from "./server/runExpand";
+import { runOverview } from "./server/runOverview";
+import { runQuery } from "./server/runQuery";
+import { runTrace } from "./server/runTrace";
 import { ITtscGraphApplication } from "./structures/ITtscGraphApplication";
 import { ITtscGraphExpand } from "./structures/ITtscGraphExpand";
 import { ITtscGraphOverview } from "./structures/ITtscGraphOverview";

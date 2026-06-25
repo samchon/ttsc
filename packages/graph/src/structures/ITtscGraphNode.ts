@@ -1,19 +1,16 @@
-import { ITtscGraphComponent } from "./ITtscGraphComponent";
 import { ITtscGraphDecorator } from "./ITtscGraphDecorator";
 import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
-import { ITtscGraphRoute } from "./ITtscGraphRoute";
 import { TtscGraphNodeKind } from "./TtscGraphNodeKind";
 import { TtscGraphNodeModifier } from "./TtscGraphNodeModifier";
 
 /**
- * One node in the graph: a declared symbol, a structural container (file,
- * package), or a synthesized framework node (route, component).
+ * One node in the graph: a declared symbol or a structural container (file,
+ * package).
  *
- * The `id` is position-invariant. For a symbol it is `path#qualifiedName:kind`
- * (e.g. `src/order.ts#OrderService.create:method`), so inserting a line above a
- * declaration does not re-key it; for a virtual node it is a stable semantic
- * key (e.g. `route:http:GET:/users/:id`, `component:src/App.tsx#App`). Line and
- * span live in `evidence` and are never part of identity.
+ * The `id` is position-invariant: `path#qualifiedName:kind` (e.g.
+ * `src/order.ts#OrderService.create:method`), so inserting a line above a
+ * declaration does not re-key it. Line and span live in `evidence` and are
+ * never part of identity.
  */
 export interface ITtscGraphNode {
   /** Position-invariant identity (see the interface doc for the id grammar). */
@@ -27,15 +24,12 @@ export interface ITtscGraphNode {
 
   /**
    * The owner-qualified name, when the node lives inside another declaration —
-   * `OrderService.create`, `Shopping.ISale`. Absent for a top-level or virtual
-   * node whose `name` already qualifies it.
+   * `OrderService.create`, `Shopping.ISale`. Absent for a top-level
+   * declaration.
    */
   qualifiedName?: string;
 
-  /**
-   * Project-relative path of the file that declares this node. For a virtual
-   * node it is the file the convention was recognized in.
-   */
+  /** Project-relative path of the file that declares this node. */
   file: string;
 
   /**
@@ -60,17 +54,11 @@ export interface ITtscGraphNode {
 
   /**
    * The decorators written on this declaration, in source order, when it has
-   * any. A framework pass reads these to synthesize routes (`@Controller`,
-   * `@Get`) without re-parsing source.
+   * any — raw decorator facts (`@Controller`, `@Get`) a consumer can interpret
+   * without re-parsing source.
    */
   decorators?: ITtscGraphDecorator[];
 
   /** The declaration span, for display and source expansion. */
   evidence?: ITtscGraphEvidence;
-
-  /** Route facts; present iff `kind === "route"`. */
-  route?: ITtscGraphRoute;
-
-  /** Component facts; present iff `kind === "component"`. */
-  component?: ITtscGraphComponent;
 }

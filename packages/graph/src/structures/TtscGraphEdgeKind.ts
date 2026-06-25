@@ -3,14 +3,13 @@
  *
  * Structural edges (`contains`, `exports`, `imports`) come from the declaration
  * pass. Value and type edges (`calls`, `accesses`, `instantiates`, `type_ref`,
- * `extends`, `implements`, `overrides`) are resolved by the checker.
- * `decorates` carries the decorator fact a framework pass reads. `renders`,
- * `handles_route`, and `tests` are higher-level relationships a framework or
- * convention pass adds.
+ * `extends`, `implements`, `overrides`, `renders`) are resolved by the checker
+ * — `renders` is a JSX component use. `decorates` carries a decorator fact and
+ * `tests` a test-to-subject relationship.
  *
  * Every edge is tagged with a {@link TtscGraphProvenance} and
  * {@link TtscGraphConfidence}, so a consumer can separate checker-resolved fact
- * from framework or heuristic inference regardless of kind.
+ * from heuristic inference regardless of kind.
  */
 export type TtscGraphEdgeKind =
   | "contains"
@@ -25,5 +24,4 @@ export type TtscGraphEdgeKind =
   | "overrides"
   | "decorates"
   | "renders"
-  | "handles_route"
   | "tests";

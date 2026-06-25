@@ -5,7 +5,6 @@
 // `dump.go` writer has one TypeScript source of truth to mirror.
 
 export * from "./ITtscGraphApplication";
-export * from "./ITtscGraphComponent";
 export * from "./ITtscGraphDecorator";
 export * from "./ITtscGraphDiagnostic";
 export * from "./ITtscGraphDump";
@@ -15,7 +14,6 @@ export * from "./ITtscGraphExpand";
 export * from "./ITtscGraphNode";
 export * from "./ITtscGraphOverview";
 export * from "./ITtscGraphQuery";
-export * from "./ITtscGraphRoute";
 export * from "./ITtscGraphTrace";
 export * from "./TtscGraphConfidence";
 export * from "./TtscGraphEdgeKind";

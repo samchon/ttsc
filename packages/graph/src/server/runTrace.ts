@@ -128,7 +128,6 @@ function summary(
   if (withRoles) {
     const roles: string[] = [];
     if (node.exported) roles.push("exported");
-    if (node.kind === "route") roles.push("route");
     if (isTestFile(node.file)) roles.push("test");
     if (roles.length > 0) out.roles = roles;
   }

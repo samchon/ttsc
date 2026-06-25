@@ -3,8 +3,8 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
-import { resolveGraphBinary } from "./index";
 import { type RawDump, reduce } from "./reduce";
+import { resolveGraphBinary } from "./resolveGraphBinary";
 
 interface ViewOptions {
   cwd: string;

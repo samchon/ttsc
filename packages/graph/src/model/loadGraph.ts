@@ -1,26 +1,12 @@
 import { spawnSync } from "node:child_process";
 import typia from "typia";
 
-import { resolveGraphBinary } from "../index";
+import { resolveGraphBinary } from "../resolveGraphBinary";
 import {
   ITtscGraphDump,
   TTSC_GRAPH_SCHEMA_VERSION,
 } from "../structures/ITtscGraphDump";
 import { TtscGraphMemory } from "./TtscGraphMemory";
-
-/** Where and how to build the graph for a project. */
-export interface LoadGraphOptions {
-  /** Project root the graph is built for (default: `process.cwd()`). */
-  cwd?: string;
-  /** Project tsconfig, relative to `cwd` (default: `tsconfig.json`). */
-  tsconfig?: string;
-  /**
-   * Absolute path to the `ttscgraph` binary. Defaults to the per-platform
-   * binary resolved from the project's installed `ttsc`, the same one the
-   * launcher spawns; pass it explicitly to point at a custom build.
-   */
-  binary?: string;
-}
 
 // A full-project dump is the whole fact graph as one JSON document; a large
 // monorepo runs to many megabytes, well past spawnSync's 1 MiB default, so the
@@ -37,7 +23,20 @@ const MAX_DUMP_BYTES = 1024 * 1024 * 1024;
  * output is not a readable graph — the server surfaces the failure rather than
  * answering from an empty graph.
  */
-export function loadGraph(options: LoadGraphOptions = {}): TtscGraphMemory {
+export function loadGraph(
+  options: {
+    /** Project root the graph is built for (default: `process.cwd()`). */
+    cwd?: string;
+    /** Project tsconfig, relative to `cwd` (default: `tsconfig.json`). */
+    tsconfig?: string;
+    /**
+     * Absolute path to the `ttscgraph` binary. Defaults to the per-platform
+     * binary resolved from the project's installed `ttsc`; pass it explicitly
+     * to point at a custom build.
+     */
+    binary?: string;
+  } = {},
+): TtscGraphMemory {
   const cwd = options.cwd ?? process.cwd();
   const tsconfig = options.tsconfig ?? "tsconfig.json";
   const binary = options.binary ?? resolveGraphBinary();
@@ -74,7 +73,7 @@ export function loadGraph(options: LoadGraphOptions = {}): TtscGraphMemory {
  * rather than producing wrong answers downstream, and the schema version is
  * checked so an incompatible producer is refused.
  */
-export function parseDump(json: string): ITtscGraphDump {
+function parseDump(json: string): ITtscGraphDump {
   let value: unknown;
   try {
     value = JSON.parse(json);
