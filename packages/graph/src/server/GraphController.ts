@@ -1,4 +1,5 @@
 import { GraphModel } from "../model/GraphModel";
+import { IExpandProps, IExpandResult, runExpand } from "./expand";
 
 /**
  * The MCP tool surface, as a plain class. Each public method is one tool; its
@@ -49,6 +50,20 @@ export class GraphController {
     if (want("hotspots")) result.hotspots = this.hotspots();
     if (want("publicApi")) result.publicApi = this.publicApi();
     return result;
+  }
+
+  /**
+   * Read the declaration source of nodes another tool returned as handles, plus
+   * their direct dependencies and dependents on request. This is how you read
+   * code the graph has already located — pass every handle you need in one call
+   * instead of opening files.
+   *
+   * @param props The handles to expand
+   * @returns The resolved nodes with source, and any handles that did not
+   *   resolve
+   */
+  public expand(props: IExpandProps): IExpandResult {
+    return runExpand(this.graph, props);
   }
 
   /**
