@@ -449,7 +449,27 @@ func (s *Server) renderNodes(nodes []*graph.Node, budget int, note string) strin
 }
 
 func (s *Server) renderExpandedNodes(nodes []*graph.Node, budget int, note string) string {
-  return s.renderNodesWithSourceLimit(nodes, budget, note, expandedSourceLines(len(nodes)))
+  var b strings.Builder
+  b.WriteString(exploreHeader)
+  if note != "" {
+    b.WriteString(note)
+    b.WriteByte('\n')
+  }
+  collapsed := 0
+  sourceLines := expandedSourceLines(len(nodes))
+  for _, node := range nodes {
+    withSource := b.Len() < budget
+    if !withSource {
+      collapsed++
+      s.writeNodeHeader(&b, node)
+      continue
+    }
+    s.writeExpandedNodeSource(&b, node, sourceLines)
+  }
+  if collapsed > 0 {
+    fmt.Fprintf(&b, "(%d further node(s) shown as signatures to fit the response budget)\n", collapsed)
+  }
+  return strings.TrimRight(b.String(), "\n")
 }
 
 func (s *Server) renderNodesWithSourceLimit(nodes []*graph.Node, budget int, note string, sourceLines int) string {
@@ -966,61 +986,12 @@ func dottedNameParts(name string) (string, string, bool) {
   return owner, name[dot+1:], true
 }
 
-func containsMemberWord(words map[string]bool, member string) bool {
-  lower := strings.ToLower(member)
-  if words[lower] {
-    return true
-  }
-  parts := memberWords(member)
-  if len(parts) == 0 {
-    return false
-  }
-  for _, part := range parts {
-    if words[part] {
-      return true
-    }
-  }
-  return false
-}
-
-func memberWords(member string) []string {
-  words := make([]string, 0, 4)
-  start := -1
-  for i := 0; i < len(member); i++ {
-    c := member[i]
-    isAlphaNum :=
-      (c >= 'a' && c <= 'z') ||
-        (c >= 'A' && c <= 'Z') ||
-        (c >= '0' && c <= '9')
-    if !isAlphaNum {
-      if start >= 0 {
-        words = append(words, strings.ToLower(member[start:i]))
-        start = -1
-      }
-      continue
-    }
-    if start < 0 {
-      start = i
-      continue
-    }
-    prev := member[i-1]
-    if c >= 'A' && c <= 'Z' && prev >= 'a' && prev <= 'z' {
-      words = append(words, strings.ToLower(member[start:i]))
-      start = i
-    }
-  }
-  if start >= 0 {
-    words = append(words, strings.ToLower(member[start:]))
-  }
-  return words
-}
-
 func naturalDottedScore(name string, words map[string]bool) int {
   owner, member, ok := dottedNameParts(name)
   if !ok {
     return 0
   }
-  if !containsWholeWord(words, owner) || !containsMemberWord(words, member) {
+  if !containsWholeWord(words, owner) || !words[strings.ToLower(member)] {
     return 0
   }
   return 650
@@ -1284,6 +1255,36 @@ func (s *Server) writeNodeEdges(b *strings.Builder, node *graph.Node) {
   }
 }
 
+// writeNodeOutgoingEdges writes only the relationships starting at this node.
+// Exact source expansion already has a concrete handle, so it should reopen the
+// declaration and local outbound evidence without replaying incoming callers or
+// blast-radius metadata from discovery.
+func (s *Server) writeNodeOutgoingEdges(b *strings.Builder, node *graph.Node) {
+  outgoing := make([]string, 0, maxEdgesPerDirection)
+  outMore := 0
+  for _, edge := range s.graph.Edges {
+    if edge.From != node.ID {
+      continue
+    }
+    to := s.graph.Nodes[edge.To]
+    if to == nil {
+      continue
+    }
+    if len(outgoing) < maxEdgesPerDirection {
+      outgoing = append(outgoing, fmt.Sprintf("  -> (%s) %s %s  %s:%d%s", edge.Kind, to.Kind, to.Name, s.relFile(to.File), s.declLine(to), s.edgeUseSuffix(edge)))
+    } else {
+      outMore++
+    }
+  }
+  for _, edge := range outgoing {
+    b.WriteString(edge)
+    b.WriteByte('\n')
+  }
+  if outMore > 0 {
+    fmt.Fprintf(b, "  -> (%d more)\n", outMore)
+  }
+}
+
 // writeNodeDiagnosticsHere writes the diagnostics that land on this declaration,
 // the live error view fused onto the static structure, capped at maxNodeDiagnostics
 // with the total still reported.
@@ -1345,20 +1346,36 @@ func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node, withSo
   b.WriteString("\n")
 }
 
-func (s *Server) writeFlowNode(b *strings.Builder, node *graph.Node, included map[string]bool, query string) {
+// writeExpandedNodeSource renders the deterministic expand_nodes source view.
+// Discovery answers impact analysis; expansion answers "show me this known
+// declaration", so it keeps source and local outbound evidence only.
+func (s *Server) writeExpandedNodeSource(b *strings.Builder, node *graph.Node, sourceLines int) {
   s.writeNodeHeader(b, node)
-  s.writeFlowValueEdges(b, node, included)
+  s.writeNodeOutgoingEdges(b, node)
+  s.writeNodeDiagnosticsHere(b, node)
   if source, line, sourceOffset := s.nodeSourceRange(node); source != "" {
-    s.writeFlowSourceWindows(b, node, included, source, line, sourceOffset)
+    b.WriteString(numberLines(source, line, sourceLines))
+    s.writeValueCallExcerpts(b, node, source, line, sourceOffset, sourceLines)
   }
   b.WriteString("\n")
 }
 
-func (s *Server) writeFlowSourceWindows(b *strings.Builder, node *graph.Node, included map[string]bool, source string, startLine int, sourceOffset int) {
+func (s *Server) writeFlowNode(b *strings.Builder, node *graph.Node, included map[string]bool, query string) {
+  s.writeNodeHeader(b, node)
+  s.writeFlowValueEdges(b, node, included)
+  if source, line, sourceOffset := s.nodeSourceRange(node); source != "" {
+    s.writeFlowSourceWindows(b, node, included, source, line, sourceOffset, query)
+  }
+  b.WriteString("\n")
+}
+
+func (s *Server) writeFlowSourceWindows(b *strings.Builder, node *graph.Node, included map[string]bool, source string, startLine int, sourceOffset int, query string) {
   lines := strings.Split(source, "\n")
   if len(lines) == 0 {
     return
   }
+  tokens := queryTokens(query)
+  words := queryWords(query)
   type lineWindow struct {
     start int
     end   int
@@ -1371,13 +1388,51 @@ func (s *Server) writeFlowSourceWindows(b *strings.Builder, node *graph.Node, in
     }
     windows = append(windows, lineWindow{start: codeLine, end: end})
   }
-  seen := map[int]bool{}
+  type rankedEdge struct {
+    edge  *graph.Edge
+    score int
+    line  int
+  }
+  edges := make([]rankedEdge, 0)
   for _, edge := range s.graph.Edges {
-    if edge.From != node.ID || (edge.Kind != graph.EdgeValueCall && edge.Kind != graph.EdgeValueAccess) || !included[edge.To] {
+    if edge.From != node.ID || (edge.Kind != graph.EdgeValueCall && edge.Kind != graph.EdgeValueAccess) {
+      continue
+    }
+    to := s.graph.Nodes[edge.To]
+    if to == nil {
+      continue
+    }
+    targetScore := s.pathTargetScoreFrom(node.ID, edge.To, tokens, words)
+    onPath := included[edge.To]
+    if !onPath && targetScore <= 0 {
       continue
     }
     idx := edgeSourceLineIndex(edge, source, sourceOffset)
-    if idx < 0 || seen[idx] {
+    if idx < 0 {
+      idx = findLateCallLine(lines, 0, memberName(to.Name))
+    }
+    if idx < 0 {
+      continue
+    }
+    score := targetScore
+    if onPath {
+      score += 1000
+    }
+    edges = append(edges, rankedEdge{edge: edge, score: score, line: idx})
+  }
+  sort.SliceStable(edges, func(i, j int) bool {
+    if edges[i].score != edges[j].score {
+      return edges[i].score > edges[j].score
+    }
+    if edges[i].line != edges[j].line {
+      return edges[i].line < edges[j].line
+    }
+    return edges[i].edge.To < edges[j].edge.To
+  })
+  seen := map[int]bool{}
+  for _, ranked := range edges {
+    idx := ranked.line
+    if seen[idx] {
       continue
     }
     seen[idx] = true

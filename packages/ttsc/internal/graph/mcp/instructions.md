@@ -12,7 +12,7 @@ A compiler-resolved graph of TypeScript relationships: calls, callers, types, ow
 
 **Default to `query_nodes` for any relationship or code-flow question; do not fall into grep-first habits.** Repeated grep/read probes burn tokens reconstructing relationships the graph already resolved.
 
-- One broad query (owner + action + domain nouns, e.g. `repository find manager query builder`) returns the matched declarations with their calls, callers, types, blast radius, and source.
+- One broad query (owner + action + domain nouns, e.g. `controller dispatch service cache`) returns the matched declarations with their calls, callers, types, blast radius, and source.
 - The fuzzy match is the batch: a broad multi-noun query returns the whole cluster in one call, so you do not query one symbol at a time, and an edge target shown in the result is part of the answer, not a reason to re-query or grep.
 - If a result shows the right TypeScript node but omits the body, copy its `handle:n:...` into `expand_nodes`.
 - grep/read cannot assemble that, because the answer depends on resolved relationships, not on where a keyword appears.
