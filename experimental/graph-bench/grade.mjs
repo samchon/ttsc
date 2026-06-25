@@ -122,7 +122,16 @@ function loadGold(manifestPath) {
 /** Pull the sample array out of whatever shape the report uses. */
 function samplesOf(report) {
   if (Array.isArray(report)) return report;
-  return report.samples ?? report.cells ?? [];
+  const found = report.samples ?? report.cells;
+  if (Array.isArray(found)) return found;
+  // The A/B harness keys samples by arm ({ baseline: [...], graph: [...] });
+  // flatten so the CLI grades the arm-keyed report directly.
+  if (found && typeof found === "object") {
+    return Object.values(found)
+      .flat()
+      .filter((sample) => sample && typeof sample === "object");
+  }
+  return [];
 }
 
 function arg(name, fallback) {

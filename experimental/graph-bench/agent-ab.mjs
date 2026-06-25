@@ -10,12 +10,24 @@
 // questions are intentionally medium difficulty so the benchmark measures
 // navigation behavior rather than open-ended architecture spelunking.
 //
+// The MCP server is the @ttsc/graph TypeScript launcher (packages/graph/lib/bin.js),
+// which runs `ttscgraph dump` once for the project (the Go binary is now dump-only)
+// and serves graph_overview / graph_query / graph_trace / graph_expand over stdio.
+// All tool guidance comes from the server's MCP initialize/tool descriptions; the
+// user prompt is the manifest question verbatim, tool-neutral, so the token
+// comparison stays honest. No graph-specific instruction is appended.
+//
+// Each sample also captures the agent's final answer text and, after the run,
+// grades it against the prompt's gold via grade.mjs, so a token saving is never
+// reported as a win while the answer is wrong (quality.pass === false).
+//
 // Spends real Claude credits; non-deterministic; not wired into CI. Requires
-// `claude` and `go` on PATH.
+// `claude` and `go` on PATH, and a built `@ttsc/graph` (packages/graph/lib).
 //
 // Usage:
 //   node experimental/graph-bench/agent-ab.mjs --repo=excalidraw --runs=2
 //   node experimental/graph-bench/agent-ab.mjs --repo=vscode --runs=4 --model=opus
+//   node experimental/graph-bench/agent-ab.mjs --prompt-id=typeorm-overview-v1 --runs=2
 //   node experimental/graph-bench/agent-ab.mjs --repo=typeorm --repo-dir=experimental/benchmark/.work/ttsc-benchmark-typeorm@ttsc
 import cp from "node:child_process";
 import fs from "node:fs";
@@ -23,25 +35,80 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { gradeAnswer, questionSha256 } from "./grade.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
+const graphLauncher = path.join(
+  repoRoot,
+  "packages",
+  "graph",
+  "lib",
+  "bin.js",
+);
 // The question per repo, in codegraph's agent-eval style: a specific "how does
 // this concrete mechanism work" trace that names a real public API. A narrow,
 // mechanism-level question is what makes the comparison bite: a reader must dig
 // deep through the layers to answer it, while one targeted graph query pins the
-// cluster. resolveQuestion prefers an explicit override, then a per-repo file
-// (questions/<repo>.md), then the generic fallback.
+// cluster. resolveQuestion prefers an explicit --prompt-id (manifest-driven),
+// then an explicit override, then a per-repo file (questions/<repo>.md), then the
+// generic fallback.
 const ARCHITECTURE_QUESTION = fs
   .readFileSync(path.join(here, "questions", "architecture-callpath.md"), "utf8")
   .trim();
-const CLAUDE_GRAPH_ARM_PROMPT = [
-  "A ttsc-graph MCP server is configured for this graph arm.",
-  "For TypeScript project orientation, before Glob/Grep/Read, use ToolSearch with select:mcp__ttsc-graph__query_exports,mcp__ttsc-graph__query_path,mcp__ttsc-graph__query_nodes,mcp__ttsc-graph__expand_nodes,mcp__ttsc-graph__query_files.",
-  "Use query_path when the task gives exact start/end symbols or an ordered call chain.",
-  "Use query_exports for orientation or uncertain entrypoints, and query_nodes for relationship discovery when endpoints are unknown.",
-  "Use expand_nodes only for handles that need source context. Use file tools only when the graph does not fit.",
-].join(" ");
+
+// The manifest (questions/manifest.json) is the source of truth for graded
+// prompts: each entry pins a question .md, a gold .json, and the question's
+// SHA-256. resolveManifestPrompt loads it on demand so a plain --repo run that
+// does not use a manifest prompt still works with no manifest present.
+function loadManifest() {
+  const manifestPath = path.join(here, "questions", "manifest.json");
+  if (!fs.existsSync(manifestPath)) return { prompts: [] };
+  return JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+}
+
+// Resolve a manifest prompt by --prompt-id (exact), else the first prompt of a
+// --prompt-family, scoped to --repo when given. Returns the prompt entry plus the
+// loaded question text, the integrity-verified questionSha256, and the goldSha256,
+// or null when neither flag was passed.
+function resolveManifestPrompt(args) {
+  const id = args["prompt-id"];
+  const family = args["prompt-family"];
+  if (!id && !family) return null;
+  const manifest = loadManifest();
+  const prompts = manifest.prompts ?? [];
+  const repoFilter = args.repo;
+  const entry = id
+    ? prompts.find((p) => p.id === id)
+    : prompts.find(
+        (p) => p.family === family && (!repoFilter || p.repo === repoFilter),
+      );
+  if (!entry) {
+    throw new Error(
+      id
+        ? `unknown --prompt-id ${id}; manifest has ${prompts.map((p) => p.id).join(", ")}`
+        : `no manifest prompt for --prompt-family ${family}${repoFilter ? ` repo ${repoFilter}` : ""}`,
+    );
+  }
+  const questionFile = path.resolve(here, "questions", entry.file);
+  const goldFile = path.resolve(here, "questions", entry.gold);
+  const text = fs.readFileSync(questionFile, "utf8").trim();
+  const actualSha = questionSha256(questionFile);
+  if (entry.questionSha256 && entry.questionSha256 !== actualSha) {
+    console.warn(
+      `warning: ${entry.id} question sha mismatch (manifest ${entry.questionSha256.slice(0, 12)} != file ${actualSha.slice(0, 12)})`,
+    );
+  }
+  return {
+    entry,
+    text,
+    questionSha256: actualSha,
+    goldSha256: questionSha256(goldFile),
+    gold: JSON.parse(fs.readFileSync(goldFile, "utf8")),
+  };
+}
+
 function resolveQuestion(repoKey) {
   if (process.env.TTSC_BENCH_QUESTION_FILE)
     return fs.readFileSync(process.env.TTSC_BENCH_QUESTION_FILE, "utf8").trim();
@@ -102,7 +169,11 @@ const REPOS = {
 };
 
 const args = parseArgs(process.argv.slice(2));
-const repoKey = args.repo ?? "excalidraw";
+// A manifest prompt (--prompt-id / --prompt-family) overrides the per-repo
+// question and pins the repo, fixtureBranch, tsconfig, and the gold to grade
+// against. Resolve it first so it can fill --repo when only --prompt-id is given.
+const manifestPrompt = resolveManifestPrompt(args);
+const repoKey = args.repo ?? manifestPrompt?.entry.repo ?? "excalidraw";
 const spec = REPOS[repoKey];
 if (!spec)
   throw new Error(
@@ -110,12 +181,21 @@ if (!spec)
   );
 const runs = Number(args.runs ?? 2);
 const model = args.model ?? "sonnet";
-const tsconfig = args.tsconfig ?? spec.tsconfig;
-const question = args.question ?? resolveQuestion(repoKey);
-const promptFamily = args["prompt-family"] ?? (args.question ? "custom" : "project-specific");
+const tsconfig =
+  args.tsconfig ?? manifestPrompt?.entry.tsconfig ?? spec.tsconfig;
+const question = args.question ?? manifestPrompt?.text ?? resolveQuestion(repoKey);
+const promptId = manifestPrompt?.entry.id;
+const promptFamily =
+  manifestPrompt?.entry.family ??
+  args["prompt-family"] ??
+  (args.question ? "custom" : "project-specific");
+// The gold + integrity stamps travel with the report so grading is reproducible
+// from the report alone (also used to grade each sample in-process after capture).
+const gold = manifestPrompt?.gold ?? null;
+const goldThreshold = Number(args.threshold ?? 0.8);
 if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
 
-const fixtureBranch = args["fixture-branch"];
+const fixtureBranch = args["fixture-branch"] ?? manifestPrompt?.entry.fixtureBranch;
 if (
   fixtureBranch &&
   fixtureBranch !== "ttsc" &&
@@ -151,13 +231,21 @@ const goEnv = {
     : process.env.PATH,
 };
 
-// 1. Build the MCP server binary (skipped for codegraph, which is a global CLI).
+// 1. Build the native ttscgraph dump binary, which the @ttsc/graph launcher runs
+// once to build the resident graph (skipped for codegraph, which is a global CLI).
+// The Go binary is dump-only now; the MCP server itself is the Node launcher.
 const binary = path.join(
   os.tmpdir(),
   `ttscgraph-ab-${process.pid}${process.platform === "win32" ? ".exe" : ""}`,
 );
 if (!cg) {
-  console.log("Building ttscgraph...");
+  if (!fs.existsSync(graphLauncher)) {
+    throw new Error(
+      `@ttsc/graph launcher not built: ${graphLauncher}\n` +
+        "Run `pnpm -C packages/graph build` (or a full workspace build) first.",
+    );
+  }
+  console.log("Building ttscgraph dump binary...");
   runOrThrow("go", ["build", "-o", binary, "./cmd/ttscgraph"], ttscDir, goEnv);
 }
 
@@ -188,52 +276,22 @@ if (!cg && !fs.existsSync(path.join(repoDir, tsconfig))) {
   throw new Error(`missing tsconfig: ${path.join(repoDir, tsconfig)}`);
 }
 
-// 3. WITH = @ttsc/graph; WITHOUT = empty config. Both --strict-mcp-config.
-// Default runs stay single-process so setup/build cost remains part of the
-// measured cell. Pass --daemon=1 only for an explicitly amortized large-repo run.
-// codegraph manages its own indexing/daemon, so the ttscgraph daemon path (which
-// spawns the unbuilt `binary`) must be skipped under --cg.
-const useDaemon = !cg && (args.daemon === "1" || args.daemon === "true");
-let daemon = null;
-let withArgs;
-if (useDaemon) {
-  const portFile = path.join(
-    os.tmpdir(),
-    `ttscgraph-daemon-${process.pid}.port`,
-  );
-  console.log("Starting daemon (build once)...");
-  daemon = cp.spawn(
-    binary,
-    [
-      "--daemon",
-      "--cwd",
-      repoDir,
-      "--tsconfig",
-      tsconfig,
-      "--port-file",
-      portFile,
-      "--idle",
-      "0",
-    ],
-    { stdio: "ignore", windowsHide: true },
-  );
-  const addr = waitForPort(portFile, 30_000);
-  console.log(
-    `  daemon at ${addr}; warming (type-checking ${repoKey}, this can take minutes)...`,
-  );
-  const warmStart = Date.now();
-  warmDaemon(binary, addr);
-  console.log(`  warm in ${((Date.now() - warmStart) / 1000).toFixed(0)}s`);
-  withArgs = ["--connect", addr];
-} else {
-  withArgs = ["--stdio", "--cwd", repoDir, "--tsconfig", tsconfig];
-}
-
+// 3. WITH = @ttsc/graph; WITHOUT = empty config. Both --strict-mcp-config. The
+// graph server is the Node launcher run over stdio; it shells out to the dump
+// binary (pointed at via TTSC_GRAPH_BINARY) once at startup, then answers tool
+// calls from the resident graph. The launcher has no daemon/port mode — its
+// single type-check stays inside the measured cell — so there is no --daemon path.
 const withCfg = path.join(os.tmpdir(), `mcp-graph-${process.pid}.json`);
 const emptyCfg = path.join(os.tmpdir(), `mcp-empty-${process.pid}.json`);
 const serverCfg = cg
   ? { codegraph: codegraphServerConfig(repoDir) }
-  : { "ttsc-graph": { command: binary, args: withArgs } };
+  : {
+      "ttsc-graph": {
+        command: process.execPath,
+        args: [graphLauncher, "--cwd", repoDir, "--tsconfig", tsconfig],
+        env: { TTSC_GRAPH_BINARY: binary },
+      },
+    };
 fs.writeFileSync(withCfg, JSON.stringify({ mcpServers: serverCfg }));
 fs.writeFileSync(emptyCfg, JSON.stringify({ mcpServers: {} }));
 
@@ -244,6 +302,7 @@ const arms = [
 
 console.log(
   `\ncodegraph A/B on ${repoKey} — model ${model}, ${runs} run(s) x ${arms.length} arms` +
+    (promptId ? `, prompt ${promptId}` : "") +
     (fixtureBranch ? `, fixture ${fixtureBranch}` : ""),
 );
 console.log(`Q: ${question}\n`);
@@ -283,11 +342,22 @@ const thunks = arms.flatMap((arm) =>
           `  ${arm.name.padEnd(8)} run ${r + 1}: [FAILED] ${m.error || ""} retrying (${attempt + 1}/${MAX_RUN_RETRIES})`,
         );
     }
+    // Tag the sample with the manifest provenance and, when a gold is in play,
+    // grade the captured answer so a token win is never reported while the answer
+    // is wrong. quality is null for an unrated run or one that did not finish.
+    if (promptId) m.promptId = promptId;
+    if (manifestPrompt) {
+      m.questionSha256 = manifestPrompt.questionSha256;
+      m.goldSha256 = manifestPrompt.goldSha256;
+    }
+    m.quality =
+      gold && m.ok ? gradeAnswer(m.answer ?? "", gold, goldThreshold) : null;
     samples[arm.name].push(m);
     spent += m.cost;
     console.log(
       `  ${arm.name.padEnd(8)} run ${r + 1}: $${m.cost.toFixed(3)}, ${m.tokens} tok, ${m.tools} tools ` +
         `(read ${m.reads}, grep ${m.grep}, graph ${m.graph}), ${(m.durMs / 1000).toFixed(0)}s` +
+        (m.quality ? `, ${m.quality.pass ? "PASS" : "FAIL"}` : "") +
         (m.ok ? "" : "  [FAILED]") +
         `  [running $${spent.toFixed(2)}]`,
     );
@@ -322,14 +392,36 @@ line("tokens", "tokens");
 line("tool calls", "tools");
 line("cost", "cost", (x) => `$${x.toFixed(3)}`);
 line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
+
+// Quality gate: a token saving is only a real win if the graph arm still answers
+// correctly. Report each arm's pass rate, and refuse to call the saving a win when
+// the graph arm's answers fall below threshold.
+if (gold) {
+  const passRate = (arm) => {
+    const graded = samples[arm].filter((m) => m.ok && m.quality);
+    const passed = graded.filter((m) => m.quality.pass).length;
+    return { passed, graded: graded.length };
+  };
+  const b = passRate("baseline");
+  const g = passRate("graph");
+  console.log(
+    `\nQuality (threshold ${goldThreshold}): baseline ${b.passed}/${b.graded} pass  ->  graph ${g.passed}/${g.graded} pass`,
+  );
+  const tokenSaving = pct(med("graph", "tokens"), med("baseline", "tokens"));
+  const graphPasses = g.graded > 0 && g.passed * 2 >= g.graded; // majority pass
+  if (tokenSaving > 0 && !graphPasses) {
+    console.log(
+      `  NOTE: ${tokenSaving}% token saving NOT counted as a win — graph answers are below threshold.`,
+    );
+  }
+}
 console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, promptFamily, daemon: useDaemon, runs, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt ? { questionSha256: manifestPrompt.questionSha256, goldSha256: manifestPrompt.goldSha256, gradeThreshold: goldThreshold } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
 );
-if (daemon) daemon.kill();
 try {
   fs.rmSync(binary, { force: true });
   fs.rmSync(withCfg, { force: true });
@@ -338,55 +430,13 @@ try {
   /* best effort */
 }
 
-// waitForPort polls the daemon's port file until it reports a host:port address.
-function waitForPort(portFile, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (fs.existsSync(portFile)) {
-      const addr = fs.readFileSync(portFile, "utf8").trim();
-      if (addr) return addr;
-    }
-    syncSleep(150);
-  }
-  throw new Error("daemon did not report a port in time");
-}
-
-// warmDaemon drives one query_nodes call through the proxy, which blocks until the
-// daemon's background type-check lands, so the timed sessions hit a warm server.
-function warmDaemon(bin, addr) {
-  const init = JSON.stringify({
-    jsonrpc: "2.0",
-    id: 1,
-    method: "initialize",
-    params: {},
-  });
-  const call = JSON.stringify({
-    jsonrpc: "2.0",
-    id: 2,
-    method: "tools/call",
-    params: { name: "query_nodes", arguments: { query: "main" } },
-  });
-  const result = cp.spawnSync(bin, ["--connect", addr], {
-    input: `${init}\n${call}\n`,
-    encoding: "utf8",
-    windowsHide: true,
-    maxBuffer: 64 * 1024 * 1024,
-    timeout: 1_200_000,
-  });
-  if (result.status !== 0)
-    throw new Error(
-      `daemon warm-up failed: ${(result.stderr || "").slice(0, 300)}`,
-    );
-}
-
-// syncSleep blocks for ms without async, so the synchronous setup can poll.
-function syncSleep(ms) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-}
-
 async function runClaude(question, cfg, armName, runNumber) {
   // Prevent Claude's built-in Agent tool from turning an MCP benchmark into
   // subagent IO. Do not use --bare here: it disables OAuth/keychain auth.
+  // No --append-system-prompt: tool guidance is tool-neutral now and comes from
+  // the @ttsc/graph MCP initialize/tool descriptions, so both arms get the same
+  // user prompt and the token comparison stays honest. armName only keys the
+  // trace file; it no longer changes the prompt.
   const claudeArgs = [
     "-p",
     "--output-format",
@@ -406,9 +456,6 @@ async function runClaude(question, cfg, armName, runNumber) {
     "--mcp-config",
     cfg,
   ];
-  if (armName === "graph") {
-    claudeArgs.push("--append-system-prompt", CLAUDE_GRAPH_ARM_PROMPT);
-  }
   const result = await spawnAsync("claude", claudeArgs, {
     cwd: repoDir,
     input: question,
@@ -464,7 +511,11 @@ function codegraphServerConfig(targetRepoDir) {
 
 // parseStream mirrors codegraph's parse-bench-readme.mjs: tokens are summed over
 // every assistant turn's usage (not the last-turn result.usage), and tool calls
-// are counted across assistant events (ToolSearch excluded).
+// are counted across assistant events (ToolSearch excluded). It also captures the
+// agent's final answer text: the `result` event's `result` string is the canonical
+// final answer; the concatenated text of the last assistant turn is the fallback
+// for a stream that ends without a result event. The captured answer is what
+// grade.mjs scores against the prompt's gold.
 function parseStream(text) {
   let tokens = 0,
     tools = 0,
@@ -472,7 +523,8 @@ function parseStream(text) {
     grep = 0,
     graph = 0,
     other = 0,
-    result = null;
+    result = null,
+    lastAssistantText = "";
   for (const raw of text.split("\n")) {
     if (!raw.trim()) continue;
     let e;
@@ -489,7 +541,12 @@ function parseStream(text) {
           (u.output_tokens || 0) +
           (u.cache_read_input_tokens || 0) +
           (u.cache_creation_input_tokens || 0);
+      const textBlocks = [];
       for (const b of e.message?.content || []) {
+        if (b.type === "text" && typeof b.text === "string") {
+          textBlocks.push(b.text);
+          continue;
+        }
         if (b.type !== "tool_use") continue;
         if (b.name === "ToolSearch") continue;
         tools++;
@@ -498,10 +555,21 @@ function parseStream(text) {
         else if (/graph|ttsc/i.test(b.name)) graph++;
         else other++;
       }
+      // Keep the last assistant turn that carried prose, so a trailing tool-only
+      // turn does not blank the fallback answer.
+      if (textBlocks.length) lastAssistantText = textBlocks.join("\n");
     } else if (e.type === "result") {
       result = e;
     }
   }
+  const ok = result?.subtype === "success" && !result?.is_error;
+  // The result event's `result` is the agent's final answer on success; on a
+  // 529-overload (is_error) it is the error message, so fall back to the last
+  // assistant prose for the answer either way.
+  const answer =
+    ok && typeof result?.result === "string" && result.result.trim()
+      ? result.result
+      : lastAssistantText;
   return {
     tokens,
     tools,
@@ -514,7 +582,8 @@ function parseStream(text) {
     // A 529-overloaded run still reports subtype "success" while carrying
     // is_error: true and zero token usage, so it must be excluded explicitly or
     // its empty sample drags the median down and the comparison goes garbage.
-    ok: result?.subtype === "success" && !result?.is_error,
+    ok,
+    answer,
     error: result?.is_error ? String(result?.result || "").slice(0, 80) : "",
   };
 }
