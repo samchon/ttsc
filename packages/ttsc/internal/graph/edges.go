@@ -33,7 +33,11 @@ func (g *Graph) addEdge(from, to string, kind EdgeKind) {
 }
 
 func (g *Graph) addEdgeAt(from, to string, kind EdgeKind, origin string, pos, end int) {
-  key := from + "\x00" + to + "\x00" + string(kind)
+  // Key on the emitted wire kind, not the internal kind, so two uses of one
+  // target that surface as different relationships (a call and a `new`, an
+  // `extends` and an `implements` of the same base) are both kept, while
+  // repeated uses of the same form collapse to one edge.
+  key := from + "\x00" + to + "\x00" + wireEdgeKind(kind, origin)
   if _, exists := g.seen[key]; exists {
     return
   }

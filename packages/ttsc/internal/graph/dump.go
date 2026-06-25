@@ -172,9 +172,19 @@ func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, so
 // dumpEdgeKind maps an internal edge kind, refined by Edge.Origin, onto the
 // schema's finer relationship kind.
 func dumpEdgeKind(e *Edge) string {
-  switch e.Kind {
+  return wireEdgeKind(e.Kind, e.Origin)
+}
+
+// wireEdgeKind maps an internal edge kind, refined by its origin, onto the
+// schema's finer relationship kind. It is the edge's emitted identity, so the
+// dedup keys on it: two uses of one target that differ only in a form mapping to
+// the same wire kind (a plain call and a tagged-template call, both `calls`)
+// collapse to one edge, while forms that mean distinct relationships (`calls` vs
+// `instantiates`, `extends` vs `implements`) are each kept.
+func wireEdgeKind(kind EdgeKind, origin string) string {
+  switch kind {
   case EdgeValueCall:
-    switch e.Origin {
+    switch origin {
     case "new":
       return "instantiates"
     case "jsx":
@@ -187,12 +197,12 @@ func dumpEdgeKind(e *Edge) string {
   case EdgeTypeRef:
     return "type_ref"
   case EdgeHeritage:
-    if e.Origin == "extends" {
+    if origin == "extends" {
       return "extends"
     }
     return "implements"
   default:
-    return string(e.Kind)
+    return string(kind)
   }
 }
 
