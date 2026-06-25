@@ -16,9 +16,9 @@ import (
 //   - a heritage type argument `extends Base<Payload>` -> type-ref to Payload
 //   - a type parameter constraint `<T extends Constraint>` -> type-ref to Constraint
 //
-// These are exactly the relationships a NestJS / Angular / TypeORM codebase is
-// built from, so a top-level-only-then-per-member walk that forgot them would
-// blind the graph to every dependency-injection and generic-base edge.
+// These are exactly the relationships decorator-heavy and generic-heavy
+// codebases are built from, so a top-level-only-then-per-member walk that forgot
+// them would blind the graph to dependency-injection and generic-base edges.
 func TestEdgesCoverClassLevelReferences(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

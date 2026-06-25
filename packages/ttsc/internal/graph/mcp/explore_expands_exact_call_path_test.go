@@ -11,21 +11,16 @@ import (
 )
 
 // TestExploreExpandsExactCallPath verifies query_nodes expands a public method
-// mention into its downstream relation-flow calls.
+// mention into its downstream value-call path.
 //
-// The TypeORM relation benchmark asks about `repository.find()`, while agents
-// often rewrite that to a graph query like `Repository find options relations`.
-// Both forms must continue through the manager and query builder. Without anchor
-// filtering, sibling `find*` methods crowd the result; without call-path
-// expansion, the manager body is only an edge target and thorough agents read the
-// file anyway.
+// Agents often ask for one public method and then spend extra tool calls reading
+// each callee body. The graph index should return the compiler-resolved path
+// directly, without relying on project-specific words or helper-name filters.
 //
-//  1. Compile a fixture whose Repository.find reaches Manager.find and then
-//     QueryBuilder.setFindOptions/applyFindOptions/buildRelations.
-//  2. Ask the benchmark shape and the natural owner/member query shape Codex
-//     emits.
-//  3. Assert the downstream path bodies appear and the sibling findAndCount does
-//     not crowd the result.
+//  1. Compile a fixture whose Gateway.fetch reaches Coordinator.fetch and then
+//     Pipeline.setPlan/applyPlan/buildSteps/Worker.execute.
+//  2. Ask both a natural question and a concise owner/member query.
+//  3. Assert the downstream path bodies appear in the same query_nodes result.
 func TestExploreExpandsExactCallPath(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -38,114 +33,68 @@ func TestExploreExpandsExactCallPath(t *testing.T) {
 }
 `)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `
-export class Repository {
-  constructor(private readonly manager: Manager) {}
+export class Gateway {
+  constructor(private readonly coordinator: Coordinator) {}
 
-  find(options?: FindOptions): string[] {
-    return this.manager.find("entity", options);
+  fetch(request: RequestPlan): string[] {
+    return this.coordinator.fetch(request);
   }
 
-  findAndCount(options?: FindOptions): [string[], number] {
-    return [this.manager.find("entity", options), 0];
-  }
-}
-
-export class Manager {
-  find(entity: string, options?: FindOptions): string[] {
-    return this.createQueryBuilder(entity).setFindOptions(options ?? {}).getMany();
-  }
-
-  createQueryBuilder(entity: string): QueryBuilder {
-    return new QueryBuilder(entity);
+  fetchAndCount(request: RequestPlan): [string[], number] {
+    return [this.coordinator.fetch(request), 0];
   }
 }
 
-export class FindOptionsUtils {
-  static rejectJoinOption(options: FindOptions): void {
-    void options;
+export class Coordinator {
+  fetch(request: RequestPlan): string[] {
+    return this.createPipeline()
+      .setPlan(request.plan)
+      .applyPlan()
+      .buildSteps()
+      .map((step) => new Worker(step).execute());
   }
 
-  static rejectStringArrayRelations(options: FindOptions): void {
-    void options;
+  createPipeline(): Pipeline {
+    return new Pipeline();
   }
 }
 
-export class QueryBuilder {
-  private findOptions?: FindOptions;
-  private expressionMap = new QueryExpressionMap();
+export class Pipeline {
+  private plan: Plan = { steps: [] };
 
-  constructor(private readonly entity: string) {}
-
-  setFindOptions(findOptions: FindOptions): this {
-    FindOptionsUtils.rejectJoinOption(findOptions);
-    FindOptionsUtils.rejectStringArrayRelations(findOptions);
-    this.findOptions = findOptions;
-    this.applyFindOptions();
+  setPlan(plan: Plan): this {
+    this.plan = plan;
     return this;
   }
 
-  protected applyFindOptions(): void {
-    if (this.findOptions?.relations) {
-      this.buildRelations(this.findOptions.relations);
-    }
+  applyPlan(): this {
+    this.plan = normalizePlan(this.plan);
+    return this;
   }
 
-  protected buildRelations(relations: Record<string, boolean>): void {
-    for (const relationName of Object.keys(relations)) {
-      void this.getRelationJoinType();
-      this.join(relationName);
-    }
-  }
-
-  protected getRelationJoinType(): "inner" | "left" {
-    return "inner";
-  }
-
-  protected join(relationName: string): void {
-    const joinAttribute = new JoinAttribute("root." + relationName, relationName);
-    joinAttribute.alias = relationName;
-    this.expressionMap.joinAttributes.push(joinAttribute);
-  }
-
-  protected createJoinExpression(): string {
-    return this.expressionMap.joinAttributes
-      .map((joinAttribute) => this.createJoinTreeRecursively(joinAttribute))
-      .join(" ");
-  }
-
-  protected createJoinTreeRecursively(joinAttribute: JoinAttribute): string {
-    return joinAttribute.parentAlias + ":" + joinAttribute.alias + ":" + joinAttribute.relation;
-  }
-
-  getMany(): string[] {
-    this.createJoinExpression();
-    return [this.entity];
+  buildSteps(): string[] {
+    return this.plan.steps.map((step) => step.name);
   }
 }
 
-export class QueryExpressionMap {
-  joinAttributes: JoinAttribute[] = [];
-}
+export class Worker {
+  constructor(private readonly step: string) {}
 
-export class JoinAttribute {
-  alias = "";
-
-  constructor(
-    public readonly entityOrProperty: string,
-    private readonly relationName: string,
-  ) {}
-
-  get parentAlias(): string | undefined {
-    return this.entityOrProperty.slice(0, this.entityOrProperty.indexOf("."));
-  }
-
-  get relation(): string {
-    return this.relationName;
+  execute(): string {
+    return this.step.toUpperCase();
   }
 }
 
-export interface FindOptions {
-  relations?: Record<string, boolean>;
+export function normalizePlan(plan: Plan): Plan {
+  return { steps: plan.steps.filter((step) => step.enabled) };
+}
+
+export interface RequestPlan {
+  plan: Plan;
+}
+
+export interface Plan {
+  steps: Array<{ name: string; enabled: boolean }>;
 }
 `)
 
@@ -160,37 +109,21 @@ export interface FindOptions {
 
   server := mcp.NewServer(prog)
   cases := []string{
-    "How are relation options applied when Repository.find() builds its query? Trace the call path from the public find method to where the relations are resolved and joined into the query.",
-    "Repository find options relations query builder apply relations joins join attributes alias",
+    "How does Gateway.fetch pass a requested plan into pipeline steps? Trace the call path from the public fetch method to where steps are built and execute.",
+    "Gateway fetch Coordinator fetch Pipeline setPlan applyPlan buildSteps Worker execute plan steps",
   }
   for _, query := range cases {
     text := toolText(t, server, fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":%q}}}`, query))
     for _, want := range []string{
-      "method Repository.find",
-      "method Manager.find",
-      "method QueryBuilder.setFindOptions",
-      "method QueryBuilder.applyFindOptions",
-      "method QueryBuilder.buildRelations",
+      "method Gateway.fetch",
+      "method Coordinator.fetch",
+      "method Pipeline.setPlan",
+      "method Pipeline.applyPlan",
+      "method Pipeline.buildSteps",
+      "method Worker.execute",
     } {
       if !strings.Contains(text, want) {
         t.Fatalf("query_nodes did not include %s for query %q in the expanded path:\n%s", want, query, text)
-      }
-    }
-    for _, noisy := range []string{
-      "\nmethod Repository.findAndCount",
-      "\nmethod Repository.query",
-      "\nmethod QueryBuilder.getRelationJoinType",
-    } {
-      if strings.Contains(text, noisy) {
-        t.Fatalf("query_nodes rendered noisy sibling %s for query %q:\n%s", noisy, query, text)
-      }
-    }
-    for _, guard := range []string{
-      "rejectJoinOption",
-      "rejectStringArrayRelations",
-    } {
-      if strings.Contains(text, guard) {
-        t.Fatalf("query_nodes rendered flow guard %s for query %q:\n%s", guard, query, text)
       }
     }
   }
@@ -208,19 +141,19 @@ func TestExploreFollowsRelevantValueConsumers(t *testing.T) {
 }
 `)
   writeFile(t, filepath.Join(root, "src", "main.ts"), `
-export class QueryExpressionMap {
-  joinAttributes: string[] = [];
+export class StateBag {
+  records: string[] = [];
 }
 
 export class Builder {
-  private expressionMap = new QueryExpressionMap();
+  private state = new StateBag();
 
-  join(attribute: string): void {
-    this.expressionMap.joinAttributes.push(attribute);
+  record(value: string): void {
+    this.state.records.push(value);
   }
 
-  createJoinExpression(): string {
-    return this.expressionMap.joinAttributes.join(" ");
+  createSummary(): string {
+    return this.state.records.join(" ");
   }
 }
 `)
@@ -235,10 +168,10 @@ export class Builder {
   defer func() { _ = prog.Close() }()
 
   server := mcp.NewServer(prog)
-  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"Builder QueryExpressionMap.joinAttributes join attributes","mode":"flow"}}}`)
+  text := toolText(t, server, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_nodes","arguments":{"query":"Builder StateBag.records summary records","mode":"flow"}}}`)
   for _, want := range []string{
-    "variable QueryExpressionMap.joinAttributes",
-    "method Builder.createJoinExpression",
+    "variable StateBag.records",
+    "method Builder.createSummary",
   } {
     if !strings.Contains(text, want) {
       t.Fatalf("query_nodes did not include %s in the reverse consumer flow:\n%s", want, text)

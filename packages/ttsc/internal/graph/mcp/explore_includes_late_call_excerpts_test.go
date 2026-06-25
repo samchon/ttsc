@@ -68,7 +68,7 @@ func TestExploreIncludesLateCallExcerpts(t *testing.T) {
 // TestExploreUsesEdgeSpansForLateAccessExcerpts verifies late value-access
 // evidence is sourced from graph edge spans, not from call-looking text search.
 // A property read like `this.value` has no trailing `(`, but it is still the
-// resolved use an agent needs when a long TypeORM-style method body is truncated.
+// resolved use an agent needs when a long method body is truncated.
 func TestExploreUsesEdgeSpansForLateAccessExcerpts(t *testing.T) {
   root := t.TempDir()
   var src strings.Builder

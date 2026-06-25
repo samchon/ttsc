@@ -83,8 +83,8 @@ type Server struct {
   // pass instead of the agent re-querying each hop.
   forwardCallAdj map[string][]string
   // reverseValueAdj maps a value target to declarations that read/call it. Flow
-  // uses this only for query-relevant consumers, e.g. a joinAttributes store to
-  // the createJoinExpression method that later consumes it.
+  // uses this to surface relevant consumers, e.g. a state store to the summary
+  // method that later consumes it.
   reverseValueAdj map[string][]string
   // implementorsAdj maps an interface or base to the declarations that implement
   // or extend it (the reverse of every heritage edge), so the call path can cross

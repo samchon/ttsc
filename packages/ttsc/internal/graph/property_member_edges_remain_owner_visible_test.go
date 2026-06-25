@@ -10,9 +10,9 @@ import (
 // TestPropertyMemberEdgesRemainOwnerVisible verifies property-member nodes are
 // additive rather than replacing class/interface owner-level edges.
 //
-// Property nodes give MCP precise evidence for flows such as TypeORM lazy
-// relation metadata, but broad architecture questions still need `Service ->
-// Dep` and `Service -> makeDep` without already knowing `Service.dep`.
+// Property nodes give MCP precise evidence for state/property flows, but broad
+// architecture questions still need `Service -> Dep` and `Service -> makeDep`
+// without already knowing `Service.dep`.
 //
 //  1. Compile a class property with both a type reference and initializer call,
 //     plus an interface property signature.

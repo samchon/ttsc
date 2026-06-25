@@ -267,10 +267,9 @@ func (g *Graph) callsWithin(checker *shimchecker.Checker, from string, node *shi
         g.callEdge(checker, from, tagged.Tag)
       }
     case shimast.KindPropertyAccessExpression:
-      // Accessor/property reads are runtime uses too. TypeORM's join flow, for
-      // example, reaches JoinAttribute.relation through joinAttribute.metadata;
-      // without this edge the graph shows the constructor call but not the lazy
-      // metadata resolution that agents then reopen files to inspect.
+      // Accessor/property reads are runtime uses too. Without this edge the
+      // graph shows the constructor or method call but not the state or lazy
+      // property resolution that agents then reopen files to inspect.
       if !isInvokedAccess(child) {
         g.accessEdge(checker, from, child)
       }

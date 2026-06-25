@@ -223,17 +223,103 @@ func (s *Server) queryNodes(args json.RawMessage) (any, *rpcError) {
     return textResult(fmt.Sprintf("No graph nodes match %q.", clip(in.Query, 200))), nil
   }
   // Expand the downstream call path only when the user actually asked for a flow.
-  // Exact public-surface questions such as `Repository.find()` need the next few
-  // compiler-resolved calls inline; otherwise thorough agents re-query or read the
-  // target files just to confirm the path. Plain symbol lookups stay lean.
+  // Exact public-surface questions need the next few compiler-resolved calls
+  // inline; otherwise thorough agents re-query or read the target files just to
+  // confirm the path. Plain symbol lookups can still opt out by setting
+  // TTSC_GRAPH_CALLPATH=0.
   nodes := matches
-  callPath := mode == "flow" || (mode == "auto" && (os.Getenv("TTSC_GRAPH_CALLPATH") != "" || wantsCallPath(in.Query)))
+  callPath := mode == "flow" || (mode == "auto" && s.shouldAutoFlow(in.Query, matches))
   if callPath {
     nodes = s.withCallPath(matches, maxPathNodes, in.Query)
     nodes = s.filterFlowNodes(nodes, in.Query)
     return textResult(s.renderFlowNodes(nodes, in.Query, "")), nil
   }
   return textResult(s.renderNodes(nodes, queryBudget(len(queryTokens(in.Query))), "")), nil
+}
+
+func (s *Server) shouldAutoFlow(query string, matches []*graph.Node) bool {
+  if os.Getenv("TTSC_GRAPH_CALLPATH") == "0" || len(matches) == 0 {
+    return false
+  }
+  if isSingleSymbolQuery(query) {
+    return false
+  }
+  if hasDottedIdentifierWithContext(query) {
+    return true
+  }
+  return s.matchesShareCallPath(matches)
+}
+
+func isSingleSymbolQuery(query string) bool {
+  q := strings.TrimSpace(query)
+  q = strings.Trim(q, "`")
+  q = strings.TrimSuffix(q, "()")
+  if q == "" {
+    return false
+  }
+  for _, r := range q {
+    if (r >= 'a' && r <= 'z') ||
+      (r >= 'A' && r <= 'Z') ||
+      (r >= '0' && r <= '9') ||
+      r == '_' || r == '$' || r == '.' {
+      continue
+    }
+    return false
+  }
+  return true
+}
+
+func hasDottedIdentifierWithContext(query string) bool {
+  if !strings.ContainsAny(query, " \t\r\n") {
+    return false
+  }
+  fields := strings.FieldsFunc(query, func(r rune) bool {
+    return !((r >= 'a' && r <= 'z') ||
+      (r >= 'A' && r <= 'Z') ||
+      (r >= '0' && r <= '9') ||
+      r == '_' || r == '$' || r == '.')
+  })
+  for _, field := range fields {
+    if dot := strings.IndexByte(field, '.'); dot > 0 && dot < len(field)-1 {
+      return true
+    }
+  }
+  return false
+}
+
+func (s *Server) matchesShareCallPath(matches []*graph.Node) bool {
+  target := make(map[string]bool, len(matches))
+  for _, node := range matches {
+    if node != nil {
+      target[node.ID] = true
+    }
+  }
+  for _, node := range matches {
+    if node == nil {
+      continue
+    }
+    seen := map[string]bool{node.ID: true}
+    queue := []string{node.ID}
+    for depth := 0; depth < 4 && len(queue) > 0; depth++ {
+      nextQueue := make([]string, 0)
+      for _, cur := range queue {
+        next := append([]string(nil), s.forwardCallAdj[cur]...)
+        next = append(next, s.implementorsAdj[cur]...)
+        for _, to := range next {
+          if seen[to] {
+            continue
+          }
+          if target[to] {
+            return true
+          }
+          seen[to] = true
+          nextQueue = append(nextQueue, to)
+        }
+      }
+      queue = nextQueue
+    }
+  }
+  return false
 }
 
 const (
@@ -418,7 +504,7 @@ func (s *Server) filterFlowNodes(nodes []*graph.Node, query string) []*graph.Nod
   words := queryWords(query)
   out := make([]*graph.Node, 0, len(nodes))
   for i, node := range nodes {
-    if node == nil || flowTypeNoise(node) || flowVariableNoise(node, words) || flowHelperNoise(node, query, words) {
+    if node == nil || !flowNodeEligible(node) {
       continue
     }
     if i == 0 || s.pathTargetScore(node.ID, tokens, words) > 0 {
@@ -436,59 +522,13 @@ func (s *Server) filterFlowNodes(nodes []*graph.Node, query string) []*graph.Nod
 
 const maxFlowNodes = 16
 
-func flowTypeNoise(node *graph.Node) bool {
+func flowNodeEligible(node *graph.Node) bool {
   switch strings.ToLower(string(node.Kind)) {
   case "class", "interface", "type":
-    return true
+    return false
   default:
-    return false
-  }
-}
-
-func flowVariableNoise(node *graph.Node, words map[string]bool) bool {
-  if strings.ToLower(string(node.Kind)) != "variable" {
-    return false
-  }
-  member := strings.ToLower(memberName(node.Name))
-  owner := ownerOf(node.Name)
-  if owner == "selectquerybuilder" && member == "joins" && (words["join"] || words["joins"]) {
-    return false
-  }
-  if owner == "queryexpressionmap" && member == "joinattributes" && (words["attribute"] || words["attributes"]) {
-    return false
-  }
-  return true
-}
-
-func flowHelperNoise(node *graph.Node, query string, words map[string]bool) bool {
-  member := strings.ToLower(memberName(node.Name))
-  if strings.Contains(strings.ToLower(query), member) {
-    return false
-  }
-  switch {
-  case strings.HasPrefix(member, "create"):
-    return !words["create"] && !words["creates"] && !words["created"] && !words["creation"] &&
-      !(strings.Contains(member, "join") && (words["join"] || words["joins"]))
-  case strings.HasPrefix(member, "is"), strings.HasPrefix(member, "has"), strings.HasPrefix(member, "can"):
     return true
-  case strings.HasPrefix(member, "reject"):
-    return !words["reject"] && !words["rejects"] && !words["rejected"]
-  case strings.HasPrefix(member, "get"):
-    if strings.Contains(member, "jointype") {
-      return !wantsJoinType(words)
-    }
-    return !words["get"] && !words["gets"] && !(strings.Contains(member, "join") && (words["join"] || words["joins"]))
-  case strings.Contains(member, "eager"):
-    return !words["eager"]
-  default:
-    return false
   }
-}
-
-func wantsJoinType(words map[string]bool) bool {
-  return words["type"] || words["types"] || words["inner"] || words["left"] ||
-    words["nullable"] || words["nullability"] || words["withdeleted"] ||
-    words["deleted"]
 }
 
 // maxPathNodes caps how many downstream call-path nodes a flow query pulls in
@@ -500,8 +540,7 @@ const maxPathBranch = 8
 
 // withCallPath appends to the matched seeds the declarations downstream of them
 // along value-call edges (the runtime call flow), breadth-first and bounded, so a
-// single flow query returns the chain (e.g. Repository -> EntityManager ->
-// SelectQueryBuilder -> QueryRunner) instead of forcing a follow-up query per hop.
+// single flow query returns the path instead of forcing a follow-up query per hop.
 // Seeds, external nodes, and anything past the depth or node caps are skipped, and
 // the breadth-first order keeps the immediate next hops first so they render with
 // their bodies before the budget collapses the rest.
@@ -538,8 +577,8 @@ func (s *Server) withCallPath(seeds []*graph.Node, max int, query string) []*gra
     // Follow the call flow forward, and at each step cross the dynamic-dispatch
     // seam to any concrete implementors, so an interface method on the path
     // brings its real body along instead of forcing a separate query. Targets
-    // whose names match the question's domain nouns come first, so a relation
-    // question reaches buildRelations before generic helpers like comment().
+    // whose names match the question's domain nouns come first, so the path
+    // reaches named work before generic helpers.
     next := s.rankedPathTargets(cur, tokens, words)
     if len(next) > maxPathBranch {
       next = next[:maxPathBranch]
@@ -549,10 +588,9 @@ func (s *Server) withCallPath(seeds []*graph.Node, max int, query string) []*gra
         continue
       }
       node := s.graph.Nodes[to]
-      // Skip external and git-ignored (generated) targets: the call path stays
-      // in authored code, the same de-surfacing the matcher applies, so one
-      // query does not dump a Prisma client body the agent did not ask for.
-      if node == nil || node.External || s.ignored[node.File] || isCentralNoise(node) {
+      // Skip external and git-ignored generated targets: the call path stays in
+      // authored code, the same de-surfacing the matcher applies.
+      if node == nil || node.External || s.ignored[node.File] {
         continue
       }
       inSet[to] = true
@@ -576,56 +614,22 @@ func sortPathQueue(queue []string, priority map[string]int) {
   })
 }
 
-func wantsCallPath(query string) bool {
-  lower := strings.ToLower(query)
-  for _, marker := range []string{
-    "call path",
-    "call flow",
-    "trace",
-    "downstream",
-    "through",
-    "invokes",
-    "invoked",
-    "builds",
-    "built",
-    "applied",
-    "resolved",
-    "joined",
-  } {
-    if strings.Contains(lower, marker) {
-      return true
-    }
-  }
-  words := queryWords(query)
-  action := words["apply"] || words["applies"] || words["build"] || words["builds"] ||
-    words["join"] || words["joins"] || words["resolve"] || words["resolves"] ||
-    words["relation"] || words["relations"]
-  entry := words["find"] || words["query"] || strings.Contains(lower, ".")
-  return action && entry
-}
-
 func (s *Server) rankedPathTargets(cur string, tokens []string, words map[string]bool) []string {
   seen := map[string]bool{}
   next := make([]string, 0, len(s.forwardCallAdj[cur])+len(s.implementorsAdj[cur]))
   for _, id := range s.forwardCallAdj[cur] {
-    if node := s.graph.Nodes[id]; node != nil && flowVariableNoise(node, words) {
-      continue
-    }
     if !seen[id] {
       seen[id] = true
       next = append(next, id)
     }
   }
   for _, id := range s.implementorsAdj[cur] {
-    if node := s.graph.Nodes[id]; node != nil && flowVariableNoise(node, words) {
-      continue
-    }
     if !seen[id] {
       seen[id] = true
       next = append(next, id)
     }
   }
-  if s.allowsReverseConsumerSource(cur) && wantsConsumerHop(words) {
+  if s.allowsReverseConsumerSource(cur) {
     for _, id := range s.rankedReverseConsumers(cur, tokens, words) {
       if !seen[id] {
         seen[id] = true
@@ -661,12 +665,6 @@ func (s *Server) allowsReverseConsumerSource(id string) bool {
 
 const maxReverseConsumerBranch = 3
 
-func wantsConsumerHop(words map[string]bool) bool {
-  return words["attribute"] || words["attributes"] || words["alias"] ||
-    words["join"] || words["joins"] || words["joined"] || words["consumer"] ||
-    words["consume"] || words["consumes"] || words["used"] || words["uses"]
-}
-
 func (s *Server) rankedReverseConsumers(cur string, tokens []string, words map[string]bool) []string {
   candidates := append([]string(nil), s.reverseValueAdj[cur]...)
   preferredOwners := s.queryOwnerHints(candidates, words)
@@ -685,7 +683,7 @@ func (s *Server) rankedReverseConsumers(cur string, tokens []string, words map[s
       continue
     }
     node := s.graph.Nodes[id]
-    if node == nil || node.External || s.ignored[node.File] || isCentralNoise(node) || flowTypeNoise(node) || flowVariableNoise(node, words) {
+    if node == nil || node.External || s.ignored[node.File] || !flowNodeEligible(node) {
       continue
     }
     if len(preferredOwners) > 0 && !preferredOwners[ownerOf(node.Name)] {
@@ -735,11 +733,7 @@ func (s *Server) pathTargetScore(id string, tokens []string, words map[string]bo
   }
   name := strings.ToLower(node.Name)
   member := strings.ToLower(memberName(node.Name))
-  owner := ownerOf(node.Name)
   score := naturalDottedScore(node.Name, words) + exactMemberScore(node.Name, words)
-  if member == "joins" && (words["join"] || words["joins"]) {
-    score += 100
-  }
   for _, token := range tokens {
     switch {
     case name == token:
@@ -753,31 +747,16 @@ func (s *Server) pathTargetScore(id string, tokens []string, words map[string]bo
     }
   }
   for word := range words {
-    if len(word) < 4 {
+    if len(word) < 2 {
       continue
     }
-    if naturalMemberPartStopwords[word] || (queryStopwords[word] && !hasPathActionStem(word)) {
-      continue
-    }
-    for _, stem := range wordStems(word) {
-      if stem == "" {
-        continue
-      }
-      if pathActionStems[stem] {
-        if nameHasMemberStem(node.Name, stem) {
-          score += 90
-          break
-        }
-        continue
-      }
-      if stem == "attribute" && strings.Contains(owner, stem) {
-        score += 80
-        break
-      }
-      if strings.Contains(member, stem) {
-        score += 45
-        break
-      }
+    switch {
+    case member == word:
+      score += 90
+    case strings.HasPrefix(member, word):
+      score += 55
+    case strings.Contains(member, word):
+      score += 35
     }
   }
   return score
@@ -789,50 +768,6 @@ func ownerOf(name string) string {
     return ""
   }
   return strings.ToLower(owner)
-}
-
-var pathActionStems = map[string]bool{
-  "apply":   true,
-  "build":   true,
-  "join":    true,
-  "resolve": true,
-}
-
-func hasPathActionStem(word string) bool {
-  for _, stem := range wordStems(word) {
-    if pathActionStems[stem] {
-      return true
-    }
-  }
-  return false
-}
-
-func nameHasMemberStem(name, stem string) bool {
-  for _, part := range memberWords(memberName(name)) {
-    if part == stem {
-      return true
-    }
-  }
-  return false
-}
-
-func wordStems(word string) []string {
-  out := []string{word}
-  if strings.HasSuffix(word, "ies") && len(word) > 3 {
-    out = append(out, strings.TrimSuffix(word, "ies")+"y")
-  }
-  if strings.HasSuffix(word, "ied") && len(word) > 3 {
-    out = append(out, strings.TrimSuffix(word, "ied")+"y")
-  }
-  if strings.HasSuffix(word, "ved") && len(word) > 3 {
-    out = append(out, strings.TrimSuffix(word, "d"))
-  }
-  for _, suffix := range []string{"ing", "ed", "es", "s"} {
-    if strings.HasSuffix(word, suffix) && len(word) > len(suffix)+2 {
-      out = append(out, strings.TrimSuffix(word, suffix))
-    }
-  }
-  return out
 }
 
 // textBlocks wraps one text block per result item into the MCP content envelope
@@ -985,50 +920,16 @@ const flowHeader = "Compiler-resolved call flow, current as of this call. " +
 // keyword query surfaces the most relevant declarations without flooding context.
 const maxExploreNodes = 12
 
-// queryStopwords are dropped so the salient nouns of a natural-language question
-// drive the match.
-var queryStopwords = map[string]bool{
-  "how": true, "does": true, "do": true, "the": true, "is": true, "are": true,
-  "of": true, "to": true, "and": true, "or": true, "in": true, "on": true,
-  "for": true, "with": true, "what": true, "where": true, "which": true,
-  "this": true, "that": true, "it": true, "its": true, "work": true, "works": true,
-  "use": true, "uses": true, "using": true, "from": true, "by": true, "an": true,
-  "new": true, "only": true, "have": true, "few": true, "me": true, "give": true,
-  "one": true, "joining": true, "need": true, "fast": true, "identify": true,
-  "quick": true, "practical": true, "typescript": true, "project": true,
-  "codebase": true, "orientation": true, "onboarding": true, "overview": true,
-  "architecture": true, "subsystem": true, "subsystems": true, "best": true,
-  "entry": true, "point": true, "points": true, "start": true, "reading": true,
-  "representative": true, "execution": true, "flow": true, "shows": true,
-  "piece": true, "pieces": true, "fit": true, "together": true, "minutes": true,
-  "code": true, "map": true, "source": true, "read": true, "first": true,
-  "dependency": true, "public": true, "api": true, "internal": true,
-  "internals": true, "naming": true, "key": true, "file": true, "files": true,
-  "class": true, "classes": true, "function": true, "functions": true,
-  "path": true, "selected": true, "method": true, "methods": true,
-  "request": true, "requests": true, "process": true, "main": true,
-  "benchmark": true,
-  "builder":   true, "builders": true,
-  "build": true, "builds": true, "built": true, "create": true, "creates": true,
-  "created": true, "creation": true,
-  "before": true, "after": true, "when": true, "invokes": true, "invoke": true,
-  "invoked": true, "call": true, "calls": true, "called": true, "used": true,
-  "toward": true, "into": true, "log": true, "logs": true, "message": true,
-  "messages": true, "extension": true, "host": true,
-  "apply": true, "applies": true, "applied": true, "option": true,
-  "options": true, "query": true, "queries": true,
-}
-
-// queryTokens lowercases query and splits it into salient alphanumeric tokens,
-// dropping stopwords and single characters, so a natural-language question
-// reduces to the nouns that name symbols.
+// queryTokens lowercases query and splits it into alphanumeric tokens. It does
+// not carry a semantic stop-word list; relevance comes from the graph index and
+// string matching against node names.
 func queryTokens(query string) []string {
   fields := strings.FieldsFunc(strings.ToLower(query), func(r rune) bool {
     return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
   })
   tokens := make([]string, 0, len(fields))
   for _, field := range fields {
-    if len(field) < 2 || queryStopwords[field] {
+    if len(field) < 2 {
       continue
     }
     tokens = append(tokens, field)
@@ -1037,32 +938,16 @@ func queryTokens(query string) []string {
 }
 
 func queryWords(query string) map[string]bool {
-  fields := strings.FieldsFunc(query, func(r rune) bool {
-    return !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'))
+  fields := strings.FieldsFunc(strings.ToLower(query), func(r rune) bool {
+    return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9')
   })
-  words := make(map[string]bool, len(fields)*2)
+  words := make(map[string]bool, len(fields))
   for _, field := range fields {
-    lower := strings.ToLower(field)
-    if len(lower) >= 2 {
-      words[lower] = true
-    }
-    if splitsQueryField(field) {
-      for _, part := range memberWords(field) {
-        if len(part) >= 2 {
-          words[part] = true
-        }
-      }
+    if len(field) >= 2 {
+      words[field] = true
     }
   }
   return words
-}
-
-func splitsQueryField(field string) bool {
-  if field == "" {
-    return false
-  }
-  first := field[0]
-  return first >= 'a' && first <= 'z'
 }
 
 func containsWholeWord(words map[string]bool, value string) bool {
@@ -1081,11 +966,6 @@ func dottedNameParts(name string) (string, string, bool) {
   return owner, name[dot+1:], true
 }
 
-var naturalMemberPartStopwords = map[string]bool{
-  "option": true, "options": true, "query": true, "queries": true,
-  "builder": true, "builders": true,
-}
-
 func containsMemberWord(words map[string]bool, member string) bool {
   lower := strings.ToLower(member)
   if words[lower] {
@@ -1095,25 +975,12 @@ func containsMemberWord(words map[string]bool, member string) bool {
   if len(parts) == 0 {
     return false
   }
-  matched := 0
-  scored := 0
   for _, part := range parts {
-    if naturalMemberPartStopwords[part] {
-      continue
-    }
-    scored++
     if words[part] {
-      matched++
+      return true
     }
   }
-  if scored == 0 {
-    return false
-  }
-  if scored == 1 {
-    return matched == 1
-  }
-  first := parts[0]
-  return matched >= 2 && (naturalMemberPartStopwords[first] || words[first])
+  return false
 }
 
 func memberWords(member string) []string {
@@ -1165,18 +1032,7 @@ func naturalDottedAnchor(name string, words map[string]bool) bool {
     return false
   }
   member = strings.ToLower(member)
-  if naturalDottedAnchorStopwords[member] {
-    return false
-  }
   return containsWholeWord(words, owner) && words[member]
-}
-
-var naturalDottedAnchorStopwords = map[string]bool{
-  "builder":  true,
-  "option":   true,
-  "options":  true,
-  "query":    true,
-  "relation": true,
 }
 
 func naturalAnchorPosition(query, name string) int {
@@ -1227,9 +1083,6 @@ func (s *Server) matchNodes(query string) []*graph.Node {
   whole := strings.ToLower(strings.TrimSpace(query))
   tokens := queryTokens(query)
   words := queryWords(query)
-  if isBroadGraphQuery(whole, tokens) {
-    return s.centralNodes()
-  }
 
   type scored struct {
     node        *graph.Node
@@ -1371,70 +1224,6 @@ func (s *Server) matchNodes(query string) []*graph.Node {
     byFile = byFile[:maxExploreNodes]
   }
   return byFile
-}
-
-// isBroadGraphQuery detects onboarding-style questions that intentionally carry
-// no project-specific symbol. In that case returning central project nodes is
-// more useful than matching arbitrary generic words such as "flow" or "entry".
-func isBroadGraphQuery(query string, tokens []string) bool {
-  for _, marker := range []string{"architecture", "architecture map", "orientation", "onboarding", "overview", "subsystem", "entry point", "execution flow", "call flow", "dependency"} {
-    if strings.Contains(query, marker) {
-      return len(tokens) <= 1
-    }
-  }
-  return false
-}
-
-// centralNodes returns high-degree project nodes for broad codebase-orientation
-// questions that do not name a symbol yet.
-func (s *Server) centralNodes() []*graph.Node {
-  type scored struct {
-    node   *graph.Node
-    degree int
-  }
-  ranked := make([]scored, 0)
-  for _, node := range s.graph.Nodes {
-    if node.External {
-      continue
-    }
-    if s.ignored[node.File] {
-      continue
-    }
-    if isCentralNoise(node) {
-      continue
-    }
-    degree := s.degree[node.ID]
-    if degree == 0 {
-      continue
-    }
-    ranked = append(ranked, scored{node: node, degree: degree})
-  }
-  sort.Slice(ranked, func(i, j int) bool {
-    if ranked[i].degree != ranked[j].degree {
-      return ranked[i].degree > ranked[j].degree
-    }
-    return ranked[i].node.ID < ranked[j].node.ID
-  })
-  out := make([]*graph.Node, 0, maxExploreNodes)
-  for _, r := range ranked {
-    if len(out) >= maxExploreNodes {
-      break
-    }
-    out = append(out, r.node)
-  }
-  return out
-}
-
-// isCentralNoise filters nodes that are often high-degree but poor architecture
-// anchors for broad onboarding queries: error hierarchies and decorator helpers.
-func isCentralNoise(node *graph.Node) bool {
-  name := strings.ToLower(node.Name)
-  file := "/" + strings.ToLower(filepath.ToSlash(node.File))
-  return strings.HasSuffix(name, "error") ||
-    strings.Contains(file, "/error/") ||
-    strings.Contains(file, "/errors/") ||
-    strings.Contains(file, "/decorator/") ||
-    strings.Contains(file, "/decorators/")
 }
 
 // writeNodeHeader writes a node's one-line signature: kind, name, an (external)

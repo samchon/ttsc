@@ -27,6 +27,7 @@ go.work.sum
 # Reference and experiment checkouts
 .references/
 .wiki/
+.work/
 experimental/typia/
 experimental/nestia/
 

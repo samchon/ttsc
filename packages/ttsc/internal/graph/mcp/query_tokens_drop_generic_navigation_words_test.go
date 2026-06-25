@@ -5,53 +5,51 @@ import (
   "testing"
 )
 
-// TestQueryTokensDropGenericNavigationWords verifies natural-language graph
-// queries keep domain anchors instead of generic navigation words.
+// TestQueryTokensAreMechanical verifies query tokenization does not carry a
+// semantic stop-word or project-term list.
 //
-// Broad code-flow questions often contain words such as "code", "method",
-// "request", or "main" that match high-degree symbols and make query_nodes
-// expensive before it is useful. This pins the tokenizer so prompt guidance can
-// ask for concise domain nouns without those generic terms dominating ranking.
+// query_nodes is an index over graph names and relationships. Tokenization
+// should therefore preserve what the user wrote after lowercasing and delimiter
+// splitting, leaving relevance decisions to graph scoring rather than a hidden
+// vocabulary.
 //
-//  1. Tokenize a typical benchmark-style question with generic navigation words.
-//  2. Assert only the domain anchors remain for graph matching.
-func TestQueryTokensDropGenericNavigationWords(t *testing.T) {
+//  1. Tokenize a natural-language question that includes generic words.
+//  2. Assert the generic words remain ordinary tokens.
+//  3. Assert single-character fragments are still dropped as non-identifiers.
+func TestQueryTokensAreMechanical(t *testing.T) {
   got := queryTokens("Which code path invokes the selected RouterExecutionContext method for an HTTP route request?")
-  want := []string{"routerexecutioncontext", "http", "route"}
+  want := []string{"which", "code", "path", "invokes", "the", "selected", "routerexecutioncontext", "method", "for", "an", "http", "route", "request"}
   if !reflect.DeepEqual(got, want) {
     t.Fatalf("queryTokens() = %#v; want %#v", got, want)
   }
 
-  got = queryTokens("How are relation options applied when repository.find() builds its query?")
-  want = []string{"relation", "repository", "find"}
+  got = queryTokens("x.y z")
+  want = []string{}
   if !reflect.DeepEqual(got, want) {
     t.Fatalf("queryTokens() = %#v; want %#v", got, want)
   }
 }
 
-func TestQueryWordsKeepCamelCaseParts(t *testing.T) {
-  got := queryWords("SelectQueryBuilder joinAttributes relationPropertyPath")
+func TestQueryWordsPreserveCompoundIdentifiers(t *testing.T) {
+  got := queryWords("Worker.applyPlan applyPlan BuildTaskQueue")
   for _, want := range []string{
-    "selectquerybuilder",
-    "joinattributes",
-    "join",
-    "attributes",
-    "relationpropertypath",
-    "relation",
-    "property",
-    "path",
+    "worker",
+    "applyplan",
+    "buildtaskqueue",
   } {
     if !got[want] {
       t.Fatalf("queryWords() did not keep %q in %#v", want, got)
     }
   }
-  for _, noise := range []string{
-    "select",
-    "query",
-    "builder",
+  for _, split := range []string{
+    "apply",
+    "plan",
+    "build",
+    "task",
+    "queue",
   } {
-    if got[noise] {
-      t.Fatalf("queryWords() split PascalCase owner word %q into %#v", noise, got)
+    if got[split] {
+      t.Fatalf("queryWords() split compound identifier word %q into %#v", split, got)
     }
   }
 }

@@ -2,40 +2,41 @@ package mcp
 
 import "testing"
 
-// TestNaturalMemberWordsRequireAction verifies natural owner-member scoring
-// does not promote sibling methods from a single noun embedded in the member.
+// TestNaturalMemberWordsRequireAction verifies natural owner-member scoring is
+// driven by explicit owner/member evidence rather than hidden vocabulary.
 //
-// Relation-flow questions often name several owners and nouns in one broad
-// query. A member such as `getRepository` or `createQueryBuilder` should not tie
-// with the requested `find` path unless its own action words are present.
+// The matcher may use identifier structure already present in graph node names,
+// but it should not infer that generic words imply a specific helper prefix or
+// project domain. Exact member queries still rank even when the owner token is
+// misspelled because the member itself is a valid index key.
 //
-//  1. Score a TypeORM relation-flow query against requested and sibling methods.
-//  2. Assert the requested `find` methods outrank noun-only siblings.
-//  3. Assert an explicit get-repository query still matches `getRepository`.
+//  1. Score a neutral workflow query against requested and sibling methods.
+//  2. Assert the requested member outranks a sibling whose action was not named.
+//  3. Assert exact member names still rank when the owner token is misspelled.
 func TestNaturalMemberWordsRequireAction(t *testing.T) {
-  flowWords := queryWords("Repository find EntityManager find SelectQueryBuilder setFindOptions applyFindOptions buildRelations relation options query builder")
-  repositoryFind := naturalDottedScore("Repository.find", flowWords)
-  repositoryCreateQueryBuilder := naturalDottedScore("Repository.createQueryBuilder", flowWords)
-  if repositoryFind <= repositoryCreateQueryBuilder {
-    t.Fatalf("Repository.find should outrank Repository.createQueryBuilder: find=%d createQueryBuilder=%d", repositoryFind, repositoryCreateQueryBuilder)
+  flowWords := queryWords("Gateway fetch Coordinator fetch Pipeline setPlan applyPlan buildSteps plan steps")
+  gatewayFetch := naturalDottedScore("Gateway.fetch", flowWords)
+  gatewayCreateSession := naturalDottedScore("Gateway.createSession", flowWords)
+  if gatewayFetch <= gatewayCreateSession {
+    t.Fatalf("Gateway.fetch should outrank Gateway.createSession: fetch=%d createSession=%d", gatewayFetch, gatewayCreateSession)
   }
-  entityManagerFind := naturalDottedScore("EntityManager.find", flowWords)
-  entityManagerGetRepository := naturalDottedScore("EntityManager.getRepository", flowWords)
-  if entityManagerFind <= entityManagerGetRepository {
-    t.Fatalf("EntityManager.find should outrank EntityManager.getRepository: find=%d getRepository=%d", entityManagerFind, entityManagerGetRepository)
+  coordinatorFetch := naturalDottedScore("Coordinator.fetch", flowWords)
+  coordinatorCreateSession := naturalDottedScore("Coordinator.createSession", flowWords)
+  if coordinatorFetch <= coordinatorCreateSession {
+    t.Fatalf("Coordinator.fetch should outrank Coordinator.createSession: fetch=%d createSession=%d", coordinatorFetch, coordinatorCreateSession)
   }
-  if naturalDottedScore("SelectQueryBuilder.setFindOptions", flowWords) == 0 {
-    t.Fatal("exact member phrase setFindOptions should remain a natural match")
+  if naturalDottedScore("Pipeline.setPlan", flowWords) == 0 {
+    t.Fatal("exact member phrase setPlan should remain a natural match")
   }
-  typoOwnerWords := queryWords("selectquerybuildler setFindOptions applyFindOptions buildRelations relations")
-  if exactMemberScore("SelectQueryBuilder.setFindOptions", typoOwnerWords) == 0 ||
-    exactMemberScore("SelectQueryBuilder.applyFindOptions", typoOwnerWords) == 0 ||
-    exactMemberScore("SelectQueryBuilder.buildRelations", typoOwnerWords) == 0 {
+  typoOwnerWords := queryWords("pipeleine setPlan applyPlan buildSteps steps")
+  if exactMemberScore("Pipeline.setPlan", typoOwnerWords) == 0 ||
+    exactMemberScore("Pipeline.applyPlan", typoOwnerWords) == 0 ||
+    exactMemberScore("Pipeline.buildSteps", typoOwnerWords) == 0 {
     t.Fatal("exact member names should rank even when the owner token is misspelled")
   }
 
-  getWords := queryWords("EntityManager get repository")
-  if naturalDottedScore("EntityManager.getRepository", getWords) == 0 {
-    t.Fatal("explicit get repository query should still match getRepository")
+  getWords := queryWords("Coordinator get gateway")
+  if naturalDottedScore("Coordinator.getGateway", getWords) == 0 {
+    t.Fatal("explicit get gateway query should still match getGateway")
   }
 }

@@ -10,9 +10,8 @@ import (
 
 // TestOverloadImplementationReplacesSignature verifies that an overload set's
 // graph node points at the executable implementation, not the first signature.
-// TypeORM's query-builder join APIs are overload-heavy; if the graph keeps only
-// the signature, agents have to re-open the file to see the calls that the graph
-// already attributed to the node.
+// Overload-heavy APIs otherwise force agents to re-open the file to see the
+// calls that the graph already attributed to the node.
 func TestOverloadImplementationReplacesSignature(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

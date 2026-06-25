@@ -10,9 +10,9 @@ import (
 // TestValueAccessEdgesCoverPropertiesAndAccessors verifies property and
 // accessor reads/writes become value-access edges, not value-call edges.
 //
-// TypeORM-style lazy getters and state properties are part of the runtime flow
-// an agent needs, but they are not invocations. The graph must expose them
-// without corrupting call-flow semantics.
+// Lazy getters and state properties are part of the runtime flow an agent
+// needs, but they are not invocations. The graph must expose them without
+// corrupting call-flow semantics.
 //
 //  1. Compile a class with a property initializer, getter, setter, dotted access,
 //     and string-literal bracket access.
