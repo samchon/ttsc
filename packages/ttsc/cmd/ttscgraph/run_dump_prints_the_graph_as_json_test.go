@@ -3,9 +3,22 @@ package main
 import (
   "bytes"
   "encoding/json"
+  "os"
   "path/filepath"
   "testing"
 )
+
+// writeGraphFile writes content to path under a fixture project, creating parent
+// directories as needed.
+func writeGraphFile(t *testing.T, path, content string) {
+  t.Helper()
+  if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+    t.Fatal(err)
+  }
+}
 
 // TestRunDumpPrintsTheGraphAsJSON verifies the `dump` subcommand end to end: run
 // dispatches it, it loads the project, builds the graph, and prints the export
