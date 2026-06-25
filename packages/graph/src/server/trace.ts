@@ -17,9 +17,12 @@ export function runTrace(
   props: ITtscGraphTrace.IProps,
 ): ITtscGraphTrace {
   const direction = props.direction ?? "forward";
-  const maxDepth = props.maxDepth ?? DEFAULT_DEPTH;
-  const maxNodes = props.maxNodes ?? DEFAULT_MAX_NODES;
+  const maxDepth = Math.max(1, props.maxDepth ?? DEFAULT_DEPTH);
+  const maxNodes = Math.max(1, props.maxNodes ?? DEFAULT_MAX_NODES);
   const reverse = direction === "reverse" || direction === "impact";
+  // Only an impact trace tags reached nodes with their public-surface role; for
+  // forward/reverse the role is noise.
+  const withRoles = direction === "impact";
 
   const start = resolveStart(graph, props.from);
   if (start.candidates) {
@@ -56,20 +59,28 @@ export function runTrace(
         const otherId = reverse ? edge.from : edge.to;
         const other = graph.node(otherId);
         if (other === undefined || other.kind === "file") continue;
-        hops.push({
+        const hop = {
           from: edge.from,
           to: edge.to,
           kind: edge.kind,
           depth: depth + 1,
-        });
-        if (visited.has(otherId)) continue;
+        };
+        // A back-edge to the start or an already-reached node: record the hop;
+        // its endpoints are already represented.
+        if (visited.has(otherId)) {
+          hops.push(hop);
+          continue;
+        }
+        // A new node past the cap is left unrepresented, so drop its hop too —
+        // every hop's endpoints stay resolvable in `reached`/`start`.
         if (reached.size >= maxNodes) {
           truncated = true;
           continue;
         }
         visited.add(otherId);
-        reached.set(otherId, summary(other, depth + 1));
+        reached.set(otherId, summary(other, depth + 1, withRoles));
         next.push({ id: otherId, depth: depth + 1 });
+        hops.push(hop);
       }
     }
     queue = next;
@@ -97,12 +108,16 @@ function resolveStart(
   return {};
 }
 
-/** A node summary; roles are attached when present so impact reads at a glance. */
-function summary(node: ITtscGraphNode, depth?: number): ITtscGraphTrace.INode {
-  const roles: string[] = [];
-  if (node.exported) roles.push("exported");
-  if (node.kind === "route") roles.push("route");
-  if (isTestFile(node.file)) roles.push("test");
+/**
+ * Summarize a node for a trace result. With `withRoles`, tag the public-surface
+ * roles (exported / route / test) an impact trace reports; other directions
+ * omit them.
+ */
+function summary(
+  node: ITtscGraphNode,
+  depth?: number,
+  withRoles = false,
+): ITtscGraphTrace.INode {
   const out: ITtscGraphTrace.INode = {
     id: node.id,
     name: node.qualifiedName ?? node.name,
@@ -110,7 +125,13 @@ function summary(node: ITtscGraphNode, depth?: number): ITtscGraphTrace.INode {
     file: node.file,
   };
   if (depth !== undefined) out.depth = depth;
-  if (roles.length > 0) out.roles = roles;
+  if (withRoles) {
+    const roles: string[] = [];
+    if (node.exported) roles.push("exported");
+    if (node.kind === "route") roles.push("route");
+    if (isTestFile(node.file)) roles.push("test");
+    if (roles.length > 0) out.roles = roles;
+  }
   return out;
 }
 

@@ -1,7 +1,11 @@
 import { spawnSync } from "node:child_process";
+import typia from "typia";
 
 import { resolveGraphBinary } from "../index";
-import { ITtscGraphDump } from "../structures/ITtscGraphDump";
+import {
+  ITtscGraphDump,
+  TTSC_GRAPH_SCHEMA_VERSION,
+} from "../structures/ITtscGraphDump";
 import { TtscGraphMemory } from "./TtscGraphMemory";
 
 /** Where and how to build the graph for a project. */
@@ -21,7 +25,7 @@ export interface LoadGraphOptions {
 // A full-project dump is the whole fact graph as one JSON document; a large
 // monorepo runs to many megabytes, well past spawnSync's 1 MiB default, so the
 // buffer is raised to a ceiling no real graph reaches.
-const MAX_DUMP_BYTES = 512 * 1024 * 1024;
+const MAX_DUMP_BYTES = 1024 * 1024 * 1024;
 
 /**
  * Build the resident {@link TtscGraphMemory} for a project by running `ttscgraph
@@ -57,7 +61,7 @@ export function loadGraph(options: LoadGraphOptions = {}): TtscGraphMemory {
   }
   if (result.status !== 0) {
     throw new Error(
-      `@ttsc/graph: ttscgraph dump exited with ${result.status}: ${result.stderr.trim()}`,
+      `@ttsc/graph: ttscgraph dump exited with ${result.status}: ${(result.stderr ?? "").trim()}`,
     );
   }
 
@@ -65,9 +69,10 @@ export function loadGraph(options: LoadGraphOptions = {}): TtscGraphMemory {
 }
 
 /**
- * Parse `ttscgraph dump` output into a graph. Validation is intentionally light
- * here — the Go writer is the trusted producer; the server layer adds a typia
- * assertion once the dump shape is a typed contract there.
+ * Parse and validate `ttscgraph dump` output. typia asserts the full
+ * {@link ITtscGraphDump} shape so a malformed or stale dump fails loudly here
+ * rather than producing wrong answers downstream, and the schema version is
+ * checked so an incompatible producer is refused.
  */
 export function parseDump(json: string): ITtscGraphDump {
   let value: unknown;
@@ -80,15 +85,11 @@ export function parseDump(json: string): ITtscGraphDump {
       }`,
     );
   }
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !Array.isArray((value as { nodes?: unknown }).nodes) ||
-    !Array.isArray((value as { edges?: unknown }).edges)
-  ) {
+  const dump = typia.assert<ITtscGraphDump>(value);
+  if (dump.schemaVersion !== TTSC_GRAPH_SCHEMA_VERSION) {
     throw new Error(
-      "@ttsc/graph: dump output is missing its nodes/edges arrays",
+      `@ttsc/graph: dump schemaVersion ${dump.schemaVersion} is incompatible with this build (expected ${TTSC_GRAPH_SCHEMA_VERSION}); rebuild ttsc and @ttsc/graph to the same version.`,
     );
   }
-  return value as ITtscGraphDump;
+  return dump;
 }

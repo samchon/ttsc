@@ -39,7 +39,7 @@ export function runQuery(
   scored.sort((a, b) => b.score - a.score);
 
   // Diversity: keep at most PER_FILE hits per file while filling up to the limit.
-  const limit = props.limit ?? DEFAULT_LIMIT;
+  const limit = Math.max(1, props.limit ?? DEFAULT_LIMIT);
   const perFile = new Map<string, number>();
   const hits: ITtscGraphQuery.IHit[] = [];
   for (const hit of scored) {
