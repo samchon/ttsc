@@ -187,13 +187,13 @@ One beat for the logo.
 
 # TL;DR
 
-• TypeScript compiler is moving to Go
+- TypeScript compiler is moving to Go
 
-• Transformers lose the old JavaScript patch point
+- Transformers lose the old JavaScript patch point
 
-• TTSC keeps compile-time code generation alive
+- TTSC keeps compile-time code generation alive
 
-• Linter and Graph reuse the same compiler state
+- Linter and Graph reuse the same compiler state
 
 <!--
 Say: this talk is not "Go is faster". It is "the compiler substrate changed".
@@ -205,13 +205,13 @@ Say: this talk is not "Go is faster". It is "the compiler substrate changed".
 
 TypeScript 7 changes the foundation under TypeScript tools.
 
-• Native Go compiler
+- Native Go compiler
 
-• TypeScript 6 semantic parity
+- TypeScript 6 semantic parity
 
-• About **10x** faster on many projects
+- About **10x** faster on many projects
 
-• Compiler API and plugin ecosystem must adapt
+- Compiler API and plugin ecosystem must adapt
 
 <!--
 Source is Microsoft's TypeScript 7 RC and native port posts.
@@ -239,13 +239,13 @@ Four chapters. Problem first, TTSC after.
 
 # 1. TypeScript-Go
 
-• Good News
+- Good News
 
-• Bad News
+- Bad News
 
-• Transformer
+- Transformer
 
-• Compatibility Gap
+- Compatibility Gap
 
 <!--
 Chapter start is only the local table of contents.
@@ -257,13 +257,13 @@ Chapter start is only the local table of contents.
 
 TypeScript compiler is moving from JavaScript to Go.
 
-• TypeScript 7.0 RC
+- TypeScript 7.0 RC
 
-• Native compiler and language service
+- Native compiler and language service
 
-• Shared-memory parallelism
+- Shared-memory parallelism
 
-• About **10x** faster than TypeScript 6.0
+- About **10x** faster than TypeScript 6.0
 
 <!--
 Say: most users hear this as a simple speed story.
@@ -275,13 +275,13 @@ Say: most users hear this as a simple speed story.
 
 The port is not a rewrite of the language.
 
-• Existing codebase ported to Go
+- Existing codebase ported to Go
 
-• Type-checking logic kept structurally identical
+- Type-checking logic kept structurally identical
 
-• Same TypeScript semantics
+- Same TypeScript semantics
 
-• New runtime foundation
+- New runtime foundation
 
 <!--
 Say: for normal users, compatibility is the headline. For tool authors, runtime foundation is the issue.
@@ -293,13 +293,13 @@ Say: for normal users, compatibility is the headline. For tool authors, runtime 
 
 Backend teams feel compiler latency every day.
 
-• Monorepo type check
+- Monorepo type check
 
-• Watch mode
+- Watch mode
 
-• Editor startup
+- Editor startup
 
-• CI feedback loop
+- CI feedback loop
 
 <!--
 Say: 10x is not an abstract benchmark. It changes the development loop.
@@ -311,13 +311,13 @@ Say: 10x is not an abstract benchmark. It changes the development loop.
 
 Compiler plugins lived inside the old compiler shape.
 
-• JavaScript runtime
+- JavaScript runtime
 
-• TypeScript compiler API
+- TypeScript compiler API
 
-• AST and Checker objects
+- AST and Checker objects
 
-• Emit pipeline hooks
+- Emit pipeline hooks
 
 <!--
 Say: transformer users were not only compiling. They were extending the compiler.
@@ -329,13 +329,13 @@ Say: transformer users were not only compiling. They were extending the compiler
 
 The old ecosystem patched TypeScript itself.
 
-• `ttypescript`
+- `ttypescript`
 
-• `ts-patch`
+- `ts-patch`
 
-• `tsconfig.plugins`
+- `tsconfig.plugins`
 
-• custom transformers
+- custom transformers
 
 <!--
 Say: the plugin contract was informal, but it worked because everything was JavaScript.
@@ -347,13 +347,13 @@ Say: the plugin contract was informal, but it worked because everything was Java
 
 APIs can survive while engines break.
 
-• `typia`
+- `typia`
 
-• `nestia`
+- `nestia`
 
-• custom SDK generators
+- custom SDK generators
 
-• generated runtime validators
+- generated runtime validators
 
 <!--
 Say: user-facing code can remain the same, but the generation engine must move.
@@ -365,13 +365,13 @@ Say: user-facing code can remain the same, but the generation engine must move.
 
 Transformer = compile-time code generation from TypeScript types.
 
-• Read source code
+- Read source code
 
-• Inspect AST
+- Inspect AST
 
-• Ask the Checker
+- Ask the Checker
 
-• Emit JavaScript
+- Emit JavaScript
 
 <!--
 Minimal definition. The next slides show why it matters.
@@ -383,13 +383,13 @@ Minimal definition. The next slides show why it matters.
 
 Common backend uses:
 
-• Runtime validation
+- Runtime validation
 
-• Serialization
+- Serialization
 
-• OpenAPI generation
+- OpenAPI generation
 
-• SDK generation
+- SDK generation
 
 <!--
 Say: typia and nestia are concrete examples, not edge cases.
@@ -454,13 +454,13 @@ Say: one generic type call became UUID, email, integer, and range checks.
 
 Type information became runtime code.
 
-• `tags.Format<"uuid">` → UUID check
+- `tags.Format<"uuid">` → UUID check
 
-• `tags.Format<"email">` → email check
+- `tags.Format<"email">` → email check
 
-• `tags.Type<"uint32">` → integer range
+- `tags.Type<"uint32">` → integer range
 
-• `tags.Maximum<100>` → boundary check
+- `tags.Maximum<100>` → boundary check
 
 <!--
 Say: this is not reflection. It is ahead-of-time compilation.
@@ -541,13 +541,13 @@ Say: this assumes the compiler can load JavaScript plugins into its own process.
 
 The new compiler substrate breaks that assumption.
 
-• Old compiler: JavaScript process
+- Old compiler: JavaScript process
 
-• Old transformer: JavaScript module
+- Old transformer: JavaScript module
 
-• New compiler: Go process
+- New compiler: Go process
 
-• Old hook: no longer the center
+- Old hook: no longer the center
 
 <!--
 Say: TypeScript 7 can preserve language semantics while still breaking plugin hosting.
@@ -559,13 +559,13 @@ Say: TypeScript 7 can preserve language semantics while still breaking plugin ho
 
 Transformer users need a toolchain, not a patch.
 
-• Compiler front door
+- Compiler front door
 
-• Plugin host
+- Plugin host
 
-• Runtime execution path
+- Runtime execution path
 
-• Editor integration
+- Editor integration
 
 <!--
 Say: this is the bridge from TypeScript-Go to TTSC.
@@ -577,13 +577,13 @@ Say: this is the bridge from TypeScript-Go to TTSC.
 
 # 2. TTSC
 
-• Compiler
+- Compiler
 
-• Transformer
+- Transformer
 
-• Runtime
+- Runtime
 
-• Language Server
+- Language Server
 
 <!--
 Chapter start is only the local table of contents.
@@ -601,13 +601,13 @@ npx ttsc --noEmit
 npx ttsc --watch
 ```
 
-• Build
+- Build
 
-• Check
+- Check
 
-• Watch
+- Watch
 
-• Host plugins
+- Host plugins
 
 <!--
 Say: command shape stays familiar. Compiler host changes.
@@ -619,15 +619,15 @@ Say: command shape stays familiar. Compiler host changes.
 
 TTSC keeps the compiler state as the shared substrate.
 
-• Program
+- Program
 
-• AST
+- AST
 
-• Checker
+- Checker
 
-• Diagnostics
+- Diagnostics
 
-• Emit
+- Emit
 
 <!--
 Say: every later feature hangs off this state.
@@ -639,13 +639,13 @@ Say: every later feature hangs off this state.
 
 The core contract:
 
-• Load project once
+- Load project once
 
-• Build semantic graph once
+- Build semantic graph once
 
-• Let tools reuse it
+- Let tools reuse it
 
-• Report through compiler diagnostics
+- Report through compiler diagnostics
 
 <!--
 Say: this is the opposite of spawning many tools that rediscover the same project.
@@ -657,13 +657,13 @@ Say: this is the opposite of spawning many tools that rediscover the same projec
 
 TTSC hosts transformers without patching TypeScript itself.
 
-• Plugin package
+- Plugin package
 
-• Native sidecar
+- Native sidecar
 
-• Cached artifacts
+- Cached artifacts
 
-• TypeScript-Go bridge
+- TypeScript-Go bridge
 
 <!--
 Say: plugins join the TTSC host instead of mutating the compiler installation.
@@ -675,13 +675,13 @@ Say: plugins join the TTSC host instead of mutating the compiler installation.
 
 Old model vs TTSC model:
 
-• `ts-patch` → hook into JavaScript compiler
+- `ts-patch` → hook into JavaScript compiler
 
-• `ttsc` → host plugins on TypeScript-Go
+- `ttsc` → host plugins on TypeScript-Go
 
-• User API stays TypeScript
+- User API stays TypeScript
 
-• Generation engine moves behind it
+- Generation engine moves behind it
 
 <!--
 Say: preserve the developer surface, replace the compiler integration.
@@ -693,13 +693,13 @@ Say: preserve the developer surface, replace the compiler integration.
 
 Transformer lifecycle:
 
-• Read type declaration
+- Read type declaration
 
-• Ask compiler for semantic facts
+- Ask compiler for semantic facts
 
-• Generate optimized JavaScript
+- Generate optimized JavaScript
 
-• Feed result back into emit
+- Feed result back into emit
 
 <!--
 Say: the lifecycle is the same story as typia, but the host is new.
@@ -715,11 +715,11 @@ Say: the lifecycle is the same story as typia, but the host is new.
 npx ttsx src/index.ts
 ```
 
-• Direct execution
+- Direct execution
 
-• Real type check
+- Real type check
 
-• Plugin-aware path
+- Plugin-aware path
 
 <!--
 Say: the runtime command should not bypass the compiler guarantees.
@@ -731,13 +731,13 @@ Say: the runtime command should not bypass the compiler guarantees.
 
 Runtime target:
 
-• `tsx` convenience
+- `tsx` convenience
 
-• `ts-node` use case
+- `ts-node` use case
 
-• TypeScript-Go speed
+- TypeScript-Go speed
 
-• no transpile-only compromise
+- no transpile-only compromise
 
 <!--
 Say: backend execution can be convenient without becoming blind.
@@ -749,13 +749,13 @@ Say: backend execution can be convenient without becoming blind.
 
 `ttscserver` brings plugin results into the editor.
 
-• Diagnostics
+- Diagnostics
 
-• Code actions
+- Code actions
 
-• Plugin commands
+- Plugin commands
 
-• VS Code extension path
+- VS Code extension path
 
 <!--
 Say: transformer errors must appear before CI.
@@ -767,13 +767,13 @@ Say: transformer errors must appear before CI.
 
 Editor integration is part of the toolchain.
 
-• Compiler sees the project
+- Compiler sees the project
 
-• Plugin sees the same project
+- Plugin sees the same project
 
-• Developer sees diagnostics early
+- Developer sees diagnostics early
 
-• CI becomes confirmation, not discovery
+- CI becomes confirmation, not discovery
 
 <!--
 Say: if plugin work only happens at build time, the feedback loop is too late.
@@ -785,13 +785,13 @@ Say: if plugin work only happens at build time, the feedback loop is too late.
 
 TTSC is not one wrapper command.
 
-• `ttsc`
+- `ttsc`
 
-• `ttsx`
+- `ttsx`
 
-• `ttscserver`
+- `ttscserver`
 
-• shared plugin substrate
+- shared plugin substrate
 
 <!--
 Say: compiler, runtime, and editor must move together.
@@ -803,13 +803,13 @@ Say: compiler, runtime, and editor must move together.
 
 # 3. TTSC Linter
 
-• Why Lint Again
+- Why Lint Again
 
-• Compiler-Aware Rules
+- Compiler-Aware Rules
 
-• Zero-Cost Linting
+- Zero-Cost Linting
 
-• VS Code Benchmark
+- VS Code Benchmark
 
 <!--
 Chapter start is only the local table of contents.
@@ -827,11 +827,11 @@ npx eslint .
 npx prettier --check .
 ```
 
-• Same source tree
+- Same source tree
 
-• Same imports
+- Same imports
 
-• Same types
+- Same types
 
 <!--
 Say: the expensive part is rediscovery.
@@ -843,13 +843,13 @@ Say: the expensive part is rediscovery.
 
 Repeated costs:
 
-• Parse
+- Parse
 
-• Walk
+- Walk
 
-• Type services
+- Type services
 
-• Diagnostics output
+- Diagnostics output
 
 <!--
 Say: type-aware linting asks questions the compiler already answered.
@@ -861,13 +861,13 @@ Say: type-aware linting asks questions the compiler already answered.
 
 `@ttsc/lint` runs where the Program already exists.
 
-• TypeScript diagnostics
+- TypeScript diagnostics
 
-• Lint diagnostics
+- Lint diagnostics
 
-• Same check lane
+- Same check lane
 
-• Same compiler view
+- Same compiler view
 
 <!--
 Say: one project load, one semantic view.
@@ -879,13 +879,13 @@ Say: one project load, one semantic view.
 
 Compiler-aware rules can ask semantic questions directly.
 
-• Symbol owner
+- Symbol owner
 
-• Type relationship
+- Type relationship
 
-• Import target
+- Import target
 
-• Declaration site
+- Declaration site
 
 <!--
 Say: this is the part ESLint recreates with parser services.
@@ -897,13 +897,13 @@ Say: this is the part ESLint recreates with parser services.
 
 Compiler-style output:
 
-• `TS2322`
+- `TS2322`
 
-• `[prefer-const]`
+- `[prefer-const]`
 
-• `[no-var]`
+- `[no-var]`
 
-• one diagnostics stream
+- one diagnostics stream
 
 <!--
 Say: the developer reads one compiler report, not two disconnected reports.
@@ -915,13 +915,13 @@ Say: the developer reads one compiler report, not two disconnected reports.
 
 Zero-cost means marginal cost.
 
-• Program already loaded
+- Program already loaded
 
-• AST already built
+- AST already built
 
-• Checker already available
+- Checker already available
 
-• Rule walk remains
+- Rule walk remains
 
 <!--
 Say: not literally zero milliseconds. It means no second TypeScript world.
@@ -933,13 +933,13 @@ Say: not literally zero milliseconds. It means no second TypeScript world.
 
 Mental model:
 
-• Legacy: compiler + linter pipeline
+- Legacy: compiler + linter pipeline
 
-• TTSC: compiler check + lint pass
+- TTSC: compiler check + lint pass
 
-• Formatting stays a separate write path
+- Formatting stays a separate write path
 
-• Type-aware linting stops duplicating analysis
+- Type-aware linting stops duplicating analysis
 
 <!--
 Say: formatting is still a different concern.
@@ -951,13 +951,13 @@ Say: formatting is still a different concern.
 
 The compiler is already the source of truth.
 
-• One parse
+- One parse
 
-• One module graph
+- One module graph
 
-• One checker
+- One checker
 
-• Many diagnostics
+- Many diagnostics
 
 <!--
 Say: this is the same design principle as transformers.
@@ -986,13 +986,13 @@ Say: lint pass comparison, not a claim that the whole project build is 901x fast
 
 Interpretation:
 
-• Not "Go is magic"
+- Not "Go is magic"
 
-• Reuse the Program
+- Reuse the Program
 
-• Avoid second analysis
+- Avoid second analysis
 
-• About **900x** lint pass gap
+- About **900x** lint pass gap
 
 <!--
 Say: the benchmark proves the architecture point.
@@ -1004,13 +1004,13 @@ Say: the benchmark proves the architecture point.
 
 Linter is a separate TTSC chapter because it proves reuse.
 
-• Compiler state
+- Compiler state
 
-• Transformer state
+- Transformer state
 
-• Lint state
+- Lint state
 
-• same substrate
+- same substrate
 
 <!--
 Say: after transformer survival, linter is the first productivity dividend.
@@ -1022,13 +1022,13 @@ Say: after transformer survival, linter is the first productivity dividend.
 
 # 4. TTSC Graph
 
-• Why grep Fails
+- Why grep Fails
 
-• Compiler-Aware Context
+- Compiler-Aware Context
 
-• For Coding Agents
+- For Coding Agents
 
-• Token Economy
+- Token Economy
 
 <!--
 Chapter start is only the local table of contents.
@@ -1040,13 +1040,13 @@ Chapter start is only the local table of contents.
 
 Agents often rebuild context manually.
 
-• grep
+- grep
 
-• open file
+- open file
 
-• follow import
+- follow import
 
-• repeat
+- repeat
 
 <!--
 Say: this is expensive, lossy, and easy to derail.
@@ -1058,15 +1058,15 @@ Say: this is expensive, lossy, and easy to derail.
 
 Grep does not know compiler facts.
 
-• Alias
+- Alias
 
-• Symbol owner
+- Symbol owner
 
-• References
+- References
 
-• Type vs value
+- Type vs value
 
-• call path
+- call path
 
 <!--
 Say: the compiler already knows these relationships.
@@ -1078,13 +1078,13 @@ Say: the compiler already knows these relationships.
 
 File search is a weak substitute for semantic context.
 
-• Same name, different symbol
+- Same name, different symbol
 
-• Barrel export hides owner
+- Barrel export hides owner
 
-• Generic call hides concrete type
+- Generic call hides concrete type
 
-• dynamic import hides path
+- dynamic import hides path
 
 <!--
 Say: agents need the graph before they need the file.
@@ -1096,15 +1096,15 @@ Say: agents need the graph before they need the file.
 
 `@ttsc/graph` exposes compiler structure.
 
-• Declarations
+- Declarations
 
-• Exports
+- Exports
 
-• Imports
+- Imports
 
-• References
+- References
 
-• Diagnostics
+- Diagnostics
 
 <!--
 Say: graph comes from compiler resolution, not regex.
@@ -1116,13 +1116,13 @@ Say: graph comes from compiler resolution, not regex.
 
 Example path:
 
-• `Repository.find`
+- `Repository.find`
 
-• `FindOptionsUtils`
+- `FindOptionsUtils`
 
-• `SelectQueryBuilder`
+- `SelectQueryBuilder`
 
-• `RelationMetadata`
+- `RelationMetadata`
 
 <!--
 Say: TypeORM relation options example. The point is path discovery, not reading every file.
@@ -1134,13 +1134,13 @@ Say: TypeORM relation options example. The point is path discovery, not reading 
 
 Graph answers a different first question.
 
-• grep: "which files mention this text?"
+- grep: "which files mention this text?"
 
-• graph: "which symbols matter?"
+- graph: "which symbols matter?"
 
-• grep: file-first
+- grep: file-first
 
-• graph: compiler-first
+- graph: compiler-first
 
 <!--
 Say: file reading still happens, but after narrowing.
@@ -1173,13 +1173,13 @@ Say: the agent asks the compiler graph before opening source files.
 
 Workflow:
 
-• Map first
+- Map first
 
-• Source second
+- Source second
 
-• Fewer files
+- Fewer files
 
-• Better edit target
+- Better edit target
 
 <!--
 Say: not source-free. Source-selective.
@@ -1191,13 +1191,13 @@ Say: not source-free. Source-selective.
 
 Agent context becomes compiler-guided.
 
-• Resolve symbol
+- Resolve symbol
 
-• Follow references
+- Follow references
 
-• Inspect diagnostics
+- Inspect diagnostics
 
-• Open only relevant source
+- Open only relevant source
 
 <!--
 Say: this is what a human maintainer does mentally.
@@ -1225,13 +1225,13 @@ Say: about 10x token reduction, not 100x.
 
 Interpretation:
 
-• About **10x** fewer tokens
+- About **10x** fewer tokens
 
-• No blind file reading
+- No blind file reading
 
-• Fewer tool calls
+- Fewer tool calls
 
-• Same target found faster
+- Same target found faster
 
 <!--
 Say: the number matters because agents pay for exploration.
@@ -1243,15 +1243,15 @@ Say: the number matters because agents pay for exploration.
 
 Same pattern across TTSC:
 
-• Compiler state
+- Compiler state
 
-• No duplicate discovery
+- No duplicate discovery
 
-• Linter uses it
+- Linter uses it
 
-• Graph uses it
+- Graph uses it
 
-• Agents use it
+- Agents use it
 
 <!--
 Say: this is the unifying TTSC story.
@@ -1263,13 +1263,13 @@ Say: this is the unifying TTSC story.
 
 One TypeScript-Go substrate:
 
-• `ttsc`
+- `ttsc`
 
-• `ttsx`
+- `ttsx`
 
-• `@ttsc/lint`
+- `@ttsc/lint`
 
-• `@ttsc/graph`
+- `@ttsc/graph`
 
 <!--
 Say: TTSC is a toolchain, not a single wrapper command.
@@ -1283,13 +1283,13 @@ The compiler became faster.
 
 Transformer users need more than speed.
 
-• keep type-driven code generation
+- keep type-driven code generation
 
-• keep diagnostics in the editor
+- keep diagnostics in the editor
 
-• reuse compiler state for lint and graph
+- reuse compiler state for lint and graph
 
-• make TypeScript-Go usable for backend tooling
+- make TypeScript-Go usable for backend tooling
 
 <!--
 Say: TypeScript-Go is good news only if the tool ecosystem survives it.
