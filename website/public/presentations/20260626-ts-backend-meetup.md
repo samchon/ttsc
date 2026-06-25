@@ -165,64 +165,241 @@ style: |
 
 ### TypeScript-Go ToolChain
 
-Samchon
+TypeScript Backend Meetup
 
-2026-06-26
+Samchon, 2026-06-26
+
+<!--
+Opening: TypeScript-Go is the trigger. TTSC is the survival layer for transformer users.
+-->
+
+---
+
+# TTSC
+
+![TTSC logo](../og.jpg)
+
+<!--
+One beat for the logo.
+-->
+
+---
+
+# TL;DR
+
+• TypeScript compiler is moving to Go
+
+• Transformers lose the old JavaScript patch point
+
+• TTSC keeps compile-time code generation alive
+
+• Linter and Graph reuse the same compiler state
+
+<!--
+Say: this talk is not "Go is faster". It is "the compiler substrate changed".
+-->
 
 ---
 
 # Preface
 
-![](https://ttsc.dev/og.jpg)
+TypeScript 7 changes the foundation under TypeScript tools.
+
+• Native Go compiler
+
+• TypeScript 6 semantic parity
+
+• About **10x** faster on many projects
+
+• Compiler API and plugin ecosystem must adapt
+
+<!--
+Source is Microsoft's TypeScript 7 RC and native port posts.
+-->
 
 ---
 
+# Index
+
+1. TypeScript-Go
+
+2. TTSC
+
+3. TTSC Linter
+
+4. TTSC Graph
+
+<!--
+Four chapters. Problem first, TTSC after.
+-->
+
+---
+
+<!-- _class: lead -->
+
 # 1. TypeScript-Go
 
-- 1.1. Good News
-- 1.2. Bad News
-- 1.3. Transformer
-- 1.4. Compatibility Gap
+• Good News
+
+• Bad News
+
+• Transformer
+
+• Compatibility Gap
+
+<!--
+Chapter start is only the local table of contents.
+-->
 
 ---
 
 # 1.1. Good News
 
-대충 Microsoft가 TypeScript compiler를 Go로 다시 만들고 있다는 이야기.
+TypeScript compiler is moving from JavaScript to Go.
 
-대충 TypeScript 7부터 이걸 기본 엔진으로 가져오려 한다는 이야기.
+• TypeScript 7.0 RC
 
-대충 `tsc`, editor, LSP가 10배쯤 빨라진다는 좋은 뉴스라는 이야기.
+• Native compiler and language service
+
+• Shared-memory parallelism
+
+• About **10x** faster than TypeScript 6.0
+
+<!--
+Say: most users hear this as a simple speed story.
+-->
+
+---
+
+# 1.1. Good News
+
+The port is not a rewrite of the language.
+
+• Existing codebase ported to Go
+
+• Type-checking logic kept structurally identical
+
+• Same TypeScript semantics
+
+• New runtime foundation
+
+<!--
+Say: for normal users, compatibility is the headline. For tool authors, runtime foundation is the issue.
+-->
+
+---
+
+# 1.1. Good News
+
+Backend teams feel compiler latency every day.
+
+• Monorepo type check
+
+• Watch mode
+
+• Editor startup
+
+• CI feedback loop
+
+<!--
+Say: 10x is not an abstract benchmark. It changes the development loop.
+-->
 
 ---
 
 # 1.2. Bad News
 
-대충 근데 transformer 사용자 입장에서는 다 좆되었다는 이야기.
+Compiler plugins lived inside the old compiler shape.
 
-대충 기존 transformer 생태계가 JavaScript TypeScript compiler 내부 hook에 기대고 있었다는 이야기.
+• JavaScript runtime
 
-대충 compiler가 Go로 바뀌면 그 hook에 patch 붙이던 방식이 그대로 안 통한다는 이야기.
+• TypeScript compiler API
 
-대충 typia, nestia 같은 백엔드 TypeScript 도구가 이 문제를 정면으로 맞는다는 이야기.
+• AST and Checker objects
+
+• Emit pipeline hooks
+
+<!--
+Say: transformer users were not only compiling. They were extending the compiler.
+-->
+
+---
+
+# 1.2. Bad News
+
+The old ecosystem patched TypeScript itself.
+
+• `ttypescript`
+
+• `ts-patch`
+
+• `tsconfig.plugins`
+
+• custom transformers
+
+<!--
+Say: the plugin contract was informal, but it worked because everything was JavaScript.
+-->
+
+---
+
+# 1.2. Bad News
+
+APIs can survive while engines break.
+
+• `typia`
+
+• `nestia`
+
+• custom SDK generators
+
+• generated runtime validators
+
+<!--
+Say: user-facing code can remain the same, but the generation engine must move.
+-->
 
 ---
 
 # 1.3. Transformer
 
-대충 transformer가 TypeScript 타입 정보를 읽어 코드를 자동 생성하거나 바꾸는 기술이라는 이야기.
+Transformer = compile-time code generation from TypeScript types.
 
-대충 런타임 validation, serialization, SDK generation 같은 일을 컴파일 타임에 끝낸다는 이야기.
+• Read source code
 
-대충 typia와 nestia가 이 방식으로 백엔드 보일러플레이트를 없애왔다는 이야기.
+• Inspect AST
+
+• Ask the Checker
+
+• Emit JavaScript
+
+<!--
+Minimal definition. The next slides show why it matters.
+-->
 
 ---
 
 # 1.3. Transformer
 
-### typia validation generator
+Common backend uses:
 
-### Generic function call with `IMember` type
+• Runtime validation
+
+• Serialization
+
+• OpenAPI generation
+
+• SDK generation
+
+<!--
+Say: typia and nestia are concrete examples, not edge cases.
+-->
+
+---
+
+# 1.3. Transformer
+
+### Typia: TypeScript input
 
 ```typescript
 import typia, { tags } from "typia";
@@ -238,11 +415,15 @@ interface IMember {
 typia.createIs<IMember>();
 ```
 
+<!--
+Say: IMember is a type. It disappears at runtime unless a transformer catches it before erasure.
+-->
+
 ---
 
 # 1.3. Transformer
 
-### Becomes transformed JS code
+### Typia: JavaScript output
 
 ```javascript
 import * as _b from "typia/lib/internal/_isFormatEmail";
@@ -263,11 +444,33 @@ import * as _c from "typia/lib/internal/_isTypeUint32";
 })();
 ```
 
+<!--
+Say: one generic type call became UUID, email, integer, and range checks.
+-->
+
 ---
 
 # 1.3. Transformer
 
-### nestia route generator
+Type information became runtime code.
+
+• `tags.Format<"uuid">` → UUID check
+
+• `tags.Format<"email">` → email check
+
+• `tags.Type<"uint32">` → integer range
+
+• `tags.Maximum<100>` → boundary check
+
+<!--
+Say: this is not reflection. It is ahead-of-time compilation.
+-->
+
+---
+
+# 1.3. Transformer
+
+### Nestia: route generator
 
 ```typescript
 import { TypedBody, TypedRoute } from "@nestia/core";
@@ -277,26 +480,22 @@ import { Controller } from "@nestjs/common";
 export class ShoppingSaleController {
   @TypedRoute.Post()
   public async create(
-    @TypedBody() body: IShoppingSale.ICreate
-  ): Promise<IShoppingSale> { ... }
+    @TypedBody() body: IShoppingSale.ICreate,
+  ): Promise<IShoppingSale> {
+    // business logic
+  }
 }
 ```
 
----
-
-# 1.4. Compatibility Gap
-
-대충 기존 transformer는 TypeScript compiler를 patch해서 들어갔다는 이야기.
-
-대충 JavaScript compiler에서는 억지로라도 hook을 만들 수 있었다는 이야기.
-
-대충 Go compiler로 넘어가면 그 방식이 그대로 이어지지 않는다는 이야기.
+<!--
+Say: controller code becomes route metadata, validation, and SDK material.
+-->
 
 ---
 
 # 1.4. Compatibility Gap
 
-### Required "ts-patch"
+Old transformer setup installed a compiler patch.
 
 ```json
 {
@@ -309,11 +508,15 @@ export class ShoppingSaleController {
 }
 ```
 
+<!--
+Say: this was the old survival strategy.
+-->
+
 ---
 
 # 1.4. Compatibility Gap
 
-### Required tsconfig.json configuration
+Old transformer setup registered plugins in `tsconfig.json`.
 
 ```json
 {
@@ -322,172 +525,781 @@ export class ShoppingSaleController {
     "plugins": [
       { "transform": "typia/lib/transform" },
       { "transform": "@nestia/core/lib/transform" },
-      { "transform": "@nestia/sdk/lib/transform" },
+      { "transform": "@nestia/sdk/lib/transform" }
     ]
   }
 }
 ```
 
+<!--
+Say: this assumes the compiler can load JavaScript plugins into its own process.
+-->
+
 ---
 
 # 1.4. Compatibility Gap
 
-대충 typia와 nestia API는 그대로 있어도, 뒤에서 코드를 만들어주던 engine이 사라진다는 이야기.
+The new compiler substrate breaks that assumption.
 
-대충 "TypeScript가 빨라졌다"가 transformer 사용자에겐 "기존 생태계가 끊겼다"가 될 수 있다는 이야기.
+• Old compiler: JavaScript process
 
-대충 그래서 TypeScript-Go 위에서 transformer 생태계를 다시 만들어야 한다는 이야기.
+• Old transformer: JavaScript module
+
+• New compiler: Go process
+
+• Old hook: no longer the center
+
+<!--
+Say: TypeScript 7 can preserve language semantics while still breaking plugin hosting.
+-->
 
 ---
 
+# 1.4. Compatibility Gap
+
+Transformer users need a toolchain, not a patch.
+
+• Compiler front door
+
+• Plugin host
+
+• Runtime execution path
+
+• Editor integration
+
+<!--
+Say: this is the bridge from TypeScript-Go to TTSC.
+-->
+
+---
+
+<!-- _class: lead -->
+
 # 2. TTSC
 
-- 2.1. Compiler
-- 2.2. Transformer
-- 2.3. Runtime
-- 2.4. Language Server
+• Compiler
+
+• Transformer
+
+• Runtime
+
+• Language Server
+
+<!--
+Chapter start is only the local table of contents.
+-->
 
 ---
 
 # 2.1. Compiler
 
-대충 `ttsc`는 TypeScript-Go 기반 compiler CLI라는 이야기.
+`ttsc` is a TypeScript-Go compiler front door.
 
-대충 `tsc`처럼 build, check, watch를 하되 plugin host까지 같이 가진다는 이야기.
+```bash
+npx ttsc
+npx ttsc --noEmit
+npx ttsc --watch
+```
 
-대충 TypeScript-Go를 그냥 빠른 compiler가 아니라 확장 가능한 compiler platform으로 쓰겠다는 이야기.
+• Build
+
+• Check
+
+• Watch
+
+• Host plugins
+
+<!--
+Say: command shape stays familiar. Compiler host changes.
+-->
+
+---
+
+# 2.1. Compiler
+
+TTSC keeps the compiler state as the shared substrate.
+
+• Program
+
+• AST
+
+• Checker
+
+• Diagnostics
+
+• Emit
+
+<!--
+Say: every later feature hangs off this state.
+-->
+
+---
+
+# 2.1. Compiler
+
+The core contract:
+
+• Load project once
+
+• Build semantic graph once
+
+• Let tools reuse it
+
+• Report through compiler diagnostics
+
+<!--
+Say: this is the opposite of spawning many tools that rediscover the same project.
+-->
 
 ---
 
 # 2.2. Transformer
 
-대충 Go 기반 compiler AST와 Checker 위에서 동작하는 transformer plugin 생태계를 다시 만들었다는 이야기.
+TTSC hosts transformers without patching TypeScript itself.
 
-대충 `ts-patch install`이 아니라 `ttsc`가 plugin source를 빌드하고 캐시하고 실행한다는 이야기.
+• Plugin package
 
-대충 `ttsc` 명령어로 컴파일하면 기존 transformer 사용자 경험을 TypeScript-Go 위로 가져온다는 이야기.
+• Native sidecar
+
+• Cached artifacts
+
+• TypeScript-Go bridge
+
+<!--
+Say: plugins join the TTSC host instead of mutating the compiler installation.
+-->
+
+---
+
+# 2.2. Transformer
+
+Old model vs TTSC model:
+
+• `ts-patch` → hook into JavaScript compiler
+
+• `ttsc` → host plugins on TypeScript-Go
+
+• User API stays TypeScript
+
+• Generation engine moves behind it
+
+<!--
+Say: preserve the developer surface, replace the compiler integration.
+-->
+
+---
+
+# 2.2. Transformer
+
+Transformer lifecycle:
+
+• Read type declaration
+
+• Ask compiler for semantic facts
+
+• Generate optimized JavaScript
+
+• Feed result back into emit
+
+<!--
+Say: the lifecycle is the same story as typia, but the host is new.
+-->
 
 ---
 
 # 2.3. Runtime
 
-대충 `ttsx src/index.ts`로 TypeScript entrypoint를 바로 실행할 수 있다는 이야기.
+`ttsx` runs TypeScript after type checking.
 
-대충 `tsx`나 `ts-node`처럼 쓰지만 먼저 진짜 type-check를 한다는 이야기.
+```bash
+npx ttsx src/index.ts
+```
 
-대충 TypeScript-Go 속도 덕분에 개발 runtime에서 type safety를 포기하지 않아도 된다는 이야기.
+• Direct execution
+
+• Real type check
+
+• Plugin-aware path
+
+<!--
+Say: the runtime command should not bypass the compiler guarantees.
+-->
+
+---
+
+# 2.3. Runtime
+
+Runtime target:
+
+• `tsx` convenience
+
+• `ts-node` use case
+
+• TypeScript-Go speed
+
+• no transpile-only compromise
+
+<!--
+Say: backend execution can be convenient without becoming blind.
+-->
 
 ---
 
 # 2.4. Language Server
 
-대충 `ttscserver`로 editor와 compiler plugin을 연결한다는 이야기.
+`ttscserver` brings plugin results into the editor.
 
-대충 LSP 위에서 plugin diagnostics, code actions, commands를 editor까지 올린다는 이야기.
+• Diagnostics
 
-대충 compiler plugin 생태계가 CLI에서 끝나지 않고 VS Code 경험까지 이어진다는 이야기.
+• Code actions
+
+• Plugin commands
+
+• VS Code extension path
+
+<!--
+Say: transformer errors must appear before CI.
+-->
 
 ---
 
+# 2.4. Language Server
+
+Editor integration is part of the toolchain.
+
+• Compiler sees the project
+
+• Plugin sees the same project
+
+• Developer sees diagnostics early
+
+• CI becomes confirmation, not discovery
+
+<!--
+Say: if plugin work only happens at build time, the feedback loop is too late.
+-->
+
+---
+
+# 2.4. Language Server
+
+TTSC is not one wrapper command.
+
+• `ttsc`
+
+• `ttsx`
+
+• `ttscserver`
+
+• shared plugin substrate
+
+<!--
+Say: compiler, runtime, and editor must move together.
+-->
+
+---
+
+<!-- _class: lead -->
+
 # 3. TTSC Linter
 
-- 3.1. Why Lint Again
-- 3.2. Compiler-Aware Rules
-- 3.3. Zero-Cost Linting
-- 3.4. VS Code Benchmark
+• Why Lint Again
+
+• Compiler-Aware Rules
+
+• Zero-Cost Linting
+
+• VS Code Benchmark
+
+<!--
+Chapter start is only the local table of contents.
+-->
 
 ---
 
 # 3.1. Why Lint Again
 
-대충 이미 ESLint가 있는데 왜 또 linter를 만들었냐는 이야기.
+The normal TypeScript check lane repeats work.
 
-대충 TypeScript rule은 결국 AST와 type information이 필요한데, compiler가 이미 그걸 만들고 있다는 이야기.
+```bash
+npx tsc --noEmit
+npx eslint .
+npx prettier --check .
+```
 
-대충 같은 정보를 두 번 계산하는 게 낭비라는 이야기.
+• Same source tree
+
+• Same imports
+
+• Same types
+
+<!--
+Say: the expensive part is rediscovery.
+-->
+
+---
+
+# 3.1. Why Lint Again
+
+Repeated costs:
+
+• Parse
+
+• Walk
+
+• Type services
+
+• Diagnostics output
+
+<!--
+Say: type-aware linting asks questions the compiler already answered.
+-->
 
 ---
 
 # 3.2. Compiler-Aware Rules
 
-대충 linter도 transformer plugin처럼 compiler AST와 Checker 위에서 실행한다는 이야기.
+`@ttsc/lint` runs where the Program already exists.
 
-대충 `ttsc` 명령어 한 방에 compile error와 lint violation을 같이 잡는다는 이야기.
+• TypeScript diagnostics
 
-대충 third-party rule도 compiler-aware하게 만들 수 있다는 이야기.
+• Lint diagnostics
+
+• Same check lane
+
+• Same compiler view
+
+<!--
+Say: one project load, one semantic view.
+-->
+
+---
+
+# 3.2. Compiler-Aware Rules
+
+Compiler-aware rules can ask semantic questions directly.
+
+• Symbol owner
+
+• Type relationship
+
+• Import target
+
+• Declaration site
+
+<!--
+Say: this is the part ESLint recreates with parser services.
+-->
+
+---
+
+# 3.2. Compiler-Aware Rules
+
+Compiler-style output:
+
+• `TS2322`
+
+• `[prefer-const]`
+
+• `[no-var]`
+
+• one diagnostics stream
+
+<!--
+Say: the developer reads one compiler report, not two disconnected reports.
+-->
 
 ---
 
 # 3.3. Zero-Cost Linting
 
-대충 이미 compile하면서 만든 AST와 type information을 재사용하니 lint 비용이 0에 수렴한다는 이야기.
+Zero-cost means marginal cost.
 
-대충 compile과 lint가 따로 도는 게 아니라 같은 pass 위에 올라간다는 이야기.
+• Program already loaded
 
-대충 그래서 큰 프로젝트일수록 차이가 커진다는 이야기.
+• AST already built
+
+• Checker already available
+
+• Rule walk remains
+
+<!--
+Say: not literally zero milliseconds. It means no second TypeScript world.
+-->
+
+---
+
+# 3.3. Zero-Cost Linting
+
+Mental model:
+
+• Legacy: compiler + linter pipeline
+
+• TTSC: compiler check + lint pass
+
+• Formatting stays a separate write path
+
+• Type-aware linting stops duplicating analysis
+
+<!--
+Say: formatting is still a different concern.
+-->
+
+---
+
+# 3.3. Zero-Cost Linting
+
+The compiler is already the source of truth.
+
+• One parse
+
+• One module graph
+
+• One checker
+
+• Many diagnostics
+
+<!--
+Say: this is the same design principle as transformers.
+-->
 
 ---
 
 # 3.4. VS Code Benchmark
 
-대충 VS Code급 프로젝트에서 ESLint 대비 800~900배 성능차를 보인다는 이야기.
+VS Code fixture:
 
-대충 Microsoft가 TypeScript-Go 성능 기준으로 썼던 VS Code fixture를 같이 기준으로 삼는다는 이야기.
+| Tool         |       Time |
+| ------------ | ---------: |
+| ESLint       | 66,700.2ms |
+| `@ttsc/lint` |       74ms |
 
-대충 benchmark 숫자를 통해 "빠르다"가 아니라 "다시 돌릴 필요가 없다"를 보여준다는 이야기.
+**901.4x**
+
+<!--
+Say: lint pass comparison, not a claim that the whole project build is 901x faster.
+-->
 
 ---
 
+# 3.4. VS Code Benchmark
+
+Interpretation:
+
+• Not "Go is magic"
+
+• Reuse the Program
+
+• Avoid second analysis
+
+• About **900x** lint pass gap
+
+<!--
+Say: the benchmark proves the architecture point.
+-->
+
+---
+
+# 3.4. VS Code Benchmark
+
+Linter is a separate TTSC chapter because it proves reuse.
+
+• Compiler state
+
+• Transformer state
+
+• Lint state
+
+• same substrate
+
+<!--
+Say: after transformer survival, linter is the first productivity dividend.
+-->
+
+---
+
+<!-- _class: lead -->
+
 # 4. TTSC Graph
 
-- 4.1. Why grep Fails
-- 4.2. Compiler-Aware Context
-- 4.3. For Coding Agents
-- 4.4. Token Economy
+• Why grep Fails
+
+• Compiler-Aware Context
+
+• For Coding Agents
+
+• Token Economy
+
+<!--
+Chapter start is only the local table of contents.
+-->
 
 ---
 
 # 4.1. Why grep Fails
 
-대충 grep은 문자열을 찾지만 코드 의미를 모른다는 이야기.
+Agents often rebuild context manually.
 
-대충 export 이름, import alias, symbol reference, call path는 문자열 검색만으로 틀리기 쉽다는 이야기.
+• grep
 
-대충 agent가 grep만 믿으면 필요 없는 파일을 많이 읽고도 핵심을 놓친다는 이야기.
+• open file
+
+• follow import
+
+• repeat
+
+<!--
+Say: this is expensive, lossy, and easy to derail.
+-->
+
+---
+
+# 4.1. Why grep Fails
+
+Grep does not know compiler facts.
+
+• Alias
+
+• Symbol owner
+
+• References
+
+• Type vs value
+
+• call path
+
+<!--
+Say: the compiler already knows these relationships.
+-->
+
+---
+
+# 4.1. Why grep Fails
+
+File search is a weak substitute for semantic context.
+
+• Same name, different symbol
+
+• Barrel export hides owner
+
+• Generic call hides concrete type
+
+• dynamic import hides path
+
+<!--
+Say: agents need the graph before they need the file.
+-->
 
 ---
 
 # 4.2. Compiler-Aware Context
 
-대충 exports, imports, symbol, references, call path 같은 정보를 AST 기반 graph로 제공한다는 이야기.
+`@ttsc/graph` exposes compiler structure.
 
-대충 grep은 문자열을 찾지만, graph는 코드 구조와 의미를 따라간다는 이야기.
+• Declarations
 
-대충 "이 함수 어디서 쓰임?" 같은 질문을 compiler가 아는 정보로 답하게 한다는 이야기.
+• Exports
+
+• Imports
+
+• References
+
+• Diagnostics
+
+<!--
+Say: graph comes from compiler resolution, not regex.
+-->
+
+---
+
+# 4.2. Compiler-Aware Context
+
+Example path:
+
+• `Repository.find`
+
+• `FindOptionsUtils`
+
+• `SelectQueryBuilder`
+
+• `RelationMetadata`
+
+<!--
+Say: TypeORM relation options example. The point is path discovery, not reading every file.
+-->
+
+---
+
+# 4.2. Compiler-Aware Context
+
+Graph answers a different first question.
+
+• grep: "which files mention this text?"
+
+• graph: "which symbols matter?"
+
+• grep: file-first
+
+• graph: compiler-first
+
+<!--
+Say: file reading still happens, but after narrowing.
+-->
 
 ---
 
 # 4.3. For Coding Agents
 
-대충 클로드 코드나 코덱스에게 "일단 파일 다 읽어"가 아니라 "이 symbol 주변만 봐"를 시킨다는 이야기.
+MCP server:
 
-대충 과도한 파일 리드와 잘못된 grep 탐색을 줄인다는 이야기.
+```json
+{
+  "mcpServers": {
+    "ttsc-graph": {
+      "command": "npx",
+      "args": ["-y", "@ttsc/graph"]
+    }
+  }
+}
+```
 
-대충 agent가 compiler graph를 먼저 보고 필요한 파일만 읽게 만든다는 이야기.
+<!--
+Say: the agent asks the compiler graph before opening source files.
+-->
+
+---
+
+# 4.3. For Coding Agents
+
+Workflow:
+
+• Map first
+
+• Source second
+
+• Fewer files
+
+• Better edit target
+
+<!--
+Say: not source-free. Source-selective.
+-->
+
+---
+
+# 4.3. For Coding Agents
+
+Agent context becomes compiler-guided.
+
+• Resolve symbol
+
+• Follow references
+
+• Inspect diagnostics
+
+• Open only relevant source
+
+<!--
+Say: this is what a human maintainer does mentally.
+-->
 
 ---
 
 # 4.4. Token Economy
 
-대충 과도한 파일 리드를 줄이면 토큰 소모량이 100배쯤 줄어드는 방향의 이야기.
+TypeORM benchmark cell:
 
-대충 더 적은 context로 더 정확한 수정 지점을 찾게 한다는 이야기.
+| Metric     |  Baseline |   Graph |
+| ---------- | --------: | ------: |
+| tokens     | 1,357,346 | 148,231 |
+| file reads |        16 |       0 |
+| tool calls |        38 |       1 |
 
-대충 TTSC가 compiler platform에서 AI coding substrate까지 확장된다는 이야기.
+<!--
+Say: about 10x token reduction, not 100x.
+-->
 
 ---
 
-# Q & A
+# 4.4. Token Economy
+
+Interpretation:
+
+• About **10x** fewer tokens
+
+• No blind file reading
+
+• Fewer tool calls
+
+• Same target found faster
+
+<!--
+Say: the number matters because agents pay for exploration.
+-->
+
+---
+
+# 4.4. Token Economy
+
+Same pattern across TTSC:
+
+• Compiler state
+
+• No duplicate discovery
+
+• Linter uses it
+
+• Graph uses it
+
+• Agents use it
+
+<!--
+Say: this is the unifying TTSC story.
+-->
+
+---
+
+# Closing
+
+One TypeScript-Go substrate:
+
+• `ttsc`
+
+• `ttsx`
+
+• `@ttsc/lint`
+
+• `@ttsc/graph`
+
+<!--
+Say: TTSC is a toolchain, not a single wrapper command.
+-->
+
+---
+
+# Closing
+
+The compiler became faster.
+
+Transformer users need more than speed.
+
+• keep type-driven code generation
+
+• keep diagnostics in the editor
+
+• reuse compiler state for lint and graph
+
+• make TypeScript-Go usable for backend tooling
+
+<!--
+Say: TypeScript-Go is good news only if the tool ecosystem survives it.
+-->
+
+---
+
+# Q&A
+
+TypeScript Backend Meetup
 
 2026-06-26
 
