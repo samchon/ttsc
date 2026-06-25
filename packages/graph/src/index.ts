@@ -1,10 +1,13 @@
-import { spawn, spawnSync } from "node:child_process";
-import fs from "node:fs";
+import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import os from "node:os";
 import path from "node:path";
 
+import { startServer } from "./server/serve";
 import { runView } from "./view";
+
+// The server version reported in the MCP handshake; read from this package.
+const VERSION: string = (require("../package.json") as { version: string })
+  .version;
 
 /**
  * Resolve the per-platform `ttscgraph` MCP server binary, or `null` when it
@@ -45,9 +48,9 @@ export function resolveGraphBinary(
 }
 
 /**
- * The project root and tsconfig the server was pointed at, mirroring the
- * `--cwd` / `--tsconfig` flags ttscgraph itself parses, so the background
- * diagnostics worker checks the same project.
+ * The project root and tsconfig to build the graph for, from the `--cwd` /
+ * `--tsconfig` flags (the same ones `ttscgraph dump` accepts). Defaults are the
+ * process working directory and `tsconfig.json`.
  */
 function parseProjectArgs(argv: readonly string[]): {
   cwd: string;
@@ -67,70 +70,38 @@ function parseProjectArgs(argv: readonly string[]): {
 }
 
 /**
- * A `--connect` proxy pipes stdio to a running daemon and serves no graph of
- * its own, so it needs no diagnostics computed locally.
- */
-function isConnectProxy(argv: readonly string[]): boolean {
-  return argv.some((a) => a === "--connect" || a.startsWith("--connect="));
-}
-
-/**
- * `dump` is a one-shot that builds the graph and exits, so it needs no
- * background diagnostics worker (which would load the Program a second time).
- */
-function isDumpCommand(argv: readonly string[]): boolean {
-  return argv[0] === "dump";
-}
-
-/**
- * Start the background worker that computes the project's plugin diagnostics
- * (`@ttsc/lint` and transform-plugin findings) and writes them to
- * `diagnosticsFile`, where the server picks them up. Returns the child handle
- * for cleanup, or `null` when it could not be spawned.
+ * Run the `@ttsc/graph` launcher.
  *
- * It runs in parallel with the server so the MCP handshake is never blocked on
- * a compile; the server shows its tsc diagnostics immediately and fuses the
- * plugin findings once the file lands. Any failure is non-fatal — the graph
- * simply stays tsc-only.
- */
-function startDiagnosticsWorker(
-  argv: readonly string[],
-  diagnosticsFile: string,
-): ReturnType<typeof spawn> | null {
-  try {
-    const { cwd, tsconfig } = parseProjectArgs(argv);
-    const worker = spawn(
-      process.execPath,
-      [require.resolve("./diagnostics.js"), cwd, tsconfig, diagnosticsFile],
-      { stdio: "ignore", windowsHide: true },
-    );
-    worker.on("error", () => {
-      /* resilient: a worker that cannot start leaves no file */
-    });
-    worker.unref();
-    return worker;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Spawn the resident MCP server, inheriting stdio so the agent's MCP client
- * speaks JSON-RPC to it directly over this process's stdin/stdout. Returns the
- * child's exit code.
- *
- * Before spawning, it kicks off the background diagnostics worker (except in
- * `--connect` proxy mode) and points the server at its output file, so a
- * plugin-using project's lint and transform-plugin diagnostics fuse onto the
- * graph without blocking startup.
+ * - `view`: JS-orchestrated 3D viewer (dump -> reduce -> serve -> open).
+ * - `dump`: pass through to the native `ttscgraph dump`, which prints the whole
+ *   graph as JSON for piping or the viewer.
+ * - Default: serve the MCP graph over stdio. The TypeScript server runs
+ *   `ttscgraph dump` once to build the resident graph, then answers tool calls
+ *   from memory; the agent's MCP client speaks JSON-RPC over this process's
+ *   stdin/stdout. The process stays alive on the stdio transport.
  */
 export function runGraph(
   argv: readonly string[] = process.argv.slice(2),
 ): number | void {
-  // `view` is JS-orchestrated (dump -> reduce -> serve -> open), not a passthrough
-  // to the native binary, so it is handled before the spawn below.
   if (argv[0] === "view") return runView(argv.slice(1));
+  if (argv[0] === "dump") return runDump(argv);
 
+  const { cwd, tsconfig } = parseProjectArgs(argv);
+  void startServer({ cwd, tsconfig, version: VERSION }).catch(
+    (error: unknown) => {
+      process.stderr.write(
+        `@ttsc/graph: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.exit(1);
+    },
+  );
+}
+
+/**
+ * Pass `dump` through to the native binary, inheriting stdio so the JSON lands
+ * on this process's stdout. Returns the child's exit code.
+ */
+function runDump(argv: readonly string[]): number {
   const binary = resolveGraphBinary();
   if (binary === null) {
     process.stderr.write(
@@ -140,48 +111,10 @@ export function runGraph(
     );
     return 1;
   }
-
-  const env: NodeJS.ProcessEnv = { ...process.env };
-  let diagnosticsFile: string | null = null;
-  let worker: ReturnType<typeof spawn> | null = null;
-  if (!isConnectProxy(argv) && !isDumpCommand(argv)) {
-    diagnosticsFile = path.join(
-      os.tmpdir(),
-      `ttsc-graph-diagnostics-${process.pid}.json`,
-    );
-    env.TTSC_GRAPH_DIAGNOSTICS_FILE = diagnosticsFile;
-    worker = startDiagnosticsWorker(argv, diagnosticsFile);
-  }
-
   const result = spawnSync(binary, [...argv], {
     stdio: "inherit",
-    env,
     windowsHide: true,
   });
-
-  const workerPid = worker?.pid;
-  try {
-    worker?.kill();
-  } catch {
-    /* ignore */
-  }
-  if (diagnosticsFile) {
-    try {
-      fs.rmSync(diagnosticsFile, { force: true });
-    } catch {
-      /* ignore */
-    }
-    // The worker writes atomically through `<file>.<pid>.tmp`; remove a leftover
-    // if it was killed mid-write, so a churning daemon does not litter tmpdir.
-    if (workerPid !== undefined) {
-      try {
-        fs.rmSync(`${diagnosticsFile}.${workerPid}.tmp`, { force: true });
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-
   if (result.error) {
     process.stderr.write(`@ttsc/graph: ${result.error.message}\n`);
     return 1;

@@ -27,7 +27,7 @@ export class GraphController {
    * @param props Which facet to project
    * @returns The requested architecture facets
    */
-  public overview(props: IOverviewProps): IOverview {
+  public graph_overview(props: IOverviewProps): IOverview {
     const aspect = props.aspect ?? "all";
     const want = (a: IOverviewProps["aspect"]): boolean =>
       aspect === "all" || aspect === a;
@@ -64,7 +64,7 @@ export class GraphController {
    * @returns The resolved nodes with source, and any handles that did not
    *   resolve
    */
-  public expand(props: IExpandProps): IExpandResult {
+  public graph_expand(props: IExpandProps): IExpandResult {
     return runExpand(this.graph, props);
   }
 
@@ -78,7 +78,7 @@ export class GraphController {
    * @param props The query and result cap
    * @returns Ranked hits with handles
    */
-  public query(props: IQueryProps): IQueryResult {
+  public graph_query(props: IQueryProps): IQueryResult {
     return runQuery(this.graph, props);
   }
 
@@ -92,7 +92,7 @@ export class GraphController {
    * @returns The ordered hops and reached nodes, or candidates for an ambiguous
    *   start
    */
-  public trace(props: ITraceProps): ITraceResult {
+  public graph_trace(props: ITraceProps): ITraceResult {
     return runTrace(this.graph, props);
   }
 
