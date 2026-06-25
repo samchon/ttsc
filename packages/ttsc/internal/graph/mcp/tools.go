@@ -23,9 +23,9 @@ func queryFilesEnabled() bool {
 }
 
 // toolsListResult advertises the tool surface: query_exports orients the agent
-// around the public surface, query_nodes answers relationship questions,
-// query_files outlines files, and query_diagnostics is the focused "what is
-// broken" tool.
+// around the public surface, query_flow turns natural task terms into bounded
+// runtime slices, query_nodes answers relationship questions, query_files
+// outlines files, and query_diagnostics is the focused "what is broken" tool.
 func toolsListResult() any {
 	tools := []any{
 		map[string]any{
@@ -72,6 +72,21 @@ func toolsListResult() any {
 						"enum":        []any{"auto", "exact", "fuzzy"},
 						"default":     "auto",
 						"description": "Match strategy. Use exact for a known symbol name, handle, or file path; use fuzzy for discovery.",
+					},
+				},
+				"required": []any{"query"},
+			},
+		},
+		map[string]any{
+			"name":         "query_flow",
+			"description":  queryFlowDescription,
+			"outputSchema": queryFlowOutputSchema(),
+			"inputSchema": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"query": map[string]any{
+						"type":        "string",
+						"description": queryFlowQueryDescription,
 					},
 				},
 				"required": []any{"query"},
@@ -366,6 +381,36 @@ func queryNodesOutputSchema() map[string]any {
 	return schema
 }
 
+func queryFlowOutputSchema() map[string]any {
+	properties := map[string]any{}
+	properties["totalMatches"] = schemaInteger("Number of matched nodes before flow shaping.")
+	properties["message"] = schemaString("Optional status when no flow-capable match is found.")
+	properties["seeds"] = schemaArrayRef("Seed declarations selected from the task terms.", "#/$defs/QueryNodeRef")
+	properties["nodes"] = schemaArrayRef("Expanded flow declarations.", "#/$defs/ExpandedNode")
+	properties["flow"] = schemaRef("Runtime-flow evidence between returned node handles.", "#/$defs/QueryFlow")
+	schema := objectOutputSchema(properties, []any{"totalMatches", "seeds", "nodes"})
+	defs := graphIndexDefs()
+	defs["ExpandedNode"] = objectOutputSchema(map[string]any{
+		"handle":      schemaString("Stable graph handle."),
+		"kind":        schemaNodeKind("Declaration kind."),
+		"name":        schemaString("Symbol name."),
+		"file":        schemaString("Project-relative file."),
+		"line":        schemaInteger("Declaration line."),
+		"external":    map[string]any{"type": "boolean", "description": "Whether this declaration is external."},
+		"sourceState": schemaSourceState("Whether source was included or unavailable."),
+		"source":      schemaRef("Declaration source included for the selected flow slice.", "#/$defs/ExpandedSource"),
+		"diagnostics": schemaRef("Diagnostic counts attached to this declaration.", "#/$defs/QueryDiagnosticsSummary"),
+	}, []any{"handle", "kind", "name", "file", "line", "external", "sourceState", "diagnostics"})
+	defs["ExpandedSource"] = objectOutputSchema(map[string]any{
+		"startLine":    schemaInteger("First line number of lines."),
+		"lines":        schemaArrayString("Source lines."),
+		"truncated":    map[string]any{"type": "boolean", "description": "Whether the declaration source was truncated."},
+		"omittedLines": schemaInteger("Omitted line count when truncated."),
+	}, []any{"startLine", "lines", "truncated", "omittedLines"})
+	schema["$defs"] = defs
+	return schema
+}
+
 func queryPathOutputSchema() map[string]any {
 	properties := map[string]any{}
 	properties["message"] = schemaString("Optional status when no path or partial handling needs explanation.")
@@ -482,6 +527,8 @@ func (s *Server) callTool(params json.RawMessage) (any, *rpcError) {
 		return s.queryExports(call.Arguments)
 	case "query_nodes":
 		return s.queryNodes(call.Arguments)
+	case "query_flow":
+		return s.queryFlow(call.Arguments)
 	case "query_path":
 		return s.queryPath(call.Arguments)
 	case "expand_nodes":
@@ -642,6 +689,14 @@ type queryNodesResult struct {
 	Nodes        []graphNodeResult `json:"nodes"`
 }
 
+type queryFlowResult struct {
+	TotalMatches int                  `json:"totalMatches"`
+	Message      string               `json:"message,omitempty"`
+	Seeds        []nodeRefResult      `json:"seeds"`
+	Nodes        []expandedNodeResult `json:"nodes"`
+	Flow         *flowResult          `json:"flow,omitempty"`
+}
+
 type queryPathResult struct {
 	Message string           `json:"message,omitempty"`
 	Nodes   []pathNodeResult `json:"nodes"`
@@ -798,18 +853,38 @@ func (s *Server) graphNodeResult(node *graph.Node, includeGraphDetails bool) gra
 func (s *Server) expandedNodeResults(nodes []*graph.Node, sourceLines int) []expandedNodeResult {
 	out := make([]expandedNodeResult, 0, len(nodes))
 	for _, node := range nodes {
-		result := expandedNodeResult{
-			nodeRefResult: s.nodeRef(node),
-			SourceState:   sourceStateUnavailable,
-			Diagnostics:   diagnosticsSummary(s.nodeDiagnostics(node)),
-		}
-		if source := s.sourceResult(node, sourceLines); source != nil {
-			result.Source = source
-			result.SourceState = sourceStateIncluded
-		}
-		out = append(out, result)
+		out = append(out, s.expandedNodeResult(node, sourceLines))
 	}
 	return out
+}
+
+func (s *Server) expandedFlowNodeResults(nodes []*graph.Node, seedIDs map[string]bool) []expandedNodeResult {
+	out := make([]expandedNodeResult, 0, len(nodes))
+	seedLines := 80
+	if len(seedIDs) > 5 {
+		seedLines = 60
+	}
+	for _, node := range nodes {
+		sourceLines := 40
+		if node != nil && seedIDs[node.ID] {
+			sourceLines = seedLines
+		}
+		out = append(out, s.expandedNodeResult(node, sourceLines))
+	}
+	return out
+}
+
+func (s *Server) expandedNodeResult(node *graph.Node, sourceLines int) expandedNodeResult {
+	result := expandedNodeResult{
+		nodeRefResult: s.nodeRef(node),
+		SourceState:   sourceStateUnavailable,
+		Diagnostics:   diagnosticsSummary(s.nodeDiagnostics(node)),
+	}
+	if source := s.sourceResult(node, sourceLines); source != nil {
+		result.Source = source
+		result.SourceState = sourceStateIncluded
+	}
+	return result
 }
 
 func diagnosticsSummary(diags []fusedDiagnostic) diagnosticsSummaryResult {
@@ -1286,6 +1361,69 @@ func (s *Server) queryNodes(args json.RawMessage) (any, *rpcError) {
 	}
 	result := s.queryNodesResult(matches)
 	return structuredToolResult(result, fmt.Sprintf("query_nodes returned %d nodes", len(result.Nodes))), nil
+}
+
+// queryFlow turns a natural-language task into a bounded call-flow slice. It is
+// the one-shot path for questions where the user names concepts, methods, or
+// file words but not an exact start/end pair.
+func (s *Server) queryFlow(args json.RawMessage) (any, *rpcError) {
+	var in struct {
+		Query string `json:"query"`
+	}
+	if err := json.Unmarshal(args, &in); err != nil || strings.TrimSpace(in.Query) == "" {
+		return nil, &rpcError{Code: codeInvalidParams, Message: "query_flow requires a non-empty 'query'"}
+	}
+	if err := s.ensureLoaded(); err != nil {
+		return nil, &rpcError{Code: codeInternal, Message: "graph not available: " + err.Error()}
+	}
+	s.refreshIfStale()
+	s.refreshDiagnostics()
+
+	query := strings.TrimSpace(in.Query)
+	matches := s.matchNodes(query)
+	includeTestFiles := queryAllowsTestFiles(query)
+	tokens := queryTokens(query)
+	words := queryWords(query)
+	versionTokens := queryVersionTokens(tokens)
+	seeds := flowDiscoverySeeds(matches, includeTestFiles, versionTokens)
+	if len(seeds) == 0 {
+		result := queryFlowResult{
+			TotalMatches: 0,
+			Message:      fmt.Sprintf("No flow-capable graph nodes match %q.", clip(query, 200)),
+			Seeds:        []nodeRefResult{},
+			Nodes:        []expandedNodeResult{},
+		}
+		return structuredToolResult(result, result.Message), nil
+	}
+	seedIDs := make(map[string]bool, len(seeds))
+	for _, seed := range seeds {
+		seedIDs[seed.ID] = true
+	}
+
+	nodes := s.withCallPath(seeds, maxFlowNodes, query)
+	nodes = s.withRelevantFlowCallers(nodes, seeds, maxFlowNodes, tokens, words, includeTestFiles, versionTokens)
+	nodes = filterContextFlowNodes(nodes, includeTestFiles, versionTokens)
+	nodes = dedupeFlowNodes(nodes, maxFlowNodes)
+	included := make(map[string]bool, len(nodes))
+	for _, node := range nodes {
+		if node != nil {
+			included[node.ID] = true
+		}
+	}
+	seedRefs := make([]nodeRefResult, 0, len(seeds))
+	for _, seed := range seeds {
+		if seed != nil && included[seed.ID] {
+			seedRefs = append(seedRefs, s.nodeRef(seed))
+		}
+	}
+
+	result := queryFlowResult{
+		TotalMatches: len(matches),
+		Seeds:        seedRefs,
+		Nodes:        s.expandedFlowNodeResults(nodes, seedIDs),
+		Flow:         s.flowResult(nodes, query),
+	}
+	return structuredToolResult(result, fmt.Sprintf("query_flow returned %d flow nodes", len(result.Nodes))), nil
 }
 
 // queryPath answers an exact A-to-B runtime-flow question. It resolves the
@@ -2024,6 +2162,210 @@ func (s *Server) filterFlowNodes(nodes []*graph.Node, query string) []*graph.Nod
 	return out
 }
 
+const maxFlowDiscoverySeeds = 6
+
+func flowDiscoverySeeds(matches []*graph.Node, includeTestFiles bool, versionTokens []string) []*graph.Node {
+	out := make([]*graph.Node, 0, maxFlowDiscoverySeeds)
+	seen := map[string]bool{}
+	for _, node := range matches {
+		if node == nil || seen[node.ID] || !flowNodeEligible(node) || !nodeMatchesFlowContext(node, includeTestFiles, versionTokens) {
+			continue
+		}
+		seen[node.ID] = true
+		out = append(out, node)
+		if len(out) >= maxFlowDiscoverySeeds {
+			return out
+		}
+	}
+	if len(out) > 0 {
+		return out
+	}
+	for _, node := range matches {
+		if node == nil || seen[node.ID] || !nodeMatchesFlowContext(node, includeTestFiles, versionTokens) {
+			continue
+		}
+		seen[node.ID] = true
+		out = append(out, node)
+		if len(out) >= maxFlowDiscoverySeeds {
+			break
+		}
+	}
+	return out
+}
+
+func (s *Server) withRelevantFlowCallers(nodes []*graph.Node, seeds []*graph.Node, max int, tokens []string, words map[string]bool, includeTestFiles bool, versionTokens []string) []*graph.Node {
+	if len(nodes) >= max {
+		return nodes
+	}
+	seen := make(map[string]bool, len(nodes))
+	for _, node := range nodes {
+		if node != nil {
+			seen[node.ID] = true
+		}
+	}
+	type callerCandidate struct {
+		id        string
+		seedName  string
+		score     int
+		seedOrder int
+	}
+	candidatesByID := map[string]callerCandidate{}
+	for seedOrder, seed := range seeds {
+		if seed == nil {
+			continue
+		}
+		if hasIncludedIncomingRuntimeEdge(seed.ID, seen, s.graph.Edges) {
+			continue
+		}
+		for _, id := range s.reverseValueAdj[seed.ID] {
+			if seen[id] {
+				continue
+			}
+			caller := s.graph.Nodes[id]
+			if caller == nil || caller.External || s.ignored[caller.File] || !flowNodeEligible(caller) || !nodeMatchesFlowContext(caller, includeTestFiles, versionTokens) {
+				continue
+			}
+			score := s.pathTargetScore(id, tokens, words)
+			if score <= 0 {
+				score = sharedOwnerScore(caller, seed)
+			}
+			if score <= 0 {
+				continue
+			}
+			score += flowBranchKindBonus(caller)
+			candidate := callerCandidate{
+				id:        id,
+				seedName:  seed.Name,
+				score:     score,
+				seedOrder: seedOrder,
+			}
+			if prev, ok := candidatesByID[id]; !ok || candidate.score > prev.score || (candidate.score == prev.score && candidate.seedOrder < prev.seedOrder) {
+				candidatesByID[id] = candidate
+			}
+		}
+	}
+	candidates := make([]callerCandidate, 0, len(candidatesByID))
+	for _, candidate := range candidatesByID {
+		candidates = append(candidates, candidate)
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].score != candidates[j].score {
+			return candidates[i].score > candidates[j].score
+		}
+		if candidates[i].seedOrder != candidates[j].seedOrder {
+			return candidates[i].seedOrder < candidates[j].seedOrder
+		}
+		if candidates[i].seedName != candidates[j].seedName {
+			return candidates[i].seedName < candidates[j].seedName
+		}
+		return candidates[i].id < candidates[j].id
+	})
+	out := append([]*graph.Node(nil), nodes...)
+	addedPerSeed := map[int]int{}
+	for _, candidate := range candidates {
+		if len(out) >= max {
+			break
+		}
+		if addedPerSeed[candidate.seedOrder] >= 1 {
+			continue
+		}
+		if seen[candidate.id] {
+			continue
+		}
+		node := s.graph.Nodes[candidate.id]
+		if node == nil {
+			continue
+		}
+		seen[candidate.id] = true
+		addedPerSeed[candidate.seedOrder]++
+		out = append(out, node)
+	}
+	return out
+}
+
+func hasIncludedIncomingRuntimeEdge(targetID string, included map[string]bool, edges []*graph.Edge) bool {
+	for _, edge := range edges {
+		if edge.To != targetID || !included[edge.From] || (edge.Kind != graph.EdgeValueCall && edge.Kind != graph.EdgeValueAccess) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func filterContextFlowNodes(nodes []*graph.Node, includeTestFiles bool, versionTokens []string) []*graph.Node {
+	if includeTestFiles && len(versionTokens) == 0 {
+		return nodes
+	}
+	out := make([]*graph.Node, 0, len(nodes))
+	for _, node := range nodes {
+		if node == nil || !nodeMatchesFlowContext(node, includeTestFiles, versionTokens) {
+			continue
+		}
+		out = append(out, node)
+	}
+	if len(out) == 0 {
+		return nodes
+	}
+	return out
+}
+
+func nodeMatchesFlowContext(node *graph.Node, includeTestFiles bool, versionTokens []string) bool {
+	if node == nil {
+		return false
+	}
+	if !includeTestFiles && isTestLikeFile(node.File) {
+		return false
+	}
+	if len(versionTokens) > 0 && !filePathContainsAny(strings.ToLower(node.File), versionTokens) {
+		return false
+	}
+	return true
+}
+
+func queryAllowsTestFiles(query string) bool {
+	words := queryWords(query)
+	return words["test"] || words["tests"] || words["spec"] || words["fixture"] || words["mock"]
+}
+
+func isTestLikeFile(file string) bool {
+	file = strings.ToLower(strings.ReplaceAll(file, "\\", "/"))
+	base := file
+	if slash := strings.LastIndexByte(base, '/'); slash >= 0 {
+		base = base[slash+1:]
+	}
+	return strings.Contains(file, "/test/") ||
+		strings.Contains(file, "/tests/") ||
+		strings.Contains(file, "/__tests__/") ||
+		strings.Contains(base, ".test.") ||
+		strings.Contains(base, ".spec.")
+}
+
+func sharedOwnerScore(left *graph.Node, right *graph.Node) int {
+	leftOwner := ownerOf(left.Name)
+	rightOwner := ownerOf(right.Name)
+	if leftOwner != "" && leftOwner == rightOwner {
+		return 60
+	}
+	return 0
+}
+
+func dedupeFlowNodes(nodes []*graph.Node, max int) []*graph.Node {
+	out := make([]*graph.Node, 0, len(nodes))
+	seen := map[string]bool{}
+	for _, node := range nodes {
+		if node == nil || seen[node.ID] {
+			continue
+		}
+		seen[node.ID] = true
+		out = append(out, node)
+		if len(out) >= max {
+			break
+		}
+	}
+	return out
+}
+
 const maxFlowNodes = 16
 
 func flowNodeEligible(node *graph.Node) bool {
@@ -2496,6 +2838,46 @@ func queryWords(query string) map[string]bool {
 		}
 	}
 	return words
+}
+
+func queryVersionTokens(tokens []string) []string {
+	out := make([]string, 0)
+	for _, token := range tokens {
+		if isVersionToken(token) {
+			out = append(out, token)
+		}
+	}
+	return out
+}
+
+func isVersionToken(token string) bool {
+	if len(token) < 2 || token[0] != 'v' {
+		return false
+	}
+	for i := 1; i < len(token); i++ {
+		if token[i] < '0' || token[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func filePathComponents(path string) []string {
+	return strings.FieldsFunc(path, func(r rune) bool {
+		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
+	})
+}
+
+func filePathContainsAny(path string, tokens []string) bool {
+	components := filePathComponents(path)
+	for _, token := range tokens {
+		for _, component := range components {
+			if component == token {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func containsWholeWord(words map[string]bool, value string) bool {

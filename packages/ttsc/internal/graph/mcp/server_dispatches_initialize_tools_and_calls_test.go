@@ -60,7 +60,7 @@ export const bad: number = "not a number";
 	if info, _ := init["serverInfo"].(map[string]any); info == nil || info["name"] != "ttsc-graph" {
 		t.Fatalf("initialize serverInfo missing or wrong: %v", init["serverInfo"])
 	}
-	if text, _ := init["instructions"].(string); !strings.Contains(text, "query_exports") || !strings.Contains(text, "query_path") || !strings.Contains(text, "query_nodes") {
+	if text, _ := init["instructions"].(string); !strings.Contains(text, "query_exports") || !strings.Contains(text, "query_flow") || !strings.Contains(text, "query_path") || !strings.Contains(text, "query_nodes") {
 		t.Fatalf("initialize did not ship server instructions: %v", init["instructions"])
 	}
 
@@ -72,7 +72,7 @@ export const bad: number = "not a number";
 	// tools/list advertises the graph tools.
 	list := result(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
 	names := toolNames(t, list)
-	if !names["query_exports"] || !names["query_path"] || !names["query_nodes"] || !names["expand_nodes"] || !names["query_files"] || !names["query_diagnostics"] {
+	if !names["query_exports"] || !names["query_flow"] || !names["query_path"] || !names["query_nodes"] || !names["expand_nodes"] || !names["query_files"] || !names["query_diagnostics"] {
 		t.Fatalf("tools/list missing expected tools: %v", names)
 	}
 	tools := toolsByName(t, list)
@@ -126,6 +126,22 @@ export const bad: number = "not a number";
 	edgeRef := nodesDefs["QueryEdgeRef"].(map[string]any)
 	edgeRefProperties := edgeRef["properties"].(map[string]any)
 	assertStringEnum(t, edgeRefProperties["kind"].(map[string]any), "heritage", "value-call", "value-access", "type-ref")
+	flow := tools["query_flow"]
+	if desc, _ := flow["description"].(string); !strings.Contains(desc, "Natural-language call-flow discovery") {
+		t.Fatalf("query_flow did not use the embedded description: %v", desc)
+	}
+	flowSchema := flow["inputSchema"].(map[string]any)
+	flowProperties := flowSchema["properties"].(map[string]any)
+	flowQuery := flowProperties["query"].(map[string]any)
+	if desc, _ := flowQuery["description"].(string); !strings.Contains(desc, "Natural-language task terms") {
+		t.Fatalf("query_flow query did not use the embedded description: %v", desc)
+	}
+	flowOutput := flow["outputSchema"].(map[string]any)
+	assertNoOutputEchoFields(t, flowOutput, "schemaVersion", "tool", "query")
+	flowDefs := flowOutput["$defs"].(map[string]any)
+	if flowDefs["ExpandedNode"] == nil || flowDefs["QueryFlow"] == nil {
+		t.Fatalf("query_flow output schema did not expose flow defs: %v", flowDefs)
+	}
 	pathTool := tools["query_path"]
 	if desc, _ := pathTool["description"].(string); !strings.Contains(desc, "start and end symbol") {
 		t.Fatalf("query_path did not use the embedded description: %v", desc)

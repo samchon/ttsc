@@ -1,0 +1,1 @@
+Natural-language task terms, symbol names, dotted members, file words, and domain nouns. Include the user's important words verbatim; the graph chooses likely seed declarations and follows relevant runtime flow from them.
