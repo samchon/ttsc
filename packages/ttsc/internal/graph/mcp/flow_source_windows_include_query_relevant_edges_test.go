@@ -8,18 +8,18 @@ import (
 )
 
 // TestFlowSourceWindowsIncludeQueryRelevantEdges verifies flow source windows
-// include local value-use evidence that matches the query even when the target
-// node is not part of the selected path node set.
+// include local checker-resolved value-use evidence even when the target node is
+// not part of the selected path node set.
 //
 // Flow rendering is an index answer, not just a list of already-selected nodes.
-// If a known declaration has a checker-resolved call/access at the relevant line,
-// the window should expose that evidence so an agent does not reopen the same
-// body with expand_nodes or shell reads.
+// If a known declaration has a checker-resolved call/access, the window should
+// expose capped local evidence so an agent does not reopen the same body with
+// expand_nodes or shell reads.
 //
 //  1. Render a long source body with one included path edge and one off-path edge
 //     whose target name matches the query.
 //  2. Assert the path edge and query-relevant off-path edge both appear.
-//  3. Assert an unrelated off-path edge remains omitted.
+//  3. Assert another local off-path edge can still appear as structural evidence.
 func TestFlowSourceWindowsIncludeQueryRelevantEdges(t *testing.T) {
   source := strings.Join([]string{
     "function route(request: Request) {",
@@ -73,7 +73,7 @@ func TestFlowSourceWindowsIncludeQueryRelevantEdges(t *testing.T) {
   if !strings.Contains(text, "const alias = aliasFactory(request);") {
     t.Fatalf("flow window omitted query-relevant off-path edge:\n%s", text)
   }
-  if strings.Contains(text, "const ignored = unrelated(request);") {
-    t.Fatalf("flow window included unrelated off-path edge:\n%s", text)
+  if !strings.Contains(text, "const ignored = unrelated(request);") {
+    t.Fatalf("flow window omitted local structural edge:\n%s", text)
   }
 }

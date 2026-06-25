@@ -450,7 +450,7 @@ func (s *Server) renderNodes(nodes []*graph.Node, budget int, note string) strin
 
 func (s *Server) renderExpandedNodes(nodes []*graph.Node, budget int, note string) string {
   var b strings.Builder
-  b.WriteString(exploreHeader)
+  b.WriteString(expandHeader)
   if note != "" {
     b.WriteString(note)
     b.WriteByte('\n')
@@ -513,6 +513,7 @@ func (s *Server) renderFlowNodes(nodes []*graph.Node, query string, note string)
     fmt.Fprintf(&b, "  %d. %s %s  %s:%d  handle:%s\n", i+1, node.Kind, node.Name, s.relFile(node.File), s.declLine(node), nodeHandle(node.ID))
   }
   b.WriteByte('\n')
+  s.writeFlowEvidence(&b, nodes, included, query)
   for _, node := range nodes {
     s.writeFlowNode(&b, node, included, query)
   }
@@ -919,22 +920,11 @@ func writeFileAdjacency(b *strings.Builder, label string, set map[string]bool) {
   }
 }
 
-// exploreHeader prefixes every graph_explore response. It carries only the steer
-// that is relevant at the moment the agent reads a result and decides its next
-// move: the relationships are a compiler-built graph snapshot (a trust signal),
-// and the right way to go deeper or refresh after edits is another broad graph
-// query, not shelling out and re-reading paths already resolved here. It
-// deliberately stops short of "never read source", because a budget-collapsed or
-// external node is shown as a signature with no body, and opening that file is
-// legitimate; what adds no precision is re-reading a path printed in full above.
-const exploreHeader = "Compiler-resolved graph snapshot, current as of this call; a later source edit can make it stale. " +
-  "Answer the whole flow from this result: the edges already give the downstream call path and blast radius, " +
-  "so a node shown as an edge target is part of the answer, not a reason to re-query. " +
-  "If a node you need was printed without a body, call expand_nodes with its handle. " +
-  "Re-query after source edits. Do not shell/grep/read TypeScript paths already printed here.\n\n"
+const exploreHeader = "Compiler-resolved graph snapshot. Answer from printed edges/source; expand only omitted declarations. Re-query after edits.\n\n"
 
-const flowHeader = "Compiler-resolved call flow, current as of this call. " +
-  "Answer from these exact path nodes, value-call/value-access edges, and code windows; expand handles for omitted TypeScript source.\n\n"
+const flowHeader = "Compiler-resolved call-flow briefing. Answer from this result; expand only to edit or quote omitted source.\n\n"
+
+const expandHeader = "Exact compiler-resolved declaration source. Use query_nodes or mode:flow for relationships. Re-query after edits.\n\n"
 
 // maxExploreNodes caps how many ranked nodes a query returns, so a broad
 // keyword query surfaces the most relevant declarations without flooding context.
@@ -1255,36 +1245,6 @@ func (s *Server) writeNodeEdges(b *strings.Builder, node *graph.Node) {
   }
 }
 
-// writeNodeOutgoingEdges writes only the relationships starting at this node.
-// Exact source expansion already has a concrete handle, so it should reopen the
-// declaration and local outbound evidence without replaying incoming callers or
-// blast-radius metadata from discovery.
-func (s *Server) writeNodeOutgoingEdges(b *strings.Builder, node *graph.Node) {
-  outgoing := make([]string, 0, maxEdgesPerDirection)
-  outMore := 0
-  for _, edge := range s.graph.Edges {
-    if edge.From != node.ID {
-      continue
-    }
-    to := s.graph.Nodes[edge.To]
-    if to == nil {
-      continue
-    }
-    if len(outgoing) < maxEdgesPerDirection {
-      outgoing = append(outgoing, fmt.Sprintf("  -> (%s) %s %s  %s:%d%s", edge.Kind, to.Kind, to.Name, s.relFile(to.File), s.declLine(to), s.edgeUseSuffix(edge)))
-    } else {
-      outMore++
-    }
-  }
-  for _, edge := range outgoing {
-    b.WriteString(edge)
-    b.WriteByte('\n')
-  }
-  if outMore > 0 {
-    fmt.Fprintf(b, "  -> (%d more)\n", outMore)
-  }
-}
-
 // writeNodeDiagnosticsHere writes the diagnostics that land on this declaration,
 // the live error view fused onto the static structure, capped at maxNodeDiagnostics
 // with the total still reported.
@@ -1346,12 +1306,12 @@ func (s *Server) writeNodeRelations(b *strings.Builder, node *graph.Node, withSo
   b.WriteString("\n")
 }
 
-// writeExpandedNodeSource renders the deterministic expand_nodes source view.
-// Discovery answers impact analysis; expansion answers "show me this known
-// declaration", so it keeps source and local outbound evidence only.
+// writeExpandedNodeSource renders the deterministic expand_nodes source view:
+// just the known declaration body plus local diagnostics. Relationship replay
+// belongs to query_nodes/flow, otherwise every source reopen becomes another
+// impact-analysis dump.
 func (s *Server) writeExpandedNodeSource(b *strings.Builder, node *graph.Node, sourceLines int) {
   s.writeNodeHeader(b, node)
-  s.writeNodeOutgoingEdges(b, node)
   s.writeNodeDiagnosticsHere(b, node)
   if source, line, sourceOffset := s.nodeSourceRange(node); source != "" {
     b.WriteString(numberLines(source, line, sourceLines))
@@ -1367,6 +1327,82 @@ func (s *Server) writeFlowNode(b *strings.Builder, node *graph.Node, included ma
     s.writeFlowSourceWindows(b, node, included, source, line, sourceOffset, query)
   }
   b.WriteString("\n")
+}
+
+const maxFlowEvidenceEdges = 32
+
+func (s *Server) writeFlowEvidence(b *strings.Builder, nodes []*graph.Node, included map[string]bool, query string) {
+  tokens := queryTokens(query)
+  words := queryWords(query)
+  type rankedEdge struct {
+    edge  *graph.Edge
+    score int
+    line  int
+  }
+  edges := make([]rankedEdge, 0)
+  for _, node := range nodes {
+    if node == nil {
+      continue
+    }
+    for _, edge := range s.graph.Edges {
+      if edge.From != node.ID || (edge.Kind != graph.EdgeValueCall && edge.Kind != graph.EdgeValueAccess) {
+        continue
+      }
+      to := s.graph.Nodes[edge.To]
+      if to == nil {
+        continue
+      }
+      onPath := included[edge.To]
+      targetScore := s.pathTargetScoreFrom(edge.From, edge.To, tokens, words)
+      if !onPath && targetScore <= 0 {
+        continue
+      }
+      score := targetScore
+      if onPath {
+        score += 1000
+      }
+      edges = append(edges, rankedEdge{edge: edge, score: score, line: s.edgeUseLine(edge)})
+    }
+  }
+  sort.SliceStable(edges, func(i, j int) bool {
+    if edges[i].score != edges[j].score {
+      return edges[i].score > edges[j].score
+    }
+    if edges[i].line != edges[j].line {
+      return edges[i].line < edges[j].line
+    }
+    return edges[i].edge.From+edges[i].edge.To < edges[j].edge.From+edges[j].edge.To
+  })
+  if len(edges) == 0 {
+    return
+  }
+  b.WriteString("Flow evidence:\n")
+  written := 0
+  seen := map[string]bool{}
+  for _, ranked := range edges {
+    edge := ranked.edge
+    key := edge.From + "\x00" + edge.To + "\x00" + string(edge.Kind)
+    if seen[key] {
+      continue
+    }
+    seen[key] = true
+    from := s.graph.Nodes[edge.From]
+    to := s.graph.Nodes[edge.To]
+    if from == nil || to == nil {
+      continue
+    }
+    label := "->"
+    if edge.Kind == graph.EdgeValueAccess {
+      label = "~>"
+    }
+    fmt.Fprintf(b, "  %s %s %s  %s\n", from.Name, label, to.Name, strings.TrimSpace(s.edgeUseSuffix(edge)))
+    written++
+    if written >= maxFlowEvidenceEdges {
+      b.WriteString("  ... (more flow evidence omitted)\n")
+      break
+    }
+  }
+  b.WriteByte('\n')
 }
 
 func (s *Server) writeFlowSourceWindows(b *strings.Builder, node *graph.Node, included map[string]bool, source string, startLine int, sourceOffset int, query string) {
@@ -1404,9 +1440,6 @@ func (s *Server) writeFlowSourceWindows(b *strings.Builder, node *graph.Node, in
     }
     targetScore := s.pathTargetScoreFrom(node.ID, edge.To, tokens, words)
     onPath := included[edge.To]
-    if !onPath && targetScore <= 0 {
-      continue
-    }
     idx := edgeSourceLineIndex(edge, source, sourceOffset)
     if idx < 0 {
       idx = findLateCallLine(lines, 0, memberName(to.Name))
@@ -1483,6 +1516,22 @@ func (s *Server) writeFlowSourceWindows(b *strings.Builder, node *graph.Node, in
       last = i
     }
   }
+}
+
+func (s *Server) edgeUseLine(edge *graph.Edge) int {
+  from := s.graph.Nodes[edge.From]
+  if from == nil || s.prog == nil || edge.Pos < 0 {
+    return 0
+  }
+  file := s.prog.SourceFile(from.File)
+  if file == nil {
+    return 0
+  }
+  text := file.Text()
+  if edge.Pos > len(text) {
+    return 0
+  }
+  return 1 + strings.Count(text[:edge.Pos], "\n")
 }
 
 func (s *Server) writeFlowValueEdges(b *strings.Builder, node *graph.Node, included map[string]bool) {

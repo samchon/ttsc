@@ -91,7 +91,7 @@ export const bad: number = "not a number";
     t.Fatalf("query_nodes mode did not use the embedded description: %v", desc)
   }
   expand := tools["expand_nodes"]
-  if desc, _ := expand["description"].(string); !strings.Contains(desc, "Exact expansion") {
+  if desc, _ := expand["description"].(string); !strings.Contains(desc, "Exact source expansion") {
     t.Fatalf("expand_nodes did not use the embedded description: %v", desc)
   }
   diagnostics := tools["query_diagnostics"]
