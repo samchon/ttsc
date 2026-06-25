@@ -1,6 +1,6 @@
 /**
  * The ordered dependency flow the `graph_trace` tool returns from a start
- * symbol or route.
+ * symbol.
  */
 export interface ITtscGraphTrace {
   /** The resolved start node, or undefined when `from` matched nothing. */
@@ -24,7 +24,7 @@ export namespace ITtscGraphTrace {
   /** Where and how far to trace dependency flow. */
   export interface IProps {
     /**
-     * Where to start: a node id from another tool, or a symbol/route name. An
+     * Where to start: a node id from another tool, or a symbol name. An
      * ambiguous name returns its candidates instead of a trace.
      */
     from: string;
@@ -32,7 +32,7 @@ export namespace ITtscGraphTrace {
     /**
      * `forward` follows what the start uses (callees, instantiations, renders);
      * `reverse` follows what uses the start (callers); `impact` is a reverse
-     * trace that flags the public API, routes, and tests a change would reach.
+     * trace that flags the public API and tests a change would reach.
      *
      * @default "forward"
      */
@@ -70,7 +70,7 @@ export namespace ITtscGraphTrace {
     file: string;
     /** Hops from the start, on a reached node. */
     depth?: number;
-    /** Why this node matters to an impact trace: `exported`, `route`, `test`. */
+    /** Why this node matters to an impact trace: `exported`, `test`. */
     roles?: string[];
   }
 }

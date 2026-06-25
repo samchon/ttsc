@@ -110,8 +110,7 @@ function resolveStart(
 
 /**
  * Summarize a node for a trace result. With `withRoles`, tag the public-surface
- * roles (exported / route / test) an impact trace reports; other directions
- * omit them.
+ * roles (exported / test) an impact trace reports; other directions omit them.
  */
 function summary(
   node: ITtscGraphNode,

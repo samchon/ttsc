@@ -5,11 +5,13 @@
  * - `checker-resolved`: the in-process TypeScript-Go checker resolved the symbol
  *   on both ends. This is the graph's core guarantee and the reason it is not a
  *   tree-sitter or text index.
- * - `framework-derived`: synthesized from a framework convention (a NestJS route
- *   decorator, a Next.js file route). Grounded in real syntax but not a checker
- *   symbol resolution.
- * - `heuristic`: an opt-in best-effort inference (a callback or event bridge).
- *   Never part of a default trace; always visibly marked.
+ * - `framework-derived`: derived from a framework convention rather than a
+ *   checker symbol resolution (e.g. a route from a decorator, a file-path
+ *   convention). The engine never emits this; it is reserved for an inference
+ *   layer a consumer builds on top of the graph.
+ * - `heuristic`: a best-effort inference (a callback or event bridge). Also never
+ *   emitted by the engine; reserved for a consumer layer and, when present,
+ *   always visibly marked and excluded from a default trace.
  */
 export type TtscGraphProvenance =
   | "checker-resolved"
