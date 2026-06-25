@@ -1,6 +1,6 @@
 # Tools
 
-`@ttsc/graph` exposes four MCP tools. Start with `query_exports` when you first open a project, then move to the graph queries once you know the public surface. An agent calls them on its own; you never invoke them by hand. They all answer from the resident `Program`, so the result is the compiler's own, at the same code and location `ttsc` reports.
+`@ttsc/graph` exposes four MCP tools. In a fresh project session, run `query_exports` once before the first `query_nodes`, then move to the graph queries once you know the public surface. `query_nodes` is for focused relationship and flow questions after that orientation, or when you already have exact symbols or handles. An agent calls them on its own; you never invoke them by hand. They all answer from the resident `Program`, so the result is the compiler's own, at the same code and location `ttsc` reports.
 
 Every tool returns the same MCP content envelope: one or more text blocks. The text is the rendered graph view; the structure is always this shape.
 
@@ -25,10 +25,10 @@ interface QueryExportsArguments {
    */
   query?: string;
 
-  /** Maximum export entries to return. Defaults to 1000, max 10000; 0 returns only the folder/kind summary. */
+  /** Maximum export entries to return. Defaults to 1000, minimum 0, max 10000; 0 returns only the folder/kind summary. */
   limit?: number;
 
-  /** Zero-based offset for the next page. Defaults to 0. */
+  /** Zero-based offset for the next page. Defaults to 0, minimum 0. */
   offset?: number;
 }
 ```
@@ -45,7 +45,7 @@ type QueryExportsResult = ToolResult; // content has exactly one text block
 
 ## query_nodes
 
-The primary tool after `query_exports`. Its one argument is the query:
+Use `query_nodes` after the first `query_exports` pass, or when you already know the exact symbols or handles you want to inspect. Its one argument is the query:
 
 ```ts
 interface QueryNodesArguments {

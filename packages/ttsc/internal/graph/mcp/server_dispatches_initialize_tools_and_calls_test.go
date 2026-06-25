@@ -77,7 +77,7 @@ export const bad: number = "not a number";
   }
   tools := toolsByName(t, list)
   exports := tools["query_exports"]
-  if desc, _ := exports["description"].(string); !strings.Contains(desc, "Use this first") {
+  if desc, _ := exports["description"].(string); !strings.Contains(desc, "fresh project session") {
     t.Fatalf("query_exports did not use the embedded description: %v", desc)
   }
   exportsSchema := exports["inputSchema"].(map[string]any)

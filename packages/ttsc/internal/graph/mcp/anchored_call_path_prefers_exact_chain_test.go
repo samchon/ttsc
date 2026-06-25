@@ -50,3 +50,58 @@ func TestAnchoredCallPathPrefersExactChain(t *testing.T) {
     t.Fatalf("withCallPath() = %#v; want %#v", got, want)
   }
 }
+
+// TestMatchNodesKeepsLongMemberAnchorsAfterDottedAnchors verifies a natural
+// flow query does not discard later exact member names just because earlier
+// owner/member anchors were found.
+//
+// Agents often ask with a partial chain like "Gateway fetch Coordinator
+// setPlan applyPlan buildSteps". The first owner/member pair should anchor the
+// path, but the later exact member tokens are still part of the requested route.
+func TestMatchNodesKeepsLongMemberAnchorsAfterDottedAnchors(t *testing.T) {
+  nodes := map[string]*graph.Node{
+    "gateway":  {ID: "gateway", Name: "Gateway.fetch", Kind: graph.NodeMethod, File: "src/main.ts"},
+    "manager":  {ID: "manager", Name: "Coordinator.fetch", Kind: graph.NodeMethod, File: "src/main.ts"},
+    "set":      {ID: "set", Name: "Pipeline.setFindOptions", Kind: graph.NodeMethod, File: "src/main.ts"},
+    "apply":    {ID: "apply", Name: "Pipeline.applyFindOptions", Kind: graph.NodeMethod, File: "src/main.ts"},
+    "build":    {ID: "build", Name: "Pipeline.buildRelations", Kind: graph.NodeMethod, File: "src/main.ts"},
+    "relations": {ID: "relations", Name: "Pipeline.relations", Kind: graph.NodeVariable, File: "src/main.ts"},
+    "unrelated": {ID: "unrelated", Name: "Other.create", Kind: graph.NodeMethod, File: "src/main.ts"},
+  }
+  server := &Server{graph: &graph.Graph{Nodes: nodes}}
+  query := "Gateway fetch Coordinator setFindOptions applyFindOptions buildRelations relations"
+  matches := server.matchNodes(query)
+  got := map[string]bool{}
+  for _, node := range matches {
+    got[node.Name] = true
+  }
+  for _, want := range []string{
+    "Gateway.fetch",
+    "Coordinator.fetch",
+    "Pipeline.setFindOptions",
+    "Pipeline.applyFindOptions",
+    "Pipeline.buildRelations",
+  } {
+    if !got[want] {
+      t.Fatalf("matchNodes omitted %s from mixed anchor/member query; got %#v", want, namesOf(matches))
+    }
+  }
+  if got["Other.create"] {
+    t.Fatalf("matchNodes pulled unrelated short member noise into mixed anchor/member query; got %#v", namesOf(matches))
+  }
+  route := map[string]bool{}
+  for _, node := range server.withCallPath(matches, maxPathNodes, query) {
+    route[node.Name] = true
+  }
+  if route["Pipeline.relations"] {
+    t.Fatalf("withCallPath promoted a data property to a bare member flow anchor; got %#v", namesOf(server.withCallPath(matches, maxPathNodes, query)))
+  }
+}
+
+func namesOf(nodes []*graph.Node) []string {
+  names := make([]string, 0, len(nodes))
+  for _, node := range nodes {
+    names = append(names, node.Name)
+  }
+  return names
+}

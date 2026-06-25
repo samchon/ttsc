@@ -1171,6 +1171,10 @@ func flowAnchors(query string, seeds []*graph.Node, words map[string]bool) []flo
       if member == name || !words[member] {
         continue
       }
+      if !naturalDottedAnchor(node.Name, words) &&
+        !(exactLongMemberAnchor(node.Name, words) && flowMemberAnchorEligible(node)) {
+        continue
+      }
       pos = strings.Index(whole, member)
       if pos < 0 {
         continue
@@ -1186,6 +1190,10 @@ func flowAnchors(query string, seeds []*graph.Node, words map[string]bool) []flo
     return anchors[i].order < anchors[j].order
   })
   return anchors
+}
+
+func flowMemberAnchorEligible(node *graph.Node) bool {
+  return node != nil && (node.Kind == graph.NodeMethod || node.Kind == graph.NodeFunction)
 }
 
 func (s *Server) shortestFlowPath(fromID, toID string, tokens []string, words map[string]bool) []string {
@@ -1669,6 +1677,15 @@ func exactMemberScore(name string, words map[string]bool) int {
   return 0
 }
 
+func exactLongMemberAnchor(name string, words map[string]bool) bool {
+  _, member, ok := dottedNameParts(name)
+  if !ok {
+    return false
+  }
+  member = strings.ToLower(member)
+  return len(member) >= 8 && words[member]
+}
+
 // matchNodes ranks declarations by relevance to query, which may be a symbol name
 // or the salient nouns of a natural-language question. A name is scored per query
 // token (exact > prefix > substring) plus a small centrality bonus (edge degree),
@@ -1685,6 +1702,7 @@ func (s *Server) matchNodes(query string) []*graph.Node {
     score       int
     dotted      bool
     exactAnchor bool
+    memberAnchor bool
     anchorPos   int
   }
   ranked := make([]scored, 0)
@@ -1698,6 +1716,7 @@ func (s *Server) matchNodes(query string) []*graph.Node {
     score := 0
     dotted := false
     exactAnchor := false
+    memberAnchor := false
     anchorPos := len(whole) + 1
     if name == whole {
       score += 1000
@@ -1719,6 +1738,7 @@ func (s *Server) matchNodes(query string) []*graph.Node {
     } else if memberScore := exactMemberScore(node.Name, words); memberScore > 0 {
       score += memberScore
       dotted = true
+      memberAnchor = exactLongMemberAnchor(node.Name, words)
     } else if len(name) >= 8 && strings.Contains(whole, name) {
       score += 500
     }
@@ -1750,7 +1770,7 @@ func (s *Server) matchNodes(query string) []*graph.Node {
         score += degree
       }
     }
-    ranked = append(ranked, scored{node: node, score: score, dotted: dotted, exactAnchor: exactAnchor, anchorPos: anchorPos})
+    ranked = append(ranked, scored{node: node, score: score, dotted: dotted, exactAnchor: exactAnchor, memberAnchor: memberAnchor, anchorPos: anchorPos})
   }
   if len(ranked) > 0 {
     sort.Slice(ranked, func(i, j int) bool {
@@ -1783,6 +1803,20 @@ func (s *Server) matchNodes(query string) []*graph.Node {
         }
         return anchors[i].ID < anchors[j].ID
       })
+      seen := make(map[string]bool, len(anchors))
+      for _, node := range anchors {
+        seen[node.ID] = true
+      }
+      for _, r := range ranked {
+        if len(anchors) >= maxExploreNodes {
+          break
+        }
+        if !r.memberAnchor || seen[r.node.ID] {
+          continue
+        }
+        seen[r.node.ID] = true
+        anchors = append(anchors, r.node)
+      }
       return anchors
     }
     dottedOwners := map[string]bool{}

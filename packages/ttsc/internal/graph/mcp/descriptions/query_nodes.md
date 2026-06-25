@@ -1,4 +1,4 @@
-The compiler-resolved TypeScript graph for a relationship or code-flow question. Reach for it first, before shell/grep/read.
+The compiler-resolved TypeScript graph for a relationship or code-flow question. In a fresh project session, call query_exports once first, then use query_nodes before shell/grep/read.
 
 One broad fuzzy query (owner + action + nouns, e.g. "controller dispatch service cache") returns the matched declarations with their calls, callers, types, blast radius, source, and exact handles: the whole cluster in one call, so you do not query one symbol at a time.
 
