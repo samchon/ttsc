@@ -65,6 +65,7 @@ type DumpNode struct {
   External      bool            `json:"external"`
   Ignored       bool            `json:"ignored,omitempty"`
   Exported      bool            `json:"exported,omitempty"`
+  Modifiers     []string        `json:"modifiers,omitempty"`
   Evidence      *DumpEvidence   `json:"evidence,omitempty"`
   Decorators    []DumpDecorator `json:"decorators,omitempty"`
 }
@@ -111,7 +112,7 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
 
   nodes := make([]DumpNode, 0, len(g.Nodes))
   for _, n := range g.Nodes {
-    name, qualified := splitQualifiedName(n.Name)
+    name, qualified := nodeNames(n)
     nodes = append(nodes, DumpNode{
       ID:            ctx.relID(n.ID),
       Kind:          string(n.Kind),
@@ -121,6 +122,7 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
       External:      n.External,
       Ignored:       ignored[n.File],
       Exported:      n.Exported,
+      Modifiers:     n.Modifiers,
       Evidence:      ctx.evidence(n.File, n.Pos, n.End, false),
       Decorators:    decByNode[n.ID],
     })
@@ -194,14 +196,24 @@ func dumpEdgeKind(e *Edge) string {
   }
 }
 
-// splitQualifiedName separates an internal node name into its simple name and,
-// when the name is owner-qualified ("Class.method"), the full qualified form.
-// A top-level name has no owner, so qualified is "".
-func splitQualifiedName(name string) (simple, qualified string) {
-  if dot := strings.LastIndex(name, "."); dot >= 0 {
-    return name[dot+1:], name
+// nodeNames returns a node's simple name and, when it is owner-qualified, its
+// full qualified form for the wire. The simple name is the symbol's own name
+// recorded at build time, so a quoted member whose name contains a dot
+// (`"a.b"` → Name `C.a.b`) splits exactly; the qualified form is the full Name
+// when it differs from the simple name, and "" for a top-level declaration.
+// A node without a recorded simple name (a future virtual node) falls back to
+// the last dot-separated segment.
+func nodeNames(n *Node) (simple, qualified string) {
+  if n.Simple == "" {
+    if dot := strings.LastIndex(n.Name, "."); dot >= 0 {
+      return n.Name[dot+1:], n.Name
+    }
+    return n.Name, ""
   }
-  return name, ""
+  if n.Simple == n.Name {
+    return n.Simple, ""
+  }
+  return n.Simple, n.Name
 }
 
 // dumpContext relativizes paths and turns byte spans into line/col evidence,

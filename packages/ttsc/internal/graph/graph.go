@@ -27,8 +27,15 @@ const Provenance = "checker-resolved"
 // declaration does not re-key it. That keeps a future incremental layer from
 // churning the whole graph on every edit, which a byte-offset key would force.
 type Node struct {
-  ID       string
-  Name     string
+  ID   string
+  Name string
+  // Simple is the unqualified declared name (`create`, `OrderService`), taken
+  // straight from the declaration's symbol. Name may join an owner chain to a
+  // member with a single dot, and a quoted member name can itself contain a dot
+  // (`"a.b"` → Name `C.a.b`), so the simple/qualified boundary cannot be
+  // recovered from Name by splitting on a dot. Recording it here keeps the dump
+  // split exact instead of guessing.
+  Simple   string
   Kind     NodeKind
   File     string
   External bool
@@ -37,6 +44,12 @@ type Node struct {
   // a barrel (`export *`) counts, not only an inline `export` modifier. It is
   // the signal a public-API projection filters on.
   Exported bool
+  // Modifiers holds the declaration's syntactic modifiers as wire strings (a
+  // subset of the TtscGraphNodeModifier union: export/default/declare/abstract/
+  // static/readonly/async/const/public/private/protected). It is recorded from
+  // the declaration's combined modifier flags during the build pass and emitted
+  // for projections that filter on visibility and shape.
+  Modifiers []string
   // Pos and End bound the declaration in its source file (byte offsets). They
   // are for display, never identity, so an edit that shifts them does not re-key
   // the node.

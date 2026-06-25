@@ -466,6 +466,7 @@ func (g *Graph) ensureTargetNode(target *Target) string {
   g.Nodes[id] = &Node{
     ID:       id,
     Name:     name,
+    Simple:   simpleName(target.Symbol),
     Kind:     kind,
     File:     target.File,
     External: true,

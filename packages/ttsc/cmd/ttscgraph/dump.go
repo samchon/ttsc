@@ -3,7 +3,10 @@ package main
 import (
   "flag"
   "fmt"
+  "path/filepath"
   "strings"
+
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
@@ -33,6 +36,14 @@ func runDump(args []string) int {
     }
     cwd = resolved
   }
+  // Resolve the project root the same way LoadProgram does (absolute, then
+  // tsgo-normalized) so it shares the node file paths' drive-letter case on
+  // Windows; otherwise the dump's prefix-based relativization would miss and
+  // leave every path absolute.
+  if abs, err := filepath.Abs(cwd); err == nil {
+    cwd = abs
+  }
+  cwd = shimtspath.ResolvePath(cwd)
   tsconfig := strings.TrimSpace(*tsconfigFlag)
 
   prog, _, err := driver.LoadProgram(cwd, tsconfig, driver.LoadProgramOptions{})
