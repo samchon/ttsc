@@ -1,4 +1,5 @@
 import { IComponentMetadata } from "./IComponentMetadata";
+import { IDecoratorFact } from "./IDecoratorFact";
 import { IEvidence } from "./IEvidence";
 import { IRouteMetadata } from "./IRouteMetadata";
 import { NodeKind } from "./NodeKind";
@@ -56,6 +57,13 @@ export interface IGraphNode {
 
   /** Declaration modifiers, when the declaration pass recorded any. */
   modifiers?: NodeModifier[];
+
+  /**
+   * The decorators written on this declaration, in source order, when it has
+   * any. A framework pass reads these to synthesize routes (`@Controller`,
+   * `@Get`) without re-parsing source.
+   */
+  decorators?: IDecoratorFact[];
 
   /** The declaration span, for display and source expansion. */
   evidence?: IEvidence;

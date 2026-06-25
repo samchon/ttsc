@@ -1,6 +1,5 @@
 import { Confidence } from "./Confidence";
 import { EdgeKind } from "./EdgeKind";
-import { IDecoratorFact } from "./IDecoratorFact";
 import { IEvidence } from "./IEvidence";
 import { Provenance } from "./Provenance";
 
@@ -33,10 +32,4 @@ export interface IGraphEdge {
 
   /** The source expression that produced the edge, for display and expansion. */
   evidence?: IEvidence;
-
-  /**
-   * The decorator as written; present on `decorates` edges and read by the
-   * framework pass to synthesize routes.
-   */
-  decorator?: IDecoratorFact;
 }

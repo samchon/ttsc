@@ -1,9 +1,9 @@
 /**
- * A decorator as written on a declaration, carried on a `decorates`
- * {@link IGraphEdge}. The framework pass reads these to synthesize routes
- * without re-parsing source: the decorator `name` selects the convention
- * (`Controller`, `Get`, `TypedRoute.Get`, …) and the literal `arguments` supply
- * the path or pattern.
+ * A decorator as written on a declaration, carried on the decorated
+ * {@link IGraphNode}'s `decorators`. The framework pass reads these to
+ * synthesize routes without re-parsing source: the decorator `name` selects the
+ * convention (`Controller`, `Get`, `TypedRoute.Get`, …) and the literal
+ * `arguments` supply the path or pattern.
  */
 export interface IDecoratorFact {
   /**
