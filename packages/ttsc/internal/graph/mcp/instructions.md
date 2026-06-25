@@ -9,7 +9,7 @@ The graph mirrors the current program. Query again after edits instead of reusin
 - `query_path`: exact A-to-B runtime path through value calls and value access. Pass `from`, `to`, and `via` when the prompt gives intermediate symbols.
 - `query_exports`: public surface orientation. It returns exported declarations and public members with names, kinds, files, lines, handles, and aliases.
 - `query_nodes`: relationship discovery when exact endpoints are not known. Use one focused query with the relevant symbol, owner, action, or domain terms.
-- `expand_nodes`: exact follow-up for handles returned by graph tools. Use it only when node coordinates are not enough and source context is required.
+- `expand_nodes`: exact source follow-up for handles returned by graph tools. Use it only when node coordinates are not enough and source context is required, and pass every handle you need in one call instead of one per call.
 - `query_files`: file roster. Use it for declarations and adjacent files around known paths.
 - `query_diagnostics`: current project diagnostics, optionally filtered by file and severity.
 

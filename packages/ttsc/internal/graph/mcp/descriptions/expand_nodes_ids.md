@@ -1,1 +1,1 @@
-One or more `handle:n:...` values copied from `query_nodes` or `query_files`. Full internal node IDs are also accepted.
+One or more `handle:n:...` values copied from `query_path`, `query_nodes`, or `query_files`. Pass all the handles you need to inspect together in a single call instead of one per call. Full internal node IDs are also accepted.
