@@ -3,159 +3,487 @@ marp: true
 theme: default
 paginate: true
 size: 4:3
-title: "TTSC: Transformer Survival in the TypeScript 7 Era"
+title: "TTSC: From Transformer Crisis to TypeScript-Go Toolchain"
 description: "TypeScript Backend Meetup, 2026-06-26"
-footer: "TTSC | TypeScript Backend Meetup | 2026-06-26"
+footer: "https://ttsc.dev | 2026-06-26"
 style: |
   section {
+    background: #f7fbff;
+    box-shadow: inset 0 8px 0 #3178c6;
     font-family: "Inter", "Segoe UI", "Pretendard", sans-serif;
-    color: #111827;
-    padding: 72px 84px;
+    color: #0f172a;
+    overflow: hidden;
+    padding: 68px 78px;
+    position: relative;
   }
   section.lead {
+    background: #3178c6;
+    box-shadow: none;
+    color: #ffffff;
     display: flex;
     flex-direction: column;
     justify-content: center;
   }
+  section.lead::before {
+    bottom: -42px;
+    color: rgba(255, 255, 255, 0.1);
+    content: "TS";
+    font-size: 230px;
+    font-weight: 900;
+    letter-spacing: 0;
+    line-height: 0.8;
+    position: absolute;
+    right: 28px;
+  }
+  section.lead h1,
+  section.lead h2,
+  section.lead h3,
+  section.lead p,
+  section.lead li {
+    color: #ffffff;
+    position: relative;
+  }
+  section footer {
+    color: rgba(49, 120, 198, 0.78);
+  }
+  section.lead footer,
+  section.lead::after {
+    color: rgba(255, 255, 255, 0.86) !important;
+  }
   h1 {
-    color: #0f172a;
-    font-size: 58px;
+    color: #102a43;
+    font-size: 54px;
+    letter-spacing: 0;
+    margin-bottom: 28px;
   }
   h2 {
-    color: #0f172a;
-    font-size: 44px;
+    color: #102a43;
+    font-size: 42px;
   }
   h3 {
-    color: #2563eb;
-    font-size: 32px;
+    color: #3178c6;
+    font-size: 30px;
+  }
+  p,
+  li {
+    font-size: 28px;
+    line-height: 1.34;
+  }
+  ul ul,
+  ol ul {
+    margin-top: 4px;
+  }
+  ul ul li,
+  ol ul li {
+    color: #334155;
+    font-size: 23px;
+    line-height: 1.25;
   }
   strong {
-    color: #2563eb;
+    color: #3178c6;
   }
   code {
     font-family: "Cascadia Code", monospace;
   }
+  pre {
+    background: #111827;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #e5e7eb;
+    margin: 0;
+    overflow: visible;
+    padding: 18px;
+  }
+  pre code {
+    background: transparent;
+    color: #e5e7eb;
+    font-size: inherit;
+    padding: 0;
+  }
+  pre code.hljs {
+    background: transparent;
+    color: #e5e7eb;
+    overflow: visible;
+    padding: 0;
+  }
+  pre .hljs-keyword,
+  pre .hljs-built_in,
+  pre .hljs-selector-tag {
+    color: #c084fc !important;
+  }
+  pre .hljs-string,
+  pre .hljs-regexp {
+    color: #86efac !important;
+  }
+  pre .hljs-title,
+  pre .hljs-title.class_,
+  pre .hljs-title.function_ {
+    color: #93c5fd !important;
+  }
+  pre .hljs-attr,
+  pre .hljs-property,
+  pre .hljs-attribute {
+    color: #facc15 !important;
+  }
+  pre .hljs-number,
+  pre .hljs-literal {
+    color: #fb923c !important;
+  }
+  pre .hljs-type,
+  pre .hljs-symbol {
+    color: #67e8f9 !important;
+  }
+  pre .hljs-comment {
+    color: #94a3b8 !important;
+    font-style: italic;
+  }
+  pre .hljs-meta {
+    color: #f472b6 !important;
+  }
   table {
     font-size: 24px;
   }
+  th {
+    background: #dbeafe;
+    color: #102a43;
+  }
+  td,
+  th {
+    border-color: #93c5fd !important;
+  }
   blockquote {
-    border-left: 8px solid #2563eb;
+    border-left: 8px solid #3178c6;
     color: #1f2937;
-    font-size: 34px;
+    font-size: 32px;
     padding-left: 28px;
   }
-  section.split h1 {
-    margin-bottom: 28px;
-  }
-  section.split .cols {
-    align-items: stretch;
+  section.split {
+    column-gap: 28px;
     display: grid;
-    gap: 36px;
-    grid-template-columns: 0.95fr 1.05fr;
+    grid-template-columns: 0.64fr 1.36fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    padding: 56px 58px;
   }
-  section.split .cols.equal {
-    grid-template-columns: 1fr 1fr;
+  section.split h1 {
+    font-size: 46px;
+    grid-column: 1 / -1;
+    margin-bottom: 22px;
   }
-  section.split .col {
-    min-width: 0;
-  }
-  section.split .panel,
-  section.split .code-card,
-  section.split .diagram {
+  section.split > ul {
+    align-self: start;
     background: #f8fafc;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
-    padding: 22px;
+    grid-column: 1;
+    margin: 0;
+    padding: 18px 20px 18px 36px;
   }
-  section.split .label {
-    color: #2563eb;
-    font-size: 22px;
-    font-weight: 700;
-    margin-bottom: 14px;
-    text-transform: uppercase;
+  section.split > ul > li {
+    font-size: 23px;
+    line-height: 1.24;
+  }
+  section.split > ul li li {
+    font-size: 19px;
+    line-height: 1.2;
   }
   section.split .caption {
     color: #475569;
-    font-size: 24px;
-    margin-top: 16px;
-  }
-  section.split pre {
-    background: #0f172a;
-    border-radius: 8px;
-    color: #e5e7eb;
-    font-size: 20px;
-    line-height: 1.35;
-    margin: 0;
-    padding: 18px;
-  }
-  section.split .node,
-  section.split .hub,
-  section.split .metric {
-    background: #ffffff;
-    border: 1px solid #94a3b8;
-    border-radius: 8px;
-    padding: 14px 18px;
-  }
-  section.split .node {
-    font-size: 24px;
-    font-weight: 700;
-    text-align: center;
-  }
-  section.split .arrow {
-    color: #64748b;
-    font-size: 28px;
-    font-weight: 800;
-    margin: 10px 0;
-    text-align: center;
-  }
-  section.split .flow-grid {
-    display: grid;
-    gap: 12px;
-  }
-  section.split .hub {
-    border-color: #2563eb;
-    color: #0f172a;
-    font-size: 28px;
-    font-weight: 800;
-    margin: 16px 0;
-    text-align: center;
-  }
-  section.split .spokes {
-    display: grid;
-    gap: 12px;
-    grid-template-columns: 1fr 1fr;
-  }
-  section.split .mini {
-    color: #334155;
     font-size: 22px;
+    margin-top: 12px;
   }
-  section.split .metric {
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    justify-content: center;
-    min-height: 280px;
+  section.code-split {
+    column-gap: 28px;
+    display: grid;
+    grid-template-columns: 0.58fr 1.42fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    padding: 48px 56px;
   }
-  section.split .metric strong {
-    color: #16a34a;
-    font-size: 96px;
-    line-height: 1;
+  section.code-split h1 {
+    font-size: 44px;
+    grid-column: 1 / -1;
+    margin-bottom: 18px;
   }
-  section.split .bar {
-    align-items: center;
+  section.code-split > ul {
+    align-self: start;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    grid-column: 1;
+    margin: 0;
+    padding: 16px 18px 16px 34px;
+  }
+  section.code-split > ul > li {
+    font-size: 21px;
+    line-height: 1.22;
+  }
+  section.code-split > ul li li {
+    font-size: 17px;
+    line-height: 1.18;
+  }
+  section.code-split > pre {
+    align-self: start;
+    grid-column: 2;
+    min-width: 0;
+  }
+  section.code-split pre {
+    font-size: 20px;
+    line-height: 1.26;
+    padding: 14px;
+  }
+  section.benchmark {
+    column-gap: 30px;
+    display: grid;
+    grid-template-columns: 0.7fr 1.3fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    padding: 56px 58px;
+  }
+  section.benchmark h1 {
+    font-size: 46px;
+    grid-column: 1 / -1;
+    margin-bottom: 22px;
+  }
+  section.benchmark > ul {
+    align-self: start;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    grid-column: 1;
+    margin: 0;
+    padding: 18px 20px 18px 36px;
+  }
+  section.benchmark > ul > li {
+    font-size: 23px;
+    line-height: 1.24;
+  }
+  section.benchmark > ul li li {
+    font-size: 19px;
+    line-height: 1.2;
+  }
+  section.benchmark .benchmarks {
     display: grid;
     gap: 12px;
-    grid-template-columns: 110px 1fr 110px;
-    margin: 12px 0;
+    grid-column: 2;
   }
-  section.split .bar-fill {
-    background: #2563eb;
+  section.benchmark .bench-card {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
     border-radius: 8px;
-    height: 18px;
+    padding: 14px;
   }
-  section.split .bar-fill.green {
-    background: #16a34a;
+  section.benchmark .bench-title {
+    color: #2563eb;
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 10px;
+  }
+  section.benchmark .bench-row {
+    align-items: center;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 150px minmax(0, 1fr) 104px;
+    margin-top: 7px;
+  }
+  section.benchmark .bench-name {
+    color: #334155;
+    font-size: 17px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  section.benchmark .bench-value {
+    color: #0f172a;
+    font-size: 21px;
+    font-weight: 900;
+    line-height: 1;
+    text-align: right;
+    white-space: nowrap;
+  }
+  section.benchmark .bench-track {
+    background: #e2e8f0;
+    border-radius: 999px;
+    height: 22px;
+    overflow: hidden;
+  }
+  section.benchmark .bench-fill {
+    background: #2563eb;
+    border-radius: 999px;
+    height: 100%;
+  }
+  section.benchmark .bench-fill.base {
+    background: #94a3b8;
+  }
+  section.benchmark .w-base {
+    width: 8%;
+  }
+  section.benchmark .w-10 {
+    width: 36%;
+  }
+  section.benchmark .w-30 {
+    width: 48%;
+  }
+  section.benchmark .w-200 {
+    width: 64%;
+  }
+  section.benchmark .w-20000 {
+    width: 100%;
+  }
+  section.benchmark .bench-note {
+    color: #64748b;
+    font-size: 17px;
+    margin-top: 10px;
+  }
+  section.cards > ul {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  section.cards > ul > li {
+    background: #ffffff;
+    border: 1px solid #93c5fd;
+    border-left: 8px solid #3178c6;
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(49, 120, 198, 0.12);
+    color: #102a43;
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.15;
+    padding: 18px 20px;
+  }
+  section.cards > ul > li > ul {
+    list-style: disc;
+    margin-top: 12px;
+    padding-left: 24px;
+  }
+  section.cards > ul > li li {
+    color: #334155;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.25;
+  }
+  section.cards.three > ul {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  section.cards.three > ul > li {
+    font-size: 23px;
+    padding: 16px 18px;
+  }
+  section.cards.three > ul > li li {
+    font-size: 18px;
+  }
+  section.cards.choice > ul > li:last-child {
+    background: #3178c6;
+    border-color: #1d4ed8;
+    color: #ffffff;
+  }
+  section.cards.choice > ul > li:last-child li,
+  section.cards.choice > ul > li:last-child strong {
+    color: #dbeafe;
+  }
+  section.compare table {
+    background: #ffffff;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(49, 120, 198, 0.12);
+    display: table;
+    font-size: 23px;
+    overflow: hidden;
+    width: 100%;
+  }
+  section.compare td,
+  section.compare th {
+    padding: 16px 18px;
+    vertical-align: top;
+  }
+  section.compare td:nth-child(2),
+  section.compare th:nth-child(2) {
+    background: #eff6ff;
+  }
+  section.metric table {
+    background: #ffffff;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(49, 120, 198, 0.12);
+    display: table;
+    font-size: 28px;
+    overflow: hidden;
+    width: 100%;
+  }
+  section.metric td,
+  section.metric th {
+    padding: 18px 22px;
+  }
+  section.metric strong {
+    display: block;
+    font-size: 64px;
+    line-height: 1;
+    margin-top: 28px;
+    text-align: center;
+  }
+  section.flow > ul {
+    align-items: stretch;
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  section.flow > ul > li {
+    background: #ffffff;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(49, 120, 198, 0.12);
+    color: #102a43;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.15;
+    min-height: 220px;
+    padding: 18px;
+    position: relative;
+  }
+  section.flow > ul > li:not(:last-child)::after {
+    color: #3178c6;
+    content: ">";
+    font-size: 34px;
+    font-weight: 900;
+    position: absolute;
+    right: -19px;
+    top: 88px;
+  }
+  section.flow > ul > li > ul {
+    margin-top: 12px;
+    padding-left: 22px;
+  }
+  section.flow > ul > li li {
+    color: #334155;
+    font-size: 19px;
+    font-weight: 500;
+    line-height: 1.25;
+  }
+  section.blueprint {
+    background: #0f172a;
+    box-shadow: inset 0 8px 0 #3178c6;
+    color: #e5f0ff;
+  }
+  section.blueprint h1,
+  section.blueprint h2,
+  section.blueprint h3,
+  section.blueprint li,
+  section.blueprint p {
+    color: #e5f0ff;
+  }
+  section.blueprint strong {
+    color: #93c5fd;
+  }
+  section.blueprint > ul > li {
+    background: #102a43;
+    border-color: #3178c6;
+    color: #ffffff;
+  }
+  section.blueprint > ul > li li {
+    color: #dbeafe;
   }
 ---
 
@@ -163,245 +491,66 @@ style: |
 
 # TTSC
 
-### TypeScript-Go ToolChain
+### From Transformer Crisis to TypeScript-Go Toolchain
 
 TypeScript Backend Meetup
 
 Samchon, 2026-06-26
 
-<!--
-Opening: TypeScript-Go is the trigger. TTSC is the survival layer for transformer users.
--->
-
 ---
 
-# TTSC
+![TTSC logo](https://ttsc.dev/og.jpg)
 
-![TTSC logo](../og.jpg)
-
-<!--
-One beat for the logo.
--->
+- https://ttsc.dev
+- https://github.com/samchon/ttsc
 
 ---
 
 # TL;DR
 
-- TypeScript compiler is moving to Go
-
-- Transformers lose the old JavaScript patch point
-
-- TTSC keeps compile-time code generation alive
-
-- Linter and Graph turn compiler state into toolchain state
-
-<!--
-Say: this talk is not "Go is faster". It is "the compiler substrate changed".
--->
-
----
-
-# Preface
-
-TypeScript 7 changes the foundation under TypeScript tools.
-
-- Native Go compiler
-
-- TypeScript 6 semantic parity
-
-- About **10x** faster on many projects
-
-- Plugin ecosystem must adapt
-
-<!--
-Source is Microsoft's TypeScript 7 RC and native port posts.
--->
+- typia and nestia
+  - pure TypeScript input
+  - generated runtime/tooling output
+- TypeScript-Go
+  - faster compiler
+  - missing JavaScript patch point
+- TTSC
+  - transformer host
+  - compiler-state toolchain
 
 ---
 
 # Index
 
-1. TypeScript-Go
-
-2. TTSC
-
-3. TTSC Linter
-
-4. TTSC Graph
-
-<!--
-Four chapters. Problem first, TTSC after.
--->
+1. typia and nestia
+2. TypeScript-Go Shock
+3. TTSC: Transformer Survival
+4. TTSC: Toolchain Opportunity
 
 ---
 
 <!-- _class: lead -->
 
-# 1. TypeScript-Go
+# 1. typia and nestia
 
-- Good News
-
-- Bad News
-
-- Transformer
-
-- Compatibility Gap
-
-<!--
-Chapter start is only the local table of contents.
--->
+- Show the code
+- Show the output
+- Then name the engine
 
 ---
 
-# 1.1. Good News
-
-TypeScript compiler is moving from JavaScript to Go.
-
-- TypeScript 7.0 RC
-
-- Native compiler and language service
-
-- Shared-memory parallelism
-
-- About **10x** faster than TypeScript 6.0
-
-<!--
-Say: most users hear this as a simple speed story.
--->
-
----
-
-# 1.1. Good News
-
-The port is not a rewrite of the language.
-
-- Existing codebase ported to Go
-
-- Type-checking logic kept structurally identical
-
-- Same TypeScript semantics
-
-- New runtime foundation
-
-<!--
-Say: for normal users, compatibility is the headline. For tool authors, runtime foundation is the issue.
--->
-
----
-
-# 1.1. Good News
-
-Backend teams pay compiler latency every day.
-
-- Monorepo type check
-
-- Watch mode
-
-- Editor startup
-
-- CI feedback loop
-
-<!--
-Say: 10x is not an abstract benchmark. It changes the development loop.
--->
-
----
-
-# 1.2. Bad News
-
-Compiler plugins lived inside the old compiler shape.
-
-- JavaScript runtime
-
-- TypeScript compiler API
-
-- AST and Checker objects
-
-- Emit pipeline hooks
-
-<!--
-Say: transformer users were extending the compiler, not just compiling source.
--->
-
----
-
-# 1.2. Bad News
-
-The old ecosystem patched TypeScript itself.
-
-- `ttypescript`
-
-- `ts-patch`
-
-- `tsconfig.plugins`
-
-- custom transformers
-
-<!--
-Say: the plugin contract was informal, but it worked because everything was JavaScript.
--->
-
----
-
-# 1.2. Bad News
-
-APIs can survive while engines break.
-
-- `typia`
-
-- `nestia`
-
-- custom SDK generators
-
-- generated runtime validators
-
-<!--
-Say: user-facing code can remain the same, but the generation engine must move.
--->
-
----
-
-# 1.3. Transformer
-
-Transformer = compile-time code generation from TypeScript types.
-
-- Read source code
-
-- Inspect AST
-
-- Ask the Checker
-
-- Emit JavaScript
-
-<!--
-Minimal definition. The next slides show why it matters.
--->
-
----
-
-# 1.3. Transformer
-
-Common backend uses:
-
-- Runtime validation
-
-- Serialization
-
-- OpenAPI generation
-
-- SDK generation
-
-- SDK call signatures
-
-<!--
-Say: typia and nestia are concrete examples, not edge cases.
--->
-
----
-
-# 1.3. Transformer
-
-### Typia: TypeScript input
+<!-- _class: code-split -->
+
+# 1.1. typia Source
+
+- User writes
+  - TS type
+  - tags
+  - generic call
+- No duplicate
+  - no schema
+  - no decorator
+  - no DTO class
 
 ```typescript
 import typia, { tags } from "typia";
@@ -414,74 +563,109 @@ interface IMember {
     tags.ExclusiveMinimum<19> &
     tags.Maximum<100>;
 }
-typia.createIs<IMember>();
-```
 
-<!--
-Say: IMember is a type. It disappears at runtime unless a transformer catches it before erasure.
--->
+const isMember =
+  typia.createIs<IMember>();
+```
 
 ---
 
-# 1.3. Transformer
+<!-- _class: code-split -->
 
-### Typia: JavaScript output
+# 1.1. typia Output
+
+- Compiler emits
+  - UUID check
+  - email check
+  - uint32 check
+  - range check
+- Erased type
+  - JS
+  - no interpreter
 
 ```javascript
-import * as _b from "typia/lib/internal/_isFormatEmail";
-import * as _a from "typia/lib/internal/_isFormatUuid";
-import * as _c from "typia/lib/internal/_isTypeUint32";
-
-(() => {
-  const _io0 = (input) =>
-    "string" === typeof input.id &&
-    _a._isFormatUuid(input.id) &&
-    "string" === typeof input.email &&
-    _b._isFormatEmail(input.email) &&
-    "number" === typeof input.age &&
-    _c._isTypeUint32(input.age) &&
-    19 < input.age &&
-    input.age <= 100;
-  return (input) => "object" === typeof input && null !== input && _io0(input);
-})();
+const isMember = (input) =>
+  "object" === typeof input &&
+  null !== input &&
+  "string" === typeof input.id &&
+  _isFormatUuid(input.id) &&
+  "string" === typeof input.email &&
+  _isFormatEmail(input.email) &&
+  "number" === typeof input.age &&
+  _isTypeUint32(input.age) &&
+  19 < input.age &&
+  input.age <= 100;
 ```
 
-<!--
-Say: one generic type call became UUID, email, integer, and range checks.
--->
+---
+
+<!-- _class: benchmark -->
+
+# 1.1. typia Impact
+
+- Runtime validation
+  - **20,000x**
+  - `class-validator`
+  - detailed failure paths
+- JSON serialization
+  - **200x**
+  - `class-transformer`
+  - type-specialized stringifier
+- Same source
+  - TypeScript type
+  - JSDoc
+  - tags
+
+<div class="benchmarks">
+  <div class="bench-card">
+    <div class="bench-title">Runtime validation</div>
+    <div class="bench-row">
+      <div class="bench-name">class-validator</div>
+      <div class="bench-track"><div class="bench-fill base w-base"></div></div>
+      <div class="bench-value">1x</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">typia</div>
+      <div class="bench-track"><div class="bench-fill w-20000"></div></div>
+      <div class="bench-value">20,000x</div>
+    </div>
+  </div>
+  <div class="bench-card">
+    <div class="bench-title">JSON serialization</div>
+    <div class="bench-row">
+      <div class="bench-name">class-transformer</div>
+      <div class="bench-track"><div class="bench-fill base w-base"></div></div>
+      <div class="bench-value">1x</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">typia</div>
+      <div class="bench-track"><div class="bench-fill w-200"></div></div>
+      <div class="bench-value">200x</div>
+    </div>
+  </div>
+  <div class="bench-note">Log-scaled visual, comparison target = 1x.</div>
+</div>
 
 ---
 
-# 1.3. Transformer
+<!-- _class: code-split -->
 
-Type information became runtime code.
+# 1.2. nestia Source
 
-- `tags.Format<"uuid">` -> UUID check
-
-- `tags.Format<"email">` -> email check
-
-- `tags.Type<"uint32">` -> integer range
-
-- `tags.Maximum<100>` -> boundary check
-
-<!--
-Say: this is not reflection. It is ahead-of-time compilation.
--->
-
----
-
-# 1.3. Transformer
-
-### Nestia: backend controller
+- Backend code
+  - path
+  - method
+  - parameter
+  - body type
+  - return
+- Contract source
+  - controller
 
 ```typescript
-import { TypedBody, TypedParam, TypedRoute } from "@nestia/core";
-import { Controller } from "@nestjs/common";
-
 @Controller("bbs/:section/articles")
 export class BbsArticlesController {
   @TypedRoute.Post()
-  async create(
+  public async create(
     @TypedParam("section") section: string,
     @TypedBody() input: IBbsArticle.ICreate,
   ): Promise<IBbsArticle> {
@@ -490,83 +674,248 @@ export class BbsArticlesController {
 }
 ```
 
-<!--
-Say: backend code is still normal NestJS. The important part is the TypeScript type on input and output.
--->
-
 ---
 
-# 1.3. Transformer
+<!-- _class: code-split -->
 
-### Nestia: frontend SDK
+# 1.2. nestia Output
+
+- Generated SDK
+  - typed fetch
+  - DTO
+  - checks
+- Backend
+  - no interface copy
+  - FE API
 
 ```typescript
-import api from "@my/api";
-
-const connection: api.IConnection = {
-  host: "http://localhost:3000",
-};
-
 const article: IBbsArticle =
-  await api.functional.bbs.articles.create(connection, "general", {
-    title: "Hello World",
-    body: "My first article",
-  } satisfies IBbsArticle.ICreate);
+  await api.functional.bbs.articles.create(
+    connection,
+    "general",
+    {
+      title: "Hello World",
+      body: "My first article",
+    } satisfies IBbsArticle.ICreate,
+  );
 ```
 
-<!--
-Say: this follows the Nestia homepage contrast: backend controller in, frontend SDK function out.
--->
+---
+
+<!-- _class: benchmark -->
+
+# 1.2. nestia Impact
+
+- Server performance
+  - **10x+** total path
+  - **30x** Fastify path
+  - validation **20,000x**
+  - serialization **200x**
+- SDK generation
+  - typed fetch functions
+  - DTO structures
+  - npm distribution
+- Tooling
+  - OpenAPI
+  - mockup simulator
+  - E2E test functions
+  - Swagger editor
+
+<div class="benchmarks">
+  <div class="bench-card">
+    <div class="bench-title">Server path</div>
+    <div class="bench-row">
+      <div class="bench-name">NestJS base</div>
+      <div class="bench-track"><div class="bench-fill base w-base"></div></div>
+      <div class="bench-value">1x</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">nestia</div>
+      <div class="bench-track"><div class="bench-fill w-10"></div></div>
+      <div class="bench-value">10x+</div>
+    </div>
+  </div>
+  <div class="bench-card">
+    <div class="bench-title">Validation</div>
+    <div class="bench-row">
+      <div class="bench-name">class-validator</div>
+      <div class="bench-track"><div class="bench-fill base w-base"></div></div>
+      <div class="bench-value">1x</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">typia core</div>
+      <div class="bench-track"><div class="bench-fill w-20000"></div></div>
+      <div class="bench-value">20,000x</div>
+    </div>
+  </div>
+  <div class="bench-card">
+    <div class="bench-title">Serialization</div>
+    <div class="bench-row">
+      <div class="bench-name">class-transformer</div>
+      <div class="bench-track"><div class="bench-fill base w-base"></div></div>
+      <div class="bench-value">1x</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">typia core</div>
+      <div class="bench-track"><div class="bench-fill w-200"></div></div>
+      <div class="bench-value">200x</div>
+    </div>
+  </div>
+</div>
 
 ---
 
-# 1.3. Transformer
+# 1.3. What You Just Saw
 
-Backend type became frontend function.
-
-- Controller path -> SDK namespace
-
-- Route method -> SDK function
-
-- `@TypedBody()` -> request type
-
-- `Promise<IBbsArticle>` -> response type
-
-<!--
-Say: this is the nestia transformer story. Backend TypeScript becomes frontend API surface.
--->
-
----
-
-# 1.4. Compatibility Gap
-
-Old transformer setup installed a compiler patch.
-
-```json
-{
-  "scripts": {
-    "prepare": "ts-patch install"
-  },
-  "devDependencies": {
-    "ts-patch": "^3.2.1"
-  }
-}
-```
-
-<!--
-Say: this was the old survival strategy.
--->
+- typia
+  - TypeScript type
+  - runtime validator
+  - JSON serializer
+  - LLM schema
+- nestia
+  - NestJS controller
+  - runtime boundary
+  - client SDK
+  - OpenAPI document
+- Same shape
+  - compiler analysis
+  - generated artifacts
 
 ---
 
-# 1.4. Compatibility Gap
+# 1.3. The Common Engine
 
-Old transformer setup registered plugins in `tsconfig.json`.
+- Input
+  - TypeScript source
+  - types
+  - decorators
+  - JSDoc
+- Compiler facts
+  - AST
+  - Checker
+  - symbols
+  - diagnostics
+- Output
+  - JavaScript
+  - schemas
+  - SDK
+  - OpenAPI
+
+---
+
+# 1.4. Now: Transformer
+
+- Transformer
+  - compile-time code generation
+  - from TypeScript compiler facts
+- Reads
+  - source file
+  - AST
+  - Checker
+- Rewrites
+  - JavaScript emit
+  - diagnostics
+  - generated artifacts
+
+---
+
+# 1.4. Hidden Dependency
+
+- Public API
+  - still TypeScript
+  - still npm package
+  - still framework-friendly
+- Private engine
+  - JavaScript compiler process
+  - transformer host
+  - emit pipeline
+- Key split
+  - language compatibility
+  - plugin compatibility
+
+---
+
+<!-- _class: lead -->
+
+# 2. TypeScript-Go Shock
+
+- Native compiler arrives
+- Faster is good
+- Patch point dies
+- My projects are at risk
+
+---
+
+<!-- _class: cards -->
+
+# 2.1. Native Compiler
+
+- TypeScript 7.0 RC
+  - JavaScript compiler to Go compiler
+  - native compiler and language service
+- Performance
+  - shared-memory parallelism
+  - about **10x** faster than TypeScript 6.0
+- User story
+  - same language
+  - faster loop
+
+---
+
+<!-- _class: cards -->
+
+# 2.1. Backend Upside
+
+- Daily compiler cost
+  - monorepo type check
+  - watch mode
+  - editor startup
+  - CI feedback
+- Result
+  - shorter local loop
+  - shorter review loop
+  - shorter release loop
+
+---
+
+<!-- _class: cards three -->
+
+# 2.2. Old Assumption
+
+- Old compiler
+  - JavaScript package
+  - JavaScript process
+  - JavaScript objects
+- Old transformers
+  - JavaScript modules
+  - compiler API access
+  - emit hook access
+- Old strategy
+  - patch TypeScript
+
+---
+
+<!-- _class: cards -->
+
+# 2.2. Patch Model
+
+- `ttypescript`
+  - custom compiler wrapper
+- `ts-patch`
+  - mutate installed TypeScript
+- `tsconfig.plugins`
+  - transformer module path
+- Works because
+  - compiler is JavaScript
+  - transformer is JavaScript
+
+---
+
+# 2.3. Old Setup
 
 ```json
 {
   "compilerOptions": {
-    "strict": true,
     "plugins": [
       { "transform": "typia/lib/transform" },
       { "transform": "@nestia/core/lib/transform" },
@@ -576,69 +925,72 @@ Old transformer setup registered plugins in `tsconfig.json`.
 }
 ```
 
-<!--
-Say: this assumes the compiler can load JavaScript plugins into its own process.
--->
+---
+
+<!-- _class: compare -->
+
+# 2.3. Broken Assumption
+
+| Old world | TypeScript-Go world |
+| --- | --- |
+| compiler: JavaScript process | compiler: Go process |
+| transformer: JavaScript module | transformer: JavaScript ecosystem |
+| hook: patchable | hook: missing |
+| language OK | transformer host broken |
 
 ---
 
-# 1.4. Compatibility Gap
+<!-- _class: cards three -->
 
-The new compiler substrate breaks that assumption.
+# 2.4. Project Risk
 
-- Old compiler: JavaScript process
-
-- Old transformer: JavaScript module
-
-- New compiler: Go process
-
-- Old hook: unavailable
-
-<!--
-Say: TypeScript 7 can preserve language semantics while still breaking plugin hosting.
--->
+- typia risk
+  - erased types unseen
+  - validators not generated
+  - serializers not generated
+- nestia risk
+  - controllers not extracted
+  - SDK not generated
+  - OpenAPI not generated
+- Business risk
+  - public APIs survive
+  - engine disappears
 
 ---
 
-# 1.4. Compatibility Gap
+<!-- _class: cards choice -->
 
-Transformer users need a toolchain, not a patch.
+# 2.4. Options
 
-- Compiler front door
-
-- Plugin host
-
-- Runtime execution path
-
-- Editor integration
-
-<!--
-Say: this is the bridge from TypeScript-Go to TTSC.
--->
+- Wait
+  - upstream plugin model
+  - unknown timeline
+- Retreat
+  - runtime schemas
+  - weaker compiler magic
+- Drop features
+  - no transformer path
+  - no generated boundary
+- Build
+  - new host
+  - TypeScript-Go base
 
 ---
 
 <!-- _class: lead -->
 
-# 2. TTSC
+# 3. TTSC: Transformer Survival
 
-- Compiler
-
-- Transformer
-
-- Runtime
-
-- Language Server
-
-<!--
-Chapter start is only the local table of contents.
--->
+- Compiler front door
+- Plugin host
+- Transformer lifecycle
+- Runtime and editor path
 
 ---
 
-# 2.1. Compiler
+<!-- _class: cards -->
 
-`ttsc` is a TypeScript-Go compiler front door.
+# 3.1. Compiler Front Door
 
 ```bash
 npx ttsc
@@ -646,610 +998,254 @@ npx ttsc --noEmit
 npx ttsc --watch
 ```
 
-- Build
-
-- Check
-
-- Watch
-
-- Host transformers
-
-<!--
-Say: command shape stays familiar. Compiler host changes.
--->
+- Familiar command shape
+  - build
+  - check
+  - watch
+- New responsibility
+  - own project load
+  - host transformers
+  - route compiler facts
 
 ---
 
-# 2.1. Compiler
+<!-- _class: cards -->
 
-TTSC keeps the compiler state as the shared substrate.
+# 3.1. Not a Bypass
 
-- Program
-
-- AST
-
-- Checker
-
-- Diagnostics
-
-- Emit
-
-<!--
-Say: every later feature hangs off this state.
--->
+- Keep TypeScript-Go
+  - native compiler base
+  - semantic analysis
+  - diagnostics
+- Add missing layer
+  - transformer host
+  - plugin execution path
+  - emit integration
+- Goal
+  - survive on the new compiler
 
 ---
 
-# 2.1. Compiler
+<!-- _class: compare -->
 
-The core contract:
+# 3.2. Old Host vs TTSC Host
 
-- Load project once
-
-- Build semantic graph once
-
-- Let tools reuse it
-
-- Report through compiler diagnostics
-
-<!--
-Say: this is the opposite of spawning many tools that rediscover the same project.
--->
+| Old | TTSC |
+| --- | --- |
+| Patch TypeScript install | Explicit compiler front door |
+| JS compiler process | TypeScript-Go base |
+| JS transformer loaded directly | Plugin host bridge |
+| Build-time only | Build, runtime, editor |
 
 ---
 
-# 2.2. Transformer
+<!-- _class: flow -->
 
-TTSC hosts transformers without patching TypeScript itself.
+# 3.2. Plugin Host
 
+- Project owner
+  - load project once
+  - keep Program state
 - Plugin package
-
-- Native sidecar
-
-- Cached artifacts
-
-- TypeScript-Go bridge
-
-<!--
-Say: plugins join the TTSC host instead of mutating the compiler installation.
--->
+  - discovered
+  - built
+  - cached
+- Bridge
+  - TypeScript-Go facts
+  - transformer execution
+  - emit output
 
 ---
 
-# 2.2. Transformer
+<!-- _class: flow -->
 
-Old model vs TTSC model:
+# 3.3. Transformer Lifecycle
 
-- `ts-patch` -> hook into JavaScript compiler
-
-- `ttsc` -> host plugins on TypeScript-Go
-
-- User API stays TypeScript
-
-- Generation engine moves behind it
-
-<!--
-Say: preserve the developer surface, replace the compiler integration.
--->
-
----
-
-# 2.2. Transformer
-
-Transformer lifecycle:
-
-- Read type declaration
-
-- Ask compiler for semantic facts
-
-- Generate optimized JavaScript
-
-- Feed result back into emit
-
-<!--
-Say: the lifecycle is the same story as typia, but the host is new.
--->
+- Input
+  - source files
+  - declarations
+  - compiler options
+- Compiler facts
+  - AST
+  - Checker
+  - diagnostics
+- Output
+  - generated JavaScript
+  - rewritten emit
+  - plugin diagnostics
 
 ---
 
-# 2.3. Runtime
+<!-- _class: cards three -->
 
-`ttsx` runs TypeScript after type checking.
+# 3.3. User API Stays
+
+- typia user
+  - `typia.createIs<T>()`
+  - no runtime schema
+- nestia user
+  - `@TypedRoute`
+  - generated SDK
+- Internal shift
+  - old patch removed
+  - TTSC host added
+
+---
+
+<!-- _class: cards -->
+
+# 3.4. Runtime Path
 
 ```bash
 npx ttsx src/index.ts
 ```
 
-- Direct execution
-
-- Real type check
-
-- Plugin-aware path
-
-<!--
-Say: the runtime command should not bypass the compiler guarantees.
--->
-
----
-
-# 2.3. Runtime
-
-Runtime target:
-
 - `tsx` convenience
-
-- `ts-node` use case
-
-- TypeScript-Go speed
-
-- no transpile-only compromise
-
-<!--
-Say: backend execution can be convenient without becoming blind.
--->
+  - direct TypeScript execution
+- Type safety
+  - real check
+  - plugin-aware path
+- Avoid
+  - transpile-only blind spot
 
 ---
 
-# 2.4. Language Server
+<!-- _class: cards -->
 
-`ttscserver` brings plugin results into the editor.
-
-- Diagnostics
-
-- Code actions
-
-- Plugin commands
-
-- VS Code extension path
-
-<!--
-Say: transformer errors must appear before CI.
--->
-
----
-
-# 2.4. Language Server
-
-Editor integration is part of the toolchain.
-
-- Compiler sees the project
-
-- Plugin sees the same project
-
-- Developer sees diagnostics early
-
-- CI becomes confirmation, not discovery
-
-<!--
-Say: if plugin work only happens at build time, the feedback loop is too late.
--->
-
----
-
-# 2.4. Language Server
-
-TTSC is not one wrapper command.
-
-- `ttsc`
-
-- `ttsx`
+# 3.4. Editor Path
 
 - `ttscserver`
+  - plugin diagnostics
+  - code actions
+  - plugin commands
+- VS Code path
+  - project view
+  - early feedback
+- Goal
+  - CI confirms
+  - editor discovers
 
-- shared plugin substrate
+---
 
-<!--
-Say: compiler, runtime, and editor must move together.
--->
+<!-- _class: cards -->
+
+# 3.4. Whole Loop
+
+- Build
+  - `ttsc`
+  - transformer emit
+- Runtime
+  - `ttsx`
+  - checked execution
+- Editor
+  - `ttscserver`
+  - plugin diagnostics
+- One toolchain
+  - not one wrapper
 
 ---
 
 <!-- _class: lead -->
 
-# 3. TTSC Linter
+# 4. TTSC: Toolchain Opportunity
 
-- Why Lint Again
-
-- Compiler-Aware Rules
-
-- Zero-Cost Linting
-
-- VS Code Benchmark
-
-<!--
-Chapter start is only the local table of contents.
--->
+- One Program and Checker
+- Linter without rebuild
+- Graph instead of grep
+- Patch to toolchain
 
 ---
 
-# 3.1. Why Lint Again
+<!-- _class: cards three -->
 
-The normal TypeScript check lane repeats work.
+# 4.1. Compiler State
+
+- Already loaded
+  - Program
+  - AST
+  - Checker
+  - diagnostics
+- Expensive to rebuild
+  - parse
+  - module graph
+  - type services
+- Reusable by tools
+  - transformers
+  - linter
+  - graph
+
+---
+
+<!-- _class: flow -->
+
+# 4.1. Core Contract
+
+- Load once
+  - project
+  - options
+  - dependencies
+- Analyze once
+  - semantic graph
+  - diagnostics
+  - type relations
+- Reuse many times
+  - emit
+  - lint
+  - graph
+
+---
+
+<!-- _class: cards -->
+
+# 4.2. Linter Without Rebuild
 
 ```bash
 npx tsc --noEmit
 npx eslint .
 ```
 
-- Same source tree
-
-- Same imports
-
-- Same types
-
-<!--
-Say: the expensive part is rediscovery.
--->
-
----
-
-# 3.1. Why Lint Again
-
-Repeated costs:
-
-- Parse
-
-- Walk
-
-- Type services
-
-- Diagnostics output
-
-<!--
-Say: type-aware linting asks questions the compiler already answered.
--->
+- Legacy cost
+  - compiler pass
+  - linter pass
+  - second type world
+- TTSC lint
+  - same Program
+  - same Checker
+  - same diagnostics stream
 
 ---
 
-# 3.2. Compiler-Aware Rules
+<!-- _class: metric -->
 
-`@ttsc/lint` runs where the Program already exists.
+# 4.2. VS Code Benchmark
 
-- TypeScript diagnostics
-
-- Lint diagnostics
-
-- Same check lane
-
-- Same compiler view
-
-<!--
-Say: one project load, one semantic view.
--->
-
----
-
-# 3.2. Compiler-Aware Rules
-
-Compiler-aware rules can ask semantic questions directly.
-
-- Symbol owner
-
-- Type relationship
-
-- Import target
-
-- Declaration site
-
-<!--
-Say: this is the part ESLint recreates with parser services.
--->
-
----
-
-# 3.2. Compiler-Aware Rules
-
-Compiler-style output:
-
-- `TS2322`
-
-- `[prefer-const]`
-
-- `[no-var]`
-
-- one diagnostics stream
-
-<!--
-Say: the developer reads one compiler report, not two disconnected reports.
--->
-
----
-
-# 3.3. Zero-Cost Linting
-
-Zero-cost means marginal cost.
-
-- Program already loaded
-
-- AST already built
-
-- Checker already available
-
-- Rule walk remains
-
-<!--
-Say: not literally zero milliseconds. It means no second TypeScript world.
--->
-
----
-
-# 3.3. Zero-Cost Linting
-
-Mental model:
-
-- Legacy: compiler + linter pipeline
-
-- TTSC: compiler check + lint pass
-
-- Formatting stays a separate write path
-
-- Type-aware linting stops duplicating analysis
-
-<!--
-Say: formatting is still a different concern.
--->
-
----
-
-# 3.3. Zero-Cost Linting
-
-The compiler is already the source of truth.
-
-- One parse
-
-- One module graph
-
-- One checker
-
-- Many diagnostics
-
-<!--
-Say: this is the same design principle as transformers.
--->
-
----
-
-# 3.4. VS Code Benchmark
-
-VS Code fixture:
+Lint pass comparison:
 
 | Tool         |       Time |
 | ------------ | ---------: |
-| ESLint       | 66,700.2ms |
-| `@ttsc/lint` |       74ms |
+| ESLint       |  66,700 ms |
+| `@ttsc/lint` |      74 ms |
 
 **901.4x**
 
-<!--
-Say: lint pass comparison, not a claim that the whole project build is 901x faster.
--->
+---
+
+<!-- _class: compare -->
+
+# 4.3. Graph Instead of Grep
+
+| Grep-first agent | Compiler-first agent |
+| --- | --- |
+| search text | resolve symbol |
+| open file | follow references |
+| follow import | inspect diagnostics |
+| repeat | open selected source |
 
 ---
 
-# 3.4. VS Code Benchmark
+<!-- _class: metric -->
 
-Interpretation:
-
-- Not "Go is magic"
-
-- Reuse the Program
-
-- Avoid second analysis
-
-- About **900x** lint pass gap
-
-<!--
-Say: the benchmark proves the architecture point.
--->
-
----
-
-# 3.4. VS Code Benchmark
-
-Linter is a separate TTSC chapter because it proves reuse.
-
-- Compiler state
-
-- Transformer state
-
-- Lint state
-
-- Same substrate
-
-<!--
-Say: after transformer survival, linter is the first productivity dividend.
--->
-
----
-
-<!-- _class: lead -->
-
-# 4. TTSC Graph
-
-- Why grep Fails
-
-- Compiler-Aware Context
-
-- For Coding Agents
-
-- Token Economy
-
-<!--
-Chapter start is only the local table of contents.
--->
-
----
-
-# 4.1. Why grep Fails
-
-Agents often rebuild context manually.
-
-- grep
-
-- open file
-
-- follow import
-
-- repeat
-
-<!--
-Say: this is expensive, lossy, and easy to derail.
--->
-
----
-
-# 4.1. Why grep Fails
-
-Grep does not know compiler facts.
-
-- Alias
-
-- Symbol owner
-
-- References
-
-- Type vs value
-
-- Call path
-
-<!--
-Say: the compiler already knows these relationships.
--->
-
----
-
-# 4.1. Why grep Fails
-
-File search is a weak substitute for semantic context.
-
-- Same name, different symbol
-
-- Barrel export hides owner
-
-- Generic call hides concrete type
-
-- Dynamic import hides path
-
-<!--
-Say: agents need the graph before they need the file.
--->
-
----
-
-# 4.2. Compiler-Aware Context
-
-`@ttsc/graph` exposes compiler structure.
-
-- Declarations
-
-- Exports
-
-- Imports
-
-- References
-
-- Diagnostics
-
-<!--
-Say: graph comes from compiler resolution, not regex.
--->
-
----
-
-# 4.2. Compiler-Aware Context
-
-Example path:
-
-- `Repository.find`
-
-- `FindOptionsUtils`
-
-- `SelectQueryBuilder`
-
-- `RelationMetadata`
-
-<!--
-Say: TypeORM relation options example. The point is path discovery, not reading every file.
--->
-
----
-
-# 4.2. Compiler-Aware Context
-
-Graph answers a different first question.
-
-- grep: "which files mention this text?"
-
-- graph: "which symbols matter?"
-
-- grep: file-first
-
-- graph: compiler-first
-
-<!--
-Say: file reading still happens, but after narrowing.
--->
-
----
-
-# 4.3. For Coding Agents
-
-MCP server:
-
-```json
-{
-  "mcpServers": {
-    "ttsc-graph": {
-      "command": "npx",
-      "args": ["-y", "@ttsc/graph"]
-    }
-  }
-}
-```
-
-<!--
-Say: the agent asks the compiler graph before opening source files.
--->
-
----
-
-# 4.3. For Coding Agents
-
-Workflow:
-
-- Map first
-
-- Source second
-
-- Fewer files
-
-- Better edit target
-
-<!--
-Say: not source-free. Source-selective.
--->
-
----
-
-# 4.3. For Coding Agents
-
-Agent context becomes compiler-guided.
-
-- Resolve symbol
-
-- Follow references
-
-- Inspect diagnostics
-
-- Open only relevant source
-
-<!--
-Say: this is what a human maintainer does mentally.
--->
-
----
-
-# 4.4. Token Economy
+# 4.3. Token Economy
 
 TypeORM benchmark cell:
 
@@ -1259,85 +1255,60 @@ TypeORM benchmark cell:
 | file reads |        16 |       0 |
 | tool calls |        38 |       1 |
 
-<!--
-Say: about 10x token reduction, not 100x.
--->
+**9.2x fewer tokens**
 
 ---
 
-# 4.4. Token Economy
+<!-- _class: flow -->
 
-Interpretation:
+# 4.4. From Patch to Toolchain
 
-- About **10x** fewer tokens
+- Started as survival
+  - keep typia alive
+  - keep nestia alive
+  - keep transformers alive
+- Became infrastructure
+  - compiler front door
+  - plugin host
+  - shared compiler state
+- Opened new tools
+  - lint
+  - graph
 
-- No blind file reading
+---
 
-- Fewer tool calls
+<!-- _class: cards -->
 
-- Same target found faster
+# 4.4. TTSC Surface
 
-<!--
-Say: the number matters because agents pay for exploration.
--->
+- Compiler
+  - `ttsc`
+- Runtime
+  - `ttsx`
+- Editor
+  - `ttscserver`
+- Reuse
+  - `@ttsc/lint`
+  - `@ttsc/graph`
 
 ---
 
-# 4.4. Token Economy
-
-Same pattern across TTSC:
-
-- Compiler state
-
-- No duplicate discovery
-
-- Linter uses it
-
-- Graph uses it
-
-- Agents use it
-
-<!--
-Say: this is the unifying TTSC story.
--->
-
----
+<!-- _class: cards -->
 
 # Closing
 
-One TypeScript-Go substrate:
-
-- `ttsc`
-
-- `ttsx`
-
-- `@ttsc/lint`
-
-- `@ttsc/graph`
-
-<!--
-Say: TTSC is a toolchain, not a single wrapper command.
--->
-
----
-
-# Closing
-
-The compiler became faster.
-
-Transformer users need more than speed.
-
-- keep type-driven code generation
-
-- keep diagnostics in the editor
-
-- reuse compiler state for lint and graph
-
-- make TypeScript-Go usable for backend tooling
-
-<!--
-Say: TypeScript-Go is good news only if the tool ecosystem survives it.
--->
+- TypeScript-Go
+  - faster compiler
+  - new runtime substrate
+- Transformers
+  - old patch point gone
+  - host required
+- TTSC
+  - transformer survival
+  - compiler-state toolchain
+- Outcome
+  - user API stays TypeScript
+  - backend tooling moves forward
 
 ---
 
@@ -1348,7 +1319,3 @@ TypeScript Backend Meetup
 2026-06-26
 
 Samchon
-
-<!--
-End.
--->
