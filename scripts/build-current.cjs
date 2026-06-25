@@ -16,9 +16,12 @@ run(["--filter", "@ttsc/lint", "build"]);
 run(["--filter", "@ttsc/unplugin", "build"]);
 run(["--filter", "@ttsc/metro", "build"]);
 run(["--filter", "@ttsc/vscode", "build"]);
+// The platform package carries the native ttsc compiler binary; build it before
+// @ttsc/graph, whose build runs `ttsc` (with the typia plugin) and so needs that
+// binary present.
+run(["--dir", platformDir, "build"]);
 run(["--filter", "@ttsc/graph", "build"]);
 run(["--filter", "lint-contributor-demo", "build"]);
-run(["--dir", platformDir, "build"]);
 
 function run(args) {
   const result = cp.spawnSync(...pnpmCommand(args), {
