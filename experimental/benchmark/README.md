@@ -20,7 +20,7 @@ node graph.mjs --all --models=sonnet,opus,codex --tools=ttsc-graph,codegraph # f
 
 The first run packs the local `ttsc` workspace into tarballs, clones each fixture's three branches into `.work/`, installs the tarballs, runs `ttsc prepare`, then measures the matrix sequentially. Subsequent runs reuse the clones.
 
-`graph.mjs` reuses the same fixture clones and setup path, but it is separate from `performance.mjs` because it spends AI tokens. It runs projects sequentially, fixes reasoning effort to `high`, updates only its own cells in `website/public/benchmark/graph.json`, and writes a local report under `.work/graph/<timestamp>/`. Its tool axis is `ttsc-graph` and `codegraph`; the `codegraph` arm runs `codegraph init`, records the index time as `toolSetupMs`, local-ignores `.codegraph/`, and deletes the index after the run unless `--keep-codegraph-index` is set.
+`graph.mjs` reuses the same fixture clones and setup path where a performance fixture exists, but it is separate from `performance.mjs` because it spends AI tokens. Graph-only repos such as `excalidraw` are cloned directly into `.work/graph-source/` instead of being added to the performance matrix. It runs projects sequentially, fixes reasoning effort to `high`, updates only its own cells in `website/public/benchmark/graph.json`, and writes a local report under `.work/graph/<timestamp>/`. Its tool axis is `ttsc-graph` and `codegraph`; its prompt-family axis is `project-specific` and `shared-onboarding` (`--prompt-family=all` runs both). The `codegraph` arm runs `codegraph init`, records the index time as `toolSetupMs`, local-ignores `.codegraph/`, and deletes the index after the run unless `--keep-codegraph-index` is set.
 
 ## The matrix
 

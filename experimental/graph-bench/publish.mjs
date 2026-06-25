@@ -8,7 +8,7 @@
 // This script folds whichever of those exist into the committed, served
 // `website/public/benchmark/graph.json`, the graph sibling of the performance
 // dashboard's `performance.json`. Like `merge-website.mjs`, it merges in place:
-// each agent cell is keyed by (harness, tool, repo, model, effort, fixtureBranch)
+// each agent cell is keyed by (harness, tool, repo, promptFamily, model, effort, fixtureBranch)
 // and upserted, so running one repo/model at a time accumulates cells across separate quiet-host runs
 // instead of clobbering the others. The structural block is replaced whole.
 //
@@ -81,6 +81,7 @@ function foldAgent(report, harness) {
     repo: report.repo,
     model: report.model,
     ...(report.effort ? { effort: report.effort } : {}),
+    promptFamily: report.promptFamily ?? "project-specific",
     ...(report.fixtureBranch ? { fixtureBranch: report.fixtureBranch } : {}),
     ...(report.daemon !== undefined ? { daemon: report.daemon } : {}),
     ...(report.toolSetupMs !== undefined ? { toolSetupMs: report.toolSetupMs } : {}),
@@ -93,6 +94,7 @@ function foldAgent(report, harness) {
       c.harness,
       c.tool ?? "ttsc-graph",
       c.repo,
+      c.promptFamily ?? "project-specific",
       c.model,
       c.effort ?? "",
       c.fixtureBranch ?? "ttsc",
@@ -103,7 +105,7 @@ function foldAgent(report, harness) {
   else out.agent.cells.push(cell);
   const n = (report.samples?.graph ?? []).length;
   console.log(
-    `agent: ${harness} / ${cell.tool} / ${report.repo} / ${report.model} (${n} graph runs)`,
+    `agent: ${harness} / ${cell.tool} / ${report.repo} / ${cell.promptFamily} / ${report.model} (${n} graph runs)`,
   );
 }
 

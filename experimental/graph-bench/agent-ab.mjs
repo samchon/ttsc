@@ -37,7 +37,8 @@ const ARCHITECTURE_QUESTION = fs
   .trim();
 const CLAUDE_GRAPH_ARM_PROMPT = [
   "A ttsc-graph MCP server is configured for this graph arm.",
-  "For TypeScript relationship or code-flow questions, before Glob/Grep/Read, use ToolSearch with select:mcp__ttsc-graph__query_nodes,mcp__ttsc-graph__expand_nodes,mcp__ttsc-graph__query_files.",
+  "For TypeScript project orientation, before Glob/Grep/Read, use ToolSearch with select:mcp__ttsc-graph__query_exports,mcp__ttsc-graph__query_nodes,mcp__ttsc-graph__expand_nodes,mcp__ttsc-graph__query_files.",
+  "When the task asks for onboarding, exported symbols, public API, folders, or an uncertain entry point, call query_exports first.",
   "Then use query_nodes once with one broad owner/action/noun query and answer from the graph result; use file tools only when the graph does not fit.",
 ].join(" ");
 function resolveQuestion(repoKey) {
@@ -110,6 +111,7 @@ const runs = Number(args.runs ?? 2);
 const model = args.model ?? "sonnet";
 const tsconfig = args.tsconfig ?? spec.tsconfig;
 const question = args.question ?? resolveQuestion(repoKey);
+const promptFamily = args["prompt-family"] ?? (args.question ? "custom" : "project-specific");
 if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
 
 const fixtureBranch = args["fixture-branch"];
@@ -324,7 +326,7 @@ console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, daemon: useDaemon, runs, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, promptFamily, daemon: useDaemon, runs, question, traceDir, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 try {

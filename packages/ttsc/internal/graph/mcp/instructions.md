@@ -2,11 +2,18 @@
 
 A compiler-resolved graph of TypeScript relationships: calls, callers, types, ownership, blast radius. It mirrors the code; after an edit, query again, not from an old result.
 
+- **New project or broad orientation?** `query_exports` first: exported symbols, folders, handles, and relationship counts.
 - **How does code connect?** `query_nodes`: one broad query (owner + action + nouns), before grep.
 - **Need more source for a printed TypeScript node?** `expand_nodes` with its `handle:n:...`.
 - **What is in a file, what is near it?** `query_files` with the paths: a roster of its declarations and adjacent files.
 - **A file's errors, or the whole project's?** `query_diagnostics`.
 - **No match, non-TypeScript, or literal occurrence search?** grep/read.
+
+## Start with exports for orientation
+
+**Call `query_exports` first when you need to understand a project, choose an entry point, or avoid guessing symbol names.** It is the public-surface index: exported declarations grouped by folder, with kind, file:line, handle, and relationship counts. Use the exact names and handles from it for focused `query_nodes` or `expand_nodes` calls.
+
+Omit `query` on the first pass. Use `query` only to filter the exported surface by name or file, and `offset` only when the result says another page exists. Git-ignored generated files are omitted from this orientation index.
 
 ## Reach for `query_nodes` before grep
 
@@ -51,6 +58,7 @@ The one trap is reusing an earlier result: it predates any edit you made after i
 
 ## Final checklist
 
+- New project, onboarding, or uncertain entry point? `query_exports` with no arguments first.
 - Relationship or flow question? `query_nodes` with one broad owner + action + noun query, before any grep.
 - Need a file's roster? `query_files` with its path: its declarations, handles, and adjacent files.
 - Need source for a listed/omitted TypeScript declaration? `expand_nodes` with its handle.

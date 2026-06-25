@@ -81,7 +81,7 @@ func Checker_getPropertiesOfType(recv *innerchecker.Checker, t *innerchecker.Typ
 }
 
 // Checker_getApparentProperties returns the properties visible on t after
-// resolving primitive wrapper types (e.g. string → String).
+// resolving primitive wrapper types (e.g. string to String).
 func Checker_getApparentProperties(recv *innerchecker.Checker, t *innerchecker.Type) []*innerast.Symbol {
   return recv.GetApparentProperties(t)
 }
@@ -147,6 +147,16 @@ func Checker_getAliasedSymbol(recv *innerchecker.Checker, symbol *innerast.Symbo
     return nil
   }
   return recv.GetAliasedSymbol(symbol)
+}
+
+// Checker_getExportsOfModule returns the exported symbols of a source-file or
+// namespace module symbol, resolving export-star aggregation the same way the
+// checker does for emit and services.
+func Checker_getExportsOfModule(recv *innerchecker.Checker, symbol *innerast.Symbol) []*innerast.Symbol {
+  if recv == nil || symbol == nil {
+    return nil
+  }
+  return recv.GetExportsOfModule(symbol)
 }
 
 //go:linkname checkerResolveEntityName github.com/microsoft/typescript-go/internal/checker.(*Checker).resolveEntityName
@@ -215,8 +225,8 @@ func Checker_getBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*i
 func checkerGetDeclaredTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerchecker.Type
 
 // Checker_getDeclaredTypeOfSymbol returns the declared (instance) type of a
-// class or interface symbol. Unlike Checker_getTypeOfSymbol — which yields the
-// constructor (static) type of a class symbol — the result IS a
+// class or interface symbol. Unlike Checker_getTypeOfSymbol, which yields the
+// constructor (static) type of a class symbol, the result IS a
 // ClassOrInterface type and is therefore safe to feed back into
 // Checker_getBaseTypes. This lets a consumer resolve a generic base's symbol to
 // its declared type and keep walking the base chain past the generic boundary
@@ -275,10 +285,10 @@ func Checker_getReturnTypeOfSignature(recv *innerchecker.Checker, signature *inn
 // parameter is excluded (it is held separately from the value parameters).
 //
 // Checker_getMinArgumentCount alone cannot tell a zero-parameter signature
-// (`()` — minimum 0) from a single-optional-parameter one (`(x?)` — also
+// (`()` minimum 0) from a single-optional-parameter one (`(x?)` also
 // minimum 0). A type-transform plugin needs that distinction to replicate the
-// type-level "single meaningful argument" rule — a FIRST parameter must exist
-// and every later parameter must be optional or rest — as
+// type-level "single meaningful argument" rule: a FIRST parameter must exist
+// and every later parameter must be optional or rest, as
 // `Signature_parameterCount(sig) >= 1 && Checker_getMinArgumentCount(c, sig) <= 1`.
 // Without it the `new C(x)` / `C.from(x)` strategies silently fall back to field
 // copy for every optional-first constructor or factory. Returns 0 if signature
@@ -297,7 +307,7 @@ func Signature_parameterCount(signature *innerchecker.Signature) int {
 // yields the seed TYPE the plugin must decode before constructing the instance.
 //
 // Signature_parameterCount is len() of this slice; the slice itself is needed
-// because detection (count + min-args) is not enough — emission requires the
+// because detection (count + min-args) is not enough; emission requires the
 // seed parameter's type. Returns nil if signature is nil.
 func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol {
   if signature == nil {
@@ -308,8 +318,8 @@ func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol 
 
 // Signature_hasRestParameter reports whether the signature's last value
 // parameter is a rest parameter (`...xs: S[]`). It is the signal a from/new
-// transform needs to tell a rest-only single-seed call `(...xs: S[])` — whose
-// seed is the ELEMENT S — from a genuine array-typed parameter `(seed: S[])` —
+// transform needs to tell a rest-only single-seed call `(...xs: S[])`, whose
+// seed is the ELEMENT S, from a genuine array-typed parameter `(seed: S[])`,
 // whose seed is the array S[]: getTypeOfSymbol yields `S[]` for BOTH, so without
 // this flag they are indistinguishable and the rest case decodes the wrong
 // shape.
@@ -317,8 +327,8 @@ func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol 
 // The rest ELEMENT is the seed ONLY when the rest parameter is the sole value
 // parameter, i.e. `Signature_hasRestParameter(sig) && Signature_parameterCount(sig) == 1`.
 // A leading-required + rest-tail signature `(s: S, ...r: R[])` also has a rest
-// parameter (this returns true), but its seed is the FIRST parameter S — read it
-// from Signature_parameters(sig)[0], NOT the rest element — matching
+// parameter (this returns true), but its seed is the FIRST parameter S. Read it
+// from Signature_parameters(sig)[0], NOT the rest element, matching
 // ClassifiableSeed, whose `[infer P, ...Rest]` arm picks P=S there. Returns
 // false if signature is nil.
 func Signature_hasRestParameter(signature *innerchecker.Signature) bool {
@@ -330,7 +340,7 @@ func Signature_hasRestParameter(signature *innerchecker.Signature) bool {
 
 // Checker_getRestTypeOfSignature returns the ELEMENT type of the signature's
 // rest parameter (`...xs: S[]` -> S; a tuple rest unwraps to its element too),
-// which is the seed type for a rest-ONLY single-argument constructor/factory —
+// which is the seed type for a rest-ONLY single-argument constructor/factory,
 // matching ClassifiableSeed, which unwraps the rest to its element. When the
 // signature has NO rest parameter it falls back to `any` upstream; and a
 // leading-required + rest-tail `(s: S, ...r: R[])` has a rest parameter yet its

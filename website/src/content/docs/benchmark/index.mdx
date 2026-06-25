@@ -9,7 +9,9 @@ import PerformanceSummary from "../../../components/benchmark/PerformanceSummary
 
 [The Code Graph benchmark](/docs/benchmark/graph) measures whether an agent spends fewer tokens and tool calls when it has the `@ttsc/graph` code map available. It also covers structural coverage: how completely the graph resolves a real codebase's cross-file relationships.
 
-The summary below shows the vscode run — the flagship large repo, served through the graph daemon — comparing the empty-MCP baseline against `@ttsc/graph` and `codegraph` across Claude Sonnet and Opus. The full dashboard covers excalidraw, typeorm, vue, rxjs, zod, nestjs, and shopping-backend as well.
+The agent-cost slice now reports shared onboarding prompt results separately from project-specific prompt file results. The shared prompt starts from exported symbols and folder structure, then narrows into graph queries. Project-specific prompts live under `experimental/graph-bench/questions/*.md`.
+
+The summary below shows the vscode run, the flagship large repo served through the graph daemon, comparing the empty-MCP baseline against `@ttsc/graph` and `codegraph` across Claude Sonnet and Opus. The full dashboard covers excalidraw, typeorm, vue, rxjs, zod, nestjs, and shopping-backend as well.
 
 <GraphBenchmark variant="summary" />
 
@@ -17,6 +19,4 @@ The summary below shows the vscode run — the flagship large repo, served throu
 
 [The compiler-performance benchmark](/docs/benchmark/performance) measures how much wall-clock time changes when a real TypeScript project moves from the legacy `tsc` + `eslint` path to TypeScript-Go backed builds, checks, and linting. The dashboard covers build, type-check, lint, and format across real open-source repositories, single-threaded and multi-threaded.
 
-vscode — 6,093 TypeScript files across a large application monorepo — is the flagship example. At 8 checker workers, `ttsc` builds vscode in around 8 s versus roughly 94 s for legacy `tsc`, and type-checks it in around 6.5 s versus roughly 73 s. The full dashboard covers nestjs, vue, zod, typeorm, rxjs, and shopping-backend as well.
-
-<PerformanceSummary />
+vscode, 6,093 TypeScript files across a large application monorepo, is the flagship example. At 8 checker workers, `ttsc` builds vscode in around 8 s versus roughly 94 s for legacy `tsc`, and type-checks it in around 6.5 s versus roughly 73 s. The full dashboard covers nestjs, vue, zod, typeorm, rxjs, and shopping-backend as well.

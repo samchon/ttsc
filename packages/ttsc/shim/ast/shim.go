@@ -189,6 +189,12 @@ func NewNodeVisitor(visit func(node *Node) *Node, factory *NodeFactory, options 
   return innerast.NewNodeVisitor(visit, factory, options)
 }
 
+// GetCombinedModifierFlags returns syntactic modifiers combined across wrappers
+// such as variable statements and their declaration lists.
+func GetCombinedModifierFlags(node *Node) ModifierFlags {
+  return innerast.GetCombinedModifierFlags(node)
+}
+
 // IsFunctionLike reports whether node is any function-like construct
 // (function declaration, arrow function, method, constructor, accessor, etc.).
 func IsFunctionLike(node *Node) bool {

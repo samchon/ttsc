@@ -6,11 +6,13 @@ import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
 
 It asks the two questions codegraph publishes: how completely does the graph resolve a real codebase, and does an agent spend less when it has the graph. The agent-cost runner also benchmarks `codegraph` itself as a comparator. Both run on real repositories through `experimental/benchmark/graph.mjs` and the lower-level harnesses in `experimental/graph-bench`, and the raw per-run samples are published to `website/public/benchmark/graph.json`.
 
+The agent-cost benchmark now splits into two prompt families. Shared onboarding prompts start by reading exported symbols and folder structure, then narrow into graph queries. Project-specific prompts live in files like `experimental/graph-bench/questions/typeorm.md`. The runner stores `promptFamily` in `graph.json`, and the dashboard reports those families separately.
+
 The agent-cost question is measured across two AI coding agents, each acting as a harness. An AI agent here is an autonomous CLI that reads the repository and answers a question by calling tools (shell, grep, read, or the `@ttsc/graph` MCP), measured once with the MCP server configured and once without it. The two harnesses are **Claude Code** (Anthropic's CLI) running Sonnet and Opus, and **Codex** (OpenAI's CLI) running GPT-5.5 and GPT-5.4 mini.
 
 The savings below are one axis. They are not the whole value.
 
-The graph fuses static structure and live diagnostics into one checker-resolved ontology. So an agent can also see a change's reach over what is currently broken — fix-safety, covered in [Code Graph](/docs/graph).
+The graph fuses static structure and live diagnostics into one checker-resolved ontology. So an agent can also see a change's reach over what is currently broken before it edits. See [Code Graph](/docs/graph).
 
 <GraphBenchmark />
 
@@ -23,6 +25,10 @@ The tool axis is `@ttsc/graph` versus `codegraph`. `@ttsc/graph` builds from the
 The Excalidraw table below is **Claude Sonnet 4.6** (`claude-sonnet-4-6`) at reasoning effort `high`. Within each model both arms hold the model and effort fixed, so the only variable is the graph. The cross-model section repeats the same A/B on Opus 4.8, because the figures move with the model.
 
 A checker-resolved graph is TypeScript-only, so of codegraph's seven benchmark repositories only the two TypeScript ones are runnable: Excalidraw and VS Code. The other five are Python, Rust, Java, Go, and Swift.
+
+### Project-specific prompt file results
+
+These cells use repository-specific question files like `experimental/graph-bench/questions/typeorm.md`.
 
 ### Excalidraw
 
@@ -80,7 +86,7 @@ Run against this repository's `packages/ttsc` (53 source files):
 | Load time     | 69 ms (median)                                      |
 | Graph build   | 42 ms (median)                                      |
 
-The 100% is the coverage flex: every symbol-bearing file has at least one checker-resolved cross-file edge. Modeling methods and their calls closed the gaps a top-level-only graph left (it was 92% before), which is the whole point — a method-to-method call is exactly the relationship an agent would otherwise open a file to find. Build time is a real fraction of the (already fast) load on a small tree and shrinks as type-checking dominates on larger ones; the point is that extraction rides the `Program` the compiler already built, with no second compile.
+The 100% is the coverage flex: every symbol-bearing file has at least one checker-resolved cross-file edge. Modeling methods and their calls closed the gaps a top-level-only graph left (it was 92% before), which is the whole point. A method-to-method call is exactly the relationship an agent would otherwise open a file to find. Build time is a real fraction of the already fast load on a small tree and shrinks as type-checking dominates on larger ones. The point is that extraction rides the `Program` the compiler already built, with no second compile.
 
 ## Reproduce
 
@@ -116,7 +122,7 @@ It needs `go` on `PATH` to build the native binary and the agent CLI for each mo
 node experimental/benchmark/graph.mjs --project=typeorm --models=sonnet,opus --tools=ttsc-graph,codegraph
 
 # Full sweep: projects run sequentially, since the agent cells are expensive
-node experimental/benchmark/graph.mjs --all --models=sonnet,opus --tools=ttsc-graph,codegraph
+node experimental/benchmark/graph.mjs --all --models=sonnet,opus --tools=ttsc-graph,codegraph --prompt-family=all
 ```
 
 The runner writes the raw per-run samples to `experimental/benchmark/.work/graph/<timestamp>/report.json` and upserts only the cells it measured into `website/public/benchmark/graph.json`, leaving every other cell untouched. Pass `--no-website` for a local-only run that does not touch the published JSON.

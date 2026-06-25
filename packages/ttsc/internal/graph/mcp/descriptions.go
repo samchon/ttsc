@@ -11,6 +11,18 @@ import (
 //go:embed descriptions/query_nodes.md
 var queryNodesDescriptionMarkdown string
 
+//go:embed descriptions/query_exports.md
+var queryExportsDescriptionMarkdown string
+
+//go:embed descriptions/query_exports_query.md
+var queryExportsQueryDescriptionMarkdown string
+
+//go:embed descriptions/query_exports_limit.md
+var queryExportsLimitDescriptionMarkdown string
+
+//go:embed descriptions/query_exports_offset.md
+var queryExportsOffsetDescriptionMarkdown string
+
 //go:embed descriptions/query_nodes_query.md
 var queryNodesQueryDescriptionMarkdown string
 
@@ -43,6 +55,10 @@ var queryDiagnosticsSeverityDescriptionMarkdown string
 
 var (
   queryNodesDescription               = strings.TrimSpace(queryNodesDescriptionMarkdown)
+  queryExportsDescription             = strings.TrimSpace(queryExportsDescriptionMarkdown)
+  queryExportsQueryDescription        = strings.TrimSpace(queryExportsQueryDescriptionMarkdown)
+  queryExportsLimitDescription        = strings.TrimSpace(queryExportsLimitDescriptionMarkdown)
+  queryExportsOffsetDescription       = strings.TrimSpace(queryExportsOffsetDescriptionMarkdown)
   queryNodesQueryDescription          = strings.TrimSpace(queryNodesQueryDescriptionMarkdown)
   queryNodesModeDescription           = strings.TrimSpace(queryNodesModeDescriptionMarkdown)
   expandNodesDescription              = strings.TrimSpace(expandNodesDescriptionMarkdown)

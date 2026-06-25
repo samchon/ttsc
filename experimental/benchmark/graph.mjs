@@ -30,13 +30,23 @@ const websiteJson = path.join(
   "benchmark",
   "graph.json",
 );
+const questionsDir = path.join(repoRoot, "experimental", "graph-bench", "questions");
 const claudeHarness = path.join(repoRoot, "experimental/graph-bench/agent-ab.mjs");
 const codexHarness = path.join(
   repoRoot,
   "experimental/graph-bench/agent-ab-codex.mjs",
 );
+const PROMPT_FAMILIES = {
+  "project-specific": null,
+  "shared-onboarding": path.join(questionsDir, "shared-onboarding.md"),
+};
 
 const PROJECTS = {
+  excalidraw: {
+    repoName: "excalidraw",
+    sourceRepo: "https://github.com/excalidraw/excalidraw.git",
+    tsconfig: "tsconfig.json",
+  },
   vue: {
     repoName: "ttsc-benchmark-vue",
     tsconfig: "tsconfig.graph.json",
@@ -75,6 +85,11 @@ if (branch !== "ttsc" && branch !== "ttsc-lint")
 const selected = selectProjects(parsed);
 const models = splitList(parsed.values.models ?? parsed.values.model ?? "sonnet,opus,codex");
 const tools = selectTools(parsed.values.tools ?? parsed.values.tool ?? "ttsc-graph,codegraph");
+const promptFamilies = selectPromptFamilies(
+  parsed.values["prompt-family"] ??
+    parsed.values["prompt-families"] ??
+    (parsed.values.question ? "custom" : "project-specific"),
+);
 const runs = parsed.values.runs ?? "1";
 const daemon = parsed.values.daemon ?? "0";
 const effort = "high";
@@ -94,7 +109,7 @@ if (parsed.flags.has("--list")) {
   for (const project of Object.keys(PROJECTS)) {
     const spec = PROJECTS[project];
     process.stdout.write(
-      `${project}: ${fixtureDir(spec, branch)} (${spec.tsconfig})\n`,
+      `${project}: ${projectDir(spec, branch)} (${spec.tsconfig})\n`,
     );
   }
   process.exit(0);
@@ -106,14 +121,24 @@ if (selected.length === 0) {
 
 fs.mkdirSync(outDir, { recursive: true });
 
+const fixtureProjects = selected.filter((project) =>
+  usesPerformanceFixture(PROJECTS[project]),
+);
+const graphOnlyProjects = selected.filter((project) =>
+  isGraphOnlyProject(PROJECTS[project]),
+);
+
 if (!parsed.flags.has("--no-setup")) {
-  if (
-    !parsed.flags.has("--no-pack") &&
-    process.env.TTSC_BENCH_SKIP_PACK !== "1"
-  ) {
-    packGraphTarballs();
+  if (fixtureProjects.length > 0) {
+    if (
+      !parsed.flags.has("--no-pack") &&
+      process.env.TTSC_BENCH_SKIP_PACK !== "1"
+    ) {
+      packGraphTarballs();
+    }
+    runSetup(fixtureProjects, branch);
   }
-  runSetup(selected, branch);
+  ensureGraphOnlyRepos(graphOnlyProjects);
 }
 
 if (parsed.flags.has("--setup-only")) {
@@ -125,6 +150,7 @@ const report = {
   date: new Date().toISOString(),
   branch,
   tools,
+  promptFamilies,
   runs: Number(runs),
   daemon: daemon === "1" || daemon === "true",
   outDir,
@@ -133,9 +159,10 @@ const report = {
 
 for (const project of selected) {
   const spec = PROJECTS[project];
-  const repoDir = fixtureDir(spec, branch);
+  const branchLabel = projectBranch(spec, branch);
+  const repoDir = projectDir(spec, branch);
   if (!fs.existsSync(repoDir))
-    throw new Error(`missing fixture clone: ${repoDir}`);
+    throw new Error(`missing graph benchmark clone: ${repoDir}`);
   if (!fs.existsSync(path.join(repoDir, spec.tsconfig)))
     throw new Error(`missing graph tsconfig: ${path.join(repoDir, spec.tsconfig)}`);
 
@@ -146,25 +173,28 @@ for (const project of selected) {
         codegraphIndexMs = ensureCodegraphIndex(project, repoDir);
       }
 
-      for (const model of models) {
-        const { cell, websiteCell } = runAgentCell({
-          project,
-          spec,
-          repoDir,
-          tool,
-          codegraphIndexMs,
-          model,
-          branch,
-          runs,
-          daemon,
-          effort,
-          codexModel,
-          outDir,
-        });
-        report.cells.push(cell);
-        writeJson(path.join(outDir, "report.json"), report);
-        publishWebsiteCells([websiteCell]);
-        printCellSummary(cell);
+      for (const promptFamily of promptFamilies) {
+        for (const model of models) {
+          const { cell, websiteCell } = runAgentCell({
+            project,
+            spec,
+            repoDir,
+            tool,
+            codegraphIndexMs,
+            model,
+            branch: branchLabel,
+            promptFamily,
+            runs,
+            daemon,
+            effort,
+            codexModel,
+            outDir,
+          });
+          report.cells.push(cell);
+          writeJson(path.join(outDir, "report.json"), report);
+          publishWebsiteCells([websiteCell]);
+          printCellSummary(cell);
+        }
       }
     } finally {
       if (tool === "codegraph") cleanupCodegraphIndex(repoDir);
@@ -228,6 +258,7 @@ function runAgentCell({
   codegraphIndexMs,
   model,
   branch,
+  promptFamily,
   runs,
   daemon,
   effort,
@@ -242,7 +273,7 @@ function runAgentCell({
   // overwrites the same cell instead of forking a new one). The precise id is
   // kept in modelVersion below.
   const label = agentLabel(resolvedModel);
-  const logStem = `${project}-${branch}-${filenamePart(`${tool}-${label}`)}`;
+  const logStem = `${project}-${branch}-${promptFamily}-${filenamePart(`${tool}-${label}`)}`;
   const args = [
     harness,
     `--repo=${project}`,
@@ -251,8 +282,10 @@ function runAgentCell({
     `--runs=${runs}`,
     `--daemon=${daemon}`,
     `--model=${resolvedModel}`,
+    `--prompt-family=${promptFamily}`,
   ];
-  if (parsed.values.question) args.push(`--question=${parsed.values.question}`);
+  const question = promptFamilyQuestion(promptFamily);
+  if (question) args.push(`--question=${question}`);
   const sourceReport = path.join(outDir, `${logStem}.raw.json`);
   args.push(`--report=${sourceReport}`);
   if (tool === "codegraph") args.push("--cg=1");
@@ -277,7 +310,12 @@ function runAgentCell({
     model: label,
     modelVersion: data.model ?? resolvedModel,
     ...(data.effort ? { effort: data.effort } : {}),
-    fixtureBranch: data.fixtureBranch ?? branch,
+    promptFamily: data.promptFamily ?? promptFamily,
+    ...(data.fixtureBranch
+      ? { fixtureBranch: data.fixtureBranch }
+      : usesPerformanceFixture(spec)
+        ? { fixtureBranch: branch }
+        : {}),
     daemon: daemon === "1" || daemon === "true",
     runs: data.runs ?? Number(runs),
     question: data.question,
@@ -294,6 +332,7 @@ function runAgentCell({
       harness: harnessName,
       model: label,
       modelVersion: resolvedModel,
+      promptFamily,
       repoDir,
       tsconfig: spec.tsconfig,
       log: path.relative(repoRoot, `${path.join(outDir, logStem)}.out.log`),
@@ -332,6 +371,7 @@ function websiteCellKey(cell) {
     cell.harness,
     cell.tool ?? "ttsc-graph",
     cell.repo,
+    cell.promptFamily ?? "project-specific",
     cell.model,
     cell.effort ?? "",
     cell.fixtureBranch ?? "ttsc",
@@ -390,6 +430,29 @@ function selectTools(value) {
       throw new Error("--tools must contain ttsc-graph, codegraph, or all");
   }
   return [...new Set(expanded)];
+}
+
+function selectPromptFamilies(value) {
+  const names = splitList(value);
+  const expanded = names.includes("all")
+    ? Object.keys(PROMPT_FAMILIES)
+    : names;
+  const allowed = new Set([...Object.keys(PROMPT_FAMILIES), "custom"]);
+  if (expanded.length === 0)
+    throw new Error("--prompt-family must contain project-specific, shared-onboarding, custom, or all");
+  for (const name of expanded) {
+    if (!allowed.has(name))
+      throw new Error("--prompt-family must contain project-specific, shared-onboarding, custom, or all");
+  }
+  return [...new Set(expanded)];
+}
+
+function promptFamilyQuestion(promptFamily) {
+  if (parsed.values.question) return parsed.values.question;
+  if (promptFamily === "custom")
+    throw new Error("--prompt-family=custom requires --question");
+  const file = PROMPT_FAMILIES[promptFamily];
+  return file ? fs.readFileSync(file, "utf8").trim() : null;
 }
 
 function codegraphCommand(args) {
@@ -465,7 +528,7 @@ function armSummary(samples) {
 function printCellSummary(cell) {
   const { summary } = cell;
   process.stdout.write(
-    `[graph] ${cell.project}@${cell.branch} ${cell.tool} ${cell.model}: ` +
+    `[graph] ${cell.project}@${cell.branch} ${cell.promptFamily} ${cell.tool} ${cell.model}: ` +
       `baseline ${Math.round(summary.baseline.tokens)} tok, ` +
       `graph ${Math.round(summary.graph.tokens)} tok (${summary.graphSavedPct}%)\n`,
   );
@@ -506,6 +569,40 @@ function pnpmCommand(args) {
 
 function fixtureDir(spec, targetBranch) {
   return path.join(workDir, `${spec.repoName}@${targetBranch}`);
+}
+
+function projectDir(spec, targetBranch) {
+  return isGraphOnlyProject(spec)
+    ? path.join(workDir, "graph-source", spec.repoName)
+    : fixtureDir(spec, targetBranch);
+}
+
+function projectBranch(spec, targetBranch) {
+  return isGraphOnlyProject(spec) ? "source" : targetBranch;
+}
+
+function usesPerformanceFixture(spec) {
+  return !isGraphOnlyProject(spec);
+}
+
+function isGraphOnlyProject(spec) {
+  return typeof spec.sourceRepo === "string" && spec.sourceRepo.length > 0;
+}
+
+function ensureGraphOnlyRepos(projects) {
+  for (const project of projects) {
+    const spec = PROJECTS[project];
+    const repoDir = projectDir(spec);
+    if (fs.existsSync(repoDir)) {
+      process.stdout.write(`[graph] reusing graph-only repo ${project}\n`);
+      continue;
+    }
+    fs.mkdirSync(path.dirname(repoDir), { recursive: true });
+    runChecked("git", ["clone", "--depth", "1", spec.sourceRepo, repoDir], {
+      label: `clone graph-only repo ${project}`,
+      logBase: path.join(outDir, `setup-${project}-source`),
+    });
+  }
 }
 
 function selectProjects({ flags, values, positional }) {

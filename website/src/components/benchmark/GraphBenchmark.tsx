@@ -19,6 +19,7 @@ interface AgentCell {
   model: string;
   modelVersion?: string;
   effort?: string;
+  promptFamily?: string;
   fixtureBranch?: string;
   daemon?: boolean;
   toolSetupMs?: number;
@@ -149,6 +150,19 @@ function repoLabel(repo: string): string {
   }
 }
 
+function promptFamilyLabel(promptFamily: string): string {
+  switch (promptFamily) {
+    case "shared-onboarding":
+      return "Shared onboarding";
+    case "project-specific":
+      return "Project prompt";
+    case "custom":
+      return "Custom prompt";
+    default:
+      return promptFamily;
+  }
+}
+
 const TOOL_TTSC = "ttsc-graph";
 const TOOL_CODEGRAPH = "codegraph";
 
@@ -214,7 +228,9 @@ interface ModelGroup {
 }
 
 interface ProjectGroup {
+  id: string;
   repo: string;
+  promptFamily: string;
   question?: string;
   models: ModelGroup[];
 }
@@ -235,8 +251,9 @@ function medianMetrics(samples: AgentSample[]): Metrics {
  * medians when those cells exist.
  */
 function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
-  return groupBy(cells, (cell) => cell.repo).map(
-    ({ key: repo, items: repoCells }) => {
+  return groupBy(cells, (cell) => `${cell.promptFamily ?? "project-specific"}\0${cell.repo}`).map(
+    ({ key, items: repoCells }) => {
+      const [promptFamily = "project-specific", repo = ""] = key.split("\0");
       const models = groupBy(repoCells, (cell) => cell.model)
         .map(({ items: modelCells }): ModelGroup => {
           const ttscCell = modelCells.find((c) => cellTool(c) === TOOL_TTSC);
@@ -260,7 +277,7 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
         })
         .sort((a, b) => modelOrder(a.model) - modelOrder(b.model));
       const question = repoCells.find((c) => c.question)?.question;
-      return { repo, question, models };
+      return { id: key, repo, promptFamily, question, models };
     },
   );
 }
@@ -549,7 +566,7 @@ function ProjectTabs({
 }: {
   groups: ProjectGroup[];
   active: string;
-  onSelect: (repo: string) => void;
+  onSelect: (id: string) => void;
 }) {
   return (
     <nav
@@ -557,19 +574,22 @@ function ProjectTabs({
       className="flex gap-1 overflow-x-auto rounded-lg border border-[#222834] bg-[#0c0e13] p-1"
     >
       {groups.map((group) => {
-        const isActive = group.repo === active;
+        const isActive = group.id === active;
         return (
           <button
-            key={group.repo}
+            key={group.id}
             type="button"
             className={`shrink-0 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors ${
               isActive
                 ? "bg-[#1b212c] text-neutral-50 shadow-sm"
                 : "text-neutral-400 hover:bg-[#13171f] hover:text-neutral-100"
             }`}
-            onClick={() => onSelect(group.repo)}
+            onClick={() => onSelect(group.id)}
           >
             {repoLabel(group.repo)}
+            <span className="ml-1 text-neutral-500">
+              {promptFamilyLabel(group.promptFamily)}
+            </span>
           </button>
         );
       })}
@@ -749,7 +769,7 @@ export default function GraphBenchmark({
 }: GraphBenchmarkProps) {
   const [report, setReport] = useState<GraphReport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeRepo, setActiveRepo] = useState<string | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -780,7 +800,10 @@ export default function GraphBenchmark({
   // The landing summary shows only the hero project (vscode) without tabs,
   // matching the index prose; the full page tabs across every project.
   if (variant === "summary") {
-    const hero = groups.find((g) => g.repo === "vscode") ?? groups[0];
+    const hero =
+      groups.find((g) => g.repo === "vscode" && g.promptFamily === "project-specific") ??
+      groups.find((g) => g.repo === "vscode") ??
+      groups[0];
     return (
       <div className="not-prose my-6 space-y-5">
         {hero ? <ProjectPanel group={hero} /> : null}
@@ -791,14 +814,14 @@ export default function GraphBenchmark({
   // Default to the first project that carries the full comparison (codegraph +
   // both modes), so the dual measurement is visible on load rather than the
   // excalidraw cell that only has the @ttsc/graph arm.
-  const defaultRepo =
-    groups.find((g) => g.models.some((m) => m.codegraph))?.repo ??
-    groups[0]?.repo;
+  const defaultGroup =
+    groups.find((g) => g.models.some((m) => m.codegraph)) ??
+    groups[0];
   const active =
-    activeRepo && groups.some((g) => g.repo === activeRepo)
-      ? activeRepo
-      : defaultRepo;
-  const activeGroup = groups.find((g) => g.repo === active);
+    activeGroupId && groups.some((g) => g.id === activeGroupId)
+      ? activeGroupId
+      : defaultGroup?.id;
+  const activeGroup = groups.find((g) => g.id === active);
 
   return (
     <div className="not-prose my-6 space-y-5">
@@ -807,7 +830,7 @@ export default function GraphBenchmark({
           <ProjectTabs
             groups={groups}
             active={active}
-            onSelect={setActiveRepo}
+            onSelect={setActiveGroupId}
           />
           {activeGroup ? (
             <ProjectPanel

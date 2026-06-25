@@ -1,0 +1,1 @@
+How does Excalidraw render and update canvas elements?

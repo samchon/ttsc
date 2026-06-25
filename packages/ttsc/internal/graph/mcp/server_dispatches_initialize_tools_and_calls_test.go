@@ -14,7 +14,7 @@ import (
 // TestServerDispatchesInitializeToolsAndCalls verifies the MCP server answers the
 // three request shapes an agent drives it with, over the resident graph: the
 // initialize handshake (echoing the protocol version and shipping guidance), the
-// tools/list advertisement, and tools/call for both query_nodes (relationship
+// tools/list advertisement, and tools/call for query_exports, query_nodes (relationship
 // map) and query_diagnostics (tsc errors). It also confirms a notification (no
 // id) draws no reply.
 //
@@ -60,7 +60,7 @@ export const bad: number = "not a number";
   if info, _ := init["serverInfo"].(map[string]any); info == nil || info["name"] != "ttsc-graph" {
     t.Fatalf("initialize serverInfo missing or wrong: %v", init["serverInfo"])
   }
-  if text, _ := init["instructions"].(string); !strings.Contains(text, "query_nodes") {
+  if text, _ := init["instructions"].(string); !strings.Contains(text, "query_exports") || !strings.Contains(text, "query_nodes") {
     t.Fatalf("initialize did not ship server instructions: %v", init["instructions"])
   }
 
@@ -72,10 +72,28 @@ export const bad: number = "not a number";
   // tools/list advertises the graph tools.
   list := result(t, server, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
   names := toolNames(t, list)
-  if !names["query_nodes"] || !names["expand_nodes"] || !names["query_files"] || !names["query_diagnostics"] {
+  if !names["query_exports"] || !names["query_nodes"] || !names["expand_nodes"] || !names["query_files"] || !names["query_diagnostics"] {
     t.Fatalf("tools/list missing expected tools: %v", names)
   }
   tools := toolsByName(t, list)
+  exports := tools["query_exports"]
+  if desc, _ := exports["description"].(string); !strings.Contains(desc, "Use this first") {
+    t.Fatalf("query_exports did not use the embedded description: %v", desc)
+  }
+  exportsSchema := exports["inputSchema"].(map[string]any)
+  exportsProperties := exportsSchema["properties"].(map[string]any)
+  exportsQuery := exportsProperties["query"].(map[string]any)
+  if desc, _ := exportsQuery["description"].(string); !strings.Contains(desc, "Optional filter") {
+    t.Fatalf("query_exports query did not use the embedded description: %v", desc)
+  }
+  exportsLimit := exportsProperties["limit"].(map[string]any)
+  if exportsLimit["type"] != "integer" || exportsLimit["minimum"] != float64(0) || exportsLimit["default"] != float64(1000) || exportsLimit["maximum"] != float64(10000) {
+    t.Fatalf("query_exports limit schema was not bounded with defaults: %v", exportsLimit)
+  }
+  exportsOffset := exportsProperties["offset"].(map[string]any)
+  if exportsOffset["type"] != "integer" || exportsOffset["minimum"] != float64(0) || exportsOffset["default"] != float64(0) {
+    t.Fatalf("query_exports offset schema was not bounded with defaults: %v", exportsOffset)
+  }
   nodes := tools["query_nodes"]
   if desc, _ := nodes["description"].(string); !strings.Contains(desc, "One broad fuzzy query") {
     t.Fatalf("query_nodes did not use the embedded description: %v", desc)

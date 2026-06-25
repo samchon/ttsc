@@ -114,6 +114,7 @@ const model = args.model ?? "gpt-5.5";
 const effort = "high";
 const tsconfig = args.tsconfig ?? spec.tsconfig;
 const question = args.question ?? resolveQuestion(repoKey);
+const promptFamily = args["prompt-family"] ?? (args.question ? "custom" : "project-specific");
 if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
 
 const fixtureBranch = args["fixture-branch"];
@@ -318,7 +319,7 @@ line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, effort, daemon: useDaemon, runs, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, effort, promptFamily, daemon: useDaemon, runs, question, traceDir, samples }, null, 2)}\n`,
 );
 if (daemon) daemon.kill();
 cleanup([binary, withHome, withoutHome]);

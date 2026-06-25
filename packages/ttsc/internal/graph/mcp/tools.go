@@ -9,6 +9,8 @@ import (
   "sort"
   "strings"
 
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
@@ -20,12 +22,39 @@ func queryFilesEnabled() bool {
   return os.Getenv("TTSC_GRAPH_NO_FILES") == ""
 }
 
-// toolsListResult advertises the tool surface: query_nodes is the fat,
-// agent-facing default that answers a relationship question in one round-trip;
-// query_files outlines a file's declarations; query_diagnostics is the focused
-// "what is broken" tool.
+// toolsListResult advertises the tool surface: query_exports orients the agent
+// around the public surface, query_nodes answers relationship questions,
+// query_files outlines files, and query_diagnostics is the focused "what is
+// broken" tool.
 func toolsListResult() any {
   tools := []any{
+    map[string]any{
+      "name":        "query_exports",
+      "description": queryExportsDescription,
+      "inputSchema": map[string]any{
+        "type": "object",
+        "properties": map[string]any{
+          "query": map[string]any{
+            "type":        "string",
+            "description": queryExportsQueryDescription,
+          },
+          "limit": map[string]any{
+            "type":        "integer",
+            "minimum":     0,
+            "maximum":     maxExportLimit,
+            "default":     defaultExportLimit,
+            "description": queryExportsLimitDescription,
+          },
+          "offset": map[string]any{
+            "type":        "integer",
+            "minimum":     0,
+            "default":     0,
+            "description": queryExportsOffsetDescription,
+          },
+        },
+        "required": []any{},
+      },
+    },
     map[string]any{
       "name":        "query_nodes",
       "description": queryNodesDescription,
@@ -116,7 +145,7 @@ func clip(s string, max int) string {
   if len(s) <= max {
     return s
   }
-  return s[:max] + "…"
+  return s[:max] + "..."
 }
 
 // callTool routes a tools/call request to the named tool.
@@ -129,6 +158,8 @@ func (s *Server) callTool(params json.RawMessage) (any, *rpcError) {
     return nil, &rpcError{Code: codeInvalidParams, Message: "invalid tools/call params"}
   }
   switch call.Name {
+  case "query_exports":
+    return s.queryExports(call.Arguments)
   case "query_nodes":
     return s.queryNodes(call.Arguments)
   case "expand_nodes":
@@ -159,7 +190,7 @@ func textResult(text string) any {
 //
 // Why it scales with the query, not a flat cap: the agent's cost is dominated by
 // the NUMBER of turns, not any one response, because every prior response is
-// re-charged from the conversation cache on each later turn — K calls of size r
+// re-charged from the conversation cache on each later turn. K calls of size r
 // cost on the order of r·K²/2. So a broad, multi-symbol query (the agent batching
 // a whole flow) earns a large budget and gets the cluster back with bodies in one
 // turn, which stops a thorough model from a long symbol-by-symbol BFS. A narrow,
@@ -193,6 +224,62 @@ const maxEdgesPerDirection = 12
 // maxNodeDiagnostics caps the diagnostics listed on one node so a declaration
 // with many errors does not flood the response; the count is still reported.
 const maxNodeDiagnostics = 5
+
+const (
+  defaultExportLimit = 1000
+  maxExportLimit     = 10000
+)
+
+type exportEntry struct {
+  name        string
+  exportNames []string
+  kind        graph.NodeKind
+  file        string
+  line        int
+  handle      string
+  sources     []string
+  valueCalls  int
+  valueUses   int
+  typeRefs    int
+  dependents  int
+}
+
+type exportInfo struct {
+  names   []string
+  sources []string
+}
+
+// queryExports is the project-orientation tool: it lists compiler-known exported
+// symbols with enough coordinates for the agent to choose exact graph queries.
+// It deliberately omits source bodies and git-ignored generated files.
+func (s *Server) queryExports(args json.RawMessage) (any, *rpcError) {
+  var in struct {
+    Query  string `json:"query"`
+    Limit  *int   `json:"limit"`
+    Offset int    `json:"offset"`
+  }
+  if len(args) != 0 {
+    if err := json.Unmarshal(args, &in); err != nil {
+      return nil, &rpcError{Code: codeInvalidParams, Message: "query_exports: invalid arguments"}
+    }
+  }
+  limit := defaultExportLimit
+  if in.Limit != nil {
+    limit = *in.Limit
+  }
+  if limit < 0 || limit > maxExportLimit {
+    return nil, &rpcError{Code: codeInvalidParams, Message: fmt.Sprintf("query_exports limit must be between 0 and %d", maxExportLimit)}
+  }
+  if in.Offset < 0 {
+    return nil, &rpcError{Code: codeInvalidParams, Message: "query_exports offset must be >= 0"}
+  }
+  if err := s.ensureLoaded(); err != nil {
+    return nil, &rpcError{Code: codeInternal, Message: "graph not available: " + err.Error()}
+  }
+  s.refreshIfStale()
+  entries := s.exportEntries(in.Query)
+  return textResult(s.renderExportEntries(entries, in.Query, in.Offset, limit)), nil
+}
 
 // queryNodes answers a relationship question: one broad fuzzy query returns the
 // matched declarations with their edges, blast radius, and budgeted source. The
@@ -320,6 +407,409 @@ func (s *Server) matchesShareCallPath(matches []*graph.Node) bool {
     }
   }
   return false
+}
+
+func (s *Server) exportEntries(query string) []exportEntry {
+  exported := s.exportedNodeSources()
+  tokens := queryTokens(query)
+  whole := strings.ToLower(strings.TrimSpace(query))
+  out := make([]exportEntry, 0, len(exported))
+  for id, source := range exported {
+    node := s.graph.Nodes[id]
+    if node == nil || node.External || s.ignored[node.File] {
+      continue
+    }
+    if whole != "" && !exportEntryMatches(node, source, tokens, whole, s.relFile(node.File)) {
+      continue
+    }
+    out = append(out, exportEntry{
+      name:        node.Name,
+      exportNames: append([]string(nil), source.names...),
+      kind:        node.Kind,
+      file:        s.relFile(node.File),
+      line:        s.declLine(node),
+      handle:      nodeHandle(node.ID),
+      sources:     append([]string(nil), source.sources...),
+      valueCalls:  s.edgeCountFrom(node.ID, graph.EdgeValueCall),
+      valueUses:   s.edgeCountFrom(node.ID, graph.EdgeValueAccess),
+      typeRefs:    s.edgeCountFrom(node.ID, graph.EdgeTypeRef),
+      dependents:  len(s.reverseAdj[node.ID]),
+    })
+  }
+  sort.Slice(out, func(i, j int) bool {
+    if out[i].file != out[j].file {
+      return out[i].file < out[j].file
+    }
+    if out[i].line != out[j].line {
+      return out[i].line < out[j].line
+    }
+    if out[i].name != out[j].name {
+      return out[i].name < out[j].name
+    }
+    return out[i].kind < out[j].kind
+  })
+  return out
+}
+
+func (s *Server) renderExportEntries(entries []exportEntry, query string, offset int, limit int) string {
+  var b strings.Builder
+  b.WriteString(exportHeader)
+  total := len(entries)
+  if query = strings.TrimSpace(query); query != "" {
+    fmt.Fprintf(&b, "Filter: %q\n", query)
+  }
+  if total == 0 {
+    b.WriteString("No exported graph symbols match.\n")
+    return strings.TrimRight(b.String(), "\n")
+  }
+  if offset > total {
+    offset = total
+  }
+  end := offset + limit
+  if end > total {
+    end = total
+  }
+  if limit == 0 {
+    fmt.Fprintf(&b, "Exports: showing 0 of %d. Use a positive limit to list symbols.\n", total)
+  } else {
+    fmt.Fprintf(&b, "Exports: showing %d-%d of %d. Use offset:%d for next page.\n", offset+1, end, total, end)
+  }
+  writeExportFolderSummary(&b, entries)
+  if limit == 0 {
+    return strings.TrimRight(b.String(), "\n")
+  }
+  b.WriteString("\nExported symbols:\n")
+  for i := offset; i < end; i++ {
+    entry := entries[i]
+    exportedAs := strings.Join(entry.exportNames, ",")
+    if exportedAs == "" {
+      exportedAs = entry.name
+    }
+    fmt.Fprintf(&b, "  %s %s  exports:%s  %s:%d  handle:%s  calls:%d uses:%d types:%d deps:%d  sources:%s\n", entry.kind, entry.name, exportedAs, entry.file, entry.line, entry.handle, entry.valueCalls, entry.valueUses, entry.typeRefs, entry.dependents, strings.Join(entry.sources, "; "))
+  }
+  if end < total {
+    fmt.Fprintf(&b, "... (%d more exports; call query_exports with offset:%d)\n", total-end, end)
+  }
+  return strings.TrimRight(b.String(), "\n")
+}
+
+func writeExportFolderSummary(b *strings.Builder, entries []exportEntry) {
+  counts := map[string]int{}
+  kinds := map[string]map[graph.NodeKind]int{}
+  for _, entry := range entries {
+    folder := topFolder(entry.file)
+    counts[folder]++
+    if kinds[folder] == nil {
+      kinds[folder] = map[graph.NodeKind]int{}
+    }
+    kinds[folder][entry.kind]++
+  }
+  folders := make([]string, 0, len(counts))
+  for folder := range counts {
+    folders = append(folders, folder)
+  }
+  sort.Strings(folders)
+  b.WriteString("Export folders:\n")
+  for _, folder := range folders {
+    fmt.Fprintf(b, "  %s: total=%d", folder, counts[folder])
+    for _, kind := range []graph.NodeKind{graph.NodeClass, graph.NodeInterface, graph.NodeTypeAlias, graph.NodeFunction, graph.NodeVariable, graph.NodeEnum, graph.NodeMethod} {
+      if n := kinds[folder][kind]; n > 0 {
+        fmt.Fprintf(b, " %s=%d", kind, n)
+      }
+    }
+    b.WriteByte('\n')
+  }
+}
+
+func topFolder(file string) string {
+  file = strings.Trim(file, "/")
+  if file == "" {
+    return "."
+  }
+  if idx := strings.IndexByte(file, '/'); idx >= 0 {
+    return file[:idx]
+  }
+  return "."
+}
+
+func (s *Server) edgeCountFrom(id string, kind graph.EdgeKind) int {
+  count := 0
+  for _, edge := range s.graph.Edges {
+    if edge.From == id && edge.Kind == kind {
+      count++
+    }
+  }
+  return count
+}
+
+func exportEntryMatches(node *graph.Node, info exportInfo, tokens []string, whole string, file string) bool {
+  name := strings.ToLower(node.Name)
+  path := strings.ToLower(file)
+  if strings.Contains(name, whole) || strings.Contains(path, whole) {
+    return true
+  }
+  for _, exportName := range info.names {
+    if strings.Contains(strings.ToLower(exportName), whole) {
+      return true
+    }
+  }
+  for _, source := range info.sources {
+    if strings.Contains(strings.ToLower(source), whole) {
+      return true
+    }
+  }
+  for _, token := range tokens {
+    if strings.Contains(name, token) || strings.Contains(path, token) {
+      return true
+    }
+    for _, exportName := range info.names {
+      if strings.Contains(strings.ToLower(exportName), token) {
+        return true
+      }
+    }
+    for _, source := range info.sources {
+      if strings.Contains(strings.ToLower(source), token) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+func (s *Server) exportedNodeSources() map[string]exportInfo {
+  out := make(map[string]exportInfo)
+  if s.prog == nil || s.prog.Checker == nil {
+    return out
+  }
+  byDecl := s.nodesByDeclarationSpan()
+  s.collectDirectExports(out, byDecl)
+  for _, file := range s.prog.SourceFiles() {
+    if file == nil || file.Symbol == nil {
+      continue
+    }
+    for _, symbol := range shimchecker.Checker_getExportsOfModule(s.prog.Checker, file.Symbol) {
+      target := exportedTargetSymbol(s.prog.Checker, symbol)
+      if target == nil {
+        continue
+      }
+      for _, declaration := range target.Declarations {
+        if node := byDecl[declarationSpanKey(declaration)]; node != nil {
+          appendExportInfo(out, node.ID, symbol.Name, exportSource(s.relFile(file.FileName()), symbol, target))
+        }
+      }
+    }
+  }
+  s.collectExportedMembers(out, byDecl)
+  return out
+}
+
+func (s *Server) collectDirectExports(out map[string]exportInfo, byDecl map[declarationKey]*graph.Node) {
+  if s.prog == nil {
+    return
+  }
+  for _, file := range s.prog.SourceFiles() {
+    if file == nil || file.Statements == nil {
+      continue
+    }
+    for _, statement := range file.Statements.Nodes {
+      if statement == nil || shimast.GetCombinedModifierFlags(statement)&shimast.ModifierFlagsExport == 0 {
+        continue
+      }
+      switch statement.Kind {
+      case shimast.KindVariableStatement:
+        variables := statement.AsVariableStatement()
+        if variables == nil || variables.DeclarationList == nil {
+          continue
+        }
+        list := variables.DeclarationList.AsVariableDeclarationList()
+        if list == nil || list.Declarations == nil {
+          continue
+        }
+        for _, binding := range list.Declarations.Nodes {
+          if node := byDecl[declarationSpanKey(binding)]; node != nil {
+            appendExportInfo(out, node.ID, node.Name, "exported declaration")
+          }
+        }
+      default:
+        if node := byDecl[declarationSpanKey(statement)]; node != nil {
+          appendExportInfo(out, node.ID, node.Name, "exported declaration")
+        }
+      }
+    }
+  }
+}
+
+func appendExportInfo(out map[string]exportInfo, id string, name string, source string) {
+  if id == "" {
+    return
+  }
+  info := out[id]
+  if name != "" && !containsString(info.names, name) {
+    info.names = append(info.names, name)
+    sort.Strings(info.names)
+  }
+  if source != "" && !containsString(info.sources, source) {
+    info.sources = append(info.sources, source)
+    sort.Strings(info.sources)
+  }
+  out[id] = info
+}
+
+func containsString(values []string, value string) bool {
+  for _, existing := range values {
+    if existing == value {
+      return true
+    }
+  }
+  return false
+}
+
+func (s *Server) collectExportedMembers(out map[string]exportInfo, byDecl map[declarationKey]*graph.Node) {
+  exportedOwners := map[string]exportInfo{}
+  for id, info := range out {
+    node := s.graph.Nodes[id]
+    if node == nil || (node.Kind != graph.NodeClass && node.Kind != graph.NodeInterface) {
+      continue
+    }
+    exportedOwners[node.ID] = info
+  }
+  if len(exportedOwners) == 0 || s.prog == nil {
+    return
+  }
+  for _, file := range s.prog.SourceFiles() {
+    if file == nil || file.Statements == nil {
+      continue
+    }
+    s.collectExportedMembersIn(out, byDecl, exportedOwners, file.Statements.Nodes)
+  }
+}
+
+func (s *Server) collectExportedMembersIn(out map[string]exportInfo, byDecl map[declarationKey]*graph.Node, exportedOwners map[string]exportInfo, statements []*shimast.Node) {
+  for _, statement := range statements {
+    switch statement.Kind {
+    case shimast.KindClassDeclaration, shimast.KindInterfaceDeclaration:
+      owner := byDecl[declarationSpanKey(statement)]
+      ownerInfo, ownerExported := exportedOwners[nodeID(owner)]
+      if ownerExported {
+        for _, member := range memberNodes(statement) {
+          if !exportedMemberVisible(member) {
+            continue
+          }
+          if node := byDecl[declarationSpanKey(member)]; node != nil {
+            appendExportInfo(out, node.ID, node.Name, exportedMemberSource(ownerInfo))
+          }
+        }
+      }
+    case shimast.KindModuleDeclaration:
+      s.collectExportedMembersIn(out, byDecl, exportedOwners, moduleMemberStatements(statement))
+    }
+  }
+}
+
+func nodeID(node *graph.Node) string {
+  if node == nil {
+    return ""
+  }
+  return node.ID
+}
+
+func exportedMemberVisible(member *shimast.Node) bool {
+  if member == nil {
+    return false
+  }
+  switch member.Kind {
+  case shimast.KindMethodDeclaration, shimast.KindMethodSignature,
+    shimast.KindConstructor, shimast.KindGetAccessor, shimast.KindSetAccessor,
+    shimast.KindPropertyDeclaration, shimast.KindPropertySignature:
+  default:
+    return false
+  }
+  flags := shimast.GetCombinedModifierFlags(member)
+  return flags&(shimast.ModifierFlagsPrivate|shimast.ModifierFlagsProtected) == 0
+}
+
+func exportedMemberSource(owner exportInfo) string {
+  if len(owner.names) == 0 {
+    return "exported member"
+  }
+  return "member of exported " + strings.Join(owner.names, ",")
+}
+
+func memberNodes(statement *shimast.Node) []*shimast.Node {
+  switch statement.Kind {
+  case shimast.KindClassDeclaration:
+    if decl := statement.AsClassDeclaration(); decl != nil && decl.Members != nil {
+      return decl.Members.Nodes
+    }
+  case shimast.KindInterfaceDeclaration:
+    if decl := statement.AsInterfaceDeclaration(); decl != nil && decl.Members != nil {
+      return decl.Members.Nodes
+    }
+  }
+  return nil
+}
+
+func moduleMemberStatements(statement *shimast.Node) []*shimast.Node {
+  body := statement.Body()
+  for body != nil && body.Kind == shimast.KindModuleDeclaration {
+    body = body.Body()
+  }
+  if body == nil || body.Kind != shimast.KindModuleBlock {
+    return nil
+  }
+  block := body.AsModuleBlock()
+  if block == nil || block.Statements == nil {
+    return nil
+  }
+  return block.Statements.Nodes
+}
+
+func exportedTargetSymbol(checker *shimchecker.Checker, symbol *shimast.Symbol) *shimast.Symbol {
+  if symbol == nil {
+    return nil
+  }
+  if symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+    if aliased := shimchecker.Checker_getAliasedSymbol(checker, symbol); aliased != nil {
+      return aliased
+    }
+  }
+  return symbol
+}
+
+func exportSource(file string, exported *shimast.Symbol, target *shimast.Symbol) string {
+  if exported == nil {
+    return "export"
+  }
+  name := exported.Name
+  if target != nil && target.Name != "" && target.Name != exported.Name {
+    return fmt.Sprintf("export %s=%s from %s", name, target.Name, filepath.ToSlash(file))
+  }
+  return fmt.Sprintf("export %s from %s", name, filepath.ToSlash(file))
+}
+
+type declarationKey struct {
+  file string
+  pos  int
+  end  int
+}
+
+func (s *Server) nodesByDeclarationSpan() map[declarationKey]*graph.Node {
+  out := make(map[declarationKey]*graph.Node, len(s.graph.Nodes))
+  for _, node := range s.graph.Nodes {
+    out[declarationKey{file: node.File, pos: node.Pos, end: node.End}] = node
+  }
+  return out
+}
+
+func declarationSpanKey(declaration *shimast.Node) declarationKey {
+  if declaration == nil {
+    return declarationKey{}
+  }
+  file := ""
+  if source := shimast.GetSourceFileOfNode(declaration); source != nil {
+    file = source.FileName()
+  }
+  return declarationKey{file: file, pos: declaration.Pos(), end: declaration.End()}
 }
 
 const (
@@ -494,9 +984,9 @@ func (s *Server) renderNodesWithSourceLimit(nodes []*graph.Node, budget int, not
 }
 
 // renderFlowNodes writes a compact implementation trace for call-path questions.
-// It keeps exact source windows but drops type edges, incoming edges, diagnostics,
-// and blast-radius metadata that are useful for impact analysis but costly noise
-// when the user asked "how does this flow reach the work?".
+// The graph is an index: print the selected route, the checker-resolved value
+// edges, and only the source lines tied to those edge spans. Full bodies stay
+// behind expand_nodes so a flow answer does not become a file dump.
 func (s *Server) renderFlowNodes(nodes []*graph.Node, query string, note string) string {
   var b strings.Builder
   b.WriteString(flowHeader)
@@ -514,9 +1004,7 @@ func (s *Server) renderFlowNodes(nodes []*graph.Node, query string, note string)
   }
   b.WriteByte('\n')
   s.writeFlowEvidence(&b, nodes, included, query)
-  for _, node := range nodes {
-    s.writeFlowNode(&b, node, included, query)
-  }
+  s.writeFlowSourceEvidence(&b, nodes, included, query)
   return strings.TrimRight(b.String(), "\n")
 }
 
@@ -1067,6 +1555,8 @@ func writeFileAdjacency(b *strings.Builder, label string, set map[string]bool) {
 
 const exploreHeader = "Compiler-resolved graph snapshot. Answer from printed edges/source; expand only omitted declarations. Re-query after edits.\n\n"
 
+const exportHeader = "Compiler-resolved exported symbol index. Use exact names/handles from here for query_nodes or expand_nodes. Git-ignored files are omitted.\n\n"
+
 const flowHeader = "Compiler-resolved call-flow briefing. Answer from this result; expand only to edit or quote omitted source.\n\n"
 
 const expandHeader = "Exact compiler-resolved declaration source. Use query_nodes or mode:flow for relationships. Re-query after edits.\n\n"
@@ -1550,6 +2040,128 @@ func (s *Server) writeFlowEvidence(b *strings.Builder, nodes []*graph.Node, incl
   b.WriteByte('\n')
 }
 
+const maxFlowSourceEvidenceLines = 32
+
+func (s *Server) writeFlowSourceEvidence(b *strings.Builder, nodes []*graph.Node, included map[string]bool, query string) {
+  tokens := queryTokens(query)
+  words := queryWords(query)
+  type rankedLine struct {
+    edge  *graph.Edge
+    line  int
+    text  string
+    score int
+  }
+  lines := make([]rankedLine, 0)
+  for _, node := range nodes {
+    if node == nil {
+      continue
+    }
+    for _, edge := range s.graph.Edges {
+      if edge.From != node.ID || (edge.Kind != graph.EdgeValueCall && edge.Kind != graph.EdgeValueAccess) {
+        continue
+      }
+      to := s.graph.Nodes[edge.To]
+      if to == nil {
+        continue
+      }
+      targetScore := s.pathTargetScoreFrom(edge.From, edge.To, tokens, words)
+      onPath := included[edge.To]
+      if !onPath && targetScore <= 0 {
+        continue
+      }
+      line, text := s.edgeSourceLine(edge)
+      if line == 0 || text == "" {
+        continue
+      }
+      score := targetScore
+      if onPath {
+        score += 1000
+      }
+      lines = append(lines, rankedLine{edge: edge, line: line, text: text, score: score})
+    }
+  }
+  sort.SliceStable(lines, func(i, j int) bool {
+    if lines[i].score != lines[j].score {
+      return lines[i].score > lines[j].score
+    }
+    leftFrom := s.graph.Nodes[lines[i].edge.From]
+    rightFrom := s.graph.Nodes[lines[j].edge.From]
+    leftFile, rightFile := "", ""
+    if leftFrom != nil {
+      leftFile = leftFrom.File
+    }
+    if rightFrom != nil {
+      rightFile = rightFrom.File
+    }
+    if leftFile != rightFile {
+      return leftFile < rightFile
+    }
+    if lines[i].line != lines[j].line {
+      return lines[i].line < lines[j].line
+    }
+    return lines[i].edge.From+lines[i].edge.To < lines[j].edge.From+lines[j].edge.To
+  })
+  if len(lines) == 0 {
+    return
+  }
+  b.WriteString("Flow source evidence:\n")
+  written := 0
+  seen := map[string]bool{}
+  for _, ranked := range lines {
+    from := s.graph.Nodes[ranked.edge.From]
+    to := s.graph.Nodes[ranked.edge.To]
+    if from == nil || to == nil {
+      continue
+    }
+    key := from.File + "\x00" + fmt.Sprint(ranked.line)
+    if seen[key] {
+      continue
+    }
+    seen[key] = true
+    label := "->"
+    if ranked.edge.Kind == graph.EdgeValueAccess {
+      label = "~>"
+    }
+    fmt.Fprintf(b, "  %s:%d  %s %s %s  %s\n", s.relFile(from.File), ranked.line, from.Name, label, to.Name, clipSourceLine(strings.TrimSpace(ranked.text), 220))
+    written++
+    if written >= maxFlowSourceEvidenceLines {
+      b.WriteString("  ... (more source evidence omitted)\n")
+      break
+    }
+  }
+  b.WriteByte('\n')
+}
+
+func (s *Server) edgeSourceLine(edge *graph.Edge) (int, string) {
+  from := s.graph.Nodes[edge.From]
+  if from == nil || s.prog == nil || edge.Pos < 0 {
+    return 0, ""
+  }
+  file := s.prog.SourceFile(from.File)
+  if file == nil {
+    return 0, ""
+  }
+  text := file.Text()
+  if edge.Pos > len(text) {
+    return 0, ""
+  }
+  start := strings.LastIndexByte(text[:edge.Pos], '\n') + 1
+  end := strings.IndexByte(text[edge.Pos:], '\n')
+  if end < 0 {
+    end = len(text)
+  } else {
+    end += edge.Pos
+  }
+  return 1 + strings.Count(text[:edge.Pos], "\n"), text[start:end]
+}
+
+func clipSourceLine(s string, max int) string {
+  if len(s) <= max {
+    return s
+  }
+  return s[:max] + "..."
+}
+
 func (s *Server) writeFlowSourceWindows(b *strings.Builder, node *graph.Node, included map[string]bool, source string, startLine int, sourceOffset int, query string) {
   lines := strings.Split(source, "\n")
   if len(lines) == 0 {
@@ -1741,7 +2353,7 @@ func isSpace(c byte) bool {
 
 // relFile shortens an absolute workspace path to one relative to the project
 // root (the server cwd), so a response does not repeat the long absolute prefix
-// on every edge — pure token waste, since the agent runs from that root. A path
+// on every edge. It is pure token waste, since the agent runs from that root. A path
 // outside the root (a bundled lib) or an empty cwd (the prebuilt/test path) is
 // returned unchanged.
 func (s *Server) relFile(file string) string {
@@ -1760,8 +2372,8 @@ func (s *Server) relFile(file string) string {
   return f
 }
 
-// firstCodeOffset returns the index in src of the first non-trivia byte — past
-// leading whitespace and // line or /* */ block comments — so a signature begins
+// firstCodeOffset returns the index in src of the first non-trivia byte past
+// leading whitespace and // line or /* */ block comments, so a signature begins
 // at the declaration keyword rather than a leading doc comment or, worse, a
 // .d.ts license banner that node.Pos includes as leading trivia.
 func firstCodeOffset(src string) int {
@@ -1800,7 +2412,7 @@ func firstCodeLineIndex(src string) int {
 // declLine returns node's 1-based declaration line, skipping the leading doc
 // comment that node.Pos carries as trivia so the line points at the declaration
 // itself. Carrying this on every edge is what lets a shell-native agent cite a
-// call target without re-reading the file to count lines — the dominant residual
+// call target without re-reading the file to count lines. That was the dominant residual
 // cost the bare-name edge left on the table (a full signature, by contrast, only
 // bloated the response without cutting the body fetches a thorough model makes).
 func (s *Server) declLine(node *graph.Node) int {
@@ -2042,7 +2654,7 @@ func (s *Server) dependents(node *graph.Node) map[string]bool {
 
 // nodeDiagnostics returns the diagnostics attributed to a node plus those on any
 // node nested within its source span. A class collects its methods' findings, so
-// exploring the class shows that its members are broken — the fix-safety signal
+// exploring the class shows that its members are broken. The fix-safety signal
 // would otherwise sit only on the member nodes, which the agent has not named.
 func (s *Server) nodeDiagnostics(node *graph.Node) []fusedDiagnostic {
   out := append([]fusedDiagnostic(nil), s.diagsByNode[node.ID]...)
@@ -2255,7 +2867,7 @@ func sortDiagnostics(diags []fusedDiagnostic) {
 // reject an ambiguous fragment instead of silently picking an arbitrary file.
 func (s *Server) resolveFile(file string) []string {
   // tsgo normalizes FileName() to forward slashes, so normalize the argument too
-  // — otherwise a Windows-style "src\main.ts" never matches "…/src/main.ts".
+  // Otherwise a Windows-style "src\main.ts" never matches ".../src/main.ts".
   file = filepath.ToSlash(file)
   for _, source := range s.prog.SourceFiles() {
     if source.FileName() == file {
