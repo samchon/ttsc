@@ -159,6 +159,31 @@ export interface Plan {
 		}
 	}
 
+	// query_path also lists the off-path helpers each path node calls, with handles,
+	// so the caller can expand the whole neighborhood in one batch instead of running a
+	// separate discovery query to find a helper's handle. applyPlan calls normalizePlan
+	// off the path, so it must appear as a callee tagged with its calling node.
+	pathCallees, ok := path["callees"].([]any)
+	if !ok || len(pathCallees) == 0 {
+		t.Fatalf("query_path returned no callees: %v", path)
+	}
+	calleeText, err := json.Marshal(pathCallees)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(calleeText), "normalizePlan") {
+		t.Fatalf("query_path callees did not include the off-path helper normalizePlan:\n%s", calleeText)
+	}
+	firstCallee, ok := pathCallees[0].(map[string]any)
+	if !ok {
+		t.Fatalf("query_path callee is not an object: %v", pathCallees[0])
+	}
+	for _, required := range []string{"fromHandle", "handle", "kind", "name", "file", "line"} {
+		if _, ok := firstCallee[required]; !ok {
+			t.Fatalf("query_path callee missing %s: %v", required, firstCallee)
+		}
+	}
+
 	// query_path with only the two endpoints stitches the full ordered chain, so a
 	// caller that knows just the public entry and the terminal symbol still gets
 	// the path the compiler resolves between them, without naming the intermediates.
