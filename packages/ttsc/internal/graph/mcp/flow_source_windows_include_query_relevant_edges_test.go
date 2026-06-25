@@ -77,3 +77,37 @@ func TestFlowSourceWindowsIncludeQueryRelevantEdges(t *testing.T) {
     t.Fatalf("flow window omitted local structural edge:\n%s", text)
   }
 }
+
+func TestSourceExcerptAtIncludesContinuationLines(t *testing.T) {
+  source := strings.Join([]string{
+    "function build() {",
+    "  const value = makeValue(",
+    "    first,",
+    "    second,",
+    "  );",
+    "  return value;",
+    "}",
+  }, "\n")
+  line, excerpt := sourceExcerptAt(source, strings.Index(source, "makeValue"), 4)
+  if line != 2 {
+    t.Fatalf("sourceExcerptAt line = %d; want 2", line)
+  }
+  text := strings.Join(excerpt, "\n")
+  for _, want := range []string{
+    "const value = makeValue(",
+    "first,",
+    "second,",
+    ");",
+  } {
+    if !strings.Contains(text, want) {
+      t.Fatalf("sourceExcerptAt omitted continuation %q:\n%s", want, text)
+    }
+  }
+}
+
+func TestSourceLineQueryScoreRewardsLiteralQueryEvidence(t *testing.T) {
+  score := sourceLineQueryScore("joinAlias = DriverUtils.buildAlias(", []string{"join", "alias"})
+  if score == 0 {
+    t.Fatal("sourceLineQueryScore did not reward literal source-line query evidence")
+  }
+}

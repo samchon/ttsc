@@ -1005,6 +1005,7 @@ func (s *Server) renderFlowNodes(nodes []*graph.Node, query string, note string)
   b.WriteByte('\n')
   s.writeFlowEvidence(&b, nodes, included, query)
   s.writeFlowSourceEvidence(&b, nodes, included, query)
+  s.writeFocusedFlowSourceWindows(&b, nodes, included, query)
   return strings.TrimRight(b.String(), "\n")
 }
 
@@ -2074,16 +2075,22 @@ func (s *Server) writeFlowEvidence(b *strings.Builder, nodes []*graph.Node, incl
   b.WriteByte('\n')
 }
 
-const maxFlowSourceEvidenceLines = 32
+const (
+  maxFlowSourceEvidenceLines        = 100
+  maxFlowSourceEvidenceSnippetLines = 15
+  maxFlowSourcePathSnippetLines     = 8
+)
 
 func (s *Server) writeFlowSourceEvidence(b *strings.Builder, nodes []*graph.Node, included map[string]bool, query string) {
   tokens := queryTokens(query)
   words := queryWords(query)
   type rankedLine struct {
-    edge  *graph.Edge
-    line  int
-    text  string
-    score int
+    edge        *graph.Edge
+    line        int
+    text        string
+    score       int
+    targetScore int
+    onPath      bool
   }
   lines := make([]rankedLine, 0)
   for _, node := range nodes {
@@ -2107,11 +2114,11 @@ func (s *Server) writeFlowSourceEvidence(b *strings.Builder, nodes []*graph.Node
       if line == 0 || text == "" {
         continue
       }
-      score := targetScore
+      score := targetScore + sourceLineQueryScore(text, tokens)
       if onPath {
         score += 1000
       }
-      lines = append(lines, rankedLine{edge: edge, line: line, text: text, score: score})
+      lines = append(lines, rankedLine{edge: edge, line: line, text: text, score: score, targetScore: targetScore, onPath: onPath})
     }
   }
   sort.SliceStable(lines, func(i, j int) bool {
@@ -2141,6 +2148,7 @@ func (s *Server) writeFlowSourceEvidence(b *strings.Builder, nodes []*graph.Node
   b.WriteString("Flow source evidence:\n")
   written := 0
   seen := map[string]bool{}
+  seenLines := map[string]bool{}
   for _, ranked := range lines {
     from := s.graph.Nodes[ranked.edge.From]
     to := s.graph.Nodes[ranked.edge.To]
@@ -2151,19 +2159,89 @@ func (s *Server) writeFlowSourceEvidence(b *strings.Builder, nodes []*graph.Node
     if seen[key] {
       continue
     }
-    seen[key] = true
     label := "->"
     if ranked.edge.Kind == graph.EdgeValueAccess {
       label = "~>"
     }
-    fmt.Fprintf(b, "  %s:%d  %s %s %s  %s\n", s.relFile(from.File), ranked.line, from.Name, label, to.Name, clipSourceLine(strings.TrimSpace(ranked.text), 220))
-    written++
+    snippetLines := maxFlowSourceEvidenceSnippetLines
+    if ranked.onPath {
+      snippetLines = maxFlowSourcePathSnippetLines
+    }
+    startLine, excerpt := s.edgeSourceExcerpt(ranked.edge, snippetLines)
+    if startLine == 0 || len(excerpt) == 0 {
+      continue
+    }
+    printable := make([]struct {
+      line int
+      text string
+    }, 0, len(excerpt))
+    for i, text := range excerpt {
+      line := startLine + i
+      lineKey := from.File + "\x00" + fmt.Sprint(line)
+      if seenLines[lineKey] {
+        continue
+      }
+      printable = append(printable, struct {
+        line int
+        text string
+      }{line: line, text: text})
+    }
+    if len(printable) == 0 {
+      continue
+    }
+    seen[key] = true
+    fmt.Fprintf(b, "  %s:%d  %s %s %s\n", s.relFile(from.File), ranked.line, from.Name, label, to.Name)
+    for _, line := range printable {
+      lineKey := from.File + "\x00" + fmt.Sprint(line.line)
+      seenLines[lineKey] = true
+      fmt.Fprintf(b, "    %d\t%s\n", line.line, clipSourceLine(strings.TrimRight(line.text, "\r"), 220))
+      written++
+      if written >= maxFlowSourceEvidenceLines {
+        b.WriteString("  ... (more source evidence omitted)\n")
+        return
+      }
+    }
     if written >= maxFlowSourceEvidenceLines {
       b.WriteString("  ... (more source evidence omitted)\n")
       break
     }
   }
   b.WriteByte('\n')
+}
+
+func (s *Server) writeFocusedFlowSourceWindows(b *strings.Builder, nodes []*graph.Node, included map[string]bool, query string) {
+  if len(nodes) == 0 {
+    return
+  }
+  node := nodes[len(nodes)-1]
+  if node == nil {
+    return
+  }
+  source, line, sourceOffset := s.nodeSourceRange(node)
+  if source == "" {
+    return
+  }
+  var local strings.Builder
+  s.writeFlowSourceWindows(&local, node, included, source, line, sourceOffset, query)
+  if local.Len() == 0 {
+    return
+  }
+  b.WriteString("Focused terminal source windows:\n")
+  fmt.Fprintf(b, "  %s %s  %s:%d  handle:%s\n", node.Kind, node.Name, s.relFile(node.File), s.declLine(node), nodeHandle(node.ID))
+  b.WriteString(local.String())
+  b.WriteByte('\n')
+}
+
+func (s *Server) edgeSourceExcerpt(edge *graph.Edge, maxLines int) (int, []string) {
+  from := s.graph.Nodes[edge.From]
+  if from == nil || s.prog == nil || edge.Pos < 0 {
+    return 0, nil
+  }
+  file := s.prog.SourceFile(from.File)
+  if file == nil {
+    return 0, nil
+  }
+  return sourceExcerptAt(file.Text(), edge.Pos, maxLines)
 }
 
 func (s *Server) edgeSourceLine(edge *graph.Edge) (int, string) {
@@ -2187,6 +2265,36 @@ func (s *Server) edgeSourceLine(edge *graph.Edge) (int, string) {
     end += edge.Pos
   }
   return 1 + strings.Count(text[:edge.Pos], "\n"), text[start:end]
+}
+
+func sourceExcerptAt(text string, pos int, maxLines int) (int, []string) {
+  if pos < 0 || pos > len(text) || maxLines <= 0 {
+    return 0, nil
+  }
+  start := strings.LastIndexByte(text[:pos], '\n') + 1
+  line := 1 + strings.Count(text[:pos], "\n")
+  rest := strings.Split(text[start:], "\n")
+  if len(rest) > maxLines {
+    rest = rest[:maxLines]
+  }
+  for len(rest) > 0 && strings.TrimSpace(rest[len(rest)-1]) == "" {
+    rest = rest[:len(rest)-1]
+  }
+  return line, rest
+}
+
+func sourceLineQueryScore(text string, tokens []string) int {
+  line := strings.ToLower(text)
+  score := 0
+  for _, token := range tokens {
+    if len(token) < 2 {
+      continue
+    }
+    if strings.Contains(line, token) {
+      score += 60
+    }
+  }
+  return score
 }
 
 func clipSourceLine(s string, max int) string {
@@ -2271,7 +2379,6 @@ func (s *Server) writeFlowSourceWindows(b *strings.Builder, node *graph.Node, in
     }
   }
   if len(windows) <= 1 {
-    b.WriteString(numberLines(source, startLine, maxSourceLines))
     return
   }
   sort.Slice(windows, func(i, j int) bool {
@@ -2477,11 +2584,11 @@ func expandedSourceLines(nodes int) int {
 // maxCallExcerptWindows caps the late-body call windows printed after a
 // truncated declaration. These snippets are tied to checker-resolved value-call
 // edges, so they preserve code-flow context without dumping the whole body.
-const maxCallExcerptWindows = 6
+const maxCallExcerptWindows = 10
 
 // maxCallExcerptLines caps the merged excerpt lines across all late calls from a
 // truncated declaration.
-const maxCallExcerptLines = 36
+const maxCallExcerptLines = 54
 
 // numberLines prefixes each line of source with its absolute line number so the
 // agent can cite or edit by line without re-reading the file, truncating a long
