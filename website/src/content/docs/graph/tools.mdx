@@ -25,7 +25,7 @@ interface QueryExportsArguments {
    */
   query?: string;
 
-  /** Maximum export entries to return. Defaults to 1000, minimum 0, max 10000; 0 returns only the folder/kind summary. */
+  /** Maximum export entries to return. Defaults to 100, minimum 0, maximum 10000; 0 returns only the folder/kind summary. */
   limit?: number;
 
   /** Zero-based offset for the next page. Defaults to 0, minimum 0. */
@@ -33,7 +33,7 @@ interface QueryExportsArguments {
 }
 ```
 
-It returns one text block. The block starts with the compiler-resolved header, then an optional `Filter:` line, an `Exports:` pagination line, an `Export folders:` summary, and an `Exported symbols:` section.
+It returns one text block. By default, the block shows a compact first page of exported symbols plus the full folder/kind summary, then an `Exports:` pagination line, an `Export folders:` summary, and an `Exported symbols:` section. Raise `limit` for a larger page, or use `offset` for the next page. Set `limit` to `0` when you only need the folder/kind summary.
 
 Each exported symbol line includes `kind`, `name`, `exports:<comma list>`, `file:line`, `handle`, `calls:<n> uses:<n> types:<n> deps:<n>`, and `sources:<semicolon list>`.
 

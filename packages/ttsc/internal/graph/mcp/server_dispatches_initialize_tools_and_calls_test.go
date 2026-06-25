@@ -87,7 +87,7 @@ export const bad: number = "not a number";
     t.Fatalf("query_exports query did not use the embedded description: %v", desc)
   }
   exportsLimit := exportsProperties["limit"].(map[string]any)
-  if exportsLimit["type"] != "integer" || exportsLimit["minimum"] != float64(0) || exportsLimit["default"] != float64(1000) || exportsLimit["maximum"] != float64(10000) {
+  if exportsLimit["type"] != "integer" || exportsLimit["minimum"] != float64(0) || exportsLimit["default"] != float64(100) || exportsLimit["maximum"] != float64(10000) {
     t.Fatalf("query_exports limit schema was not bounded with defaults: %v", exportsLimit)
   }
   exportsOffset := exportsProperties["offset"].(map[string]any)

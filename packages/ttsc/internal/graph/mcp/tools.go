@@ -226,7 +226,7 @@ const maxEdgesPerDirection = 12
 const maxNodeDiagnostics = 5
 
 const (
-  defaultExportLimit = 1000
+  defaultExportLimit = 100
   maxExportLimit     = 10000
 )
 
