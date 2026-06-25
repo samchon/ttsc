@@ -6,15 +6,14 @@ import (
 
 // DecoratorArgument is one argument written on a decorator. Literal holds the
 // statically-resolved value when the argument is a string or boolean literal
-// (the route-path / flag case) and is nil otherwise; Text is always the
-// argument's printable source.
+// and is nil otherwise; Text is always the argument's printable source.
 type DecoratorArgument struct {
   Text    string
   Literal any
 }
 
 // Decorator is a decorator as written on a workspace declaration, captured so a
-// framework pass can recognize a routing convention (`@Controller('users')`,
+// consumer can interpret a decorator convention (`@Controller('users')`,
 // `@Get(':id')`) without re-parsing source. Target is the id of the graph node
 // the decorator is applied to; Pos/End bound the decorator for evidence.
 type Decorator struct {
@@ -28,9 +27,8 @@ type Decorator struct {
 
 // collectDecorators records the decorators on each class plus its methods and
 // properties, descending into namespace bodies. It is syntactic — a decorator's
-// name and literal arguments are read straight from the AST — because the
-// framework pass that consumes them keys on the written convention name, not the
-// resolved decorator symbol.
+// name and literal arguments are read straight from the AST — because a consumer
+// keys on the written convention name, not the resolved decorator symbol.
 func (g *Graph) collectDecorators(path string, statements []*shimast.Node) {
   for _, statement := range statements {
     switch statement.Kind {
@@ -108,7 +106,7 @@ func decoratorFact(dec *shimast.Node) *Decorator {
 }
 
 // decoratorArg captures one decorator argument. Only string and boolean literals
-// resolve to a Literal — the values a routing convention reads — so a
+// resolve to a Literal — the values a consumer can use directly — so a
 // non-literal argument keeps its source Text with a nil Literal.
 func decoratorArg(arg *shimast.Node) DecoratorArgument {
   out := DecoratorArgument{Text: shimast.NodeText(arg)}

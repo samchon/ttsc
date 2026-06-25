@@ -10,11 +10,11 @@ import (
 // TestDecoratorsCaptureNameAndLiteralArguments verifies that collectDecorators
 // records each decorator on a class and on its methods with the convention name
 // and the statically-resolved literal arguments, attributed to the decorated
-// node — the facts a framework pass reads to synthesize routes without
+// node — the facts a consumer reads to interpret a decorator convention without
 // re-parsing source.
 //
-// The route path lives in the decorator's literal argument, so the test pins
-// both axes the framework pass depends on: the decorator name (`Controller`,
+// A convention's value lives in the decorator's literal argument, so the test
+// pins both axes a consumer depends on: the decorator name (`Controller`,
 // `Get`) and the unquoted literal value (`users`, `:id`), each on the right
 // target node. A bare method with no decorator is the negative twin: it must
 // contribute no decorator fact.
@@ -77,8 +77,8 @@ export class UsersController {
     t.Fatalf("@Get args: want one literal \":id\", got %v", methodDec.Arguments)
   }
 
-  // Negative twin: an undecorated method contributes no decorator fact, so the
-  // framework pass never invents a route for it.
+  // Negative twin: an undecorated method contributes no decorator fact, so a
+  // consumer sees no decorator on it.
   for _, d := range graph.Decorators {
     if d.Target == plain {
       t.Fatalf("undecorated method UsersController.plain gained a decorator fact: %+v", d)

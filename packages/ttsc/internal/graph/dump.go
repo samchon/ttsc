@@ -22,8 +22,8 @@ import (
 //     deterministic and diffable.
 //
 // Structural derivations the schema also defines (file nodes, contains/exports
-// edges, framework routes) are left to the TypeScript loader, which has the
-// node set in hand and is where the redesign keeps that logic.
+// edges) are left to the TypeScript loader, which has the node set in hand and
+// is where the redesign keeps that logic.
 
 // dumpSchemaVersion is the IGraphDump.schemaVersion this writer emits. Keep it in
 // lockstep with TTSC_GRAPH_SCHEMA_VERSION in packages/graph/src/structures.
@@ -48,7 +48,7 @@ type DumpDecoratorArgument struct {
 }
 
 // DumpDecorator is a decorator as written on a declaration, carried on its
-// target node for a framework pass to read.
+// target node for a consumer to interpret.
 type DumpDecorator struct {
   Name      string                  `json:"name"`
   Arguments []DumpDecoratorArgument `json:"arguments"`
