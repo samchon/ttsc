@@ -85,7 +85,7 @@ const REPOS = {
   typeorm: {
     url: "https://github.com/typeorm/typeorm",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-typeorm.git",
-    tsconfig: "tsconfig.graph.json",
+    tsconfig: "tsconfig.json",
     question: ARCHITECTURE_QUESTION,
   },
   rxjs: {
@@ -183,6 +183,9 @@ if (!args["repo-dir"] && !fs.existsSync(repoDir)) {
     corpus,
     process.env,
   );
+}
+if (!cg && !fs.existsSync(path.join(repoDir, tsconfig))) {
+  throw new Error(`missing tsconfig: ${path.join(repoDir, tsconfig)}`);
 }
 
 // 3. Default runs stay single-process so setup/build cost remains part of the
