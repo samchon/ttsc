@@ -515,7 +515,7 @@ const article: IBbsArticle =
 ```
 
 <!--
-Say: the frontend receives a generated function with the same route path, parameter order, request type, and response type.
+Say: this follows the Nestia homepage contrast: backend controller in, frontend SDK function out.
 -->
 
 ---
@@ -1348,3 +1348,7 @@ TypeScript Backend Meetup
 2026-06-26
 
 Samchon
+
+<!--
+End.
+-->
