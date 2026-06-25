@@ -331,6 +331,14 @@ func pathIndexDefs() map[string]any {
 			"file": schemaString("Project-relative file."),
 			"line": schemaInteger("One-based line number."),
 		}, []any{"file", "line"}),
+		"QueryPathCallee": objectOutputSchema(map[string]any{
+			"fromHandle": schemaString("Path node handle that calls this declaration."),
+			"handle":     schemaString("Stable handle for exact follow-up tools."),
+			"kind":       schemaNodeKind("Declaration kind."),
+			"name":       schemaString("Symbol name."),
+			"file":       schemaString("Project-relative file."),
+			"line":       schemaInteger("Declaration line."),
+		}, []any{"fromHandle", "handle", "kind", "name", "file", "line"}),
 	}
 }
 
@@ -371,6 +379,7 @@ func queryPathOutputSchema() map[string]any {
 	properties["message"] = schemaString("Optional status when no path or partial handling needs explanation.")
 	properties["nodes"] = schemaArrayRef("Path nodes in order.", "#/$defs/QueryPathNode")
 	properties["edges"] = schemaArrayRef("Selected runtime edges between consecutive path nodes.", "#/$defs/QueryPathEdge")
+	properties["callees"] = schemaArrayRef("Off-path declarations the path nodes call, as index records for one-batch expansion.", "#/$defs/QueryPathCallee")
 	schema := objectOutputSchema(properties, []any{"nodes", "edges"})
 	schema["$defs"] = pathIndexDefs()
 	return schema
@@ -643,9 +652,10 @@ type queryNodesResult struct {
 }
 
 type queryPathResult struct {
-	Message string           `json:"message,omitempty"`
-	Nodes   []pathNodeResult `json:"nodes"`
-	Edges   []flowEdgeResult `json:"edges"`
+	Message string             `json:"message,omitempty"`
+	Nodes   []pathNodeResult   `json:"nodes"`
+	Edges   []flowEdgeResult   `json:"edges"`
+	Callees []pathCalleeResult `json:"callees,omitempty"`
 }
 
 type pathNodeResult struct {
@@ -654,6 +664,15 @@ type pathNodeResult struct {
 	Name   string         `json:"name"`
 	File   string         `json:"file"`
 	Line   int            `json:"line"`
+}
+
+type pathCalleeResult struct {
+	FromHandle string         `json:"fromHandle"`
+	Handle     string         `json:"handle"`
+	Kind       graph.NodeKind `json:"kind"`
+	Name       string         `json:"name"`
+	File       string         `json:"file"`
+	Line       int            `json:"line"`
 }
 
 type expandNodesResult struct {
@@ -1343,8 +1362,9 @@ func (s *Server) queryPath(args json.RawMessage) (any, *rpcError) {
 		return structuredToolResult(result, result.Message), nil
 	}
 	result := queryPathResult{
-		Nodes: s.pathNodeRefs(path),
-		Edges: s.pathEdgeResults(path),
+		Nodes:   s.pathNodeRefs(path),
+		Edges:   s.pathEdgeResults(path),
+		Callees: s.pathCalleeResults(path),
 	}
 	return structuredToolResult(result, fmt.Sprintf("query_path returned %d nodes", len(result.Nodes))), nil
 }
@@ -1517,6 +1537,59 @@ func (s *Server) pathEdgeResults(nodes []*graph.Node) []flowEdgeResult {
 			Kind:       edge.Kind,
 			Use:        s.edgeUseLocation(edge),
 		})
+	}
+	return out
+}
+
+// pathCalleeResults lists the off-path methods and functions that the path nodes
+// call, as index records tagged with the calling path-node handle. They are the
+// helpers each step reaches into (for example the alias or join-type helpers a
+// builder method calls), so the caller can expand the whole neighborhood in one
+// batch instead of discovering their handles with a separate query. Only value
+// calls are followed, not property reads; targets already on the path, external,
+// or git-ignored are skipped, and each callee is listed once.
+func (s *Server) pathCalleeResults(nodes []*graph.Node) []pathCalleeResult {
+	onPath := make(map[string]bool, len(nodes))
+	for _, node := range nodes {
+		onPath[node.ID] = true
+	}
+	out := make([]pathCalleeResult, 0)
+	seen := map[string]bool{}
+	for _, from := range nodes {
+		targets := make([]*graph.Node, 0)
+		for _, edge := range s.graph.Edges {
+			if edge.From != from.ID || edge.Kind != graph.EdgeValueCall {
+				continue
+			}
+			if onPath[edge.To] || seen[edge.To] {
+				continue
+			}
+			to := s.graph.Nodes[edge.To]
+			if to == nil || to.External || s.ignored[to.File] || !flowNodeEligible(to) {
+				continue
+			}
+			seen[edge.To] = true
+			targets = append(targets, to)
+		}
+		sort.SliceStable(targets, func(i, j int) bool {
+			if targets[i].File != targets[j].File {
+				return targets[i].File < targets[j].File
+			}
+			if s.declLine(targets[i]) != s.declLine(targets[j]) {
+				return s.declLine(targets[i]) < s.declLine(targets[j])
+			}
+			return targets[i].Name < targets[j].Name
+		})
+		for _, to := range targets {
+			out = append(out, pathCalleeResult{
+				FromHandle: nodeHandle(from.ID),
+				Handle:     nodeHandle(to.ID),
+				Kind:       to.Kind,
+				Name:       to.Name,
+				File:       s.relFile(to.File),
+				Line:       s.declLine(to),
+			})
+		}
 	}
 	return out
 }

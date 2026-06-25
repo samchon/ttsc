@@ -352,7 +352,7 @@ type QueryRuntimeEdgeKind = "value-call" | "value-access";
 /**
  * Exact runtime path index between named TypeScript symbols. Use this when the task gives a start and end symbol, or an ordered call chain.
  *
- * It resolves anchors to compiler-known graph nodes and searches the resident in-memory value-call/value-access graph. It returns path node coordinates plus selected edge evidence. Use query_nodes first when the endpoints are unknown.
+ * It resolves anchors to compiler-known graph nodes and searches the resident in-memory value-call/value-access graph. It returns path node coordinates plus selected edge evidence, and the off-path callees (handles) the path nodes invoke so you can expand the neighborhood without a separate discovery query. Use query_nodes first when the endpoints are unknown.
  */
 declare function query_path(args: QueryPathArguments): QueryPathResult;
 
@@ -394,6 +394,11 @@ interface QueryPathResult {
    * Selected runtime edges between consecutive path nodes.
    */
   edges: QueryPathEdge[];
+
+  /**
+   * Off-path methods and functions the path nodes call, as index records so the whole neighborhood can be expanded in one batch.
+   */
+  callees?: QueryPathCallee[];
 }
 
 /**
@@ -449,6 +454,41 @@ interface QueryPathEdge {
    * Source use location when known.
    */
   use?: QueryLocation;
+}
+
+/**
+ * One off-path callee an exact runtime path node invokes.
+ */
+interface QueryPathCallee {
+  /**
+   * Path node handle that calls this declaration.
+   */
+  fromHandle: string;
+
+  /**
+   * Stable handle for exact follow-up tools.
+   */
+  handle: string;
+
+  /**
+   * Declaration kind.
+   */
+  kind: QueryNodeKind;
+
+  /**
+   * Symbol name.
+   */
+  name: string;
+
+  /**
+   * Project-relative file.
+   */
+  file: string;
+
+  /**
+   * Declaration line.
+   */
+  line: number;
 }
 ```
 
