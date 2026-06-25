@@ -10,22 +10,19 @@ So every relationship it reports is the compiler's own answer, not a guess from 
 
 Ask an agent how something works and, without a map, it reconstructs the picture by hand: open a file, follow an import, open the next, and repeat. That is slow, it spends tokens, and the relationships it infers are guesses from whatever text it happened to read.
 
-The graph hands it the answer up front. In one call the agent gets a symbol's source, what it calls, what calls it, the types it touches, and how far a change would reach, so it stops fanning out across files.
+The graph hands it the answer up front. `graph_overview` maps the project's layers, hotspots, and public API with no source read; `graph_query` finds the right symbol from a natural phrase; `graph_trace` follows the flow from a route or symbol to where the work happens and back out to what a change would reach; `graph_expand` reads the source once the graph has located it. The agent stops fanning out across files.
 
-On a public agent-cost benchmark a Claude agent answers reading zero files, cutting tokens by 77% to 86% and tool calls by 94% to 95%. See the [Benchmark](/docs/benchmark/graph) for the numbers and method.
+See the [Benchmark](/docs/benchmark/graph) for the agent-cost method and current numbers.
 
-## One graph, two questions
+## Structure, flow, and impact from one graph
 
-Most tools answer only one of these. This one answers both, from the same graph:
+The graph answers the questions an agent actually asks, all from the same checker-resolved facts:
 
-- **What calls what.** The static structure: what a symbol calls, what depends on it, the types it touches, its heritage.
-- **What is broken, and how far it spreads.** The live diagnostics, fused onto that structure.
+- **How is this project laid out?** Entry points, layers, and the symbols the most code leans on — `graph_overview`.
+- **What does this reach, and what reaches it?** Forward to callees, reverse to callers, and an impact projection onto the public API, routes, and tests — `graph_trace`.
+- **Which route or component serves this?** Framework routes (NestJS controllers, Next.js pages) are synthesized onto the same graph and traced like any other edge.
 
-That fusion is the point. `query_nodes` shows a symbol's own errors, and how many of the things that depend on it are already broken.
-
-So before you change a symbol, you can see the reach of the change over what is currently failing. That is fix-safety, not just a cheaper way to read code.
-
-No other tool fuses all three. A tree-sitter graph has no types and no errors. An editor's language server has errors but no structure graph. A linter is separate again. Only a graph built on the real checker holds the structure, the diagnostics, and the affected set in one place.
+A tree-sitter graph has no types and resolves edges by guessing from text. An editor's language server has types but no architecture projection. Only a graph built on the real checker holds the resolved structure, the framework routes, and the affected set in one place — and every edge says whether it is `checker-resolved`, `framework-derived`, or `heuristic`, so an agent never mistakes inference for fact.
 
 ## What only the compiler can resolve
 
@@ -64,5 +61,5 @@ Your agent picks the tools up from the MCP handshake and calls them when it need
 
 ## Next
 
-- [Tools](/docs/graph/tools): what `query_exports`, `query_path`, `query_nodes`, `query_files`, and `query_diagnostics` return, the diagnostic sources, the edge kinds, and the current scope.
+- [Tools](/docs/graph/tools): what `graph_overview`, `graph_query`, `graph_trace`, and `graph_expand` return, the provenance and confidence on every relationship, and the node and edge kinds.
 - [3D Viewer](/docs/graph/viewer): browse the whole graph in your browser, or load your own project.
