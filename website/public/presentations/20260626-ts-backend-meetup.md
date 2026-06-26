@@ -50,6 +50,10 @@ style: |
   section.lead::after {
     color: rgba(255, 255, 255, 0.86) !important;
   }
+  section.lead a {
+    color: #fde047 !important;
+    font-weight: 400;
+  }
   h1 {
     color: #102a43;
     font-size: 54px;
@@ -230,6 +234,84 @@ style: |
     line-height: 1.26;
     padding: 14px;
   }
+  section.lint-example {
+    column-gap: 20px;
+    display: grid;
+    grid-template-columns: 0.7fr 1.3fr;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    padding: 38px 48px 46px;
+    row-gap: 12px;
+  }
+  section.lint-example h1 {
+    font-size: 42px;
+    grid-column: 1 / -1;
+    margin-bottom: 0;
+  }
+  section.lint-example .lint-concept {
+    display: grid;
+    gap: 10px;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  section.lint-example .lint-concept > div {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-left: 6px solid #3178c6;
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  section.lint-example .lint-concept strong {
+    display: block;
+    font-size: 18px;
+    line-height: 1.08;
+    margin-bottom: 4px;
+  }
+  section.lint-example .lint-concept span {
+    color: #334155;
+    display: block;
+    font-size: 15px;
+    line-height: 1.18;
+  }
+  section.lint-example .lint-label {
+    align-self: end;
+    background: #dbeafe;
+    border: 1px solid #93c5fd;
+    border-radius: 8px 8px 0 0;
+    color: #102a43;
+    font-size: 16px;
+    font-weight: 800;
+    grid-row: 3;
+    letter-spacing: 0;
+    line-height: 1;
+    padding: 8px 12px;
+  }
+  section.lint-example .source-label {
+    grid-column: 1;
+  }
+  section.lint-example .terminal-label {
+    grid-column: 2;
+  }
+  section.lint-example > pre {
+    align-self: start;
+    border-radius: 0 0 8px 8px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 14px;
+  }
+  section.lint-example > pre:nth-of-type(1) {
+    font-size: 17px;
+    grid-column: 1;
+    grid-row: 4;
+    line-height: 1.34;
+  }
+  section.lint-example > pre:nth-of-type(2) {
+    font-size: 14px;
+    grid-column: 2;
+    grid-row: 4;
+    line-height: 1.16;
+    white-space: pre-wrap;
+  }
   section.benchmark {
     column-gap: 30px;
     display: grid;
@@ -259,77 +341,21 @@ style: |
     font-size: 19px;
     line-height: 1.2;
   }
-  section.benchmark .benchmarks {
-    display: grid;
-    gap: 12px;
+  section.benchmark > p:has(img[src*="../benchmark/meetup-"]),
+  section.lint-benchmark > p:has(img[src*="../benchmark/meetup-"]),
+  section.graph-token > p:has(img[src*="../benchmark/meetup-"]) {
+    margin: 0;
+  }
+  section.benchmark > p:has(img[src*="../benchmark/meetup-"]) {
+    align-self: start;
     grid-column: 2;
   }
-  section.benchmark .bench-card {
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    padding: 14px;
-  }
-  section.benchmark .bench-title {
-    color: #2563eb;
-    font-size: 22px;
-    font-weight: 800;
-    margin-bottom: 10px;
-  }
-  section.benchmark .bench-row {
-    align-items: center;
-    display: grid;
-    gap: 10px;
-    grid-template-columns: 150px minmax(0, 1fr) 104px;
-    margin-top: 7px;
-  }
-  section.benchmark .bench-name {
-    color: #334155;
-    font-size: 17px;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  section.benchmark .bench-value {
-    color: #0f172a;
-    font-size: 21px;
-    font-weight: 900;
-    line-height: 1;
-    text-align: right;
-    white-space: nowrap;
-  }
-  section.benchmark .bench-track {
-    background: #e2e8f0;
-    border-radius: 999px;
-    height: 22px;
-    overflow: hidden;
-  }
-  section.benchmark .bench-fill {
-    background: #2563eb;
-    border-radius: 999px;
-    height: 100%;
-  }
-  section.benchmark .bench-fill.base {
-    background: #94a3b8;
-  }
-  section.benchmark .w-base {
-    width: 8%;
-  }
-  section.benchmark .w-10 {
-    width: 36%;
-  }
-  section.benchmark .w-30 {
-    width: 48%;
-  }
-  section.benchmark .w-200 {
-    width: 64%;
-  }
-  section.benchmark .w-20000 {
+  section.benchmark img[src*="../benchmark/meetup-"],
+  section.lint-benchmark img[src*="../benchmark/meetup-"],
+  section.graph-token img[src*="../benchmark/meetup-"] {
+    display: block;
+    height: auto;
     width: 100%;
-  }
-  section.benchmark .bench-note {
-    color: #64748b;
-    font-size: 17px;
-    margin-top: 10px;
   }
   section.cards > ul {
     display: grid;
@@ -421,6 +447,15 @@ style: |
     margin-top: 28px;
     text-align: center;
   }
+  section.lint-benchmark {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    padding: 52px 58px;
+  }
+  section.lint-benchmark h1 {
+    font-size: 44px;
+    margin-bottom: 18px;
+  }
   section.flow > ul {
     align-items: stretch;
     display: grid;
@@ -461,6 +496,57 @@ style: |
     font-size: 19px;
     font-weight: 500;
     line-height: 1.25;
+  }
+  section.graph-shot {
+    column-gap: 26px;
+    display: grid;
+    grid-template-columns: 0.52fr 1.48fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    padding: 48px 52px;
+  }
+  section.graph-shot h1 {
+    font-size: 44px;
+    grid-column: 1 / -1;
+    margin-bottom: 18px;
+  }
+  section.graph-shot > ul {
+    align-self: start;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    grid-column: 1;
+    margin: 0;
+    padding: 16px 18px 16px 34px;
+  }
+  section.graph-shot > ul > li {
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.22;
+  }
+  section.graph-shot > ul li li {
+    color: #334155;
+    font-size: 17px;
+    font-weight: 500;
+    line-height: 1.18;
+  }
+  section.graph-shot img {
+    align-self: start;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.22);
+    grid-column: 2;
+    max-height: 492px;
+    object-fit: contain;
+    width: 100%;
+  }
+  section.graph-token {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    padding: 50px 58px;
+  }
+  section.graph-token h1 {
+    font-size: 44px;
+    margin-bottom: 18px;
   }
   section.blueprint {
     background: #0f172a;
@@ -547,7 +633,7 @@ Third, TTSC is the recovery path. At minimum, it is a transformer host for the n
 # Index
 
 1. Typia and Nestia
-2. TypeScript-Go Shock
+2. TypeScript-Go
 3. Transformer Survival
 4. Toolchain Opportunity
 
@@ -556,7 +642,11 @@ The talk has four chapters.
 
 The first chapter explains why transformers matter, using Typia and Nestia as concrete backend examples. I want everyone to see the real value before I talk about compiler internals.
 
-The second chapter is the breakage point: TypeScript-Go arrives, performance improves, and the old JavaScript patch model stops being a stable foundation.
+The second chapter starts with the good news: TypeScript-Go makes the compiler much faster, so everyday TypeScript work gets better.
+
+Then the chapter turns: the compiler implementation moves from JavaScript to Go, and the old transformer host model stops being a stable foundation.
+
+That is the breakage point. For typia and nestia, the visible TypeScript API can remain, while the generated runtime artifacts lose their engine.
 
 The third chapter explains TTSC as a survival layer. It gives transformers a new front door on top of the TypeScript-Go compiler.
 
@@ -565,13 +655,14 @@ The fourth chapter is the larger opportunity. If one tool already has the Progra
 
 ---
 
-<!-- _class: lead -->
+<!-- _class: cards -->
 
 # 1. Typia and Nestia
 
-- Show the code
-- Show the output
-- Then name the engine
+- 1.1. Typia
+- 1.2. Nestia
+- 1.3. Common Engine
+- 1.4. Transformer
 
 <!--
 I will begin with Typia and Nestia because they are the reason this problem matters to me.
@@ -585,7 +676,40 @@ The important point is that the user experience stays TypeScript-native. The use
 
 <!-- _class: code-split -->
 
-# 1.1. typia Source
+# 1.1. Typia
+
+- Generic call
+  - type argument
+  - erased later
+- Compiler output
+  - direct predicate
+  - plain JavaScript
+
+```typescript
+//----
+// TypeScript
+//----
+const isString = typia.createIs<string>();
+
+//----
+// JavaScript (Compiled)
+//----
+const isString = (input) => "string" === typeof input;
+```
+
+<!--
+Before the larger IMember example, this is the smallest shape of the idea.
+
+On the TypeScript side, the user writes a generic function call. The type argument is string, and the call sits on the right-hand side of an ordinary assignment.
+
+On the JavaScript side, the generic call is gone. The generated value is a direct predicate. This is the whole point of typia in the smallest possible form: read the type before erasure, then emit plain JavaScript.
+-->
+
+---
+
+<!-- _class: code-split -->
+
+# 1.1. Typia
 
 - User writes
   - TS type
@@ -626,7 +750,7 @@ Then the user calls typia.createIs<IMember>(). At runtime, TypeScript types are 
 
 <!-- _class: code-split -->
 
-# 1.1. typia Output
+# 1.1. Typia
 
 - Compiler emits
   - UUID check
@@ -665,7 +789,7 @@ So the transformer is doing two jobs. It captures type information before erasur
 
 <!-- _class: benchmark -->
 
-# 1.1. typia Impact
+# 1.1. Typia
 
 - Runtime validation
   - **20,000x**
@@ -680,35 +804,7 @@ So the transformer is doing two jobs. It captures type information before erasur
   - JSDoc
   - tags
 
-<div class="benchmarks">
-  <div class="bench-card">
-    <div class="bench-title">Runtime validation</div>
-    <div class="bench-row">
-      <div class="bench-name">class-validator</div>
-      <div class="bench-track"><div class="bench-fill base w-base"></div></div>
-      <div class="bench-value">1x</div>
-    </div>
-    <div class="bench-row">
-      <div class="bench-name">typia</div>
-      <div class="bench-track"><div class="bench-fill w-20000"></div></div>
-      <div class="bench-value">20,000x</div>
-    </div>
-  </div>
-  <div class="bench-card">
-    <div class="bench-title">JSON serialization</div>
-    <div class="bench-row">
-      <div class="bench-name">class-transformer</div>
-      <div class="bench-track"><div class="bench-fill base w-base"></div></div>
-      <div class="bench-value">1x</div>
-    </div>
-    <div class="bench-row">
-      <div class="bench-name">typia</div>
-      <div class="bench-track"><div class="bench-fill w-200"></div></div>
-      <div class="bench-value">200x</div>
-    </div>
-  </div>
-  <div class="bench-note">Log-scaled visual, comparison target = 1x.</div>
-</div>
+![](../benchmark/meetup-typia-speedup.svg)
 
 <!--
 This is why typia has such a large practical impact in backend systems.
@@ -724,7 +820,7 @@ The numbers on the slide are intentionally simple: validation can reach the 20,0
 
 <!-- _class: code-split -->
 
-# 1.2. nestia Source
+# 1.2. Nestia
 
 - Backend code
   - path
@@ -762,7 +858,7 @@ That is the important design choice. The controller is not merely implementation
 
 <!-- _class: code-split -->
 
-# 1.2. nestia Output
+# 1.2. Nestia
 
 - Generated SDK
   - typed fetch
@@ -798,7 +894,7 @@ This is also why the transformer problem is bigger than one function call. Once 
 
 <!-- _class: benchmark -->
 
-# 1.2. nestia Impact
+# 1.2. Nestia
 
 - Server performance
   - **10x+** total path
@@ -815,47 +911,7 @@ This is also why the transformer problem is bigger than one function call. Once 
   - E2E test functions
   - Swagger editor
 
-<div class="benchmarks">
-  <div class="bench-card">
-    <div class="bench-title">Server path</div>
-    <div class="bench-row">
-      <div class="bench-name">NestJS base</div>
-      <div class="bench-track"><div class="bench-fill base w-base"></div></div>
-      <div class="bench-value">1x</div>
-    </div>
-    <div class="bench-row">
-      <div class="bench-name">nestia</div>
-      <div class="bench-track"><div class="bench-fill w-10"></div></div>
-      <div class="bench-value">10x+</div>
-    </div>
-  </div>
-  <div class="bench-card">
-    <div class="bench-title">Validation</div>
-    <div class="bench-row">
-      <div class="bench-name">class-validator</div>
-      <div class="bench-track"><div class="bench-fill base w-base"></div></div>
-      <div class="bench-value">1x</div>
-    </div>
-    <div class="bench-row">
-      <div class="bench-name">typia core</div>
-      <div class="bench-track"><div class="bench-fill w-20000"></div></div>
-      <div class="bench-value">20,000x</div>
-    </div>
-  </div>
-  <div class="bench-card">
-    <div class="bench-title">Serialization</div>
-    <div class="bench-row">
-      <div class="bench-name">class-transformer</div>
-      <div class="bench-track"><div class="bench-fill base w-base"></div></div>
-      <div class="bench-value">1x</div>
-    </div>
-    <div class="bench-row">
-      <div class="bench-name">typia core</div>
-      <div class="bench-track"><div class="bench-fill w-200"></div></div>
-      <div class="bench-value">200x</div>
-    </div>
-  </div>
-</div>
+![](../benchmark/meetup-nestia-speedup.svg)
 
 <!--
 nestia takes the same compiler-driven idea and applies it to a larger backend workflow.
@@ -869,21 +925,19 @@ So the lesson is not "nestia is a faster router." The lesson is that once TypeSc
 
 ---
 
-# 1.3. What You Just Saw
+# 1.3. Common Engine
 
 - typia
   - TypeScript type
-  - runtime validator
+  - Runtime validator
   - JSON serializer
   - LLM schema
 - nestia
   - NestJS controller
-  - runtime boundary
+  - Runtime boundary
   - client SDK
   - OpenAPI document
-- Same shape
-  - compiler analysis
-  - generated artifacts
+- Same shape: compiler analysis, generated artifacts
 
 <!--
 Let us summarize the pattern before going deeper.
@@ -897,7 +951,7 @@ That common shape is why the compiler host matters. If the compiler cannot expos
 
 ---
 
-# 1.3. The Common Engine
+# 1.3. Common Engine
 
 - Input
   - TypeScript source
@@ -909,11 +963,6 @@ That common shape is why the compiler host matters. If the compiler cannot expos
   - Checker
   - symbols
   - diagnostics
-- Output
-  - JavaScript
-  - schemas
-  - SDK
-  - OpenAPI
 
 <!--
 The common engine has three layers.
@@ -927,7 +976,7 @@ The output layer is where product value appears: JavaScript emit, JSON schemas, 
 
 ---
 
-# 1.4. Now: Transformer
+# 1.4. Transformer
 
 - Transformer
   - compile-time code generation
@@ -936,7 +985,7 @@ The output layer is where product value appears: JavaScript emit, JSON schemas, 
   - source file
   - AST
   - Checker
-- Rewrites
+- Re-writes
   - JavaScript emit
   - diagnostics
   - generated artifacts
@@ -953,7 +1002,50 @@ The critical requirement is timing. The transformer must run while the compiler 
 
 ---
 
-# 1.4. Hidden Dependency
+<!-- _class: code-split -->
+
+# 1.4. Transformer
+
+- Project setup
+  - install `ts-patch`
+  - hack TypeScript
+- Compiler config
+  - transformer path
+
+```jsonc
+// tsconfig.json
+{
+  "compilerOptions": {
+    "plugins": [
+      { "transform": "typia/lib/transform" },
+      { "transform": "@nestia/core/lib/transform" },
+      { "transform": "@nestia/sdk/lib/transform" }
+    ]
+  }
+}
+
+// package.json
+{
+  "scripts": {
+    "prepare": "ts-patch install"
+  },
+  "devDependencies": {
+    "ts-patch": "^3.2.1"
+  }
+}
+```
+
+<!--
+This is the part that must be visible before the TypeScript-Go story.
+
+In the old setup, using a transformer was more than a library import. The project installed ts-patch, registered transformer module paths in tsconfig, and put ts-patch install into the package lifecycle so the local TypeScript package was patched again after install.
+
+That means the working model depended on mutating the installed TypeScript package. It was a practical hack: make TypeScript load transformer modules during compilation, then typia and nestia can run before type erasure.
+-->
+
+---
+
+# 1.4. Transformer
 
 - Public API
   - still TypeScript
@@ -981,21 +1073,23 @@ That creates an important split. A new compiler can remain compatible with the T
 
 <!-- _class: lead -->
 
-# 2. TypeScript-Go Shock
+# 2. TypeScript-Go
 
-- Native compiler arrives
-- Faster is good
-- Patch point dies
-- My projects are at risk
+- 2.1. Native Compiler
+- 2.2. Patch Model
+- 2.3. Broken Assumption
+- 2.4. Project Risk
 
 <!--
-This is the transition point of the talk.
+Chapter 2 has to start fairly.
 
-TypeScript-Go is exciting because the TypeScript compiler becomes much faster. For most users, that is simply good news. Faster type-checking, faster editor feedback, faster CI, and faster monorepo workflows are all wins.
+TypeScript-Go is not a villain in this story. It is the thing TypeScript users have wanted for years: a much faster compiler and language service. The first point is the upside: type-checking gets faster, editor feedback gets faster, and CI gets a real chance to shrink.
 
-But for transformer-based projects, the same move creates a shock. The old patch point was not a formal cross-language plugin system. It was a JavaScript compiler implementation that JavaScript tools could patch and extend.
+Then the chapter turns on one implementation detail. The source language remains TypeScript, but the compiler implementation language changes from JavaScript to Go.
 
-So my reaction was mixed. I wanted the faster compiler, but I also had to protect typia, nestia, and the wider transformer ecosystem that depended on the old host model.
+That sounds internal, but the transformer ecosystem lived inside the old internal shape. It patched a JavaScript package, loaded JavaScript modules, touched JavaScript compiler objects, and rode the JavaScript emit pipeline.
+
+So the crisis is not "TypeScript-Go cannot understand TypeScript." The crisis is "the old JavaScript transformer host disappears." For typia and nestia, that means the public API can still look alive while the generated product value dies.
 -->
 
 ---
@@ -1004,77 +1098,80 @@ So my reaction was mixed. I wanted the faster compiler, but I also had to protec
 
 # 2.1. Native Compiler
 
-- TypeScript 7.0 RC
-  - JavaScript compiler to Go compiler
-  - native compiler and language service
-- Performance
-  - shared-memory parallelism
-  - about **10x** faster than TypeScript 6.0
-- User story
-  - same language
-  - faster loop
+- User-visible promise
+  - same TypeScript source
+  - same project files
+  - faster check loop
+- Implementation change
+  - compiler rewritten in Go
+  - language service moves native
+  - JavaScript package is no longer the center
+- First reaction
+  - this is excellent news
 
 <!--
-The native compiler story is straightforward from the user's side.
+This slide is deliberately positive.
 
-TypeScript 7.0 moves the compiler and language service direction toward a Go implementation. The public promise is that the same TypeScript language gets a much faster compiler foundation.
+For ordinary TypeScript users, the pitch is simple. Keep the same source language, keep the same project model, and get a much faster compiler and language service.
 
-The key performance reason is that the native implementation can use shared-memory parallelism and lower-level runtime behavior more effectively than the old JavaScript implementation. The headline is about a 10x improvement compared with the TypeScript 6.0 era.
+That is a real improvement. Backend projects, monorepos, editors, and CI pipelines all pay the TypeScript check cost every day.
 
-For a normal developer, there is no complicated story here. The same project should eventually feel much faster. That is exactly why this matters: if the whole ecosystem moves to the faster compiler, transformer tools must find a way to move with it.
+The key phrase is "same TypeScript, different compiler implementation." The source language remains familiar, but the runtime that compiler-powered tools used to patch is no longer the same runtime.
 -->
 
 ---
 
-<!-- _class: cards -->
+<!-- _class: benchmark -->
 
-# 2.1. Backend Upside
+# 2.1. Native Compiler
 
-- Daily compiler cost
-  - monorepo type check
-  - watch mode
-  - editor startup
-  - CI feedback
-- Result
-  - shorter local loop
-  - shorter review loop
-  - shorter release loop
+- Benchmark headline
+  - VS Code: **11.2x**
+  - 73.29s to 6.54s
+- Pattern
+  - fixture set repeats the win
+  - speed comes from the native compiler base
+
+![](../benchmark/meetup-tsgo-speedup.svg)
 
 <!--
-Backend teams feel compiler cost every day.
+This is the graph that makes the upside credible.
 
-A backend monorepo may type-check many packages, run watch mode while several services are changing, start the editor language service over a large dependency graph, and repeat type-checking in CI for every pull request.
+The VS Code row is the important anchor: legacy TypeScript takes about 73.29 seconds in the published check benchmark, while the TypeScript-Go checkers8 row is about 6.54 seconds. That is 11.2x faster.
 
-When those loops are slow, people change behavior. They run fewer checks locally. They wait longer for CI. They split feedback across multiple tools. They avoid large refactors because the verification loop is painful.
+The other fixture rows keep the same pattern. The exact multiplier changes by project, but the direction does not: TypeScript-Go makes the type-check loop materially faster.
 
-So the TypeScript-Go upside is real. A faster compiler shortens the local loop, the review loop, and the release loop. The problem is not the native compiler itself. The problem is that the old transformer ecosystem was coupled to the old compiler implementation.
+Most rows use the raw tsgo checkers8 comparison. The shopping-backend snapshot has no raw tsgo noEmit row, so this chart uses the ttsc checkers8 row there because it is still backed by TypeScript-Go. The slide shows only multipliers because the narrative point is the size of the speedup, not a stopwatch table.
 -->
 
 ---
 
-<!-- _class: cards three -->
+<!-- _class: flow -->
 
-# 2.2. Old Assumption
+# 2.2. Patch Model
 
-- Old compiler
-  - JavaScript package
-  - JavaScript process
-  - JavaScript objects
-- Old transformers
-  - JavaScript modules
-  - compiler API access
-  - emit hook access
-- Old strategy
-  - patch TypeScript
+- JavaScript compiler
+  - `typescript` from npm
+  - `Program`
+  - `TypeChecker`
+  - `SourceFile`
+- JavaScript patch
+  - `ttypescript`
+  - `ts-patch`
+  - `tsconfig.plugins`
+- JavaScript transformer
+  - load module
+  - inspect types
+  - rewrite emit
 
 <!--
-Before TypeScript-Go, many transformer projects shared a simple assumption.
+This is the old world as a pipeline.
 
-The compiler was an npm package written in JavaScript. When your build ran, the compiler process was a JavaScript process. The AST, SourceFile, TypeChecker, Program, and emit pipeline were JavaScript objects.
+The compiler came from npm as JavaScript. The build process ran JavaScript. The Program, TypeChecker, SourceFile, AST nodes, diagnostics, and emit pipeline were all JavaScript objects.
 
-That meant a transformer could be a JavaScript module loaded into the compiler process. It could call the TypeScript compiler API directly. It could participate in emit by using APIs that already existed inside that runtime.
+That made the transformer model possible. ttypescript and ts-patch did not create a clean official plugin system, but they could patch the JavaScript compiler and load JavaScript transformer modules into the same process.
 
-The strategy was therefore practical, even if it was not beautiful: patch TypeScript or run a wrapper around TypeScript, then load transformer modules from tsconfig.
+That is why the model worked. The compiler and the plugin lived in the same language runtime. The transformer could look at compiler objects, ask the checker questions, and replace emitted code.
 -->
 
 ---
@@ -1083,29 +1180,32 @@ The strategy was therefore practical, even if it was not beautiful: patch TypeSc
 
 # 2.2. Patch Model
 
-- `ttypescript`
-  - custom compiler wrapper
-- `ts-patch`
-  - mutate installed TypeScript
-- `tsconfig.plugins`
-  - transformer module path
-- Works because
-  - compiler is JavaScript
-  - transformer is JavaScript
+- What users configured
+  - `ts-patch install`
+  - `plugins` in `tsconfig.json`
+  - transformer package path
+- What tools assumed
+  - patched TypeScript is executable
+  - JavaScript module can enter emit
+  - compiler API objects are reachable
+- What typia and nestia used
+  - type facts before erasure
+  - controller facts before runtime
+  - generated code during emit
 
 <!--
-This is the old patch model.
+This slide names the hidden contract.
 
-ttypescript provided a custom compiler wrapper. ts-patch mutated the installed TypeScript package. tsconfig plugins gave transformer package paths. Once the patch was active, the compiler could load JavaScript transformer modules.
+The user sees a small setup: install a patch, list plugins in tsconfig, and run the compiler through the patched path. That looks like configuration.
 
-This model had real downsides. It was fragile across compiler versions. It depended on implementation details. It could be difficult for new users to diagnose when a patch was missing.
+Under that setup, the tools assume much more. They assume the TypeScript package can be patched. They assume the compiler can load a JavaScript transformer module. They assume compiler API objects are in process and reachable.
 
-But it worked for one basic reason: the compiler and the transformer lived in the same JavaScript world. The plugin could see the compiler API objects directly, and the compiler's emit path was patchable from JavaScript.
+Typia and nestia used that access to catch facts before they disappear. Typia catches type facts before erasure and emits validators and serializers. Nestia catches controller facts before runtime and emits SDKs, OpenAPI documents, mockups, and test helpers.
 -->
 
 ---
 
-# 2.3. Old Setup
+# 2.3. Broken Assumption
 
 ```json
 {
@@ -1120,13 +1220,13 @@ But it worked for one basic reason: the compiler and the transformer lived in th
 ```
 
 <!--
-This is what the user configuration looked like.
+This is where the old model starts to fail.
 
-The tsconfig lists the transformer module paths for Typia and Nestia. In a patched compiler setup, those entries become active during compilation. The user keeps writing TypeScript, and the transformer does the code generation work during emit.
+The tsconfig entry still looks ordinary. The package names are still JavaScript package names. The user can still write the same TypeScript application code.
 
-The configuration looks small, but it hides a major assumption: the compiler must be able to load these JavaScript modules and let them participate in compilation.
+But this configuration only means something if the compiler process can load those JavaScript modules and let them participate in emit.
 
-As long as the compiler is JavaScript, that assumption is natural. When the compiler becomes a Go binary, this exact model cannot be taken for granted.
+That was natural when the compiler process was JavaScript. It is not natural when the compiler implementation becomes a native Go compiler. The source language is still TypeScript, but the plugin host assumed by this JSON no longer exists automatically.
 -->
 
 ---
@@ -1135,21 +1235,22 @@ As long as the compiler is JavaScript, that assumption is natural. When the comp
 
 # 2.3. Broken Assumption
 
-| Old world                      | TypeScript-Go world               |
-| ------------------------------ | --------------------------------- |
-| compiler: JavaScript process   | compiler: Go process              |
-| transformer: JavaScript module | transformer: JavaScript ecosystem |
-| hook: patchable                | hook: missing                     |
-| language OK                    | transformer host broken           |
+| Question | Old TypeScript | TypeScript-Go |
+| --- | --- | --- |
+| source language | TypeScript | TypeScript |
+| compiler implementation | JavaScript | Go |
+| plugin loading | JavaScript module in-process | no old JS host |
+| transformer access | Program, Checker, emit hook | bridge required |
+| result | generated artifacts | typia/nestia engine at risk |
 
 <!--
-This table is the broken assumption.
+This table is the point of chapter 2.
 
-In the old world, the compiler was a JavaScript process and the transformer was a JavaScript module. Patching was possible because the compiler internals were also JavaScript. That gave transformer authors a host, even if the host was unofficial.
+Language compatibility and transformer compatibility are different problems.
 
-In the TypeScript-Go world, the compiler process is native Go, while most of the transformer ecosystem is still JavaScript. The TypeScript language can be supported correctly, but the JavaScript transformer host is gone unless a new bridge exists.
+TypeScript-Go can preserve the source language and still break the old transformer execution model. The reason is simple: the old model was not just TypeScript syntax. It was JavaScript modules running inside a JavaScript compiler process.
 
-This is why I describe the problem as plugin compatibility, not language compatibility. Your TypeScript source may still be valid. Your transformer-powered artifacts may still fail to generate.
+Once the compiler implementation moves to Go, transformer access needs a bridge. Without that bridge, the TypeScript source may still be valid, while generated validators, serializers, SDKs, and OpenAPI documents stop appearing.
 -->
 
 ---
@@ -1158,57 +1259,56 @@ This is why I describe the problem as plugin compatibility, not language compati
 
 # 2.4. Project Risk
 
-- typia risk
-  - erased types unseen
-  - validators not generated
-  - serializers not generated
-- nestia risk
-  - controllers not extracted
-  - SDK not generated
-  - OpenAPI not generated
-- Business risk
-  - public APIs survive
-  - engine disappears
+- typia
+  - `createIs<T>()` needs erased type facts
+  - no transformer, no specialized predicate
+  - no generated serializer path
+- nestia
+  - controllers need compile-time extraction
+  - no transformer, no SDK contract
+  - no OpenAPI or mockup pipeline
+- Product failure
+  - packages can still install
+  - source can still look valid
+  - generated value disappears
 
 <!--
-For my projects, this was not an abstract ecosystem concern.
+This is the crisis in practical terms.
 
-typia depends on seeing erased types before they disappear. If the transformer path dies, validators and serializers are not generated. The user still has the same source code, but the runtime code that made it useful is missing.
+Typia is not valuable because it exposes a function name. It is valuable because the transformer sees erased type facts and turns them into specialized runtime code. Without that transformer path, the API can remain on npm while the generated predicate and serializer path disappear.
 
-nestia depends on extracting controller contracts. If that path dies, SDK generation, OpenAPI generation, mockup generation, and E2E helpers are at risk. Again, the public API can look alive while the engine underneath is gone.
+Nestia is the same kind of problem at the application boundary. It extracts controller contracts and turns them into SDKs, OpenAPI documents, mockups, and E2E helpers. Without the transformer path, the source of truth is still in the TypeScript code, but the compiler no longer delivers it to the generator.
 
-That is a real business risk. Users depend on stable package APIs, but those APIs are backed by compiler integration. If the compiler integration is removed, the visible surface becomes misleading.
+That is why this is not a minor compatibility issue. The visible package can survive while the product engine is gone.
 -->
 
 ---
 
 <!-- _class: cards choice -->
 
-# 2.4. Options
+# 2.4. Project Risk
 
 - Wait
   - upstream plugin model
-  - unknown timeline
+  - unknown timing
 - Retreat
   - runtime schemas
-  - weaker compiler magic
-- Drop features
-  - no transformer path
-  - no generated boundary
+  - duplicate source of truth
+- Shrink
+  - remove generated features
+  - lose the reason users came
 - Build
-  - new host
-  - TypeScript-Go base
+  - new transformer host
+  - survive on TypeScript-Go
 
 <!--
-There were four possible responses.
+This final slide sets up chapter 3.
 
-The first option was to wait for an upstream plugin model. That may eventually happen, but the timeline and shape were unknown. Waiting is risky when your products depend on this path today.
+At this point in the story, the replacement host does not already exist. That is important. The situation is not "TTSC is ready, so let's switch." The situation is "the old host is disappearing, and typia and nestia need a path to stay alive."
 
-The second option was to retreat to runtime schemas. That would avoid the transformer problem, but it would also give up the main value proposition: using TypeScript itself as the source of truth.
+The options were bad. Wait for an upstream model with unknown timing. Retreat to runtime schemas and duplicate the source of truth. Shrink the products and remove the generated features that made users choose them.
 
-The third option was to drop features. That would keep the packages simpler, but it would break the reason many users chose them.
-
-So I chose the fourth option: build a new host on top of the TypeScript-Go direction. That host is TTSC.
+The remaining option was to build a new transformer host on top of the TypeScript-Go direction. That is where chapter 3 begins: not with a finished toolchain, but with the decision to build the missing host.
 -->
 
 ---
@@ -1217,17 +1317,21 @@ So I chose the fourth option: build a new host on top of the TypeScript-Go direc
 
 # 3. Transformer Survival
 
-- Compiler front door
-- Plugin host
-- Transformer lifecycle
-- Runtime and editor path
+- 3.1. Compiler Front Door
+- 3.2. Plugin Host
+- 3.3. Transformer Lifecycle
+- 3.4. Runtime and Editor Path
 
 <!--
-Now we move to TTSC as the survival layer.
+This is the reversal.
 
-The immediate goal is simple: keep transformer-based TypeScript tooling alive in the TypeScript-Go era. That means users need a compiler front door, plugins need a host, transformers need a lifecycle, and the same model must work in build, runtime, and editor paths.
+2장에서는 TypeScript-Go가 기존 transformer 생태계를 무너뜨렸습니다. 여기서는 그 뒤에 무엇을 했는지 보여줍니다.
 
-I will describe TTSC first as infrastructure, not as a package list. The important design idea is that TTSC owns enough of the compiler session to load the project, expose compiler facts, run plugins, and integrate their results.
+At this point in the story, TTSC is not a finished toolchain waiting on the shelf. The old host is disappearing, and the replacement does not exist yet.
+
+The immediate goal was simple: typia and nestia should not die because the compiler implementation moved. Users should not have to rewrite their applications into runtime schemas, and I should not have to remove the features that made these packages useful.
+
+So the first decision was to build the missing host. The later opportunity comes after that. First, the products have to survive.
 -->
 
 ---
@@ -1236,36 +1340,30 @@ I will describe TTSC first as infrastructure, not as a package list. The importa
 
 # 3.1. Compiler Front Door
 
-```bash
-npx ttsc
-npx ttsc --noEmit
-npx ttsc --watch
-```
-
-- Familiar command shape
-  - build
-  - check
-  - watch
-- New responsibility
-  - own project load
-  - host transformers
-  - route compiler facts
+- Missing piece
+  - no patched JavaScript host
+  - no plugin entry point
+- Required host
+  - load the project
+  - expose compiler facts
+  - run transformers
+- Design choice
+  - explicit front door
+  - tsc-shaped command
 
 <!--
-The first user-facing surface is intentionally familiar.
+The first thing I needed was not a new product slogan. It was a compiler front door.
 
-You can run npx ttsc, npx ttsc --noEmit, or npx ttsc --watch. The command shape is close to tsc because the goal is not to teach every user a new build model.
+The old patched JavaScript compiler host could no longer be the assumption. That meant there had to be a new place where the project is loaded, compiler options are understood, compiler facts are exposed, and transformers can run.
 
-But behind that familiar command, TTSC takes on new responsibility. It must load the project, read compiler options, build or reuse the compiler state, discover transformer plugins, execute them, and route compiler facts and emit outputs through the host.
-
-In other words, ttsc is not just a command alias. It is the front door for a compiler session that knows how to host TypeScript transformer tooling in the new world.
+That front door should still feel like tsc to the user. But internally it cannot be a thin alias. It has to be the place where the new compiler world and the old transformer ecosystem meet.
 -->
 
 ---
 
 <!-- _class: cards -->
 
-# 3.1. Not a Bypass
+# 3.1. Compiler Front Door
 
 - Keep TypeScript-Go
   - native compiler base
@@ -1276,23 +1374,24 @@ In other words, ttsc is not just a command alias. It is the front door for a com
   - plugin execution path
   - emit integration
 - Goal
-  - survive on the new compiler
+  - keep products alive
+  - move with the compiler
 
 <!--
-It is important to say what TTSC is not.
+This design has one important constraint.
 
-TTSC is not trying to reject TypeScript-Go and go back to the old JavaScript compiler forever. That would miss the main ecosystem benefit. The native compiler base, semantic analysis, diagnostics, and performance direction are the reason to build this.
+The answer cannot be "reject TypeScript-Go and go back to the old JavaScript compiler forever." That would miss the main ecosystem benefit. The native compiler base, semantic analysis, diagnostics, and performance direction are the reason to build this.
 
-TTSC adds the missing layer around that compiler base. It provides a transformer host, a plugin execution path, and emit integration so that transformer-powered packages can survive while users still benefit from the faster compiler direction.
+The layer I needed to build goes around that compiler base. It provides a transformer host, a plugin execution path, and emit integration so that transformer-powered packages can stay alive while users still benefit from the faster compiler direction.
 
-So the goal is compatibility with the future, not nostalgia for the old patch model.
+That was the design constraint: keep the products alive without asking the ecosystem to reject the faster compiler. The answer could not be nostalgia for the old patch model. It had to be compatibility with the future.
 -->
 
 ---
 
 <!-- _class: compare -->
 
-# 3.2. Old Host vs TTSC Host
+# 3.2. Plugin Host
 
 | Old                            | TTSC                         |
 | ------------------------------ | ---------------------------- |
@@ -1372,7 +1471,7 @@ What changes in TTSC is not the idea of transformation. What changes is who owns
 
 <!-- _class: cards three -->
 
-# 3.3. User API Stays
+# 3.3. Transformer Lifecycle
 
 - typia user
   - `typia.createIs<T>()`
@@ -1398,7 +1497,7 @@ That separation is the whole survival strategy: preserve the surface that users 
 
 <!-- _class: cards -->
 
-# 3.4. Runtime Path
+# 3.4. Runtime and Editor Path
 
 ```bash
 npx ttsx src/index.ts
@@ -1426,13 +1525,13 @@ ttsx is the TTSC answer for that path. The goal is direct TypeScript execution w
 
 <!-- _class: cards -->
 
-# 3.4. Editor Path
+# 3.4. Runtime and Editor Path
 
-- `ttscserver`
+- `@ttsc/vscode`
   - plugin diagnostics
   - code actions
   - plugin commands
-- VS Code path
+- VS Code Plugin
   - project view
   - early feedback
 - Goal
@@ -1444,7 +1543,7 @@ The editor path is just as important as the build path.
 
 If transformer plugins can produce diagnostics, code actions, or plugin commands, developers should see that feedback in the editor. Waiting for CI means the feedback loop is already too late.
 
-ttscserver is the language-service side of the toolchain. The goal is that VS Code can show plugin-aware diagnostics and commands in the project view, using the same compiler understanding that build and runtime paths rely on.
+@ttsc/vscode is the VS Code Plugin side of the toolchain. The goal is that VS Code can show plugin-aware diagnostics and commands in the project view, using the same compiler understanding that build and runtime paths rely on.
 
 The ideal workflow is simple: the editor discovers problems early, local commands verify them, and CI confirms the same behavior.
 -->
@@ -1453,7 +1552,7 @@ The ideal workflow is simple: the editor discovers problems early, local command
 
 <!-- _class: cards -->
 
-# 3.4. Whole Loop
+# 3.4. Runtime and Editor Path
 
 - Build
   - `ttsc`
@@ -1461,8 +1560,8 @@ The ideal workflow is simple: the editor discovers problems early, local command
 - Runtime
   - `ttsx`
   - checked execution
-- Editor
-  - `ttscserver`
+- VS Code Plugin
+  - `@ttsc/vscode`
   - plugin diagnostics
 - One toolchain
   - not one wrapper
@@ -1470,7 +1569,7 @@ The ideal workflow is simple: the editor discovers problems early, local command
 <!--
 This is the whole loop.
 
-ttsc covers build and type-checking. ttsx covers checked runtime execution. ttscserver covers editor diagnostics and actions. Together they form one plugin-aware toolchain.
+ttsc covers build and type-checking. ttsx covers checked runtime execution. @ttsc/vscode covers editor diagnostics and actions in VS Code. Together they form one plugin-aware toolchain.
 
 The phrase "one toolchain" is important. If each surface built a separate TypeScript world, we would pay the compiler cost repeatedly and risk inconsistent behavior. The point of TTSC is to share the same compiler understanding across surfaces.
 
@@ -1483,10 +1582,10 @@ That starts as transformer survival, but it leads naturally to the next chapter:
 
 # 4. Toolchain Opportunity
 
-- One Program and Checker
-- Linter without rebuild
-- Graph instead of grep
-- Patch to toolchain
+- 4.1. Compiler State
+- 4.2. @ttsc/lint
+- 4.3. @ttsc/graph
+- 4.4. From Patch to Toolchain
 
 <!--
 The final chapter is about the opportunity beyond survival.
@@ -1530,7 +1629,7 @@ If each tool reloads the project independently, the workflow pays the same cost 
 
 <!-- _class: flow -->
 
-# 4.1. Core Contract
+# 4.1. Compiler State
 
 - Load once
   - project
@@ -1557,106 +1656,113 @@ So the toolchain is not just about making one command faster. It is about making
 
 ---
 
-<!-- _class: cards -->
+<!-- _class: lint-benchmark -->
 
-# 4.2. Linter Without Rebuild
+# 4.2. @ttsc/lint
 
-```bash
-npx tsc --noEmit
-npx eslint .
-```
-
-- Legacy cost
-  - compiler pass
-  - linter pass
-  - second type world
-- TTSC lint
-  - same Program
-  - same Checker
-  - same diagnostics stream
+![](../benchmark/meetup-lint-speedup.svg)
 
 <!--
-Linting is the easiest example.
+Linting is the easiest performance example.
 
 In many projects, the normal path is to run tsc --noEmit for type checking and then run ESLint for linting. If ESLint uses type-aware rules, it may construct another TypeScript program or another type world.
 
-That means the repository effectively pays for semantic analysis twice. It also means diagnostics may be split across tools that do not share lifecycle, caching, or project state.
+The performance page splits lint out because the legacy path is tsc plus ESLint, while the TTSC path can report the native @ttsc/lint timing separately. The graph uses the pure lint-to-lint ratio from that split.
 
-TTSC lint takes a different approach. If TTSC already owns the Program and Checker, lint rules can run on the same compiler state and report through the same diagnostics stream. That is the basic reason the benchmark on the next slide is possible.
--->
-
----
-
-<!-- _class: metric -->
-
-# 4.2. VS Code Benchmark
-
-Lint pass comparison:
-
-| Tool         |      Time |
-| ------------ | --------: |
-| ESLint       | 66,700 ms |
-| `@ttsc/lint` |     74 ms |
-
-**901.4x**
-
-<!--
-This benchmark compares a lint pass on the VS Code codebase.
-
-The legacy ESLint path took about 66,700 milliseconds in this comparison. The @ttsc/lint path took 74 milliseconds for the measured pass. That produces the 901.4x ratio on the slide.
-
-The point is not that every lint rule in every repository will always be 901x faster. The point is that when a tool can reuse compiler state instead of rebuilding or reinterpreting the project, the upper bound changes dramatically.
+VS Code is no longer the only visible example. The ratio repeats across vscode, nestjs, vue, zod, rxjs, and shopping. NestJS is the largest row here at 1848x, while even the smallest row, shopping, is still 583x.
 
 For backend teams, this matters because linting is part of the same feedback loop as type checking. If the linter can ride on the compiler session that is already loaded, it becomes much easier to keep strict checks enabled locally and in CI.
 -->
 
 ---
 
-<!-- _class: compare -->
+<!-- _class: lint-example -->
 
-# 4.3. Graph Instead of Grep
+# 4.2. @ttsc/lint
 
-| Grep-first agent | Compiler-first agent |
-| ---------------- | -------------------- |
-| search text      | resolve symbol       |
-| open file        | follow references    |
-| follow import    | inspect diagnostics  |
-| repeat           | open selected source |
+<div class="lint-concept">
+  <div><strong>Compiler gate</strong><span>Lint rules fail the same build path as type errors.</span></div>
+  <div><strong>Diagnostic shape</strong><span>Every finding is rendered as an <code>error TSxxxxx</code>.</span></div>
+  <div><strong>One stream</strong><span>Terminal, CI, and editor consume the same output.</span></div>
+</div>
+
+<div class="lint-label source-label">src/index.ts</div>
+<div class="lint-label terminal-label">npx ttsc --noEmit</div>
+
+```typescript
+var x: number = 3;
+let y: number = 4;
+const z: string = 5;
+
+console.log(x + y + z);
+```
+
+```bash
+$ npx ttsc --noEmit
+
+src/index.ts:3:7 - error TS2322
+Type 'number' is not assignable to type 'string'.
+
+src/index.ts:2:5 - error TS17397 [prefer-const]
+Use const instead of let.
+
+src/index.ts:1:1 - error TS11966 [no-var]
+Unexpected var, use let or const instead.
+```
 
 <!--
-The same idea applies to code intelligence and agent workflows.
+This is the example shape from the ttsc.dev lint pages.
 
-Without a compiler graph, an agent or tool often starts with grep. It searches text, opens files, follows imports manually, repeats the search, and tries to infer meaning from strings.
+The important part is that one run prints a normal TypeScript error, TS2322, and lint rule failures, TS17397 and TS11966, in the same compiler diagnostic format.
 
-A compiler-first agent can start from symbols, references, diagnostics, and resolved module relationships. Instead of reading many files to guess what a name means, it can ask the compiler graph directly.
-
-This is not only about agents. The same distinction applies to any tool that needs to understand a codebase. Text search is useful, but TypeScript programs already contain a semantic graph. TTSC can expose that graph as a first-class tool surface.
+That makes lint a compiler failure. The same terminal output, same CI gate, and same editor underline can handle both type errors and lint violations.
 -->
 
 ---
 
-<!-- _class: metric -->
+<!-- _class: graph-shot -->
 
-# 4.3. Token Economy
+# 4.3. @ttsc/graph
 
-TypeORM benchmark cell:
+- Checker facts
+  - declarations
+  - resolved edges
+  - diagnostics
+- Agent queries
+  - overview
+  - query
+  - trace / expand
+- Goal
+  - stop guessing from text
 
-| Metric     |  Baseline |   Graph |
-| ---------- | --------: | ------: |
-| tokens     | 1,357,346 | 148,231 |
-| file reads |        16 |       0 |
-| tool calls |        38 |       1 |
+![3D Code Graph viewer](../graph/vscode.png)
 
-**9.2x fewer tokens**
+<!--
+The same idea applies to code intelligence and agent workflows, but the graph needs a concrete picture.
+
+This is the 3D graph viewer from ttsc.dev. The example shown is the VS Code fixture: 724 declaration nodes and 3,002 resolved edges. Every node is a declaration. Every edge is a relationship reported by the compiler.
+
+That matters because the graph is not a screenshot of files. It is checker-resolved structure: declarations, value-call edges, type-reference edges, heritage edges, and diagnostics attached to the same project view.
+
+Without this, an agent starts with grep and guesses from text. With this, the first move can be graph_overview, graph_query, graph_trace, or graph_expand. The tool starts from compiler facts, then opens source only when the graph has narrowed the target.
+-->
+
+---
+
+<!-- _class: graph-token -->
+
+# 4.3. @ttsc/graph
+
+![](../benchmark/meetup-graph-token-usage.svg)
 
 <!--
 This benchmark cell shows the practical effect on a TypeORM task.
 
-The baseline path consumed about 1.36 million tokens, performed 16 file reads, and used 38 tool calls. The graph path consumed about 148 thousand tokens, used zero direct file reads in the measured agent workflow, and completed with one graph-oriented tool call.
+The first measurement is Anthropic Opus. The baseline path consumed 1,471,202 tokens, while the graph path consumed 148,231 tokens. That is 9.9x fewer tokens.
 
-The 9.2x token reduction is the headline, but the deeper point is accuracy. When a task depends on symbol relationships, references, or diagnostics, the compiler graph is a better source than repeated text browsing.
+The second measurement is OpenAI GPT. The baseline path consumed 586,338 tokens, while the graph path consumed 145,493 tokens. That is about 4.0x fewer tokens.
 
-For large backend repositories, this changes how tool-assisted development can work. Instead of spending most of the budget discovering structure, the tool can ask the compiler for the structure and spend more effort on the actual change.
+The exact multiplier changes by model and agent behavior, but the direction is the same. When a task depends on symbol relationships, references, or diagnostics, the compiler graph reduces the amount of source browsing needed before the real change can start.
 -->
 
 ---
@@ -1691,14 +1797,14 @@ That is how survival became toolchain infrastructure. The host that keeps emit a
 
 <!-- _class: cards -->
 
-# 4.4. TTSC Surface
+# 4.4. From Patch to Toolchain
 
 - Compiler
   - `ttsc`
 - Runtime
   - `ttsx`
-- Editor
-  - `ttscserver`
+- VS Code Plugin
+  - `@ttsc/vscode`
 - Reuse
   - `@ttsc/lint`
   - `@ttsc/graph`
@@ -1706,7 +1812,7 @@ That is how survival became toolchain infrastructure. The host that keeps emit a
 <!--
 Here is the surface area in package terms.
 
-ttsc is the compiler command. ttsx is the runtime execution path. ttscserver is the editor and language-service path. @ttsc/lint and @ttsc/graph are examples of tools that reuse the compiler state.
+ttsc is the compiler command. ttsx is the runtime execution path. @ttsc/vscode is the VS Code Plugin path. @ttsc/lint and @ttsc/graph are examples of tools that reuse the compiler state.
 
 This list is also a way to understand the project boundary. TTSC is not just a transformer loader. It is a TypeScript-Go based toolchain where compiler state is a shared asset.
 
@@ -1742,6 +1848,30 @@ But transformer-based tools depended on an old patch point. typia, nestia, and s
 TTSC is that host, and it is also becoming more than that host. By owning compiler state, it can support transformer emit, runtime execution, editor diagnostics, linting, and graph queries in one toolchain.
 
 The outcome I want is simple: users keep writing TypeScript as the source of truth, and backend tooling moves forward instead of retreating to duplicated schemas or slower runtime interpretation.
+-->
+
+---
+
+<!-- _class: cards -->
+
+# Closing
+
+- TypeScript v7
+  - official TypeScript-Go era
+- TTSC
+  - released alongside TypeScript v7
+- Goal
+  - transformer compatibility
+  - shared compiler-state toolchain
+
+<!--
+The release target is clear.
+
+When TypeScript v7 is officially released and the TypeScript-Go direction becomes the mainstream compiler path, TTSC should be released with it.
+
+The goal is not to ship a separate experimental side project after the ecosystem has already moved. The goal is to have the transformer host and the compiler-state toolchain ready at the same moment backend teams start evaluating TypeScript v7 seriously.
+
+That is the promise: TypeScript-native APIs should not have to die because the compiler got faster.
 -->
 
 ---
