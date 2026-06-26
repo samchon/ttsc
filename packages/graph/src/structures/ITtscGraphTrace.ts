@@ -17,6 +17,15 @@ export interface ITtscGraphTrace {
   /** True when the trace hit maxNodes or maxDepth and more flow exists. */
   truncated: boolean;
 
+  /** The resolved `to` target, when a path was requested. */
+  target?: ITtscGraphTrace.INode;
+
+  /**
+   * When `to` was given: the ordered dependency path from `from` to `to`
+   * (`from` first, `to` last), or empty when `to` is not reachable from `from`.
+   */
+  path?: ITtscGraphTrace.INode[];
+
   /** When `from` was an ambiguous name, the matches to disambiguate with. */
   candidates?: ITtscGraphTrace.INode[];
 }
@@ -28,6 +37,13 @@ export namespace ITtscGraphTrace {
      * ambiguous name returns its candidates instead of a trace.
      */
     from: string;
+
+    /**
+     * A target symbol (id or name). When given, the tool returns the dependency
+     * path from `from` to this target — the one-call answer for "how does A
+     * reach B" — instead of an open-ended trace.
+     */
+    to?: string;
 
     /**
      * `forward` follows what the start uses (callees, instantiations, renders);
@@ -70,6 +86,8 @@ export namespace ITtscGraphTrace {
     file: string;
     /** Hops from the start, on a reached node. */
     depth?: number;
+    /** The node's signature — carried on path nodes so the path explains itself. */
+    signature?: string;
     /** Why this node matters to an impact trace: `exported`, `test`. */
     roles?: string[];
   }

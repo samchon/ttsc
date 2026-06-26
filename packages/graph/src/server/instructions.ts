@@ -11,7 +11,8 @@ relationships between them.
 - graph_overview: the architecture — layers, hotspots, public API. Start here.
 - graph_query: find any symbol by name or description; each hit carries its
   signature, usually enough to answer without expanding.
-- graph_trace: follow a flow forward, reverse, or to its impact.
+- graph_trace: follow a flow forward, reverse, or to its impact; or give \`to\`
+  for the path between two symbols — how A reaches B, in one call.
 - graph_expand: a symbol's declared shape — its signature, a container's members;
   source:true to read a specific body.
 

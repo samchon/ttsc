@@ -43,9 +43,10 @@ export interface ITtscGraphApplication {
 
   /**
    * Follow dependency flow from a symbol: `forward` to what it uses, `reverse` to
-   * what uses it, or `impact` to the public API and tests a change reaches.
+   * what uses it, or `impact` to the public API and tests a change reaches. Give
+   * `to` to get the path between two symbols in one call — how A reaches B.
    *
-   * @param props The start, direction, and bounds
+   * @param props The start, optional target, direction, and bounds
    * @returns The ordered hops and reached nodes, or candidates for an ambiguous
    *   start
    */
