@@ -453,6 +453,9 @@ importers:
 
   tests/test-graph:
     devDependencies:
+      '@ttsc/graph':
+        specifier: workspace:*
+        version: link:../../packages/graph
       '@ttsc/testing':
         specifier: workspace:*
         version: link:../utils
