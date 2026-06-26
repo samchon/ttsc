@@ -135,10 +135,11 @@ interface TraceNode {
 
 ```ts
 /**
- * Read the declaration source of nodes another tool returned as handles, plus
- * their direct dependencies and dependents on request. This is how you read code
- * the graph located — pass every handle you need in one call, do not reopen the
- * file.
+ * Get the resolved shape of nodes another tool returned as handles: each one's
+ * signature, and for a container its member outline. This is the graph's edge
+ * over a file read — it returns structure, not inlined source. Pass every handle
+ * in one call. The full body comes back only with `source: true`, for the few
+ * methods whose logic you must read.
  */
 declare function graph_expand(props: ExpandProps): ExpandResult;
 
@@ -147,6 +148,8 @@ interface ExpandProps {
   handles: string[];
   /** Also list each node's dependencies and dependents. @default false */
   neighbors?: boolean;
+  /** Also return the full declaration source body. @default false */
+  source?: boolean;
 }
 
 interface ExpandResult {
@@ -155,7 +158,13 @@ interface ExpandResult {
     name: string;
     kind: string;
     file: string;
-    /** Declaration source, sliced from the node's span (capped). */
+    /** 1-based declaration line. */
+    line?: number;
+    /** The declaration signature (head up to the body brace). */
+    signature?: string;
+    /** For a class/interface/namespace/enum/file: members, each with a signature. */
+    members?: { name: string; kind: string; line?: number; signature?: string }[];
+    /** Full declaration source — only when `source: true` was passed. */
     source?: string;
     /** True when `source` was cut at the line cap. */
     truncated?: boolean;
