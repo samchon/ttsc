@@ -1,4 +1,4 @@
-// Browser-side port of experimental/graph-bench/viewer.mjs `reduce()`, so the
+// Browser-side port of experimental/benchmark/viewer.mjs `reduce()`, so the
 // 3D viewer can take a raw `@ttsc/graph` dump (what `ttscgraph dump` prints) and
 // turn it into the render payload without any server. Keep in sync with that
 // file; both are the same pure transform.

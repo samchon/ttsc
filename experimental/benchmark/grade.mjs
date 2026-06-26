@@ -15,7 +15,6 @@
 // `cells`, or the top-level array); each sample needs a `promptId` and the
 // captured answer text under `answer` (or `answerText`). Grades are printed and,
 // with --out, written back onto each sample as `quality`.
-
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -25,7 +24,10 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 /** SHA-256 of a question file's bytes, the manifest's integrity stamp. */
 export function questionSha256(file) {
-  return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+  return crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(file))
+    .digest("hex");
 }
 
 // Match on alphanumerics only, so phrasing never decides correctness: an answer
@@ -52,10 +54,10 @@ function indexOfPhrase(haystack, needle) {
 }
 
 /**
- * Earliest index at which a (possibly dotted) symbol is evidenced in the answer,
- * or -1. A dotted `Owner.member` matches either the full dotted form or the bare
- * `member` when `Owner` also appears, so an answer that writes `applyFindOptions`
- * and names `SelectQueryBuilder` elsewhere still counts.
+ * Earliest index at which a (possibly dotted) symbol is evidenced in the
+ * answer, or -1. A dotted `Owner.member` matches either the full dotted form or
+ * the bare `member` when `Owner` also appears, so an answer that writes
+ * `applyFindOptions` and names `SelectQueryBuilder` elsewhere still counts.
  */
 function symbolIndex(hay, symbol) {
   const full = indexOfPhrase(hay, symbol);
@@ -70,16 +72,20 @@ function symbolIndex(hay, symbol) {
 
 /**
  * Grade one answer against a gold object. Returns the per-axis scores and a
- * boolean `pass`: enough required symbols present, every required edge in order,
- * every must-mention phrase present, and no must-not claim made.
+ * boolean `pass`: enough required symbols present, every required edge in
+ * order, every must-mention phrase present, and no must-not claim made.
  */
 export function gradeAnswer(answer, gold, threshold = 0.8) {
   const hay = loose(answer ?? "");
 
   const requiredSymbols = asArray(gold.requiredSymbols);
-  const matchedSymbols = requiredSymbols.filter((s) => symbolIndex(hay, s) >= 0);
+  const matchedSymbols = requiredSymbols.filter(
+    (s) => symbolIndex(hay, s) >= 0,
+  );
   const symbolCoverage =
-    requiredSymbols.length === 0 ? 1 : matchedSymbols.length / requiredSymbols.length;
+    requiredSymbols.length === 0
+      ? 1
+      : matchedSymbols.length / requiredSymbols.length;
 
   const requiredEdges = asArray(gold.requiredEdges);
   const orderedEdges = requiredEdges.filter(([from, to]) => {
@@ -94,7 +100,9 @@ export function gradeAnswer(answer, gold, threshold = 0.8) {
   const mentionsMissing = mustMention.filter((m) => indexOfPhrase(hay, m) < 0);
 
   const mustNotClaim = asArray(gold.mustNotClaim);
-  const violatedMustNot = mustNotClaim.filter((m) => indexOfPhrase(hay, m) >= 0);
+  const violatedMustNot = mustNotClaim.filter(
+    (m) => indexOfPhrase(hay, m) >= 0,
+  );
 
   const pass =
     symbolCoverage >= threshold &&
@@ -185,8 +193,12 @@ function main() {
     const flags = [
       `sym ${quality.symbolCoverage}`,
       `edges ${quality.edgeOrder}`,
-      quality.mentionsMissing.length ? `missing[${quality.mentionsMissing.join(",")}]` : "",
-      quality.violatedMustNot.length ? `VIOLATION[${quality.violatedMustNot.join(",")}]` : "",
+      quality.mentionsMissing.length
+        ? `missing[${quality.mentionsMissing.join(",")}]`
+        : "",
+      quality.violatedMustNot.length
+        ? `VIOLATION[${quality.violatedMustNot.join(",")}]`
+        : "",
     ]
       .filter(Boolean)
       .join("  ");
@@ -195,7 +207,10 @@ function main() {
 
   console.log(`\n${passed}/${graded} passed (threshold ${threshold})`);
   if (outPath) {
-    fs.writeFileSync(path.resolve(outPath), `${JSON.stringify(report, null, 2)}\n`);
+    fs.writeFileSync(
+      path.resolve(outPath),
+      `${JSON.stringify(report, null, 2)}\n`,
+    );
     console.log(`graded report: ${outPath}`);
   }
   if (graded === 0) {
@@ -204,6 +219,9 @@ function main() {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   main();
 }

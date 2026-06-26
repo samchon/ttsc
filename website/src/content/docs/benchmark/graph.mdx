@@ -4,9 +4,9 @@ import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
 
 `@ttsc/graph` has its own benchmark, separate from the compiler timings above.
 
-It asks the two questions codegraph publishes: how completely does the graph resolve a real codebase, and does an agent spend less when it has the graph. The agent-cost runner also benchmarks `codegraph` itself as a comparator. Both run on real repositories through `experimental/benchmark/graph.mjs` and the lower-level harnesses in `experimental/graph-bench`, and the raw per-run samples are published to `website/public/benchmark/graph.json`.
+It asks the two questions codegraph publishes: how completely does the graph resolve a real codebase, and does an agent spend less when it has the graph. The agent-cost runner also benchmarks `codegraph` itself as a comparator. Both run on real repositories through `experimental/benchmark/graph.mjs` and the lower-level harnesses in `experimental/benchmark`, and the raw per-run samples are published to `website/public/benchmark/graph.json`.
 
-The agent-cost benchmark now splits into two prompt families. Shared onboarding prompts start by reading exported symbols and folder structure, then narrow into graph queries. Project-specific prompts live in files like `experimental/graph-bench/questions/typeorm.md`. The runner stores `promptFamily` in `graph.json`, and the dashboard reports those families separately.
+The agent-cost benchmark now splits into two prompt families. Shared onboarding prompts start by reading exported symbols and folder structure, then narrow into graph queries. Project-specific prompts live in files like `experimental/benchmark/questions/typeorm.md`. The runner stores `promptFamily` in `graph.json`, and the dashboard reports those families separately.
 
 The agent-cost question is measured across two AI coding agents, each acting as a harness. An AI agent here is an autonomous CLI that reads the repository and answers a question by calling tools (shell, grep, read, or the `@ttsc/graph` MCP), measured once with the MCP server configured and once without it. The two harnesses are **Claude Code** (Anthropic's CLI) running Sonnet and Opus, and **Codex** (OpenAI's CLI) running GPT-5.5 and GPT-5.4 mini.
 
@@ -28,7 +28,7 @@ A checker-resolved graph is TypeScript-only, so of codegraph's seven benchmark r
 
 ### Project-specific prompt file results
 
-These cells use repository-specific question files like `experimental/graph-bench/questions/typeorm.md`.
+These cells use repository-specific question files like `experimental/benchmark/questions/typeorm.md`.
 
 ### Excalidraw
 
@@ -103,10 +103,10 @@ pnpm install
 
 ### Structural harness
 
-`experimental/graph-bench` loads the resident `Program` for a project, builds the graph, and reports the node and edge counts plus the fair coverage. The counts and coverage are deterministic; the timings are indicative and only meaningful on a quiet host.
+`experimental/benchmark` loads the resident `Program` for a project, builds the graph, and reports the node and edge counts plus the fair coverage. The counts and coverage are deterministic; the timings are indicative and only meaningful on a quiet host.
 
 ```bash
-node experimental/graph-bench/bench.mjs --project=/abs/path/to/project --runs=5
+node experimental/benchmark/bench.mjs --project=/abs/path/to/project --runs=5
 ```
 
 `--runs` repeats the load-and-build and reports the median time; the counts do not move between runs. Point `--project` at any TypeScript project with a `tsconfig.json`, including this repository's own `packages/ttsc`.
@@ -119,10 +119,10 @@ It needs `go` on `PATH` to build the native binary and the agent CLI for each mo
 
 ```bash
 # One fixture, the Claude arms, both tools, then update graph.json
-node experimental/benchmark/graph.mjs --project=typeorm --models=sonnet,opus --tools=ttsc-graph,codegraph
+node experimental/benchmark/graph.mjs --project=typeorm --models=gpt-5.4-mini --tools=ttsc-graph,codegraph
 
 # Full sweep: projects run sequentially, since the agent cells are expensive
-node experimental/benchmark/graph.mjs --all --models=sonnet,opus --tools=ttsc-graph,codegraph --prompt-family=all
+node experimental/benchmark/graph.mjs --all --models=gpt-5.4-mini --tools=ttsc-graph,codegraph --prompt-family=all
 ```
 
 The runner writes the raw per-run samples to `experimental/benchmark/.work/graph/<timestamp>/report.json` and upserts only the cells it measured into `website/public/benchmark/graph.json`, leaving every other cell untouched. Pass `--no-website` for a local-only run that does not touch the published JSON.

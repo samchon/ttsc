@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * One-shot AI token benchmark for @ttsc/graph and codegraph on the
- * performance fixtures.
+ * One-shot AI token benchmark for @ttsc/graph and codegraph on the performance
+ * fixtures.
  *
  * This runner intentionally stays separate from performance.mjs: it spends real
  * Claude/Codex credits, so it only runs when called explicitly. It reuses the
@@ -18,10 +18,8 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
-const workDir =
-  process.env.TTSC_BENCH_WORK ?? path.resolve(here, ".work");
-const tgzDir =
-  process.env.TTSC_BENCH_TGZ ?? path.join(os.tmpdir(), "ttsc-tgz");
+const workDir = process.env.TTSC_BENCH_WORK ?? path.resolve(here, ".work");
+const tgzDir = process.env.TTSC_BENCH_TGZ ?? path.join(os.tmpdir(), "ttsc-tgz");
 const performanceScript = path.join(here, "performance.mjs");
 const websiteJson = path.join(
   repoRoot,
@@ -30,12 +28,9 @@ const websiteJson = path.join(
   "benchmark",
   "graph.json",
 );
-const questionsDir = path.join(repoRoot, "experimental", "graph-bench", "questions");
-const claudeHarness = path.join(repoRoot, "experimental/graph-bench/agent-ab.mjs");
-const codexHarness = path.join(
-  repoRoot,
-  "experimental/graph-bench/agent-ab-codex.mjs",
-);
+const questionsDir = path.join(here, "questions");
+const claudeHarness = path.join(here, "agent-ab.mjs");
+const codexHarness = path.join(here, "agent-ab-codex.mjs");
 const PROMPT_FAMILIES = {
   "project-specific": null,
   "shared-onboarding": path.join(questionsDir, "shared-onboarding.md"),
@@ -43,8 +38,7 @@ const PROMPT_FAMILIES = {
 
 const PROJECTS = {
   excalidraw: {
-    repoName: "excalidraw",
-    sourceRepo: "https://github.com/excalidraw/excalidraw.git",
+    repoName: "ttsc-benchmark-excalidraw",
     tsconfig: "tsconfig.json",
   },
   vue: {
@@ -78,13 +72,18 @@ const PROJECTS = {
 };
 
 const parsed = parseArgs(process.argv.slice(2));
-const branch = parsed.values.branch ?? parsed.values["fixture-branch"] ?? "ttsc";
+const branch =
+  parsed.values.branch ?? parsed.values["fixture-branch"] ?? "ttsc";
 if (branch !== "ttsc" && branch !== "ttsc-lint")
   throw new Error("--branch must be 'ttsc' or 'ttsc-lint'");
 
 const selected = selectProjects(parsed);
-const models = splitList(parsed.values.models ?? parsed.values.model ?? "sonnet,opus,codex");
-const tools = selectTools(parsed.values.tools ?? parsed.values.tool ?? "ttsc-graph,codegraph");
+const models = splitList(
+  parsed.values.models ?? parsed.values.model ?? "gpt-5.4-mini",
+);
+const tools = selectTools(
+  parsed.values.tools ?? parsed.values.tool ?? "ttsc-graph,codegraph",
+);
 const promptFamilies = selectPromptFamilies(
   parsed.values["prompt-family"] ??
     parsed.values["prompt-families"] ??
@@ -93,10 +92,13 @@ const promptFamilies = selectPromptFamilies(
 const runs = parsed.values.runs ?? "1";
 const daemon = parsed.values.daemon ?? "0";
 const effort = "high";
-const codexModel = parsed.values["codex-model"] ?? "gpt-5.5";
+const codexModel = parsed.values["codex-model"] ?? "gpt-5.4-mini";
 const platformKey = `${process.platform}-${process.arch}`;
 const ttscVersion = JSON.parse(
-  fs.readFileSync(path.join(repoRoot, "packages", "ttsc", "package.json"), "utf8"),
+  fs.readFileSync(
+    path.join(repoRoot, "packages", "ttsc", "package.json"),
+    "utf8",
+  ),
 ).version;
 const outDir = path.resolve(
   parsed.values.out ??
@@ -164,7 +166,9 @@ for (const project of selected) {
   if (!fs.existsSync(repoDir))
     throw new Error(`missing graph benchmark clone: ${repoDir}`);
   if (!fs.existsSync(path.join(repoDir, spec.tsconfig)))
-    throw new Error(`missing graph tsconfig: ${path.join(repoDir, spec.tsconfig)}`);
+    throw new Error(
+      `missing graph tsconfig: ${path.join(repoDir, spec.tsconfig)}`,
+    );
 
   for (const tool of tools) {
     let codegraphIndexMs = null;
@@ -203,7 +207,9 @@ for (const project of selected) {
 }
 
 writeJson(path.join(outDir, "report.json"), report);
-process.stdout.write(`\nGraph benchmark report: ${path.relative(repoRoot, path.join(outDir, "report.json"))}\n`);
+process.stdout.write(
+  `\nGraph benchmark report: ${path.relative(repoRoot, path.join(outDir, "report.json"))}\n`,
+);
 if (!parsed.flags.has("--no-website")) {
   process.stdout.write(
     `Graph benchmark website JSON: ${path.relative(repoRoot, websiteJson)}\n`,
@@ -241,8 +247,7 @@ function runSetup(projects, targetBranch) {
 // codex-gpt-nano. Claude tiers (sonnet, opus) carry no version, so they pass
 // through. The exact id is recorded separately as modelVersion.
 function agentLabel(resolvedModel) {
-  if (!resolvedModel.startsWith("gpt-"))
-    return `claude-code-${resolvedModel}`;
+  if (!resolvedModel.startsWith("gpt-")) return `claude-code-${resolvedModel}`;
   const tier = resolvedModel
     .split("-")
     .filter((token) => token && !/^[0-9.]+$/.test(token))
@@ -267,7 +272,11 @@ function runAgentCell({
 }) {
   const codex = model === "codex" || model.startsWith("gpt-");
   const harness = codex ? codexHarness : claudeHarness;
-  const resolvedModel = codex ? (model === "codex" ? codexModel : model) : model;
+  const resolvedModel = codex
+    ? model === "codex"
+      ? codexModel
+      : model
+    : model;
   // The cell is keyed by tier, not by the exact model string, so the benchmark
   // grid and website stay stable as OpenAI bumps versions (gpt-5.5 -> gpt-5.6
   // overwrites the same cell instead of forking a new one). The precise id is
@@ -346,9 +355,7 @@ function runAgentCell({
 function publishWebsiteCells(cells) {
   if (parsed.flags.has("--no-website")) return;
   const prior =
-    !resetWebsite && fs.existsSync(websiteJson)
-      ? loadJson(websiteJson)
-      : null;
+    !resetWebsite && fs.existsSync(websiteJson) ? loadJson(websiteJson) : null;
   resetWebsite = false;
   const out = {
     schemaVersion: 1,
@@ -414,7 +421,9 @@ function cleanupCodegraphIndex(repoDir) {
     relative.startsWith("..") ||
     path.isAbsolute(relative)
   ) {
-    throw new Error(`refusing to remove codegraph index outside fixture: ${target}`);
+    throw new Error(
+      `refusing to remove codegraph index outside fixture: ${target}`,
+    );
   }
   fs.rmSync(target, { recursive: true, force: true });
 }
@@ -434,15 +443,17 @@ function selectTools(value) {
 
 function selectPromptFamilies(value) {
   const names = splitList(value);
-  const expanded = names.includes("all")
-    ? Object.keys(PROMPT_FAMILIES)
-    : names;
+  const expanded = names.includes("all") ? Object.keys(PROMPT_FAMILIES) : names;
   const allowed = new Set([...Object.keys(PROMPT_FAMILIES), "custom"]);
   if (expanded.length === 0)
-    throw new Error("--prompt-family must contain project-specific, shared-onboarding, custom, or all");
+    throw new Error(
+      "--prompt-family must contain project-specific, shared-onboarding, custom, or all",
+    );
   for (const name of expanded) {
     if (!allowed.has(name))
-      throw new Error("--prompt-family must contain project-specific, shared-onboarding, custom, or all");
+      throw new Error(
+        "--prompt-family must contain project-specific, shared-onboarding, custom, or all",
+      );
   }
   return [...new Set(expanded)];
 }
@@ -606,14 +617,13 @@ function ensureGraphOnlyRepos(projects) {
 }
 
 function selectProjects({ flags, values, positional }) {
-  const explicit = [
-    ...splitList(values.project ?? ""),
-    ...positional,
-  ];
+  const explicit = [...splitList(values.project ?? ""), ...positional];
   const names = flags.has("--all") ? Object.keys(PROJECTS) : explicit;
   for (const name of names) {
     if (!PROJECTS[name])
-      throw new Error(`unknown project ${name}; choose ${Object.keys(PROJECTS).join(", ")}`);
+      throw new Error(
+        `unknown project ${name}; choose ${Object.keys(PROJECTS).join(", ")}`,
+      );
   }
   return [...new Set(names)];
 }
@@ -627,7 +637,10 @@ function parseArgs(argv) {
     if (arg === "--project") {
       values.project = appendCsv(values.project, argv[++i]);
     } else if (arg.startsWith("--project=")) {
-      values.project = appendCsv(values.project, arg.slice("--project=".length));
+      values.project = appendCsv(
+        values.project,
+        arg.slice("--project=".length),
+      );
     } else if (arg === "--question") {
       values.question = argv[++i];
     } else if (arg.startsWith("--")) {

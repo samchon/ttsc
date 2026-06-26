@@ -10,7 +10,6 @@
 //
 // It stamps each prompt's questionSha256 so grade.mjs/agent-ab can detect drift.
 // Run after the per-repo authoring agents land their files.
-
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -19,13 +18,12 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const qDir = path.join(here, "questions");
 
-// Per-repo build metadata. excalidraw runs upstream (codegraph's own repo, no
-// @ttsc fixture); the rest use the samchon ttsc-branch fixture.
+// Per-repo build metadata. Every repo below uses a prepared benchmark fixture.
 // Each fixture's tsconfig for the graph dump. rxjs ships only a graph-tuned
 // `tsconfig.graph.json`; vscode's program root is `src/tsconfig.json`; the rest
 // load from the root `tsconfig.json`.
 const REPOS = {
-  excalidraw: { tsconfig: "tsconfig.json" },
+  excalidraw: { tsconfig: "tsconfig.json", fixtureBranch: "ttsc" },
   vscode: { tsconfig: "src/tsconfig.json", fixtureBranch: "ttsc" },
   nestjs: { tsconfig: "tsconfig.json", fixtureBranch: "ttsc" },
   vue: { tsconfig: "tsconfig.json", fixtureBranch: "ttsc" },
@@ -36,12 +34,17 @@ const REPOS = {
 };
 
 const sha = (rel) =>
-  crypto.createHash("sha256").update(fs.readFileSync(path.join(qDir, rel))).digest("hex");
+  crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(path.join(qDir, rel)))
+    .digest("hex");
 const has = (rel) => fs.existsSync(path.join(qDir, rel));
 
 const prompts = [];
 for (const [repo, meta] of Object.entries(REPOS)) {
-  const branch = meta.fixtureBranch ? { fixtureBranch: meta.fixtureBranch } : {};
+  const branch = meta.fixtureBranch
+    ? { fixtureBranch: meta.fixtureBranch }
+    : {};
   const dedFile = `${repo}/dedicated.md`;
   if (has(dedFile) && has(`${repo}/dedicated.gold.json`)) {
     prompts.push({
@@ -55,7 +58,9 @@ for (const [repo, meta] of Object.entries(REPOS)) {
       questionSha256: sha(dedFile),
     });
   } else {
-    console.warn(`warning: ${repo} has no dedicated.md/.gold.json yet — skipped`);
+    console.warn(
+      `warning: ${repo} has no dedicated.md/.gold.json yet — skipped`,
+    );
   }
   prompts.push({
     id: `${repo}-common-v1`,
@@ -89,4 +94,5 @@ fs.writeFileSync(
   `${JSON.stringify(manifest, null, 2)}\n`,
 );
 console.log(`manifest.json: ${prompts.length} prompts`);
-for (const p of prompts) console.log(`  ${p.id.padEnd(34)} ${p.family.padEnd(10)} ${p.file}`);
+for (const p of prompts)
+  console.log(`  ${p.id.padEnd(34)} ${p.family.padEnd(10)} ${p.file}`);

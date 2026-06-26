@@ -26,8 +26,14 @@ jobs:
       matrix:
         include:
           - { name: go, run: "pnpm run test:go && pnpm --filter ttsc go:vet" }
-          - { name: shim-audit, run: "pnpm --filter ttsc shim:audit:test && pnpm --filter ttsc shim:audit" }
-          - { name: typecheck, run: "pnpm run check:flags && pnpm run test:typecheck" }
+          - {
+              name: shim-audit,
+              run: "pnpm --filter ttsc shim:audit:test && pnpm --filter ttsc shim:audit",
+            }
+          - {
+              name: typecheck,
+              run: "pnpm run check:flags && pnpm run test:typecheck",
+            }
           - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
           - { name: factory, run: "pnpm --filter @ttsc/test-factory start" }
           - { name: lint, run: "pnpm --filter @ttsc/test-lint start" }
@@ -37,7 +43,10 @@ jobs:
           - { name: unplugin, run: "pnpm --filter @ttsc/test-unplugin start" }
           - { name: metro, run: "pnpm --filter @ttsc/test-metro start" }
           - { name: graph, run: "pnpm --filter @ttsc/test-graph start" }
-          - { name: graph-bench, run: "node experimental/graph-bench/bench.mjs --runs=3" }
+          - {
+              name: benchmark-graph,
+              run: "node experimental/benchmark/bench.mjs --runs=3",
+            }
     steps:
       - uses: actions/checkout@v4
 

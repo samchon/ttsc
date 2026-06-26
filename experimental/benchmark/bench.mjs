@@ -8,9 +8,8 @@
 // shape, not a publishable figure.
 //
 // Usage:
-//   node experimental/graph-bench/bench.mjs                       # default: packages/ttsc
-//   node experimental/graph-bench/bench.mjs --project=/abs/path --tsconfig=tsconfig.json --runs=5
-
+//   node experimental/benchmark/bench.mjs                       # default: packages/ttsc
+//   node experimental/benchmark/bench.mjs --project=/abs/path --tsconfig=tsconfig.json --runs=5
 import cp from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -78,7 +77,9 @@ const report = {
 
 console.log("\nResult (counts deterministic; timings indicative):");
 console.log(`  source files:  ${report.sourceFiles}`);
-console.log(`  nodes:         ${report.nodes} (${report.externalNodes} external boundary leaves)`);
+console.log(
+  `  nodes:         ${report.nodes} (${report.externalNodes} external boundary leaves)`,
+);
 console.log(
   `  edges:         ${report.totalEdges} (heritage ${report.edges.heritage}, ` +
     `value-call ${report.edges["value-call"]}, type-ref ${report.edges["type-ref"]})`,

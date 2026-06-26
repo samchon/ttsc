@@ -17,7 +17,6 @@
 // --concurrency (prompts in flight, default 4), --inner-concurrency (agent runs
 // in flight inside one prompt, default = --runs), --baseline-store=<path>,
 // --out=<combined report>, --no-setup.
-
 import cp from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -35,12 +34,12 @@ const graphBenchmarkScript = path.join(
   "graph.mjs",
 );
 
-// Match experimental/benchmark/graph.mjs, which owns fixture setup. Source repos
-// live in .work/graph-source; performance fixtures live in .work/<repoName>@ttsc.
+// Match experimental/benchmark/graph.mjs, which owns fixture setup. Benchmarks
+// use prepared performance fixtures in .work/<repoName>@ttsc unless a project is
+// explicitly marked as a source-only graph target.
 const PROJECTS = {
   excalidraw: {
-    repoName: "excalidraw",
-    sourceRepo: true,
+    repoName: "ttsc-benchmark-excalidraw",
   },
   vscode: {
     repoName: "ttsc-benchmark-vscode",
@@ -109,8 +108,7 @@ ensureFixtures(prompts);
 function fixtureOf(prompt) {
   const spec = PROJECTS[prompt.repo];
   if (!spec) throw new Error(`unknown repo ${prompt.repo}`);
-  if (spec.sourceRepo)
-    return path.join(work, "graph-source", spec.repoName);
+  if (spec.sourceRepo) return path.join(work, "graph-source", spec.repoName);
   const branch = prompt.fixtureBranch ?? "ttsc";
   return path.join(work, `${spec.repoName}@${branch}`);
 }
@@ -179,10 +177,15 @@ const median = (xs) => {
 /** Run one prompt through the harness for the selected arm; return its samples. */
 function runPrompt(prompt) {
   return new Promise((resolve) => {
-    const report = path.join(tmpDir, `${harness}-${model}-${prompt.id}-${arm}.json`);
+    const report = path.join(
+      tmpDir,
+      `${harness}-${model}-${prompt.id}-${arm}.json`,
+    );
     const dir = fixtureOf(prompt);
     if (!dir || !fs.existsSync(dir))
-      throw new Error(`missing prepared graph fixture for ${prompt.id}: ${dir}`);
+      throw new Error(
+        `missing prepared graph fixture for ${prompt.id}: ${dir}`,
+      );
     const childArgs = [
       harnessScript,
       `--prompt-id=${prompt.id}`,
@@ -211,7 +214,9 @@ function runPrompt(prompt) {
       console.log(
         `  ${prompt.id.padEnd(32)} ${arm}  ${samples.length}/${runs} ok  median ${median(toks)} tok` +
           (code === 0 ? "" : `  [exit ${code}]`) +
-          (samples.length === 0 && err ? `  ${err.trim().split("\n").pop()}` : ""),
+          (samples.length === 0 && err
+            ? `  ${err.trim().split("\n").pop()}`
+            : ""),
       );
       resolve({ prompt, samples });
     });
@@ -222,12 +227,15 @@ function runPrompt(prompt) {
 async function fanOut(items, fn) {
   const results = [];
   let next = 0;
-  const lanes = Array.from({ length: Math.max(1, Math.min(outer, items.length)) }, async () => {
-    while (next < items.length) {
-      const i = next++;
-      results[i] = await fn(items[i]);
-    }
-  });
+  const lanes = Array.from(
+    { length: Math.max(1, Math.min(outer, items.length)) },
+    async () => {
+      while (next < items.length) {
+        const i = next++;
+        results[i] = await fn(items[i]);
+      }
+    },
+  );
   await Promise.all(lanes);
   return results;
 }
@@ -258,7 +266,10 @@ if (arm === "baseline") {
       medianGraph: median(samples.map((s) => s.graph)),
       tokens: toks,
       pass: graded.length
-        ? { passed: graded.filter((s) => s.quality.pass).length, graded: graded.length }
+        ? {
+            passed: graded.filter((s) => s.quality.pass).length,
+            graded: graded.length,
+          }
         : null,
     };
   }
@@ -306,5 +317,8 @@ if (arm === "baseline") {
       `\nmedian token reduction across ${reds.length} prompt(s): ${median(reds)}%`,
     );
   if (outPath)
-    fs.writeFileSync(path.resolve(outPath), `${JSON.stringify({ harness, model, arm, runs, rows }, null, 2)}\n`);
+    fs.writeFileSync(
+      path.resolve(outPath),
+      `${JSON.stringify({ harness, model, arm, runs, rows }, null, 2)}\n`,
+    );
 }

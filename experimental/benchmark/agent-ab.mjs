@@ -26,10 +26,10 @@
 // `claude` and `go` on PATH, and a built `@ttsc/graph` (packages/graph/lib).
 //
 // Usage:
-//   node experimental/graph-bench/agent-ab.mjs --repo=excalidraw --runs=2
-//   node experimental/graph-bench/agent-ab.mjs --repo=vscode --runs=4 --model=opus
-//   node experimental/graph-bench/agent-ab.mjs --prompt-id=typeorm-overview-v1 --runs=2
-//   node experimental/graph-bench/agent-ab.mjs --repo=typeorm --repo-dir=experimental/benchmark/.work/ttsc-benchmark-typeorm@ttsc
+//   node experimental/benchmark/agent-ab.mjs --repo=excalidraw --runs=2
+//   node experimental/benchmark/agent-ab.mjs --repo=vscode --runs=4 --model=opus
+//   node experimental/benchmark/agent-ab.mjs --prompt-id=typeorm-overview-v1 --runs=2
+//   node experimental/benchmark/agent-ab.mjs --repo=typeorm --repo-dir=experimental/benchmark/.work/ttsc-benchmark-typeorm@ttsc
 import cp from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -280,8 +280,8 @@ if (!cg) ensureInstalled(repoDir);
 // 3. WITH = @ttsc/graph; WITHOUT = empty config. Both --strict-mcp-config. The
 // graph server is the Node launcher run over stdio; it shells out to the dump
 // binary (pointed at via TTSC_GRAPH_BINARY) once at startup, then answers tool
-// calls from the resident graph. The launcher has no daemon/port mode — its
-// single type-check stays inside the measured cell — so there is no --daemon path.
+// calls from the resident graph. The launcher has no daemon/port mode; its
+// single type-check stays inside the measured cell, so there is no --daemon path.
 const withCfg = path.join(os.tmpdir(), `mcp-graph-${process.pid}.json`);
 const emptyCfg = path.join(os.tmpdir(), `mcp-empty-${process.pid}.json`);
 const serverCfg = cg
@@ -308,7 +308,7 @@ if (arms.length === 0)
   throw new Error(`--arm must be baseline | graph | both, got ${armFilter}`);
 
 console.log(
-  `\ncodegraph A/B on ${repoKey} — model ${model}, ${runs} run(s) x ${arms.length} arms` +
+  `\ncodegraph A/B on ${repoKey} - model ${model}, ${runs} run(s) x ${arms.length} arms` +
     (promptId ? `, prompt ${promptId}` : "") +
     (fixtureBranch ? `, fixture ${fixtureBranch}` : ""),
 );
@@ -428,7 +428,7 @@ if (gold) {
   const graphPasses = g.graded > 0 && g.passed * 2 >= g.graded; // majority pass
   if (tokenSaving > 0 && !graphPasses) {
     console.log(
-      `  NOTE: ${tokenSaving}% token saving NOT counted as a win — graph answers are below threshold.`,
+      `  NOTE: ${tokenSaving}% token saving NOT counted as a win: graph answers are below threshold.`,
     );
   }
 }

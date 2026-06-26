@@ -7,8 +7,9 @@
       "family": "dedicated",
       "file": "excalidraw/dedicated.md",
       "gold": "excalidraw/dedicated.gold.json",
+      "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "e4f3b02a5d3a1e86a9136d90a4b8bd9c73774733f9f1c021faee61b3ea6e83b5"
+      "questionSha256": "f2b3cfe5d4f0dd5e70881808c265774382c43f5a25df38b959f402f1c8e6e6a8"
     },
     {
       "id": "excalidraw-common-v1",
@@ -16,6 +17,7 @@
       "family": "common",
       "file": "common.md",
       "gold": "common.gold.json",
+      "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
       "questionSha256": "a9ef4c7eafa493b9770beb898ac6cc11b6da84ad0ae66b94bd9e30e07505c8f8"
     },

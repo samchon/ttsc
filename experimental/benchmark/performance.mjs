@@ -27,7 +27,7 @@
  * stdio (pnpm/npm/yarn install, pack, per-step build output) is captured and
  * suppressed.
  *
- * Pass `--verbose` to surface everything — child stdio is teed live, and the
+ * Pass `--verbose` to surface everything: child stdio is teed live, and the
  * granular `[cmd] start/done`, `[step] start/done`, and `[timer] start` traces
  * are added back. This is the mode intended for AI/agent runs that need the
  * full command transcript for diagnosis; a human watching live progress usually
@@ -71,7 +71,7 @@ const TSCONFIG_FILES = quote(
 const RUNS = numberEnv("TTSC_BENCH_RUNS", 5);
 const WARMUP = numberEnv("TTSC_BENCH_WARMUP", 1, { allowZero: true });
 const RETRIES = numberEnv("TTSC_BENCH_RETRIES", 2);
-// AI/debug knob — see the header comment. When set, child stdio is inherited
+// AI/debug knob; see the header comment. When set, child stdio is inherited
 // (teed for runSteps so race detection still works) and granular start/done
 // traces are written. Human runs leave it off and read milestone lines only.
 const VERBOSE = flags.has("--verbose");
@@ -128,6 +128,29 @@ const LOCAL_TARBALLS = [
 ];
 
 const PACKAGE_CONFIGS = {
+  excalidraw: {
+    kind: "canvas app monorepo (root tsconfig is no-emit)",
+    repoName: "ttsc-benchmark-excalidraw",
+    repo: "https://github.com/samchon/ttsc-benchmark-excalidraw.git",
+    packageManager: "yarn",
+    filesRoot: ".",
+    commands: compilerCommands({
+      noEmit: (tool) => [
+        `yarn --ignore-engines exec ${tool} -- -p tsconfig.json --noEmit`,
+      ],
+      eslint: [
+        `yarn --ignore-engines exec eslint --no-ignore --max-warnings=0 ${tsconfigFiles("tsconfig.json")}`,
+      ],
+      format: {
+        legacy: [
+          `yarn --ignore-engines exec prettier --check --ignore-path /dev/null ${tsconfigFiles("tsconfig.json")}`,
+        ],
+        ttscLint: [
+          "yarn --ignore-engines exec ttsc -- format -p tsconfig.json",
+        ],
+      },
+    }),
+  },
   vue: {
     kind: "frontend monorepo",
     repoName: "ttsc-benchmark-vue",
@@ -374,6 +397,7 @@ const PROJECT_ORDER_BY_STARS = [
   "vscode",
   "nestjs",
   "vue",
+  "excalidraw",
   "zod",
   "typeorm",
   "rxjs",
@@ -500,9 +524,7 @@ function readTypeScriptGoWorkspaceCatalogVersion(repoRoot) {
       path.join(repoRoot, "pnpm-workspace.yaml"),
       "utf8",
     );
-    const match = file.match(
-      /^\s*typescript:\s*([^\s#]+)\s*$/m,
-    );
+    const match = file.match(/^\s*typescript:\s*([^\s#]+)\s*$/m);
     if (match) return match[1].replace(/^['"]|['"]$/g, "");
   } catch {
     // Fall through.
@@ -512,29 +534,32 @@ function readTypeScriptGoWorkspaceCatalogVersion(repoRoot) {
 
 function compilerCommands({ build, noEmit, eslint, format }) {
   const legacy = {
-    build: normalizeSteps(build("tsc")),
     noEmit: normalizeSteps(noEmit("tsc")),
     eslint: normalizeSteps(eslint),
   };
+  if (build) legacy.build = normalizeSteps(build("tsc"));
   if (format?.legacy?.length) legacy.format = normalizeSteps(format.legacy);
   const ttscLint = {
-    build: normalizeSteps(build("ttsc")),
     noEmit: normalizeSteps(noEmit("ttsc")),
   };
+  if (build) ttscLint.build = normalizeSteps(build("ttsc"));
   if (format?.ttscLint?.length)
     ttscLint.format = normalizeSteps(format.ttscLint);
+  const ttsc = {
+    noEmit: normalizeSteps(noEmit("ttsc")),
+    // Direct tsgo invocation lives on the same `ttsc` clone as a second op
+    // so the chart can show the raw TypeScript-Go cost alongside ttsc and
+    // expose the per-invocation plugin-host overhead the ttsc launcher
+    // carries.
+    tsgoNoEmit: normalizeSteps(noEmit("tsgo")),
+  };
+  if (build) {
+    ttsc.build = normalizeSteps(build("ttsc"));
+    ttsc.tsgoBuild = normalizeSteps(build("tsgo"));
+  }
   return {
     legacy,
-    ttsc: {
-      build: normalizeSteps(build("ttsc")),
-      noEmit: normalizeSteps(noEmit("ttsc")),
-      // Direct tsgo invocation lives on the same `ttsc` clone as a second op
-      // so the chart can show the raw TypeScript-Go cost alongside ttsc and
-      // expose the per-invocation plugin-host overhead the ttsc launcher
-      // carries.
-      tsgoBuild: normalizeSteps(build("tsgo")),
-      tsgoNoEmit: normalizeSteps(noEmit("tsgo")),
-    },
+    ttsc,
     "ttsc-lint": ttscLint,
   };
 }

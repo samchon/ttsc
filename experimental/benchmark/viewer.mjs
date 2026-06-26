@@ -1,4 +1,4 @@
-// viewer.mjs — turn a raw @ttsc/graph dump into the reduced JSON the 3D viewer
+// viewer.mjs: turn a raw @ttsc/graph dump into the reduced JSON the 3D viewer
 // renders. graphdump (Go) emits every node and edge keyed by absolute realpath;
 // this script makes it web-ready:
 //
@@ -12,9 +12,9 @@
 // needs Go and the prepared fixture (see --project), which run on a build host.
 //
 // Usage:
-//   node experimental/graph-bench/viewer.mjs --demo
-//   node experimental/graph-bench/viewer.mjs --in raw.json --name vscode
-//   node experimental/graph-bench/viewer.mjs --project vscode \
+//   node experimental/benchmark/viewer.mjs --demo
+//   node experimental/benchmark/viewer.mjs --in raw.json --name vscode
+//   node experimental/benchmark/viewer.mjs --project vscode \
 //     --root .work/ttsc-benchmark-vscode@ttsc --tsconfig src/tsconfig.json
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";

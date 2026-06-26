@@ -1,6 +1,8 @@
 report.json
 agent-ab-report.json
 agent-ab-codex-report.json
+.suite-tmp/
+.graph-local/
 *.json
 !package.json
 !questions/manifest.json
@@ -8,3 +10,4 @@ agent-ab-codex-report.json
 *.traces/
 *.out.log
 *.err.log
+*.pid

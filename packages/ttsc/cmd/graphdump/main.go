@@ -1,7 +1,7 @@
 // Command graphdump builds the @ttsc/graph code graph for a project and prints
 // the entire graph (every node and every edge, with none of the MCP response
 // caps) as one JSON document. It is the repo-internal one-shot used by the
-// graph-bench viewer pipeline; the shipped equivalent is `ttscgraph dump`. Both
+// benchmark viewer pipeline; the shipped equivalent is `ttscgraph dump`. Both
 // serialize through graph.MarshalDump.
 package main
 

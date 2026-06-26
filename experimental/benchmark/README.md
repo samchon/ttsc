@@ -14,13 +14,25 @@ node performance.mjs --project=vue            # one fixture
 node performance.mjs --setup-only             # clone + install, no measurement
 node performance.mjs --list                   # print the cell grid and exit
 node performance.mjs --verbose                # tee child stdio for debugging
-node graph.mjs --project=typeorm --tools=ttsc-graph,codegraph # one graph AI-token benchmark
-node graph.mjs --all --models=sonnet,opus,codex --tools=ttsc-graph,codegraph # full graph AI-token sweep
+node graph.mjs --project=typeorm --models=gpt-5.4-mini --tools=ttsc-graph,codegraph # one graph AI-token benchmark
+node graph.mjs --all --models=gpt-5.4-mini --tools=ttsc-graph,codegraph # full graph AI-token sweep
+node bench.mjs --project=packages/ttsc --runs=5 # structural graph metrics
+node run-suite.mjs --arm=baseline --runs=5 --harness=codex --model=gpt-5.4-mini
 ```
 
 The first run packs the local `ttsc` workspace into tarballs, clones each fixture's three branches into `.work/`, installs the tarballs, runs `ttsc prepare`, then measures the matrix sequentially. Subsequent runs reuse the clones.
 
-`graph.mjs` reuses the same fixture clones and setup path where a performance fixture exists, but it is separate from `performance.mjs` because it spends AI tokens. Graph-only repos such as `excalidraw` are cloned directly into `.work/graph-source/` instead of being added to the performance matrix. It runs projects sequentially, fixes reasoning effort to `high`, updates only its own cells in `website/public/benchmark/graph.json`, and writes a local report under `.work/graph/<timestamp>/`. Its tool axis is `ttsc-graph` and `codegraph`; its prompt-family axis is `project-specific` and `shared-onboarding` (`--prompt-family=all` runs both). The `codegraph` arm runs `codegraph init`, records the index time as `toolSetupMs`, local-ignores `.codegraph/`, and deletes the index after the run unless `--keep-codegraph-index` is set.
+`graph.mjs` reuses the same fixture clones and setup path where a performance fixture exists. It stays separate from `performance.mjs` because it spends AI tokens. It runs projects sequentially, fixes reasoning effort to `high`, updates only its own cells in `website/public/benchmark/graph.json`, and writes a local report under `.work/graph/<timestamp>/`. Its tool axis is `ttsc-graph` and `codegraph`; its prompt-family axis is `project-specific` and `shared-onboarding` (`--prompt-family=all` runs both). The `codegraph` arm runs `codegraph init`, records the index time as `toolSetupMs`, local-ignores `.codegraph/`, and deletes the index after the run unless `--keep-codegraph-index` is set.
+
+The graph harnesses now live in this directory with the performance runner:
+
+- `bench.mjs`: deterministic structural graph metrics for one checkout.
+- `agent-ab.mjs`: Claude Code agent-cost A/B.
+- `agent-ab-codex.mjs`: Codex/GPT agent-cost A/B.
+- `run-suite.mjs`: multi-project suite runner over prepared `.work` fixtures.
+- `questions/manifest.json`: graded prompt registry.
+
+The prompt is tool-neutral. No graph-specific guidance is appended to the user prompt; tool guidance belongs in the MCP server descriptions so both arms pose the same question and the token comparison stays honest. Each sample captures the final answer and grades it against the prompt gold via `grade.mjs`; token savings are not counted as a win when answer quality falls below the configured threshold.
 
 ## The matrix
 
@@ -43,6 +55,7 @@ Cell IDs follow `project:branch:op:threading`, with `:tsgo:` inserted before the
 
 | Project | Repo | Kind | Package mgr |
 | --- | --- | --- | --- |
+| `excalidraw` | `samchon/ttsc-benchmark-excalidraw` | canvas app monorepo (root tsconfig is no-emit) | yarn |
 | `vue` | `samchon/ttsc-benchmark-vue` | frontend monorepo | pnpm |
 | `rxjs` | `samchon/ttsc-benchmark-rxjs` | library monorepo (cjs / esm / types per package) | yarn |
 | `typeorm` | `samchon/ttsc-benchmark-typeorm` | ORM library | pnpm |
@@ -80,7 +93,7 @@ Graph-only flags:
 
 | Flag | Effect |
 | --- | --- |
-| `--models sonnet,opus,codex` | Select agent models for `graph.mjs`. `codex` resolves to `--codex-model` and always uses effort `high`. |
+| `--models gpt-5.4-mini` | Select agent models for `graph.mjs`. `codex` resolves to `--codex-model` and always uses effort `high`. |
 | `--tools ttsc-graph,codegraph` | Select graph tools for `graph.mjs`. Use `all` for both. |
 | `--branch ttsc` / `--fixture-branch ttsc` | Select the fixture branch for `graph.mjs`; allowed values are `ttsc` and `ttsc-lint`. |
 | `--daemon=1` | Use the `ttscgraph` daemon for `@ttsc/graph` cells. `codegraph` manages its own index and does not use this path. |

@@ -1,7 +1,7 @@
 // Agent-cost A/B for @ttsc/graph driven by OpenAI's `codex` CLI, the
 // cross-model companion to agent-ab.mjs (which drives Claude). Same codegraph
-// methodology: one structural question per repo, run twice — once with the
-// @ttsc/graph MCP server, once with no MCP — and report tokens (summed per turn),
+// methodology: one structural question per repo, run twice: once with the
+// @ttsc/graph MCP server, once with no MCP, and report tokens (summed per turn),
 // tool calls, and wall time, median over N runs.
 //
 // codex is configured through a MINIMAL temp CODEX_HOME per arm (a copied
@@ -15,8 +15,8 @@
 // and serves graph_index / graph_overview / graph_query / graph_trace /
 // graph_expand over stdio.
 // Tool guidance comes from the server's MCP descriptions; the user prompt is the
-// manifest question verbatim, tool-neutral, so the token comparison stays honest —
-// no graph-specific instruction is prepended.
+// manifest question verbatim and tool-neutral, so the token comparison stays
+// honest: no graph-specific instruction is prepended.
 //
 // codex --json has no cost field, so this reports tokens + tool calls + wall
 // time (not dollars). A "tool call" is a codex command_execution (shell read or
@@ -30,10 +30,10 @@
 // `codex` (logged in) and `go` on PATH, and a built `@ttsc/graph` (packages/graph/lib).
 //
 // Usage:
-//   node experimental/graph-bench/agent-ab-codex.mjs --repo=excalidraw --runs=4
-//   node experimental/graph-bench/agent-ab-codex.mjs --repo=vscode --runs=4
-//   node experimental/graph-bench/agent-ab-codex.mjs --prompt-id=typeorm-overview-v1 --runs=4
-//   node experimental/graph-bench/agent-ab-codex.mjs --repo=typeorm --repo-dir=experimental/benchmark/.work/ttsc-benchmark-typeorm@ttsc
+//   node experimental/benchmark/agent-ab-codex.mjs --repo=excalidraw --runs=4
+//   node experimental/benchmark/agent-ab-codex.mjs --repo=vscode --runs=4
+//   node experimental/benchmark/agent-ab-codex.mjs --prompt-id=typeorm-overview-v1 --runs=4
+//   node experimental/benchmark/agent-ab-codex.mjs --repo=typeorm --repo-dir=experimental/benchmark/.work/ttsc-benchmark-typeorm@ttsc
 import cp from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -199,6 +199,12 @@ const promptFamily =
 const gold = manifestPrompt?.gold ?? null;
 const goldThreshold = Number(args.threshold ?? 0.8);
 if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
+const codexExecTimeoutMs = Number(
+  process.env.TTSC_CODEX_EXEC_TIMEOUT_MS ?? 1_200_000,
+);
+const codexTurnCompleteGraceMs = Number(
+  process.env.TTSC_CODEX_TURN_COMPLETE_GRACE_MS ?? 5_000,
+);
 
 const fixtureBranch =
   args["fixture-branch"] ?? manifestPrompt?.entry.fixtureBranch;
@@ -285,7 +291,7 @@ if (!cg) ensureInstalled(repoDir);
 // 3. The graph server is the Node launcher run over stdio; it shells out to the
 // dump binary (pointed at via TTSC_GRAPH_BINARY) on the first tool call, then
 // answers later tool calls from the resident graph. The launcher has no
-// daemon/port mode — its single type-check stays inside the measured cell — so
+// daemon/port mode; its single type-check stays inside the measured cell, so
 // there is no --daemon path.
 const launcherArgs = [graphLauncher, "--cwd", repoDir, "--tsconfig", tsconfig];
 
@@ -307,7 +313,7 @@ if (arms.length === 0)
   throw new Error(`--arm must be baseline | graph | both, got ${armFilter}`);
 
 console.log(
-  `\ncodegraph A/B on ${repoKey} via codex — model ${model} (effort ${effort}), ${runs} run(s) x ${arms.length} arms` +
+  `\ncodegraph A/B on ${repoKey} via codex - model ${model} (effort ${effort}), ${runs} run(s) x ${arms.length} arms` +
     (promptId ? `, prompt ${promptId}` : "") +
     (fixtureBranch ? `, fixture ${fixtureBranch}` : ""),
 );
@@ -339,7 +345,7 @@ const thunks = arms.flatMap((arm) =>
     // keyed by run number, so a retry overwrites the attempt.
     let m;
     for (let attempt = 0; attempt <= MAX_RUN_RETRIES; attempt++) {
-      // Both arms get the identical user prompt — no graph-specific preamble.
+      // Both arms get the identical user prompt; no graph-specific preamble.
       // Tool guidance comes from the @ttsc/graph MCP server descriptions.
       m = await runCodex(question, arm.home, arm.name, r + 1);
       if (m.ok) break;
@@ -424,7 +430,7 @@ if (gold) {
   const graphPasses = g.graded > 0 && g.passed * 2 >= g.graded; // majority pass
   if (tokenSaving > 0 && !graphPasses) {
     console.log(
-      `  NOTE: ${tokenSaving}% token saving NOT counted as a win — graph answers are below threshold.`,
+      `  NOTE: ${tokenSaving}% token saving NOT counted as a win: graph answers are below threshold.`,
     );
   }
 }
@@ -538,7 +544,9 @@ async function runCodex(question, codexHome, armName, runNumber) {
       windowsHide: true,
       shell: true,
       env: { ...process.env, CODEX_HOME: codexHome },
-      timeout: 1_200_000,
+      timeout: codexExecTimeoutMs,
+      completeWhen: (event) => event.type === "turn.completed",
+      completionGraceMs: codexTurnCompleteGraceMs,
     },
   );
   if (result.error) throw result.error;
@@ -554,22 +562,83 @@ async function runCodex(question, codexHome, armName, runNumber) {
 // spawnAsync runs a child to completion and resolves its captured stdout/stderr,
 // so many runs can be in flight at once via Promise.all instead of blocking the
 // loop the way spawnSync would.
-function spawnAsync(command, commandArgs, { input, ...spawnOpts }) {
+function spawnAsync(
+  command,
+  commandArgs,
+  { input, timeout, completeWhen, completionGraceMs = 0, ...spawnOpts },
+) {
   return new Promise((resolve) => {
     const child = cp.spawn(command, commandArgs, spawnOpts);
     let stdout = "";
     let stderr = "";
+    let stdoutLine = "";
+    let closed = false;
+    let forcedAfterComplete = false;
+    let timedOut = false;
+    let timeoutTimer;
+    let completionTimer;
+    const clearTimers = () => {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      if (completionTimer) clearTimeout(completionTimer);
+    };
+    const finish = (result) => {
+      if (closed) return;
+      closed = true;
+      clearTimers();
+      resolve(result);
+    };
+    const scheduleCompletionShutdown = () => {
+      if (!completeWhen || completionTimer || !completionGraceMs) return;
+      completionTimer = setTimeout(() => {
+        forcedAfterComplete = true;
+        killProcessTree(child);
+      }, completionGraceMs);
+    };
+    if (timeout) {
+      timeoutTimer = setTimeout(() => {
+        timedOut = true;
+        killProcessTree(child);
+      }, timeout);
+    }
     child.stdout?.setEncoding("utf8");
     child.stderr?.setEncoding("utf8");
-    child.stdout?.on("data", (d) => (stdout += d));
+    child.stdout?.on("data", (d) => {
+      stdout += d;
+      if (!completeWhen) return;
+      stdoutLine += d;
+      const lines = stdoutLine.split(/\r?\n/);
+      stdoutLine = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          if (completeWhen(JSON.parse(line))) scheduleCompletionShutdown();
+        } catch {
+          /* codex can write non-event lines before JSON mode is ready */
+        }
+      }
+    });
     child.stderr?.on("data", (d) => (stderr += d));
-    child.on("error", (error) => resolve({ error, stdout, stderr }));
-    child.on("close", () => resolve({ stdout, stderr }));
+    child.on("error", (error) => finish({ error, stdout, stderr }));
+    child.on("close", () =>
+      finish({ stdout, stderr, forcedAfterComplete, timedOut }),
+    );
     if (input) {
       child.stdin?.write(input);
       child.stdin?.end();
     }
   });
+}
+
+function killProcessTree(child) {
+  if (!child.pid || child.killed) return;
+  if (process.platform === "win32") {
+    cp.spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+      windowsHide: true,
+      stdio: "ignore",
+    });
+    return;
+  }
+  child.kill("SIGTERM");
 }
 
 // parseStream sums per-turn usage (input + output) across turn.completed events,

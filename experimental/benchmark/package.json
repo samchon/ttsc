@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "name": "@ttsc/experimental-benchmark",
+  "version": "0.0.0",
+  "description": "Benchmark ttsc performance and @ttsc/graph agent cost on real projects.",
+  "type": "module",
+  "scripts": {
+    "start": "node bench.mjs"
+  }
+}

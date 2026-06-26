@@ -18,9 +18,8 @@
 // https://ttsc.dev/docs/benchmark#code-graph-mcp.
 //
 // Usage:
-//   node experimental/graph-bench/publish.mjs            # fold every report found
-//   node experimental/graph-bench/publish.mjs --reset    # drop prior cells first
-
+//   node experimental/benchmark/publish.mjs            # fold every report found
+//   node experimental/benchmark/publish.mjs --reset    # drop prior cells first
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,10 +84,14 @@ function foldAgent(report, harness) {
     promptFamily: report.promptFamily ?? "project-specific",
     ...(report.questionSha256 ? { questionSha256: report.questionSha256 } : {}),
     ...(report.goldSha256 ? { goldSha256: report.goldSha256 } : {}),
-    ...(report.gradeThreshold !== undefined ? { gradeThreshold: report.gradeThreshold } : {}),
+    ...(report.gradeThreshold !== undefined
+      ? { gradeThreshold: report.gradeThreshold }
+      : {}),
     ...(report.fixtureBranch ? { fixtureBranch: report.fixtureBranch } : {}),
     ...(report.daemon !== undefined ? { daemon: report.daemon } : {}),
-    ...(report.toolSetupMs !== undefined ? { toolSetupMs: report.toolSetupMs } : {}),
+    ...(report.toolSetupMs !== undefined
+      ? { toolSetupMs: report.toolSetupMs }
+      : {}),
     runs: report.runs,
     question: report.question,
     samples: report.samples,
