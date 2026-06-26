@@ -348,8 +348,18 @@ const thunks = arms.flatMap((arm) =>
       m.questionSha256 = manifestPrompt.questionSha256;
       m.goldSha256 = manifestPrompt.goldSha256;
     }
-    m.quality =
-      gold && m.ok ? gradeAnswer(m.answer ?? "", gold, goldThreshold) : null;
+    // Grade in a guard: a malformed gold must never crash a whole run of real
+    // agent calls. A grading failure degrades to an ungraded sample, not a lost
+    // benchmark (the traces are already on disk and can be re-graded).
+    try {
+      m.quality =
+        gold && m.ok ? gradeAnswer(m.answer ?? "", gold, goldThreshold) : null;
+    } catch (error) {
+      console.warn(
+        `  grade failed for ${arm.name} run ${r + 1}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      m.quality = null;
+    }
     samples[arm.name].push(m);
     console.log(
       `  ${arm.name.padEnd(8)} run ${r + 1}: ${m.tokens} tok, ${m.tools} tools ` +

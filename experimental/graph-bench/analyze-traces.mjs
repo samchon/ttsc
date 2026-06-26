@@ -20,10 +20,29 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { gradeAnswer } from "./grade.mjs";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
 
 function arg(name, fallback) {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
   return hit ? hit.slice(name.length + 3) : fallback;
+}
+
+/**
+ * Load a manifest prompt's gold by id, so the analyzer can grade each run's
+ * answer straight from the trace — recovering quality even when the harness
+ * crashed before writing its report.
+ */
+function loadGoldById(promptId, manifestPath) {
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const entry = (manifest.prompts ?? []).find((p) => p.id === promptId);
+  if (!entry) throw new Error(`unknown --prompt-id ${promptId}`);
+  return JSON.parse(
+    fs.readFileSync(path.resolve(here, "questions", entry.gold), "utf8"),
+  );
 }
 
 const reportPath = arg("report");
@@ -66,16 +85,27 @@ function laneOf(name) {
   return "other";
 }
 
-/** Pull the ordered tool calls and token total out of one stream-json log. */
+/**
+ * Pull the ordered tool calls, token total, and final answer out of one
+ * stream-json log. The answer is the `result` event's text on success, else the
+ * last assistant prose — the same rule the harness uses — so the analyzer can
+ * grade straight from the trace.
+ */
 function parseTrace(text) {
   const calls = [];
   let tokens = 0;
+  let lastAssistantText = "";
+  let result = null;
   for (const raw of text.split("\n")) {
     if (!raw.trim()) continue;
     let e;
     try {
       e = JSON.parse(raw);
     } catch {
+      continue;
+    }
+    if (e.type === "result") {
+      result = e;
       continue;
     }
     if (e.type !== "assistant") continue;
@@ -86,12 +116,22 @@ function parseTrace(text) {
         (u.output_tokens || 0) +
         (u.cache_read_input_tokens || 0) +
         (u.cache_creation_input_tokens || 0);
+    const textBlocks = [];
     for (const b of e.message?.content || []) {
+      if (b.type === "text" && typeof b.text === "string") {
+        textBlocks.push(b.text);
+        continue;
+      }
       if (b.type !== "tool_use" || b.name === "ToolSearch") continue;
       calls.push({ name: b.name, input: b.input || {} });
     }
+    if (textBlocks.length) lastAssistantText = textBlocks.join("\n");
   }
-  return { calls, tokens };
+  const answer =
+    typeof result?.result === "string" && result.result.trim()
+      ? result.result
+      : lastAssistantText;
+  return { calls, tokens, answer };
 }
 
 /** A short, human-legible label for what a tool call targeted. */
@@ -156,6 +196,16 @@ function misuseOf(calls) {
   return { issues, fallbacks };
 }
 
+// With --prompt-id the analyzer grades each run's captured answer against the
+// manifest gold, recovering quality from the traces alone when the harness
+// crashed before writing its report.
+const promptId = arg("prompt-id");
+const manifestPath = path.resolve(
+  arg("manifest", path.join(here, "questions", "manifest.json")),
+);
+const gold = promptId ? loadGoldById(promptId, manifestPath) : null;
+const threshold = Number(arg("threshold", "0.8"));
+
 const files = fs
   .readdirSync(traceDir)
   .filter((f) => f.endsWith(".stream.jsonl"));
@@ -165,7 +215,7 @@ for (const file of files) {
   const m = /^(.*)-run-(\d+)\.stream\.jsonl$/.exec(file);
   if (!m) continue;
   const [, arm, run] = m;
-  const { calls, tokens } = parseTrace(
+  const { calls, tokens, answer } = parseTrace(
     fs.readFileSync(path.join(traceDir, file), "utf8"),
   );
   const counts = { graph: 0, read: 0, search: 0, shell: 0, other: 0 };
@@ -181,6 +231,7 @@ for (const file of files) {
     sequence: calls.map((c) => `${c.name}(${targetOf(c)})`),
     issues,
     fallbacks,
+    quality: gold && answer ? gradeAnswer(answer, gold, threshold) : null,
   });
 }
 
@@ -204,6 +255,8 @@ for (const [arm, runs] of Object.entries(byArm)) {
   const issueTally = {};
   for (const i of allIssues) issueTally[i.kind] = (issueTally[i.kind] ?? 0) + 1;
   const runsWithMisuse = runs.filter((r) => r.issues.length).length;
+  const graded = runs.filter((r) => r.quality);
+  const passed = graded.filter((r) => r.quality.pass).length;
   summary[arm] = {
     runs: runs.length,
     medianTokens: medTokens,
@@ -211,12 +264,26 @@ for (const [arm, runs] of Object.entries(byArm)) {
     medianByLane: medLanes,
     misuseTally: issueTally,
     cleanRuns: runs.length - runsWithMisuse,
+    ...(graded.length ? { quality: { passed, graded: graded.length } } : {}),
   };
   console.log(`[${arm}]  ${runs.length} run(s)`);
   console.log(
     `  median tokens ${medTokens}   tools ${medTools}` +
       `   (graph ${medLanes.graph}, read ${medLanes.read}, search ${medLanes.search}, shell ${medLanes.shell})`,
   );
+  if (graded.length) {
+    console.log(`  quality: ${passed}/${graded.length} pass`);
+    for (const r of graded.filter((r) => !r.quality.pass)) {
+      const q = r.quality;
+      const flags = [
+        q.symbolCoverage < threshold ? `sym ${q.symbolCoverage}` : "",
+        q.edgeOrder < threshold ? `edges ${q.edgeOrder}` : "",
+        q.mentionsMissing.length ? `missing[${q.mentionsMissing.join(",")}]` : "",
+        q.violatedMustNot.length ? `VIOLATED[${q.violatedMustNot.join(",")}]` : "",
+      ].filter(Boolean).join("  ");
+      console.log(`    run ${r.run} FAIL: ${flags}`);
+    }
+  }
   if (arm === "graph") {
     console.log(
       `  tool discipline: ${runs.length - runsWithMisuse}/${runs.length} runs clean (no source touched outside the graph)`,

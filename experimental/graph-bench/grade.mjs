@@ -30,6 +30,17 @@ export function questionSha256(file) {
 
 const norm = (s) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
+/**
+ * Coerce a gold field to an array so one hand-authored gold that wrote a bare
+ * string where a list belongs cannot crash an entire (expensive) benchmark run
+ * at grading time. A string becomes a one-element list; nullish becomes empty.
+ */
+function asArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null) return [];
+  return [value];
+}
+
 /** First index of needle in the normalized haystack, or -1. */
 function indexOfPhrase(haystack, needle) {
   return haystack.indexOf(norm(needle));
@@ -60,12 +71,12 @@ function symbolIndex(hay, symbol) {
 export function gradeAnswer(answer, gold, threshold = 0.8) {
   const hay = norm(answer ?? "");
 
-  const requiredSymbols = gold.requiredSymbols ?? [];
+  const requiredSymbols = asArray(gold.requiredSymbols);
   const matchedSymbols = requiredSymbols.filter((s) => symbolIndex(hay, s) >= 0);
   const symbolCoverage =
     requiredSymbols.length === 0 ? 1 : matchedSymbols.length / requiredSymbols.length;
 
-  const requiredEdges = gold.requiredEdges ?? [];
+  const requiredEdges = asArray(gold.requiredEdges);
   const orderedEdges = requiredEdges.filter(([from, to]) => {
     const a = symbolIndex(hay, from);
     const b = symbolIndex(hay, to);
@@ -74,10 +85,10 @@ export function gradeAnswer(answer, gold, threshold = 0.8) {
   const edgeOrder =
     requiredEdges.length === 0 ? 1 : orderedEdges.length / requiredEdges.length;
 
-  const mustMention = gold.mustMention ?? [];
+  const mustMention = asArray(gold.mustMention);
   const mentionsMissing = mustMention.filter((m) => indexOfPhrase(hay, m) < 0);
 
-  const mustNotClaim = gold.mustNotClaim ?? [];
+  const mustNotClaim = asArray(gold.mustNotClaim);
   const violatedMustNot = mustNotClaim.filter((m) => indexOfPhrase(hay, m) >= 0);
 
   const pass =

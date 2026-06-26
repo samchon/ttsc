@@ -17,5 +17,7 @@
     "shapecache",
     "canvas"
   ],
-  "mustNotClaim": "Excalidraw re-renders elements by diffing a virtual DOM and patching only changed nodes"
+  "mustNotClaim": [
+    "Excalidraw re-renders elements by diffing a virtual DOM and patching only changed nodes"
+  ]
 }
