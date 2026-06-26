@@ -7,11 +7,13 @@ import { ITtscGraphExpand } from "../structures/ITtscGraphExpand";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 
 // A declaration body can be large; cap each expansion so one call cannot flood
-// the response, and flag the cut so the caller knows to narrow. The cap is
-// generous enough to carry a whole method body (the traces showed the model
-// re-grepping source it had expanded when a long method was truncated mid-body),
-// since one fuller response is far cheaper than the burst of greps it prevents.
-const MAX_LINES = 400;
+// the response, and flag the cut so the caller knows to narrow. The n=3 mini
+// measurement showed a 400-line cap backfiring on graph-heavy projects (vscode,
+// rxjs): the model expands many nodes, and at 400 lines each the responses
+// dwarfed the grep bursts the bigger cap was meant to prevent. 200 keeps the
+// per-response footprint small; the verify-grep is better fought by making the
+// model expand fewer nodes, not by enlarging every expansion.
+const MAX_LINES = 200;
 // Neighbor lists are a map, not a dump; keep them scannable.
 const MAX_NEIGHBORS = 40;
 // Structural relationships are navigation, not the dependency picture expand is for.
