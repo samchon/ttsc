@@ -722,15 +722,11 @@ The important point is that the user experience stays TypeScript-native. The use
 //----
 // TypeScript
 //----
-const isBoolean = typia.createIs<boolean>();
-const isNumber = typia.createIs<number>();
 const isString = typia.createIs<string>();
 
 //----
 // JavaScript (Compiled)
 //----
-const isBoolean = (input) => "boolean" === typeof input;
-const isNumber = (input) => "number" === typeof input;
 const isString = (input) => "string" === typeof input;
 ```
 
