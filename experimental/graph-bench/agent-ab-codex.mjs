@@ -293,10 +293,16 @@ const realHome = path.join(os.homedir(), ".codex");
 const withHome = makeCodexHome("with", launcherArgs);
 const withoutHome = makeCodexHome("without", null);
 
+// --arm selects which arms to run: `baseline` and `graph` can be measured
+// separately so a fixed n=5 baseline is cached once and every later iteration
+// runs only the graph arm against it. Default `both` is the original behavior.
+const armFilter = args.arm ?? "both";
 const arms = [
   { name: "baseline", home: withoutHome },
   { name: "graph", home: withHome },
-];
+].filter((a) => armFilter === "both" || a.name === armFilter);
+if (arms.length === 0)
+  throw new Error(`--arm must be baseline | graph | both, got ${armFilter}`);
 
 console.log(
   `\ncodegraph A/B on ${repoKey} via codex — model ${model} (effort ${effort}), ${runs} run(s) x ${arms.length} arms` +

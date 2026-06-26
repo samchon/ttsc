@@ -295,10 +295,16 @@ const serverCfg = cg
 fs.writeFileSync(withCfg, JSON.stringify({ mcpServers: serverCfg }));
 fs.writeFileSync(emptyCfg, JSON.stringify({ mcpServers: {} }));
 
+// --arm selects which arms to run: `baseline` and `graph` can be measured
+// separately so a fixed n=5 baseline is cached once and every later iteration
+// runs only the graph arm against it. Default `both` is the original behavior.
+const armFilter = args.arm ?? "both";
 const arms = [
   { name: "baseline", cfg: emptyCfg },
   { name: "graph", cfg: withCfg },
-];
+].filter((a) => armFilter === "both" || a.name === armFilter);
+if (arms.length === 0)
+  throw new Error(`--arm must be baseline | graph | both, got ${armFilter}`);
 
 console.log(
   `\ncodegraph A/B on ${repoKey} — model ${model}, ${runs} run(s) x ${arms.length} arms` +

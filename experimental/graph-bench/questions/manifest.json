@@ -126,7 +126,7 @@
       "file": "rxjs/dedicated.md",
       "gold": "rxjs/dedicated.gold.json",
       "fixtureBranch": "ttsc",
-      "tsconfig": "tsconfig.json",
+      "tsconfig": "tsconfig.graph.json",
       "questionSha256": "2f98a5ce51594fa18c3418da9a8e243f1acefb94dfdd7ef7056c0d2484fe352b"
     },
     {
@@ -136,7 +136,7 @@
       "file": "common.md",
       "gold": "common.gold.json",
       "fixtureBranch": "ttsc",
-      "tsconfig": "tsconfig.json",
+      "tsconfig": "tsconfig.graph.json",
       "questionSha256": "a9ef4c7eafa493b9770beb898ac6cc11b6da84ad0ae66b94bd9e30e07505c8f8"
     },
     {

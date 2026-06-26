@@ -21,6 +21,9 @@ const qDir = path.join(here, "questions");
 
 // Per-repo build metadata. excalidraw runs upstream (codegraph's own repo, no
 // @ttsc fixture); the rest use the samchon ttsc-branch fixture.
+// Each fixture's tsconfig for the graph dump. rxjs ships only a graph-tuned
+// `tsconfig.graph.json`; vscode's program root is `src/tsconfig.json`; the rest
+// load from the root `tsconfig.json`.
 const REPOS = {
   excalidraw: { tsconfig: "tsconfig.json" },
   vscode: { tsconfig: "src/tsconfig.json", fixtureBranch: "ttsc" },
@@ -28,7 +31,7 @@ const REPOS = {
   vue: { tsconfig: "tsconfig.json", fixtureBranch: "ttsc" },
   zod: { tsconfig: "tsconfig.json", fixtureBranch: "ttsc" },
   typeorm: { tsconfig: "tsconfig.json", fixtureBranch: "ttsc" },
-  rxjs: { tsconfig: "tsconfig.json", fixtureBranch: "ttsc" },
+  rxjs: { tsconfig: "tsconfig.graph.json", fixtureBranch: "ttsc" },
   "shopping-backend": { tsconfig: "tsconfig.json", fixtureBranch: "ttsc" },
 };
 
