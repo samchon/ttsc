@@ -28,7 +28,11 @@ export function questionSha256(file) {
   return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 }
 
-const norm = (s) => s.toLowerCase().replace(/\s+/g, " ").trim();
+// Match on alphanumerics only, so phrasing never decides correctness: an answer
+// that writes `QueryBuilder`, `query builder`, or `query-builder` all satisfy the
+// same gold term, and `leftJoin` satisfies `left join`. This is the universal
+// fix for golds failing on camelCase-vs-spaced wording rather than on substance.
+const loose = (s) => (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 
 /**
  * Coerce a gold field to an array so one hand-authored gold that wrote a bare
@@ -41,9 +45,10 @@ function asArray(value) {
   return [value];
 }
 
-/** First index of needle in the normalized haystack, or -1. */
+/** First index of needle in the loose-normalized haystack, or -1. */
 function indexOfPhrase(haystack, needle) {
-  return haystack.indexOf(norm(needle));
+  const n = loose(needle);
+  return n ? haystack.indexOf(n) : -1;
 }
 
 /**
@@ -69,7 +74,7 @@ function symbolIndex(hay, symbol) {
  * every must-mention phrase present, and no must-not claim made.
  */
 export function gradeAnswer(answer, gold, threshold = 0.8) {
-  const hay = norm(answer ?? "");
+  const hay = loose(answer ?? "");
 
   const requiredSymbols = asArray(gold.requiredSymbols);
   const matchedSymbols = requiredSymbols.filter((s) => symbolIndex(hay, s) >= 0);
