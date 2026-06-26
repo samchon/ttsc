@@ -1294,18 +1294,17 @@ That is why the language can be compatible while the transformer ecosystem break
       <div class="bench-track">
         <div class="bench-fill base" style="width: 100%"></div>
       </div>
-      <div class="bench-value">73.3 s</div>
+      <div class="bench-value">1.0x</div>
     </div>
     <div class="bench-row">
       <div class="bench-name">TypeScript-Go (8 checkers)</div>
       <div class="bench-track">
         <div class="bench-fill" style="width: 8.9%"></div>
       </div>
-      <div class="bench-value">6.54 s</div>
+      <div class="bench-value">11.2x</div>
     </div>
     <div class="bench-note">
-      73,293 ms vs 6,544 ms on the benchmark page. Same project, same check,
-      11.2x faster.
+      11.2x
     </div>
   </div>
 </div>
@@ -1330,84 +1329,84 @@ The same benchmark page keeps the raw tsgo row around as a reference. That matte
     <div class="bench-row">
       <div class="bench-name">legacy TypeScript</div>
       <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
-      <div class="bench-value">73.3 s</div>
+      <div class="bench-value">1.0x</div>
     </div>
     <div class="bench-row">
       <div class="bench-name">TypeScript-Go (8)</div>
       <div class="bench-track"><div class="bench-fill" style="width: 8.9%"></div></div>
-      <div class="bench-value">6.54 s</div>
+      <div class="bench-value">11.2x</div>
     </div>
-    <div class="bench-note">11.2x faster</div>
+    <div class="bench-note">11.2x</div>
   </div>
   <div class="bench-card">
     <div class="bench-title">nestjs</div>
     <div class="bench-row">
       <div class="bench-name">legacy TypeScript</div>
       <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
-      <div class="bench-value">19.2 s</div>
+      <div class="bench-value">1.0x</div>
     </div>
     <div class="bench-row">
       <div class="bench-name">TypeScript-Go (8)</div>
       <div class="bench-track"><div class="bench-fill" style="width: 22.1%"></div></div>
-      <div class="bench-value">4.24 s</div>
+      <div class="bench-value">4.5x</div>
     </div>
-    <div class="bench-note">4.5x faster</div>
+    <div class="bench-note">4.5x</div>
   </div>
   <div class="bench-card">
     <div class="bench-title">vue</div>
     <div class="bench-row">
       <div class="bench-name">legacy TypeScript</div>
       <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
-      <div class="bench-value">13.1 s</div>
+      <div class="bench-value">1.0x</div>
     </div>
     <div class="bench-row">
       <div class="bench-name">TypeScript-Go (8)</div>
       <div class="bench-track"><div class="bench-fill" style="width: 13.9%"></div></div>
-      <div class="bench-value">1.82 s</div>
+      <div class="bench-value">7.2x</div>
     </div>
-    <div class="bench-note">7.2x faster</div>
+    <div class="bench-note">7.2x</div>
   </div>
   <div class="bench-card">
     <div class="bench-title">typeorm</div>
     <div class="bench-row">
       <div class="bench-name">legacy TypeScript</div>
       <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
-      <div class="bench-value">11.9 s</div>
+      <div class="bench-value">1.0x</div>
     </div>
     <div class="bench-row">
       <div class="bench-name">TypeScript-Go (8)</div>
       <div class="bench-track"><div class="bench-fill" style="width: 13.1%"></div></div>
-      <div class="bench-value">1.56 s</div>
+      <div class="bench-value">7.6x</div>
     </div>
-    <div class="bench-note">7.6x faster</div>
+    <div class="bench-note">7.6x</div>
   </div>
   <div class="bench-card">
     <div class="bench-title">zod</div>
     <div class="bench-row">
       <div class="bench-name">legacy TypeScript</div>
       <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
-      <div class="bench-value">10.0 s</div>
+      <div class="bench-value">1.0x</div>
     </div>
     <div class="bench-row">
       <div class="bench-name">TypeScript-Go (8)</div>
       <div class="bench-track"><div class="bench-fill" style="width: 18.5%"></div></div>
-      <div class="bench-value">1.85 s</div>
+      <div class="bench-value">5.4x</div>
     </div>
-    <div class="bench-note">5.4x faster</div>
+    <div class="bench-note">5.4x</div>
   </div>
   <div class="bench-card">
     <div class="bench-title">rxjs</div>
     <div class="bench-row">
       <div class="bench-name">legacy TypeScript</div>
       <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
-      <div class="bench-value">8.35 s</div>
+      <div class="bench-value">1.0x</div>
     </div>
     <div class="bench-row">
       <div class="bench-name">TypeScript-Go (8)</div>
       <div class="bench-track"><div class="bench-fill" style="width: 24.5%"></div></div>
-      <div class="bench-value">2.04 s</div>
+      <div class="bench-value">4.1x</div>
     </div>
-    <div class="bench-note">4.1x faster</div>
+    <div class="bench-note">4.1x</div>
   </div>
   <p class="bench-note bench-summary">
     shopping-backend has no comparable `tsgo` noEmit row in the published snapshot,
