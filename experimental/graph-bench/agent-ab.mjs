@@ -393,7 +393,7 @@ async function runWithConcurrency(work, limit) {
 }
 
 const med = (arm, k) =>
-  median(samples[arm].filter((m) => m.ok).map((m) => m[k]));
+  median((samples[arm] ?? []).filter((m) => m.ok).map((m) => m[k]));
 const pct = (g, b) => (b === 0 ? 0 : Math.round((1 - g / b) * 100));
 const line = (label, k, fmt = (x) => x) => {
   const b = med("baseline", k);
@@ -414,7 +414,7 @@ line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 // the graph arm's answers fall below threshold.
 if (gold) {
   const passRate = (arm) => {
-    const graded = samples[arm].filter((m) => m.ok && m.quality);
+    const graded = (samples[arm] ?? []).filter((m) => m.ok && m.quality);
     const passed = graded.filter((m) => m.quality.pass).length;
     return { passed, graded: graded.length };
   };
