@@ -413,6 +413,52 @@ style: |
     font-size: 17px;
     margin-top: 10px;
   }
+  section.benchmark-grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto repeat(3, minmax(0, 1fr)) auto;
+    padding: 48px 50px;
+  }
+  section.benchmark-grid h1 {
+    font-size: 42px;
+    grid-column: 1 / -1;
+    margin-bottom: 0;
+  }
+  section.benchmark-grid .benchmarks {
+    display: contents;
+    grid-column: 1 / -1;
+  }
+  section.benchmark-grid .bench-card {
+    padding: 12px;
+  }
+  section.benchmark-grid .bench-title {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+  section.benchmark-grid .bench-row {
+    grid-template-columns: 126px minmax(0, 1fr) 82px;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  section.benchmark-grid .bench-name {
+    font-size: 14px;
+  }
+  section.benchmark-grid .bench-value {
+    font-size: 16px;
+  }
+  section.benchmark-grid .bench-track {
+    height: 14px;
+  }
+  section.benchmark-grid .bench-note {
+    font-size: 12px;
+    line-height: 1.2;
+    margin-top: 8px;
+  }
+  section.benchmark-grid .bench-summary {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
   section.cards > ul {
     display: grid;
     gap: 18px;
@@ -1181,8 +1227,8 @@ That creates an important split. A new compiler can remain compatible with the T
 
 # 2. TypeScript-Go
 
-- TypeScript-Go arrives
-- Faster compiler
+- Native compiler
+- Faster benchmark
 - Same language
 - Go implementation
 - Transformer host disappears
@@ -1251,15 +1297,15 @@ That is why the language can be compatible while the transformer ecosystem break
       <div class="bench-value">73.3 s</div>
     </div>
     <div class="bench-row">
-      <div class="bench-name">TypeScript-Go</div>
+      <div class="bench-name">TypeScript-Go (8 checkers)</div>
       <div class="bench-track">
-        <div class="bench-fill" style="width: 34.4%"></div>
+        <div class="bench-fill" style="width: 8.9%"></div>
       </div>
-      <div class="bench-value">25.2 s</div>
+      <div class="bench-value">6.54 s</div>
     </div>
     <div class="bench-note">
-      73,293 ms vs 25,222 ms on the benchmark page. Same project, same check,
-      2.9x faster.
+      73,293 ms vs 6,544 ms on the benchmark page. Same project, same check,
+      11.2x faster.
     </div>
   </div>
 </div>
@@ -1270,6 +1316,111 @@ This is the upside that has to come first.
 The benchmark page shows the practical payoff of TypeScript-Go on a real project. TypeScript still looks like TypeScript from the user's side, but the compiler implementation moves to Go and the wall-clock time drops.
 
 The same benchmark page keeps the raw tsgo row around as a reference. That matters here because the story is not "ttsc is faster than tsc by magic." The story is that the new compiler base changes the cost of the everyday check loop.
+-->
+
+---
+
+<!-- _class: benchmark-grid -->
+
+# 2.1. Native Compiler
+
+<div class="benchmarks">
+  <div class="bench-card">
+    <div class="bench-title">vscode</div>
+    <div class="bench-row">
+      <div class="bench-name">legacy TypeScript</div>
+      <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
+      <div class="bench-value">73.3 s</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">TypeScript-Go (8)</div>
+      <div class="bench-track"><div class="bench-fill" style="width: 8.9%"></div></div>
+      <div class="bench-value">6.54 s</div>
+    </div>
+    <div class="bench-note">11.2x faster</div>
+  </div>
+  <div class="bench-card">
+    <div class="bench-title">nestjs</div>
+    <div class="bench-row">
+      <div class="bench-name">legacy TypeScript</div>
+      <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
+      <div class="bench-value">19.2 s</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">TypeScript-Go (8)</div>
+      <div class="bench-track"><div class="bench-fill" style="width: 22.1%"></div></div>
+      <div class="bench-value">4.24 s</div>
+    </div>
+    <div class="bench-note">4.5x faster</div>
+  </div>
+  <div class="bench-card">
+    <div class="bench-title">vue</div>
+    <div class="bench-row">
+      <div class="bench-name">legacy TypeScript</div>
+      <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
+      <div class="bench-value">13.1 s</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">TypeScript-Go (8)</div>
+      <div class="bench-track"><div class="bench-fill" style="width: 13.9%"></div></div>
+      <div class="bench-value">1.82 s</div>
+    </div>
+    <div class="bench-note">7.2x faster</div>
+  </div>
+  <div class="bench-card">
+    <div class="bench-title">typeorm</div>
+    <div class="bench-row">
+      <div class="bench-name">legacy TypeScript</div>
+      <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
+      <div class="bench-value">11.9 s</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">TypeScript-Go (8)</div>
+      <div class="bench-track"><div class="bench-fill" style="width: 13.1%"></div></div>
+      <div class="bench-value">1.56 s</div>
+    </div>
+    <div class="bench-note">7.6x faster</div>
+  </div>
+  <div class="bench-card">
+    <div class="bench-title">zod</div>
+    <div class="bench-row">
+      <div class="bench-name">legacy TypeScript</div>
+      <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
+      <div class="bench-value">10.0 s</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">TypeScript-Go (8)</div>
+      <div class="bench-track"><div class="bench-fill" style="width: 18.5%"></div></div>
+      <div class="bench-value">1.85 s</div>
+    </div>
+    <div class="bench-note">5.4x faster</div>
+  </div>
+  <div class="bench-card">
+    <div class="bench-title">rxjs</div>
+    <div class="bench-row">
+      <div class="bench-name">legacy TypeScript</div>
+      <div class="bench-track"><div class="bench-fill base" style="width: 100%"></div></div>
+      <div class="bench-value">8.35 s</div>
+    </div>
+    <div class="bench-row">
+      <div class="bench-name">TypeScript-Go (8)</div>
+      <div class="bench-track"><div class="bench-fill" style="width: 24.5%"></div></div>
+      <div class="bench-value">2.04 s</div>
+    </div>
+    <div class="bench-note">4.1x faster</div>
+  </div>
+  <p class="bench-note bench-summary">
+    shopping-backend has no comparable `tsgo` noEmit row in the published snapshot,
+    so it is omitted from this direct type-check comparison.
+  </p>
+</div>
+
+<!--
+This is the same benchmark story stretched across the whole page.
+
+Every card is one project from the public benchmark page. The important thing is that the speedup is not a single VS Code anecdote. It repeats across the benchmark set, with the exact `checkers8` row varying by project but always pointing in the same direction.
+
+The one omission is shopping-backend, because the current snapshot does not carry a direct tsgo noEmit row for it. That is a data limitation, not a design change.
 -->
 
 ---
