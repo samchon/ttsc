@@ -7,8 +7,11 @@ import { ITtscGraphExpand } from "../structures/ITtscGraphExpand";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 
 // A declaration body can be large; cap each expansion so one call cannot flood
-// the response, and flag the cut so the caller knows to narrow.
-const MAX_LINES = 200;
+// the response, and flag the cut so the caller knows to narrow. The cap is
+// generous enough to carry a whole method body (the traces showed the model
+// re-grepping source it had expanded when a long method was truncated mid-body),
+// since one fuller response is far cheaper than the burst of greps it prevents.
+const MAX_LINES = 400;
 // Neighbor lists are a map, not a dump; keep them scannable.
 const MAX_NEIGHBORS = 40;
 // Structural relationships are navigation, not the dependency picture expand is for.
