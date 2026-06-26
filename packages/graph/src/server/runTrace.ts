@@ -5,9 +5,6 @@ import { signatureOf } from "./runExpand";
 
 const DEFAULT_DEPTH = 6;
 const DEFAULT_MAX_NODES = 60;
-// How many reached nodes carry a signature: enough to explain the mechanism in
-// one call, bounded so a wide trace cannot flood the response.
-const SIGNATURE_CAP = 30;
 
 /**
  * Breadth-first trace along the dependency graph. Structural
@@ -125,23 +122,11 @@ export function runTrace(
     queue = next;
   }
 
-  // Carry signatures on the reached nodes (shallowest first) so a single trace
-  // explains the mechanism — the model reads the shapes here instead of
-  // expanding each method one by one.
-  const reachedList = [...reached.values()];
-  for (let i = 0; i < reachedList.length && i < SIGNATURE_CAP; i++) {
-    const item = reachedList[i]!;
-    const node = graph.node(item.id);
-    if (node === undefined) continue;
-    const sig = signatureOf(graph.project, node);
-    if (sig !== undefined) item.signature = sig;
-  }
-
   return {
     start: summary(start.node),
     direction,
     hops,
-    reached: reachedList,
+    reached: [...reached.values()],
     truncated,
   };
 }
