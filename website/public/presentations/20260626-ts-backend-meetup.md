@@ -1780,7 +1780,7 @@ In many projects, the normal path is to run tsc --noEmit for type checking and t
 
 That means the repository effectively pays for semantic analysis twice. It also means diagnostics may be split across tools that do not share lifecycle, caching, or project state.
 
-TTSC lint takes a different approach. If TTSC already owns the Program and Checker, lint rules can run on the same compiler state and report through the same diagnostics stream. That is the basic reason the benchmark on the next slide is possible.
+TTSC lint takes a different approach. If TTSC already owns the Program and Checker, lint rules can run on the same compiler state and report through the same diagnostics stream. That is the basic reason the benchmark after the diagnostic example is possible.
 -->
 
 ---
