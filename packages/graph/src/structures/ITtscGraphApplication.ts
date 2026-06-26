@@ -13,13 +13,10 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  */
 export interface ITtscGraphApplication {
   /**
-   * A compact architecture map of the project: how big it is, how it is layered
-   * by folder, the symbols the most code depends on, and the public API surface
-   * — the exported types a consumer reaches for, named and ranked. Call this
-   * first on an unfamiliar codebase: it names concrete files and symbols for
-   * every claim with no source read, so you need not list files or open the
-   * entry module to orient — the layers are the structure and the public API is
-   * the entry surface.
+   * A compact architecture map — folder layers, the dependency hotspots, and the
+   * public API (exported types, ranked) — with no source read. Call this first
+   * on an unfamiliar project instead of listing files or opening the entry
+   * module: the layers are the structure and the public API is the entry surface.
    *
    * @param props Which facet to project
    * @returns The requested architecture facets
@@ -27,10 +24,9 @@ export interface ITtscGraphApplication {
   graph_overview(props: ITtscGraphOverview.IProps): ITtscGraphOverview;
 
   /**
-   * Read the declaration source of nodes another tool returned as handles, plus
-   * their direct dependencies and dependents on request. This is how you read
-   * code the graph has already located — pass every handle you need in one call
-   * instead of opening files.
+   * Read the source of symbols the graph located, by their handles, instead of
+   * opening or `cat`-ing the files. Pass every handle you need in ONE call (never
+   * one at a time); optionally get each node's dependencies and dependents.
    *
    * @param props The handles to expand
    * @returns The resolved nodes with source, and any handles that did not
@@ -39,11 +35,11 @@ export interface ITtscGraphApplication {
   graph_expand(props: ITtscGraphExpand.IProps): ITtscGraphExpand;
 
   /**
-   * Find the symbols and clusters most relevant to a natural query, even when
-   * you do not know the exact name. Mix code vocabulary and plain words;
-   * matches rank by exact and dotted names, CamelCase/subword overlap, file
-   * path, and how central the symbol is. Returns handles to follow with
-   * `graph_expand` or `graph_trace`.
+   * Find any symbol in this project — a class, function, method, even a single
+   * field — by name or a plain-language description, instead of grepping or
+   * listing files. The project is fully indexed, so this resolves what `rg` would
+   * but ranked by name, subword, path, and centrality, and returns handles to
+   * expand or trace. Reach for this first when you need to locate code.
    *
    * @param props The query and result cap
    * @returns Ranked hits with handles
@@ -51,10 +47,10 @@ export interface ITtscGraphApplication {
   graph_query(props: ITtscGraphQuery.IProps): ITtscGraphQuery;
 
   /**
-   * Trace dependency flow from a symbol: `forward` to what it uses, `reverse`
-   * to what uses it, or `impact` to the public API and tests a change would
-   * reach. Follows real call/type edges only — structural edges are excluded —
-   * and returns ordered hops with handles.
+   * Follow dependency flow from a symbol — `forward` to what it uses, `reverse`
+   * to what uses it, `impact` to the public API and tests a change reaches —
+   * instead of chasing calls by grep. Real call/type edges only (structural
+   * edges excluded); returns ordered hops with handles.
    *
    * @param props The start, direction, and bounds
    * @returns The ordered hops and reached nodes, or candidates for an ambiguous
