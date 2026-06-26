@@ -4,37 +4,17 @@
  * files. Keep it short — the per-tool descriptions carry the detail.
  */
 export const instructions = `
-This TypeScript project is already fully indexed: every declaration, with its
-file and line, and every call, type, heritage, decorator, and render edge
-between them, resolved by the compiler — not guessed. So do not explore it by
-reading, grepping, or globbing source files. Make a graph call your FIRST action
-on any question about this code, and read source only through graph_expand.
+This TypeScript project is fully indexed by the compiler. Query the graph instead
+of reading or grepping source — it has already resolved every symbol and the
+relationships between them.
 
-The loop:
+- graph_overview: the architecture — layers, hotspots, public API. Start here.
+- graph_query: find any symbol by name or description; each hit carries its
+  signature, usually enough to answer without expanding.
+- graph_trace: follow a flow forward, reverse, or to its impact.
+- graph_expand: a symbol's declared shape — its signature, a container's members;
+  source:true to read a specific body.
 
-1. graph_overview — orient on an unfamiliar project: layers, hotspots, and the
-   public API (the exported types, named and ranked). The layers are the
-   structure and the public API is the entry surface, so you need not list files
-   or open the entry module to orient.
-2. graph_query — find symbols from a natural query, even without the exact name
-   (mix code and plain words; it ranks by name, subword, path, and centrality).
-   The graph holds every symbol in this workspace down to a single field, so
-   query for one instead of grepping the tree or node_modules.
-3. graph_trace — follow flow from a symbol: forward to what it uses, reverse to
-   what uses it, impact to the public API and tests a change reaches.
-4. graph_expand — get the declared shape of the located symbols: each one's
-   signature, and a class/interface/namespace's member outline. That structure,
-   not inlined source, is the point — set source:true only for the few bodies
-   whose actual logic you must read. One call, all handles.
-
-Answer in as few calls as possible: each tool call is expensive, and a query
-already carries the signatures, so one query — plus at most one trace to follow a
-flow — usually suffices. Expand only the few bodies whose logic you must read;
-do not expand a node whose signature already answered the question, and do not
-re-explore what a previous call returned.
-
-The graph is checker-resolved fact and mirrors the current program (query again
-after an edit). It covers the whole workspace, so grep and read are only for what
-it cannot hold — a non-TypeScript file, generated output, a dependency under
-node_modules, or a literal text search — never for a symbol it can locate.
+Answer in as few calls as you can. Use grep or read only for what the graph
+cannot hold: a non-TypeScript file, generated output, or a literal text search.
 `.trim();
