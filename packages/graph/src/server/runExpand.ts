@@ -136,7 +136,7 @@ function fileLines(project: string, node: ITtscGraphNode): string[] | undefined 
  * line that opens its body (`{`), or the single declaration line when there is
  * no brace, capped so a wrapped signature cannot run away.
  */
-function signatureOf(project: string, node: ITtscGraphNode): string | undefined {
+export function signatureOf(project: string, node: ITtscGraphNode): string | undefined {
   const lines = fileLines(project, node);
   const evidence = node.evidence;
   if (lines === undefined || evidence === undefined) return undefined;

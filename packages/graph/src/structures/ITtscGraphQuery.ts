@@ -29,6 +29,8 @@ export namespace ITtscGraphQuery {
     file: string;
     /** 1-based declaration line, when known. */
     line?: number;
+    /** The hit's declaration signature, so you can often answer without expanding. */
+    signature?: string;
     /** Relative relevance; higher is a better match. */
     score: number;
   }

@@ -1,6 +1,7 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphQuery } from "../structures/ITtscGraphQuery";
+import { signatureOf } from "./runExpand";
 
 // One file should not crowd out the rest of the ranking, so cap hits per file.
 const PER_FILE = 3;
@@ -48,6 +49,15 @@ export function runQuery(
     perFile.set(hit.file, used + 1);
     hits.push(hit);
     if (hits.length >= limit) break;
+  }
+
+  // Attach each kept hit's signature — only the shortlist, so the read cost is
+  // bounded — so the model can often answer from the query alone, no expand.
+  for (const hit of hits) {
+    const node = graph.node(hit.id);
+    if (node === undefined) continue;
+    const sig = signatureOf(graph.project, node);
+    if (sig !== undefined) hit.signature = sig;
   }
   return { hits };
 }
