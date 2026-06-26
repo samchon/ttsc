@@ -7,34 +7,34 @@
     </linearGradient>
   </defs>
   <rect x="1" y="1" width="618" height="428" rx="8" fill="#fff" stroke="#cbd5e1" />
-  <text x="26" y="42" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="25" font-weight="900">TypeScript-Go type-check speedup</text>
-  <text x="26" y="72" fill="#64748b" font-family="Inter, Segoe UI, sans-serif" font-size="15">Multiplier only, VS Code checkers8: 73.29s to 6.54s.</text>
-  <text x="30" y="112" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="18" font-weight="900">VS Code</text>
-  <rect x="140" y="94" width="370" height="22" rx="11" fill="#e2e8f0" />
-  <rect x="140" y="94" width="370" height="22" rx="11" fill="url(#tsgo-bar)" />
-  <text x="580" y="112" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">11.2x</text>
-  <text x="30" y="158" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="18" font-weight="900">nestjs</text>
-  <rect x="140" y="140" width="370" height="22" rx="11" fill="#e2e8f0" />
-  <rect x="140" y="140" width="149" height="22" rx="11" fill="url(#tsgo-bar)" />
-  <text x="580" y="158" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">4.5x</text>
-  <text x="30" y="204" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="18" font-weight="900">vue</text>
-  <rect x="140" y="186" width="370" height="22" rx="11" fill="#e2e8f0" />
-  <rect x="140" y="186" width="238" height="22" rx="11" fill="url(#tsgo-bar)" />
-  <text x="580" y="204" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">7.2x</text>
-  <text x="30" y="250" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="18" font-weight="900">typeorm</text>
-  <rect x="140" y="232" width="370" height="22" rx="11" fill="#e2e8f0" />
-  <rect x="140" y="232" width="251" height="22" rx="11" fill="url(#tsgo-bar)" />
-  <text x="580" y="250" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">7.6x</text>
-  <text x="30" y="296" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="18" font-weight="900">zod</text>
-  <rect x="140" y="278" width="370" height="22" rx="11" fill="#e2e8f0" />
-  <rect x="140" y="278" width="178" height="22" rx="11" fill="url(#tsgo-bar)" />
-  <text x="580" y="296" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">5.4x</text>
-  <text x="30" y="342" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="18" font-weight="900">rxjs</text>
-  <rect x="140" y="324" width="370" height="22" rx="11" fill="#e2e8f0" />
-  <rect x="140" y="324" width="135" height="22" rx="11" fill="url(#tsgo-bar)" />
-  <text x="580" y="342" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">4.1x</text>
-  <text x="30" y="388" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="18" font-weight="900">shopping</text>
-  <rect x="140" y="370" width="370" height="22" rx="11" fill="#e2e8f0" />
-  <rect x="140" y="370" width="86" height="22" rx="11" fill="url(#tsgo-bar)" />
-  <text x="580" y="388" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">2.6x</text>
+  <text x="28" y="42" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="25" font-weight="900">TypeScript-Go type-check speedup</text>
+  <text x="28" y="70" fill="#64748b" font-family="Inter, Segoe UI, sans-serif" font-size="15">Multiplier only. VS Code checkers8: 73.29s to 6.54s.</text>
+  <text x="36" y="111" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="17" font-weight="900">VS Code</text>
+  <rect x="150" y="95" width="320" height="20" rx="10" fill="#e2e8f0" />
+  <rect x="150" y="95" width="320" height="20" rx="10" fill="url(#tsgo-bar)" />
+  <text x="560" y="112" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">11.2x</text>
+  <text x="36" y="154" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="17" font-weight="900">nestjs</text>
+  <rect x="150" y="138" width="320" height="20" rx="10" fill="#e2e8f0" />
+  <rect x="150" y="138" width="129" height="20" rx="10" fill="url(#tsgo-bar)" />
+  <text x="560" y="155" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">4.5x</text>
+  <text x="36" y="197" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="17" font-weight="900">vue</text>
+  <rect x="150" y="181" width="320" height="20" rx="10" fill="#e2e8f0" />
+  <rect x="150" y="181" width="206" height="20" rx="10" fill="url(#tsgo-bar)" />
+  <text x="560" y="198" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">7.2x</text>
+  <text x="36" y="240" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="17" font-weight="900">typeorm</text>
+  <rect x="150" y="224" width="320" height="20" rx="10" fill="#e2e8f0" />
+  <rect x="150" y="224" width="217" height="20" rx="10" fill="url(#tsgo-bar)" />
+  <text x="560" y="241" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">7.6x</text>
+  <text x="36" y="283" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="17" font-weight="900">zod</text>
+  <rect x="150" y="267" width="320" height="20" rx="10" fill="#e2e8f0" />
+  <rect x="150" y="267" width="154" height="20" rx="10" fill="url(#tsgo-bar)" />
+  <text x="560" y="284" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">5.4x</text>
+  <text x="36" y="326" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="17" font-weight="900">rxjs</text>
+  <rect x="150" y="310" width="320" height="20" rx="10" fill="#e2e8f0" />
+  <rect x="150" y="310" width="117" height="20" rx="10" fill="url(#tsgo-bar)" />
+  <text x="560" y="327" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">4.1x</text>
+  <text x="36" y="369" fill="#334155" font-family="Inter, Segoe UI, sans-serif" font-size="17" font-weight="900">shopping</text>
+  <rect x="150" y="353" width="320" height="20" rx="10" fill="#e2e8f0" />
+  <rect x="150" y="353" width="74" height="20" rx="10" fill="url(#tsgo-bar)" />
+  <text x="560" y="370" text-anchor="end" fill="#0f172a" font-family="Inter, Segoe UI, sans-serif" font-size="22" font-weight="900">2.6x</text>
 </svg>
