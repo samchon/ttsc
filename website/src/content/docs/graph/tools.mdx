@@ -1,794 +1,209 @@
 # Tools
 
-`@ttsc/graph` tools return graph indexes: symbol coordinates, file rosters, relationships, diagnostics, and exact follow-up handles. They do not return AST dumps. The TypeScript return types below describe each tool's `structuredContent` object. The MCP `content` block is only a short status summary.
+`@ttsc/graph` exposes four tools. Each is a narrowing engine over the checker-resolved graph: they return compact index records — symbol coordinates, relationships, and stable handles — not source bodies. Read source on demand with `graph_expand`. Each tool's result is returned as JSON; the shapes below describe that JSON.
 
-## query_exports
+Every node and edge is resolved by the TypeScript checker — the graph is checker-resolved fact end to end, so there is no per-edge trust flag to weigh.
+
+Pick the entry tool by what you know: `graph_overview` to orient, `graph_query` to find symbols from a natural query, `graph_trace` to follow flow, `graph_expand` to read the source the others located.
+
+## graph_overview
 
 ```ts
 /**
- * Project-wide exported TypeScript symbol index. Use this for onboarding, exported API overview, or an uncertain entry point before focused relationship queries.
- *
- * Returns exported classes, interfaces, types, enums, functions, variables, and public members of exported classes/interfaces known to the compiler, with name, kind, file:line, handle, and export aliases. Git-ignored generated files are omitted from this orientation index.
+ * A compact architecture map of the project — layers, hotspots, and the public
+ * API surface (the exported types, named and ranked by how depended-on they
+ * are) — with no source read. Call this first on an unfamiliar codebase: the
+ * layers are the structure and the public API is the entry surface, so there is
+ * no need to list files or open the entry module to orient.
  */
-declare function query_exports(args?: QueryExportsArguments): QueryExportsResult;
+declare function graph_overview(props: OverviewProps): Overview;
 
-/**
- * Arguments for the exported-symbol index.
- */
-interface QueryExportsArguments {
-  /**
-   * Optional filter over exported symbol names and file paths. Omit it for the first project-wide orientation pass.
-   */
-  query?: string;
-
-  /**
-   * Maximum exported symbols to return. Defaults to a compact first page. Set 0 when you only need `page.totalRecords` and `page.totalPages`, or raise it when you need a larger page. Minimum 0, maximum 10000.
-   */
-  limit?: number;
-
-  /**
-   * One-based page number for exported symbols. Defaults to 1. Use with `limit` when `page.totalPages` is greater than 1.
-   */
-  page?: number;
+interface OverviewProps {
+  /** Facet to project, or `all` for every facet. @default "all" */
+  aspect?: "all" | "layers" | "hotspots" | "publicApi";
 }
 
-/**
- * Exported-symbol index page.
- */
-interface QueryExportsResult {
-  /**
-   * Compact page metadata with no derived duplicates.
-   */
-  page: QueryExportsPage;
-
-  /**
-   * Exported symbols on the current page.
-   */
-  exports: QueryExportSymbol[];
-}
-
-/**
- * Minimal page metadata.
- */
-interface QueryExportsPage {
-  /**
-   * Number of records after filtering.
-   */
-  totalRecords: number;
-
-  /**
-   * Number of available pages after filtering.
-   */
-  totalPages: number;
-}
-
-/**
- * One exported graph symbol.
- */
-interface QueryExportSymbol {
-  /**
-   * Declared symbol name.
-   */
-  name: string;
-
-  /**
-   * Export aliases when they differ from `name`.
-   */
-  exportedAs?: string[];
-
-  /**
-   * Declaration kind.
-   */
-  kind: QueryNodeKind;
-
-  /**
-   * Project-relative source file.
-   */
-  file: string;
-
-  /**
-   * Declaration line in `file`.
-   */
-  line: number;
-
-  /**
-   * Stable graph handle for exact follow-up tools.
-   */
-  handle: string;
+interface Overview {
+  /** Absolute project root. */
+  project: string;
+  /** Size of the graph. */
+  counts: {
+    files: number;
+    nodes: number;
+    edges: number;
+    /** Node count per kind. */
+    byKind: Record<string, number>;
+  };
+  /** Folder layering, largest first. */
+  layers?: { dir: string; files: number; exported: number }[];
+  /** Highest-dependency symbols, busiest first (structural edges excluded). */
+  hotspots?: {
+    id: string;
+    name: string;
+    kind: string;
+    file: string;
+    fanIn: number;
+    fanOut: number;
+  }[];
+  /** Exported API symbols, most-depended-on first (test/typings/generated excluded). */
+  publicApi?: { name: string; kind: string; file: string }[];
 }
 ```
 
-## query_nodes
+## graph_query
 
 ```ts
 /**
- * Compiler-resolved TypeScript relationship discovery. Use this when exact path endpoints are unknown.
- *
- * It returns matched declaration coordinates, adjacent graph edges, diagnostic counts, blast radius, and handles. Use query_path instead when the task gives exact start/end symbols or an ordered chain.
- *
- * If source context is required, call expand_nodes with a returned handle. After editing, query again rather than reusing an old result.
+ * Find the symbols and clusters most relevant to a natural query, even without
+ * the exact name. Mix code vocabulary and plain words; matches rank by
+ * exact and dotted names, CamelCase/subword overlap, file path, and centrality.
+ * Returns handles to follow with graph_expand or graph_trace.
  */
-declare function query_nodes(args: QueryNodesArguments): QueryNodesResult;
+declare function graph_query(props: QueryProps): QueryResult;
 
-/**
- * Arguments for node lookup.
- */
-interface QueryNodesArguments {
-  /**
-   * Focused relationship query using relevant symbol names, owners, actions, files, or domain terms. Use query_path instead when exact path endpoints are known.
-   */
+interface QueryProps {
+  /** What to find, e.g. `OrderService.create` or `repository find relations`. */
   query: string;
-
-  /**
-   * Match strategy. `exact` accepts only exact symbol names, handles, or file paths.
-   */
-  match?: "auto" | "exact" | "fuzzy";
+  /** Maximum hits to return. @default 12 */
+  limit?: number;
 }
 
-/**
- * Node lookup result.
- */
-interface QueryNodesResult {
-  /**
-   * Number of matched nodes before result shaping.
-   */
-  totalMatches: number;
-
-  /**
-   * Optional status when no match or partial handling needs explanation.
-   */
-  message?: string;
-
-  /**
-   * Matched graph nodes as compact index records, not source bodies.
-   */
-  nodes: QueryGraphNode[];
+interface QueryResult {
+  hits: {
+    /** Stable handle for graph_expand / graph_trace. */
+    id: string;
+    name: string;
+    kind: string;
+    file: string;
+    /** 1-based declaration line, when known. */
+    line?: number;
+    /** Relative relevance; higher is a better match. */
+    score: number;
+  }[];
 }
-
-/**
- * Graph declaration kind.
- */
-type QueryNodeKind = "function" | "class" | "interface" | "type" | "enum" | "variable" | "method";
-
-/**
- * Minimal node reference.
- */
-interface QueryNodeRef {
-  /**
-   * Stable handle for exact follow-up tools.
-   */
-  handle: string;
-
-  /**
-   * Declaration kind.
-   */
-  kind: QueryNodeKind;
-
-  /**
-   * Symbol name.
-   */
-  name: string;
-
-  /**
-   * Project-relative file.
-   */
-  file: string;
-
-  /**
-   * Declaration line.
-   */
-  line: number;
-
-  /**
-   * Whether this symbol is outside the project program.
-   */
-  external: boolean;
-}
-
-/**
- * Matched node with optional adjacent graph index data.
- */
-interface QueryGraphNode extends QueryNodeRef {
-  /**
-   * Adjacent graph relationships in search mode only.
-   */
-  edges?: QueryNodeEdges;
-
-  /**
-   * Diagnostic counts attached to this declaration in search mode only.
-   */
-  diagnostics?: QueryDiagnosticsSummary;
-
-  /**
-   * Reverse dependency count for change-risk orientation in search mode only.
-   */
-  blastRadius?: QueryBlastRadius;
-}
-
-/**
- * Incoming and outgoing edge index.
- */
-interface QueryNodeEdges {
-  /**
-   * Edges from this node to dependencies.
-   */
-  outgoing: QueryEdgeRef[];
-
-  /**
-   * Edges from dependents into this node.
-   */
-  incoming: QueryEdgeRef[];
-
-  /**
-   * Omitted outgoing edge count after the per-node cap.
-   */
-  omittedOutgoing: number;
-
-  /**
-   * Omitted incoming edge count after the per-node cap.
-   */
-  omittedIncoming: number;
-}
-
-/**
- * One adjacent edge.
- */
-interface QueryEdgeRef {
-  /**
-   * Relationship kind.
-   */
-  kind: QueryEdgeKind;
-
-  /**
-   * Neighbor node.
-   */
-  node: QueryNodeRef;
-
-  /**
-   * Source use location for value edges when known.
-   */
-  use?: QueryLocation;
-}
-
-/**
- * Graph relationship kind.
- */
-type QueryEdgeKind = "heritage" | "value-call" | "value-access" | "type-ref";
-
-/**
- * Project-relative line location.
- */
-interface QueryLocation {
-  /**
-   * Project-relative file.
-   */
-  file: string;
-
-  /**
-   * One-based line number.
-   */
-  line: number;
-}
-
-/**
- * Diagnostic counts without full diagnostic text.
- */
-interface QueryDiagnosticsSummary {
-  /**
-   * Total diagnostics attached to this node.
-   */
-  total: number;
-
-  /**
-   * Error count.
-   */
-  errors: number;
-
-  /**
-   * Warning count.
-   */
-  warnings: number;
-}
-
-/**
- * Reverse dependency summary.
- */
-interface QueryBlastRadius {
-  /**
-   * Transitive dependent count.
-   */
-  dependents: number;
-
-  /**
-   * Transitive dependents that currently have diagnostics.
-   */
-  dependentsWithErrors: number;
-}
-
-/**
- * Compact runtime-flow index.
- */
-interface QueryFlow {
-  /**
-   * Selected value-flow edges between returned node handles.
-   */
-  evidence: QueryFlowEdge[];
-}
-
-/**
- * One compact runtime-flow edge.
- */
-interface QueryFlowEdge {
-  /**
-   * Source node handle from the returned nodes.
-   */
-  fromHandle: string;
-
-  /**
-   * Target node handle from the returned nodes.
-   */
-  toHandle: string;
-
-  /**
-   * Runtime edge kind.
-   */
-  kind: QueryRuntimeEdgeKind;
-
-  /**
-   * Source use location when known.
-   */
-  use?: QueryLocation;
-}
-
-/**
- * Runtime-only relationship kind.
- */
-type QueryRuntimeEdgeKind = "value-call" | "value-access";
 ```
 
-## query_path
+## graph_trace
 
 ```ts
 /**
- * Exact runtime path index between named TypeScript symbols. Use this when the task gives a start and end symbol, or an ordered call chain.
- *
- * It resolves anchors to compiler-known graph nodes and searches the resident in-memory value-call/value-access graph. It returns path node coordinates plus selected edge evidence. Use query_nodes first when the endpoints are unknown.
+ * Trace dependency flow from a symbol: `forward` to what it uses, `reverse` to
+ * what uses it, or `impact` to the public API and tests a change would reach.
+ * Follows real call/type edges only — structural edges are excluded. An
+ * ambiguous start name returns its candidates instead of guessing.
  */
-declare function query_path(args: QueryPathArguments): QueryPathResult;
+declare function graph_trace(props: TraceProps): TraceResult;
 
-/**
- * Arguments for an exact runtime path lookup.
- */
-interface QueryPathArguments {
-  /**
-   * Start symbol name or `handle:n:...` value. Dotted names are preferred when available.
-   */
+interface TraceProps {
+  /** A node id from another tool, or a symbol name. */
   from: string;
-
-  /**
-   * End symbol name or `handle:n:...` value. Use the final symbol the path should reach.
-   */
-  to: string;
-
-  /**
-   * Ordered intermediate symbols or handles. Each entry is treated as an anchor the path should pass through in order.
-   */
-  via?: string[];
+  /** @default "forward" */
+  direction?: "forward" | "reverse" | "impact";
+  /** Hops to follow. @default 6 */
+  maxDepth?: number;
+  /** Cap on reached nodes. @default 60 */
+  maxNodes?: number;
 }
 
-/**
- * Exact runtime path result.
- */
-interface QueryPathResult {
-  /**
-   * Optional status when no path or partial handling needs explanation.
-   */
-  message?: string;
-
-  /**
-   * Path nodes in order.
-   */
-  nodes: QueryPathNode[];
-
-  /**
-   * Selected runtime edges between consecutive path nodes.
-   */
-  edges: QueryPathEdge[];
-}
-
-/**
- * One node in an exact runtime path.
- */
-interface QueryPathNode {
-  /**
-   * Stable handle for exact follow-up tools.
-   */
-  handle: string;
-
-  /**
-   * Declaration kind.
-   */
-  kind: QueryNodeKind;
-
-  /**
-   * Symbol name.
-   */
-  name: string;
-
-  /**
-   * Project-relative file.
-   */
-  file: string;
-
-  /**
-   * Declaration line.
-   */
-  line: number;
-}
-
-/**
- * One runtime edge between consecutive path nodes.
- */
-interface QueryPathEdge {
-  /**
-   * Source node handle from nodes.
-   */
-  fromHandle: string;
-
-  /**
-   * Target node handle from nodes.
-   */
-  toHandle: string;
-
-  /**
-   * Runtime edge kind.
-   */
-  kind: QueryRuntimeEdgeKind;
-
-  /**
-   * Source use location when known.
-   */
-  use?: QueryLocation;
-}
-```
-
-## expand_nodes
-
-```ts
-/**
- * Exact source expansion for handles printed by `query_path`, `query_nodes`, or `query_files`. Use this when a graph result shows the right TypeScript declarations without enough body. Pass every handle you need in one call instead of expanding one at a time.
- *
- * For call-path, relation-flow, lifecycle, dispatch, or "how does X reach Y" questions, prefer `mode: "flow"` on the printed handle(s): it keeps following value-call/value-access edges. Use `mode: "source"` only when you need a wider body window for specific declarations, for example to edit or quote the implementation. Do not grep/read a printed TypeScript path just to reopen it.
- */
-declare function expand_nodes(args: ExpandNodesArguments): ExpandNodesResult;
-
-/**
- * Arguments for exact handle expansion.
- */
-interface ExpandNodesArguments {
-  /**
-   * One or more `handle:n:...` values copied from `query_path`, `query_nodes`, or `query_files`. Pass all the handles you need to inspect together in a single call instead of one per call. Full internal node IDs are also accepted.
-   */
-  ids: string[];
-
-  /**
-   * `flow` starts from the exact nodes and expands downstream value-call/value-access path nodes; prefer it for call-path, relation-flow, lifecycle, dispatch, or "how does X reach Y" questions. `source` returns exact declaration bodies without replaying relationship edges; use it for a specific body, not as the default follow-up to a flow answer.
-   */
-  mode?: "source" | "flow";
-}
-
-/**
- * Exact expansion result.
- */
-interface ExpandNodesResult {
-  /**
-   * Handles that did not resolve.
-   */
-  missing: string[];
-
-  /**
-   * Optional status message.
-   */
-  message?: string;
-
-  /**
-   * Expanded declarations.
-   */
-  nodes: ExpandedNode[];
-
-  /**
-   * Runtime-flow evidence when `mode` is `flow`.
-   */
-  flow?: QueryFlow;
-}
-
-/**
- * Expanded declaration source.
- */
-interface ExpandedNode extends QueryNodeRef {
-  /**
-   * Whether source was included or unavailable.
-   */
-  sourceState: SourceState;
-
-  /**
-   * Declaration source, only from `expand_nodes`.
-   */
-  source?: ExpandedSource;
-
-  /**
-   * Diagnostic counts attached to this declaration.
-   */
-  diagnostics: QueryDiagnosticsSummary;
-}
-
-/**
- * Source inclusion state for expanded declarations.
- */
-type SourceState = "included" | "unavailable";
-
-/**
- * Bounded declaration source.
- */
-interface ExpandedSource {
-  /**
-   * First line number of `lines`.
-   */
-  startLine: number;
-
-  /**
-   * Source lines.
-   */
-  lines: string[];
-
-  /**
-   * Whether the declaration source was truncated.
-   */
+interface TraceResult {
+  /** The resolved start node, or absent when `from` matched nothing. */
+  start?: TraceNode;
+  direction: string;
+  /** Edges traversed, breadth-first. */
+  hops: { from: string; to: string; kind: string; depth: number }[];
+  /** Unique nodes reached, each with depth and impact roles. */
+  reached: TraceNode[];
+  /** True when the trace hit a bound and more flow exists. */
   truncated: boolean;
-
-  /**
-   * Omitted line count when truncated.
-   */
-  omittedLines: number;
-}
-```
-
-## query_files
-
-```ts
-/**
- * A roster of one or more source files: the file's adjacent files (the ones it reaches and is reached by) and a flat list of the declarations inside it, by kind, name, and line.
- *
- * Pass paths in `locations`; each file is answered as its own block, in input order.
- *
- * It is a cheap index for finding your way around a file: what is in it and what sits next to it. To see a listed declaration's relationships or body, call expand_nodes with its handle, or query_nodes when you need fuzzy relationship discovery.
- */
-declare function query_files(args: QueryFilesArguments): QueryFilesResult;
-
-/**
- * Arguments for file roster lookup.
- */
-interface QueryFilesArguments {
-  /**
-   * File paths to render (absolute, or a trailing fragment like `src/main.ts`). Each is answered as its own block, in the order given.
-   */
-  locations: string[];
+  /** When `from` was an ambiguous name, the matches to disambiguate with. */
+  candidates?: TraceNode[];
 }
 
-/**
- * File roster result.
- */
-interface QueryFilesResult {
-  /**
-   * One record per requested location.
-   */
-  locations: FileLocation[];
-}
-
-/**
- * Resolution result for one requested location.
- */
-interface FileLocation {
-  /**
-   * Optional no-match or ambiguity message.
-   */
-  message?: string;
-
-  /**
-   * Matched files.
-   */
-  files: FileIndex[];
-}
-
-/**
- * File-level graph index.
- */
-interface FileIndex {
-  /**
-   * Project-relative file.
-   */
-  file: string;
-
-  /**
-   * Declarations in this file.
-   */
-  declarations: FileDeclaration[];
-
-  /**
-   * Adjacent files reached by declarations in this file.
-   */
-  reaches: string[];
-
-  /**
-   * Adjacent files that reach declarations in this file.
-   */
-  reachedBy: string[];
-
-  /**
-   * Omitted outgoing adjacent file count.
-   */
-  omittedReaches: number;
-
-  /**
-   * Omitted incoming adjacent file count.
-   */
-  omittedReachedBy: number;
-}
-
-/**
- * Declaration roster entry.
- */
-interface FileDeclaration {
-  /**
-   * Stable graph handle.
-   */
-  handle: string;
-
-  /**
-   * Declaration kind.
-   */
-  kind: QueryNodeKind;
-
-  /**
-   * Symbol name.
-   */
+interface TraceNode {
+  id: string;
   name: string;
-
-  /**
-   * Declaration line.
-   */
-  line: number;
-
-  /**
-   * Whether this declaration is external.
-   */
-  external: boolean;
+  kind: string;
+  file: string;
+  /** Hops from the start, on a reached node. */
+  depth?: number;
+  /** Why it matters to an impact trace: `exported`, `test`. */
+  roles?: string[];
 }
 ```
 
-## query_diagnostics
+## graph_expand
 
 ```ts
 /**
- * Compiler diagnostics: TypeScript type errors, plus the project's @ttsc/lint rule violations and transform-plugin (typia, nestia) findings when present, each with its code and location exactly as ttsc reports them.
- *
- * Pass `files` for specific files, each answered as its own block, or omit it for every current finding across the project, grouped by file. Use the whole-project form after an edit to see what is now broken.
- *
- * Reports errors by default. Pass `severity` as `warning` for warnings only, or `all` for both.
+ * Get the resolved shape of nodes another tool returned as handles: each one's
+ * signature, and for a container its member outline. This is the graph's edge
+ * over a file read — it returns structure, not inlined source. Pass every handle
+ * in one call. The full body comes back only with `source: true`, for the few
+ * methods whose logic you must read.
  */
-declare function query_diagnostics(args?: QueryDiagnosticsArguments): QueryDiagnosticsResult;
+declare function graph_expand(props: ExpandProps): ExpandResult;
 
-/**
- * Arguments for diagnostic lookup.
- */
-interface QueryDiagnosticsArguments {
-  /**
-   * File paths, absolute or a trailing fragment like `src/main.ts`. Each is answered as its own block, in order. Omit for every diagnostic across the whole project.
-   */
-  files?: string[];
-
-  /**
-   * Defaults to `error`. Use `warning` for warnings only, or `all` for both.
-   */
-  severity?: "error" | "warning" | "all";
+interface ExpandProps {
+  /** Node ids to expand, exactly as another tool returned them. */
+  handles: string[];
+  /** Also list each node's dependencies and dependents. @default false */
+  neighbors?: boolean;
+  /** Also return the full declaration source body. @default false */
+  source?: boolean;
 }
 
-/**
- * Diagnostic listing result.
- */
-interface QueryDiagnosticsResult {
-  /**
-   * Total matching diagnostics.
-   */
-  total: number;
-
-  /**
-   * Whether project-wide output was capped.
-   */
-  truncated: boolean;
-
-  /**
-   * Diagnostics grouped by file.
-   */
-  files: DiagnosticsFile[];
+interface ExpandResult {
+  nodes: {
+    id: string;
+    name: string;
+    kind: string;
+    file: string;
+    /** 1-based declaration line. */
+    line?: number;
+    /** The declaration signature (head up to the body brace). */
+    signature?: string;
+    /** For a class/interface/namespace/enum/file: members, each with a signature. */
+    members?: { name: string; kind: string; line?: number; signature?: string }[];
+    /** Full declaration source — only when `source: true` was passed. */
+    source?: string;
+    /** True when `source` was cut at the line cap. */
+    truncated?: boolean;
+    /** Symbols this node uses. */
+    dependsOn?: ExpandRef[];
+    /** Symbols that use this node. */
+    dependedOnBy?: ExpandRef[];
+  }[];
+  /** Handles that resolved to no node. */
+  unknown: string[];
 }
 
-/**
- * Diagnostics for one file or requested location.
- */
-interface DiagnosticsFile {
-  /**
-   * Project-relative file, or the unresolved query when no file matched.
-   */
-  file: string;
-
-  /**
-   * Optional no-match or ambiguity message.
-   */
-  message?: string;
-
-  /**
-   * Matching diagnostics.
-   */
-  diagnostics: DiagnosticEntry[];
+interface ExpandRef {
+  id: string;
+  name: string;
+  kind: string;
+  /** The edge kind connecting the two (`calls`, `type_ref`, …). */
+  relation: string;
 }
-
-/**
- * One diagnostic.
- */
-interface DiagnosticEntry {
-  /**
-   * One-based line number.
-   */
-  line: number;
-
-  /**
-   * One-based column number.
-   */
-  column: number;
-
-  /**
-   * Numeric TypeScript code for compiler diagnostics.
-   */
-  code?: number;
-
-  /**
-   * Display code such as `TS2322`.
-   */
-  codeLabel?: string;
-
-  /**
-   * Diagnostic origin.
-   */
-  origin: DiagnosticOrigin;
-
-  /**
-   * Diagnostic severity.
-   */
-  severity: DiagnosticSeverity;
-
-  /**
-   * Diagnostic message.
-   */
-  message: string;
-}
-
-/**
- * Diagnostic producer.
- */
-type DiagnosticOrigin = "tsc" | "plugin";
-
-/**
- * Diagnostic severity returned in diagnostic entries.
- */
-type DiagnosticSeverity = "error" | "warning";
 ```
 
-## Edge Kinds
+## Node kinds
 
-| Kind           | Meaning                                        |
-| -------------- | ---------------------------------------------- |
-| `heritage`     | Class/interface inheritance or implementation. |
-| `value-call`   | Runtime call or construction edge.             |
-| `value-access` | Runtime property/accessor read or write.       |
-| `type-ref`     | Type-position reference.                       |
+Symbol kinds are declarations the checker owns: `file`, `package`, `namespace`, `module`, `function`, `class`, `interface`, `type`, `enum`, `variable`, `method`, `property`, `parameter`. `external_symbol` is a dependency-boundary leaf. The graph does not interpret framework conventions; the checker-resolved decorator facts on a node are left for an agent to read.
+
+## Edge kinds
+
+| Kind           | Meaning                                     |
+| -------------- | ------------------------------------------- |
+| `contains`     | File/class/namespace ownership of a member. |
+| `exports`      | A file exports a symbol.                    |
+| `imports`      | A module imports another.                   |
+| `calls`        | A runtime call.                             |
+| `instantiates` | A `new T()` construction.                   |
+| `accesses`     | A property/accessor read or write.          |
+| `type_ref`     | A type-position reference.                  |
+| `extends`      | Class/interface `extends`.                  |
+| `implements`   | Class `implements`.                         |
+| `overrides`    | A member overrides a base member.           |
+| `decorates`    | A decorator applied to a declaration.       |
+| `renders`      | A JSX component use.                        |
+| `tests`        | A test exercises a symbol.                  |

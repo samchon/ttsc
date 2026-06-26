@@ -81,7 +81,11 @@ function foldAgent(report, harness) {
     repo: report.repo,
     model: report.model,
     ...(report.effort ? { effort: report.effort } : {}),
+    ...(report.promptId ? { promptId: report.promptId } : {}),
     promptFamily: report.promptFamily ?? "project-specific",
+    ...(report.questionSha256 ? { questionSha256: report.questionSha256 } : {}),
+    ...(report.goldSha256 ? { goldSha256: report.goldSha256 } : {}),
+    ...(report.gradeThreshold !== undefined ? { gradeThreshold: report.gradeThreshold } : {}),
     ...(report.fixtureBranch ? { fixtureBranch: report.fixtureBranch } : {}),
     ...(report.daemon !== undefined ? { daemon: report.daemon } : {}),
     ...(report.toolSetupMs !== undefined ? { toolSetupMs: report.toolSetupMs } : {}),
@@ -89,11 +93,15 @@ function foldAgent(report, harness) {
     question: report.question,
     samples: report.samples,
   };
+  // A manifest promptId narrows the cell within a family, so two graded prompts of
+  // the same family upsert separately instead of clobbering. Plain --repo runs
+  // (no promptId) keep keying by family, as before.
   const key = (c) =>
     JSON.stringify([
       c.harness,
       c.tool ?? "ttsc-graph",
       c.repo,
+      c.promptId ?? "",
       c.promptFamily ?? "project-specific",
       c.model,
       c.effort ?? "",

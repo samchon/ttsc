@@ -3,9 +3,22 @@ package main
 import (
   "bytes"
   "encoding/json"
+  "os"
   "path/filepath"
   "testing"
 )
+
+// writeGraphFile writes content to path under a fixture project, creating parent
+// directories as needed.
+func writeGraphFile(t *testing.T, path, content string) {
+  t.Helper()
+  if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+    t.Fatal(err)
+  }
+}
 
 // TestRunDumpPrintsTheGraphAsJSON verifies the `dump` subcommand end to end: run
 // dispatches it, it loads the project, builds the graph, and prints the export
@@ -46,21 +59,22 @@ export function main(): void {
   }
 
   var dump struct {
-    SchemaVersion int              `json:"schemaVersion"`
-    Provenance    string           `json:"provenance"`
-    Nodes         []map[string]any `json:"nodes"`
-    Edges         []map[string]any `json:"edges"`
+    Nodes []map[string]any `json:"nodes"`
+    Edges []map[string]any `json:"edges"`
   }
   if err := json.Unmarshal(out.Bytes(), &dump); err != nil {
     t.Fatalf("dump output is not valid JSON: %v\n%s", err, out.String())
   }
-  if dump.SchemaVersion != 1 {
-    t.Fatalf("schemaVersion = %d, want 1", dump.SchemaVersion)
-  }
-  if dump.Provenance != "checker-resolved" {
-    t.Fatalf("provenance = %q, want checker-resolved", dump.Provenance)
-  }
   if len(dump.Nodes) == 0 || len(dump.Edges) == 0 {
     t.Fatalf("expected nodes and edges, got %d/%d", len(dump.Nodes), len(dump.Edges))
+  }
+  // Each edge carries its endpoints and kind, and nothing more — the graph is
+  // wholly checker-resolved, so there is no per-edge trust flag to negotiate.
+  edge := dump.Edges[0]
+  if _, ok := edge["from"].(string); !ok {
+    t.Fatalf("edge missing from: %v", edge)
+  }
+  if _, ok := edge["kind"].(string); !ok {
+    t.Fatalf("edge missing kind: %v", edge)
   }
 }

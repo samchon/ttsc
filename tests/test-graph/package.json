@@ -8,6 +8,7 @@
     "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"
   },
   "devDependencies": {
+    "@ttsc/graph": "workspace:*",
     "@ttsc/testing": "workspace:*",
     "@types/node": "catalog:utils",
     "ttsc": "workspace:*",

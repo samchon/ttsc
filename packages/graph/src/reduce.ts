@@ -19,7 +19,6 @@ export interface RawEdge {
 
 export interface RawDump {
   project?: string;
-  provenance?: string;
   nodes: RawNode[];
   edges: RawEdge[];
 }
@@ -39,7 +38,6 @@ export interface ViewerLink {
 }
 
 export interface ViewerPayload {
-  schemaVersion: number;
   project: string;
   counts: {
     rawNodes: number;
@@ -152,7 +150,6 @@ export function reduce(
     .filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
 
   return {
-    schemaVersion: 1,
     project: raw.project ?? "",
     counts: {
       rawNodes: raw.nodes.length,
