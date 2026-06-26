@@ -124,6 +124,7 @@ function resolveQuestion(repoKey) {
 const REPOS = {
   excalidraw: {
     url: "https://github.com/excalidraw/excalidraw",
+    fixtureUrl: "https://github.com/samchon/ttsc-benchmark-excalidraw.git",
     tsconfig: "tsconfig.json",
     question: ARCHITECTURE_QUESTION,
   },
