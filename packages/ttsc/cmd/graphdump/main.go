@@ -9,6 +9,9 @@ import (
   "flag"
   "fmt"
   "os"
+  "path/filepath"
+
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
@@ -24,20 +27,30 @@ func run() int {
   pretty := flag.Bool("pretty", false, "indent the JSON output")
   flag.Parse()
 
-  prog, _, err := driver.LoadProgram(*cwd, *tsconfig, driver.LoadProgramOptions{})
+  // Resolve the project root the same way LoadProgram does (absolute, then
+  // tsgo-normalized) so it shares the node file paths' drive-letter case on
+  // Windows; otherwise the dump's prefix-based relativization would miss and
+  // leave every path absolute.
+  root := *cwd
+  if abs, err := filepath.Abs(root); err == nil {
+    root = abs
+  }
+  root = shimtspath.ResolvePath(root)
+
+  prog, _, err := driver.LoadProgram(root, *tsconfig, driver.LoadProgramOptions{})
   if err != nil {
-    fmt.Fprintf(os.Stderr, "graphdump: could not load %s/%s: %v\n", *cwd, *tsconfig, err)
+    fmt.Fprintf(os.Stderr, "graphdump: could not load %s/%s: %v\n", root, *tsconfig, err)
     return 1
   }
   if prog == nil {
-    fmt.Fprintf(os.Stderr, "graphdump: could not load %s/%s\n", *cwd, *tsconfig)
+    fmt.Fprintf(os.Stderr, "graphdump: could not load %s/%s\n", root, *tsconfig)
     return 1
   }
   defer func() { _ = prog.Close() }()
 
   g := graph.Build(prog)
-  ignored := graph.GitIgnoredFiles(*cwd, g)
-  data, err := graph.MarshalDump(g, *cwd, *tsconfig, ignored, *pretty)
+  ignored := graph.GitIgnoredFiles(root, g)
+  data, err := graph.MarshalDump(g, root, *tsconfig, ignored, graph.SourceTexts(prog), *pretty)
   if err != nil {
     fmt.Fprintf(os.Stderr, "graphdump: %v\n", err)
     return 1

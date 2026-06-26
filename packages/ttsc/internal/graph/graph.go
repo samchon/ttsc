@@ -16,22 +16,34 @@ const (
   NodeMethod NodeKind = "method"
 )
 
-// Provenance marks how a node or edge was derived. Every relationship in this
-// graph is resolved by the in-process type checker, so the single value is a
-// trust signal: the inverse of a tree-sitter tool tagging an uncertain edge
-// "heuristic".
-const Provenance = "checker-resolved"
-
 // Node is one declared symbol. Its ID is position-invariant, built from the file
 // realpath, the declared name, and the kind, so inserting a line above a
 // declaration does not re-key it. That keeps a future incremental layer from
 // churning the whole graph on every edit, which a byte-offset key would force.
 type Node struct {
-  ID       string
-  Name     string
+  ID   string
+  Name string
+  // Simple is the unqualified declared name (`create`, `OrderService`), taken
+  // straight from the declaration's symbol. Name may join an owner chain to a
+  // member with a single dot, and a quoted member name can itself contain a dot
+  // (`"a.b"` → Name `C.a.b`), so the simple/qualified boundary cannot be
+  // recovered from Name by splitting on a dot. Recording it here keeps the dump
+  // split exact instead of guessing.
+  Simple   string
   Kind     NodeKind
   File     string
   External bool
+  // Exported marks a node that is part of its module's export surface, resolved
+  // through the checker's export table so a re-export (`export { Foo } from`) or
+  // a barrel (`export *`) counts, not only an inline `export` modifier. It is
+  // the signal a public-API projection filters on.
+  Exported bool
+  // Modifiers holds the declaration's syntactic modifiers as wire strings (a
+  // subset of the TtscGraphNodeModifier union: export/default/declare/abstract/
+  // static/readonly/async/const/public/private/protected). It is recorded from
+  // the declaration's combined modifier flags during the build pass and emitted
+  // for projections that filter on visibility and shape.
+  Modifiers []string
   // Pos and End bound the declaration in its source file (byte offsets). They
   // are for display, never identity, so an edit that shifts them does not re-key
   // the node.
@@ -69,8 +81,15 @@ type Edge struct {
   From string
   To   string
   Kind EdgeKind
-  Pos  int
-  End  int
+  // Origin records the syntactic form a value-call or heritage edge came from,
+  // so the JSON dump can split one internal kind into the finer schema kinds
+  // (calls / instantiates / renders, extends / implements) without the
+  // MCP-facing model losing the distinction. It is "" for kinds that need no
+  // split (type-ref, value-access). For EdgeValueCall it is "call", "new",
+  // "jsx", or "tagged"; for EdgeHeritage it is "extends" or "implements".
+  Origin string
+  Pos    int
+  End    int
 }
 
 // Graph is the in-memory adjacency the MCP tools query. Edges are added by the
@@ -78,6 +97,12 @@ type Edge struct {
 type Graph struct {
   Nodes map[string]*Node
   Edges []*Edge
+  // Decorators holds the decorators written on the workspace's declarations,
+  // captured syntactically so the JSON dump can emit `decorates` edges and a
+  // consumer can interpret `@Controller`/`@Get` conventions without re-parsing
+  // source. It is dump-only metadata, separate from Edges so the existing
+  // checker-resolved relationships are untouched.
+  Decorators []*Decorator
   // bodyNodes tracks whether a callable node's display span is the overload
   // implementation rather than an overload signature. It is build-only metadata
   // and intentionally stays out of JSON dumps.

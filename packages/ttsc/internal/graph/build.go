@@ -26,6 +26,17 @@ func Build(prog *driver.Program) *Graph {
   return g
 }
 
+// SourceTexts maps each program source file to its text — the evidence input
+// NewDump needs to turn a node or edge byte span into a line/column.
+func SourceTexts(prog *driver.Program) map[string]string {
+  files := prog.SourceFiles()
+  out := make(map[string]string, len(files))
+  for _, file := range files {
+    out[file.FileName()] = file.Text()
+  }
+  return out
+}
+
 // collectDeclarations records a node for each declaration statement in file,
 // plus a method node for each callable member of a class or interface, so
 // method-to-method calls have both endpoints. It descends into namespace bodies
@@ -126,14 +137,55 @@ func putDeclaredNode(g *Graph, path, name string, kind NodeKind, declaration *sh
     }
   }
   g.Nodes[id] = &Node{
-    ID:   id,
-    Name: name,
-    Kind: kind,
-    File: path,
-    Pos:  declaration.Pos(),
-    End:  declaration.End(),
+    ID:        id,
+    Name:      name,
+    Simple:    simpleName(declaration.Symbol()),
+    Kind:      kind,
+    File:      path,
+    Pos:       declaration.Pos(),
+    End:       declaration.End(),
+    Modifiers: declarationModifiers(declaration),
   }
   g.bodyNodes[id] = hasBody
+}
+
+// declarationModifiers maps a declaration's combined modifier flags onto the
+// wire-string subset of the TtscGraphNodeModifier union. Only flags with an
+// exact union member are emitted, in a stable order; an unknown string would
+// break the TypeScript-side typia.assert on the dump. It returns nil when the
+// declaration carries no recorded modifier.
+func declarationModifiers(declaration *shimast.Node) []string {
+  flags := shimast.GetCombinedModifierFlags(declaration)
+  if flags == shimast.ModifierFlagsNone {
+    return nil
+  }
+  var modifiers []string
+  for _, m := range modifierFlagStrings {
+    if flags&m.flag != 0 {
+      modifiers = append(modifiers, m.text)
+    }
+  }
+  return modifiers
+}
+
+// modifierFlagStrings is the ordered flag-to-wire-string table
+// declarationModifiers walks. The order fixes the emitted sequence so a dump is
+// deterministic; ModifierFlagsAmbient is the `declare` keyword.
+var modifierFlagStrings = []struct {
+  flag shimast.ModifierFlags
+  text string
+}{
+  {shimast.ModifierFlagsExport, "export"},
+  {shimast.ModifierFlagsDefault, "default"},
+  {shimast.ModifierFlagsAmbient, "declare"},
+  {shimast.ModifierFlagsAbstract, "abstract"},
+  {shimast.ModifierFlagsStatic, "static"},
+  {shimast.ModifierFlagsReadonly, "readonly"},
+  {shimast.ModifierFlagsAsync, "async"},
+  {shimast.ModifierFlagsConst, "const"},
+  {shimast.ModifierFlagsPublic, "public"},
+  {shimast.ModifierFlagsPrivate, "private"},
+  {shimast.ModifierFlagsProtected, "protected"},
 }
 
 func declarationHasImplementation(declaration *shimast.Node, kind NodeKind) bool {
@@ -194,16 +246,26 @@ func methodName(symbol *shimast.Symbol) string {
   return qualifiedName(symbol)
 }
 
+// simpleName is the unqualified declared name of a symbol with no owner prefix,
+// the same form qualifiedName uses for the trailing member. A constructor's
+// internal-name prefix (\xFE) is escaped to "__" so the two agree.
+func simpleName(symbol *shimast.Symbol) string {
+  if symbol == nil || symbol.Name == "" {
+    return ""
+  }
+  return strings.ReplaceAll(symbol.Name, "\xFE", "__")
+}
+
 // qualifiedName is the identity name of a symbol: its own name, prefixed by the
 // dotted chain of every enclosing namespace and declaring class or interface. A
 // declaration at a module's top level has no such container, so its name is
 // returned unchanged, which keeps every existing top-level node id stable. A
 // constructor's internal-name prefix (\xFE) is escaped to "__".
 func qualifiedName(symbol *shimast.Symbol) string {
-  if symbol == nil || symbol.Name == "" {
+  name := simpleName(symbol)
+  if name == "" {
     return ""
   }
-  name := strings.ReplaceAll(symbol.Name, "\xFE", "__")
   if prefix := containerPrefix(symbol); prefix != "" {
     return prefix + "." + name
   }

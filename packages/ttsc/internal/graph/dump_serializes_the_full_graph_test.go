@@ -10,20 +10,21 @@ import (
 )
 
 // TestMarshalDumpSerializesTheFullGraph verifies that MarshalDump projects a
-// built graph onto the export JSON the `ttscgraph dump` command prints and the
-// web viewer parses: the schema envelope, every node and edge (none of the MCP
-// response caps), and the lowercase wire keys.
+// built graph onto the IGraphDump wire contract the `ttscgraph dump` command
+// prints and the @ttsc/graph engine loads: the project envelope, every node and
+// edge, project-relative paths, line/col evidence, and the lowercase wire keys.
 //
-// The Node/Edge structs carry no json tags, so dump.go's tags are the only thing
-// standing between the Go field names and the wire. A regression there would
-// ship `"ID"`/`"Kind"` keys the viewer does not read, so the key assertions are
-// load-bearing, not cosmetic.
+// The Node/Edge structs carry no json tags, so dump.go's projection is the only
+// thing standing between the Go fields and the wire. A regression there would
+// ship keys or kinds the engine does not read, so the key and kind assertions
+// are load-bearing, not cosmetic.
 //
 //  1. Build a two-function fixture with one call, so the dump has a node set and
 //     a value-call edge.
-//  2. Marshal it and assert the counts match the graph and the envelope is right.
-//  3. Assert the wire keys are the lowercase json tags, every edge endpoint
-//     resolves to a dumped node, and --pretty indents.
+//  2. Marshal it with source texts and assert the envelope, counts, and that the
+//     call edge maps to kind "calls" with a line/col evidence span.
+//  3. Assert paths are project-relative, the wire keys are the lowercase json
+//     tags, every edge endpoint resolves to a dumped node, and --pretty indents.
 func TestMarshalDumpSerializesTheFullGraph(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
@@ -43,8 +44,9 @@ export function main(): void {
   defer func() { _ = prog.Close() }()
 
   g := Build(prog)
+  sources := SourceTexts(prog)
 
-  data, err := MarshalDump(g, root, "tsconfig.json", nil, false)
+  data, err := MarshalDump(g, root, "tsconfig.json", nil, sources, false)
   if err != nil {
     t.Fatalf("MarshalDump: %v", err)
   }
@@ -52,12 +54,6 @@ export function main(): void {
   var dump Dump
   if err := json.Unmarshal(data, &dump); err != nil {
     t.Fatalf("dump is not valid JSON: %v\n%s", err, data)
-  }
-  if dump.SchemaVersion != 1 {
-    t.Fatalf("schemaVersion = %d, want 1", dump.SchemaVersion)
-  }
-  if dump.Provenance != Provenance {
-    t.Fatalf("provenance = %q, want %q", dump.Provenance, Provenance)
   }
   if dump.Project != root || dump.Tsconfig != "tsconfig.json" {
     t.Fatalf("project/tsconfig not echoed: %q / %q", dump.Project, dump.Tsconfig)
@@ -69,13 +65,48 @@ export function main(): void {
     t.Fatalf("dumped %d edges, graph has %d", len(dump.Edges), len(g.Edges))
   }
 
-  // Every edge endpoint must resolve to a dumped node, and the main -> helper
-  // value-call edge must be present.
+  // Locate the two function nodes by their wire shape, and confirm paths and ids
+  // are project-relative (no temp-dir prefix leaked).
   byID := make(map[string]DumpNode, len(dump.Nodes))
+  var mainID, helperID string
   for _, n := range dump.Nodes {
     byID[n.ID] = n
+    if n.Kind == "function" && n.Name == "main" {
+      mainID = n.ID
+    }
+    if n.Kind == "function" && n.Name == "helper" {
+      helperID = n.ID
+    }
   }
-  var sawValueCall bool
+  if mainID == "" || helperID == "" {
+    t.Fatalf("missing main/helper function nodes: %v", dump.Nodes)
+  }
+  if mainID != "src/main.ts#main:function" {
+    t.Fatalf("node id not project-relative: %q", mainID)
+  }
+  if byID[mainID].File != "src/main.ts" {
+    t.Fatalf("node file not project-relative: %q", byID[mainID].File)
+  }
+  if byID[mainID].Evidence == nil || byID[mainID].Evidence.StartLine == 0 {
+    t.Fatalf("main node missing line/col evidence: %+v", byID[mainID].Evidence)
+  }
+
+  // The main -> helper call maps to kind "calls" with a located evidence span.
+  var call *DumpEdge
+  for i := range dump.Edges {
+    e := &dump.Edges[i]
+    if e.From == mainID && e.To == helperID && e.Kind == "calls" {
+      call = e
+    }
+  }
+  if call == nil {
+    t.Fatalf("no calls edge main -> helper in dump:\n%s", data)
+  }
+  if call.Evidence == nil || call.Evidence.StartLine == 0 || call.Evidence.File != "src/main.ts" {
+    t.Fatalf("call edge missing project-relative line/col evidence: %+v", call.Evidence)
+  }
+
+  // Every edge endpoint resolves to a dumped node.
   for _, e := range dump.Edges {
     if _, ok := byID[e.From]; !ok {
       t.Fatalf("edge from %q has no dumped node", e.From)
@@ -83,17 +114,11 @@ export function main(): void {
     if _, ok := byID[e.To]; !ok {
       t.Fatalf("edge to %q has no dumped node", e.To)
     }
-    if e.Kind == string(EdgeValueCall) {
-      sawValueCall = true
-    }
-  }
-  if !sawValueCall {
-    t.Fatalf("no value-call edge in dump:\n%s", data)
   }
 
   // The wire keys are the lowercase json tags, not the Go field names.
   s := string(data)
-  for _, key := range []string{`"schemaVersion"`, `"provenance"`, `"id":`, `"kind":`, `"external":`, `"from":`, `"to":`} {
+  for _, key := range []string{`"id":`, `"kind":`, `"name":`, `"file":`, `"external":`, `"from":`, `"to":`} {
     if !strings.Contains(s, key) {
       t.Fatalf("dump missing wire key %s:\n%s", key, s)
     }
@@ -103,8 +128,15 @@ export function main(): void {
       t.Fatalf("dump leaked Go field name %s:\n%s", leaked, s)
     }
   }
+  // The dump carries no ceremony keys: it is wholly checker-resolved, so it has
+  // no per-edge trust flags and no schema version to negotiate.
+  for _, gone := range []string{`"schemaVersion"`, `"provenance":`, `"confidence":`} {
+    if strings.Contains(s, gone) {
+      t.Fatalf("dump still emits removed key %s:\n%s", gone, s)
+    }
+  }
 
-  pretty, err := MarshalDump(g, root, "tsconfig.json", nil, true)
+  pretty, err := MarshalDump(g, root, "tsconfig.json", nil, sources, true)
   if err != nil {
     t.Fatalf("MarshalDump pretty: %v", err)
   }

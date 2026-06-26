@@ -38,7 +38,9 @@ Read the coverage as the codegraph-style flex: 100% of symbol-bearing files have
 
 ## Agent-cost A/B (`agent-ab.mjs`)
 
-A faithful port of codegraph's headline benchmark (its `scripts/agent-eval`). For codegraph's verbatim question per repo it runs the Claude Code CLI headless twice, once with the `@ttsc/graph` MCP server and once with an empty MCP config, both under `--strict-mcp-config`, and reports codegraph's metrics: tokens summed per assistant turn (not last-turn `result.usage`), tool-call count, cost, and wall time, median over N runs. Project-specific question files live under `questions/`; `questions/excalidraw.md` keeps codegraph's Excalidraw prompt verbatim. Pass `--cg=1` to point the graph arm at `codegraph` instead; the repo must have a `.codegraph/` index from `codegraph init`. Only codegraph's two TypeScript repos are runnable by a checker-resolved graph, `excalidraw` and `vscode` (the other five are Python/Rust/Java/Go/Swift). It spends real Claude credits, is non-deterministic, and is not wired into CI. Requires `claude` and `go` on `PATH`.
+A faithful port of codegraph's headline benchmark (its `scripts/agent-eval`). For one question per repo it runs the Claude Code CLI headless twice, once with the `@ttsc/graph` MCP server and once with an empty MCP config, both under `--strict-mcp-config`, and reports codegraph's metrics: tokens summed per assistant turn (not last-turn `result.usage`), tool-call count, cost, and wall time, median over N runs. Only codegraph's two TypeScript repos are runnable by a checker-resolved graph, `excalidraw` and `vscode` (the other five are Python/Rust/Java/Go/Swift). It spends real Claude credits, is non-deterministic, and is not wired into CI. Requires `claude` and `go` on `PATH`, plus a built `@ttsc/graph` (`pnpm -C packages/graph build`), since the MCP server is the `@ttsc/graph` Node launcher: it runs `ttscgraph dump` once (the Go binary is dump-only now) and serves `graph_overview` / `graph_query` / `graph_trace` / `graph_expand` over stdio.
+
+The prompt is tool-neutral. No graph-specific guidance is appended to the user prompt; the tool guidance lives in the server's MCP initialize/tool descriptions, so both arms pose the identical question and the token comparison stays honest.
 
 ```bash
 node experimental/graph-bench/agent-ab.mjs --repo=excalidraw --runs=10 --model=sonnet
@@ -47,10 +49,29 @@ codegraph init /abs/path/to/repo
 node experimental/graph-bench/agent-ab.mjs --repo=typeorm --repo-dir=/abs/path/to/repo --cg=1 --runs=1
 ```
 
-A cross-model companion, `agent-ab-codex.mjs`, drives OpenAI's codex (GPT-5.5) through a minimal temp `CODEX_HOME` (a copied auth + a generated config) so the user's global config does not leak into the measurement:
+### Manifest-driven prompts and grading
+
+`questions/manifest.json` is the source of truth for graded prompts: each entry pins a question `.md`, a gold `.json`, the repo/fixtureBranch/tsconfig, and the question's SHA-256. Select one with `--prompt-id=<id>` (or `--prompt-family=<family>`, scoped to `--repo` when given); the harness loads that `.md` as the user prompt, verifies the SHA against the manifest, and records `promptId`, `questionSha256`, and `goldSha256` on each sample and on the report.
+
+```bash
+node experimental/graph-bench/agent-ab.mjs --prompt-id=typeorm-overview-v1 --runs=4
+node experimental/graph-bench/agent-ab.mjs --prompt-family=overview --repo=typeorm --runs=4
+```
+
+Each sample captures the agent's final answer text (`answer`) — for Claude the `result` event's `result` string, falling back to the last assistant prose; for codex the last `agent_message`. After capture, the harness grades the answer in-process against the prompt's gold via `grade.mjs`'s `gradeAnswer`, and stores the per-axis result on the sample as `quality` (with `pass`). The console prints each arm's pass rate, and a token saving is **not** presented as a win when the graph arm's answers fall below threshold (default `0.8`, override with `--threshold`).
+
+The standalone `grade.mjs --report=<path>` CLI re-grades offline (e.g. after editing a gold) against any report whose samples are a flat array of `{ promptId, answer }`. The A/B report keys `samples` by arm (`{ baseline, graph }`) for the dashboard, so flatten before piping it to the CLI, or just read the `quality` the harness already wrote on each sample:
+
+```bash
+node -e "const r=require('./experimental/graph-bench/agent-ab-report.json');require('fs').writeFileSync('/tmp/flat.json',JSON.stringify({samples:[].concat(...Object.values(r.samples))}))"
+node experimental/graph-bench/grade.mjs --report=/tmp/flat.json
+```
+
+A cross-model companion, `agent-ab-codex.mjs`, drives OpenAI's codex (GPT-5.5) through a minimal temp `CODEX_HOME` (a copied auth + a generated config) so the user's global config does not leak into the measurement. It takes the same `--prompt-id` / `--prompt-family` / `--threshold` flags and captures + grades the answer the same way:
 
 ```bash
 node experimental/graph-bench/agent-ab-codex.mjs --repo=excalidraw --runs=4
+node experimental/graph-bench/agent-ab-codex.mjs --prompt-id=typeorm-overview-v1 --runs=4
 ```
 
 ## Publish (`publish.mjs`)

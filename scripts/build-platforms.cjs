@@ -13,15 +13,18 @@ run(["--filter", "@ttsc/metro", "build"]);
 run(["--filter", "@ttsc/wasm", "build"]);
 run(["--filter", "@ttsc/playground", "build"]);
 run(["--filter", "@ttsc/vscode", "build"]);
-run(["--filter", "@ttsc/graph", "build"]);
 
 for (const platformDir of listPlatformPackageDirs()) {
   console.log(`Building platform package: ${path.basename(platformDir)}`);
-  const result = cp.spawnSync(process.execPath, [path.join(root, "scripts", "build-platform-package.cjs")], {
-    cwd: platformDir,
-    stdio: "inherit",
-    windowsHide: true,
-  });
+  const result = cp.spawnSync(
+    process.execPath,
+    [path.join(root, "scripts", "build-platform-package.cjs")],
+    {
+      cwd: platformDir,
+      stdio: "inherit",
+      windowsHide: true,
+    },
+  );
   if (result.error) {
     throw result.error;
   }
@@ -29,6 +32,10 @@ for (const platformDir of listPlatformPackageDirs()) {
     process.exit(result.status ?? 1);
   }
 }
+
+// @ttsc/graph builds by running `ttsc` (with the typia plugin), so it needs the
+// native compiler binary the platform packages above produce; build it last.
+run(["--filter", "@ttsc/graph", "build"]);
 
 function run(args) {
   const result = cp.spawnSync(...pnpmCommand(args), {
@@ -54,7 +61,9 @@ function pnpmCommand(args) {
 function listPlatformPackageDirs() {
   return fs
     .readdirSync(packagesDir)
-    .filter((entry) => /^ttsc-(linux|darwin|win32)-(x64|arm|arm64)$/.test(entry))
+    .filter((entry) =>
+      /^ttsc-(linux|darwin|win32)-(x64|arm|arm64)$/.test(entry),
+    )
     .sort()
     .map((entry) => path.join(packagesDir, entry));
 }

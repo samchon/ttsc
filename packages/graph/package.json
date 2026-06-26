@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/graph",
   "version": "0.16.4",
-  "description": "Checker-resolved code graph and diagnostics over MCP for coding agents, backed by ttsc's in-process TypeScript-Go compiler.",
+  "description": "Checker-resolved architecture graph over MCP for coding agents, backed by ttsc's in-process TypeScript-Go compiler.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "bin": {
@@ -14,8 +14,17 @@
     },
     "./package.json": "./package.json"
   },
+  "ttsc": {
+    "plugin": {
+      "transform": "typia/lib/transform"
+    }
+  },
   "scripts": {
-    "build": "rimraf lib && tsc && node build/bundle-viewer.mjs"
+    "build": "rimraf lib && node node_modules/ttsc/lib/launcher/ttsc.js && node build/bundle-viewer.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "typia": "13.0.0-dev.20260605.1"
   },
   "keywords": [
     "ttsc",

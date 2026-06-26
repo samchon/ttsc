@@ -12,13 +12,17 @@ import (
 // node. The method-node split walks members one at a time, so without an
 // explicit class-level pass these edges are silently dropped:
 //
-//   - a decorator factory call `@Injectable()`        -> value-call to Injectable
 //   - a heritage type argument `extends Base<Payload>` -> type-ref to Payload
 //   - a type parameter constraint `<T extends Constraint>` -> type-ref to Constraint
 //
-// These are exactly the relationships decorator-heavy and generic-heavy
-// codebases are built from, so a top-level-only-then-per-member walk that forgot
-// them would blind the graph to dependency-injection and generic-base edges.
+// These are exactly the relationships generic-heavy codebases are built from, so
+// a top-level-only-then-per-member walk that forgot them would blind the graph
+// to generic-base edges.
+//
+// A decorator's own factory call (`@Injectable()`) is deliberately NOT a
+// value-call edge: the decoration is a fact on the node's decorators, and a
+// calls edge to the decorator function would make ubiquitous decorators the
+// busiest nodes in the graph. The test pins both halves of that contract.
 func TestEdgesCoverClassLevelReferences(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -64,8 +68,13 @@ export class Service<T extends Constraint> extends Base<Payload> {}
   payload := nodeID(path, "Payload", NodeInterface)
   constraint := nodeID(path, "Constraint", NodeInterface)
 
-  if !hasEdge(graph, service, injectable, EdgeValueCall) {
-    t.Errorf("missing value-call edge Service -> Injectable (decorator factory call)")
+  // The decorator factory call is a fact, not an edge: no value-call to
+  // Injectable, but a recorded decorator on the Service node.
+  if hasEdge(graph, service, injectable, EdgeValueCall) {
+    t.Errorf("decorator factory call leaked a value-call edge Service -> Injectable")
+  }
+  if !hasDecorator(graph, service, "Injectable") {
+    t.Errorf("missing decorator fact @Injectable on Service")
   }
   if !hasEdge(graph, service, payload, EdgeTypeRef) {
     t.Errorf("missing type-ref edge Service -> Payload (heritage type argument)")

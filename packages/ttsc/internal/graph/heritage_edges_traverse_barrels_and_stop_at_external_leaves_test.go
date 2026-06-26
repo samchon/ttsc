@@ -90,6 +90,17 @@ func hasEdge(graph *Graph, from, to string, kind EdgeKind) bool {
   return false
 }
 
+// hasDecorator reports whether the graph recorded a decorator named name on the
+// node target.
+func hasDecorator(graph *Graph, target, name string) bool {
+  for _, dec := range graph.Decorators {
+    if dec.Target == target && dec.Name == name {
+      return true
+    }
+  }
+  return false
+}
+
 // findNodeByName returns the first node whose declared name is name, or nil.
 func findNodeByName(graph *Graph, name string) *Node {
   for _, node := range graph.Nodes {

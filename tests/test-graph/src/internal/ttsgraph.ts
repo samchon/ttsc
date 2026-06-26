@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 // Re-export the binding directly (not a re-bound const) so its assertion-function
@@ -8,9 +9,9 @@ import path from "node:path";
 export { default as assert } from "node:assert/strict";
 
 /**
- * Resolve the native `ttscgraph` MCP server binary the same way the @ttsc/graph
- * launcher would: an absolute `TTSC_GRAPH_BINARY` override, otherwise the
- * per-platform binary built next to `ttsc` by `pnpm build:current`.
+ * Resolve the native `ttscgraph` data binary built next to `ttsc` by `pnpm
+ * build:current`. The MCP server runs it once as `ttscgraph dump`; the test
+ * points the launcher at it through `TTSC_GRAPH_BINARY`.
  */
 export function resolveTtscgraphBinary(): string {
   const override = process.env.TTSC_GRAPH_BINARY;
@@ -22,38 +23,13 @@ export function resolveTtscgraphBinary(): string {
 }
 
 /**
- * Spawn `ttscgraph --daemon`: build the Program once and serve many proxy
- * connections over a localhost port, writing the chosen `host:port` to
- * `portFile`. The returned child is the long-lived daemon the caller must
- * kill.
- *
- * `--idle 0` disables the idle-exit timer so the daemon never removes the port
- * file or shuts down out from under a slow test; the caller owns its lifetime.
+ * Resolve the built `@ttsc/graph` launcher (lib/bin.js), the Node entry an MCP
+ * client spawns. It serves the graph over stdio after running `ttscgraph dump`
+ * once for the project.
  */
-export function spawnDaemon(
-  cwd: string,
-  portFile: string,
-  tsconfig = "tsconfig.json",
-): ChildProcessWithoutNullStreams {
-  return spawn(
-    resolveTtscgraphBinary(),
-    [
-      "--daemon",
-      "--cwd",
-      cwd,
-      "--tsconfig",
-      tsconfig,
-      "--port-file",
-      portFile,
-      "--idle",
-      "0",
-    ],
-    {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env },
-      windowsHide: true,
-    },
-  );
+export function resolveGraphLauncher(): string {
+  const pkg = createRequire(import.meta.url).resolve("@ttsc/graph");
+  return path.join(path.dirname(pkg), "bin.js");
 }
 
 interface Pending {
@@ -63,9 +39,9 @@ interface Pending {
 }
 
 /**
- * A minimal MCP stdio client: it spawns `ttscgraph --stdio` and exchanges
- * newline-delimited JSON-RPC 2.0 messages, mirroring how an agent's MCP client
- * drives the server.
+ * A minimal MCP stdio client: it spawns the `@ttsc/graph` launcher and
+ * exchanges newline-delimited JSON-RPC 2.0 messages, mirroring how an agent's
+ * MCP client drives the server.
  */
 export class TtsgraphClient {
   private readonly child: ChildProcessWithoutNullStreams;
@@ -75,24 +51,21 @@ export class TtsgraphClient {
   private readonly pending = new Map<number, Pending>();
 
   static start(cwd: string): TtsgraphClient {
-    return new TtsgraphClient(["--stdio", "--cwd", cwd]);
+    return new TtsgraphClient(cwd);
   }
 
-  /**
-   * Drive a `ttscgraph --connect <addr>` proxy exactly like the stdio client:
-   * the proxy pipes this stdio to a warm daemon, so the same JSON-RPC handshake
-   * and `endStdin`/`waitForExit` lifecycle apply transparently.
-   */
-  static connect(addr: string): TtsgraphClient {
-    return new TtsgraphClient(["--connect", addr]);
-  }
-
-  private constructor(args: string[]) {
-    this.child = spawn(resolveTtscgraphBinary(), args, {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env },
-      windowsHide: true,
-    });
+  private constructor(cwd: string) {
+    this.child = spawn(
+      process.execPath,
+      [resolveGraphLauncher(), "--cwd", cwd],
+      {
+        stdio: ["pipe", "pipe", "pipe"],
+        // The launcher resolves the dump binary from TTSC_GRAPH_BINARY, so the
+        // test project needs no installed `ttsc` of its own.
+        env: { ...process.env, TTSC_GRAPH_BINARY: resolveTtscgraphBinary() },
+        windowsHide: true,
+      },
+    );
     this.child.stdout.setEncoding("utf8");
     this.child.stdout.on("data", (chunk: string) => this.onData(chunk));
     this.child.stderr.setEncoding("utf8");
@@ -112,7 +85,7 @@ export class TtsgraphClient {
         this.pending.delete(id);
         reject(
           new Error(
-            `ttscgraph ${method} timed out after ${timeoutMs}ms\nstderr: ${this.stderr}`,
+            `ttsc-graph ${method} timed out after ${timeoutMs}ms\nstderr: ${this.stderr}`,
           ),
         );
       }, timeoutMs);
@@ -161,7 +134,8 @@ export class TtsgraphClient {
   waitForExit(timeoutMs = 30_000): Promise<number> {
     return new Promise<number>((resolve, reject) => {
       const timer = setTimeout(
-        () => reject(new Error(`ttscgraph did not exit within ${timeoutMs}ms`)),
+        () =>
+          reject(new Error(`ttsc-graph did not exit within ${timeoutMs}ms`)),
         timeoutMs,
       );
       this.child.on("exit", (code) => {
