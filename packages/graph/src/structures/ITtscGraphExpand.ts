@@ -54,6 +54,17 @@ export namespace ITtscGraphExpand {
      * @default false
      */
     source?: boolean;
+
+    /**
+     * Include numbered source lines beside `source`.
+     *
+     * Use this with `source:true` only when the answer needs exact in-body line
+     * anchors. It replaces shell reads for "what line contains this call?"
+     * checks. Omitted unless requested.
+     *
+     * @default false
+     */
+    lineNumbers?: boolean;
   }
 
   /** One expanded node: its declared shape, and on request its source. */
@@ -87,11 +98,10 @@ export namespace ITtscGraphExpand {
      * `implementation` is present, only when `source` was requested.
      */
     source?: string;
+    /** Numbered source lines for citation, only when requested. */
+    sourceLines?: ISourceLine[];
     /** The file and line range covered by `source`, when it was returned. */
-    sourceSpan?: Pick<
-      ITtscGraphEvidence,
-      "file" | "startLine" | "endLine"
-    >;
+    sourceSpan?: Pick<ITtscGraphEvidence, "file" | "startLine" | "endLine">;
     /** True when `source` was cut at the line cap. */
     truncated?: boolean;
     /** Symbols this node uses (outgoing dependency edges). */
@@ -136,5 +146,11 @@ export namespace ITtscGraphExpand {
      * the source access path.
      */
     aliases?: string[];
+  }
+
+  /** One source line with its original 1-based file line number. */
+  export interface ISourceLine {
+    line: number;
+    text: string;
   }
 }

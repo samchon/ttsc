@@ -88,6 +88,7 @@ export function runExpand(
       | {
           file: string;
           text: string;
+          lines: ITtscGraphExpand.ISourceLine[];
           truncated: boolean;
           startLine: number;
           endLine: number;
@@ -102,6 +103,7 @@ export function runExpand(
           startLine: source.startLine,
           endLine: source.endLine,
         };
+        if (props.lineNumbers === true) expanded.sourceLines = source.lines;
         if (source.truncated) expanded.truncated = true;
       }
     } else if (signatureLiterals.length > 0) {
@@ -187,12 +189,7 @@ function refs(
 }
 
 const executionKinds = new Set(["calls", "instantiates", "renders"]);
-const typeKinds = new Set([
-  "type_ref",
-  "extends",
-  "implements",
-  "overrides",
-]);
+const typeKinds = new Set(["type_ref", "extends", "implements", "overrides"]);
 
 function dependencySummaries(
   graph: TtscGraphMemory,
@@ -375,6 +372,7 @@ function readSource(
   | {
       file: string;
       text: string;
+      lines: ITtscGraphExpand.ISourceLine[];
       truncated: boolean;
       startLine: number;
       endLine: number;
@@ -395,6 +393,10 @@ function readSource(
   return {
     file: evidence.file,
     text: slice.join("\n"),
+    lines: slice.map((text, index) => ({
+      line: start + index + 1,
+      text,
+    })),
     truncated,
     startLine: start + 1,
     endLine: start + slice.length,

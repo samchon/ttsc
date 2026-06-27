@@ -75,8 +75,11 @@ export namespace ITtscGraphApplication {
      * Critical review of the draft request.
      *
      * Check whether the draft avoids overfetch, shell fallback, web lookup,
-     * broad source reads, and unnecessary neighbor/source combinations. If the
-     * draft is wrong, choose the corrected type in `request`.
+     * broad source reads, and unnecessary neighbor/source combinations. For
+     * caller or call-site questions, prefer reverse trace or
+     * `inspect_symbol_details` with `neighbors:true`. For exact in-body line
+     * anchors, request graph source line numbers. If the draft is wrong, choose
+     * the corrected type in `request`.
      */
     review: string;
 
@@ -231,7 +234,8 @@ export namespace ITtscGraphApplication {
      * Say whether this is shape-only expansion, neighbor mapping, or a narrow
      * graph source read. Source reads should be limited to decisive leaf
      * bodies. Use returned source and sourceSpan anchors for citations instead
-     * of shell reads or line-number checks.
+     * of shell reads or line-number checks. For caller discovery, use
+     * `neighbors:true`; for exact in-body citations, use `lineNumbers:true`.
      */
     purpose: string;
 
@@ -267,6 +271,17 @@ export namespace ITtscGraphApplication {
      * @default false
      */
     source?: boolean;
+
+    /**
+     * Return numbered source lines with a source read.
+     *
+     * Use with `source: true` when exact in-body line anchors are needed. This
+     * replaces shell `rg`, `cat`, and `Get-Content` line checks. Leave false
+     * when the declaration-level sourceSpan is enough.
+     *
+     * @default false
+     */
+    lineNumbers?: boolean;
   }
 
   /** Summarize project-wide graph shape without reading source bodies. */

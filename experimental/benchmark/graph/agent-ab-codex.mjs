@@ -366,7 +366,7 @@ const thunks = arms.flatMap((arm) =>
       `  ${arm.name.padEnd(8)} run ${r + 1}: ${m.tokens} tok` +
         (m.reasoning ? ` (+${m.reasoning} reasoning)` : "") +
         `, ${m.tools} tools ` +
-        `(shell ${m.shell}, graph ${m.graph}), ${(m.durMs / 1000).toFixed(0)}s` +
+        `(shell ${m.shell}, graph ${m.graph}, web ${m.web ?? 0}), ${(m.durMs / 1000).toFixed(0)}s` +
         (m.ok ? "" : `  [FAILED${m.error ? `: ${m.error}` : ""}]`),
     );
   }),
@@ -523,6 +523,16 @@ async function runCodex(question, codexHome, armName, runNumber) {
     [
       "exec",
       "--json",
+      "--disable",
+      "browser_use",
+      "--disable",
+      "browser_use_external",
+      "--disable",
+      "standalone_web_search",
+      "--disable",
+      "web_search_request",
+      "--disable",
+      "web_search_cached",
       "--dangerously-bypass-approvals-and-sandbox",
       "--skip-git-repo-check",
       "--ephemeral",
@@ -591,6 +601,7 @@ function parseStream(text, durMs) {
     tools = 0,
     shell = 0,
     graph = 0,
+    web = 0,
     completed = false,
     answered = false,
     answer = "";
@@ -628,6 +639,9 @@ function parseStream(text, durMs) {
       } else if (t === "command_execution") {
         tools++;
         shell++;
+      } else if (t === "web_search") {
+        tools++;
+        web++;
       } else if (t === "agent_message") {
         answered = true;
         // codex emits intermediate agent_message items; the last one carrying
@@ -646,6 +660,7 @@ function parseStream(text, durMs) {
     tools,
     shell,
     graph,
+    web,
     types,
     durMs,
     ok: completed && answered,
@@ -659,6 +674,11 @@ function parseStream(text, durMs) {
 }
 
 function validateArmSample(sample, armName) {
+  if (armName === "graph" && sample.ok && sample.web > 0) {
+    sample.ok = false;
+    sample.invalid = "graph-web-used";
+    sample.error = "graph arm used web search instead of graph tools";
+  }
   if (armName === "graph" && sample.ok && sample.graph === 0) {
     sample.ok = false;
     sample.invalid = "graph-mcp-not-used";

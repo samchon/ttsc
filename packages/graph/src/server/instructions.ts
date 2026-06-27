@@ -20,7 +20,12 @@ graph request instead of switching to shell search.
 The graph already knows resolved symbols, dependency edges, evidence spans,
 decorators, stable handles, source bodies, and sourceSpan line anchors. If you
 need exact code or line numbers, use inspect_symbol_details with source: true
-on one or two selected leaf functions or methods.
+on one or two selected leaf functions or methods. Add lineNumbers: true only
+when you need exact in-body citation lines.
+
+For caller or call-site questions, do not use rg. Use trace_dependency_path with
+direction: "reverse" or inspect_symbol_details with neighbors: true; both return
+edge evidence and line anchors for the call expression.
 
 Request types:
 

@@ -390,6 +390,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         id: string;
         name: string;
         source?: string;
+        sourceLines?: { line: number; text: string }[];
         sourceSpan?: { file: string; startLine: number; endLine?: number };
         decorators?: { name: string; arguments: { literal?: unknown }[] }[];
       }[];
@@ -405,6 +406,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
             purpose: "Narrow source read for the selected method.",
             handles: ["Service.run"],
             source: true,
+            lineNumbers: true,
           },
         }),
       })) as ToolResult,
@@ -412,6 +414,15 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       expand.nodes.some((node) => (node.source ?? "").includes("helper(")),
       `symbol_details returns the run body: ${JSON.stringify(expand.nodes)}`,
+    );
+    assert.ok(
+      expand.nodes.some((node) =>
+        node.sourceLines?.some(
+          (line) =>
+            typeof line.line === "number" && line.text.includes("helper();"),
+        ),
+      ),
+      `symbol_details returns numbered source lines: ${JSON.stringify(expand.nodes)}`,
     );
     assert.ok(
       expand.nodes.some(
