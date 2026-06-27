@@ -5,11 +5,6 @@ import { runOverview } from "./server/runOverview";
 import { runQuery } from "./server/runQuery";
 import { runTrace } from "./server/runTrace";
 import { ITtscGraphApplication } from "./structures/ITtscGraphApplication";
-import { ITtscGraphExpand } from "./structures/ITtscGraphExpand";
-import { ITtscGraphIndex } from "./structures/ITtscGraphIndex";
-import { ITtscGraphOverview } from "./structures/ITtscGraphOverview";
-import { ITtscGraphQuery } from "./structures/ITtscGraphQuery";
-import { ITtscGraphTrace } from "./structures/ITtscGraphTrace";
 
 export type TtscGraphSource = TtscGraphMemory | (() => TtscGraphMemory);
 
@@ -17,12 +12,11 @@ export type TtscGraphSource = TtscGraphMemory | (() => TtscGraphMemory);
  * The MCP tool surface as a plain class over the resident
  * {@link TtscGraphMemory}.
  *
- * Each public method is one MCP tool: `typia.llm.controller` reflects
- * {@link ITtscGraphApplication} to generate every tool's JSON schema and
- * argument validator from these signatures and their JSDoc, with no
- * hand-written schema. The methods delegate to the pure tool functions in
- * `./server`, which are unit-testable without a transport; this class only
- * binds them to the graph.
+ * Its public method is the MCP tool: `typia.llm.controller` reflects
+ * {@link ITtscGraphApplication} to generate the tool's JSON schema and argument
+ * validator from the signature and JSDoc, with no hand-written schema. The
+ * method delegates to the pure graph functions in `./server`, which are
+ * unit-testable without a transport; this class only binds them to the graph.
  *
  * Every method answers from the resident graph; none recompiles. Output is kept
  * compact and bounded so a model can read structure without a file read, which
@@ -35,31 +29,48 @@ export class TtscGraphApplication implements ITtscGraphApplication {
     this.graph = typeof source === "function" ? source : () => source;
   }
 
-  public question_entrypoints(
-    props: ITtscGraphIndex.IProps,
-  ): ITtscGraphIndex {
-    return runIndex(this.graph(), props);
-  }
-
-  public symbol_lookup(props: ITtscGraphQuery.IProps): ITtscGraphQuery {
-    return runQuery(this.graph(), props);
-  }
-
-  public dependency_path(
-    props: ITtscGraphTrace.IProps,
-  ): ITtscGraphTrace {
-    return runTrace(this.graph(), props);
-  }
-
-  public symbol_details(
-    props: ITtscGraphExpand.IProps,
-  ): ITtscGraphExpand {
-    return runExpand(this.graph(), props);
-  }
-
-  public project_overview(
-    props: ITtscGraphOverview.IProps,
-  ): ITtscGraphOverview {
-    return runOverview(this.graph(), props);
+  public query_typescript_graph(
+    props: ITtscGraphApplication.IProps,
+  ): ITtscGraphApplication.IResult {
+    const graph = this.graph();
+    switch (props.request.type) {
+      case "find_question_entrypoints": {
+        const { type: _type, purpose: _purpose, ...request } = props.request;
+        return {
+          type: props.request.type,
+          entrypoints: runIndex(graph, request),
+        };
+      }
+      case "lookup_symbols": {
+        const { type: _type, purpose: _purpose, ...request } = props.request;
+        return {
+          type: props.request.type,
+          symbols: runQuery(graph, request),
+        };
+      }
+      case "trace_dependency_path": {
+        const { type: _type, purpose: _purpose, ...request } = props.request;
+        return {
+          type: props.request.type,
+          trace: runTrace(graph, request),
+        };
+      }
+      case "inspect_symbol_details": {
+        const { type: _type, purpose: _purpose, ...request } = props.request;
+        return {
+          type: props.request.type,
+          details: runExpand(graph, request),
+        };
+      }
+      case "summarize_project": {
+        const { type: _type, purpose: _purpose, ...request } = props.request;
+        return {
+          type: props.request.type,
+          overview: runOverview(graph, request),
+        };
+      }
+      default:
+        throw new Error("Unknown graph request type");
+    }
   }
 }

@@ -4,36 +4,35 @@
  * files. Keep it short; the per-tool descriptions carry the detail.
  */
 export const instructions = `
-Use the graph tools as a staged TypeScript index, not as an answer writer. Get
-handles with question_entrypoints or symbol_lookup, trace relationships with
-dependency_path, inspect selected symbols with symbol_details, and read source
-only for the few bodies whose logic decides the answer. Keep source reads
-separate from dependency maps. Use shell reads only when the graph lacks the
-needed non-TypeScript file, generated output, or literal text.
+Use query_typescript_graph as a staged TypeScript index, not as an answer
+writer. Fill thinking before each call, then choose one request.type: find
+entrypoints, lookup symbols, trace dependency paths, inspect selected symbols,
+or summarize the project. Read source only for the few bodies whose logic
+decides the answer. Use shell reads only when the graph lacks the needed
+non-TypeScript file, generated output, or literal text.
 
-The graph already knows resolved symbols, edges, evidence spans, decorators,
-and stable handles. Prefer it before shell-reading TypeScript source.
+The graph already knows resolved symbols, dependency edges, evidence spans,
+decorators, and stable handles. Prefer it before shell-reading TypeScript
+source.
 
-- question_entrypoints: first call for a natural-language code question. Use it
-  once to get ranked starting symbols, direct mentions, and a small dependency
-  orientation slice without source bodies.
-- symbol_lookup: targeted symbol search. Use when you need a specific class,
-  method, function, property, or type and do not already have its handle.
-- dependency_path: dependency and call/type flow. Use it for "how A reaches B",
-  lifecycle, request-flow, rendering-flow, validation-flow, and impact questions.
-- symbol_details: selected symbol details. Use it for signatures, members,
-  direct calls, direct types, dependency neighbors, and the few source bodies
-  whose implementation decides the answer. It does not write answer text.
-- project_overview: project-wide architecture map. Use for layers, hotspots,
-  counts, and public API; not for a specific code question.
+Request types:
 
-For a flow question, call question_entrypoints once, then dependency_path before
-symbol_details. Read source only for the one or two leaf bodies whose logic is
-needed.
+- find_question_entrypoints: first call for a natural-language code question.
+  It returns ranked symbols, direct mentions, and small dependency orientation
+  without source bodies.
+- lookup_symbols: targeted symbol search for a class, method, function,
+  property, or type when you do not already have its handle.
+- trace_dependency_path: call/type/dependency flow for "how A reaches B",
+  lifecycle, request-flow, rendering-flow, validation-flow, and impact
+  questions.
+- inspect_symbol_details: signatures, members, direct calls, direct types,
+  dependency neighbors, or narrow source reads for selected handles.
+- summarize_project: source-free architecture map for layers, hotspots, counts,
+  and public API.
 
-Do not batch source:true across a path. Use symbol_details(neighbors:true)
-without source to map dependencies; use symbol_details(source:true) without
-neighbors to read bodies. When source is true, neighbor options are ignored.
+For a flow question, use find_question_entrypoints once, then
+trace_dependency_path before inspect_symbol_details. Keep broad dependency maps
+separate from source reads. When source is true, neighbor options are ignored.
 
 Copy exact names from returned nodes, references, aliases, evidence snippets,
 and trace steps. Prefer graph evidence and sourceSpan line anchors over shell

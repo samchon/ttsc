@@ -263,6 +263,7 @@ function parseTrace(text) {
       const payload = item.result ?? item.output ?? item.content ?? "";
       const output = stringifyPayload(payload);
       const contentText = extractMcpText(payload);
+      const args = summarizeMcpArgs(name, input);
       const call = {
         index: calls.length + 1,
         eventIndex,
@@ -271,9 +272,9 @@ function parseTrace(text) {
         kind: "mcp",
         class: "graph",
         name,
-        args: summarizeMcpArgs(name, input),
+        args,
         arguments: input,
-        inputKey: `${name}:${stableStringify(input)}`,
+        inputKey: `${name}:${stableStringify(mcpInputKey(name, input))}`,
         inputChars: JSON.stringify(input).length,
         contentTextChars: contentText.length,
         estimatedContentTextTokens: estimateTokens(contentText),
@@ -1571,7 +1572,23 @@ function formatHotspotArgs(args) {
   return text.length > 120 ? `${text.slice(0, 117)}...` : text;
 }
 
-function graphToolKind(name) {
+function graphToolKind(name, requestType) {
+  if (name === "query_typescript_graph") {
+    switch (requestType) {
+      case "find_question_entrypoints":
+        return "entrypoints";
+      case "lookup_symbols":
+        return "lookup";
+      case "trace_dependency_path":
+        return "path";
+      case "inspect_symbol_details":
+        return "details";
+      case "summarize_project":
+        return "overview";
+      default:
+        return undefined;
+    }
+  }
   switch (name) {
     case "graph_expand":
     case "symbol_details":
@@ -1594,10 +1611,11 @@ function graphToolKind(name) {
 }
 
 function summarizeMcpArgs(name, input) {
-  const args = input && typeof input === "object" ? input : {};
-  const kind = graphToolKind(name);
+  const args = mcpRequestArgs(name, input);
+  const kind = graphToolKind(name, args.type);
   if (kind === "details") {
     return {
+      type: args.type,
       handles: Array.isArray(args.handles) ? args.handles.length : 0,
       source: args.source === true,
       neighbors: args.neighbors === true,
@@ -1606,6 +1624,7 @@ function summarizeMcpArgs(name, input) {
   }
   if (kind === "path") {
     return {
+      type: args.type,
       direction: args.direction ?? "forward",
       focus: args.focus ?? "all",
       path: typeof args.to === "string" && args.to.length > 0,
@@ -1615,14 +1634,25 @@ function summarizeMcpArgs(name, input) {
   }
   if (kind === "lookup" || kind === "entrypoints") {
     return {
+      type: args.type,
       limit: number(args.limit),
       queryChars: typeof args.query === "string" ? args.query.length : 0,
     };
   }
   if (kind === "overview") {
-    return { aspect: args.aspect ?? "all" };
+    return { type: args.type, aspect: args.aspect ?? "all" };
   }
   return {};
+}
+
+function mcpRequestArgs(name, input) {
+  const args = input && typeof input === "object" ? input : {};
+  if (name !== "query_typescript_graph") return args;
+  return args.request && typeof args.request === "object" ? args.request : {};
+}
+
+function mcpInputKey(name, input) {
+  return name === "query_typescript_graph" ? mcpRequestArgs(name, input) : input;
 }
 
 function isReasoningItem(type) {
@@ -1684,9 +1714,11 @@ function extractMcpText(payload) {
 function analyzeGraphPayload(name, text) {
   const parsed = parseJsonObject(text);
   if (parsed === undefined) return undefined;
-  const kind = graphToolKind(name);
+  const normalized = graphPayloadResult(name, parsed);
+  const kind = normalized.kind;
+  const payload = normalized.payload;
   if (kind === "details") {
-    const nodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+    const nodes = Array.isArray(payload?.nodes) ? payload.nodes : [];
     const sourceChars = sum(
       nodes.map((node) =>
         typeof node.source === "string" ? node.source.length : 0,
@@ -1718,12 +1750,12 @@ function analyzeGraphPayload(name, text) {
           (Array.isArray(node.dependedOnBy) ? node.dependedOnBy.length : 0),
       ),
     );
-    const coveredEvidenceTextChars = coveredSourceEvidenceTextChars(parsed);
+    const coveredEvidenceTextChars = coveredSourceEvidenceTextChars(payload);
     const truncated = nodes.filter((node) => node.truncated === true).length;
     return {
       kind: "expand",
       nodes: nodes.length,
-      unknown: Array.isArray(parsed.unknown) ? parsed.unknown.length : 0,
+      unknown: Array.isArray(payload?.unknown) ? payload.unknown.length : 0,
       members: members.length,
       dependencyRefs,
       sourceChars,
@@ -1743,9 +1775,9 @@ function analyzeGraphPayload(name, text) {
     };
   }
   if (kind === "path") {
-    const hops = Array.isArray(parsed.hops) ? parsed.hops : [];
-    const reached = Array.isArray(parsed.reached) ? parsed.reached : [];
-    const path = Array.isArray(parsed.path) ? parsed.path : [];
+    const hops = Array.isArray(payload?.hops) ? payload.hops : [];
+    const reached = Array.isArray(payload?.reached) ? payload.reached : [];
+    const path = Array.isArray(payload?.path) ? payload.path : [];
     const evidenceChars = sum(hops.map((hop) => jsonChars(hop.evidence)));
     const pathSignatureChars = sum(
       path.map((node) =>
@@ -1754,22 +1786,22 @@ function analyzeGraphPayload(name, text) {
     );
     return {
       kind: "trace",
-      direction: parsed.direction ?? null,
+      direction: payload?.direction ?? null,
       hops: hops.length,
       reached: reached.length,
       path: path.length,
-      candidates: Array.isArray(parsed.candidates)
-        ? parsed.candidates.length
+      candidates: Array.isArray(payload?.candidates)
+        ? payload.candidates.length
         : 0,
       evidenceChars,
       estimatedEvidenceTokens: estimateTokensFromChars(evidenceChars),
       pathSignatureChars,
       estimatedPathSignatureTokens: estimateTokensFromChars(pathSignatureChars),
-      truncated: parsed.truncated === true,
+      truncated: payload?.truncated === true,
     };
   }
   if (kind === "lookup" || kind === "entrypoints") {
-    const hits = Array.isArray(parsed.hits) ? parsed.hits : [];
+    const hits = Array.isArray(payload?.hits) ? payload.hits : [];
     const signatureChars = sum(
       hits.map((hit) =>
         typeof hit.signature === "string" ? hit.signature.length : 0,
@@ -1785,16 +1817,44 @@ function analyzeGraphPayload(name, text) {
   if (kind === "overview") {
     return {
       kind: "overview",
-      publicApi: Array.isArray(parsed.publicApi) ? parsed.publicApi.length : 0,
-      hotspots: Array.isArray(parsed.hotspots) ? parsed.hotspots.length : 0,
-      layers: Array.isArray(parsed.layers) ? parsed.layers.length : 0,
+      publicApi: Array.isArray(payload?.publicApi)
+        ? payload.publicApi.length
+        : 0,
+      hotspots: Array.isArray(payload?.hotspots) ? payload.hotspots.length : 0,
+      layers: Array.isArray(payload?.layers) ? payload.layers.length : 0,
     };
   }
   return { kind: name };
 }
 
+function graphPayloadResult(name, parsed) {
+  if (name !== "query_typescript_graph") {
+    return { kind: graphToolKind(name), payload: parsed };
+  }
+  switch (parsed.type) {
+    case "find_question_entrypoints":
+      return {
+        kind: graphToolKind(name, parsed.type),
+        payload: parsed.entrypoints,
+      };
+    case "lookup_symbols":
+      return { kind: graphToolKind(name, parsed.type), payload: parsed.symbols };
+    case "trace_dependency_path":
+      return { kind: graphToolKind(name, parsed.type), payload: parsed.trace };
+    case "inspect_symbol_details":
+      return { kind: graphToolKind(name, parsed.type), payload: parsed.details };
+    case "summarize_project":
+      return {
+        kind: graphToolKind(name, parsed.type),
+        payload: parsed.overview,
+      };
+    default:
+      return { kind: undefined, payload: parsed };
+  }
+}
+
 function coveredSourceEvidenceTextChars(payload) {
-  const nodes = Array.isArray(payload.nodes) ? payload.nodes : [];
+  const nodes = Array.isArray(payload?.nodes) ? payload.nodes : [];
   const before = JSON.stringify(payload).length;
   const copy = JSON.parse(JSON.stringify(payload));
   let removed = 0;
@@ -1936,7 +1996,7 @@ function analyzeMcpOverfetch(calls) {
       }
     }
 
-    const kind = graphToolKind(call.name);
+    const kind = graphToolKind(call.name, call.args.type);
     if (kind === "details") {
       if (call.args.source && call.args.neighbors && call.args.handles >= 2) {
         add(

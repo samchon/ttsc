@@ -9,6 +9,31 @@ interface ToolResult {
 const callJson = <T>(result: ToolResult): T =>
   JSON.parse(result.content[0]?.text ?? "{}") as T;
 
+const callGraphJson = <T>(result: ToolResult): T => {
+  const value = callJson<{
+    type?: string;
+    entrypoints?: unknown;
+    symbols?: unknown;
+    trace?: unknown;
+    details?: unknown;
+    overview?: unknown;
+  }>(result);
+  switch (value.type) {
+    case "find_question_entrypoints":
+      return value.entrypoints as T;
+    case "lookup_symbols":
+      return value.symbols as T;
+    case "trace_dependency_path":
+      return value.trace as T;
+    case "inspect_symbol_details":
+      return value.details as T;
+    case "summarize_project":
+      return value.overview as T;
+    default:
+      throw new Error(`Unexpected graph result: ${JSON.stringify(value)}`);
+  }
+};
+
 /**
  * Verifies the @ttsc/graph launcher serves the redesigned graph tools to an MCP
  * client end to end over stdio.
@@ -16,9 +41,8 @@ const callJson = <T>(result: ToolResult): T =>
  * The TypeScript engine is unit-smoked in isolation; this case proves the
  * shipped pipeline works: the Node launcher spawns, runs `ttscgraph dump` once
  * for a real project, builds the resident graph, and answers
- * initialize/tools-list/tools-call for question_entrypoints, dependency_path,
- * symbol_details, symbol_lookup, and project_overview, then exits cleanly when
- * stdin closes.
+ * initialize/tools-list/tools-call for the single query_typescript_graph tool,
+ * then exits cleanly when stdin closes.
  *
  * 1. Materialize a project with a Service.run -> helper call chain, then spawn the
  *    launcher against it.
@@ -90,19 +114,13 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     const names = list.tools.map((tool) => tool.name);
     assert.deepEqual(
       names,
-      [
-        "question_entrypoints",
-        "symbol_lookup",
-        "dependency_path",
-        "symbol_details",
-        "project_overview",
-      ],
-      `tools/list advertises the five graph tools, got ${names.join(", ")}`,
+      ["query_typescript_graph"],
+      `tools/list advertises the single graph tool, got ${names.join(", ")}`,
     );
 
     // question_entrypoints: the first source-free index resolves direct handles and
     // nearby dependency context.
-    const index = callJson<{
+    const index = callGraphJson<{
       hits: {
         id: string;
         name: string;
@@ -120,8 +138,16 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       next: { traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "question_entrypoints",
-        arguments: { query: "how Service.run reaches helper" },
+        name: "query_typescript_graph",
+        arguments: {
+          thinking:
+            "Find source-free starting handles before tracing Service.run to helper.",
+          request: {
+            type: "find_question_entrypoints",
+            purpose: "Resolve the starting method and nearby dependency edge.",
+            query: "how Service.run reaches helper",
+          },
+        },
       })) as ToolResult,
     );
     assert.ok(
@@ -172,13 +198,20 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
 
     // project_overview: a compact architecture map with real counts.
-    const overview = callJson<{
+    const overview = callGraphJson<{
       counts: { nodes: number; byKind: Record<string, number> };
       publicApi?: { id: string; name: string; line?: number }[];
     }>(
       (await client.request("tools/call", {
-        name: "project_overview",
-        arguments: { aspect: "all" },
+        name: "query_typescript_graph",
+        arguments: {
+          thinking: "Summarize project shape without reading source bodies.",
+          request: {
+            type: "summarize_project",
+            purpose: "Verify the architecture overview request branch.",
+            aspect: "all",
+          },
+        },
       })) as ToolResult,
     );
     const byKind = overview.counts.byKind;
@@ -199,13 +232,20 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
 
     // symbol_lookup: finds Service by name and ranks explicit method queries.
-    const query = callJson<{
+    const query = callGraphJson<{
       hits: { id: string; name: string; kind: string }[];
       next: { expand: string[]; traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "symbol_lookup",
-        arguments: { query: "Service" },
+        name: "query_typescript_graph",
+        arguments: {
+          thinking: "Look up Service by exact symbol name.",
+          request: {
+            type: "lookup_symbols",
+            purpose: "Resolve a specific class handle.",
+            query: "Service",
+          },
+        },
       })) as ToolResult,
     );
     const service = query.hits.find((hit) => hit.name === "Service");
@@ -218,14 +258,20 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         query.next.traceFrom.includes(service.id),
       `symbol_lookup returns follow-up handles: ${JSON.stringify(query.next)}`,
     );
-    const methodQuery = callJson<{
+    const methodQuery = callGraphJson<{
       hits: { name: string; kind: string }[];
     }>(
       (await client.request("tools/call", {
-        name: "symbol_lookup",
+        name: "query_typescript_graph",
         arguments: {
-          query: "How does the `run` method reach helper?",
-          limit: 3,
+          thinking:
+            "Look up the explicit run method before dependency tracing.",
+          request: {
+            type: "lookup_symbols",
+            purpose: "Rank the method target ahead of the class.",
+            query: "How does the `run` method reach helper?",
+            limit: 3,
+          },
         },
       })) as ToolResult,
     );
@@ -241,14 +287,24 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
 
     // dependency_path: forward from Service.run reaches the helper it calls.
-    const trace = callJson<{
+    const trace = callGraphJson<{
       reached: { name: string }[];
       hops: { evidence?: { text?: string } }[];
       steps?: string[];
     }>(
       (await client.request("tools/call", {
-        name: "dependency_path",
-        arguments: { from: "run", direction: "forward", focus: "execution" },
+        name: "query_typescript_graph",
+        arguments: {
+          thinking:
+            "Trace execution dependencies from run to confirm the helper call.",
+          request: {
+            type: "trace_dependency_path",
+            purpose: "Follow outgoing runtime calls from Service.run.",
+            from: "run",
+            direction: "forward",
+            focus: "execution",
+          },
+        },
       })) as ToolResult,
     );
     assert.ok(
@@ -265,14 +321,22 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
 
     // dependency_path path mode: dotted from handles can be used directly.
-    const pathTrace = callJson<{
+    const pathTrace = callGraphJson<{
       path?: { name: string; signature?: string }[];
       steps?: string[];
       next?: { traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "dependency_path",
-        arguments: { from: "Service.run", to: "helper" },
+        name: "query_typescript_graph",
+        arguments: {
+          thinking: "Ask for the direct path from Service.run to helper.",
+          request: {
+            type: "trace_dependency_path",
+            purpose: "Verify dotted handles work in path mode.",
+            from: "Service.run",
+            to: "helper",
+          },
+        },
       })) as ToolResult,
     );
     assert.ok(
@@ -292,7 +356,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
 
     // symbol_details: reads the declaration source the graph located.
-    const expand = callJson<{
+    const expand = callGraphJson<{
       nodes: {
         id: string;
         name: string;
@@ -303,8 +367,17 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       unknown: string[];
     }>(
       (await client.request("tools/call", {
-        name: "symbol_details",
-        arguments: { handles: ["Service.run"], source: true },
+        name: "query_typescript_graph",
+        arguments: {
+          thinking:
+            "Read only the Service.run body because the implementation contains the decisive helper call.",
+          request: {
+            type: "inspect_symbol_details",
+            purpose: "Narrow source read for the selected method.",
+            handles: ["Service.run"],
+            source: true,
+          },
+        },
       })) as ToolResult,
     );
     assert.ok(
@@ -330,7 +403,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       `symbol_details returns decorator facts: ${JSON.stringify(expand.nodes)}`,
     );
 
-    const expandShape = callJson<{
+    const expandShape = callGraphJson<{
       nodes: {
         name: string;
         calls?: string[];
@@ -339,8 +412,15 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "symbol_details",
-        arguments: { handles: ["Service.run"] },
+        name: "query_typescript_graph",
+        arguments: {
+          thinking: "Inspect Service.run shape without reading source.",
+          request: {
+            type: "inspect_symbol_details",
+            purpose: "Verify source-free direct call summaries.",
+            handles: ["Service.run"],
+          },
+        },
       })) as ToolResult,
     );
     assert.ok(
@@ -357,18 +437,24 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       `symbol_details leaves execution paths to dependency_path: ${JSON.stringify(expandShape.nodes)}`,
     );
 
-    const expandDeps = callJson<{
+    const expandDeps = callGraphJson<{
       nodes: {
         dependsOn?: { name: string; evidence?: { text?: string } }[];
         dependedOnBy?: unknown[];
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "symbol_details",
+        name: "query_typescript_graph",
         arguments: {
-          handles: ["Service.run"],
-          neighbors: true,
-          neighborLimit: 1,
+          thinking:
+            "Map immediate Service.run dependencies without source bodies.",
+          request: {
+            type: "inspect_symbol_details",
+            purpose: "Verify bounded neighbor mapping.",
+            handles: ["Service.run"],
+            neighbors: true,
+            neighborLimit: 1,
+          },
         },
       })) as ToolResult,
     );
@@ -386,7 +472,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       `symbol_details returns dependency neighbors: ${JSON.stringify(expandDeps.nodes)}`,
     );
 
-    const expandSourceDeps = callJson<{
+    const expandSourceDeps = callGraphJson<{
       nodes: {
         source?: string;
         dependsOn?: {
@@ -397,12 +483,18 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "symbol_details",
+        name: "query_typescript_graph",
         arguments: {
-          handles: ["Service.run"],
-          source: true,
-          neighbors: true,
-          neighborLimit: 10,
+          thinking:
+            "Read Service.run source and verify neighbor options stay ignored in source mode.",
+          request: {
+            type: "inspect_symbol_details",
+            purpose: "Source reads must stay separate from dependency maps.",
+            handles: ["Service.run"],
+            source: true,
+            neighbors: true,
+            neighborLimit: 10,
+          },
         },
       })) as ToolResult,
     );
@@ -430,4 +522,3 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     `the launcher should exit cleanly on stdin close\nstderr: ${client.stderrText()}`,
   );
 };
-
