@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-27T19:57:35.533Z",
+  "generatedAt": "2026-06-27T20:13:57.640Z",
   "structural": null,
   "agent": {
     "cells": [
@@ -1438,36 +1438,36 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 993243,
-              "cached": 893952,
-              "reasoning": 18303,
-              "tokensWithReasoning": 1011546,
+              "tokens": 950281,
+              "cached": 849408,
+              "reasoning": 19164,
+              "tokensWithReasoning": 969445,
               "turns": 1,
               "usage": [
                 {
-                  "input": 968970,
-                  "cachedInput": 893952,
-                  "output": 24273,
-                  "reasoning": 18303
+                  "input": 924434,
+                  "cachedInput": 849408,
+                  "output": 25847,
+                  "reasoning": 19164
                 }
               ],
-              "tools": 18,
+              "tools": 20,
               "shell": 0,
-              "graph": 18,
+              "graph": 20,
               "web": 0,
               "sourceTouches": 0,
               "shellCommands": [],
               "types": {
-                "agent_message": 11,
-                "mcp_tool_call": 18
+                "agent_message": 8,
+                "mcp_tool_call": 20
               },
-              "durMs": 458363,
+              "durMs": 410209,
               "ok": true,
               "error": "",
               "promptId": "nestjs-common-v1",
               "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
               "run": 1,
-              "attempts": 4
+              "attempts": 1
             }
           ]
         }
@@ -1646,36 +1646,36 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 773146,
-              "cached": 695808,
-              "reasoning": 13624,
-              "tokensWithReasoning": 786770,
+              "tokens": 624549,
+              "cached": 457216,
+              "reasoning": 19118,
+              "tokensWithReasoning": 643667,
               "turns": 1,
               "usage": [
                 {
-                  "input": 753232,
-                  "cachedInput": 695808,
-                  "output": 19914,
-                  "reasoning": 13624
+                  "input": 600002,
+                  "cachedInput": 457216,
+                  "output": 24547,
+                  "reasoning": 19118
                 }
               ],
-              "tools": 19,
+              "tools": 14,
               "shell": 0,
-              "graph": 19,
+              "graph": 14,
               "web": 0,
               "sourceTouches": 0,
               "shellCommands": [],
               "types": {
-                "agent_message": 17,
-                "mcp_tool_call": 19
+                "agent_message": 10,
+                "mcp_tool_call": 14
               },
-              "durMs": 321522,
+              "durMs": 373976,
               "ok": true,
               "error": "",
               "promptId": "typeorm-common-v1",
               "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
               "run": 1,
-              "attempts": 2
+              "attempts": 1
             }
           ]
         }
@@ -1958,30 +1958,30 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 613100,
-              "cached": 532480,
-              "reasoning": 17793,
-              "tokensWithReasoning": 630893,
+              "tokens": 581828,
+              "cached": 499200,
+              "reasoning": 15425,
+              "tokensWithReasoning": 597253,
               "turns": 1,
               "usage": [
                 {
-                  "input": 590553,
-                  "cachedInput": 532480,
-                  "output": 22547,
-                  "reasoning": 17793
+                  "input": 561611,
+                  "cachedInput": 499200,
+                  "output": 20217,
+                  "reasoning": 15425
                 }
               ],
-              "tools": 17,
+              "tools": 14,
               "shell": 0,
-              "graph": 17,
+              "graph": 14,
               "web": 0,
               "sourceTouches": 0,
               "shellCommands": [],
               "types": {
-                "agent_message": 9,
-                "mcp_tool_call": 17
+                "agent_message": 14,
+                "mcp_tool_call": 14
               },
-              "durMs": 374883,
+              "durMs": 332750,
               "ok": true,
               "error": "",
               "promptId": "vue-common-v1",
