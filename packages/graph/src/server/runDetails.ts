@@ -3,9 +3,9 @@ import path from "node:path";
 
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphDecorator } from "../structures/ITtscGraphDecorator";
+import { ITtscGraphDetails } from "../structures/ITtscGraphDetails";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
-import { ITtscGraphExpand } from "../structures/ITtscGraphExpand";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { accessAliasesFor } from "./accessAliases";
 import { resolveGraphHandle } from "./resolveHandle";
@@ -20,7 +20,7 @@ const DEFAULT_NEIGHBORS = 6;
 const MAX_NEIGHBORS = 12;
 // A container's outline can be long (a big class); keep it bounded.
 const MAX_MEMBERS = 80;
-// Structural relationships are navigation, not the dependency picture expand is for.
+// Structural relationships are navigation, not the dependency picture details is for.
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 // Kinds whose value is their member outline, not a source body.
 const CONTAINER_KINDS = new Set<string>([
@@ -39,10 +39,10 @@ const CONTAINER_KINDS = new Set<string>([
  * structure it already holds, so the agent reads compact shape, not inlined
  * code, unless it explicitly needs a body's logic.
  */
-export function runExpand(
+export function runDetails(
   graph: TtscGraphMemory,
-  props: ITtscGraphExpand.IProps,
-): ITtscGraphExpand {
+  props: ITtscGraphDetails.IRequest,
+): ITtscGraphDetails {
   const wantSource = props.source === true;
   const neighborLimit = bound(
     props.neighborLimit,
@@ -51,7 +51,7 @@ export function runExpand(
     MAX_NEIGHBORS,
   );
   const wantNeighbors = props.neighbors === true && !wantSource;
-  const nodes: ITtscGraphExpand.INode[] = [];
+  const nodes: ITtscGraphDetails.INode[] = [];
   const unknown: string[] = [];
   for (const handle of props.handles) {
     const resolved = resolveGraphHandle(graph, handle);
@@ -60,35 +60,35 @@ export function runExpand(
       continue;
     }
     const node = resolved.node;
-    const expanded: ITtscGraphExpand.INode = {
+    const detail: ITtscGraphDetails.INode = {
       id: node.id,
       name: node.qualifiedName ?? node.name,
       kind: node.kind,
       file: node.file,
     };
-    if (node.evidence?.startLine) expanded.line = node.evidence.startLine;
+    if (node.evidence?.startLine) detail.line = node.evidence.startLine;
     const sig = signatureOf(graph.project, node);
-    if (sig !== undefined) expanded.signature = sig;
+    if (sig !== undefined) detail.signature = sig;
     const signatureLiterals = literalSummaries(sig);
     const decorators = decoratorsOf(node);
-    if (decorators !== undefined) expanded.decorators = decorators;
+    if (decorators !== undefined) detail.decorators = decorators;
     if (node.implementation !== undefined)
-      expanded.implementation = node.implementation;
+      detail.implementation = node.implementation;
     if (!wantSource) {
       const calls = dependencySummaries(graph, node, executionKinds, 6);
-      if (calls.length > 0) expanded.calls = calls;
+      if (calls.length > 0) detail.calls = calls;
       const types = dependencySummaries(graph, node, typeKinds, 6);
-      if (types.length > 0) expanded.types = types;
+      if (types.length > 0) detail.types = types;
       if (CONTAINER_KINDS.has(node.kind)) {
         const list = members(graph, node);
-        if (list.length > 0) expanded.members = list;
+        if (list.length > 0) detail.members = list;
       }
     }
     let source:
       | {
           file: string;
           text: string;
-          lines: ITtscGraphExpand.ISourceLine[];
+          lines: ITtscGraphDetails.ISourceLine[];
           truncated: boolean;
           startLine: number;
           endLine: number;
@@ -97,48 +97,48 @@ export function runExpand(
     if (wantSource) {
       source = readSource(graph.project, node);
       if (source !== undefined) {
-        expanded.source = source.text;
-        expanded.sourceSpan = {
+        detail.source = source.text;
+        detail.sourceSpan = {
           file: source.file,
           startLine: source.startLine,
           endLine: source.endLine,
         };
-        if (props.lineNumbers === true) expanded.sourceLines = source.lines;
-        if (source.truncated) expanded.truncated = true;
+        if (props.lineNumbers === true) detail.sourceLines = source.lines;
+        if (source.truncated) detail.truncated = true;
       }
     } else if (signatureLiterals.length > 0) {
-      expanded.literals = signatureLiterals.slice(0, 12);
+      detail.literals = signatureLiterals.slice(0, 12);
     }
     if (wantNeighbors) {
-      expanded.dependsOn = refs(
+      detail.dependsOn = refs(
         graph,
         graph.outgoing(node.id),
         "to",
         neighborLimit,
       );
-      expanded.dependedOnBy = refs(
+      detail.dependedOnBy = refs(
         graph,
         graph.incoming(node.id),
         "from",
         neighborLimit,
       );
     }
-    nodes.push(expanded);
+    nodes.push(detail);
   }
-  return { nodes, unknown };
+  return { type: "details", nodes, unknown };
 }
 
 /** The members a container owns (via `contains`), each with its own signature. */
 function members(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
-): ITtscGraphExpand.IMember[] {
-  const out: ITtscGraphExpand.IMember[] = [];
+): ITtscGraphDetails.IMember[] {
+  const out: ITtscGraphDetails.IMember[] = [];
   for (const edge of graph.outgoing(node.id)) {
     if (edge.kind !== "contains") continue;
     const member = graph.node(edge.to);
     if (member === undefined) continue;
-    const m: ITtscGraphExpand.IMember = {
+    const m: ITtscGraphDetails.IMember = {
       name: member.qualifiedName ?? member.name,
       kind: member.kind,
     };
@@ -159,13 +159,13 @@ function refs(
   edges: readonly ITtscGraphEdge[],
   end: "to" | "from",
   limit: number,
-): ITtscGraphExpand.IReference[] {
-  const ranked: Array<{ ref: ITtscGraphExpand.IReference; rank: number }> = [];
+): ITtscGraphDetails.IReference[] {
+  const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
   for (const edge of edges) {
     if (STRUCTURAL_KINDS.has(edge.kind)) continue;
     const other = graph.node(end === "to" ? edge.to : edge.from);
     if (other === undefined) continue;
-    const ref: ITtscGraphExpand.IReference = {
+    const ref: ITtscGraphDetails.IReference = {
       id: other.id,
       name: other.qualifiedName ?? other.name,
       kind: other.kind,
@@ -180,7 +180,7 @@ function refs(
     ranked.push({ ref, rank: refRank(ref, edge) });
   }
   ranked.sort((a, b) => a.rank - b.rank);
-  const out: ITtscGraphExpand.IReference[] = [];
+  const out: ITtscGraphDetails.IReference[] = [];
   for (const item of ranked) {
     out.push(item.ref);
     if (out.length >= limit) break;
@@ -269,7 +269,7 @@ function bound(
 }
 
 function refRank(
-  ref: ITtscGraphExpand.IReference,
+  ref: ITtscGraphDetails.IReference,
   edge: ITtscGraphEdge,
 ): number {
   return (
@@ -372,7 +372,7 @@ function readSource(
   | {
       file: string;
       text: string;
-      lines: ITtscGraphExpand.ISourceLine[];
+      lines: ITtscGraphDetails.ISourceLine[];
       truncated: boolean;
       startLine: number;
       endLine: number;

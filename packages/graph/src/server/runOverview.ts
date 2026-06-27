@@ -14,10 +14,10 @@ const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
  */
 export function runOverview(
   graph: TtscGraphMemory,
-  props: ITtscGraphOverview.IProps,
+  props: ITtscGraphOverview.IRequest,
 ): ITtscGraphOverview {
   const aspect = props.aspect ?? "all";
-  const want = (a: ITtscGraphOverview.IProps["aspect"]): boolean =>
+  const want = (a: ITtscGraphOverview.IRequest["aspect"]): boolean =>
     aspect === "all" || aspect === a;
 
   const byKind: Record<string, number> = {};
@@ -28,6 +28,7 @@ export function runOverview(
   }
 
   const result: ITtscGraphOverview = {
+    type: "overview",
     project: graph.project,
     counts: {
       files,

@@ -64,8 +64,8 @@ export function createServer(
     if (func === undefined || method === undefined) {
       return error(`Unknown tool: ${request.params.name}`);
     }
-      // A client may omit `arguments` for an all-optional tool (e.g. project_overview);
-    // validate an empty object so that call succeeds instead of failing on "expected object".
+    // Validate an empty object when a client omits `arguments`, so typia can
+    // return field-level errors instead of a generic "expected object".
     const validation = func.validate(request.params.arguments ?? {});
     if (!validation.success) {
       // Hand typia's validation errors back so the model can correct its call.

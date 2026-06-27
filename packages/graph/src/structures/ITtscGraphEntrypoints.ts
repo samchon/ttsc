@@ -2,33 +2,39 @@ import { ITtscGraphDecorator } from "./ITtscGraphDecorator";
 import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
 
 /** The compact source-free entrypoint list returned for a code question. */
-export interface ITtscGraphIndex {
-  /** The original query the index was built for. */
+export interface ITtscGraphEntrypoints {
+  /** Discriminator for first-pass question indexing. */
+  type: "entrypoints";
+
+  /** The original question/search phrase the entrypoints were built for. */
   query: string;
 
   /** Ranked symbols relevant to the query. */
-  hits: ITtscGraphIndex.IHit[];
+  hits: ITtscGraphEntrypoints.IHit[];
 
   /** Code handles written directly in the query, resolved when possible. */
-  mentions: ITtscGraphIndex.IMention[];
+  mentions: ITtscGraphEntrypoints.IMention[];
 
   /** Direct dependency context for the resolved mentions and highest hits. */
-  neighborhood: ITtscGraphIndex.INeighborhood[];
+  neighborhood: ITtscGraphEntrypoints.INeighborhood[];
 
   /** Follow-up handles for deeper graph calls. */
-  next: ITtscGraphIndex.INext;
+  next: ITtscGraphEntrypoints.INext;
 
   /** True when result caps hid additional seeds or references. */
   truncated?: boolean;
 }
 
-export namespace ITtscGraphIndex {
+export namespace ITtscGraphEntrypoints {
   /**
-   * Ask the graph for the first index an agent should read before opening
+   * Ask the graph for the first entrypoints an agent should read before opening
    * source: ranked symbols, exact mentioned handles, and nearby dependency
    * edges.
    */
-  export interface IProps {
+  export interface IRequest {
+    /** Discriminator for first-pass question indexing. */
+    type: "entrypoints";
+
     /**
      * A natural code question or search phrase. Mix prose with code handles,
      * for example `how Repository.find loads relations` or
@@ -45,9 +51,8 @@ export namespace ITtscGraphIndex {
 
     /**
      * Maximum direct dependencies and dependents to return per indexed symbol.
-     * This is an orientation slice, not a dependency dump; use
-     * `dependency_path` or `symbol_details(neighbors:true)` after choosing the
-     * specific handles.
+     * This is an orientation slice, not a dependency dump; use `trace` or
+     * `details` with `neighbors:true` after choosing the specific handles.
      *
      * @default 1
      */
@@ -103,11 +108,11 @@ export namespace ITtscGraphIndex {
     evidence?: ITtscGraphEvidence;
   }
 
-  /** Tool-call handles suggested by this first index. */
+  /** Tool-call handles suggested by this first entrypoints result. */
   export interface INext {
-    /** Pass these ids to `symbol_details`, with `source: true` only when needed. */
-    expand: string[];
-    /** Pass these ids to `dependency_path` when following dependency flow. */
+    /** Pass these ids to `details`, with `source: true` only when needed. */
+    details: string[];
+    /** Pass these ids to `trace` when following dependency flow. */
     traceFrom: string[];
   }
 }

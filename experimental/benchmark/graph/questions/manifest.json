@@ -9,7 +9,7 @@
       "gold": "excalidraw/dedicated.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "e4f3b02a5d3a1e86a9136d90a4b8bd9c73774733f9f1c021faee61b3ea6e83b5"
+      "questionSha256": "c255a3858397167322f27420b6ee5a5c275c2ccd530d91e75e72ef5c43ba7773"
     },
     {
       "id": "excalidraw-common-v1",
@@ -19,7 +19,7 @@
       "gold": "common.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "a9ef4c7eafa493b9770beb898ac6cc11b6da84ad0ae66b94bd9e30e07505c8f8"
+      "questionSha256": "3e02d1301727dbd6d29a3eeaab5abeddfbadec36040250ba54c18adf8c54aba8"
     },
     {
       "id": "vscode-dedicated-v1",
@@ -29,7 +29,7 @@
       "gold": "vscode/dedicated.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "src/tsconfig.json",
-      "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a"
+      "questionSha256": "c3f1c338ed61f5e899b0c9db9cb23db9af459aae0610b8abe85fef50381ec9c4"
     },
     {
       "id": "vscode-common-v1",
@@ -39,7 +39,7 @@
       "gold": "common.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "src/tsconfig.json",
-      "questionSha256": "a9ef4c7eafa493b9770beb898ac6cc11b6da84ad0ae66b94bd9e30e07505c8f8"
+      "questionSha256": "3e02d1301727dbd6d29a3eeaab5abeddfbadec36040250ba54c18adf8c54aba8"
     },
     {
       "id": "nestjs-dedicated-v1",
@@ -49,7 +49,7 @@
       "gold": "nestjs/dedicated.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "f6ec52290aaa5aa55db6d6ebc9dccbb1319cbdd2440da53a5569716d30e42675"
+      "questionSha256": "1749b3bdc78c4a8ecd8f56b8bfc173b3f7779f89d476a8667c430f421fa1c8f5"
     },
     {
       "id": "nestjs-common-v1",
@@ -59,7 +59,7 @@
       "gold": "common.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "a9ef4c7eafa493b9770beb898ac6cc11b6da84ad0ae66b94bd9e30e07505c8f8"
+      "questionSha256": "3e02d1301727dbd6d29a3eeaab5abeddfbadec36040250ba54c18adf8c54aba8"
     },
     {
       "id": "vue-dedicated-v1",
@@ -69,7 +69,7 @@
       "gold": "vue/dedicated.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "8b776420228a6833c8496c34104ac3314e42f95a88f587d32ee275bbfddcb81f"
+      "questionSha256": "c957d2c07caeb8edfd7787698e84dc211338a8015c28930a873eb1b08ce7b81a"
     },
     {
       "id": "vue-common-v1",
@@ -79,7 +79,7 @@
       "gold": "common.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "a9ef4c7eafa493b9770beb898ac6cc11b6da84ad0ae66b94bd9e30e07505c8f8"
+      "questionSha256": "3e02d1301727dbd6d29a3eeaab5abeddfbadec36040250ba54c18adf8c54aba8"
     },
     {
       "id": "zod-dedicated-v1",
@@ -89,7 +89,7 @@
       "gold": "zod/dedicated.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "7669355f5f1acd28f6b50bf3fd7abfffd2b6410307750f7030efef999ed8dbe7"
+      "questionSha256": "5c55837bdd1672be797587d4976688837455fadd569abaa77fe67000248b2751"
     },
     {
       "id": "zod-common-v1",
@@ -99,7 +99,7 @@
       "gold": "common.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "a9ef4c7eafa493b9770beb898ac6cc11b6da84ad0ae66b94bd9e30e07505c8f8"
+      "questionSha256": "3e02d1301727dbd6d29a3eeaab5abeddfbadec36040250ba54c18adf8c54aba8"
     },
     {
       "id": "typeorm-dedicated-v1",
@@ -109,7 +109,7 @@
       "gold": "typeorm/dedicated.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "5ebd172c576bf445ef2b7efb80e41e299704deb12c177231c985d5385d25ff57"
+      "questionSha256": "deafb9fbf6a0c6c2472e713b79158446755d069e035aeef387210b3c9ccaf3d7"
     },
     {
       "id": "typeorm-common-v1",
@@ -119,7 +119,7 @@
       "gold": "common.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "a9ef4c7eafa493b9770beb898ac6cc11b6da84ad0ae66b94bd9e30e07505c8f8"
+      "questionSha256": "3e02d1301727dbd6d29a3eeaab5abeddfbadec36040250ba54c18adf8c54aba8"
     },
     {
       "id": "rxjs-dedicated-v1",
@@ -129,7 +129,7 @@
       "gold": "rxjs/dedicated.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.graph.json",
-      "questionSha256": "2f98a5ce51594fa18c3418da9a8e243f1acefb94dfdd7ef7056c0d2484fe352b"
+      "questionSha256": "02cd21cb9e9a6156bab1421a373237843aeb49235125170267a2d7a44e85af12"
     },
     {
       "id": "rxjs-common-v1",
@@ -139,7 +139,7 @@
       "gold": "common.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.graph.json",
-      "questionSha256": "a9ef4c7eafa493b9770beb898ac6cc11b6da84ad0ae66b94bd9e30e07505c8f8"
+      "questionSha256": "3e02d1301727dbd6d29a3eeaab5abeddfbadec36040250ba54c18adf8c54aba8"
     },
     {
       "id": "shopping-backend-dedicated-v1",
@@ -149,7 +149,7 @@
       "gold": "shopping-backend/dedicated.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "4235cabedc0c64497d9207c8f8e6b090344a27c505fbe281d303ebb1782bf4c4"
+      "questionSha256": "5ef6224ed20554964ecc3cb4f813cbe4ae04f3708a92a1ef7fe8e8ead5a15448"
     },
     {
       "id": "shopping-backend-common-v1",
@@ -159,7 +159,7 @@
       "gold": "common.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "a9ef4c7eafa493b9770beb898ac6cc11b6da84ad0ae66b94bd9e30e07505c8f8"
+      "questionSha256": "3e02d1301727dbd6d29a3eeaab5abeddfbadec36040250ba54c18adf8c54aba8"
     },
     {
       "id": "typeorm-overview-v1",
@@ -169,7 +169,7 @@
       "gold": "typeorm/overview.gold.json",
       "fixtureBranch": "ttsc",
       "tsconfig": "tsconfig.json",
-      "questionSha256": "87a570d37d9dbb36054ef5947db15d416035ddf25bd9ccc9e402c4384dbf175c"
+      "questionSha256": "7c090de7615c01e1be7b5802d58a6e5ae18816bfe44702cb9966dabe665e2b1a"
     }
   ]
 }

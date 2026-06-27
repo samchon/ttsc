@@ -23,7 +23,7 @@ export interface ITtscGraphNode {
   name: string;
 
   /**
-   * The owner-qualified name, when the node lives inside another declaration —
+   * The owner-qualified name, when the node lives inside another declaration:
    * `OrderService.create`, `Shopping.ISale`. Absent for a top-level
    * declaration.
    */
@@ -34,7 +34,7 @@ export interface ITtscGraphNode {
 
   /**
    * True when the declaration lives outside the workspace (a dependency). The
-   * graph keeps the leaf as a named endpoint but does not expand its
+   * graph keeps the leaf as a named endpoint but does not walk into its
    * internals.
    */
   external: boolean;
@@ -54,7 +54,7 @@ export interface ITtscGraphNode {
 
   /**
    * The decorators written on this declaration, in source order, when it has
-   * any — raw decorator facts (`@Controller`, `@Get`) a consumer can interpret
+   * any: raw decorator facts (`@Controller`, `@Get`) a consumer can interpret
    * without re-parsing source.
    */
   decorators?: ITtscGraphDecorator[];

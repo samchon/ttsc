@@ -10,7 +10,7 @@ So every relationship it reports is the compiler's own answer, not a guess from 
 
 Ask an agent how something works and, without a map, it reconstructs the picture by hand: open a file, follow an import, open the next, and repeat. That is slow, it spends tokens, and the relationships it infers are guesses from whatever text it happened to read.
 
-The graph hands it the answer up front. `graph_overview` maps the project's layers, hotspots, and public API with no source read; `graph_query` finds the right symbol from a natural phrase; `graph_trace` follows the flow from a symbol to where the work happens and back out to what a change would reach; `graph_expand` reads the source once the graph has located it. The agent stops fanning out across files.
+The graph hands it the answer up front through one MCP tool, `inspect_typescript_project_graph_before_answering`. The agent chooses one request branch per call: `overview`, `entrypoints`, `lookup`, `trace`, `details`, or `escape`. The agent stops fanning out across files.
 
 See the [Benchmark](/docs/benchmark/graph) for the agent-cost method and current numbers.
 
@@ -18,11 +18,12 @@ See the [Benchmark](/docs/benchmark/graph) for the agent-cost method and current
 
 The graph answers the questions an agent actually asks, all from the same checker-resolved facts:
 
-- **How is this project laid out?** Entry points, layers, and the symbols the most code leans on — `graph_overview`.
-- **What does this reach, and what reaches it?** Forward to callees, reverse to callers, and an impact projection onto the public API and tests — `graph_trace`.
-- **What is this, exactly?** The declaration's source, its dependencies, and its dependents — `graph_expand`.
+- **How is this project laid out?** Entry points, layers, and the symbols the most code leans on: `overview`.
+- **Where should I start?** Ranked code handles for a natural question: `entrypoints` or `lookup`.
+- **What does this reach, and what reaches it?** Forward to callees, reverse to callers, and an impact projection onto the public API and tests: `trace`.
+- **What is this, exactly?** The declaration's source, its dependencies, and its dependents: `details`.
 
-A tree-sitter graph has no types and resolves edges by guessing from text. An editor's language server has types but no architecture projection. Only a graph built on the real checker holds the resolved structure and the affected set in one place — every node and edge is resolved by the compiler, so an agent never mistakes inference for fact.
+A tree-sitter graph has no types and resolves edges by guessing from text. An editor's language server has types but no architecture projection. Only a graph built on the real checker holds the resolved structure and the affected set in one place. Every node and edge is resolved by the compiler, so an agent never mistakes inference for fact.
 
 ## What only the compiler can resolve
 
@@ -57,9 +58,9 @@ Add the server to your MCP client. For Claude Code, a `.mcp.json` in your projec
 
 Start the agent from your project root so the server finds your `tsconfig.json`, or point it at a project explicitly with `--cwd` and `--tsconfig`. The server never writes into your `CLAUDE.md`, `AGENTS.md`, or any other agent config file, so installing it has no side effects on your repository.
 
-Your agent picks the tools up from the MCP handshake and calls them when it needs to. The full setup walk-through is in [Setup](/docs/setup#coding-agents-ttscgraph).
+Your agent picks the tool up from the MCP handshake and calls it when it needs to. The full setup walk-through is in [Setup](/docs/setup#coding-agents-ttscgraph).
 
 ## Next
 
-- [Tools](/docs/graph/tools): what `graph_overview`, `graph_query`, `graph_trace`, and `graph_expand` return, and the node and edge kinds.
+- [Tools](/docs/graph/tools): the single MCP tool, its request/result branches, and the node and edge kinds.
 - [3D Viewer](/docs/graph/viewer): browse the whole graph in your browser, or load your own project.

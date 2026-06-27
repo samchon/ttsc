@@ -1,9 +1,10 @@
 import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
 
-/**
- * The ordered dependency flow returned from a start symbol.
- */
+/** The ordered dependency flow returned from a start symbol. */
 export interface ITtscGraphTrace {
+  /** Discriminator for dependency tracing. */
+  type: "trace";
+
   /** The resolved start node, or undefined when `from` matched nothing. */
   start?: ITtscGraphTrace.INode;
 
@@ -31,7 +32,7 @@ export interface ITtscGraphTrace {
   /** Compact hop summaries preserving node names and edge evidence. */
   steps?: string[];
 
-  /** Follow-up handles for expanding or continuing the trace. */
+  /** Follow-up handles for inspecting or continuing the trace. */
   next?: ITtscGraphTrace.INext;
 
   /** When `from` was an ambiguous name, the matches to disambiguate with. */
@@ -39,7 +40,10 @@ export interface ITtscGraphTrace {
 }
 export namespace ITtscGraphTrace {
   /** Where and how far to trace dependency flow. */
-  export interface IProps {
+  export interface IRequest {
+    /** Discriminator for dependency tracing. */
+    type: "trace";
+
     /**
      * Where to start: a node id from another tool, a simple symbol name, or a
      * dotted member name such as `OrderService.create`. An ambiguous name
@@ -128,8 +132,8 @@ export namespace ITtscGraphTrace {
 
   /** Tool-call handles suggested by this trace. */
   export interface INext {
-    /** Pass these ids to `symbol_details` for source or member details. */
-    expand: string[];
+    /** Pass these ids to `details` for source or member details. */
+    details: string[];
     /** Continue tracing from these ids when the current result is intermediate. */
     traceFrom: string[];
   }

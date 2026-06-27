@@ -7,19 +7,25 @@ import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
  * The default payload is source-free: signatures, member outlines, and direct
  * graph summaries. Source bodies are returned only when requested.
  */
-export interface ITtscGraphExpand {
-  nodes: ITtscGraphExpand.INode[];
+export interface ITtscGraphDetails {
+  /** Discriminator for selected symbol inspection. */
+  type: "details";
+
+  nodes: ITtscGraphDetails.INode[];
 
   /** Handles that resolved to no node, or that were ambiguous. */
   unknown: string[];
 }
-export namespace ITtscGraphExpand {
-  /** Which handles to expand, and how much of each to return. */
-  export interface IProps {
+export namespace ITtscGraphDetails {
+  /** Which handles to inspect, and how much of each to return. */
+  export interface IRequest {
+    /** Discriminator for selected symbol inspection. */
+    type: "details";
+
     /**
      * Node ids from another tool, or dotted symbol handles such as
-     * `OrderService.create`. Pass every handle you need for shape-only
-     * expansion; with `source:true`, pass only the one or two leaf bodies whose
+     * `OrderService.create`. Pass every handle you need for shape-only details;
+     * with `source:true`, pass only the one or two leaf bodies whose
      * implementation decides the answer.
      */
     handles: string[];
@@ -35,21 +41,21 @@ export namespace ITtscGraphExpand {
 
     /**
      * Maximum dependencies and dependents to return per side when
-     * `neighbors:true`. Source reads ignore neighbor expansion; split
-     * dependency mapping and source reading into separate calls.
+     * `neighbors:true`. Source reads ignore neighbor details; split dependency
+     * mapping and source reading into separate calls.
      *
      * @default 6
      */
     neighborLimit?: number;
 
     /**
-     * Return the full declaration source body too. Off by default: expand
+     * Return the full declaration source body too. Off by default: details
      * returns a symbol's signature, and a class/interface/namespace's member
      * outline, which is what you usually need and a fraction of the tokens.
      * Turn this on only for the few leaf functions or methods whose actual
      * control-flow logic you must read. Prefer `source:true` without
-     * `neighbors:true`; when `source:true` is set, neighbor expansion is
-     * ignored so body reads stay separate from dependency maps.
+     * `neighbors:true`; when `source:true` is set, neighbor details are ignored
+     * so body reads stay separate from dependency maps.
      *
      * @default false
      */
@@ -67,7 +73,7 @@ export namespace ITtscGraphExpand {
     lineNumbers?: boolean;
   }
 
-  /** One expanded node: its declared shape, and on request its source. */
+  /** One inspected node: its declared shape, and on request its source. */
   export interface INode {
     id: string;
     name: string;
@@ -122,7 +128,7 @@ export namespace ITtscGraphExpand {
     decorators?: ITtscGraphDecorator[];
   }
 
-  /** A dependency neighbor of an expanded node and the edge that links them. */
+  /** A dependency neighbor of an inspected node and the edge that links them. */
   export interface IReference {
     id: string;
     name: string;

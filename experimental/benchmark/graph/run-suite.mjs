@@ -17,7 +17,6 @@
 // --concurrency (prompts in flight, default 4), --inner-concurrency (agent runs
 // in flight inside one prompt, default = --runs), --baseline-store=<path>,
 // --out=<combined report>, --no-setup.
-
 import cp from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -75,6 +74,7 @@ if (arm !== "baseline" && arm !== "graph")
 const harness = arg("harness", "codex");
 const model = arg("model", harness === "codex" ? "gpt-5.4-mini" : "sonnet");
 const runs = Number(arg("runs", arm === "baseline" ? "5" : "1"));
+const maxRunRetries = arg("max-run-retries", arm === "baseline" ? "4" : "0");
 const family = arg("family", "dedicated");
 const outer = Number(arg("concurrency", "4"));
 const inner = Number(arg("inner-concurrency", String(runs)));
@@ -108,8 +108,7 @@ ensureFixtures(prompts);
 function fixtureOf(prompt) {
   const spec = PROJECTS[prompt.repo];
   if (!spec) throw new Error(`unknown repo ${prompt.repo}`);
-  if (spec.sourceRepo)
-    return path.join(work, "graph-source", spec.repoName);
+  if (spec.sourceRepo) return path.join(work, "graph-source", spec.repoName);
   const branch = prompt.fixtureBranch ?? "ttsc";
   return path.join(work, `${spec.repoName}@${branch}`);
 }
@@ -178,16 +177,22 @@ const median = (xs) => {
 /** Run one prompt through the harness for the selected arm; return its samples. */
 function runPrompt(prompt) {
   return new Promise((resolve) => {
-    const report = path.join(tmpDir, `${harness}-${model}-${prompt.id}-${arm}.json`);
+    const report = path.join(
+      tmpDir,
+      `${harness}-${model}-${prompt.id}-${arm}.json`,
+    );
     const dir = fixtureOf(prompt);
     if (!dir || !fs.existsSync(dir))
-      throw new Error(`missing prepared graph fixture for ${prompt.id}: ${dir}`);
+      throw new Error(
+        `missing prepared graph fixture for ${prompt.id}: ${dir}`,
+      );
     const childArgs = [
       harnessScript,
       `--prompt-id=${prompt.id}`,
       `--arm=${arm}`,
       `--runs=${runs}`,
       `--model=${model}`,
+      `--max-run-retries=${maxRunRetries}`,
       `--repo-dir=${dir}`,
       `--report=${report}`,
     ];
@@ -210,9 +215,11 @@ function runPrompt(prompt) {
       console.log(
         `  ${prompt.id.padEnd(32)} ${arm}  ${samples.length}/${runs} ok  median ${median(toks)} tok` +
           (code === 0 ? "" : `  [exit ${code}]`) +
-          (samples.length === 0 && err ? `  ${err.trim().split("\n").pop()}` : ""),
+          (samples.length === 0 && err
+            ? `  ${err.trim().split("\n").pop()}`
+            : ""),
       );
-      resolve({ prompt, samples });
+      resolve({ prompt, report, samples });
     });
   });
 }
@@ -221,12 +228,15 @@ function runPrompt(prompt) {
 async function fanOut(items, fn) {
   const results = [];
   let next = 0;
-  const lanes = Array.from({ length: Math.max(1, Math.min(outer, items.length)) }, async () => {
-    while (next < items.length) {
-      const i = next++;
-      results[i] = await fn(items[i]);
-    }
-  });
+  const lanes = Array.from(
+    { length: Math.max(1, Math.min(outer, items.length)) },
+    async () => {
+      while (next < items.length) {
+        const i = next++;
+        results[i] = await fn(items[i]);
+      }
+    },
+  );
   await Promise.all(lanes);
   return results;
 }
@@ -257,7 +267,10 @@ if (arm === "baseline") {
       medianGraph: median(samples.map((s) => s.graph)),
       tokens: toks,
       pass: graded.length
-        ? { passed: graded.filter((s) => s.quality.pass).length, graded: graded.length }
+        ? {
+            passed: graded.filter((s) => s.quality.pass).length,
+            graded: graded.length,
+          }
         : null,
     };
   }
@@ -304,6 +317,19 @@ if (arm === "baseline") {
     console.log(
       `\nmedian token reduction across ${reds.length} prompt(s): ${median(reds)}%`,
     );
-  if (outPath)
-    fs.writeFileSync(path.resolve(outPath), `${JSON.stringify({ harness, model, arm, runs, rows }, null, 2)}\n`);
+  if (outPath) {
+    const cells = results.map(({ prompt, report }) => ({
+      harness,
+      model,
+      arm,
+      repo: prompt.repo,
+      promptId: prompt.id,
+      promptFamily: prompt.family,
+      report,
+    }));
+    fs.writeFileSync(
+      path.resolve(outPath),
+      `${JSON.stringify({ harness, model, arm, runs, maxRunRetries, family, cells, rows }, null, 2)}\n`,
+    );
+  }
 }

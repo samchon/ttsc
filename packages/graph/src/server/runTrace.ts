@@ -4,7 +4,7 @@ import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { accessAliasesFor } from "./accessAliases";
 import { resolveGraphHandle } from "./resolveHandle";
-import { edgeEvidenceOf, signatureOf } from "./runExpand";
+import { edgeEvidenceOf, signatureOf } from "./runDetails";
 
 const DEFAULT_DEPTH = 6;
 const DEFAULT_MAX_NODES = 30;
@@ -21,7 +21,7 @@ const MAX_HOPS_PER_NODE = 4;
  */
 export function runTrace(
   graph: TtscGraphMemory,
-  props: ITtscGraphTrace.IProps,
+  props: ITtscGraphTrace.IRequest,
 ): ITtscGraphTrace {
   const direction = props.direction ?? "forward";
   const focus = props.focus ?? "all";
@@ -36,6 +36,7 @@ export function runTrace(
   const start = resolveGraphHandle(graph, props.from);
   if (start.candidates) {
     return {
+      type: "trace",
       direction,
       hops: [],
       reached: [],
@@ -44,13 +45,25 @@ export function runTrace(
     };
   }
   if (start.node === undefined) {
-    return { direction, hops: [], reached: [], truncated: false };
+    return {
+      type: "trace",
+      direction,
+      hops: [],
+      reached: [],
+      truncated: false,
+    };
   }
 
   // Path mode: with `to`, return the dependency path from `from` to `to`, the
   // one-call answer for "how does A reach B", instead of an open-ended trace.
   if (props.to !== undefined && props.to !== "") {
-    const base = { direction: "path", hops: [], reached: [], truncated: false };
+    const base = {
+      type: "trace" as const,
+      direction: "path",
+      hops: [],
+      reached: [],
+      truncated: false,
+    };
     const target = resolveGraphHandle(graph, props.to);
     if (target.candidates) {
       return {
@@ -140,13 +153,14 @@ export function runTrace(
   }
 
   return {
+    type: "trace",
     start: summary(graph, start.node),
     direction,
     hops,
     reached: [...reached.values()],
     steps: traceSteps(graph, hops),
     next: {
-      expand: [start.node.id, ...reached.keys()],
+      details: [start.node.id, ...reached.keys()],
       traceFrom: [...reached.keys()],
     },
     truncated,
@@ -155,7 +169,7 @@ export function runTrace(
 
 function nextFromPath(path: ITtscGraphNode[]): ITtscGraphTrace.INext {
   return {
-    expand: path.map((node) => node.id),
+    details: path.map((node) => node.id),
     traceFrom: path.length > 0 ? [path[path.length - 1]!.id] : [],
   };
 }
@@ -187,7 +201,7 @@ function findPath(
   startId: string,
   targetId: string,
   maxDepth: number,
-  focus: ITtscGraphTrace.IProps["focus"],
+  focus: ITtscGraphTrace.IRequest["focus"],
 ): { path: ITtscGraphNode[]; hops: ITtscGraphTrace.IHop[] } | null {
   const startNode = graph.node(startId);
   if (startNode === undefined) return null;
@@ -285,7 +299,7 @@ function summary(
 /** An edge the trace should follow: a real dependency, not a structural edge. */
 function traversable(
   kind: string,
-  focus: ITtscGraphTrace.IProps["focus"],
+  focus: ITtscGraphTrace.IRequest["focus"],
 ): boolean {
   if (kind === "contains" || kind === "exports" || kind === "imports") {
     return false;

@@ -3,8 +3,8 @@
  *
  * The symbol kinds (`file` through `parameter`) are declarations the TypeScript
  * program owns and the checker resolves. `external_symbol` is a
- * dependency-boundary leaf the workspace references but does not declare — the
- * graph keeps it as a named endpoint without expanding the dependency's
+ * dependency-boundary leaf the workspace references but does not declare. The
+ * graph keeps it as a named endpoint without walking into the dependency's
  * internals.
  *
  * Used as the `kind` discriminant on {@link ITtscGraphNode}.
