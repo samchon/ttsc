@@ -50,7 +50,7 @@ export const test_ttscgraph_skip_request_does_not_load_graph = async () => {
     client.notify("notifications/initialized", {});
 
     const result = (await client.request("tools/call", {
-      name: "inspect_typescript_project_graph_before_answering",
+      name: "query",
       arguments: graphArguments(),
     })) as ToolResult;
     const parsed = JSON.parse(result.content[0]?.text ?? "{}") as {

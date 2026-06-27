@@ -10,7 +10,7 @@ So every relationship it reports is the compiler's own answer, not a guess from 
 
 Ask an agent how something works and, without a map, it reconstructs the picture by hand: open a file, follow an import, open the next, and repeat. That is slow, it spends tokens, and the relationships it infers are guesses from whatever text it happened to read.
 
-The graph hands it the answer up front through one MCP tool, `inspect_typescript_project_graph_before_answering`. The agent chooses one request branch per call: `overview`, `entrypoints`, `lookup`, `trace`, `details`, or `escape`. The agent stops fanning out across files.
+The graph hands it the answer up front through one MCP tool, `query`. The agent chooses one request branch per call: `overview`, `entrypoints`, `lookup`, `trace`, `details`, or `escape`. The agent stops fanning out across files.
 
 See the [Benchmark](/docs/benchmark/graph) for the agent-cost method and current numbers.
 

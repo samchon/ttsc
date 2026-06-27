@@ -64,9 +64,8 @@ const graphArguments = (props: {
  * The TypeScript engine is unit-smoked in isolation; this case proves the
  * shipped pipeline works: the Node launcher spawns, runs `ttscgraph dump` once
  * for a real project, builds the resident graph, and answers
- * initialize/tools-list/tools-call for the single
- * inspect_typescript_project_graph_before_answering tool, then exits cleanly
- * when stdin closes.
+ * initialize/tools-list/tools-call for the single query tool, then exits
+ * cleanly when stdin closes.
  *
  * 1. Materialize a project with a Service.run -> helper call chain, then spawn the
  *    launcher against it.
@@ -138,7 +137,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     const names = list.tools.map((tool) => tool.name);
     assert.deepEqual(
       names,
-      ["inspect_typescript_project_graph_before_answering"],
+      ["query"],
       `tools/list advertises the single graph tool, got ${names.join(", ")}`,
     );
 
@@ -151,7 +150,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       };
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking:
             "The question has already been answered by prior evidence, so no graph operation should run.",
@@ -194,7 +193,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       next: { details: string[]; traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking:
             "Find source-free starting handles before tracing Service.run to helper.",
@@ -262,7 +261,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       publicApi?: { id: string; name: string; line?: number }[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking: "Summarize project shape without reading source bodies.",
           request: {
@@ -295,7 +294,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       next: { details: string[]; traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking: "Look up Service by exact symbol name.",
           request: {
@@ -316,7 +315,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       hits: { name: string; kind: string }[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking:
             "Look up the explicit run method before dependency tracing.",
@@ -346,7 +345,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       steps?: string[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking:
             "Trace execution dependencies from run to confirm the helper call.",
@@ -379,7 +378,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       next?: { traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking: "Ask for the direct path from Service.run to helper.",
           request: {
@@ -419,7 +418,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       unknown: string[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking:
             "Read only the Service.run body because the implementation contains the decisive helper call.",
@@ -473,7 +472,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking: "Inspect Service.run shape without reading source.",
           request: {
@@ -504,7 +503,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking:
             "Map immediate Service.run dependencies without source bodies.",
@@ -542,7 +541,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking:
             "Read Service.run source and verify neighbor options stay ignored in source mode.",

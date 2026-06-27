@@ -1,15 +1,15 @@
 # Tools
 
-`@ttsc/graph` exposes one MCP tool: `inspect_typescript_project_graph_before_answering`. It is a narrowing engine over the checker-resolved graph. The model first states why graph evidence is needed, writes `draft.reason` before `draft.type`, reviews that draft for overfetch or wrong-tool use, then submits one request branch.
+`@ttsc/graph` exposes one MCP tool: `query`. It is a narrowing engine over the checker-resolved graph. The model first states why graph evidence is needed, writes `draft.reason` before `draft.type`, reviews that draft for overfetch or wrong-tool use, then submits one request branch.
 
 Every node and edge is resolved by the TypeScript checker, so the graph is a checker-resolved fact map end to end. The MCP return value is always one object: `{ result: ... }`. The `result` property is the union branch, and `result.type` matches the selected request branch.
 
 Use `escape` when the review shows the graph is the wrong evidence source, or the previous result is enough. That branch returns without running a graph lookup or traversal.
 
-## inspect_typescript_project_graph_before_answering
+## query
 
 ```ts
-declare function inspect_typescript_project_graph_before_answering(
+declare function query(
   props: ITtscGraphApplication.IProps,
 ): ITtscGraphApplication.IResult;
 

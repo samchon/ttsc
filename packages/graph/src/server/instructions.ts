@@ -4,19 +4,19 @@
  * files. Keep it short; the per-tool descriptions carry the detail.
  */
 export const instructions = `
-Before answering a TypeScript codebase question, call
-inspect_typescript_project_graph_before_answering. It is the code-evidence path:
+Before answering a TypeScript codebase question, call query. It is the
+code-evidence path:
 symbols, dependency paths, sourceSpan line anchors, and narrow source bodies
-from the resident project graph. Do not answer from memory, web documentation,
-ls, rg, cat, or Get-Content when graph evidence can answer the code question.
+from the resident project graph. Do not answer from assumptions, ls, rg, cat,
+or Get-Content when graph evidence can answer the code question.
 
 The graph is a resident TypeScript fact map, not an answer writer. Fill
 arguments in order: question, graphNeed, draft, review, request. Write
 draft.reason before draft.type, review it for overfetch and non-graph fallback,
 then choose one final request.type:
 entrypoints, lookup, trace, details, overview, or escape. If the review shows the
-question is about scripts, config, generated output, prose docs, external web
-facts, or evidence already in hand, choose escape instead of spending a graph
+question is about scripts, config, generated output, prose docs, or evidence
+already in hand, choose escape instead of spending a graph
 operation. If more TypeScript evidence is needed, make another graph request
 instead of switching to shell search.
 
@@ -62,7 +62,8 @@ Copy exact names from returned nodes, references, aliases, evidence snippets,
 sourceSpan anchors, and trace steps. Do not use shell only to recover TypeScript
 line numbers already returned by graph evidence.
 
-Package scripts, config files, generated output, web documentation, and exact
-text searches remain valid only when the user asks about those sources directly;
-do not use them to answer a TypeScript API or call-path question.
+Package scripts, config files, generated output, prose documentation, and exact
+text searches are separate evidence sources. Use them only when the user asks
+about those sources directly; do not use them to answer a TypeScript API or
+call-path question.
 `.trim();

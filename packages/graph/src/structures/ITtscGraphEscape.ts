@@ -23,8 +23,8 @@ export namespace ITtscGraphEscape {
      * Why no graph operation should run.
      *
      * Use this when the review finds the user is asking about package scripts,
-     * config files, generated output, prose documentation, external web facts,
-     * or an answer that the current graph result already settled.
+     * config files, generated output, prose documentation, or an answer that
+     * the current graph result already settled.
      */
     reason: string;
 

@@ -14,31 +14,25 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  */
 export interface ITtscGraphApplication {
   /**
-   * Inspect the TypeScript project graph before answering code questions.
+   * Query the TypeScript project graph for code evidence.
    *
-   * Use this before answering TypeScript codebase questions. It locates files,
-   * symbols, dependency paths, implementation bodies, and sourceSpan line
-   * anchors from the resident project graph, so answers do not need general
-   * framework memory, web documentation, shell search, or file reads for code
-   * evidence.
+   * Use this before answering TypeScript codebase questions. It returns
+   * checker-resolved symbols, dependency paths, sourceSpan anchors, and narrow
+   * bodies from the resident graph, avoiding assumptions, shell search, or file
+   * reads when graph evidence is enough.
    *
-   * Fill the properties in order: restate the question, explain why graph
-   * evidence is required, write `draft.reason` before `draft.type`, review that
-   * draft, and only then choose one `request.type`: `entrypoints`, `lookup`,
-   * `trace`, `details`, `overview`, or `escape`.
+   * Fill properties in order: question, graphNeed, draft, review, request.
+   * Write `draft.reason` before `draft.type`, then choose `entrypoints`,
+   * `lookup`, `trace`, `details`, `overview`, or `escape`.
    *
-   * Keep result slices small. Prefer defaults, and raise `limit`,
-   * `neighborLimit`, or `maxNodes` only after a previous graph result was
-   * truncated or ambiguous. Keep broad dependency maps and source-body reads in
-   * separate calls; ask for `source: true` only for decisive leaf bodies. Use
-   * returned sourceSpan anchors instead of shell line-number checks.
+   * Keep slices small. Prefer defaults. Raise limits only after truncation or
+   * ambiguity. Keep dependency maps and source reads separate; use
+   * `source:true` only for decisive leaf bodies.
    *
    * @param props The reasoning and selected graph request
    * @returns One `result` union member matching the selected request type
    */
-  inspect_typescript_project_graph_before_answering(
-    props: ITtscGraphApplication.IProps,
-  ): ITtscGraphApplication.IResult;
+  query(props: ITtscGraphApplication.IProps): ITtscGraphApplication.IResult;
 }
 
 export namespace ITtscGraphApplication {
@@ -57,10 +51,10 @@ export namespace ITtscGraphApplication {
     /**
      * Why the resident graph is the next evidence source.
      *
-     * State what graph evidence is needed and why memory, web documentation,
-     * shell search, or source file reads are not the next step for this call.
-     * Name the smallest evidence that would let the agent stop. If graph is not
-     * actually the right source, say that and use `escape`.
+     * State what graph evidence is needed and why assumptions, shell search, or
+     * source file reads are not the next step for this call. Name the smallest
+     * evidence that would let the agent stop. If graph is not actually the
+     * right source, say that and use `escape`.
      */
     graphNeed: string;
 
@@ -76,9 +70,9 @@ export namespace ITtscGraphApplication {
     /**
      * Critical review of the draft request.
      *
-     * Check whether the draft avoids overfetch, shell fallback, web lookup,
-     * broad source reads, and unnecessary neighbor/source combinations. For
-     * caller or call-site questions, prefer reverse trace or details with
+     * Check whether the draft avoids overfetch, non-graph fallback, broad
+     * source reads, and unnecessary neighbor/source combinations. For caller or
+     * call-site questions, prefer reverse trace or details with
      * `neighbors:true`. For exact in-body line anchors, request graph source
      * line numbers. If the draft is wrong, choose the corrected type in
      * `request`; if graph evidence is unnecessary or the prior graph result

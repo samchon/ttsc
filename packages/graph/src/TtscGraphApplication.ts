@@ -30,7 +30,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
     this.graph = typeof source === "function" ? source : () => source;
   }
 
-  public inspect_typescript_project_graph_before_answering(
+  public query(
     props: ITtscGraphApplication.IProps,
   ): ITtscGraphApplication.IResult {
     switch (props.request.type) {

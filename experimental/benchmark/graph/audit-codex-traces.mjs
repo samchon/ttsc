@@ -25,9 +25,7 @@ const baselinePath =
     ? null
     : path.resolve(args.baseline ?? "website/public/benchmark/graph.json");
 const compareInputs = args.compare ? listArg(args.compare) : [];
-const singleGraphToolNames = new Set([
-  "inspect_typescript_project_graph_before_answering",
-]);
+const singleGraphToolNames = new Set(["query"]);
 
 if (truthy(args["self-test"])) {
   runSelfTest();
@@ -2635,7 +2633,7 @@ function mcpItem(id) {
       id,
       type: "mcp_tool_call",
       server: "ttscgraph",
-      tool: "inspect_typescript_project_graph_before_answering",
+      tool: "query",
       arguments: {
         question: "Trace helper usage from Service.run.",
         graphNeed: "Use graph source details instead of shell search.",
