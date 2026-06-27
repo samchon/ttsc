@@ -5,16 +5,17 @@
  */
 export const instructions = `
 Before answering a TypeScript codebase question, call
-inspect_typescript_project_graph_before_answering. It finds symbols, dependency
-paths, sourceSpan line anchors, and narrow source bodies from the resident
-project graph. Do not answer from general memory, web documentation, ls, rg,
-cat, or Get-Content when the project graph can provide the code evidence.
+inspect_typescript_project_graph_before_answering. It is the code-evidence path:
+symbols, dependency paths, sourceSpan line anchors, and narrow source bodies
+from the resident project graph. Do not answer from memory, web documentation,
+ls, rg, cat, or Get-Content when graph evidence can answer the code question.
 
-The graph is a TypeScript index, not an answer writer. Fill thinking before
-each call with the smallest next graph step and its stop condition, then choose
-one request.type: find entrypoints, lookup symbols, trace dependency paths,
-inspect selected symbols, or summarize the project. If more TypeScript evidence
-is needed, make another graph request instead of switching to shell search.
+The graph is a TypeScript index, not an answer writer. Fill arguments in order:
+question, graphNeed, draft, review, request. Draft the request type, review it
+for overfetch and non-graph fallback, then choose one final request.type: find
+entrypoints, lookup symbols, trace dependency paths, inspect selected symbols,
+or summarize the project. If more TypeScript evidence is needed, make another
+graph request instead of switching to shell search.
 
 The graph already knows resolved symbols, dependency edges, evidence spans,
 decorators, stable handles, source bodies, and sourceSpan line anchors. If you

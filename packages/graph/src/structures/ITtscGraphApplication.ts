@@ -21,8 +21,9 @@ export interface ITtscGraphApplication {
    * framework memory, web documentation, shell search, or file reads for code
    * evidence.
    *
-   * In `thinking`, decide the smallest next graph step and the evidence needed
-   * to stop. Then choose one `request.type`: find entrypoints, lookup symbols,
+   * Fill the properties in order: restate the question, explain why graph
+   * evidence is required, draft the next request type, review that draft, and
+   * only then choose one `request.type`: find entrypoints, lookup symbols,
    * trace dependencies, inspect selected symbols, or summarize the project.
    *
    * Keep result slices small. Prefer defaults, and raise `limit`,
@@ -40,20 +41,44 @@ export interface ITtscGraphApplication {
 }
 
 export namespace ITtscGraphApplication {
-  /** Reason first, then submit exactly one graph request. */
+  /** Think, review, then submit exactly one graph request. */
   export interface IProps {
     /**
-     * Think before choosing the graph operation.
+     * User's TypeScript code question.
      *
-     * State the user's code question, the smallest graph request that advances
-     * it, the stop condition for this call, and why shell search is not needed
-     * for this TypeScript evidence. If source is needed, name the one or two
-     * leaf bodies to read through the graph and why signatures, trace steps, or
-     * dependency summaries are not enough. If a package script, config file, or
-     * generated artifact is tempting, say why it is outside or inside the
-     * user's TypeScript code question.
+     * Restate the codebase question being answered. Keep this about TypeScript
+     * source, symbols, call flow, type flow, or architecture. If the user is
+     * asking about scripts, config, generated output, or documentation instead,
+     * say that boundary here.
      */
-    thinking: string;
+    question: string;
+
+    /**
+     * Why the resident graph is the next evidence source.
+     *
+     * State what graph evidence is needed and why memory, web documentation,
+     * shell search, or source file reads are not the next step for this call.
+     * Name the smallest evidence that would let the agent stop.
+     */
+    graphNeed: string;
+
+    /**
+     * First request-type decision before arguments are filled.
+     *
+     * Choose the operation class and explain why it is smaller than the
+     * alternatives. This is only the draft; the final arguments are in
+     * `request` after `review`.
+     */
+    draft: IRequestDraft;
+
+    /**
+     * Critical review of the draft request.
+     *
+     * Check whether the draft avoids overfetch, shell fallback, web lookup,
+     * broad source reads, and unnecessary neighbor/source combinations. If the
+     * draft is wrong, choose the corrected type in `request`.
+     */
+    review: string;
 
     /** The graph operation chosen from the reasoning above. */
     request:
@@ -62,6 +87,20 @@ export namespace ITtscGraphApplication {
       | ITraceDependencyPath
       | IInspectSymbolDetails
       | ISummarizeProject;
+  }
+
+  /** First-pass operation choice before final request arguments. */
+  export interface IRequestDraft {
+    /** Draft discriminator for the intended graph operation. */
+    type:
+      | "find_question_entrypoints"
+      | "lookup_symbols"
+      | "trace_dependency_path"
+      | "inspect_symbol_details"
+      | "summarize_project";
+
+    /** Why this operation type is the smallest useful next step. */
+    reason: string;
   }
 
   /** Find graph starting handles for a natural-language code question. */
