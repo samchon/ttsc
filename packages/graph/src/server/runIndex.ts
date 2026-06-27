@@ -6,11 +6,11 @@ import { resolveGraphHandle } from "./resolveHandle";
 import { decoratorsOf, edgeEvidenceOf, signatureOf } from "./runExpand";
 import { runQuery } from "./runQuery";
 
-const DEFAULT_LIMIT = 8;
+const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 20;
-const DEFAULT_NEIGHBORS = 4;
+const DEFAULT_NEIGHBORS = 1;
 const MAX_NEIGHBORS = 4;
-const MAX_SEEDS = 4;
+const MAX_SEEDS = 3;
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 
 /**

@@ -39,7 +39,7 @@ export namespace ITtscGraphIndex {
     /**
      * Maximum ranked hits to return.
      *
-     * @default 8
+     * @default 5
      */
     limit?: number;
 
@@ -49,7 +49,7 @@ export namespace ITtscGraphIndex {
      * `dependency_path` or `symbol_details(neighbors:true)` after choosing the
      * specific handles.
      *
-     * @default 4
+     * @default 1
      */
     neighbors?: number;
   }

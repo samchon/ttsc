@@ -17,6 +17,11 @@ entrypoints, lookup symbols, trace dependency paths, inspect selected symbols,
 or summarize the project. If more TypeScript evidence is needed, make another
 graph request instead of switching to shell search.
 
+For central public API or entrypoint questions, first use summarize_project with
+aspect: "publicApi". Choose one exported TypeScript symbol from that result,
+then trace_dependency_path or inspect_symbol_details for its concrete path. Do
+not start broad public API questions with a large entrypoint search.
+
 The graph already knows resolved symbols, dependency edges, evidence spans,
 decorators, stable handles, source bodies, and sourceSpan line anchors. If you
 need exact code or line numbers, use inspect_symbol_details with source: true
@@ -29,9 +34,10 @@ edge evidence and line anchors for the call expression.
 
 Request types:
 
-- find_question_entrypoints: first call for a natural-language code question.
-  It returns ranked symbols, direct mentions, and small dependency orientation
-  without source bodies.
+- find_question_entrypoints: compact shortlist for behavior-specific code
+  questions. It returns ranked symbols, direct mentions, and small dependency
+  orientation without source bodies. Do not use it as the first broad public API
+  map.
 - lookup_symbols: targeted symbol search for a class, method, function,
   property, or type when you do not already have its handle.
 - trace_dependency_path: call/type/dependency flow for "how A reaches B",
@@ -45,9 +51,10 @@ Request types:
 
 For a flow question, use find_question_entrypoints once, then
 trace_dependency_path before inspect_symbol_details. Keep broad dependency maps
-separate from source reads. Prefer default limits. Raise limits only after a
-prior graph result was truncated or ambiguous. When source is true, neighbor
-options are ignored.
+separate from source reads. Prefer compact defaults: small candidate lists,
+minimal neighbors, and no source bodies until a symbol is selected. Raise limits
+only after a prior graph result was truncated or ambiguous. When source is true,
+neighbor options are ignored.
 
 Copy exact names from returned nodes, references, aliases, evidence snippets,
 sourceSpan anchors, and trace steps. Do not use shell only to recover TypeScript

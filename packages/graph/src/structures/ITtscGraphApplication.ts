@@ -128,7 +128,7 @@ export namespace ITtscGraphApplication {
      * Keep the default for the first pass. Raise it only when the prior result
      * was truncated or did not contain enough distinct candidates.
      *
-     * @default 8
+     * @default 5
      */
     limit?: number;
 
@@ -138,7 +138,7 @@ export namespace ITtscGraphApplication {
      * This is orientation, not a dump. Keep the default unless the answer needs
      * more direct neighbors from an already chosen symbol.
      *
-     * @default 4
+     * @default 1
      */
     neighbors?: number;
   }
