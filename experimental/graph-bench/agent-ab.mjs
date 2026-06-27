@@ -18,9 +18,9 @@
 // user prompt is the manifest question verbatim, tool-neutral, so the token
 // comparison stays honest. No graph-specific instruction is appended.
 //
-// Each sample also captures the agent's final answer text and, after the run,
-// grades it against the prompt's gold via grade.mjs, so a token saving is never
-// reported as a win while the answer is wrong (quality.pass === false).
+// Each sample also captures the agent's final answer text for manual
+// inspection. The benchmark itself measures runtime behavior only: tokens, tool
+// calls, cost, and wall time.
 //
 // Spends real Claude credits; non-deterministic; not wired into CI. Requires
 // `claude` and `go` on PATH, and a built `@ttsc/graph` (packages/graph/lib).
@@ -35,8 +35,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-import { gradeAnswer, questionSha256 } from "./grade.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
@@ -56,10 +54,9 @@ const ARCHITECTURE_QUESTION = fs
   )
   .trim();
 
-// The manifest (questions/manifest.json) is the source of truth for graded
-// prompts: each entry pins a question .md, a gold .json, and the question's
-// SHA-256. resolveManifestPrompt loads it on demand so a plain --repo run that
-// does not use a manifest prompt still works with no manifest present.
+// The manifest (questions/manifest.json) selects reusable prompt files. It does
+// not grade answers; benchmark scoring is limited to tokens, tools, cost, and
+// time.
 function loadManifest() {
   const manifestPath = path.join(here, "questions", "manifest.json");
   if (!fs.existsSync(manifestPath)) return { prompts: [] };
@@ -67,9 +64,8 @@ function loadManifest() {
 }
 
 // Resolve a manifest prompt by --prompt-id (exact), else the first prompt of a
-// --prompt-family, scoped to --repo when given. Returns the prompt entry plus the
-// loaded question text, the integrity-verified questionSha256, and the goldSha256,
-// or null when neither flag was passed.
+// --prompt-family, scoped to --repo when given. Returns the prompt entry plus
+// the loaded question text, or null when neither flag was passed.
 function resolveManifestPrompt(args) {
   const id = args["prompt-id"];
   const family = args["prompt-family"];
@@ -90,20 +86,11 @@ function resolveManifestPrompt(args) {
     );
   }
   const questionFile = path.resolve(here, "questions", entry.file);
-  const goldFile = path.resolve(here, "questions", entry.gold);
   const text = fs.readFileSync(questionFile, "utf8").trim();
-  const actualSha = questionSha256(questionFile);
-  if (entry.questionSha256 && entry.questionSha256 !== actualSha) {
-    console.warn(
-      `warning: ${entry.id} question sha mismatch (manifest ${entry.questionSha256.slice(0, 12)} != file ${actualSha.slice(0, 12)})`,
-    );
-  }
   return {
     entry,
     text,
-    questionSha256: actualSha,
-    goldSha256: questionSha256(goldFile),
-    gold: JSON.parse(fs.readFileSync(goldFile, "utf8")),
+    questionSha256: entry.questionSha256,
   };
 }
 
@@ -168,8 +155,8 @@ const REPOS = {
 
 const args = parseArgs(process.argv.slice(2));
 // A manifest prompt (--prompt-id / --prompt-family) overrides the per-repo
-// question and pins the repo, fixtureBranch, tsconfig, and the gold to grade
-// against. Resolve it first so it can fill --repo when only --prompt-id is given.
+// question and pins the repo, fixtureBranch, and tsconfig. Resolve it first so
+// it can fill --repo when only --prompt-id is given.
 const manifestPrompt = resolveManifestPrompt(args);
 const repoKey = args.repo ?? manifestPrompt?.entry.repo ?? "excalidraw";
 const spec = REPOS[repoKey];
@@ -188,10 +175,6 @@ const promptFamily =
   manifestPrompt?.entry.family ??
   args["prompt-family"] ??
   (args.question ? "custom" : "project-specific");
-// The gold + integrity stamps travel with the report so grading is reproducible
-// from the report alone (also used to grade each sample in-process after capture).
-const gold = manifestPrompt?.gold ?? null;
-const goldThreshold = Number(args.threshold ?? 0.8);
 if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
 
 const fixtureBranch =
@@ -222,6 +205,16 @@ const toolSetupMs =
 // @ttsc/graph, so the exact same A/B can be run against the tool we ported, for an
 // apples-to-apples comparison. The repo must already be indexed (`codegraph init`).
 const cg = args.cg === "1" || args.cg === "true";
+// --arm selects which arms to run: `baseline` and `graph` can be measured
+// separately so a fixed baseline is cached once and later graph iterations only
+// rerun the MCP arm. Baseline-only does not need graph binaries or dependencies.
+const armFilter = args.arm ?? "both";
+const armsRequested = {
+  baseline: armFilter === "both" || armFilter === "baseline",
+  graph: armFilter === "both" || armFilter === "graph",
+};
+if (!armsRequested.baseline && !armsRequested.graph)
+  throw new Error(`--arm must be baseline | graph | both, got ${armFilter}`);
 
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const goEnv = {
@@ -238,7 +231,7 @@ const binary = path.join(
   os.tmpdir(),
   `ttscgraph-ab-${process.pid}${process.platform === "win32" ? ".exe" : ""}`,
 );
-if (!cg) {
+if (armsRequested.graph && !cg) {
   if (!fs.existsSync(graphLauncher)) {
     throw new Error(
       `@ttsc/graph launcher not built: ${graphLauncher}\n` +
@@ -272,43 +265,46 @@ if (!args["repo-dir"] && !fs.existsSync(repoDir)) {
     process.env,
   );
 }
-if (!cg && !fs.existsSync(path.join(repoDir, tsconfig))) {
+if (
+  armsRequested.graph &&
+  !cg &&
+  !fs.existsSync(path.join(repoDir, tsconfig))
+) {
   throw new Error(`missing tsconfig: ${path.join(repoDir, tsconfig)}`);
 }
-if (!cg) ensureInstalled(repoDir);
+if (armsRequested.graph && !cg) ensureInstalled(repoDir);
 
 // 3. WITH = @ttsc/graph; WITHOUT = empty config. Both --strict-mcp-config. The
 // graph server is the Node launcher run over stdio; it shells out to the dump
 // binary (pointed at via TTSC_GRAPH_BINARY) once at startup, then answers tool
-// calls from the resident graph. The launcher has no daemon/port mode — its
-// single type-check stays inside the measured cell — so there is no --daemon path.
-const withCfg = path.join(os.tmpdir(), `mcp-graph-${process.pid}.json`);
-const emptyCfg = path.join(os.tmpdir(), `mcp-empty-${process.pid}.json`);
-const serverCfg = cg
-  ? { codegraph: codegraphServerConfig(repoDir) }
-  : {
-      "ttsc-graph": {
-        command: process.execPath,
-        args: [graphLauncher, "--cwd", repoDir, "--tsconfig", tsconfig],
-        env: { TTSC_GRAPH_BINARY: binary },
-      },
-    };
-fs.writeFileSync(withCfg, JSON.stringify({ mcpServers: serverCfg }));
-fs.writeFileSync(emptyCfg, JSON.stringify({ mcpServers: {} }));
-
-// --arm selects which arms to run: `baseline` and `graph` can be measured
-// separately so a fixed n=5 baseline is cached once and every later iteration
-// runs only the graph arm against it. Default `both` is the original behavior.
-const armFilter = args.arm ?? "both";
+// calls from the resident graph. The launcher has no daemon/port mode; its
+// single type-check stays inside the measured cell, so there is no daemon path.
+const withCfg = armsRequested.graph
+  ? path.join(os.tmpdir(), `mcp-graph-${process.pid}.json`)
+  : null;
+const emptyCfg = armsRequested.baseline
+  ? path.join(os.tmpdir(), `mcp-empty-${process.pid}.json`)
+  : null;
+if (withCfg) {
+  const serverCfg = cg
+    ? { codegraph: codegraphServerConfig(repoDir) }
+    : {
+        "ttsc-graph": {
+          command: process.execPath,
+          args: [graphLauncher, "--cwd", repoDir, "--tsconfig", tsconfig],
+          env: { TTSC_GRAPH_BINARY: binary },
+        },
+      };
+  fs.writeFileSync(withCfg, JSON.stringify({ mcpServers: serverCfg }));
+}
+if (emptyCfg) fs.writeFileSync(emptyCfg, JSON.stringify({ mcpServers: {} }));
 const arms = [
   { name: "baseline", cfg: emptyCfg },
   { name: "graph", cfg: withCfg },
-].filter((a) => armFilter === "both" || a.name === armFilter);
-if (arms.length === 0)
-  throw new Error(`--arm must be baseline | graph | both, got ${armFilter}`);
+].filter((a) => a.cfg);
 
 console.log(
-  `\ncodegraph A/B on ${repoKey} — model ${model}, ${runs} run(s) x ${arms.length} arms` +
+  `\ncodegraph A/B on ${repoKey} - model ${model}, ${runs} run(s) x ${arms.length} arms` +
     (promptId ? `, prompt ${promptId}` : "") +
     (fixtureBranch ? `, fixture ${fixtureBranch}` : ""),
 );
@@ -328,7 +324,10 @@ fs.mkdirSync(traceDir, { recursive: true });
 
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
 let spent = 0;
-const MAX_RUN_RETRIES = 4;
+const MAX_RUN_RETRIES = parseNonNegativeInteger(
+  args["max-run-retries"] ?? "4",
+  "--max-run-retries",
+);
 // Launch arms x runs concurrently, capped at TTSC_BENCH_CONCURRENCY (default
 // unlimited). A high cap is fastest for experiment iteration; a low cap (a handful)
 // keeps the host quiet enough that per-run timings and token counts settle, which
@@ -341,41 +340,33 @@ const thunks = arms.flatMap((arm) =>
     // in place rather than letting it thin the median. The trace file is keyed by
     // run number, so a successful retry overwrites the failed attempt.
     let m;
+    let attempts = 0;
     for (let attempt = 0; attempt <= MAX_RUN_RETRIES; attempt++) {
-      m = await runClaude(question, arm.cfg, arm.name, r + 1);
+      attempts = attempt + 1;
+      m = validateArmSample(
+        await runClaude(question, arm.cfg, arm.name, r + 1),
+        arm.name,
+      );
       if (m.ok) break;
       if (attempt < MAX_RUN_RETRIES)
         console.log(
           `  ${arm.name.padEnd(8)} run ${r + 1}: [FAILED] ${m.error || ""} retrying (${attempt + 1}/${MAX_RUN_RETRIES})`,
         );
     }
-    // Tag the sample with the manifest provenance and, when a gold is in play,
-    // grade the captured answer so a token win is never reported while the answer
-    // is wrong. quality is null for an unrated run or one that did not finish.
+    // Tag the sample with prompt provenance only. The benchmark does not judge
+    // answer correctness in-process.
     if (promptId) m.promptId = promptId;
-    if (manifestPrompt) {
+    if (manifestPrompt?.questionSha256) {
       m.questionSha256 = manifestPrompt.questionSha256;
-      m.goldSha256 = manifestPrompt.goldSha256;
     }
-    // Grade in a guard: a malformed gold must never crash a whole run of real
-    // agent calls. A grading failure degrades to an ungraded sample, not a lost
-    // benchmark (the traces are already on disk and can be re-graded).
-    try {
-      m.quality =
-        gold && m.ok ? gradeAnswer(m.answer ?? "", gold, goldThreshold) : null;
-    } catch (error) {
-      console.warn(
-        `  grade failed for ${arm.name} run ${r + 1}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      m.quality = null;
-    }
+    m.run = r + 1;
+    m.attempts = attempts;
     samples[arm.name].push(m);
     spent += m.cost;
     console.log(
       `  ${arm.name.padEnd(8)} run ${r + 1}: $${m.cost.toFixed(3)}, ${m.tokens} tok, ${m.tools} tools ` +
         `(read ${m.reads}, grep ${m.grep}, graph ${m.graph}), ${(m.durMs / 1000).toFixed(0)}s` +
-        (m.quality ? `, ${m.quality.pass ? "PASS" : "FAIL"}` : "") +
-        (m.ok ? "" : "  [FAILED]") +
+        (m.ok ? "" : `  [FAILED${m.error ? `: ${m.error}` : ""}]`) +
         `  [running $${spent.toFixed(2)}]`,
     );
   }),
@@ -396,53 +387,42 @@ async function runWithConcurrency(work, limit) {
 const med = (arm, k) =>
   median((samples[arm] ?? []).filter((m) => m.ok).map((m) => m[k]));
 const pct = (g, b) => (b === 0 ? 0 : Math.round((1 - g / b) * 100));
-const line = (label, k, fmt = (x) => x) => {
+const printBaselineLine = (label, k, fmt = (x) => x) => {
+  console.log(`  ${label.padEnd(12)} baseline ${fmt(med("baseline", k))}`);
+};
+const printGraphLine = (label, k, fmt = (x) => x) => {
+  console.log(`  ${label.padEnd(12)} graph ${fmt(med("graph", k))}`);
+};
+const printComparisonLine = (label, k, fmt = (x) => x) => {
   const b = med("baseline", k);
-  const s = `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(med("graph", k))} (${pct(med("graph", k), b)}%)`;
-  console.log(s);
+  console.log(
+    `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(med("graph", k))} (${pct(med("graph", k), b)}%)`,
+  );
 };
 
-console.log(
-  `\nMedian of ${runs} run(s), vs empty-MCP baseline (codegraph metrics):`,
-);
-line("tokens", "tokens");
-line("tool calls", "tools");
-line("cost", "cost", (x) => `$${x.toFixed(3)}`);
-line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
+console.log(`\nMedian of ${runs} run(s), codegraph metrics:`);
+const printLine =
+  armsRequested.baseline && armsRequested.graph
+    ? printComparisonLine
+    : armsRequested.baseline
+      ? printBaselineLine
+      : printGraphLine;
+printLine("tokens", "tokens");
+printLine("tool calls", "tools");
+printLine("cost", "cost", (x) => `$${x.toFixed(3)}`);
+printLine("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 
-// Quality gate: a token saving is only a real win if the graph arm still answers
-// correctly. Report each arm's pass rate, and refuse to call the saving a win when
-// the graph arm's answers fall below threshold.
-if (gold) {
-  const passRate = (arm) => {
-    const graded = (samples[arm] ?? []).filter((m) => m.ok && m.quality);
-    const passed = graded.filter((m) => m.quality.pass).length;
-    return { passed, graded: graded.length };
-  };
-  const b = passRate("baseline");
-  const g = passRate("graph");
-  console.log(
-    `\nQuality (threshold ${goldThreshold}): baseline ${b.passed}/${b.graded} pass  ->  graph ${g.passed}/${g.graded} pass`,
-  );
-  const tokenSaving = pct(med("graph", "tokens"), med("baseline", "tokens"));
-  const graphPasses = g.graded > 0 && g.passed * 2 >= g.graded; // majority pass
-  if (tokenSaving > 0 && !graphPasses) {
-    console.log(
-      `  NOTE: ${tokenSaving}% token saving NOT counted as a win — graph answers are below threshold.`,
-    );
-  }
-}
 console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt ? { questionSha256: manifestPrompt.questionSha256, goldSha256: manifestPrompt.goldSha256, gradeThreshold: goldThreshold } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt?.questionSha256 ? { questionSha256: manifestPrompt.questionSha256 } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
 );
 try {
   fs.rmSync(binary, { force: true });
-  fs.rmSync(withCfg, { force: true });
-  fs.rmSync(emptyCfg, { force: true });
+  if (withCfg) fs.rmSync(withCfg, { force: true });
+  if (emptyCfg) fs.rmSync(emptyCfg, { force: true });
 } catch {
   /* best effort */
 }
@@ -565,7 +545,13 @@ function packageCommand(command, args) {
     ? {
         label: command,
         command: "cmd.exe",
-        args: ["/d", "/s", "/c", command, ...args],
+        args: [
+          "/d",
+          "/s",
+          "/c",
+          ...(command === "yarn" ? ["corepack", "yarn"] : [command]),
+          ...args,
+        ],
       }
     : { label: command, command, args };
 }
@@ -574,13 +560,20 @@ function truthy(value) {
   return value === "1" || value === "true" || value === "yes";
 }
 
+function parseNonNegativeInteger(value, label) {
+  const out = Number(value);
+  if (!Number.isInteger(out) || out < 0) {
+    throw new Error(`${label} must be a non-negative integer`);
+  }
+  return out;
+}
+
 // parseStream mirrors codegraph's parse-bench-readme.mjs: tokens are summed over
 // every assistant turn's usage (not the last-turn result.usage), and tool calls
 // are counted across assistant events (ToolSearch excluded). It also captures the
 // agent's final answer text: the `result` event's `result` string is the canonical
 // final answer; the concatenated text of the last assistant turn is the fallback
-// for a stream that ends without a result event. The captured answer is what
-// grade.mjs scores against the prompt's gold.
+// for a stream that ends without a result event.
 function parseStream(text) {
   let tokens = 0,
     tools = 0,
@@ -651,6 +644,24 @@ function parseStream(text) {
     answer,
     error: result?.is_error ? String(result?.result || "").slice(0, 80) : "",
   };
+}
+
+function validateArmSample(sample, armName) {
+  if (armName === "graph" && sample.ok && sample.graph === 0) {
+    sample.ok = false;
+    sample.invalid = "graph-mcp-not-used";
+    sample.error = "graph arm completed without MCP tool calls";
+  }
+  if (
+    armName === "graph" &&
+    sample.ok &&
+    ((sample.reads ?? 0) > 0 || (sample.grep ?? 0) > 0)
+  ) {
+    sample.ok = false;
+    sample.invalid = "graph-shell-used";
+    sample.error = "graph arm used shell reads/searches instead of graph tools";
+  }
+  return sample;
 }
 
 function runOrThrow(command, commandArgs, cwd, env) {

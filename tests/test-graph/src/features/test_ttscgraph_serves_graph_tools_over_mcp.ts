@@ -16,9 +16,9 @@ const callJson = <T>(result: ToolResult): T =>
  * The TypeScript engine is unit-smoked in isolation; this case proves the
  * shipped pipeline works: the Node launcher spawns, runs `ttscgraph dump` once
  * for a real project, builds the resident graph, and answers
- * initialize/tools-list/tools-call for graph_index, graph_overview,
- * graph_query, graph_trace, and graph_expand, then exits cleanly when stdin
- * closes.
+ * initialize/tools-list/tools-call for question_entrypoints, dependency_path,
+ * symbol_details, symbol_lookup, and project_overview, then exits cleanly when
+ * stdin closes.
  *
  * 1. Materialize a project with a Service.run -> helper call chain, then spawn the
  *    launcher against it.
@@ -33,6 +33,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         compilerOptions: {
           target: "ES2022",
           module: "commonjs",
+          experimentalDecorators: true,
           strict: true,
           rootDir: "src",
           outDir: "dist",
@@ -43,12 +44,24 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       2,
     ),
     "src/app.ts": [
+      "function Route(path: string): MethodDecorator {",
+      "  return () => undefined;",
+      "}",
       "export function helper(): void {}",
       "export class Service {",
+      "  @Route('/run')",
       "  run(): void {",
       "    helper();",
+      "    other();",
+      "    third();",
+      "    fourth();",
+      "    fifth();",
       "  }",
       "}",
+      "export function other(): void {}",
+      "export function third(): void {}",
+      "export function fourth(): void {}",
+      "export function fifth(): void {}",
       "",
     ].join("\n"),
   });
@@ -74,28 +87,39 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     const list = (await client.request("tools/list", {})) as {
       tools: { name: string }[];
     };
-    const names = list.tools.map((tool) => tool.name).sort();
+    const names = list.tools.map((tool) => tool.name);
     assert.deepEqual(
       names,
       [
-        "graph_expand",
-        "graph_index",
-        "graph_overview",
-        "graph_query",
-        "graph_trace",
+        "question_entrypoints",
+        "dependency_path",
+        "symbol_details",
+        "symbol_lookup",
+        "project_overview",
       ],
       `tools/list advertises the five graph tools, got ${names.join(", ")}`,
     );
 
-    // graph_index: the first source-free index resolves direct handles and
+    // question_entrypoints: the first source-free index resolves direct handles and
     // nearby dependency context.
     const index = callJson<{
-      hits: { name: string; signature?: string }[];
+      hits: {
+        name: string;
+        signature?: string;
+        decorators?: { name: string; arguments: { literal?: unknown }[] }[];
+      }[];
       mentions: { handle: string; node?: { name: string } }[];
-      neighborhood: { name: string; dependsOn: { name: string }[] }[];
+      neighborhood: {
+        name: string;
+        dependsOn: {
+          name: string;
+          evidence?: { startLine?: number; text?: string };
+        }[];
+      }[];
+      next: { traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "graph_index",
+        name: "question_entrypoints",
         arguments: { query: "how Service.run reaches helper" },
       })) as ToolResult,
     );
@@ -105,7 +129,19 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
           hit.name === "Service.run" &&
           (hit.signature ?? "").includes("run(): void"),
       ),
-      `graph_index ranks Service.run with a signature: ${JSON.stringify(index.hits)}`,
+      `question_entrypoints ranks Service.run with a signature: ${JSON.stringify(index.hits)}`,
+    );
+    assert.ok(
+      index.hits.some(
+        (hit) =>
+          hit.name === "Service.run" &&
+          hit.decorators?.some(
+            (decorator) =>
+              decorator.name === "Route" &&
+              decorator.arguments.some((arg) => arg.literal === "/run"),
+          ),
+      ),
+      `question_entrypoints carries decorator facts: ${JSON.stringify(index.hits)}`,
     );
     assert.ok(
       index.mentions.some(
@@ -113,23 +149,34 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
           mention.handle === "Service.run" &&
           mention.node?.name === "Service.run",
       ),
-      `graph_index resolves direct dotted mentions: ${JSON.stringify(index.mentions)}`,
+      `question_entrypoints resolves direct dotted mentions: ${JSON.stringify(index.mentions)}`,
     );
     assert.ok(
       index.neighborhood.some(
         (node) =>
           node.name === "Service.run" &&
-          node.dependsOn.some((ref) => ref.name === "helper"),
+          node.dependsOn.some(
+            (ref) =>
+              ref.name === "helper" &&
+              typeof ref.evidence?.startLine === "number" &&
+              (ref.evidence.text ?? "").includes("helper"),
+          ),
       ),
-      `graph_index includes direct dependency context: ${JSON.stringify(index.neighborhood)}`,
+      `question_entrypoints includes direct dependency evidence: ${JSON.stringify(index.neighborhood)}`,
+    );
+    const indexedRun = index.hits.find((hit) => hit.name === "Service.run");
+    assert.ok(
+      indexedRun !== undefined && index.next.traceFrom.includes(indexedRun.id),
+      `question_entrypoints returns trace handles for ranked seeds: ${JSON.stringify(index.next)}`,
     );
 
-    // graph_overview: a compact architecture map with real counts.
+    // project_overview: a compact architecture map with real counts.
     const overview = callJson<{
       counts: { nodes: number; byKind: Record<string, number> };
+      publicApi?: { id: string; name: string; line?: number }[];
     }>(
       (await client.request("tools/call", {
-        name: "graph_overview",
+        name: "project_overview",
         arguments: { aspect: "all" },
       })) as ToolResult,
     );
@@ -140,69 +187,273 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         (byKind.method ?? 0) >= 1 &&
         (byKind.function ?? 0) >= 1 &&
         (byKind.file ?? 0) >= 1,
-      `graph_overview returns architecture counts: ${JSON.stringify(overview.counts)}`,
+      `project_overview returns architecture counts: ${JSON.stringify(overview.counts)}`,
+    );
+    assert.ok(
+      overview.publicApi?.some(
+        (api) =>
+          api.name === "Service" && api.id.length > 0 && api.line !== undefined,
+      ),
+      `project_overview returns public API handles: ${JSON.stringify(overview.publicApi)}`,
     );
 
-    // graph_query: finds Service by name and returns a handle.
+    // symbol_lookup: finds Service by name and ranks explicit method queries.
     const query = callJson<{
       hits: { id: string; name: string; kind: string }[];
+      next: { expand: string[]; traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "graph_query",
+        name: "symbol_lookup",
         arguments: { query: "Service" },
       })) as ToolResult,
     );
     const service = query.hits.find((hit) => hit.name === "Service");
     assert.ok(
       service,
-      `graph_query finds Service: ${JSON.stringify(query.hits)}`,
+      `symbol_lookup finds Service: ${JSON.stringify(query.hits)}`,
+    );
+    assert.ok(
+      query.next.expand.includes(service.id) &&
+        query.next.traceFrom.includes(service.id),
+      `symbol_lookup returns follow-up handles: ${JSON.stringify(query.next)}`,
+    );
+    const methodQuery = callJson<{
+      hits: { name: string; kind: string }[];
+    }>(
+      (await client.request("tools/call", {
+        name: "symbol_lookup",
+        arguments: {
+          query: "How does the `run` method reach helper?",
+          limit: 3,
+        },
+      })) as ToolResult,
+    );
+    assert.equal(
+      methodQuery.hits[0]?.name,
+      "Service.run",
+      `symbol_lookup ranks the explicit method target first: ${JSON.stringify(methodQuery.hits)}`,
+    );
+    assert.equal(
+      methodQuery.hits[0]?.kind,
+      "method",
+      `symbol_lookup preserves the method kind: ${JSON.stringify(methodQuery.hits)}`,
     );
 
-    // graph_trace: forward from Service.run reaches the helper it calls.
-    const trace = callJson<{ reached: { name: string }[] }>(
+    // dependency_path: forward from Service.run reaches the helper it calls.
+    const trace = callJson<{
+      reached: { name: string }[];
+      hops: { evidence?: { text?: string } }[];
+      steps?: string[];
+    }>(
       (await client.request("tools/call", {
-        name: "graph_trace",
-        arguments: { from: "run", direction: "forward" },
+        name: "dependency_path",
+        arguments: { from: "run", direction: "forward", focus: "execution" },
       })) as ToolResult,
     );
     assert.ok(
       trace.reached.some((node) => node.name === "helper"),
-      `graph_trace forward reaches helper: ${JSON.stringify(trace.reached)}`,
+      `dependency_path forward reaches helper: ${JSON.stringify(trace.reached)}`,
+    );
+    assert.ok(
+      trace.hops.some((hop) => (hop.evidence?.text ?? "").includes("helper")),
+      `dependency_path forward carries hop evidence: ${JSON.stringify(trace.hops)}`,
+    );
+    assert.ok(
+      trace.steps?.some((step) => step.includes("Service.run")),
+      `dependency_path returns compact step text: ${JSON.stringify(trace.steps)}`,
     );
 
-    // graph_trace path mode: dotted from handles can be used directly.
+    // dependency_path path mode: dotted from handles can be used directly.
     const pathTrace = callJson<{
       path?: { name: string; signature?: string }[];
+      steps?: string[];
+      next?: { traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "graph_trace",
+        name: "dependency_path",
         arguments: { from: "Service.run", to: "helper" },
       })) as ToolResult,
     );
     assert.ok(
       pathTrace.path?.some((node) => node.name === "helper"),
-      `graph_trace path reaches helper from dotted handle: ${JSON.stringify(pathTrace.path)}`,
+      `dependency_path path reaches helper from dotted handle: ${JSON.stringify(pathTrace.path)}`,
     );
     assert.ok(
       pathTrace.path?.some((node) =>
         (node.signature ?? "").includes("run(): void"),
       ),
-      `graph_trace path carries signatures: ${JSON.stringify(pathTrace.path)}`,
+      `dependency_path path carries signatures: ${JSON.stringify(pathTrace.path)}`,
+    );
+    assert.ok(
+      pathTrace.steps?.some((step) => step.includes("helper")) &&
+        (pathTrace.next?.traceFrom.length ?? 0) > 0,
+      `dependency_path path returns step text and continuation handles: ${JSON.stringify(pathTrace)}`,
     );
 
-    // graph_expand: reads the declaration source the graph located.
+    // symbol_details: reads the declaration source the graph located.
     const expand = callJson<{
-      nodes: { id: string; source?: string }[];
+      finalAnswerChecklist?: string[];
+      answerChecklist?: {
+        copyExact: string[];
+        exactIdentifiers: string[];
+        flow?: string[];
+        calls?: string[];
+        literals?: string[];
+        sourceSpans?: string[];
+      };
+      answerFacts?: string[];
+      nodes: {
+        id: string;
+        name: string;
+        source?: string;
+        sourceSpan?: { file: string; startLine: number; endLine?: number };
+        calls?: string[];
+        flow?: string[];
+        literals?: string[];
+        decorators?: { name: string; arguments: { literal?: unknown }[] }[];
+      }[];
       unknown: string[];
     }>(
       (await client.request("tools/call", {
-        name: "graph_expand",
+        name: "symbol_details",
         arguments: { handles: ["Service.run"], source: true },
       })) as ToolResult,
     );
     assert.ok(
       expand.nodes.some((node) => (node.source ?? "").includes("helper(")),
-      `graph_expand returns the run body: ${JSON.stringify(expand.nodes)}`,
+      `symbol_details returns the run body: ${JSON.stringify(expand.nodes)}`,
+    );
+    assert.ok(
+      expand.nodes.some((node) => node.calls?.some((call) => call === "helper")),
+      `symbol_details returns direct call summaries: ${JSON.stringify(expand.nodes)}`,
+    );
+    assert.ok(
+      expand.nodes.some((node) =>
+        node.flow?.some((step) => step.includes("Service.run -> helper")),
+      ),
+      `symbol_details returns execution flow summaries: ${JSON.stringify(expand.nodes)}`,
+    );
+    assert.ok(
+      expand.finalAnswerChecklist?.some((item) =>
+        item.includes("Use exact flow: Service.run -> helper"),
+      ),
+      `symbol_details returns final answer checklist: ${JSON.stringify(expand)}`,
+    );
+    assert.ok(
+      expand.answerChecklist?.copyExact.includes("Service.run") &&
+        expand.answerChecklist.copyExact.includes("helper"),
+      `symbol_details returns copy-exact identifiers: ${JSON.stringify(expand)}`,
+    );
+    assert.ok(
+      expand.answerChecklist?.exactIdentifiers.includes("Service.run") &&
+        expand.answerChecklist.exactIdentifiers.includes("helper"),
+      `symbol_details returns exact answer identifiers: ${JSON.stringify(expand)}`,
+    );
+    assert.ok(
+      expand.answerChecklist?.calls?.includes("helper"),
+      `symbol_details returns checklist calls: ${JSON.stringify(expand)}`,
+    );
+    assert.ok(
+      expand.answerChecklist?.flow?.some((step) =>
+        step.includes("Service.run -> helper"),
+      ),
+      `symbol_details returns checklist flow: ${JSON.stringify(expand)}`,
+    );
+    assert.ok(
+      expand.answerChecklist?.sourceSpans?.some((span) =>
+        span.includes("src/app.ts:7"),
+      ),
+      `symbol_details returns checklist source spans: ${JSON.stringify(expand)}`,
+    );
+    assert.ok(
+      expand.answerFacts?.some((fact) =>
+        fact.includes("Service.run flow: Service.run -> helper"),
+      ),
+      `symbol_details returns answer facts: ${JSON.stringify(expand)}`,
+    );
+    assert.ok(
+      expand.nodes.some(
+        (node) =>
+          node.sourceSpan?.file.endsWith("app.ts") &&
+          typeof node.sourceSpan.startLine === "number",
+      ),
+      `symbol_details returns source line anchors: ${JSON.stringify(expand.nodes)}`,
+    );
+    assert.ok(
+      expand.nodes.some((node) =>
+        node.decorators?.some(
+          (decorator) =>
+            decorator.name === "Route" &&
+            decorator.arguments.some((arg) => arg.literal === "/run"),
+        ),
+      ),
+      `symbol_details returns decorator facts: ${JSON.stringify(expand.nodes)}`,
+    );
+
+    const expandDeps = callJson<{
+      nodes: {
+        dependsOn?: { name: string; evidence?: { text?: string } }[];
+        dependedOnBy?: unknown[];
+      }[];
+    }>(
+      (await client.request("tools/call", {
+        name: "symbol_details",
+        arguments: {
+          handles: ["Service.run"],
+          neighbors: true,
+          neighborLimit: 1,
+        },
+      })) as ToolResult,
+    );
+    assert.ok(
+      expandDeps.nodes.some(
+        (node) =>
+          node.dependsOn?.some(
+            (ref) =>
+              ref.name === "helper" &&
+              (ref.evidence?.text ?? "").includes("helper"),
+          ) &&
+          (node.dependsOn?.length ?? 0) <= 1 &&
+          Array.isArray(node.dependedOnBy),
+      ),
+      `symbol_details returns dependency neighbors: ${JSON.stringify(expandDeps.nodes)}`,
+    );
+
+    const expandSourceDeps = callJson<{
+      nodes: {
+        source?: string;
+        dependsOn?: {
+          name: string;
+          evidence?: { startLine?: number; text?: string };
+        }[];
+      }[];
+    }>(
+      (await client.request("tools/call", {
+        name: "symbol_details",
+        arguments: {
+          handles: ["Service.run"],
+          source: true,
+          neighbors: true,
+          neighborLimit: 10,
+        },
+      })) as ToolResult,
+    );
+    assert.ok(
+      expandSourceDeps.nodes.some(
+        (node) =>
+          (node.source ?? "").includes("helper(") &&
+          node.dependsOn?.some(
+            (ref) =>
+              ref.name === "helper" &&
+              typeof ref.evidence?.startLine === "number" &&
+              ref.evidence.text === undefined,
+          ),
+      ),
+      `symbol_details omits duplicate evidence text covered by source: ${JSON.stringify(expandSourceDeps.nodes)}`,
+    );
+    assert.ok(
+      expandSourceDeps.nodes.every((node) => (node.dependsOn?.length ?? 0) <= 3),
+      `symbol_details caps source+neighbors dependency slices: ${JSON.stringify(expandSourceDeps.nodes)}`,
     );
   } finally {
     client.endStdin();
@@ -215,3 +466,4 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     `the launcher should exit cleanly on stdin close\nstderr: ${client.stderrText()}`,
   );
 };
+

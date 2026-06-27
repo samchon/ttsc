@@ -9,9 +9,9 @@ import PerformanceSummary from "../../../components/benchmark/PerformanceSummary
 
 [The Code Graph benchmark](/docs/benchmark/graph) measures whether an agent spends fewer tokens and tool calls when it has the `@ttsc/graph` code map available. It also covers structural coverage: how completely the graph resolves a real codebase's cross-file relationships.
 
-The agent-cost slice now reports shared onboarding prompt results separately from project-specific prompt file results. The shared prompt starts from exported symbols and folder structure, then narrows into graph queries. Project-specific prompts live under `experimental/graph-bench/questions/*.md`.
+The agent-cost slice reports prompt families separately. `dedicated` prompts are project-specific mechanism questions. `common` prompts ask the same onboarding-style question across projects.
 
-The summary below shows the vscode run, the flagship large repo served through the graph daemon, comparing the empty-MCP baseline against `@ttsc/graph` and `codegraph` across Claude Sonnet and Opus. The full dashboard covers excalidraw, typeorm, vue, rxjs, zod, nestjs, and shopping-backend as well.
+The current graph refresh starts with Codex / GPT-5.4 mini empty-MCP baselines. Comparator measurements for `@ttsc/graph` and `codegraph` are added as separate graph arms after the baseline exists.
 
 <GraphBenchmark variant="summary" />
 

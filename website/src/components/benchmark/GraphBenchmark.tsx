@@ -19,6 +19,7 @@ interface AgentCell {
   model: string;
   modelVersion?: string;
   effort?: string;
+  promptId?: string;
   promptFamily?: string;
   fixtureBranch?: string;
   daemon?: boolean;
@@ -152,10 +153,14 @@ function repoLabel(repo: string): string {
 
 function promptFamilyLabel(promptFamily: string): string {
   switch (promptFamily) {
+    case "common":
     case "shared-onboarding":
       return "Shared onboarding";
+    case "dedicated":
     case "project-specific":
       return "Project prompt";
+    case "overview":
+      return "Overview";
     case "custom":
       return "Custom prompt";
     default:
@@ -165,6 +170,7 @@ function promptFamilyLabel(promptFamily: string): string {
 
 const TOOL_TTSC = "ttsc-graph";
 const TOOL_CODEGRAPH = "codegraph";
+const TOOL_BASELINE = "baseline";
 
 function cellTool(cell: AgentCell): string {
   return cell.tool ?? TOOL_TTSC;
@@ -207,19 +213,24 @@ function groupBy<T>(
 }
 
 // ---------------------------------------------------------------------------
-// Grouped model: one (repo, model) compared as baseline / ttsc-graph / codegraph
+// Grouped model: one comparable model cell against baseline / graph tools
 // ---------------------------------------------------------------------------
 
 interface Metrics {
   tokens: number;
+  reasoning: number;
   tools: number;
   dur: number;
 }
 
 interface ModelGroup {
+  id: string;
   model: string;
   label: string;
   harness: string;
+  effort?: string;
+  fixtureBranch?: string;
+  daemon: boolean;
   runs?: number;
   codegraphSetupMs?: number;
   baseline: Metrics;
@@ -230,6 +241,7 @@ interface ModelGroup {
 interface ProjectGroup {
   id: string;
   repo: string;
+  promptId?: string;
   promptFamily: string;
   question?: string;
   models: ModelGroup[];
@@ -238,48 +250,102 @@ interface ProjectGroup {
 function medianMetrics(samples: AgentSample[]): Metrics {
   return {
     tokens: median(samples.map((s) => s.tokens)),
+    reasoning: median(
+      samples.map((s) => (typeof s.reasoning === "number" ? s.reasoning : 0)),
+    ),
     tools: median(samples.map((s) => s.tools)),
     dur: median(samples.map((s) => s.durMs ?? 0)),
   };
 }
 
+function modelGroupKey(cell: AgentCell): string {
+  return [
+    cell.harness,
+    cell.model,
+    cell.modelVersion ?? "",
+    cell.effort ?? "",
+    cell.fixtureBranch ?? "",
+    cell.daemon === true ? "daemon" : "oneshot",
+  ].join("\0");
+}
+
+function projectGroupKey(cell: AgentCell): string {
+  return [
+    cell.promptId ?? "",
+    cell.promptFamily ?? "project-specific",
+    cell.repo,
+  ].join("\0");
+}
+
 /**
  * Reshape the flat cell list into project -> model groups. Each model row
- * carries one empty-MCP baseline (the median of every baseline sample measured
- * for that model in this repo, across the ttsc-graph and codegraph cells, which
- * are the same A against different B), plus the ttsc-graph and codegraph graph
- * medians when those cells exist.
+ * carries one empty-MCP baseline for the same harness/model
+ * version/effort/fixture mode in this repo, plus the ttsc-graph and codegraph
+ * graph medians when those cells exist. Dedicated baseline cells win; older
+ * combined A/B cells remain readable through their embedded baseline samples.
  */
 function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
-  return groupBy(cells, (cell) => `${cell.promptFamily ?? "project-specific"}\0${cell.repo}`).map(
-    ({ key, items: repoCells }) => {
-      const [promptFamily = "project-specific", repo = ""] = key.split("\0");
-      const models = groupBy(repoCells, (cell) => cell.model)
-        .map(({ items: modelCells }): ModelGroup => {
-          const ttscCell = modelCells.find((c) => cellTool(c) === TOOL_TTSC);
-          const codegraphCell = modelCells.find(
-            (c) => cellTool(c) === TOOL_CODEGRAPH,
-          );
-          const baselineSamples = modelCells.flatMap((c) => c.samples.baseline);
-          const head = modelCells[0]!;
-          return {
-            model: head.model,
-            label: modelLabel(head),
-            harness: head.harness,
-            runs: ttscCell?.runs ?? codegraphCell?.runs,
-            codegraphSetupMs: codegraphCell?.toolSetupMs,
-            baseline: medianMetrics(baselineSamples),
-            ttsc: ttscCell ? medianMetrics(ttscCell.samples.graph) : undefined,
-            codegraph: codegraphCell
+  return groupBy(cells, projectGroupKey).map(({ key, items: repoCells }) => {
+    const [promptId = "", promptFamily = "project-specific", repo = ""] =
+      key.split("\0");
+    const models = groupBy(repoCells, modelGroupKey)
+      .map(({ key: modelKey, items: modelCells }): ModelGroup => {
+        const ttscCell = modelCells.find((c) => cellTool(c) === TOOL_TTSC);
+        const codegraphCell = modelCells.find(
+          (c) => cellTool(c) === TOOL_CODEGRAPH,
+        );
+        const baselineCells = modelCells.filter(
+          (c) => cellTool(c) === TOOL_BASELINE,
+        );
+        const baselineCell = baselineCells[0];
+        const dedicatedBaselineSamples = baselineCells.flatMap(
+          (c) => c.samples.baseline,
+        );
+        const embeddedBaselineSamples = modelCells
+          .filter((c) => cellTool(c) !== TOOL_BASELINE)
+          .flatMap((c) => c.samples.baseline);
+        const baselineSamples =
+          dedicatedBaselineSamples.length > 0
+            ? dedicatedBaselineSamples
+            : embeddedBaselineSamples;
+        const head = modelCells[0]!;
+        return {
+          id: modelKey,
+          model: head.model,
+          label: modelLabel(head),
+          harness: head.harness,
+          effort: head.effort,
+          fixtureBranch: head.fixtureBranch,
+          daemon: head.daemon === true,
+          runs: ttscCell?.runs ?? codegraphCell?.runs ?? baselineCell?.runs,
+          codegraphSetupMs: codegraphCell?.toolSetupMs,
+          baseline: medianMetrics(baselineSamples),
+          ttsc:
+            ttscCell && ttscCell.samples.graph.length > 0
+              ? medianMetrics(ttscCell.samples.graph)
+              : undefined,
+          codegraph:
+            codegraphCell && codegraphCell.samples.graph.length > 0
               ? medianMetrics(codegraphCell.samples.graph)
               : undefined,
-          };
-        })
-        .sort((a, b) => modelOrder(a.model) - modelOrder(b.model));
-      const question = repoCells.find((c) => c.question)?.question;
-      return { id: key, repo, promptFamily, question, models };
-    },
-  );
+        };
+      })
+      .sort(
+        (a, b) =>
+          modelOrder(a.model) - modelOrder(b.model) ||
+          a.label.localeCompare(b.label) ||
+          a.id.localeCompare(b.id),
+      );
+    const question = repoCells.find((c) => c.question)?.question;
+    return {
+      id: key,
+      repo,
+      promptId: promptId || undefined,
+      promptFamily,
+      question,
+      models,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -367,6 +433,11 @@ interface Metric {
 const METRICS: Metric[] = [
   { key: "tokens", label: "tokens", fmt: (n) => fmt(Math.round(n)) },
   {
+    key: "reasoning",
+    label: "reasoning tokens",
+    fmt: (n) => fmt(Math.round(n)),
+  },
+  {
     key: "tools",
     label: "tool calls",
     fmt: (n) => (n % 1 === 0 ? fmt(Math.round(n)) : n.toFixed(1)),
@@ -400,7 +471,7 @@ function BarRow({
       >
         {bar.label}
         {bar.mode ? (
-          <span className="text-neutral-500"> · {bar.mode}</span>
+          <span className="text-neutral-500"> - {bar.mode}</span>
         ) : null}
       </span>
       <div className="relative h-3.5 flex-1 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ring-white/[0.04]">
@@ -416,9 +487,9 @@ function BarRow({
         {saved === null ? (
           <span className="text-neutral-600">baseline</span>
         ) : saved >= 0 ? (
-          <span style={{ color: ACCENT }}>↓{saved}%</span>
+          <span style={{ color: ACCENT }}>{saved}%</span>
         ) : (
-          <span className="text-rose-400">↑{-saved}%</span>
+          <span className="text-rose-400">+{-saved}%</span>
         )}
       </span>
     </div>
@@ -479,8 +550,26 @@ function MetricGroup({ metric, model }: { metric: Metric; model: ModelGroup }) {
   );
 }
 
+function modelMeta(model: ModelGroup): string {
+  const parts = [harnessLabel(model.harness)];
+  if (model.effort) parts.push(`effort ${model.effort}`);
+  if (model.fixtureBranch) parts.push(model.fixtureBranch);
+  parts.push(model.daemon ? "daemon" : "one-shot");
+  if (model.runs !== undefined)
+    parts.push(`${model.runs} run${model.runs !== 1 ? "s" : ""}`);
+  return parts.join(" - ");
+}
+
 /** One model row: its identity on the left, the metric groups on the right. */
 function ModelBlock({ model }: { model: ModelGroup }) {
+  const metrics = METRICS.filter(
+    (metric) =>
+      metric.key !== "reasoning" ||
+      model.baseline.reasoning > 0 ||
+      (model.ttsc?.reasoning ?? 0) > 0 ||
+      (model.codegraph?.reasoning ?? 0) > 0,
+  );
+
   return (
     <div className="grid gap-5 px-5 py-5 md:grid-cols-[minmax(8rem,12rem)_minmax(0,1fr)] md:gap-6">
       <div className="md:border-r md:border-[#1a1f29] md:pr-6">
@@ -488,10 +577,7 @@ function ModelBlock({ model }: { model: ModelGroup }) {
           {model.label}
         </p>
         <p className="mt-1.5 font-mono text-[11px] text-neutral-500">
-          {harnessLabel(model.harness)}
-          {model.runs !== undefined
-            ? ` · ${model.runs} run${model.runs !== 1 ? "s" : ""}`
-            : ""}
+          {modelMeta(model)}
         </p>
         {model.codegraphSetupMs !== undefined ? (
           <p className="mt-1 font-mono text-[11px] text-neutral-500">
@@ -501,7 +587,7 @@ function ModelBlock({ model }: { model: ModelGroup }) {
       </div>
 
       <div className="space-y-2.5">
-        {METRICS.map((metric) => (
+        {metrics.map((metric) => (
           <MetricGroup key={metric.key} metric={metric} model={model} />
         ))}
       </div>
@@ -528,6 +614,10 @@ function ProjectPanel({
   group: ProjectGroup;
   aside?: string;
 }) {
+  const hasTtsc = group.models.some((model) => model.ttsc);
+  const hasCodegraph = group.models.some((model) => model.codegraph);
+  const hasComparator = hasTtsc || hasCodegraph;
+
   return (
     <section className={panelClass}>
       <SectionHeader
@@ -535,23 +625,29 @@ function ProjectPanel({
         title={repoLabel(group.repo)}
         description={
           group.question ??
-          "Median tokens, tool calls and wall time per model, against the empty-MCP baseline. Each tool is shown as mcp (the server alone)."
+          (hasComparator
+            ? "Median tokens, tool calls and wall time per model, against the empty-MCP baseline. Each tool is shown as mcp (the server alone)."
+            : "Median tokens, tool calls and wall time for the empty-MCP baseline. Graph comparator measurements have not been published for this slice yet.")
         }
         aside={aside}
       />
 
       <div className="divide-y divide-[#1a1f29]">
         {group.models.map((model) => (
-          <ModelBlock key={model.model} model={model} />
+          <ModelBlock key={model.id} model={model} />
         ))}
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-[#1a1f29] px-5 py-3 font-mono text-[10px] text-neutral-500">
         <LegendDot fill={BASELINE_FILL} label="empty-MCP baseline" />
-        <LegendDot fill={ACCENT} label="@ttsc/graph" />
-        <LegendDot fill={CODEGRAPH_TEXT} label="codegraph" />
+        {hasTtsc ? <LegendDot fill={ACCENT} label="@ttsc/graph" /> : null}
+        {hasCodegraph ? (
+          <LegendDot fill={CODEGRAPH_TEXT} label="codegraph" />
+        ) : null}
         <span className="text-neutral-600">
-          mcp = server only · ↓ saved vs baseline · ↑ over baseline
+          {hasComparator
+            ? "mcp = server only; saved vs baseline; over baseline"
+            : "comparator measurements pending"}
         </span>
       </div>
     </section>
@@ -801,7 +897,12 @@ export default function GraphBenchmark({
   // matching the index prose; the full page tabs across every project.
   if (variant === "summary") {
     const hero =
-      groups.find((g) => g.repo === "vscode" && g.promptFamily === "project-specific") ??
+      groups.find(
+        (g) => g.repo === "vscode" && g.promptFamily === "dedicated",
+      ) ??
+      groups.find(
+        (g) => g.repo === "vscode" && g.promptFamily === "project-specific",
+      ) ??
       groups.find((g) => g.repo === "vscode") ??
       groups[0];
     return (
@@ -811,11 +912,10 @@ export default function GraphBenchmark({
     );
   }
 
-  // Default to the first project that carries the full comparison (codegraph +
-  // both modes), so the dual measurement is visible on load rather than the
-  // excalidraw cell that only has the @ttsc/graph arm.
+  // Default to the first project that carries a full comparison when one exists.
   const defaultGroup =
     groups.find((g) => g.models.some((m) => m.codegraph)) ??
+    groups.find((g) => g.models.some((m) => m.ttsc)) ??
     groups[0];
   const active =
     activeGroupId && groups.some((g) => g.id === activeGroupId)

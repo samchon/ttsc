@@ -3,21 +3,21 @@ import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphIndex } from "../structures/ITtscGraphIndex";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { resolveGraphHandle } from "./resolveHandle";
-import { signatureOf } from "./runExpand";
+import { decoratorsOf, edgeEvidenceOf, signatureOf } from "./runExpand";
 import { runQuery } from "./runQuery";
 
 const DEFAULT_LIMIT = 8;
 const MAX_LIMIT = 20;
 const DEFAULT_NEIGHBORS = 4;
-const MAX_NEIGHBORS = 8;
-const MAX_SEEDS = 6;
+const MAX_NEIGHBORS = 4;
+const MAX_SEEDS = 4;
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 
 /**
  * Build the first source-free index for a code question. The result gives the
  * model stable handles, declaration signatures, and direct graph context. It is
  * deliberately not a source reader; source remains opt-in through
- * graph_expand.
+ * symbol_details.
  */
 export function runIndex(
   graph: TtscGraphMemory,
@@ -35,7 +35,7 @@ export function runIndex(
   const queryResult = runQuery(graph, { query, limit });
   const hits = queryResult.hits.map((hit) => ({ ...hit }));
 
-  const mentions = directMentions(query).map((handle) => {
+  const mentions = directMentions(graph, query).map((handle) => {
     const resolved = resolveGraphHandle(graph, handle, 6);
     const mention: ITtscGraphIndex.IMention = { handle };
     if (resolved.node !== undefined)
@@ -85,9 +85,7 @@ export function runIndex(
     neighborhood,
     next: {
       expand: seeds.slice(0, MAX_SEEDS).map((node) => node.id),
-      traceFrom: mentions
-        .map((mention) => mention.node?.id)
-        .filter((id): id is string => id !== undefined),
+      traceFrom: seeds.slice(0, MAX_SEEDS).map((node) => node.id),
     },
     ...(truncated ? { truncated: true } : {}),
   };
@@ -107,6 +105,8 @@ function nodeOf(
     out.line = node.evidence.startLine;
   const signature = signatureOf(graph.project, node);
   if (signature !== undefined) out.signature = signature;
+  const decorators = decoratorsOf(node);
+  if (decorators !== undefined) out.decorators = decorators;
   return out;
 }
 
@@ -123,6 +123,8 @@ function refOf(
   };
   if (node.evidence?.startLine !== undefined)
     out.line = node.evidence.startLine;
+  const evidence = edgeEvidenceOf(edge);
+  if (evidence !== undefined) out.evidence = evidence;
   return out;
 }
 
@@ -132,7 +134,7 @@ function refs(
   end: "to" | "from",
   limit: number,
 ): { items: ITtscGraphIndex.IReference[]; truncated: boolean } {
-  const items: ITtscGraphIndex.IReference[] = [];
+  const ranked: Array<{ ref: ITtscGraphIndex.IReference; rank: number }> = [];
   const seen = new Set<string>();
   let available = 0;
   for (const edge of edges) {
@@ -143,15 +145,74 @@ function refs(
     if (seen.has(key)) continue;
     seen.add(key);
     available++;
-    if (items.length < limit) items.push(refOf(other, edge));
+    const ref = refOf(other, edge);
+    ranked.push({ ref, rank: refRank(ref, edge) });
+  }
+  ranked.sort((a, b) => a.rank - b.rank);
+  const items: ITtscGraphIndex.IReference[] = [];
+  for (const item of ranked) {
+    if (items.length < limit) items.push(item.ref);
   }
   return { items, truncated: available > items.length };
 }
 
-function directMentions(query: string): string[] {
+function refRank(
+  ref: ITtscGraphIndex.IReference,
+  edge: ITtscGraphEdge,
+): number {
+  return (
+    edgeKindRank(edge.kind) * 100_000 +
+    evidenceRank(edge) +
+    (ref.file.startsWith("bundled://") ? 20_000 : 0)
+  );
+}
+
+function evidenceRank(edge: ITtscGraphEdge): number {
+  const line = edge.evidence?.startLine ?? 9_999;
+  const col = edge.evidence?.startCol ?? 999;
+  return line * 100 + col;
+}
+
+function edgeKindRank(kind: string): number {
+  switch (kind) {
+    case "calls":
+      return 0;
+    case "instantiates":
+      return 1;
+    case "accesses":
+    case "renders":
+      return 2;
+    case "tests":
+      return 3;
+    case "overrides":
+    case "decorates":
+      return 4;
+    case "extends":
+    case "implements":
+      return 5;
+    case "type_ref":
+      return 6;
+    default:
+      return 10;
+  }
+}
+
+function directMentions(graph: TtscGraphMemory, query: string): string[] {
   const handles = new Set<string>();
+  for (const token of query.split(/\s+/)) {
+    const handle = normalizeNodeIdToken(token);
+    if (handle !== undefined && graph.node(handle) !== undefined) {
+      handles.add(handle);
+    }
+  }
   for (const match of query.matchAll(/`([^`]+)`/g)) {
-    const handle = normalizeHandle(match[1] ?? "");
+    const raw = match[1] ?? "";
+    const id = normalizeNodeIdToken(raw);
+    if (id !== undefined && graph.node(id) !== undefined) {
+      handles.add(id);
+      continue;
+    }
+    const handle = normalizeHandle(raw);
     if (handle !== undefined) handles.add(handle);
   }
   for (const match of query.matchAll(
@@ -161,6 +222,18 @@ function directMentions(query: string): string[] {
     if (handle !== undefined) handles.add(handle);
   }
   return [...handles];
+}
+
+function normalizeNodeIdToken(raw: string): string | undefined {
+  const value = raw
+    .trim()
+    .replace(/^[`"'([{]+/, "")
+    .replace(/[`"',.;:)\]}]+$/, "");
+  return /^[^\s#]+#[^\s#]+:(class|interface|type|enum|function|method|variable|property)$/.test(
+    value,
+  )
+    ? value
+    : undefined;
 }
 
 function normalizeHandle(raw: string): string | undefined {

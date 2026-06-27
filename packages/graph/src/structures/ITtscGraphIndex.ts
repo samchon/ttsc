@@ -1,4 +1,7 @@
-/** The compact source-free index returned by `graph_index` for a code question. */
+import { ITtscGraphDecorator } from "./ITtscGraphDecorator";
+import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
+
+/** The compact source-free entrypoint list returned for a code question. */
 export interface ITtscGraphIndex {
   /** The original query the index was built for. */
   query: string;
@@ -42,6 +45,9 @@ export namespace ITtscGraphIndex {
 
     /**
      * Maximum direct dependencies and dependents to return per indexed symbol.
+     * This is an orientation slice, not a dependency dump; use
+     * `dependency_path` or `symbol_details(neighbors:true)` after choosing the
+     * specific handles.
      *
      * @default 4
      */
@@ -58,6 +64,8 @@ export namespace ITtscGraphIndex {
     line?: number;
     /** Declaration head, included only for indexed symbols. */
     signature?: string;
+    /** Decorators written on this declaration, when any. */
+    decorators?: ITtscGraphDecorator[];
   }
 
   /** One ranked search hit. */
@@ -88,13 +96,18 @@ export namespace ITtscGraphIndex {
     /** 1-based declaration line, when known. */
     line?: number;
     relation: string;
+    /**
+     * Source span for the expression that produced this relationship. It lets
+     * an agent see why the edge exists without opening the file.
+     */
+    evidence?: ITtscGraphEvidence;
   }
 
   /** Tool-call handles suggested by this first index. */
   export interface INext {
-    /** Pass these ids to `graph_expand`, with `source: true` only when needed. */
+    /** Pass these ids to `symbol_details`, with `source: true` only when needed. */
     expand: string[];
-    /** Pass these ids to `graph_trace` when following dependency flow. */
+    /** Pass these ids to `dependency_path` when following dependency flow. */
     traceFrom: string[];
   }
 }

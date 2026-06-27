@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * One-shot AI token benchmark for @ttsc/graph and codegraph on the
- * performance fixtures.
+ * One-shot AI token benchmark for @ttsc/graph and codegraph on the performance
+ * fixtures.
  *
  * This runner intentionally stays separate from performance.mjs: it spends real
  * Claude/Codex credits, so it only runs when called explicitly. It reuses the
@@ -18,10 +18,8 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
-const workDir =
-  process.env.TTSC_BENCH_WORK ?? path.resolve(here, ".work");
-const tgzDir =
-  process.env.TTSC_BENCH_TGZ ?? path.join(os.tmpdir(), "ttsc-tgz");
+const workDir = process.env.TTSC_BENCH_WORK ?? path.resolve(here, ".work");
+const tgzDir = process.env.TTSC_BENCH_TGZ ?? path.join(os.tmpdir(), "ttsc-tgz");
 const performanceScript = path.join(here, "performance.mjs");
 const websiteJson = path.join(
   repoRoot,
@@ -30,21 +28,20 @@ const websiteJson = path.join(
   "benchmark",
   "graph.json",
 );
-const questionsDir = path.join(repoRoot, "experimental", "graph-bench", "questions");
-const claudeHarness = path.join(repoRoot, "experimental/graph-bench/agent-ab.mjs");
-const codexHarness = path.join(
-  repoRoot,
-  "experimental/graph-bench/agent-ab-codex.mjs",
-);
-const PROMPT_FAMILIES = {
-  "project-specific": null,
-  "shared-onboarding": path.join(questionsDir, "shared-onboarding.md"),
+const graphBenchDir = path.join(repoRoot, "experimental", "graph-bench");
+const claudeHarness = path.join(graphBenchDir, "agent-ab.mjs");
+const codexHarness = path.join(graphBenchDir, "agent-ab-codex.mjs");
+const PROMPT_FAMILY_ALIASES = {
+  "project-specific": "dedicated",
+  "shared-onboarding": "common",
 };
+const DEFAULT_PROMPT_FAMILIES = ["dedicated", "common"];
 
 const PROJECTS = {
   excalidraw: {
-    repoName: "excalidraw",
-    sourceRepo: "https://github.com/excalidraw/excalidraw.git",
+    repoName: "ttsc-benchmark-excalidraw",
+    sourceRepo: "https://github.com/samchon/ttsc-benchmark-excalidraw.git",
+    sourceBranch: "ttsc",
     tsconfig: "tsconfig.json",
   },
   vue: {
@@ -78,31 +75,48 @@ const PROJECTS = {
 };
 
 const parsed = parseArgs(process.argv.slice(2));
-const branch = parsed.values.branch ?? parsed.values["fixture-branch"] ?? "ttsc";
+const branch =
+  parsed.values.branch ?? parsed.values["fixture-branch"] ?? "ttsc";
 if (branch !== "ttsc" && branch !== "ttsc-lint")
   throw new Error("--branch must be 'ttsc' or 'ttsc-lint'");
 
 const selected = selectProjects(parsed);
-const models = splitList(parsed.values.models ?? parsed.values.model ?? "sonnet,opus,codex");
-const tools = selectTools(parsed.values.tools ?? parsed.values.tool ?? "ttsc-graph,codegraph");
+const arm = selectArm(parsed.values.arm ?? "both");
+const models = splitList(
+  parsed.values.models ?? parsed.values.model ?? "gpt-5.4-mini",
+);
+const tools = selectTools(
+  parsed.values.tools ??
+    parsed.values.tool ??
+    (arm === "baseline" ? "baseline" : "ttsc-graph,codegraph"),
+  arm,
+);
 const promptFamilies = selectPromptFamilies(
   parsed.values["prompt-family"] ??
     parsed.values["prompt-families"] ??
-    (parsed.values.question ? "custom" : "project-specific"),
+    (parsed.values.question ? "custom" : "dedicated"),
 );
 const runs = parsed.values.runs ?? "1";
+const maxRunRetries = parseNonNegativeInteger(
+  parsed.values["max-run-retries"] ?? "4",
+  "--max-run-retries",
+);
 const daemon = parsed.values.daemon ?? "0";
 const effort = "high";
-const codexModel = parsed.values["codex-model"] ?? "gpt-5.5";
+const codexModel = parsed.values["codex-model"] ?? "gpt-5.4-mini";
 const platformKey = `${process.platform}-${process.arch}`;
 const ttscVersion = JSON.parse(
-  fs.readFileSync(path.join(repoRoot, "packages", "ttsc", "package.json"), "utf8"),
+  fs.readFileSync(
+    path.join(repoRoot, "packages", "ttsc", "package.json"),
+    "utf8",
+  ),
 ).version;
 const outDir = path.resolve(
   parsed.values.out ??
     process.env.TTSC_GRAPH_BENCH_OUT ??
     path.join(workDir, "graph", timestamp()),
 );
+const reportPath = path.join(outDir, "report.json");
 let resetWebsite = parsed.flags.has("--reset");
 
 if (parsed.flags.has("--list")) {
@@ -149,9 +163,11 @@ if (parsed.flags.has("--setup-only")) {
 const report = {
   date: new Date().toISOString(),
   branch,
+  arm,
   tools,
   promptFamilies,
   runs: Number(runs),
+  maxRunRetries,
   daemon: daemon === "1" || daemon === "true",
   outDir,
   cells: [],
@@ -164,12 +180,14 @@ for (const project of selected) {
   if (!fs.existsSync(repoDir))
     throw new Error(`missing graph benchmark clone: ${repoDir}`);
   if (!fs.existsSync(path.join(repoDir, spec.tsconfig)))
-    throw new Error(`missing graph tsconfig: ${path.join(repoDir, spec.tsconfig)}`);
+    throw new Error(
+      `missing graph tsconfig: ${path.join(repoDir, spec.tsconfig)}`,
+    );
 
   for (const tool of tools) {
     let codegraphIndexMs = null;
     try {
-      if (tool === "codegraph") {
+      if (tool === "codegraph" && arm !== "baseline") {
         codegraphIndexMs = ensureCodegraphIndex(project, repoDir);
       }
 
@@ -184,6 +202,7 @@ for (const project of selected) {
             model,
             branch: branchLabel,
             promptFamily,
+            arm,
             runs,
             daemon,
             effort,
@@ -191,9 +210,14 @@ for (const project of selected) {
             outDir,
           });
           report.cells.push(cell);
-          writeJson(path.join(outDir, "report.json"), report);
-          publishWebsiteCells([websiteCell]);
+          writeJson(reportPath, report);
+          refreshCodexTraceAudit(cell, reportPath, report);
           printCellSummary(cell);
+          const invalidReason = invalidWebsiteCellReason(websiteCell);
+          if (invalidReason !== null) {
+            throw new Error(`${project} ${tool} ${model}: ${invalidReason}`);
+          }
+          publishWebsiteCells([websiteCell]);
         }
       }
     } finally {
@@ -202,8 +226,22 @@ for (const project of selected) {
   }
 }
 
-writeJson(path.join(outDir, "report.json"), report);
-process.stdout.write(`\nGraph benchmark report: ${path.relative(repoRoot, path.join(outDir, "report.json"))}\n`);
+writeJson(reportPath, report);
+const codexTraceAudit = report.codexTraceAudit
+  ? path.resolve(repoRoot, report.codexTraceAudit)
+  : runCodexTraceAudit(reportPath, report);
+if (codexTraceAudit !== null) {
+  report.codexTraceAudit = path.relative(repoRoot, codexTraceAudit);
+  writeJson(reportPath, report);
+}
+process.stdout.write(
+  `\nGraph benchmark report: ${path.relative(repoRoot, reportPath)}\n`,
+);
+if (codexTraceAudit !== null) {
+  process.stdout.write(
+    `Codex trace audit: ${path.relative(repoRoot, codexTraceAudit)}\n`,
+  );
+}
 if (!parsed.flags.has("--no-website")) {
   process.stdout.write(
     `Graph benchmark website JSON: ${path.relative(repoRoot, websiteJson)}\n`,
@@ -233,6 +271,36 @@ function runSetup(projects, targetBranch) {
   });
 }
 
+function refreshCodexTraceAudit(cell, currentReportPath, currentReport) {
+  if (cell.harness !== "codex") return null;
+  const auditPath = runCodexTraceAudit(currentReportPath, currentReport);
+  if (auditPath !== null) {
+    currentReport.codexTraceAudit = path.relative(repoRoot, auditPath);
+    writeJson(currentReportPath, currentReport);
+  }
+  return auditPath;
+}
+
+function runCodexTraceAudit(currentReportPath, currentReport) {
+  if (!currentReport.cells.some((cell) => cell.harness === "codex")) {
+    return null;
+  }
+  const auditPath = path.join(outDir, "codex-trace-audit.json");
+  runChecked(
+    "node",
+    [
+      path.join(graphBenchDir, "audit-codex-traces.mjs"),
+      `--report=${currentReportPath}`,
+      `--out=${auditPath}`,
+    ],
+    {
+      label: "codex trace audit",
+      logBase: path.join(outDir, "codex-trace-audit"),
+    },
+  );
+  return auditPath;
+}
+
 // agentLabel turns a concrete model into a stable, harness-qualified cell label:
 // the agent that ran it plus the model tier, with the churny version number
 // dropped so a release does not fork the grid. The tier keeps every non-numeric
@@ -241,8 +309,7 @@ function runSetup(projects, targetBranch) {
 // codex-gpt-nano. Claude tiers (sonnet, opus) carry no version, so they pass
 // through. The exact id is recorded separately as modelVersion.
 function agentLabel(resolvedModel) {
-  if (!resolvedModel.startsWith("gpt-"))
-    return `claude-code-${resolvedModel}`;
+  if (!resolvedModel.startsWith("gpt-")) return `claude-code-${resolvedModel}`;
   const tier = resolvedModel
     .split("-")
     .filter((token) => token && !/^[0-9.]+$/.test(token))
@@ -259,6 +326,7 @@ function runAgentCell({
   model,
   branch,
   promptFamily,
+  arm,
   runs,
   daemon,
   effort,
@@ -267,7 +335,11 @@ function runAgentCell({
 }) {
   const codex = model === "codex" || model.startsWith("gpt-");
   const harness = codex ? codexHarness : claudeHarness;
-  const resolvedModel = codex ? (model === "codex" ? codexModel : model) : model;
+  const resolvedModel = codex
+    ? model === "codex"
+      ? codexModel
+      : model
+    : model;
   // The cell is keyed by tier, not by the exact model string, so the benchmark
   // grid and website stay stable as OpenAI bumps versions (gpt-5.5 -> gpt-5.6
   // overwrites the same cell instead of forking a new one). The precise id is
@@ -283,6 +355,8 @@ function runAgentCell({
     `--daemon=${daemon}`,
     `--model=${resolvedModel}`,
     `--prompt-family=${promptFamily}`,
+    `--arm=${arm}`,
+    `--max-run-retries=${maxRunRetries}`,
   ];
   const question = promptFamilyQuestion(promptFamily);
   if (question) args.push(`--question=${question}`);
@@ -310,7 +384,9 @@ function runAgentCell({
     model: label,
     modelVersion: data.model ?? resolvedModel,
     ...(data.effort ? { effort: data.effort } : {}),
+    ...(data.promptId ? { promptId: data.promptId } : {}),
     promptFamily: data.promptFamily ?? promptFamily,
+    ...(data.questionSha256 ? { questionSha256: data.questionSha256 } : {}),
     ...(data.fixtureBranch
       ? { fixtureBranch: data.fixtureBranch }
       : usesPerformanceFixture(spec)
@@ -319,7 +395,7 @@ function runAgentCell({
     daemon: daemon === "1" || daemon === "true",
     runs: data.runs ?? Number(runs),
     question: data.question,
-    samples: data.samples,
+    samples: sanitizeSamples(data.samples),
   };
   return {
     cell: {
@@ -346,9 +422,7 @@ function runAgentCell({
 function publishWebsiteCells(cells) {
   if (parsed.flags.has("--no-website")) return;
   const prior =
-    !resetWebsite && fs.existsSync(websiteJson)
-      ? loadJson(websiteJson)
-      : null;
+    !resetWebsite && fs.existsSync(websiteJson) ? loadJson(websiteJson) : null;
   resetWebsite = false;
   const out = {
     schemaVersion: 1,
@@ -366,11 +440,24 @@ function publishWebsiteCells(cells) {
   writeJson(websiteJson, out);
 }
 
+function sanitizeSamples(samples) {
+  return {
+    baseline: (samples?.baseline ?? []).map(sanitizeSample),
+    graph: (samples?.graph ?? []).map(sanitizeSample),
+  };
+}
+
+function sanitizeSample(sample) {
+  const { answer, ...rest } = sample;
+  return rest;
+}
+
 function websiteCellKey(cell) {
   return JSON.stringify([
     cell.harness,
     cell.tool ?? "ttsc-graph",
     cell.repo,
+    cell.promptId ?? "",
     cell.promptFamily ?? "project-specific",
     cell.model,
     cell.effort ?? "",
@@ -414,35 +501,58 @@ function cleanupCodegraphIndex(repoDir) {
     relative.startsWith("..") ||
     path.isAbsolute(relative)
   ) {
-    throw new Error(`refusing to remove codegraph index outside fixture: ${target}`);
+    throw new Error(
+      `refusing to remove codegraph index outside fixture: ${target}`,
+    );
   }
   fs.rmSync(target, { recursive: true, force: true });
 }
 
-function selectTools(value) {
+function selectArm(value) {
+  if (value !== "baseline" && value !== "graph" && value !== "both") {
+    throw new Error("--arm must be baseline, graph, or both");
+  }
+  return value;
+}
+
+function selectTools(value, arm) {
   const names = splitList(value);
   const expanded = names.includes("all") ? ["ttsc-graph", "codegraph"] : names;
-  const allowed = new Set(["ttsc-graph", "codegraph"]);
+  const allowed = new Set(["baseline", "ttsc-graph", "codegraph"]);
   if (expanded.length === 0)
-    throw new Error("--tools must contain ttsc-graph, codegraph, or all");
+    throw new Error(
+      "--tools must contain baseline, ttsc-graph, codegraph, or all",
+    );
   for (const name of expanded) {
     if (!allowed.has(name))
-      throw new Error("--tools must contain ttsc-graph, codegraph, or all");
+      throw new Error(
+        "--tools must contain baseline, ttsc-graph, codegraph, or all",
+      );
+  }
+  if (expanded.includes("baseline")) {
+    if (arm !== "baseline")
+      throw new Error("--tools=baseline requires --arm=baseline");
+    if (expanded.length !== 1)
+      throw new Error("--tools=baseline cannot be combined with graph tools");
   }
   return [...new Set(expanded)];
 }
 
 function selectPromptFamilies(value) {
-  const names = splitList(value);
-  const expanded = names.includes("all")
-    ? Object.keys(PROMPT_FAMILIES)
-    : names;
-  const allowed = new Set([...Object.keys(PROMPT_FAMILIES), "custom"]);
+  const names = splitList(value).map(
+    (name) => PROMPT_FAMILY_ALIASES[name] ?? name,
+  );
+  const expanded = names.includes("all") ? DEFAULT_PROMPT_FAMILIES : names;
+  const allowed = new Set(["dedicated", "common", "overview", "custom"]);
   if (expanded.length === 0)
-    throw new Error("--prompt-family must contain project-specific, shared-onboarding, custom, or all");
+    throw new Error(
+      "--prompt-family must contain dedicated, common, overview, custom, or all",
+    );
   for (const name of expanded) {
     if (!allowed.has(name))
-      throw new Error("--prompt-family must contain project-specific, shared-onboarding, custom, or all");
+      throw new Error(
+        "--prompt-family must contain dedicated, common, overview, custom, or all",
+      );
   }
   return [...new Set(expanded)];
 }
@@ -451,8 +561,7 @@ function promptFamilyQuestion(promptFamily) {
   if (parsed.values.question) return parsed.values.question;
   if (promptFamily === "custom")
     throw new Error("--prompt-family=custom requires --question");
-  const file = PROMPT_FAMILIES[promptFamily];
-  return file ? fs.readFileSync(file, "utf8").trim() : null;
+  return null;
 }
 
 function codegraphCommand(args) {
@@ -508,28 +617,51 @@ function graphTarballTargets() {
 }
 
 function summarize(data) {
-  const baseline = armSummary(data.samples.baseline);
-  const graph = armSummary(data.samples.graph);
-  return {
-    baseline,
-    graph,
-    graphSavedPct: savedPct(baseline.tokens, graph.tokens),
-  };
+  const baseline = armSummary(data.samples?.baseline ?? []);
+  const graphSamples = data.samples?.graph ?? [];
+  const graph = graphSamples.length > 0 ? armSummary(graphSamples) : null;
+  return graph
+    ? {
+        baseline,
+        graph,
+        graphSavedPct: savedPct(baseline.tokens, graph.tokens),
+      }
+    : { baseline };
 }
 
 function armSummary(samples) {
+  const valid = samples.filter((sample) => sample.ok !== false);
   return {
-    tokens: median(samples.map((sample) => sample.tokens)),
-    tools: median(samples.map((sample) => sample.tools)),
-    seconds: median(samples.map((sample) => sample.durMs)) / 1000,
+    samples: samples.length,
+    validSamples: valid.length,
+    failedSamples: samples.length - valid.length,
+    tokens: median(valid.map((sample) => sample.tokens)),
+    tools: median(valid.map((sample) => sample.tools)),
+    seconds: median(valid.map((sample) => sample.durMs)) / 1000,
   };
+}
+
+function invalidWebsiteCellReason(cell) {
+  for (const armName of ["baseline", "graph"]) {
+    const samples = cell.samples?.[armName] ?? [];
+    if (samples.length > 0 && samples.every((sample) => sample.ok === false)) {
+      return `${armName} arm produced no valid samples`;
+    }
+  }
+  return null;
 }
 
 function printCellSummary(cell) {
   const { summary } = cell;
+  const prefix = `[graph] ${cell.project}@${cell.branch} ${cell.promptFamily} ${cell.tool} ${cell.model}: `;
+  if (!summary.graph) {
+    process.stdout.write(
+      `${prefix}baseline ${Math.round(summary.baseline.tokens)} tok\n`,
+    );
+    return;
+  }
   process.stdout.write(
-    `[graph] ${cell.project}@${cell.branch} ${cell.promptFamily} ${cell.tool} ${cell.model}: ` +
-      `baseline ${Math.round(summary.baseline.tokens)} tok, ` +
+    `${prefix}baseline ${Math.round(summary.baseline.tokens)} tok, ` +
       `graph ${Math.round(summary.graph.tokens)} tok (${summary.graphSavedPct}%)\n`,
   );
 }
@@ -573,12 +705,12 @@ function fixtureDir(spec, targetBranch) {
 
 function projectDir(spec, targetBranch) {
   return isGraphOnlyProject(spec)
-    ? path.join(workDir, "graph-source", spec.repoName)
+    ? path.join(workDir, `${spec.repoName}@${spec.sourceBranch ?? "source"}`)
     : fixtureDir(spec, targetBranch);
 }
 
 function projectBranch(spec, targetBranch) {
-  return isGraphOnlyProject(spec) ? "source" : targetBranch;
+  return isGraphOnlyProject(spec) ? spec.sourceBranch ?? "source" : targetBranch;
 }
 
 function usesPerformanceFixture(spec) {
@@ -598,7 +730,15 @@ function ensureGraphOnlyRepos(projects) {
       continue;
     }
     fs.mkdirSync(path.dirname(repoDir), { recursive: true });
-    runChecked("git", ["clone", "--depth", "1", spec.sourceRepo, repoDir], {
+    const cloneArgs = [
+      "clone",
+      "--depth",
+      "1",
+      ...(spec.sourceBranch ? ["--branch", spec.sourceBranch] : []),
+      spec.sourceRepo,
+      repoDir,
+    ];
+    runChecked("git", cloneArgs, {
       label: `clone graph-only repo ${project}`,
       logBase: path.join(outDir, `setup-${project}-source`),
     });
@@ -606,14 +746,13 @@ function ensureGraphOnlyRepos(projects) {
 }
 
 function selectProjects({ flags, values, positional }) {
-  const explicit = [
-    ...splitList(values.project ?? ""),
-    ...positional,
-  ];
+  const explicit = [...splitList(values.project ?? ""), ...positional];
   const names = flags.has("--all") ? Object.keys(PROJECTS) : explicit;
   for (const name of names) {
     if (!PROJECTS[name])
-      throw new Error(`unknown project ${name}; choose ${Object.keys(PROJECTS).join(", ")}`);
+      throw new Error(
+        `unknown project ${name}; choose ${Object.keys(PROJECTS).join(", ")}`,
+      );
   }
   return [...new Set(names)];
 }
@@ -627,7 +766,10 @@ function parseArgs(argv) {
     if (arg === "--project") {
       values.project = appendCsv(values.project, argv[++i]);
     } else if (arg.startsWith("--project=")) {
-      values.project = appendCsv(values.project, arg.slice("--project=".length));
+      values.project = appendCsv(
+        values.project,
+        arg.slice("--project=".length),
+      );
     } else if (arg === "--question") {
       values.question = argv[++i];
     } else if (arg.startsWith("--")) {
@@ -650,6 +792,14 @@ function splitList(value) {
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+function parseNonNegativeInteger(value, label) {
+  const out = Number(value);
+  if (!Number.isInteger(out) || out < 0) {
+    throw new Error(`${label} must be a non-negative integer`);
+  }
+  return out;
 }
 
 function savedPct(baseline, value) {

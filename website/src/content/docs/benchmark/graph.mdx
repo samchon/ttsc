@@ -4,95 +4,37 @@ import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
 
 `@ttsc/graph` has its own benchmark, separate from the compiler timings above.
 
-It asks the two questions codegraph publishes: how completely does the graph resolve a real codebase, and does an agent spend less when it has the graph. The agent-cost runner also benchmarks `codegraph` itself as a comparator. Both run on real repositories through `experimental/benchmark/graph.mjs` and the lower-level harnesses in `experimental/graph-bench`, and the raw per-run samples are published to `website/public/benchmark/graph.json`.
+It asks two questions: how completely the graph resolves a real TypeScript codebase, and whether an agent spends fewer tokens and tool calls when a graph MCP server is available. The agent-cost runner can measure `@ttsc/graph` and the `codegraph` comparator against the same empty-MCP baseline.
 
-The agent-cost benchmark now splits into two prompt families. Shared onboarding prompts start by reading exported symbols and folder structure, then narrow into graph queries. Project-specific prompts live in files like `experimental/graph-bench/questions/typeorm.md`. The runner stores `promptFamily` in `graph.json`, and the dashboard reports those families separately.
+The current refresh starts from a clean agent-cost grid. It records only **Codex / GPT-5.4 mini** empty-MCP baseline cells at N=5. `@ttsc/graph` and `codegraph` comparator measurements are intentionally absent until those arms are run, so the dashboard shows baseline rows without savings bars for this slice.
 
-The agent-cost question is measured across two AI coding agents, each acting as a harness. An AI agent here is an autonomous CLI that reads the repository and answers a question by calling tools (shell, grep, read, or the `@ttsc/graph` MCP), measured once with the MCP server configured and once without it. The two harnesses are **Claude Code** (Anthropic's CLI) running Sonnet and Opus, and **Codex** (OpenAI's CLI) running GPT-5.5 and GPT-5.4 mini.
+Prompt families are stored in `graph.json`. The `dedicated` family uses project-specific mechanism questions. The `common` family asks the same onboarding-style question across projects.
 
-The savings below are one axis. They are not the whole value.
-
-The graph fuses static structure and live diagnostics into one checker-resolved ontology. So an agent can also see a change's reach over what is currently broken before it edits. See [Code Graph](/docs/graph).
+The graph fuses static structure and live diagnostics into one checker-resolved ontology. An agent can see a change's reach over what is currently broken before it edits. See [Code Graph](/docs/graph).
 
 <GraphBenchmark />
 
-## Agent cost: does the graph save an agent's tokens
+## Agent Cost
 
-This is a faithful port of codegraph's headline benchmark. For codegraph's own question it runs the agent CLI headless twice against the same repository: once with a graph MCP server configured, once with an empty MCP config, both under `--strict-mcp-config` so the only difference is the graph tool. It records codegraph's metrics, total tokens summed across every assistant turn, tool-call count, cost, and wall time. Within a repository, tool, and model each metric is the median of N runs, as codegraph aggregates.
+The agent-cost benchmark runs an AI coding agent headless against prepared fixtures in `experimental/benchmark/.work`. A baseline run uses an empty MCP config. A graph run uses the same prompt and model, but adds exactly one MCP server: either `@ttsc/graph` or `codegraph`. A graph-arm run that completes without any MCP tool call, or that falls back to shell source reads/searches, is invalid for graph measurement and is retried or left failed rather than used in the median; a cell with no valid sample is not published.
 
-The tool axis is `@ttsc/graph` versus `codegraph`. `@ttsc/graph` builds from the live TypeScript `Program`; `codegraph` is served from a `.codegraph/` index produced by `codegraph init`. The runner records that index time as `toolSetupMs` beside the `codegraph` cells.
+Baseline cells can be measured first with `--arm=baseline --tools=baseline`. Later comparator runs can use `--arm=graph --tools=ttsc-graph,codegraph`; the website groups those graph samples with the existing baseline by repository, prompt id or family, model tier, effort, fixture branch, and daemon mode.
 
-The Excalidraw table below is **Claude Sonnet 4.6** (`claude-sonnet-4-6`) at reasoning effort `high`. Within each model both arms hold the model and effort fixed, so the only variable is the graph. The cross-model section repeats the same A/B on Opus 4.8, because the figures move with the model.
+The stored metrics are the raw per-run samples: total tokens, reasoning token counts when the harness exposes them, tool-call count, and wall time. Medians and saved percentages are derived by the website component from `website/public/benchmark/graph.json`.
 
-A checker-resolved graph is TypeScript-only, so of codegraph's seven benchmark repositories only the two TypeScript ones are runnable: Excalidraw and VS Code. The other five are Python, Rust, Java, Go, and Swift.
+## Structural Coverage
 
-### Project-specific prompt file results
+The structural benchmark loads a project's resident `Program`, builds the graph, and reports node and edge counts plus fair coverage: the share of symbol-bearing source files that have at least one resolved cross-file edge. Counts and coverage are deterministic. Timings are indicative and only meaningful on a quiet host.
 
-These cells use repository-specific question files like `experimental/graph-bench/questions/typeorm.md`.
+Run it against any TypeScript project with a `tsconfig.json`:
 
-### Excalidraw
-
-Codegraph's question, "How does Excalidraw render and update canvas elements?", median of 6 runs on Claude Sonnet 4.6:
-
-| Metric     | Empty-MCP baseline | `@ttsc/graph` | Saved |
-| ---------- | ------------------ | ------------- | ----- |
-| Tokens     | 1,875,668          | 264,438       | 86%   |
-| Tool calls | 50                 | 2.5           | 95%   |
-| Cost       | $0.335             | $0.116        | 65%   |
-| Wall time  | 245s               | 41s           | 83%   |
-
-The agent read zero files in every graph run. It named the relevant symbols in one or two `query_nodes` calls and answered from the result, against a baseline that read 19 to 31 files per run to reconstruct the same flow.
-
-The graph hands the agent the relevant declarations, their checker-resolved relationships, and their source in a couple of calls, so it stops fanning out across files.
-
-### The win holds across models
-
-The same Excalidraw A/B on Opus 4.8, alongside the Sonnet 4.6 run above, each the median of 6 runs in `graph.json`.
-
-| Model (Excalidraw) | Tokens saved | Tool calls saved | Graph behavior |
-| --- | --- | --- | --- |
-| Claude Sonnet 4.6 | 86% | 95% | answers in ~2 calls, reads 0 files |
-| Claude Opus 4.8 | 77% | 94% | answers in ~3 calls, reads 0 files |
-
-Both models name the symbols they need in one broad query and answer from it, reading zero files. Opus, the more thorough reader, used to drill the flow one symbol at a time in nine calls; once a broad query returns the whole cluster, it batches like Sonnet and lands in three or four.
-
-Codegraph's own cross-repository headline, over its seven repositories, is 47% fewer tokens and 58% fewer tool calls. On this Excalidraw question a checker-resolved graph saves more, because the resolved relationships are exact enough that the agent stops re-reading the source.
-
-### VS Code, the large-repository path
-
-VS Code is codegraph's other TypeScript repository, around 7,000 `src` files. A full TypeScript-Go `Program` over it builds in about three minutes, too slow to repeat for every agent session.
-
-So `@ttsc/graph` serves it through a daemon. `ttscgraph --daemon` type-checks the project once and serves every session behind a localhost port; each session spawns a thin `ttscgraph --connect` proxy. The one-time build is the price of a real type checker over tree-sitter, paid once and amortized across every session.
-
-The VS Code A/B is not in the published `graph.json` yet. Run it with the daemon (see [Reproduce](#reproduce)) to add it.
-
-### What made the difference
-
-Running this benchmark surfaced a real bug. The server originally type-checked the whole project before answering the MCP handshake, so on a repository of any size it sat in the `pending` state with no tools advertised, and the agent fell back to grep and read. The fix is lazy init: the server answers `initialize` and `tools/list` immediately and builds the resident `Program` in the background, so the agent always sees the tools and the first query blocks on the build. Two smaller fixes followed, ranking declarations against a natural-language query by name match and edge centrality so a flow question surfaces the right symbols, and bounding the response (edge cap, per-node source cap, total budget) so a broad match returns a few kilobytes instead of tens.
-
-Codegraph's own harness excludes cold-start-raced runs by default, which confirms the race is a known MCP failure mode and not a quirk of this port. Lazy init removes it at the source, so no run here is excluded.
-
-## Structural: how completely does the graph resolve
-
-The structural benchmark loads a project's resident `Program`, builds the graph, and reports the node and edge counts plus the fair coverage, the share of symbol-bearing source files that have at least one resolved cross-file edge. Counts and coverage are deterministic; timings are indicative and only meaningful on a quiet host.
-
-Run against this repository's `packages/ttsc` (53 source files):
-
-| Measure       | Value                                               |
-| ------------- | --------------------------------------------------- |
-| Nodes         | 605 (71 external boundary leaves)                   |
-| Edges         | 1583 (heritage 2, value-call 1153, type-ref 428)    |
-| Fair coverage | 100.0% (50 of 50 symbol-bearing files cross-linked) |
-| Load time     | 69 ms (median)                                      |
-| Graph build   | 42 ms (median)                                      |
-
-The 100% is the coverage flex: every symbol-bearing file has at least one checker-resolved cross-file edge. Modeling methods and their calls closed the gaps a top-level-only graph left (it was 92% before), which is the whole point. A method-to-method call is exactly the relationship an agent would otherwise open a file to find. Build time is a real fraction of the already fast load on a small tree and shrinks as type-checking dominates on larger ones. The point is that extraction rides the `Program` the compiler already built, with no second compile.
+```bash
+node experimental/graph-bench/bench.mjs --project=/abs/path/to/project --runs=5
+```
 
 ## Reproduce
 
-Two harnesses back this page, and they cost very differently. The structural harness is deterministic and cheap: it loads a project's resident `Program`, builds the graph, and counts. The agent-cost harness drives real agent CLIs against real repositories and spends model credits, so it is deliberately kept out of CI and run by hand.
-
-Both start from a clone of this repository:
+Both harnesses start from a clone of this repository:
 
 ```bash
 git clone https://github.com/samchon/ttsc.git
@@ -109,20 +51,28 @@ pnpm install
 node experimental/graph-bench/bench.mjs --project=/abs/path/to/project --runs=5
 ```
 
-`--runs` repeats the load-and-build and reports the median time; the counts do not move between runs. Point `--project` at any TypeScript project with a `tsconfig.json`, including this repository's own `packages/ttsc`.
-
 ### Agent-cost harness
 
-`experimental/benchmark/graph.mjs` measures the A/B. For each cell it checks out the fixture's prepared branch, then runs the agent CLI headless twice against the same repository under `--strict-mcp-config`: once with the graph MCP server configured, once with an empty MCP config, so the graph tool is the only difference between the two arms. It records the metrics codegraph publishes, total tokens across every assistant turn, tool-call count, cost, and wall time, and reduces the N runs of each cell to their median.
-
-It needs `go` on `PATH` to build the native binary and the agent CLI for each model arm you select (`claude` for the Claude arms). The `codegraph` comparator arm additionally builds a `.codegraph/` index with `codegraph init`, recorded as `toolSetupMs`. Because every cell spends real model credits, this runner is not wired into CI.
+Baseline-only publication refresh:
 
 ```bash
-# One fixture, the Claude arms, both tools, then update graph.json
-node experimental/benchmark/graph.mjs --project=typeorm --models=sonnet,opus --tools=ttsc-graph,codegraph
-
-# Full sweep: projects run sequentially, since the agent cells are expensive
-node experimental/benchmark/graph.mjs --all --models=sonnet,opus --tools=ttsc-graph,codegraph --prompt-family=all
+node experimental/benchmark/graph.mjs --all --models=gpt-5.4-mini --arm=baseline --tools=baseline --prompt-family=all --runs=5 --reset
 ```
 
-The runner writes the raw per-run samples to `experimental/benchmark/.work/graph/<timestamp>/report.json` and upserts only the cells it measured into `website/public/benchmark/graph.json`, leaving every other cell untouched. Pass `--no-website` for a local-only run that does not touch the published JSON.
+Codex trace audit:
+
+```bash
+node experimental/graph-bench/audit-codex-traces.mjs --dir=experimental/benchmark/.work/graph/<timestamp>
+node experimental/graph-bench/audit-codex-traces.mjs --compare=<before>,<after>
+node experimental/graph-bench/audit-codex-traces.mjs --self-test
+```
+
+`graph.mjs` writes `codex-trace-audit.json` automatically for Codex cells. The Codex audit records every exposed message, every shell/MCP call in timeline order, usage, reasoning token counts, strict exact avoidable output such as duplicate MCP calls and source-covered evidence text, measured graph-replaceable shell-output surface, candidate MCP overfetch surfaces, zero-MCP and shell-fallback graph-arm traces, later-turn prompt replay exposure when multiple `turn.completed` events are visible, an input ledger comparing usage input tokens with visible trace material, and observed/replacement-lower-bound/candidate-ceiling savings against matching N=5 baseline medians from `website/public/benchmark/graph.json`. Hidden reasoning text is not emitted in the Codex stream, so the audit records the token ledger and explicitly marks the text unavailable. The ledger's unexplained input is an accounting gap, not proof of one hidden category. Use `--compare=<before>,<after>` with audit JSON files, suite reports, or suite directories to compare N=1 optimization smoke runs by the same message/tool/reasoning/savings fields without publishing them.
+
+Comparator refresh after the baseline exists:
+
+```bash
+node experimental/benchmark/graph.mjs --all --models=gpt-5.4-mini --arm=graph --tools=ttsc-graph,codegraph --prompt-family=all --runs=5
+```
+
+Use `--no-website` for local-only runs. The runner writes raw reports under `experimental/benchmark/.work/graph/<timestamp>/` and upserts website cells into `website/public/benchmark/graph.json`.

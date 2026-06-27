@@ -1,6 +1,7 @@
+import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
+
 /**
- * The ordered dependency flow the `graph_trace` tool returns from a start
- * symbol.
+ * The ordered dependency flow returned from a start symbol.
  */
 export interface ITtscGraphTrace {
   /** The resolved start node, or undefined when `from` matched nothing. */
@@ -27,6 +28,12 @@ export interface ITtscGraphTrace {
    */
   path?: ITtscGraphTrace.INode[];
 
+  /** Compact hop summaries preserving node names and edge evidence. */
+  steps?: string[];
+
+  /** Follow-up handles for expanding or continuing the trace. */
+  next?: ITtscGraphTrace.INext;
+
   /** When `from` was an ambiguous name, the matches to disambiguate with. */
   candidates?: ITtscGraphTrace.INode[];
 }
@@ -42,8 +49,8 @@ export namespace ITtscGraphTrace {
 
     /**
      * A target symbol: node id, simple symbol name, or dotted member name. When
-     * given, the tool returns the dependency path from `from` to this target —
-     * the one-call answer for "how does A reach B" — instead of an open-ended
+     * given, the tool returns the dependency path from `from` to this target,
+     * the one-call answer for "how does A reach B", instead of an open-ended
      * trace.
      */
     to?: string;
@@ -58,7 +65,17 @@ export namespace ITtscGraphTrace {
     direction?: "forward" | "reverse" | "impact";
 
     /**
-     * How many hops deep to follow.
+     * Which non-structural edge family to follow: `execution` follows runtime
+     * calls, instantiations, property access, and JSX renders; `types` follows
+     * type references and inheritance; `all` preserves the full graph.
+     *
+     * @default "all"
+     */
+    focus?: "all" | "execution" | "types";
+
+    /**
+     * How many hops deep to follow. Open traces are capped at 6; path mode is
+     * capped at 12.
      *
      * @default 6
      */
@@ -66,8 +83,10 @@ export namespace ITtscGraphTrace {
 
     /**
      * Cap on reached nodes; the trace stops and marks itself truncated past it.
+     * Open traces are capped at 30 nodes so a broad graph cannot flood
+     * context.
      *
-     * @default 60
+     * @default 30
      */
     maxNodes?: number;
   }
@@ -79,6 +98,18 @@ export namespace ITtscGraphTrace {
     kind: string;
     /** Hops from the start (1 = direct). */
     depth: number;
+    /**
+     * Source span for the expression that produced this hop. It lets an agent
+     * explain why the trace moves from one symbol to the next without opening
+     * the file.
+     */
+    evidence?: ITtscGraphEvidence;
+    /**
+     * Stable access-path aliases derived from edge evidence. These preserve a
+     * resolved member's owner and the concrete property path used at the call
+     * site.
+     */
+    aliases?: string[];
   }
 
   /** A node on the trace: the start, a reached node, or a candidate. */
@@ -89,9 +120,17 @@ export namespace ITtscGraphTrace {
     file: string;
     /** Hops from the start, on a reached node. */
     depth?: number;
-    /** The node's signature — carried on path nodes so the path explains itself. */
+    /** The node's signature, carried on path nodes so the path explains itself. */
     signature?: string;
     /** Why this node matters to an impact trace: `exported`, `test`. */
     roles?: string[];
+  }
+
+  /** Tool-call handles suggested by this trace. */
+  export interface INext {
+    /** Pass these ids to `symbol_details` for source or member details. */
+    expand: string[];
+    /** Continue tracing from these ids when the current result is intermediate. */
+    traceFrom: string[];
   }
 }

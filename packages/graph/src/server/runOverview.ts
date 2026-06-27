@@ -1,4 +1,5 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
+import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphOverview } from "../structures/ITtscGraphOverview";
 
 /** Edges that express nesting/packaging, not code dependency. */
@@ -67,7 +68,7 @@ function layers(graph: TtscGraphMemory): ITtscGraphOverview.ILayer[] {
 
 /**
  * The symbols at the center of the dependency graph, ranked by real fan-in and
- * fan-out — structural `contains`/`exports`/`imports` edges are excluded so the
+ * fan-out. Structural `contains`/`exports`/`imports` edges are excluded so the
  * ranking reflects code dependency, not nesting.
  */
 function hotspots(graph: TtscGraphMemory): ITtscGraphOverview.IHotspot[] {
@@ -80,10 +81,7 @@ function hotspots(graph: TtscGraphMemory): ITtscGraphOverview.IHotspot[] {
   return graph.nodes
     .filter((node) => !node.external && node.kind !== "file")
     .map((node) => ({
-      id: node.id,
-      name: node.qualifiedName ?? node.name,
-      kind: node.kind,
-      file: node.file,
+      ...nodeOf(node),
       fanIn: real(node.id, "in"),
       fanOut: real(node.id, "out"),
     }))
@@ -102,12 +100,13 @@ const API_KINDS = new Set<string>([
 ]);
 
 /**
- * The exported API surface: the exported symbols a consumer of the project would
- * use, ranked by how depended-on each is (real fan-in/out, structural edges
- * excluded). Ranking by dependency rather than by which file declares the most
- * exports surfaces the load-bearing types (a DataSource, a SelectQueryBuilder)
- * instead of whichever file bundles the most type aliases; test, typings, and
- * generated files are dropped so they cannot crowd the real surface out.
+ * The exported API surface: the exported symbols a consumer of the project
+ * would use, ranked by how depended-on each is (real fan-in/out, structural
+ * edges excluded). Ranking by dependency rather than by which file declares the
+ * most exports surfaces the load-bearing types (a DataSource, a
+ * SelectQueryBuilder) instead of whichever file bundles the most type aliases;
+ * test, typings, and generated files are dropped so they cannot crowd the real
+ * surface out.
  */
 function publicApi(graph: TtscGraphMemory): ITtscGraphOverview.IPublicApi[] {
   const degree = (id: string): number => {
@@ -122,21 +121,19 @@ function publicApi(graph: TtscGraphMemory): ITtscGraphOverview.IPublicApi[] {
     .exported()
     .filter((node) => API_KINDS.has(node.kind) && !isNoiseFile(node.file))
     .map((node) => ({
-      name: node.qualifiedName ?? node.name,
-      kind: node.kind,
-      file: node.file,
+      node: nodeOf(node),
       degree: degree(node.id),
     }))
     .sort((a, b) => b.degree - a.degree)
     .slice(0, 30)
-    .map(({ name, kind, file }) => ({ name, kind, file }));
+    .map((ranked) => ranked.node);
 }
 
 /**
  * A file whose exports are noise for an architecture overview: a test, a
- * dependency's bundled `.d.ts`/typings, or generated output. The conventions are
- * universal (a `test`/`spec` path, a `typings` file), so excluding them is not
- * framework-specific — it keeps the API surface to authored, used code.
+ * dependency's bundled `.d.ts`/typings, or generated output. The conventions
+ * are universal (a `test`/`spec` path, a `typings` file), so excluding them is
+ * not framework-specific; it keeps the API surface to authored, used code.
  */
 function isNoiseFile(file: string): boolean {
   return (
@@ -151,4 +148,18 @@ function isNoiseFile(file: string): boolean {
 function dirname(file: string): string {
   const slash = file.lastIndexOf("/");
   return slash >= 0 ? file.slice(0, slash) : ".";
+}
+
+/** Stable symbol coordinate shared by overview facets. */
+function nodeOf(node: ITtscGraphNode): ITtscGraphOverview.INode {
+  const out: ITtscGraphOverview.INode = {
+    id: node.id,
+    name: node.qualifiedName ?? node.name,
+    kind: node.kind,
+    file: node.file,
+  };
+  if (node.evidence?.startLine !== undefined) {
+    out.line = node.evidence.startLine;
+  }
+  return out;
 }

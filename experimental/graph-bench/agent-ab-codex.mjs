@@ -22,9 +22,9 @@
 // time (not dollars). A "tool call" is a codex command_execution (shell read or
 // grep) or an mcp_tool_call (a graph_* tool); "graph" counts only the latter.
 //
-// Each sample also captures the agent's final answer text (the last agent_message)
-// and, after the run, grades it against the prompt's gold via grade.mjs, so a token
-// saving is never reported as a win while the answer is wrong.
+// Each sample also captures the agent's final answer text (the last
+// agent_message) for manual inspection. The benchmark itself measures runtime
+// behavior only: tokens, tool calls, and wall time.
 //
 // Spends real codex credits; non-deterministic; not wired into CI. Requires
 // `codex` (logged in) and `go` on PATH, and a built `@ttsc/graph` (packages/graph/lib).
@@ -39,8 +39,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-import { gradeAnswer, questionSha256 } from "./grade.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
@@ -62,9 +60,8 @@ const ARCHITECTURE_QUESTION = fs
   )
   .trim();
 
-// The manifest (questions/manifest.json) is the source of truth for graded
-// prompts: each entry pins a question .md, a gold .json, and the question's
-// SHA-256. Loaded on demand so a plain --repo run works with no manifest present.
+// The manifest (questions/manifest.json) selects reusable prompt files. It does
+// not grade answers; benchmark scoring is limited to tokens, tools, and time.
 function loadManifest() {
   const manifestPath = path.join(here, "questions", "manifest.json");
   if (!fs.existsSync(manifestPath)) return { prompts: [] };
@@ -72,9 +69,8 @@ function loadManifest() {
 }
 
 // Resolve a manifest prompt by --prompt-id (exact), else the first prompt of a
-// --prompt-family, scoped to --repo when given. Returns the prompt entry, its
-// question text, the integrity-verified questionSha256, the goldSha256, and the
-// gold, or null when neither flag was passed.
+// --prompt-family, scoped to --repo when given. Returns the prompt entry and its
+// question text, or null when neither flag was passed.
 function resolveManifestPrompt(args) {
   const id = args["prompt-id"];
   const family = args["prompt-family"];
@@ -95,20 +91,11 @@ function resolveManifestPrompt(args) {
     );
   }
   const questionFile = path.resolve(here, "questions", entry.file);
-  const goldFile = path.resolve(here, "questions", entry.gold);
   const text = fs.readFileSync(questionFile, "utf8").trim();
-  const actualSha = questionSha256(questionFile);
-  if (entry.questionSha256 && entry.questionSha256 !== actualSha) {
-    console.warn(
-      `warning: ${entry.id} question sha mismatch (manifest ${entry.questionSha256.slice(0, 12)} != file ${actualSha.slice(0, 12)})`,
-    );
-  }
   return {
     entry,
     text,
-    questionSha256: actualSha,
-    goldSha256: questionSha256(goldFile),
-    gold: JSON.parse(fs.readFileSync(goldFile, "utf8")),
+    questionSha256: entry.questionSha256,
   };
 }
 
@@ -173,8 +160,8 @@ const REPOS = {
 
 const args = parseArgs(process.argv.slice(2));
 // A manifest prompt (--prompt-id / --prompt-family) overrides the per-repo
-// question and pins the repo, fixtureBranch, tsconfig, and the gold to grade
-// against. Resolve it first so it can fill --repo when only --prompt-id is given.
+// question and pins the repo, fixtureBranch, and tsconfig. Resolve it first so it
+// can fill --repo when only --prompt-id is given.
 const manifestPrompt = resolveManifestPrompt(args);
 const repoKey = args.repo ?? manifestPrompt?.entry.repo ?? "excalidraw";
 const spec = REPOS[repoKey];
@@ -194,10 +181,6 @@ const promptFamily =
   manifestPrompt?.entry.family ??
   args["prompt-family"] ??
   (args.question ? "custom" : "project-specific");
-// The gold + integrity stamps travel with the report so grading is reproducible
-// from the report alone (also used to grade each sample in-process after capture).
-const gold = manifestPrompt?.gold ?? null;
-const goldThreshold = Number(args.threshold ?? 0.8);
 if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
 
 const fixtureBranch =
@@ -227,6 +210,16 @@ const toolSetupMs =
 // --cg points the graph arm at codegraph instead of @ttsc/graph (repo must be
 // indexed with `codegraph init`), for an apples-to-apples comparison on codex.
 const cg = args.cg === "1" || args.cg === "true";
+// --arm selects which arms to run: `baseline` and `graph` can be measured
+// separately so a fixed baseline is cached once and later graph iterations only
+// rerun the MCP arm. Baseline-only does not need graph binaries or dependencies.
+const armFilter = args.arm ?? "both";
+const armsRequested = {
+  baseline: armFilter === "both" || armFilter === "baseline",
+  graph: armFilter === "both" || armFilter === "graph",
+};
+if (!armsRequested.baseline && !armsRequested.graph)
+  throw new Error(`--arm must be baseline | graph | both, got ${armFilter}`);
 
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const goEnv = {
@@ -243,7 +236,7 @@ const binary = path.join(
   os.tmpdir(),
   `ttscgraph-codex-${process.pid}${process.platform === "win32" ? ".exe" : ""}`,
 );
-if (!cg) {
+if (armsRequested.graph && !cg) {
   if (!fs.existsSync(graphLauncher)) {
     throw new Error(
       `@ttsc/graph launcher not built: ${graphLauncher}\n` +
@@ -277,10 +270,14 @@ if (!args["repo-dir"] && !fs.existsSync(repoDir)) {
     process.env,
   );
 }
-if (!cg && !fs.existsSync(path.join(repoDir, tsconfig))) {
+if (
+  armsRequested.graph &&
+  !cg &&
+  !fs.existsSync(path.join(repoDir, tsconfig))
+) {
   throw new Error(`missing tsconfig: ${path.join(repoDir, tsconfig)}`);
 }
-if (!cg) ensureInstalled(repoDir);
+if (armsRequested.graph && !cg) ensureInstalled(repoDir);
 
 // 3. The graph server is the Node launcher run over stdio; it shells out to the
 // dump binary (pointed at via TTSC_GRAPH_BINARY) on the first tool call, then
@@ -292,19 +289,16 @@ const launcherArgs = [graphLauncher, "--cwd", repoDir, "--tsconfig", tsconfig];
 // 4. Two minimal CODEX_HOMEs: identical except the graph one configures the MCP
 // server. Both copy the real auth.json so codex stays logged in.
 const realHome = path.join(os.homedir(), ".codex");
-const withHome = makeCodexHome("with", launcherArgs);
-const withoutHome = makeCodexHome("without", null);
-
-// --arm selects which arms to run: `baseline` and `graph` can be measured
-// separately so a fixed n=5 baseline is cached once and every later iteration
-// runs only the graph arm against it. Default `both` is the original behavior.
-const armFilter = args.arm ?? "both";
+const withHome = armsRequested.graph
+  ? makeCodexHome("with", cg ? [] : launcherArgs)
+  : null;
+const withoutHome = armsRequested.baseline
+  ? makeCodexHome("without", null)
+  : null;
 const arms = [
   { name: "baseline", home: withoutHome },
   { name: "graph", home: withHome },
-].filter((a) => armFilter === "both" || a.name === armFilter);
-if (arms.length === 0)
-  throw new Error(`--arm must be baseline | graph | both, got ${armFilter}`);
+].filter((a) => a.home);
 
 console.log(
   `\ncodegraph A/B on ${repoKey} via codex — model ${model} (effort ${effort}), ${runs} run(s) x ${arms.length} arms` +
@@ -325,7 +319,10 @@ const traceDir = args["trace-dir"]
     );
 fs.mkdirSync(traceDir, { recursive: true });
 
-const MAX_RUN_RETRIES = 4;
+const MAX_RUN_RETRIES = parseNonNegativeInteger(
+  args["max-run-retries"] ?? "4",
+  "--max-run-retries",
+);
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
 // Launch arms x runs concurrently, capped at TTSC_BENCH_CONCURRENCY (default
 // unlimited). A high cap is fastest for experiment iteration; a low cap keeps the
@@ -338,42 +335,36 @@ const thunks = arms.flatMap((arm) =>
     // retry it in place rather than letting it thin the median. The trace file is
     // keyed by run number, so a retry overwrites the attempt.
     let m;
+    let attempts = 0;
     for (let attempt = 0; attempt <= MAX_RUN_RETRIES; attempt++) {
+      attempts = attempt + 1;
       // Both arms get the identical user prompt — no graph-specific preamble.
       // Tool guidance comes from the @ttsc/graph MCP server descriptions.
-      m = await runCodex(question, arm.home, arm.name, r + 1);
+      m = validateArmSample(
+        await runCodex(question, arm.home, arm.name, r + 1),
+        arm.name,
+      );
       if (m.ok) break;
       if (attempt < MAX_RUN_RETRIES)
         console.log(
-          `  ${arm.name.padEnd(8)} run ${r + 1}: [FAILED] retrying (${attempt + 1}/${MAX_RUN_RETRIES})`,
+          `  ${arm.name.padEnd(8)} run ${r + 1}: [FAILED]${m.error ? ` ${m.error}` : ""} retrying (${attempt + 1}/${MAX_RUN_RETRIES})`,
         );
     }
-    // Tag the sample with the manifest provenance and, when a gold is in play,
-    // grade the captured answer so a token win is never reported while the answer
-    // is wrong. quality is null for an unrated run or one that did not finish.
+    // Tag the sample with prompt provenance only. The benchmark does not judge
+    // answer correctness in-process.
     if (promptId) m.promptId = promptId;
-    if (manifestPrompt) {
+    if (manifestPrompt?.questionSha256) {
       m.questionSha256 = manifestPrompt.questionSha256;
-      m.goldSha256 = manifestPrompt.goldSha256;
     }
-    // Grade in a guard: a malformed gold must never crash a whole run of real
-    // agent calls. A grading failure degrades to an ungraded sample, not a lost
-    // benchmark (the traces are already on disk and can be re-graded).
-    try {
-      m.quality =
-        gold && m.ok ? gradeAnswer(m.answer ?? "", gold, goldThreshold) : null;
-    } catch (error) {
-      console.warn(
-        `  grade failed for ${arm.name} run ${r + 1}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      m.quality = null;
-    }
+    m.run = r + 1;
+    m.attempts = attempts;
     samples[arm.name].push(m);
     console.log(
-      `  ${arm.name.padEnd(8)} run ${r + 1}: ${m.tokens} tok, ${m.tools} tools ` +
+      `  ${arm.name.padEnd(8)} run ${r + 1}: ${m.tokens} tok` +
+        (m.reasoning ? ` (+${m.reasoning} reasoning)` : "") +
+        `, ${m.tools} tools ` +
         `(shell ${m.shell}, graph ${m.graph}), ${(m.durMs / 1000).toFixed(0)}s` +
-        (m.quality ? `, ${m.quality.pass ? "PASS" : "FAIL"}` : "") +
-        (m.ok ? "" : "  [FAILED]"),
+        (m.ok ? "" : `  [FAILED${m.error ? `: ${m.error}` : ""}]`),
     );
   }),
 );
@@ -393,48 +384,36 @@ async function runWithConcurrency(work, limit) {
 const med = (arm, k) =>
   median((samples[arm] ?? []).filter((m) => m.ok).map((m) => m[k]));
 const pct = (g, b) => (b === 0 ? 0 : Math.round((1 - g / b) * 100));
-const line = (label, k, fmt = (x) => x) => {
+const printBaselineLine = (label, k, fmt = (x) => x) => {
+  console.log(`  ${label.padEnd(12)} baseline ${fmt(med("baseline", k))}`);
+};
+const printGraphLine = (label, k, fmt = (x) => x) => {
+  console.log(`  ${label.padEnd(12)} graph ${fmt(med("graph", k))}`);
+};
+const printComparisonLine = (label, k, fmt = (x) => x) => {
   const b = med("baseline", k);
-  const s = `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(med("graph", k))} (${pct(med("graph", k), b)}%)`;
-  console.log(s);
+  console.log(
+    `  ${label.padEnd(12)} baseline ${fmt(b)}  ->  graph ${fmt(med("graph", k))} (${pct(med("graph", k), b)}%)`,
+  );
 };
 
-console.log(
-  `\nMedian of ${runs} run(s), vs no-MCP baseline (codegraph metrics, codex/${model}):`,
-);
-line("tokens", "tokens");
-line("tool calls", "tools");
-line("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
-
-// Quality gate: a token saving is only a real win if the graph arm still answers
-// correctly. Report each arm's pass rate, and refuse to call the saving a win when
-// the graph arm's answers fall below threshold.
-if (gold) {
-  const passRate = (arm) => {
-    const graded = (samples[arm] ?? []).filter((m) => m.ok && m.quality);
-    const passed = graded.filter((m) => m.quality.pass).length;
-    return { passed, graded: graded.length };
-  };
-  const b = passRate("baseline");
-  const g = passRate("graph");
-  console.log(
-    `\nQuality (threshold ${goldThreshold}): baseline ${b.passed}/${b.graded} pass  ->  graph ${g.passed}/${g.graded} pass`,
-  );
-  const tokenSaving = pct(med("graph", "tokens"), med("baseline", "tokens"));
-  const graphPasses = g.graded > 0 && g.passed * 2 >= g.graded; // majority pass
-  if (tokenSaving > 0 && !graphPasses) {
-    console.log(
-      `  NOTE: ${tokenSaving}% token saving NOT counted as a win — graph answers are below threshold.`,
-    );
-  }
-}
+console.log(`\nMedian of ${runs} run(s), codegraph metrics, codex/${model}:`);
+const printLine =
+  armsRequested.baseline && armsRequested.graph
+    ? printComparisonLine
+    : armsRequested.baseline
+      ? printBaselineLine
+      : printGraphLine;
+printLine("tokens", "tokens");
+printLine("tool calls", "tools");
+printLine("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, effort, ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt ? { questionSha256: manifestPrompt.questionSha256, goldSha256: manifestPrompt.goldSha256, gradeThreshold: goldThreshold } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, effort, ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt?.questionSha256 ? { questionSha256: manifestPrompt.questionSha256 } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
 );
-cleanup([binary, withHome, withoutHome]);
+cleanup([binary, withHome, withoutHome].filter(Boolean));
 
 // makeCodexHome builds a throwaway CODEX_HOME: the real auth.json plus a minimal
 // config.toml pinning the model and effort, and (for the graph arm) the
@@ -456,10 +435,10 @@ function makeCodexHome(tag, serverArgs) {
       const a = codegraphServerArgs(repoDir)
         .map((x) => `'${x}'`)
         .join(", ");
-      toml += `\n[mcp_servers.codegraph]\ncommand = '${command}'\nargs = [${a}]\nenv = { CODEGRAPH_NO_DAEMON = "1" }\n`;
+      toml += `\n[mcp_servers.codegraph]\ncommand = '${command}'\nargs = [${a}]\nenv = { CODEGRAPH_NO_DAEMON = "1" }\nrequired = true\n`;
     } else {
       const argList = serverArgs.map((a) => `'${a}'`).join(", ");
-      toml += `\n[mcp_servers.ttscgraph]\ncommand = '${process.execPath}'\nargs = [${argList}]\nenv = { TTSC_GRAPH_BINARY = '${binary}' }\n`;
+      toml += `\n[mcp_servers.ttscgraph]\ncommand = '${process.execPath}'\nargs = [${argList}]\nenv = { TTSC_GRAPH_BINARY = '${binary}' }\nrequired = true\n`;
     }
   }
   fs.writeFileSync(path.join(home, "config.toml"), toml);
@@ -511,13 +490,27 @@ function packageCommand(command, args) {
     ? {
         label: command,
         command: "cmd.exe",
-        args: ["/d", "/s", "/c", command, ...args],
+        args: [
+          "/d",
+          "/s",
+          "/c",
+          ...(command === "yarn" ? ["corepack", "yarn"] : [command]),
+          ...args,
+        ],
       }
     : { label: command, command, args };
 }
 
 function truthy(value) {
   return value === "1" || value === "true" || value === "yes";
+}
+
+function parseNonNegativeInteger(value, label) {
+  const out = Number(value);
+  if (!Number.isInteger(out) || out < 0) {
+    throw new Error(`${label} must be a non-negative integer`);
+  }
+  return out;
 }
 
 async function runCodex(question, codexHome, armName, runNumber) {
@@ -530,6 +523,7 @@ async function runCodex(question, codexHome, armName, runNumber) {
       "--dangerously-bypass-approvals-and-sandbox",
       "--skip-git-repo-check",
       "--ephemeral",
+      "--strict-config",
       "-C",
       repoDir,
     ],
@@ -548,7 +542,14 @@ async function runCodex(question, codexHome, armName, runNumber) {
   fs.writeFileSync(path.join(traceDir, `${base}.stream.jsonl`), stdout);
   if (stderr)
     fs.writeFileSync(path.join(traceDir, `${base}.stderr.log`), stderr);
-  return parseStream(stdout, Date.now() - start);
+  const parsed = parseStream(stdout, Date.now() - start);
+  if (result.status && result.status !== 0) {
+    parsed.ok = false;
+    parsed.error = `codex exited ${result.status}${stderr ? `: ${oneLine(stderr).slice(0, 160)}` : ""}`;
+  } else if (!parsed.ok && stderr && !parsed.error) {
+    parsed.error = oneLine(stderr).slice(0, 160);
+  }
+  return parsed;
 }
 
 // spawnAsync runs a child to completion and resolves its captured stdout/stderr,
@@ -564,7 +565,9 @@ function spawnAsync(command, commandArgs, { input, ...spawnOpts }) {
     child.stdout?.on("data", (d) => (stdout += d));
     child.stderr?.on("data", (d) => (stderr += d));
     child.on("error", (error) => resolve({ error, stdout, stderr }));
-    child.on("close", () => resolve({ stdout, stderr }));
+    child.on("close", (status, signal) =>
+      resolve({ stdout, stderr, status, signal }),
+    );
     if (input) {
       child.stdin?.write(input);
       child.stdin?.end();
@@ -576,11 +579,11 @@ function spawnAsync(command, commandArgs, { input, ...spawnOpts }) {
 // and counts tool calls from item.completed events: command_execution (shell
 // reads/greps) and mcp_tool_call (graph). It records the item-type histogram so
 // the classification can be verified against a real run. It also captures the
-// agent's final answer: the text of the LAST agent_message item, which is what
-// grade.mjs scores against the prompt's gold.
+// agent's final answer: the text of the LAST agent_message item.
 function parseStream(text, durMs) {
   let tokens = 0,
     cached = 0,
+    reasoning = 0,
     turns = 0,
     tools = 0,
     shell = 0,
@@ -588,6 +591,7 @@ function parseStream(text, durMs) {
     completed = false,
     answered = false,
     answer = "";
+  const usage = [];
   const types = {};
   for (const raw of text.split("\n")) {
     if (!raw.trim()) continue;
@@ -600,8 +604,16 @@ function parseStream(text, durMs) {
     if (e.type === "turn.completed") {
       completed = true;
       const u = e.usage || {};
-      tokens += (u.input_tokens || 0) + (u.output_tokens || 0);
-      cached += u.cached_input_tokens || 0;
+      const turn = {
+        input: u.input_tokens || 0,
+        cachedInput: u.cached_input_tokens || 0,
+        output: u.output_tokens || 0,
+        reasoning: u.reasoning_output_tokens || 0,
+      };
+      tokens += turn.input + turn.output;
+      cached += turn.cachedInput;
+      reasoning += turn.reasoning;
+      usage.push(turn);
       turns++;
     } else if (e.type === "item.completed") {
       const it = e.item || {};
@@ -624,7 +636,10 @@ function parseStream(text, durMs) {
   return {
     tokens,
     cached,
+    reasoning,
+    tokensWithReasoning: tokens + reasoning,
     turns,
+    usage,
     tools,
     shell,
     graph,
@@ -632,7 +647,26 @@ function parseStream(text, durMs) {
     durMs,
     ok: completed && answered,
     answer,
+    error: completed
+      ? answered
+        ? ""
+        : "codex completed without an agent answer"
+      : "codex turn did not complete",
   };
+}
+
+function validateArmSample(sample, armName) {
+  if (armName === "graph" && sample.ok && sample.graph === 0) {
+    sample.ok = false;
+    sample.invalid = "graph-mcp-not-used";
+    sample.error = "graph arm completed without MCP tool calls";
+  }
+  if (armName === "graph" && sample.ok && sample.shell > 0) {
+    sample.ok = false;
+    sample.invalid = "graph-shell-used";
+    sample.error = "graph arm used shell commands instead of graph tools";
+  }
+  return sample;
 }
 
 function runOrThrow(command, commandArgs, cwd, env) {
@@ -656,6 +690,10 @@ function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function oneLine(value) {
+  return String(value).replace(/\s+/g, " ").trim();
 }
 
 function cleanup(paths) {

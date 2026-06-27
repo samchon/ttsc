@@ -59,6 +59,12 @@ export interface ITtscGraphNode {
    */
   decorators?: ITtscGraphDecorator[];
 
-  /** The declaration span, for display and source expansion. */
+  /** The declaration span, for display and signatures. */
   evidence?: ITtscGraphEvidence;
+
+  /**
+   * The implementation span when a callable/property member is implemented by a
+   * function assignment separate from its declaration.
+   */
+  implementation?: ITtscGraphEvidence;
 }

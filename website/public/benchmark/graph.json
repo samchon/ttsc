@@ -1,1360 +1,3537 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T22:38:15.067Z",
-  "structural": {
-    "project": "packages/ttsc",
-    "tsconfig": "tsconfig.json",
-    "runs": 5,
-    "sourceFiles": 53,
-    "nodes": 605,
-    "externalNodes": 71,
-    "edges": {
-      "heritage": 2,
-      "type-ref": 428,
-      "value-call": 1153
-    },
-    "totalEdges": 1583,
-    "symbolFiles": 50,
-    "coveredFiles": 50,
-    "coverage": 1,
-    "loadMsMedian": 69.2498,
-    "buildMsMedian": 41.689299999999996,
-    "buildShareMedian": 0.6014201197089938
-  },
+  "generatedAt": "2026-06-26T18:23:01.214Z",
+  "structural": null,
   "agent": {
     "cells": [
       {
-        "harness": "claude-code",
+        "harness": "codex",
+        "tool": "baseline",
         "repo": "excalidraw",
-        "model": "sonnet",
-        "runs": 6,
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "excalidraw-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "e4f3b02a5d3a1e86a9136d90a4b8bd9c73774733f9f1c021faee61b3ea6e83b5",
+        "goldSha256": "4fdd4f4adde6bd6419a0e1e1afce69c0f4ebdc2c1997861cd20469fcd04afd1d",
+        "gradeThreshold": 0.8,
+        "daemon": false,
+        "runs": 5,
         "question": "How does Excalidraw render and update canvas elements?",
         "samples": {
           "baseline": [
             {
-              "tokens": 2334964,
-              "tools": 52,
-              "reads": 31,
-              "grep": 1,
-              "graph": 0,
-              "cost": 0.409,
-              "durMs": 294000,
-              "ok": true
-            },
-            {
-              "tokens": 1748106,
+              "tokens": 1510469,
+              "cached": 1362432,
+              "turns": 1,
               "tools": 53,
-              "reads": 26,
-              "grep": 9,
+              "shell": 53,
               "graph": 0,
-              "cost": 0.308,
-              "durMs": 232000,
-              "ok": true
+              "types": {
+                "agent_message": 6,
+                "command_execution": 53
+              },
+              "durMs": 196443,
+              "ok": true,
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "e4f3b02a5d3a1e86a9136d90a4b8bd9c73774733f9f1c021faee61b3ea6e83b5",
+              "goldSha256": "4fdd4f4adde6bd6419a0e1e1afce69c0f4ebdc2c1997861cd20469fcd04afd1d",
+              "quality": {
+                "symbolCoverage": 0.4,
+                "matchedSymbols": ["renderStaticScene", "_renderStaticScene"],
+                "missingSymbols": [
+                  "renderElement",
+                  "drawElementOnCanvas",
+                  "ShapeCache.generateElementShape"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["roughjs", "shapecache"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 5,
+              "reasoning": 3814,
+              "tokensWithReasoning": 1514283,
+              "usage": [
+                {
+                  "input": 1500587,
+                  "cachedInput": 1362432,
+                  "output": 9882,
+                  "reasoning": 3814
+                }
+              ]
             },
             {
-              "tokens": 1882738,
-              "tools": 48,
-              "reads": 25,
-              "grep": 6,
+              "tokens": 1259954,
+              "cached": 1175936,
+              "turns": 1,
+              "tools": 57,
+              "shell": 57,
               "graph": 0,
-              "cost": 0.328,
-              "durMs": 261000,
-              "ok": true
+              "types": {
+                "agent_message": 8,
+                "command_execution": 57
+              },
+              "durMs": 204965,
+              "ok": true,
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "e4f3b02a5d3a1e86a9136d90a4b8bd9c73774733f9f1c021faee61b3ea6e83b5",
+              "goldSha256": "4fdd4f4adde6bd6419a0e1e1afce69c0f4ebdc2c1997861cd20469fcd04afd1d",
+              "quality": {
+                "symbolCoverage": 0.4,
+                "matchedSymbols": ["renderStaticScene", "_renderStaticScene"],
+                "missingSymbols": [
+                  "renderElement",
+                  "drawElementOnCanvas",
+                  "ShapeCache.generateElementShape"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["roughjs", "shapecache"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 1,
+              "reasoning": 3562,
+              "tokensWithReasoning": 1263516,
+              "usage": [
+                {
+                  "input": 1249095,
+                  "cachedInput": 1175936,
+                  "output": 10859,
+                  "reasoning": 3562
+                }
+              ]
             },
             {
-              "tokens": 2304395,
-              "tools": 58,
-              "reads": 25,
-              "grep": 17,
+              "tokens": 1175086,
+              "cached": 1000064,
+              "turns": 1,
+              "tools": 57,
+              "shell": 57,
               "graph": 0,
-              "cost": 0.347,
-              "durMs": 226000,
-              "ok": true
+              "types": {
+                "agent_message": 7,
+                "command_execution": 57
+              },
+              "durMs": 206283,
+              "ok": true,
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "e4f3b02a5d3a1e86a9136d90a4b8bd9c73774733f9f1c021faee61b3ea6e83b5",
+              "goldSha256": "4fdd4f4adde6bd6419a0e1e1afce69c0f4ebdc2c1997861cd20469fcd04afd1d",
+              "quality": {
+                "symbolCoverage": 0.6,
+                "matchedSymbols": [
+                  "renderStaticScene",
+                  "_renderStaticScene",
+                  "renderElement"
+                ],
+                "missingSymbols": [
+                  "drawElementOnCanvas",
+                  "ShapeCache.generateElementShape"
+                ],
+                "edgeOrder": 0.33,
+                "mentionsMissing": ["roughjs", "shapecache"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 4,
+              "reasoning": 5081,
+              "tokensWithReasoning": 1180167,
+              "usage": [
+                {
+                  "input": 1163920,
+                  "cachedInput": 1000064,
+                  "output": 11166,
+                  "reasoning": 5081
+                }
+              ]
             },
             {
-              "tokens": 1868597,
-              "tools": 45,
-              "reads": 21,
-              "grep": 2,
-              "graph": 0,
-              "cost": 0.342,
-              "durMs": 258000,
-              "ok": true
-            },
-            {
-              "tokens": 1442992,
-              "tools": 36,
-              "reads": 19,
-              "grep": 6,
-              "graph": 0,
-              "cost": 0.283,
-              "durMs": 184000,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 340119,
-              "tools": 3,
-              "reads": 0,
-              "grep": 0,
-              "graph": 3,
-              "cost": 0.186,
-              "durMs": 48000,
-              "ok": true
-            },
-            {
-              "tokens": 151647,
-              "tools": 1,
-              "reads": 0,
-              "grep": 0,
-              "graph": 1,
-              "cost": 0.072,
-              "durMs": 32000,
-              "ok": true
-            },
-            {
-              "tokens": 260748,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "graph": 2,
-              "cost": 0.107,
-              "durMs": 34000,
-              "ok": true
-            },
-            {
-              "tokens": 224452,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "graph": 2,
-              "cost": 0.095,
-              "durMs": 28000,
-              "ok": true
-            },
-            {
-              "tokens": 268128,
-              "tools": 3,
-              "reads": 0,
-              "grep": 0,
-              "graph": 3,
-              "cost": 0.125,
-              "durMs": 56000,
-              "ok": true
-            },
-            {
-              "tokens": 333918,
-              "tools": 3,
-              "reads": 0,
-              "grep": 0,
-              "graph": 3,
-              "cost": 0.141,
-              "durMs": 60000,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "repo": "excalidraw",
-        "model": "opus",
-        "runs": 6,
-        "question": "How does Excalidraw render and update canvas elements?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 1653517,
-              "tools": 52,
-              "reads": 20,
-              "grep": 5,
-              "graph": 0,
-              "cost": 0.346,
-              "durMs": 173000,
-              "ok": true
-            },
-            {
-              "tokens": 2359341,
-              "tools": 56,
-              "reads": 30,
-              "grep": 4,
-              "graph": 0,
-              "cost": 0.502,
-              "durMs": 247000,
-              "ok": true
-            },
-            {
-              "tokens": 2073881,
-              "tools": 48,
-              "reads": 29,
-              "grep": 2,
-              "graph": 0,
-              "cost": 0.455,
-              "durMs": 174000,
-              "ok": true
-            },
-            {
-              "tokens": 1985314,
-              "tools": 58,
-              "reads": 24,
-              "grep": 17,
-              "graph": 0,
-              "cost": 0.48,
-              "durMs": 222000,
-              "ok": true
-            },
-            {
-              "tokens": 2808013,
-              "tools": 84,
-              "reads": 39,
-              "grep": 2,
-              "graph": 0,
-              "cost": 0.666,
-              "durMs": 192000,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 268084,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "graph": 2,
-              "cost": 0.302,
-              "durMs": 72000,
-              "ok": true
-            },
-            {
-              "tokens": 421186,
-              "tools": 3,
-              "reads": 0,
-              "grep": 0,
-              "graph": 3,
-              "cost": 0.382,
-              "durMs": 41000,
-              "ok": true
-            },
-            {
-              "tokens": 1109476,
-              "tools": 8,
-              "reads": 3,
-              "grep": 0,
-              "graph": 5,
-              "cost": 0.722,
-              "durMs": 96000,
-              "ok": true
-            },
-            {
-              "tokens": 539086,
-              "tools": 4,
-              "reads": 0,
-              "grep": 0,
-              "graph": 4,
-              "cost": 0.481,
-              "durMs": 57000,
-              "ok": true
-            },
-            {
-              "tokens": 1036825,
-              "tools": 10,
-              "reads": 2,
-              "grep": 3,
-              "graph": 5,
-              "cost": 0.753,
-              "durMs": 95000,
-              "ok": true
-            },
-            {
-              "tokens": 422181,
-              "tools": 3,
-              "reads": 0,
-              "grep": 0,
-              "graph": 3,
-              "cost": 0.401,
-              "durMs": 57000,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "typeorm",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "How are relation options applied when repository.find() builds its query?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 1357346,
-              "tools": 38,
-              "reads": 16,
-              "grep": 0,
-              "graph": 0,
-              "other": 22,
-              "cost": 0.3162408,
-              "durMs": 155877,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 148231,
-              "tools": 1,
-              "reads": 0,
-              "grep": 0,
-              "graph": 1,
-              "other": 0,
-              "cost": 0.1042146,
-              "durMs": 26783,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "typeorm",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "How are relation options applied when repository.find() builds its query?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 1380781,
-              "tools": 44,
-              "reads": 17,
-              "grep": 0,
-              "graph": 0,
-              "other": 27,
-              "cost": 0.4219506,
-              "durMs": 154481,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 287554,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "graph": 2,
-              "other": 0,
-              "cost": 0.335669,
-              "durMs": 36823,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 48022.9344,
-        "repo": "typeorm",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "How are relation options applied when repository.find() builds its query?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 1585057,
+              "tokens": 1009091,
+              "cached": 860032,
+              "turns": 1,
               "tools": 41,
-              "reads": 17,
-              "grep": 0,
+              "shell": 41,
               "graph": 0,
-              "other": 24,
-              "cost": 0.35822145000000005,
-              "durMs": 165454,
-              "ok": true
+              "types": {
+                "agent_message": 7,
+                "command_execution": 41
+              },
+              "durMs": 210200,
+              "ok": true,
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "e4f3b02a5d3a1e86a9136d90a4b8bd9c73774733f9f1c021faee61b3ea6e83b5",
+              "goldSha256": "4fdd4f4adde6bd6419a0e1e1afce69c0f4ebdc2c1997861cd20469fcd04afd1d",
+              "quality": {
+                "symbolCoverage": 0.6,
+                "matchedSymbols": [
+                  "renderStaticScene",
+                  "_renderStaticScene",
+                  "renderElement"
+                ],
+                "missingSymbols": [
+                  "drawElementOnCanvas",
+                  "ShapeCache.generateElementShape"
+                ],
+                "edgeOrder": 0.33,
+                "mentionsMissing": ["roughjs", "shapecache"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 3,
+              "reasoning": 6102,
+              "tokensWithReasoning": 1015193,
+              "usage": [
+                {
+                  "input": 998104,
+                  "cachedInput": 860032,
+                  "output": 10987,
+                  "reasoning": 6102
+                }
+              ]
+            },
+            {
+              "tokens": 1156674,
+              "cached": 1020032,
+              "turns": 1,
+              "tools": 54,
+              "shell": 54,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 54
+              },
+              "durMs": 212222,
+              "ok": true,
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "e4f3b02a5d3a1e86a9136d90a4b8bd9c73774733f9f1c021faee61b3ea6e83b5",
+              "goldSha256": "4fdd4f4adde6bd6419a0e1e1afce69c0f4ebdc2c1997861cd20469fcd04afd1d",
+              "quality": {
+                "symbolCoverage": 0.6,
+                "matchedSymbols": [
+                  "renderStaticScene",
+                  "_renderStaticScene",
+                  "renderElement"
+                ],
+                "missingSymbols": [
+                  "drawElementOnCanvas",
+                  "ShapeCache.generateElementShape"
+                ],
+                "edgeOrder": 0.33,
+                "mentionsMissing": ["roughjs", "shapecache"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 2,
+              "reasoning": 4575,
+              "tokensWithReasoning": 1161249,
+              "usage": [
+                {
+                  "input": 1145797,
+                  "cachedInput": 1020032,
+                  "output": 10877,
+                  "reasoning": 4575
+                }
+              ]
             }
           ],
-          "graph": [
-            {
-              "tokens": 1606604,
-              "tools": 35,
-              "reads": 12,
-              "grep": 2,
-              "graph": 2,
-              "other": 19,
-              "cost": 0.34176274999999995,
-              "durMs": 131256,
-              "ok": true
-            }
-          ]
+          "graph": []
         }
       },
       {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "excalidraw",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "excalidraw-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+        "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+        "gradeThreshold": 0.8,
+        "daemon": false,
+        "runs": 5,
+        "question": "I just joined this TypeScript project and want to understand how it actually works under the hood. Pick the single most central exported API or entry point and trace what happens when it runs: how the call travels from that public entry, through the internal layers, down to where the real work happens. Name the files and symbols it passes through, in order, and how each step leads to the next. Keep it a focused walk-through of that one path, not a summary of the whole project. Do not guess; report gaps.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 1607119,
+              "cached": 1460992,
+              "turns": 1,
+              "tools": 49,
+              "shell": 49,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 49
+              },
+              "durMs": 289941,
+              "ok": true,
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 5,
+              "reasoning": 9661,
+              "tokensWithReasoning": 1616780,
+              "usage": [
+                {
+                  "input": 1591569,
+                  "cachedInput": 1460992,
+                  "output": 15550,
+                  "reasoning": 9661
+                }
+              ]
+            },
+            {
+              "tokens": 1833342,
+              "cached": 1618688,
+              "turns": 1,
+              "tools": 59,
+              "shell": 59,
+              "graph": 0,
+              "types": {
+                "agent_message": 10,
+                "command_execution": 59
+              },
+              "durMs": 317197,
+              "ok": true,
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 1,
+              "reasoning": 10722,
+              "tokensWithReasoning": 1844064,
+              "usage": [
+                {
+                  "input": 1815623,
+                  "cachedInput": 1618688,
+                  "output": 17719,
+                  "reasoning": 10722
+                }
+              ]
+            },
+            {
+              "tokens": 1976662,
+              "cached": 1544192,
+              "turns": 1,
+              "tools": 56,
+              "shell": 56,
+              "graph": 0,
+              "types": {
+                "agent_message": 12,
+                "command_execution": 56
+              },
+              "durMs": 317794,
+              "ok": true,
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 2,
+              "reasoning": 10790,
+              "tokensWithReasoning": 1987452,
+              "usage": [
+                {
+                  "input": 1958435,
+                  "cachedInput": 1544192,
+                  "output": 18227,
+                  "reasoning": 10790
+                }
+              ]
+            },
+            {
+              "tokens": 1733718,
+              "cached": 1513088,
+              "turns": 1,
+              "tools": 60,
+              "shell": 60,
+              "graph": 0,
+              "types": {
+                "agent_message": 11,
+                "command_execution": 60
+              },
+              "durMs": 332350,
+              "ok": true,
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 3,
+              "reasoning": 11263,
+              "tokensWithReasoning": 1744981,
+              "usage": [
+                {
+                  "input": 1715269,
+                  "cachedInput": 1513088,
+                  "output": 18449,
+                  "reasoning": 11263
+                }
+              ]
+            },
+            {
+              "tokens": 1568098,
+              "cached": 1294592,
+              "turns": 1,
+              "tools": 48,
+              "shell": 48,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 48
+              },
+              "durMs": 381440,
+              "ok": true,
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 4,
+              "reasoning": 12478,
+              "tokensWithReasoning": 1580576,
+              "usage": [
+                {
+                  "input": 1549583,
+                  "cachedInput": 1294592,
+                  "output": 18515,
+                  "reasoning": 12478
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
         "repo": "vue",
-        "model": "sonnet",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vue-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "11b889e2310386a0433520efb27d21e26fe69035b4d1d1aecf1b2aad2e7a0c8f",
+        "goldSha256": "727af99f7bac787978f548df1331552108bca835a8fb5bfe3092b466e0508db1",
+        "gradeThreshold": 0.8,
         "fixtureBranch": "ttsc",
         "daemon": false,
-        "runs": 1,
-        "question": "Which code schedules a component update after a ref value changes?",
+        "runs": 5,
+        "question": "How does Vue track reactive dependencies when a property is read and trigger effects when that property is written?",
         "samples": {
           "baseline": [
             {
-              "tokens": 478789,
-              "tools": 15,
-              "reads": 7,
-              "grep": 4,
-              "graph": 0,
-              "other": 4,
-              "cost": 0.16280615,
-              "durMs": 54579,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 203812,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "graph": 2,
-              "other": 0,
-              "cost": 0.1588776,
-              "durMs": 23990,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "vue",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code schedules a component update after a ref value changes?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 638935,
-              "tools": 20,
-              "reads": 8,
-              "grep": 7,
-              "graph": 0,
-              "other": 5,
-              "cost": 0.28592975000000004,
-              "durMs": 110589,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 269307,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "graph": 2,
-              "other": 0,
-              "cost": 0.3343815,
-              "durMs": 29734,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 13322.9696,
-        "repo": "vue",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code schedules a component update after a ref value changes?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 843262,
-              "tools": 27,
-              "reads": 12,
-              "grep": 8,
-              "graph": 0,
-              "other": 7,
-              "cost": 0.16641825000000005,
-              "durMs": 71416,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 719770,
-              "tools": 8,
-              "reads": 6,
-              "grep": 2,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.26769750000000003,
-              "durMs": 43748,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 13322.9696,
-        "repo": "vue",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code schedules a component update after a ref value changes?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 240916,
-              "tools": 4,
-              "reads": 1,
-              "grep": 3,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.146295,
-              "durMs": 20965,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 478696,
-              "tools": 5,
-              "reads": 1,
-              "grep": 2,
-              "graph": 2,
-              "other": 0,
-              "cost": 0.356701,
-              "durMs": 35377,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "rxjs",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code creates the Subscriber used by Observable.subscribe?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 507940,
-              "tools": 20,
-              "reads": 6,
-              "grep": 3,
-              "graph": 0,
-              "other": 11,
-              "cost": 0.15345324999999999,
-              "durMs": 62294,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 323876,
-              "tools": 6,
-              "reads": 4,
-              "grep": 1,
-              "graph": 1,
-              "other": 0,
-              "cost": 0.1634052,
-              "durMs": 36528,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "rxjs",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code creates the Subscriber used by Observable.subscribe?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 254071,
-              "tools": 4,
-              "reads": 2,
-              "grep": 2,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.2032965,
-              "durMs": 21204,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 307562,
-              "tools": 4,
-              "reads": 2,
-              "grep": 1,
-              "graph": 1,
-              "other": 0,
-              "cost": 0.265745,
-              "durMs": 24971,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 13462.5135,
-        "repo": "rxjs",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code creates the Subscriber used by Observable.subscribe?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 285344,
-              "tools": 5,
-              "reads": 1,
-              "grep": 4,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.1219139,
-              "durMs": 28838,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 281532,
-              "tools": 8,
-              "reads": 3,
-              "grep": 1,
-              "graph": 0,
-              "other": 4,
-              "cost": 0.13699414999999998,
-              "durMs": 74953,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 13462.5135,
-        "repo": "rxjs",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code creates the Subscriber used by Observable.subscribe?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 285404,
-              "tools": 5,
-              "reads": 3,
-              "grep": 2,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.2006555,
-              "durMs": 28617,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 321648,
-              "tools": 4,
-              "reads": 0,
-              "grep": 3,
-              "graph": 1,
-              "other": 0,
-              "cost": 0.329375,
-              "durMs": 29072,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 48022.9344,
-        "repo": "typeorm",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "How are relation options applied when repository.find() builds its query?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 1525275,
-              "tools": 42,
-              "reads": 18,
-              "grep": 5,
-              "graph": 0,
-              "other": 19,
-              "cost": 0.4159321,
-              "durMs": 160400,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 767115,
-              "tools": 7,
-              "reads": 2,
-              "grep": 1,
-              "graph": 2,
-              "other": 2,
-              "cost": 0.624453,
-              "durMs": 67038,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "zod",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which internal parse method does a Zod schema's parse() call?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 175858,
-              "tools": 3,
-              "reads": 0,
-              "grep": 3,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.1265901,
-              "durMs": 20916,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 169646,
-              "tools": 1,
-              "reads": 0,
-              "grep": 0,
-              "graph": 1,
-              "other": 0,
-              "cost": 0.0987635,
-              "durMs": 12581,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "zod",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which internal parse method does a Zod schema's parse() call?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 308408,
-              "tools": 4,
-              "reads": 2,
-              "grep": 2,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.2488185,
-              "durMs": 28922,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 140643,
-              "tools": 1,
-              "reads": 0,
-              "grep": 0,
-              "graph": 1,
-              "other": 0,
-              "cost": 0.206033,
-              "durMs": 18500,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 11057.8929,
-        "repo": "zod",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which internal parse method does a Zod schema's parse() call?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 175857,
-              "tools": 3,
-              "reads": 0,
-              "grep": 3,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.0899007,
-              "durMs": 18076,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 263667,
-              "tools": 3,
-              "reads": 0,
-              "grep": 2,
-              "graph": 1,
-              "other": 0,
-              "cost": 0.151634,
-              "durMs": 18389,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 11057.8929,
-        "repo": "zod",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which internal parse method does a Zod schema's parse() call?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 152487,
-              "tools": 2,
-              "reads": 1,
-              "grep": 1,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.144181,
-              "durMs": 15247,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 485612,
+              "tokens": 155670,
+              "cached": 121600,
+              "turns": 1,
               "tools": 10,
-              "reads": 2,
-              "grep": 7,
+              "shell": 10,
               "graph": 0,
-              "other": 1,
-              "cost": 0.3977705,
-              "durMs": 49073,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "nestjs",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code invokes the selected controller method for an HTTP route?",
-        "samples": {
-          "baseline": [
+              "types": {
+                "agent_message": 6,
+                "command_execution": 10
+              },
+              "durMs": 53754,
+              "ok": true,
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "11b889e2310386a0433520efb27d21e26fe69035b4d1d1aecf1b2aad2e7a0c8f",
+              "goldSha256": "727af99f7bac787978f548df1331552108bca835a8fb5bfe3092b466e0508db1",
+              "quality": {
+                "symbolCoverage": 0.8,
+                "matchedSymbols": [
+                  "track",
+                  "Dep.track",
+                  "trigger",
+                  "ReactiveEffect.run"
+                ],
+                "missingSymbols": ["Dep.notify"],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 2,
+              "reasoning": 814,
+              "tokensWithReasoning": 156484,
+              "usage": [
+                {
+                  "input": 153212,
+                  "cachedInput": 121600,
+                  "output": 2458,
+                  "reasoning": 814
+                }
+              ]
+            },
             {
-              "tokens": 836082,
-              "tools": 28,
-              "reads": 12,
-              "grep": 3,
+              "tokens": 163524,
+              "cached": 130176,
+              "turns": 1,
+              "tools": 12,
+              "shell": 12,
               "graph": 0,
-              "other": 13,
-              "cost": 0.22037955,
-              "durMs": 93156,
-              "ok": true
-            }
-          ],
-          "graph": [
+              "types": {
+                "agent_message": 5,
+                "command_execution": 12
+              },
+              "durMs": 57354,
+              "ok": true,
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "11b889e2310386a0433520efb27d21e26fe69035b4d1d1aecf1b2aad2e7a0c8f",
+              "goldSha256": "727af99f7bac787978f548df1331552108bca835a8fb5bfe3092b466e0508db1",
+              "quality": {
+                "symbolCoverage": 0.8,
+                "matchedSymbols": [
+                  "track",
+                  "Dep.track",
+                  "trigger",
+                  "ReactiveEffect.run"
+                ],
+                "missingSymbols": ["Dep.notify"],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 4,
+              "reasoning": 1045,
+              "tokensWithReasoning": 164569,
+              "usage": [
+                {
+                  "input": 160636,
+                  "cachedInput": 130176,
+                  "output": 2888,
+                  "reasoning": 1045
+                }
+              ]
+            },
             {
-              "tokens": 198289,
-              "tools": 1,
-              "reads": 0,
-              "grep": 0,
-              "graph": 1,
-              "other": 0,
-              "cost": 0.1169057,
-              "durMs": 24850,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "nestjs",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code invokes the selected controller method for an HTTP route?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 232094,
-              "tools": 9,
-              "reads": 4,
-              "grep": 1,
+              "tokens": 128829,
+              "cached": 100224,
+              "turns": 1,
+              "tools": 10,
+              "shell": 10,
               "graph": 0,
-              "other": 4,
-              "cost": 0.1819785,
-              "durMs": 45498,
-              "ok": true
-            }
-          ],
-          "graph": [
+              "types": {
+                "agent_message": 4,
+                "command_execution": 10
+              },
+              "durMs": 58367,
+              "ok": true,
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "11b889e2310386a0433520efb27d21e26fe69035b4d1d1aecf1b2aad2e7a0c8f",
+              "goldSha256": "727af99f7bac787978f548df1331552108bca835a8fb5bfe3092b466e0508db1",
+              "quality": {
+                "symbolCoverage": 0.8,
+                "matchedSymbols": [
+                  "track",
+                  "Dep.track",
+                  "trigger",
+                  "ReactiveEffect.run"
+                ],
+                "missingSymbols": ["Dep.notify"],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 3,
+              "reasoning": 1328,
+              "tokensWithReasoning": 130157,
+              "usage": [
+                {
+                  "input": 125877,
+                  "cachedInput": 100224,
+                  "output": 2952,
+                  "reasoning": 1328
+                }
+              ]
+            },
             {
-              "tokens": 355006,
-              "tools": 3,
-              "reads": 1,
-              "grep": 0,
-              "graph": 2,
-              "other": 0,
-              "cost": 0.345724,
-              "durMs": 30674,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 17412.2349,
-        "repo": "nestjs",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code invokes the selected controller method for an HTTP route?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 559697,
-              "tools": 25,
-              "reads": 8,
-              "grep": 3,
+              "tokens": 206460,
+              "cached": 164992,
+              "turns": 1,
+              "tools": 13,
+              "shell": 13,
               "graph": 0,
-              "other": 14,
-              "cost": 0.13656434999999997,
-              "durMs": 77103,
-              "ok": true
-            }
-          ],
-          "graph": [
+              "types": {
+                "agent_message": 5,
+                "command_execution": 13
+              },
+              "durMs": 63445,
+              "ok": true,
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "11b889e2310386a0433520efb27d21e26fe69035b4d1d1aecf1b2aad2e7a0c8f",
+              "goldSha256": "727af99f7bac787978f548df1331552108bca835a8fb5bfe3092b466e0508db1",
+              "quality": {
+                "symbolCoverage": 0.8,
+                "matchedSymbols": [
+                  "track",
+                  "Dep.track",
+                  "trigger",
+                  "ReactiveEffect.run"
+                ],
+                "missingSymbols": ["Dep.notify"],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 1,
+              "reasoning": 1279,
+              "tokensWithReasoning": 207739,
+              "usage": [
+                {
+                  "input": 203267,
+                  "cachedInput": 164992,
+                  "output": 3193,
+                  "reasoning": 1279
+                }
+              ]
+            },
             {
-              "tokens": 659499,
-              "tools": 18,
-              "reads": 7,
-              "grep": 6,
-              "graph": 2,
-              "other": 3,
-              "cost": 0.18683239999999998,
-              "durMs": 61010,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 17412.2349,
-        "repo": "nestjs",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code invokes the selected controller method for an HTTP route?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 408843,
-              "tools": 6,
-              "reads": 3,
-              "grep": 2,
-              "graph": 0,
-              "other": 1,
-              "cost": 0.2518545,
-              "durMs": 37224,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 227672,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "graph": 1,
-              "other": 1,
-              "cost": 0.25993750000000004,
-              "durMs": 22667,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "vscode",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Where does an extension host message get forwarded toward the main process?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 1290722,
-              "tools": 34,
-              "reads": 18,
-              "grep": 12,
-              "graph": 0,
-              "other": 4,
-              "cost": 0.28195745,
-              "durMs": 162667,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 1535176,
-              "tools": 19,
-              "reads": 3,
-              "grep": 13,
-              "graph": 3,
-              "other": 0,
-              "cost": 0.5167065000000001,
-              "durMs": 136712,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "vscode",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Where does an extension host message get forwarded toward the main process?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 636821,
-              "tools": 9,
-              "reads": 5,
-              "grep": 4,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.44944199999999995,
-              "durMs": 70085,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 603625,
-              "tools": 6,
-              "reads": 1,
-              "grep": 3,
-              "graph": 2,
-              "other": 0,
-              "cost": 0.52074,
-              "durMs": 84809,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 679477.2477,
-        "repo": "vscode",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Where does an extension host message get forwarded toward the main process?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 724755,
-              "tools": 23,
-              "reads": 9,
-              "grep": 8,
-              "graph": 0,
-              "other": 6,
-              "cost": 0.1528817,
-              "durMs": 198186,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 965168,
-              "tools": 30,
-              "reads": 16,
-              "grep": 10,
-              "graph": 0,
-              "other": 4,
-              "cost": 0.20216504999999999,
-              "durMs": 77492,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 679477.2477,
-        "repo": "vscode",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Where does an extension host message get forwarded toward the main process?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 349427,
-              "tools": 7,
-              "reads": 2,
-              "grep": 4,
-              "graph": 0,
-              "other": 1,
-              "cost": 0.24914849999999997,
-              "durMs": 48950,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 875772,
-              "tools": 28,
-              "reads": 14,
-              "grep": 12,
-              "graph": 0,
-              "other": 2,
-              "cost": 0.2481266,
-              "durMs": 76125,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "shopping-backend",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code builds the order creation request before persistence?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 597023,
-              "tools": 21,
-              "reads": 8,
-              "grep": 10,
-              "graph": 0,
-              "other": 3,
-              "cost": 0.17550815,
-              "durMs": 50014,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 487505,
-              "tools": 7,
-              "reads": 1,
-              "grep": 4,
-              "graph": 2,
-              "other": 0,
-              "cost": 0.22580499999999998,
-              "durMs": 30611,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "ttsc-graph",
-        "repo": "shopping-backend",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code builds the order creation request before persistence?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 295885,
-              "tools": 5,
-              "reads": 1,
-              "grep": 4,
-              "graph": 0,
-              "other": 0,
-              "cost": 0.268525,
-              "durMs": 25606,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 478032,
-              "tools": 5,
-              "reads": 1,
-              "grep": 2,
-              "graph": 2,
-              "other": 0,
-              "cost": 0.39071599999999995,
-              "durMs": 33047,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 7759.1223,
-        "repo": "shopping-backend",
-        "model": "sonnet",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code builds the order creation request before persistence?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 1026262,
-              "tools": 25,
-              "reads": 10,
-              "grep": 4,
-              "graph": 0,
-              "other": 11,
-              "cost": 0.21881649999999997,
-              "durMs": 121584,
-              "ok": true
-            }
-          ],
-          "graph": [
-            {
-              "tokens": 547288,
-              "tools": 17,
-              "reads": 9,
-              "grep": 5,
-              "graph": 0,
-              "other": 3,
-              "cost": 0.15957425000000003,
-              "durMs": 54307,
-              "ok": true
-            }
-          ]
-        }
-      },
-      {
-        "harness": "claude-code",
-        "tool": "codegraph",
-        "toolSetupMs": 7759.1223,
-        "repo": "shopping-backend",
-        "model": "opus",
-        "fixtureBranch": "ttsc",
-        "daemon": false,
-        "runs": 1,
-        "question": "Which code builds the order creation request before persistence?",
-        "samples": {
-          "baseline": [
-            {
-              "tokens": 316512,
+              "tokens": 162203,
+              "cached": 130816,
+              "turns": 1,
               "tools": 11,
-              "reads": 4,
-              "grep": 3,
+              "shell": 11,
               "graph": 0,
-              "other": 4,
-              "cost": 0.17650295,
-              "durMs": 45725,
-              "ok": true
+              "types": {
+                "agent_message": 5,
+                "command_execution": 11
+              },
+              "durMs": 67066,
+              "ok": true,
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "11b889e2310386a0433520efb27d21e26fe69035b4d1d1aecf1b2aad2e7a0c8f",
+              "goldSha256": "727af99f7bac787978f548df1331552108bca835a8fb5bfe3092b466e0508db1",
+              "quality": {
+                "symbolCoverage": 0.8,
+                "matchedSymbols": [
+                  "track",
+                  "Dep.track",
+                  "trigger",
+                  "ReactiveEffect.run"
+                ],
+                "missingSymbols": ["Dep.notify"],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 5,
+              "reasoning": 1578,
+              "tokensWithReasoning": 163781,
+              "usage": [
+                {
+                  "input": 158764,
+                  "cachedInput": 130816,
+                  "output": 3439,
+                  "reasoning": 1578
+                }
+              ]
             }
           ],
-          "graph": [
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "vue",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vue-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+        "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "I just joined this TypeScript project and want to understand how it actually works under the hood. Pick the single most central exported API or entry point and trace what happens when it runs: how the call travels from that public entry, through the internal layers, down to where the real work happens. Name the files and symbols it passes through, in order, and how each step leads to the next. Keep it a focused walk-through of that one path, not a summary of the whole project. Do not guess; report gaps.",
+        "samples": {
+          "baseline": [
             {
-              "tokens": 187107,
-              "tools": 2,
-              "reads": 1,
-              "grep": 1,
+              "tokens": 740814,
+              "cached": 653824,
+              "turns": 1,
+              "tools": 43,
+              "shell": 43,
               "graph": 0,
-              "other": 0,
-              "cost": 0.1721365,
-              "durMs": 19064,
-              "ok": true
+              "types": {
+                "agent_message": 7,
+                "command_execution": 43
+              },
+              "durMs": 256343,
+              "ok": true,
+              "promptId": "vue-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 2,
+              "reasoning": 11106,
+              "tokensWithReasoning": 751920,
+              "usage": [
+                {
+                  "input": 724489,
+                  "cachedInput": 653824,
+                  "output": 16325,
+                  "reasoning": 11106
+                }
+              ]
+            },
+            {
+              "tokens": 703913,
+              "cached": 597376,
+              "turns": 1,
+              "tools": 34,
+              "shell": 34,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 34
+              },
+              "durMs": 258727,
+              "ok": true,
+              "promptId": "vue-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 3,
+              "reasoning": 11233,
+              "tokensWithReasoning": 715146,
+              "usage": [
+                {
+                  "input": 687786,
+                  "cachedInput": 597376,
+                  "output": 16127,
+                  "reasoning": 11233
+                }
+              ]
+            },
+            {
+              "tokens": 1095791,
+              "cached": 1000704,
+              "turns": 1,
+              "tools": 45,
+              "shell": 45,
+              "graph": 0,
+              "types": {
+                "agent_message": 10,
+                "command_execution": 45
+              },
+              "durMs": 322745,
+              "ok": true,
+              "promptId": "vue-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 4,
+              "reasoning": 14132,
+              "tokensWithReasoning": 1109923,
+              "usage": [
+                {
+                  "input": 1075939,
+                  "cachedInput": 1000704,
+                  "output": 19852,
+                  "reasoning": 14132
+                }
+              ]
+            },
+            {
+              "tokens": 753016,
+              "cached": 670848,
+              "turns": 1,
+              "tools": 46,
+              "shell": 46,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 46
+              },
+              "durMs": 343286,
+              "ok": true,
+              "promptId": "vue-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 5,
+              "reasoning": 15683,
+              "tokensWithReasoning": 768699,
+              "usage": [
+                {
+                  "input": 732011,
+                  "cachedInput": 670848,
+                  "output": 21005,
+                  "reasoning": 15683
+                }
+              ]
+            },
+            {
+              "tokens": 797245,
+              "cached": 659456,
+              "turns": 1,
+              "tools": 44,
+              "shell": 44,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 44
+              },
+              "durMs": 430133,
+              "ok": true,
+              "promptId": "vue-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 1,
+              "reasoning": 16158,
+              "tokensWithReasoning": 813403,
+              "usage": [
+                {
+                  "input": 774489,
+                  "cachedInput": 659456,
+                  "output": 22756,
+                  "reasoning": 16158
+                }
+              ]
             }
-          ]
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "rxjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "rxjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f3b921a903804eab27b1c93da09c939829fb2fc0db486855a61be66c7527476f",
+        "goldSha256": "b99761469c712fd95b3ee99db8b6517256b045f39d98036493bdd71166fc63f3",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "How does calling subscribe on an RxJS Observable invoke its operator chain and deliver values to the observer?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 322966,
+              "cached": 278400,
+              "turns": 1,
+              "tools": 16,
+              "shell": 16,
+              "graph": 0,
+              "types": {
+                "agent_message": 5,
+                "command_execution": 16
+              },
+              "durMs": 111296,
+              "ok": true,
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "f3b921a903804eab27b1c93da09c939829fb2fc0db486855a61be66c7527476f",
+              "goldSha256": "b99761469c712fd95b3ee99db8b6517256b045f39d98036493bdd71166fc63f3",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [
+                  "Observable.pipe",
+                  "pipeReducer",
+                  "Observable.subscribe",
+                  "Observable._trySubscribe",
+                  "operate"
+                ],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 3,
+              "reasoning": 3880,
+              "tokensWithReasoning": 326846,
+              "usage": [
+                {
+                  "input": 316837,
+                  "cachedInput": 278400,
+                  "output": 6129,
+                  "reasoning": 3880
+                }
+              ]
+            },
+            {
+              "tokens": 481027,
+              "cached": 380544,
+              "turns": 1,
+              "tools": 25,
+              "shell": 25,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 25
+              },
+              "durMs": 122465,
+              "ok": true,
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "f3b921a903804eab27b1c93da09c939829fb2fc0db486855a61be66c7527476f",
+              "goldSha256": "b99761469c712fd95b3ee99db8b6517256b045f39d98036493bdd71166fc63f3",
+              "quality": {
+                "symbolCoverage": 0.8,
+                "matchedSymbols": [
+                  "Observable.pipe",
+                  "Observable.subscribe",
+                  "Observable._trySubscribe",
+                  "operate"
+                ],
+                "missingSymbols": ["pipeReducer"],
+                "edgeOrder": 0.33,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 2,
+              "reasoning": 2931,
+              "tokensWithReasoning": 483958,
+              "usage": [
+                {
+                  "input": 474678,
+                  "cachedInput": 380544,
+                  "output": 6349,
+                  "reasoning": 2931
+                }
+              ]
+            },
+            {
+              "tokens": 527383,
+              "cached": 466944,
+              "turns": 1,
+              "tools": 23,
+              "shell": 23,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 23
+              },
+              "durMs": 123137,
+              "ok": true,
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "f3b921a903804eab27b1c93da09c939829fb2fc0db486855a61be66c7527476f",
+              "goldSha256": "b99761469c712fd95b3ee99db8b6517256b045f39d98036493bdd71166fc63f3",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [
+                  "Observable.pipe",
+                  "pipeReducer",
+                  "Observable.subscribe",
+                  "Observable._trySubscribe",
+                  "operate"
+                ],
+                "missingSymbols": [],
+                "edgeOrder": 0.33,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 5,
+              "reasoning": 2815,
+              "tokensWithReasoning": 530198,
+              "usage": [
+                {
+                  "input": 521550,
+                  "cachedInput": 466944,
+                  "output": 5833,
+                  "reasoning": 2815
+                }
+              ]
+            },
+            {
+              "tokens": 628768,
+              "cached": 577280,
+              "turns": 1,
+              "tools": 24,
+              "shell": 24,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 24
+              },
+              "durMs": 129661,
+              "ok": true,
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "f3b921a903804eab27b1c93da09c939829fb2fc0db486855a61be66c7527476f",
+              "goldSha256": "b99761469c712fd95b3ee99db8b6517256b045f39d98036493bdd71166fc63f3",
+              "quality": {
+                "symbolCoverage": 0.8,
+                "matchedSymbols": [
+                  "Observable.pipe",
+                  "Observable.subscribe",
+                  "Observable._trySubscribe",
+                  "operate"
+                ],
+                "missingSymbols": ["pipeReducer"],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 1,
+              "reasoning": 2205,
+              "tokensWithReasoning": 630973,
+              "usage": [
+                {
+                  "input": 623522,
+                  "cachedInput": 577280,
+                  "output": 5246,
+                  "reasoning": 2205
+                }
+              ]
+            },
+            {
+              "tokens": 604947,
+              "cached": 517504,
+              "turns": 1,
+              "tools": 38,
+              "shell": 38,
+              "graph": 0,
+              "types": {
+                "agent_message": 11,
+                "command_execution": 38
+              },
+              "durMs": 163755,
+              "ok": true,
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "f3b921a903804eab27b1c93da09c939829fb2fc0db486855a61be66c7527476f",
+              "goldSha256": "b99761469c712fd95b3ee99db8b6517256b045f39d98036493bdd71166fc63f3",
+              "quality": {
+                "symbolCoverage": 0.8,
+                "matchedSymbols": [
+                  "Observable.pipe",
+                  "Observable.subscribe",
+                  "Observable._trySubscribe",
+                  "operate"
+                ],
+                "missingSymbols": ["pipeReducer"],
+                "edgeOrder": 0.33,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 4,
+              "reasoning": 3005,
+              "tokensWithReasoning": 607952,
+              "usage": [
+                {
+                  "input": 597743,
+                  "cachedInput": 517504,
+                  "output": 7204,
+                  "reasoning": 3005
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "rxjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "rxjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+        "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "I just joined this TypeScript project and want to understand how it actually works under the hood. Pick the single most central exported API or entry point and trace what happens when it runs: how the call travels from that public entry, through the internal layers, down to where the real work happens. Name the files and symbols it passes through, in order, and how each step leads to the next. Keep it a focused walk-through of that one path, not a summary of the whole project. Do not guess; report gaps.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 403525,
+              "cached": 344448,
+              "turns": 1,
+              "tools": 23,
+              "shell": 23,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 23
+              },
+              "durMs": 153092,
+              "ok": true,
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 4,
+              "reasoning": 6146,
+              "tokensWithReasoning": 409671,
+              "usage": [
+                {
+                  "input": 394026,
+                  "cachedInput": 344448,
+                  "output": 9499,
+                  "reasoning": 6146
+                }
+              ]
+            },
+            {
+              "tokens": 350432,
+              "cached": 287616,
+              "turns": 1,
+              "tools": 24,
+              "shell": 24,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 24
+              },
+              "durMs": 193093,
+              "ok": true,
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 3,
+              "reasoning": 8606,
+              "tokensWithReasoning": 359038,
+              "usage": [
+                {
+                  "input": 338248,
+                  "cachedInput": 287616,
+                  "output": 12184,
+                  "reasoning": 8606
+                }
+              ]
+            },
+            {
+              "tokens": 637702,
+              "cached": 576128,
+              "turns": 1,
+              "tools": 32,
+              "shell": 32,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 32
+              },
+              "durMs": 209886,
+              "ok": true,
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 2,
+              "reasoning": 8291,
+              "tokensWithReasoning": 645993,
+              "usage": [
+                {
+                  "input": 624971,
+                  "cachedInput": 576128,
+                  "output": 12731,
+                  "reasoning": 8291
+                }
+              ]
+            },
+            {
+              "tokens": 789352,
+              "cached": 729984,
+              "turns": 1,
+              "tools": 32,
+              "shell": 32,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 32
+              },
+              "durMs": 245317,
+              "ok": true,
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 1,
+              "reasoning": 10869,
+              "tokensWithReasoning": 800221,
+              "usage": [
+                {
+                  "input": 774630,
+                  "cachedInput": 729984,
+                  "output": 14722,
+                  "reasoning": 10869
+                }
+              ]
+            },
+            {
+              "tokens": 619879,
+              "cached": 485888,
+              "turns": 1,
+              "tools": 32,
+              "shell": 32,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 32
+              },
+              "durMs": 460800,
+              "ok": true,
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 5,
+              "reasoning": 13310,
+              "tokensWithReasoning": 633189,
+              "usage": [
+                {
+                  "input": 602078,
+                  "cachedInput": 485888,
+                  "output": 17801,
+                  "reasoning": 13310
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "typeorm",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "typeorm-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "c7dd3c6b1d761ee87dd1084436e341c80eb4631349861f5f62362b9da45e46c5",
+        "goldSha256": "c825dc991265903f3da4fa22b45942b92c7d97add81e9a8931fb7eebb3f97921",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "How does TypeORM's `Repository.find` translate `relations` find options into SQL joins via the query builder?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 560639,
+              "cached": 455040,
+              "turns": 1,
+              "tools": 27,
+              "shell": 27,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 27
+              },
+              "durMs": 122757,
+              "ok": true,
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "c7dd3c6b1d761ee87dd1084436e341c80eb4631349861f5f62362b9da45e46c5",
+              "goldSha256": "c825dc991265903f3da4fa22b45942b92c7d97add81e9a8931fb7eebb3f97921",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [
+                  "Repository.find",
+                  "EntityManager.find",
+                  "SelectQueryBuilder.setFindOptions",
+                  "SelectQueryBuilder.applyFindOptions",
+                  "SelectQueryBuilder.buildRelations"
+                ],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 5,
+              "reasoning": 2694,
+              "tokensWithReasoning": 563333,
+              "usage": [
+                {
+                  "input": 554319,
+                  "cachedInput": 455040,
+                  "output": 6320,
+                  "reasoning": 2694
+                }
+              ]
+            },
+            {
+              "tokens": 347930,
+              "cached": 269056,
+              "turns": 1,
+              "tools": 20,
+              "shell": 20,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 20
+              },
+              "durMs": 125462,
+              "ok": true,
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "c7dd3c6b1d761ee87dd1084436e341c80eb4631349861f5f62362b9da45e46c5",
+              "goldSha256": "c825dc991265903f3da4fa22b45942b92c7d97add81e9a8931fb7eebb3f97921",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [
+                  "Repository.find",
+                  "EntityManager.find",
+                  "SelectQueryBuilder.setFindOptions",
+                  "SelectQueryBuilder.applyFindOptions",
+                  "SelectQueryBuilder.buildRelations"
+                ],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 4,
+              "reasoning": 3617,
+              "tokensWithReasoning": 351547,
+              "usage": [
+                {
+                  "input": 341668,
+                  "cachedInput": 269056,
+                  "output": 6262,
+                  "reasoning": 3617
+                }
+              ]
+            },
+            {
+              "tokens": 590112,
+              "cached": 534400,
+              "turns": 1,
+              "tools": 27,
+              "shell": 27,
+              "graph": 0,
+              "types": {
+                "agent_message": 5,
+                "command_execution": 27
+              },
+              "durMs": 126466,
+              "ok": true,
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "c7dd3c6b1d761ee87dd1084436e341c80eb4631349861f5f62362b9da45e46c5",
+              "goldSha256": "c825dc991265903f3da4fa22b45942b92c7d97add81e9a8931fb7eebb3f97921",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [
+                  "Repository.find",
+                  "EntityManager.find",
+                  "SelectQueryBuilder.setFindOptions",
+                  "SelectQueryBuilder.applyFindOptions",
+                  "SelectQueryBuilder.buildRelations"
+                ],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 3,
+              "reasoning": 3299,
+              "tokensWithReasoning": 593411,
+              "usage": [
+                {
+                  "input": 583668,
+                  "cachedInput": 534400,
+                  "output": 6444,
+                  "reasoning": 3299
+                }
+              ]
+            },
+            {
+              "tokens": 783078,
+              "cached": 723968,
+              "turns": 1,
+              "tools": 31,
+              "shell": 31,
+              "graph": 0,
+              "types": {
+                "agent_message": 7,
+                "command_execution": 31
+              },
+              "durMs": 136233,
+              "ok": true,
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "c7dd3c6b1d761ee87dd1084436e341c80eb4631349861f5f62362b9da45e46c5",
+              "goldSha256": "c825dc991265903f3da4fa22b45942b92c7d97add81e9a8931fb7eebb3f97921",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [
+                  "Repository.find",
+                  "EntityManager.find",
+                  "SelectQueryBuilder.setFindOptions",
+                  "SelectQueryBuilder.applyFindOptions",
+                  "SelectQueryBuilder.buildRelations"
+                ],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 2,
+              "reasoning": 2912,
+              "tokensWithReasoning": 785990,
+              "usage": [
+                {
+                  "input": 776206,
+                  "cachedInput": 723968,
+                  "output": 6872,
+                  "reasoning": 2912
+                }
+              ]
+            },
+            {
+              "tokens": 752219,
+              "cached": 652160,
+              "turns": 1,
+              "tools": 39,
+              "shell": 39,
+              "graph": 0,
+              "types": {
+                "agent_message": 7,
+                "command_execution": 39
+              },
+              "durMs": 187128,
+              "ok": true,
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "c7dd3c6b1d761ee87dd1084436e341c80eb4631349861f5f62362b9da45e46c5",
+              "goldSha256": "c825dc991265903f3da4fa22b45942b92c7d97add81e9a8931fb7eebb3f97921",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [
+                  "Repository.find",
+                  "EntityManager.find",
+                  "SelectQueryBuilder.setFindOptions",
+                  "SelectQueryBuilder.applyFindOptions",
+                  "SelectQueryBuilder.buildRelations"
+                ],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 1,
+              "reasoning": 5613,
+              "tokensWithReasoning": 757832,
+              "usage": [
+                {
+                  "input": 742298,
+                  "cachedInput": 652160,
+                  "output": 9921,
+                  "reasoning": 5613
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "typeorm",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "typeorm-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+        "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "I just joined this TypeScript project and want to understand how it actually works under the hood. Pick the single most central exported API or entry point and trace what happens when it runs: how the call travels from that public entry, through the internal layers, down to where the real work happens. Name the files and symbols it passes through, in order, and how each step leads to the next. Keep it a focused walk-through of that one path, not a summary of the whole project. Do not guess; report gaps.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 1013483,
+              "cached": 913536,
+              "turns": 1,
+              "tools": 35,
+              "shell": 35,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 35
+              },
+              "durMs": 269734,
+              "ok": true,
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 1,
+              "reasoning": 11500,
+              "tokensWithReasoning": 1024983,
+              "usage": [
+                {
+                  "input": 997721,
+                  "cachedInput": 913536,
+                  "output": 15762,
+                  "reasoning": 11500
+                }
+              ]
+            },
+            {
+              "tokens": 655518,
+              "cached": 595328,
+              "turns": 1,
+              "tools": 47,
+              "shell": 47,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 47
+              },
+              "durMs": 287308,
+              "ok": true,
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 5,
+              "reasoning": 10879,
+              "tokensWithReasoning": 666397,
+              "usage": [
+                {
+                  "input": 639256,
+                  "cachedInput": 595328,
+                  "output": 16262,
+                  "reasoning": 10879
+                }
+              ]
+            },
+            {
+              "tokens": 780587,
+              "cached": 690944,
+              "turns": 1,
+              "tools": 34,
+              "shell": 34,
+              "graph": 0,
+              "types": {
+                "agent_message": 12,
+                "command_execution": 34
+              },
+              "durMs": 330510,
+              "ok": true,
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 4,
+              "reasoning": 15352,
+              "tokensWithReasoning": 795939,
+              "usage": [
+                {
+                  "input": 760824,
+                  "cachedInput": 690944,
+                  "output": 19763,
+                  "reasoning": 15352
+                }
+              ]
+            },
+            {
+              "tokens": 1383590,
+              "cached": 1293568,
+              "turns": 1,
+              "tools": 56,
+              "shell": 56,
+              "graph": 0,
+              "types": {
+                "agent_message": 10,
+                "command_execution": 56
+              },
+              "durMs": 369910,
+              "ok": true,
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 2,
+              "reasoning": 14557,
+              "tokensWithReasoning": 1398147,
+              "usage": [
+                {
+                  "input": 1362586,
+                  "cachedInput": 1293568,
+                  "output": 21004,
+                  "reasoning": 14557
+                }
+              ]
+            },
+            {
+              "tokens": 1424755,
+              "cached": 1266176,
+              "turns": 1,
+              "tools": 52,
+              "shell": 52,
+              "graph": 0,
+              "types": {
+                "agent_message": 11,
+                "command_execution": 52
+              },
+              "durMs": 386077,
+              "ok": true,
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 3,
+              "reasoning": 12154,
+              "tokensWithReasoning": 1436909,
+              "usage": [
+                {
+                  "input": 1405974,
+                  "cachedInput": 1266176,
+                  "output": 18781,
+                  "reasoning": 12154
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "zod",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "zod-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "70725901c4e2cfda260cb20f22e2b9263737dc8e0f3c03239ab007853b95cad3",
+        "goldSha256": "183c8b3be3322b3e81b656f902846e206b6042f27b968948eba1a3ab930cc3ed",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "How does a Zod schema's `parse` method validate input and produce a typed result or throw a ZodError?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 463521,
+              "cached": 396160,
+              "turns": 1,
+              "tools": 16,
+              "shell": 16,
+              "graph": 0,
+              "types": {
+                "agent_message": 4,
+                "command_execution": 16
+              },
+              "durMs": 81163,
+              "ok": true,
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "70725901c4e2cfda260cb20f22e2b9263737dc8e0f3c03239ab007853b95cad3",
+              "goldSha256": "183c8b3be3322b3e81b656f902846e206b6042f27b968948eba1a3ab930cc3ed",
+              "quality": {
+                "symbolCoverage": 0.6,
+                "matchedSymbols": ["ZodType.parse", "parse", "finalizeIssue"],
+                "missingSymbols": ["$ZodType._zod.run", "$ZodType._zod.parse"],
+                "edgeOrder": 0,
+                "mentionsMissing": ["ParseContextInternal"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 5,
+              "reasoning": 1500,
+              "tokensWithReasoning": 465021,
+              "usage": [
+                {
+                  "input": 459626,
+                  "cachedInput": 396160,
+                  "output": 3895,
+                  "reasoning": 1500
+                }
+              ]
+            },
+            {
+              "tokens": 459001,
+              "cached": 374656,
+              "turns": 1,
+              "tools": 21,
+              "shell": 21,
+              "graph": 0,
+              "types": {
+                "agent_message": 7,
+                "command_execution": 21
+              },
+              "durMs": 93790,
+              "ok": true,
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "70725901c4e2cfda260cb20f22e2b9263737dc8e0f3c03239ab007853b95cad3",
+              "goldSha256": "183c8b3be3322b3e81b656f902846e206b6042f27b968948eba1a3ab930cc3ed",
+              "quality": {
+                "symbolCoverage": 0.2,
+                "matchedSymbols": ["parse"],
+                "missingSymbols": [
+                  "ZodType.parse",
+                  "$ZodType._zod.run",
+                  "$ZodType._zod.parse",
+                  "finalizeIssue"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["ParseContextInternal"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 1,
+              "reasoning": 1921,
+              "tokensWithReasoning": 460922,
+              "usage": [
+                {
+                  "input": 454113,
+                  "cachedInput": 374656,
+                  "output": 4888,
+                  "reasoning": 1921
+                }
+              ]
+            },
+            {
+              "tokens": 337453,
+              "cached": 266368,
+              "turns": 1,
+              "tools": 19,
+              "shell": 19,
+              "graph": 0,
+              "types": {
+                "agent_message": 7,
+                "command_execution": 19
+              },
+              "durMs": 98654,
+              "ok": true,
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "70725901c4e2cfda260cb20f22e2b9263737dc8e0f3c03239ab007853b95cad3",
+              "goldSha256": "183c8b3be3322b3e81b656f902846e206b6042f27b968948eba1a3ab930cc3ed",
+              "quality": {
+                "symbolCoverage": 0.4,
+                "matchedSymbols": ["ZodType.parse", "parse"],
+                "missingSymbols": [
+                  "$ZodType._zod.run",
+                  "$ZodType._zod.parse",
+                  "finalizeIssue"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["payload", "ParseContextInternal"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 2,
+              "reasoning": 2773,
+              "tokensWithReasoning": 340226,
+              "usage": [
+                {
+                  "input": 332114,
+                  "cachedInput": 266368,
+                  "output": 5339,
+                  "reasoning": 2773
+                }
+              ]
+            },
+            {
+              "tokens": 612516,
+              "cached": 529024,
+              "turns": 1,
+              "tools": 24,
+              "shell": 24,
+              "graph": 0,
+              "types": {
+                "agent_message": 11,
+                "command_execution": 24
+              },
+              "durMs": 115764,
+              "ok": true,
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "70725901c4e2cfda260cb20f22e2b9263737dc8e0f3c03239ab007853b95cad3",
+              "goldSha256": "183c8b3be3322b3e81b656f902846e206b6042f27b968948eba1a3ab930cc3ed",
+              "quality": {
+                "symbolCoverage": 0.2,
+                "matchedSymbols": ["parse"],
+                "missingSymbols": [
+                  "ZodType.parse",
+                  "$ZodType._zod.run",
+                  "$ZodType._zod.parse",
+                  "finalizeIssue"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["payload", "ParseContextInternal"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 4,
+              "reasoning": 2950,
+              "tokensWithReasoning": 615466,
+              "usage": [
+                {
+                  "input": 606408,
+                  "cachedInput": 529024,
+                  "output": 6108,
+                  "reasoning": 2950
+                }
+              ]
+            },
+            {
+              "tokens": 512474,
+              "cached": 451712,
+              "turns": 1,
+              "tools": 23,
+              "shell": 23,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 23
+              },
+              "durMs": 132977,
+              "ok": true,
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "70725901c4e2cfda260cb20f22e2b9263737dc8e0f3c03239ab007853b95cad3",
+              "goldSha256": "183c8b3be3322b3e81b656f902846e206b6042f27b968948eba1a3ab930cc3ed",
+              "quality": {
+                "symbolCoverage": 0.2,
+                "matchedSymbols": ["parse"],
+                "missingSymbols": [
+                  "ZodType.parse",
+                  "$ZodType._zod.run",
+                  "$ZodType._zod.parse",
+                  "finalizeIssue"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["payload", "ParseContextInternal"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 3,
+              "reasoning": 3547,
+              "tokensWithReasoning": 516021,
+              "usage": [
+                {
+                  "input": 505783,
+                  "cachedInput": 451712,
+                  "output": 6691,
+                  "reasoning": 3547
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "zod",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "zod-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+        "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "I just joined this TypeScript project and want to understand how it actually works under the hood. Pick the single most central exported API or entry point and trace what happens when it runs: how the call travels from that public entry, through the internal layers, down to where the real work happens. Name the files and symbols it passes through, in order, and how each step leads to the next. Keep it a focused walk-through of that one path, not a summary of the whole project. Do not guess; report gaps.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 816231,
+              "cached": 611456,
+              "turns": 1,
+              "tools": 41,
+              "shell": 41,
+              "graph": 0,
+              "types": {
+                "agent_message": 10,
+                "command_execution": 41
+              },
+              "durMs": 298846,
+              "ok": true,
+              "promptId": "zod-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 5,
+              "reasoning": 13894,
+              "tokensWithReasoning": 830125,
+              "usage": [
+                {
+                  "input": 797060,
+                  "cachedInput": 611456,
+                  "output": 19171,
+                  "reasoning": 13894
+                }
+              ]
+            },
+            {
+              "tokens": 1734248,
+              "cached": 1566976,
+              "turns": 1,
+              "tools": 62,
+              "shell": 62,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 62
+              },
+              "durMs": 305257,
+              "ok": true,
+              "promptId": "zod-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 3,
+              "reasoning": 9421,
+              "tokensWithReasoning": 1743669,
+              "usage": [
+                {
+                  "input": 1717256,
+                  "cachedInput": 1566976,
+                  "output": 16992,
+                  "reasoning": 9421
+                }
+              ]
+            },
+            {
+              "tokens": 828713,
+              "cached": 747648,
+              "turns": 1,
+              "tools": 81,
+              "shell": 81,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 81
+              },
+              "durMs": 311438,
+              "ok": true,
+              "promptId": "zod-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 4,
+              "reasoning": 9620,
+              "tokensWithReasoning": 838333,
+              "usage": [
+                {
+                  "input": 810410,
+                  "cachedInput": 747648,
+                  "output": 18303,
+                  "reasoning": 9620
+                }
+              ]
+            },
+            {
+              "tokens": 557489,
+              "cached": 494848,
+              "turns": 1,
+              "tools": 54,
+              "shell": 54,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 54
+              },
+              "durMs": 317494,
+              "ok": true,
+              "promptId": "zod-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 2,
+              "reasoning": 6100,
+              "tokensWithReasoning": 563589,
+              "usage": [
+                {
+                  "input": 544828,
+                  "cachedInput": 494848,
+                  "output": 12661,
+                  "reasoning": 6100
+                }
+              ]
+            },
+            {
+              "tokens": 1098008,
+              "cached": 966144,
+              "turns": 1,
+              "tools": 52,
+              "shell": 52,
+              "graph": 0,
+              "types": {
+                "agent_message": 10,
+                "command_execution": 52
+              },
+              "durMs": 340494,
+              "ok": true,
+              "promptId": "zod-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 1,
+              "reasoning": 12587,
+              "tokensWithReasoning": 1110595,
+              "usage": [
+                {
+                  "input": 1078875,
+                  "cachedInput": 966144,
+                  "output": 19133,
+                  "reasoning": 12587
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "nestjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "nestjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "d86868b302bdf9dbb79ad1fa1dac711a5161aa1c84e74dfc4879596f87b5d5b7",
+        "goldSha256": "34ba82887acc13ccaecee2b875bccbe1dc12a083e341b168f1fe6341bb0e6064",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "How does NestJS execute guards, interceptors, and pipes around a controller handler when an HTTP request arrives?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 10521,
+              "cached": 7552,
+              "turns": 1,
+              "tools": 0,
+              "shell": 0,
+              "graph": 0,
+              "types": {
+                "agent_message": 2
+              },
+              "durMs": 23546,
+              "ok": true,
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "d86868b302bdf9dbb79ad1fa1dac711a5161aa1c84e74dfc4879596f87b5d5b7",
+              "goldSha256": "34ba82887acc13ccaecee2b875bccbe1dc12a083e341b168f1fe6341bb0e6064",
+              "quality": {
+                "symbolCoverage": 0,
+                "matchedSymbols": [],
+                "missingSymbols": [
+                  "RouterExplorer.createCallbackProxy",
+                  "RouterExecutionContext.create",
+                  "GuardsConsumer.tryActivate",
+                  "InterceptorsConsumer.intercept",
+                  "PipesConsumer.apply"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 5,
+              "reasoning": 834,
+              "tokensWithReasoning": 11355,
+              "usage": [
+                {
+                  "input": 9398,
+                  "cachedInput": 7552,
+                  "output": 1123,
+                  "reasoning": 834
+                }
+              ]
+            },
+            {
+              "tokens": 19695,
+              "cached": 3456,
+              "turns": 1,
+              "tools": 0,
+              "shell": 0,
+              "graph": 0,
+              "types": {
+                "agent_message": 2,
+                "web_search": 2
+              },
+              "durMs": 25219,
+              "ok": true,
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "d86868b302bdf9dbb79ad1fa1dac711a5161aa1c84e74dfc4879596f87b5d5b7",
+              "goldSha256": "34ba82887acc13ccaecee2b875bccbe1dc12a083e341b168f1fe6341bb0e6064",
+              "quality": {
+                "symbolCoverage": 0,
+                "matchedSymbols": [],
+                "missingSymbols": [
+                  "RouterExplorer.createCallbackProxy",
+                  "RouterExecutionContext.create",
+                  "GuardsConsumer.tryActivate",
+                  "InterceptorsConsumer.intercept",
+                  "PipesConsumer.apply"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 3,
+              "reasoning": 817,
+              "tokensWithReasoning": 20512,
+              "usage": [
+                {
+                  "input": 18467,
+                  "cachedInput": 3456,
+                  "output": 1228,
+                  "reasoning": 817
+                }
+              ]
+            },
+            {
+              "tokens": 19786,
+              "cached": 7552,
+              "turns": 1,
+              "tools": 0,
+              "shell": 0,
+              "graph": 0,
+              "types": {
+                "agent_message": 2,
+                "web_search": 2
+              },
+              "durMs": 29652,
+              "ok": true,
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "d86868b302bdf9dbb79ad1fa1dac711a5161aa1c84e74dfc4879596f87b5d5b7",
+              "goldSha256": "34ba82887acc13ccaecee2b875bccbe1dc12a083e341b168f1fe6341bb0e6064",
+              "quality": {
+                "symbolCoverage": 0,
+                "matchedSymbols": [],
+                "missingSymbols": [
+                  "RouterExplorer.createCallbackProxy",
+                  "RouterExecutionContext.create",
+                  "GuardsConsumer.tryActivate",
+                  "InterceptorsConsumer.intercept",
+                  "PipesConsumer.apply"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 4,
+              "reasoning": 1328,
+              "tokensWithReasoning": 21114,
+              "usage": [
+                {
+                  "input": 18136,
+                  "cachedInput": 7552,
+                  "output": 1650,
+                  "reasoning": 1328
+                }
+              ]
+            },
+            {
+              "tokens": 32425,
+              "cached": 8576,
+              "turns": 1,
+              "tools": 0,
+              "shell": 0,
+              "graph": 0,
+              "types": {
+                "agent_message": 2,
+                "web_search": 5
+              },
+              "durMs": 46084,
+              "ok": true,
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "d86868b302bdf9dbb79ad1fa1dac711a5161aa1c84e74dfc4879596f87b5d5b7",
+              "goldSha256": "34ba82887acc13ccaecee2b875bccbe1dc12a083e341b168f1fe6341bb0e6064",
+              "quality": {
+                "symbolCoverage": 0,
+                "matchedSymbols": [],
+                "missingSymbols": [
+                  "RouterExplorer.createCallbackProxy",
+                  "RouterExecutionContext.create",
+                  "GuardsConsumer.tryActivate",
+                  "InterceptorsConsumer.intercept",
+                  "PipesConsumer.apply"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 2,
+              "reasoning": 2130,
+              "tokensWithReasoning": 34555,
+              "usage": [
+                {
+                  "input": 29832,
+                  "cachedInput": 8576,
+                  "output": 2593,
+                  "reasoning": 2130
+                }
+              ]
+            },
+            {
+              "tokens": 30119,
+              "cached": 9088,
+              "turns": 1,
+              "tools": 0,
+              "shell": 0,
+              "graph": 0,
+              "types": {
+                "agent_message": 2,
+                "web_search": 4
+              },
+              "durMs": 49414,
+              "ok": true,
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "d86868b302bdf9dbb79ad1fa1dac711a5161aa1c84e74dfc4879596f87b5d5b7",
+              "goldSha256": "34ba82887acc13ccaecee2b875bccbe1dc12a083e341b168f1fe6341bb0e6064",
+              "quality": {
+                "symbolCoverage": 0,
+                "matchedSymbols": [],
+                "missingSymbols": [
+                  "RouterExplorer.createCallbackProxy",
+                  "RouterExecutionContext.create",
+                  "GuardsConsumer.tryActivate",
+                  "InterceptorsConsumer.intercept",
+                  "PipesConsumer.apply"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 1,
+              "reasoning": 2339,
+              "tokensWithReasoning": 32458,
+              "usage": [
+                {
+                  "input": 27462,
+                  "cachedInput": 9088,
+                  "output": 2657,
+                  "reasoning": 2339
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "nestjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "nestjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+        "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "I just joined this TypeScript project and want to understand how it actually works under the hood. Pick the single most central exported API or entry point and trace what happens when it runs: how the call travels from that public entry, through the internal layers, down to where the real work happens. Name the files and symbols it passes through, in order, and how each step leads to the next. Keep it a focused walk-through of that one path, not a summary of the whole project. Do not guess; report gaps.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 878713,
+              "cached": 720384,
+              "turns": 1,
+              "tools": 56,
+              "shell": 56,
+              "graph": 0,
+              "types": {
+                "agent_message": 14,
+                "command_execution": 56
+              },
+              "durMs": 328299,
+              "ok": true,
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 3,
+              "reasoning": 14083,
+              "tokensWithReasoning": 892796,
+              "usage": [
+                {
+                  "input": 857615,
+                  "cachedInput": 720384,
+                  "output": 21098,
+                  "reasoning": 14083
+                }
+              ]
+            },
+            {
+              "tokens": 1086676,
+              "cached": 941184,
+              "turns": 1,
+              "tools": 57,
+              "shell": 57,
+              "graph": 0,
+              "types": {
+                "agent_message": 13,
+                "command_execution": 57
+              },
+              "durMs": 367696,
+              "ok": true,
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 4,
+              "reasoning": 15615,
+              "tokensWithReasoning": 1102291,
+              "usage": [
+                {
+                  "input": 1063425,
+                  "cachedInput": 941184,
+                  "output": 23251,
+                  "reasoning": 15615
+                }
+              ]
+            },
+            {
+              "tokens": 1694284,
+              "cached": 1594240,
+              "turns": 1,
+              "tools": 58,
+              "shell": 58,
+              "graph": 0,
+              "types": {
+                "agent_message": 12,
+                "command_execution": 58
+              },
+              "durMs": 375271,
+              "ok": true,
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 5,
+              "reasoning": 15321,
+              "tokensWithReasoning": 1709605,
+              "usage": [
+                {
+                  "input": 1671498,
+                  "cachedInput": 1594240,
+                  "output": 22786,
+                  "reasoning": 15321
+                }
+              ]
+            },
+            {
+              "tokens": 1474352,
+              "cached": 1378560,
+              "turns": 1,
+              "tools": 67,
+              "shell": 67,
+              "graph": 0,
+              "types": {
+                "agent_message": 12,
+                "command_execution": 67
+              },
+              "durMs": 380998,
+              "ok": true,
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 2,
+              "reasoning": 15701,
+              "tokensWithReasoning": 1490053,
+              "usage": [
+                {
+                  "input": 1450494,
+                  "cachedInput": 1378560,
+                  "output": 23858,
+                  "reasoning": 15701
+                }
+              ]
+            },
+            {
+              "tokens": 2360840,
+              "cached": 2249600,
+              "turns": 1,
+              "tools": 99,
+              "shell": 99,
+              "graph": 0,
+              "types": {
+                "agent_message": 19,
+                "command_execution": 99
+              },
+              "durMs": 576020,
+              "ok": true,
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 1,
+              "reasoning": 23481,
+              "tokensWithReasoning": 2384321,
+              "usage": [
+                {
+                  "input": 2325262,
+                  "cachedInput": 2249600,
+                  "output": 35578,
+                  "reasoning": 23481
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "vscode",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vscode-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "7e27a2ffaa0d4c0e377164e9a51edb8f160b372414305b748537d188c6a378d6",
+        "goldSha256": "1905353b18e15ee4d00b09b4eaff7a185c0ecf450162957298897772f82416b1",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "How does the extension host communicate with the main process?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 526948,
+              "cached": 448128,
+              "turns": 1,
+              "tools": 26,
+              "shell": 26,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 26
+              },
+              "durMs": 94967,
+              "ok": true,
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "7e27a2ffaa0d4c0e377164e9a51edb8f160b372414305b748537d188c6a378d6",
+              "goldSha256": "1905353b18e15ee4d00b09b4eaff7a185c0ecf450162957298897772f82416b1",
+              "quality": {
+                "symbolCoverage": 0.2,
+                "matchedSymbols": ["RPCProtocol"],
+                "missingSymbols": [
+                  "RPCProtocol.getProxy",
+                  "RPCProtocol._remoteCall",
+                  "RPCProtocol._receiveOneMessage",
+                  "MessageIO.serializeRequest"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["proxy", "serialize"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 1,
+              "reasoning": 1910,
+              "tokensWithReasoning": 528858,
+              "usage": [
+                {
+                  "input": 521958,
+                  "cachedInput": 448128,
+                  "output": 4990,
+                  "reasoning": 1910
+                }
+              ]
+            },
+            {
+              "tokens": 622574,
+              "cached": 517376,
+              "turns": 1,
+              "tools": 22,
+              "shell": 22,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 22,
+                "error": 1
+              },
+              "durMs": 131357,
+              "ok": true,
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "7e27a2ffaa0d4c0e377164e9a51edb8f160b372414305b748537d188c6a378d6",
+              "goldSha256": "1905353b18e15ee4d00b09b4eaff7a185c0ecf450162957298897772f82416b1",
+              "quality": {
+                "symbolCoverage": 0.4,
+                "matchedSymbols": ["RPCProtocol", "RPCProtocol.getProxy"],
+                "missingSymbols": [
+                  "RPCProtocol._remoteCall",
+                  "RPCProtocol._receiveOneMessage",
+                  "MessageIO.serializeRequest"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["serialize"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 2,
+              "reasoning": 4309,
+              "tokensWithReasoning": 626883,
+              "usage": [
+                {
+                  "input": 615555,
+                  "cachedInput": 517376,
+                  "output": 7019,
+                  "reasoning": 4309
+                }
+              ]
+            },
+            {
+              "tokens": 679450,
+              "cached": 554752,
+              "turns": 1,
+              "tools": 24,
+              "shell": 24,
+              "graph": 0,
+              "types": {
+                "agent_message": 7,
+                "command_execution": 24
+              },
+              "durMs": 133049,
+              "ok": true,
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "7e27a2ffaa0d4c0e377164e9a51edb8f160b372414305b748537d188c6a378d6",
+              "goldSha256": "1905353b18e15ee4d00b09b4eaff7a185c0ecf450162957298897772f82416b1",
+              "quality": {
+                "symbolCoverage": 0,
+                "matchedSymbols": [],
+                "missingSymbols": [
+                  "RPCProtocol",
+                  "RPCProtocol.getProxy",
+                  "RPCProtocol._remoteCall",
+                  "RPCProtocol._receiveOneMessage",
+                  "MessageIO.serializeRequest"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["rpc", "proxy", "serialize"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 3,
+              "reasoning": 3548,
+              "tokensWithReasoning": 682998,
+              "usage": [
+                {
+                  "input": 672775,
+                  "cachedInput": 554752,
+                  "output": 6675,
+                  "reasoning": 3548
+                }
+              ]
+            },
+            {
+              "tokens": 703854,
+              "cached": 617472,
+              "turns": 1,
+              "tools": 26,
+              "shell": 26,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 26
+              },
+              "durMs": 134153,
+              "ok": true,
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "7e27a2ffaa0d4c0e377164e9a51edb8f160b372414305b748537d188c6a378d6",
+              "goldSha256": "1905353b18e15ee4d00b09b4eaff7a185c0ecf450162957298897772f82416b1",
+              "quality": {
+                "symbolCoverage": 0.4,
+                "matchedSymbols": ["RPCProtocol", "RPCProtocol.getProxy"],
+                "missingSymbols": [
+                  "RPCProtocol._remoteCall",
+                  "RPCProtocol._receiveOneMessage",
+                  "MessageIO.serializeRequest"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["serialize"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 5,
+              "reasoning": 3708,
+              "tokensWithReasoning": 707562,
+              "usage": [
+                {
+                  "input": 696583,
+                  "cachedInput": 617472,
+                  "output": 7271,
+                  "reasoning": 3708
+                }
+              ]
+            },
+            {
+              "tokens": 849317,
+              "cached": 723584,
+              "turns": 1,
+              "tools": 31,
+              "shell": 31,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 31,
+                "error": 2
+              },
+              "durMs": 151060,
+              "ok": true,
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "7e27a2ffaa0d4c0e377164e9a51edb8f160b372414305b748537d188c6a378d6",
+              "goldSha256": "1905353b18e15ee4d00b09b4eaff7a185c0ecf450162957298897772f82416b1",
+              "quality": {
+                "symbolCoverage": 0.2,
+                "matchedSymbols": ["RPCProtocol"],
+                "missingSymbols": [
+                  "RPCProtocol.getProxy",
+                  "RPCProtocol._remoteCall",
+                  "RPCProtocol._receiveOneMessage",
+                  "MessageIO.serializeRequest"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": ["serialize"],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 4,
+              "reasoning": 3988,
+              "tokensWithReasoning": 853305,
+              "usage": [
+                {
+                  "input": 841718,
+                  "cachedInput": 723584,
+                  "output": 7599,
+                  "reasoning": 3988
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "vscode",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vscode-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+        "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "I just joined this TypeScript project and want to understand how it actually works under the hood. Pick the single most central exported API or entry point and trace what happens when it runs: how the call travels from that public entry, through the internal layers, down to where the real work happens. Name the files and symbols it passes through, in order, and how each step leads to the next. Keep it a focused walk-through of that one path, not a summary of the whole project. Do not guess; report gaps.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 390023,
+              "cached": 321920,
+              "turns": 1,
+              "tools": 24,
+              "shell": 24,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 24
+              },
+              "durMs": 206010,
+              "ok": true,
+              "promptId": "vscode-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 4,
+              "reasoning": 9127,
+              "tokensWithReasoning": 399150,
+              "usage": [
+                {
+                  "input": 377522,
+                  "cachedInput": 321920,
+                  "output": 12501,
+                  "reasoning": 9127
+                }
+              ]
+            },
+            {
+              "tokens": 1688961,
+              "cached": 1577216,
+              "turns": 1,
+              "tools": 49,
+              "shell": 49,
+              "graph": 0,
+              "types": {
+                "agent_message": 10,
+                "command_execution": 49
+              },
+              "durMs": 295221,
+              "ok": true,
+              "promptId": "vscode-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 5,
+              "reasoning": 10583,
+              "tokensWithReasoning": 1699544,
+              "usage": [
+                {
+                  "input": 1672135,
+                  "cachedInput": 1577216,
+                  "output": 16826,
+                  "reasoning": 10583
+                }
+              ]
+            },
+            {
+              "tokens": 1636155,
+              "cached": 1544448,
+              "turns": 1,
+              "tools": 51,
+              "shell": 51,
+              "graph": 0,
+              "types": {
+                "agent_message": 14,
+                "command_execution": 51
+              },
+              "durMs": 310637,
+              "ok": true,
+              "promptId": "vscode-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 3,
+              "reasoning": 10864,
+              "tokensWithReasoning": 1647019,
+              "usage": [
+                {
+                  "input": 1618297,
+                  "cachedInput": 1544448,
+                  "output": 17858,
+                  "reasoning": 10864
+                }
+              ]
+            },
+            {
+              "tokens": 2418761,
+              "cached": 2286592,
+              "turns": 1,
+              "tools": 55,
+              "shell": 55,
+              "graph": 0,
+              "types": {
+                "agent_message": 11,
+                "command_execution": 55
+              },
+              "durMs": 316082,
+              "ok": true,
+              "promptId": "vscode-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 2,
+              "reasoning": 9139,
+              "tokensWithReasoning": 2427900,
+              "usage": [
+                {
+                  "input": 2401560,
+                  "cachedInput": 2286592,
+                  "output": 17201,
+                  "reasoning": 9139
+                }
+              ]
+            },
+            {
+              "tokens": 2879768,
+              "cached": 2627968,
+              "turns": 1,
+              "tools": 86,
+              "shell": 86,
+              "graph": 0,
+              "types": {
+                "agent_message": 17,
+                "command_execution": 86
+              },
+              "durMs": 428053,
+              "ok": true,
+              "promptId": "vscode-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 1,
+              "reasoning": 14286,
+              "tokensWithReasoning": 2894054,
+              "usage": [
+                {
+                  "input": 2854586,
+                  "cachedInput": 2627968,
+                  "output": 25182,
+                  "reasoning": 14286
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "shopping-backend",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "shopping-backend-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "953f26f19a66fcec27478737425d9fca57278eec68e381506b73cef74d295038",
+        "goldSha256": "3742f089312c2ef55ea685fd63b2e96e52063cbd8bf933b80b91e9c72a30d024",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "How does publishing an order flow from ShoppingCustomerOrderPublishController.create through ShoppingOrderPublishProvider to the Prisma database write?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 206650,
+              "cached": 148224,
+              "turns": 1,
+              "tools": 12,
+              "shell": 12,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 12
+              },
+              "durMs": 75321,
+              "ok": true,
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "953f26f19a66fcec27478737425d9fca57278eec68e381506b73cef74d295038",
+              "goldSha256": "3742f089312c2ef55ea685fd63b2e96e52063cbd8bf933b80b91e9c72a30d024",
+              "quality": {
+                "symbolCoverage": 0.6,
+                "matchedSymbols": [
+                  "ShoppingCustomerOrderPublishController.create",
+                  "ShoppingOrderPublishProvider.create",
+                  "ShoppingOrderPublishProvider.knock"
+                ],
+                "missingSymbols": [
+                  "ShoppingGlobal.prisma",
+                  "ShoppingOrderPublishProvider.json.transform"
+                ],
+                "edgeOrder": 0.67,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 3,
+              "reasoning": 1796,
+              "tokensWithReasoning": 208446,
+              "usage": [
+                {
+                  "input": 202459,
+                  "cachedInput": 148224,
+                  "output": 4191,
+                  "reasoning": 1796
+                }
+              ]
+            },
+            {
+              "tokens": 214364,
+              "cached": 174208,
+              "turns": 1,
+              "tools": 19,
+              "shell": 19,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 19
+              },
+              "durMs": 110634,
+              "ok": true,
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "953f26f19a66fcec27478737425d9fca57278eec68e381506b73cef74d295038",
+              "goldSha256": "3742f089312c2ef55ea685fd63b2e96e52063cbd8bf933b80b91e9c72a30d024",
+              "quality": {
+                "symbolCoverage": 0.6,
+                "matchedSymbols": [
+                  "ShoppingCustomerOrderPublishController.create",
+                  "ShoppingOrderPublishProvider.create",
+                  "ShoppingOrderPublishProvider.knock"
+                ],
+                "missingSymbols": [
+                  "ShoppingGlobal.prisma",
+                  "ShoppingOrderPublishProvider.json.transform"
+                ],
+                "edgeOrder": 0.67,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 4,
+              "reasoning": 3733,
+              "tokensWithReasoning": 218097,
+              "usage": [
+                {
+                  "input": 207764,
+                  "cachedInput": 174208,
+                  "output": 6600,
+                  "reasoning": 3733
+                }
+              ]
+            },
+            {
+              "tokens": 286269,
+              "cached": 237952,
+              "turns": 1,
+              "tools": 20,
+              "shell": 20,
+              "graph": 0,
+              "types": {
+                "agent_message": 6,
+                "command_execution": 20
+              },
+              "durMs": 123073,
+              "ok": true,
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "953f26f19a66fcec27478737425d9fca57278eec68e381506b73cef74d295038",
+              "goldSha256": "3742f089312c2ef55ea685fd63b2e96e52063cbd8bf933b80b91e9c72a30d024",
+              "quality": {
+                "symbolCoverage": 0.8,
+                "matchedSymbols": [
+                  "ShoppingCustomerOrderPublishController.create",
+                  "ShoppingOrderPublishProvider.create",
+                  "ShoppingOrderPublishProvider.knock",
+                  "ShoppingGlobal.prisma"
+                ],
+                "missingSymbols": [
+                  "ShoppingOrderPublishProvider.json.transform"
+                ],
+                "edgeOrder": 0.67,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 1,
+              "reasoning": 3955,
+              "tokensWithReasoning": 290224,
+              "usage": [
+                {
+                  "input": 279353,
+                  "cachedInput": 237952,
+                  "output": 6916,
+                  "reasoning": 3955
+                }
+              ]
+            },
+            {
+              "tokens": 321541,
+              "cached": 285824,
+              "turns": 1,
+              "tools": 22,
+              "shell": 22,
+              "graph": 0,
+              "types": {
+                "agent_message": 7,
+                "command_execution": 22
+              },
+              "durMs": 132575,
+              "ok": true,
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "953f26f19a66fcec27478737425d9fca57278eec68e381506b73cef74d295038",
+              "goldSha256": "3742f089312c2ef55ea685fd63b2e96e52063cbd8bf933b80b91e9c72a30d024",
+              "quality": {
+                "symbolCoverage": 0.6,
+                "matchedSymbols": [
+                  "ShoppingCustomerOrderPublishController.create",
+                  "ShoppingOrderPublishProvider.create",
+                  "ShoppingOrderPublishProvider.knock"
+                ],
+                "missingSymbols": [
+                  "ShoppingGlobal.prisma",
+                  "ShoppingOrderPublishProvider.json.transform"
+                ],
+                "edgeOrder": 0.33,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 2,
+              "reasoning": 4117,
+              "tokensWithReasoning": 325658,
+              "usage": [
+                {
+                  "input": 314079,
+                  "cachedInput": 285824,
+                  "output": 7462,
+                  "reasoning": 4117
+                }
+              ]
+            },
+            {
+              "tokens": 388598,
+              "cached": 307840,
+              "turns": 1,
+              "tools": 20,
+              "shell": 20,
+              "graph": 0,
+              "types": {
+                "agent_message": 5,
+                "command_execution": 20
+              },
+              "durMs": 156495,
+              "ok": true,
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "953f26f19a66fcec27478737425d9fca57278eec68e381506b73cef74d295038",
+              "goldSha256": "3742f089312c2ef55ea685fd63b2e96e52063cbd8bf933b80b91e9c72a30d024",
+              "quality": {
+                "symbolCoverage": 0.6,
+                "matchedSymbols": [
+                  "ShoppingCustomerOrderPublishController.create",
+                  "ShoppingOrderPublishProvider.create",
+                  "ShoppingOrderPublishProvider.knock"
+                ],
+                "missingSymbols": [
+                  "ShoppingGlobal.prisma",
+                  "ShoppingOrderPublishProvider.json.transform"
+                ],
+                "edgeOrder": 0.33,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "run": 5,
+              "reasoning": 6305,
+              "tokensWithReasoning": 394903,
+              "usage": [
+                {
+                  "input": 379346,
+                  "cachedInput": 307840,
+                  "output": 9252,
+                  "reasoning": 6305
+                }
+              ]
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "shopping-backend",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "shopping-backend-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+        "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+        "gradeThreshold": 0.8,
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 5,
+        "question": "I just joined this TypeScript project and want to understand how it actually works under the hood. Pick the single most central exported API or entry point and trace what happens when it runs: how the call travels from that public entry, through the internal layers, down to where the real work happens. Name the files and symbols it passes through, in order, and how each step leads to the next. Keep it a focused walk-through of that one path, not a summary of the whole project. Do not guess; report gaps.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 467118,
+              "cached": 404992,
+              "turns": 1,
+              "tools": 52,
+              "shell": 52,
+              "graph": 0,
+              "types": {
+                "agent_message": 10,
+                "command_execution": 52
+              },
+              "durMs": 245898,
+              "ok": true,
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 2,
+              "reasoning": 9940,
+              "tokensWithReasoning": 477058,
+              "usage": [
+                {
+                  "input": 451435,
+                  "cachedInput": 404992,
+                  "output": 15683,
+                  "reasoning": 9940
+                }
+              ]
+            },
+            {
+              "tokens": 370510,
+              "cached": 313472,
+              "turns": 1,
+              "tools": 30,
+              "shell": 30,
+              "graph": 0,
+              "types": {
+                "agent_message": 10,
+                "command_execution": 30
+              },
+              "durMs": 262624,
+              "ok": true,
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 3,
+              "reasoning": 12987,
+              "tokensWithReasoning": 383497,
+              "usage": [
+                {
+                  "input": 353917,
+                  "cachedInput": 313472,
+                  "output": 16593,
+                  "reasoning": 12987
+                }
+              ]
+            },
+            {
+              "tokens": 388162,
+              "cached": 343552,
+              "turns": 1,
+              "tools": 37,
+              "shell": 37,
+              "graph": 0,
+              "types": {
+                "agent_message": 8,
+                "command_execution": 37
+              },
+              "durMs": 299846,
+              "ok": true,
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 4,
+              "reasoning": 14848,
+              "tokensWithReasoning": 403010,
+              "usage": [
+                {
+                  "input": 368778,
+                  "cachedInput": 343552,
+                  "output": 19384,
+                  "reasoning": 14848
+                }
+              ]
+            },
+            {
+              "tokens": 567638,
+              "cached": 497280,
+              "turns": 1,
+              "tools": 56,
+              "shell": 56,
+              "graph": 0,
+              "types": {
+                "agent_message": 9,
+                "command_execution": 56
+              },
+              "durMs": 327040,
+              "ok": true,
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 1,
+              "reasoning": 14726,
+              "tokensWithReasoning": 582364,
+              "usage": [
+                {
+                  "input": 546742,
+                  "cachedInput": 497280,
+                  "output": 20896,
+                  "reasoning": 14726
+                }
+              ]
+            },
+            {
+              "tokens": 922971,
+              "cached": 795136,
+              "turns": 1,
+              "tools": 77,
+              "shell": 77,
+              "graph": 0,
+              "types": {
+                "agent_message": 12,
+                "command_execution": 77
+              },
+              "durMs": 440228,
+              "ok": true,
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "4f31606732ed22fc61e1c6d01a069e97713ba299e4f422ef2213fc048a37f43f",
+              "goldSha256": "00ecaf69dc06641fd01ebf84244f7e36635784066970bd969cb201a4ce2828c8",
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              },
+              "run": 5,
+              "reasoning": 20116,
+              "tokensWithReasoning": 943087,
+              "usage": [
+                {
+                  "input": 894506,
+                  "cachedInput": 795136,
+                  "output": 28465,
+                  "reasoning": 20116
+                }
+              ]
+            }
+          ],
+          "graph": []
         }
       }
     ]

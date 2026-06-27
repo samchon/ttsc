@@ -8,9 +8,11 @@
 // This script folds whichever of those exist into the committed, served
 // `website/public/benchmark/graph.json`, the graph sibling of the performance
 // dashboard's `performance.json`. Like `merge-website.mjs`, it merges in place:
-// each agent cell is keyed by (harness, tool, repo, promptFamily, model, effort, fixtureBranch)
-// and upserted, so running one repo/model at a time accumulates cells across separate quiet-host runs
-// instead of clobbering the others. The structural block is replaced whole.
+// each agent cell is keyed by
+// (harness, tool, repo, promptId/family, stable model tier, effort,
+// fixtureBranch, daemon) and upserted, so running one repo/model at a time
+// accumulates cells across separate quiet-host runs instead of clobbering the
+// others. The structural block is replaced whole.
 //
 // Only raw per-run samples are stored; medians and saved-percentages are left
 // for the reader to derive, so the published JSON never carries a derived
@@ -20,7 +22,6 @@
 // Usage:
 //   node experimental/graph-bench/publish.mjs            # fold every report found
 //   node experimental/graph-bench/publish.mjs --reset    # drop prior cells first
-
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -84,18 +85,18 @@ function foldAgent(report, harness) {
     ...(report.promptId ? { promptId: report.promptId } : {}),
     promptFamily: report.promptFamily ?? "project-specific",
     ...(report.questionSha256 ? { questionSha256: report.questionSha256 } : {}),
-    ...(report.goldSha256 ? { goldSha256: report.goldSha256 } : {}),
-    ...(report.gradeThreshold !== undefined ? { gradeThreshold: report.gradeThreshold } : {}),
     ...(report.fixtureBranch ? { fixtureBranch: report.fixtureBranch } : {}),
     ...(report.daemon !== undefined ? { daemon: report.daemon } : {}),
-    ...(report.toolSetupMs !== undefined ? { toolSetupMs: report.toolSetupMs } : {}),
+    ...(report.toolSetupMs !== undefined
+      ? { toolSetupMs: report.toolSetupMs }
+      : {}),
     runs: report.runs,
     question: report.question,
-    samples: report.samples,
+    samples: sanitizeSamples(report.samples),
   };
-  // A manifest promptId narrows the cell within a family, so two graded prompts of
-  // the same family upsert separately instead of clobbering. Plain --repo runs
-  // (no promptId) keep keying by family, as before.
+  // A manifest promptId narrows the cell within a family, so two prompt variants
+  // of the same family upsert separately instead of clobbering. Plain --repo
+  // runs (no promptId) keep keying by family, as before.
   const key = (c) =>
     JSON.stringify([
       c.harness,
@@ -115,6 +116,18 @@ function foldAgent(report, harness) {
   console.log(
     `agent: ${harness} / ${cell.tool} / ${report.repo} / ${cell.promptFamily} / ${report.model} (${n} graph runs)`,
   );
+}
+
+function sanitizeSamples(samples) {
+  return {
+    baseline: (samples?.baseline ?? []).map(sanitizeSample),
+    graph: (samples?.graph ?? []).map(sanitizeSample),
+  };
+}
+
+function sanitizeSample(sample) {
+  const { answer, ...rest } = sample;
+  return rest;
 }
 
 function readJson(file) {

@@ -12,7 +12,7 @@ import { instructions } from "./instructions";
 
 /**
  * Build the MCP server for a graph. `typia.llm.controller` reflects
- * {@link ITtscGraphApplication} into a validated tool application — every tool's
+ * {@link ITtscGraphApplication} into a validated tool application. Every tool's
  * JSON schema and argument validator is generated from the method's TypeScript
  * types and JSDoc, so there is no hand-written schema. The list/call handlers
  * below are the minimal standalone registration: list the generated functions,
@@ -64,7 +64,7 @@ export function createServer(
     if (func === undefined || method === undefined) {
       return error(`Unknown tool: ${request.params.name}`);
     }
-    // A client may omit `arguments` for an all-optional tool (e.g. graph_overview);
+      // A client may omit `arguments` for an all-optional tool (e.g. project_overview);
     // validate an empty object so that call succeeds instead of failing on "expected object".
     const validation = func.validate(request.params.arguments ?? {});
     if (!validation.success) {
@@ -77,10 +77,7 @@ export function createServer(
         content: [
           {
             type: "text" as const,
-            text:
-              result === undefined
-                ? "Success"
-                : JSON.stringify(result, null, 2),
+            text: result === undefined ? "Success" : JSON.stringify(result),
           },
         ],
       };

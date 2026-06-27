@@ -1,4 +1,6 @@
-/** The ranked hits the `graph_query` tool returns for a natural code query. */
+import { ITtscGraphDecorator } from "./ITtscGraphDecorator";
+
+/** The ranked hits returned by targeted symbol lookup. */
 export interface ITtscGraphQuery {
   hits: ITtscGraphQuery.IHit[];
 
@@ -24,7 +26,7 @@ export namespace ITtscGraphQuery {
     limit?: number;
   }
 
-  /** One ranked hit with a handle to follow via `graph_expand` or `graph_trace`. */
+  /** One ranked hit with a handle to follow via `symbol_details` or `dependency_path`. */
   export interface IHit {
     id: string;
     name: string;
@@ -37,13 +39,17 @@ export namespace ITtscGraphQuery {
      * expanding.
      */
     signature?: string;
+    /** Decorators written on this declaration, when any. */
+    decorators?: ITtscGraphDecorator[];
     /** Relative relevance; higher is a better match. */
     score: number;
   }
 
   /** Tool-call handles suggested by this index result. */
   export interface INext {
-    /** Pass these ids to `graph_expand`, with `source: true` only when needed. */
+    /** Pass these ids to `symbol_details`, with `source: true` only when needed. */
     expand: string[];
+    /** Pass these ids to `dependency_path` when following dependency flow. */
+    traceFrom: string[];
   }
 }

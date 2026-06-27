@@ -17,7 +17,7 @@ export type TtscGraphSource = TtscGraphMemory | (() => TtscGraphMemory);
  * The MCP tool surface as a plain class over the resident
  * {@link TtscGraphMemory}.
  *
- * Each public method is one MCP tool — `typia.llm.controller` reflects
+ * Each public method is one MCP tool: `typia.llm.controller` reflects
  * {@link ITtscGraphApplication} to generate every tool's JSON schema and
  * argument validator from these signatures and their JSDoc, with no
  * hand-written schema. The methods delegate to the pure tool functions in
@@ -35,23 +35,31 @@ export class TtscGraphApplication implements ITtscGraphApplication {
     this.graph = typeof source === "function" ? source : () => source;
   }
 
-  public graph_index(props: ITtscGraphIndex.IProps): ITtscGraphIndex {
+  public question_entrypoints(
+    props: ITtscGraphIndex.IProps,
+  ): ITtscGraphIndex {
     return runIndex(this.graph(), props);
   }
 
-  public graph_overview(props: ITtscGraphOverview.IProps): ITtscGraphOverview {
-    return runOverview(this.graph(), props);
+  public dependency_path(
+    props: ITtscGraphTrace.IProps,
+  ): ITtscGraphTrace {
+    return runTrace(this.graph(), props);
   }
 
-  public graph_expand(props: ITtscGraphExpand.IProps): ITtscGraphExpand {
+  public symbol_details(
+    props: ITtscGraphExpand.IProps,
+  ): ITtscGraphExpand {
     return runExpand(this.graph(), props);
   }
 
-  public graph_query(props: ITtscGraphQuery.IProps): ITtscGraphQuery {
+  public symbol_lookup(props: ITtscGraphQuery.IProps): ITtscGraphQuery {
     return runQuery(this.graph(), props);
   }
 
-  public graph_trace(props: ITtscGraphTrace.IProps): ITtscGraphTrace {
-    return runTrace(this.graph(), props);
+  public project_overview(
+    props: ITtscGraphOverview.IProps,
+  ): ITtscGraphOverview {
+    return runOverview(this.graph(), props);
   }
 }

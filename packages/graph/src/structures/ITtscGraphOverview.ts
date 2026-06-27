@@ -1,6 +1,6 @@
 /**
- * A compact, source-read-free architecture map of the project — the result of
- * the `graph_overview` tool.
+ * A compact, source-read-free architecture map of the project returned by
+ * `project_overview`.
  */
 export interface ITtscGraphOverview {
   /** Absolute project root. */
@@ -19,7 +19,7 @@ export interface ITtscGraphOverview {
   publicApi?: ITtscGraphOverview.IPublicApi[];
 }
 export namespace ITtscGraphOverview {
-  /** Which architecture facets `graph_overview` should return. */
+  /** Which architecture facets `project_overview` should return. */
   export interface IProps {
     /**
      * The facet to project, or `all` for every facet. `layers` is the folder
@@ -50,12 +50,22 @@ export namespace ITtscGraphOverview {
     exported: number;
   }
 
-  /** A high-dependency symbol with its non-structural fan-in and fan-out. */
-  export interface IHotspot {
+  /** A compact symbol coordinate that can be passed to deeper graph tools. */
+  export interface INode {
+    /** Stable handle for `symbol_details` or `dependency_path`. */
     id: string;
+    /** The symbol's qualified name when available. */
     name: string;
+    /** Its declaration kind (`class`, `interface`, `function`, ...). */
     kind: string;
+    /** Project-relative path of the file that declares it. */
     file: string;
+    /** 1-based declaration line, when known. */
+    line?: number;
+  }
+
+  /** A high-dependency symbol with its non-structural fan-in and fan-out. */
+  export interface IHotspot extends INode {
     /** Non-structural edges pointing at this symbol. */
     fanIn: number;
     /** Non-structural edges leaving this symbol. */
@@ -65,15 +75,7 @@ export namespace ITtscGraphOverview {
   /**
    * One symbol on the project's exported public API surface. The list is ranked
    * by how depended-on the symbol is, with test, typings, and generated files
-   * excluded, so the names a consumer of the project would reach for surface
-   * first — not whichever file happens to declare the most exports.
+   * excluded.
    */
-  export interface IPublicApi {
-    /** The exported symbol's name. */
-    name: string;
-    /** Its declaration kind (`class`, `interface`, `function`, …). */
-    kind: string;
-    /** Project-relative path of the file that declares it. */
-    file: string;
-  }
+  export type IPublicApi = INode;
 }

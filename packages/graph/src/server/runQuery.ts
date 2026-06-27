@@ -1,7 +1,7 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphQuery } from "../structures/ITtscGraphQuery";
-import { signatureOf } from "./runExpand";
+import { decoratorsOf, signatureOf } from "./runExpand";
 
 // One file should not crowd out the rest of the ranking, so cap hits per file.
 const PER_FILE = 3;
@@ -19,22 +19,37 @@ export function runQuery(
   props: ITtscGraphQuery.IProps,
 ): ITtscGraphQuery {
   const terms = subwords(props.query);
+  const codeTerms = exactCodeTerms(props.query);
+  const requestedKinds = requestedSymbolKinds(props.query);
   const queryLc = props.query.trim().toLowerCase();
-  if (terms.length === 0) return { hits: [], next: { expand: [] } };
+  const wantsInternal = wantsInternalSymbol(queryLc, codeTerms);
+  if (terms.length === 0)
+    return { hits: [], next: { expand: [], traceFrom: [] } };
 
   const scored: ITtscGraphQuery.IHit[] = [];
   for (const node of graph.nodes) {
     if (node.kind === "file") continue;
-    const score = scoreNode(graph, node, queryLc, terms);
+    const score = scoreNode(
+      graph,
+      node,
+      queryLc,
+      terms,
+      codeTerms,
+      requestedKinds,
+      wantsInternal,
+    );
     if (score <= 0) continue;
-    scored.push({
+    const hit: ITtscGraphQuery.IHit = {
       id: node.id,
       name: node.qualifiedName ?? node.name,
       kind: node.kind,
       file: node.file,
       line: node.evidence?.startLine,
       score: Math.round(score),
-    });
+    };
+    const decorators = decoratorsOf(node);
+    if (decorators !== undefined) hit.decorators = decorators;
+    scored.push(hit);
   }
 
   scored.sort((a, b) => b.score - a.score);
@@ -59,7 +74,13 @@ export function runQuery(
     const sig = signatureOf(graph.project, node);
     if (sig !== undefined) hit.signature = sig;
   }
-  return { hits, next: { expand: hits.map((hit) => hit.id) } };
+  return {
+    hits,
+    next: {
+      expand: hits.map((hit) => hit.id),
+      traceFrom: hits.map((hit) => hit.id),
+    },
+  };
 }
 
 /** Score one node against the query; 0 means no match. */
@@ -68,6 +89,9 @@ function scoreNode(
   node: ITtscGraphNode,
   queryLc: string,
   terms: string[],
+  codeTerms: string[],
+  requestedKinds: Set<string>,
+  wantsInternal: boolean,
 ): number {
   const name = node.name.toLowerCase();
   const qualified = (node.qualifiedName ?? node.name).toLowerCase();
@@ -83,6 +107,18 @@ function scoreNode(
   } else if (queryLc.includes(".") && qualified.includes(queryLc)) {
     score += 60;
   }
+
+  for (const codeTerm of codeTerms) {
+    if (name === codeTerm || qualified === codeTerm) {
+      score += 110;
+    } else if (qualified.endsWith(`.${codeTerm}`)) {
+      score += 95;
+    } else if (codeTerm.includes(".") && qualified.endsWith(codeTerm)) {
+      score += 85;
+    }
+  }
+
+  if (requestedKinds.has(node.kind)) score += 16;
 
   let covered = 0;
   for (const term of terms) {
@@ -113,7 +149,66 @@ function scoreNode(
   if (node.external) score *= 0.5;
   if (node.ignored) score *= 0.3;
   if (isTestFile(node.file)) score *= 0.7;
+  if (!wantsInternal && isInternalish(node)) score *= 0.82;
   return score;
+}
+
+function wantsInternalSymbol(queryLc: string, codeTerms: string[]): boolean {
+  return (
+    /\b(internal|private|implementation|impl)\b/.test(queryLc) ||
+    codeTerms.some((term) => term.startsWith("_") || term.includes("internal"))
+  );
+}
+
+function isInternalish(node: ITtscGraphNode): boolean {
+  const name = node.qualifiedName ?? node.name;
+  return (
+    name.startsWith("_") ||
+    name.includes("._") ||
+    subwords(name).some((word) => word === "internal" || word === "internals")
+  );
+}
+
+function exactCodeTerms(query: string): string[] {
+  const out = new Set<string>();
+  for (const match of query.matchAll(/`([^`]+)`/g)) {
+    const normalized = normalizeCodeTerm(match[1] ?? "");
+    if (normalized !== undefined) out.add(normalized);
+  }
+  for (const match of query.matchAll(
+    /\b([A-Za-z_$][\w$]*)\s+(method|function|class|interface|type|variable)\b/gi,
+  )) {
+    const normalized = normalizeCodeTerm(match[1] ?? "");
+    if (normalized !== undefined) out.add(normalized);
+  }
+  for (const match of query.matchAll(
+    /\b[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+\b/g,
+  )) {
+    const normalized = normalizeCodeTerm(match[0]);
+    if (normalized !== undefined) out.add(normalized);
+  }
+  return [...out];
+}
+
+function requestedSymbolKinds(query: string): Set<string> {
+  const kinds = new Set<string>();
+  const lc = query.toLowerCase();
+  if (/\bmethods?\b/.test(lc)) kinds.add("method");
+  if (/\bfunctions?\b/.test(lc)) {
+    kinds.add("function");
+    kinds.add("method");
+    kinds.add("variable");
+  }
+  if (/\bclasses?\b/.test(lc)) kinds.add("class");
+  if (/\binterfaces?\b/.test(lc)) kinds.add("interface");
+  if (/\btypes?\b/.test(lc)) kinds.add("type");
+  if (/\bvariables?\b|\bconst\b|\blet\b/.test(lc)) kinds.add("variable");
+  return kinds;
+}
+
+function normalizeCodeTerm(raw: string): string | undefined {
+  const value = raw.trim().toLowerCase();
+  return /^[a-z_$][\w$]*(?:\.[a-z_$][\w$]*)*$/.test(value) ? value : undefined;
 }
 
 /** Non-structural in+out degree (code dependency, not nesting). */
