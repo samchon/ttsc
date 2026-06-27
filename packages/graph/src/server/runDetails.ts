@@ -17,6 +17,8 @@ const DEFAULT_NEIGHBORS = 6;
 const MAX_NEIGHBORS = 12;
 // A container's outline can be long (a big class); keep it bounded.
 const MAX_MEMBERS = 80;
+// Object literal outlines are navigation aids, not source excerpts.
+const MAX_OBJECT_MEMBER_LINES = 300;
 // Structural relationships are navigation, not the dependency picture details is for.
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 // Kinds whose value is their member outline, not implementation text.
@@ -84,6 +86,10 @@ export function runDetails(
       const list = members(graph, node);
       if (list.length > 0) detail.members = list;
     }
+    if (node.kind === "variable" && detail.sourceSpan !== undefined) {
+      const list = objectLiteralMembers(graph.project, detail.sourceSpan);
+      if (list.length > 0) detail.members = list;
+    }
     if (signatureLiterals.length > 0)
       detail.literals = signatureLiterals.slice(0, 12);
     if (wantNeighbors) {
@@ -128,6 +134,85 @@ function members(
     if (out.length >= MAX_MEMBERS) break;
   }
   return out;
+}
+
+function objectLiteralMembers(
+  project: string,
+  span: Pick<ITtscGraphEvidence, "file" | "startLine" | "endLine">,
+): ITtscGraphDetails.IMember[] {
+  if (span.endLine === undefined) return [];
+  if (span.endLine - span.startLine > MAX_OBJECT_MEMBER_LINES) return [];
+  const lines = fileLines(project, span.file);
+  if (lines === undefined) return [];
+  const start = Math.max(0, span.startLine - 1);
+  const end = Math.min(lines.length - 1, span.endLine - 1);
+  const members: ITtscGraphDetails.IMember[] = [];
+  let depth = 0;
+  let entered = false;
+  for (let i = start; i <= end; i++) {
+    const raw = lines[i] ?? "";
+    const text = stripStrings(raw);
+    const before = depth;
+    if (entered && before === 1) {
+      const member = objectMemberOf(raw, i + 1);
+      if (member !== undefined) {
+        members.push(member);
+        if (members.length >= MAX_MEMBERS) break;
+      }
+    }
+    for (const char of text) {
+      if (char === "{") {
+        depth++;
+        entered = true;
+      } else if (char === "}") {
+        depth = Math.max(0, depth - 1);
+      }
+    }
+  }
+  return members;
+}
+
+function objectMemberOf(
+  line: string,
+  lineNumber: number,
+): ITtscGraphDetails.IMember | undefined {
+  const text = line.trim();
+  if (
+    text === "" ||
+    text.startsWith("//") ||
+    text.startsWith("/*") ||
+    text.startsWith("*")
+  ) {
+    return undefined;
+  }
+  const property = /^(['"]?)([A-Za-z_$][\w$-]*)\1\s*\??\s*:/.exec(text);
+  if (property !== null) {
+    return {
+      name: property[2]!,
+      kind: "property",
+      line: lineNumber,
+      signature: signatureLine(text),
+    };
+  }
+  const method =
+    /^(?:async\s+)?(?:get\s+|set\s+)?([A-Za-z_$][\w$-]*)\s*\(/.exec(text);
+  if (method !== null) {
+    return {
+      name: method[1]!,
+      kind: "method",
+      line: lineNumber,
+      signature: signatureLine(text),
+    };
+  }
+  return undefined;
+}
+
+function signatureLine(text: string): string {
+  return text.replace(/\s+/g, " ").replace(/,$/, "");
+}
+
+function stripStrings(line: string): string {
+  return line.replace(/\/\/.*$/, "").replace(/(['"`])(?:\\.|(?!\1).)*\1/g, "");
 }
 
 /** Map dependency edges to references on their far endpoint, dropping structure. */

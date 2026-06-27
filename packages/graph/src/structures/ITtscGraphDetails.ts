@@ -68,9 +68,8 @@ export namespace ITtscGraphDetails {
     /** String literal values from the signature. */
     literals?: string[];
     /**
-     * For a class, interface, namespace, module, enum, or file: the symbols it
-     * contains, each with its own signature: the member outline a consumer
-     * reaches for, without the bodies.
+     * For a container or object-literal variable: the owned symbol or top-level
+     * property outline a consumer reaches for, without bodies.
      */
     members?: IMember[];
     /** The declaration or implementation file and line range, when known. */

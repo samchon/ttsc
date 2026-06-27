@@ -109,6 +109,12 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       "export function third(): void {}",
       "export function fourth(): void {}",
       "export function fifth(): void {}",
+      "export const adapter = {",
+      "  run: () => helper(),",
+      "  reset() {",
+      "    other();",
+      "  },",
+      "};",
       "",
     ].join("\n"),
   });
@@ -425,6 +431,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         }[];
         sourceSpan?: { file: string; startLine: number; endLine?: number };
         decorators?: { name: string; arguments: { literal?: unknown }[] }[];
+        members?: { name: string; kind: string; signature?: string }[];
       }[];
       unknown: string[];
     }>(
@@ -470,6 +477,37 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         ),
       ),
       `details returns decorator facts: ${JSON.stringify(details.nodes)}`,
+    );
+
+    const objectDetails = callGraphJson<{
+      nodes: {
+        name: string;
+        members?: { name: string; kind: string; signature?: string }[];
+      }[];
+    }>(
+      (await client.request("tools/call", {
+        name: "query",
+        arguments: graphArguments({
+          thinking: "Inspect adapter object outline without reading source.",
+          request: {
+            type: "details",
+            handles: ["adapter"],
+          },
+        }),
+      })) as ToolResult,
+    );
+    assert.ok(
+      objectDetails.nodes.some(
+        (node) =>
+          node.name === "adapter" &&
+          node.members?.some(
+            (member) =>
+              member.name === "run" &&
+              member.kind === "property" &&
+              member.signature?.includes("=>"),
+          ),
+      ),
+      `details returns object-literal member outlines: ${JSON.stringify(objectDetails.nodes)}`,
     );
 
     const detailsShape = callGraphJson<{
