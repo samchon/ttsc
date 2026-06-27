@@ -61,10 +61,10 @@ export namespace ITtscGraphDetails {
     decorators?: ITtscGraphDecorator[];
     /** Assigned implementation span, when source comes from one. */
     implementation?: ITtscGraphEvidence;
-    /** Direct execution dependencies in source order, preserving access aliases. */
-    calls?: string[];
-    /** Direct type dependencies in source order. */
-    types?: string[];
+    /** Direct execution dependencies in source order, with edge evidence. */
+    calls?: IReference[];
+    /** Direct type dependencies in source order, with edge evidence. */
+    types?: IReference[];
     /** String literal values from the signature. */
     literals?: string[];
     /**

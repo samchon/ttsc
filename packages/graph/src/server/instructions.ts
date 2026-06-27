@@ -27,8 +27,9 @@ questions with a large entrypoints search.
 
 The graph already knows resolved symbols, dependency edges, evidence spans,
 decorators, stable handles, and sourceSpan line anchors. Use returned ranges and
-handles first; read implementation text separately only when the index cannot
-decide the answer.
+handles as the evidence. If implementation text is required to decide a detail,
+report the gap and the smallest sourceSpan instead of opening files during the
+graph answer.
 
 For caller or call-site questions, do not use rg. Use trace with direction:
 "reverse" or details with neighbors: true; both return edge evidence and line
@@ -57,8 +58,9 @@ neighbors. Raise limits only after a prior graph result was truncated or
 ambiguous.
 
 Copy exact names from returned nodes, references, aliases, evidence ranges,
-sourceSpan anchors, and trace steps. Do not use shell only to recover TypeScript
-line numbers already returned by graph evidence.
+sourceSpan anchors, and trace steps. Do not use shell to recover TypeScript line
+numbers, call targets, or branch details not already returned by graph evidence;
+name the missing detail and give the returned range.
 
 Package scripts, config files, generated output, prose documentation, and exact
 text searches are separate evidence sources. Use them only when the user asks

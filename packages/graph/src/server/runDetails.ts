@@ -76,9 +76,9 @@ export function runDetails(
         endLine: span.endLine,
       };
     }
-    const calls = dependencySummaries(graph, node, executionKinds, 6);
+    const calls = dependencyRefs(graph, node, executionKinds, 6);
     if (calls.length > 0) detail.calls = calls;
-    const types = dependencySummaries(graph, node, typeKinds, 6);
+    const types = dependencyRefs(graph, node, typeKinds, 6);
     if (types.length > 0) detail.types = types;
     if (CONTAINER_KINDS.has(node.kind)) {
       const list = members(graph, node);
@@ -165,47 +165,51 @@ function refs(
   return out;
 }
 
-const executionKinds = new Set(["calls", "instantiates", "renders"]);
+const executionKinds = new Set([
+  "calls",
+  "instantiates",
+  "accesses",
+  "renders",
+]);
 const typeKinds = new Set(["type_ref", "extends", "implements", "overrides"]);
 
-function dependencySummaries(
+function dependencyRefs(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
   kinds: ReadonlySet<string>,
   limit: number,
-): string[] {
-  const ranked: Array<{ text: string; rank: number }> = [];
+): ITtscGraphDetails.IReference[] {
+  const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
   for (const edge of graph.outgoing(node.id)) {
     if (!kinds.has(edge.kind)) continue;
     const other = graph.node(edge.to);
     if (other === undefined || other.kind === "file") continue;
     const name = other.qualifiedName ?? other.name;
+    const ref: ITtscGraphDetails.IReference = {
+      id: other.id,
+      name,
+      kind: other.kind,
+      file: other.file,
+      relation: edge.kind,
+    };
+    if (other.evidence?.startLine) ref.line = other.evidence.startLine;
+    const evidence = edgeEvidenceOf(edge);
+    if (evidence !== undefined) ref.evidence = evidence;
     const aliases = accessAliasesFor(other, edgeEvidenceTextOf(edge));
-    const aliasText =
-      aliases === undefined || aliases.length === 0
-        ? name
-        : `${aliases[0]} -> ${name}${aliases.length > 1 ? ` aliases ${aliases.slice(1).join(", ")}` : ""}`;
+    if (aliases !== undefined) ref.aliases = aliases;
     ranked.push({
-      text: aliasText,
-      rank: refRank(
-        {
-          id: other.id,
-          name,
-          kind: other.kind,
-          file: other.file,
-          relation: edge.kind,
-        },
-        edge,
-      ),
+      ref,
+      rank: refRank(ref, edge),
     });
   }
   ranked.sort((a, b) => a.rank - b.rank);
-  const out: string[] = [];
+  const out: ITtscGraphDetails.IReference[] = [];
   const seen = new Set<string>();
   for (const item of ranked) {
-    if (seen.has(item.text)) continue;
-    seen.add(item.text);
-    out.push(item.text);
+    const key = `${item.ref.relation}:${item.ref.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item.ref);
     if (out.length >= limit) break;
   }
   return out;

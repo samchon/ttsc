@@ -418,7 +418,11 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       nodes: {
         id: string;
         name: string;
-        calls?: string[];
+        calls?: {
+          name: string;
+          relation: string;
+          evidence?: { file?: string; startLine?: number };
+        }[];
         sourceSpan?: { file: string; startLine: number; endLine?: number };
         decorators?: { name: string; arguments: { literal?: unknown }[] }[];
       }[];
@@ -439,10 +443,15 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       details.nodes.some(
         (node) =>
           node.name === "Service.run" &&
-          node.calls?.some((call) => call === "helper") &&
+          node.calls?.some(
+            (call) =>
+              call.name === "helper" &&
+              call.relation === "calls" &&
+              call.evidence?.file?.endsWith("app.ts"),
+          ) &&
           Object.hasOwn(node, "source") === false,
       ),
-      `details returns source-free direct call summaries: ${JSON.stringify(details.nodes)}`,
+      `details returns source-free direct call references: ${JSON.stringify(details.nodes)}`,
     );
     assert.ok(
       details.nodes.some(
@@ -466,7 +475,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     const detailsShape = callGraphJson<{
       nodes: {
         name: string;
-        calls?: string[];
+        calls?: { name: string; evidence?: { startLine?: number } }[];
         flow?: string[];
       }[];
     }>(
@@ -485,10 +494,14 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       detailsShape.nodes.some(
         (node) =>
           node.name === "Service.run" &&
-          node.calls?.some((call) => call === "helper") &&
+          node.calls?.some(
+            (call) =>
+              call.name === "helper" &&
+              typeof call.evidence?.startLine === "number",
+          ) &&
           Object.hasOwn(node, "source") === false,
       ),
-      `details returns source-free direct call summaries: ${JSON.stringify(detailsShape.nodes)}`,
+      `details returns source-free direct call references: ${JSON.stringify(detailsShape.nodes)}`,
     );
     assert.ok(
       detailsShape.nodes.every((node) => node.flow === undefined),
