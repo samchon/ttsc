@@ -104,6 +104,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     // nearby dependency context.
     const index = callJson<{
       hits: {
+        id: string;
         name: string;
         signature?: string;
         decorators?: { name: string; arguments: { literal?: unknown }[] }[];
@@ -292,24 +293,11 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
 
     // symbol_details: reads the declaration source the graph located.
     const expand = callJson<{
-      finalAnswerChecklist?: string[];
-      answerChecklist?: {
-        copyExact: string[];
-        exactIdentifiers: string[];
-        flow?: string[];
-        calls?: string[];
-        literals?: string[];
-        sourceSpans?: string[];
-      };
-      answerFacts?: string[];
       nodes: {
         id: string;
         name: string;
         source?: string;
         sourceSpan?: { file: string; startLine: number; endLine?: number };
-        calls?: string[];
-        flow?: string[];
-        literals?: string[];
         decorators?: { name: string; arguments: { literal?: unknown }[] }[];
       }[];
       unknown: string[];
@@ -322,54 +310,6 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       expand.nodes.some((node) => (node.source ?? "").includes("helper(")),
       `symbol_details returns the run body: ${JSON.stringify(expand.nodes)}`,
-    );
-    assert.ok(
-      expand.nodes.some((node) => node.calls?.some((call) => call === "helper")),
-      `symbol_details returns direct call summaries: ${JSON.stringify(expand.nodes)}`,
-    );
-    assert.ok(
-      expand.nodes.some((node) =>
-        node.flow?.some((step) => step.includes("Service.run -> helper")),
-      ),
-      `symbol_details returns execution flow summaries: ${JSON.stringify(expand.nodes)}`,
-    );
-    assert.ok(
-      expand.finalAnswerChecklist?.some((item) =>
-        item.includes("Use exact flow: Service.run -> helper"),
-      ),
-      `symbol_details returns final answer checklist: ${JSON.stringify(expand)}`,
-    );
-    assert.ok(
-      expand.answerChecklist?.copyExact.includes("Service.run") &&
-        expand.answerChecklist.copyExact.includes("helper"),
-      `symbol_details returns copy-exact identifiers: ${JSON.stringify(expand)}`,
-    );
-    assert.ok(
-      expand.answerChecklist?.exactIdentifiers.includes("Service.run") &&
-        expand.answerChecklist.exactIdentifiers.includes("helper"),
-      `symbol_details returns exact answer identifiers: ${JSON.stringify(expand)}`,
-    );
-    assert.ok(
-      expand.answerChecklist?.calls?.includes("helper"),
-      `symbol_details returns checklist calls: ${JSON.stringify(expand)}`,
-    );
-    assert.ok(
-      expand.answerChecklist?.flow?.some((step) =>
-        step.includes("Service.run -> helper"),
-      ),
-      `symbol_details returns checklist flow: ${JSON.stringify(expand)}`,
-    );
-    assert.ok(
-      expand.answerChecklist?.sourceSpans?.some((span) =>
-        span.includes("src/app.ts:7"),
-      ),
-      `symbol_details returns checklist source spans: ${JSON.stringify(expand)}`,
-    );
-    assert.ok(
-      expand.answerFacts?.some((fact) =>
-        fact.includes("Service.run flow: Service.run -> helper"),
-      ),
-      `symbol_details returns answer facts: ${JSON.stringify(expand)}`,
     );
     assert.ok(
       expand.nodes.some(
@@ -388,6 +328,33 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         ),
       ),
       `symbol_details returns decorator facts: ${JSON.stringify(expand.nodes)}`,
+    );
+
+    const expandShape = callJson<{
+      nodes: {
+        name: string;
+        calls?: string[];
+        flow?: string[];
+        source?: string;
+      }[];
+    }>(
+      (await client.request("tools/call", {
+        name: "symbol_details",
+        arguments: { handles: ["Service.run"] },
+      })) as ToolResult,
+    );
+    assert.ok(
+      expandShape.nodes.some(
+        (node) =>
+          node.name === "Service.run" &&
+          node.calls?.some((call) => call === "helper") &&
+          node.source === undefined,
+      ),
+      `symbol_details returns source-free direct call summaries: ${JSON.stringify(expandShape.nodes)}`,
+    );
+    assert.ok(
+      expandShape.nodes.every((node) => node.flow === undefined),
+      `symbol_details leaves execution paths to dependency_path: ${JSON.stringify(expandShape.nodes)}`,
     );
 
     const expandDeps = callJson<{
@@ -426,6 +393,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
           name: string;
           evidence?: { startLine?: number; text?: string };
         }[];
+        dependedOnBy?: unknown[];
       }[];
     }>(
       (await client.request("tools/call", {
@@ -442,18 +410,14 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       expandSourceDeps.nodes.some(
         (node) =>
           (node.source ?? "").includes("helper(") &&
-          node.dependsOn?.some(
-            (ref) =>
-              ref.name === "helper" &&
-              typeof ref.evidence?.startLine === "number" &&
-              ref.evidence.text === undefined,
-          ),
+          node.dependsOn === undefined &&
+          node.dependedOnBy === undefined,
       ),
-      `symbol_details omits duplicate evidence text covered by source: ${JSON.stringify(expandSourceDeps.nodes)}`,
+      `symbol_details keeps source reads separate from dependency maps: ${JSON.stringify(expandSourceDeps.nodes)}`,
     );
     assert.ok(
-      expandSourceDeps.nodes.every((node) => (node.dependsOn?.length ?? 0) <= 3),
-      `symbol_details caps source+neighbors dependency slices: ${JSON.stringify(expandSourceDeps.nodes)}`,
+      expandSourceDeps.nodes.every((node) => node.dependsOn === undefined),
+      `symbol_details ignores neighbors in source mode: ${JSON.stringify(expandSourceDeps.nodes)}`,
     );
   } finally {
     client.endStdin();

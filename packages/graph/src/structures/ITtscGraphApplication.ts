@@ -48,11 +48,11 @@ export interface ITtscGraphApplication {
    * Inspect selected symbols and optionally read their bodies.
    *
    * Use multiple handles for shape-only expansion: signatures, members,
-   * decorators, calls, types, flow summaries, and answer checklists.
+   * decorators, direct calls, direct types, and bounded dependency neighbors.
    *
    * Use `source:true` only for the one or two leaf bodies whose implementation
    * decides the answer. Use `neighbors:true` without source for dependency
-   * mapping; source plus neighbors is intentionally capped.
+   * mapping; source mode ignores neighbor expansion.
    *
    * @param props The handles to expand
    * @returns The resolved nodes, and any handles that did not resolve

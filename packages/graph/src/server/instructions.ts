@@ -14,8 +14,8 @@ evidence spans, decorators, and stable handles.
 - dependency_path: dependency and call/type flow. Use it for "how A reaches B",
   lifecycle, request-flow, rendering-flow, validation-flow, and impact questions.
 - symbol_details: selected symbol details. Use it for signatures, members,
-  calls, types, flow summaries, answer checklists, and the few source bodies
-  whose implementation decides the answer.
+  direct calls, direct types, dependency neighbors, and the few source bodies
+  whose implementation decides the answer. It does not write answer text.
 - symbol_lookup: targeted symbol search. Use when you need a specific class,
   method, function, property, or type and do not already have its handle.
 - project_overview: project-wide architecture map. Use for layers, hotspots,
@@ -27,11 +27,11 @@ needed.
 
 Do not batch source:true across a path. Use symbol_details(neighbors:true)
 without source to map dependencies; use symbol_details(source:true) without
-neighbors to read bodies. Source plus neighbors is intentionally capped.
+neighbors to read bodies. When source is true, neighbor options are ignored.
 
-Copy exact names from finalAnswerChecklist, answerChecklist, answerFacts, and
-trace aliases when those fields are present. Prefer graph evidence and
-sourceSpan line anchors over shell reads for citations.
+Copy exact names from returned nodes, references, aliases, evidence snippets,
+and trace steps. Prefer graph evidence and sourceSpan line anchors over shell
+reads for citations.
 
 Use shell or file reads only for non-TypeScript files, generated output, package
 scripts, or exact literal text searches not represented as symbols or edges.

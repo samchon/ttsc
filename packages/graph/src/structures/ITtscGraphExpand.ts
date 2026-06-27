@@ -4,59 +4,16 @@ import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
 /**
  * The resolved symbol details returned for a set of handles.
  *
- * The default payload is source-free: signatures, member outlines, graph
- * summaries, and answer checklists. Source bodies are returned only when
- * requested.
+ * The default payload is source-free: signatures, member outlines, and direct
+ * graph summaries. Source bodies are returned only when requested.
  */
 export interface ITtscGraphExpand {
-  /**
-   * Natural-language checklist derived from graph facts. It is meant to be
-   * copied selectively into final answers when those exact names matter.
-   */
-  finalAnswerChecklist?: string[];
-
-  /**
-   * Exact identifiers and flow snippets to preserve in final answers. These
-   * are mechanically derived from `nodes`, `calls`, `flow`, `types`, aliases,
-   * and source spans, so they are a compact answer checklist rather than a
-   * second inference layer.
-   */
-  answerChecklist?: ITtscGraphExpand.IAnswerChecklist;
-
-  /**
-   * Exact facts worth preserving in an answer, derived from the expanded
-   * nodes. This is a compact checklist, not a separate inference layer.
-   */
-  answerFacts?: string[];
-
   nodes: ITtscGraphExpand.INode[];
 
   /** Handles that resolved to no node, or that were ambiguous. */
   unknown: string[];
 }
 export namespace ITtscGraphExpand {
-  /** Compact final-answer checklist derived from expanded graph facts. */
-  export interface IAnswerChecklist {
-    /** Short verbatim list to copy into final answers when these facts matter. */
-    copyExact: string[];
-    /** Exact symbol, alias, type, and parameter identifiers to copy verbatim. */
-    exactIdentifiers: string[];
-    /** Stable source access aliases, also included in `exactIdentifiers`. */
-    aliases?: string[];
-    /** Parameter names found in relevant signatures/flow labels. */
-    parameters?: string[];
-    /** Direct execution dependencies found on expanded nodes. */
-    calls?: string[];
-    /** String literal values found in relevant signatures or returned source. */
-    literals?: string[];
-    /** Type names found in signatures, flow labels, and type edges. */
-    types?: string[];
-    /** Short execution paths worth preserving verbatim. */
-    flow?: string[];
-    /** File and line ranges for returned source bodies. */
-    sourceSpans?: string[];
-  }
-
   /** Which handles to expand, and how much of each to return. */
   export interface IProps {
     /**
@@ -78,11 +35,10 @@ export namespace ITtscGraphExpand {
 
     /**
      * Maximum dependencies and dependents to return per side when
-     * `neighbors:true`. When combined with `source:true`, the server keeps a
-     * tiny neighbor slice even if a larger value is requested; split dependency
-     * mapping and source reading into separate calls for more context.
+     * `neighbors:true`. Source reads ignore neighbor expansion; split
+     * dependency mapping and source reading into separate calls.
      *
-     * @default 12
+     * @default 6
      */
     neighborLimit?: number;
 
@@ -92,8 +48,8 @@ export namespace ITtscGraphExpand {
      * outline, which is what you usually need and a fraction of the tokens.
      * Turn this on only for the few leaf functions or methods whose actual
      * control-flow logic you must read. Prefer `source:true` without
-     * `neighbors:true`; source plus neighbors is intentionally capped to avoid
-     * mixing body reads with broad dependency maps.
+     * `neighbors:true`; when `source:true` is set, neighbor expansion is
+     * ignored so body reads stay separate from dependency maps.
      *
      * @default false
      */
@@ -116,8 +72,6 @@ export namespace ITtscGraphExpand {
     implementation?: ITtscGraphEvidence;
     /** Direct execution dependencies in source order, preserving access aliases. */
     calls?: string[];
-    /** Short execution paths from this symbol, bounded and source-ordered. */
-    flow?: string[];
     /** Direct type dependencies in source order. */
     types?: string[];
     /** String literal values from the signature or returned source. */
