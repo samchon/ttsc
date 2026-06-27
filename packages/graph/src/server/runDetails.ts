@@ -16,11 +16,11 @@ const MAX_SIGNATURE_LINES = 6;
 const DEFAULT_NEIGHBORS = 6;
 const MAX_NEIGHBORS = 12;
 // A container outline can be long; default to a scannable first page.
-const DEFAULT_MEMBERS = 24;
-const MAX_MEMBERS = 80;
+const DEFAULT_MEMBERS = 12;
+const MAX_MEMBERS = 24;
 // Direct dependency groups are orientation slices, not full fan-out dumps.
-const DEFAULT_DEPENDENCIES = 4;
-const MAX_DEPENDENCIES = 12;
+const DEFAULT_DEPENDENCIES = 3;
+const MAX_DEPENDENCIES = 8;
 // Object literal outlines are navigation aids, not source excerpts.
 const MAX_OBJECT_MEMBER_LINES = 300;
 // Structural relationships are navigation, not the dependency picture details is for.

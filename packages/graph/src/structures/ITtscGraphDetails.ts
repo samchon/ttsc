@@ -50,7 +50,7 @@ export namespace ITtscGraphDetails {
      * Maximum owned members to return for a container or object literal. Raise
      * only when the first outline is truncated.
      *
-     * @default 24
+     * @default 12
      */
     memberLimit?: number;
 
@@ -58,7 +58,7 @@ export namespace ITtscGraphDetails {
      * Maximum direct execution and type references to return per group. Raise
      * only when the first dependency slice is not enough.
      *
-     * @default 4
+     * @default 3
      */
     dependencyLimit?: number;
   }

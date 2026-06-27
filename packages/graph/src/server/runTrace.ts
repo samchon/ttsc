@@ -6,13 +6,13 @@ import { accessAliasesFor } from "./accessAliases";
 import { resolveGraphHandle } from "./resolveHandle";
 import { edgeEvidenceOf, edgeEvidenceTextOf, signatureOf } from "./runDetails";
 
-const DEFAULT_DEPTH = 4;
-const DEFAULT_MAX_NODES = 16;
-const MAX_OPEN_DEPTH = 6;
-const MAX_OPEN_NODES = 30;
-const MAX_HOPS_PER_NODE = 3;
-const MAX_STEPS = 24;
-const MAX_NEXT_HANDLES = 8;
+const DEFAULT_DEPTH = 3;
+const DEFAULT_MAX_NODES = 12;
+const MAX_OPEN_DEPTH = 4;
+const MAX_OPEN_NODES = 16;
+const MAX_HOPS_PER_NODE = 2;
+const MAX_STEPS = 12;
+const MAX_NEXT_HANDLES = 5;
 
 /**
  * Breadth-first trace along the dependency graph. Structural

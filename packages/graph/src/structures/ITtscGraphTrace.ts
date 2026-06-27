@@ -78,19 +78,19 @@ export namespace ITtscGraphTrace {
     focus?: "all" | "execution" | "types";
 
     /**
-     * How many hops deep to follow. Open traces are capped at 6; path mode is
+     * How many hops deep to follow. Open traces are capped at 4; path mode is
      * capped at 12.
      *
-     * @default 4
+     * @default 3
      */
     maxDepth?: number;
 
     /**
      * Cap on reached nodes; the trace stops and marks itself truncated past it.
-     * Open traces are capped at 30 nodes so a broad graph cannot flood
+     * Open traces are capped at 16 nodes so a broad graph cannot flood
      * context.
      *
-     * @default 16
+     * @default 12
      */
     maxNodes?: number;
   }
