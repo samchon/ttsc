@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-27T16:27:46.688Z",
+  "generatedAt": "2026-06-27T17:06:06.519Z",
   "structural": null,
   "agent": {
     "cells": [
@@ -3632,44 +3632,65 @@
         "effort": "high",
         "promptId": "excalidraw-dedicated-v1",
         "promptFamily": "dedicated",
-        "questionSha256": "bf4ff703f3ca3ce0e83256e428f340bbc659091971ff36fc303827542dd8dc70",
+        "questionSha256": "45c30a59f3e85d5175f34c622332a2a8445185ebd38c53a8dc01603921535491",
         "fixtureBranch": "ttsc",
         "daemon": false,
         "runs": 1,
-        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory. Read source bodies only when graph edges or signatures cannot decide the answer.\n\nHow does Excalidraw render and update canvas elements?",
+        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, edge ranges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory.\n\nHow does Excalidraw render and update canvas elements?",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 791915,
-              "cached": 659328,
-              "reasoning": 6323,
-              "tokensWithReasoning": 798238,
+              "tokens": 572498,
+              "cached": 478720,
+              "reasoning": 8076,
+              "tokensWithReasoning": 580574,
               "turns": 1,
               "usage": [
                 {
-                  "input": 782233,
-                  "cachedInput": 659328,
-                  "output": 9682,
-                  "reasoning": 6323
+                  "input": 559389,
+                  "cachedInput": 478720,
+                  "output": 13109,
+                  "reasoning": 8076
                 }
               ],
-              "tools": 19,
-              "shell": 0,
-              "graph": 19,
+              "tools": 18,
+              "shell": 4,
+              "graph": 14,
               "web": 0,
               "types": {
                 "error": 2,
-                "agent_message": 6,
-                "mcp_tool_call": 19
+                "agent_message": 10,
+                "mcp_tool_call": 14,
+                "command_execution": 4
               },
-              "durMs": 303522,
-              "ok": true,
-              "error": "",
+              "durMs": 282560,
+              "ok": false,
+              "error": "graph arm used shell commands instead of graph tools; quality gate failed",
+              "invalid": "graph-shell-used",
               "promptId": "excalidraw-dedicated-v1",
-              "questionSha256": "bf4ff703f3ca3ce0e83256e428f340bbc659091971ff36fc303827542dd8dc70",
+              "questionSha256": "45c30a59f3e85d5175f34c622332a2a8445185ebd38c53a8dc01603921535491",
               "run": 1,
-              "attempts": 1
+              "attempts": 1,
+              "quality": {
+                "symbolCoverage": 0.6,
+                "matchedSymbols": [
+                  "renderStaticScene",
+                  "_renderStaticScene",
+                  "renderElement"
+                ],
+                "missingSymbols": [
+                  "drawElementOnCanvas",
+                  "ShapeCache.generateElementShape"
+                ],
+                "edgeOrder": 0.67,
+                "mentionsMissing": [
+                  "roughjs",
+                  "shapecache"
+                ],
+                "violatedMustNot": [],
+                "pass": false
+              }
             }
           ]
         }
@@ -3683,44 +3704,63 @@
         "effort": "high",
         "promptId": "vscode-dedicated-v1",
         "promptFamily": "dedicated",
-        "questionSha256": "39f5d543adcd34d2a4b41b36533484c2378ccd64944d96e8524fd5b16906bd30",
+        "questionSha256": "16d6d6e57c3f0aeaf10e99a5aeecc876b54f3793c8cb20d4bedb9f86f4aa1872",
         "fixtureBranch": "ttsc",
         "daemon": false,
         "runs": 1,
-        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory. Read source bodies only when graph edges or signatures cannot decide the answer.\n\nHow does the extension host communicate with the main process?",
+        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, edge ranges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory.\n\nHow does the extension host communicate with the main process?",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 264871,
-              "cached": 214016,
-              "reasoning": 3005,
-              "tokensWithReasoning": 267876,
+              "tokens": 235496,
+              "cached": 169728,
+              "reasoning": 4677,
+              "tokensWithReasoning": 240173,
               "turns": 1,
               "usage": [
                 {
-                  "input": 259601,
-                  "cachedInput": 214016,
-                  "output": 5270,
-                  "reasoning": 3005
+                  "input": 228267,
+                  "cachedInput": 169728,
+                  "output": 7229,
+                  "reasoning": 4677
                 }
               ],
-              "tools": 9,
+              "tools": 8,
               "shell": 0,
-              "graph": 9,
+              "graph": 8,
               "web": 0,
               "types": {
                 "error": 2,
                 "agent_message": 6,
-                "mcp_tool_call": 9
+                "mcp_tool_call": 8
               },
-              "durMs": 169141,
-              "ok": true,
-              "error": "",
+              "durMs": 265012,
+              "ok": false,
+              "error": "quality gate failed",
               "promptId": "vscode-dedicated-v1",
-              "questionSha256": "39f5d543adcd34d2a4b41b36533484c2378ccd64944d96e8524fd5b16906bd30",
+              "questionSha256": "16d6d6e57c3f0aeaf10e99a5aeecc876b54f3793c8cb20d4bedb9f86f4aa1872",
               "run": 1,
-              "attempts": 1
+              "attempts": 1,
+              "quality": {
+                "symbolCoverage": 0.2,
+                "matchedSymbols": [
+                  "RPCProtocol"
+                ],
+                "missingSymbols": [
+                  "RPCProtocol.getProxy",
+                  "RPCProtocol._remoteCall",
+                  "RPCProtocol._receiveOneMessage",
+                  "MessageIO.serializeRequest"
+                ],
+                "edgeOrder": 0,
+                "mentionsMissing": [
+                  "serialize"
+                ],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "invalid": "quality-failed"
             }
           ]
         }
@@ -3734,44 +3774,59 @@
         "effort": "high",
         "promptId": "nestjs-dedicated-v1",
         "promptFamily": "dedicated",
-        "questionSha256": "2d20b09bb0b27410e3bc85bd609db37fa7a1b0c938aaa9a6eaef074ecea98909",
+        "questionSha256": "9bb73806b199581c15660820b40bc819b82d488f00a172aaa160e9377feffa98",
         "fixtureBranch": "ttsc",
         "daemon": false,
         "runs": 1,
-        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory. Read source bodies only when graph edges or signatures cannot decide the answer.\n\nHow does NestJS execute guards, interceptors, and pipes around a controller handler when an HTTP request arrives?",
+        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, edge ranges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory.\n\nHow does NestJS execute guards, interceptors, and pipes around a controller handler when an HTTP request arrives?",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 222543,
-              "cached": 173952,
-              "reasoning": 5337,
-              "tokensWithReasoning": 227880,
+              "tokens": 231510,
+              "cached": 138752,
+              "reasoning": 5744,
+              "tokensWithReasoning": 237254,
               "turns": 1,
               "usage": [
                 {
-                  "input": 214938,
-                  "cachedInput": 173952,
-                  "output": 7605,
-                  "reasoning": 5337
+                  "input": 222230,
+                  "cachedInput": 138752,
+                  "output": 9280,
+                  "reasoning": 5744
                 }
               ],
-              "tools": 7,
+              "tools": 15,
               "shell": 0,
-              "graph": 7,
+              "graph": 15,
               "web": 0,
               "types": {
                 "error": 2,
                 "agent_message": 7,
-                "mcp_tool_call": 7
+                "mcp_tool_call": 15
               },
-              "durMs": 167199,
+              "durMs": 204978,
               "ok": true,
               "error": "",
               "promptId": "nestjs-dedicated-v1",
-              "questionSha256": "2d20b09bb0b27410e3bc85bd609db37fa7a1b0c938aaa9a6eaef074ecea98909",
+              "questionSha256": "9bb73806b199581c15660820b40bc819b82d488f00a172aaa160e9377feffa98",
               "run": 1,
-              "attempts": 1
+              "attempts": 1,
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [
+                  "RouterExplorer.createCallbackProxy",
+                  "RouterExecutionContext.create",
+                  "GuardsConsumer.tryActivate",
+                  "InterceptorsConsumer.intercept",
+                  "PipesConsumer.apply"
+                ],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              }
             }
           ]
         }
@@ -3785,44 +3840,59 @@
         "effort": "high",
         "promptId": "vue-dedicated-v1",
         "promptFamily": "dedicated",
-        "questionSha256": "3cfc3ae2e36a6368c089ac41bc175623d3851e29944af9fe4999ee5e9e6c5757",
+        "questionSha256": "0bbf42004cf238920bc649732a6e32ddfd2e44e4b4101430c3698c30a41283bb",
         "fixtureBranch": "ttsc",
         "daemon": false,
         "runs": 1,
-        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory. Read source bodies only when graph edges or signatures cannot decide the answer.\n\nHow does Vue track reactive dependencies when a property is read and trigger effects when that property is written?",
+        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, edge ranges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory.\n\nHow does Vue track reactive dependencies when a property is read and trigger effects when that property is written?",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 320798,
-              "cached": 285952,
-              "reasoning": 2794,
-              "tokensWithReasoning": 323592,
+              "tokens": 279652,
+              "cached": 249728,
+              "reasoning": 3428,
+              "tokensWithReasoning": 283080,
               "turns": 1,
               "usage": [
                 {
-                  "input": 314828,
-                  "cachedInput": 285952,
-                  "output": 5970,
-                  "reasoning": 2794
+                  "input": 273425,
+                  "cachedInput": 249728,
+                  "output": 6227,
+                  "reasoning": 3428
                 }
               ],
-              "tools": 12,
+              "tools": 11,
               "shell": 0,
-              "graph": 12,
+              "graph": 11,
               "web": 0,
               "types": {
                 "error": 2,
-                "agent_message": 7,
-                "mcp_tool_call": 12
+                "agent_message": 5,
+                "mcp_tool_call": 11
               },
-              "durMs": 155998,
+              "durMs": 147431,
               "ok": true,
               "error": "",
               "promptId": "vue-dedicated-v1",
-              "questionSha256": "3cfc3ae2e36a6368c089ac41bc175623d3851e29944af9fe4999ee5e9e6c5757",
+              "questionSha256": "0bbf42004cf238920bc649732a6e32ddfd2e44e4b4101430c3698c30a41283bb",
               "run": 1,
-              "attempts": 1
+              "attempts": 1,
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [
+                  "track",
+                  "Dep.track",
+                  "trigger",
+                  "Dep.notify",
+                  "ReactiveEffect.run"
+                ],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              }
             }
           ]
         }
@@ -3836,44 +3906,64 @@
         "effort": "high",
         "promptId": "zod-dedicated-v1",
         "promptFamily": "dedicated",
-        "questionSha256": "fd1fc529ca5e3e522842673e6d4bc6a8d5e8a1949841c0bc6abee602f86ce4ad",
+        "questionSha256": "7368968b2ac97996c7447b5082c06a5554745f5b539e3d193929ff13949b3cfb",
         "fixtureBranch": "ttsc",
         "daemon": false,
         "runs": 1,
-        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory. Read source bodies only when graph edges or signatures cannot decide the answer.\n\nHow does a Zod schema's `parse` method validate input and produce a typed result or throw a ZodError?",
+        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, edge ranges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory.\n\nHow does a Zod schema's `parse` method validate input and produce a typed result or throw a ZodError?",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 386742,
-              "cached": 327552,
-              "reasoning": 5673,
-              "tokensWithReasoning": 392415,
+              "tokens": 413622,
+              "cached": 340224,
+              "reasoning": 6198,
+              "tokensWithReasoning": 419820,
               "turns": 1,
               "usage": [
                 {
-                  "input": 377796,
-                  "cachedInput": 327552,
-                  "output": 8946,
-                  "reasoning": 5673
+                  "input": 403061,
+                  "cachedInput": 340224,
+                  "output": 10561,
+                  "reasoning": 6198
                 }
               ],
-              "tools": 11,
-              "shell": 0,
-              "graph": 11,
+              "tools": 16,
+              "shell": 10,
+              "graph": 6,
               "web": 0,
               "types": {
                 "error": 2,
-                "agent_message": 9,
-                "mcp_tool_call": 11
+                "agent_message": 14,
+                "mcp_tool_call": 6,
+                "command_execution": 10
               },
-              "durMs": 196454,
-              "ok": true,
-              "error": "",
+              "durMs": 268376,
+              "ok": false,
+              "error": "graph arm used shell commands instead of graph tools; quality gate failed",
+              "invalid": "graph-shell-used",
               "promptId": "zod-dedicated-v1",
-              "questionSha256": "fd1fc529ca5e3e522842673e6d4bc6a8d5e8a1949841c0bc6abee602f86ce4ad",
+              "questionSha256": "7368968b2ac97996c7447b5082c06a5554745f5b539e3d193929ff13949b3cfb",
               "run": 1,
-              "attempts": 1
+              "attempts": 1,
+              "quality": {
+                "symbolCoverage": 0.4,
+                "matchedSymbols": [
+                  "ZodType.parse",
+                  "parse"
+                ],
+                "missingSymbols": [
+                  "$ZodType._zod.run",
+                  "$ZodType._zod.parse",
+                  "finalizeIssue"
+                ],
+                "edgeOrder": 0.33,
+                "mentionsMissing": [
+                  "ParseContextInternal"
+                ],
+                "violatedMustNot": [],
+                "pass": false
+              }
             }
           ]
         }
@@ -3887,44 +3977,59 @@
         "effort": "high",
         "promptId": "typeorm-dedicated-v1",
         "promptFamily": "dedicated",
-        "questionSha256": "b4bf9a00bb7c3c8894fe7b5109b9f9ed05e61309741d6af11fc36541f6026b75",
+        "questionSha256": "634016996791806d75ce64b66b86936a72aba1a4b3e043bea2a99698e91667f0",
         "fixtureBranch": "ttsc",
         "daemon": false,
         "runs": 1,
-        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory. Read source bodies only when graph edges or signatures cannot decide the answer.\n\nHow does TypeORM's `Repository.find` translate `relations` find options into SQL joins via the query builder?",
+        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, edge ranges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory.\n\nHow does TypeORM's `Repository.find` translate `relations` find options into SQL joins via the query builder?",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 494815,
-              "cached": 438656,
-              "reasoning": 7040,
-              "tokensWithReasoning": 501855,
+              "tokens": 127070,
+              "cached": 88704,
+              "reasoning": 4525,
+              "tokensWithReasoning": 131595,
               "turns": 1,
               "usage": [
                 {
-                  "input": 483920,
-                  "cachedInput": 438656,
-                  "output": 10895,
-                  "reasoning": 7040
+                  "input": 120652,
+                  "cachedInput": 88704,
+                  "output": 6418,
+                  "reasoning": 4525
                 }
               ],
-              "tools": 16,
+              "tools": 5,
               "shell": 0,
-              "graph": 16,
+              "graph": 5,
               "web": 0,
               "types": {
                 "error": 2,
-                "agent_message": 9,
-                "mcp_tool_call": 16
+                "agent_message": 5,
+                "mcp_tool_call": 5
               },
-              "durMs": 233501,
+              "durMs": 169487,
               "ok": true,
               "error": "",
               "promptId": "typeorm-dedicated-v1",
-              "questionSha256": "b4bf9a00bb7c3c8894fe7b5109b9f9ed05e61309741d6af11fc36541f6026b75",
+              "questionSha256": "634016996791806d75ce64b66b86936a72aba1a4b3e043bea2a99698e91667f0",
               "run": 1,
-              "attempts": 1
+              "attempts": 1,
+              "quality": {
+                "symbolCoverage": 1,
+                "matchedSymbols": [
+                  "Repository.find",
+                  "EntityManager.find",
+                  "SelectQueryBuilder.setFindOptions",
+                  "SelectQueryBuilder.applyFindOptions",
+                  "SelectQueryBuilder.buildRelations"
+                ],
+                "missingSymbols": [],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              }
             }
           ]
         }
@@ -3938,44 +4043,61 @@
         "effort": "high",
         "promptId": "rxjs-dedicated-v1",
         "promptFamily": "dedicated",
-        "questionSha256": "ff6aba571a65ff420c1f3ff811924f96af30e2bd4afbf57bfa47b0c17b2a652f",
+        "questionSha256": "2cbd8c1d09450064005bbd9164eb680563d8d1b9a9b6c3e59ef66c8ddf723326",
         "fixtureBranch": "ttsc",
         "daemon": false,
         "runs": 1,
-        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory. Read source bodies only when graph edges or signatures cannot decide the answer.\n\nHow does calling subscribe on an RxJS Observable invoke its operator chain and deliver values to the observer?",
+        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, edge ranges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory.\n\nHow does calling subscribe on an RxJS Observable invoke its operator chain and deliver values to the observer?",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 290746,
-              "cached": 236544,
-              "reasoning": 3909,
-              "tokensWithReasoning": 294655,
+              "tokens": 360684,
+              "cached": 279424,
+              "reasoning": 6606,
+              "tokensWithReasoning": 367290,
               "turns": 1,
               "usage": [
                 {
-                  "input": 284059,
-                  "cachedInput": 236544,
-                  "output": 6687,
-                  "reasoning": 3909
+                  "input": 351409,
+                  "cachedInput": 279424,
+                  "output": 9275,
+                  "reasoning": 6606
                 }
               ],
-              "tools": 10,
+              "tools": 11,
               "shell": 0,
-              "graph": 10,
+              "graph": 11,
               "web": 0,
               "types": {
                 "error": 2,
-                "agent_message": 5,
-                "mcp_tool_call": 10
+                "agent_message": 8,
+                "mcp_tool_call": 11
               },
-              "durMs": 158742,
-              "ok": true,
-              "error": "",
+              "durMs": 187320,
+              "ok": false,
+              "error": "quality gate failed",
               "promptId": "rxjs-dedicated-v1",
-              "questionSha256": "ff6aba571a65ff420c1f3ff811924f96af30e2bd4afbf57bfa47b0c17b2a652f",
+              "questionSha256": "2cbd8c1d09450064005bbd9164eb680563d8d1b9a9b6c3e59ef66c8ddf723326",
               "run": 1,
-              "attempts": 1
+              "attempts": 1,
+              "quality": {
+                "symbolCoverage": 0.6,
+                "matchedSymbols": [
+                  "Observable.subscribe",
+                  "Observable._trySubscribe",
+                  "operate"
+                ],
+                "missingSymbols": [
+                  "Observable.pipe",
+                  "pipeReducer"
+                ],
+                "edgeOrder": 0.67,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": false
+              },
+              "invalid": "quality-failed"
             }
           ]
         }
@@ -3989,44 +4111,62 @@
         "effort": "high",
         "promptId": "shopping-backend-dedicated-v1",
         "promptFamily": "dedicated",
-        "questionSha256": "056995a01800b0b6fa987cb6a979362ffed04448b3c25d78f4f6ea4ecddf8930",
+        "questionSha256": "26de4dcc75edb391b67fe122faff07176d71fdd3a5e459c5f815f755dee1161d",
         "fixtureBranch": "ttsc",
         "daemon": false,
         "runs": 1,
-        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory. Read source bodies only when graph edges or signatures cannot decide the answer.\n\nHow does publishing an order flow from ShoppingCustomerOrderPublishController.create through ShoppingOrderPublishProvider to the Prisma database write?",
+        "question": "Use this checkout's graph evidence first: symbols, signatures, dependency edges, edge ranges, trace steps, and sourceSpan anchors. Do not use web search, external documentation, package docs, or general framework memory.\n\nHow does publishing an order flow from ShoppingCustomerOrderPublishController.create through ShoppingOrderPublishProvider to the Prisma database write?",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 105875,
-              "cached": 72960,
-              "reasoning": 4363,
-              "tokensWithReasoning": 110238,
+              "tokens": 120349,
+              "cached": 100992,
+              "reasoning": 3448,
+              "tokensWithReasoning": 123797,
               "turns": 1,
               "usage": [
                 {
-                  "input": 99970,
-                  "cachedInput": 72960,
-                  "output": 5905,
-                  "reasoning": 4363
+                  "input": 114802,
+                  "cachedInput": 100992,
+                  "output": 5547,
+                  "reasoning": 3448
                 }
               ],
-              "tools": 4,
-              "shell": 0,
+              "tools": 7,
+              "shell": 3,
               "graph": 4,
               "web": 0,
               "types": {
                 "error": 2,
                 "agent_message": 6,
-                "mcp_tool_call": 4
+                "mcp_tool_call": 4,
+                "command_execution": 3
               },
-              "durMs": 143921,
-              "ok": true,
-              "error": "",
+              "durMs": 159203,
+              "ok": false,
+              "error": "graph arm used shell commands instead of graph tools",
+              "invalid": "graph-shell-used",
               "promptId": "shopping-backend-dedicated-v1",
-              "questionSha256": "056995a01800b0b6fa987cb6a979362ffed04448b3c25d78f4f6ea4ecddf8930",
+              "questionSha256": "26de4dcc75edb391b67fe122faff07176d71fdd3a5e459c5f815f755dee1161d",
               "run": 1,
-              "attempts": 1
+              "attempts": 1,
+              "quality": {
+                "symbolCoverage": 0.8,
+                "matchedSymbols": [
+                  "ShoppingCustomerOrderPublishController.create",
+                  "ShoppingOrderPublishProvider.create",
+                  "ShoppingOrderPublishProvider.knock",
+                  "ShoppingGlobal.prisma"
+                ],
+                "missingSymbols": [
+                  "ShoppingOrderPublishProvider.json.transform"
+                ],
+                "edgeOrder": 1,
+                "mentionsMissing": [],
+                "violatedMustNot": [],
+                "pass": true
+              }
             }
           ]
         }
