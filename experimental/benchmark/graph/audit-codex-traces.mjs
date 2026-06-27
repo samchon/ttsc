@@ -28,6 +28,7 @@ const compareInputs = args.compare ? listArg(args.compare) : [];
 const singleGraphToolNames = new Set([
   "query_typescript_graph",
   "inspect_typescript_graph_before_shell_reading",
+  "inspect_typescript_code_evidence_without_shell_search",
 ]);
 
 if (truthy(args["self-test"])) {

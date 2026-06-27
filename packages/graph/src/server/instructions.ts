@@ -5,10 +5,10 @@
  */
 export const instructions = `
 For TypeScript code questions, call
-inspect_typescript_graph_before_shell_reading before any shell search or source
-read. Do not start with ls, rg, cat, or Get-Content to locate TypeScript files,
-symbols, dependencies, or line anchors. Ask the graph first, then answer from
-graph evidence and sourceSpan citations.
+inspect_typescript_code_evidence_without_shell_search. Do not use ls, rg, cat,
+or Get-Content to locate TypeScript files, symbols, dependencies, source
+bodies, or line anchors. Ask the graph, then answer from graph evidence and
+sourceSpan citations.
 
 The graph is a TypeScript index, not an answer writer. Fill thinking before
 each call, then choose one request.type: find entrypoints, lookup symbols, trace
@@ -17,7 +17,8 @@ TypeScript evidence is needed, make another graph request instead of switching
 to shell search.
 
 The graph already knows resolved symbols, dependency edges, evidence spans,
-decorators, stable handles, source bodies, and sourceSpan line anchors.
+decorators, stable handles, source bodies, and sourceSpan line anchors. If you
+need exact code or line numbers, use inspect_symbol_details with source: true.
 
 Request types:
 
@@ -32,7 +33,8 @@ Request types:
 - inspect_symbol_details: signatures, members, direct calls, direct types,
   dependency neighbors, or narrow source/sourceSpan reads for selected handles.
 - summarize_project: source-free architecture map for layers, hotspots, counts,
-  and public API.
+  and public API. Use it to choose a central exported TypeScript API or entry
+  point without reading package scripts.
 
 For a flow question, use find_question_entrypoints once, then
 trace_dependency_path before inspect_symbol_details. Keep broad dependency maps
@@ -43,5 +45,6 @@ sourceSpan anchors, and trace steps. Do not use shell only to recover TypeScript
 line numbers already returned by graph evidence.
 
 Package scripts, config files, generated output, and exact text searches remain
-valid shell/file-read cases because they are outside the symbol graph.
+valid shell/file-read cases only when the user asks about those files directly;
+do not use them to answer a TypeScript API or call-path question.
 `.trim();

@@ -13,12 +13,12 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  */
 export interface ITtscGraphApplication {
   /**
-   * Inspect TypeScript code before any shell search or source read.
+   * Resolve TypeScript code evidence without shell search.
    *
-   * Use this first for TypeScript code questions, including locating files,
-   * symbols, dependencies, implementation bodies, and line anchors. Do not use
-   * shell search/read commands to find TypeScript code before asking the
-   * graph.
+   * Use this for TypeScript code questions, including locating files, symbols,
+   * dependencies, implementation bodies, and line anchors. Do not use shell
+   * search/read commands to find or verify TypeScript code while this graph can
+   * answer with symbols, source bodies, and sourceSpan anchors.
    *
    * Explain the next graph step in `thinking`, then choose one `request.type`:
    * find entrypoints, lookup symbols, trace dependencies, inspect selected
@@ -32,7 +32,7 @@ export interface ITtscGraphApplication {
    * @param props The reasoning and selected graph request
    * @returns The selected graph result, tagged with the request type
    */
-  inspect_typescript_graph_before_shell_reading(
+  inspect_typescript_code_evidence_without_shell_search(
     props: ITtscGraphApplication.IProps,
   ): ITtscGraphApplication.IResult;
 }
@@ -46,7 +46,9 @@ export namespace ITtscGraphApplication {
      * State what the code question needs, which graph request is the next
      * smallest step, and why shell search is not needed for that TypeScript
      * evidence. If source is needed, name the one or two leaf bodies to read
-     * through the graph and why summaries are not enough.
+     * through the graph and why summaries are not enough. If a package script,
+     * config file, or generated artifact is tempting, say why it is outside or
+     * inside the user's TypeScript code question.
      */
     thinking: string;
 
@@ -68,7 +70,7 @@ export namespace ITtscGraphApplication {
      * Why this is the next step.
      *
      * Use this as the first call for a natural-language TypeScript question. It
-     * replaces broad shell search for likely files and symbols.
+     * replaces broad shell search for likely files, symbols, and line anchors.
      */
     purpose: string;
 
@@ -100,7 +102,8 @@ export namespace ITtscGraphApplication {
      *
      * Name the symbol, method, class, property, file concept, or framework term
      * you are trying to locate. Use this when you would otherwise reach for rg
-     * to find TypeScript code. Do not use it for dependency flow.
+     * to find TypeScript code or exact line anchors. Do not use it for
+     * dependency flow.
      */
     purpose: string;
 
@@ -173,8 +176,8 @@ export namespace ITtscGraphApplication {
      *
      * Say whether this is shape-only expansion, neighbor mapping, or a narrow
      * graph source read. Source reads should be limited to decisive leaf
-     * bodies. Use returned sourceSpan anchors for citations instead of shell
-     * reads.
+     * bodies. Use returned source and sourceSpan anchors for citations instead
+     * of shell reads or line-number checks.
      */
     purpose: string;
 
@@ -211,8 +214,10 @@ export namespace ITtscGraphApplication {
     /**
      * Why overview is the next step.
      *
-     * Use this for architecture orientation, public API, layers, and hotspots;
-     * not for a specific symbol relationship.
+     * Use this for architecture orientation, public TypeScript API, layers, and
+     * hotspots; not for a specific symbol relationship. For code walk-throughs,
+     * choose an exported TypeScript symbol from this result instead of reading
+     * package scripts.
      */
     purpose: string;
 
