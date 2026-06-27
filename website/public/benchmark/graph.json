@@ -1,8 +1,581 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-27T17:52:56.066Z",
+  "generatedAt": "2026-06-27T18:25:12.206Z",
   "structural": null,
   "agent": {
-    "cells": []
+    "cells": [
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "excalidraw",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "excalidraw-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f2b3cfe5d4f0dd5e70881808c265774382c43f5a25df38b959f402f1c8e6e6a8",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does Excalidraw render and update canvas elements?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 778552,
+              "cached": 683136,
+              "reasoning": 6242,
+              "tokensWithReasoning": 784794,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 767917,
+                  "cachedInput": 683136,
+                  "output": 10635,
+                  "reasoning": 6242
+                }
+              ],
+              "tools": 30,
+              "shell": 30,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 30,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\components\\\\App.tsx | Select-Object -Skip 11780 -First 160\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\components\\\\canvases\\\\NewElementCanvas.tsx\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"canvasNonce|selectionNonce|triggerUpdate|getRenderableElements|ShapeCache|newElementCanvasElement\\\" packages\\\\excalidraw\\\\scene\\\\Renderer.ts packages\\\\excalidraw\\\\components\\\\App.tsx packages\\\\excalidraw\\\\scene -g \\\"*.ts\\\" -g \\\"*.tsx\\\"\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\scene\\\\Renderer.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\renderer\\\\renderNewElementScene.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\renderer\\\\helpers.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\renderer\\\\animation.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"renderStaticScene\\\\(|useEffect\\\\(|areEqual|getRelevantAppStateProps|wrapper.replaceChildren|canvas.classList.add\\\" packages\\\\excalidraw\\\\components\\\\canvases\\\\StaticCanvas.tsx\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"renderInteractiveScene\\\\(|AnimationController.start|rendererParams|selectionNonce|canvasNonce|renderScrollbars|renderInteractiveSceneCallback\\\" packages\\\\excalidraw\\\\components\\\\canvases\\\\InteractiveCanvas.tsx packages\\\\excalidraw\\\\components\\\\App.tsx packages\\\\excalidraw\\\\renderer\\\\interactiveScene.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"getRenderableElements|canvasNonce|newElementCanvasElement|sortSelectedElementsIntoHighlightedFrame|triggerUpdate\\\" packages\\\\excalidraw\\\\scene\\\\Renderer.ts packages\\\\excalidraw\\\\components\\\\App.tsx\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"bootstrapCanvas|clearRect\\\\(|fillRect\\\\(|renderStaticSceneThrottled|renderNewElementScene\\\" packages\\\\excalidraw\\\\renderer\\\\helpers.ts packages\\\\excalidraw\\\\renderer\\\\staticScene.ts packages\\\\excalidraw\\\\renderer\\\\renderNewElementScene.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\components\\\\App.tsx | Select-Object -Skip 3540 -First 80\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"class Scene|triggerUpdate\\\\(|getSceneNonce\\\\(|commit\\\\(|replaceAllElements\\\\(|mutateElement\\\\(\\\" packages\\\\element packages\\\\excalidraw -g \\\"*.ts\\\" -g \\\"*.tsx\\\"\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\element\\\\src\\\\scene.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"scene\\\\.onUpdate\\\\(|onUpdate\\\\(\\\" packages\\\\excalidraw\\\\components\\\\App.tsx packages\\\\element\\\\src\\\\Scene.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\components\\\\App.tsx | Select-Object -Skip 1440 -First 140\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\components\\\\App.tsx | Select-Object -Skip 3128 -First 40\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"triggerRender =|triggerRender\\\\(\\\" packages\\\\excalidraw\\\\components\\\\App.tsx\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\components\\\\App.tsx | Select-Object -Skip 4560 -First 40\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\excalidraw\\\\components\\\\App.tsx | Select-Object -Skip 4560 -First 40\""
+              ],
+              "types": {
+                "error": 2,
+                "agent_message": 9,
+                "command_execution": 30
+              },
+              "durMs": 188080,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "f2b3cfe5d4f0dd5e70881808c265774382c43f5a25df38b959f402f1c8e6e6a8",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "vscode",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vscode-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does the extension host communicate with the main process?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 1179793,
+              "cached": 1046400,
+              "reasoning": 2817,
+              "tokensWithReasoning": 1182610,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 1172849,
+                  "cachedInput": 1046400,
+                  "output": 6944,
+                  "reasoning": 2817
+                }
+              ],
+              "tools": 37,
+              "shell": 37,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 37,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content src/vs/workbench/api/node/extensionHostProcess.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content src/vs/workbench/api/node/extensionHostProcessWorker.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content src/vs/workbench/api/node/extensionHostMain.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content src/vs/workbench/api/node/extensionHostProcessStart.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"responseWindowId|responseChannel|responseNonce|Initialized|Ready|Terminate|MessageType\\\\.Initialized|postMessage\\\" src/vs/workbench/api src/vs/code/electron-main src/vs/base/parts/ipc -S\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg --files src | rg \"extensionHostProcess|extensionHostMain|extensionHostWorker|extensionHostProcessStart\"'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content src/vs/workbench/api/node/extensionHostProcess.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content src/vs/workbench/api/common/extensionHostMain.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content src/vs/workbench/api/node/extHostExtensionService.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content src/vs/code/electron-main/app.ts | Select-Object -First 320'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content src/vs/code/electron-main/app.ts | Select-Object -Skip 1240 -First 120'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"class RPCProtocol|_remoteCall\\\\(|_receiveOneMessage\\\\(|serializeRequest\\\\(|serializeReplyOK\\\\(|serializeReplyErr\\\\(\\\" src/vs/workbench/services/extensions/common/rpcProtocol.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"class ExtensionHostStarter|createExtensionHost\\\\(|start\\\\(|ipcExtensionHostStarterChannelName\\\" src/vs/platform/extensions/electron-main/extensionHostStarter.ts src/vs/platform/extensions/common/extensionHostStarter.ts src/vs/code/electron-main/app.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"_createExtHostProtocol\\\\(|connectToRenderer\\\\(|protocol.send\\\\(createMessageOfType\\\\(MessageType\\\\.Ready\\\\)|protocol.send\\\\(createMessageOfType\\\\(MessageType\\\\.Initialized\\\\)|new ExtensionHostMain|onTerminate =\\\" src/vs/workbench/api/node/extensionHostProcess.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export class ExtensionHostMain|new RPCProtocol|new ExtHostRpcService|initialize\\\\(|terminate\\\\(\\\" src/vs/workbench/api/common/extensionHostMain.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"class ExtensionHostManager|_createExtensionHostCustomers\\\\(|new RPCProtocol|createProxyIdentifier|getProxy\\\\(|set\\\\(\\\" src/vs/workbench/services/extensions/common/extensionHostManager.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg -n \"export const MainContext|export const ExtHostContext|interface IExtHostContext|interface IMainContext\" src/vs/workbench/api/common/extHost.protocol.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"getChannel\\\\('extensionHostStarter'\\\\)|registerChannel\\\\(ipcExtensionHostStarterChannelName|createExtensionHost\\\\(\\\" src/vs/code/electron-main/app.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg -n \"export const MainContext|export const ExtHostContext|interface IExtHostContext|interface IMainContext\" src/vs/workbench/api/common/extHost.protocol.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"getChannel\\\\('extensionHostStarter'\\\\)|registerChannel\\\\(ipcExtensionHostStarterChannelName|createExtensionHost\\\\(\\\" src/vs/code/electron-main/app.ts\""
+              ],
+              "types": {
+                "error": 2,
+                "agent_message": 10,
+                "command_execution": 37
+              },
+              "durMs": 143875,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+              "run": 1,
+              "attempts": 2
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "vue",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vue-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "8b776420228a6833c8496c34104ac3314e42f95a88f587d32ee275bbfddcb81f",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does Vue track reactive dependencies when a property is read and trigger effects when that property is written?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 160470,
+              "cached": 107264,
+              "reasoning": 1827,
+              "tokensWithReasoning": 162297,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 156884,
+                  "cachedInput": 107264,
+                  "output": 3586,
+                  "reasoning": 1827
+                }
+              ],
+              "tools": 12,
+              "shell": 12,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 11,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"track\\\\(|trigger\\\\(|reactive|effect\\\\(\\\" -S .\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-ChildItem -Force'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-ChildItem -Recurse packages\\\\reactivity\\\\src | Select-Object FullName\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export function track|export function trigger|class ReactiveEffect|activeEffect|targetMap|get\\\\(|set\\\\(\\\" packages/reactivity/src -S\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\reactivity\\\\src\\\\dep.ts | Select-Object -First 260\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\reactivity\\\\src\\\\effect.ts | Select-Object -First 260\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\reactivity\\\\src\\\\baseHandlers.ts | Select-Object -First 260\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\reactivity\\\\src\\\\dep.ts | Select-Object -Skip 260 -First 220\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\reactivity\\\\src\\\\effect.ts | Select-Object -Skip 260 -First 360\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export function track|export function trigger|class Dep|class Link\\\" packages\\\\reactivity\\\\src\\\\dep.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"get\\\\(target|set\\\\(|track\\\\(target, TrackOpTypes.GET|trigger\\\\(target, TriggerOpTypes\\\" packages\\\\reactivity\\\\src\\\\baseHandlers.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"run\\\\(|activeSub = this|cleanupDeps|prepareDeps|notify\\\\(\\\" packages\\\\reactivity\\\\src\\\\effect.ts\""
+              ],
+              "types": {
+                "error": 2,
+                "agent_message": 5,
+                "command_execution": 12
+              },
+              "durMs": 72211,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "8b776420228a6833c8496c34104ac3314e42f95a88f587d32ee275bbfddcb81f",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "zod",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "zod-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "7669355f5f1acd28f6b50bf3fd7abfffd2b6410307750f7030efef999ed8dbe7",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does a Zod schema's `parse` method validate input and produce a typed result or throw a ZodError?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 275002,
+              "cached": 210944,
+              "reasoning": 2005,
+              "tokensWithReasoning": 277007,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 270545,
+                  "cachedInput": 210944,
+                  "output": 4457,
+                  "reasoning": 2005
+                }
+              ],
+              "tools": 18,
+              "shell": 18,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 18,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg -n \"ZodError|throw.*ZodError|parseAsync|safeParse\" -g \"*.ts\" packages/zod/src | Select-Object -First 200'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"parse\\\\(\\\" -g \\\"*.ts\\\" packages/zod/src | Select-Object -First 200\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/parse.ts | Select-Object -First 260'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/schemas.ts | Select-Object -First 220'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/classic/parse.ts | Select-Object -First 120'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"captureStackTrace|finalizeIssue|\\\\\"'$ZodAsyncError\" packages/zod/src/v4 -g \"*.ts\"'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"\\\\.parse =|parse = this\\\\.parse|safeParse = this\\\\.safeParse|parseAsync = this\\\\.parseAsync\\\" packages/zod/src/v4 -g \\\"*.ts\\\"\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/core.ts | Select-Object -First 180'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/classic/schemas.ts | Select-Object -First 360'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/errors.ts | Select-Object -First 340'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages/zod/src/v4/classic/schemas.ts | ForEach-Object { $i++; if($i -ge 285 -and $i -le 310){ '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages/zod/src/v4/core/parse.ts | ForEach-Object { $i++; if($i -ge 1 -and $i -le 95){ '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages/zod/src/v4/core/schemas.ts | ForEach-Object { $i++; if($i -ge 1 -and $i -le 120){ '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages/zod/src/v4/core/errors.ts | ForEach-Object { $i++; if($i -ge 240 -and $i -le 300){ '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages/zod/src/v4/core/schemas.ts | ForEach-Object { $i++; if($i -ge 320 -and $i -le 430){ '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages/zod/src/v4/core/schemas.ts | ForEach-Object { $i++; if($i -ge 1160 -and $i -le 1235){ '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages/zod/src/v4/core/schemas.ts | ForEach-Object { $i++; if($i -ge 300 -and $i -le 330){ '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages/zod/src/v3/types.ts | ForEach-Object { $i++; if($i -ge 230 -and $i -le 260){ '\"'{0,4}: {1}' -f \"'$i, $_ } }'"
+              ],
+              "types": {
+                "error": 2,
+                "agent_message": 5,
+                "command_execution": 18
+              },
+              "durMs": 94309,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "7669355f5f1acd28f6b50bf3fd7abfffd2b6410307750f7030efef999ed8dbe7",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "typeorm",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "typeorm-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "5ebd172c576bf445ef2b7efb80e41e299704deb12c177231c985d5385d25ff57",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does TypeORM's `Repository.find` translate `relations` find options into SQL joins via the query builder?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 618205,
+              "cached": 516096,
+              "reasoning": 5532,
+              "tokensWithReasoning": 623737,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 609503,
+                  "cachedInput": 516096,
+                  "output": 8702,
+                  "reasoning": 5532
+                }
+              ],
+              "tools": 24,
+              "shell": 24,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 24,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 3100 -First 700\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"find\\\\(options|findBy\\\\(|findOne\\\\(|setFindOptions\\\\(\\\" src\\\\repository\\\\Repository.ts src\\\\entity-manager\\\\EntityManager.ts src\\\\query-builder\\\\SelectQueryBuilder.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 3920 -First 180\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 4020 -First 220\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\repository\\\\Repository.ts | Select-Object -Skip 620 -First 90\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -First 220\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\entity-manager\\\\EntityManager.ts | Select-Object -Skip 1070 -First 90\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\find-options\\\\FindOptionsUtils.ts | Select-Object -First 260\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\entity-manager\\\\EntityManager.ts | Select-Object -Skip 1060 -First 220\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\query-builder\\\\QueryBuilder.ts | Select-Object -Skip 720 -First 90\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\find-options\\\\FindOptionsUtils.ts | Select-Object -Skip 260 -First 120\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\find-options\\\\FindOptionsUtils.ts | Select-Object -Skip 380 -First 80\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"async find\\\\(|setFindOptions\\\\(|protected applyFindOptions\\\\(|protected buildRelations\\\\(|protected buildEagerRelations\\\\(|static getRelationJoinType\\\\(|applyRelationsRecursively\\\\(|joinEagerRelations\\\\(\\\" src\\\\repository\\\\Repository.ts src\\\\query-builder\\\\SelectQueryBuilder.ts src\\\\find-options\\\\FindOptionsUtils.ts src\\\\entity-manager\\\\EntityManager.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"relations:\\\\s*FindOptionsRelations|relationLoadStrategy|loadEagerRelations\\\" src\\\\query-builder\\\\SelectQueryBuilder.ts src\\\\find-options\\\\FindOptionsUtils.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"innerJoinAndSelect\\\\(|leftJoinAndSelect\\\\(|concatRelationMetadata\\\\(|this\\\\.joins\\\\.push\\\\(\\\" src\\\\query-builder\\\\SelectQueryBuilder.ts src\\\\find-options\\\\FindOptionsUtils.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"createJoinExpression\\\\(\\\" src\\\\query-builder\\\\SelectQueryBuilder.ts src\\\\query-builder\\\\QueryBuilder.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 2200 -First 140\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 4180 -First 120\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 2320 -First 220\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"async find<Entity extends ObjectLiteral>|async find\\\\(options\\\\?: FindManyOptions<Entity>\\\\)|async find\\\\(\\\" src\\\\entity-manager\\\\EntityManager.ts src\\\\repository\\\\Repository.ts\""
+              ],
+              "types": {
+                "error": 2,
+                "agent_message": 5,
+                "command_execution": 24
+              },
+              "durMs": 159408,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "5ebd172c576bf445ef2b7efb80e41e299704deb12c177231c985d5385d25ff57",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "rxjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "rxjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "2f98a5ce51594fa18c3418da9a8e243f1acefb94dfdd7ef7056c0d2484fe352b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does calling subscribe on an RxJS Observable invoke its operator chain and deliver values to the observer?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 255212,
+              "cached": 184448,
+              "reasoning": 2549,
+              "tokensWithReasoning": 257761,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 250286,
+                  "cachedInput": 184448,
+                  "output": 4926,
+                  "reasoning": 2549
+                }
+              ],
+              "tools": 16,
+              "shell": 16,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 15,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-ChildItem -Force'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"class Observable|subscribe\\\\(|lift\\\\(|OperatorSubscriber|Subscriber\\\" -g \\\"*.ts\\\" -g \\\"*.js\\\"\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\observable\\\\src\\\\observable.ts | Select-Object -First 260\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\observable\\\\src\\\\observable.ts | Select-Object -Skip 520 -First 260\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\observable\\\\src\\\\observable.ts | Select-Object -Skip 260 -First 260\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"lift\\\\(|pipe\\\\(|operate\\\\(|source.subscribe\\\\(|destination.next\\\\(|subscriber.add\\\\(\\\" packages\\\\observable\\\\src\\\\observable.ts packages\\\\rxjs\\\\src\\\\index.ts packages\\\\rxjs\\\\src\\\\internal -g \\\"*.ts\\\"\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\observable\\\\src\\\\observable.ts | Select-Object -Skip 760 -First 220\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\observable\\\\src\\\\observable.ts | Select-Object -Skip 980 -First 180\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\map.ts | Select-Object -First 120\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\filter.ts | Select-Object -First 140\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\take.ts | Select-Object -First 120\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\observable\\\\src\\\\observable.ts | ForEach-Object { \"'$i++; if($i -ge 239 -and $i -le 377) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\observable\\\\src\\\\observable.ts | ForEach-Object { \"'$i++; if($i -ge 517 -and $i -le 705) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\rxjs\\\\src\\\\internal\\\\operators\\\\filter.ts | ForEach-Object { \"'$i++; if($i -ge 1 -and $i -le 80) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\rxjs\\\\src\\\\internal\\\\operators\\\\map.ts | ForEach-Object { \"'$i++; if($i -ge 1 -and $i -le 60) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\observable\\\\src\\\\observable.ts | ForEach-Object { \"'$i++; if($i -ge 878 -and $i -le 890) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'"
+              ],
+              "types": {
+                "error": 2,
+                "agent_message": 7,
+                "command_execution": 16
+              },
+              "durMs": 92028,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "2f98a5ce51594fa18c3418da9a8e243f1acefb94dfdd7ef7056c0d2484fe352b",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "shopping-backend",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "shopping-backend-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4235cabedc0c64497d9207c8f8e6b090344a27c505fbe281d303ebb1782bf4c4",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does publishing an order flow from ShoppingCustomerOrderPublishController.create through ShoppingOrderPublishProvider to the Prisma database write?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 291828,
+              "cached": 209024,
+              "reasoning": 3406,
+              "tokensWithReasoning": 295234,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 285737,
+                  "cachedInput": 209024,
+                  "output": 6091,
+                  "reasoning": 3406
+                }
+              ],
+              "tools": 15,
+              "shell": 15,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 15,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"Prisma|prisma\\\\.|publish\\\" -S src .\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"class ShoppingCustomerOrderPublishController|ShoppingOrderPublishProvider|create\\\\(\\\" -S .\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\api\\\\functional\\\\shoppings\\\\customers\\\\orders\\\\publish\\\\index.ts | Select-Object -First 260\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderPublishProvider.ts | Select-Object -First 320\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-ChildItem -Recurse -Filter ShoppingCustomerOrderPublishController.ts | Select-Object -ExpandProperty FullName'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg --files src | rg \\\"ShoppingCustomerOrderPublishController\\\\.ts\"'$|ShoppingOrderPublishProvider'\"\\\\.ts\"'$|ShoppingOrderProvider'\"\\\\.ts\"'$|ShoppingCustomerOrderController'\"\\\\.ts\"'$\"'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderProvider.ts | Select-Object -First 360\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\controllers\\\\shoppings\\\\customers\\\\orders\\\\ShoppingCustomerOrderPublishController.ts | Select-Object -First 220\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"@core\\\\.TypedRoute\\\\.Post|public async create\\\\(|return ShoppingOrderPublishProvider\\\\.create\\\\(\\\" src\\\\controllers\\\\shoppings\\\\customers\\\\orders\\\\ShoppingCustomerOrderPublishController.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export const create = async|const reference = await knock|const next:|shopping_order_publishes\\\\.create|shopping_cart_commodities\\\\.updateMany|handlePayment\\\\(|mv_shopping_order_publish_states\\\\.create|mv_shopping_order_good_states\\\\.createMany|mv_shopping_order_publish_seller_states\\\\.createMany\\\" src\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderPublishProvider.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"public async able\\\\(|public async create\\\\(|public async cancel\\\\(\\\" src\\\\controllers\\\\shoppings\\\\customers\\\\orders\\\\ShoppingCustomerOrderPublishController.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content src'\"\\\\controllers\\\\shoppings\\\\customers\\\\orders\\\\ShoppingCustomerOrderPublishController.ts | ForEach-Object { if(\"'$i -ge 58 -and $i -le 78){ '\"'{0,4}: {1}' -f \"'$i, $_ }; $i++ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content src'\"\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderPublishProvider.ts | ForEach-Object { if(\"'$i -ge 175 -and $i -le 245){ '\"'{0,4}: {1}' -f \"'$i, $_ }; $i++ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content src'\"\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderPublishProvider.ts | ForEach-Object { if(\"'$i -ge 80 -and $i -le 175){ '\"'{0,4}: {1}' -f \"'$i, $_ }; $i++ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content src'\"\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderPublishProvider.ts | ForEach-Object { if(\"'$i -ge 243 -and $i -le 290){ '\"'{0,4}: {1}' -f \"'$i, $_ }; $i++ }'"
+              ],
+              "types": {
+                "error": 2,
+                "agent_message": 5,
+                "command_execution": 15
+              },
+              "durMs": 115830,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "4235cabedc0c64497d9207c8f8e6b090344a27c505fbe281d303ebb1782bf4c4",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "nestjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "nestjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f6ec52290aaa5aa55db6d6ebc9dccbb1319cbdd2440da53a5569716d30e42675",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does NestJS execute guards, interceptors, and pipes around a controller handler when an HTTP request arrives?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 300414,
+              "cached": 253440,
+              "reasoning": 3702,
+              "tokensWithReasoning": 304116,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 294131,
+                  "cachedInput": 253440,
+                  "output": 6283,
+                  "reasoning": 3702
+                }
+              ],
+              "tools": 21,
+              "shell": 21,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 21,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg -n \"(Guard|Interceptor|Pipe|NestInterceptor|CanActivate|UseGuards|UseInterceptors|UsePipes)\" .'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg -n \"router-execution-context|createGuardsFn|createPipesFn|createInterceptorsFn|interceptorsConsumer|guardsConsumer|pipesConsumer\" packages/core packages/platform-express packages/platform-fastify'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/core/pipes/pipes-consumer.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/core/guards/guards-consumer.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/core/interceptors/interceptors-consumer.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/core/router/router-execution-context.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/core/test/router/router-execution-context.spec.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/core/router/router-explorer.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/core/guards/guards-context-creator.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/core/pipes/pipes-context-creator.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/core/interceptors/interceptors-context-creator.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/core/helpers/context-creator.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"fnCanActivate|interceptorsConsumer\\\\.intercept|fnApplyPipes|callback\\\\.apply|createGuardsFn|createPipesFn\\\" packages/core/router/router-execution-context.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"return \\\\[|createConcreteContext\\\\(|getGlobalMetadata\\\\(\\\" packages/core/helpers/context-creator.ts packages/core/guards/guards-context-creator.ts packages/core/interceptors/interceptors-context-creator.ts packages/core/pipes/pipes-context-creator.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"tryActivate\\\\(|for \\\\(const guard|return false;|return true;\\\" packages/core/guards/guards-consumer.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"intercept\\\\(|nextFn|transformDeferred|mergeAll|switchMap\\\" packages/core/interceptors/interceptors-consumer.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"applyPipes|reduce\\\\(|pipe\\\\.transform\\\" packages/core/pipes/pipes-consumer.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"createContext\\\\(|reflectClassMetadata|reflectMethodMetadata|globalMetadata|classMetadata|methodMetadata\\\" packages/core/helpers/context-creator.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"Promise\\\\.all\\\\(|pipes\\\\.concat\\\\(paramPipes\\\\)|resolveParamValue|isPipeable\\\\(\\\" packages/core/router/router-execution-context.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"reduce\\\\(|pipe\\\\.transform\\\\(|applyPipes\\\" packages/core/pipes/pipes-consumer.ts\""
+              ],
+              "types": {
+                "agent_message": 7,
+                "command_execution": 21
+              },
+              "durMs": 108773,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "f6ec52290aaa5aa55db6d6ebc9dccbb1319cbdd2440da53a5569716d30e42675",
+              "run": 1,
+              "attempts": 2
+            }
+          ],
+          "graph": []
+        }
+      }
+    ]
   }
 }

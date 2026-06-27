@@ -400,7 +400,7 @@ function makeCodexHome(tag, serverArgs) {
     path.join(realHome, "auth.json"),
     path.join(home, "auth.json"),
   );
-  let toml = `model = '${model}'\nmodel_reasoning_effort = '${effort}'\n`;
+  let toml = `model = '${model}'\nmodel_reasoning_effort = '${effort}'\nweb_search = 'disabled'\n`;
   if (serverArgs) {
     if (cg) {
       const command = process.platform === "win32" ? "cmd.exe" : "codegraph";
@@ -504,17 +504,11 @@ async function runCodex(question, codexHome, armName, runNumber) {
       "exec",
       "--json",
       "-c",
-      "tools.web_search=false",
+      "web_search=disabled",
       "--disable",
       "browser_use",
       "--disable",
       "browser_use_external",
-      "--disable",
-      "standalone_web_search",
-      "--disable",
-      "web_search_request",
-      "--disable",
-      "web_search_cached",
       "--dangerously-bypass-approvals-and-sandbox",
       "--skip-git-repo-check",
       "--ephemeral",
