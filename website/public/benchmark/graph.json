@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-27T18:39:22.563Z",
+  "generatedAt": "2026-06-27T19:18:45.915Z",
   "structural": null,
   "agent": {
     "cells": [
@@ -1158,6 +1158,682 @@
             }
           ],
           "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "excalidraw",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "excalidraw-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f2b3cfe5d4f0dd5e70881808c265774382c43f5a25df38b959f402f1c8e6e6a8",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does Excalidraw render and update canvas elements?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 189671,
+              "cached": 165376,
+              "reasoning": 5569,
+              "tokensWithReasoning": 195240,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 181654,
+                  "cachedInput": 165376,
+                  "output": 8017,
+                  "reasoning": 5569
+                }
+              ],
+              "tools": 8,
+              "shell": 0,
+              "graph": 8,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 8
+              },
+              "durMs": 136290,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "f2b3cfe5d4f0dd5e70881808c265774382c43f5a25df38b959f402f1c8e6e6a8",
+              "run": 1,
+              "attempts": 3
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "excalidraw",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "excalidraw-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I just joined this TypeScript project and have been asked to change behavior on the busiest user-facing path, but I do not yet know which exported API or entry point is the right place to start.\n\nOrient me from the code before choosing the path: identify the public entry points that look user-facing, the internal modules or types they converge on, and the symbols that appear to be reused by several parts of the project. From that evidence, choose one central runtime operation whose implementation crosses the important layers.\n\nTrace that operation in order from the public entry point through the orchestration, state/model, adapter, or engine layers down to the lowest layer where real work happens. For each hop, name the file and symbol, and say how it reaches the next hop: direct call, callback, dependency injection, inheritance, dispatch, or data flow.\n\nAlso name two plausible entry points or modules you considered but ruled out, and explain why they are adjacent but not the main path. End with the smallest set of source ranges I should read before editing and one risk that would be easy to miss if I only followed direct calls.\n\nDo not guess; report gaps.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 660484,
+              "cached": 523776,
+              "reasoning": 19160,
+              "tokensWithReasoning": 679644,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 632307,
+                  "cachedInput": 523776,
+                  "output": 28177,
+                  "reasoning": 19160
+                }
+              ],
+              "tools": 38,
+              "shell": 0,
+              "graph": 38,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 13,
+                "mcp_tool_call": 38
+              },
+              "durMs": 467727,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "vscode",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vscode-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does the extension host communicate with the main process?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 84164,
+              "cached": 59904,
+              "reasoning": 2355,
+              "tokensWithReasoning": 86519,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 80635,
+                  "cachedInput": 59904,
+                  "output": 3529,
+                  "reasoning": 2355
+                }
+              ],
+              "tools": 3,
+              "shell": 0,
+              "graph": 3,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 3
+              },
+              "durMs": 108374,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "vscode",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vscode-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I just joined this TypeScript project and have been asked to change behavior on the busiest user-facing path, but I do not yet know which exported API or entry point is the right place to start.\n\nOrient me from the code before choosing the path: identify the public entry points that look user-facing, the internal modules or types they converge on, and the symbols that appear to be reused by several parts of the project. From that evidence, choose one central runtime operation whose implementation crosses the important layers.\n\nTrace that operation in order from the public entry point through the orchestration, state/model, adapter, or engine layers down to the lowest layer where real work happens. For each hop, name the file and symbol, and say how it reaches the next hop: direct call, callback, dependency injection, inheritance, dispatch, or data flow.\n\nAlso name two plausible entry points or modules you considered but ruled out, and explain why they are adjacent but not the main path. End with the smallest set of source ranges I should read before editing and one risk that would be easy to miss if I only followed direct calls.\n\nDo not guess; report gaps.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 442056,
+              "cached": 364032,
+              "reasoning": 12695,
+              "tokensWithReasoning": 454751,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 424466,
+                  "cachedInput": 364032,
+                  "output": 17590,
+                  "reasoning": 12695
+                }
+              ],
+              "tools": 13,
+              "shell": 0,
+              "graph": 13,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 7,
+                "mcp_tool_call": 13
+              },
+              "durMs": 334164,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-common-v1",
+              "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "nestjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "nestjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f6ec52290aaa5aa55db6d6ebc9dccbb1319cbdd2440da53a5569716d30e42675",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does NestJS execute guards, interceptors, and pipes around a controller handler when an HTTP request arrives?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 159050,
+              "cached": 113664,
+              "reasoning": 5449,
+              "tokensWithReasoning": 164499,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 151672,
+                  "cachedInput": 113664,
+                  "output": 7378,
+                  "reasoning": 5449
+                }
+              ],
+              "tools": 7,
+              "shell": 0,
+              "graph": 7,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 7
+              },
+              "durMs": 144576,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "f6ec52290aaa5aa55db6d6ebc9dccbb1319cbdd2440da53a5569716d30e42675",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "nestjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "nestjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I just joined this TypeScript project and have been asked to change behavior on the busiest user-facing path, but I do not yet know which exported API or entry point is the right place to start.\n\nOrient me from the code before choosing the path: identify the public entry points that look user-facing, the internal modules or types they converge on, and the symbols that appear to be reused by several parts of the project. From that evidence, choose one central runtime operation whose implementation crosses the important layers.\n\nTrace that operation in order from the public entry point through the orchestration, state/model, adapter, or engine layers down to the lowest layer where real work happens. For each hop, name the file and symbol, and say how it reaches the next hop: direct call, callback, dependency injection, inheritance, dispatch, or data flow.\n\nAlso name two plausible entry points or modules you considered but ruled out, and explain why they are adjacent but not the main path. End with the smallest set of source ranges I should read before editing and one risk that would be easy to miss if I only followed direct calls.\n\nDo not guess; report gaps.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 993243,
+              "cached": 893952,
+              "reasoning": 18303,
+              "tokensWithReasoning": 1011546,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 968970,
+                  "cachedInput": 893952,
+                  "output": 24273,
+                  "reasoning": 18303
+                }
+              ],
+              "tools": 18,
+              "shell": 0,
+              "graph": 18,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 11,
+                "mcp_tool_call": 18
+              },
+              "durMs": 458363,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+              "run": 1,
+              "attempts": 4
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "vue",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vue-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "8b776420228a6833c8496c34104ac3314e42f95a88f587d32ee275bbfddcb81f",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does Vue track reactive dependencies when a property is read and trigger effects when that property is written?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 135350,
+              "cached": 94720,
+              "reasoning": 3150,
+              "tokensWithReasoning": 138500,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 130376,
+                  "cachedInput": 94720,
+                  "output": 4974,
+                  "reasoning": 3150
+                }
+              ],
+              "tools": 6,
+              "shell": 0,
+              "graph": 6,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 6
+              },
+              "durMs": 115383,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "8b776420228a6833c8496c34104ac3314e42f95a88f587d32ee275bbfddcb81f",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "zod",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "zod-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "7669355f5f1acd28f6b50bf3fd7abfffd2b6410307750f7030efef999ed8dbe7",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does a Zod schema's `parse` method validate input and produce a typed result or throw a ZodError?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 167175,
+              "cached": 117760,
+              "reasoning": 4536,
+              "tokensWithReasoning": 171711,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 160664,
+                  "cachedInput": 117760,
+                  "output": 6511,
+                  "reasoning": 4536
+                }
+              ],
+              "tools": 8,
+              "shell": 0,
+              "graph": 8,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 8,
+                "mcp_tool_call": 8
+              },
+              "durMs": 114503,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "7669355f5f1acd28f6b50bf3fd7abfffd2b6410307750f7030efef999ed8dbe7",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "zod",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "zod-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I just joined this TypeScript project and have been asked to change behavior on the busiest user-facing path, but I do not yet know which exported API or entry point is the right place to start.\n\nOrient me from the code before choosing the path: identify the public entry points that look user-facing, the internal modules or types they converge on, and the symbols that appear to be reused by several parts of the project. From that evidence, choose one central runtime operation whose implementation crosses the important layers.\n\nTrace that operation in order from the public entry point through the orchestration, state/model, adapter, or engine layers down to the lowest layer where real work happens. For each hop, name the file and symbol, and say how it reaches the next hop: direct call, callback, dependency injection, inheritance, dispatch, or data flow.\n\nAlso name two plausible entry points or modules you considered but ruled out, and explain why they are adjacent but not the main path. End with the smallest set of source ranges I should read before editing and one risk that would be easy to miss if I only followed direct calls.\n\nDo not guess; report gaps.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 359381,
+              "cached": 258560,
+              "reasoning": 18851,
+              "tokensWithReasoning": 378232,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 336866,
+                  "cachedInput": 258560,
+                  "output": 22515,
+                  "reasoning": 18851
+                }
+              ],
+              "tools": 10,
+              "shell": 0,
+              "graph": 10,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 10
+              },
+              "durMs": 338921,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-common-v1",
+              "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+              "run": 1,
+              "attempts": 2
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "typeorm",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "typeorm-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I just joined this TypeScript project and have been asked to change behavior on the busiest user-facing path, but I do not yet know which exported API or entry point is the right place to start.\n\nOrient me from the code before choosing the path: identify the public entry points that look user-facing, the internal modules or types they converge on, and the symbols that appear to be reused by several parts of the project. From that evidence, choose one central runtime operation whose implementation crosses the important layers.\n\nTrace that operation in order from the public entry point through the orchestration, state/model, adapter, or engine layers down to the lowest layer where real work happens. For each hop, name the file and symbol, and say how it reaches the next hop: direct call, callback, dependency injection, inheritance, dispatch, or data flow.\n\nAlso name two plausible entry points or modules you considered but ruled out, and explain why they are adjacent but not the main path. End with the smallest set of source ranges I should read before editing and one risk that would be easy to miss if I only followed direct calls.\n\nDo not guess; report gaps.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 773146,
+              "cached": 695808,
+              "reasoning": 13624,
+              "tokensWithReasoning": 786770,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 753232,
+                  "cachedInput": 695808,
+                  "output": 19914,
+                  "reasoning": 13624
+                }
+              ],
+              "tools": 19,
+              "shell": 0,
+              "graph": 19,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 17,
+                "mcp_tool_call": 19
+              },
+              "durMs": 321522,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+              "run": 1,
+              "attempts": 2
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "rxjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "rxjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "2f98a5ce51594fa18c3418da9a8e243f1acefb94dfdd7ef7056c0d2484fe352b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does calling subscribe on an RxJS Observable invoke its operator chain and deliver values to the observer?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 219741,
+              "cached": 186368,
+              "reasoning": 3779,
+              "tokensWithReasoning": 223520,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 213089,
+                  "cachedInput": 186368,
+                  "output": 6652,
+                  "reasoning": 3779
+                }
+              ],
+              "tools": 14,
+              "shell": 0,
+              "graph": 14,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 9,
+                "mcp_tool_call": 14
+              },
+              "durMs": 110078,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "2f98a5ce51594fa18c3418da9a8e243f1acefb94dfdd7ef7056c0d2484fe352b",
+              "run": 1,
+              "attempts": 2
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "rxjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "rxjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I just joined this TypeScript project and have been asked to change behavior on the busiest user-facing path, but I do not yet know which exported API or entry point is the right place to start.\n\nOrient me from the code before choosing the path: identify the public entry points that look user-facing, the internal modules or types they converge on, and the symbols that appear to be reused by several parts of the project. From that evidence, choose one central runtime operation whose implementation crosses the important layers.\n\nTrace that operation in order from the public entry point through the orchestration, state/model, adapter, or engine layers down to the lowest layer where real work happens. For each hop, name the file and symbol, and say how it reaches the next hop: direct call, callback, dependency injection, inheritance, dispatch, or data flow.\n\nAlso name two plausible entry points or modules you considered but ruled out, and explain why they are adjacent but not the main path. End with the smallest set of source ranges I should read before editing and one risk that would be easy to miss if I only followed direct calls.\n\nDo not guess; report gaps.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 153132,
+              "cached": 111104,
+              "reasoning": 15202,
+              "tokensWithReasoning": 168334,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 135191,
+                  "cachedInput": 111104,
+                  "output": 17941,
+                  "reasoning": 15202
+                }
+              ],
+              "tools": 8,
+              "shell": 0,
+              "graph": 8,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 8
+              },
+              "durMs": 271263,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+              "run": 1,
+              "attempts": 2
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "shopping-backend",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "shopping-backend-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I just joined this TypeScript project and have been asked to change behavior on the busiest user-facing path, but I do not yet know which exported API or entry point is the right place to start.\n\nOrient me from the code before choosing the path: identify the public entry points that look user-facing, the internal modules or types they converge on, and the symbols that appear to be reused by several parts of the project. From that evidence, choose one central runtime operation whose implementation crosses the important layers.\n\nTrace that operation in order from the public entry point through the orchestration, state/model, adapter, or engine layers down to the lowest layer where real work happens. For each hop, name the file and symbol, and say how it reaches the next hop: direct call, callback, dependency injection, inheritance, dispatch, or data flow.\n\nAlso name two plausible entry points or modules you considered but ruled out, and explain why they are adjacent but not the main path. End with the smallest set of source ranges I should read before editing and one risk that would be easy to miss if I only followed direct calls.\n\nDo not guess; report gaps.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 198396,
+              "cached": 161280,
+              "reasoning": 2912,
+              "tokensWithReasoning": 201308,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 192154,
+                  "cachedInput": 161280,
+                  "output": 6242,
+                  "reasoning": 2912
+                }
+              ],
+              "tools": 7,
+              "shell": 0,
+              "graph": 7,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 8,
+                "mcp_tool_call": 7
+              },
+              "durMs": 346555,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "fac7997c0467b4322ad1f9c45dfc48b90b4feb70866d836d5e27fadf03118c01",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
         }
       }
     ]
