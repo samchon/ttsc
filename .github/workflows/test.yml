@@ -37,7 +37,7 @@ jobs:
           - { name: unplugin, run: "pnpm --filter @ttsc/test-unplugin start" }
           - { name: metro, run: "pnpm --filter @ttsc/test-metro start" }
           - { name: graph, run: "pnpm --filter @ttsc/test-graph start" }
-          - { name: graph-bench, run: "node experimental/graph-bench/bench.mjs --runs=3" }
+          - { name: graph-bench, run: "node experimental/benchmark/graph/bench.mjs --runs=3" }
     steps:
       - uses: actions/checkout@v4
 
