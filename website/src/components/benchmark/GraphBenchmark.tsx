@@ -219,7 +219,6 @@ function groupBy<T>(
 
 interface Metrics {
   tokens: number;
-  reasoning: number;
   tools: number;
   dur: number;
 }
@@ -258,9 +257,6 @@ function medianMetrics(samples: AgentSample[]): Metrics {
   const valid = validSamples(samples);
   return {
     tokens: median(valid.map((s) => s.tokens)),
-    reasoning: median(
-      valid.map((s) => (typeof s.reasoning === "number" ? s.reasoning : 0)),
-    ),
     tools: median(valid.map((s) => s.tools)),
     dur: median(valid.map((s) => s.durMs ?? 0)),
   };
@@ -509,11 +505,6 @@ interface Metric {
 const METRICS: Metric[] = [
   { key: "tokens", label: "tokens", fmt: (n) => fmt(Math.round(n)) },
   {
-    key: "reasoning",
-    label: "reasoning tokens",
-    fmt: (n) => fmt(Math.round(n)),
-  },
-  {
     key: "tools",
     label: "tool calls",
     fmt: (n) => (n % 1 === 0 ? fmt(Math.round(n)) : n.toFixed(1)),
@@ -645,14 +636,6 @@ function modelTabMeta(model: ModelGroup): string | undefined {
 
 /** One model row: its identity on the left, the metric groups on the right. */
 function ModelBlock({ model }: { model: ModelGroup }) {
-  const metrics = METRICS.filter(
-    (metric) =>
-      metric.key !== "reasoning" ||
-      model.baseline.reasoning > 0 ||
-      (model.ttsc?.reasoning ?? 0) > 0 ||
-      (model.codegraph?.reasoning ?? 0) > 0,
-  );
-
   return (
     <div className="grid gap-5 px-5 py-5 md:grid-cols-[minmax(8rem,12rem)_minmax(0,1fr)] md:gap-6">
       <div className="md:border-r md:border-[#1a1f29] md:pr-6">
@@ -670,7 +653,7 @@ function ModelBlock({ model }: { model: ModelGroup }) {
       </div>
 
       <div className="space-y-2.5">
-        {metrics.map((metric) => (
+        {METRICS.map((metric) => (
           <MetricGroup key={metric.key} metric={metric} model={model} />
         ))}
       </div>
