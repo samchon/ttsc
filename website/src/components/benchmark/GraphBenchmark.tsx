@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 interface AgentSample {
   tokens: number;
   tools: number;
+  ok?: boolean;
   durMs?: number;
   [key: string]: unknown;
 }
@@ -88,7 +89,7 @@ function fmtSecs(ms: number): string {
  * display string. The harness is the AI coding agent (Claude Code vs Codex);
  * the model tier comes from `model` and its version from `modelVersion`. The
  * version falls back to a sensible default when `modelVersion` is missing on
- * old data, and an unrecognized model degrades to `model (harness)`.
+ * old data, and an unrecognized model falls back to `model (harness)`.
  */
 function modelLabel(cell: AgentCell): string {
   const version = cell.modelVersion;
@@ -248,14 +249,19 @@ interface ProjectGroup {
 }
 
 function medianMetrics(samples: AgentSample[]): Metrics {
+  const valid = validSamples(samples);
   return {
-    tokens: median(samples.map((s) => s.tokens)),
+    tokens: median(valid.map((s) => s.tokens)),
     reasoning: median(
-      samples.map((s) => (typeof s.reasoning === "number" ? s.reasoning : 0)),
+      valid.map((s) => (typeof s.reasoning === "number" ? s.reasoning : 0)),
     ),
-    tools: median(samples.map((s) => s.tools)),
-    dur: median(samples.map((s) => s.durMs ?? 0)),
+    tools: median(valid.map((s) => s.tools)),
+    dur: median(valid.map((s) => s.durMs ?? 0)),
   };
+}
+
+function validSamples(samples: AgentSample[]): AgentSample[] {
+  return samples.filter((sample) => sample.ok !== false);
 }
 
 function modelGroupKey(cell: AgentCell): string {
@@ -321,11 +327,12 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
           codegraphSetupMs: codegraphCell?.toolSetupMs,
           baseline: medianMetrics(baselineSamples),
           ttsc:
-            ttscCell && ttscCell.samples.graph.length > 0
+            ttscCell && validSamples(ttscCell.samples.graph).length > 0
               ? medianMetrics(ttscCell.samples.graph)
               : undefined,
           codegraph:
-            codegraphCell && codegraphCell.samples.graph.length > 0
+            codegraphCell &&
+            validSamples(codegraphCell.samples.graph).length > 0
               ? medianMetrics(codegraphCell.samples.graph)
               : undefined,
         };

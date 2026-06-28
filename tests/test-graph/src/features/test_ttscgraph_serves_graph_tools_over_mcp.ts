@@ -11,35 +11,30 @@ const callJson = <T>(result: ToolResult): T =>
 
 const callGraphJson = <T>(result: ToolResult): T => {
   const value = callJson<{
-    type?: string;
-    entrypoints?: unknown;
-    symbols?: unknown;
-    trace?: unknown;
-    details?: unknown;
-    overview?: unknown;
+    result?: {
+      type?: string;
+    };
   }>(result);
-  switch (value.type) {
-    case "find_question_entrypoints":
-      return value.entrypoints as T;
-    case "lookup_symbols":
-      return value.symbols as T;
-    case "trace_dependency_path":
-      return value.trace as T;
-    case "inspect_symbol_details":
-      return value.details as T;
-    case "summarize_project":
-      return value.overview as T;
+  switch (value.result?.type) {
+    case "entrypoints":
+    case "lookup":
+    case "trace":
+    case "details":
+    case "overview":
+    case "escape":
+      return value.result as T;
     default:
       throw new Error(`Unexpected graph result: ${JSON.stringify(value)}`);
   }
 };
 
 type GraphRequestType =
-  | "find_question_entrypoints"
-  | "lookup_symbols"
-  | "trace_dependency_path"
-  | "inspect_symbol_details"
-  | "summarize_project";
+  | "entrypoints"
+  | "lookup"
+  | "trace"
+  | "details"
+  | "overview"
+  | "escape";
 
 interface GraphRequest {
   type: GraphRequestType;
@@ -54,8 +49,8 @@ const graphArguments = (props: {
   graphNeed:
     "Use resident TypeScript graph evidence and avoid shell or web lookup.",
   draft: {
-    type: props.request.type,
     reason: props.thinking,
+    type: props.request.type,
   },
   review:
     "The draft is bounded to one graph request; follow-up evidence should use another graph call.",
@@ -69,15 +64,14 @@ const graphArguments = (props: {
  * The TypeScript engine is unit-smoked in isolation; this case proves the
  * shipped pipeline works: the Node launcher spawns, runs `ttscgraph dump` once
  * for a real project, builds the resident graph, and answers
- * initialize/tools-list/tools-call for the single
- * inspect_typescript_project_graph_before_answering tool, then exits cleanly
- * when stdin closes.
+ * initialize/tools-list/tools-call for the single query tool, then exits
+ * cleanly when stdin closes.
  *
  * 1. Materialize a project with a Service.run -> helper call chain, then spawn the
  *    launcher against it.
- * 2. Drive initialize, tools/list, and a call to each of the five tools.
- * 3. Assert the index, architecture counts, a query hit, forward/path traces
- *    reaching the callee, expanded source, and a clean exit.
+ * 2. Drive initialize, tools/list, and a call to each request branch.
+ * 3. Assert the entrypoints, architecture counts, a lookup hit, forward/path
+ *    traces reaching the callee, source-free details, and a clean exit.
  */
 export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
   const root = TestProject.createProject({
@@ -115,6 +109,12 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       "export function third(): void {}",
       "export function fourth(): void {}",
       "export function fifth(): void {}",
+      "export const adapter = {",
+      "  run: () => helper(),",
+      "  reset() {",
+      "    other();",
+      "  },",
+      "};",
       "",
     ].join("\n"),
   });
@@ -143,13 +143,45 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     const names = list.tools.map((tool) => tool.name);
     assert.deepEqual(
       names,
-      ["inspect_typescript_project_graph_before_answering"],
+      ["query"],
       `tools/list advertises the single graph tool, got ${names.join(", ")}`,
     );
 
-    // question_entrypoints: the first source-free index resolves direct handles and
+    const skip = callJson<{
+      result?: {
+        type?: string;
+        skipped?: boolean;
+        reason?: string;
+        nextStep?: string;
+      };
+    }>(
+      (await client.request("tools/call", {
+        name: "query",
+        arguments: graphArguments({
+          thinking:
+            "The question has already been answered by prior evidence, so no graph operation should run.",
+          request: {
+            type: "escape",
+            reason: "No additional TypeScript graph evidence is needed.",
+            nextStep: "Answer from the existing evidence.",
+          },
+        }),
+      })) as ToolResult,
+    );
+    assert.equal(
+      skip.result?.type,
+      "escape",
+      `escape returns its own result branch: ${JSON.stringify(skip)}`,
+    );
+    assert.equal(
+      skip.result?.skipped,
+      true,
+      `escape marks the operation skipped: ${JSON.stringify(skip)}`,
+    );
+
+    // entrypoints: the first source-free result resolves direct handles and
     // nearby dependency context.
-    const index = callGraphJson<{
+    const entrypoints = callGraphJson<{
       hits: {
         id: string;
         name: string;
@@ -161,34 +193,34 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         name: string;
         dependsOn: {
           name: string;
-          evidence?: { startLine?: number; text?: string };
+          evidence?: { file?: string; startLine?: number; text?: string };
         }[];
       }[];
-      next: { traceFrom: string[] };
+      next: { details: string[]; traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking:
             "Find source-free starting handles before tracing Service.run to helper.",
           request: {
-            type: "find_question_entrypoints",
-            purpose: "Resolve the starting method and nearby dependency edge.",
+            type: "entrypoints",
             query: "how Service.run reaches helper",
+            neighbors: 1,
           },
         }),
       })) as ToolResult,
     );
     assert.ok(
-      index.hits.some(
+      entrypoints.hits.some(
         (hit) =>
           hit.name === "Service.run" &&
           (hit.signature ?? "").includes("run(): void"),
       ),
-      `question_entrypoints ranks Service.run with a signature: ${JSON.stringify(index.hits)}`,
+      `entrypoints ranks Service.run with a signature: ${JSON.stringify(entrypoints.hits)}`,
     );
     assert.ok(
-      index.hits.some(
+      entrypoints.hits.some(
         (hit) =>
           hit.name === "Service.run" &&
           hit.decorators?.some(
@@ -197,47 +229,51 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
               decorator.arguments.some((arg) => arg.literal === "/run"),
           ),
       ),
-      `question_entrypoints carries decorator facts: ${JSON.stringify(index.hits)}`,
+      `entrypoints carries decorator facts: ${JSON.stringify(entrypoints.hits)}`,
     );
     assert.ok(
-      index.mentions.some(
+      entrypoints.mentions.some(
         (mention) =>
           mention.handle === "Service.run" &&
           mention.node?.name === "Service.run",
       ),
-      `question_entrypoints resolves direct dotted mentions: ${JSON.stringify(index.mentions)}`,
+      `entrypoints resolves direct dotted mentions: ${JSON.stringify(entrypoints.mentions)}`,
     );
     assert.ok(
-      index.neighborhood.some(
+      entrypoints.neighborhood.some(
         (node) =>
           node.name === "Service.run" &&
           node.dependsOn.some(
             (ref) =>
               ref.name === "helper" &&
               typeof ref.evidence?.startLine === "number" &&
-              (ref.evidence.text ?? "").includes("helper"),
+              ref.evidence.file?.endsWith("app.ts") &&
+              ref.evidence.text === undefined,
           ),
       ),
-      `question_entrypoints includes direct dependency evidence: ${JSON.stringify(index.neighborhood)}`,
+      `entrypoints includes span-only dependency evidence: ${JSON.stringify(entrypoints.neighborhood)}`,
     );
-    const indexedRun = index.hits.find((hit) => hit.name === "Service.run");
+    const entrypointRun = entrypoints.hits.find(
+      (hit) => hit.name === "Service.run",
+    );
     assert.ok(
-      indexedRun !== undefined && index.next.traceFrom.includes(indexedRun.id),
-      `question_entrypoints returns trace handles for ranked seeds: ${JSON.stringify(index.next)}`,
+      entrypointRun !== undefined &&
+        entrypoints.next.details.includes(entrypointRun.id) &&
+        entrypoints.next.traceFrom.includes(entrypointRun.id),
+      `entrypoints returns follow-up handles for ranked seeds: ${JSON.stringify(entrypoints.next)}`,
     );
 
-    // project_overview: a compact architecture map with real counts.
+    // overview: a compact architecture map with real counts.
     const overview = callGraphJson<{
       counts: { nodes: number; byKind: Record<string, number> };
       publicApi?: { id: string; name: string; line?: number }[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
-          thinking: "Summarize project shape without reading source bodies.",
+          thinking: "Summarize project shape from graph index facts.",
           request: {
-            type: "summarize_project",
-            purpose: "Verify the architecture overview request branch.",
+            type: "overview",
             aspect: "all",
           },
         }),
@@ -250,54 +286,49 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         (byKind.method ?? 0) >= 1 &&
         (byKind.function ?? 0) >= 1 &&
         (byKind.file ?? 0) >= 1,
-      `project_overview returns architecture counts: ${JSON.stringify(overview.counts)}`,
+      `overview returns architecture counts: ${JSON.stringify(overview.counts)}`,
     );
     assert.ok(
       overview.publicApi?.some(
         (api) =>
           api.name === "Service" && api.id.length > 0 && api.line !== undefined,
       ),
-      `project_overview returns public API handles: ${JSON.stringify(overview.publicApi)}`,
+      `overview returns public API handles: ${JSON.stringify(overview.publicApi)}`,
     );
 
-    // symbol_lookup: finds Service by name and ranks explicit method queries.
-    const query = callGraphJson<{
+    // lookup: finds Service by name and ranks explicit method queries.
+    const lookup = callGraphJson<{
       hits: { id: string; name: string; kind: string }[];
-      next: { expand: string[]; traceFrom: string[] };
+      next: { details: string[]; traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking: "Look up Service by exact symbol name.",
           request: {
-            type: "lookup_symbols",
-            purpose: "Resolve a specific class handle.",
+            type: "lookup",
             query: "Service",
           },
         }),
       })) as ToolResult,
     );
-    const service = query.hits.find((hit) => hit.name === "Service");
+    const service = lookup.hits.find((hit) => hit.name === "Service");
+    assert.ok(service, `lookup finds Service: ${JSON.stringify(lookup.hits)}`);
     assert.ok(
-      service,
-      `symbol_lookup finds Service: ${JSON.stringify(query.hits)}`,
-    );
-    assert.ok(
-      query.next.expand.includes(service.id) &&
-        query.next.traceFrom.includes(service.id),
-      `symbol_lookup returns follow-up handles: ${JSON.stringify(query.next)}`,
+      lookup.next.details.includes(service.id) &&
+        lookup.next.traceFrom.includes(service.id),
+      `lookup returns follow-up handles: ${JSON.stringify(lookup.next)}`,
     );
     const methodQuery = callGraphJson<{
       hits: { name: string; kind: string }[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking:
             "Look up the explicit run method before dependency tracing.",
           request: {
-            type: "lookup_symbols",
-            purpose: "Rank the method target ahead of the class.",
+            type: "lookup",
             query: "How does the `run` method reach helper?",
             limit: 3,
           },
@@ -307,28 +338,29 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.equal(
       methodQuery.hits[0]?.name,
       "Service.run",
-      `symbol_lookup ranks the explicit method target first: ${JSON.stringify(methodQuery.hits)}`,
+      `lookup ranks the explicit method target first: ${JSON.stringify(methodQuery.hits)}`,
     );
     assert.equal(
       methodQuery.hits[0]?.kind,
       "method",
-      `symbol_lookup preserves the method kind: ${JSON.stringify(methodQuery.hits)}`,
+      `lookup preserves the method kind: ${JSON.stringify(methodQuery.hits)}`,
     );
 
-    // dependency_path: forward from Service.run reaches the helper it calls.
+    // trace: forward from Service.run reaches the helper it calls.
     const trace = callGraphJson<{
       reached: { name: string }[];
-      hops: { evidence?: { text?: string } }[];
+      hops: {
+        evidence?: { file?: string; startLine?: number; text?: string };
+      }[];
       steps?: string[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking:
             "Trace execution dependencies from run to confirm the helper call.",
           request: {
-            type: "trace_dependency_path",
-            purpose: "Follow outgoing runtime calls from Service.run.",
+            type: "trace",
             from: "run",
             direction: "forward",
             focus: "execution",
@@ -338,30 +370,34 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
     assert.ok(
       trace.reached.some((node) => node.name === "helper"),
-      `dependency_path forward reaches helper: ${JSON.stringify(trace.reached)}`,
+      `trace forward reaches helper: ${JSON.stringify(trace.reached)}`,
     );
     assert.ok(
-      trace.hops.some((hop) => (hop.evidence?.text ?? "").includes("helper")),
-      `dependency_path forward carries hop evidence: ${JSON.stringify(trace.hops)}`,
+      trace.hops.some(
+        (hop) =>
+          hop.evidence?.file?.endsWith("app.ts") &&
+          typeof hop.evidence.startLine === "number" &&
+          hop.evidence.text === undefined,
+      ),
+      `trace forward carries span-only hop evidence: ${JSON.stringify(trace.hops)}`,
     );
     assert.ok(
       trace.steps?.some((step) => step.includes("Service.run")),
-      `dependency_path returns compact step text: ${JSON.stringify(trace.steps)}`,
+      `trace returns compact step text: ${JSON.stringify(trace.steps)}`,
     );
 
-    // dependency_path path mode: dotted from handles can be used directly.
+    // trace path mode: dotted from handles can be used directly.
     const pathTrace = callGraphJson<{
       path?: { name: string; signature?: string }[];
       steps?: string[];
       next?: { traceFrom: string[] };
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
           thinking: "Ask for the direct path from Service.run to helper.",
           request: {
-            type: "trace_dependency_path",
-            purpose: "Verify dotted handles work in path mode.",
+            type: "trace",
             from: "Service.run",
             to: "helper",
           },
@@ -370,127 +406,162 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
     assert.ok(
       pathTrace.path?.some((node) => node.name === "helper"),
-      `dependency_path path reaches helper from dotted handle: ${JSON.stringify(pathTrace.path)}`,
+      `trace path reaches helper from dotted handle: ${JSON.stringify(pathTrace.path)}`,
     );
     assert.ok(
       pathTrace.path?.some((node) =>
         (node.signature ?? "").includes("run(): void"),
       ),
-      `dependency_path path carries signatures: ${JSON.stringify(pathTrace.path)}`,
+      `trace path carries signatures: ${JSON.stringify(pathTrace.path)}`,
     );
     assert.ok(
       pathTrace.steps?.some((step) => step.includes("helper")) &&
         (pathTrace.next?.traceFrom.length ?? 0) > 0,
-      `dependency_path path returns step text and continuation handles: ${JSON.stringify(pathTrace)}`,
+      `trace path returns step text and continuation handles: ${JSON.stringify(pathTrace)}`,
     );
 
-    // symbol_details: reads the declaration source the graph located.
-    const expand = callGraphJson<{
+    // details: returns declared shape and anchors, not implementation text.
+    const details = callGraphJson<{
       nodes: {
         id: string;
         name: string;
-        source?: string;
-        sourceLines?: { line: number; text: string }[];
+        calls?: {
+          name: string;
+          relation: string;
+          evidence?: { file?: string; startLine?: number };
+        }[];
         sourceSpan?: { file: string; startLine: number; endLine?: number };
         decorators?: { name: string; arguments: { literal?: unknown }[] }[];
+        members?: { name: string; kind: string; signature?: string }[];
       }[];
       unknown: string[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
-          thinking:
-            "Read only the Service.run body because the implementation contains the decisive helper call.",
+          thinking: "Inspect Service.run shape without reading source.",
           request: {
-            type: "inspect_symbol_details",
-            purpose: "Narrow source read for the selected method.",
+            type: "details",
             handles: ["Service.run"],
-            source: true,
-            lineNumbers: true,
           },
         }),
       })) as ToolResult,
     );
     assert.ok(
-      expand.nodes.some((node) => (node.source ?? "").includes("helper(")),
-      `symbol_details returns the run body: ${JSON.stringify(expand.nodes)}`,
-    );
-    assert.ok(
-      expand.nodes.some((node) =>
-        node.sourceLines?.some(
-          (line) =>
-            typeof line.line === "number" && line.text.includes("helper();"),
-        ),
+      details.nodes.some(
+        (node) =>
+          node.name === "Service.run" &&
+          node.calls?.some(
+            (call) =>
+              call.name === "helper" &&
+              call.relation === "calls" &&
+              call.evidence?.file?.endsWith("app.ts"),
+          ) &&
+          Object.hasOwn(node, "source") === false,
       ),
-      `symbol_details returns numbered source lines: ${JSON.stringify(expand.nodes)}`,
+      `details returns source-free direct call references: ${JSON.stringify(details.nodes)}`,
     );
     assert.ok(
-      expand.nodes.some(
+      details.nodes.some(
         (node) =>
           node.sourceSpan?.file.endsWith("app.ts") &&
           typeof node.sourceSpan.startLine === "number",
       ),
-      `symbol_details returns source line anchors: ${JSON.stringify(expand.nodes)}`,
+      `details returns source line anchors: ${JSON.stringify(details.nodes)}`,
     );
     assert.ok(
-      expand.nodes.some((node) =>
+      details.nodes.some((node) =>
         node.decorators?.some(
           (decorator) =>
             decorator.name === "Route" &&
             decorator.arguments.some((arg) => arg.literal === "/run"),
         ),
       ),
-      `symbol_details returns decorator facts: ${JSON.stringify(expand.nodes)}`,
+      `details returns decorator facts: ${JSON.stringify(details.nodes)}`,
     );
 
-    const expandShape = callGraphJson<{
+    const objectDetails = callGraphJson<{
       nodes: {
         name: string;
-        calls?: string[];
-        flow?: string[];
-        source?: string;
+        members?: { name: string; kind: string; signature?: string }[];
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
+        arguments: graphArguments({
+          thinking: "Inspect adapter object outline without reading source.",
+          request: {
+            type: "details",
+            handles: ["adapter"],
+          },
+        }),
+      })) as ToolResult,
+    );
+    assert.ok(
+      objectDetails.nodes.some(
+        (node) =>
+          node.name === "adapter" &&
+          node.members?.some(
+            (member) =>
+              member.name === "run" &&
+              member.kind === "property" &&
+              member.signature?.includes("=>"),
+          ),
+      ),
+      `details returns object-literal member outlines: ${JSON.stringify(objectDetails.nodes)}`,
+    );
+
+    const detailsShape = callGraphJson<{
+      nodes: {
+        name: string;
+        calls?: { name: string; evidence?: { startLine?: number } }[];
+        flow?: string[];
+      }[];
+    }>(
+      (await client.request("tools/call", {
+        name: "query",
         arguments: graphArguments({
           thinking: "Inspect Service.run shape without reading source.",
           request: {
-            type: "inspect_symbol_details",
-            purpose: "Verify source-free direct call summaries.",
+            type: "details",
             handles: ["Service.run"],
           },
         }),
       })) as ToolResult,
     );
     assert.ok(
-      expandShape.nodes.some(
+      detailsShape.nodes.some(
         (node) =>
           node.name === "Service.run" &&
-          node.calls?.some((call) => call === "helper") &&
-          node.source === undefined,
+          node.calls?.some(
+            (call) =>
+              call.name === "helper" &&
+              typeof call.evidence?.startLine === "number",
+          ) &&
+          Object.hasOwn(node, "source") === false,
       ),
-      `symbol_details returns source-free direct call summaries: ${JSON.stringify(expandShape.nodes)}`,
+      `details returns source-free direct call references: ${JSON.stringify(detailsShape.nodes)}`,
     );
     assert.ok(
-      expandShape.nodes.every((node) => node.flow === undefined),
-      `symbol_details leaves execution paths to dependency_path: ${JSON.stringify(expandShape.nodes)}`,
+      detailsShape.nodes.every((node) => node.flow === undefined),
+      `details leaves execution paths to trace: ${JSON.stringify(detailsShape.nodes)}`,
     );
 
-    const expandDeps = callGraphJson<{
+    const detailsDeps = callGraphJson<{
       nodes: {
-        dependsOn?: { name: string; evidence?: { text?: string } }[];
+        dependsOn?: {
+          name: string;
+          evidence?: { file?: string; startLine?: number; text?: string };
+        }[];
         dependedOnBy?: unknown[];
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
+        name: "query",
         arguments: graphArguments({
-          thinking:
-            "Map immediate Service.run dependencies without source bodies.",
+          thinking: "Map immediate Service.run dependencies as graph ranges.",
           request: {
-            type: "inspect_symbol_details",
-            purpose: "Verify bounded neighbor mapping.",
+            type: "details",
             handles: ["Service.run"],
             neighbors: true,
             neighborLimit: 1,
@@ -499,57 +570,19 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       })) as ToolResult,
     );
     assert.ok(
-      expandDeps.nodes.some(
+      detailsDeps.nodes.some(
         (node) =>
           node.dependsOn?.some(
             (ref) =>
               ref.name === "helper" &&
-              (ref.evidence?.text ?? "").includes("helper"),
+              ref.evidence?.file?.endsWith("app.ts") &&
+              typeof ref.evidence.startLine === "number" &&
+              ref.evidence.text === undefined,
           ) &&
           (node.dependsOn?.length ?? 0) <= 1 &&
           Array.isArray(node.dependedOnBy),
       ),
-      `symbol_details returns dependency neighbors: ${JSON.stringify(expandDeps.nodes)}`,
-    );
-
-    const expandSourceDeps = callGraphJson<{
-      nodes: {
-        source?: string;
-        dependsOn?: {
-          name: string;
-          evidence?: { startLine?: number; text?: string };
-        }[];
-        dependedOnBy?: unknown[];
-      }[];
-    }>(
-      (await client.request("tools/call", {
-        name: "inspect_typescript_project_graph_before_answering",
-        arguments: graphArguments({
-          thinking:
-            "Read Service.run source and verify neighbor options stay ignored in source mode.",
-          request: {
-            type: "inspect_symbol_details",
-            purpose: "Source reads must stay separate from dependency maps.",
-            handles: ["Service.run"],
-            source: true,
-            neighbors: true,
-            neighborLimit: 10,
-          },
-        }),
-      })) as ToolResult,
-    );
-    assert.ok(
-      expandSourceDeps.nodes.some(
-        (node) =>
-          (node.source ?? "").includes("helper(") &&
-          node.dependsOn === undefined &&
-          node.dependedOnBy === undefined,
-      ),
-      `symbol_details keeps source reads separate from dependency maps: ${JSON.stringify(expandSourceDeps.nodes)}`,
-    );
-    assert.ok(
-      expandSourceDeps.nodes.every((node) => node.dependsOn === undefined),
-      `symbol_details ignores neighbors in source mode: ${JSON.stringify(expandSourceDeps.nodes)}`,
+      `details returns dependency neighbors: ${JSON.stringify(detailsDeps.nodes)}`,
     );
   } finally {
     client.endStdin();

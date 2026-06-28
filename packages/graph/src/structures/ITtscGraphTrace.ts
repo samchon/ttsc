@@ -1,9 +1,10 @@
 import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
 
-/**
- * The ordered dependency flow returned from a start symbol.
- */
+/** The ordered dependency flow returned from a start symbol. */
 export interface ITtscGraphTrace {
+  /** Discriminator for dependency tracing. */
+  type: "trace";
+
   /** The resolved start node, or undefined when `from` matched nothing. */
   start?: ITtscGraphTrace.INode;
 
@@ -28,10 +29,10 @@ export interface ITtscGraphTrace {
    */
   path?: ITtscGraphTrace.INode[];
 
-  /** Compact hop summaries preserving node names and edge evidence. */
+  /** Compact hop summaries preserving node names and edge evidence, capped. */
   steps?: string[];
 
-  /** Follow-up handles for expanding or continuing the trace. */
+  /** Follow-up handles for inspecting or continuing the trace. */
   next?: ITtscGraphTrace.INext;
 
   /** When `from` was an ambiguous name, the matches to disambiguate with. */
@@ -39,7 +40,10 @@ export interface ITtscGraphTrace {
 }
 export namespace ITtscGraphTrace {
   /** Where and how far to trace dependency flow. */
-  export interface IProps {
+  export interface IRequest {
+    /** Discriminator for dependency tracing. */
+    type: "trace";
+
     /**
      * Where to start: a node id from another tool, a simple symbol name, or a
      * dotted member name such as `OrderService.create`. An ambiguous name
@@ -74,19 +78,19 @@ export namespace ITtscGraphTrace {
     focus?: "all" | "execution" | "types";
 
     /**
-     * How many hops deep to follow. Open traces are capped at 6; path mode is
+     * How many hops deep to follow. Open traces are capped at 2; path mode is
      * capped at 12.
      *
-     * @default 6
+     * @default 2
      */
     maxDepth?: number;
 
     /**
      * Cap on reached nodes; the trace stops and marks itself truncated past it.
-     * Open traces are capped at 30 nodes so a broad graph cannot flood
+     * Open traces are capped at 10 nodes so a broad graph cannot flood
      * context.
      *
-     * @default 30
+     * @default 6
      */
     maxNodes?: number;
   }
@@ -128,8 +132,8 @@ export namespace ITtscGraphTrace {
 
   /** Tool-call handles suggested by this trace. */
   export interface INext {
-    /** Pass these ids to `symbol_details` for source or member details. */
-    expand: string[];
+    /** Pass these ids to `details` for selected symbol details. */
+    details: string[];
     /** Continue tracing from these ids when the current result is intermediate. */
     traceFrom: string[];
   }

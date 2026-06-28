@@ -1,1 +1,3 @@
-I just joined this TypeScript project and want to understand how it actually works under the hood. Pick the single most central exported API or entry point and trace what happens when it runs: how the call travels from that public entry, through the internal layers, down to where the real work happens. Name the files and symbols it passes through, in order, and how each step leads to the next. Keep it a focused walk-through of that one path, not a summary of the whole project. Do not guess; report gaps.
+I'm new to this TypeScript project and need a real code-based tour before my first behavior change.
+
+Find the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.

@@ -1,28 +1,28 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
-import { ITtscGraphIndex } from "../structures/ITtscGraphIndex";
+import { ITtscGraphEntrypoints } from "../structures/ITtscGraphEntrypoints";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { resolveGraphHandle } from "./resolveHandle";
-import { decoratorsOf, edgeEvidenceOf, signatureOf } from "./runExpand";
-import { runQuery } from "./runQuery";
+import { decoratorsOf, edgeEvidenceOf, signatureOf } from "./runDetails";
+import { runLookup } from "./runLookup";
 
-const DEFAULT_LIMIT = 5;
-const MAX_LIMIT = 20;
-const DEFAULT_NEIGHBORS = 1;
-const MAX_NEIGHBORS = 4;
+const DEFAULT_LIMIT = 4;
+const MAX_LIMIT = 8;
+const DEFAULT_NEIGHBORS = 0;
+const MAX_NEIGHBORS = 2;
 const MAX_SEEDS = 3;
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 
 /**
- * Build the first source-free index for a code question. The result gives the
- * model stable handles, declaration signatures, and direct graph context. It is
- * deliberately not a source reader; source remains opt-in through
- * symbol_details.
+ * Build the first source-free entrypoints list for a code question. The result
+ * gives the model stable handles, declaration signatures, and direct graph
+ * context. It is deliberately not a source reader; details adds selected symbol
+ * shape and ranges, not implementation text.
  */
-export function runIndex(
+export function runEntrypoints(
   graph: TtscGraphMemory,
-  props: ITtscGraphIndex.IProps,
-): ITtscGraphIndex {
+  props: ITtscGraphEntrypoints.IRequest,
+): ITtscGraphEntrypoints {
   const query = props.query.trim();
   const limit = bound(props.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
   const neighborLimit = bound(
@@ -32,12 +32,12 @@ export function runIndex(
     MAX_NEIGHBORS,
   );
 
-  const queryResult = runQuery(graph, { query, limit });
-  const hits = queryResult.hits.map((hit) => ({ ...hit }));
+  const lookupResult = runLookup(graph, { type: "lookup", query, limit });
+  const hits = lookupResult.hits.map((hit) => ({ ...hit }));
 
   const mentions = directMentions(graph, query).map((handle) => {
     const resolved = resolveGraphHandle(graph, handle, 6);
-    const mention: ITtscGraphIndex.IMention = { handle };
+    const mention: ITtscGraphEntrypoints.IMention = { handle };
     if (resolved.node !== undefined)
       mention.node = nodeOf(graph, resolved.node);
     if (resolved.candidates !== undefined) {
@@ -61,7 +61,7 @@ export function runIndex(
   for (const hit of hits) addSeed(graph.node(hit.id));
 
   let truncated = seeds.length > MAX_SEEDS;
-  const neighborhood: ITtscGraphIndex.INeighborhood[] = [];
+  const neighborhood: ITtscGraphEntrypoints.INeighborhood[] = [];
   for (const seed of seeds.slice(0, MAX_SEEDS)) {
     const outgoing = refs(graph, graph.outgoing(seed.id), "to", neighborLimit);
     const incoming = refs(
@@ -79,12 +79,13 @@ export function runIndex(
   }
 
   return {
+    type: "entrypoints",
     query,
     hits,
     mentions,
     neighborhood,
     next: {
-      expand: seeds.slice(0, MAX_SEEDS).map((node) => node.id),
+      details: seeds.slice(0, MAX_SEEDS).map((node) => node.id),
       traceFrom: seeds.slice(0, MAX_SEEDS).map((node) => node.id),
     },
     ...(truncated ? { truncated: true } : {}),
@@ -94,8 +95,8 @@ export function runIndex(
 function nodeOf(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
-): ITtscGraphIndex.INode {
-  const out: ITtscGraphIndex.INode = {
+): ITtscGraphEntrypoints.INode {
+  const out: ITtscGraphEntrypoints.INode = {
     id: node.id,
     name: node.qualifiedName ?? node.name,
     kind: node.kind,
@@ -113,8 +114,8 @@ function nodeOf(
 function refOf(
   node: ITtscGraphNode,
   edge: ITtscGraphEdge,
-): ITtscGraphIndex.IReference {
-  const out: ITtscGraphIndex.IReference = {
+): ITtscGraphEntrypoints.IReference {
+  const out: ITtscGraphEntrypoints.IReference = {
     id: node.id,
     name: node.qualifiedName ?? node.name,
     kind: node.kind,
@@ -133,8 +134,9 @@ function refs(
   edges: readonly ITtscGraphEdge[],
   end: "to" | "from",
   limit: number,
-): { items: ITtscGraphIndex.IReference[]; truncated: boolean } {
-  const ranked: Array<{ ref: ITtscGraphIndex.IReference; rank: number }> = [];
+): { items: ITtscGraphEntrypoints.IReference[]; truncated: boolean } {
+  const ranked: Array<{ ref: ITtscGraphEntrypoints.IReference; rank: number }> =
+    [];
   const seen = new Set<string>();
   let available = 0;
   for (const edge of edges) {
@@ -149,7 +151,7 @@ function refs(
     ranked.push({ ref, rank: refRank(ref, edge) });
   }
   ranked.sort((a, b) => a.rank - b.rank);
-  const items: ITtscGraphIndex.IReference[] = [];
+  const items: ITtscGraphEntrypoints.IReference[] = [];
   for (const item of ranked) {
     if (items.length < limit) items.push(item.ref);
   }
@@ -157,7 +159,7 @@ function refs(
 }
 
 function refRank(
-  ref: ITtscGraphIndex.IReference,
+  ref: ITtscGraphEntrypoints.IReference,
   edge: ITtscGraphEdge,
 ): number {
   return (

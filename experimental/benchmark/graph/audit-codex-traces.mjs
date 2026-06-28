@@ -25,13 +25,7 @@ const baselinePath =
     ? null
     : path.resolve(args.baseline ?? "website/public/benchmark/graph.json");
 const compareInputs = args.compare ? listArg(args.compare) : [];
-const singleGraphToolNames = new Set([
-  "query_typescript_graph",
-  "inspect_typescript_graph_before_shell_reading",
-  "inspect_typescript_code_evidence_without_shell_search",
-  "inspect_typescript_code_graph_evidence",
-  "inspect_typescript_project_graph_before_answering",
-]);
+const singleGraphToolNames = new Set(["query"]);
 
 if (truthy(args["self-test"])) {
   runSelfTest();
@@ -474,20 +468,21 @@ function summarizeRuns(runs) {
     medianEstimatedMcpContentTextTokens: median(
       runs.map((run) => run.tools.estimatedMcpContentTextTokens),
     ),
-    medianEstimatedExpandSourceTokens: median(
+    medianEstimatedDetailsSourceTokens: median(
       runs.map(
-        (run) => run.tools.graphPayloadTotals.estimatedExpandSourceTokens,
+        (run) => run.tools.graphPayloadTotals.estimatedDetailsSourceTokens,
       ),
     ),
-    medianEstimatedExpandDependencyTokens: median(
+    medianEstimatedDetailsDependencyTokens: median(
       runs.map(
-        (run) => run.tools.graphPayloadTotals.estimatedExpandDependencyTokens,
+        (run) => run.tools.graphPayloadTotals.estimatedDetailsDependencyTokens,
       ),
     ),
-    medianEstimatedExpandCoveredEvidenceTextTokens: median(
+    medianEstimatedDetailsCoveredEvidenceTextTokens: median(
       runs.map(
         (run) =>
-          run.tools.graphPayloadTotals.estimatedExpandCoveredEvidenceTextTokens,
+          run.tools.graphPayloadTotals
+            .estimatedDetailsCoveredEvidenceTextTokens,
       ),
     ),
     medianEstimatedTraceEvidenceTokens: median(
@@ -608,15 +603,15 @@ function summarizeSuite(cells) {
     medianEstimatedMcpContentTextTokens: median(
       cells.map((cell) => cell.summary.medianEstimatedMcpContentTextTokens),
     ),
-    medianEstimatedExpandSourceTokens: median(
-      cells.map((cell) => cell.summary.medianEstimatedExpandSourceTokens),
+    medianEstimatedDetailsSourceTokens: median(
+      cells.map((cell) => cell.summary.medianEstimatedDetailsSourceTokens),
     ),
-    medianEstimatedExpandDependencyTokens: median(
-      cells.map((cell) => cell.summary.medianEstimatedExpandDependencyTokens),
+    medianEstimatedDetailsDependencyTokens: median(
+      cells.map((cell) => cell.summary.medianEstimatedDetailsDependencyTokens),
     ),
-    medianEstimatedExpandCoveredEvidenceTextTokens: median(
+    medianEstimatedDetailsCoveredEvidenceTextTokens: median(
       cells.map(
-        (cell) => cell.summary.medianEstimatedExpandCoveredEvidenceTextTokens,
+        (cell) => cell.summary.medianEstimatedDetailsCoveredEvidenceTextTokens,
       ),
     ),
     medianEstimatedTraceEvidenceTokens: median(
@@ -1041,7 +1036,7 @@ function callCandidateOverfetchTokens(call) {
   if (types.has("batchedSourceNeighbors") || types.has("sourceNeighbors")) {
     return sourceNeighborCandidateTokens(call);
   }
-  if (types.has("broadOpenTrace") || types.has("wideQuery")) {
+  if (types.has("broadOpenTrace") || types.has("wideLookup")) {
     return call.estimatedOutputTokens;
   }
   return 0;
@@ -1213,12 +1208,12 @@ function printSuite(audit) {
   );
   console.log(
     `graph output components ~= ${Math.round(
-      s.medianEstimatedExpandSourceTokens,
-    )} expand-source, ${Math.round(
-      s.medianEstimatedExpandDependencyTokens,
-    )} expand-dependencies (${Math.round(
-      s.medianEstimatedExpandCoveredEvidenceTextTokens,
-    )} source-covered evidence), ${Math.round(
+      s.medianEstimatedDetailsSourceTokens,
+    )} details-source, ${Math.round(
+      s.medianEstimatedDetailsDependencyTokens,
+    )} details-dependencies (${Math.round(
+      s.medianEstimatedDetailsCoveredEvidenceTextTokens,
+    )} legacy inline evidence), ${Math.round(
       s.medianEstimatedTraceEvidenceTokens,
     )} trace-evidence tokens/cell`,
   );
@@ -1581,39 +1576,23 @@ function formatHotspotArgs(args) {
 function graphToolKind(name, requestType) {
   if (singleGraphToolNames.has(name)) {
     switch (requestType) {
-      case "find_question_entrypoints":
+      case "entrypoints":
         return "entrypoints";
-      case "lookup_symbols":
+      case "lookup":
         return "lookup";
-      case "trace_dependency_path":
+      case "trace":
         return "path";
-      case "inspect_symbol_details":
+      case "details":
         return "details";
-      case "summarize_project":
+      case "overview":
         return "overview";
+      case "escape":
+        return "skip";
       default:
         return undefined;
     }
   }
-  switch (name) {
-    case "graph_expand":
-    case "symbol_details":
-      return "details";
-    case "graph_trace":
-    case "dependency_path":
-      return "path";
-    case "graph_query":
-    case "symbol_lookup":
-      return "lookup";
-    case "graph_overview":
-    case "project_overview":
-      return "overview";
-    case "graph_index":
-    case "question_entrypoints":
-      return "entrypoints";
-    default:
-      return undefined;
-  }
+  return undefined;
 }
 
 function summarizeMcpArgs(name, input) {
@@ -1647,6 +1626,12 @@ function summarizeMcpArgs(name, input) {
   }
   if (kind === "overview") {
     return { type: args.type, aspect: args.aspect ?? "all" };
+  }
+  if (kind === "skip") {
+    return {
+      type: args.type,
+      reasonChars: typeof args.reason === "string" ? args.reason.length : 0,
+    };
   }
   return {};
 }
@@ -1759,7 +1744,7 @@ function analyzeGraphPayload(name, text) {
     const coveredEvidenceTextChars = coveredSourceEvidenceTextChars(payload);
     const truncated = nodes.filter((node) => node.truncated === true).length;
     return {
-      kind: "expand",
+      kind: "details",
       nodes: nodes.length,
       unknown: Array.isArray(payload?.unknown) ? payload.unknown.length : 0,
       members: members.length,
@@ -1814,7 +1799,7 @@ function analyzeGraphPayload(name, text) {
       ),
     );
     return {
-      kind: "query",
+      kind: "lookup",
       hits: hits.length,
       signatureChars,
       estimatedSignatureTokens: estimateTokensFromChars(signatureChars),
@@ -1835,31 +1820,20 @@ function analyzeGraphPayload(name, text) {
 
 function graphPayloadResult(name, parsed) {
   if (!singleGraphToolNames.has(name)) {
-    return { kind: graphToolKind(name), payload: parsed };
+    return { kind: undefined, payload: parsed };
   }
-  switch (parsed.type) {
-    case "find_question_entrypoints":
-      return {
-        kind: graphToolKind(name, parsed.type),
-        payload: parsed.entrypoints,
-      };
-    case "lookup_symbols":
-      return {
-        kind: graphToolKind(name, parsed.type),
-        payload: parsed.symbols,
-      };
-    case "trace_dependency_path":
-      return { kind: graphToolKind(name, parsed.type), payload: parsed.trace };
-    case "inspect_symbol_details":
-      return {
-        kind: graphToolKind(name, parsed.type),
-        payload: parsed.details,
-      };
-    case "summarize_project":
-      return {
-        kind: graphToolKind(name, parsed.type),
-        payload: parsed.overview,
-      };
+  const result =
+    parsed?.result && typeof parsed.result === "object"
+      ? parsed.result
+      : parsed;
+  switch (result.type) {
+    case "entrypoints":
+    case "lookup":
+    case "trace":
+    case "details":
+    case "overview":
+    case "escape":
+      return { kind: graphToolKind(name, result.type), payload: result };
     default:
       return { kind: undefined, payload: parsed };
   }
@@ -1911,42 +1885,42 @@ function coveredBySource(evidence, file, startLine, endLine) {
 
 function summarizeGraphPayloads(calls) {
   const totals = {
-    expandSourceChars: 0,
-    expandDependencyChars: 0,
-    expandCoveredEvidenceTextChars: 0,
-    expandMemberSignatureChars: 0,
+    detailsSourceChars: 0,
+    detailsDependencyChars: 0,
+    detailsCoveredEvidenceTextChars: 0,
+    detailsMemberSignatureChars: 0,
     traceEvidenceChars: 0,
     tracePathSignatureChars: 0,
-    querySignatureChars: 0,
+    lookupSignatureChars: 0,
   };
   for (const call of calls) {
     const payload = call.graphPayload;
-    if (payload?.kind === "expand") {
-      totals.expandSourceChars += payload.sourceChars;
-      totals.expandDependencyChars += payload.dependencyChars;
-      totals.expandCoveredEvidenceTextChars +=
+    if (payload?.kind === "details") {
+      totals.detailsSourceChars += payload.sourceChars;
+      totals.detailsDependencyChars += payload.dependencyChars;
+      totals.detailsCoveredEvidenceTextChars +=
         payload.coveredEvidenceTextChars ?? 0;
-      totals.expandMemberSignatureChars += payload.memberSignatureChars;
+      totals.detailsMemberSignatureChars += payload.memberSignatureChars;
     } else if (payload?.kind === "trace") {
       totals.traceEvidenceChars += payload.evidenceChars;
       totals.tracePathSignatureChars += payload.pathSignatureChars;
-    } else if (payload?.kind === "query") {
-      totals.querySignatureChars += payload.signatureChars;
+    } else if (payload?.kind === "lookup") {
+      totals.lookupSignatureChars += payload.signatureChars;
     }
   }
   return {
     ...totals,
-    estimatedExpandSourceTokens: estimateTokensFromChars(
-      totals.expandSourceChars,
+    estimatedDetailsSourceTokens: estimateTokensFromChars(
+      totals.detailsSourceChars,
     ),
-    estimatedExpandDependencyTokens: estimateTokensFromChars(
-      totals.expandDependencyChars,
+    estimatedDetailsDependencyTokens: estimateTokensFromChars(
+      totals.detailsDependencyChars,
     ),
-    estimatedExpandCoveredEvidenceTextTokens: estimateTokensFromChars(
-      totals.expandCoveredEvidenceTextChars,
+    estimatedDetailsCoveredEvidenceTextTokens: estimateTokensFromChars(
+      totals.detailsCoveredEvidenceTextChars,
     ),
-    estimatedExpandMemberSignatureTokens: estimateTokensFromChars(
-      totals.expandMemberSignatureChars,
+    estimatedDetailsMemberSignatureTokens: estimateTokensFromChars(
+      totals.detailsMemberSignatureChars,
     ),
     estimatedTraceEvidenceTokens: estimateTokensFromChars(
       totals.traceEvidenceChars,
@@ -1954,8 +1928,8 @@ function summarizeGraphPayloads(calls) {
     estimatedTracePathSignatureTokens: estimateTokensFromChars(
       totals.tracePathSignatureChars,
     ),
-    estimatedQuerySignatureTokens: estimateTokensFromChars(
-      totals.querySignatureChars,
+    estimatedLookupSignatureTokens: estimateTokensFromChars(
+      totals.lookupSignatureChars,
     ),
   };
 }
@@ -2001,7 +1975,7 @@ function analyzeMcpOverfetch(calls) {
         exactAvoidableOutputTokens += covered;
         add(
           "coveredSourceEvidenceText",
-          "edge evidence text is already present in the returned source body",
+          "legacy edge evidence text duplicated returned implementation text",
           true,
           covered,
         );
@@ -2013,14 +1987,14 @@ function analyzeMcpOverfetch(calls) {
       if (call.args.source && call.args.neighbors && call.args.handles >= 2) {
         add(
           "batchedSourceNeighbors",
-          "source bodies and both dependency directions requested for multiple handles",
+          "legacy source bodies and both dependency directions requested for multiple handles",
           false,
           sourceNeighborCandidateTokens(call),
         );
       } else if (call.args.source && call.args.neighbors) {
         add(
           "sourceNeighbors",
-          "source body and dependency map requested together",
+          "legacy source body and dependency map requested together",
           false,
           sourceNeighborCandidateTokens(call),
         );
@@ -2043,7 +2017,7 @@ function analyzeMcpOverfetch(calls) {
     }
 
     if (kind === "lookup" && call.args.limit > 12) {
-      add("wideQuery", "query limit exceeds the default shortlist size");
+      add("wideLookup", "lookup limit exceeds the default shortlist size");
     }
   });
   return {
@@ -2181,7 +2155,7 @@ function theoreticalSavings(summary, baseline) {
       candidatePromptReplay,
   );
   return {
-    note: "Exact additional savings are deterministic output removals such as duplicate MCP calls and source-covered evidence text. The lower bound subtracts measured graph-replaceable shell output plus exact avoidable output; this is a replacement surface, not proof that a graph arm has achieved the saving. Candidate savings are output-surface estimates for MCP overfetch patterns and require a follow-up benchmark before being claimed as achieved savings. Prompt replay fields count only later Codex turns exposed by turn.completed events; intra-turn replay is not separately exposed by the stream.",
+    note: "Exact additional savings are deterministic output removals such as duplicate MCP calls and legacy inline evidence text. The lower bound subtracts measured graph-replaceable shell output plus exact avoidable output; this is a replacement surface, not proof that a graph arm has achieved the saving. Candidate savings are output-surface estimates for MCP overfetch patterns and require a follow-up benchmark before being claimed as achieved savings. Prompt replay fields count only later Codex turns exposed by turn.completed events; intra-turn replay is not separately exposed by the stream.",
     exactAdditionalOutputTokens: exactAdditional,
     graphReplacementSurfaceOutputTokens:
       summary.medianEstimatedGraphReplaceableTokens,
@@ -2353,7 +2327,7 @@ function jsonChars(value) {
 
 function sourceNeighborCandidateTokens(call) {
   const payload = call.graphPayload;
-  if (payload?.kind !== "expand") return call.estimatedOutputTokens;
+  if (payload?.kind !== "details") return call.estimatedOutputTokens;
   const component =
     payload.estimatedSourceTokens + payload.estimatedDependencyTokens;
   return component > 0 ? component : call.estimatedOutputTokens;
@@ -2547,7 +2521,7 @@ function runSelfTest() {
     cell.runsDetail[0].tools.calls.some((call) =>
       call.overfetchTypes.includes("coveredSourceEvidenceText"),
     ),
-    "source-covered evidence text should be tracked as exact output",
+    "legacy inline evidence text should be tracked as exact output",
   );
   assertSelf(
     cell.runsDetail[0].tools.replacementSurfaceOutputTokens >
@@ -2614,7 +2588,7 @@ function runSelfTest() {
           cell.savingsVsBaseline.theoretical
             .replacementSurfacePromptReplayTokens,
         coveredEvidence:
-          cell.summary.medianEstimatedExpandCoveredEvidenceTextTokens,
+          cell.summary.medianEstimatedDetailsCoveredEvidenceTextTokens,
         visibleTraceMaterial:
           cell.runsDetail[0].usage.ledger.visibleTraceMaterialTokens,
         graphArmRuns: suite.graphArmRuns,
@@ -2659,43 +2633,56 @@ function mcpItem(id) {
       id,
       type: "mcp_tool_call",
       server: "ttscgraph",
-      tool: "graph_expand",
+      tool: "query",
       arguments: {
-        handles: ["src/app.ts#Service.run:method"],
-        source: true,
-        neighbors: true,
+        question: "Trace helper usage from Service.run.",
+        graphNeed: "Use graph source details instead of shell search.",
+        draft: {
+          reason: "The decisive body is a selected method.",
+          type: "details",
+        },
+        review: "The details request is bounded to one method.",
+        request: {
+          type: "details",
+          handles: ["src/app.ts#Service.run:method"],
+          source: true,
+          neighbors: true,
+        },
       },
       result: {
         content: [
           {
             type: "text",
             text: JSON.stringify({
-              nodes: [
-                {
-                  id: "src/app.ts#Service.run:method",
-                  name: "Service.run",
-                  kind: "method",
-                  file: "src/app.ts",
-                  line: 1,
-                  source: "run() { helper(); }",
-                  dependsOn: [
-                    {
-                      id: "src/app.ts#helper:function",
-                      name: "helper",
-                      kind: "function",
-                      file: "src/app.ts",
-                      relation: "calls",
-                      evidence: {
+              result: {
+                type: "details",
+                nodes: [
+                  {
+                    id: "src/app.ts#Service.run:method",
+                    name: "Service.run",
+                    kind: "method",
+                    file: "src/app.ts",
+                    line: 1,
+                    source: "run() { helper(); }",
+                    dependsOn: [
+                      {
+                        id: "src/app.ts#helper:function",
+                        name: "helper",
+                        kind: "function",
                         file: "src/app.ts",
-                        startLine: 1,
-                        text: "helper",
+                        relation: "calls",
+                        evidence: {
+                          file: "src/app.ts",
+                          startLine: 1,
+                          text: "helper",
+                        },
                       },
-                    },
-                  ],
-                  dependedOnBy: [],
-                },
-              ],
-              unknown: [],
+                    ],
+                    dependedOnBy: [],
+                  },
+                ],
+                unknown: [],
+              },
             }),
           },
         ],

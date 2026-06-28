@@ -1,5 +1,0 @@
-{
-  "requiredSymbols": ["Repository", "EntityManager", "SelectQueryBuilder"],
-  "mustMention": ["entry point", "hotspot"],
-  "mustNotClaim": []
-}

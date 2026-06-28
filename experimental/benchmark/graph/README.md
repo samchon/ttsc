@@ -51,29 +51,24 @@ codegraph init /abs/path/to/repo
 node experimental/benchmark/graph/agent-ab.mjs --repo=typeorm --repo-dir=/abs/path/to/repo --cg=1 --runs=1
 ```
 
-### Manifest-driven prompts and grading
+### Manifest-driven prompts
 
-`questions/manifest.json` is the source of truth for graded prompts: each entry pins a question `.md`, a gold `.json`, the repo/fixtureBranch/tsconfig, and the question's SHA-256. Select one with `--prompt-id=<id>` (or `--prompt-family=<family>`, scoped to `--repo` when given); the harness loads that `.md` as the user prompt, verifies the SHA against the manifest, and records `promptId`, `questionSha256`, and `goldSha256` on each sample and on the report.
-
-```bash
-node experimental/benchmark/graph/agent-ab.mjs --prompt-id=typeorm-overview-v1 --runs=4
-node experimental/benchmark/graph/agent-ab.mjs --prompt-family=overview --repo=typeorm --runs=4
-```
-
-Each sample captures the agent's final answer text (`answer`) — for Claude the `result` event's `result` string, falling back to the last assistant prose; for codex the last `agent_message`. After capture, the harness grades the answer in-process against the prompt's gold via `grade.mjs`'s `gradeAnswer`, and stores the per-axis result on the sample as `quality` (with `pass`). The console prints each arm's pass rate, and a token saving is **not** presented as a win when the graph arm's answers fall below threshold (default `0.8`, override with `--threshold`).
-
-The standalone `grade.mjs --report=<path>` CLI re-grades offline (e.g. after editing a gold) against any report whose samples are a flat array of `{ promptId, answer }`. The A/B report keys `samples` by arm (`{ baseline, graph }`) for the dashboard, so flatten before piping it to the CLI, or just read the `quality` the harness already wrote on each sample:
+`questions/manifest.json` is the source of truth for benchmark prompts: each entry pins a question `.md`, the repo, fixture branch, tsconfig, and the question's SHA-256. Select one with `--prompt-id=<id>` (or `--prompt-family=<family>`, scoped to `--repo` when given); the harness loads that `.md` as the user prompt, verifies the SHA against the manifest, and records `promptId` and `questionSha256` on each sample and on the report.
 
 ```bash
-node -e "const r=require('./experimental/benchmark/graph/agent-ab-report.json');require('fs').writeFileSync('/tmp/flat.json',JSON.stringify({samples:[].concat(...Object.values(r.samples))}))"
-node experimental/benchmark/graph/grade.mjs --report=/tmp/flat.json
+node experimental/benchmark/graph/agent-ab.mjs --prompt-id=typeorm-dedicated-v1 --runs=4
+node experimental/benchmark/graph/agent-ab.mjs --prompt-family=common --repo=typeorm --runs=4
 ```
 
-A cross-model companion, `agent-ab-codex.mjs`, drives OpenAI's codex through a minimal temp `CODEX_HOME` (a copied auth + a generated config) so the user's global config does not leak into the measurement. It defaults to GPT-5.4 mini and takes the same `--prompt-id` / `--prompt-family` / `--threshold` flags and captures + grades the answer the same way:
+Each sample captures the agent's final answer text (`answer`) — for Claude the `result` event's `result` string, falling back to the last assistant prose; for codex the last `agent_message`. The runner records that text for manual review, but it does not score answers in-process. A baseline cell is accepted only after its raw logs and final answer are inspected against the task.
+
+The empty-MCP baseline still has a trace gate: a run that answers without any source search/read command is invalid, as is any run that uses a web tool. The gate proves the agent actually inspected the checkout; it is not an answer-quality score.
+
+A cross-model companion, `agent-ab-codex.mjs`, drives OpenAI's codex through a minimal temp `CODEX_HOME` (a copied auth + a generated config) so the user's global config does not leak into the measurement. It defaults to GPT-5.4 mini and takes the same `--prompt-id` / `--prompt-family` flags:
 
 ```bash
 node experimental/benchmark/graph/agent-ab-codex.mjs --repo=excalidraw --runs=4
-node experimental/benchmark/graph/agent-ab-codex.mjs --prompt-id=typeorm-overview-v1 --runs=4
+node experimental/benchmark/graph/agent-ab-codex.mjs --prompt-id=typeorm-dedicated-v1 --runs=4
 ```
 
 ## Publish (`publish.mjs`)

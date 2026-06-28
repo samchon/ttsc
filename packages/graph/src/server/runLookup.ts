@@ -1,11 +1,12 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
+import { ITtscGraphLookup } from "../structures/ITtscGraphLookup";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
-import { ITtscGraphQuery } from "../structures/ITtscGraphQuery";
-import { decoratorsOf, signatureOf } from "./runExpand";
+import { decoratorsOf, signatureOf } from "./runDetails";
 
 // One file should not crowd out the rest of the ranking, so cap hits per file.
 const PER_FILE = 3;
-const DEFAULT_LIMIT = 12;
+const DEFAULT_LIMIT = 5;
+const MAX_LIMIT = 6;
 
 /**
  * Rank the graph's symbols against a natural query. Scoring blends exact and
@@ -14,19 +15,19 @@ const DEFAULT_LIMIT = 12;
  * nodes and caps per file so the result is a diverse, relevant shortlist rather
  * than one file's roster.
  */
-export function runQuery(
+export function runLookup(
   graph: TtscGraphMemory,
-  props: ITtscGraphQuery.IProps,
-): ITtscGraphQuery {
+  props: ITtscGraphLookup.IRequest,
+): ITtscGraphLookup {
   const terms = subwords(props.query);
   const codeTerms = exactCodeTerms(props.query);
   const requestedKinds = requestedSymbolKinds(props.query);
   const queryLc = props.query.trim().toLowerCase();
   const wantsInternal = wantsInternalSymbol(queryLc, codeTerms);
   if (terms.length === 0)
-    return { hits: [], next: { expand: [], traceFrom: [] } };
+    return { type: "lookup", hits: [], next: { details: [], traceFrom: [] } };
 
-  const scored: ITtscGraphQuery.IHit[] = [];
+  const scored: ITtscGraphLookup.IHit[] = [];
   for (const node of graph.nodes) {
     if (node.kind === "file") continue;
     const score = scoreNode(
@@ -39,7 +40,7 @@ export function runQuery(
       wantsInternal,
     );
     if (score <= 0) continue;
-    const hit: ITtscGraphQuery.IHit = {
+    const hit: ITtscGraphLookup.IHit = {
       id: node.id,
       name: node.qualifiedName ?? node.name,
       kind: node.kind,
@@ -55,9 +56,9 @@ export function runQuery(
   scored.sort((a, b) => b.score - a.score);
 
   // Diversity: keep at most PER_FILE hits per file while filling up to the limit.
-  const limit = Math.max(1, props.limit ?? DEFAULT_LIMIT);
+  const limit = bound(props.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
   const perFile = new Map<string, number>();
-  const hits: ITtscGraphQuery.IHit[] = [];
+  const hits: ITtscGraphLookup.IHit[] = [];
   for (const hit of scored) {
     const used = perFile.get(hit.file) ?? 0;
     if (used >= PER_FILE) continue;
@@ -66,8 +67,8 @@ export function runQuery(
     if (hits.length >= limit) break;
   }
 
-  // Attach each kept hit's signature — only the shortlist, so the read cost is
-  // bounded — so the model can often answer from the query alone, no expand.
+  // Attach each kept hit's signature only for the shortlist, so the model can
+  // often answer from lookup alone without a details call.
   for (const hit of hits) {
     const node = graph.node(hit.id);
     if (node === undefined) continue;
@@ -75,9 +76,10 @@ export function runQuery(
     if (sig !== undefined) hit.signature = sig;
   }
   return {
+    type: "lookup",
     hits,
     next: {
-      expand: hits.map((hit) => hit.id),
+      details: hits.map((hit) => hit.id),
       traceFrom: hits.map((hit) => hit.id),
     },
   };
@@ -228,6 +230,16 @@ function isTestFile(file: string): boolean {
     /(^|\/)(test|tests|__tests__|spec)\//.test(file) ||
     /\.(test|spec)\.[cm]?tsx?$/.test(file)
   );
+}
+
+function bound(
+  value: number | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const n = value === undefined || !Number.isFinite(value) ? fallback : value;
+  return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
 /**

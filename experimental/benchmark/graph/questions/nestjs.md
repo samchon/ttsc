@@ -1,1 +1,1 @@
-In NestJS HTTP routing, what ordered call path takes a request from `RouterExplorer.createCallbackProxy` to the controller method wrapper produced by `RouterExecutionContext.create`? Include the steps through `GuardsConsumer.tryActivate`, `InterceptorsConsumer.intercept`, and `PipesConsumer.apply` where guards, interceptors, and pipes actually run.
+In this repository, how does NestJS carry an HTTP request from a decorated route to the controller result, including DI, guards, pipes, interceptors, filters, and the platform response?

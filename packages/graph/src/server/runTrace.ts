@@ -4,13 +4,15 @@ import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { accessAliasesFor } from "./accessAliases";
 import { resolveGraphHandle } from "./resolveHandle";
-import { edgeEvidenceOf, signatureOf } from "./runExpand";
+import { edgeEvidenceOf, edgeEvidenceTextOf, signatureOf } from "./runDetails";
 
-const DEFAULT_DEPTH = 6;
-const DEFAULT_MAX_NODES = 30;
-const MAX_OPEN_DEPTH = 6;
-const MAX_OPEN_NODES = 30;
-const MAX_HOPS_PER_NODE = 4;
+const DEFAULT_DEPTH = 2;
+const DEFAULT_MAX_NODES = 6;
+const MAX_OPEN_DEPTH = 2;
+const MAX_OPEN_NODES = 8;
+const MAX_HOPS_PER_NODE = 1;
+const MAX_STEPS = 6;
+const MAX_NEXT_HANDLES = 2;
 
 /**
  * Breadth-first trace along the dependency graph. Structural
@@ -21,7 +23,7 @@ const MAX_HOPS_PER_NODE = 4;
  */
 export function runTrace(
   graph: TtscGraphMemory,
-  props: ITtscGraphTrace.IProps,
+  props: ITtscGraphTrace.IRequest,
 ): ITtscGraphTrace {
   const direction = props.direction ?? "forward";
   const focus = props.focus ?? "all";
@@ -36,6 +38,7 @@ export function runTrace(
   const start = resolveGraphHandle(graph, props.from);
   if (start.candidates) {
     return {
+      type: "trace",
       direction,
       hops: [],
       reached: [],
@@ -44,13 +47,25 @@ export function runTrace(
     };
   }
   if (start.node === undefined) {
-    return { direction, hops: [], reached: [], truncated: false };
+    return {
+      type: "trace",
+      direction,
+      hops: [],
+      reached: [],
+      truncated: false,
+    };
   }
 
   // Path mode: with `to`, return the dependency path from `from` to `to`, the
   // one-call answer for "how does A reach B", instead of an open-ended trace.
   if (props.to !== undefined && props.to !== "") {
-    const base = { direction: "path", hops: [], reached: [], truncated: false };
+    const base = {
+      type: "trace" as const,
+      direction: "path",
+      hops: [],
+      reached: [],
+      truncated: false,
+    };
     const target = resolveGraphHandle(graph, props.to);
     if (target.candidates) {
       return {
@@ -111,7 +126,10 @@ export function runTrace(
         };
         const evidence = edgeEvidenceOf(edge);
         if (evidence !== undefined) hop.evidence = evidence;
-        const aliases = accessAliasesFor(graph.node(edge.to), evidence?.text);
+        const aliases = accessAliasesFor(
+          graph.node(edge.to),
+          edgeEvidenceTextOf(edge),
+        );
         if (aliases !== undefined) hop.aliases = aliases;
         // A back-edge to the start or an already-reached node: record the hop;
         // its endpoints are already represented.
@@ -140,14 +158,15 @@ export function runTrace(
   }
 
   return {
+    type: "trace",
     start: summary(graph, start.node),
     direction,
     hops,
     reached: [...reached.values()],
     steps: traceSteps(graph, hops),
     next: {
-      expand: [start.node.id, ...reached.keys()],
-      traceFrom: [...reached.keys()],
+      details: [start.node.id, ...reached.keys()].slice(0, MAX_NEXT_HANDLES),
+      traceFrom: [...reached.keys()].slice(0, MAX_NEXT_HANDLES),
     },
     truncated,
   };
@@ -155,7 +174,7 @@ export function runTrace(
 
 function nextFromPath(path: ITtscGraphNode[]): ITtscGraphTrace.INext {
   return {
-    expand: path.map((node) => node.id),
+    details: path.map((node) => node.id),
     traceFrom: path.length > 0 ? [path[path.length - 1]!.id] : [],
   };
 }
@@ -164,13 +183,15 @@ function traceSteps(
   graph: TtscGraphMemory,
   hops: ITtscGraphTrace.IHop[],
 ): string[] {
-  return hops.map((hop) => {
+  return hops.slice(0, MAX_STEPS).map((hop) => {
     const from = graph.node(hop.from);
     const to = graph.node(hop.to);
     const lhs = from?.qualifiedName ?? from?.name ?? hop.from;
     const rhs = to?.qualifiedName ?? to?.name ?? hop.to;
     const evidence =
-      hop.evidence?.text === undefined ? "" : ` via ${hop.evidence.text}`;
+      hop.evidence === undefined
+        ? ""
+        : ` at ${hop.evidence.file}:${hop.evidence.startLine}`;
     const aliases =
       hop.aliases === undefined ? "" : ` aliases ${hop.aliases.join(", ")}`;
     return `${lhs} -[${hop.kind}${evidence}${aliases}]-> ${rhs}`;
@@ -187,14 +208,19 @@ function findPath(
   startId: string,
   targetId: string,
   maxDepth: number,
-  focus: ITtscGraphTrace.IProps["focus"],
+  focus: ITtscGraphTrace.IRequest["focus"],
 ): { path: ITtscGraphNode[]; hops: ITtscGraphTrace.IHop[] } | null {
   const startNode = graph.node(startId);
   if (startNode === undefined) return null;
   if (startId === targetId) return { path: [startNode], hops: [] };
   const parent = new Map<
     string,
-    { via: string; kind: string; evidence?: ITtscGraphEvidence }
+    {
+      via: string;
+      kind: string;
+      evidence?: ITtscGraphEvidence;
+      evidenceText?: string;
+    }
   >();
   const visited = new Set<string>([startId]);
   let queue: Array<{ id: string; depth: number }> = [{ id: startId, depth: 0 }];
@@ -210,7 +236,12 @@ function findPath(
         if (other === undefined || other.kind === "file") continue;
         visited.add(otherId);
         const evidence = edgeEvidenceOf(edge);
-        parent.set(otherId, { via: id, kind: edge.kind, evidence });
+        parent.set(otherId, {
+          via: id,
+          kind: edge.kind,
+          evidence,
+          evidenceText: edgeEvidenceTextOf(edge),
+        });
         if (otherId === targetId) {
           const ids: string[] = [otherId];
           let cur = otherId;
@@ -237,7 +268,7 @@ function findPath(
             };
             if (parentEdge?.evidence !== undefined)
               hop.evidence = parentEdge.evidence;
-            const aliases = accessAliasesFor(node, parentEdge?.evidence?.text);
+            const aliases = accessAliasesFor(node, parentEdge?.evidenceText);
             if (aliases !== undefined) hop.aliases = aliases;
             hops.push(hop);
           }
@@ -285,7 +316,7 @@ function summary(
 /** An edge the trace should follow: a real dependency, not a structural edge. */
 function traversable(
   kind: string,
-  focus: ITtscGraphTrace.IProps["focus"],
+  focus: ITtscGraphTrace.IRequest["focus"],
 ): boolean {
   if (kind === "contains" || kind === "exports" || kind === "imports") {
     return false;

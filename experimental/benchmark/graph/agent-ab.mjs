@@ -14,9 +14,10 @@
 // which runs `ttscgraph dump` once for the project (the Go binary is now dump-only)
 // and serves graph_index / graph_overview / graph_query / graph_trace /
 // graph_expand over stdio.
-// All tool guidance comes from the server's MCP initialize/tool descriptions; the
-// user prompt is the manifest question verbatim, tool-neutral, so the token
-// comparison stays honest. No graph-specific instruction is appended.
+// All tool guidance comes from the server's MCP initialize/tool descriptions.
+// The manifest question stays tool-neutral; the graph arm adds only the
+// measurement contract that repository evidence must come from the configured
+// graph MCP, not shell reads.
 //
 // Each sample also captures the agent's final answer text for manual
 // inspection. The benchmark itself measures runtime behavior only: tokens, tool
@@ -26,10 +27,9 @@
 // `claude` and `go` on PATH, and a built `@ttsc/graph` (packages/graph/lib).
 //
 // Usage:
-//   node experimental/benchmark/graph/agent-ab.mjs --repo=excalidraw --runs=2
-//   node experimental/benchmark/graph/agent-ab.mjs --repo=vscode --runs=4 --model=opus
-//   node experimental/benchmark/graph/agent-ab.mjs --prompt-id=typeorm-overview-v1 --runs=2
-//   node experimental/benchmark/graph/agent-ab.mjs --repo=typeorm --repo-dir=experimental/benchmark/.work/ttsc-benchmark-typeorm@ttsc
+//   node experimental/benchmark/graph/agent-ab.mjs --prompt-family=dedicated --repo=excalidraw --runs=2
+//   node experimental/benchmark/graph/agent-ab.mjs --prompt-family=common --repo=vscode --runs=4 --model=opus
+//   node experimental/benchmark/graph/agent-ab.mjs --prompt-id=typeorm-dedicated-v1 --runs=2
 import cp from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -40,23 +40,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
 const graphLauncher = path.join(repoRoot, "packages", "graph", "lib", "bin.js");
-// The question per repo, in codegraph's agent-eval style: a specific "how does
-// this concrete mechanism work" trace that names a real public API. A narrow,
-// mechanism-level question is what makes the comparison bite: a reader must dig
-// deep through the layers to answer it, while one targeted graph query pins the
-// cluster. resolveQuestion prefers an explicit --prompt-id (manifest-driven),
-// then an explicit override, then a per-repo file (questions/<repo>.md), then the
-// generic fallback.
-const ARCHITECTURE_QUESTION = fs
-  .readFileSync(
-    path.join(here, "questions", "architecture-callpath.md"),
-    "utf8",
-  )
-  .trim();
 
-// The manifest (questions/manifest.json) selects reusable prompt files. It does
-// not grade answers; benchmark scoring is limited to tokens, tools, cost, and
-// time.
+// The manifest (questions/manifest.json) selects reusable prompt files. The
+// benchmark records runtime metrics only: tokens, tools, cost, and time.
 function loadManifest() {
   const manifestPath = path.join(here, "questions", "manifest.json");
   if (!fs.existsSync(manifestPath)) return { prompts: [] };
@@ -94,64 +80,48 @@ function resolveManifestPrompt(args) {
   };
 }
 
-function resolveQuestion(repoKey) {
-  if (process.env.TTSC_BENCH_QUESTION_FILE)
-    return fs.readFileSync(process.env.TTSC_BENCH_QUESTION_FILE, "utf8").trim();
-  const perRepo = path.join(here, "questions", `${repoKey}.md`);
-  if (fs.existsSync(perRepo)) return fs.readFileSync(perRepo, "utf8").trim();
-  return ARCHITECTURE_QUESTION;
-}
-
-// TypeScript benchmark repos and their medium-difficulty questions.
+// TypeScript benchmark repos and their fixture metadata.
 const REPOS = {
   excalidraw: {
     url: "https://github.com/excalidraw/excalidraw",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-excalidraw.git",
     fixtureBranch: "ttsc",
     tsconfig: "tsconfig.json",
-    question: ARCHITECTURE_QUESTION,
   },
   vscode: {
     url: "https://github.com/microsoft/vscode",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vscode.git",
     tsconfig: "src/tsconfig.json",
-    question: ARCHITECTURE_QUESTION,
   },
   nestjs: {
     url: "https://github.com/nestjs/nest",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-nestjs.git",
     tsconfig: "tsconfig.json",
-    question: ARCHITECTURE_QUESTION,
   },
   vue: {
     url: "https://github.com/vuejs/core",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-vue.git",
     tsconfig: "tsconfig.json",
-    question: ARCHITECTURE_QUESTION,
   },
   zod: {
     url: "https://github.com/colinhacks/zod",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-zod.git",
     tsconfig: "tsconfig.json",
-    question: ARCHITECTURE_QUESTION,
   },
   typeorm: {
     url: "https://github.com/typeorm/typeorm",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-typeorm.git",
     tsconfig: "tsconfig.json",
-    question: ARCHITECTURE_QUESTION,
   },
   rxjs: {
     url: "https://github.com/ReactiveX/rxjs",
     fixtureUrl: "https://github.com/samchon/ttsc-benchmark-rxjs.git",
     tsconfig: "tsconfig.json",
-    question: ARCHITECTURE_QUESTION,
   },
   "shopping-backend": {
     url: "https://github.com/samchon/shopping-backend",
     fixtureUrl: "https://github.com/samchon/shopping-backend.git",
     tsconfig: "tsconfig.json",
-    question: ARCHITECTURE_QUESTION,
   },
 };
 
@@ -170,14 +140,15 @@ const runs = Number(args.runs ?? 2);
 const model = args.model ?? "sonnet";
 const tsconfig =
   args.tsconfig ?? manifestPrompt?.entry.tsconfig ?? spec.tsconfig;
-const question =
-  args.question ?? manifestPrompt?.text ?? resolveQuestion(repoKey);
+const question = args.question ?? manifestPrompt?.text;
 const promptId = manifestPrompt?.entry.id;
 const promptFamily =
-  manifestPrompt?.entry.family ??
-  args["prompt-family"] ??
-  (args.question ? "custom" : "project-specific");
-if (!question) throw new Error(`repo ${repoKey} has no benchmark question`);
+  manifestPrompt?.entry.family ?? (args.question ? "custom" : undefined);
+if (!question) {
+  throw new Error(
+    "benchmark question required; pass --prompt-id, --prompt-family, or --question",
+  );
+}
 
 const fixtureBranch =
   args["fixture-branch"] ??
@@ -324,6 +295,8 @@ const traceDir = args["trace-dir"]
       path.dirname(reportPath),
       `${path.basename(reportPath, path.extname(reportPath))}.traces`,
     );
+fs.rmSync(reportPath, { force: true });
+fs.rmSync(traceDir, { recursive: true, force: true });
 fs.mkdirSync(traceDir, { recursive: true });
 
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
@@ -348,7 +321,12 @@ const thunks = arms.flatMap((arm) =>
     for (let attempt = 0; attempt <= MAX_RUN_RETRIES; attempt++) {
       attempts = attempt + 1;
       m = validateArmSample(
-        await runClaude(question, arm.cfg, arm.name, r + 1),
+        await runClaude(
+          promptForArm(question, arm.name),
+          arm.cfg,
+          arm.name,
+          r + 1,
+        ),
         arm.name,
       );
       if (m.ok) break;
@@ -369,7 +347,7 @@ const thunks = arms.flatMap((arm) =>
     spent += m.cost;
     console.log(
       `  ${arm.name.padEnd(8)} run ${r + 1}: $${m.cost.toFixed(3)}, ${m.tokens} tok, ${m.tools} tools ` +
-        `(read ${m.reads}, grep ${m.grep}, graph ${m.graph}), ${(m.durMs / 1000).toFixed(0)}s` +
+        `(read ${m.reads}, grep ${m.grep}, shell ${m.shell ?? 0}, source ${m.sourceTouches ?? 0}, graph ${m.graph}, web ${m.web ?? 0}), ${(m.durMs / 1000).toFixed(0)}s` +
         (m.ok ? "" : `  [FAILED${m.error ? `: ${m.error}` : ""}]`) +
         `  [running $${spent.toFixed(2)}]`,
     );
@@ -434,10 +412,8 @@ try {
 async function runClaude(question, cfg, armName, runNumber) {
   // Prevent Claude's built-in Agent tool from turning an MCP benchmark into
   // subagent IO. Do not use --bare here: it disables OAuth/keychain auth.
-  // No --append-system-prompt: tool guidance is tool-neutral now and comes from
-  // the @ttsc/graph MCP initialize/tool descriptions, so both arms get the same
-  // user prompt and the token comparison stays honest. armName only keys the
-  // trace file; it no longer changes the prompt.
+  // No --append-system-prompt: graph guidance comes from the MCP descriptions
+  // plus the short graph-arm evidence contract in the prompt body.
   const claudeArgs = [
     "-p",
     "--output-format",
@@ -472,6 +448,18 @@ async function runClaude(question, cfg, armName, runNumber) {
   if (stderr)
     fs.writeFileSync(path.join(traceDir, `${base}.stderr.log`), stderr);
   return parseStream(stdout);
+}
+
+function promptForArm(baseQuestion, armName) {
+  if (armName !== "graph") return baseQuestion;
+  return [
+    "Use the configured graph MCP as the repository evidence source for this run.",
+    "Use at most four graph MCP calls total; after entrypoints plus one trace or details call, answer from returned handles and ranges when possible.",
+    "Do not spend graph calls only to hunt for tests. Recommend tests only when the graph slice already returned test evidence.",
+    "Do not run shell commands to search or read source files. If the graph cannot answer a detail, cite the graph range or say what is missing.",
+    "",
+    baseQuestion,
+  ].join("\n");
 }
 
 // spawnAsync runs a child to completion and resolves its captured stdout/stderr,
@@ -572,6 +560,27 @@ function parseNonNegativeInteger(value, label) {
   return out;
 }
 
+const SOURCE_FILE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i;
+
+function sourceInspectionCommand(command) {
+  return (
+    /\b(git\s+grep|rg|grep|Select-String|findstr)\b/i.test(command) ||
+    /\b(Get-Content|gc|cat|type|sed|awk|head|tail)\b/i.test(command) ||
+    (/\b(git\s+ls-files|Get-ChildItem|gci|ls|dir)\b/i.test(command) &&
+      /\b(src|packages|apps|lib|server|client|test|\.[cm]?[tj]sx?)\b/i.test(
+        command,
+      ))
+  );
+}
+
+function sourceToolUse(name, input) {
+  if (name === "Read") return SOURCE_FILE.test(input.file_path ?? "");
+  if (name === "Grep" || name === "Glob") return true;
+  if (name === "Bash" || name === "PowerShell" || name === "Shell")
+    return sourceInspectionCommand(input.command ?? "");
+  return false;
+}
+
 // parseStream mirrors codegraph's parse-bench-readme.mjs: tokens are summed over
 // every assistant turn's usage (not the last-turn result.usage), and tool calls
 // are counted across assistant events (ToolSearch excluded). It also captures the
@@ -583,10 +592,15 @@ function parseStream(text) {
     tools = 0,
     reads = 0,
     grep = 0,
+    shell = 0,
+    web = 0,
     graph = 0,
     other = 0,
+    sourceTouches = 0,
+    shellSource = 0,
     result = null,
     lastAssistantText = "";
+  const shellCommands = [];
   for (const raw of text.split("\n")) {
     if (!raw.trim()) continue;
     let e;
@@ -612,9 +626,16 @@ function parseStream(text) {
         if (b.type !== "tool_use") continue;
         if (b.name === "ToolSearch") continue;
         tools++;
+        const input = b.input || {};
+        if (sourceToolUse(b.name, input)) sourceTouches++;
         if (b.name === "Read") reads++;
         else if (b.name === "Grep" || b.name === "Glob") grep++;
-        else if (/graph|ttsc/i.test(b.name)) graph++;
+        else if (b.name === "Bash" || b.name === "PowerShell" || b.name === "Shell") {
+          shell++;
+          shellCommands.push(input.command ?? "");
+          if (sourceInspectionCommand(input.command ?? "")) shellSource++;
+        } else if (/graph|ttsc/i.test(b.name)) graph++;
+        else if (/web/i.test(b.name)) web++;
         else other++;
       }
       // Keep the last assistant turn that carried prose, so a trailing tool-only
@@ -637,8 +658,13 @@ function parseStream(text) {
     tools,
     reads,
     grep,
+    shell,
+    web,
     graph,
     other,
+    sourceTouches,
+    shellSource,
+    shellCommands: shellCommands.slice(-20),
     cost: result?.total_cost_usd || 0,
     durMs: result?.duration_ms || 0,
     // A 529-overloaded run still reports subtype "success" while carrying
@@ -651,6 +677,16 @@ function parseStream(text) {
 }
 
 function validateArmSample(sample, armName) {
+  if (armName === "baseline" && sample.ok && sample.web > 0) {
+    sample.ok = false;
+    sample.invalid = "baseline-web-used";
+    sample.error = "baseline arm used web search";
+  }
+  if (armName === "baseline" && sample.ok && sample.sourceTouches === 0) {
+    sample.ok = false;
+    sample.invalid = "baseline-source-not-inspected";
+    sample.error = "baseline arm completed without source search/read tools";
+  }
   if (armName === "graph" && sample.ok && sample.graph === 0) {
     sample.ok = false;
     sample.invalid = "graph-mcp-not-used";
@@ -659,7 +695,9 @@ function validateArmSample(sample, armName) {
   if (
     armName === "graph" &&
     sample.ok &&
-    ((sample.reads ?? 0) > 0 || (sample.grep ?? 0) > 0)
+    ((sample.reads ?? 0) > 0 ||
+      (sample.grep ?? 0) > 0 ||
+      (sample.shellSource ?? 0) > 0)
   ) {
     sample.ok = false;
     sample.invalid = "graph-shell-used";

@@ -1,10 +1,11 @@
 import { TtscGraphMemory } from "./model/TtscGraphMemory";
-import { runExpand } from "./server/runExpand";
-import { runIndex } from "./server/runIndex";
+import { runDetails } from "./server/runDetails";
+import { runEntrypoints } from "./server/runEntrypoints";
+import { runLookup } from "./server/runLookup";
 import { runOverview } from "./server/runOverview";
-import { runQuery } from "./server/runQuery";
 import { runTrace } from "./server/runTrace";
 import { ITtscGraphApplication } from "./structures/ITtscGraphApplication";
+import { ITtscGraphEscape } from "./structures/ITtscGraphEscape";
 
 export type TtscGraphSource = TtscGraphMemory | (() => TtscGraphMemory);
 
@@ -29,44 +30,31 @@ export class TtscGraphApplication implements ITtscGraphApplication {
     this.graph = typeof source === "function" ? source : () => source;
   }
 
-  public inspect_typescript_project_graph_before_answering(
+  public query(
     props: ITtscGraphApplication.IProps,
   ): ITtscGraphApplication.IResult {
-    const graph = this.graph();
     switch (props.request.type) {
-      case "find_question_entrypoints": {
-        const { type: _type, purpose: _purpose, ...request } = props.request;
-        return {
-          type: props.request.type,
-          entrypoints: runIndex(graph, request),
+      case "entrypoints":
+        return { result: runEntrypoints(this.graph(), props.request) };
+      case "lookup":
+        return { result: runLookup(this.graph(), props.request) };
+      case "trace":
+        return { result: runTrace(this.graph(), props.request) };
+      case "details":
+        return { result: runDetails(this.graph(), props.request) };
+      case "overview":
+        return { result: runOverview(this.graph(), props.request) };
+      case "escape": {
+        const result: ITtscGraphEscape = {
+          type: "escape",
+          skipped: true,
+          reason: props.request.reason,
         };
-      }
-      case "lookup_symbols": {
-        const { type: _type, purpose: _purpose, ...request } = props.request;
+        if (props.request.nextStep !== undefined) {
+          result.nextStep = props.request.nextStep;
+        }
         return {
-          type: props.request.type,
-          symbols: runQuery(graph, request),
-        };
-      }
-      case "trace_dependency_path": {
-        const { type: _type, purpose: _purpose, ...request } = props.request;
-        return {
-          type: props.request.type,
-          trace: runTrace(graph, request),
-        };
-      }
-      case "inspect_symbol_details": {
-        const { type: _type, purpose: _purpose, ...request } = props.request;
-        return {
-          type: props.request.type,
-          details: runExpand(graph, request),
-        };
-      }
-      case "summarize_project": {
-        const { type: _type, purpose: _purpose, ...request } = props.request;
-        return {
-          type: props.request.type,
-          overview: runOverview(graph, request),
+          result,
         };
       }
       default:

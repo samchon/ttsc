@@ -16,18 +16,23 @@
 // Flags: --family=dedicated|common|all (default dedicated, = one prompt/project),
 // --concurrency (prompts in flight, default 4), --inner-concurrency (agent runs
 // in flight inside one prompt, default = --runs), --baseline-store=<path>,
-// --out=<combined report>, --no-setup.
-
+// --out=<combined report>, --no-setup, --no-website,
+// --publish-suite=<combined report>.
 import cp from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { gradeAnswer } from "./grade.mjs";
-
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const work = path.join(repoRoot, "experimental", "benchmark", ".work");
+const websiteJson = path.join(
+  repoRoot,
+  "website",
+  "public",
+  "benchmark",
+  "graph.json",
+);
 const graphBenchmarkScript = path.join(
   repoRoot,
   "experimental",
@@ -69,12 +74,20 @@ function arg(name, fallback) {
   return hit ? hit.slice(name.length + 3) : fallback;
 }
 
+const noWebsite = process.argv.includes("--no-website");
+const publishSuitePath = arg("publish-suite");
+if (publishSuitePath) {
+  publishWebsiteReports(reportsFromSuite(path.resolve(publishSuitePath)));
+  process.exit(0);
+}
+
 const arm = arg("arm");
 if (arm !== "baseline" && arm !== "graph")
   throw new Error("--arm=baseline | graph is required");
 const harness = arg("harness", "codex");
 const model = arg("model", harness === "codex" ? "gpt-5.4-mini" : "sonnet");
 const runs = Number(arg("runs", arm === "baseline" ? "5" : "1"));
+const maxRunRetries = arg("max-run-retries", arm === "baseline" ? "4" : "0");
 const family = arg("family", "dedicated");
 const outer = Number(arg("concurrency", "4"));
 const inner = Number(arg("inner-concurrency", String(runs)));
@@ -82,7 +95,6 @@ const storePath = path.resolve(
   arg("baseline-store", path.join(here, `baselines-${harness}.json`)),
 );
 const outPath = arg("out");
-const threshold = Number(arg("threshold", "0.8"));
 const setup = !process.argv.includes("--no-setup");
 
 const harnessScript = path.join(
@@ -108,8 +120,7 @@ ensureFixtures(prompts);
 function fixtureOf(prompt) {
   const spec = PROJECTS[prompt.repo];
   if (!spec) throw new Error(`unknown repo ${prompt.repo}`);
-  if (spec.sourceRepo)
-    return path.join(work, "graph-source", spec.repoName);
+  if (spec.sourceRepo) return path.join(work, "graph-source", spec.repoName);
   const branch = prompt.fixtureBranch ?? "ttsc";
   return path.join(work, `${spec.repoName}@${branch}`);
 }
@@ -175,19 +186,29 @@ const median = (xs) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
+const mean = (xs) =>
+  xs.length === 0 ? 0 : Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+
 /** Run one prompt through the harness for the selected arm; return its samples. */
 function runPrompt(prompt) {
   return new Promise((resolve) => {
-    const report = path.join(tmpDir, `${harness}-${model}-${prompt.id}-${arm}.json`);
+    const report = path.join(
+      tmpDir,
+      `${harness}-${model}-${prompt.id}-${arm}.json`,
+    );
+    fs.rmSync(report, { force: true });
     const dir = fixtureOf(prompt);
     if (!dir || !fs.existsSync(dir))
-      throw new Error(`missing prepared graph fixture for ${prompt.id}: ${dir}`);
+      throw new Error(
+        `missing prepared graph fixture for ${prompt.id}: ${dir}`,
+      );
     const childArgs = [
       harnessScript,
       `--prompt-id=${prompt.id}`,
       `--arm=${arm}`,
       `--runs=${runs}`,
       `--model=${model}`,
+      `--max-run-retries=${maxRunRetries}`,
       `--repo-dir=${dir}`,
       `--report=${report}`,
     ];
@@ -202,7 +223,7 @@ function runPrompt(prompt) {
       let samples = [];
       try {
         const rep = JSON.parse(fs.readFileSync(report, "utf8"));
-        samples = (rep.samples?.[arm] ?? []).filter((s) => s.ok);
+        samples = (rep.samples?.[arm] ?? []).filter((s) => s.ok !== false);
       } catch {
         /* report missing — child crashed */
       }
@@ -210,9 +231,11 @@ function runPrompt(prompt) {
       console.log(
         `  ${prompt.id.padEnd(32)} ${arm}  ${samples.length}/${runs} ok  median ${median(toks)} tok` +
           (code === 0 ? "" : `  [exit ${code}]`) +
-          (samples.length === 0 && err ? `  ${err.trim().split("\n").pop()}` : ""),
+          (samples.length === 0 && err
+            ? `  ${err.trim().split("\n").pop()}`
+            : ""),
       );
-      resolve({ prompt, samples });
+      resolve({ prompt, report, samples });
     });
   });
 }
@@ -221,12 +244,15 @@ function runPrompt(prompt) {
 async function fanOut(items, fn) {
   const results = [];
   let next = 0;
-  const lanes = Array.from({ length: Math.max(1, Math.min(outer, items.length)) }, async () => {
-    while (next < items.length) {
-      const i = next++;
-      results[i] = await fn(items[i]);
-    }
-  });
+  const lanes = Array.from(
+    { length: Math.max(1, Math.min(outer, items.length)) },
+    async () => {
+      while (next < items.length) {
+        const i = next++;
+        results[i] = await fn(items[i]);
+      }
+    },
+  );
   await Promise.all(lanes);
   return results;
 }
@@ -236,6 +262,7 @@ console.log(
 );
 
 const results = await fanOut(prompts, runPrompt);
+publishWebsiteReports(results.map((result) => result.report));
 
 if (arm === "baseline") {
   const store = fs.existsSync(storePath)
@@ -244,7 +271,6 @@ if (arm === "baseline") {
   for (const { prompt, samples } of results) {
     if (!samples.length) continue;
     const toks = samples.map((s) => s.tokens);
-    const graded = samples.filter((s) => s.quality);
     store[`${model}/${prompt.id}`] = {
       harness,
       model,
@@ -256,21 +282,15 @@ if (arm === "baseline") {
       medianShell: median(samples.map((s) => s.shell)),
       medianGraph: median(samples.map((s) => s.graph)),
       tokens: toks,
-      pass: graded.length
-        ? { passed: graded.filter((s) => s.quality.pass).length, graded: graded.length }
-        : null,
     };
   }
   fs.writeFileSync(storePath, `${JSON.stringify(store, null, 2)}\n`);
   console.log(`\nbaseline cached -> ${storePath}`);
-  console.log(
-    "\nNOTE: a gold the baseline cannot pass is mis-calibrated — relax it before trusting graph quality.",
-  );
 } else {
   const store = fs.existsSync(storePath)
     ? JSON.parse(fs.readFileSync(storePath, "utf8"))
     : {};
-  console.log(`\n${"prompt".padEnd(32)} baseline -> graph  reduction  quality`);
+  console.log(`\n${"prompt".padEnd(32)} baseline -> graph  reduction  tools`);
   const rows = [];
   for (const { prompt, samples } of results) {
     if (!samples.length) continue;
@@ -281,8 +301,6 @@ if (arm === "baseline") {
     const base = store[`${model}/${prompt.id}`];
     const b = base?.medianTokens ?? 0;
     const red = b ? Math.round((1 - g / b) * 100) : null;
-    const graded = samples.filter((s) => s.quality);
-    const passed = graded.filter((s) => s.quality.pass).length;
     rows.push({
       id: prompt.id,
       b,
@@ -291,19 +309,146 @@ if (arm === "baseline") {
       graphCalls,
       shellCalls,
       toolCalls,
-      passed,
-      graded: graded.length,
     });
     console.log(
-      `  ${prompt.id.padEnd(32)} ${b || "?"} -> ${g}  ${red === null ? "(no baseline)" : red + "%"}  ${passed}/${graded.length}` +
+      `  ${prompt.id.padEnd(32)} ${b || "?"} -> ${g}  ${red === null ? "(no baseline)" : red + "%"}` +
         `  graph ${graphCalls} shell ${shellCalls} tools ${toolCalls}`,
     );
   }
   const reds = rows.filter((r) => r.red !== null).map((r) => r.red);
   if (reds.length)
     console.log(
-      `\nmedian token reduction across ${reds.length} prompt(s): ${median(reds)}%`,
+      `\naverage token reduction across ${reds.length} prompt(s): ${mean(reds)}%`,
     );
-  if (outPath)
-    fs.writeFileSync(path.resolve(outPath), `${JSON.stringify({ harness, model, arm, runs, rows }, null, 2)}\n`);
+  if (outPath) {
+    const cells = results.map(({ prompt, report }) => ({
+      harness,
+      model,
+      arm,
+      repo: prompt.repo,
+      promptId: prompt.id,
+      promptFamily: prompt.family,
+      report,
+    }));
+    fs.writeFileSync(
+      path.resolve(outPath),
+      `${JSON.stringify({ harness, model, arm, runs, maxRunRetries, family, cells, rows }, null, 2)}\n`,
+    );
+  }
+}
+
+function reportsFromSuite(file) {
+  const suite = JSON.parse(fs.readFileSync(file, "utf8"));
+  const base = path.dirname(file);
+  return (suite.cells ?? [])
+    .map((cell) => cell.report)
+    .filter(Boolean)
+    .map((report) =>
+      path.isAbsolute(report) ? report : path.resolve(base, report),
+    );
+}
+
+function publishWebsiteReports(reports) {
+  if (noWebsite) return;
+  const cells = reports
+    .filter((report) => fs.existsSync(report))
+    .map((report) =>
+      websiteCellFromReport(JSON.parse(fs.readFileSync(report, "utf8"))),
+    )
+    .filter(Boolean);
+  if (cells.length === 0) return;
+  const prior = fs.existsSync(websiteJson)
+    ? JSON.parse(fs.readFileSync(websiteJson, "utf8"))
+    : null;
+  const out = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    structural: prior?.structural ?? null,
+    agent: { cells: [...(prior?.agent?.cells ?? [])] },
+  };
+  for (const cell of cells) {
+    const key = websiteCellKey(cell);
+    const at = out.agent.cells.findIndex((old) => websiteCellKey(old) === key);
+    if (at >= 0) out.agent.cells[at] = cell;
+    else out.agent.cells.push(cell);
+  }
+  fs.mkdirSync(path.dirname(websiteJson), { recursive: true });
+  fs.writeFileSync(websiteJson, `${JSON.stringify(out, null, 2)}\n`);
+  console.log(
+    `website: upserted ${cells.length} cell(s) -> ${path.relative(repoRoot, websiteJson)}`,
+  );
+}
+
+function websiteCellFromReport(data) {
+  const resolvedModel = data.model ?? "unknown";
+  const tool = reportTool(data);
+  const samples = sanitizeSamples(data.samples);
+  if (samples.baseline.length === 0 && samples.graph.length === 0) return null;
+  return {
+    harness:
+      data.harness ??
+      (resolvedModel.startsWith("gpt-") ? "codex" : "claude-code"),
+    tool,
+    repo: data.repo,
+    model: agentLabel(resolvedModel),
+    modelVersion: resolvedModel,
+    ...(data.effort ? { effort: data.effort } : {}),
+    ...(data.promptId ? { promptId: data.promptId } : {}),
+    ...(data.promptFamily ? { promptFamily: data.promptFamily } : {}),
+    ...(data.questionSha256 ? { questionSha256: data.questionSha256 } : {}),
+    ...(data.fixtureBranch ? { fixtureBranch: data.fixtureBranch } : {}),
+    daemon: data.daemon === true,
+    runs: data.runs,
+    question: data.question,
+    samples,
+  };
+}
+
+function reportTool(data) {
+  const baseline = data.samples?.baseline ?? [];
+  const graph = data.samples?.graph ?? [];
+  return baseline.length > 0 && graph.length === 0
+    ? "baseline"
+    : (data.tool ?? "ttsc-graph");
+}
+
+function agentLabel(resolvedModel) {
+  if (!resolvedModel.startsWith("gpt-")) return `claude-code-${resolvedModel}`;
+  const tier = resolvedModel
+    .split("-")
+    .filter((token) => token && !/^[0-9.]+$/.test(token))
+    .join("-");
+  return `codex-${tier}`;
+}
+
+function sanitizeSamples(samples) {
+  return {
+    baseline: (samples?.baseline ?? [])
+      .filter(validSample)
+      .map(sanitizeSample),
+    graph: (samples?.graph ?? []).filter(validSample).map(sanitizeSample),
+  };
+}
+
+function validSample(sample) {
+  return sample?.ok !== false;
+}
+
+function sanitizeSample(sample) {
+  const { answer, ...rest } = sample;
+  return rest;
+}
+
+function websiteCellKey(cell) {
+  return JSON.stringify([
+    cell.harness,
+    cell.tool ?? "ttsc-graph",
+    cell.repo,
+    cell.promptId ?? "",
+    cell.promptFamily ?? "project-specific",
+    cell.model,
+    cell.effort ?? "",
+    cell.fixtureBranch ?? "ttsc",
+    cell.daemon === true ? "daemon" : "single",
+  ]);
 }

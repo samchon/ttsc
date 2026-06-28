@@ -4,7 +4,6 @@ agent-ab-codex-report.json
 *.json
 !package.json
 !questions/manifest.json
-!questions/**/*.gold.json
 *.traces/
 *.out.log
 *.err.log

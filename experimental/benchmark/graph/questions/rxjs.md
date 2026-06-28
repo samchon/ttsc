@@ -1,1 +1,1 @@
-In RxJS, what ordered call path takes `source.pipe(map(project)).subscribe(observer)` from the `map()` operator to the transformed value reaching the destination observer? Include the steps through `operate`, the created `Subscriber`, the `project` call inside `Subscriber.next`, and the forwarding `destination.next`.
+In this repository, how does RxJS carry a value from Observable.subscribe through pipe operators to the observer, and how does teardown flow back?

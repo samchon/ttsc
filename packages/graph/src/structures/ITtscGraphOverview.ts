@@ -1,8 +1,11 @@
 /**
  * A compact, source-read-free architecture map of the project returned by
- * `project_overview`.
+ * `overview`.
  */
 export interface ITtscGraphOverview {
+  /** Discriminator for source-free project overview. */
+  type: "overview";
+
   /** Absolute project root. */
   project: string;
 
@@ -19,8 +22,11 @@ export interface ITtscGraphOverview {
   publicApi?: ITtscGraphOverview.IPublicApi[];
 }
 export namespace ITtscGraphOverview {
-  /** Which architecture facets `project_overview` should return. */
-  export interface IProps {
+  /** Which architecture facets `overview` should return. */
+  export interface IRequest {
+    /** Discriminator for source-free project overview. */
+    type: "overview";
+
     /**
      * The facet to project, or `all` for every facet. `layers` is the folder
      * layering, `hotspots` the highest-dependency symbols, `publicApi` the
@@ -52,7 +58,7 @@ export namespace ITtscGraphOverview {
 
   /** A compact symbol coordinate that can be passed to deeper graph tools. */
   export interface INode {
-    /** Stable handle for `symbol_details` or `dependency_path`. */
+    /** Stable handle for `details` or `trace`. */
     id: string;
     /** The symbol's qualified name when available. */
     name: string;

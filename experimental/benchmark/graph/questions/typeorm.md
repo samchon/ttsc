@@ -1,1 +1,1 @@
-Trace how `Repository.find()` turns `relations` find options into query-builder joins: `Repository.find` -> `EntityManager.find` -> `SelectQueryBuilder.setFindOptions` -> `applyFindOptions` -> `buildRelations`. Explain how the relation paths are expanded into join aliases and join attributes.
+In this repository, how does TypeORM turn `Repository.find` options with relations into query-builder joins and loaded entities?

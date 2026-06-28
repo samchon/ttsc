@@ -6,9 +6,8 @@ import (
 
 // DecoratorArgument is one argument written on a decorator. Literal holds the
 // statically-resolved value when the argument is a string or boolean literal
-// and is nil otherwise; Text is always the argument's printable source.
+// and is nil otherwise.
 type DecoratorArgument struct {
-  Text    string
   Literal any
 }
 
@@ -26,8 +25,8 @@ type Decorator struct {
 }
 
 // collectDecorators records the decorators on each class plus its methods and
-// properties, descending into namespace bodies. It is syntactic — a decorator's
-// name and literal arguments are read straight from the AST — because a consumer
+// properties, descending into namespace bodies. It is syntactic: a decorator's
+// name and literal arguments are read straight from the AST because a consumer
 // keys on the written convention name, not the resolved decorator symbol.
 func (g *Graph) collectDecorators(path string, statements []*shimast.Node) {
   for _, statement := range statements {
@@ -105,11 +104,10 @@ func decoratorFact(dec *shimast.Node) *Decorator {
   return fact
 }
 
-// decoratorArg captures one decorator argument. Only string and boolean literals
-// resolve to a Literal — the values a consumer can use directly — so a
-// non-literal argument keeps its source Text with a nil Literal.
+// decoratorArg captures one decorator argument. Only string and boolean
+// literals resolve to a Literal, the values a consumer can use directly.
 func decoratorArg(arg *shimast.Node) DecoratorArgument {
-  out := DecoratorArgument{Text: shimast.NodeText(arg)}
+  out := DecoratorArgument{}
   switch arg.Kind {
   case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
     out.Literal = arg.Text()

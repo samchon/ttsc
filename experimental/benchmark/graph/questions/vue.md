@@ -1,1 +1,1 @@
-In Vue reactivity, what ordered call path takes a property write on a `reactive()` object from `MutableReactiveHandler.set` to the `ReactiveEffect` created for `watchEffect` running again? Include the steps through `trigger`, `Dep.notify`, effect scheduling, and the final `ReactiveEffect.run`.
+In this repository, how does Vue carry a reactive state change from a component/template read through dependency tracking, scheduling, rendering, and DOM patching?

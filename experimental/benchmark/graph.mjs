@@ -31,10 +31,6 @@ const websiteJson = path.join(
 const graphHarnessDir = path.join(here, "graph");
 const claudeHarness = path.join(graphHarnessDir, "agent-ab.mjs");
 const codexHarness = path.join(graphHarnessDir, "agent-ab-codex.mjs");
-const PROMPT_FAMILY_ALIASES = {
-  "project-specific": "dedicated",
-  "shared-onboarding": "common",
-};
 const DEFAULT_PROMPT_FAMILIES = ["dedicated", "common"];
 
 const PROJECTS = {
@@ -94,7 +90,7 @@ const tools = selectTools(
 const promptFamilies = selectPromptFamilies(
   parsed.values["prompt-family"] ??
     parsed.values["prompt-families"] ??
-    (parsed.values.question ? "custom" : "dedicated"),
+    "dedicated",
 );
 const runs = parsed.values.runs ?? "1";
 const maxRunRetries = parseNonNegativeInteger(
@@ -539,28 +535,20 @@ function selectTools(value, arm) {
 }
 
 function selectPromptFamilies(value) {
-  const names = splitList(value).map(
-    (name) => PROMPT_FAMILY_ALIASES[name] ?? name,
-  );
+  const names = splitList(value);
   const expanded = names.includes("all") ? DEFAULT_PROMPT_FAMILIES : names;
-  const allowed = new Set(["dedicated", "common", "overview", "custom"]);
+  const allowed = new Set(DEFAULT_PROMPT_FAMILIES);
   if (expanded.length === 0)
-    throw new Error(
-      "--prompt-family must contain dedicated, common, overview, custom, or all",
-    );
+    throw new Error("--prompt-family must contain dedicated, common, or all");
   for (const name of expanded) {
     if (!allowed.has(name))
-      throw new Error(
-        "--prompt-family must contain dedicated, common, overview, custom, or all",
-      );
+      throw new Error("--prompt-family must contain dedicated, common, or all");
   }
   return [...new Set(expanded)];
 }
 
 function promptFamilyQuestion(promptFamily) {
   if (parsed.values.question) return parsed.values.question;
-  if (promptFamily === "custom")
-    throw new Error("--prompt-family=custom requires --question");
   return null;
 }
 
