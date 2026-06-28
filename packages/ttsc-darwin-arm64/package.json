@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/darwin-arm64",
-  "version": "0.16.5",
+  "version": "0.16.6",
   "description": "macOS arm64 native ttsc/ttscserver/ttscgraph binaries and bundled Go compiler for ttsc.",
   "os": ["darwin"],
   "cpu": ["arm64"],
