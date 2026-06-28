@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-28T04:44:29.559Z",
+  "generatedAt": "2026-06-28T06:56:42.490Z",
   "structural": null,
   "agent": {
     "cells": [
@@ -1990,6 +1990,2007 @@
               "ok": true,
               "error": "",
               "promptId": "vue-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "excalidraw",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "excalidraw-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Excalidraw carry a user's element edit from pointer interaction through scene mutation, history, rendering, and collaboration or persistence?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 1370311,
+              "cached": 1218560,
+              "reasoning": 1107,
+              "tokensWithReasoning": 1371418,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 1362126,
+                  "cachedInput": 1218560,
+                  "output": 8185,
+                  "reasoning": 1107
+                }
+              ],
+              "tools": 41,
+              "shell": 41,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 40,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$p='\"'excalidraw-app\\\\collab\\\\Portal.tsx'; (Get-Content \"'$p | Select-Object -Index (0..260))'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$p='\"'packages\\\\element\\\\src\\\\dragElements.ts'; Get-Content \"'$p; $p='\"'packages\\\\element\\\\src\\\\resizeElements.ts'; (Get-Content \"'$p | Select-Object -Index (0..220))'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$p='\"'packages\\\\excalidraw\\\\components\\\\App.tsx'; (Get-Content \"'$p | Select-Object -Index (908..940)); (Get-Content $p | Select-Object -Index (12810..12845)); (Get-Content $p | Select-Object -Index (12260..12455)); (Get-Content $p | Select-Object -Index (12470..12610))'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"constructor\\\\(props|this.scene = new Scene|this.store = new Store|this.history = new History|this.store.onDurableIncrementEmitter|this.scene.onUpdate\\\\(this.triggerRender\\\\)|private handleCanvasPointerDown|private onPointerMoveFromPointerDownHandler|dragSelectedElements\\\\(|private maybeHandleResize|transformElements\\\\(|private maybeDragNewGenericElement|private onPointerUpFromPointerDownHandler|this.store.commit\\\\(elementsMap|this.props.onChange|private triggerRender|public updateScene|public mutateElement|private savePointer\\\" packages\\\\excalidraw\\\\components\\\\App.tsx\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export class Scene|triggerUpdate\\\\(|onUpdate\\\\(|mutateElement<TElement|prevVersion|this.triggerUpdate\\\\(\\\\)|replaceAllElements\\\\(\\\" packages\\\\element\\\\src\\\\Scene.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export const mutateElement|version|versionNonce|updated|ShapeCache.delete|This function tracks updates\\\" packages\\\\element\\\\src\\\\mutateElement.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export const CaptureUpdateAction|export class Store|scheduleCapture\\\\(|scheduleMicroAction\\\\(|public commit\\\\(|emitDurableIncrement|emitEphemeralIncrement|getScheduledMacroAction|IMMEDIATELY|NEVER|EVENTUALLY|onDurableIncrementEmitter|onStoreIncrementEmitter\\\" packages\\\\element\\\\src\\\\store.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export class History|public record|HistoryDelta.inverse|undoStack.push|public undo|public redo|private perform|scheduleMicroAction|CaptureUpdateAction.IMMEDIATELY|excludedProperties\\\" packages\\\\excalidraw\\\\history.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"public render\\\\(|getRenderableElements\\\\(|StaticCanvas|NewElementCanvas|InteractiveCanvas|canvasNonce|renderInteractiveSceneCallback|renderStaticScene|renderInteractiveScene|sceneNonce\\\" packages\\\\excalidraw\\\\components\\\\App.tsx packages\\\\excalidraw\\\\scene\\\\Renderer.ts packages\\\\excalidraw\\\\renderer\\\\interactiveScene.ts packages\\\\excalidraw\\\\renderer\\\\staticScene.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"const onChange =|collabAPI\\\\.syncElements|LocalData\\\\.save|<Excalidraw|onChange=|isCollaborating=|onPointerUpdate=|<Collab\\\" excalidraw-app\\\\App.tsx\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"syncElements|broadcastElements|broadcastScene|queueSaveToFirebase|saveCollabRoomToFirebase|handleRemoteSceneUpdate|_reconcileElements|CaptureUpdateAction.NEVER|onPointerUpdate|broadcastMouseLocation|saveToFirebase|loadFromFirebase|sceneVersion|encryptElements|reconcileElements\\\" excalidraw-app\\\\collab\\\\Collab.tsx excalidraw-app\\\\collab\\\\Portal.tsx excalidraw-app\\\\data\\\\firebase.ts excalidraw-app\\\\data\\\\LocalData.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"renderStaticScene|renderInteractiveScene|useEffect|canvasNonce\\\" packages\\\\excalidraw\\\\components\\\\canvases -g \\\"*.tsx\\\" -g \\\"*.ts\\\"\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"replaceAllElements\\\\(|triggerUpdate\\\\(\\\" packages\\\\element\\\\src\\\\Scene.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$p='\"'packages\\\\element\\\\src\\\\Scene.ts'; (Get-Content \"'$p | Select-Object -Index (250..305))'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$p='\"'packages\\\\excalidraw\\\\components\\\\canvases\\\\StaticCanvas.tsx'; if(Test-Path \"'$p){Get-Content $p}; $p='\"'packages\\\\excalidraw\\\\components\\\\canvases\\\\InteractiveCanvas.tsx'; if(Test-Path \"'$p){Get-Content $p}; Get-ChildItem packages'\"\\\\excalidraw\\\\components\\\\canvases\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$p='\"'packages\\\\excalidraw\\\\components\\\\App.tsx'; (Get-Content \"'$p | Select-Object -Index (11090..11475))'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"initialPointerDownState|originalElements\\\" packages\\\\excalidraw\\\\components\\\\App.tsx packages\\\\excalidraw\\\\types.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$p='\"'packages\\\\excalidraw\\\\components\\\\App.tsx'; (Get-Content \"'$p | Select-Object -Index (8268..8315))'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg -n \"pauseSave|resumeSave|isSavePaused|collaboration\" excalidraw-app'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$p='\"'excalidraw-app\\\\collab\\\\Collab.tsx'; (Get-Content \"'$p | Select-Object -Index (390..420)); (Get-Content $p | Select-Object -Index (492..512))'"
+              ],
+              "types": {
+                "agent_message": 9,
+                "command_execution": 41
+              },
+              "durMs": 185598,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "vscode",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vscode-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does the extension host communicate with the main process?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 501413,
+              "cached": 383488,
+              "reasoning": 1277,
+              "tokensWithReasoning": 502690,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 496246,
+                  "cachedInput": 383488,
+                  "output": 5167,
+                  "reasoning": 1277
+                }
+              ],
+              "tools": 29,
+              "shell": 29,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 29,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/workbench/services/extensions/common/extensionHostManager.ts | Select-Object -Skip 220 -First 120'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/workbench/services/extensions/electron-browser/localProcessExtensionHost.ts | Select-Object -Skip 450 -First 90'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/platform/ipc/common/mainProcessService.ts | Select-Object -First 60'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/workbench/api/common/extensionHostMain.ts | Select-Object -Skip 160 -First 90'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/base/parts/ipc/electron-browser/ipc.electron.ts | Select-Object -First 120'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/workbench/services/extensions/electron-browser/extensionHostStarter.ts | Select-Object -First 80'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/platform/extensions/electron-main/extensionHostStarter.ts | Select-Object -First 220'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/base/parts/ipc/common/ipc.mp.ts | Select-Object -First 95'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"private async _start\\\\(|private _establishProtocol|writeExtHostConnection|acquirePort|extensionHostProcess.start|private _performHandshake|isMessageOfType\\\\(msg, MessageType.Ready\\\\)|MessageType.Initialized\\\" src/vs/workbench/services/extensions/electron-browser/localProcessExtensionHost.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg -n \"function _createExtHostProtocol|ExtHostConnectionType.MessagePort|parentPort|function connectToRenderer|MessageType.Ready|MessageType.Initialized|new ExtensionHostMain\" src/vs/workbench/api/node/extensionHostProcess.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg -n \"class ExtensionHostMain|new RPCProtocol|IExtHostRpcService|MainThreadExtensionService|asBrowserUri\" src/vs/workbench/api/common/extensionHostMain.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export class RPCProtocol|constructor\\\\(protocol|getProxy|_createProxy|_remoteCall|_receiveOneMessage|_receiveRequest\\\" src/vs/workbench/services/extensions/common/rpcProtocol.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"_createExtensionHostCustomers|new RPCProtocol|ExtHostCustomersRegistry|getNamedCustomers|this\\\\._rpcProtocol\\\\.set|assertRegistered\\\" src/vs/workbench/services/extensions/common/extensionHostManager.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"registerMainProcessRemoteService|ElectronIPCMainProcessService|IPCElectronClient|vscode:hello|vscode:message|getChannel|class ExtensionHostStarter|createExtensionHost\\\\(|start\\\\(id\\\" src/vs/workbench/services/extensions/electron-browser/extensionHostStarter.ts src/vs/platform/ipc/electron-browser/mainProcessService.ts src/vs/base/parts/ipc/electron-browser/ipc.electron.ts src/vs/platform/extensions/electron-main/extensionHostStarter.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg -n \"export function extHostNamedCustomer|class ExtHostCustomersRegistry|registerNamedCustomer|getNamedCustomers|getCustomers\" src/vs/workbench/services/extensions/common/extHostCustomers.ts'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"extHostNamedCustomer\\\\(MainContext\\\\.MainThread\\\" src/vs/workbench/api/browser src/vs/workbench/api/electron-browser src/vs/workbench/api/common -g \\\"*.ts\\\" | Select-Object -First 30\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/platform/ipc/electron-browser/services.ts | Select-Object -First 90'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg -n \"responseChannel|responseNonce|startExtensionHostMessagePortResult|postMessage|ports\" src/vs/platform src/vs/code src/vs/workbench -g \"*.ts\"'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/base/parts/ipc/electron-main/ipc.mp.ts | Select-Object -First 80'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Path src/vs/base/parts/ipc/electron-browser/ipc.mp.ts | Select-Object -First 70'"
+              ],
+              "types": {
+                "agent_message": 10,
+                "command_execution": 29
+              },
+              "durMs": 114310,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "nestjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "nestjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does NestJS carry an HTTP request from a decorated route to the controller result, including DI, guards, pipes, interceptors, filters, and the platform response?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 469513,
+              "cached": 375296,
+              "reasoning": 794,
+              "tokensWithReasoning": 470307,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 462777,
+                  "cachedInput": 375296,
+                  "output": 6736,
+                  "reasoning": 794
+                }
+              ],
+              "tools": 47,
+              "shell": 47,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 46,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\common\\\\decorators\\\\http\\\\route-params.decorator.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\common\\\\decorators\\\\core\\\\use-pipes.decorator.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\common\\\\decorators\\\\core\\\\controller.decorator.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\common\\\\decorators\\\\core\\\\use-interceptors.decorator.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\common\\\\decorators\\\\core\\\\catch.decorator.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\core\\\\nest-factory.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\core\\\\nest-application.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\core\\\\scanner.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"registerRouter|registerRouterHooks|createInstancesOfDependencies|RoutesResolver|resolve\\\\(\\\" packages\\\\core\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"public create\\\\(|getMetadata|createGuardsFn|createPipesFn|interceptorsConsumer\\\\.intercept|fnHandleResponse|createHandleResponseFn|isResponseHandled|responseController\\\\.apply|callback\\\\.apply|setStatus|setHeaders\\\" packages\\\\core\\\\router\\\\router-execution-context.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"scanForPaths|exploreMethodMetadata|Reflect\\\\.getMetadata\\\\(PATH_METADATA|Reflect\\\\.getMetadata\\\\(METHOD_METADATA|Reflect\\\\.getMetadata\\\\(VERSION_METADATA\\\" packages\\\\core\\\\router\\\\paths-explorer.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"public resolve|public registerRouters|routerExplorer\\\\.explore|registerNotFoundHandler|registerExceptionHandler\\\" packages\\\\core\\\\router\\\\routes-resolver.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"public explore|applyCallbackToRouter|isRequestScoped|createCallbackProxy|createRequestScopedHandler|getContextId|routerMethodRef\\\\(|registerRequestProvider|loadPerContext\\\" packages\\\\core\\\\router\\\\router-explorer.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"public async init|public async registerRouter|routesResolver\\\\.resolve|registerNotFoundHandler|registerExceptionHandler|createInstancesOfDependencies|dependenciesScanner\\\\.scan|applyApplicationProviders\\\" packages\\\\core\\\\nest-application.ts packages\\\\core\\\\nest-factory.ts packages\\\\core\\\\injector\\\\instance-loader.ts packages\\\\core\\\\scanner.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"Reflect\\\\.defineMetadata\\\\(PATH_METADATA|Reflect\\\\.defineMetadata\\\\(METHOD_METADATA|ROUTE_ARGS_METADATA|extendArrayMetadata\\\\(GUARDS_METADATA|extendArrayMetadata\\\\(PIPES_METADATA|extendArrayMetadata\\\\(INTERCEPTORS_METADATA|EXCEPTION_FILTERS_METADATA\\\" packages\\\\common\\\\decorators\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"public createContext|reflectClassMetadata|reflectMethodMetadata|createConcreteContext|getGlobalMetadata|getGuardInstance|getPipeInstance|getInterceptorInstance|getFilterInstance|tryActivate|applyPipes|public intercept\\\" packages\\\\core\\\\helpers\\\\context-creator.ts packages\\\\core\\\\guards\\\\guards-context-creator.ts packages\\\\core\\\\guards\\\\guards-consumer.ts packages\\\\core\\\\pipes\\\\pipes-context-creator.ts packages\\\\core\\\\pipes\\\\pipes-consumer.ts packages\\\\core\\\\interceptors\\\\interceptors-context-creator.ts packages\\\\core\\\\interceptors\\\\interceptors-consumer.ts packages\\\\core\\\\exceptions\\\\base-exception-filter-context.ts packages\\\\core\\\\router\\\\router-exception-filters.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"public reply|public status|public redirect|public render|public isHeadersSent|return isObject\\\\(body\\\\)|fastifyReply\\\\.send\\\" packages\\\\platform-express\\\\adapters\\\\express-adapter.ts packages\\\\platform-fastify\\\\adapters\\\\fastify-adapter.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"loadController|loadProvider|loadInstance|resolveConstructorParams|resolveSingleParam|lookupComponent|instantiateClass|loadPerContext|loadEnhancersPerContext|registerRequestProvider|public registerRequestProvider\\\" packages\\\\core\\\\injector\\\\injector.ts packages\\\\core\\\\injector\\\\container.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"public createProxy|exceptionsHandler\\\\.next|setCustomFilters|invokeCustomFilters|super\\\\.catch|applicationRef\\\\.reply|public apply|transformToResult|getStatusByMethod|setHeaders|setStatus|reply\\\\(\\\" packages\\\\core\\\\router\\\\router-proxy.ts packages\\\\core\\\\router\\\\router-exception-filters.ts packages\\\\core\\\\exceptions\\\\exceptions-handler.ts packages\\\\core\\\\exceptions\\\\base-exception-filter.ts packages\\\\core\\\\router\\\\router-response-controller.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"exchangeKeyForValue|RouteParamtypes\\\\.BODY|RouteParamtypes\\\\.PARAM|RouteParamtypes\\\\.QUERY|RouteParamtypes\\\\.RESPONSE|RouteParamtypes\\\\.REQUEST\\\" packages\\\\core\\\\router\\\\route-params-factory.ts\""
+              ],
+              "types": {
+                "agent_message": 9,
+                "command_execution": 47
+              },
+              "durMs": 150097,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "vue",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vue-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Vue carry a reactive state change from a component/template read through dependency tracking, scheduling, rendering, and DOM patching?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 325502,
+              "cached": 245760,
+              "reasoning": 656,
+              "tokensWithReasoning": 326158,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 318856,
+                  "cachedInput": 245760,
+                  "output": 6646,
+                  "reasoning": 656
+                }
+              ],
+              "tools": 38,
+              "shell": 38,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 37,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\componentRenderUtils.ts | ForEach-Object { \"'$i++; if ($i -ge 52 -and $i -le 106) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\scheduler.ts | ForEach-Object { \"'$i++; if ($i -ge 209 -and $i -le 263) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\componentRenderUtils.ts | ForEach-Object { \"'$i++; if ($i -ge 143 -and $i -le 191) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\renderer.ts | ForEach-Object { \"'$i++; if ($i -ge 1604 -and $i -le 1616) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"proxyRefs|setupState =|reactive\\\\(\\\" packages\\\\runtime-core\\\\src\\\\component.ts packages\\\\runtime-core\\\\src\\\\componentOptions.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"PublicInstanceProxyHandlers|setupState|data|props|ctx|accessCache\\\" packages\\\\runtime-core\\\\src\\\\componentPublicInstance.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\componentRenderUtils.ts | ForEach-Object { \"'$i++; if ($i -ge 100 -and $i -le 142) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\componentPublicInstance.ts | ForEach-Object { \"'$i++; if ($i -ge 413 -and $i -le 482) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"function patch|const patch|processElement|patchElement|hostPatchProp|patchProps\\\\(\\\" packages\\\\runtime-core\\\\src\\\\renderer.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\component.ts | ForEach-Object { \"'$i++; if ($i -ge 940 -and $i -le 959) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\componentOptions.ts | ForEach-Object { \"'$i++; if ($i -ge 620 -and $i -le 641) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\renderer.ts | ForEach-Object { \"'$i++; if ($i -ge 388 -and $i -le 446) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\renderer.ts | ForEach-Object { \"'$i++; if ($i -ge 600 -and $i -le 650) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\renderer.ts | ForEach-Object { \"'$i++; if ($i -ge 827 -and $i -le 963) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\renderer.ts | ForEach-Object { \"'$i++; if ($i -ge 1012 -and $i -le 1047) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\renderer.ts | ForEach-Object { \"'$i++; if ($i -ge 1635 -and $i -le 1728) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-dom\\\\src\\\\index.ts | ForEach-Object { \"'$i++; if ($i -ge 65 -and $i -le 105) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-dom\\\\src\\\\nodeOps.ts | ForEach-Object { \"'$i++; if ($i -ge 44 -and $i -le 89) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-dom\\\\src\\\\patchProp.ts | ForEach-Object { \"'$i++; if ($i -ge 25 -and $i -le 81) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content packages'\"\\\\runtime-core\\\\src\\\\renderer.ts | ForEach-Object { \"'$i++; if ($i -ge 350 -and $i -le 379) { '\"'{0,4}: {1}' -f \"'$i, $_ } }'"
+              ],
+              "types": {
+                "agent_message": 7,
+                "command_execution": 38
+              },
+              "durMs": 142279,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "zod",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "zod-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Zod carry `schema.parse` from the public API through core validation, transforms, error creation, and the typed result?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 341972,
+              "cached": 256000,
+              "reasoning": 874,
+              "tokensWithReasoning": 342846,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 337738,
+                  "cachedInput": 256000,
+                  "output": 4234,
+                  "reasoning": 874
+                }
+              ],
+              "tools": 24,
+              "shell": 24,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 24,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/classic/schemas.ts | Select-Object -First 430'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/schemas.ts | Select-Object -First 180'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/parse.ts | Select-Object -First 130'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/schemas.ts | Select-Object -Skip 180 -First 260'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/schemas.ts | Select-Object -Skip 360 -First 90'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/schemas.ts | Select-Object -Skip 3730 -First 230'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/schemas.ts | Select-Object -Skip 4340 -First 230'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg \\\"finalizeIssue|aborted\\\\(|SafeParseResult|export type output|export type input\\\" packages/zod/src/v4/core -n\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/errors.ts | Select-Object -Skip 230 -First 80'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/core.ts | Select-Object -First 90'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/classic/errors.ts | Select-Object -First 95'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/util.ts | Select-Object -Skip 540 -First 170'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/util.ts | Select-Object -Skip 190 -First 25'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/util.ts | Select-Object -Skip 920 -First 95'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/core/core.ts | Select-Object -Skip 120 -First 25'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/classic/schemas.ts | Select-Object -Skip 2660 -First 82'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content packages/zod/src/v4/classic/schemas.ts | Select-Object -Skip 2340 -First 70'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg \\\"inst\\\\.parse =|export const parse:|export const _parse:|const result = schema\\\\._zod\\\\.run|return result\\\\.value as|export interface ParsePayload|run\\\\(|inst\\\\._zod\\\\.run =|export function finalizeIssue|export const ZodRealError|export type input|export type output\\\" packages/zod/src/v4 -n\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg \\\"ZodTransform|inst\\\\._zod\\\\.parse = \\\\(payload|addIssue|const output = def\\\\.transform|payload\\\\.value = output|export interface ZodPipe|handlePipeResult|return next\\\\._zod\\\\.run\\\" packages/zod/src/v4/classic/schemas.ts packages/zod/src/v4/core/schemas.ts -n\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg \\\"export type ZodSafeParseResult|export type SafeParseResult|success: true|success: false|new \\\\(_params\\\\?\\\\.Err|new _Err|finalizeIssue|class Definition extends Parent|Parent: Error\\\" packages/zod/src/v4 -n\""
+              ],
+              "types": {
+                "agent_message": 7,
+                "command_execution": 24
+              },
+              "durMs": 109242,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "typeorm",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "typeorm-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does TypeORM turn `Repository.find` options with relations into query-builder joins and loaded entities?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 433164,
+              "cached": 361472,
+              "reasoning": 283,
+              "tokensWithReasoning": 433447,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 428700,
+                  "cachedInput": 361472,
+                  "output": 4464,
+                  "reasoning": 283
+                }
+              ],
+              "tools": 30,
+              "shell": 30,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 28,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 3930 -First 230\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 1648 -First 130\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\query-builder\\\\transformer\\\\RawSqlResultsToEntityTransformer.ts | Select-Object -Skip 150 -First 210\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\query-builder\\\\JoinAttribute.ts | Select-Object -Skip 130 -First 150\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 3370 -First 330\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"async find<Entity|setFindOptions\\\\(|protected applyFindOptions\\\\(|this\\\\.buildRelations\\\\(|apply joins|protected buildRelations\\\\(|this\\\\.joins\\\\.push\\\\(|leftJoinAndSelect\\\\(|async getMany\\\\(|async getRawAndEntities\\\\(|protected async executeEntitiesAndRawResults\\\\(|new RawSqlResultsToEntityTransformer|transform\\\\(|protected transformRawResultsGroup\\\\(|protected transformJoins\\\\(\\\" src\\\\repository\\\\Repository.ts src\\\\entity-manager\\\\EntityManager.ts src\\\\query-builder\\\\SelectQueryBuilder.ts src\\\\query-builder\\\\transformer\\\\RawSqlResultsToEntityTransformer.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"protected createJoinExpression|joinAttributes|new JoinAttribute|leftJoinAndSelect\\\\(|innerJoinAndSelect\\\\(|join\\\\(\\\" src\\\\query-builder\\\\SelectQueryBuilder.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\query-builder\\\\transformer\\\\RawSqlResultsToEntityTransformer.ts | Select-Object -First 170\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 570 -First 90\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 2068 -First 70\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 3600 -First 90\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\query-builder\\\\SelectQueryBuilder.ts | Select-Object -Skip 2320 -First 230\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$PWD.Path'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"relationLoadStrategy|relations\\\\?|loadEagerRelations\\\" src\\\\find-options\\\\FindOneOptions.ts src\\\\find-options\\\\FindManyOptions.ts src\\\\data-source\\\\BaseDataSourceOptions.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\find-options\\\\FindOneOptions.ts | Select-Object -First 110\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\find-options\\\\FindOptionsRelations.ts | Select-Object -First 120\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"rejectStringArrayRelations|rejectJoinOption|rejectStringArraySelect\\\" src\\\\find-options\\\\FindOptionsUtils.ts src\\\\query-builder\\\\SelectQueryBuilder.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\find-options\\\\FindManyOptions.ts | Select-Object -First 80\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\find-options\\\\FindOptionsUtils.ts | Select-Object -Skip 40 -First 70\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Path src\\\\find-options\\\\FindOptionsUtils.ts | Select-Object -Skip 100 -First 60\""
+              ],
+              "types": {
+                "agent_message": 11,
+                "command_execution": 30
+              },
+              "durMs": 114334,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "rxjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "rxjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does RxJS carry a value from Observable.subscribe through pipe operators to the observer, and how does teardown flow back?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 225071,
+              "cached": 158208,
+              "reasoning": 1876,
+              "tokensWithReasoning": 226947,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 219741,
+                  "cachedInput": 158208,
+                  "output": 5330,
+                  "reasoning": 1876
+                }
+              ],
+              "tools": 20,
+              "shell": 20,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 20,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-ChildItem -Force; if (Get-Command rg -ErrorAction SilentlyContinue) { rg --files | Select-Object -First 200 } else { Get-ChildItem -Recurse -File | Select-Object -First 200 -ExpandProperty FullName }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\Observable.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\Subscriber.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\Subscription.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\util\\\\lift.ts; Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\util\\\\pipe.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-ChildItem packages\\\\rxjs\\\\src\\\\internal -Force | Select-Object Mode,Name\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"if (Get-Command rg -ErrorAction SilentlyContinue) { rg --files packages\\\\rxjs\\\\src\\\\internal | Select-String -Pattern 'Observable|Subscriber|Subscription|operate|lift|map.ts|filter.ts' } else { Get-ChildItem packages\\\\rxjs\\\\src\\\\internal -Recurse -File | Where-Object { \"'$_.Name -match '\"'Observable|Subscriber|Subscription|operate|lift|map.ts|filter.ts' } | Select-Object -ExpandProperty FullName }\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"if (Get-Command rg -ErrorAction SilentlyContinue) { rg \\\"class Observable|class Subscriber|class Subscription|function operate|export function operate|lift\\\" packages\\\\rxjs\\\\src -n } else { Get-ChildItem packages\\\\rxjs\\\\src -Recurse -File | Select-String -Pattern \\\"class Observable|class Subscriber|class Subscription|function operate|export function operate|lift\\\" }\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Raw packages\\\\rxjs\\\\src\\\\index.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Raw packages\\\\rxjs\\\\package.json; Get-Content -Raw package.json\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Raw packages\\\\observable\\\\src\\\\observable.ts; Get-Content -Raw packages\\\\observable\\\\src\\\\types.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\map.ts; Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\filter.ts; Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\take.ts; Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\finalize.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\rxjs\\\\src\\\\index.ts -Pattern \\\"@rxjs/observable\\\" -Context 0,2\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\observable\\\\src\\\\observable.ts -Pattern \\\"function fromArrayLike|function subscribeToArray|export function from|function fromInteropObservable|function fromPromise\\\" -Context 0,8\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\observable\\\\src\\\\observable.ts -Pattern \\\"export class Subscription|unsubscribe\\\\(\\\\): void|add\\\\(teardown|export class Subscriber|constructor\\\\(destination|next\\\\(value|protected _next|export function operate|export class Observable|pipe\\\\(|subscribe\\\\(|_trySubscribe|return new Observable|this._subscribe|subscriber.add\\\" -Context 0,6\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\observable\\\\of.ts; Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\observable\\\\interval.ts; Get-Content -Raw packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\tap.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\observable\\\\src\\\\observable.ts -Pattern \\\"export function subscribeToArray|subscriber.closed|subscriber.next\\\\(array|subscriber.complete\\\\(\\\\);\\\" -Context 0,4\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\*.ts -Pattern \\\"return \\\\(source\\\\) =>\\\\s*\"'$|new Observable'\"\\\\(\\\\(destination|operate\\\\(\\\\{|subscriber.add|unsubscribe\\\\(\\\\);\\\" | Select-Object -First 120\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\observable\\\\src\\\\observable.ts -Pattern \\\"function overrideNext|this._nextOverride|this.destination.error\\\\(error\\\\)|function execFinalizer|finalizer.unsubscribe\\\\(\\\\)|operations.reduce|subscriber.add\\\\(this._trySubscribe|return new Subscriber\\\\(destination\\\" -Context 0,3\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\map.ts,packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\filter.ts,packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\take.ts,packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\finalize.ts -Pattern \\\"export function|new Observable|source.subscribe|operate\\\\(|destination.next|operatorSubscriber.unsubscribe|destination.complete|subscriber.add\\\" -Context 0,2\""
+              ],
+              "types": {
+                "agent_message": 7,
+                "command_execution": 20
+              },
+              "durMs": 141839,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "shopping-backend",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "shopping-backend-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does shopping-backend carry a customer order from request handling through auth, provider logic, Prisma writes, and the seller/admin paths that read it later?",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 584777,
+              "cached": 461312,
+              "reasoning": 806,
+              "tokensWithReasoning": 585583,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 578574,
+                  "cachedInput": 461312,
+                  "output": 6203,
+                  "reasoning": 806
+                }
+              ],
+              "tools": 41,
+              "shell": 41,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 41,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderPriceProvider.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\services\\\\PaymentService.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\controllers\\\\shoppings\\\\customers\\\\orders\\\\ShoppingCustomerOrderGoodController.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\providers\\\\shoppings\\\\orders\\\\ShoppingCartCommodityProvider.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\controllers\\\\shoppings\\\\base\\\\orders\\\\ShoppingOrderController.ts | ForEach-Object { \"'$i++; if($i -ge 1 -and $i -le 90){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\controllers\\\\shoppings\\\\customers\\\\orders\\\\ShoppingCustomerOrderController.ts | ForEach-Object { \"'$i++; if($i -ge 1 -and $i -le 190){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderProvider.ts | ForEach-Object { \"'$i++; if(($i -ge 27 -and $i -le 120) -or ($i -ge 207 -and $i -le 310)){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderPublishProvider.ts | ForEach-Object { \"'$i++; if(($i -ge 20 -and $i -le 88) -or ($i -ge 90 -and $i -le 180) -or ($i -ge 205 -and $i -le 270)){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\decorators\\\\ShoppingCustomerAuth.ts | ForEach-Object { \"'$i++; '\"'{0}:{1}' -f \"'$i,$_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderGoodProvider.ts | ForEach-Object { \"'$i++; if($i -ge 15 -and $i -le 91){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderProvider.ts | ForEach-Object { \"'$i++; if($i -ge 108 -and $i -le 135){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\providers\\\\shoppings\\\\actors\\\\ShoppingSellerProvider.ts | ForEach-Object { \"'$i++; if($i -ge 149 -and $i -le 174){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\providers\\\\shoppings\\\\actors\\\\ShoppingCustomerProvider.ts | ForEach-Object { \"'$i++; if($i -ge 61 -and $i -le 88){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\providers\\\\shoppings\\\\actors\\\\ShoppingAdministratorProvider.ts | ForEach-Object { \"'$i++; if($i -ge 100 -and $i -le 124){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\controllers\\\\shoppings\\\\sellers\\\\orders\\\\ShoppingSellerOrderController.ts | ForEach-Object { \"'$i++; '\"'{0}:{1}' -f \"'$i,$_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\controllers\\\\shoppings\\\\customers\\\\orders\\\\ShoppingCustomerOrderPublishController.ts | ForEach-Object { \"'$i++; if($i -ge 1 -and $i -le 105){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\services\\\\JwtTokenService.ts | ForEach-Object { \"'$i++; if($i -ge 5 -and $i -le 47){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\controllers\\\\shoppings\\\\admins\\\\orders\\\\ShoppingAdminOrderController.ts | ForEach-Object { \"'$i++; '\"'{0}:{1}' -f \"'$i,$_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content prisma'\"\\\\schema\\\\schema-06-orders.prisma | ForEach-Object { \"'$i++; if(($i -ge 26 -and $i -le 80) -or ($i -ge 113 -and $i -le 173) -or ($i -ge 198 -and $i -le 249) -or ($i -ge 445 -and $i -le 496)){ '\"'{0}:{1}' -f \"'$i,$_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderPriceProvider.ts | ForEach-Object { \"'$i++; if($i -ge 118 -and $i -le 207){ '\"'{0}:{1}' -f \"'$i,$_ } }'"
+              ],
+              "types": {
+                "agent_message": 10,
+                "command_execution": 41
+              },
+              "durMs": 139671,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "excalidraw",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "excalidraw-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 1354538,
+              "cached": 1200640,
+              "reasoning": 866,
+              "tokensWithReasoning": 1355404,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 1344914,
+                  "cachedInput": 1200640,
+                  "output": 9624,
+                  "reasoning": 866
+                }
+              ],
+              "tools": 53,
+              "shell": 53,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 50,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\actions\\\\actionDeleteSelected.tsx'; \"'$lines=Get-Content $path; foreach($range in @(@(1,80),@(208,310))) { $start=$range[0]; $end=$range[1]; for($i=$start; $i -le $end; $i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] } } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\actions\\\\actionDeleteSelected.test.tsx'; \"'$lines=Get-Content $path; for($i=1; $i -le 120; $i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\tests\\\\history.test.tsx'; \"'$lines=Get-Content $path; foreach($range in @(@(140,180),@(4550,4590),@(4668,4690))) { $start=$range[0]; $end=$range[1]; for($i=$start; $i -le $end; $i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] } } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\tests\\\\helpers\\\\api.ts'; \"'$lines=Get-Content $path; foreach($range in @(@(1,90),@(90,180),@(180,260))) { $start=$range[0]; $end=$range[1]; for($i=$start; $i -le $end; $i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] } } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\actions\\\\manager.tsx'; \"'$lines=Get-Content $path; for($i=52; $i -le 160; $i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\actions\\\\register.ts'; \"'$lines=Get-Content $path; for($i=1; $i -le 30; $i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\tests\\\\helpers\\\\ui.ts'; \"'$lines=Get-Content $path; foreach($range in @(@(1,100),@(100,220))) { $start=$range[0]; $end=$range[1]; for($i=$start; $i -le $end; $i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] } } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg \\\"createTestHook|window\\\\.h|h\\\\.elements\\\" packages/excalidraw/components/App.tsx packages/excalidraw/tests -n\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\index-node.ts'; if(Test-Path \"'$path){$lines=Get-Content $path; for($i=1; $i -le $lines.Length; $i++){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg \\\"from \\\\\\\"\\\\.\\\\./index\\\\\\\"|from \\\\\\\"\\\\.\\\\./\\\\.\\\\.\\\\/index\\\\\\\"|from \\\\\\\"@excalidraw/excalidraw\\\\\\\"|import \\\\{ Excalidraw\\\" packages/excalidraw/tests packages/excalidraw/actions -g \\\"*.tsx\\\" -g \\\"*.ts\\\" -n | Select-Object -First 80\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\components\\\\App.tsx'; \"'$lines=Get-Content $path; foreach($range in @(@(590,620),@(12935,12968))) { $start=$range[0]; $end=$range[1]; for($i=$start; $i -le $end; $i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] } } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg \"class Renderer|getRenderableElements|renderStaticScene|renderInteractiveScene|<StaticCanvas|<InteractiveCanvas|NewElementCanvas\" packages/excalidraw/renderer packages/excalidraw/components/App.tsx -n'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\renderer\\\\renderScene.ts'; if(Test-Path \"'$path){$lines=Get-Content $path; for($i=1; $i -le [Math]::Min(180,$lines.Length); $i++){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-ChildItem packages\\\\excalidraw\\\\renderer\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\renderer\\\\staticScene.ts'; if(Test-Path \"'$path){$lines=Get-Content $path; for($i=1; $i -le [Math]::Min(140,$lines.Length); $i++){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-ChildItem packages\\\\excalidraw\\\\scene\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\scene\\\\Renderer.ts'; if(Test-Path \"'$path){$lines=Get-Content $path; foreach($range in @(@(1,120),@(120,240))) { $start=$range[0]; $end=$range[1]; for($i=$start; $i -le $end; $i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] } } }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg \"getRenderableElements\" packages -n'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg \"class Renderer\" packages -n'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'packages\\\\excalidraw\\\\scene\\\\Renderer.ts'; \"'$lines=Get-Content $path; for($i=230; $i -le 265; $i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] } }'"
+              ],
+              "types": {
+                "agent_message": 11,
+                "command_execution": 53
+              },
+              "durMs": 217429,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "vscode",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vscode-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 635183,
+              "cached": 496640,
+              "reasoning": 1585,
+              "tokensWithReasoning": 636768,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 626987,
+                  "cachedInput": 496640,
+                  "output": 8196,
+                  "reasoning": 1585
+                }
+              ],
+              "tools": 38,
+              "shell": 38,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 37,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"registerSingleton\\\\(ICommandService|new CommandService|CommandService extends|class CommandService|class StandaloneCommandService|CommandsRegistry\\\\.getCommand\\\" src/vs -g '*.ts'\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"API_OPEN_EDITOR_COMMAND_ID|vscode\\\\.open|registerCommand\\\\(|registerAction2|class .*Action\\\" src/vs/workbench/browser/parts/editor src/vs/workbench/contrib/files src/vs/editor -g '*.ts' | Select-Object -First 100\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg --files src/vs | rg \\\"commandService\\\\.ts|commands.*Service|action.*Service\\\"\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vscode-dts/vscode.d.ts'; \"'$lines=Get-Content $path; for($i=10935;$i -le 11025;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"const commands: typeof vscode\\\\.commands|registerCommand\\\\(|executeCommand\\\\(|getCommands\\\\(\\\" src/vs/workbench/api/common/extHost.api.impl.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/services/commands/common/commandService.ts'; \"'$lines=Get-Content $path; for($i=1;$i -le 120;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/browser/parts/editor/editorCommands.ts'; \"'$lines=Get-Content $path; foreach($range in @(@(430,475),@(475,502))){ for($i=$range[0];$i -le $range[1];$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }} }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/services/commands/test/common/commandService.test.ts'; \"'$lines=Get-Content $path; for($i=1;$i -le 220;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/api/common/extHost.api.impl.ts'; \"'$lines=Get-Content $path; for($i=350;$i -le 402;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/api/test/browser/extHostCommands.test.ts'; \"'$lines=Get-Content $path; for($i=1;$i -le 170;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/platform/commands/test/common/commands.test.ts'; \"'$lines=Get-Content $path; for($i=1;$i -le 90;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/api/test/browser/mainThreadCommands.test.ts'; \"'$lines=Get-Content $path; for($i=1;$i -le 115;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"workbench\\\\.common\\\\.main|workbench\\\\.desktop\\\\.main|registerSingleton\\\\(ICommandService|services/commands/common/commandService\\\" src/vs/workbench/workbench.common.main.ts src/vs/workbench/workbench.desktop.main.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"MainThreadCommands|ExtHostCommands|registerSingleton\\\\(IExtHostCommands|ExtHostContext\\\\.ExtHostCommands|MainContext\\\\.MainThreadCommands\\\" src/vs/workbench/api -g '*.ts'\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/api/node/extHostExtensionService.ts'; \"'$lines=Get-Content $path; for($i=130;$i -le 180;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/api/worker/extHostExtensionService.ts'; \"'$lines=Get-Content $path; for($i=35;$i -le 65;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/api/common/extHost.api.impl.ts'; \"'$lines=Get-Content $path; for($i=185;$i -le 205;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/api/test/browser/extHostApiCommands.test.ts'; \"'$lines=Get-Content $path; for($i=160;$i -le 190;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/api/common/extHost.common.services.ts'; \"'$lines=Get-Content $path; for($i=35;$i -le 48;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$path='\"'src/vs/workbench/workbench.common.main.ts'; \"'$lines=Get-Content $path; for($i=86;$i -le 98;$i++){ if($i -le $lines.Length){ '\"'{0}:{1}' -f \"'$i,$lines[$i-1] }}'"
+              ],
+              "types": {
+                "agent_message": 9,
+                "command_execution": 38
+              },
+              "durMs": 187441,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "nestjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "nestjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 668847,
+              "cached": 549888,
+              "reasoning": 1015,
+              "tokensWithReasoning": 669862,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 661863,
+                  "cachedInput": 549888,
+                  "output": 6984,
+                  "reasoning": 1015
+                }
+              ],
+              "tools": 40,
+              "shell": 40,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 38,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content sample/01-cats-app/src/main.ts | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content sample/01-cats-app/src/cats/cats.controller.ts | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg --files packages/core/test packages/common/test integration/hello-world/e2e sample/01-cats-app | rg \\\"(nest-factory|nest-application|scanner|instance-loader|router|paths-explorer|request-mapping|controller.decorator|hello-world|cats).*\\\\.spec\\\\.ts\"'$|main'\"\\\\.ts\"'$|app.module'\"\\\\.ts\"'$|cats.controller'\"\\\\.ts\"'$\"'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content sample/01-cats-app/src/app.module.ts | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg --files packages/core/test | rg \\\"(nest-factory|nest-application|scanner|instance-loader|router|paths-explorer).*\\\\.spec\\\\.ts\"'$\"'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg --files packages/common/test | rg \\\"(request-mapping|controller|module|route-params).*\\\\.spec\\\\.ts\"'$\"'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg --files integration/hello-world/e2e | rg \\\"\\\\.spec\\\\.ts\"'$\"'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'rg --files packages/core/test'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"describe\\\\(|it\\\\(\\\" packages/core/test/nest-application.spec.ts packages/core/test/scanner.spec.ts packages/core/test/injector/instance-loader.spec.ts packages/core/test/router/routes-resolver.spec.ts packages/core/test/router/router-explorer.spec.ts packages/core/test/router/router-execution-context.spec.ts packages/core/test/router/paths-explorer.spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"describe\\\\(|it\\\\(\\\" packages/common/test/decorators/controller.decorator.spec.ts packages/common/test/decorators/request-mapping.decorator.spec.ts packages/common/test/decorators/route-params.decorator.spec.ts packages/common/test/decorators/module.decorator.spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"NestFactory|supertest|request\\\\(|describe\\\\(|it\\\\(\\\" sample/01-cats-app/e2e/cats/cats.e2e-spec.ts sample/01-cats-app/src/cats/cats.controller.spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"NestFactory|supertest|request\\\\(|describe\\\\(|it\\\\(\\\" integration/hello-world/e2e/hello-world.spec.ts integration/hello-world/e2e/guards.spec.ts integration/hello-world/e2e/pipes.spec.ts integration/hello-world/e2e/interceptors.spec.ts integration/hello-world/e2e/exceptions.spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content sample/01-cats-app/e2e/cats/cats.e2e-spec.ts | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content integration/hello-world/e2e/hello-world.spec.ts | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content packages/core/test/router/router-execution-context.spec.ts | Select-Object -First 190 | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content packages/core/test/router/router-explorer.spec.ts | Select-Object -First 230 | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content packages/core/nest-factory.ts | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content packages/core/router/route-params-factory.ts | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content packages/core/helpers/router-method-factory.ts | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=1; Get-Content packages/core/injector/injector.ts | Select-Object -First 260 | ForEach-Object { '\"'{0,4}: {1}' -f \"'$i++, $_ }'"
+              ],
+              "types": {
+                "agent_message": 6,
+                "command_execution": 40
+              },
+              "durMs": 148386,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "vue",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vue-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 360287,
+              "cached": 280064,
+              "reasoning": 322,
+              "tokensWithReasoning": 360609,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 355667,
+                  "cachedInput": 280064,
+                  "output": 4620,
+                  "reasoning": 322
+                }
+              ],
+              "tools": 27,
+              "shell": 27,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 25,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-core\\\\src\\\\apiCreateApp.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-core\\\\src\\\\component.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-core\\\\src\\\\renderer.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"function createAppAPI|mount\\\\(|function baseCreateRenderer|const render:|const patch:|processComponent|mountComponent|setupComponent|setupRenderEffect|patchElement|mountElement|renderComponentRoot\\\" packages\\\\runtime-core\\\\src packages\\\\runtime-dom\\\\src packages\\\\vue\\\\src\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-dom\\\\__tests__\\\\createApp.spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-core\\\\__tests__\\\\rendererElement.spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-test\\\\src\\\\index.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-core\\\\__tests__\\\\rendererComponent.spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-core\\\\__tests__\\\\apiCreateApp.spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export \\\\* from '@vue/runtime-dom'|registerRuntimeCompiler|compileToFunction|export const createApp|ensureRenderer|rendererOptions|normalizeContainer|export function createAppAPI|const vnode = app\\\\._ceVNode|render\\\\(vnode|export function createRenderer|function baseCreateRenderer|const patch: PatchFn|const processElement|const mountElement|const patchElement|const processComponent|const mountComponent|const setupRenderEffect|const render: RootRenderFunction|createApp: createAppAPI|export function setupComponent|function setupStatefulComponent|export function finishComponentSetup|Component.render = compile|export function renderComponentRoot|export const nodeOps|export const patchProp\\\" packages\\\\vue\\\\src\\\\index.ts packages\\\\vue\\\\src\\\\runtime.ts packages\\\\runtime-dom\\\\src\\\\index.ts packages\\\\runtime-dom\\\\src\\\\nodeOps.ts packages\\\\runtime-dom\\\\src\\\\patchProp.ts packages\\\\runtime-core\\\\src\\\\apiCreateApp.ts packages\\\\runtime-core\\\\src\\\\renderer.ts packages\\\\runtime-core\\\\src\\\\component.ts packages\\\\runtime-core\\\\src\\\\componentRenderUtils.ts packages\\\\runtime-test\\\\src\\\\index.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-dom\\\\src\\\\patchProp.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-dom\\\\src\\\\nodeOps.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-core\\\\src\\\\componentRenderUtils.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"const \\\\{ render: baseRender|export const render|export const createApp|renderToString\\\" packages\\\\runtime-test\\\\src\\\\index.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"describe\\\\('createApp for dom'|mount to SVG|should not mutate|describe\\\\('api: createApp'|test\\\\('mount'|test\\\\('unmount'|test\\\\('provide'|test\\\\('use'|test\\\\('onUnmount'|flush order|unmount new app|describe\\\\('renderer: element'|should create an element|should update element props|describe\\\\('renderer: component'|should create an Component|child component props update|should not update child component\\\" packages\\\\runtime-dom\\\\__tests__\\\\createApp.spec.ts packages\\\\runtime-core\\\\__tests__\\\\apiCreateApp.spec.ts packages\\\\runtime-core\\\\__tests__\\\\rendererElement.spec.ts packages\\\\runtime-core\\\\__tests__\\\\rendererComponent.spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"function baseCompile|export function baseCompile|export function compile|baseParse|transform\\\\(|generate\\\\(\\\" packages\\\\compiler-core\\\\src\\\\compile.ts packages\\\\compiler-dom\\\\src\\\\index.ts packages\\\\compiler-core\\\\src\\\\parser.ts packages\\\\compiler-core\\\\src\\\\transform.ts packages\\\\compiler-core\\\\src\\\\codegen.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"describe\\\\('patchProp|patchClass|patchStyle|patchEvent|patchAttrs|patchProps|nodeOps\\\" packages\\\\runtime-dom\\\\__tests__\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\vue\\\\package.json\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-core\\\\package.json\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\runtime-dom\\\\package.json\""
+              ],
+              "types": {
+                "agent_message": 8,
+                "command_execution": 27
+              },
+              "durMs": 133224,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "zod",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "zod-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 494943,
+              "cached": 367616,
+              "reasoning": 743,
+              "tokensWithReasoning": 495686,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 488112,
+                  "cachedInput": 367616,
+                  "output": 6831,
+                  "reasoning": 743
+                }
+              ],
+              "tools": 38,
+              "shell": 38,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 37,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export function|string\\\\(|const string|_string|new ZodString|ZodString\\\\(\\\" packages\\\\zod\\\\src\\\\v4\\\\classic\\\\schemas.ts packages\\\\zod\\\\src\\\\v4\\\\core\\\\api.ts packages\\\\zod\\\\src\\\\v4\\\\classic\\\\checks.ts packages\\\\zod\\\\src\\\\v4\\\\core\\\\checks.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -TotalCount 260 packages\\\\zod\\\\src\\\\v4\\\\core\\\\api.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\zod\\\\src\\\\v4\\\\classic\\\\checks.ts | Select-Object -Skip 1 -First 220\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\zod\\\\src\\\\v4\\\\classic\\\\schemas.ts | Select-Object -Skip 270 -First 170\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\zod\\\\src\\\\v4\\\\core\\\\checks.ts | Select-Object -Skip 1 -First 260\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\zod\\\\src\\\\v4\\\\classic\\\\schemas.ts | Select-Object -Skip 450 -First 230\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"describe\\\\(|test\\\\(|it\\\\(|safeParse|parse\\\\(|min\\\\(|object\\\\(|union\\\\(|optional\\\\(|refine\\\\(|superRefine|transform\\\\(|pipe\\\\(\\\" packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\base.test.ts packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\string.test.ts packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\object.test.ts packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\union.test.ts packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\error.test.ts packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\refine.test.ts packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\transform.test.ts packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\async-parsing.test.ts packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\standard-schema.test.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content -Raw packages\\\\zod\\\\package.json\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$files = @('\"'packages\\\\zod\\\\src\\\\index.ts','packages\\\\zod\\\\src\\\\v4\\\\classic\\\\external.ts','packages\\\\zod\\\\src\\\\v4\\\\classic\\\\parse.ts','packages\\\\zod\\\\src\\\\v4\\\\core\\\\parse.ts','packages\\\\zod\\\\src\\\\v4\\\\core\\\\core.ts','packages\\\\zod\\\\src\\\\v4\\\\core\\\\schemas.ts','packages\\\\zod\\\\src\\\\v4\\\\classic\\\\schemas.ts','packages\\\\zod\\\\src\\\\v4\\\\core\\\\api.ts','packages\\\\zod\\\\src\\\\v4\\\\core\\\\checks.ts','packages\\\\zod\\\\src\\\\v4\\\\core\\\\errors.ts','packages\\\\zod\\\\src\\\\v4\\\\core\\\\util.ts'); foreach (\"'$f in $files) { Select-String -Path $f -Pattern '\"'export const _parse|schema._zod.run|export const \\\\\"'$ZodType|export const '\"\\\\\"'$ZodString|export const '\"\\\\\"'$ZodObject|export const '\"\\\\\"'$ZodObjectJIT|export const '\"\\\\\"'$ZodUnion|export const '\"\\\\\"'$ZodOptional|export const ZodType|export const ZodString|export function string|export function object|export function _string|export function _object|export const '\"\\\\\"'$ZodCheck|finalizeIssue|export class '\"\\\\\"'$ZodError|export const '\"\\\\\"'$ZodError'\"' }\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\zod\\\\src\\\\v4\\\\core\\\\api.ts -Pattern 'function _object|function _strictObject|function _looseObject|function _array|function _union|function _optional|function _refine|function _superRefine|function _transform|function _pipe'\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\zod\\\\src\\\\v4\\\\classic\\\\schemas.ts -Pattern 'export function object|export function strictObject|export function looseObject|export function array|export function union|export function refine|export function superRefine|export function transform|export function pipe|export function optional'\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\zod\\\\src\\\\v4\\\\core\\\\util.ts -Pattern 'export function finalizeIssue|export function prefixIssues|export function aborted|export function explicitlyAborted|export function optionalKeys|export function normalizeParams|export function clone'\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\zod\\\\src\\\\v4\\\\core\\\\schemas.ts -Pattern 'export const \\\\\"'$ZodArray|export const '\"\\\\\"'$ZodDefault|export const '\"\\\\\"'$ZodTransform|export const '\"\\\\\"'$ZodPipe|export const '\"\\\\\"'$ZodCodec|export const '\"\\\\\"'$ZodCatch|export const '\"\\\\\"'$ZodDiscriminatedUnion|handlePropertyResult|handleUnionResults|runChecks|inst'\"\\\\._zod\\\\.run = \\\\(payload'\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Select-String -Path packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\base.test.ts,packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\string.test.ts,packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\object.test.ts,packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\union.test.ts,packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\error.test.ts,packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\refine.test.ts,packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\transform.test.ts,packages\\\\zod\\\\src\\\\v4\\\\classic\\\\tests\\\\async-parsing.test.ts -Pattern 'test\\\\(|describe\\\\(' | Select-Object -First 220\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"_object|_strictObject|_looseObject|new Class\\\\(\\\\{[\\\\s\\\\S]*type: \\\\\\\"object\\\\\\\"\\\" packages\\\\zod\\\\src\\\\v4\\\\core\\\\api.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\zod\\\\src\\\\v4\\\\core\\\\api.ts | Select-Object -Skip 1430 -First 110\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\zod\\\\src\\\\v4\\\\core\\\\util.ts | Select-Object -Skip 960 -First 80\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\zod\\\\src\\\\v4\\\\core\\\\errors.ts | Select-Object -Skip 260 -First 90\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\zod\\\\src\\\\v4\\\\classic\\\\schemas.ts | Select-Object -Skip 1780 -First 80\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\zod\\\\src\\\\v4\\\\core\\\\schemas.ts | Select-Object -Skip 2100 -First 190\""
+              ],
+              "types": {
+                "agent_message": 8,
+                "command_execution": 38
+              },
+              "durMs": 144717,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "typeorm",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "typeorm-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 1047193,
+              "cached": 935936,
+              "reasoning": 945,
+              "tokensWithReasoning": 1048138,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 1037801,
+                  "cachedInput": 935936,
+                  "output": 9392,
+                  "reasoning": 945
+                }
+              ],
+              "tools": 51,
+              "shell": 51,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 50,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content test'\"\\\\functional\\\\persistence\\\\save-empty-array\\\\save-empty-array.test.ts | ForEach-Object { \"'$i++; if ($i -ge 1 -and $i -le 70) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg --files test\\\\functional\\\\data-source test\\\\functional\\\\repository test\\\\functional\\\\persistence test\\\\functional\\\\find-options test\\\\functional\\\\query-builder test\\\\functional\\\\entity-subscriber test\\\\functional\\\\entity-listeners | Select-Object -First 120\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content test'\"\\\\functional\\\\find-options\\\\basic-usage\\\\find-options-where.test.ts | ForEach-Object { \"'$i++; if (($i -ge 1 -and $i -le 40) -or ($i -ge 680 -and $i -le 710)) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content test'\"\\\\functional\\\\repository\\\\update-by-criteria\\\\repository-update-by-criteria.test.ts | ForEach-Object { \"'$i++; if ($i -ge 1 -and $i -le 75) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content test'\"\\\\functional\\\\query-builder\\\\update\\\\query-builder-update.test.ts | ForEach-Object { \"'$i++; if ($i -ge 1 -and $i -le 65) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content test'\"\\\\functional\\\\data-source\\\\replication.test.ts | ForEach-Object { \"'$i++; if (($i -ge 1 -and $i -le 95) -or ($i -ge 150 -and $i -le 210)) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content test'\"\\\\functional\\\\entity-subscriber\\\\transaction-flow\\\\entity-subscriber-transaction-flow.test.ts | ForEach-Object { \"'$i++; if (($i -ge 50 -and $i -le 85) -or ($i -ge 290 -and $i -le 315)) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content test'\"\\\\functional\\\\persistence\\\\basic-functionality\\\\persistence-basic-functionality.test.ts | ForEach-Object { \"'$i++; if (($i -ge 1 -and $i -le 55) -or ($i -ge 80 -and $i -le 120)) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"new DataSource|initialize\\\\(|createTestingConnections|isInitialized|entityMetadatas|getRepository|synchronize|destroy\\\" test\\\\functional\\\\data-source test\\\\unit\\\\metadata test\\\\unit\\\\connection-options-reader | Select-Object -First 120\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-ChildItem test\\\\functional\\\\data-source -Recurse -Filter *.test.ts | Select-Object -ExpandProperty FullName\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-ChildItem test\\\\functional\\\\entity-metadata -Recurse -Filter *.test.ts | Select-Object -ExpandProperty FullName | Select-Object -First 40\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-ChildItem test\\\\functional\\\\metadata-builder -Recurse -Filter *.test.ts | Select-Object -ExpandProperty FullName | Select-Object -First 40\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"class DataSource|constructor\\\\(|initialize\\\\(|getRepository\\\\(|createQueryRunner\\\\(|buildMetadatas\\\\(|save\\\\(|find\\\\(|getMany\\\\(|execute\\\\(|executeEntitiesAndRawResults\\\\(|getRepository\\\\(\\\" src\\\\data-source\\\\DataSource.ts src\\\\entity-manager\\\\EntityManager.ts src\\\\repository\\\\Repository.ts src\\\\query-builder\\\\SelectQueryBuilder.ts src\\\\query-builder\\\\QueryBuilder.ts src\\\\persistence\\\\EntityPersistExecutor.ts src\\\\persistence\\\\SubjectExecutor.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content test'\"\\\\functional\\\\metadata-builder\\\\metadata-args-storage\\\\metadata-args-storage.test.ts | ForEach-Object { \"'$i++; if ($i -ge 1 -and $i -le 100) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content test'\"\\\\functional\\\\entity-metadata\\\\entity-metadata-create.test.ts | ForEach-Object { \"'$i++; if ($i -ge 1 -and $i -le 75) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content test'\"\\\\functional\\\\data-source\\\\data-source.test.ts | ForEach-Object { \"'$i++; if (($i -ge 35 -and $i -le 100) -or ($i -ge 158 -and $i -le 178) -or ($i -ge 195 -and $i -le 222)) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\entity-manager\\\\EntityManagerFactory.ts | ForEach-Object { \"'$i++; if ($i -ge 1 -and $i -le 80) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\entity-manager\\\\EntityManager.ts | ForEach-Object { \"'$i++; if ($i -ge 60 -and $i -le 110) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\driver\\\\DriverFactory.ts | ForEach-Object { \"'$i++; if ($i -ge 1 -and $i -le 120) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$i=0; Get-Content src'\"\\\\repository\\\\BaseEntity.ts | ForEach-Object { \"'$i++; if (($i -ge 45 -and $i -le 65) -or ($i -ge 100 -and $i -le 130)) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'"
+              ],
+              "types": {
+                "agent_message": 8,
+                "command_execution": 51,
+                "todo_list": 1
+              },
+              "durMs": 239269,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "rxjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "rxjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 497516,
+              "cached": 359936,
+              "reasoning": 690,
+              "tokensWithReasoning": 498206,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 490882,
+                  "cachedInput": 359936,
+                  "output": 6634,
+                  "reasoning": 690
+                }
+              ],
+              "tools": 32,
+              "shell": 32,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 30,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export class Observable|constructor\\\\(|subscribe\\\\(|_trySubscribe|pipe\\\\(|export function operate|export function from|function fromArrayLike|export function subscribeToArray|export class Subscriber|next\\\\(value|error\\\\(err|complete\\\\(\\\\)|unsubscribe\\\\(\\\\): void|class ConsumerObserver|export class Subscription\\\" packages\\\\observable\\\\src\\\\observable.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export function map|operate\\\\(|source.subscribe|destination.next\\\" packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\map.ts packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\filter.ts packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\take.ts packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\mergeMap.ts packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\mergeInternals.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export function of|export function interval|export function timer|export function fromEvent|new Observable|fromArrayLike|subscribeToArray\\\" packages\\\\rxjs\\\\src\\\\internal\\\\observable\\\\of.ts packages\\\\rxjs\\\\src\\\\internal\\\\observable\\\\interval.ts packages\\\\rxjs\\\\src\\\\internal\\\\observable\\\\timer.ts packages\\\\rxjs\\\\src\\\\internal\\\\observable\\\\fromEvent.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export class Subject|next\\\\(value|error\\\\(err|complete\\\\(\\\\)|_subscribe|_innerSubscribe|observed|currentObservers|observers\\\" packages\\\\rxjs\\\\src\\\\internal\\\\Subject.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$p='\"'packages\\\\rxjs\\\\src\\\\index.ts'; \"'$i=0; Get-Content $p | ForEach-Object { $i++; if (($i -ge 12 -and $i -le 75) -or ($i -ge 110 -and $i -le 170)) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$files=@('\"'packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\map.ts','packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\filter.ts','packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\take.ts','packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\mergeInternals.ts'); foreach(\"'$p in $files){ $i=0; Get-Content $p | ForEach-Object { $i++; if($i -le 140){ '\"'{0}:{1,5}: {2}' -f \"'$p,$i,$_ } } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$files=@('\"'packages\\\\rxjs\\\\src\\\\internal\\\\observable\\\\of.ts','packages\\\\rxjs\\\\src\\\\internal\\\\observable\\\\timer.ts','packages\\\\rxjs\\\\src\\\\internal\\\\observable\\\\fromEvent.ts','packages\\\\rxjs\\\\src\\\\internal\\\\Subject.ts'); foreach(\"'$p in $files){ $i=0; Get-Content $p | ForEach-Object { $i++; if(($p -like '\"'*of.ts' -and \"'$i -le 80) -or ($p -like '\"'*timer.ts' -and \"'$i -ge 150 -and $i -le 190) -or ($p -like '\"'*fromEvent.ts' -and \"'$i -ge 241 -and $i -le 294) -or ($p -like '\"'*Subject.ts' -and \"'$i -le 130)){ '\"'{0}:{1,5}: {2}' -f \"'$p,$i,$_ } } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$p='\"'packages\\\\observable\\\\src\\\\observable.ts'; \"'$i=0; Get-Content $p | ForEach-Object { $i++; if (($i -ge 49 -and $i -le 130) -or ($i -ge 239 -and $i -le 380) -or ($i -ge 536 -and $i -le 710) -or ($i -ge 776 -and $i -le 888) -or ($i -ge 1110 -and $i -le 1235)) { '\"'{0,5}: {1}' -f \"'$i, $_ } }'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content package.json'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"describe\\\\('|describe\\\\(\\\\\\\"|it\\\\('|it\\\\(\\\\\\\"|should be synchronous|should return a Subscription|should finalize|for-await|map\\\\(|filter\\\\(|take\\\\(|unsubscribe|synchronous|fromArrayLike|from\\\\(|Subject\\\" packages\\\\observable\\\\src\\\\observable.spec.ts packages\\\\rxjs\\\\spec\\\\Observable-spec.ts packages\\\\rxjs\\\\spec\\\\operators\\\\map-spec.ts packages\\\\rxjs\\\\spec\\\\operators\\\\filter-spec.ts packages\\\\rxjs\\\\spec\\\\operators\\\\take-spec.ts packages\\\\rxjs\\\\spec\\\\subjects\\\\BehaviorSubject-spec.ts packages\\\\rxjs\\\\spec\\\\Subject-spec.ts packages\\\\rxjs\\\\spec\\\\observables\\\\of-spec.ts packages\\\\rxjs\\\\spec\\\\observables\\\\from-spec.ts packages\\\\rxjs\\\\spec\\\\observables\\\\timer-spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content packages\\\\rxjs\\\\spec\\\\support\\\\.mocharc.js\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content nx.json'",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n 'describe\\\\(|it\\\\(|should be synchronous|should return a Subscription|should finalize|for-await|unsubscribe' packages\\\\observable\\\\src\\\\observable.spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n 'describe\\\\(|it\\\\(|synchronous|unsubscribe|should map|should filter|should take|take\\\\(|map\\\\(|filter\\\\(' packages\\\\rxjs\\\\spec\\\\operators\\\\map-spec.ts packages\\\\rxjs\\\\spec\\\\operators\\\\filter-spec.ts packages\\\\rxjs\\\\spec\\\\operators\\\\take-spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n 'describe\\\\(|it\\\\(|from\\\\(|of\\\\(|timer\\\\(|synchronous|unsubscribe|schedule|complete' packages\\\\rxjs\\\\spec\\\\observables\\\\of-spec.ts packages\\\\rxjs\\\\spec\\\\observables\\\\from-spec.ts packages\\\\rxjs\\\\spec\\\\observables\\\\timer-spec.ts packages\\\\rxjs\\\\spec\\\\observables\\\\fromEvent-spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n 'describe\\\\(|it\\\\(|Subject|unsubscribe|complete|error|multicast|reentrant|closed' packages\\\\rxjs\\\\spec\\\\Subject-spec.ts packages\\\\rxjs\\\\spec\\\\subjects\\\\BehaviorSubject-spec.ts packages\\\\rxjs\\\\spec\\\\subjects\\\\ReplaySubject-spec.ts packages\\\\rxjs\\\\spec\\\\subjects\\\\AsyncSubject-spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export function pipe|pipeFromArray|function pipeReducer|reduce\\\" packages\\\\rxjs\\\\src\\\\internal\\\\util\\\\pipe.ts packages\\\\observable\\\\src\\\\observable.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"from|Observable|Subscriber|Subscription|OperatorFunction|Observer|SchedulerLike\\\" packages\\\\rxjs\\\\src\\\\internal\\\\types.ts packages\\\\observable\\\\src\\\\types.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export function mergeMap|new Observable|mergeInternals\\\" packages\\\\rxjs\\\\src\\\\internal\\\\operators\\\\mergeMap.ts packages\\\\rxjs\\\\spec\\\\operators\\\\mergeMap-spec.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command '$files=@('\"'packages\\\\rxjs\\\\src\\\\internal\\\\BehaviorSubject.ts','packages\\\\rxjs\\\\src\\\\internal\\\\ReplaySubject.ts','packages\\\\rxjs\\\\src\\\\internal\\\\AsyncSubject.ts','packages\\\\rxjs\\\\src\\\\internal\\\\observable\\\\interval.ts','packages\\\\rxjs\\\\src\\\\internal\\\\util\\\\executeSchedule.ts','packages\\\\rxjs\\\\src\\\\internal\\\\scheduler\\\\AsyncAction.ts'); foreach(\"'$p in $files){ $i=0; Get-Content $p | ForEach-Object { $i++; if($i -le 120){ '\"'{0}:{1,5}: {2}' -f \"'$p,$i,$_ } } }'"
+              ],
+              "types": {
+                "agent_message": 7,
+                "command_execution": 32
+              },
+              "durMs": 163649,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "baseline",
+        "repo": "shopping-backend",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "shopping-backend-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [
+            {
+              "tokens": 296597,
+              "cached": 231424,
+              "reasoning": 1030,
+              "tokensWithReasoning": 297627,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 290446,
+                  "cachedInput": 231424,
+                  "output": 6151,
+                  "reasoning": 1030
+                }
+              ],
+              "tools": 49,
+              "shell": 49,
+              "graph": 0,
+              "web": 0,
+              "sourceTouches": 48,
+              "shellCommands": [
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"@Controller|TypedRoute|ShoppingCustomerAuth|ShoppingOrderPublishProvider|able\\\\(|create\\\\(|cancel\\\\(\\\" src\\\\controllers\\\\shoppings\\\\customers\\\\orders\\\\ShoppingCustomerOrderPublishController.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"ShoppingCustomerOrderModule|controllers|ShoppingCustomerOrderPublishController\\\" src\\\\controllers\\\\shoppings\\\\customers\\\\orders\\\\ShoppingCustomerOrderModule.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"ShoppingCustomerAuth|createParamDecorator|authorize|SwaggerCustomizer\\\" src\\\\decorators\\\\ShoppingCustomerAuth.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export async function able|@path|export async function create|PlainFetcher\\\\.fetch|export async function cancel\\\" src\\\\api\\\\functional\\\\shoppings\\\\customers\\\\orders\\\\publish\\\\index.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export const able|const knock|export const create|PaymentService\\\\.enroll|shopping_order_publishes\\\\.create|shopping_cart_commodities\\\\.updateMany|handlePayment|export const cancel|handleCancel|getStocks|encrypt\\\" src\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderPublishProvider.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export class ShoppingGlobal|prisma: PrismaClient|dotenv|typia\\\\.assert|env\\\\(\\\" src\\\\ShoppingGlobal.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export const create|findMany|ShoppingOrderDiagnoser\\\\.validate|shopping_orders\\\\.create|export const direct|export const erase|export const index|export const at|export const where\\\" src\\\\providers\\\\shoppings\\\\orders\\\\ShoppingOrderProvider.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"class ShoppingCustomerOrderController|TypedRoute|ShoppingOrderProvider|ShoppingOrderPriceProvider|create\\\\(|direct\\\\(|erase\\\\(|price\\\\(|discountable\\\\(|discount\\\\(\\\" src\\\\controllers\\\\shoppings\\\\customers\\\\orders\\\\ShoppingCustomerOrderController.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export const test_api_shopping_order_publish|test_api_shopping_actor_customer_join|generate_random_sale|generate_random_cart_commodity|generate_random_order|generate_random_order_publish|ShoppingApi\\\\.functional|TestValidator\\\" test\\\\features\\\\api\\\\shoppings\\\\orders\\\\test_api_shopping_order_publish.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export const generate_random_order_publish|publish\\\\.create|publish\\\\.able|TestValidator\\\" test\\\\features\\\\api\\\\shoppings\\\\orders\\\\internal\\\\generate_random_order_publish.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"export const generate_random_order|ShoppingApi\\\\.functional|orders\\\\.create|orders\\\\.direct\\\" test\\\\features\\\\api\\\\shoppings\\\\orders\\\\internal\\\\generate_random_order.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"DynamicExecutor\\\\.validate|location:|parameters:|wrapper:|ShoppingChannelProvider\\\\.create|props\\\\.open|props\\\\.close\\\" test\\\\TestAutomation.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"model shopping_orders|model shopping_order_publishes|model shopping_order_goods|model mv_shopping_order_publish_states|model mv_shopping_sale_snapshot_unit_stock_inventories\\\" prisma\\\\schema\\\\schema-06-orders.prisma prisma\\\\schema\\\\schema-04-sales.prisma\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"rg -n \\\"build:sdk|nestia all|build:test|\\\\\\\"test\\\\\\\"|start:dev\\\" package.json\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content test\\\\features\\\\api\\\\shoppings\\\\orders\\\\internal\\\\generate_random_order.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content test\\\\features\\\\api\\\\shoppings\\\\orders\\\\internal\\\\generate_random_order_publish.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content test\\\\features\\\\api\\\\shoppings\\\\carts\\\\internal\\\\generate_random_cart_commodity.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content test\\\\features\\\\api\\\\shoppings\\\\sales\\\\internal\\\\generate_random_sale.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\api\\\\module.ts\"",
+                "\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command \"Get-Content src\\\\api\\\\functional\\\\shoppings\\\\customers\\\\orders\\\\index.ts\""
+              ],
+              "types": {
+                "agent_message": 9,
+                "command_execution": 49
+              },
+              "durMs": 130544,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ],
+          "graph": []
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "excalidraw",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "excalidraw-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Excalidraw carry a user's element edit from pointer interaction through scene mutation, history, rendering, and collaboration or persistence?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 94702,
+              "cached": 57344,
+              "reasoning": 1763,
+              "tokensWithReasoning": 96465,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 90971,
+                  "cachedInput": 57344,
+                  "output": 3731,
+                  "reasoning": 1763
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 101621,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "vscode",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vscode-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does the extension host communicate with the main process?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 102978,
+              "cached": 45568,
+              "reasoning": 1058,
+              "tokensWithReasoning": 104036,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 100221,
+                  "cachedInput": 45568,
+                  "output": 2757,
+                  "reasoning": 1058
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 107181,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "nestjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "nestjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does NestJS carry an HTTP request from a decorated route to the controller result, including DI, guards, pipes, interceptors, filters, and the platform response?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 88820,
+              "cached": 52736,
+              "reasoning": 1073,
+              "tokensWithReasoning": 89893,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 85594,
+                  "cachedInput": 52736,
+                  "output": 3226,
+                  "reasoning": 1073
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 86158,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "vue",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vue-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Vue carry a reactive state change from a component/template read through dependency tracking, scheduling, rendering, and DOM patching?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 85712,
+              "cached": 59392,
+              "reasoning": 1038,
+              "tokensWithReasoning": 86750,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 83036,
+                  "cachedInput": 59392,
+                  "output": 2676,
+                  "reasoning": 1038
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 75678,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "zod",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "zod-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Zod carry `schema.parse` from the public API through core validation, transforms, error creation, and the typed result?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 103602,
+              "cached": 67072,
+              "reasoning": 736,
+              "tokensWithReasoning": 104338,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 101386,
+                  "cachedInput": 67072,
+                  "output": 2216,
+                  "reasoning": 736
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 73228,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "typeorm",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "typeorm-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does TypeORM turn `Repository.find` options with relations into query-builder joins and loaded entities?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 90373,
+              "cached": 54784,
+              "reasoning": 1754,
+              "tokensWithReasoning": 92127,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 86802,
+                  "cachedInput": 54784,
+                  "output": 3571,
+                  "reasoning": 1754
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 92609,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "rxjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "rxjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does RxJS carry a value from Observable.subscribe through pipe operators to the observer, and how does teardown flow back?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 88945,
+              "cached": 45568,
+              "reasoning": 990,
+              "tokensWithReasoning": 89935,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 86326,
+                  "cachedInput": 45568,
+                  "output": 2619,
+                  "reasoning": 990
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 73103,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "shopping-backend",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "shopping-backend-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does shopping-backend carry a customer order from request handling through auth, provider logic, Prisma writes, and the seller/admin paths that read it later?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 86385,
+              "cached": 52736,
+              "reasoning": 838,
+              "tokensWithReasoning": 87223,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 83837,
+                  "cachedInput": 52736,
+                  "output": 2548,
+                  "reasoning": 838
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 74204,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "excalidraw",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "excalidraw-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 71863,
+              "cached": 37376,
+              "reasoning": 899,
+              "tokensWithReasoning": 72762,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 69285,
+                  "cachedInput": 37376,
+                  "output": 2578,
+                  "reasoning": 899
+                }
+              ],
+              "tools": 3,
+              "shell": 0,
+              "graph": 3,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 3
+              },
+              "durMs": 69540,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "vscode",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vscode-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 92569,
+              "cached": 71168,
+              "reasoning": 1084,
+              "tokensWithReasoning": 93653,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 89362,
+                  "cachedInput": 71168,
+                  "output": 3207,
+                  "reasoning": 1084
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 105971,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "nestjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "nestjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 94351,
+              "cached": 56832,
+              "reasoning": 1363,
+              "tokensWithReasoning": 95714,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 91033,
+                  "cachedInput": 56832,
+                  "output": 3318,
+                  "reasoning": 1363
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 85490,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "vue",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vue-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 87862,
+              "cached": 54272,
+              "reasoning": 772,
+              "tokensWithReasoning": 88634,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 85041,
+                  "cachedInput": 54272,
+                  "output": 2821,
+                  "reasoning": 772
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 76736,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "zod",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "zod-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 113694,
+              "cached": 67584,
+              "reasoning": 1139,
+              "tokensWithReasoning": 114833,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 110383,
+                  "cachedInput": 67584,
+                  "output": 3311,
+                  "reasoning": 1139
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 94055,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "typeorm",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "typeorm-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 86312,
+              "cached": 52736,
+              "reasoning": 772,
+              "tokensWithReasoning": 87084,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 83304,
+                  "cachedInput": 52736,
+                  "output": 3008,
+                  "reasoning": 772
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 82950,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "rxjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "rxjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 88837,
+              "cached": 52224,
+              "reasoning": 1048,
+              "tokensWithReasoning": 89885,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 85589,
+                  "cachedInput": 52224,
+                  "output": 3248,
+                  "reasoning": 1048
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 80670,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "ttsc-graph",
+        "repo": "shopping-backend",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "shopping-backend-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 83403,
+              "cached": 51712,
+              "reasoning": 777,
+              "tokensWithReasoning": 84180,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 80832,
+                  "cachedInput": 51712,
+                  "output": 2571,
+                  "reasoning": 777
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 71714,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-common-v1",
               "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
               "run": 1,
               "attempts": 1
