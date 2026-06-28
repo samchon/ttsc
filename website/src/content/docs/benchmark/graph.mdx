@@ -6,7 +6,7 @@ import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
 
 It asks two questions: how completely the graph resolves a real TypeScript codebase, and whether an agent spends fewer tokens and tool calls when a graph MCP server is available. The agent-cost runner can measure `@ttsc/graph` and the `codegraph` comparator against the same empty-MCP baseline.
 
-The dashboard separates the agent-cost data by question mode, project, then agent model. `dedicated` uses project-specific mechanism questions; `common` asks the same onboarding-style question across projects.
+The dashboard puts the shared onboarding prompt first: each model gets one chart with every project. Project-specific prompts follow: each project gets one chart with every measured model.
 
 The graph fuses static structure and live diagnostics into one checker-resolved ontology. An agent can see a change's reach over what is currently broken before it edits. See [Code Graph](/docs/graph).
 
@@ -18,7 +18,7 @@ The agent-cost benchmark runs an AI coding agent headless against prepared fixtu
 
 Baseline cells can be measured first with `--arm=baseline --tools=baseline`. Later comparator runs can use `--arm=graph --tools=ttsc-graph,codegraph`; the website groups those graph samples with the existing baseline by question mode, repository, model tier, effort, fixture branch, and daemon mode.
 
-The stored metrics are the raw per-run samples: total tokens, reasoning token counts when the harness exposes them, tool-call count, and wall time. The dashboard derives and displays medians and saved percentages for total tokens, tool calls, and wall time from `website/public/benchmark/graph.json`.
+The stored metrics are the raw per-run samples: total tokens, reasoning token counts when the harness exposes them, tool-call count, and wall time. The dashboard charts token reduction from `website/public/benchmark/graph.json`; hover details show the matching raw tokens, tool calls, and wall time.
 
 ## Structural Coverage
 
