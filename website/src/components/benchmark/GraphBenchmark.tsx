@@ -116,21 +116,6 @@ function gptVersionLabel(version: string | undefined): string | undefined {
   return version.replace(/^gpt-/i, "GPT-").replace(/-mini$/i, " mini");
 }
 
-/**
- * Display name for an AI coding agent (the benchmark harness): Claude Code is
- * Anthropic's CLI, Codex is OpenAI's CLI. Unknown harnesses pass through.
- */
-function harnessLabel(harness: string): string {
-  switch (harness) {
-    case "claude-code":
-      return "Claude Code";
-    case "codex":
-      return "Codex";
-    default:
-      return harness;
-  }
-}
-
 function repoLabel(repo: string): string {
   switch (repo) {
     case "vscode":
@@ -171,6 +156,7 @@ function promptFamilyLabel(promptFamily: string): string {
 
 const TOOL_TTSC = "ttsc-graph";
 const TOOL_CODEGRAPH = "codegraph";
+const TOOL_CODEBASE_MEMORY = "codebase-memory";
 const TOOL_BASELINE = "baseline";
 
 function cellTool(cell: AgentCell): string {
@@ -219,7 +205,6 @@ function groupBy<T>(
 
 interface Metrics {
   tokens: number;
-  reasoning: number;
   tools: number;
   dur: number;
 }
@@ -234,9 +219,11 @@ interface ModelGroup {
   daemon: boolean;
   runs?: number;
   codegraphSetupMs?: number;
+  codebaseMemorySetupMs?: number;
   baseline: Metrics;
   ttsc?: Metrics;
   codegraph?: Metrics;
+  codebaseMemory?: Metrics;
 }
 
 interface ProjectGroup {
@@ -258,9 +245,6 @@ function medianMetrics(samples: AgentSample[]): Metrics {
   const valid = validSamples(samples);
   return {
     tokens: median(valid.map((s) => s.tokens)),
-    reasoning: median(
-      valid.map((s) => (typeof s.reasoning === "number" ? s.reasoning : 0)),
-    ),
     tools: median(valid.map((s) => s.tools)),
     dur: median(valid.map((s) => s.durMs ?? 0)),
   };
@@ -308,32 +292,6 @@ function promptModeOrder(mode: PromptModeGroup): number {
   return index === -1 ? order.length : index;
 }
 
-function hasGraphMeasurement(model: ModelGroup): boolean {
-  return Boolean(model.ttsc || model.codegraph);
-}
-
-function hasCodegraphMeasurement(model: ModelGroup): boolean {
-  return Boolean(model.codegraph);
-}
-
-function defaultProjectGroup(
-  projects: ProjectGroup[],
-): ProjectGroup | undefined {
-  return (
-    projects.find((g) => g.models.some(hasCodegraphMeasurement)) ??
-    projects.find((g) => g.models.some(hasGraphMeasurement)) ??
-    projects[0]
-  );
-}
-
-function defaultModelGroup(models: ModelGroup[]): ModelGroup | undefined {
-  return (
-    models.find(hasCodegraphMeasurement) ??
-    models.find(hasGraphMeasurement) ??
-    models[0]
-  );
-}
-
 function buildPromptModeGroups(projects: ProjectGroup[]): PromptModeGroup[] {
   return groupBy(projects, (project) => promptModeKey(project.promptFamily))
     .map(
@@ -355,9 +313,9 @@ function buildPromptModeGroups(projects: ProjectGroup[]): PromptModeGroup[] {
 /**
  * Reshape the flat cell list into project -> model groups. Each model row
  * carries one empty-MCP baseline for the same harness/model
- * version/effort/fixture mode in this repo, plus the ttsc-graph and codegraph
- * graph medians when those cells exist. Dedicated baseline cells win; older
- * combined A/B cells remain readable through their embedded baseline samples.
+ * version/effort/fixture mode in this repo, plus graph-tool medians when those
+ * cells exist. Dedicated baseline cells win; older combined A/B cells remain
+ * readable through their embedded baseline samples.
  */
 function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
   return groupBy(cells, projectGroupKey).map(({ key, items: repoCells }) => {
@@ -368,6 +326,9 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
         const ttscCell = modelCells.find((c) => cellTool(c) === TOOL_TTSC);
         const codegraphCell = modelCells.find(
           (c) => cellTool(c) === TOOL_CODEGRAPH,
+        );
+        const codebaseMemoryCell = modelCells.find(
+          (c) => cellTool(c) === TOOL_CODEBASE_MEMORY,
         );
         const baselineCells = modelCells.filter(
           (c) => cellTool(c) === TOOL_BASELINE,
@@ -392,8 +353,13 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
           effort: head.effort,
           fixtureBranch: head.fixtureBranch,
           daemon: head.daemon === true,
-          runs: ttscCell?.runs ?? codegraphCell?.runs ?? baselineCell?.runs,
+          runs:
+            ttscCell?.runs ??
+            codegraphCell?.runs ??
+            codebaseMemoryCell?.runs ??
+            baselineCell?.runs,
           codegraphSetupMs: codegraphCell?.toolSetupMs,
+          codebaseMemorySetupMs: codebaseMemoryCell?.toolSetupMs,
           baseline: medianMetrics(baselineSamples),
           ttsc:
             ttscCell && validSamples(ttscCell.samples.graph).length > 0
@@ -403,6 +369,11 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
             codegraphCell &&
             validSamples(codegraphCell.samples.graph).length > 0
               ? medianMetrics(codegraphCell.samples.graph)
+              : undefined,
+          codebaseMemory:
+            codebaseMemoryCell &&
+            validSamples(codebaseMemoryCell.samples.graph).length > 0
+              ? medianMetrics(codebaseMemoryCell.samples.graph)
               : undefined,
         };
       })
@@ -430,10 +401,11 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
 
 const ACCENT = "#36e2ee";
 
-const BASELINE_FILL = "#4b5563";
 const TTSC_FILL = `linear-gradient(90deg, ${ACCENT}, #19b6c9)`;
 const CODEGRAPH_FILL = "linear-gradient(90deg, #f5b042, #d97706)";
 const CODEGRAPH_TEXT = "#f5b042";
+const CODEBASE_MEMORY_FILL = "linear-gradient(90deg, #8bdc65, #3f9f4a)";
+const CODEBASE_MEMORY_TEXT = "#8bdc65";
 
 const panelClass =
   "overflow-hidden rounded-lg border border-[#222834] bg-[#0c0e13] shadow-[0_24px_60px_rgba(0,0,0,0.35)]";
@@ -486,196 +458,11 @@ function SectionHeader({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Agent cost: each metric is a grouped bar (baseline / ttsc-graph / codegraph)
-// ---------------------------------------------------------------------------
-
-interface BarSpec {
-  key: string;
-  label: string;
-  mode?: string;
-  value: number;
-  fill: string;
-  textColor: string;
-  baseline?: boolean;
-}
-
-interface Metric {
-  key: keyof Metrics;
-  label: string;
-  fmt: (n: number) => string;
-}
-
-const METRICS: Metric[] = [
-  { key: "tokens", label: "tokens", fmt: (n) => fmt(Math.round(n)) },
-  {
-    key: "reasoning",
-    label: "reasoning tokens",
-    fmt: (n) => fmt(Math.round(n)),
-  },
-  {
-    key: "tools",
-    label: "tool calls",
-    fmt: (n) => (n % 1 === 0 ? fmt(Math.round(n)) : n.toFixed(1)),
-  },
-  { key: "dur", label: "wall time", fmt: (n) => fmtSecs(n) },
-];
-
-/** One horizontal bar in a metric group, scaled against the group's max. */
-function BarRow({
-  bar,
-  max,
-  baseValue,
-  raw,
-}: {
-  bar: BarSpec;
-  max: number;
-  baseValue: number;
-  raw: string;
-}) {
-  const width = max > 0 ? Math.max(2, (bar.value / max) * 100) : 2;
-  const saved = bar.baseline ? null : pctSaved(baseValue, bar.value);
-
-  return (
-    <div
-      className="flex items-center gap-2.5"
-      title={`${bar.label}${bar.mode ? ` ${bar.mode}` : ""}: ${raw}`}
-    >
-      <span
-        className="w-32 shrink-0 truncate font-mono text-[10px]"
-        style={{ color: bar.textColor }}
-      >
-        {bar.label}
-        {bar.mode ? (
-          <span className="text-neutral-500"> - {bar.mode}</span>
-        ) : null}
-      </span>
-      <div className="relative h-3.5 flex-1 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ring-white/[0.04]">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${width}%`, background: bar.fill }}
-        />
-      </div>
-      <span className="w-[4.75rem] shrink-0 text-right font-mono text-[10px] tabular-nums text-neutral-300">
-        {raw}
-      </span>
-      <span className="w-12 shrink-0 text-right font-mono text-[10px] tabular-nums">
-        {saved === null ? (
-          <span className="text-neutral-600">baseline</span>
-        ) : saved >= 0 ? (
-          <span style={{ color: ACCENT }}>{saved}%</span>
-        ) : (
-          <span className="text-rose-400">+{-saved}%</span>
-        )}
-      </span>
-    </div>
-  );
-}
-
-/** One metric (tokens / tool calls / wall time) as a group of bars. */
-function MetricGroup({ metric, model }: { metric: Metric; model: ModelGroup }) {
-  const baseValue = model.baseline[metric.key];
-  const bars: BarSpec[] = [
-    {
-      key: "baseline",
-      label: "baseline",
-      value: baseValue,
-      fill: BASELINE_FILL,
-      textColor: "#9ca3af",
-      baseline: true,
-    },
-  ];
-  if (model.ttsc)
-    bars.push({
-      key: "ttsc",
-      label: "@ttsc/graph",
-      mode: "mcp",
-      value: model.ttsc[metric.key],
-      fill: TTSC_FILL,
-      textColor: ACCENT,
-    });
-  if (model.codegraph)
-    bars.push({
-      key: "codegraph",
-      label: "codegraph",
-      mode: "mcp",
-      value: model.codegraph[metric.key],
-      fill: CODEGRAPH_FILL,
-      textColor: CODEGRAPH_TEXT,
-    });
-
-  const max = Math.max(1, ...bars.map((bar) => bar.value));
-
-  return (
-    <div className="space-y-1.5 rounded-md border border-[#1c2230] bg-[#0e1117] px-3.5 py-3">
-      <p className="font-mono text-[11px] font-medium uppercase tracking-wide text-neutral-300">
-        {metric.label}
-      </p>
-      <div className="space-y-1.5">
-        {bars.map((bar) => (
-          <BarRow
-            key={bar.key}
-            bar={bar}
-            max={max}
-            baseValue={baseValue}
-            raw={metric.fmt(bar.value)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function modelMeta(model: ModelGroup): string {
-  const parts = [harnessLabel(model.harness)];
-  if (model.effort) parts.push(`effort ${model.effort}`);
-  if (model.fixtureBranch) parts.push(model.fixtureBranch);
-  parts.push(model.daemon ? "daemon" : "one-shot");
-  if (model.runs !== undefined)
-    parts.push(`${model.runs} run${model.runs !== 1 ? "s" : ""}`);
-  return parts.join(" - ");
-}
-
 function modelTabMeta(model: ModelGroup): string | undefined {
   const parts: string[] = [];
   if (model.effort) parts.push(model.effort);
   parts.push(model.daemon ? "daemon" : "one-shot");
   return parts.join(" / ");
-}
-
-/** One model row: its identity on the left, the metric groups on the right. */
-function ModelBlock({ model }: { model: ModelGroup }) {
-  const metrics = METRICS.filter(
-    (metric) =>
-      metric.key !== "reasoning" ||
-      model.baseline.reasoning > 0 ||
-      (model.ttsc?.reasoning ?? 0) > 0 ||
-      (model.codegraph?.reasoning ?? 0) > 0,
-  );
-
-  return (
-    <div className="grid gap-5 px-5 py-5 md:grid-cols-[minmax(8rem,12rem)_minmax(0,1fr)] md:gap-6">
-      <div className="md:border-r md:border-[#1a1f29] md:pr-6">
-        <p className="text-[15px] font-semibold tracking-tight text-neutral-50">
-          {model.label}
-        </p>
-        <p className="mt-1.5 font-mono text-[11px] text-neutral-500">
-          {modelMeta(model)}
-        </p>
-        {model.codegraphSetupMs !== undefined ? (
-          <p className="mt-1 font-mono text-[11px] text-neutral-500">
-            codegraph index {fmtSecs(model.codegraphSetupMs)}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="space-y-2.5">
-        {metrics.map((metric) => (
-          <MetricGroup key={metric.key} metric={metric} model={model} />
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function LegendDot({ fill, label }: { fill: string; label: string }) {
@@ -690,92 +477,429 @@ function LegendDot({ fill, label }: { fill: string; label: string }) {
   );
 }
 
-function ProjectPanel({
-  group,
-  models = group.models,
-  aside,
+// ---------------------------------------------------------------------------
+// Token reduction charts
+// ---------------------------------------------------------------------------
+
+type ToolKey = "ttsc" | "codegraph" | "codebaseMemory";
+
+interface ReductionTool {
+  key: ToolKey;
+  label: string;
+  metrics?: Metrics;
+  setupMs?: number;
+  fill: string;
+  textColor: string;
+}
+
+interface ReductionRow {
+  id: string;
+  label: string;
+  meta?: string;
+  baseline: Metrics;
+  tools: ReductionTool[];
+}
+
+function toolReduction(row: ReductionRow, tool: ReductionTool): number | null {
+  if (!tool.metrics) return null;
+  return pctSaved(row.baseline.tokens, tool.metrics.tokens);
+}
+
+function reductionLabel(reduction: number | null): string {
+  if (reduction === null) return "n/a";
+  return `${reduction}%`;
+}
+
+function averageReduction(
+  rows: ReductionRow[],
+  toolKey: ToolKey,
+): number | null {
+  const values = rows
+    .map((row) => {
+      const tool = row.tools.find((candidate) => candidate.key === toolKey);
+      return tool ? toolReduction(row, tool) : null;
+    })
+    .filter((value): value is number => value !== null);
+  if (values.length === 0) return null;
+  return Math.round(
+    values.reduce((sum, value) => sum + value, 0) / values.length,
+  );
+}
+
+function reductionText(reduction: number | null): string {
+  if (reduction === null) return "No data";
+  return reduction >= 0
+    ? `${reduction}% saved`
+    : `${-reduction}% over baseline`;
+}
+
+interface ReductionDomain {
+  min: number;
+  max: number;
+}
+
+const REDUCTION_DOMAIN: ReductionDomain = { min: -5, max: 100 };
+
+function reductionPosition(value: number, domain: ReductionDomain): number {
+  const range = domain.max - domain.min;
+  if (range <= 0) return 0;
+  return Math.max(0, Math.min(100, ((value - domain.min) / range) * 100));
+}
+
+function reductionBarStyle(
+  reduction: number | null,
+  domain: ReductionDomain,
+): { width: string } {
+  if (reduction === null) return { width: "0%" };
+  const value = reductionPosition(reduction, domain);
+  return { width: `${Math.max(2, value)}%` };
+}
+
+function reductionTicks(domain: ReductionDomain): number[] {
+  return [...new Set([domain.min, 0, 50, 100])]
+    .filter((tick) => tick >= domain.min && tick <= domain.max)
+    .sort((a, b) => a - b);
+}
+
+function ReductionTooltip({
+  row,
+  tool,
 }: {
-  group: ProjectGroup;
-  models?: ModelGroup[];
-  aside?: string;
+  row: ReductionRow;
+  tool: ReductionTool;
 }) {
-  const hasTtsc = models.some((model) => model.ttsc);
-  const hasCodegraph = models.some((model) => model.codegraph);
-  const hasComparator = hasTtsc || hasCodegraph;
+  const reduction = toolReduction(row, tool);
+  if (!tool.metrics)
+    return (
+      <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 rounded-md border border-[#2a313e] bg-[#090b10] p-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45)] group-hover:block">
+        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+          {row.label} / {tool.label}
+        </p>
+        <p className="mt-2 text-[12px] font-medium text-neutral-300">
+          No published measurement.
+        </p>
+      </div>
+    );
 
   return (
-    <section className={panelClass}>
-      <SectionHeader
-        eyebrow="Agent cost"
-        title={repoLabel(group.repo)}
-        description={
-          group.question ??
-          (hasComparator
-            ? "Median tokens, tool calls and wall time per model, against the empty-MCP baseline. Each tool is shown as mcp (the server alone)."
-            : "Median tokens, tool calls and wall time for the empty-MCP baseline. Graph comparator measurements have not been published for this slice yet.")
-        }
-        aside={aside}
+    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-72 rounded-md border border-[#2a313e] bg-[#090b10] p-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45)] group-hover:block">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{
+          background: `linear-gradient(to right, transparent, ${tool.textColor}99, transparent)`,
+        }}
       />
-
-      <div className="divide-y divide-[#1a1f29]">
-        {models.map((model) => (
-          <ModelBlock key={model.id} model={model} />
-        ))}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+            {row.label}
+          </p>
+          <p className="mt-1 text-[12px] font-semibold text-neutral-100">
+            {tool.label}
+          </p>
+        </div>
+        <span
+          className="shrink-0 rounded-full border px-2 py-1 font-mono text-[11px] tabular-nums"
+          style={{ borderColor: `${tool.textColor}66`, color: tool.textColor }}
+        >
+          {reductionText(reduction)}
+        </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-[#1a1f29] px-5 py-3 font-mono text-[10px] text-neutral-500">
-        <LegendDot fill={BASELINE_FILL} label="empty-MCP baseline" />
-        {hasTtsc ? <LegendDot fill={ACCENT} label="@ttsc/graph" /> : null}
-        {hasCodegraph ? (
-          <LegendDot fill={CODEGRAPH_TEXT} label="codegraph" />
-        ) : null}
-        <span className="text-neutral-600">
-          {hasComparator
-            ? "mcp = server only; saved vs baseline; over baseline"
-            : "comparator measurements pending"}
-        </span>
+      <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-[10px]">
+        <div className="rounded border border-[#1c2230] bg-[#0e1117] p-2">
+          <p className="uppercase tracking-[0.12em] text-neutral-600">
+            baseline
+          </p>
+          <p className="mt-1 tabular-nums text-neutral-200">
+            {fmt(Math.round(row.baseline.tokens))}
+          </p>
+        </div>
+        <div className="rounded border border-[#1c2230] bg-[#0e1117] p-2">
+          <p className="uppercase tracking-[0.12em] text-neutral-600">tool</p>
+          <p className="mt-1 tabular-nums text-neutral-200">
+            {fmt(Math.round(tool.metrics.tokens))}
+          </p>
+        </div>
+        <div className="rounded border border-[#1c2230] bg-[#0e1117] p-2">
+          <p className="uppercase tracking-[0.12em] text-neutral-600">calls</p>
+          <p className="mt-1 tabular-nums text-neutral-200">
+            {fmt(Math.round(tool.metrics.tools))}
+          </p>
+        </div>
+        <div className="rounded border border-[#1c2230] bg-[#0e1117] p-2">
+          <p className="uppercase tracking-[0.12em] text-neutral-600">time</p>
+          <p className="mt-1 tabular-nums text-neutral-200">
+            {fmtSecs(tool.metrics.dur)}
+          </p>
+        </div>
+      </div>
+      {tool.setupMs !== undefined ? (
+        <p className="mt-2 font-mono text-[10px] text-neutral-500">
+          index setup: {fmtSecs(tool.setupMs)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function reductionTools(model: ModelGroup): ReductionTool[] {
+  return [
+    {
+      key: "ttsc",
+      label: "@ttsc/graph",
+      metrics: model.ttsc,
+      fill: TTSC_FILL,
+      textColor: ACCENT,
+    },
+    {
+      key: "codegraph",
+      label: "codegraph",
+      metrics: model.codegraph,
+      setupMs: model.codegraphSetupMs,
+      fill: CODEGRAPH_FILL,
+      textColor: CODEGRAPH_TEXT,
+    },
+    {
+      key: "codebaseMemory",
+      label: "codebase-memory",
+      metrics: model.codebaseMemory,
+      setupMs: model.codebaseMemorySetupMs,
+      fill: CODEBASE_MEMORY_FILL,
+      textColor: CODEBASE_MEMORY_TEXT,
+    },
+  ];
+}
+
+function ChartLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[10px] text-neutral-500">
+      <LegendDot fill="#6f7787" label="baseline" />
+      <LegendDot fill={ACCENT} label="@ttsc/graph" />
+      <LegendDot fill={CODEGRAPH_TEXT} label="codegraph" />
+      <LegendDot fill={CODEBASE_MEMORY_TEXT} label="codebase-memory" />
+      <span className="text-neutral-600">
+        bars show token reduction vs empty-MCP baseline; baseline is 0%
+      </span>
+    </div>
+  );
+}
+
+function ReductionChart({
+  eyebrow,
+  title,
+  description,
+  rows,
+  aside,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  rows: ReductionRow[];
+  aside?: string;
+}) {
+  const ttscAverage = averageReduction(rows, "ttsc");
+  const codegraphAverage = averageReduction(rows, "codegraph");
+  const codebaseMemoryAverage = averageReduction(rows, "codebaseMemory");
+  const domain = REDUCTION_DOMAIN;
+  const ticks = reductionTicks(domain);
+  const zeroPosition = reductionPosition(0, domain);
+
+  return (
+    <section className={`${panelClass} overflow-visible`}>
+      <SectionHeader
+        eyebrow={eyebrow}
+        title={title}
+        description={description}
+        aside={aside}
+      />
+      <div className="space-y-3 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ChartLegend />
+          <div className="flex flex-wrap gap-2 font-mono text-[10px] tabular-nums">
+            {ttscAverage !== null ? (
+              <span className="rounded-full border border-[#1f3e46] bg-[#0d1a1d] px-2 py-1 text-[#36e2ee]">
+                @ttsc/graph avg {reductionLabel(ttscAverage)}
+              </span>
+            ) : null}
+            {codegraphAverage !== null ? (
+              <span className="rounded-full border border-[#49351a] bg-[#1b140b] px-2 py-1 text-[#f5b042]">
+                codegraph avg {reductionLabel(codegraphAverage)}
+              </span>
+            ) : null}
+            {codebaseMemoryAverage !== null ? (
+              <span className="rounded-full border border-[#2f4b28] bg-[#111a10] px-2 py-1 text-[#8bdc65]">
+                codebase-memory avg {reductionLabel(codebaseMemoryAverage)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[9rem_1fr] items-center gap-3 border-y border-[#1a1f29] py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-600 sm:grid-cols-[12rem_1fr]">
+          <span>case</span>
+          <div className="relative h-4">
+            <span
+              className="absolute inset-y-0 w-px bg-[#364153]"
+              style={{ left: `${zeroPosition}%` }}
+            />
+            {ticks.map((tick) => {
+              const position = reductionPosition(tick, domain);
+              return (
+                <span
+                  key={tick}
+                  className={`absolute top-0 ${
+                    position <= 1
+                      ? "text-left"
+                      : position >= 99
+                        ? "-translate-x-full text-right"
+                        : "-translate-x-1/2 text-center"
+                  }`}
+                  style={{ left: `${position}%` }}
+                >
+                  {tick}%
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              className="grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-medium text-neutral-100">
+                  {row.label}
+                </p>
+                {row.meta ? (
+                  <p className="mt-0.5 truncate font-mono text-[10px] text-neutral-500">
+                    {row.meta}
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-[5.75rem_minmax(0,1fr)_3.25rem] items-center gap-2">
+                  <span className="truncate font-mono text-[10px] text-neutral-500">
+                    baseline
+                  </span>
+                  <div className="relative h-3.5 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ring-white/[0.04]">
+                    <div
+                      className="absolute top-0 h-full rounded-full bg-[#6f7787]"
+                      style={reductionBarStyle(0, domain)}
+                    />
+                    <span
+                      className="absolute inset-y-0 z-10 w-px bg-white/25"
+                      style={{ left: `${zeroPosition}%` }}
+                    />
+                  </div>
+                  <span className="text-right font-mono text-[10px] tabular-nums text-neutral-300">
+                    0%
+                  </span>
+                </div>
+                {row.tools.map((tool) => {
+                  const reduction = toolReduction(row, tool);
+                  const missing = !tool.metrics;
+                  return (
+                    <div
+                      key={tool.key}
+                      className="group relative grid grid-cols-[5.75rem_minmax(0,1fr)_3.25rem] items-center gap-2"
+                    >
+                      <span
+                        className="truncate font-mono text-[10px]"
+                        style={{ color: tool.textColor }}
+                      >
+                        {tool.label}
+                      </span>
+                      <div className="relative h-3.5 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ring-white/[0.04]">
+                        <div
+                          className={`absolute top-0 h-full rounded-full ${
+                            missing ? "opacity-25" : ""
+                          }`}
+                          style={{
+                            ...reductionBarStyle(reduction, domain),
+                            background: missing ? "#303644" : tool.fill,
+                          }}
+                        />
+                        <span
+                          className="absolute inset-y-0 z-10 w-px bg-white/25"
+                          style={{ left: `${zeroPosition}%` }}
+                        />
+                      </div>
+                      <span
+                        className={`text-right font-mono text-[10px] tabular-nums ${
+                          reduction !== null && reduction < 0
+                            ? "text-rose-400"
+                            : "text-neutral-300"
+                        }`}
+                      >
+                        {reductionLabel(reduction)}
+                      </span>
+                      <ReductionTooltip row={row} tool={tool} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
 }
 
-interface TabChoice {
+function commonRowsForModel(
+  mode: PromptModeGroup,
+  modelId: string,
+): ReductionRow[] {
+  const rows: ReductionRow[] = [];
+  for (const project of mode.projects) {
+    const model = project.models.find((candidate) => candidate.id === modelId);
+    if (!model) continue;
+    rows.push({
+      id: project.id,
+      label: repoLabel(project.repo),
+      baseline: model.baseline,
+      tools: reductionTools(model),
+    });
+  }
+  return rows;
+}
+
+interface ReductionTab {
   id: string;
   label: string;
   meta?: string;
 }
 
-function AxisTabs({
+function ReductionTabs({
   label,
-  ariaLabel,
   items,
   active,
   onSelect,
 }: {
   label: string;
-  ariaLabel: string;
-  items: TabChoice[];
+  items: ReductionTab[];
   active: string;
   onSelect: (id: string) => void;
 }) {
+  if (items.length <= 1) return null;
   return (
-    <div className="grid gap-2 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-center">
+    <div className="grid gap-2 rounded-lg border border-[#222834] bg-[#0c0e13] p-2.5 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-center">
       <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-neutral-500">
         {label}
       </div>
-      <nav
-        aria-label={ariaLabel}
-        className="flex min-w-0 gap-1 overflow-x-auto"
-      >
+      <nav className="flex min-w-0 gap-1 overflow-x-auto">
         {items.map((item) => {
-          const isActive = item.id === active;
+          const selected = item.id === active;
           return (
             <button
               key={item.id}
               type="button"
-              aria-pressed={isActive}
+              aria-pressed={selected}
               className={`shrink-0 rounded-md px-3 py-1.5 text-left text-[12px] font-medium transition-colors ${
-                isActive
+                selected
                   ? "bg-[#1b212c] text-neutral-50 shadow-sm"
                   : "text-neutral-400 hover:bg-[#13171f] hover:text-neutral-100"
               }`}
@@ -795,60 +919,117 @@ function AxisTabs({
   );
 }
 
-function GraphBenchmarkTabs({
-  modes,
-  activeMode,
-  activeProject,
-  activeModel,
-  onModeSelect,
-  onProjectSelect,
-  onModelSelect,
+function CommonReductionSection({
+  mode,
+  modelFilter,
 }: {
-  modes: PromptModeGroup[];
-  activeMode: PromptModeGroup;
-  activeProject: ProjectGroup;
-  activeModel: ModelGroup;
-  onModeSelect: (id: string) => void;
-  onProjectSelect: (id: string) => void;
-  onModelSelect: (id: string) => void;
+  mode: PromptModeGroup;
+  modelFilter?: (model: ModelGroup) => boolean;
 }) {
+  const models = groupBy(
+    mode.projects.flatMap((project) => project.models),
+    (model) => model.id,
+  )
+    .map(({ items }) => items[0]!)
+    .filter((model) => (modelFilter ? modelFilter(model) : true))
+    .sort(
+      (a, b) =>
+        modelOrder(a.model) - modelOrder(b.model) ||
+        a.label.localeCompare(b.label),
+    );
+
+  const [activeModelId, setActiveModelId] = useState<string | null>(null);
+  const activeModel =
+    (activeModelId
+      ? models.find((model) => model.id === activeModelId)
+      : undefined) ?? models[0];
+  const activeRows = activeModel
+    ? commonRowsForModel(mode, activeModel.id)
+    : [];
+
   return (
-    <div className="space-y-2 rounded-lg border border-[#222834] bg-[#0c0e13] p-2.5">
-      <AxisTabs
-        label="Question"
-        ariaLabel="Graph benchmark question modes"
-        items={modes.map((mode) => ({
-          id: mode.id,
-          label: promptFamilyLabel(mode.promptFamily),
-          meta: `${mode.projects.length} project${
-            mode.projects.length !== 1 ? "s" : ""
-          }`,
+    <section className="space-y-3">
+      <div className="px-1">
+        <Eyebrow label="Shared onboarding" />
+        <h2 className="mt-2 text-[19px] font-semibold tracking-tight text-neutral-50">
+          Common prompt by model
+        </h2>
+        <p className="mt-1.5 max-w-3xl text-[13px] leading-relaxed text-neutral-400">
+          Each model keeps the same onboarding question and plots every project
+          in one token-reduction chart.
+        </p>
+      </div>
+      <ReductionTabs
+        label="Model"
+        items={models.map((model) => ({
+          id: model.id,
+          label: model.label,
+          ...(modelTabMeta(model) ? { meta: modelTabMeta(model) } : {}),
         }))}
-        active={activeMode.id}
-        onSelect={onModeSelect}
+        active={activeModel?.id ?? ""}
+        onSelect={setActiveModelId}
       />
-      <AxisTabs
+      {activeModel ? (
+        <ReductionChart
+          eyebrow="Common prompt"
+          title={activeModel.label}
+          description="All projects use the same repository-onboarding request."
+          rows={activeRows}
+          aside={modelTabMeta(activeModel)}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function DedicatedReductionSection({ mode }: { mode: PromptModeGroup }) {
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const activeProject =
+    (activeProjectId
+      ? mode.projects.find((project) => project.id === activeProjectId)
+      : undefined) ?? mode.projects[0];
+
+  return (
+    <section className="space-y-3">
+      <div className="px-1">
+        <Eyebrow label="Project prompts" />
+        <h2 className="mt-2 text-[19px] font-semibold tracking-tight text-neutral-50">
+          Dedicated prompts by project
+        </h2>
+        <p className="mt-1.5 max-w-3xl text-[13px] leading-relaxed text-neutral-400">
+          Each project keeps its mechanism-specific request and plots every
+          measured model in one token-reduction chart.
+        </p>
+      </div>
+      <ReductionTabs
         label="Project"
-        ariaLabel="Graph benchmark projects"
-        items={activeMode.projects.map((project) => ({
+        items={mode.projects.map((project) => ({
           id: project.id,
           label: repoLabel(project.repo),
         }))}
-        active={activeProject.id}
-        onSelect={onProjectSelect}
+        active={activeProject?.id ?? ""}
+        onSelect={setActiveProjectId}
       />
-      <AxisTabs
-        label="Model"
-        ariaLabel="Graph benchmark models"
-        items={activeProject.models.map((model) => ({
-          id: model.id,
-          label: model.label,
-          meta: modelTabMeta(model),
-        }))}
-        active={activeModel.id}
-        onSelect={onModelSelect}
-      />
-    </div>
+      {activeProject ? (
+        <ReductionChart
+          eyebrow="Dedicated prompt"
+          title={repoLabel(activeProject.repo)}
+          description={
+            activeProject.question ?? "Project-specific mechanism request."
+          }
+          rows={activeProject.models.map((model) => ({
+            id: model.id,
+            label: model.label,
+            ...(modelTabMeta(model) ? { meta: modelTabMeta(model) } : {}),
+            baseline: model.baseline,
+            tools: reductionTools(model),
+          }))}
+          aside={`${activeProject.models.length} model${
+            activeProject.models.length === 1 ? "" : "s"
+          }`}
+        />
+      ) : null}
+    </section>
   );
 }
 
@@ -1024,9 +1205,6 @@ export default function GraphBenchmark({
 }: GraphBenchmarkProps) {
   const [report, setReport] = useState<GraphReport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeModeId, setActiveModeId] = useState<string | null>(null);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [activeModelId, setActiveModelId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1054,86 +1232,29 @@ export default function GraphBenchmark({
 
   const groups = buildProjectGroups(report.agent?.cells ?? []);
   const modes = buildPromptModeGroups(groups);
+  const commonMode = modes.find((mode) => mode.id === "common");
+  const dedicatedMode = modes.find((mode) => mode.id === "dedicated");
 
-  // The landing summary shows only the hero project (vscode) without tabs,
-  // matching the index prose; the full page tabs across every project.
+  // The landing summary keeps the shared onboarding comparison only. The full
+  // page follows with dedicated project prompts and structural coverage.
   if (variant === "summary") {
-    const hero =
-      groups.find(
-        (g) => g.repo === "vscode" && g.promptFamily === "dedicated",
-      ) ??
-      groups.find(
-        (g) => g.repo === "vscode" && g.promptFamily === "project-specific",
-      ) ??
-      groups.find((g) => g.repo === "vscode") ??
-      groups[0];
     return (
       <div className="not-prose my-6 space-y-5">
-        {hero ? <ProjectPanel group={hero} /> : null}
+        {commonMode ? (
+          <CommonReductionSection
+            mode={commonMode}
+            modelFilter={(model) => model.model === "codex-gpt-mini"}
+          />
+        ) : null}
       </div>
     );
   }
 
-  const defaultMode =
-    modes.find((mode) =>
-      mode.projects.some((project) =>
-        project.models.some(hasCodegraphMeasurement),
-      ),
-    ) ??
-    modes.find((mode) =>
-      mode.projects.some((project) => project.models.some(hasGraphMeasurement)),
-    ) ??
-    modes[0];
-  const activeMode =
-    activeModeId && modes.some((mode) => mode.id === activeModeId)
-      ? modes.find((mode) => mode.id === activeModeId)
-      : defaultMode;
-  const activeProject =
-    activeMode && activeProjectId
-      ? (activeMode.projects.find(
-          (project) => project.id === activeProjectId,
-        ) ?? defaultProjectGroup(activeMode.projects))
-      : activeMode
-        ? defaultProjectGroup(activeMode.projects)
-        : undefined;
-  const activeModel =
-    activeProject && activeModelId
-      ? (activeProject.models.find((model) => model.id === activeModelId) ??
-        defaultModelGroup(activeProject.models))
-      : activeProject
-        ? defaultModelGroup(activeProject.models)
-        : undefined;
-
   return (
     <div className="not-prose my-6 space-y-5">
-      {modes.length > 0 && activeMode && activeProject && activeModel ? (
-        <>
-          <GraphBenchmarkTabs
-            modes={modes}
-            activeMode={activeMode}
-            activeProject={activeProject}
-            activeModel={activeModel}
-            onModeSelect={(id) => {
-              setActiveModeId(id);
-              setActiveProjectId(null);
-              setActiveModelId(null);
-            }}
-            onProjectSelect={(id) => {
-              setActiveProjectId(id);
-              setActiveModelId(null);
-            }}
-            onModelSelect={setActiveModelId}
-          />
-          <ProjectPanel
-            group={activeProject}
-            models={[activeModel]}
-            aside={
-              activeProject.models.length === 1
-                ? "1 model"
-                : `1 of ${activeProject.models.length} models`
-            }
-          />
-        </>
+      {commonMode ? <CommonReductionSection mode={commonMode} /> : null}
+      {dedicatedMode ? (
+        <DedicatedReductionSection mode={dedicatedMode} />
       ) : null}
       {report.structural ? (
         <StructuralSection data={report.structural} />

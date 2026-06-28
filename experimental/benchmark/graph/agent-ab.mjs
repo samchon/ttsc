@@ -180,6 +180,14 @@ const toolSetupMs =
 // @ttsc/graph, so the exact same A/B can be run against the tool we ported, for an
 // apples-to-apples comparison. The repo must already be indexed (`codegraph init`).
 const cg = args.cg === "1" || args.cg === "true";
+const cbm = args.cbm === "1" || args.cbm === "true";
+if (cg && cbm) throw new Error("--cg and --cbm cannot be combined");
+const cbmBinary =
+  args["cbm-binary"] ??
+  process.env.CODEBASE_MEMORY_MCP_BINARY ??
+  "codebase-memory-mcp";
+const cbmCommand = commandPath(cbmBinary);
+const cbmCacheDir = args["cbm-cache-dir"];
 // --arm selects which arms to run: `baseline` and `graph` can be measured
 // separately so a fixed baseline is cached once and later graph iterations only
 // rerun the MCP arm. Baseline-only does not need graph binaries or dependencies.
@@ -206,7 +214,7 @@ const binary = path.join(
   os.tmpdir(),
   `ttscgraph-ab-${process.pid}${process.platform === "win32" ? ".exe" : ""}`,
 );
-if (armsRequested.graph && !cg) {
+if (armsRequested.graph && !cg && !cbm) {
   if (!fs.existsSync(graphLauncher)) {
     throw new Error(
       `@ttsc/graph launcher not built: ${graphLauncher}\n` +
@@ -243,11 +251,12 @@ if (!args["repo-dir"] && !fs.existsSync(repoDir)) {
 if (
   armsRequested.graph &&
   !cg &&
+  !cbm &&
   !fs.existsSync(path.join(repoDir, tsconfig))
 ) {
   throw new Error(`missing tsconfig: ${path.join(repoDir, tsconfig)}`);
 }
-if (armsRequested.graph && !cg) ensureInstalled(repoDir);
+if (armsRequested.graph && !cg && !cbm) ensureInstalled(repoDir);
 
 // 3. WITH = @ttsc/graph; WITHOUT = empty config. Both --strict-mcp-config. The
 // graph server is the Node launcher run over stdio; it shells out to the dump
@@ -263,13 +272,16 @@ const emptyCfg = armsRequested.baseline
 if (withCfg) {
   const serverCfg = cg
     ? { codegraph: codegraphServerConfig(repoDir) }
-    : {
-        "ttsc-graph": {
-          command: process.execPath,
-          args: [graphLauncher, "--cwd", repoDir, "--tsconfig", tsconfig],
-          env: { TTSC_GRAPH_BINARY: binary },
-        },
-      };
+    : cbm
+      ? { "codebase-memory-mcp": codebaseMemoryServerConfig() }
+      : {
+          "ttsc-graph": {
+            command: process.execPath,
+            args: [graphLauncher, "--cwd", repoDir, "--tsconfig", tsconfig],
+            env: { TTSC_GRAPH_BINARY: binary },
+          },
+        };
+  validateMcpServerConfig(serverCfg);
   fs.writeFileSync(withCfg, JSON.stringify({ mcpServers: serverCfg }));
 }
 if (emptyCfg) fs.writeFileSync(emptyCfg, JSON.stringify({ mcpServers: {} }));
@@ -399,7 +411,7 @@ console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt?.questionSha256 ? { questionSha256: manifestPrompt.questionSha256 } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: graphToolName(), ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt?.questionSha256 ? { questionSha256: manifestPrompt.questionSha256 } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
 );
 try {
   fs.rmSync(binary, { force: true });
@@ -497,6 +509,43 @@ function codegraphServerConfig(targetRepoDir) {
         args,
         env: { CODEGRAPH_NO_DAEMON: "1" },
       };
+}
+
+function validateMcpServerConfig(serverCfg) {
+  if ((cg || cbm) && serverCfg["ttsc-graph"]) {
+    throw new Error("comparator Claude config must not include @ttsc/graph");
+  }
+  if (cg && !serverCfg.codegraph) {
+    throw new Error("codegraph Claude config did not include codegraph");
+  }
+  if (cbm && !serverCfg["codebase-memory-mcp"]) {
+    throw new Error(
+      "codebase-memory Claude config did not include codebase-memory",
+    );
+  }
+}
+
+function codebaseMemoryServerConfig() {
+  return {
+    command: cbmCommand,
+    args: [],
+    env: {
+      ...(cbmCacheDir ? { CBM_CACHE_DIR: cbmCacheDir } : {}),
+      CBM_LOG_LEVEL: "warn",
+    },
+  };
+}
+
+function commandPath(command) {
+  return path.isAbsolute(command) || /[\\/]/.test(command)
+    ? path.resolve(command)
+    : command;
+}
+
+function graphToolName() {
+  if (cg) return "codegraph";
+  if (cbm) return "codebase-memory";
+  return "ttsc-graph";
 }
 
 function ensureInstalled(targetRepoDir) {
@@ -630,11 +679,15 @@ function parseStream(text) {
         if (sourceToolUse(b.name, input)) sourceTouches++;
         if (b.name === "Read") reads++;
         else if (b.name === "Grep" || b.name === "Glob") grep++;
-        else if (b.name === "Bash" || b.name === "PowerShell" || b.name === "Shell") {
+        else if (
+          b.name === "Bash" ||
+          b.name === "PowerShell" ||
+          b.name === "Shell"
+        ) {
           shell++;
           shellCommands.push(input.command ?? "");
           if (sourceInspectionCommand(input.command ?? "")) shellSource++;
-        } else if (/graph|ttsc/i.test(b.name)) graph++;
+        } else if (graphToolUseName(b.name)) graph++;
         else if (/web/i.test(b.name)) web++;
         else other++;
       }
@@ -674,6 +727,12 @@ function parseStream(text) {
     answer,
     error: result?.is_error ? String(result?.result || "").slice(0, 80) : "",
   };
+}
+
+function graphToolUseName(name) {
+  return /graph|ttsc|codebase|memory|architecture|trace_path|search_code|semantic_query|index_status|list_projects/i.test(
+    name,
+  );
 }
 
 function validateArmSample(sample, armName) {

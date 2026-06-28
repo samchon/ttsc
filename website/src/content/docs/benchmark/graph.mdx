@@ -4,9 +4,9 @@ import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
 
 `@ttsc/graph` has its own benchmark, separate from the compiler timings above.
 
-It asks two questions: how completely the graph resolves a real TypeScript codebase, and whether an agent spends fewer tokens and tool calls when a graph MCP server is available. The agent-cost runner can measure `@ttsc/graph` and the `codegraph` comparator against the same empty-MCP baseline.
+It asks two questions: how completely the graph resolves a real TypeScript codebase, and whether an agent spends fewer tokens and tool calls when a graph MCP server is available. The agent-cost runner can measure `@ttsc/graph`, `codegraph`, and `codebase-memory` against the same empty-MCP baseline.
 
-The dashboard separates the agent-cost data by question mode, project, then agent model. `dedicated` uses project-specific mechanism questions; `common` asks the same onboarding-style question across projects.
+The dashboard puts the shared onboarding prompt first: each model gets one chart with every project. Project-specific prompts follow: each project gets one chart with every measured model.
 
 The graph fuses static structure and live diagnostics into one checker-resolved ontology. An agent can see a change's reach over what is currently broken before it edits. See [Code Graph](/docs/graph).
 
@@ -14,11 +14,11 @@ The graph fuses static structure and live diagnostics into one checker-resolved 
 
 ## Agent Cost
 
-The agent-cost benchmark runs an AI coding agent headless against prepared fixtures in `experimental/benchmark/.work`. A baseline run uses an empty MCP config. A graph run uses the same prompt and model, but adds exactly one MCP server: either `@ttsc/graph` or `codegraph`. A graph-arm run that completes without any MCP tool call, or that falls back to shell source reads/searches, is invalid for graph measurement and is retried or left failed rather than used in the median; a cell with no valid sample is not published.
+The agent-cost benchmark runs an AI coding agent headless against prepared fixtures in `experimental/benchmark/.work`. A baseline run uses an empty MCP config. A graph run uses the same prompt and model, but adds exactly one MCP server: `@ttsc/graph`, `codegraph`, or `codebase-memory`. A graph-arm run that completes without any MCP tool call, or that falls back to shell source reads/searches, is invalid for graph measurement and is retried or left failed rather than used in the median; a cell with no valid sample is not published.
 
-Baseline cells can be measured first with `--arm=baseline --tools=baseline`. Later comparator runs can use `--arm=graph --tools=ttsc-graph,codegraph`; the website groups those graph samples with the existing baseline by question mode, repository, model tier, effort, fixture branch, and daemon mode.
+Baseline cells can be measured first with `--arm=baseline --tools=baseline`. Later comparator runs can use `--arm=graph --tools=ttsc-graph,codegraph,codebase-memory`; the website groups those graph samples with the existing baseline by question mode, repository, model tier, effort, fixture branch, and daemon mode.
 
-The stored metrics are the raw per-run samples: total tokens, reasoning token counts when the harness exposes them, tool-call count, and wall time. Medians and saved percentages are derived by the website component from `website/public/benchmark/graph.json`.
+The stored metrics are the raw per-run samples: total tokens, reasoning token counts when the harness exposes them, tool-call count, and wall time. The dashboard charts token reduction from `website/public/benchmark/graph.json`; the visible axis runs from `-5%` to `100%`, baseline is `0%`, and hover details show the matching raw tokens, tool calls, and wall time.
 
 ## Structural Coverage
 
@@ -70,7 +70,7 @@ node experimental/benchmark/graph/audit-codex-traces.mjs --self-test
 Comparator refresh after the baseline exists:
 
 ```bash
-node experimental/benchmark/graph.mjs --all --models=gpt-5.4-mini --arm=graph --tools=ttsc-graph,codegraph --prompt-family=all --runs=5
+node experimental/benchmark/graph.mjs --all --models=gpt-5.4-mini --arm=graph --tools=ttsc-graph,codegraph,codebase-memory --prompt-family=all --runs=5
 ```
 
 Use `--no-website` for local-only runs. The runner writes raw reports under `experimental/benchmark/.work/graph/<timestamp>/` and upserts website cells into `website/public/benchmark/graph.json`.

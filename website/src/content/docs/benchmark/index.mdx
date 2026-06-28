@@ -9,7 +9,7 @@ import PerformanceSummary from "../../../components/benchmark/PerformanceSummary
 
 [The Code Graph benchmark](/docs/benchmark/graph) measures whether an agent spends fewer tokens and tool calls when `@ttsc/graph` is available. It also checks structural coverage: how completely the graph resolves cross-file relationships in a real TypeScript project.
 
-The detailed page reads the agent-cost results by question mode, project, then agent model. `dedicated` prompts are project-specific mechanism questions; `common` prompts ask the same onboarding-style question across projects.
+The overview below uses the same shared onboarding prompt across every project with Codex GPT mini. The detailed page follows with model tabs, project-specific prompts, and structural coverage.
 
 <GraphBenchmark variant="summary" />
 

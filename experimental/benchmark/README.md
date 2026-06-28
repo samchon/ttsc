@@ -14,9 +14,9 @@ node performance.mjs --project=vue            # one fixture
 node performance.mjs --setup-only             # clone + install, no measurement
 node performance.mjs --list                   # print the cell grid and exit
 node performance.mjs --verbose                # tee child stdio for debugging
-node graph.mjs --project=typeorm --models=gpt-5.4-mini --tools=ttsc-graph,codegraph # one graph AI-token benchmark
+node graph.mjs --project=typeorm --models=gpt-5.4-mini --tools=ttsc-graph,codegraph,codebase-memory # one graph AI-token benchmark
 node graph.mjs --all --models=gpt-5.4-mini --arm=baseline --tools=baseline --prompt-family=all --runs=5 --reset # baseline-only graph refresh
-node graph.mjs --all --models=gpt-5.4-mini --arm=graph --tools=ttsc-graph,codegraph --prompt-family=all --runs=5 # comparator graph sweep
+node graph.mjs --all --models=gpt-5.4-mini --arm=graph --tools=ttsc-graph,codegraph,codebase-memory --prompt-family=all --runs=5 # comparator graph sweep
 node graph/audit-codex-traces.mjs --dir=.work/graph/<timestamp> # inspect Codex message/tool/reasoning ledger and baseline savings
 node graph/audit-codex-traces.mjs --self-test # verify audit parser and savings semantics
 node graph/bench.mjs --project=../../packages/ttsc --runs=5 # structural graph metrics
@@ -24,7 +24,7 @@ node graph/bench.mjs --project=../../packages/ttsc --runs=5 # structural graph m
 
 The first run packs the local `ttsc` workspace into tarballs, clones each fixture's three branches into `.work/`, installs the tarballs, runs `ttsc prepare`, then measures the matrix sequentially. Subsequent runs reuse the clones.
 
-`graph.mjs` reuses the same fixture clones and setup path where a performance fixture exists, but it is separate from `performance.mjs` because it spends AI tokens. Excalidraw is the graph-only exception: it is cloned from `https://github.com/samchon/ttsc-benchmark-excalidraw.git` on branch `ttsc` into `.work/ttsc-benchmark-excalidraw@ttsc`, so the graph benchmark exercises the same benchmark fork as the other fixtures. It runs projects sequentially, fixes reasoning effort to `high`, updates only its own cells in `website/public/benchmark/graph.json`, and writes a local report under `.work/graph/<timestamp>/`. Its graph tool axis is `ttsc-graph` and `codegraph`; `--tools=baseline --arm=baseline` records only the empty-MCP baseline cell. Its prompt-family axis is `dedicated` and `common` (`--prompt-family=all` runs both). The `codegraph` arm runs `codegraph init`, records the index time as `toolSetupMs`, local-ignores `.codegraph/`, and deletes the index after the run unless `--keep-codegraph-index` is set.
+`graph.mjs` reuses the same fixture clones and setup path where a performance fixture exists, but it is separate from `performance.mjs` because it spends AI tokens. Excalidraw is the graph-only exception: it is cloned from `https://github.com/samchon/ttsc-benchmark-excalidraw.git` on branch `ttsc` into `.work/ttsc-benchmark-excalidraw@ttsc`, so the graph benchmark exercises the same benchmark fork as the other fixtures. It runs projects sequentially, fixes reasoning effort to `high`, updates only its own cells in `website/public/benchmark/graph.json`, and writes a local report under `.work/graph/<timestamp>/`. Its graph tool axis is `ttsc-graph`, `codegraph`, and `codebase-memory`; `--tools=baseline --arm=baseline` records only the empty-MCP baseline cell. Its prompt-family axis is `dedicated` and `common` (`--prompt-family=all` runs both). The `codegraph` arm runs `codegraph init`, records the index time as `toolSetupMs`, local-ignores `.codegraph/`, and deletes the index after the run unless `--keep-codegraph-index` is set. The `codebase-memory` arm runs `codebase-memory-mcp cli index_repository` with an isolated `CBM_CACHE_DIR`, records the index time as `toolSetupMs`, local-ignores `.codebase-memory/`, and deletes the cache after the run unless `--keep-codebase-memory-index` is set.
 
 The graph harnesses now live under `graph/` with the performance runner:
 
@@ -101,7 +101,7 @@ Graph-only flags:
 | Flag | Effect |
 | --- | --- |
 | `--models gpt-5.4-mini` | Select agent models for `graph.mjs`. `codex` resolves to `--codex-model` and always uses effort `high`. |
-| `--tools ttsc-graph,codegraph` | Select graph tools for `graph.mjs`. Use `all` for both, or `baseline` with `--arm=baseline` to record only the empty-MCP baseline. |
+| `--tools ttsc-graph,codegraph,codebase-memory` | Select graph tools for `graph.mjs`. Use `all` for every graph tool, or `baseline` with `--arm=baseline` to record only the empty-MCP baseline. |
 | `--arm baseline` / `--arm graph` / `--arm both` | Select which harness arms to run. Baseline-only cells can be published first, then graph arms can be added later against the same website baseline. |
 | `--max-run-retries 4` | Retry failed agent samples this many extra times. Keep the default for publication; use `0` for N=1 smoke probes when a failure signal is more useful than spending tokens on repeated attempts. |
 | `--prompt-family dedicated,common` | Select manifest prompt families for `graph.mjs`. `all` expands to both. |
@@ -109,6 +109,9 @@ Graph-only flags:
 | `--daemon=1` | Use the `ttscgraph` daemon for `@ttsc/graph` cells. `codegraph` manages its own index and does not use this path. |
 | `--no-codegraph-index` | Reuse an existing `.codegraph/` index instead of running `codegraph init`. |
 | `--keep-codegraph-index` | Keep `.codegraph/` after the run for inspection or reuse. |
+| `--codebase-memory-binary PATH` / `--cbm-binary PATH` | Use a specific `codebase-memory-mcp` binary instead of resolving it from `PATH`. |
+| `--no-codebase-memory-index` | Reuse the configured `CBM_CACHE_DIR` instead of running `codebase-memory-mcp cli index_repository`. |
+| `--keep-codebase-memory-index` | Keep `.codebase-memory/` and the isolated `CBM_CACHE_DIR` after the run for inspection or reuse. |
 
 ## Environment overrides
 
@@ -124,6 +127,7 @@ Graph-only flags:
 | `TTSC_BENCH_SKIP_PACK` | - | `1` reuses tarballs in `TTSC_BENCH_TGZ` (same as `--no-pack`). |
 | `TTSC_BENCH_REQUIRE_QUIET` | - | `1` turns the host-load warning into a hard error. |
 | `TTSC_BENCH_SKIP_LOAD_CHECK` | - | `1` disables the host-load check entirely. |
+| `CODEBASE_MEMORY_MCP_BINARY` | `codebase-memory-mcp` | Binary used by the `codebase-memory` graph comparator when `--codebase-memory-binary` is not passed. |
 
 ## Method
 
@@ -144,7 +148,7 @@ Graph-only flags:
 | `.work/report.json` | Same content plus per-sample timings, retry counts, and exit statuses. |
 | `.work/benchmark.checkpoint.json` | Same shape as `report.json`, rewritten after every cell so a Ctrl-C run leaves a resumable snapshot. |
 | `website/public/benchmark/performance.json` | Dashboard view consumed by https://ttsc.dev/benchmark. Merged in place, cells not re-measured in this run keep their previous values. Skip with `--no-website`, wipe and replace with `--reset`. |
-| `website/public/benchmark/graph.json` | Graph dashboard data. `graph.mjs` upserts only measured cells by harness, tool, repo, prompt id or family, stable model tier, effort, fixture branch, and daemon mode. |
+| `website/public/benchmark/graph.json` | Graph dashboard data. `graph.mjs` upserts only measured cells by harness, tool, repo, prompt id or family, stable model tier, effort, fixture branch, and daemon mode. For parallel `--no-website` graph runs, publish afterward with `node experimental/benchmark/graph/publish.mjs --from <out-dir>`. |
 | `.work/graph/<timestamp>/codex-trace-audit.json` | Codex trace audit written automatically for Codex cells: full exposed message timeline, tool-call ledger, reasoning token counts, visible-input ledger, baseline-median savings, duplicate-output exact savings, graph-replaceable shell-output surface, candidate MCP overfetch estimates, and observed later-turn prompt replay exposure. |
 
 `.work/` is git-ignored; results are an ephemeral artifact and never committed.

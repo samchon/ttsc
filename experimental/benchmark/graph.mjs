@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * One-shot AI token benchmark for @ttsc/graph and codegraph on the performance
- * fixtures.
+ * One-shot AI token benchmark for @ttsc/graph, codegraph, and codebase-memory
+ * on the performance fixtures.
  *
  * This runner intentionally stays separate from performance.mjs: it spends real
  * Claude/Codex credits, so it only runs when called explicitly. It reuses the
@@ -32,6 +32,10 @@ const graphHarnessDir = path.join(here, "graph");
 const claudeHarness = path.join(graphHarnessDir, "agent-ab.mjs");
 const codexHarness = path.join(graphHarnessDir, "agent-ab-codex.mjs");
 const DEFAULT_PROMPT_FAMILIES = ["dedicated", "common"];
+const TOOL_TTSC = "ttsc-graph";
+const TOOL_CODEGRAPH = "codegraph";
+const TOOL_CODEBASE_MEMORY = "codebase-memory";
+const TOOL_BASELINE = "baseline";
 
 const PROJECTS = {
   excalidraw: {
@@ -84,7 +88,7 @@ const models = splitList(
 const tools = selectTools(
   parsed.values.tools ??
     parsed.values.tool ??
-    (arm === "baseline" ? "baseline" : "ttsc-graph,codegraph"),
+    (arm === "baseline" ? "baseline" : "ttsc-graph,codegraph,codebase-memory"),
   arm,
 );
 const promptFamilies = selectPromptFamilies(
@@ -181,10 +185,17 @@ for (const project of selected) {
     );
 
   for (const tool of tools) {
-    let codegraphIndexMs = null;
+    let toolSetupMs = null;
+    let codebaseMemoryCacheDir = null;
     try {
-      if (tool === "codegraph" && arm !== "baseline") {
-        codegraphIndexMs = ensureCodegraphIndex(project, repoDir);
+      if (arm !== "baseline") {
+        if (tool === TOOL_CODEGRAPH) {
+          toolSetupMs = ensureCodegraphIndex(project, repoDir);
+        } else if (tool === TOOL_CODEBASE_MEMORY) {
+          const setup = ensureCodebaseMemoryIndex(project, repoDir);
+          toolSetupMs = setup?.ms ?? null;
+          codebaseMemoryCacheDir = setup?.cacheDir ?? null;
+        }
       }
 
       for (const promptFamily of promptFamilies) {
@@ -194,7 +205,8 @@ for (const project of selected) {
             spec,
             repoDir,
             tool,
-            codegraphIndexMs,
+            toolSetupMs,
+            codebaseMemoryCacheDir,
             model,
             branch: branchLabel,
             promptFamily,
@@ -217,7 +229,9 @@ for (const project of selected) {
         }
       }
     } finally {
-      if (tool === "codegraph") cleanupCodegraphIndex(repoDir);
+      if (tool === TOOL_CODEGRAPH) cleanupCodegraphIndex(repoDir);
+      if (tool === TOOL_CODEBASE_MEMORY)
+        cleanupCodebaseMemoryIndex(repoDir, codebaseMemoryCacheDir);
     }
   }
 }
@@ -318,7 +332,8 @@ function runAgentCell({
   spec,
   repoDir,
   tool,
-  codegraphIndexMs,
+  toolSetupMs,
+  codebaseMemoryCacheDir,
   model,
   branch,
   promptFamily,
@@ -358,7 +373,13 @@ function runAgentCell({
   if (question) args.push(`--question=${question}`);
   const sourceReport = path.join(outDir, `${logStem}.raw.json`);
   args.push(`--report=${sourceReport}`);
-  if (tool === "codegraph") args.push("--cg=1");
+  if (tool === TOOL_CODEGRAPH) args.push("--cg=1");
+  if (tool === TOOL_CODEBASE_MEMORY) {
+    args.push("--cbm=1");
+    args.push(`--cbm-binary=${codebaseMemoryBinaryForChild()}`);
+    if (codebaseMemoryCacheDir)
+      args.push(`--cbm-cache-dir=${codebaseMemoryCacheDir}`);
+  }
   if (codex) args.push(`--effort=${effort}`);
 
   runChecked("node", args, {
@@ -373,9 +394,7 @@ function runAgentCell({
   const websiteCell = {
     harness: harnessName,
     tool,
-    ...(tool === "codegraph" && codegraphIndexMs != null
-      ? { toolSetupMs: codegraphIndexMs }
-      : {}),
+    ...(toolSetupMs != null ? { toolSetupMs } : {}),
     repo: data.repo ?? project,
     model: label,
     modelVersion: data.model ?? resolvedModel,
@@ -398,9 +417,7 @@ function runAgentCell({
       project,
       branch,
       tool,
-      ...(tool === "codegraph" && codegraphIndexMs != null
-        ? { toolSetupMs: codegraphIndexMs }
-        : {}),
+      ...(toolSetupMs != null ? { toolSetupMs } : {}),
       harness: harnessName,
       model: label,
       modelVersion: resolvedModel,
@@ -504,6 +521,75 @@ function cleanupCodegraphIndex(repoDir) {
   fs.rmSync(target, { recursive: true, force: true });
 }
 
+function ensureCodebaseMemoryIndex(project, repoDir) {
+  if (parsed.flags.has("--no-codebase-memory-index")) {
+    return {
+      ms: null,
+      cacheDir: codebaseMemoryCacheDir(project),
+    };
+  }
+  ensureCodebaseMemoryIgnored(repoDir);
+  const cacheDir = codebaseMemoryCacheDir(project);
+  cleanupCodebaseMemoryIndex(repoDir, cacheDir);
+  fs.mkdirSync(cacheDir, { recursive: true });
+  const start = process.hrtime.bigint();
+  const logStem = `codebase-memory-index-${project}`;
+  runChecked(
+    ...codebaseMemoryCommand([
+      "cli",
+      "index_repository",
+      JSON.stringify({ repo_path: repoDir }),
+    ]),
+    {
+      label: `codebase-memory index ${project}`,
+      logBase: path.join(outDir, logStem),
+      cwd: repoRoot,
+      env: codebaseMemoryEnv(cacheDir),
+    },
+  );
+  return {
+    ms: Number(process.hrtime.bigint() - start) / 1e6,
+    cacheDir,
+  };
+}
+
+function codebaseMemoryCacheDir(project) {
+  return path.join(outDir, "codebase-memory-cache", filenamePart(project));
+}
+
+function ensureCodebaseMemoryIgnored(repoDir) {
+  const exclude = path.join(repoDir, ".git", "info", "exclude");
+  if (!fs.existsSync(exclude)) return;
+  const text = fs.readFileSync(exclude, "utf8");
+  if (/^\.codebase-memory\/$/m.test(text)) return;
+  fs.appendFileSync(
+    exclude,
+    `${text.endsWith("\n") ? "" : "\n"}# generated by graph benchmark\n.codebase-memory/\n`,
+  );
+}
+
+function cleanupCodebaseMemoryIndex(repoDir, cacheDir) {
+  if (parsed.flags.has("--keep-codebase-memory-index")) return;
+  safeRemoveInside(repoDir, path.join(repoDir, ".codebase-memory"));
+  if (cacheDir) safeRemoveInside(outDir, cacheDir);
+}
+
+function safeRemoveInside(root, target) {
+  const resolvedRoot = path.resolve(root);
+  const resolvedTarget = path.resolve(target);
+  const relative = path.relative(resolvedRoot, resolvedTarget);
+  if (
+    relative === "" ||
+    relative.startsWith("..") ||
+    path.isAbsolute(relative)
+  ) {
+    throw new Error(
+      `refusing to remove path outside ${resolvedRoot}: ${target}`,
+    );
+  }
+  fs.rmSync(resolvedTarget, { recursive: true, force: true });
+}
+
 function selectArm(value) {
   if (value !== "baseline" && value !== "graph" && value !== "both") {
     throw new Error("--arm must be baseline, graph, or both");
@@ -513,19 +599,28 @@ function selectArm(value) {
 
 function selectTools(value, arm) {
   const names = splitList(value);
-  const expanded = names.includes("all") ? ["ttsc-graph", "codegraph"] : names;
-  const allowed = new Set(["baseline", "ttsc-graph", "codegraph"]);
+  const expanded = names.includes("all")
+    ? [TOOL_TTSC, TOOL_CODEGRAPH, TOOL_CODEBASE_MEMORY]
+    : names.map((name) =>
+        name === "codebase-memory-mcp" ? TOOL_CODEBASE_MEMORY : name,
+      );
+  const allowed = new Set([
+    TOOL_BASELINE,
+    TOOL_TTSC,
+    TOOL_CODEGRAPH,
+    TOOL_CODEBASE_MEMORY,
+  ]);
   if (expanded.length === 0)
     throw new Error(
-      "--tools must contain baseline, ttsc-graph, codegraph, or all",
+      "--tools must contain baseline, ttsc-graph, codegraph, codebase-memory, or all",
     );
   for (const name of expanded) {
     if (!allowed.has(name))
       throw new Error(
-        "--tools must contain baseline, ttsc-graph, codegraph, or all",
+        "--tools must contain baseline, ttsc-graph, codegraph, codebase-memory, or all",
       );
   }
-  if (expanded.includes("baseline")) {
+  if (expanded.includes(TOOL_BASELINE)) {
     if (arm !== "baseline")
       throw new Error("--tools=baseline requires --arm=baseline");
     if (expanded.length !== 1)
@@ -555,6 +650,33 @@ function promptFamilyQuestion(promptFamily) {
 function codegraphCommand(args) {
   if (process.platform !== "win32") return ["codegraph", args];
   return ["cmd.exe", ["/d", "/s", "/c", "codegraph", ...args]];
+}
+
+function codebaseMemoryCommand(args) {
+  return [codebaseMemoryBinaryForChild(), args];
+}
+
+function codebaseMemoryBinary() {
+  return (
+    parsed.values["codebase-memory-binary"] ??
+    parsed.values["cbm-binary"] ??
+    process.env.CODEBASE_MEMORY_MCP_BINARY ??
+    "codebase-memory-mcp"
+  );
+}
+
+function codebaseMemoryBinaryForChild() {
+  const binary = codebaseMemoryBinary();
+  return path.isAbsolute(binary) || /[\\/]/.test(binary)
+    ? path.resolve(binary)
+    : binary;
+}
+
+function codebaseMemoryEnv(cacheDir) {
+  return {
+    CBM_CACHE_DIR: cacheDir,
+    CBM_LOG_LEVEL: process.env.CBM_LOG_LEVEL ?? "warn",
+  };
 }
 
 function filenamePart(value) {
@@ -654,12 +776,16 @@ function printCellSummary(cell) {
   );
 }
 
-function runChecked(command, args, { label, logBase, cwd = repoRoot }) {
+function runChecked(
+  command,
+  args,
+  { label, logBase, cwd = repoRoot, env = {} },
+) {
   process.stdout.write(`[graph] ${label}\n`);
   const result = cp.spawnSync(command, args, {
     cwd,
     encoding: "utf8",
-    env: { ...process.env, TTSC_BENCH_TGZ: tgzDir },
+    env: { ...process.env, TTSC_BENCH_TGZ: tgzDir, ...env },
     windowsHide: true,
     maxBuffer: 512 * 1024 * 1024,
     timeout: Number(process.env.TTSC_GRAPH_BENCH_TIMEOUT_MS ?? 1_800_000),
@@ -698,7 +824,9 @@ function projectDir(spec, targetBranch) {
 }
 
 function projectBranch(spec, targetBranch) {
-  return isGraphOnlyProject(spec) ? spec.sourceBranch ?? "source" : targetBranch;
+  return isGraphOnlyProject(spec)
+    ? (spec.sourceBranch ?? "source")
+    : targetBranch;
 }
 
 function usesPerformanceFixture(spec) {
