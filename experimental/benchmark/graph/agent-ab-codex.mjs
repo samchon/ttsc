@@ -179,9 +179,18 @@ const toolSetupMs =
   args["tool-setup-ms"] === undefined
     ? undefined
     : Number(args["tool-setup-ms"]);
-// --cg points the graph arm at codegraph instead of @ttsc/graph (repo must be
-// indexed with `codegraph init`), for an apples-to-apples comparison on codex.
+// --cg points the graph arm at codegraph, and --cbm points it at
+// codebase-memory-mcp. Both use the same prompt and validity gates as
+// @ttsc/graph.
 const cg = args.cg === "1" || args.cg === "true";
+const cbm = args.cbm === "1" || args.cbm === "true";
+if (cg && cbm) throw new Error("--cg and --cbm cannot be combined");
+const cbmBinary =
+  args["cbm-binary"] ??
+  process.env.CODEBASE_MEMORY_MCP_BINARY ??
+  "codebase-memory-mcp";
+const cbmCommand = commandPath(cbmBinary);
+const cbmCacheDir = args["cbm-cache-dir"];
 // --arm selects which arms to run: `baseline` and `graph` can be measured
 // separately so a fixed baseline is cached once and later graph iterations only
 // rerun the MCP arm. Baseline-only does not need graph binaries or dependencies.
@@ -208,7 +217,7 @@ const binary = path.join(
   os.tmpdir(),
   `ttscgraph-codex-${process.pid}${process.platform === "win32" ? ".exe" : ""}`,
 );
-if (armsRequested.graph && !cg) {
+if (armsRequested.graph && !cg && !cbm) {
   if (!fs.existsSync(graphLauncher)) {
     throw new Error(
       `@ttsc/graph launcher not built: ${graphLauncher}\n` +
@@ -245,11 +254,12 @@ if (!args["repo-dir"] && !fs.existsSync(repoDir)) {
 if (
   armsRequested.graph &&
   !cg &&
+  !cbm &&
   !fs.existsSync(path.join(repoDir, tsconfig))
 ) {
   throw new Error(`missing tsconfig: ${path.join(repoDir, tsconfig)}`);
 }
-if (armsRequested.graph && !cg) ensureInstalled(repoDir);
+if (armsRequested.graph && !cg && !cbm) ensureInstalled(repoDir);
 
 // 3. The graph server is the Node launcher run over stdio; it shells out to the
 // dump binary (pointed at via TTSC_GRAPH_BINARY) on the first tool call, then
@@ -262,7 +272,7 @@ const launcherArgs = [graphLauncher, "--cwd", repoDir, "--tsconfig", tsconfig];
 // server. Both copy the real auth.json so codex stays logged in.
 const realHome = path.join(os.homedir(), ".codex");
 const withHome = armsRequested.graph
-  ? makeCodexHome("with", cg ? [] : launcherArgs)
+  ? makeCodexHome("with", cg || cbm ? [] : launcherArgs)
   : null;
 const withoutHome = armsRequested.baseline
   ? makeCodexHome("without", null)
@@ -390,7 +400,7 @@ printLine("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: cg ? "codegraph" : "ttsc-graph", ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, effort, ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt?.questionSha256 ? { questionSha256: manifestPrompt.questionSha256 } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: graphToolName(), ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, effort, ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt?.questionSha256 ? { questionSha256: manifestPrompt.questionSha256 } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
 );
 cleanup([binary, withHome, withoutHome].filter(Boolean));
 
@@ -415,13 +425,44 @@ function makeCodexHome(tag, serverArgs) {
         .map((x) => `'${x}'`)
         .join(", ");
       toml += `\n[mcp_servers.codegraph]\ncommand = '${command}'\nargs = [${a}]\nenv = { CODEGRAPH_NO_DAEMON = "1" }\nrequired = true\n`;
+    } else if (cbm) {
+      const envParts = [`CBM_LOG_LEVEL = "warn"`];
+      if (cbmCacheDir) envParts.unshift(`CBM_CACHE_DIR = '${cbmCacheDir}'`);
+      toml += `\n[mcp_servers.codebase_memory]\ncommand = '${cbmCommand}'\nargs = []\nenv = { ${envParts.join(", ")} }\nrequired = true\n`;
     } else {
       const argList = serverArgs.map((a) => `'${a}'`).join(", ");
       toml += `\n[mcp_servers.ttscgraph]\ncommand = '${process.execPath}'\nargs = [${argList}]\nenv = { TTSC_GRAPH_BINARY = '${binary}' }\nrequired = true\n`;
     }
   }
+  validateMcpConfig(toml);
   fs.writeFileSync(path.join(home, "config.toml"), toml);
   return home;
+}
+
+function validateMcpConfig(toml) {
+  if ((cg || cbm) && toml.includes("[mcp_servers.ttscgraph]")) {
+    throw new Error("comparator Codex config must not include @ttsc/graph");
+  }
+  if (cg && !toml.includes("[mcp_servers.codegraph]")) {
+    throw new Error("codegraph Codex config did not include codegraph");
+  }
+  if (cbm && !toml.includes("[mcp_servers.codebase_memory]")) {
+    throw new Error(
+      "codebase-memory Codex config did not include codebase-memory",
+    );
+  }
+}
+
+function graphToolName() {
+  if (cg) return "codegraph";
+  if (cbm) return "codebase-memory";
+  return "ttsc-graph";
+}
+
+function commandPath(command) {
+  return path.isAbsolute(command) || /[\\/]/.test(command)
+    ? path.resolve(command)
+    : command;
 }
 
 function codegraphServerArgs(targetRepoDir) {

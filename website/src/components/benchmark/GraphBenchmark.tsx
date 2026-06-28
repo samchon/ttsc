@@ -156,6 +156,7 @@ function promptFamilyLabel(promptFamily: string): string {
 
 const TOOL_TTSC = "ttsc-graph";
 const TOOL_CODEGRAPH = "codegraph";
+const TOOL_CODEBASE_MEMORY = "codebase-memory";
 const TOOL_BASELINE = "baseline";
 
 function cellTool(cell: AgentCell): string {
@@ -218,9 +219,11 @@ interface ModelGroup {
   daemon: boolean;
   runs?: number;
   codegraphSetupMs?: number;
+  codebaseMemorySetupMs?: number;
   baseline: Metrics;
   ttsc?: Metrics;
   codegraph?: Metrics;
+  codebaseMemory?: Metrics;
 }
 
 interface ProjectGroup {
@@ -310,9 +313,9 @@ function buildPromptModeGroups(projects: ProjectGroup[]): PromptModeGroup[] {
 /**
  * Reshape the flat cell list into project -> model groups. Each model row
  * carries one empty-MCP baseline for the same harness/model
- * version/effort/fixture mode in this repo, plus the ttsc-graph and codegraph
- * graph medians when those cells exist. Dedicated baseline cells win; older
- * combined A/B cells remain readable through their embedded baseline samples.
+ * version/effort/fixture mode in this repo, plus graph-tool medians when those
+ * cells exist. Dedicated baseline cells win; older combined A/B cells remain
+ * readable through their embedded baseline samples.
  */
 function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
   return groupBy(cells, projectGroupKey).map(({ key, items: repoCells }) => {
@@ -323,6 +326,9 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
         const ttscCell = modelCells.find((c) => cellTool(c) === TOOL_TTSC);
         const codegraphCell = modelCells.find(
           (c) => cellTool(c) === TOOL_CODEGRAPH,
+        );
+        const codebaseMemoryCell = modelCells.find(
+          (c) => cellTool(c) === TOOL_CODEBASE_MEMORY,
         );
         const baselineCells = modelCells.filter(
           (c) => cellTool(c) === TOOL_BASELINE,
@@ -347,8 +353,13 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
           effort: head.effort,
           fixtureBranch: head.fixtureBranch,
           daemon: head.daemon === true,
-          runs: ttscCell?.runs ?? codegraphCell?.runs ?? baselineCell?.runs,
+          runs:
+            ttscCell?.runs ??
+            codegraphCell?.runs ??
+            codebaseMemoryCell?.runs ??
+            baselineCell?.runs,
           codegraphSetupMs: codegraphCell?.toolSetupMs,
+          codebaseMemorySetupMs: codebaseMemoryCell?.toolSetupMs,
           baseline: medianMetrics(baselineSamples),
           ttsc:
             ttscCell && validSamples(ttscCell.samples.graph).length > 0
@@ -358,6 +369,11 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
             codegraphCell &&
             validSamples(codegraphCell.samples.graph).length > 0
               ? medianMetrics(codegraphCell.samples.graph)
+              : undefined,
+          codebaseMemory:
+            codebaseMemoryCell &&
+            validSamples(codebaseMemoryCell.samples.graph).length > 0
+              ? medianMetrics(codebaseMemoryCell.samples.graph)
               : undefined,
         };
       })
@@ -388,6 +404,8 @@ const ACCENT = "#36e2ee";
 const TTSC_FILL = `linear-gradient(90deg, ${ACCENT}, #19b6c9)`;
 const CODEGRAPH_FILL = "linear-gradient(90deg, #f5b042, #d97706)";
 const CODEGRAPH_TEXT = "#f5b042";
+const CODEBASE_MEMORY_FILL = "linear-gradient(90deg, #8bdc65, #3f9f4a)";
+const CODEBASE_MEMORY_TEXT = "#8bdc65";
 
 const panelClass =
   "overflow-hidden rounded-lg border border-[#222834] bg-[#0c0e13] shadow-[0_24px_60px_rgba(0,0,0,0.35)]";
@@ -463,7 +481,7 @@ function LegendDot({ fill, label }: { fill: string; label: string }) {
 // Token reduction charts
 // ---------------------------------------------------------------------------
 
-type ToolKey = "ttsc" | "codegraph";
+type ToolKey = "ttsc" | "codegraph" | "codebaseMemory";
 
 interface ReductionTool {
   key: ToolKey;
@@ -620,6 +638,14 @@ function reductionTools(model: ModelGroup): ReductionTool[] {
       fill: CODEGRAPH_FILL,
       textColor: CODEGRAPH_TEXT,
     },
+    {
+      key: "codebaseMemory",
+      label: "codebase-memory",
+      metrics: model.codebaseMemory,
+      setupMs: model.codebaseMemorySetupMs,
+      fill: CODEBASE_MEMORY_FILL,
+      textColor: CODEBASE_MEMORY_TEXT,
+    },
   ];
 }
 
@@ -628,6 +654,7 @@ function ChartLegend() {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[10px] text-neutral-500">
       <LegendDot fill={ACCENT} label="@ttsc/graph" />
       <LegendDot fill={CODEGRAPH_TEXT} label="codegraph" />
+      <LegendDot fill={CODEBASE_MEMORY_TEXT} label="codebase-memory" />
       <span className="text-neutral-600">
         bars show token reduction vs empty-MCP baseline; hover for raw tokens,
         calls, and time
@@ -651,6 +678,7 @@ function ReductionChart({
 }) {
   const ttscAverage = averageReduction(rows, "ttsc");
   const codegraphAverage = averageReduction(rows, "codegraph");
+  const codebaseMemoryAverage = averageReduction(rows, "codebaseMemory");
 
   return (
     <section className={`${panelClass} overflow-visible`}>
@@ -672,6 +700,11 @@ function ReductionChart({
             {codegraphAverage !== null ? (
               <span className="rounded-full border border-[#49351a] bg-[#1b140b] px-2 py-1 text-[#f5b042]">
                 codegraph avg {reductionLabel(codegraphAverage)}
+              </span>
+            ) : null}
+            {codebaseMemoryAverage !== null ? (
+              <span className="rounded-full border border-[#2f4b28] bg-[#111a10] px-2 py-1 text-[#8bdc65]">
+                codebase-memory avg {reductionLabel(codebaseMemoryAverage)}
               </span>
             ) : null}
           </div>

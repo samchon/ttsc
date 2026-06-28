@@ -20,8 +20,9 @@
 // https://ttsc.dev/docs/benchmark#code-graph-mcp.
 //
 // Usage:
-//   node experimental/benchmark/graph/publish.mjs            # fold every report found
-//   node experimental/benchmark/graph/publish.mjs --reset    # drop prior cells first
+//   node experimental/benchmark/graph/publish.mjs              # fold graph/*.json reports
+//   node experimental/benchmark/graph/publish.mjs --from <dir> # fold graph.mjs suite output
+//   node experimental/benchmark/graph/publish.mjs --reset      # drop prior cells first
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,7 +37,9 @@ const websiteJson = path.resolve(
   "graph.json",
 );
 
-const reset = process.argv.slice(2).includes("--reset");
+const args = process.argv.slice(2);
+const reset = args.includes("--reset");
+const sourceDirs = parseSourceDirs(args);
 
 const prior =
   !reset && fs.existsSync(websiteJson)
@@ -50,9 +53,37 @@ const out = {
   agent: { cells: [...(prior.agent?.cells ?? [])] },
 };
 
-// Structural: replace whole when a fresh report.json is present.
-const structural = readJson(path.join(here, "report.json"));
-if (structural) {
+for (const sourceDir of sourceDirs) {
+  foldSourceDir(sourceDir);
+}
+
+fs.mkdirSync(path.dirname(websiteJson), { recursive: true });
+fs.writeFileSync(websiteJson, `${JSON.stringify(out, null, 2)}\n`);
+console.log(
+  `\nWrote ${path.relative(repoRoot, websiteJson)} ` +
+    `(${out.agent.cells.length} agent cell(s)).`,
+);
+
+function foldSourceDir(sourceDir) {
+  const mainReport = readJson(path.join(sourceDir, "report.json"));
+  if (mainReport?.cells) {
+    foldSuite(mainReport, sourceDir);
+  } else if (mainReport) {
+    foldStructural(mainReport);
+  }
+
+  // Agent cells: upsert each available report by harness/tool/repo/model.
+  foldAgent(
+    readJson(path.join(sourceDir, "agent-ab-report.json")),
+    "claude-code",
+  );
+  foldAgent(
+    readJson(path.join(sourceDir, "agent-ab-codex-report.json")),
+    "codex",
+  );
+}
+
+function foldStructural(structural) {
   if (typeof structural.project === "string") {
     structural.project = structural.project.split(path.sep).join("/");
   }
@@ -63,20 +94,50 @@ if (structural) {
   );
 }
 
-// Agent cells: upsert each available report by harness/tool/repo/model.
-foldAgent(readJson(path.join(here, "agent-ab-report.json")), "claude-code");
-foldAgent(readJson(path.join(here, "agent-ab-codex-report.json")), "codex");
-
-fs.mkdirSync(path.dirname(websiteJson), { recursive: true });
-fs.writeFileSync(websiteJson, `${JSON.stringify(out, null, 2)}\n`);
-console.log(
-  `\nWrote ${path.relative(repoRoot, websiteJson)} ` +
-    `(${out.agent.cells.length} agent cell(s)).`,
-);
+function foldSuite(report, sourceDir) {
+  for (const cell of report.cells ?? []) {
+    const sourceReport = readJson(resolveReportPath(cell.report, sourceDir));
+    if (!sourceReport) {
+      throw new Error(`missing suite cell report: ${cell.report}`);
+    }
+    upsertAgentCell({
+      harness: cell.harness,
+      tool: cell.tool ?? sourceReport.tool ?? "ttsc-graph",
+      ...(cell.toolSetupMs !== undefined
+        ? { toolSetupMs: cell.toolSetupMs }
+        : sourceReport.toolSetupMs !== undefined
+          ? { toolSetupMs: sourceReport.toolSetupMs }
+          : {}),
+      repo: sourceReport.repo ?? cell.project,
+      model: cell.model ?? sourceReport.model,
+      ...(cell.modelVersion ? { modelVersion: cell.modelVersion } : {}),
+      ...(sourceReport.effort ? { effort: sourceReport.effort } : {}),
+      ...(sourceReport.promptId ? { promptId: sourceReport.promptId } : {}),
+      promptFamily: sourceReport.promptFamily ?? cell.promptFamily,
+      ...(sourceReport.questionSha256
+        ? { questionSha256: sourceReport.questionSha256 }
+        : {}),
+      ...(sourceReport.fixtureBranch
+        ? { fixtureBranch: sourceReport.fixtureBranch }
+        : cell.branch
+          ? { fixtureBranch: cell.branch }
+          : {}),
+      ...(sourceReport.daemon !== undefined
+        ? { daemon: sourceReport.daemon }
+        : {}),
+      runs: sourceReport.runs,
+      question: sourceReport.question,
+      samples: sanitizeSamples(sourceReport.samples),
+    });
+  }
+  console.log(
+    `suite: ${path.relative(repoRoot, sourceDir)} (${report.cells?.length ?? 0} cell(s))`,
+  );
+}
 
 function foldAgent(report, harness) {
   if (!report) return;
-  const cell = {
+  upsertAgentCell({
     harness,
     tool: report.tool ?? "ttsc-graph",
     repo: report.repo,
@@ -93,7 +154,16 @@ function foldAgent(report, harness) {
     runs: report.runs,
     question: report.question,
     samples: sanitizeSamples(report.samples),
-  };
+  });
+  const n = (report.samples?.graph ?? []).length;
+  console.log(
+    `agent: ${harness} / ${report.tool ?? "ttsc-graph"} / ${report.repo} / ${
+      report.promptFamily ?? "project-specific"
+    } / ${report.model} (${n} graph runs)`,
+  );
+}
+
+function upsertAgentCell(cell) {
   // A manifest promptId narrows the cell within a family, so two prompt variants
   // of the same family upsert separately instead of clobbering. Plain --repo
   // runs (no promptId) keep keying by family, as before.
@@ -112,10 +182,6 @@ function foldAgent(report, harness) {
   const at = out.agent.cells.findIndex((c) => key(c) === key(cell));
   if (at >= 0) out.agent.cells[at] = { ...out.agent.cells[at], ...cell };
   else out.agent.cells.push(cell);
-  const n = (report.samples?.graph ?? []).length;
-  console.log(
-    `agent: ${harness} / ${cell.tool} / ${report.repo} / ${cell.promptFamily} / ${report.model} (${n} graph runs)`,
-  );
 }
 
 function sanitizeSamples(samples) {
@@ -133,4 +199,29 @@ function sanitizeSample(sample) {
 function readJson(file) {
   if (!fs.existsSync(file)) return null;
   return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+function resolveReportPath(reportPath, sourceDir) {
+  if (!reportPath) return "";
+  if (path.isAbsolute(reportPath)) return reportPath;
+  const fromRoot = path.resolve(repoRoot, reportPath);
+  if (fs.existsSync(fromRoot)) return fromRoot;
+  return path.resolve(sourceDir, reportPath);
+}
+
+function parseSourceDirs(argv) {
+  const dirs = [];
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--from" || arg === "--source") {
+      const next = argv[++i];
+      if (!next) throw new Error(`${arg} requires a directory`);
+      dirs.push(path.resolve(repoRoot, next));
+    } else if (arg.startsWith("--from=")) {
+      dirs.push(path.resolve(repoRoot, arg.slice("--from=".length)));
+    } else if (arg.startsWith("--source=")) {
+      dirs.push(path.resolve(repoRoot, arg.slice("--source=".length)));
+    }
+  }
+  return dirs.length > 0 ? dirs : [here];
 }
