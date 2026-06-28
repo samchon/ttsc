@@ -248,6 +248,12 @@ interface ProjectGroup {
   models: ModelGroup[];
 }
 
+interface PromptModeGroup {
+  id: string;
+  promptFamily: string;
+  projects: ProjectGroup[];
+}
+
 function medianMetrics(samples: AgentSample[]): Metrics {
   const valid = validSamples(samples);
   return {
@@ -281,6 +287,69 @@ function projectGroupKey(cell: AgentCell): string {
     cell.promptFamily ?? "project-specific",
     cell.repo,
   ].join("\0");
+}
+
+function promptModeKey(promptFamily: string): string {
+  switch (promptFamily) {
+    case "dedicated":
+    case "project-specific":
+      return "dedicated";
+    case "common":
+    case "shared-onboarding":
+      return "common";
+    default:
+      return promptFamily;
+  }
+}
+
+function promptModeOrder(mode: PromptModeGroup): number {
+  const order = ["dedicated", "common", "overview", "custom"];
+  const index = order.indexOf(mode.id);
+  return index === -1 ? order.length : index;
+}
+
+function hasGraphMeasurement(model: ModelGroup): boolean {
+  return Boolean(model.ttsc || model.codegraph);
+}
+
+function hasCodegraphMeasurement(model: ModelGroup): boolean {
+  return Boolean(model.codegraph);
+}
+
+function defaultProjectGroup(
+  projects: ProjectGroup[],
+): ProjectGroup | undefined {
+  return (
+    projects.find((g) => g.models.some(hasCodegraphMeasurement)) ??
+    projects.find((g) => g.models.some(hasGraphMeasurement)) ??
+    projects[0]
+  );
+}
+
+function defaultModelGroup(models: ModelGroup[]): ModelGroup | undefined {
+  return (
+    models.find(hasCodegraphMeasurement) ??
+    models.find(hasGraphMeasurement) ??
+    models[0]
+  );
+}
+
+function buildPromptModeGroups(projects: ProjectGroup[]): PromptModeGroup[] {
+  return groupBy(projects, (project) => promptModeKey(project.promptFamily))
+    .map(
+      ({ key, items }): PromptModeGroup => ({
+        id: key,
+        promptFamily: items[0]?.promptFamily ?? key,
+        projects: items,
+      }),
+    )
+    .sort(
+      (a, b) =>
+        promptModeOrder(a) - promptModeOrder(b) ||
+        promptFamilyLabel(a.promptFamily).localeCompare(
+          promptFamilyLabel(b.promptFamily),
+        ),
+    );
 }
 
 /**
@@ -567,6 +636,13 @@ function modelMeta(model: ModelGroup): string {
   return parts.join(" - ");
 }
 
+function modelTabMeta(model: ModelGroup): string | undefined {
+  const parts: string[] = [];
+  if (model.effort) parts.push(model.effort);
+  parts.push(model.daemon ? "daemon" : "one-shot");
+  return parts.join(" / ");
+}
+
 /** One model row: its identity on the left, the metric groups on the right. */
 function ModelBlock({ model }: { model: ModelGroup }) {
   const metrics = METRICS.filter(
@@ -616,13 +692,15 @@ function LegendDot({ fill, label }: { fill: string; label: string }) {
 
 function ProjectPanel({
   group,
+  models = group.models,
   aside,
 }: {
   group: ProjectGroup;
+  models?: ModelGroup[];
   aside?: string;
 }) {
-  const hasTtsc = group.models.some((model) => model.ttsc);
-  const hasCodegraph = group.models.some((model) => model.codegraph);
+  const hasTtsc = models.some((model) => model.ttsc);
+  const hasCodegraph = models.some((model) => model.codegraph);
   const hasComparator = hasTtsc || hasCodegraph;
 
   return (
@@ -640,7 +718,7 @@ function ProjectPanel({
       />
 
       <div className="divide-y divide-[#1a1f29]">
-        {group.models.map((model) => (
+        {models.map((model) => (
           <ModelBlock key={model.id} model={model} />
         ))}
       </div>
@@ -661,42 +739,116 @@ function ProjectPanel({
   );
 }
 
-/** Project tab strip; mirrors the BenchmarkDashboard nav voice. */
-function ProjectTabs({
-  groups,
+interface TabChoice {
+  id: string;
+  label: string;
+  meta?: string;
+}
+
+function AxisTabs({
+  label,
+  ariaLabel,
+  items,
   active,
   onSelect,
 }: {
-  groups: ProjectGroup[];
+  label: string;
+  ariaLabel: string;
+  items: TabChoice[];
   active: string;
   onSelect: (id: string) => void;
 }) {
   return (
-    <nav
-      aria-label="Graph benchmark projects"
-      className="flex gap-1 overflow-x-auto rounded-lg border border-[#222834] bg-[#0c0e13] p-1"
-    >
-      {groups.map((group) => {
-        const isActive = group.id === active;
-        return (
-          <button
-            key={group.id}
-            type="button"
-            className={`shrink-0 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors ${
-              isActive
-                ? "bg-[#1b212c] text-neutral-50 shadow-sm"
-                : "text-neutral-400 hover:bg-[#13171f] hover:text-neutral-100"
-            }`}
-            onClick={() => onSelect(group.id)}
-          >
-            {repoLabel(group.repo)}
-            <span className="ml-1 text-neutral-500">
-              {promptFamilyLabel(group.promptFamily)}
-            </span>
-          </button>
-        );
-      })}
-    </nav>
+    <div className="grid gap-2 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-center">
+      <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-neutral-500">
+        {label}
+      </div>
+      <nav
+        aria-label={ariaLabel}
+        className="flex min-w-0 gap-1 overflow-x-auto"
+      >
+        {items.map((item) => {
+          const isActive = item.id === active;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={isActive}
+              className={`shrink-0 rounded-md px-3 py-1.5 text-left text-[12px] font-medium transition-colors ${
+                isActive
+                  ? "bg-[#1b212c] text-neutral-50 shadow-sm"
+                  : "text-neutral-400 hover:bg-[#13171f] hover:text-neutral-100"
+              }`}
+              onClick={() => onSelect(item.id)}
+            >
+              <span className="block max-w-[13rem] truncate">{item.label}</span>
+              {item.meta ? (
+                <span className="mt-0.5 block font-mono text-[10px] text-neutral-500">
+                  {item.meta}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
+function GraphBenchmarkTabs({
+  modes,
+  activeMode,
+  activeProject,
+  activeModel,
+  onModeSelect,
+  onProjectSelect,
+  onModelSelect,
+}: {
+  modes: PromptModeGroup[];
+  activeMode: PromptModeGroup;
+  activeProject: ProjectGroup;
+  activeModel: ModelGroup;
+  onModeSelect: (id: string) => void;
+  onProjectSelect: (id: string) => void;
+  onModelSelect: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-lg border border-[#222834] bg-[#0c0e13] p-2.5">
+      <AxisTabs
+        label="Question"
+        ariaLabel="Graph benchmark question modes"
+        items={modes.map((mode) => ({
+          id: mode.id,
+          label: promptFamilyLabel(mode.promptFamily),
+          meta: `${mode.projects.length} project${
+            mode.projects.length !== 1 ? "s" : ""
+          }`,
+        }))}
+        active={activeMode.id}
+        onSelect={onModeSelect}
+      />
+      <AxisTabs
+        label="Project"
+        ariaLabel="Graph benchmark projects"
+        items={activeMode.projects.map((project) => ({
+          id: project.id,
+          label: repoLabel(project.repo),
+        }))}
+        active={activeProject.id}
+        onSelect={onProjectSelect}
+      />
+      <AxisTabs
+        label="Model"
+        ariaLabel="Graph benchmark models"
+        items={activeProject.models.map((model) => ({
+          id: model.id,
+          label: model.label,
+          meta: modelTabMeta(model),
+        }))}
+        active={activeModel.id}
+        onSelect={onModelSelect}
+      />
+    </div>
   );
 }
 
@@ -872,7 +1024,9 @@ export default function GraphBenchmark({
 }: GraphBenchmarkProps) {
   const [report, setReport] = useState<GraphReport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [activeModeId, setActiveModeId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeModelId, setActiveModelId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -899,6 +1053,7 @@ export default function GraphBenchmark({
   if (!report) return <Notice>Loading graph benchmark results...</Notice>;
 
   const groups = buildProjectGroups(report.agent?.cells ?? []);
+  const modes = buildPromptModeGroups(groups);
 
   // The landing summary shows only the hero project (vscode) without tabs,
   // matching the index prose; the full page tabs across every project.
@@ -919,34 +1074,65 @@ export default function GraphBenchmark({
     );
   }
 
-  // Default to the first project that carries a full comparison when one exists.
-  const defaultGroup =
-    groups.find((g) => g.models.some((m) => m.codegraph)) ??
-    groups.find((g) => g.models.some((m) => m.ttsc)) ??
-    groups[0];
-  const active =
-    activeGroupId && groups.some((g) => g.id === activeGroupId)
-      ? activeGroupId
-      : defaultGroup?.id;
-  const activeGroup = groups.find((g) => g.id === active);
+  const defaultMode =
+    modes.find((mode) =>
+      mode.projects.some((project) =>
+        project.models.some(hasCodegraphMeasurement),
+      ),
+    ) ??
+    modes.find((mode) =>
+      mode.projects.some((project) => project.models.some(hasGraphMeasurement)),
+    ) ??
+    modes[0];
+  const activeMode =
+    activeModeId && modes.some((mode) => mode.id === activeModeId)
+      ? modes.find((mode) => mode.id === activeModeId)
+      : defaultMode;
+  const activeProject =
+    activeMode && activeProjectId
+      ? (activeMode.projects.find(
+          (project) => project.id === activeProjectId,
+        ) ?? defaultProjectGroup(activeMode.projects))
+      : activeMode
+        ? defaultProjectGroup(activeMode.projects)
+        : undefined;
+  const activeModel =
+    activeProject && activeModelId
+      ? (activeProject.models.find((model) => model.id === activeModelId) ??
+        defaultModelGroup(activeProject.models))
+      : activeProject
+        ? defaultModelGroup(activeProject.models)
+        : undefined;
 
   return (
     <div className="not-prose my-6 space-y-5">
-      {groups.length > 0 && active ? (
+      {modes.length > 0 && activeMode && activeProject && activeModel ? (
         <>
-          <ProjectTabs
-            groups={groups}
-            active={active}
-            onSelect={setActiveGroupId}
+          <GraphBenchmarkTabs
+            modes={modes}
+            activeMode={activeMode}
+            activeProject={activeProject}
+            activeModel={activeModel}
+            onModeSelect={(id) => {
+              setActiveModeId(id);
+              setActiveProjectId(null);
+              setActiveModelId(null);
+            }}
+            onProjectSelect={(id) => {
+              setActiveProjectId(id);
+              setActiveModelId(null);
+            }}
+            onModelSelect={setActiveModelId}
           />
-          {activeGroup ? (
-            <ProjectPanel
-              group={activeGroup}
-              aside={`${activeGroup.models.length} model${
-                activeGroup.models.length !== 1 ? "s" : ""
-              }`}
-            />
-          ) : null}
+          <ProjectPanel
+            group={activeProject}
+            models={[activeModel]}
+            aside={
+              activeProject.models.length === 1
+                ? "1 model"
+                : `1 of ${activeProject.models.length} models`
+            }
+          />
         </>
       ) : null}
       {report.structural ? (
