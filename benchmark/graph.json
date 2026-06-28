@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-28T06:56:42.490Z",
+  "generatedAt": "2026-06-28T10:55:36.036Z",
   "structural": null,
   "agent": {
     "cells": [
@@ -3992,6 +3992,3398 @@
               "error": "",
               "promptId": "shopping-backend-common-v1",
               "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 19834.9366,
+        "repo": "excalidraw",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "excalidraw-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Excalidraw carry a user's element edit from pointer interaction through scene mutation, history, rendering, and collaboration or persistence?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 151548,
+              "cached": 82944,
+              "reasoning": 2227,
+              "tokensWithReasoning": 153775,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 147377,
+                  "cachedInput": 82944,
+                  "output": 4171,
+                  "reasoning": 2227
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 91329,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 19834.9366,
+        "repo": "excalidraw",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "excalidraw-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Excalidraw carry a user's element edit from pointer interaction through scene mutation, history, rendering, and collaboration or persistence?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 127505,
+              "cached": 82944,
+              "reasoning": 5392,
+              "tokensWithReasoning": 132897,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 120476,
+                  "cachedInput": 82944,
+                  "output": 7029,
+                  "reasoning": 5392
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 109068,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 19834.9366,
+        "repo": "excalidraw",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "excalidraw-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 148400,
+              "cached": 97280,
+              "reasoning": 954,
+              "tokensWithReasoning": 149354,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 145722,
+                  "cachedInput": 97280,
+                  "output": 2678,
+                  "reasoning": 954
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 61928,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 19834.9366,
+        "repo": "excalidraw",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "excalidraw-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 143716,
+              "cached": 95744,
+              "reasoning": 7304,
+              "tokensWithReasoning": 151020,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 133890,
+                  "cachedInput": 95744,
+                  "output": 9826,
+                  "reasoning": 7304
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 150879,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 13570.5858,
+        "repo": "vue",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vue-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Vue carry a reactive state change from a component/template read through dependency tracking, scheduling, rendering, and DOM patching?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 140154,
+              "cached": 66048,
+              "reasoning": 978,
+              "tokensWithReasoning": 141132,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 137815,
+                  "cachedInput": 66048,
+                  "output": 2339,
+                  "reasoning": 978
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 68058,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 13570.5858,
+        "repo": "vue",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vue-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Vue carry a reactive state change from a component/template read through dependency tracking, scheduling, rendering, and DOM patching?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 156062,
+              "cached": 102912,
+              "reasoning": 5904,
+              "tokensWithReasoning": 161966,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 148772,
+                  "cachedInput": 102912,
+                  "output": 7290,
+                  "reasoning": 5904
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 116760,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 13570.5858,
+        "repo": "vue",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vue-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 158735,
+              "cached": 100352,
+              "reasoning": 1470,
+              "tokensWithReasoning": 160205,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 155689,
+                  "cachedInput": 100352,
+                  "output": 3046,
+                  "reasoning": 1470
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 66512,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 13570.5858,
+        "repo": "vue",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vue-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 121692,
+              "cached": 62976,
+              "reasoning": 5589,
+              "tokensWithReasoning": 127281,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 115148,
+                  "cachedInput": 62976,
+                  "output": 6544,
+                  "reasoning": 5589
+                }
+              ],
+              "tools": 3,
+              "shell": 0,
+              "graph": 3,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 3
+              },
+              "durMs": 109763,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 17986.2467,
+        "repo": "rxjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "rxjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does RxJS carry a value from Observable.subscribe through pipe operators to the observer, and how does teardown flow back?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 146474,
+              "cached": 112640,
+              "reasoning": 1131,
+              "tokensWithReasoning": 147605,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 144028,
+                  "cachedInput": 112640,
+                  "output": 2446,
+                  "reasoning": 1131
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 59805,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 17986.2467,
+        "repo": "rxjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "rxjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does RxJS carry a value from Observable.subscribe through pipe operators to the observer, and how does teardown flow back?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 203286,
+              "cached": 147968,
+              "reasoning": 3732,
+              "tokensWithReasoning": 207018,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 198079,
+                  "cachedInput": 147968,
+                  "output": 5207,
+                  "reasoning": 3732
+                }
+              ],
+              "tools": 5,
+              "shell": 0,
+              "graph": 5,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 5
+              },
+              "durMs": 91263,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 17986.2467,
+        "repo": "rxjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "rxjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 145012,
+              "cached": 98304,
+              "reasoning": 817,
+              "tokensWithReasoning": 145829,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 142669,
+                  "cachedInput": 98304,
+                  "output": 2343,
+                  "reasoning": 817
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 57335,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 17986.2467,
+        "repo": "rxjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "rxjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 70449,
+              "cached": 48640,
+              "reasoning": 2989,
+              "tokensWithReasoning": 73438,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 66573,
+                  "cachedInput": 48640,
+                  "output": 3876,
+                  "reasoning": 2989
+                }
+              ],
+              "tools": 2,
+              "shell": 0,
+              "graph": 2,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 3,
+                "mcp_tool_call": 2
+              },
+              "durMs": 65576,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 63301.736,
+        "repo": "typeorm",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "typeorm-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does TypeORM turn `Repository.find` options with relations into query-builder joins and loaded entities?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 147795,
+              "cached": 92672,
+              "reasoning": 998,
+              "tokensWithReasoning": 148793,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 145313,
+                  "cachedInput": 92672,
+                  "output": 2482,
+                  "reasoning": 998
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 61145,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 63301.736,
+        "repo": "typeorm",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "typeorm-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does TypeORM turn `Repository.find` options with relations into query-builder joins and loaded entities?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 67735,
+              "cached": 31744,
+              "reasoning": 3028,
+              "tokensWithReasoning": 70763,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 63949,
+                  "cachedInput": 31744,
+                  "output": 3786,
+                  "reasoning": 3028
+                }
+              ],
+              "tools": 2,
+              "shell": 0,
+              "graph": 2,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 3,
+                "mcp_tool_call": 2
+              },
+              "durMs": 63774,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 63301.736,
+        "repo": "typeorm",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "typeorm-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 135666,
+              "cached": 91648,
+              "reasoning": 1174,
+              "tokensWithReasoning": 136840,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 133269,
+                  "cachedInput": 91648,
+                  "output": 2397,
+                  "reasoning": 1174
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 111427,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 63301.736,
+        "repo": "typeorm",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "typeorm-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 118909,
+              "cached": 78336,
+              "reasoning": 5605,
+              "tokensWithReasoning": 124514,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 111975,
+                  "cachedInput": 78336,
+                  "output": 6934,
+                  "reasoning": 5605
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 119514,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 9808.8005,
+        "repo": "zod",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "zod-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Zod carry `schema.parse` from the public API through core validation, transforms, error creation, and the typed result?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 138464,
+              "cached": 106496,
+              "reasoning": 681,
+              "tokensWithReasoning": 139145,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 136640,
+                  "cachedInput": 106496,
+                  "output": 1824,
+                  "reasoning": 681
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 3,
+                "mcp_tool_call": 4
+              },
+              "durMs": 52249,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 9808.8005,
+        "repo": "zod",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "zod-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Zod carry `schema.parse` from the public API through core validation, transforms, error creation, and the typed result?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 147508,
+              "cached": 96768,
+              "reasoning": 5505,
+              "tokensWithReasoning": 153013,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 140506,
+                  "cachedInput": 96768,
+                  "output": 7002,
+                  "reasoning": 5505
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 111350,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 9808.8005,
+        "repo": "zod",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "zod-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 171219,
+              "cached": 110080,
+              "reasoning": 955,
+              "tokensWithReasoning": 172174,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 168816,
+                  "cachedInput": 110080,
+                  "output": 2403,
+                  "reasoning": 955
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 58160,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 9808.8005,
+        "repo": "zod",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "zod-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 166288,
+              "cached": 119296,
+              "reasoning": 7552,
+              "tokensWithReasoning": 173840,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 156580,
+                  "cachedInput": 119296,
+                  "output": 9708,
+                  "reasoning": 7552
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 150551,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 23166.3106,
+        "repo": "nestjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "nestjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does NestJS carry an HTTP request from a decorated route to the controller result, including DI, guards, pipes, interceptors, filters, and the platform response?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 137030,
+              "cached": 90112,
+              "reasoning": 1431,
+              "tokensWithReasoning": 138461,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 134155,
+                  "cachedInput": 90112,
+                  "output": 2875,
+                  "reasoning": 1431
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 64105,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 23166.3106,
+        "repo": "nestjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "nestjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does NestJS carry an HTTP request from a decorated route to the controller result, including DI, guards, pipes, interceptors, filters, and the platform response?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 158981,
+              "cached": 98816,
+              "reasoning": 6385,
+              "tokensWithReasoning": 165366,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 149780,
+                  "cachedInput": 98816,
+                  "output": 9201,
+                  "reasoning": 6385
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 146037,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 23166.3106,
+        "repo": "nestjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "nestjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 72842,
+              "cached": 9728,
+              "reasoning": 664,
+              "tokensWithReasoning": 73506,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 70880,
+                  "cachedInput": 9728,
+                  "output": 1962,
+                  "reasoning": 664
+                }
+              ],
+              "tools": 2,
+              "shell": 0,
+              "graph": 2,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 3,
+                "mcp_tool_call": 2
+              },
+              "durMs": 45433,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 23166.3106,
+        "repo": "nestjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "nestjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 81396,
+              "cached": 49152,
+              "reasoning": 5910,
+              "tokensWithReasoning": 87306,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 73572,
+                  "cachedInput": 49152,
+                  "output": 7824,
+                  "reasoning": 5910
+                }
+              ],
+              "tools": 2,
+              "shell": 0,
+              "graph": 2,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 2
+              },
+              "durMs": 239525,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 783607.5927,
+        "repo": "vscode",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vscode-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does the extension host communicate with the main process?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 158015,
+              "cached": 121344,
+              "reasoning": 1549,
+              "tokensWithReasoning": 159564,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 155414,
+                  "cachedInput": 121344,
+                  "output": 2601,
+                  "reasoning": 1549
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 92726,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 783607.5927,
+        "repo": "vscode",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vscode-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does the extension host communicate with the main process?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 124906,
+              "cached": 71680,
+              "reasoning": 3022,
+              "tokensWithReasoning": 127928,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 120718,
+                  "cachedInput": 71680,
+                  "output": 4188,
+                  "reasoning": 3022
+                }
+              ],
+              "tools": 3,
+              "shell": 0,
+              "graph": 3,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 3
+              },
+              "durMs": 97988,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 783607.5927,
+        "repo": "vscode",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vscode-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 147729,
+              "cached": 105472,
+              "reasoning": 1071,
+              "tokensWithReasoning": 148800,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 145408,
+                  "cachedInput": 105472,
+                  "output": 2321,
+                  "reasoning": 1071
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 75314,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 783607.5927,
+        "repo": "vscode",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vscode-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 167154,
+              "cached": 111104,
+              "reasoning": 6287,
+              "tokensWithReasoning": 173441,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 159725,
+                  "cachedInput": 111104,
+                  "output": 7429,
+                  "reasoning": 6287
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 139046,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 9456.7233,
+        "repo": "shopping-backend",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "shopping-backend-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does shopping-backend carry a customer order from request handling through auth, provider logic, Prisma writes, and the seller/admin paths that read it later?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 145757,
+              "cached": 72192,
+              "reasoning": 1582,
+              "tokensWithReasoning": 147339,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 142804,
+                  "cachedInput": 72192,
+                  "output": 2953,
+                  "reasoning": 1582
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 70189,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 9456.7233,
+        "repo": "shopping-backend",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "shopping-backend-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does shopping-backend carry a customer order from request handling through auth, provider logic, Prisma writes, and the seller/admin paths that read it later?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 144193,
+              "cached": 108544,
+              "reasoning": 4472,
+              "tokensWithReasoning": 148665,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 137698,
+                  "cachedInput": 108544,
+                  "output": 6495,
+                  "reasoning": 4472
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 107285,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 9456.7233,
+        "repo": "shopping-backend",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "shopping-backend-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 77658,
+              "cached": 34816,
+              "reasoning": 761,
+              "tokensWithReasoning": 78419,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 75281,
+                  "cachedInput": 34816,
+                  "output": 2377,
+                  "reasoning": 761
+                }
+              ],
+              "tools": 2,
+              "shell": 0,
+              "graph": 2,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 3,
+                "mcp_tool_call": 2
+              },
+              "durMs": 56751,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codegraph",
+        "toolSetupMs": 9456.7233,
+        "repo": "shopping-backend",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "shopping-backend-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\r\n\r\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 119132,
+              "cached": 68096,
+              "reasoning": 9104,
+              "tokensWithReasoning": 128236,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 108645,
+                  "cachedInput": 68096,
+                  "output": 10487,
+                  "reasoning": 9104
+                }
+              ],
+              "tools": 3,
+              "shell": 0,
+              "graph": 3,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 3
+              },
+              "durMs": 157702,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 7857.9069,
+        "repo": "excalidraw",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "excalidraw-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 76268,
+              "cached": 33280,
+              "reasoning": 907,
+              "tokensWithReasoning": 77175,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 74021,
+                  "cachedInput": 33280,
+                  "output": 2247,
+                  "reasoning": 907
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 62232,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 7857.9069,
+        "repo": "excalidraw",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "excalidraw-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 86034,
+              "cached": 64512,
+              "reasoning": 6036,
+              "tokensWithReasoning": 92070,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 78826,
+                  "cachedInput": 64512,
+                  "output": 7208,
+                  "reasoning": 6036
+                }
+              ],
+              "tools": 5,
+              "shell": 0,
+              "graph": 5,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 5
+              },
+              "durMs": 115355,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 29212.4736,
+        "repo": "nestjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "nestjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 74484,
+              "cached": 42496,
+              "reasoning": 1223,
+              "tokensWithReasoning": 75707,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 71886,
+                  "cachedInput": 42496,
+                  "output": 2598,
+                  "reasoning": 1223
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 65031,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 29212.4736,
+        "repo": "nestjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "nestjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 73974,
+              "cached": 40448,
+              "reasoning": 5356,
+              "tokensWithReasoning": 79330,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 67490,
+                  "cachedInput": 40448,
+                  "output": 6484,
+                  "reasoning": 5356
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 105677,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 18812.5651,
+        "repo": "rxjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "rxjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 75060,
+              "cached": 54784,
+              "reasoning": 1402,
+              "tokensWithReasoning": 76462,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 71796,
+                  "cachedInput": 54784,
+                  "output": 3264,
+                  "reasoning": 1402
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 73500,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 18812.5651,
+        "repo": "rxjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "rxjs-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 70110,
+              "cached": 37376,
+              "reasoning": 5360,
+              "tokensWithReasoning": 75470,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 63720,
+                  "cachedInput": 37376,
+                  "output": 6390,
+                  "reasoning": 5360
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 106699,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 5789.7203,
+        "repo": "shopping-backend",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "shopping-backend-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 62523,
+              "cached": 35328,
+              "reasoning": 865,
+              "tokensWithReasoning": 63388,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 60244,
+                  "cachedInput": 35328,
+                  "output": 2279,
+                  "reasoning": 865
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 56871,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 5789.7203,
+        "repo": "shopping-backend",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "shopping-backend-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 77932,
+              "cached": 50176,
+              "reasoning": 4809,
+              "tokensWithReasoning": 82741,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 72068,
+                  "cachedInput": 50176,
+                  "output": 5864,
+                  "reasoning": 4809
+                }
+              ],
+              "tools": 5,
+              "shell": 0,
+              "graph": 5,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 5
+              },
+              "durMs": 95987,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 36866.8803,
+        "repo": "typeorm",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "typeorm-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 102290,
+              "cached": 75776,
+              "reasoning": 2462,
+              "tokensWithReasoning": 104752,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 98179,
+                  "cachedInput": 75776,
+                  "output": 4111,
+                  "reasoning": 2462
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 94297,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 2
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 36866.8803,
+        "repo": "typeorm",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "typeorm-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 106239,
+              "cached": 69120,
+              "reasoning": 5934,
+              "tokensWithReasoning": 112173,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 98805,
+                  "cachedInput": 69120,
+                  "output": 7434,
+                  "reasoning": 5934
+                }
+              ],
+              "tools": 5,
+              "shell": 0,
+              "graph": 5,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 7,
+                "mcp_tool_call": 5
+              },
+              "durMs": 121848,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 215880.4254,
+        "repo": "vscode",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vscode-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 81539,
+              "cached": 47104,
+              "reasoning": 1272,
+              "tokensWithReasoning": 82811,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 79151,
+                  "cachedInput": 47104,
+                  "output": 2388,
+                  "reasoning": 1272
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 57136,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 215880.4254,
+        "repo": "vscode",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vscode-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 92438,
+              "cached": 61440,
+              "reasoning": 7103,
+              "tokensWithReasoning": 99541,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 84101,
+                  "cachedInput": 61440,
+                  "output": 8337,
+                  "reasoning": 7103
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 134210,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 4384.8837,
+        "repo": "vue",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vue-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 74605,
+              "cached": 40960,
+              "reasoning": 1000,
+              "tokensWithReasoning": 75605,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 71877,
+                  "cachedInput": 40960,
+                  "output": 2728,
+                  "reasoning": 1000
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 78367,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 4384.8837,
+        "repo": "vue",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vue-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 65273,
+              "cached": 48128,
+              "reasoning": 3992,
+              "tokensWithReasoning": 69265,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 60290,
+                  "cachedInput": 48128,
+                  "output": 4983,
+                  "reasoning": 3992
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 96035,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 5111.5866,
+        "repo": "zod",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "zod-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 98443,
+              "cached": 73728,
+              "reasoning": 970,
+              "tokensWithReasoning": 99413,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 96121,
+                  "cachedInput": 73728,
+                  "output": 2322,
+                  "reasoning": 970
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 59844,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 2
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 5111.5866,
+        "repo": "zod",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "zod-common-v1",
+        "promptFamily": "common",
+        "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 89661,
+              "cached": 44032,
+              "reasoning": 6481,
+              "tokensWithReasoning": 96142,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 82082,
+                  "cachedInput": 44032,
+                  "output": 7579,
+                  "reasoning": 6481
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 127944,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-common-v1",
+              "questionSha256": "698b15b432f5433fec09786d0cdb38d40f11877f41cf397152bce6547c7b9e2b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 9617.892,
+        "repo": "excalidraw",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "excalidraw-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Excalidraw carry a user's element edit from pointer interaction through scene mutation, history, rendering, and collaboration or persistence?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 93045,
+              "cached": 48128,
+              "reasoning": 1661,
+              "tokensWithReasoning": 94706,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 90299,
+                  "cachedInput": 48128,
+                  "output": 2746,
+                  "reasoning": 1661
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 68684,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 9617.892,
+        "repo": "excalidraw",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "excalidraw-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Excalidraw carry a user's element edit from pointer interaction through scene mutation, history, rendering, and collaboration or persistence?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 80744,
+              "cached": 56320,
+              "reasoning": 4159,
+              "tokensWithReasoning": 84903,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 75370,
+                  "cachedInput": 56320,
+                  "output": 5374,
+                  "reasoning": 4159
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 91517,
+              "ok": true,
+              "error": "",
+              "promptId": "excalidraw-dedicated-v1",
+              "questionSha256": "7f46cde0d0a385cb654135c76d80e731a286ba48c9b7089316ec6867871ba736",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 8920.6257,
+        "repo": "nestjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "nestjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does NestJS carry an HTTP request from a decorated route to the controller result, including DI, guards, pipes, interceptors, filters, and the platform response?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 79486,
+              "cached": 33792,
+              "reasoning": 1071,
+              "tokensWithReasoning": 80557,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 76948,
+                  "cachedInput": 33792,
+                  "output": 2538,
+                  "reasoning": 1071
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 60954,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+              "run": 1,
+              "attempts": 2
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 8920.6257,
+        "repo": "nestjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "nestjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does NestJS carry an HTTP request from a decorated route to the controller result, including DI, guards, pipes, interceptors, filters, and the platform response?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 85164,
+              "cached": 57344,
+              "reasoning": 5391,
+              "tokensWithReasoning": 90555,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 78372,
+                  "cachedInput": 57344,
+                  "output": 6792,
+                  "reasoning": 5391
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 106278,
+              "ok": true,
+              "error": "",
+              "promptId": "nestjs-dedicated-v1",
+              "questionSha256": "e7b0d9aa91026100a062493188b5130eefc72aeda35c74b7beaa63d9d5ef7eeb",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 8381.2588,
+        "repo": "rxjs",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "rxjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does RxJS carry a value from Observable.subscribe through pipe operators to the observer, and how does teardown flow back?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 77807,
+              "cached": 50176,
+              "reasoning": 1126,
+              "tokensWithReasoning": 78933,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 75290,
+                  "cachedInput": 50176,
+                  "output": 2517,
+                  "reasoning": 1126
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 68623,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 8381.2588,
+        "repo": "rxjs",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "rxjs-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does RxJS carry a value from Observable.subscribe through pipe operators to the observer, and how does teardown flow back?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 71169,
+              "cached": 41984,
+              "reasoning": 5061,
+              "tokensWithReasoning": 76230,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 65131,
+                  "cachedInput": 41984,
+                  "output": 6038,
+                  "reasoning": 5061
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 97749,
+              "ok": true,
+              "error": "",
+              "promptId": "rxjs-dedicated-v1",
+              "questionSha256": "824a74d2603592c943be9898c74f93a8acf1125e2a272a088d9ae2714c1812c4",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 5043.7858,
+        "repo": "shopping-backend",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "shopping-backend-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does shopping-backend carry a customer order from request handling through auth, provider logic, Prisma writes, and the seller/admin paths that read it later?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 97765,
+              "cached": 58880,
+              "reasoning": 1428,
+              "tokensWithReasoning": 99193,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 95311,
+                  "cachedInput": 58880,
+                  "output": 2454,
+                  "reasoning": 1428
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 77694,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 5043.7858,
+        "repo": "shopping-backend",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "shopping-backend-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does shopping-backend carry a customer order from request handling through auth, provider logic, Prisma writes, and the seller/admin paths that read it later?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 170144,
+              "cached": 101376,
+              "reasoning": 4741,
+              "tokensWithReasoning": 174885,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 164030,
+                  "cachedInput": 101376,
+                  "output": 6114,
+                  "reasoning": 4741
+                }
+              ],
+              "tools": 7,
+              "shell": 0,
+              "graph": 7,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 7
+              },
+              "durMs": 104620,
+              "ok": true,
+              "error": "",
+              "promptId": "shopping-backend-dedicated-v1",
+              "questionSha256": "17d16d4da7ca14f7babe71a3d53894b5ca48766e446f36010607adc1bb8c76e0",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 15615.451,
+        "repo": "typeorm",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "typeorm-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does TypeORM turn `Repository.find` options with relations into query-builder joins and loaded entities?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 85855,
+              "cached": 32768,
+              "reasoning": 1379,
+              "tokensWithReasoning": 87234,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 82932,
+                  "cachedInput": 32768,
+                  "output": 2923,
+                  "reasoning": 1379
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 69414,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 15615.451,
+        "repo": "typeorm",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "typeorm-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does TypeORM turn `Repository.find` options with relations into query-builder joins and loaded entities?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 84195,
+              "cached": 57856,
+              "reasoning": 3700,
+              "tokensWithReasoning": 87895,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 79310,
+                  "cachedInput": 57856,
+                  "output": 4885,
+                  "reasoning": 3700
+                }
+              ],
+              "tools": 5,
+              "shell": 0,
+              "graph": 5,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 5
+              },
+              "durMs": 90722,
+              "ok": true,
+              "error": "",
+              "promptId": "typeorm-dedicated-v1",
+              "questionSha256": "4a21c03a348fd814f637f614400e931db509884a6973eb458d973845973b95a5",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 208889.7154,
+        "repo": "vscode",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vscode-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does the extension host communicate with the main process?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 111929,
+              "cached": 70656,
+              "reasoning": 1241,
+              "tokensWithReasoning": 113170,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 109627,
+                  "cachedInput": 70656,
+                  "output": 2302,
+                  "reasoning": 1241
+                }
+              ],
+              "tools": 5,
+              "shell": 0,
+              "graph": 5,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 5
+              },
+              "durMs": 102028,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 208889.7154,
+        "repo": "vscode",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vscode-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "How does the extension host communicate with the main process?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 65850,
+              "cached": 40448,
+              "reasoning": 1600,
+              "tokensWithReasoning": 67450,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 63410,
+                  "cachedInput": 40448,
+                  "output": 2440,
+                  "reasoning": 1600
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 4
+              },
+              "durMs": 50641,
+              "ok": true,
+              "error": "",
+              "promptId": "vscode-dedicated-v1",
+              "questionSha256": "4ce654a11bcf83bea637e09b308680158c5d71512637a020c2c331803c14839a",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 5108.8668,
+        "repo": "vue",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "vue-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Vue carry a reactive state change from a component/template read through dependency tracking, scheduling, rendering, and DOM patching?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 78961,
+              "cached": 49152,
+              "reasoning": 939,
+              "tokensWithReasoning": 79900,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 76647,
+                  "cachedInput": 49152,
+                  "output": 2314,
+                  "reasoning": 939
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 6,
+                "mcp_tool_call": 4
+              },
+              "durMs": 65936,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 5108.8668,
+        "repo": "vue",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "vue-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Vue carry a reactive state change from a component/template read through dependency tracking, scheduling, rendering, and DOM patching?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 59536,
+              "cached": 31744,
+              "reasoning": 4684,
+              "tokensWithReasoning": 64220,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 54101,
+                  "cachedInput": 31744,
+                  "output": 5435,
+                  "reasoning": 4684
+                }
+              ],
+              "tools": 3,
+              "shell": 0,
+              "graph": 3,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 4,
+                "mcp_tool_call": 3
+              },
+              "durMs": 91060,
+              "ok": true,
+              "error": "",
+              "promptId": "vue-dedicated-v1",
+              "questionSha256": "f4b39a26aa25a8b54dbf48a9e69abb72236f11ec7711e92525feef3b998db482",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 4874.6227,
+        "repo": "zod",
+        "model": "codex-gpt",
+        "modelVersion": "gpt-5.5",
+        "effort": "high",
+        "promptId": "zod-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Zod carry `schema.parse` from the public API through core validation, transforms, error creation, and the typed result?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 95957,
+              "cached": 56320,
+              "reasoning": 1261,
+              "tokensWithReasoning": 97218,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 93887,
+                  "cachedInput": 56320,
+                  "output": 2070,
+                  "reasoning": 1261
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 3,
+                "mcp_tool_call": 4
+              },
+              "durMs": 58068,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+              "run": 1,
+              "attempts": 1
+            }
+          ]
+        }
+      },
+      {
+        "harness": "codex",
+        "tool": "codebase-memory",
+        "toolSetupMs": 4874.6227,
+        "repo": "zod",
+        "model": "codex-gpt-mini",
+        "modelVersion": "gpt-5.4-mini",
+        "effort": "high",
+        "promptId": "zod-dedicated-v1",
+        "promptFamily": "dedicated",
+        "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
+        "fixtureBranch": "ttsc",
+        "daemon": false,
+        "runs": 1,
+        "question": "In this repository, how does Zod carry `schema.parse` from the public API through core validation, transforms, error creation, and the typed result?",
+        "samples": {
+          "baseline": [],
+          "graph": [
+            {
+              "tokens": 92170,
+              "cached": 64512,
+              "reasoning": 5154,
+              "tokensWithReasoning": 97324,
+              "turns": 1,
+              "usage": [
+                {
+                  "input": 86108,
+                  "cachedInput": 64512,
+                  "output": 6062,
+                  "reasoning": 5154
+                }
+              ],
+              "tools": 4,
+              "shell": 0,
+              "graph": 4,
+              "web": 0,
+              "sourceTouches": 0,
+              "shellCommands": [],
+              "types": {
+                "agent_message": 5,
+                "mcp_tool_call": 4
+              },
+              "durMs": 104705,
+              "ok": true,
+              "error": "",
+              "promptId": "zod-dedicated-v1",
+              "questionSha256": "3ff9da40c540610f6142a5fc5c0eb5ac8d68d62775d0b0eeecc16c16307b794b",
               "run": 1,
               "attempts": 1
             }
