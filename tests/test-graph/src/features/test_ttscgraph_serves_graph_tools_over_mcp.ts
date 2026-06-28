@@ -28,6 +28,8 @@ const callGraphJson = <T>(result: ToolResult): T => {
   }
 };
 
+const GRAPH_TOOL_NAME = "inspect_typescript_source_flow";
+
 type GraphRequestType =
   | "entrypoints"
   | "lookup"
@@ -52,8 +54,14 @@ const graphArguments = (props: {
     reason: props.thinking,
     type: props.request.type,
   },
-  review:
-    "The draft is bounded to one graph request; follow-up evidence should use another graph call.",
+  review: {
+    reason:
+      props.request.type === "escape"
+        ? "The draft intentionally stops graph use for this answer."
+        : "The draft is bounded to one graph request and avoids shell fallback.",
+    decision: props.request.type === "escape" ? "escape" : "inspect",
+    finish: "answer",
+  },
   request: props.request,
 });
 
@@ -64,7 +72,7 @@ const graphArguments = (props: {
  * The TypeScript engine is unit-smoked in isolation; this case proves the
  * shipped pipeline works: the Node launcher spawns, runs `ttscgraph dump` once
  * for a real project, builds the resident graph, and answers
- * initialize/tools-list/tools-call for the single query tool, then exits
+ * initialize/tools-list/tools-call for the single source-flow tool, then exits
  * cleanly when stdin closes.
  *
  * 1. Materialize a project with a Service.run -> helper call chain, then spawn the
@@ -143,7 +151,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     const names = list.tools.map((tool) => tool.name);
     assert.deepEqual(
       names,
-      ["query"],
+      [GRAPH_TOOL_NAME],
       `tools/list advertises the single graph tool, got ${names.join(", ")}`,
     );
 
@@ -156,7 +164,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       };
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking:
             "The question has already been answered by prior evidence, so no graph operation should run.",
@@ -196,10 +204,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
           evidence?: { file?: string; startLine?: number; text?: string };
         }[];
       }[];
-      next: { details: string[]; traceFrom: string[] };
+      guide: string;
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking:
             "Find source-free starting handles before tracing Service.run to helper.",
@@ -257,10 +265,8 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       (hit) => hit.name === "Service.run",
     );
     assert.ok(
-      entrypointRun !== undefined &&
-        entrypoints.next.details.includes(entrypointRun.id) &&
-        entrypoints.next.traceFrom.includes(entrypointRun.id),
-      `entrypoints returns follow-up handles for ranked seeds: ${JSON.stringify(entrypoints.next)}`,
+      entrypointRun !== undefined && entrypoints.guide.includes("graph fields"),
+      `entrypoints returns compact follow-up guidance: ${JSON.stringify(entrypoints.guide)}`,
     );
 
     // overview: a compact architecture map with real counts.
@@ -269,7 +275,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       publicApi?: { id: string; name: string; line?: number }[];
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking: "Summarize project shape from graph index facts.",
           request: {
@@ -299,10 +305,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     // lookup: finds Service by name and ranks explicit method queries.
     const lookup = callGraphJson<{
       hits: { id: string; name: string; kind: string }[];
-      next: { details: string[]; traceFrom: string[] };
+      guide: string;
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking: "Look up Service by exact symbol name.",
           request: {
@@ -315,15 +321,14 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     const service = lookup.hits.find((hit) => hit.name === "Service");
     assert.ok(service, `lookup finds Service: ${JSON.stringify(lookup.hits)}`);
     assert.ok(
-      lookup.next.details.includes(service.id) &&
-        lookup.next.traceFrom.includes(service.id),
-      `lookup returns follow-up handles: ${JSON.stringify(lookup.next)}`,
+      lookup.guide.includes("graph fields"),
+      `lookup returns compact follow-up guidance: ${JSON.stringify(lookup.guide)}`,
     );
     const methodQuery = callGraphJson<{
       hits: { name: string; kind: string }[];
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking:
             "Look up the explicit run method before dependency tracing.",
@@ -355,7 +360,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       steps?: string[];
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking:
             "Trace execution dependencies from run to confirm the helper call.",
@@ -390,10 +395,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     const pathTrace = callGraphJson<{
       path?: { name: string; signature?: string }[];
       steps?: string[];
-      next?: { traceFrom: string[] };
+      guide: string;
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking: "Ask for the direct path from Service.run to helper.",
           request: {
@@ -416,8 +421,8 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
     assert.ok(
       pathTrace.steps?.some((step) => step.includes("helper")) &&
-        (pathTrace.next?.traceFrom.length ?? 0) > 0,
-      `trace path returns step text and continuation handles: ${JSON.stringify(pathTrace)}`,
+        pathTrace.guide.includes("graph fields"),
+      `trace path returns step text and compact guidance: ${JSON.stringify(pathTrace)}`,
     );
 
     // details: returns declared shape and anchors, not implementation text.
@@ -437,7 +442,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       unknown: string[];
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking: "Inspect Service.run shape without reading source.",
           request: {
@@ -487,7 +492,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking: "Inspect adapter object outline without reading source.",
           request: {
@@ -519,7 +524,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking: "Inspect Service.run shape without reading source.",
           request: {
@@ -557,7 +562,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       }[];
     }>(
       (await client.request("tools/call", {
-        name: "query",
+        name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking: "Map immediate Service.run dependencies as graph ranges.",
           request: {
