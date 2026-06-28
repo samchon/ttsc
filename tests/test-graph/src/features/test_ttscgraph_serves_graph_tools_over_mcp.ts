@@ -127,34 +127,50 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     ].join("\n"),
   });
 
-  const client = TtsgraphClient.start(root);
-  try {
-    const init = (await client.request("initialize", {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "test-graph", version: "0.0.0" },
-    })) as { serverInfo?: { name?: string }; instructions?: string };
+  const withClient = async (
+    body: (client: ReturnType<typeof TtsgraphClient.start>) => Promise<void>,
+  ): Promise<void> => {
+    const client = TtsgraphClient.start(root);
+    try {
+      const init = (await client.request("initialize", {
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: "test-graph", version: "0.0.0" },
+      })) as { serverInfo?: { name?: string }; instructions?: string };
+      assert.equal(
+        init.serverInfo?.name,
+        "ttsc-graph",
+        "initialize returns the server name",
+      );
+      assert.ok(
+        typeof init.instructions === "string" && init.instructions.length > 0,
+        "initialize ships usage guidance",
+      );
+      client.notify("notifications/initialized", {});
+
+      const list = (await client.request("tools/list", {})) as {
+        tools: { name: string }[];
+      };
+      const names = list.tools.map((tool) => tool.name);
+      assert.deepEqual(
+        names,
+        [GRAPH_TOOL_NAME],
+        `tools/list advertises the single graph tool, got ${names.join(", ")}`,
+      );
+      await body(client);
+    } finally {
+      client.endStdin();
+    }
+
+    const code = await client.waitForExit();
     assert.equal(
-      init.serverInfo?.name,
-      "ttsc-graph",
-      "initialize returns the server name",
+      code,
+      0,
+      `the launcher should exit cleanly on stdin close\nstderr: ${client.stderrText()}`,
     );
-    assert.ok(
-      typeof init.instructions === "string" && init.instructions.length > 0,
-      "initialize ships usage guidance",
-    );
-    client.notify("notifications/initialized", {});
+  };
 
-    const list = (await client.request("tools/list", {})) as {
-      tools: { name: string }[];
-    };
-    const names = list.tools.map((tool) => tool.name);
-    assert.deepEqual(
-      names,
-      [GRAPH_TOOL_NAME],
-      `tools/list advertises the single graph tool, got ${names.join(", ")}`,
-    );
-
+  await withClient(async (client) => {
     const skip = callJson<{
       result?: {
         type?: string;
@@ -350,7 +366,9 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       "method",
       `lookup preserves the method kind: ${JSON.stringify(methodQuery.hits)}`,
     );
+  });
 
+  await withClient(async (client) => {
     // trace: forward from Service.run reaches the helper it calls.
     const trace = callGraphJson<{
       reached: { name: string }[];
@@ -515,7 +533,9 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       ),
       `details returns object-literal member outlines: ${JSON.stringify(objectDetails.nodes)}`,
     );
+  });
 
+  await withClient(async (client) => {
     const detailsShape = callGraphJson<{
       nodes: {
         name: string;
@@ -589,14 +609,5 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       ),
       `details returns dependency neighbors: ${JSON.stringify(detailsDeps.nodes)}`,
     );
-  } finally {
-    client.endStdin();
-  }
-
-  const code = await client.waitForExit();
-  assert.equal(
-    code,
-    0,
-    `the launcher should exit cleanly on stdin close\nstderr: ${client.stderrText()}`,
-  );
+  });
 };
