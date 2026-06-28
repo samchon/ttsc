@@ -1,1 +1,1 @@
-How does publishing an order flow from ShoppingCustomerOrderPublishController.create through ShoppingOrderPublishProvider to the Prisma database write?
+In this repository, how does shopping-backend carry a customer order from request handling through auth, provider logic, Prisma writes, and the seller/admin paths that read it later?

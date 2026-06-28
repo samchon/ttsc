@@ -64,7 +64,7 @@ function layers(graph: TtscGraphMemory): ITtscGraphOverview.ILayer[] {
       exported: entry.exported,
     }))
     .sort((a, b) => b.files - a.files)
-    .slice(0, 16);
+    .slice(0, 10);
 }
 
 /**
@@ -88,7 +88,7 @@ function hotspots(graph: TtscGraphMemory): ITtscGraphOverview.IHotspot[] {
     }))
     .filter((h) => h.fanIn + h.fanOut > 0)
     .sort((a, b) => b.fanIn + b.fanOut - (a.fanIn + a.fanOut))
-    .slice(0, 15);
+    .slice(0, 10);
 }
 
 /** Declaration kinds that make up a meaningful public API surface. */
@@ -126,7 +126,7 @@ function publicApi(graph: TtscGraphMemory): ITtscGraphOverview.IPublicApi[] {
       degree: degree(node.id),
     }))
     .sort((a, b) => b.degree - a.degree)
-    .slice(0, 30)
+    .slice(0, 15)
     .map((ranked) => ranked.node);
 }
 

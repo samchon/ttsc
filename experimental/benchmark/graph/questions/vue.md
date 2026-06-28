@@ -1,1 +1,1 @@
-How does Vue track reactive dependencies when a property is read and trigger effects when that property is written?
+In this repository, how does Vue carry a reactive state change from a component/template read through dependency tracking, scheduling, rendering, and DOM patching?

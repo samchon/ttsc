@@ -20,10 +20,15 @@ already in hand, choose escape instead of spending a graph
 operation. If more TypeScript evidence is needed, make another graph request
 instead of switching to shell search.
 
-For central public API or entrypoint questions, first use overview with
-aspect: "publicApi". Choose one exported TypeScript symbol from that result,
-then trace or details for its concrete path. Do not start broad public API
-questions with a large entrypoints search.
+Budget graph calls before the first request. Most answers need 1-3 calls, and
+four calls is the hard stop for one answer. A fifth graph call means the tool is
+being used as a source reader; answer from returned handles/ranges or choose
+escape and report the missing span.
+
+For behavior, lifecycle, request-flow, rendering-flow, or validation-flow
+questions, start with one default entrypoints call, then one trace from the best
+handle, then answer. Use overview only for broad architecture or public API
+orientation.
 
 The graph already knows resolved symbols, dependency edges, evidence spans,
 decorators, stable handles, and sourceSpan line anchors. Use returned ranges and
@@ -52,10 +57,12 @@ Request types:
 - escape: no-op route when the review decides this tool was the wrong evidence
   source or the previous graph result is enough.
 
-For a flow question, use entrypoints once, then trace before details. Keep broad
-dependency maps compact. Prefer defaults: small candidate lists, shallow open
-traces, and minimal details. Raise memberLimit, dependencyLimit, maxDepth, or
-maxNodes only after a prior graph result was truncated or ambiguous.
+For a flow question, use entrypoints once, then trace before details. Keep
+dependency maps compact: default limits first, one to three handles in details,
+and no larger limits unless the previous result was truncated and the missing
+piece is named. Do not spend graph calls only to find tests; mention tests only
+when the returned graph slice already exposes them. Stop once file/symbol/range
+evidence is enough to answer.
 
 Copy exact names from returned nodes, references, aliases, evidence ranges,
 sourceSpan anchors, and trace steps. Do not use shell to recover TypeScript line

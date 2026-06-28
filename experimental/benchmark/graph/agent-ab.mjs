@@ -14,9 +14,10 @@
 // which runs `ttscgraph dump` once for the project (the Go binary is now dump-only)
 // and serves graph_index / graph_overview / graph_query / graph_trace /
 // graph_expand over stdio.
-// All tool guidance comes from the server's MCP initialize/tool descriptions; the
-// user prompt is the manifest question verbatim, tool-neutral, so the token
-// comparison stays honest. No graph-specific instruction is appended.
+// All tool guidance comes from the server's MCP initialize/tool descriptions.
+// The manifest question stays tool-neutral; the graph arm adds only the
+// measurement contract that repository evidence must come from the configured
+// graph MCP, not shell reads.
 //
 // Each sample also captures the agent's final answer text for manual
 // inspection. The benchmark itself measures runtime behavior only: tokens, tool
@@ -294,6 +295,8 @@ const traceDir = args["trace-dir"]
       path.dirname(reportPath),
       `${path.basename(reportPath, path.extname(reportPath))}.traces`,
     );
+fs.rmSync(reportPath, { force: true });
+fs.rmSync(traceDir, { recursive: true, force: true });
 fs.mkdirSync(traceDir, { recursive: true });
 
 const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
@@ -318,7 +321,12 @@ const thunks = arms.flatMap((arm) =>
     for (let attempt = 0; attempt <= MAX_RUN_RETRIES; attempt++) {
       attempts = attempt + 1;
       m = validateArmSample(
-        await runClaude(question, arm.cfg, arm.name, r + 1),
+        await runClaude(
+          promptForArm(question, arm.name),
+          arm.cfg,
+          arm.name,
+          r + 1,
+        ),
         arm.name,
       );
       if (m.ok) break;
@@ -404,10 +412,8 @@ try {
 async function runClaude(question, cfg, armName, runNumber) {
   // Prevent Claude's built-in Agent tool from turning an MCP benchmark into
   // subagent IO. Do not use --bare here: it disables OAuth/keychain auth.
-  // No --append-system-prompt: tool guidance is tool-neutral now and comes from
-  // the @ttsc/graph MCP initialize/tool descriptions, so both arms get the same
-  // user prompt and the token comparison stays honest. armName only keys the
-  // trace file; it no longer changes the prompt.
+  // No --append-system-prompt: graph guidance comes from the MCP descriptions
+  // plus the short graph-arm evidence contract in the prompt body.
   const claudeArgs = [
     "-p",
     "--output-format",
@@ -442,6 +448,18 @@ async function runClaude(question, cfg, armName, runNumber) {
   if (stderr)
     fs.writeFileSync(path.join(traceDir, `${base}.stderr.log`), stderr);
   return parseStream(stdout);
+}
+
+function promptForArm(baseQuestion, armName) {
+  if (armName !== "graph") return baseQuestion;
+  return [
+    "Use the configured graph MCP as the repository evidence source for this run.",
+    "Use at most four graph MCP calls total; after entrypoints plus one trace or details call, answer from returned handles and ranges when possible.",
+    "Do not spend graph calls only to hunt for tests. Recommend tests only when the graph slice already returned test evidence.",
+    "Do not run shell commands to search or read source files. If the graph cannot answer a detail, cite the graph range or say what is missing.",
+    "",
+    baseQuestion,
+  ].join("\n");
 }
 
 // spawnAsync runs a child to completion and resolves its captured stdout/stderr,

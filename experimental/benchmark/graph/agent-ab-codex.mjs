@@ -13,9 +13,9 @@
 // The MCP server is the @ttsc/graph TypeScript launcher (packages/graph/lib/bin.js),
 // which runs `ttscgraph dump` once for the project (the Go binary is dump-only now)
 // and serves one planned graph-inspection tool over stdio.
-// Tool guidance comes from the server's MCP descriptions; the user prompt is the
-// manifest question verbatim, tool-neutral, so the token comparison stays honest —
-// no graph-specific instruction is prepended.
+// Tool guidance comes from the server's MCP descriptions. The manifest question
+// stays tool-neutral; the graph arm adds only the measurement contract that
+// repository evidence must come from the configured graph MCP, not shell reads.
 //
 // codex --json has no cost field, so this reports tokens + tool calls + wall
 // time (not dollars). A "tool call" is a codex command_execution (shell read or
@@ -289,6 +289,8 @@ const traceDir = args["trace-dir"]
       path.dirname(reportPath),
       `${path.basename(reportPath, path.extname(reportPath))}.traces`,
     );
+fs.rmSync(reportPath, { force: true });
+fs.rmSync(traceDir, { recursive: true, force: true });
 fs.mkdirSync(traceDir, { recursive: true });
 
 const MAX_RUN_RETRIES = parseNonNegativeInteger(
@@ -310,10 +312,15 @@ const thunks = arms.flatMap((arm) =>
     let attempts = 0;
     for (let attempt = 0; attempt <= MAX_RUN_RETRIES; attempt++) {
       attempts = attempt + 1;
-      // Both arms get the identical user prompt — no graph-specific preamble.
-      // Tool guidance comes from the @ttsc/graph MCP server descriptions.
+      // The graph arm gets a short evidence contract so shell fallback is not
+      // repeatedly measured and rejected.
       m = validateArmSample(
-        await runCodex(question, arm.home, arm.name, r + 1),
+        await runCodex(
+          promptForArm(question, arm.name),
+          arm.home,
+          arm.name,
+          r + 1,
+        ),
         arm.name,
       );
       if (m.ok) break;
@@ -422,6 +429,18 @@ function codegraphServerArgs(targetRepoDir) {
   return process.platform === "win32"
     ? ["/d", "/s", "/c", "codegraph", ...args]
     : args;
+}
+
+function promptForArm(baseQuestion, armName) {
+  if (armName !== "graph") return baseQuestion;
+  return [
+    "Use the configured graph MCP as the repository evidence source for this run.",
+    "Use at most four graph MCP calls total; after entrypoints plus one trace or details call, answer from returned handles and ranges when possible.",
+    "Do not spend graph calls only to hunt for tests. Recommend tests only when the graph slice already returned test evidence.",
+    "Do not run shell commands to search or read source files. If the graph cannot answer a detail, cite the graph range or say what is missing.",
+    "",
+    baseQuestion,
+  ].join("\n");
 }
 
 function ensureInstalled(targetRepoDir) {

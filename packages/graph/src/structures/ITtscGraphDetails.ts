@@ -42,7 +42,7 @@ export namespace ITtscGraphDetails {
      * Maximum dependencies and dependents to return per side when
      * `neighbors:true`.
      *
-     * @default 6
+     * @default 2
      */
     neighborLimit?: number;
 
@@ -50,7 +50,7 @@ export namespace ITtscGraphDetails {
      * Maximum owned members to return for a container or object literal. Raise
      * only when the first outline is truncated.
      *
-     * @default 12
+     * @default 6
      */
     memberLimit?: number;
 
@@ -58,7 +58,7 @@ export namespace ITtscGraphDetails {
      * Maximum direct execution and type references to return per group. Raise
      * only when the first dependency slice is not enough.
      *
-     * @default 3
+     * @default 1
      */
     dependencyLimit?: number;
   }

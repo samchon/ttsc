@@ -45,7 +45,7 @@ export namespace ITtscGraphEntrypoints {
     /**
      * Maximum ranked hits to return.
      *
-     * @default 5
+     * @default 4
      */
     limit?: number;
 
@@ -54,7 +54,7 @@ export namespace ITtscGraphEntrypoints {
      * This is an orientation slice, not a dependency dump; use `trace` or
      * `details` with `neighbors:true` after choosing the specific handles.
      *
-     * @default 1
+     * @default 0
      */
     neighbors?: number;
   }

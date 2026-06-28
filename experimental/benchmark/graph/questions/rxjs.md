@@ -1,1 +1,1 @@
-How does calling subscribe on an RxJS Observable invoke its operator chain and deliver values to the observer?
+In this repository, how does RxJS carry a value from Observable.subscribe through pipe operators to the observer, and how does teardown flow back?

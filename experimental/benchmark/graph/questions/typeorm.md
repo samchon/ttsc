@@ -1,1 +1,1 @@
-How does TypeORM's `Repository.find` translate `relations` find options into SQL joins via the query builder?
+In this repository, how does TypeORM turn `Repository.find` options with relations into query-builder joins and loaded entities?

@@ -196,6 +196,7 @@ function runPrompt(prompt) {
       tmpDir,
       `${harness}-${model}-${prompt.id}-${arm}.json`,
     );
+    fs.rmSync(report, { force: true });
     const dir = fixtureOf(prompt);
     if (!dir || !fs.existsSync(dir))
       throw new Error(

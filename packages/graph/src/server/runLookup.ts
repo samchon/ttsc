@@ -5,7 +5,8 @@ import { decoratorsOf, signatureOf } from "./runDetails";
 
 // One file should not crowd out the rest of the ranking, so cap hits per file.
 const PER_FILE = 3;
-const DEFAULT_LIMIT = 12;
+const DEFAULT_LIMIT = 5;
+const MAX_LIMIT = 6;
 
 /**
  * Rank the graph's symbols against a natural query. Scoring blends exact and
@@ -55,7 +56,7 @@ export function runLookup(
   scored.sort((a, b) => b.score - a.score);
 
   // Diversity: keep at most PER_FILE hits per file while filling up to the limit.
-  const limit = Math.max(1, props.limit ?? DEFAULT_LIMIT);
+  const limit = bound(props.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
   const perFile = new Map<string, number>();
   const hits: ITtscGraphLookup.IHit[] = [];
   for (const hit of scored) {
@@ -229,6 +230,16 @@ function isTestFile(file: string): boolean {
     /(^|\/)(test|tests|__tests__|spec)\//.test(file) ||
     /\.(test|spec)\.[cm]?tsx?$/.test(file)
   );
+}
+
+function bound(
+  value: number | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const n = value === undefined || !Number.isFinite(value) ? fallback : value;
+  return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
 /**

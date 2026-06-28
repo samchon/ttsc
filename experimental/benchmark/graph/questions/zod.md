@@ -1,1 +1,1 @@
-How does a Zod schema's `parse` method validate input and produce a typed result or throw a ZodError?
+In this repository, how does Zod carry `schema.parse` from the public API through core validation, transforms, error creation, and the typed result?

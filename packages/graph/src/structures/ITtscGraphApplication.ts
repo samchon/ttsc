@@ -25,8 +25,9 @@ export interface ITtscGraphApplication {
    * Write `draft.reason` before `draft.type`, then choose `entrypoints`,
    * `lookup`, `trace`, `details`, `overview`, or `escape`.
    *
-   * Keep slices small. Prefer defaults. Raise limits only after truncation or
-   * ambiguity. Keep dependency maps compact and use `trace` for paths.
+   * Most answers should need 1-3 calls; four is the hard stop for one answer.
+   * Keep slices small, prefer defaults, and stop once file/symbol/range
+   * evidence is enough.
    *
    * @param props The reasoning and selected graph request
    * @returns One `result` union member matching the selected request type
@@ -70,11 +71,10 @@ export namespace ITtscGraphApplication {
      * Critical review of the draft request.
      *
      * Check whether the draft avoids overfetch, non-graph fallback, broad
-     * reads, and unnecessary neighbor expansion. For caller or call-site
-     * questions, prefer reverse trace or details with `neighbors:true`. If the
-     * draft is wrong, choose the corrected type in `request`; if graph evidence
-     * is unnecessary or the prior graph result already answers the question,
-     * choose `escape`.
+     * reads, and unnecessary neighbor expansion. If this would be a fourth
+     * broad lookup, trace, or details call, prefer answering from evidence in
+     * hand or choose `escape`. Do not spend graph calls only to hunt for tests.
+     * If the draft is wrong, choose the corrected type in `request`.
      */
     review: string;
 

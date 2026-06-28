@@ -11,16 +11,16 @@ import { accessAliasesFor } from "./accessAliases";
 import { resolveGraphHandle } from "./resolveHandle";
 
 // A signature is the declaration head up to the body brace: a handful of lines.
-const MAX_SIGNATURE_LINES = 6;
+const MAX_SIGNATURE_LINES = 4;
 // Neighbor lists are a map, not a dump; keep them scannable.
-const DEFAULT_NEIGHBORS = 6;
-const MAX_NEIGHBORS = 12;
+const DEFAULT_NEIGHBORS = 2;
+const MAX_NEIGHBORS = 3;
 // A container outline can be long; default to a scannable first page.
-const DEFAULT_MEMBERS = 12;
-const MAX_MEMBERS = 24;
+const DEFAULT_MEMBERS = 6;
+const MAX_MEMBERS = 8;
 // Direct dependency groups are orientation slices, not full fan-out dumps.
-const DEFAULT_DEPENDENCIES = 3;
-const MAX_DEPENDENCIES = 8;
+const DEFAULT_DEPENDENCIES = 1;
+const MAX_DEPENDENCIES = 2;
 // Object literal outlines are navigation aids, not source excerpts.
 const MAX_OBJECT_MEMBER_LINES = 300;
 // Structural relationships are navigation, not the dependency picture details is for.
@@ -106,7 +106,7 @@ export function runDetails(
       if (list.length > 0) detail.members = list;
     }
     if (signatureLiterals.length > 0)
-      detail.literals = signatureLiterals.slice(0, 12);
+      detail.literals = signatureLiterals.slice(0, 6);
     if (wantNeighbors) {
       detail.dependsOn = refs(
         graph,

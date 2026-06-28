@@ -27,7 +27,7 @@ export namespace ITtscGraphLookup {
     /**
      * Maximum hits to return.
      *
-     * @default 12
+     * @default 5
      */
     limit?: number;
   }
