@@ -24,6 +24,6 @@ The MCP instruction's first 512 characters must say what the tool is, when to us
 
 ## Benchmarks
 
-Common prompts must remain natural onboarding or architecture questions. Dedicated prompts may be project-specific, but still plausible. Never append graph-specific hidden guidance to user prompts, and never optimize by making the product worse outside the benchmark.
+Common prompts must remain natural repository-orientation or architecture questions. Dedicated prompts may be project-specific, but still plausible. Never append graph-specific hidden guidance to user prompts, and never optimize by making the product worse outside the benchmark.
 
 Optimize in this order: instruction clarity, schema clarity, graph result quality, then tool-shape reduction only if the removed shape is not generally useful. Treat negative savings as a trace-analysis signal, not as a reason to add benchmark-only logic.

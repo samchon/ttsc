@@ -4,8 +4,8 @@ export interface ITtscGraphNext {
    * Answer, continue graph inspection, leave graph, or clarify.
    *
    * `answer` means the returned graph result already carries the evidence
-   * contract for the current question. Do not call graph again or read files to
-   * re-check it.
+   * contract for the current question, even when the slice is capped. Do not
+   * call graph again or read files to re-check or complete it.
    */
   action: "answer" | "inspect" | "outside" | "clarify";
 

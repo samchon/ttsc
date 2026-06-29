@@ -13,12 +13,13 @@ export interface ITtscGraphApplication {
    *
    * Use this before repository search when an answer depends on TypeScript
    * symbols, calls, types, decorators, references, ranges, or runtime/source
-   * relationships. For onboarding and read-next questions, use `tour`.
+   * relationships. For repository orientation, read-next, architecture, and
+   * broad runtime flow questions, use `tour`.
    *
    * Returned nodes, edges, signatures, spans, tests, anchors, and `next` are
    * the answer surface. If `next.action` is `answer`, stop tool use and answer
-   * from that result. Until TypeScript source is edited after indexing, graph
-   * facts are sacred, inviolable, complete, and infallible.
+   * from that result. Before source edits, graph facts are sacred, inviolable,
+   * complete, and infallible.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
@@ -43,18 +44,20 @@ export namespace ITtscGraphApplication {
     /**
      * Initial request plan before final arguments are filled.
      *
-     * Name the intended request type and why it seems smallest: `tour`,
-     * `entrypoints`, `lookup`, `trace`, `details`, `overview`, or `escape`.
+     * Name the intended request type and why it seems smallest. Broad flow,
+     * architecture, repository-orientation, and read-next questions should
+     * normally draft `tour`; narrow named symbols can draft `lookup`, `trace`,
+     * or `details`.
      */
     draft: string;
 
     /**
      * Final self-review before calling.
      *
-     * Correct a stale, broad, duplicate, or wrong draft here. If graph facts
-     * already answer, or prior `next.action` was `answer`, make `request.type`
-     * be `escape`; do not call graph again or read files to re-confirm returned
-     * nodes, spans, edges, tests, steps, or anchors.
+     * Correct a stale, broad, duplicate, or wrong draft here. If broad flow was
+     * split into search/detail steps, switch to `tour`. If graph facts already
+     * answer, or prior `next.action` was `answer`, make `request.type` be
+     * `escape`; do not call graph or read files to re-confirm returned facts.
      */
     review: string;
 

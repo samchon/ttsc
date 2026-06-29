@@ -500,7 +500,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
             "Trace execution dependencies from run to confirm the helper call.",
           request: {
             type: "trace",
-            from: "run",
+            from: entrypointRun.id,
             direction: "forward",
             focus: "execution",
           },

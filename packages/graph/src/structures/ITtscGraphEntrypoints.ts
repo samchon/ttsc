@@ -31,10 +31,10 @@ export interface ITtscGraphEntrypoints {
 
 export namespace ITtscGraphEntrypoints {
   /**
-   * Ask for the first handles to follow. Use this once at the start of a
-   * natural behavior, architecture, lifecycle, rendering, request-flow, or
-   * validation-flow question. It returns ranked symbols, mentioned handles, and
-   * a small orientation slice without implementation text.
+   * Ask for first handles when the question is narrow but the symbol is not yet
+   * known. For broad tours, read-next, architecture, or multi-phase runtime
+   * flow, use `tour` instead of decomposing the answer into entrypoints and
+   * follow-up calls.
    */
   export interface IRequest {
     /** Discriminator for first-pass question indexing. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -524,6 +524,7 @@ function LegendDot({ fill, label }: { fill: string; label: string }) {
 // ---------------------------------------------------------------------------
 
 type ToolKey = "ttsc" | "codegraph" | "codebaseMemory";
+type ReductionSeriesKey = "baseline" | ToolKey;
 
 interface ReductionTool {
   key: ToolKey;
@@ -619,6 +620,28 @@ function fmtTokenShort(tokens: number): string {
     return `${(tokens / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
   if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}k`;
   return `${Math.round(tokens)}`;
+}
+
+function tokenUsageText(tokens: number): string {
+  return `${fmtTokenShort(tokens)} tokens`;
+}
+
+function lowestTokenSeries(row: ReductionRow): Set<ReductionSeriesKey> {
+  const entries: { key: ReductionSeriesKey; tokens: number }[] = [
+    { key: "baseline", tokens: row.baseline.tokens },
+    ...row.tools
+      .filter(
+        (tool): tool is ReductionTool & { metrics: Metrics } =>
+          tool.metrics !== undefined,
+      )
+      .map((tool) => ({ key: tool.key, tokens: tool.metrics.tokens })),
+  ];
+  const lowest = Math.min(...entries.map((entry) => entry.tokens));
+  return new Set(
+    entries
+      .filter((entry) => entry.tokens === lowest)
+      .map((entry) => entry.key),
+  );
 }
 
 function ReductionTooltip({
@@ -739,7 +762,10 @@ function ChartLegend() {
       <LegendDot fill={CODEGRAPH_TEXT} label="codegraph" />
       <LegendDot fill={CODEBASE_MEMORY_TEXT} label="codebase-memory" />
       <span className="text-neutral-600">
-        bars show raw token usage; lower is better
+        bars show token usage; right labels show tokens and baseline reduction
+      </span>
+      <span className="text-neutral-600">
+        outlined series are lowest for that case
       </span>
     </div>
   );
@@ -797,6 +823,7 @@ function ReductionChart({
         <div className="grid grid-cols-[9rem_1fr] items-center gap-3 border-y border-[#1a1f29] py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-600 sm:grid-cols-[12rem_1fr]">
           <span>case</span>
           <div className="relative h-4">
+            <span className="sr-only">token usage scale</span>
             {ticks.map((tick) => {
               const position = tokenPosition(tick, domain);
               return (
@@ -819,82 +846,135 @@ function ReductionChart({
         </div>
 
         <div className="space-y-4">
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className="grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-medium text-neutral-100">
-                  {row.label}
-                </p>
-                {row.meta ? (
-                  <p className="mt-0.5 truncate font-mono text-[10px] text-neutral-500">
-                    {row.meta}
+          {rows.map((row) => {
+            const bestSeries = lowestTokenSeries(row);
+            const baselineBest = bestSeries.has("baseline");
+            return (
+              <div
+                key={row.id}
+                className="grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium text-neutral-100">
+                    {row.label}
                   </p>
-                ) : null}
-              </div>
-              <div className="space-y-1.5">
-                <div className="grid grid-cols-[5.75rem_minmax(0,1fr)_4.25rem] items-center gap-2">
-                  <span className="truncate font-mono text-[10px] text-neutral-500">
-                    baseline
-                  </span>
-                  <div className="relative h-3.5 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ring-white/[0.04]">
-                    <div
-                      className="absolute top-0 h-full rounded-full bg-[#6f7787]"
-                      style={tokenBarStyle(row.baseline.tokens, domain)}
-                    />
-                  </div>
-                  <span className="text-right font-mono text-[10px] tabular-nums text-neutral-300">
-                    {fmtTokenShort(row.baseline.tokens)}
-                  </span>
+                  {row.meta ? (
+                    <p className="mt-0.5 truncate font-mono text-[10px] text-neutral-500">
+                      {row.meta}
+                    </p>
+                  ) : null}
                 </div>
-                {row.tools.map((tool) => {
-                  const reduction = toolReduction(row, tool);
-                  const missing = !tool.metrics;
-                  return (
-                    <div
-                      key={tool.key}
-                      className="group relative grid grid-cols-[5.75rem_minmax(0,1fr)_4.25rem] items-center gap-2"
+                <div className="space-y-1.5">
+                  <div className="grid grid-cols-[5.75rem_minmax(0,1fr)_7.5rem] items-center gap-2">
+                    <span
+                      className={`truncate font-mono text-[10px] ${
+                        baselineBest
+                          ? "font-semibold text-neutral-100"
+                          : "text-neutral-500"
+                      }`}
                     >
-                      <span
-                        className="truncate font-mono text-[10px]"
-                        style={{ color: tool.textColor }}
-                      >
-                        {tool.label}
+                      baseline
+                    </span>
+                    <div
+                      className={`relative h-3.5 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ${
+                        baselineBest
+                          ? "shadow-[0_0_14px_rgba(54,226,238,0.16)] ring-[#d7f9ff]/70"
+                          : "ring-white/[0.04]"
+                      }`}
+                    >
+                      <div
+                        className="absolute top-0 h-full rounded-full bg-[#6f7787]"
+                        style={tokenBarStyle(row.baseline.tokens, domain)}
+                      />
+                    </div>
+                    <span
+                      className={`text-right font-mono text-[10px] leading-tight tabular-nums ${
+                        baselineBest ? "text-neutral-50" : "text-neutral-300"
+                      }`}
+                    >
+                      <span className="block">
+                        {tokenUsageText(row.baseline.tokens)}
                       </span>
-                      <div className="relative h-3.5 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ring-white/[0.04]">
-                        <div
-                          className={`absolute top-0 h-full rounded-full ${
-                            missing ? "opacity-25" : ""
-                          }`}
-                          style={{
-                            ...tokenBarStyle(
-                              tool.metrics?.tokens ?? null,
-                              domain,
-                            ),
-                            background: missing ? "#303644" : tool.fill,
-                          }}
-                        />
-                      </div>
                       <span
-                        className={`text-right font-mono text-[10px] tabular-nums ${
-                          reduction !== null && reduction < 0
-                            ? "text-rose-400"
-                            : "text-neutral-300"
+                        className={`block ${
+                          baselineBest ? "text-[#36e2ee]" : "text-neutral-600"
                         }`}
                       >
-                        {tool.metrics
-                          ? fmtTokenShort(tool.metrics.tokens)
-                          : "n/a"}
+                        {baselineBest ? "lowest baseline" : "baseline"}
                       </span>
-                      <ReductionTooltip row={row} tool={tool} />
-                    </div>
-                  );
-                })}
+                    </span>
+                  </div>
+                  {row.tools.map((tool) => {
+                    const reduction = toolReduction(row, tool);
+                    const missing = !tool.metrics;
+                    const best = bestSeries.has(tool.key);
+                    return (
+                      <div
+                        key={tool.key}
+                        className="group relative grid grid-cols-[5.75rem_minmax(0,1fr)_7.5rem] items-center gap-2"
+                      >
+                        <span
+                          className={`truncate font-mono text-[10px] ${
+                            best ? "font-semibold" : ""
+                          }`}
+                          style={{ color: tool.textColor }}
+                        >
+                          {tool.label}
+                        </span>
+                        <div
+                          className={`relative h-3.5 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ${
+                            best
+                              ? "shadow-[0_0_14px_rgba(54,226,238,0.16)] ring-[#d7f9ff]/70"
+                              : "ring-white/[0.04]"
+                          }`}
+                        >
+                          <div
+                            className={`absolute top-0 h-full rounded-full ${
+                              missing ? "opacity-25" : ""
+                            }`}
+                            style={{
+                              ...tokenBarStyle(
+                                tool.metrics?.tokens ?? null,
+                                domain,
+                              ),
+                              background: missing ? "#303644" : tool.fill,
+                            }}
+                          />
+                        </div>
+                        <span
+                          className={`text-right font-mono text-[10px] leading-tight tabular-nums ${
+                            best
+                              ? "text-neutral-50"
+                              : reduction !== null && reduction < 0
+                                ? "text-rose-400"
+                                : "text-neutral-300"
+                          }`}
+                        >
+                          <span className="block">
+                            {tool.metrics
+                              ? tokenUsageText(tool.metrics.tokens)
+                              : "n/a"}
+                          </span>
+                          <span
+                            className={`block ${
+                              best ? "text-[#36e2ee]" : "text-neutral-500"
+                            }`}
+                          >
+                            {best
+                              ? `lowest, ${reductionText(reduction)}`
+                              : tool.metrics
+                                ? reductionText(reduction)
+                                : "no data"}
+                          </span>
+                        </span>
+                        <ReductionTooltip row={row} tool={tool} />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
@@ -978,35 +1058,44 @@ function CommonReductionSection({
   mode: PromptModeGroup;
   modelFilter?: (model: ModelGroup) => boolean;
 }) {
-  const models = groupBy(
-    mode.projects.flatMap((project) => project.models),
-    (model) => model.id,
-  )
-    .map(({ items }) => items[0]!)
-    .filter((model) => (modelFilter ? modelFilter(model) : true))
-    .sort(
-      (a, b) =>
-        modelOrder(a.model) - modelOrder(b.model) ||
-        a.label.localeCompare(b.label),
-    );
+  const models = useMemo(
+    () =>
+      groupBy(
+        mode.projects.flatMap((project) => project.models),
+        (model) => model.id,
+      )
+        .map(({ items }) => items[0]!)
+        .filter((model) => (modelFilter ? modelFilter(model) : true))
+        .sort(
+          (a, b) =>
+            modelOrder(a.model) - modelOrder(b.model) ||
+            a.label.localeCompare(b.label),
+        ),
+    [mode, modelFilter],
+  );
 
   const [activeModelId, setActiveModelId] = useState<string | null>(null);
   const activeModel =
     (activeModelId
       ? models.find((model) => model.id === activeModelId)
       : undefined) ?? models[0];
-  const activeRows = activeModel
-    ? commonRowsForModel(mode, activeModel.id)
-    : [];
-  const commonPrompt = activeModel
-    ? primaryQuestion(
-        mode.projects.map(
-          (project) =>
-            project.models.find((model) => model.id === activeModel.id)
-              ?.question ?? project.question,
-        ),
-      )
-    : primaryQuestion(mode.projects.map((project) => project.question));
+  const activeRows = useMemo(
+    () => (activeModel ? commonRowsForModel(mode, activeModel.id) : []),
+    [activeModel, mode],
+  );
+  const commonPrompt = useMemo(
+    () =>
+      activeModel
+        ? primaryQuestion(
+            mode.projects.map(
+              (project) =>
+                project.models.find((model) => model.id === activeModel.id)
+                  ?.question ?? project.question,
+            ),
+          )
+        : primaryQuestion(mode.projects.map((project) => project.question)),
+    [activeModel, mode],
+  );
 
   return (
     <section className="space-y-3">
@@ -1294,8 +1383,10 @@ export default function GraphBenchmark({
 
   if (!report) return <Notice>Loading graph benchmark results...</Notice>;
 
-  const groups = buildProjectGroups(report.agent?.cells ?? []);
-  const modes = buildPromptModeGroups(groups);
+  const modes = useMemo(() => {
+    const groups = buildProjectGroups(report.agent?.cells ?? []);
+    return buildPromptModeGroups(groups);
+  }, [report]);
   const commonMode = modes.find((mode) => mode.id === "common");
   const dedicatedMode = modes.find((mode) => mode.id === "dedicated");
 

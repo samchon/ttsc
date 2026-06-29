@@ -1,38 +1,86 @@
+import { Tabs } from "nextra/components";
+
 import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
+import LocalSource from "../../../components/LocalSource";
 
 # Code Graph (MCP)
 
-`@ttsc/graph` gets its own benchmark because it measures agent behavior, not compiler speed. The chart on this page asks whether a coding agent can answer a code-tour question with fewer tokens and fewer tool calls when a checker-backed graph is available.
+`@ttsc/graph` is the subject of this benchmark page. The chart measures agent cost with and without the graph, then compares that result with the two external comparator arms used by the benchmark harness. Bar labels such as `486k tokens` are token usage, and graph or comparator rows also show the token reduction versus the baseline row for that case.
 
 <GraphBenchmark />
 
-## What the Benchmark Measures
+## What `@ttsc/graph` Exposes
 
-The benchmark runs the same question against an empty MCP baseline and against one graph server at a time. The useful signal is whether the agent can stay on the graph long enough to answer from symbols, relationships, and ranges instead of widening into broad file reads.
+`packages/graph/src/structures/ITtscGraphApplication.ts` defines one MCP method, `inspect_typescript_graph`. The request wrapper forces the agent to fill `question`, `draft`, `review`, and exactly one request branch before it calls the tool.
 
-`@ttsc/graph` is a checker-backed TypeScript graph MCP. It returns compact index evidence, not inline source bodies. For code-tour questions, the `tour` branch returns central entrypoints, primary flow, nearby paths, tests, and read-next anchors as one answer surface.
+The response wrapper is also fixed: the method returns `{ result: ... }`, and `result` is the selected branch.
 
-A separate structural harness checks graph shape and cross-file coverage. That validates the graph itself. This page is about the agent-cost question: does the graph help a normal agent make the next decision with less searching?
+| Named type | Role |
+| --- | --- |
+| `ITtscGraphApplication.IProps` | The request wrapper with `question`, `draft`, `review`, and `request`. |
+| `ITtscGraphApplication.IResult` | The result wrapper. `result` is the selected branch. |
+| `ITtscGraphNext` | The follow-up contract. `next.action` is `answer`, `inspect`, `outside`, or `clarify`. |
+| `ITtscGraphTour` | The answer-ready repository-orientation branch. |
+| `ITtscGraphEntrypoints` | The first-pass shortlist branch. |
+| `ITtscGraphLookup` | The concrete symbol lookup branch. |
+| `ITtscGraphTrace` | The flow branch for callers, callees, or dependency paths. |
+| `ITtscGraphDetails` | The selected-handle branch with signatures, members, direct relationships, and sourceSpan anchors. |
+| `ITtscGraphOverview` | The broad architecture branch. |
+| `ITtscGraphEscape` | The no-op branch for evidence that belongs outside the indexed TypeScript graph. |
 
-## Why `@ttsc/graph` Is Different
+## Request And Result Contract
 
-The request surface is built around visible reasoning and an explicit stop path. The agent fills `question`, `graphNeed`, `draft`, and `review` before the final request, then either inspects the graph or takes the `escape` branch when graph is not the next useful evidence.
+The server guidance in `packages/graph/src/server/instructions.ts` and the result guidance in `packages/graph/src/server/resultGuide.ts` say the same thing in different places: ask for the smallest graph evidence that can answer, stop when `next.action` is `answer`, and use `escape` when the next evidence is outside the graph.
 
-That matters because the benchmark is trying to support normal Codex and Claude Code behavior, not a benchmark-only workflow. The graph should help an agent decide what to read next, not trap it in repeated graph calls or force it into a source-extraction posture.
+| Request | What it is for | Result evidence |
+| --- | --- | --- |
+| `tour` | Repository orientation, code-tour, read-next, and broad runtime-flow questions. | Central entrypoints, primary flow, nearby paths, test anchors, and answer anchors. |
+| `entrypoints` | First pass on a natural-language code question. | Ranked symbols, direct mentions, and a small orientation slice. |
+| `lookup` | Resolve a concrete name or dotted handle. | Ranked hits with signatures when available. |
+| `trace` | Follow runtime or type flow, or answer "how A reaches B". | Hops, reached nodes, `steps`, and `path` when `to` is set. |
+| `details` | Inspect one to three chosen handles. | Signatures, member outlines, direct relationships, and sourceSpan anchors. |
+| `overview` | Broad project orientation. | Counts, layers, hotspots, and public API symbols. |
+| `escape` | Stop when the next evidence is outside the graph. | `skipped: true` plus a reason and next step. |
 
-The shape of the payload matches that goal. `inspect_typescript_graph` returns evidence coordinates and ranges, stable handles for follow-up calls, and a `next` action that says whether to answer, inspect more graph, leave graph, or clarify. For onboarding prompts it can return an answer-ready tour, so the agent does not need to reconstruct that tour from broad file reads.
+The payloads are coordinates and relationships, not source bodies. `sourceSpan` and `evidence` point at file and line ranges, and `next` tells the caller whether to answer, inspect once more, leave graph, or clarify.
 
-## Why the Comparator Tools Can Drift
+## Source Contract
 
-`codegraph` and `codebase-memory` are measured as comparators, not as the same contract. The chart reads raw samples from `website/public/benchmark/graph.json`, so negative bars are not hidden and a comparator can look good or bad depending on how the agent actually used it.
+These tabs read the actual package source. The benchmark claims above should be judged against these files, not copied type snippets.
 
-The spread is consistent with a few failure modes. If a tool returns source-like payloads instead of compact handles and ranges, the agent pays for that payload in every later turn. If the tool contract does not make the stop condition explicit, the agent can keep asking for adjacent evidence, repeat tool calls, or fall back to shell reads when the graph result was already enough.
+<Tabs items={[<code>ITtscGraphApplication.ts</code>, <code>ITtscGraphTour.ts</code>, <code>ITtscGraphNext.ts</code>, <code>instructions.ts</code>, <code>resultGuide.ts</code>]}>
+  <Tabs.Tab>
+    <LocalSource path="packages/graph/src/structures/ITtscGraphApplication.ts" showLineNumbers />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource path="packages/graph/src/structures/ITtscGraphTour.ts" showLineNumbers />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource path="packages/graph/src/structures/ITtscGraphNext.ts" showLineNumbers />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource path="packages/graph/src/server/instructions.ts" showLineNumbers />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource path="packages/graph/src/server/resultGuide.ts" showLineNumbers />
+  </Tabs.Tab>
+</Tabs>
 
-The benchmark keeps those raw outcomes visible. The point is not to teach the user prompt how to favor one product. The point is to check whether the MCP server's own schema, descriptions, and results help the agent preserve its normal judgment while spending less context on search.
+## How The Comparators Differ
+
+The benchmark harness treats `codegraph` and `codebase-memory-mcp` as separate comparator arms, not as the same contract.
+
+| Tool | Local setup in the benchmark source | What this page treats it as |
+| --- | --- | --- |
+| `@ttsc/graph` | The typed MCP server defined in `packages/graph/src/structures` and `packages/graph/src/server`. | The subject of the page. |
+| `codegraph` | `codegraph init`, with `.codegraph/` ignored and optionally kept for inspection. | External comparator arm. |
+| `codebase-memory-mcp` | `codebase-memory-mcp cli index_repository`, with an isolated `CBM_CACHE_DIR` and `.codebase-memory/` ignored. | External comparator arm. |
+
+The chart reads raw samples from `website/public/benchmark/graph.json`, so it keeps those setup paths separate instead of folding them into one story.
 
 ## Benchmark Your Project
 
-Start from a clean checkout, build the graph package, and measure the structural graph first. For a local agent-cost smoke run, pass your repository directory and the same natural question to the baseline arm and the graph arm.
+Start from a clean checkout, install the workspace, build `@ttsc/graph`, then run the same prompt once without MCP and once with the graph arm.
 
 ```bash
 git clone https://github.com/samchon/ttsc.git
@@ -40,7 +88,8 @@ cd ttsc
 corepack enable
 pnpm install
 pnpm --filter @ttsc/graph build
-node experimental/benchmark/graph/bench.mjs --project=/abs/path/to/project --tsconfig=tsconfig.json --runs=5
-node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/abs/path/to/project --tsconfig=tsconfig.json --question "Trace the main runtime path I should understand before editing." --arm=baseline --runs=5
-node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/abs/path/to/project --tsconfig=tsconfig.json --question "Trace the main runtime path I should understand before editing." --arm=graph --runs=5
+node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/abs/path/to/project --tsconfig=tsconfig.json --question "Trace the main runtime path I should understand before editing." --arm=baseline --runs=1
+node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/abs/path/to/project --tsconfig=tsconfig.json --question "Trace the main runtime path I should understand before editing." --arm=graph --runs=1
 ```
+
+Use `experimental/benchmark/README.md` for the full matrix and publication flow.

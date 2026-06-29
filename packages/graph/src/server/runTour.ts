@@ -11,9 +11,9 @@ import { decoratorsOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
 import { runTrace } from "./runTrace";
 
-const DEFAULT_LIMIT = 4;
+const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 5;
-const FLOW_SEEDS = 2;
+const FLOW_SEEDS = 5;
 const DETAIL_SEEDS = 3;
 const TEST_SEEDS = 3;
 const MAX_FLOW_ANCHORS = 8;
@@ -33,33 +33,78 @@ const TOUR_SEED_KINDS = new Set<string>([
   "class",
   "function",
   "method",
+  "property",
   "variable",
   "module",
   "namespace",
   "enum",
 ]);
 const QUERY_STOP_WORDS = new Set<string>([
+  "about",
+  "after",
+  "and",
+  "are",
   "api",
   "architecture",
+  "around",
+  "before",
+  "based",
   "behavior",
+  "between",
+  "but",
+  "can",
   "central",
+  "change",
+  "changes",
   "code",
+  "does",
+  "for",
+  "first",
+  "find",
   "flow",
+  "from",
+  "has",
+  "have",
+  "how",
+  "include",
+  "including",
   "implementation",
+  "into",
+  "its",
+  "nearby",
+  "need",
+  "needs",
+  "new",
   "next",
+  "path",
+  "paths",
   "project",
   "public",
   "read",
+  "real",
   "runtime",
+  "should",
+  "show",
+  "that",
+  "the",
+  "this",
   "test",
   "tests",
+  "trace",
+  "through",
+  "with",
+  "without",
   "tour",
   "typescript",
+  "user",
+  "what",
+  "where",
+  "which",
   "work",
 ]);
 
 /**
- * Compose an onboarding/code-tour answer surface from existing graph
+ * Compose a repository-orientation/code-tour answer surface from existing graph
  * operations. It returns selected symbols, flows, nearby edges, test anchors,
  * and answer anchors without reading or embedding source bodies.
  */
@@ -149,10 +194,10 @@ export function runTour(
     answerAnchors,
     next: resultNext(
       "answer",
-      "This tour already selects central entrypoints, primary flow, nearby paths, tests, and answer anchors.",
+      "This tour is the complete index-level answer surface: central entrypoints, primary flow, nearby paths, tests, and answer anchors.",
     ),
     guide: resultGuide(
-      "Use this tour as the answer-ready index: central entrypoints, flow steps, nearby paths, tests, and citation anchors are already selected.",
+      "Use this tour as the answer-ready index. Do not split it into extra lookup/details/trace calls unless the user asks for a named missing symbol or exact source text.",
     ),
     ...(entry.truncated ||
     primaryFlow.some((flow) => flow.truncated === true) ||
@@ -172,14 +217,15 @@ function tourSeedsOf(
   const out: ITtscGraphNode[] = [];
   const seen = new Set<string>();
   const add = (node: ITtscGraphNode | undefined): void => {
-    if (node === undefined || seen.has(node.id) || !isTourSeed(node)) return;
+    if (node === undefined || seen.has(node.id) || !isTourSeed(graph, node))
+      return;
     seen.add(node.id);
     out.push(node);
   };
   for (const mention of entry.mentions) {
     add(mention.node === undefined ? undefined : graph.node(mention.node.id));
   }
-  if (isSpecificQuery(query)) {
+  if (hasExplicitSymbolHandle(query)) {
     for (const hit of entry.hits) add(graph.node(hit.id));
   }
   for (const node of rankedTourSeeds(graph, query)) add(node);
@@ -258,18 +304,23 @@ function rankedTourSeeds(
   graph: TtscGraphMemory,
   query: string,
 ): ITtscGraphNode[] {
-  const terms = subwords(query).filter(
-    (term) => term.length > 2 && !QUERY_STOP_WORDS.has(term),
+  const projectTerms = new Set(subwords(graph.project));
+  const terms = subwords(
+    query.replace(/\btypescript\b/gi, "typescript"),
+  ).filter(
+    (term) =>
+      term.length > 2 && !QUERY_STOP_WORDS.has(term) && !projectTerms.has(term),
   );
-  return graph.nodes
-    .filter(isTourSeed)
+  const items = graph.nodes
+    .filter((node) => isTourSeed(graph, node))
     .map((node) => ({
       node,
       score: tourSeedScore(graph, node, terms),
+      matchedTerms: matchedQueryTerms(node, terms),
     }))
     .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map((item) => item.node);
+    .sort((a, b) => b.score - a.score);
+  return diverseTourSeeds(items, terms).map((item) => item.node);
 }
 
 function tourSeedScore(
@@ -280,6 +331,7 @@ function tourSeedScore(
   const degree = realDegree(graph, node.id);
   const execution = executionDegree(graph, node.id);
   const queryWords = new Set(terms);
+  const matchScore = queryMatchScore(node, terms);
   let score = kindScore(node.kind);
   const surface = entrySurfaceScore(node);
   score += surface;
@@ -289,14 +341,16 @@ function tourSeedScore(
   score += Math.min(28, Math.log2(1 + execution.out) * 10);
   if (node.exported) score += 14;
   if (node.decorators !== undefined && node.decorators.length > 0) score += 10;
-  score += queryMatchScore(node, terms);
+  score += matchScore;
+  score *= queryAlignmentFactor(matchScore, queryWords);
   score *= broadTourDamping(node, queryWords);
   return score;
 }
 
-function isTourSeed(node: ITtscGraphNode): boolean {
+function isTourSeed(graph: TtscGraphMemory, node: ITtscGraphNode): boolean {
   return (
     TOUR_SEED_KINDS.has(node.kind) &&
+    (node.kind !== "property" || executionDegree(graph, node.id).out > 0) &&
     !node.external &&
     !node.ignored &&
     node.evidence !== undefined &&
@@ -306,7 +360,7 @@ function isTourSeed(node: ITtscGraphNode): boolean {
 
 function flowSeedIdsOf(seeds: ITtscGraphNode[]): string[] {
   const executable = seeds.filter((node) =>
-    ["function", "method", "variable"].includes(node.kind),
+    ["function", "method", "property", "variable"].includes(node.kind),
   );
   const source = executable.length === 0 ? seeds : executable;
   return source.map((node) => node.id);
@@ -376,6 +430,9 @@ function kindScore(kind: string): number {
     case "function":
     case "method":
       return 28;
+    case "property":
+    case "variable":
+      return 8;
     case "class":
       return 24;
     case "module":
@@ -383,8 +440,6 @@ function kindScore(kind: string): number {
       return 16;
     case "enum":
       return 10;
-    case "variable":
-      return 8;
     default:
       return 0;
   }
@@ -421,6 +476,8 @@ function runtimeEntryScore(node: ITtscGraphNode, surface: number): number {
   const hasVerb = hasAny(words, [
     "bootstrap",
     "create",
+    "execute",
+    "handle",
     "init",
     "initialize",
     "listen",
@@ -434,10 +491,13 @@ function runtimeEntryScore(node: ITtscGraphNode, surface: number): number {
     "start",
     "startup",
     "subscribe",
+    "update",
   ]);
   if (node.kind === "method" && hasVerb) return 90;
   if (
-    (node.kind === "function" || node.kind === "variable") &&
+    (node.kind === "function" ||
+      node.kind === "property" ||
+      node.kind === "variable") &&
     surface > 0 &&
     hasVerb
   ) {
@@ -447,6 +507,7 @@ function runtimeEntryScore(node: ITtscGraphNode, surface: number): number {
     node.kind === "class" &&
     hasAny(words, [
       "application",
+      "app",
       "backend",
       "client",
       "datasource",
@@ -463,21 +524,80 @@ function sourceDepth(file: string): number {
   const parts = file.split("/").filter(Boolean);
   if (parts[0] === "src") return Math.max(0, parts.length - 2);
   if (parts[0] === "packages" && parts.length >= 3) {
-    return Math.max(0, parts.length - 4);
+    return Math.max(0, parts.length - 3);
   }
   return Math.max(0, parts.length - 1);
 }
 
 function queryMatchScore(node: ITtscGraphNode, terms: string[]): number {
-  if (terms.length === 0) return 0;
-  const words = new Set([
-    ...subwords(node.name),
-    ...subwords(node.qualifiedName ?? ""),
-    ...subwords(node.file),
-  ]);
-  let score = 0;
-  for (const term of terms) if (words.has(term)) score += 3;
-  return score;
+  return (
+    matchedQueryTerms(node, terms).size * 8 +
+    matchedFileTerms(node, terms).size * 2
+  );
+}
+
+function matchedQueryTerms(node: ITtscGraphNode, terms: string[]): Set<string> {
+  const words = [...subwords(node.name), ...subwords(node.qualifiedName ?? "")];
+  return matchedTerms(words, terms);
+}
+
+function matchedFileTerms(node: ITtscGraphNode, terms: string[]): Set<string> {
+  return matchedTerms(subwords(node.file), terms);
+}
+
+function matchedTerms(words: string[], terms: string[]): Set<string> {
+  const wordSet = new Set(words);
+  const stems = new Set(words.map(stemWord));
+  const matched = new Set<string>();
+  for (const term of terms) {
+    if (
+      wordSet.has(term) ||
+      stems.has(stemWord(term)) ||
+      words.some(
+        (word) => commonPrefixLength(stemWord(term), stemWord(word)) >= 6,
+      )
+    ) {
+      matched.add(term);
+    }
+  }
+  return matched;
+}
+
+function diverseTourSeeds<
+  T extends { score: number; matchedTerms: Set<string> },
+>(items: T[], terms: string[]): T[] {
+  if (items.length <= 1 || terms.length === 0) return items;
+  const out: T[] = [];
+  const remaining = [...items];
+  const uncovered = new Set(terms);
+  while (remaining.length > 0) {
+    let bestIndex = 0;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < remaining.length; i++) {
+      const item = remaining[i]!;
+      let coverage = 0;
+      for (const term of item.matchedTerms) if (uncovered.has(term)) coverage++;
+      const score = coverage * 120 + item.score;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = i;
+      }
+    }
+    const [picked] = remaining.splice(bestIndex, 1);
+    out.push(picked!);
+    for (const term of picked!.matchedTerms) uncovered.delete(term);
+  }
+  return out;
+}
+
+function queryAlignmentFactor(
+  matchScore: number,
+  queryWords: ReadonlySet<string>,
+): number {
+  if (queryWords.size === 0) return 1;
+  if (matchScore >= 24) return 1.45;
+  if (matchScore >= 8) return 1.15;
+  return 0.45;
 }
 
 function broadTourDamping(
@@ -565,11 +685,10 @@ function isPrivateLike(
   );
 }
 
-function isSpecificQuery(query: string): boolean {
+function hasExplicitSymbolHandle(query: string): boolean {
   return (
     /`[^`]+`/.test(query) ||
-    /\b[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\b/.test(query) ||
-    /[a-z][A-Z]/.test(query)
+    /\b[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\b/.test(query)
   );
 }
 
@@ -584,6 +703,22 @@ function subwords(text: string): string[] {
     .split(/[^a-zA-Z0-9]+/)
     .filter((word) => word.length > 0)
     .map((word) => word.toLowerCase());
+}
+
+function stemWord(word: string): string {
+  for (const suffix of ["ing", "ed", "es", "s"]) {
+    if (word.length > suffix.length + 3 && word.endsWith(suffix)) {
+      return word.slice(0, -suffix.length);
+    }
+  }
+  return word;
+}
+
+function commonPrefixLength(a: string, b: string): number {
+  const n = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < n && a.charCodeAt(i) === b.charCodeAt(i)) i++;
+  return i;
 }
 
 function nearbyAnchorsOf(details: ITtscGraphDetails): ITtscGraphTour.IAnchor[] {

@@ -53,6 +53,20 @@ Run this in your own project to open that 3D map in your browser, served from a 
 npx @ttsc/graph view
 ```
 
+## Benchmark
+
+On the current snapshot, `@ttsc/graph` cuts GPT 5.4 Mini token use by 45.7% to 92.5% across the published repo rows, averaged over the common and dedicated prompts in `website/public/benchmark/graph.json`.
+
+```mermaid
+xychart-beta
+  title "GPT 5.4 Mini token reduction with @ttsc/graph"
+  x-axis ["vscode", "typeorm", "nestjs", "shopping-backend", "rxjs", "zod", "excalidraw", "vue"]
+  y-axis "Reduction %" 0 --> 100
+  bar [92.5, 90.8, 90.7, 88.1, 84.6, 80.4, 72.7, 45.7]
+```
+
+See the [full benchmark page](https://ttsc.dev/docs/benchmark/graph) for the raw rows and method.
+
 ## Sponsors
 
 [![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)

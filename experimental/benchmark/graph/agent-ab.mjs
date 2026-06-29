@@ -137,6 +137,12 @@ if (!spec)
   );
 const runs = Number(args.runs ?? 2);
 const model = args.model ?? "sonnet";
+const claudeStartupGraceMs = parseNonNegativeInteger(
+  args["claude-startup-grace-ms"] ??
+    process.env.TTSC_CLAUDE_STARTUP_GRACE_MS ??
+    "5000",
+  "--claude-startup-grace-ms",
+);
 const tsconfig =
   args.tsconfig ?? manifestPrompt?.entry.tsconfig ?? spec.tsconfig;
 const question = args.question ?? manifestPrompt?.text;
@@ -411,7 +417,30 @@ const reportModelVersion = observedModelVersion(samples);
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: graphToolName(), ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, ...(reportModelVersion ? { modelVersion: reportModelVersion } : {}), ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt?.questionSha256 ? { questionSha256: manifestPrompt.questionSha256 } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify(
+    {
+      tool: graphToolName(),
+      ...(toolSetupMs !== undefined ? { toolSetupMs } : {}),
+      ...(claudeStartupGraceMs > 0 ? { claudeStartupGraceMs } : {}),
+      repo: repoKey,
+      fixtureBranch,
+      repoDir,
+      model,
+      ...(reportModelVersion ? { modelVersion: reportModelVersion } : {}),
+      ...(promptId ? { promptId } : {}),
+      promptFamily,
+      ...(manifestPrompt?.questionSha256
+        ? { questionSha256: manifestPrompt.questionSha256 }
+        : {}),
+      daemon: false,
+      runs,
+      question,
+      traceDir,
+      samples,
+    },
+    null,
+    2,
+  )}\n`,
 );
 try {
   fs.rmSync(binary, { force: true });
@@ -422,6 +451,7 @@ try {
 }
 
 async function runClaude(question, cfg, armName, runNumber) {
+  const delayedInput = armName === "graph" && claudeStartupGraceMs > 0;
   // Prevent Claude's built-in Agent tool from turning an MCP benchmark into
   // subagent IO. Do not use --bare here: it disables OAuth/keychain auth.
   // No --append-system-prompt: graph guidance comes from the MCP descriptions.
@@ -431,6 +461,7 @@ async function runClaude(question, cfg, armName, runNumber) {
     "--output-format",
     "stream-json",
     "--verbose",
+    ...(delayedInput ? ["--input-format", "stream-json"] : []),
     "--no-session-persistence",
     "--permission-mode",
     "bypassPermissions",
@@ -455,7 +486,8 @@ async function runClaude(question, cfg, armName, runNumber) {
       HOME: claudeHome,
       USERPROFILE: claudeHome,
     },
-    input: question,
+    input: delayedInput ? streamJsonUserInput(question) : question,
+    inputDelayMs: delayedInput ? claudeStartupGraceMs : 0,
     windowsHide: true,
     shell: true,
     timeout: 900_000,
@@ -467,6 +499,20 @@ async function runClaude(question, cfg, armName, runNumber) {
   if (stderr)
     fs.writeFileSync(path.join(traceDir, `${base}.stderr.log`), stderr);
   return parseStream(stdout);
+}
+
+function streamJsonUserInput(text) {
+  return (
+    JSON.stringify({
+      type: "user",
+      message: {
+        role: "user",
+        content: text,
+      },
+      session_id: "benchmark",
+      parent_tool_use_id: null,
+    }) + "\n"
+  );
 }
 
 function prepareClaudeHome(targetHome) {
@@ -504,7 +550,11 @@ function promptForArm(baseQuestion, _armName) {
 // so many runs can be in flight at once via Promise.all. An async spawn never
 // blocks the loop the way spawnSync would, which is what lets every arm and run
 // fire concurrently.
-function spawnAsync(command, commandArgs, { input, ...spawnOpts }) {
+function spawnAsync(
+  command,
+  commandArgs,
+  { input, inputDelayMs = 0, ...spawnOpts },
+) {
   return new Promise((resolve) => {
     const child = cp.spawn(command, commandArgs, spawnOpts);
     let stdout = "";
@@ -516,7 +566,21 @@ function spawnAsync(command, commandArgs, { input, ...spawnOpts }) {
     child.on("error", (error) => resolve({ error, stdout, stderr }));
     child.on("close", () => resolve({ stdout, stderr }));
     if (input) {
-      child.stdin?.write(input);
+      // Claude Code can begin a print-mode turn before stdio MCP servers finish
+      // connecting. The graph arm keeps stdin open briefly so the MCP client can
+      // attach before the unchanged benchmark question is delivered.
+      const writeInput = () => {
+        if (!child.stdin || child.stdin.destroyed || !child.stdin.writable)
+          return;
+        child.stdin?.write(input);
+        child.stdin?.end();
+      };
+      if (inputDelayMs > 0) {
+        setTimeout(writeInput, inputDelayMs);
+        return;
+      }
+      writeInput();
+    } else {
       child.stdin?.end();
     }
   });

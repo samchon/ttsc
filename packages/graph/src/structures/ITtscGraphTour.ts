@@ -1,7 +1,7 @@
 import { ITtscGraphDecorator } from "./ITtscGraphDecorator";
 import { ITtscGraphNext } from "./ITtscGraphNext";
 
-/** An answer-ready, source-free code tour for onboarding questions. */
+/** Answer-ready, source-free tour evidence for broad code-flow questions. */
 export interface ITtscGraphTour {
   /** Discriminator for code-tour indexing. */
   type: "tour";
@@ -12,7 +12,7 @@ export interface ITtscGraphTour {
   /** Central entrypoints selected for the tour. */
   entrypoints: ITtscGraphTour.INode[];
 
-  /** Main runtime flows from the selected entrypoints. */
+  /** Selected primary runtime flows; sufficient for an index-level tour. */
   primaryFlow: ITtscGraphTour.IFlow[];
 
   /** Nearby dependency anchors around the selected entrypoints. */
@@ -36,9 +36,11 @@ export interface ITtscGraphTour {
 
 export namespace ITtscGraphTour {
   /**
-   * Build a compact code tour: central entrypoints, primary flow, nearby paths,
-   * test anchors, and answer anchors. Use this for onboarding, architecture
-   * tour, "where should I read next", and broad runtime-flow questions.
+   * Build the complete index-level answer surface for broad code tours: central
+   * entrypoints, primary flow, nearby paths, tests, and answer anchors. Use
+   * this instead of decomposing repository-orientation, read-next,
+   * architecture, or multi-phase runtime-flow questions into many
+   * lookup/details/trace calls.
    */
   export interface IRequest {
     /** Discriminator for code-tour indexing. */
