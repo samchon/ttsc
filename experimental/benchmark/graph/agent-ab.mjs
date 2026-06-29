@@ -38,6 +38,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
 const graphLauncher = path.join(repoRoot, "packages", "graph", "lib", "bin.js");
+const SOURCE_FILE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i;
 
 // The manifest (questions/manifest.json) selects reusable prompt files. The
 // benchmark records runtime metrics only: tokens, tools, cost, and time.
@@ -406,10 +407,11 @@ printLine("wall time", "durMs", (x) => `${(x / 1000).toFixed(0)}s`);
 
 console.log(`\nTotal spend this run: $${spent.toFixed(2)}`);
 
+const reportModelVersion = observedModelVersion(samples);
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(
   reportPath,
-  `${JSON.stringify({ tool: graphToolName(), ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt?.questionSha256 ? { questionSha256: manifestPrompt.questionSha256 } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
+  `${JSON.stringify({ tool: graphToolName(), ...(toolSetupMs !== undefined ? { toolSetupMs } : {}), repo: repoKey, fixtureBranch, repoDir, model, ...(reportModelVersion ? { modelVersion: reportModelVersion } : {}), ...(promptId ? { promptId } : {}), promptFamily, ...(manifestPrompt?.questionSha256 ? { questionSha256: manifestPrompt.questionSha256 } : {}), daemon: false, runs, question, traceDir, samples }, null, 2)}\n`,
 );
 try {
   fs.rmSync(binary, { force: true });
@@ -422,13 +424,14 @@ try {
 async function runClaude(question, cfg, armName, runNumber) {
   // Prevent Claude's built-in Agent tool from turning an MCP benchmark into
   // subagent IO. Do not use --bare here: it disables OAuth/keychain auth.
-  // No --append-system-prompt: graph guidance comes from the MCP descriptions
-  // plus the short graph-arm evidence contract in the prompt body.
+  // No --append-system-prompt: graph guidance comes from the MCP descriptions.
+  // The benchmark prompt body is sent unchanged.
   const claudeArgs = [
     "-p",
     "--output-format",
     "stream-json",
     "--verbose",
+    "--no-session-persistence",
     "--permission-mode",
     "bypassPermissions",
     "--disallowedTools",
@@ -443,8 +446,15 @@ async function runClaude(question, cfg, armName, runNumber) {
     "--mcp-config",
     cfg,
   ];
+  const base = `${armName}-run-${runNumber}`;
+  const claudeHome = prepareClaudeHome(path.join(traceDir, `${base}.home`));
   const result = await spawnAsync("claude", claudeArgs, {
     cwd: repoDir,
+    env: {
+      ...process.env,
+      HOME: claudeHome,
+      USERPROFILE: claudeHome,
+    },
     input: question,
     windowsHide: true,
     shell: true,
@@ -453,14 +463,40 @@ async function runClaude(question, cfg, armName, runNumber) {
   if (result.error) throw result.error;
   const stdout = result.stdout ?? "";
   const stderr = result.stderr ?? "";
-  const base = `${armName}-run-${runNumber}`;
   fs.writeFileSync(path.join(traceDir, `${base}.stream.jsonl`), stdout);
   if (stderr)
     fs.writeFileSync(path.join(traceDir, `${base}.stderr.log`), stderr);
   return parseStream(stdout);
 }
 
+function prepareClaudeHome(targetHome) {
+  fs.rmSync(targetHome, { recursive: true, force: true });
+  fs.mkdirSync(path.join(targetHome, ".claude"), { recursive: true });
+  copyIfExists(path.join(os.homedir(), ".claude.json"), targetHome);
+  copyIfExists(
+    path.join(os.homedir(), ".claude", ".credentials.json"),
+    path.join(targetHome, ".claude"),
+  );
+  return targetHome;
+}
+
+function copyIfExists(source, targetDir) {
+  if (!fs.existsSync(source)) return;
+  fs.copyFileSync(source, path.join(targetDir, path.basename(source)));
+}
+
+function observedModelVersion(allSamples) {
+  for (const armSamples of Object.values(allSamples)) {
+    for (const sample of armSamples ?? []) {
+      if (sample.modelVersion) return sample.modelVersion;
+    }
+  }
+  return undefined;
+}
+
 function promptForArm(baseQuestion, _armName) {
+  // Benchmark prompts are sent exactly as authored in questions/*.md.
+  // Tool-specific guidance belongs in MCP instructions/descriptions, not here.
   return baseQuestion;
 }
 
@@ -599,8 +635,6 @@ function parseNonNegativeInteger(value, label) {
   return out;
 }
 
-const SOURCE_FILE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i;
-
 function sourceInspectionCommand(command) {
   return (
     /\b(git\s+grep|rg|grep|Select-String|findstr)\b/i.test(command) ||
@@ -637,6 +671,7 @@ function parseStream(text) {
     other = 0,
     sourceTouches = 0,
     shellSource = 0,
+    modelVersion = null,
     result = null,
     lastAssistantText = "";
   const shellCommands = [];
@@ -648,7 +683,10 @@ function parseStream(text) {
     } catch {
       continue;
     }
+    if (typeof e.model === "string") modelVersion ??= e.model;
     if (e.type === "assistant") {
+      if (typeof e.message?.model === "string")
+        modelVersion ??= e.message.model;
       const u = e.message?.usage;
       if (u)
         tokens +=
@@ -686,6 +724,10 @@ function parseStream(text) {
       if (textBlocks.length) lastAssistantText = textBlocks.join("\n");
     } else if (e.type === "result") {
       result = e;
+      const usageModel = Object.keys(e.modelUsage ?? {}).find((key) =>
+        key.startsWith("claude-"),
+      );
+      if (usageModel) modelVersion ??= usageModel;
     }
   }
   const ok = result?.subtype === "success" && !result?.is_error;
@@ -710,6 +752,7 @@ function parseStream(text) {
     shellCommands: shellCommands.slice(-20),
     cost: result?.total_cost_usd || 0,
     durMs: result?.duration_ms || 0,
+    ...(modelVersion ? { modelVersion } : {}),
     // A 529-overloaded run still reports subtype "success" while carrying
     // is_error: true and zero token usage, so it must be excluded explicitly or
     // its empty sample drags the median down and the comparison goes garbage.

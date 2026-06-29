@@ -52,13 +52,36 @@ const out = {
   structural: prior.structural ?? null,
   agent: { cells: [...(prior.agent?.cells ?? [])] },
 };
+const PUBLISHED_SAMPLE_KEYS = [
+  "tokens",
+  "cached",
+  "reasoning",
+  "tokensWithReasoning",
+  "turns",
+  "tools",
+  "reads",
+  "grep",
+  "shell",
+  "web",
+  "graph",
+  "other",
+  "sourceTouches",
+  "shellSource",
+  "cost",
+  "durMs",
+  "ok",
+  "invalid",
+  "error",
+  "run",
+  "attempts",
+];
 
 for (const sourceDir of sourceDirs) {
   foldSourceDir(sourceDir);
 }
 
 fs.mkdirSync(path.dirname(websiteJson), { recursive: true });
-fs.writeFileSync(websiteJson, `${JSON.stringify(out, null, 2)}\n`);
+fs.writeFileSync(websiteJson, `${JSON.stringify(out)}\n`);
 console.log(
   `\nWrote ${path.relative(repoRoot, websiteJson)} ` +
     `(${out.agent.cells.length} agent cell(s)).`,
@@ -100,6 +123,13 @@ function foldSuite(report, sourceDir) {
     if (!sourceReport) {
       throw new Error(`missing suite cell report: ${cell.report}`);
     }
+    const rawModel =
+      sourceReport.modelVersion ??
+      sourceReport.model ??
+      cell.modelVersion ??
+      cell.model;
+    const stableModel = stableAgentModel(cell.harness, cell.model, rawModel);
+    const version = modelVersionId(rawModel);
     upsertAgentCell({
       harness: cell.harness,
       tool: cell.tool ?? sourceReport.tool ?? "ttsc-graph",
@@ -109,8 +139,8 @@ function foldSuite(report, sourceDir) {
           ? { toolSetupMs: sourceReport.toolSetupMs }
           : {}),
       repo: sourceReport.repo ?? cell.project,
-      model: cell.model ?? sourceReport.model,
-      ...(cell.modelVersion ? { modelVersion: cell.modelVersion } : {}),
+      model: stableModel,
+      ...(version ? { modelVersion: version } : {}),
       ...(sourceReport.effort ? { effort: sourceReport.effort } : {}),
       ...(sourceReport.promptId ? { promptId: sourceReport.promptId } : {}),
       promptFamily: sourceReport.promptFamily ?? cell.promptFamily,
@@ -137,11 +167,17 @@ function foldSuite(report, sourceDir) {
 
 function foldAgent(report, harness) {
   if (!report) return;
+  const samples = sanitizeSamples(report.samples);
+  if (samples.baseline.length === 0 && samples.graph.length === 0) return;
+  const rawModel = report.modelVersion ?? report.model ?? "unknown";
+  const stableModel = stableAgentModel(harness, undefined, rawModel);
+  const version = modelVersionId(rawModel);
   upsertAgentCell({
     harness,
     tool: report.tool ?? "ttsc-graph",
     repo: report.repo,
-    model: report.model,
+    model: stableModel,
+    ...(version ? { modelVersion: version } : {}),
     ...(report.effort ? { effort: report.effort } : {}),
     ...(report.promptId ? { promptId: report.promptId } : {}),
     promptFamily: report.promptFamily ?? "project-specific",
@@ -153,7 +189,7 @@ function foldAgent(report, harness) {
       : {}),
     runs: report.runs,
     question: report.question,
-    samples: sanitizeSamples(report.samples),
+    samples,
   });
   const n = (report.samples?.graph ?? []).length;
   console.log(
@@ -161,6 +197,37 @@ function foldAgent(report, harness) {
       report.promptFamily ?? "project-specific"
     } / ${report.model} (${n} graph runs)`,
   );
+}
+
+function stableAgentModel(harness, stableModel, rawModel) {
+  if (
+    stableModel?.startsWith("codex-") ||
+    stableModel?.startsWith("claude-code-")
+  )
+    return stableModel;
+  if (rawModel?.startsWith("codex-") || rawModel?.startsWith("claude-code-"))
+    return rawModel;
+  if (rawModel === "sonnet" || rawModel?.startsWith("claude-sonnet-"))
+    return "claude-code-sonnet";
+  if (rawModel === "opus" || rawModel?.startsWith("claude-opus-"))
+    return "claude-code-opus";
+  if (rawModel?.startsWith("gpt-")) return agentLabel(rawModel);
+  if (harness === "claude-code") return `claude-code-${rawModel ?? "unknown"}`;
+  return rawModel ?? "unknown";
+}
+
+function modelVersionId(rawModel) {
+  if (rawModel?.startsWith("claude-") || rawModel?.startsWith("gpt-"))
+    return rawModel;
+  return undefined;
+}
+
+function agentLabel(resolvedModel) {
+  const tier = resolvedModel
+    .split("-")
+    .filter((token) => token && !/^[0-9.]+$/.test(token))
+    .join("-");
+  return `codex-${tier}`;
 }
 
 function upsertAgentCell(cell) {
@@ -186,14 +253,25 @@ function upsertAgentCell(cell) {
 
 function sanitizeSamples(samples) {
   return {
-    baseline: (samples?.baseline ?? []).map(sanitizeSample),
-    graph: (samples?.graph ?? []).map(sanitizeSample),
+    baseline: (samples?.baseline ?? [])
+      .filter(validMeasuredSample)
+      .map(sanitizeSample),
+    graph: (samples?.graph ?? [])
+      .filter(validMeasuredSample)
+      .map(sanitizeSample),
   };
 }
 
+function validMeasuredSample(sample) {
+  return Number(sample?.tokens ?? 0) > 0;
+}
+
 function sanitizeSample(sample) {
-  const { answer, ...rest } = sample;
-  return rest;
+  const out = {};
+  for (const key of PUBLISHED_SAMPLE_KEYS) {
+    if (sample[key] !== undefined) out[key] = sample[key];
+  }
+  return out;
 }
 
 function readJson(file) {

@@ -26,9 +26,9 @@ const baselinePath =
     : path.resolve(args.baseline ?? "website/public/benchmark/graph.json");
 const compareInputs = args.compare ? listArg(args.compare) : [];
 const singleGraphToolNames = new Set([
+  "inspect_typescript_graph",
   "inspect_typescript_source_flow",
   "inspect_typescript_codebase",
-  "inspect_typescript_graph",
   "inspect",
   "query",
 ]);

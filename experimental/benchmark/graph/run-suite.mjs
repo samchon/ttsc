@@ -39,6 +39,29 @@ const graphBenchmarkScript = path.join(
   "benchmark",
   "graph.mjs",
 );
+const PUBLISHED_SAMPLE_KEYS = [
+  "tokens",
+  "cached",
+  "reasoning",
+  "tokensWithReasoning",
+  "turns",
+  "tools",
+  "reads",
+  "grep",
+  "shell",
+  "web",
+  "graph",
+  "other",
+  "sourceTouches",
+  "shellSource",
+  "cost",
+  "durMs",
+  "ok",
+  "invalid",
+  "error",
+  "run",
+  "attempts",
+];
 
 // Match experimental/benchmark/graph.mjs, which owns fixture setup.
 // Prepared clones live in .work/<repoName>@<branch>.
@@ -196,7 +219,17 @@ function runPrompt(prompt) {
       tmpDir,
       `${harness}-${model}-${prompt.id}-${arm}.json`,
     );
+    const childOut = path.join(
+      tmpDir,
+      `${harness}-${model}-${prompt.id}-${arm}.child.out.log`,
+    );
+    const childErr = path.join(
+      tmpDir,
+      `${harness}-${model}-${prompt.id}-${arm}.child.err.log`,
+    );
     fs.rmSync(report, { force: true });
+    fs.rmSync(childOut, { force: true });
+    fs.rmSync(childErr, { force: true });
     const dir = fixtureOf(prompt);
     if (!dir || !fs.existsSync(dir))
       throw new Error(
@@ -217,9 +250,13 @@ function runPrompt(prompt) {
       env: { ...process.env, TTSC_BENCH_CONCURRENCY: String(inner) },
       windowsHide: true,
     });
+    let out = "";
     let err = "";
+    child.stdout?.on("data", (d) => (out += d));
     child.stderr?.on("data", (d) => (err += d));
     child.on("close", (code) => {
+      if (out) fs.writeFileSync(childOut, out);
+      if (err) fs.writeFileSync(childErr, err);
       let samples = [];
       try {
         const rep = JSON.parse(fs.readFileSync(report, "utf8"));
@@ -232,7 +269,7 @@ function runPrompt(prompt) {
         `  ${prompt.id.padEnd(32)} ${arm}  ${samples.length}/${runs} ok  median ${median(toks)} tok` +
           (code === 0 ? "" : `  [exit ${code}]`) +
           (samples.length === 0 && err
-            ? `  ${err.trim().split("\n").pop()}`
+            ? `  ${err.trim().split("\n").slice(-2).join(" | ")}`
             : ""),
       );
       resolve({ prompt, report, samples });
@@ -373,25 +410,28 @@ function publishWebsiteReports(reports) {
     else out.agent.cells.push(cell);
   }
   fs.mkdirSync(path.dirname(websiteJson), { recursive: true });
-  fs.writeFileSync(websiteJson, `${JSON.stringify(out, null, 2)}\n`);
+  fs.writeFileSync(websiteJson, `${JSON.stringify(out)}\n`);
   console.log(
     `website: upserted ${cells.length} cell(s) -> ${path.relative(repoRoot, websiteJson)}`,
   );
 }
 
 function websiteCellFromReport(data) {
-  const resolvedModel = data.model ?? "unknown";
+  const rawModel = data.model ?? "unknown";
+  const resolvedModel = data.modelVersion ?? rawModel;
   const tool = reportTool(data);
   const samples = sanitizeSamples(data.samples);
   if (samples.baseline.length === 0 && samples.graph.length === 0) return null;
+  const model = agentLabel(resolvedModel);
+  const version = modelVersionId(resolvedModel) ?? modelVersionId(rawModel);
   return {
     harness:
       data.harness ??
       (resolvedModel.startsWith("gpt-") ? "codex" : "claude-code"),
     tool,
     repo: data.repo,
-    model: agentLabel(resolvedModel),
-    modelVersion: resolvedModel,
+    model,
+    ...(version ? { modelVersion: version } : {}),
     ...(data.effort ? { effort: data.effort } : {}),
     ...(data.promptId ? { promptId: data.promptId } : {}),
     ...(data.promptFamily ? { promptFamily: data.promptFamily } : {}),
@@ -413,12 +453,22 @@ function reportTool(data) {
 }
 
 function agentLabel(resolvedModel) {
+  if (resolvedModel === "sonnet" || resolvedModel.startsWith("claude-sonnet-"))
+    return "claude-code-sonnet";
+  if (resolvedModel === "opus" || resolvedModel.startsWith("claude-opus-"))
+    return "claude-code-opus";
   if (!resolvedModel.startsWith("gpt-")) return `claude-code-${resolvedModel}`;
   const tier = resolvedModel
     .split("-")
     .filter((token) => token && !/^[0-9.]+$/.test(token))
     .join("-");
   return `codex-${tier}`;
+}
+
+function modelVersionId(resolvedModel) {
+  if (resolvedModel.startsWith("claude-") || resolvedModel.startsWith("gpt-"))
+    return resolvedModel;
+  return undefined;
 }
 
 function sanitizeSamples(samples) {
@@ -437,8 +487,11 @@ function validMeasuredSample(sample) {
 }
 
 function sanitizeSample(sample) {
-  const { answer, ...rest } = sample;
-  return rest;
+  const out = {};
+  for (const key of PUBLISHED_SAMPLE_KEYS) {
+    if (sample[key] !== undefined) out[key] = sample[key];
+  }
+  return out;
 }
 
 function websiteCellKey(cell) {

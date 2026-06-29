@@ -322,8 +322,6 @@ const thunks = arms.flatMap((arm) =>
     let attempts = 0;
     for (let attempt = 0; attempt <= MAX_RUN_RETRIES; attempt++) {
       attempts = attempt + 1;
-      // The graph arm gets a short evidence contract so shell fallback is not
-      // repeatedly measured and rejected.
       m = validateArmSample(
         await runCodex(
           promptForArm(question, arm.name),
@@ -473,6 +471,8 @@ function codegraphServerArgs(targetRepoDir) {
 }
 
 function promptForArm(baseQuestion, _armName) {
+  // Benchmark prompts are sent exactly as authored in questions/*.md.
+  // Tool-specific guidance belongs in MCP instructions/descriptions, not here.
   return baseQuestion;
 }
 

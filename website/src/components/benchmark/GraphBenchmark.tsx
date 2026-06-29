@@ -99,9 +99,9 @@ function modelLabel(cell: AgentCell): string {
   const version = cell.modelVersion;
   switch (cell.model) {
     case "claude-code-sonnet":
-      return `Claude Code / Sonnet ${version ?? "4.6"}`;
+      return `Claude Code / Sonnet ${claudeVersionLabel(version, "4.6")}`;
     case "claude-code-opus":
-      return `Claude Code / Opus ${version ?? "4.8"}`;
+      return `Claude Code / Opus ${claudeVersionLabel(version, "4.8")}`;
     case "codex-gpt":
       return `Codex / ${gptVersionLabel(version) ?? "GPT-5.5"}`;
     case "codex-gpt-mini":
@@ -109,6 +109,18 @@ function modelLabel(cell: AgentCell): string {
     default:
       return `${cell.model} (${cell.harness})`;
   }
+}
+
+function claudeVersionLabel(
+  version: string | undefined,
+  fallback: string,
+): string {
+  if (!version) return fallback;
+  const normalized = version.toLowerCase();
+  if (normalized === "sonnet" || normalized === "opus") return fallback;
+  const match = /^claude-(?:sonnet|opus)-(.+)$/.exec(normalized);
+  if (!match) return version;
+  return match[1]!.replace(/-/g, ".");
 }
 
 /**
@@ -221,6 +233,7 @@ interface ModelGroup {
   fixtureBranch?: string;
   daemon: boolean;
   runs?: number;
+  question?: string;
   codegraphSetupMs?: number;
   codebaseMemorySetupMs?: number;
   baseline: Metrics;
@@ -297,6 +310,25 @@ function promptModeOrder(mode: PromptModeGroup): number {
   return index === -1 ? order.length : index;
 }
 
+function normalizeQuestion(question: string | undefined): string | undefined {
+  const normalized = question?.replace(/\r\n/g, "\n").trim();
+  return normalized ? normalized : undefined;
+}
+
+function primaryQuestion(
+  questions: (string | undefined)[],
+): string | undefined {
+  const counts = new Map<string, { question: string; count: number }>();
+  for (const raw of questions) {
+    const question = normalizeQuestion(raw);
+    if (!question) continue;
+    const entry = counts.get(question);
+    if (entry) entry.count += 1;
+    else counts.set(question, { question, count: 1 });
+  }
+  return [...counts.values()].sort((a, b) => b.count - a.count)[0]?.question;
+}
+
 function buildPromptModeGroups(projects: ProjectGroup[]): PromptModeGroup[] {
   return groupBy(projects, (project) => promptModeKey(project.promptFamily))
     .map(
@@ -350,6 +382,14 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
             ? dedicatedBaselineSamples
             : embeddedBaselineSamples;
         const head = modelCells[0]!;
+        const question = primaryQuestion([
+          ...modelCells
+            .filter((c) => cellTool(c) !== TOOL_BASELINE)
+            .map((c) => c.question),
+          ...modelCells
+            .filter((c) => cellTool(c) === TOOL_BASELINE)
+            .map((c) => c.question),
+        ]);
         return {
           id: modelKey,
           model: head.model,
@@ -363,6 +403,7 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
             codegraphCell?.runs ??
             codebaseMemoryCell?.runs ??
             baselineCell?.runs,
+          question,
           codegraphSetupMs: codegraphCell?.toolSetupMs,
           codebaseMemorySetupMs: codebaseMemoryCell?.toolSetupMs,
           baseline: medianMetrics(baselineSamples),
@@ -388,7 +429,7 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
           a.label.localeCompare(b.label) ||
           a.id.localeCompare(b.id),
       );
-    const question = repoCells.find((c) => c.question)?.question;
+    const question = primaryQuestion(repoCells.map((c) => c.question));
     return {
       id: key,
       repo,
@@ -832,7 +873,10 @@ function ReductionChart({
                             missing ? "opacity-25" : ""
                           }`}
                           style={{
-                            ...tokenBarStyle(tool.metrics?.tokens ?? null, domain),
+                            ...tokenBarStyle(
+                              tool.metrics?.tokens ?? null,
+                              domain,
+                            ),
                             background: missing ? "#303644" : tool.fill,
                           }}
                         />
@@ -842,7 +886,7 @@ function ReductionChart({
                           reduction !== null && reduction < 0
                             ? "text-rose-400"
                             : "text-neutral-300"
-                          }`}
+                        }`}
                       >
                         {tool.metrics
                           ? fmtTokenShort(tool.metrics.tokens)
@@ -958,6 +1002,15 @@ function CommonReductionSection({
   const activeRows = activeModel
     ? commonRowsForModel(mode, activeModel.id)
     : [];
+  const commonPrompt = activeModel
+    ? primaryQuestion(
+        mode.projects.map(
+          (project) =>
+            project.models.find((model) => model.id === activeModel.id)
+              ?.question ?? project.question,
+        ),
+      )
+    : primaryQuestion(mode.projects.map((project) => project.question));
 
   return (
     <section className="space-y-3">
@@ -985,7 +1038,10 @@ function CommonReductionSection({
         <ReductionChart
           eyebrow="Common prompt"
           title={activeModel.label}
-          description="All projects use the same repository-onboarding request."
+          description={
+            commonPrompt ??
+            "All projects use the same repository-onboarding request."
+          }
           rows={activeRows}
           aside={modelTabMeta(activeModel)}
         />

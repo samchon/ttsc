@@ -93,7 +93,7 @@ Change type: general MCP surface rewrite only.
 
 Intent:
 
-- Make the first rule operational: if the model calls `query`, it must finish that answer from query results only.
+- Make the first rule operational without trapping the agent: after a graph call, the model should decide whether the returned index/range evidence is enough, whether a narrower graph follow-up is justified, or whether another evidence source is needed.
 - Remove wording that could make `escape` read like permission to run shell immediately.
 - Keep request type count and implementation behavior unchanged.
 - Keep the change general. No fixture names, prompt-specific cases, expected token values, or benchmark-only branches.
@@ -164,7 +164,7 @@ Audit notes before the next round:
 - `vscode` used shell first, read Copilot/package/startup files, later found the graph tool, called it twice, then returned to shell for test and startup source reads.
 - The issue is now tool discovery/selection and stop discipline, not the number of request branches. Removing request types here would risk harming normal users without addressing the observed zero-MCP failure.
 
-Conclusion: do not reduce request type count yet. Improve the exposed MCP server/tool identity and top-of-description affordance so the model discovers the TypeScript graph before shell tools, especially on large repos.
+Conclusion: do not reduce request type count yet. Improve the exposed MCP server/tool identity and top-of-description affordance so the model recognizes broad TypeScript source questions as graph-suitable, especially on large repos.
 
 ## `tool-surface-v1`
 
@@ -175,7 +175,7 @@ Intent:
 - Keep the package/server identity as `ttsc-graph`/`ttscgraph`; that name is tied to the package and binary and should not be changed for benchmark taste.
 - Rename the MCP method from `query` to `inspect_typescript_graph`. The visible tool becomes `ttscgraph.inspect_typescript_graph`: still short enough to read, but clear that it is the TypeScript graph evidence source.
 - Keep request branch types unchanged. No branch was removed because the latest failures were zero-MCP or shell-fallback behavior, not branch validation failures.
-- Shorten the main tool description so typia can reflect it and the first line remains the important behavior: inspect the TypeScript code graph before shell search or file reads.
+- Shorten the main tool description so typia can reflect it and the first line remains the important behavior: inspect the TypeScript code graph when broad source structure, flow, or range evidence is needed.
 
 Build:
 
@@ -281,9 +281,9 @@ The next rounds were still general MCP-surface work, not fixture handling.
 | `source-flow-v1` | Improved dedicated average to 56%; naming the tool as source-flow helped concrete mechanism questions. |
 | `evidence-goal-v1` | Regressed dedicated average to 19%; adding another named planning field made the request shape heavier without improving decisions. Reverted. |
 | `budget-3-v1` | Dedicated average rose to 79%, but common became unstable. Reverted because it harmed normal onboarding use. |
-| `budget-guard-v1` | Four graph calls with an explicit escape path recovered common and kept dedicated graph-only. |
+| `budget-guard-v1` | Recovered common by forcing a fixed graph-call ceiling, but was rejected as a product design error. MCP servers do not know answer boundaries, so a stateful call ceiling can break normal coding agents. |
 
-The important implementation bug found during this round was budget reset by changed question text. The call counter now resets only after a five-minute idle window, so repeated graph calls in one answer cannot bypass the four-call stop by restating the question.
+The budget-guard direction is no longer valid evidence for product quality. The acceptable fix surface is instruction/schema/result guidance that helps the model choose a small graph slice and then decide whether to answer, ask for clarification, or use another evidence source. Runtime call ceilings and idle-window resets are benchmark-only behavior and must not return.
 
 ## Final GPT 5.4 Mini Common Result
 
@@ -304,7 +304,7 @@ Audit: `experimental/benchmark/.work/graph/final-budget-guard-v2-ttscgraph-commo
 
 Average savings: 93%.
 
-Audit result: all eight common runs used graph evidence only. No shell fallback was observed. `rxjs` reached the budget escape path, which is acceptable because it stopped through the graph MCP instead of switching to shell source reads.
+Audit result: all eight common runs used graph evidence only. No shell fallback was observed. These measurements were taken with the rejected budget guard and must be rerun after removing that guard.
 
 ## Final GPT 5.4 Mini Dedicated Result
 
@@ -325,15 +325,21 @@ Audit: `experimental/benchmark/.work/graph/final-budget-guard-v2-ttscgraph-dedic
 
 Average savings: 74%.
 
-Audit result: all eight dedicated runs used graph evidence only, with four graph calls and zero shell calls each. The lower average than common is mostly denominator-driven: several dedicated baselines are much smaller than the onboarding baseline, so a normal 75-100k graph answer leaves less percentage headroom.
+Audit result: all eight dedicated runs used graph evidence only, with four graph calls and zero shell calls each. These measurements were taken with the rejected budget guard and must be rerun after removing that guard.
 
 ## Current Design Decision
 
 Keep the request type surface for now. The observed failures were tool discovery, shell fallback, and stop discipline, not validation failure from too many discriminated request variants. Removing request types would reduce normal-use capability without addressing the failures that were actually seen.
 
-Keep the visible method name `inspect_typescript_source_flow`. It is clearer than `query`, less internal than `inspect_typescript_graph`, and still honest about the scope: TypeScript source relationships, flow, declarations, references, and source ranges.
+Use the visible method name `inspect_typescript_graph`. It is short, tells the model the tool is graph evidence, and avoids implying that returned source ranges should be expanded into source-body reads.
 
-Keep the four-call budget guard. It is not a benchmark shortcut: it expresses the product boundary that `@ttsc/graph` is an index and range-evidence tool, not a source-code reader or an exhaustive repository crawler.
+Do not add runtime graph-call ceilings, idle reset windows, fixture-specific branches, hidden graph-arm prompts, or tool bans. The product boundary is expressed by compact index/range outputs plus review/escape guidance; the agent must remain free to use normal evidence sources when graph evidence is insufficient.
+
+## GPT 5.5 Root-Cause Pass
+
+The later GPT 5.5 common runs showed a different failure than the earlier small-model misses. The model usually selected the graph first, so tool discovery was no longer the main problem. It still moved from graph evidence to shell reads because the benchmark prompt asks for an onboarding code tour plus nearby paths and tests, while the MCP surface only exposed primitive exploration branches (`entrypoints`, `trace`, `details`, `impact`). A careful model treated those primitive slices as incomplete and filled the gaps by opening source files.
+
+The general fix is a `tour` request branch, not a benchmark-only instruction. `ITtscGraphTour.IRequest` returns an answer-ready index for real onboarding questions: central entrypoints, primary flows, nearby dependency anchors, test anchors, and read-next anchors. It still returns only graph facts and spans, never implementation bodies. This preserves the product boundary while giving the agent a complete enough answer surface to stop without source extraction.
 
 ## Final GPT 5.5 Common Result
 
