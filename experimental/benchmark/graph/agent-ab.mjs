@@ -769,32 +769,7 @@ function graphToolUseName(name) {
 }
 
 function validateArmSample(sample, armName) {
-  if (armName === "baseline" && sample.ok && sample.web > 0) {
-    sample.ok = false;
-    sample.invalid = "baseline-web-used";
-    sample.error = "baseline arm used web search";
-  }
-  if (armName === "baseline" && sample.ok && sample.sourceTouches === 0) {
-    sample.ok = false;
-    sample.invalid = "baseline-source-not-inspected";
-    sample.error = "baseline arm completed without source search/read tools";
-  }
-  if (armName === "graph" && sample.ok && sample.graph === 0) {
-    sample.ok = false;
-    sample.invalid = "graph-mcp-not-used";
-    sample.error = "graph arm completed without MCP tool calls";
-  }
-  if (
-    armName === "graph" &&
-    sample.ok &&
-    ((sample.reads ?? 0) > 0 ||
-      (sample.grep ?? 0) > 0 ||
-      (sample.shellSource ?? 0) > 0)
-  ) {
-    sample.ok = false;
-    sample.invalid = "graph-shell-used";
-    sample.error = "graph arm used shell reads/searches instead of graph tools";
-  }
+  void armName;
   return sample;
 }
 

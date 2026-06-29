@@ -5,6 +5,7 @@ import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTour } from "../structures/ITtscGraphTour";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
+import { isSupportPath, isTestPath } from "./pathPolicy";
 import { resultGuide, resultNext } from "./resultGuide";
 import { decoratorsOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
@@ -19,6 +20,8 @@ const MAX_FLOW_ANCHORS = 8;
 const MAX_NEARBY = 10;
 const MAX_TESTS = 8;
 const MAX_READ_NEXT = 14;
+const TOUR_TRACE_MAX_DEPTH = 3;
+const TOUR_TRACE_MAX_NODES = 16;
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 const EXECUTION_KINDS = new Set<string>([
   "calls",
@@ -58,7 +61,7 @@ const QUERY_STOP_WORDS = new Set<string>([
 /**
  * Compose an onboarding/code-tour answer surface from existing graph
  * operations. It returns selected symbols, flows, nearby edges, test anchors,
- * and read-next anchors without reading or embedding source bodies.
+ * and answer anchors without reading or embedding source bodies.
  */
 export function runTour(
   graph: TtscGraphMemory,
@@ -74,17 +77,18 @@ export function runTour(
   });
   const seeds = tourSeedsOf(graph, entry, query, limit);
   const seedIds = seeds.map((node) => node.id);
+  const flowSeedIds = flowSeedIdsOf(seeds);
   const entrypoints = seeds.map((node) => graphNodeOf(graph, node));
 
   const primaryFlow: ITtscGraphTour.IFlow[] = [];
-  for (const id of seedIds.slice(0, FLOW_SEEDS)) {
+  for (const id of flowSeedIds.slice(0, FLOW_SEEDS)) {
     const trace = runTrace(graph, {
       type: "trace",
       from: id,
       direction: "forward",
       focus: "execution",
-      maxDepth: 2,
-      maxNodes: 8,
+      maxDepth: TOUR_TRACE_MAX_DEPTH,
+      maxNodes: TOUR_TRACE_MAX_NODES,
     });
     const start = trace.start;
     if (start === undefined) continue;
@@ -117,8 +121,16 @@ export function runTour(
   const tests =
     props.includeTests === false
       ? []
-      : testAnchorsOf(graph, seedIds.slice(0, TEST_SEEDS));
-  const readNext = uniqueAnchors([
+      : testAnchorsOf(
+          graph,
+          uniqueIds([
+            ...seedIds.slice(0, TEST_SEEDS),
+            ...primaryFlow.flatMap((flow) =>
+              flow.reached.map((node) => node.id),
+            ),
+          ]),
+        );
+  const answerAnchors = uniqueAnchors([
     ...entrypoints.flatMap((node) =>
       anchorFromNode("central entrypoint", node),
     ),
@@ -134,13 +146,13 @@ export function runTour(
     primaryFlow,
     nearby: nearby.slice(0, MAX_NEARBY),
     tests: tests.slice(0, MAX_TESTS),
-    readNext,
+    answerAnchors,
     next: resultNext(
       "answer",
-      "This tour already selects central entrypoints, primary flow, nearby paths, tests, and read-next anchors.",
+      "This tour already selects central entrypoints, primary flow, nearby paths, tests, and answer anchors.",
     ),
     guide: resultGuide(
-      "Use this tour as the answer-ready index: central entrypoints, flow steps, nearby paths, tests, and reading anchors are already selected.",
+      "Use this tour as the answer-ready index: central entrypoints, flow steps, nearby paths, tests, and citation anchors are already selected.",
     ),
     ...(entry.truncated ||
     primaryFlow.some((flow) => flow.truncated === true) ||
@@ -267,14 +279,18 @@ function tourSeedScore(
 ): number {
   const degree = realDegree(graph, node.id);
   const execution = executionDegree(graph, node.id);
+  const queryWords = new Set(terms);
   let score = kindScore(node.kind);
-  score += entrySurfaceScore(node);
+  const surface = entrySurfaceScore(node);
+  score += surface;
+  score += runtimeEntryScore(node, surface);
   score += Math.min(14, Math.log2(1 + degree.in) * 4);
   score += Math.min(30, Math.log2(1 + degree.out) * 9);
   score += Math.min(28, Math.log2(1 + execution.out) * 10);
   if (node.exported) score += 14;
   if (node.decorators !== undefined && node.decorators.length > 0) score += 10;
   score += queryMatchScore(node, terms);
+  score *= broadTourDamping(node, queryWords);
   return score;
 }
 
@@ -286,6 +302,14 @@ function isTourSeed(node: ITtscGraphNode): boolean {
     node.evidence !== undefined &&
     !isNoisePath(node.file)
   );
+}
+
+function flowSeedIdsOf(seeds: ITtscGraphNode[]): string[] {
+  const executable = seeds.filter((node) =>
+    ["function", "method", "variable"].includes(node.kind),
+  );
+  const source = executable.length === 0 ? seeds : executable;
+  return source.map((node) => node.id);
 }
 
 function isTourTraceNode(node: ITtscGraphTrace.INode): boolean {
@@ -370,19 +394,69 @@ function entrySurfaceScore(node: ITtscGraphNode): number {
   const file = node.file.replace(/\\/g, "/");
   const base = file.slice(file.lastIndexOf("/") + 1).toLowerCase();
   const stem = base.replace(/\.[cm]?[tj]sx?$/, "");
+  const depth = sourceDepth(file);
   let score = 0;
-  if (stem === "index") score += 48;
-  else if (stem === "main" || stem === "server" || stem === "bootstrap")
+  if (stem === "index") {
+    if (depth <= 0) score += 48;
+    else if (depth === 1) score += 32;
+    else if (depth === 2) score += 12;
+  } else if (stem === "main" || stem === "server" || stem === "bootstrap")
     score += 42;
   else if (stem === "app" || stem === "application") score += 28;
 
-  const depth = sourceDepth(file);
   if (depth <= 1) score += 22;
   else if (depth === 2) score += 12;
   else if (depth === 3) score += 5;
 
   if (node.exported && score > 0) score += 12;
   return score;
+}
+
+function runtimeEntryScore(node: ITtscGraphNode, surface: number): number {
+  const words = new Set([
+    ...subwords(node.name),
+    ...subwords(node.qualifiedName ?? ""),
+  ]);
+  if (isPrivateLike(node, words)) return 0;
+  const hasVerb = hasAny(words, [
+    "bootstrap",
+    "create",
+    "init",
+    "initialize",
+    "listen",
+    "mount",
+    "open",
+    "parse",
+    "render",
+    "run",
+    "safe",
+    "safeparse",
+    "start",
+    "startup",
+    "subscribe",
+  ]);
+  if (node.kind === "method" && hasVerb) return 90;
+  if (
+    (node.kind === "function" || node.kind === "variable") &&
+    surface > 0 &&
+    hasVerb
+  ) {
+    return 70;
+  }
+  if (
+    node.kind === "class" &&
+    hasAny(words, [
+      "application",
+      "backend",
+      "client",
+      "datasource",
+      "factory",
+      "server",
+    ])
+  ) {
+    return 45;
+  }
+  return 0;
 }
 
 function sourceDepth(file: string): number {
@@ -406,25 +480,101 @@ function queryMatchScore(node: ITtscGraphNode, terms: string[]): number {
   return score;
 }
 
+function broadTourDamping(
+  node: ITtscGraphNode,
+  queryWords: ReadonlySet<string>,
+): number {
+  const words = new Set([
+    ...subwords(node.name),
+    ...subwords(node.qualifiedName ?? ""),
+    ...subwords(node.file),
+  ]);
+  let factor = 1;
+  if (
+    !hasAny(queryWords, ["internal", "private"]) &&
+    isPrivateLike(node, words)
+  ) {
+    factor *= 0.25;
+  }
+  if (
+    !hasAny(queryWords, ["error", "errors", "exception", "exceptions"]) &&
+    hasAny(words, ["error", "errors", "exception", "exceptions"])
+  ) {
+    factor *= 0.25;
+  }
+  if (
+    !hasAny(queryWords, [
+      "config",
+      "configuration",
+      "env",
+      "environment",
+      "option",
+      "options",
+      "port",
+    ]) &&
+    (node.kind === "variable" || node.kind === "property") &&
+    hasAny(words, [
+      "config",
+      "configuration",
+      "env",
+      "environment",
+      "option",
+      "options",
+      "port",
+    ])
+  ) {
+    factor *= 0.35;
+  }
+  if (
+    !hasAny(queryWords, [
+      "deserialize",
+      "deserializer",
+      "serializer",
+      "serialize",
+      "serialization",
+    ]) &&
+    hasAny(words, [
+      "deserialize",
+      "deserializer",
+      "serializer",
+      "serialize",
+      "serialization",
+    ])
+  ) {
+    factor *= 0.25;
+  }
+  return factor;
+}
+
+function hasAny(
+  words: ReadonlySet<string>,
+  candidates: readonly string[],
+): boolean {
+  return candidates.some((word) => words.has(word));
+}
+
+function isPrivateLike(
+  node: ITtscGraphNode,
+  words: ReadonlySet<string>,
+): boolean {
+  const name = node.qualifiedName ?? node.name;
+  return (
+    name.startsWith("_") ||
+    name.includes("._") ||
+    hasAny(words, ["inner", "internal", "private"])
+  );
+}
+
 function isSpecificQuery(query: string): boolean {
   return (
     /`[^`]+`/.test(query) ||
     /\b[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\b/.test(query) ||
-    /\b[A-Z][A-Za-z0-9_$]{2,}\b/.test(query) ||
     /[a-z][A-Z]/.test(query)
   );
 }
 
 function isNoisePath(file: string): boolean {
-  return (
-    file === "" ||
-    file.startsWith("bundled://") ||
-    /(^|\/)node_modules\//.test(file) ||
-    /(^|\/)(test|tests|__tests__|spec|sample|samples)\//.test(file) ||
-    /\.(test|spec)\.[cm]?tsx?$/.test(file) ||
-    /\.d\.[cm]?ts$/.test(file) ||
-    /(^|\/)(dist|build|coverage|generated|__generated__)\//.test(file)
-  );
+  return isSupportPath(file);
 }
 
 function subwords(text: string): string[] {
@@ -443,6 +593,7 @@ function nearbyAnchorsOf(details: ITtscGraphDetails): ITtscGraphTour.IAnchor[] {
     for (const ref of [
       ...(node.calls ?? []),
       ...(node.types ?? []),
+      ...(node.implementedBy ?? []),
       ...(node.dependsOn ?? []),
       ...(node.dependedOnBy ?? []),
     ]) {
@@ -487,6 +638,20 @@ function testAnchorsOf(
 ): ITtscGraphTour.IAnchor[] {
   const anchors: ITtscGraphTour.IAnchor[] = [];
   for (const id of seedIds) {
+    for (const edge of graph.incoming(id)) {
+      const node = graph.node(edge.from);
+      if (node === undefined || !isTestPath(node.file)) continue;
+      anchors.push(
+        ...anchorFromNode("test coverage", graphNodeOf(graph, node)),
+      );
+      anchors.push(
+        ...anchorFromEvidence(
+          `${edge.kind} ${node.qualifiedName ?? node.name}`,
+          node.qualifiedName ?? node.name,
+          edge.evidence,
+        ),
+      );
+    }
     const impact = runTrace(graph, {
       type: "trace",
       from: id,
@@ -501,6 +666,17 @@ function testAnchorsOf(
     }
   }
   return uniqueAnchors(anchors);
+}
+
+function uniqueIds(ids: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
 }
 
 function anchorFromNode(

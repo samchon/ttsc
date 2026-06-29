@@ -1,6 +1,7 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphLookup } from "../structures/ITtscGraphLookup";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { isExternalNode, isSupportPath } from "./pathPolicy";
 import { resultGuide, resultNext } from "./resultGuide";
 import { decoratorsOf, signatureOf } from "./runDetails";
 
@@ -25,6 +26,8 @@ export function runLookup(
   const requestedKinds = requestedSymbolKinds(props.query);
   const queryLc = props.query.trim().toLowerCase();
   const wantsInternal = wantsInternalSymbol(queryLc, codeTerms);
+  const wantsSupport = wantsSupportSymbol(queryLc);
+  const includeExternal = props.includeExternal === true;
   if (terms.length === 0)
     return {
       type: "lookup",
@@ -41,6 +44,7 @@ export function runLookup(
   const scored: ITtscGraphLookup.IHit[] = [];
   for (const node of graph.nodes) {
     if (node.kind === "file") continue;
+    if (!includeExternal && isExternalNode(node)) continue;
     const score = scoreNode(
       graph,
       node,
@@ -49,6 +53,7 @@ export function runLookup(
       codeTerms,
       requestedKinds,
       wantsInternal,
+      wantsSupport,
     );
     if (score <= 0) continue;
     const hit: ITtscGraphLookup.IHit = {
@@ -109,6 +114,7 @@ function scoreNode(
   codeTerms: string[],
   requestedKinds: Set<string>,
   wantsInternal: boolean,
+  wantsSupport: boolean,
 ): number {
   const name = node.name.toLowerCase();
   const qualified = (node.qualifiedName ?? node.name).toLowerCase();
@@ -163,11 +169,17 @@ function scoreNode(
   score += Math.min(8, Math.log2(1 + fan) * 2);
 
   // Dampen what is rarely the intended target.
-  if (node.external) score *= 0.5;
   if (node.ignored) score *= 0.3;
   if (isTestFile(node.file)) score *= 0.7;
+  if (!wantsSupport && isSupportPath(node.file)) score *= 0.35;
   if (!wantsInternal && isInternalish(node)) score *= 0.82;
   return score;
+}
+
+function wantsSupportSymbol(queryLc: string): boolean {
+  return /\b(test|tests|spec|fixture|fixtures|sample|samples|example|examples|generated|build|dist)\b/.test(
+    queryLc,
+  );
 }
 
 function wantsInternalSymbol(queryLc: string, codeTerms: string[]): boolean {

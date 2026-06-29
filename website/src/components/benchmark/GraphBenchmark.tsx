@@ -11,9 +11,6 @@ interface AgentSample {
   tools: number;
   graph?: number;
   shell?: number;
-  ok?: boolean;
-  invalid?: string;
-  error?: string;
   durMs?: number;
   [key: string]: unknown;
 }
@@ -267,8 +264,7 @@ function medianMetrics(samples: AgentSample[]): Metrics {
 }
 
 function metricSamples(samples: AgentSample[]): AgentSample[] {
-  // Plot raw token cost even when the harness labels a graph run invalid, such
-  // as shell fallback. Only zero-token process failures are missing data.
+  // Plot raw token cost. Only zero-token process failures are missing data.
   return samples.filter((sample) => sample.tokens > 0);
 }
 

@@ -4,6 +4,7 @@ import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { accessAliasesFor } from "./accessAliases";
+import { isExternalNode, isTestPath } from "./pathPolicy";
 import { resolveGraphHandle } from "./resolveHandle";
 import { resultGuide, resultNext } from "./resultGuide";
 import { edgeEvidenceOf, edgeEvidenceTextOf, signatureOf } from "./runDetails";
@@ -14,7 +15,7 @@ const MAX_OPEN_DEPTH = 2;
 const MAX_OPEN_NODES = 8;
 const MAX_IMPACT_DEPTH = 4;
 const MAX_IMPACT_NODES = 16;
-const MAX_HOPS_PER_NODE = 1;
+const MAX_HOPS_PER_NODE = 2;
 const MAX_STEPS = 6;
 
 /**
@@ -328,21 +329,51 @@ function orderedEdges(
   direction: string,
   reverse: boolean,
 ): readonly ITtscGraphEdge[] {
-  if (direction !== "impact") return edges;
+  if (direction !== "impact")
+    return [...edges].sort(
+      (a, b) =>
+        edgeKindRank(a.kind) - edgeKindRank(b.kind) ||
+        traceEndpointRank(graph, reverse ? a.from : a.to) -
+          traceEndpointRank(graph, reverse ? b.from : b.to) ||
+        evidenceRank(a) - evidenceRank(b),
+    );
   return [...edges].sort(
     (a, b) =>
       impactEndpointRank(graph, reverse ? a.from : a.to) -
-      impactEndpointRank(graph, reverse ? b.from : b.to),
+        impactEndpointRank(graph, reverse ? b.from : b.to) ||
+      edgeKindRank(a.kind) - edgeKindRank(b.kind) ||
+      evidenceRank(a) - evidenceRank(b),
   );
 }
 
 function impactEndpointRank(graph: TtscGraphMemory, id: string): number {
   const node = graph.node(id);
   if (node === undefined) return 9;
-  if (isTestFile(node.file)) return 0;
+  if (isTestPath(node.file)) return 0;
   if (node.exported) return 1;
   if (node.external || node.ignored) return 4;
   return 2;
+}
+
+function traceEndpointRank(graph: TtscGraphMemory, id: string): number {
+  const node = graph.node(id);
+  if (node === undefined) return 9;
+  if (isTestPath(node.file)) return 6;
+  switch (node.kind) {
+    case "function":
+    case "method":
+    case "class":
+      return 0;
+    case "variable":
+      return 1;
+    case "property":
+      return 2;
+    case "interface":
+    case "type":
+      return 4;
+    default:
+      return 3;
+  }
 }
 
 /**
@@ -380,7 +411,7 @@ function summary(
   if (withRoles) {
     const roles: string[] = [];
     if (node.exported) roles.push("exported");
-    if (isTestFile(node.file)) roles.push("test");
+    if (isTestPath(node.file)) roles.push("test");
     if (roles.length > 0) out.roles = roles;
   }
   return out;
@@ -414,19 +445,35 @@ function traversable(
   return true;
 }
 
-function isTestFile(file: string): boolean {
-  return (
-    /(^|\/)(test|tests|__tests__|spec)\//.test(file) ||
-    /\.(test|spec)\.[cm]?tsx?$/.test(file)
-  );
+function edgeKindRank(kind: string): number {
+  switch (kind) {
+    case "calls":
+      return 0;
+    case "instantiates":
+      return 1;
+    case "renders":
+      return 2;
+    case "accesses":
+      return 3;
+    case "tests":
+      return 4;
+    case "overrides":
+    case "decorates":
+      return 5;
+    case "extends":
+    case "implements":
+      return 6;
+    case "type_ref":
+      return 7;
+    default:
+      return 10;
+  }
 }
 
-function isExternalNode(node: ITtscGraphNode): boolean {
-  return (
-    node.external ||
-    node.file.startsWith("bundled://") ||
-    /(^|\/)node_modules\//.test(node.file)
-  );
+function evidenceRank(edge: ITtscGraphEdge): number {
+  const line = edge.evidence?.startLine ?? 9_999;
+  const col = edge.evidence?.startCol ?? 999;
+  return line * 100 + col;
 }
 
 function bound(

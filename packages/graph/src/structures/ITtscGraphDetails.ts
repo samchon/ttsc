@@ -6,7 +6,8 @@ import { ITtscGraphNext } from "./ITtscGraphNext";
  * The source-free facts for a few selected handles.
  *
  * This is not a file reader. It returns signatures, member outlines, direct
- * calls, direct types, dependency summaries, and sourceSpan anchors.
+ * calls, direct types, implementation candidates, dependency summaries, and
+ * sourceSpan citation anchors.
  */
 export interface ITtscGraphDetails {
   /** Discriminator for selected symbol inspection. */
@@ -119,6 +120,9 @@ export namespace ITtscGraphDetails {
     /** Direct type dependencies in source order, with edge evidence. */
     types?: IReference[];
 
+    /** Concrete nodes that implement or override this interface/base member. */
+    implementedBy?: IReference[];
+
     /** String literal values from the signature. */
     literals?: string[];
 
@@ -128,7 +132,7 @@ export namespace ITtscGraphDetails {
      */
     members?: IMember[];
 
-    /** The declaration or implementation file and line range, when known. */
+    /** Declaration or implementation citation range, when known. */
     sourceSpan?: Pick<ITtscGraphEvidence, "file" | "startLine" | "endLine">;
 
     /** Symbols this node uses (outgoing dependency edges). */
@@ -177,8 +181,8 @@ export namespace ITtscGraphDetails {
     relation: string;
 
     /**
-     * Source span for the expression that produced this relationship. It lets
-     * an agent see why the edge exists without opening the file.
+     * Source span for the expression that produced this relationship. It is
+     * repository evidence for the edge, not a file-read instruction.
      */
     evidence?: ITtscGraphEvidence;
 

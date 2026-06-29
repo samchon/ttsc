@@ -30,11 +30,10 @@ export namespace ITtscGraphEscape {
     /**
      * Why no graph operation should run.
      *
-     * Use this when the review finds the user is asking about package scripts,
-     * config files, generated output, prose documentation, exact text, or an
-     * answer that the current graph result already settled. When source text is
-     * required, name the smallest returned sourceSpan so follow-up work can be
-     * targeted instead of broad.
+     * Use this only when the next evidence is outside the indexed TypeScript
+     * graph: package scripts, config files, generated output, prose docs, exact
+     * text, or exact source body text. Name the smallest returned sourceSpan
+     * when source body text is truly required.
      */
     reason: string;
 

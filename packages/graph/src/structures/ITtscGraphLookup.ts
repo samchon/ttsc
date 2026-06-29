@@ -39,6 +39,15 @@ export namespace ITtscGraphLookup {
      * @default 5
      */
     limit?: number;
+
+    /**
+     * Include dependency-boundary declarations from node_modules or bundled
+     * `.d.ts` libraries. Leave false for project-source answers; enable only
+     * when external type/API boundaries are the question.
+     *
+     * @default false
+     */
+    includeExternal?: boolean;
   }
 
   /** One ranked hit with a handle to follow via `details` or `trace`. */

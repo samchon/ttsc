@@ -50,20 +50,14 @@ const graphArguments = (props: {
   request: GraphRequest;
 }) => ({
   question: props.thinking,
-  graphNeed:
-    "Use resident TypeScript graph evidence for compact source-structure facts.",
-  draft: {
-    reason: props.thinking,
-    type: props.request.type,
-  },
-  review: {
-    reason:
-      props.request.type === "escape"
-        ? "The draft intentionally stops graph use for this answer."
-        : "The draft requests one focused graph operation.",
-    decision: props.request.type === "escape" ? "escape" : "inspect",
-    finish: "answer",
-  },
+  draft:
+    props.request.type === "escape"
+      ? "escape: the next evidence is outside the indexed TypeScript graph."
+      : `${props.request.type}: the smallest useful sacred graph step.`,
+  review:
+    props.request.type === "escape"
+      ? "Confirmed: skip graph work and return escape."
+      : "Confirmed: keep this final request; do not replace graph facts with file reads.",
   request: props.request,
 });
 
@@ -100,12 +94,24 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       null,
       2,
     ),
+    "node_modules/external-lib/index.d.ts": [
+      "export interface ExternalThing {",
+      "  id: string;",
+      "}",
+      "",
+    ].join("\n"),
     "src/app.ts": [
+      "import type { ExternalThing } from 'external-lib';",
+      "",
       "function Route(path: string): MethodDecorator {",
       "  return () => undefined;",
       "}",
+      "export type ExternalAlias = ExternalThing;",
       "export function helper(): void {}",
-      "export class Service {",
+      "export interface Runner {",
+      "  run(): void;",
+      "}",
+      "export class Service implements Runner {",
       "  @Route('/run')",
       "  run(): void {",
       "    helper();",
@@ -291,7 +297,8 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       (hit) => hit.name === "Service.run",
     );
     assert.ok(
-      entrypointRun !== undefined && entrypoints.guide.includes("graph fields"),
+      entrypointRun !== undefined &&
+        entrypoints.guide.includes("sacred, infallible compiler truth"),
       `entrypoints returns compact follow-up guidance: ${JSON.stringify(entrypoints.guide)}`,
     );
 
@@ -305,7 +312,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         anchors: { file: string; startLine: number; source?: string }[];
       }[];
       tests: { file: string; startLine: number; source?: string }[];
-      readNext: { file: string; startLine: number; source?: string }[];
+      answerAnchors: { file: string; startLine: number; source?: string }[];
       guide: string;
     }>(
       (await client.request("tools/call", {
@@ -339,16 +346,17 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       `tour includes test anchors: ${JSON.stringify(tour.tests)}`,
     );
     assert.ok(
-      tour.readNext.some(
+      tour.answerAnchors.some(
         (anchor) =>
           anchor.file.endsWith("app.ts") &&
           typeof anchor.startLine === "number" &&
           anchor.source === undefined,
       ),
-      `tour returns read-next anchors, not source text: ${JSON.stringify(tour.readNext)}`,
+      `tour returns answer anchors, not source text: ${JSON.stringify(tour.answerAnchors)}`,
     );
     assert.ok(
-      tour.guide.includes("answer-ready index"),
+      tour.guide.includes("answer-ready index") &&
+        tour.guide.includes("sacred, infallible compiler truth"),
       `tour guide explains answer-ready use: ${JSON.stringify(tour.guide)}`,
     );
 
@@ -404,7 +412,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     const service = lookup.hits.find((hit) => hit.name === "Service");
     assert.ok(service, `lookup finds Service: ${JSON.stringify(lookup.hits)}`);
     assert.ok(
-      lookup.guide.includes("graph fields"),
+      lookup.guide.includes("sacred, infallible compiler truth"),
       `lookup returns compact follow-up guidance: ${JSON.stringify(lookup.guide)}`,
     );
     const methodQuery = callGraphJson<{
@@ -432,6 +440,49 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       methodQuery.hits[0]?.kind,
       "method",
       `lookup preserves the method kind: ${JSON.stringify(methodQuery.hits)}`,
+    );
+
+    const projectOnlyLookup = callGraphJson<{
+      hits: { name: string; file: string }[];
+    }>(
+      (await client.request("tools/call", {
+        name: GRAPH_TOOL_NAME,
+        arguments: graphArguments({
+          thinking: "Look up ExternalThing without crossing into dependencies.",
+          request: {
+            type: "lookup",
+            query: "ExternalThing",
+          },
+        }),
+      })) as ToolResult,
+    );
+    assert.ok(
+      projectOnlyLookup.hits.every((hit) => !hit.file.includes("node_modules")),
+      `lookup excludes external dependency declarations by default: ${JSON.stringify(projectOnlyLookup.hits)}`,
+    );
+
+    const externalLookup = callGraphJson<{
+      hits: { name: string; file: string }[];
+    }>(
+      (await client.request("tools/call", {
+        name: GRAPH_TOOL_NAME,
+        arguments: graphArguments({
+          thinking:
+            "Look up ExternalThing as an explicit dependency-boundary type.",
+          request: {
+            type: "lookup",
+            query: "ExternalThing",
+            includeExternal: true,
+          },
+        }),
+      })) as ToolResult,
+    );
+    assert.ok(
+      externalLookup.hits.some(
+        (hit) =>
+          hit.name === "ExternalThing" && hit.file.includes("node_modules"),
+      ),
+      `lookup includes external declarations when requested: ${JSON.stringify(externalLookup.hits)}`,
     );
 
     // trace: forward from Service.run reaches the helper it calls.
@@ -541,7 +592,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
     assert.ok(
       pathTrace.steps?.some((step) => step.includes("helper")) &&
-        pathTrace.guide.includes("graph fields"),
+        pathTrace.guide.includes("sacred, infallible compiler truth"),
       `trace path returns step text and compact guidance: ${JSON.stringify(pathTrace)}`,
     );
 
@@ -708,6 +759,38 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
           Array.isArray(node.dependedOnBy),
       ),
       `details returns dependency neighbors: ${JSON.stringify(detailsDeps.nodes)}`,
+    );
+
+    const interfaceDetails = callGraphJson<{
+      nodes: {
+        name: string;
+        implementedBy?: { name: string; relation: string; file: string }[];
+      }[];
+    }>(
+      (await client.request("tools/call", {
+        name: GRAPH_TOOL_NAME,
+        arguments: graphArguments({
+          thinking:
+            "Inspect an interface member and get its concrete implementation candidates.",
+          request: {
+            type: "details",
+            handles: ["Runner.run"],
+          },
+        }),
+      })) as ToolResult,
+    );
+    assert.ok(
+      interfaceDetails.nodes.some(
+        (node) =>
+          node.name === "Runner.run" &&
+          node.implementedBy?.some(
+            (ref) =>
+              ref.name === "Service.run" &&
+              ref.relation === "implements" &&
+              ref.file.endsWith("app.ts"),
+          ),
+      ),
+      `details returns implementation candidates: ${JSON.stringify(interfaceDetails.nodes)}`,
     );
   });
 };

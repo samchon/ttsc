@@ -11,17 +11,8 @@ const GRAPH_TOOL_NAME = "inspect_typescript_graph";
 const graphArguments = () => ({
   question:
     "This is not a TypeScript source graph question, so the tool should exit.",
-  graphNeed: "The review decides graph evidence is unnecessary.",
-  draft: {
-    reason: "Avoid loading the graph for a non-graph task.",
-    type: "escape",
-  },
-  review: {
-    reason:
-      "The draft is correct: skip the resident graph because no TypeScript evidence is needed.",
-    decision: "escape",
-    finish: "answer",
-  },
+  draft: "escape: the next evidence is outside the indexed TypeScript graph.",
+  review: "Confirmed: skip graph work and return escape.",
   request: {
     type: "escape",
     reason: "No graph operation is needed for this request.",

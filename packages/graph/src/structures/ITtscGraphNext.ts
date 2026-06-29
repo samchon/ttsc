@@ -1,6 +1,6 @@
-/** The next action a graph result is designed to support. */
+/** The next action supported by a compiler-derived graph result. */
 export interface ITtscGraphNext {
-  /** Whether to answer, continue graph inspection, leave graph, or clarify. */
+  /** Answer, continue graph inspection, leave graph, or clarify. */
   action: "answer" | "inspect" | "outside" | "clarify";
 
   /** Smallest graph request type to use when `action` is `inspect`. */
@@ -12,6 +12,6 @@ export interface ITtscGraphNext {
     | "overview"
     | "tour";
 
-  /** Short reason for the action. */
+  /** Why the returned graph evidence supports that action. */
   reason: string;
 }

@@ -339,7 +339,7 @@ Do not add runtime graph-call ceilings, idle reset windows, fixture-specific bra
 
 The later GPT 5.5 common runs showed a different failure than the earlier small-model misses. The model usually selected the graph first, so tool discovery was no longer the main problem. It still moved from graph evidence to shell reads because the benchmark prompt asks for an onboarding code tour plus nearby paths and tests, while the MCP surface only exposed primitive exploration branches (`entrypoints`, `trace`, `details`, `impact`). A careful model treated those primitive slices as incomplete and filled the gaps by opening source files.
 
-The general fix is a `tour` request branch, not a benchmark-only instruction. `ITtscGraphTour.IRequest` returns an answer-ready index for real onboarding questions: central entrypoints, primary flows, nearby dependency anchors, test anchors, and read-next anchors. It still returns only graph facts and spans, never implementation bodies. This preserves the product boundary while giving the agent a complete enough answer surface to stop without source extraction.
+The general fix is a `tour` request branch, not a benchmark-only instruction. `ITtscGraphTour.IRequest` returns an answer-ready index for real onboarding questions: central entrypoints, primary flows, nearby dependency anchors, test anchors, and answer anchors. It still returns only graph facts and spans, never implementation bodies. This preserves the product boundary while giving the agent a complete enough answer surface to stop without source extraction.
 
 ## Final GPT 5.5 Common Result
 

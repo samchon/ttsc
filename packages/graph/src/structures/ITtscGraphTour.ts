@@ -21,8 +21,8 @@ export interface ITtscGraphTour {
   /** Test or usage anchors reached through graph impact edges. */
   tests: ITtscGraphTour.IAnchor[];
 
-  /** Ordered reading anchors for the final answer. */
-  readNext: ITtscGraphTour.IAnchor[];
+  /** Ordered file/line anchors to cite in the final answer, not file reads. */
+  answerAnchors: ITtscGraphTour.IAnchor[];
 
   /** How to use this source-free result next. */
   next: ITtscGraphNext;
@@ -37,7 +37,7 @@ export interface ITtscGraphTour {
 export namespace ITtscGraphTour {
   /**
    * Build a compact code tour: central entrypoints, primary flow, nearby paths,
-   * test anchors, and read-next anchors. Use this for onboarding, architecture
+   * test anchors, and answer anchors. Use this for onboarding, architecture
    * tour, "where should I read next", and broad runtime-flow questions.
    */
   export interface IRequest {
@@ -110,7 +110,7 @@ export namespace ITtscGraphTour {
     truncated?: boolean;
   }
 
-  /** A file/line anchor chosen by the graph, not source body text. */
+  /** A file/line citation chosen by the graph, not source body text. */
   export interface IAnchor {
     /** Why this anchor matters in the tour. */
     reason: string;

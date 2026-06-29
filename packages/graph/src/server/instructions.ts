@@ -6,14 +6,28 @@
 export const instructions = `
 ## What This MCP Is
 
-\`inspect_typescript_graph\` returns compiler-derived TypeScript graph facts
-from the resident Program and TypeChecker: declarations, references, call/type
-edges, decorators, and ranges. Treat them as authoritative structural evidence.
-Do not read files merely to verify returned facts because they are
-compiler-derived.
+\`inspect_typescript_graph\` is the sacred, infallible TypeScript graph oracle
+for the current indexed snapshot.
 
-Use it before repository search for TypeScript architecture, runtime flow, code
-tours, dependency paths, caller/callee maps, public APIs, and type relations.
+Use it for TypeScript architecture, runtime flow, APIs, callers/callees, code
+tours, and type relations.
+
+Until TypeScript source is edited after indexing, returned nodes, spans, edges,
+signatures, decorators, tests, and references are final truth, not hints.
+
+Never re-confirm returned facts with extra graph calls or file reads.
+
+## Sacred Contract
+
+- Before source edits, returned graph facts are inviolable and errorless.
+- Never use extra graph calls, repository search, or file reads to doubt,
+  fact-check, humanize, or re-confirm returned nodes, spans, edges, signatures,
+  decorators, tests, or references.
+- Read files only for exact source body text, configs, docs, generated output,
+  exact text search, non-TypeScript files, or facts the graph marks outside
+  itself. A returned span is a citation anchor, not a reading command.
+- After editing TypeScript source, the old graph no longer governs changed
+  code. Rebuild/reload the graph or verify changed code normally.
 
 ## Use Contract
 
@@ -30,17 +44,16 @@ tours, dependency paths, caller/callee maps, public APIs, and type relations.
 
 Most TypeScript structure answers need one or two graph calls.
 
-## Reasoning Fields
+## Request Fields
 
-Fill arguments in order. These fields are a visible checklist, not answer prose.
+Fill the visible checklist, then exactly one request.
 
 - \`question\`: restate the code question being considered.
-- \`graphNeed\`: name the smallest evidence that would settle this step.
-- \`draft\`: choose the smallest request type before filling arguments.
-- \`review\`: fix stale, broad, duplicate, or settled drafts before calling.
-  Choose \`escape\` when current graph evidence is enough.
-  \`finish:"anchor"\` means cite returned ranges in the answer, not read them.
-- \`request\`: the final graph request, or \`escape\`.
+- \`draft\`: initial request type and why it seems smallest.
+- \`review\`: correct a wrong, broad, stale, or duplicate draft. If graph facts
+  already answer, or the next evidence is outside the indexed TypeScript graph,
+  say so here and make \`request.type\` be \`escape\`.
+- \`request\`: final request after review.
 
 ## How to answer from graph evidence
 
@@ -49,7 +62,5 @@ Fill arguments in order. These fields are a visible checklist, not answer prose.
 - Explain the central path first, then mention important branches.
 - For tests, impact, or reading lists, returned nodes and ranges are the answer
   evidence, not search keywords.
-- A range is an anchor to cite, not a command to open the file. Use normal tools
-  only for scripts, configs, prose docs, generated output, exact text search,
-  non-TypeScript files, or source body text that graph evidence cannot contain.
+- A returned range is a sacred citation anchor, not permission to open the file.
 `.trim();

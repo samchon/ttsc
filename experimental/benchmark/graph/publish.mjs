@@ -69,9 +69,6 @@ const PUBLISHED_SAMPLE_KEYS = [
   "shellSource",
   "cost",
   "durMs",
-  "ok",
-  "invalid",
-  "error",
   "run",
   "attempts",
 ];

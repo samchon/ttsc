@@ -132,9 +132,8 @@ export namespace ITtscGraphTrace {
     depth: number;
 
     /**
-     * Source span for the expression that produced this hop. It lets an agent
-     * explain why the trace moves from one symbol to the next without opening
-     * the file.
+     * Source span for the expression that produced this hop. It is repository
+     * evidence for the hop and can be cited without opening the file.
      */
     evidence?: ITtscGraphEvidence;
 
@@ -163,7 +162,7 @@ export namespace ITtscGraphTrace {
     /** 1-based declaration line, when known. */
     line?: number;
 
-    /** Declaration or implementation range, when known. */
+    /** Declaration or implementation citation range, when known. */
     sourceSpan?: Pick<ITtscGraphEvidence, "file" | "startLine" | "endLine">;
 
     /** Hops from the start, on a reached node. */
