@@ -55,23 +55,9 @@ npx @ttsc/graph view
 
 ## Benchmark
 
-On the current GPT 5.4 Mini snapshot, the published median token cost is lowest with `@ttsc/graph`. Values below are thousands of tokens from `website/public/benchmark/graph.json`.
+On the current GPT 5.4 Mini snapshot, the published median token cost is lowest with `@ttsc/graph`. The chart below is generated from `website/public/benchmark/graph.json`.
 
-```mermaid
-xychart-beta
-  title "Common prompt median token use"
-  x-axis ["baseline", "@ttsc/graph", "codegraph", "codebase-memory-mcp"]
-  y-axis "Tokens (k)" 0 --> 1400
-  bar [781, 41, 617, 1302]
-```
-
-```mermaid
-xychart-beta
-  title "Dedicated prompt median token use"
-  x-axis ["baseline", "@ttsc/graph", "codegraph", "codebase-memory-mcp"]
-  y-axis "Tokens (k)" 0 --> 1000
-  bar [776, 57, 323, 945]
-```
+![Common prompt median token use on Codex GPT-5.4 Mini](https://ttsc.dev/benchmark/graph-common-codex-gpt-5.4-mini.svg)
 
 See the [full benchmark page](https://ttsc.dev/docs/benchmark/graph) for the raw rows and method.
 
