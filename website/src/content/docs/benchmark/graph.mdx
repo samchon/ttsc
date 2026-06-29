@@ -1,7 +1,4 @@
-import { Tabs } from "nextra/components";
-
 import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
-import LocalSource from "../../../components/LocalSource";
 
 # Code Graph (MCP)
 
@@ -46,33 +43,15 @@ The payloads are coordinates and relationships, not source bodies. `sourceSpan` 
 
 ## Source Contract
 
-These tabs read the actual package source. The benchmark claims above should be judged against these files, not copied type snippets.
+The benchmark page keeps source text out of the first render so the chart remains responsive. The contract lives in these package files, and the full type/source view is on the [graph tools page](/docs/graph/tools/).
 
-<Tabs
-  items={[
-    <code key="application">ITtscGraphApplication.ts</code>,
-    <code key="tour">ITtscGraphTour.ts</code>,
-    <code key="next">ITtscGraphNext.ts</code>,
-    <code key="instructions">instructions.ts</code>,
-    <code key="result-guide">resultGuide.ts</code>,
-  ]}
->
-  <Tabs.Tab>
-    <LocalSource path="packages/graph/src/structures/ITtscGraphApplication.ts" showLineNumbers />
-  </Tabs.Tab>
-  <Tabs.Tab>
-    <LocalSource path="packages/graph/src/structures/ITtscGraphTour.ts" showLineNumbers />
-  </Tabs.Tab>
-  <Tabs.Tab>
-    <LocalSource path="packages/graph/src/structures/ITtscGraphNext.ts" showLineNumbers />
-  </Tabs.Tab>
-  <Tabs.Tab>
-    <LocalSource path="packages/graph/src/server/instructions.ts" showLineNumbers />
-  </Tabs.Tab>
-  <Tabs.Tab>
-    <LocalSource path="packages/graph/src/server/resultGuide.ts" showLineNumbers />
-  </Tabs.Tab>
-</Tabs>
+| File | Role |
+| --- | --- |
+| `packages/graph/src/structures/ITtscGraphApplication.ts` | MCP request/result wrapper. |
+| `packages/graph/src/structures/ITtscGraphTour.ts` | Repository-orientation result branch. |
+| `packages/graph/src/structures/ITtscGraphNext.ts` | Follow-up action contract. |
+| `packages/graph/src/server/instructions.ts` | Tool instruction text. |
+| `packages/graph/src/server/resultGuide.ts` | Per-result answer guidance. |
 
 ## How The Comparators Differ
 

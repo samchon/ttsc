@@ -211,6 +211,31 @@ function groupBy<T>(
   return out;
 }
 
+function makeKey(parts: (string | undefined)[]): string {
+  return parts.map((part) => encodeURIComponent(part ?? "")).join("|");
+}
+
+function parseKey(key: string): string[] {
+  return key.split("|").map((part) => decodeURIComponent(part));
+}
+
+function initialSearchParam(name: string): string | null {
+  if (typeof window === "undefined") return null;
+  return new URL(window.location.href).searchParams.get(name);
+}
+
+function tabHref(name: string, value: string): string {
+  const params = new URLSearchParams([[name, value]]);
+  return `?${params.toString()}`;
+}
+
+function writeSearchParam(name: string, value: string): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set(name, value);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
+
 // ---------------------------------------------------------------------------
 // Grouped model: one comparable model cell against baseline / graph tools
 // ---------------------------------------------------------------------------
@@ -269,22 +294,22 @@ function metricSamples(samples: AgentSample[]): AgentSample[] {
 }
 
 function modelGroupKey(cell: AgentCell): string {
-  return [
+  return makeKey([
     cell.harness,
     cell.model,
     cell.modelVersion ?? "",
     cell.effort ?? "",
     cell.fixtureBranch ?? "",
     cell.daemon === true ? "daemon" : "oneshot",
-  ].join("\0");
+  ]);
 }
 
 function projectGroupKey(cell: AgentCell): string {
-  return [
+  return makeKey([
     cell.promptId ?? "",
     cell.promptFamily ?? "project-specific",
     cell.repo,
-  ].join("\0");
+  ]);
 }
 
 function promptModeKey(promptFamily: string): string {
@@ -353,7 +378,7 @@ function buildPromptModeGroups(projects: ProjectGroup[]): PromptModeGroup[] {
 function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
   return groupBy(cells, projectGroupKey).map(({ key, items: repoCells }) => {
     const [promptId = "", promptFamily = "project-specific", repo = ""] =
-      key.split("\0");
+      parseKey(key);
     const models = groupBy(repoCells, modelGroupKey)
       .map(({ key: modelKey, items: modelCells }): ModelGroup => {
         const ttscCell = modelCells.find((c) => cellTool(c) === TOOL_TTSC);
@@ -519,6 +544,32 @@ function LegendDot({ fill, label }: { fill: string; label: string }) {
   );
 }
 
+function CrownMark({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`inline-flex h-3 w-3 shrink-0 items-center justify-center ${
+        active ? "text-[#36e2ee]" : "text-transparent"
+      }`}
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none">
+        <path
+          d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z"
+          stroke="currentColor"
+          strokeLinejoin="round"
+          strokeWidth="1.35"
+        />
+        <path
+          d="M3.5 12.5h9"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeWidth="1.35"
+        />
+      </svg>
+    </span>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Token reduction charts
 // ---------------------------------------------------------------------------
@@ -626,7 +677,7 @@ function tokenUsageText(tokens: number): string {
   return `${fmtTokenShort(tokens)} tokens`;
 }
 
-function lowestTokenSeries(row: ReductionRow): Set<ReductionSeriesKey> {
+function lowestTokenSeries(row: ReductionRow): ReductionSeriesKey {
   const entries: { key: ReductionSeriesKey; tokens: number }[] = [
     { key: "baseline", tokens: row.baseline.tokens },
     ...row.tools
@@ -636,12 +687,9 @@ function lowestTokenSeries(row: ReductionRow): Set<ReductionSeriesKey> {
       )
       .map((tool) => ({ key: tool.key, tokens: tool.metrics.tokens })),
   ];
-  const lowest = Math.min(...entries.map((entry) => entry.tokens));
-  return new Set(
-    entries
-      .filter((entry) => entry.tokens === lowest)
-      .map((entry) => entry.key),
-  );
+  return entries.reduce((best, entry) =>
+    entry.tokens < best.tokens ? entry : best,
+  ).key;
 }
 
 function ReductionTooltip({
@@ -765,7 +813,7 @@ function ChartLegend() {
         bars show token usage; right labels show tokens and baseline reduction
       </span>
       <span className="text-neutral-600">
-        outlined series are lowest for that case
+        crown marks the lowest-token series
       </span>
     </div>
   );
@@ -848,7 +896,7 @@ function ReductionChart({
         <div className="space-y-4">
           {rows.map((row) => {
             const bestSeries = lowestTokenSeries(row);
-            const baselineBest = bestSeries.has("baseline");
+            const baselineBest = bestSeries === "baseline";
             return (
               <div
                 key={row.id}
@@ -867,13 +915,14 @@ function ReductionChart({
                 <div className="space-y-1.5">
                   <div className="grid grid-cols-[5.75rem_minmax(0,1fr)_7.5rem] items-center gap-2">
                     <span
-                      className={`truncate font-mono text-[10px] ${
+                      className={`inline-flex min-w-0 items-center gap-1 truncate font-mono text-[10px] ${
                         baselineBest
                           ? "font-semibold text-neutral-100"
                           : "text-neutral-500"
                       }`}
                     >
-                      baseline
+                      <CrownMark active={baselineBest} />
+                      <span className="truncate">baseline</span>
                     </span>
                     <div
                       className={`relative h-3.5 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ${
@@ -900,26 +949,27 @@ function ReductionChart({
                           baselineBest ? "text-[#36e2ee]" : "text-neutral-600"
                         }`}
                       >
-                        {baselineBest ? "lowest baseline" : "baseline"}
+                        baseline
                       </span>
                     </span>
                   </div>
                   {row.tools.map((tool) => {
                     const reduction = toolReduction(row, tool);
                     const missing = !tool.metrics;
-                    const best = bestSeries.has(tool.key);
+                    const best = bestSeries === tool.key;
                     return (
                       <div
                         key={tool.key}
                         className="group relative grid grid-cols-[5.75rem_minmax(0,1fr)_7.5rem] items-center gap-2"
                       >
                         <span
-                          className={`truncate font-mono text-[10px] ${
+                          className={`inline-flex min-w-0 items-center gap-1 truncate font-mono text-[10px] ${
                             best ? "font-semibold" : ""
                           }`}
                           style={{ color: tool.textColor }}
                         >
-                          {tool.label}
+                          <CrownMark active={best} />
+                          <span className="truncate">{tool.label}</span>
                         </span>
                         <div
                           className={`relative h-3.5 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ${
@@ -960,11 +1010,9 @@ function ReductionChart({
                               best ? "text-[#36e2ee]" : "text-neutral-500"
                             }`}
                           >
-                            {best
-                              ? `lowest, ${reductionText(reduction)}`
-                              : tool.metrics
-                                ? reductionText(reduction)
-                                : "no data"}
+                            {tool.metrics
+                              ? reductionText(reduction)
+                              : "no data"}
                           </span>
                         </span>
                         <ReductionTooltip row={row} tool={tool} />
@@ -1010,11 +1058,13 @@ function ReductionTabs({
   items,
   active,
   onSelect,
+  queryParam,
 }: {
   label: string;
   items: ReductionTab[];
   active: string;
   onSelect: (id: string) => void;
+  queryParam: string;
 }) {
   if (items.length <= 1) return null;
   return (
@@ -1026,16 +1076,20 @@ function ReductionTabs({
         {items.map((item) => {
           const selected = item.id === active;
           return (
-            <button
+            <a
               key={item.id}
-              type="button"
-              aria-pressed={selected}
-              className={`shrink-0 rounded-md px-3 py-1.5 text-left text-[12px] font-medium transition-colors ${
+              href={tabHref(queryParam, item.id)}
+              aria-current={selected ? "page" : undefined}
+              className={`shrink-0 rounded-md px-3 py-1.5 text-left text-[12px] font-medium no-underline transition-colors hover:no-underline ${
                 selected
                   ? "bg-[#1b212c] text-neutral-50 shadow-sm"
                   : "text-neutral-400 hover:bg-[#13171f] hover:text-neutral-100"
               }`}
-              onClick={() => onSelect(item.id)}
+              onClick={(event) => {
+                event.preventDefault();
+                writeSearchParam(queryParam, item.id);
+                onSelect(item.id);
+              }}
             >
               <span className="block max-w-[13rem] truncate">{item.label}</span>
               {item.meta ? (
@@ -1043,7 +1097,7 @@ function ReductionTabs({
                   {item.meta}
                 </span>
               ) : null}
-            </button>
+            </a>
           );
         })}
       </nav>
@@ -1074,7 +1128,9 @@ function CommonReductionSection({
     [mode, modelFilter],
   );
 
-  const [activeModelId, setActiveModelId] = useState<string | null>(null);
+  const [activeModelId, setActiveModelId] = useState<string | null>(() =>
+    initialSearchParam("graphCommonModel"),
+  );
   const activeModel =
     (activeModelId
       ? models.find((model) => model.id === activeModelId)
@@ -1118,6 +1174,7 @@ function CommonReductionSection({
         }))}
         active={activeModel?.id ?? ""}
         onSelect={setActiveModelId}
+        queryParam="graphCommonModel"
       />
       {activeModel ? (
         <ReductionChart
@@ -1136,7 +1193,9 @@ function CommonReductionSection({
 }
 
 function DedicatedReductionSection({ mode }: { mode: PromptModeGroup }) {
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(() =>
+    initialSearchParam("graphDedicatedProject"),
+  );
   const activeProject =
     (activeProjectId
       ? mode.projects.find((project) => project.id === activeProjectId)
@@ -1162,6 +1221,7 @@ function DedicatedReductionSection({ mode }: { mode: PromptModeGroup }) {
         }))}
         active={activeProject?.id ?? ""}
         onSelect={setActiveProjectId}
+        queryParam="graphDedicatedProject"
       />
       {activeProject ? (
         <ReductionChart

@@ -55,14 +55,22 @@ npx @ttsc/graph view
 
 ## Benchmark
 
-On the current snapshot, `@ttsc/graph` cuts GPT 5.4 Mini token use by 45.7% to 92.5% across the published repo rows, averaged over the common and dedicated prompts in `website/public/benchmark/graph.json`.
+On the current GPT 5.4 Mini snapshot, the published median token cost is lowest with `@ttsc/graph`. Values below are thousands of tokens from `website/public/benchmark/graph.json`.
 
 ```mermaid
 xychart-beta
-  title "GPT 5.4 Mini token reduction with @ttsc/graph"
-  x-axis ["vscode", "typeorm", "nestjs", "shopping-backend", "rxjs", "zod", "excalidraw", "vue"]
-  y-axis "Reduction %" 0 --> 100
-  bar [92.5, 90.8, 90.7, 88.1, 84.6, 80.4, 72.7, 45.7]
+  title "Common prompt median token use"
+  x-axis ["baseline", "@ttsc/graph", "codegraph", "codebase-memory-mcp"]
+  y-axis "Tokens (k)" 0 --> 1400
+  bar [781, 41, 617, 1302]
+```
+
+```mermaid
+xychart-beta
+  title "Dedicated prompt median token use"
+  x-axis ["baseline", "@ttsc/graph", "codegraph", "codebase-memory-mcp"]
+  y-axis "Tokens (k)" 0 --> 1000
+  bar [776, 57, 323, 945]
 ```
 
 See the [full benchmark page](https://ttsc.dev/docs/benchmark/graph) for the raw rows and method.
