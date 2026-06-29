@@ -1,16 +1,19 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
+import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { accessAliasesFor } from "./accessAliases";
 import { resolveGraphHandle } from "./resolveHandle";
-import { resultGuide } from "./resultGuide";
+import { resultGuide, resultNext } from "./resultGuide";
 import { edgeEvidenceOf, edgeEvidenceTextOf, signatureOf } from "./runDetails";
 
 const DEFAULT_DEPTH = 2;
 const DEFAULT_MAX_NODES = 6;
 const MAX_OPEN_DEPTH = 2;
 const MAX_OPEN_NODES = 8;
+const MAX_IMPACT_DEPTH = 4;
+const MAX_IMPACT_NODES = 16;
 const MAX_HOPS_PER_NODE = 1;
 const MAX_STEPS = 6;
 
@@ -27,10 +30,22 @@ export function runTrace(
 ): ITtscGraphTrace {
   const direction = props.direction ?? "forward";
   const focus = props.focus ?? "all";
-  const maxDepth = bound(props.maxDepth, DEFAULT_DEPTH, 1, MAX_OPEN_DEPTH);
-  const maxNodes = bound(props.maxNodes, DEFAULT_MAX_NODES, 1, MAX_OPEN_NODES);
+  const impact = direction === "impact";
+  const maxDepth = bound(
+    props.maxDepth,
+    DEFAULT_DEPTH,
+    1,
+    impact ? MAX_IMPACT_DEPTH : MAX_OPEN_DEPTH,
+  );
+  const maxNodes = bound(
+    props.maxNodes,
+    DEFAULT_MAX_NODES,
+    1,
+    impact ? MAX_IMPACT_NODES : MAX_OPEN_NODES,
+  );
   const maxHops = maxNodes * MAX_HOPS_PER_NODE;
   const reverse = direction === "reverse" || direction === "impact";
+  const includeExternal = props.includeExternal === true;
   // Only an impact trace tags reached nodes with their public-surface role; for
   // forward/reverse the role is noise.
   const withRoles = direction === "impact";
@@ -43,6 +58,10 @@ export function runTrace(
       hops: [],
       reached: [],
       truncated: false,
+      next: resultNext(
+        "clarify",
+        "The start handle is ambiguous; choose one returned candidate.",
+      ),
       guide: resultGuide(
         "Disambiguate with the returned candidates, or ask the user for the intended symbol.",
       ),
@@ -56,6 +75,10 @@ export function runTrace(
       hops: [],
       reached: [],
       truncated: false,
+      next: resultNext(
+        "clarify",
+        "The start handle did not resolve in the compiler graph.",
+      ),
       guide: resultGuide(
         "The start symbol was not resolved; answer that the graph has no trace from this handle.",
       ),
@@ -71,6 +94,10 @@ export function runTrace(
       hops: [],
       reached: [],
       truncated: false,
+      next: resultNext(
+        "answer",
+        "The path result is the structural flow answer; cite path nodes and evidence ranges.",
+      ),
       guide: resultGuide(
         "Use the returned path, hops, and evidence ranges as the flow answer.",
       ),
@@ -92,6 +119,7 @@ export function runTrace(
       target.node.id,
       bound(props.maxDepth, 12, 1, 12),
       focus,
+      includeExternal,
     );
     const path = found?.path ?? [];
     const hops = found?.hops ?? [];
@@ -120,12 +148,18 @@ export function runTrace(
         truncated = true;
         continue;
       }
-      const edges = reverse ? graph.incoming(id) : graph.outgoing(id);
+      const edges = orderedEdges(
+        graph,
+        reverse ? graph.incoming(id) : graph.outgoing(id),
+        direction,
+        reverse,
+      );
       for (const edge of edges) {
         if (!traversable(edge.kind, focus)) continue;
         const otherId = reverse ? edge.from : edge.to;
         const other = graph.node(otherId);
         if (other === undefined || other.kind === "file") continue;
+        if (!includeExternal && isExternalNode(other)) continue;
         const hop: ITtscGraphTrace.IHop = {
           from: edge.from,
           to: edge.to,
@@ -172,8 +206,12 @@ export function runTrace(
     hops,
     reached: [...reached.values()],
     steps: traceSteps(graph, hops),
+    next: resultNext(
+      "answer",
+      "Steps, hops, reached nodes, and evidence ranges are the flow answer surface.",
+    ),
     guide: resultGuide(
-      "Use steps, hops, reached nodes, and evidence ranges as the flow answer.",
+      "Use steps, hops, reached nodes, and evidence ranges as the flow answer or reading-list anchor.",
     ),
     truncated,
   };
@@ -209,6 +247,7 @@ function findPath(
   targetId: string,
   maxDepth: number,
   focus: ITtscGraphTrace.IRequest["focus"],
+  includeExternal: boolean,
 ): { path: ITtscGraphNode[]; hops: ITtscGraphTrace.IHop[] } | null {
   const startNode = graph.node(startId);
   if (startNode === undefined) return null;
@@ -234,6 +273,7 @@ function findPath(
         if (visited.has(otherId)) continue;
         const other = graph.node(otherId);
         if (other === undefined || other.kind === "file") continue;
+        if (!includeExternal && isExternalNode(other)) continue;
         visited.add(otherId);
         const evidence = edgeEvidenceOf(edge);
         parent.set(otherId, {
@@ -282,6 +322,29 @@ function findPath(
   return null;
 }
 
+function orderedEdges(
+  graph: TtscGraphMemory,
+  edges: readonly ITtscGraphEdge[],
+  direction: string,
+  reverse: boolean,
+): readonly ITtscGraphEdge[] {
+  if (direction !== "impact") return edges;
+  return [...edges].sort(
+    (a, b) =>
+      impactEndpointRank(graph, reverse ? a.from : a.to) -
+      impactEndpointRank(graph, reverse ? b.from : b.to),
+  );
+}
+
+function impactEndpointRank(graph: TtscGraphMemory, id: string): number {
+  const node = graph.node(id);
+  if (node === undefined) return 9;
+  if (isTestFile(node.file)) return 0;
+  if (node.exported) return 1;
+  if (node.external || node.ignored) return 4;
+  return 2;
+}
+
 /**
  * Summarize a node for a trace result. With `withRoles`, tag the public-surface
  * roles (exported / test) an impact trace reports; other directions omit them.
@@ -299,6 +362,16 @@ function summary(
     kind: node.kind,
     file: node.file,
   };
+  if (node.evidence?.startLine !== undefined)
+    out.line = node.evidence.startLine;
+  const span = node.implementation ?? node.evidence;
+  if (span !== undefined) {
+    out.sourceSpan = {
+      file: span.file,
+      startLine: span.startLine,
+      ...(span.endLine !== undefined ? { endLine: span.endLine } : {}),
+    };
+  }
   if (depth !== undefined) out.depth = depth;
   if (withSignature) {
     const sig = signatureOf(graph.project, node);
@@ -345,6 +418,14 @@ function isTestFile(file: string): boolean {
   return (
     /(^|\/)(test|tests|__tests__|spec)\//.test(file) ||
     /\.(test|spec)\.[cm]?tsx?$/.test(file)
+  );
+}
+
+function isExternalNode(node: ITtscGraphNode): boolean {
+  return (
+    node.external ||
+    node.file.startsWith("bundled://") ||
+    /(^|\/)node_modules\//.test(node.file)
   );
 }
 

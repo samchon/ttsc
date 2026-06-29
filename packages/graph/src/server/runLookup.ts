@@ -1,7 +1,7 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphLookup } from "../structures/ITtscGraphLookup";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
-import { resultGuide } from "./resultGuide";
+import { resultGuide, resultNext } from "./resultGuide";
 import { decoratorsOf, signatureOf } from "./runDetails";
 
 // One file should not crowd out the rest of the ranking, so cap hits per file.
@@ -29,6 +29,10 @@ export function runLookup(
     return {
       type: "lookup",
       hits: [],
+      next: resultNext(
+        "clarify",
+        "No symbol matched; ask for a concrete symbol or scope.",
+      ),
       guide: resultGuide(
         "No symbol matched; answer that the graph did not resolve this name or ask for a more concrete symbol.",
       ),
@@ -85,8 +89,13 @@ export function runLookup(
   return {
     type: "lookup",
     hits,
+    next: resultNext(
+      "inspect",
+      "Use one returned id for trace/details when the answer needs flow or shape.",
+      "details",
+    ),
     guide: resultGuide(
-      "Use ranked hits and signatures as symbol evidence; answer when the target is clear.",
+      "Use ranked hits and signatures as symbol evidence. If the target is clear, answer or make one focused trace/details call; do not search files to verify the match.",
     ),
   };
 }

@@ -1,3 +1,5 @@
+import { ITtscGraphNext } from "./ITtscGraphNext";
+
 /** A compact, source-read-free project map for broad orientation only. */
 export interface ITtscGraphOverview {
   /** Discriminator for source-free project overview. */
@@ -9,7 +11,10 @@ export interface ITtscGraphOverview {
   /** Size of the graph. */
   counts: ITtscGraphOverview.ICounts;
 
-  /** How to use this source-free result before another tool or final answer. */
+  /** How to use this source-free result next. */
+  next: ITtscGraphNext;
+
+  /** Human-readable compatibility note mirroring `next`. */
   guide: string;
 
   /** Folder layering, largest first. */
@@ -43,9 +48,15 @@ export namespace ITtscGraphOverview {
 
   /** Size of the graph by node/edge totals and per-kind node counts. */
   export interface ICounts {
+    /** Number of source file container nodes. */
     files: number;
+
+    /** Total node count, including declarations and file containers. */
     nodes: number;
+
+    /** Total edge count, including structural edges. */
     edges: number;
+
     /** Node count per kind. */
     byKind: Record<string, number>;
   }

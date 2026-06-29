@@ -1,5 +1,6 @@
 import { ITtscGraphDecorator } from "./ITtscGraphDecorator";
 import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
+import { ITtscGraphNext } from "./ITtscGraphNext";
 
 /** The first compact source-free handle list for a TypeScript code question. */
 export interface ITtscGraphEntrypoints {
@@ -18,7 +19,10 @@ export interface ITtscGraphEntrypoints {
   /** Direct dependency context for the resolved mentions and highest hits. */
   neighborhood: ITtscGraphEntrypoints.INeighborhood[];
 
-  /** How to use this source-free result before another tool or final answer. */
+  /** How to use this source-free result next. */
+  next: ITtscGraphNext;
+
+  /** Human-readable compatibility note mirroring `next`. */
   guide: string;
 
   /** True when result caps hid additional seeds or references. */
@@ -67,14 +71,24 @@ export namespace ITtscGraphEntrypoints {
 
   /** A compact symbol coordinate, optionally with its declaration signature. */
   export interface INode {
+    /** Stable node id for subsequent graph calls. */
     id: string;
+
+    /** Qualified symbol name when available, otherwise the simple name. */
     name: string;
+
+    /** Declaration kind (`class`, `method`, `function`, ...). */
     kind: string;
+
+    /** Project-relative path of the declaration file. */
     file: string;
+
     /** 1-based declaration line, when known. */
     line?: number;
+
     /** Declaration head, included only for indexed symbols. */
     signature?: string;
+
     /** Decorators written on this declaration, when any. */
     decorators?: ITtscGraphDecorator[];
   }
@@ -87,26 +101,45 @@ export namespace ITtscGraphEntrypoints {
 
   /** A code handle written in the query, with its resolution status. */
   export interface IMention {
+    /** The exact handle text found in the query. */
     handle: string;
+
+    /** Resolved node when the handle maps unambiguously. */
     node?: INode;
+
+    /** Candidate nodes when the handle is ambiguous. */
     candidates?: INode[];
   }
 
   /** Direct dependency context around one indexed symbol. */
   export interface INeighborhood extends INode {
+    /** Symbols this node directly uses, capped by `neighbors`. */
     dependsOn: IReference[];
+
+    /** Symbols that directly use this node, capped by `neighbors`. */
     dependedOnBy: IReference[];
   }
 
   /** One neighboring symbol and the relationship leading to it. */
   export interface IReference {
+    /** Stable id of the neighboring node. */
     id: string;
+
+    /** Neighbor symbol name, qualified when available. */
     name: string;
+
+    /** Neighbor declaration kind. */
     kind: string;
+
+    /** Project-relative declaration file for the neighbor. */
     file: string;
+
     /** 1-based declaration line, when known. */
     line?: number;
+
+    /** Edge kind connecting the indexed node and this neighbor. */
     relation: string;
+
     /**
      * Source span for the expression that produced this relationship. It lets
      * an agent see why the edge exists without opening the file.

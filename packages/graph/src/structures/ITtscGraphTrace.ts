@@ -1,4 +1,5 @@
 import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
+import { ITtscGraphNext } from "./ITtscGraphNext";
 
 /** The compact dependency or caller flow returned from a selected start symbol. */
 export interface ITtscGraphTrace {
@@ -8,6 +9,7 @@ export interface ITtscGraphTrace {
   /** The resolved start node, or undefined when `from` matched nothing. */
   start?: ITtscGraphTrace.INode;
 
+  /** Trace direction actually used by this result. */
   direction: string;
 
   /** Edges traversed, in breadth-first order. */
@@ -32,7 +34,10 @@ export interface ITtscGraphTrace {
   /** Compact hop summaries preserving node names and edge evidence, capped. */
   steps?: string[];
 
-  /** How to use this source-free result before another tool or final answer. */
+  /** How to use this source-free result next. */
+  next: ITtscGraphNext;
+
+  /** Human-readable compatibility note mirroring `next`. */
   guide: string;
 
   /** When `from` was an ambiguous name, the matches to disambiguate with. */
@@ -62,8 +67,9 @@ export namespace ITtscGraphTrace {
     /**
      * `forward` follows what the start uses (callees, instantiations, renders);
      * `reverse` follows what uses the start (callers); `impact` is a reverse
-     * trace that flags the public API and tests a change would reach. Caller
-     * questions should use `reverse`, not shell search.
+     * trace that prioritizes public API and test nodes a change would reach.
+     * Its test nodes are semantic usage edges, not a text-search inventory.
+     * Caller questions usually fit `reverse`.
      *
      * @default "forward"
      */
@@ -80,8 +86,8 @@ export namespace ITtscGraphTrace {
     focus?: "all" | "execution" | "types";
 
     /**
-     * How many hops deep to follow. Open traces are capped at 2; path mode is
-     * capped at 12.
+     * How many hops deep to follow. Open forward/reverse traces are capped at
+     * 2; impact traces at 4; path mode at 12.
      *
      * Prefer the default for open traces. Raise only for path mode or when the
      * previous trace named the missing next hop.
@@ -92,29 +98,46 @@ export namespace ITtscGraphTrace {
 
     /**
      * Cap on reached nodes; the trace stops and marks itself truncated past it.
-     * Open traces are capped at 10 nodes so a broad graph cannot flood
-     * context.
+     * Open forward/reverse traces are capped at 8 nodes, impact at 16 nodes.
      *
-     * Prefer the default. Do not use a large open trace as a source reader.
+     * Prefer the default; use larger open traces only when a named missing edge
+     * requires it.
      *
      * @default 6
      */
     maxNodes?: number;
+
+    /**
+     * Include dependency-boundary nodes from node_modules or bundled `.d.ts`
+     * libraries. Leave false for source-flow tours; enable only when the user
+     * asks about external type/API boundaries.
+     *
+     * @default false
+     */
+    includeExternal?: boolean;
   }
 
   /** One traversed edge, with its depth from the start. */
   export interface IHop {
+    /** Source node id for this traversed edge. */
     from: string;
+
+    /** Target node id for this traversed edge. */
     to: string;
+
+    /** Edge kind (`calls`, `type_ref`, `accesses`, ...). */
     kind: string;
+
     /** Hops from the start (1 = direct). */
     depth: number;
+
     /**
      * Source span for the expression that produced this hop. It lets an agent
      * explain why the trace moves from one symbol to the next without opening
      * the file.
      */
     evidence?: ITtscGraphEvidence;
+
     /**
      * Stable access-path aliases derived from edge evidence. These preserve a
      * resolved member's owner and the concrete property path used at the call
@@ -125,14 +148,30 @@ export namespace ITtscGraphTrace {
 
   /** A node on the trace: the start, a reached node, or a candidate. */
   export interface INode {
+    /** Stable node id for subsequent graph calls. */
     id: string;
+
+    /** Qualified symbol name when available, otherwise the simple name. */
     name: string;
+
+    /** Declaration kind (`class`, `method`, `function`, ...). */
     kind: string;
+
+    /** Project-relative path of the declaration file. */
     file: string;
+
+    /** 1-based declaration line, when known. */
+    line?: number;
+
+    /** Declaration or implementation range, when known. */
+    sourceSpan?: Pick<ITtscGraphEvidence, "file" | "startLine" | "endLine">;
+
     /** Hops from the start, on a reached node. */
     depth?: number;
+
     /** The node's signature, carried on path nodes so the path explains itself. */
     signature?: string;
+
     /** Why this node matters to an impact trace: `exported`, `test`. */
     roles?: string[];
   }

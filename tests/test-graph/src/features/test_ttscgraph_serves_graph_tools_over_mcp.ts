@@ -21,6 +21,7 @@ const callGraphJson = <T>(result: ToolResult): T => {
     case "trace":
     case "details":
     case "overview":
+    case "tour":
     case "escape":
       return value.result as T;
     default:
@@ -28,7 +29,7 @@ const callGraphJson = <T>(result: ToolResult): T => {
   }
 };
 
-const GRAPH_TOOL_NAME = "inspect_typescript_source_flow";
+const GRAPH_TOOL_NAME = "inspect_typescript_graph";
 
 type GraphRequestType =
   | "entrypoints"
@@ -36,6 +37,7 @@ type GraphRequestType =
   | "trace"
   | "details"
   | "overview"
+  | "tour"
   | "escape";
 
 interface GraphRequest {
@@ -49,7 +51,7 @@ const graphArguments = (props: {
 }) => ({
   question: props.thinking,
   graphNeed:
-    "Use resident TypeScript graph evidence and avoid shell or web lookup.",
+    "Use resident TypeScript graph evidence for compact source-structure facts.",
   draft: {
     reason: props.thinking,
     type: props.request.type,
@@ -58,7 +60,7 @@ const graphArguments = (props: {
     reason:
       props.request.type === "escape"
         ? "The draft intentionally stops graph use for this answer."
-        : "The draft is bounded to one graph request and avoids shell fallback.",
+        : "The draft requests one focused graph operation.",
     decision: props.request.type === "escape" ? "escape" : "inspect",
     finish: "answer",
   },
@@ -123,6 +125,14 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       "    other();",
       "  },",
       "};",
+      "",
+    ].join("\n"),
+    "src/app.spec.ts": [
+      "import { Service } from './app';",
+      "",
+      "export function coversRun(): void {",
+      "  new Service().run();",
+      "}",
       "",
     ].join("\n"),
   });
@@ -285,6 +295,63 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       `entrypoints returns compact follow-up guidance: ${JSON.stringify(entrypoints.guide)}`,
     );
 
+    // tour: one answer-ready onboarding slice with flow, tests, and anchors.
+    const tour = callGraphJson<{
+      entrypoints: { name: string; signature?: string }[];
+      primaryFlow: {
+        start: { name: string };
+        steps: string[];
+        reached: { name: string }[];
+        anchors: { file: string; startLine: number; source?: string }[];
+      }[];
+      tests: { file: string; startLine: number; source?: string }[];
+      readNext: { file: string; startLine: number; source?: string }[];
+      guide: string;
+    }>(
+      (await client.request("tools/call", {
+        name: GRAPH_TOOL_NAME,
+        arguments: graphArguments({
+          thinking:
+            "Build a code-tour index for Service.run before reading source.",
+          request: {
+            type: "tour",
+            query:
+              "I'm new here; trace Service.run to the work it does and show tests to read next.",
+          },
+        }),
+      })) as ToolResult,
+    );
+    assert.ok(
+      tour.entrypoints.some((node) => node.name === "Service.run"),
+      `tour includes central entrypoints: ${JSON.stringify(tour.entrypoints)}`,
+    );
+    assert.ok(
+      tour.primaryFlow.some(
+        (flow) =>
+          flow.start.name === "Service.run" &&
+          flow.reached.some((node) => node.name === "helper") &&
+          flow.steps.some((step) => step.includes("helper")),
+      ),
+      `tour includes source-free primary flow: ${JSON.stringify(tour.primaryFlow)}`,
+    );
+    assert.ok(
+      tour.tests.some((anchor) => anchor.file.endsWith("app.spec.ts")),
+      `tour includes test anchors: ${JSON.stringify(tour.tests)}`,
+    );
+    assert.ok(
+      tour.readNext.some(
+        (anchor) =>
+          anchor.file.endsWith("app.ts") &&
+          typeof anchor.startLine === "number" &&
+          anchor.source === undefined,
+      ),
+      `tour returns read-next anchors, not source text: ${JSON.stringify(tour.readNext)}`,
+    );
+    assert.ok(
+      tour.guide.includes("answer-ready index"),
+      `tour guide explains answer-ready use: ${JSON.stringify(tour.guide)}`,
+    );
+
     // overview: a compact architecture map with real counts.
     const overview = callGraphJson<{
       counts: { nodes: number; byKind: Record<string, number> };
@@ -366,12 +433,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       "method",
       `lookup preserves the method kind: ${JSON.stringify(methodQuery.hits)}`,
     );
-  });
 
-  await withClient(async (client) => {
     // trace: forward from Service.run reaches the helper it calls.
     const trace = callGraphJson<{
-      reached: { name: string }[];
+      reached: { name: string; sourceSpan?: { file: string } }[];
       hops: {
         evidence?: { file?: string; startLine?: number; text?: string };
       }[];
@@ -396,6 +461,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       `trace forward reaches helper: ${JSON.stringify(trace.reached)}`,
     );
     assert.ok(
+      trace.reached.some((node) => node.sourceSpan?.file.endsWith("app.ts")),
+      `trace nodes carry source ranges: ${JSON.stringify(trace.reached)}`,
+    );
+    assert.ok(
       trace.hops.some(
         (hop) =>
           hop.evidence?.file?.endsWith("app.ts") &&
@@ -407,6 +476,39 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       trace.steps?.some((step) => step.includes("Service.run")),
       `trace returns compact step text: ${JSON.stringify(trace.steps)}`,
+    );
+
+    // impact: caller surfaces prioritize tests and still return ranges.
+    const impact = callGraphJson<{
+      reached: {
+        name: string;
+        file: string;
+        roles?: string[];
+        sourceSpan?: { file: string; startLine: number };
+      }[];
+    }>(
+      (await client.request("tools/call", {
+        name: GRAPH_TOOL_NAME,
+        arguments: graphArguments({
+          thinking:
+            "Trace callers that would be affected by changing Service.run.",
+          request: {
+            type: "trace",
+            from: "Service.run",
+            direction: "impact",
+            focus: "execution",
+          },
+        }),
+      })) as ToolResult,
+    );
+    assert.ok(
+      impact.reached.some(
+        (node) =>
+          node.roles?.includes("test") &&
+          node.file.endsWith("app.spec.ts") &&
+          typeof node.sourceSpan?.startLine === "number",
+      ),
+      `impact trace returns test range anchors: ${JSON.stringify(impact.reached)}`,
     );
 
     // trace path mode: dotted from handles can be used directly.
@@ -533,9 +635,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       ),
       `details returns object-literal member outlines: ${JSON.stringify(objectDetails.nodes)}`,
     );
-  });
 
-  await withClient(async (client) => {
     const detailsShape = callGraphJson<{
       nodes: {
         name: string;

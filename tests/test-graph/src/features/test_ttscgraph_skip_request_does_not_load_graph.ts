@@ -6,7 +6,7 @@ interface ToolResult {
   content: { type: string; text: string }[];
 }
 
-const GRAPH_TOOL_NAME = "inspect_typescript_source_flow";
+const GRAPH_TOOL_NAME = "inspect_typescript_graph";
 
 const graphArguments = () => ({
   question:

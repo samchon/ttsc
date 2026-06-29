@@ -1,6 +1,20 @@
+import { ITtscGraphNext } from "../structures/ITtscGraphNext";
+
 const SOURCE_POLICY =
-  "Answer from these graph fields only. For architecture or flow questions, explain the central path; do not exhaust variants, tests, adapters, or generated clients. When the result has file, symbol, relation, and range evidence, answer now. If source text is required, cite the smallest returned sourceSpan/evidence range and stop; do not read files for this answer.";
+  "Returned graph fields are compiler-derived evidence. Answer from returned names, edges, signatures, decorators, and ranges; read files only for exact source body text or evidence outside the graph.";
 
 export function resultGuide(action: string): string {
   return `${action} ${SOURCE_POLICY}`;
+}
+
+export function resultNext(
+  action: ITtscGraphNext["action"],
+  reason: string,
+  request?: ITtscGraphNext["request"],
+): ITtscGraphNext {
+  return {
+    action,
+    reason,
+    ...(request !== undefined ? { request } : {}),
+  };
 }

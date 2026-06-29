@@ -3,7 +3,7 @@ import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEntrypoints } from "../structures/ITtscGraphEntrypoints";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { resolveGraphHandle } from "./resolveHandle";
-import { resultGuide } from "./resultGuide";
+import { resultGuide, resultNext } from "./resultGuide";
 import { decoratorsOf, edgeEvidenceOf, signatureOf } from "./runDetails";
 import { runLookup } from "./runLookup";
 
@@ -85,8 +85,13 @@ export function runEntrypoints(
     hits,
     mentions,
     neighborhood,
+    next: resultNext(
+      "inspect",
+      "Use one returned handle for trace/details when the answer needs flow or selected shape.",
+      "trace",
+    ),
     guide: resultGuide(
-      "Use hits, mentions, and neighborhood as the code index; answer when this identifies the relevant files and symbols.",
+      "Use hits, mentions, and neighborhood as the code index. If they identify the relevant files and symbols, answer or make one focused trace/details call; do not search the repository to verify them.",
     ),
     ...(truncated ? { truncated: true } : {}),
   };

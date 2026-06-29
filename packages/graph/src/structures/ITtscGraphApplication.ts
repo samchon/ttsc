@@ -3,27 +3,26 @@ import { ITtscGraphEntrypoints } from "./ITtscGraphEntrypoints";
 import { ITtscGraphEscape } from "./ITtscGraphEscape";
 import { ITtscGraphLookup } from "./ITtscGraphLookup";
 import { ITtscGraphOverview } from "./ITtscGraphOverview";
+import { ITtscGraphTour } from "./ITtscGraphTour";
 import { ITtscGraphTrace } from "./ITtscGraphTrace";
 
 /** The typed MCP surface; its single method becomes the single graph tool. */
 export interface ITtscGraphApplication {
   /**
-   * Inspect TypeScript source flow before shell search or file reads.
+   * Inspect the TypeScript compiler graph as structural evidence.
    *
-   * Use first when an answer depends on TypeScript source structure: symbols,
-   * imports, calls, decorators, DI/request lifecycle, refs, types, ranges, or
-   * flows such as IPC/process/channel communication, render, validation, load,
-   * persist, or propagation. Use shell reads for scripts, configs, docs, exact
-   * text, generated output, and non-TypeScript files.
+   * Use this before repository search when an answer depends on TypeScript
+   * symbols, calls, types, decorators, references, ranges, or runtime/source
+   * relationships. For onboarding and read-next questions, use `tour`.
    *
-   * It returns index facts and ranges, not file bodies. After calling it,
-   * answer from graph fields only or choose `escape` and cite the smallest
-   * range.
+   * Returned facts are built from the resident Program and TypeChecker. Treat
+   * declarations, references, edges, decorators, and ranges as authoritative
+   * graph evidence. Read files only for exact body text or non-graph evidence.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
    */
-  inspect_typescript_source_flow(
+  inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
   ): ITtscGraphApplication.IResult;
 }
@@ -34,47 +33,36 @@ export namespace ITtscGraphApplication {
     /**
      * User's TypeScript code question.
      *
-     * Restate only the code question being answered. Keep it about TypeScript
-     * symbols, call flow, type flow, runtime behavior, tests exposed by the
-     * graph, or architecture. If the user asks about scripts, config, docs,
-     * generated output, exact text, or non-TypeScript files, say so here and
-     * choose `escape`.
+     * Restate the code question being considered. If the next evidence is a
+     * script, config, doc, generated output, exact text, non-TypeScript file,
+     * or source body text, choose `escape`.
      */
     question: string;
 
     /**
-     * Why the resident graph is the next evidence source.
+     * Why the resident compiler graph is the next evidence source.
      *
-     * State the smallest evidence that will settle the answer: central handles,
-     * a path, caller, dependency edge, signature, member outline, or range. If
-     * current graph evidence is enough, say so and choose `escape`. Do not
-     * frame this as an invitation to keep finding every branch.
-     *
-     * Example: `central public API-to-worker path with range anchors`.
+     * Name the smallest graph evidence that will settle this step: handles,
+     * path, caller, edge, signature, member outline, or anchor. If current
+     * evidence is enough, choose `escape`.
      */
     graphNeed: string;
 
     /**
      * First request-type decision before arguments are filled.
      *
-     * Choose the smallest operation class before filling arguments.
-     * `entrypoints` starts natural questions, `lookup` resolves a concrete
-     * name, `trace` follows flow, `details` inspects selected handles,
-     * `overview` maps broad surfaces, and `escape` stops.
-     *
-     * Example: reason `find central handles before tracing`, type
-     * `entrypoints`.
+     * `tour` answers onboarding/read-next tours, `entrypoints` starts natural
+     * questions, `lookup` resolves a concrete name, `trace` follows flow,
+     * `details` inspects selected handles, `overview` maps broad surfaces, and
+     * `escape` stops.
      */
     draft: IRequestDraft;
 
     /**
      * Critical gate before the final request.
      *
-     * Example inspect gate: reason `no graph evidence yet; default entrypoints
-     * is smallest`, decision `inspect`, finish `answer`.
-     *
-     * Example stop gate: reason `current graph result has ranges; source body
-     * would require file text`, decision `escape`, finish `range`.
+     * Re-check whether the draft is still the smallest useful action. Stop with
+     * `escape` when returned graph evidence already settles the answer.
      */
     review: IRequestReview;
 
@@ -85,6 +73,7 @@ export namespace ITtscGraphApplication {
       | ITtscGraphTrace.IRequest
       | ITtscGraphDetails.IRequest
       | ITtscGraphOverview.IRequest
+      | ITtscGraphTour.IRequest
       | ITtscGraphEscape.IRequest;
   }
 
@@ -100,49 +89,49 @@ export namespace ITtscGraphApplication {
       | ITtscGraphTrace.IRequest["type"]
       | ITtscGraphDetails.IRequest["type"]
       | ITtscGraphOverview.IRequest["type"]
+      | ITtscGraphTour.IRequest["type"]
       | ITtscGraphEscape.IRequest["type"];
   }
 
-  /** Final gate that prevents graph calls from becoming source-read preludes. */
+  /** Final gate that re-checks the draft before graph use continues. */
   export interface IRequestReview {
     /**
-     * Why the final request is valid, or why graph use must stop.
+     * Why the final request is useful, or why graph is not the next step.
      *
-     * Reject duplicate evidence, broad limits, neighbor expansion without a
-     * named missing edge, test-only hunting, and any plan to fall back to shell
-     * search or file reads after this tool returns.
+     * Correct stale or wrong request types before calling. Choose `escape` when
+     * current evidence is enough, the next evidence is outside the graph, or
+     * another graph call would repeat earlier evidence.
      */
     reason: string;
 
     /**
-     * Whether this MCP call should run a graph request or intentionally stop.
+     * Whether this MCP call should run a graph request or skip graph work.
      *
-     * Use exactly `inspect` only when the next evidence source is still the
-     * resident graph. Use exactly `escape` when current graph evidence is
-     * enough, when the user needs non-TypeScript/source-body facts, or when
-     * another graph call would be overfetch.
+     * `inspect` means the next useful evidence is still the resident graph.
+     * `escape` means stop graph work or answer from existing evidence.
      */
-    decision: string;
+    decision: "inspect" | "escape";
 
     /**
-     * How the agent must finish after this MCP call returns.
+     * How this graph step is expected to resolve.
      *
-     * Use exactly `answer`, `range`, or `clarify`. `answer` means answer from
-     * graph fields only. `range` means cite the smallest returned `sourceSpan`
-     * or edge `evidence` range and stop instead of reading the file. `clarify`
+     * `answer` means graph fields should settle the answer. `anchor` means cite
+     * returned ranges as reading anchors, not file-open commands. `clarify`
      * means ask for a concrete symbol or scope.
      */
-    finish: string;
+    finish: "answer" | "anchor" | "clarify";
   }
 
   /** The selected request's output. `result.type` mirrors `request.type`. */
   export interface IResult {
+    /** Result branch matching the submitted `request.type`. */
     result:
       | ITtscGraphEntrypoints
       | ITtscGraphLookup
       | ITtscGraphTrace
       | ITtscGraphDetails
       | ITtscGraphOverview
+      | ITtscGraphTour
       | ITtscGraphEscape;
   }
 }

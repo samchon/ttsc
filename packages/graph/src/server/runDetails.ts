@@ -9,7 +9,7 @@ import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { accessAliasesFor } from "./accessAliases";
 import { resolveGraphHandle } from "./resolveHandle";
-import { resultGuide } from "./resultGuide";
+import { resultGuide, resultNext } from "./resultGuide";
 
 // A signature is the declaration head up to the body brace: a handful of lines.
 const MAX_SIGNATURE_LINES = 4;
@@ -59,6 +59,7 @@ export function runDetails(
     MAX_DEPENDENCIES,
   );
   const wantNeighbors = props.neighbors === true;
+  const includeExternal = props.includeExternal === true;
   const nodes: ITtscGraphDetails.INode[] = [];
   const unknown: string[] = [];
   for (const handle of props.handles) {
@@ -90,9 +91,21 @@ export function runDetails(
         endLine: span.endLine,
       };
     }
-    const calls = dependencyRefs(graph, node, executionKinds, dependencyLimit);
+    const calls = dependencyRefs(
+      graph,
+      node,
+      executionKinds,
+      dependencyLimit,
+      includeExternal,
+    );
     if (calls.length > 0) detail.calls = calls;
-    const types = dependencyRefs(graph, node, typeKinds, dependencyLimit);
+    const types = dependencyRefs(
+      graph,
+      node,
+      typeKinds,
+      dependencyLimit,
+      includeExternal,
+    );
     if (types.length > 0) detail.types = types;
     if (CONTAINER_KINDS.has(node.kind)) {
       const list = members(graph, node, memberLimit);
@@ -114,12 +127,14 @@ export function runDetails(
         graph.outgoing(node.id),
         "to",
         neighborLimit,
+        includeExternal,
       );
       detail.dependedOnBy = refs(
         graph,
         graph.incoming(node.id),
         "from",
         neighborLimit,
+        includeExternal,
       );
     }
     nodes.push(detail);
@@ -127,8 +142,12 @@ export function runDetails(
   return {
     type: "details",
     nodes,
+    next: resultNext(
+      "answer",
+      "Selected signatures, members, dependencies, and ranges are enough for a shape or reading-anchor answer.",
+    ),
     guide: resultGuide(
-      "Use signatures, members, calls, types, literals, and sourceSpan anchors as selected symbol facts.",
+      "Use signatures, members, calls, types, literals, and sourceSpan anchors as selected symbol facts. Do not open source merely to restate these facts.",
     ),
     unknown,
   };
@@ -246,12 +265,14 @@ function refs(
   edges: readonly ITtscGraphEdge[],
   end: "to" | "from",
   limit: number,
+  includeExternal: boolean,
 ): ITtscGraphDetails.IReference[] {
   const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
   for (const edge of edges) {
     if (STRUCTURAL_KINDS.has(edge.kind)) continue;
     const other = graph.node(end === "to" ? edge.to : edge.from);
     if (other === undefined) continue;
+    if (!includeExternal && isExternalNode(other)) continue;
     const ref: ITtscGraphDetails.IReference = {
       id: other.id,
       name: other.qualifiedName ?? other.name,
@@ -288,12 +309,14 @@ function dependencyRefs(
   node: ITtscGraphNode,
   kinds: ReadonlySet<string>,
   limit: number,
+  includeExternal: boolean,
 ): ITtscGraphDetails.IReference[] {
   const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
   for (const edge of graph.outgoing(node.id)) {
     if (!kinds.has(edge.kind)) continue;
     const other = graph.node(edge.to);
     if (other === undefined || other.kind === "file") continue;
+    if (!includeExternal && isExternalNode(other)) continue;
     const name = other.qualifiedName ?? other.name;
     const ref: ITtscGraphDetails.IReference = {
       id: other.id,
@@ -367,6 +390,14 @@ function refRank(
     edgeKindRank(edge.kind) * 100_000 +
     evidenceRank(edge) +
     (ref.file.startsWith("bundled://") ? 20_000 : 0)
+  );
+}
+
+function isExternalNode(node: ITtscGraphNode): boolean {
+  return (
+    node.external ||
+    node.file.startsWith("bundled://") ||
+    /(^|\/)node_modules\//.test(node.file)
   );
 }
 
