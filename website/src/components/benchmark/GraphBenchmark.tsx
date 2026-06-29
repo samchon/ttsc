@@ -279,13 +279,16 @@ interface PromptModeGroup {
   projects: ProjectGroup[];
 }
 
-function medianMetrics(samples: AgentSample[]): Metrics {
-  const valid = metricSamples(samples);
+function medianMetricsFromValid(valid: AgentSample[]): Metrics {
   return {
     tokens: median(valid.map((s) => s.tokens)),
     tools: median(valid.map((s) => s.tools)),
     dur: median(valid.map((s) => s.durMs ?? 0)),
   };
+}
+
+function medianMetrics(samples: AgentSample[]): Metrics {
+  return medianMetricsFromValid(metricSamples(samples));
 }
 
 function metricSamples(samples: AgentSample[]): AgentSample[] {
@@ -347,7 +350,11 @@ function primaryQuestion(
     if (entry) entry.count += 1;
     else counts.set(question, { question, count: 1 });
   }
-  return [...counts.values()].sort((a, b) => b.count - a.count)[0]?.question;
+  let best: { question: string; count: number } | undefined;
+  for (const entry of counts.values()) {
+    if (!best || entry.count > best.count) best = entry;
+  }
+  return best?.question;
 }
 
 function buildPromptModeGroups(projects: ProjectGroup[]): PromptModeGroup[] {
@@ -403,6 +410,15 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
             ? dedicatedBaselineSamples
             : embeddedBaselineSamples;
         const head = modelCells[0]!;
+        const ttscValid = ttscCell
+          ? metricSamples(ttscCell.samples.graph)
+          : [];
+        const codegraphValid = codegraphCell
+          ? metricSamples(codegraphCell.samples.graph)
+          : [];
+        const codebaseMemoryValid = codebaseMemoryCell
+          ? metricSamples(codebaseMemoryCell.samples.graph)
+          : [];
         const question = primaryQuestion([
           ...modelCells
             .filter((c) => cellTool(c) !== TOOL_BASELINE)
@@ -429,18 +445,16 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
           codebaseMemorySetupMs: codebaseMemoryCell?.toolSetupMs,
           baseline: medianMetrics(baselineSamples),
           ttsc:
-            ttscCell && metricSamples(ttscCell.samples.graph).length > 0
-              ? medianMetrics(ttscCell.samples.graph)
+            ttscValid.length > 0
+              ? medianMetricsFromValid(ttscValid)
               : undefined,
           codegraph:
-            codegraphCell &&
-            metricSamples(codegraphCell.samples.graph).length > 0
-              ? medianMetrics(codegraphCell.samples.graph)
+            codegraphValid.length > 0
+              ? medianMetricsFromValid(codegraphValid)
               : undefined,
           codebaseMemory:
-            codebaseMemoryCell &&
-            metricSamples(codebaseMemoryCell.samples.graph).length > 0
-              ? medianMetrics(codebaseMemoryCell.samples.graph)
+            codebaseMemoryValid.length > 0
+              ? medianMetricsFromValid(codebaseMemoryValid)
               : undefined,
         };
       })
@@ -632,12 +646,14 @@ interface TokenDomain {
 }
 
 function tokenDomain(rows: ReductionRow[]): TokenDomain {
-  const values = rows.flatMap((row) => [
-    row.baseline.tokens,
-    ...row.tools
-      .map((tool) => tool.metrics?.tokens)
-      .filter((value): value is number => value !== undefined),
-  ]);
+  const values = rows
+    .flatMap((row) => [
+      row.baseline.tokens,
+      ...row.tools
+        .map((tool) => tool.metrics?.tokens)
+        .filter((value): value is number => value !== undefined),
+    ])
+    .filter((value) => Number.isFinite(value) && value > 0);
   const max = Math.max(1, ...values);
   return { maxTokens: max * 1.05 };
 }
@@ -656,13 +672,24 @@ function tokenBarStyle(
 }
 
 function tokenTicks(domain: TokenDomain): number[] {
-  const rawStep = domain.maxTokens / 4;
+  // Clamp the domain first: a non-finite or non-positive max would otherwise
+  // poison the step computation below and hang the render loop.
+  const max =
+    Number.isFinite(domain.maxTokens) && domain.maxTokens > 0
+      ? domain.maxTokens
+      : 1;
+  const rawStep = max / 4;
   const base = 10 ** Math.floor(Math.log10(rawStep));
-  const step =
+  const candidate =
     [1, 2, 5, 10].find((factor) => factor * base >= rawStep) ?? 10 * base;
+  // step MUST be a finite positive number, or the for-loop never terminates.
+  const step = Number.isFinite(candidate) && candidate > 0 ? candidate : max;
   const ticks: number[] = [];
-  for (let tick = 0; tick <= domain.maxTokens; tick += step) ticks.push(tick);
-  if (ticks.length === 1) ticks.push(domain.maxTokens);
+  // Hard cap on iterations as a final backstop: no data shape can ever spin
+  // this loop forever.
+  for (let tick = 0; tick <= max && ticks.length < 64; tick += step)
+    ticks.push(tick);
+  if (ticks.length <= 1) return [0, max];
   return ticks;
 }
 
@@ -832,11 +859,17 @@ function ReductionChart({
   rows: ReductionRow[];
   aside?: string;
 }) {
-  const ttscAverage = averageReduction(rows, "ttsc");
-  const codegraphAverage = averageReduction(rows, "codegraph");
-  const codebaseMemoryAverage = averageReduction(rows, "codebaseMemory");
-  const domain = tokenDomain(rows);
-  const ticks = tokenTicks(domain);
+  const { ttscAverage, codegraphAverage, codebaseMemoryAverage, domain, ticks } =
+    useMemo(() => {
+      const d = tokenDomain(rows);
+      return {
+        ttscAverage: averageReduction(rows, "ttsc"),
+        codegraphAverage: averageReduction(rows, "codegraph"),
+        codebaseMemoryAverage: averageReduction(rows, "codebaseMemory"),
+        domain: d,
+        ticks: tokenTicks(d),
+      };
+    }, [rows]);
 
   return (
     <section className={`${panelClass} overflow-visible`}>
@@ -1201,6 +1234,20 @@ function DedicatedReductionSection({ mode }: { mode: PromptModeGroup }) {
       ? mode.projects.find((project) => project.id === activeProjectId)
       : undefined) ?? mode.projects[0];
 
+  const activeRows = useMemo<ReductionRow[]>(
+    () =>
+      activeProject
+        ? activeProject.models.map((model) => ({
+            id: model.id,
+            label: model.label,
+            ...(modelTabMeta(model) ? { meta: modelTabMeta(model) } : {}),
+            baseline: model.baseline,
+            tools: reductionTools(model),
+          }))
+        : [],
+    [activeProject],
+  );
+
   return (
     <section className="space-y-3">
       <div className="px-1">
@@ -1230,13 +1277,7 @@ function DedicatedReductionSection({ mode }: { mode: PromptModeGroup }) {
           description={
             activeProject.question ?? "Project-specific mechanism request."
           }
-          rows={activeProject.models.map((model) => ({
-            id: model.id,
-            label: model.label,
-            ...(modelTabMeta(model) ? { meta: modelTabMeta(model) } : {}),
-            baseline: model.baseline,
-            tools: reductionTools(model),
-          }))}
+          rows={activeRows}
           aside={`${activeProject.models.length} model${
             activeProject.models.length === 1 ? "" : "s"
           }`}
@@ -1413,6 +1454,11 @@ function Notice({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Stable reference so CommonReductionSection's useMemo deps don't churn on
+// every parent render.
+const isSummaryModel = (model: ModelGroup): boolean =>
+  model.model === "codex-gpt-mini";
+
 export default function GraphBenchmark({
   variant = "full",
 }: GraphBenchmarkProps) {
@@ -1459,7 +1505,7 @@ export default function GraphBenchmark({
         {commonMode ? (
           <CommonReductionSection
             mode={commonMode}
-            modelFilter={(model) => model.model === "codex-gpt-mini"}
+            modelFilter={isSummaryModel}
           />
         ) : null}
       </div>
