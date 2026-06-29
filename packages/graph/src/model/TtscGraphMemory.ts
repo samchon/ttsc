@@ -9,9 +9,9 @@ import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
  * It loads one `ttscgraph dump` — the checker-resolved fact graph — then
  * synthesizes the structural relationships the dump deliberately leaves to this
  * layer: `file` container nodes, the `contains` ownership tree, and `exports`
- * edges, plus the refinement of a class-member `variable` to a `property`.
- * Every tool call is then a lookup or a traversal over the indexes built here;
- * nothing recompiles.
+ * edges, plus class/interface member implementation edges and the refinement of
+ * a class-member `variable` to a `property`. Every tool call is then a lookup
+ * or a traversal over the indexes built here; nothing recompiles.
  */
 export class TtscGraphMemory {
   private readonly byId: Map<string, ITtscGraphNode>;
@@ -179,9 +179,11 @@ function synthesize(dump: ITtscGraphDump): {
   // Ownership: a member is contained by its owner; a top-level declaration by
   // its file. Exports: a file exports each of its public nodes.
   const structural: ITtscGraphEdge[] = [];
+  const membersByOwner = new Map<string, ITtscGraphNode[]>();
   for (const node of nodes) {
     if (node.external || node.file === "") continue;
     const parent = owner(node);
+    if (parent !== undefined) push(membersByOwner, parent.id, node);
     const container = parent ? parent.id : fileNodeId(node.file);
     structural.push({
       from: container,
@@ -197,8 +199,48 @@ function synthesize(dump: ITtscGraphDump): {
     }
   }
 
+  const synthesized = [...edges, ...structural];
+  const edgeKeys = new Set(
+    synthesized.map((edge) => `${edge.kind}\0${edge.from}\0${edge.to}`),
+  );
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  for (const edge of edges) {
+    const kind: TtscGraphEdgeKind | undefined =
+      edge.kind === "implements"
+        ? "implements"
+        : edge.kind === "extends"
+          ? "overrides"
+          : undefined;
+    if (kind === undefined) continue;
+    const derived = byId.get(edge.from);
+    const base = byId.get(edge.to);
+    if (derived === undefined || base === undefined) continue;
+    const derivedMembers = membersByOwner.get(derived.id) ?? [];
+    const baseMembers = membersByOwner.get(base.id) ?? [];
+    for (const baseMember of baseMembers) {
+      const derivedMember = derivedMembers.find(
+        (member) =>
+          member.name === baseMember.name &&
+          implementationMemberKinds.has(member.kind) &&
+          implementationMemberKinds.has(baseMember.kind),
+      );
+      if (derivedMember === undefined) continue;
+      const key = `${kind}\0${derivedMember.id}\0${baseMember.id}`;
+      if (edgeKeys.has(key)) continue;
+      edgeKeys.add(key);
+      synthesized.push({
+        from: derivedMember.id,
+        to: baseMember.id,
+        kind,
+        evidence: derivedMember.implementation ?? derivedMember.evidence,
+      });
+    }
+  }
+
   return {
     nodes: [...nodes, ...fileNodes.values()],
-    edges: [...edges, ...structural],
+    edges: synthesized,
   };
 }
+
+const implementationMemberKinds = new Set(["method", "property"]);

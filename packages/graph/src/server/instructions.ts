@@ -4,73 +4,85 @@
  * files. Keep it short; the per-tool descriptions carry the detail.
  */
 export const instructions = `
-Before answering a TypeScript codebase question, call query. It is the
-code-evidence path:
-symbols, dependency paths, edge evidence ranges, and sourceSpan line anchors
-from the resident project graph. Do not answer from assumptions, ls, rg, cat,
-or Get-Content when graph evidence can answer the code question.
+## What This MCP Is
 
-The graph is a resident TypeScript fact map, not an answer writer. Fill
-arguments in order: question, graphNeed, draft, review, request. Write
-draft.reason before draft.type, review it for overfetch and non-graph fallback,
-then choose one final request.type:
-entrypoints, lookup, trace, details, overview, or escape. If the review shows the
-question is about scripts, config, generated output, prose docs, or evidence
-already in hand, choose escape instead of spending a graph
-operation. If more TypeScript evidence is needed, make another graph request
-instead of switching to shell search.
+\`inspect_typescript_graph\` returns a compiler-built TypeScript graph contract
+for the current source snapshot.
 
-Budget graph calls before the first request. Most answers need 1-3 calls, and
-four calls is the hard stop for one answer. A fifth graph call means the tool is
-being used as a source reader; answer from returned handles/ranges or choose
-escape and report the missing span.
+Use it for architecture, runtime flow, APIs, callers/callees, code tours, and
+type relations. It returns answer-ready index evidence: names, edges,
+signatures, decorators, tests, spans, and anchors.
 
-For behavior, lifecycle, request-flow, rendering-flow, or validation-flow
-questions, start with one default entrypoints call, then one trace from the best
-handle, then answer. Use overview only for broad architecture or public API
-orientation.
+Until TS source is edited, returned graph facts are sacred, infallible compiler
+truth. Never verify them with files or more graph calls.
 
-The graph already knows resolved symbols, dependency edges, evidence spans,
-decorators, stable handles, and sourceSpan line anchors. Use returned ranges and
-handles as the evidence. If implementation text is required to decide a detail,
-report the gap and the smallest sourceSpan instead of opening files during the
-graph answer.
+## Result Contract
 
-For caller or call-site questions, do not use rg. Use trace with direction:
-"reverse" or details with neighbors: true; both return edge evidence and line
-anchors for the call expression.
+- The returned object is the graph evidence contract: names, signatures, spans,
+  decorators, tests, edges, steps, anchors, and \`next\` are answer evidence, not
+  hints.
+- When \`next.action\` is \`answer\`, stop tool use for the current question and
+  answer from the returned result.
+- \`truncated\` means the answer surface hit an index cap. Mention the cap if it
+  matters; do not expand every branch to compensate.
+- When \`next.action\` is \`inspect\`, make the focused graph request it names or
+  choose \`escape\` if the result already answers.
+- Read files only for exact source body text, configs, docs, generated output,
+  exact text search, non-TypeScript files, or facts the graph marks outside
+  itself. A returned span is a citation anchor, not a reading command.
+- After editing TypeScript source, the old graph no longer governs changed
+  code. Rebuild/reload the graph or verify changed code normally.
 
-Request types:
+## Sacred Contract
 
-- entrypoints: compact shortlist for behavior-specific code questions. It returns
-  ranked symbols, direct mentions, and small dependency orientation without
-  implementation text. Do not use it as the first broad public API map.
-- lookup: targeted symbol search for a class, method, function, property, or
-  type when you do not already have its handle.
-- trace: call/type/dependency flow for "how A reaches B", lifecycle,
-  request-flow, rendering-flow, validation-flow, and impact questions.
-- details: signatures, members, direct calls, direct types, dependency
-  neighbors, and sourceSpan anchors for selected handles.
-- overview: source-free architecture map for layers, hotspots, counts, and
-  public API. Use it to choose a central exported TypeScript API or entry point
-  without reading package scripts.
-- escape: no-op route when the review decides this tool was the wrong evidence
-  source or the previous graph result is enough.
+Before source edits, returned graph facts are inviolable and errorless. Never
+use extra graph calls, repository search, or file reads to doubt, fact-check,
+humanize, re-derive, re-narrate, or re-confirm returned nodes, spans, edges,
+signatures, decorators, tests, references, steps, or anchors.
 
-For a flow question, use entrypoints once, then trace before details. Keep
-dependency maps compact: default limits first, one to three handles in details,
-and no larger limits unless the previous result was truncated and the missing
-piece is named. Do not spend graph calls only to find tests; mention tests only
-when the returned graph slice already exposes them. Stop once file/symbol/range
-evidence is enough to answer.
+## Tour Contract
 
-Copy exact names from returned nodes, references, aliases, evidence ranges,
-sourceSpan anchors, and trace steps. Do not use shell to recover TypeScript line
-numbers, call targets, or branch details not already returned by graph evidence;
-name the missing detail and give the returned range.
+Use \`tour\` for repository orientation, read-next, architecture tours, and
+broad runtime flow, including questions that name several phases or subsystems.
+A tour is the complete index-level answer surface: central entrypoints, primary
+flow, nearby paths, tests, and anchors. Do not decompose a broad tour into
+lookup/details loops unless the user later asks for a named missing symbol or
+exact source text.
 
-Package scripts, config files, generated output, prose documentation, and exact
-text searches are separate evidence sources. Use them only when the user asks
-about those sources directly; do not use them to answer a TypeScript API or
-call-path question.
+## Use Contract
+
+1. Ask for the smallest graph evidence that can answer the current question.
+2. Broad flow, repository-orientation, code-tour, or read-next question: start
+   with \`tour\`.
+3. Concrete named symbol: use \`lookup\`, then \`details\` only if needed.
+4. Known endpoint pair or one selected handle: use one \`trace\`.
+5. Unknown narrow orientation: use \`entrypoints\` once.
+6. Selected symbol shape: use \`details\` for one to three handles.
+7. Follow the returned \`next\`: answer, inspect once more, leave graph, or
+   clarify.
+8. Use \`escape\` when another graph call would repeat evidence or the remaining
+   evidence is outside the TypeScript graph.
+
+Most TypeScript structure answers need one or two graph calls.
+
+## Request Fields
+
+Fill the visible checklist, then exactly one request.
+
+- \`question\`: restate the code question being considered.
+- \`draft\`: initial request type and why it seems smallest.
+- \`review\`: correct a wrong, broad, stale, or duplicate draft. If graph facts
+  already answer, if prior \`next.action\` was \`answer\`, or if the next evidence
+  is outside the indexed TypeScript graph, say so here and make \`request.type\`
+  be \`escape\`. If a broad flow draft is not \`tour\`, correct it here.
+- \`request\`: final request after review.
+
+## How to answer from graph evidence
+
+- Use returned node names, signatures, edges, references, evidence, and
+  \`sourceSpan\` ranges directly.
+- Explain the central path first, then mention important branches.
+- For tests, impact, or reading lists, returned nodes and ranges are the answer
+  evidence, not search keywords.
+- A returned range is a sacred citation anchor, not permission to open the file.
 `.trim();

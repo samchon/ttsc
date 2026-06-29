@@ -3,114 +3,85 @@ import { ITtscGraphEntrypoints } from "./ITtscGraphEntrypoints";
 import { ITtscGraphEscape } from "./ITtscGraphEscape";
 import { ITtscGraphLookup } from "./ITtscGraphLookup";
 import { ITtscGraphOverview } from "./ITtscGraphOverview";
+import { ITtscGraphTour } from "./ITtscGraphTour";
 import { ITtscGraphTrace } from "./ITtscGraphTrace";
 
-/**
- * The MCP tool surface of `@ttsc/graph`, as a typed application.
- *
- * The single method is the single MCP tool. Its parameter object becomes the
- * JSON schema once `typia.llm.controller` reflects this interface.
- * `TtscGraphApplication` implements it over the resident graph.
- */
+/** The typed MCP surface; its single method becomes the single graph tool. */
 export interface ITtscGraphApplication {
   /**
-   * Query the TypeScript project graph for code evidence.
+   * Inspect the TypeScript compiler graph contract.
    *
-   * Use this before answering TypeScript codebase questions. It returns
-   * checker-resolved symbols, dependency paths, edge evidence ranges, and
-   * sourceSpan anchors from the resident graph, avoiding assumptions, shell
-   * search, or file reads when graph evidence is enough.
+   * Use this before repository search when an answer depends on TypeScript
+   * symbols, calls, types, decorators, references, ranges, or runtime/source
+   * relationships. For repository orientation, read-next, architecture, and
+   * broad runtime flow questions, use `tour`.
    *
-   * Fill properties in order: question, graphNeed, draft, review, request.
-   * Write `draft.reason` before `draft.type`, then choose `entrypoints`,
-   * `lookup`, `trace`, `details`, `overview`, or `escape`.
+   * Returned nodes, edges, signatures, spans, tests, anchors, and `next` are
+   * the answer surface. If `next.action` is `answer`, stop tool use and answer
+   * from that result. Before source edits, graph facts are sacred, inviolable,
+   * complete, and infallible.
    *
-   * Most answers should need 1-3 calls; four is the hard stop for one answer.
-   * Keep slices small, prefer defaults, and stop once file/symbol/range
-   * evidence is enough.
-   *
-   * @param props The reasoning and selected graph request
-   * @returns One `result` union member matching the selected request type
+   * @param props Reasoning plus one graph request
+   * @returns Matching `result` union member
    */
-  query(props: ITtscGraphApplication.IProps): ITtscGraphApplication.IResult;
+  inspect_typescript_graph(
+    props: ITtscGraphApplication.IProps,
+  ): ITtscGraphApplication.IResult;
 }
 
 export namespace ITtscGraphApplication {
-  /** Think, review, then submit exactly one graph request. */
+  /** Draft, review, then submit exactly one graph request or escape. */
   export interface IProps {
     /**
      * User's TypeScript code question.
      *
-     * Restate the codebase question being answered. Keep this about TypeScript
-     * source, symbols, call flow, type flow, or architecture. If the user is
-     * asking about scripts, config, generated output, or documentation instead,
-     * say that boundary here.
+     * Restate the code question being considered. If the next evidence is a
+     * script, config, doc, generated output, exact text, non-TypeScript file,
+     * or source body text, choose `escape`.
      */
     question: string;
 
     /**
-     * Why the resident graph is the next evidence source.
+     * Initial request plan before final arguments are filled.
      *
-     * State what graph evidence is needed and why assumptions or broad shell
-     * search are not the next step for this call. Name the smallest evidence
-     * that would let the agent stop. If graph is not actually the right source,
-     * say that and use `escape`.
+     * Name the intended request type and why it seems smallest. Broad flow,
+     * architecture, repository-orientation, and read-next questions should
+     * normally draft `tour`; narrow named symbols can draft `lookup`, `trace`,
+     * or `details`.
      */
-    graphNeed: string;
+    draft: string;
 
     /**
-     * First request-type decision before arguments are filled.
+     * Final self-review before calling.
      *
-     * Explain why one operation class is smaller than the alternatives, then
-     * name it in `draft.type`. This is only the draft; the final arguments are
-     * in `request` after `review`.
-     */
-    draft: IRequestDraft;
-
-    /**
-     * Critical review of the draft request.
-     *
-     * Check whether the draft avoids overfetch, non-graph fallback, broad
-     * reads, and unnecessary neighbor expansion. If this would be a fourth
-     * broad lookup, trace, or details call, prefer answering from evidence in
-     * hand or choose `escape`. Do not spend graph calls only to hunt for tests.
-     * If the draft is wrong, choose the corrected type in `request`.
+     * Correct a stale, broad, duplicate, or wrong draft here. If broad flow was
+     * split into search/detail steps, switch to `tour`. If graph facts already
+     * answer, or prior `next.action` was `answer`, make `request.type` be
+     * `escape`; do not call graph or read files to re-confirm returned facts.
      */
     review: string;
 
-    /** The graph operation chosen from the reasoning above, or a no-op escape. */
+    /** Final graph operation chosen after review, or a no-op escape. */
     request:
       | ITtscGraphEntrypoints.IRequest
       | ITtscGraphLookup.IRequest
       | ITtscGraphTrace.IRequest
       | ITtscGraphDetails.IRequest
       | ITtscGraphOverview.IRequest
+      | ITtscGraphTour.IRequest
       | ITtscGraphEscape.IRequest;
-  }
-
-  /** First-pass operation choice before final request arguments. */
-  export interface IRequestDraft {
-    /** Why this operation type is the smallest useful next step. */
-    reason: string;
-
-    /** Draft discriminator for the intended graph operation. */
-    type:
-      | ITtscGraphEntrypoints.IRequest["type"]
-      | ITtscGraphLookup.IRequest["type"]
-      | ITtscGraphTrace.IRequest["type"]
-      | ITtscGraphDetails.IRequest["type"]
-      | ITtscGraphOverview.IRequest["type"]
-      | ITtscGraphEscape.IRequest["type"];
   }
 
   /** The selected request's output. `result.type` mirrors `request.type`. */
   export interface IResult {
+    /** Result branch matching the submitted `request.type`. */
     result:
       | ITtscGraphEntrypoints
       | ITtscGraphLookup
       | ITtscGraphTrace
       | ITtscGraphDetails
       | ITtscGraphOverview
+      | ITtscGraphTour
       | ITtscGraphEscape;
   }
 }

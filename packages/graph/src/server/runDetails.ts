@@ -8,7 +8,9 @@ import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { accessAliasesFor } from "./accessAliases";
+import { isExternalNode } from "./pathPolicy";
 import { resolveGraphHandle } from "./resolveHandle";
+import { resultGuide, resultNext } from "./resultGuide";
 
 // A signature is the declaration head up to the body brace: a handful of lines.
 const MAX_SIGNATURE_LINES = 4;
@@ -19,8 +21,8 @@ const MAX_NEIGHBORS = 3;
 const DEFAULT_MEMBERS = 6;
 const MAX_MEMBERS = 8;
 // Direct dependency groups are orientation slices, not full fan-out dumps.
-const DEFAULT_DEPENDENCIES = 1;
-const MAX_DEPENDENCIES = 2;
+const DEFAULT_DEPENDENCIES = 2;
+const MAX_DEPENDENCIES = 4;
 // Object literal outlines are navigation aids, not source excerpts.
 const MAX_OBJECT_MEMBER_LINES = 300;
 // Structural relationships are navigation, not the dependency picture details is for.
@@ -58,6 +60,7 @@ export function runDetails(
     MAX_DEPENDENCIES,
   );
   const wantNeighbors = props.neighbors === true;
+  const includeExternal = props.includeExternal === true;
   const nodes: ITtscGraphDetails.INode[] = [];
   const unknown: string[] = [];
   for (const handle of props.handles) {
@@ -89,10 +92,30 @@ export function runDetails(
         endLine: span.endLine,
       };
     }
-    const calls = dependencyRefs(graph, node, executionKinds, dependencyLimit);
+    const calls = dependencyRefs(
+      graph,
+      node,
+      executionKinds,
+      dependencyLimit,
+      includeExternal,
+    );
     if (calls.length > 0) detail.calls = calls;
-    const types = dependencyRefs(graph, node, typeKinds, dependencyLimit);
+    const types = dependencyRefs(
+      graph,
+      node,
+      typeKinds,
+      dependencyLimit,
+      includeExternal,
+    );
     if (types.length > 0) detail.types = types;
+    const implementedBy = incomingDependencyRefs(
+      graph,
+      node,
+      implementationKinds,
+      dependencyLimit,
+      includeExternal,
+    );
+    if (implementedBy.length > 0) detail.implementedBy = implementedBy;
     if (CONTAINER_KINDS.has(node.kind)) {
       const list = members(graph, node, memberLimit);
       if (list.length > 0) detail.members = list;
@@ -113,17 +136,30 @@ export function runDetails(
         graph.outgoing(node.id),
         "to",
         neighborLimit,
+        includeExternal,
       );
       detail.dependedOnBy = refs(
         graph,
         graph.incoming(node.id),
         "from",
         neighborLimit,
+        includeExternal,
       );
     }
     nodes.push(detail);
   }
-  return { type: "details", nodes, unknown };
+  return {
+    type: "details",
+    nodes,
+    next: resultNext(
+      "answer",
+      "Selected signatures, members, dependencies, implementation candidates, and ranges are enough for a shape or reading-anchor answer.",
+    ),
+    guide: resultGuide(
+      "Use signatures, members, calls, types, implementedBy, literals, and sourceSpan anchors as selected symbol facts.",
+    ),
+    unknown,
+  };
 }
 
 /** The members a container owns (via `contains`), each with its own signature. */
@@ -238,12 +274,14 @@ function refs(
   edges: readonly ITtscGraphEdge[],
   end: "to" | "from",
   limit: number,
+  includeExternal: boolean,
 ): ITtscGraphDetails.IReference[] {
   const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
   for (const edge of edges) {
     if (STRUCTURAL_KINDS.has(edge.kind)) continue;
     const other = graph.node(end === "to" ? edge.to : edge.from);
     if (other === undefined) continue;
+    if (!includeExternal && isExternalNode(other)) continue;
     const ref: ITtscGraphDetails.IReference = {
       id: other.id,
       name: other.qualifiedName ?? other.name,
@@ -274,22 +312,68 @@ const executionKinds = new Set([
   "renders",
 ]);
 const typeKinds = new Set(["type_ref", "extends", "implements", "overrides"]);
+const implementationKinds = new Set(["implements", "overrides"]);
 
 function dependencyRefs(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
   kinds: ReadonlySet<string>,
   limit: number,
+  includeExternal: boolean,
 ): ITtscGraphDetails.IReference[] {
   const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
   for (const edge of graph.outgoing(node.id)) {
     if (!kinds.has(edge.kind)) continue;
     const other = graph.node(edge.to);
     if (other === undefined || other.kind === "file") continue;
+    if (!includeExternal && isExternalNode(other)) continue;
     const name = other.qualifiedName ?? other.name;
     const ref: ITtscGraphDetails.IReference = {
       id: other.id,
       name,
+      kind: other.kind,
+      file: other.file,
+      relation: edge.kind,
+    };
+    if (other.evidence?.startLine) ref.line = other.evidence.startLine;
+    const evidence = edgeEvidenceOf(edge);
+    if (evidence !== undefined) ref.evidence = evidence;
+    const aliases = accessAliasesFor(other, edgeEvidenceTextOf(edge));
+    if (aliases !== undefined) ref.aliases = aliases;
+    ranked.push({
+      ref,
+      rank: refRank(ref, edge),
+    });
+  }
+  ranked.sort((a, b) => a.rank - b.rank);
+  const out: ITtscGraphDetails.IReference[] = [];
+  const seen = new Set<string>();
+  for (const item of ranked) {
+    const key = `${item.ref.relation}:${item.ref.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item.ref);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function incomingDependencyRefs(
+  graph: TtscGraphMemory,
+  node: ITtscGraphNode,
+  kinds: ReadonlySet<string>,
+  limit: number,
+  includeExternal: boolean,
+): ITtscGraphDetails.IReference[] {
+  const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
+  for (const edge of graph.incoming(node.id)) {
+    if (!kinds.has(edge.kind)) continue;
+    const other = graph.node(edge.from);
+    if (other === undefined || other.kind === "file") continue;
+    if (!includeExternal && isExternalNode(other)) continue;
+    const ref: ITtscGraphDetails.IReference = {
+      id: other.id,
+      name: other.qualifiedName ?? other.name,
       kind: other.kind,
       file: other.file,
       relation: edge.kind,
@@ -462,7 +546,7 @@ export function signatureOf(
     const line = lines[i];
     if (line === undefined) break;
     out.push(line);
-    if (line.includes("{")) break;
+    if (line.includes("{") || line.trimEnd().endsWith(";")) break;
   }
   const text = out.join("\n").trim();
   return text === "" ? undefined : text;

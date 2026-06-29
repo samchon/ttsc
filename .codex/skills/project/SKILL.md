@@ -16,6 +16,8 @@ description: What ttsc is, the workspace layout, and the canonical commands.
 
 The contract is general-purpose. Downstream projects like `typia` and `nestia` are compatibility fixtures, not the product definition.
 
+Graph MCP work has an additional contract in `.codex/skills/project/graph.md`. Read it before changing `packages/graph`, graph benchmark prompts, graph benchmark runners, or the graph benchmark website.
+
 ## Layout
 
 - `packages/ttsc`: JS launcher/API plus Go host (`cmd/*`, `driver`, `internal`, `utility`, `shim/`). `driver.PluginSource` is the public seam embedders implement; `NativePluginSource` adapts `capabilities.lsp` sidecars. `internal/lspserver` is the byte-level LSP proxy ttscserver uses.

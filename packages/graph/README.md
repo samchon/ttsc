@@ -53,6 +53,28 @@ Run this in your own project to open that 3D map in your browser, served from a 
 npx @ttsc/graph view
 ```
 
+## Benchmark
+
+On the current GPT 5.4 Mini snapshot, the published median token cost is lowest with `@ttsc/graph`. Values below are thousands of tokens from `website/public/benchmark/graph.json`.
+
+```mermaid
+xychart-beta
+  title "Common prompt median token use"
+  x-axis ["baseline", "@ttsc/graph", "codegraph", "codebase-memory-mcp"]
+  y-axis "Tokens (k)" 0 --> 1400
+  bar [781, 41, 617, 1302]
+```
+
+```mermaid
+xychart-beta
+  title "Dedicated prompt median token use"
+  x-axis ["baseline", "@ttsc/graph", "codegraph", "codebase-memory-mcp"]
+  y-axis "Tokens (k)" 0 --> 1000
+  bar [776, 57, 323, 945]
+```
+
+See the [full benchmark page](https://ttsc.dev/docs/benchmark/graph) for the raw rows and method.
+
 ## Sponsors
 
 [![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)

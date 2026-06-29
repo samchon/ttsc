@@ -1,7 +1,6 @@
-/**
- * A compact, source-read-free architecture map of the project returned by
- * `overview`.
- */
+import { ITtscGraphNext } from "./ITtscGraphNext";
+
+/** A compact, source-read-free project map for broad orientation only. */
 export interface ITtscGraphOverview {
   /** Discriminator for source-free project overview. */
   type: "overview";
@@ -11,6 +10,12 @@ export interface ITtscGraphOverview {
 
   /** Size of the graph. */
   counts: ITtscGraphOverview.ICounts;
+
+  /** How to use this source-free result next. */
+  next: ITtscGraphNext;
+
+  /** Human-readable compatibility note mirroring `next`. */
+  guide: string;
 
   /** Folder layering, largest first. */
   layers?: ITtscGraphOverview.ILayer[];
@@ -22,7 +27,7 @@ export interface ITtscGraphOverview {
   publicApi?: ITtscGraphOverview.IPublicApi[];
 }
 export namespace ITtscGraphOverview {
-  /** Which architecture facets `overview` should return. */
+  /** Which broad architecture facets `overview` should return. */
   export interface IRequest {
     /** Discriminator for source-free project overview. */
     type: "overview";
@@ -32,6 +37,10 @@ export namespace ITtscGraphOverview {
      * layering, `hotspots` the highest-dependency symbols, `publicApi` the
      * exported API symbols ranked by how depended-on they are.
      *
+     * Use this only for broad public API or layer orientation. For behavior,
+     * lifecycle, request-flow, rendering-flow, validation-flow, caller, or
+     * dependency questions, use `entrypoints` then `trace` instead.
+     *
      * @default "all"
      */
     aspect?: "all" | "layers" | "hotspots" | "publicApi";
@@ -39,9 +48,15 @@ export namespace ITtscGraphOverview {
 
   /** Size of the graph by node/edge totals and per-kind node counts. */
   export interface ICounts {
+    /** Number of source file container nodes. */
     files: number;
+
+    /** Total node count, including declarations and file containers. */
     nodes: number;
+
+    /** Total edge count, including structural edges. */
     edges: number;
+
     /** Node count per kind. */
     byKind: Record<string, number>;
   }

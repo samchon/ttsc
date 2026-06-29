@@ -36,6 +36,29 @@ const TOOL_TTSC = "ttsc-graph";
 const TOOL_CODEGRAPH = "codegraph";
 const TOOL_CODEBASE_MEMORY = "codebase-memory";
 const TOOL_BASELINE = "baseline";
+const PUBLISHED_SAMPLE_KEYS = [
+  "tokens",
+  "cached",
+  "reasoning",
+  "tokensWithReasoning",
+  "turns",
+  "tools",
+  "reads",
+  "grep",
+  "shell",
+  "web",
+  "graph",
+  "other",
+  "sourceTouches",
+  "shellSource",
+  "cost",
+  "durMs",
+  "ok",
+  "invalid",
+  "error",
+  "run",
+  "attempts",
+];
 
 const PROJECTS = {
   excalidraw: {
@@ -316,15 +339,25 @@ function runCodexTraceAudit(currentReportPath, currentReport) {
 // dropped so a release does not fork the grid. The tier keeps every non-numeric
 // token of the id, so family and size survive without a hardcoded size list:
 // gpt-5.5 -> codex-gpt, gpt-5.4-mini -> codex-gpt-mini, gpt-6-nano ->
-// codex-gpt-nano. Claude tiers (sonnet, opus) carry no version, so they pass
-// through. The exact id is recorded separately as modelVersion.
+// codex-gpt-nano. Claude CLI aliases are normalized to the stable Claude Code
+// tier, while the exact published id stays in modelVersion.
 function agentLabel(resolvedModel) {
+  if (resolvedModel === "sonnet" || resolvedModel.startsWith("claude-sonnet-"))
+    return "claude-code-sonnet";
+  if (resolvedModel === "opus" || resolvedModel.startsWith("claude-opus-"))
+    return "claude-code-opus";
   if (!resolvedModel.startsWith("gpt-")) return `claude-code-${resolvedModel}`;
   const tier = resolvedModel
     .split("-")
     .filter((token) => token && !/^[0-9.]+$/.test(token))
     .join("-");
   return `codex-${tier}`;
+}
+
+function modelVersionId(resolvedModel) {
+  if (resolvedModel.startsWith("claude-") || resolvedModel.startsWith("gpt-"))
+    return resolvedModel;
+  return undefined;
 }
 
 function runAgentCell({
@@ -391,13 +424,16 @@ function runAgentCell({
   const copyPath = path.join(outDir, `${logStem}.json`);
   writeJson(copyPath, data);
   const harnessName = codex ? "codex" : "claude-code";
+  const version = modelVersionId(
+    data.modelVersion ?? data.model ?? resolvedModel,
+  );
   const websiteCell = {
     harness: harnessName,
     tool,
     ...(toolSetupMs != null ? { toolSetupMs } : {}),
     repo: data.repo ?? project,
     model: label,
-    modelVersion: data.model ?? resolvedModel,
+    ...(version ? { modelVersion: version } : {}),
     ...(data.effort ? { effort: data.effort } : {}),
     ...(data.promptId ? { promptId: data.promptId } : {}),
     promptFamily: data.promptFamily ?? promptFamily,
@@ -420,7 +456,9 @@ function runAgentCell({
       ...(toolSetupMs != null ? { toolSetupMs } : {}),
       harness: harnessName,
       model: label,
-      modelVersion: resolvedModel,
+      ...(modelVersionId(data.modelVersion ?? resolvedModel)
+        ? { modelVersion: modelVersionId(data.modelVersion ?? resolvedModel) }
+        : {}),
       promptFamily,
       repoDir,
       tsconfig: spec.tsconfig,
@@ -444,25 +482,43 @@ function publishWebsiteCells(cells) {
     agent: { cells: [...(prior?.agent?.cells ?? [])] },
   };
   for (const cell of cells) {
+    if (
+      !cell ||
+      ((cell.samples?.baseline?.length ?? 0) === 0 &&
+        (cell.samples?.graph?.length ?? 0) === 0)
+    ) {
+      continue;
+    }
     const key = websiteCellKey(cell);
     const at = out.agent.cells.findIndex((old) => websiteCellKey(old) === key);
     if (at >= 0) out.agent.cells[at] = cell;
     else out.agent.cells.push(cell);
   }
   fs.mkdirSync(path.dirname(websiteJson), { recursive: true });
-  writeJson(websiteJson, out);
+  fs.writeFileSync(websiteJson, `${JSON.stringify(out)}\n`);
 }
 
 function sanitizeSamples(samples) {
   return {
-    baseline: (samples?.baseline ?? []).map(sanitizeSample),
-    graph: (samples?.graph ?? []).map(sanitizeSample),
+    baseline: (samples?.baseline ?? [])
+      .filter(validMeasuredSample)
+      .map(sanitizeSample),
+    graph: (samples?.graph ?? [])
+      .filter(validMeasuredSample)
+      .map(sanitizeSample),
   };
 }
 
+function validMeasuredSample(sample) {
+  return Number(sample?.tokens ?? 0) > 0;
+}
+
 function sanitizeSample(sample) {
-  const { answer, ...rest } = sample;
-  return rest;
+  const out = {};
+  for (const key of PUBLISHED_SAMPLE_KEYS) {
+    if (sample[key] !== undefined) out[key] = sample[key];
+  }
+  return out;
 }
 
 function websiteCellKey(cell) {

@@ -1,6 +1,8 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphOverview } from "../structures/ITtscGraphOverview";
+import { isPublicApiNoisePath, isSupportPath } from "./pathPolicy";
+import { resultGuide, resultNext } from "./resultGuide";
 
 /** Edges that express nesting/packaging, not code dependency. */
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
@@ -36,6 +38,13 @@ export function runOverview(
       edges: graph.edges.length,
       byKind,
     },
+    next: resultNext(
+      "answer",
+      "Counts, layers, hotspots, and public API are sufficient for broad orientation.",
+    ),
+    guide: resultGuide(
+      "Use counts, layers, hotspots, and public API as a broad orientation map. Do not expand it into file reads unless the user needs exact source body text.",
+    ),
   };
   if (want("layers")) result.layers = layers(graph);
   if (want("hotspots")) result.hotspots = hotspots(graph);
@@ -47,7 +56,13 @@ export function runOverview(
 function layers(graph: TtscGraphMemory): ITtscGraphOverview.ILayer[] {
   const byDir = new Map<string, { files: Set<string>; exported: number }>();
   for (const node of graph.nodes) {
-    if (node.external || node.kind === "file") continue;
+    if (
+      node.external ||
+      node.ignored ||
+      node.kind === "file" ||
+      isSupportPath(node.file)
+    )
+      continue;
     const dir = dirname(node.file);
     let entry = byDir.get(dir);
     if (!entry) {
@@ -80,7 +95,13 @@ function hotspots(graph: TtscGraphMemory): ITtscGraphOverview.IHotspot[] {
     return n;
   };
   return graph.nodes
-    .filter((node) => !node.external && node.kind !== "file")
+    .filter(
+      (node) =>
+        !node.external &&
+        !node.ignored &&
+        node.kind !== "file" &&
+        !isSupportPath(node.file),
+    )
     .map((node) => ({
       ...nodeOf(node),
       fanIn: real(node.id, "in"),
@@ -137,12 +158,7 @@ function publicApi(graph: TtscGraphMemory): ITtscGraphOverview.IPublicApi[] {
  * not framework-specific; it keeps the API surface to authored, used code.
  */
 function isNoiseFile(file: string): boolean {
-  return (
-    /(^|\/)(test|tests|__tests__|spec|sample|samples)\//.test(file) ||
-    /\.(test|spec)\.[cm]?tsx?$/.test(file) ||
-    /(^|\/|\.)typings\.[cm]?ts$/.test(file) ||
-    /\.d\.[cm]?ts$/.test(file)
-  );
+  return isPublicApiNoisePath(file);
 }
 
 /** The parent directory of a project-relative path (`.` at the root). */

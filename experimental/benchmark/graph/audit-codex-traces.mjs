@@ -25,7 +25,13 @@ const baselinePath =
     ? null
     : path.resolve(args.baseline ?? "website/public/benchmark/graph.json");
 const compareInputs = args.compare ? listArg(args.compare) : [];
-const singleGraphToolNames = new Set(["query"]);
+const singleGraphToolNames = new Set([
+  "inspect_typescript_graph",
+  "inspect_typescript_source_flow",
+  "inspect_typescript_codebase",
+  "inspect",
+  "query",
+]);
 
 if (truthy(args["self-test"])) {
   runSelfTest();
@@ -2636,12 +2642,8 @@ function mcpItem(id) {
       tool: "query",
       arguments: {
         question: "Trace helper usage from Service.run.",
-        graphNeed: "Use graph source details instead of shell search.",
-        draft: {
-          reason: "The decisive body is a selected method.",
-          type: "details",
-        },
-        review: "The details request is bounded to one method.",
+        draft: "details: inspect one selected method.",
+        review: "Confirmed: details is bounded to one method.",
         request: {
           type: "details",
           handles: ["src/app.ts#Service.run:method"],

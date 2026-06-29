@@ -6,16 +6,13 @@ interface ToolResult {
   content: { type: string; text: string }[];
 }
 
+const GRAPH_TOOL_NAME = "inspect_typescript_graph";
+
 const graphArguments = () => ({
   question:
     "This is not a TypeScript source graph question, so the tool should exit.",
-  graphNeed: "The review decides graph evidence is unnecessary.",
-  draft: {
-    reason: "Avoid loading the graph for a non-graph task.",
-    type: "escape",
-  },
-  review:
-    "The draft is correct: skip the resident graph because no TypeScript evidence is needed.",
+  draft: "escape: the next evidence is outside the indexed TypeScript graph.",
+  review: "Confirmed: skip graph work and return escape.",
   request: {
     type: "escape",
     reason: "No graph operation is needed for this request.",
@@ -50,7 +47,7 @@ export const test_ttscgraph_skip_request_does_not_load_graph = async () => {
     client.notify("notifications/initialized", {});
 
     const result = (await client.request("tools/call", {
-      name: "query",
+      name: GRAPH_TOOL_NAME,
       arguments: graphArguments(),
     })) as ToolResult;
     const parsed = JSON.parse(result.content[0]?.text ?? "{}") as {

@@ -1,8 +1,10 @@
 import { TtscGraphMemory } from "./model/TtscGraphMemory";
+import { resultGuide, resultNext } from "./server/resultGuide";
 import { runDetails } from "./server/runDetails";
 import { runEntrypoints } from "./server/runEntrypoints";
 import { runLookup } from "./server/runLookup";
 import { runOverview } from "./server/runOverview";
+import { runTour } from "./server/runTour";
 import { runTrace } from "./server/runTrace";
 import { ITtscGraphApplication } from "./structures/ITtscGraphApplication";
 import { ITtscGraphEscape } from "./structures/ITtscGraphEscape";
@@ -30,35 +32,66 @@ export class TtscGraphApplication implements ITtscGraphApplication {
     this.graph = typeof source === "function" ? source : () => source;
   }
 
-  public query(
+  public inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
   ): ITtscGraphApplication.IResult {
+    if (props.request.type === "escape") {
+      const result = this.escape(props.request.reason);
+      if (props.request.nextStep !== undefined) {
+        result.nextStep = props.request.nextStep;
+      }
+      return {
+        result,
+      };
+    }
     switch (props.request.type) {
       case "entrypoints":
-        return { result: runEntrypoints(this.graph(), props.request) };
-      case "lookup":
-        return { result: runLookup(this.graph(), props.request) };
-      case "trace":
-        return { result: runTrace(this.graph(), props.request) };
-      case "details":
-        return { result: runDetails(this.graph(), props.request) };
-      case "overview":
-        return { result: runOverview(this.graph(), props.request) };
-      case "escape": {
-        const result: ITtscGraphEscape = {
-          type: "escape",
-          skipped: true,
-          reason: props.request.reason,
-        };
-        if (props.request.nextStep !== undefined) {
-          result.nextStep = props.request.nextStep;
-        }
         return {
-          result,
+          result: runEntrypoints(this.graph(), props.request),
         };
-      }
+      case "lookup":
+        return {
+          result: runLookup(this.graph(), props.request),
+        };
+      case "trace":
+        return {
+          result: runTrace(this.graph(), props.request),
+        };
+      case "details":
+        return {
+          result: runDetails(this.graph(), props.request),
+        };
+      case "overview":
+        return {
+          result: runOverview(this.graph(), props.request),
+        };
+      case "tour":
+        return {
+          result: runTour(this.graph(), props.request),
+        };
       default:
         throw new Error("Unknown graph request type");
     }
+  }
+
+  private escape(
+    reason: string,
+    nextStep?: string,
+    action: "answer" | "outside" | "clarify" = "outside",
+  ): ITtscGraphEscape {
+    return {
+      type: "escape",
+      skipped: true,
+      reason,
+      next: resultNext(
+        action,
+        nextStep ??
+          "Graph evidence is exhausted or not the next evidence source.",
+      ),
+      guide: resultGuide(
+        "Finish from existing graph evidence, state the graph gap, or ask for clarification.",
+      ),
+      ...(nextStep !== undefined ? { nextStep } : {}),
+    };
   }
 }

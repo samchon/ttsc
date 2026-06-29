@@ -4,19 +4,21 @@ import LocalSource from "../../../components/LocalSource";
 
 # Tools
 
-`@ttsc/graph` exposes one MCP tool: `query`. It is a narrowing engine over the checker-resolved graph. The model first states why graph evidence is needed, writes `draft.reason` before `draft.type`, reviews that draft for overfetch or wrong-tool use, then submits one request branch.
+`@ttsc/graph` exposes one MCP tool: `inspect_typescript_graph`. It is a narrowing engine over the checker-resolved graph. The model first states why graph evidence is needed, writes `draft.reason` before `draft.type`, reviews that draft for overfetch or wrong-tool use, then submits one request branch.
 
-Every node and edge is resolved by the TypeScript checker, so the graph is a checker-resolved fact map end to end. The MCP return value is always one object: `{ result: ... }`. The `result` property is the union branch, and `result.type` matches the selected request branch.
+Every node and edge is resolved by the TypeScript checker, so the graph is a checker-resolved fact map end to end. The MCP return value is always one object: `{ result: ... }`. The `result` property is the union branch, and `result.type` matches the selected request branch. Each result also carries `next`, a compact action hint for whether the agent should answer, inspect the graph once more, leave graph, or clarify.
 
 Use `escape` when the review shows the graph is the wrong evidence source, or the previous result is enough. That branch returns without running a graph lookup or traversal.
 
-## query
+## inspect_typescript_graph
 
 The tool contract is `ITtscGraphApplication.ts`. Its request branches are the files listed below.
 
 ## Request Branches
 
-`ITtscGraphEntrypoints.IRequest` returns a compact shortlist for behavior-specific code questions: ranked symbols, direct mentions, small dependency orientation, and follow-up handles. It is the source-free replacement for broad search.
+`ITtscGraphTour.IRequest` returns an answer-ready repository-orientation slice: central entrypoints, primary flow, nearby paths, test anchors, and answer anchors. It is the source-free branch for code tours, broad runtime-flow questions, and "what should I read next" questions.
+
+`ITtscGraphEntrypoints.IRequest` returns a compact shortlist for behavior-specific code questions: ranked symbols, direct mentions, and small dependency orientation. It is the source-free replacement for broad search.
 
 `ITtscGraphLookup.IRequest` finds a class, method, function, property, type, or file concept when you do not already have its handle. Keep the default limit unless a previous result was ambiguous.
 
@@ -34,18 +36,26 @@ These tabs read from `packages/graph/src/structures`, so the page stays tied to 
 
 <Tabs
   items={[
-    <code>ITtscGraphApplication.ts</code>,
-    <code>ITtscGraphEntrypoints.ts</code>,
-    <code>ITtscGraphLookup.ts</code>,
-    <code>ITtscGraphTrace.ts</code>,
-    <code>ITtscGraphDetails.ts</code>,
-    <code>ITtscGraphOverview.ts</code>,
-    <code>ITtscGraphEscape.ts</code>,
+    <code key="application">ITtscGraphApplication.ts</code>,
+    <code key="next">ITtscGraphNext.ts</code>,
+    <code key="entrypoints">ITtscGraphEntrypoints.ts</code>,
+    <code key="lookup">ITtscGraphLookup.ts</code>,
+    <code key="trace">ITtscGraphTrace.ts</code>,
+    <code key="tour">ITtscGraphTour.ts</code>,
+    <code key="details">ITtscGraphDetails.ts</code>,
+    <code key="overview">ITtscGraphOverview.ts</code>,
+    <code key="escape">ITtscGraphEscape.ts</code>,
   ]}
 >
   <Tabs.Tab>
     <LocalSource
       path="packages/graph/src/structures/ITtscGraphApplication.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphNext.ts"
       showLineNumbers
     />
   </Tabs.Tab>
@@ -64,6 +74,12 @@ These tabs read from `packages/graph/src/structures`, so the page stays tied to 
   <Tabs.Tab>
     <LocalSource
       path="packages/graph/src/structures/ITtscGraphTrace.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphTour.ts"
       showLineNumbers
     />
   </Tabs.Tab>
@@ -91,7 +107,7 @@ These tabs read from `packages/graph/src/structures`, so the page stays tied to 
 
 The MCP result object itself is not a union. Its `result` property is.
 
-The concrete payloads carry symbol coordinates, edge evidence ranges, sourceSpan anchors, and stable handles for follow-up graph calls.
+The concrete payloads carry symbol coordinates, edge evidence ranges, sourceSpan anchors, stable handles for follow-up graph calls, and `next` for the intended follow-up action.
 
 ## Node Kinds
 

@@ -2,75 +2,81 @@ import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
 
 # Code Graph (MCP)
 
-`@ttsc/graph` has its own benchmark, separate from the compiler timings above.
-
-It asks two questions: how completely the graph resolves a real TypeScript codebase, and whether an agent spends fewer tokens and tool calls when a graph MCP server is available. The agent-cost runner can measure `@ttsc/graph`, `codegraph`, and `codebase-memory` against the same empty-MCP baseline.
-
-The dashboard puts the shared onboarding prompt first: each model gets one chart with every project. Project-specific prompts follow: each project gets one chart with every measured model.
-
-The graph fuses static structure and live diagnostics into one checker-resolved ontology. An agent can see a change's reach over what is currently broken before it edits. See [Code Graph](/docs/graph).
+`@ttsc/graph` is the subject of this benchmark page. The chart measures agent cost with and without the graph, then compares that result with the two external comparator arms used by the benchmark harness. Bar labels such as `486k tokens` are token usage, and graph or comparator rows also show the token reduction versus the baseline row for that case.
 
 <GraphBenchmark />
 
-## Agent Cost
+## What `@ttsc/graph` Exposes
 
-The agent-cost benchmark runs an AI coding agent headless against prepared fixtures in `experimental/benchmark/.work`. A baseline run uses an empty MCP config. A graph run uses the same prompt and model, but adds exactly one MCP server: `@ttsc/graph`, `codegraph`, or `codebase-memory`. A graph-arm run that completes without any MCP tool call, or that falls back to shell source reads/searches, is invalid for graph measurement and is retried or left failed rather than used in the median; a cell with no valid sample is not published.
+`packages/graph/src/structures/ITtscGraphApplication.ts` defines one MCP method, `inspect_typescript_graph`. The request wrapper forces the agent to fill `question`, `draft`, `review`, and exactly one request branch before it calls the tool.
 
-Baseline cells can be measured first with `--arm=baseline --tools=baseline`. Later comparator runs can use `--arm=graph --tools=ttsc-graph,codegraph,codebase-memory`; the website groups those graph samples with the existing baseline by question mode, repository, model tier, effort, fixture branch, and daemon mode.
+The response wrapper is also fixed: the method returns `{ result: ... }`, and `result` is the selected branch.
 
-The stored metrics are the raw per-run samples: total tokens, reasoning token counts when the harness exposes them, tool-call count, and wall time. The dashboard charts token reduction from `website/public/benchmark/graph.json`; the visible axis runs from `-5%` to `100%`, baseline is `0%`, and hover details show the matching raw tokens, tool calls, and wall time.
+| Named type | Role |
+| --- | --- |
+| `ITtscGraphApplication.IProps` | The request wrapper with `question`, `draft`, `review`, and `request`. |
+| `ITtscGraphApplication.IResult` | The result wrapper. `result` is the selected branch. |
+| `ITtscGraphNext` | The follow-up contract. `next.action` is `answer`, `inspect`, `outside`, or `clarify`. |
+| `ITtscGraphTour` | The answer-ready repository-orientation branch. |
+| `ITtscGraphEntrypoints` | The first-pass shortlist branch. |
+| `ITtscGraphLookup` | The concrete symbol lookup branch. |
+| `ITtscGraphTrace` | The flow branch for callers, callees, or dependency paths. |
+| `ITtscGraphDetails` | The selected-handle branch with signatures, members, direct relationships, and sourceSpan anchors. |
+| `ITtscGraphOverview` | The broad architecture branch. |
+| `ITtscGraphEscape` | The no-op branch for evidence that belongs outside the indexed TypeScript graph. |
 
-## Structural Coverage
+## Request And Result Contract
 
-The structural benchmark loads a project's resident `Program`, builds the graph, and reports node and edge counts plus fair coverage: the share of symbol-bearing source files that have at least one resolved cross-file edge. Counts and coverage are deterministic. Timings are indicative and only meaningful on a quiet host.
+The server guidance in `packages/graph/src/server/instructions.ts` and the result guidance in `packages/graph/src/server/resultGuide.ts` say the same thing in different places: ask for the smallest graph evidence that can answer, stop when `next.action` is `answer`, and use `escape` when the next evidence is outside the graph.
 
-Run it against any TypeScript project with a `tsconfig.json`:
+| Request | What it is for | Result evidence |
+| --- | --- | --- |
+| `tour` | Repository orientation, code-tour, read-next, and broad runtime-flow questions. | Central entrypoints, primary flow, nearby paths, test anchors, and answer anchors. |
+| `entrypoints` | First pass on a natural-language code question. | Ranked symbols, direct mentions, and a small orientation slice. |
+| `lookup` | Resolve a concrete name or dotted handle. | Ranked hits with signatures when available. |
+| `trace` | Follow runtime or type flow, or answer "how A reaches B". | Hops, reached nodes, `steps`, and `path` when `to` is set. |
+| `details` | Inspect one to three chosen handles. | Signatures, member outlines, direct relationships, and sourceSpan anchors. |
+| `overview` | Broad project orientation. | Counts, layers, hotspots, and public API symbols. |
+| `escape` | Stop when the next evidence is outside the graph. | `skipped: true` plus a reason and next step. |
 
-```bash
-node experimental/benchmark/graph/bench.mjs --project=/abs/path/to/project --runs=5
-```
+The payloads are coordinates and relationships, not source bodies. `sourceSpan` and `evidence` point at file and line ranges, and `next` tells the caller whether to answer, inspect once more, leave graph, or clarify.
 
-## Reproduce
+## Source Contract
 
-Both harnesses start from a clone of this repository:
+The benchmark page keeps source text out of the first render so the chart remains responsive. The contract lives in these package files, and the full type/source view is on the [graph tools page](/docs/graph/tools/).
+
+| File | Role |
+| --- | --- |
+| `packages/graph/src/structures/ITtscGraphApplication.ts` | MCP request/result wrapper. |
+| `packages/graph/src/structures/ITtscGraphTour.ts` | Repository-orientation result branch. |
+| `packages/graph/src/structures/ITtscGraphNext.ts` | Follow-up action contract. |
+| `packages/graph/src/server/instructions.ts` | Tool instruction text. |
+| `packages/graph/src/server/resultGuide.ts` | Per-result answer guidance. |
+
+## How The Comparators Differ
+
+The benchmark harness treats `codegraph` and `codebase-memory-mcp` as separate comparator arms, not as the same contract.
+
+| Tool | Local setup in the benchmark source | What this page treats it as |
+| --- | --- | --- |
+| `@ttsc/graph` | The typed MCP server defined in `packages/graph/src/structures` and `packages/graph/src/server`. | The subject of the page. |
+| `codegraph` | `codegraph init`, with `.codegraph/` ignored and optionally kept for inspection. | External comparator arm. |
+| `codebase-memory-mcp` | `codebase-memory-mcp cli index_repository`, with an isolated `CBM_CACHE_DIR` and `.codebase-memory/` ignored. | External comparator arm. |
+
+The chart reads raw samples from `website/public/benchmark/graph.json`, so it keeps those setup paths separate instead of folding them into one story.
+
+## Benchmark Your Project
+
+Start from a clean checkout, install the workspace, build `@ttsc/graph`, then run the same prompt once without MCP and once with the graph arm.
 
 ```bash
 git clone https://github.com/samchon/ttsc.git
 cd ttsc
 corepack enable
 pnpm install
+pnpm --filter @ttsc/graph build
+node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/abs/path/to/project --tsconfig=tsconfig.json --question "Trace the main runtime path I should understand before editing." --arm=baseline --runs=1
+node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/abs/path/to/project --tsconfig=tsconfig.json --question "Trace the main runtime path I should understand before editing." --arm=graph --runs=1
 ```
 
-### Structural harness
-
-`experimental/benchmark/graph` loads the resident `Program` for a project, builds the graph, and reports the node and edge counts plus the fair coverage. The counts and coverage are deterministic; the timings are indicative and only meaningful on a quiet host.
-
-```bash
-node experimental/benchmark/graph/bench.mjs --project=/abs/path/to/project --runs=5
-```
-
-### Agent-cost harness
-
-Baseline-only publication refresh:
-
-```bash
-node experimental/benchmark/graph.mjs --all --models=gpt-5.4-mini --arm=baseline --tools=baseline --prompt-family=all --runs=5 --reset
-```
-
-Codex trace audit:
-
-```bash
-node experimental/benchmark/graph/audit-codex-traces.mjs --dir=experimental/benchmark/.work/graph/<timestamp>
-node experimental/benchmark/graph/audit-codex-traces.mjs --compare=<before>,<after>
-node experimental/benchmark/graph/audit-codex-traces.mjs --self-test
-```
-
-`graph.mjs` writes `codex-trace-audit.json` automatically for Codex cells. The Codex audit records every exposed message, every shell/MCP call in timeline order, usage, reasoning token counts, strict exact avoidable output such as duplicate MCP calls and legacy inline evidence text, measured graph-replaceable shell-output surface, candidate MCP overfetch surfaces, zero-MCP and shell-fallback graph-arm traces, later-turn prompt replay exposure when multiple `turn.completed` events are visible, an input ledger comparing usage input tokens with visible trace material, and observed/replacement-lower-bound/candidate-ceiling savings against matching N=5 baseline medians from `website/public/benchmark/graph.json`. Hidden reasoning text is not emitted in the Codex stream, so the audit records the token ledger and explicitly marks the text unavailable. The ledger's unexplained input is an accounting gap, not proof of one hidden category. Use `--compare=<before>,<after>` with audit JSON files, suite reports, or suite directories to compare N=1 optimization smoke runs by the same message/tool/reasoning/savings fields without publishing them.
-
-Comparator refresh after the baseline exists:
-
-```bash
-node experimental/benchmark/graph.mjs --all --models=gpt-5.4-mini --arm=graph --tools=ttsc-graph,codegraph,codebase-memory --prompt-family=all --runs=5
-```
-
-Use `--no-website` for local-only runs. The runner writes raw reports under `experimental/benchmark/.work/graph/<timestamp>/` and upserts website cells into `website/public/benchmark/graph.json`.
+Use `experimental/benchmark/README.md` for the full matrix and publication flow.

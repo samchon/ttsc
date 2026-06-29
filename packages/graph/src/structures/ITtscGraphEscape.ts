@@ -1,4 +1,6 @@
-/** The no-op graph result returned when reasoning rejects the graph call. */
+import { ITtscGraphNext } from "./ITtscGraphNext";
+
+/** The no-op result for when graph is not the useful next evidence source. */
 export interface ITtscGraphEscape {
   /** Discriminator for the no-op escape route. */
   type: "escape";
@@ -9,12 +11,18 @@ export interface ITtscGraphEscape {
   /** Why no graph operation should run. */
   reason: string;
 
-  /** The next non-graph step, if useful. */
+  /** How to proceed after skipping graph work. */
+  next: ITtscGraphNext;
+
+  /** Human-readable compatibility note mirroring `next`. */
+  guide: string;
+
+  /** Optional note about the next non-graph step. */
   nextStep?: string;
 }
 
 export namespace ITtscGraphEscape {
-  /** Exit after the reasoning review decides graph evidence is unnecessary. */
+  /** Skip graph work when graph evidence is unnecessary or exhausted. */
   export interface IRequest {
     /** Discriminator for the no-op escape route. */
     type: "escape";
@@ -22,17 +30,19 @@ export namespace ITtscGraphEscape {
     /**
      * Why no graph operation should run.
      *
-     * Use this when the review finds the user is asking about package scripts,
-     * config files, generated output, prose documentation, or an answer that
-     * the current graph result already settled.
+     * Use this only when the next evidence is outside the indexed TypeScript
+     * graph: package scripts, config files, generated output, prose docs, exact
+     * text, or exact source body text. Name the smallest returned sourceSpan
+     * when source body text is truly required.
      */
     reason: string;
 
     /**
-     * The next non-graph step, if useful.
+     * The final non-graph note, if useful.
      *
-     * Keep this short. Examples: `answer from the prior graph result`, `inspect
-     * package.json`, or `ask the user for a concrete symbol`.
+     * Keep this short. Examples: `answer from the prior graph result`, `source
+     * body needed at returned sourceSpan`, or `ask the user for a concrete
+     * symbol`.
      */
     nextStep?: string;
   }
