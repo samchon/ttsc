@@ -315,9 +315,13 @@ const samples = Object.fromEntries(arms.map((a) => [a.name, []]));
 const concurrency = Number(process.env.TTSC_BENCH_CONCURRENCY) || Infinity;
 const thunks = arms.flatMap((arm) =>
   Array.from({ length: runs }, (_, r) => async () => {
-    // A failed run (rate limit or an incomplete turn) carries no usable sample, so
-    // retry it in place rather than letting it thin the median. The trace file is
-    // keyed by run number, so a retry overwrites the attempt.
+    // Validity is token-based only: a run that spent tokens is a real measurement
+    // and is kept, even if its MCP calls failed or it never produced a clean
+    // answer. Those are quality concerns judged out of band, not reasons to
+    // re-spend the budget. Only a zero-token run (rate limit / capacity failure /
+    // an incomplete turn that never reached the model) is invalid: it carries no
+    // usable sample, so retry it in place rather than letting it thin the median.
+    // The trace file is keyed by run number, so a retry overwrites the attempt.
     let m;
     let attempts = 0;
     for (let attempt = 0; attempt <= MAX_RUN_RETRIES; attempt++) {
@@ -331,7 +335,7 @@ const thunks = arms.flatMap((arm) =>
         ),
         arm.name,
       );
-      if (m.ok) break;
+      if (Number(m?.tokens ?? 0) > 0) break;
       if (attempt < MAX_RUN_RETRIES)
         console.log(
           `  ${arm.name.padEnd(8)} run ${r + 1}: [FAILED]${m.error ? ` ${m.error}` : ""} retrying (${attempt + 1}/${MAX_RUN_RETRIES})`,
