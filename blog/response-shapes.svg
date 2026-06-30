@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" font-family="'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#1b2330"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0f16" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0b0f16" stop-opacity="1"/>
+    </linearGradient>
+    <clipPath id="clipCol1"><rect x="60" y="150" width="320" height="318" rx="12"/></clipPath>
+  </defs>
+  <rect width="1200" height="620" fill="url(#bg)"/>
+
+  <!-- title -->
+  <text x="60" y="56" font-size="30" font-weight="700" fill="#e6edf3">What each tool hands back</text>
+  <text x="60" y="86" font-size="17" font-weight="500" fill="#8b949e">Response to a broad &#8220;how does this work?&#8221; question &#8212; box size = token cost</text>
+
+  <!-- ===================== Column 1: codegraph ===================== -->
+  <g>
+    <rect x="60" y="115" width="320" height="26" rx="13" fill="#3178c6" opacity="0.18"/>
+    <circle cx="80" cy="128" r="5" fill="#3178c6"/>
+    <text x="94" y="133" font-size="16" font-weight="700" fill="#cfe0f5">codegraph</text>
+    <text x="237" y="133" font-size="13" font-weight="600" fill="#7d93b0">source bodies</text>
+
+    <!-- code viewport box, content overflows -->
+    <rect x="60" y="150" width="320" height="318" rx="12" fill="#0b0f16" stroke="#2a3340" stroke-width="1.5"/>
+    <g clip-path="url(#clipCol1)">
+      <g>
+        <!-- many code-line bars, indented like source, spilling -->
+        <g fill="#3178c6">
+          <rect x="78" y="164" width="120" height="8" rx="4" opacity="0.9"/>
+          <rect x="98" y="182" width="180" height="8" rx="4" opacity="0.55"/>
+          <rect x="98" y="200" width="140" height="8" rx="4" opacity="0.7"/>
+          <rect x="118" y="218" width="160" height="8" rx="4" opacity="0.5"/>
+          <rect x="118" y="236" width="96" height="8" rx="4" opacity="0.8"/>
+          <rect x="98" y="254" width="200" height="8" rx="4" opacity="0.5"/>
+          <rect x="78" y="272" width="150" height="8" rx="4" opacity="0.85"/>
+          <rect x="98" y="290" width="170" height="8" rx="4" opacity="0.55"/>
+          <rect x="118" y="308" width="130" height="8" rx="4" opacity="0.7"/>
+          <rect x="118" y="326" width="190" height="8" rx="4" opacity="0.5"/>
+          <rect x="98" y="344" width="110" height="8" rx="4" opacity="0.8"/>
+          <rect x="78" y="362" width="165" height="8" rx="4" opacity="0.6"/>
+          <rect x="98" y="380" width="205" height="8" rx="4" opacity="0.5"/>
+          <rect x="118" y="398" width="140" height="8" rx="4" opacity="0.7"/>
+          <rect x="98" y="416" width="175" height="8" rx="4" opacity="0.55"/>
+          <rect x="78" y="434" width="125" height="8" rx="4" opacity="0.8"/>
+          <rect x="98" y="452" width="195" height="8" rx="4" opacity="0.5"/>
+        </g>
+      </g>
+    </g>
+    <!-- fade to imply it keeps going -->
+    <rect x="61" y="408" width="318" height="59" rx="12" fill="url(#fade)"/>
+    <text x="220" y="455" font-size="13" font-weight="700" fill="#9fb4cc" text-anchor="middle">&#8230; and it keeps going</text>
+
+    <!-- caption -->
+    <text x="220" y="512" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">verbatim source</text>
+    <text x="220" y="540" font-size="15" font-weight="500" fill="#8b949e" text-anchor="middle">tokens explode on broad questions</text>
+  </g>
+
+  <!-- ===================== Column 2: codebase-memory ===================== -->
+  <g>
+    <rect x="440" y="115" width="320" height="26" rx="13" fill="#3178c6" opacity="0.18"/>
+    <circle cx="460" cy="128" r="5" fill="#3178c6"/>
+    <text x="474" y="133" font-size="16" font-weight="700" fill="#cfe0f5">codebase-memory</text>
+    <text x="748" y="133" font-size="13" font-weight="600" fill="#7d93b0" text-anchor="end">graph, buried</text>
+
+    <!-- buried relation graph (faint, peeking behind the wall of tools) -->
+    <g opacity="0.34">
+      <g stroke="#3178c6" stroke-width="3" fill="none">
+        <line x1="456" y1="162" x2="600" y2="150"/>
+        <line x1="600" y1="150" x2="746" y2="168"/>
+        <line x1="456" y1="162" x2="450" y2="298"/>
+        <line x1="746" y1="168" x2="752" y2="292"/>
+        <line x1="450" y1="298" x2="600" y2="306"/>
+        <line x1="600" y1="306" x2="752" y2="292"/>
+        <line x1="456" y1="162" x2="600" y2="306"/>
+        <line x1="746" y1="168" x2="600" y2="306"/>
+      </g>
+      <g fill="#3178c6">
+        <circle cx="456" cy="162" r="8"/>
+        <circle cx="600" cy="150" r="8"/>
+        <circle cx="746" cy="168" r="8"/>
+        <circle cx="450" cy="298" r="8"/>
+        <circle cx="752" cy="292" r="8"/>
+      </g>
+      <circle cx="600" cy="306" r="11" fill="#3fb950"/>
+    </g>
+
+    <!-- the wall: 14 MCP tool chips covering the graph -->
+    <g>
+      <!-- row 1 -->
+      <rect x="460" y="168" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="472" y="181" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="518" y="168" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="530" y="181" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="576" y="168" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="588" y="181" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="634" y="168" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="646" y="181" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="692" y="168" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="704" y="181" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <!-- row 2 -->
+      <rect x="460" y="210" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="472" y="223" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="518" y="210" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="530" y="223" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="576" y="210" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="588" y="223" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="634" y="210" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="646" y="223" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="692" y="210" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="704" y="223" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <!-- row 3 (4 chips, centered) -->
+      <rect x="489" y="252" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="501" y="265" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="547" y="252" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="559" y="265" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="605" y="252" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="617" y="265" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="663" y="252" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="675" y="265" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+    </g>
+    <text x="600" y="303" font-size="13" font-weight="600" fill="#8b949e" text-anchor="middle">14 MCP tools &#183; graph never reached</text>
+
+    <!-- arrow down -->
+    <g stroke="#566273" stroke-width="2" fill="none">
+      <line x1="600" y1="314" x2="600" y2="334"/>
+    </g>
+    <path d="M600 342 l-7 -11 l14 0 z" fill="#566273"/>
+
+    <!-- gives up -> shell box -->
+    <rect x="470" y="348" width="260" height="58" rx="12" fill="#171f2b" stroke="#3a4656" stroke-width="1.5"/>
+    <text x="600" y="374" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">gives up &#8594; shell</text>
+    <text x="600" y="394" font-size="13" font-weight="500" fill="#8b949e" text-anchor="middle">grep &#183; Read</text>
+
+    <!-- caption -->
+    <text x="600" y="512" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">a real graph</text>
+    <text x="600" y="535" font-size="14" font-weight="500" fill="#8b949e" text-anchor="middle">buried under 14 tools &#183; 0 MCP calls</text>
+    <text x="600" y="556" font-size="14" font-weight="500" fill="#8b949e" text-anchor="middle">fell back to grep</text>
+  </g>
+
+  <!-- ===================== Column 3: @ttsc/graph ===================== -->
+  <g>
+    <rect x="820" y="115" width="320" height="26" rx="13" fill="#3fb950" opacity="0.18"/>
+    <circle cx="840" cy="128" r="5" fill="#3fb950"/>
+    <text x="854" y="133" font-size="16" font-weight="700" fill="#d3f0d8">@ttsc/graph</text>
+    <text x="1058" y="133" font-size="13" font-weight="600" fill="#6fae7c">compact index</text>
+
+    <!-- tidy compact card -->
+    <rect x="855" y="170" width="250" height="150" rx="12" fill="#0e1a13" stroke="#2c5236" stroke-width="1.5"/>
+    <text x="875" y="200" font-size="13" font-weight="700" fill="#8b949e">names</text>
+    <rect x="945" y="190" width="142" height="9" rx="4" fill="#3fb950" opacity="0.85"/>
+    <text x="875" y="230" font-size="13" font-weight="700" fill="#8b949e">edges</text>
+    <rect x="945" y="220" width="120" height="9" rx="4" fill="#3fb950" opacity="0.65"/>
+    <rect x="945" y="234" width="142" height="9" rx="4" fill="#3fb950" opacity="0.65"/>
+    <text x="875" y="266" font-size="13" font-weight="700" fill="#8b949e">spans</text>
+    <text x="945" y="266" font-size="12.5" font-weight="600" fill="#7ee08c">emit.ts:17</text>
+    <text x="875" y="298" font-size="13" font-weight="600" fill="#6fae7c">each span = a file:line anchor</text>
+
+    <!-- green check -->
+    <circle cx="980" cy="362" r="22" fill="#3fb950"/>
+    <path d="M969 362 l8 8 l15 -16" stroke="#0d1117" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- caption -->
+    <text x="980" y="512" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">answer</text>
+    <text x="980" y="540" font-size="15" font-weight="500" fill="#3fb950" text-anchor="middle">grounded &#183; cites exact spans</text>
+  </g>
+</svg>

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" font-family="'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#1b2330"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- faint code-graph motif, right side -->
+  <g opacity="0.16">
+    <g stroke="#3178c6" stroke-width="3" fill="none">
+      <line x1="930" y1="180" x2="1065" y2="140"/>
+      <line x1="930" y1="180" x2="985" y2="335"/>
+      <line x1="1065" y1="140" x2="1110" y2="300"/>
+      <line x1="1110" y1="300" x2="985" y2="335"/>
+      <line x1="985" y1="335" x2="905" y2="450"/>
+      <line x1="985" y1="335" x2="1060" y2="475"/>
+      <line x1="1060" y1="475" x2="1110" y2="300"/>
+    </g>
+    <g fill="#3178c6">
+      <circle cx="930" cy="180" r="16"/>
+      <circle cx="1065" cy="140" r="16"/>
+      <circle cx="1110" cy="300" r="16"/>
+      <circle cx="905" cy="450" r="16"/>
+      <circle cx="1060" cy="475" r="16"/>
+    </g>
+    <g fill="#3fb950">
+      <circle cx="985" cy="335" r="22"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <text x="80" y="120" font-size="44" font-weight="700" fill="#8b949e">@ttsc<tspan fill="#3fb950">/graph</tspan></text>
+
+  <!-- headline -->
+  <text x="76" y="322" font-size="172" font-weight="800" letter-spacing="-5">
+    <tspan fill="#3fb950">10×</tspan><tspan fill="#e6edf3"> fewer</tspan>
+  </text>
+  <text x="80" y="474" font-size="172" font-weight="800" letter-spacing="-5" fill="#e6edf3">tokens.</text>
+
+  <!-- subtitle -->
+  <text x="84" y="556" font-size="42" font-weight="600" fill="#aebfd4">A TypeScript code-graph over MCP, for Claude Code.</text>
+
+  <!-- footer -->
+  <text x="84" y="600" font-size="30" font-weight="500" fill="#6e7d90">Built on the real TypeScript compiler  ·  ttsc.dev</text>
+</svg>
