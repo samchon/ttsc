@@ -69,9 +69,9 @@ Two different failures: one hands back too much, the other keeps the right thing
 
 ### Whether it forces itself
 
-The other half is the instructions. codegraph tells the agent to use it instead of reading files and to call it before any Read, and that push lands: the tool fires even when the graph is not the answer, for a config, a small edit, or a question it cannot answer, and those calls block the real work. codebase-memory-mcp pushes the same way in its tool descriptions and auto-indexes on session start, though with its surface buried the agent mostly ignored it.
+The other half is the instructions, and the two go opposite ways. codegraph forces its tool: its MCP instructions tell the agent to use it instead of reading files, to call it before any Read, and to reach for it on almost any question. So calls fire even when the graph is not the answer, for a config, a small edit, or a question it cannot answer, and those calls block real work. codebase-memory-mcp does the reverse: its MCP initialize sends no instructions at all, so with fourteen tools and little to say which to use when, the agent mostly never engaged it. One over-directs, one under-directs.
 
-The reason is that those headline numbers, fewer tool calls and file reads to zero, only show up if the agent routes everything through the tool. To their credit, both are upfront about the limits: codegraph notes its token savings are scale-dependent and that it is overhead unless queried directly, and codebase-memory-mcp reports its biggest numbers on structural queries, not open-ended ones. Those limits grow the more general the use, which is the case `@ttsc/graph` was built for. These two are the pioneers that put a code graph in front of an agent at all; this one just learns from where they ran into a wall.
+To their credit, both are upfront about the limits: codegraph notes its token savings are scale-dependent and that it is overhead unless queried directly, and codebase-memory-mcp reports its biggest numbers on structural queries, not open-ended ones. Those limits grow the more general the use, which is the case `@ttsc/graph` was built for. These two are the pioneers that put a code graph in front of an agent at all; this one just learns from where they ran into a wall.
 
 For the full version of this story, read the [launch post](https://ttsc.dev/blog/graph).
 
