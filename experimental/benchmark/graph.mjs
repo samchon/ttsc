@@ -607,7 +607,16 @@ function ensureCodebaseMemoryIndex(project, repoDir) {
     ...codebaseMemoryCommand([
       "cli",
       "index_repository",
-      JSON.stringify({ repo_path: repoDir }),
+      JSON.stringify({
+        repo_path: repoDir,
+        // codebase-memory-mcp index mode: full (default) | moderate | fast.
+        // `fast` skips semantic/similarity extraction, so its index "dump" fits
+        // in far less memory — the only mode that can index large repos (vscode)
+        // on this host without the full mode's ~30GB blowup.
+        ...(process.env.TTSC_BENCH_CBM_MODE
+          ? { mode: process.env.TTSC_BENCH_CBM_MODE }
+          : {}),
+      }),
     ]),
     {
       label: `codebase-memory index ${project}`,
