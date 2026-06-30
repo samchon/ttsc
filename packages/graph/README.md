@@ -16,46 +16,6 @@ You can also browse the whole graph. This is TypeORM in 3D, colored by kind ([li
 
 [![The TypeORM code graph rendered in 3D](https://ttsc.dev/graph/typeorm.png)](https://ttsc.dev/docs/graph/viewer)
 
-For the longer story, why other code-graph tools cut tool calls but not tokens and how this one is built, read the [launch post](https://ttsc.dev/blog/graph).
-
-## Why @ttsc/graph
-
-### Built on the real TypeScript compiler
-
-`@ttsc/graph` reads the graph from the program `ttsc` already type-checked. Because the compiler finished module resolution, the graph is exact: `tsconfig` path aliases (`@app/*`), pnpm monorepo cross-package references, symlinks, and re-export chains all resolve correctly. A parser that only reads text, such as tree-sitter, has to infer these, and a guessed edge is where an agent stops trusting the result and goes back to reading files.
-
-The graph falls out of the type-check that already runs, so there is no separate index step, no file watcher, and no stale index to manage.
-
-### An index, not source bodies
-
-A query returns names, edges, signatures, and source spans. It never inlines source bodies. Two things follow from that.
-
-The response is bounded independent of repo size, so the token cost stays flat whether the project is ten thousand lines or a million. And every span is a citation, a file and line the compiler vouched for, which you can open to verify. The reassurance is not that the agent read no files, it is that a place to check is always attached.
-
-### One tool, asked in plain language
-
-The whole MCP surface is a single tool. You ask in plain language ("how does this project work?"), and a guided request inside the tool turns that into the right graph operation. There are no symbol names, query languages, or schemas for you to learn.
-
-![The guided request inside one tool call](https://ttsc.dev/blog/cot-pipeline.svg)
-
-The request carries a short, required chain of thought (`question`, `draft`, `review`) before it runs, so the model plans the smallest query and can correct or bail out first. It is built with [typia](https://typia.io), whose function-calling harness compiles the TypeScript type into the tool schema and validator. The single source of truth for the whole surface is [`ITtscGraphApplication.ts`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphApplication.ts).
-
-### It does not force itself on the agent
-
-`@ttsc/graph` never tells the agent to call it instead of reading files. It states when the graph is the right source (questions about TypeScript symbols, calls, and types) and offers a first-class `escape` for everything else (configs, docs, exact-text search). The one firm rule is that a returned fact is compiler truth and does not need re-checking by reading files. Calls fire when the graph helps, and not otherwise.
-
-### Compile errors and lint findings, in the same graph
-
-The graph also carries `tsc` compile errors plus `@ttsc/lint` and plugin (typia, nestia) lint findings, each fused onto the symbol that owns it. So "what is broken here?" and "what breaks if I change this?" come from the same index as the structure.
-
-## Benchmark
-
-On the current GPT 5.4 Mini snapshot, the published median token cost is lowest with `@ttsc/graph`. The chart below is generated from `website/public/benchmark/graph.json`.
-
-![Common prompt median token use on Codex GPT-5.4 Mini](https://ttsc.dev/benchmark/graph-common-codex-gpt-5.4-mini.svg)
-
-The benchmark is a faithful port of codegraph's, run on open-ended prompts across eight real repositories. `@ttsc/graph` holds a flat, low token cost where source-returning and pointer-returning tools swing with repo size, sometimes above the no-MCP baseline. See the [full benchmark page](https://ttsc.dev/docs/benchmark/graph) for the raw rows and method.
-
 ## Setup
 
 ### Install
@@ -92,6 +52,46 @@ Run this in your own project to open that 3D graph in your browser, served from 
 ```bash
 npx @ttsc/graph view
 ```
+
+## Why @ttsc/graph
+
+For the longer story, why other code-graph tools cut tool calls but not tokens and how this one is built, read the [launch post](https://ttsc.dev/blog/graph).
+
+### Built on the real TypeScript compiler
+
+`@ttsc/graph` reads the graph from the program `ttsc` already type-checked. Because the compiler finished module resolution, the graph is exact: `tsconfig` path aliases (`@app/*`), pnpm monorepo cross-package references, symlinks, and re-export chains all resolve correctly. A parser that only reads text, such as tree-sitter, has to infer these, and a guessed edge is where an agent stops trusting the result and goes back to reading files.
+
+The graph falls out of the type-check that already runs, so there is no separate index step, no file watcher, and no stale index to manage.
+
+### An index, not source bodies
+
+A query returns names, edges, signatures, and source spans. It never inlines source bodies. Two things follow from that.
+
+The response is bounded independent of repo size, so the token cost stays flat whether the project is ten thousand lines or a million. And every span is a citation, a file and line the compiler vouched for, which you can open to verify. The reassurance is not that the agent read no files, it is that a place to check is always attached.
+
+### One tool, asked in plain language
+
+The whole MCP surface is a single tool. You ask in plain language ("how does this project work?"), and a guided request inside the tool turns that into the right graph operation. There are no symbol names, query languages, or schemas for you to learn.
+
+![The guided request inside one tool call](https://ttsc.dev/blog/cot-pipeline.svg)
+
+The request carries a short, required chain of thought (`question`, `draft`, `review`) before it runs, so the model plans the smallest query and can correct or bail out first. It is built with [typia](https://typia.io), whose function-calling harness compiles the TypeScript type into the tool schema and validator. The single source of truth for the whole surface is [`ITtscGraphApplication.ts`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphApplication.ts).
+
+### It does not force itself on the agent
+
+`@ttsc/graph` never tells the agent to call it instead of reading files. It states when the graph is the right source (questions about TypeScript symbols, calls, and types) and offers a first-class `escape` for everything else (configs, docs, exact-text search). The one firm rule is that a returned fact is compiler truth and does not need re-checking by reading files. Calls fire when the graph helps, and not otherwise.
+
+### Compile errors and lint findings, in the same graph
+
+The graph also carries `tsc` compile errors plus `@ttsc/lint` and plugin (typia, nestia) lint findings, each fused onto the symbol that owns it. So "what is broken here?" and "what breaks if I change this?" come from the same index as the structure.
+
+## Benchmark
+
+On the current GPT 5.4 Mini snapshot, the published median token cost is lowest with `@ttsc/graph`. The chart below is generated from `website/public/benchmark/graph.json`.
+
+![Common prompt median token use on Codex GPT-5.4 Mini](https://ttsc.dev/benchmark/graph-common-codex-gpt-5.4-mini.svg)
+
+The benchmark is a faithful port of codegraph's, run on open-ended prompts across eight real repositories. `@ttsc/graph` holds a flat, low token cost where source-returning and pointer-returning tools swing with repo size, sometimes above the no-MCP baseline. See the [full benchmark page](https://ttsc.dev/docs/benchmark/graph) for the raw rows and method.
 
 ## Request types
 
