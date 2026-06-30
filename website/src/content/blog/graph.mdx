@@ -14,7 +14,7 @@ tags:
 
 > ## TL;DR
 >
-> I installed codegraph and codebase-memory-mcp. They advertise cutting an agent's tokens by tens of times — cbm headlines **120×**. In practice my token bill didn't move, and Claude Code actually got *worse* at the task.
+> I installed codegraph and codebase-memory-mcp. They advertise cutting an agent's tokens by tens of times — codebase-memory-mcp headlines **120×**. In practice my token bill didn't move, and Claude Code actually got _worse_ at the task.
 >
 > So I built my own. [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) reads the graph the TypeScript compiler already resolved and hands the agent an **index** — never source bodies. One tool, plus a forced chain-of-thought, keeps the agent from wandering off.
 >
@@ -38,7 +38,7 @@ How big is the difference? Here's the chart.
 
 ![Median token use, common prompts, Codex GPT-5.4 Mini](https://ttsc.dev/benchmark/graph-common-codex-gpt-5.4-mini.svg)
 
-Same question, same agent. Only `@ttsc/graph` stays flat at ~42k tokens across every repo. The others swing wildly — and some even spend *more* than the baseline (no MCP at all). Full numbers and method are on the [benchmark page](https://ttsc.dev/docs/benchmark/graph).
+Same question, same agent. Only `@ttsc/graph` stays flat at ~42k tokens across every repo. The others swing wildly — and some even spend _more_ than the baseline (no MCP at all). Full numbers and method are on the [benchmark page](https://ttsc.dev/docs/benchmark/graph).
 
 ### 1.2. What a Code Graph Is
 
@@ -64,36 +64,36 @@ In one sentence: **it reads an index from the program the TypeScript compiler al
 
 Honestly, not my idea. [codegraph](https://github.com/colbymchenry/codegraph) put a code graph in front of an agent over MCP first, and this post's benchmark is a faithful port of theirs. [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) does the same across 158 languages.
 
-And their core claim is legit. The enemy is the agent's **grep · find · Read crawl loop.** Every "where is this?" turns into a grep, a file open, an import chased, another grep — dozens of round-trips burning tokens and time. codegraph's pitch is clean: replace that loop with one graph query — "58% fewer tool calls, file reads to ~zero." cbm goes further, headlining "**120× fewer tokens**" (a 99.2% cut).
+And their core claim is legit. The enemy is the agent's **grep · find · Read crawl loop.** Every "where is this?" turns into a grep, a file open, an import chased, another grep — dozens of round-trips burning tokens and time. codegraph's pitch is clean: replace that loop with one graph query — "58% fewer tool calls, file reads to ~zero." codebase-memory-mcp goes further, headlining "**120× fewer tokens**" (a 99.2% cut).
 
 Sounded great. So I installed them.
 
-One thing up front, though. Killing grep-spam is the **easy** win. The hard part is killing it *while also* cutting tokens. Those two are not the same thing.
+One thing up front, though. Cutting an agent's tool calls is the **easy** part. Cutting its tokens at the same time is harder. And cutting tokens _without the answer getting any worse_ is the real problem. Those are three different things, not one.
 
 ### 2.2. So I Tried Them
 
 Here's what actually happened.
 
-- **Tokens didn't drop at all.** The tool-call *count* may have fallen, but the thing you pay for — tokens — didn't budge. On some cells it was even *worse than the baseline* (codegraph spent up to 47% more, cbm up to 96% more).
+- **Tokens didn't drop at all.** The tool-call _count_ may have fallen, but the thing you pay for — tokens — didn't budge. On some cells it was even _worse than the baseline_ (codegraph spent up to 47% more, codebase-memory-mcp up to 96% more).
 - Claude Code and Codex got **worse**, not smarter. They kept missing the intent.
 - Useless MCP calls fired constantly, **blocking or delaying** the work I actually wanted done.
-- I couldn't just ask in plain language. Every query had to be hand-shaped — cbm wants a Cypher query with an exact `qualified_name`; codegraph wants you to name the symbols for a flow. That **babysitting** alone ate the productivity.
+- I couldn't just ask in plain language. Every query had to be hand-shaped — codebase-memory-mcp wants a Cypher query with an exact `qualified_name`; codegraph wants you to name the symbols for a flow. That **babysitting** alone ate the productivity.
 
 In short: worse than before I installed them. The opposite of the ad. So I went digging.
 
 ### 2.3. Bodies and Pointers
 
-The first cause was *what* each tool hands back.
+The first cause was _what_ each tool hands back.
 
-codegraph returns **whole source bodies** — by its own description, "the Read, done for you." Fine for editing. But for a broad "how does this work?", the body *is* the token bomb. Past a dozen files it truncates and says "call again for more." So you call again. More bodies.
+codegraph returns **whole source bodies** — by its own description, "the Read, done for you." Fine for editing. But for a broad "how does this work?", the body _is_ the token bomb. Past a dozen files it truncates and says "call again for more." So you call again. More bodies.
 
 codebase-memory-mcp does the opposite — **pointers only.** Name, path, line. But to answer "how does it work?" you still have to open those files. So the agent drops the MCP and goes straight to the shell. Measured: graph calls **0**, shell calls **40**.
 
 What are those 40? grep and Read. The very crawl loop it promised to kill, walked back in **through the back door** along the pointers.
 
-Easy to get confused here. "cbm's pointers are compact too — isn't that the same as your index?" No. **A pointer gives you "where" (a coordinate), not "what it does and how it connects."** And the answer to "how does this work?" is *relationships*, not coordinates. So an agent handed only coordinates has to open the files and read the relationships itself. Compactness isn't the issue — whether the compact thing is *an answer* or *a stepping stone to source* is. cbm's pointer is a stepping stone, so you cross the river anyway. (Why `@ttsc/graph`'s index is the answer itself: §3.3.)
+Easy to get confused here. "codebase-memory-mcp's pointers are compact too — isn't that the same as your index?" No. **A pointer gives you "where" (a coordinate), not "what it does and how it connects."** And the answer to "how does this work?" is _relationships_, not coordinates. So an agent handed only coordinates has to open the files and read the relationships itself. Compactness isn't the issue — whether the compact thing is _an answer_ or _a stepping stone to source_ is. codebase-memory-mcp's pointer is a stepping stone, so you cross the river anyway. (Why `@ttsc/graph`'s index is the answer itself: §3.3.)
 
-codegraph via bodies, cbm via pointers-then-reads — that's why neither moves the token bill.
+codegraph via bodies, codebase-memory-mcp via pointers-then-reads — that's why neither moves the token bill.
 
 ![What each tool hands back: codegraph returns source bodies, codebase-memory returns pointers, @ttsc/graph returns a compact index](/blog/response-shapes.svg)
 
@@ -101,11 +101,11 @@ codegraph via bodies, cbm via pointers-then-reads — that's why neither moves t
 
 The second cause was nastier: their instructions **force** the tool onto the agent.
 
-codegraph spells it out: "use it instead of reading files," "call it before you Read," "don't grep or Read first," "almost any question → explore." cbm too: "use instead of grep," "first call search_graph, then…," plus auto-indexing on session start.
+codegraph spells it out: "use it instead of reading files," "call it before you Read," "don't grep or Read first," "almost any question → explore." codebase-memory-mcp too: "use instead of grep," "first call search_graph, then…," plus auto-indexing on session start.
 
 So calls fire even when the graph isn't the answer — for a config, for a small edit, for questions the graph can't answer at all. Those wasted calls block the real work. That's exactly what frustrated me.
 
-Why force it? Because their headline numbers — "58% fewer tool calls," "file reads → 0" — are hostage to the call rate. The agent has to route everything through the tool for those numbers to show up. codegraph even admits it in its README: *"it only helps when queried directly; otherwise it's overhead."* So, to avoid being overhead, it forces.
+Why force it? Because their headline numbers — "58% fewer tool calls," "file reads → 0" — are hostage to the call rate. The agent has to route everything through the tool for those numbers to show up. codegraph even admits it in its README: _"it only helps when queried directly; otherwise it's overhead."_ So, to avoid being overhead, it forces.
 
 They optimized the chart, not the user. Forcing is a crutch for results you can't trust on their own merit.
 
@@ -124,15 +124,15 @@ They optimized the chart, not the user. Forcing is a crutch for results you can'
 
 First, **it never forces.** Not one line of the instruction says "use this instead of Read." It states a condition instead: "use it when the answer depends on TypeScript symbols, calls, or types." And it makes `escape` a first-class choice for when the evidence lives outside the graph.
 
-The only strong rule is a single one: "once you've used it, that's compiler-issued truth — don't re-doubt it by reading files." When enough evidence is in, the result *tells* the agent "answer now and stop" — it points at a stopping line, it doesn't demand more calls.
+The only strong rule is a single one: "once you've used it, that's compiler-issued truth — don't re-doubt it by reading files." When enough evidence is in, the result _tells_ the agent "answer now and stop" — it points at a stopping line, it doesn't demand more calls.
 
 So the useless forced calls that used to block work simply don't happen. The agent uses the graph when it should and skips it when it shouldn't. (Antidote to §2.4.)
 
 ### 3.2. One Tool, with an Escape Hatch
 
-Second, Claude Code won't always pick the **right tool at the right moment.** The more options, the more misfires — cbm exposes **14** MCP tools. (codegraph avoids that trap with a single default tool; it just forces that one tool too hard — the §3.1 problem.)
+Second, Claude Code won't always pick the **right tool at the right moment.** The more options, the more misfires — codebase-memory-mcp exposes **14** MCP tools. (codegraph avoids that trap with a single default tool; it just forces that one tool too hard — the §3.1 problem.)
 
-`@ttsc/graph` has **exactly one** tool. Inside it, *what* to do is split by a CoT-fed union type. And the safeguards stack: a `review` step mid-CoT can switch the request type, and if it's still wrong, `escape` bails. Safety first.
+`@ttsc/graph` has **exactly one** tool. Inside it, _what_ to do is split by a CoT-fed union type. And the safeguards stack: a `review` step mid-CoT can switch the request type, and if it's still wrong, `escape` bails. Safety first.
 
 ![The forced chain-of-thought inside one tool call: question → draft → review → one request, or escape out](/blog/cot-pipeline.svg)
 
@@ -176,7 +176,7 @@ export namespace ITtscGraphApplication {
 }
 ```
 
-As you can see, `question → draft → review` are **forced function arguments.** typia compiles this type into the tool's JSON schema and validator, so an unfilled CoT is rejected at the call boundary. In typia's words: *"free prose can hide a skipped step; a typed submission cannot."* (Deeper: [CoT compliance](https://typia.io/blog/function-calling-harness-2-cot-compliance/), [function-calling harness](https://typia.io/blog/function-calling-harness-qwen-meetup-korea/).)
+As you can see, `question → draft → review` are **forced function arguments.** typia compiles this type into the tool's JSON schema and validator, so an unfilled CoT is rejected at the call boundary. In typia's words: _"free prose can hide a skipped step; a typed submission cannot."_ (Deeper: [CoT compliance](https://typia.io/blog/function-calling-harness-2-cot-compliance/), [function-calling harness](https://typia.io/blog/function-calling-harness-qwen-meetup-korea/).)
 
 Those one-line comments are condensed; in the source, the fuller JSDoc on each member is what typia compiles into the MCP instruction and the schema descriptions the model reads. Want the details? Read [`ITtscGraphApplication.ts`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphApplication.ts).
 
@@ -194,13 +194,13 @@ Each request branch is one graph operation — its own request (`.IRequest`) and
 
 ### 3.3. Index Only, So Nothing Explodes
 
-Third, it returns **index only.** Names, edges, signatures, spans — but **relationships, not coordinates.** The edges and signatures carry "what calls what, and how," so the agent assembles the answer right there without opening a file. Source bodies are never inlined, and a span is a citation to verify, not a command to go read. (The exact opposite of cbm's pointer, which gave you only "where.")
+Third, it returns **index only.** Names, edges, signatures, spans — but **relationships, not coordinates.** The edges and signatures carry "what calls what, and how," so the agent assembles the answer right there without opening a file. Source bodies are never inlined, and a span is a citation to verify, not a command to go read. (The exact opposite of codebase-memory-mcp's pointer, which gave you only "where.")
 
 Two effects. No token explosion from spilled bodies, and no compounding mess where that explosion plus a misfired MCP call clouds the agent's judgment. The response is bounded independent of repo size, so tokens stay flat.
 
 The bodies/pointers problem from §2.3 and the "agent got worse" from §2.2 both dissolve in this one decision.
 
-And the thesis I opened in §2.1 closes here. `@ttsc/graph` kills the grep crawl loop too — that's table stakes. The difference is it does so *without* the tokens blowing up.
+And the thesis I opened in §2.1 closes here. `@ttsc/graph` kills the grep crawl loop too — that's table stakes. The difference is it does so _without_ the tokens blowing up.
 
 ### 3.4. Only the Compiler Makes This Possible
 
@@ -208,7 +208,7 @@ Fourth. All three above only hold if the results are **trustworthy** — and tha
 
 A heuristic parser like tree-sitter sees text. So there are things it can't resolve — `tsconfig` `paths` aliases (`@app/*` → the real file), cross-package references in a pnpm monorepo, symlinks, re-export chains. Only a compiler that actually finished module resolution can wire those up correctly.
 
-`@ttsc/graph` reads the program `ttsc` already type-checked and resolved. So aliases and monorepos just line up. And because it rides the toolchain, the graph falls out as a near-**free byproduct** of the type-check that's already running — no separate index step (`codegraph init`, cbm's `index_repository`), no file watcher, no stale-index problem.
+`@ttsc/graph` reads the program `ttsc` already type-checked and resolved. So aliases and monorepos just line up. And because it rides the toolchain, the graph falls out as a near-**free byproduct** of the type-check that's already running — no separate index step (`codegraph init`, codebase-memory-mcp's `index_repository`), no file watcher, no stale-index problem.
 
 There's a bonus the compiler throws in, too. The graph doesn't just hold structure — it also carries **every tsc compile error and `@ttsc/lint`/plugin (typia, nestia) lint violation, each fused onto the symbol that owns it.** So "what's broken here?" and "what breaks if I change this?" come from the same index. Not just the shape of the code, but what's wrong with it right now — in one graph.
 
@@ -222,7 +222,7 @@ Bragging only would be a scam. Limits first.
 
 `@ttsc/graph` is **TypeScript-only.** It traded breadth for depth — the opposite bet from the 158-language tools.
 
-But that's not a footgun. On a non-TypeScript project there's simply **no graph to hand over, so the agent never leans on it.** Even inside a TS project, things outside the typed graph — configs, docs, exact-text search — `escape` cleanly out. Step outside its scope and it doesn't *break*; it just **quietly steps aside.** It's strong on exactly the questions a graph can answer, and no further.
+But that's not a footgun. On a non-TypeScript project there's simply **no graph to hand over, so the agent never leans on it.** Even inside a TS project, things outside the typed graph — configs, docs, exact-text search — `escape` cleanly out. Step outside its scope and it doesn't _break_; it just **quietly steps aside.** It's strong on exactly the questions a graph can answer, and no further.
 
 And here's the most important prerequisite. `@ttsc/graph` rides `ttsc`, and `ttsc` runs on the **TypeScript-Go (TypeScript v7)** runtime. v7 isn't released yet — it's at **RC**. That's why the install pins `typescript@rc`. It runs fine on the RC, but to be clear: this is **not something you drop onto your current stable TypeScript (v6.x).** Once v7 ships, that caveat dissolves on its own.
 

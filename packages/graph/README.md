@@ -8,7 +8,7 @@ Gives your AI coding agent a **graph of your TypeScript codebase**, over MCP, so
 
 Ask an agent like Claude Code or Codex about your project and it works file by file: open one, follow an import, open the next, until it has pieced the picture together by hand. That crawl is slow, token-hungry, and every relationship is a guess read off the text.
 
-Plenty of tools replace that crawl. The harder problem is cutting the agent's tokens, not just its tool calls, and the two are not the same: a tool that hands back source bodies or file pointers can make fewer calls and still spend as many tokens, or more. That token problem is the one `@ttsc/graph` is built for.
+Plenty of tools replace that crawl. Cutting the agent's tool calls is the easy part. Cutting its tokens too is harder, and cutting them without the answer getting any worse is harder still: a tool that hands back source bodies or file pointers can make fewer calls and still spend as many tokens, or more. That is the problem `@ttsc/graph` is built for.
 
 `@ttsc/graph` hands the agent the graph up front: what calls what, what depends on what, where each piece lives. It is drawn by the real TypeScript compiler, so it is exact, not skimmed. The agent answers from the graph, and every claim is anchored to a file and line the compiler resolved, so you can open the spot and check it.
 
