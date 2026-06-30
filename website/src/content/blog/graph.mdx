@@ -14,11 +14,9 @@ tags:
 
 > ## TL;DR
 >
-> codegraph and codebase-memory-mcp had the idea first: hand a coding agent a code graph over MCP, so it stops crawling files one by one. Good idea. But on my own open-ended questions the token bill didn't budge, and driving the tools was a chore. So I learned from where they hit walls and built one aimed at that case.
+> `codegraph` and `codebase-memory-mcp` had the idea first: hand a coding agent a code graph over MCP. But on my own open-ended questions the token bill didn't budge, so I built [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph).
 >
-> [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) reads the graph the TypeScript compiler already resolved and hands the agent an **index** — never source bodies. One tool, plus a forced chain-of-thought, keeps it from wandering off.
->
-> The result: on open-ended "how does this work?" questions, **~10× fewer tokens**, with the answers no worse. A measured median, and a conservative one.
+> It hands the agent an **index** the TypeScript compiler already resolved (never source bodies), through one tool with a forced chain-of-thought. The result on "how does this work?" questions: **~10× fewer tokens**, answers no worse. A measured, conservative median.
 >
 > - Repository: https://github.com/samchon/ttsc
 > - Benchmark: https://ttsc.dev/docs/benchmark/graph
@@ -62,9 +60,9 @@ In one sentence: **it reads an index from the program the TypeScript compiler al
 
 ### 2.1. The Promise
 
-Honestly, not my idea. [codegraph](https://github.com/colbymchenry/codegraph) put a code graph in front of an agent over MCP first, and [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) does the same across 158 languages. This post's benchmark is a faithful port of codegraph's, run on two prompt families: a common onboarding question, and codegraph's own per-repo questions. (codebase-memory-mcp's would have made a third, but it ships no reproducible method.)
+Honestly, not my idea. [`codegraph`](https://github.com/colbymchenry/codegraph) put a code graph in front of an agent over MCP first, and [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) does the same across 158 languages. This post's benchmark is a faithful port of `codegraph`'s, run on two prompt families: a common onboarding question, and `codegraph`'s own per-repo questions. (`codebase-memory-mcp`'s would have made a third, but it ships no reproducible method.)
 
-And their core claim is legit. The enemy is the agent's **grep · find · Read crawl loop.** Every "where is this?" turns into a grep, a file open, an import chased, another grep — dozens of round-trips burning tokens and time. codegraph's pitch is clean: replace that loop with one graph query — "58% fewer tool calls, file reads to ~zero." codebase-memory-mcp goes further, headlining "**120× fewer tokens**" (a 99.2% cut).
+And their core claim is legit. The enemy is the agent's **grep · find · Read crawl loop.** Every "where is this?" turns into a grep, a file open, an import chased, another grep — dozens of round-trips burning tokens and time. `codegraph`'s pitch is clean: replace that loop with one graph query — "58% fewer tool calls, file reads to ~zero." `codebase-memory-mcp` goes further, headlining "**120× fewer tokens**" (a 99.2% cut).
 
 Sounded great. So I installed them.
 
@@ -74,10 +72,10 @@ One thing up front, though. Cutting an agent's tool calls is the **easy** part. 
 
 Here's what actually happened.
 
-- **Tokens didn't drop at all.** The tool-call _count_ may have fallen, but the thing you pay for — tokens — didn't budge. On some cells it was even _worse than the baseline_ (codegraph spent up to 47% more, codebase-memory-mcp up to 96% more).
+- **Tokens didn't drop at all.** The tool-call _count_ may have fallen, but the thing you pay for — tokens — didn't budge. On some cells it was even _worse than the baseline_ (`codegraph` spent up to 47% more, `codebase-memory-mcp` up to 96% more).
 - Claude Code and Codex got **worse**, not smarter. They kept missing the intent.
 - Useless MCP calls fired constantly, **blocking or delaying** the work I actually wanted done.
-- I couldn't just ask in plain language. Every query had to be hand-shaped — codebase-memory-mcp wants a Cypher query with an exact `qualified_name`; codegraph wants you to name the symbols for a flow. That **babysitting** alone ate the productivity.
+- I couldn't just ask in plain language. Every query had to be hand-shaped — `codebase-memory-mcp` wants a Cypher query with an exact `qualified_name`; `codegraph` wants you to name the symbols for a flow. That **babysitting** alone ate the productivity.
 
 In short: for my kind of question, worse than before I installed them. So I went digging.
 
@@ -85,9 +83,9 @@ In short: for my kind of question, worse than before I installed them. So I went
 
 The first cause was what each tool does with what it has.
 
-codegraph returns **whole source bodies** — by its own description, "the Read, done for you." Fine for editing. But for a broad "how does this work?", the body _is_ the token bomb. Past a dozen files it truncates and says "call again for more." So you call again. More bodies.
+`codegraph` returns **whole source bodies** — by its own description, "the Read, done for you." Fine for editing. But for a broad "how does this work?", the body _is_ the token bomb. Past a dozen files it truncates and says "call again for more." So you call again. More bodies.
 
-codebase-memory-mcp is the more interesting one, because under the hood it has the right idea. It builds a real **relation graph**, a lot like the one I ended up with: not just where things are, but how they call and depend on each other. The trouble is the surface. That capability is spread across **fourteen MCP tools**, and the useful ones want precise input, a Cypher query or an exact `qualified_name`. Handed fourteen tools and a query language, the agent mostly never reached the relation data at all. Measured, it called the MCP **0** times in every run and fell back to the shell: it gave up and grepped. The graph was right there; the surface buried it.
+`codebase-memory-mcp` is the more interesting one, because under the hood it has the right idea. It builds a real **relation graph**, a lot like the one I ended up with: not just where things are, but how they call and depend on each other. The trouble is the surface. That capability is spread across **fourteen MCP tools**, and the useful ones want precise input, a Cypher query or an exact `qualified_name`. Handed fourteen tools and a query language, the agent mostly never reached the relation data at all. Measured, it called the MCP **0** times in every run and fell back to the shell: it gave up and grepped. The graph was right there; the surface buried it.
 
 So one hands back too much, and the other keeps the right thing behind a door the agent cannot find. Neither moves the token bill.
 
@@ -97,13 +95,13 @@ So one hands back too much, and the other keeps the right thing behind a door th
 
 The second cause is the instructions, and here the two tools go in opposite directions.
 
-codegraph forces its tool, hard. Its MCP instructions tell the agent to "use it instead of reading files," "call it before you Read," "don't grep or Read first," and reach for it on "almost any question." So calls fire even when the graph isn't the answer — a config, a small edit, a question it can't answer at all — and those wasted calls block the real work. codegraph's README is candid about why: the tool only helps when queried directly and is overhead otherwise, so the instructions push hard to keep it from being overhead.
+`codegraph` forces its tool, hard. Its MCP instructions tell the agent to "use it instead of reading files," "call it before you Read," "don't grep or Read first," and reach for it on "almost any question." So calls fire even when the graph isn't the answer — a config, a small edit, a question it can't answer at all — and those wasted calls block the real work. `codegraph`'s README is candid about why: the tool only helps when queried directly and is overhead otherwise, so the instructions push hard to keep it from being overhead.
 
-codebase-memory-mcp does the reverse. Its MCP `initialize` sends no instructions at all, and most of its tools ship with no usage guidance (a couple of descriptions say "use instead of grep" for specific operations; auto-indexing exists but is off by default). Fourteen tools, and almost nothing telling the agent which to reach for or when — so it mostly didn't, and fell back to the shell, as we just saw.
+`codebase-memory-mcp` does the reverse. Its MCP `initialize` sends no instructions at all, and most of its tools ship with no usage guidance (a couple of descriptions say "use instead of grep" for specific operations; auto-indexing exists but is off by default). Fourteen tools, and almost nothing telling the agent which to reach for or when — so it mostly didn't, and fell back to the shell, as we just saw.
 
 So one over-directs and the other under-directs. Neither lands on the thing you actually want: use the graph when it helps, and stop when it doesn't.
 
-And to their credit, none of the limits are hidden. codegraph's README says its token savings are scale-dependent and small on a normal codebase. codebase-memory-mcp reports its biggest numbers on a handful of structural queries, not open-ended ones. They tell you, plainly, that the wins are measured on targeted scenarios.
+And to their credit, none of the limits are hidden. `codegraph`'s README says its token savings are scale-dependent and small on a normal codebase. `codebase-memory-mcp` reports its biggest numbers on a handful of structural queries, not open-ended ones. They tell you, plainly, that the wins are measured on targeted scenarios.
 
 That is the whole point. Those limits get bigger the more general your use is, and general use is where I live. So I took these two for what they are, the pioneers that put a code graph in front of an agent at all, learned from where each one ran into a wall, and built for the case they were not aimed at: the open-ended question, with the tokens down and the answer still good.
 
@@ -128,7 +126,7 @@ So the useless forced calls that used to block work simply don't happen. The age
 
 ### 3.2. One Tool, with an Escape Hatch
 
-Second, Claude Code won't always pick the **right tool at the right moment.** The more options, the more misfires, and that is exactly what buried codebase-memory-mcp's relation graph: **14** MCP tools, and the agent never found its way to the right one. (codegraph avoids the tool-count trap with a single default tool; it just pushes that one tool too hard — the §3.1 problem.)
+Second, Claude Code won't always pick the **right tool at the right moment.** The more options, the more misfires, and that is exactly what buried `codebase-memory-mcp`'s relation graph: **14** MCP tools, and the agent never found its way to the right one. (`codegraph` avoids the tool-count trap with a single default tool; it just pushes that one tool too hard — the §3.1 problem.)
 
 `@ttsc/graph` has **exactly one** tool. Inside it, _what_ to do is split by a CoT-fed union type. And the safeguards stack: a `review` step mid-CoT can switch the request type, and if it's still wrong, `escape` bails. Safety first.
 
@@ -206,7 +204,7 @@ Fourth. All three above only hold if the results are **trustworthy** — and tha
 
 A heuristic parser like tree-sitter sees text. So there are things it can't resolve — `tsconfig` `paths` aliases (`@app/*` → the real file), cross-package references in a pnpm monorepo, symlinks, re-export chains. Only a compiler that actually finished module resolution can wire those up correctly.
 
-`@ttsc/graph` reads the program `ttsc` already type-checked and resolved. So aliases and monorepos just line up. And because it rides the toolchain, the graph falls out as a near-**free byproduct** of the type-check that's already running — no separate index step (`codegraph init`, codebase-memory-mcp's `index_repository`), no file watcher, no stale-index problem.
+`@ttsc/graph` reads the program `ttsc` already type-checked and resolved. So aliases and monorepos just line up. And because it rides the toolchain, the graph falls out as a near-**free byproduct** of the type-check that's already running — no separate index step (`codegraph init`, `codebase-memory-mcp`'s `index_repository`), no file watcher, no stale-index problem.
 
 There's a bonus the compiler throws in, too. The graph doesn't just hold structure — it also carries **every tsc compile error and `@ttsc/lint`/plugin (typia, nestia) lint violation, each fused onto the symbol that owns it.** So "what's broken here?" and "what breaks if I change this?" come from the same index. Not just the shape of the code, but what's wrong with it right now — in one graph.
 
@@ -226,7 +224,7 @@ And here's the most important prerequisite. `@ttsc/graph` rides `ttsc`, and `tts
 
 ### 4.2. It Might Break
 
-I built this because I couldn't stand using codegraph. So I worked hard to make it hold up across general situations — no "I installed it and Codex got dumber." At least on my machine, it was solid.
+I built this because I couldn't stand using `codegraph`. So I worked hard to make it hold up across general situations — no "I installed it and Codex got dumber." At least on my machine, it was solid.
 
 But the world is wide, and there could be failure modes I haven't seen. It's open source. If something's awkward, or you find something I got wrong, [file an issue](https://github.com/samchon/ttsc/issues). That's the fastest way to make this thing solid.
 
@@ -267,7 +265,15 @@ And — to those of you on other languages. This approach isn't TypeScript's alo
 
 One last thing. **Don't make your agent read the whole codebase. Hand it the index the compiler drew.**
 
-- ⭐ Repository: https://github.com/samchon/ttsc
-- 🐛 Issues: https://github.com/samchon/ttsc/issues
+## 5. References
 
 ![@ttsc/graph](https://ttsc.dev/og.jpg)
+
+- Repository: https://github.com/samchon/ttsc
+- Benchmark: https://ttsc.dev/docs/benchmark/graph
+- Issues: https://github.com/samchon/ttsc/issues
+
+The pioneers this builds on:
+
+- `codegraph`: https://github.com/colbymchenry/codegraph
+- `codebase-memory-mcp`: https://github.com/DeusData/codebase-memory-mcp
