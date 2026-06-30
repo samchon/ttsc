@@ -179,18 +179,23 @@ const toolSetupMs =
   args["tool-setup-ms"] === undefined
     ? undefined
     : Number(args["tool-setup-ms"]);
-// --cg points the graph arm at codegraph, and --cbm points it at
-// codebase-memory-mcp. Both use the same prompt and validity gates as
-// @ttsc/graph.
+// --cg, --cbm, and --serena point the graph arm at external MCP comparators.
+// They use the same prompt and validity gates as @ttsc/graph.
 const cg = args.cg === "1" || args.cg === "true";
 const cbm = args.cbm === "1" || args.cbm === "true";
-if (cg && cbm) throw new Error("--cg and --cbm cannot be combined");
+const serena = args.serena === "1" || args.serena === "true";
+if ([cg, cbm, serena].filter(Boolean).length > 1) {
+  throw new Error("--cg, --cbm, and --serena cannot be combined");
+}
 const cbmBinary =
   args["cbm-binary"] ??
   process.env.CODEBASE_MEMORY_MCP_BINARY ??
   "codebase-memory-mcp";
 const cbmCommand = commandPath(cbmBinary);
 const cbmCacheDir = args["cbm-cache-dir"];
+const serenaCommand = commandPath(
+  args["serena-command"] ?? process.env.SERENA_MCP_COMMAND ?? "uvx",
+);
 // --arm selects which arms to run: `baseline` and `graph` can be measured
 // separately so a fixed baseline is cached once and later graph iterations only
 // rerun the MCP arm. Baseline-only does not need graph binaries or dependencies.
@@ -217,7 +222,7 @@ const binary = path.join(
   os.tmpdir(),
   `ttscgraph-codex-${process.pid}${process.platform === "win32" ? ".exe" : ""}`,
 );
-if (armsRequested.graph && !cg && !cbm) {
+if (armsRequested.graph && !cg && !cbm && !serena) {
   if (!fs.existsSync(graphLauncher)) {
     throw new Error(
       `@ttsc/graph launcher not built: ${graphLauncher}\n` +
@@ -255,11 +260,12 @@ if (
   armsRequested.graph &&
   !cg &&
   !cbm &&
+  !serena &&
   !fs.existsSync(path.join(repoDir, tsconfig))
 ) {
   throw new Error(`missing tsconfig: ${path.join(repoDir, tsconfig)}`);
 }
-if (armsRequested.graph && !cg && !cbm) ensureInstalled(repoDir);
+if (armsRequested.graph && !cg && !cbm && !serena) ensureInstalled(repoDir);
 
 // 3. The graph server is the Node launcher run over stdio; it shells out to the
 // dump binary (pointed at via TTSC_GRAPH_BINARY) on the first tool call, then
@@ -272,7 +278,7 @@ const launcherArgs = [graphLauncher, "--cwd", repoDir, "--tsconfig", tsconfig];
 // server. Both copy the real auth.json so codex stays logged in.
 const realHome = path.join(os.homedir(), ".codex");
 const withHome = armsRequested.graph
-  ? makeCodexHome("with", cg || cbm ? [] : launcherArgs)
+  ? makeCodexHome("with", cg || cbm || serena ? [] : launcherArgs)
   : null;
 const withoutHome = armsRequested.baseline
   ? makeCodexHome("without", null)
@@ -435,6 +441,9 @@ function makeCodexHome(tag, serverArgs) {
       const envParts = [`CBM_LOG_LEVEL = "warn"`];
       if (cbmCacheDir) envParts.unshift(`CBM_CACHE_DIR = '${cbmCacheDir}'`);
       toml += `\n[mcp_servers.codebase_memory]\ncommand = '${cbmCommand}'\nargs = []\nenv = { ${envParts.join(", ")} }\nrequired = true\n`;
+    } else if (serena) {
+      const argList = serenaServerArgs(repoDir).map((a) => `'${a}'`).join(", ");
+      toml += `\n[mcp_servers.serena]\ncommand = '${serenaCommand}'\nargs = [${argList}]\nrequired = true\n`;
     } else {
       const argList = serverArgs.map((a) => `'${a}'`).join(", ");
       toml += `\n[mcp_servers.ttscgraph]\ncommand = '${process.execPath}'\nargs = [${argList}]\nenv = { TTSC_GRAPH_BINARY = '${binary}' }\nrequired = true\n`;
@@ -446,7 +455,7 @@ function makeCodexHome(tag, serverArgs) {
 }
 
 function validateMcpConfig(toml) {
-  if ((cg || cbm) && toml.includes("[mcp_servers.ttscgraph]")) {
+  if ((cg || cbm || serena) && toml.includes("[mcp_servers.ttscgraph]")) {
     throw new Error("comparator Codex config must not include @ttsc/graph");
   }
   if (cg && !toml.includes("[mcp_servers.codegraph]")) {
@@ -457,11 +466,15 @@ function validateMcpConfig(toml) {
       "codebase-memory Codex config did not include codebase-memory",
     );
   }
+  if (serena && !toml.includes("[mcp_servers.serena]")) {
+    throw new Error("Serena Codex config did not include Serena");
+  }
 }
 
 function graphToolName() {
   if (cg) return "codegraph";
   if (cbm) return "codebase-memory";
+  if (serena) return "serena";
   return "ttsc-graph";
 }
 
@@ -476,6 +489,43 @@ function codegraphServerArgs(targetRepoDir) {
   return process.platform === "win32"
     ? ["/d", "/s", "/c", "codegraph", ...args]
     : args;
+}
+
+function serenaServerArgs(targetRepoDir) {
+  const configured = args["serena-args"] ?? process.env.SERENA_MCP_ARGS;
+  if (configured) return parseConfiguredArgs(configured, targetRepoDir);
+  return [
+    "--from",
+    "git+https://github.com/oraios/serena",
+    "serena",
+    "start-mcp-server",
+    "--context",
+    "codex",
+    "--project",
+    targetRepoDir,
+    "--enable-web-dashboard",
+    "False",
+    "--open-web-dashboard",
+    "False",
+    "--log-level",
+    "WARNING",
+  ];
+}
+
+function parseConfiguredArgs(raw, targetRepoDir) {
+  const parsed = raw.trim().startsWith("[")
+    ? JSON.parse(raw)
+    : raw.match(/"[^"]*"|'[^']*'|\S+/g)?.map((part) =>
+        part.replace(/^(['"])(.*)\1$/, "$2"),
+      );
+  if (!Array.isArray(parsed)) {
+    throw new Error("--serena-args must be a JSON string array or shell-like list");
+  }
+  return parsed.map((part) =>
+    String(part)
+      .replaceAll("{repo}", targetRepoDir)
+      .replaceAll("{cwd}", targetRepoDir),
+  );
 }
 
 function promptForArm(baseQuestion, _armName) {

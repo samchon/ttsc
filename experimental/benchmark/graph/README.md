@@ -49,7 +49,10 @@ node experimental/benchmark/graph/agent-ab.mjs --repo=excalidraw --runs=10 --mod
 node experimental/benchmark/graph/agent-ab.mjs --repo=vscode --runs=10 --model=sonnet
 codegraph init /abs/path/to/repo
 node experimental/benchmark/graph/agent-ab.mjs --repo=typeorm --repo-dir=/abs/path/to/repo --cg=1 --runs=1
+node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/abs/path/to/repo --serena=1 --runs=1
 ```
+
+The Serena arm runs the MCP server with `uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context <client> --project <repo>`, with the web dashboard disabled for benchmark subprocesses. Override the launcher with `--serena-command=<cmd>` and the argument list with `--serena-args='["..."]'`; `{repo}` and `{cwd}` placeholders expand to the measured checkout.
 
 ### Manifest-driven prompts
 

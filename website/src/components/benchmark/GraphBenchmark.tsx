@@ -170,6 +170,7 @@ function promptFamilyLabel(promptFamily: string): string {
 const TOOL_TTSC = "ttsc-graph";
 const TOOL_CODEGRAPH = "codegraph";
 const TOOL_CODEBASE_MEMORY = "codebase-memory";
+const TOOL_SERENA = "serena";
 const TOOL_BASELINE = "baseline";
 
 function cellTool(cell: AgentCell): string {
@@ -258,10 +259,12 @@ interface ModelGroup {
   question?: string;
   codegraphSetupMs?: number;
   codebaseMemorySetupMs?: number;
+  serenaSetupMs?: number;
   baseline: Metrics;
   ttsc?: Metrics;
   codegraph?: Metrics;
   codebaseMemory?: Metrics;
+  serena?: Metrics;
 }
 
 interface ProjectGroup {
@@ -395,6 +398,7 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
         const codebaseMemoryCell = modelCells.find(
           (c) => cellTool(c) === TOOL_CODEBASE_MEMORY,
         );
+        const serenaCell = modelCells.find((c) => cellTool(c) === TOOL_SERENA);
         const baselineCells = modelCells.filter(
           (c) => cellTool(c) === TOOL_BASELINE,
         );
@@ -410,14 +414,15 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
             ? dedicatedBaselineSamples
             : embeddedBaselineSamples;
         const head = modelCells[0]!;
-        const ttscValid = ttscCell
-          ? metricSamples(ttscCell.samples.graph)
-          : [];
+        const ttscValid = ttscCell ? metricSamples(ttscCell.samples.graph) : [];
         const codegraphValid = codegraphCell
           ? metricSamples(codegraphCell.samples.graph)
           : [];
         const codebaseMemoryValid = codebaseMemoryCell
           ? metricSamples(codebaseMemoryCell.samples.graph)
+          : [];
+        const serenaValid = serenaCell
+          ? metricSamples(serenaCell.samples.graph)
           : [];
         const question = primaryQuestion([
           ...modelCells
@@ -439,10 +444,12 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
             ttscCell?.runs ??
             codegraphCell?.runs ??
             codebaseMemoryCell?.runs ??
+            serenaCell?.runs ??
             baselineCell?.runs,
           question,
           codegraphSetupMs: codegraphCell?.toolSetupMs,
           codebaseMemorySetupMs: codebaseMemoryCell?.toolSetupMs,
+          serenaSetupMs: serenaCell?.toolSetupMs,
           baseline: medianMetrics(baselineSamples),
           ttsc:
             ttscValid.length > 0
@@ -455,6 +462,10 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
           codebaseMemory:
             codebaseMemoryValid.length > 0
               ? medianMetricsFromValid(codebaseMemoryValid)
+              : undefined,
+          serena:
+            serenaValid.length > 0
+              ? medianMetricsFromValid(serenaValid)
               : undefined,
         };
       })
@@ -487,6 +498,8 @@ const CODEGRAPH_FILL = "linear-gradient(90deg, #f5b042, #d97706)";
 const CODEGRAPH_TEXT = "#f5b042";
 const CODEBASE_MEMORY_FILL = "linear-gradient(90deg, #8bdc65, #3f9f4a)";
 const CODEBASE_MEMORY_TEXT = "#8bdc65";
+const SERENA_FILL = "linear-gradient(90deg, #e879f9, #a855f7)";
+const SERENA_TEXT = "#e879f9";
 
 const panelClass =
   "overflow-hidden rounded-lg border border-[#222834] bg-[#0c0e13] shadow-[0_24px_60px_rgba(0,0,0,0.35)]";
@@ -588,7 +601,7 @@ function CrownMark({ active }: { active: boolean }) {
 // Token reduction charts
 // ---------------------------------------------------------------------------
 
-type ToolKey = "ttsc" | "codegraph" | "codebaseMemory";
+type ToolKey = "ttsc" | "codegraph" | "codebaseMemory" | "serena";
 type ReductionSeriesKey = "baseline" | ToolKey;
 
 interface ReductionTool {
@@ -826,6 +839,14 @@ function reductionTools(model: ModelGroup): ReductionTool[] {
       fill: CODEBASE_MEMORY_FILL,
       textColor: CODEBASE_MEMORY_TEXT,
     },
+    {
+      key: "serena",
+      label: "Serena",
+      metrics: model.serena,
+      setupMs: model.serenaSetupMs,
+      fill: SERENA_FILL,
+      textColor: SERENA_TEXT,
+    },
   ];
 }
 
@@ -836,6 +857,7 @@ function ChartLegend() {
       <LegendDot fill={ACCENT} label="@ttsc/graph" />
       <LegendDot fill={CODEGRAPH_TEXT} label="codegraph" />
       <LegendDot fill={CODEBASE_MEMORY_TEXT} label="codebase-memory" />
+      <LegendDot fill={SERENA_TEXT} label="Serena" />
       <span className="text-neutral-600">
         bars show token usage; right labels show tokens and baseline reduction
       </span>
@@ -859,17 +881,24 @@ function ReductionChart({
   rows: ReductionRow[];
   aside?: string;
 }) {
-  const { ttscAverage, codegraphAverage, codebaseMemoryAverage, domain, ticks } =
-    useMemo(() => {
-      const d = tokenDomain(rows);
-      return {
-        ttscAverage: averageReduction(rows, "ttsc"),
-        codegraphAverage: averageReduction(rows, "codegraph"),
-        codebaseMemoryAverage: averageReduction(rows, "codebaseMemory"),
-        domain: d,
-        ticks: tokenTicks(d),
-      };
-    }, [rows]);
+  const {
+    ttscAverage,
+    codegraphAverage,
+    codebaseMemoryAverage,
+    serenaAverage,
+    domain,
+    ticks,
+  } = useMemo(() => {
+    const d = tokenDomain(rows);
+    return {
+      ttscAverage: averageReduction(rows, "ttsc"),
+      codegraphAverage: averageReduction(rows, "codegraph"),
+      codebaseMemoryAverage: averageReduction(rows, "codebaseMemory"),
+      serenaAverage: averageReduction(rows, "serena"),
+      domain: d,
+      ticks: tokenTicks(d),
+    };
+  }, [rows]);
 
   return (
     <section className={`${panelClass} overflow-visible`}>
@@ -896,6 +925,11 @@ function ReductionChart({
             {codebaseMemoryAverage !== null ? (
               <span className="rounded-full border border-[#2f4b28] bg-[#111a10] px-2 py-1 text-[#8bdc65]">
                 codebase-memory avg {reductionLabel(codebaseMemoryAverage)}
+              </span>
+            ) : null}
+            {serenaAverage !== null ? (
+              <span className="rounded-full border border-[#553066] bg-[#1a0f21] px-2 py-1 text-[#e879f9]">
+                Serena avg {reductionLabel(serenaAverage)}
               </span>
             ) : null}
           </div>

@@ -55,13 +55,14 @@ The benchmark page keeps source text out of the first render so the chart remain
 
 ## How The Comparators Differ
 
-The benchmark harness treats `codegraph` and `codebase-memory-mcp` as separate comparator arms, not as the same contract.
+The benchmark harness treats `codegraph`, `codebase-memory-mcp`, and Serena as separate comparator arms, not as the same contract.
 
 | Tool | Local setup in the benchmark source | What this page treats it as |
 | --- | --- | --- |
 | `@ttsc/graph` | The typed MCP server defined in `packages/graph/src/structures` and `packages/graph/src/server`. | The subject of the page. |
 | `codegraph` | `codegraph init`, with `.codegraph/` ignored and optionally kept for inspection. | External comparator arm. |
 | `codebase-memory-mcp` | `codebase-memory-mcp cli index_repository`, with an isolated `CBM_CACHE_DIR` and `.codebase-memory/` ignored. | External comparator arm. |
+| Serena | `uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context <client> --project <repo>`, with `.serena/` ignored and optionally kept for inspection. | External comparator arm. |
 
 The chart reads raw samples from `website/public/benchmark/graph.json`, so it keeps those setup paths separate instead of folding them into one story.
 
