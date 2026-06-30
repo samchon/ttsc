@@ -63,32 +63,67 @@
     <rect x="440" y="115" width="320" height="26" rx="13" fill="#3178c6" opacity="0.18"/>
     <circle cx="460" cy="128" r="5" fill="#3178c6"/>
     <text x="474" y="133" font-size="16" font-weight="700" fill="#cfe0f5">codebase-memory</text>
-    <text x="700" y="133" font-size="13" font-weight="600" fill="#7d93b0">pointers</text>
+    <text x="748" y="133" font-size="13" font-weight="600" fill="#7d93b0" text-anchor="end">graph, buried</text>
 
-    <!-- pointer rows: name . path . line -->
-    <g>
-      <rect x="440" y="160" width="320" height="34" rx="8" fill="#0b0f16" stroke="#2a3340" stroke-width="1.2"/>
-      <text x="456" y="182" font-size="13" font-weight="600" fill="#cfe0f5">parseConfig <tspan fill="#566273">·</tspan> <tspan fill="#8b949e">src/config.ts</tspan> <tspan fill="#566273">·</tspan> <tspan fill="#3fb950">42</tspan></text>
-      <rect x="440" y="200" width="320" height="34" rx="8" fill="#0b0f16" stroke="#2a3340" stroke-width="1.2"/>
-      <text x="456" y="222" font-size="13" font-weight="600" fill="#cfe0f5">loadPlugins <tspan fill="#566273">·</tspan> <tspan fill="#8b949e">src/plugin.ts</tspan> <tspan fill="#566273">·</tspan> <tspan fill="#3fb950">88</tspan></text>
-      <rect x="440" y="240" width="320" height="34" rx="8" fill="#0b0f16" stroke="#2a3340" stroke-width="1.2"/>
-      <text x="456" y="262" font-size="13" font-weight="600" fill="#cfe0f5">emitOutput <tspan fill="#566273">·</tspan> <tspan fill="#8b949e">src/emit.ts</tspan> <tspan fill="#566273">·</tspan> <tspan fill="#3fb950">17</tspan></text>
+    <!-- buried relation graph (faint, peeking behind the wall of tools) -->
+    <g opacity="0.34">
+      <g stroke="#3178c6" stroke-width="3" fill="none">
+        <line x1="456" y1="162" x2="600" y2="150"/>
+        <line x1="600" y1="150" x2="746" y2="168"/>
+        <line x1="456" y1="162" x2="450" y2="298"/>
+        <line x1="746" y1="168" x2="752" y2="292"/>
+        <line x1="450" y1="298" x2="600" y2="306"/>
+        <line x1="600" y1="306" x2="752" y2="292"/>
+        <line x1="456" y1="162" x2="600" y2="306"/>
+        <line x1="746" y1="168" x2="600" y2="306"/>
+      </g>
+      <g fill="#3178c6">
+        <circle cx="456" cy="162" r="8"/>
+        <circle cx="600" cy="150" r="8"/>
+        <circle cx="746" cy="168" r="8"/>
+        <circle cx="450" cy="298" r="8"/>
+        <circle cx="752" cy="292" r="8"/>
+      </g>
+      <circle cx="600" cy="306" r="11" fill="#3fb950"/>
     </g>
+
+    <!-- the wall: 14 MCP tool chips covering the graph -->
+    <g>
+      <!-- row 1 -->
+      <rect x="460" y="168" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="472" y="181" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="518" y="168" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="530" y="181" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="576" y="168" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="588" y="181" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="634" y="168" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="646" y="181" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="692" y="168" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="704" y="181" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <!-- row 2 -->
+      <rect x="460" y="210" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="472" y="223" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="518" y="210" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="530" y="223" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="576" y="210" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="588" y="223" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="634" y="210" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="646" y="223" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="692" y="210" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="704" y="223" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <!-- row 3 (4 chips, centered) -->
+      <rect x="489" y="252" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="501" y="265" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="547" y="252" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="559" y="265" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="605" y="252" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="617" y="265" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+      <rect x="663" y="252" width="48" height="30" rx="7" fill="#1a2230" stroke="#3a4656" stroke-width="1.2"/><rect x="675" y="265" width="24" height="4" rx="2" fill="#3178c6" opacity="0.7"/>
+    </g>
+    <text x="600" y="303" font-size="13" font-weight="600" fill="#8b949e" text-anchor="middle">14 MCP tools &#183; graph never reached</text>
 
     <!-- arrow down -->
     <g stroke="#566273" stroke-width="2" fill="none">
-      <line x1="600" y1="282" x2="600" y2="312"/>
+      <line x1="600" y1="314" x2="600" y2="334"/>
     </g>
-    <path d="M600 320 l-7 -11 l14 0 z" fill="#566273"/>
+    <path d="M600 342 l-7 -11 l14 0 z" fill="#566273"/>
 
-    <!-- agent opens files box -->
-    <rect x="470" y="326" width="260" height="58" rx="12" fill="#171f2b" stroke="#3a4656" stroke-width="1.5"/>
-    <text x="600" y="352" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">&#128196; agent opens the files</text>
-    <text x="600" y="372" font-size="13" font-weight="500" fill="#8b949e" text-anchor="middle">N more read calls</text>
+    <!-- gives up -> shell box -->
+    <rect x="470" y="348" width="260" height="58" rx="12" fill="#171f2b" stroke="#3a4656" stroke-width="1.5"/>
+    <text x="600" y="374" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">gives up &#8594; shell</text>
+    <text x="600" y="394" font-size="13" font-weight="500" fill="#8b949e" text-anchor="middle">grep &#183; Read</text>
 
     <!-- caption -->
-    <text x="600" y="512" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">you still read the files</text>
-    <text x="600" y="540" font-size="15" font-weight="500" fill="#8b949e" text-anchor="middle">back to crawling</text>
+    <text x="600" y="512" font-size="17" font-weight="700" fill="#e6edf3" text-anchor="middle">a real graph</text>
+    <text x="600" y="535" font-size="14" font-weight="500" fill="#8b949e" text-anchor="middle">buried under 14 tools &#183; 0 MCP calls</text>
+    <text x="600" y="556" font-size="14" font-weight="500" fill="#8b949e" text-anchor="middle">fell back to grep</text>
   </g>
 
   <!-- ===================== Column 3: @ttsc/graph ===================== -->

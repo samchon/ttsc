@@ -1,6 +1,6 @@
 ---
 title: "I Made a TypeScript Compiler Graph MCP for Claude Code: 10x Fewer Tokens, Even for General-Purpose Questions"
-description: "It's built on the TypeScript compiler's own APIs — it reads the graph the compiler already resolved instead of guessing it — so it stays exact and cuts tokens 10x even on open-ended 'how does this work?' questions, not just targeted ones. A compiler-exact index handed to your coding agent over MCP, with every claim anchored to a verifiable file:line span. Plus why the other code-graph tools cut tool calls but not cost."
+description: "It's built on the TypeScript compiler's own APIs — it reads the graph the compiler already resolved instead of guessing it — so it stays exact and cuts tokens 10x even on open-ended 'how does this work?' questions, not just targeted ones. A compiler-exact index handed to your coding agent over MCP, with every claim anchored to a verifiable file:line span. Plus why the other code-graph tools, for all their strengths, don't move the token bill on a real question."
 date: "2026-06-30"
 author: "Jeongho Nam"
 ogImage: "/blog/graph-og.svg"
@@ -62,7 +62,7 @@ In one sentence: **it reads an index from the program the TypeScript compiler al
 
 ### 2.1. The Promise
 
-Honestly, not my idea. [codegraph](https://github.com/colbymchenry/codegraph) put a code graph in front of an agent over MCP first, and this post's benchmark is a faithful port of theirs. [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) does the same across 158 languages.
+Honestly, not my idea. [codegraph](https://github.com/colbymchenry/codegraph) put a code graph in front of an agent over MCP first, and [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) does the same across 158 languages. This post's benchmark is a faithful port of codegraph's, run on two prompt families: a common onboarding question, and codegraph's own per-repo questions. (codebase-memory-mcp's would have made a third, but it ships no reproducible method.)
 
 And their core claim is legit. The enemy is the agent's **grep · find · Read crawl loop.** Every "where is this?" turns into a grep, a file open, an import chased, another grep — dozens of round-trips burning tokens and time. codegraph's pitch is clean: replace that loop with one graph query — "58% fewer tool calls, file reads to ~zero." codebase-memory-mcp goes further, headlining "**120× fewer tokens**" (a 99.2% cut).
 
@@ -79,35 +79,35 @@ Here's what actually happened.
 - Useless MCP calls fired constantly, **blocking or delaying** the work I actually wanted done.
 - I couldn't just ask in plain language. Every query had to be hand-shaped — codebase-memory-mcp wants a Cypher query with an exact `qualified_name`; codegraph wants you to name the symbols for a flow. That **babysitting** alone ate the productivity.
 
-In short: worse than before I installed them. The opposite of the ad. So I went digging.
+In short: for my kind of question, worse than before I installed them. So I went digging.
 
-### 2.3. Bodies and Pointers
+### 2.3. Bodies, and a Buried Graph
 
-The first cause was _what_ each tool hands back.
+The first cause was what each tool does with what it has.
 
 codegraph returns **whole source bodies** — by its own description, "the Read, done for you." Fine for editing. But for a broad "how does this work?", the body _is_ the token bomb. Past a dozen files it truncates and says "call again for more." So you call again. More bodies.
 
-codebase-memory-mcp does the opposite — **pointers only.** Name, path, line. But to answer "how does it work?" you still have to open those files. So the agent drops the MCP and goes straight to the shell. Measured: graph calls **0**, shell calls **40**.
+codebase-memory-mcp is the more interesting one, because under the hood it has the right idea. It builds a real **relation graph**, a lot like the one I ended up with: not just where things are, but how they call and depend on each other. The trouble is the surface. That capability is spread across **fourteen MCP tools**, and the useful ones want precise input, a Cypher query or an exact `qualified_name`. Handed fourteen tools and a query language, the agent mostly never reached the relation data at all. Measured, it called the MCP **0** times in every run and fell back to the shell: it gave up and grepped. The graph was right there; the surface buried it.
 
-What are those 40? grep and Read. The very crawl loop it promised to kill, walked back in **through the back door** along the pointers.
+So one hands back too much, and the other keeps the right thing behind a door the agent cannot find. Neither moves the token bill.
 
-Easy to get confused here. "codebase-memory-mcp's pointers are compact too — isn't that the same as your index?" No. **A pointer gives you "where" (a coordinate), not "what it does and how it connects."** And the answer to "how does this work?" is _relationships_, not coordinates. So an agent handed only coordinates has to open the files and read the relationships itself. Compactness isn't the issue — whether the compact thing is _an answer_ or _a stepping stone to source_ is. codebase-memory-mcp's pointer is a stepping stone, so you cross the river anyway. (Why `@ttsc/graph`'s index is the answer itself: §3.3.)
-
-codegraph via bodies, codebase-memory-mcp via pointers-then-reads — that's why neither moves the token bill.
-
-![What each tool hands back: codegraph returns source bodies, codebase-memory returns pointers, @ttsc/graph returns a compact index](/blog/response-shapes.svg)
+![What each tool hands back](/blog/response-shapes.svg)
 
 ### 2.4. Forced Calls
 
-The second cause was nastier: their instructions **force** the tool onto the agent.
+The second one bothered me more: the instructions push the tool onto the agent, hard.
 
-codegraph spells it out: "use it instead of reading files," "call it before you Read," "don't grep or Read first," "almost any question → explore." codebase-memory-mcp too: "use instead of grep," "first call search_graph, then…," plus auto-indexing on session start.
+codegraph spells it out: "use it instead of reading files," "call it before you Read," "don't grep or Read first," "almost any question → explore." codebase-memory-mcp pushes the same way in its tool descriptions ("use instead of grep") and auto-indexes on session start.
 
-So calls fire even when the graph isn't the answer — for a config, for a small edit, for questions the graph can't answer at all. Those wasted calls block the real work. That's exactly what frustrated me.
+With codegraph the push lands, and calls fire even when the graph isn't the answer — a config, a small edit, a question it can't answer at all — and those wasted calls block the real work. (codebase-memory-mcp pushes too, but with its surface buried the agent ignored it, as we just saw.) Either way, that's exactly what frustrated me.
 
 Why force it? Because their headline numbers — "58% fewer tool calls," "file reads → 0" — are hostage to the call rate. The agent has to route everything through the tool for those numbers to show up. codegraph even admits it in its README: _"it only helps when queried directly; otherwise it's overhead."_ So, to avoid being overhead, it forces.
 
-They optimized the chart, not the user. Forcing is a crutch for results you can't trust on their own merit.
+It is a rational thing to optimize, but it is the benchmark headline, not my workday.
+
+And to their credit, none of this is hidden. codegraph's README says its token savings are scale-dependent and small on a normal codebase, and that the tool is overhead unless you query it directly. codebase-memory-mcp reports its biggest numbers on a handful of structural queries, not open-ended ones. They tell you, plainly, that the wins are measured on targeted scenarios.
+
+That is the whole point. Those limits get bigger the more general your use is, and general use is where I live. So I took these two for what they are, the pioneers that put a code graph in front of an agent at all, learned from where each one ran into a wall, and built for the case they were not aimed at: the open-ended question, with the tokens down and the answer still good.
 
 ## 3. How It Works
 
@@ -116,8 +116,8 @@ They optimized the chart, not the user. Forcing is a crutch for results you can'
 | Pain (§2) | Antidote (§3) |
 | --- | --- |
 | 2.4 — forced calls block real work | **3.1** — never forces (autonomy + `escape`) |
-| 2.2 — too many tools, query babysitting | **3.2** — one tool + CoT translates plain language |
-| 2.3 — bodies/pointers blow up tokens | **3.3** — returns `index` only |
+| 2.3 — a real graph buried under 14 tools | **3.2** — one tool, asked in plain language |
+| 2.3 — source bodies blow up tokens | **3.3** — returns `index` only |
 | (only works if trustworthy) | **3.4** — the real compiler |
 
 ### 3.1. It Never Forces You
@@ -130,7 +130,7 @@ So the useless forced calls that used to block work simply don't happen. The age
 
 ### 3.2. One Tool, with an Escape Hatch
 
-Second, Claude Code won't always pick the **right tool at the right moment.** The more options, the more misfires — codebase-memory-mcp exposes **14** MCP tools. (codegraph avoids that trap with a single default tool; it just forces that one tool too hard — the §3.1 problem.)
+Second, Claude Code won't always pick the **right tool at the right moment.** The more options, the more misfires, and that is exactly what buried codebase-memory-mcp's relation graph: **14** MCP tools, and the agent never found its way to the right one. (codegraph avoids the tool-count trap with a single default tool; it just pushes that one tool too hard — the §3.1 problem.)
 
 `@ttsc/graph` has **exactly one** tool. Inside it, _what_ to do is split by a CoT-fed union type. And the safeguards stack: a `review` step mid-CoT can switch the request type, and if it's still wrong, `escape` bails. Safety first.
 
@@ -194,13 +194,13 @@ Each request branch is one graph operation — its own request (`.IRequest`) and
 
 ### 3.3. Index Only, So Nothing Explodes
 
-Third, it returns **index only.** Names, edges, signatures, spans — but **relationships, not coordinates.** The edges and signatures carry "what calls what, and how," so the agent assembles the answer right there without opening a file. Source bodies are never inlined, and a span is a citation to verify, not a command to go read. (The exact opposite of codebase-memory-mcp's pointer, which gave you only "where.")
+Third, it returns **index only.** Names, edges, signatures, spans — the **relationships themselves**, not just where things sit. The edges and signatures carry "what calls what, and how," so the agent assembles the answer right there without opening a file. Source bodies are never inlined, and a span is a citation to verify, not a command to go read.
 
 Two effects. No token explosion from spilled bodies, and no compounding mess where that explosion plus a misfired MCP call clouds the agent's judgment. The response is bounded independent of repo size, so tokens stay flat.
 
-The bodies/pointers problem from §2.3 and the "agent got worse" from §2.2 both dissolve in this one decision.
+The source-body blowup from §2.3 and the "agent got worse" from §2.2 both ease in this one decision.
 
-And the thesis I opened in §2.1 closes here. `@ttsc/graph` kills the grep crawl loop too — that's table stakes. The difference is it does so _without_ the tokens blowing up.
+And the thesis I opened in §2.1 closes here. `@ttsc/graph` kills the grep crawl loop too — that's table stakes. The difference is it does so _without_ the tokens blowing up, and without the answer getting any worse.
 
 ### 3.4. Only the Compiler Makes This Possible
 

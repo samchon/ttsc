@@ -4,15 +4,11 @@
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE) [![NPM Version](https://img.shields.io/npm/v/@ttsc/graph.svg)](https://www.npmjs.com/package/@ttsc/graph) [![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/graph.svg)](https://www.npmjs.com/package/@ttsc/graph) [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest) [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs/graph) [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-Gives your AI coding agent a **graph of your TypeScript codebase**, over MCP, so it answers "how does this work?" without opening file after file.
+Ask your coding agent how a TypeScript project works and you know what happens: it opens a file, follows an import, opens another, and a dozen files later it answers. The crawl is slow, token-hungry, and every relationship is a guess read off the text.
 
-Ask an agent like Claude Code or Codex about your project and it works file by file: open one, follow an import, open the next, until it has pieced the picture together by hand. That crawl is slow, token-hungry, and every relationship is a guess read off the text.
+`@ttsc/graph` gives the agent a **graph of your codebase** instead, over MCP: what calls what, what depends on what, where each piece lives. It is drawn by the real TypeScript compiler, so it is exact, not skimmed. The agent answers from the graph, and every claim is anchored to a file and line the compiler resolved, so you can open the spot and check it.
 
-Plenty of tools replace that crawl. Cutting the agent's tool calls is the easy part. Cutting its tokens too is harder, and cutting them without the answer getting any worse is harder still: a tool that hands back source bodies or file pointers can make fewer calls and still spend as many tokens, or more. That is the problem `@ttsc/graph` is built for.
-
-`@ttsc/graph` hands the agent the graph up front: what calls what, what depends on what, where each piece lives. It is drawn by the real TypeScript compiler, so it is exact, not skimmed. The agent answers from the graph, and every claim is anchored to a file and line the compiler resolved, so you can open the spot and check it.
-
-On a public benchmark, `@ttsc/graph` cuts an agent's tokens by roughly 10x on open-ended "how does this work?" questions. See the [Benchmark](#benchmark) section below.
+Plenty of tools replace that crawl. Cutting the agent's tool calls is the easy part; cutting its tokens too is harder, and cutting them without the answer getting any worse is harder still. That last problem is the one `@ttsc/graph` is built for: on a public benchmark it cuts an agent's tokens by roughly 10x on open-ended "how does this work?" questions. See the [Benchmark](#benchmark) section below.
 
 ## Setup
 
@@ -57,25 +53,25 @@ This is TypeORM in 3D, colored by kind ([live viewer](https://ttsc.dev/docs/grap
 
 ## Why I Built It
 
-I did not invent this. [codegraph](https://github.com/colbymchenry/codegraph) put a code graph in front of an agent over MCP first, and the benchmark here is a faithful port of theirs. [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) does the same across 158 languages, headlining "120x fewer tokens." Their core claim is legit: the enemy is the agent's grep, find, and Read crawl loop, and replacing it with one graph query is a real win. So I installed them.
+I did not invent this. [codegraph](https://github.com/colbymchenry/codegraph) put a code graph in front of an agent over MCP first; [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) does the same across 158 languages, headlining "120x fewer tokens." Their core claim is legit: the enemy is the agent's grep, find, and Read crawl loop, and replacing it with one graph query is a real win. So I installed them.
 
-It did not go well. Tokens did not drop. On some repositories the agent spent more than it did with no MCP at all. Claude Code and Codex got worse, not smarter, and kept missing the intent. Useless tool calls fired constantly and blocked the work I wanted done. And I could not just ask in plain language: codebase-memory-mcp wants a Cypher query with an exact `qualified_name`, and codegraph wants you to name the symbols for a flow.
+It did not go well. Tokens did not drop. On some repositories the agent spent more than it did with no MCP at all. Claude Code and Codex did not get smarter, and kept missing the intent. Useless tool calls fired constantly and blocked the work I wanted done. And I could not just ask in plain language: codebase-memory-mcp wants a Cypher query with an exact `qualified_name`, and codegraph wants you to name the symbols for a flow.
 
 So I went digging. Two things explained it.
 
 ### What the tool returns
 
-A query has to come back as something. codegraph returns whole source bodies, "the Read, done for you." That is fine for editing, but for a broad "how does this work?" the body is the token bomb, and past a dozen files it truncates and asks you to call again. codebase-memory-mcp returns pointers instead: name, path, line. To answer the question you still have to open those files, so the agent drops the MCP and goes back to the shell.
+A query has to come back as something. codegraph returns whole source bodies, "the Read, done for you." That is fine for editing, but for a broad "how does this work?" the body is the token bomb, and past a dozen files it truncates and asks you to call again. codebase-memory-mcp is the more interesting case. Under the hood it has a real relation graph, much like the one here: call chains, dependencies, cross-service links. But the capability is spread across fourteen MCP tools, and the useful ones want a Cypher query or an exact `qualified_name`. In the benchmark the agent never reached it: it called the MCP zero times and went to the shell instead. The graph was there; the surface buried it.
 
-A pointer tells you where something is, not what it does or how it connects, and the answer to "how does this work?" is the relationships, not the coordinates. Compactness is not the point; whether the compact thing is an answer or a stepping stone back to source is.
+Two different failures: one hands back too much, the other keeps the right thing behind a door the agent never opens. Neither lets it answer cheaply.
 
 ![What each tool hands back](https://ttsc.dev/blog/response-shapes.svg)
 
 ### Whether it forces itself
 
-The other half is the instructions. codegraph tells the agent to use it instead of reading files and to call it before any Read; codebase-memory-mcp tells it to use the graph instead of grep and auto-indexes on session start. So the tool fires even when the graph is not the answer, for a config, a small edit, or a question it cannot answer, and those calls block the real work.
+The other half is the instructions. codegraph tells the agent to use it instead of reading files and to call it before any Read, and that push lands: the tool fires even when the graph is not the answer, for a config, a small edit, or a question it cannot answer, and those calls block the real work. codebase-memory-mcp pushes the same way in its tool descriptions and auto-indexes on session start, though with its surface buried the agent mostly ignored it.
 
-The reason is that their headline numbers, fewer tool calls and file reads to zero, only show up if the agent routes everything through the tool. codegraph's own README admits it only helps when queried directly, and is overhead otherwise. That optimizes the chart, not the user.
+The reason is that those headline numbers, fewer tool calls and file reads to zero, only show up if the agent routes everything through the tool. To their credit, both are upfront about the limits: codegraph notes its token savings are scale-dependent and that it is overhead unless queried directly, and codebase-memory-mcp reports its biggest numbers on structural queries, not open-ended ones. Those limits grow the more general the use, which is the case `@ttsc/graph` was built for. These two are the pioneers that put a code graph in front of an agent at all; this one just learns from where they ran into a wall.
 
 For the full version of this story, read the [launch post](https://ttsc.dev/blog/graph).
 
@@ -91,13 +87,13 @@ The graph falls out of the type-check that already runs, so there is no separate
 
 ### An index, not source bodies
 
-A query returns names, edges, signatures, and source spans, and never inlines source bodies. The edges and signatures are the relationships themselves, so the agent assembles the answer without opening a file, the opposite of a pointer that only says where to look.
+A query returns names, edges, signatures, and source spans, and never inlines source bodies. The edges and signatures are the relationships themselves, so the agent assembles the answer without opening a file.
 
 Two things follow. The response is bounded independent of repo size, so the token cost stays flat whether the project is ten thousand lines or a million. And every span is a citation: a file and line the compiler resolved, which you can open to verify.
 
 ### One tool, asked in plain language
 
-The whole MCP surface is a single tool. You ask in plain language ("how does this project work?"), and a guided request inside the tool turns that into the right graph operation. There are no symbol names, query languages, or schemas for you to learn.
+The whole MCP surface is a single tool. A capable graph is no use if the agent cannot reach it, which is the failure that buried codebase-memory-mcp's, so one tool removes that choice entirely. You ask in plain language ("how does this project work?"), and a guided request inside the tool turns that into the right graph operation. There are no symbol names, query languages, or schemas for you to learn.
 
 ![The guided request inside one tool call](https://ttsc.dev/blog/cot-pipeline.svg)
 
@@ -127,7 +123,7 @@ On the current GPT 5.4 Mini snapshot, the published median token cost is lowest 
 
 ![Common prompt median token use on Codex GPT-5.4 Mini](https://ttsc.dev/benchmark/graph-common-codex-gpt-5.4-mini.svg)
 
-The prompts are open-ended onboarding questions, the kind a developer new to a repo asks, run across eight real repositories. `@ttsc/graph` holds a flat, low token cost, while source-returning and pointer-returning tools swing with repo size and sometimes land above the no-MCP baseline. See the [full benchmark page](https://ttsc.dev/docs/benchmark/graph) for the raw rows and method.
+The benchmark runs two prompt families across eight real repositories: a common onboarding question, and the per-repo questions from codegraph, whose benchmark this ports. codebase-memory-mcp's own prompts would have made a third, but it ships no reproducible method, so they are not included. `@ttsc/graph` holds a flat, low token cost, while the other tools swing with repo size and sometimes land above the no-MCP baseline. See the [full benchmark page](https://ttsc.dev/docs/benchmark/graph) for the raw rows and method.
 
 ## Requirements
 
