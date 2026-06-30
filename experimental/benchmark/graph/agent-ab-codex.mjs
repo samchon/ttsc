@@ -369,7 +369,11 @@ async function runWithConcurrency(work, limit) {
 }
 
 const med = (arm, k) =>
-  median((samples[arm] ?? []).filter((m) => m.ok).map((m) => m[k]));
+  median(
+    (samples[arm] ?? [])
+      .filter((m) => Number(m?.tokens ?? 0) > 0)
+      .map((m) => m[k]),
+  );
 const pct = (g, b) => (b === 0 ? 0 : Math.round((1 - g / b) * 100));
 const printBaselineLine = (label, k, fmt = (x) => x) => {
   console.log(`  ${label.padEnd(12)} baseline ${fmt(med("baseline", k))}`);

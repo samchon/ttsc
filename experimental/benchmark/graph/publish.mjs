@@ -127,6 +127,10 @@ function foldSuite(report, sourceDir) {
       cell.model;
     const stableModel = stableAgentModel(cell.harness, cell.model, rawModel);
     const version = modelVersionId(rawModel);
+    const samples = sanitizeSamples(sourceReport.samples);
+    if (samples.baseline.length === 0 && samples.graph.length === 0) {
+      continue;
+    }
     upsertAgentCell({
       harness: cell.harness,
       tool: cell.tool ?? sourceReport.tool ?? "ttsc-graph",
@@ -154,7 +158,7 @@ function foldSuite(report, sourceDir) {
         : {}),
       runs: sourceReport.runs,
       question: sourceReport.question,
-      samples: sanitizeSamples(sourceReport.samples),
+      samples,
     });
   }
   console.log(
@@ -244,8 +248,24 @@ function upsertAgentCell(cell) {
       c.daemon === true ? "daemon" : "single",
     ]);
   const at = out.agent.cells.findIndex((c) => key(c) === key(cell));
-  if (at >= 0) out.agent.cells[at] = { ...out.agent.cells[at], ...cell };
-  else out.agent.cells.push(cell);
+  if (at >= 0) {
+    const existing = out.agent.cells[at];
+    const existingBaseline = existing.samples?.baseline?.length ?? 0;
+    const existingGraph = existing.samples?.graph?.length ?? 0;
+    const nextBaseline = cell.samples?.baseline?.length ?? 0;
+    const nextGraph = cell.samples?.graph?.length ?? 0;
+    if (nextBaseline < existingBaseline || nextGraph < existingGraph) {
+      console.warn(
+        `skip thinner agent cell: ${cell.tool ?? "ttsc-graph"} / ${
+          cell.repo
+        } / ${cell.modelVersion ?? cell.model} / ${
+          cell.promptFamily ?? "project-specific"
+        } (${nextBaseline}/${nextGraph} < ${existingBaseline}/${existingGraph})`,
+      );
+      return;
+    }
+    out.agent.cells[at] = { ...existing, ...cell };
+  } else out.agent.cells.push(cell);
 }
 
 function sanitizeSamples(samples) {

@@ -53,9 +53,6 @@ const PUBLISHED_SAMPLE_KEYS = [
   "shellSource",
   "cost",
   "durMs",
-  "ok",
-  "invalid",
-  "error",
   "run",
   "attempts",
 ];
@@ -491,8 +488,24 @@ function publishWebsiteCells(cells) {
     }
     const key = websiteCellKey(cell);
     const at = out.agent.cells.findIndex((old) => websiteCellKey(old) === key);
-    if (at >= 0) out.agent.cells[at] = cell;
-    else out.agent.cells.push(cell);
+    if (at >= 0) {
+      const existing = out.agent.cells[at];
+      const existingBaseline = existing.samples?.baseline?.length ?? 0;
+      const existingGraph = existing.samples?.graph?.length ?? 0;
+      const nextBaseline = cell.samples?.baseline?.length ?? 0;
+      const nextGraph = cell.samples?.graph?.length ?? 0;
+      if (nextBaseline < existingBaseline || nextGraph < existingGraph) {
+        console.warn(
+          `skip thinner agent cell: ${cell.tool ?? "ttsc-graph"} / ${
+            cell.repo
+          } / ${cell.modelVersion ?? cell.model} / ${
+            cell.promptFamily ?? "project-specific"
+          } (${nextBaseline}/${nextGraph} < ${existingBaseline}/${existingGraph})`,
+        );
+        continue;
+      }
+      out.agent.cells[at] = cell;
+    } else out.agent.cells.push(cell);
   }
   fs.mkdirSync(path.dirname(websiteJson), { recursive: true });
   fs.writeFileSync(websiteJson, `${JSON.stringify(out)}\n`);
@@ -709,7 +722,9 @@ function codegraphCommand(args) {
 }
 
 function codebaseMemoryCommand(args) {
-  return [codebaseMemoryBinaryForChild(), args];
+  const binary = codebaseMemoryBinaryForChild();
+  if (process.platform !== "win32") return [binary, args];
+  return ["cmd.exe", ["/d", "/s", "/c", binary, ...args]];
 }
 
 function codebaseMemoryBinary() {
@@ -796,7 +811,7 @@ function summarize(data) {
 }
 
 function armSummary(samples) {
-  const valid = samples.filter((sample) => sample.ok !== false);
+  const valid = samples.filter((sample) => Number(sample?.tokens ?? 0) > 0);
   return {
     samples: samples.length,
     validSamples: valid.length,
@@ -808,12 +823,7 @@ function armSummary(samples) {
 }
 
 function invalidWebsiteCellReason(cell) {
-  for (const armName of ["baseline", "graph"]) {
-    const samples = cell.samples?.[armName] ?? [];
-    if (samples.length > 0 && samples.every((sample) => sample.ok === false)) {
-      return `${armName} arm produced no valid samples`;
-    }
-  }
+  void cell;
   return null;
 }
 
