@@ -3,6 +3,7 @@ node_modules
 out
 .pnpm-store
 .DS_Store
+public/benchmark/graph-common-codex-gpt-5.4-mini.svg
 public/compiler/index.js
 public/compiler/*.map
 public/compiler/playground.wasm

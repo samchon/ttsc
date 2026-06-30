@@ -261,6 +261,10 @@ Bonus. Run it in your own project and you can spin your code graph in 3D in the 
 npx @ttsc/graph view
 ```
 
+This is TypeORM, colored by kind:
+
+[![The TypeORM code graph rendered in 3D](https://ttsc.dev/graph/typeorm.png)](https://ttsc.dev/docs/graph/viewer)
+
 And — to those of you on other languages. This approach isn't TypeScript's alone. Truly conquering the code graph takes **each language's real compiler** — heuristics can't resolve aliases, monorepos, or types. I picked TypeScript. Someone in Go, Rust, Python, Java, C# should ride their language's compiler or LSP and **conquer theirs.** One language at compiler depth beats 158 skimmed off the top — far more valuable to an agent. I'd love to see it.
 
 One last thing. **Don't make your agent read the whole codebase. Hand it the index the compiler drew.**

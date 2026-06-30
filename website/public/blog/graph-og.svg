@@ -40,7 +40,7 @@
   <text x="80" y="474" font-size="172" font-weight="800" letter-spacing="-5" fill="#e6edf3">tokens.</text>
 
   <!-- subtitle -->
-  <text x="84" y="556" font-size="42" font-weight="600" fill="#aebfd4">A TypeScript code-graph over MCP, for AI agents.</text>
+  <text x="84" y="556" font-size="42" font-weight="600" fill="#aebfd4">A TypeScript code-graph over MCP, for Claude Code.</text>
 
   <!-- footer -->
   <text x="84" y="600" font-size="30" font-weight="500" fill="#6e7d90">Built on the real TypeScript compiler  ·  ttsc.dev</text>
