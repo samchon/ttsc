@@ -14,11 +14,11 @@ tags:
 
 > ## TL;DR
 >
-> I installed codegraph and codebase-memory-mcp. They advertise cutting an agent's tokens by tens of times — codebase-memory-mcp headlines **120×**. In practice my token bill didn't move, and Claude Code actually got _worse_ at the task.
+> codegraph and codebase-memory-mcp had the idea first: hand a coding agent a code graph over MCP, so it stops crawling files one by one. Good idea. But on my own open-ended questions the token bill didn't budge, and driving the tools was a chore. So I learned from where they hit walls and built one aimed at that case.
 >
-> So I built my own. [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) reads the graph the TypeScript compiler already resolved and hands the agent an **index** — never source bodies. One tool, plus a forced chain-of-thought, keeps the agent from wandering off.
+> [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) reads the graph the TypeScript compiler already resolved and hands the agent an **index** — never source bodies. One tool, plus a forced chain-of-thought, keeps it from wandering off.
 >
-> The result: on open-ended "how does this work?" questions, **~10× fewer tokens**. That's a measured median, and a conservative one.
+> The result: on open-ended "how does this work?" questions, **~10× fewer tokens**, with the answers no worse. A measured median, and a conservative one.
 >
 > - Repository: https://github.com/samchon/ttsc
 > - Benchmark: https://ttsc.dev/docs/benchmark/graph
