@@ -89,7 +89,7 @@ The first cause was what each tool does with what it has.
 
 So one hands back too much, and the other keeps the right thing behind a door the agent cannot find. Neither moves the token bill.
 
-![What each tool hands back](/blog/response-shapes.svg)
+![What each tool hands back](https://ttsc.dev/blog/response-shapes.svg)
 
 ### 2.4. The Instructions
 
@@ -130,7 +130,7 @@ Second, Claude Code won't always pick the **right tool at the right moment.** Th
 
 `@ttsc/graph` has **exactly one** tool. Inside it, _what_ to do is split by a CoT-fed union type. And the safeguards stack: a `review` step mid-CoT can switch the request type, and if it's still wrong, `escape` bails. Safety first.
 
-![The forced chain-of-thought inside one tool call: question → draft → review → one request, or escape out](/blog/cot-pipeline.svg)
+![The forced chain-of-thought inside one tool call: question → draft → review → one request, or escape out](https://ttsc.dev/blog/cot-pipeline.svg)
 
 Here's the entire surface — one type, with the comments trimmed to one line each:
 
