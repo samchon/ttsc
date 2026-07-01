@@ -1,9 +1,9 @@
 ---
 title: "I Made TS Code Graph MCP: 10x Fewer Tokens in Claude Code"
-description: "It's built on the TypeScript compiler's own APIs — it reads the graph the compiler already resolved instead of guessing it — so it stays exact and cuts tokens 10x even on open-ended 'how does this work?' questions, not just targeted ones. A compiler-exact index handed to your coding agent over MCP, with every claim anchored to a verifiable file:line span. Plus why the other code-graph tools, for all their strengths, don't move the token bill on a real question."
+description: "Built on the TypeScript compiler's own APIs, it reads the graph the compiler already resolved instead of guessing at it, so it stays exact and cuts tokens about 10x even on open-ended 'how does this work?' questions. A compiler-exact index handed to your coding agent over MCP, every claim anchored to a file:line span you can open. Also why the other graph and language-server MCP tools (codegraph, codebase-memory, serena), for all their strengths, don't move the token bill on a real question."
 date: "2026-06-30"
 author: "Jeongho Nam"
-ogImage: "/blog/graph-og.svg"
+ogImage: "/og-graph.png"
 tags:
   - typescript
   - ai
@@ -14,13 +14,12 @@ tags:
 
 > ## TL;DR
 >
-> `codegraph` and `codebase-memory-mcp` had the idea first: hand a coding agent a code graph over MCP. But on my own open-ended questions the token bill didn't budge, so I built [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph).
+> `codegraph`, `codebase-memory-mcp`, and `serena` all got there first, handing a coding agent code intelligence over MCP so it stops grepping. On my own open-ended questions the token bill didn't budge: the agent kept sliding back to grep, and no amount of forceful prompting could stop it. So I built [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph).
 >
-> It hands the agent an **index** the TypeScript compiler already resolved (never source bodies), through one tool with a forced chain-of-thought. The result on "how does this work?" questions: **~10× fewer tokens**, answers no worse. A measured, conservative median.
+> It gives the agent an index the TypeScript compiler already resolved, never the source bodies, through a single tool with a forced chain-of-thought. On "how does this work?" questions that works out to roughly 10× fewer tokens, and the answers are no worse. That figure is a median, and a conservative one.
 >
 > - Repository: https://github.com/samchon/ttsc
 > - Benchmark: https://ttsc.dev/docs/benchmark/graph
-> - Issues: https://github.com/samchon/ttsc/issues
 
 ---
 
@@ -28,111 +27,146 @@ tags:
 
 ### 1.1. What @ttsc/graph Is
 
-Ask a coding agent "how does this project actually work?" and you know what comes next. It opens a file. Follows an import, opens another. Opens another. Dozens of files later, it answers.
+![A source crawl collapses into a compiler-built graph index](/blog/images/source-crawl-vs-compiler-index.png)
 
-`@ttsc/graph` kills that crawl. It hands your agent a **graph of your TypeScript codebase — drawn by the compiler itself** — over MCP: what calls what, what depends on what, where each piece lives. The agent answers structural questions from the graph instead of spelunking through files — and every claim comes anchored to an exact file:line the compiler pointed at. Not invented; something you can open and check.
+> On the left, the agent is lost in a maze of files, chasing dashed arrows dozens deep. On the right, it's reading a single compiler-built graph of nodes and edges, with the `file:line` anchors it can open and check.
 
-How big is the difference? Here's the chart.
+You're new to a TypeScript repo, so you ask the agent for a tour: what's the main runtime flow, from the public API down to the code that does the work, and what should you read first? You know how it goes. It opens a file, follows an import into another, then another, and a few dozen files later it gives you an answer.
 
-![Median token use, common prompts, Codex GPT-5.4 Mini](https://ttsc.dev/benchmark/graph-common-codex-gpt-5.4-mini.svg)
+`@ttsc/graph` cuts that crawl short. Over MCP, it hands your agent a graph of your TypeScript codebase that the compiler itself drew: what calls what, what depends on what, and where each piece lives. The agent answers structural questions straight from the graph instead of spelunking through files, and every claim it makes points at an exact file:line the compiler resolved. Nothing invented, just a location you can open and check for yourself.
 
-Same question, same agent. Only `@ttsc/graph` stays flat at ~42k tokens across every repo. The others swing wildly — and some even spend _more_ than the baseline (no MCP at all). Full numbers and method are on the [benchmark page](https://ttsc.dev/docs/benchmark/graph).
+![Median token use across every repo, common prompt, Codex GPT-5.5](/benchmark/graph-common-codex-gpt-5.5.svg)
+
+It's the same question and the same agent in every case, and only `@ttsc/graph` stays flat across the repos no matter how big they get. The other three, codegraph, codebase-memory, and serena, swing all over the place, and a few even spend more than the baseline does.
+
+If you want to dig into the details, every model, the per-repo prompts alongside this shared one, and the full method are on the [interactive benchmark page](https://ttsc.dev/docs/benchmark/graph).
 
 ### 1.2. What a Code Graph Is
 
-First, what a "code graph" even is. Land in a city you've never visited and you don't read every street sign in order — you glance at a subway map. It throws away the buildings, the trees, the real distances, and keeps the one thing you need: what connects to what. Readable in five seconds.
+![A dense city map collapses into a clean subway map of connections](/blog/images/subway-map-vs-code-graph.png)
 
-Code has the same structure. Nodes are functions, classes, files; edges are calls, imports, extends, depends-on. Draw them all and you get a code graph — an **index** of "what calls what." The agent queries that index once instead of walking every street.
+> A city map keeps every street and building. A subway map throws most of that away and keeps the connections you need.
+
+So what is a "code graph"? Land in a city you've never visited and you don't read every street sign in order; you glance at a subway map. It throws away the buildings and the streets and the distances, and keeps the one thing you need: what connects to what. You can read the whole thing in five seconds.
+
+Code has the same shape. The nodes are functions, classes, and files; the edges are the calls, imports, and inheritance between them. Draw all of them and you have a code graph, an index of what calls what. The agent can query that index once instead of walking every street itself.
 
 ### 1.3. Index, Not Source Inlining
 
-Here's the first fork in the road. `@ttsc/graph` **doesn't return source bodies.** Names, edges, signatures, spans — an index, nothing more.
+This is the first real fork in the road. `@ttsc/graph` doesn't return source bodies at all. What it returns is names, edges, signatures, and spans, and nothing more than that.
 
-And the span is the point. Every range it cites is a coordinate the compiler vouched for, so if you doubt an answer you just open that spot and check. The reassuring part isn't "it read no files" — it's that **a place to verify always comes attached.**
+The span is the part that matters. Every range it cites is a coordinate the compiler vouched for, so if you doubt an answer, you open that exact spot and check it. What reassures me isn't that it read no files; it's that a place to verify always comes attached.
 
-Tokens stay flat because the response size is **bounded independent of repo size.** A 100k-line project or a 10k-line one — one question returns a similarly sized chunk of index. Why the other tools spill source instead is the autopsy in §2.
+Tokens stay flat because the size of the response doesn't depend on the size of the repo. Whether the project is 100k lines or 10k, one question comes back with a similarly sized chunk of index. Why the other tools spill source instead is the autopsy in §2.
 
 ### 1.4. How It Works, in One Breath
 
-In one sentence: **it reads an index from the program the TypeScript compiler already resolved, and feeds a single MCP tool a forced chain-of-thought so the agent doesn't wander.** That's the whole thing. Details in §3. First — why I built it at all.
+The short version: it reads an index out of the program the TypeScript compiler has already resolved, and it feeds a single MCP tool a forced chain-of-thought so the agent doesn't wander off. That's all there is to it.
+
+The rest of the post earns those claims. §2 is the autopsy of why the tools before it don't move the token bill; §3 is how this one does; §4 is how to run it yourself. First, why I built it.
 
 ## 2. Why I Built It
 
 ### 2.1. The Promise
 
-Honestly, not my idea. [`codegraph`](https://github.com/colbymchenry/codegraph) put a code graph in front of an agent over MCP first, and [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) does the same across 158 languages. This post's benchmark is a faithful port of `codegraph`'s, run on two prompt families: a common onboarding question, and `codegraph`'s own per-repo questions. (`codebase-memory-mcp`'s would have made a third, but it ships no reproducible method.)
+Honestly, none of this was my idea. [`codegraph`](https://github.com/colbymchenry/codegraph) put a code graph in front of an agent over MCP first, and [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) does much the same thing across 158 languages. [`serena`](https://github.com/oraios/serena) comes at it from a different angle, wrapping a live language server (the same LSP backend your IDE uses) as a semantic toolkit rather than building a static graph. The first time I saw the approach, I thought it was genuinely elegant, and I still do.
 
-And their core claim is legit. The enemy is the agent's **grep · find · Read crawl loop.** Every "where is this?" turns into a grep, a file open, an import chased, another grep — dozens of round-trips burning tokens and time. `codegraph`'s pitch is clean: replace that loop with one graph query — "58% fewer tool calls, file reads to ~zero." `codebase-memory-mcp` goes further, headlining "**120× fewer tokens**" (a 99.2% cut).
+The benchmark in this post runs all three against `@ttsc/graph` on two prompt families: a shared onboarding question, and `codegraph`'s own per-repo questions. (`codebase-memory-mcp` doesn't ship any reproducible questions to port, and while `serena` does publish a reproducible evaluation, it's one you run on your own code rather than a fixed question set, so neither one gives us a comparable third family.)
 
-Sounded great. So I installed them.
+And the core claim behind all of them is legitimate. The enemy is the agent's grep-find-Read crawl loop. Every "where is this?" becomes a grep, then a file open, then an import chased into another grep, dozens of round-trips that burn tokens and time.
 
-One thing up front, though. Cutting an agent's tool calls is the **easy** part. Cutting its tokens at the same time is harder. And cutting tokens _without the answer getting any worse_ is the real problem. Those are three different things, not one.
+`codegraph`'s pitch is clean: replace that loop with a single graph query, for "58% fewer tool calls" and "file reads to ~zero." `codebase-memory-mcp` goes further and headlines "120× fewer tokens," a 99.2% cut. `serena` asks the agent to route both its reading and its editing through symbol-aware tools it calls "much more token-efficient than your own."
+
+It all sounded great, so I installed all three.
+
+One thing up front. Cutting an agent's tool-call count is the easy part; cutting the tokens it spends is harder. Cutting the tokens without making the answer worse is the real problem, and it's easy to mistake the first of those for the last.
 
 ### 2.2. So I Tried Them
 
-Here's what actually happened.
+What actually happened was a lot less exciting than the pitch.
 
-- **Tokens didn't drop at all.** The tool-call _count_ may have fallen, but the thing you pay for — tokens — didn't budge. On some cells it was even _worse than the baseline_ (`codegraph` spent up to 47% more, `codebase-memory-mcp` up to 96% more).
-- Claude Code and Codex got **worse**, not smarter. They kept missing the intent.
-- Useless MCP calls fired constantly, **blocking or delaying** the work I actually wanted done.
-- I couldn't just ask in plain language. Every query had to be hand-shaped — `codebase-memory-mcp` wants a Cypher query with an exact `qualified_name`; `codegraph` wants you to name the symbols for a flow. That **babysitting** alone ate the productivity.
+![zod median tokens on the shared question, Codex GPT-5.5](/benchmark/graph-zod-common-codex-gpt-5.5.svg)
 
-In short: for my kind of question, worse than before I installed them. So I went digging.
+> zod on GPT-5.5. All three (`codegraph`, `codebase-memory`, and `serena`) made the agent spend _more_ than it would have with no MCP at all, +22% to +27%. `@ttsc/graph` came in at 6% of the baseline. This is the starkest repo I found, but the pattern holds across the matrix.
+
+- The tokens didn't actually drop. The tool-call count did fall, but the thing you pay for, the tokens, didn't budge. On some cells it came out worse than the baseline: `codegraph` spent up to 47% more, `codebase-memory-mcp` up to 66% more, and `serena` up to 93% more.
+- Claude Code and Codex answered less accurately, not more. They kept missing what I was actually asking for.
+- Extra MCP calls fired on their own and delayed the work I wanted done.
+- I couldn't just ask in plain language either. Every query had to be shaped by hand. `codebase-memory-mcp`'s sharpest tools want a Cypher query or an exact `qualified_name`, `codegraph` wants you to name the symbols in a flow, and `serena` wants you to activate the project and then hand it an exact `name_path` you don't have yet. The hand-shaping alone cost more time than the tools gave back.
+
+So for my kind of question, all three left me worse off than before I installed them. Two things are true at once: they're the strongest tools of their kind, built by people who saw the problem before I did; and on an open question, every one made the agent spend more than nothing would have. That's when I went digging.
 
 ### 2.3. Bodies, and a Buried Graph
 
-The first cause was what each tool does with what it has.
+The first cause is what each tool does with what it already has.
 
-`codegraph` returns **whole source bodies** — by its own description, "the Read, done for you." Fine for editing. But for a broad "how does this work?", the body _is_ the token bomb. Past a dozen files it truncates and says "call again for more." So you call again. More bodies.
+`codegraph` returns whole source bodies. In its own words, the output is "byte-for-byte identical to what the Read tool returns," and it tells the agent to "treat each block as a Read you have already performed." It's the Read, done for you, which is fine when you're editing. But for a broad "how does this work?" question, the body is the token bomb. Once you're past a handful of files it hits its cap, and the overflow collapses into an "additional relevant files (not shown)" list that tells you not to Read them yourself, so you call `codegraph_explore` again and get more bodies back.
 
-`codebase-memory-mcp` is the more interesting one, because under the hood it has the right idea. It builds a real **relation graph**, a lot like the one I ended up with: not just where things are, but how they call and depend on each other. The trouble is the surface. That capability is spread across **fourteen MCP tools**, and the useful ones want precise input, a Cypher query or an exact `qualified_name`. Handed fourteen tools and a query language, the agent mostly never reached the relation data at all. Measured, it called the MCP **0** times in every run and fell back to the shell: it gave up and grepped. The graph was right there; the surface buried it.
+`codebase-memory-mcp` is the more interesting case, because underneath it has the right idea. It builds a real relation graph, a lot like the one I ended up with, that tracks not just where things are but how they call and depend on each other. The trouble is the surface in front of it. That capability is spread across fourteen MCP tools, and the ones that actually reach the relation data want precise input, either a Cypher query or an exact `qualified_name`. (There's a plain-language search too, but it doesn't touch the graph the way the query tools do.) Faced with fourteen tools and a query language, the agent mostly never reached the relation data at all. In the runs I measured it called the MCP zero times and fell back to the shell every time. It gave up and grepped. The graph was right there; the surface buried it.
 
-So one hands back too much, and the other keeps the right thing behind a door the agent cannot find. Neither moves the token bill.
+`serena` manages to do both at once. Because it's backed by a language server its symbols come out properly resolved, but it still serves source bodies on demand, and it puts them behind around fifty tools that the agent only reaches after activating the project and waiting out a language-server cold-start. Given all that, it grepped too, with a median of zero to one MCP calls before falling back to the shell.
 
-![What each tool hands back](https://ttsc.dev/blog/response-shapes.svg)
+So one hands back too much, another keeps the right thing behind a door the agent can't find, and the third manages to do both. None of them moves the token bill.
+
+![What each tool hands back](/blog/images/response-shapes.svg)
 
 ### 2.4. The Instructions
 
-The second cause is the instructions, and here the two tools go in opposite directions.
+The second cause is the instructions, and here the three tools scatter in every direction.
 
-`codegraph` forces its tool, hard. Its MCP instructions tell the agent to "use it instead of reading files," "call it before you Read," "don't grep or Read first," and reach for it on "almost any question." So calls fire even when the graph isn't the answer — a config, a small edit, a question it can't answer at all — and those wasted calls block the real work. `codegraph`'s README is candid about why: the tool only helps when queried directly and is overhead otherwise, so the instructions push hard to keep it from being overhead.
+`codegraph` forces its tool, and it forces it hard. The MCP instructions tell the agent to "use it instead of reading files," to "call it before you Read," to "don't grep or Read first," and to reach for it on "almost any question." So it fires even when the graph isn't the answer, on a config file, a small edit, or a question it can't answer at all, and those wasted calls get in the way of the real work. The README is candid about why: the tool only helps when you query it directly and is pure overhead otherwise, so the instructions lean hard on the agent to keep it from becoming overhead.
 
-`codebase-memory-mcp` does the reverse. Its MCP `initialize` sends no instructions at all, and most of its tools ship with no usage guidance (a couple of descriptions say "use instead of grep" for specific operations; auto-indexing exists but is off by default). Fourteen tools, and almost nothing telling the agent which to reach for or when — so it mostly didn't, and fell back to the shell, as we just saw.
+`codebase-memory-mcp` does the opposite. Its MCP `initialize` sends no instructions at all. What guidance it does have lives in an install-time skill file that the agent never sees if you just wire up the server, and its auto-indexing is off by default. So you get fourteen tools over the wire with almost nothing telling the agent which one to reach for or when, and, as we just saw, it mostly didn't and fell back to the shell.
 
-So one over-directs and the other under-directs. Neither lands on the thing you actually want: use the graph when it helps, and stop when it doesn't.
+`serena` over-directs too, and more literally than the others. In the Claude Code setup its instructions forbid the agent from using its own `Read` and `Edit` on code files, swap in a wholesale replacement system prompt, and warn that the built-in editor "will deny such edits." It gives the agent its own read, grep, and edit tools to use in their place, swapping out the agent's hands for its own. And even after all that, the agent still reached for its own grep.
 
-And to their credit, none of the limits are hidden. `codegraph`'s README says its token savings are scale-dependent and small on a normal codebase. `codebase-memory-mcp` reports its biggest numbers on a handful of structural queries, not open-ended ones. They tell you, plainly, that the wins are measured on targeted scenarios.
+![A hand holding a hammer next to a hammer prosthesis, showing a tool versus a replacement](/blog/images/hammer-tool-vs-prosthesis.png)
 
-That is the whole point. Those limits get bigger the more general your use is, and general use is where I live. So I took these two for what they are, the pioneers that put a code graph in front of an agent at all, learned from where each one ran into a wall, and built for the case they were not aimed at: the open-ended question, with the tokens down and the answer still good.
+> `@ttsc/graph` puts a hammer in your hand, and you're still holding the pen and the wrench and everything else. `serena` takes the hand off and bolts a hammer where it used to be: great for driving nails, but now that's all the arm can do.
+
+So one under-directs, the other two over-direct, and none of them lands on what you actually want, which is for the agent to use the graph when it helps and stop when it doesn't. Forcing a tool isn't the same as getting it adopted, and a big surface area isn't the same as capability. A tool the agent won't reach for is worse than no tool at all, because you're still paying for its description on every single turn.
+
+You can read the effort in the prompts themselves. `serena`'s Claude Code configuration doesn't only tell the agent to prefer its tools; it enumerates specific rationalizations and rules each one out, down to "I already know the path" and "one Read call is faster than three Serena calls." Every line in that list is a rationalization the model actually produced, caught and forbidden one at a time. It's real craft, and there's a lot of it: `serena` swaps in about a hundred and fifty lines of replacement system prompt before the first question, and `codegraph` ships around a hundred lines of instructions plus a skill file injected at install time. Almost all of it exists to secure one thing, that the agent actually calls the tool. On my questions, none of it worked. You can't write your way to adoption.
+
+To their credit, none of the three hide their limits. `codegraph`'s README says its token savings depend on scale and are small on a normal codebase. `codebase-memory-mcp` reports its biggest numbers on a handful of structural queries rather than open-ended ones. `serena`'s own docs admit its symbolic tools win on large edits but lose to a plain text edit on small ones. All three tell you plainly that the wins were measured on targeted scenarios.
+
+And that's the point. Those limits only get bigger the more general your usage is, and general usage is where I spend my days. But none of it means the approach was wrong. The idea is a lovely one; materializing it took a lot of trial and error, and the three of them did that work in the open, wall by wall.
+
+I came to the same problem holding two things they didn't: a compiler toolchain that hands me a resolved graph for free, and a way to make the agent comply with a typed contract. So I took what they proved was worth wanting and built it for the case they weren't aimed at: the open-ended question, with the tokens down and the answer no worse.
 
 ## 3. How It Works
 
-`@ttsc/graph` is designed to cure those four pains one at a time. The order below is the prescription.
+`@ttsc/graph` is built to fix those problems one at a time. There are four of them, and the table below lines each one up with its fix.
 
 | Pain (§2) | Antidote (§3) |
 | --- | --- |
-| 2.4 — over-forced, or no guidance at all | **3.1** — guides without forcing (`escape` + stop) |
-| 2.3 — a real graph buried under 14 tools | **3.2** — one tool, asked in plain language |
+| 2.4 — over-forced (up to a hard ban), or no guidance at all | **3.1** — guides without forcing (`escape` + stop) |
+| 2.3 — a real graph buried under 14 (or ~50) tools | **3.2** — one tool, asked in plain language |
 | 2.3 — source bodies blow up tokens | **3.3** — returns `index` only |
+| 2.3 — a setup tax before the tools even work | **3.4** — a free byproduct, no setup step |
 | (only works if trustworthy) | **3.4** — the real compiler |
 
 ### 3.1. It Never Forces You
 
-First, **it never forces.** Not one line of the instruction says "use this instead of Read." It states a condition instead: "use it when the answer depends on TypeScript symbols, calls, or types." And it makes `escape` a first-class choice for when the evidence lives outside the graph.
+It never forces anything, to start with. Not one line of the instructions says "use this instead of Read." Instead they state a condition: use it when the answer depends on TypeScript symbols, calls, or types. And `escape` is a first-class option for when the evidence lives outside the graph entirely.
 
-The only strong rule is a single one: "once you've used it, that's compiler-issued truth — don't re-doubt it by reading files." When enough evidence is in, the result _tells_ the agent "answer now and stop" — it points at a stopping line, it doesn't demand more calls.
+There's only one strong rule: once you've used it, treat the result as compiler-issued truth and don't go re-checking it by reading files. Once enough evidence is in, the result itself tells the agent to answer now and stop. It points at a place to stop rather than demanding more calls.
 
-So the useless forced calls that used to block work simply don't happen. The agent uses the graph when it should and skips it when it shouldn't. (Antidote to §2.4.)
+So the forced calls that used to get in the way never happen. The agent reaches for the graph when it should and skips it when it shouldn't.
 
 ### 3.2. One Tool, with an Escape Hatch
 
-Second, Claude Code won't always pick the **right tool at the right moment.** The more options, the more misfires, and that is exactly what buried `codebase-memory-mcp`'s relation graph: **14** MCP tools, and the agent never found its way to the right one. (`codegraph` avoids the tool-count trap with a single default tool; it just pushes that one tool too hard — the §3.1 problem.)
+Then there's tool choice. Claude Code won't always pick the right tool at the right moment. The more options you give it, the more misfires you get, and that's exactly what buried `codebase-memory-mcp`'s relation graph behind its fourteen MCP tools, and `serena`'s behind its roughly fifty, with the agent never finding its way to the right one.
 
-`@ttsc/graph` has **exactly one** tool. Inside it, _what_ to do is split by a CoT-fed union type. And the safeguards stack: a `review` step mid-CoT can switch the request type, and if it's still wrong, `escape` bails. Safety first.
+(`codegraph` sidesteps the tool-count trap with a single default tool. It just pushes that one tool too hard, which is the §3.1 problem instead.)
 
-![The forced chain-of-thought inside one tool call: question → draft → review → one request, or escape out](https://ttsc.dev/blog/cot-pipeline.svg)
+`@ttsc/graph` has exactly one tool. What to do inside it is split out by a union type that the chain-of-thought fills in, and the safeguards stack up: a `review` step in the middle of the CoT can switch the request type, and if it's still wrong after that, `escape` bails out. It errs on the safe side.
 
-Here's the entire surface — one type, with the comments trimmed to one line each:
+This is one of the two differences that actually decide it; the other is the compiler, in §3.4. Every tool above tries to change what the agent does by talking to it, with more instructions and stronger words. `@ttsc/graph` changes what the agent does by changing the shape of the tool. A field the schema marks as required can't be skipped the way a line of prompt can be ignored, and a union of request types routes the agent by construction instead of by persuasion.
+
+![The forced chain-of-thought inside one tool call: question → draft → review → one request, or escape out](/blog/images/cot-pipeline.svg)
+
+Here's the entire surface. It's one type, with the comments trimmed down to one line each:
 
 ```typescript
 // TOOL DESCRIPTION: inspect the compiler-built TypeScript code graph over MCP.
@@ -172,13 +206,15 @@ export namespace ITtscGraphApplication {
 }
 ```
 
-As you can see, `question → draft → review` are **forced function arguments.** typia compiles this type into the tool's JSON schema and validator, so an unfilled CoT is rejected at the call boundary. In typia's words: _"free prose can hide a skipped step; a typed submission cannot."_ (Deeper: [CoT compliance](https://typia.io/blog/function-calling-harness-2-cot-compliance/), [function-calling harness](https://typia.io/blog/function-calling-harness-qwen-meetup-korea/).)
+As you can see, `question`, `draft`, and `review` are forced function arguments. typia compiles this type into the tool's JSON schema and validator, so a chain-of-thought that hasn't been filled in gets rejected right at the call boundary.
 
-Those one-line comments are condensed; in the source, the fuller JSDoc on each member is what typia compiles into the MCP instruction and the schema descriptions the model reads. Want the details? Read [`ITtscGraphApplication.ts`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphApplication.ts).
+As typia puts it, "free prose can hide a skipped step; a typed submission cannot." Why that matters more than any instruction is the thread I pick back up in §5.
 
-This is also the antidote to that babysitting. **You just ask in plain English** — "just figure it out." Translating that vague ask into the precise request type, and self-correcting, is the CoT's job. No symbol names, no Cypher, no query syntax to memorize.
+Those one-line comments are condensed. In the source, the fuller JSDoc on each member is what typia compiles into the MCP instruction and the schema descriptions the model actually reads. If you want the details, they're in [`ITtscGraphApplication.ts`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphApplication.ts).
 
-Each request branch is one graph operation — its own request (`.IRequest`) and result type. Dig in:
+This is also the answer to the hand-shaping problem. You just ask in plain English, as vague as "just figure it out," and translating that into the precise request type and correcting itself along the way is the CoT's job. There are no symbol names to supply, no Cypher, and no query syntax to memorize.
+
+Each request branch is a single graph operation with its own request (`.IRequest`) and result type. Here's what each one does:
 
 - [`ITtscGraphTour`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphTour.ts) — a broad code tour. Answers "new project, how does it work?" in one index.
 - [`ITtscGraphEntrypoints`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphEntrypoints.ts) — find the entry points. Where to start reading.
@@ -190,43 +226,41 @@ Each request branch is one graph operation — its own request (`.IRequest`) and
 
 ### 3.3. Index Only, So Nothing Explodes
 
-Third, it returns **index only.** Names, edges, signatures, spans — the **relationships themselves**, not just where things sit. The edges and signatures carry "what calls what, and how," so the agent assembles the answer right there without opening a file. Source bodies are never inlined, and a span is a citation to verify, not a command to go read.
+It returns the index and nothing else. Names, edges, signatures, and spans: the relationships themselves, not just where each thing sits. The edges and signatures carry what calls what and how, so the agent can assemble the answer right there without opening a file. Source bodies are never inlined, and a span is a citation you can verify, not an instruction to go read.
 
-Two effects. No token explosion from spilled bodies, and no compounding mess where that explosion plus a misfired MCP call clouds the agent's judgment. The response is bounded independent of repo size, so tokens stay flat.
+That has two effects. There's no token explosion from spilled bodies, and there's no compounding mess where that explosion combines with a misfired MCP call to cloud the agent's judgment. The response stays bounded no matter the repo size, so the tokens stay flat.
 
-The source-body blowup from §2.3 and the "agent got worse" from §2.2 both ease in this one decision.
-
-And the thesis I opened in §2.1 closes here. `@ttsc/graph` kills the grep crawl loop too — that's table stakes. The difference is it does so _without_ the tokens blowing up, and without the answer getting any worse.
+That one decision is what defuses both the source-body blowup and the accuracy drop from the autopsy. And it's where the promise I opened with finally pays off: killing the grep crawl loop is table stakes, plenty of tools do it. Doing it without the tokens blowing up, and without the answer getting any worse, is the part that was missing.
 
 ### 3.4. Only the Compiler Makes This Possible
 
-Fourth. All three above only hold if the results are **trustworthy** — and that trust comes only from a real compiler.
+All three of those only hold up if the results are trustworthy, and that trust can only come from a real compiler.
 
-A heuristic parser like tree-sitter sees text. So there are things it can't resolve — `tsconfig` `paths` aliases (`@app/*` → the real file), cross-package references in a pnpm monorepo, symlinks, re-export chains. Only a compiler that actually finished module resolution can wire those up correctly.
+A heuristic parser like tree-sitter only sees text, so there are things it can't resolve: `tsconfig` `paths` aliases like `@app/*` pointing at the real file, cross-package references inside a pnpm monorepo, symlinks, and re-export chains. Only a compiler that has actually finished module resolution can wire all of those up correctly.
 
-`@ttsc/graph` reads the program `ttsc` already type-checked and resolved. So aliases and monorepos just line up. And because it rides the toolchain, the graph falls out as a near-**free byproduct** of the type-check that's already running — no separate index step (`codegraph init`, `codebase-memory-mcp`'s `index_repository`), no file watcher, no stale-index problem.
+`@ttsc/graph` reads the program that `ttsc` has already type-checked and resolved, so aliases and monorepos line up on their own. And because it rides along with the toolchain, the graph comes out as a nearly free byproduct of the type-check that's already running. There's no separate index step the way there is with `codegraph init`, `codebase-memory-mcp`'s `index_repository`, or `serena`'s project activation and language-server cold-start. No file watcher, no stale index.
 
-There's a bonus the compiler throws in, too. The graph doesn't just hold structure — it also carries **every tsc compile error and `@ttsc/lint`/plugin (typia, nestia) lint violation, each fused onto the symbol that owns it.** So "what's broken here?" and "what breaks if I change this?" come from the same index. Not just the shape of the code, but what's wrong with it right now — in one graph.
+The compiler throws in a bonus, too. The graph doesn't only hold structure; it also carries every tsc compile error and every `@ttsc/lint` and plugin (typia, nestia) lint violation, each one fused onto the symbol that owns it. So "what's broken here?" and "what breaks if I change this?" come out of the same index. You get the shape of the code and what's currently wrong with it, in one graph.
 
-Exact, so you can trust it; trusted, so you can stop. **exact = trust = stop.** That's the root of all of it.
+It's exact, so you can trust it, and because you can trust it, you can stop. That chain, from exact to trusted to done, is what the whole thing rests on.
 
 ## 4. Try It
 
 ### 4.1. What It Can't Do
 
-Bragging only would be a scam. Limits first.
+Only bragging would be a scam, so let me start with the limits.
 
-`@ttsc/graph` is **TypeScript-only.** It traded breadth for depth — the opposite bet from the 158-language tools.
+`@ttsc/graph` is TypeScript-only. It trades breadth for depth, which is the opposite bet from the 158-language tools.
 
-But that's not a footgun. On a non-TypeScript project there's simply **no graph to hand over, so the agent never leans on it.** Even inside a TS project, things outside the typed graph — configs, docs, exact-text search — `escape` cleanly out. Step outside its scope and it doesn't _break_; it just **quietly steps aside.** It's strong on exactly the questions a graph can answer, and no further.
+That isn't a footgun. On a non-TypeScript project there's no graph to hand over, so the agent never leans on it. Even inside a TS project, the things outside the typed graph, like configs, docs, and exact-text search, `escape` out cleanly. Step outside its scope and it doesn't break; it steps aside. It's strong on exactly the questions a graph can answer, and it doesn't pretend to go further.
 
-And here's the most important prerequisite. `@ttsc/graph` rides `ttsc`, and `ttsc` runs on the **TypeScript-Go (TypeScript v7)** runtime. v7 isn't released yet — it's at **RC**. That's why the install pins `typescript@rc`. It runs fine on the RC, but to be clear: this is **not something you drop onto your current stable TypeScript (v6.x).** Once v7 ships, that caveat dissolves on its own.
+There's one prerequisite that matters more than the rest. `@ttsc/graph` rides on `ttsc`, and `ttsc` runs on the TypeScript-Go (TypeScript v7) runtime. v7 isn't released yet; it's still at RC, which is why the install pins `typescript@rc`. It runs fine on the RC, but to be clear, this isn't something you can drop onto your current stable TypeScript (v6.x). Once v7 ships, that caveat goes away on its own.
 
 ### 4.2. It Might Break
 
-I built this because I couldn't stand using `codegraph`. So I worked hard to make it hold up across general situations — no "I installed it and Codex got dumber." At least on my machine, it was solid.
+I built this because I couldn't stand using `codegraph`, so I put real effort into making it hold up in general use, none of that "I installed it and Codex got dumber." On my own machine, at least, it's been solid.
 
-But the world is wide, and there could be failure modes I haven't seen. It's open source. If something's awkward, or you find something I got wrong, [file an issue](https://github.com/samchon/ttsc/issues). That's the fastest way to make this thing solid.
+The world is wide, and there are failure modes I haven't hit yet. It's open source, so if something feels awkward or you catch something I got wrong, [file an issue](https://github.com/samchon/ttsc/issues). That's the fastest way to make it solid.
 
 ### 4.3. Add It in Four Lines
 
@@ -247,11 +281,11 @@ npm install -D ttsc @ttsc/graph typescript@rc
 }
 ```
 
-The agent queries the graph on its own — you never call it by hand. The title says Claude Code, but any MCP-capable agent works — Codex, Cursor, and the rest.
+The agent queries the graph on its own, so you never call it by hand. The title says Claude Code, but any MCP-capable agent works just as well, including Codex, Cursor, and the rest.
 
 ### 4.4. See It in 3D
 
-Bonus. Run it in your own project and you can spin your code graph in 3D in the browser.
+One more thing: run it in your own project and you can spin your code graph around in 3D in the browser.
 
 ```bash
 npx @ttsc/graph view
@@ -259,21 +293,58 @@ npx @ttsc/graph view
 
 This is TypeORM, colored by kind:
 
-[![The TypeORM code graph rendered in 3D](https://ttsc.dev/graph/typeorm.png)](https://ttsc.dev/docs/graph/viewer)
+[![The TypeORM code graph rendered in 3D](/graph/typeorm.png)](https://ttsc.dev/docs/graph/viewer)
 
-And — to those of you on other languages. This approach isn't TypeScript's alone. Truly conquering the code graph takes **each language's real compiler** — heuristics can't resolve aliases, monorepos, or types. I picked TypeScript. Someone in Go, Rust, Python, Java, C# should ride their language's compiler or LSP and **conquer theirs.** One language at compiler depth beats 158 skimmed off the top — far more valuable to an agent. I'd love to see it.
+## 5. A Few Last Things
 
-One last thing. **Don't make your agent read the whole codebase. Hand it the index the compiler drew.**
+### 5.1. For Other Languages
 
-## 5. References
+None of this is unique to TypeScript. A code graph you can trust takes each language's own compiler, because heuristics can't resolve aliases, monorepos, or types.
 
-![@ttsc/graph](https://ttsc.dev/og.jpg)
+I picked TypeScript; someone working in Go, Rust, Python, Java, or C# should ride their language's compiler or LSP and do the same for theirs. One language handled at compiler depth is worth more to an agent than 158 skimmed off the top, and I'd love to see it.
+
+### 5.2. On CoT Compliance
+
+One idea from §3.2 is worth stating plainly on its own. I'll mark it as opinion: I hold it strongly, but I won't pretend it's the final word.
+
+Here is the case for it. You can't reliably steer an agent's behavior with prose: an instruction can be read and then ignored, but a required field on a typed schema cannot be left blank. So instead of asking the agent to reason before it acts, you make the reasoning a function argument it has to fill in, and you route its choices through a union of types instead of a paragraph of pleading.
+
+The reasoning stops being a request and becomes part of the contract. That's what I mean by CoT compliance, and it's why I think it beats writing ever-longer instructions: a schema is the one part of the exchange the model physically cannot skip.
+
+The nice part is the one from §2.4: you never have to take the agent's arm off and bolt a hammer where its hand was. You hand it the hammer, and the shape of the tool tells it how to swing.
+
+I've written this up properly elsewhere, with the theory, the numbers, and where it breaks down. If you want that depth, these two posts go into it:
+
+- [Function Calling Harness from 6.75% to 100%](https://dev.to/samchon/qwen-meetup-function-calling-harness-from-675-to-100-3830)
+- [Function Calling Harness CoT Compliance](https://dev.to/samchon/function-calling-harness-2-cot-compliance-from-991-to-100-4f0h)
+
+### 5.3. An Open Offer
+
+I want to put this gently, as a suggestion rather than a critique. From the outside, the trouble a tool like `codegraph` runs into doesn't look like a tree-sitter problem, or a sign it was built wrong. It looks like the tool just wasn't getting called the way its authors meant it to be.
+
+Once that happens, the natural response is to make the prompt louder. More instructions, stronger wording, until you're forbidding the agent's own Read and Edit and bolting on a prosthetic where its hand used to be. I spent a long time writing prompts myself before I accepted they weren't the lever.
+
+That's exactly the problem I think this approach solves. The adoption problem, the agent not reaching for your tool at the right moment, is what a typed contract takes on directly, and it doesn't care whether the data underneath came from tree-sitter or a compiler. So if you've felt that pain, my honest belief is that union types plus CoT compliance would lift a lot of it.
+
+![A hammer bolted onto an armless robot stump amid scattered papers and warnings, an arrow labeled CoT Compliance, then a robot hand gripping the hammer beside a clean code graph](/blog/images/prosthesis-to-hammer-in-hand.png)
+
+> The same tools, made whole. CoT compliance is the arrow: it turns the forced prosthesis back into a hand that grips the tool on its own.
+
+The interface is small and MIT-licensed. If the `codegraph`, `codebase-memory-mcp`, or `serena` authors ever want to try it, I'd be glad to help wire it up.
+
+And if there's no appetite for it, I'd rather show it than argue about it. My hunch is the same interface would carry a tree-sitter tool a long way too, though not as far as a compiler-backed one, since the agent can't fully trust text-level results and will re-read a file or two to be sure. If I build it myself I'd expect a token reduction of about 3x, next to the 10x here. I haven't run that experiment yet, but if no one beats me to it, I'll build that version and report back, warts and all.
+
+Either way, the thing I keep coming back to is the same: don't make your agent read the whole codebase. Hand it the index the compiler already drew.
+
+### 5.4. References
+
+![@ttsc/graph](/og.jpg)
 
 - Repository: https://github.com/samchon/ttsc
 - Benchmark: https://ttsc.dev/docs/benchmark/graph
-- Issues: https://github.com/samchon/ttsc/issues
 
 The pioneers this builds on:
 
 - `codegraph`: https://github.com/colbymchenry/codegraph
 - `codebase-memory-mcp`: https://github.com/DeusData/codebase-memory-mcp
+- `serena`: https://github.com/oraios/serena
