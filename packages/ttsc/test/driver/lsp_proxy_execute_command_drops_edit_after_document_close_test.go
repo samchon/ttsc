@@ -1,6 +1,7 @@
 package driver_test
 
 import (
+  "bytes"
   "encoding/json"
   "sync/atomic"
   "testing"
@@ -53,7 +54,11 @@ func TestLSPProxyExecuteCommandDropsEditAfterDocumentClose(t *testing.T) {
   case <-time.After(2 * time.Second):
     t.Fatal("executeCommand did not start")
   }
-  h.sendEditor([]byte(`{"jsonrpc":"2.0","method":"textDocument/didClose","params":{"textDocument":{"uri":"file:///a.ts"}}}`))
+  closeMessage := []byte(`{"jsonrpc":"2.0","method":"textDocument/didClose","params":{"textDocument":{"uri":"file:///a.ts"}}}`)
+  h.sendEditor(closeMessage)
+  if got := h.recvUpstream(); !bytes.Equal(got, closeMessage) {
+    t.Fatalf("didClose did not reach upstream before command completed:\n%s", got)
+  }
   close(release)
 
   body := h.recvEditor()
@@ -66,5 +71,4 @@ func TestLSPProxyExecuteCommandDropsEditAfterDocumentClose(t *testing.T) {
   if decoded.Result != nil {
     t.Fatalf("closed-document command response was not suppressed:\n%s", body)
   }
-  _ = h.recvUpstream()
 }
