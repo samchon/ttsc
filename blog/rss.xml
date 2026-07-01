@@ -13,9 +13,16 @@
       <description>It&apos;s built on the TypeScript compiler&apos;s own APIs — it reads the graph the compiler already resolved instead of guessing it — so it stays exact and cuts tokens 10x even on...</description>
     </item>
     <item>
+      <title>I Made TS Code Graph MCP: 10x Fewer Tokens in Claude Code</title>
+      <link>https://ttsc.dev/blog/i-made-ts-compiler-graph-mcp/</link>
+      <guid>https://ttsc.dev/blog/i-made-ts-compiler-graph-mcp/</guid>
+      <pubDate>Tue, 30 Jun 2026 00:00:00 GMT</pubDate>
+      <description>It&apos;s built on the TypeScript compiler&apos;s own APIs — it reads the graph the compiler already resolved instead of guessing it — so it stays exact and cuts tokens 10x even on...</description>
+    </item>
+    <item>
       <title>800x Faster TypeScript Lint: I Moved Lint Into TypeScript-Go</title>
-      <link>https://ttsc.dev/blog/800x-faster-typescript-lint/</link>
-      <guid>https://ttsc.dev/blog/800x-faster-typescript-lint/</guid>
+      <link>https://ttsc.dev/blog/i-moved-linter-into-typescript-go/</link>
+      <guid>https://ttsc.dev/blog/i-moved-linter-into-typescript-go/</guid>
       <pubDate>Mon, 25 May 2026 00:00:00 GMT</pubDate>
       <description>@ttsc/lint moves lint into the TypeScript-Go-backed check path and ships a separate native format command: 800x faster lint and 70x faster format on the VS Code fixture.</description>
     </item>
