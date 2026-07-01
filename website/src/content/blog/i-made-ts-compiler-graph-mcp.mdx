@@ -1,5 +1,5 @@
 ---
-title: "I Made TS Code Graph MCP: 10x Fewer Tokens in Claude Code"
+title: "I Made TS Compiler Graph MCP: 10x Fewer Tokens in Claude Code"
 description: "Built on the TypeScript compiler's own APIs, it reads the graph the compiler already resolved instead of guessing at it, so it stays exact and cuts tokens about 10x even on open-ended 'how does this work?' questions. A compiler-exact index handed to your coding agent over MCP, every claim anchored to a file:line span you can open. Also why the other graph and language-server MCP tools (codegraph, codebase-memory, serena), for all their strengths, don't move the token bill on a real question."
 date: "2026-06-30"
 author: "Jeongho Nam"
@@ -14,32 +14,38 @@ tags:
 
 > ## TL;DR
 >
-> `codegraph`, `codebase-memory-mcp`, and `serena` all got there first, handing a coding agent code intelligence over MCP so it stops grepping. On my own open-ended questions the token bill didn't budge: the agent kept sliding back to grep, and no amount of forceful prompting could stop it. So I built [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph).
+> - **The tools before it didn't move my token bill.**
+>   - `codegraph`, `codebase-memory-mcp`, `serena`: a code graph over MCP.
+>   - Open questions → tokens flat, sometimes worse than no tool.
+>   - The agent ignored them and grepped.
+> - **[`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) makes three choices instead.**
+>   - Index, never source bodies → tokens stay flat.
+>   - One tool + forced chain-of-thought → the agent uses it, no symbol names.
+>   - Rides the TypeScript compiler → results trusted, so it stops.
+> - **~10x fewer tokens, answers no worse.**
+>   - Conservative median, 8 repos × 4 models.
+>   - TypeScript-only, MIT.
+>   - Four lines to install.
 >
-> It gives the agent an index the TypeScript compiler already resolved, never the source bodies, through a single tool with a forced chain-of-thought. On "how does this work?" questions that works out to roughly 10× fewer tokens, and the answers are no worse. That figure is a median, and a conservative one.
->
-> - Repository: https://github.com/samchon/ttsc
-> - Benchmark: https://ttsc.dev/docs/benchmark/graph
+> [Repository](https://github.com/samchon/ttsc) · [Benchmark](https://ttsc.dev/docs/benchmark/graph)
 
 ---
 
-## 1. Preface
+## 1. Introducing `@ttsc/graph`
 
-### 1.1. What @ttsc/graph Is
+### 1.1. What `@ttsc/graph` Is
 
 ![A source crawl collapses into a compiler-built graph index](/blog/images/source-crawl-vs-compiler-index.png)
 
 > On the left, the agent is lost in a maze of files, chasing dashed arrows dozens deep. On the right, it's reading a single compiler-built graph of nodes and edges, with the `file:line` anchors it can open and check.
 
-You're new to a TypeScript repo, so you ask the agent for a tour: what's the main runtime flow, from the public API down to the code that does the work, and what should you read first? You know how it goes. It opens a file, follows an import into another, then another, and a few dozen files later it gives you an answer.
+You're new to a TypeScript repo, so you ask the agent for a tour: _"What's the main runtime flow, and what should I read first?"_ You know how it goes. It opens a file, follows an import into another, then another, and a few dozen files later you get an answer, and a large token bill.
 
-`@ttsc/graph` cuts that crawl short. Over MCP, it hands your agent a graph of your TypeScript codebase that the compiler itself drew: what calls what, what depends on what, and where each piece lives. The agent answers structural questions straight from the graph instead of spelunking through files, and every claim it makes points at an exact file:line the compiler resolved. Nothing invented, just a location you can open and check for yourself.
+`@ttsc/graph` cuts that crawl short. Over MCP, it hands your agent a graph of your TypeScript codebase that the compiler itself drew: what calls what, what depends on what, and where each piece lives. The agent answers structural questions straight from the graph instead of spelunking through files, and every claim it makes points at an exact `file:line` the compiler resolved.
 
 ![Median token use across every repo, common prompt, Codex GPT-5.5](/benchmark/graph-common-codex-gpt-5.5.svg)
 
-It's the same question and the same agent in every case, and only `@ttsc/graph` stays flat across the repos no matter how big they get. The other three, codegraph, codebase-memory, and serena, swing all over the place, and a few even spend more than the baseline does.
-
-If you want to dig into the details, every model, the per-repo prompts alongside this shared one, and the full method are on the [interactive benchmark page](https://ttsc.dev/docs/benchmark/graph).
+Here's the part that surprised me. This is supposed to be a solved problem: `codegraph`, `codebase-memory-mcp`, and `serena` all hand the agent a code graph over MCP for exactly this. But on the same question with the same agent, their token use swings all over the place, and on some repos they spend more than running with no tool at all. Only `@ttsc/graph` stays flat, however big the repo gets. That gap is why I built it. Every model and the full method are on the [interactive benchmark page](https://ttsc.dev/docs/benchmark/graph).
 
 ### 1.2. What a Code Graph Is
 
@@ -51,19 +57,75 @@ So what is a "code graph"? Land in a city you've never visited and you don't rea
 
 Code has the same shape. The nodes are functions, classes, and files; the edges are the calls, imports, and inheritance between them. Draw all of them and you have a code graph, an index of what calls what. The agent can query that index once instead of walking every street itself.
 
-### 1.3. Index, Not Source Inlining
+Everyone in this post draws a graph like that. It's the obvious right idea, and it isn't where `@ttsc/graph` pulls ahead. The difference is two choices about what the tool does with the graph once it has one, and the rest of this section is those two.
 
-This is the first real fork in the road. `@ttsc/graph` doesn't return source bodies at all. What it returns is names, edges, signatures, and spans, and nothing more than that.
+### 1.3. The Index Strategy
 
-The span is the part that matters. Every range it cites is a coordinate the compiler vouched for, so if you doubt an answer, you open that exact spot and check it. What reassures me isn't that it read no files; it's that a place to verify always comes attached.
+The first choice is what the tool hands back. `@ttsc/graph` returns an index, never source bodies: names, edges, signatures, and spans, and nothing more. One row of it is just an edge and a coordinate:
 
-Tokens stay flat because the size of the response doesn't depend on the size of the repo. Whether the project is 100k lines or 10k, one question comes back with a similarly sized chunk of index. Why the other tools spill source instead is the autopsy in §2.
+```
+loadConfig  →  readFile, parseEnv        config/load.ts:42
+```
 
-### 1.4. How It Works, in One Breath
+That's why the tokens stay flat. Because the answer is edges rather than code, its size doesn't grow with the repo, so a 10k-line project and a 100k-line one come back about the same. And a span isn't a copy of the code, it's a coordinate the compiler vouched for, so you can open it and check.
 
-The short version: it reads an index out of the program the TypeScript compiler has already resolved, and it feeds a single MCP tool a forced chain-of-thought so the agent doesn't wander off. That's all there is to it.
+This is the device that keeps the graph from exploding. The tempting move is the opposite: hand back the source bodies too, the Read done for the agent. Staple the code onto the graph and a tidy set of edges balloons into a wall of text, bigger the deeper you look. `codegraph` does exactly that, and §2 opens with what it costs.
 
-The rest of the post earns those claims. §2 is the autopsy of why the tools before it don't move the token bill; §3 is how this one does; §4 is how to run it yourself. First, why I built it.
+### 1.4. The CoT-Compliance Strategy
+
+The second choice is how the agent is made to use the tool: CoT compliance.
+
+Every other tool tries to make the agent behave by talking to it: plugging in more tools, writing longer instructions, shouting harder in each tool description. On my questions the agent nodded and went back to grepping anyway. `@ttsc/graph` doesn't ask. Its one tool takes a typed schema:
+
+```typescript
+/**
+ * MCP INSTRUCTION...
+ */
+export interface ITtscGraphApplication {
+  /**
+   * TOOL DESCRIPTION...
+   */
+  inspect_typescript_graph(
+    props: ITtscGraphApplication.IProps,
+  ): ITtscGraphApplication.IResult;
+}
+
+export namespace ITtscGraphApplication {
+  // The forced chain-of-thought, then exactly one graph request.
+  export interface IProps {
+    question: string; // restate the code question being asked
+    draft: IDraft;    // the request type it plans, and why it is the smallest
+    review: string;   // self-correct a wrong/broad draft; pick `escape` if off-graph
+    request:          // the final operation, chosen after review
+      | ITtscGraphEntrypoints.IRequest // orientation: where to start reading
+      | ITtscGraphLookup.IRequest      // find a symbol by name
+      | ITtscGraphTrace.IRequest       // trace call / data flow
+      | ITtscGraphDetails.IRequest     // a symbol's signature, members, neighbors
+      | ITtscGraphOverview.IRequest    // repo-level overview
+      | ITtscGraphTour.IRequest        // broad code tour, answered in one call
+      | ITtscGraphEscape.IRequest;     // not a graph question -> bail out
+  }
+
+  // The drafted plan: a request type, plus the reason it looks smallest.
+  export interface IDraft {
+    reason: string; // why this request type looks like the smallest answer
+    type:           // the request type being considered
+      | "entrypoints"
+      | "lookup"
+      | "trace"
+      | "details"
+      | "overview"
+      | "tour"
+      | "escape";
+  }
+}
+```
+
+Those `MCP INSTRUCTION` and `TOOL DESCRIPTION` blocks are trimmed to `...` here; the full [`ITtscGraphApplication`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphApplication.ts) carries the real ones. `question`, `draft`, and `review` are required fields, so the agent has to lay its reasoning down as data before it can act. That one change did what no instruction did: the agent finally used the tool, and turned a vague question into the precise request itself.
+
+Why a typed schema succeeds where instructions don't is the real idea here, and I come back to it properly in §5.
+
+That's the whole of `@ttsc/graph`: an index instead of source, and one tool the agent is forced to use well. §2 is the autopsy of why the tools before it don't move the token bill; §3 is the mechanics; §4 is how to run it; §5 is where it could go.
 
 ## 2. Why I Built It
 
@@ -126,7 +188,7 @@ The second cause is the instructions, and here the three tools scatter in every 
 
 So one under-directs, the other two over-direct, and none of them lands on what you actually want, which is for the agent to use the graph when it helps and stop when it doesn't. Forcing a tool isn't the same as getting it adopted, and a big surface area isn't the same as capability. A tool the agent won't reach for is worse than no tool at all, because you're still paying for its description on every single turn.
 
-You can read the effort in the prompts themselves. `serena`'s Claude Code configuration doesn't only tell the agent to prefer its tools; it enumerates specific rationalizations and rules each one out, down to "I already know the path" and "one Read call is faster than three Serena calls." Every line in that list is a rationalization the model actually produced, caught and forbidden one at a time. It's real craft, and there's a lot of it: `serena` swaps in about a hundred and fifty lines of replacement system prompt before the first question, and `codegraph` ships around a hundred lines of instructions plus a skill file injected at install time. Almost all of it exists to secure one thing, that the agent actually calls the tool. On my questions, none of it worked. You can't write your way to adoption.
+You can read the effort in the prompts themselves. `serena`'s Claude Code configuration doesn't only tell the agent to prefer its tools; it enumerates specific rationalizations and rules each one out, down to "I already know the path" and "one Read call is faster than three Serena calls." Every line in that list is a rationalization the model actually produced, caught and forbidden one at a time. It's real craft, and there's a lot of it: `serena` swaps in about a hundred and fifty lines of replacement system prompt before the first question, and `codegraph` ships around a hundred lines of instructions plus a skill file injected at install time. Almost all of it exists to secure one thing: that the agent actually calls the tool. On my questions, none of it worked. You can't write your way to adoption.
 
 To their credit, none of the three hide their limits. `codegraph`'s README says its token savings depend on scale and are small on a normal codebase. `codebase-memory-mcp` reports its biggest numbers on a handful of structural queries rather than open-ended ones. `serena`'s own docs admit its symbolic tools win on large edits but lose to a plain text edit on small ones. All three tell you plainly that the wins were measured on targeted scenarios.
 
@@ -166,11 +228,16 @@ This is one of the two differences that actually decide it; the other is the com
 
 ![The forced chain-of-thought inside one tool call: question → draft → review → one request, or escape out](/blog/images/cot-pipeline.svg)
 
-Here's the entire surface. It's one type, with the comments trimmed down to one line each:
+Here's the entire surface. It's one type, with the docs trimmed to placeholders and the comments to one line each:
 
 ```typescript
-// TOOL DESCRIPTION: inspect the compiler-built TypeScript code graph over MCP.
+/**
+ * MCP INSTRUCTION...
+ */
 export interface ITtscGraphApplication {
+  /**
+   * TOOL DESCRIPTION...
+   */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
   ): ITtscGraphApplication.IResult;
@@ -180,7 +247,7 @@ export namespace ITtscGraphApplication {
   // The forced chain-of-thought, then exactly one graph request.
   export interface IProps {
     question: string; // restate the code question being asked
-    draft: string;    // intended request type + why it is the smallest
+    draft: IDraft;    // the request type it plans, and why it is the smallest
     review: string;   // self-correct a wrong/broad draft; pick `escape` if off-graph
     request:          // the final operation, chosen after review
       | ITtscGraphEntrypoints.IRequest // orientation: where to start reading
@@ -190,6 +257,19 @@ export namespace ITtscGraphApplication {
       | ITtscGraphOverview.IRequest    // repo-level overview
       | ITtscGraphTour.IRequest        // broad code tour, answered in one call
       | ITtscGraphEscape.IRequest;     // not a graph question -> bail out
+  }
+
+  // The drafted plan: a request type, plus the reason it looks smallest.
+  export interface IDraft {
+    reason: string; // why this request type looks like the smallest answer
+    type:           // the request type being considered
+      | "entrypoints"
+      | "lookup"
+      | "trace"
+      | "details"
+      | "overview"
+      | "tour"
+      | "escape";
   }
 
   // The selected request's result; `result.type` mirrors `request.type`.
@@ -206,7 +286,7 @@ export namespace ITtscGraphApplication {
 }
 ```
 
-As you can see, `question`, `draft`, and `review` are forced function arguments. typia compiles this type into the tool's JSON schema and validator, so a chain-of-thought that hasn't been filled in gets rejected right at the call boundary.
+Read those fields top to bottom, because that's the order the model fills them in. It restates and sharpens the question in `question`, sketches the smallest plan in `draft`, second-guesses that plan in `review`, and only then commits the final `request`. The property order is the chain-of-thought: one refining step per field, each building on the last, ending in the request it reasoned its way to. typia compiles this type into the tool's JSON schema and validator, so a submission that skipped a step is rejected right at the call boundary.
 
 As typia puts it, "free prose can hide a skipped step; a typed submission cannot." Why that matters more than any instruction is the thread I pick back up in §5.
 
@@ -214,7 +294,7 @@ Those one-line comments are condensed. In the source, the fuller JSDoc on each m
 
 This is also the answer to the hand-shaping problem. You just ask in plain English, as vague as "just figure it out," and translating that into the precise request type and correcting itself along the way is the CoT's job. There are no symbol names to supply, no Cypher, and no query syntax to memorize.
 
-Each request branch is a single graph operation with its own request (`.IRequest`) and result type. Here's what each one does:
+And every fork in that reasoning is a discriminated union. The `request` is one, tagged by a `type` string: `ITtscGraphLookup.IRequest` is `type: "lookup"`, `ITtscGraphTour.IRequest` is `type: "tour"`, and so on, so choosing the literal _is_ the decision of which operation to run. The chain-of-thought walks that fork in stages: `draft.type` names the branch it intends, `review` is its chance to switch to a different one, and the committed `request` is the branch it lands on. The returned `result.type` comes back on the same tag, so the agent always knows which shape it's holding. Each branch is one graph operation with its own request (`.IRequest`) and result type:
 
 - [`ITtscGraphTour`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphTour.ts) — a broad code tour. Answers "new project, how does it work?" in one index.
 - [`ITtscGraphEntrypoints`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphEntrypoints.ts) — find the entry points. Where to start reading.
@@ -258,9 +338,17 @@ There's one prerequisite that matters more than the rest. `@ttsc/graph` rides on
 
 ### 4.2. It Might Break
 
-I built this because I couldn't stand using `codegraph`, so I put real effort into making it hold up in general use, none of that "I installed it and Codex got dumber." On my own machine, at least, it's been solid.
+I built this because I kept getting frustrated with `codegraph` in daily use, so I put real effort into making it hold up in general use, none of that "I installed it and Codex got dumber." On my own machine, at least, it's been solid.
 
-The world is wide, and there are failure modes I haven't hit yet. It's open source, so if something feels awkward or you catch something I got wrong, [file an issue](https://github.com/samchon/ttsc/issues). That's the fastest way to make it solid.
+But I owe you the same skepticism I aimed at everyone else. In §2.4 I noted that all three tools reported their best numbers on the scenarios that suited them, and my 10x is not exempt from that.
+
+The 10x is a median I measured myself, on my own repos, over the same two kinds of question the benchmark runs: a shared onboarding tour and `codegraph`'s own per-repo questions. It's conservative, but it's still one person's benchmark on a bounded set of scenarios, and on your codebase it could come out lower, maybe a lot lower.
+
+And if it does come out lower, I don't want you to just accept it and move on. I want to know.
+
+A tool like this only gets healthy when people run it on code I've never seen and tell me what happened, whether it broke outright or just quietly saved less than I claimed. Right now it's solid on my machine and unproven on yours, and the only thing that closes that gap is real use.
+
+So send the awkward moments, the crashes, and the runs where the 10x came back negative, where it cost you more than no tool at all. A disappointing number is a bug report too. I'd rather hear that it let you down than hear nothing at all. It's open source and MIT, and the issue tracker is the fastest way to make it real: https://github.com/samchon/ttsc/issues
 
 ### 4.3. Add It in Four Lines
 
