@@ -195,11 +195,11 @@ I came to the same problem holding two things they didn't: a compiler toolchain 
 
 | Pain (§2) | Antidote (§3) |
 | --- | --- |
-| 2.4 — over-forced (up to a hard ban), or no guidance at all | **3.1** — guides without forcing (`escape` + stop) |
-| 2.3 — a real graph buried under 14 (or ~50) tools | **3.2** — one tool, asked in plain language |
-| 2.3 — source bodies blow up tokens | **3.3** — returns `index` only |
-| 2.3 — a setup tax before the tools even work | **3.4** — a free byproduct, no setup step |
-| (only works if trustworthy) | **3.4** — the real compiler |
+| 2.4: over-forced (up to a hard ban), or no guidance at all | **3.1**: guides without forcing (`escape` + stop) |
+| 2.3: a real graph buried under 14 (or ~50) tools | **3.2**: one tool, asked in plain language |
+| 2.3: source bodies blow up tokens | **3.3**: returns `index` only |
+| 2.3: a setup tax before the tools even work | **3.4**: a free byproduct, no setup step |
+| (only works if trustworthy) | **3.4**: the real compiler |
 
 ### 3.1. It Never Forces You
 
@@ -282,13 +282,13 @@ This is also the answer to the hand-shaping problem. You just ask in plain Engli
 
 And every fork in that reasoning is a discriminated union. The `request` is one, tagged by a `type` string: `ITtscGraphLookup.IRequest` is `type: "lookup"`, `ITtscGraphTour.IRequest` is `type: "tour"`, and so on, so choosing the literal _is_ the decision of which operation to run. The chain-of-thought walks that fork in stages: `draft.type` names the branch it intends, `review` is its chance to switch to a different one, and the committed `request` is the branch it lands on. The returned `result.type` comes back on the same tag, so the agent always knows which shape it's holding. Each branch is one graph operation with its own request (`.IRequest`) and result type:
 
-- [`ITtscGraphTour`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphTour.ts) — a broad code tour. Answers "new project, how does it work?" in one index.
-- [`ITtscGraphEntrypoints`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphEntrypoints.ts) — find the entry points. Where to start reading.
-- [`ITtscGraphLookup`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphLookup.ts) — find a symbol by name.
-- [`ITtscGraphTrace`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphTrace.ts) — trace call / data flow (forward, or impact radius).
-- [`ITtscGraphDetails`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphDetails.ts) — a chosen symbol's signature, members, neighbors.
-- [`ITtscGraphOverview`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphOverview.ts) — a repo-level overview.
-- [`ITtscGraphEscape`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphEscape.ts) — a no-op bail-out, out of the graph.
+- [`ITtscGraphTour`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphTour.ts): a broad code tour. Answers "new project, how does it work?" in one index.
+- [`ITtscGraphEntrypoints`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphEntrypoints.ts): find the entry points. Where to start reading.
+- [`ITtscGraphLookup`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphLookup.ts): find a symbol by name.
+- [`ITtscGraphTrace`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphTrace.ts): trace call / data flow (forward, or impact radius).
+- [`ITtscGraphDetails`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphDetails.ts): a chosen symbol's signature, members, neighbors.
+- [`ITtscGraphOverview`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphOverview.ts): a repo-level overview.
+- [`ITtscGraphEscape`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphEscape.ts): a no-op bail-out, out of the graph.
 
 ### 3.3. Index Only, So Nothing Explodes
 
