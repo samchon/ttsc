@@ -841,7 +841,7 @@ function reductionTools(model: ModelGroup): ReductionTool[] {
     },
     {
       key: "serena",
-      label: "Serena",
+      label: "serena",
       metrics: model.serena,
       setupMs: model.serenaSetupMs,
       fill: SERENA_FILL,
@@ -857,7 +857,7 @@ function ChartLegend() {
       <LegendDot fill={ACCENT} label="@ttsc/graph" />
       <LegendDot fill={CODEGRAPH_TEXT} label="codegraph" />
       <LegendDot fill={CODEBASE_MEMORY_TEXT} label="codebase-memory" />
-      <LegendDot fill={SERENA_TEXT} label="Serena" />
+      <LegendDot fill={SERENA_TEXT} label="serena" />
       <span className="text-neutral-600">
         bars show token usage; right labels show tokens and baseline reduction
       </span>
@@ -929,7 +929,7 @@ function ReductionChart({
             ) : null}
             {serenaAverage !== null ? (
               <span className="rounded-full border border-[#553066] bg-[#1a0f21] px-2 py-1 text-[#e879f9]">
-                Serena avg {reductionLabel(serenaAverage)}
+                serena avg {reductionLabel(serenaAverage)}
               </span>
             ) : null}
           </div>

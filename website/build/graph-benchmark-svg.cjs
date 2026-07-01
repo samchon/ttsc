@@ -36,6 +36,7 @@ const TOOLS = [
     label: "codebase-memory",
     color: "#a3e635",
   },
+  { key: "serena", sample: "graph", label: "serena", color: "#f472b6" },
 ];
 
 const REPO_LABELS = {
@@ -90,13 +91,13 @@ function buildRows(input) {
 }
 
 function render(rows) {
-  const width = 720;
-  const height = 540;
+  const width = 1040;
+  const height = 900;
   const chart = {
-    left: 92,
-    right: 704,
-    top: 84,
-    bottom: 502,
+    left: 124,
+    right: 1016,
+    top: 116,
+    bottom: 830,
   };
   const plotWidth = chart.right - chart.left;
   const plotHeight = chart.bottom - chart.top;
@@ -108,8 +109,8 @@ function render(rows) {
   );
   const ticks = [0, max * 0.25, max * 0.5, max * 0.75, max];
   const rowHeight = plotHeight / rows.length;
-  const barHeight = 7.5;
-  const barStep = 11.5;
+  const barHeight = 9;
+  const barStep = 13.5;
   const title = "Common prompt median token use, Codex GPT-5.4 mini";
 
   return `<?xml version="1.0" encoding="utf-8" standalone="no"?>
@@ -133,7 +134,7 @@ function render(rows) {
        const x = chart.left + (tick / max) * plotWidth;
        return `<g>
     <path d="M ${x.toFixed(3)} ${chart.top} L ${x.toFixed(3)} ${chart.bottom}" style="fill:none;stroke:${COLORS.grid};stroke-width:0.7"/>
-    <text x="${x.toFixed(3)}" y="${chart.bottom + 14}" style="fill:${COLORS.label};font-size:9px;text-anchor:middle">${formatTick(tick)}</text>
+    <text x="${x.toFixed(3)}" y="${chart.bottom + 18}" style="fill:${COLORS.label};font-size:11px;text-anchor:middle">${formatTick(tick)}</text>
    </g>`;
      })
      .join("\n   ")}
@@ -144,30 +145,30 @@ function render(rows) {
        const barTop = rowTop + (rowHeight - (TOOLS.length - 1) * barStep) / 2;
        return `<g>
     <path d="M 18 ${(rowTop + rowHeight).toFixed(3)} L ${chart.right} ${(rowTop + rowHeight).toFixed(3)}" style="fill:none;stroke:${COLORS.grid};stroke-width:0.6"/>
-    <text x="${chart.left - 13}" y="${labelY.toFixed(3)}" style="fill:${COLORS.title};font-size:10px;font-weight:600;text-anchor:end">${escapeXml(row.label)}</text>
+    <text x="${chart.left - 16}" y="${labelY.toFixed(3)}" style="fill:${COLORS.title};font-size:13px;font-weight:600;text-anchor:end">${escapeXml(row.label)}</text>
     ${row.values
       .map((value, valueIndex) => {
         if (value.value <= 0) return "";
         const barWidth = Math.max(2, (value.value / max) * plotWidth);
         const label = valueLabel(row, value);
         const best = value.value === minTokens(row);
-        const labelWidth = estimateTextWidth(label, 8.5, best ? 700 : 400);
+        const labelWidth = estimateTextWidth(label, 11, best ? 700 : 400);
         const textX = Math.min(
           chart.left + barWidth + 5,
           width - labelWidth - 8,
         );
         const y = barTop + valueIndex * barStep;
         return `<rect x="${chart.left}" y="${y.toFixed(3)}" width="${barWidth.toFixed(3)}" height="${barHeight}" style="fill:${value.color}"/>
-    <text x="${textX.toFixed(3)}" y="${(y + barHeight - 0.7).toFixed(3)}" style="fill:${valueLabelColor(row, value)};font-size:8.5px${best ? ";font-weight:700" : ""}">${escapeXml(label)}</text>`;
+    <text x="${textX.toFixed(3)}" y="${(y + barHeight - 0.7).toFixed(3)}" style="fill:${valueLabelColor(row, value)};font-size:11px${best ? ";font-weight:700" : ""}">${escapeXml(label)}</text>`;
       })
       .filter(Boolean)
       .join("\n    ")}
    </g>`;
      })
      .join("\n   ")}
-   <text x="${(chart.left + plotWidth / 2).toFixed(3)}" y="19" style="fill:${COLORS.title};font-size:14px;font-weight:600;text-anchor:middle">${escapeXml(title)}</text>
-   <text x="${(chart.left + plotWidth / 2).toFixed(3)}" y="${chart.bottom + 30}" style="fill:${COLORS.label};font-size:10px;text-anchor:middle">Tokens</text>
-   ${renderLegend(chart.left, 42)}
+   <text x="${(chart.left + plotWidth / 2).toFixed(3)}" y="28" style="fill:${COLORS.title};font-size:20px;font-weight:600;text-anchor:middle">${escapeXml(title)}</text>
+   <text x="${(chart.left + plotWidth / 2).toFixed(3)}" y="${chart.bottom + 44}" style="fill:${COLORS.label};font-size:13px;text-anchor:middle">Tokens</text>
+   ${renderLegend(chart.left, 58)}
   </g>
  </g>
 </svg>`;
@@ -186,10 +187,10 @@ function renderLegend(x, y) {
   return `<g id="legend_1">
    ${TOOLS.map((tool) => {
      const item = `<g>
-    <rect x="${x + offset}" y="${y - 7}" width="11" height="7" style="fill:${tool.color}"/>
-    <text x="${x + offset + 16}" y="${y}" style="fill:${COLORS.label};font-size:9px">${escapeXml(tool.label)}</text>
+    <rect x="${x + offset}" y="${y - 9}" width="14" height="9" style="fill:${tool.color}"/>
+    <text x="${x + offset + 20}" y="${y}" style="fill:${COLORS.label};font-size:12px">${escapeXml(tool.label)}</text>
    </g>`;
-     offset += estimateTextWidth(tool.label, 9, 400) + 32;
+     offset += estimateTextWidth(tool.label, 12, 400) + 42;
      return item;
    }).join("\n   ")}
   </g>`;

@@ -143,6 +143,12 @@ const claudeStartupGraceMs = parseNonNegativeInteger(
     "5000",
   "--claude-startup-grace-ms",
 );
+const claudeRunTimeoutMs = parseNonNegativeInteger(
+  args["claude-run-timeout-ms"] ??
+    process.env.TTSC_CLAUDE_RUN_TIMEOUT_MS ??
+    "900000",
+  "--claude-run-timeout-ms",
+);
 const tsconfig =
   args.tsconfig ?? manifestPrompt?.entry.tsconfig ?? spec.tsconfig;
 const question = args.question ?? manifestPrompt?.text;
@@ -506,7 +512,7 @@ async function runClaude(question, cfg, armName, runNumber) {
     inputDelayMs: delayedInput ? claudeStartupGraceMs : 0,
     windowsHide: true,
     shell: true,
-    timeout: 900_000,
+    timeout: claudeRunTimeoutMs,
   });
   if (result.error) throw result.error;
   const stdout = result.stdout ?? "";
@@ -676,11 +682,13 @@ function serenaServerArgs(targetRepoDir) {
 function parseConfiguredArgs(raw, targetRepoDir) {
   const parsed = raw.trim().startsWith("[")
     ? JSON.parse(raw)
-    : raw.match(/"[^"]*"|'[^']*'|\S+/g)?.map((part) =>
-        part.replace(/^(['"])(.*)\1$/, "$2"),
-      );
+    : raw
+        .match(/"[^"]*"|'[^']*'|\S+/g)
+        ?.map((part) => part.replace(/^(['"])(.*)\1$/, "$2"));
   if (!Array.isArray(parsed)) {
-    throw new Error("--serena-args must be a JSON string array or shell-like list");
+    throw new Error(
+      "--serena-args must be a JSON string array or shell-like list",
+    );
   }
   return parsed.map((part) =>
     String(part)

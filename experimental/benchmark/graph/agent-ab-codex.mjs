@@ -196,6 +196,14 @@ const cbmCacheDir = args["cbm-cache-dir"];
 const serenaCommand = commandPath(
   args["serena-command"] ?? process.env.SERENA_MCP_COMMAND ?? "uvx",
 );
+const mcpStartupTimeoutSec = optionalNonNegativeInteger(
+  args["mcp-startup-timeout-sec"] ?? process.env.CODEX_MCP_STARTUP_TIMEOUT_SEC,
+  "--mcp-startup-timeout-sec",
+);
+const mcpToolTimeoutSec = optionalNonNegativeInteger(
+  args["mcp-tool-timeout-sec"] ?? process.env.CODEX_MCP_TOOL_TIMEOUT_SEC,
+  "--mcp-tool-timeout-sec",
+);
 // --arm selects which arms to run: `baseline` and `graph` can be measured
 // separately so a fixed baseline is cached once and later graph iterations only
 // rerun the MCP arm. Baseline-only does not need graph binaries or dependencies.
@@ -436,17 +444,19 @@ function makeCodexHome(tag, serverArgs) {
       const a = codegraphServerArgs(repoDir)
         .map((x) => `'${x}'`)
         .join(", ");
-      toml += `\n[mcp_servers.codegraph]\ncommand = '${command}'\nargs = [${a}]\nenv = { CODEGRAPH_NO_DAEMON = "1" }\nrequired = true\n`;
+      toml += `\n[mcp_servers.codegraph]\ncommand = '${command}'\nargs = [${a}]\nenv = { CODEGRAPH_NO_DAEMON = "1" }\nrequired = true\n${mcpTimeoutConfigToml()}`;
     } else if (cbm) {
       const envParts = [`CBM_LOG_LEVEL = "warn"`];
       if (cbmCacheDir) envParts.unshift(`CBM_CACHE_DIR = '${cbmCacheDir}'`);
-      toml += `\n[mcp_servers.codebase_memory]\ncommand = '${cbmCommand}'\nargs = []\nenv = { ${envParts.join(", ")} }\nrequired = true\n`;
+      toml += `\n[mcp_servers.codebase_memory]\ncommand = '${cbmCommand}'\nargs = []\nenv = { ${envParts.join(", ")} }\nrequired = true\n${mcpTimeoutConfigToml()}`;
     } else if (serena) {
-      const argList = serenaServerArgs(repoDir).map((a) => `'${a}'`).join(", ");
-      toml += `\n[mcp_servers.serena]\ncommand = '${serenaCommand}'\nargs = [${argList}]\nrequired = true\n`;
+      const argList = serenaServerArgs(repoDir)
+        .map((a) => `'${a}'`)
+        .join(", ");
+      toml += `\n[mcp_servers.serena]\ncommand = '${serenaCommand}'\nargs = [${argList}]\nrequired = true\n${mcpTimeoutConfigToml()}`;
     } else {
       const argList = serverArgs.map((a) => `'${a}'`).join(", ");
-      toml += `\n[mcp_servers.ttscgraph]\ncommand = '${process.execPath}'\nargs = [${argList}]\nenv = { TTSC_GRAPH_BINARY = '${binary}' }\nrequired = true\n`;
+      toml += `\n[mcp_servers.ttscgraph]\ncommand = '${process.execPath}'\nargs = [${argList}]\nenv = { TTSC_GRAPH_BINARY = '${binary}' }\nrequired = true\n${mcpTimeoutConfigToml()}`;
     }
   }
   validateMcpConfig(toml);
@@ -484,6 +494,19 @@ function commandPath(command) {
     : command;
 }
 
+function mcpTimeoutConfigToml() {
+  return [
+    mcpStartupTimeoutSec === undefined
+      ? null
+      : `startup_timeout_sec = ${mcpStartupTimeoutSec}`,
+    mcpToolTimeoutSec === undefined
+      ? null
+      : `tool_timeout_sec = ${mcpToolTimeoutSec}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function codegraphServerArgs(targetRepoDir) {
   const args = ["serve", "--mcp", "--path", targetRepoDir];
   return process.platform === "win32"
@@ -515,11 +538,13 @@ function serenaServerArgs(targetRepoDir) {
 function parseConfiguredArgs(raw, targetRepoDir) {
   const parsed = raw.trim().startsWith("[")
     ? JSON.parse(raw)
-    : raw.match(/"[^"]*"|'[^']*'|\S+/g)?.map((part) =>
-        part.replace(/^(['"])(.*)\1$/, "$2"),
-      );
+    : raw
+        .match(/"[^"]*"|'[^']*'|\S+/g)
+        ?.map((part) => part.replace(/^(['"])(.*)\1$/, "$2"));
   if (!Array.isArray(parsed)) {
-    throw new Error("--serena-args must be a JSON string array or shell-like list");
+    throw new Error(
+      "--serena-args must be a JSON string array or shell-like list",
+    );
   }
   return parsed.map((part) =>
     String(part)
@@ -593,6 +618,11 @@ function parseNonNegativeInteger(value, label) {
     throw new Error(`${label} must be a non-negative integer`);
   }
   return out;
+}
+
+function optionalNonNegativeInteger(value, label) {
+  if (value === undefined || value === null || value === "") return undefined;
+  return parseNonNegativeInteger(value, label);
 }
 
 function sourceInspectionCommand(command) {
