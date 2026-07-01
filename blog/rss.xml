@@ -6,7 +6,7 @@
     <description>Engineering notes, releases, and deep dives from ttsc.</description>
     <language>en</language>
     <item>
-      <title>I Made TS Code Graph MCP: 10x Fewer Tokens in Claude Code</title>
+      <title>I Made TS Compiler Graph MCP: 10x Fewer Tokens in Claude Code</title>
       <link>https://ttsc.dev/blog/i-made-ts-compiler-graph-mcp/</link>
       <guid>https://ttsc.dev/blog/i-made-ts-compiler-graph-mcp/</guid>
       <pubDate>Tue, 30 Jun 2026 00:00:00 GMT</pubDate>
