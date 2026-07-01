@@ -12,7 +12,9 @@ The agent answers structural questions from the graph instead of crawling file b
 
 For why I built it, how it works in depth, and how it compares to `codegraph`, `codebase-memory-mcp`, and `serena`, read the launch post: https://ttsc.dev/blog/i-made-ts-compiler-graph-mcp
 
-## Install
+## Setup
+
+### Install
 
 ```bash
 npm install -D ttsc @ttsc/graph typescript@rc
@@ -22,7 +24,7 @@ npm install -D ttsc @ttsc/graph typescript@rc
 
 `ttsc` runs on the TypeScript-Go (TypeScript v7) runtime, which is still a release candidate, so the install pins `typescript@rc`. It does not run on stable TypeScript v6.x yet.
 
-## Connect your agent
+### Connect your agent
 
 Add the server to your agent's MCP config, once. For Claude Code, that is a `.mcp.json` in your project root:
 
