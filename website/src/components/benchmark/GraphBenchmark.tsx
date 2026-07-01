@@ -858,6 +858,7 @@ function ChartLegend() {
       <LegendDot fill={CODEGRAPH_TEXT} label="codegraph" />
       <LegendDot fill={CODEBASE_MEMORY_TEXT} label="codebase-memory" />
       <LegendDot fill={SERENA_TEXT} label="serena" />
+      <span className="text-neutral-400">lower is better</span>
       <span className="text-neutral-600">
         bars show token usage; right labels show tokens and baseline reduction
       </span>

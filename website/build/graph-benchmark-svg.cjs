@@ -3,12 +3,7 @@ const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
 const INPUT = path.join(ROOT, "public", "benchmark", "graph.json");
-const OUTPUT = path.join(
-  ROOT,
-  "public",
-  "benchmark",
-  "graph-common-codex-gpt-5.4-mini.svg",
-);
+const OUT_DIR = path.join(ROOT, "public", "benchmark");
 
 const COLORS = {
   background: "#05070b",
@@ -19,6 +14,8 @@ const COLORS = {
   title: "#f8fafc",
   legend: "#111827",
   legendBorder: "#334155",
+  muted: "#94a3b8",
+  worse: "#fb7185",
 };
 
 const TOOLS = [
@@ -50,23 +47,81 @@ const REPO_LABELS = {
   zod: "zod",
 };
 
-const report = JSON.parse(fs.readFileSync(INPUT, "utf8"));
-const cells = (report.agent?.cells ?? []).filter(
-  (cell) =>
-    cell.harness === "codex" &&
-    cell.model === "codex-gpt-mini" &&
-    cell.modelVersion === "gpt-5.4-mini" &&
-    cell.promptFamily === "common",
-);
+const HARNESS_LABELS = { codex: "Codex", "claude-code": "Claude Code" };
+const MODEL_LABELS = {
+  "gpt-5.4-mini": "GPT-5.4 mini",
+  "gpt-5.5": "GPT-5.5",
+  "claude-opus-4-8": "Opus 4.8",
+  "claude-sonnet-4-6": "Sonnet 4.6",
+};
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const rows = buildRows(cells);
-if (rows.length === 0) {
-  throw new Error("No Codex GPT-5.4 mini common benchmark cells found");
+// Every chart is derived from graph.json so it never drifts from the published
+// numbers. For each (harness, model, prompt family) present in the data we emit
+// one grouped chart across every repo, plus one single-repo chart per repo.
+// File names:
+//   grouped: graph-<family>-<harness>-<modelVersion>.svg
+//   single:  graph-<repo>-<family>-<harness>-<modelVersion>.svg
+const report = JSON.parse(fs.readFileSync(INPUT, "utf8"));
+const allCells = report.agent?.cells ?? [];
+
+const combos = new Map();
+for (const cell of allCells) {
+  const key = `${cell.harness}|${cell.model}|${cell.modelVersion}|${cell.promptFamily}`;
+  if (!combos.has(key)) {
+    combos.set(key, {
+      harness: cell.harness,
+      model: cell.model,
+      modelVersion: cell.modelVersion,
+      promptFamily: cell.promptFamily,
+    });
+  }
 }
 
-fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
-fs.writeFileSync(OUTPUT, `${render(rows)}\n`);
-console.log(`[build:graph-svg] ${path.relative(ROOT, OUTPUT)}`);
+fs.mkdirSync(OUT_DIR, { recursive: true });
+let written = 0;
+for (const combo of combos.values()) {
+  const cells = allCells.filter(
+    (cell) =>
+      cell.harness === combo.harness &&
+      cell.model === combo.model &&
+      cell.modelVersion === combo.modelVersion &&
+      cell.promptFamily === combo.promptFamily,
+  );
+  const rows = buildRows(cells);
+  if (rows.length === 0) continue;
+
+  const slug = `${combo.harness}-${combo.modelVersion}`;
+  const family = combo.promptFamily;
+  const harnessLabel = HARNESS_LABELS[combo.harness] ?? combo.harness;
+  const modelLabel = MODEL_LABELS[combo.modelVersion] ?? combo.modelVersion;
+
+  writeSvg(
+    `graph-${family}-${slug}.svg`,
+    render(
+      rows,
+      `${cap(family)} prompt median token use, ${harnessLabel} ${modelLabel}`,
+    ),
+  );
+
+  for (const row of rows) {
+    writeSvg(
+      `graph-${row.repo}-${family}-${slug}.svg`,
+      renderSingle(row, {
+        title: `${row.label} — median tokens (${family} prompt)`,
+        subtitle: `${harnessLabel} ${modelLabel}. Lower is better; percentage is versus the no-MCP baseline.`,
+      }),
+    );
+  }
+}
+console.log(
+  `[build:graph-svg] wrote ${written} chart(s) to ${path.relative(ROOT, OUT_DIR)}`,
+);
+
+function writeSvg(name, svg) {
+  fs.writeFileSync(path.join(OUT_DIR, name), `${svg}\n`);
+  written += 1;
+}
 
 function buildRows(input) {
   const byRepo = groupBy(input, (cell) => cell.repo);
@@ -90,7 +145,7 @@ function buildRows(input) {
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-function render(rows) {
+function render(rows, title) {
   const width = 1040;
   const height = 900;
   const chart = {
@@ -111,7 +166,6 @@ function render(rows) {
   const rowHeight = plotHeight / rows.length;
   const barHeight = 9;
   const barStep = 13.5;
-  const title = "Common prompt median token use, Codex GPT-5.4 mini";
 
   return `<?xml version="1.0" encoding="utf-8" standalone="no"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1" role="img" aria-label="${escapeXml(title)}">
@@ -169,7 +223,80 @@ function render(rows) {
    <text x="${(chart.left + plotWidth / 2).toFixed(3)}" y="28" style="fill:${COLORS.title};font-size:20px;font-weight:600;text-anchor:middle">${escapeXml(title)}</text>
    <text x="${(chart.left + plotWidth / 2).toFixed(3)}" y="${chart.bottom + 44}" style="fill:${COLORS.label};font-size:13px;text-anchor:middle">Tokens</text>
    ${renderLegend(chart.left, 58)}
+   <text x="${chart.left}" y="80" style="fill:${COLORS.muted};font-size:12px">Lower is better. Percentage is versus the no-MCP baseline.</text>
   </g>
+ </g>
+</svg>`;
+}
+
+// One repo, thick horizontal bars, tool names as row labels, and a dashed
+// baseline reference line so bars that cross it (spent more than no MCP at all)
+// read at a glance.
+function renderSingle(row, cfg) {
+  const width = 1040;
+  const height = 430;
+  const left = 124;
+  const right = 1016;
+  const top = 72;
+  const bottom = 372;
+  const plotWidth = right - left;
+  const values = row.values.filter((value) => value.value > 0);
+  const max = niceMax(Math.max(1, ...values.map((value) => value.value)));
+  const ticks = [0, max * 0.25, max * 0.5, max * 0.75, max];
+  const rowStep = (bottom - top) / values.length;
+  const barHeight = 30;
+  const baselineX = left + (row.baseline / max) * plotWidth;
+
+  const bars = values
+    .map((value, index) => {
+      const rowTop = top + index * rowStep;
+      const barY = rowTop + (rowStep - barHeight) / 2;
+      const center = barY + barHeight / 2;
+      const barWidth = Math.max(2, (value.value / max) * plotWidth);
+      const label = valueLabel(row, value);
+      const labelWidth = estimateTextWidth(label, 12, 400);
+      const textX = Math.min(left + barWidth + 8, width - labelWidth - 8);
+      return `<g>
+    <text x="${left - 8}" y="${(center + 4).toFixed(3)}" style="fill:${COLORS.title};font-size:13px;font-weight:600;text-anchor:end">${escapeXml(value.label)}</text>
+    <rect x="${left}" y="${barY.toFixed(3)}" width="${barWidth.toFixed(3)}" height="${barHeight}" style="fill:${value.color}"/>
+    <text x="${textX.toFixed(3)}" y="${(center + 4).toFixed(3)}" style="fill:${valueLabelColor(row, value)};font-size:12px">${escapeXml(label)}</text>
+   </g>`;
+    })
+    .join("\n   ");
+
+  const baselineRef =
+    row.baseline > 0
+      ? `<line x1="${baselineX.toFixed(3)}" y1="${top}" x2="${baselineX.toFixed(3)}" y2="${bottom}" style="stroke:${COLORS.axis};stroke-width:1;stroke-dasharray:4 4"/>
+   <text x="${(baselineX + 4).toFixed(3)}" y="${top + 14}" style="fill:${COLORS.muted};font-size:11px">no-MCP baseline</text>`
+      : "";
+
+  return `<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1" role="img" aria-label="${escapeXml(`${cfg.title}. ${cfg.subtitle ?? ""}`)}">
+ <defs>
+  <style type="text/css">
+   *{stroke-linejoin:round;stroke-linecap:butt}
+   text{font-family:DejaVu Sans, Arial, sans-serif}
+  </style>
+ </defs>
+ <g>
+  <path d="M 0 ${height} L ${width} ${height} L ${width} 0 L 0 0 z" style="fill:${COLORS.background}"/>
+  <text x="${left}" y="30" style="fill:${COLORS.title};font-size:16px;font-weight:600">${escapeXml(cfg.title)}</text>
+  ${cfg.subtitle ? `<text x="${left}" y="52" style="fill:${COLORS.muted};font-size:12px">${escapeXml(cfg.subtitle)}</text>` : ""}
+  <path d="M ${left} ${top} L ${right} ${top} L ${right} ${bottom} L ${left} ${bottom} z" style="fill:${COLORS.panel}"/>
+  ${ticks
+    .map((tick) => {
+      const x = left + (tick / max) * plotWidth;
+      return `<g>
+   <path d="M ${x.toFixed(3)} ${top} L ${x.toFixed(3)} ${bottom}" style="fill:none;stroke:${COLORS.grid};stroke-width:0.7"/>
+   <text x="${x.toFixed(3)}" y="${bottom + 18}" style="fill:${COLORS.label};font-size:11px;text-anchor:middle">${formatTick(tick)}</text>
+  </g>`;
+    })
+    .join("\n  ")}
+  <path d="M ${left} ${bottom} L ${right} ${bottom}" style="fill:none;stroke:${COLORS.axis};stroke-width:0.8"/>
+  <path d="M ${left} ${top} L ${left} ${bottom}" style="fill:none;stroke:${COLORS.axis};stroke-width:0.8"/>
+  <text x="${(left + plotWidth / 2).toFixed(3)}" y="${bottom + 42}" style="fill:${COLORS.label};font-size:13px;text-anchor:middle">Tokens</text>
+  ${baselineRef}
+  ${bars}
  </g>
 </svg>`;
 }
@@ -200,12 +327,12 @@ function valueLabel(row, value) {
   if (value.key === "baseline" || row.baseline <= 0)
     return formatTick(value.value);
   const saved = pctSaved(row.baseline, value.value);
-  return `${formatTick(value.value)} ${saved >= 0 ? "-" : "+"}${Math.abs(saved)}%`;
+  return `${formatTick(value.value)} (${saved >= 0 ? "-" : "+"}${Math.abs(saved)}%)`;
 }
 
 function valueLabelColor(row, value) {
   if (value.key === "baseline" || row.baseline <= 0) return COLORS.label;
-  return pctSaved(row.baseline, value.value) >= 0 ? value.color : "#fb7185";
+  return pctSaved(row.baseline, value.value) >= 0 ? value.color : COLORS.worse;
 }
 
 function pctSaved(baseline, value) {
