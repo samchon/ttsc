@@ -33,8 +33,8 @@
     "@tailwindcss/postcss": "^4.1.13",
     "@ttsc/playground": "workspace:^",
     "@ttsc/wasm": "workspace:^",
-    "@typia/interface": "13.0.0-dev.20260605.1",
-    "@typia/utils": "13.0.0-dev.20260605.1",
+    "@typia/interface": "catalog:samchon",
+    "@typia/utils": "catalog:samchon",
     "lz-string": "^1.5.0",
     "monaco-editor": "^0.52.0",
     "next": "^15.1.0",
@@ -51,7 +51,7 @@
     "three-forcegraph": "^1.43.4",
     "tstl": "^3.0.0",
     "typescript": "~5.9.3",
-    "typia": "13.0.0-dev.20260605.1"
+    "typia": "catalog:samchon"
   },
   "devDependencies": {
     "@rspack/cli": "^1.3.0",

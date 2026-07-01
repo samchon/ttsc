@@ -8,7 +8,6 @@ import typia from "typia";
 import { TtscGraphApplication, TtscGraphSource } from "../TtscGraphApplication";
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphApplication } from "../structures/ITtscGraphApplication";
-import { instructions } from "./instructions";
 
 /**
  * Build the MCP server for a graph. `typia.llm.controller` reflects
@@ -40,7 +39,13 @@ export function createServer(
 
   const server = new McpServer(
     { name: "ttsc-graph", version },
-    { capabilities: { tools: {} }, instructions },
+    {
+      capabilities: { tools: {} },
+      // The MCP `instructions` are the interface's JSDoc, which
+      // `typia.llm.controller` reflects onto `application.description`. See
+      // {@link ITtscGraphApplication}.
+      instructions: controller.application.description,
+    },
   );
   const raw = server.server;
 

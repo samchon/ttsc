@@ -17,6 +17,10 @@ catalogs:
     rollup: ^4.56.0
     rollup-plugin-auto-external: ^2.0.0
     rollup-plugin-node-externals: ^8.1.2
+  samchon:
+    '@typia/interface': 13.0.0-dev.20260701.1
+    '@typia/utils': 13.0.0-dev.20260701.1
+    typia: 13.0.0-dev.20260701.1
   utils:
     '@nestia/e2e': ^11.2.0
     '@types/node': ^25.3.0

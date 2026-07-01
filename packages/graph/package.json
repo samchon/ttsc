@@ -14,17 +14,12 @@
     },
     "./package.json": "./package.json"
   },
-  "ttsc": {
-    "plugin": {
-      "transform": "typia/lib/transform"
-    }
-  },
   "scripts": {
     "build": "rimraf lib && node node_modules/ttsc/lib/launcher/ttsc.js && node build/bundle-viewer.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
-    "typia": "13.0.0-dev.20260605.1"
+    "typia": "catalog:samchon"
   },
   "keywords": [
     "ttsc",
