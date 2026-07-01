@@ -128,12 +128,12 @@ export namespace ITtscGraphApplication {
     /**
      * Initial request plan before final arguments are filled.
      *
-     * Name the intended request type and why it seems smallest. Broad flow,
-     * architecture, repository-orientation, and read-next questions should
-     * normally draft `tour`; narrow named symbols can draft `lookup`, `trace`,
-     * or `details`.
+     * Name the intended request type in `type` and why it seems smallest in
+     * `reason`. Broad flow, architecture, repository-orientation, and read-next
+     * questions should normally draft `tour`; narrow named symbols can draft
+     * `lookup`, `trace`, or `details`.
      */
-    draft: string;
+    draft: IDraft;
 
     /**
      * Final self-review before calling.
@@ -154,6 +154,20 @@ export namespace ITtscGraphApplication {
       | ITtscGraphOverview.IRequest
       | ITtscGraphTour.IRequest
       | ITtscGraphEscape.IRequest;
+  }
+
+  /**
+   * First-pass request plan, filled before the final `request` arguments.
+   *
+   * `reason` comes before `type` so the justification is written before the
+   * choice it justifies.
+   */
+  export interface IDraft {
+    /** Why this request type looks like the smallest useful next step. */
+    reason: string;
+
+    /** The request type being considered, corrected later in `review`. */
+    type: IProps["request"]["type"];
   }
 
   /** The selected request's output. `result.type` mirrors `request.type`. */

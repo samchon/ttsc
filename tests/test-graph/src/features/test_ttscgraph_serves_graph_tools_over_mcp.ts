@@ -50,10 +50,13 @@ const graphArguments = (props: {
   request: GraphRequest;
 }) => ({
   question: props.thinking,
-  draft:
-    props.request.type === "escape"
-      ? "escape: the next evidence is outside the indexed TypeScript graph."
-      : `${props.request.type}: the smallest useful sacred graph step.`,
+  draft: {
+    reason:
+      props.request.type === "escape"
+        ? "The next evidence is outside the indexed TypeScript graph."
+        : "The smallest useful sacred graph step.",
+    type: props.request.type,
+  },
   review:
     props.request.type === "escape"
       ? "Confirmed: skip graph work and return escape."

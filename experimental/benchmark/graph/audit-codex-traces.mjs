@@ -2642,7 +2642,7 @@ function mcpItem(id) {
       tool: "query",
       arguments: {
         question: "Trace helper usage from Service.run.",
-        draft: "details: inspect one selected method.",
+        draft: { reason: "Inspect one selected method.", type: "details" },
         review: "Confirmed: details is bounded to one method.",
         request: {
           type: "details",

@@ -109,14 +109,7 @@ export namespace ITtscGraphApplication {
   // The drafted plan: a request type, plus the reason it looks smallest.
   export interface IDraft {
     reason: string; // why this request type looks like the smallest answer
-    type:           // the request type being considered
-      | "entrypoints"
-      | "lookup"
-      | "trace"
-      | "details"
-      | "overview"
-      | "tour"
-      | "escape";
+    type: IProps["request"]["type"]; // the request type being considered
   }
 }
 ```
@@ -262,14 +255,7 @@ export namespace ITtscGraphApplication {
   // The drafted plan: a request type, plus the reason it looks smallest.
   export interface IDraft {
     reason: string; // why this request type looks like the smallest answer
-    type:           // the request type being considered
-      | "entrypoints"
-      | "lookup"
-      | "trace"
-      | "details"
-      | "overview"
-      | "tour"
-      | "escape";
+    type: IProps["request"]["type"]; // the request type being considered
   }
 
   // The selected request's result; `result.type` mirrors `request.type`.

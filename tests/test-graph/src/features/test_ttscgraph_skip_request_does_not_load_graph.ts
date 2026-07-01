@@ -11,7 +11,10 @@ const GRAPH_TOOL_NAME = "inspect_typescript_graph";
 const graphArguments = () => ({
   question:
     "This is not a TypeScript source graph question, so the tool should exit.",
-  draft: "escape: the next evidence is outside the indexed TypeScript graph.",
+  draft: {
+    reason: "The next evidence is outside the indexed TypeScript graph.",
+    type: "escape",
+  },
   review: "Confirmed: skip graph work and return escape.",
   request: {
     type: "escape",
