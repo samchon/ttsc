@@ -1,3 +1,5 @@
+import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
+
 # Code Graph (MCP)
 
 `@ttsc/graph` gives a coding agent a map of your TypeScript project, over MCP.
@@ -6,15 +8,29 @@ It runs `ttscgraph`, a native binary that type-checks your project once and keep
 
 So every relationship it reports is the compiler's own answer, not a guess from reading text.
 
-## Why an agent needs it
+## 1. Why an agent needs it
+
+What the graph saves an agent, and what that looks like in tokens.
+
+### 1.1. The crawl it replaces
 
 Ask an agent how something works and, without a map, it reconstructs the picture by hand: open a file, follow an import, open the next, and repeat. That is slow, it spends tokens, and the relationships it infers are guesses from whatever text it happened to read.
 
 The graph hands it the answer up front through one MCP tool, `inspect_typescript_graph`. The agent chooses one request branch per call: `tour`, `overview`, `entrypoints`, `lookup`, `trace`, `details`, or `escape`. The agent stops fanning out across files.
 
-See the [Benchmark](/docs/benchmark/graph) for the agent-cost method and current numbers.
+### 1.2. The token cost
 
-## Structure, flow, and impact from one graph
+Here is the median token cost on the shared onboarding question, `@ttsc/graph` against no MCP and the three comparators. Lower is better, and it stays flat as the repository grows.
+
+<GraphBenchmark variant="summary" />
+
+The [full benchmark](/docs/benchmark/graph) has every model, the per-repository prompts, the structural coverage, and the method.
+
+## 2. What the graph answers
+
+The questions it resolves, and the edges only a compiler gets right.
+
+### 2.1. Structure, flow, and impact
 
 The graph answers the questions an agent actually asks, all from the same checker-resolved facts:
 
@@ -26,7 +42,7 @@ The graph answers the questions an agent actually asks, all from the same checke
 
 A tree-sitter graph has no types and resolves edges by guessing from text. An editor's language server has types but no architecture projection. Only a graph built on the real checker holds the resolved structure and the affected set in one place. Every node and edge is resolved by the compiler, so an agent never mistakes inference for fact.
 
-## What only the compiler can resolve
+### 2.2. What only the compiler can resolve
 
 A text search or a tree-sitter parse stops where the syntax stops. A real type checker does not. So these edges are correct where a text tool can only guess:
 
@@ -36,7 +52,11 @@ A text search or a tree-sitter parse stops where the syntax stops. A real type c
 - **Your code vs the world.** Anything in `node_modules` or a `.d.ts` is reported as an outside boundary, not walked into. The graph stays your code.
 - **Generated code stays out of the way.** A source file your `.gitignore` covers, such as a Prisma client or other codegen emitted as `.ts`, is de-ranked: it never dominates a broad or keyword match, though it stays reachable as an edge target and by its exact name. The graph surfaces what you wrote, not what a generator did.
 
-## Get started
+## 3. Get started
+
+Install, connect an agent, and where to read next.
+
+### 3.1. Install and connect
 
 `@ttsc/graph` resolves the native binary from the `ttsc` platform package, so install `ttsc` alongside it.
 
@@ -61,7 +81,8 @@ Start the agent from your project root so the server finds your `tsconfig.json`,
 
 Your agent picks the tool up from the MCP handshake and calls it when it needs to. The full setup walk-through is in [Setup](/docs/setup#coding-agents-ttscgraph).
 
-## Next
+### 3.2. Where to next
 
-- [Tools](/docs/graph/tools): the single MCP tool, its request/result branches, and the node and edge kinds.
+- [Design](/docs/graph/design): the design decisions, the single MCP tool and its request/result branches, and the node and edge kinds.
+- [Comparison](/docs/graph/compare): how it differs from codegraph, codebase-memory-mcp, and serena.
 - [3D Viewer](/docs/graph/viewer): browse the whole graph in your browser, or load your own project.

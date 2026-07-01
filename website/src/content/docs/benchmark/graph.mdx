@@ -2,71 +2,21 @@ import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
 
 # Code Graph (MCP)
 
-`@ttsc/graph` is the subject of this benchmark page. The chart measures agent cost with and without the graph, then compares that result with the two external comparator arms used by the benchmark harness. Bar labels such as `486k tokens` are token usage, and graph or comparator rows also show the token reduction versus the baseline row for that case.
+This benchmark measures what an agent spends to answer a real question, with and without `@ttsc/graph`, against three comparators on the same prompts: `codegraph`, `codebase-memory-mcp`, and serena. Bar labels such as `486k tokens` are token usage, and graph or comparator rows also show the token reduction versus the no-MCP baseline for that case.
 
 <GraphBenchmark />
 
-## What `@ttsc/graph` Exposes
+## How to read it
 
-`packages/graph/src/structures/ITtscGraphApplication.ts` defines one MCP method, `inspect_typescript_graph`. The request wrapper forces the agent to fill `question`, `draft`, `review`, and exactly one request branch before it calls the tool.
+The chart runs two prompt families, a shared onboarding question and `codegraph`'s own per-repo questions, across eight real repositories and four models. Switch models and repositories with the tabs.
 
-The response wrapper is also fixed: the method returns `{ result: ... }`, and `result` is the selected branch.
+`@ttsc/graph` holds a flat, low median token cost as the repository grows. The comparators swing with repository size, and on some cases land above the no-MCP baseline, so the agent spends more with the tool than without it. This is one person's benchmark over a bounded set of scenarios: the [launch post](/blog/i-made-ts-compiler-graph-mcp) covers the method in full and where the numbers hold or break down, and the [Comparison](/docs/graph/compare) page explains the design reasons behind the gap.
 
-| Named type | Role |
-| --- | --- |
-| `ITtscGraphApplication.IProps` | The request wrapper with `question`, `draft`, `review`, and `request`. |
-| `ITtscGraphApplication.IResult` | The result wrapper. `result` is the selected branch. |
-| `ITtscGraphNext` | The follow-up contract. `next.action` is `answer`, `inspect`, `outside`, or `clarify`. |
-| `ITtscGraphTour` | The answer-ready repository-orientation branch. |
-| `ITtscGraphEntrypoints` | The first-pass shortlist branch. |
-| `ITtscGraphLookup` | The concrete symbol lookup branch. |
-| `ITtscGraphTrace` | The flow branch for callers, callees, or dependency paths. |
-| `ITtscGraphDetails` | The selected-handle branch with signatures, members, direct relationships, and sourceSpan anchors. |
-| `ITtscGraphOverview` | The broad architecture branch. |
-| `ITtscGraphEscape` | The no-op branch for evidence that belongs outside the indexed TypeScript graph. |
+## What is compared
 
-## Request And Result Contract
+`@ttsc/graph` exposes one typed MCP tool. Its request and result contract, with the live type sources, is on the [Design](/docs/graph/design) page. The three comparators run from their own published entry points and stay separate arms rather than folding into one story, since each resolves and returns a graph differently. The [Comparison](/docs/graph/compare) page lays those differences out.
 
-The server guidance in `packages/graph/src/server/instructions.ts` and the result guidance in `packages/graph/src/server/resultGuide.ts` say the same thing in different places: ask for the smallest graph evidence that can answer, stop when `next.action` is `answer`, and use `escape` when the next evidence is outside the graph.
-
-| Request | What it is for | Result evidence |
-| --- | --- | --- |
-| `tour` | Repository orientation, code-tour, read-next, and broad runtime-flow questions. | Central entrypoints, primary flow, nearby paths, test anchors, and answer anchors. |
-| `entrypoints` | First pass on a natural-language code question. | Ranked symbols, direct mentions, and a small orientation slice. |
-| `lookup` | Resolve a concrete name or dotted handle. | Ranked hits with signatures when available. |
-| `trace` | Follow runtime or type flow, or answer "how A reaches B". | Hops, reached nodes, `steps`, and `path` when `to` is set. |
-| `details` | Inspect one to three chosen handles. | Signatures, member outlines, direct relationships, and sourceSpan anchors. |
-| `overview` | Broad project orientation. | Counts, layers, hotspots, and public API symbols. |
-| `escape` | Stop when the next evidence is outside the graph. | `skipped: true` plus a reason and next step. |
-
-The payloads are coordinates and relationships, not source bodies. `sourceSpan` and `evidence` point at file and line ranges, and `next` tells the caller whether to answer, inspect once more, leave graph, or clarify.
-
-## Source Contract
-
-The benchmark page keeps source text out of the first render so the chart remains responsive. The contract lives in these package files, and the full type/source view is on the [graph tools page](/docs/graph/tools/).
-
-| File | Role |
-| --- | --- |
-| `packages/graph/src/structures/ITtscGraphApplication.ts` | MCP request/result wrapper. |
-| `packages/graph/src/structures/ITtscGraphTour.ts` | Repository-orientation result branch. |
-| `packages/graph/src/structures/ITtscGraphNext.ts` | Follow-up action contract. |
-| `packages/graph/src/server/instructions.ts` | Tool instruction text. |
-| `packages/graph/src/server/resultGuide.ts` | Per-result answer guidance. |
-
-## How The Comparators Differ
-
-The benchmark harness treats `codegraph`, `codebase-memory-mcp`, and Serena as separate comparator arms, not as the same contract.
-
-| Tool | Local setup in the benchmark source | What this page treats it as |
-| --- | --- | --- |
-| `@ttsc/graph` | The typed MCP server defined in `packages/graph/src/structures` and `packages/graph/src/server`. | The subject of the page. |
-| `codegraph` | `codegraph init`, with `.codegraph/` ignored and optionally kept for inspection. | External comparator arm. |
-| `codebase-memory-mcp` | `codebase-memory-mcp cli index_repository`, with an isolated `CBM_CACHE_DIR` and `.codebase-memory/` ignored. | External comparator arm. |
-| Serena | `uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context <client> --project <repo>`, with `.serena/` ignored and optionally kept for inspection. | External comparator arm. |
-
-The chart reads raw samples from `website/public/benchmark/graph.json`, so it keeps those setup paths separate instead of folding them into one story.
-
-## Benchmark Your Project
+## Reproduce it
 
 Start from a clean checkout, install the workspace, build `@ttsc/graph`, then run the same prompt once without MCP and once with the graph arm.
 
@@ -80,4 +30,4 @@ node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/
 node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/abs/path/to/project --tsconfig=tsconfig.json --question "Trace the main runtime path I should understand before editing." --arm=graph --runs=1
 ```
 
-Use `experimental/benchmark/README.md` for the full matrix and publication flow.
+The chart reads raw samples from `website/public/benchmark/graph.json`. For the full model matrix, the comparator setup commands, and the publication flow, see `experimental/benchmark/README.md`.

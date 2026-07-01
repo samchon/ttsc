@@ -1,0 +1,262 @@
+import { Tabs } from "nextra/components";
+
+import LocalSource from "../../../components/LocalSource";
+
+# Design
+
+`@ttsc/graph` hands a coding agent a graph the TypeScript compiler already resolved. Drawing that graph is the obvious part, and it is not where the tool pulls ahead. The difference is a few decisions about what the tool does with the graph once it has one, and what the graph is built from. This page is those decisions and the reasons behind them, then the request and result contract they produce.
+
+For how this compares with other graph and language-server tools, see [Comparison](/docs/graph/compare). For measured token cost, see the [Benchmark](/docs/benchmark/graph). The full request branches and type sources are in the reference at the end of this page.
+
+![A city map reduced to a subway map of connections](/blog/images/subway-map-vs-code-graph.png)
+
+> A city map keeps every street and building. A subway map throws most of that away and keeps the connections you need. A code graph is the subway map of a codebase.
+
+## 1. The design
+
+Five decisions, in the order they build on each other.
+
+### 1.1. An index, not source bodies
+
+A query returns names, edges, signatures, and source spans, and never inlines source bodies. The edges and signatures are the relationships themselves, so the agent assembles an answer without opening a file.
+
+Two things follow. The response is bounded independent of repo size, so the token cost stays flat whether the project is ten thousand lines or a million. And every span is a citation, a file and line the compiler resolved, which you open to verify rather than read blind.
+
+The tempting alternative is to hand back the source bodies too, the Read done for the agent. That is fine for editing a file you already named, but on a broad "how does this work?" question the body is where the tokens explode, and the deeper the question reaches the larger the wall of text. Returning the index is the decision that keeps the graph from exploding.
+
+![What each tool hands back to the agent](/blog/images/response-shapes.svg)
+
+> Each tool hands back a different shape. `@ttsc/graph` returns an index of edges, signatures, and spans, never the source bodies that make a response grow with the code it touches.
+
+### 1.2. One tool, and a forced chain of thought
+
+The whole MCP surface is a single tool, `inspect_typescript_graph`. What to do inside it is a union of request branches that a short chain of thought selects.
+
+```typescript
+/**
+ * MCP INSTRUCTION...
+ */
+export interface ITtscGraphApplication {
+  /**
+   * TOOL DESCRIPTION...
+   */
+  inspect_typescript_graph(
+    props: ITtscGraphApplication.IProps,
+  ): ITtscGraphApplication.IResult;
+}
+
+export namespace ITtscGraphApplication {
+  // The forced chain-of-thought, then exactly one graph request.
+  export interface IProps {
+    question: string; // restate the code question being asked
+    draft: IDraft;    // the request type it plans, and why it is the smallest
+    review: string;   // self-correct a wrong/broad draft; pick `escape` if off-graph
+    request:          // the final operation, chosen after review
+      | ITtscGraphEntrypoints.IRequest // orientation: where to start reading
+      | ITtscGraphLookup.IRequest      // find a symbol by name
+      | ITtscGraphTrace.IRequest       // trace call / data flow
+      | ITtscGraphDetails.IRequest     // a symbol's signature, members, neighbors
+      | ITtscGraphOverview.IRequest    // repo-level overview
+      | ITtscGraphTour.IRequest        // broad code tour, answered in one call
+      | ITtscGraphEscape.IRequest;     // not a graph question -> bail out
+  }
+
+  // The drafted plan: a request type, plus the reason it looks smallest.
+  export interface IDraft {
+    reason: string; // why this request type looks like the smallest answer
+    type: IProps["request"]["type"]; // the request type being considered
+  }
+}
+```
+
+The `MCP INSTRUCTION` and `TOOL DESCRIPTION` blocks are trimmed to placeholders here. In the source they carry the JSDoc the model actually reads, and that type is the single source of truth for the whole surface. Each branch and its result type is described in the reference below.
+
+![The forced chain of thought inside one tool call](/blog/images/cot-pipeline.svg)
+
+> One tool call, filled top to bottom: question, then draft, then review, then exactly one request, or an escape out of the graph.
+
+The request carries three reasoning fields before it carries the operation. `question` restates the code question, `draft` names the smallest request type and the reason it looks smallest, and `review` corrects a wrong or overbroad draft before anything runs. Only then does `request` commit to one branch. The order of the fields is the order the model fills them in, one refining step per field.
+
+Those fields are required, and that is the point. A line of prose instruction can be read and then ignored; a required field on a typed schema cannot be left blank. So instead of asking the agent to reason before it acts, the tool makes the reasoning an argument it has to supply, and it routes the choice of operation through a union of types instead of a paragraph of persuasion.
+
+[typia](https://typia.io) compiles this TypeScript type into the tool's JSON schema and validator, so a submission that skipped a step is rejected at the call boundary. The typed contract is the single source of truth for the whole surface, including the descriptions the model reads.
+
+### 1.3. Guide, don't force
+
+`@ttsc/graph` never tells the agent to call it instead of reading files. It states a condition instead: reach for the graph when the answer depends on TypeScript symbols, calls, or types. Everything else, such as configs, docs, and exact-text search, has a first-class `escape` branch that bails out of the graph cleanly.
+
+There is one firm rule in the other direction. Once a fact comes back from the graph it is compiler truth, and re-reading the file it points at to confirm it is wasted work. Once enough evidence is in, the result itself signals that the agent should answer now rather than spend another call.
+
+Calls then fire when the graph helps and not otherwise. Forcing a tool is not the same as getting it adopted, and a tool the agent will not reach for is worse than no tool, because its description still costs tokens on every turn.
+
+### 1.4. Only a compiler can be trusted
+
+Every choice above holds up only if the graph is trustworthy, and that trust has to come from a real compiler.
+
+A parser that only reads text, such as tree-sitter, stops where the syntax stops. It cannot follow a `tsconfig` `paths` alias like `@app/*` to the real file, a `workspace:*` dependency into a sibling package, a symlink, or a re-export chain through a barrel `index.ts`. A compiler that has finished module resolution wires all of those up, and a guessed edge is exactly where an agent stops trusting the result and falls back to reading files.
+
+`@ttsc/graph` reads the program `ttsc` already type-checked, so its edges are resolved rather than inferred. Because the graph falls out of the type-check that already runs, there is no separate index step, no file watcher, and no stale index to manage.
+
+![A file-by-file source crawl collapsing into a compiler-built index](/blog/images/source-crawl-vs-compiler-index.png)
+
+> On the left, a text crawl chases imports one file at a time. On the right, the compiler hands back the graph it already resolved, aliases and monorepo hops included.
+
+The same type-check carries more than structure. `tsc` compile errors and `@ttsc/lint` and plugin (typia, nestia) lint findings ride the graph as well, each fused onto the symbol that owns it, so "what is broken here?" and "what breaks if I change this?" come from the same index.
+
+This is the chain the rest of the design rests on: exact, so the agent can trust it, and trusted, so the agent can stop.
+
+### 1.5. CoT compliance, in general
+
+The typed chain of thought is an instance of a broader idea worth stating on its own. Behavior you cannot reliably get from an instruction, you can get from a schema. An instruction is a request the model may honor or skip; a required field is part of the contract it cannot skip. So when the goal is to make an agent reason before it acts, or pick the right operation, encoding that as types tends to beat writing longer instructions.
+
+None of this is specific to a code graph. The same shape applies to any function-calling tool whose author keeps making the prompt louder to secure a behavior the schema could enforce directly.
+
+Two write-ups go into the theory, the numbers, and where it breaks down:
+
+- [Function Calling Harness from 6.75% to 100%](https://dev.to/samchon/qwen-meetup-function-calling-harness-from-675-to-100-3830)
+- [Function Calling Harness CoT Compliance](https://dev.to/samchon/function-calling-harness-2-cot-compliance-from-991-to-100-4f0h)
+
+## 2. The contract
+
+The request branches, their results, and the facts each node and edge carries.
+
+### 2.1. The request branches
+
+`inspect_typescript_graph` returns one object, `{ result: ... }`, and `result.type` matches the branch the request selected. Each branch is one graph operation with its own `.IRequest` input and result type.
+
+`ITtscGraphTour.IRequest` returns an answer-ready repository-orientation slice: central entrypoints, primary flow, nearby paths, test anchors, and answer anchors. It is the source-free branch for code tours, broad runtime-flow questions, and "what should I read next" questions.
+
+`ITtscGraphEntrypoints.IRequest` returns a compact shortlist for behavior-specific code questions: ranked symbols, direct mentions, and small dependency orientation. It is the source-free replacement for broad search.
+
+`ITtscGraphLookup.IRequest` finds a class, method, function, property, type, or file concept when you do not already have its handle. Keep the default limit unless a previous result was ambiguous.
+
+`ITtscGraphTrace.IRequest` follows call, type, or dependency flow. Use `to` for "how A reaches B" questions instead of widening `maxNodes`; use `reverse` for callers and impact checks.
+
+`ITtscGraphDetails.IRequest` inspects selected handles. It returns signatures, members, direct calls, direct types, dependency neighbors, and `sourceSpan` anchors without implementation text.
+
+`ITtscGraphOverview.IRequest` returns a source-free architecture map: counts, layers, hotspots, and public API symbols.
+
+`ITtscGraphEscape.IRequest` returns a small no-op result when the review finds that no graph operation should run.
+
+### 2.2. Results and next
+
+The concrete payloads carry node coordinates, edge evidence ranges, citation spans, and stable node ids for follow-up graph calls. A span is an `ITtscGraphEvidence` coordinate (project-relative `file` plus 1-based start and end line and column), a place to open and verify, not inlined source text.
+
+Every result also carries `next`, the follow-up contract. `next.action` is one of `answer` (the evidence is complete, stop and answer, even when a slice is capped), `inspect` (make one more focused request, named by `next.request`), `outside` (the next evidence lives outside the graph, leave and read files or configs), or `clarify`.
+
+### 2.3. Node kinds
+
+Symbol kinds are declarations the checker owns: `file`, `package`, `namespace`, `module`, `function`, `class`, `interface`, `type`, `enum`, `variable`, `method`, `property`, `parameter`. `external_symbol` is a dependency-boundary leaf: a symbol the workspace references but does not declare, kept as a named endpoint without walking into the dependency.
+
+A node's identity (`id`) is position-invariant, shaped `path#qualifiedName:kind`, so an edit that shifts a declaration down a file does not re-key it. Line and column live in the node's `evidence` span, never in its identity.
+
+Beyond `kind`, a node carries the facts a projection reasons over: `name` and owner-qualified `qualifiedName`, `exported`, `external`, `ignored` (git-ignored generated code, desurfaced so codegen does not bury the authored graph), a `modifiers` list (`export`, `default`, `declare`, `abstract`, `static`, `readonly`, `async`, `const`, `public`, `private`, `protected`, `optional`), and `decorators`. The graph does not interpret framework conventions: each decorator is reported as written, with its qualified `name` (`Controller`, `TypedRoute.Get`) and any statically resolved literal `arguments`, left for a consumer to interpret.
+
+### 2.4. Edge kinds
+
+| Kind           | Meaning                                     |
+| -------------- | ------------------------------------------- |
+| `contains`     | File/class/namespace ownership of a member. |
+| `exports`      | A file exports a symbol.                    |
+| `imports`      | A module imports another.                   |
+| `calls`        | A runtime call.                             |
+| `accesses`     | A property/accessor read or write.          |
+| `instantiates` | A `new T()` construction.                   |
+| `type_ref`     | A type-position reference.                  |
+| `extends`      | Class/interface `extends`.                  |
+| `implements`   | Class `implements`.                         |
+| `overrides`    | A member overrides a base member.           |
+| `decorates`    | A decorator applied to a declaration.       |
+| `renders`      | A JSX component use.                        |
+| `tests`        | A test exercises a symbol.                  |
+
+### 2.5. Diagnostics
+
+The same type-check that resolves the graph also carries what is wrong with it. A node's diagnostics are `ITtscGraphDiagnostic` records fused onto the symbol that owns the reported position, so an edit-triage query can name the owner of an error. Each record has the `file` and 1-based `line` (with `column` when known), a `code` (a numeric `tsc` code, or a string rule id for a lint or plugin finding), the `message`, an optional `severity` (`error`, `warning`, `info`, `hint`), and an `origin` of `tsc`, `plugin`, or `lint`. So `tsc` type errors, `@ttsc/lint` rules, and transform-plugin findings (typia, nestia) land in the same graph as the structure, and "what is broken here?" and "what breaks if I change this?" answer from one index.
+
+### 2.6. Type sources
+
+These tabs read from `packages/graph/src/structures`, so the reference stays tied to the package source instead of copying type definitions. The wrapper type is [`ITtscGraphApplication.ts`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphApplication.ts), shown trimmed above; the tabs below are the branch and payload types it references.
+
+<Tabs
+  items={[
+    <code key="next">ITtscGraphNext.ts</code>,
+    <code key="entrypoints">ITtscGraphEntrypoints.ts</code>,
+    <code key="lookup">ITtscGraphLookup.ts</code>,
+    <code key="trace">ITtscGraphTrace.ts</code>,
+    <code key="tour">ITtscGraphTour.ts</code>,
+    <code key="details">ITtscGraphDetails.ts</code>,
+    <code key="overview">ITtscGraphOverview.ts</code>,
+    <code key="escape">ITtscGraphEscape.ts</code>,
+    <code key="node">ITtscGraphNode.ts</code>,
+    <code key="edge">ITtscGraphEdge.ts</code>,
+    <code key="diagnostic">ITtscGraphDiagnostic.ts</code>,
+  ]}
+>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphNext.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphEntrypoints.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphLookup.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphTrace.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphTour.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphDetails.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphOverview.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphEscape.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphNode.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphEdge.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <LocalSource
+      path="packages/graph/src/structures/ITtscGraphDiagnostic.ts"
+      showLineNumbers
+    />
+  </Tabs.Tab>
+</Tabs>

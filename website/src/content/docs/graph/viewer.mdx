@@ -8,7 +8,11 @@ Drag to orbit, scroll to zoom, hover a node for its name, kind, and file.
 
 <GraphViewer3D />
 
-## Use it on your own project
+## 1. Use it on your own project
+
+Run the viewer on your code, or export the raw graph.
+
+### 1.1. Run the viewer
 
 Run the viewer locally:
 
@@ -18,6 +22,8 @@ npx @ttsc/graph view
 
 `view` builds your project's graph, reduces it, and opens this viewer in your browser from a local port. Nothing leaves your machine.
 
+### 1.2. Export the graph as JSON
+
 For the data as a file instead:
 
 ```bash
@@ -26,12 +32,18 @@ npx @ttsc/graph dump --tsconfig tsconfig.json > graph.json
 
 `dump` prints the whole graph as JSON: every declaration and edge, keyed by absolute path. The viewer reduces it client-side (drops `node_modules`, keeps the highest-degree nodes, relativizes paths) so a large project stays legible. It also takes an already-reduced payload, so a graph you trimmed yourself loads as-is.
 
-## What the colors mean
+## 2. Reading the graph
+
+What the colors and sizes mean, and what the viewer leaves out.
+
+### 2.1. What the colors mean
 
 Nodes are colored by declaration kind and sized by how many other declarations connect to them, so the load-bearing symbols stand out. Edges carry their kind:
 
 - **value-call**: a runtime use (a call, a `new T()`, a JSX component, a tagged template).
 - **type-ref**: a type-position reference (a parameter, return, property, or alias type).
 - **heritage**: an `extends` or `implements` relationship.
+
+### 2.2. What is left out
 
 Anything in `node_modules` or a `.d.ts` lib is dropped; it is not your code.
