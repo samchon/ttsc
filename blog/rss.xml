@@ -6,18 +6,11 @@
     <description>Engineering notes, releases, and deep dives from ttsc.</description>
     <language>en</language>
     <item>
-      <title>I Made a TypeScript Compiler Graph MCP for Claude Code: 10x Fewer Tokens, Even for General-Purpose Questions</title>
-      <link>https://ttsc.dev/blog/graph/</link>
-      <guid>https://ttsc.dev/blog/graph/</guid>
-      <pubDate>Tue, 30 Jun 2026 00:00:00 GMT</pubDate>
-      <description>It&apos;s built on the TypeScript compiler&apos;s own APIs — it reads the graph the compiler already resolved instead of guessing it — so it stays exact and cuts tokens 10x even on...</description>
-    </item>
-    <item>
       <title>I Made TS Code Graph MCP: 10x Fewer Tokens in Claude Code</title>
       <link>https://ttsc.dev/blog/i-made-ts-compiler-graph-mcp/</link>
       <guid>https://ttsc.dev/blog/i-made-ts-compiler-graph-mcp/</guid>
       <pubDate>Tue, 30 Jun 2026 00:00:00 GMT</pubDate>
-      <description>It&apos;s built on the TypeScript compiler&apos;s own APIs — it reads the graph the compiler already resolved instead of guessing it — so it stays exact and cuts tokens 10x even on...</description>
+      <description>Built on the TypeScript compiler&apos;s own APIs, it reads the graph the compiler already resolved instead of guessing at it, so it stays exact and cuts tokens about 10x even on...</description>
     </item>
     <item>
       <title>800x Faster TypeScript Lint: I Moved Lint Into TypeScript-Go</title>
