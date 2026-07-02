@@ -53,14 +53,20 @@ func pathsOutputPathForSource(r *pathsRewriter, source string) string
 //go:linkname pathsMatchPattern github.com/samchon/ttsc/packages/paths/driver.matchPattern
 func pathsMatchPattern(pattern string, specifier string) (string, bool)
 
-//go:linkname pathsPatternRank github.com/samchon/ttsc/packages/paths/driver.patternRank
-func pathsPatternRank(pattern string) int
+//go:linkname pathsOrderPatterns github.com/samchon/ttsc/packages/paths/driver.orderPatterns
+func pathsOrderPatterns(patterns []pathsPathPattern)
+
+//go:linkname pathsPatternPrefixLength github.com/samchon/ttsc/packages/paths/driver.patternPrefixLength
+func pathsPatternPrefixLength(pattern string) int
 
 //go:linkname pathsOptionalPath github.com/samchon/ttsc/packages/paths/driver.optionalPath
 func pathsOptionalPath(value string, cwd string) string
 
+//go:linkname pathsInferredRootDir github.com/samchon/ttsc/packages/paths/driver.inferredRootDir
+func pathsInferredRootDir(configFilePath string, fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string
+
 //go:linkname pathsCommonSourceDir github.com/samchon/ttsc/packages/paths/driver.commonSourceDir
-func pathsCommonSourceDir(files []*shimast.SourceFile) string
+func pathsCommonSourceDir(fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string
 
 //go:linkname pathsNormalizePath github.com/samchon/ttsc/packages/paths/driver.normalizePath
 func pathsNormalizePath(value string) string
