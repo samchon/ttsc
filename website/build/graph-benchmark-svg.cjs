@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const { renderPng, findBrowser } = require("./svg-to-png.cjs");
+const { renderPng } = require("./svg-to-png.cjs");
 
 const ROOT = path.resolve(__dirname, "..");
 const INPUT = path.join(ROOT, "public", "benchmark", "graph.json");
@@ -64,9 +64,8 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 // numbers. For each (harness, model, prompt family) present in the data we emit
 // one grouped chart across every repo, plus one single-repo chart per repo.
 // Each SVG (benchmark/svg/) also gets a 2x PNG sibling (benchmark/png/) for
-// embeds that reject SVG (dev.to, most social cards). PNG export needs a
-// headless browser, so it only runs with --png (`pnpm build`); `pnpm prepare`
-// emits SVGs only. File names:
+// embeds that reject SVG (dev.to, most social cards). PNG export runs with
+// --png (`pnpm build`); `pnpm prepare` emits SVGs only. File names:
 //   grouped: graph-<family>-<harness>-<modelVersion>.<ext>
 //   single:  graph-<repo>-<family>-<harness>-<modelVersion>.<ext>
 const EXPORT_PNG = process.argv.includes("--png");
@@ -89,8 +88,8 @@ for (const cell of allCells) {
 fs.mkdirSync(SVG_DIR, { recursive: true });
 fs.mkdirSync(PNG_DIR, { recursive: true });
 let written = 0;
-// Launching a browser per chart is slow, so --png only re-renders charts whose
-// SVG content changed (or whose PNG is missing).
+// --png only re-renders charts whose SVG content changed (or whose PNG is
+// missing).
 const pngQueue = [];
 for (const combo of combos.values()) {
   const cells = allCells.filter(
@@ -144,13 +143,7 @@ function writeSvg(name, svg) {
 
 function writePngs() {
   if (!EXPORT_PNG || pngQueue.length === 0) return 0;
-  const browser = findBrowser();
-  if (!browser)
-    throw new Error(
-      "[build:graph-svg] --png needs a headless Chrome or Edge, and none was found",
-    );
-  for (const svgFile of pngQueue)
-    renderPng(svgFile, { browser, outDir: PNG_DIR });
+  for (const svgFile of pngQueue) renderPng(svgFile, { outDir: PNG_DIR });
   return pngQueue.length;
 }
 
