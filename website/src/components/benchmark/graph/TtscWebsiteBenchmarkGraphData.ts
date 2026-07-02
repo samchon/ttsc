@@ -1,4 +1,5 @@
 import type { ITtscWebsiteBenchmarkGraph } from "../../../structures/ITtscWebsiteBenchmarkGraph";
+import pricing from "./TtscWebsiteBenchmarkGraphPricing.json";
 
 type AgentCell = ITtscWebsiteBenchmarkGraph.AgentCell;
 type AgentSample = ITtscWebsiteBenchmarkGraph.AgentSample;
@@ -176,20 +177,65 @@ function parseKey(key: string): string[] {
   return key.split("|").map((part) => decodeURIComponent(part));
 }
 
-function medianMetricsFromValid(valid: AgentSample[]): Metrics {
-  const costs = valid
+/** API list price in USD per 1M tokens for one model. */
+interface PriceRates {
+  input: number;
+  cachedInput: number;
+  output: number;
+}
+
+/** The list-price table for cost estimation, keyed by `modelVersion`. */
+function priceRates(modelVersion: string | undefined): PriceRates | undefined {
+  if (!modelVersion) return undefined;
+  const table: Record<string, PriceRates> = pricing.usdPerMillion;
+  return table[modelVersion];
+}
+
+/**
+ * Estimate one run's USD cost from its token counts and the model's list
+ * prices, for harnesses that report usage but no cost (Codex). `tokens` is the
+ * summed input+output; `cached` (a subset of the input) moves to the
+ * cached-input rate and `reasoning` is billed as output. The non-reasoning
+ * output slice inside `tokens` cannot be split out, so it is priced at the
+ * input rate: a slight underestimate on agent runs, where input dominates.
+ */
+function estimateSampleCost(sample: AgentSample, rates: PriceRates): number {
+  const cached = sample.cached ?? 0;
+  const reasoning = sample.reasoning ?? 0;
+  return (
+    (Math.max(0, sample.tokens - cached) * rates.input +
+      cached * rates.cachedInput +
+      reasoning * rates.output) /
+    1_000_000
+  );
+}
+
+function medianMetricsFromValid(
+  valid: AgentSample[],
+  rates?: PriceRates,
+): Metrics {
+  const measured = valid
     .map((s) => s.cost)
     .filter((cost): cost is number => typeof cost === "number");
+  const cost =
+    measured.length > 0
+      ? { cost: median(measured) }
+      : rates && valid.length > 0
+        ? {
+            cost: median(valid.map((s) => estimateSampleCost(s, rates))),
+            costEstimated: true,
+          }
+        : {};
   return {
     tokens: median(valid.map((s) => s.tokens)),
     tools: median(valid.map((s) => s.tools)),
     dur: median(valid.map((s) => s.durMs ?? 0)),
-    ...(costs.length > 0 ? { cost: median(costs) } : {}),
+    ...cost,
   };
 }
 
-function medianMetrics(samples: AgentSample[]): Metrics {
-  return medianMetricsFromValid(metricSamples(samples));
+function medianMetrics(samples: AgentSample[], rates?: PriceRates): Metrics {
+  return medianMetricsFromValid(metricSamples(samples), rates);
 }
 
 function metricSamples(samples: AgentSample[]): AgentSample[] {
@@ -319,6 +365,7 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
             ? dedicatedBaselineSamples
             : embeddedBaselineSamples;
         const head = modelCells[0]!;
+        const rates = priceRates(head.modelVersion);
         const ttscValid = ttscCell ? metricSamples(ttscCell.samples.graph) : [];
         const codegraphValid = codegraphCell
           ? metricSamples(codegraphCell.samples.graph)
@@ -355,22 +402,22 @@ function buildProjectGroups(cells: AgentCell[]): ProjectGroup[] {
           codegraphSetupMs: codegraphCell?.toolSetupMs,
           codebaseMemorySetupMs: codebaseMemoryCell?.toolSetupMs,
           serenaSetupMs: serenaCell?.toolSetupMs,
-          baseline: medianMetrics(baselineSamples),
+          baseline: medianMetrics(baselineSamples, rates),
           ttsc:
             ttscValid.length > 0
-              ? medianMetricsFromValid(ttscValid)
+              ? medianMetricsFromValid(ttscValid, rates)
               : undefined,
           codegraph:
             codegraphValid.length > 0
-              ? medianMetricsFromValid(codegraphValid)
+              ? medianMetricsFromValid(codegraphValid, rates)
               : undefined,
           codebaseMemory:
             codebaseMemoryValid.length > 0
-              ? medianMetricsFromValid(codebaseMemoryValid)
+              ? medianMetricsFromValid(codebaseMemoryValid, rates)
               : undefined,
           serena:
             serenaValid.length > 0
-              ? medianMetricsFromValid(serenaValid)
+              ? medianMetricsFromValid(serenaValid, rates)
               : undefined,
         };
       })

@@ -1,0 +1,9 @@
+{
+  "$comment": "API list price in USD per 1M tokens, keyed by the benchmark cell's modelVersion. Used to estimate run cost for harnesses that report token usage but no cost (Codex). Claude Code lanes report measured cost per run, so they never consult this table.",
+  "source": "https://developers.openai.com/api/docs/pricing",
+  "fetched": "2026-07-02",
+  "usdPerMillion": {
+    "gpt-5.5": { "input": 5.0, "cachedInput": 0.5, "output": 30.0 },
+    "gpt-5.4-mini": { "input": 0.75, "cachedInput": 0.075, "output": 4.5 }
+  }
+}

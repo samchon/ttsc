@@ -7,6 +7,13 @@ export namespace ITtscWebsiteBenchmarkGraph {
     durMs?: number;
     /** Run cost in USD; absent on harnesses that do not report it (Codex). */
     cost?: number;
+    /**
+     * Cached-input tokens (a subset of `tokens`), when the harness reports
+     * them.
+     */
+    cached?: number;
+    /** Reasoning output tokens, counted separately from `tokens`. */
+    reasoning?: number;
     [key: string]: unknown;
   }
 
@@ -58,8 +65,13 @@ export namespace ITtscWebsiteBenchmarkGraph {
     tokens: number;
     tools: number;
     dur: number;
-    /** Median run cost in USD; undefined when no sample reported cost. */
+    /** Median run cost in USD; undefined when neither measured nor estimable. */
     cost?: number;
+    /**
+     * True when `cost` is estimated from tokens and API list prices, not
+     * measured.
+     */
+    costEstimated?: boolean;
   }
 
   export interface ModelGroup {

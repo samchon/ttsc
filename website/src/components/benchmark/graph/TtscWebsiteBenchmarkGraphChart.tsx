@@ -214,18 +214,19 @@ function tooltipMetricRows(
       delta: pctDelta(baseline.dur, metrics.dur),
     },
   ];
-  // The cost row only exists on harnesses that report run cost (Claude Code);
-  // Codex lanes carry no cost, so the row is omitted rather than shown empty.
+  // Cost is measured on harnesses that report it (Claude Code) and estimated
+  // from tokens at API list prices otherwise (Codex); an estimate carries a
+  // leading ~. The row is omitted only when neither value exists.
   if (baseline.cost !== undefined || metrics.cost !== undefined)
     rows.push({
       label: "cost",
       base:
         baseline.cost !== undefined
-          ? TtscWebsiteBenchmarkGraphData.fmtCost(baseline.cost)
+          ? `${baseline.costEstimated ? "~" : ""}${TtscWebsiteBenchmarkGraphData.fmtCost(baseline.cost)}`
           : "n/a",
       value:
         metrics.cost !== undefined
-          ? TtscWebsiteBenchmarkGraphData.fmtCost(metrics.cost)
+          ? `${metrics.costEstimated ? "~" : ""}${TtscWebsiteBenchmarkGraphData.fmtCost(metrics.cost)}`
           : "n/a",
       delta:
         baseline.cost !== undefined && metrics.cost !== undefined
@@ -314,6 +315,12 @@ function ReductionTooltip({
           </div>
         ))}
       </div>
+      {row.baseline.costEstimated || tool.metrics.costEstimated ? (
+        <p className="mt-2 font-mono text-[10px] text-neutral-500">
+          ~ cost estimated from tokens at API list prices (Codex reports no
+          cost)
+        </p>
+      ) : null}
       {tool.setupMs !== undefined ? (
         <p className="mt-2 font-mono text-[10px] text-neutral-500">
           index setup: {TtscWebsiteBenchmarkGraphData.fmtSecs(tool.setupMs)}
