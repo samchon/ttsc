@@ -5,6 +5,8 @@ export namespace ITtscWebsiteBenchmarkGraph {
     graph?: number;
     shell?: number;
     durMs?: number;
+    /** Run cost in USD; absent on harnesses that do not report it (Codex). */
+    cost?: number;
     [key: string]: unknown;
   }
 
@@ -56,6 +58,8 @@ export namespace ITtscWebsiteBenchmarkGraph {
     tokens: number;
     tools: number;
     dur: number;
+    /** Median run cost in USD; undefined when no sample reported cost. */
+    cost?: number;
   }
 
   export interface ModelGroup {

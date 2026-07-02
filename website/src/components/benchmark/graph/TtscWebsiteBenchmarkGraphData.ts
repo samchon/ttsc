@@ -29,6 +29,10 @@ function fmtSecs(ms: number): string {
   return `${Math.round(ms / 1000)}s`;
 }
 
+function fmtCost(usd: number): string {
+  return `$${usd.toFixed(2)}`;
+}
+
 /**
  * Map a harness-qualified, version-agnostic `model` to a "Harness / Model"
  * display string. The harness is the AI coding agent (Claude Code vs Codex);
@@ -173,10 +177,14 @@ function parseKey(key: string): string[] {
 }
 
 function medianMetricsFromValid(valid: AgentSample[]): Metrics {
+  const costs = valid
+    .map((s) => s.cost)
+    .filter((cost): cost is number => typeof cost === "number");
   return {
     tokens: median(valid.map((s) => s.tokens)),
     tools: median(valid.map((s) => s.tools)),
     dur: median(valid.map((s) => s.durMs ?? 0)),
+    ...(costs.length > 0 ? { cost: median(costs) } : {}),
   };
 }
 
@@ -396,6 +404,7 @@ const TtscWebsiteBenchmarkGraphData = {
   buildPromptModeGroups,
   cellTool,
   fmt,
+  fmtCost,
   fmtSecs,
   groupBy,
   median,

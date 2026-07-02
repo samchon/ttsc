@@ -168,6 +168,73 @@ function lowestTokenSeries(row: ReductionRow): ReductionSeriesKey {
   ).key;
 }
 
+/**
+ * Signed percentage change of a tool value against its baseline, for the
+ * parenthesized annotation next to each non-baseline metric: negative is a
+ * reduction, positive is over baseline. Null when the baseline is missing.
+ */
+function pctDelta(base: number, value: number): number | null {
+  if (base <= 0) return null;
+  return Math.round((value / base - 1) * 100);
+}
+
+function deltaText(delta: number | null): string | null {
+  if (delta === null) return null;
+  return `(${delta > 0 ? "+" : ""}${delta}%)`;
+}
+
+interface TooltipMetricRow {
+  label: string;
+  base: string;
+  value: string;
+  delta: number | null;
+}
+
+function tooltipMetricRows(
+  baseline: Metrics,
+  metrics: Metrics,
+): TooltipMetricRow[] {
+  const rows: TooltipMetricRow[] = [
+    {
+      label: "tokens",
+      base: TtscWebsiteBenchmarkGraphData.fmt(Math.round(baseline.tokens)),
+      value: TtscWebsiteBenchmarkGraphData.fmt(Math.round(metrics.tokens)),
+      delta: pctDelta(baseline.tokens, metrics.tokens),
+    },
+    {
+      label: "calls",
+      base: TtscWebsiteBenchmarkGraphData.fmt(Math.round(baseline.tools)),
+      value: TtscWebsiteBenchmarkGraphData.fmt(Math.round(metrics.tools)),
+      delta: pctDelta(baseline.tools, metrics.tools),
+    },
+    {
+      label: "time",
+      base: TtscWebsiteBenchmarkGraphData.fmtSecs(baseline.dur),
+      value: TtscWebsiteBenchmarkGraphData.fmtSecs(metrics.dur),
+      delta: pctDelta(baseline.dur, metrics.dur),
+    },
+  ];
+  // The cost row only exists on harnesses that report run cost (Claude Code);
+  // Codex lanes carry no cost, so the row is omitted rather than shown empty.
+  if (baseline.cost !== undefined || metrics.cost !== undefined)
+    rows.push({
+      label: "cost",
+      base:
+        baseline.cost !== undefined
+          ? TtscWebsiteBenchmarkGraphData.fmtCost(baseline.cost)
+          : "n/a",
+      value:
+        metrics.cost !== undefined
+          ? TtscWebsiteBenchmarkGraphData.fmtCost(metrics.cost)
+          : "n/a",
+      delta:
+        baseline.cost !== undefined && metrics.cost !== undefined
+          ? pctDelta(baseline.cost, metrics.cost)
+          : null,
+    });
+  return rows;
+}
+
 function ReductionTooltip({
   row,
   tool,
@@ -189,7 +256,7 @@ function ReductionTooltip({
     );
 
   return (
-    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-72 rounded-md border border-[#2a313e] bg-[#090b10] p-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45)] group-hover:block">
+    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-80 rounded-md border border-[#2a313e] bg-[#090b10] p-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45)] group-hover:block">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
         style={{
@@ -213,33 +280,39 @@ function ReductionTooltip({
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-[10px]">
-        <div className="rounded border border-[#1c2230] bg-[#0e1117] p-2">
-          <p className="uppercase tracking-[0.12em] text-neutral-600">
-            baseline
-          </p>
-          <p className="mt-1 tabular-nums text-neutral-200">
-            {TtscWebsiteBenchmarkGraphData.fmt(Math.round(row.baseline.tokens))}
-          </p>
+      <div className="mt-3 rounded border border-[#1c2230] bg-[#0e1117] p-2 font-mono text-[10px]">
+        <div className="grid grid-cols-[3.25rem_1fr_1fr] gap-x-2 uppercase tracking-[0.12em] text-neutral-600">
+          <span />
+          <span className="text-right">baseline</span>
+          <span className="text-right">tool</span>
         </div>
-        <div className="rounded border border-[#1c2230] bg-[#0e1117] p-2">
-          <p className="uppercase tracking-[0.12em] text-neutral-600">tool</p>
-          <p className="mt-1 tabular-nums text-neutral-200">
-            {TtscWebsiteBenchmarkGraphData.fmt(Math.round(tool.metrics.tokens))}
-          </p>
-        </div>
-        <div className="rounded border border-[#1c2230] bg-[#0e1117] p-2">
-          <p className="uppercase tracking-[0.12em] text-neutral-600">calls</p>
-          <p className="mt-1 tabular-nums text-neutral-200">
-            {TtscWebsiteBenchmarkGraphData.fmt(Math.round(tool.metrics.tools))}
-          </p>
-        </div>
-        <div className="rounded border border-[#1c2230] bg-[#0e1117] p-2">
-          <p className="uppercase tracking-[0.12em] text-neutral-600">time</p>
-          <p className="mt-1 tabular-nums text-neutral-200">
-            {TtscWebsiteBenchmarkGraphData.fmtSecs(tool.metrics.dur)}
-          </p>
-        </div>
+        {tooltipMetricRows(row.baseline, tool.metrics).map((metric) => (
+          <div
+            key={metric.label}
+            className="mt-1 grid grid-cols-[3.25rem_1fr_1fr] items-baseline gap-x-2"
+          >
+            <span className="uppercase tracking-[0.12em] text-neutral-600">
+              {metric.label}
+            </span>
+            <span className="text-right tabular-nums text-neutral-400">
+              {metric.base}
+            </span>
+            <span className="text-right tabular-nums text-neutral-200">
+              {metric.value}
+              {deltaText(metric.delta) ? (
+                <span
+                  className={`ml-1 ${
+                    metric.delta !== null && metric.delta > 0
+                      ? "text-rose-400"
+                      : "text-[#36e2ee]"
+                  }`}
+                >
+                  {deltaText(metric.delta)}
+                </span>
+              ) : null}
+            </span>
+          </div>
+        ))}
       </div>
       {tool.setupMs !== undefined ? (
         <p className="mt-2 font-mono text-[10px] text-neutral-500">
