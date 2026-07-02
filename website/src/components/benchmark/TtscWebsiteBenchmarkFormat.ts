@@ -1,4 +1,7 @@
-import type { BenchmarkMeasurement } from "./types";
+import type { ITtscWebsiteBenchmark } from "../../structures/ITtscWebsiteBenchmark";
+
+type BenchmarkMeasurement = ITtscWebsiteBenchmark.Measurement;
+type Speedup = ITtscWebsiteBenchmark.Speedup;
 
 /**
  * Reduce a `samples` array to the wall-clock number the dashboard surfaces.
@@ -12,56 +15,41 @@ function sampleMin(samples: number[] | undefined): number {
 }
 
 /** Wall-clock min for the cell's main samples. */
-export function measurementMs(measurement: BenchmarkMeasurement): number {
+function measurementMs(measurement: BenchmarkMeasurement): number {
   return sampleMin(measurement.samples);
 }
 
 /** Wall-clock min for the `@ttsc/lint` sidecar timing, if recorded. */
-export function lintMs(measurement: BenchmarkMeasurement): number {
+function lintMs(measurement: BenchmarkMeasurement): number {
   return sampleMin(measurement.lintSamples);
 }
 
 /** Wall-clock min for the native `@ttsc/lint` plugin timing, if recorded. */
-export function lintPluginMs(measurement: BenchmarkMeasurement): number {
+function lintPluginMs(measurement: BenchmarkMeasurement): number {
   return sampleMin(measurement.lintPluginSamples);
 }
 
 /** Wall-clock min for the third-party transform-host timing, if recorded. */
-export function transformHostMs(measurement: BenchmarkMeasurement): number {
+function transformHostMs(measurement: BenchmarkMeasurement): number {
   return sampleMin(measurement.transformHostSamples);
 }
 
 /** Human-friendly wall-clock label: sub-second in `ms`, otherwise `s`. */
-export function formatDuration(ms: number): string {
+function formatDuration(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)} ms`;
   const seconds = ms / 1000;
   return `${seconds.toFixed(seconds < 10 ? 2 : 1)} s`;
 }
 
 /** Speedup multiplier label, e.g. `2.5x`. */
-export function formatMultiplier(factor: number): string {
+function formatMultiplier(factor: number): string {
   if (!Number.isFinite(factor)) return "∞x";
   return `${factor.toFixed(factor < 10 ? 1 : 0)}x`;
 }
 
-export interface Speedup {
-  id: string;
-  label: string;
-  detail: string;
-  baseline: { tool: string; ms: number };
-  fast: { tool: string; ms: number };
-  factor: number;
-  referenceOnly?: boolean;
-}
+type FindOptions = ITtscWebsiteBenchmark.MeasurementOptions;
 
-interface FindOptions {
-  branch?: BenchmarkMeasurement["branch"];
-  tool?: BenchmarkMeasurement["tool"];
-  op?: BenchmarkMeasurement["op"];
-  threading?: BenchmarkMeasurement["threading"];
-}
-
-export function findMeasurement(
+function findMeasurement(
   measurements: BenchmarkMeasurement[],
   options: FindOptions,
 ): BenchmarkMeasurement | undefined {
@@ -74,9 +62,7 @@ export function findMeasurement(
   );
 }
 
-export function deriveSpeedups(
-  measurements: BenchmarkMeasurement[],
-): Speedup[] {
+function deriveSpeedups(measurements: BenchmarkMeasurement[]): Speedup[] {
   const out: Speedup[] = [];
   const legacyBuild = findMeasurement(measurements, {
     branch: "legacy",
@@ -261,10 +247,24 @@ export function deriveSpeedups(
   return out;
 }
 
-export function headlineSpeedup(speedups: Speedup[]): Speedup | undefined {
+function headlineSpeedup(speedups: Speedup[]): Speedup | undefined {
   return speedups
     .filter((speedup) => !speedup.referenceOnly)
     .reduce<Speedup | undefined>((best, s) => {
       return best === undefined || s.factor > best.factor ? s : best;
     }, undefined);
 }
+
+const TtscWebsiteBenchmarkFormat = {
+  deriveSpeedups,
+  findMeasurement,
+  formatDuration,
+  formatMultiplier,
+  headlineSpeedup,
+  lintMs,
+  lintPluginMs,
+  measurementMs,
+  transformHostMs,
+};
+
+export default TtscWebsiteBenchmarkFormat;

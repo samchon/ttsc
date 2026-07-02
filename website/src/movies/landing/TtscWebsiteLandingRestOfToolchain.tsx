@@ -1,7 +1,7 @@
 "use client";
 
-import FadeIn from "./FadeIn";
-import SectionEyebrow from "./SectionEyebrow";
+import TtscWebsiteLandingFadeIn from "./TtscWebsiteLandingFadeIn";
+import TtscWebsiteLandingSectionEyebrow from "./TtscWebsiteLandingSectionEyebrow";
 
 const CARDS = [
   {
@@ -49,12 +49,12 @@ const STAGES = [
   "emit, execute, or report",
 ] as const;
 
-export default function RestOfToolchain() {
+export default function TtscWebsiteLandingRestOfToolchain() {
   return (
     <section className="relative overflow-hidden bg-neutral-950 px-6 py-24 md:py-32">
       <div className="relative mx-auto max-w-6xl">
-        <FadeIn>
-          <SectionEyebrow label="Toolchain" />
+        <TtscWebsiteLandingFadeIn>
+          <TtscWebsiteLandingSectionEyebrow label="Toolchain" />
           <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <div>
               <h2 className="text-3xl font-bold leading-[1.08] tracking-tight text-white md:text-5xl">
@@ -85,9 +85,9 @@ export default function RestOfToolchain() {
               ))}
             </div>
           </div>
-        </FadeIn>
+        </TtscWebsiteLandingFadeIn>
 
-        <FadeIn delay={120}>
+        <TtscWebsiteLandingFadeIn delay={120}>
           <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {CARDS.map((card) => (
               <a
@@ -119,7 +119,7 @@ export default function RestOfToolchain() {
               </a>
             ))}
           </div>
-        </FadeIn>
+        </TtscWebsiteLandingFadeIn>
       </div>
     </section>
   );

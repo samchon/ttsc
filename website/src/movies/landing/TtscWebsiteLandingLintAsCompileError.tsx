@@ -1,7 +1,7 @@
 "use client";
 
-import FadeIn from "./FadeIn";
-import SectionEyebrow from "./SectionEyebrow";
+import TtscWebsiteLandingFadeIn from "./TtscWebsiteLandingFadeIn";
+import TtscWebsiteLandingSectionEyebrow from "./TtscWebsiteLandingSectionEyebrow";
 
 const DIAGNOSTIC = [
   {
@@ -39,12 +39,12 @@ const NOTES = [
   "editor underlines",
 ] as const;
 
-export default function LintAsCompileError() {
+export default function TtscWebsiteLandingLintAsCompileError() {
   return (
     <section className="relative overflow-hidden bg-neutral-950 px-6 py-24 md:py-32">
       <div className="relative mx-auto max-w-6xl">
-        <FadeIn>
-          <SectionEyebrow label="Diagnostics" />
+        <TtscWebsiteLandingFadeIn>
+          <TtscWebsiteLandingSectionEyebrow label="Diagnostics" />
           <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
             <div>
               <h2 className="text-3xl font-bold leading-[1.08] tracking-tight text-white md:text-5xl">
@@ -113,7 +113,7 @@ export default function LintAsCompileError() {
               </pre>
             </div>
           </div>
-        </FadeIn>
+        </TtscWebsiteLandingFadeIn>
       </div>
     </section>
   );

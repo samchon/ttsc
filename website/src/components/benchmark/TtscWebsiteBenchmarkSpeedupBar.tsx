@@ -1,6 +1,7 @@
 "use client";
 
-import { type Speedup, formatDuration, formatMultiplier } from "./format";
+import type { ITtscWebsiteBenchmark } from "../../structures/ITtscWebsiteBenchmark";
+import TtscWebsiteBenchmarkFormat from "./TtscWebsiteBenchmarkFormat";
 
 /**
  * One head-to-head comparison: a slow baseline bar over a faster ttsc bar.
@@ -9,7 +10,11 @@ import { type Speedup, formatDuration, formatMultiplier } from "./format";
  * ttsc bar reads as "less time" at a glance; the multiplier on the right states
  * the win numerically.
  */
-export default function SpeedupBar({ speedup }: { speedup: Speedup }) {
+export default function TtscWebsiteBenchmarkSpeedupBar({
+  speedup,
+}: {
+  speedup: ITtscWebsiteBenchmark.Speedup;
+}) {
   const fastPct = Math.min(
     100,
     Math.max(6, (speedup.fast.ms / speedup.baseline.ms) * 100),
@@ -44,7 +49,7 @@ export default function SpeedupBar({ speedup }: { speedup: Speedup }) {
 
       <p className="mt-2 font-mono text-[11px] text-neutral-500">
         <span className="font-bold text-cyan-600 dark:text-cyan-300">
-          {formatMultiplier(speedup.factor)}
+          {TtscWebsiteBenchmarkFormat.formatMultiplier(speedup.factor)}
         </span>{" "}
         {faster ? "faster" : "of baseline"}
       </p>
@@ -90,7 +95,7 @@ function BarRow({
               isFast ? "text-cyan-950" : "text-white dark:text-neutral-200"
             }`}
           >
-            {formatDuration(ms)}
+            {TtscWebsiteBenchmarkFormat.formatDuration(ms)}
           </span>
         </div>
       </div>

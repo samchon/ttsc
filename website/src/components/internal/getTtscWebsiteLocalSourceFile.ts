@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { Singleton, VariadicSingleton } from "tstl";
 
-export function getLocalSourceFile(location: string): Promise<string> {
+export default function getTtscWebsiteLocalSourceFile(
+  location: string,
+): Promise<string> {
   return loader.get(location);
 }
 

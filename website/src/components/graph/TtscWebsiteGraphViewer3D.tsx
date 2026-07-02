@@ -3,12 +3,12 @@
 import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
-import {
-  toViewerPayload,
-  type ViewerLink,
-  type ViewerNode,
-  type ViewerPayload,
-} from "./graphReduce";
+import type { ITtscWebsiteGraphViewer } from "../../structures/ITtscWebsiteGraphViewer";
+import TtscWebsiteGraphReduce from "./TtscWebsiteGraphReduce";
+
+type ViewerLink = ITtscWebsiteGraphViewer.Link;
+type ViewerNode = ITtscWebsiteGraphViewer.Node;
+type ViewerPayload = ITtscWebsiteGraphViewer.Payload;
 
 // ---------------------------------------------------------------------------
 // Examples — the benchmark fixtures graphed under /graph. vscode leads.
@@ -88,7 +88,7 @@ function Notice({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function GraphViewer3D() {
+export default function TtscWebsiteGraphViewer3D() {
   const [exampleId, setExampleId] = useState<string>(EXAMPLES[0]!.id);
   const [uploadName, setUploadName] = useState<string | null>(null);
   const [payload, setPayload] = useState<ViewerPayload | null>(null);
@@ -111,7 +111,7 @@ export default function GraphViewer3D() {
       })
       .then((json: unknown) => {
         if (cancelled) return;
-        const reduced = toViewerPayload(json);
+        const reduced = TtscWebsiteGraphReduce.toViewerPayload(json);
         if (!reduced) throw new Error("unrecognized graph JSON shape");
         setPayload(reduced);
       })
@@ -136,9 +136,8 @@ export default function GraphViewer3D() {
 
     void (async () => {
       const THREE = await import("three");
-      const { OrbitControls } = await import(
-        "three/examples/jsm/controls/OrbitControls.js"
-      );
+      const { OrbitControls } =
+        await import("three/examples/jsm/controls/OrbitControls.js");
       const ThreeForceGraph = (await import("three-forcegraph")).default;
       if (disposed) return;
 
@@ -297,8 +296,7 @@ export default function GraphViewer3D() {
 
       if (payloadRef.current) setData(payloadRef.current);
     })().catch((err: unknown) => {
-      if (!disposed)
-        setError(err instanceof Error ? err.message : String(err));
+      if (!disposed) setError(err instanceof Error ? err.message : String(err));
     });
 
     return () => {
@@ -322,7 +320,9 @@ export default function GraphViewer3D() {
     setError(null);
     try {
       const json: unknown = JSON.parse(await file.text());
-      const reduced = toViewerPayload(json, { maxNodes: 1200 });
+      const reduced = TtscWebsiteGraphReduce.toViewerPayload(json, {
+        maxNodes: 1200,
+      });
       if (!reduced)
         throw new Error(
           "not a graph: expected { nodes, edges } from `ttscgraph dump`",
@@ -426,11 +426,7 @@ export default function GraphViewer3D() {
           </p>
         ) : null}
 
-        <div
-          ref={containerRef}
-          className="relative"
-          style={{ height: HEIGHT }}
-        >
+        <div ref={containerRef} className="relative" style={{ height: HEIGHT }}>
           {!payload ? (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-[12px] text-neutral-500">
               {busy ? "Building the graph…" : "Loading…"}

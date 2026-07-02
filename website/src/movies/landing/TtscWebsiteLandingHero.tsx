@@ -46,7 +46,7 @@ const FLOW = [
   },
 ] as const;
 
-export default function Hero() {
+export default function TtscWebsiteLandingHero() {
   return (
     <section className="relative overflow-hidden bg-neutral-950 px-6 pb-18 pt-28 md:pb-24 md:pt-36">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.045)_1px,transparent_1px)] bg-[size:72px_72px] opacity-30" />

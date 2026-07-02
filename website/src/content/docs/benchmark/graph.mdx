@@ -1,24 +1,60 @@
-import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
+import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphCommon";
+import TtscWebsiteBenchmarkGraphDedicated from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphDedicated";
+import TtscWebsiteBenchmarkGraphStructural from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphStructural";
 
 # Code Graph (MCP)
 
-This benchmark measures what an agent spends to answer a real question, with and without `@ttsc/graph`, against three comparators on the same prompts: `codegraph`, `codebase-memory-mcp`, and serena. Bar labels such as `486k tokens` are token usage, and graph or comparator rows also show the token reduction versus the no-MCP baseline for that case.
+This benchmark measures what an agent spends to answer a real question, with and without `@ttsc/graph`. The same prompts are run against three comparators: `codegraph`, `codebase-memory-mcp`, and serena.
 
-<GraphBenchmark />
+Bar labels such as `486k tokens` are token usage. Graph or comparator rows also show the token reduction versus the no-MCP baseline for that case.
+
+## Common Prompt
+
+The common lane uses my real repository-onboarding prompt. It is the one I use when I enter a new codebase.
+
+The same user prompt runs across every project. This tests whether a tool keeps broad orientation cost flat as the codebase changes.
+
+Switch models with the tabs. Each chart row is one repository.
+
+<TtscWebsiteBenchmarkGraphCommon />
+
+## Dedicated Prompts
+
+The dedicated lane uses repository-specific user prompts from the `codegraph` benchmark prompt family. This is the borrowed-prompt lane.
+
+It checks all four tools on another tool's per-repo questions. It is not the shared onboarding prompt above.
+
+Switch projects with the tabs. Each chart row is one measured model.
+
+<TtscWebsiteBenchmarkGraphDedicated />
+
+## Structural Coverage
+
+This panel shows what `@ttsc/graph` resolves before any agent prompt runs.
+
+It is not a Common or Dedicated prompt lane. It reports graph shape, edge coverage, and setup timing so the token charts have a structural baseline.
+
+<TtscWebsiteBenchmarkGraphStructural />
 
 ## How to read it
 
-The chart runs two prompt families, a shared onboarding question and `codegraph`'s own per-repo questions, across eight real repositories and four models. Switch models and repositories with the tabs.
+`@ttsc/graph` holds a flat, low median token cost as the repository grows. The comparators swing with repository size.
 
-`@ttsc/graph` holds a flat, low median token cost as the repository grows. The comparators swing with repository size, and on some cases land above the no-MCP baseline, so the agent spends more with the tool than without it. This is one person's benchmark over a bounded set of scenarios: the [launch post](/blog/i-made-ts-compiler-graph-mcp) covers the method in full and where the numbers hold or break down, and the [Comparison](/docs/graph/compare) page explains the design reasons behind the gap.
+On some cases they land above the no-MCP baseline. That means the agent spends more with the tool than without it.
+
+This is one person's benchmark over a bounded set of scenarios. The [launch post](/blog/i-made-ts-compiler-graph-mcp) covers the method in full and where the numbers hold or break down. The [Comparison](/docs/graph/compare) page explains the design reasons behind the gap.
 
 ## What is compared
 
-`@ttsc/graph` exposes one typed MCP tool. Its request and result contract, with the live type sources, is on the [Design](/docs/graph/design) page. The three comparators run from their own published entry points and stay separate arms rather than folding into one story, since each resolves and returns a graph differently. The [Comparison](/docs/graph/compare) page lays those differences out.
+`@ttsc/graph` exposes one typed MCP tool. Its request and result contract is on the [Design](/docs/graph/design) page, with the live type sources.
+
+The three comparators run from their own published entry points. They stay separate arms rather than folding into one story, since each resolves and returns a graph differently.
+
+The [Comparison](/docs/graph/compare) page lays those differences out.
 
 ## Reproduce it
 
-Start from a clean checkout, install the workspace, build `@ttsc/graph`, then run the same prompt once without MCP and once with the graph arm.
+Start from a clean checkout. Install the workspace, build `@ttsc/graph`, then run the same prompt once without MCP and once with the graph arm.
 
 ```bash
 git clone https://github.com/samchon/ttsc.git
@@ -30,4 +66,4 @@ node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/
 node experimental/benchmark/graph/agent-ab-codex.mjs --repo=typeorm --repo-dir=/abs/path/to/project --tsconfig=tsconfig.json --question "Trace the main runtime path I should understand before editing." --arm=graph --runs=1
 ```
 
-The chart reads raw samples from `website/public/benchmark/graph.json`. For the full model matrix, the comparator setup commands, and the publication flow, see `experimental/benchmark/README.md`.
+The chart reads raw samples from `website/public/benchmark/graph.json`. For the full model matrix, comparator setup commands, and publication flow, see `experimental/benchmark/README.md`.

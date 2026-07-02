@@ -1,27 +1,25 @@
 "use client";
 
-import {
-  deriveSpeedups,
-  formatMultiplier,
-  headlineSpeedup,
-} from "./format";
-import SpeedupBar from "./SpeedupBar";
-import type { BenchmarkProject } from "./types";
+import type { ITtscWebsiteBenchmark } from "../../structures/ITtscWebsiteBenchmark";
+import TtscWebsiteBenchmarkFormat from "./TtscWebsiteBenchmarkFormat";
+import TtscWebsiteBenchmarkSpeedupBar from "./TtscWebsiteBenchmarkSpeedupBar";
 
 /**
  * One OSS fixture: a big hero multiplier plus every supported comparison.
  *
- * The headline multiplier (largest speedup the project's measurements
- * support) is the visual anchor; the per-row bars underneath break it down.
- * A project that carries no comparable pair still renders its header.
+ * The headline multiplier (largest speedup the project's measurements support)
+ * is the visual anchor; the per-row bars underneath break it down. A project
+ * that carries no comparable pair still renders its header.
  */
-export default function ProjectCard({
+export default function TtscWebsiteBenchmarkProjectCard({
   project,
 }: {
-  project: BenchmarkProject;
+  project: ITtscWebsiteBenchmark.Project;
 }) {
-  const speedups = deriveSpeedups(project.measurements);
-  const headline = headlineSpeedup(speedups);
+  const speedups = TtscWebsiteBenchmarkFormat.deriveSpeedups(
+    project.measurements,
+  );
+  const headline = TtscWebsiteBenchmarkFormat.headlineSpeedup(speedups);
 
   return (
     <article className="not-prose flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900/40">
@@ -37,7 +35,7 @@ export default function ProjectCard({
         {headline ? (
           <div className="shrink-0 text-right">
             <p className="font-mono text-3xl font-black leading-none text-cyan-600 dark:text-cyan-300">
-              {formatMultiplier(headline.factor)}
+              {TtscWebsiteBenchmarkFormat.formatMultiplier(headline.factor)}
             </p>
             <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-500">
               {headline.label.toLowerCase()}
@@ -49,7 +47,10 @@ export default function ProjectCard({
       <div className="flex-1 space-y-5 px-5 py-5">
         {speedups.length > 0 ? (
           speedups.map((speedup) => (
-            <SpeedupBar key={speedup.id} speedup={speedup} />
+            <TtscWebsiteBenchmarkSpeedupBar
+              key={speedup.id}
+              speedup={speedup}
+            />
           ))
         ) : (
           <p className="font-mono text-[12px] text-neutral-500">

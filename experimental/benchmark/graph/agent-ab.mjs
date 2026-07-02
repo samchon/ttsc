@@ -137,6 +137,7 @@ if (!spec)
   );
 const runs = Number(args.runs ?? 2);
 const model = args.model ?? "sonnet";
+const effort = "high";
 const claudeStartupGraceMs = parseNonNegativeInteger(
   args["claude-startup-grace-ms"] ??
     process.env.TTSC_CLAUDE_STARTUP_GRACE_MS ??
@@ -448,6 +449,7 @@ fs.writeFileSync(
       fixtureBranch,
       repoDir,
       model,
+      effort,
       ...(reportModelVersion ? { modelVersion: reportModelVersion } : {}),
       ...(promptId ? { promptId } : {}),
       promptFamily,
@@ -492,7 +494,7 @@ async function runClaude(question, cfg, armName, runNumber) {
     "--model",
     model,
     "--effort",
-    "high",
+    effort,
     "--max-budget-usd",
     "4",
     "--strict-mcp-config",

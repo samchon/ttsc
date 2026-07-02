@@ -2,17 +2,19 @@ import { compileMdx } from "nextra/compile";
 import { MDXRemote } from "nextra/mdx-remote";
 import path from "node:path";
 
-import { getLocalSourceFile } from "./internal/getLocalSourceFile";
+import getTtscWebsiteLocalSourceFile from "./internal/getTtscWebsiteLocalSourceFile";
 
-interface LocalSourceProps {
+interface TtscWebsiteLocalSourceProps {
   path: string;
   filename?: string;
   showLineNumbers?: boolean;
   highlight?: string;
 }
 
-export const LocalSource = async (props: LocalSourceProps) => {
-  const content: string = await getLocalSourceFile(props.path);
+export default async function TtscWebsiteLocalSource(
+  props: TtscWebsiteLocalSourceProps,
+) {
+  const content: string = await getTtscWebsiteLocalSourceFile(props.path);
   const filename: string = props.filename?.length
     ? props.filename
     : path.basename(props.path);
@@ -26,7 +28,6 @@ export const LocalSource = async (props: LocalSourceProps) => {
     [header, content.trim(), BRACKET].join("\n"),
   );
   return <MDXRemote compiledSource={raw} />;
-};
-export default LocalSource;
+}
 
 const BRACKET = "```";

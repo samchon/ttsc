@@ -1,8 +1,10 @@
-interface SectionEyebrowProps {
+interface TtscWebsiteLandingSectionEyebrowProps {
   label: string;
 }
 
-export default function SectionEyebrow({ label }: SectionEyebrowProps) {
+export default function TtscWebsiteLandingSectionEyebrow({
+  label,
+}: TtscWebsiteLandingSectionEyebrowProps) {
   return (
     <p className="font-mono text-[11px] tracking-[0.2em] uppercase mb-6">
       <span className="text-cyan-300">[</span>

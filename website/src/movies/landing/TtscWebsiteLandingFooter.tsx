@@ -22,7 +22,7 @@ const BUILD = [
   { name: "Discord", href: "https://discord.gg/E94XhzrUCZ" },
 ];
 
-export default function Footer() {
+export default function TtscWebsiteLandingFooter() {
   return (
     <footer className="relative border-t border-neutral-900 bg-neutral-950 py-16 px-6">
       <div className="max-w-5xl mx-auto">
