@@ -1,9 +1,9 @@
 "use client";
 
 import {
+  PlaygroundShell as PackagedPlaygroundShell,
   createSandboxRequire,
   loadTypiaRuntimePack,
-  PlaygroundShell as PackagedPlaygroundShell,
 } from "@ttsc/playground";
 
 import { PLAYGROUND_EXAMPLES } from "../../compiler/PlaygroundExamples";
@@ -14,11 +14,11 @@ const PLAYGROUND_DEFAULT_SCRIPT = PLAYGROUND_EXAMPLES[0]?.source ?? "";
 const TYPIA_RUNTIME_PACK_URL = "/compiler/typia-runtime-pack.json";
 
 /**
- * Build the in-page require sandbox by merging the prebuilt typia runtime
- * pack (for typia.is/random/etc that the transformer emits as
+ * Build the in-page require sandbox by merging the prebuilt typia runtime pack
+ * (for typia.is/random/etc that the transformer emits as
  * require("typia/lib/internal/...")) with the runtime files the shell
- * accumulated from every `installPlaygroundDependencies` call (so a
- * user-typed `import { v4 } from "uuid"` actually resolves at Execute time).
+ * accumulated from every `installPlaygroundDependencies` call (so a user-typed
+ * `import { v4 } from "uuid"` actually resolves at Execute time).
  */
 const executeBundle = async (
   code: string,
@@ -43,7 +43,7 @@ const executeBundle = async (
   factory(sandboxRequire, moduleObj, moduleObj.exports, sandbox.console);
 };
 
-export default function PlaygroundShell() {
+export default function TtscWebsitePlaygroundShell() {
   return (
     <PackagedPlaygroundShell
       workerUrl="/compiler/index.js"

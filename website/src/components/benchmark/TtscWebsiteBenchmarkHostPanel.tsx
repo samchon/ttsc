@@ -1,6 +1,6 @@
 "use client";
 
-import type { BenchmarkHost } from "./types";
+import type { ITtscWebsiteBenchmark } from "../../structures/ITtscWebsiteBenchmark";
 
 /**
  * The machine the published numbers were measured on.
@@ -8,11 +8,11 @@ import type { BenchmarkHost } from "./types";
  * Speedups are only meaningful next to the hardware and toolchain versions that
  * produced them, so this panel sits directly above the project cards.
  */
-export default function HostPanel({
+export default function TtscWebsiteBenchmarkHostPanel({
   host,
   date,
 }: {
-  host: BenchmarkHost;
+  host: ITtscWebsiteBenchmark.Host;
   date: string;
 }) {
   const measured = new Date(date);

@@ -2,22 +2,24 @@
 
 import { useEffect, useState } from "react";
 
-import {
+import type { ITtscWebsiteBenchmark } from "../../structures/ITtscWebsiteBenchmark";
+import TtscWebsiteBenchmarkFormat from "./TtscWebsiteBenchmarkFormat";
+
+const {
   findMeasurement,
   formatDuration,
   formatMultiplier,
   lintPluginMs,
   measurementMs,
-} from "./format";
-import type {
-  BenchmarkOp,
-  BenchmarkProject,
-  BenchmarkReport,
-  BenchmarkThreading,
-} from "./types";
+} = TtscWebsiteBenchmarkFormat;
+
+type BenchmarkOp = ITtscWebsiteBenchmark.Operation;
+type BenchmarkProject = ITtscWebsiteBenchmark.Project;
+type BenchmarkReport = ITtscWebsiteBenchmark.Report;
+type BenchmarkThreading = ITtscWebsiteBenchmark.Threading;
 
 // ---------------------------------------------------------------------------
-// Style tokens — mirrors GraphBenchmark.tsx
+// Style tokens, mirrored with the graph benchmark panels.
 // ---------------------------------------------------------------------------
 
 const ACCENT = "#36e2ee";
@@ -321,7 +323,7 @@ function Notice({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function PerformanceSummary() {
+export default function TtscWebsiteBenchmarkPerformanceSummary() {
   const [report, setReport] = useState<BenchmarkReport | null>(null);
   const [error, setError] = useState<string | null>(null);
 

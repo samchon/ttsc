@@ -1,4 +1,4 @@
-import GraphBenchmark from "../../../components/benchmark/GraphBenchmark";
+import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphCommon";
 
 # Comparison
 
@@ -28,7 +28,7 @@ The four tools side by side, then the measured cost.
 
 The chart below is the shared onboarding question across the benchmark repositories, on the primary model lane. `@ttsc/graph` holds a flat, low median token cost as the repository grows, while the comparators swing with repository size and sometimes land above the no-MCP baseline.
 
-<GraphBenchmark variant="summary" />
+<TtscWebsiteBenchmarkGraphCommon summary />
 
 This is the summary view. The [full benchmark](/docs/benchmark/graph) adds the per-repository prompts, every model, and structural coverage, and the [launch post](/blog/i-made-ts-compiler-graph-mcp) covers the method and where the numbers hold or break down.
 

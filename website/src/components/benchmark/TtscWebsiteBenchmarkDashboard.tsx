@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-import HostPanel from "./HostPanel";
-import {
+import type { ITtscWebsiteBenchmark } from "../../structures/ITtscWebsiteBenchmark";
+import TtscWebsiteBenchmarkFormat from "./TtscWebsiteBenchmarkFormat";
+import TtscWebsiteBenchmarkHostPanel from "./TtscWebsiteBenchmarkHostPanel";
+
+const {
   findMeasurement,
   formatDuration,
   formatMultiplier,
@@ -11,13 +14,12 @@ import {
   lintPluginMs,
   measurementMs,
   transformHostMs,
-} from "./format";
-import type {
-  BenchmarkMeasurement,
-  BenchmarkProject,
-  BenchmarkReport,
-  BenchmarkThreading,
-} from "./types";
+} = TtscWebsiteBenchmarkFormat;
+
+type BenchmarkMeasurement = ITtscWebsiteBenchmark.Measurement;
+type BenchmarkProject = ITtscWebsiteBenchmark.Project;
+type BenchmarkReport = ITtscWebsiteBenchmark.Report;
+type BenchmarkThreading = ITtscWebsiteBenchmark.Threading;
 
 type BenchmarkTab = "summary" | "build" | "check" | "lint" | "format";
 type Operation = "build" | "noEmit";
@@ -36,7 +38,7 @@ const panelClass =
 const panelHeaderClass =
   "flex flex-wrap items-end justify-between gap-2 border-b border-[#262b36] bg-[#121620] px-4 py-3";
 
-export default function BenchmarkDashboard() {
+export default function TtscWebsiteBenchmarkDashboard() {
   const [report, setReport] = useState<BenchmarkReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<BenchmarkTab>(() =>
@@ -204,7 +206,7 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
 
   return (
     <div className="space-y-4">
-      <HostPanel host={report.host} date={report.date} />
+      <TtscWebsiteBenchmarkHostPanel host={report.host} date={report.date} />
       <section className={panelClass}>
         <TableHeader
           title="Summary Winners"

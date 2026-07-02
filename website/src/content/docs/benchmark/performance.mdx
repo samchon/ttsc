@@ -1,4 +1,4 @@
-import BenchmarkDashboard from "../../../components/benchmark/BenchmarkDashboard";
+import TtscWebsiteBenchmarkDashboard from "../../../components/benchmark/TtscWebsiteBenchmarkDashboard";
 
 # Compiler Performance
 
@@ -6,7 +6,7 @@ This page measures the practical question behind `ttsc`: how much wall-clock tim
 
 The fixtures are real repositories cloned into prepared `legacy`, `ttsc`, and `ttsc-lint` branches. The dashboard reports the fastest command-line run per cell on the same machine, system noise can only push individual runs slower, never faster, so the minimum is the closest we can get to the workload itself. Absolute seconds still depend on the host shown below; the ratios are the useful signal. Projects are displayed by upstream GitHub stars so the most recognizable fixtures appear first.
 
-<BenchmarkDashboard />
+<TtscWebsiteBenchmarkDashboard />
 
 ## Reading the Results
 

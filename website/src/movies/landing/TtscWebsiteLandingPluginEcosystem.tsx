@@ -1,7 +1,7 @@
 "use client";
 
-import FadeIn from "./FadeIn";
-import SectionEyebrow from "./SectionEyebrow";
+import TtscWebsiteLandingFadeIn from "./TtscWebsiteLandingFadeIn";
+import TtscWebsiteLandingSectionEyebrow from "./TtscWebsiteLandingSectionEyebrow";
 
 const ECOSYSTEM = [
   {
@@ -36,12 +36,12 @@ const UTILITIES = [
   },
 ] as const;
 
-export default function PluginEcosystem() {
+export default function TtscWebsiteLandingPluginEcosystem() {
   return (
     <section className="relative overflow-hidden bg-neutral-950 px-6 py-24 md:py-32">
       <div className="relative mx-auto max-w-6xl">
-        <FadeIn>
-          <SectionEyebrow label="Plugins" />
+        <TtscWebsiteLandingFadeIn>
+          <TtscWebsiteLandingSectionEyebrow label="Plugins" />
           <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
             <div>
               <h2 className="text-3xl font-bold leading-[1.08] tracking-tight text-white md:text-5xl">
@@ -82,9 +82,9 @@ export default function PluginEcosystem() {
               ))}
             </div>
           </div>
-        </FadeIn>
+        </TtscWebsiteLandingFadeIn>
 
-        <FadeIn delay={120}>
+        <TtscWebsiteLandingFadeIn delay={120}>
           <div className="mt-12 border-t border-neutral-900 pt-8">
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-600">
               First-party utility plugins
@@ -106,7 +106,7 @@ export default function PluginEcosystem() {
               ))}
             </div>
           </div>
-        </FadeIn>
+        </TtscWebsiteLandingFadeIn>
       </div>
     </section>
   );

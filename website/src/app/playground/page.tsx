@@ -2,8 +2,8 @@
 
 import dynamic from "next/dynamic";
 
-const PlaygroundShell = dynamic(
-  () => import("../../components/playground/PlaygroundShell"),
+const TtscWebsitePlaygroundShell = dynamic(
+  () => import("../../components/playground/TtscWebsitePlaygroundShell"),
   {
     ssr: false,
     loading: () => (
@@ -15,5 +15,5 @@ const PlaygroundShell = dynamic(
 );
 
 export default function PlaygroundPage() {
-  return <PlaygroundShell />;
+  return <TtscWebsitePlaygroundShell />;
 }

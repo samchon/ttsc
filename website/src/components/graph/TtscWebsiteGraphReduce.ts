@@ -2,66 +2,13 @@
 // 3D viewer can take a raw `@ttsc/graph` dump (what `ttscgraph dump` prints) and
 // turn it into the render payload without any server. Keep in sync with that
 // file; both are the same pure transform.
+import type { ITtscWebsiteGraphViewer } from "../../structures/ITtscWebsiteGraphViewer";
 
-export interface RawNode {
-  id: string;
-  name: string;
-  kind: string;
-  file: string;
-  external?: boolean;
-  ignored?: boolean;
-  pos?: number;
-  end?: number;
-}
-
-export interface RawEdge {
-  from: string;
-  to: string;
-  kind: string;
-}
-
-export interface RawDump {
-  schemaVersion?: number;
-  project?: string;
-  provenance?: string;
-  nodes: RawNode[];
-  edges: RawEdge[];
-}
-
-export interface ViewerNode {
-  id: string;
-  name: string;
-  kind: string;
-  file: string;
-  external: boolean;
-  ignored: boolean;
-  degree: number;
-}
-
-export interface ViewerLink {
-  source: string;
-  target: string;
-  kind: string;
-}
-
-export interface ViewerCounts {
-  rawNodes: number;
-  rawEdges: number;
-  nodes: number;
-  links: number;
-  droppedExternal: number;
-  droppedIgnored: number;
-  droppedByCap: number;
-}
-
-export interface ViewerPayload {
-  schemaVersion: number;
-  project: string;
-  provenance?: string;
-  counts: ViewerCounts;
-  nodes: ViewerNode[];
-  links: ViewerLink[];
-}
+type RawNode = ITtscWebsiteGraphViewer.RawNode;
+type RawDump = ITtscWebsiteGraphViewer.RawDump;
+type ViewerNode = ITtscWebsiteGraphViewer.Node;
+type ViewerLink = ITtscWebsiteGraphViewer.Link;
+type ViewerPayload = ITtscWebsiteGraphViewer.Payload;
 
 function posix(p: string): string {
   return p.replace(/\\/g, "/");
@@ -122,13 +69,13 @@ function degreeOf(
  * Reduce a raw dump to the viewer payload: relativized, external-free, capped
  * to the highest-degree nodes, with orphans pruned.
  */
-export function reduce(
+function reduce(
   raw: RawDump,
   {
     maxNodes = 1000,
     keepExternal = false,
     keepIgnored = false,
-  }: { maxNodes?: number; keepExternal?: boolean; keepIgnored?: boolean } = {},
+  }: ITtscWebsiteGraphViewer.ReduceOptions = {},
 ): ViewerPayload {
   // Drop external boundary leaves and git-ignored generated code (a Prisma
   // client and the like, tagged `ignored` by the dump) so the authored graph is
@@ -209,7 +156,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /** A raw graphdump: `{ nodes: [...], edges: [{from,to,kind}] }`. */
-export function isRawDump(json: unknown): json is RawDump {
+function isRawDump(json: unknown): json is RawDump {
   return (
     isObject(json) && Array.isArray(json.nodes) && Array.isArray(json.edges)
   );
@@ -219,14 +166,14 @@ export function isRawDump(json: unknown): json is RawDump {
  * An already-reduced viewer payload: `{ nodes: [...], links: [{source,target}]
  * }`.
  */
-export function isViewerPayload(json: unknown): json is ViewerPayload {
+function isViewerPayload(json: unknown): json is ViewerPayload {
   return (
     isObject(json) && Array.isArray(json.nodes) && Array.isArray(json.links)
   );
 }
 
 /** Accept either shape (a `ttscgraph dump` raw graph or a pre-reduced payload). */
-export function toViewerPayload(
+function toViewerPayload(
   json: unknown,
   opts?: { maxNodes?: number },
 ): ViewerPayload | null {
@@ -234,3 +181,12 @@ export function toViewerPayload(
   if (isRawDump(json)) return reduce(json, opts);
   return null;
 }
+
+const TtscWebsiteGraphReduce = {
+  isRawDump,
+  isViewerPayload,
+  reduce,
+  toViewerPayload,
+};
+
+export default TtscWebsiteGraphReduce;
