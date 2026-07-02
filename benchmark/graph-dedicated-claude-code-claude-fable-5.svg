@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="900" viewBox="0 0 1040 900" version="1.1" role="img" aria-label="Dedicated prompt median token use, Claude Code claude-fable-5">
+ <defs>
+  <style type="text/css">
+   *{stroke-linejoin:round;stroke-linecap:butt}
+   text{font-family:DejaVu Sans, Arial, sans-serif}
+  </style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 900 L 1040 900 L 1040 0 L 0 0 z" style="fill:#05070b"/>
+  </g>
+  <g id="axes_1">
+   <path d="M 124 116 L 1016 116 L 1016 830 L 124 830 z" style="fill:#0b111a"/>
+   <path d="M 124 830 L 1016 830" style="fill:none;stroke:#64748b;stroke-width:0.8"/>
+   <path d="M 124 116 L 124 830" style="fill:none;stroke:#64748b;stroke-width:0.8"/>
+   <g>
+    <path d="M 124.000 116 L 124.000 830" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
+    <text x="124.000" y="848" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">0</text>
+   </g>
+   <g>
+    <path d="M 347.000 116 L 347.000 830" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
+    <text x="347.000" y="848" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">750k</text>
+   </g>
+   <g>
+    <path d="M 570.000 116 L 570.000 830" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
+    <text x="570.000" y="848" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">1.5M</text>
+   </g>
+   <g>
+    <path d="M 793.000 116 L 793.000 830" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
+    <text x="793.000" y="848" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">2.3M</text>
+   </g>
+   <g>
+    <path d="M 1016.000 116 L 1016.000 830" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
+    <text x="1016.000" y="848" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">3M</text>
+   </g>
+   <g>
+    <path d="M 18 205.250 L 1016 205.250" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
+    <text x="108" y="163.625" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">excalidraw</text>
+    <rect x="124" y="133.625" width="281.904" height="9" style="fill:#94a3b8"/>
+    <text x="410.904" y="141.925" style="fill:#cbd5e1;font-size:11px">948k</text>
+    <rect x="124" y="147.125" width="61.012" height="9" style="fill:#22d3ee"/>
+    <text x="190.012" y="155.425" style="fill:#22d3ee;font-size:11px;font-weight:700">205k (-78%)</text>
+    <rect x="124" y="160.625" width="289.118" height="9" style="fill:#f59e0b"/>
+    <text x="418.118" y="168.925" style="fill:#fb7185;font-size:11px">972k (+3%)</text>
+    <rect x="124" y="174.125" width="634.290" height="9" style="fill:#a3e635"/>
+    <text x="763.290" y="182.425" style="fill:#fb7185;font-size:11px">2.1M (+125%)</text>
+    <rect x="124" y="187.625" width="584.005" height="9" style="fill:#f472b6"/>
+    <text x="713.005" y="195.925" style="fill:#fb7185;font-size:11px">2.0M (+107%)</text>
+   </g>
+   <g>
+    <path d="M 18 294.500 L 1016 294.500" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
+    <text x="108" y="252.875" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">nestjs</text>
+    <rect x="124" y="222.875" width="387.570" height="9" style="fill:#94a3b8"/>
+    <text x="516.570" y="231.175" style="fill:#cbd5e1;font-size:11px">1.3M</text>
+    <rect x="124" y="236.375" width="58.603" height="9" style="fill:#22d3ee"/>
+    <text x="187.603" y="244.675" style="fill:#22d3ee;font-size:11px;font-weight:700">197k (-85%)</text>
+    <rect x="124" y="249.875" width="91.008" height="9" style="fill:#f59e0b"/>
+    <text x="220.008" y="258.175" style="fill:#f59e0b;font-size:11px">306k (-77%)</text>
+    <rect x="124" y="263.375" width="363.799" height="9" style="fill:#a3e635"/>
+    <text x="492.799" y="271.675" style="fill:#a3e635;font-size:11px">1.2M (-6%)</text>
+    <rect x="124" y="276.875" width="396.435" height="9" style="fill:#f472b6"/>
+    <text x="525.435" y="285.175" style="fill:#fb7185;font-size:11px">1.3M (+2%)</text>
+   </g>
+   <g>
+    <path d="M 18 383.750 L 1016 383.750" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
+    <text x="108" y="342.125" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">rxjs</text>
+    <rect x="124" y="312.125" width="169.521" height="9" style="fill:#94a3b8"/>
+    <text x="298.521" y="320.425" style="fill:#cbd5e1;font-size:11px">570k</text>
+    <rect x="124" y="325.625" width="128.620" height="9" style="fill:#22d3ee"/>
+    <text x="257.620" y="333.925" style="fill:#22d3ee;font-size:11px;font-weight:700">433k (-24%)</text>
+    <rect x="124" y="339.125" width="138.727" height="9" style="fill:#f59e0b"/>
+    <text x="267.727" y="347.425" style="fill:#f59e0b;font-size:11px">467k (-18%)</text>
+    <rect x="124" y="352.625" width="208.563" height="9" style="fill:#a3e635"/>
+    <text x="337.563" y="360.925" style="fill:#fb7185;font-size:11px">701k (+23%)</text>
+    <rect x="124" y="366.125" width="201.541" height="9" style="fill:#f472b6"/>
+    <text x="330.541" y="374.425" style="fill:#fb7185;font-size:11px">678k (+19%)</text>
+   </g>
+   <g>
+    <path d="M 18 473.000 L 1016 473.000" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
+    <text x="108" y="431.375" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">shopping</text>
+    <rect x="124" y="401.375" width="258.271" height="9" style="fill:#94a3b8"/>
+    <text x="387.271" y="409.675" style="fill:#cbd5e1;font-size:11px">869k</text>
+    <rect x="124" y="414.875" width="63.874" height="9" style="fill:#22d3ee"/>
+    <text x="192.874" y="423.175" style="fill:#22d3ee;font-size:11px;font-weight:700">215k (-75%)</text>
+    <rect x="124" y="428.375" width="194.793" height="9" style="fill:#f59e0b"/>
+    <text x="323.793" y="436.675" style="fill:#f59e0b;font-size:11px">655k (-25%)</text>
+    <rect x="124" y="441.875" width="348.410" height="9" style="fill:#a3e635"/>
+    <text x="477.410" y="450.175" style="fill:#fb7185;font-size:11px">1.2M (+35%)</text>
+    <rect x="124" y="455.375" width="294.686" height="9" style="fill:#f472b6"/>
+    <text x="423.686" y="463.675" style="fill:#fb7185;font-size:11px">991k (+14%)</text>
+   </g>
+   <g>
+    <path d="M 18 562.250 L 1016 562.250" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
+    <text x="108" y="520.625" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">typeorm</text>
+    <rect x="124" y="490.625" width="302.943" height="9" style="fill:#94a3b8"/>
+    <text x="431.943" y="498.925" style="fill:#cbd5e1;font-size:11px">1.0M</text>
+    <rect x="124" y="504.125" width="61.314" height="9" style="fill:#22d3ee"/>
+    <text x="190.314" y="512.425" style="fill:#22d3ee;font-size:11px;font-weight:700">206k (-80%)</text>
+    <rect x="124" y="517.625" width="252.562" height="9" style="fill:#f59e0b"/>
+    <text x="381.562" y="525.925" style="fill:#f59e0b;font-size:11px">849k (-17%)</text>
+    <rect x="124" y="531.125" width="272.635" height="9" style="fill:#a3e635"/>
+    <text x="401.635" y="539.425" style="fill:#a3e635;font-size:11px">917k (-10%)</text>
+    <rect x="124" y="544.625" width="252.491" height="9" style="fill:#f472b6"/>
+    <text x="381.491" y="552.925" style="fill:#f472b6;font-size:11px">849k (-17%)</text>
+   </g>
+   <g>
+    <path d="M 18 651.500 L 1016 651.500" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
+    <text x="108" y="609.875" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">vscode</text>
+    <rect x="124" y="579.875" width="176.193" height="9" style="fill:#94a3b8"/>
+    <text x="305.193" y="588.175" style="fill:#cbd5e1;font-size:11px">593k</text>
+    <rect x="124" y="593.375" width="63.859" height="9" style="fill:#22d3ee"/>
+    <text x="192.859" y="601.675" style="fill:#22d3ee;font-size:11px;font-weight:700">215k (-64%)</text>
+    <rect x="124" y="606.875" width="138.852" height="9" style="fill:#f59e0b"/>
+    <text x="267.852" y="615.175" style="fill:#f59e0b;font-size:11px">467k (-21%)</text>
+    <rect x="124" y="620.375" width="301.454" height="9" style="fill:#a3e635"/>
+    <text x="430.454" y="628.675" style="fill:#fb7185;font-size:11px">1.0M (+71%)</text>
+    <rect x="124" y="633.875" width="192.940" height="9" style="fill:#f472b6"/>
+    <text x="321.940" y="642.175" style="fill:#fb7185;font-size:11px">649k (+10%)</text>
+   </g>
+   <g>
+    <path d="M 18 740.750 L 1016 740.750" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
+    <text x="108" y="699.125" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">vue</text>
+    <rect x="124" y="669.125" width="335.440" height="9" style="fill:#94a3b8"/>
+    <text x="464.440" y="677.425" style="fill:#cbd5e1;font-size:11px">1.1M</text>
+    <rect x="124" y="682.625" width="58.652" height="9" style="fill:#22d3ee"/>
+    <text x="187.652" y="690.925" style="fill:#22d3ee;font-size:11px;font-weight:700">197k (-83%)</text>
+    <rect x="124" y="696.125" width="269.329" height="9" style="fill:#f59e0b"/>
+    <text x="398.329" y="704.425" style="fill:#f59e0b;font-size:11px">906k (-20%)</text>
+    <rect x="124" y="709.625" width="254.937" height="9" style="fill:#a3e635"/>
+    <text x="383.937" y="717.925" style="fill:#a3e635;font-size:11px">857k (-24%)</text>
+    <rect x="124" y="723.125" width="348.942" height="9" style="fill:#f472b6"/>
+    <text x="477.942" y="731.425" style="fill:#fb7185;font-size:11px">1.2M (+4%)</text>
+   </g>
+   <g>
+    <path d="M 18 830.000 L 1016 830.000" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
+    <text x="108" y="788.375" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">zod</text>
+    <rect x="124" y="758.375" width="378.986" height="9" style="fill:#94a3b8"/>
+    <text x="507.986" y="766.675" style="fill:#cbd5e1;font-size:11px">1.3M</text>
+    <rect x="124" y="771.875" width="60.875" height="9" style="fill:#22d3ee"/>
+    <text x="189.875" y="780.175" style="fill:#22d3ee;font-size:11px;font-weight:700">205k (-84%)</text>
+    <rect x="124" y="785.375" width="126.548" height="9" style="fill:#f59e0b"/>
+    <text x="255.548" y="793.675" style="fill:#f59e0b;font-size:11px">426k (-67%)</text>
+    <rect x="124" y="798.875" width="390.823" height="9" style="fill:#a3e635"/>
+    <text x="519.823" y="807.175" style="fill:#fb7185;font-size:11px">1.3M (+3%)</text>
+    <rect x="124" y="812.375" width="327.237" height="9" style="fill:#f472b6"/>
+    <text x="456.237" y="820.675" style="fill:#f472b6;font-size:11px">1.1M (-14%)</text>
+   </g>
+   <text x="570.000" y="28" style="fill:#f8fafc;font-size:20px;font-weight:600;text-anchor:middle">Dedicated prompt median token use, Claude Code claude-fable-5</text>
+   <text x="570.000" y="874" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">Tokens</text>
+   <g id="legend_1">
+   <g>
+    <rect x="124" y="49" width="14" height="9" style="fill:#94a3b8"/>
+    <text x="144" y="58" style="fill:#cbd5e1;font-size:12px">baseline</text>
+   </g>
+   <g>
+    <rect x="219.76" y="49" width="14" height="9" style="fill:#22d3ee"/>
+    <text x="239.76" y="58" style="fill:#cbd5e1;font-size:12px">@ttsc/graph</text>
+   </g>
+   <g>
+    <rect x="335.68" y="49" width="14" height="9" style="fill:#f59e0b"/>
+    <text x="355.68" y="58" style="fill:#cbd5e1;font-size:12px">codegraph</text>
+   </g>
+   <g>
+    <rect x="438.16" y="49" width="14" height="9" style="fill:#a3e635"/>
+    <text x="458.16" y="58" style="fill:#cbd5e1;font-size:12px">codebase-memory</text>
+   </g>
+   <g>
+    <rect x="580.96" y="49" width="14" height="9" style="fill:#f472b6"/>
+    <text x="600.96" y="58" style="fill:#cbd5e1;font-size:12px">serena</text>
+   </g>
+  </g>
+   <text x="124" y="80" style="fill:#94a3b8;font-size:12px">Lower is better. Percentage is versus the no-MCP baseline.</text>
+  </g>
+ </g>
+</svg>
