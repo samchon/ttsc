@@ -55,6 +55,11 @@ function posix(p: string): string {
   return p.replace(/\\/g, "/");
 }
 
+/** An absolute path (POSIX or Windows drive); relative dumps skip rerooting. */
+function isAbsolute(p: string): boolean {
+  return /^(?:[A-Za-z]:)?\//.test(posix(p));
+}
+
 function commonRoot(files: string[]): string {
   if (files.length === 0) return "";
   let parts = posix(files[0]!).split("/");
@@ -68,10 +73,13 @@ function commonRoot(files: string[]): string {
   return parts.join("/");
 }
 
+// An empty root means the dump's paths are already project-relative (the
+// current `ttscgraph dump` contract); they pass through structure-intact.
 function relativize(abs: string, root: string): string {
   const a = posix(abs);
   const r = posix(root).replace(/\/+$/, "");
-  if (r && (a === r || a.startsWith(r + "/")))
+  if (!r) return a;
+  if (a === r || a.startsWith(r + "/"))
     return a.slice(r.length).replace(/^\/+/, "");
   const nm = a.lastIndexOf("node_modules/");
   if (nm >= 0) return a.slice(nm);
@@ -125,9 +133,13 @@ export function reduce(
   }: { maxNodes?: number; keepExternal?: boolean } = {},
 ): ViewerPayload {
   const keptByExternal = raw.nodes.filter((n) => keepExternal || !n.external);
-  const root = commonRoot(
-    raw.nodes.filter((n) => !n.external).map((n) => n.file),
-  );
+  // Reroot only absolute paths (the legacy dump contract); a current dump's
+  // paths are already project-relative and keep their structure as-is.
+  const projectFiles = raw.nodes.filter((n) => !n.external).map((n) => n.file);
+  const root =
+    projectFiles.length > 0 && isAbsolute(projectFiles[0]!)
+      ? commonRoot(projectFiles)
+      : "";
 
   const liveIds = new Set(keptByExternal.map((n) => n.id));
   const liveEdges = raw.edges.filter(

@@ -47,15 +47,23 @@ function posix(p) {
   return p.replace(/\\/g, "/");
 }
 
+/** An absolute path (POSIX or Windows drive); relative dumps skip rerooting. */
+function isAbsolute(p) {
+  return /^(?:[A-Za-z]:)?\//.test(posix(p));
+}
+
 /**
  * Make an absolute path project-relative; a path outside the project keeps the
  * portion from its last node_modules/ segment, or its base name, so nothing
- * leaks an absolute machine path.
+ * leaks an absolute machine path. An empty root means the dump's paths are
+ * already project-relative (the current `ttscgraph dump` contract), so they
+ * pass through with their directory structure intact.
  */
 function relativize(abs, root) {
   const a = posix(abs);
   const r = posix(root).replace(/\/+$/, "");
-  if (r && (a === r || a.startsWith(r + "/")))
+  if (!r) return a;
+  if (a === r || a.startsWith(r + "/"))
     return a.slice(r.length).replace(/^\/+/, "");
   const nm = a.lastIndexOf("node_modules/");
   if (nm >= 0) return a.slice(nm);
@@ -108,9 +116,15 @@ export function reduce(
   const keep = (n) =>
     (keepExternal || !n.external) && (keepIgnored || !n.ignored);
   const keptBoundary = raw.nodes.filter(keep);
-  const root = commonRoot(
-    raw.nodes.filter((n) => !n.external && !n.ignored).map((n) => n.file),
-  );
+  // Reroot only absolute paths (the legacy dump contract); a current dump's
+  // paths are already project-relative and keep their structure as-is.
+  const projectFiles = raw.nodes
+    .filter((n) => !n.external && !n.ignored)
+    .map((n) => n.file);
+  const root =
+    projectFiles.length > 0 && isAbsolute(projectFiles[0])
+      ? commonRoot(projectFiles)
+      : "";
 
   const liveIds = new Set(keptBoundary.map((n) => n.id));
   const liveEdges = raw.edges.filter(
