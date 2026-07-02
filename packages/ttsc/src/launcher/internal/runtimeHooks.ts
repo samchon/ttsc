@@ -859,16 +859,20 @@ function serveEntryEmit(real: string): ServedSource | null {
 /**
  * True when `real` is `directory` itself or sits beneath it. Handles a root
  * `directory` (`/`, `C:\`): naively appending a separator would yield `//`,
- * which no path starts with, so a `rootDir: "/"` project would serve nothing.
+ * which no path starts with, so a root `rootDir` project would serve nothing.
+ * Both sides are normalized to native separators first: a manifest `rootDir`
+ * arrives slash-normalized from the synthesized tsconfig (`C:/` on Windows)
+ * while `real` paths are native, and a raw prefix comparison across the two
+ * forms silently never matches.
  */
 function isWithin(real: string, directory: string): boolean {
-  if (real === directory) {
+  const target = path.normalize(real);
+  const dir = path.normalize(directory);
+  if (target === dir) {
     return true;
   }
-  const prefix = directory.endsWith(path.sep)
-    ? directory
-    : directory + path.sep;
-  return real.startsWith(prefix);
+  const prefix = dir.endsWith(path.sep) ? dir : dir + path.sep;
+  return target.startsWith(prefix);
 }
 
 /**

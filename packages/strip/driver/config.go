@@ -290,7 +290,7 @@ try {
 // project's transform/check plugins would be wasteful and could fail the
 // build against this deliberately lenient loader tsconfig.
 func loadStripTypeScriptConfigFile(location string) (any, error) {
-  tempDir, err := os.MkdirTemp("", "ttsc-strip-config-")
+  tempDir, err := os.MkdirTemp(stripLoaderTempBase(location, os.TempDir()), "ttsc-strip-config-")
   if err != nil {
     return nil, fmt.Errorf("@ttsc/strip: create config loader tempdir: %w", err)
   }
@@ -366,7 +366,7 @@ func stripTypeScriptLoaderTsconfig(loader, location, outDir string) string {
       "noImplicitAny":                   false,
       "outDir":                          filepath.ToSlash(filepath.Join(outDir, "out")),
       "rewriteRelativeImportExtensions": true,
-      "rootDir":                         "/",
+      "rootDir":                         stripLoaderRootDir(outDir),
       "skipLibCheck":                    true,
       "strict":                          false,
       "target":                          "ES2022",
@@ -381,6 +381,44 @@ func stripTypeScriptLoaderTsconfig(loader, location, outDir string) string {
     panic(err)
   }
   return string(body)
+}
+
+// stripLoaderRootDir returns the widest rootDir that still contains the
+// loader tsconfig's inputs: the volume root of the loader temp dir (`C:/` on
+// Windows, `/` elsewhere). A literal "/" is not an ancestor of drive-letter
+// paths, so tsgo rejects every input with TS6059 (#299, #304). The temp dir
+// is created on the same volume as the config file (see stripLoaderTempBase),
+// so its volume root spans both `files` entries.
+func stripLoaderRootDir(outDir string) string {
+  vol := filepath.VolumeName(outDir)
+  if vol == "" {
+    return "/"
+  }
+  return filepath.ToSlash(vol + `\`)
+}
+
+// stripLoaderTempBase picks the parent directory for the ephemeral
+// config-loader tree. The system temp dir is the default, but when it sits on
+// a different volume than the config file (Windows: TEMP on `C:`, project on
+// `D:`) the loader cannot work from there — no single tsconfig rootDir spans
+// two volumes and filepath.Rel cannot produce a relative import across drives
+// (#305) — so the tree is created under the config's nearest
+// node_modules/.cache instead. Returns "" (the os.MkdirTemp default) when the
+// volumes already match, or when no node_modules/.cache is available to keep
+// the historical behavior as the fallback.
+func stripLoaderTempBase(location, systemTemp string) string {
+  if strings.EqualFold(filepath.VolumeName(systemTemp), filepath.VolumeName(location)) {
+    return ""
+  }
+  nodeModules := stripFindNearestNodeModules(filepath.Dir(location))
+  if nodeModules == "" {
+    return ""
+  }
+  base := filepath.Join(nodeModules, ".cache")
+  if err := os.MkdirAll(base, 0o755); err != nil {
+    return ""
+  }
+  return base
 }
 
 // stripTtsxCommandContext returns an exec.Cmd that runs ttsx with the given

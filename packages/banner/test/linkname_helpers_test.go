@@ -57,6 +57,9 @@ func bannerTypeScriptConfigLoaderSource(importLiteral string) string
 //go:linkname bannerTypeScriptConfigLoaderTsconfig github.com/samchon/ttsc/packages/banner/driver.typeScriptConfigLoaderTsconfig
 func bannerTypeScriptConfigLoaderTsconfig(loader, location, outDir string) string
 
+//go:linkname bannerLoaderTempBase github.com/samchon/ttsc/packages/banner/driver.loaderTempBase
+func bannerLoaderTempBase(location, systemTemp string) string
+
 //go:linkname bannerTtsxCommand github.com/samchon/ttsc/packages/banner/driver.ttsxCommand
 func bannerTtsxCommand(args ...string) *exec.Cmd
 

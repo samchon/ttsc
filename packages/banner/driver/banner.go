@@ -364,7 +364,7 @@ function toSerializableBanner(value) {
 // build runs with `--no-plugins` so evaluating the config never triggers the
 // host project's transform/check plugins against the loader tsconfig.
 func loadBannerTypeScriptConfigFile(location string) (any, error) {
-  tempDir, err := os.MkdirTemp("", "ttsc-banner-config-")
+  tempDir, err := os.MkdirTemp(loaderTempBase(location, os.TempDir()), "ttsc-banner-config-")
   if err != nil {
     return nil, fmt.Errorf("@ttsc/banner: create config loader tempdir: %w", err)
   }
@@ -507,7 +507,7 @@ func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
       "moduleResolution":                "bundler",
       "outDir":                          filepath.ToSlash(filepath.Join(outDir, "out")),
       "rewriteRelativeImportExtensions": true,
-      "rootDir":                         "/",
+      "rootDir":                         loaderRootDir(outDir),
       "skipLibCheck":                    true,
       "strict":                          true,
       "target":                          "ES2022",
@@ -519,6 +519,44 @@ func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
   }
   body, _ := json.MarshalIndent(content, "", "  ")
   return string(body)
+}
+
+// loaderRootDir returns the widest rootDir that still contains the loader
+// tsconfig's inputs: the volume root of the loader temp dir (`C:/` on
+// Windows, `/` elsewhere). A literal "/" is not an ancestor of drive-letter
+// paths, so tsgo rejects every input with TS6059 (#299, #304). The temp dir
+// is created on the same volume as the config file (see loaderTempBase), so
+// its volume root spans both `files` entries.
+func loaderRootDir(outDir string) string {
+  vol := filepath.VolumeName(outDir)
+  if vol == "" {
+    return "/"
+  }
+  return filepath.ToSlash(vol + `\`)
+}
+
+// loaderTempBase picks the parent directory for the ephemeral config-loader
+// tree. The system temp dir is the default, but when it sits on a different
+// volume than the config file (Windows: TEMP on `C:`, project on `D:`) the
+// loader cannot work from there — no single tsconfig rootDir spans two
+// volumes and filepath.Rel cannot produce a relative import across drives
+// (#305) — so the tree is created under the config's nearest
+// node_modules/.cache instead. Returns "" (the os.MkdirTemp default) when the
+// volumes already match, or when no node_modules/.cache is available to keep
+// the historical behavior as the fallback.
+func loaderTempBase(location, systemTemp string) string {
+  if strings.EqualFold(filepath.VolumeName(systemTemp), filepath.VolumeName(location)) {
+    return ""
+  }
+  nodeModules := findNearestNodeModules(filepath.Dir(location))
+  if nodeModules == "" {
+    return ""
+  }
+  base := filepath.Join(nodeModules, ".cache")
+  if err := os.MkdirAll(base, 0o755); err != nil {
+    return ""
+  }
+  return base
 }
 
 // ttsxCommand builds an exec.Cmd that runs ttsx with the given args.

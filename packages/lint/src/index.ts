@@ -535,7 +535,9 @@ function evaluateTtsxConfigPlugins(
   configPath: string,
   _context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): ConfigPluginEntry[] {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-cfg-"));
+  const tempDir = fs.mkdtempSync(
+    path.join(loaderTempBase(configPath), "ttsc-lint-cfg-"),
+  );
   try {
     linkNearestNodeModules(tempDir, path.dirname(configPath));
     const loaderPath = path.join(tempDir, "loader.mts");
@@ -919,6 +921,34 @@ function linkNearestNodeModules(tempDir: string, sourceDir: string): void {
       );
     }
   }
+}
+
+/**
+ * Picks the parent directory for the ephemeral config-loader tree. The system
+ * temp dir is the default, but when it sits on a different volume than the
+ * config file (Windows: TEMP on `C:`, project on `D:`) the loader cannot work
+ * from there — no single tsconfig `rootDir` spans two volumes and
+ * `path.relative` cannot produce a relative import across drives (#305) — so
+ * the tree is created under the config's nearest `node_modules/.cache` instead.
+ * Falls back to the system temp dir (the historical behavior) when the volumes
+ * already match or no `node_modules/.cache` is available.
+ */
+function loaderTempBase(configPath: string): string {
+  const systemTemp = os.tmpdir();
+  const systemRoot = path.parse(systemTemp).root;
+  const configRoot = path.parse(configPath).root;
+  if (systemRoot.toLowerCase() === configRoot.toLowerCase()) {
+    return systemTemp;
+  }
+  const nodeModules = findNearestNodeModules(path.dirname(configPath));
+  if (!nodeModules) return systemTemp;
+  const base = path.join(nodeModules, ".cache");
+  try {
+    fs.mkdirSync(base, { recursive: true });
+  } catch {
+    return systemTemp;
+  }
+  return base;
 }
 
 function relativeImportSpecifier(fromDir: string, target: string): string {

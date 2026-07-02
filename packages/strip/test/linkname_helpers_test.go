@@ -56,3 +56,9 @@ func stripStringArrayConfig(config map[string]any, key string) ([]string, error)
 
 //go:linkname stripEqualStringSlices github.com/samchon/ttsc/packages/strip/driver.equalStringSlices
 func stripEqualStringSlices(left, right []string) bool
+
+//go:linkname stripTypeScriptLoaderTsconfig github.com/samchon/ttsc/packages/strip/driver.stripTypeScriptLoaderTsconfig
+func stripTypeScriptLoaderTsconfig(loader, location, outDir string) string
+
+//go:linkname stripLoaderTempBase github.com/samchon/ttsc/packages/strip/driver.stripLoaderTempBase
+func stripLoaderTempBase(location, systemTemp string) string
