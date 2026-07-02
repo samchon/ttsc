@@ -20,8 +20,9 @@ const {
   LINK_KIND_LABEL,
   NODE_COLORS,
   edgeSummary,
-  fileHighlight,
   highlightOf,
+  isolate,
+  spotlight,
 } = TtscWebsiteGraphViewerModel;
 
 // ---------------------------------------------------------------------------
@@ -36,6 +37,7 @@ interface Example {
 
 const EXAMPLES: Example[] = [
   { id: "vscode", label: "VS Code", note: "6,093 files" },
+  { id: "excalidraw", label: "Excalidraw" },
   { id: "typeorm", label: "TypeORM" },
   { id: "vue", label: "Vue" },
   { id: "nestjs", label: "NestJS" },
@@ -78,10 +80,8 @@ export default function TtscWebsiteGraphViewer3D({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isolateId, setIsolateId] = useState<string | null>(null);
   const [file, setFile] = useState<string | null>(null);
-  const [disabledKinds, setDisabledKinds] = useState<Set<string>>(new Set());
-  const [disabledEdgeKinds, setDisabledEdgeKinds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [spotKinds, setSpotKinds] = useState<Set<string>>(new Set());
+  const [spotEdgeKinds, setSpotEdgeKinds] = useState<Set<string>>(new Set());
 
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<GraphScene | null>(null);
@@ -120,29 +120,15 @@ export default function TtscWebsiteGraphViewer3D({
     setSelectedId(null);
     setIsolateId(null);
     setFile(null);
-    setDisabledKinds(new Set());
-    setDisabledEdgeKinds(new Set());
+    setSpotKinds(new Set());
+    setSpotEdgeKinds(new Set());
   }, [payload]);
 
-  // The displayed slice: the payload projected through the explorer filters.
-  const enabledKinds = useMemo(() => {
-    const kinds = new Set(payload?.nodes.map((n) => n.kind) ?? []);
-    for (const kind of disabledKinds) kinds.delete(kind);
-    return kinds;
-  }, [payload, disabledKinds]);
-  const enabledEdgeKinds = useMemo(() => {
-    const kinds = new Set(payload?.links.map((l) => l.kind) ?? []);
-    for (const kind of disabledEdgeKinds) kinds.delete(kind);
-    return kinds;
-  }, [payload, disabledEdgeKinds]);
-  const displayed = useMemo<ViewerSlice | null>(() => {
-    if (!payload) return null;
-    return TtscWebsiteGraphViewerModel.project(payload, {
-      kinds: enabledKinds,
-      edgeKinds: enabledEdgeKinds,
-      isolateId,
-    });
-  }, [payload, enabledKinds, enabledEdgeKinds, isolateId]);
+  // The displayed slice: only the explicit isolate removes anything.
+  const displayed = useMemo<ViewerSlice | null>(
+    () => (payload ? isolate(payload, isolateId) : null),
+    [payload, isolateId],
+  );
 
   const selected = useMemo<ViewerNode | null>(() => {
     if (!displayed || selectedId === null) return null;
@@ -199,16 +185,21 @@ export default function TtscWebsiteGraphViewer3D({
     displayedRef.current = displayed;
     if (displayed) sceneRef.current?.setData(displayed);
   }, [displayed]);
-  // A node selection outranks the file spotlight; both dim, never remove.
+  // A node selection outranks the file/kind/edge spotlight; both dim, never
+  // remove.
   useEffect(() => {
     sceneRef.current?.setHighlight(
       displayed && selectedId !== null
         ? highlightOf(displayed.links, selectedId)
-        : displayed && file !== null
-          ? fileHighlight(displayed, file)
+        : displayed
+          ? spotlight(displayed, {
+              file,
+              kinds: spotKinds,
+              edgeKinds: spotEdgeKinds,
+            })
           : null,
     );
-  }, [displayed, selectedId, file]);
+  }, [displayed, selectedId, file, spotKinds, spotEdgeKinds]);
 
   const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const uploaded = event.target.files?.[0];
@@ -358,18 +349,18 @@ export default function TtscWebsiteGraphViewer3D({
               height={HEIGHT}
               tab={tab}
               onTab={setTab}
-              kinds={enabledKinds}
+              spotKinds={spotKinds}
               onToggleKind={(kind) =>
-                setDisabledKinds((prev) => {
+                setSpotKinds((prev) => {
                   const next = new Set(prev);
                   if (next.has(kind)) next.delete(kind);
                   else next.add(kind);
                   return next;
                 })
               }
-              edgeKinds={enabledEdgeKinds}
+              spotEdgeKinds={spotEdgeKinds}
               onToggleEdgeKind={(kind) =>
-                setDisabledEdgeKinds((prev) => {
+                setSpotEdgeKinds((prev) => {
                   const next = new Set(prev);
                   if (next.has(kind)) next.delete(kind);
                   else next.add(kind);
@@ -378,6 +369,11 @@ export default function TtscWebsiteGraphViewer3D({
               }
               file={file}
               onFile={setFile}
+              onClearSpotlight={() => {
+                setFile(null);
+                setSpotKinds(new Set());
+                setSpotEdgeKinds(new Set());
+              }}
               selectedId={selectedId}
               onPickNode={pickNode}
             />

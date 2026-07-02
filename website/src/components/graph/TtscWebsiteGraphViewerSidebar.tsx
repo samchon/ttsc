@@ -108,12 +108,13 @@ export default function TtscWebsiteGraphViewerSidebar({
   height,
   tab,
   onTab,
-  kinds,
+  spotKinds,
   onToggleKind,
-  edgeKinds,
+  spotEdgeKinds,
   onToggleEdgeKind,
   file,
   onFile,
+  onClearSpotlight,
   selectedId,
   onPickNode,
 }: {
@@ -122,12 +123,15 @@ export default function TtscWebsiteGraphViewerSidebar({
   height: number;
   tab: SidebarTab;
   onTab: (tab: SidebarTab) => void;
-  kinds: ReadonlySet<string>;
+  /** Spotlighted node kinds; empty means no kind spotlight. */
+  spotKinds: ReadonlySet<string>;
   onToggleKind: (kind: string) => void;
-  edgeKinds: ReadonlySet<string>;
+  /** Spotlighted edge families; empty means no edge spotlight. */
+  spotEdgeKinds: ReadonlySet<string>;
   onToggleEdgeKind: (kind: string) => void;
   file: string | null;
   onFile: (path: string | null) => void;
+  onClearSpotlight: () => void;
   selectedId: string | null;
   onPickNode: (node: ViewerNode) => void;
 }) {
@@ -171,12 +175,12 @@ export default function TtscWebsiteGraphViewerSidebar({
             {candidate === "files" ? "Files" : "Symbols"}
           </button>
         ))}
-        {file !== null ? (
+        {file !== null || spotKinds.size > 0 || spotEdgeKinds.size > 0 ? (
           <button
             type="button"
-            onClick={() => onFile(null)}
+            onClick={onClearSpotlight}
             className="ml-auto rounded-md px-2 py-1 font-mono text-[10px] text-[#36e2ee] hover:bg-[#13171f]"
-            title="Clear the file spotlight"
+            title="Clear the spotlight"
           >
             clear spotlight
           </button>
@@ -251,9 +255,12 @@ export default function TtscWebsiteGraphViewerSidebar({
             )}
           </div>
           <div className="shrink-0 space-y-2 border-t border-[#222834] p-2">
+            <p className="font-mono text-[10px] text-neutral-600">
+              spotlight by kind / edge family
+            </p>
             <div className="flex flex-wrap gap-1">
               {allKinds.map((kind) => {
-                const on = kinds.has(kind);
+                const on = spotKinds.has(kind);
                 return (
                   <button
                     key={kind}
@@ -261,17 +268,13 @@ export default function TtscWebsiteGraphViewerSidebar({
                     onClick={() => onToggleKind(kind)}
                     className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors ${
                       on
-                        ? "border-[#2a313e] bg-[#11151d] text-neutral-200"
-                        : "border-[#1c2230] bg-transparent text-neutral-600"
+                        ? "border-[#36e2ee66] bg-[#0d1a1d] text-neutral-50"
+                        : "border-[#1c2230] bg-transparent text-neutral-400 hover:border-[#2a313e]"
                     }`}
                   >
                     <span
                       className="inline-block h-1.5 w-1.5 rounded-full"
-                      style={{
-                        background: on
-                          ? (NODE_COLORS[kind] ?? "#8b97a8")
-                          : "#3a4150",
-                      }}
+                      style={{ background: NODE_COLORS[kind] ?? "#8b97a8" }}
                     />
                     {kind}
                   </button>
@@ -280,7 +283,7 @@ export default function TtscWebsiteGraphViewerSidebar({
             </div>
             <div className="flex flex-wrap gap-1">
               {Object.keys(LINK_COLORS).map((kind) => {
-                const on = edgeKinds.has(kind);
+                const on = spotEdgeKinds.has(kind);
                 return (
                   <button
                     key={kind}
@@ -288,15 +291,13 @@ export default function TtscWebsiteGraphViewerSidebar({
                     onClick={() => onToggleEdgeKind(kind)}
                     className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors ${
                       on
-                        ? "border-[#2a313e] bg-[#11151d] text-neutral-200"
-                        : "border-[#1c2230] bg-transparent text-neutral-600"
+                        ? "border-[#36e2ee66] bg-[#0d1a1d] text-neutral-50"
+                        : "border-[#1c2230] bg-transparent text-neutral-400 hover:border-[#2a313e]"
                     }`}
                   >
                     <span
                       className="inline-block h-0.5 w-3 rounded-full"
-                      style={{
-                        background: on ? LINK_COLORS[kind] : "#3a4150",
-                      }}
+                      style={{ background: LINK_COLORS[kind] }}
                     />
                     {kind}
                   </button>
