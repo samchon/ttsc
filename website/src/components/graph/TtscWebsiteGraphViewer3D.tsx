@@ -1,14 +1,22 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ITtscWebsiteGraphViewer } from "../../structures/ITtscWebsiteGraphViewer";
 import TtscWebsiteGraphReduce from "./TtscWebsiteGraphReduce";
+import TtscWebsiteGraphViewerModel from "./TtscWebsiteGraphViewerModel";
+import type { ViewerSlice } from "./TtscWebsiteGraphViewerModel";
+import type { GraphScene } from "./TtscWebsiteGraphViewerScene";
+import { createGraphScene } from "./TtscWebsiteGraphViewerScene";
+import type { SidebarTab } from "./TtscWebsiteGraphViewerSidebar";
+import TtscWebsiteGraphViewerSidebar from "./TtscWebsiteGraphViewerSidebar";
 
-type ViewerLink = ITtscWebsiteGraphViewer.Link;
 type ViewerNode = ITtscWebsiteGraphViewer.Node;
 type ViewerPayload = ITtscWebsiteGraphViewer.Payload;
+
+const { LINK_COLORS, LINK_KIND_LABEL, NODE_COLORS, edgeSummary, highlightOf } =
+  TtscWebsiteGraphViewerModel;
 
 // ---------------------------------------------------------------------------
 // Examples — the benchmark fixtures graphed under /graph. vscode leads.
@@ -40,63 +48,37 @@ const HEIGHT = 560;
 const panelClass =
   "overflow-hidden rounded-lg border border-[#222834] bg-[#0c0e13] shadow-[0_24px_60px_rgba(0,0,0,0.35)]";
 
-const NODE_COLORS: Record<string, string> = {
-  class: ACCENT,
-  interface: "#6ea8ff",
-  function: "#3fb950",
-  method: "#2bb673",
-  type: "#f5b042",
-  enum: "#c792ea",
-  variable: "#8b97a8",
-};
-
-const LINK_COLORS: Record<string, string> = {
-  "value-call": "#3fb950",
-  "type-ref": "#f5b042",
-  heritage: "#6ea8ff",
-};
-
-const KIND_LABEL: Record<string, string> = {
-  "value-call": "value-call (runtime use)",
-  "type-ref": "type-ref",
-  heritage: "heritage (extends / implements)",
-};
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-// A handle the React shell uses to push data / tear down the imperative
-// three.js scene built once on mount.
-interface SceneHandle {
-  setData: (payload: ViewerPayload) => void;
-  dispose: () => void;
-}
+const overlayButtonClass =
+  "rounded-md border border-[#2a313e] bg-[#0c0e13ee] px-2 py-1 font-mono text-[10px] text-neutral-300 transition-colors hover:bg-[#13171f] hover:text-neutral-50";
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-function Notice({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="not-prose my-6 rounded-lg border border-[#222834] bg-[#0c0e13] px-4 py-3 font-mono text-[12px] text-neutral-400">
-      {children}
-    </p>
-  );
-}
-
-export default function TtscWebsiteGraphViewer3D() {
+export default function TtscWebsiteGraphViewer3D({
+  compact = false,
+}: {
+  /** Start with the explorer sidebar collapsed (for embeds on entry pages). */
+  compact?: boolean;
+}) {
   const [exampleId, setExampleId] = useState<string>(EXAMPLES[0]!.id);
   const [uploadName, setUploadName] = useState<string | null>(null);
   const [payload, setPayload] = useState<ViewerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const [sidebarOpen, setSidebarOpen] = useState(!compact);
+  const [tab, setTab] = useState<SidebarTab>("files");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isolateId, setIsolateId] = useState<string | null>(null);
+  const [file, setFile] = useState<string | null>(null);
+  const [disabledKinds, setDisabledKinds] = useState<Set<string>>(new Set());
+  const [disabledEdgeKinds, setDisabledEdgeKinds] = useState<Set<string>>(
+    new Set(),
+  );
+
   const containerRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<SceneHandle | null>(null);
-  const payloadRef = useRef<ViewerPayload | null>(null);
+  const sceneRef = useRef<GraphScene | null>(null);
 
   // Load the selected example whenever it changes and no upload is active.
   useEffect(() => {
@@ -127,178 +109,79 @@ export default function TtscWebsiteGraphViewer3D() {
     };
   }, [exampleId, uploadName]);
 
-  // Build the three.js scene once on mount. Every rendering import is dynamic so
-  // nothing touches `window` during static export.
+  // A new graph source resets the whole explorer state.
+  useEffect(() => {
+    setSelectedId(null);
+    setIsolateId(null);
+    setFile(null);
+    setDisabledKinds(new Set());
+    setDisabledEdgeKinds(new Set());
+  }, [payload]);
+
+  // The displayed slice: the payload projected through the explorer filters.
+  const enabledKinds = useMemo(() => {
+    const kinds = new Set(payload?.nodes.map((n) => n.kind) ?? []);
+    for (const kind of disabledKinds) kinds.delete(kind);
+    return kinds;
+  }, [payload, disabledKinds]);
+  const enabledEdgeKinds = useMemo(() => {
+    const kinds = new Set(payload?.links.map((l) => l.kind) ?? []);
+    for (const kind of disabledEdgeKinds) kinds.delete(kind);
+    return kinds;
+  }, [payload, disabledEdgeKinds]);
+  const displayed = useMemo<ViewerSlice | null>(() => {
+    if (!payload) return null;
+    return TtscWebsiteGraphViewerModel.project(payload, {
+      kinds: enabledKinds,
+      edgeKinds: enabledEdgeKinds,
+      file,
+      isolateId,
+    });
+  }, [payload, enabledKinds, enabledEdgeKinds, file, isolateId]);
+
+  const selected = useMemo<ViewerNode | null>(() => {
+    if (!displayed || selectedId === null) return null;
+    return displayed.nodes.find((n) => n.id === selectedId) ?? null;
+  }, [displayed, selectedId]);
+  const selectedEdges = useMemo(
+    () =>
+      displayed && selectedId !== null
+        ? edgeSummary(displayed.links, selectedId)
+        : [],
+    [displayed, selectedId],
+  );
+
+  // A filter change can remove the selected node from view; drop the selection
+  // then, so the highlight never points at something invisible.
+  useEffect(() => {
+    if (selectedId !== null && displayed && !selected) setSelectedId(null);
+  }, [selectedId, displayed, selected]);
+
+  // Build the three.js scene once on mount; route clicks through a ref so the
+  // imperative scene always sees the latest handler.
+  const displayedRef = useRef<ViewerSlice | null>(null);
+  const onNodeClickRef = useRef<(node: ViewerNode | null) => void>(() => {});
+  onNodeClickRef.current = (node) => setSelectedId(node ? node.id : null);
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     let disposed = false;
-
-    void (async () => {
-      const THREE = await import("three");
-      const { OrbitControls } =
-        await import("three/examples/jsm/controls/OrbitControls.js");
-      const ThreeForceGraph = (await import("three-forcegraph")).default;
-      if (disposed) return;
-
-      const width = container.clientWidth || 800;
-
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0a0c10);
-      scene.add(new THREE.AmbientLight(0xffffff, 2));
-      const key = new THREE.DirectionalLight(0xffffff, 0.8);
-      key.position.set(1, 1, 1);
-      scene.add(key);
-
-      const camera = new THREE.PerspectiveCamera(50, width / HEIGHT, 0.1, 1e6);
-      camera.position.set(0, 0, 320);
-
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(width, HEIGHT);
-      container.appendChild(renderer.domElement);
-
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.18;
-
-      const graph = new ThreeForceGraph<ViewerNode, ViewerLink>()
-        .nodeId("id")
-        .nodeRelSize(4)
-        .nodeResolution(12)
-        .nodeOpacity(0.95)
-        .nodeVal((node) => 1 + Math.sqrt(node.degree))
-        .nodeColor((node) => NODE_COLORS[node.kind] ?? "#8b97a8")
-        .linkColor((link) => LINK_COLORS[link.kind] ?? "#ffffff55")
-        .linkOpacity(0.4)
-        .linkWidth(0)
-        .warmupTicks(20)
-        .cooldownTicks(160);
-      scene.add(graph);
-
-      // Frame the camera on the graph's bounding box at a 3/4 angle.
-      const fitCamera = () => {
-        const b = graph.getGraphBbox();
-        if (!b) return;
-        const cx = (b.x[0] + b.x[1]) / 2;
-        const cy = (b.y[0] + b.y[1]) / 2;
-        const cz = (b.z[0] + b.z[1]) / 2;
-        const radius = Math.max(
-          (b.x[1] - b.x[0]) / 2,
-          (b.y[1] - b.y[0]) / 2,
-          (b.z[1] - b.z[0]) / 2,
-          10,
-        );
-        const dist = radius * 2.6;
-        camera.position.set(cx + dist * 0.5, cy + dist * 0.32, cz + dist * 0.8);
-        camera.near = Math.max(0.1, dist / 200);
-        camera.far = dist * 20;
-        camera.updateProjectionMatrix();
-        controls.target.set(cx, cy, cz);
-        controls.update();
-      };
-      let fitTimer = 0;
-      graph.onEngineStop(() => fitCamera());
-
-      // Hover: raycast the node objects (each carries __data) for a tooltip.
-      const tooltip = document.createElement("div");
-      tooltip.style.cssText =
-        "position:absolute;display:none;pointer-events:none;z-index:10;max-width:22rem;padding:4px 7px;border-radius:6px;background:#0c0e13ee;border:1px solid #2a313e;font:11px ui-monospace,monospace;color:#e6edf3";
-      container.appendChild(tooltip);
-
-      const raycaster = new THREE.Raycaster();
-      const pointer = new THREE.Vector2();
-      let hoverNode: ViewerNode | null = null;
-      const onPointerMove = (event: PointerEvent) => {
-        const rect = renderer.domElement.getBoundingClientRect();
-        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        raycaster.setFromCamera(pointer, camera);
-        const hits = raycaster.intersectObjects(graph.children, true);
-        hoverNode = null;
-        for (const hit of hits) {
-          let obj: import("three").Object3D | null = hit.object;
-          while (obj) {
-            const meta = obj as { __graphObjType?: string; __data?: unknown };
-            if (meta.__graphObjType === "node" && meta.__data) {
-              hoverNode = meta.__data as ViewerNode;
-              break;
-            }
-            obj = obj.parent;
-          }
-          if (hoverNode) break;
-        }
-        if (!hoverNode) {
-          tooltip.style.display = "none";
+    void createGraphScene(container, {
+      height: HEIGHT,
+      onNodeClick: (node) => onNodeClickRef.current(node),
+    })
+      .then((scene) => {
+        if (disposed) {
+          scene.dispose();
           return;
         }
-        tooltip.style.display = "block";
-        tooltip.style.left = `${event.clientX - rect.left + 12}px`;
-        tooltip.style.top = `${event.clientY - rect.top + 12}px`;
-        tooltip.innerHTML =
-          `${escapeHtml(hoverNode.name)}<br/>` +
-          `<span style="color:#8b97a8">${escapeHtml(hoverNode.kind)} · ${escapeHtml(hoverNode.file)}</span>`;
-      };
-      const onPointerLeave = () => {
-        hoverNode = null;
-        tooltip.style.display = "none";
-      };
-      renderer.domElement.addEventListener("pointermove", onPointerMove);
-      renderer.domElement.addEventListener("pointerleave", onPointerLeave);
-
-      let raf = 0;
-      const animate = () => {
-        raf = requestAnimationFrame(animate);
-        graph.tickFrame();
-        controls.update();
-        renderer.render(scene, camera);
-      };
-      animate();
-
-      const resize = new ResizeObserver(() => {
-        const w = container.clientWidth || width;
-        camera.aspect = w / HEIGHT;
-        camera.updateProjectionMatrix();
-        renderer.setSize(w, HEIGHT);
+        sceneRef.current = scene;
+        if (displayedRef.current) scene.setData(displayedRef.current);
+      })
+      .catch((err: unknown) => {
+        if (!disposed)
+          setError(err instanceof Error ? err.message : String(err));
       });
-      resize.observe(container);
-
-      const setData = (next: ViewerPayload) => {
-        graph.graphData({
-          nodes: next.nodes.map((n) => ({ ...n })),
-          links: next.links.map((l) => ({ ...l })),
-        });
-        // An early fit once the layout has spread, plus the final fit on stop.
-        window.clearTimeout(fitTimer);
-        fitTimer = window.setTimeout(() => {
-          if (!disposed) fitCamera();
-        }, 700);
-      };
-
-      sceneRef.current = {
-        setData,
-        dispose: () => {
-          cancelAnimationFrame(raf);
-          window.clearTimeout(fitTimer);
-          resize.disconnect();
-          renderer.domElement.removeEventListener("pointermove", onPointerMove);
-          renderer.domElement.removeEventListener(
-            "pointerleave",
-            onPointerLeave,
-          );
-          controls.dispose();
-          scene.remove(graph);
-          renderer.dispose();
-          renderer.domElement.remove();
-          tooltip.remove();
-        },
-      };
-
-      if (payloadRef.current) setData(payloadRef.current);
-    })().catch((err: unknown) => {
-      if (!disposed) setError(err instanceof Error ? err.message : String(err));
-    });
-
     return () => {
       disposed = true;
       sceneRef.current?.dispose();
@@ -306,20 +189,27 @@ export default function TtscWebsiteGraphViewer3D() {
     };
   }, []);
 
-  // Push new data into the scene whenever the payload changes.
+  // Push the displayed slice and the selection highlight into the scene.
   useEffect(() => {
-    payloadRef.current = payload;
-    if (payload) sceneRef.current?.setData(payload);
-  }, [payload]);
+    displayedRef.current = displayed;
+    if (displayed) sceneRef.current?.setData(displayed);
+  }, [displayed]);
+  useEffect(() => {
+    sceneRef.current?.setHighlight(
+      displayed && selectedId !== null
+        ? highlightOf(displayed.links, selectedId)
+        : null,
+    );
+  }, [displayed, selectedId]);
 
   const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const uploaded = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (!uploaded) return;
     setBusy(true);
     setError(null);
     try {
-      const json: unknown = JSON.parse(await file.text());
+      const json: unknown = JSON.parse(await uploaded.text());
       const reduced = TtscWebsiteGraphReduce.toViewerPayload(json, {
         maxNodes: 1200,
       });
@@ -328,7 +218,7 @@ export default function TtscWebsiteGraphViewer3D() {
           "not a graph: expected { nodes, edges } from `ttscgraph dump`",
         );
       setPayload(reduced);
-      setUploadName(file.name);
+      setUploadName(uploaded.name);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -336,7 +226,16 @@ export default function TtscWebsiteGraphViewer3D() {
     }
   };
 
-  const counts = payload?.counts;
+  const pickNode = (node: ViewerNode) => {
+    setSelectedId(node.id);
+    sceneRef.current?.focusNode(node.id);
+  };
+
+  const filtered =
+    payload !== null &&
+    displayed !== null &&
+    (displayed.nodes.length !== payload.nodes.length ||
+      displayed.links.length !== payload.links.length);
 
   return (
     <div className="not-prose my-6">
@@ -359,19 +258,37 @@ export default function TtscWebsiteGraphViewer3D() {
             </h2>
             <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-neutral-400">
               Pick a benchmark example, or load a graph from your own project.
-              Every node is a declaration; every edge is the compiler's own
-              answer. Drag to orbit, scroll to zoom.
+              Drag to orbit, scroll to zoom, click a node to focus it; the
+              explorer scopes by file and finds symbols by name.
             </p>
           </div>
-          {counts ? (
+          {displayed && payload ? (
             <span className="shrink-0 rounded-full border border-[#2a313e] bg-[#0c0e13] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-neutral-500">
-              {counts.nodes.toLocaleString()} nodes ·{" "}
-              {counts.links.toLocaleString()} edges
+              {displayed.nodes.length.toLocaleString()} nodes ·{" "}
+              {displayed.links.length.toLocaleString()} edges
+              {filtered
+                ? ` (of ${payload.nodes.length.toLocaleString()} · ${payload.links.length.toLocaleString()})`
+                : ""}
             </span>
           ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 border-b border-[#222834] px-5 py-3">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((open) => !open)}
+            className={`rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors ${
+              sidebarOpen
+                ? "bg-[#1b212c] text-neutral-50 ring-1 ring-inset ring-[#2a313e]"
+                : "text-neutral-400 hover:bg-[#13171f] hover:text-neutral-100"
+            }`}
+            title="Toggle the file / symbol explorer"
+          >
+            ◫ explorer
+          </button>
+
+          <span className="mx-1 h-4 w-px bg-[#222834]" />
+
           {EXAMPLES.map((ex) => {
             const active = !uploadName && ex.id === exampleId;
             return (
@@ -426,12 +343,132 @@ export default function TtscWebsiteGraphViewer3D() {
           </p>
         ) : null}
 
-        <div ref={containerRef} className="relative" style={{ height: HEIGHT }}>
-          {!payload ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-[12px] text-neutral-500">
-              {busy ? "Building the graph…" : "Loading…"}
-            </div>
+        <div className="flex">
+          {sidebarOpen && payload ? (
+            <TtscWebsiteGraphViewerSidebar
+              payload={payload}
+              height={HEIGHT}
+              tab={tab}
+              onTab={setTab}
+              kinds={enabledKinds}
+              onToggleKind={(kind) =>
+                setDisabledKinds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(kind)) next.delete(kind);
+                  else next.add(kind);
+                  return next;
+                })
+              }
+              edgeKinds={enabledEdgeKinds}
+              onToggleEdgeKind={(kind) =>
+                setDisabledEdgeKinds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(kind)) next.delete(kind);
+                  else next.add(kind);
+                  return next;
+                })
+              }
+              file={file}
+              onFile={setFile}
+              selectedId={selectedId}
+              onPickNode={pickNode}
+            />
           ) : null}
+
+          <div
+            ref={containerRef}
+            className="relative min-w-0 flex-1"
+            style={{ height: HEIGHT }}
+          >
+            {!displayed ? (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-[12px] text-neutral-500">
+                {busy ? "Building the graph…" : "Loading…"}
+              </div>
+            ) : null}
+
+            {isolateId !== null ? (
+              <div className="absolute left-3 top-3 z-20 flex items-center gap-2">
+                <span className="rounded-md border border-[#1f3e46] bg-[#0d1a1dee] px-2 py-1 font-mono text-[10px] text-[#36e2ee]">
+                  2-hop isolate
+                </span>
+                <button
+                  type="button"
+                  className={overlayButtonClass}
+                  onClick={() => setIsolateId(null)}
+                >
+                  show full graph
+                </button>
+              </div>
+            ) : null}
+
+            {selected ? (
+              <div className="absolute right-3 top-3 z-20 w-72 rounded-md border border-[#2a313e] bg-[#090b10f2] p-3 shadow-[0_18px_45px_rgba(0,0,0,0.45)]">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 break-words text-[13px] font-semibold leading-snug text-neutral-50">
+                    {selected.name}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(null)}
+                    className="shrink-0 text-neutral-500 hover:text-neutral-200"
+                    title="clear selection"
+                  >
+                    ×
+                  </button>
+                </div>
+                <p className="mt-1 break-all font-mono text-[10px] leading-relaxed text-neutral-500">
+                  <span
+                    className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+                    style={{
+                      background: NODE_COLORS[selected.kind] ?? "#8b97a8",
+                    }}
+                  />
+                  {selected.kind} · {selected.file}
+                </p>
+                <div className="mt-2 space-y-1 border-t border-[#1c2230] pt-2 font-mono text-[10px]">
+                  <p className="text-neutral-500">
+                    {selected.degree.toLocaleString()} connections shown
+                  </p>
+                  {selectedEdges.map((row) => (
+                    <p
+                      key={row.kind}
+                      className="flex items-center gap-1.5 text-neutral-300"
+                    >
+                      <span
+                        className="inline-block h-0.5 w-3 rounded-full"
+                        style={{
+                          background: LINK_COLORS[row.kind] ?? "#8b97a8",
+                        }}
+                      />
+                      {row.kind}
+                      <span className="ml-auto tabular-nums text-neutral-400">
+                        → {row.out} · ← {row.in}
+                      </span>
+                    </p>
+                  ))}
+                </div>
+                <div className="mt-2.5 flex gap-2">
+                  {isolateId === selected.id ? (
+                    <button
+                      type="button"
+                      className={overlayButtonClass}
+                      onClick={() => setIsolateId(null)}
+                    >
+                      exit isolate
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={overlayButtonClass}
+                      onClick={() => setIsolateId(selected.id)}
+                    >
+                      isolate 2 hops
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-[#222834] px-5 py-3 font-mono text-[10px] text-neutral-500">
@@ -441,7 +478,7 @@ export default function TtscWebsiteGraphViewer3D() {
                 className="inline-block h-0.5 w-4 rounded-full"
                 style={{ background: color }}
               />
-              {KIND_LABEL[kind] ?? kind}
+              {LINK_KIND_LABEL[kind] ?? kind}
             </span>
           ))}
           <span className="text-neutral-600">
