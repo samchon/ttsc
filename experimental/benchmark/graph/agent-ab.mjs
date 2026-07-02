@@ -860,9 +860,13 @@ function parseStream(text) {
       if (textBlocks.length) lastAssistantText = textBlocks.join("\n");
     } else if (e.type === "result") {
       result = e;
-      const usageModel = Object.keys(e.modelUsage ?? {}).find((key) =>
-        key.startsWith("claude-"),
-      );
+      // modelUsage also lists helper models (haiku title generation), so pick
+      // the claude-* entry that produced the most output: the measured model.
+      const usageModel = Object.entries(e.modelUsage ?? {})
+        .filter(([key]) => key.startsWith("claude-"))
+        .sort(
+          ([, a], [, b]) => (b?.outputTokens ?? 0) - (a?.outputTokens ?? 0),
+        )[0]?.[0];
       if (usageModel) modelVersion ??= usageModel;
     }
   }
