@@ -39,7 +39,8 @@ export const test_linkvirtualentry_never_fails_on_a_dangling_symlink_entry =
     const entry = fs
       .readdirSync(realDir, { withFileTypes: true })
       .find((candidate) => candidate.name === entryName);
-    assert.ok(entry?.isSymbolicLink(), "fixture must be a symlink entry");
+    assert.ok(entry, "fixture entry must exist");
+    assert.ok(entry.isSymbolicLink(), "fixture must be a symlink entry");
 
     const virtualDir = TestProject.tmpdir("ttsc-linkvirtualentry-virtual-");
     const virtualEntry = path.join(virtualDir, entryName);
