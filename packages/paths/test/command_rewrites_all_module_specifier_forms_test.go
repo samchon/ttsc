@@ -79,11 +79,10 @@ void load;
     t.Fatalf("local no-rootDir check mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
 
-  // A sibling temp dir keeps the file outside the tsconfig directory without
-  // crossing onto another volume: project loading hangs on a `files` list
-  // that spans volumes (Windows dev boxes and windows-latest runners keep
-  // the repo and the temp dir on different drives), and a fixture inside the
-  // package directory leaks into the tree when the test dies mid-run.
+  // A sibling temp dir keeps the file outside the tsconfig directory: a
+  // fixture inside the package directory leaks into the tree when the test
+  // dies mid-run. The cross-volume shape this fixture once accidentally hit
+  // (#310) is pinned by TestCommandCheckCompletesOnCrossVolumeFilesList.
   externalDir := t.TempDir()
   externalFile := filepath.Join(externalDir, "external.ts")
   writeFile(t, externalFile, `export const external = "ok";`+"\n")

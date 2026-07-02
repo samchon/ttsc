@@ -7,6 +7,7 @@ import (
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -60,16 +61,20 @@ func newRewriter(prog *driver.Program) *rewriter {
     return out
   }
   options := prog.ParsedConfig.ParsedConfig.CompilerOptions
-  out.basePath = filepath.Clean(options.GetPathsBasePath(prog.Host.GetCurrentDirectory()))
+  cwd := prog.Host.GetCurrentDirectory()
+  out.basePath = filepath.Clean(options.GetPathsBasePath(cwd))
   out.jsxPreserve = options.Jsx == shimcore.JsxEmitPreserve
-  out.outDir = optionalPath(options.OutDir, prog.Host.GetCurrentDirectory())
-  out.rootDir = optionalPath(options.RootDir, prog.Host.GetCurrentDirectory())
+  out.outDir = optionalPath(options.OutDir, cwd)
+  out.rootDir = optionalPath(options.RootDir, cwd)
   files := prog.SourceFiles()
-  if out.rootDir == "" {
-    out.rootDir = commonSourceDir(files)
-  }
+  fileNames := make([]string, 0, len(files))
   for _, file := range files {
-    name := normalizePath(file.FileName())
+    fileNames = append(fileNames, normalizePath(file.FileName()))
+  }
+  if out.rootDir == "" {
+    out.rootDir = inferredRootDir(options.ConfigFilePath, fileNames, cwd, useCaseSensitiveFileNames(prog))
+  }
+  for _, name := range fileNames {
     out.sourceFiles[name] = name
   }
   if options.Paths != nil {
@@ -80,10 +85,18 @@ func newRewriter(prog *driver.Program) *rewriter {
       })
     }
   }
-  sort.SliceStable(out.patterns, func(i, j int) bool {
-    return patternRank(out.patterns[i].pattern) > patternRank(out.patterns[j].pattern)
-  })
+  orderPatterns(out.patterns)
   return out
+}
+
+// useCaseSensitiveFileNames reports the host filesystem's case sensitivity,
+// defaulting to case-sensitive when the program carries no filesystem (bare
+// rewriters built by unit tests).
+func useCaseSensitiveFileNames(prog *driver.Program) bool {
+  if prog == nil || prog.FS == nil {
+    return true
+  }
+  return prog.FS.UseCaseSensitiveFileNames()
 }
 
 // apply rewrites all module specifiers in file that match a tsconfig paths pattern.
@@ -109,40 +122,49 @@ func (r *rewriter) apply(file *shimast.SourceFile) {
 // visit for every string-literal module specifier it finds. Covered nodes
 // include import/export declarations, require() calls, dynamic import()
 // expressions, import-equals declarations, and import-type nodes.
+//
+// The recursion runs through one closure created per walk, not one per node:
+// handing ForEachChild a fresh closure at every node would allocate once per
+// AST node across the whole program on every apply pass.
 func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
   if node == nil {
     return
   }
-  switch node.Kind {
-  case shimast.KindImportDeclaration:
-    visit(node.AsImportDeclaration().ModuleSpecifier)
-  case shimast.KindExportDeclaration:
-    visit(node.AsExportDeclaration().ModuleSpecifier)
-  case shimast.KindImportEqualsDeclaration:
-    ref := node.AsImportEqualsDeclaration().ModuleReference
-    if ref != nil && ref.Kind == shimast.KindExternalModuleReference {
-      visit(ref.AsExternalModuleReference().Expression)
+  var walk func(node *shimast.Node) bool
+  walk = func(node *shimast.Node) bool {
+    if node == nil {
+      return false
     }
-  case shimast.KindImportType:
-    arg := node.AsImportTypeNode().Argument
-    if arg != nil && arg.Kind == shimast.KindLiteralType {
-      visit(arg.AsLiteralTypeNode().Literal)
+    switch node.Kind {
+    case shimast.KindImportDeclaration:
+      visit(node.AsImportDeclaration().ModuleSpecifier)
+    case shimast.KindExportDeclaration:
+      visit(node.AsExportDeclaration().ModuleSpecifier)
+    case shimast.KindImportEqualsDeclaration:
+      ref := node.AsImportEqualsDeclaration().ModuleReference
+      if ref != nil && ref.Kind == shimast.KindExternalModuleReference {
+        visit(ref.AsExternalModuleReference().Expression)
+      }
+    case shimast.KindImportType:
+      arg := node.AsImportTypeNode().Argument
+      if arg != nil && arg.Kind == shimast.KindLiteralType {
+        visit(arg.AsLiteralTypeNode().Literal)
+      }
+    case shimast.KindModuleDeclaration:
+      decl := node.AsModuleDeclaration()
+      if decl != nil {
+        visit(decl.Name())
+      }
+    case shimast.KindCallExpression:
+      call := node.AsCallExpression()
+      if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+        visit(call.Arguments.Nodes[0])
+      }
     }
-  case shimast.KindModuleDeclaration:
-    decl := node.AsModuleDeclaration()
-    if decl != nil {
-      visit(decl.Name())
-    }
-  case shimast.KindCallExpression:
-    call := node.AsCallExpression()
-    if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
-      visit(call.Arguments.Nodes[0])
-    }
-  }
-  node.ForEachChild(func(child *shimast.Node) bool {
-    visitModuleSpecifiers(child, visit)
+    node.ForEachChild(walk)
     return false
-  })
+  }
+  walk(node)
 }
 
 // isModuleSpecifierCall reports whether call is a dynamic import() or a
@@ -185,9 +207,13 @@ func (r *rewriter) rewrite(fromSource string, specifier string) (string, bool) {
   return rel, true
 }
 
-// resolveSource finds the source file that a tsconfig paths specifier resolves to.
-// It iterates over sorted patterns and, for each match, tries all substitution
-// targets (with and without known extensions) including index files.
+// resolveSource finds the source file that a tsconfig paths specifier
+// resolves to. Patterns are pre-sorted into tsc's precedence order, and like
+// tsc's tryLoadModuleUsingPaths the resolution commits to the first (best)
+// matching pattern: only that pattern's substitution targets are tried, in
+// order, with extension and index fallbacks. When none of them names a
+// program source the specifier stays unrewritten — falling through to a
+// weaker pattern would rewrite at a module the type checker never resolved.
 func (r *rewriter) resolveSource(specifier string) (string, bool) {
   for _, pattern := range r.patterns {
     star, ok := matchPattern(pattern.pattern, specifier)
@@ -201,6 +227,7 @@ func (r *rewriter) resolveSource(specifier string) (string, bool) {
         return source, true
       }
     }
+    return "", false
   }
   return "", false
 }
@@ -261,23 +288,53 @@ func emittedJavaScriptExtension(source string, jsxPreserve bool) string {
 // matchPattern matches specifier against a tsconfig paths pattern (which may
 // contain at most one "*" wildcard). Returns the captured wildcard segment and
 // true on a match, or ("", false) otherwise. Exact patterns are matched with
-// simple equality.
+// simple equality. The length guard mirrors tsc's isPatternMatch: a specifier
+// shorter than the pattern's literal halves combined can still satisfy both
+// the prefix and suffix probes ("@lib/x" against "@lib/x*x"), and slicing the
+// star capture out of it would panic on inverted bounds.
 func matchPattern(pattern string, specifier string) (string, bool) {
   if !strings.Contains(pattern, "*") {
     return "", pattern == specifier
   }
   parts := strings.SplitN(pattern, "*", 2)
-  if !strings.HasPrefix(specifier, parts[0]) || !strings.HasSuffix(specifier, parts[1]) {
+  if strings.Contains(parts[1], "*") {
+    // More than one wildcard is not a pattern at all in tsc
+    // (TryParsePattern discards it), so it must never match here either.
+    return "", false
+  }
+  if len(specifier) < len(parts[0])+len(parts[1]) ||
+    !strings.HasPrefix(specifier, parts[0]) ||
+    !strings.HasSuffix(specifier, parts[1]) {
     return "", false
   }
   return specifier[len(parts[0]) : len(specifier)-len(parts[1])], true
 }
 
-// patternRank returns the length of a tsconfig paths pattern after removing its
-// wildcard character. Patterns with a higher rank (longer literal content) are
-// preferred when multiple patterns match the same specifier.
-func patternRank(pattern string) int {
-  return len(strings.ReplaceAll(pattern, "*", ""))
+// orderPatterns sorts patterns in place into tsc's matchPatternOrExact
+// precedence: exact patterns (no wildcard) first, then wildcard patterns by
+// decreasing literal-prefix length. Ranking by total literal length instead
+// would steer a specifier at a long-suffix pattern ("*-styles") even though
+// tsc resolves it through the longer prefix ("@app/*"), making the rewriter
+// disagree with the type checker's own module resolution. Ties keep the
+// tsconfig's declaration order, matching tsc's first-longest-prefix-wins scan.
+func orderPatterns(patterns []pathPattern) {
+  sort.SliceStable(patterns, func(i, j int) bool {
+    a, b := patterns[i].pattern, patterns[j].pattern
+    aExact, bExact := !strings.Contains(a, "*"), !strings.Contains(b, "*")
+    if aExact != bExact {
+      return aExact
+    }
+    return patternPrefixLength(a) > patternPrefixLength(b)
+  })
+}
+
+// patternPrefixLength returns the length of the literal text before the "*"
+// wildcard, or the whole pattern length for exact patterns.
+func patternPrefixLength(pattern string) int {
+  if i := strings.IndexByte(pattern, '*'); i >= 0 {
+    return i
+  }
+  return len(pattern)
 }
 
 // optionalPath resolves value as a path relative to cwd when it is non-empty
@@ -292,25 +349,55 @@ func optionalPath(value string, cwd string) string {
   return normalizePath(filepath.Join(cwd, value))
 }
 
-// commonSourceDir returns the longest common directory prefix of all file paths
-// in files. It is used as rootDir when the tsconfig does not specify one.
-// Returns "" when files is empty.
-func commonSourceDir(files []*shimast.SourceFile) string {
-  if len(files) == 0 {
+// inferredRootDir mirrors TypeScript-Go's GetCommonSourceDirectory fallback
+// chain for a project without an explicit rootDir: the tsconfig's directory
+// when the program was loaded from one, else the deepest directory shared by
+// every input file. The rewriter must anchor output paths exactly where tsgo
+// anchors its own emit, or the rewritten specifiers drift from the real
+// output layout.
+func inferredRootDir(configFilePath string, fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string {
+  if configFilePath != "" {
+    return normalizePath(filepath.Dir(configFilePath))
+  }
+  return commonSourceDir(fileNames, currentDirectory, useCaseSensitiveFileNames)
+}
+
+// commonSourceDir mirrors TypeScript-Go's
+// computeCommonSourceDirectoryOfFilenames: the deepest directory shared by
+// every file, intersected per normalized path component under the host's case
+// sensitivity. Returns "" when the files share no root at all — on Windows, a
+// `files` list spanning two volumes — so the caller skips output mapping
+// instead of guessing. The previous byte-oriented walk hung there (#310):
+// once the shared prefix shrank to a volume root, filepath.Dir handed back
+// the backslash form ("C:\") while the termination guard compared it against
+// the slash-normalized cursor ("C:/"), re-normalizing the same directory
+// forever.
+func commonSourceDir(fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string {
+  var common []string
+  for _, fileName := range fileNames {
+    components := shimtspath.GetNormalizedPathComponents(fileName, currentDirectory)
+    // The base file name is not part of the common directory path.
+    components = components[:len(components)-1]
+    if common == nil {
+      common = components
+      continue
+    }
+    shared := 0
+    limit := min(len(common), len(components))
+    for shared < limit &&
+      shimtspath.GetCanonicalFileName(common[shared], useCaseSensitiveFileNames) ==
+        shimtspath.GetCanonicalFileName(components[shared], useCaseSensitiveFileNames) {
+      shared++
+    }
+    if shared == 0 {
+      return ""
+    }
+    common = common[:shared]
+  }
+  if len(common) == 0 {
     return ""
   }
-  common := normalizePath(filepath.Dir(files[0].FileName()))
-  for _, file := range files[1:] {
-    dir := normalizePath(filepath.Dir(file.FileName()))
-    for common != "" && !strings.HasPrefix(dir+"/", common+"/") {
-      next := filepath.Dir(common)
-      if next == common {
-        return common
-      }
-      common = normalizePath(next)
-    }
-  }
-  return common
+  return shimtspath.GetPathFromPathComponents(common)
 }
 
 // normalizePath cleans and converts a file path to forward-slash form.

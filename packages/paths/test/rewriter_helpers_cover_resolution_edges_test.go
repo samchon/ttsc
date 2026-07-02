@@ -125,8 +125,11 @@ func TestRewriterHelpersCoverResolutionEdges(t *testing.T) {
   if _, ok := pathsMatchPattern("@exact", "@other"); ok {
     t.Fatal("unexpected exact pattern match")
   }
-  if rank := pathsPatternRank("@lib/*/test"); rank != len("@lib//test") {
-    t.Fatalf("pattern rank mismatch: %d", rank)
+  if got := pathsPatternPrefixLength("@lib/*/test"); got != len("@lib/") {
+    t.Fatalf("wildcard pattern prefix length mismatch: %d", got)
+  }
+  if got := pathsPatternPrefixLength("@exact"); got != len("@exact") {
+    t.Fatalf("exact pattern prefix length mismatch: %d", got)
   }
 
   if got := pathsOptionalPath("", root); got != "" {
@@ -138,8 +141,14 @@ func TestRewriterHelpersCoverResolutionEdges(t *testing.T) {
   if got := pathsOptionalPath("src", root); got != src {
     t.Fatalf("relative optional path mismatch: %q", got)
   }
-  if got := pathsCommonSourceDir(nil); got != "" {
+  if got := pathsCommonSourceDir(nil, "/", true); got != "" {
     t.Fatalf("empty common source dir mismatch: %q", got)
+  }
+  if got := pathsInferredRootDir(root+"/tsconfig.json", nil, root, true); got != root {
+    t.Fatalf("config-anchored root dir mismatch: %q", got)
+  }
+  if got := pathsInferredRootDir("", []string{src + "/main.ts", src + "/lib/message.ts"}, root, true); got != src {
+    t.Fatalf("computed root dir mismatch: %q", got)
   }
   if got := pathsNormalizePath(""); got != "" {
     t.Fatalf("empty normalize mismatch: %q", got)

@@ -42,7 +42,7 @@ Configure those fields under `compilerOptions`:
 
 An import such as `import { value } from "@lib/value"` becomes a relative JavaScript import such as `import { value } from "./modules/value.js"`. Declaration output follows the same source rewrite.
 
-`outDir` must be set for the rewrite to run. Without it, `@ttsc/paths` cannot map a source path to its emitted location and makes no changes. `rootDir` is optional: when omitted it is derived from the common source directory.
+`outDir` must be set for the rewrite to run. Without it, `@ttsc/paths` cannot map a source path to its emitted location and makes no changes. `rootDir` is optional: when omitted it defaults to the tsconfig's directory, matching where TypeScript-Go anchors emitted output.
 
 ## Sponsors
 

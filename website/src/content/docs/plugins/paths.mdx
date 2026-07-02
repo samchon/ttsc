@@ -46,7 +46,8 @@ import { value } from "./modules/value.js";
 
 ## What it does and doesn't do
 
-- Reads the same `compilerOptions.paths`, `rootDir`, and `outDir` that `ttsc` already uses.
+- Reads the same `compilerOptions.paths`, `rootDir`, and `outDir` that `ttsc` already uses. When `rootDir` is omitted, output paths anchor at the tsconfig's directory — exactly where TypeScript-Go anchors its own emit.
+- When several patterns match one specifier, an exact pattern wins, then the longest literal prefix: the same order tsc uses to resolve the import.
 - Rewrites JavaScript-family emit (`.js`, `.mjs`, `.cjs`, `.jsx`) and `.d.ts` declarations.
 - Resolves extensionless path targets against `.ts`, `.tsx`, `.mts`, `.cts`, then `.js`, `.jsx`, `.mjs`, and `.cjs` source files.
 - No separate plugin config.

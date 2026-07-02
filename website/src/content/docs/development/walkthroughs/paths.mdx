@@ -107,16 +107,20 @@ func newRewriter(prog *driver.Program) *rewriter {
     return out
   }
   options := prog.ParsedConfig.ParsedConfig.CompilerOptions
-  out.basePath = filepath.Clean(options.GetPathsBasePath(prog.Host.GetCurrentDirectory()))
+  cwd := prog.Host.GetCurrentDirectory()
+  out.basePath = filepath.Clean(options.GetPathsBasePath(cwd))
   out.jsxPreserve = options.Jsx == shimcore.JsxEmitPreserve
-  out.outDir = optionalPath(options.OutDir, prog.Host.GetCurrentDirectory())
-  out.rootDir = optionalPath(options.RootDir, prog.Host.GetCurrentDirectory())
+  out.outDir = optionalPath(options.OutDir, cwd)
+  out.rootDir = optionalPath(options.RootDir, cwd)
   files := prog.SourceFiles()
-  if out.rootDir == "" {
-    out.rootDir = commonSourceDir(files)
-  }
+  fileNames := make([]string, 0, len(files))
   for _, file := range files {
-    name := normalizePath(file.FileName())
+    fileNames = append(fileNames, normalizePath(file.FileName()))
+  }
+  if out.rootDir == "" {
+    out.rootDir = inferredRootDir(options.ConfigFilePath, fileNames, cwd, useCaseSensitiveFileNames(prog))
+  }
+  for _, name := range fileNames {
     out.sourceFiles[name] = name
   }
   if options.Paths != nil {
@@ -127,9 +131,7 @@ func newRewriter(prog *driver.Program) *rewriter {
       })
     }
   }
-  sort.SliceStable(out.patterns, func(i, j int) bool {
-    return patternRank(out.patterns[i].pattern) > patternRank(out.patterns[j].pattern)
-  })
+  orderPatterns(out.patterns)
   return out
 }
 ```
@@ -138,7 +140,7 @@ The constructor pulls four facts out of the Program and caches them as an in-mem
 
 **`basePath`**, the directory that paths in `compilerOptions.paths` resolve relative to. Tsgo's `GetPathsBasePath` handles the `baseUrl` vs no-`baseUrl` logic.
 
-**`outDir`** and **`rootDir`**, where emitted JavaScript lands and which subtree owns the source. If `rootDir` is empty, paths falls back to "longest common ancestor of every source file" via `commonSourceDir`. This matches `tsc`'s behavior when `rootDir` is unspecified.
+**`outDir`** and **`rootDir`**, where emitted JavaScript lands and which subtree owns the source. If `rootDir` is empty, `inferredRootDir` mirrors TypeScript-Go's own `GetCommonSourceDirectory` fallback chain: the tsconfig's directory when the program was loaded from one, else the deepest directory shared by every input file (`commonSourceDir`, a per-component intersection that reports "no common root" for inputs that span two Windows volumes instead of walking forever — the #310 hang). Anchoring exactly where tsgo anchors emit keeps the rewritten specifiers in agreement with the real output layout.
 
 **`sourceFiles`**, a string → string map of every user source file, keyed by its exact normalized path:
 
@@ -155,15 +157,7 @@ Extensionless targets such as `src/modules/greet` are resolved later by `lookupS
 
 ### Sidebar: Go map iteration order is randomised
 
-Notice the explicit sort on `out.patterns` at the end:
-
-```go
-sort.SliceStable(out.patterns, func(i, j int) bool {
-  return patternRank(out.patterns[i].pattern) > patternRank(out.patterns[j].pattern)
-})
-```
-
-Without sorting, the order of patterns would depend on Go's map iteration, which is intentionally randomised, different runs of the same plugin would resolve `@lib/foo/bar` against either `@lib/*` or `@lib/foo/*` non-deterministically. The sort makes the resolution stable and biases toward specificity (more literal characters in the pattern wins). `SliceStable` preserves the relative order of equal-rank patterns so the final tie-break is "whichever entry tsgo gave us first."
+Notice the explicit `orderPatterns(out.patterns)` at the end. Without sorting, the order of patterns would depend on Go's map iteration, which is intentionally randomised, different runs of the same plugin would resolve `@lib/foo/bar` against either `@lib/*` or `@lib/foo/*` non-deterministically. The sort makes the resolution stable and follows tsc's own precedence (next section). `SliceStable` preserves the relative order of equal-rank patterns so the final tie-break is "whichever entry tsgo gave us first."
 
 ### Sidebar: `filepath.ToSlash` and the Windows path discipline
 
@@ -172,12 +166,26 @@ Notice the helper `normalizePath` (`filepath.ToSlash(filepath.Clean(value))`) th
 ### 2. Sort patterns by specificity
 
 ```go
-func patternRank(pattern string) int {
-  return len(strings.ReplaceAll(pattern, "*", ""))
+func orderPatterns(patterns []pathPattern) {
+  sort.SliceStable(patterns, func(i, j int) bool {
+    a, b := patterns[i].pattern, patterns[j].pattern
+    aExact, bExact := !strings.Contains(a, "*"), !strings.Contains(b, "*")
+    if aExact != bExact {
+      return aExact
+    }
+    return patternPrefixLength(a) > patternPrefixLength(b)
+  })
+}
+
+func patternPrefixLength(pattern string) int {
+  if i := strings.IndexByte(pattern, '*'); i >= 0 {
+    return i
+  }
+  return len(pattern)
 }
 ```
 
-A pattern's rank is the count of non-wildcard characters: `@lib/foo/*` (rank 9) beats `@lib/*` (rank 5). Same idea as `tsc`'s own internal pattern matching.
+The order is tsc's `matchPatternOrExact` contract: an exact pattern (no `*`) always wins, and among wildcards the longest literal _prefix_ wins — `@lib/foo/*` (prefix 9) beats `@lib/*` (prefix 5). Ranking by total literal length instead would let a long-suffix pattern like `*-styles` capture a specifier that tsc's module resolution routes through `@app/*`, and the rewrite would then disagree with the type checker.
 
 ### 3. Walk every node that could hold a module specifier
 
@@ -210,36 +218,41 @@ func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
   if node == nil {
     return
   }
-  switch node.Kind {
-  case shimast.KindImportDeclaration:
-    visit(node.AsImportDeclaration().ModuleSpecifier)
-  case shimast.KindExportDeclaration:
-    visit(node.AsExportDeclaration().ModuleSpecifier)
-  case shimast.KindImportEqualsDeclaration:
-    ref := node.AsImportEqualsDeclaration().ModuleReference
-    if ref != nil && ref.Kind == shimast.KindExternalModuleReference {
-      visit(ref.AsExternalModuleReference().Expression)
+  var walk func(node *shimast.Node) bool
+  walk = func(node *shimast.Node) bool {
+    if node == nil {
+      return false
     }
-  case shimast.KindImportType:
-    arg := node.AsImportTypeNode().Argument
-    if arg != nil && arg.Kind == shimast.KindLiteralType {
-      visit(arg.AsLiteralTypeNode().Literal)
+    switch node.Kind {
+    case shimast.KindImportDeclaration:
+      visit(node.AsImportDeclaration().ModuleSpecifier)
+    case shimast.KindExportDeclaration:
+      visit(node.AsExportDeclaration().ModuleSpecifier)
+    case shimast.KindImportEqualsDeclaration:
+      ref := node.AsImportEqualsDeclaration().ModuleReference
+      if ref != nil && ref.Kind == shimast.KindExternalModuleReference {
+        visit(ref.AsExternalModuleReference().Expression)
+      }
+    case shimast.KindImportType:
+      arg := node.AsImportTypeNode().Argument
+      if arg != nil && arg.Kind == shimast.KindLiteralType {
+        visit(arg.AsLiteralTypeNode().Literal)
+      }
+    case shimast.KindModuleDeclaration:
+      decl := node.AsModuleDeclaration()
+      if decl != nil {
+        visit(decl.Name())
+      }
+    case shimast.KindCallExpression:
+      call := node.AsCallExpression()
+      if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+        visit(call.Arguments.Nodes[0])
+      }
     }
-  case shimast.KindModuleDeclaration:
-    decl := node.AsModuleDeclaration()
-    if decl != nil {
-      visit(decl.Name())
-    }
-  case shimast.KindCallExpression:
-    call := node.AsCallExpression()
-    if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
-      visit(call.Arguments.Nodes[0])
-    }
-  }
-  node.ForEachChild(func(child *shimast.Node) bool {
-    visitModuleSpecifiers(child, visit)
+    node.ForEachChild(walk)
     return false
-  })
+  }
+  walk(node)
 }
 
 func isModuleSpecifierCall(call *shimast.CallExpression) bool {
@@ -275,17 +288,17 @@ After the switch, `node.ForEachChild` recurses into every child. This is what ma
 The closure-based visitor is the simplest way to walk an AST in Go without an explicit interface. The shape:
 
 ```go
-func walk(node *X, visit func(*X)) {
-  if node == nil { return }
+var walk func(node *X) bool
+walk = func(node *X) bool {
+  if node == nil { return false }
   visit(node)
-  node.ForEachChild(func(child *X) bool {
-    walk(child, visit)
-    return false
-  })
+  node.ForEachChild(walk)
+  return false
 }
+walk(root)
 ```
 
-returning `false` keeps the iteration alive. Returning `true` would short-circuit, useful for "find the first node matching predicate," not useful when you want to visit every node.
+returning `false` keeps the iteration alive. Returning `true` would short-circuit, useful for "find the first node matching predicate," not useful when you want to visit every node. Declare the recursion closure once per walk and hand the same value to every `ForEachChild` call — building a fresh closure at each node allocates once per AST node, which a program-wide pass pays millions of times.
 
 ### 4. Resolving a specifier
 
@@ -340,6 +353,7 @@ func (r *rewriter) resolveSource(specifier string) (string, bool) {
         return source, true
       }
     }
+    return "", false
   }
   return "", false
 }
@@ -349,7 +363,12 @@ func matchPattern(pattern string, specifier string) (string, bool) {
     return "", pattern == specifier
   }
   parts := strings.SplitN(pattern, "*", 2)
-  if !strings.HasPrefix(specifier, parts[0]) || !strings.HasSuffix(specifier, parts[1]) {
+  if strings.Contains(parts[1], "*") {
+    return "", false
+  }
+  if len(specifier) < len(parts[0])+len(parts[1]) ||
+    !strings.HasPrefix(specifier, parts[0]) ||
+    !strings.HasSuffix(specifier, parts[1]) {
     return "", false
   }
   return specifier[len(parts[0]) : len(specifier)-len(parts[1])], true
@@ -361,6 +380,10 @@ For pattern `@lib/*` and specifier `@lib/greet`:
 - `parts = ["@lib/", ""]`
 - `specifier` has the prefix `@lib/` and the suffix `""`: match.
 - Return `specifier[5 : 10-0] = "greet"` (length 10 minus suffix length 0).
+
+The two guards mirror tsc: a pattern with more than one `*` is not a pattern at all (`TryParsePattern` discards it), and a specifier shorter than the literal halves combined must not match — it can still satisfy both the prefix and suffix probes (`"@lib/x"` against `"@lib/x*x"`), and slicing the star capture out of it would panic on inverted bounds.
+
+Resolution also _commits_ to the first (best-precedence) matching pattern, exactly like tsc's `tryLoadModuleUsingPaths`: only that pattern's targets are tried, and when none of them names a program source the specifier stays unrewritten. Falling through to a weaker pattern would rewrite the import at a module the type checker never resolved.
 
 The captured `*` substitutes into each target: `./src/modules/*` → `./src/modules/greet`. The candidate is then joined against `basePath` (the tsconfig directory) and looked up in `r.sourceFiles`.
 
@@ -457,7 +480,7 @@ The pattern generalizes to any plugin that needs to query _project-level_ inform
 **Copy:**
 
 - The pattern of caching tsconfig facts on a constructor-built struct (`rewriter`). Avoids re-querying for every node.
-- The pattern-rank sort. Whenever you read a user-supplied map keyed on globs or patterns, copy this idiom: pull entries into a slice, then `sort.SliceStable` by specificity rank. This makes resolution deterministic across runs.
+- The pattern-precedence sort. Whenever you read a user-supplied map keyed on globs or patterns, copy this idiom: pull entries into a slice, then `sort.SliceStable` into the upstream tool's own precedence order. This makes resolution deterministic across runs and keeps it in agreement with the resolver you are mirroring.
 - The visitor that enumerates every module-specifier kind. If your plugin cares about module specifiers, this is the exhaustive list as of TypeScript 5.x.
 - The synthesize-flag invariant. Read it once; tattoo it.
 
