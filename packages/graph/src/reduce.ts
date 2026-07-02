@@ -97,6 +97,26 @@ function degreeOf(
   return degree;
 }
 
+/**
+ * Collapse the fine-grained wire kinds `ttscgraph dump` emits (calls,
+ * instantiates, renders, accesses, type_ref, extends, implements) into the
+ * three display families the viewer colors and its legend name. An unknown kind
+ * passes through and renders with the fallback color.
+ */
+const DISPLAY_KIND: Record<string, string> = {
+  calls: "value-call",
+  instantiates: "value-call",
+  renders: "value-call",
+  accesses: "value-call",
+  type_ref: "type-ref",
+  extends: "heritage",
+  implements: "heritage",
+};
+
+function displayKind(kind: string): string {
+  return DISPLAY_KIND[kind] ?? kind;
+}
+
 export function reduce(
   raw: RawDump,
   {
@@ -145,7 +165,7 @@ export function reduce(
     .map((e) => ({
       source: rewriteId(e.from, root),
       target: rewriteId(e.to, root),
-      kind: e.kind,
+      kind: displayKind(e.kind),
     }))
     .filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
 
