@@ -54,14 +54,13 @@ export interface ViewerSlice {
 }
 
 /**
- * The explorer's whole filter state. `file` is a directory prefix (with a
- * trailing slash) or an exact file path; `isolateId` scopes the view to the
- * two-hop neighborhood of one node.
+ * The explorer's visibility filter: node kinds, edge families, and the two-hop
+ * isolate around `isolateId`. A picked file or directory is a spotlight, not a
+ * filter (see {@link fileHighlight}); it never removes anything from the view.
  */
 export interface ViewerFilter {
   kinds: ReadonlySet<string>;
   edgeKinds: ReadonlySet<string>;
-  file: string | null;
   isolateId: string | null;
 }
 
@@ -70,25 +69,19 @@ function fileMatches(file: string, selected: string): boolean {
 }
 
 /**
- * Project the payload through the filter: node kinds, edge families, the file
- * scope, then (last) the two-hop isolate around `isolateId`. The isolate root
- * survives the other filters so isolating never dead-ends, and scoped nodes are
- * kept even when every edge of theirs is filtered away (the scoping was
- * deliberate; an empty spot would read as missing data).
+ * Project the payload through the filter: node kinds, edge families, then the
+ * two-hop isolate around `isolateId`. The isolate root survives the kind filter
+ * so isolating never dead-ends.
  */
 function project(payload: ViewerSlice, filter: ViewerFilter): ViewerSlice {
   const everything =
-    filter.file === null &&
     filter.isolateId === null &&
     payload.nodes.every((n) => filter.kinds.has(n.kind)) &&
     payload.links.every((l) => filter.edgeKinds.has(l.kind));
   if (everything) return payload;
 
   let nodes = payload.nodes.filter(
-    (n) =>
-      (filter.kinds.has(n.kind) &&
-        (filter.file === null || fileMatches(n.file, filter.file))) ||
-      n.id === filter.isolateId,
+    (n) => filter.kinds.has(n.kind) || n.id === filter.isolateId,
   );
   const alive = new Set(nodes.map((n) => n.id));
   let links = payload.links.filter(
@@ -269,9 +262,13 @@ function searchNodes(
 // Selection neighborhood
 // ---------------------------------------------------------------------------
 
-/** What the scene needs to paint a selection: the ego set and its edges. */
+/**
+ * What the scene needs to paint a spotlight: the lit node set, the lit edges,
+ * and (for a node selection) the node drawn in the selection color. Everything
+ * outside the sets stays visible but dimmed; a spotlight never removes nodes.
+ */
 export interface ViewerHighlight {
-  selectedId: string;
+  selectedId: string | null;
   neighborIds: Set<string>;
   linkKeys: Set<string>;
 }
@@ -290,6 +287,22 @@ function highlightOf(links: ViewerLink[], id: string): ViewerHighlight {
     linkKeys.add(linkKey(l.source, l.target));
   }
   return { selectedId: id, neighborIds, linkKeys };
+}
+
+/**
+ * Spotlight a file or directory: its nodes light up along with every edge
+ * touching them, including edges reaching out to (still dimmed) outside nodes,
+ * so the scope's external connections stay readable.
+ */
+function fileHighlight(slice: ViewerSlice, path: string): ViewerHighlight {
+  const neighborIds = new Set<string>();
+  for (const n of slice.nodes)
+    if (fileMatches(n.file, path)) neighborIds.add(n.id);
+  const linkKeys = new Set<string>();
+  for (const l of slice.links)
+    if (neighborIds.has(l.source) || neighborIds.has(l.target))
+      linkKeys.add(linkKey(l.source, l.target));
+  return { selectedId: null, neighborIds, linkKeys };
 }
 
 export interface EdgeSummaryRow {
@@ -320,6 +333,7 @@ const TtscWebsiteGraphViewerModel = {
   NODE_COLORS,
   buildFileTree,
   edgeSummary,
+  fileHighlight,
   highlightOf,
   kindsIn,
   linkKey,

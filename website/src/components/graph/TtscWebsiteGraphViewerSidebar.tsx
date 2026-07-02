@@ -176,9 +176,9 @@ export default function TtscWebsiteGraphViewerSidebar({
             type="button"
             onClick={() => onFile(null)}
             className="ml-auto rounded-md px-2 py-1 font-mono text-[10px] text-[#36e2ee] hover:bg-[#13171f]"
-            title="Clear the file scope"
+            title="Clear the file spotlight"
           >
-            clear scope
+            clear spotlight
           </button>
         ) : null}
       </div>
@@ -186,7 +186,7 @@ export default function TtscWebsiteGraphViewerSidebar({
       {tab === "files" ? (
         <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
           <p className="px-1.5 pb-1.5 font-mono text-[10px] text-neutral-600">
-            files in the reduced graph; click to scope the view
+            files in the reduced graph; click to spotlight one in the view
           </p>
           {tree.map((entry) => (
             <FileTreeRow

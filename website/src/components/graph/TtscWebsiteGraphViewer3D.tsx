@@ -15,8 +15,14 @@ import TtscWebsiteGraphViewerSidebar from "./TtscWebsiteGraphViewerSidebar";
 type ViewerNode = ITtscWebsiteGraphViewer.Node;
 type ViewerPayload = ITtscWebsiteGraphViewer.Payload;
 
-const { LINK_COLORS, LINK_KIND_LABEL, NODE_COLORS, edgeSummary, highlightOf } =
-  TtscWebsiteGraphViewerModel;
+const {
+  LINK_COLORS,
+  LINK_KIND_LABEL,
+  NODE_COLORS,
+  edgeSummary,
+  fileHighlight,
+  highlightOf,
+} = TtscWebsiteGraphViewerModel;
 
 // ---------------------------------------------------------------------------
 // Examples — the benchmark fixtures graphed under /graph. vscode leads.
@@ -134,10 +140,9 @@ export default function TtscWebsiteGraphViewer3D({
     return TtscWebsiteGraphViewerModel.project(payload, {
       kinds: enabledKinds,
       edgeKinds: enabledEdgeKinds,
-      file,
       isolateId,
     });
-  }, [payload, enabledKinds, enabledEdgeKinds, file, isolateId]);
+  }, [payload, enabledKinds, enabledEdgeKinds, isolateId]);
 
   const selected = useMemo<ViewerNode | null>(() => {
     if (!displayed || selectedId === null) return null;
@@ -194,13 +199,16 @@ export default function TtscWebsiteGraphViewer3D({
     displayedRef.current = displayed;
     if (displayed) sceneRef.current?.setData(displayed);
   }, [displayed]);
+  // A node selection outranks the file spotlight; both dim, never remove.
   useEffect(() => {
     sceneRef.current?.setHighlight(
       displayed && selectedId !== null
         ? highlightOf(displayed.links, selectedId)
-        : null,
+        : displayed && file !== null
+          ? fileHighlight(displayed, file)
+          : null,
     );
-  }, [displayed, selectedId]);
+  }, [displayed, selectedId, file]);
 
   const onUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const uploaded = event.target.files?.[0];
@@ -259,7 +267,7 @@ export default function TtscWebsiteGraphViewer3D({
             <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-neutral-400">
               Pick a benchmark example, or load a graph from your own project.
               Drag to orbit, scroll to zoom, click a node to focus it; the
-              explorer scopes by file and finds symbols by name.
+              explorer spotlights files and finds symbols by name.
             </p>
           </div>
           {displayed && payload ? (
