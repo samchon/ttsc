@@ -14,8 +14,10 @@ type ViewerNode = ITtscWebsiteGraphViewer.Node;
 
 const { LINK_COLORS, NODE_COLORS, linkKey } = TtscWebsiteGraphViewerModel;
 
-const DIMMED_NODE = "#232833";
-const DIMMED_LINK = "#ffffff0a";
+// Dimmed nodes must stay clearly visible against the #0a0c10 background: a
+// spotlight grays the rest out, it never makes them look removed.
+const DIMMED_NODE = "#434c5c";
+const DIMMED_LINK = "#ffffff14";
 const SELECTED_NODE = "#f5f8ff";
 
 /** A handle the React shell uses to drive the imperative scene. */
