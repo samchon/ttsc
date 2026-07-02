@@ -546,7 +546,11 @@ func loaderRootDir(outDir string) string {
 // on the config's volume beats the system temp dir, which is guaranteed to
 // fail. Returns "" (the os.MkdirTemp default) when the volumes already match.
 func loaderTempBase(location, systemTemp string) string {
-  if strings.EqualFold(filepath.VolumeName(systemTemp), filepath.VolumeName(location)) {
+  // A relative location has no volume; "" must not be read as "a volume
+  // other than the system temp's" — it keeps the historical default (and
+  // the Rel-failure contract for relative config paths).
+  vol := filepath.VolumeName(location)
+  if vol == "" || strings.EqualFold(filepath.VolumeName(systemTemp), vol) {
     return ""
   }
   nodeModules := findNearestNodeModules(filepath.Dir(location))

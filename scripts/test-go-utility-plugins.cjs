@@ -45,16 +45,20 @@ function writeGoWork(location, packageDir) {
     useDirs.push(ttscDir);
   }
   walkForGoMod(path.join(ttscDir, "shim"), useDirs);
+  // Native separators on purpose: Go's workspace-module matching on Windows
+  // rejects forward-slash `use` paths ("directory ... is not one of the
+  // workspace modules"), so a slash-normalized go.work breaks every relative
+  // package pattern there. POSIX paths are already native.
   fs.writeFileSync(
     location,
     [
       "go 1.26",
       "",
       "use (",
-      useDirs.map((dir) => `\t${dir.replace(/\\/g, "/")}`).join("\n"),
+      useDirs.map((dir) => `\t${dir}`).join("\n"),
       ")",
       "",
-      `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${ttscDir.replace(/\\/g, "/")}`,
+      `replace github.com/samchon/ttsc/packages/ttsc v0.0.0 => ${ttscDir}`,
       "",
     ].join("\n"),
     "utf8",

@@ -20,12 +20,18 @@ concurrency:
 jobs:
   test:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - { name: go, run: "pnpm run test:go && pnpm --filter ttsc go:vet" }
+          # Minimal Windows safety net: the Go unit suites cover the
+          # platform-sensitive layers (config loaders, path handling) without
+          # the e2e runner, which is POSIX-only. Only the ttsx launcher build
+          # is needed (test-go-lint drives real ttsx), so the full
+          # build:current is skipped.
+          - { name: windows-go, os: windows-latest, build: "pnpm --filter ttsc build", run: "pnpm run test:go" }
           - { name: shim-audit, run: "pnpm --filter ttsc shim:audit:test && pnpm --filter ttsc shim:audit" }
           - { name: typecheck, run: "pnpm run check:flags && pnpm run test:typecheck" }
           - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
@@ -61,10 +67,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Use System Go For Source Plugin Tests
+        shell: bash
         run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
 
       - name: Build Current Platform
-        run: pnpm run build:current
+        run: ${{ matrix.build || 'pnpm run build:current' }}
 
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.run }}

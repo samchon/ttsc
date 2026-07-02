@@ -36,6 +36,11 @@ func TestConfigLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
   if base := stripLoaderTempBase(config, root); base != "" {
     t.Fatalf("same-volume base mismatch: %q", base)
   }
+  // A relative location has no volume and must keep the historical default,
+  // not be mistaken for a cross-volume config.
+  if base := stripLoaderTempBase("strip.config.ts", root); base != "" {
+    t.Fatalf("relative-location base mismatch: %q", base)
+  }
   fake := `Z:\ttsc-fake-temp`
   if strings.EqualFold(filepath.VolumeName(root), "Z:") {
     fake = `Y:\ttsc-fake-temp`

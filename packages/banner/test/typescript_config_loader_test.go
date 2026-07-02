@@ -5,6 +5,7 @@ import (
   "errors"
   "os"
   "path/filepath"
+  "runtime"
   "strings"
   "testing"
 )
@@ -44,7 +45,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
     t.Fatalf("dispatcher ts config mismatch: %#v", raw)
   }
 
-  directLauncher := writeExecutable(t, filepath.Join(root, "fake-ttsx"), "#!/bin/sh\nprintf '{\"text\":\"from direct\"}'\n")
+  directLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx"), `{"text":"from direct"}`, "", 0)
   t.Setenv("TTSC_TTSX_BINARY", directLauncher)
   raw, err = bannerLoadBannerTypeScriptConfigFile(filepath.Join(root, "banner.config.mts"))
   if err != nil {
@@ -131,24 +132,30 @@ func TestTypeScriptConfigLoader(t *testing.T) {
   }
   bannerWriteConfigLoaderFile = originalWrite
 
-  invalidJSONLauncher := writeExecutable(t, filepath.Join(root, "fake-ttsx-invalid"), "#!/bin/sh\nprintf 'not-json'\n")
+  invalidJSONLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx-invalid"), "not-json", "", 0)
   t.Setenv("TTSC_TTSX_BINARY", invalidJSONLauncher)
   if _, err := bannerLoadBannerTypeScriptConfigFile(config); err == nil || !strings.Contains(err.Error(), "parse TypeScript config file") {
     t.Fatalf("expected invalid stdout error, got %v", err)
   }
-  stderrLauncher := writeExecutable(t, filepath.Join(root, "fake-ttsx-stderr"), "#!/bin/sh\nprintf 'ts failed' >&2\nexit 8\n")
+  stderrLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx-stderr"), "", "ts failed", 8)
   t.Setenv("TTSC_TTSX_BINARY", stderrLauncher)
   if _, err := bannerLoadBannerTypeScriptConfigFile(config); err == nil || !strings.Contains(err.Error(), "ts failed") {
     t.Fatalf("expected stderr error, got %v", err)
   }
-  silentLauncher := writeExecutable(t, filepath.Join(root, "fake-ttsx-silent"), "#!/bin/sh\nexit 8\n")
+  silentLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx-silent"), "", "", 8)
   t.Setenv("TTSC_TTSX_BINARY", silentLauncher)
   if _, err := bannerLoadBannerTypeScriptConfigFile(config); err == nil || !strings.Contains(err.Error(), "exit status") {
     t.Fatalf("expected silent exit error, got %v", err)
   }
   badTmp := filepath.Join(root, "not-a-directory")
   writeFile(t, badTmp, "file")
-  t.Setenv("TMPDIR", badTmp)
+  // os.TempDir reads TMP/TEMP on Windows and TMPDIR elsewhere.
+  if runtime.GOOS == "windows" {
+    t.Setenv("TMP", badTmp)
+    t.Setenv("TEMP", badTmp)
+  } else {
+    t.Setenv("TMPDIR", badTmp)
+  }
   if _, err := bannerLoadBannerTypeScriptConfigFile(config); err == nil || !strings.Contains(err.Error(), "create config loader tempdir") {
     t.Fatalf("expected tempdir error, got %v", err)
   }

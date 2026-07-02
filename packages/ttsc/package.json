@@ -28,7 +28,7 @@
     }
   },
   "scripts": {
-    "build": "rimraf lib && tsc && cp ../../README.md README.md",
+    "build": "rimraf lib && tsc && node -e \"require('node:fs').copyFileSync('../../README.md', 'README.md')\"",
     "go:build": "node ../../scripts/go.cjs build-native",
     "go:vet": "node ../../scripts/go.cjs vet ./...",
     "shim:audit": "node ../../scripts/shim-audit.cjs",

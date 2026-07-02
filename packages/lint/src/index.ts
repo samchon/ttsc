@@ -939,7 +939,12 @@ function loaderTempBase(configPath: string): string {
   const systemTemp = os.tmpdir();
   const systemRoot = path.parse(systemTemp).root;
   const configRoot = path.parse(configPath).root;
-  if (systemRoot.toLowerCase() === configRoot.toLowerCase()) {
+  // A relative config path has no root; "" must not be read as "a volume
+  // other than the system temp's" — it keeps the historical default.
+  if (
+    configRoot === "" ||
+    systemRoot.toLowerCase() === configRoot.toLowerCase()
+  ) {
     return systemTemp;
   }
   const nodeModules = findNearestNodeModules(path.dirname(configPath));
