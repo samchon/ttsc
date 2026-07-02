@@ -12,10 +12,34 @@ const packageNames = ["banner", "paths", "strip"];
 
 for (const name of packageNames) {
   const packageDir = path.join(root, "packages", name);
-  const workdir = fs.mkdtempSync(path.join(os.tmpdir(), `ttsc-${name}-go-work-`));
+  const workdir = fs.mkdtempSync(
+    path.join(os.tmpdir(), `ttsc-${name}-go-work-`),
+  );
   try {
     const goWork = path.join(workdir, "go.work");
     writeGoWork(goWork, packageDir);
+    // Prewarm the plugin/driver build outside `go test`: the command tests
+    // `go run ./plugin` DURING test execution, so on a cold cache (fresh CI
+    // runner) the full typescript-go compile counts against the 10-minute
+    // test timeout and can single-handedly blow it.
+    const warm = cp.spawnSync("go", ["build", "-o", workdir, "./..."], {
+      cwd: packageDir,
+      env: {
+        ...process.env,
+        GOWORK: goWork,
+        PATH: fs.existsSync(goRoot)
+          ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
+          : process.env.PATH,
+      },
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    if (warm.error) {
+      throw warm.error;
+    }
+    if (warm.status !== 0) {
+      process.exit(warm.status ?? 1);
+    }
     const result = cp.spawnSync("go", ["test", "-count=1", "./test"], {
       cwd: packageDir,
       env: {

@@ -2,7 +2,6 @@ package paths_test
 
 import (
   "encoding/json"
-  "os"
   "path/filepath"
   "strings"
   "testing"
@@ -80,11 +79,12 @@ void load;
     t.Fatalf("local no-rootDir check mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
 
-  externalDir, err := os.MkdirTemp(packageRoot(t), "paths-external-")
-  if err != nil {
-    t.Fatal(err)
-  }
-  t.Cleanup(func() { _ = os.RemoveAll(externalDir) })
+  // A sibling temp dir keeps the file outside the tsconfig directory without
+  // crossing onto another volume: project loading hangs on a `files` list
+  // that spans volumes (Windows dev boxes and windows-latest runners keep
+  // the repo and the temp dir on different drives), and a fixture inside the
+  // package directory leaks into the tree when the test dies mid-run.
+  externalDir := t.TempDir()
   externalFile := filepath.Join(externalDir, "external.ts")
   writeFile(t, externalFile, `export const external = "ok";`+"\n")
   noRootDir := seedProject(t, map[string]string{
