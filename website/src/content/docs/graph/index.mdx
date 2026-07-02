@@ -1,4 +1,5 @@
 import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphCommon";
+import TtscWebsiteGraphViewer3D from "../../../components/graph/TtscWebsiteGraphViewer3D";
 
 # Code Graph (MCP)
 
@@ -88,6 +89,6 @@ Your agent picks the tool up from the MCP handshake and calls it when it needs t
 
 - [Design](/docs/graph/design): the design decisions, the single MCP tool and its request/result branches, and the node and edge kinds.
 - [Comparison](/docs/graph/compare): how it differs from codegraph, codebase-memory-mcp, and serena.
-- [3D Viewer](/docs/graph/viewer): browse the whole graph in your browser, or load your own project. This is TypeORM's graph, colored by declaration kind:
+- [3D Viewer](/docs/graph/viewer): browse the whole graph in your browser, or load your own project. Here it is live, the benchmark repositories rendered as navigable graphs; the [viewer page](/docs/graph/viewer) explains the colors and the reduction:
 
-[![The TypeORM code graph rendered in 3D](/graph/typeorm.png)](/docs/graph/viewer)
+<TtscWebsiteGraphViewer3D />
