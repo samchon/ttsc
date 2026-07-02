@@ -1353,7 +1353,13 @@ func typeScriptConfigLoaderTsconfig(loader, location, outDir string) string {
       "noImplicitAny":                   false,
       "outDir":                          filepath.ToSlash(filepath.Join(outDir, "out")),
       "rewriteRelativeImportExtensions": true,
-      "rootDir":                         "/",
+      "rootDir": func() string {
+        vol := filepath.VolumeName(outDir)
+        if vol == "" {
+          return "/"
+        }
+        return filepath.ToSlash(vol + "\\")
+      }(),
       "skipLibCheck":                    true,
       "strict":                          false,
       "target":                          "ES2022",

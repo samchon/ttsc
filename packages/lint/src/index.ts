@@ -564,7 +564,7 @@ function evaluateTtsxConfigPlugins(
             noImplicitAny: false,
             outDir: path.join(tempDir, "out").replace(/\\/g, "/"),
             rewriteRelativeImportExtensions: true,
-            rootDir: "/",
+            rootDir: path.parse(tempDir).root.replace(/\\/g, "/"),
             skipLibCheck: true,
             strict: false,
             target: "ES2022",
