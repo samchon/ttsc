@@ -228,8 +228,24 @@ function linkVirtualEntry(
     fs.symlinkSync(realEntry, virtualEntry, "junction");
     return;
   }
-  // Symlinks (and other special entries) are re-symlinked as-is.
-  fs.symlinkSync(realEntry, virtualEntry);
+  // Symlinks (and other special entries) are re-symlinked as-is. On Windows,
+  // a file symlink needs SeCreateSymbolicLinkPrivilege (admin or Developer
+  // Mode), so mirror the plain-file branch's hard-link/copy fallback instead
+  // of failing the run (#306). A link whose target no longer exists is
+  // skipped: it can serve no module, and none of the fallbacks can
+  // materialize it without symlink privileges.
+  try {
+    fs.symlinkSync(realEntry, virtualEntry);
+  } catch {
+    if (!fs.existsSync(realEntry)) {
+      return;
+    }
+    try {
+      fs.linkSync(realEntry, virtualEntry);
+    } catch {
+      fs.copyFileSync(realEntry, virtualEntry);
+    }
+  }
 }
 
 function isDirectorySymlinkTarget(realEntry: string): boolean {
