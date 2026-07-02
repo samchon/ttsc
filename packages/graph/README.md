@@ -54,7 +54,7 @@ The operations (`tour`, `entrypoints`, `lookup`, `trace`, `details`, `overview`,
 
 ## Benchmark
 
-![Common prompt median token use on Codex GPT-5.4 Mini](https://ttsc.dev/benchmark/graph-common-codex-gpt-5.4-mini.svg)
+![Common prompt median token use on Codex GPT-5.4 Mini](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.4-mini.svg)
 
 Across eight real repositories, `@ttsc/graph` holds a flat, low median token cost while the alternatives swing with repository size.
 

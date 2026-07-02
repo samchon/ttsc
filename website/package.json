@@ -5,11 +5,12 @@
   "private": true,
   "scripts": {
     "build": "pnpm run prebuild && pnpm run build:next && pnpm run postbuild",
-    "prebuild": "rimraf .next && rimraf out && pnpm run build:compiler && pnpm run build:blog:rss",
+    "prebuild": "rimraf .next && rimraf out && pnpm run build:compiler && pnpm run build:blog:rss && pnpm run build:benchmark:png",
     "build:next": "next build",
     "build:compiler": "node build/compiler.cjs",
     "build:blog:rss": "node build/blog.cjs",
     "build:benchmark:graph": "node build/graph-benchmark-svg.cjs",
+    "build:benchmark:png": "node build/graph-benchmark-svg.cjs --png",
     "charts:png": "node build/svg-to-png.cjs",
     "prepare": "pnpm run build:benchmark:graph",
     "postbuild": "pnpm run build:pagefind && pnpm run build:sitemap",

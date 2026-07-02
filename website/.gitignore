@@ -3,7 +3,10 @@ node_modules
 out
 .pnpm-store
 .DS_Store
-public/benchmark/graph-*.svg
+# Generated benchmark charts (build/graph-benchmark-svg.cjs; SVGs via
+# `pnpm prepare`, PNGs via `pnpm build`)
+public/benchmark/svg/
+public/benchmark/png/
 public/compiler/index.js
 public/compiler/*.map
 public/compiler/playground.wasm

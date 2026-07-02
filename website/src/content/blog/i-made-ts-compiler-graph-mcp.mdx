@@ -43,7 +43,7 @@ You're new to a TypeScript repo, so you ask the agent for a tour: _"What's the m
 
 `@ttsc/graph` cuts that crawl short. Over MCP, it hands your agent a graph of your TypeScript codebase that the compiler itself drew: what calls what, what depends on what, and where each piece lives. The agent answers structural questions straight from the graph instead of spelunking through files, and every claim it makes points at an exact `file:line` the compiler resolved.
 
-![Median token use across every repo, common prompt, Codex GPT-5.5](/benchmark/graph-common-codex-gpt-5.5.svg)
+![Median token use across every repo, common prompt, Codex GPT-5.5](/benchmark/svg/graph-common-codex-gpt-5.5.svg)
 
 Here's the part that surprised me. This is supposed to be a solved problem: `codegraph`, `codebase-memory-mcp`, and `serena` all hand the agent a code graph over MCP for exactly this. But on the same question with the same agent, their token use swings all over the place, and on some repos they spend more than running with no tool at all. Only `@ttsc/graph` stays flat, however big the repo gets. That gap is why I built it. Every model and the full method are on the [interactive benchmark page](https://ttsc.dev/docs/benchmark/graph).
 
@@ -140,7 +140,7 @@ One thing up front. Cutting an agent's tool-call count is the easy part; cutting
 
 What actually happened was a lot less exciting than the pitch.
 
-![zod median tokens on the shared question, Codex GPT-5.5](/benchmark/graph-zod-common-codex-gpt-5.5.svg)
+![zod median tokens on the shared question, Codex GPT-5.5](/benchmark/svg/graph-zod-common-codex-gpt-5.5.svg)
 
 > zod on GPT-5.5. All three (`codegraph`, `codebase-memory`, and `serena`) made the agent spend _more_ than it would have with no MCP at all, +22% to +27%. `@ttsc/graph` came in at 6% of the baseline. This is the starkest repo I found, but the pattern holds across the matrix.
 

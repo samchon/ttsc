@@ -4,44 +4,66 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const OUT_DIR = path.join(__dirname, "png-out");
-const SCALE = 2;
+const DEFAULT_OUT_DIR = path.join(__dirname, "png-out");
+const DEFAULT_SCALE = 2;
 
 // The two charts embedded in the dev.to blog post. dev.to only accepts PNG
 // uploads, so these occasionally need re-exporting from the published SVGs.
 const DEFAULT_SVGS = [
-  "public/benchmark/graph-common-codex-gpt-5.5.svg",
-  "public/benchmark/graph-zod-common-codex-gpt-5.5.svg",
+  "public/benchmark/svg/graph-common-codex-gpt-5.5.svg",
+  "public/benchmark/svg/graph-zod-common-codex-gpt-5.5.svg",
 ].map((rel) => path.join(ROOT, rel));
 
 // Locally installed headless browsers, in preference order. Chrome first, Edge
-// as a fallback; both render SVG identically via the same --screenshot flag.
+// as a fallback; all render SVG identically via the same --screenshot flag.
+// The Linux/macOS candidates cover CI runners (website.yml builds on
+// ubuntu-latest) and contributor machines.
 const BROWSERS = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium-browser",
+  "/usr/bin/chromium",
+  "/usr/bin/microsoft-edge",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
 ];
 
-const inputs = process.argv.slice(2);
-const svgPaths = (inputs.length > 0 ? inputs : DEFAULT_SVGS).map((p) =>
-  path.resolve(p),
-);
-const browser = findBrowser();
+if (require.main === module) {
+  const inputs = process.argv.slice(2);
+  const svgPaths = (inputs.length > 0 ? inputs : DEFAULT_SVGS).map((p) =>
+    path.resolve(p),
+  );
+  const browser = findBrowser();
+  if (!browser)
+    throw new Error(
+      `No headless browser found. Checked:\n  ${BROWSERS.join("\n  ")}`,
+    );
 
-fs.mkdirSync(OUT_DIR, { recursive: true });
-for (const svgPath of svgPaths) {
-  const out = renderPng(svgPath);
-  console.log(`[svg-to-png] wrote ${out.file} (${out.width}x${out.height})`);
+  for (const svgPath of svgPaths) {
+    const out = renderPng(svgPath, { browser });
+    console.log(`[svg-to-png] wrote ${out.file} (${out.width}x${out.height})`);
+  }
 }
 
 // Wrap the SVG in a viewport-sized HTML page (white background, no margins) so
-// Chrome screenshots exactly the intrinsic dimensions, then scale by SCALE via
-// --force-device-scale-factor for a crisp 2x export.
-function renderPng(svgPath) {
+// Chrome screenshots exactly the intrinsic dimensions, then scale by `scale`
+// via --force-device-scale-factor for a crisp 2x export.
+function renderPng(svgPath, options = {}) {
+  const browser = options.browser ?? findBrowser();
+  if (!browser)
+    throw new Error(
+      `No headless browser found. Checked:\n  ${BROWSERS.join("\n  ")}`,
+    );
+  const outDir = options.outDir ?? DEFAULT_OUT_DIR;
+  const scale = options.scale ?? DEFAULT_SCALE;
   if (!fs.existsSync(svgPath)) throw new Error(`SVG not found: ${svgPath}`);
 
   const svg = fs.readFileSync(svgPath, "utf8");
   const { width, height } = readSvgSize(svg);
-  const outFile = path.join(OUT_DIR, `${path.basename(svgPath, ".svg")}.png`);
+  fs.mkdirSync(outDir, { recursive: true });
+  const outFile = path.join(outDir, `${path.basename(svgPath, ".svg")}.png`);
 
   const inner = svg.replace(/^\s*<\?xml[^>]*\?>\s*/i, "");
   const html = `<!doctype html>
@@ -67,7 +89,7 @@ function renderPng(svgPath) {
         "--disable-gpu",
         "--hide-scrollbars",
         "--default-background-color=FFFFFFFF",
-        `--force-device-scale-factor=${SCALE}`,
+        `--force-device-scale-factor=${scale}`,
         `--screenshot=${outFile}`,
         `--window-size=${width},${height}`,
         toFileUrl(htmlFile),
@@ -79,7 +101,7 @@ function renderPng(svgPath) {
   }
 
   const rendered = readPngSize(outFile);
-  const expected = { width: width * SCALE, height: height * SCALE };
+  const expected = { width: width * scale, height: height * scale };
   if (rendered.width !== expected.width || rendered.height !== expected.height)
     throw new Error(
       `${outFile}: expected ${expected.width}x${expected.height}, got ${rendered.width}x${rendered.height}`,
@@ -88,12 +110,11 @@ function renderPng(svgPath) {
 }
 
 function findBrowser() {
-  const found = BROWSERS.find((bin) => fs.existsSync(bin));
-  if (!found)
-    throw new Error(
-      `No headless browser found. Checked:\n  ${BROWSERS.join("\n  ")}`,
-    );
-  return found;
+  // GitHub-hosted runners expose their preinstalled browsers via env vars.
+  const fromEnv = [process.env.CHROME_BIN, process.env.EDGE_BIN].find(
+    (bin) => bin && fs.existsSync(bin),
+  );
+  return fromEnv ?? BROWSERS.find((bin) => fs.existsSync(bin)) ?? null;
 }
 
 // Intrinsic size from the root <svg> width/height attributes, falling back to
@@ -135,3 +156,5 @@ function readPngSize(file) {
 function toFileUrl(file) {
   return `file:///${file.replace(/\\/g, "/")}`;
 }
+
+module.exports = { renderPng, findBrowser };
