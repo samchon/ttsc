@@ -76,9 +76,7 @@ A capable graph is no use if the agent never calls it, and the four tools take v
 
 `serena` has the broadest surface, over forty tools documented and around twenty-seven active by default ([tools](https://oraios.github.io/serena/01-about/035_tools.html)), spanning retrieval, symbolic editing, memory, and project management. To get the agent to use them over its own read and edit loop, serena's recommended Claude Code setup goes furthest of the four. It launches Claude Code with a serena-supplied replacement system prompt (`claude --system-prompt="$(serena prompts print-cc-system-prompt-override)"`) and recommends disabling Claude Code's own built-in tools, naming `replace_string_in_file`, `apply_patch`, `list_dir`, `file_search`, and `grep_search` ([Claude Code setup](https://oraios.github.io/serena/02-usage/030_clients.html)). Its reasoning is that Claude Code's built-in tool descriptions run about sixteen thousand tokens and bias the model so strongly toward the built-ins that it is otherwise hard to get it to reach for serena at all. The breadth is deliberate, since serena aims to handle reading and editing, not only orientation.
 
-![CoT compliance turning a bolted-on tool back into a hand that grips it](/blog/images/prosthesis-to-hammer-in-hand.png)
-
-> `@ttsc/graph` reaches adoption from the other direction, by the shape of the tool rather than the loudness of the prompt. That mechanism is the [Design](/docs/graph/design) page.
+`@ttsc/graph` reaches adoption from the other direction: by the shape of the tool, a typed chain of thought inside a single call, rather than the loudness of the prompt. That mechanism is the [Design](/docs/graph/design) page.
 
 ### 2.4. Setup and freshness
 

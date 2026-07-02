@@ -1,12 +1,11 @@
 import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphCommon";
+import TtscWebsiteGraphViewer3D from "../../../components/graph/TtscWebsiteGraphViewer3D";
 
 # Code Graph (MCP)
 
-`@ttsc/graph` gives a coding agent a map of your TypeScript project, over MCP.
+`@ttsc/graph` gives a coding agent a compiler-resolved graph of your TypeScript project, over MCP.
 
-It runs `ttscgraph`, a native binary that type-checks your project once and keeps it in memory. Every query is answered from that warm checker, not a fresh parse.
-
-So every relationship it reports is the compiler's own answer, not a guess from reading text.
+It runs `ttscgraph`, a native binary that type-checks your project once, and keeps the resulting graph resident in memory. Every query is answered from that resident graph, not a fresh parse, so every relationship it reports is the compiler's own answer, not a guess from reading text.
 
 ## 1. Why an agent needs it
 
@@ -14,7 +13,11 @@ What the graph saves an agent, and what that looks like in tokens.
 
 ### 1.1. The crawl it replaces
 
-Ask an agent how something works and, without a map, it reconstructs the picture by hand: open a file, follow an import, open the next, and repeat. That is slow, it spends tokens, and the relationships it infers are guesses from whatever text it happened to read.
+![A file-by-file source crawl collapsing into a compiler-built graph index](/blog/images/source-crawl-vs-compiler-index.png)
+
+> On the left, the agent is lost in a maze of files, chasing imports dozens deep. On the right, it reads one compiler-built graph of nodes and edges, each with a `file:line` anchor it can open and check.
+
+Ask an agent how something works and, without the graph, it reconstructs the picture by hand: open a file, follow an import, open the next, and repeat. That is slow, it spends tokens, and the relationships it infers are guesses from whatever text it happened to read.
 
 The graph hands it the answer up front through one MCP tool, `inspect_typescript_graph`. The agent chooses one request branch per call: `tour`, `overview`, `entrypoints`, `lookup`, `trace`, `details`, or `escape`. The agent stops fanning out across files.
 
@@ -39,6 +42,7 @@ The graph answers the questions an agent actually asks, all from the same checke
 - **Where should I start?** Ranked code handles for a natural question: `entrypoints` or `lookup`.
 - **What does this reach, and what reaches it?** Forward to callees, reverse to callers, and an impact projection onto the public API and tests: `trace`.
 - **What is this, exactly?** The declaration shape, its range, its dependencies, and its dependents: `details`.
+- **What is broken here?** `tsc` compile errors and `@ttsc/lint` and plugin findings ride the same graph, fused onto the symbol that owns them, so breakage and blast radius answer from one index.
 
 A tree-sitter graph has no types and resolves edges by guessing from text. An editor's language server has types but no architecture projection. Only a graph built on the real checker holds the resolved structure and the affected set in one place. Every node and edge is resolved by the compiler, so an agent never mistakes inference for fact.
 
@@ -85,4 +89,6 @@ Your agent picks the tool up from the MCP handshake and calls it when it needs t
 
 - [Design](/docs/graph/design): the design decisions, the single MCP tool and its request/result branches, and the node and edge kinds.
 - [Comparison](/docs/graph/compare): how it differs from codegraph, codebase-memory-mcp, and serena.
-- [3D Viewer](/docs/graph/viewer): browse the whole graph in your browser, or load your own project.
+- [3D Viewer](/docs/graph/viewer): browse the whole graph in your browser, or load your own project. Here it is live, the benchmark repositories rendered as navigable graphs; the [viewer page](/docs/graph/viewer) explains the colors and the reduction:
+
+<TtscWebsiteGraphViewer3D />

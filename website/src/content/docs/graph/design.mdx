@@ -111,6 +111,10 @@ The typed chain of thought is an instance of a broader idea worth stating on its
 
 None of this is specific to a code graph. The same shape applies to any function-calling tool whose author keeps making the prompt louder to secure a behavior the schema could enforce directly.
 
+![CoT compliance turning a bolted-on tool back into a hand that grips it](/blog/images/prosthesis-to-hammer-in-hand.png)
+
+> The same tools, made whole. Instead of replacing the agent's hands with its own tools, a typed contract turns the tool into something the agent picks up and uses on its own.
+
 Two write-ups go into the theory, the numbers, and where it breaks down:
 
 - [Function Calling Harness from 6.75% to 100%](https://dev.to/samchon/qwen-meetup-function-calling-harness-from-675-to-100-3830)
@@ -134,7 +138,7 @@ The request branches, their results, and the facts each node and edge carries.
 
 `ITtscGraphDetails.IRequest` inspects selected handles. It returns signatures, members, direct calls, direct types, dependency neighbors, and `sourceSpan` anchors without implementation text.
 
-`ITtscGraphOverview.IRequest` returns a source-free architecture map: counts, layers, hotspots, and public API symbols.
+`ITtscGraphOverview.IRequest` returns a source-free architecture summary: counts, layers, hotspots, and public API symbols.
 
 `ITtscGraphEscape.IRequest` returns a small no-op result when the review finds that no graph operation should run.
 
@@ -142,7 +146,7 @@ The request branches, their results, and the facts each node and edge carries.
 
 The concrete payloads carry node coordinates, edge evidence ranges, citation spans, and stable node ids for follow-up graph calls. A span is an `ITtscGraphEvidence` coordinate (project-relative `file` plus 1-based start and end line and column), a place to open and verify, not inlined source text.
 
-Every result also carries `next`, the follow-up contract. `next.action` is one of `answer` (the evidence is complete, stop and answer, even when a slice is capped), `inspect` (make one more focused request, named by `next.request`), `outside` (the next evidence lives outside the graph, leave and read files or configs), or `clarify`.
+Every result also carries `next`, the follow-up contract. `next.action` is one of `answer` (the evidence is complete, stop and answer, even when a slice is capped), `inspect` (make one more focused request, named by `next.request`), `outside` (the next evidence lives outside the graph, leave and read files or configs), or `clarify` (the graph resolved nothing for the query, so ask for a concrete symbol or a narrower scope instead of spending another call).
 
 ### 2.3. Node kinds
 

@@ -2,9 +2,9 @@ import TtscWebsiteGraphViewer3D from "../../../components/graph/TtscWebsiteGraph
 
 # 3D Graph Viewer
 
-The same checker-resolved graph the MCP tools answer from, rendered as a navigable 3D ontology. Pick a benchmark example, or load a graph from your own project. Every node is a declaration (class, interface, function, method, type, enum, variable); every edge is a resolved relationship the compiler reported.
+The same checker-resolved graph the MCP tools answer from, rendered as a navigable 3D ontology. Every node is a declaration (class, interface, function, method, type, enum, variable); every edge is a resolved relationship the compiler reported.
 
-Drag to orbit, scroll to zoom, hover a node for its name, kind, and file.
+The examples below are the [benchmark](/docs/benchmark/graph) fixture repositories, from VS Code's 6,093 files down to Zod. Pick one, or load a graph from your own project (see the next section). Drag to orbit, scroll to zoom, hover a node for its name, kind, and file.
 
 <TtscWebsiteGraphViewer3D />
 
@@ -22,6 +22,8 @@ npx @ttsc/graph view
 
 `view` builds your project's graph, reduces it, and opens this viewer in your browser from a local port. Nothing leaves your machine.
 
+It resolves the project from the working directory and `tsconfig.json` by default; `--cwd`, `--tsconfig`, `--port`, `--max-nodes`, and `--no-open` override that. Like the MCP server, it needs `ttsc` installed so the native `ttscgraph` binary is present.
+
 ### 1.2. Export the graph as JSON
 
 For the data as a file instead:
@@ -30,7 +32,9 @@ For the data as a file instead:
 npx @ttsc/graph dump --tsconfig tsconfig.json > graph.json
 ```
 
-`dump` prints the whole graph as JSON: every declaration and edge, keyed by absolute path. The viewer reduces it client-side (drops `node_modules`, keeps the highest-degree nodes, relativizes paths) so a large project stays legible. It also takes an already-reduced payload, so a graph you trimmed yourself loads as-is.
+`dump` prints the whole graph as JSON: every node and edge the build resolved, with none of the per-response caps the MCP tool applies. It is the same export the MCP server loads at startup, so what you dump is exactly what the agent queries.
+
+That file is what "Load your own JSON" above accepts. The viewer reduces it client-side before rendering (the exact reduction is in [What is left out](#22-what-is-left-out)) so a large project stays legible. It also takes an already-reduced payload, so a graph you trimmed yourself loads as-is.
 
 ## 2. Reading the graph
 
@@ -38,12 +42,21 @@ What the colors and sizes mean, and what the viewer leaves out.
 
 ### 2.1. What the colors mean
 
-Nodes are colored by declaration kind and sized by how many other declarations connect to them, so the load-bearing symbols stand out. Edges carry their kind:
+Nodes are colored by declaration kind and sized by how many other declarations connect to them, so the load-bearing symbols stand out.
 
-- **value-call**: a runtime use (a call, a `new T()`, a JSX component, a tagged template).
+Edges are colored by family. The graph itself distinguishes finer relationship kinds (the full set is in [Design](/docs/graph/design#24-edge-kinds)); the viewer folds them into three so the picture stays readable:
+
+- **value-call**: a runtime use. Covers `calls`, `instantiates` (`new T()`), `renders` (a JSX component), and `accesses` (a property read or write).
 - **type-ref**: a type-position reference (a parameter, return, property, or alias type).
 - **heritage**: an `extends` or `implements` relationship.
 
 ### 2.2. What is left out
 
-Anything in `node_modules` or a `.d.ts` lib is dropped; it is not your code.
+The viewer is a projection, not the whole graph. Reduction happens before rendering (in the browser for an uploaded dump, in Node for `view`), in this order:
+
+- **External code is dropped.** Anything in `node_modules` or a `.d.ts` lib is not your code; the graph keeps it only as a boundary, and the viewer drops the boundary leaves.
+- **Git-ignored generated code is dropped.** A Prisma client or other codegen emitted as `.ts` would bury the authored graph under thousands of look-alike nodes.
+- **Only the best-connected declarations survive a cap.** A project larger than the node budget (1,200 nodes for an uploaded dump) keeps its highest-degree nodes, so the hubs stay and the leaves go.
+- **Orphans are pruned.** A node left with no surviving edge is removed.
+
+The node and edge count in the panel header is what survived, not the raw graph. For the complete data, use `dump` and read the JSON directly.
