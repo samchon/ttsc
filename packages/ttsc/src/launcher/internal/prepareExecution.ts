@@ -196,7 +196,10 @@ function linkVirtualProjectLayout(
   }
 }
 
-function linkVirtualEntry(
+// Exported for direct exercise by the ttsx e2e suite: the Windows fallback
+// branches below cannot be reached through a spawned run on CI (creating a
+// file-symlink fixture needs the very privilege the fallback avoids).
+export function linkVirtualEntry(
   realEntry: string,
   virtualEntry: string,
   entry: fs.Dirent,

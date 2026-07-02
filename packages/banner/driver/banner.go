@@ -541,22 +541,52 @@ func loaderRootDir(outDir string) string {
 // loader cannot work from there — no single tsconfig rootDir spans two
 // volumes and filepath.Rel cannot produce a relative import across drives
 // (#305) — so the tree is created under the config's nearest
-// node_modules/.cache instead. Returns "" (the os.MkdirTemp default) when the
-// volumes already match, or when no node_modules/.cache is available to keep
-// the historical behavior as the fallback.
+// node_modules/.cache instead, falling back to the config's own directory
+// when no node_modules exists (or its .cache cannot be created): any location
+// on the config's volume beats the system temp dir, which is guaranteed to
+// fail. Returns "" (the os.MkdirTemp default) when the volumes already match.
 func loaderTempBase(location, systemTemp string) string {
   if strings.EqualFold(filepath.VolumeName(systemTemp), filepath.VolumeName(location)) {
     return ""
   }
   nodeModules := findNearestNodeModules(filepath.Dir(location))
   if nodeModules == "" {
-    return ""
+    return filepath.Dir(location)
   }
-  base := filepath.Join(nodeModules, ".cache")
+  // Resolve a linked node_modules (junction/symlink — common in managed
+  // setups) before descending into it: the ESM runtime realpaths the loader
+  // module at import time, and a relative config specifier computed from the
+  // link-form path would resolve against the wrong directory. NTFS junctions
+  // defeat filepath.EvalSymlinks, so the link component is chased by hand
+  // first. Realpathing may also land on another volume, which defeats the
+  // whole point — fall back to the config's directory then.
+  base := filepath.Join(resolveDirLink(nodeModules), ".cache")
   if err := os.MkdirAll(base, 0o755); err != nil {
-    return ""
+    return filepath.Dir(location)
   }
-  return base
+  real, err := filepath.EvalSymlinks(base)
+  if err != nil || !strings.EqualFold(filepath.VolumeName(real), filepath.VolumeName(location)) {
+    return filepath.Dir(location)
+  }
+  return real
+}
+
+// resolveDirLink chases a directory that is itself a symlink or NTFS junction
+// to its target (bounded against link cycles). os.Readlink is the probe:
+// it resolves junctions, which report neither ModeSymlink nor an
+// EvalSymlinks-traversable path.
+func resolveDirLink(dir string) string {
+  for i := 0; i < 8; i++ {
+    target, err := os.Readlink(dir)
+    if err != nil {
+      return dir
+    }
+    if !filepath.IsAbs(target) {
+      target = filepath.Join(filepath.Dir(dir), target)
+    }
+    dir = target
+  }
+  return dir
 }
 
 // ttsxCommand builds an exec.Cmd that runs ttsx with the given args.

@@ -929,9 +929,11 @@ function linkNearestNodeModules(tempDir: string, sourceDir: string): void {
  * config file (Windows: TEMP on `C:`, project on `D:`) the loader cannot work
  * from there — no single tsconfig `rootDir` spans two volumes and
  * `path.relative` cannot produce a relative import across drives (#305) — so
- * the tree is created under the config's nearest `node_modules/.cache` instead.
- * Falls back to the system temp dir (the historical behavior) when the volumes
- * already match or no `node_modules/.cache` is available.
+ * the tree is created under the config's nearest `node_modules/.cache` instead,
+ * falling back to the config's own directory when no `node_modules` exists (or
+ * its `.cache` cannot be created): any location on the config's volume beats
+ * the system temp dir, which is guaranteed to fail. Keeps the system temp dir
+ * when the volumes already match.
  */
 function loaderTempBase(configPath: string): string {
   const systemTemp = os.tmpdir();
@@ -941,14 +943,23 @@ function loaderTempBase(configPath: string): string {
     return systemTemp;
   }
   const nodeModules = findNearestNodeModules(path.dirname(configPath));
-  if (!nodeModules) return systemTemp;
+  if (!nodeModules) return path.dirname(configPath);
   const base = path.join(nodeModules, ".cache");
   try {
     fs.mkdirSync(base, { recursive: true });
+    // Resolve symlinks/junctions now (a linked node_modules is common):
+    // Node's ESM loader realpaths the loader module at import time, and a
+    // relative config specifier computed from the link-form path would
+    // resolve against the wrong directory. Realpathing may also land on
+    // another volume, which defeats the whole point — fall through then.
+    const real = fs.realpathSync(base);
+    if (path.parse(real).root.toLowerCase() === configRoot.toLowerCase()) {
+      return real;
+    }
   } catch {
-    return systemTemp;
+    // fall through to the config's own directory
   }
-  return base;
+  return path.dirname(configPath);
 }
 
 function relativeImportSpecifier(fromDir: string, target: string): string {
