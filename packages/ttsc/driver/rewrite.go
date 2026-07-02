@@ -110,6 +110,14 @@ func (p *Program) EmitAllRaw(writeFile shimcompiler.WriteFile) (*shimcompiler.Em
   wf := func(fileName, text string, data *shimcompiler.WriteFileData) error {
     wfMu.Lock()
     defer wfMu.Unlock()
+    if p.outputEscapesOutDir(fileName) {
+      // Marking the write skipped keeps the file out of EmitResult.EmittedFiles,
+      // so callers reporting emitted counts don't include phantom outputs.
+      if data != nil {
+        data.SkippedDtsWrite = true
+      }
+      return nil
+    }
     if writeFile != nil {
       return writeFile(fileName, text, data)
     }
@@ -150,6 +158,14 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
   wf := func(fileName, text string, data *shimcompiler.WriteFileData) error {
     wfMu.Lock()
     defer wfMu.Unlock()
+    if p.outputEscapesOutDir(fileName) {
+      // See EmitAllRaw: mark the write skipped so EmitResult.EmittedFiles
+      // reflects only files actually written.
+      if data != nil {
+        data.SkippedDtsWrite = true
+      }
+      return nil
+    }
     // A patched file is idempotent: once the sentinel exists, the emitted text
     // is passed through unchanged. This matters for watch/rebuild loops and
     // tests that re-run emit over the same output directory.

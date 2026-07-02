@@ -66,7 +66,7 @@ npx ttsc clean                      # drop the plugin cache
 | `--tsconfig <file>` | tsconfig file. |
 | `--cwd <dir>` | Resolve relative paths against this directory. |
 | `--noEmit` | Type-check only, no file writes. |
-| `--emit` | Force emit even when `tsconfig` sets `noEmit: true`. |
+| `--emit` | Force emit even when `tsconfig` sets `noEmit: true`. On a plugin build, output stays confined to `outDir`: a source pulled in from outside `rootDir` (e.g. a dependency package's raw `.ts` entry) whose computed output would escape `outDir` is skipped instead of written next to its own source. |
 | `-w, --watch` | Watch source files and re-check on change. |
 | `--preserveWatchOutput` | Don't clear the screen between watch runs. |
 | `--outDir <dir>` | Override `compilerOptions.outDir`. |

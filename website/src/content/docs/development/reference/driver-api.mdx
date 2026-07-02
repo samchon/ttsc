@@ -59,6 +59,10 @@ TypeScript-Go emits source files in parallel. One emitter goroutine per source. 
 
 This is the one ttsc-layered phase that observes emit at all; everything else a plugin does (`SourcePreamble`, `ApplyProgram`, rewrite collection against the pooled `Checker`) already runs on ttsc's own serial path.
 
+### Output containment
+
+When the project configures `outDir`, every driver emit lane (`EmitAll`, `EmitAllRaw`, `EmitFile`, `EmitWithPluginTransformers`) skips any output whose computed path would land outside it (outside `declarationDir` too, when set; `.tsbuildinfo` is exempt because its default home is next to the tsconfig). A forced emit past the `TS6059` rootDir check would otherwise resolve an out-of-`rootDir` source — typically a dependency package's raw `.ts` entry reached by package self-reference — to a `.js` right next to the dependency's own source, polluting a sibling package's tree. Skipped files behave exactly like `node_modules` externals: no write, no diagnostic, and your `WriteFile` callback never sees them.
+
 ## Diagnostics
 
 ```go

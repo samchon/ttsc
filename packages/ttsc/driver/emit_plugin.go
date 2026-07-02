@@ -143,6 +143,10 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   host := &pluginEmitHost{program: p.TSProgram, emitResolver: p.Checker.GetEmitResolver()}
   options := p.TSProgram.Options()
   for _, sf := range shimcompiler.GetSourceFilesToEmit(host, nil, false) {
+    paths := shimcompiler.GetOutputPathsFor(sf, options, host, false)
+    if p.outputEscapesOutDir(paths.JsFilePath()) {
+      continue
+    }
     ec := shimprinter.NewEmitContext()
     out := sf
     for _, transform := range transforms {
@@ -158,7 +162,6 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
     for _, tr := range shimcompiler.GetScriptTransformers(ec, host, out) {
       out = tr.TransformSourceFile(out)
     }
-    paths := shimcompiler.GetOutputPathsFor(sf, options, host, false)
     // Print through the source-map-aware helper so a `sourceMap` /
     // `inlineSourceMap` build still gets its `.js.map` and sourceMappingURL
     // trailer: the hand-assembled emit pipeline does not run tsgo's emitter, so
