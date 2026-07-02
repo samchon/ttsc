@@ -122,40 +122,49 @@ func (r *rewriter) apply(file *shimast.SourceFile) {
 // visit for every string-literal module specifier it finds. Covered nodes
 // include import/export declarations, require() calls, dynamic import()
 // expressions, import-equals declarations, and import-type nodes.
+//
+// The recursion runs through one closure created per walk, not one per node:
+// handing ForEachChild a fresh closure at every node would allocate once per
+// AST node across the whole program on every apply pass.
 func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
   if node == nil {
     return
   }
-  switch node.Kind {
-  case shimast.KindImportDeclaration:
-    visit(node.AsImportDeclaration().ModuleSpecifier)
-  case shimast.KindExportDeclaration:
-    visit(node.AsExportDeclaration().ModuleSpecifier)
-  case shimast.KindImportEqualsDeclaration:
-    ref := node.AsImportEqualsDeclaration().ModuleReference
-    if ref != nil && ref.Kind == shimast.KindExternalModuleReference {
-      visit(ref.AsExternalModuleReference().Expression)
+  var walk func(node *shimast.Node) bool
+  walk = func(node *shimast.Node) bool {
+    if node == nil {
+      return false
     }
-  case shimast.KindImportType:
-    arg := node.AsImportTypeNode().Argument
-    if arg != nil && arg.Kind == shimast.KindLiteralType {
-      visit(arg.AsLiteralTypeNode().Literal)
+    switch node.Kind {
+    case shimast.KindImportDeclaration:
+      visit(node.AsImportDeclaration().ModuleSpecifier)
+    case shimast.KindExportDeclaration:
+      visit(node.AsExportDeclaration().ModuleSpecifier)
+    case shimast.KindImportEqualsDeclaration:
+      ref := node.AsImportEqualsDeclaration().ModuleReference
+      if ref != nil && ref.Kind == shimast.KindExternalModuleReference {
+        visit(ref.AsExternalModuleReference().Expression)
+      }
+    case shimast.KindImportType:
+      arg := node.AsImportTypeNode().Argument
+      if arg != nil && arg.Kind == shimast.KindLiteralType {
+        visit(arg.AsLiteralTypeNode().Literal)
+      }
+    case shimast.KindModuleDeclaration:
+      decl := node.AsModuleDeclaration()
+      if decl != nil {
+        visit(decl.Name())
+      }
+    case shimast.KindCallExpression:
+      call := node.AsCallExpression()
+      if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+        visit(call.Arguments.Nodes[0])
+      }
     }
-  case shimast.KindModuleDeclaration:
-    decl := node.AsModuleDeclaration()
-    if decl != nil {
-      visit(decl.Name())
-    }
-  case shimast.KindCallExpression:
-    call := node.AsCallExpression()
-    if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
-      visit(call.Arguments.Nodes[0])
-    }
-  }
-  node.ForEachChild(func(child *shimast.Node) bool {
-    visitModuleSpecifiers(child, visit)
+    node.ForEachChild(walk)
     return false
-  })
+  }
+  walk(node)
 }
 
 // isModuleSpecifierCall reports whether call is a dynamic import() or a
@@ -198,9 +207,13 @@ func (r *rewriter) rewrite(fromSource string, specifier string) (string, bool) {
   return rel, true
 }
 
-// resolveSource finds the source file that a tsconfig paths specifier resolves to.
-// It iterates over sorted patterns and, for each match, tries all substitution
-// targets (with and without known extensions) including index files.
+// resolveSource finds the source file that a tsconfig paths specifier
+// resolves to. Patterns are pre-sorted into tsc's precedence order, and like
+// tsc's tryLoadModuleUsingPaths the resolution commits to the first (best)
+// matching pattern: only that pattern's substitution targets are tried, in
+// order, with extension and index fallbacks. When none of them names a
+// program source the specifier stays unrewritten — falling through to a
+// weaker pattern would rewrite at a module the type checker never resolved.
 func (r *rewriter) resolveSource(specifier string) (string, bool) {
   for _, pattern := range r.patterns {
     star, ok := matchPattern(pattern.pattern, specifier)
@@ -214,6 +227,7 @@ func (r *rewriter) resolveSource(specifier string) (string, bool) {
         return source, true
       }
     }
+    return "", false
   }
   return "", false
 }

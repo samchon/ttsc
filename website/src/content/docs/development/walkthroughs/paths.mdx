@@ -218,36 +218,41 @@ func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
   if node == nil {
     return
   }
-  switch node.Kind {
-  case shimast.KindImportDeclaration:
-    visit(node.AsImportDeclaration().ModuleSpecifier)
-  case shimast.KindExportDeclaration:
-    visit(node.AsExportDeclaration().ModuleSpecifier)
-  case shimast.KindImportEqualsDeclaration:
-    ref := node.AsImportEqualsDeclaration().ModuleReference
-    if ref != nil && ref.Kind == shimast.KindExternalModuleReference {
-      visit(ref.AsExternalModuleReference().Expression)
+  var walk func(node *shimast.Node) bool
+  walk = func(node *shimast.Node) bool {
+    if node == nil {
+      return false
     }
-  case shimast.KindImportType:
-    arg := node.AsImportTypeNode().Argument
-    if arg != nil && arg.Kind == shimast.KindLiteralType {
-      visit(arg.AsLiteralTypeNode().Literal)
+    switch node.Kind {
+    case shimast.KindImportDeclaration:
+      visit(node.AsImportDeclaration().ModuleSpecifier)
+    case shimast.KindExportDeclaration:
+      visit(node.AsExportDeclaration().ModuleSpecifier)
+    case shimast.KindImportEqualsDeclaration:
+      ref := node.AsImportEqualsDeclaration().ModuleReference
+      if ref != nil && ref.Kind == shimast.KindExternalModuleReference {
+        visit(ref.AsExternalModuleReference().Expression)
+      }
+    case shimast.KindImportType:
+      arg := node.AsImportTypeNode().Argument
+      if arg != nil && arg.Kind == shimast.KindLiteralType {
+        visit(arg.AsLiteralTypeNode().Literal)
+      }
+    case shimast.KindModuleDeclaration:
+      decl := node.AsModuleDeclaration()
+      if decl != nil {
+        visit(decl.Name())
+      }
+    case shimast.KindCallExpression:
+      call := node.AsCallExpression()
+      if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+        visit(call.Arguments.Nodes[0])
+      }
     }
-  case shimast.KindModuleDeclaration:
-    decl := node.AsModuleDeclaration()
-    if decl != nil {
-      visit(decl.Name())
-    }
-  case shimast.KindCallExpression:
-    call := node.AsCallExpression()
-    if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
-      visit(call.Arguments.Nodes[0])
-    }
-  }
-  node.ForEachChild(func(child *shimast.Node) bool {
-    visitModuleSpecifiers(child, visit)
+    node.ForEachChild(walk)
     return false
-  })
+  }
+  walk(node)
 }
 
 func isModuleSpecifierCall(call *shimast.CallExpression) bool {
@@ -283,17 +288,17 @@ After the switch, `node.ForEachChild` recurses into every child. This is what ma
 The closure-based visitor is the simplest way to walk an AST in Go without an explicit interface. The shape:
 
 ```go
-func walk(node *X, visit func(*X)) {
-  if node == nil { return }
+var walk func(node *X) bool
+walk = func(node *X) bool {
+  if node == nil { return false }
   visit(node)
-  node.ForEachChild(func(child *X) bool {
-    walk(child, visit)
-    return false
-  })
+  node.ForEachChild(walk)
+  return false
 }
+walk(root)
 ```
 
-returning `false` keeps the iteration alive. Returning `true` would short-circuit, useful for "find the first node matching predicate," not useful when you want to visit every node.
+returning `false` keeps the iteration alive. Returning `true` would short-circuit, useful for "find the first node matching predicate," not useful when you want to visit every node. Declare the recursion closure once per walk and hand the same value to every `ForEachChild` call — building a fresh closure at each node allocates once per AST node, which a program-wide pass pays millions of times.
 
 ### 4. Resolving a specifier
 
@@ -348,6 +353,7 @@ func (r *rewriter) resolveSource(specifier string) (string, bool) {
         return source, true
       }
     }
+    return "", false
   }
   return "", false
 }
@@ -376,6 +382,8 @@ For pattern `@lib/*` and specifier `@lib/greet`:
 - Return `specifier[5 : 10-0] = "greet"` (length 10 minus suffix length 0).
 
 The two guards mirror tsc: a pattern with more than one `*` is not a pattern at all (`TryParsePattern` discards it), and a specifier shorter than the literal halves combined must not match — it can still satisfy both the prefix and suffix probes (`"@lib/x"` against `"@lib/x*x"`), and slicing the star capture out of it would panic on inverted bounds.
+
+Resolution also _commits_ to the first (best-precedence) matching pattern, exactly like tsc's `tryLoadModuleUsingPaths`: only that pattern's targets are tried, and when none of them names a program source the specifier stays unrewritten. Falling through to a weaker pattern would rewrite the import at a module the type checker never resolved.
 
 The captured `*` substitutes into each target: `./src/modules/*` → `./src/modules/greet`. The candidate is then joined against `basePath` (the tsconfig directory) and looked up in `r.sourceFiles`.
 
