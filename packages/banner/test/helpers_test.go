@@ -144,7 +144,8 @@ func writeExecutable(t *testing.T, file string, contents string) string {
 // extensionless shell script, so it gets the equivalent `.cmd` batch file and
 // the returned path carries that extension. Both stay OFF the script-extension
 // list, preserving the direct-exec (not node-routed) classification under
-// test.
+// test. Payloads must avoid cmd metacharacters (%, ^, &, |, <, >) — batch has
+// no way to quote them that sh's single quotes would mirror.
 func writeDirectLauncher(t *testing.T, file, stdout, stderr string, exitCode int) string {
   t.Helper()
   var b strings.Builder
@@ -154,8 +155,10 @@ func writeDirectLauncher(t *testing.T, file, stdout, stderr string, exitCode int
       b.WriteString("echo " + stdout + "\r\n")
     }
     if stderr != "" {
-      // No space before the redirect: `echo x 1>&2` would emit "x ".
-      b.WriteString("echo " + stderr + ">&2\r\n")
+      // The redirect goes up front: a trailing `1>&2` would emit "x ", and
+      // a bare `>&2` glued to a payload ending in a digit would turn that
+      // digit into a file-descriptor redirect.
+      b.WriteString("1>&2 echo " + stderr + "\r\n")
     }
     b.WriteString("exit /b " + strconv.Itoa(exitCode) + "\r\n")
     return writeExecutable(t, file+".cmd", b.String())
