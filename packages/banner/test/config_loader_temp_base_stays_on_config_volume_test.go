@@ -51,9 +51,16 @@ func TestConfigLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
     return
   }
   base := bannerLoaderTempBase(config, fake)
-  expected := filepath.Join(root, "node_modules", ".cache")
-  if base != expected {
-    t.Fatalf("cross-volume base mismatch: %q != %q", base, expected)
+  // Normalize the expectation the same way the helper normalizes its result:
+  // EvalSymlinks also expands 8.3 short names (CI runners hand out a
+  // RUNNER~1-style TEMP), so a raw Join of the fixture root won't compare
+  // equal even though both name the same directory.
+  crossWant, crossErr := filepath.EvalSymlinks(filepath.Join(root, "node_modules", ".cache"))
+  if crossErr != nil {
+    t.Fatal(crossErr)
+  }
+  if base != crossWant {
+    t.Fatalf("cross-volume base mismatch: %q != %q", base, crossWant)
   }
   if stat, err := os.Stat(base); err != nil || !stat.IsDir() {
     t.Fatalf("cross-volume base was not created: %v", err)
