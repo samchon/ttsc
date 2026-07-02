@@ -99,6 +99,8 @@ function modelLabel(cell: AgentCell): string {
       return `Claude Code / Sonnet ${claudeVersionLabel(version, "4.6")}`;
     case "claude-code-opus":
       return `Claude Code / Opus ${claudeVersionLabel(version, "4.8")}`;
+    case "claude-code-fable":
+      return `Claude Code / Fable ${claudeVersionLabel(version, "5")}`;
     case "codex-gpt":
       return `Codex / ${gptVersionLabel(version) ?? "GPT-5.5"}`;
     case "codex-gpt-mini":
@@ -114,8 +116,13 @@ function claudeVersionLabel(
 ): string {
   if (!version) return fallback;
   const normalized = version.toLowerCase();
-  if (normalized === "sonnet" || normalized === "opus") return fallback;
-  const match = /^claude-(?:sonnet|opus)-(.+)$/.exec(normalized);
+  if (
+    normalized === "sonnet" ||
+    normalized === "opus" ||
+    normalized === "fable"
+  )
+    return fallback;
+  const match = /^claude-(?:sonnet|opus|fable)-(.+)$/.exec(normalized);
   if (!match) return version;
   return match[1]!.replace(/-/g, ".");
 }
@@ -185,6 +192,7 @@ function modelOrder(model: string): number {
   const order = [
     "codex-gpt-mini",
     "codex-gpt",
+    "claude-code-fable",
     "claude-code-opus",
     "claude-code-sonnet",
   ];
