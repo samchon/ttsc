@@ -6,10 +6,10 @@ import (
   "fmt"
   "io"
   "os"
-  "path/filepath"
   "strings"
 
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -147,12 +147,12 @@ func buildServeCache(opts hostOptions) (map[string]string, bool) {
   return cache, true
 }
 
-// resolveServePath turns a request's file into an absolute path so apiOutputKey
-// computes the same key buildServeCache stored, and so overlay overrides are
-// keyed the way the program asks for them.
+// resolveServePath turns a request's file into a normalized absolute path, the
+// same form TypeScript-Go's own SourceFile.FileName() and the OverlayFS key
+// already use, so apiOutputKey and overlay lookups match regardless of how the
+// caller spelled the path. tspath.ResolvePath discards cwd and normalizes in
+// place when file is already rooted, so one call covers both request cases
+// (samchon/ttsc#319).
 func resolveServePath(cwd, file string) string {
-  if filepath.IsAbs(file) {
-    return file
-  }
-  return filepath.Join(cwd, file)
+  return shimtspath.ResolvePath(cwd, file)
 }
