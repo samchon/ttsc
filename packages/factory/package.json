@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/factory",
-  "version": "0.16.9",
+  "version": "0.16.10",
   "description": "Self-contained legacy-style TypeScript AST factory and printer for source code generation, surviving the TypeScript-Go (tsgo) migration. Zero dependencies, no `typescript` import.",
   "main": "src/index.ts",
   "exports": {
