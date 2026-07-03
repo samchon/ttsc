@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { Footer, Layout, Navbar } from "nextra-theme-docs";
 import { Head } from "nextra/components";
 import { getPageMap } from "nextra/page-map";
@@ -35,6 +36,14 @@ const footer = (
 const description =
   "A typescript-go toolchain for compiler-powered plugins and type-safe execution.";
 
+const clarityScript = `
+(function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+})(window, document, "clarity", "script", "xgfyndrsk9");
+`;
+
 export default async function RootLayout(props) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
@@ -56,6 +65,11 @@ export default async function RootLayout(props) {
         <meta name="twitter:image" content="https://ttsc.dev/og.jpg" />
         <meta name="twitter:title" content="ttsc — TypeScript-Go toolchain" />
         <meta name="twitter:description" content={description} />
+        {process.env.NODE_ENV === "production" ? (
+          <Script id="microsoft-clarity" type="text/javascript">
+            {clarityScript}
+          </Script>
+        ) : null}
       </Head>
       <body>
         <Layout
