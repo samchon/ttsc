@@ -26,6 +26,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimdw "github.com/microsoft/typescript-go/shim/diagnosticwriter"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // RunCheck implements `@ttsc/lint check` — typecheck + lint, no emit.
@@ -118,10 +119,13 @@ func RunTransform(args []string) int {
     return 2
   }
 
-  absFile := *file
-  if !filepath.IsAbs(absFile) {
-    absFile = filepath.Join(resolvedCwd, absFile)
-  }
+  // tsgo normalizes SourceFile.FileName() through tspath, resolving "."/".."
+  // segments as well as separators. findSourceFile's comparison only swaps
+  // separators, so an absolute --file value carrying an unresolved "."/".."
+  // round-trip (or, on a POSIX host, backslash separators) could name the
+  // right file and still miss (samchon/ttsc#319 is this same gap in ttsc's
+  // resident serve host).
+  absFile := shimtspath.ResolvePath(resolvedCwd, *file)
   target := prog.findSourceFile(absFile)
   if target == nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint transform: source file not in program: %s\n", absFile)

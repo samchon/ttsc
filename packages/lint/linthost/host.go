@@ -22,6 +22,7 @@ import (
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   "github.com/microsoft/typescript-go/shim/tsoptions"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
   "github.com/microsoft/typescript-go/shim/vfs/osvfs"
 )
@@ -227,11 +228,17 @@ func (p *program) programDiagnostics() []*shimast.Diagnostic {
 }
 
 // findSourceFile locates a source file in the program by absolute path.
-// tsgo normalizes paths to forward slashes; we do the same on our side.
+// tsgo normalizes SourceFile.FileName() through tspath (forward slashes,
+// resolved "."/".." segments); a bare filepath.ToSlash only swaps separator
+// characters for the host OS, so a caller-supplied path with an unresolved
+// "."/".." round-trip (or, on a POSIX host, backslash separators surviving
+// from a Windows-authored path) could still fail to match here even after
+// that conversion. Normalize both sides through tspath instead — the same gap
+// this closes in ttsc's resident serve host (samchon/ttsc#319).
 func (p *program) findSourceFile(target string) *shimast.SourceFile {
-  want := filepath.ToSlash(target)
+  want := shimtspath.NormalizePath(target)
   for _, file := range p.tsProgram.SourceFiles() {
-    if filepath.ToSlash(file.FileName()) == want {
+    if shimtspath.NormalizePath(file.FileName()) == want {
       return file
     }
   }

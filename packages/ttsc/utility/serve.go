@@ -149,14 +149,10 @@ func buildServeCache(opts hostOptions) (map[string]string, bool) {
 
 // resolveServePath turns a request's file into a normalized absolute path, the
 // same form TypeScript-Go's own SourceFile.FileName() and the OverlayFS key
-// already use, so apiOutputKey computes the same key buildServeCache stored
-// and overlay overrides are found regardless of how the caller spelled the
-// path. Plain path.resolve on the JS side yields native backslash paths on
-// Windows; passing those through filepath.Join/unchanged left them
-// un-normalized at this boundary, which is what let a raw Windows path reach
-// TypeScript-Go APIs and panic (samchon/ttsc#319). tspath.ResolvePath already
-// discards cwd and normalizes in place when file is itself rooted, so one call
-// covers both the relative and absolute request cases.
+// already use, so apiOutputKey and overlay lookups match regardless of how the
+// caller spelled the path. tspath.ResolvePath discards cwd and normalizes in
+// place when file is already rooted, so one call covers both request cases
+// (samchon/ttsc#319).
 func resolveServePath(cwd, file string) string {
   return shimtspath.ResolvePath(cwd, file)
 }
