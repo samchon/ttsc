@@ -6,10 +6,10 @@ import (
   "fmt"
   "io"
   "os"
-  "path/filepath"
   "strings"
 
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
+  shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
@@ -147,12 +147,16 @@ func buildServeCache(opts hostOptions) (map[string]string, bool) {
   return cache, true
 }
 
-// resolveServePath turns a request's file into an absolute path so apiOutputKey
-// computes the same key buildServeCache stored, and so overlay overrides are
-// keyed the way the program asks for them.
+// resolveServePath turns a request's file into a normalized absolute path, the
+// same form TypeScript-Go's own SourceFile.FileName() and the OverlayFS key
+// already use, so apiOutputKey computes the same key buildServeCache stored
+// and overlay overrides are found regardless of how the caller spelled the
+// path. Plain path.resolve on the JS side yields native backslash paths on
+// Windows; passing those through filepath.Join/unchanged left them
+// un-normalized at this boundary, which is what let a raw Windows path reach
+// TypeScript-Go APIs and panic (samchon/ttsc#319). tspath.ResolvePath already
+// discards cwd and normalizes in place when file is itself rooted, so one call
+// covers both the relative and absolute request cases.
 func resolveServePath(cwd, file string) string {
-  if filepath.IsAbs(file) {
-    return file
-  }
-  return filepath.Join(cwd, file)
+  return shimtspath.ResolvePath(cwd, file)
 }
