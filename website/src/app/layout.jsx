@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { Footer, Layout, Navbar } from "nextra-theme-docs";
 import { Head } from "nextra/components";
 import { getPageMap } from "nextra/page-map";
@@ -56,6 +57,18 @@ export default async function RootLayout(props) {
         <meta name="twitter:image" content="https://ttsc.dev/og.jpg" />
         <meta name="twitter:title" content="ttsc — TypeScript-Go toolchain" />
         <meta name="twitter:description" content={description} />
+        <Script
+          type="text/javascript"
+          dangerouslySetInnerHTML={{
+            __html: `
+(function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+})(window, document, "clarity", "script", "xgfyndrsk9");
+`,
+          }}
+        />
       </Head>
       <body>
         <Layout
