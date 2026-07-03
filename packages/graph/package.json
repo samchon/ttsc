@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "@typia/mcp": "catalog:samchon",
     "typia": "catalog:samchon"
   },
   "keywords": [
