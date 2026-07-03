@@ -15,10 +15,11 @@ export type TtscGraphSource = TtscGraphMemory | (() => TtscGraphMemory);
  * The MCP tool surface as a plain class over the resident
  * {@link TtscGraphMemory}.
  *
- * Its public method is the MCP tool: `typia.llm.controller` reflects
+ * Its public method is the MCP tool: `typia.llm.application` reflects
  * {@link ITtscGraphApplication} to generate the tool's JSON schema and argument
- * validator from the signature and JSDoc, with no hand-written schema. The
- * method delegates to the pure graph functions in `./server`, which are
+ * validator from the signature and JSDoc, with no hand-written schema, and
+ * `@typia/mcp`'s `createMcpServer` registers it (see `./server/createServer`).
+ * The method delegates to the pure graph functions in `./server`, which are
  * unit-testable without a transport; this class only binds them to the graph.
  *
  * Every method answers from the resident graph; none recompiles. Output is kept
@@ -70,6 +71,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
           result: runTour(this.graph(), props.request),
         };
       default:
+        props.request satisfies never;
         throw new Error("Unknown graph request type");
     }
   }

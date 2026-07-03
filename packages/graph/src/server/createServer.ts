@@ -1,106 +1,31 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import typia from "typia";
+import { createMcpServer } from "@typia/mcp";
+import typia, { type ILlmController } from "typia";
 
 import { TtscGraphApplication, TtscGraphSource } from "../TtscGraphApplication";
-import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphApplication } from "../structures/ITtscGraphApplication";
 
 /**
- * Build the MCP server for a graph. `typia.llm.controller` reflects
- * {@link ITtscGraphApplication} into a validated tool application. Every tool's
- * JSON schema and argument validator is generated from the method's TypeScript
- * types and JSDoc, so there is no hand-written schema. The list/call handlers
- * below are the minimal standalone registration: list the generated functions,
- * and on a call validate the arguments (returning typia's errors for the model
- * to self-correct) before invoking the method.
+ * Build the MCP server for a graph. `typia.llm.application` reflects
+ * {@link ITtscGraphApplication} into the tool schema and validator (no
+ * hand-written schema), and `createMcpServer` from `@typia/mcp` handles the
+ * list/call registration, argument validation, and structured output.
  *
- * Registration is inlined rather than pulled from `@typia/mcp` to keep the
- * dependency surface to `typia` plus the MCP SDK and avoid version-pinning the
- * wider typia ecosystem; the shape it relies on is `typia.llm.controller`'s
- * public output.
+ * We assemble the `ILlmController` (`{ protocol, name, application, execute }`)
+ * directly rather than via `typia.llm.controller` so the server is named
+ * "ttsc-graph" on our terms, not coupled to a reflected class name. Handshake
+ * instructions come from the class JSDoc; the single tool is named from its
+ * method, `inspect_typescript_graph`.
  */
 export function createServer(
   graph: TtscGraphSource,
   version: string,
 ): McpServer {
-  const controller = typia.llm.controller<ITtscGraphApplication>(
-    "graph",
-    new TtscGraphApplication(graph),
-  );
-  const functions = controller.application.functions;
-  const execute = controller.execute as unknown as Record<
-    string,
-    (input: unknown) => unknown
-  >;
-
-  const server = new McpServer(
-    { name: "ttsc-graph", version },
-    {
-      capabilities: { tools: {} },
-      // The MCP `instructions` are the interface's JSDoc, which
-      // `typia.llm.controller` reflects onto `application.description`. See
-      // {@link ITtscGraphApplication}.
-      instructions: controller.application.description,
-    },
-  );
-  const raw = server.server;
-
-  raw.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: functions.map((func) => ({
-      name: func.name,
-      description: func.description,
-      inputSchema: {
-        type: "object" as const,
-        properties: func.parameters.properties,
-        required: func.parameters.required,
-        additionalProperties: false,
-        $defs: func.parameters.$defs,
-      },
-    })),
-  }));
-
-  raw.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const func = functions.find((f) => f.name === request.params.name);
-    const method = execute[request.params.name];
-    if (func === undefined || method === undefined) {
-      return error(`Unknown tool: ${request.params.name}`);
-    }
-    // Validate an empty object when a client omits `arguments`, so typia can
-    // return field-level errors instead of a generic "expected object".
-    const validation = func.validate(request.params.arguments ?? {});
-    if (!validation.success) {
-      // Hand typia's validation errors back so the model can correct its call.
-      return error(JSON.stringify(validation.errors, null, 2));
-    }
-    try {
-      const result = await method.call(execute, validation.data);
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: result === undefined ? "Success" : JSON.stringify(result),
-          },
-        ],
-      };
-    } catch (exception) {
-      return error(
-        exception instanceof Error
-          ? `${exception.name}: ${exception.message}`
-          : String(exception),
-      );
-    }
-  });
-
-  return server;
-}
-
-function error(text: string): {
-  isError: true;
-  content: { type: "text"; text: string }[];
-} {
-  return { isError: true, content: [{ type: "text", text }] };
+  const controller: ILlmController<ITtscGraphApplication> = {
+    protocol: "class",
+    name: "ttsc-graph",
+    application: typia.llm.application<ITtscGraphApplication>(),
+    execute: new TtscGraphApplication(graph),
+  };
+  return createMcpServer(controller, version);
 }
