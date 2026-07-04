@@ -2,12 +2,8 @@
   "name": "@ttsc/linux-arm64",
   "version": "0.16.11",
   "description": "Linux arm64 native ttsc/ttscserver/ttscgraph binaries and bundled Go compiler for ttsc.",
-  "os": [
-    "linux"
-  ],
-  "cpu": [
-    "arm64"
-  ],
+  "os": ["linux"],
+  "cpu": ["arm64"],
   "scripts": {
     "build": "node ../../scripts/build-platform-package.cjs"
   },
@@ -17,11 +13,7 @@
   },
   "author": "Jeongho Nam",
   "license": "MIT",
-  "files": [
-    "bin",
-    "package.json",
-    "README.md"
-  ],
+  "files": ["bin", "package.json", "README.md"],
   "publishConfig": {
     "access": "public",
     "executableFiles": [
