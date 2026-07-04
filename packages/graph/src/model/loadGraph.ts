@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import typia from "typia";
 
+import { ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
 import { TtscGraphMemory } from "./TtscGraphMemory";
@@ -44,6 +45,7 @@ export function loadGraph(
         "or set TTSC_GRAPH_BINARY to an absolute path.",
     );
   }
+  ensureExecutable(binary);
 
   const result = spawnSync(
     binary,

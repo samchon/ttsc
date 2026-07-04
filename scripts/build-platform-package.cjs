@@ -112,6 +112,7 @@ if (npmOs !== "win32") {
   fs.chmodSync(outFile, 0o755);
   fs.chmodSync(serverFile, 0o755);
   fs.chmodSync(graphFile, 0o755);
+  syncExecutablePublishConfig();
 }
 
 function resolveBuildGo() {
@@ -405,6 +406,29 @@ function chmodGoExecutables(rootDir) {
   for (const file of walkFiles(toolDir)) {
     fs.chmodSync(file, 0o755);
   }
+}
+
+function syncExecutablePublishConfig() {
+  const manifestPath = path.join(cwd, "package.json");
+  const current = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const executableFiles = [
+    "./bin/ttsc",
+    "./bin/ttscserver",
+    "./bin/ttscgraph",
+    "./bin/go/bin/go",
+    "./bin/go/bin/gofmt",
+  ];
+  const toolDir = path.join(bundledGoDir, "pkg", "tool");
+  if (fs.existsSync(toolDir)) {
+    for (const file of walkFiles(toolDir)) {
+      executableFiles.push(`./${path.relative(cwd, file).replace(/\\/g, "/")}`);
+    }
+  }
+  current.publishConfig = {
+    ...(current.publishConfig ?? {}),
+    executableFiles: executableFiles.sort(),
+  };
+  fs.writeFileSync(manifestPath, `${JSON.stringify(current, null, 2)}\n`);
 }
 
 function verifyEmbeddedGoToolchain() {

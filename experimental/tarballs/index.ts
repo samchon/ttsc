@@ -72,6 +72,12 @@ function build(target: { dir: string; name: string; tarballName: string }) {
       stdio: "inherit",
     });
   }
+  if (/^ttsc-(linux|darwin|win32)-(x64|arm|arm64)$/.test(target.tarballName)) {
+    cp.execFileSync("node", ["scripts/assert-platform-package.cjs", out], {
+      cwd: root,
+      stdio: "inherit",
+    });
+  }
 }
 
 function clearOutputDirectory() {

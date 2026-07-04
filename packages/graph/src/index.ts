@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
+import { ensureExecutable } from "./nativeExecutable";
 import { resolveGraphBinary } from "./resolveGraphBinary";
 import { startServer } from "./server/startServer";
 import { runView } from "./view";
@@ -73,6 +74,7 @@ function runDump(argv: readonly string[]): number {
     );
     return 1;
   }
+  ensureExecutable(binary);
   const result = spawnSync(binary, [...argv], {
     stdio: "inherit",
     windowsHide: true,

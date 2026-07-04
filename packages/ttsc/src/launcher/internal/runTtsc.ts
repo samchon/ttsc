@@ -277,13 +277,15 @@ function ensureExecutable(binary: string): void {
     return;
   }
   try {
-    const mode = fs.statSync(binary).mode & 0o777;
-    if ((mode & 0o111) !== 0) {
-      return;
-    }
-    fs.chmodSync(binary, mode | 0o755);
+    fs.accessSync(binary, fs.constants.X_OK);
+    return;
   } catch {
-    /* keep the original spawn error path */
+    try {
+      const mode = fs.statSync(binary).mode & 0o777;
+      fs.chmodSync(binary, mode | 0o755);
+    } catch {
+      /* keep the original spawn error path */
+    }
   }
 }
 

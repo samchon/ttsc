@@ -227,10 +227,14 @@ export function needsStdio(argv: readonly string[]): boolean {
 function ensureExecutable(binary: string): void {
   if (process.platform === "win32") return;
   try {
-    const mode = fs.statSync(binary).mode & 0o777;
-    if ((mode & 0o111) !== 0) return;
-    fs.chmodSync(binary, mode | 0o755);
+    fs.accessSync(binary, fs.constants.X_OK);
+    return;
   } catch {
-    /* spawn will surface the underlying error */
+    try {
+      const mode = fs.statSync(binary).mode & 0o777;
+      fs.chmodSync(binary, mode | 0o755);
+    } catch {
+      /* spawn will surface the underlying error */
+    }
   }
 }

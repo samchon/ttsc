@@ -3,6 +3,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
+import { ensureExecutable } from "./nativeExecutable";
 import { type RawDump, reduce } from "./reduce";
 import { resolveGraphBinary } from "./resolveGraphBinary";
 
@@ -59,6 +60,7 @@ export function runView(argv: readonly string[]): number | void {
     );
     return 1;
   }
+  ensureExecutable(binary);
 
   process.stderr.write(
     `@ttsc/graph: building the graph for ${opts.cwd} (${opts.tsconfig})...\n`,
