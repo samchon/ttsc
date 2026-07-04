@@ -19,12 +19,12 @@ import (
 // self-referenced dependency's compiled `.js` into that dependency's source
 // tree on every build.
 //
-// 1. Materialize the same self-referenced dependency layout as the EmitAllRaw
-//    regression, with the project nested inside the package directory.
-// 2. Load the project with ForceEmit and emit through
-//    EmitWithPluginTransformers (no transforms).
-// 3. Assert the project's main.js is written under outDir and no write
-//    targets the dependency's source tree.
+//  1. Materialize the same self-referenced dependency layout as the EmitAllRaw
+//     regression, with the project nested inside the package directory.
+//  2. Load the project with ForceEmit and emit through
+//     EmitWithPluginTransformers (no transforms).
+//  3. Assert the project's main.js is written under outDir and no write
+//     targets the dependency's source tree.
 func TestEmitPluginTransformersSkipOutputsOutsideOutDir(t *testing.T) {
   root := t.TempDir()
   project := writeSelfReferencedDependencyProject(t, root)

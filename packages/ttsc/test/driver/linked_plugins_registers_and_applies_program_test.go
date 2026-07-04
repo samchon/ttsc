@@ -1,6 +1,7 @@
 package driver_test
 
 import (
+  "path/filepath"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -65,8 +66,9 @@ func TestDriverLinkedPluginsRegistersAndAppliesProgram(t *testing.T) {
   if probe.applied != 1 || len(probe.contexts) != 2 {
     t.Fatalf("plugin hooks were not called: applied=%d contexts=%#v", probe.applied, probe.contexts)
   }
+  rootSlash := filepath.ToSlash(root)
   for _, ctx := range probe.contexts {
-    if ctx.Cwd != root || ctx.Tsconfig != "tsconfig.json" {
+    if filepath.ToSlash(ctx.Cwd) != rootSlash || ctx.Tsconfig != "tsconfig.json" {
       t.Fatalf("context paths mismatch: %#v", ctx)
     }
     if ctx.Entry.Name != "whatever" || ctx.Entry.Config["answer"] != float64(42) {

@@ -1,8 +1,10 @@
 package driver
 
 import (
+  "context"
   "errors"
   "strings"
+  "sync"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
@@ -126,16 +128,20 @@ func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimas
   })
 }
 
-// EmitWithPluginTransformers emits every source file by assembling tsgo's emit
-// pipeline from shim parts and running the plugin transformers FIRST (in order)
-// in the same EmitContext as the builtin chain (type-erase, import-elision,
-// module-transform, ...). No text-splice and no hand-rolled import aliasing:
-// tsgo's module-transform aliases the plugins' injected imports itself.
+// EmitWithPluginTransformers emits every source file by assembling tsgo's
+// JavaScript emit pipeline from shim parts and running the plugin transformers
+// FIRST (in order) in the same EmitContext as the builtin chain (type-erase,
+// import-elision, module-transform, ...). No text-splice and no hand-rolled
+// import aliasing: tsgo's module-transform aliases the plugins' injected
+// imports itself.
 //
-// Because this bypasses tsgo's own emitter, it reproduces the emitter's
-// source-map step via PrintFileWithSourceMap: a `sourceMap` / `inlineSourceMap`
-// build emits a `.js.map` (and `//# sourceMappingURL=` trailer) just like a
-// plain build, even when a transform expanded one source line into many.
+// Because the JavaScript side bypasses tsgo's own emitter, it reproduces the
+// emitter's source-map step via PrintFileWithSourceMap: a `sourceMap` /
+// `inlineSourceMap` build emits a `.js.map` (and `//# sourceMappingURL=`
+// trailer) just like a plain build, even when a transform expanded one source
+// line into many. All non-JavaScript outputs stay delegated to tsgo's normal
+// dts-only emitter so declaration files, declaration maps, and any future
+// declaration-lane outputs are not silently lost by the hand-assembled JS path.
 func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
   if p == nil || p.TSProgram == nil {
     return nil, errors.New("driver: nil program")
@@ -144,54 +150,87 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
   options := p.TSProgram.Options()
   for _, sf := range shimcompiler.GetSourceFilesToEmit(host, nil, false) {
     paths := shimcompiler.GetOutputPathsFor(sf, options, host, false)
-    if p.outputEscapesOutDir(paths.JsFilePath()) {
-      continue
-    }
-    ec := shimprinter.NewEmitContext()
-    out := sf
-    for _, transform := range transforms {
-      if transform == nil {
-        continue
-      }
-      if next := transform(ec, out); next != nil {
-        out = next
-      }
-    }
-    shimast.SetParentInChildrenUnset(out.AsNode())
-    restoreOriginalDeclarationSymbols(ec, out.AsNode())
-    for _, tr := range shimcompiler.GetScriptTransformers(ec, host, out) {
-      out = tr.TransformSourceFile(out)
-    }
-    // Print through the source-map-aware helper so a `sourceMap` /
-    // `inlineSourceMap` build still gets its `.js.map` and sourceMappingURL
-    // trailer: the hand-assembled emit pipeline does not run tsgo's emitter, so
-    // the source-map step printSourceFile would otherwise perform has to happen
-    // here. With maps off this is the same bare-printer output as before.
-    printed := shimcompiler.PrintFileWithSourceMap(ec, out.AsNode(), out, options, host, paths.JsFilePath(), paths.SourceMapFilePath())
-    // A source-level preamble (e.g. @ttsc/banner linked into a typia host) shifts
-    // the map's source coordinates; correct them here too, so the
-    // preamble-plus-transform combination is not left uncorrected the way it
-    // would be if only the utility host's WriteFile patched maps. Covers both the
-    // external `.js.map` and an inline base64 map embedded in the JS.
-    if p.SourcePreamble != "" {
-      dropLines := strings.Count(p.SourcePreamble, "\n")
-      if adjusted, ok := AdjustEmittedSourceMap(paths.JsFilePath(), printed.JS, dropLines); ok {
-        printed.JS = adjusted
-      }
-      if printed.MapPath != "" {
-        if adjusted, ok := AdjustEmittedSourceMap(printed.MapPath, printed.MapText, dropLines); ok {
-          printed.MapText = adjusted
+    if paths.JsFilePath() != "" && !p.outputEscapesOutDir(paths.JsFilePath()) {
+      ec := shimprinter.NewEmitContext()
+      out := sf
+      for _, transform := range transforms {
+        if transform == nil {
+          continue
+        }
+        if next := transform(ec, out); next != nil {
+          out = next
         }
       }
-    }
-    if err := writeFile(paths.JsFilePath(), printed.JS, nil); err != nil {
-      return nil, err
-    }
-    if printed.MapPath != "" {
-      if err := writeFile(printed.MapPath, printed.MapText, nil); err != nil {
+      shimast.SetParentInChildrenUnset(out.AsNode())
+      restoreOriginalDeclarationSymbols(ec, out.AsNode())
+      for _, tr := range shimcompiler.GetScriptTransformers(ec, host, out) {
+        out = tr.TransformSourceFile(out)
+      }
+      // Print through the source-map-aware helper so a `sourceMap` /
+      // `inlineSourceMap` build still gets its `.js.map` and sourceMappingURL
+      // trailer: the hand-assembled emit pipeline does not run tsgo's emitter,
+      // so the source-map step printSourceFile would otherwise perform has to
+      // happen here. With maps off this is the same bare-printer output as
+      // before.
+      printed := shimcompiler.PrintFileWithSourceMap(ec, out.AsNode(), out, options, host, paths.JsFilePath(), paths.SourceMapFilePath())
+      // A source-level preamble (e.g. @ttsc/banner linked into a typia host)
+      // shifts the map's source coordinates; correct them here too, so the
+      // preamble-plus-transform combination is not left uncorrected the way it
+      // would be if only the utility host's WriteFile patched maps. Covers both
+      // the external `.js.map` and an inline base64 map embedded in the JS.
+      if p.SourcePreamble != "" {
+        dropLines := strings.Count(p.SourcePreamble, "\n")
+        if adjusted, ok := AdjustEmittedSourceMap(paths.JsFilePath(), printed.JS, dropLines); ok {
+          printed.JS = adjusted
+        }
+        if printed.MapPath != "" {
+          if adjusted, ok := AdjustEmittedSourceMap(printed.MapPath, printed.MapText, dropLines); ok {
+            printed.MapText = adjusted
+          }
+        }
+      }
+      if err := p.writePluginEmitOutput(paths.JsFilePath(), printed.JS, writeFile); err != nil {
+        return nil, err
+      }
+      if err := p.writePluginEmitOutput(printed.MapPath, printed.MapText, writeFile); err != nil {
         return nil, err
       }
     }
   }
+  if !options.GetEmitDeclarations() {
+    return nil, nil
+  }
+
+  var wfMu sync.Mutex
+  result := p.TSProgram.Emit(context.Background(), shimcompiler.EmitOptions{
+    EmitOnly: shimcompiler.EmitOnlyDts,
+    WriteFile: func(fileName string, text string, data *shimcompiler.WriteFileData) error {
+      wfMu.Lock()
+      defer wfMu.Unlock()
+      if p.outputEscapesOutDir(fileName) {
+        if data != nil {
+          data.SkippedDtsWrite = true
+        }
+        return nil
+      }
+      if writeFile != nil {
+        return writeFile(fileName, text, data)
+      }
+      return DefaultWriteFile(fileName, text)
+    },
+  })
+  if result != nil && len(result.Diagnostics) != 0 {
+    return convertDiagnostics(result.Diagnostics), nil
+  }
   return nil, nil
+}
+
+func (p *Program) writePluginEmitOutput(fileName, text string, writeFile shimcompiler.WriteFile) error {
+  if fileName == "" || p.outputEscapesOutDir(fileName) {
+    return nil
+  }
+  if writeFile != nil {
+    return writeFile(fileName, text, nil)
+  }
+  return DefaultWriteFile(fileName, text)
 }

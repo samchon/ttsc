@@ -36,11 +36,13 @@ if (result.status !== 0) {
 // skipping this step here would surface as drift on any local edit.
 for (const target of targets) {
   if (!target.endsWith(".go")) continue;
-  const gofmt = child.spawnSync(
-    path.join(repoRoot, ".vscode/gofmt-2spaces.sh"),
-    ["-w", target],
-    { stdio: "inherit" },
-  );
+  const script = path.join(repoRoot, ".vscode/gofmt-2spaces.sh");
+  const gofmt = child.spawnSync(...shellScriptCommand(script, ["-w", target]), {
+    stdio: "inherit",
+  });
+  if (gofmt.error) {
+    throw gofmt.error;
+  }
   if (gofmt.status !== 0) {
     process.exit(gofmt.status ?? 1);
   }
@@ -76,4 +78,11 @@ function snapshot(files) {
       : "";
   }
   return out;
+}
+
+function shellScriptCommand(script, args) {
+  if (process.platform === "win32") {
+    return ["bash", [script, ...args]];
+  }
+  return [script, args];
 }

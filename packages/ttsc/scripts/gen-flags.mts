@@ -206,8 +206,20 @@ function writeFile(target: string, contents: string): void {
   if (target.endsWith(".go")) {
     const formatter = path.join(repoRoot, ".vscode", "gofmt-2spaces.sh");
     if (fs.existsSync(formatter)) {
-      spawnSync(formatter, ["-w", target], { stdio: "ignore" });
+      spawnSync(...shellScriptCommand(formatter, ["-w", target]), {
+        stdio: "ignore",
+      });
     }
   }
   process.stdout.write(`generated ${path.relative(repoRoot, target)}\n`);
+}
+
+function shellScriptCommand(
+  script: string,
+  args: string[],
+): [string, string[]] {
+  if (process.platform === "win32") {
+    return ["bash", [script, ...args]];
+  }
+  return [script, args];
 }

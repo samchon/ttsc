@@ -22,11 +22,11 @@ import (
 // dependency's own sources, outside the project entirely. The guard must skip
 // those writes while the project's own file still emits under outDir.
 //
-// 1. Materialize a dependency package whose `exports` points at raw `.ts`,
-//    with the consuming project nested inside the package directory.
-// 2. Load the project with ForceEmit and run EmitAllRaw.
-// 3. Assert the project's main.js is written under outDir and no write
-//    targets the dependency's source tree.
+//  1. Materialize a dependency package whose `exports` points at raw `.ts`,
+//     with the consuming project nested inside the package directory.
+//  2. Load the project with ForceEmit and run EmitAllRaw.
+//  3. Assert the project's main.js is written under outDir and no write
+//     targets the dependency's source tree.
 func TestEmitRawSkipsOutputsOutsideOutDirForSelfReferencedDependency(t *testing.T) {
   root := t.TempDir()
   project := writeSelfReferencedDependencyProject(t, root)

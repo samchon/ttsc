@@ -23,7 +23,7 @@
     "test": "pnpm run check:flags && pnpm run build:current && pnpm run test:go && pnpm run test:typecheck && pnpm run test:features",
     "coverage:go": "node scripts/test-go-coverage.cjs",
     "test:features": "pnpm --filter \"./tests/test-*\" -r --workspace-concurrency=1 start",
-    "test:go": "node scripts/test-go-transformer.cjs && node scripts/test-go-utility-plugins.cjs && node scripts/test-go-lint.cjs && node scripts/test-go-graph.cjs",
+    "test:go": "node scripts/test-go-driver.cjs && node scripts/test-go-transformer.cjs && node scripts/test-go-utility-plugins.cjs && node scripts/test-go-lint.cjs && node scripts/test-go-graph.cjs",
     "test:typecheck": "node scripts/test-typecheck.cjs"
   },
   "repository": {
