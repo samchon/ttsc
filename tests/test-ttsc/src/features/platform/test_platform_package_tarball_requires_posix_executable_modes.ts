@@ -153,7 +153,12 @@ function writePlatformTarball(file: string, modes: Record<string, number>) {
       name,
     })),
   ];
-  fs.writeFileSync(file, zlib.gzipSync(Buffer.concat(entries.map(tarEntry))));
+  fs.writeFileSync(
+    file,
+    zlib.gzipSync(
+      Buffer.concat([...entries.map(tarEntry), Buffer.alloc(1024)]),
+    ),
+  );
 }
 
 interface TarEntry {
