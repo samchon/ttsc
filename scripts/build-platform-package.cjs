@@ -418,15 +418,16 @@ function syncExecutablePublishConfig() {
     "./bin/go/bin/go",
     "./bin/go/bin/gofmt",
   ];
+  const toolFiles = [];
   const toolDir = path.join(bundledGoDir, "pkg", "tool");
   if (fs.existsSync(toolDir)) {
     for (const file of walkFiles(toolDir)) {
-      executableFiles.push(`./${path.relative(cwd, file).replace(/\\/g, "/")}`);
+      toolFiles.push(`./${path.relative(cwd, file).replace(/\\/g, "/")}`);
     }
   }
   current.publishConfig = {
     ...(current.publishConfig ?? {}),
-    executableFiles: executableFiles.sort(),
+    executableFiles: [...executableFiles, ...toolFiles.sort()],
   };
   fs.writeFileSync(manifestPath, `${JSON.stringify(current, null, 2)}\n`);
 }
