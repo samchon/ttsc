@@ -33,10 +33,19 @@ const SCOPES = {
     "@ttsc/graph",
     "lint-contributor-demo",
   ],
-  // test-ttsc drives ttsc + the banner/lint native plugins only.
-  "test-ttsc": ["ttsc", "@ttsc/banner", "@ttsc/lint", PLATFORM],
-  // test-lint drives ttsc + the lint engine + the contributor demo plugin.
-  "test-lint": ["ttsc", "@ttsc/lint", PLATFORM, "lint-contributor-demo"],
+  // test-ttsc drives ttsc + the banner/lint native plugins and asserts on the
+  // @ttsc/vscode install artifact (its .vsix); it never touches graph/metro/
+  // unplugin.
+  "test-ttsc": ["ttsc", "@ttsc/banner", "@ttsc/lint", "@ttsc/vscode", PLATFORM],
+  // test-lint drives ttsc + the lint engine, references @ttsc/banner, and builds
+  // the contributor demo plugin.
+  "test-lint": [
+    "ttsc",
+    "@ttsc/banner",
+    "@ttsc/lint",
+    PLATFORM,
+    "lint-contributor-demo",
+  ],
 };
 
 const scope = process.env.TTSC_BUILD_SCOPE || "full";

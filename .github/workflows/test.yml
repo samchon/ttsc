@@ -62,9 +62,21 @@ jobs:
               scope: test-ttsc,
             }
           - {
-              name: "ttsc native corpus",
+              name: "ttsc native corpus-source",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/corpus,
+              dir: native/corpus-source,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native corpus-ttsc",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native/corpus-ttsc,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native corpus-misc",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native/corpus-misc,
               scope: test-ttsc,
             }
           - {
@@ -77,6 +89,30 @@ jobs:
               name: "ttsc native service",
               run: "pnpm --filter @ttsc/test-ttsc start",
               dir: native/service,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native server",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native/server,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native driver",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native/driver,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native cli",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native/cli,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native compiler",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native/compiler,
               scope: test-ttsc,
             }
           - {
