@@ -31,19 +31,100 @@ jobs:
           # the e2e runner, which is POSIX-only. Only the ttsx launcher build
           # is needed (test-go-lint drives real ttsx), so the full
           # build:current is skipped.
-          - { name: windows-go, os: windows-latest, build: "pnpm --filter ttsc build", run: "pnpm run test:go" }
-          - { name: shim-audit, run: "pnpm --filter ttsc shim:audit:test && pnpm --filter ttsc shim:audit" }
-          - { name: typecheck, run: "pnpm run check:flags && pnpm run test:typecheck" }
+          - {
+              name: windows-go,
+              os: windows-latest,
+              build: "pnpm --filter ttsc build",
+              run: "pnpm run test:go",
+            }
+          - {
+              name: shim-audit,
+              run: "pnpm --filter ttsc shim:audit:test && pnpm --filter ttsc shim:audit",
+            }
+          - {
+              name: typecheck,
+              run: "pnpm run check:flags && pnpm run test:typecheck",
+            }
           - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
           - { name: factory, run: "pnpm --filter @ttsc/test-factory start" }
-          - { name: lint, run: "pnpm --filter @ttsc/test-lint start" }
           - { name: paths, run: "pnpm --filter @ttsc/test-paths start" }
           - { name: strip, run: "pnpm --filter @ttsc/test-strip start" }
-          - { name: ttsc, run: "pnpm --filter @ttsc/test-ttsc start" }
+          # test-lint and test-ttsc build real Go plugin binaries; those
+          # scenarios dominate wall time, so both suites fan out across parallel
+          # shards (balanced by the weights/spanning hints in each src/index.ts)
+          # instead of grinding cold builds serially on one lane.
+          - {
+              name: "lint 1/5",
+              run: "pnpm --filter @ttsc/test-lint start",
+              shard: "1/5",
+            }
+          - {
+              name: "lint 2/5",
+              run: "pnpm --filter @ttsc/test-lint start",
+              shard: "2/5",
+            }
+          - {
+              name: "lint 3/5",
+              run: "pnpm --filter @ttsc/test-lint start",
+              shard: "3/5",
+            }
+          - {
+              name: "lint 4/5",
+              run: "pnpm --filter @ttsc/test-lint start",
+              shard: "4/5",
+            }
+          - {
+              name: "lint 5/5",
+              run: "pnpm --filter @ttsc/test-lint start",
+              shard: "5/5",
+            }
+          - {
+              name: "ttsc 1/8",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              shard: "1/8",
+            }
+          - {
+              name: "ttsc 2/8",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              shard: "2/8",
+            }
+          - {
+              name: "ttsc 3/8",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              shard: "3/8",
+            }
+          - {
+              name: "ttsc 4/8",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              shard: "4/8",
+            }
+          - {
+              name: "ttsc 5/8",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              shard: "5/8",
+            }
+          - {
+              name: "ttsc 6/8",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              shard: "6/8",
+            }
+          - {
+              name: "ttsc 7/8",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              shard: "7/8",
+            }
+          - {
+              name: "ttsc 8/8",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              shard: "8/8",
+            }
           - { name: unplugin, run: "pnpm --filter @ttsc/test-unplugin start" }
           - { name: metro, run: "pnpm --filter @ttsc/test-metro start" }
           - { name: graph, run: "pnpm --filter @ttsc/test-graph start" }
-          - { name: graph-bench, run: "node experimental/benchmark/graph/bench.mjs --runs=3" }
+          - {
+              name: graph-bench,
+              run: "node experimental/benchmark/graph/bench.mjs --runs=3",
+            }
     steps:
       - uses: actions/checkout@v4
 
@@ -75,3 +156,6 @@ jobs:
 
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.run }}
+        env:
+          # Empty for unsharded lanes → the runner executes the whole suite.
+          TTSC_TEST_SHARD: ${{ matrix.shard }}

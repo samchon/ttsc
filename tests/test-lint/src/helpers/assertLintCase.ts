@@ -17,13 +17,31 @@ const casesRoot = path.join(process.cwd(), "src", "cases");
  * the first non-blank line. The reason is required and acts as the inline
  * docstring for the exclusion. Skipped fixtures are still required to live in
  * the tree (their Go-side rule corpus test stays the source of truth).
+ *
+ * Under a sharded CI run (`TTSC_TEST_SHARD_ACTIVE=<i>/<N>`) this test executes
+ * in every shard but runs only its `index % N === i - 1` slice of the (evenly
+ * costed) fixtures, so the corpus fans out across the parallel lint lanes
+ * instead of pinning a single one. The empty-corpus guard still checks the full
+ * discovered tree in every shard.
  */
 export function assertAllLintCases(): void {
   const cases = listLintCases();
   assert.notEqual(cases.length, 0, "expected at least one lint fixture");
-  for (const file of cases) {
+  for (const file of shardCases(cases)) {
     assertLintCase(file);
   }
+}
+
+/** Keep only this shard's slice of the corpus, or all of it when unsharded. */
+function shardCases(cases: string[]): string[] {
+  const active = process.env.TTSC_TEST_SHARD_ACTIVE;
+  if (!active) return cases;
+  const parts = active.split("/");
+  const index = Number(parts[0]);
+  const total = Number(parts[1]);
+  if (!Number.isFinite(index) || !Number.isFinite(total) || total < 1)
+    return cases;
+  return cases.filter((_, i) => i % total === index - 1);
 }
 
 /**
