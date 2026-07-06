@@ -193,15 +193,19 @@ function runClean(argv: readonly string[]): number {
   const options = parseProjectArgs(argv);
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const projectRoot = resolveCleanProjectRoot(cwd, options.tsconfig);
-  const cacheDirRoot = options.cacheDir
-    ? path.resolve(cwd, options.cacheDir)
-    : undefined;
-  // The active project cache plus the pre-0.17 machine-global cache, so
-  // `ttsc clean` reclaims disk after upgrading from a global-cache release.
-  const targets = [
-    ...resolveCleanTargets(projectRoot, cacheDirRoot),
-    ...legacyGlobalCacheTargets(),
-  ];
+  const targets = options.cacheDir
+    ? // Explicit `ttsc clean --cache-dir X`: the user names X as the cache to
+      // remove for this command, so remove it wholesale plus the legacy
+      // project-local caches.
+      [
+        path.resolve(cwd, options.cacheDir),
+        path.join(projectRoot, "node_modules", ".ttsc"),
+        path.join(projectRoot, ".ttsc"),
+      ]
+    : // Default / TTSC_CACHE_DIR: remove only ttsc-owned subdirectories (a
+      // possibly-shared root is never deleted) plus the pre-0.17 machine-global
+      // cache so upgraders reclaim that disk.
+      [...resolveCleanTargets(projectRoot), ...legacyGlobalCacheTargets()];
   const removed: string[] = [];
   for (const target of targets) {
     if (!fs.existsSync(target)) continue;

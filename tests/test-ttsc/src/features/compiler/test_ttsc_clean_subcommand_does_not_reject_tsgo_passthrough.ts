@@ -1,6 +1,7 @@
 import {
   assert,
   createProject,
+  path,
   spawn,
   ttscBin,
 } from "../../internal/toolchain";
@@ -37,10 +38,21 @@ export const test_ttsc_clean_subcommand_does_not_reject_tsgo_passthrough =
       "src/main.ts": `export const x = 1;\n`,
     });
 
+    // Isolate the machine cache locations so clean's pre-0.17 legacy-global
+    // cache reclamation cannot touch the real developer cache when run locally.
+    const home = path.join(root, "cache-home");
     const result = spawn(
       ttscBin,
       ["clean", "--cwd", root, "--strict", "--tsconfig", "tsconfig.json"],
-      { cwd: root },
+      {
+        cwd: root,
+        env: {
+          HOME: home,
+          USERPROFILE: home,
+          XDG_CACHE_HOME: path.join(home, ".cache"),
+          LOCALAPPDATA: path.join(home, "AppData", "Local"),
+        },
+      },
     );
 
     assert.equal(

@@ -39,11 +39,18 @@ export const test_ttsc_clean_removes_ttsc_go_cache_but_keeps_user_gocache =
       fs.writeFileSync(path.join(target, "seed"), "cache\n", "utf8");
     }
 
+    // Isolate the machine cache locations so clean's pre-0.17 legacy-global
+    // cache reclamation cannot touch the real developer cache when run locally.
+    const home = path.join(root, "cache-home");
     const result = spawn(ttscBin, ["clean", "--cwd", root], {
       cwd: root,
       env: {
         GOCACHE: userGoCache,
         TTSC_GO_CACHE_DIR: ttscGoCache,
+        HOME: home,
+        USERPROFILE: home,
+        XDG_CACHE_HOME: path.join(home, ".cache"),
+        LOCALAPPDATA: path.join(home, "AppData", "Local"),
       },
     });
 

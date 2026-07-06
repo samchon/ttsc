@@ -24,7 +24,18 @@ const project = {
     fs.mkdirSync(path.join(pluginCache, "a"), { recursive: true });
     fs.writeFileSync(path.join(pluginCache, "a", "plugin"), "binary", "utf8");
 
-    const result = spawn(ttscBin, ["clean", "--cwd", root], { cwd: root });
+    // Isolate the machine cache locations so clean's pre-0.17 legacy-global
+    // cache reclamation cannot touch the real developer cache when run locally.
+    const home = path.join(root, "cache-home");
+    const result = spawn(ttscBin, ["clean", "--cwd", root], {
+      cwd: root,
+      env: {
+        HOME: home,
+        USERPROFILE: home,
+        XDG_CACHE_HOME: path.join(home, ".cache"),
+        LOCALAPPDATA: path.join(home, "AppData", "Local"),
+      },
+    });
     assert.equal(result.status, 0, result.stderr);
     // clean removes ttsc-owned subdirectories (plugins/, go-build/), not the
     // parent cache root, which may be shared with other tools.
