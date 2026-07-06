@@ -34,7 +34,7 @@ Inline option keys for `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`, and `@ttsc/
 **One test case per file, named after what it asserts.** Applies to both layers.
 
 - **Go unit tests** live in `packages/*/test/`; one `Test*` per file. Run the real command entrypoint (e.g. `go run ./plugin`) so wrapper branches stay covered.
-- **TypeScript e2e tests** live in `tests/test-*/src/features/`. The suites that build real Go plugin binaries additionally split those go-binary scenarios into `tests/test-*/src/native/<category>/` so CI can isolate them on their own trimmed-build lanes; the cheap tests stay under `features/`. Each file exports exactly one `test_<snake_case>` function with a matching file name; `DynamicExecutor` discovers them by prefix. Materialize a temp project, spawn the real binary, and assert on observable output.
+- **TypeScript e2e tests** live in `tests/test-*/src/features/`. The suites that build real Go plugin binaries additionally split those go-binary scenarios into `tests/test-*/src/native-plugins/<category>/` so CI can isolate them on their own trimmed-build lanes; the cheap tests stay under `features/`. Each file exports exactly one `test_<snake_case>` function with a matching file name; `DynamicExecutor` discovers them by prefix. Materialize a temp project, spawn the real binary, and assert on observable output.
 
 Open every case with a doc comment in the same three-part shape: a one-line `Verifies …` headline, a short paragraph stating the non-obvious _why_ (which branch or regression is being pinned), and a 2–4-step numbered list summarizing the scenario.
 

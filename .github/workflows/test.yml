@@ -50,7 +50,7 @@ jobs:
           - { name: paths, run: "pnpm --filter @ttsc/test-paths start" }
           - { name: strip, run: "pnpm --filter @ttsc/test-strip start" }
           # test-lint and test-ttsc build real Go plugin binaries; those
-          # go-binary scenarios dominate wall time and live under `src/native/`
+          # go-binary scenarios dominate wall time and live under `src/native-plugins/`
           # (the fast tests stay under `src/features/`). Each lane points
           # `TTSC_TEST_DIR` at one subtree and trims its build to only the
           # packages that subtree exercises (`TTSC_BUILD_SCOPE`), skipping the
@@ -64,61 +64,61 @@ jobs:
           - {
               name: "ttsc native corpus-source",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/corpus-source,
+              dir: native-plugins/corpus-source,
               scope: test-ttsc,
             }
           - {
               name: "ttsc native corpus-ttsc",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/corpus-ttsc,
+              dir: native-plugins/corpus-ttsc,
               scope: test-ttsc,
             }
           - {
               name: "ttsc native corpus-misc",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/corpus-misc,
+              dir: native-plugins/corpus-misc,
               scope: test-ttsc,
             }
           - {
               name: "ttsc native source-plugin",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/source-plugin,
+              dir: native-plugins/source-plugin,
               scope: test-ttsc,
             }
           - {
               name: "ttsc native service",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/service,
+              dir: native-plugins/service,
               scope: test-ttsc,
             }
           - {
               name: "ttsc native server",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/server,
+              dir: native-plugins/server,
               scope: test-ttsc,
             }
           - {
               name: "ttsc native driver",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/driver,
+              dir: native-plugins/driver,
               scope: test-ttsc,
             }
           - {
               name: "ttsc native cli",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/cli,
+              dir: native-plugins/cli,
               scope: test-ttsc,
             }
           - {
               name: "ttsc native compiler",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/compiler,
+              dir: native-plugins/compiler,
               scope: test-ttsc,
             }
           - {
               name: "ttsc native utility",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              dir: native/utility,
+              dir: native-plugins/utility,
               scope: test-ttsc,
             }
           - {
@@ -130,19 +130,19 @@ jobs:
           - {
               name: "lint native corpus",
               run: "pnpm --filter @ttsc/test-lint start",
-              dir: native/corpus,
+              dir: native-plugins/corpus,
               scope: test-lint,
             }
           - {
               name: "lint native format",
               run: "pnpm --filter @ttsc/test-lint start",
-              dir: native/format,
+              dir: native-plugins/format,
               scope: test-lint,
             }
           - {
               name: "lint native config",
               run: "pnpm --filter @ttsc/test-lint start",
-              dir: native/config,
+              dir: native-plugins/config,
               scope: test-lint,
             }
           - { name: unplugin, run: "pnpm --filter @ttsc/test-unplugin start" }
@@ -189,5 +189,5 @@ jobs:
         run: ${{ matrix.run }}
         env:
           # Empty for ordinary lanes → the runner scans the whole suite. A test
-          # lane points this at one subtree (`features` or `native/<category>`).
+          # lane points this at one subtree (`features` or `native-plugins/<category>`).
           TTSC_TEST_DIR: ${{ matrix.dir }}
