@@ -19,7 +19,7 @@ import {
  *
  * 1. Create a project with a source plugin and relative `env.TTSC_CACHE_DIR`.
  * 2. Prepare the plugin cache through the programmatic API.
- * 3. Assert `clean()` removes the same project-root cache directory.
+ * 3. Assert `clean()` removes the same project-root cache directories.
  */
 export const test_ttsccompiler_clean_removes_relative_context_env_cache =
   () => {
@@ -33,6 +33,7 @@ export const test_ttsccompiler_clean_removes_relative_context_env_cache =
       env: { TTSC_CACHE_DIR: ".cache/ttsc" },
     });
     const cacheRoot = path.join(root, ".cache", "ttsc", "plugins");
+    const goBuildRoot = path.join(root, ".cache", "ttsc", "go-build");
 
     const prepared = compiler.prepare();
 
@@ -42,9 +43,12 @@ export const test_ttsccompiler_clean_removes_relative_context_env_cache =
       true,
     );
     assert.equal(fs.existsSync(cacheRoot), true);
+    fs.mkdirSync(goBuildRoot, { recursive: true });
+    fs.writeFileSync(path.join(goBuildRoot, "seed"), "go object\n", "utf8");
 
     const removed = compiler.clean();
 
-    assert.deepEqual(removed, [cacheRoot]);
+    assert.deepEqual(removed, [cacheRoot, goBuildRoot]);
     assert.equal(fs.existsSync(cacheRoot), false);
+    assert.equal(fs.existsSync(goBuildRoot), false);
   };

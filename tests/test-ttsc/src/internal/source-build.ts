@@ -1,8 +1,9 @@
 /**
  * Shared helpers for tests that exercise the source-plugin build pipeline
- * (`buildSourcePlugin`, `computeCacheKey`, `resolvePluginCacheRoot`). Provides
- * a cross-platform fake `go` executable that satisfies the commands ttsc issues
- * during plugin compilation without running a real Go toolchain.
+ * (`buildSourcePlugin`, `computeCacheKey`, `resolvePluginCacheRoot`,
+ * `resolveSourceBuildCachePaths`). Provides a cross-platform fake `go`
+ * executable that satisfies the commands ttsc issues during plugin compilation
+ * without running a real Go toolchain.
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -13,6 +14,7 @@ import {
   buildSourcePlugin,
   computeCacheKey,
   resolvePluginCacheRoot,
+  resolveSourceBuildCachePaths,
 } from "../../../../packages/ttsc/lib/plugin/internal/buildSourcePlugin.js";
 
 /**
@@ -78,6 +80,13 @@ function createFakeGoBinary(
       "if (!out) {",
       '  console.error("missing -o output path");',
       "  process.exit(1);",
+      "}",
+      "if (process.env.FAKE_GO_CAPTURE_ENV_FILE) {",
+      "  fs.writeFileSync(",
+      "    process.env.FAKE_GO_CAPTURE_ENV_FILE,",
+      "    JSON.stringify({ GOCACHE: process.env.GOCACHE ?? null }),",
+      "    'utf8',",
+      "  );",
       "}",
       "fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });",
       'fs.writeFileSync(out, "fake plugin binary\\n", "utf8");',
@@ -148,5 +157,6 @@ export {
   os,
   path,
   resolvePluginCacheRoot,
+  resolveSourceBuildCachePaths,
   shellQuote,
 };
