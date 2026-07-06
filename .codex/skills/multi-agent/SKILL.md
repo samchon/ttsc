@@ -1,11 +1,18 @@
 ---
 name: multi-agent
-description: Review Cycle, Discussion, and Research Review Round workflows. Read the Briefing subagents rule before delegating to any subagent; read in full when the user asks for a named mode.
+description: Self-Review, Review Cycle, Discussion, and Research Review Round workflows. Read the Exhaustive rounds and Stop condition rules before any review round (solo or team); read the Briefing subagents rule before delegating to any subagent; read in full when the user asks for a named mode.
 ---
 
 # Multi-Agent Workflows
 
-Use only when the user explicitly asks for one of the named modes, Review Cycle, Discussion, or Research Review Round. Each mode composes the shared building blocks below; do not invent unnamed combinations.
+Use only when the user explicitly asks for one of the named modes, Self-Review, Review Cycle, Discussion, or Research Review Round. Each mode composes the shared building blocks below; do not invent unnamed combinations.
+
+## Non-negotiable review law
+
+Every review mode (solo Self-Review or a team) obeys two rules that override any urge to finish. Violating either is the failure mode to design against, not a judgment call.
+
+- **Each round is exhaustive.** A round is a complete, from-scratch inspection of the ENTIRE change — every changed file and every hunk read in full — plus active latent-risk detection that reaches BEYOND the diff into the code paths, tests, CI, and docs the change can break. Never split a round across "parts not yet seen," never lean on an earlier round's reading, never sample. A round that skips any changed file, or only re-checks what it touched last time, is not a round.
+- **Rounds are unlimited.** Any round that applies even one improvement mandates a further full round. Stop only after one complete exhaustive round finds nothing to improve. Never declare convergence from a partial or incremental pass, never stop because the change "looks done," and never announce that review is over while an improvement from the current round is still unaddressed.
 
 ## Building Blocks
 
@@ -35,15 +42,23 @@ Run three unrestricted rounds recorded as `round1.md`, `round2.md`, and `round3.
 
 ### Stop condition for looped modes
 
-Continue while at least one verified proposal is accepted. Stop when no agent proposes an improvement, or when no proposal survives lead-agent validation.
+Governed by the unlimited-rounds law above: continue while any round applies at least one verified improvement; stop only after a complete exhaustive round accepts none. Applies identically to solo Self-Review and team modes.
 
 ## Modes
+
+### Self-Review
+
+The solo form of review — one reviewer, no team — when the user asks for self-review (bounded or unlimited). Same law as every mode: exhaustive rounds, unlimited until a clean round.
+
+1. Read the ENTIRE change in full (every changed file and hunk) and hunt latent risks beyond the diff, working a fixed checklist each round: correctness and edge cases (null/undefined, off-by-one, boundaries), cross-platform (Windows/POSIX paths, shells), concurrency, data loss, security, cache/state invariants, test correctness AND hygiene (determinism, isolation, no real-environment side effects), CI and harness correctness, docs accuracy, and migration/back-compat.
+2. Apply every sound fix and commit it, then restart at step 1 as a fresh full round.
+3. Apply the stop condition: end only on a complete exhaustive round that finds nothing.
 
 ### Review Cycle
 
 Direct review of changed source, docs, and tests. No topic directory, no transcripts.
 
-1. Form the team. Each agent reads the changed source/docs/tests in full and proposes improvements.
+1. Form the team. Each agent reads the changed source/docs/tests IN FULL (the whole change, per the exhaustive-rounds law) and proposes improvements plus latent risks beyond the diff.
 2. Lead validates and applies surviving proposals.
 3. Start the next cycle with a fresh team. Apply the stop condition.
 
