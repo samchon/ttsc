@@ -38,6 +38,7 @@ npx ttsc --emit                     # force emit when noEmit: true is set
 npx ttsc --verbose                  # print every emitted file path
 npx ttsc fix                        # ask check plugins to apply fixes, then re-check
 npx ttsc format                     # ask format-capable check plugins to format only
+npx ttsc cache paths --json         # print cache paths for CI
 npx ttsc prepare                    # pre-build plugin cache (CI warmup)
 npx ttsc clean                      # drop the plugin cache
 ```
@@ -53,8 +54,9 @@ npx ttsc clean                      # drop the plugin cache
 | `ttsc check` | Type-check only. Same as `ttsc --noEmit`. |
 | `ttsc fix` | Ask enabled check-stage plugins to apply fixes, then run a no-emit check. With `@ttsc/lint`, this means lint + format autofixes. Cannot combine with `--watch` or `--emit`. |
 | `ttsc format` | Ask format-capable check-stage plugins to apply format-only edits. With `@ttsc/lint`, this means format-class rules only. |
+| `ttsc cache paths --json` | Print the cache root, plugin binary cache root, Go build cache root, and cacheable roots for CI. |
 | `ttsc prepare` | Pre-build every plugin binary into the cache. |
-| `ttsc clean` | Delete the plugin binary cache. |
+| `ttsc clean` | Delete the plugin binary cache and ttsc-owned Go build cache. |
 | `ttsc version` | Print the CLI version. |
 | `ttsc help` | Print help. |
 
@@ -73,7 +75,7 @@ npx ttsc clean                      # drop the plugin cache
 | `--quiet` | Suppress per-file output (default). |
 | `--verbose` | Print build summary and emitted file paths. |
 | `--binary <path>` | Use a specific tsc binary instead of the bundled one. |
-| `--cache-dir <dir>` | Plugin binary cache root, resolved relative to `--cwd` when not absolute. Defaults to the shared user-level ttsc cache. |
+| `--cache-dir <dir>` | Cache root for compiled plugins, resolved relative to `--cwd` when not absolute. Defaults to the workspace-local `node_modules/.cache/ttsc`. |
 | `--singleThreaded` | Run TypeScript-Go single-threaded, one checker, serial parse/check/emit. Mirrors `tsc --singleThreaded`. |
 | `--checkers <n>` | Type-checker pool size. Mirrors `tsc --checkers`; defaults to TypeScript-Go's own default. |
 
@@ -89,7 +91,25 @@ Any flag `ttsc` does not own is forwarded as-is to `tsc`, so classic `tsc` compi
 
 ## Plugin cache
 
-The plugin binary cache lives in a shared user-level ttsc cache by default (`~/.cache/ttsc` on Linux, platform equivalents elsewhere). Override with `--cache-dir` for CI or test isolation; relative values resolve from `--cwd` and store plugin binaries under `<cache-dir>/plugins`. Safe to delete at any time (`ttsc clean`, or `ttsc clean --cache-dir <dir>` for an explicit cache), binaries get rebuilt on next use. The default cache records last-use timestamps and prunes old entries automatically.
+The plugin binary cache is **project-local**. By default it lives in the workspace's `node_modules/.cache/ttsc` (the `find-cache-dir` convention). In a monorepo it resolves to the workspace root's `node_modules`, so every package builds a given plugin once and shares it; `rm -rf node_modules` (or deleting the repo) reclaims everything and ttsc keeps no machine-global cache. Plugin binaries live under `<cache-dir>/plugins` and ttsc's Go object cache under `<cache-dir>/go-build`, unless `TTSC_GO_CACHE_DIR` or a user `GOCACHE` redirects it. Override the root with `--cache-dir` or `TTSC_CACHE_DIR` (relative `--cache-dir` resolves from `--cwd`, relative `TTSC_CACHE_DIR` from the project root). The cache is safe to delete at any time (`ttsc clean`); binaries rebuild on next use, and the default cache prunes entries unused for 30 days automatically.
+
+### Persisting the cache across split CI jobs
+
+Every CI job runs on a fresh runner, so a build cache only survives between jobs — for example separate `build` and `test` workflows — if the workflow persists it. Because `npm ci` (and equivalents) wipe `node_modules`, point `TTSC_CACHE_DIR` at a directory **outside** `node_modules` and cache that single path — it covers both the plugin binaries and the Go object cache:
+
+```yaml
+env:
+  TTSC_CACHE_DIR: .ttsc-cache
+
+steps:
+  - uses: actions/cache@v4
+    with:
+      path: .ttsc-cache
+      key: ${{ runner.os }}-ttsc-${{ hashFiles('pnpm-lock.yaml', '**/go.mod', '**/go.sum') }}
+  - run: pnpm exec ttsc prepare # warm the cache before build/test
+```
+
+Run `npx ttsc cache paths --json` to discover the exact directories instead of hardcoding them: the `cacheableRoots` field lists the minimal set a CI cache must persist (it adds `TTSC_GO_CACHE_DIR`/`GOCACHE` when either points outside the ttsc cache root). This works the same for pnpm, yarn, bun, and npm workspaces.
 
 ## See also
 

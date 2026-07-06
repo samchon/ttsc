@@ -43,37 +43,40 @@ README, JSON, schema, and other data files inside the plugin source directory do
 
 ## Cache Locations
 
-Default:
+Default (project-local, the `find-cache-dir` convention):
 
 ```text
-Linux:   $XDG_CACHE_HOME/ttsc/plugins/<key>/plugin
-Linux:   ~/.cache/ttsc/plugins/<key>/plugin
-macOS:   ~/Library/Caches/ttsc/plugins/<key>/plugin
-Windows: %LOCALAPPDATA%/ttsc/plugins/<key>/plugin
+<workspaceRoot>/node_modules/.cache/ttsc/plugins/<key>/plugin   (plugin.exe on Windows)
+<workspaceRoot>/node_modules/.cache/ttsc/go-build               (GOCACHE while building)
 ```
+
+`<workspaceRoot>` is the nearest enclosing workspace root: the highest ancestor holding a `pnpm-workspace.yaml` or a `package.json` with a `workspaces` field, else the nearest ancestor containing a `node_modules`, else the project root. Every package in a monorepo therefore shares ONE cache and a plugin builds once per workspace, not once per package. `rm -rf node_modules` (or deleting the repo) reclaims it. ttsc keeps **no** machine-global cache — a user-wide cache silently grew to hundreds of GB across tsgo/plugin version bumps, so it was removed outright.
 
 Override:
 
 ```bash
 TTSC_CACHE_DIR=/tmp/ttsc-cache npx ttsc --emit
+TTSC_GO_CACHE_DIR=/tmp/ttsc-go-build npx ttsc --emit
 ```
 
-`--cache-dir` and `TTSC_CACHE_DIR` remain project/test isolation escapes for source-plugin binaries. Relative `--cache-dir` values resolve from the effective ttsc working directory (`--cwd` when set) and store plugin binaries below `<cache-dir>/plugins`. For `ttsx`, only explicit `--cache-dir` also anchors temporary runtime output below `<cache-dir>/project/<pid>`.
+`--cache-dir` and `TTSC_CACHE_DIR` set the cache root for source-plugin binaries. A relative `--cache-dir` resolves from the effective ttsc working directory (`--cwd` when set); a relative `TTSC_CACHE_DIR` resolves from the project root; both store plugin binaries below `<root>/plugins`. The Go object cache used while building source plugins defaults to `<root>/go-build`; `TTSC_GO_CACHE_DIR` overrides that path, and an existing user `GOCACHE` is honored (and never treated as ttsc-owned) when `TTSC_GO_CACHE_DIR` is unset. For `ttsx`, only an explicit `--cache-dir` also anchors temporary runtime output below `<cache-dir>/project/<pid>`.
 
-Clean. Removes the active cache location and legacy project-local caches (`node_modules/.ttsc`, `.ttsc`) so projects upgraded from older ttsc releases do not keep stale binaries:
+`ttsc cache paths --json` prints the active cache root, plugin binary cache root, Go build cache root, and `cacheableRoots`. Use that command in CI when the workflow wants to persist the right directories without hardcoding paths.
+
+Clean. Removes the ttsc-owned cache subdirectories (`plugins/`, `go-build/`, and an external `TTSC_GO_CACHE_DIR`) plus the legacy project-local caches (`node_modules/.ttsc`, `.ttsc`) — never the parent cache root (it may be shared with other tools) and never a user `GOCACHE`:
 
 ```bash
 npx ttsc clean
 npx ttsc clean --cache-dir /tmp/ttsc-cache
 ```
 
-The default cache is content-addressed and shared across projects on the same machine. It is not tied to a package manager layout: npm installs, pnpm virtual-store paths, and workspace packages share a binary whenever the source plugin, contributors, ttsc overlay, Go toolchain content, platform, and build environment produce the same cache key.
+The cache is content-addressed, so it is not tied to a package-manager layout: npm installs, pnpm virtual-store paths, and workspace packages share a binary whenever the source plugin, contributors, ttsc overlay, Go toolchain content, platform, and build environment produce the same cache key.
 
-`ttsc` updates a small last-used marker whenever a binary is reused. Once per day it opportunistically prunes default-cache entries unused for 30 days and trims the cache by least-recently-used order when the cache grows beyond the size budget. Explicit `--cache-dir` and `TTSC_CACHE_DIR` caches are not garbage-collected automatically because callers usually use them for CI or test isolation.
+`ttsc` updates a small last-used marker whenever a binary is reused. Once per day it opportunistically prunes default-cache entries unused for 30 days and trims the cache by least-recently-used order when it grows beyond the size budget. Explicit `--cache-dir` and `TTSC_CACHE_DIR` caches are not garbage-collected automatically because callers usually use them for CI or test isolation.
 
 ## Build environment
 
-The plugin builder reads Go's effective build environment for the cache key. It also injects the `TTSC_*_BINARY` trio into each plugin process so plugins can re-spawn ttsc helpers.
+The plugin builder reads Go's effective build environment for the cache key. It sets `GOWORK=auto`, infers `GOROOT` from the bundled Go binary when `GOROOT` is unset, and passes a stable `GOCACHE` to `go build` for source-plugin compilation. The `GOCACHE` path itself is not part of the binary cache key because it is a build object store, not a binary input. The builder also injects the `TTSC_*_BINARY` trio into each plugin process so plugins can re-spawn ttsc helpers.
 
 ### Cache-key inputs: `GO_BUILD_ENV_KEYS`
 

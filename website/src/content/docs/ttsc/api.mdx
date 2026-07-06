@@ -119,11 +119,13 @@ Removes the cache directories owned by this compiler's context. Returns the list
 compiler.clean();
 ```
 
-Cleanup target order:
+`clean()` resolves the cache root from this context — `cacheDir`/`TTSC_CACHE_DIR` when set, otherwise the default workspace-local `node_modules/.cache/ttsc` — and removes only the ttsc-owned pieces:
 
-1. If `cacheDir` was passed to the constructor → remove exactly that.
-2. Else if `TTSC_CACHE_DIR` is set (in `context.env` or `process.env`) → remove that override's plugin cache plus legacy project-local caches.
-3. Otherwise → remove the default global plugin cache plus legacy project-local caches.
+1. the compiled plugin binaries (`<cache-root>/plugins`);
+2. the ttsc-owned Go object cache (`<cache-root>/go-build`, plus an explicit `TTSC_GO_CACHE_DIR` when it points elsewhere);
+3. the legacy project-local caches (`node_modules/.ttsc`, `.ttsc`).
+
+The parent cache root itself is never removed (it may be shared with other tools), and a user-provided `GOCACHE` is treated as external and left untouched.
 
 ## Resident transform service (`TtscService`)
 
@@ -167,7 +169,7 @@ The service is resident within one process. It does not share a host across sepa
 | `projectRoot` | Override the project root used for plugin resolution and cache anchoring. Most callers leave this unset. |
 | `binary` | Pin a specific TypeScript-Go binary. For test rigs and embedded toolchains; normal callers omit it. |
 | `env` | Extra environment variables merged over `process.env` for child compiler processes. |
-| `cacheDir` | Root for compiled ttsc artifacts. Relative paths resolve against `cwd`. Defaults to `TTSC_CACHE_DIR` or the user cache. |
+| `cacheDir` | Root for compiled ttsc artifacts. Relative paths resolve against `cwd`. Defaults to `TTSC_CACHE_DIR`, else the workspace-local `node_modules/.cache/ttsc`. |
 | `plugins` | `undefined` = read project plugins. `false` = ignore project plugins for this instance. Array = explicit entries. |
 
 ## Diagnostics
@@ -221,7 +223,7 @@ const compiler = new TtscCompiler({ cwd });
 compiler.prepare();   // pre-build native plugins into cache
 ```
 
-Pair this with caching `TTSC_CACHE_DIR` between CI runs to skip the rebuild on subsequent invocations.
+Pair this with caching `TTSC_CACHE_DIR` between CI runs to skip the rebuild on subsequent invocations. That root contains both source-plugin binaries and, unless `TTSC_GO_CACHE_DIR` or `GOCACHE` is set, the Go object cache used while building them.
 
 ### Driving a Web Worker / Browser
 
