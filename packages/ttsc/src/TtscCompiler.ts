@@ -5,7 +5,7 @@ import { compileProjectInMemory } from "./compiler/internal/compileProjectInMemo
 import { resolveProjectConfig } from "./compiler/internal/project/resolveProjectConfig";
 import { resolveBinary } from "./compiler/internal/resolveBinary";
 import { transformProjectInMemory } from "./compiler/internal/transformProjectInMemory";
-import { defaultPluginCacheCleanTargets } from "./plugin/internal/buildSourcePlugin";
+import { resolveCleanTargets } from "./plugin/internal/buildSourcePlugin";
 import { loadProjectPlugins } from "./plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "./structures/ITtscCompilerDiagnostic";
@@ -82,42 +82,22 @@ export class TtscCompiler {
   /**
    * Remove compiled cache artifacts for this compiler instance.
    *
-   * When the constructor received `cacheDir`, this method removes exactly that
-   * directory. When `TTSC_CACHE_DIR` is active, it removes that override's
-   * plugin cache plus legacy project-local caches. Otherwise it removes the
-   * default global plugin cache plus legacy project-local caches.
-   *
-   * The cache target comes from the constructor context. Create another
-   * `TtscCompiler` instance to clean another project or another cache root.
+   * Removes the resolved cache root (which holds both the plugin binaries and,
+   * when ttsc-owned, the Go build cache), a ttsc-owned Go build cache that
+   * lives outside that root (`TTSC_GO_CACHE_DIR`), and the two legacy
+   * project-local caches. A user-provided `GOCACHE` is never removed. The cache
+   * location comes from this instance's `cacheDir` and environment
+   * (`TTSC_CACHE_DIR` / `TTSC_GO_CACHE_DIR`), defaulting to
+   * `<workspaceRoot>/node_modules/.cache/ttsc`.
    *
    * @returns Cache directories that were removed.
    */
   public clean(): string[] {
-    const cacheDir = this.resolveCacheDir();
-    if (cacheDir !== undefined) {
-      return removeExistingDirectories([cacheDir]);
-    }
-
     const projectRoot = this.resolveCleanProjectRoot();
-    const legacyTargets = [
-      path.join(projectRoot, "node_modules", ".ttsc"),
-      path.join(projectRoot, ".ttsc"),
-    ];
-    if (this.context.env?.TTSC_CACHE_DIR) {
-      return removeExistingDirectories([
-        path.resolve(projectRoot, this.context.env.TTSC_CACHE_DIR, "plugins"),
-        ...legacyTargets,
-      ]);
-    }
-    if (process.env.TTSC_CACHE_DIR) {
-      return removeExistingDirectories([
-        path.resolve(process.env.TTSC_CACHE_DIR, "plugins"),
-        ...legacyTargets,
-      ]);
-    }
-    return removeExistingDirectories([
-      ...defaultPluginCacheCleanTargets(projectRoot),
-    ]);
+    const env = this.context.env ?? process.env;
+    return removeExistingDirectories(
+      resolveCleanTargets(projectRoot, this.resolveCacheDir(), env),
+    );
   }
 
   /**

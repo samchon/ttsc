@@ -14,7 +14,11 @@ import {
   getString,
   parseFlags,
 } from "../../flags/parser";
-import { defaultPluginCacheCleanTargets } from "../../plugin/internal/buildSourcePlugin";
+import {
+  isPathWithin,
+  resolveCleanTargets,
+  resolveSourceBuildCachePaths,
+} from "../../plugin/internal/buildSourcePlugin";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
@@ -57,6 +61,8 @@ export function runTtsc(
         return runCompatibleBuild(rest, "fix");
       case "format":
         return runCompatibleBuild(rest, "format");
+      case "cache":
+        return runCache(rest);
       case "clean":
         return runClean(rest);
       case "prepare":
@@ -186,18 +192,10 @@ function runClean(argv: readonly string[]): number {
   const options = parseProjectArgs(argv);
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const projectRoot = resolveCleanProjectRoot(cwd, options.tsconfig);
-  const legacyTargets = [
-    path.join(projectRoot, "node_modules", ".ttsc"),
-    path.join(projectRoot, ".ttsc"),
-  ];
-  const targets = [
-    ...(options.cacheDir ? [path.resolve(cwd, options.cacheDir)] : []),
-    ...(process.env.TTSC_CACHE_DIR
-      ? [path.resolve(process.env.TTSC_CACHE_DIR, "plugins"), ...legacyTargets]
-      : options.cacheDir
-        ? legacyTargets
-        : defaultPluginCacheCleanTargets(projectRoot)),
-  ];
+  const cacheDirRoot = options.cacheDir
+    ? path.resolve(cwd, options.cacheDir)
+    : undefined;
+  const targets = resolveCleanTargets(projectRoot, cacheDirRoot);
   const removed: string[] = [];
   for (const target of targets) {
     if (!fs.existsSync(target)) continue;
@@ -214,6 +212,148 @@ function runClean(argv: readonly string[]): number {
     process.stdout.write(`ttsc: removed ${formatProjectPath(cwd, target)}\n`);
   }
   return 0;
+}
+
+function runCache(argv: readonly string[]): number {
+  const [command, ...rest] = argv as [string | undefined, ...string[]];
+  switch (command) {
+    case "paths":
+      return runCachePaths(rest);
+    case "-h":
+    case "--help":
+    case "help":
+    case undefined:
+      printCacheHelp();
+      return 0;
+    default:
+      process.stderr.write(
+        `ttsc: unknown cache command ${JSON.stringify(command)}\n`,
+      );
+      process.stderr.write(
+        `ttsc: run "ttsc cache --help" to see supported cache commands\n`,
+      );
+      return 2;
+  }
+}
+
+function runCachePaths(argv: readonly string[]): number {
+  const options = parseCachePathsArgs(argv);
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  const cacheDir = resolveCacheDir(cwd, options.cacheDir);
+  const projectRoot = resolveCleanProjectRoot(cwd, options.tsconfig);
+  const paths = resolveSourceBuildCachePaths(projectRoot, cacheDir);
+  // The minimal directory set a CI cache step must persist. The Go build cache
+  // is folded in only when it lives outside the ttsc cache root (an explicit
+  // GOCACHE / TTSC_GO_CACHE_DIR); by default it nests under `root`.
+  const cacheableRoots = [
+    paths.root,
+    ...(isPathWithin(paths.goBuildRoot, paths.root) ? [] : [paths.goBuildRoot]),
+  ];
+  if (options.json) {
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          cacheRoot: paths.root,
+          cacheableRoots,
+          cwd,
+          goBuildCacheRoot: paths.goBuildRoot,
+          goBuildCacheSource: paths.goBuildRootSource,
+          pluginCacheRoot: paths.pluginRoot,
+          projectRoot,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    return 0;
+  }
+  process.stdout.write(
+    [
+      "ttsc source-plugin cache paths:",
+      `  cache root       ${paths.root}`,
+      `  plugin binaries  ${paths.pluginRoot}`,
+      `  go build cache   ${paths.goBuildRoot} (${paths.goBuildRootSource})`,
+      "",
+      "Persist these between CI jobs to skip cold plugin rebuilds:",
+      ...cacheableRoots.map((root) => `  ${root}`),
+      "",
+    ].join("\n"),
+  );
+  return 0;
+}
+
+function parseCachePathsArgs(argv: readonly string[]): {
+  cacheDir?: string;
+  cwd?: string;
+  json: boolean;
+  tsconfig?: string;
+} {
+  const out: {
+    cacheDir?: string;
+    cwd?: string;
+    json: boolean;
+    tsconfig?: string;
+  } = { json: false };
+  const rest = [...argv];
+  while (rest.length !== 0) {
+    const token = rest.shift()!;
+    const [flag, inlineValue] = splitInlineFlag(token);
+    switch (flag) {
+      case "--json":
+        if (inlineValue !== undefined) {
+          throw new Error("ttsc: --json does not take a value");
+        }
+        out.json = true;
+        break;
+      case "--cache-dir":
+        out.cacheDir = readCachePathsValue(flag, inlineValue, rest);
+        break;
+      case "--cwd":
+        out.cwd = readCachePathsValue(flag, inlineValue, rest);
+        break;
+      case "-p":
+      case "--project":
+      case "--tsconfig":
+        out.tsconfig = readCachePathsValue(flag, inlineValue, rest);
+        break;
+      default:
+        throw new Error(
+          `ttsc: cache paths does not support ${JSON.stringify(token)}`,
+        );
+    }
+  }
+  return out;
+}
+
+function splitInlineFlag(token: string): [string, string | undefined] {
+  if (!token.startsWith("-")) {
+    return [token, undefined];
+  }
+  const equals = token.indexOf("=");
+  return equals === -1
+    ? [token, undefined]
+    : [token.slice(0, equals), token.slice(equals + 1)];
+}
+
+function readCachePathsValue(
+  flag: string,
+  inlineValue: string | undefined,
+  rest: string[],
+): string {
+  if (inlineValue !== undefined) {
+    return inlineValue;
+  }
+  const value = rest.shift();
+  if (value === undefined) {
+    throw new Error(`ttsc: ${flag} requires a value`);
+  }
+  if (value.startsWith("-")) {
+    rest.unshift(value);
+    throw new Error(
+      `ttsc: ${flag} requires a value (next token ${JSON.stringify(value)} starts with "-")`,
+    );
+  }
+  return value;
 }
 
 function resolveCleanProjectRoot(cwd: string, tsconfig?: string): string {
@@ -376,6 +516,7 @@ function printHelp(): void {
       "  ttsc --noEmit",
       "  ttsc fix",
       "  ttsc format",
+      "  ttsc cache paths --json [options]",
       "  ttsc prepare [options]",
       "  ttsc clean [options]",
       "  ttsc version",
@@ -410,8 +551,28 @@ function printHelp(): void {
       "  ttsc check [options]       Same as `ttsc --noEmit [options]`.",
       "  ttsc fix [options]         Apply check-plugin lint + format edits, then run `ttsc check`.",
       "  ttsc format [options]      Apply check-plugin format-class edits only (write-only, no type check).",
+      "  ttsc cache paths --json    Print source-plugin and Go build cache paths for CI.",
       "  ttsc prepare [options]     Build configured source-plugin binaries into cache.",
       "  ttsc clean [options]       Delete source-plugin cache directories.",
+    ].join("\n"),
+  );
+  process.stdout.write("\n");
+}
+
+function printCacheHelp(): void {
+  process.stdout.write(
+    [
+      "ttsc cache commands.",
+      "",
+      "Usage:",
+      "  ttsc cache paths --json [options]",
+      "",
+      "Options:",
+      "  --json                Print paths as JSON",
+      "  -p, --project <file>  Resolve project settings from this tsconfig",
+      "  --tsconfig <file>     Resolve project settings from this tsconfig",
+      "  --cwd <dir>           Resolve project-relative paths from this directory",
+      "  --cache-dir <dir>     Use this cache root for source-plugin builds",
     ].join("\n"),
   );
   process.stdout.write("\n");

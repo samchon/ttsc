@@ -1,4 +1,8 @@
-import { spawnSync } from "node:child_process";
+import {
+  type SpawnSyncOptionsWithStringEncoding,
+  type SpawnSyncReturns,
+  spawnSync,
+} from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -100,15 +104,36 @@ const CONTRIB_DIRNAME = "contrib";
 // runtimeHooks.ts.
 const PLUGIN_BUILD_LOCK_STEAL_MS = 600_000;
 const PLUGIN_BUILD_LOCK_POLL_MS = 50;
-const GLOBAL_CACHE_DIRNAME = "ttsc";
+// The default cache lives INSIDE the workspace, at
+// `<workspaceRoot>/node_modules/.cache/ttsc`, so `rm -rf node_modules` (or
+// deleting the repo) reclaims every compiled plugin binary and Go object file.
+// This is the `find-cache-dir` convention (Babel, webpack, ESLint, Nuxt, …): a
+// disposable build cache under `node_modules/.cache/<tool>`. ttsc keeps NO
+// global (`~/.cache`) cache — a machine-wide cache silently grew to hundreds of
+// GB across tsgo/plugin version bumps, so it was removed outright. See
+// resolveSourceBuildCacheRoot for the (override → workspace-local) priority.
+const NODE_MODULES_DIRNAME = "node_modules";
+const LOCAL_CACHE_PARENT_DIRNAME = ".cache";
+const TTSC_CACHE_DIRNAME = "ttsc";
 const PLUGIN_CACHE_DIRNAME = "plugins";
+const GO_BUILD_CACHE_DIRNAME = "go-build";
+// Directories whose presence marks a monorepo/workspace root, so every package
+// in the workspace shares ONE cache and a plugin builds once, not once per
+// package. `package.json` with a `workspaces` field (yarn/npm/bun) is checked
+// separately in isWorkspaceRootDir.
+const WORKSPACE_ROOT_MARKER_FILES: readonly string[] = ["pnpm-workspace.yaml"];
 const CACHE_LAST_USED_FILE = ".last-used";
 const CACHE_GC_MARKER_FILE = ".gc-last-run";
-const GLOBAL_CACHE_GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const GLOBAL_CACHE_ENTRY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-const GLOBAL_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
-const GLOBAL_CACHE_TARGET_BYTES = Math.floor(GLOBAL_CACHE_MAX_BYTES * 0.8);
-const GLOBAL_CACHE_PROTECTED_AGE_MS = 60 * 60 * 1000;
+// The plugin binary cache is content-keyed, so a project that bumps tsgo/typia
+// many times leaves one stale entry per superseded key. An opportunistic GC
+// (once/day) evicts entries unused for 30 days and, past a 2 GB ceiling, the
+// least-recently-used down to 80%. It is scoped to the resolved cache root only
+// — ttsc never scans a shared or global location.
+const PLUGIN_CACHE_GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const PLUGIN_CACHE_ENTRY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const PLUGIN_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+const PLUGIN_CACHE_TARGET_BYTES = Math.floor(PLUGIN_CACHE_MAX_BYTES * 0.8);
+const PLUGIN_CACHE_PROTECTED_AGE_MS = 60 * 60 * 1000;
 
 /** One contributor's resolved Go source plus its target sub-package name. */
 export interface ITtscBuildContributor {
@@ -116,6 +141,18 @@ export interface ITtscBuildContributor {
   name: string;
   /** Absolute path to the contributor's source directory. */
   source: string;
+}
+
+/** Source-plugin cache locations resolved for one ttsc invocation. */
+export interface ITtscSourceBuildCachePaths {
+  /** Root directory containing all ttsc-owned source build caches. */
+  root: string;
+  /** Directory containing content-addressed compiled plugin binaries. */
+  pluginRoot: string;
+  /** Directory passed to Go as `GOCACHE` for source-plugin builds. */
+  goBuildRoot: string;
+  /** How `goBuildRoot` was selected. */
+  goBuildRootSource: "ttsc-cache" | "TTSC_GO_CACHE_DIR" | "GOCACHE";
 }
 
 /** Build one Go source plugin into a cached executable. */
@@ -145,8 +182,9 @@ export function buildSourcePlugin(opts: {
     ttscVersion: opts.ttscVersion,
     tsgoVersion: opts.tsgoVersion,
   });
-  const root = resolvePluginCacheRoot(opts.baseDir, opts.cacheDir);
-  const cacheDir = path.join(root, key);
+  const paths = resolveSourceBuildCachePaths(opts.baseDir, opts.cacheDir);
+  maybePrunePluginCache(paths, opts.cacheDir);
+  const cacheDir = path.join(paths.pluginRoot, key);
   const binaryName = process.platform === "win32" ? "plugin.exe" : "plugin";
   const binaryPath = path.join(cacheDir, binaryName);
   if (fs.existsSync(binaryPath)) {
@@ -164,6 +202,7 @@ export function buildSourcePlugin(opts: {
       goBinary,
       key,
       label: opts.label ?? "source plugin",
+      goBuildCacheRoot: paths.goBuildRoot,
       overlayDirs,
       pluginName: opts.pluginName,
       quiet: opts.quiet === true,
@@ -180,6 +219,7 @@ function compileSourcePlugin(opts: {
   dir: string;
   entry: string;
   goBinary: string;
+  goBuildCacheRoot: string;
   key: string;
   label: string;
   overlayDirs: readonly string[];
@@ -223,6 +263,7 @@ function compileSourcePlugin(opts: {
       scratchBinaryName,
       opts.pluginName,
       opts.goBinary,
+      opts.goBuildCacheRoot,
     );
     const builtBinary = path.join(scratchDir, scratchBinaryName);
     publishBuiltBinary(builtBinary, opts.binaryPath);
@@ -678,7 +719,7 @@ function readGoModInfo(
     return emptyGoModInfo();
   }
 
-  const result = spawnSync(goBinary, ["mod", "edit", "-json"], {
+  const result = spawnGoTool(goBinary, ["mod", "edit", "-json"], {
     cwd: dir,
     encoding: "utf8",
     env: goBuildEnv(goBinary),
@@ -765,12 +806,13 @@ function runGoBuild(
   binaryName: string,
   pluginName: string,
   goBinary: string,
+  goBuildCacheRoot: string,
 ): void {
   ensureExecutableGoToolchain(goBinary);
-  const result = spawnSync(goBinary, ["build", "-o", binaryName, entry], {
+  const result = spawnGoTool(goBinary, ["build", "-o", binaryName, entry], {
     cwd,
     encoding: "utf8",
-    env: goBuildEnv(goBinary),
+    env: goBuildEnv(goBinary, goBuildCacheRoot),
     maxBuffer: 1024 * 1024 * 64,
     windowsHide: true,
   });
@@ -797,9 +839,32 @@ function goToolchainNotFoundMessage(pluginName: string): string {
   );
 }
 
-function goBuildEnv(goBinary: string): NodeJS.ProcessEnv {
+function spawnGoTool(
+  goBinary: string,
+  args: readonly string[],
+  options: SpawnSyncOptionsWithStringEncoding,
+): SpawnSyncReturns<string> {
+  return spawnSync(goBinary, [...args], {
+    ...options,
+    shell: shouldSpawnGoToolThroughShell(goBinary),
+  });
+}
+
+function shouldSpawnGoToolThroughShell(goBinary: string): boolean {
+  return process.platform === "win32" && /\.(?:bat|cmd)$/i.test(goBinary);
+}
+
+function goBuildEnv(
+  goBinary: string,
+  goBuildCacheRoot?: string,
+): NodeJS.ProcessEnv {
   const env = { ...process.env };
   env.GOWORK = "auto";
+  if (goBuildCacheRoot) {
+    env.GOCACHE = goBuildCacheRoot;
+  } else if (process.env.TTSC_GO_CACHE_DIR) {
+    env.GOCACHE = path.resolve(process.env.TTSC_GO_CACHE_DIR);
+  }
   const goRoot = inferGoRoot(goBinary);
   if (goRoot && !env.GOROOT) {
     env.GOROOT = goRoot;
@@ -893,87 +958,215 @@ function walkForGoMod(dir: string, out: string[]): void {
 /**
  * Resolve the directory where compiled plugin binaries are cached.
  *
- * Priority order:
- *
- * 1. `cacheDir` option (resolved relative to `projectRoot`).
- * 2. `TTSC_CACHE_DIR` environment variable.
- * 3. Platform-specific global user cache (XDG / AppData / Library/Caches).
- *
- * When falling back to the global cache, a GC pass is triggered
- * opportunistically to evict old or oversized entries before the cache is
- * used.
+ * Delegates to {@link resolveSourceBuildCachePaths}; kept as a thin accessor for
+ * callers (and tests) that only need the plugin-binary root. Triggers the
+ * opportunistic project-cache GC as a side effect for the default location.
  */
 export function resolvePluginCacheRoot(
   projectRoot: string,
   cacheDir?: string,
 ): string {
-  if (cacheDir) {
-    return path.resolve(projectRoot, cacheDir, PLUGIN_CACHE_DIRNAME);
-  }
-  if (process.env.TTSC_CACHE_DIR) {
-    return path.resolve(process.env.TTSC_CACHE_DIR, PLUGIN_CACHE_DIRNAME);
-  }
-  const root = resolveGlobalPluginCacheRoot();
-  maybePruneGlobalPluginCache(root);
-  return root;
+  const paths = resolveSourceBuildCachePaths(projectRoot, cacheDir);
+  maybePrunePluginCache(paths, cacheDir);
+  return paths.pluginRoot;
 }
 
 /**
- * Return the absolute path to the global plugin binary cache root.
+ * Resolve all source-plugin build cache directories for one invocation.
  *
- * The path follows platform conventions (XDG on Linux, AppData on Windows,
- * Library/Caches on macOS) and does not depend on project-local config. Used by
- * `ttsc cache clean` to enumerate cache locations.
+ * `pluginRoot` stores compiled plugin binaries; `goBuildRoot` is the Go object
+ * cache passed as `GOCACHE` while ttsc builds those binaries. Both live under a
+ * single `root`, so persisting one directory covers the whole source-build
+ * cache without depending on ttsc internals.
  */
-export function resolveGlobalPluginCacheRoot(): string {
+export function resolveSourceBuildCachePaths(
+  projectRoot: string,
+  cacheDir?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): ITtscSourceBuildCachePaths {
+  const root = resolveSourceBuildCacheRoot(projectRoot, cacheDir, env);
+  const goBuild = resolveGoBuildCacheRoot(root, env);
+  return {
+    root,
+    pluginRoot: path.join(root, PLUGIN_CACHE_DIRNAME),
+    goBuildRoot: goBuild.root,
+    goBuildRootSource: goBuild.source,
+  };
+}
+
+/**
+ * Resolve the cache root for one invocation.
+ *
+ * Priority:
+ *
+ * 1. Explicit `cacheDir` option (resolved relative to `projectRoot`);
+ * 2. `TTSC_CACHE_DIR` environment variable (resolved absolute);
+ * 3. `<workspaceRoot>/node_modules/.cache/ttsc` — project-local by default.
+ *
+ * There is deliberately NO global (`~/.cache`) fallback: the cache is scoped to
+ * the workspace so it can never accumulate machine-wide, and `rm -rf
+ * node_modules` reclaims it.
+ */
+function resolveSourceBuildCacheRoot(
+  projectRoot: string,
+  cacheDir: string | undefined,
+  env: NodeJS.ProcessEnv,
+): string {
+  if (cacheDir) {
+    return path.resolve(projectRoot, cacheDir);
+  }
+  if (env.TTSC_CACHE_DIR) {
+    // Anchor a relative TTSC_CACHE_DIR to the project root (not the process
+    // cwd) so a programmatic host whose cwd differs from the project still
+    // resolves — and later cleans — the same cache. Absolute values pass
+    // through path.resolve unchanged.
+    return path.resolve(projectRoot, env.TTSC_CACHE_DIR);
+  }
   return path.join(
-    resolveUserCacheRoot(),
-    GLOBAL_CACHE_DIRNAME,
-    PLUGIN_CACHE_DIRNAME,
+    resolveWorkspaceRoot(projectRoot),
+    NODE_MODULES_DIRNAME,
+    LOCAL_CACHE_PARENT_DIRNAME,
+    TTSC_CACHE_DIRNAME,
   );
 }
 
 /**
- * Return all directories that `ttsc cache clean` should wipe for a project.
+ * Resolve the monorepo/workspace root for `projectRoot` so every package shares
+ * one cache and a plugin builds once per workspace, not once per package.
  *
- * Covers three locations where plugin binaries may accumulate: the global user
- * cache, the project-local `node_modules/.ttsc` cache (legacy), and the
- * project-local `.ttsc` cache.
+ * Walks up from `projectRoot` and returns, in order of preference: the HIGHEST
+ * ancestor that is a workspace root (holds `pnpm-workspace.yaml`, or a
+ * `package.json` with a `workspaces` field); else the nearest ancestor that
+ * already contains a `node_modules` directory; else `projectRoot` itself.
  */
-export function defaultPluginCacheCleanTargets(projectRoot: string): string[] {
-  return [
-    resolveGlobalPluginCacheRoot(),
-    path.join(projectRoot, "node_modules", ".ttsc"),
-    path.join(projectRoot, ".ttsc"),
-  ];
+function resolveWorkspaceRoot(projectRoot: string): string {
+  let dir = path.resolve(projectRoot);
+  let highestWorkspaceRoot: string | null = null;
+  let nearestNodeModulesOwner: string | null = null;
+  for (;;) {
+    if (
+      nearestNodeModulesOwner === null &&
+      fs.existsSync(path.join(dir, NODE_MODULES_DIRNAME))
+    ) {
+      nearestNodeModulesOwner = dir;
+    }
+    if (isWorkspaceRootDir(dir)) {
+      highestWorkspaceRoot = dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return (
+    highestWorkspaceRoot ?? nearestNodeModulesOwner ?? path.resolve(projectRoot)
+  );
 }
 
-function resolveUserCacheRoot(): string {
-  const xdg = process.env.XDG_CACHE_HOME;
-  if (xdg && path.isAbsolute(xdg)) {
-    return xdg;
-  }
-  if (process.platform === "win32") {
-    const local = process.env.LOCALAPPDATA;
-    if (local && path.isAbsolute(local)) {
-      return local;
-    }
-    const home = os.homedir();
-    if (home) {
-      return path.join(home, "AppData", "Local");
+function isWorkspaceRootDir(dir: string): boolean {
+  for (const marker of WORKSPACE_ROOT_MARKER_FILES) {
+    if (fs.existsSync(path.join(dir, marker))) {
+      return true;
     }
   }
-  if (process.platform === "darwin") {
-    const home = os.homedir();
-    if (home) {
-      return path.join(home, "Library", "Caches");
-    }
+  return packageJsonDeclaresWorkspaces(path.join(dir, "package.json"));
+}
+
+function packageJsonDeclaresWorkspaces(packageJsonPath: string): boolean {
+  let text: string;
+  try {
+    text = fs.readFileSync(packageJsonPath, "utf8");
+  } catch {
+    return false;
   }
-  const home = os.homedir();
-  if (home) {
-    return path.join(home, ".cache");
+  try {
+    const json = JSON.parse(text) as { workspaces?: unknown };
+    return json.workspaces !== undefined;
+  } catch {
+    return false;
   }
-  return path.join(os.tmpdir(), "ttsc-cache");
+}
+
+function resolveGoBuildCacheRoot(
+  root: string,
+  env: NodeJS.ProcessEnv,
+): {
+  root: string;
+  source: ITtscSourceBuildCachePaths["goBuildRootSource"];
+} {
+  if (env.TTSC_GO_CACHE_DIR) {
+    return {
+      root: path.resolve(env.TTSC_GO_CACHE_DIR),
+      source: "TTSC_GO_CACHE_DIR",
+    };
+  }
+  if (env.GOCACHE && env.GOCACHE.length > 0) {
+    return {
+      root: env.GOCACHE,
+      source: "GOCACHE",
+    };
+  }
+  return {
+    root: path.join(root, GO_BUILD_CACHE_DIRNAME),
+    source: "ttsc-cache",
+  };
+}
+
+function maybePrunePluginCache(
+  paths: ITtscSourceBuildCachePaths,
+  cacheDir?: string,
+): void {
+  // GC only the default (workspace-local) location. When the user pins an
+  // explicit `cacheDir`/`TTSC_CACHE_DIR`, they own its lifetime, so ttsc must
+  // not delete entries out from under them.
+  if (!cacheDir && !process.env.TTSC_CACHE_DIR) {
+    prunePluginCacheRoot(paths.pluginRoot);
+  }
+}
+
+/**
+ * Return every directory `ttsc clean` should remove for `projectRoot`.
+ *
+ * Covers the resolved cache root (which holds `plugins/` and, when ttsc-owned,
+ * `go-build/`), a ttsc-owned Go build cache that lives OUTSIDE that root
+ * (`TTSC_GO_CACHE_DIR`), and the two legacy project-local caches. A
+ * user-provided `GOCACHE` is never removed. Pure over `env`, so the CLI passes
+ * `process.env` and a programmatic caller can pass an injected environment.
+ */
+export function resolveCleanTargets(
+  projectRoot: string,
+  cacheDir?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  const paths = resolveSourceBuildCachePaths(projectRoot, cacheDir, env);
+  // Remove ttsc-OWNED subdirectories, never the parent cache root: the root can
+  // be a directory the user shares with other tools (e.g. TTSC_CACHE_DIR set to
+  // `.cache`), and a user-provided GOCACHE is never ours to delete.
+  const targets = [
+    paths.pluginRoot,
+    // ttsc's default Go build cache always nests here; remove it even when a
+    // TTSC_GO_CACHE_DIR override is active, since it may survive from an earlier
+    // run without that override.
+    path.join(paths.root, GO_BUILD_CACHE_DIRNAME),
+  ];
+  // An explicit TTSC_GO_CACHE_DIR is ttsc-owned but lives outside the root; a
+  // user-provided GOCACHE (source "GOCACHE") is never removed.
+  if (paths.goBuildRootSource === "TTSC_GO_CACHE_DIR") {
+    targets.push(paths.goBuildRoot);
+  }
+  targets.push(path.join(projectRoot, NODE_MODULES_DIRNAME, ".ttsc"));
+  targets.push(path.join(projectRoot, ".ttsc"));
+  return targets;
+}
+
+/** Report whether `child` equals `parent` or is nested beneath it. */
+export function isPathWithin(child: string, parent: string): boolean {
+  const rel = path.relative(parent, child);
+  return (
+    rel === "" ||
+    (rel !== ".." && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel))
+  );
 }
 
 function resolveGoCompiler(): string {
@@ -1186,7 +1379,7 @@ function computeGoCompilerIdentity(goBinary: string, resolved: string): string {
   if (!fs.existsSync(resolved)) {
     return "missing";
   }
-  const version = spawnSync(goBinary, ["version"], {
+  const version = spawnGoTool(goBinary, ["version"], {
     encoding: "utf8",
     windowsHide: true,
   });
@@ -1259,13 +1452,17 @@ function resolveGoBuildEnvironment(
 ): Map<string, string> {
   const values = new Map<string, string>();
   if (goBinary !== undefined) {
-    const result = spawnSync(goBinary, ["env", "-json", ...GO_BUILD_ENV_KEYS], {
-      cwd,
-      encoding: "utf8",
-      env: goBuildEnv(goBinary),
-      maxBuffer: 1024 * 1024,
-      windowsHide: true,
-    });
+    const result = spawnGoTool(
+      goBinary,
+      ["env", "-json", ...GO_BUILD_ENV_KEYS],
+      {
+        cwd,
+        encoding: "utf8",
+        env: goBuildEnv(goBinary),
+        maxBuffer: 1024 * 1024,
+        windowsHide: true,
+      },
+    );
     if (result.error === undefined && result.status === 0) {
       try {
         const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
@@ -1430,41 +1627,41 @@ function touchCacheEntry(cacheDir: string): void {
   }
 }
 
-function maybePruneGlobalPluginCache(root: string): void {
+function prunePluginCacheRoot(root: string): void {
   try {
     fs.mkdirSync(root, { recursive: true });
     const marker = path.join(root, CACHE_GC_MARKER_FILE);
     const now = Date.now();
     const lastRun = readTimestamp(marker);
-    if (lastRun !== null && now - lastRun < GLOBAL_CACHE_GC_INTERVAL_MS) {
+    if (lastRun !== null && now - lastRun < PLUGIN_CACHE_GC_INTERVAL_MS) {
       return;
     }
     fs.writeFileSync(marker, `${now}\n`);
-    pruneGlobalPluginCache(root, now);
+    prunePluginCacheEntries(root, now);
   } catch {
-    // Global cache GC is opportunistic; builds still proceed when it fails.
+    // Plugin-cache GC is opportunistic; builds still proceed when it fails.
   }
 }
 
-function pruneGlobalPluginCache(root: string, now: number): void {
-  const entries = collectGlobalCacheEntries(root, now);
+function prunePluginCacheEntries(root: string, now: number): void {
+  const entries = collectPluginCacheEntries(root, now);
   for (const entry of entries) {
-    if (now - entry.lastUsedAt <= GLOBAL_CACHE_ENTRY_MAX_AGE_MS) {
+    if (now - entry.lastUsedAt <= PLUGIN_CACHE_ENTRY_MAX_AGE_MS) {
       continue;
     }
     removeCacheEntry(entry);
   }
 
-  const remaining = collectGlobalCacheEntries(root, now);
+  const remaining = collectPluginCacheEntries(root, now);
   let total = remaining.reduce((sum, entry) => sum + entry.size, 0);
-  if (total <= GLOBAL_CACHE_MAX_BYTES) {
+  if (total <= PLUGIN_CACHE_MAX_BYTES) {
     return;
   }
   for (const entry of remaining.sort((a, b) => a.lastUsedAt - b.lastUsedAt)) {
-    if (total <= GLOBAL_CACHE_TARGET_BYTES) {
+    if (total <= PLUGIN_CACHE_TARGET_BYTES) {
       return;
     }
-    if (now - entry.lastUsedAt <= GLOBAL_CACHE_PROTECTED_AGE_MS) {
+    if (now - entry.lastUsedAt <= PLUGIN_CACHE_PROTECTED_AGE_MS) {
       continue;
     }
     removeCacheEntry(entry);
@@ -1472,17 +1669,17 @@ function pruneGlobalPluginCache(root: string, now: number): void {
   }
 }
 
-interface GlobalCacheEntry {
+interface PluginCacheEntry {
   dir: string;
   lastUsedAt: number;
   size: number;
 }
 
-function collectGlobalCacheEntries(
+function collectPluginCacheEntries(
   root: string,
   now: number,
-): GlobalCacheEntry[] {
-  const entries: GlobalCacheEntry[] = [];
+): PluginCacheEntry[] {
+  const entries: PluginCacheEntry[] = [];
   let dirents: fs.Dirent[];
   try {
     dirents = fs.readdirSync(root, { withFileTypes: true });
@@ -1557,7 +1754,7 @@ function directorySize(dir: string): number {
   return total;
 }
 
-function removeCacheEntry(entry: GlobalCacheEntry): void {
+function removeCacheEntry(entry: PluginCacheEntry): void {
   try {
     fs.rmSync(entry.dir, { recursive: true, force: true });
   } catch {
