@@ -865,10 +865,12 @@ function goBuildEnv(
 ): NodeJS.ProcessEnv {
   const env = { ...process.env };
   env.GOWORK = "auto";
+  // Only the actual `go build` needs ttsc's GOCACHE; read-only metadata spawns
+  // (`go mod edit`, `go env`, `go version`) call goBuildEnv with no cache root
+  // and inherit the ambient GOCACHE, which they never write to anyway. GOCACHE
+  // is not part of the plugin cache key, so this cannot affect it.
   if (goBuildCacheRoot) {
     env.GOCACHE = goBuildCacheRoot;
-  } else if (process.env.TTSC_GO_CACHE_DIR) {
-    env.GOCACHE = path.resolve(process.env.TTSC_GO_CACHE_DIR);
   }
   const goRoot = inferGoRoot(goBinary);
   if (goRoot && !env.GOROOT) {
