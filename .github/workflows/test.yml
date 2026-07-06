@@ -50,73 +50,80 @@ jobs:
           - { name: paths, run: "pnpm --filter @ttsc/test-paths start" }
           - { name: strip, run: "pnpm --filter @ttsc/test-strip start" }
           # test-lint and test-ttsc build real Go plugin binaries; those
-          # scenarios dominate wall time, so both suites fan out across parallel
-          # shards (balanced by the weights/spanning hints in each src/index.ts)
-          # instead of grinding cold builds serially on one lane.
+          # go-binary scenarios dominate wall time. Split each suite into a
+          # single quick "fast" lane (no plugin builds) and several "native"
+          # lanes that fan the builders across parallel shards. Classification
+          # (fast vs native) and shard balancing come from the nativeHelpers /
+          # weights / spanning hints in each src/index.ts.
           - {
-              name: "lint 1/5",
+              name: "lint fast",
               run: "pnpm --filter @ttsc/test-lint start",
-              shard: "1/5",
+              group: fast,
             }
           - {
-              name: "lint 2/5",
+              name: "lint native 1/4",
               run: "pnpm --filter @ttsc/test-lint start",
-              shard: "2/5",
+              group: native,
+              shard: "1/4",
             }
           - {
-              name: "lint 3/5",
+              name: "lint native 2/4",
               run: "pnpm --filter @ttsc/test-lint start",
-              shard: "3/5",
+              group: native,
+              shard: "2/4",
             }
           - {
-              name: "lint 4/5",
+              name: "lint native 3/4",
               run: "pnpm --filter @ttsc/test-lint start",
-              shard: "4/5",
+              group: native,
+              shard: "3/4",
             }
           - {
-              name: "lint 5/5",
+              name: "lint native 4/4",
               run: "pnpm --filter @ttsc/test-lint start",
-              shard: "5/5",
+              group: native,
+              shard: "4/4",
             }
           - {
-              name: "ttsc 1/8",
+              name: "ttsc fast",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "1/8",
+              group: fast,
             }
           - {
-              name: "ttsc 2/8",
+              name: "ttsc native 1/6",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "2/8",
+              group: native,
+              shard: "1/6",
             }
           - {
-              name: "ttsc 3/8",
+              name: "ttsc native 2/6",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "3/8",
+              group: native,
+              shard: "2/6",
             }
           - {
-              name: "ttsc 4/8",
+              name: "ttsc native 3/6",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "4/8",
+              group: native,
+              shard: "3/6",
             }
           - {
-              name: "ttsc 5/8",
+              name: "ttsc native 4/6",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "5/8",
+              group: native,
+              shard: "4/6",
             }
           - {
-              name: "ttsc 6/8",
+              name: "ttsc native 5/6",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "6/8",
+              group: native,
+              shard: "5/6",
             }
           - {
-              name: "ttsc 7/8",
+              name: "ttsc native 6/6",
               run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "7/8",
-            }
-          - {
-              name: "ttsc 8/8",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "8/8",
+              group: native,
+              shard: "6/6",
             }
           - { name: unplugin, run: "pnpm --filter @ttsc/test-unplugin start" }
           - { name: metro, run: "pnpm --filter @ttsc/test-metro start" }
@@ -157,5 +164,8 @@ jobs:
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.run }}
         env:
-          # Empty for unsharded lanes → the runner executes the whole suite.
+          # Both empty for ordinary lanes → the runner executes the whole suite.
+          # `group` picks the fast/native lane; `shard` fans a group's tests
+          # across parallel jobs.
+          TTSC_TEST_GROUP: ${{ matrix.group }}
           TTSC_TEST_SHARD: ${{ matrix.shard }}

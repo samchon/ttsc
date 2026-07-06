@@ -1,4 +1,6 @@
 import { DynamicExecutor } from "@nestia/e2e";
+import fs from "node:fs";
+import path from "node:path";
 
 /**
  * Shared feature-test runner used by the package-shaped test projects.
@@ -27,6 +29,18 @@ export namespace TestExecutor {
      * shard; such a test must read the env and run only its slice.
      */
     spanning?: string[];
+    /**
+     * `internal/` helper basenames whose import marks a test file as **native**
+     * — i.e. it builds a real Go plugin binary (or runs `go test`) and so
+     * dominates wall time. Combined with `weights` (any weighted test is also
+     * native, covering the few heavy tests that reach a build through only a
+     * general helper), this drives the `TTSC_TEST_GROUP=fast|native` split so
+     * CI isolates the go-binary builders on their own parallel lanes and keeps
+     * the cheap tests on one fast lane. Classification reads each test file's
+     * source once, keyed by the one-test-per-file / matching-file-name
+     * convention.
+     */
+    nativeHelpers?: string[];
   }
 
   /** One shard's position within the parallel matrix (0-based index). */
@@ -47,6 +61,8 @@ export namespace TestExecutor {
   export const main = async (props: IProps): Promise<void> => {
     const include = getArguments("include");
     const exclude = getArguments("exclude");
+    const group = resolveGroup();
+    const groupFilter = buildGroupFilter(props, group);
     const shard = resolveShard();
     const shardFilter = buildShardFilter(props, shard);
     const started = Date.now();
@@ -75,15 +91,18 @@ export namespace TestExecutor {
       filter: (name) =>
         (include.length ? include.some((str) => name.includes(str)) : true) &&
         (exclude.length ? exclude.every((str) => !name.includes(str)) : true) &&
+        groupFilter(name) &&
         shardFilter(name),
     });
 
     if (report.executions.length === 0) {
       const reason = include.length
         ? `No tests matched --include=${include.join(",")}`
-        : shard
-          ? `No tests fell into shard ${shard.index + 1}/${shard.total} under ${props.location}`
-          : `No tests were discovered under ${props.location}`;
+        : group
+          ? `No ${group} tests found under ${props.location}`
+          : shard
+            ? `No tests fell into shard ${shard.index + 1}/${shard.total} under ${props.location}`
+            : `No tests were discovered under ${props.location}`;
       console.error(reason);
       process.exit(1);
     }
@@ -116,6 +135,77 @@ export namespace TestExecutor {
       .flatMap((arg) => arg.slice(prefix.length).split(","))
       .map((arg) => arg.trim())
       .filter(Boolean);
+  }
+
+  /** Resolve the `fast` / `native` lane, from `--group=` argv or the env. */
+  function resolveGroup(): "fast" | "native" | null {
+    const raw =
+      getArguments("group").at(-1) ?? process.env.TTSC_TEST_GROUP ?? "";
+    const value = raw.trim();
+    if (value === "") return null;
+    if (value !== "fast" && value !== "native")
+      throw new Error(`Invalid --group "${raw}"; expected "fast" or "native".`);
+    return value;
+  }
+
+  /**
+   * Restrict a run to the fast or native lane. A test is **native** when its
+   * file imports one of `nativeHelpers` (so it builds a real Go plugin binary)
+   * or carries a `weights` entry (the few heavy tests that reach a build
+   * through a general helper). Fast = the complement. Returns a pass-through
+   * when no group is requested.
+   */
+  function buildGroupFilter(
+    props: IProps,
+    group: "fast" | "native" | null,
+  ): (name: string) => boolean {
+    if (group === null) return () => true;
+    const native = classifyNativeTests(props);
+    return (name) =>
+      group === "native" ? native.has(name) : !native.has(name);
+  }
+
+  /**
+   * Collect the names of native tests under `props.location` — those that carry
+   * a `weights` entry, match a `spanning` substring (a heavy corpus test is
+   * native by definition), or whose file imports a native helper. Relies on the
+   * one-`test_`-per-file / matching-file-name convention: the exported test
+   * name equals the file's base name.
+   */
+  function classifyNativeTests(props: IProps): Set<string> {
+    const helpers = props.nativeHelpers ?? [];
+    const spanning = props.spanning ?? [];
+    const native = new Set<string>(Object.keys(props.weights ?? {}));
+    for (const file of walkTestFiles(props.location)) {
+      const name = path.basename(file, ".ts");
+      if (native.has(name)) continue;
+      if (spanning.some((needle) => name.includes(needle))) {
+        native.add(name);
+        continue;
+      }
+      const source = fs.readFileSync(file, "utf8");
+      if (
+        helpers.some(
+          (helper) =>
+            source.includes(`internal/${helper}"`) ||
+            source.includes(`internal/${helper}'`),
+        )
+      )
+        native.add(name);
+    }
+    return native;
+  }
+
+  /** Recursively list `test_*.ts` files under `dir`, sorted for determinism. */
+  function walkTestFiles(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) out.push(...walkTestFiles(full));
+      else if (entry.isFile() && /^test_.*\.ts$/.test(entry.name))
+        out.push(full);
+    }
+    return out.sort();
   }
 
   /**

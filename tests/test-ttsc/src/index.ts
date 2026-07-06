@@ -3,6 +3,19 @@ import path from "node:path";
 
 TestExecutor.main({
   location: path.join(process.cwd(), "src", "features"),
+  // `TTSC_TEST_GROUP=native` selects the tests that build a real Go plugin
+  // binary (or run `go test`); these `internal/` helpers are what drive such a
+  // build. `fast` is the complement. Weighted tests below are always native
+  // too, covering the few heavy scenarios that reach a build through the
+  // general `compiler` helper or a raw `go` spawn.
+  nativeHelpers: [
+    "plugin-corpus",
+    "source-build",
+    "compiler-corpus",
+    "TestUtilityPlugins",
+    "native-transformer",
+    "plugin-cache",
+  ],
   // Balancing hints for `--shard`: the go-binary-building scenarios (native
   // plugin + source-plugin compiles) that dominate wall time, so a sharded CI
   // run spreads them evenly instead of stacking cold builds on one lane.
