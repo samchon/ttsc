@@ -18,11 +18,11 @@ catalogs:
     rollup-plugin-auto-external: ^2.0.0
     rollup-plugin-node-externals: ^8.1.2
   samchon:
-    '@typia/interface': 13.0.0-rc.1
-    '@typia/mcp': 13.0.0-rc.1
-    '@typia/utils': 13.0.0-rc.1
-    typia: 13.0.0-rc.1
+    '@typia/interface': ^13.0.0-rc.1
+    '@typia/mcp': ^13.0.0-rc.1
+    '@typia/utils': ^13.0.0-rc.1
+    typia: ^13.0.0-rc.1
   utils:
-    '@nestia/e2e': ^11.2.0
+    '@nestia/e2e': ^12.0.0-rc.2
     '@types/node': ^25.3.0
     rimraf: ^6.1.2
