@@ -21,6 +21,11 @@
       "import": "./lib/bun.mjs",
       "default": "./lib/bun.js"
     },
+    "./bun-register": {
+      "types": "./lib/bun-register.d.ts",
+      "import": "./lib/bun-register.mjs",
+      "default": "./lib/bun-register.js"
+    },
     "./esbuild": {
       "types": "./lib/esbuild.d.ts",
       "import": "./lib/esbuild.mjs",

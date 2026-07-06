@@ -6,9 +6,11 @@ type BunLoadOptions = { filter: RegExp };
 
 /**
  * Minimal shape of a Bun load handler: receives a path and returns transformed
- * contents.
+ * contents plus the loader Bun should apply next.
  */
-type BunLoader = (args: { path: string }) => Promise<{ contents: string }>;
+type BunLoader = (args: {
+  path: string;
+}) => Promise<{ contents: string; loader: string }>;
 
 /**
  * Asserts that the Bun adapter registers an `onLoad` transformer whose filter
@@ -36,6 +38,10 @@ async function assertBunAdapterTransformsSource() {
   }
   const result = await loader({ path: TestUnpluginProject.mainFile(root) });
   TestUnpluginProject.assertTransformedToPlugin(result.contents);
+  // The loader field is what lets the same adapter drive Bun's runtime
+  // (`Bun.plugin` / bunfig preload): Bun must be told the emitted contents are
+  // still TypeScript so it keeps transpiling them before execution.
+  assert.equal(result.loader, "ts");
 }
 
 export { assertBunAdapterTransformsSource };

@@ -19,6 +19,9 @@ export interface BunLikePlugin {
   setup(build: BunLikeBuild): void | Promise<void>;
 }
 
+/** Bun loader identifiers this adapter can emit (only TypeScript is matched). */
+export type BunLoader = "ts" | "tsx";
+
 /**
  * Minimal subset of the Bun `BuildConfig` plugin build object.
  *
@@ -30,22 +33,33 @@ export interface BunLikeBuild {
    * Register a loader callback for files matching `filter`.
    *
    * The callback receives the absolute file path and must return the
-   * transformed file contents.
+   * transformed file contents plus the `loader` Bun should apply next. The
+   * `loader` matters most for the runtime path (`Bun.plugin`), where Bun must
+   * be told the returned contents are still TypeScript so it keeps transpiling
+   * them before execution.
    */
   onLoad(
     options: { filter: RegExp },
-    loader: (args: { path: string }) => Promise<{ contents: string }>,
+    loader: (args: {
+      path: string;
+    }) => Promise<{ contents: string; loader: BunLoader }>,
   ): void;
 }
 
 /**
- * Create a ttsc plugin for Bun's bundler.
+ * Create a ttsc plugin for Bun's bundler AND runtime.
  *
  * Bun does not implement the unplugin protocol, so this adapter instantiates
  * the raw unplugin transform and wires it to Bun's `onLoad` hook manually. The
  * adapter reads each matching file from disk and forwards the content to the
  * ttsc transform; if the transform returns no changes the original source is
  * passed through unchanged.
+ *
+ * The same object works for `Bun.build({ plugins: [ttsc()] })` (bundler) and
+ * for `Bun.plugin(ttsc())` / a `bunfig.toml` preload (runtime) — see
+ * `bun-register`. Every result carries an explicit `loader` so Bun keeps
+ * transpiling the emitted TypeScript at runtime; `sourceFilePattern` only
+ * matches TypeScript, so the loader is always `ts`/`tsx`.
  */
 export default function bun(options?: TtscUnpluginOptions): BunLikePlugin {
   return {
@@ -53,6 +67,7 @@ export default function bun(options?: TtscUnpluginOptions): BunLikePlugin {
     setup(build) {
       const raw = unplugin.raw(options, {} as UnpluginContextMeta);
       build.onLoad({ filter: sourceFilePattern }, async (args) => {
+        const loader = bunLoaderFor(args.path);
         const source = await fs.readFile(args.path, "utf8");
         const result =
           typeof raw.transform === "function"
@@ -60,7 +75,7 @@ export default function bun(options?: TtscUnpluginOptions): BunLikePlugin {
             : undefined;
         // Unpack both shorthand string and object result shapes.
         if (typeof result === "string") {
-          return { contents: result };
+          return { contents: result, loader };
         }
         if (
           typeof result === "object" &&
@@ -68,10 +83,19 @@ export default function bun(options?: TtscUnpluginOptions): BunLikePlugin {
           "code" in result &&
           typeof result.code === "string"
         ) {
-          return { contents: result.code };
+          return { contents: result.code, loader };
         }
-        return { contents: source };
+        return { contents: source, loader };
       });
     },
   };
+}
+
+/**
+ * Pick the Bun loader for a matched file. `sourceFilePattern` is
+ * `/\.[cm]?tsx?$/`, so a trailing `x` (`.tsx`/`.ctsx`/`.mtsx`) is JSX-flavored
+ * TypeScript and everything else (`.ts`/`.cts`/`.mts`) is plain TypeScript.
+ */
+function bunLoaderFor(filePath: string): BunLoader {
+  return /x$/i.test(filePath) ? "tsx" : "ts";
 }

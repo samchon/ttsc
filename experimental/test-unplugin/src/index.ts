@@ -87,6 +87,7 @@ function main() {
   verifyFarmBuild();
   verifyNextBuild();
   verifyBunBuild();
+  verifyBunRuntime();
   console.log("Success");
 }
 
@@ -741,6 +742,52 @@ function verifyBunBuild() {
   run("bun bun-build.mjs", workspace);
   const output = findSingleBuiltFile("dist-bun", "bun-entry");
   assertBuiltOutput(output, "BUN-INSTALLED-OK", "bun");
+}
+
+// Bun RUNTIME preload smoke (typia #1534): `@ttsc/unplugin/bun-register`
+// registered via a `bunfig.toml` preload must transform source on import so
+// `bun run entry.ts` executes transformed code — no bundling step. Written
+// after verifyBunBuild so the bunfig preload cannot affect the earlier build.
+function verifyBunRuntime() {
+  if (!commandExists("bun")) {
+    console.log("$ bun run skipped: bun executable is not available");
+    return;
+  }
+  fs.writeFileSync(
+    path.join(workspace, "src", "bun-runtime-entry.ts"),
+    [
+      // `mark` is only declared (globals.d.ts); if the preload transform does
+      // not run, `mark(...)` survives and Bun throws "mark is not defined".
+      'export const value = mark("bun-runtime-ok");',
+      "console.log(value);",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(workspace, "bun-runtime-preload.mjs"),
+    [
+      'import { register } from "@ttsc/unplugin/bun-register";',
+      // The harness config lives in a non-default tsconfig, so pass it through.
+      'register({ project: "tsconfig.unplugin.json" });',
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(workspace, "bunfig.toml"),
+    ['preload = ["./bun-runtime-preload.mjs"]', ""].join("\n"),
+    "utf8",
+  );
+  const { stdout } = run("bun run src/bun-runtime-entry.ts", workspace);
+  assert(
+    stdout.includes("BUN-RUNTIME-OK"),
+    "bun runtime preload must transform mark() on import (expected BUN-RUNTIME-OK in stdout)",
+  );
+  assert(
+    !stdout.includes("bun-runtime-ok"),
+    "bun runtime preload must not leave the original marker string",
+  );
 }
 
 function assertBuiltTreeContains(directory, expected, label, original) {
