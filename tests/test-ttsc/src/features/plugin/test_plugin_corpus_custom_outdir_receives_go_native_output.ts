@@ -1,3 +1,4 @@
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyDirectory,
@@ -43,7 +44,7 @@ export const test_plugin_corpus_custom_outdir_receives_go_native_output =
       ["--cwd", root, "--emit", "--outDir", "custom"],
       {
         cwd: root,
-        env: { PATH: goPath() },
+        env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
       },
     );
     assert.equal(result.status, 0, result.stderr);

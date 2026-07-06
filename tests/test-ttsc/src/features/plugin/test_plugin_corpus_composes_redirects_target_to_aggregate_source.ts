@@ -1,3 +1,4 @@
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyDirectory,
@@ -46,7 +47,7 @@ export const test_plugin_corpus_composes_redirects_target_to_aggregate_source =
 
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
-      env: { PATH: goPath() },
+      env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(

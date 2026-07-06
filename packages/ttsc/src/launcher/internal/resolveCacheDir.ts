@@ -4,9 +4,10 @@ import path from "node:path";
  * Resolve a user-supplied `--cache-dir` value into an absolute path.
  *
  * When `cacheDir` is absent or empty, returns `undefined` so callers fall
- * through to the environment variable and global-cache defaults handled inside
- * `buildSourcePlugin`. When `cacheDir` is already absolute it is returned
- * unchanged; otherwise it is resolved relative to `cwd`.
+ * through to the `TTSC_CACHE_DIR` environment variable and the workspace-local
+ * default handled inside `buildSourcePlugin`. When `cacheDir` is already
+ * absolute it is returned unchanged; otherwise it is resolved relative to
+ * `cwd`.
  */
 export function resolveCacheDir(
   cwd: string,

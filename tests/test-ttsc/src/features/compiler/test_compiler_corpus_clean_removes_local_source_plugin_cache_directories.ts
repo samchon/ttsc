@@ -24,9 +24,18 @@ const project = {
       fs.writeFileSync(path.join(target, "plugin"), "binary", "utf8");
     }
 
+    // Isolate the machine cache locations so clean's pre-0.17 legacy-global
+    // cache reclamation cannot touch the real developer cache when run locally.
+    const home = path.join(root, "cache-home");
     const result = spawn(ttscBin, ["clean", "--cwd", root], {
       cwd: root,
-      env: { TTSC_CACHE_DIR: override },
+      env: {
+        TTSC_CACHE_DIR: override,
+        HOME: home,
+        USERPROFILE: home,
+        XDG_CACHE_HOME: path.join(home, ".cache"),
+        LOCALAPPDATA: path.join(home, "AppData", "Local"),
+      },
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /removed node_modules[/\\]\.ttsc/);

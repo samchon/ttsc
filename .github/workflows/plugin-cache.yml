@@ -1,0 +1,76 @@
+name: plugin-cache
+
+# Regression gate for issue #326: a source plugin must build ONCE per workspace
+# and be reused across packages and processes, for every workspace-capable
+# package manager. Each job scaffolds a real monorepo, installs it with one
+# manager, and runs scripts/ci/plugin-cache-persistence.mjs, which fails if a
+# second package rebuilds the plugin or if anything is written to a global cache.
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/plugin-cache.yml"
+      - "scripts/ci/plugin-cache-persistence.mjs"
+      - "packages/ttsc/**"
+      - "tests/projects/go-source-plugin/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: plugin-cache-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  cache:
+    name: ${{ matrix.pm }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # All four workspace-capable managers on Linux, plus Windows lanes so the
+        # per-OS cache-path resolution (node_modules/.cache/ttsc) is exercised on
+        # a non-POSIX filesystem. bun on Windows is omitted (flaky in Actions).
+        include:
+          - { os: ubuntu-latest, pm: pnpm }
+          - { os: ubuntu-latest, pm: yarn }
+          - { os: ubuntu-latest, pm: bun }
+          - { os: ubuntu-latest, pm: npm }
+          - { os: windows-latest, pm: npm }
+          - { os: windows-latest, pm: pnpm }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/ttsc/go.mod
+          cache-dependency-path: |
+            packages/ttsc/go.sum
+            tests/go-transformer/go.mod
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - if: matrix.pm == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Use System Go For Source Plugin Builds
+        shell: bash
+        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
+
+      - name: Build Current Platform
+        run: pnpm run build:current
+
+      - name: Verify Plugin Cache Persistence (${{ matrix.pm }})
+        run: node scripts/ci/plugin-cache-persistence.mjs --pm=${{ matrix.pm }}

@@ -28,7 +28,7 @@ READMEs and website guides, `.codex/skills/documentation/SKILL.md`. Read before 
 
 ### Multi-Agent Workflows
 
-Review Cycle, Discussion, Research Review Round, `.codex/skills/multi-agent/SKILL.md`. Read the Briefing subagents rule before delegating to any subagent; read in full only when the user asks for a named mode.
+Self-Review, Review Cycle, Discussion, Research Review Round, `.codex/skills/multi-agent/SKILL.md`. Every review round (solo or team) is exhaustive over the whole change plus latent-risk detection, and rounds are unlimited until one finds nothing — read the Non-negotiable review law before any review. Read the Briefing subagents rule before delegating to any subagent; read in full only when the user asks for a named mode.
 
 ### Pull Request Submission
 

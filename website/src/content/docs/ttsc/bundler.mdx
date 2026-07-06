@@ -120,6 +120,21 @@ await Bun.build({
 });
 ```
 
+For the Bun **runtime** — `bun run`, `bun test`, or any `bun <entry>.ts` with no bundling step — register the transform on Bun's module loader with `@ttsc/unplugin/bun-register`. Add a `bunfig.toml` preload once:
+
+```toml
+preload = ["@ttsc/unplugin/bun-register"]
+```
+
+Now every `bun run` / `bun test` applies your `ttsc` plugins (for example `typia/lib/transform`) as files are imported. Plugin options come from the nearest `tsconfig.json`, exactly like the bundler adapters. To pass options — or register imperatively — call it from your own preload module instead:
+
+```ts
+// bun-preload.ts   (bunfig.toml: preload = ["./bun-preload.ts"])
+import { register } from "@ttsc/unplugin/bun-register";
+
+register({ project: "tsconfig.build.json" });
+```
+
 ## React Native / Expo (Metro)
 
 Metro is not an `unplugin` target, so it has its own adapter package, [`@ttsc/metro`](https://github.com/samchon/ttsc/tree/master/packages/metro). Metro transpiles each file with Babel, which strips types and never runs TypeScript transformers; `@ttsc/metro` inserts the `ttsc` plugin pass before that Babel step and delegates the rest to your existing Expo/React-Native transformer.

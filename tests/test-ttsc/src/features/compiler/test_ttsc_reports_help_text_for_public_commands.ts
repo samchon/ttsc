@@ -10,8 +10,9 @@ import {
  *
  * The `--help` output is the user-facing contract for every supported
  * sub-command. Pins the presence of the four main commands (`prepare`, `clean`,
- * `fix`, `format`) and the plugin-contract section so documentation drift or
- * accidental command removal is caught before a release.
+ * `fix`, `format`, `cache paths`) and the plugin-contract section so
+ * documentation drift or accidental command removal is caught before a
+ * release.
  *
  * 1. Run the real `ttsc` launcher with `--help` from the workspace root.
  * 2. Assert exit 0 and the tagline on stdout.
@@ -26,5 +27,6 @@ export const test_ttsc_reports_help_text_for_public_commands = () => {
   assert.match(result.stdout, /ttsc clean \[options\]/);
   assert.match(result.stdout, /ttsc fix \[options\]/);
   assert.match(result.stdout, /ttsc format \[options\]/);
+  assert.match(result.stdout, /ttsc cache paths --json/);
   assert.match(result.stdout, /Plugin contract:/);
 };
