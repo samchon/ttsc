@@ -1,3 +1,4 @@
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyDirectory,
@@ -54,7 +55,7 @@ export const test_plugin_corpus_ordered_native_plugins_are_passed_to_the_go_side
 
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
-      env: { PATH: goPath() },
+      env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);
     const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");

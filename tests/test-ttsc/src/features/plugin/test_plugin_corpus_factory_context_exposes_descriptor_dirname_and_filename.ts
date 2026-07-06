@@ -1,3 +1,4 @@
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyDirectory,
@@ -68,7 +69,11 @@ export const test_plugin_corpus_factory_context_exposes_descriptor_dirname_and_f
     const probe = path.join(root, "factory-context-probe.json");
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
-      env: { PATH: goPath(), TTSC_FACTORY_PROBE: probe },
+      env: {
+        PATH: goPath(),
+        TTSC_FACTORY_PROBE: probe,
+        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+      },
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(

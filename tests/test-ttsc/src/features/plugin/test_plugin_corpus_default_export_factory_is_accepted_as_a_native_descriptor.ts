@@ -1,3 +1,4 @@
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   __dirname,
   assert,
@@ -51,7 +52,7 @@ export const test_plugin_corpus_default_export_factory_is_accepted_as_a_native_d
 
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
-      env: { PATH: goPath() },
+      env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(

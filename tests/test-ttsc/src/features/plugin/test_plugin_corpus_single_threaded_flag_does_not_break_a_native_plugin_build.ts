@@ -1,3 +1,4 @@
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyDirectory,
@@ -48,7 +49,7 @@ export const test_plugin_corpus_single_threaded_flag_does_not_break_a_native_plu
       ["--cwd", root, "--emit", "--singleThreaded"],
       {
         cwd: root,
-        env: { PATH: goPath() },
+        env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
       },
     );
     assert.equal(result.status, 0, result.stderr || result.stdout);

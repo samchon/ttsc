@@ -1,3 +1,4 @@
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   copyDirectory,
@@ -38,7 +39,7 @@ export const test_plugin_corpus_no_emit_flag_does_not_break_a_native_plugin_chec
 
     const result = spawn(ttscBin, ["--cwd", root, "--noEmit"], {
       cwd: root,
-      env: { PATH: goPath() },
+      env: { PATH: goPath(), TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
     assert.equal(result.status, 0, result.stderr || result.stdout);
   };
