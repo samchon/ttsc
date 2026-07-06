@@ -92,6 +92,12 @@ jobs:
               scope: test-ttsc,
             }
           - {
+              name: "ttsc native service-incremental",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/service-incremental,
+              scope: test-ttsc,
+            }
+          - {
               name: "ttsc native server",
               run: "pnpm --filter @ttsc/test-ttsc start",
               dir: native-plugins/server,
@@ -122,6 +128,12 @@ jobs:
               scope: test-ttsc,
             }
           - {
+              name: "ttsc native utility-host",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/utility-host,
+              scope: test-ttsc,
+            }
+          - {
               name: "lint fast",
               run: "pnpm --filter @ttsc/test-lint start",
               dir: features,
@@ -134,6 +146,24 @@ jobs:
               scope: test-lint,
             }
           - {
+              name: "lint native corpus-2",
+              run: "pnpm --filter @ttsc/test-lint start",
+              dir: native-plugins/corpus-2,
+              scope: test-lint,
+            }
+          - {
+              name: "lint native corpus-3",
+              run: "pnpm --filter @ttsc/test-lint start",
+              dir: native-plugins/corpus-3,
+              scope: test-lint,
+            }
+          - {
+              name: "lint native corpus-4",
+              run: "pnpm --filter @ttsc/test-lint start",
+              dir: native-plugins/corpus-4,
+              scope: test-lint,
+            }
+          - {
               name: "lint native format",
               run: "pnpm --filter @ttsc/test-lint start",
               dir: native-plugins/format,
@@ -143,6 +173,12 @@ jobs:
               name: "lint native config",
               run: "pnpm --filter @ttsc/test-lint start",
               dir: native-plugins/config,
+              scope: test-lint,
+            }
+          - {
+              name: "lint native fix",
+              run: "pnpm --filter @ttsc/test-lint start",
+              dir: native-plugins/fix,
               scope: test-lint,
             }
           - { name: unplugin, run: "pnpm --filter @ttsc/test-unplugin start" }

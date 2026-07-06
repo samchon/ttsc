@@ -17,11 +17,22 @@ const casesRoot = path.join(process.cwd(), "src", "cases");
  * the first non-blank line. The reason is required and acts as the inline
  * docstring for the exclusion. Skipped fixtures are still required to live in
  * the tree (their Go-side rule corpus test stays the source of truth).
+ *
+ * The corpus is the single heaviest lint scenario, so CI runs it as a handful
+ * of parallel partitions: pass `{ index, total }` and this asserts only the `i
+ * % total === index` slice of the (evenly costed) fixtures. The empty-corpus
+ * guard still checks the full discovered tree in every partition.
  */
-export function assertAllLintCases(): void {
+export function assertAllLintCases(partition?: {
+  index: number;
+  total: number;
+}): void {
   const cases = listLintCases();
   assert.notEqual(cases.length, 0, "expected at least one lint fixture");
-  for (const file of cases) {
+  const selected = partition
+    ? cases.filter((_, i) => i % partition.total === partition.index)
+    : cases;
+  for (const file of selected) {
     assertLintCase(file);
   }
 }
