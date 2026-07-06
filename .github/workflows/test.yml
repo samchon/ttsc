@@ -50,73 +50,136 @@ jobs:
           - { name: paths, run: "pnpm --filter @ttsc/test-paths start" }
           - { name: strip, run: "pnpm --filter @ttsc/test-strip start" }
           # test-lint and test-ttsc build real Go plugin binaries; those
-          # scenarios dominate wall time, so both suites fan out across parallel
-          # shards (balanced by the weights/spanning hints in each src/index.ts)
-          # instead of grinding cold builds serially on one lane.
+          # go-binary scenarios dominate wall time and live under `src/native-plugins/`
+          # (the fast tests stay under `src/features/`). Each lane points
+          # `TTSC_TEST_DIR` at one subtree and trims its build to only the
+          # packages that subtree exercises (`TTSC_BUILD_SCOPE`), skipping the
+          # heavy @ttsc/graph build that neither suite needs.
           - {
-              name: "lint 1/5",
+              name: "ttsc fast",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: features,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native corpus-source",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/corpus-source,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native corpus-ttsc",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/corpus-ttsc,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native corpus-misc",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/corpus-misc,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native source-plugin",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/source-plugin,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native service",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/service,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native service-incremental",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/service-incremental,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native server",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/server,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native driver",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/driver,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native cli",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/cli,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native compiler",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/compiler,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native utility",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/utility,
+              scope: test-ttsc,
+            }
+          - {
+              name: "ttsc native utility-host",
+              run: "pnpm --filter @ttsc/test-ttsc start",
+              dir: native-plugins/utility-host,
+              scope: test-ttsc,
+            }
+          - {
+              name: "lint fast",
               run: "pnpm --filter @ttsc/test-lint start",
-              shard: "1/5",
+              dir: features,
+              scope: test-lint,
             }
           - {
-              name: "lint 2/5",
+              name: "lint native corpus",
               run: "pnpm --filter @ttsc/test-lint start",
-              shard: "2/5",
+              dir: native-plugins/corpus,
+              scope: test-lint,
             }
           - {
-              name: "lint 3/5",
+              name: "lint native corpus-2",
               run: "pnpm --filter @ttsc/test-lint start",
-              shard: "3/5",
+              dir: native-plugins/corpus-2,
+              scope: test-lint,
             }
           - {
-              name: "lint 4/5",
+              name: "lint native corpus-3",
               run: "pnpm --filter @ttsc/test-lint start",
-              shard: "4/5",
+              dir: native-plugins/corpus-3,
+              scope: test-lint,
             }
           - {
-              name: "lint 5/5",
+              name: "lint native corpus-4",
               run: "pnpm --filter @ttsc/test-lint start",
-              shard: "5/5",
+              dir: native-plugins/corpus-4,
+              scope: test-lint,
             }
           - {
-              name: "ttsc 1/8",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "1/8",
+              name: "lint native format",
+              run: "pnpm --filter @ttsc/test-lint start",
+              dir: native-plugins/format,
+              scope: test-lint,
             }
           - {
-              name: "ttsc 2/8",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "2/8",
+              name: "lint native config",
+              run: "pnpm --filter @ttsc/test-lint start",
+              dir: native-plugins/config,
+              scope: test-lint,
             }
           - {
-              name: "ttsc 3/8",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "3/8",
-            }
-          - {
-              name: "ttsc 4/8",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "4/8",
-            }
-          - {
-              name: "ttsc 5/8",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "5/8",
-            }
-          - {
-              name: "ttsc 6/8",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "6/8",
-            }
-          - {
-              name: "ttsc 7/8",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "7/8",
-            }
-          - {
-              name: "ttsc 8/8",
-              run: "pnpm --filter @ttsc/test-ttsc start",
-              shard: "8/8",
+              name: "lint native fix",
+              run: "pnpm --filter @ttsc/test-lint start",
+              dir: native-plugins/fix,
+              scope: test-lint,
             }
           - { name: unplugin, run: "pnpm --filter @ttsc/test-unplugin start" }
           - { name: metro, run: "pnpm --filter @ttsc/test-metro start" }
@@ -153,9 +216,14 @@ jobs:
 
       - name: Build Current Platform
         run: ${{ matrix.build || 'pnpm run build:current' }}
+        env:
+          # Empty (full build) for ordinary lanes; the test lanes set a scope so
+          # build:current skips packages they never exercise (notably @ttsc/graph).
+          TTSC_BUILD_SCOPE: ${{ matrix.scope }}
 
       - name: Run ${{ matrix.name }}
         run: ${{ matrix.run }}
         env:
-          # Empty for unsharded lanes → the runner executes the whole suite.
-          TTSC_TEST_SHARD: ${{ matrix.shard }}
+          # Empty for ordinary lanes → the runner scans the whole suite. A test
+          # lane points this at one subtree (`features` or `native-plugins/<category>`).
+          TTSC_TEST_DIR: ${{ matrix.dir }}

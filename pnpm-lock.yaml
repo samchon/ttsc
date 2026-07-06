@@ -23,16 +23,16 @@ catalogs:
       version: 8.1.2
   samchon:
     '@typia/interface':
-      specifier: 13.0.0-rc.1
+      specifier: ^13.0.0-rc.1
       version: 13.0.0-rc.1
     '@typia/mcp':
-      specifier: 13.0.0-rc.1
+      specifier: ^13.0.0-rc.1
       version: 13.0.0-rc.1
     '@typia/utils':
-      specifier: 13.0.0-rc.1
+      specifier: ^13.0.0-rc.1
       version: 13.0.0-rc.1
     typia:
-      specifier: 13.0.0-rc.1
+      specifier: ^13.0.0-rc.1
       version: 13.0.0-rc.1
   typescript:
     ts-legacy:
@@ -43,8 +43,8 @@ catalogs:
       version: 7.0.1-rc
   utils:
     '@nestia/e2e':
-      specifier: ^11.2.0
-      version: 11.2.1
+      specifier: ^12.0.0-rc.2
+      version: 12.0.0-rc.2
     '@types/node':
       specifier: ^25.3.0
       version: 25.9.1
@@ -447,7 +447,7 @@ importers:
     devDependencies:
       '@nestia/e2e':
         specifier: catalog:utils
-        version: 11.2.1
+        version: 12.0.0-rc.2
       '@ttsc/factory':
         specifier: workspace:*
         version: link:../../packages/factory
@@ -612,7 +612,7 @@ importers:
     devDependencies:
       '@nestia/e2e':
         specifier: catalog:utils
-        version: 11.2.1
+        version: 12.0.0-rc.2
       '@ttsc/lint':
         specifier: workspace:*
         version: link:../../packages/lint
@@ -2169,8 +2169,8 @@ packages:
   '@napi-rs/wasm-runtime@1.0.7':
     resolution: {integrity: sha512-SeDnOO0Tk7Okiq6DbXmmBODgOAb9dp9gjlphokTUxmt8U3liIP1ZsozBahH69j/RJv+Rfs6IwUKHTgQYJ/HBAw==}
 
-  '@nestia/e2e@11.2.1':
-    resolution: {integrity: sha512-TUdY6g1lj4ATyWSdC9i2opuBBcAB4kYfwlJoWTY5jTcc+IsdQhOo+8GjSqhF088pgB7buV0W7pwywRWtZu0ZCg==}
+  '@nestia/e2e@12.0.0-rc.2':
+    resolution: {integrity: sha512-Hm4fqeeasTJF5pPY60P7MuGv2tmQIJqqTZih7jKMokqaDKGpHR9TDf/q8NzFu+h9PQaV0LaE1pLmBnWIM3rNpQ==}
 
   '@next/env@13.5.11':
     resolution: {integrity: sha512-fbb2C7HChgM7CemdCY+y3N1n8pcTKdqtQLbC7/EQtPdLvlMUT9JX/dBYl8MMZAtYG4uVMyPFHXckb68q/NRwqg==}
@@ -8784,7 +8784,7 @@ snapshots:
       '@tybys/wasm-util': 0.10.2
     optional: true
 
-  '@nestia/e2e@11.2.1': {}
+  '@nestia/e2e@12.0.0-rc.2': {}
 
   '@next/env@13.5.11': {}
 

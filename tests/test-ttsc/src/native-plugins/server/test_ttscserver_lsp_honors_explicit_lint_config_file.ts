@@ -60,6 +60,10 @@ export const test_ttscserver_lsp_honors_explicit_lint_config_file =
 
     try {
       await initializeTtscserverClient(client, project.tmpdir);
+      // No timeout: on an isolated lane this is the first test to build
+      // `@ttsc/lint` from source, so the diagnostics follow a cold multi-minute
+      // sidecar build. The wait ends when the diagnostics arrive or the server
+      // dies.
       const diagnostics = client.waitForNotification<PublishDiagnosticsParams>(
         "textDocument/publishDiagnostics",
         (params) =>
@@ -67,12 +71,6 @@ export const test_ttscserver_lsp_honors_explicit_lint_config_file =
           (params.diagnostics ?? []).some(
             (diagnostic) => diagnostic.source === "@ttsc/lint",
           ),
-        // The shared content-addressed plugin cache means an earlier test has
-        // usually already built `@ttsc/lint`, so this wait normally races a
-        // warm sidecar. The margin still covers the one case where this test
-        // happens to warm the cache first; a cold lint build stays well under
-        // it.
-        60_000,
       );
       client.notify("textDocument/didOpen", {
         textDocument: {

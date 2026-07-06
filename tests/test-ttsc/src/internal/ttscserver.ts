@@ -24,7 +24,7 @@ export class TtscserverClient {
     {
       reject: (err: Error) => void;
       resolve: (value: any) => void;
-      timer: NodeJS.Timeout;
+      timer?: NodeJS.Timeout;
     }
   >();
   private notificationListeners = new Map<string, ((params: any) => void)[]>();
@@ -140,21 +140,32 @@ export class TtscserverClient {
     });
   }
 
+  /**
+   * Send a JSON-RPC request and wait for its response. There is intentionally
+   * no default timeout: a request may legitimately take as long as the server
+   * needs (a cold source-plugin build during project load can run for minutes),
+   * and the only real failure is the server dying — handled by rejecting every
+   * pending request when the child closes. Pass `timeoutMs` only when a caller
+   * deliberately wants to bound the wait (e.g. a best-effort shutdown probe).
+   */
   async request<T = unknown>(
     method: string,
     params?: unknown,
-    timeoutMs = 30_000,
+    timeoutMs?: number,
   ): Promise<T> {
     const id = this.nextId++;
     const promise = new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(
-          new Error(
-            `timed out waiting for ${method} response (stderr=${this.stderr})`,
-          ),
-        );
-      }, timeoutMs);
+      const timer =
+        timeoutMs === undefined
+          ? undefined
+          : setTimeout(() => {
+              this.pending.delete(id);
+              reject(
+                new Error(
+                  `timed out waiting for ${method} response (stderr=${this.stderr})`,
+                ),
+              );
+            }, timeoutMs);
       this.pending.set(id, { reject, resolve, timer });
     });
     this.send({ jsonrpc: "2.0", id, method, params });
@@ -171,24 +182,33 @@ export class TtscserverClient {
     this.notificationListeners.set(method, list);
   }
 
+  /**
+   * Resolve once a matching notification arrives. Like {@link request}, there is
+   * no default timeout — the awaited diagnostics may follow a multi-minute cold
+   * plugin build; a dead server rejects it via the close handler. Pass
+   * `timeoutMs` only to deliberately bound the wait.
+   */
   waitForNotification<T = unknown>(
     method: string,
     predicate: (params: T) => boolean = () => true,
-    timeoutMs = 30_000,
+    timeoutMs?: number,
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       let listener: (params: T) => void = () => undefined;
-      const timer = setTimeout(() => {
-        this.off(method, listener);
-        reject(
-          new Error(
-            `timed out waiting for ${method} notification (stderr=${this.stderr})`,
-          ),
-        );
-      }, timeoutMs);
+      const timer =
+        timeoutMs === undefined
+          ? undefined
+          : setTimeout(() => {
+              this.off(method, listener);
+              reject(
+                new Error(
+                  `timed out waiting for ${method} notification (stderr=${this.stderr})`,
+                ),
+              );
+            }, timeoutMs);
       listener = (params: T) => {
         if (!predicate(params)) return;
-        clearTimeout(timer);
+        if (timer !== undefined) clearTimeout(timer);
         this.off(method, listener);
         resolve(params);
       };
@@ -274,7 +294,7 @@ export class TtscserverClient {
       const pending = this.pending.get(message.id);
       if (!pending) return;
       this.pending.delete(message.id);
-      clearTimeout(pending.timer);
+      if (pending.timer !== undefined) clearTimeout(pending.timer);
       if (message.error) {
         pending.reject(
           new Error(`${message.error.code}: ${message.error.message}`),
@@ -296,7 +316,7 @@ export class TtscserverClient {
 
   private rejectPending(error: Error): void {
     for (const pending of this.pending.values()) {
-      clearTimeout(pending.timer);
+      if (pending.timer !== undefined) clearTimeout(pending.timer);
       pending.reject(error);
     }
     this.pending.clear();
@@ -307,15 +327,11 @@ export async function initializeTtscserverClient(
   client: TtscserverClient,
   root: string,
 ): Promise<void> {
-  await client.request(
-    "initialize",
-    {
-      processId: process.pid,
-      rootUri: pathToFileURL(root).href,
-      capabilities: {},
-    },
-    120_000,
-  );
+  await client.request("initialize", {
+    processId: process.pid,
+    rootUri: pathToFileURL(root).href,
+    capabilities: {},
+  });
   client.notify("initialized", {});
 }
 
