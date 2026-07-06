@@ -50,7 +50,7 @@ Default (project-local, the `find-cache-dir` convention):
 <workspaceRoot>/node_modules/.cache/ttsc/go-build               (GOCACHE while building)
 ```
 
-`<workspaceRoot>` is the nearest enclosing workspace root: the highest ancestor holding a `pnpm-workspace.yaml` or a `package.json` with a `workspaces` field, else the nearest ancestor containing a `node_modules`, else the project root. Every package in a monorepo therefore shares ONE cache and a plugin builds once per workspace, not once per package. `rm -rf node_modules` (or deleting the repo) reclaims it. ttsc keeps **no** machine-global cache — a user-wide cache silently grew to hundreds of GB across tsgo/plugin version bumps, so it was removed outright.
+`<workspaceRoot>` is the nearest enclosing workspace root: the nearest ancestor holding a `pnpm-workspace.yaml` or a `package.json` with a `workspaces` field, else the nearest ancestor containing a `node_modules`, else the project root. Every package in a monorepo therefore shares ONE cache and a plugin builds once per workspace, not once per package. `rm -rf node_modules` (or deleting the repo) reclaims it. ttsc keeps **no** machine-global cache — a user-wide cache silently grew to hundreds of GB across tsgo/plugin version bumps, so it was removed outright.
 
 Override:
 

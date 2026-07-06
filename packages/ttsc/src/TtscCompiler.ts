@@ -94,9 +94,17 @@ export class TtscCompiler {
    */
   public clean(): string[] {
     const projectRoot = this.resolveCleanProjectRoot();
-    const env = this.context.env ?? process.env;
+    // Resolve the cache root exactly as prepare() does (`cacheDir`, else
+    // `context.env.TTSC_CACHE_DIR`), and resolve the Go build cache from the
+    // ambient process env — the same source `go build` reads via goBuildEnv —
+    // so clean removes exactly what a build wrote and never a directory it did
+    // not.
     return removeExistingDirectories(
-      resolveCleanTargets(projectRoot, this.resolveCacheDir(), env),
+      resolveCleanTargets(
+        projectRoot,
+        this.resolvePluginCacheDir(),
+        process.env,
+      ),
     );
   }
 

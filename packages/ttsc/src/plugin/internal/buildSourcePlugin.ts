@@ -844,9 +844,14 @@ function spawnGoTool(
   args: readonly string[],
   options: SpawnSyncOptionsWithStringEncoding,
 ): SpawnSyncReturns<string> {
-  return spawnSync(goBinary, [...args], {
+  const shell = shouldSpawnGoToolThroughShell(goBinary);
+  // Under shell:true (a Windows .cmd/.bat wrapper) Node does not quote the
+  // command, so a wrapper at a path containing a space would be split by cmd.
+  // Quote it here; the go arguments ttsc passes never contain spaces, and
+  // quoting a space-free path is harmless.
+  return spawnSync(shell ? `"${goBinary}"` : goBinary, [...args], {
     ...options,
-    shell: shouldSpawnGoToolThroughShell(goBinary),
+    shell,
   });
 }
 
@@ -985,7 +990,7 @@ export function resolveSourceBuildCachePaths(
   env: NodeJS.ProcessEnv = process.env,
 ): ITtscSourceBuildCachePaths {
   const root = resolveSourceBuildCacheRoot(projectRoot, cacheDir, env);
-  const goBuild = resolveGoBuildCacheRoot(root, env);
+  const goBuild = resolveGoBuildCacheRoot(root, projectRoot, env);
   return {
     root,
     pluginRoot: path.join(root, PLUGIN_CACHE_DIRNAME),
@@ -1034,24 +1039,27 @@ function resolveSourceBuildCacheRoot(
  * Resolve the monorepo/workspace root for `projectRoot` so every package shares
  * one cache and a plugin builds once per workspace, not once per package.
  *
- * Walks up from `projectRoot` and returns, in order of preference: the HIGHEST
+ * Walks up from `projectRoot` and returns, in order of preference: the NEAREST
  * ancestor that is a workspace root (holds `pnpm-workspace.yaml`, or a
  * `package.json` with a `workspaces` field); else the nearest ancestor that
  * already contains a `node_modules` directory; else `projectRoot` itself.
+ *
+ * Nearest (not highest) so an unrelated ancestor that happens to declare
+ * `workspaces` — for example a `package.json` in the user's home directory —
+ * cannot pull the cache above the project's real monorepo root.
  */
 function resolveWorkspaceRoot(projectRoot: string): string {
   let dir = path.resolve(projectRoot);
-  let highestWorkspaceRoot: string | null = null;
   let nearestNodeModulesOwner: string | null = null;
   for (;;) {
+    if (isWorkspaceRootDir(dir)) {
+      return dir;
+    }
     if (
       nearestNodeModulesOwner === null &&
       fs.existsSync(path.join(dir, NODE_MODULES_DIRNAME))
     ) {
       nearestNodeModulesOwner = dir;
-    }
-    if (isWorkspaceRootDir(dir)) {
-      highestWorkspaceRoot = dir;
     }
     const parent = path.dirname(dir);
     if (parent === dir) {
@@ -1059,9 +1067,7 @@ function resolveWorkspaceRoot(projectRoot: string): string {
     }
     dir = parent;
   }
-  return (
-    highestWorkspaceRoot ?? nearestNodeModulesOwner ?? path.resolve(projectRoot)
-  );
+  return nearestNodeModulesOwner ?? path.resolve(projectRoot);
 }
 
 function isWorkspaceRootDir(dir: string): boolean {
@@ -1081,8 +1087,20 @@ function packageJsonDeclaresWorkspaces(packageJsonPath: string): boolean {
     return false;
   }
   try {
-    const json = JSON.parse(text) as { workspaces?: unknown };
-    return json.workspaces !== undefined;
+    const workspaces = (JSON.parse(text) as { workspaces?: unknown })
+      .workspaces;
+    // A real workspace root declares a NON-EMPTY package list (an array, or an
+    // object with a `packages` array). Ignore `false`, `[]`, `null`, or `{}` so
+    // a disabled or empty declaration on an unrelated ancestor cannot hijack
+    // the cache location.
+    if (Array.isArray(workspaces)) {
+      return workspaces.length > 0;
+    }
+    if (workspaces !== null && typeof workspaces === "object") {
+      const packages = (workspaces as { packages?: unknown }).packages;
+      return Array.isArray(packages) && packages.length > 0;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -1090,14 +1108,18 @@ function packageJsonDeclaresWorkspaces(packageJsonPath: string): boolean {
 
 function resolveGoBuildCacheRoot(
   root: string,
+  projectRoot: string,
   env: NodeJS.ProcessEnv,
 ): {
   root: string;
   source: ITtscSourceBuildCachePaths["goBuildRootSource"];
 } {
   if (env.TTSC_GO_CACHE_DIR) {
+    // Anchor a relative TTSC_GO_CACHE_DIR to the project root, matching
+    // TTSC_CACHE_DIR, so the build and a later `clean` from a different cwd
+    // agree on the directory. Absolute values pass through unchanged.
     return {
-      root: path.resolve(env.TTSC_GO_CACHE_DIR),
+      root: path.resolve(projectRoot, env.TTSC_GO_CACHE_DIR),
       source: "TTSC_GO_CACHE_DIR",
     };
   }
@@ -1140,17 +1162,20 @@ export function resolveCleanTargets(
   env: NodeJS.ProcessEnv = process.env,
 ): string[] {
   const paths = resolveSourceBuildCachePaths(projectRoot, cacheDir, env);
-  // Remove ttsc-OWNED subdirectories, never the parent cache root: the root can
-  // be a directory the user shares with other tools (e.g. TTSC_CACHE_DIR set to
-  // `.cache`), and a user-provided GOCACHE is never ours to delete.
-  const targets = [
-    paths.pluginRoot,
-    // ttsc's default Go build cache always nests here; remove it even when a
-    // TTSC_GO_CACHE_DIR override is active, since it may survive from an earlier
-    // run without that override.
-    path.join(paths.root, GO_BUILD_CACHE_DIRNAME),
-  ];
-  // An explicit TTSC_GO_CACHE_DIR is ttsc-owned but lives outside the root; a
+  // Remove ttsc-OWNED directories only, never the parent cache root.
+  const targets = [paths.pluginRoot];
+  // ttsc's nested `<root>/go-build` is only safe to delete when we are certain
+  // the root belongs to ttsc: the default `node_modules/.cache/ttsc`, or a root
+  // the user explicitly named `ttsc`. Under a shared root (e.g.
+  // `TTSC_CACHE_DIR=~/.cache`) a bare `<root>/go-build` could be the user's
+  // machine-wide GOCACHE, so it must never be removed by name.
+  const isTtscOwnedRoot =
+    (!cacheDir && !env.TTSC_CACHE_DIR) ||
+    path.basename(paths.root) === TTSC_CACHE_DIRNAME;
+  if (isTtscOwnedRoot) {
+    targets.push(path.join(paths.root, GO_BUILD_CACHE_DIRNAME));
+  }
+  // An explicit TTSC_GO_CACHE_DIR is a ttsc-dedicated external cache; a
   // user-provided GOCACHE (source "GOCACHE") is never removed.
   if (paths.goBuildRootSource === "TTSC_GO_CACHE_DIR") {
     targets.push(paths.goBuildRoot);
@@ -1158,6 +1183,38 @@ export function resolveCleanTargets(
   targets.push(path.join(projectRoot, NODE_MODULES_DIRNAME, ".ttsc"));
   targets.push(path.join(projectRoot, ".ttsc"));
   return targets;
+}
+
+/**
+ * Machine-global cache directories created by pre-0.17 ttsc releases (XDG /
+ * AppData / Library / `~/.cache`). ttsc no longer writes to any of these, but
+ * an upgraded machine can still hold a multi-GB orphaned cache here, so `ttsc
+ * clean` offers them for removal to reclaim that disk. Each entry is the whole
+ * `<userCacheRoot>/ttsc` directory (both its `plugins` and `go-build`), which
+ * was entirely ttsc-owned in those releases and is safe to remove.
+ */
+export function legacyGlobalCacheTargets(): string[] {
+  const roots = new Set<string>();
+  const home = os.homedir();
+  const xdg = process.env.XDG_CACHE_HOME;
+  if (xdg && path.isAbsolute(xdg)) {
+    roots.add(path.join(xdg, TTSC_CACHE_DIRNAME));
+  }
+  if (process.platform === "win32") {
+    const local = process.env.LOCALAPPDATA;
+    if (local && path.isAbsolute(local)) {
+      roots.add(path.join(local, TTSC_CACHE_DIRNAME));
+    }
+    if (home) {
+      roots.add(path.join(home, "AppData", "Local", TTSC_CACHE_DIRNAME));
+    }
+  } else if (process.platform === "darwin" && home) {
+    roots.add(path.join(home, "Library", "Caches", TTSC_CACHE_DIRNAME));
+  }
+  if (home) {
+    roots.add(path.join(home, ".cache", TTSC_CACHE_DIRNAME));
+  }
+  return [...roots];
 }
 
 /** Report whether `child` equals `parent` or is nested beneath it. */
@@ -1405,13 +1462,28 @@ function resolveExecutableIdentityPath(binary: string): string {
       return resolveRealPath(candidate);
     }
     if (process.platform === "win32") {
-      const executable = `${candidate}.exe`;
-      if (fs.existsSync(executable)) {
-        return resolveRealPath(executable);
+      // Probe every PATHEXT extension, not just `.exe`, so a compiler backed by
+      // a `.cmd`/`.bat` wrapper resolves to its real file and is hashed into the
+      // cache key. Otherwise the wrapper reads as "missing" and a change to it
+      // would not invalidate the cached plugin binary.
+      for (const ext of windowsExecutableExtensions()) {
+        const executable = `${candidate}${ext}`;
+        if (fs.existsSync(executable)) {
+          return resolveRealPath(executable);
+        }
       }
     }
   }
   return binary;
+}
+
+function windowsExecutableExtensions(): readonly string[] {
+  const pathext = process.env.PATHEXT;
+  const raw = pathext && pathext.length > 0 ? pathext : ".COM;.EXE;.BAT;.CMD";
+  return raw
+    .split(";")
+    .map((ext) => ext.trim().toLowerCase())
+    .filter((ext) => ext.length > 0);
 }
 
 function readPathEnvironment(): string {

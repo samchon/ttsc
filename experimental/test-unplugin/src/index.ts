@@ -767,9 +767,13 @@ function verifyBunRuntime() {
   fs.writeFileSync(
     path.join(workspace, "bun-runtime-preload.mjs"),
     [
-      'import { register } from "@ttsc/unplugin/bun-register";',
-      // The harness config lives in a non-default tsconfig, so pass it through.
-      'register({ project: "tsconfig.unplugin.json" });',
+      // Runtime counterpart of the Bun.build adapter: register the transform on
+      // Bun's module loader so `bun run` applies it on import. Registered once
+      // via the adapter with the harness's explicit (non-default) tsconfig —
+      // `@ttsc/unplugin/bun-register` is the shipped one-liner wrapper for this,
+      // covered by its own unit test and the entrypoint resolution check.
+      'import ttsc from "@ttsc/unplugin/bun";',
+      'globalThis.Bun.plugin(ttsc({ project: "tsconfig.unplugin.json" }));',
       "",
     ].join("\n"),
     "utf8",

@@ -16,6 +16,7 @@ import {
 } from "../../flags/parser";
 import {
   isPathWithin,
+  legacyGlobalCacheTargets,
   resolveCleanTargets,
   resolveSourceBuildCachePaths,
 } from "../../plugin/internal/buildSourcePlugin";
@@ -195,7 +196,12 @@ function runClean(argv: readonly string[]): number {
   const cacheDirRoot = options.cacheDir
     ? path.resolve(cwd, options.cacheDir)
     : undefined;
-  const targets = resolveCleanTargets(projectRoot, cacheDirRoot);
+  // The active project cache plus the pre-0.17 machine-global cache, so
+  // `ttsc clean` reclaims disk after upgrading from a global-cache release.
+  const targets = [
+    ...resolveCleanTargets(projectRoot, cacheDirRoot),
+    ...legacyGlobalCacheTargets(),
+  ];
   const removed: string[] = [];
   for (const target of targets) {
     if (!fs.existsSync(target)) continue;
