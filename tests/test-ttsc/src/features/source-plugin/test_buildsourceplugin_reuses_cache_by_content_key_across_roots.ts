@@ -33,9 +33,15 @@ export const test_buildsourceplugin_reuses_cache_by_content_key_across_roots =
     const saved = {
       go: process.env.TTSC_GO_BINARY,
       cache: process.env.TTSC_CACHE_DIR,
+      goCache: process.env.TTSC_GO_CACHE_DIR,
+      gocache: process.env.GOCACHE,
     };
     process.env.TTSC_GO_BINARY = fakeGo;
     process.env.TTSC_CACHE_DIR = cacheDir;
+    // Isolate the Go cache overrides so the shared TTSC_CACHE_DIR alone decides
+    // the resolved paths, matching the sibling default-cache test.
+    delete process.env.TTSC_GO_CACHE_DIR;
+    delete process.env.GOCACHE;
     try {
       const firstBinary = buildSourcePlugin({
         baseDir: path.dirname(first),
@@ -63,12 +69,17 @@ export const test_buildsourceplugin_reuses_cache_by_content_key_across_roots =
         firstBinary,
       );
     } finally {
-      if (saved.go === undefined) delete process.env.TTSC_GO_BINARY;
-      else process.env.TTSC_GO_BINARY = saved.go;
-      if (saved.cache === undefined) delete process.env.TTSC_CACHE_DIR;
-      else process.env.TTSC_CACHE_DIR = saved.cache;
+      restore("TTSC_GO_BINARY", saved.go);
+      restore("TTSC_CACHE_DIR", saved.cache);
+      restore("TTSC_GO_CACHE_DIR", saved.goCache);
+      restore("GOCACHE", saved.gocache);
     }
   };
+
+function restore(key: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
+}
 
 function writePluginSource(root: string): void {
   fs.mkdirSync(root, { recursive: true });
