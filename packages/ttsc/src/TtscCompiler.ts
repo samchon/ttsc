@@ -94,11 +94,24 @@ export class TtscCompiler {
    */
   public clean(): string[] {
     const projectRoot = this.resolveCleanProjectRoot();
-    // Resolve the cache root exactly as prepare() does (`cacheDir`, else
-    // `context.env.TTSC_CACHE_DIR`), and resolve the Go build cache from the
-    // ambient process env — the same source `go build` reads via goBuildEnv —
-    // so clean removes exactly what a build wrote and never a directory it did
-    // not.
+    const legacyTargets = [
+      path.join(projectRoot, "node_modules", ".ttsc"),
+      path.join(projectRoot, ".ttsc"),
+    ];
+    const explicitCacheDir = this.resolveCacheDir();
+    if (explicitCacheDir !== undefined) {
+      // An explicit constructor `cacheDir` names the cache directory for this
+      // instance — exactly like `ttsc clean --cache-dir X` on the CLI — so
+      // remove it wholesale plus the legacy project-local caches. This keeps
+      // the programmatic and CLI clean contracts identical for an explicit
+      // cache dir.
+      return removeExistingDirectories([explicitCacheDir, ...legacyTargets]);
+    }
+    // Default / `context.env.TTSC_CACHE_DIR`: resolve the cache root exactly as
+    // prepare() does (`context.env.TTSC_CACHE_DIR`) and the Go build cache from
+    // the ambient process env — the same source `go build` reads via
+    // goBuildEnv — then remove only the ttsc-owned subdirectories, so a
+    // possibly-shared root is never deleted.
     return removeExistingDirectories(
       resolveCleanTargets(
         projectRoot,

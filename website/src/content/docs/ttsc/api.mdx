@@ -119,13 +119,15 @@ Removes the cache directories owned by this compiler's context. Returns the list
 compiler.clean();
 ```
 
-`clean()` resolves the cache root from this context — `cacheDir`/`TTSC_CACHE_DIR` when set, otherwise the default workspace-local `node_modules/.cache/ttsc` — and removes only the ttsc-owned pieces:
+When the context sets an explicit `cacheDir`, `clean()` removes that directory **wholesale** (plus the legacy `node_modules/.ttsc` and `.ttsc` caches) — the same contract as `ttsc clean --cache-dir <dir>` on the CLI. An explicit `cacheDir` names a directory dedicated to ttsc, so nothing is left behind.
+
+Otherwise — the default workspace-local `node_modules/.cache/ttsc`, or a root resolved from `TTSC_CACHE_DIR` — it removes only the ttsc-owned pieces:
 
 1. the compiled plugin binaries (`<cache-root>/plugins`);
 2. the ttsc-owned Go object cache (`<cache-root>/go-build`, plus an explicit `TTSC_GO_CACHE_DIR` when it points elsewhere);
 3. the legacy project-local caches (`node_modules/.ttsc`, `.ttsc`).
 
-The parent cache root itself is never removed (it may be shared with other tools), and a user-provided `GOCACHE` is treated as external and left untouched.
+In that case the parent cache root itself is never removed (it may be shared with other tools), and a user-provided `GOCACHE` is treated as external and left untouched.
 
 ## Resident transform service (`TtscService`)
 
