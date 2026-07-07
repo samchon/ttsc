@@ -114,6 +114,7 @@ export namespace TestLint {
   export interface IRunLintOptions {
     name: string;
     source: string;
+    /** Optional disposable root under the OS temp dir; cleanup removes it. */
     projectRoot?: string;
     rules?: Record<string, LintRuleConfigSeverity>;
     pluginConfig?: Record<string, unknown>;
@@ -168,6 +169,9 @@ export namespace TestLint {
     const tmpdir =
       projectRoot ??
       TestProject.tmpdir(`ttsc-lint-case-${sanitizeForFsName(name)}-`);
+    if (projectRoot !== undefined) {
+      assertDisposableProjectRoot(projectRoot);
+    }
     try {
       // The tsconfig plugin entry never carries rules: it is empty, or
       // optionally names a config file via `configFile`. When a test uses the
@@ -270,6 +274,21 @@ export namespace TestLint {
         2,
       ),
       "utf8",
+    );
+  }
+
+  function assertDisposableProjectRoot(projectRoot: string): void {
+    const tempRoot = path.resolve(os.tmpdir());
+    const resolved = path.resolve(projectRoot);
+    const relative = path.relative(tempRoot, resolved);
+    if (
+      relative === "" ||
+      (!relative.startsWith("..") && !path.isAbsolute(relative))
+    ) {
+      return;
+    }
+    throw new Error(
+      `TestLint projectRoot must be a disposable directory under ${tempRoot}: ${projectRoot}`,
     );
   }
 
