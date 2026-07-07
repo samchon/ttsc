@@ -280,16 +280,38 @@ export namespace TestLint {
   function assertDisposableProjectRoot(projectRoot: string): void {
     const tempRoot = path.resolve(os.tmpdir());
     const resolved = path.resolve(projectRoot);
-    const relative = path.relative(tempRoot, resolved);
+    const tempRoots = new Set([tempRoot, realpathIfPossible(tempRoot)]);
     if (
-      relative === "" ||
-      (!relative.startsWith("..") && !path.isAbsolute(relative))
+      [...tempRoots].some(
+        (candidate) =>
+          isSameOrChildPath(candidate, resolved) ||
+          isSameOrChildPath(candidate, realpathIfPossible(resolved)),
+      )
     ) {
       return;
     }
     throw new Error(
       `TestLint projectRoot must be a disposable directory under ${tempRoot}: ${projectRoot}`,
     );
+  }
+
+  function isSameOrChildPath(parent: string, child: string): boolean {
+    const relative = path.relative(parent, child);
+    if (
+      relative === "" ||
+      (!relative.startsWith("..") && !path.isAbsolute(relative))
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  function realpathIfPossible(location: string): string {
+    try {
+      return fs.realpathSync(location);
+    } catch {
+      return location;
+    }
   }
 
   /** Link the workspace @ttsc/lint package as if the fixture had installed it. */
