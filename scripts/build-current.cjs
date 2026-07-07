@@ -66,13 +66,23 @@ if (plan === undefined) {
 }
 
 for (const target of plan) {
-  if (target === PLATFORM) run(["--dir", platformDir, "build"]);
-  else run(["--filter", target, "build"]);
+  if (target === PLATFORM) {
+    run(
+      ["--dir", platformDir, "build"],
+      scope === "experimental" ? { TTSC_PLATFORM_BUILD_TARGETS: "ttsc" } : {},
+    );
+  } else {
+    run(["--filter", target, "build"]);
+  }
 }
 
-function run(args) {
+function run(args, extraEnv = {}) {
   const result = cp.spawnSync(...pnpmCommand(args), {
     cwd: root,
+    env: {
+      ...process.env,
+      ...extraEnv,
+    },
     stdio: "inherit",
     windowsHide: true,
   });
