@@ -198,8 +198,11 @@ assert(
   npmIcon.width === 128 && npmIcon.height === 128,
   `npm ${iconPath} must be 128x128, got ${npmIcon.width}x${npmIcon.height}`,
 );
+const binText = pkg.binBytes?.toString("utf8") ?? "";
 assert(
-  pkg.binBytes?.toString("utf8").startsWith("#!/usr/bin/env node\n"),
+  pkg.kind === "directory"
+    ? /^#!\/usr\/bin\/env node\r?\n/.test(binText)
+    : binText.startsWith("#!/usr/bin/env node\n"),
   "bin/install.js must keep its node shebang",
 );
 assert(pkg.vsixBytes, `missing ${pkg.vsixPath}`);

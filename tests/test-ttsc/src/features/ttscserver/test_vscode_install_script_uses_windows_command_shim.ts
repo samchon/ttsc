@@ -25,11 +25,22 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
       args: string[],
       platform?: NodeJS.Platform,
       env?: NodeJS.ProcessEnv,
+      deps?: {
+        existsSync?: (path: string) => boolean;
+        spawnSync?: () => { error?: Error; stdout?: string };
+      },
     ) => {
       args: string[];
       command: string;
       options: { windowsVerbatimArguments?: boolean };
     };
+    findWindowsCodeCommand: (
+      env?: NodeJS.ProcessEnv,
+      deps?: {
+        existsSync?: (path: string) => boolean;
+        spawnSync?: () => { error?: Error; stdout?: string };
+      },
+    ) => string;
   };
 
   const args = ["--install-extension", "C:\\tmp & 100%\\ttsc.vsix", "--force"];
@@ -38,16 +49,43 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
     args,
     options: {},
   });
-  // The /c payload is already fully quoted; the spawn must pass it verbatim, or
-  // Node re-escapes the quotes (\"\"code\" …) and cmd.exe cannot run it. This is
-  // the native-Windows install failure WSL never hit.
-  assert.deepEqual(mod.createCodeCommand(args, "win32", { ComSpec: "cmd" }), {
+
+  const noCodeCmd = {
+    existsSync: () => false,
+    spawnSync: () => ({ stdout: "" }),
+  };
+  assert.deepEqual(
+    mod.createCodeCommand(args, "win32", { ComSpec: "cmd" }, noCodeCmd),
+    {
+      command: "cmd",
+      args: [
+        "/d",
+        "/s",
+        "/c",
+        '""code.cmd" "--install-extension" "C:\\tmp & 100%%\\ttsc.vsix" "--force""',
+      ],
+      options: { windowsVerbatimArguments: true },
+    },
+  );
+
+  const codeCmd =
+    "C:\\Users\\sam\\AppData\\Local\\Programs\\Microsoft VS Code\\bin\\code.cmd";
+  const env = {
+    ComSpec: "cmd",
+    LOCALAPPDATA: "C:\\Users\\sam\\AppData\\Local",
+  };
+  const deps = {
+    existsSync: (candidate: string) => candidate === codeCmd,
+    spawnSync: () => ({ stdout: "D:\\repo\\node_modules\\.bin\\code.cmd\r\n" }),
+  };
+  assert.equal(mod.findWindowsCodeCommand(env, deps), codeCmd);
+  assert.deepEqual(mod.createCodeCommand(args, "win32", env, deps), {
     command: "cmd",
     args: [
       "/d",
       "/s",
       "/c",
-      '""code" "--install-extension" "C:\\tmp & 100%%\\ttsc.vsix" "--force""',
+      `""${codeCmd}" "--install-extension" "C:\\tmp & 100%%\\ttsc.vsix" "--force""`,
     ],
     options: { windowsVerbatimArguments: true },
   });

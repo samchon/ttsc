@@ -1,0 +1,95 @@
+name: vscode
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/vscode.yml"
+      - "packages/vscode/**"
+      - "scripts/assert-vscode-package.cjs"
+      - "scripts/smoke-vscode-install.cjs"
+      - "tests/test-ttsc/src/features/ttscserver/test_vscode_install_script_uses_windows_command_shim.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: vscode-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  install:
+    name: install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Ensure VS Code CLI (Ubuntu)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          if ! command -v code >/dev/null 2>&1; then
+            curl -fsSL -o "$RUNNER_TEMP/vscode.deb" "https://update.code.visualstudio.com/latest/linux-deb-x64/stable"
+            sudo apt-get update
+            sudo apt-get install -y "$RUNNER_TEMP/vscode.deb"
+          fi
+          code --version
+
+      - name: Ensure VS Code CLI (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          code_bin="/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
+          if ! command -v code >/dev/null 2>&1; then
+            brew install --cask visual-studio-code
+          fi
+          if [ -d "$code_bin" ]; then
+            echo "$code_bin" >> "$GITHUB_PATH"
+            export PATH="$code_bin:$PATH"
+          fi
+          code --version
+
+      - name: Ensure VS Code CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          function Add-CodePaths {
+            $dirs = @(
+              "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin",
+              "$env:ProgramFiles\Microsoft VS Code\bin",
+              "${env:ProgramFiles(x86)}\Microsoft VS Code\bin"
+            )
+            foreach ($dir in $dirs) {
+              if ($dir -and (Test-Path $dir)) {
+                Add-Content -Path $env:GITHUB_PATH -Value $dir
+                $env:Path = "$dir;$env:Path"
+              }
+            }
+          }
+          Add-CodePaths
+          if (-not (Get-Command code.cmd -ErrorAction SilentlyContinue)) {
+            choco install vscode -y --no-progress
+            Add-CodePaths
+          }
+          code --version
+
+      - name: Build @ttsc/vscode
+        run: pnpm --filter @ttsc/vscode build
+
+      - name: Smoke-install @ttsc/vscode in VS Code
+        run: node scripts/smoke-vscode-install.cjs packages/vscode

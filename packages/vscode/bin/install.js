@@ -18,21 +18,64 @@ function createCodeCommand(
   args,
   platform = process.platform,
   env = process.env,
+  deps = {},
 ) {
   if (platform === "win32") {
+    const launcher = findWindowsCodeCommand(env, deps);
     return {
       command: env.ComSpec || "cmd.exe",
-      args: ["/d", "/s", "/c", quoteWindowsCommand(["code", ...args])],
-      // The `/c` payload is ALREADY fully quoted. Node's Windows spawn escapes
-      // each arg again unless told not to, turning `""code" …"` into
-      // `"\"\"code\" …\""`, which cmd.exe sees as one un-runnable token (the
-      // CVE-2024-27980 argument-escaping change, Node 18.20.2+/20.12.2+). Pass
-      // the payload verbatim so cmd's `/s` strips the outer quotes and runs
-      // `code …`.
+      args: ["/d", "/s", "/c", quoteWindowsCommand([launcher, ...args])],
+      // The `/c` payload is already fully quoted. Node's Windows spawn escapes
+      // each arg again unless told not to, turning `""code.cmd" ...` into
+      // `"\"\"code.cmd\" ...\""`, which cmd.exe sees as one un-runnable token
+      // after the CVE-2024-27980 argument-escaping change. Pass the payload
+      // verbatim so cmd's `/s` strips the outer quotes and runs `code.cmd ...`.
       options: { windowsVerbatimArguments: true },
     };
   }
   return { command: "code", args, options: {} };
+}
+
+function findWindowsCodeCommand(env = process.env, deps = {}) {
+  const existsSync = deps.existsSync ?? fs.existsSync;
+  const spawnSync = deps.spawnSync ?? cp.spawnSync;
+  const candidates = [];
+  const add = (candidate) => {
+    if (candidate && !candidates.includes(candidate)) candidates.push(candidate);
+  };
+
+  for (const candidate of [
+    env.LOCALAPPDATA &&
+      path.win32.join(
+        env.LOCALAPPDATA,
+        "Programs",
+        "Microsoft VS Code",
+        "bin",
+        "code.cmd",
+      ),
+    env.ProgramFiles &&
+      path.win32.join(env.ProgramFiles, "Microsoft VS Code", "bin", "code.cmd"),
+    env["ProgramFiles(x86)"] &&
+      path.win32.join(
+        env["ProgramFiles(x86)"],
+        "Microsoft VS Code",
+        "bin",
+        "code.cmd",
+      ),
+  ]) {
+    add(candidate);
+  }
+
+  const where = spawnSync("where.exe", ["code.cmd"], {
+    encoding: "utf8",
+    env,
+    windowsHide: true,
+  });
+  if (!where.error && typeof where.stdout === "string") {
+    for (const line of where.stdout.split(/\r?\n/)) add(line.trim());
+  }
+
+  return candidates.find((candidate) => existsSync(candidate)) ?? "code.cmd";
 }
 
 function quoteWindowsCommand(args) {
@@ -114,6 +157,7 @@ if (require.main === module) {
 
 module.exports = {
   createCodeCommand,
+  findWindowsCodeCommand,
   findVsix,
   main,
   quoteWindowsCommand,
