@@ -92,7 +92,7 @@ function main() {
 }
 
 function prepareCurrentTarballs() {
-  run("pnpm run build:current", root);
+  run("pnpm run build:current", root, { TTSC_BUILD_SCOPE: "experimental" });
 
   fs.mkdirSync(tarballs, { recursive: true });
   for (const name of ["ttsc", platformTarball, "unplugin"]) {
@@ -884,7 +884,7 @@ function tarball(name) {
   return file;
 }
 
-function run(command, cwd) {
+function run(command, cwd, extraEnv = {}) {
   console.log(`$ ${command}`);
   try {
     const result = cp.execSync(command, {
@@ -892,6 +892,7 @@ function run(command, cwd) {
       encoding: "utf8",
       env: {
         ...process.env,
+        ...extraEnv,
         npm_config_cache: path.join(os.tmpdir(), "ttsc-npm-cache"),
         // ttsc resolves the native `tsc` binary from here, so the consumer need
         // not install the native `typescript` package (Next cannot load it).

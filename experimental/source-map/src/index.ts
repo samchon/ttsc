@@ -57,7 +57,7 @@ function main() {
 }
 
 function prepareCurrentTarballs() {
-  run("pnpm run build:current", root);
+  run("pnpm run build:current", root, { TTSC_BUILD_SCOPE: "experimental" });
 
   fs.mkdirSync(tarballs, { recursive: true });
   for (const name of ["ttsc", platformTarball]) {
@@ -248,13 +248,14 @@ function tarball(name) {
   return file;
 }
 
-function run(command, cwd) {
+function run(command, cwd, extraEnv = {}) {
   console.log(`$ ${command}`);
   const result = cp.execSync(command, {
     cwd,
     encoding: "utf8",
     env: {
       ...process.env,
+      ...extraEnv,
       npm_config_cache: path.join(os.tmpdir(), "ttsc-npm-cache"),
     },
     maxBuffer: 1024 * 1024 * 64,

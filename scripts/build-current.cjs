@@ -15,11 +15,10 @@ if (!fs.existsSync(path.join(platformDir, "package.json"))) {
 // (e.g. @ttsc/graph, lint-contributor-demo).
 const PLATFORM = Symbol("platform");
 
-// `TTSC_BUILD_SCOPE` trims the build to what a given test lane actually
-// exercises. The heavy cost in a full build is @ttsc/graph (its build runs
-// `ttsc` with the typia plugin) plus the native binary; the test suites below
-// reference neither graph, vscode, metro, nor unplugin, so skipping them cuts
-// the per-lane build roughly in half.
+// `TTSC_BUILD_SCOPE` trims the build to what a given test or experiment lane
+// actually exercises. The heavy cost in a full build is @ttsc/graph (its build
+// runs `ttsc` with the typia plugin) plus the native binary; scoped lanes skip
+// packages they never package or execute.
 const SCOPES = {
   // Everything, in dependency-safe order (native binary before graph/demo).
   full: [
@@ -45,6 +44,16 @@ const SCOPES = {
     "@ttsc/lint",
     PLATFORM,
     "lint-contributor-demo",
+  ],
+  // Experimental tarball smoke tests pack only ttsc, the current platform, and
+  // first-party packages consumed by the install/unplugin checks. paths/strip
+  // ship source files directly and have no build script.
+  experimental: [
+    "ttsc",
+    "@ttsc/banner",
+    "@ttsc/lint",
+    "@ttsc/unplugin",
+    PLATFORM,
   ],
 };
 
