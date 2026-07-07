@@ -1242,28 +1242,46 @@ func isConfigObject(value any) bool {
   return ok
 }
 
-// relativeImportSpecifier computes the ESM import specifier for `location`
-// relative to `fromDir`. The result always starts with "./" or "../" so it is
-// treated as a relative path by the ESM loader rather than as a bare package
-// name.
-func relativeImportSpecifier(fromDir, location string) (string, error) {
-  relative, err := filepath.Rel(fromDir, location)
-  if err != nil {
-    return "", fmt.Errorf("@ttsc/lint: resolve relative config import %s: %w", location, err)
-  }
-  relative = filepath.ToSlash(relative)
-  if strings.HasPrefix(relative, "../") || strings.HasPrefix(relative, "./") {
-    return relative, nil
-  }
-  return "./" + relative, nil
-}
-
 func fileURL(location string) string {
+  volume := filepath.VolumeName(location)
+  if volume != "" {
+    volumePath := filepath.ToSlash(volume)
+    rest := strings.TrimPrefix(filepath.ToSlash(location[len(volume):]), "/")
+    if strings.HasPrefix(volumePath, "//?/UNC") {
+      return uncFileURL(rest)
+    }
+    if strings.HasPrefix(volumePath, "//?/") {
+      pathname := "/" + strings.TrimPrefix(volumePath, "//?/")
+      if rest != "" {
+        pathname += "/" + rest
+      }
+      return (&url.URL{Scheme: "file", Path: pathname}).String()
+    }
+    if strings.HasPrefix(volumePath, "//") {
+      return uncFileURL(strings.TrimPrefix(volumePath, "//") + "/" + rest)
+    }
+  }
   pathname := filepath.ToSlash(location)
-  if filepath.VolumeName(location) != "" && !strings.HasPrefix(pathname, "/") {
+  if volume != "" && !strings.HasPrefix(pathname, "/") {
     pathname = "/" + pathname
   }
   return (&url.URL{Scheme: "file", Path: pathname}).String()
+}
+
+func uncFileURL(pathname string) string {
+  server, remainder, ok := strings.Cut(pathname, "/")
+  if !ok || server == "" {
+    return (&url.URL{Scheme: "file", Path: "/" + strings.TrimPrefix(pathname, "/")}).String()
+  }
+  share, tail, _ := strings.Cut(remainder, "/")
+  if share == "" {
+    return (&url.URL{Scheme: "file", Path: "/" + strings.TrimPrefix(pathname, "/")}).String()
+  }
+  urlPath := "/" + share
+  if tail != "" {
+    urlPath += "/" + tail
+  }
+  return (&url.URL{Scheme: "file", Host: server, Path: urlPath}).String()
 }
 
 // typeScriptConfigLoaderSource returns the TypeScript source of the ephemeral
