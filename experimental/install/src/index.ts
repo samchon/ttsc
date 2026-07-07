@@ -52,21 +52,20 @@ function packPackage(packageDirName, tarballName) {
   const packageDir = path.join(root, "packages", packageDirName);
   assert(fs.existsSync(packageDir), `${packageDirName} package must exist`);
 
-  for (const entry of fs.readdirSync(packageDir)) {
-    if (entry.endsWith(".tgz")) {
-      fs.rmSync(path.join(packageDir, entry), { force: true });
-    }
-  }
-
-  run("pnpm pack", packageDir);
-  const packed = fs
-    .readdirSync(packageDir)
-    .find((entry) => entry.endsWith(".tgz"));
-  assert(packed, `${packageDirName} package tarball must be created`);
-  fs.copyFileSync(
-    path.join(packageDir, packed),
-    path.join(tarballs, `${tarballName}.tgz`),
+  const output = path.join(tarballs, `${tarballName}.tgz`);
+  fs.rmSync(output, { force: true });
+  const result = run(
+    `pnpm pack --json --out ${JSON.stringify(output)}`,
+    packageDir,
+    {},
+    { echoOutput: false },
   );
+  const summary = parsePackSummary(result.stdout, packageDirName);
+  const fileCount = Array.isArray(summary.files) ? summary.files.length : 0;
+  console.log(
+    `packed ${packageDirName} -> ${path.relative(root, output)} (${fileCount} files)`,
+  );
+  assert(fs.existsSync(output), `${packageDirName} package tarball must exist`);
 }
 
 function prepareWorkspace() {
@@ -408,24 +407,43 @@ function tarball(name) {
   return file;
 }
 
-function run(command, cwd, extraEnv = {}) {
+function run(command, cwd, extraEnv = {}, options = {}) {
   console.log(`$ ${command}`);
-  const result = cp.execSync(command, {
-    cwd,
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      ...extraEnv,
-      npm_config_cache: path.join(os.tmpdir(), "ttsc-npm-cache"),
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (result) process.stdout.write(result);
-  return { stdout: result };
+  const started = Date.now();
+  try {
+    const result = cp.execSync(command, {
+      cwd,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        ...extraEnv,
+        npm_config_cache: path.join(os.tmpdir(), "ttsc-npm-cache"),
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (result && options.echoOutput !== false) {
+      process.stdout.write(result);
+    }
+    return { stdout: result };
+  } finally {
+    console.log(
+      `$ ${command} finished in ${formatDuration(Date.now() - started)}`,
+    );
+  }
+}
+
+function parsePackSummary(stdout, packageDirName) {
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    throw new Error(`${packageDirName} package pack summary must be JSON`);
+  }
 }
 
 function runNode(args, cwd, label) {
-  console.log(`$ ${label ?? [process.execPath, ...args].join(" ")}`);
+  const command = label ?? [process.execPath, ...args].join(" ");
+  console.log(`$ ${command}`);
+  const started = Date.now();
   const result = cp.spawnSync(process.execPath, args, {
     cwd,
     encoding: "utf8",
@@ -435,6 +453,9 @@ function runNode(args, cwd, label) {
   });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
+  console.log(
+    `$ ${command} finished in ${formatDuration(Date.now() - started)}`,
+  );
   assert(result.status === 0, `node ${args.join(" ")} failed`);
   return result;
 }
@@ -479,7 +500,9 @@ function spawnInstalledTtsc(args, cwd, extraEnv = {}) {
   );
   assert(fs.existsSync(ttsx), "installed ttsx launcher must exist");
 
-  console.log(`$ node ${path.relative(cwd, launcher)} ${args.join(" ")}`);
+  const command = `node ${path.relative(cwd, launcher)} ${args.join(" ")}`;
+  console.log(`$ ${command}`);
+  const started = Date.now();
   const result = cp.spawnSync(process.execPath, [launcher, ...args], {
     cwd,
     encoding: "utf8",
@@ -494,7 +517,17 @@ function spawnInstalledTtsc(args, cwd, extraEnv = {}) {
   });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
+  console.log(
+    `$ ${command} finished in ${formatDuration(Date.now() - started)}`,
+  );
   return result;
+}
+
+function formatDuration(milliseconds) {
+  if (milliseconds < 1000) {
+    return `${milliseconds}ms`;
+  }
+  return `${(milliseconds / 1000).toFixed(1)}s`;
 }
 
 function assert(condition, message) {

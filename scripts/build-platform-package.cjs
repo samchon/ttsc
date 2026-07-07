@@ -33,6 +33,7 @@ const graphFile = path.join(
   npmOs === "win32" ? "ttscgraph.exe" : "ttscgraph",
 );
 const bundledGoDir = path.join(outDir, "go");
+const buildTargets = parseBuildTargets();
 
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
@@ -55,64 +56,64 @@ const goBuildFlags = [
   ].join(" "),
 ];
 
-console.log(`Building ${manifest.name} -> ${path.relative(root, outFile)}`);
-cp.execFileSync(
-  buildGo,
-  ["build", ...goBuildFlags, "-o", outFile, "./cmd/platform"],
-  {
-    cwd: source,
-    env: {
-      ...process.env,
-      CGO_ENABLED: "0",
-      GOARCH: goarch,
-      GOOS: goos,
-      PATH: pathValue,
-    },
-    stdio: "inherit",
-  },
-);
-
-console.log(`Building ${manifest.name} -> ${path.relative(root, serverFile)}`);
-cp.execFileSync(
-  buildGo,
-  ["build", ...goBuildFlags, "-o", serverFile, "./cmd/ttscserver"],
-  {
-    cwd: source,
-    env: {
-      ...process.env,
-      CGO_ENABLED: "0",
-      GOARCH: goarch,
-      GOOS: goos,
-      PATH: pathValue,
-    },
-    stdio: "inherit",
-  },
-);
-
-console.log(`Building ${manifest.name} -> ${path.relative(root, graphFile)}`);
-cp.execFileSync(
-  buildGo,
-  ["build", ...goBuildFlags, "-o", graphFile, "./cmd/ttscgraph"],
-  {
-    cwd: source,
-    env: {
-      ...process.env,
-      CGO_ENABLED: "0",
-      GOARCH: goarch,
-      GOOS: goos,
-      PATH: pathValue,
-    },
-    stdio: "inherit",
-  },
-);
+buildGoTarget("ttsc", outFile, "./cmd/platform");
+buildGoTarget("ttscserver", serverFile, "./cmd/ttscserver");
+buildGoTarget("ttscgraph", graphFile, "./cmd/ttscgraph");
 
 embedGoToolchain();
 
 if (npmOs !== "win32") {
-  fs.chmodSync(outFile, 0o755);
-  fs.chmodSync(serverFile, 0o755);
-  fs.chmodSync(graphFile, 0o755);
+  chmodIfBuilt("ttsc", outFile);
+  chmodIfBuilt("ttscserver", serverFile);
+  chmodIfBuilt("ttscgraph", graphFile);
   syncExecutablePublishConfig();
+}
+
+function parseBuildTargets() {
+  const raw = process.env.TTSC_PLATFORM_BUILD_TARGETS;
+  if (!raw) {
+    return new Set(["ttsc", "ttscserver", "ttscgraph"]);
+  }
+  const targets = new Set(
+    raw
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0),
+  );
+  const allowed = new Set(["ttsc", "ttscserver", "ttscgraph"]);
+  for (const target of targets) {
+    if (!allowed.has(target)) {
+      throw new Error(
+        `build-platform-package: unsupported TTSC_PLATFORM_BUILD_TARGETS entry ${JSON.stringify(target)}`,
+      );
+    }
+  }
+  if (targets.size === 0) {
+    throw new Error(
+      "build-platform-package: TTSC_PLATFORM_BUILD_TARGETS must select at least one target",
+    );
+  }
+  return targets;
+}
+
+function buildGoTarget(name, output, pkg) {
+  if (!buildTargets.has(name)) return;
+  console.log(`Building ${manifest.name} -> ${path.relative(root, output)}`);
+  cp.execFileSync(buildGo, ["build", ...goBuildFlags, "-o", output, pkg], {
+    cwd: source,
+    env: {
+      ...process.env,
+      CGO_ENABLED: "0",
+      GOARCH: goarch,
+      GOOS: goos,
+      PATH: pathValue,
+    },
+    stdio: "inherit",
+  });
+}
+
+function chmodIfBuilt(name, file) {
+  if (buildTargets.has(name)) fs.chmodSync(file, 0o755);
 }
 
 function resolveBuildGo() {
@@ -411,13 +412,11 @@ function chmodGoExecutables(rootDir) {
 function syncExecutablePublishConfig() {
   const manifestPath = path.join(cwd, "package.json");
   const current = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-  const executableFiles = [
-    "./bin/ttsc",
-    "./bin/ttscserver",
-    "./bin/ttscgraph",
-    "./bin/go/bin/go",
-    "./bin/go/bin/gofmt",
-  ];
+  const executableFiles = [];
+  if (buildTargets.has("ttsc")) executableFiles.push("./bin/ttsc");
+  if (buildTargets.has("ttscserver")) executableFiles.push("./bin/ttscserver");
+  if (buildTargets.has("ttscgraph")) executableFiles.push("./bin/ttscgraph");
+  executableFiles.push("./bin/go/bin/go", "./bin/go/bin/gofmt");
   const toolFiles = [];
   const toolDir = path.join(bundledGoDir, "pkg", "tool");
   if (fs.existsSync(toolDir)) {
