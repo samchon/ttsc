@@ -18,9 +18,11 @@ import {
  *
  * 1. Write a synthetic @ttsc/linux-x64 tarball with every executable at 0755.
  * 2. Write a second tarball with ttscgraph at 0644.
- * 3. Write a source package whose manifest omits pnpm executable-file metadata.
- * 4. Write a source package whose manifest omits the bundled Go tool metadata.
- * 5. Assert the platform-package verifier accepts the good tarball, rejects the
+ * 3. Write a partial tarball whose manifest declares only the executables it
+ *    carries.
+ * 4. Write a source package whose manifest omits pnpm executable-file metadata.
+ * 5. Write a source package whose manifest omits the bundled Go tool metadata.
+ * 6. Assert the platform-package verifier accepts the good tarballs, rejects the
  *    bad tarball with the offending path in stderr, and rejects unsafe source
  *    manifests before publish.
  */
@@ -32,8 +34,21 @@ export const test_platform_package_tarball_requires_posix_executable_modes =
     try {
       const good = path.join(root, "good.tgz");
       const bad = path.join(root, "bad.tgz");
+      const partial = path.join(root, "partial.tgz");
       writePlatformTarball(good, {});
       writePlatformTarball(bad, { "package/bin/ttscgraph": 0o644 });
+      writePlatformTarball(
+        partial,
+        {},
+        {
+          executableFiles: [
+            "bin/ttsc",
+            "bin/go/bin/go",
+            "bin/go/bin/gofmt",
+            "bin/go/pkg/tool/linux_amd64/compile",
+          ],
+        },
+      );
 
       const script = path.join(
         workspaceRoot,
@@ -46,6 +61,17 @@ export const test_platform_package_tarball_requires_posix_executable_modes =
         windowsHide: true,
       });
       assert.equal(ok.status, 0, ok.stderr);
+
+      const partialOk = child_process.spawnSync(
+        process.execPath,
+        [script, partial],
+        {
+          cwd: workspaceRoot,
+          encoding: "utf8",
+          windowsHide: true,
+        },
+      );
+      assert.equal(partialOk.status, 0, partialOk.stderr);
 
       const rejected = child_process.spawnSync(
         process.execPath,
@@ -133,24 +159,42 @@ function writePlatformSourcePackage(
   }
 }
 
-function writePlatformTarball(file: string, modes: Record<string, number>) {
+function writePlatformTarball(
+  file: string,
+  modes: Record<string, number>,
+  options: { executableFiles?: string[] } = {},
+) {
+  const executableFiles = options.executableFiles ?? [
+    "bin/ttsc",
+    "bin/ttscserver",
+    "bin/ttscgraph",
+    "bin/go/bin/go",
+    "bin/go/bin/gofmt",
+    "bin/go/pkg/tool/linux_amd64/compile",
+  ];
+  const manifest: {
+    name: string;
+    publishConfig?: { executableFiles: string[] };
+    version: string;
+  } = {
+    name: "@ttsc/linux-x64",
+    version: "0.0.0",
+  };
+  if (options.executableFiles !== undefined) {
+    manifest.publishConfig = {
+      executableFiles: executableFiles.map((rel) => `./${rel}`),
+    };
+  }
   const entries: TarEntry[] = [
     {
-      content: JSON.stringify({ name: "@ttsc/linux-x64", version: "0.0.0" }),
+      content: JSON.stringify(manifest),
       mode: 0o644,
       name: "package/package.json",
     },
-    ...[
-      "package/bin/ttsc",
-      "package/bin/ttscserver",
-      "package/bin/ttscgraph",
-      "package/bin/go/bin/go",
-      "package/bin/go/bin/gofmt",
-      "package/bin/go/pkg/tool/linux_amd64/compile",
-    ].map((name) => ({
+    ...executableFiles.map((rel) => ({
       content: "x",
-      mode: modes[name] ?? 0o755,
-      name,
+      mode: modes[`package/${rel}`] ?? 0o755,
+      name: `package/${rel}`,
     })),
   ];
   fs.writeFileSync(

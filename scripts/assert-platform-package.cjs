@@ -14,6 +14,11 @@ const baseExecutablePaths = [
   "bin/go/bin/go",
   "bin/go/bin/gofmt",
 ];
+const minimumExecutablePaths = [
+  "bin/ttsc",
+  "bin/go/bin/go",
+  "bin/go/bin/gofmt",
+];
 const requiredExecutableConfigPaths = baseExecutablePaths.map(
   (rel) => `./${rel}`,
 );
@@ -89,7 +94,7 @@ function inspectTarball(file) {
   const platform = platformFromPackageName(manifest.name);
   if (platform === null || platform.os === "win32") return;
 
-  for (const rel of requiredExecutablePathsFromEntries(entries)) {
+  for (const rel of requiredExecutablePathsFromEntries(entries, manifest)) {
     const name = `package/${rel}`;
     const entry = entries.get(name);
     if (!entry) {
@@ -141,18 +146,33 @@ function requiredExecutablePaths(packageDir) {
   return paths;
 }
 
-function requiredExecutablePathsFromEntries(entries) {
-  const paths = [...baseExecutablePaths];
+function requiredExecutablePathsFromEntries(entries, manifest) {
+  const configured = configuredExecutablePaths(manifest);
+  const paths = configured ?? [...baseExecutablePaths];
+  for (const rel of minimumExecutablePaths) {
+    if (!paths.includes(rel)) paths.push(rel);
+  }
   for (const [name, entry] of entries) {
     if (
       entry.file &&
       name.startsWith("package/bin/go/pkg/tool/") &&
       !name.endsWith("/")
     ) {
-      paths.push(name.slice("package/".length));
+      const rel = name.slice("package/".length);
+      if (!paths.includes(rel)) paths.push(rel);
     }
   }
   return paths;
+}
+
+function configuredExecutablePaths(manifest) {
+  if (!Array.isArray(manifest.publishConfig?.executableFiles)) {
+    return undefined;
+  }
+  return manifest.publishConfig.executableFiles
+    .filter((rel) => typeof rel === "string")
+    .map((rel) => rel.replace(/^\.\//, ""))
+    .filter((rel) => rel.startsWith("bin/"));
 }
 
 function hasExecutableMode(mode) {
