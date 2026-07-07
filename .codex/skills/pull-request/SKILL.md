@@ -23,6 +23,8 @@ Write the PR body at open: intent, scope, deferred items, test plan. Treat it as
 
 After every push, watch `gh pr checks <PR>` with the Monitor tool until each check settles. Do not poll manually; the notification arrives when transitions complete. On failure, fetch the job log via `gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs` (returns the full log when `gh run view --log-failed` is empty), diagnose, fix in place, push as a new commit, and let the monitor resume.
 
-## Hand back without merging
+## Merge only on explicit request
 
-The agent does not merge, squash-merge, or rebase the target branch. Hand back to the user when all checks pass, or when the user has acknowledged a known-failing check.
+Do not merge, squash-merge, or rebase the target branch on your own initiative. When the user explicitly asks to merge, use the repository's established merge method unless they specify another one.
+
+Before merging, confirm required checks are passing. If a non-required check is known-failing and the user explicitly acknowledges it, merge if GitHub permits it; if branch protection blocks the merge, report the blocker instead of bypassing it.
