@@ -394,7 +394,9 @@ function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
 // collects every `plugins` map, and serialises each plugin's `source` field
 // as a JSON array for the parent process to parse — avoiding the need to
 // serialise arbitrary in-memory plugin objects across the process boundary.
-const TTSX_EXTRACTOR_SCRIPT = `const importedConfig = await import(%CONFIG_IMPORT%);
+// The URL lives in a variable so tsgo does not statically resolve it.
+const TTSX_EXTRACTOR_SCRIPT = `const configUrl = %CONFIG_IMPORT%;
+const importedConfig = await import(configUrl);
 
 declare const process: {
   cwd(): string;

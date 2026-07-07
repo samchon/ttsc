@@ -1268,11 +1268,12 @@ func fileURL(location string) string {
 
 // typeScriptConfigLoaderSource returns the TypeScript source of the ephemeral
 // loader script that ttsx executes to evaluate a TypeScript lint config file.
-// `importLiteral` is a JSON-encoded relative import path (e.g. `"./lint.config.ts"`)
-// that is spliced directly into the `import * as` statement, so it must
-// already be a valid JSON string (produced by json.Marshal).
+// `importLiteral` is a JSON-encoded file URL (produced by json.Marshal). It is
+// assigned to a variable before `import(configUrl)` so tsgo does not try to
+// statically resolve the file URL during the loader build.
 func typeScriptConfigLoaderSource(importLiteral string) string {
-  return fmt.Sprintf(`const importedConfig = await import(%s);
+  return fmt.Sprintf(`const configUrl = %s;
+const importedConfig = await import(configUrl);
 
 declare const process: {
   stdout: { write(value: string): void };
