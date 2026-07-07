@@ -114,6 +114,8 @@ export namespace TestLint {
   export interface IRunLintOptions {
     name: string;
     source: string;
+    /** Optional disposable root under the OS temp dir; cleanup removes it. */
+    projectRoot?: string;
     rules?: Record<string, LintRuleConfigSeverity>;
     pluginConfig?: Record<string, unknown>;
     extraSources?: Record<string, string>;
@@ -155,11 +157,21 @@ export namespace TestLint {
    * immediately.
    */
   export function createProject(options: IRunLintOptions): IRunLintProject {
-    const { name, source, rules, pluginConfig, extraSources, linkNodeModules } =
-      options;
-    const tmpdir = TestProject.tmpdir(
-      `ttsc-lint-case-${sanitizeForFsName(name)}-`,
-    );
+    const {
+      name,
+      source,
+      projectRoot,
+      rules,
+      pluginConfig,
+      extraSources,
+      linkNodeModules,
+    } = options;
+    const tmpdir =
+      projectRoot ??
+      TestProject.tmpdir(`ttsc-lint-case-${sanitizeForFsName(name)}-`);
+    if (projectRoot !== undefined) {
+      assertDisposableProjectRoot(projectRoot);
+    }
     try {
       // The tsconfig plugin entry never carries rules: it is empty, or
       // optionally names a config file via `configFile`. When a test uses the
@@ -202,6 +214,7 @@ export namespace TestLint {
   export function runProject(
     tmpdir: string,
     args: string[] = [],
+    env: NodeJS.ProcessEnv = {},
   ): IRunLintResult {
     const result = spawnSync(
       process.execPath,
@@ -210,6 +223,7 @@ export namespace TestLint {
         cwd: tmpdir,
         env: {
           ...process.env,
+          ...env,
           TTSC_CACHE_DIR: SHARED_CACHE_DIR,
           TTSC_TTSX_BINARY: TTSX_BIN,
           TTSC_TSGO_BINARY: TSGO_BINARY,
@@ -261,6 +275,43 @@ export namespace TestLint {
       ),
       "utf8",
     );
+  }
+
+  function assertDisposableProjectRoot(projectRoot: string): void {
+    const tempRoot = path.resolve(os.tmpdir());
+    const resolved = path.resolve(projectRoot);
+    const tempRoots = new Set([tempRoot, realpathIfPossible(tempRoot)]);
+    if (
+      [...tempRoots].some(
+        (candidate) =>
+          isSameOrChildPath(candidate, resolved) ||
+          isSameOrChildPath(candidate, realpathIfPossible(resolved)),
+      )
+    ) {
+      return;
+    }
+    throw new Error(
+      `TestLint projectRoot must be a disposable directory under ${tempRoot}: ${projectRoot}`,
+    );
+  }
+
+  function isSameOrChildPath(parent: string, child: string): boolean {
+    const relative = path.relative(parent, child);
+    if (
+      relative === "" ||
+      (!relative.startsWith("..") && !path.isAbsolute(relative))
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  function realpathIfPossible(location: string): string {
+    try {
+      return fs.realpathSync(location);
+    } catch {
+      return location;
+    }
   }
 
   /** Link the workspace @ttsc/lint package as if the fixture had installed it. */

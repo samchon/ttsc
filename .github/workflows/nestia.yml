@@ -60,26 +60,12 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Mirror nestia (next)'s own test.yml matrix so each suite runs in parallel,
-  # but against the local ttsc tarballs instead of the published release.
+  # Run nestia (next)'s standard test suite against the local ttsc tarballs
+  # instead of the published release.
   nestia:
     needs: tarballs
-    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { name: go, run: "pnpm test:go" }
-          - { name: sdk, run: "pnpm --filter ./tests/test-sdk start" }
-          - { name: migrate, run: "pnpm --filter ./tests/test-migrate start" }
-          - {
-              name: transform-options,
-              run: "pnpm --filter ./tests/test-transform-options start",
-            }
-          - { name: e2e, run: "pnpm --filter ./tests/test-e2e start" }
-          - { name: benchmark, run: "pnpm --filter ./tests/test-benchmark start" }
     steps:
       - uses: actions/checkout@v4
 
@@ -147,8 +133,8 @@ jobs:
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
         run: pnpm build
 
-      - name: Run ${{ matrix.name }}
+      - name: Test nestia
         working-directory: experimental/nestia
         env:
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-        run: ${{ matrix.run }}
+        run: pnpm test

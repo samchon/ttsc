@@ -40,8 +40,9 @@ function createLintProject(options: IRunLintOptions): TestLint.IRunLintProject {
 function runLintProject(
   tmpdir: string,
   args: string[] = [],
+  env: NodeJS.ProcessEnv = {},
 ): TestLint.IRunLintResult {
-  return TestLint.runProject(tmpdir, args);
+  return TestLint.runProject(tmpdir, args, env);
 }
 
 /**
