@@ -114,6 +114,7 @@ export namespace TestLint {
   export interface IRunLintOptions {
     name: string;
     source: string;
+    projectRoot?: string;
     rules?: Record<string, LintRuleConfigSeverity>;
     pluginConfig?: Record<string, unknown>;
     extraSources?: Record<string, string>;
@@ -155,11 +156,18 @@ export namespace TestLint {
    * immediately.
    */
   export function createProject(options: IRunLintOptions): IRunLintProject {
-    const { name, source, rules, pluginConfig, extraSources, linkNodeModules } =
-      options;
-    const tmpdir = TestProject.tmpdir(
-      `ttsc-lint-case-${sanitizeForFsName(name)}-`,
-    );
+    const {
+      name,
+      source,
+      projectRoot,
+      rules,
+      pluginConfig,
+      extraSources,
+      linkNodeModules,
+    } = options;
+    const tmpdir =
+      projectRoot ??
+      TestProject.tmpdir(`ttsc-lint-case-${sanitizeForFsName(name)}-`);
     try {
       // The tsconfig plugin entry never carries rules: it is empty, or
       // optionally names a config file via `configFile`. When a test uses the
@@ -202,6 +210,7 @@ export namespace TestLint {
   export function runProject(
     tmpdir: string,
     args: string[] = [],
+    env: NodeJS.ProcessEnv = {},
   ): IRunLintResult {
     const result = spawnSync(
       process.execPath,
@@ -210,6 +219,7 @@ export namespace TestLint {
         cwd: tmpdir,
         env: {
           ...process.env,
+          ...env,
           TTSC_CACHE_DIR: SHARED_CACHE_DIR,
           TTSC_TTSX_BINARY: TTSX_BIN,
           TTSC_TSGO_BINARY: TSGO_BINARY,

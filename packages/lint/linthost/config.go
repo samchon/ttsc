@@ -7,6 +7,7 @@ import (
   "encoding/hex"
   "encoding/json"
   "fmt"
+  "net/url"
   "os"
   "os/exec"
   "path/filepath"
@@ -1186,6 +1187,7 @@ func loadTypeScriptConfigFile(location string) (any, error) {
   if err != nil {
     return nil, fmt.Errorf("@ttsc/lint: create config loader tempdir: %w", err)
   }
+  tempDir = realpathIfPossible(tempDir)
   defer os.RemoveAll(tempDir)
 
   if err := linkNearestNodeModules(tempDir, filepath.Dir(location)); err != nil {
@@ -1194,11 +1196,7 @@ func loadTypeScriptConfigFile(location string) (any, error) {
 
   loader := filepath.Join(tempDir, "loader.mts")
   tsconfig := filepath.Join(tempDir, "tsconfig.json")
-  importSpecifier, err := relativeImportSpecifier(tempDir, location)
-  if err != nil {
-    return nil, err
-  }
-  importLiteral, err := json.Marshal(importSpecifier)
+  importLiteral, err := json.Marshal(fileURL(location))
   if err != nil {
     return nil, fmt.Errorf("@ttsc/lint: encode config import %s: %w", location, err)
   }
@@ -1260,13 +1258,21 @@ func relativeImportSpecifier(fromDir, location string) (string, error) {
   return "./" + relative, nil
 }
 
+func fileURL(location string) string {
+  pathname := filepath.ToSlash(location)
+  if filepath.VolumeName(location) != "" && !strings.HasPrefix(pathname, "/") {
+    pathname = "/" + pathname
+  }
+  return (&url.URL{Scheme: "file", Path: pathname}).String()
+}
+
 // typeScriptConfigLoaderSource returns the TypeScript source of the ephemeral
 // loader script that ttsx executes to evaluate a TypeScript lint config file.
 // `importLiteral` is a JSON-encoded relative import path (e.g. `"./lint.config.ts"`)
 // that is spliced directly into the `import * as` statement, so it must
 // already be a valid JSON string (produced by json.Marshal).
 func typeScriptConfigLoaderSource(importLiteral string) string {
-  return fmt.Sprintf(`import * as importedConfig from %s;
+  return fmt.Sprintf(`const importedConfig = await import(%s);
 
 declare const process: {
   stdout: { write(value: string): void };
@@ -1420,6 +1426,14 @@ func loaderTempBase(location, systemTemp string) string {
   real, err := filepath.EvalSymlinks(base)
   if err != nil || !strings.EqualFold(filepath.VolumeName(real), filepath.VolumeName(location)) {
     return filepath.Dir(location)
+  }
+  return real
+}
+
+func realpathIfPossible(location string) string {
+  real, err := filepath.EvalSymlinks(location)
+  if err != nil {
+    return location
   }
   return real
 }

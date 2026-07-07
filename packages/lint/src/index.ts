@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import type { ITtscLintPlugin, ITtscLintPluginConfig } from "./structures";
 
@@ -388,12 +389,12 @@ function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
 }
 
 // TypeScript source written to a temp file and executed via ttsx. The
-// %CONFIG_IMPORT% placeholder is replaced with a JSON-quoted relative path
+// %CONFIG_IMPORT% placeholder is replaced with a JSON-quoted file URL
 // before the file hits disk. The script walks the exported config object,
 // collects every `plugins` map, and serialises each plugin's `source` field
 // as a JSON array for the parent process to parse — avoiding the need to
 // serialise arbitrary in-memory plugin objects across the process boundary.
-const TTSX_EXTRACTOR_SCRIPT = `import * as importedConfig from %CONFIG_IMPORT%;
+const TTSX_EXTRACTOR_SCRIPT = `const importedConfig = await import(%CONFIG_IMPORT%);
 
 declare const process: {
   cwd(): string;
@@ -535,17 +536,16 @@ function evaluateTtsxConfigPlugins(
   configPath: string,
   _context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): ConfigPluginEntry[] {
-  const tempDir = fs.mkdtempSync(
-    path.join(loaderTempBase(configPath), "ttsc-lint-cfg-"),
+  const tempDir = realpathIfPossible(
+    fs.mkdtempSync(path.join(loaderTempBase(configPath), "ttsc-lint-cfg-")),
   );
   try {
     linkNearestNodeModules(tempDir, path.dirname(configPath));
     const loaderPath = path.join(tempDir, "loader.mts");
     const tsconfigPath = path.join(tempDir, "tsconfig.json");
-    const importSpecifier = relativeImportSpecifier(tempDir, configPath);
     const loaderSource = TTSX_EXTRACTOR_SCRIPT.replace(
       "%CONFIG_IMPORT%",
-      JSON.stringify(importSpecifier),
+      JSON.stringify(pathToFileURL(configPath).href),
     );
     fs.writeFileSync(loaderPath, loaderSource, "utf8");
     fs.writeFileSync(
@@ -967,12 +967,12 @@ function loaderTempBase(configPath: string): string {
   return path.dirname(configPath);
 }
 
-function relativeImportSpecifier(fromDir: string, target: string): string {
-  let rel = path.relative(fromDir, target).replace(/\\/g, "/");
-  if (!rel.startsWith("./") && !rel.startsWith("../")) {
-    rel = "./" + rel;
+function realpathIfPossible(location: string): string {
+  try {
+    return fs.realpathSync(location);
+  } catch {
+    return location;
   }
-  return rel;
 }
 
 function nodeConfigLoaderEnv(configPath: string): NodeJS.ProcessEnv {
