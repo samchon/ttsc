@@ -31,6 +31,10 @@ function preparePackages() {
   console.log(`Preparing packages (pnpm run ${script})`);
   cp.execSync(`pnpm run ${script}`, {
     cwd: root,
+    env: {
+      ...process.env,
+      ...(CURRENT_ONLY ? { TTSC_BUILD_SCOPE: "experimental" } : {}),
+    },
     stdio: "inherit",
   });
 }
