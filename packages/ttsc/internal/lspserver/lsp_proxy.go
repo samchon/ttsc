@@ -34,6 +34,8 @@ const (
   methodExecuteCommand     = "workspace/executeCommand"
   methodCancelRequest      = "$/cancelRequest"
   methodFormatting         = "textDocument/formatting"
+  methodDocumentSymbol     = "textDocument/documentSymbol"
+  methodReferences         = "textDocument/references"
 )
 
 // formatDocumentCommand is the ttsc-owned workspace command that the lint
@@ -61,6 +63,11 @@ type ProxyOptions struct {
   // run multiple proxy instances in one global command registry use this to
   // avoid collisions; incoming prefixed ids are mapped back before dispatch.
   ExecuteCommandIDPrefix string
+  // SymbolProvider answers textDocument/documentSymbol and
+  // textDocument/references locally from ttsc's compiler-backed code graph.
+  // When nil the proxy forwards those methods to upstream tsgo (its default
+  // behavior), which does not implement them.
+  SymbolProvider SymbolProvider
 }
 
 // Proxy bridges the editor and an upstream tsgo LSP process, intercepting
@@ -75,6 +82,7 @@ type Proxy struct {
   suppressExecuteCommandProvider bool
   suppressedExecuteCommandIDs    map[string]struct{}
   executeCommandIDPrefix         string
+  symbolProvider                 SymbolProvider
 
   writeMu         sync.Mutex // serializes WriteFrame calls to editorOut
   upstreamWriteMu sync.Mutex // serializes writes to upstreamIn
@@ -143,6 +151,7 @@ func NewProxy(opts ProxyOptions) *Proxy {
     suppressExecuteCommandProvider: opts.SuppressExecuteCommandProvider,
     suppressedExecuteCommandIDs:    commandIDSet(opts.SuppressedExecuteCommandIDs),
     executeCommandIDPrefix:         opts.ExecuteCommandIDPrefix,
+    symbolProvider:                 opts.SymbolProvider,
     asyncErrCh:                     make(chan error, 1),
     pendingActions:                 make(map[string]pendingCodeActionRequest),
     pendingAugmentingActions:       make(map[string]struct{}),
@@ -284,6 +293,14 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
   case methodCodeAction:
     if env.IsRequest() {
       return p.handleCodeActionRequest(env)
+    }
+  case methodDocumentSymbol:
+    if env.IsRequest() {
+      return p.handleDocumentSymbolRequest(env)
+    }
+  case methodReferences:
+    if env.IsRequest() {
+      return p.handleReferencesRequest(env)
     }
   case methodCancelRequest:
     // $/cancelRequest names an in-flight id the editor has given up on.
@@ -1496,6 +1513,21 @@ func (p *Proxy) augmentInitializeResult(env Envelope) ([]byte, bool) {
   if p.ownsCommand(formatDocumentCommand) {
     if existing, ok := caps["documentFormattingProvider"].(bool); !ok || !existing {
       caps["documentFormattingProvider"] = true
+      changed = true
+    }
+  }
+  // Advertise documentSymbol/references when a local SymbolProvider is wired so
+  // graph consumers know to call them. The proxy intercepts both methods
+  // (handleEditorEnvelope) whether or not upstream tsgo advertised them, so
+  // forcing the capability on is safe: tsgo's own (incomplete) handlers are
+  // never reached for these methods.
+  if p.symbolProvider != nil {
+    if existing, ok := caps["documentSymbolProvider"].(bool); !ok || !existing {
+      caps["documentSymbolProvider"] = true
+      changed = true
+    }
+    if existing, ok := caps["referencesProvider"].(bool); !ok || !existing {
+      caps["referencesProvider"] = true
       changed = true
     }
   }

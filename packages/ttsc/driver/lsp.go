@@ -49,6 +49,20 @@ type LSPTextEdit = lspserver.LSPTextEdit
 // LSPDocumentVersion is the driver-level alias for lspserver.LSPDocumentVersion.
 type LSPDocumentVersion = lspserver.LSPDocumentVersion
 
+// LSPSymbolKind is the driver-level alias for lspserver.LSPSymbolKind.
+type LSPSymbolKind = lspserver.LSPSymbolKind
+
+// LSPDocumentSymbol is the driver-level alias for lspserver.LSPDocumentSymbol.
+type LSPDocumentSymbol = lspserver.LSPDocumentSymbol
+
+// LSPLocation is the driver-level alias for lspserver.LSPLocation.
+type LSPLocation = lspserver.LSPLocation
+
+// SymbolProvider is the driver-level alias for lspserver.SymbolProvider.
+// It is the seam that answers textDocument/documentSymbol and
+// textDocument/references locally from ttsc's compiler-backed code graph.
+type SymbolProvider = lspserver.SymbolProvider
+
 // PluginSource is the driver-level alias for lspserver.PluginSource.
 // It is the public seam downstream pipelines implement to contribute
 // diagnostics, code actions, and workspace commands to the LSP proxy.

@@ -25,6 +25,7 @@ import (
   "syscall"
   "time"
 
+  "github.com/samchon/ttsc/packages/ttsc/internal/graphsymbols"
   "github.com/samchon/ttsc/packages/ttsc/internal/lspserver"
 )
 
@@ -131,6 +132,12 @@ func runLSP(args []string) int {
     return 2
   }
 
+  // The SymbolProvider answers textDocument/documentSymbol and
+  // textDocument/references locally from ttsc's compiler-backed code graph;
+  // tsgo's native LSP does not implement them. It loads the program lazily on
+  // the first such request, so wiring it here adds no startup cost.
+  symbolProvider := graphsymbols.NewProvider(cwd, strings.TrimSpace(*tsconfigFlag))
+
   err = runLSPServer(ctx, lspserver.LSPServerOptions{
     In:                             stdin,
     Out:                            stdout,
@@ -138,6 +145,7 @@ func runLSP(args []string) int {
     Cwd:                            cwd,
     TsgoBinary:                     tsgoBinary,
     Source:                         source,
+    SymbolProvider:                 symbolProvider,
     SuppressExecuteCommandProvider: *suppressExecuteCommandProviderFlag,
     SuppressedExecuteCommandIDs:    splitCSV(*suppressExecuteCommandIDsFlag),
     ExecuteCommandIDPrefix:         strings.TrimSpace(*executeCommandIDPrefixFlag),
