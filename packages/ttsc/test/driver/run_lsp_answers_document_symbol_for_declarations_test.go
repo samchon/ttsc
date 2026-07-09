@@ -28,10 +28,11 @@ const graphSymbolTSConfig = `{
 }
 `
 
-// graphSymbolMainTS is a small TS file with a function, a class, and a method
-// that calls the function — enough to exercise both documentSymbol (declarations
-// become symbols, the method nesting under its class) and references (the call
-// site becomes an edge/usage). Line numbers referenced by the tests:
+// graphSymbolMainTS is a small TS file with a function, a class/method, and a
+// type alias. It exercises both documentSymbol (declarations become symbols,
+// the method nests under its class, and type aliases retain a non-class kind)
+// and references (the call site becomes an edge/usage). Line numbers referenced
+// by the tests:
 //
 //  0: export function greet(name: string): string {
 //  1:   return "hi " + name;
@@ -42,6 +43,9 @@ const graphSymbolTSConfig = `{
 //  6:     return greet("world");
 //  7:   }
 //  8: }
+//  9:
+//
+// 10: export type Payload = { name: string };
 const graphSymbolMainTS = `export function greet(name: string): string {
   return "hi " + name;
 }
@@ -51,6 +55,8 @@ export class Service {
     return greet("world");
   }
 }
+
+export type Payload = { name: string };
 `
 
 // TestRunLSPAnswersDocumentSymbolForDeclarations proves ttscserver answers
@@ -100,6 +106,13 @@ func TestRunLSPAnswersDocumentSymbolForDeclarations(t *testing.T) {
   }
   if service.Children[0].Kind != driver.LSPSymbolKind(6) { // Method
     t.Fatalf("run kind = %d, want 6 (Method)", service.Children[0].Kind)
+  }
+  payload, ok := byName["Payload"]
+  if !ok {
+    t.Fatalf("missing type alias symbol Payload; got %+v", symbols)
+  }
+  if payload.Kind != driver.LSPSymbolKind(23) { // Struct, used for type aliases.
+    t.Fatalf("Payload kind = %d, want 23 (Struct/type alias)", payload.Kind)
   }
   // greet is declared on the first line; its range must point there, not at the
   // file start with leading trivia.

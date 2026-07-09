@@ -20,6 +20,7 @@ const (
   LSPSymbolKindInterface LSPSymbolKind = 11
   LSPSymbolKindFunction  LSPSymbolKind = 12
   LSPSymbolKindVariable  LSPSymbolKind = 13
+  LSPSymbolKindStruct    LSPSymbolKind = 23
 )
 
 // LSPDocumentSymbol is the hierarchical shape returned by

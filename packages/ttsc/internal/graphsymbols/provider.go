@@ -259,8 +259,8 @@ func ownerName(n *graph.Node) string {
 }
 
 // symbolKind maps a graph node kind onto the closest LSP SymbolKind. LSP has no
-// dedicated kind for a type alias; tsserver's outline maps it onto Class, which
-// this mirrors so a consumer keyed to tsserver behavior stays consistent.
+// dedicated kind for a type alias; Struct keeps it in the named-type bucket
+// without reporting it as a runtime class.
 func symbolKind(k graph.NodeKind) lspserver.LSPSymbolKind {
   switch k {
   case graph.NodeFunction:
@@ -274,7 +274,7 @@ func symbolKind(k graph.NodeKind) lspserver.LSPSymbolKind {
   case graph.NodeMethod:
     return lspserver.LSPSymbolKindMethod
   case graph.NodeTypeAlias:
-    return lspserver.LSPSymbolKindClass
+    return lspserver.LSPSymbolKindStruct
   case graph.NodeVariable:
     return lspserver.LSPSymbolKindVariable
   default:
