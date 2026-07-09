@@ -11,6 +11,6 @@
     "rollup-plugin-auto-external": "catalog:rollup",
     "rollup-plugin-node-externals": "catalog:rollup",
     "tinyglobby": "^0.2.12",
-    "typescript": "~6.0.3"
+    "typescript": "~7.0.2"
   }
 }
