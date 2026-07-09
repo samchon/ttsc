@@ -23,17 +23,17 @@ catalogs:
       version: 8.1.2
   samchon:
     '@typia/interface':
-      specifier: ^13.0.0-rc.2
-      version: 13.0.0-rc.2
+      specifier: ^13.0.0
+      version: 13.0.0
     '@typia/mcp':
-      specifier: ^13.0.0-rc.2
-      version: 13.0.0-rc.2
+      specifier: ^13.0.0
+      version: 13.0.0
     '@typia/utils':
-      specifier: ^13.0.0-rc.2
-      version: 13.0.0-rc.2
+      specifier: ^13.0.0
+      version: 13.0.0
     typia:
-      specifier: ^13.0.0-rc.2
-      version: 13.0.0-rc.2
+      specifier: ^13.0.0
+      version: 13.0.0
   typescript:
     ts-legacy:
       specifier: npm:typescript@~6.0.3
@@ -142,10 +142,10 @@ importers:
         version: 1.29.0(zod@3.25.76)
       '@typia/mcp':
         specifier: catalog:samchon
-        version: 13.0.0-rc.2(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
+        version: 13.0.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
       typia:
         specifier: catalog:samchon
-        version: 13.0.0-rc.2(@types/node@25.9.1)
+        version: 13.0.0(@types/node@25.9.1)
     devDependencies:
       '@types/node':
         specifier: catalog:utils
@@ -642,10 +642,10 @@ importers:
         version: link:../packages/wasm
       '@typia/interface':
         specifier: catalog:samchon
-        version: 13.0.0-rc.2
+        version: 13.0.0
       '@typia/utils':
         specifier: catalog:samchon
-        version: 13.0.0-rc.2
+        version: 13.0.0
       lz-string:
         specifier: ^1.5.0
         version: 1.5.0
@@ -696,7 +696,7 @@ importers:
         version: 5.9.3
       typia:
         specifier: catalog:samchon
-        version: 13.0.0-rc.2(@types/node@20.19.41)
+        version: 13.0.0(@types/node@20.19.41)
     devDependencies:
       '@resvg/resvg-js':
         specifier: ^2.6.2
@@ -3240,16 +3240,16 @@ packages:
     resolution: {integrity: sha512-yURCknZhvywvQItHMMmFSo+fq5arCUIyz/CVk7jD89MSai7dkaX8ufjCWp3NttLojoTVbcE72ri+be/TnEbMHw==}
     engines: {node: '>=20.0.0'}
 
-  '@typia/interface@13.0.0-rc.2':
-    resolution: {integrity: sha512-zY87xL/P6HW1LrLeBJjQquIPuNgwoeOj9U15wb2JQfI9uRlXo116irlTQ0upOco5ZVxb4y1A2h+/W/7aX12FBQ==}
+  '@typia/interface@13.0.0':
+    resolution: {integrity: sha512-wP0wRjhistlkOaKG/M7TsDMVixhMxewcDRRKvld3DzdReqEe1Dy8vXn7MBIqA+yIfxXg404ZuvxVuSii46G/dg==}
 
-  '@typia/mcp@13.0.0-rc.2':
-    resolution: {integrity: sha512-bI2U1Moj2kFX3Oxq4l+aaAl7SJKeYUXfhOHy/7cYW62ccx8udMCI9z6xOuooUvJXIfJdfZOg4O+hlz+S1prVmA==}
+  '@typia/mcp@13.0.0':
+    resolution: {integrity: sha512-V/sSVh5EN0wLYAHc4n/JeInw/mBVJGHmVvChczhfElUHJGEa0O9P9JnFKRmPn8O2CM++8btv6uGjnpqwlpZz2Q==}
     peerDependencies:
       '@modelcontextprotocol/sdk': '>=1.12.0'
 
-  '@typia/utils@13.0.0-rc.2':
-    resolution: {integrity: sha512-xHukq8l6eI1y7aBeOS6UNe4ZsfzAb9av0TyihBKBWLJK7Y/38uJZue3qFyVpRtNSErs6VS102UaxjhYtqzJ6qQ==}
+  '@typia/utils@13.0.0':
+    resolution: {integrity: sha512-eYd+MkIuClU+J0jMQHsQ/Ji/9SXa9s553UqZUb9rzYqpW7oFp9QNMuMTGwEE6/pxclv1R03MhCd2a3eIkthiKg==}
 
   '@ungap/structured-clone@1.3.1':
     resolution: {integrity: sha512-mUFwbeTqrVgDQxFveS+df2yfap6iuP20NAKAsBt5jDEoOTDew+zwLAOilHCeQJOVSvmgCX4ogqIrA0mnyr08yQ==}
@@ -6858,8 +6858,8 @@ packages:
     engines: {node: '>=16.20.0'}
     hasBin: true
 
-  typia@13.0.0-rc.2:
-    resolution: {integrity: sha512-O4ylbNFZg7KxWZ8x+mak5/JIHD0PgDZeiv1KT6yMX8i+/XuhAC2lMu9uDamroDckhIBqqNKOUZmata/jRdhlvw==}
+  typia@13.0.0:
+    resolution: {integrity: sha512-Ab8kNv+5Z5owY1bUVoN6qPB6jn+hVgza8ZqBdooHzrh0PmCoKiJUtyT0MgotNhk+eoozIVAdmxKmqAJEKDEGMA==}
     hasBin: true
 
   uc.micro@2.1.0:
@@ -9828,17 +9828,17 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@typia/interface@13.0.0-rc.2': {}
+  '@typia/interface@13.0.0': {}
 
-  '@typia/mcp@13.0.0-rc.2(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))':
+  '@typia/mcp@13.0.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))':
     dependencies:
       '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
-      '@typia/interface': 13.0.0-rc.2
-      '@typia/utils': 13.0.0-rc.2
+      '@typia/interface': 13.0.0
+      '@typia/utils': 13.0.0
 
-  '@typia/utils@13.0.0-rc.2':
+  '@typia/utils@13.0.0':
     dependencies:
-      '@typia/interface': 13.0.0-rc.2
+      '@typia/interface': 13.0.0
 
   '@ungap/structured-clone@1.3.1': {}
 
@@ -14483,11 +14483,11 @@ snapshots:
       '@typescript/typescript-win32-arm64': 7.0.2
       '@typescript/typescript-win32-x64': 7.0.2
 
-  typia@13.0.0-rc.2(@types/node@20.19.41):
+  typia@13.0.0(@types/node@20.19.41):
     dependencies:
       '@standard-schema/spec': 1.1.0
-      '@typia/interface': 13.0.0-rc.2
-      '@typia/utils': 13.0.0-rc.2
+      '@typia/interface': 13.0.0
+      '@typia/utils': 13.0.0
       commander: 10.0.1
       inquirer: 8.2.7(@types/node@20.19.41)
       randexp: 0.5.3
@@ -14495,11 +14495,11 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  typia@13.0.0-rc.2(@types/node@25.9.1):
+  typia@13.0.0(@types/node@25.9.1):
     dependencies:
       '@standard-schema/spec': 1.1.0
-      '@typia/interface': 13.0.0-rc.2
-      '@typia/utils': 13.0.0-rc.2
+      '@typia/interface': 13.0.0
+      '@typia/utils': 13.0.0
       commander: 10.0.1
       inquirer: 8.2.7(@types/node@25.9.1)
       randexp: 0.5.3
