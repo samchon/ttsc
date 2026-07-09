@@ -320,7 +320,7 @@ Only bragging would be a scam, so let me start with the limits.
 
 That isn't a footgun. On a non-TypeScript project there's no graph to hand over, so the agent never leans on it. Even inside a TS project, the things outside the typed graph, like configs, docs, and exact-text search, `escape` out cleanly. Step outside its scope and it doesn't break; it steps aside. It's strong on exactly the questions a graph can answer, and it doesn't pretend to go further.
 
-There's one prerequisite that matters more than the rest. `@ttsc/graph` rides on `ttsc`, and `ttsc` runs on the TypeScript-Go (TypeScript v7) runtime. v7 isn't released yet; it's still at RC, which is why the install pins `typescript@rc`. It runs fine on the RC, but to be clear, this isn't something you can drop onto your current stable TypeScript (v6.x). Once v7 ships, that caveat goes away on its own.
+There's one prerequisite that matters more than the rest. `@ttsc/graph` rides on `ttsc`, and `ttsc` runs on the native TypeScript 7 compiler from the `typescript` package. When this post first went out, TypeScript 7 was still at RC; now the install uses the stable `typescript` package. It does not run on the legacy TypeScript v6.x compiler.
 
 ### 4.2. It Might Break
 
@@ -341,7 +341,7 @@ So send the awkward moments, the crashes, and the runs where the 10x came back n
 Setup is four lines.
 
 ```bash
-npm install -D ttsc @ttsc/graph typescript@rc
+npm install -D ttsc @ttsc/graph typescript
 ```
 
 ```json

@@ -11,7 +11,7 @@
 Install `ttsc` and TypeScript-Go, then the strip plugin:
 
 ```bash
-npm install -D ttsc typescript@rc
+npm install -D ttsc typescript
 npm install -D @ttsc/strip
 ```
 

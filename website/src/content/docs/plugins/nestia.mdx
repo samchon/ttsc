@@ -7,7 +7,7 @@ It builds on [`typia`](/docs/plugins/typia): every payload validator, every JSON
 ## Install
 
 ```bash
-npm install -D ttsc typescript@rc typia @nestia/core @nestia/sdk
+npm install -D ttsc typescript typia @nestia/core @nestia/sdk
 ```
 
 That's it. Both `typia` and `@nestia/core` ship the `ttsc.plugin` auto-discovery marker, so `ttsc` picks them up the moment they appear in `dependencies` / `devDependencies`, no `compilerOptions.plugins[]` entry needed.

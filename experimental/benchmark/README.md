@@ -48,7 +48,7 @@ A **cell** is one `(project, branch, tool, op, threading)` measurement.
 
 - **Branches** (each fixture is a forked repo with all three):
   - `legacy`: stock `tsc` / `eslint` / `prettier`
-  - `ttsc`: `ttsc` over the pinned TypeScript-Go `typescript@rc` runtime
+  - `ttsc`: `ttsc` over the native TypeScript 7 `typescript` runtime
   - `ttsc-lint`: `ttsc` with `@ttsc/lint` folded into the compile pass
 - **Ops**: `build` (emit), `noEmit` (type-check only), `eslint` (legacy only), `format` (legacy `prettier --check` vs `ttsc format`).
 - **Threading**: compiler and lint cells use `single` (`--singleThreaded`) plus `checkers2` / `checkers4` / `checkers8` (`--checkers N`). Legacy cells and `eslint` cells are `multi` only. Format keeps `single` plus the bare default `multi` row because `--checkers N` does not control formatter work.

@@ -12,7 +12,7 @@ No. `ttsc` is a separate binary built on top of `typescript` (the official TypeS
 
 ## How fast is `ttsc` compared to `tsc`?
 
-`ttsc` runs on the TypeScript-Go preview compiler, and `@ttsc/lint` adds a marginal cost (a single AST pass shared with the type-check, so no second parse) rather than the separate `tsc + eslint + prettier --check` stack. Speedups are measured against the legacy stack on real repositories; see the [benchmark guide](/docs/benchmark/performance) for per-project ratios.
+`ttsc` runs on the native TypeScript 7 compiler, and `@ttsc/lint` adds a marginal cost (a single AST pass shared with the type-check, so no second parse) rather than the separate `tsc + eslint + prettier --check` stack. Speedups are measured against the legacy stack on real repositories; see the [benchmark guide](/docs/benchmark/performance) for per-project ratios.
 
 ## Can I use `ttsc` with my existing `tsc` setup?
 
@@ -24,7 +24,7 @@ Yes, though it's usually unnecessary. The most common case is keeping `tsc` for 
 
 ## Do I have to install `@ttsc/lint`?
 
-No, `ttsc` works without it. But the whole point of the toolchain is the pair. Without `@ttsc/lint` you keep `eslint`+`prettier` as separate tools and lose the "single compile pass" benefit. The recommended install is `npm install -D ttsc @ttsc/lint typescript@rc`.
+No, `ttsc` works without it. But the whole point of the toolchain is the pair. Without `@ttsc/lint` you keep `eslint`+`prettier` as separate tools and lose the "single compile pass" benefit. The recommended install is `npm install -D ttsc @ttsc/lint typescript`.
 
 ## How do I migrate from `eslint` + `prettier`?
 

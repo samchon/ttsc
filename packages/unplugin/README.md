@@ -13,7 +13,7 @@ Use it when Vite, Rollup, esbuild, Webpack, Rspack, Next.js, Farm, or Bun owns t
 Install `ttsc` and TypeScript-Go first. Then install the bundler adapter:
 
 ```bash
-npm install -D ttsc typescript@rc
+npm install -D ttsc typescript
 npm install -D @ttsc/unplugin
 ```
 

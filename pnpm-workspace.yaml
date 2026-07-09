@@ -5,7 +5,7 @@ packages:
   - 'website'
 catalogs:
   typescript:
-    typescript: 7.0.1-rc
+    typescript: ^7.0.2
     # Native TypeScript 7 drops the classic JS compiler API, so the legacy v6
     # compiler is retained under the `ts-legacy` alias for
     # `@rollup/plugin-typescript`, `typescript-eslint`, and the factory parity

@@ -48,7 +48,7 @@ Type errors (`TS2322`) and lint violations (`TS17397`, `TS11966`) come out toget
 ## Setup
 
 ```bash
-npm install -D ttsc @ttsc/lint typescript@rc
+npm install -D ttsc @ttsc/lint typescript
 ```
 
 Drop a `lint.config.ts` next to your `tsconfig.json`:

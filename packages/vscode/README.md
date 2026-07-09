@@ -22,7 +22,7 @@ Use it when the project already runs `ttsc`. Add `@ttsc/lint` when you also want
 Install the common project dependencies:
 
 ```bash
-npm install -D ttsc typescript@rc @ttsc/lint
+npm install -D ttsc typescript @ttsc/lint
 ```
 
 `@ttsc/lint` is optional for TypeScript-Go language features, but required for the lint and format commands shown below.
