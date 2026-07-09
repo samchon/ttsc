@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/graph",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Checker-resolved architecture graph over MCP for coding agents, backed by ttsc's in-process TypeScript-Go compiler.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
