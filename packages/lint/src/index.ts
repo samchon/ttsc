@@ -396,6 +396,14 @@ function readCjsConfigPlugins(configPath: string): ConfigPluginEntry[] {
 // serialise arbitrary in-memory plugin objects across the process boundary.
 // The URL lives in a variable so tsgo does not statically resolve it.
 const TTSX_EXTRACTOR_SCRIPT = `const configUrl = %CONFIG_IMPORT%;
+const CONFIG_KEYS = new Set<string>([
+  "files",
+  "ignores",
+  "extends",
+  "plugins",
+  "rules",
+  "format",
+]);
 const importedConfig = await import(configUrl);
 
 declare const process: {
@@ -406,17 +414,7 @@ declare const process: {
 };
 
 try {
-  let current: unknown = importedConfig;
-  for (let i = 0; i < 8; i++) {
-    if (isObject(current) && hasOwn(current, "default")) {
-      current = (current as Record<string, unknown>).default;
-      continue;
-    }
-    break;
-  }
-  if (typeof current === "function") {
-    current = await (current as () => unknown | Promise<unknown>)();
-  }
+  const current = await resolveConfig(importedConfig, true);
   const pluginMaps = collectPluginObjects(current);
   const entries: Array<{ namespace: string; source: string }> = [];
   for (const map of pluginMaps) {
@@ -438,6 +436,71 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function hasOwn(value: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+async function resolveConfig(value: unknown, allowNamedConfig: boolean): Promise<unknown> {
+  let current = value;
+  for (let i = 0; i < 8; i++) {
+    if (typeof current === "function") {
+      current = await (current as () => unknown | Promise<unknown>)();
+      allowNamedConfig = false;
+      continue;
+    }
+    if (isObject(current) && !Array.isArray(current)) {
+      if (hasOwn(current, "default")) {
+        const defaultValue = current.default;
+        if (isModuleNamespace(current) || !hasConfigKey(current)) {
+          current = defaultValue;
+          allowNamedConfig = false;
+          continue;
+        }
+        const normalizedDefault = await resolveConfig(defaultValue, false);
+        if (isObject(normalizedDefault) && !Array.isArray(normalizedDefault)) {
+          current = mergeConfigObjects(normalizedDefault, current);
+          allowNamedConfig = false;
+          continue;
+        }
+      }
+      if (allowNamedConfig && hasOwn(current, "config")) {
+        current = current.config;
+        allowNamedConfig = false;
+        continue;
+      }
+    }
+    break;
+  }
+  return current;
+}
+
+function isModuleNamespace(value: Record<string, unknown>): boolean {
+  return Object.prototype.toString.call(value) === "[object Module]";
+}
+
+function hasConfigKey(value: Record<string, unknown>): boolean {
+  for (const key of CONFIG_KEYS) {
+    if (hasOwn(value, key)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function mergeConfigObjects(
+  base: Record<string, unknown>,
+  override: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of CONFIG_KEYS) {
+    if (hasOwn(base, key)) {
+      out[key] = base[key];
+    }
+  }
+  for (const key of CONFIG_KEYS) {
+    if (hasOwn(override, key)) {
+      out[key] = override[key];
+    }
+  }
+  return out;
 }
 
 function collectPluginObjects(value: unknown): Array<Record<string, unknown>> {
@@ -684,7 +747,7 @@ function evaluateTtsxConfigPlugins(
  * Namespaces the on-disk config cache. Kept in lockstep with the Go sidecar's
  * `configCacheVersion`; bump both when the cached shape changes.
  */
-const CONFIG_CACHE_VERSION = "v1";
+const CONFIG_CACHE_VERSION = "v2";
 
 /**
  * Directory shared by this factory and the Go sidecar for cached lint configs.

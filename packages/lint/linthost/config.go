@@ -898,7 +898,7 @@ func loadConfigFile(location string) (any, error) {
 // configCacheVersion namespaces the on-disk config cache. Bump it whenever
 // the shape of a cached config object changes so that entries written by an
 // older @ttsc/lint binary are treated as a miss rather than silently reused.
-const configCacheVersion = "v1"
+const configCacheVersion = "v2"
 
 // configEvalCache memoizes evaluated .ts/.js lint config objects for the
 // lifetime of one process; the on-disk cache (configCacheDir) extends the
@@ -1115,35 +1115,18 @@ func runConfigLoaderCommand(ctx context.Context, cmd *exec.Cmd, location, label 
 
 // loadScriptConfigFile evaluates a .js/.cjs/.mjs config file by running a
 // Node subprocess that dynamic-imports the file, resolves the exported config
-// through the same 8-hop default/config unwrap used by the TS loader, and
+// through the same 8-hop default/config normalization used by the TS loader, and
 // serializes the result as JSON to stdout. The subprocess has a
 // configLoaderTimeout deadline to prevent user code from hanging indefinitely.
 func loadScriptConfigFile(location string) (any, error) {
   script := fmt.Sprintf(`
 const { pathToFileURL } = require("node:url");
 
+const CONFIG_KEYS = new Set([%s]);
+
 (async () => {
   const mod = await import(pathToFileURL(process.argv[1]).href);
-  let current = mod;
-  let allowNamedConfig = true;
-  // Match the 8-hop walk used by the TypeScript loader at
-  // `+"`"+`typeScriptConfigLoaderSource`+"`"+` so doubly-wrapped CJS/ESM
-  // interop (e.g. `+"`"+`{default:{default:config}}`+"`"+`) is resolved
-  // consistently across .js/.cjs/.mjs and .ts/.cts/.mts loaders.
-  for (let i = 0; i < 8; i++) {
-    if (current !== null && typeof current === "object" && Object.prototype.hasOwnProperty.call(current, "default")) {
-      current = current.default;
-      allowNamedConfig = false;
-      continue;
-    }
-    if (allowNamedConfig && current !== null && typeof current === "object" && Object.prototype.hasOwnProperty.call(current, "config")) {
-      current = current.config;
-      allowNamedConfig = false;
-      continue;
-    }
-    break;
-  }
-  const value = typeof current === "function" ? await current() : current;
+  const value = await resolveConfig(mod, true);
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("config file must export an ITtscLintConfig object");
   }
@@ -1153,13 +1136,70 @@ const { pathToFileURL } = require("node:url");
   process.exit(1);
 });
 
+async function resolveConfig(value, allowNamedConfig) {
+  let current = value;
+  for (let i = 0; i < 8; i++) {
+    if (typeof current === "function") {
+      current = await current();
+      allowNamedConfig = false;
+      continue;
+    }
+    if (current !== null && typeof current === "object" && !Array.isArray(current)) {
+      if (Object.prototype.hasOwnProperty.call(current, "default")) {
+        const defaultValue = current.default;
+        if (isModuleNamespace(current) || !hasConfigKey(current)) {
+          current = defaultValue;
+          allowNamedConfig = false;
+          continue;
+        }
+        const normalizedDefault = await resolveConfig(defaultValue, false);
+        if (normalizedDefault !== null && typeof normalizedDefault === "object" && !Array.isArray(normalizedDefault)) {
+          current = mergeConfigObjects(normalizedDefault, current);
+          allowNamedConfig = false;
+          continue;
+        }
+      }
+      if (allowNamedConfig && Object.prototype.hasOwnProperty.call(current, "config")) {
+        current = current.config;
+        allowNamedConfig = false;
+        continue;
+      }
+    }
+    break;
+  }
+  return current;
+}
+
+function isModuleNamespace(value) {
+  return Object.prototype.toString.call(value) === "[object Module]";
+}
+
+function hasConfigKey(value) {
+  for (const key of CONFIG_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function mergeConfigObjects(base, override) {
+  const out = toSerializableConfig(base);
+  for (const key of CONFIG_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(override, key)) {
+      out[key] = override[key];
+    }
+  }
+  return out;
+}
+
 // toSerializableConfig copies every ITtscLintConfig key onto a plain object so
 // it survives the JSON round trip to the Go sidecar. Every key is copied
 // verbatim — files, ignores, extends, plugins, rules, AND format — so a config
 // whose only key is `+"`"+`format`+"`"+` is not silently dropped.
 function toSerializableConfig(value) {
   const out = {};
-  for (const key of [%s]) {
+  for (const key of CONFIG_KEYS) {
     if (Object.prototype.hasOwnProperty.call(value, key)) {
       out[key] = value[key];
     }
@@ -1181,7 +1221,7 @@ function toSerializableConfig(value) {
 // an ephemeral loader script and tsconfig into a temp directory, symlinking the
 // nearest node_modules, then running `ttsx` with a configLoaderTimeout deadline.
 // The loader script imports the config file, resolves it through the same
-// unwrap chain used by loadScriptConfigFile, and writes JSON to stdout.
+// normalization chain used by loadScriptConfigFile, and writes JSON to stdout.
 func loadTypeScriptConfigFile(location string) (any, error) {
   tempDir, err := os.MkdirTemp(loaderTempBase(location, os.TempDir()), "ttsc-lint-config-")
   if err != nil {
@@ -1291,6 +1331,7 @@ func uncFileURL(pathname string) string {
 // statically resolve the file URL during the loader build.
 func typeScriptConfigLoaderSource(importLiteral string) string {
   return fmt.Sprintf(`const configUrl = %s;
+const CONFIG_KEYS = new Set<string>([%s]);
 const importedConfig = await import(configUrl);
 
 declare const process: {
@@ -1313,20 +1354,33 @@ try {
 async function resolveConfig(value: unknown, allowNamedConfig: boolean): Promise<unknown> {
   let current = value;
   for (let i = 0; i < 8; i++) {
-    if (isObject(current) && hasOwn(current, "default")) {
-      current = current.default;
+    if (typeof current === "function") {
+      current = await (current as () => unknown | Promise<unknown>)();
       allowNamedConfig = false;
       continue;
     }
-    if (allowNamedConfig && isObject(current) && hasOwn(current, "config")) {
-      current = current.config;
-      allowNamedConfig = false;
-      continue;
+    if (isObject(current) && !Array.isArray(current)) {
+      if (hasOwn(current, "default")) {
+        const defaultValue = current.default;
+        if (isModuleNamespace(current) || !hasConfigKey(current)) {
+          current = defaultValue;
+          allowNamedConfig = false;
+          continue;
+        }
+        const normalizedDefault = await resolveConfig(defaultValue, false);
+        if (isObject(normalizedDefault) && !Array.isArray(normalizedDefault)) {
+          current = mergeConfigObjects(normalizedDefault, current);
+          allowNamedConfig = false;
+          continue;
+        }
+      }
+      if (allowNamedConfig && hasOwn(current, "config")) {
+        current = current.config;
+        allowNamedConfig = false;
+        continue;
+      }
     }
     break;
-  }
-  if (typeof current === "function") {
-    return await (current as () => unknown | Promise<unknown>)();
   }
   return current;
 }
@@ -1339,13 +1393,39 @@ function hasOwn(value: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(value, key);
 }
 
+function isModuleNamespace(value: Record<string, unknown>): boolean {
+  return Object.prototype.toString.call(value) === "[object Module]";
+}
+
+function hasConfigKey(value: Record<string, unknown>): boolean {
+  for (const key of CONFIG_KEYS) {
+    if (hasOwn(value, key)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function mergeConfigObjects(
+  base: Record<string, unknown>,
+  override: Record<string, unknown>,
+): Record<string, unknown> {
+  const out = toSerializableConfig(base);
+  for (const key of CONFIG_KEYS) {
+    if (hasOwn(override, key)) {
+      out[key] = override[key];
+    }
+  }
+  return out;
+}
+
 // toSerializableConfig copies every ITtscLintConfig key onto a plain object so
 // it survives the JSON round trip to the Go sidecar. Every key is copied
 // verbatim — files, ignores, extends, plugins, rules, AND format — so a config
 // whose only key is "format" is not silently dropped.
 function toSerializableConfig(value: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const key of [%s]) {
+  for (const key of CONFIG_KEYS) {
     if (hasOwn(value, key)) {
       out[key] = value[key];
     }
