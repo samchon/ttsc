@@ -61,7 +61,7 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 Install `ttsc`, `@ttsc/lint`, and the native TypeScript compiler:
 
 ```bash
-npm install -D ttsc @ttsc/lint typescript@rc
+npm install -D ttsc @ttsc/lint typescript
 ```
 
 ### Commands
@@ -103,7 +103,7 @@ Use `@ttsc/unplugin` when a bundler owns your build.
 It runs `ttsc` plugins inside supported bundlers.
 
 ```bash
-npm install -D ttsc @ttsc/lint typescript@rc
+npm install -D ttsc @ttsc/lint typescript
 npm install -D @ttsc/unplugin
 ```
 
@@ -142,7 +142,7 @@ It answers "what relates to this symbol" or "what does this change affect" strai
 It also carries the project's full diagnostics: type errors, `@ttsc/lint` violations, and plugin findings. They are fused onto the graph, so an agent sees a change's reach over what is already broken before editing.
 
 ```bash
-npm install -D ttsc @ttsc/graph typescript@rc
+npm install -D ttsc @ttsc/graph typescript
 ```
 
 Point your agent's MCP client at it. For Claude Code:

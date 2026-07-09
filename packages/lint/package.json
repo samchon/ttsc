@@ -1,6 +1,6 @@
 {
   "name": "@ttsc/lint",
-  "version": "0.17.3",
+  "version": "0.17.4",
   "description": "Reference ttsc plugin: ESLint-style lint rules hosted in the same Program/Checker as the type-check pass.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

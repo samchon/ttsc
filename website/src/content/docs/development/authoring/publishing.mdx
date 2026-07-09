@@ -96,7 +96,7 @@ TARBALL=$(ls *.tgz | tail -n1)
 WORKDIR=$(mktemp -d)
 cd "$WORKDIR"
 npm init -y >/dev/null
-npm install --no-save "${OLDPWD}/${TARBALL}" ttsc typescript@rc
+npm install --no-save "${OLDPWD}/${TARBALL}" ttsc typescript
 
 # 3. Write a smallest reproducible tsconfig and source file.
 cat > tsconfig.json <<'JSON'

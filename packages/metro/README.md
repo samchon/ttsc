@@ -13,7 +13,7 @@ React Native and Expo bundle with **Metro**, which transpiles each file with Bab
 Install `ttsc` and TypeScript-Go first. Then install the Metro adapter:
 
 ```bash
-npm install -D ttsc typescript@rc
+npm install -D ttsc typescript
 npm install -D @ttsc/metro
 ```
 

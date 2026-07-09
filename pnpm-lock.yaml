@@ -23,24 +23,24 @@ catalogs:
       version: 8.1.2
   samchon:
     '@typia/interface':
-      specifier: ^13.0.0-rc.2
-      version: 13.0.0-rc.2
+      specifier: ^13.0.0
+      version: 13.0.0
     '@typia/mcp':
-      specifier: ^13.0.0-rc.2
-      version: 13.0.0-rc.2
+      specifier: ^13.0.0
+      version: 13.0.0
     '@typia/utils':
-      specifier: ^13.0.0-rc.2
-      version: 13.0.0-rc.2
+      specifier: ^13.0.0
+      version: 13.0.0
     typia:
-      specifier: ^13.0.0-rc.2
-      version: 13.0.0-rc.2
+      specifier: ^13.0.0
+      version: 13.0.0
   typescript:
     ts-legacy:
       specifier: npm:typescript@~6.0.3
       version: 6.0.3
     typescript:
-      specifier: 7.0.1-rc
-      version: 7.0.1-rc
+      specifier: ^7.0.2
+      version: 7.0.2
   utils:
     '@nestia/e2e':
       specifier: ^12.0.0-rc.2
@@ -79,7 +79,7 @@ importers:
         version: 4.60.4
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   config:
     devDependencies:
@@ -121,7 +121,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   packages/factory:
     devDependencies:
@@ -133,7 +133,7 @@ importers:
         version: 4.60.4
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   packages/graph:
     dependencies:
@@ -142,10 +142,10 @@ importers:
         version: 1.29.0(zod@3.25.76)
       '@typia/mcp':
         specifier: catalog:samchon
-        version: 13.0.0-rc.2(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
+        version: 13.0.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
       typia:
         specifier: catalog:samchon
-        version: 13.0.0-rc.2(@types/node@25.9.1)
+        version: 13.0.0(@types/node@25.9.1)
     devDependencies:
       '@types/node':
         specifier: catalog:utils
@@ -170,7 +170,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   packages/lint:
     devDependencies:
@@ -185,13 +185,13 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   packages/metro:
     dependencies:
       '@expo/metro-config':
         specifier: '*'
-        version: 56.0.14(typescript@7.0.1-rc)
+        version: 56.0.14(typescript@7.0.2)
       '@react-native/metro-babel-transformer':
         specifier: '*'
         version: 0.86.0(@babel/core@7.29.7)
@@ -234,7 +234,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   packages/paths: {}
 
@@ -273,7 +273,7 @@ importers:
         version: 1.2.1
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   packages/strip: {}
 
@@ -287,7 +287,7 @@ importers:
         version: 6.1.3
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
     optionalDependencies:
       '@ttsc/darwin-arm64':
         specifier: workspace:*
@@ -366,7 +366,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
       vite:
         specifier: ^7.1.12
         version: 7.3.3(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0)
@@ -393,7 +393,7 @@ importers:
         version: link:../ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
       vscode-languageclient:
         specifier: ^9.0.1
         version: 9.0.1
@@ -408,7 +408,7 @@ importers:
         version: 6.1.3
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   tests/lint-contributor-demo:
     devDependencies:
@@ -423,7 +423,7 @@ importers:
         version: 6.1.3
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   tests/test-banner:
     devDependencies:
@@ -441,7 +441,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   tests/test-factory:
     devDependencies:
@@ -465,7 +465,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   tests/test-graph:
     devDependencies:
@@ -483,7 +483,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   tests/test-lint:
     devDependencies:
@@ -513,7 +513,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   tests/test-paths:
     devDependencies:
@@ -531,7 +531,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   tests/test-strip:
     devDependencies:
@@ -549,7 +549,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   tests/test-ttsc:
     devDependencies:
@@ -576,7 +576,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
 
   tests/test-unplugin:
     devDependencies:
@@ -603,7 +603,7 @@ importers:
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
-        version: 7.0.1-rc
+        version: 7.0.2
       vite:
         specifier: ^7.1.12
         version: 7.3.3(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0)
@@ -642,10 +642,10 @@ importers:
         version: link:../packages/wasm
       '@typia/interface':
         specifier: catalog:samchon
-        version: 13.0.0-rc.2
+        version: 13.0.0
       '@typia/utils':
         specifier: catalog:samchon
-        version: 13.0.0-rc.2
+        version: 13.0.0
       lz-string:
         specifier: ^1.5.0
         version: 1.5.0
@@ -696,7 +696,7 @@ importers:
         version: 5.9.3
       typia:
         specifier: catalog:samchon
-        version: 13.0.0-rc.2(@types/node@20.19.41)
+        version: 13.0.0(@types/node@20.19.41)
     devDependencies:
       '@resvg/resvg-js':
         specifier: ^2.6.2
@@ -3111,122 +3111,122 @@ packages:
   '@types/yargs@17.0.35':
     resolution: {integrity: sha512-qUHkeCyQFxMXg79wQfTtfndEC+N9ZZg76HJftDJp+qH2tV7Gj4OJi7l+PiWwJ+pWtW8GwSmqsDj/oymhrTWXjg==}
 
-  '@typescript/typescript-aix-ppc64@7.0.1-rc':
-    resolution: {integrity: sha512-oqq2ZfEJ7BQuufcC3QBQndZLPNyamYNHLao8lKRBeeSkZKypBqxPSgkzrcFZtbYcIaBvpiyUnQP9MT7DEYHWbw==}
+  '@typescript/typescript-aix-ppc64@7.0.2':
+    resolution: {integrity: sha512-MTKKkWB7p/0E9xi1d1tHtZ5PiLkGEMIq88pK2CubZjOsLtYTLqhgIgi6zepFa+9GHZ6h05NMCkQxGKiPXMxXtQ==}
     engines: {node: '>=16.20.0'}
     cpu: [ppc64]
     os: [aix]
 
-  '@typescript/typescript-darwin-arm64@7.0.1-rc':
-    resolution: {integrity: sha512-Slc0yTftT2F/uGDmtPst8ijydneL6uZaLEyr2UjahxZpbhTjHFBJ5agXtVz/TL4A+ldxzjzj+E8QtLZlh/5mXw==}
+  '@typescript/typescript-darwin-arm64@7.0.2':
+    resolution: {integrity: sha512-gowzar9MwS/aRWp6f3a4KUqzRjAZjOsmGNCM6LcTgXum+dBfgsBVMN+AgvOCCbguXyick6LJhpBszxMebJ8syA==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@typescript/typescript-darwin-x64@7.0.1-rc':
-    resolution: {integrity: sha512-h68iFW/LbA1/BsGgSRGFw981/3s1f/rY27YrmeZNuN+ly7dI+fiDduwT9ZT9866x2onoKNRq7PTyxSKyKDzfAQ==}
+  '@typescript/typescript-darwin-x64@7.0.2':
+    resolution: {integrity: sha512-SZ9xZInqApNlNGc9s0W1VSsktYSOe9cFqNOIqmN1Gs8SmkjKZYFt017G4VwPxASInODuAdbTW7sXiFUf893RgA==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [darwin]
 
-  '@typescript/typescript-freebsd-arm64@7.0.1-rc':
-    resolution: {integrity: sha512-DE+ppd8Ix2c6OMuRkKY4PJ4hngMGJ9M95OQUP17p9xL/1IKXof7npIeuusMN/bgL5o5JzMfSGh+N+5scTYRg0Q==}
+  '@typescript/typescript-freebsd-arm64@7.0.2':
+    resolution: {integrity: sha512-W5NH4y/J0plIIS5b2xvTEkU7JFxyqdMAOgf+Ilhl0vHQXKO5dZoxd+C/jEtq56c4F3wk71RB4BMRQ2XdI+bwYQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [freebsd]
 
-  '@typescript/typescript-freebsd-x64@7.0.1-rc':
-    resolution: {integrity: sha512-ST1ozHMw0u+CLOnWkcTyWDMV4Qn9osZ6fd1V1lnKDM1t0hZIp81mdGpdHxyHJjd7jdGrb6Gb/QXcZ1uqZ0t5zw==}
+  '@typescript/typescript-freebsd-x64@7.0.2':
+    resolution: {integrity: sha512-UMGDx5sTpzNw3WiPebH7l90IWfJggEd+egHt/q6p7/Cm3zqoV7VxkGXt+3DxPIw8CcmvAB0j3sVVfbhX+M4Tpw==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [freebsd]
 
-  '@typescript/typescript-linux-arm64@7.0.1-rc':
-    resolution: {integrity: sha512-N46pRihK3t5zD5MUtTQcdmQUqr1WI4U2nxno1gLwOtRSsB4krFkRjPHcQNG7h2DtRkX64rQiReX6WKwg2wprMA==}
+  '@typescript/typescript-linux-arm64@7.0.2':
+    resolution: {integrity: sha512-Qh4eU4/y3yDjnfjjyPYihMj5/ODIlmt+Bzu17OI+fiSRDW57QmU5SiN63exPRNJPKUzcc1INa1NXdrJ+MqHjUQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [linux]
 
-  '@typescript/typescript-linux-arm@7.0.1-rc':
-    resolution: {integrity: sha512-gHmHwT5Naq5CKM8g9bbaGeEpnwQEvWCLn3fwP4K2m61VQdDKkPk0Dhab/OoZ4LV2SrMddmclYXTzpyg23YGt5g==}
+  '@typescript/typescript-linux-arm@7.0.2':
+    resolution: {integrity: sha512-gffT3xPz9sR7j/YJExkyPntrI0P2EP9XbOyWzth2/Gs0RstK+90RBcO0ncXoXy/beYll1SXw846Nf2zdnEz0QQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm]
     os: [linux]
 
-  '@typescript/typescript-linux-loong64@7.0.1-rc':
-    resolution: {integrity: sha512-G17Sao312rgiPBTh2F4nOpLpa3CcnBSaNhqNghZk2LNhnsp1RaMO5HMq2me21gqu9xLpc6CIgHtOzU6JBgNlfg==}
+  '@typescript/typescript-linux-loong64@7.0.2':
+    resolution: {integrity: sha512-uEHck9i8hoAzXPiYRib1O7miOnz23SxIeVl6F4LXox+qov1K35jHcEW6VHKvZI+pyvl7fZEP4MCU5LYvIq1GuQ==}
     engines: {node: '>=16.20.0'}
     cpu: [loong64]
     os: [linux]
 
-  '@typescript/typescript-linux-mips64el@7.0.1-rc':
-    resolution: {integrity: sha512-0FQspOb5UsQ4tQKvWgUO3pS9OIWkP7/8dPRWq+CRazJUeQZ4LBjtYK52jg5iIOrvItrVl2CwvRtrU3/9OihwJg==}
+  '@typescript/typescript-linux-mips64el@7.0.2':
+    resolution: {integrity: sha512-R4KvAMnE43W5Qeqb0Ly56O3mWMWIAgsMyz36DCaycd5nbg/9kzm0liw3JocfRqyJY0KPmzFjbswozXyW0DnIYA==}
     engines: {node: '>=16.20.0'}
     cpu: [mips64el]
     os: [linux]
 
-  '@typescript/typescript-linux-ppc64@7.0.1-rc':
-    resolution: {integrity: sha512-SUmwfVBEv6A2Ld0eWfcvW0FqrgemfQL8jFGOmV1qYxsDqumjE5DekHXqbstgmbE4SHr4rrjHjvmuGCY+kTH/vw==}
+  '@typescript/typescript-linux-ppc64@7.0.2':
+    resolution: {integrity: sha512-DORx5b3sd/4S7eayxm4FQv+A7CrkUIGRaHiwI8oiHTAI1fAPWhF4J0vAlkC8biAlHSVVwxMQ3tjZ2/DVbnQiiA==}
     engines: {node: '>=16.20.0'}
     cpu: [ppc64]
     os: [linux]
 
-  '@typescript/typescript-linux-riscv64@7.0.1-rc':
-    resolution: {integrity: sha512-rxeqnNnGiYzv/LlPHi/3+4p0ooR1cNJLjRIHXKovtiVmxXGJq6gtw8VSpbHuWPekyFMXgIAoLCZN0SQ51rAALQ==}
+  '@typescript/typescript-linux-riscv64@7.0.2':
+    resolution: {integrity: sha512-wf0jqEDOjrPRnKwYRyyJDRo11KMbvMFrU+q4zqKyChODBzvlkbhNQfKvLxQCcwTpdDaXSHZTVuh0JoCrKCUMHQ==}
     engines: {node: '>=16.20.0'}
     cpu: [riscv64]
     os: [linux]
 
-  '@typescript/typescript-linux-s390x@7.0.1-rc':
-    resolution: {integrity: sha512-RYWCHCiPypxajdRHM2CNK/eM22e4Ex5TTjV2pXf7PTtBowGr0xX8i8kIMknyZS0LX2QfleYHouaoMVsFDSle3g==}
+  '@typescript/typescript-linux-s390x@7.0.2':
+    resolution: {integrity: sha512-IkwJc3L7yhytWd/ewjyxNDfOmswCm9GWMJT/ue/dU4aZNbwZeYAetq42VyLmsmSjvoX7z74X6ZaYCtzAr0EuGw==}
     engines: {node: '>=16.20.0'}
     cpu: [s390x]
     os: [linux]
 
-  '@typescript/typescript-linux-x64@7.0.1-rc':
-    resolution: {integrity: sha512-PfLJSu0JzroDkqw2m4nqflPEcn8yev0m/vHFQlY9EzHorzjR6QG0wL8AJHvnD1e6h1s76AZngJ5u+z1K/D/HKw==}
+  '@typescript/typescript-linux-x64@7.0.2':
+    resolution: {integrity: sha512-EYdf2cNg7rgCWJnxCdJ+F3V39O8ihb37eHAu1LK8oAFizgTQbPOK7zHHXbPt8rX24COqODXeI3sIf0fCXG7H/A==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [linux]
 
-  '@typescript/typescript-netbsd-arm64@7.0.1-rc':
-    resolution: {integrity: sha512-FfbPxH3dTfp8yVIaNM7bdWTixXuyxpzoemluqcqMROSIz+ImpCG3Q9HO9Ptzp9/giv+P9YYEnCMSXh61migj2w==}
+  '@typescript/typescript-netbsd-arm64@7.0.2':
+    resolution: {integrity: sha512-+polYF4MF04aPpO5FTkHran9yUQDSXqy5GiSDKpsll5jy3l3+g9QLhpf39T+ePtefhXLOGrLl0QIjkQP6VnelA==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [netbsd]
 
-  '@typescript/typescript-netbsd-x64@7.0.1-rc':
-    resolution: {integrity: sha512-FzdTfSzhRYb6hlav6K3cI5RVgcvCTvNAu/vc+t7B6AmZkThQ+t/1ntnvT5fnHmY1Az2RIBw7/b+qtCEG61HJTQ==}
+  '@typescript/typescript-netbsd-x64@7.0.2':
+    resolution: {integrity: sha512-8YIT0EHM/3dq10ZOVF/A7pc/YSMtbcecct4rWtexrnSCHOPcpC2KTLXfTCR6vDpnSiY12heNb1GiN/wu+T/FyA==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [netbsd]
 
-  '@typescript/typescript-openbsd-arm64@7.0.1-rc':
-    resolution: {integrity: sha512-PQGhlxfNig+0YQ9Wwzd0USPBkt6w/ZqkBQWsU7G/0JkTzunJel+jSWwhKw4947pak/m7hGSeYiI04xReDLGZww==}
+  '@typescript/typescript-openbsd-arm64@7.0.2':
+    resolution: {integrity: sha512-APT8+ClYnuYm1u9+kgGXoMj2VzWzcymwh2gNSQVySHfkRDGOTVkoWLjCmOQSaO+PoqQ57B0flRp9SA+7GnnkzQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [openbsd]
 
-  '@typescript/typescript-openbsd-x64@7.0.1-rc':
-    resolution: {integrity: sha512-WJ7NYgO2mHmLUkI/tZ+hl8lFd26QPJqO8ONOHNuYbdsybLvSB6B6sep222JIVrOfPRDGvFinbGGB+l3m1FWRWA==}
+  '@typescript/typescript-openbsd-x64@7.0.2':
+    resolution: {integrity: sha512-yX7s+Q0Dln0Dt9tEzZsAjXXR/+ytBM7AlglaqyeMPxQszJ1JhlJdZ6jLA+IzldHtflX81em7lDao1xXu+aRRkg==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [openbsd]
 
-  '@typescript/typescript-sunos-x64@7.0.1-rc':
-    resolution: {integrity: sha512-UYjDeUxd765V9qcwlUPk4pEXyL0i3G76CJm9baK4i99u1pGO1psf3nXDw4MMmElVOPvGbZag99ZR/O59E2OX6w==}
+  '@typescript/typescript-sunos-x64@7.0.2':
+    resolution: {integrity: sha512-dLJDGaLZ1D4HPQn62u1n8mBDkJREwMsAkCdkwd4Ieqw+x3TUyTsqY0YiBCtE6H6OzzgGk3iuZ3vFWRS+E8/d1g==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [sunos]
 
-  '@typescript/typescript-win32-arm64@7.0.1-rc':
-    resolution: {integrity: sha512-KzXzFSXZOm7zvEt2Aw0MsB2LbTL88znAiVqTDNAOHdlEb7brgmUQh/X2wM/8Be+N0fjEqWKl65cBKNwpWEbJiw==}
+  '@typescript/typescript-win32-arm64@7.0.2':
+    resolution: {integrity: sha512-Gyl1Vy6OsWesLzmq+EP0Fb7b4Nid5232AvcA2SFcdYreldpNtYFFofPjnt62y9hQy7VTaZp65ICJjuAQRaVcIQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [win32]
 
-  '@typescript/typescript-win32-x64@7.0.1-rc':
-    resolution: {integrity: sha512-98R3+OqDr/r0/PLWEoXu88AE0lGVLNd335Ew8ONgzK1JWkNs4ou/5BGt3Or1ij4iXjH+c7PRL+jFjCbtWze+EA==}
+  '@typescript/typescript-win32-x64@7.0.2':
+    resolution: {integrity: sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
@@ -3240,16 +3240,16 @@ packages:
     resolution: {integrity: sha512-yURCknZhvywvQItHMMmFSo+fq5arCUIyz/CVk7jD89MSai7dkaX8ufjCWp3NttLojoTVbcE72ri+be/TnEbMHw==}
     engines: {node: '>=20.0.0'}
 
-  '@typia/interface@13.0.0-rc.2':
-    resolution: {integrity: sha512-zY87xL/P6HW1LrLeBJjQquIPuNgwoeOj9U15wb2JQfI9uRlXo116irlTQ0upOco5ZVxb4y1A2h+/W/7aX12FBQ==}
+  '@typia/interface@13.0.0':
+    resolution: {integrity: sha512-wP0wRjhistlkOaKG/M7TsDMVixhMxewcDRRKvld3DzdReqEe1Dy8vXn7MBIqA+yIfxXg404ZuvxVuSii46G/dg==}
 
-  '@typia/mcp@13.0.0-rc.2':
-    resolution: {integrity: sha512-bI2U1Moj2kFX3Oxq4l+aaAl7SJKeYUXfhOHy/7cYW62ccx8udMCI9z6xOuooUvJXIfJdfZOg4O+hlz+S1prVmA==}
+  '@typia/mcp@13.0.0':
+    resolution: {integrity: sha512-V/sSVh5EN0wLYAHc4n/JeInw/mBVJGHmVvChczhfElUHJGEa0O9P9JnFKRmPn8O2CM++8btv6uGjnpqwlpZz2Q==}
     peerDependencies:
       '@modelcontextprotocol/sdk': '>=1.12.0'
 
-  '@typia/utils@13.0.0-rc.2':
-    resolution: {integrity: sha512-xHukq8l6eI1y7aBeOS6UNe4ZsfzAb9av0TyihBKBWLJK7Y/38uJZue3qFyVpRtNSErs6VS102UaxjhYtqzJ6qQ==}
+  '@typia/utils@13.0.0':
+    resolution: {integrity: sha512-eYd+MkIuClU+J0jMQHsQ/Ji/9SXa9s553UqZUb9rzYqpW7oFp9QNMuMTGwEE6/pxclv1R03MhCd2a3eIkthiKg==}
 
   '@ungap/structured-clone@1.3.1':
     resolution: {integrity: sha512-mUFwbeTqrVgDQxFveS+df2yfap6iuP20NAKAsBt5jDEoOTDew+zwLAOilHCeQJOVSvmgCX4ogqIrA0mnyr08yQ==}
@@ -6853,13 +6853,13 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typescript@7.0.1-rc:
-    resolution: {integrity: sha512-drEP77wK7CCDlPfXZH4e008UUQOsw1DFmHmZOZjuNA+yoDLLnSNMZRXi90NbV/1LVo7SbNLq1bs3jjvk49TEqQ==}
+  typescript@7.0.2:
+    resolution: {integrity: sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA==}
     engines: {node: '>=16.20.0'}
     hasBin: true
 
-  typia@13.0.0-rc.2:
-    resolution: {integrity: sha512-O4ylbNFZg7KxWZ8x+mak5/JIHD0PgDZeiv1KT6yMX8i+/XuhAC2lMu9uDamroDckhIBqqNKOUZmata/jRdhlvw==}
+  typia@13.0.0:
+    resolution: {integrity: sha512-Ab8kNv+5Z5owY1bUVoN6qPB6jn+hVgza8ZqBdooHzrh0PmCoKiJUtyT0MgotNhk+eoozIVAdmxKmqAJEKDEGMA==}
     hasBin: true
 
   uc.micro@2.1.0:
@@ -8156,12 +8156,12 @@ snapshots:
   '@esbuild/win32-x64@0.27.7':
     optional: true
 
-  '@expo/config-plugins@56.0.9(typescript@7.0.1-rc)':
+  '@expo/config-plugins@56.0.9(typescript@7.0.2)':
     dependencies:
       '@expo/config-types': 56.0.6
       '@expo/json-file': 10.2.0
       '@expo/plist': 0.7.0
-      '@expo/require-utils': 56.1.3(typescript@7.0.1-rc)
+      '@expo/require-utils': 56.1.3(typescript@7.0.2)
       '@expo/sdk-runtime-versions': 1.0.0
       chalk: 4.1.2
       debug: 4.4.3
@@ -8177,12 +8177,12 @@ snapshots:
 
   '@expo/config-types@56.0.6': {}
 
-  '@expo/config@56.0.9(typescript@7.0.1-rc)':
+  '@expo/config@56.0.9(typescript@7.0.2)':
     dependencies:
-      '@expo/config-plugins': 56.0.9(typescript@7.0.1-rc)
+      '@expo/config-plugins': 56.0.9(typescript@7.0.2)
       '@expo/config-types': 56.0.6
       '@expo/json-file': 10.2.0
-      '@expo/require-utils': 56.1.3(typescript@7.0.1-rc)
+      '@expo/require-utils': 56.1.3(typescript@7.0.2)
       deepmerge: 4.3.1
       getenv: 2.0.0
       glob: 13.0.6
@@ -8206,16 +8206,16 @@ snapshots:
       '@babel/code-frame': 7.29.0
       json5: 2.2.3
 
-  '@expo/metro-config@56.0.14(typescript@7.0.1-rc)':
+  '@expo/metro-config@56.0.14(typescript@7.0.2)':
     dependencies:
       '@babel/code-frame': 7.29.0
       '@babel/core': 7.29.7
       '@babel/generator': 7.29.1
-      '@expo/config': 56.0.9(typescript@7.0.1-rc)
+      '@expo/config': 56.0.9(typescript@7.0.2)
       '@expo/env': 2.3.0
       '@expo/json-file': 10.2.0
       '@expo/metro': 56.0.0
-      '@expo/require-utils': 56.1.3(typescript@7.0.1-rc)
+      '@expo/require-utils': 56.1.3(typescript@7.0.2)
       '@expo/spawn-async': 1.8.0
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/remapping': 2.3.5
@@ -8264,13 +8264,13 @@ snapshots:
       base64-js: 1.5.1
       xmlbuilder: 15.1.1
 
-  '@expo/require-utils@56.1.3(typescript@7.0.1-rc)':
+  '@expo/require-utils@56.1.3(typescript@7.0.2)':
     dependencies:
       '@babel/code-frame': 7.29.0
       '@babel/core': 7.29.7
       '@babel/plugin-transform-modules-commonjs': 7.29.7(@babel/core@7.29.7)
     optionalDependencies:
-      typescript: 7.0.1-rc
+      typescript: 7.0.2
     transitivePeerDependencies:
       - supports-color
 
@@ -9753,64 +9753,64 @@ snapshots:
     dependencies:
       '@types/yargs-parser': 21.0.3
 
-  '@typescript/typescript-aix-ppc64@7.0.1-rc':
+  '@typescript/typescript-aix-ppc64@7.0.2':
     optional: true
 
-  '@typescript/typescript-darwin-arm64@7.0.1-rc':
+  '@typescript/typescript-darwin-arm64@7.0.2':
     optional: true
 
-  '@typescript/typescript-darwin-x64@7.0.1-rc':
+  '@typescript/typescript-darwin-x64@7.0.2':
     optional: true
 
-  '@typescript/typescript-freebsd-arm64@7.0.1-rc':
+  '@typescript/typescript-freebsd-arm64@7.0.2':
     optional: true
 
-  '@typescript/typescript-freebsd-x64@7.0.1-rc':
+  '@typescript/typescript-freebsd-x64@7.0.2':
     optional: true
 
-  '@typescript/typescript-linux-arm64@7.0.1-rc':
+  '@typescript/typescript-linux-arm64@7.0.2':
     optional: true
 
-  '@typescript/typescript-linux-arm@7.0.1-rc':
+  '@typescript/typescript-linux-arm@7.0.2':
     optional: true
 
-  '@typescript/typescript-linux-loong64@7.0.1-rc':
+  '@typescript/typescript-linux-loong64@7.0.2':
     optional: true
 
-  '@typescript/typescript-linux-mips64el@7.0.1-rc':
+  '@typescript/typescript-linux-mips64el@7.0.2':
     optional: true
 
-  '@typescript/typescript-linux-ppc64@7.0.1-rc':
+  '@typescript/typescript-linux-ppc64@7.0.2':
     optional: true
 
-  '@typescript/typescript-linux-riscv64@7.0.1-rc':
+  '@typescript/typescript-linux-riscv64@7.0.2':
     optional: true
 
-  '@typescript/typescript-linux-s390x@7.0.1-rc':
+  '@typescript/typescript-linux-s390x@7.0.2':
     optional: true
 
-  '@typescript/typescript-linux-x64@7.0.1-rc':
+  '@typescript/typescript-linux-x64@7.0.2':
     optional: true
 
-  '@typescript/typescript-netbsd-arm64@7.0.1-rc':
+  '@typescript/typescript-netbsd-arm64@7.0.2':
     optional: true
 
-  '@typescript/typescript-netbsd-x64@7.0.1-rc':
+  '@typescript/typescript-netbsd-x64@7.0.2':
     optional: true
 
-  '@typescript/typescript-openbsd-arm64@7.0.1-rc':
+  '@typescript/typescript-openbsd-arm64@7.0.2':
     optional: true
 
-  '@typescript/typescript-openbsd-x64@7.0.1-rc':
+  '@typescript/typescript-openbsd-x64@7.0.2':
     optional: true
 
-  '@typescript/typescript-sunos-x64@7.0.1-rc':
+  '@typescript/typescript-sunos-x64@7.0.2':
     optional: true
 
-  '@typescript/typescript-win32-arm64@7.0.1-rc':
+  '@typescript/typescript-win32-arm64@7.0.2':
     optional: true
 
-  '@typescript/typescript-win32-x64@7.0.1-rc':
+  '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
   '@typescript/vfs@1.6.4(typescript@5.9.3)':
@@ -9828,17 +9828,17 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@typia/interface@13.0.0-rc.2': {}
+  '@typia/interface@13.0.0': {}
 
-  '@typia/mcp@13.0.0-rc.2(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))':
+  '@typia/mcp@13.0.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))':
     dependencies:
       '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
-      '@typia/interface': 13.0.0-rc.2
-      '@typia/utils': 13.0.0-rc.2
+      '@typia/interface': 13.0.0
+      '@typia/utils': 13.0.0
 
-  '@typia/utils@13.0.0-rc.2':
+  '@typia/utils@13.0.0':
     dependencies:
-      '@typia/interface': 13.0.0-rc.2
+      '@typia/interface': 13.0.0
 
   '@ungap/structured-clone@1.3.1': {}
 
@@ -14460,34 +14460,34 @@ snapshots:
 
   typescript@6.0.3: {}
 
-  typescript@7.0.1-rc:
+  typescript@7.0.2:
     optionalDependencies:
-      '@typescript/typescript-aix-ppc64': 7.0.1-rc
-      '@typescript/typescript-darwin-arm64': 7.0.1-rc
-      '@typescript/typescript-darwin-x64': 7.0.1-rc
-      '@typescript/typescript-freebsd-arm64': 7.0.1-rc
-      '@typescript/typescript-freebsd-x64': 7.0.1-rc
-      '@typescript/typescript-linux-arm': 7.0.1-rc
-      '@typescript/typescript-linux-arm64': 7.0.1-rc
-      '@typescript/typescript-linux-loong64': 7.0.1-rc
-      '@typescript/typescript-linux-mips64el': 7.0.1-rc
-      '@typescript/typescript-linux-ppc64': 7.0.1-rc
-      '@typescript/typescript-linux-riscv64': 7.0.1-rc
-      '@typescript/typescript-linux-s390x': 7.0.1-rc
-      '@typescript/typescript-linux-x64': 7.0.1-rc
-      '@typescript/typescript-netbsd-arm64': 7.0.1-rc
-      '@typescript/typescript-netbsd-x64': 7.0.1-rc
-      '@typescript/typescript-openbsd-arm64': 7.0.1-rc
-      '@typescript/typescript-openbsd-x64': 7.0.1-rc
-      '@typescript/typescript-sunos-x64': 7.0.1-rc
-      '@typescript/typescript-win32-arm64': 7.0.1-rc
-      '@typescript/typescript-win32-x64': 7.0.1-rc
+      '@typescript/typescript-aix-ppc64': 7.0.2
+      '@typescript/typescript-darwin-arm64': 7.0.2
+      '@typescript/typescript-darwin-x64': 7.0.2
+      '@typescript/typescript-freebsd-arm64': 7.0.2
+      '@typescript/typescript-freebsd-x64': 7.0.2
+      '@typescript/typescript-linux-arm': 7.0.2
+      '@typescript/typescript-linux-arm64': 7.0.2
+      '@typescript/typescript-linux-loong64': 7.0.2
+      '@typescript/typescript-linux-mips64el': 7.0.2
+      '@typescript/typescript-linux-ppc64': 7.0.2
+      '@typescript/typescript-linux-riscv64': 7.0.2
+      '@typescript/typescript-linux-s390x': 7.0.2
+      '@typescript/typescript-linux-x64': 7.0.2
+      '@typescript/typescript-netbsd-arm64': 7.0.2
+      '@typescript/typescript-netbsd-x64': 7.0.2
+      '@typescript/typescript-openbsd-arm64': 7.0.2
+      '@typescript/typescript-openbsd-x64': 7.0.2
+      '@typescript/typescript-sunos-x64': 7.0.2
+      '@typescript/typescript-win32-arm64': 7.0.2
+      '@typescript/typescript-win32-x64': 7.0.2
 
-  typia@13.0.0-rc.2(@types/node@20.19.41):
+  typia@13.0.0(@types/node@20.19.41):
     dependencies:
       '@standard-schema/spec': 1.1.0
-      '@typia/interface': 13.0.0-rc.2
-      '@typia/utils': 13.0.0-rc.2
+      '@typia/interface': 13.0.0
+      '@typia/utils': 13.0.0
       commander: 10.0.1
       inquirer: 8.2.7(@types/node@20.19.41)
       randexp: 0.5.3
@@ -14495,11 +14495,11 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  typia@13.0.0-rc.2(@types/node@25.9.1):
+  typia@13.0.0(@types/node@25.9.1):
     dependencies:
       '@standard-schema/spec': 1.1.0
-      '@typia/interface': 13.0.0-rc.2
-      '@typia/utils': 13.0.0-rc.2
+      '@typia/interface': 13.0.0
+      '@typia/utils': 13.0.0
       commander: 10.0.1
       inquirer: 8.2.7(@types/node@25.9.1)
       randexp: 0.5.3

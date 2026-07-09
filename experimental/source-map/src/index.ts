@@ -34,7 +34,7 @@ const platformPackage = `@ttsc/${platformKey}`;
 const platformTarball = `ttsc-${platformKey}`;
 // Keep this aligned with website/package.json's `typia` dependency.
 const TYPIA_VERSION = "13.0.0-dev.20260605.1";
-const registryDependencies = ["typescript@7.0.1-rc", `typia@${TYPIA_VERSION}`];
+const registryDependencies = ["typescript@^7.0.2", `typia@${TYPIA_VERSION}`];
 
 main();
 

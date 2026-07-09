@@ -5,7 +5,7 @@ packages:
   - 'website'
 catalogs:
   typescript:
-    typescript: 7.0.1-rc
+    typescript: ^7.0.2
     # Native TypeScript 7 drops the classic JS compiler API, so the legacy v6
     # compiler is retained under the `ts-legacy` alias for
     # `@rollup/plugin-typescript`, `typescript-eslint`, and the factory parity
@@ -18,10 +18,10 @@ catalogs:
     rollup-plugin-auto-external: ^2.0.0
     rollup-plugin-node-externals: ^8.1.2
   samchon:
-    '@typia/interface': ^13.0.0-rc.2
-    '@typia/mcp': ^13.0.0-rc.2
-    '@typia/utils': ^13.0.0-rc.2
-    typia: ^13.0.0-rc.2
+    '@typia/interface': ^13.0.0
+    '@typia/mcp': ^13.0.0
+    '@typia/utils': ^13.0.0
+    typia: ^13.0.0
   utils:
     '@nestia/e2e': ^12.0.0-rc.2
     '@types/node': ^25.3.0

@@ -15,12 +15,12 @@ For why I built it, how it works in depth, and how it compares to `codegraph`, `
 ## Setup
 
 ```bash
-npm install -D ttsc @ttsc/graph typescript@rc
+npm install -D ttsc @ttsc/graph typescript
 ```
 
 `@ttsc/graph` reads the graph from the program `ttsc` type-checked, so install the two together.
 
-`ttsc` runs on the TypeScript-Go (TypeScript v7) runtime, which is still a release candidate, so the install pins `typescript@rc`. It does not run on stable TypeScript v6.x yet.
+`ttsc` runs on the native TypeScript 7 compiler from the `typescript` package. It does not run on the legacy TypeScript v6.x compiler.
 
 Add the server to your agent's MCP config, once. For Claude Code, that is a `.mcp.json` in your project root:
 

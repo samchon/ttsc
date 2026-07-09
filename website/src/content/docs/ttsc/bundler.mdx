@@ -5,7 +5,7 @@ When a bundler (Vite, Webpack, Rollup, …) owns your build, you still want the 
 ## Install
 
 ```bash
-npm install -D ttsc @ttsc/lint typescript@rc @ttsc/unplugin
+npm install -D ttsc @ttsc/lint typescript @ttsc/unplugin
 ```
 
 ## Vite
@@ -140,7 +140,7 @@ register({ project: "tsconfig.build.json" });
 Metro is not an `unplugin` target, so it has its own adapter package, [`@ttsc/metro`](https://github.com/samchon/ttsc/tree/master/packages/metro). Metro transpiles each file with Babel, which strips types and never runs TypeScript transformers; `@ttsc/metro` inserts the `ttsc` plugin pass before that Babel step and delegates the rest to your existing Expo/React-Native transformer.
 
 ```bash
-npm install -D ttsc typescript@rc @ttsc/metro
+npm install -D ttsc typescript @ttsc/metro
 ```
 
 ```js

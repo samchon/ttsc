@@ -19,7 +19,7 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 Install `ttsc`, `@ttsc/lint`, and the native TypeScript compiler:
 
 ```bash
-npm install -D ttsc @ttsc/lint typescript@rc
+npm install -D ttsc @ttsc/lint typescript
 ```
 
 ### Commands
@@ -51,7 +51,7 @@ Use `@ttsc/unplugin` when a bundler owns your build.
 It runs `ttsc` plugins inside supported bundlers.
 
 ```bash
-npm install -D ttsc @ttsc/lint typescript@rc
+npm install -D ttsc @ttsc/lint typescript
 npm install -D @ttsc/unplugin
 ```
 
@@ -86,7 +86,7 @@ See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unpl
 React Native and Expo bundle with Metro, so the `ttsc` CLI and `@ttsc/unplugin` never run. `@ttsc/metro` is a Metro transformer that runs `ttsc` plugins on each TypeScript file, then hands the result to your existing Expo or React-Native Babel transformer.
 
 ```bash
-npm install -D ttsc @ttsc/lint typescript@rc
+npm install -D ttsc @ttsc/lint typescript
 npm install -D @ttsc/metro
 ```
 
@@ -134,7 +134,7 @@ It answers what relates to a symbol and what a change affects, straight from the
 It also carries the project's full diagnostics: type errors, `@ttsc/lint` violations, and plugin findings. They are fused onto the graph, so an agent sees a change's reach over what is already broken before editing.
 
 ```bash
-npm install -D ttsc @ttsc/graph typescript@rc
+npm install -D ttsc @ttsc/graph typescript
 ```
 
 Point your agent's MCP client at it. For Claude Code:
