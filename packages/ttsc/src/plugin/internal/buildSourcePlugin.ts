@@ -104,6 +104,9 @@ const CONTRIB_DIRNAME = "contrib";
 // runtimeHooks.ts.
 const PLUGIN_BUILD_LOCK_STEAL_MS = 600_000;
 const PLUGIN_BUILD_LOCK_POLL_MS = 50;
+const PLUGIN_BUILD_LOCK_LEGACY_STALE_MS = 30_000;
+const PLUGIN_BUILD_LOCK_STATUS_MS = 30_000;
+const PLUGIN_BUILD_LOCK_OWNER_FILE = "owner.json";
 // The default cache lives INSIDE the workspace, at
 // `<workspaceRoot>/node_modules/.cache/ttsc`, so `rm -rf node_modules` (or
 // deleting the repo) reclaims every compiled plugin binary and Go object file.
@@ -192,22 +195,28 @@ export function buildSourcePlugin(opts: {
     return binaryPath;
   }
   fs.mkdirSync(cacheDir, { recursive: true });
-  return buildUnderPluginLock(cacheDir, binaryPath, () =>
-    compileSourcePlugin({
-      binaryPath,
-      cacheDir,
-      contributors,
-      dir,
-      entry,
-      goBinary,
-      key,
-      label: opts.label ?? "source plugin",
-      goBuildCacheRoot: paths.goBuildRoot,
-      overlayDirs,
-      pluginName: opts.pluginName,
-      quiet: opts.quiet === true,
-      source,
-    }),
+  const label = opts.label ?? "source plugin";
+  const quiet = opts.quiet === true;
+  return buildUnderPluginLock(
+    cacheDir,
+    binaryPath,
+    { label, pluginName: opts.pluginName, quiet },
+    () =>
+      compileSourcePlugin({
+        binaryPath,
+        cacheDir,
+        contributors,
+        dir,
+        entry,
+        goBinary,
+        key,
+        label,
+        goBuildCacheRoot: paths.goBuildRoot,
+        overlayDirs,
+        pluginName: opts.pluginName,
+        quiet,
+        source,
+      }),
   );
 }
 
@@ -235,7 +244,8 @@ function compileSourcePlugin(opts: {
             .map((c) => c.name)
             .join(", ")}`;
     process.stderr.write(
-      `ttsc: building ${opts.label} "${opts.pluginName}" from ${opts.source}${extra} (this runs once per cache key)\n`,
+      `ttsc: building ${opts.label} "${opts.pluginName}" from ${opts.source}${extra} ` +
+        `(this runs once per cache key and can take several minutes on a cold Go cache)\n`,
     );
   }
 
@@ -294,6 +304,11 @@ function compileSourcePlugin(opts: {
 function buildUnderPluginLock(
   cacheDir: string,
   binaryPath: string,
+  lockInfo: {
+    label: string;
+    pluginName: string;
+    quiet: boolean;
+  },
   build: () => string,
 ): string {
   const lockDir = `${cacheDir}.lock`;
@@ -308,6 +323,7 @@ function buildUnderPluginLock(
       // exists, so a single-level mkdir is all that is needed and its EEXIST
       // is exactly the "someone else holds the lock" signal.
       fs.mkdirSync(lockDir);
+      writePluginBuildLockOwner(lockDir);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
         // A lock dir we cannot create for an unexpected reason (e.g. a
@@ -315,14 +331,17 @@ function buildUnderPluginLock(
         // unlocked build — correctness is preserved by the atomic publish.
         return build();
       }
-      const waited = waitForPluginBinary(
+      const waited = waitForPluginBinary({
         binaryPath,
-        PLUGIN_BUILD_LOCK_STEAL_MS,
-      );
-      if (waited) {
+        lockDir,
+        lockInfo,
+        timeoutMs: PLUGIN_BUILD_LOCK_STEAL_MS,
+      });
+      if (waited.published) {
         touchCacheEntry(cacheDir);
         return binaryPath;
       }
+      reportPluginLockSteal(lockDir, binaryPath, lockInfo, waited.reason);
       // Builder appears to have crashed: steal the abandoned lock and retry.
       fs.rmSync(lockDir, { force: true, recursive: true });
       continue;
@@ -341,17 +360,214 @@ function buildUnderPluginLock(
 }
 
 /** Poll for the locked builder to publish its binary, up to `timeoutMs`. */
-function waitForPluginBinary(binaryPath: string, timeoutMs: number): boolean {
+function waitForPluginBinary(opts: {
+  binaryPath: string;
+  lockDir: string;
+  lockInfo: {
+    label: string;
+    pluginName: string;
+    quiet: boolean;
+  };
+  timeoutMs: number;
+}): { published: boolean; reason?: string } {
   const startedAt = Date.now();
+  let nextStatusAt = startedAt + PLUGIN_BUILD_LOCK_STATUS_MS;
   for (;;) {
-    if (fs.existsSync(binaryPath)) {
-      return true;
+    if (fs.existsSync(opts.binaryPath)) {
+      return { published: true };
     }
-    if (Date.now() - startedAt > timeoutMs) {
-      return false;
+    const now = Date.now();
+    const lockStatus = inspectPluginBuildLock(opts.lockDir, now);
+    if (lockStatus.abandoned) {
+      return {
+        published: false,
+        reason: lockStatus.reason,
+      };
+    }
+    if (now - startedAt > opts.timeoutMs) {
+      return {
+        published: false,
+        reason: `timed out after ${formatDuration(now - startedAt)}`,
+      };
+    }
+    if (!opts.lockInfo.quiet && now >= nextStatusAt) {
+      reportPluginLockWait({
+        binaryPath: opts.binaryPath,
+        elapsedMs: now - startedAt,
+        lockDir: opts.lockDir,
+        lockInfo: opts.lockInfo,
+        owner: lockStatus.owner,
+      });
+      nextStatusAt = now + PLUGIN_BUILD_LOCK_STATUS_MS;
     }
     sleepSync(PLUGIN_BUILD_LOCK_POLL_MS);
   }
+}
+
+function writePluginBuildLockOwner(lockDir: string): void {
+  try {
+    fs.writeFileSync(
+      path.join(lockDir, PLUGIN_BUILD_LOCK_OWNER_FILE),
+      `${JSON.stringify(
+        {
+          hostname: os.hostname(),
+          pid: process.pid,
+          startedAt: new Date().toISOString(),
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+  } catch {
+    // Best-effort metadata: the mkdir lock still serializes the build.
+  }
+}
+
+function inspectPluginBuildLock(
+  lockDir: string,
+  now: number,
+): {
+  abandoned: boolean;
+  owner: string;
+  reason?: string;
+} {
+  const owner = readPluginBuildLockOwner(lockDir);
+  if (owner !== null) {
+    const label = describePluginBuildLockOwner(owner);
+    if (isLocalHostName(owner.hostname) && !isProcessAlive(owner.pid)) {
+      return {
+        abandoned: true,
+        owner: label,
+        reason: `${label} is no longer running`,
+      };
+    }
+    return {
+      abandoned: false,
+      owner: label,
+    };
+  }
+
+  const ageMs = pluginBuildLockAgeMs(lockDir, now);
+  if (ageMs > PLUGIN_BUILD_LOCK_LEGACY_STALE_MS) {
+    return {
+      abandoned: true,
+      owner: `legacy lock with no ${PLUGIN_BUILD_LOCK_OWNER_FILE}`,
+      reason:
+        `legacy lock has no ${PLUGIN_BUILD_LOCK_OWNER_FILE} and is ` +
+        `${formatDuration(ageMs)} old`,
+    };
+  }
+  return {
+    abandoned: false,
+    owner: `legacy lock with no ${PLUGIN_BUILD_LOCK_OWNER_FILE}`,
+  };
+}
+
+function readPluginBuildLockOwner(
+  lockDir: string,
+): { hostname: string; pid: number; startedAt?: string } | null {
+  try {
+    const parsed = JSON.parse(
+      fs.readFileSync(path.join(lockDir, PLUGIN_BUILD_LOCK_OWNER_FILE), "utf8"),
+    ) as Record<string, unknown>;
+    if (
+      typeof parsed.hostname !== "string" ||
+      !Number.isInteger(parsed.pid) ||
+      typeof parsed.pid !== "number" ||
+      parsed.pid <= 0
+    ) {
+      return null;
+    }
+    return {
+      hostname: parsed.hostname,
+      pid: parsed.pid,
+      startedAt:
+        typeof parsed.startedAt === "string" ? parsed.startedAt : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function pluginBuildLockAgeMs(lockDir: string, now: number): number {
+  try {
+    return Math.max(0, now - fs.statSync(lockDir).mtimeMs);
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+function isLocalHostName(hostname: string): boolean {
+  return hostname.toLowerCase() === os.hostname().toLowerCase();
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+function describePluginBuildLockOwner(owner: {
+  hostname: string;
+  pid: number;
+  startedAt?: string;
+}): string {
+  const started =
+    owner.startedAt === undefined ? "" : ` started at ${owner.startedAt}`;
+  return `pid ${owner.pid} on ${owner.hostname}${started}`;
+}
+
+function reportPluginLockWait(opts: {
+  binaryPath: string;
+  elapsedMs: number;
+  lockDir: string;
+  lockInfo: {
+    label: string;
+    pluginName: string;
+    quiet: boolean;
+  };
+  owner: string;
+}): void {
+  process.stderr.write(
+    `ttsc: waiting for ${opts.lockInfo.label} "${opts.lockInfo.pluginName}" ` +
+      `cache lock after ${formatDuration(opts.elapsedMs)}; ` +
+      `lock=${opts.lockDir}; binary=${opts.binaryPath}; owner=${opts.owner}\n`,
+  );
+}
+
+function reportPluginLockSteal(
+  lockDir: string,
+  binaryPath: string,
+  lockInfo: {
+    label: string;
+    pluginName: string;
+    quiet: boolean;
+  },
+  reason: string | undefined,
+): void {
+  if (lockInfo.quiet) return;
+  const suffix = reason === undefined ? "" : ` (${reason})`;
+  process.stderr.write(
+    `ttsc: reclaiming abandoned ${lockInfo.label} "${lockInfo.pluginName}" ` +
+      `cache lock at ${lockDir}; binary=${binaryPath}${suffix}\n`,
+  );
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1_000) {
+    return `${Math.max(0, Math.round(ms))}ms`;
+  }
+  const seconds = Math.floor(ms / 1_000);
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (minutes === 0) {
+    return `${seconds}s`;
+  }
+  return `${minutes}m ${remainder}s`;
 }
 
 /** Block the current (synchronous) thread for `ms` without busy-spinning. */
