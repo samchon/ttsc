@@ -6,6 +6,8 @@ This family bundles rules from `eslint-plugin-react`, `eslint-plugin-react-hooks
 
 Performance-only rules live in a separate [React performance](./react-perf) family because they are opt-in toggles rather than correctness checks.
 
+JSX spread attributes (`<Comp {...props} />`) carry an unknown prop set, so element-scanning rules read only the attributes written out explicitly next to the spread — the `jsx-ast-utils` default upstream ESLint uses.
+
 Source: [`eslint-plugin-react`](https://github.com/jsx-eslint/eslint-plugin-react) (MIT), [`eslint-plugin-react-hooks`](https://github.com/facebook/react/tree/main/packages/eslint-plugin-react-hooks) (MIT).
 
 [`eslint-plugin-react-refresh`](https://github.com/ArnaudBarre/eslint-plugin-react-refresh) (MIT).

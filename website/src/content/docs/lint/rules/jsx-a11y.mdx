@@ -6,6 +6,8 @@ Checks the static structure of JSX elements against WAI-ARIA authoring guidance:
 
 Runtime accessibility issues require live audits; this family catches the statically-decidable subset.
 
+A JSX spread attribute (`<Comp {...props} />`) makes the element's prop set unknown at lint time. Rules that report on the _absence_ of an attribute (a missing `alt`, `lang`, `title`, required ARIA prop, keyboard handler, …) stay quiet on elements that carry a spread, because the spread may provide it — lint findings are build-breaking errors, so these rules do not guess. Rules that report on an attribute _explicitly present_ next to the spread (a literal `href="#"`, a redundant `alt`, a `role` on an unsupported element) still fire.
+
 Source: [`eslint-plugin-jsx-a11y`](https://github.com/jsx-eslint/eslint-plugin-jsx-a11y) (MIT).
 
 ## Rule index

@@ -19,6 +19,14 @@ type jsxElementInfo struct {
   tag      string
   attrs    map[string]jsxAttr
   children *shimast.NodeList
+  // spread is true when the opening element carries at least one
+  // `{...props}` JsxSpreadAttribute. The spread's contents are unknown at
+  // lint time, so rules that report on the *absence* of an attribute must
+  // treat the element conservatively: the missing attribute could be
+  // provided by the spread, and `@ttsc/lint` findings are build-breaking
+  // compiler errors, so absence-predicated reports bail out instead of
+  // guessing. Reports about explicitly present attributes still fire.
+  spread bool
 }
 
 func jsxElementFromNode(node *shimast.Node) jsxElementInfo {
@@ -34,7 +42,7 @@ func jsxElementFromNode(node *shimast.Node) jsxElementInfo {
     }
     info.opening = el.OpeningElement.AsNode()
     info.tag = jsxTagName(el.OpeningElement.TagName())
-    info.attrs = jsxAttrs(el.OpeningElement.Attributes())
+    info.attrs, info.spread = jsxAttrs(el.OpeningElement.Attributes())
     info.children = el.Children
   case shimast.KindJsxSelfClosingElement:
     el := node.AsJsxSelfClosingElement()
@@ -43,7 +51,7 @@ func jsxElementFromNode(node *shimast.Node) jsxElementInfo {
     }
     info.opening = node
     info.tag = jsxTagName(el.TagName)
-    info.attrs = jsxAttrs(el.Attributes)
+    info.attrs, info.spread = jsxAttrs(el.Attributes)
   case shimast.KindJsxOpeningElement:
     el := node.AsJsxOpeningElement()
     if el == nil {
@@ -51,7 +59,7 @@ func jsxElementFromNode(node *shimast.Node) jsxElementInfo {
     }
     info.opening = node
     info.tag = jsxTagName(el.TagName)
-    info.attrs = jsxAttrs(el.Attributes)
+    info.attrs, info.spread = jsxAttrs(el.Attributes)
   }
   return info
 }
@@ -66,16 +74,28 @@ func jsxTagName(node *shimast.Node) string {
   return ""
 }
 
-func jsxAttrs(node *shimast.Node) map[string]jsxAttr {
+// jsxAttrs collects the named attributes of a JSX attributes node. The
+// second result reports whether the list also contains a
+// JsxSpreadAttribute (`{...props}`); spread members carry an unknown prop
+// set and cannot be cast with AsJsxAttribute (the interface conversion
+// panics), so they are skipped here and surfaced through the flag.
+func jsxAttrs(node *shimast.Node) (map[string]jsxAttr, bool) {
   out := map[string]jsxAttr{}
+  spread := false
   if node == nil {
-    return out
+    return out, spread
   }
   attrs := node.AsJsxAttributes()
   if attrs == nil || attrs.Properties == nil {
-    return out
+    return out, spread
   }
   for _, prop := range attrs.Properties.Nodes {
+    if prop == nil || prop.Kind != shimast.KindJsxAttribute {
+      if prop != nil && prop.Kind == shimast.KindJsxSpreadAttribute {
+        spread = true
+      }
+      continue
+    }
     attr := prop.AsJsxAttribute()
     if attr == nil || attr.Name() == nil {
       continue
@@ -91,7 +111,7 @@ func jsxAttrs(node *shimast.Node) map[string]jsxAttr {
       boolean: attr.Initializer == nil,
     }
   }
-  return out
+  return out, spread
 }
 
 func jsxAttrName(node *shimast.Node) string {
@@ -564,6 +584,11 @@ func (jsxA11yAltText) Visits() []shimast.Kind {
 }
 func (jsxA11yAltText) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
+  // Every report below is about a missing alt/label, which a spread may
+  // provide.
+  if info.spread {
+    return
+  }
   switch info.tag {
   case "img", "area":
     if !jsxHasAttr(info.attrs, "alt", "aria-label", "aria-labelledby") {
@@ -587,7 +612,7 @@ func (jsxA11yAnchorHasContent) Name() string           { return "jsx-a11y/anchor
 func (jsxA11yAnchorHasContent) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindJsxElement} }
 func (jsxA11yAnchorHasContent) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if info.tag == "a" && !jsxHasAccessibleLabel(info) {
+  if info.tag == "a" && !info.spread && !jsxHasAccessibleLabel(info) {
     ctx.Report(info.opening, "Anchors must have accessible content.")
   }
 }
@@ -605,7 +630,11 @@ func (jsxA11yAnchorIsValid) Check(ctx *Context, node *shimast.Node) {
   }
   href, ok := jsxKnownAttr(info.attrs, "href")
   if !ok {
-    ctx.Report(info.opening, "Anchor elements must have a valid href.")
+    // The href may be provided (or statically unknowable) through a
+    // spread; only its outright absence is reportable.
+    if !info.spread {
+      ctx.Report(info.opening, "Anchor elements must have a valid href.")
+    }
     return
   }
   value := strings.TrimSpace(strings.ToLower(href.value))
@@ -624,7 +653,7 @@ func (jsxA11yAriaActivedescendantHasTabindex) Visits() []shimast.Kind {
 }
 func (jsxA11yAriaActivedescendantHasTabindex) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if jsxHasAttr(info.attrs, "aria-activedescendant") && !jsxHasAttr(info.attrs, "tabIndex", "tabindex") {
+  if jsxHasAttr(info.attrs, "aria-activedescendant") && !info.spread && !jsxHasAttr(info.attrs, "tabIndex", "tabindex") {
     ctx.Report(info.opening, "Elements with aria-activedescendant must define tabIndex.")
   }
 }
@@ -753,7 +782,8 @@ func (jsxA11yClickEventsHaveKeyEvents) Visits() []shimast.Kind {
 }
 func (jsxA11yClickEventsHaveKeyEvents) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if !jsxHasAttr(info.attrs, "onClick", "onclick") || jsxIsHidden(info) || jsxIsInteractive(info) || jsxHasKeyboardHandler(info.attrs) {
+  // A spread may provide the keyboard handler (or a role/hidden state).
+  if info.spread || !jsxHasAttr(info.attrs, "onClick", "onclick") || jsxIsHidden(info) || jsxIsInteractive(info) || jsxHasKeyboardHandler(info.attrs) {
     return
   }
   ctx.Report(info.opening, "Clickable non-interactive elements must also handle keyboard events.")
@@ -767,7 +797,7 @@ func (jsxA11yControlHasAssociatedLabel) Visits() []shimast.Kind {
 }
 func (jsxA11yControlHasAssociatedLabel) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if (jsxIsFormControl(info) || jsxIsInteractive(info)) && !jsxHasAccessibleLabel(info) {
+  if (jsxIsFormControl(info) || jsxIsInteractive(info)) && !info.spread && !jsxHasAccessibleLabel(info) {
     ctx.Report(info.opening, "Interactive controls must have an accessible label.")
   }
 }
@@ -782,7 +812,7 @@ func (jsxA11yHeadingHasContent) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
   switch info.tag {
   case "h1", "h2", "h3", "h4", "h5", "h6":
-    if !jsxHasAccessibleLabel(info) {
+    if !info.spread && !jsxHasAccessibleLabel(info) {
       ctx.Report(info.opening, "Headings must have accessible content.")
     }
   }
@@ -796,7 +826,7 @@ func (jsxA11yHtmlHasLang) Visits() []shimast.Kind {
 }
 func (jsxA11yHtmlHasLang) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if info.tag == "html" && !jsxHasAttr(info.attrs, "lang") {
+  if info.tag == "html" && !info.spread && !jsxHasAttr(info.attrs, "lang") {
     ctx.Report(info.opening, "The html element must have a lang attribute.")
   }
 }
@@ -809,7 +839,7 @@ func (jsxA11yIframeHasTitle) Visits() []shimast.Kind {
 }
 func (jsxA11yIframeHasTitle) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if info.tag == "iframe" {
+  if info.tag == "iframe" && !info.spread {
     attr, ok := jsxKnownAttr(info.attrs, "title")
     if !ok || strings.TrimSpace(attr.value) == "" {
       ctx.Report(info.opening, "Iframes must have a non-empty title.")
@@ -846,7 +876,7 @@ func (jsxA11yInteractiveSupportsFocus) Visits() []shimast.Kind {
 }
 func (jsxA11yInteractiveSupportsFocus) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if role, ok := jsxRole(info.attrs); ok && jsxInteractiveRoles[role] && !jsxIsFocusable(info) {
+  if role, ok := jsxRole(info.attrs); ok && jsxInteractiveRoles[role] && !info.spread && !jsxIsFocusable(info) {
     ctx.Report(info.opening, "Elements with interactive roles must be focusable.")
   }
 }
@@ -859,7 +889,7 @@ func (jsxA11yLabelHasAssociatedControl) Visits() []shimast.Kind {
 }
 func (jsxA11yLabelHasAssociatedControl) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if info.tag == "label" && !jsxHasAttr(info.attrs, "htmlFor", "for") && !jsxHasDescendantControl(info.children) {
+  if info.tag == "label" && !info.spread && !jsxHasAttr(info.attrs, "htmlFor", "for") && !jsxHasDescendantControl(info.children) {
     ctx.Report(info.opening, "Labels must be associated with a control.")
   }
 }
@@ -897,7 +927,7 @@ func (jsxA11yMediaHasCaption) Name() string           { return "jsx-a11y/media-h
 func (jsxA11yMediaHasCaption) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindJsxElement} }
 func (jsxA11yMediaHasCaption) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if (info.tag == "audio" || info.tag == "video") && !jsxHasTrackCaption(info.children) {
+  if (info.tag == "audio" || info.tag == "video") && !info.spread && !jsxHasTrackCaption(info.children) {
     ctx.Report(info.opening, "Media elements must provide caption tracks.")
   }
 }
@@ -910,6 +940,10 @@ func (jsxA11yMouseEventsHaveKeyEvents) Visits() []shimast.Kind {
 }
 func (jsxA11yMouseEventsHaveKeyEvents) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
+  // The paired focus handler may arrive through a spread.
+  if info.spread {
+    return
+  }
   if jsxHasAttr(info.attrs, "onMouseOver", "onmouseover") && !jsxHasAttr(info.attrs, "onFocus", "onfocus") {
     ctx.Report(info.opening, "onMouseOver must be paired with onFocus.")
     return
@@ -1026,7 +1060,8 @@ func (jsxA11yNoNoninteractiveTabindex) Visits() []shimast.Kind {
 }
 func (jsxA11yNoNoninteractiveTabindex) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if _, ok := jsxNumericAttr(info.attrs, "tabIndex", "tabindex"); ok && !jsxIsInteractive(info) {
+  // A spread may provide an interactive role that legitimizes the tabIndex.
+  if _, ok := jsxNumericAttr(info.attrs, "tabIndex", "tabindex"); ok && !info.spread && !jsxIsInteractive(info) {
     ctx.Report(info.opening, "Non-interactive elements must not be focusable with tabIndex.")
   }
 }
@@ -1062,7 +1097,8 @@ func (jsxA11yNoStaticElementInteractions) Visits() []shimast.Kind {
 }
 func (jsxA11yNoStaticElementInteractions) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if info.tag == "" || jsxIsInteractive(info) || jsxIsNonInteractiveElement(info.tag) || jsxHasAttr(info.attrs, "role") || !jsxHasMouseOrKeyboardInteraction(info.attrs) {
+  // A spread may provide the required ARIA role.
+  if info.tag == "" || info.spread || jsxIsInteractive(info) || jsxIsNonInteractiveElement(info.tag) || jsxHasAttr(info.attrs, "role") || !jsxHasMouseOrKeyboardInteraction(info.attrs) {
     return
   }
   ctx.Report(info.opening, "Static elements with interaction handlers must have an ARIA role.")
@@ -1097,6 +1133,10 @@ func (jsxA11yRoleHasRequiredAriaProps) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
   role, ok := jsxRole(info.attrs)
   if !ok {
+    return
+  }
+  // The required ARIA props may arrive through a spread.
+  if info.spread {
     return
   }
   for _, required := range jsxRoleRequiredProps[role] {

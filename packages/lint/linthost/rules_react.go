@@ -428,6 +428,13 @@ func reactJSXAttrs(node *shimast.Node) []reactJSXAttr {
   }
   out := make([]reactJSXAttr, 0, len(attrs.Properties.Nodes))
   for _, prop := range attrs.Properties.Nodes {
+    // `{...props}` members are JsxSpreadAttribute nodes; casting them
+    // with AsJsxAttribute panics, so skip them like the nextjs and solid
+    // helpers do. Treating spreads as not providing any prop matches the
+    // upstream eslint-plugin-react defaults (jsx-ast-utils spreadStrict).
+    if prop == nil || prop.Kind != shimast.KindJsxAttribute {
+      continue
+    }
     attr := prop.AsJsxAttribute()
     if attr == nil || attr.Name() == nil {
       continue
