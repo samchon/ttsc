@@ -1724,12 +1724,6 @@ export class TsPrinter {
       this.binaryOperatorPrecedence(operator);
     const operandPrecedence: ExpressionPrecedence =
       this.expressionPrecedence(operand);
-    if (
-      !isLeftSide &&
-      operand.kind === "ArrowFunction" &&
-      operatorPrecedence > ExpressionPrecedence.Assignment
-    )
-      return true;
     if (operandPrecedence < operatorPrecedence) return true;
     if (operandPrecedence > operatorPrecedence) return false;
 
@@ -1755,6 +1749,8 @@ export class TsPrinter {
         return ExpressionPrecedence.Comma;
       case "YieldExpression":
         return ExpressionPrecedence.Yield;
+      case "ArrowFunction":
+        return ExpressionPrecedence.Assignment;
       case "ConditionalExpression":
         return ExpressionPrecedence.Conditional;
       case "BinaryExpression":
@@ -1802,6 +1798,7 @@ export class TsPrinter {
       case "AwaitExpression":
       case "ConditionalExpression":
       case "YieldExpression":
+      case "ArrowFunction":
         return Associativity.Right;
       case "BinaryExpression":
         return this.binaryOperatorAssociativity(expression.operator);
