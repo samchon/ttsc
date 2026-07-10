@@ -1,7 +1,6 @@
-// Package printer re-exports the typescript-go internal/printer types and
-// wraps the three functions that the ttsc driver and transform plugins need
-// to emit source text from an AST. The surface is intentionally narrow: only
-// the construction and single-file emit path are exposed.
+// Package printer re-exports the typescript-go internal/printer types that the
+// ttsc driver and transform plugins need to emit source text and allocate
+// collision-safe generated identifiers. The surface is intentionally narrow.
 package printer
 
 import (
@@ -23,6 +22,25 @@ type PrinterOptions = innerprinter.PrinterOptions
 // EmitContext accumulates per-emit metadata (source maps, comment positions)
 // and must be created fresh for each emit round via NewEmitContext.
 type EmitContext = innerprinter.EmitContext
+
+// AutoGenerateOptions configures how NodeFactory allocates generated names.
+type AutoGenerateOptions = innerprinter.AutoGenerateOptions
+
+// GeneratedIdentifierFlags controls generated-name scope and collision checks.
+type GeneratedIdentifierFlags = innerprinter.GeneratedIdentifierFlags
+
+const (
+  GeneratedIdentifierFlagsNone                   = innerprinter.GeneratedIdentifierFlagsNone
+  GeneratedIdentifierFlagsAuto                   = innerprinter.GeneratedIdentifierFlagsAuto
+  GeneratedIdentifierFlagsLoop                   = innerprinter.GeneratedIdentifierFlagsLoop
+  GeneratedIdentifierFlagsUnique                 = innerprinter.GeneratedIdentifierFlagsUnique
+  GeneratedIdentifierFlagsNode                   = innerprinter.GeneratedIdentifierFlagsNode
+  GeneratedIdentifierFlagsKindMask               = innerprinter.GeneratedIdentifierFlagsKindMask
+  GeneratedIdentifierFlagsReservedInNestedScopes = innerprinter.GeneratedIdentifierFlagsReservedInNestedScopes
+  GeneratedIdentifierFlagsOptimistic             = innerprinter.GeneratedIdentifierFlagsOptimistic
+  GeneratedIdentifierFlagsFileLevel              = innerprinter.GeneratedIdentifierFlagsFileLevel
+  GeneratedIdentifierFlagsAllowNameSubstitution  = innerprinter.GeneratedIdentifierFlagsAllowNameSubstitution
+)
 
 // NewPrinter creates an emitter with the supplied options, substitution hooks,
 // and emit context. Callers must pass the same EmitContext to all operations

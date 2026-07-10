@@ -15,11 +15,11 @@ import (
 // TestEmitWithPluginTransformerMixedFactory proves the property that bounds the
 // typia port: a plugin may build its big expression tree with its OWN global
 // NodeFactory (typia keeps dozens of module-level factories) and only build the
-// runtime-import REFERENCE with the emit ec.Factory.NewGeneratedNameForNode. The
-// non-import nodes are not import references, so tsgo's module-transform never
-// touches them; only the generated namespace name needs the emit context. The
-// require is still emitted and the alias still lines up, so the port can leave
-// every typia programmer's factory alone and only rewire ImportProgrammer.
+// runtime-import name with the emit ec.Factory.NewUniqueNameEx. The non-import
+// nodes are not import references, so tsgo's module-transform never touches
+// them; only the generated namespace name needs the emit context. The require
+// is still emitted and the alias still lines up, so the port can leave every
+// typia programmer's factory alone and only rewire ImportProgrammer.
 func TestEmitWithPluginTransformerMixedFactory(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -40,7 +40,10 @@ func TestEmitWithPluginTransformerMixedFactory(t *testing.T) {
 
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     modSpec := ec.Factory.NewStringLiteral("./dep", 0)
-    nsImport := ec.Factory.NewNamespaceImport(ec.Factory.NewGeneratedNameForNode(modSpec))
+    importName := ec.Factory.NewUniqueNameEx("dep", shimprinter.AutoGenerateOptions{
+      Flags: shimprinter.GeneratedIdentifierFlagsOptimistic | shimprinter.GeneratedIdentifierFlagsFileLevel,
+    })
+    nsImport := ec.Factory.NewNamespaceImport(importName)
     clause := ec.Factory.NewImportClause(shimast.KindUnknown, nil, nsImport)
     importDecl := ec.Factory.NewImportDeclaration(nil, clause, modSpec, nil)
 
@@ -51,7 +54,7 @@ func TestEmitWithPluginTransformerMixedFactory(t *testing.T) {
       }
       if node.Kind == shimast.KindNumericLiteral && node.Text() == "0" {
         // 검증 트리: 바깥 노드는 indep, namespace 참조만 ec.Factory
-        ref := ec.Factory.NewGeneratedNameForNode(modSpec)                                                       // <-- emit ec
+        ref := importName                                                                                        // <-- emit ec
         access := indep.NewPropertyAccessExpression(ref, nil, indep.NewIdentifier("foo"), shimast.NodeFlagsNone) // <-- indep
         arg := indep.NewNumericLiteral("123", 0)                                                                 // <-- indep
         return indep.NewCallExpression(access, nil, nil, indep.NewNodeList([]*shimast.Node{arg}), shimast.NodeFlagsNone)

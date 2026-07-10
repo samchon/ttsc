@@ -3,9 +3,9 @@ package driver_test
 // EC-module-format-esnext: the commonjs injected-import case has an ESM mirror.
 // Under module=esnext, a plugin-injected namespace import must stay an ESM
 // `import * as <gen> from "..."` (NOT lowered to require), and the member
-// reference built with the same NewGeneratedNameForNode must print the same
-// alias. This guards the ESM emit path of tsgo's module-transform for
-// plugin-injected imports.
+// reference built with the same unique identifier must print the same alias.
+// This guards the ESM emit path of tsgo's module-transform for plugin-injected
+// imports.
 
 import (
   "path/filepath"
@@ -41,7 +41,10 @@ func TestEmitWithPluginTransformerInjectedImportEsnextModule(t *testing.T) {
 
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     modSpec := ec.Factory.NewStringLiteral("./dep", 0)
-    nsImport := ec.Factory.NewNamespaceImport(ec.Factory.NewGeneratedNameForNode(modSpec))
+    importName := ec.Factory.NewUniqueNameEx("dep", shimprinter.AutoGenerateOptions{
+      Flags: shimprinter.GeneratedIdentifierFlagsOptimistic | shimprinter.GeneratedIdentifierFlagsFileLevel,
+    })
+    nsImport := ec.Factory.NewNamespaceImport(importName)
     clause := ec.Factory.NewImportClause(shimast.KindUnknown, nil, nsImport)
     importDecl := ec.Factory.NewImportDeclaration(nil, clause, modSpec, nil)
 
@@ -51,7 +54,7 @@ func TestEmitWithPluginTransformerInjectedImportEsnextModule(t *testing.T) {
         return node
       }
       if node.Kind == shimast.KindNumericLiteral && node.Text() == "0" {
-        ref := ec.Factory.NewGeneratedNameForNode(modSpec)
+        ref := importName
         return ec.Factory.NewPropertyAccessExpression(ref, nil, ec.Factory.NewIdentifier("foo"), shimast.NodeFlagsNone)
       }
       if node.Kind == shimast.KindSourceFile {
