@@ -85,9 +85,6 @@ func (p *Program) EmitWithPluginTransformer(transform PluginTransform, writeFile
 // EmitWithPluginTransformers, which honors linked plugins on every emit it
 // runs.
 func (p *Program) EmitLinkedTransforms(writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
-  if p == nil || p.TSProgram == nil {
-    return nil, errors.New("driver: nil program")
-  }
   return p.EmitWithPluginTransformers(nil, writeFile)
 }
 
