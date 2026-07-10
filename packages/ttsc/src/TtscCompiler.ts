@@ -132,8 +132,9 @@ export class TtscCompiler {
    * directory before returning.
    *
    * The result uses an `embed-typescript`-style discriminated union: `success`
-   * for clean compiles, `failure` for normal compiler diagnostics, and
-   * `exception` for host setup or process failures.
+   * for clean compiles, `failure` for compiler diagnostics or plugin failures
+   * that reached the build pipeline, and `exception` for host failures that
+   * prevent any project check from running.
    *
    * @returns Structured compilation result containing diagnostics or output.
    */

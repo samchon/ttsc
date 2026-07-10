@@ -85,8 +85,8 @@ type ITtscCompilerResult =
 ```
 
 - `success`: TypeScript-Go completed with no error-class diagnostics. The `output` map contains every text artifact (JS, `.d.ts`, source maps, declaration maps). `diagnostics` is omitted when empty; warnings appear here when present.
-- `failure`: Compilation ran but produced error-class diagnostics. `output` may still be partial, TypeScript-Go can emit before erroring.
-- `exception`: The host could not run normally (cache lockup, missing binary, plugin sidecar crash, etc.). Treat the `error` field as opaque diagnostic material; do not assume it's an `Error` instance.
+- `failure`: Compilation produced error-class diagnostics or a plugin failed after ttsc could establish a build result. Before returning a plugin-backed failure, ttsc runs an independent no-emit TypeScript check so pure TypeScript errors remain in `diagnostics`; `output` may still be partial.
+- `exception`: The host or plugin setup failed before ttsc could establish a build result (cache lockup, missing binary, invalid project setup, etc.). Treat the `error` field as opaque diagnostic material; do not assume it's an `Error` instance.
 
 ### `transform()`
 
