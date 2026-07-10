@@ -160,10 +160,20 @@ function runBuildTimed(
 ): TtscBuildResult {
   const setupStartedAt = process.hrtime.bigint();
   const execution = resolveExecutionContext(options);
-  if (execution.nativePlugins.length > 0) {
+  if (
+    execution.nativePlugins.length > 0 ||
+    execution.pluginSetupFailure !== undefined
+  ) {
     recordTiming(timing, "ttsc plugin setup time", setupStartedAt);
   }
   const buildOptions = applyProjectNoEmit(options, execution);
+  if (execution.pluginSetupFailure !== undefined) {
+    return appendTypeScriptDiagnosticsAfterPluginFailure(
+      execution.pluginSetupFailure,
+      buildOptions,
+      execution,
+    );
+  }
   if (execution.nativePlugins.length > 0) {
     const compilers = execution.nativePlugins.filter(
       (plugin) => plugin.stage === "transform",
@@ -1031,20 +1041,31 @@ function resolveExecutionContext(
   const tsconfig = project.path;
   const projectRoot = project.root;
   const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
-  const hasPlugins = hasProjectPluginEntries(project, options.plugins);
-  const loaded = hasPlugins
-    ? loadProjectPlugins({
+  let pluginSetupFailure: TtscBuildResult | undefined;
+  let nativePlugins: ITtscLoadedNativePlugin[] = [];
+  try {
+    if (hasProjectPluginEntries(project, options.plugins)) {
+      nativePlugins = loadProjectPlugins({
         binary: resolveBinary(options) ?? "",
         cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
         cwd,
         entries: options.plugins,
         projectRoot,
         tsconfig,
-      })
-    : { nativePlugins: [] };
+      }).nativePlugins;
+    }
+  } catch (error) {
+    pluginSetupFailure = {
+      diagnostics: [],
+      status: 2,
+      stdout: "",
+      stderr: `${error instanceof Error ? error.message : String(error)}\n`,
+    };
+  }
   return {
     cwd,
-    nativePlugins: loaded.nativePlugins,
+    nativePlugins,
+    pluginSetupFailure,
     projectNoEmit: project.compilerOptions.noEmit === true,
     projectRoot,
     rewriteRelativeImportExtensionsForEmit:

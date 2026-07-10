@@ -20,11 +20,9 @@ import {
  * silent failure would leave users with only a non-zero exit code and no
  * actionable information.
  *
- * 1. Copy the `go-source-plugin` fixture and inject a Go syntax error into
- *    `go-plugin/main.go`.
+ * 1. Copy the fixture, inject a Go syntax error, and add a TS2322 source error.
  * 2. Run ttsc with `--emit`.
- * 3. Assert non-zero exit and a message containing `building plugin
- *    "go-source-plugin" via "go build" failed` in stderr.
+ * 3. Assert both the plugin build failure and TS2322 remain visible.
  */
 export const test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_stderr =
   () => {
@@ -35,6 +33,11 @@ export const test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_
     fs.writeFileSync(
       goFile,
       original.replace("package main", "package main\nthis is not valid go;"),
+    );
+    fs.appendFileSync(
+      path.join(root, "src", "main.ts"),
+      '\nconst wrong: number = "type-error";\nvoid wrong;\n',
+      "utf8",
     );
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
       cwd: root,
@@ -48,4 +51,5 @@ export const test_plugin_corpus_source_plugin_build_failure_reports_go_compiler_
       result.stderr,
       /building plugin "go-source-plugin" via "go build" failed/,
     );
+    assert.match(result.stderr, /TS2322/);
   };
