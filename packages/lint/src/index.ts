@@ -260,14 +260,35 @@ function readConfigFileOption(
 function findLintConfigFile(
   context: TtscPluginFactoryContext<ITtscLintPluginConfig>,
 ): string | undefined {
-  // Mirror the Go-side discovery loop: walk from the tsconfig directory
-  // upward, returning the first directory that has exactly one of the
-  // candidate filenames. Multiple files in the same directory is treated
-  // as ambiguous and skipped (the Go side raises a hard error on the
-  // duplicate; here we leave it to the binary's own discovery to surface
-  // the issue once with one canonical message).
+  // Mirror the Go-side discovery origins: walk upward from the tsconfig
+  // directory first, then fall back to the working directory. The fallback
+  // covers callers that point at an out-of-tree tsconfig (e.g. a
+  // TtscCompiler invocation whose wrapper tsconfig lives in the system temp
+  // dir while cwd/projectRoot is the real project) — without it the walk
+  // dead-ends in the temp dir's ancestry and the project's config (and its
+  // contributor plugins) are silently missed.
+  const tsconfigDir = tsconfigBaseDir(context);
+  const cwd = path.resolve(context.cwd ?? context.projectRoot);
+  for (const origin of tsconfigDir === cwd
+    ? [tsconfigDir]
+    : [tsconfigDir, cwd]) {
+    const discovered = findLintConfigFileFrom(origin);
+    if (discovered !== undefined) {
+      return discovered;
+    }
+  }
+  return undefined;
+}
+
+function findLintConfigFileFrom(origin: string): string | undefined {
+  // Mirror the Go-side discovery loop: walk from `origin` upward, returning
+  // the first directory that has exactly one of the candidate filenames.
+  // Multiple files in the same directory is treated as ambiguous and skipped
+  // (the Go side raises a hard error on the duplicate; here we leave it to
+  // the binary's own discovery to surface the issue once with one canonical
+  // message).
   const candidateSet = new Set<string>(LINT_CONFIG_FILENAMES);
-  let dir = tsconfigBaseDir(context);
+  let dir = origin;
   while (true) {
     // One `readdirSync` per directory level beats 14 `existsSync`+
     // `statSync` pairs (= 28 stat syscalls) per level; intersect the

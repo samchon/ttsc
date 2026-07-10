@@ -567,6 +567,24 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
     return err
   }
 
+  // An `ignores` list without a `files` filter is a GLOBAL ignore: a config
+  // file is a single ITtscLintConfig object, so its top-level `ignores` is
+  // the only way an author can say "never lint these files". It must
+  // therefore exclude the matched files from every entry of the resolved
+  // chain — including entries folded in via `extends`, which otherwise
+  // carry no ignores of their own and would keep linting the excluded
+  // files (samchon/ttsc: `extends` + `ignores` + `rules` leaked the base
+  // config's rules onto ignored paths). When `files` IS present the
+  // ignores only refine that entry's selection, matching ESLint's
+  // entry-scoped semantics, and no global entry is added.
+  if len(files) == 0 && len(ignores) > 0 {
+    store.entries = append(store.entries, ConfigEntry{
+      BaseDir:    baseDir,
+      Ignores:    ignores,
+      IgnoreOnly: true,
+    })
+  }
+
   rulesValue, hasRules := obj["rules"]
   formatValue, hasFormat := obj["format"]
   if hasRules || hasFormat {
@@ -619,15 +637,6 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
         Rules:   parsed,
       })
     }
-    return nil
-  }
-
-  if len(files) == 0 && len(ignores) > 0 {
-    store.entries = append(store.entries, ConfigEntry{
-      BaseDir:    baseDir,
-      Ignores:    ignores,
-      IgnoreOnly: true,
-    })
   }
   return nil
 }
@@ -774,7 +783,11 @@ func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResol
     return nil, err
   }
   if discovered == "" {
-    return nil, fmt.Errorf("%w (searched upward from %s); create one or set \"configFile\" on the tsconfig plugin entry", errNoLintConfigFile, cwd)
+    return nil, fmt.Errorf(
+      "%w (searched upward from %s); create one or set \"configFile\" on the tsconfig plugin entry",
+      errNoLintConfigFile,
+      strings.Join(discoveryConfigBaseDirs(cwd, tsconfigPath), ", then from "),
+    )
   }
   return loadConfigResolver(discovered)
 }
@@ -794,7 +807,23 @@ func loadConfigResolver(location string) (RuleResolver, error) {
 }
 
 func findLintConfigFile(cwd, tsconfigPath string) (string, error) {
-  dir := discoveryConfigBaseDir(cwd, tsconfigPath)
+  for _, origin := range discoveryConfigBaseDirs(cwd, tsconfigPath) {
+    discovered, err := findLintConfigFileFrom(origin)
+    if err != nil {
+      return "", err
+    }
+    if discovered != "" {
+      return discovered, nil
+    }
+  }
+  return "", nil
+}
+
+// findLintConfigFileFrom walks upward from `dir` and returns the first
+// directory level holding exactly one lint config file. Two or more candidates
+// in the same directory is ambiguous and a hard error; an exhausted walk
+// returns "" so the caller can try the next discovery origin.
+func findLintConfigFileFrom(dir string) (string, error) {
   for {
     matches := make([]string, 0, 1)
     for _, name := range []string{
@@ -846,19 +875,43 @@ func resolveConfigFilePath(configPath, cwd, tsconfigPath string) string {
   return filepath.Join(tsconfigBaseDir(cwd, tsconfigPath), configPath)
 }
 
-// discoveryConfigBaseDir returns the directory from which auto-discovery walks
-// upward when no explicit config path is provided. Prefer the tsconfig
-// directory over cwd so that nested package configs are found relative to the
-// tsconfig that triggered the lint run.
-func discoveryConfigBaseDir(cwd, tsconfigPath string) string {
+// discoveryConfigBaseDirs returns the ordered directories from which
+// auto-discovery walks upward when no explicit config path is provided. The
+// tsconfig directory comes first so that nested package configs are found
+// relative to the tsconfig that triggered the lint run; the working directory
+// follows as a fallback so a caller that points at an out-of-tree tsconfig
+// (e.g. a TtscCompiler invocation whose wrapper tsconfig lives in the system
+// temp dir but whose cwd/projectRoot is the real project) still discovers the
+// project's lint config instead of failing on the temp dir's empty ancestry.
+func discoveryConfigBaseDirs(cwd, tsconfigPath string) []string {
+  origins := make([]string, 0, 2)
   if tsconfigPath != "" {
     resolvedTsconfig := tsconfigPath
     if !filepath.IsAbs(resolvedTsconfig) {
       resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
     }
-    return filepath.Dir(resolvedTsconfig)
+    origins = append(origins, filepath.Dir(resolvedTsconfig))
   }
-  return cwd
+  if cwd != "" && !containsPath(origins, cwd) {
+    origins = append(origins, filepath.Clean(cwd))
+  }
+  return origins
+}
+
+// containsPath reports whether `paths` already holds `candidate` after
+// cleaning, comparing case-insensitively on Windows (where two spellings of
+// the same directory differ only by drive-letter or path case).
+func containsPath(paths []string, candidate string) bool {
+  cleaned := filepath.Clean(candidate)
+  for _, existing := range paths {
+    if existing == cleaned {
+      return true
+    }
+    if runtime.GOOS == "windows" && strings.EqualFold(existing, cleaned) {
+      return true
+    }
+  }
+  return false
 }
 
 // tsconfigBaseDir returns the directory that contains the tsconfig file, or

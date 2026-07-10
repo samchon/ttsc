@@ -633,7 +633,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-`files` and `ignores` scope the object when the resolver (`linthost/config.go`) builds the rule severity map for each `FileName()`. `extends` points at one base config file (path relative to this file's directory): the base is loaded first, then this object's `plugins`, `rules`, and `format` fields override it.
+`files` and `ignores` scope the object when the resolver (`linthost/config.go`) builds the rule severity map for each `FileName()`. When `files` is present, `ignores` only refines that selection — the excluded files are still linted by other entries. Without `files`, a top-level `ignores` is a **global ignore**: a config file is a single object, so this is the only way to say "never lint these files", and the matched paths are excluded from every rule in the resolved chain, including rules inherited through `extends`. `extends` points at one base config file (path relative to this file's directory): the base is loaded first, then this object's `plugins`, `rules`, and `format` fields override it.
 
 ## What to copy, what to ignore for your own plugin
 

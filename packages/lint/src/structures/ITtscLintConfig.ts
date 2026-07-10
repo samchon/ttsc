@@ -12,7 +12,14 @@ export interface ITtscLintConfig {
   /** Globs that select the files this entry applies to. */
   files?: string | readonly string[];
 
-  /** Globs that exclude files this entry would otherwise match. */
+  /**
+   * Globs that exclude files from linting.
+   *
+   * When `files` is also set, the ignores only refine that selection (the
+   * entry's rules skip the matched files). Without `files`, the ignores are
+   * global: the matched files are excluded from every rule in the resolved
+   * config, including rules inherited through `extends`.
+   */
   ignores?: string | readonly string[];
 
   /**

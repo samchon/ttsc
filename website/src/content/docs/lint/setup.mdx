@@ -33,11 +33,13 @@ export default {
 
 `"error"` fails the build. `"warning"` prints. `"off"` disables the rule.
 
+To exclude generated files from linting entirely, add a top-level `ignores` list (e.g. `ignores: [".next/**/*.ts", "next-env.d.ts"]`). Without a `files` filter it is a global ignore: the matched paths are skipped by every rule, including rules inherited through `extends`.
+
 The `format` block configures the formatter, keys mirror `.prettierrc`. Presence of the block (even empty `format: {}`) enables `ttsc format` at Prettier defaults. It does not make `ttsc check` fail on formatting unless you set `format.severity`.
 
 A `lint.config.{ts,js,mjs}` file is evaluated once and the result is cached, keyed by the file's contents, so a monorepo build that runs `ttsc` once per package does not re-evaluate the config each time. Editing the config invalidates the cache automatically. The one case it does not cover is a config that `import`s a separate file: change that imported file without touching the config itself, and set `TTSC_LINT_DISABLE_CONFIG_CACHE=1` to force a fresh evaluation.
 
-By default `@ttsc/lint` discovers `lint.config.{ts,cts,mts,js,cjs,mjs,json}` by walking upward from the tsconfig directory. To override that discovery with an explicit path, pass `configFile` on the plugin entry in `tsconfig.json`:
+By default `@ttsc/lint` discovers `lint.config.{ts,cts,mts,js,cjs,mjs,json}` by walking upward from the tsconfig directory, then — when that walk finds nothing — upward from the working directory (this covers build integrations that hand ttsc a wrapper tsconfig in a temp directory while the project itself is the cwd). To override that discovery with an explicit path, pass `configFile` on the plugin entry in `tsconfig.json`:
 
 ```jsonc
 // tsconfig.json
