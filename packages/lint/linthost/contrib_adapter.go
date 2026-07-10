@@ -63,6 +63,7 @@ func registerContributors() {
     }
     adapter := contributorAdapter{
       inner:                  contributor.inner,
+      metadataCached:         true,
       name:                   contributor.name,
       visits:                 contributor.visits,
       visitsDeclarationFiles: contributor.visitsDeclarationFiles,
@@ -122,6 +123,7 @@ func inspectContributor(contributor rule.Rule) (metadata contributorMetadata, er
 // same shim AST types, so no wrapping / unwrapping of nodes is needed.
 type contributorAdapter struct {
   inner                  rule.Rule
+  metadataCached         bool
   name                   string
   visits                 []shimast.Kind
   visitsDeclarationFiles bool
@@ -140,6 +142,12 @@ func (a contributorAdapter) NeedsTypeChecker() bool {
 // as NeedsTypeChecker: the host cannot infer a third-party rule's grammar
 // shape, and a wrong skip silently loses findings.
 func (a contributorAdapter) VisitsDeclarationFiles() bool {
+  if !a.metadataCached {
+    if declarationRule, ok := a.inner.(rule.DeclarationFileRule); ok {
+      return declarationRule.VisitsDeclarationFiles()
+    }
+    return true
+  }
   return a.visitsDeclarationFiles
 }
 
@@ -154,8 +162,18 @@ type formatContributorAdapter struct {
 
 func (formatContributorAdapter) IsFormat() bool { return true }
 
-func (a contributorAdapter) Name() string           { return a.name }
-func (a contributorAdapter) Visits() []shimast.Kind { return a.visits }
+func (a contributorAdapter) Name() string {
+  if !a.metadataCached {
+    return a.inner.Name()
+  }
+  return a.name
+}
+func (a contributorAdapter) Visits() []shimast.Kind {
+  if !a.metadataCached {
+    return a.inner.Visits()
+  }
+  return a.visits
+}
 func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil {
     return
