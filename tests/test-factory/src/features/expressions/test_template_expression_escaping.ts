@@ -15,9 +15,9 @@ import { cook, id, print, str } from "../../internal/helpers";
  * escaped the closing backtick. The tagged-template path reuses the same
  * emission and is pinned here too.
  *
- * 1. Build a `TemplateExpression` whose head, middle, and tail each carry every
- *    metacharacter (backtick, `${`, backslash, CR / CRLF, trailing backslash),
- *    with string-literal substitutions.
+ * 1. Build a `TemplateExpression` whose head, middle, and tail each carry a
+ *    backtick, `${`, and a backslash, and collectively carry CR, CRLF, and a
+ *    trailing backslash, with string-literal substitutions.
  * 2. Print it and assert the exact escaped output.
  * 3. Re-parse the printed source and assert the concatenated cooked value.
  * 4. Print a `TaggedTemplateExpression` over an escaped literal and assert the
