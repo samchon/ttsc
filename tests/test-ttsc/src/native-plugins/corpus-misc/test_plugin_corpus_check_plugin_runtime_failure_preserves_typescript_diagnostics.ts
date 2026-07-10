@@ -16,10 +16,10 @@ import {
  * independent no-emit TypeScript check, otherwise an internal plugin bug hides
  * unrelated errors in the user's source code.
  *
- * 1. Write a source file with a genuine TS2322 type error.
- * 2. Register a check-stage Go plugin that exits 3 with a runtime error.
+ * 1. Write a source file with two genuine TS2322 type errors.
+ * 2. Register a check-stage Go plugin that reports one error, then exits 3.
  * 3. Run ttsc with `--noEmit`.
- * 4. Assert the plugin failure, original status, and TS2322 all surface.
+ * 4. Assert the failure/status survive and both TS errors occur exactly once.
  */
 export const test_plugin_corpus_check_plugin_runtime_failure_preserves_typescript_diagnostics =
   () => {
@@ -42,13 +42,19 @@ export const test_plugin_corpus_check_plugin_runtime_failure_preserves_typescrip
           "",
           "func main() {",
           '\tif len(os.Args) > 1 && os.Args[1] == "check" {',
+          "\t\tfmt.Fprintln(os.Stderr, \"src/main.ts:1:7 - error TS2322: Type 'string' is not assignable to type 'number'.\")",
           '\t\tfmt.Fprintln(os.Stderr, "check plugin crashed")',
           "\t\tos.Exit(3)",
           "\t}",
           "}",
           "",
         ].join("\n"),
-        "src/main.ts": `const value: number = "type-error";\nconsole.log(value);\n`,
+        "src/main.ts": [
+          `const first: number = "first-error";`,
+          `const second: number = "second-error";`,
+          "console.log(first, second);",
+          "",
+        ].join("\n"),
       },
       {
         compilerOptions: {
@@ -66,5 +72,5 @@ export const test_plugin_corpus_check_plugin_runtime_failure_preserves_typescrip
 
     assert.equal(result.status, 3);
     assert.match(result.stderr, /check plugin crashed/);
-    assert.match(result.stderr, /TS2322/);
+    assert.equal(result.stderr.match(/TS2322/g)?.length, 2, result.stderr);
   };

@@ -332,31 +332,100 @@ function appendTypeScriptDiagnosticsAfterPluginFailure(
   ) {
     return failure;
   }
-  const typechecked = runTsgo(execution, ["--noEmit"], options);
-  if (!hasMissingTypeScriptDiagnostics(failure, typechecked)) {
+  const typechecked = runTsgo(
+    execution,
+    ["--noEmit"],
+    createPluginFailureTypecheckOptions(options),
+  );
+  const fallback = filterReportedTypeScriptDiagnostics(
+    failure,
+    typechecked,
+    execution.projectRoot,
+  );
+  if (fallback === null) {
     return failure;
   }
   const status = failure.status;
   return {
-    ...appendBuildOutput(failure, typechecked),
+    ...appendBuildOutput(failure, fallback),
     status,
   };
 }
 
-/** Return true when the fallback check contributes diagnostics or raw failure. */
-function hasMissingTypeScriptDiagnostics(
+/**
+ * Make the recovery pass parseable regardless of the user's display flags. This
+ * is an internal second pass, so plain output is required to remove only
+ * diagnostics that the failed plugin already printed.
+ */
+function createPluginFailureTypecheckOptions(
+  options: RunBuildOptions,
+): RunBuildOptions {
+  const passthrough: string[] = [];
+  for (let i = 0; i < (options.passthrough?.length ?? 0); i++) {
+    const token = options.passthrough![i]!;
+    if (token === "--pretty") {
+      if (isBooleanLiteral(options.passthrough![i + 1] ?? "")) i++;
+      continue;
+    }
+    if (token.startsWith("--pretty=")) continue;
+    passthrough.push(token);
+  }
+  return {
+    ...options,
+    passthrough,
+    structuredDiagnostics: true,
+  };
+}
+
+/** Return only fallback diagnostics the failed plugin did not already report. */
+function filterReportedTypeScriptDiagnostics(
   failure: TtscBuildResult,
   typechecked: TtscBuildResult,
-): boolean {
+  cwd: string,
+): TtscBuildResult | null {
   if (typechecked.diagnostics.length === 0) {
-    return typechecked.status !== 0;
+    return typechecked.status === 0 ? null : typechecked;
   }
-  return typechecked.diagnostics.some(
+  const diagnostics = typechecked.diagnostics.filter(
     (diagnostic) =>
       !failure.diagnostics.some((existing) =>
         compilerDiagnosticsEqual(existing, diagnostic),
       ),
   );
+  if (diagnostics.length === 0) return null;
+  if (diagnostics.length === typechecked.diagnostics.length) return typechecked;
+  return {
+    ...typechecked,
+    diagnostics,
+    stderr: filterCompilerDiagnosticText(typechecked.stderr, diagnostics, cwd),
+    stdout: filterCompilerDiagnosticText(typechecked.stdout, diagnostics, cwd),
+  };
+}
+
+/** Remove diagnostic lines absent from the selected structured result. */
+function filterCompilerDiagnosticText(
+  text: string,
+  diagnostics: readonly ITtscCompilerDiagnostic[],
+  cwd: string,
+): string {
+  const out: string[] = [];
+  let keepContinuation = true;
+  for (const line of text.split(/\r?\n/)) {
+    const plain = stripAnsi(line);
+    const diagnostic = parseDiagnosticLine(plain, cwd);
+    if (diagnostic !== null) {
+      keepContinuation = diagnostics.some((selected) =>
+        compilerDiagnosticsEqual(selected, diagnostic),
+      );
+      if (keepContinuation) out.push(line);
+      continue;
+    }
+    if (/^Found\s+\d+\s+errors?/i.test(plain)) continue;
+    if (!keepContinuation && /^\s+/.test(line)) continue;
+    keepContinuation = true;
+    out.push(line);
+  }
+  return out.join("\n");
 }
 
 /** Compare normalized compiler diagnostics before appending fallback output. */

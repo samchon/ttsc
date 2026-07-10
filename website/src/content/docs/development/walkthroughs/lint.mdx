@@ -514,7 +514,7 @@ Two adapters, not one, `contributorAdapter` for lint-class rules, `formatContrib
 
 The collision policy is "later wins is dangerous; prefer determinism." A contributor whose cached name collides with an existing rule is dropped with a stderr warning, not panicked-on. This is the same trade-off `@ttsc/lint` makes for the panic barrier: keep the build going whenever possible, surface the problem clearly.
 
-Contributor packages are statically linked into the lint binary. Recovery can isolate ordinary Go panics after package initialization, but it cannot survive a panic in `init()`, `os.Exit`, a fatal runtime fault, or a non-returning rule. Those failures require process isolation and are outside the in-process contributor contract.
+Contributor packages are statically linked into the lint binary. Recovery can isolate ordinary Go panics raised synchronously by metadata or `Check`, but it cannot survive a panic in `init()` or a contributor-started goroutine, `os.Exit`, a fatal runtime fault, or a non-returning rule. Those failures require process isolation and are outside the in-process contributor contract.
 
 ## How a contributor package ships
 

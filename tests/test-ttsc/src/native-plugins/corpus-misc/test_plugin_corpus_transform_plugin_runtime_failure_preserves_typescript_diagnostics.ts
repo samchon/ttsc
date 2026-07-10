@@ -18,8 +18,8 @@ import {
  *
  * 1. Write a source file with a genuine TS2322 type error.
  * 2. Register a transform-stage Go plugin that exits 3 from every command.
- * 3. Run a normal emitting ttsc build.
- * 4. Assert the plugin failure, original status, and TS2322 all surface.
+ * 3. Run both normal emitting and explicit no-emit ttsc builds.
+ * 4. Assert the plugin failure, original status, and TS2322 always surface.
  */
 export const test_plugin_corpus_transform_plugin_runtime_failure_preserves_typescript_diagnostics =
   () => {
@@ -53,15 +53,20 @@ export const test_plugin_corpus_transform_plugin_runtime_failure_preserves_types
         },
       },
     );
-    const result = spawn(ttscBin, ["--cwd", root], {
-      cwd: root,
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      },
-    });
+    for (const args of [
+      ["--cwd", root],
+      ["--cwd", root, "--noEmit"],
+    ]) {
+      const result = spawn(ttscBin, args, {
+        cwd: root,
+        env: {
+          PATH: goPath(),
+          TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+        },
+      });
 
-    assert.equal(result.status, 3);
-    assert.match(result.stderr, /transform plugin crashed/);
-    assert.match(result.stderr, /TS2322/);
+      assert.equal(result.status, 3);
+      assert.match(result.stderr, /transform plugin crashed/);
+      assert.match(result.stderr, /TS2322/);
+    }
   };
