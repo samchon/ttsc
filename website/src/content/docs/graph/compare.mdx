@@ -80,7 +80,7 @@ A capable graph is no use if the agent never calls it, and the four tools take v
 
 ### 2.4. Setup and freshness
 
-`@ttsc/graph` has no separate index step. The graph falls out of the type-check `ttsc` already runs, so there is no `init` command, no file watcher, and no stale index to manage.
+`@ttsc/graph` has no separate index step or `init` command. Its native compiler session checks the current project snapshot before each graph operation. Unchanged calls reuse the warm in-memory indexes, source edits reuse tsgo's incremental Program when safe, and config, root-file-set, deletion, or module-resolution changes reload before the tool answers. A refresh failure returns an error rather than the previous graph.
 
 The others build an index first. `codegraph` needs `codegraph init` to construct the graph into a local `.codegraph/` directory, `codebase-memory-mcp` needs `index_repository` (and auto-indexing turned on if you want it kept current), and `serena` activates the project and starts a language server, which carries a cold-start before the first answer.
 

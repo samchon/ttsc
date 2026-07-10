@@ -1,9 +1,7 @@
-// Command ttscgraph builds the checker-resolved code graph for a project and
-// prints it as JSON (`ttscgraph dump`). It is the native data provider for
-// @ttsc/graph: the JavaScript launcher runs `ttscgraph dump` once, then serves
-// the Model Context Protocol from the in-memory graph itself. The MCP server,
-// its tools, and their schemas live in @ttsc/graph (TypeScript); nothing here
-// answers tool calls.
+// Command ttscgraph builds the checker-resolved code graph for a project. The
+// one-shot `dump` command prints JSON; the internal `serve` command keeps an
+// incremental compiler session resident for @ttsc/graph. MCP tools and schemas
+// remain in the TypeScript package.
 package main
 
 import (
@@ -35,9 +33,9 @@ func main() {
   os.Exit(run(os.Args[1:]))
 }
 
-// run dispatches the top-level command and returns an exit code. ttscgraph is
-// dump-only; anything that is not help/version/dump prints usage and exits 2,
-// since serving MCP is the launcher's job.
+// run dispatches the top-level command and returns an exit code. Anything that
+// is not help, version, dump, or the internal serve protocol prints usage and
+// exits 2; serving MCP itself remains the launcher's job.
 func run(args []string) int {
   if len(args) > 0 {
     switch args[0] {
@@ -49,6 +47,8 @@ func run(args []string) int {
       return 0
     case "dump":
       return runDump(args[1:])
+    case "serve":
+      return runServe(args[1:])
     }
   }
   printHelp(stderr)
@@ -72,12 +72,12 @@ func printHelp(w io.Writer) {
   fmt.Fprintln(w, strings.TrimSpace(`
 ttscgraph — checker-resolved code graph for ttsc.
 
-Builds the project's code graph and prints it as JSON. The @ttsc/graph launcher
-runs this and serves the Model Context Protocol from the result; the MCP tools
-live in @ttsc/graph, not here.
+Builds the project's code graph as JSON or keeps an incremental compiler session
+for the @ttsc/graph launcher. The MCP tools live in @ttsc/graph, not here.
 
 Usage:
   ttscgraph dump [--cwd <dir>] [--tsconfig <path>] [--pretty] > graph.json
+  ttscgraph serve [--cwd <dir>] [--tsconfig <path>]
   ttscgraph --version
   ttscgraph --help
 
@@ -87,5 +87,11 @@ Dump:
   --cwd <dir>          Project root (defaults to the process working directory).
   --tsconfig <path>    Project tsconfig path (default: tsconfig.json).
   --pretty             Indent the JSON output.
+
+Serve:
+  serve                Internal newline-delimited snapshot protocol used by
+                       @ttsc/graph. Keeps the compiler Program resident, applies
+                       source edits incrementally, and reloads on structural
+                       project changes.
 `))
 }

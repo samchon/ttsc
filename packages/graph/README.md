@@ -47,6 +47,7 @@ The whole MCP surface is one tool, `inspect_typescript_graph`. You ask in plain 
 
 - **An index, not source bodies.** It returns names, edges, signatures, and spans, never code, so the response stays flat as the repository grows.
 - **Built on the real compiler.** It reads the program `ttsc` type-checked, so `tsconfig` aliases, pnpm monorepos, symlinks, and re-exports resolve exactly, where a text parser can only guess.
+- **Current within one agent session.** Before each graph operation it checks the config, root-file set, module-resolution inputs, and source contents. Unchanged calls reuse the warm graph; source edits update the resident compiler incrementally; config, file-addition, deletion, and resolution changes reload safely.
 - **It does not force itself.** It states when the graph is the right source and offers a first-class `escape` for everything else.
 - **Errors and lint too.** `tsc` compile errors and `@ttsc/lint` and plugin (typia, nestia) findings ride the same graph, so "what is broken here?" answers from one index.
 

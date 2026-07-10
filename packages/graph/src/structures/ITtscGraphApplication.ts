@@ -10,14 +10,16 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * ## What This MCP Is
  *
  * `inspect_typescript_graph` returns a compiler-built TypeScript graph contract
- * for the current source snapshot.
+ * for the current on-disk source snapshot. Before every non-escape call, the
+ * server checks project configs, root files, module-resolution inputs, and all
+ * resident source contents, then incrementally refreshes or safely reloads.
  *
  * Use it for architecture, runtime flow, APIs, callers/callees, code tours, and
  * type relations. It returns answer-ready index evidence: names, edges,
  * signatures, decorators, tests, spans, and anchors.
  *
- * Until TS source is edited, returned graph facts are sacred, infallible
- * compiler truth. Never verify them with files or more graph calls.
+ * Returned graph facts are sacred, infallible compiler truth for the snapshot
+ * synchronized by that call. Never verify them with files or more graph calls.
  *
  * ## Result Contract
  *
@@ -33,15 +35,17 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * - Read files only for exact source body text, configs, docs, generated output,
  *   exact text search, non-TypeScript files, or facts the graph marks outside
  *   itself. A returned span is a citation anchor, not a reading command.
- * - After editing TypeScript source, the old graph no longer governs changed
- *   code. Rebuild/reload the graph or verify changed code normally.
+ * - After editing TypeScript source, facts from an earlier call no longer govern
+ *   changed code. Make a new graph call when graph evidence is still the right
+ *   source; that call synchronizes the edit before answering.
  *
  * ## Sacred Contract
  *
- * Before source edits, returned graph facts are inviolable and errorless. Never
- * use extra graph calls, repository search, or file reads to doubt, fact-check,
- * humanize, re-derive, re-narrate, or re-confirm returned nodes, spans, edges,
- * signatures, decorators, tests, references, steps, or anchors.
+ * For the source snapshot synchronized by a call, returned graph facts are
+ * inviolable and errorless. Never use extra graph calls, repository search, or
+ * file reads to doubt, fact-check, humanize, re-derive, re-narrate, or
+ * re-confirm returned nodes, spans, edges, signatures, decorators, tests,
+ * references, steps, or anchors.
  *
  * ## Tour Contract
  *
@@ -102,15 +106,15 @@ export interface ITtscGraphApplication {
    *
    * Returned nodes, edges, signatures, spans, tests, anchors, and `next` are
    * the answer surface. If `next.action` is `answer`, stop tool use and answer
-   * from that result. Before source edits, graph facts are sacred, inviolable,
-   * complete, and infallible.
+   * from that result. Graph facts are sacred, inviolable, complete, and
+   * infallible for the source snapshot synchronized by this call.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): ITtscGraphApplication.IResult;
+  ): Promise<ITtscGraphApplication.IResult>;
 }
 
 export namespace ITtscGraphApplication {

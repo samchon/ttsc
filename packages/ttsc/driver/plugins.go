@@ -133,6 +133,19 @@ func (state linkedPluginState) apply(prog *Program) error {
   return nil
 }
 
+func (state linkedPluginState) hasProgramPlugins() bool {
+  for index := range state.entries {
+    plugin, ok := registeredPlugin(index)
+    if !ok {
+      continue
+    }
+    if _, ok := plugin.(ProgramPlugin); ok {
+      return true
+    }
+  }
+  return false
+}
+
 // emitTransforms collects an emit-phase PluginTransform from every registered
 // EmitTransformPlugin, in registration order. Entries that do not implement
 // EmitTransformPlugin, or whose transform is nil, are skipped.

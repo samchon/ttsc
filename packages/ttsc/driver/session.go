@@ -1,13 +1,15 @@
 package driver
 
 import (
+  "context"
+
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 )
 
 // Session is a resident compiler host for incremental type-checking: it keeps a
 // loaded program alive and re-parses only the changed file on each edit (reusing
-// the unchanged ASTs and the pinned checker through UpdateProgram), instead of
-// recompiling the whole project per request.
+// the unchanged ASTs and refreshing the checker for the updated Program),
+// instead of recompiling the whole project per request.
 //
 // It is the driver-level incremental type-check primitive. The resident
 // transform path (utility-host `serve`) deliberately does not use it: the
@@ -50,10 +52,16 @@ func (s *Session) Apply(absPath, content string) bool {
     name = file.FileName()
   }
   changed := shimtspath.ToPath(name, s.cwd, s.overlay.caseSensitive)
-  newHost := DefaultHost(s.cwd, s.overlay)
+  newHost := DefaultHost(s.cwd, s.prog.FS)
   newProg, reused := s.prog.TSProgram.UpdateProgram(changed, newHost, nil)
   if newProg != nil {
+    if s.prog.checkerRelease != nil {
+      s.prog.checkerRelease()
+    }
+    checker, release := newProg.GetTypeChecker(context.Background())
     s.prog.TSProgram = newProg
+    s.prog.Checker = checker
+    s.prog.checkerRelease = release
     s.prog.Host = newHost
   }
   return reused

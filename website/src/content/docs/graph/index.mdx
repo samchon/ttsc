@@ -5,7 +5,7 @@ import TtscWebsiteGraphViewer3D from "../../../components/graph/TtscWebsiteGraph
 
 `@ttsc/graph` gives a coding agent a compiler-resolved graph of your TypeScript project, over MCP.
 
-It runs `ttscgraph`, a native binary that type-checks your project once, and keeps the resulting graph resident in memory. Every query is answered from that resident graph, not a fresh parse, so every relationship it reports is the compiler's own answer, not a guess from reading text.
+It runs `ttscgraph`, a native binary that keeps the type-checked project and resulting graph resident in memory. Before each graph operation it checks the config, root-file set, module-resolution inputs, and source contents. An unchanged project reuses the warm graph, a content-only edit updates the resident compiler incrementally, and config, file-addition, deletion, or resolution changes trigger a safe reload. Every relationship it reports is the current compiler's own answer, not a guess from reading text.
 
 ## 1. Why an agent needs it
 
