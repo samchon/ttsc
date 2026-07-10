@@ -94,11 +94,15 @@ func NewLintDiagnostic(
   return d
 }
 
-// SourceFile returns the program source file matching filename.
+// SourceFile returns the program source file matching filename. Like
+// SourceFiles, it applies linked ProgramPlugins first so a single-file
+// consumer (e.g. a host's --file transform lane) sees the same mutated tree
+// as a whole-project walk.
 func (p *Program) SourceFile(filename string) *ast.SourceFile {
   if p == nil || p.TSProgram == nil {
     return nil
   }
+  _ = p.ApplyLinkedPlugins()
   normalized := filepath.ToSlash(filename)
   for _, file := range p.TSProgram.SourceFiles() {
     if filepath.ToSlash(file.FileName()) == normalized {
