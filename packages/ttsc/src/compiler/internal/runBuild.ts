@@ -170,7 +170,11 @@ function runBuildTimed(
     );
     const checked = runNativeCheckPlugins(buildOptions, execution, timing);
     if (checked.status !== 0) {
-      return checked;
+      return appendTypeScriptDiagnosticsAfterPluginFailure(
+        checked,
+        buildOptions,
+        execution,
+      );
     }
 
     if (buildOptions.emit === false) {
@@ -191,15 +195,20 @@ function runBuildTimed(
       }
       if (compilers.length !== 0) {
         assertSharedHostCompatibility(compilers, "emit");
-        return appendBuildOutput(
-          checked,
-          buildWithNativeCompilerPlugins(
-            buildOptions,
-            execution,
-            compilers,
-            timing,
-          ),
+        const compiled = buildWithNativeCompilerPlugins(
+          buildOptions,
+          execution,
+          compilers,
+          timing,
         );
+        const result = appendBuildOutput(checked, compiled);
+        return compiled.status === 0
+          ? result
+          : appendTypeScriptDiagnosticsAfterPluginFailure(
+              result,
+              buildOptions,
+              execution,
+            );
       }
       if (checkPluginsReportTypeScriptDiagnostics(execution.nativePlugins)) {
         return checked;
@@ -213,15 +222,20 @@ function runBuildTimed(
     let result: TtscBuildResult;
     if (compilers.length !== 0) {
       assertSharedHostCompatibility(compilers, "emit");
-      result = appendBuildOutput(
-        checked,
-        buildWithNativeCompilerPlugins(
+      const compiled = buildWithNativeCompilerPlugins(
+        buildOptions,
+        execution,
+        compilers,
+        timing,
+      );
+      result = appendBuildOutput(checked, compiled);
+      if (compiled.status !== 0) {
+        result = appendTypeScriptDiagnosticsAfterPluginFailure(
+          result,
           buildOptions,
           execution,
-          compilers,
-          timing,
-        ),
-      );
+        );
+      }
     } else {
       if (
         buildOptions.skipDiagnosticsCheck !== true &&
@@ -293,6 +307,87 @@ function checkPluginsReportTypeScriptDiagnostics(
     (plugin) =>
       plugin.stage === "check" && plugin.reportsTypeScriptDiagnostics === true,
   );
+}
+
+/**
+ * Preserve a failed plugin's output and status while collecting TypeScript
+ * diagnostics through an independent no-emit pass.
+ *
+ * A sidecar can fail before it loads the project Program, including when a Go
+ * panic or another runtime error terminates the process. The plugin failure
+ * must still block emit, but it must not hide unrelated errors in the user's
+ * TypeScript source. The fallback runs only after a plugin failure, skips modes
+ * whose contract intentionally omits diagnostics, and avoids appending a batch
+ * the plugin already reported itself.
+ */
+function appendTypeScriptDiagnosticsAfterPluginFailure(
+  failure: TtscBuildResult,
+  options: RunBuildOptions,
+  execution: ReturnType<typeof resolveExecutionContext>,
+): TtscBuildResult {
+  if (
+    options.format === true ||
+    options.skipDiagnosticsCheck === true ||
+    forwardsTerminalTsgoFlag(options)
+  ) {
+    return failure;
+  }
+  const typechecked = runTsgo(execution, ["--noEmit"], options);
+  if (!hasMissingTypeScriptDiagnostics(failure, typechecked)) {
+    return failure;
+  }
+  const status = failure.status;
+  return {
+    ...appendBuildOutput(failure, typechecked),
+    status,
+  };
+}
+
+/** Return true when the fallback check contributes diagnostics or raw failure. */
+function hasMissingTypeScriptDiagnostics(
+  failure: TtscBuildResult,
+  typechecked: TtscBuildResult,
+): boolean {
+  if (typechecked.diagnostics.length === 0) {
+    return typechecked.status !== 0;
+  }
+  return typechecked.diagnostics.some(
+    (diagnostic) =>
+      !failure.diagnostics.some((existing) =>
+        compilerDiagnosticsEqual(existing, diagnostic),
+      ),
+  );
+}
+
+/** Compare normalized compiler diagnostics before appending fallback output. */
+function compilerDiagnosticsEqual(
+  left: ITtscCompilerDiagnostic,
+  right: ITtscCompilerDiagnostic,
+): boolean {
+  return (
+    left.category === right.category &&
+    left.code === right.code &&
+    left.file === right.file &&
+    diagnosticPositionsEqual(left, right) &&
+    diagnosticHeadline(left.messageText) ===
+      diagnosticHeadline(right.messageText)
+  );
+}
+
+/** Compare offsets when available, otherwise compare rendered line/column. */
+function diagnosticPositionsEqual(
+  left: ITtscCompilerDiagnostic,
+  right: ITtscCompilerDiagnostic,
+): boolean {
+  if (left.start !== undefined && right.start !== undefined) {
+    return left.start === right.start;
+  }
+  return left.line === right.line && left.character === right.character;
+}
+
+/** Remove pretty-rendered source context from a diagnostic message. */
+function diagnosticHeadline(message: string): string {
+  return message.split(/\r?\n/, 1)[0]!.trim();
 }
 
 /**

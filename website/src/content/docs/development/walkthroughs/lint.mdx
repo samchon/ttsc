@@ -489,11 +489,14 @@ The adapter layer lives in `linthost/contrib_adapter.go`. Third-party rule contr
 
 ```go
 type contributorAdapter struct {
-  inner rule.Rule
+  inner                   rule.Rule
+  name                    string
+  visits                  []shimast.Kind
+  visitsDeclarationFiles bool
 }
 
-func (a contributorAdapter) Name() string           { return a.inner.Name() }
-func (a contributorAdapter) Visits() []shimast.Kind { return a.inner.Visits() }
+func (a contributorAdapter) Name() string           { return a.name }
+func (a contributorAdapter) Visits() []shimast.Kind { return a.visits }
 func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
   pubCtx := rule.NewContext(
     ctx.File, ctx.Checker, rule.Severity(ctx.Severity), ctx.Options,
@@ -507,7 +510,11 @@ Two adapters, not one, `contributorAdapter` for lint-class rules, `formatContrib
 
 **Why two parallel interfaces?** The engine's internal `Rule` is allowed to evolve freely; the public `rule.Rule` is the stability boundary contributors compile against. By separating the two and bridging through an adapter, we can refactor the internal engine without breaking every published contributor.
 
-The collision policy in `registerContributors` is "later wins is dangerous; prefer determinism." A contributor whose `Name()` collides with an existing rule is dropped with a stderr warning, not panicked-on. This is the same trade-off `@ttsc/lint` makes for the panic barrier: keep the build going whenever possible, surface the problem clearly.
+`registerContributors` evaluates `Name`, `Visits`, `IsFormat`, and `VisitsDeclarationFiles` once behind a recover barrier and stores the results in the adapter. A panic in those startup methods drops only that contributor entry with a stderr warning. A panic in `Check` becomes an error finding for that rule, and the engine continues running the remaining contributor and built-in rules.
+
+The collision policy is "later wins is dangerous; prefer determinism." A contributor whose cached name collides with an existing rule is dropped with a stderr warning, not panicked-on. This is the same trade-off `@ttsc/lint` makes for the panic barrier: keep the build going whenever possible, surface the problem clearly.
+
+Contributor packages are statically linked into the lint binary. Recovery can isolate ordinary Go panics after package initialization, but it cannot survive a panic in `init()`, `os.Exit`, a fatal runtime fault, or a non-returning rule. Those failures require process isolation and are outside the in-process contributor contract.
 
 ## How a contributor package ships
 
