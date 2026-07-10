@@ -10,15 +10,16 @@ import "testing"
 // ESLint skips backslash-digit entirely — `no-octal-escape` owns those.
 // This pins the `isUselessStringEscape` exemption for `\1`…`\9` in string
 // and template literals (issue #361: the exemption was documented in a
-// comment but never implemented, so the autofix silently corrupted script
-// -mode strings), the `\0` whitelist boundary right below it — including
-// `\0` followed by a digit, which the JS lexer reads as one octal escape —
-// and the pre-existing regex back-reference exemption so no cleanup of
-// `isUselessRegexEscape` can reintroduce the same class of corruption.
+// comment but never implemented, so the autofix silently corrupted
+// script-mode strings), the `\0` whitelist boundary right below it —
+// including `\0` followed by a digit, which the JS lexer reads as one
+// octal escape — and the pre-existing regex back-reference exemption so
+// no cleanup of `isUselessRegexEscape` can reintroduce the same class of
+// corruption.
 //
 //  1. Parse string, template (no-substitution and tail), and regex
-//     literals that carry backslash-digit escapes: `\1`/`\7` (value
-//     -changing octals), `\0`/`\01` (whitelist boundary), `\8`/`\9`
+//     literals that carry backslash-digit escapes: `\1`/`\7`
+//     (value-changing octals), `\0`/`\01` (whitelist boundary), `\8`/`\9`
 //     (value-preserving but exempt for oracle parity), and a `\1`
 //     back-reference in a regex.
 //  2. Run only `no-useless-escape` and confirm zero findings — the fix
