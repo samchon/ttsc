@@ -34,12 +34,23 @@ import (
 // with a stderr warning. The host prefers a deterministic, debuggable
 // outcome over panicking inside startup.
 func registerContributors() {
-  contributors := rule.Registered()
+  registered := rule.Registered()
+  contributors := make([]contributorMetadata, 0, len(registered))
+  for _, contributor := range registered {
+    metadata, err := inspectContributor(contributor)
+    if err != nil {
+      fmt.Fprintf(os.Stderr,
+        "@ttsc/lint: %v; dropping contributor entry\n",
+        err)
+      continue
+    }
+    contributors = append(contributors, metadata)
+  }
   sort.SliceStable(contributors, func(i, j int) bool {
-    return contributors[i].Name() < contributors[j].Name()
+    return contributors[i].name < contributors[j].name
   })
   for _, contributor := range contributors {
-    name := contributor.Name()
+    name := contributor.name
     if name == "" {
       fmt.Fprintln(os.Stderr, "@ttsc/lint: contributor rule with empty name ignored")
       continue
@@ -50,22 +61,78 @@ func registerContributors() {
         name)
       continue
     }
-    if fr, ok := contributor.(rule.FormatRule); ok && fr.IsFormat() {
-      Register(formatContributorAdapter{contributorAdapter{inner: contributor}})
+    adapter := newContributorAdapter(contributor)
+    if contributor.isFormat {
+      Register(formatContributorAdapter{adapter})
       continue
     }
-    Register(contributorAdapter{inner: contributor})
+    Register(adapter)
+  }
+}
+
+// contributorMetadata is the immutable host-side view of a public contributor
+// rule. Every contributor-defined metadata method is evaluated exactly once
+// behind inspectContributor's recover barrier so a broken declaration cannot
+// panic later during registry sorting or engine construction.
+type contributorMetadata struct {
+  inner                  rule.Rule
+  isFormat               bool
+  name                   string
+  visits                 []shimast.Kind
+  visitsDeclarationFiles bool
+}
+
+// inspectContributor evaluates the public rule metadata behind a recover
+// barrier. Check itself is protected separately by runRuleCheck; this function
+// covers the startup methods the engine must call before it can dispatch a
+// node. A panicking contributor is rejected as one entry while the rest of the
+// lint registry remains usable.
+func inspectContributor(contributor rule.Rule) (metadata contributorMetadata, err error) {
+  defer func() {
+    if recovered := recover(); recovered != nil {
+      err = fmt.Errorf("contributor %T metadata panicked: %v", contributor, recovered)
+    }
+  }()
+  metadata = contributorMetadata{
+    inner:                  contributor,
+    name:                   contributor.Name(),
+    visits:                 append([]shimast.Kind(nil), contributor.Visits()...),
+    visitsDeclarationFiles: true,
+  }
+  if formatRule, ok := contributor.(rule.FormatRule); ok {
+    metadata.isFormat = formatRule.IsFormat()
+  }
+  if declarationRule, ok := contributor.(rule.DeclarationFileRule); ok {
+    metadata.visitsDeclarationFiles = declarationRule.VisitsDeclarationFiles()
+  }
+  return metadata, nil
+}
+
+// newContributorAdapter builds the engine-facing adapter from metadata already
+// evaluated by inspectContributor, so no adapter method re-enters contributor
+// code after startup. This is the only construction path; a zero-value
+// contributorAdapter carries no usable metadata.
+func newContributorAdapter(metadata contributorMetadata) contributorAdapter {
+  return contributorAdapter{
+    inner:                  metadata.inner,
+    name:                   metadata.name,
+    visits:                 metadata.visits,
+    visitsDeclarationFiles: metadata.visitsDeclarationFiles,
   }
 }
 
 // contributorAdapter wraps a public `rule.Rule` so the engine's
-// `Register` accepts it. Forward `Name` and `Visits` directly; bridge
-// `Check` by constructing a `rule.Context` whose `Reporter` calls back
-// into the engine's existing `Context.Report` / `ReportRange`. The
+// `Register` accepts it. Name, Visits, and declaration-file policy are
+// cached by inspectContributor; Check bridges through a `rule.Context`
+// whose `Reporter` calls back into the engine's existing Context.Report /
+// ReportRange. The
 // public `rule.Context` and the engine's internal `Context` share the
 // same shim AST types, so no wrapping / unwrapping of nodes is needed.
 type contributorAdapter struct {
-  inner rule.Rule
+  inner                  rule.Rule
+  name                   string
+  visits                 []shimast.Kind
+  visitsDeclarationFiles bool
 }
 
 // NeedsTypeChecker keeps contributor rules on the historical checker path.
@@ -79,12 +146,10 @@ func (a contributorAdapter) NeedsTypeChecker() bool {
 // files unless the contributor opts out through the public
 // `rule.DeclarationFileRule` marker. Same conservative-default reasoning
 // as NeedsTypeChecker: the host cannot infer a third-party rule's grammar
-// shape, and a wrong skip silently loses findings.
+// shape, and a wrong skip silently loses findings. The default-true /
+// marker-override policy is applied once in inspectContributor.
 func (a contributorAdapter) VisitsDeclarationFiles() bool {
-  if dr, ok := a.inner.(rule.DeclarationFileRule); ok {
-    return dr.VisitsDeclarationFiles()
-  }
-  return true
+  return a.visitsDeclarationFiles
 }
 
 // formatContributorAdapter is the FormatRule-tagged variant of
@@ -98,8 +163,8 @@ type formatContributorAdapter struct {
 
 func (formatContributorAdapter) IsFormat() bool { return true }
 
-func (a contributorAdapter) Name() string           { return a.inner.Name() }
-func (a contributorAdapter) Visits() []shimast.Kind { return a.inner.Visits() }
+func (a contributorAdapter) Name() string           { return a.name }
+func (a contributorAdapter) Visits() []shimast.Kind { return a.visits }
 func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil {
     return

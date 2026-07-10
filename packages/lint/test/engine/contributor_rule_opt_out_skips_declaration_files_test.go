@@ -24,15 +24,21 @@ func (declarationOptOutContributor) VisitsDeclarationFiles() bool { return false
 // adapter honors the public `rule.DeclarationFileRule` marker.
 //
 // A value-level contributor rule can return `false` to get the same
-// declaration-file dispatch skip built-in value rules enjoy; the adapter
-// must forward that answer instead of forcing the conservative default,
-// or the public marker would be dead API.
+// declaration-file dispatch skip built-in value rules enjoy; the marker
+// answer is captured by inspectContributor and must reach the adapter
+// through the production construction path, or the public marker would be
+// dead API.
 //
-// 1. Wrap a contributor rule whose marker returns false.
-// 2. Ask the engine's declaration-file predicate.
-// 3. Assert the adapter reports the skip.
+//  1. Inspect a contributor rule whose marker returns false and wrap the
+//     metadata.
+//  2. Ask the engine's declaration-file predicate.
+//  3. Assert the adapter reports the skip.
 func TestContributorRuleOptOutSkipsDeclarationFiles(t *testing.T) {
-  adapter := contributorAdapter{inner: declarationOptOutContributor{}}
+  metadata, err := inspectContributor(declarationOptOutContributor{})
+  if err != nil {
+    t.Fatalf("unexpected contributor inspection error: %v", err)
+  }
+  adapter := newContributorAdapter(metadata)
   if ruleVisitsDeclarationFiles(adapter) {
     t.Fatalf("contributor opt-out marker was ignored by the declaration-file predicate")
   }

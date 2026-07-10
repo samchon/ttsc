@@ -47,12 +47,14 @@ export namespace ITtscCompilerResult {
   }
 
   /**
-   * Represents a ttsc compilation that completed but had diagnostics.
+   * Represents a ttsc compilation that completed with diagnostics or a
+   * recoverable plugin failure.
    *
    * This interface is returned when the compiler reports errors, warnings, or
-   * other diagnostics during normal compilation. It contains both structured
-   * diagnostic information and any output that was still generated despite the
-   * diagnostics.
+   * other diagnostics during normal compilation, or when a plugin failure can
+   * be retained as a build result while an independent TypeScript check runs.
+   * It contains both structured diagnostic information and any output that was
+   * still generated despite the failure.
    */
   export interface IFailure {
     /** Indicates that compilation completed with diagnostics. */
@@ -86,7 +88,8 @@ export namespace ITtscCompilerResult {
      * pattern-matching error messages. Omitted when ttsc cannot determine the
      * origin. Treat as `"unknown"` when missing.
      *
-     * - `"plugin"`: a native plugin sidecar crashed or exited non-zero.
+     * - `"plugin"`: plugin preparation failed before a build result could be
+     *   recovered.
      * - `"host"`: the TypeScript-Go host could not start (missing binary, cache
      *   lock, invalid config).
      * - `"unknown"`: any other host-level failure.

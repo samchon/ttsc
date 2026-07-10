@@ -160,17 +160,31 @@ function runBuildTimed(
 ): TtscBuildResult {
   const setupStartedAt = process.hrtime.bigint();
   const execution = resolveExecutionContext(options);
-  if (execution.nativePlugins.length > 0) {
+  if (
+    execution.nativePlugins.length > 0 ||
+    execution.pluginSetupFailure !== undefined
+  ) {
     recordTiming(timing, "ttsc plugin setup time", setupStartedAt);
   }
   const buildOptions = applyProjectNoEmit(options, execution);
+  if (execution.pluginSetupFailure !== undefined) {
+    return appendTypeScriptDiagnosticsAfterPluginFailure(
+      execution.pluginSetupFailure,
+      buildOptions,
+      execution,
+    );
+  }
   if (execution.nativePlugins.length > 0) {
     const compilers = execution.nativePlugins.filter(
       (plugin) => plugin.stage === "transform",
     );
     const checked = runNativeCheckPlugins(buildOptions, execution, timing);
     if (checked.status !== 0) {
-      return checked;
+      return appendTypeScriptDiagnosticsAfterPluginFailure(
+        checked,
+        buildOptions,
+        execution,
+      );
     }
 
     if (buildOptions.emit === false) {
@@ -191,15 +205,20 @@ function runBuildTimed(
       }
       if (compilers.length !== 0) {
         assertSharedHostCompatibility(compilers, "emit");
-        return appendBuildOutput(
-          checked,
-          buildWithNativeCompilerPlugins(
-            buildOptions,
-            execution,
-            compilers,
-            timing,
-          ),
+        const compiled = buildWithNativeCompilerPlugins(
+          buildOptions,
+          execution,
+          compilers,
+          timing,
         );
+        const result = appendBuildOutput(checked, compiled);
+        return compiled.status === 0
+          ? result
+          : appendTypeScriptDiagnosticsAfterPluginFailure(
+              result,
+              buildOptions,
+              execution,
+            );
       }
       if (checkPluginsReportTypeScriptDiagnostics(execution.nativePlugins)) {
         return checked;
@@ -213,15 +232,20 @@ function runBuildTimed(
     let result: TtscBuildResult;
     if (compilers.length !== 0) {
       assertSharedHostCompatibility(compilers, "emit");
-      result = appendBuildOutput(
-        checked,
-        buildWithNativeCompilerPlugins(
+      const compiled = buildWithNativeCompilerPlugins(
+        buildOptions,
+        execution,
+        compilers,
+        timing,
+      );
+      result = appendBuildOutput(checked, compiled);
+      if (compiled.status !== 0) {
+        result = appendTypeScriptDiagnosticsAfterPluginFailure(
+          result,
           buildOptions,
           execution,
-          compilers,
-          timing,
-        ),
-      );
+        );
+      }
     } else {
       if (
         buildOptions.skipDiagnosticsCheck !== true &&
@@ -293,6 +317,165 @@ function checkPluginsReportTypeScriptDiagnostics(
     (plugin) =>
       plugin.stage === "check" && plugin.reportsTypeScriptDiagnostics === true,
   );
+}
+
+/**
+ * Preserve a failed plugin's output and status while collecting TypeScript
+ * diagnostics through an independent no-emit pass.
+ *
+ * A sidecar can fail before it loads the project Program, including when a Go
+ * panic or another runtime error terminates the process. The plugin failure
+ * must still block emit, but it must not hide unrelated errors in the user's
+ * TypeScript source. The fallback runs only after a plugin failure, skips modes
+ * whose contract intentionally omits diagnostics, and avoids appending a batch
+ * the plugin already reported itself.
+ */
+function appendTypeScriptDiagnosticsAfterPluginFailure(
+  failure: TtscBuildResult,
+  options: RunBuildOptions,
+  execution: ReturnType<typeof resolveExecutionContext>,
+): TtscBuildResult {
+  if (
+    options.format === true ||
+    options.skipDiagnosticsCheck === true ||
+    forwardsTerminalTsgoFlag(options)
+  ) {
+    return failure;
+  }
+  const typechecked = runTsgo(
+    execution,
+    ["--noEmit"],
+    createPluginFailureTypecheckOptions(options),
+  );
+  const fallback = filterReportedTypeScriptDiagnostics(
+    failure,
+    typechecked,
+    execution.projectRoot,
+  );
+  if (fallback === null) {
+    return failure;
+  }
+  // Structured consumers (the public API's `IFailure.diagnostics`) never see
+  // stdout/stderr, so a plugin failure that reported no parsable diagnostics
+  // must be seeded as one before recovered TypeScript diagnostics are appended
+  // — otherwise the recovery would replace the plugin error with unrelated
+  // type errors instead of surfacing both.
+  const seeded =
+    failure.diagnostics.length === 0
+      ? { ...failure, diagnostics: [createProcessDiagnostic(failure)] }
+      : failure;
+  const status = failure.status;
+  return {
+    ...appendBuildOutput(seeded, fallback),
+    status,
+  };
+}
+
+/**
+ * Make the recovery pass parseable regardless of the user's display flags. This
+ * is an internal second pass, so plain output is required to remove only
+ * diagnostics that the failed plugin already printed.
+ */
+function createPluginFailureTypecheckOptions(
+  options: RunBuildOptions,
+): RunBuildOptions {
+  const passthrough: string[] = [];
+  for (let i = 0; i < (options.passthrough?.length ?? 0); i++) {
+    const token = options.passthrough![i]!;
+    if (token === "--pretty") {
+      if (isBooleanLiteral(options.passthrough![i + 1] ?? "")) i++;
+      continue;
+    }
+    if (token.startsWith("--pretty=")) continue;
+    passthrough.push(token);
+  }
+  return {
+    ...options,
+    passthrough,
+    structuredDiagnostics: true,
+  };
+}
+
+/** Return only fallback diagnostics the failed plugin did not already report. */
+function filterReportedTypeScriptDiagnostics(
+  failure: TtscBuildResult,
+  typechecked: TtscBuildResult,
+  cwd: string,
+): TtscBuildResult | null {
+  if (typechecked.diagnostics.length === 0) {
+    return typechecked.status === 0 ? null : typechecked;
+  }
+  const diagnostics = typechecked.diagnostics.filter(
+    (diagnostic) =>
+      !failure.diagnostics.some((existing) =>
+        compilerDiagnosticsEqual(existing, diagnostic),
+      ),
+  );
+  if (diagnostics.length === 0) return null;
+  if (diagnostics.length === typechecked.diagnostics.length) return typechecked;
+  return {
+    ...typechecked,
+    diagnostics,
+    stderr: filterCompilerDiagnosticText(typechecked.stderr, diagnostics, cwd),
+    stdout: filterCompilerDiagnosticText(typechecked.stdout, diagnostics, cwd),
+  };
+}
+
+/** Remove diagnostic lines absent from the selected structured result. */
+function filterCompilerDiagnosticText(
+  text: string,
+  diagnostics: readonly ITtscCompilerDiagnostic[],
+  cwd: string,
+): string {
+  const out: string[] = [];
+  let keepContinuation = true;
+  for (const line of text.split(/\r?\n/)) {
+    const plain = stripAnsi(line);
+    const diagnostic = parseDiagnosticLine(plain, cwd);
+    if (diagnostic !== null) {
+      keepContinuation = diagnostics.some((selected) =>
+        compilerDiagnosticsEqual(selected, diagnostic),
+      );
+      if (keepContinuation) out.push(line);
+      continue;
+    }
+    if (/^Found\s+\d+\s+errors?/i.test(plain)) continue;
+    if (!keepContinuation && /^\s+/.test(line)) continue;
+    keepContinuation = true;
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+/** Compare normalized compiler diagnostics before appending fallback output. */
+function compilerDiagnosticsEqual(
+  left: ITtscCompilerDiagnostic,
+  right: ITtscCompilerDiagnostic,
+): boolean {
+  return (
+    left.category === right.category &&
+    left.code === right.code &&
+    left.file === right.file &&
+    diagnosticPositionsEqual(left, right) &&
+    diagnosticHeadline(left.messageText) ===
+      diagnosticHeadline(right.messageText)
+  );
+}
+
+/** Compare offsets when available, otherwise compare rendered line/column. */
+function diagnosticPositionsEqual(
+  left: ITtscCompilerDiagnostic,
+  right: ITtscCompilerDiagnostic,
+): boolean {
+  if (left.start !== undefined && right.start !== undefined) {
+    return left.start === right.start;
+  }
+  return left.line === right.line && left.character === right.character;
+}
+
+/** Remove pretty-rendered source context from a diagnostic message. */
+function diagnosticHeadline(message: string): string {
+  return message.split(/\r?\n/, 1)[0]!.trim();
 }
 
 /**
@@ -851,6 +1034,26 @@ export function appendBuildOutput(
 }
 
 /**
+ * Synthesize one structured diagnostic from a non-zero process result that
+ * produced no parsable diagnostics, carrying the captured stderr/stdout as the
+ * message. Shared by the public API result mapping and the plugin-failure
+ * recovery pass so the failure text is never dropped from structured output.
+ */
+export function createProcessDiagnostic(
+  result: TtscBuildResult,
+): ITtscCompilerDiagnostic {
+  const messageText =
+    (result.stderr || result.stdout).trim() ||
+    `ttsc exited with status ${result.status}`;
+  return {
+    category: "error",
+    code: "TTSC_PROCESS",
+    file: null,
+    messageText,
+  };
+}
+
+/**
  * Resolve all runtime context needed for a build: cwd, tsconfig path, project
  * root, tsgo binary location, and the loaded native plugin list. Centralised
  * here so every code path in `runBuild` shares the same resolution logic.
@@ -867,20 +1070,31 @@ function resolveExecutionContext(
   const tsconfig = project.path;
   const projectRoot = project.root;
   const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
-  const hasPlugins = hasProjectPluginEntries(project, options.plugins);
-  const loaded = hasPlugins
-    ? loadProjectPlugins({
+  let pluginSetupFailure: TtscBuildResult | undefined;
+  let nativePlugins: ITtscLoadedNativePlugin[] = [];
+  try {
+    if (hasProjectPluginEntries(project, options.plugins)) {
+      nativePlugins = loadProjectPlugins({
         binary: resolveBinary(options) ?? "",
         cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
         cwd,
         entries: options.plugins,
         projectRoot,
         tsconfig,
-      })
-    : { nativePlugins: [] };
+      }).nativePlugins;
+    }
+  } catch (error) {
+    pluginSetupFailure = {
+      diagnostics: [],
+      status: 2,
+      stdout: "",
+      stderr: `${error instanceof Error ? error.message : String(error)}\n`,
+    };
+  }
   return {
     cwd,
-    nativePlugins: loaded.nativePlugins,
+    nativePlugins,
+    pluginSetupFailure,
     projectNoEmit: project.compilerOptions.noEmit === true,
     projectRoot,
     rewriteRelativeImportExtensionsForEmit:

@@ -36,7 +36,7 @@ export function compileProjectInMemory(options: ITtscCompilerContext): {
     projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
-  if (hasConfiguredPlugins(options, project)) {
+  if (shouldUsePluginBuild(options, project)) {
     return compileProjectWithPlugins(options, cwd, project);
   }
   const tsconfig = project.path;
@@ -80,6 +80,22 @@ function hasConfiguredPlugins(
   project: ITtscParsedProjectConfig,
 ): boolean {
   return hasProjectPluginEntries(project, options.plugins);
+}
+
+/**
+ * Route plugin discovery failures through runBuild's recoverable setup path.
+ * The fast native-host lane cannot surface the plugin error or run the
+ * post-failure TypeScript check, while the plugin-backed lane can do both.
+ */
+function shouldUsePluginBuild(
+  options: ITtscCompilerContext,
+  project: ITtscParsedProjectConfig,
+): boolean {
+  try {
+    return hasConfiguredPlugins(options, project);
+  } catch {
+    return true;
+  }
 }
 
 /**
