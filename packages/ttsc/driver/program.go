@@ -189,15 +189,16 @@ func CountErrors(diagnostics []Diagnostic) int {
 
 // Program is the shim-agnostic facade the rest of the engine sees.
 type Program struct {
-  TSProgram      *shimcompiler.Program
-  ParsedConfig   *tsoptions.ParsedCommandLine
-  Checker        *shimchecker.Checker
-  checkerRelease func()
-  Host           shimcompiler.CompilerHost
-  FS             vfs.FS
-  SourcePreamble string
-  plugins        linkedPluginState
-  pluginsApplied bool
+  TSProgram       *shimcompiler.Program
+  ParsedConfig    *tsoptions.ParsedCommandLine
+  Checker         *shimchecker.Checker
+  checkerRelease  func()
+  Host            shimcompiler.CompilerHost
+  FS              vfs.FS
+  SourcePreamble  string
+  plugins         linkedPluginState
+  pluginsApplied  bool
+  pluginsApplyErr error
 }
 
 // LoadProgramOptions controls tsconfig overrides applied before tsgo creates
@@ -525,12 +526,20 @@ func (p *Program) sourceFilesRaw() []*ast.SourceFile {
 }
 
 // ApplyLinkedPlugins runs registered linked ProgramPlugin hooks exactly once.
+// A hook failure is latched and returned on every subsequent call: SourceFiles
+// swallows the error by contract, so without the latch a lookup that happened
+// to run first would consume the only report and let a later emit proceed over
+// the half-applied program as if nothing failed.
 func (p *Program) ApplyLinkedPlugins() error {
-  if p == nil || p.pluginsApplied {
+  if p == nil {
     return nil
   }
+  if p.pluginsApplied {
+    return p.pluginsApplyErr
+  }
   p.pluginsApplied = true
-  return p.plugins.apply(p)
+  p.pluginsApplyErr = p.plugins.apply(p)
+  return p.pluginsApplyErr
 }
 
 // Diagnostics returns project diagnostics that must block compilation or

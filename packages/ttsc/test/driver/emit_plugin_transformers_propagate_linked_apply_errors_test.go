@@ -65,3 +65,49 @@ func TestEmitWithPluginTransformersPropagateLinkedApplyErrors(t *testing.T) {
     t.Fatalf("emit produced output despite linked apply failure: %#v", emitted)
   }
 }
+
+// TestEmitWithPluginTransformersReportLatchedLinkedApplyErrors is the
+// swallowed-first-report companion: SourceFiles ignores the apply error by
+// contract, and before the error latch that first call also consumed the
+// once-only apply, so the emit that followed saw a clean no-op and wrote
+// output over the half-applied program.
+//
+// 1. Register a linked ProgramPlugin whose ApplyProgram always errors.
+// 2. Call SourceFiles first (the swallowing lane).
+// 3. Assert the emit still fails with the latched error and writes nothing.
+func TestEmitWithPluginTransformersReportLatchedLinkedApplyErrors(t *testing.T) {
+  resetLinkedPluginRegistry()
+  t.Setenv(driver.LinkedPluginsEnv, `[{"name":"boom","stage":"transform","config":{}}]`)
+  driver.RegisterPlugin(applyErrorProgramPlugin{})
+
+  root := t.TempDir()
+  writeProjectFile(t, root, "tsconfig.json", `{
+  "compilerOptions": { "module": "commonjs", "target": "es2020", "outDir": "bin", "strict": true },
+  "files": ["index.ts"]
+}
+`)
+  writeProjectFile(t, root, "index.ts", "export const a = 0;\n")
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true})
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected config diagnostics: %#v", diags)
+  }
+  defer prog.Close()
+
+  if files := prog.SourceFiles(); len(files) == 0 {
+    t.Fatal("expected program sources despite the swallowed apply failure")
+  }
+  emitted := map[string]string{}
+  _, err = prog.EmitWithPluginTransformers(nil, func(fileName, text string, _ *shimcompiler.WriteFileData) error {
+    emitted[fileName] = text
+    return nil
+  })
+  if err == nil || !strings.Contains(err.Error(), "linked apply boom") {
+    t.Fatalf("expected latched apply error to abort emit, got err=%v", err)
+  }
+  if len(emitted) != 0 {
+    t.Fatalf("emit produced output despite latched apply failure: %#v", emitted)
+  }
+}
