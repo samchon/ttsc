@@ -197,13 +197,31 @@ export class TsPrinter {
       : "";
   }
 
+  /**
+   * Whether a broken parameter list / binding pattern may append a synthetic
+   * trailing comma after its last element.
+   *
+   * A trailing comma after a rest element (`...rest`) is a syntax error (TS1013
+   * / V8 `SyntaxError`), and one after a trailing elision (`OmittedExpression`)
+   * is not cosmetic: `[a, ,]` parses to one more hole than `[a, ]`, so the flat
+   * and broken layouts of the same node would disagree. Call arguments and
+   * array / object literals are unaffected — a trailing comma after a spread is
+   * legal there.
+   */
+  private listTrailingComma(nodes: readonly Node[]): boolean {
+    const last: Node | undefined = nodes[nodes.length - 1];
+    if (last === undefined) return true;
+    if (last.kind === "OmittedExpression") return false;
+    return !("dotDotDotToken" in last && last.dotDotDotToken !== undefined);
+  }
+
   private params(params: readonly Node[]): Doc {
     return this.delim(
       "(",
       params.map((p) => this.emit(p)),
       ")",
       {
-        trailingComma: true,
+        trailingComma: this.listTrailingComma(params),
       },
     );
   }
@@ -1237,14 +1255,17 @@ export class TsPrinter {
           "{",
           node.elements.map((e) => this.emit(e)),
           "}",
-          { space: true, trailingComma: true },
+          {
+            space: true,
+            trailingComma: this.listTrailingComma(node.elements),
+          },
         );
       case "ArrayBindingPattern":
         return this.delim(
           "[",
           node.elements.map((e) => this.emit(e)),
           "]",
-          { trailingComma: true },
+          { trailingComma: this.listTrailingComma(node.elements) },
         );
       case "TypeAssertion":
         return concat([
