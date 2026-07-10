@@ -94,7 +94,7 @@ The `order` array drives grouping. Each entry is a regular expression matched ag
 - `<TYPES>` — `import type` declarations (optionally scoped, e.g. `<TYPES>^[.]`).
 - `""` — emit one blank line at this position.
 
-The default `order` is `["<BUILTIN_MODULES>", "<THIRD_PARTY_MODULES>", "^[.]"]`, with **no** blank lines between groups (add `""` entries to insert them). Within each group declarations sort by specifier — case-insensitively unless `caseSensitive: true` — and named specifiers always sort. Duplicate imports of the same module are merged; `combineTypeAndValue: true` additionally folds a type-only import into a value import (`import { foo, type Bar } from "m"`). Autofixable.
+The default `order` is `["<BUILTIN_MODULES>", "<THIRD_PARTY_MODULES>", "^[.]"]`, with **no** blank lines between groups (add `""` entries to insert them). Within each group declarations sort by specifier — case-insensitively unless `caseSensitive: true` — and named specifiers always sort. Duplicate imports of the same module are merged; `combineTypeAndValue: true` additionally folds a type-only import into a value import (`import { foo, type Bar } from "m"`). A merge that would produce invalid syntax — such as a type-only default alongside type-only named bindings (`import type D, { A } from "m"` is TS1363) — is skipped, and the declarations stay separate while still grouped and sorted. Autofixable.
 
 ### `jsDoc`
 
