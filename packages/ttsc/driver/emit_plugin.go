@@ -80,19 +80,12 @@ func (p *Program) EmitWithPluginTransformer(transform PluginTransform, writeFile
   return p.EmitWithPluginTransformers([]PluginTransform{transform}, writeFile)
 }
 
-// EmitLinkedTransforms emits using the emit-phase transformers contributed by
-// every registered EmitTransformPlugin (in registration order). This is the
-// AST-integration emit path that replaces the ProgramPlugin + RewriteSet
-// text-splice path.
+// EmitLinkedTransforms emits using only the linked plugins' hooks, with no
+// host-owned transformer. It is the no-transform convenience form of
+// EmitWithPluginTransformers, which honors linked plugins on every emit it
+// runs.
 func (p *Program) EmitLinkedTransforms(writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
-  if p == nil || p.TSProgram == nil {
-    return nil, errors.New("driver: nil program")
-  }
-  transforms, err := p.plugins.emitTransforms()
-  if err != nil {
-    return nil, err
-  }
-  return p.EmitWithPluginTransformers(transforms, writeFile)
+  return p.EmitWithPluginTransformers(nil, writeFile)
 }
 
 // restoreOriginalDeclarationSymbols copies the binder symbol from each original
@@ -135,6 +128,11 @@ func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimas
 // import aliasing: tsgo's module-transform aliases the plugins' injected
 // imports itself.
 //
+// Linked plugins are honored on every call: registered ProgramPlugins apply
+// to the program before emit (once per Program), and registered
+// EmitTransformPlugins are chained after the caller's transforms in
+// registration order.
+//
 // Because the JavaScript side bypasses tsgo's own emitter, it reproduces the
 // emitter's source-map step via PrintFileWithSourceMap: a `sourceMap` /
 // `inlineSourceMap` build emits a `.js.map` (and `//# sourceMappingURL=`
@@ -145,6 +143,23 @@ func restoreOriginalDeclarationSymbols(ec *shimprinter.EmitContext, node *shimas
 func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, writeFile shimcompiler.WriteFile) ([]Diagnostic, error) {
   if p == nil || p.TSProgram == nil {
     return nil, errors.New("driver: nil program")
+  }
+  // Linked plugins ride inside whichever host binary owns the emit pass, and
+  // the host does not know which linked packages ttsc compiled into it. Honor
+  // them at the funnel every host emits through: linked ProgramPlugins mutate
+  // the program before the per-file loop below, and linked EmitTransformPlugins
+  // join the per-file chain after the host's own transforms. A host that only
+  // passes its own transform would otherwise link, register, and silently never
+  // run the linked hooks.
+  if err := p.ApplyLinkedPlugins(); err != nil {
+    return nil, err
+  }
+  linked, err := p.plugins.emitTransforms()
+  if err != nil {
+    return nil, err
+  }
+  if len(linked) != 0 {
+    transforms = append(append([]PluginTransform{}, transforms...), linked...)
   }
   host := &pluginEmitHost{program: p.TSProgram, emitResolver: p.Checker.GetEmitResolver()}
   options := p.TSProgram.Options()
