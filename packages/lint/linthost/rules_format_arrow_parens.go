@@ -17,7 +17,10 @@ import (
 // other shape (`(x: T)`, `({ x })`, `(...x)`, `(x = 1)`, `(x?)`, `(x, y)`,
 // `()`) keeps its parentheses in both modes, exactly as Prettier does.
 // `async x => x` is handled too: the modifier sits before the parameter, so
-// the parameter-name span is unaffected.
+// the parameter-name span is unaffected. A legal trailing comma (`(x,) => x`)
+// counts as already parenthesized — a trailing comma can only exist inside a
+// parameter-list paren pair — so "always" leaves it alone and "avoid" deletes
+// the comma together with the parens (`x => x`, matching Prettier).
 //
 // The rule rewrites only the parameter span (`x` <-> `(x)`), never the body
 // or the `=>`, so a chained arrow `a => b => …` has each eligible arm
@@ -90,9 +93,13 @@ func (formatArrowParens) Check(ctx *Context, node *shimast.Node) {
 
   // Is the parameter already wrapped in `(` … `)`? Scan over whitespace on
   // each side; the sole parameter of an arrow is delimited by the
-  // parameter-list parens when present.
+  // parameter-list parens when present. The forward scan starts at the
+  // parameter *list*'s end, not the name's: the list span covers a legal
+  // trailing comma (`(x,)` — that is how the AST records HasTrailingComma),
+  // so a trailing-comma list is classified as wrapped instead of the `,`
+  // byte aborting the scan and mis-reporting a bare name.
   openParen := scanBackForByte(src, nameStart, '(')
-  closeParen := scanForwardForByte(src, nameEnd, ')')
+  closeParen := scanForwardForByte(src, arrow.Parameters.End(), ')')
   wrapped := openParen >= 0 && closeParen >= 0
 
   switch prefer {
@@ -189,7 +196,10 @@ func arrowParamRegionHasComment(src string, paramPos, nameStart, nameEnd int) bo
   // paren so a comment between `)` and `=>` (`(x) /* c */ => x`) — which in
   // "avoid" mode would otherwise be stranded when the parens are stripped — is
   // also detected (Prettier keeps the parens of an arrow with such a dangling
-  // comment).
+  // comment). Likewise tolerate one trailing comma before the paren so a
+  // comment on either side of it (`(x /* c */,) => x`, `(x, /* c */) => x`) —
+  // which the "avoid" deletion would destroy — is also detected.
+  sawComma := false
   sawParen := false
   for i := nameEnd; i+1 < len(src); i++ {
     c := src[i]
@@ -198,6 +208,10 @@ func arrowParamRegionHasComment(src string, paramPos, nameStart, nameEnd int) bo
     }
     if c == '/' && (src[i+1] == '*' || src[i+1] == '/') {
       return true
+    }
+    if c == ',' && !sawComma && !sawParen {
+      sawComma = true
+      continue
     }
     if c == ')' && !sawParen {
       sawParen = true
