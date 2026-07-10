@@ -79,11 +79,7 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
     return &dump, "reload", true, nil
   }
 
-  auxChanged, err := diskStatesChanged(s.auxStates)
-  if err != nil {
-    return nil, "", false, err
-  }
-  if auxChanged {
+  if diskStatesChanged(s.auxStates) {
     if err := s.reload(); err != nil {
       return nil, "", false, err
     }
@@ -190,12 +186,8 @@ func (s *graphSession) captureState() error {
   if err != nil {
     return err
   }
-  auxStates, err := captureDiskStates(auxiliaryInputs(program, configs, s.cwd))
-  if err != nil {
-    return err
-  }
   s.configHashes = configHashes
-  s.auxStates = auxStates
+  s.auxStates = captureDiskStates(auxiliaryInputs(program, configs, s.cwd))
   s.sourceHashes = sourceHashes
   s.rootFiles = projectRootFilesFromConfigs(configs, false)
   return nil
@@ -387,42 +379,41 @@ type packageTarget struct {
   wildcard string
 }
 
-func captureDiskStates(paths []string) (map[string]diskState, error) {
+// captureDiskStates records the freshness state of speculative resolution
+// candidates. Most candidates do not exist, and a module specifier can name a
+// path the host OS cannot even parse (`./style.css?inline`, a `data:` URL on
+// Windows), so any path that is neither a readable file nor a directory is
+// recorded as absent instead of failing the snapshot: the recorded state only
+// needs to flip when the candidate becomes resolvable.
+func captureDiskStates(paths []string) map[string]diskState {
   states := make(map[string]diskState, len(paths))
   for _, path := range paths {
     content, err := os.ReadFile(path)
     if err != nil {
-      if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrInvalid) {
-        states[path] = diskState{}
-        continue
-      }
-      info, statErr := os.Stat(path)
-      if statErr == nil && info.IsDir() {
+      if info, statErr := os.Stat(path); statErr == nil && info.IsDir() {
         states[path] = diskState{Exists: true}
-        continue
+      } else {
+        states[path] = diskState{}
       }
-      return nil, fmt.Errorf("ttscgraph: read snapshot input %s: %w", path, err)
+      continue
     }
     states[path] = diskState{Hash: sha256.Sum256(content), Exists: true}
   }
-  return states, nil
+  return states
 }
 
-func diskStatesChanged(previous map[string]diskState) (bool, error) {
+func diskStatesChanged(previous map[string]diskState) bool {
   paths := make([]string, 0, len(previous))
   for path := range previous {
     paths = append(paths, path)
   }
-  current, err := captureDiskStates(paths)
-  if err != nil {
-    return false, err
-  }
+  current := captureDiskStates(paths)
   for path, state := range previous {
     if current[path] != state {
-      return true, nil
+      return true
     }
   }
-  return false, nil
+  return false
 }
 
 func auxiliaryInputs(program *driver.Program, configs []*shimtsoptions.ParsedCommandLine, cwd string) []string {

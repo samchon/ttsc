@@ -38,6 +38,7 @@ export class TtscGraphSession {
   private readonly pending = new Map<number, Pending>();
   private queue: Promise<void> = Promise.resolve();
   private current: TtscGraphMemory | undefined;
+  private closed = false;
 
   public constructor(options: {
     cwd: string;
@@ -80,9 +81,11 @@ export class TtscGraphSession {
 
   /** Close the native session. Safe to call more than once. */
   public close(): void {
+    this.closed = true;
     const child = this.child;
     this.child = undefined;
     if (child !== undefined && !child.killed) child.stdin.end();
+    this.failPending(new Error("@ttsc/graph: native session closed"));
   }
 
   private async refresh(): Promise<TtscGraphMemory> {
@@ -125,6 +128,11 @@ export class TtscGraphSession {
   }
 
   private ensureChild(): ChildProcessWithoutNullStreams {
+    if (this.closed) {
+      // A request queued behind the close must not respawn the native
+      // process; an orphaned resident compiler would outlive the MCP server.
+      throw new Error("@ttsc/graph: native session is closed");
+    }
     if (this.child !== undefined && this.child.exitCode === null) {
       return this.child;
     }
