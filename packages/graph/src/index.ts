@@ -38,10 +38,10 @@ function parseProjectArgs(argv: readonly string[]): {
  * - `view`: JS-orchestrated 3D viewer (dump -> reduce -> serve -> open).
  * - `dump`: pass through to the native `ttscgraph dump`, which prints the whole
  *   graph as JSON for piping or the viewer.
- * - Default: serve the MCP graph over stdio. The TypeScript server runs
- *   `ttscgraph dump` once to build the resident graph, then answers tool calls
- *   from memory; the agent's MCP client speaks JSON-RPC over this process's
- *   stdin/stdout. The process stays alive on the stdio transport.
+ * - Default: serve the MCP graph over stdio. The TypeScript server keeps a native
+ *   incremental compiler session resident, checks the disk snapshot before each
+ *   graph operation, and reuses the in-memory graph when unchanged; the agent's
+ *   MCP client speaks JSON-RPC over this process's stdin/stdout.
  */
 export function runGraph(
   argv: readonly string[] = process.argv.slice(2),

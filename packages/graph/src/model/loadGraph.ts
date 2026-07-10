@@ -13,9 +13,9 @@ const MAX_DUMP_BYTES = 1024 * 1024 * 1024;
 
 /**
  * Build the resident {@link TtscGraphMemory} for a project by running `ttscgraph
- * dump` once and loading its JSON. This is the cold path behind the MCP tool
- * calls: one type-check in Go produces the checker-resolved fact graph, then
- * every later tool call is answered from the in-memory model.
+ * dump` once and loading its JSON. This is the one-shot path for direct callers
+ * and the viewer. The MCP server uses `TtscGraphSession` instead so source
+ * edits refresh a resident compiler session.
  *
  * Throws when the binary cannot be resolved, the dump command fails, or its
  * output is not a readable graph — the server surfaces the failure rather than

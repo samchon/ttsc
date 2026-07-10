@@ -10,8 +10,8 @@ export { default as assert } from "node:assert/strict";
 
 /**
  * Resolve the native `ttscgraph` data binary built next to `ttsc` by `pnpm
- * build:current`. The MCP server runs it once as `ttscgraph dump`; the test
- * points the launcher at it through `TTSC_GRAPH_BINARY`.
+ * build:current`. The MCP server keeps its `ttscgraph serve` compiler session
+ * resident; the test points the launcher at it through `TTSC_GRAPH_BINARY`.
  */
 export function resolveTtscgraphBinary(): string {
   const override = process.env.TTSC_GRAPH_BINARY;
@@ -24,8 +24,8 @@ export function resolveTtscgraphBinary(): string {
 
 /**
  * Resolve the built `@ttsc/graph` launcher (lib/bin.js), the Node entry an MCP
- * client spawns. It serves the graph over stdio after running `ttscgraph dump`
- * once for the project.
+ * client spawns. It serves the graph over stdio and synchronizes the resident
+ * native snapshot before each graph operation.
  */
 export function resolveGraphLauncher(): string {
   const pkg = createRequire(import.meta.url).resolve("@ttsc/graph");
@@ -60,7 +60,7 @@ export class TtsgraphClient {
       [resolveGraphLauncher(), "--cwd", cwd],
       {
         stdio: ["pipe", "pipe", "pipe"],
-        // The launcher resolves the dump binary from TTSC_GRAPH_BINARY, so the
+        // The launcher resolves the native graph binary from TTSC_GRAPH_BINARY, so the
         // test project needs no installed `ttsc` of its own.
         env: { ...process.env, TTSC_GRAPH_BINARY: resolveTtscgraphBinary() },
         windowsHide: true,

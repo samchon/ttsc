@@ -42,7 +42,7 @@ export interface ITtscGraphApplication {
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): ITtscGraphApplication.IResult;
+  ): Promise<ITtscGraphApplication.IResult>;
 }
 
 export namespace ITtscGraphApplication {
@@ -95,7 +95,7 @@ Every choice above holds up only if the graph is trustworthy, and that trust has
 
 A parser that only reads text, such as tree-sitter, stops where the syntax stops. It cannot follow a `tsconfig` `paths` alias like `@app/*` to the real file, a `workspace:*` dependency into a sibling package, a symlink, or a re-export chain through a barrel `index.ts`. A compiler that has finished module resolution wires all of those up, and a guessed edge is exactly where an agent stops trusting the result and falls back to reading files.
 
-`@ttsc/graph` reads the program `ttsc` already type-checked, so its edges are resolved rather than inferred. Because the graph falls out of the type-check that already runs, there is no separate index step, no file watcher, and no stale index to manage.
+`@ttsc/graph` reads the program `ttsc` already type-checked, so its edges are resolved rather than inferred. The native compiler Program stays resident. Before each graph operation the server hashes the config chain, checks every root set and module-resolution input, and compares the current bytes of every Program source. With no change it returns the existing in-memory indexes. A content-only edit goes through tsgo's incremental `UpdateProgram`; an import-shape, config, addition, deletion, project-reference, or resolution change takes the safe full-reload path. A broken config fails the call instead of returning the previous graph.
 
 ![A file-by-file source crawl collapsing into a compiler-built index](/blog/images/source-crawl-vs-compiler-index.png)
 

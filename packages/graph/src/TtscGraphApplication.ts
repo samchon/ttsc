@@ -9,7 +9,9 @@ import { runTrace } from "./server/runTrace";
 import { ITtscGraphApplication } from "./structures/ITtscGraphApplication";
 import { ITtscGraphEscape } from "./structures/ITtscGraphEscape";
 
-export type TtscGraphSource = TtscGraphMemory | (() => TtscGraphMemory);
+export type TtscGraphSource =
+  | TtscGraphMemory
+  | (() => TtscGraphMemory | Promise<TtscGraphMemory>);
 
 /**
  * The MCP tool surface as a plain class over the resident
@@ -22,20 +24,21 @@ export type TtscGraphSource = TtscGraphMemory | (() => TtscGraphMemory);
  * The method delegates to the pure graph functions in `./server`, which are
  * unit-testable without a transport; this class only binds them to the graph.
  *
- * Every method answers from the resident graph; none recompiles. Output is kept
+ * Every method answers from the current resident graph. The source may refresh
+ * that graph before the operation when project files changed. Output is kept
  * compact and bounded so a model can read structure without a file read, which
  * is the token win the redesign exists for.
  */
 export class TtscGraphApplication implements ITtscGraphApplication {
-  private readonly graph: () => TtscGraphMemory;
+  private readonly graph: () => TtscGraphMemory | Promise<TtscGraphMemory>;
 
   public constructor(source: TtscGraphSource) {
     this.graph = typeof source === "function" ? source : () => source;
   }
 
-  public inspect_typescript_graph(
+  public async inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): ITtscGraphApplication.IResult {
+  ): Promise<ITtscGraphApplication.IResult> {
     if (props.request.type === "escape") {
       const result = this.escape(props.request.reason);
       if (props.request.nextStep !== undefined) {
@@ -45,30 +48,31 @@ export class TtscGraphApplication implements ITtscGraphApplication {
         result,
       };
     }
+    const graph = await this.graph();
     switch (props.request.type) {
       case "entrypoints":
         return {
-          result: runEntrypoints(this.graph(), props.request),
+          result: runEntrypoints(graph, props.request),
         };
       case "lookup":
         return {
-          result: runLookup(this.graph(), props.request),
+          result: runLookup(graph, props.request),
         };
       case "trace":
         return {
-          result: runTrace(this.graph(), props.request),
+          result: runTrace(graph, props.request),
         };
       case "details":
         return {
-          result: runDetails(this.graph(), props.request),
+          result: runDetails(graph, props.request),
         };
       case "overview":
         return {
-          result: runOverview(this.graph(), props.request),
+          result: runOverview(graph, props.request),
         };
       case "tour":
         return {
-          result: runTour(this.graph(), props.request),
+          result: runTour(graph, props.request),
         };
       default:
         props.request satisfies never;

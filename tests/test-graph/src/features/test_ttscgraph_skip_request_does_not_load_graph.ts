@@ -28,7 +28,7 @@ const graphArguments = () => ({
  *
  * The graph launcher builds the TypeScript graph lazily on the first real graph
  * operation. A bad tsconfig would fail that load, so a successful escape proves
- * the escape branch returns before calling the dump binary or any graph
+ * the escape branch returns before starting the native session or any graph
  * traversal.
  *
  * 1. Materialize a project with an intentionally invalid tsconfig.

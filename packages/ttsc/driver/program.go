@@ -456,10 +456,10 @@ type sourcePreambleFS struct {
 
 func (fs sourcePreambleFS) ReadFile(filePath string) (string, bool) {
   contents, ok := fs.FS.ReadFile(filePath)
-  if !ok || !isSourcePreambleTarget(filePath) {
+  if !ok {
     return contents, ok
   }
-  return ApplySourcePreamble(contents, fs.preamble), true
+  return ApplySourcePreambleToFile(filePath, contents, fs.preamble), true
 }
 
 // isSourcePreambleTarget reports whether the preamble should be injected into
@@ -478,6 +478,15 @@ func isSourcePreambleTarget(filePath string) bool {
     }
   }
   return false
+}
+
+// ApplySourcePreambleToFile applies a generated preamble only when filePath is
+// a non-declaration TypeScript or JavaScript source, matching sourcePreambleFS.
+func ApplySourcePreambleToFile(filePath string, text string, preamble string) string {
+  if !isSourcePreambleTarget(filePath) {
+    return text
+  }
+  return ApplySourcePreamble(text, preamble)
 }
 
 // ApplySourcePreamble inserts a generated source preamble without moving the
@@ -540,6 +549,13 @@ func (p *Program) ApplyLinkedPlugins() error {
   p.pluginsApplied = true
   p.pluginsApplyErr = p.plugins.apply(p)
   return p.pluginsApplyErr
+}
+
+// HasLinkedProgramPlugins reports whether the loaded project has an active
+// ProgramPlugin. Those hooks mutate parsed ASTs in place and therefore require
+// a fresh Program rather than Session's incremental source replacement.
+func (p *Program) HasLinkedProgramPlugins() bool {
+  return p != nil && p.plugins.hasProgramPlugins()
 }
 
 // Diagnostics returns project diagnostics that must block compilation or
