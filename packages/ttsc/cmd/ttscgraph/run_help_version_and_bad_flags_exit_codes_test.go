@@ -8,9 +8,10 @@ import (
 )
 
 // TestRunHelpVersionAndBadFlagsExitCodes verifies the top-level run dispatcher
-// returns the documented exit codes for the dump-only command surface: help and
-// version short-circuit to 0, an unknown command prints usage and exits 2, and a
-// dump that cannot resolve its working directory exits 2 with an explanation.
+// returns the documented exit codes for the command surface: help and version
+// short-circuit to 0, an unknown command prints usage and exits 2, and dump or
+// serve invocations that cannot parse flags or resolve their working directory
+// exit 2 with an explanation.
 //
 // These are the non-load paths a user hits with a typo or `--help`; each must
 // resolve to a code without building a Program. The getwd seam stands in for an
@@ -19,8 +20,8 @@ import (
 //
 //  1. run --help and run --version exit 0, printing the command name / version.
 //  2. run --bogus (unknown command) exits 2 and prints usage.
-//  3. run dump --nope exits 2 (dump flag parse failure).
-//  4. With getwd forced to fail, run dump exits 2 and explains why.
+//  3. run dump --nope and run serve --nope exit 2 (flag parse failure).
+//  4. With getwd forced to fail, run dump and run serve exit 2 and explain why.
 func TestRunHelpVersionAndBadFlagsExitCodes(t *testing.T) {
   oldStdout, oldStderr, oldGetwd := stdout, stderr, getwd
   defer func() { stdout, stderr, getwd = oldStdout, oldStderr, oldGetwd }()
@@ -62,6 +63,13 @@ func TestRunHelpVersionAndBadFlagsExitCodes(t *testing.T) {
     t.Fatalf("run dump --nope exit = %d, want 2", code)
   }
 
+  // An unknown serve flag is an invalid invocation: serve's flag.Parse fails -> 2.
+  var serveFlagErr bytes.Buffer
+  stderr = &serveFlagErr
+  if code := run([]string{"serve", "--nope"}); code != 2 {
+    t.Fatalf("run serve --nope exit = %d, want 2", code)
+  }
+
   // A getwd failure (no --cwd given) is an invalid invocation -> 2, explained.
   var wdErr bytes.Buffer
   stderr = &wdErr
@@ -71,5 +79,15 @@ func TestRunHelpVersionAndBadFlagsExitCodes(t *testing.T) {
   }
   if !strings.Contains(wdErr.String(), "could not resolve working directory") {
     t.Fatalf("getwd failure did not explain itself:\n%s", wdErr.String())
+  }
+
+  // serve resolves the working directory the same way before touching stdin.
+  var serveWdErr bytes.Buffer
+  stderr = &serveWdErr
+  if code := run([]string{"serve"}); code != 2 {
+    t.Fatalf("run serve with getwd failure exit = %d, want 2", code)
+  }
+  if !strings.Contains(serveWdErr.String(), "could not resolve working directory") {
+    t.Fatalf("serve getwd failure did not explain itself:\n%s", serveWdErr.String())
   }
 }
