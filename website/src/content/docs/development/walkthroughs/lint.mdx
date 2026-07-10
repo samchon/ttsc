@@ -489,10 +489,10 @@ The adapter layer lives in `linthost/contrib_adapter.go`. Third-party rule contr
 
 ```go
 type contributorAdapter struct {
-  inner                   rule.Rule
-  metadataCached          bool
-  name                    string
-  visits                  []shimast.Kind
+  inner                  rule.Rule
+  metadataCached         bool
+  name                   string
+  visits                 []shimast.Kind
   visitsDeclarationFiles bool
 }
 

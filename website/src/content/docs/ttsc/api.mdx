@@ -191,7 +191,7 @@ interface ITtscCompilerDiagnostic {
 }
 ```
 
-When the host process exits non-zero but produced no parsable diagnostics, ttsc synthesizes a `{ code: "TTSC_PROCESS", category: "error" }` entry that carries the captured stderr/stdout. Embedders can branch on `code` to detect this synthesized case.
+When the host process exits non-zero but produced no parsable diagnostics, ttsc synthesizes a `{ code: "TTSC_PROCESS", category: "error" }` entry that carries the captured stderr/stdout. The same entry is seeded when a plugin fails without reporting structured diagnostics and ttsc recovers pure TypeScript errors through its independent no-emit check, so the recovered type errors never displace the plugin failure. Embedders can branch on `code` to detect this synthesized case.
 
 ## Plugins
 

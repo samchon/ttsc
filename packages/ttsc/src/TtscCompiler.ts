@@ -4,6 +4,7 @@ import path from "node:path";
 import { compileProjectInMemory } from "./compiler/internal/compileProjectInMemory";
 import { resolveProjectConfig } from "./compiler/internal/project/resolveProjectConfig";
 import { resolveBinary } from "./compiler/internal/resolveBinary";
+import { createProcessDiagnostic } from "./compiler/internal/runBuild";
 import { transformProjectInMemory } from "./compiler/internal/transformProjectInMemory";
 import { resolveCleanTargets } from "./plugin/internal/buildSourcePlugin";
 import { loadProjectPlugins } from "./plugin/internal/loadProjectPlugins";
@@ -345,20 +346,6 @@ function toCompilerResult(project: ProjectResult): ITtscCompilerResult {
         : result.diagnostics,
     output,
     type: "failure",
-  };
-}
-
-function createProcessDiagnostic(
-  result: TtscBuildResult,
-): ITtscCompilerDiagnostic {
-  const messageText =
-    (result.stderr || result.stdout).trim() ||
-    `ttsc exited with status ${result.status}`;
-  return {
-    category: "error",
-    code: "TTSC_PROCESS",
-    file: null,
-    messageText,
   };
 }
 

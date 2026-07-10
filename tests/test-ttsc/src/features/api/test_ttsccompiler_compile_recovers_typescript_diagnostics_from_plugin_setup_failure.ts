@@ -15,11 +15,15 @@ import {
  * Plugin presence is probed before the API selects its native-host or
  * plugin-backed path. A descriptor/source-build failure must still reach the
  * recoverable runBuild path, otherwise compile returns an exception before the
- * independent TypeScript check can expose source errors.
+ * independent TypeScript check can expose source errors. The plugin failure
+ * itself must stay visible as a `TTSC_PROCESS` diagnostic: embedders read
+ * `IFailure.diagnostics`, not stderr, so recovered type errors must not replace
+ * the plugin error.
  *
  * 1. Create a project with a TS2322 error and a source plugin.
  * 2. Corrupt the plugin's Go source so setup fails before its sidecar runs.
  * 3. Assert compile returns failure with the pure TypeScript diagnostic.
+ * 4. Assert the plugin build failure is retained as a TTSC_PROCESS diagnostic.
  */
 export const test_ttsccompiler_compile_recovers_typescript_diagnostics_from_plugin_setup_failure =
   () => {
@@ -42,6 +46,14 @@ export const test_ttsccompiler_compile_recovers_typescript_diagnostics_from_plug
     assert.equal(result.type, "failure");
     assert.equal(
       result.diagnostics.some((diagnostic) => diagnostic.code === 2322),
+      true,
+    );
+    assert.equal(
+      result.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === "TTSC_PROCESS" &&
+          /building plugin/.test(diagnostic.messageText),
+      ),
       true,
     );
   };
