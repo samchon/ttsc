@@ -50,7 +50,10 @@ func TestEmitWithPluginTransformerImportStarHelperWithInjectedImport(t *testing.
   // initializer to `<gen>.foo`.
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     modSpec := ec.Factory.NewStringLiteral("./dep", 0)
-    nsImport := ec.Factory.NewNamespaceImport(ec.Factory.NewGeneratedNameForNode(modSpec))
+    importName := ec.Factory.NewUniqueNameEx("dep", shimprinter.AutoGenerateOptions{
+      Flags: shimprinter.GeneratedIdentifierFlagsOptimistic | shimprinter.GeneratedIdentifierFlagsFileLevel,
+    })
+    nsImport := ec.Factory.NewNamespaceImport(importName)
     clause := ec.Factory.NewImportClause(shimast.KindUnknown, nil, nsImport)
     importDecl := ec.Factory.NewImportDeclaration(nil, clause, modSpec, nil)
 
@@ -60,7 +63,7 @@ func TestEmitWithPluginTransformerImportStarHelperWithInjectedImport(t *testing.
         return node
       }
       if node.Kind == shimast.KindNumericLiteral && node.Text() == "0" {
-        ref := ec.Factory.NewGeneratedNameForNode(modSpec)
+        ref := importName
         return ec.Factory.NewPropertyAccessExpression(ref, nil, ec.Factory.NewIdentifier("foo"), shimast.NodeFlagsNone)
       }
       if node.Kind == shimast.KindSourceFile {

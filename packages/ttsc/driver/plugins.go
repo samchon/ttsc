@@ -42,11 +42,14 @@ type ProgramPlugin interface {
 // EmitTransformPlugin contributes an emit-phase AST transformer. The returned
 // PluginTransform runs first in tsgo's per-file emit chain, sharing the emit
 // EmitContext with the builtin transformers, so a plugin returns AST instead of
-// spliced text: it injects its own imports with ec.Factory and references them
-// via NewGeneratedNameForNode, and tsgo's module-transform emits the require and
-// aliases the references itself. This is the AST-integration replacement for the
-// ProgramPlugin + RewriteSet text-splice model. A plugin whose returned
-// transform is nil contributes nothing.
+// spliced text. For an injected import, allocate its binding once with
+// ec.Factory.NewUniqueNameEx and the Optimistic | FileLevel flags, then reuse
+// that identifier for every reference. NewGeneratedNameForNode on a string
+// literal uses tsgo's temp-name channel and can be shadowed by downlevel temps.
+// Tsgo's module-transform emits the require and aliases the references itself.
+// This is the AST-integration replacement for the ProgramPlugin + RewriteSet
+// text-splice model. A plugin whose returned transform is nil contributes
+// nothing.
 type EmitTransformPlugin interface {
   EmitTransform(PluginContext) (PluginTransform, error)
 }

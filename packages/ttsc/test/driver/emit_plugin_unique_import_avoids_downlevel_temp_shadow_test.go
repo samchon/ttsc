@@ -13,23 +13,27 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerInjectedImport drives the official
-// driver.EmitWithPluginTransformer end-to-end with typia's real pattern: the
-// plugin INJECTS its own namespace import built with ec.Factory and references
-// a member through one file-level unique name. tsgo's builtin module-transform
-// then emits the require unconditionally (a synthetic import has no parse node,
-// so import-elision never drops it) and the generated name lines up between the
-// import and the reference, all without any checker/symbol involvement and
-// without text-splice or hand-rolled aliasing.
-func TestEmitWithPluginTransformerInjectedImport(t *testing.T) {
+// TestEmitPluginUniqueImportAvoidsDownlevelTempShadow verifies emit plugins:
+// unique import bindings survive ES2015 downlevel temps.
+//
+// Locks the generated-name collision between a synthetic namespace import and
+// the function-scoped variables that lower optional chaining and nullish
+// coalescing. Both name families may be referenced inside the same function,
+// so the import binding must use tsgo's unique-name channel.
+//
+// 1. Inject a namespace import and reference it inside a nullish expression.
+// 2. Emit the source at ES2015 so tsgo allocates a function-scoped temp.
+// 3. Assert the downlevel temp does not shadow the injected import binding.
+func TestEmitPluginUniqueImportAvoidsDownlevelTempShadow(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
-  "compilerOptions": { "module": "commonjs", "target": "es2020", "outDir": "bin", "strict": true },
+  "compilerOptions": { "module": "commonjs", "target": "es2015", "outDir": "bin", "strict": true },
   "files": ["dep.ts", "index.ts"]
 }
 `)
-  writeProjectFile(t, root, "dep.ts", "export const foo: number = 1;\n")
-  writeProjectFile(t, root, "index.ts", "export const a = 0;\n")
+  writeProjectFile(t, root, "dep.ts", "export const foo: number = 42;\n")
+  writeProjectFile(t, root, "index.ts", "export const value = (input?: { nested?: number }): number => input?.nested ?? 0;\n")
+
   prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{ForceEmit: true})
   if err != nil {
     t.Fatal(err)
@@ -39,9 +43,6 @@ func TestEmitWithPluginTransformerInjectedImport(t *testing.T) {
   }
   defer prog.Close()
 
-  // Plugin transformer: inject `import * as <gen> from "./dep"` and rewrite the
-  // `0` initializer to `<gen>.foo`, reusing one file-level unique identifier so
-  // both positions print as the same name.
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     modSpec := ec.Factory.NewStringLiteral("./dep", 0)
     importName := ec.Factory.NewUniqueNameEx("dep", shimprinter.AutoGenerateOptions{
@@ -57,13 +58,12 @@ func TestEmitWithPluginTransformerInjectedImport(t *testing.T) {
         return node
       }
       if node.Kind == shimast.KindNumericLiteral && node.Text() == "0" {
-        ref := importName
-        return ec.Factory.NewPropertyAccessExpression(ref, nil, ec.Factory.NewIdentifier("foo"), shimast.NodeFlagsNone)
+        return ec.Factory.NewPropertyAccessExpression(importName, nil, ec.Factory.NewIdentifier("foo"), shimast.NodeFlagsNone)
       }
       if node.Kind == shimast.KindSourceFile {
         visited := visitor.VisitEachChild(node).AsSourceFile()
-        stmts := append([]*shimast.Node{importDecl}, visited.Statements.Nodes...)
-        return ec.Factory.UpdateSourceFile(visited, ec.Factory.NewNodeList(stmts), visited.EndOfFileToken)
+        statements := append([]*shimast.Node{importDecl}, visited.Statements.Nodes...)
+        return ec.Factory.UpdateSourceFile(visited, ec.Factory.NewNodeList(statements), visited.EndOfFileToken)
       }
       return visitor.VisitEachChild(node)
     }
@@ -78,16 +78,20 @@ func TestEmitWithPluginTransformerInjectedImport(t *testing.T) {
   }); err != nil {
     t.Fatal(err)
   }
+
   js := emitted["index.js"]
-  t.Logf("index.js:\n%s", js)
-  // The namespace alias must be identical between the require binding
-  // (`const X = ...require("./dep")`) and the member reference
-  // (`exports.a = X.foo`) — tsgo's generated-name resolution lines them up.
-  bind := regexp.MustCompile(`const (\w+) = [^\n]*require\("\./dep"\)`).FindStringSubmatch(js)
-  if bind == nil {
+  binding := regexp.MustCompile(`const (\w+) = [^\n]*require\("\./dep"\)`).FindStringSubmatch(js)
+  if binding == nil {
     t.Fatalf("injected import did not emit a require binding:\n%s", js)
   }
-  if !strings.Contains(js, "exports.a = "+bind[1]+".foo;") {
-    t.Fatalf("reference %q.foo not aliased to the require binding %q:\n%s", bind[1], bind[1], js)
+  if !strings.Contains(js, binding[1]+".foo") {
+    t.Fatalf("injected reference does not use import binding %q:\n%s", binding[1], js)
+  }
+  downlevelTemp := regexp.MustCompile(`const value = \(input\) => \{ var (\w+);`).FindStringSubmatch(js)
+  if downlevelTemp == nil {
+    t.Fatalf("ES2015 emit did not allocate the expected function-scoped temp:\n%s", js)
+  }
+  if downlevelTemp[1] == binding[1] {
+    t.Fatalf("downlevel temp shadows injected import %q:\n%s", binding[1], js)
   }
 }

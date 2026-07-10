@@ -51,7 +51,10 @@ func TestEmitWithPluginTransformerTypeOnlyImportElidedSyntheticSurvives(t *testi
   // used. The type-only `./types` import is left untouched to be elided.
   transform := func(ec *shimprinter.EmitContext, sf *shimast.SourceFile) *shimast.SourceFile {
     modSpec := ec.Factory.NewStringLiteral("./dep", 0)
-    nsImport := ec.Factory.NewNamespaceImport(ec.Factory.NewGeneratedNameForNode(modSpec))
+    importName := ec.Factory.NewUniqueNameEx("dep", shimprinter.AutoGenerateOptions{
+      Flags: shimprinter.GeneratedIdentifierFlagsOptimistic | shimprinter.GeneratedIdentifierFlagsFileLevel,
+    })
+    nsImport := ec.Factory.NewNamespaceImport(importName)
     clause := ec.Factory.NewImportClause(shimast.KindUnknown, nil, nsImport)
     importDecl := ec.Factory.NewImportDeclaration(nil, clause, modSpec, nil)
 
@@ -62,7 +65,7 @@ func TestEmitWithPluginTransformerTypeOnlyImportElidedSyntheticSurvives(t *testi
       }
       if node.Kind == shimast.KindSourceFile {
         visited := visitor.VisitEachChild(node).AsSourceFile()
-        ref := ec.Factory.NewGeneratedNameForNode(modSpec)
+        ref := importName
         access := ec.Factory.NewPropertyAccessExpression(ref, nil, ec.Factory.NewIdentifier("foo"), shimast.NodeFlagsNone)
         useStmt := ec.Factory.NewExpressionStatement(access)
         stmts := append([]*shimast.Node{importDecl}, visited.Statements.Nodes...)

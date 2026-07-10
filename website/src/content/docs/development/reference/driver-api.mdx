@@ -129,6 +129,24 @@ Implement `SourcePreamble(ctx)` when the plugin needs text before parsing, and `
 
 The driver runs these hooks itself; a host binary never has to know which linked packages ttsc compiled into it. `SourcePreamble` applies inside `LoadProgram`. `ApplyProgram` runs once per Program, triggered by the first call to `SourceFiles()` / `SourceFile()` or by any driver emit lane — including `EmitWithPluginTransformers`, so a host that emits with only its own transforms (the typia shape) still honors linked plugins. `EmitTransform` transforms join the per-file chain after the host's own transforms, in registration order. Calling `ApplyLinkedPlugins()` by hand remains valid and idempotent.
 
+An `EmitTransform` that injects an import must allocate one file-level unique identifier and reuse that node for the import binding and every reference:
+
+```go
+importName := ec.Factory.NewUniqueNameEx("dep", shimprinter.AutoGenerateOptions{
+    Flags: shimprinter.GeneratedIdentifierFlagsOptimistic |
+        shimprinter.GeneratedIdentifierFlagsFileLevel,
+})
+namespaceImport := ec.Factory.NewNamespaceImport(importName)
+reference := ec.Factory.NewPropertyAccessExpression(
+    importName,
+    nil,
+    ec.Factory.NewIdentifier("foo"),
+    shimast.NodeFlagsNone,
+)
+```
+
+Do not derive an injected import binding with `NewGeneratedNameForNode(moduleSpecifier)` when `moduleSpecifier` is a string literal. Tsgo routes that node kind through its temp-name channel (`_a`, `_b`, and so on). ES2015-ES2019 lowering can allocate the same names inside a nested function for optional chaining or nullish coalescing, shadowing the module-level import at runtime. `NewUniqueNameEx` uses the non-conflicting unique-name channel; `FileLevel` checks source bindings and `Optimistic` keeps the unsuffixed base name when it is available.
+
 ## Hosting `ttscserver`
 
 These symbols are for embedders of `ttscserver`, **not for plugin authors**. Skip this section unless you are building a `ttsc`-aware editor extension.
