@@ -15,11 +15,15 @@ import (
 // AST-only marker. Treating them as checker-free would be a correctness risk
 // for third-party rules that already read ctx.Checker.
 //
-// 1. Wrap a synthetic public contributor rule in contributorAdapter.
+// 1. Inspect a synthetic public contributor rule and wrap the metadata.
 // 2. Ask the internal checker gate about that wrapped rule.
 // 3. Assert the rule is treated as type-aware.
 func TestEngineRequiresTypeCheckerForContributorRule(t *testing.T) {
-  adapter := contributorAdapter{inner: contributorCheckerGateRule{}}
+  metadata, err := inspectContributor(contributorCheckerGateRule{})
+  if err != nil {
+    t.Fatalf("unexpected contributor inspection error: %v", err)
+  }
+  adapter := newContributorAdapter(metadata)
   if !ruleNeedsTypeChecker(adapter) {
     t.Fatal("contributor adapter did not request a type checker")
   }

@@ -61,13 +61,7 @@ func registerContributors() {
         name)
       continue
     }
-    adapter := contributorAdapter{
-      inner:                  contributor.inner,
-      metadataCached:         true,
-      name:                   contributor.name,
-      visits:                 contributor.visits,
-      visitsDeclarationFiles: contributor.visitsDeclarationFiles,
-    }
+    adapter := newContributorAdapter(contributor)
     if contributor.isFormat {
       Register(formatContributorAdapter{adapter})
       continue
@@ -114,6 +108,19 @@ func inspectContributor(contributor rule.Rule) (metadata contributorMetadata, er
   return metadata, nil
 }
 
+// newContributorAdapter builds the engine-facing adapter from metadata already
+// evaluated by inspectContributor, so no adapter method re-enters contributor
+// code after startup. This is the only construction path; a zero-value
+// contributorAdapter carries no usable metadata.
+func newContributorAdapter(metadata contributorMetadata) contributorAdapter {
+  return contributorAdapter{
+    inner:                  metadata.inner,
+    name:                   metadata.name,
+    visits:                 metadata.visits,
+    visitsDeclarationFiles: metadata.visitsDeclarationFiles,
+  }
+}
+
 // contributorAdapter wraps a public `rule.Rule` so the engine's
 // `Register` accepts it. Name, Visits, and declaration-file policy are
 // cached by inspectContributor; Check bridges through a `rule.Context`
@@ -123,7 +130,6 @@ func inspectContributor(contributor rule.Rule) (metadata contributorMetadata, er
 // same shim AST types, so no wrapping / unwrapping of nodes is needed.
 type contributorAdapter struct {
   inner                  rule.Rule
-  metadataCached         bool
   name                   string
   visits                 []shimast.Kind
   visitsDeclarationFiles bool
@@ -140,14 +146,9 @@ func (a contributorAdapter) NeedsTypeChecker() bool {
 // files unless the contributor opts out through the public
 // `rule.DeclarationFileRule` marker. Same conservative-default reasoning
 // as NeedsTypeChecker: the host cannot infer a third-party rule's grammar
-// shape, and a wrong skip silently loses findings.
+// shape, and a wrong skip silently loses findings. The default-true /
+// marker-override policy is applied once in inspectContributor.
 func (a contributorAdapter) VisitsDeclarationFiles() bool {
-  if !a.metadataCached {
-    if declarationRule, ok := a.inner.(rule.DeclarationFileRule); ok {
-      return declarationRule.VisitsDeclarationFiles()
-    }
-    return true
-  }
   return a.visitsDeclarationFiles
 }
 
@@ -162,18 +163,8 @@ type formatContributorAdapter struct {
 
 func (formatContributorAdapter) IsFormat() bool { return true }
 
-func (a contributorAdapter) Name() string {
-  if !a.metadataCached {
-    return a.inner.Name()
-  }
-  return a.name
-}
-func (a contributorAdapter) Visits() []shimast.Kind {
-  if !a.metadataCached {
-    return a.inner.Visits()
-  }
-  return a.visits
-}
+func (a contributorAdapter) Name() string           { return a.name }
+func (a contributorAdapter) Visits() []shimast.Kind { return a.visits }
 func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil {
     return

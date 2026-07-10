@@ -25,14 +25,20 @@ func (declarationDefaultContributor) Check(ctx *rule.Context, node *shimast.Node
 //
 // The host cannot infer a third-party rule's grammar shape, so the adapter
 // defaults conservatively — the same reasoning that keeps contributor rules
-// on the checker path via `NeedsTypeChecker`. A skip-by-default here would
-// silently change existing contributor behavior on `.d.ts` inputs.
+// on the checker path via `NeedsTypeChecker`. The policy is applied once in
+// inspectContributor, so the test builds the adapter through the production
+// construction path. A skip-by-default here would silently change existing
+// contributor behavior on `.d.ts` inputs.
 //
-// 1. Wrap a contributor rule without the marker in the adapter.
+// 1. Inspect a contributor rule without the marker and wrap the metadata.
 // 2. Ask the engine's declaration-file predicate.
 // 3. Assert the adapter reports it visits declaration files.
 func TestContributorRulesVisitDeclarationFilesByDefault(t *testing.T) {
-  adapter := contributorAdapter{inner: declarationDefaultContributor{}}
+  metadata, err := inspectContributor(declarationDefaultContributor{})
+  if err != nil {
+    t.Fatalf("unexpected contributor inspection error: %v", err)
+  }
+  adapter := newContributorAdapter(metadata)
   if !ruleVisitsDeclarationFiles(adapter) {
     t.Fatalf("contributor rule without the marker must keep visiting declaration files")
   }
