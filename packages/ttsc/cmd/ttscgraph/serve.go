@@ -186,11 +186,29 @@ func (s *graphSession) captureState() error {
   if err != nil {
     return err
   }
+  inputs := auxiliaryInputs(program, configs, s.cwd)
+  inputs = append(inputs, missingRootInputs(configs, sourceHashes)...)
   s.configHashes = configHashes
-  s.auxStates = captureDiskStates(auxiliaryInputs(program, configs, s.cwd))
+  s.auxStates = captureDiskStates(compactSortedStrings(inputs))
   s.sourceHashes = sourceHashes
   s.rootFiles = projectRootFilesFromConfigs(configs, false)
   return nil
+}
+
+// missingRootInputs returns config root files absent from the loaded program.
+// A literal `files` entry keeps its name whether or not the file exists, so
+// neither the root-set comparison nor source hashing notices when such a root
+// is created later; tracking the missing path as a freshness input does.
+func missingRootInputs(configs []*shimtsoptions.ParsedCommandLine, sourceHashes map[string][sha256.Size]byte) []string {
+  missing := []string{}
+  for _, parsed := range configs {
+    for _, file := range parsed.FileNames() {
+      if _, tracked := sourceHashes[file]; !tracked {
+        missing = append(missing, file)
+      }
+    }
+  }
+  return missing
 }
 
 func (s *graphSession) buildDump() graph.Dump {
@@ -296,7 +314,22 @@ func invalidProjectError(diags []driver.Diagnostic) error {
 func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, error) {
   hashes := make(map[string][sha256.Size]byte)
   for _, source := range program.TSProgram.SourceFiles() {
-    if !fileOnDisk(source) {
+    // Virtual sources (tsgo's `bundled:///` libs) have no on-disk identity;
+    // real project files always carry an absolute path.
+    if source == nil || !filepath.IsAbs(source.FileName()) {
+      continue
+    }
+    info, err := os.Stat(source.FileName())
+    if err != nil {
+      if errors.Is(err, os.ErrNotExist) {
+        // The file vanished while the compiler session was loading. Hash the
+        // resident text so the next snapshot revisits the path, observes the
+        // deletion, and reloads instead of serving the vanished file forever.
+        hashes[source.FileName()] = sha256.Sum256([]byte(source.Text()))
+      }
+      continue
+    }
+    if info.IsDir() {
       continue
     }
     content, err := os.ReadFile(source.FileName())
@@ -314,14 +347,6 @@ func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, 
     }
   }
   return hashes, nil
-}
-
-func fileOnDisk(source *shimast.SourceFile) bool {
-  if source == nil || source.FileName() == "" {
-    return false
-  }
-  info, err := os.Stat(source.FileName())
-  return err == nil && !info.IsDir()
 }
 
 func hashFiles(paths []string) (map[string][sha256.Size]byte, error) {
@@ -446,6 +471,17 @@ func auxiliaryInputs(program *driver.Program, configs []*shimtsoptions.ParsedCom
         continue
       }
       inputs = append(inputs, unresolvedModuleCandidates(configs, directory, cwd, specifier.Text())...)
+    }
+  }
+  // Config `types` entries request type packages without any source syntax, so
+  // a missing one (e.g. a generated typeRoots package) must contribute the same
+  // candidates as a triple-slash type directive.
+  for _, parsed := range configs {
+    if parsed == nil || parsed.ParsedConfig == nil || parsed.ParsedConfig.CompilerOptions == nil {
+      continue
+    }
+    for _, name := range parsed.ParsedConfig.CompilerOptions.Types {
+      inputs = append(inputs, typeReferenceCandidates(configs, parsed.GetCurrentDirectory(), cwd, name)...)
     }
   }
   return compactSortedStrings(inputs)
