@@ -218,7 +218,7 @@ export default {
 
 `compilerOptions` is layered on top of the selected project config. Existing settings stay in place, and only the fields you pass here are changed for the bundler build.
 
-Plugin-owned keys (typia's `finite` here) are forwarded to the plugin verbatim. `@ttsc/lint` reads only `configFile` from its entry; rules live in the referenced `lint.config.*` file (or one discovered next to your tsconfig when `configFile` is absent).
+Plugin-owned keys (typia's `finite` here) are forwarded to the plugin verbatim. `@ttsc/lint` reads only `configFile` from its entry; rules live in the referenced `lint.config.*` file (or one discovered by upward walk from the tsconfig directory when `configFile` is absent).
 
 ### Plugin Overrides
 
