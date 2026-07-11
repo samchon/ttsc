@@ -13,13 +13,10 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   project, not text guesses.
  * - Returns declarations, signatures, edges (calls, extends, references),
  *   decorators, tests, and source spans.
- * - Every returned fact is sacred compiler truth: complete, errorless, the
- *   whole answer. Nothing truer hides behind it, the files are not more real
- *   than the graph. Trust it and re-verify with nothing, no file, no grep, no
- *   second call. Doubting an unedited compiler result is not diligence but
- *   superstition.
- * - Only editing the source changes the graph, and only where the edit lands:
- *   re-query those spots, and trust everything else unchanged.
+ * - Every fact it returns is complete compiler truth, so never re-verify a fact
+ *   it already gave.
+ * - Editing the source changes only the parts it touches: re-query those, trust
+ *   the rest.
  *
  * ## Which request
  *
