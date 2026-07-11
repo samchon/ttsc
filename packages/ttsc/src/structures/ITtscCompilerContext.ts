@@ -74,8 +74,8 @@ export interface ITtscCompilerContext {
    *
    * Relative paths are resolved from {@link ITtscCompilerContext.cwd}. When
    * omitted, ttsc uses its normal cache location: `TTSC_CACHE_DIR` when
-   * present, otherwise the user-level ttsc cache shared by projects on the same
-   * machine.
+   * present, otherwise the project-local cache at the workspace root's
+   * `node_modules/.cache/ttsc`. ttsc keeps no machine-global cache.
    *
    * The same cache stores source-plugin binaries and the lazily built native
    * compiler host used for in-memory API compilation.
