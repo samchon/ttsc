@@ -11,8 +11,10 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  autoQuoteGoModToken,
   buildSourcePlugin,
   computeCacheKey,
+  formatGoWorkPath,
   resolvePluginCacheRoot,
   resolveSourceBuildCachePaths,
 } from "../../../../packages/ttsc/lib/plugin/internal/buildSourcePlugin.js";
@@ -150,9 +152,11 @@ function shellQuote(value: string): string {
 
 export {
   assert,
+  autoQuoteGoModToken,
   buildSourcePlugin,
   computeCacheKey,
   createFakeGoBinary,
+  formatGoWorkPath,
   fs,
   os,
   path,
