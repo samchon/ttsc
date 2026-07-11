@@ -438,7 +438,7 @@ if checker.IsTypeAssignableTo(a, b) { /* ... */ }
 **Awaited / promise.**
 
 ```go
-awaited := checker.GetPromisedTypeOfPromise(t, nil)
+awaited := checker.GetPromisedTypeOfPromise(t)
 // Adjacent: GetAwaitedType(t).
 ```
 

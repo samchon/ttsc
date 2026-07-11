@@ -243,23 +243,28 @@ Go has no `class` keyword and no constructors. You call a function like `parseSt
 
 ### 2. Apply to every source file
 
-The driver returns the parsed Program. `ApplyProgram` walks every source file:
+The linked driver registers itself with the host in `init()` (`driver.RegisterPlugin(plugin{})`). At build time the host hands the parsed Program to `ApplyProgram`, the plugin's single entry point:
 
 ```go
-func applySourceTransforms(prog *driver.Program, state transformState) error {
+func (plugin) ApplyProgram(prog *driver.Program, ctx driver.PluginContext) error {
+  config, err := loadStripConfigMap(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig)
+  if err != nil {
+    return err
+  }
+  rewriter, err := parseStrip(config)
+  if err != nil {
+    return err
+  }
   for _, file := range prog.SourceFiles() {
-    if state.paths != nil {
-      state.paths.apply(file)
-    }
-    if state.strip != nil {
-      state.strip.apply(file)
-    }
+    rewriter.apply(file)
   }
   return nil
 }
 ```
 
-`prog.SourceFiles()` already drops declaration files, so `file` is always user-authored TypeScript. The order is important, paths first, then strip, but for strip in isolation that does not matter.
+`loadStripConfigMap` (in `driver/config.go`) rejects unsupported inline keys on the tsconfig entry, then resolves the config file: an explicit `configFile` wins, otherwise `strip.config.*` is discovered by upward walk. The resulting map feeds `parseStrip` from step 1.
+
+`prog.SourceFiles()` already drops declaration files, so `file` is always user-authored TypeScript.
 
 Then `(*stripRewriter).apply`:
 
@@ -272,7 +277,7 @@ func (s *stripRewriter) apply(file *shimast.SourceFile) {
 }
 ```
 
-**`s == nil` check.** Defensive. Strip is constructed by `newStripRewriter`, so `s` is normally non-nil; the check is there because Go dispatches a method even when the receiver is nil. The panic only happens at the first field deref. The body _does_ deref `s.calls` on the next line, but the `||` short-circuit fires the early return before that ever runs. Catching nil-receivers explicitly is the convention in this codebase; it makes the body's invariants easy to read.
+**`s == nil` check.** Defensive. Strip is constructed by `parseStrip`, so `s` is normally non-nil; the check is there because Go dispatches a method even when the receiver is nil. The panic only happens at the first field deref. The body _does_ deref `s.calls` on the next line, but the `||` short-circuit fires the early return before that ever runs. Catching nil-receivers explicitly is the convention in this codebase; it makes the body's invariants easy to read.
 
 **`file.Statements`** is a `*shimast.NodeList`. NodeList is a small wrapper: `{ Pos, End, Nodes []*shimast.Node }`. Mutating the slice underneath is how strip removes statements.
 

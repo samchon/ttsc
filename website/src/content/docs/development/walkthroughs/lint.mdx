@@ -385,30 +385,30 @@ This is the same trick built-in rules use. Contributors who use `ctx.Report(node
 
 ## A worked rule: `no-debugger` (`rules_debugger.go`)
 
-The simplest built-in rule. The whole rule body is seven lines (the file itself is 29 because it also registers `no-with` from the same `init()`):
+The simplest built-in rule. The whole rule body is seven lines (the file is slightly longer because it also registers `no-with` from the same `init()`):
 
 ```go
 package linthost
 
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
-type no-debugger struct{}
+type noDebugger struct{}
 
-func (no-debugger) Name() string           { return "no-debugger" }
-func (no-debugger) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindDebuggerStatement} }
-func (no-debugger) Check(ctx *Context, node *shimast.Node) {
+func (noDebugger) Name() string           { return "no-debugger" }
+func (noDebugger) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindDebuggerStatement} }
+func (noDebugger) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "Unexpected `debugger` statement.")
 }
 
 func init() {
-  Register(no-debugger{})
-  Register(no-with{})
+  Register(noDebugger{})
+  Register(noWith{})
 }
 ```
 
 Three observations:
 
-- **The rule is a value receiver.** `no-debugger{}` is an empty struct; the engine constructs `Context` and passes it by pointer, so the rule itself does not need fields. Most built-in rules are empty structs because rule state would leak across files.
+- **The rule is a value receiver.** `noDebugger{}` is an empty struct; the engine constructs `Context` and passes it by pointer, so the rule itself does not need fields. Most built-in rules are empty structs because rule state would leak across files.
 - **`Visits()` returns one kind.** The engine only invokes `Check` on `DebuggerStatement` nodes. Every other node kind walks past this rule.
 - **`init()` registers the rule.** Every `rules_*.go` file ends with one or more `Register` calls in `init()`. Two rules with the same `Name()` panic at startup, `Register` checks for the duplicate before storing, which is exactly the failure you want for a typo. (Within one file, `init` functions run in source order; across files in a package, the Go toolchain runs them in filename order. Either way the panic is reachable: only the file that reports it changes.)
 

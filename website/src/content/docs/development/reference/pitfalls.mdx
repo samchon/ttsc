@@ -228,7 +228,7 @@ The filename is reserved by the generator. Rename the host's file to `contributi
 
 These bite first-time check-plugin authors and are not visible from the AST page alone.
 
-**`node.Text()` panics on unhandled kinds.** `internal/ast/ast.go:296` ends with `panic("Unhandled case in Node.Text: %T")`. Safe only on `Identifier`, `*Literal`, `JsxText`, `TemplateLiteralLikeNode`, and a handful of token-like kinds. For anything else, branch on `node.Kind` first or use `shimscanner.GetSourceTextOfNodeFromSourceFile(file, node, false)`. The `@ttsc/lint` engine wraps every rule in `recover()` (`packages/lint/linthost/engine.go:388`) precisely because this panic is reachable in normal traversal.
+**`node.Text()` panics on unhandled kinds.** The `Node.Text` switch in typescript-go's `internal/ast/ast.go` ends with `panic("Unhandled case in Node.Text: %T")`. Safe only on `Identifier`, `*Literal`, `JsxText`, `TemplateLiteralLikeNode`, and a handful of token-like kinds. For anything else, branch on `node.Kind` first or use `shimscanner.GetSourceTextOfNodeFromSourceFile(file, node, false)`. The `@ttsc/lint` engine wraps every rule in `recover()` (`runRuleCheck` in `packages/lint/linthost/engine.go`) precisely because this panic is reachable in normal traversal.
 
 **`node.Symbol()` returns nil for non-declaration nodes.** Symbols are attached during binding only for `DeclarationBase` kinds. An `ExpressionStatement`, `BinaryExpression`, or any non-declaration node will return `nil` and a `.Name` deref will crash the plugin. Either branch on `node.Kind` first, or use `ctx.Checker.GetSymbolAtLocation(node)` which is nil-safe and works on references as well as declarations.
 

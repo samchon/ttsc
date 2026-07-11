@@ -28,11 +28,11 @@ A plugin is one npm package containing a JS descriptor and Go source.
 
 ## Pin against `ttsc`
 
-The plugin protocol is stable across patch releases. Minor releases may add new optional flags (`--quiet`, future additions) which existing plugins accept-and-ignore via `filterHostArgs`. Major releases (0.x → 0.(x+1)) may change `--plugins-json` shape, exit-code conventions, or `LoadProgramOptions` fields. Pin the minor range you tested against:
+The plugin protocol is stable across patch releases. Minor releases may add new optional flags (`--quiet`, future additions) which existing plugins accept-and-ignore via `filterHostArgs`. Major releases (0.x → 0.(x+1)) may change `--plugins-json` shape, exit-code conventions, or `LoadProgramOptions` fields. Pin the minor range you tested against, whatever it is when you publish (the example below uses `0.18.x`):
 
 ```json
 "peerDependencies": {
-  "ttsc": ">=0.13.0 <0.14.0",
+  "ttsc": ">=0.18.0 <0.19.0",
   "typescript": "*"
 },
 "peerDependenciesMeta": {
@@ -83,7 +83,7 @@ Your package version is separate from the `ttsc` plugin protocol.
 
 ## Pre-Publish Check
 
-Modeled on the `wasm-smoke` post-publish job at `.github/workflows/release.yml:42-58`. Run before every tag:
+Modeled on the `wasm-smoke` post-publish job in `.github/workflows/release.yml`. Run before every tag:
 
 ```bash
 set -euo pipefail
