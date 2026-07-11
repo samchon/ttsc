@@ -43,7 +43,7 @@ export default {
 - `calls`: statement-level calls. Supports a `.*` wildcard at the end (e.g. `assert.*` matches `assert.equal`, `assert.deepStrictEqual`, …).
 - `statements`: bare statements. Currently supports `debugger`.
 
-`@ttsc/strip` discovers its config by walking upward from the tsconfig directory, looking for `strip.config.{ts,cts,mts,js,cjs,mjs,json}`. To point at a specific file, set `configFile` on the tsconfig entry:
+`@ttsc/strip` discovers its config by walking upward from the tsconfig directory, looking for `strip.config.{ts,cts,mts,js,cjs,mjs,json}`. When a build integration compiles through a generated tsconfig outside the project (the bundler adapters do this whenever an alias or a `compilerOptions` overlay is set), ttsc passes the project root explicitly and the walk starts there instead of the temp directory. To point at a specific file, set `configFile` on the tsconfig entry (a relative path resolves against the same base directory):
 
 ```jsonc
 // tsconfig.json

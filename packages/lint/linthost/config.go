@@ -865,6 +865,30 @@ func findLintConfigFileFrom(dir string) (string, error) {
   }
 }
 
+// pluginConfigDirEnv mirrors driver.PluginConfigDirEnv from
+// `packages/ttsc/driver`: the environment variable through which the ttsc
+// launcher passes the project root that plugin config-file discovery and
+// relative "configFile" resolution anchor at. It matters when the compiled
+// tsconfig is a generated wrapper outside the project (e.g. @ttsc/unplugin's
+// compiler-options overlay in the system temp directory) — the tsconfig
+// directory then no longer identifies the project. The constant is inlined
+// here instead of imported because @ttsc/lint deliberately avoids a
+// dependency on the in-tree ttsc module (see host.go).
+const pluginConfigDirEnv = "TTSC_PLUGIN_CONFIG_DIR"
+
+// explicitPluginConfigDir returns the launcher-provided config anchor from
+// pluginConfigDirEnv, resolved against cwd, or "" when the channel is unset.
+func explicitPluginConfigDir(cwd string) string {
+  dir := strings.TrimSpace(os.Getenv(pluginConfigDirEnv))
+  if dir == "" {
+    return ""
+  }
+  if !filepath.IsAbs(dir) && cwd != "" {
+    dir = filepath.Join(cwd, dir)
+  }
+  return filepath.Clean(dir)
+}
+
 // resolveConfigFilePath resolves a user-supplied config path to an absolute
 // path. Absolute paths are returned unchanged; relative paths are joined to the
 // tsconfig directory (or cwd when no tsconfig is set).
@@ -877,13 +901,18 @@ func resolveConfigFilePath(configPath, cwd, tsconfigPath string) string {
 
 // discoveryConfigBaseDirs returns the ordered directories from which
 // auto-discovery walks upward when no explicit config path is provided. The
-// tsconfig directory comes first so that nested package configs are found
-// relative to the tsconfig that triggered the lint run; the working directory
-// follows as a fallback so a caller that points at an out-of-tree tsconfig
-// (e.g. a TtscCompiler invocation whose wrapper tsconfig lives in the system
-// temp dir but whose cwd/projectRoot is the real project) still discovers the
-// project's lint config instead of failing on the temp dir's empty ancestry.
+// launcher's explicit project-root channel (pluginConfigDirEnv) is the single
+// origin when set: it names the real project even when the tsconfig is a
+// generated wrapper in a temp directory, and keeps the wrapper's temp-tree
+// ancestry out of the walk. Otherwise the tsconfig directory comes first so
+// that nested package configs are found relative to the tsconfig that
+// triggered the lint run; the working directory follows as a fallback so a
+// caller that points at an out-of-tree tsconfig still discovers the project's
+// lint config instead of failing on the tsconfig dir's empty ancestry.
 func discoveryConfigBaseDirs(cwd, tsconfigPath string) []string {
+  if explicit := explicitPluginConfigDir(cwd); explicit != "" {
+    return []string{explicit}
+  }
   origins := make([]string, 0, 2)
   if tsconfigPath != "" {
     resolvedTsconfig := tsconfigPath
@@ -914,10 +943,16 @@ func containsPath(paths []string, candidate string) bool {
   return false
 }
 
-// tsconfigBaseDir returns the directory that contains the tsconfig file, or
-// cwd when tsconfigPath is empty. Used as the base for relative config paths
-// supplied in the tsconfig plugin entry.
+// tsconfigBaseDir returns the base directory for relative config paths
+// supplied in the tsconfig plugin entry. The launcher's explicit project-root
+// channel (pluginConfigDirEnv) wins when set — the tsconfig may be a
+// generated wrapper in a temp directory that no longer identifies the
+// project — otherwise the directory containing the tsconfig is used, falling
+// back to cwd when tsconfigPath is empty.
 func tsconfigBaseDir(cwd, tsconfigPath string) string {
+  if explicit := explicitPluginConfigDir(cwd); explicit != "" {
+    return explicit
+  }
   if tsconfigPath == "" {
     return cwd
   }

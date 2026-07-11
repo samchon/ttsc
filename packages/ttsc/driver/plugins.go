@@ -4,6 +4,7 @@ import (
   "encoding/json"
   "fmt"
   "os"
+  "path/filepath"
   "strings"
 )
 
@@ -12,6 +13,40 @@ import (
 // a JSON array of PluginEntry objects; an empty or absent value means no
 // linked plugins are active.
 const LinkedPluginsEnv = "TTSC_LINKED_PLUGINS_JSON"
+
+// PluginConfigDirEnv is the environment variable through which the ttsc
+// launcher passes the project root that plugin config-file discovery and
+// relative "configFile" resolution anchor at. The launcher sets it on every
+// native plugin spawn; it matters when the compiled tsconfig is a generated
+// wrapper outside the project — e.g. @ttsc/unplugin writes a compiler-options
+// overlay into the system temp directory that `extends` the real project
+// config — where the tsconfig directory no longer identifies the project and
+// an unanchored discovery walk would climb the temp tree instead. It rides
+// the environment rather than a CLI flag so third-party native hosts with
+// strict flag sets are unaffected and linked plugins running inside them
+// still receive it.
+const PluginConfigDirEnv = "TTSC_PLUGIN_CONFIG_DIR"
+
+// PluginConfigBaseDir returns the directory where a plugin anchors its
+// config-file discovery walk and resolves relative "configFile" paths.
+// The explicit PluginConfigDirEnv channel wins when set; otherwise the
+// tsconfig's directory is used, falling back to cwd when no tsconfig is set.
+func PluginConfigBaseDir(cwd, tsconfigPath string) string {
+  if dir := strings.TrimSpace(os.Getenv(PluginConfigDirEnv)); dir != "" {
+    if !filepath.IsAbs(dir) && cwd != "" {
+      dir = filepath.Join(cwd, dir)
+    }
+    return filepath.Clean(dir)
+  }
+  if tsconfigPath != "" {
+    resolved := tsconfigPath
+    if !filepath.IsAbs(resolved) {
+      resolved = filepath.Join(cwd, resolved)
+    }
+    return filepath.Dir(resolved)
+  }
+  return cwd
+}
 
 // PluginEntry is the manifest shape ttsc passes to driver-level plugins.
 type PluginEntry struct {

@@ -100,13 +100,14 @@ Source: `packages/ttsc/src/plugin/internal/buildSourcePlugin.ts` (`GO_BUILD_ENV_
 
 ### Injected into the plugin process
 
-Before spawning a plugin, `ttsc` sets three env vars (`TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, `TTSC_TTSX_BINARY`) in the child environment so the plugin can re-spawn the ttsc toolchain without resolving paths itself:
+Before spawning a plugin, `ttsc` sets four env vars (`TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, `TTSC_TTSX_BINARY`, `TTSC_PLUGIN_CONFIG_DIR`) in the child environment so the plugin can re-spawn the ttsc toolchain and anchor its config resolution without resolving paths itself:
 
 - `TTSC_NODE_BINARY`: absolute path of the Node binary that launched `ttsc`.
 - `TTSC_TSGO_BINARY`: resolved tsgo native binary used by this `ttsc` invocation.
 - `TTSC_TTSX_BINARY`: resolved `ttsx` launcher.
+- `TTSC_PLUGIN_CONFIG_DIR`: project root that plugin config-file discovery and relative `configFile` resolution anchor at. It differs from the tsconfig directory when the compile runs through a generated wrapper tsconfig (the bundler adapters write one into the system temp directory for aliases and `compilerOptions` overlays).
 
-A plugin that wants to re-spawn `ttsx` or `tsgo` (for example to type-check a generated file) should call these vars rather than re-resolving from `$PATH`. They guarantee the same host the consumer ran. Sources: `runBuild.ts` and `transformProjectInMemory.ts`. See [Recipes → Re-spawn ttsx or tsgo from a plugin](/docs/development/authoring/recipes#re-spawn-ttsx-or-tsgo-from-a-plugin) for usage.
+A plugin that wants to re-spawn `ttsx` or `tsgo` (for example to type-check a generated file) should call these vars rather than re-resolving from `$PATH`. They guarantee the same host the consumer ran. A plugin that discovers its own config file should anchor at `TTSC_PLUGIN_CONFIG_DIR` when set; the shipped utility plugins do this through `driver.PluginConfigBaseDir`. Sources: `runBuild.ts` and `transformProjectInMemory.ts`. See [Recipes → Re-spawn ttsx or tsgo from a plugin](/docs/development/authoring/recipes#re-spawn-ttsx-or-tsgo-from-a-plugin) for usage.
 
 ### `GOROOT` is auto-injected only when unset
 

@@ -39,7 +39,7 @@ The `format` block configures the formatter, keys mirror `.prettierrc`. Presence
 
 A `lint.config.{ts,js,mjs}` file is evaluated once and the result is cached, keyed by the file's contents, so a monorepo build that runs `ttsc` once per package does not re-evaluate the config each time. Editing the config invalidates the cache automatically. The one case it does not cover is a config that `import`s a separate file: change that imported file without touching the config itself, and set `TTSC_LINT_DISABLE_CONFIG_CACHE=1` to force a fresh evaluation.
 
-By default `@ttsc/lint` discovers `lint.config.{ts,cts,mts,js,cjs,mjs,json}` by walking upward from the tsconfig directory, then — when that walk finds nothing — upward from the working directory (this covers build integrations that hand ttsc a wrapper tsconfig in a temp directory while the project itself is the cwd). To override that discovery with an explicit path, pass `configFile` on the plugin entry in `tsconfig.json`:
+By default `@ttsc/lint` discovers `lint.config.{ts,cts,mts,js,cjs,mjs,json}` by walking upward from the tsconfig directory, then — when that walk finds nothing — upward from the working directory. When a build integration compiles through a generated wrapper tsconfig in a temp directory (the bundler adapters do this whenever an alias or a `compilerOptions` overlay is set), ttsc passes the project root explicitly and discovery starts there instead of the temp tree. To override that discovery with an explicit path, pass `configFile` on the plugin entry in `tsconfig.json` (a relative path resolves against the same base directory):
 
 ```jsonc
 // tsconfig.json

@@ -11,6 +11,8 @@ import (
   "runtime"
   "strings"
   "time"
+
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // configLoaderTimeout caps every `ttsx`/`node -e` subprocess that evaluates a
@@ -129,17 +131,13 @@ func findStripConfigFile(cwd, tsconfigPath string) (string, error) {
 }
 
 // stripDiscoveryBaseDir returns the directory from which auto-discovery walks
-// upward. Prefers the tsconfig directory over cwd so nested package configs are
-// found relative to the tsconfig that triggered the strip run.
+// upward. The launcher's explicit project-root channel
+// (driver.PluginConfigDirEnv) wins when set — the tsconfig may be a generated
+// wrapper in a temp directory that no longer identifies the project —
+// otherwise the tsconfig directory is preferred over cwd so nested package
+// configs are found relative to the tsconfig that triggered the strip run.
 func stripDiscoveryBaseDir(cwd, tsconfigPath string) string {
-  if tsconfigPath != "" {
-    resolved := tsconfigPath
-    if !filepath.IsAbs(resolved) {
-      resolved = filepath.Join(cwd, resolved)
-    }
-    return filepath.Dir(resolved)
-  }
-  return cwd
+  return driver.PluginConfigBaseDir(cwd, tsconfigPath)
 }
 
 // resolveStripConfigFilePath resolves a user-supplied config path to an

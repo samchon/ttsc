@@ -76,7 +76,7 @@ export function startResidentTransform(
     ],
     binary: host.binary,
     cwd: project.root,
-    env: residentEnv(context, tsgoBinary, loaded.nativePlugins),
+    env: residentEnv(context, project.root, tsgoBinary, loaded.nativePlugins),
   });
   return { process: resident, projectRoot: project.root };
 }
@@ -84,17 +84,21 @@ export function startResidentTransform(
 /**
  * Build the environment for the resident host spawn. Matches the per-call
  * transform spawn: injects the Node, tsgo, and ttsx binaries so the host never
- * searches PATH, and forwards linked transform plugins via
+ * searches PATH, sets `TTSC_PLUGIN_CONFIG_DIR` so plugin config-file discovery
+ * anchors at the project root even when the compiled tsconfig is a generated
+ * wrapper in a temp directory, and forwards linked transform plugins via
  * `TTSC_LINKED_PLUGINS_JSON`.
  */
 function residentEnv(
   context: ITtscCompilerContext,
+  projectRoot: string,
   tsgoBinary: string,
   nativePlugins: readonly ITtscLoadedNativePlugin[],
 ): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     TTSC_NODE_BINARY: process.env.TTSC_NODE_BINARY ?? process.execPath,
+    TTSC_PLUGIN_CONFIG_DIR: projectRoot,
     TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgoBinary,
     TTSC_TTSX_BINARY:
       process.env.TTSC_TTSX_BINARY ??

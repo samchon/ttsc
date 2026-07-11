@@ -119,9 +119,12 @@ function formatTimingSeconds(ms: number): string {
 
 /**
  * Build the environment for a native plugin spawn. Injects `TTSC_TSGO_BINARY`
- * and `TTSC_TTSX_BINARY` alongside the base env from `mergeEnv`. For
- * transform-stage plugins, also passes `TTSC_LINKED_PLUGINS_JSON` containing
- * any linked sources so they run inside the same process as the host plugin.
+ * and `TTSC_TTSX_BINARY` alongside the base env from `mergeEnv`, plus
+ * `TTSC_PLUGIN_CONFIG_DIR` so plugin config-file discovery anchors at the
+ * project root even when the compiled tsconfig is a generated wrapper in a temp
+ * directory. For transform-stage plugins, also passes
+ * `TTSC_LINKED_PLUGINS_JSON` containing any linked sources so they run inside
+ * the same process as the host plugin.
  */
 function nativePluginEnv(
   extra: NodeJS.ProcessEnv | undefined,
@@ -129,6 +132,7 @@ function nativePluginEnv(
   plugin?: ITtscLoadedNativePlugin,
 ): NodeJS.ProcessEnv {
   const env = mergeEnv({
+    TTSC_PLUGIN_CONFIG_DIR: execution.projectRoot,
     TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? execution.tsgo.binary,
     TTSC_TTSX_BINARY:
       process.env.TTSC_TTSX_BINARY ??

@@ -323,7 +323,7 @@ The full transform code lives in [`packages/banner/driver/banner.go`](https://gi
 2. **`SourcePreamble(ctx driver.PluginContext)`** receives the paired project plugin entry and calls `parseBanner(ctx.Entry.Config, ctx.Cwd, ctx.Tsconfig)`.
 3. **`parseBanner`** delegates to **`resolveBannerText`** for config resolution, then formats the resulting text into a JSDoc `/** ... @packageDocumentation */` block. `resolveBannerText` tries, in order:
    - `config["configFile"]` path to a `banner.config.*` file (explicit override);
-   - upward filesystem walk from the tsconfig directory looking for any `banner.config.{ts,cts,mts,js,cjs,mjs,json}`.
+   - upward filesystem walk looking for any `banner.config.{ts,cts,mts,js,cjs,mjs,json}`, anchored at the launcher-provided `TTSC_PLUGIN_CONFIG_DIR` project root when set (the tsconfig may be a generated wrapper in a temp directory), otherwise at the tsconfig directory.
 4. **`driver.LoadProgram`** in the native host asks every registered `SourcePreamblePlugin` for text before parsing. From that point onward, every source file in the Program _already contains_ the JSDoc block at offset 0, the printer round-trips it naturally.
 5. **`makeSourcePreambleWriteFile`** in the generic host wraps `tsc`'s emit `WriteFile` callback. If the emitted file does not already contain the preamble text (e.g. `.d.ts` files that tsc generated from declarations rather than from the source text), the wrapper inserts it via `driver.ApplySourcePreamble`.
 

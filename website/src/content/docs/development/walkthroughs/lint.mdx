@@ -230,7 +230,7 @@ The `Run*` functions are intentionally thin wrappers; the shared work is in `run
 The config layer lives in `linthost/config.go`. The longest file in `linthost/` (~1,470 LOC) because it owns every way a user can declare rules:
 
 - **`configFile` path** in tsconfig: `"plugins": [{ "transform": "@ttsc/lint", "configFile": "./lint.config.ts" }]`
-- **Discovery walk** when `configFile` is absent: walk upward from the tsconfig directory looking for `lint.config.{ts,mts,cts,mjs,cjs,js,json}`, or the `ttsc-lint.config.*` equivalent, for projects that prefer the tool name in the filename.
+- **Discovery walk** when `configFile` is absent: walk upward looking for `lint.config.{ts,mts,cts,mjs,cjs,js,json}`, or the `ttsc-lint.config.*` equivalent, for projects that prefer the tool name in the filename. The walk anchors at the launcher-provided `TTSC_PLUGIN_CONFIG_DIR` project root when set (the tsconfig may be a generated wrapper in a temp directory), otherwise at the tsconfig directory with the working directory as a fallback origin.
 - **`extends` in a config file**: a `lint.config.*` file may set `extends` to a base config file's path. The base is loaded first, then this file's `plugins`, `rules`, and `format` fields override it. Cyclic and over-deep `extends` chains are rejected with a typed error rather than recursed into.
 - **Inline disable comments** in source files: `// ttsc-lint-disable-next-line no-var`.
 

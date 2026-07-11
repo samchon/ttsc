@@ -227,18 +227,14 @@ func resolveBannerConfigPath(configPath, cwd, tsconfigPath string) string {
   return filepath.Join(tsconfigBaseDir(cwd, tsconfigPath), configPath)
 }
 
-// tsconfigBaseDir returns the directory that contains the tsconfig file, or cwd
-// when tsconfigPath is empty. It is the base both for resolving an explicit
+// tsconfigBaseDir returns the base directory both for resolving an explicit
 // `configFile` path and for starting the upward banner-config-file search.
+// The launcher's explicit project-root channel (driver.PluginConfigDirEnv)
+// wins when set — the tsconfig may be a generated wrapper in a temp directory
+// that no longer identifies the project — otherwise the directory containing
+// the tsconfig is used, falling back to cwd when tsconfigPath is empty.
 func tsconfigBaseDir(cwd, tsconfigPath string) string {
-  if tsconfigPath == "" {
-    return cwd
-  }
-  resolvedTsconfig := tsconfigPath
-  if !filepath.IsAbs(resolvedTsconfig) {
-    resolvedTsconfig = filepath.Join(cwd, resolvedTsconfig)
-  }
-  return filepath.Dir(resolvedTsconfig)
+  return driver.PluginConfigBaseDir(cwd, tsconfigPath)
 }
 
 // loadBannerConfigFile loads and evaluates a banner config file, returning its

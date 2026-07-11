@@ -170,7 +170,13 @@ function transformProjectWithPlugins(
     createNativeTransformArgs(project, transformers),
     {
       cwd: project.root,
-      env: nativePluginEnv(options, tsgoBinary, loaded.nativePlugins, plugin),
+      env: nativePluginEnv(
+        options,
+        project.root,
+        tsgoBinary,
+        loaded.nativePlugins,
+        plugin,
+      ),
     },
   );
   if (res.error) {
@@ -220,7 +226,13 @@ function runNativeChecks(
       createNativeCheckArgs(project, nativePlugins),
       {
         cwd: project.root,
-        env: nativePluginEnv(options, tsgoBinary, nativePlugins, plugin),
+        env: nativePluginEnv(
+          options,
+          project.root,
+          tsgoBinary,
+          nativePlugins,
+          plugin,
+        ),
       },
     );
     if (res.error) {
@@ -291,11 +303,15 @@ function serializeNativePlugins(
 /**
  * Build the environment for a native plugin spawn. Injects `TTSC_NODE_BINARY`,
  * `TTSC_TSGO_BINARY`, and `TTSC_TTSX_BINARY` so the sidecar can re-invoke
- * Node.js or tsgo without searching PATH. For transform plugins, also passes
- * `TTSC_LINKED_PLUGINS_JSON` when linked sources are present.
+ * Node.js or tsgo without searching PATH, plus `TTSC_PLUGIN_CONFIG_DIR` so
+ * plugin config-file discovery anchors at the project root even when the
+ * compiled tsconfig is a generated wrapper in a temp directory. For transform
+ * plugins, also passes `TTSC_LINKED_PLUGINS_JSON` when linked sources are
+ * present.
  */
 function nativePluginEnv(
   options: ITtscCompilerContext,
+  projectRoot: string,
   tsgoBinary: string,
   nativePlugins?: readonly ITtscLoadedNativePlugin[],
   plugin?: ITtscLoadedNativePlugin,
@@ -303,6 +319,7 @@ function nativePluginEnv(
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     TTSC_NODE_BINARY: process.env.TTSC_NODE_BINARY ?? process.execPath,
+    TTSC_PLUGIN_CONFIG_DIR: projectRoot,
     TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgoBinary,
     TTSC_TTSX_BINARY:
       process.env.TTSC_TTSX_BINARY ??
