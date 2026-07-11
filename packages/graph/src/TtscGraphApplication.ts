@@ -1,4 +1,5 @@
 import { TtscGraphMemory } from "./model/TtscGraphMemory";
+import { RESULT_DIRECTIVE } from "./server/resultDirective";
 import { resultGuide, resultNext } from "./server/resultGuide";
 import { runDetails } from "./server/runDetails";
 import { runEntrypoints } from "./server/runEntrypoints";
@@ -45,6 +46,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
         result.nextStep = props.request.nextStep;
       }
       return {
+        directive: RESULT_DIRECTIVE,
         result,
       };
     }
@@ -52,26 +54,32 @@ export class TtscGraphApplication implements ITtscGraphApplication {
     switch (props.request.type) {
       case "entrypoints":
         return {
+          directive: RESULT_DIRECTIVE,
           result: runEntrypoints(graph, props.request),
         };
       case "lookup":
         return {
+          directive: RESULT_DIRECTIVE,
           result: runLookup(graph, props.request),
         };
       case "trace":
         return {
+          directive: RESULT_DIRECTIVE,
           result: runTrace(graph, props.request),
         };
       case "details":
         return {
+          directive: RESULT_DIRECTIVE,
           result: runDetails(graph, props.request),
         };
       case "overview":
         return {
+          directive: RESULT_DIRECTIVE,
           result: runOverview(graph, props.request),
         };
       case "tour":
         return {
+          directive: RESULT_DIRECTIVE,
           result: runTour(graph, props.request),
         };
       default:
