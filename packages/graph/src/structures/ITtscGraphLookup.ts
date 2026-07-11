@@ -22,19 +22,16 @@ export namespace ITtscGraphLookup {
     type: "lookup";
 
     /**
-     * What to find, in natural language and code vocabulary mixed freely: a
-     * symbol name, a dotted member (`Service.create`), or a short phrase
-     * (`request handler`). Exact names are not required, but this is not a
-     * second broad entrypoints call. Use it when a named handle is missing or
-     * ambiguous.
+     * What to find: a symbol name, a dotted member (`Service.create`), or a
+     * short phrase (`request handler`). Exact names are not required, but this
+     * is not a second broad entrypoints call; use it for a missing or ambiguous
+     * named handle.
      */
     query: string;
 
     /**
-     * Maximum hits to return.
-     *
-     * Prefer the default. Large hit lists usually mean the query is too broad;
-     * refine the name instead of raising this.
+     * Maximum hits to return. A large hit list usually means the query is too
+     * broad; refine the name instead of raising this.
      *
      * @default 5
      */
@@ -42,8 +39,8 @@ export namespace ITtscGraphLookup {
 
     /**
      * Include dependency-boundary declarations from node_modules or bundled
-     * `.d.ts` libraries. Leave false for project-source answers; enable only
-     * when external type/API boundaries are the question.
+     * `.d.ts` libraries. Enable only when external type/API boundaries are the
+     * question.
      *
      * @default false
      */
@@ -67,10 +64,7 @@ export namespace ITtscGraphLookup {
     /** 1-based declaration line, when known. */
     line?: number;
 
-    /**
-     * The hit's declaration signature, so you can often answer without
-     * requesting details.
-     */
+    /** Declaration signature, often enough to answer without a `details` call. */
     signature?: string;
 
     /** Decorators written on this declaration, when any. */

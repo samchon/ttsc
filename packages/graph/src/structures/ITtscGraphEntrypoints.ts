@@ -31,38 +31,32 @@ export interface ITtscGraphEntrypoints {
 
 export namespace ITtscGraphEntrypoints {
   /**
-   * Ask for first handles when the question is narrow but the symbol is not yet
-   * known. For broad tours, read-next, architecture, or multi-phase runtime
-   * flow, use `tour` instead of decomposing the answer into entrypoints and
-   * follow-up calls.
+   * First handles when the question is narrow but the symbol name is not yet
+   * known.
    */
   export interface IRequest {
     /** Discriminator for first-pass question indexing. */
     type: "entrypoints";
 
     /**
-     * A natural code question or search phrase. Mix prose with code handles,
-     * for example `how Repository.find loads relations` or
-     * `SelectQueryBuilder.setFindOptions join aliases`. Keep this close to the
-     * user's question; do not turn it into a broad keyword dump.
+     * A natural code question or search phrase, prose mixed with code handles
+     * (`how Repository.find loads relations`). Keep it close to the user's
+     * question, not a broad keyword dump.
      */
     query: string;
 
     /**
-     * Maximum ranked hits to return.
-     *
-     * Prefer the default. Raise only when the first result was truncated and
-     * the missing handle is named.
+     * Maximum ranked hits to return. Raise only when the first result was
+     * truncated and the missing handle is named.
      *
      * @default 4
      */
     limit?: number;
 
     /**
-     * Maximum direct dependencies and dependents to return per indexed symbol.
-     * This is an orientation slice, not a dependency dump; use `trace` or
-     * `details` with `neighbors:true` after choosing the specific handles.
-     * Prefer the default zero for the first call.
+     * Maximum direct dependencies and dependents per indexed symbol. An
+     * orientation slice, not a dependency dump; use `trace` or `details` with
+     * `neighbors:true` after choosing the specific handles.
      *
      * @default 0
      */
@@ -140,10 +134,7 @@ export namespace ITtscGraphEntrypoints {
     /** Edge kind connecting the indexed node and this neighbor. */
     relation: string;
 
-    /**
-     * Source span for the expression that produced this relationship. It lets
-     * an agent see why the edge exists without opening the file.
-     */
+    /** Source span for the edge: shows why it exists without opening the file. */
     evidence?: ITtscGraphEvidence;
   }
 }

@@ -1,10 +1,8 @@
 /** The required next step from a compiler-derived graph result. */
 export interface ITtscGraphNext {
   /**
-   * Answer, continue graph inspection, leave graph, or clarify.
-   *
-   * `answer` means the returned graph result already carries the evidence
-   * contract for the current question, even when the slice is capped. Do not
+   * Answer, keep inspecting, leave graph, or clarify. `answer` means the result
+   * already carries the evidence for the question, even when capped: do not
    * call graph again or read files to re-check or complete it.
    */
   action: "answer" | "inspect" | "outside" | "clarify";

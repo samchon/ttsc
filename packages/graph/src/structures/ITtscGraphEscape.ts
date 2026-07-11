@@ -28,21 +28,16 @@ export namespace ITtscGraphEscape {
     type: "escape";
 
     /**
-     * Why no graph operation should run.
-     *
-     * Use this only when the next evidence is outside the indexed TypeScript
-     * graph: package scripts, config files, generated output, prose docs, exact
-     * text, or exact source body text. Name the smallest returned sourceSpan
-     * when source body text is truly required.
+     * Why no graph operation should run. Use only when the next evidence is
+     * outside the indexed graph: package scripts, config files, generated
+     * output, prose docs, exact text, or source body text. Name the smallest
+     * returned sourceSpan when source body text is truly required.
      */
     reason: string;
 
     /**
-     * The final non-graph note, if useful.
-     *
-     * Keep this short. Examples: `answer from the prior graph result`, `source
-     * body needed at returned sourceSpan`, or `ask the user for a concrete
-     * symbol`.
+     * A short final non-graph note, if useful, for example `answer from the
+     * prior graph result` or `source body needed at returned sourceSpan`.
      */
     nextStep?: string;
   }

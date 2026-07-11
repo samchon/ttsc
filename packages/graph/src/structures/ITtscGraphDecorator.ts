@@ -1,12 +1,9 @@
 /**
  * A decorator as written on a declaration, carried on the decorated
- * {@link ITtscGraphNode}'s `decorators`.
- *
- * The graph reports the decorator faithfully rather than interpreting any
- * framework's convention: the `name` is the decorator as written (`Controller`,
- * `Get`, `TypedRoute.Get`, ...), and statically resolvable literal arguments
- * are preserved so a consumer can apply its own meaning without re-parsing
- * source.
+ * {@link ITtscGraphNode}'s `decorators`. Reported faithfully, not interpreted
+ * per framework: `name` is the decorator as written (`Controller`, `Get`,
+ * `TypedRoute.Get`, ...), and statically resolvable literal arguments are
+ * preserved so a consumer applies its own meaning without re-parsing source.
  */
 export interface ITtscGraphDecorator {
   /**

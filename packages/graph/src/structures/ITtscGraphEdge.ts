@@ -2,12 +2,10 @@ import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
 import { TtscGraphEdgeKind } from "./TtscGraphEdgeKind";
 
 /**
- * A directed relationship from one {@link ITtscGraphNode} to another, both named
- * by `id`. The triple `(from, to, kind)` is unique; a repeated relationship
- * keeps the first source-order evidence.
- *
- * Every edge is resolved by the compiler, so there is no per-edge trust flag to
- * carry — the whole graph is checker-resolved fact.
+ * A directed relationship between two {@link ITtscGraphNode}s, both named by
+ * `id`. The triple `(from, to, kind)` is unique; a repeat keeps the first
+ * source-order evidence. Every edge is compiler-resolved, so there is no
+ * per-edge trust flag: the whole graph is checker-resolved fact.
  */
 export interface ITtscGraphEdge {
   /** Node id the relationship originates from. */

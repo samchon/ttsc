@@ -36,11 +36,8 @@ export interface ITtscGraphTour {
 
 export namespace ITtscGraphTour {
   /**
-   * Build the complete index-level answer surface for broad code tours: central
-   * entrypoints, primary flow, nearby paths, tests, and answer anchors. Use
-   * this instead of decomposing repository-orientation, read-next,
-   * architecture, or multi-phase runtime-flow questions into many
-   * lookup/details/trace calls.
+   * The whole answer surface for a broad code tour: entrypoints, primary flow,
+   * nearby paths, tests, and answer anchors.
    */
   export interface IRequest {
     /** Discriminator for code-tour indexing. */
@@ -50,10 +47,8 @@ export namespace ITtscGraphTour {
     query: string;
 
     /**
-     * Maximum central entrypoints to seed the tour.
-     *
-     * Prefer the default. Raise only when the question names several distinct
-     * public paths that must all appear in one answer.
+     * Central entrypoints to seed the tour. Raise only when the question names
+     * several public paths that must all appear in one answer.
      *
      * @default 4
      */

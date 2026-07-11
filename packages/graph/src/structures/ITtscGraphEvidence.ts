@@ -1,12 +1,9 @@
 /**
- * A source location that grounds a node or edge in real code: the declaration
- * span for a node, or the expression range that produced an edge.
- *
- * Evidence is display and grounding only; it is never identity. A node's id is
- * position-invariant (see {@link ITtscGraphNode}), so an edit that shifts a span
- * does not re-key anything. `startLine`/`startCol` are 1-based. MCP output
- * keeps evidence as coordinates; consumers can read the file themselves when
- * they truly need source text.
+ * A source location grounding a node or edge in real code: the declaration span
+ * for a node, or the expression range that produced an edge. Display and
+ * grounding only, never identity (a node's id is position-invariant, see
+ * {@link ITtscGraphNode}). Lines and columns are 1-based; MCP keeps evidence as
+ * coordinates, so read the file yourself when you truly need source text.
  */
 export interface ITtscGraphEvidence {
   /** Project-relative path of the file the span lives in. */

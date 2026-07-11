@@ -33,15 +33,14 @@ export interface ITtscGraphNode {
   file: string;
 
   /**
-   * True when the declaration lives outside the workspace (a dependency). The
-   * graph keeps the leaf as a named endpoint but does not walk into its
-   * internals.
+   * True when the declaration is outside the workspace (a dependency): kept as
+   * a named endpoint, not walked into.
    */
   external: boolean;
 
   /**
-   * True when `file` is git-ignored generated code (a Prisma client, a codegen
-   * output). Projections desurface these so generated nodes do not bury the
+   * True when `file` is git-ignored generated code (Prisma client, codegen
+   * output); projections desurface these so generated nodes do not bury the
    * authored graph.
    */
   ignored?: boolean;
@@ -53,9 +52,8 @@ export interface ITtscGraphNode {
   modifiers?: TtscGraphNodeModifier[];
 
   /**
-   * The decorators written on this declaration, in source order, when it has
-   * any: raw decorator facts (`@Controller`, `@Get`) a consumer can interpret
-   * without re-parsing source.
+   * Decorators written on this declaration, in source order: raw facts
+   * (`@Controller`, `@Get`) a consumer interprets without re-parsing source.
    */
   decorators?: ITtscGraphDecorator[];
 

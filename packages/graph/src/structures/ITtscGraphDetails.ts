@@ -3,11 +3,9 @@ import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
 import { ITtscGraphNext } from "./ITtscGraphNext";
 
 /**
- * The source-free facts for a few selected handles.
- *
- * This is not a file reader. It returns signatures, member outlines, direct
- * calls, direct types, implementation candidates, dependency summaries, and
- * sourceSpan citation anchors.
+ * Source-free facts for a few selected handles, not a file reader: signatures,
+ * member outlines, direct calls and types, implementation candidates,
+ * dependency summaries, and sourceSpan citation anchors.
  */
 export interface ITtscGraphDetails {
   /** Discriminator for selected symbol inspection. */
@@ -32,47 +30,40 @@ export namespace ITtscGraphDetails {
     type: "details";
 
     /**
-     * Node ids from another tool, or dotted symbol handles such as
-     * `OrderService.create`. Pass the few handles you need for source-free
-     * details. Prefer one to three handles. Use `trace` when you need a path
-     * instead of widening this call.
+     * Node ids or dotted symbol handles (`OrderService.create`). Prefer one to
+     * three; use `trace` for a path instead of widening this call.
      */
     handles: string[];
 
     /**
-     * Also list each node's direct dependencies and dependents (the symbols it
-     * uses and the symbols that use it). The list is capped; raise
-     * `neighborLimit` when the first slice is truncated and the missing
-     * relation is named. This remains a relationship summary, not a file body.
+     * Also list each node's direct dependencies and dependents (symbols it uses
+     * and symbols that use it), capped. Raise `neighborLimit` when truncated
+     * and the missing relation is named. A relationship summary, not a file
+     * body.
      *
      * @default false
      */
     neighbors?: boolean;
 
     /**
-     * Maximum dependencies and dependents to return per side when
-     * `neighbors:true`.
-     *
-     * Prefer the default. Values above a few neighbors are usually overfetch;
-     * call `trace` for flow instead.
+     * Maximum dependencies and dependents per side when `neighbors:true`. Above
+     * a few is usually overfetch; call `trace` for flow instead.
      *
      * @default 2
      */
     neighborLimit?: number;
 
     /**
-     * Maximum owned members to return for a container or object literal. Raise
-     * only when the first outline is truncated and the missing member is
-     * named.
+     * Maximum owned members for a container or object literal. Raise only when
+     * the outline is truncated and the missing member is named.
      *
      * @default 6
      */
     memberLimit?: number;
 
     /**
-     * Maximum direct execution and type references to return per group. Raise
-     * only when the first dependency slice is truncated and the missing
-     * dependency is named.
+     * Maximum direct execution and type references per group. Raise only when
+     * the dependency slice is truncated and the missing dependency is named.
      *
      * @default 1
      */
@@ -80,8 +71,8 @@ export namespace ITtscGraphDetails {
 
     /**
      * Include dependency-boundary references from node_modules or bundled
-     * `.d.ts` libraries. Leave false for source-architecture answers; enable
-     * only when external type/API boundaries are the question.
+     * `.d.ts` libraries. Enable only when external type/API boundaries are the
+     * question.
      *
      * @default false
      */
@@ -127,8 +118,8 @@ export namespace ITtscGraphDetails {
     literals?: string[];
 
     /**
-     * For a container or object-literal variable: the owned symbol or top-level
-     * property outline a consumer reaches for, without bodies.
+     * Owned symbol or top-level property outline a consumer reaches for on a
+     * container or object-literal variable, without bodies.
      */
     members?: IMember[];
 
@@ -181,8 +172,8 @@ export namespace ITtscGraphDetails {
     relation: string;
 
     /**
-     * Source span for the expression that produced this relationship. It is
-     * repository evidence for the edge, not a file-read instruction.
+     * Source span that produced the edge: citation evidence, not a file-read
+     * cue.
      */
     evidence?: ITtscGraphEvidence;
   }

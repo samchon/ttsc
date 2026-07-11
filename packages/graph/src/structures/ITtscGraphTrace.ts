@@ -25,9 +25,8 @@ export interface ITtscGraphTrace {
   target?: ITtscGraphTrace.INode;
 
   /**
-   * When `to` was given: the ordered dependency path from `from` to `to`
-   * (`from` first, `to` last), or empty when `to` is not reachable from
-   * `from`.
+   * Ordered dependency path from `from` to `to` when `to` was given (`from`
+   * first, `to` last), empty when `to` is unreachable.
    */
   path?: ITtscGraphTrace.INode[];
 
@@ -50,58 +49,58 @@ export namespace ITtscGraphTrace {
     type: "trace";
 
     /**
-     * Where to start: a node id from another tool, a simple symbol name, or a
-     * dotted member name such as `OrderService.create`. An ambiguous name
-     * returns its candidates instead of a trace.
+     * Where to start: a node id, a simple symbol name, or a dotted member
+     * (`OrderService.create`). An ambiguous name returns its candidates instead
+     * of a trace.
      */
     from: string;
 
     /**
-     * A target symbol: node id, simple symbol name, or dotted member name. When
-     * given, the tool returns the dependency path from `from` to this target,
-     * the one-call answer for "how does A reach B", instead of an open-ended
-     * trace. Prefer this path mode whenever both ends are known.
+     * Target symbol (node id, simple name, or dotted member). When given, the
+     * tool returns the dependency path from `from` to it, the one-call answer
+     * for "how does A reach B". Prefer this path mode whenever both ends are
+     * known.
      */
     to?: string;
 
     /**
-     * `forward` follows what the start uses (callees, instantiations, renders);
-     * `reverse` follows what uses the start (callers); `impact` is a reverse
-     * trace that prioritizes public API and test nodes a change would reach.
-     * Its test nodes are semantic usage edges, not a text-search inventory.
-     * Caller questions usually fit `reverse`.
+     * Trace direction:
+     *
+     * - `forward`: what the start uses (callees, instantiations, renders)
+     * - `reverse`: what uses the start (callers); the usual fit for caller
+     *   questions
+     * - `impact`: reverse trace prioritizing public API and test nodes a change
+     *   reaches; its test nodes are semantic usage edges, not a text search
      *
      * @default "forward"
      */
     direction?: "forward" | "reverse" | "impact";
 
     /**
-     * Which non-structural edge family to follow: `execution` follows runtime
-     * calls, instantiations, property access, and JSX renders; `types` follows
-     * type references and inheritance; `all` preserves the full graph. Flow
-     * questions should usually choose `execution` rather than `all`.
+     * Non-structural edge family to follow:
+     *
+     * - `execution`: runtime calls, instantiations, property access, JSX renders
+     * - `types`: type references and inheritance
+     * - `all`: the full graph
+     *
+     * Flow questions usually want `execution`, not `all`.
      *
      * @default "all"
      */
     focus?: "all" | "execution" | "types";
 
     /**
-     * How many hops deep to follow. Open forward/reverse traces are capped at
-     * 2; impact traces at 4; path mode at 12.
-     *
-     * Prefer the default for open traces. Raise only for path mode or when the
-     * previous trace named the missing next hop.
+     * Hops deep to follow (open forward/reverse cap at 2, impact at 4, path
+     * mode at 12). Raise only for path mode or a named missing next hop.
      *
      * @default 2
      */
     maxDepth?: number;
 
     /**
-     * Cap on reached nodes; the trace stops and marks itself truncated past it.
-     * Open forward/reverse traces are capped at 8 nodes, impact at 16 nodes.
-     *
-     * Prefer the default; use larger open traces only when a named missing edge
-     * requires it.
+     * Cap on reached nodes; past it the trace marks itself truncated (open
+     * forward/reverse cap at 8, impact at 16). Raise only when a named missing
+     * edge requires it.
      *
      * @default 6
      */
@@ -109,8 +108,7 @@ export namespace ITtscGraphTrace {
 
     /**
      * Include dependency-boundary nodes from node_modules or bundled `.d.ts`
-     * libraries. Leave false for source-flow tours; enable only when the user
-     * asks about external type/API boundaries.
+     * libraries. Enable only for questions about external type/API boundaries.
      *
      * @default false
      */
@@ -131,10 +129,7 @@ export namespace ITtscGraphTrace {
     /** Hops from the start (1 = direct). */
     depth: number;
 
-    /**
-     * Source span for the expression that produced this hop. It is repository
-     * evidence for the hop and can be cited without opening the file.
-     */
+    /** Source span that produced the hop: citable without opening the file. */
     evidence?: ITtscGraphEvidence;
   }
 
