@@ -118,6 +118,14 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
   }
   target := names[0]
 
+  // A name `var` tolerates but `let` cannot redeclare: `let let = 1;` is a
+  // SyntaxError everywhere, and `let static = 1;` is one in strict mode
+  // (modules, classes) — while `var let` / `var static` parse in sloppy
+  // scripts. Mirrors upstream ESLint no-var's DISALLOWED_LET_NAMES.
+  if target == "let" || target == "static" {
+    return false
+  }
+
   // Precondition 3 setup: the statement's parent must both allow a lexical
   // declaration and act as the `let`'s block scope. Any other parent kind is
   // a single-statement body (`if (c) var x = 1;`, `while (c) var x = 1;`,
