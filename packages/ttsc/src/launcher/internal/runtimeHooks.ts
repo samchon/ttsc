@@ -10,6 +10,10 @@ import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmitted
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
+import {
+  RUNTIME_SOURCE_MAP_TSGO_FLAGS,
+  inlineServedSourceMap,
+} from "./servedSourceMap";
 
 /**
  * Synchronous Node module hooks installed (via `module.registerHooks`) in the
@@ -151,6 +155,13 @@ export function installRuntimeHooks(): void {
     return;
   }
   installed = true;
+  // Map error stacks through the source maps the serve path now inlines, so a
+  // thrown frame reports the true `.ts` line:col out of the box (no
+  // `--enable-source-maps` needed). Applied before the entry loads; user code
+  // that later toggles it wins, since this is a plain runtime switch.
+  if (typeof process.setSourceMapsEnabled === "function") {
+    process.setSourceMapsEnabled(true);
+  }
   registerHooks({ load, resolve });
   installCommonJsHook();
 }
@@ -356,17 +367,36 @@ function resolveServedSource(
   const real = realPath(filename);
   const served = serveEntryEmit(real);
   if (served !== null) {
-    return { moduleOption: manifest()?.moduleOption, ...served };
+    return withInlineSourceMap({
+      moduleOption: manifest()?.moduleOption,
+      ...served,
+    });
   }
   const built = serveDependencyEmit(real);
   if (built !== null) {
-    return built;
+    return withInlineSourceMap(built);
   }
   return {
     moduleOption: undefined,
     sourceFile: filename,
     source: transformOrphanSource(filename, url),
   };
+}
+
+/**
+ * Inline a served emit's external source map into its text and absolutize the
+ * map's `sources`, so the JavaScript executed under the `.ts` source URL stays
+ * self-describing after the per-run emit directory is deleted. Applied to both
+ * the entry lane (`serveEntryEmit`) and the dependency lane
+ * (`serveBuiltDependency`); the orphan type-strip lane carries no emitted map.
+ */
+function withInlineSourceMap(served: ServedSource): ServedSource {
+  const source = inlineServedSourceMap(
+    served.source,
+    served.emittedFile,
+    served.sourceFile,
+  );
+  return source === served.source ? served : { ...served, source };
 }
 
 /**
@@ -1087,6 +1117,12 @@ function buildDependency(
     emit: true,
     forceListEmittedFiles: true,
     outDir: emitDir,
+    // Force an external source map on the transient dependency emit so the
+    // serve path can inline it under the source URL (issue #353). This emit
+    // never reaches the dependency's published `lib/`, so the override leaks
+    // nowhere. Passthrough wins over any `sourceMap`/`inlineSourceMap` the
+    // dependency's own tsconfig set, so coverage and stacks work regardless.
+    passthrough: [...RUNTIME_SOURCE_MAP_TSGO_FLAGS],
     // Honour the dependency's own transform plugins: a source-shipping package
     // can itself depend on a transform (e.g. a fixture whose values are built
     // with `typia.createRandom`), and its runtime behaviour is wrong without it.

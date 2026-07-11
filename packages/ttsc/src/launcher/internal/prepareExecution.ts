@@ -6,6 +6,7 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
+import { RUNTIME_SOURCE_MAP_TSGO_FLAGS } from "./servedSourceMap";
 
 /** Subdirectory name that isolates concurrent ttsx processes by PID. */
 const PROCESS_CACHE_KEY = String(process.pid);
@@ -138,7 +139,14 @@ function buildProject(
     forceListEmittedFiles: true,
     cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
-    passthrough: options.passthrough,
+    // Force an external source map on the transient entry emit so the serve
+    // path can inline it under the source URL (issue #353). This emit lands in
+    // a PID-isolated temp dir, never the consumer's `outDir`, so the override
+    // leaks nowhere; appended last so it wins over any forwarded map flag.
+    passthrough: [
+      ...(options.passthrough ?? []),
+      ...RUNTIME_SOURCE_MAP_TSGO_FLAGS,
+    ],
     plugins: options.plugins,
     quiet: true,
     singleThreaded: options.singleThreaded,
