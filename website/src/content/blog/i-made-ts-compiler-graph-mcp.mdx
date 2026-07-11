@@ -41,7 +41,7 @@ tags:
 
 You're new to a TypeScript repo, so you ask the agent for a tour: _"What's the main runtime flow, and what should I read first?"_ You know how it goes. It opens a file, follows an import into another, then another, and a few dozen files later you get an answer, and a large token bill.
 
-`@ttsc/graph` cuts that crawl short. Over MCP, it hands your agent a graph of your TypeScript codebase that the compiler itself drew: what calls what, what depends on what, and where each piece lives. The agent answers structural questions straight from the graph instead of spelunking through files, and every claim it makes points at an exact `file:line` the compiler resolved.
+`@ttsc/graph` cuts that crawl short. It is an MCP server that gives your agent a code graph instead of source files: over MCP it hands over a graph of your TypeScript codebase that the compiler itself drew, what calls what, what depends on what, and where each piece lives. The agent answers structural questions straight from the graph instead of spelunking through files, and every claim it makes points at an exact `file:line` the compiler resolved.
 
 ![Median token use across every repo, common prompt, Codex GPT-5.5](/benchmark/svg/graph-common-codex-gpt-5.5.svg)
 
