@@ -49,23 +49,7 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
       ctx.Report(node, message)
       return
     }
-    src := ctx.File.Text()
-    argStart := shimscanner.SkipTrivia(src, arg.Pos())
-    argEnd := arg.End()
-    if argStart < 0 || argStart >= argEnd || argEnd > len(src) {
-      ctx.Report(node, message)
-      return
-    }
-    editPos := shimscanner.SkipTrivia(src, node.Pos())
-    if editPos < 0 || editPos >= node.End() {
-      ctx.Report(node, message)
-      return
-    }
-    ctx.ReportFix(
-      node,
-      message,
-      TextEdit{Pos: editPos, End: node.End(), Text: src[argStart:argEnd]},
-    )
+    reportBooleanCastFix(ctx, node, arg, message)
   case shimast.KindPrefixUnaryExpression:
     outer := node.AsPrefixUnaryExpression()
     if outer == nil || outer.Operator != shimast.KindExclamationToken {
@@ -83,28 +67,88 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
       return
     }
     message := "Redundant double negation."
-    if inner.Operand == nil {
-      ctx.Report(node, message)
-      return
-    }
-    src := ctx.File.Text()
-    inStart := shimscanner.SkipTrivia(src, inner.Operand.Pos())
-    inEnd := inner.Operand.End()
-    if inStart < 0 || inStart >= inEnd || inEnd > len(src) {
-      ctx.Report(node, message)
-      return
-    }
-    editPos := shimscanner.SkipTrivia(src, node.Pos())
-    if editPos < 0 || editPos >= node.End() {
-      ctx.Report(node, message)
-      return
-    }
-    ctx.ReportFix(
-      node,
-      message,
-      TextEdit{Pos: editPos, End: node.End(), Text: src[inStart:inEnd]},
-    )
+    reportBooleanCastFix(ctx, node, inner.Operand, message)
   }
+}
+
+// reportBooleanCastFix reports a redundant boolean cast covering `node` and,
+// when safe, attaches the autofix that splices the inner expression's source
+// text over the whole cast. Two hazards can make the raw splice unsafe, and
+// both mirror upstream ESLint's fixer (#362):
+//
+//   - Precedence. In the two expression-level boolean contexts the rule
+//     accepts — `!` operand and ternary condition — a replacement that binds
+//     no tighter than the context re-associates: `!Boolean(a && b)` spliced
+//     bare becomes `!a && b`, which is `(!a) && b`. The replacement is
+//     wrapped in parentheses when the inner expression's precedence is at or
+//     below the context's floor. Statement conditions (`if`/`while`/`do`/
+//     `for`) need no wrap: the statement's own parentheses contain the
+//     result, as do explicit parentheses around the cast itself.
+//   - Comments. The splice keeps only the inner expression's text, so a
+//     comment anywhere else in the replaced span (`!Boolean(/* why */ ok)`)
+//     would be silently deleted. The fix is declined — report only — when
+//     the replaced span contains a comment outside the kept text.
+func reportBooleanCastFix(ctx *Context, node, inner *shimast.Node, message string) {
+  if inner == nil {
+    ctx.Report(node, message)
+    return
+  }
+  src := ctx.File.Text()
+  keepStart := shimscanner.SkipTrivia(src, inner.Pos())
+  keepEnd := inner.End()
+  if keepStart < 0 || keepStart >= keepEnd || keepEnd > len(src) {
+    ctx.Report(node, message)
+    return
+  }
+  editPos := shimscanner.SkipTrivia(src, node.Pos())
+  if editPos < 0 || editPos >= node.End() || node.End() > len(src) {
+    ctx.Report(node, message)
+    return
+  }
+  if hasCommentBetween(src, editPos, keepStart) ||
+    hasCommentBetween(src, keepEnd, node.End()) {
+    ctx.Report(node, message)
+    return
+  }
+  text := src[keepStart:keepEnd]
+  if floor, bounded := booleanContextPrecedenceFloor(node); bounded &&
+    shimast.GetExpressionPrecedence(inner) <= floor {
+    text = "(" + text + ")"
+  }
+  ctx.ReportFix(node, message, TextEdit{Pos: editPos, End: node.End(), Text: text})
+}
+
+// booleanContextPrecedenceFloor returns the precedence at or below which a
+// replacement spliced over `node` re-associates with its surroundings, and
+// whether such a floor applies at all.
+//
+// Only the two expression-level boolean contexts are bounded: an `!` operand
+// must bind tighter than a unary expression (`!(a && b)`, and the grammar
+// even rejects `!x ** 2` outright), and a ternary condition must bind
+// tighter than the conditional itself (`(x = f()) ? a : b`,
+// `(a ? b : c) ? x : y`). The statement conditions `isInBooleanContext`
+// accepts are unbounded — their mandatory parentheses already contain the
+// replacement — and so is a cast explicitly wrapped in parentheses, because
+// the direct parent is then the ParenthesizedExpression, not the `!` or
+// ternary beyond it.
+func booleanContextPrecedenceFloor(node *shimast.Node) (shimast.OperatorPrecedence, bool) {
+  parent := node.Parent
+  if parent == nil {
+    return shimast.OperatorPrecedenceInvalid, false
+  }
+  switch parent.Kind {
+  case shimast.KindPrefixUnaryExpression:
+    prefix := parent.AsPrefixUnaryExpression()
+    if prefix != nil && prefix.Operator == shimast.KindExclamationToken {
+      return shimast.OperatorPrecedenceUnary, true
+    }
+  case shimast.KindConditionalExpression:
+    cond := parent.AsConditionalExpression()
+    if cond != nil && cond.Condition == node {
+      return shimast.OperatorPrecedenceConditional, true
+    }
+  }
+  return shimast.OperatorPrecedenceInvalid, false
 }
 
 // isInBooleanContext walks up the parent chain to determine whether the

@@ -113,6 +113,37 @@ func tokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
   return pos, end
 }
 
+// hasCommentBetween reports whether a comment begins anywhere in the source
+// range [from, to). Fixers whose TextEdit keeps only part of the replaced
+// span use it on the discarded sub-ranges: a comment there would be silently
+// deleted by the edit, so the fix must be declined.
+//
+// The scan alternates SkipTriviaEx (whitespace, with StopAtComments so a
+// comment opener is not consumed) with a two-byte opener check that
+// distinguishes `//` and `/*` from a bare slash token. Non-trivia token
+// bytes are stepped over one at a time, so an opener lookalike inside a
+// string literal within the range would over-detect; callers only ever
+// decline an autofix on a hit, which is the safe direction.
+func hasCommentBetween(src string, from, to int) bool {
+  if from < 0 {
+    return false
+  }
+  if to > len(src) {
+    to = len(src)
+  }
+  for pos := from; pos < to; {
+    next := shimscanner.SkipTriviaEx(src, pos, &shimscanner.SkipTriviaOptions{StopAtComments: true})
+    if next < pos || next >= to {
+      return false
+    }
+    if src[next] == '/' && next+1 < len(src) && (src[next+1] == '/' || src[next+1] == '*') {
+      return true
+    }
+    pos = next + 1
+  }
+  return false
+}
+
 // isIdentifierPart reports whether `ch` can appear inside a JavaScript
 // identifier — used as a word-boundary guard by keyword search helpers.
 // Handles only ASCII; multibyte Unicode identifier parts are treated as

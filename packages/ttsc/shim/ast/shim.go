@@ -177,6 +177,42 @@ const (
   ModifierFlagsReadonly  = innerast.ModifierFlagsReadonly
 )
 
+// OperatorPrecedence members. The complete family is re-exported by hand so
+// precedence comparisons (e.g. a lint fixer deciding whether a spliced
+// replacement must be parenthesized) can name every level of the
+// OperatorPrecedence type aliased in surface.go; a partial re-export would
+// trip the shim_audit zero-tolerance enum gate.
+const (
+  OperatorPrecedenceComma          = innerast.OperatorPrecedenceComma
+  OperatorPrecedenceSpread         = innerast.OperatorPrecedenceSpread
+  OperatorPrecedenceYield          = innerast.OperatorPrecedenceYield
+  OperatorPrecedenceAssignment     = innerast.OperatorPrecedenceAssignment
+  OperatorPrecedenceConditional    = innerast.OperatorPrecedenceConditional
+  OperatorPrecedenceLogicalOR      = innerast.OperatorPrecedenceLogicalOR
+  OperatorPrecedenceLogicalAND     = innerast.OperatorPrecedenceLogicalAND
+  OperatorPrecedenceBitwiseOR      = innerast.OperatorPrecedenceBitwiseOR
+  OperatorPrecedenceBitwiseXOR     = innerast.OperatorPrecedenceBitwiseXOR
+  OperatorPrecedenceBitwiseAND     = innerast.OperatorPrecedenceBitwiseAND
+  OperatorPrecedenceEquality       = innerast.OperatorPrecedenceEquality
+  OperatorPrecedenceRelational     = innerast.OperatorPrecedenceRelational
+  OperatorPrecedenceShift          = innerast.OperatorPrecedenceShift
+  OperatorPrecedenceAdditive       = innerast.OperatorPrecedenceAdditive
+  OperatorPrecedenceMultiplicative = innerast.OperatorPrecedenceMultiplicative
+  OperatorPrecedenceExponentiation = innerast.OperatorPrecedenceExponentiation
+  OperatorPrecedenceUnary          = innerast.OperatorPrecedenceUnary
+  OperatorPrecedenceUpdate         = innerast.OperatorPrecedenceUpdate
+  OperatorPrecedenceLeftHandSide   = innerast.OperatorPrecedenceLeftHandSide
+  OperatorPrecedenceOptionalChain  = innerast.OperatorPrecedenceOptionalChain
+  OperatorPrecedenceMember         = innerast.OperatorPrecedenceMember
+  OperatorPrecedencePrimary        = innerast.OperatorPrecedencePrimary
+  OperatorPrecedenceParentheses    = innerast.OperatorPrecedenceParentheses
+  OperatorPrecedenceLowest         = innerast.OperatorPrecedenceLowest
+  OperatorPrecedenceHighest        = innerast.OperatorPrecedenceHighest
+  OperatorPrecedenceDisallowComma  = innerast.OperatorPrecedenceDisallowComma
+  OperatorPrecedenceCoalesce       = innerast.OperatorPrecedenceCoalesce
+  OperatorPrecedenceInvalid        = innerast.OperatorPrecedenceInvalid
+)
+
 // NewNodeFactory creates an AST node factory with the supplied creation hooks.
 // Pass a zero-value NodeFactoryHooks to get the default factory behaviour.
 func NewNodeFactory(options NodeFactoryHooks) *NodeFactory {
@@ -193,6 +229,14 @@ func NewNodeVisitor(visit func(node *Node) *Node, factory *NodeFactory, options 
 // such as variable statements and their declaration lists.
 func GetCombinedModifierFlags(node *Node) ModifierFlags {
   return innerast.GetCombinedModifierFlags(node)
+}
+
+// GetExpressionPrecedence returns the operator precedence of an expression
+// node — the level at which it binds relative to a surrounding expression.
+// Callers compare it against an OperatorPrecedence floor to decide whether a
+// textual splice of the expression into a new position needs parentheses.
+func GetExpressionPrecedence(expression *Expression) OperatorPrecedence {
+  return innerast.GetExpressionPrecedence(expression)
 }
 
 // IsFunctionLike reports whether node is any function-like construct
