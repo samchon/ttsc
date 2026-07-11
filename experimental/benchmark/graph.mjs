@@ -74,7 +74,7 @@ const PROJECTS = {
     tsconfig: "tsconfig.graph.json",
   },
   typeorm: {
-    repoName: "typeorm",
+    repoName: "ttsc-benchmark-typeorm",
     tsconfig: "tsconfig.json",
   },
   zod: {
