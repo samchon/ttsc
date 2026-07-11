@@ -18,6 +18,8 @@ import { param, ref } from "../../internal/helpers";
  * 2. Assert the broken layout carries no comma after the rest parameter.
  * 3. Print the same signature with a plain last parameter; assert its trailing
  *    comma is kept.
+ * 4. Print a signature whose only parameter is the rest; assert the broken
+ *    single-element layout drops the comma too.
  */
 export const test_params_break_rest_no_trailing_comma = (): void => {
   const tiny = new TsPrinter({ printWidth: 20 });
@@ -63,5 +65,29 @@ export const test_params_break_rest_no_trailing_comma = (): void => {
       "  last: Last[],",
       ") {}",
     ].join("\n"),
+  );
+  TestValidator.equals(
+    "only-rest single element drops trailing comma",
+    tiny.print(
+      factory.createFunctionDeclaration(
+        undefined,
+        undefined,
+        "gather",
+        undefined,
+        [
+          factory.createParameterDeclaration(
+            undefined,
+            factory.createToken(SyntaxKind.DotDotDotToken),
+            "everything",
+            undefined,
+            factory.createArrayTypeNode(ref("Item")),
+            undefined,
+          ),
+        ],
+        undefined,
+        factory.createBlock([], false),
+      ),
+    ),
+    ["function gather(", "  ...everything: Item[]", ") {}"].join("\n"),
   );
 };
