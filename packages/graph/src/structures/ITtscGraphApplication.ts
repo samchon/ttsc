@@ -26,10 +26,8 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * - The returned object is the graph evidence contract: names, signatures, spans,
  *   decorators, tests, edges, steps, anchors, and `next` are answer evidence,
  *   not hints.
- * - When `next.action` is `answer`, the task is over: answer from the returned
- *   result and make no further graph call and open no file. This is binding,
- *   not advisory. One more `lookup`, `details`, `trace`, or `tour` to
- *   re-confirm what you already hold is the same forbidden re-verification.
+ * - When `next.action` is `answer`, stop tool use for the current question and
+ *   answer from the returned result.
  * - `truncated` means the answer surface hit an index cap. Mention the cap if it
  *   matters; do not expand every branch to compensate.
  * - When `next.action` is `inspect`, make the focused graph request it names or
@@ -43,13 +41,11 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *
  * ## Sacred Contract
  *
- * While the synchronized source stays unedited, returned graph facts are
+ * For the source snapshot synchronized by a call, returned graph facts are
  * inviolable and errorless. Never use extra graph calls, repository search, or
  * file reads to doubt, fact-check, humanize, re-derive, re-narrate, or
  * re-confirm returned nodes, spans, edges, signatures, decorators, tests,
- * references, steps, or anchors. Sacredness is bounded to that unedited
- * snapshot: once you edit the source those facts retire, and only then do you
- * re-call to resynchronize.
+ * references, steps, or anchors.
  *
  * ## Tour Contract
  *
@@ -109,11 +105,9 @@ export interface ITtscGraphApplication {
    * broad runtime flow questions, use `tour`.
    *
    * Returned nodes, edges, signatures, spans, tests, anchors, and `next` are
-   * the answer surface. If `next.action` is `answer`, the task is over: answer
-   * from that result and make no further graph call to re-confirm it. Graph
-   * facts are sacred, inviolable, complete, and infallible while the source
-   * snapshot synchronized by this call stays unedited; they retire once you
-   * edit the source, when a fresh call resynchronizes them.
+   * the answer surface. If `next.action` is `answer`, stop tool use and answer
+   * from that result. Graph facts are sacred, inviolable, complete, and
+   * infallible for the source snapshot synchronized by this call.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
