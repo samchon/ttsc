@@ -69,7 +69,7 @@ One quote style throughout. Pick `"double"` (default) or `"single"`. Backticks a
 
 ### `arrowParens`
 
-Parentheses around a single arrow-function parameter. `"always"` (default) keeps `(x) => x`; `"avoid"` strips the parens of a single bare-identifier parameter, giving `x => x`. A typed, destructured, rest, optional, defaulted, or multi-parameter list keeps its parentheses in both modes. Driven by `format.arrowParens`.
+Parentheses around a single arrow-function parameter. `"always"` (default) keeps `(x) => x`; `"avoid"` strips the parens of a single bare-identifier parameter, giving `x => x`. A legal trailing comma counts as parenthesized: `"always"` leaves `(x,) => x` untouched, while `"avoid"` removes the comma together with the parens (`x => x`, matching Prettier). A typed, destructured, rest, optional, defaulted, or multi-parameter list keeps its parentheses in both modes, and a parameter carrying a comment is left alone. Driven by `format.arrowParens`.
 
 ### `bracketSpacing`
 
