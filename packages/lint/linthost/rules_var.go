@@ -47,7 +47,7 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 // Five corruption holes were patched piecemeal here before (var-vs-var,
 // for-header var, function/class redeclaration, mixed destructuring sibling,
 // object-literal shorthand, use-before-declaration). That whack-a-mole is
-// replaced by one conservative rule with four preconditions; the fix is
+// replaced by one conservative rule with five preconditions; the fix is
 // emitted only if ALL hold:
 //
 //  1. Single binding in the whole file. The declared name is introduced by
@@ -87,6 +87,13 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     every closure shares ONE `var` binding but would capture a FRESH
 //     per-iteration `let` binding — the rewrite silently changes runtime
 //     results. Mirrors ESLint no-var's isReferencedInClosure loop check.
+//  5. Not declared under a `with` statement. `var` hoists PAST the with body
+//     to the function scope, so references inside the body resolve through
+//     the with object first (`o.x` shadows the var when present); `let`
+//     stays inside the body's block scope, where it shadows the with object
+//     instead. The rewrite can flip which binding every reference hits, so
+//     any var with a WithStatement ancestor below the nearest function
+//     boundary declines.
 //
 // The var statement being fixed must itself be a single plain identifier
 // declarator so the keyword rewrite has a simple `let x` rename target; a
@@ -121,6 +128,13 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
     return false
   }
   scopeStart, scopeEnd := scopeNode.Pos(), scopeNode.End()
+
+  // Precondition 5: a `var` declared under a `with` statement resolves its
+  // references through the with object; the block-scoped `let` would shadow
+  // that object instead, so the rewrite declines outright.
+  if isDeclaredInsideWithStatement(node) {
+    return false
+  }
 
   // Precondition 4 setup: the outermost loop enclosing the statement without
   // an intervening function boundary. nil when the statement is not
@@ -236,6 +250,26 @@ func isFunctionCaptureBoundary(node *shimast.Node) bool {
     shimast.KindSetAccessor,
     shimast.KindClassStaticBlockDeclaration:
     return true
+  }
+  return false
+}
+
+// isDeclaredInsideWithStatement reports whether the statement has a
+// WithStatement ancestor below the nearest function boundary. Under `var`
+// the binding hoists past the with body to the function scope, so a
+// same-name property on the with target intercepts every reference; under
+// `let` the binding lives inside the body's block and shadows the with
+// object instead. A function boundary resets the risk: a `var` inside a
+// function nested in the with body binds tighter than the with object
+// either way.
+func isDeclaredInsideWithStatement(node *shimast.Node) bool {
+  for ancestor := node.Parent; ancestor != nil; ancestor = ancestor.Parent {
+    if isFunctionCaptureBoundary(ancestor) {
+      return false
+    }
+    if ancestor.Kind == shimast.KindWithStatement {
+      return true
+    }
   }
   return false
 }
