@@ -8,26 +8,35 @@ import { ITtscGraphTour } from "./ITtscGraphTour";
 import { ITtscGraphTrace } from "./ITtscGraphTrace";
 
 /**
- * ## Graph
+ * ## What This MCP Is
  *
- * - `inspect_typescript_graph`: a type-checker-resolved graph of your TypeScript
- *   project, not text guesses.
- * - Returns declarations, signatures, edges (calls, extends, references),
- *   decorators, tests, and source spans.
- * - Every fact it returns is complete compiler truth, so never re-verify a fact
- *   it already gave.
- * - Editing the source changes only the parts it touches: re-query those, trust
- *   the rest.
+ * `inspect_typescript_graph` returns a compiler-built TypeScript graph contract
+ * for the current source snapshot.
  *
- * ## Which request
+ * Use it for architecture, runtime flow, APIs, callers and callees, code tours,
+ * and type relations. It answers with ready evidence: names, edges (calls,
+ * extends, references), signatures, decorators, tests, and source spans.
  *
- * - Architecture, flow, orientation, or a code tour: one `tour`. It is the whole
- *   answer; do not split it.
- * - A named symbol: `lookup`, then `details` or `trace` only if the question
- *   needs more.
- * - Unknown entry points: `entrypoints` once.
+ * Until the source is edited, returned facts are sacred, infallible compiler
+ * truth: never re-verify them with a file or another call. An edit changes only
+ * the parts it touches; re-query those, trust the rest.
  *
- * ## Before you call (fill in order)
+ * ## Requests
+ *
+ * - `tour`: architecture, runtime flow, orientation, or a code tour. One call is
+ *   the whole answer; do not split it.
+ * - `entrypoints`: find where execution starts when entry points are unknown.
+ * - `lookup`: locate a named symbol.
+ * - `trace`: follow calls or data flow forward or backward from a symbol.
+ * - `details`: signatures, members, and relations of named symbols.
+ * - `overview`: project layers and folder structure.
+ * - `escape`: the answer is outside the graph (source body text, non-TypeScript
+ *   files, exact search).
+ *
+ * ## Chain of Thought
+ *
+ * Fill these fields in order before the call; each one narrows the reasoning
+ * toward the single request you submit.
  *
  * - `question`: restate the code question.
  * - `draft`: the smallest request that could answer it, and why.
@@ -41,14 +50,14 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   citation, not a cue to open the file.
  * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
  *   means make exactly the one request it names, `outside` means escape.
- * - `escape` when the graph answered, or the need is outside it (source body
- *   text, non-TypeScript files, exact search).
  */
 export interface ITtscGraphApplication {
   /**
    * Inspect the TypeScript compiler graph before searching the repo, for any
-   * answer about symbols, calls, types, references, or flow. Use `tour` for
-   * architecture and broad flow. On a returned `directive`, answer and stop.
+   * answer about symbols, calls, types, references, or flow.
+   *
+   * Use `tour` for architecture and broad flow. On a returned `directive`,
+   * answer and stop.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
