@@ -28,9 +28,13 @@ export const RUNTIME_SOURCE_MAP_TSGO_FLAGS: readonly string[] = [
 /** Rewritten served text keyed by emitted file, so the work runs once per run. */
 const inlineCache = new Map<string, string>();
 
-/** Trailing `//# sourceMappingURL=<url>` (or legacy `//@`) magic comment. */
-const SOURCE_MAPPING_URL =
-  /\/\/[#@] sourceMappingURL=([^\r\n]*)[ \t]*(?:\r?\n)?$/;
+/**
+ * Trailing `//# sourceMappingURL=<url>` (or legacy `//@`) magic comment.
+ * Anchored at end of text through any trailing whitespace, so it matches the
+ * last comment whether tsgo emitted it with a newline, none, or a CRLF line
+ * ending.
+ */
+const SOURCE_MAPPING_URL = /\/\/[#@] sourceMappingURL=([^\r\n]*)[ \t\r\n]*$/;
 
 /**
  * Replace a served emit's trailing external `//# sourceMappingURL=<relative>`
