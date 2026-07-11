@@ -1198,17 +1198,24 @@ func concatChainShape(node *shimast.Node) (hasString bool, hasOther bool) {
 }
 
 // flattenConcatOperands walks a `+` chain left-to-right and returns each
-// leaf operand in source order. Parenthesized sub-expressions are kept as
-// a single operand so the rendered template literal does not lose their
-// grouping. Mirrors ESLint's behavior of treating `("a" + b)` as one
-// expression slot when it appears inside a larger chain.
+// leaf operand in source order. It only descends into a `+` subtree that
+// itself contains a string-like operand (see
+// concatChainContainsString): a subtree without one — the `a + b` in
+// `a + b + " items"` — evaluates BEFORE any string concatenation, so
+// splitting it into separate `${a}${b}` slots would change the runtime
+// value (numeric 3 becomes the digits "12"). Such a subtree stays one
+// operand and renders as a single `${a + b}` slot, mirroring upstream
+// ESLint prefer-template, which embeds non-string sub-chains as one
+// expression. Parenthesized sub-expressions are likewise kept as a
+// single operand so the rendered template literal does not lose their
+// grouping.
 func flattenConcatOperands(node *shimast.Node) []*shimast.Node {
   if node == nil {
     return nil
   }
   if node.Kind == shimast.KindBinaryExpression {
     bin := node.AsBinaryExpression()
-    if bin != nil && bin.OperatorToken != nil && bin.OperatorToken.Kind == shimast.KindPlusToken {
+    if bin != nil && bin.OperatorToken != nil && bin.OperatorToken.Kind == shimast.KindPlusToken && concatChainContainsString(node) {
       out := flattenConcatOperands(bin.Left)
       out = append(out, flattenConcatOperands(bin.Right)...)
       return out
@@ -1217,17 +1224,58 @@ func flattenConcatOperands(node *shimast.Node) []*shimast.Node {
   return []*shimast.Node{node}
 }
 
+// concatChainContainsString reports whether a `+` chain (or a single
+// operand) contains a string-like operand: a string literal, a template
+// literal (with or without substitutions), or a nested `+` chain that
+// itself contains one. This is the flattening gate for
+// flattenConcatOperands. Once a string-like operand appears in a
+// left-associative chain, every later `+` is string concatenation, so
+// splitting the chain into template segments preserves the value; a
+// chain with none may be numeric addition and must stay whole.
+func concatChainContainsString(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  if node.Kind == shimast.KindBinaryExpression {
+    bin := node.AsBinaryExpression()
+    if bin != nil && bin.OperatorToken != nil && bin.OperatorToken.Kind == shimast.KindPlusToken {
+      return concatChainContainsString(bin.Left) || concatChainContainsString(bin.Right)
+    }
+  }
+  inner := stripParens(node)
+  if inner == nil {
+    return false
+  }
+  return isStringLikeLiteral(inner) || inner.Kind == shimast.KindTemplateExpression
+}
+
 // renderConcatAsTemplate renders the flattened concat operands as a single
 // backtick template literal. String-like literals contribute their value
 // directly (with template-specific escaping); any other expression becomes
 // a `${…}` placeholder copied verbatim from the source text. Returns ok=false
 // when an operand cannot be rendered (typically because its source range is
 // unavailable), so the caller falls back to detection-only.
+//
+// Adjacent literal operands are merged into one cooked run BEFORE
+// escaping. Escaping each literal on its own cannot see across the seam,
+// so `"$" + "{"` would emit `$` then `{` — fusing into a live `${`
+// interpolation opener in the rendered template. Escaping the merged run
+// makes escapeTemplateLiteralBody's `${` lookahead total over the body.
+// The only other seam, a literal's trailing `$` followed by an emitted
+// `${…}` placeholder, is safe: `$${expr}` parses as a literal `$` plus
+// the interpolation, which matches the original `"$" + expr` value.
 func renderConcatAsTemplate(src string, operands []*shimast.Node) (string, bool) {
   if len(operands) == 0 {
     return "", false
   }
   var sb strings.Builder
+  var literal strings.Builder
+  flushLiteral := func() {
+    if literal.Len() > 0 {
+      sb.WriteString(escapeTemplateLiteralBody(literal.String()))
+      literal.Reset()
+    }
+  }
   sb.WriteByte('`')
   for _, operand := range operands {
     if operand == nil {
@@ -1235,7 +1283,7 @@ func renderConcatAsTemplate(src string, operands []*shimast.Node) (string, bool)
     }
     inner := stripParens(operand)
     if isStringLikeLiteral(inner) {
-      sb.WriteString(escapeTemplateLiteralBody(stringLiteralText(inner)))
+      literal.WriteString(stringLiteralText(inner))
       continue
     }
     pos := shimscanner.SkipTrivia(src, operand.Pos())
@@ -1243,10 +1291,12 @@ func renderConcatAsTemplate(src string, operands []*shimast.Node) (string, bool)
     if pos < 0 || pos >= end || end > len(src) {
       return "", false
     }
+    flushLiteral()
     sb.WriteString("${")
     sb.WriteString(src[pos:end])
     sb.WriteByte('}')
   }
+  flushLiteral()
   sb.WriteByte('`')
   return sb.String(), true
 }
