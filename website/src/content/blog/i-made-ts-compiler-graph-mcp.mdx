@@ -87,7 +87,7 @@ export interface ITtscGraphApplication {
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): ITtscGraphApplication.IResult;
+  ): ITtscGraphApplication.IOutput;
 }
 
 export namespace ITtscGraphApplication {
@@ -233,7 +233,7 @@ export interface ITtscGraphApplication {
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): ITtscGraphApplication.IResult;
+  ): ITtscGraphApplication.IOutput;
 }
 
 export namespace ITtscGraphApplication {
@@ -259,8 +259,9 @@ export namespace ITtscGraphApplication {
   }
 
   // The selected request's result; `result.type` mirrors `request.type`.
-  export interface IResult {
+  export interface IOutput {
     directive: string; // read first: an unedited result is complete, so answer and re-verify nothing
+    next: ITtscGraphNext; // what to do with result: answer, inspect one named request, or escape
     result:
       | ITtscGraphEntrypoints
       | ITtscGraphLookup

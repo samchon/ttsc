@@ -59,9 +59,10 @@ The interactive charts, every model, and the method are on the benchmark page: h
  *   project, not text guesses.
  * - Returns declarations, signatures, edges (calls, extends, references),
  *   decorators, tests, and source spans.
- * - The graph does not change until you edit the source. Until then every
- *   returned fact is complete compiler truth: trust it, and never re-verify
- *   with a file or another call.
+ * - Every fact it returns is complete compiler truth, so never re-verify a fact
+ *   it already gave.
+ * - Editing the source changes only the parts it touches: re-query those, trust
+ *   the rest.
  *
  * ## Which request
  *
@@ -83,10 +84,10 @@ The interactive charts, every model, and the method are on the benchmark page: h
  *
  * - A returned result is the whole answer: answer from it and stop. A span is a
  *   citation, not a cue to open the file.
+ * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
+ *   means make exactly the one request it names, `outside` means escape.
  * - `escape` when the graph answered, or the need is outside it (source body
  *   text, non-TypeScript files, exact search).
- * - Only a source edit changes the graph. Until you edit, one call fully answers
- *   the question; after an edit, earlier facts no longer hold, so call again.
  */
 export interface ITtscGraphApplication {
   /**
@@ -99,7 +100,7 @@ export interface ITtscGraphApplication {
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): Promise<ITtscGraphApplication.IResult>;
+  ): Promise<ITtscGraphApplication.IOutput>;
 }
 
 export namespace ITtscGraphApplication {
@@ -138,12 +139,15 @@ export namespace ITtscGraphApplication {
   }
 
   /** The selected request's output. `result.type` mirrors `request.type`. */
-  export interface IResult {
+  export interface IOutput {
     /**
      * Read first: an unedited compiler result is complete and errorless, so on
      * a returned result, answer and re-verify nothing.
      */
     directive: string;
+
+    /** What to do with `result`: answer, inspect one named request, or escape. */
+    next: ITtscGraphNext;
 
     /** Result branch matching the submitted `request.type`. */
     result:
