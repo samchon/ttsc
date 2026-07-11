@@ -2,6 +2,7 @@ import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphOverview } from "../structures/ITtscGraphOverview";
 import { isPublicApiNoisePath, isSupportPath } from "./pathPolicy";
+import { IRunnerOutput, resultNext } from "./resultNext";
 
 /** Edges that express nesting/packaging, not code dependency. */
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
@@ -16,7 +17,7 @@ const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 export function runOverview(
   graph: TtscGraphMemory,
   props: ITtscGraphOverview.IRequest,
-): ITtscGraphOverview {
+): IRunnerOutput<ITtscGraphOverview> {
   const aspect = props.aspect ?? "all";
   const want = (a: ITtscGraphOverview.IRequest["aspect"]): boolean =>
     aspect === "all" || aspect === a;
@@ -41,7 +42,13 @@ export function runOverview(
   if (want("layers")) result.layers = layers(graph);
   if (want("hotspots")) result.hotspots = hotspots(graph);
   if (want("publicApi")) result.publicApi = publicApi(graph);
-  return result;
+  return {
+    result,
+    next: resultNext(
+      "answer",
+      "Counts, layers, hotspots, and public API are the broad orientation answer.",
+    ),
+  };
 }
 
 /** Folder-level layering: how source and its export surface spread by directory. */

@@ -2,6 +2,7 @@ import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphLookup } from "../structures/ITtscGraphLookup";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { isExternalNode, isSupportPath } from "./pathPolicy";
+import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, signatureOf } from "./runDetails";
 
 // One file should not crowd out the rest of the ranking, so cap hits per file.
@@ -19,7 +20,7 @@ const MAX_LIMIT = 6;
 export function runLookup(
   graph: TtscGraphMemory,
   props: ITtscGraphLookup.IRequest,
-): ITtscGraphLookup {
+): IRunnerOutput<ITtscGraphLookup> {
   const terms = subwords(props.query);
   const codeTerms = exactCodeTerms(props.query);
   const requestedKinds = requestedSymbolKinds(props.query);
@@ -29,8 +30,14 @@ export function runLookup(
   const includeExternal = props.includeExternal === true;
   if (terms.length === 0)
     return {
-      type: "lookup",
-      hits: [],
+      result: {
+        type: "lookup",
+        hits: [],
+      },
+      next: resultNext(
+        "clarify",
+        "The query has no searchable terms; restate it with a concrete symbol or scope.",
+      ),
     };
 
   const scored: ITtscGraphLookup.IHit[] = [];
@@ -84,8 +91,20 @@ export function runLookup(
     if (sig !== undefined) hit.signature = sig;
   }
   return {
-    type: "lookup",
-    hits,
+    result: {
+      type: "lookup",
+      hits,
+    },
+    next:
+      hits.length === 0
+        ? resultNext(
+            "outside",
+            "No symbol matched; answer that the graph did not resolve this name, or read source.",
+          )
+        : resultNext(
+            "answer",
+            "The ranked hits and their signatures resolve the name; answer from them.",
+          ),
   };
 }
 

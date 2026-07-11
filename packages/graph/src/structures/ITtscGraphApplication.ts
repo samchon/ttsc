@@ -2,6 +2,7 @@ import { ITtscGraphDetails } from "./ITtscGraphDetails";
 import { ITtscGraphEntrypoints } from "./ITtscGraphEntrypoints";
 import { ITtscGraphEscape } from "./ITtscGraphEscape";
 import { ITtscGraphLookup } from "./ITtscGraphLookup";
+import { ITtscGraphNext } from "./ITtscGraphNext";
 import { ITtscGraphOverview } from "./ITtscGraphOverview";
 import { ITtscGraphTour } from "./ITtscGraphTour";
 import { ITtscGraphTrace } from "./ITtscGraphTrace";
@@ -38,6 +39,8 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *
  * - A returned result is the whole answer: answer from it and stop. A span is a
  *   citation, not a cue to open the file.
+ * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
+ *   means make exactly the one request it names, `outside` means escape.
  * - `escape` when the graph answered, or the need is outside it (source body
  *   text, non-TypeScript files, exact search).
  */
@@ -52,7 +55,7 @@ export interface ITtscGraphApplication {
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): Promise<ITtscGraphApplication.IResult>;
+  ): Promise<ITtscGraphApplication.IOutput>;
 }
 
 export namespace ITtscGraphApplication {
@@ -91,12 +94,15 @@ export namespace ITtscGraphApplication {
   }
 
   /** The selected request's output. `result.type` mirrors `request.type`. */
-  export interface IResult {
+  export interface IOutput {
     /**
      * Read first: an unedited compiler result is complete and errorless, so on
      * a returned result, answer and re-verify nothing.
      */
     directive: string;
+
+    /** What to do with `result`: answer, inspect one named request, or escape. */
+    next: ITtscGraphNext;
 
     /** Result branch matching the submitted `request.type`. */
     result:
