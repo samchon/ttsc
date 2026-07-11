@@ -594,13 +594,24 @@ func originalEntry(d siDecl) siEntry {
 // renderMergedDecl folds a bucket of mergeable declarations into one statement.
 // It returns the rendered text, whether the merged result is a type-only import,
 // and an `ok` flag that is false when the declarations cannot be merged
-// (conflicting default names, or a type-only default that cannot survive in a
-// mixed value import).
+// (conflicting default names, a type-only default that cannot survive in a
+// mixed value import, a type-only default alongside named bindings, or a
+// bucket containing a namespace or comment-bearing declaration).
 func renderMergedDecl(group []siDecl, opts resolvedSortImportsOptions) (string, bool, bool) {
   mergedTypeOnly := true
   for _, d := range group {
     if !d.typeOnly {
       mergedTypeOnly = false
+    }
+    // Namespace bindings and comment-bearing declarations are never mergeable:
+    // the rebuilt statement carries no `* as ns` slot and would drop comment
+    // bytes. mergeKey normally isolates them in per-declaration buckets, but
+    // its key embeds the original text, so byte-identical declarations (a
+    // duplicate-binding error TypeScript reports later, which the parse-level
+    // formatter still sees) collide into one bucket. Refuse here so the
+    // originals are re-emitted verbatim instead of silently losing bindings.
+    if d.namespace || d.hasSpecComment {
+      return "", false, false
     }
   }
   defaultName := ""
@@ -622,6 +633,14 @@ func renderMergedDecl(group []siDecl, opts resolvedSortImportsOptions) (string, 
   }
   specs := collectMergedSpecs(group, mergedTypeOnly, opts.caseSensitive)
   if defaultName == "" && len(specs) == 0 {
+    return "", false, false
+  }
+  // A type-only import cannot carry both a default binding and named bindings:
+  // `import type D, { A } from "m"` is a syntax error (TS1363). Refuse the
+  // merge so the declarations stay separate. (A type-only default with an
+  // empty merged spec list still folds to `import type D from "m"`, which is
+  // legal.)
+  if mergedTypeOnly && defaultName != "" && len(specs) > 0 {
     return "", false, false
   }
 
