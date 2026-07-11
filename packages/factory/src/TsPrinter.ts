@@ -1639,13 +1639,30 @@ export class TsPrinter {
   }
 
   private newExpressionTarget(expression: Expression): Doc {
-    return expression.kind !== "CallExpression" &&
-      expression.kind !== "CallChain" &&
-      (expression.kind !== "NewExpression" ||
-        expression.arguments !== undefined) &&
-      this.isLeftHandSideExpression(expression)
-      ? this.emit(expression)
-      : this.parenthesizedExpression(expression);
+    return this.newExpressionTargetNeedsParentheses(expression)
+      ? this.parenthesizedExpression(expression)
+      : this.emit(expression);
+  }
+
+  /**
+   * Whether a `new` target must be parenthesized to keep its call arguments
+   * from re-binding to the `new` — mirroring the legacy printer's
+   * `parenthesizeExpressionOfNew`. A `new` target is grammatically a
+   * `MemberExpression`, so a call anywhere on the target's left spine (not just
+   * a direct one: `new (f().bar)()`, `new (a.b().c)()`) would otherwise
+   * re-parse with the call's arguments consumed by the `new` — a different
+   * program. Argument-less `new` on the spine is kept parenthesized for
+   * continuity with the direct case, though this printer always prints an
+   * argument list, which already disambiguates it.
+   */
+  private newExpressionTargetNeedsParentheses(expression: Expression): boolean {
+    if (!this.isLeftHandSideExpression(expression)) return true;
+    const leftmost: Expression = this.leftmostExpression(expression, true);
+    return (
+      leftmost.kind === "CallExpression" ||
+      leftmost.kind === "CallChain" ||
+      (leftmost.kind === "NewExpression" && leftmost.arguments === undefined)
+    );
   }
 
   private prefixUnaryOperand(operand: Expression, operator?: SyntaxKind): Doc {
@@ -1995,11 +2012,22 @@ export class TsPrinter {
     );
   }
 
-  private leftmostExpression(expression: Expression): Expression {
+  /**
+   * Walk to the expression's leftmost node — the one that starts its printed
+   * text. With `stopAtCall`, calls terminate the walk instead of being walked
+   * through, matching the legacy `getLeftmostExpression`'s
+   * `stopAtCallExpressions` mode used by the `new`-target parenthesizer.
+   */
+  private leftmostExpression(
+    expression: Expression,
+    stopAtCall: boolean = false,
+  ): Expression {
     switch (expression.kind) {
-      case "AsExpression":
       case "CallExpression":
       case "CallChain":
+        if (stopAtCall) return expression;
+        return this.leftmostExpression(expression.expression, stopAtCall);
+      case "AsExpression":
       case "ElementAccessExpression":
       case "ElementAccessChain":
       case "NonNullExpression":
@@ -2007,13 +2035,13 @@ export class TsPrinter {
       case "PropertyAccessExpression":
       case "PropertyAccessChain":
       case "SatisfiesExpression":
-        return this.leftmostExpression(expression.expression);
+        return this.leftmostExpression(expression.expression, stopAtCall);
       case "BinaryExpression":
-        return this.leftmostExpression(expression.left);
+        return this.leftmostExpression(expression.left, stopAtCall);
       case "ConditionalExpression":
-        return this.leftmostExpression(expression.condition);
+        return this.leftmostExpression(expression.condition, stopAtCall);
       case "TaggedTemplateExpression":
-        return this.leftmostExpression(expression.tag);
+        return this.leftmostExpression(expression.tag, stopAtCall);
       default:
         return expression;
     }
