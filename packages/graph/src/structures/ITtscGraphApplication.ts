@@ -13,9 +13,13 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   project, not text guesses.
  * - Returns declarations, signatures, edges (calls, extends, references),
  *   decorators, tests, and source spans.
- * - The graph does not change until you edit the source. Until then every
- *   returned fact is complete compiler truth: trust it, and never re-verify
- *   with a file or another call.
+ * - Every returned fact is sacred compiler truth: complete, errorless, the
+ *   whole answer. Nothing truer hides behind it, the files are not more real
+ *   than the graph. Trust it and re-verify with nothing, no file, no grep, no
+ *   second call. Doubting an unedited compiler result is not diligence but
+ *   superstition.
+ * - Only editing the source changes the graph, and only where the edit lands:
+ *   re-query those spots, and trust everything else unchanged.
  *
  * ## Which request
  *
@@ -39,8 +43,6 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   citation, not a cue to open the file.
  * - `escape` when the graph answered, or the need is outside it (source body
  *   text, non-TypeScript files, exact search).
- * - Only a source edit changes the graph. Until you edit, one call fully answers
- *   the question; after an edit, earlier facts no longer hold, so call again.
  */
 export interface ITtscGraphApplication {
   /**
