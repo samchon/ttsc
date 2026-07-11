@@ -76,6 +76,7 @@ Supported bundlers:
 - Webpack
 - Rspack
 - Next.js
+- Turbopack
 - Farm
 - Bun
 
@@ -127,7 +128,7 @@ See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode
 
 ### Coding Agents (MCP)
 
-`@ttsc/graph` gives a coding agent a checker-resolved map of your project, over MCP.
+`@ttsc/graph` gives a coding agent a checker-resolved graph of your project, over MCP.
 
 It answers what relates to a symbol and what a change affects, straight from the type checker, so the agent stops grepping and re-reading files.
 

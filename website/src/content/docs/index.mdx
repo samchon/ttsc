@@ -128,14 +128,36 @@ Supported bundlers:
 - Webpack
 - Rspack
 - Next.js
+- Turbopack
 - Farm
 - Bun
 
 See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin) for full setup and adapter options.
 
+### React Native / Expo
+
+React Native and Expo bundle with Metro, so the `ttsc` CLI and `@ttsc/unplugin` never run. `@ttsc/metro` is a Metro transformer that runs `ttsc` plugins on each TypeScript file, then hands the result to your existing Expo or React-Native Babel transformer.
+
+```bash
+npm install -D ttsc @ttsc/lint typescript
+npm install -D @ttsc/metro
+```
+
+Wrap your Metro config (CommonJS, the standard for `metro.config.js`):
+
+```js
+// metro.config.js (Expo)
+const { getDefaultConfig } = require("expo/metro-config");
+const { withTtsc } = require("@ttsc/metro");
+
+module.exports = withTtsc(getDefaultConfig(__dirname));
+```
+
+For bare React Native, wrap `getDefaultConfig` from `@react-native/metro-config` instead. See [`@ttsc/metro`](https://github.com/samchon/ttsc/tree/master/packages/metro) for options and the v1 caveats.
+
 ### Coding Agents (MCP)
 
-`@ttsc/graph` is an MCP server that gives a coding agent a map of your codebase.
+`@ttsc/graph` is an MCP server that gives a coding agent a graph of your codebase.
 
 It answers "what relates to this symbol" or "what does this change affect" straight from the type checker, so the agent stops grepping and re-reading files.
 
@@ -237,6 +259,7 @@ console.log(matched); // true
 - [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
 - [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.
+- [`@ttsc/metro`](https://github.com/samchon/ttsc/tree/master/packages/metro): runs `ttsc` plugins inside Metro for React Native and Expo.
 
 Plugin authors should start from the [`Guide Documents`](https://ttsc.dev/docs).
 
@@ -244,6 +267,47 @@ Ecosystem plugins are listed below; PRs adding `ttsc` plugins are welcome.
 
 - [`nestia`](https://github.com/samchon/nestia): generates NestJS routes, OpenAPI, and SDKs.
 - [`typia`](https://github.com/samchon/typia): generates validators, serializers, and type-driven runtime code.
+
+## Programmatic API
+
+Embed `ttsc` from another Node tool with the `TtscCompiler` class:
+
+```ts
+import { TtscCompiler } from "ttsc";
+
+const compiler = new TtscCompiler({ cwd: "./project" });
+const result = compiler.compile();
+
+if (result.type === "success") {
+  for (const [path, text] of Object.entries(result.output)) {
+    // path is project-relative ("dist/index.js", "dist/index.d.ts", ...)
+    console.log(path, text.length);
+  }
+} else if (result.type === "failure") {
+  for (const d of result.diagnostics) {
+    console.error(`${d.file}:${d.line}:${d.character} ${d.messageText}`);
+  }
+}
+```
+
+When one process transforms a project's files repeatedly (a watch server, an editor, a codegen tool), `TtscService` keeps the compiler host warm instead of recompiling per call. It compiles the project once, then answers per-file transform requests, and reflects in-memory edits through `updateFile`:
+
+```ts
+import { TtscService } from "ttsc";
+
+const service = new TtscService({ cwd: "./project" });
+try {
+  const code = await service.transformFile("src/index.ts");
+  await service.updateFile("src/index.ts", "export const x: number = 2;\n");
+  const next = await service.transformFile("src/index.ts");
+} finally {
+  service.dispose();
+}
+```
+
+`TtscService` runs through the linked-plugin host, so the project must declare at least one transform-stage plugin.
+
+See the [Programmatic API guide](/docs/ttsc/api) for the full lifecycle, plugin overrides, and patterns. For browser embedding, see [`@ttsc/wasm`](https://github.com/samchon/ttsc/tree/master/packages/wasm) and the higher-level [`@ttsc/playground`](https://github.com/samchon/ttsc/tree/master/packages/playground) package.
 
 ## Sponsors
 
