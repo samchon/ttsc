@@ -129,8 +129,10 @@ export function main(): void {
     }
   }
   // The dump carries no ceremony keys: it is wholly checker-resolved, so it has
-  // no per-edge trust flags and no schema version to negotiate.
-  for _, gone := range []string{`"schemaVersion"`, `"provenance":`, `"confidence":`, `"text":`} {
+  // no per-edge trust flags and no schema version to negotiate. It also carries
+  // no keys the schema stopped promising: no inlined evidence text and no
+  // diagnostics array.
+  for _, gone := range []string{`"schemaVersion"`, `"provenance":`, `"confidence":`, `"text":`, `"diagnostics":`} {
     if strings.Contains(s, gone) {
       t.Fatalf("dump still emits removed key %s:\n%s", gone, s)
     }
