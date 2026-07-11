@@ -9,6 +9,7 @@ import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { isExternalNode } from "./pathPolicy";
 import { resolveGraphHandle } from "./resolveHandle";
+import { IRunnerOutput, resultNext } from "./resultNext";
 
 // A signature is the declaration head up to the body brace: a handful of lines.
 const MAX_SIGNATURE_LINES = 4;
@@ -43,7 +44,7 @@ const CONTAINER_KINDS = new Set<string>([
 export function runDetails(
   graph: TtscGraphMemory,
   props: ITtscGraphDetails.IRequest,
-): ITtscGraphDetails {
+): IRunnerOutput<ITtscGraphDetails> {
   const neighborLimit = bound(
     props.neighborLimit,
     DEFAULT_NEIGHBORS,
@@ -147,9 +148,21 @@ export function runDetails(
     nodes.push(detail);
   }
   return {
-    type: "details",
-    nodes,
-    unknown,
+    result: {
+      type: "details",
+      nodes,
+      unknown,
+    },
+    next:
+      nodes.length === 0
+        ? resultNext(
+            "outside",
+            "No handle resolved to a node; answer that the graph has nothing for them, or read source.",
+          )
+        : resultNext(
+            "answer",
+            "The signatures, members, dependencies, and sourceSpan anchors are the selected-symbol answer.",
+          ),
   };
 }
 

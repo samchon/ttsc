@@ -29,6 +29,24 @@ const callGraphJson = <T>(result: ToolResult): T => {
   }
 };
 
+interface GraphNext {
+  action: "answer" | "inspect" | "outside" | "clarify";
+  request?: string;
+  reason: string;
+}
+
+const callGraphNext = (result: ToolResult): GraphNext => {
+  const value = callJson<{ next?: GraphNext }>(result);
+  if (
+    value.next === undefined ||
+    typeof value.next.action !== "string" ||
+    typeof value.next.reason !== "string"
+  ) {
+    throw new Error(`Missing wrapper next: ${JSON.stringify(value)}`);
+  }
+  return value.next;
+};
+
 const GRAPH_TOOL_NAME = "inspect_typescript_graph";
 
 type GraphRequestType =
@@ -190,6 +208,18 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
   };
 
   await withClient(async (client) => {
+    const skipRaw = (await client.request("tools/call", {
+      name: GRAPH_TOOL_NAME,
+      arguments: graphArguments({
+        thinking:
+          "The question has already been answered by prior evidence, so no graph operation should run.",
+        request: {
+          type: "escape",
+          reason: "No additional TypeScript graph evidence is needed.",
+          nextStep: "Answer from the existing evidence.",
+        },
+      }),
+    })) as ToolResult;
     const skip = callJson<{
       result?: {
         type?: string;
@@ -197,20 +227,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         reason?: string;
         nextStep?: string;
       };
-    }>(
-      (await client.request("tools/call", {
-        name: GRAPH_TOOL_NAME,
-        arguments: graphArguments({
-          thinking:
-            "The question has already been answered by prior evidence, so no graph operation should run.",
-          request: {
-            type: "escape",
-            reason: "No additional TypeScript graph evidence is needed.",
-            nextStep: "Answer from the existing evidence.",
-          },
-        }),
-      })) as ToolResult,
-    );
+    }>(skipRaw);
     assert.equal(
       skip.result?.type,
       "escape",
@@ -221,9 +238,26 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       true,
       `escape marks the operation skipped: ${JSON.stringify(skip)}`,
     );
+    assert.equal(
+      callGraphNext(skipRaw).action,
+      "outside",
+      `escape carries an outside wrapper next: ${JSON.stringify(callGraphNext(skipRaw))}`,
+    );
 
     // entrypoints: the first source-free result resolves direct handles and
     // nearby dependency context.
+    const entrypointsRaw = (await client.request("tools/call", {
+      name: GRAPH_TOOL_NAME,
+      arguments: graphArguments({
+        thinking:
+          "Find source-free starting handles before tracing Service.run to helper.",
+        request: {
+          type: "entrypoints",
+          query: "how Service.run reaches helper",
+          neighbors: 1,
+        },
+      }),
+    })) as ToolResult;
     const entrypoints = callGraphJson<{
       hits: {
         id: string;
@@ -239,19 +273,12 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
           evidence?: { file?: string; startLine?: number; text?: string };
         }[];
       }[];
-    }>(
-      (await client.request("tools/call", {
-        name: GRAPH_TOOL_NAME,
-        arguments: graphArguments({
-          thinking:
-            "Find source-free starting handles before tracing Service.run to helper.",
-          request: {
-            type: "entrypoints",
-            query: "how Service.run reaches helper",
-            neighbors: 1,
-          },
-        }),
-      })) as ToolResult,
+    }>(entrypointsRaw);
+    const entrypointsNext = callGraphNext(entrypointsRaw);
+    assert.ok(
+      entrypointsNext.action === "inspect" &&
+        entrypointsNext.request === "trace",
+      `entrypoints returns an inspect/trace wrapper next: ${JSON.stringify(entrypointsNext)}`,
     );
     assert.ok(
       entrypoints.hits.some(
@@ -356,20 +383,24 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
 
     // overview: a compact architecture map with real counts.
+    const overviewRaw = (await client.request("tools/call", {
+      name: GRAPH_TOOL_NAME,
+      arguments: graphArguments({
+        thinking: "Summarize project shape from graph index facts.",
+        request: {
+          type: "overview",
+          aspect: "all",
+        },
+      }),
+    })) as ToolResult;
     const overview = callGraphJson<{
       counts: { nodes: number; byKind: Record<string, number> };
       publicApi?: { id: string; name: string; line?: number }[];
-    }>(
-      (await client.request("tools/call", {
-        name: GRAPH_TOOL_NAME,
-        arguments: graphArguments({
-          thinking: "Summarize project shape from graph index facts.",
-          request: {
-            type: "overview",
-            aspect: "all",
-          },
-        }),
-      })) as ToolResult,
+    }>(overviewRaw);
+    assert.equal(
+      callGraphNext(overviewRaw).action,
+      "answer",
+      `overview carries an answer wrapper next: ${JSON.stringify(callGraphNext(overviewRaw))}`,
     );
     const byKind = overview.counts.byKind;
     assert.ok(
@@ -389,22 +420,26 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
 
     // lookup: finds Service by name and ranks explicit method queries.
+    const lookupRaw = (await client.request("tools/call", {
+      name: GRAPH_TOOL_NAME,
+      arguments: graphArguments({
+        thinking: "Look up Service by exact symbol name.",
+        request: {
+          type: "lookup",
+          query: "Service",
+        },
+      }),
+    })) as ToolResult;
     const lookup = callGraphJson<{
       hits: { id: string; name: string; kind: string }[];
-    }>(
-      (await client.request("tools/call", {
-        name: GRAPH_TOOL_NAME,
-        arguments: graphArguments({
-          thinking: "Look up Service by exact symbol name.",
-          request: {
-            type: "lookup",
-            query: "Service",
-          },
-        }),
-      })) as ToolResult,
-    );
+    }>(lookupRaw);
     const service = lookup.hits.find((hit) => hit.name === "Service");
     assert.ok(service, `lookup finds Service: ${JSON.stringify(lookup.hits)}`);
+    assert.equal(
+      callGraphNext(lookupRaw).action,
+      "answer",
+      `a resolved lookup carries an answer wrapper next: ${JSON.stringify(callGraphNext(lookupRaw))}`,
+    );
     const methodQuery = callGraphJson<{
       hits: { name: string; kind: string }[];
     }>(

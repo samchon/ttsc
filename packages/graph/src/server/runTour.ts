@@ -6,6 +6,7 @@ import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTour } from "../structures/ITtscGraphTour";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { isSupportPath, isTestPath } from "./pathPolicy";
+import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
 import { runTrace } from "./runTrace";
@@ -110,7 +111,7 @@ const QUERY_STOP_WORDS = new Set<string>([
 export function runTour(
   graph: TtscGraphMemory,
   props: ITtscGraphTour.IRequest,
-): ITtscGraphTour {
+): IRunnerOutput<ITtscGraphTour> {
   const query = props.query.trim();
   const limit = bound(props.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
   const entry = runEntrypoints(graph, {
@@ -118,7 +119,7 @@ export function runTour(
     query,
     limit,
     neighbors: 1,
-  });
+  }).result;
   const seeds = tourSeedsOf(graph, entry, query, limit);
   const seedIds = seeds.map((node) => node.id);
   const flowSeedIds = flowSeedIdsOf(seeds);
@@ -133,7 +134,7 @@ export function runTour(
       focus: "execution",
       maxDepth: TOUR_TRACE_MAX_DEPTH,
       maxNodes: TOUR_TRACE_MAX_NODES,
-    });
+    }).result;
     const start = trace.start;
     if (start === undefined) continue;
     const hops = trace.hops.filter((hop) => isTourHop(graph, hop));
@@ -159,7 +160,7 @@ export function runTour(
           memberLimit: 4,
           dependencyLimit: 2,
           neighborLimit: 2,
-        });
+        }).result;
   const nearby = details === undefined ? [] : nearbyAnchorsOf(details);
 
   const tests =
@@ -184,19 +185,25 @@ export function runTour(
   ]).slice(0, MAX_READ_NEXT);
 
   return {
-    type: "tour",
-    query,
-    entrypoints,
-    primaryFlow,
-    nearby: nearby.slice(0, MAX_NEARBY),
-    tests: tests.slice(0, MAX_TESTS),
-    answerAnchors,
-    ...(entry.truncated ||
-    primaryFlow.some((flow) => flow.truncated === true) ||
-    nearby.length > MAX_NEARBY ||
-    tests.length > MAX_TESTS
-      ? { truncated: true }
-      : {}),
+    result: {
+      type: "tour",
+      query,
+      entrypoints,
+      primaryFlow,
+      nearby: nearby.slice(0, MAX_NEARBY),
+      tests: tests.slice(0, MAX_TESTS),
+      answerAnchors,
+      ...(entry.truncated ||
+      primaryFlow.some((flow) => flow.truncated === true) ||
+      nearby.length > MAX_NEARBY ||
+      tests.length > MAX_TESTS
+        ? { truncated: true }
+        : {}),
+    },
+    next: resultNext(
+      "answer",
+      "The tour is the whole orientation answer; cite its entrypoints, flow, nearby paths, tests, and anchors.",
+    ),
   };
 }
 
@@ -785,7 +792,7 @@ function testAnchorsOf(
       direction: "impact",
       maxDepth: 4,
       maxNodes: 16,
-    });
+    }).result;
     for (const node of impact.reached) {
       if (node.roles?.includes("test")) {
         anchors.push(...anchorFromNode("test coverage", node));

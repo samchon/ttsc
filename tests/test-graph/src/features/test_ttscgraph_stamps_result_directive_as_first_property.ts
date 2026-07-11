@@ -41,12 +41,12 @@ const overviewArguments = () => ({
  * branch.
  *
  * Locks the source-order convergence fix from issue #388: the handler must fill
- * `IResult.directive` before `result` so the trust reminder is the first text
+ * `IOutput.directive` before `result` so the trust reminder is the first text
  * the model reads in the payload, and it must stamp uniformly across request
  * types (escape included) rather than only the graph branches. A regression
  * that drops the stamp on any branch, or lets `result` serialize first, would
  * silently restore the re-verification behavior the directive exists to stop. A
- * successful structured return also proves typia's reflected `IResult` schema
+ * successful structured return also proves typia's reflected `IOutput` schema
  * accepts the added field.
  *
  * 1. Materialize a real project and start one MCP server.

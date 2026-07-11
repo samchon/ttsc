@@ -3,6 +3,7 @@ import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEntrypoints } from "../structures/ITtscGraphEntrypoints";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { resolveGraphHandle } from "./resolveHandle";
+import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, edgeEvidenceOf, signatureOf } from "./runDetails";
 import { runLookup } from "./runLookup";
 
@@ -22,7 +23,7 @@ const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 export function runEntrypoints(
   graph: TtscGraphMemory,
   props: ITtscGraphEntrypoints.IRequest,
-): ITtscGraphEntrypoints {
+): IRunnerOutput<ITtscGraphEntrypoints> {
   const query = props.query.trim();
   const limit = bound(props.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
   const neighborLimit = bound(
@@ -32,7 +33,7 @@ export function runEntrypoints(
     MAX_NEIGHBORS,
   );
 
-  const lookupResult = runLookup(graph, { type: "lookup", query, limit });
+  const lookupResult = runLookup(graph, { type: "lookup", query, limit }).result;
   const hits = lookupResult.hits.map((hit) => ({ ...hit }));
 
   const mentions = directMentions(graph, query).map((handle) => {
@@ -78,13 +79,27 @@ export function runEntrypoints(
     });
   }
 
+  const resolved =
+    hits.length > 0 || mentions.some((mention) => mention.node !== undefined);
   return {
-    type: "entrypoints",
-    query,
-    hits,
-    mentions,
-    neighborhood,
-    ...(truncated ? { truncated: true } : {}),
+    result: {
+      type: "entrypoints",
+      query,
+      hits,
+      mentions,
+      neighborhood,
+      ...(truncated ? { truncated: true } : {}),
+    },
+    next: resolved
+      ? resultNext(
+          "inspect",
+          "These are first-pass handles; run one trace or details on the handle the question targets.",
+          "trace",
+        )
+      : resultNext(
+          "outside",
+          "No entry handle resolved for this query; answer that the graph has nothing, or read source.",
+        ),
   };
 }
 

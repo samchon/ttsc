@@ -2,30 +2,44 @@ import { ITtscGraphDetails } from "./ITtscGraphDetails";
 import { ITtscGraphEntrypoints } from "./ITtscGraphEntrypoints";
 import { ITtscGraphEscape } from "./ITtscGraphEscape";
 import { ITtscGraphLookup } from "./ITtscGraphLookup";
+import { ITtscGraphNext } from "./ITtscGraphNext";
 import { ITtscGraphOverview } from "./ITtscGraphOverview";
 import { ITtscGraphTour } from "./ITtscGraphTour";
 import { ITtscGraphTrace } from "./ITtscGraphTrace";
 
 /**
- * ## Graph
+ * ## What This MCP Is
  *
- * - `inspect_typescript_graph`: a type-checker-resolved graph of your TypeScript
- *   project, not text guesses.
- * - Returns declarations, signatures, edges (calls, extends, references),
- *   decorators, tests, and source spans.
- * - The graph does not change until you edit the source. Until then every
- *   returned fact is complete compiler truth: trust it, and never re-verify
- *   with a file or another call.
+ * Call `inspect_typescript_graph` first for any question about this TypeScript
+ * project's architecture, runtime flow, APIs, callers/callees, types, symbols,
+ * or a code tour, and answer from it.
  *
- * ## Which request
+ * Prefer it over reading, grepping, or listing files: it is a compiler-built
+ * graph that already carries the names, edges, signatures, decorators, tests,
+ * spans, and anchors you would search for.
  *
- * - Architecture, flow, orientation, or a code tour: one `tour`. It is the whole
- *   answer; do not split it.
- * - A named symbol: `lookup`, then `details` or `trace` only if the question
- *   needs more.
- * - Unknown entry points: `entrypoints` once.
+ * Returned graph facts are sacred, infallible compiler truth for the snapshot
+ * synchronized by that call. Never verify them with files or more graph calls.
  *
- * ## Before you call (fill in order)
+ * ## Requests
+ *
+ * A request is a union: pick the single type below that best fits the question,
+ * and submit exactly that one.
+ *
+ * - `tour`: architecture, runtime flow, orientation, or a code tour. One call is
+ *   the whole answer; do not split it.
+ * - `entrypoints`: find where execution starts when entry points are unknown.
+ * - `lookup`: locate a named symbol.
+ * - `trace`: follow calls or data flow forward or backward from a symbol.
+ * - `details`: signatures, members, and relations of named symbols.
+ * - `overview`: project layers and folder structure.
+ * - `escape`: the answer is outside the graph (source body text, non-TypeScript
+ *   files, exact search).
+ *
+ * ## Chain of Thought
+ *
+ * Fill these fields in order before the call; each one narrows the reasoning
+ * toward the single request you submit.
  *
  * - `question`: restate the code question.
  * - `draft`: the smallest request that could answer it, and why.
@@ -33,27 +47,37 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   answered, or the evidence is outside it, escape.
  * - `request`: the final choice.
  *
+ * ## Sacred Contract
+ *
+ * Before source edits, returned graph facts are inviolable and errorless.
+ *
+ * Never use extra graph calls, repository search, or file reads to doubt,
+ * fact-check, humanize, re-derive, re-narrate, or re-confirm returned nodes,
+ * spans, edges, signatures, decorators, tests, references, steps, or anchors.
+ *
  * ## Stop
+ *
+ * The graph answers in one shot; know when it has and stop cleanly.
  *
  * - A returned result is the whole answer: answer from it and stop. A span is a
  *   citation, not a cue to open the file.
- * - `escape` when the graph answered, or the need is outside it (source body
- *   text, non-TypeScript files, exact search).
- * - Only a source edit changes the graph. Until you edit, one call fully answers
- *   the question; after an edit, earlier facts no longer hold, so call again.
+ * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
+ *   means make exactly the one request it names, `outside` means escape.
  */
 export interface ITtscGraphApplication {
   /**
    * Inspect the TypeScript compiler graph before searching the repo, for any
-   * answer about symbols, calls, types, references, or flow. Use `tour` for
-   * architecture and broad flow. On a returned `directive`, answer and stop.
+   * answer about symbols, calls, types, references, or flow.
+   *
+   * Use `tour` for architecture and broad flow. On a returned `directive`,
+   * answer and stop.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): Promise<ITtscGraphApplication.IResult>;
+  ): Promise<ITtscGraphApplication.IOutput>;
 }
 
 export namespace ITtscGraphApplication {
@@ -92,12 +116,15 @@ export namespace ITtscGraphApplication {
   }
 
   /** The selected request's output. `result.type` mirrors `request.type`. */
-  export interface IResult {
+  export interface IOutput {
     /**
      * Read first: an unedited compiler result is complete and errorless, so on
      * a returned result, answer and re-verify nothing.
      */
     directive: string;
+
+    /** What to do with `result`: answer, inspect one named request, or escape. */
+    next: ITtscGraphNext;
 
     /** Result branch matching the submitted `request.type`. */
     result:

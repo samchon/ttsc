@@ -1,5 +1,6 @@
 import { TtscGraphMemory } from "./model/TtscGraphMemory";
 import { RESULT_DIRECTIVE } from "./server/resultDirective";
+import { resultNext } from "./server/resultNext";
 import { runDetails } from "./server/runDetails";
 import { runEntrypoints } from "./server/runEntrypoints";
 import { runLookup } from "./server/runLookup";
@@ -38,7 +39,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
 
   public async inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): Promise<ITtscGraphApplication.IResult> {
+  ): Promise<ITtscGraphApplication.IOutput> {
     if (props.request.type === "escape") {
       const result = this.escape(props.request.reason);
       if (props.request.nextStep !== undefined) {
@@ -46,41 +47,39 @@ export class TtscGraphApplication implements ITtscGraphApplication {
       }
       return {
         directive: RESULT_DIRECTIVE,
+        next: resultNext(
+          "outside",
+          "The caller chose to leave the graph; finish from prior evidence or read source outside it.",
+        ),
         result,
       };
     }
     const graph = await this.graph();
     switch (props.request.type) {
-      case "entrypoints":
-        return {
-          directive: RESULT_DIRECTIVE,
-          result: runEntrypoints(graph, props.request),
-        };
-      case "lookup":
-        return {
-          directive: RESULT_DIRECTIVE,
-          result: runLookup(graph, props.request),
-        };
-      case "trace":
-        return {
-          directive: RESULT_DIRECTIVE,
-          result: runTrace(graph, props.request),
-        };
-      case "details":
-        return {
-          directive: RESULT_DIRECTIVE,
-          result: runDetails(graph, props.request),
-        };
-      case "overview":
-        return {
-          directive: RESULT_DIRECTIVE,
-          result: runOverview(graph, props.request),
-        };
-      case "tour":
-        return {
-          directive: RESULT_DIRECTIVE,
-          result: runTour(graph, props.request),
-        };
+      case "entrypoints": {
+        const r = runEntrypoints(graph, props.request);
+        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+      }
+      case "lookup": {
+        const r = runLookup(graph, props.request);
+        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+      }
+      case "trace": {
+        const r = runTrace(graph, props.request);
+        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+      }
+      case "details": {
+        const r = runDetails(graph, props.request);
+        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+      }
+      case "overview": {
+        const r = runOverview(graph, props.request);
+        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+      }
+      case "tour": {
+        const r = runTour(graph, props.request);
+        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+      }
       default:
         props.request satisfies never;
         throw new Error("Unknown graph request type");

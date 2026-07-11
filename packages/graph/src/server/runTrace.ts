@@ -5,6 +5,7 @@ import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { isExternalNode, isTestPath } from "./pathPolicy";
 import { resolveGraphHandle } from "./resolveHandle";
+import { IRunnerOutput, resultNext } from "./resultNext";
 import { edgeEvidenceOf, signatureOf } from "./runDetails";
 
 const DEFAULT_DEPTH = 2;
@@ -26,7 +27,7 @@ const MAX_STEPS = 6;
 export function runTrace(
   graph: TtscGraphMemory,
   props: ITtscGraphTrace.IRequest,
-): ITtscGraphTrace {
+): IRunnerOutput<ITtscGraphTrace> {
   const direction = props.direction ?? "forward";
   const focus = props.focus ?? "all";
   const impact = direction === "impact";
@@ -52,21 +53,33 @@ export function runTrace(
   const start = resolveGraphHandle(graph, props.from);
   if (start.candidates) {
     return {
-      type: "trace",
-      direction,
-      hops: [],
-      reached: [],
-      truncated: false,
-      candidates: start.candidates.map((n) => summary(graph, n)),
+      result: {
+        type: "trace",
+        direction,
+        hops: [],
+        reached: [],
+        truncated: false,
+        candidates: start.candidates.map((n) => summary(graph, n)),
+      },
+      next: resultNext(
+        "clarify",
+        "The start handle is ambiguous; restate it as one returned candidate.",
+      ),
     };
   }
   if (start.node === undefined) {
     return {
-      type: "trace",
-      direction,
-      hops: [],
-      reached: [],
-      truncated: false,
+      result: {
+        type: "trace",
+        direction,
+        hops: [],
+        reached: [],
+        truncated: false,
+      },
+      next: resultNext(
+        "outside",
+        "The start handle did not resolve in the graph; answer that it has no trace from this handle, or read source.",
+      ),
     };
   }
 
@@ -80,16 +93,26 @@ export function runTrace(
       reached: [],
       truncated: false,
     };
+    const pathNext = resultNext(
+      "answer",
+      "The path result is the structural flow answer; cite path nodes and evidence ranges.",
+    );
     const target = resolveGraphHandle(graph, props.to);
     if (target.candidates) {
       return {
-        ...base,
-        start: summary(graph, start.node),
-        candidates: target.candidates.map((n) => summary(graph, n)),
+        result: {
+          ...base,
+          start: summary(graph, start.node),
+          candidates: target.candidates.map((n) => summary(graph, n)),
+        },
+        next: pathNext,
       };
     }
     if (target.node === undefined) {
-      return { ...base, start: summary(graph, start.node) };
+      return {
+        result: { ...base, start: summary(graph, start.node) },
+        next: pathNext,
+      };
     }
     const found = findPath(
       graph,
@@ -102,12 +125,15 @@ export function runTrace(
     const path = found?.path ?? [];
     const hops = found?.hops ?? [];
     return {
-      ...base,
-      start: summary(graph, start.node),
-      target: summary(graph, target.node),
-      hops,
-      path: path.map((node, i) => summary(graph, node, i, false, true)),
-      steps: traceSteps(graph, hops),
+      result: {
+        ...base,
+        start: summary(graph, start.node),
+        target: summary(graph, target.node),
+        hops,
+        path: path.map((node, i) => summary(graph, node, i, false, true)),
+        steps: traceSteps(graph, hops),
+      },
+      next: pathNext,
     };
   }
 
@@ -173,13 +199,19 @@ export function runTrace(
   }
 
   return {
-    type: "trace",
-    start: summary(graph, start.node),
-    direction,
-    hops,
-    reached: [...reached.values()],
-    steps: traceSteps(graph, hops),
-    truncated,
+    result: {
+      type: "trace",
+      start: summary(graph, start.node),
+      direction,
+      hops,
+      reached: [...reached.values()],
+      steps: traceSteps(graph, hops),
+      truncated,
+    },
+    next: resultNext(
+      "answer",
+      "Steps, hops, reached nodes, and evidence ranges are the flow answer surface.",
+    ),
   };
 }
 

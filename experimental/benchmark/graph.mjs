@@ -60,17 +60,17 @@ const PUBLISHED_SAMPLE_KEYS = [
 
 const PROJECTS = {
   excalidraw: {
-    repoName: "ttsc-benchmark-excalidraw",
+    repoName: "excalidraw",
     sourceRepo: "https://github.com/samchon/ttsc-benchmark-excalidraw.git",
     sourceBranch: "ttsc",
     tsconfig: "tsconfig.json",
   },
   vue: {
-    repoName: "ttsc-benchmark-vue",
+    repoName: "vue",
     tsconfig: "tsconfig.graph.json",
   },
   rxjs: {
-    repoName: "ttsc-benchmark-rxjs",
+    repoName: "rxjs",
     tsconfig: "tsconfig.graph.json",
   },
   typeorm: {
@@ -78,15 +78,15 @@ const PROJECTS = {
     tsconfig: "tsconfig.json",
   },
   zod: {
-    repoName: "ttsc-benchmark-zod",
+    repoName: "zod",
     tsconfig: "tsconfig.graph.json",
   },
   nestjs: {
-    repoName: "ttsc-benchmark-nestjs",
+    repoName: "nestjs",
     tsconfig: "tsconfig.graph.json",
   },
   vscode: {
-    repoName: "ttsc-benchmark-vscode",
+    repoName: "vscode",
     tsconfig: "src/tsconfig.json",
   },
   "shopping-backend": {
