@@ -18,7 +18,7 @@ export interface ITtscGraphEntrypoints {
   /** Direct dependency context for the resolved mentions and highest hits. */
   neighborhood: ITtscGraphEntrypoints.INeighborhood[];
 
-  /** True when result caps hid additional seeds or references. */
+  /** True when some low-signal seeds or references were capped; the list stands. */
   truncated?: boolean;
 }
 
@@ -39,8 +39,7 @@ export namespace ITtscGraphEntrypoints {
     query: string;
 
     /**
-     * Maximum ranked hits to return. Raise only when the first result was
-     * truncated and the missing handle is named.
+     * Maximum ranked hits to return.
      *
      * @default 4
      */

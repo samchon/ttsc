@@ -23,7 +23,7 @@ export interface ITtscGraphTour {
   /** Ordered file/line anchors to cite in the final answer, not file reads. */
   answerAnchors: ITtscGraphTour.IAnchor[];
 
-  /** True when any internal slice hit its cap. */
+  /** True when some low-signal extras were capped; the returned tour stands. */
   truncated?: boolean;
 }
 
@@ -96,7 +96,7 @@ export namespace ITtscGraphTour {
     /** Edge and node anchors that explain the flow. */
     anchors: ITtscGraphTour.IAnchor[];
 
-    /** True when the flow hit graph caps. */
+    /** True when some low-signal flow steps were capped; the flow stands. */
     truncated?: boolean;
   }
 

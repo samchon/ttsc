@@ -30,8 +30,7 @@ export namespace ITtscGraphDetails {
 
     /**
      * Also list each node's direct dependencies and dependents (symbols it uses
-     * and symbols that use it), capped. Raise `neighborLimit` when truncated
-     * and the missing relation is named. A relationship summary, not a file
+     * and symbols that use it), capped. A relationship summary, not a file
      * body.
      *
      * @default false
@@ -47,16 +46,14 @@ export namespace ITtscGraphDetails {
     neighborLimit?: number;
 
     /**
-     * Maximum owned members for a container or object literal. Raise only when
-     * the outline is truncated and the missing member is named.
+     * Maximum owned members for a container or object literal.
      *
      * @default 6
      */
     memberLimit?: number;
 
     /**
-     * Maximum direct execution and type references per group. Raise only when
-     * the dependency slice is truncated and the missing dependency is named.
+     * Maximum direct execution and type references per group.
      *
      * @default 1
      */

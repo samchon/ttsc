@@ -17,7 +17,7 @@ export interface ITtscGraphTrace {
   /** Unique nodes reached (excluding the start), each with its depth and roles. */
   reached: ITtscGraphTrace.INode[];
 
-  /** True when the trace hit maxNodes or maxDepth and more flow exists. */
+  /** True when the trace hit its node or depth cap; the returned flow stands. */
   truncated: boolean;
 
   /** The resolved `to` target, when a path was requested. */
@@ -84,16 +84,14 @@ export namespace ITtscGraphTrace {
 
     /**
      * Hops deep to follow (open forward/reverse cap at 2, impact at 4, path
-     * mode at 12). Raise only for path mode or a named missing next hop.
+     * mode at 12). Raise it for path mode.
      *
      * @default 2
      */
     maxDepth?: number;
 
     /**
-     * Cap on reached nodes; past it the trace marks itself truncated (open
-     * forward/reverse cap at 8, impact at 16). Raise only when a named missing
-     * edge requires it.
+     * Cap on reached nodes (open forward/reverse cap at 8, impact at 16).
      *
      * @default 6
      */
