@@ -47,8 +47,8 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 // Five corruption holes were patched piecemeal here before (var-vs-var,
 // for-header var, function/class redeclaration, mixed destructuring sibling,
 // object-literal shorthand, use-before-declaration). That whack-a-mole is
-// replaced by one conservative rule with two preconditions; the fix is
-// emitted only if BOTH hold:
+// replaced by one conservative rule with four preconditions; the fix is
+// emitted only if ALL hold:
 //
 //  1. Single binding in the whole file. The declared name is introduced by
 //     EXACTLY ONE binding position anywhere in the source — counting every
@@ -64,6 +64,29 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     same text — a member name (`o.x`), an object-literal key (`{x:1}`), a
 //     statement label (`x:`), or a type reference (`: x`) — binds no value and
 //     must not force a decline; isValueReferenceIdentifier classifies these.
+//  3. No block-scope escape. `var` is function/global-scoped while `let` is
+//     block-scoped, so a `var` declared inside a block and read after the
+//     block (`if (c) { var x = 1; } log(x);`) would stop compiling under
+//     `let`. The statement's parent must be a position where a lexical
+//     declaration is legal AND which forms the `let`'s block scope — a Block
+//     (plain, function-body, loop-body, …), a ModuleBlock, a switch
+//     Case/DefaultClause, or the SourceFile — and every value reference to
+//     the name must lie inside that parent's [Pos, End) span. A non-scope
+//     parent (`if (c) var x = 1;` — a single-statement body, where `let` is a
+//     SyntaxError outright) declines unconditionally. Given precondition 1
+//     (one binding file-wide), positional containment is exact: no other
+//     binding can shadow the name, so a reference outside the span really
+//     does resolve to this binding. Using the CaseClause (not the whole
+//     switch CaseBlock) as the scope over-declines cross-case references,
+//     which under `let` would flip from `undefined` reads to runtime TDZ
+//     throws — declining is the safe side. Mirrors ESLint no-var's
+//     isUsedFromOutsideOf.
+//  4. No loop-closure capture. When the statement sits inside a loop and the
+//     name is referenced from a function or arrow nested within that loop
+//     (`for (const k of keys) { var last = k; fns.push(() => last); }`),
+//     every closure shares ONE `var` binding but would capture a FRESH
+//     per-iteration `let` binding — the rewrite silently changes runtime
+//     results. Mirrors ESLint no-var's isReferencedInClosure loop check.
 //
 // The var statement being fixed must itself be a single plain identifier
 // declarator so the keyword rewrite has a simple `let x` rename target; a
@@ -88,6 +111,22 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
   }
   target := names[0]
 
+  // Precondition 3 setup: the statement's parent must both allow a lexical
+  // declaration and act as the `let`'s block scope. Any other parent kind is
+  // a single-statement body (`if (c) var x = 1;`, `while (c) var x = 1;`,
+  // `label: var x = 1;`, `with (o) var x = 1;`) where `let` is a plain
+  // SyntaxError, so the fix declines before any reference is examined.
+  scopeNode := node.Parent
+  if scopeNode == nil || !isBlockScopeContainer(scopeNode.Kind) {
+    return false
+  }
+  scopeStart, scopeEnd := scopeNode.Pos(), scopeNode.End()
+
+  // Precondition 4 setup: the outermost loop enclosing the statement without
+  // an intervening function boundary. nil when the statement is not
+  // loop-local, which disables the closure-capture check.
+  enclosingLoop := enclosingLoopWithinFunction(node)
+
   declPos := node.Pos()
   // The single declarator's initializer subtree. A value reference to `target`
   // inside this range is a self-reference that runs while `target` is still in
@@ -104,6 +143,8 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
   }
   bindingCount := 0
   referencedBefore := false
+  escapesScope := false
+  capturedInLoop := false
   walkDescendants(ctx.File.AsNode(), func(child *shimast.Node) {
     // Binding count: every position that introduces the name `target` as a
     // binding (a declaration), not a value reference. Two or more positions
@@ -129,12 +170,119 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
       if pos < declPos || (initStart >= 0 && pos >= initStart && pos < initEnd) {
         referencedBefore = true
       }
+      // Scope escape: a value reference outside the enclosing block-scope
+      // node's span stops resolving (or flips to a TDZ throw across switch
+      // cases) once the binding becomes block-scoped `let`. Nested blocks
+      // WITHIN the span stay fixable: containment, not clause equality.
+      if pos < scopeStart || pos >= scopeEnd {
+        escapesScope = true
+      }
+      // Loop-closure capture: a reference reached only by crossing a
+      // function/arrow boundary between itself and the enclosing loop would
+      // switch from one shared `var` binding to a fresh per-iteration `let`
+      // binding.
+      if enclosingLoop != nil && isCapturedInLoopClosure(child, enclosingLoop) {
+        capturedInLoop = true
+      }
     }
   })
-  if referencedBefore {
+  if referencedBefore || escapesScope || capturedInLoop {
     return false
   }
   return bindingCount == 1
+}
+
+// isBlockScopeContainer reports whether a node kind is a legal parent for a
+// lexical (`let`) declaration statement AND the node that delimits the
+// resulting binding's block scope: a Block (plain, function body, loop body,
+// try/catch/finally, labeled block, class static block body — all
+// KindBlock), a namespace's ModuleBlock, a switch clause, or the SourceFile
+// itself. Every other statement position (an unbraced if/else/loop/with body
+// or a directly-labeled statement) rejects lexical declarations at the
+// grammar level, so the keyword rewrite is never legal there.
+//
+// A CaseClause/DefaultClause is used as the scope rather than the enclosing
+// CaseBlock even though `let` technically hoists to the whole switch block:
+// a reference in a LATER clause compiles under `let` but changes an
+// `undefined` read into a runtime TDZ ReferenceError when the declaring
+// clause did not execute first. Bounding the scope at the clause declines
+// that shape; over-declining never corrupts.
+func isBlockScopeContainer(kind shimast.Kind) bool {
+  switch kind {
+  case shimast.KindBlock,
+    shimast.KindModuleBlock,
+    shimast.KindCaseClause,
+    shimast.KindDefaultClause,
+    shimast.KindSourceFile:
+    return true
+  }
+  return false
+}
+
+// isFunctionCaptureBoundary reports whether a node creates a new function
+// scope whose body captures outer bindings by closure: function
+// declarations/expressions, arrows, methods, constructors, accessors, and
+// class static blocks. Used both to stop the enclosing-loop walk (a `var`
+// inside a function nested in a loop is per-call regardless of the loop) and
+// to detect references that reach the loop only through a closure.
+func isFunctionCaptureBoundary(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindFunctionDeclaration,
+    shimast.KindFunctionExpression,
+    shimast.KindArrowFunction,
+    shimast.KindMethodDeclaration,
+    shimast.KindConstructor,
+    shimast.KindGetAccessor,
+    shimast.KindSetAccessor,
+    shimast.KindClassStaticBlockDeclaration:
+    return true
+  }
+  return false
+}
+
+// enclosingLoopWithinFunction returns the OUTERMOST loop statement enclosing
+// `node` without an intervening function boundary, or nil when no such loop
+// exists. The walk stops at the nearest function-like ancestor because a
+// `var` declared inside a function nested in a loop already gets a fresh
+// binding per call — the loop outside the function cannot make `var` and
+// `let` capture semantics diverge for it.
+func enclosingLoopWithinFunction(node *shimast.Node) *shimast.Node {
+  var loop *shimast.Node
+  for ancestor := node.Parent; ancestor != nil; ancestor = ancestor.Parent {
+    if isFunctionCaptureBoundary(ancestor) {
+      break
+    }
+    switch ancestor.Kind {
+    case shimast.KindForStatement,
+      shimast.KindForInStatement,
+      shimast.KindForOfStatement,
+      shimast.KindWhileStatement,
+      shimast.KindDoStatement:
+      loop = ancestor
+    }
+  }
+  return loop
+}
+
+// isCapturedInLoopClosure reports whether a value-reference identifier
+// reaches `loop` on its ancestor chain only after crossing a function
+// boundary — i.e. the reference lives in a closure created inside the loop.
+// Under `var` every iteration's closure shares one binding; under `let` each
+// iteration captures a fresh binding, so such a reference makes the keyword
+// rewrite change observable behavior. A reference whose chain never meets
+// `loop` lies outside the loop entirely and is left to the scope-containment
+// check.
+func isCapturedInLoopClosure(ref, loop *shimast.Node) bool {
+  crossedFunction := false
+  for ancestor := ref.Parent; ancestor != nil; ancestor = ancestor.Parent {
+    if ancestor == loop {
+      return crossedFunction
+    }
+    if isFunctionCaptureBoundary(ancestor) {
+      crossedFunction = true
+    }
+  }
+  return false
 }
 
 // bindingNamesIntroducedBy returns every plain identifier name that `node`
