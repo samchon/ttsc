@@ -185,13 +185,5 @@ export namespace ITtscGraphDetails {
      * repository evidence for the edge, not a file-read instruction.
      */
     evidence?: ITtscGraphEvidence;
-
-    /**
-     * Stable access-path aliases derived from edge evidence. For example, an
-     * edge to `Owner.member` through `obj.slot.member` may expose
-     * `Owner.slot.member` so answers can preserve both the resolved symbol and
-     * the source access path.
-     */
-    aliases?: string[];
   }
 }

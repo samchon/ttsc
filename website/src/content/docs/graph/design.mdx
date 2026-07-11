@@ -101,8 +101,6 @@ A parser that only reads text, such as tree-sitter, stops where the syntax stops
 
 > On the left, a text crawl chases imports one file at a time. On the right, the compiler hands back the graph it already resolved, aliases and monorepo hops included.
 
-The same type-check carries more than structure. `tsc` compile errors and `@ttsc/lint` and plugin (typia, nestia) lint findings ride the graph as well, each fused onto the symbol that owns it, so "what is broken here?" and "what breaks if I change this?" come from the same index.
-
 This is the chain the rest of the design rests on: exact, so the agent can trust it, and trusted, so the agent can stop.
 
 ### 1.5. CoT compliance, in general
@@ -174,11 +172,7 @@ Beyond `kind`, a node carries the facts a projection reasons over: `name` and ow
 | `renders`      | A JSX component use.                        |
 | `tests`        | A test exercises a symbol.                  |
 
-### 2.5. Diagnostics
-
-The same type-check that resolves the graph also carries what is wrong with it. A node's diagnostics are `ITtscGraphDiagnostic` records fused onto the symbol that owns the reported position, so an edit-triage query can name the owner of an error. Each record has the `file` and 1-based `line` (with `column` when known), a `code` (a numeric `tsc` code, or a string rule id for a lint or plugin finding), the `message`, an optional `severity` (`error`, `warning`, `info`, `hint`), and an `origin` of `tsc`, `plugin`, or `lint`. So `tsc` type errors, `@ttsc/lint` rules, and transform-plugin findings (typia, nestia) land in the same graph as the structure, and "what is broken here?" and "what breaks if I change this?" answer from one index.
-
-### 2.6. Type sources
+### 2.5. Type sources
 
 These tabs read from `packages/graph/src/structures`, so the reference stays tied to the package source instead of copying type definitions. The wrapper type is [`ITtscGraphApplication.ts`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphApplication.ts), shown trimmed above; the tabs below are the branch and payload types it references.
 
@@ -194,7 +188,6 @@ These tabs read from `packages/graph/src/structures`, so the reference stays tie
     <code key="escape">ITtscGraphEscape.ts</code>,
     <code key="node">ITtscGraphNode.ts</code>,
     <code key="edge">ITtscGraphEdge.ts</code>,
-    <code key="diagnostic">ITtscGraphDiagnostic.ts</code>,
   ]}
 >
   <Tabs.Tab>
@@ -254,12 +247,6 @@ These tabs read from `packages/graph/src/structures`, so the reference stays tie
   <Tabs.Tab>
     <TtscWebsiteLocalSource
       path="packages/graph/src/structures/ITtscGraphEdge.ts"
-      showLineNumbers
-    />
-  </Tabs.Tab>
-  <Tabs.Tab>
-    <TtscWebsiteLocalSource
-      path="packages/graph/src/structures/ITtscGraphDiagnostic.ts"
       showLineNumbers
     />
   </Tabs.Tab>

@@ -132,8 +132,6 @@ See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode
 
 It answers what relates to a symbol and what a change affects, straight from the type checker, so the agent stops grepping and re-reading files.
 
-It also carries the project's full diagnostics: type errors, `@ttsc/lint` violations, and plugin findings. They are fused onto the graph, so an agent sees a change's reach over what is already broken before editing.
-
 ```bash
 npm install -D ttsc @ttsc/graph typescript
 ```
@@ -267,7 +265,7 @@ See the [Programmatic API guide](https://ttsc.dev/docs/ttsc/api) for the full li
 
 - [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners.
 - [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): lints and formats TypeScript source.
-- [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph): MCP server exposing a checker-resolved code graph and diagnostics to coding agents.
+- [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph): MCP server exposing a checker-resolved code graph to coding agents.
 - [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
 - [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
 - [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.

@@ -136,13 +136,6 @@ export namespace ITtscGraphTrace {
      * evidence for the hop and can be cited without opening the file.
      */
     evidence?: ITtscGraphEvidence;
-
-    /**
-     * Stable access-path aliases derived from edge evidence. These preserve a
-     * resolved member's owner and the concrete property path used at the call
-     * site.
-     */
-    aliases?: string[];
   }
 
   /** A node on the trace: the start, a reached node, or a candidate. */

@@ -1,4 +1,3 @@
-import { ITtscGraphDiagnostic } from "./ITtscGraphDiagnostic";
 import { ITtscGraphEdge } from "./ITtscGraphEdge";
 import { ITtscGraphNode } from "./ITtscGraphNode";
 
@@ -12,8 +11,8 @@ import { ITtscGraphNode } from "./ITtscGraphNode";
  * that warm model while project inputs stay unchanged; the bundled 3D viewer
  * reduces the same dump.
  *
- * Paths in `project` and `tsconfig` are absolute; `file` fields on nodes,
- * edges, and diagnostics are project-relative.
+ * Paths in `project` and `tsconfig` are absolute; `file` fields on nodes and
+ * edges are project-relative.
  */
 export interface ITtscGraphDump {
   /** Absolute path of the project root the graph was built for. */
@@ -27,10 +26,4 @@ export interface ITtscGraphDump {
 
   /** Every edge the build resolved. */
   edges: ITtscGraphEdge[];
-
-  /**
-   * Fused compiler and plugin diagnostics, when diagnostics were collected.
-   * Absent when the dump was built without a diagnostics pass.
-   */
-  diagnostics?: ITtscGraphDiagnostic[];
 }

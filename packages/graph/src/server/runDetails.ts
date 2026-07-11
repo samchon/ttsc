@@ -7,7 +7,6 @@ import { ITtscGraphDetails } from "../structures/ITtscGraphDetails";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
-import { accessAliasesFor } from "./accessAliases";
 import { isExternalNode } from "./pathPolicy";
 import { resolveGraphHandle } from "./resolveHandle";
 import { resultGuide, resultNext } from "./resultGuide";
@@ -292,8 +291,6 @@ function refs(
     if (other.evidence?.startLine) ref.line = other.evidence.startLine;
     const evidence = edgeEvidenceOf(edge);
     if (evidence !== undefined) ref.evidence = evidence;
-    const aliases = accessAliasesFor(other, edgeEvidenceTextOf(edge));
-    if (aliases !== undefined) ref.aliases = aliases;
     ranked.push({ ref, rank: refRank(ref, edge) });
   }
   ranked.sort((a, b) => a.rank - b.rank);
@@ -338,8 +335,6 @@ function dependencyRefs(
     if (other.evidence?.startLine) ref.line = other.evidence.startLine;
     const evidence = edgeEvidenceOf(edge);
     if (evidence !== undefined) ref.evidence = evidence;
-    const aliases = accessAliasesFor(other, edgeEvidenceTextOf(edge));
-    if (aliases !== undefined) ref.aliases = aliases;
     ranked.push({
       ref,
       rank: refRank(ref, edge),
@@ -381,8 +376,6 @@ function incomingDependencyRefs(
     if (other.evidence?.startLine) ref.line = other.evidence.startLine;
     const evidence = edgeEvidenceOf(edge);
     if (evidence !== undefined) ref.evidence = evidence;
-    const aliases = accessAliasesFor(other, edgeEvidenceTextOf(edge));
-    if (aliases !== undefined) ref.aliases = aliases;
     ranked.push({
       ref,
       rank: refRank(ref, edge),
@@ -503,14 +496,6 @@ function evidenceCoordinatesOf(
     ...(evidence.endLine !== undefined ? { endLine: evidence.endLine } : {}),
     ...(evidence.endCol !== undefined ? { endCol: evidence.endCol } : {}),
   };
-}
-
-/** Source text is an internal alias hint, not part of the MCP evidence object. */
-export function edgeEvidenceTextOf(edge: ITtscGraphEdge): string | undefined {
-  const text = (
-    edge.evidence as (ITtscGraphEvidence & { text?: string }) | undefined
-  )?.text;
-  return typeof text === "string" && text.length > 0 ? text : undefined;
 }
 
 /** Read a file's lines once, or undefined when it cannot be read. */

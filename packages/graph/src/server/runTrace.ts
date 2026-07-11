@@ -3,11 +3,10 @@ import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
-import { accessAliasesFor } from "./accessAliases";
 import { isExternalNode, isTestPath } from "./pathPolicy";
 import { resolveGraphHandle } from "./resolveHandle";
 import { resultGuide, resultNext } from "./resultGuide";
-import { edgeEvidenceOf, edgeEvidenceTextOf, signatureOf } from "./runDetails";
+import { edgeEvidenceOf, signatureOf } from "./runDetails";
 
 const DEFAULT_DEPTH = 2;
 const DEFAULT_MAX_NODES = 6;
@@ -169,11 +168,6 @@ export function runTrace(
         };
         const evidence = edgeEvidenceOf(edge);
         if (evidence !== undefined) hop.evidence = evidence;
-        const aliases = accessAliasesFor(
-          graph.node(edge.to),
-          edgeEvidenceTextOf(edge),
-        );
-        if (aliases !== undefined) hop.aliases = aliases;
         // A back-edge to the start or an already-reached node: record the hop;
         // its endpoints are already represented.
         if (visited.has(otherId)) {
@@ -231,9 +225,7 @@ function traceSteps(
       hop.evidence === undefined
         ? ""
         : ` at ${hop.evidence.file}:${hop.evidence.startLine}`;
-    const aliases =
-      hop.aliases === undefined ? "" : ` aliases ${hop.aliases.join(", ")}`;
-    return `${lhs} -[${hop.kind}${evidence}${aliases}]-> ${rhs}`;
+    return `${lhs} -[${hop.kind}${evidence}]-> ${rhs}`;
   });
 }
 
@@ -259,7 +251,6 @@ function findPath(
       via: string;
       kind: string;
       evidence?: ITtscGraphEvidence;
-      evidenceText?: string;
     }
   >();
   const visited = new Set<string>([startId]);
@@ -281,7 +272,6 @@ function findPath(
           via: id,
           kind: edge.kind,
           evidence,
-          evidenceText: edgeEvidenceTextOf(edge),
         });
         if (otherId === targetId) {
           const ids: string[] = [otherId];
@@ -309,8 +299,6 @@ function findPath(
             };
             if (parentEdge?.evidence !== undefined)
               hop.evidence = parentEdge.evidence;
-            const aliases = accessAliasesFor(node, parentEdge?.evidenceText);
-            if (aliases !== undefined) hop.aliases = aliases;
             hops.push(hop);
           }
           return { path, hops };

@@ -6,7 +6,6 @@
 
 export * from "./ITtscGraphApplication";
 export * from "./ITtscGraphDecorator";
-export * from "./ITtscGraphDiagnostic";
 export * from "./ITtscGraphDump";
 export * from "./ITtscGraphEdge";
 export * from "./ITtscGraphEvidence";

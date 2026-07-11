@@ -42,7 +42,6 @@ The graph answers the questions an agent actually asks, all from the same checke
 - **Where should I start?** Ranked code handles for a natural question: `entrypoints` or `lookup`.
 - **What does this reach, and what reaches it?** Forward to callees, reverse to callers, and an impact projection onto the public API and tests: `trace`.
 - **What is this, exactly?** The declaration shape, its range, its dependencies, and its dependents: `details`.
-- **What is broken here?** `tsc` compile errors and `@ttsc/lint` and plugin findings ride the same graph, fused onto the symbol that owns them, so breakage and blast radius answer from one index.
 
 A tree-sitter graph has no types and resolves edges by guessing from text. An editor's language server has types but no architecture projection. Only a graph built on the real checker holds the resolved structure and the affected set in one place. Every node and edge is resolved by the compiler, so an agent never mistakes inference for fact.
 

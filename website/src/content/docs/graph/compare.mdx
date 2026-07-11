@@ -88,7 +88,7 @@ The others build an index first. `codegraph` needs `codegraph init` to construct
 
 This is where `@ttsc/graph` gives up the most. It is TypeScript only, because a compiler-exact graph is bound to one compiler. `codegraph` covers 20-plus languages, `serena` 40-plus, and `codebase-memory-mcp` 158. If your work is not in TypeScript, `@ttsc/graph` has nothing to hand over, and one of the others is the right pick.
 
-Inside TypeScript, the trade runs the other way. `@ttsc/graph` spends its narrow scope on depth: a resolved graph, an architecture and impact projection, and compile and lint findings fused onto the symbols that own them, in one index. It trades breadth for depth on purpose, which is the opposite bet from the multi-language tools.
+Inside TypeScript, the trade runs the other way. `@ttsc/graph` spends its narrow scope on depth: a resolved graph and an architecture and impact projection, in one index. It trades breadth for depth on purpose, which is the opposite bet from the multi-language tools.
 
 For how these choices play out in measured token cost, see the [Benchmark](/docs/benchmark/graph). For why `@ttsc/graph` makes them, see [Design](/docs/graph/design).
 
