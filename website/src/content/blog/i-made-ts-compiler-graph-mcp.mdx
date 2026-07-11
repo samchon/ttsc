@@ -260,6 +260,7 @@ export namespace ITtscGraphApplication {
 
   // The selected request's result; `result.type` mirrors `request.type`.
   export interface IResult {
+    directive: string; // read first: an unedited result is complete, so answer and re-verify nothing
     result:
       | ITtscGraphEntrypoints
       | ITtscGraphLookup
@@ -306,7 +307,7 @@ A heuristic parser like tree-sitter only sees text, so there are things it can't
 
 `@ttsc/graph` reads the program that `ttsc` has already type-checked and resolved, so aliases and monorepos line up on their own. And because it rides along with the toolchain, the graph comes out as a nearly free byproduct of the type-check that's already running. There's no separate index step the way there is with `codegraph init`, `codebase-memory-mcp`'s `index_repository`, or `serena`'s project activation and language-server cold-start. No file watcher, no stale index.
 
-The compiler throws in a bonus, too. The graph doesn't only hold structure; it also carries every tsc compile error and every `@ttsc/lint` and plugin (typia, nestia) lint violation, each one fused onto the symbol that owns it. So "what's broken here?" and "what breaks if I change this?" come out of the same index. You get the shape of the code and what's currently wrong with it, in one graph.
+The graph stays what it is: declarations, signatures, edges, decorators, tests, and the spans that anchor them. It hands back the shape of the code and where each piece lives, never the bodies, and a span is a coordinate the compiler vouched for rather than a copy of the source.
 
 It's exact, so you can trust it, and because you can trust it, you can stop. That chain, from exact to trusted to done, is what the whole thing rests on.
 
