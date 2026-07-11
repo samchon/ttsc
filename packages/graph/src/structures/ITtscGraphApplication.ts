@@ -18,10 +18,12 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * extends, references), signatures, decorators, tests, and source spans.
  *
  * Until the source is edited, returned facts are sacred, infallible compiler
- * truth: never re-verify them with a file or another call. An edit changes only
- * the parts it touches; re-query those, trust the rest.
+ * truth: never re-verify them with a file or another call.
  *
  * ## Requests
+ *
+ * A request is a union: pick the single type below that best fits the question,
+ * and submit exactly that one.
  *
  * - `tour`: architecture, runtime flow, orientation, or a code tour. One call is
  *   the whole answer; do not split it.
@@ -44,7 +46,17 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   answered, or the evidence is outside it, escape.
  * - `request`: the final choice.
  *
+ * ## Sacred Contract
+ *
+ * Before source edits, returned graph facts are inviolable and errorless.
+ *
+ * Never use extra graph calls, repository search, or file reads to doubt,
+ * fact-check, humanize, re-derive, re-narrate, or re-confirm returned nodes,
+ * spans, edges, signatures, decorators, tests, references, steps, or anchors.
+ *
  * ## Stop
+ *
+ * The graph answers in one shot; know when it has and stop cleanly.
  *
  * - A returned result is the whole answer: answer from it and stop. A span is a
  *   citation, not a cue to open the file.
