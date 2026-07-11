@@ -24,6 +24,14 @@ import { outputText, spawnNative } from "./spawnNative";
 type RunBuildOptions = TtscBuildOptions & {
   skipDiagnosticsCheck?: boolean;
   forceListEmittedFiles?: boolean;
+  /**
+   * Emit an external source map from the direct tsgo build lane even when the
+   * project configures none. Set by the ttsx runtime builds so a served emit
+   * carries a map to inline under the source URL (issue #353). Applied only to
+   * the plain tsgo emit — never forwarded to a native plugin host, whose own
+   * emit honours the project's `sourceMap` setting.
+   */
+  forceRuntimeSourceMap?: boolean;
 };
 
 type BuildTiming = {
@@ -681,6 +689,12 @@ function createTsgoBuildArgs(
     args.push("--noEmit", "false", "--emitDeclarationOnly", "false");
     if (execution.rewriteRelativeImportExtensionsForEmit) {
       args.push("--rewriteRelativeImportExtensions");
+    }
+    // The ttsx runtime build asks for an external map when the project emits
+    // none, so its served emit carries a map to inline under the source URL.
+    // Pushed before passthrough so an explicit user `--sourceMap` still wins.
+    if (options.forceRuntimeSourceMap === true) {
+      args.push("--sourceMap", "true");
     }
   } else if (options.emit === false) {
     args.push("--noEmit");

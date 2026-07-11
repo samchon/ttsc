@@ -6,7 +6,6 @@ import { readProjectConfig } from "../../compiler/internal/project/readProjectCo
 import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmittedJavaScript";
 import { runBuild } from "../../compiler/internal/runBuild";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
-import { RUNTIME_SOURCE_MAP_TSGO_FLAGS } from "./servedSourceMap";
 
 /** Subdirectory name that isolates concurrent ttsx processes by PID. */
 const PROCESS_CACHE_KEY = String(process.pid);
@@ -103,6 +102,13 @@ function createProjectContext(
       typeof project.compilerOptions.module === "string"
         ? project.compilerOptions.module
         : undefined,
+    // Force a source map on the transient runtime emit only when the project
+    // configures none — when it already emits `sourceMap` or `inlineSourceMap`,
+    // the serve path inlines/absolutizes that map, so no override is needed
+    // (issue #353).
+    forceRuntimeSourceMap:
+      project.compilerOptions.sourceMap !== true &&
+      project.compilerOptions.inlineSourceMap !== true,
     built: false,
     emittedFiles: undefined as string[] | undefined,
   };
@@ -139,14 +145,13 @@ function buildProject(
     forceListEmittedFiles: true,
     cacheDir: context.pluginCacheDir,
     outDir: context.emitDir,
-    // Force an external source map on the transient entry emit so the serve
-    // path can inline it under the source URL (issue #353). This emit lands in
-    // a PID-isolated temp dir, never the consumer's `outDir`, so the override
-    // leaks nowhere; appended last so it wins over any forwarded map flag.
-    passthrough: [
-      ...(options.passthrough ?? []),
-      ...RUNTIME_SOURCE_MAP_TSGO_FLAGS,
-    ],
+    passthrough: options.passthrough,
+    // Emit a source map on the transient entry emit (a PID-isolated temp dir,
+    // never the consumer's `outDir`) so the serve path can inline it under the
+    // source URL. Routed as a dedicated build option, not a forwarded tsgo
+    // flag, so it never reaches a native plugin host's argument parser (issue
+    // #353).
+    forceRuntimeSourceMap: context.forceRuntimeSourceMap,
     plugins: options.plugins,
     quiet: true,
     singleThreaded: options.singleThreaded,

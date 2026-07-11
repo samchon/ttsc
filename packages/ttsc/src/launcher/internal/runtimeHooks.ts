@@ -10,10 +10,7 @@ import { resolveEmittedJavaScript } from "../../compiler/internal/resolveEmitted
 import { resolveTsgo } from "../../compiler/internal/resolveTsgo";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { outputText, spawnNative } from "../../compiler/internal/spawnNative";
-import {
-  RUNTIME_SOURCE_MAP_TSGO_FLAGS,
-  inlineServedSourceMap,
-} from "./servedSourceMap";
+import { inlineServedSourceMap } from "./servedSourceMap";
 
 /**
  * Synchronous Node module hooks installed (via `module.registerHooks`) in the
@@ -1117,12 +1114,14 @@ function buildDependency(
     emit: true,
     forceListEmittedFiles: true,
     outDir: emitDir,
-    // Force an external source map on the transient dependency emit so the
-    // serve path can inline it under the source URL (issue #353). This emit
-    // never reaches the dependency's published `lib/`, so the override leaks
-    // nowhere. Passthrough wins over any `sourceMap`/`inlineSourceMap` the
-    // dependency's own tsconfig set, so coverage and stacks work regardless.
-    passthrough: [...RUNTIME_SOURCE_MAP_TSGO_FLAGS],
+    // Emit a source map on the transient dependency emit (it never reaches the
+    // dependency's published `lib/`) so the serve path can inline it under the
+    // source URL, but only when the dependency configures none itself. Routed
+    // as a dedicated build option, not a forwarded tsgo flag, so it never
+    // reaches a native plugin host's argument parser (issue #353).
+    forceRuntimeSourceMap:
+      project.compilerOptions.sourceMap !== true &&
+      project.compilerOptions.inlineSourceMap !== true,
     // Honour the dependency's own transform plugins: a source-shipping package
     // can itself depend on a transform (e.g. a fixture whose values are built
     // with `typia.createRandom`), and its runtime behaviour is wrong without it.

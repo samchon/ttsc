@@ -2,29 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-/**
- * Tsgo flags that force the ttsx runtime build to emit an external source map
- * (`<name>.js.map`) beside every `<name>.js`, regardless of the consumer's own
- * tsconfig. They are appended after the user's forwarded flags so they win a
- * conflicting earlier value.
- *
- * The runtime build always emits to a private, transient directory (the entry
- * project's PID-isolated dir, or the shared dependency cache) that is never the
- * consumer's `outDir`, so forcing maps here leaks into nobody's published
- * `lib/`. Forcing an _external_ map (and disabling any inline variant) gives
- * the serve path one uniform shape to rewrite — a trailing `//#
- * sourceMappingURL=<relative>` comment with a sibling `.map` — whether the
- * consumer configured `sourceMap`, `inlineSourceMap`, or no map at all.
- */
-export const RUNTIME_SOURCE_MAP_TSGO_FLAGS: readonly string[] = [
-  "--sourceMap",
-  "true",
-  "--inlineSourceMap",
-  "false",
-  "--inlineSources",
-  "false",
-];
-
 /** Rewritten served text keyed by emitted file, so the work runs once per run. */
 const inlineCache = new Map<string, string>();
 
