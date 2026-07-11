@@ -4,27 +4,21 @@
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE) [![NPM Version](https://img.shields.io/npm/v/@ttsc/graph.svg)](https://www.npmjs.com/package/@ttsc/graph) [![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/graph.svg)](https://www.npmjs.com/package/@ttsc/graph) [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest) [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs/graph) [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-`@ttsc/graph` is an MCP server that gives your coding agent a graph of your TypeScript codebase instead of source files: what calls what, what depends on what, and where each piece lives.
+`@ttsc/graph` is an MCP server that gives AI agents a code graph instead of source files.
 
-It is built on the TypeScript compiler, `tsgo`. Every declaration, signature, and edge in the graph is resolved by the real type checker, for TypeScript and TSX only, and the agent asks its code questions through a single tool. A fact is in the graph because the compiler resolved it, not because a text parser guessed at it, so every claim is anchored to a file and line you can open.
+It indexes a TypeScript codebase into a graph of declarations and their relationships, and answers an agent's code questions from that index through a single tool. Every node and edge is resolved by the TypeScript compiler itself, so the graph is exact for TypeScript and TSX, never text-guessed.
 
 Coding agents normally answer a code question by grepping the repository and reading file after file into context, and that reading is most of the token bill. The graph removes the need for it, and its own answers stay small in turn: they carry names, signatures, relationships, and source spans, never file bodies.
 
-Since neither side of that exchange grows with the repository, the cost falls by about the same proportion on every codebase, for an agent that trusts the graph result enough to stop there. That even distribution is what separates it from `codegraph` and `serena`, whose token cost swings with repository size, and it shows in the chart below:
+Since neither side of that exchange grows with the repository, the cost falls by about the same proportion in every situation, on every codebase, for an agent that trusts the graph result enough to stop there. codex/gpt-5.4-mini does; see the [Benchmark](#benchmark) section below for a harness where a model doesn't, and reads on top of the graph call anyway. That even distribution is what separates this from [`codegraph`](https://github.com/colbymchenry/codegraph) and [`serena`](https://github.com/oraios/serena) when it holds, and it shows directly in the chart below:
 
-![Common prompt median token use on Codex GPT-5.4 Mini](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.4-mini.svg)
-
-On open-ended "how does this work?" questions, that comes to roughly 10x fewer tokens. For why I built it, how it works in depth, and how it compares to `codegraph`, `codebase-memory-mcp`, and `serena`, read the launch post: https://ttsc.dev/blog/i-made-ts-compiler-graph-mcp
+![Agent token cost, common question, per repository](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.4-mini.svg)
 
 ## Setup
 
 ```bash
-npm install -D ttsc @ttsc/graph typescript
+npm install -D @ttsc/graph
 ```
-
-`@ttsc/graph` reads the graph from the program `ttsc` type-checked, so install the two together. `ttsc` runs on the native TypeScript 7 compiler from the `typescript` package. It does not run on the legacy TypeScript v6.x compiler.
-
-Add the server to your agent's MCP config, once. For Claude Code, that is a `.mcp.json` in your project root:
 
 ```json
 {
@@ -37,25 +31,25 @@ Add the server to your agent's MCP config, once. For Claude Code, that is a `.mc
 }
 ```
 
-Start your agent from your project root so the server finds your `tsconfig.json`. The agent queries the graph on its own; you never call it by hand.
+Start the client from the project root. The server builds one resident graph and answers every MCP call from memory.
 
-The example says Claude Code, but any MCP-capable agent works (Codex, Cursor, and others).
+`@ttsc/graph` reads the graph from the program `ttsc` type-checked, so the project needs `ttsc` and `typescript` installed alongside it. `ttsc` runs on the native TypeScript 7 compiler from the `typescript` package; it does not run on the legacy TypeScript v6.x compiler. There is no separate index step and no static-parser fallback: the graph is a byproduct of the type-check the compiler already runs, or it is not built at all.
 
 ## Benchmark
 
-Each repository is measured with one headless agent run per arm (`baseline` with no MCP, `@ttsc/graph`, `codegraph`, `serena`) across two prompt families: a shared onboarding tour, and `codegraph`'s own per-repository questions.
+Each repository is measured with one headless agent run per arm (`baseline` with no MCP, `@ttsc/graph`, `codegraph`, `serena`) on two prompt families, across two agent CLIs (`codex` and Claude Code). The corpus pins eight real TypeScript repositories.
 
-Across eight real repositories, `@ttsc/graph` holds a flat, low median token cost while the alternatives swing with repository size. The savings land at about the same proportion on every repository, the property that separates it from `codegraph` and `serena` when it holds.
+### Common
+
+Every repository is asked the same onboarding question, a plain code tour with no tool guidance appended. Across the corpus, `@ttsc/graph` holds a flat, low median token cost while the alternatives swing with repository size.
+
+### Dedicated
+
+`codegraph`'s own per-repository questions, verbatim, one architecture question per project.
 
 The interactive charts, every model, and the method are on the benchmark page: https://ttsc.dev/docs/benchmark/graph
 
 ## How it works
-
-The whole MCP surface is one tool, `inspect_typescript_graph`. You ask in plain language, and a required chain of thought inside the call (`question`, `draft`, `review`) plans the smallest query and picks one operation.
-
-![The forced chain of thought inside one tool call](https://ttsc.dev/blog/images/cot-pipeline.svg)
-
-Here is the entire contract, the JSDoc the model actually reads and all:
 
 ```ts
 /**
@@ -170,50 +164,25 @@ export namespace ITtscGraphApplication {
 
 `question`, `draft`, and `review` are required fields, so the model writes its reasoning into the call itself: state the question, draft the smallest request, then review the draft. A prompt line can be ignored; a required field cannot.
 
-The review is allowed to overturn the draft, and that matters more than the planning. When the agent enters the tool with a question the graph cannot answer, `review` replaces the drafted request on the spot, and `escape` backs out entirely. A wrong entry costs one small call instead of a derailed session.
+The review is allowed to overturn the draft, and that matters more than the planning. When an agent like Claude Code enters the tool with a question the graph cannot answer, `review` replaces the drafted request on the spot, and `escape` backs out entirely. A wrong entry costs one small call instead of a derailed session.
 
 ### Precision over restriction
 
-Nothing is forbidden. The tool description says when the graph applies and when to stop, and grep and file reads stay available for the moments they are the right move.
+Nothing is forbidden. The tool description says when the graph applies and when to stop. Grep and file reads stay available, and the agent still uses them when they are the right move.
 
-What keeps the agent on the graph is precision. Answers carry names, signatures, edges, and spans resolved by the type checker, so the agent accepts them as final instead of re-verifying with its own reads. And since no file body is ever included, a large repository cannot inflate the response. A returned span is a citation, not a cue to open the file.
-
-### Always current
-
-Before each operation the server checks the config, root-file set, module-resolution inputs, and source contents. Unchanged calls reuse the warm graph; source edits update the resident compiler incrementally; config, file-addition, deletion, and resolution changes reload safely. The graph does not change until you edit the source, so within one session a returned fact stays true.
+What keeps the agent on the graph is precision. Answers carry names, signatures, edges, and spans resolved by the TypeScript compiler, so the agent accepts them as final instead of re-verifying with its own reads. And since no file body is ever included, a large repository cannot inflate the response.
 
 ### Comparison
 
 [`serena`](https://github.com/oraios/serena) and [`codegraph`](https://github.com/colbymchenry/codegraph) fight the agent instead:
 
 - dozens of tools around one graph, so the agent often picks the wrong entry point
-- long injected instructions, spent mostly on forbidding grep and file reads
+- 100 to 150 lines of injected instructions, spent mostly on forbidding grep and file reads
 - source snippets inlined into answers, which reintroduces the reading cost a graph exists to remove
 - loosely structured answers the agent does not trust, so it goes back to reading the files to verify them
 - no way to back out, so a wrong entry keeps paying tool calls instead of escaping
 
 Here the same policy fits in one typed contract, enforced by schema instead of pleaded for in prose.
-
-The operations (`tour`, `entrypoints`, `lookup`, `trace`, `details`, `overview`, `escape`) and the full request and result contract are in the design guide: https://ttsc.dev/docs/graph/design
-
-## Browse it in 3D
-
-Run this in your own project to open the graph in your browser, served from a local port:
-
-```bash
-npx @ttsc/graph view
-```
-
-This is TypeORM in 3D, colored by kind ([live viewer](https://ttsc.dev/docs/graph/viewer)):
-
-[![The TypeORM code graph rendered in 3D](https://ttsc.dev/graph/typeorm.png)](https://ttsc.dev/docs/graph/viewer)
-
-## Learn more
-
-- [Launch post](https://ttsc.dev/blog/i-made-ts-compiler-graph-mcp): why I built it, and how it compares to `codegraph`, `codebase-memory-mcp`, and `serena`.
-- [Design](https://ttsc.dev/docs/graph/design): the one tool, its request and result branches, and the node and edge kinds.
-- [Comparison](https://ttsc.dev/docs/graph/compare): the head-to-head with other graph and language-server MCP tools.
-- [Benchmark](https://ttsc.dev/docs/benchmark/graph): the interactive charts, every model, and the method.
 
 ## Sponsors
 
@@ -222,3 +191,12 @@ This is TypeORM in 3D, colored by kind ([live viewer](https://ttsc.dev/docs/grap
 Thanks for your support.
 
 Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
+
+## References
+
+- Motivation: real-world use of [`codegraph`](https://github.com/colbymchenry/codegraph) that raised token cost instead of lowering it and visibly degraded agent reasoning.
+- Launch post: [why I built it](https://ttsc.dev/blog/i-made-ts-compiler-graph-mcp), and how it compares to [`codegraph`](https://github.com/colbymchenry/codegraph), [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp), and [`serena`](https://github.com/oraios/serena).
+- Generalization: [`@samchon/graph`](https://github.com/samchon/graph), the multi-language successor that carries the same one-tool contract to other languages.
+- Function calling harness: [part 1, validation feedback](https://dev.to/samchon/qwen-meetup-function-calling-harness-from-675-to-100-3830) and [part 2, CoT compliance](https://dev.to/samchon/function-calling-harness-2-cot-compliance-from-991-to-100-4f0h), the typia technique the contract is built on.
+- Protocol: the [Model Context Protocol](https://modelcontextprotocol.io).
+- Validation & MCP surface: [`typia`](https://github.com/samchon/typia) and [`@typia/mcp`](https://github.com/samchon/typia).
