@@ -11,14 +11,14 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * ## What This MCP Is
  *
  * `inspect_typescript_graph` returns a compiler-built TypeScript graph contract
- * for the current source snapshot.
+ * for the current on-disk source snapshot.
  *
- * Use it for architecture, runtime flow, APIs, callers and callees, code tours,
- * and type relations. It answers with ready evidence: names, edges (calls,
- * extends, references), signatures, decorators, tests, and source spans.
+ * Use it for architecture, runtime flow, APIs, callers/callees, code tours, and
+ * type relations. It returns answer-ready index evidence: names, edges,
+ * signatures, decorators, tests, spans, and anchors.
  *
- * Until the source is edited, returned facts are sacred, infallible compiler
- * truth: never re-verify them with a file or another call.
+ * Returned graph facts are sacred, infallible compiler truth for the snapshot
+ * synchronized by that call. Never verify them with files or more graph calls.
  *
  * ## Requests
  *
