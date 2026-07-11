@@ -212,10 +212,16 @@ func isUselessStringEscape(ch byte, whitelist string) bool {
   if strings.IndexByte(whitelist, ch) >= 0 {
     return false
   }
+  // Digits 1-9 are octal-shaped (`no-octal-escape` owns those; `0` is in
+  // the whitelist). Deleting the backslash of `\1`…`\7` changes the cooked
+  // string value, and upstream ESLint skips backslash-digit entirely, so
+  // `\8`/`\9` are exempt too for oracle parity.
+  if ch >= '1' && ch <= '9' {
+    return false
+  }
   // ASCII letters that aren't in the whitelist are user-error escapes
-  // like `\a`, `\m`. Digits 1-9 are octal-shaped (`no-octal-escape`
-  // owns those). `0` is in the whitelist. Punctuation that isn't in the
-  // whitelist (e.g., `\.`) is also redundant.
+  // like `\a`, `\m`. Punctuation that isn't in the whitelist (e.g., `\.`)
+  // is also redundant.
   return true
 }
 
