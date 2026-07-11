@@ -135,12 +135,22 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
   )
 }
 
-// nextStatementHasASIHazard reports whether the next non-trivia byte
-// after `end` starts a token that would re-associate with the prior
-// expression if the trailing `;` is removed. Prettier handles this by
-// inserting a defensive leading `;` on the next line; this rule's
-// fixer is single-node, so the safer move is to keep the explicit
-// terminator.
+// nextStatementHasASIHazard reports whether removing the trailing `;`
+// at `end-1` could change the parse, judged by the next significant
+// byte after `end` and the line structure between them.
+//
+// ASI only inserts a semicolon at a line terminator, end of input, or
+// before `}`. So the `;` is removable in exactly two shapes:
+//
+//   - end of input or a same-line `}` follows (ASI's closing-brace and
+//     end-of-input rules apply), or
+//   - a line terminator separates the statement from the next token AND
+//     that token is not a continuation hazard.
+//
+// Any other same-line successor (`else`, `while` of a do-loop, another
+// statement after a gap comment) makes the `;` a REQUIRED separator:
+// no line terminator means ASI cannot fire, so stripping would be a
+// syntax error, not a style change.
 //
 // Hazard tokens per the ASI spec:
 //
@@ -149,18 +159,72 @@ func (formatSemi) Check(ctx *Context, node *shimast.Node) {
 //   - “ ` “: tagged template literal continues
 //   - `+`, `-`, `*`: binary operator continues
 //   - `,`: comma operator continues
-//   - `/`: division operator or regex literal continues; handled by
-//     the comment-or-regex branch below (a leading `//` or `/*` is not a
-//     hazard, a bare `/` is), so it is absent from the token switch.
+//   - `/`: division operator or regex literal continues (a leading `//`
+//     or `/*` is trivia consumed by scanPastTrivia; a bare `/` is a
+//     hazard).
 func nextStatementHasASIHazard(src string, end int) bool {
-  for i := end; i < len(src); i++ {
+  i, sawNewline := scanPastTrivia(src, end)
+  if i >= len(src) {
+    return false
+  }
+  c := src[i]
+  if c == '}' {
+    // ASI applies before a closing brace regardless of line
+    // structure: `{ a(); }` → `{ a() }` stays valid.
+    return false
+  }
+  if !sawNewline {
+    // Next token on the same line: ASI cannot fire without a line
+    // terminator, so the `;` separates the two constructs
+    // (`if (a) b(); else c();`, `do f(); while (x);`,
+    // `a = 1; /* note */ b = 2`). Keep it.
+    return true
+  }
+  if c == '/' {
+    // bare `/` starts a regex literal or division, hazard.
+    return true
+  }
+  switch c {
+  // If the next significant byte is one of these, dropping the terminator
+  // could let the following line re-associate with the prior expression.
+  // `( [`, a unary `+ -`, and a tagged-template backtick are the cases
+  // actually reachable from a valid statement start; `<` matters in .tsx
+  // (a leading `<` opens a JSX element). The remaining infix bytes cannot
+  // begin a valid statement on their own, but are listed defensively so
+  // the strip always cedes rather than risk a parse-changing edit.
+  case '[', '(', '`', '+', '-', '*', ',', '.', '<', '>', '=', '?', '%', '&', '|', '^':
+    return true
+  }
+  return false
+}
+
+// scanPastTrivia advances from `pos` past whitespace and comments,
+// returning the index of the next significant byte (len(src) at end of
+// input) and whether a line terminator was crossed on the way. Both
+// semicolon scanners (statement and member) share it so the ASI line
+// rules cannot drift apart.
+//
+// A block comment that spans lines counts as a crossed line: per
+// ECMA-262 (Comments), a multi-line comment containing a line
+// terminator is treated as a line terminator for ASI, so the decision
+// keys on comment content, not comment kind. `\r` counts as a line
+// terminator on its own, which also covers CRLF sources.
+func scanPastTrivia(src string, pos int) (next int, sawNewline bool) {
+  i := pos
+  for i < len(src) {
     c := src[i]
-    if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+    if c == '\n' || c == '\r' {
+      sawNewline = true
+      i++
+      continue
+    }
+    if c == ' ' || c == '\t' {
+      i++
       continue
     }
     if c == '/' && i+1 < len(src) {
       if src[i+1] == '/' {
-        for i < len(src) && src[i] != '\n' {
+        for i < len(src) && src[i] != '\n' && src[i] != '\r' {
           i++
         }
         continue
@@ -168,30 +232,22 @@ func nextStatementHasASIHazard(src string, end int) bool {
       if src[i+1] == '*' {
         i += 2
         for i+1 < len(src) && !(src[i] == '*' && src[i+1] == '/') {
+          if src[i] == '\n' || src[i] == '\r' {
+            sawNewline = true
+          }
           i++
         }
         if i+1 < len(src) {
-          i++ // step past '*/'
+          i += 2 // step past '*/'
+        } else {
+          i = len(src) // unterminated block comment swallows the rest
         }
         continue
       }
-      // bare `/` starts a regex literal or division, hazard.
-      return true
     }
-    switch c {
-    // If the next significant byte is one of these, dropping the terminator
-    // could let the following line re-associate with the prior expression.
-    // `( [`, a unary `+ -`, and a tagged-template backtick are the cases
-    // actually reachable from a valid statement start; `<` matters in .tsx
-    // (a leading `<` opens a JSX element). The remaining infix bytes cannot
-    // begin a valid statement on their own, but are listed defensively so
-    // the strip always cedes rather than risk a parse-changing edit.
-    case '[', '(', '`', '+', '-', '*', ',', '.', '<', '>', '=', '?', '%', '&', '|', '^':
-      return true
-    }
-    return false
+    return i, sawNewline
   }
-  return false
+  return len(src), sawNewline
 }
 
 // preferNeverSafeKind reports whether stripping the trailing semicolon
@@ -291,8 +347,9 @@ func stripMemberSemicolon(ctx *Context, src string, node *shimast.Node, isClassF
 
 // memberSemicolonRedundant reports whether the member terminator `;`
 // whose following byte is at `after` can be dropped without changing the
-// parse. It scans past trivia (whitespace + comments) to the next
-// significant byte and applies Prettier's semi:false member rules:
+// parse. It scans past trivia (whitespace + comments, via
+// scanPastTrivia) to the next significant byte and applies Prettier's
+// semi:false member rules:
 //
 //   - The closing `}` (or end of file) always makes the `;` redundant.
 //   - A next member on the SAME line (no newline crossed) keeps the `;`
@@ -305,57 +362,27 @@ func stripMemberSemicolon(ctx *Context, src string, node *shimast.Node, isClassF
 //     call/construct/generic signature (`(` / `<`) for type members
 //     (a leading `[` is an index signature there, not a continuation).
 func memberSemicolonRedundant(src string, after int, isClassField bool) bool {
-  sawNewline := false
-  for i := after; i < len(src); {
-    c := src[i]
-    if c == '\n' {
-      sawNewline = true
-      i++
-      continue
-    }
-    if c == ' ' || c == '\t' || c == '\r' {
-      i++
-      continue
-    }
-    if c == '/' && i+1 < len(src) {
-      if src[i+1] == '/' {
-        for i < len(src) && src[i] != '\n' {
-          i++
-        }
-        continue
-      }
-      if src[i+1] == '*' {
-        i += 2
-        for i+1 < len(src) && !(src[i] == '*' && src[i+1] == '/') {
-          if src[i] == '\n' {
-            sawNewline = true
-          }
-          i++
-        }
-        if i+1 < len(src) {
-          i += 2
-        }
-        continue
-      }
-    }
-    if c == '}' {
-      return true
-    }
-    if !sawNewline {
+  i, sawNewline := scanPastTrivia(src, after)
+  if i >= len(src) {
+    return true
+  }
+  c := src[i]
+  if c == '}' {
+    return true
+  }
+  if !sawNewline {
+    return false
+  }
+  if isClassField {
+    switch c {
+    case '[', '(', '`', '+', '-', '*', '/', ',':
       return false
     }
-    if isClassField {
-      switch c {
-      case '[', '(', '`', '+', '-', '*', '/', ',':
-        return false
-      }
-    } else {
-      switch c {
-      case '(', '<':
-        return false
-      }
+  } else {
+    switch c {
+    case '(', '<':
+      return false
     }
-    return true
   }
   return true
 }
