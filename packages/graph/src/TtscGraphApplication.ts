@@ -46,7 +46,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
         result.nextStep = props.request.nextStep;
       }
       return {
-        integrity: 100,
+        integrity: "This escape carries no graph facts to audit.",
         next: resultNext(
           "outside",
           "The caller chose to leave the graph, so this call carries no graph facts.",

@@ -5,7 +5,7 @@ import { TtsgraphClient, assert } from "../internal/ttsgraph";
 interface ToolResult {
   content: { type: string; text: string }[];
   structuredContent?: {
-    integrity?: unknown;
+    integrity?: string;
     next?: { action?: string };
     result?: { type?: string };
   };
@@ -110,10 +110,12 @@ export const test_ttscgraph_reports_audited_integrity_before_the_facts =
           ["integrity", "next", "result"],
           `integrity leads, then where it leaves the question, then the facts: ${raw}`,
         );
-        assert.equal(
-          payload?.integrity,
-          100,
-          `every fact of this result resolves to the checked program: ${raw}`,
+        assert.match(
+          payload?.integrity ?? "",
+          expectedType === "escape"
+            ? /no graph facts to audit/i
+            : /Audited before returning: (\d+) of \1 facts .+ \(100%\)/,
+          `the audit must report what it checked and what resolved: ${raw}`,
         );
         assert.ok(
           typeof payload?.next?.action === "string",

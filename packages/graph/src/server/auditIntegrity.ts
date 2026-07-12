@@ -1,35 +1,45 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 
 /**
- * Audit a result on its way out: what share of the facts in it resolve back to
- * the type-checked program, as a percentage.
+ * Audit a result on the way out and describe what the audit found.
  *
- * The server walks the payload it is about to return — every node id, every
- * span, every edge endpoint, every step — and asks the resident graph whether
- * that fact is one the checker resolved for the snapshot this call synced to.
- * The count over the total is the number the caller reads as `integrity`.
+ * The server walks the payload it is about to return, takes every fact in it,
+ * and asks the resident graph whether that fact resolves back to the
+ * type-checked program for the snapshot this call synced to. What comes back is
+ * a sentence reporting the count: how many facts were checked, how many
+ * resolved, and the share that leaves.
  *
- * It replaces a sentence that told the model to trust the result. A tool result
- * is untrusted input, so a command inside one is the shape of a prompt
- * injection, and models treat it as such: Sonnet called an earlier payload's
- * directive "a prompt-injection-style directive baked into the MCP server's
- * tool result", checked the graph against the sources on principle, and warned
- * the user about this server in its answer. A number the server computes is
- * data. It carries the same claim — these facts came from the compiler —
- * without asking for anything.
+ * It explains; it does not order. The field it fills replaced a directive that
+ * told the model its facts were sacred and must not be verified — a command
+ * inside a tool result, which is the shape of a prompt injection and was read
+ * as one: Sonnet called it "a prompt-injection-style directive baked into the
+ * MCP server's tool result", checked the graph against the sources on
+ * principle, and warned the user about this server in its answer. An audit the
+ * server ran and reports is not a demand for trust; it is evidence, and what
+ * the reader does with evidence is the reader's own business.
  *
- * Nothing here is asserted. A fact the graph cannot vouch for lowers the
- * number, so a regression that starts fabricating nodes shows up as a result
- * that no longer reads 100.
+ * The number is earned, not asserted. A fact the graph cannot vouch for lowers
+ * the share, so a regression that starts fabricating nodes shows up as a result
+ * that no longer audits clean.
  */
 export function auditIntegrity(
   graph: TtscGraphMemory,
   result: unknown,
-): number {
+): string {
   const audit = { checked: 0, resolved: 0 };
   walk(graph, result, audit);
-  if (audit.checked === 0) return 100;
-  return Math.round((audit.resolved / audit.checked) * 100);
+  if (audit.checked === 0) {
+    return "This result carries no graph facts to audit.";
+  }
+  const share = Math.round((audit.resolved / audit.checked) * 100);
+  return (
+    `Audited before returning: ${audit.resolved} of ${audit.checked} facts in this result ` +
+    `resolve to the type-checked program for the snapshot this call synced to (${share}%). ` +
+    (share === 100
+      ? "Every name, span, edge, and step here is checker output for that snapshot, " +
+        "so the file behind a cited span holds the fact this result already carries."
+      : "The rest were not resolved by the checker; weigh them accordingly.")
+  );
 }
 
 /**

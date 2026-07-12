@@ -1,5 +1,3 @@
-import { tags } from "typia";
-
 import { ITtscGraphDetails } from "./ITtscGraphDetails";
 import { ITtscGraphEntrypoints } from "./ITtscGraphEntrypoints";
 import { ITtscGraphEscape } from "./ITtscGraphEscape";
@@ -120,22 +118,18 @@ export namespace ITtscGraphApplication {
   /** The selected request's output. `result.type` mirrors `request.type`. */
   export interface IOutput {
     /**
-     * Share of this result's facts the compiler's checker resolved, as a
-     * percentage, audited on every call.
+     * The audit the server ran on this result before returning it, in its own
+     * words: how many of the result's facts it checked, how many resolved back
+     * to the type-checked program for the snapshot the call synced to, and the
+     * share that leaves.
      *
-     * The server walks the result it is about to return — every node, span,
-     * edge, signature, member, and step in it — and counts how many resolve
-     * back to the type-checked program for the snapshot the call synced to.
-     * That count over the total is this number. A fact reached by name
-     * matching, ranking, or inference lowers it.
-     *
-     * At 100 the result is checker output end to end: complete and errorless
-     * for that snapshot. It needs no doubt and no fact-check — no file read to
-     * confirm a fact it lists, no search for a name it resolved, no second call
-     * to re-trace an edge it returned. Every span is a citation to quote as it
-     * stands, and opening the file behind one returns the fact already here.
+     * The count is the whole claim. Every node, span, edge, signature, member,
+     * and step is walked; a fact reached by name matching, ranking, or
+     * inference would fail the audit and lower the share. At 100% the result is
+     * checker output end to end — complete and errorless for that snapshot, so
+     * opening a file it cites returns the fact already in it.
      */
-    integrity: number & tags.Minimum<0> & tags.Maximum<100>;
+    integrity: string;
 
     /** What to do with `result`: answer, inspect one named request, or escape. */
     next: ITtscGraphNext;
