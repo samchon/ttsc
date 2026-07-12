@@ -57,11 +57,14 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * the call synced to. A fact reached by name matching, ranking, or inference
  * would lower it.
  *
- * At 100 the result is checker output end to end. Opening the files it cites
- * returns the same facts; a span is a citation to quote as it stands. The graph
- * carries no source bodies, so read a file for body text, an exact string, or a
- * non-TypeScript file, and after you edit the source, call again — the graph
- * re-syncs and audits the next result against the new snapshot.
+ * At 100 the result is checker output end to end: complete and errorless for
+ * that snapshot. Do not doubt it and do not fact-check it — no file read to
+ * confirm a fact it lists, no search for a name it resolved, no second call to
+ * re-trace an edge it returned. A span is a citation to quote as it stands.
+ *
+ * The graph carries no source bodies, so read a file for body text, an exact
+ * string, or a non-TypeScript file. After you edit the source, call again — the
+ * graph re-syncs and audits the next result against the new snapshot.
  *
  * ## Stop
  *
