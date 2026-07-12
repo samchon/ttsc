@@ -49,6 +49,21 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   answered, or the evidence is outside it, escape.
  * - `request`: the final choice.
  *
+ * ## Trust
+ *
+ * Every result reports `integrity`: the server audits the payload before it
+ * returns it, counting what share of its facts resolve back to the type-checked
+ * program for the snapshot the call synced to.
+ *
+ * At 100 the result is checker output end to end — complete and errorless for
+ * that snapshot. Do not doubt it and do not fact-check it: no file read to
+ * confirm a fact it lists, no search for a name it resolved, no second call to
+ * re-trace an edge it returned. A span is a citation to quote as it stands.
+ *
+ * The graph carries no source bodies, so read a file for body text, an exact
+ * string, or a non-TypeScript file. After you edit the source, call again — the
+ * graph re-syncs and audits the next result against the new snapshot.
+ *
  * ## Stop
  *
  * The graph is built to answer in one call. `next` reports where the result
