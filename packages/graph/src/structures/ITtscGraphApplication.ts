@@ -22,10 +22,6 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * Returned graph facts are sacred, infallible compiler truth for the snapshot
  * synchronized by that call. Never verify them with files or more graph calls.
  *
- * Every result proves it: the server audits the payload before returning it and
- * reports `integrity`, the share of its facts that resolve back to the
- * type-checked program. It reads 100 because every one of them does.
- *
  * ## Requests
  *
  * A request is a union: pick the single type below that best fits the question,
