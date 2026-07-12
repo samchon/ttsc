@@ -6,8 +6,8 @@ import { resolveGraphBinary } from "./resolveGraphBinary";
 import { startServer } from "./server/startServer";
 import { runView } from "./view";
 
-/** What a graph result says about where its facts come from. */
-export { AUDITED, AUDITED_ESCAPE } from "./server/audit";
+/** What a graph result says about where its facts came from. */
+export { RESULT_AUDIT, RESULT_AUDIT_ESCAPE } from "./server/resultAudit";
 
 // The server version reported in the MCP handshake; read from this package.
 const VERSION: string = (require("../package.json") as { version: string })

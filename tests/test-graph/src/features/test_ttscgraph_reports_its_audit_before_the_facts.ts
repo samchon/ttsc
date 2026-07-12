@@ -1,4 +1,4 @@
-import { AUDITED, AUDITED_ESCAPE } from "@ttsc/graph";
+import { RESULT_AUDIT, RESULT_AUDIT_ESCAPE } from "@ttsc/graph";
 import { TestProject } from "@ttsc/testing";
 
 import { TtsgraphClient, assert } from "../internal/ttsgraph";
@@ -111,7 +111,7 @@ export const test_ttscgraph_reports_its_audit_before_the_facts = async () => {
       );
       assert.equal(
         payload?.audit,
-        expectedType === "escape" ? AUDITED_ESCAPE : AUDITED,
+        expectedType === "escape" ? RESULT_AUDIT_ESCAPE : RESULT_AUDIT,
         `a result assembled from graph nodes must audit clean: ${raw}`,
       );
       assert.ok(
