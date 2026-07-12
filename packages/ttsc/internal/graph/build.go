@@ -59,7 +59,15 @@ func collectStatements(g *Graph, path string, statements []*shimast.Node) {
     switch statement.Kind {
     case shimast.KindFunctionDeclaration:
       addNode(g, path, statement, NodeFunction)
-      collectClosures(g, path, statement)
+      // Disabled on purpose. `collectClosures` records the functions a body
+      // declares, and it works — Vue's renderer chain (`patch`, `mountElement`,
+      // `setupRenderEffect`) becomes graph nodes instead of a blank under
+      // `baseCreateRenderer`. But that is what an index is not. A closure is
+      // implementation, and implementation is read from the file or asked of a
+      // language server; the compiler knowing it does not make it the graph's to
+      // hand over. It buys something only where one file runs to tens of
+      // thousands of lines, and a graph should not be built for that.
+      // collectClosures(g, path, statement)
     case shimast.KindClassDeclaration:
       addNode(g, path, statement, NodeClass)
       collectMembers(g, path, statement)
@@ -95,7 +103,7 @@ func collectVariables(g *Graph, path string, statement *shimast.Node) {
   }
   for _, binding := range list.Declarations.Nodes {
     addNode(g, path, binding, NodeVariable)
-    collectClosures(g, path, binding)
+    // collectClosures(g, path, binding)
   }
 }
 
@@ -363,7 +371,7 @@ func collectMembers(g *Graph, path string, statement *shimast.Node) {
     case isPropertyMember(member.Kind):
       putDeclaredNode(g, path, name, NodeVariable, member)
     }
-    collectClosures(g, path, member)
+    // collectClosures(g, path, member)
   }
 }
 

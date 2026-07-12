@@ -147,7 +147,10 @@ func forEachContainerIn(path string, statements []*shimast.Node, fn func(string,
       if id := topLevelID(path, statement, NodeFunction); id != "" {
         fn(id, statement)
       }
-      forEachClosureIn(path, statement, fn)
+      // Closure nodes are not indexed (build.go): what a function body runs is
+      // implementation, and implementation is read from the file. The walker
+      // stays for the day the caller asks for them.
+      // forEachClosureIn(path, statement, fn)
     case shimast.KindTypeAliasDeclaration:
       if id := topLevelID(path, statement, NodeTypeAlias); id != "" {
         fn(id, statement)
@@ -190,7 +193,7 @@ func topLevelID(path string, statement *shimast.Node, kind NodeKind) string {
 func forEachMember(path string, statement *shimast.Node, kind NodeKind, fn func(string, *shimast.Node)) {
   containerID := topLevelID(path, statement, kind)
   for _, member := range classMembers(statement) {
-    forEachClosureIn(path, member, fn)
+    // forEachClosureIn(path, member, fn)
     if isMethodMember(member.Kind) {
       if name := methodName(member.Symbol()); name != "" {
         fn(nodeID(path, name, NodeMethod), member)
@@ -261,7 +264,7 @@ func forEachVariable(path string, statement *shimast.Node, fn func(string, *shim
       continue
     }
     fn(nodeID(path, qualifiedName(symbol), NodeVariable), binding)
-    forEachClosureIn(path, binding, fn)
+    // forEachClosureIn(path, binding, fn)
   }
 }
 
@@ -296,13 +299,9 @@ func closureID(path string, closure *shimast.Node) string {
 // value-call edges, and property or element access as value-access edges.
 func (g *Graph) callsWithin(checker *shimchecker.Checker, from string, node *shimast.Node) {
   node.ForEachChild(func(child *shimast.Node) bool {
-    // A closure is a node of its own and is walked for itself, so the calls it
-    // makes belong to it, not to the function it sits in. Without this stop,
-    // `baseCreateRenderer` would own every call its dozen local renderer
-    // functions make and the flow through them would collapse into one hub.
-    if IsClosure(child) {
-      return false
-    }
+    // With closures unindexed, a body's calls belong to the declaration that
+    // owns the body — the walk does not stop at one. (When they are indexed, it
+    // must: a closure that is its own node owns the calls it makes.)
     switch child.Kind {
     case shimast.KindCallExpression:
       // A decorator's own factory call (`@Column()`, `@Entity()`) is metadata,
