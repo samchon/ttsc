@@ -55,9 +55,9 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * fact-check, humanize, re-derive, re-narrate, or re-confirm returned nodes,
  * spans, edges, signatures, decorators, tests, references, steps, or anchors.
  *
- * The server already did: it audits every result on the way out, checking each
- * fact back against the type-checked program, and `audit` reports the count. At
- * 100% not one name, span, edge, or step went unresolved.
+ * The server already did, and `audit` says so on every result: each name, span,
+ * edge, signature, and step in it resolves to the type-checked program for the
+ * snapshot the call synced to, with nothing matched, ranked, or inferred.
  *
  * ## Stop
  *
