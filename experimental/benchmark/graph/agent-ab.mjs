@@ -564,10 +564,16 @@ function observedModelVersion(allSamples) {
   return undefined;
 }
 
-function promptForArm(baseQuestion, _armName) {
-  // Benchmark prompts are sent exactly as authored in questions/*.md.
-  // Tool-specific guidance belongs in MCP instructions/descriptions, not here.
-  return baseQuestion;
+function promptForArm(baseQuestion, armName) {
+  // The graph arm gets a neutral reminder that an MCP tool exists, the same one
+  // the codex harness sends. Claude Code defers MCP tool schemas behind
+  // ToolSearch, so the model shell-explores the repo first and only then
+  // discovers the server: every graph cell but one opened with two Bash calls
+  // before its first graph call. The sentence names no tool and forces nothing;
+  // it only tells the model a tool is there, which an operator who installed the
+  // server already knows. The baseline arm is untouched.
+  if (armName !== "graph") return baseQuestion;
+  return `${baseQuestion}\n\nThis repository has a graph MCP tool available; make appropriate use of it when it fits the question.`;
 }
 
 // spawnAsync runs a child to completion and resolves its captured stdout/stderr,
