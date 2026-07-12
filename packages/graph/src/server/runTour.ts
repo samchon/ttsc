@@ -16,7 +16,7 @@ const MAX_LIMIT = 5;
 const FLOW_SEEDS = 5;
 const DETAIL_SEEDS = 3;
 const TEST_SEEDS = 3;
-const MAX_FLOW_ANCHORS = 12;
+const MAX_FLOW_ANCHORS = 8;
 const MAX_NEARBY = 10;
 const MAX_TESTS = 8;
 const MAX_READ_NEXT = 14;
@@ -147,7 +147,7 @@ export function runTour(
       isTourTraceNode(graph, node),
     );
     primaryFlow.push({
-      start: traceNodeOf(start),
+      start: flowStartOf(start),
       steps: hops
         .slice(0, MAX_FLOW_ANCHORS)
         .map((hop) => flowStepOf(graph, hop)),
@@ -270,6 +270,14 @@ function graphNodeOf(
   };
 }
 
+/**
+ * A node a flow reached, as a coordinate only. Its span and signature are
+ * already in the flow's `steps` and `anchors`, and carrying them a second time
+ * cost half the tour's payload — enough that a client which caps a tool result
+ * spilled the whole thing to a file, and the model shelled out to read back its
+ * own answer. The flow's start keeps the full node; the chain behind it does
+ * not need one.
+ */
 function traceNodeOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
   return {
     id: node.id,
@@ -277,6 +285,12 @@ function traceNodeOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
     kind: node.kind,
     file: node.file,
     ...(node.line !== undefined ? { line: node.line } : {}),
+  };
+}
+
+function flowStartOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
+  return {
+    ...traceNodeOf(node),
     ...(node.sourceSpan !== undefined
       ? {
           sourceSpan: {

@@ -83,17 +83,17 @@ export namespace ITtscGraphTrace {
     focus?: "all" | "execution" | "types";
 
     /**
-     * Hops deep to follow (open forward/reverse cap at 2, impact at 4, path
-     * mode at 12). Raise it for path mode.
+     * Hops deep to follow (open forward/reverse cap at 8, impact at 4, path
+     * mode at 12). Raise it to follow a runtime chain to its end in one call.
      *
-     * @default 2
+     * @default 3
      */
     maxDepth?: number;
 
     /**
-     * Cap on reached nodes (open forward/reverse cap at 8, impact at 16).
+     * Cap on reached nodes (open forward/reverse cap at 32, impact at 16).
      *
-     * @default 6
+     * @default 12
      */
     maxNodes?: number;
 

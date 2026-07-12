@@ -5,9 +5,9 @@
  * precedes any fact it might second-guess.
  *
  * Keep it narrow. It bans the three ways a model wastes tokens on a complete
- * result — re-verifying a fact, opening a file to quote or flesh out a span, and
- * decomposing the question into extra calls that chase threads the result did
- * not surface — then defers the stop-or-continue decision to the result's
+ * result — re-verifying a fact, opening a file to quote or flesh out a span,
+ * and decomposing the question into extra calls that chase threads the result
+ * did not surface — then defers the stop-or-continue decision to the result's
  * `next`, so it never contradicts a partial result that legitimately asks for
  * one more request (`next.action` `inspect`). It must not state the read
  * carve-out (reading files for a body the graph does not carry stays allowed) —

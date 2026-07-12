@@ -33,7 +33,11 @@ export function runEntrypoints(
     MAX_NEIGHBORS,
   );
 
-  const lookupResult = runLookup(graph, { type: "lookup", query, limit }).result;
+  const lookupResult = runLookup(graph, {
+    type: "lookup",
+    query,
+    limit,
+  }).result;
   const hits = lookupResult.hits.map((hit) => ({ ...hit }));
 
   const mentions = directMentions(graph, query).map((handle) => {
