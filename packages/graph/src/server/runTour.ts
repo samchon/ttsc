@@ -13,7 +13,7 @@ import { runTrace } from "./runTrace";
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 5;
-const FLOW_SEEDS = 5;
+const FLOW_SEEDS = 4;
 /** How many ranked seeds deep to look for flows that actually move. */
 const FLOW_SEED_CANDIDATES = 4;
 const DETAIL_SEEDS = 3;
@@ -28,7 +28,7 @@ const MAX_READ_NEXT = 14;
 // "the tour stopped short of the actual patch engine", then four more calls.
 // The flow reaches the work now.
 const TOUR_TRACE_MAX_DEPTH = 6;
-const TOUR_TRACE_MAX_NODES = 32;
+const TOUR_TRACE_MAX_NODES = 18;
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 const EXECUTION_KINDS = new Set<string>([
   "calls",
