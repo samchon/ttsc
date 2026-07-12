@@ -38,6 +38,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { GROUNDING } from "./prompt.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
@@ -555,11 +557,14 @@ function parseConfiguredArgs(raw, targetRepoDir) {
 }
 
 function promptForArm(baseQuestion, armName) {
-  // The graph arm gets a neutral reminder that MCP tools exist, because
+  // The baseline arm is sent to the code, because memory of a famous repository
+  // is not a baseline (see GROUNDING). An arm whose facts come from this
+  // checkout's compiler needs no such warning.
+  if (armName === "baseline") return `${baseQuestion}\n\n${GROUNDING}`;
+  // The tool arm gets a neutral reminder that MCP tools exist, because
   // tool-search models (e.g. gpt-5.6) do not surface MCP server tools from the
   // server `instructions` alone. It names no tool and forces nothing; it only
-  // nudges appropriate use when a tool fits. The baseline arm is untouched.
-  if (armName !== "graph") return baseQuestion;
+  // nudges appropriate use when a tool fits.
   return `${baseQuestion}\n\nThis repository has a graph MCP tool available; make appropriate use of it when it fits the question.`;
 }
 
