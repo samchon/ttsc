@@ -14,6 +14,8 @@ import { runTrace } from "./runTrace";
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 5;
 const FLOW_SEEDS = 5;
+/** How many ranked seeds deep to look for flows that actually move. */
+const FLOW_SEED_CANDIDATES = 4;
 const DETAIL_SEEDS = 3;
 const TEST_SEEDS = 3;
 const MAX_FLOW_ANCHORS = 8;
@@ -127,11 +129,19 @@ export function runTour(
   }).result;
   const seeds = tourSeedsOf(graph, entry, query, limit);
   const seedIds = seeds.map((node) => node.id);
-  const flowSeedIds = flowSeedIdsOf(seeds);
   const entrypoints = seeds.map((node) => graphNodeOf(graph, node));
 
+  // A flow that goes nowhere is a wasted slot: a seed can match the question by
+  // name and still drive nothing (a decorator factory, a metadata helper), and
+  // tracing the top five seeds blind spent the tour's flows on them — the model
+  // read "the tour didn't surface the request pipeline" and went to the files.
+  // Walk the ranked seeds instead, keeping the ones whose trace actually moves,
+  // until the tour has its flows.
   const primaryFlow: ITtscGraphTour.IFlow[] = [];
-  for (const id of flowSeedIds.slice(0, FLOW_SEEDS)) {
+  for (const id of flowSeedIdsOf(
+    tourSeedsOf(graph, entry, query, limit * FLOW_SEED_CANDIDATES),
+  )) {
+    if (primaryFlow.length >= FLOW_SEEDS) break;
     const trace = runTrace(graph, {
       type: "trace",
       from: id,
@@ -143,6 +153,7 @@ export function runTour(
     const start = trace.start;
     if (start === undefined) continue;
     const hops = trace.hops.filter((hop) => isTourHop(graph, hop));
+    if (hops.length === 0) continue;
     const reached = trace.reached.filter((node) =>
       isTourTraceNode(graph, node),
     );
