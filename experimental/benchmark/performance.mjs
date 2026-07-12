@@ -131,7 +131,6 @@ const PACKAGE_CONFIGS = {
   vue: {
     kind: "frontend monorepo",
     repoName: "ttsc-benchmark-vue",
-    workName: "vue",
     repo: "https://github.com/samchon/ttsc-benchmark-vue.git",
     packageManager: "pnpm",
     filesRoot: "packages",
@@ -152,7 +151,6 @@ const PACKAGE_CONFIGS = {
   rxjs: {
     kind: "library monorepo",
     repoName: "ttsc-benchmark-rxjs",
-    workName: "rxjs",
     repo: "https://github.com/samchon/ttsc-benchmark-rxjs.git",
     packageManager: "yarn",
     filesRoot: "packages",
@@ -241,7 +239,6 @@ const PACKAGE_CONFIGS = {
   zod: {
     kind: "schema library monorepo",
     repoName: "ttsc-benchmark-zod",
-    workName: "zod",
     repo: "https://github.com/samchon/ttsc-benchmark-zod.git",
     packageManager: "pnpm",
     filesRoot: "packages/zod/src",
@@ -283,7 +280,6 @@ const PACKAGE_CONFIGS = {
   nestjs: {
     kind: "backend framework monorepo",
     repoName: "ttsc-benchmark-nestjs",
-    workName: "nestjs",
     repo: "https://github.com/samchon/ttsc-benchmark-nestjs.git",
     packageManager: "npm",
     filesRoot: "packages",
@@ -292,7 +288,6 @@ const PACKAGE_CONFIGS = {
   vscode: {
     kind: "application monorepo",
     repoName: "ttsc-benchmark-vscode",
-    workName: "vscode",
     repo: "https://github.com/samchon/ttsc-benchmark-vscode.git",
     packageManager: "npm",
     installCommand:
@@ -635,16 +630,8 @@ function resolveProjectArg(arg) {
   return PROJECTS.find((p) => p.name === arg || p.repoName === arg);
 }
 
-/**
- * Working-copy folder for a fixture branch. It is keyed by `workName` (falling
- * back to `repoName`) because the graph benchmark runs an agent inside this
- * folder, and a `ttsc-benchmark-` prefixed cwd makes the agent hunt for harness
- * code instead of touring the real source. `repoName` stays the GitHub fixture
- * repo it clones from, and the graph runner's fixture map resolves to the same
- * folders.
- */
 function cloneDir(project, branch) {
-  return path.join(WORK, `${project.workName ?? project.repoName}@${branch}`);
+  return path.join(WORK, `${project.repoName}@${branch}`);
 }
 
 function ownsPnpmWorkspace(root) {

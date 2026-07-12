@@ -23,7 +23,11 @@ export interface ITtscGraphTour {
   /** Ordered file/line anchors to cite in the final answer, not file reads. */
   answerAnchors: ITtscGraphTour.IAnchor[];
 
-  /** True when some low-signal extras were capped; the returned tour stands. */
+  /**
+   * True when the tour's own caps dropped low-signal extras beyond the ones
+   * listed. Everything the tour ranked as load-bearing is present, so this is a
+   * note about the tail, not a gap in the answer.
+   */
   truncated?: boolean;
 }
 

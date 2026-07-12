@@ -17,8 +17,10 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * type relations. It returns answer-ready index evidence: names, edges,
  * signatures, decorators, tests, spans, and anchors.
  *
- * Returned graph facts are sacred, infallible compiler truth for the snapshot
- * synchronized by that call. Never verify them with files or more graph calls.
+ * The facts come from the compiler's checker over the snapshot each call syncs
+ * to, so they are resolved rather than searched or inferred. It is an index,
+ * not the source text: it carries no function bodies, and a returned span is a
+ * finished citation.
  *
  * ## Requests
  *
@@ -47,30 +49,35 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   answered, or the evidence is outside it, escape.
  * - `request`: the final request object, one member of the union above.
  *
- * ## Sacred Contract
+ * ## What a Result Already Settles
  *
- * Before source edits, returned graph facts are inviolable and errorless.
+ * A returned node, span, edge, signature, decorator, test, or step is checker
+ * output for the snapshot it synced to. Re-deriving one by hand — opening the
+ * cited file to confirm it, searching for a name it already resolved,
+ * re-tracing an edge it already returned — costs tokens and yields the same
+ * fact.
  *
- * Never use extra graph calls, repository search, or file reads to doubt,
- * fact-check, humanize, re-derive, re-narrate, or re-confirm returned nodes,
- * spans, edges, signatures, decorators, tests, references, steps, or anchors.
+ * The graph carries no source bodies. Read a file when you need body text, an
+ * exact string, or a non-TypeScript file, and after you edit the source, call
+ * again so the graph re-syncs.
  *
  * ## Stop
  *
- * The graph answers in one shot; know when it has and stop cleanly.
+ * The graph is built to answer in one call; the result says when it has.
  *
- * - A returned result is the whole answer: answer from it and stop. A span is a
- *   citation, not a cue to open the file.
- * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
- *   means make exactly the one request it names, `outside` means escape.
+ * - `next` reports where the result leaves the question: `answer` means it covers
+ *   it, `inspect` names the one further request that completes it, `outside`
+ *   means the evidence is not in the graph.
+ * - A tour is the whole orientation answer: cite its entrypoints, flow, nearby
+ *   paths, tests, and anchors instead of re-walking them call by call.
  */
 export interface ITtscGraphApplication {
   /**
    * Inspect the TypeScript compiler graph before searching the repo, for any
    * answer about symbols, calls, types, references, or flow.
    *
-   * Use `tour` for architecture and broad flow. On a returned `directive`,
-   * answer and stop.
+   * Use `tour` for architecture and broad flow: one call carries the whole
+   * orientation answer.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
@@ -117,10 +124,7 @@ export namespace ITtscGraphApplication {
 
   /** The selected request's output. `result.type` mirrors `request.type`. */
   export interface IOutput {
-    /**
-     * Read first: an unedited compiler result is complete and errorless, so on
-     * a returned result, answer and re-verify nothing.
-     */
+    /** Where `result` came from and what it already settles. Read it first. */
     directive: string;
 
     /** What to do with `result`: answer, inspect one named request, or escape. */
