@@ -44,21 +44,22 @@ const overviewArguments = () => ({
  * Verifies a result reports its audited `integrity` first, carries no
  * instruction, and crosses the wire once.
  *
- * The server used to stamp a `directive` onto every result telling the model the
- * facts were sacred and not to be verified. A tool result is untrusted input, so
- * a command inside one is the shape of a prompt injection, and models read it
- * that way: Sonnet called it "a prompt-injection-style directive baked into the
- * MCP server's tool result", checked the graph against the sources on principle,
- * and warned the user about this server in its answer. The claim it made is now
- * a number the server audits — the share of the result's facts that resolve back
- * to the type-checked program — and it serializes before `result`, so what the
- * facts are worth precedes the facts. What the number means is the output
- * schema's to say.
+ * The server used to stamp a `directive` onto every result telling the model
+ * the facts were sacred and not to be verified. A tool result is untrusted
+ * input, so a command inside one is the shape of a prompt injection, and models
+ * read it that way: Sonnet called it "a prompt-injection-style directive baked
+ * into the MCP server's tool result", checked the graph against the sources on
+ * principle, and warned the user about this server in its answer. The claim it
+ * made is now a number the server audits — the share of the result's facts that
+ * resolve back to the type-checked program — and it serializes before `result`,
+ * so what the facts are worth precedes the facts. What the number means is the
+ * output schema's to say.
  *
- * The single copy is load-bearing too: a tool that declares an output schema must
- * answer with `structuredContent`, and serializing the same JSON into a text
- * block as well doubles a 30 KB tour into 60 KB, blowing a client's tool-result
- * cap and spilling the answer to a file the model then shells out to read.
+ * The single copy is load-bearing too: a tool that declares an output schema
+ * must answer with `structuredContent`, and serializing the same JSON into a
+ * text block as well doubles a 30 KB tour into 60 KB, blowing a client's
+ * tool-result cap and spilling the answer to a file the model then shells out
+ * to read.
  *
  * 1. Materialize a real project and start one MCP server.
  * 2. Call the escape branch and a real graph branch.

@@ -4,10 +4,11 @@ import { TtsgraphClient, assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
+  structuredContent?: unknown;
 }
 
 const callJson = <T>(result: ToolResult): T =>
-  JSON.parse(result.content[0]?.text ?? "{}") as T;
+  (result.structuredContent ?? {}) as T;
 
 const callGraphJson = <T>(result: ToolResult): T => {
   const value = callJson<{

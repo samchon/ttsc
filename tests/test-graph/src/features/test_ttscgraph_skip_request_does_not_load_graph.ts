@@ -4,6 +4,7 @@ import { TtsgraphClient, assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
+  structuredContent?: unknown;
 }
 
 const GRAPH_TOOL_NAME = "inspect_typescript_graph";
@@ -53,7 +54,7 @@ export const test_ttscgraph_skip_request_does_not_load_graph = async () => {
       name: GRAPH_TOOL_NAME,
       arguments: graphArguments(),
     })) as ToolResult;
-    const parsed = JSON.parse(result.content[0]?.text ?? "{}") as {
+    const parsed = (result.structuredContent ?? {}) as {
       result?: { type?: string; skipped?: boolean };
     };
     assert.equal(

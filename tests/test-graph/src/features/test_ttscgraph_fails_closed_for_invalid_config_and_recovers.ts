@@ -7,6 +7,7 @@ import { TtsgraphClient, assert } from "../internal/ttsgraph";
 interface ToolResult {
   isError?: boolean;
   content: { type: string; text: string }[];
+  structuredContent?: unknown;
 }
 
 const GRAPH_TOOL_NAME = "inspect_typescript_graph";
@@ -81,7 +82,10 @@ export const test_ttscgraph_fails_closed_for_invalid_config_and_recovers =
         arguments: lookupArguments("Recoverable"),
       })) as ToolResult;
       assert.equal(recovered.isError, undefined, recovered.content[0]?.text);
-      assert.match(recovered.content[0]?.text ?? "", /Recoverable/);
+      assert.match(
+        JSON.stringify(recovered.structuredContent ?? {}),
+        /Recoverable/,
+      );
     } finally {
       client.endStdin();
     }

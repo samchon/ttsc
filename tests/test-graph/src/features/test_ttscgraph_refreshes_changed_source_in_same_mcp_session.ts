@@ -6,6 +6,7 @@ import { TtsgraphClient, assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
+  structuredContent?: unknown;
 }
 
 const GRAPH_TOOL_NAME = "inspect_typescript_graph";
@@ -24,7 +25,7 @@ const lookupArguments = (query: string) => ({
 });
 
 const lookupNames = (result: ToolResult): string[] => {
-  const value = JSON.parse(result.content[0]?.text ?? "{}") as {
+  const value = (result.structuredContent ?? {}) as {
     result?: { type?: string; hits?: { name?: string }[] };
   };
   assert.equal(value.result?.type, "lookup", JSON.stringify(value));
