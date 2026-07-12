@@ -16,12 +16,17 @@ const MAX_LIMIT = 5;
 const FLOW_SEEDS = 5;
 const DETAIL_SEEDS = 3;
 const TEST_SEEDS = 3;
-const MAX_FLOW_ANCHORS = 8;
+const MAX_FLOW_ANCHORS = 12;
 const MAX_NEARBY = 10;
 const MAX_TESTS = 8;
 const MAX_READ_NEXT = 14;
-const TOUR_TRACE_MAX_DEPTH = 3;
-const TOUR_TRACE_MAX_NODES = 16;
+// A public entry stands several hops above the code that does the work: an app
+// factory calls a mount, which calls a renderer, which calls the patch. Three
+// hops stopped at that boundary, and the model finished the chain by hand —
+// "the tour stopped short of the actual patch engine", then four more calls.
+// The flow reaches the work now.
+const TOUR_TRACE_MAX_DEPTH = 6;
+const TOUR_TRACE_MAX_NODES = 32;
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 const EXECUTION_KINDS = new Set<string>([
   "calls",

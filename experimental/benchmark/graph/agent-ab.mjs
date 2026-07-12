@@ -166,12 +166,13 @@ const fixtureBranch =
   args["fixture-branch"] ??
   manifestPrompt?.entry.fixtureBranch ??
   spec.fixtureBranch;
-if (
-  fixtureBranch &&
-  fixtureBranch !== "ttsc" &&
-  fixtureBranch !== "ttsc-lint"
-) {
-  throw new Error("--fixture-branch must be 'ttsc' or 'ttsc-lint'");
+// `graph` is the branch the AI-token benchmark measures; `ttsc` / `ttsc-lint`
+// remain for a run pointed at a performance fixture branch.
+const FIXTURE_BRANCHES = new Set(["graph", "ttsc", "ttsc-lint"]);
+if (fixtureBranch && !FIXTURE_BRANCHES.has(fixtureBranch)) {
+  throw new Error(
+    `--fixture-branch must be one of ${[...FIXTURE_BRANCHES].join(", ")}`,
+  );
 }
 if (fixtureBranch && !spec.fixtureUrl) {
   throw new Error(`repo ${repoKey} has no performance fixture repo`);
