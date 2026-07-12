@@ -83,6 +83,10 @@ Across `legacy` and `ttsc-lint`, the lint and format cells process exactly the f
 
 Nothing inside the program is excluded; nothing outside it is targeted. Carve-outs via `--ignore-pattern`, `eslint.config` `ignores`, `.prettierignore`, or extra `files`/`exclude` entries are rejected because they make the cells incomparable.
 
+### The graph program includes the tests
+
+Each fixture carries a `tsconfig.graph.json` whose program is the sources **and** their tests — the program an editor's language server holds open, not the emit-only build program. The benchmark question asks which tests to read next, so a graph program without tests forces the agent to glob the repo for spec files and the token win collapses (vue: 31% with a test-less program, 82% and a single `tour` with the tests in it). Never point a graph cell at a build config that excludes tests, and never let a fixture's graph program drift back to `tsconfig.build.json`.
+
 ### Editing workflow
 
 Edits go to the fixture repo on GitHub, not to the local clone. Setup runs `fetch + reset --hard` to the upstream branch tip on every run, so local changes in `.work/` disappear immediately.

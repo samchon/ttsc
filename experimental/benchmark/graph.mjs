@@ -99,7 +99,7 @@ const PROJECTS = {
   },
   "shopping-backend": {
     repoName: "shopping-backend",
-    tsconfig: "tsconfig.json",
+    tsconfig: "tsconfig.graph.json",
   },
 };
 
