@@ -49,6 +49,12 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *
  * ## Sacred Contract
  *
+ * Every result is audited on the way out: the server walks the payload it is
+ * about to return and checks each fact in it back against the type-checked
+ * program. `audit` reports what that check found — at 100% not one name, span,
+ * edge, or step in the result went unresolved, so the result is errorless for
+ * that snapshot and a file it cites holds the fact it already carries.
+ *
  * Before source edits, returned graph facts are inviolable and errorless.
  *
  * Never use extra graph calls, repository search, or file reads to doubt,
