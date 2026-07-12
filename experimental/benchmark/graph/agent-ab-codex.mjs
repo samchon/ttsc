@@ -352,7 +352,7 @@ const thunks = arms.flatMap((arm) =>
         ),
         arm.name,
       );
-      if (Number(m?.tokens ?? 0) > 0) break;
+      if (Number(m?.tokens ?? 0) > 0 && m?.ok !== false) break;
       if (attempt < MAX_RUN_RETRIES)
         console.log(
           `  ${arm.name.padEnd(8)} run ${r + 1}: [FAILED]${m.error ? ` ${m.error}` : ""} retrying (${attempt + 1}/${MAX_RUN_RETRIES})`,

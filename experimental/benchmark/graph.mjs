@@ -769,7 +769,14 @@ function summarize(data) {
 }
 
 function armSummary(samples) {
-  const valid = samples.filter((sample) => Number(sample?.tokens ?? 0) > 0);
+  // A run the harness could not carry to an answer is not a cheap run, it is no
+  // run: an unparseable tool call ends the turn after one prompt, spends 70k
+  // tokens and zero tools, and lands in the table as a 96% saving the tool never
+  // earned. Tokens alone cannot tell that apart from a model that answered in one
+  // shot, so the run's own verdict is what counts it.
+  const valid = samples.filter(
+    (sample) => Number(sample?.tokens ?? 0) > 0 && sample?.ok !== false,
+  );
   return {
     samples: samples.length,
     validSamples: valid.length,

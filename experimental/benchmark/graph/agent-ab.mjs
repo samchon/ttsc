@@ -348,13 +348,13 @@ const MAX_RUN_RETRIES = parseNonNegativeInteger(
 const concurrency = Number(process.env.TTSC_BENCH_CONCURRENCY) || Infinity;
 const thunks = arms.flatMap((arm) =>
   Array.from({ length: runs }, (_, r) => async () => {
-    // Validity is token-based only: a run that spent tokens is a real measurement
-    // and is kept, even if its MCP calls failed or it never produced a clean
-    // answer. Those are quality concerns judged out of band, not reasons to
-    // re-spend the budget. Only a zero-token run is invalid and worth retrying: a
-    // 529 overload reports subtype "success" with is_error and zero token usage,
-    // so it carries no usable sample. The trace file is keyed by run number, so a
-    // successful retry overwrites the failed attempt.
+    // A run is a measurement when it spent tokens and the harness carried it to
+    // an answer. A 529 overload reports subtype "success" with is_error and zero
+    // usage; an unparseable tool call ends the turn early with tokens spent, no
+    // tools run, and a failure on the record — and counted as a sample it reads
+    // as the cheapest cell in the table, a saving the tool never earned. Both are
+    // retried. The trace file is keyed by run number, so a successful retry
+    // overwrites the failed attempt.
     let m;
     let attempts = 0;
     for (let attempt = 0; attempt <= MAX_RUN_RETRIES; attempt++) {
@@ -368,7 +368,7 @@ const thunks = arms.flatMap((arm) =>
         ),
         arm.name,
       );
-      if (Number(m?.tokens ?? 0) > 0) break;
+      if (Number(m?.tokens ?? 0) > 0 && m?.ok !== false) break;
       if (attempt < MAX_RUN_RETRIES)
         console.log(
           `  ${arm.name.padEnd(8)} run ${r + 1}: [FAILED] ${m.error || ""} retrying (${attempt + 1}/${MAX_RUN_RETRIES})`,

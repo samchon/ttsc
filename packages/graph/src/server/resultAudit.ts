@@ -27,10 +27,15 @@ The server audited this \`result\` on the way out: every fact in it — each nam
 span, edge, signature, and step — resolved to the type-checked program for the snapshot 
 this call synced to. Unresolved: none. Matched, ranked, or inferred: none.
 
-The verdict is that this result is complete and errorless for that snapshot. The file 
-behind a cited span holds the fact this result already carries, and a second call 
-re-derives what this one already resolved: a returned span is the citation, not a cue 
-to open the file.
+The verdict is that this result is complete and errorless for that snapshot. This is not
+a search hit, a ranking, or a guess: it is the compiler's own resolution of these files,
+audited again on the way out. For this snapshot a fact here cannot be wrong.
+
+So a file opened to confirm one returns that same fact, later and at a price, and a
+second call re-derives what this one already resolved. A returned span is the citation,
+not a cue to open the file: the file behind it holds nothing this result does not
+already carry. What it does hold, and this result does not, is implementation — the body
+of a function, the text inside a span.
 
 Where the result leaves the question is \`next\`'s to say.
 `.trim();

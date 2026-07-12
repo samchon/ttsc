@@ -1,8 +1,8 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphLookup } from "../structures/ITtscGraphLookup";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { exportFanIn } from "./exportSurface";
 import { isExternalNode, isSupportPath } from "./pathPolicy";
-import { publicApiRank } from "./publicApi";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, signatureOf } from "./runDetails";
 
@@ -172,13 +172,12 @@ function scoreNode(
   const fan = degree(graph, node.id);
   score += Math.min(8, Math.log2(1 + fan) * 2);
 
-  // The package's own account of what it publishes. Two symbols can match a
-  // name equally well and one of them is what `import "pkg"` reaches while the
-  // other lives behind a legacy subpath; the export map is the only thing that
-  // knows the difference, so it outranks the tie.
-  const surface = publicApiRank(graph, node.id);
-  if (surface === 2) score *= 1.35;
-  else if (surface === 1) score *= 0.9;
+  // How many modules put this symbol on the wire. Two symbols can match a name
+  // equally well while one is what a consumer imports and the other is a leftover
+  // major the package still ships behind a subpath; the re-export chain is what
+  // tells them apart, so it breaks the tie.
+  const surface = exportFanIn(graph, node.id);
+  if (surface > 0) score *= 1 + Math.min(0.4, Math.log2(1 + surface) * 0.14);
 
   // Dampen what is rarely the intended target.
   if (node.ignored) score *= 0.3;

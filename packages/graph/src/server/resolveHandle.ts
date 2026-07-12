@@ -1,7 +1,7 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { exportFanIn } from "./exportSurface";
 import { isSupportPath } from "./pathPolicy";
-import { publicApiRank } from "./publicApi";
 
 export interface IResolvedGraphHandle {
   node?: ITtscGraphNode;
@@ -138,7 +138,7 @@ function rank(
 }
 
 function candidateScore(graph: TtscGraphMemory, node: ITtscGraphNode): number {
-  let score = publicApiRank(graph, node.id) * 40;
+  let score = Math.min(48, Math.log2(1 + exportFanIn(graph, node.id)) * 20);
   if (node.exported) score += 12;
   if (node.external) score -= 60;
   if (isSupportPath(node.file)) score -= 30;
