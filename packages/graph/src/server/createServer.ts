@@ -1,92 +1,38 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import typia, { type IValidation } from "typia";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createMcpServer } from "@typia/mcp";
+import typia from "typia";
 
 import { TtscGraphApplication, TtscGraphSource } from "../TtscGraphApplication";
 import { ITtscGraphApplication } from "../structures/ITtscGraphApplication";
 
 /**
- * Build the MCP server for a graph. `typia.llm.application` reflects
- * {@link ITtscGraphApplication} into the tool's input and output schemas and its
- * argument validator (no hand-written schema): the class JSDoc becomes the
- * handshake instructions, the method's becomes the tool description, and every
- * property's becomes the description of that field — including `audit`, whose
- * JSDoc is how a caller learns what the server checked before it answered.
+ * Build the MCP server for a graph.
  *
- * The registration is written here rather than taken from `@typia/mcp`'s
- * `createMcpServer` for one reason: a tool that declares an output schema must
- * answer with `structuredContent`, and that helper also serializes the same
- * JSON into a text block, so the result crosses the wire twice. A client counts
- * both copies against its tool-result cap — a 30 KB tour arrives as 60 KB,
- * blows the cap, and is spilled to a file the model then shells out to read
- * back. This server answers with the structured result alone: the schema is
- * advertised, the payload crosses once.
+ * `typia.llm.controller` reflects {@link ITtscGraphApplication} into the tool's
+ * input and output schemas and its argument validator, with no hand-written
+ * schema: the interface's JSDoc becomes the handshake instructions, the
+ * method's becomes the tool description, and every property's becomes the
+ * description of that field — including `audit`, whose JSDoc is how a caller
+ * learns what the server checked before it answered.
+ *
+ * The registration was hand-written here for a while, because a tool that
+ * declares an output schema must answer with `structuredContent` and the helper
+ * also serialized the same JSON into a text block: the payload crossed the wire
+ * twice, a client counted both copies against its tool-result cap, and a 30 KB
+ * tour arrived as 60 KB, blew the cap, and was spilled to a file the model then
+ * shelled out to read back. `@typia/mcp` 13.1.0 ships the structured result
+ * once (samchon/typia#2020), so the hand-written server had nothing left to fix
+ * and the library owns the registration again.
  */
-export function createServer(graph: TtscGraphSource, version: string): Server {
-  const application = typia.llm.application<ITtscGraphApplication>();
-  const [tool] = application.functions;
-  if (tool === undefined) throw new Error("no graph tool was reflected");
-  const execute = new TtscGraphApplication(graph);
-
-  const server = new Server(
-    { name: "ttsc-graph", version },
-    {
-      capabilities: { tools: {} },
-      instructions: application.description,
-    },
+export function createServer(
+  graph: TtscGraphSource,
+  version: string,
+): McpServer {
+  void version;
+  return createMcpServer(
+    typia.llm.controller<ITtscGraphApplication>(
+      "ttsc-graph",
+      new TtscGraphApplication(graph),
+    ),
   );
-
-  server.setRequestHandler(ListToolsRequestSchema, () => ({
-    tools: [
-      {
-        name: tool.name,
-        description: tool.description,
-        inputSchema: objectSchema(tool.parameters),
-        ...(tool.output !== undefined
-          ? { outputSchema: objectSchema(tool.output) }
-          : {}),
-      },
-    ],
-  }));
-
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name !== tool.name) {
-      return errorResult(`Unknown tool: ${request.params.name}`);
-    }
-    const validation: IValidation<ITtscGraphApplication.IProps> =
-      typia.validate<ITtscGraphApplication.IProps>(
-        request.params.arguments ?? {},
-      );
-    if (!validation.success) {
-      // A validation failure is the model's to fix, so hand back the errors it
-      // needs to fix them rather than a protocol error it cannot see.
-      return errorResult(JSON.stringify(validation.errors));
-    }
-    const output = await execute.inspect_typescript_graph(validation.data);
-    return { content: [], structuredContent: output };
-  });
-
-  return server;
-}
-
-function errorResult(message: string) {
-  return { isError: true, content: [{ type: "text" as const, text: message }] };
-}
-
-/** The JSON Schema of a reflected parameter or return object. */
-function objectSchema(schema: {
-  properties: Record<string, unknown>;
-  required?: string[];
-  $defs?: Record<string, unknown>;
-}) {
-  return {
-    type: "object" as const,
-    properties: schema.properties,
-    required: schema.required,
-    additionalProperties: false,
-    $defs: schema.$defs,
-  };
 }
