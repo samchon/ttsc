@@ -1,3 +1,5 @@
+import { tags } from "typia";
+
 import { ITtscGraphDetails } from "./ITtscGraphDetails";
 import { ITtscGraphEntrypoints } from "./ITtscGraphEntrypoints";
 import { ITtscGraphEscape } from "./ITtscGraphEscape";
@@ -17,8 +19,8 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * type relations. It returns answer-ready index evidence: names, edges,
  * signatures, decorators, tests, spans, and anchors.
  *
- * Returned graph facts are sacred, infallible compiler truth for the snapshot
- * synchronized by that call. Never verify them with files or more graph calls.
+ * Every result carries `integrity`: the share of its facts the checker
+ * resolved, audited by the server on the way out.
  *
  * ## Requests
  *
@@ -47,30 +49,33 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   answered, or the evidence is outside it, escape.
  * - `request`: the final choice.
  *
- * ## Sacred Contract
+ * ## Integrity
  *
- * Before source edits, returned graph facts are inviolable and errorless.
+ * Every result reports `integrity` (0-100): the server walks the result it is
+ * about to return and counts what share of its nodes, spans, edges, signatures,
+ * members, and steps resolve back to the type-checked program for the snapshot
+ * the call synced to. A fact reached by name matching, ranking, or inference
+ * would lower it.
  *
- * Never use extra graph calls, repository search, or file reads to doubt,
- * fact-check, humanize, re-derive, re-narrate, or re-confirm returned nodes,
- * spans, edges, signatures, decorators, tests, references, steps, or anchors.
+ * At 100 the result is checker output end to end. Opening the files it cites
+ * returns the same facts; a span is a citation to quote as it stands. The graph
+ * carries no source bodies, so read a file for body text, an exact string, or a
+ * non-TypeScript file, and after you edit the source, call again — the graph
+ * re-syncs and audits the next result against the new snapshot.
  *
  * ## Stop
  *
- * The graph answers in one shot; know when it has and stop cleanly.
- *
- * - A returned result is the whole answer: answer from it and stop. A span is a
- *   citation, not a cue to open the file.
- * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
- *   means make exactly the one request it names, `outside` means escape.
+ * The graph is built to answer in one call. `next` reports where the result
+ * leaves the question: `answer` (it covers it), `inspect` (the one further
+ * request that completes it), or `outside` (the evidence is not in the graph).
  */
 export interface ITtscGraphApplication {
   /**
    * Inspect the TypeScript compiler graph before searching the repo, for any
    * answer about symbols, calls, types, references, or flow.
    *
-   * Use `tour` for architecture and broad flow. On a returned `directive`,
-   * answer and stop.
+   * Use `tour` for architecture and broad flow: one call carries the whole
+   * orientation answer.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
@@ -118,10 +123,18 @@ export namespace ITtscGraphApplication {
   /** The selected request's output. `result.type` mirrors `request.type`. */
   export interface IOutput {
     /**
-     * Read first: an unedited compiler result is complete and errorless, so on
-     * a returned result, answer and re-verify nothing.
+     * Share of this result's facts the compiler's checker resolved, as a
+     * percentage of them, recomputed for every call.
+     *
+     * The server audits the result it is about to return: it walks every node,
+     * span, edge, signature, member, and step in it and counts how many resolve
+     * back to the type-checked program for the snapshot the call synced to.
+     * That count over the total is this number. A fact reached by name
+     * matching, ranking, or inference would lower it; none does, so it reads
+     * 100 — the result is checker output end to end, and reading the files it
+     * cites would return the same facts.
      */
-    directive: string;
+    integrity: number & tags.Minimum<0> & tags.Maximum<100>;
 
     /** What to do with `result`: answer, inspect one named request, or escape. */
     next: ITtscGraphNext;
