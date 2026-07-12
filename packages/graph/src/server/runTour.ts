@@ -365,7 +365,7 @@ function tourSeedScore(
   const execution = executionDegree(graph, node.id);
   const queryWords = new Set(terms);
   const matchScore = queryMatchScore(node, terms);
-  let score = kindScore(node.kind);
+  let score = kindScore(graph, node);
   const surface = publicSurfaceScore(graph, node);
   score += surface;
   score += runtimeEntryScore(node, surface);
@@ -383,7 +383,12 @@ function tourSeedScore(
 
 /**
  * How far the node's own execution carries into the codebase: the files its
- * forward call chain reaches.
+ * forward call chain reaches. It leads the seed score, because reaching the
+ * work is what the question asks of an entry, and because the export chain
+ * cannot say it: a class method is on no module's export table, so NestJS's
+ * real entry (`NestFactoryStatic.create`, 37 files reached) carries an export
+ * count of zero while a lifecycle hook re-exported through two barrels (7
+ * files) carries two.
  *
  * A tour question asks for the flow that runs from the public API to the code
  * that does the work, and "does the work" is a property of the chain, not of
@@ -400,8 +405,7 @@ function executionReachScore(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
 ): number {
-  const files = reachedFiles(graph, node.id);
-  return Math.min(46, Math.log2(1 + files) * 13);
+  return Math.min(64, reachedFiles(graph, node.id) * 1.8);
 }
 
 const REACH_DEPTH = 4;
@@ -547,14 +551,23 @@ function executionDegree(
   return { in: incoming, out: outgoing };
 }
 
-function kindScore(kind: string): number {
-  switch (kind) {
+/**
+ * What the declaration is, scored by what it does rather than how it was
+ * written. `export const parse = (input) => ...` is a function that happens to
+ * be bound to a name, and the checker sees it call things; scoring it eight
+ * points against a method's twenty-eight is a bias toward one syntax, and it
+ * cost zod its own public API — `parse` and `safeParse`, both const arrows,
+ * lost their tour seats to `ZodType.safeParse`, a method of the previous
+ * major.
+ */
+function kindScore(graph: TtscGraphMemory, node: ITtscGraphNode): number {
+  switch (node.kind) {
     case "function":
     case "method":
       return 28;
     case "property":
     case "variable":
-      return 8;
+      return executionDegree(graph, node.id).out > 0 ? 26 : 8;
     case "class":
       return 24;
     case "module":
@@ -580,7 +593,7 @@ function publicSurfaceScore(
   node: ITtscGraphNode,
 ): number {
   if (!hasExportSurface(graph)) return entrySurfaceScore(node);
-  return Math.min(52, Math.log2(1 + exportFanIn(graph, node.id)) * 22);
+  return Math.min(40, Math.log2(1 + exportFanIn(graph, node.id)) * 14);
 }
 
 function entrySurfaceScore(node: ITtscGraphNode): number {
