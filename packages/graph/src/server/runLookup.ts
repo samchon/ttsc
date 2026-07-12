@@ -36,7 +36,7 @@ export function runLookup(
       },
       next: resultNext(
         "clarify",
-        "The query has no searchable terms; restate it with a concrete symbol or scope.",
+        "The query carries no searchable terms, so no symbol could be matched.",
       ),
     };
 
@@ -99,11 +99,11 @@ export function runLookup(
       hits.length === 0
         ? resultNext(
             "outside",
-            "No symbol matched; answer that the graph did not resolve this name, or read source.",
+            "No symbol matched, so the graph did not resolve this name.",
           )
         : resultNext(
             "answer",
-            "The ranked hits and their signatures resolve the name; answer from them.",
+            "The ranked hits and their signatures resolve the name.",
           ),
   };
 }

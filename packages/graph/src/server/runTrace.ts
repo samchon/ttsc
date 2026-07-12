@@ -69,7 +69,7 @@ export function runTrace(
       },
       next: resultNext(
         "clarify",
-        "The start handle is ambiguous; restate it as one returned candidate.",
+        "The start handle is ambiguous: it matched several candidates, one of which names the trace.",
       ),
     };
   }
@@ -84,7 +84,7 @@ export function runTrace(
       },
       next: resultNext(
         "outside",
-        "The start handle did not resolve in the graph; answer that it has no trace from this handle, or read source.",
+        "The start handle did not resolve in the graph, so it holds no trace from this handle.",
       ),
     };
   }
@@ -101,7 +101,7 @@ export function runTrace(
     };
     const pathNext = resultNext(
       "answer",
-      "The path result is the structural flow answer; cite path nodes and evidence ranges.",
+      "The path result is the structural flow: its path nodes and evidence ranges are what the graph holds between the two ends.",
     );
     const target = resolveGraphHandle(graph, props.to);
     if (target.candidates) {
@@ -216,7 +216,7 @@ export function runTrace(
     },
     next: resultNext(
       "answer",
-      "Steps, hops, reached nodes, and evidence ranges are the flow answer surface.",
+      "Steps, hops, reached nodes, and evidence ranges are the flow the graph holds from this start.",
     ),
   };
 }

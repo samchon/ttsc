@@ -49,7 +49,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
         integrity: 100,
         next: resultNext(
           "outside",
-          "The caller chose to leave the graph; finish from prior evidence or read source outside it.",
+          "The caller chose to leave the graph, so this call carries no graph facts.",
         ),
         result,
       };

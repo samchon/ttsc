@@ -157,11 +157,11 @@ export function runDetails(
       nodes.length === 0
         ? resultNext(
             "outside",
-            "No handle resolved to a node; answer that the graph has nothing for them, or read source.",
+            "No handle resolved to a node, so the graph holds nothing for them.",
           )
         : resultNext(
             "answer",
-            "The signatures, members, dependencies, and sourceSpan anchors are the selected-symbol answer.",
+            "The signatures, members, dependencies, and sourceSpan anchors are what the graph holds on these symbols.",
           ),
   };
 }

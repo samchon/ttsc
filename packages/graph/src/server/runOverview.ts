@@ -46,7 +46,7 @@ export function runOverview(
     result,
     next: resultNext(
       "answer",
-      "Counts, layers, hotspots, and public API are the broad orientation answer.",
+      "Counts, layers, hotspots, and public API are what the graph holds about the project's shape.",
     ),
   };
 }

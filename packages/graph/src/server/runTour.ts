@@ -220,7 +220,7 @@ export function runTour(
     },
     next: resultNext(
       "answer",
-      "The tour is the whole orientation answer; cite its entrypoints, flow, nearby paths, tests, and anchors.",
+      "The tour covers the question: its entrypoints, flow, nearby paths, tests, and anchors are the orientation answer.",
     ),
   };
 }
