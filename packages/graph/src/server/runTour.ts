@@ -28,6 +28,9 @@ const MAX_READ_NEXT = 14;
 // hops stopped at that boundary, and the model finished the chain by hand —
 // "the tour stopped short of the actual patch engine", then four more calls.
 // The flow reaches the work now.
+// Two flows that land in the same places are one flow. Above this share of a
+// candidate's reached set already told, it is a synonym of a flow the tour has.
+const FLOW_OVERLAP = 0.6;
 const TOUR_TRACE_MAX_DEPTH = 6;
 const TOUR_TRACE_MAX_NODES = 18;
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
@@ -138,7 +141,15 @@ export function runTour(
   // read "the tour didn't surface the request pipeline" and went to the files.
   // Walk the ranked seeds instead, keeping the ones whose trace actually moves,
   // until the tour has its flows.
+  // A flow the tour already told is not a second flow. zod's four public parse
+  // entries — parse, parseAsync, safeParse, safeParseAsync — run the same chain
+  // into the same internals, and the tour spent all four of its slots saying it
+  // four times: 18 KB of payload, three quarters of it a repeat, and the rest of
+  // the library (schema construction, checks, error formatting) unmentioned. A
+  // candidate whose trace lands where a kept flow already landed is a synonym,
+  // so keep the first and walk on to one that tells something else.
   const primaryFlow: ITtscGraphTour.IFlow[] = [];
+  const told: Set<string>[] = [];
   for (const id of flowSeedIdsOf(
     tourSeedsOf(graph, entry, query, limit * FLOW_SEED_CANDIDATES),
   )) {
@@ -158,6 +169,9 @@ export function runTour(
     const reached = trace.reached.filter((node) =>
       isTourTraceNode(graph, node),
     );
+    const landed = new Set(reached.map((node) => node.id));
+    if (told.some((earlier) => overlaps(landed, earlier))) continue;
+    told.push(landed);
     primaryFlow.push({
       start: flowStartOf(start),
       steps: hops
@@ -470,6 +484,21 @@ function flowSeedIdsOf(seeds: ITtscGraphNode[]): string[] {
   );
   const source = executable.length === 0 ? seeds : executable;
   return source.map((node) => node.id);
+}
+
+/**
+ * True when two flows land in mostly the same places — the same story told
+ * twice. Overlap is measured against the smaller flow, so a short chain fully
+ * contained in a longer one counts as told, which is what a sibling entry
+ * (`parse` beside `safeParse`) actually is.
+ */
+function overlaps(candidate: Set<string>, told: Set<string>): boolean {
+  const smaller = candidate.size <= told.size ? candidate : told;
+  const larger = smaller === candidate ? told : candidate;
+  if (smaller.size === 0) return true;
+  let shared = 0;
+  for (const id of smaller) if (larger.has(id)) shared++;
+  return shared / smaller.size >= FLOW_OVERLAP;
 }
 
 function isTourTraceNode(
