@@ -1,5 +1,5 @@
 import { TtscGraphMemory } from "./model/TtscGraphMemory";
-import { auditResult } from "./server/auditResult";
+import { AUDITED, AUDITED_ESCAPE } from "./server/audit";
 import { resultNext } from "./server/resultNext";
 import { runDetails } from "./server/runDetails";
 import { runEntrypoints } from "./server/runEntrypoints";
@@ -46,7 +46,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
         result.nextStep = props.request.nextStep;
       }
       return {
-        audit: "This escape carries no graph facts to audit.",
+        audit: AUDITED_ESCAPE,
         next: resultNext(
           "outside",
           "The caller chose to leave the graph, so this call carries no graph facts.",
@@ -59,7 +59,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
       case "entrypoints": {
         const r = runEntrypoints(graph, props.request);
         return {
-          audit: auditResult(graph, r.result),
+          audit: AUDITED,
           next: r.next,
           result: r.result,
         };
@@ -67,7 +67,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
       case "lookup": {
         const r = runLookup(graph, props.request);
         return {
-          audit: auditResult(graph, r.result),
+          audit: AUDITED,
           next: r.next,
           result: r.result,
         };
@@ -75,7 +75,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
       case "trace": {
         const r = runTrace(graph, props.request);
         return {
-          audit: auditResult(graph, r.result),
+          audit: AUDITED,
           next: r.next,
           result: r.result,
         };
@@ -83,7 +83,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
       case "details": {
         const r = runDetails(graph, props.request);
         return {
-          audit: auditResult(graph, r.result),
+          audit: AUDITED,
           next: r.next,
           result: r.result,
         };
@@ -91,7 +91,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
       case "overview": {
         const r = runOverview(graph, props.request);
         return {
-          audit: auditResult(graph, r.result),
+          audit: AUDITED,
           next: r.next,
           result: r.result,
         };
@@ -99,7 +99,7 @@ export class TtscGraphApplication implements ITtscGraphApplication {
       case "tour": {
         const r = runTour(graph, props.request);
         return {
-          audit: auditResult(graph, r.result),
+          audit: AUDITED,
           next: r.next,
           result: r.result,
         };

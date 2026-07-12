@@ -1,4 +1,4 @@
-import { AUDITED } from "@ttsc/graph";
+import { AUDITED, AUDITED_ESCAPE } from "@ttsc/graph";
 import { TestProject } from "@ttsc/testing";
 
 import { TtsgraphClient, assert } from "../internal/ttsgraph";
@@ -50,11 +50,10 @@ const overviewArguments = () => ({
  * input, so a command inside one is the shape of a prompt injection, and models
  * read it that way: Sonnet called it "a prompt-injection-style directive baked
  * into the MCP server's tool result", checked the graph against the sources on
- * principle, and warned the user about this server in its answer. The claim it
- * made is now a number the server audits — the share of the result's facts that
- * resolve back to the type-checked program — and it serializes before `result`,
- * so what the facts are worth precedes the facts. What the number means is the
- * output schema's to say.
+ * principle, and warned the user about this server in its answer. What the
+ * directive commanded, `audit` now explains: where the result's facts come from
+ * and what that leaves them worth. It serializes before `result`, so the
+ * provenance precedes the facts.
  *
  * The single copy is load-bearing too: a tool that declares an output schema
  * must answer with `structuredContent`, and serializing the same JSON into a
@@ -112,9 +111,7 @@ export const test_ttscgraph_reports_its_audit_before_the_facts = async () => {
       );
       assert.equal(
         payload?.audit,
-        expectedType === "escape"
-          ? "This escape carries no graph facts to audit."
-          : AUDITED,
+        expectedType === "escape" ? AUDITED_ESCAPE : AUDITED,
         `a result assembled from graph nodes must audit clean: ${raw}`,
       );
       assert.ok(

@@ -6,8 +6,8 @@ import { resolveGraphBinary } from "./resolveGraphBinary";
 import { startServer } from "./server/startServer";
 import { runView } from "./view";
 
-/** The audit a result carries when every fact in it resolved to the checker. */
-export { AUDITED } from "./server/auditResult";
+/** What a graph result says about where its facts come from. */
+export { AUDITED, AUDITED_ESCAPE } from "./server/audit";
 
 // The server version reported in the MCP handshake; read from this package.
 const VERSION: string = (require("../package.json") as { version: string })
