@@ -89,6 +89,17 @@ const QUERY_STOP_WORDS = new Set<string>([
   "next",
   "path",
   "paths",
+  // English filler, never a code term. "plus nearby paths and tests" matched
+  // ExcalidrawPlus, and that one word — worth a name match and the alignment
+  // bonus that rides on it — put an app's export-to-cloud dialog at the head of
+  // a tour whose subject was the drawing engine.
+  "plus",
+  "also",
+  "along",
+  "well",
+  "etc",
+  "more",
+  "please",
   "project",
   "public",
   "read",
@@ -385,7 +396,10 @@ function tourSeedScore(
   score += runtimeEntryScore(node, surface);
   score += Math.min(14, Math.log2(1 + degree.in) * 4);
   score += Math.min(30, Math.log2(1 + degree.out) * 9);
-  score += Math.min(28, Math.log2(1 + execution.out) * 10);
+  // What a symbol drives. The cap used to sit at 28, which Excalidraw's App class
+  // (426 execution edges) and an arrow-dragging helper (11) both hit, so the
+  // score could not tell the centre of the application from a leaf of it.
+  score += Math.min(56, Math.log2(1 + execution.out) * 8);
   score += executionReachScore(graph, node);
   if (node.exported) score += 14;
   if (node.decorators !== undefined && node.decorators.length > 0) score += 10;
@@ -883,6 +897,20 @@ function hasExplicitSymbolHandle(query: string): boolean {
   );
 }
 
+/** How many leading path segments two files share. */
+function sharedPathDepth(a: string, b: string): number {
+  const left = a.split("/");
+  const right = b.split("/");
+  let shared = 0;
+  while (
+    shared < left.length - 1 &&
+    shared < right.length - 1 &&
+    left[shared] === right[shared]
+  )
+    shared++;
+  return shared;
+}
+
 function isNoisePath(file: string): boolean {
   return isSupportPath(file);
 }
@@ -958,26 +986,46 @@ function detailNodeOf(node: ITtscGraphDetails.INode): ITtscGraphTour.INode {
   };
 }
 
+/**
+ * The tests that exercise the tour's symbols, nearest first.
+ *
+ * A subject is covered by more than one suite: NestJS's
+ * `NestFactoryStatic.create` is called by three GraphQL end-to-end specs under
+ * integration/ and by the unit spec that sits beside the code, and the tour's
+ * slots went to whichever the edge list happened to hold first — the e2e ones.
+ * So the model globbed the disk for `packages/core/test/nest-factory.spec.ts`,
+ * which the graph had all along. A test that lives next to its subject is the
+ * one a newcomer reads, so the anchors come back ordered by how much of the
+ * subject's path the test shares.
+ */
 function testAnchorsOf(
   graph: TtscGraphMemory,
   seedIds: string[],
 ): ITtscGraphTour.IAnchor[] {
   const anchors: ITtscGraphTour.IAnchor[] = [];
   for (const id of seedIds) {
+    const subject = graph.node(id);
+    const near: Array<{
+      proximity: number;
+      anchors: ITtscGraphTour.IAnchor[];
+    }> = [];
     for (const edge of graph.incoming(id)) {
       const node = graph.node(edge.from);
       if (node === undefined || !isTestPath(node.file)) continue;
-      anchors.push(
-        ...anchorFromNode("test coverage", graphNodeOf(graph, node)),
-      );
-      anchors.push(
-        ...anchorFromEvidence(
-          `${edge.kind} ${node.qualifiedName ?? node.name}`,
-          node.qualifiedName ?? node.name,
-          edge.evidence,
-        ),
-      );
+      near.push({
+        proximity: sharedPathDepth(subject?.file ?? "", node.file),
+        anchors: [
+          ...anchorFromNode("test coverage", graphNodeOf(graph, node)),
+          ...anchorFromEvidence(
+            `${edge.kind} ${node.qualifiedName ?? node.name}`,
+            node.qualifiedName ?? node.name,
+            edge.evidence,
+          ),
+        ],
+      });
     }
+    near.sort((a, b) => b.proximity - a.proximity);
+    for (const item of near) anchors.push(...item.anchors);
     const impact = runTrace(graph, {
       type: "trace",
       from: id,

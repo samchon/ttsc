@@ -329,6 +329,7 @@ func (g *Graph) callsWithin(checker *shimchecker.Checker, from string, node *shi
 			}
 			if call := child.AsCallExpression(); call != nil && call.Expression != nil {
 				g.callEdge(checker, from, call.Expression, "call")
+				g.handedOffValues(checker, from, call)
 			}
 		case shimast.KindNewExpression:
 			if newExpr := child.AsNewExpression(); newExpr != nil && newExpr.Expression != nil {
@@ -434,6 +435,34 @@ func isInvokedAccess(access *shimast.Node) bool {
 // the schema's calls / instantiates / renders kinds.
 func (g *Graph) callEdge(checker *shimchecker.Checker, from string, callee *shimast.Node, origin string) {
 	g.valueUseEdge(checker, from, callee, EdgeValueCall, origin)
+}
+
+// handedOffValues records the workspace functions a call is handed, as uses of
+// them.
+//
+// `React.memo(ExcalidrawBase)`, `forwardRef(Impl)`, `app.use(handler)`,
+// `pipe(map(project))` — the argument is not called here and is not a property
+// read, so the collector saw neither a call nor an access and recorded nothing.
+// The wrapper became a dead end: Excalidraw's public export, `export const
+// Excalidraw = React.memo(ExcalidrawBase)`, reached zero files in the graph while
+// the component behind it reached forty-four, so a tour of the public API opened
+// on an app-level export dialog instead, and the model went looking for the real
+// component by hand.
+//
+// A function handed to another function is a use of it, and it is the one the
+// runtime will run. Bounded to argument position: this is the callback, the
+// wrapped component, the registered handler — not every identifier in every
+// expression.
+func (g *Graph) handedOffValues(checker *shimchecker.Checker, from string, call *shimast.CallExpression) {
+	if call.Arguments == nil {
+		return
+	}
+	for _, argument := range call.Arguments.Nodes {
+		switch argument.Kind {
+		case shimast.KindIdentifier, shimast.KindPropertyAccessExpression:
+			g.valueUseEdge(checker, from, argument, EdgeValueAccess, "")
+		}
+	}
 }
 
 // accessEdge resolves a property or element access to its declaration and
