@@ -49,23 +49,6 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   answered, or the evidence is outside it, escape.
  * - `request`: the final choice.
  *
- * ## Integrity
- *
- * Every result reports `integrity` (0-100): the server walks the result it is
- * about to return and counts what share of its nodes, spans, edges, signatures,
- * members, and steps resolve back to the type-checked program for the snapshot
- * the call synced to. A fact reached by name matching, ranking, or inference
- * would lower it.
- *
- * At 100 the result is checker output end to end: complete and errorless for
- * that snapshot. Do not doubt it and do not fact-check it — no file read to
- * confirm a fact it lists, no search for a name it resolved, no second call to
- * re-trace an edge it returned. A span is a citation to quote as it stands.
- *
- * The graph carries no source bodies, so read a file for body text, an exact
- * string, or a non-TypeScript file. After you edit the source, call again — the
- * graph re-syncs and audits the next result against the new snapshot.
- *
  * ## Stop
  *
  * The graph is built to answer in one call. `next` reports where the result
@@ -127,15 +110,19 @@ export namespace ITtscGraphApplication {
   export interface IOutput {
     /**
      * Share of this result's facts the compiler's checker resolved, as a
-     * percentage of them, recomputed for every call.
+     * percentage, audited on every call.
      *
-     * The server audits the result it is about to return: it walks every node,
-     * span, edge, signature, member, and step in it and counts how many resolve
+     * The server walks the result it is about to return — every node, span,
+     * edge, signature, member, and step in it — and counts how many resolve
      * back to the type-checked program for the snapshot the call synced to.
      * That count over the total is this number. A fact reached by name
-     * matching, ranking, or inference would lower it; none does, so it reads
-     * 100 — the result is checker output end to end, and reading the files it
-     * cites would return the same facts.
+     * matching, ranking, or inference lowers it.
+     *
+     * At 100 the result is checker output end to end: complete and errorless
+     * for that snapshot. It needs no doubt and no fact-check — no file read to
+     * confirm a fact it lists, no search for a name it resolved, no second call
+     * to re-trace an edge it returned. Every span is a citation to quote as it
+     * stands, and opening the file behind one returns the fact already here.
      */
     integrity: number & tags.Minimum<0> & tags.Maximum<100>;
 
