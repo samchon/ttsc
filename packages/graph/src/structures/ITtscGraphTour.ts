@@ -8,13 +8,6 @@ export interface ITtscGraphTour {
   /** Natural code question this tour was built for. */
   query: string;
 
-  /**
-   * The project's exported API surface, most-depended-on first: what a consumer
-   * imports, the far end of the "public API to the code that does the work"
-   * chain the flows below trace.
-   */
-  publicApi: ITtscGraphTour.INode[];
-
   /** Central entrypoints selected for the tour. */
   entrypoints: ITtscGraphTour.INode[];
 
@@ -30,11 +23,7 @@ export interface ITtscGraphTour {
   /** Ordered file/line anchors to cite in the final answer, not file reads. */
   answerAnchors: ITtscGraphTour.IAnchor[];
 
-  /**
-   * True when the tour's own caps dropped low-signal extras beyond the ones
-   * listed. Everything the tour ranked as load-bearing is present, so this is a
-   * note about the tail, not a gap in the answer.
-   */
+  /** True when some low-signal extras were capped; the returned tour stands. */
   truncated?: boolean;
 }
 
