@@ -59,6 +59,7 @@ func collectStatements(g *Graph, path string, statements []*shimast.Node) {
     switch statement.Kind {
     case shimast.KindFunctionDeclaration:
       addNode(g, path, statement, NodeFunction)
+      collectClosures(g, path, statement)
     case shimast.KindClassDeclaration:
       addNode(g, path, statement, NodeClass)
       collectMembers(g, path, statement)
@@ -81,7 +82,8 @@ func collectStatements(g *Graph, path string, statements []*shimast.Node) {
 }
 
 // collectVariables records a variable node for each binding in a top-level
-// variable statement (both bindings of `const a = 1, b = 2`).
+// variable statement (both bindings of `const a = 1, b = 2`), then the functions
+// declared inside a binding that holds one.
 func collectVariables(g *Graph, path string, statement *shimast.Node) {
   variables := statement.AsVariableStatement()
   if variables == nil || variables.DeclarationList == nil {
@@ -93,7 +95,243 @@ func collectVariables(g *Graph, path string, statement *shimast.Node) {
   }
   for _, binding := range list.Declarations.Nodes {
     addNode(g, path, binding, NodeVariable)
+    collectClosures(g, path, binding)
   }
+}
+
+// collectClosures records a node for each function a declaration's body declares,
+// and for the functions those declare in turn.
+//
+// A factory that closes over its state and returns local functions is how much of
+// the ecosystem writes its engine: Vue's `patch`, `mountElement`, and
+// `setupRenderEffect` are locals of `baseCreateRenderer`; a curried validator's
+// real parse is a local of the function that binds its error class. Recording only
+// what a file declares at its top level left that code out of the graph entirely —
+// a model asking how a state change reaches the DOM found the factory, nothing
+// under it, and went to read the files.
+//
+// Only functions are recorded. A local `const i = 0` is a value, not a place code
+// runs, and the graph would drown in them.
+func collectClosures(g *Graph, path string, declaration *shimast.Node) {
+  for _, closure := range ClosuresIn(declaration) {
+    name, ok := ClosureName(closure)
+    if !ok {
+      continue
+    }
+    kind := NodeFunction
+    if closure.Kind == shimast.KindVariableDeclaration {
+      kind = NodeVariable
+    }
+    putDeclaredNode(g, path, name, kind, closure)
+    collectClosures(g, path, closure)
+  }
+}
+
+// ClosureName returns the name a closure is recorded under — its own name behind
+// the names of the functions it is nested in, so `baseCreateRenderer.patch` and
+// another file-mate's `patch` are two nodes rather than one merged phantom.
+//
+// It reports false when any enclosing function is anonymous. An `inner` declared
+// inside two different callbacks of one file would otherwise key the same id and
+// merge into a node that is neither, fabricating edges between unrelated scopes.
+// Such a closure stays out of the graph, exactly as every body-scoped declaration
+// did before.
+func ClosureName(closure *shimast.Node) (string, bool) {
+  symbol := closure.Symbol()
+  if symbol == nil {
+    return "", false
+  }
+  name := qualifiedName(symbol)
+  if name == "" {
+    return "", false
+  }
+  for parent := closure.Parent; parent != nil; parent = parent.Parent {
+    if parent.Kind == shimast.KindSourceFile {
+      break
+    }
+    if !isFunctionLike(parent) {
+      continue
+    }
+    owner, ok := ownerName(parent)
+    if !ok {
+      return "", false
+    }
+    name = owner + "." + name
+  }
+  return name, true
+}
+
+// isFunctionLike reports whether a node is a function whose body is a scope. A
+// variable that binds one is not: the function it holds is a node of this chain
+// already, and counting both would name a closure after its owner twice.
+func isFunctionLike(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindFunctionDeclaration,
+    shimast.KindFunctionExpression,
+    shimast.KindArrowFunction,
+    shimast.KindMethodDeclaration,
+    shimast.KindConstructor,
+    shimast.KindGetAccessor,
+    shimast.KindSetAccessor:
+    return true
+  }
+  return false
+}
+
+// ownerName returns the name of a function-like declaration a closure sits in: a
+// function or method by its own (class-qualified) name, a function expression or
+// arrow by the variable that binds it. It reports false for an anonymous one.
+func ownerName(declaration *shimast.Node) (string, bool) {
+  switch declaration.Kind {
+  case shimast.KindFunctionExpression, shimast.KindArrowFunction:
+    binding := bindingOf(declaration)
+    if binding == nil {
+      return "", false
+    }
+    declaration = binding
+  }
+  symbol := declaration.Symbol()
+  if symbol == nil {
+    return "", false
+  }
+  name := qualifiedName(symbol)
+  if name == "" {
+    return "", false
+  }
+  return name, true
+}
+
+// bindingOf returns the variable declaration a function expression is bound to,
+// seeing through the wrappers a codebase writes around one, or nil when the
+// function is anonymous.
+func bindingOf(fn *shimast.Node) *shimast.Node {
+  for parent := fn.Parent; parent != nil; parent = parent.Parent {
+    switch parent.Kind {
+    case shimast.KindVariableDeclaration:
+      return parent
+    case shimast.KindAsExpression,
+      shimast.KindSatisfiesExpression,
+      shimast.KindParenthesizedExpression:
+      continue
+    default:
+      return nil
+    }
+  }
+  return nil
+}
+
+// ClosuresIn returns the functions a declaration's body declares — a nested
+// function declaration, or a binding that holds a function — found however deep
+// in the body's statements they sit (inside an `if`, a `try`, a loop), but not
+// past one: a closure's own closures belong to it, and the caller recurses.
+//
+// A binding that holds no function is not one. A local `const i = 0` is a value,
+// not a place code runs.
+func ClosuresIn(declaration *shimast.Node) []*shimast.Node {
+  body := functionBody(declaration)
+  if body == nil {
+    return nil
+  }
+  var closures []*shimast.Node
+  var walk func(node *shimast.Node)
+  walk = func(node *shimast.Node) {
+    node.ForEachChild(func(child *shimast.Node) bool {
+      if IsClosure(child) {
+        closures = append(closures, child)
+        return false
+      }
+      walk(child)
+      return false
+    })
+  }
+  walk(body)
+  return closures
+}
+
+// IsClosure reports whether a node inside a function body is a function the graph
+// records: a nested function declaration, or a binding that holds a function.
+func IsClosure(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindFunctionDeclaration:
+    return true
+  case shimast.KindVariableDeclaration:
+    return functionBody(node) != nil
+  }
+  return false
+}
+
+// functionBody returns the block body of any function-like declaration — a
+// function, a method, an accessor, a constructor, or a function/arrow expression
+// a variable binds.
+func functionBody(declaration *shimast.Node) *shimast.Node {
+  switch declaration.Kind {
+  case shimast.KindFunctionDeclaration:
+    if fn := declaration.AsFunctionDeclaration(); fn != nil {
+      return fn.Body
+    }
+  case shimast.KindFunctionExpression:
+    if fn := declaration.AsFunctionExpression(); fn != nil {
+      return fn.Body
+    }
+  case shimast.KindArrowFunction:
+    if fn := declaration.AsArrowFunction(); fn != nil {
+      return fn.Body
+    }
+  case shimast.KindMethodDeclaration:
+    if fn := declaration.AsMethodDeclaration(); fn != nil {
+      return fn.Body
+    }
+  case shimast.KindConstructor:
+    if fn := declaration.AsConstructorDeclaration(); fn != nil {
+      return fn.Body
+    }
+  case shimast.KindGetAccessor:
+    if fn := declaration.AsGetAccessorDeclaration(); fn != nil {
+      return fn.Body
+    }
+  case shimast.KindSetAccessor:
+    if fn := declaration.AsSetAccessorDeclaration(); fn != nil {
+      return fn.Body
+    }
+  case shimast.KindVariableDeclaration:
+    if binding := declaration.AsVariableDeclaration(); binding != nil {
+      return functionBodyOfInitializer(binding.Initializer)
+    }
+  }
+  return nil
+}
+
+// functionBodyOfInitializer unwraps a binding's initializer to the body of the
+// function it holds, seeing through the `as const` / satisfies wrappers a
+// codebase writes around one.
+func functionBodyOfInitializer(initializer *shimast.Node) *shimast.Node {
+  for initializer != nil {
+    switch initializer.Kind {
+    case shimast.KindFunctionExpression, shimast.KindArrowFunction:
+      return functionBody(initializer)
+    case shimast.KindAsExpression:
+      as := initializer.AsAsExpression()
+      if as == nil {
+        return nil
+      }
+      initializer = as.Expression
+    case shimast.KindSatisfiesExpression:
+      satisfies := initializer.AsSatisfiesExpression()
+      if satisfies == nil {
+        return nil
+      }
+      initializer = satisfies.Expression
+    case shimast.KindParenthesizedExpression:
+      parenthesized := initializer.AsParenthesizedExpression()
+      if parenthesized == nil {
+        return nil
+      }
+      initializer = parenthesized.Expression
+    default:
+      return nil
+    }
+  }
+  return nil
 }
 
 // addNode records a node for the symbol declared by node under its
@@ -125,6 +363,7 @@ func collectMembers(g *Graph, path string, statement *shimast.Node) {
     case isPropertyMember(member.Kind):
       putDeclaredNode(g, path, name, NodeVariable, member)
     }
+    collectClosures(g, path, member)
   }
 }
 

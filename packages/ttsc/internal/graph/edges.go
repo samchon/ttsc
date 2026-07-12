@@ -147,6 +147,7 @@ func forEachContainerIn(path string, statements []*shimast.Node, fn func(string,
       if id := topLevelID(path, statement, NodeFunction); id != "" {
         fn(id, statement)
       }
+      forEachClosureIn(path, statement, fn)
     case shimast.KindTypeAliasDeclaration:
       if id := topLevelID(path, statement, NodeTypeAlias); id != "" {
         fn(id, statement)
@@ -189,6 +190,7 @@ func topLevelID(path string, statement *shimast.Node, kind NodeKind) string {
 func forEachMember(path string, statement *shimast.Node, kind NodeKind, fn func(string, *shimast.Node)) {
   containerID := topLevelID(path, statement, kind)
   for _, member := range classMembers(statement) {
+    forEachClosureIn(path, member, fn)
     if isMethodMember(member.Kind) {
       if name := methodName(member.Symbol()); name != "" {
         fn(nodeID(path, name, NodeMethod), member)
@@ -259,7 +261,34 @@ func forEachVariable(path string, statement *shimast.Node, fn func(string, *shim
       continue
     }
     fn(nodeID(path, qualifiedName(symbol), NodeVariable), binding)
+    forEachClosureIn(path, binding, fn)
   }
+}
+
+// forEachClosureIn pairs each function a declaration's body declares with its
+// own node, and recurses: the renderer's `patch` owns the calls it makes, not the
+// factory it closes over. `callsWithin` stops at the same boundary, so no call is
+// attributed twice.
+func forEachClosureIn(path string, declaration *shimast.Node, fn func(string, *shimast.Node)) {
+  for _, closure := range ClosuresIn(declaration) {
+    if id := closureID(path, closure); id != "" {
+      fn(id, closure)
+    }
+    forEachClosureIn(path, closure, fn)
+  }
+}
+
+// closureID is the node id build.go recorded for a closure.
+func closureID(path string, closure *shimast.Node) string {
+  name, ok := ClosureName(closure)
+  if !ok {
+    return ""
+  }
+  kind := NodeFunction
+  if closure.Kind == shimast.KindVariableDeclaration {
+    kind = NodeVariable
+  }
+  return nodeID(path, name, kind)
 }
 
 // callsWithin walks node's subtree and records runtime value-use edges from
@@ -267,6 +296,13 @@ func forEachVariable(path string, statement *shimast.Node, fn func(string, *shim
 // value-call edges, and property or element access as value-access edges.
 func (g *Graph) callsWithin(checker *shimchecker.Checker, from string, node *shimast.Node) {
   node.ForEachChild(func(child *shimast.Node) bool {
+    // A closure is a node of its own and is walked for itself, so the calls it
+    // makes belong to it, not to the function it sits in. Without this stop,
+    // `baseCreateRenderer` would own every call its dozen local renderer
+    // functions make and the flow through them would collapse into one hub.
+    if IsClosure(child) {
+      return false
+    }
     switch child.Kind {
     case shimast.KindCallExpression:
       // A decorator's own factory call (`@Column()`, `@Entity()`) is metadata,
@@ -511,12 +547,17 @@ func (g *Graph) ensureTargetNode(target *Target) string {
     return id
   }
   if !target.External {
-    // A workspace target Build did not record is a function-local or otherwise
-    // body-scoped declaration (Build records top-level declarations, namespace
-    // members, and class/interface members only). Its name is unqualified and
-    // position-free, so two same-named locals in different scopes would key the
-    // same id and merge into one node, fabricating false edges. Drop it — the
-    // same workspace-only discipline the NodeMethod branch already applies.
+    // A closure Build recorded is keyed by its scoped name
+    // (`baseCreateRenderer.patch`), which the symbol alone does not spell, so
+    // resolve it from the declaration the checker pointed at.
+    if id := g.closureTargetID(target); id != "" {
+      return id
+    }
+    // Any other workspace target Build did not record is body-scoped and
+    // unnameable without collisions (a local of an anonymous callback), so its
+    // name would key the same id as a same-named local of another scope and
+    // merge two nodes into one that is neither. Drop it — the same
+    // workspace-only discipline the NodeMethod branch already applies.
     return ""
   }
   g.Nodes[id] = &Node{
@@ -530,6 +571,29 @@ func (g *Graph) ensureTargetNode(target *Target) string {
     End:      target.End,
   }
   return id
+}
+
+// closureTargetID returns the node id of a closure the checker resolved to, or ""
+// when the target is not one Build recorded.
+func (g *Graph) closureTargetID(target *Target) string {
+  for _, declaration := range target.Symbol.Declarations {
+    if !IsClosure(declaration) {
+      continue
+    }
+    name, ok := ClosureName(declaration)
+    if !ok {
+      continue
+    }
+    kind := NodeFunction
+    if declaration.Kind == shimast.KindVariableDeclaration {
+      kind = NodeVariable
+    }
+    id := nodeID(target.File, name, kind)
+    if _, exists := g.Nodes[id]; exists {
+      return id
+    }
+  }
+  return ""
 }
 
 // symbolNodeKind maps a resolved symbol's declarations/flags to a NodeKind, or
