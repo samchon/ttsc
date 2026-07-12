@@ -78,6 +78,13 @@ export namespace ITtscGraphTour {
     /** Declaration head, when available. */
     signature?: string;
 
+    /**
+     * The first sentence of the doc comment above the declaration: what the
+     * project says this symbol is for. A name and an edge say what calls what;
+     * this says why, which is what a tour is asked for.
+     */
+    doc?: string;
+
     /** Decorators written on the declaration, when any. */
     decorators?: ITtscGraphDecorator[];
   }

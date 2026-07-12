@@ -8,7 +8,7 @@ import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { exportFanIn, hasExportSurface } from "./exportSurface";
 import { isSupportPath, isTestPath } from "./pathPolicy";
 import { IRunnerOutput, resultNext } from "./resultNext";
-import { decoratorsOf, runDetails, signatureOf } from "./runDetails";
+import { decoratorsOf, docOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
 import { runTrace } from "./runTrace";
 
@@ -284,6 +284,7 @@ function graphNodeOf(
 ): ITtscGraphTour.INode {
   const span = node.implementation ?? node.evidence;
   const signature = signatureOf(graph.project, node);
+  const doc = docOf(graph.project, node);
   const decorators = decoratorsOf(node);
   return {
     id: node.id,
@@ -303,6 +304,7 @@ function graphNodeOf(
         }
       : {}),
     ...(signature !== undefined ? { signature } : {}),
+    ...(doc !== undefined ? { doc } : {}),
     ...(decorators !== undefined ? { decorators } : {}),
   };
 }

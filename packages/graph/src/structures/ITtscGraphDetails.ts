@@ -127,6 +127,9 @@ export namespace ITtscGraphDetails {
     /** The declaration signature: its first line(s) up to the body. */
     signature?: string;
 
+    /** The first sentence of the doc comment above the declaration. */
+    doc?: string;
+
     /** Decorators written on this declaration, when any. */
     decorators?: ITtscGraphDecorator[];
 
