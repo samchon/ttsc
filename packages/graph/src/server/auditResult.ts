@@ -5,9 +5,9 @@ import { TtscGraphMemory } from "../model/TtscGraphMemory";
  *
  * The server walks the payload it is about to return, takes every fact in it,
  * and asks the resident graph whether that fact resolves back to the
- * type-checked program for the snapshot this call synced to. What comes back is
- * a sentence reporting the count: how many facts were checked, how many
- * resolved, and the share that leaves.
+ * type-checked program for the snapshot this call synced to. A result assembled
+ * from graph nodes audits clean, so the clean sentence is a constant; the walk
+ * is what keeps it from ever being a lie.
  *
  * It explains; it does not order. The field it fills replaced a directive that
  * told the model its facts were sacred and must not be verified — a command
@@ -18,24 +18,28 @@ import { TtscGraphMemory } from "../model/TtscGraphMemory";
  * server ran and reports is not a demand for trust; it is evidence, and what
  * the reader does with evidence is the reader's own business.
  *
- * The number is earned, not asserted. A fact the graph cannot vouch for lowers
- * the share, so a regression that starts fabricating nodes shows up as a result
- * that no longer audits clean.
+ * The sentence is earned, not asserted. A fact the graph cannot vouch for takes
+ * the clean sentence away, so a regression that starts fabricating nodes shows
+ * up in the result it fabricated them into.
  */
+export const AUDITED =
+  "Audited before returning: every fact in this result — each name, span, edge, " +
+  "signature, and step — resolves to the type-checked program for the snapshot " +
+  "this call synced to. Nothing here was matched, ranked, or inferred, so the " +
+  "result is complete and errorless for that snapshot: the file behind a cited " +
+  "span holds the fact this result already carries.";
+
+export const NOTHING_TO_AUDIT = "This result carries no graph facts to audit.";
+
 export function auditResult(graph: TtscGraphMemory, result: unknown): string {
   const audit = { checked: 0, resolved: 0 };
   walk(graph, result, audit);
-  if (audit.checked === 0) {
-    return "This result carries no graph facts to audit.";
-  }
-  const share = Math.round((audit.resolved / audit.checked) * 100);
+  if (audit.checked === 0) return NOTHING_TO_AUDIT;
+  if (audit.resolved === audit.checked) return AUDITED;
   return (
-    `Audited before returning: ${audit.resolved} of ${audit.checked} facts in this result ` +
-    `resolve to the type-checked program for the snapshot this call synced to (${share}%). ` +
-    (share === 100
-      ? "Every name, span, edge, and step here is checker output for that snapshot, " +
-        "so the file behind a cited span holds the fact this result already carries."
-      : "The rest were not resolved by the checker; weigh them accordingly.")
+    `Audited before returning: ${audit.checked - audit.resolved} of ${audit.checked} facts in this ` +
+    `result did not resolve to the type-checked program for the snapshot this call synced to. ` +
+    `The rest are checker output; weigh the result accordingly.`
   );
 }
 

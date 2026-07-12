@@ -1,3 +1,4 @@
+import { AUDITED } from "@ttsc/graph";
 import { TestProject } from "@ttsc/testing";
 
 import { TtsgraphClient, assert } from "../internal/ttsgraph";
@@ -109,12 +110,12 @@ export const test_ttscgraph_reports_its_audit_before_the_facts = async () => {
         ["audit", "next", "result"],
         `audit leads, then where it leaves the question, then the facts: ${raw}`,
       );
-      assert.match(
-        payload?.audit ?? "",
+      assert.equal(
+        payload?.audit,
         expectedType === "escape"
-          ? /no graph facts to audit/i
-          : /Audited before returning: (\d+) of \1 facts .+ \(100%\)/,
-        `the audit must report what it checked and what resolved: ${raw}`,
+          ? "This escape carries no graph facts to audit."
+          : AUDITED,
+        `a result assembled from graph nodes must audit clean: ${raw}`,
       );
       assert.ok(
         typeof payload?.next?.action === "string",

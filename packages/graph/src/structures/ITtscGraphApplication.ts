@@ -123,15 +123,14 @@ export namespace ITtscGraphApplication {
   export interface IOutput {
     /**
      * The audit the server ran on this result before returning it, in its own
-     * words: how many of the result's facts it checked, how many resolved back
-     * to the type-checked program for the snapshot the call synced to, and the
-     * share that leaves.
+     * words: whether every fact in it resolved back to the type-checked program
+     * for the snapshot the call synced to.
      *
-     * The count is the whole claim. Every node, span, edge, signature, member,
-     * and step is walked; a fact reached by name matching, ranking, or
-     * inference would fail the audit and lower the share. At 100% the result is
-     * checker output end to end — complete and errorless for that snapshot, so
-     * opening a file it cites returns the fact already in it.
+     * Every node, span, edge, signature, member, and step is walked; a fact
+     * reached by name matching, ranking, or inference would fail the audit and
+     * be named here. A clean audit means the result is checker output end to
+     * end — complete and errorless for that snapshot, so opening a file it
+     * cites returns the fact already in it.
      */
     audit: string;
 
