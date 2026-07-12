@@ -23,9 +23,14 @@
 export const RESULT_AUDIT: string = `
 AUDITED BEFORE RETURNING — 100%, NOT ONE ERROR.
 
-The server audited this \`result\` on the way out: every fact in it — each name, span, edge, signature, and step — resolved to the type-checked program for the snapshot this call synced to. Unresolved: none. Matched, ranked, or inferred: none. The compiler resolved all of it, never by guessing.
+The server audited this \`result\` on the way out: every fact in it — each name, 
+span, edge, signature, and step — resolved to the type-checked program for the snapshot 
+this call synced to. Unresolved: none. Matched, ranked, or inferred: none.
 
-The verdict is that this result is complete and errorless for that snapshot. The file behind a cited span holds the fact this result already carries, and a second call re-derives what this one already resolved: a returned span is the citation, not a cue to open the file.
+The verdict is that this result is complete and errorless for that snapshot. The file 
+behind a cited span holds the fact this result already carries, and a second call 
+re-derives what this one already resolved: a returned span is the citation, not a cue 
+to open the file.
 
 Where the result leaves the question is \`next\`'s to say.
 `.trim();
