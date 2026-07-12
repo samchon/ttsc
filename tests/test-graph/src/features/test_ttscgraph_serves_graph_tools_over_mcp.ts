@@ -128,6 +128,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       "  return () => undefined;",
       "}",
       "export type ExternalAlias = ExternalThing;",
+      "export function log(): void {}",
       "export function helper(): void {}",
       "export interface Runner {",
       "  run(): void;",
@@ -140,12 +141,21 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       "    third();",
       "    fourth();",
       "    fifth();",
+      "    log();",
       "  }",
       "}",
       "export function other(): void {}",
       "export function third(): void {}",
       "export function fourth(): void {}",
       "export function fifth(): void {}",
+      // Twelve extra call sites make `log` a shared fan-in hub (in-degree >= 12)
+      // that drives nothing onward (out-degree 0). Service.run calls both `log`
+      // and `helper` directly, so the tour must prune the hub `log` from the flow
+      // while keeping `helper`, a genuine step at the same depth.
+      ...Array.from(
+        { length: 12 },
+        (_unused, i) => `export function caller${i}(): void { log(); }`,
+      ),
       "export const adapter = {",
       "  run: () => helper(),",
       "  reset() {",
@@ -367,6 +377,14 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
           flow.steps.some((step) => step.includes("helper")),
       ),
       `tour includes source-free primary flow: ${JSON.stringify(tour.primaryFlow)}`,
+    );
+    assert.ok(
+      tour.primaryFlow.every(
+        (flow) =>
+          !flow.reached.some((node) => node.name === "log") &&
+          !flow.steps.some((step) => /-> log\b/.test(step)),
+      ),
+      `tour prunes the shared fan-in hub 'log' from the flow: ${JSON.stringify(tour.primaryFlow)}`,
     );
     assert.ok(
       tour.tests.some((anchor) => anchor.file.endsWith("app.spec.ts")),
