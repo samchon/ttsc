@@ -18,7 +18,15 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
-const workDir = process.env.TTSC_BENCH_WORK ?? path.resolve(here, ".work");
+// The measured agent runs with its cwd inside a fixture clone, and both Claude
+// Code and Codex walk the parent chain for CLAUDE.md / AGENTS.md. A fixture kept
+// under the repo (the old `experimental/benchmark/.work`) therefore loads ttsc's
+// own agent instructions into every cell — a vscode graph run was observed
+// reading this repo's AGENTS.md instead of touring vscode. Clone the fixtures
+// beside the repo so an agent sees the fixture and nothing else.
+const workDir =
+  process.env.TTSC_BENCH_WORK ??
+  path.resolve(repoRoot, "..", "ttsc-benchmark-work");
 const tgzDir = process.env.TTSC_BENCH_TGZ ?? path.join(os.tmpdir(), "ttsc-tgz");
 const performanceScript = path.join(here, "performance.mjs");
 const websiteJson = path.join(
@@ -302,6 +310,9 @@ function runSetup(projects, targetBranch) {
   runChecked("node", args, {
     label: "performance fixture setup",
     logBase: path.join(outDir, "setup"),
+    // performance.mjs clones into its own default work dir unless told otherwise;
+    // point it at the graph work dir so the fixtures land outside the repo.
+    env: { TTSC_BENCH_WORK: workDir },
   });
 }
 
