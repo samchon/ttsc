@@ -9,19 +9,25 @@ import { isSupportPath, isTestPath } from "./pathPolicy";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
+import { publicApi } from "./runOverview";
 import { runTrace } from "./runTrace";
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 5;
 const FLOW_SEEDS = 5;
+const PUBLIC_API_FLOW_SEEDS = 2;
 const DETAIL_SEEDS = 3;
 const TEST_SEEDS = 3;
 const MAX_FLOW_ANCHORS = 8;
 const MAX_NEARBY = 10;
 const MAX_TESTS = 8;
+const MAX_PUBLIC_API = 10;
 const MAX_READ_NEXT = 14;
-const TOUR_TRACE_MAX_DEPTH = 3;
-const TOUR_TRACE_MAX_NODES = 16;
+// A public entry sits several hops above the code that does the work — a mount
+// through a renderer factory, a bootstrap through a workbench — so a 3-hop flow
+// stopped at the boundary and left the model to trace the rest itself.
+const TOUR_TRACE_MAX_DEPTH = 5;
+const TOUR_TRACE_MAX_NODES = 24;
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 const EXECUTION_KINDS = new Set<string>([
   "calls",
@@ -122,8 +128,20 @@ export function runTour(
   }).result;
   const seeds = tourSeedsOf(graph, entry, query, limit);
   const seedIds = seeds.map((node) => node.id);
-  const flowSeedIds = flowSeedIdsOf(seeds);
   const entrypoints = seeds.map((node) => graphNodeOf(graph, node));
+  // A tour is asked from the public API down to the code that works, but the
+  // query's seeds are the busy internals a name match lands on — the far end of
+  // that chain. The export surface supplies the near end, and flows seeded from
+  // it carry the chain itself.
+  const exportedNodes = publicApi(graph)
+    .slice(0, MAX_PUBLIC_API)
+    .map((node) => graph.node(node.id))
+    .filter((node): node is ITtscGraphNode => node !== undefined);
+  const exported = exportedNodes.map((node) => graphNodeOf(graph, node));
+  const flowSeedIds = uniqueIds([
+    ...flowSeedIdsOf(exportedNodes).slice(0, PUBLIC_API_FLOW_SEEDS),
+    ...flowSeedIdsOf(seeds),
+  ]);
 
   const primaryFlow: ITtscGraphTour.IFlow[] = [];
   for (const id of flowSeedIds.slice(0, FLOW_SEEDS)) {
@@ -178,6 +196,9 @@ export function runTour(
           ]),
         );
   const answerAnchors = uniqueAnchors([
+    ...exported
+      .slice(0, DETAIL_SEEDS)
+      .flatMap((node) => anchorFromNode("public API", node)),
     ...entrypoints.flatMap((node) =>
       anchorFromNode("central entrypoint", node),
     ),
@@ -190,6 +211,7 @@ export function runTour(
     result: {
       type: "tour",
       query,
+      publicApi: exported,
       entrypoints,
       primaryFlow,
       nearby: nearby.slice(0, MAX_NEARBY),
@@ -204,7 +226,7 @@ export function runTour(
     },
     next: resultNext(
       "answer",
-      "The tour is the whole orientation answer; cite its entrypoints, flow, nearby paths, tests, and anchors.",
+      "The tour is the whole orientation answer; cite its public API, entrypoints, flow, nearby paths, tests, and anchors.",
     ),
   };
 }

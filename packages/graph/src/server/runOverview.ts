@@ -111,13 +111,18 @@ function hotspots(graph: TtscGraphMemory): ITtscGraphOverview.IHotspot[] {
     .slice(0, 10);
 }
 
-/** Declaration kinds that make up a meaningful public API surface. */
+/**
+ * Declaration kinds that make up a meaningful public API surface. `variable`
+ * belongs because a headline export is often one (`export const X = memo(...)`,
+ * a singleton, a factory); the degree ranking keeps inert constants out.
+ */
 const API_KINDS = new Set<string>([
   "class",
   "interface",
   "function",
   "type",
   "enum",
+  "variable",
 ]);
 
 /**
@@ -129,7 +134,9 @@ const API_KINDS = new Set<string>([
  * test, typings, and generated files are dropped so they cannot crowd the real
  * surface out.
  */
-function publicApi(graph: TtscGraphMemory): ITtscGraphOverview.IPublicApi[] {
+export function publicApi(
+  graph: TtscGraphMemory,
+): ITtscGraphOverview.IPublicApi[] {
   const degree = (id: string): number => {
     let n = 0;
     for (const edge of graph.outgoing(id))

@@ -8,6 +8,13 @@ export interface ITtscGraphTour {
   /** Natural code question this tour was built for. */
   query: string;
 
+  /**
+   * The project's exported API surface, most-depended-on first: what a consumer
+   * imports, the far end of the "public API to the code that does the work"
+   * chain the flows below trace.
+   */
+  publicApi: ITtscGraphTour.INode[];
+
   /** Central entrypoints selected for the tour. */
   entrypoints: ITtscGraphTour.INode[];
 
