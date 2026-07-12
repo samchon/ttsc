@@ -41,10 +41,11 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * toward the single request you submit.
  *
  * - `question`: restate the code question.
- * - `draft`: the smallest request that could answer it, and why.
+ * - `draft`: `{ reason, type }` — why the smallest request that could answer it,
+ *   then that request's `type`.
  * - `review`: fix a broad, stale, or duplicate draft. If the graph already
  *   answered, or the evidence is outside it, escape.
- * - `request`: the final choice.
+ * - `request`: the final request object, one member of the union above.
  *
  * ## Sacred Contract
  *
