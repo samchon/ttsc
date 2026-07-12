@@ -372,12 +372,81 @@ function tourSeedScore(
   score += Math.min(14, Math.log2(1 + degree.in) * 4);
   score += Math.min(30, Math.log2(1 + degree.out) * 9);
   score += Math.min(28, Math.log2(1 + execution.out) * 10);
+  score += executionReachScore(graph, node);
   if (node.exported) score += 14;
   if (node.decorators !== undefined && node.decorators.length > 0) score += 10;
   score += matchScore;
   score *= queryAlignmentFactor(matchScore, queryWords);
   score *= broadTourDamping(node, queryWords);
   return score;
+}
+
+/**
+ * How far the node's own execution carries into the codebase: the files its
+ * forward call chain reaches.
+ *
+ * A tour question asks for the flow that runs from the public API to the code
+ * that does the work, and "does the work" is a property of the chain, not of
+ * the symbol. Fan-out alone cannot see it — a shutdown-hook helper that calls
+ * four neighbours outscores a bootstrap entry that calls two functions which
+ * between them reach half the framework, which is how NestJS's tour opened on
+ * shutdown plumbing while the model went looking for `NestFactory.create`
+ * itself. Reach is what separates them, and it is a fact the call graph already
+ * holds.
+ *
+ * Bounded by depth and node budget so a fan-out hub cannot walk the program.
+ */
+function executionReachScore(
+  graph: TtscGraphMemory,
+  node: ITtscGraphNode,
+): number {
+  const files = reachedFiles(graph, node.id);
+  return Math.min(46, Math.log2(1 + files) * 13);
+}
+
+const REACH_DEPTH = 4;
+const REACH_NODE_BUDGET = 180;
+const reachCache = new WeakMap<TtscGraphMemory, Map<string, number>>();
+
+/** Distinct workspace files the node's forward execution chain touches. */
+function reachedFiles(graph: TtscGraphMemory, id: string): number {
+  let cache = reachCache.get(graph);
+  if (cache === undefined) {
+    cache = new Map();
+    reachCache.set(graph, cache);
+  }
+  const hit = cache.get(id);
+  if (hit !== undefined) return hit;
+
+  const files = new Set<string>();
+  const seen = new Set<string>([id]);
+  let frontier = [id];
+  for (let depth = 0; depth < REACH_DEPTH && seen.size < REACH_NODE_BUDGET; ) {
+    depth++;
+    const next: string[] = [];
+    for (const current of frontier) {
+      for (const edge of graph.outgoing(current)) {
+        if (STRUCTURAL_KINDS.has(edge.kind) || edge.kind === "type_ref")
+          continue;
+        if (seen.has(edge.to) || seen.size >= REACH_NODE_BUDGET) continue;
+        const target = graph.node(edge.to);
+        if (
+          target === undefined ||
+          target.external ||
+          target.ignored ||
+          isNoisePath(target.file)
+        )
+          continue;
+        seen.add(edge.to);
+        files.add(target.file);
+        next.push(edge.to);
+      }
+    }
+    if (next.length === 0) break;
+    frontier = next;
+  }
+  cache.set(id, files.size);
+  return files.size;
 }
 
 function isTourSeed(graph: TtscGraphMemory, node: ITtscGraphNode): boolean {
