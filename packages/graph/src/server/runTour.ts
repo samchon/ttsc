@@ -138,7 +138,9 @@ export function runTour(
     const start = trace.start;
     if (start === undefined) continue;
     const hops = trace.hops.filter((hop) => isTourHop(graph, hop));
-    const reached = trace.reached.filter(isTourTraceNode);
+    const reached = trace.reached.filter((node) =>
+      isTourTraceNode(graph, node),
+    );
     primaryFlow.push({
       start: traceNodeOf(start),
       steps: hops
@@ -365,8 +367,11 @@ function flowSeedIdsOf(seeds: ITtscGraphNode[]): string[] {
   return source.map((node) => node.id);
 }
 
-function isTourTraceNode(node: ITtscGraphTrace.INode): boolean {
-  return !isNoisePath(node.file);
+function isTourTraceNode(
+  graph: TtscGraphMemory,
+  node: ITtscGraphTrace.INode,
+): boolean {
+  return !isNoisePath(node.file) && !isSharedUtility(graph, node.id);
 }
 
 function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
@@ -377,8 +382,16 @@ function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
     to !== undefined &&
     !STRUCTURAL_KINDS.has(hop.kind) &&
     !isNoisePath(from.file) &&
-    !isNoisePath(to.file)
+    !isNoisePath(to.file) &&
+    !isSharedUtility(graph, hop.to)
   );
+}
+
+// Called from many sites but driving no further execution: a shared leaf helper
+// (logging, type guards, small utils), not a step in the runtime flow. Filtered
+// from the tour flow so the meaningful call chain surfaces instead of noise.
+function isSharedUtility(graph: TtscGraphMemory, id: string): boolean {
+  return realDegree(graph, id).in >= 12 && executionDegree(graph, id).out <= 1;
 }
 
 function flowStepOf(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): string {

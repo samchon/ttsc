@@ -553,10 +553,13 @@ function parseConfiguredArgs(raw, targetRepoDir) {
   );
 }
 
-function promptForArm(baseQuestion, _armName) {
-  // Benchmark prompts are sent exactly as authored in questions/*.md.
-  // Tool-specific guidance belongs in MCP instructions/descriptions, not here.
-  return baseQuestion;
+function promptForArm(baseQuestion, armName) {
+  // The graph arm gets a neutral reminder that MCP tools exist, because
+  // tool-search models (e.g. gpt-5.6) do not surface MCP server tools from the
+  // server `instructions` alone. It names no tool and forces nothing; it only
+  // nudges appropriate use when a tool fits. The baseline arm is untouched.
+  if (armName !== "graph") return baseQuestion;
+  return `${baseQuestion}\n\nThis repository has a graph MCP tool available; make appropriate use of it when it fits the question.`;
 }
 
 function ensureInstalled(targetRepoDir) {

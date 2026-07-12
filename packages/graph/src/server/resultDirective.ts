@@ -16,7 +16,7 @@ COMPILER TRUTH — READ FIRST.
 
 This \`result\` was computed by the compiler for the current, unedited source snapshot: sacred, complete, errorless.
 
-Trust every fact it gives and re-check none of them: answer and explain from what it returned, open no file to re-verify it, and call again only for a name the result plainly lacks. To doubt an unedited compiler result is not diligence but arrogance: the compiler resolved this, never by guessing.
+Trust every fact it gives and re-check none of them: answer and explain from what it returned, open no file to re-verify it, and do not call the graph again to trace deeper, expand a span, or chase a step it already surfaced. This result is the whole answer to what you asked. To doubt an unedited compiler result is not diligence but arrogance: the compiler resolved this, never by guessing.
 
 Re-call only after you edit the source, when these facts no longer describe the changed code.
 `.trim();
