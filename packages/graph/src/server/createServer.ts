@@ -13,8 +13,8 @@ import { ITtscGraphApplication } from "../structures/ITtscGraphApplication";
  * {@link ITtscGraphApplication} into the tool's input and output schemas and its
  * argument validator (no hand-written schema): the class JSDoc becomes the
  * handshake instructions, the method's becomes the tool description, and every
- * property's becomes the description of that field — including `integrity`,
- * whose JSDoc is how a caller learns what the number the server audits means.
+ * property's becomes the description of that field — including `audit`, whose
+ * JSDoc is how a caller learns what the server checked before it answered.
  *
  * The registration is written here rather than taken from `@typia/mcp`'s
  * `createMcpServer` for one reason: a tool that declares an output schema must

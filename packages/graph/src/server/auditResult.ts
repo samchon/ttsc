@@ -22,10 +22,7 @@ import { TtscGraphMemory } from "../model/TtscGraphMemory";
  * the share, so a regression that starts fabricating nodes shows up as a result
  * that no longer audits clean.
  */
-export function auditIntegrity(
-  graph: TtscGraphMemory,
-  result: unknown,
-): string {
+export function auditResult(graph: TtscGraphMemory, result: unknown): string {
   const audit = { checked: 0, resolved: 0 };
   walk(graph, result, audit);
   if (audit.checked === 0) {

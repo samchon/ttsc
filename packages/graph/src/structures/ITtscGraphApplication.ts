@@ -129,7 +129,7 @@ export namespace ITtscGraphApplication {
      * checker output end to end — complete and errorless for that snapshot, so
      * opening a file it cites returns the fact already in it.
      */
-    integrity: string;
+    audit: string;
 
     /** What to do with `result`: answer, inspect one named request, or escape. */
     next: ITtscGraphNext;
