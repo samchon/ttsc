@@ -136,9 +136,25 @@ function synthesize(dump: ITtscGraphDump): {
   nodes: ITtscGraphNode[];
   edges: ITtscGraphEdge[];
 } {
+  // A module node is the dump's name for a source file's export surface, and a
+  // file node is this layer's name for the same file. Fold the two: the module
+  // keeps its file present here even when the file declares nothing (a barrel),
+  // and its `exports` edges are re-anchored on the file id every other tool
+  // already traverses. What the module carried, the file now carries.
+  const moduleFiles = new Set(
+    dump.nodes.filter((n) => n.kind === "module").map((n) => n.file),
+  );
+  const moduleIds = new Map(
+    dump.nodes.filter((n) => n.kind === "module").map((n) => [n.id, n.file]),
+  );
   // Clone nodes so property refinement does not mutate the caller's dump.
-  const nodes: ITtscGraphNode[] = dump.nodes.map((n) => ({ ...n }));
-  const edges: ITtscGraphEdge[] = dump.edges.slice();
+  const nodes: ITtscGraphNode[] = dump.nodes
+    .filter((n) => n.kind !== "module")
+    .map((n) => ({ ...n }));
+  const edges: ITtscGraphEdge[] = dump.edges.map((edge) => {
+    const file = moduleIds.get(edge.from);
+    return file === undefined ? edge : { ...edge, from: fileNodeId(file) };
+  });
 
   // Index workspace nodes by (file, within-file key) so ownership can resolve a
   // member to its declaring class/namespace.
@@ -161,23 +177,34 @@ function synthesize(dump: ITtscGraphDump): {
     }
   }
 
-  // One file container node per distinct workspace source file.
+  // One file container node per distinct workspace source file, plus every file
+  // the dump saw an export surface on — a barrel declares nothing, so its only
+  // trace in the dump is its module node, and it is exactly the file a consumer
+  // imports the package from.
   const fileNodes = new Map<string, ITtscGraphNode>();
+  const addFileNode = (file: string): void => {
+    if (file === "" || fileNodes.has(file)) return;
+    fileNodes.set(file, {
+      id: fileNodeId(file),
+      kind: "file",
+      name: basename(file),
+      file,
+      external: false,
+    });
+  };
   for (const node of nodes) {
-    if (node.external || node.file === "") continue;
-    if (!fileNodes.has(node.file)) {
-      fileNodes.set(node.file, {
-        id: fileNodeId(node.file),
-        kind: "file",
-        name: basename(node.file),
-        file: node.file,
-        external: false,
-      });
-    }
+    if (node.external) continue;
+    addFileNode(node.file);
   }
+  for (const file of moduleFiles) addFileNode(file);
 
   // Ownership: a member is contained by its owner; a top-level declaration by
-  // its file. Exports: a file exports each of its public nodes.
+  // its file. Exports are not synthesized here: the dump's `exports` edges come
+  // from the checker's export table, which follows re-exports and barrels, so
+  // they say which module puts a symbol on the wire. Deriving them from the
+  // `exported` flag instead would say only that the declaring file made it
+  // public, which is the fact that cannot tell a package's front door from its
+  // legacy subpath.
   const structural: ITtscGraphEdge[] = [];
   const membersByOwner = new Map<string, ITtscGraphNode[]>();
   for (const node of nodes) {
@@ -190,13 +217,6 @@ function synthesize(dump: ITtscGraphDump): {
       to: node.id,
       kind: "contains",
     });
-    if (node.exported) {
-      structural.push({
-        from: fileNodeId(node.file),
-        to: node.id,
-        kind: "exports" satisfies TtscGraphEdgeKind,
-      });
-    }
   }
 
   const synthesized = [...edges, ...structural];

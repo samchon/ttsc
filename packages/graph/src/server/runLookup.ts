@@ -2,6 +2,7 @@ import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphLookup } from "../structures/ITtscGraphLookup";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { isExternalNode, isSupportPath } from "./pathPolicy";
+import { publicApiRank } from "./publicApi";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, signatureOf } from "./runDetails";
 
@@ -170,6 +171,14 @@ function scoreNode(
   // Centrality: a symbol the codebase leans on is a likelier target.
   const fan = degree(graph, node.id);
   score += Math.min(8, Math.log2(1 + fan) * 2);
+
+  // The package's own account of what it publishes. Two symbols can match a
+  // name equally well and one of them is what `import "pkg"` reaches while the
+  // other lives behind a legacy subpath; the export map is the only thing that
+  // knows the difference, so it outranks the tie.
+  const surface = publicApiRank(graph, node.id);
+  if (surface === 2) score *= 1.35;
+  else if (surface === 1) score *= 0.9;
 
   // Dampen what is rarely the intended target.
   if (node.ignored) score *= 0.3;

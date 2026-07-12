@@ -6,6 +6,7 @@ import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTour } from "../structures/ITtscGraphTour";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { isSupportPath, isTestPath } from "./pathPolicy";
+import { publicApiOf, publicApiRank } from "./publicApi";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
@@ -365,7 +366,7 @@ function tourSeedScore(
   const queryWords = new Set(terms);
   const matchScore = queryMatchScore(node, terms);
   let score = kindScore(node.kind);
-  const surface = entrySurfaceScore(node);
+  const surface = publicSurfaceScore(graph, node);
   score += surface;
   score += runtimeEntryScore(node, surface);
   score += Math.min(14, Math.log2(1 + degree.in) * 4);
@@ -492,6 +493,31 @@ function kindScore(kind: string): number {
       return 16;
     case "enum":
       return 10;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * How far in front of the codebase a node stands.
+ *
+ * Where a package.json names an entry file, the graph knows exactly what that
+ * file exports, and a guess drawn from a filename has nothing to add: a symbol
+ * the front door publishes leads the tour, one behind a legacy subpath does
+ * not, and one the package never publishes is interior. Where no entry resolves
+ * — an application, a repository whose entries point at built output — the
+ * filename is all there is, and the old heuristic still speaks.
+ */
+function publicSurfaceScore(
+  graph: TtscGraphMemory,
+  node: ITtscGraphNode,
+): number {
+  if (!publicApiOf(graph).known) return entrySurfaceScore(node);
+  switch (publicApiRank(graph, node.id)) {
+    case 2:
+      return 52;
+    case 1:
+      return 8;
     default:
       return 0;
   }

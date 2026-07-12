@@ -62,9 +62,28 @@ export function runDetails(
   const includeExternal = props.includeExternal === true;
   const nodes: ITtscGraphDetails.INode[] = [];
   const unknown: string[] = [];
+  const ambiguous: ITtscGraphDetails.IAmbiguity[] = [];
   for (const handle of props.handles) {
     const resolved = resolveGraphHandle(graph, handle);
     if (resolved.node === undefined) {
+      // A handle the graph knows twice is not a handle the graph does not know.
+      // Hand back the nodes it named and let the caller pick one; calling it
+      // unknown sends the caller to the files for facts already in the index.
+      if (resolved.candidates !== undefined && resolved.candidates.length > 0) {
+        ambiguous.push({
+          handle,
+          candidates: resolved.candidates.map((node) => ({
+            id: node.id,
+            name: node.qualifiedName ?? node.name,
+            kind: node.kind,
+            file: node.file,
+            ...(node.evidence?.startLine !== undefined
+              ? { line: node.evidence.startLine }
+              : {}),
+          })),
+        });
+        continue;
+      }
       unknown.push(handle);
       continue;
     }
@@ -152,17 +171,24 @@ export function runDetails(
       type: "details",
       nodes,
       unknown,
+      ...(ambiguous.length > 0 ? { ambiguous } : {}),
     },
     next:
-      nodes.length === 0
+      nodes.length === 0 && ambiguous.length > 0
         ? resultNext(
-            "outside",
-            "No handle resolved to a node, so the graph holds nothing for them.",
+            "inspect",
+            "Each handle names several nodes; re-call details with the id of the one the question means.",
+            "details",
           )
-        : resultNext(
-            "answer",
-            "The signatures, members, dependencies, and sourceSpan anchors are what the graph holds on these symbols.",
-          ),
+        : nodes.length === 0
+          ? resultNext(
+              "outside",
+              "No handle resolved to a node, so the graph holds nothing for them.",
+            )
+          : resultNext(
+              "answer",
+              "The signatures, members, dependencies, and sourceSpan anchors are what the graph holds on these symbols.",
+            ),
   };
 }
 
