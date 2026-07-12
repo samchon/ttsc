@@ -1,5 +1,5 @@
 import { TtscGraphMemory } from "./model/TtscGraphMemory";
-import { RESULT_DIRECTIVE } from "./server/resultDirective";
+import { RESULT_AUDIT, RESULT_AUDIT_ESCAPE } from "./server/resultAudit";
 import { resultNext } from "./server/resultNext";
 import { runDetails } from "./server/runDetails";
 import { runEntrypoints } from "./server/runEntrypoints";
@@ -46,10 +46,10 @@ export class TtscGraphApplication implements ITtscGraphApplication {
         result.nextStep = props.request.nextStep;
       }
       return {
-        directive: RESULT_DIRECTIVE,
+        audit: RESULT_AUDIT_ESCAPE,
         next: resultNext(
           "outside",
-          "The caller chose to leave the graph; finish from prior evidence or read source outside it.",
+          "The caller chose to leave the graph, so this call carries no graph facts.",
         ),
         result,
       };
@@ -58,27 +58,51 @@ export class TtscGraphApplication implements ITtscGraphApplication {
     switch (props.request.type) {
       case "entrypoints": {
         const r = runEntrypoints(graph, props.request);
-        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+        return {
+          audit: RESULT_AUDIT,
+          next: r.next,
+          result: r.result,
+        };
       }
       case "lookup": {
         const r = runLookup(graph, props.request);
-        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+        return {
+          audit: RESULT_AUDIT,
+          next: r.next,
+          result: r.result,
+        };
       }
       case "trace": {
         const r = runTrace(graph, props.request);
-        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+        return {
+          audit: RESULT_AUDIT,
+          next: r.next,
+          result: r.result,
+        };
       }
       case "details": {
         const r = runDetails(graph, props.request);
-        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+        return {
+          audit: RESULT_AUDIT,
+          next: r.next,
+          result: r.result,
+        };
       }
       case "overview": {
         const r = runOverview(graph, props.request);
-        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+        return {
+          audit: RESULT_AUDIT,
+          next: r.next,
+          result: r.result,
+        };
       }
       case "tour": {
         const r = runTour(graph, props.request);
-        return { directive: RESULT_DIRECTIVE, next: r.next, result: r.result };
+        return {
+          audit: RESULT_AUDIT,
+          next: r.next,
+          result: r.result,
+        };
       }
       default:
         props.request satisfies never;

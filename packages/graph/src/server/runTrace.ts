@@ -8,14 +8,20 @@ import { resolveGraphHandle } from "./resolveHandle";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { edgeEvidenceOf, signatureOf } from "./runDetails";
 
-const DEFAULT_DEPTH = 2;
-const DEFAULT_MAX_NODES = 6;
-const MAX_OPEN_DEPTH = 2;
-const MAX_OPEN_NODES = 8;
+const DEFAULT_DEPTH = 3;
+const DEFAULT_MAX_NODES = 12;
+// An open trace used to stop at two hops and eight nodes, whatever depth the
+// caller asked for. A question that spans a runtime chain — a state change
+// through tracking, scheduling, rendering, then patching — is that chain hop by
+// hop, so the model re-issued a trace per hop and paid a round trip for each: a
+// single vue question spent twenty-six calls walking a flow the graph could have
+// walked once. The cap now follows the chain instead of cutting it.
+const MAX_OPEN_DEPTH = 8;
+const MAX_OPEN_NODES = 32;
 const MAX_IMPACT_DEPTH = 4;
 const MAX_IMPACT_NODES = 16;
 const MAX_HOPS_PER_NODE = 2;
-const MAX_STEPS = 6;
+const MAX_STEPS = 12;
 
 /**
  * Breadth-first trace along the dependency graph. Structural
@@ -63,7 +69,7 @@ export function runTrace(
       },
       next: resultNext(
         "clarify",
-        "The start handle is ambiguous; restate it as one returned candidate.",
+        "The start handle is ambiguous: it matched several candidates, one of which names the trace.",
       ),
     };
   }
@@ -78,7 +84,7 @@ export function runTrace(
       },
       next: resultNext(
         "outside",
-        "The start handle did not resolve in the graph; answer that it has no trace from this handle, or read source.",
+        "The start handle did not resolve in the graph, so it holds no trace from this handle.",
       ),
     };
   }
@@ -95,7 +101,7 @@ export function runTrace(
     };
     const pathNext = resultNext(
       "answer",
-      "The path result is the structural flow answer; cite path nodes and evidence ranges.",
+      "The path result is the structural flow: its path nodes and evidence ranges are what the graph holds between the two ends.",
     );
     const target = resolveGraphHandle(graph, props.to);
     if (target.candidates) {
@@ -210,7 +216,7 @@ export function runTrace(
     },
     next: resultNext(
       "answer",
-      "Steps, hops, reached nodes, and evidence ranges are the flow answer surface.",
+      "Steps, hops, reached nodes, and evidence ranges are the flow the graph holds from this start.",
     ),
   };
 }

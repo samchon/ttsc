@@ -13,8 +13,19 @@ export interface ITtscGraphDetails {
   /** Selected node facts, in the same order as resolved handles when possible. */
   nodes: ITtscGraphDetails.INode[];
 
-  /** Handles that resolved to no node, or that were ambiguous. */
+  /** Handles the graph holds no node for. */
   unknown: string[];
+
+  /**
+   * Handles that name more than one node, with the nodes they name.
+   *
+   * A name the graph knows twice is not a name the graph does not know: two
+   * classes called `Workbench` are two facts, and answering "unknown" to a
+   * handle the checker resolved twice sends the caller to the files for what is
+   * already here. Re-call `details` with the `id` of the one the question
+   * means.
+   */
+  ambiguous?: ITtscGraphDetails.IAmbiguity[];
 }
 export namespace ITtscGraphDetails {
   /** Which selected handles to inspect, and how much of each to return. */
@@ -69,6 +80,33 @@ export namespace ITtscGraphDetails {
     includeExternal?: boolean;
   }
 
+  /** One handle and the several nodes it names. */
+  export interface IAmbiguity {
+    /** The handle as submitted. */
+    handle: string;
+
+    /** Every node the handle names, each with the id to re-call `details` on. */
+    candidates: ICandidate[];
+  }
+
+  /** One node a handle could mean: enough to choose, not to answer from. */
+  export interface ICandidate {
+    /** Stable node id: submit this as the handle to select this one. */
+    id: string;
+
+    /** Qualified symbol name when available, otherwise the simple name. */
+    name: string;
+
+    /** Declaration kind (`class`, `method`, `function`, ...). */
+    kind: string;
+
+    /** Project-relative path of the file that declares this node. */
+    file: string;
+
+    /** 1-based declaration line, when known. */
+    line?: number;
+  }
+
   /** One inspected node: its declared shape and graph coordinates. */
   export interface INode {
     /** Stable node id for subsequent `details` or `trace` calls. */
@@ -88,6 +126,9 @@ export namespace ITtscGraphDetails {
 
     /** The declaration signature: its first line(s) up to the body. */
     signature?: string;
+
+    /** The first sentence of the doc comment above the declaration. */
+    doc?: string;
 
     /** Decorators written on this declaration, when any. */
     decorators?: ITtscGraphDecorator[];

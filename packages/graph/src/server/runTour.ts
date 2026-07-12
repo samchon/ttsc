@@ -5,23 +5,34 @@ import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTour } from "../structures/ITtscGraphTour";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
+import { exportFanIn, hasExportSurface } from "./exportSurface";
 import { isSupportPath, isTestPath } from "./pathPolicy";
 import { IRunnerOutput, resultNext } from "./resultNext";
-import { decoratorsOf, runDetails, signatureOf } from "./runDetails";
+import { decoratorsOf, docOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
 import { runTrace } from "./runTrace";
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 5;
-const FLOW_SEEDS = 5;
+const FLOW_SEEDS = 4;
+/** How many ranked seeds deep to look for flows that actually move. */
+const FLOW_SEED_CANDIDATES = 4;
 const DETAIL_SEEDS = 3;
 const TEST_SEEDS = 3;
 const MAX_FLOW_ANCHORS = 8;
 const MAX_NEARBY = 10;
 const MAX_TESTS = 8;
 const MAX_READ_NEXT = 14;
-const TOUR_TRACE_MAX_DEPTH = 3;
-const TOUR_TRACE_MAX_NODES = 16;
+// A public entry stands several hops above the code that does the work: an app
+// factory calls a mount, which calls a renderer, which calls the patch. Three
+// hops stopped at that boundary, and the model finished the chain by hand —
+// "the tour stopped short of the actual patch engine", then four more calls.
+// The flow reaches the work now.
+// Two flows that land in the same places are one flow. Above this share of a
+// candidate's reached set already told, it is a synonym of a flow the tour has.
+const FLOW_OVERLAP = 0.6;
+const TOUR_TRACE_MAX_DEPTH = 6;
+const TOUR_TRACE_MAX_NODES = 18;
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 const EXECUTION_KINDS = new Set<string>([
   "calls",
@@ -78,6 +89,17 @@ const QUERY_STOP_WORDS = new Set<string>([
   "next",
   "path",
   "paths",
+  // English filler, never a code term. "plus nearby paths and tests" matched
+  // ExcalidrawPlus, and that one word — worth a name match and the alignment
+  // bonus that rides on it — put an app's export-to-cloud dialog at the head of
+  // a tour whose subject was the drawing engine.
+  "plus",
+  "also",
+  "along",
+  "well",
+  "etc",
+  "more",
+  "please",
   "project",
   "public",
   "read",
@@ -122,11 +144,27 @@ export function runTour(
   }).result;
   const seeds = tourSeedsOf(graph, entry, query, limit);
   const seedIds = seeds.map((node) => node.id);
-  const flowSeedIds = flowSeedIdsOf(seeds);
   const entrypoints = seeds.map((node) => graphNodeOf(graph, node));
 
+  // A flow that goes nowhere is a wasted slot: a seed can match the question by
+  // name and still drive nothing (a decorator factory, a metadata helper), and
+  // tracing the top five seeds blind spent the tour's flows on them — the model
+  // read "the tour didn't surface the request pipeline" and went to the files.
+  // Walk the ranked seeds instead, keeping the ones whose trace actually moves,
+  // until the tour has its flows.
+  // A flow the tour already told is not a second flow. zod's four public parse
+  // entries — parse, parseAsync, safeParse, safeParseAsync — run the same chain
+  // into the same internals, and the tour spent all four of its slots saying it
+  // four times: 18 KB of payload, three quarters of it a repeat, and the rest of
+  // the library (schema construction, checks, error formatting) unmentioned. A
+  // candidate whose trace lands where a kept flow already landed is a synonym,
+  // so keep the first and walk on to one that tells something else.
   const primaryFlow: ITtscGraphTour.IFlow[] = [];
-  for (const id of flowSeedIds.slice(0, FLOW_SEEDS)) {
+  const told: Set<string>[] = [];
+  for (const id of flowSeedIdsOf(
+    tourSeedsOf(graph, entry, query, limit * FLOW_SEED_CANDIDATES),
+  )) {
+    if (primaryFlow.length >= FLOW_SEEDS) break;
     const trace = runTrace(graph, {
       type: "trace",
       from: id,
@@ -138,9 +176,15 @@ export function runTour(
     const start = trace.start;
     if (start === undefined) continue;
     const hops = trace.hops.filter((hop) => isTourHop(graph, hop));
-    const reached = trace.reached.filter(isTourTraceNode);
+    if (hops.length === 0) continue;
+    const reached = trace.reached.filter((node) =>
+      isTourTraceNode(graph, node),
+    );
+    const landed = new Set(reached.map((node) => node.id));
+    if (told.some((earlier) => overlaps(landed, earlier))) continue;
+    told.push(landed);
     primaryFlow.push({
-      start: traceNodeOf(start),
+      start: flowStartOf(start),
       steps: hops
         .slice(0, MAX_FLOW_ANCHORS)
         .map((hop) => flowStepOf(graph, hop)),
@@ -202,7 +246,7 @@ export function runTour(
     },
     next: resultNext(
       "answer",
-      "The tour is the whole orientation answer; cite its entrypoints, flow, nearby paths, tests, and anchors.",
+      "The tour covers the question: its entrypoints, flow, nearby paths, tests, and anchors are the orientation answer.",
     ),
   };
 }
@@ -227,7 +271,7 @@ function tourSeedsOf(
   if (hasExplicitSymbolHandle(query)) {
     for (const hit of entry.hits) add(graph.node(hit.id));
   }
-  for (const node of rankedTourSeeds(graph, query)) add(node);
+  for (const node of rankedTourSeeds(graph, query, limit)) add(node);
   if (out.length === 0) {
     for (const hit of entry.hits) add(graph.node(hit.id));
   }
@@ -240,6 +284,7 @@ function graphNodeOf(
 ): ITtscGraphTour.INode {
   const span = node.implementation ?? node.evidence;
   const signature = signatureOf(graph.project, node);
+  const doc = docOf(graph.project, node);
   const decorators = decoratorsOf(node);
   return {
     id: node.id,
@@ -259,10 +304,19 @@ function graphNodeOf(
         }
       : {}),
     ...(signature !== undefined ? { signature } : {}),
+    ...(doc !== undefined ? { doc } : {}),
     ...(decorators !== undefined ? { decorators } : {}),
   };
 }
 
+/**
+ * A node a flow reached, as a coordinate only. Its span and signature are
+ * already in the flow's `steps` and `anchors`, and carrying them a second time
+ * cost half the tour's payload — enough that a client which caps a tool result
+ * spilled the whole thing to a file, and the model shelled out to read back its
+ * own answer. The flow's start keeps the full node; the chain behind it does
+ * not need one.
+ */
 function traceNodeOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
   return {
     id: node.id,
@@ -270,6 +324,12 @@ function traceNodeOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
     kind: node.kind,
     file: node.file,
     ...(node.line !== undefined ? { line: node.line } : {}),
+  };
+}
+
+function flowStartOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
+  return {
+    ...traceNodeOf(node),
     ...(node.sourceSpan !== undefined
       ? {
           sourceSpan: {
@@ -302,6 +362,7 @@ function flowAnchorsOf(
 function rankedTourSeeds(
   graph: TtscGraphMemory,
   query: string,
+  count: number,
 ): ITtscGraphNode[] {
   const projectTerms = new Set(subwords(graph.project));
   const terms = subwords(
@@ -319,7 +380,7 @@ function rankedTourSeeds(
     }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score);
-  return diverseTourSeeds(items, terms).map((item) => item.node);
+  return diverseTourSeeds(items, terms, count).map((item) => item.node);
 }
 
 function tourSeedScore(
@@ -331,19 +392,95 @@ function tourSeedScore(
   const execution = executionDegree(graph, node.id);
   const queryWords = new Set(terms);
   const matchScore = queryMatchScore(node, terms);
-  let score = kindScore(node.kind);
-  const surface = entrySurfaceScore(node);
+  let score = kindScore(graph, node);
+  const surface = publicSurfaceScore(graph, node);
   score += surface;
   score += runtimeEntryScore(node, surface);
   score += Math.min(14, Math.log2(1 + degree.in) * 4);
   score += Math.min(30, Math.log2(1 + degree.out) * 9);
-  score += Math.min(28, Math.log2(1 + execution.out) * 10);
+  // What a symbol drives. The cap used to sit at 28, which Excalidraw's App class
+  // (426 execution edges) and an arrow-dragging helper (11) both hit, so the
+  // score could not tell the centre of the application from a leaf of it.
+  score += Math.min(56, Math.log2(1 + execution.out) * 8);
+  score += executionReachScore(graph, node);
   if (node.exported) score += 14;
   if (node.decorators !== undefined && node.decorators.length > 0) score += 10;
   score += matchScore;
   score *= queryAlignmentFactor(matchScore, queryWords);
   score *= broadTourDamping(node, queryWords);
   return score;
+}
+
+/**
+ * How far the node's own execution carries into the codebase: the files its
+ * forward call chain reaches. It leads the seed score, because reaching the
+ * work is what the question asks of an entry, and because the export chain
+ * cannot say it: a class method is on no module's export table, so NestJS's
+ * real entry (`NestFactoryStatic.create`, 37 files reached) carries an export
+ * count of zero while a lifecycle hook re-exported through two barrels (7
+ * files) carries two.
+ *
+ * A tour question asks for the flow that runs from the public API to the code
+ * that does the work, and "does the work" is a property of the chain, not of
+ * the symbol. Fan-out alone cannot see it — a shutdown-hook helper that calls
+ * four neighbours outscores a bootstrap entry that calls two functions which
+ * between them reach half the framework, which is how NestJS's tour opened on
+ * shutdown plumbing while the model went looking for `NestFactory.create`
+ * itself. Reach is what separates them, and it is a fact the call graph already
+ * holds.
+ *
+ * Bounded by depth and node budget so a fan-out hub cannot walk the program.
+ */
+function executionReachScore(
+  graph: TtscGraphMemory,
+  node: ITtscGraphNode,
+): number {
+  return Math.min(64, reachedFiles(graph, node.id) * 1.8);
+}
+
+const REACH_DEPTH = 4;
+const REACH_NODE_BUDGET = 180;
+const reachCache = new WeakMap<TtscGraphMemory, Map<string, number>>();
+
+/** Distinct workspace files the node's forward execution chain touches. */
+function reachedFiles(graph: TtscGraphMemory, id: string): number {
+  let cache = reachCache.get(graph);
+  if (cache === undefined) {
+    cache = new Map();
+    reachCache.set(graph, cache);
+  }
+  const hit = cache.get(id);
+  if (hit !== undefined) return hit;
+
+  const files = new Set<string>();
+  const seen = new Set<string>([id]);
+  let frontier = [id];
+  for (let depth = 0; depth < REACH_DEPTH && seen.size < REACH_NODE_BUDGET; ) {
+    depth++;
+    const next: string[] = [];
+    for (const current of frontier) {
+      for (const edge of graph.outgoing(current)) {
+        if (STRUCTURAL_KINDS.has(edge.kind) || edge.kind === "type_ref")
+          continue;
+        if (seen.has(edge.to) || seen.size >= REACH_NODE_BUDGET) continue;
+        const target = graph.node(edge.to);
+        if (
+          target === undefined ||
+          target.external ||
+          target.ignored ||
+          isNoisePath(target.file)
+        )
+          continue;
+        seen.add(edge.to);
+        files.add(target.file);
+        next.push(edge.to);
+      }
+    }
+    if (next.length === 0) break;
+    frontier = next;
+  }
+  cache.set(id, files.size);
+  return files.size;
 }
 
 function isTourSeed(graph: TtscGraphMemory, node: ITtscGraphNode): boolean {
@@ -365,8 +502,26 @@ function flowSeedIdsOf(seeds: ITtscGraphNode[]): string[] {
   return source.map((node) => node.id);
 }
 
-function isTourTraceNode(node: ITtscGraphTrace.INode): boolean {
-  return !isNoisePath(node.file);
+/**
+ * True when two flows land in mostly the same places — the same story told
+ * twice. Overlap is measured against the smaller flow, so a short chain fully
+ * contained in a longer one counts as told, which is what a sibling entry
+ * (`parse` beside `safeParse`) actually is.
+ */
+function overlaps(candidate: Set<string>, told: Set<string>): boolean {
+  const smaller = candidate.size <= told.size ? candidate : told;
+  const larger = smaller === candidate ? told : candidate;
+  if (smaller.size === 0) return true;
+  let shared = 0;
+  for (const id of smaller) if (larger.has(id)) shared++;
+  return shared / smaller.size >= FLOW_OVERLAP;
+}
+
+function isTourTraceNode(
+  graph: TtscGraphMemory,
+  node: ITtscGraphTrace.INode,
+): boolean {
+  return !isNoisePath(node.file) && !isSharedUtility(graph, node.id);
 }
 
 function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
@@ -377,8 +532,25 @@ function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
     to !== undefined &&
     !STRUCTURAL_KINDS.has(hop.kind) &&
     !isNoisePath(from.file) &&
-    !isNoisePath(to.file)
+    !isNoisePath(to.file) &&
+    !isSharedUtility(graph, hop.to)
   );
+}
+
+// A fan-in hub that drives no further execution: reached from a dozen-plus
+// sites yet calling nothing onward (a shared type, guard, or leaf helper). It is
+// a terminus, not a step in the runtime call chain, so the tour drops it from
+// the flow to keep the meaningful chain legible — it still surfaces as a seed,
+// nearby node, or detail when it is itself the subject.
+//
+// The `in >= 12` cut is not a fixture-tuned constant: because real-in-degree is
+// heavy-tailed, this fixed count lands at the ~93rd percentile of fan-in across
+// every benchmark project (900–16k nodes, 92.4–95.5%), so it selects the same
+// "top few percent of hubs" band regardless of project size, while the absolute
+// floor makes it a no-op on small graphs that have no genuine hub. The `out <= 1`
+// guard keeps thin pass-throughs out but never prunes a real branching step.
+function isSharedUtility(graph: TtscGraphMemory, id: string): boolean {
+  return realDegree(graph, id).in >= 12 && executionDegree(graph, id).out <= 1;
 }
 
 function flowStepOf(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): string {
@@ -424,14 +596,23 @@ function executionDegree(
   return { in: incoming, out: outgoing };
 }
 
-function kindScore(kind: string): number {
-  switch (kind) {
+/**
+ * What the declaration is, scored by what it does rather than how it was
+ * written. `export const parse = (input) => ...` is a function that happens to
+ * be bound to a name, and the checker sees it call things; scoring it eight
+ * points against a method's twenty-eight is a bias toward one syntax, and it
+ * cost zod its own public API — `parse` and `safeParse`, both const arrows,
+ * lost their tour seats to `ZodType.safeParse`, a method of the previous
+ * major.
+ */
+function kindScore(graph: TtscGraphMemory, node: ITtscGraphNode): number {
+  switch (node.kind) {
     case "function":
     case "method":
       return 28;
     case "property":
     case "variable":
-      return 8;
+      return executionDegree(graph, node.id).out > 0 ? 26 : 8;
     case "class":
       return 24;
     case "module":
@@ -442,6 +623,22 @@ function kindScore(kind: string): number {
     default:
       return 0;
   }
+}
+
+/**
+ * How far in front of the codebase a node stands.
+ *
+ * Where the dump carries an export surface, the number of modules that put a
+ * symbol on the wire says it — see {@link exportFanIn} — and a guess drawn from
+ * a filename has nothing to add. Where it does not, the filename is all there
+ * is, and the old heuristic still speaks.
+ */
+function publicSurfaceScore(
+  graph: TtscGraphMemory,
+  node: ITtscGraphNode,
+): number {
+  if (!hasExportSurface(graph)) return entrySurfaceScore(node);
+  return Math.min(40, Math.log2(1 + exportFanIn(graph, node.id)) * 14);
 }
 
 function entrySurfaceScore(node: ITtscGraphNode): number {
@@ -562,14 +759,25 @@ function matchedTerms(words: string[], terms: string[]): Set<string> {
   return matched;
 }
 
+/**
+ * Greedy set cover over the query's terms: each pick is the highest-scoring
+ * candidate that still covers a term no pick covers yet, so the seeds spread
+ * across the question instead of crowding onto its loudest word.
+ *
+ * It picks `count` of them, not all of them. Ordering every candidate cost
+ * O(n²) — on VS Code, where tens of thousands of symbols score above zero, one
+ * tour spent six minutes ranking seeds it then threw away, because the caller
+ * keeps only the first few. Stopping at `count` makes the cover O(count · n),
+ * and the picks it does make are the same ones.
+ */
 function diverseTourSeeds<
   T extends { score: number; matchedTerms: Set<string> },
->(items: T[], terms: string[]): T[] {
-  if (items.length <= 1 || terms.length === 0) return items;
+>(items: T[], terms: string[], count: number): T[] {
+  if (items.length <= 1 || terms.length === 0) return items.slice(0, count);
   const out: T[] = [];
   const remaining = [...items];
   const uncovered = new Set(terms);
-  while (remaining.length > 0) {
+  while (remaining.length > 0 && out.length < count) {
     let bestIndex = 0;
     let bestScore = Number.NEGATIVE_INFINITY;
     for (let i = 0; i < remaining.length; i++) {
@@ -691,6 +899,20 @@ function hasExplicitSymbolHandle(query: string): boolean {
   );
 }
 
+/** How many leading path segments two files share. */
+function sharedPathDepth(a: string, b: string): number {
+  const left = a.split("/");
+  const right = b.split("/");
+  let shared = 0;
+  while (
+    shared < left.length - 1 &&
+    shared < right.length - 1 &&
+    left[shared] === right[shared]
+  )
+    shared++;
+  return shared;
+}
+
 function isNoisePath(file: string): boolean {
   return isSupportPath(file);
 }
@@ -766,26 +988,46 @@ function detailNodeOf(node: ITtscGraphDetails.INode): ITtscGraphTour.INode {
   };
 }
 
+/**
+ * The tests that exercise the tour's symbols, nearest first.
+ *
+ * A subject is covered by more than one suite: NestJS's
+ * `NestFactoryStatic.create` is called by three GraphQL end-to-end specs under
+ * integration/ and by the unit spec that sits beside the code, and the tour's
+ * slots went to whichever the edge list happened to hold first — the e2e ones.
+ * So the model globbed the disk for `packages/core/test/nest-factory.spec.ts`,
+ * which the graph had all along. A test that lives next to its subject is the
+ * one a newcomer reads, so the anchors come back ordered by how much of the
+ * subject's path the test shares.
+ */
 function testAnchorsOf(
   graph: TtscGraphMemory,
   seedIds: string[],
 ): ITtscGraphTour.IAnchor[] {
   const anchors: ITtscGraphTour.IAnchor[] = [];
   for (const id of seedIds) {
+    const subject = graph.node(id);
+    const near: Array<{
+      proximity: number;
+      anchors: ITtscGraphTour.IAnchor[];
+    }> = [];
     for (const edge of graph.incoming(id)) {
       const node = graph.node(edge.from);
       if (node === undefined || !isTestPath(node.file)) continue;
-      anchors.push(
-        ...anchorFromNode("test coverage", graphNodeOf(graph, node)),
-      );
-      anchors.push(
-        ...anchorFromEvidence(
-          `${edge.kind} ${node.qualifiedName ?? node.name}`,
-          node.qualifiedName ?? node.name,
-          edge.evidence,
-        ),
-      );
+      near.push({
+        proximity: sharedPathDepth(subject?.file ?? "", node.file),
+        anchors: [
+          ...anchorFromNode("test coverage", graphNodeOf(graph, node)),
+          ...anchorFromEvidence(
+            `${edge.kind} ${node.qualifiedName ?? node.name}`,
+            node.qualifiedName ?? node.name,
+            edge.evidence,
+          ),
+        ],
+      });
     }
+    near.sort((a, b) => b.proximity - a.proximity);
+    for (const item of near) anchors.push(...item.anchors);
     const impact = runTrace(graph, {
       type: "trace",
       from: id,

@@ -13,6 +13,8 @@ import { IRunnerOutput, resultNext } from "./resultNext";
 
 // A signature is the declaration head up to the body brace: a handful of lines.
 const MAX_SIGNATURE_LINES = 4;
+// A doc summary is one sentence; the rest of the comment is the file's to keep.
+const MAX_DOC_CHARS = 200;
 // Neighbor lists are a map, not a dump; keep them scannable.
 const DEFAULT_NEIGHBORS = 2;
 const MAX_NEIGHBORS = 3;
@@ -62,9 +64,28 @@ export function runDetails(
   const includeExternal = props.includeExternal === true;
   const nodes: ITtscGraphDetails.INode[] = [];
   const unknown: string[] = [];
+  const ambiguous: ITtscGraphDetails.IAmbiguity[] = [];
   for (const handle of props.handles) {
     const resolved = resolveGraphHandle(graph, handle);
     if (resolved.node === undefined) {
+      // A handle the graph knows twice is not a handle the graph does not know.
+      // Hand back the nodes it named and let the caller pick one; calling it
+      // unknown sends the caller to the files for facts already in the index.
+      if (resolved.candidates !== undefined && resolved.candidates.length > 0) {
+        ambiguous.push({
+          handle,
+          candidates: resolved.candidates.map((node) => ({
+            id: node.id,
+            name: node.qualifiedName ?? node.name,
+            kind: node.kind,
+            file: node.file,
+            ...(node.evidence?.startLine !== undefined
+              ? { line: node.evidence.startLine }
+              : {}),
+          })),
+        });
+        continue;
+      }
       unknown.push(handle);
       continue;
     }
@@ -78,6 +99,8 @@ export function runDetails(
     if (node.evidence?.startLine) detail.line = node.evidence.startLine;
     const sig = signatureOf(graph.project, node);
     if (sig !== undefined) detail.signature = sig;
+    const doc = docOf(graph.project, node);
+    if (doc !== undefined) detail.doc = doc;
     const signatureLiterals = literalSummaries(sig);
     const decorators = decoratorsOf(node);
     if (decorators !== undefined) detail.decorators = decorators;
@@ -152,17 +175,24 @@ export function runDetails(
       type: "details",
       nodes,
       unknown,
+      ...(ambiguous.length > 0 ? { ambiguous } : {}),
     },
     next:
-      nodes.length === 0
+      nodes.length === 0 && ambiguous.length > 0
         ? resultNext(
-            "outside",
-            "No handle resolved to a node; answer that the graph has nothing for them, or read source.",
+            "inspect",
+            "Each handle names several nodes; re-call details with the id of the one the question means.",
+            "details",
           )
-        : resultNext(
-            "answer",
-            "The signatures, members, dependencies, and sourceSpan anchors are the selected-symbol answer.",
-          ),
+        : nodes.length === 0
+          ? resultNext(
+              "outside",
+              "No handle resolved to a node, so the graph holds nothing for them.",
+            )
+          : resultNext(
+              "answer",
+              "The signatures, members, dependencies, and sourceSpan anchors are what the graph holds on these symbols.",
+            ),
   };
 }
 
@@ -511,6 +541,57 @@ function fileLines(project: string, file: string): string[] | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * What the declaration says it is: the first sentence of the doc comment
+ * written above it.
+ *
+ * A tour hands back names, edges, spans, and signatures, and a model given them
+ * still opens the files — "let me read the actual source at the key hops to
+ * build a concrete narrative" — because a name and an arrow do not say what a
+ * symbol is for, and a tour is a narrative. The project already wrote that
+ * sentence above the declaration, and the compiler carries it. It is the
+ * declaration's documentation, not the body of the work: an index that lists a
+ * symbol with what it is for is doing an index's job.
+ */
+export function docOf(
+  project: string,
+  node: ITtscGraphNode,
+): string | undefined {
+  const evidence = node.evidence;
+  const lines =
+    evidence === undefined ? undefined : fileLines(project, evidence.file);
+  if (lines === undefined || evidence === undefined) return undefined;
+  let index = evidence.startLine - 2;
+  while (index >= 0 && (lines[index] ?? "").trim() === "") index--;
+  if (index < 0 || !(lines[index] ?? "").trim().endsWith("*/"))
+    return undefined;
+  const block: string[] = [];
+  for (; index >= 0; index--) {
+    const line = (lines[index] ?? "").trim();
+    block.unshift(line);
+    if (line.startsWith("/**")) break;
+    if (line.startsWith("/*")) return undefined;
+  }
+  if (index < 0) return undefined;
+  const prose: string[] = [];
+  for (const line of block) {
+    const text = line
+      .replace(/^\/\*\*+/, "")
+      .replace(/\*\/$/, "")
+      .replace(/^\*+ ?/, "")
+      .trim();
+    if (text.startsWith("@")) break;
+    if (text !== "") prose.push(text);
+  }
+  const joined = prose.join(" ").trim();
+  if (joined === "") return undefined;
+  const stop = joined.search(/\.(\s|$)/);
+  const sentence = stop > 0 ? joined.slice(0, stop + 1) : joined;
+  return sentence.length > MAX_DOC_CHARS
+    ? sentence.slice(0, MAX_DOC_CHARS).trimEnd() + "…"
+    : sentence;
 }
 
 /**

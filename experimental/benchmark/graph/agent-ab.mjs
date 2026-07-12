@@ -34,6 +34,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { GROUNDING } from "./prompt.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
@@ -166,12 +168,13 @@ const fixtureBranch =
   args["fixture-branch"] ??
   manifestPrompt?.entry.fixtureBranch ??
   spec.fixtureBranch;
-if (
-  fixtureBranch &&
-  fixtureBranch !== "ttsc" &&
-  fixtureBranch !== "ttsc-lint"
-) {
-  throw new Error("--fixture-branch must be 'ttsc' or 'ttsc-lint'");
+// `graph` is the branch the AI-token benchmark measures; `ttsc` / `ttsc-lint`
+// remain for a run pointed at a performance fixture branch.
+const FIXTURE_BRANCHES = new Set(["graph", "ttsc", "ttsc-lint"]);
+if (fixtureBranch && !FIXTURE_BRANCHES.has(fixtureBranch)) {
+  throw new Error(
+    `--fixture-branch must be one of ${[...FIXTURE_BRANCHES].join(", ")}`,
+  );
 }
 if (fixtureBranch && !spec.fixtureUrl) {
   throw new Error(`repo ${repoKey} has no performance fixture repo`);
@@ -345,13 +348,13 @@ const MAX_RUN_RETRIES = parseNonNegativeInteger(
 const concurrency = Number(process.env.TTSC_BENCH_CONCURRENCY) || Infinity;
 const thunks = arms.flatMap((arm) =>
   Array.from({ length: runs }, (_, r) => async () => {
-    // Validity is token-based only: a run that spent tokens is a real measurement
-    // and is kept, even if its MCP calls failed or it never produced a clean
-    // answer. Those are quality concerns judged out of band, not reasons to
-    // re-spend the budget. Only a zero-token run is invalid and worth retrying: a
-    // 529 overload reports subtype "success" with is_error and zero token usage,
-    // so it carries no usable sample. The trace file is keyed by run number, so a
-    // successful retry overwrites the failed attempt.
+    // A run is a measurement when it spent tokens and the harness carried it to
+    // an answer. A 529 overload reports subtype "success" with is_error and zero
+    // usage; an unparseable tool call ends the turn early with tokens spent, no
+    // tools run, and a failure on the record — and counted as a sample it reads
+    // as the cheapest cell in the table, a saving the tool never earned. Both are
+    // retried. The trace file is keyed by run number, so a successful retry
+    // overwrites the failed attempt.
     let m;
     let attempts = 0;
     for (let attempt = 0; attempt <= MAX_RUN_RETRIES; attempt++) {
@@ -365,7 +368,7 @@ const thunks = arms.flatMap((arm) =>
         ),
         arm.name,
       );
-      if (Number(m?.tokens ?? 0) > 0) break;
+      if (Number(m?.tokens ?? 0) > 0 && m?.ok !== false) break;
       if (attempt < MAX_RUN_RETRIES)
         console.log(
           `  ${arm.name.padEnd(8)} run ${r + 1}: [FAILED] ${m.error || ""} retrying (${attempt + 1}/${MAX_RUN_RETRIES})`,
@@ -564,10 +567,23 @@ function observedModelVersion(allSamples) {
   return undefined;
 }
 
-function promptForArm(baseQuestion, _armName) {
-  // Benchmark prompts are sent exactly as authored in questions/*.md.
-  // Tool-specific guidance belongs in MCP instructions/descriptions, not here.
-  return baseQuestion;
+function promptForArm(baseQuestion, armName) {
+  // The baseline arm is told to ground its answer in this checkout, because it
+  // has nothing but the repository and its own memory of a famous project, and
+  // without the sentence it answers from memory: it skips the files, states what
+  // the upstream project does today, and spends nothing doing it. That is not a
+  // baseline, it is a recital. An arm holding a tool that only ever returns
+  // facts from this checkout's compiler needs no such warning, and giving it one
+  // is an order to go verify what the compiler already resolved.
+  if (armName === "baseline") return `${baseQuestion}\n\n${GROUNDING}`;
+  // The tool arm gets a neutral reminder that an MCP tool exists, the same one
+  // the codex harness sends. Claude Code defers MCP tool schemas behind
+  // ToolSearch, so the model shell-explores the repo first and only then
+  // discovers the server: every graph cell but one opened with two Bash calls
+  // before its first graph call. The sentence names no tool and forces nothing;
+  // it only tells the model a tool is there, which an operator who installed the
+  // server already knows.
+  return `${baseQuestion}\n\nThis repository has a graph MCP tool available; make appropriate use of it when it fits the question.`;
 }
 
 // spawnAsync runs a child to completion and resolves its captured stdout/stderr,

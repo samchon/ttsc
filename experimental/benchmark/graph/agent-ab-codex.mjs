@@ -38,6 +38,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { GROUNDING } from "./prompt.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const ttscDir = path.join(repoRoot, "packages", "ttsc");
@@ -157,12 +159,13 @@ const fixtureBranch =
   args["fixture-branch"] ??
   manifestPrompt?.entry.fixtureBranch ??
   spec.fixtureBranch;
-if (
-  fixtureBranch &&
-  fixtureBranch !== "ttsc" &&
-  fixtureBranch !== "ttsc-lint"
-) {
-  throw new Error("--fixture-branch must be 'ttsc' or 'ttsc-lint'");
+// `graph` is the branch the AI-token benchmark measures; `ttsc` / `ttsc-lint`
+// remain for a run pointed at a performance fixture branch.
+const FIXTURE_BRANCHES = new Set(["graph", "ttsc", "ttsc-lint"]);
+if (fixtureBranch && !FIXTURE_BRANCHES.has(fixtureBranch)) {
+  throw new Error(
+    `--fixture-branch must be one of ${[...FIXTURE_BRANCHES].join(", ")}`,
+  );
 }
 if (fixtureBranch && !spec.fixtureUrl) {
   throw new Error(`repo ${repoKey} has no performance fixture repo`);
@@ -349,7 +352,7 @@ const thunks = arms.flatMap((arm) =>
         ),
         arm.name,
       );
-      if (Number(m?.tokens ?? 0) > 0) break;
+      if (Number(m?.tokens ?? 0) > 0 && m?.ok !== false) break;
       if (attempt < MAX_RUN_RETRIES)
         console.log(
           `  ${arm.name.padEnd(8)} run ${r + 1}: [FAILED]${m.error ? ` ${m.error}` : ""} retrying (${attempt + 1}/${MAX_RUN_RETRIES})`,
@@ -553,10 +556,16 @@ function parseConfiguredArgs(raw, targetRepoDir) {
   );
 }
 
-function promptForArm(baseQuestion, _armName) {
-  // Benchmark prompts are sent exactly as authored in questions/*.md.
-  // Tool-specific guidance belongs in MCP instructions/descriptions, not here.
-  return baseQuestion;
+function promptForArm(baseQuestion, armName) {
+  // The baseline arm is sent to the code, because memory of a famous repository
+  // is not a baseline (see GROUNDING). An arm whose facts come from this
+  // checkout's compiler needs no such warning.
+  if (armName === "baseline") return `${baseQuestion}\n\n${GROUNDING}`;
+  // The tool arm gets a neutral reminder that MCP tools exist, because
+  // tool-search models (e.g. gpt-5.6) do not surface MCP server tools from the
+  // server `instructions` alone. It names no tool and forces nothing; it only
+  // nudges appropriate use when a tool fits.
+  return `${baseQuestion}\n\nThis repository has a graph MCP tool available; make appropriate use of it when it fits the question.`;
 }
 
 function ensureInstalled(targetRepoDir) {

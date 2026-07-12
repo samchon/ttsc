@@ -1,6 +1,7 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphLookup } from "../structures/ITtscGraphLookup";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { exportFanIn } from "./exportSurface";
 import { isExternalNode, isSupportPath } from "./pathPolicy";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, signatureOf } from "./runDetails";
@@ -36,7 +37,7 @@ export function runLookup(
       },
       next: resultNext(
         "clarify",
-        "The query has no searchable terms; restate it with a concrete symbol or scope.",
+        "The query carries no searchable terms, so no symbol could be matched.",
       ),
     };
 
@@ -99,11 +100,11 @@ export function runLookup(
       hits.length === 0
         ? resultNext(
             "outside",
-            "No symbol matched; answer that the graph did not resolve this name, or read source.",
+            "No symbol matched, so the graph did not resolve this name.",
           )
         : resultNext(
             "answer",
-            "The ranked hits and their signatures resolve the name; answer from them.",
+            "The ranked hits and their signatures resolve the name.",
           ),
   };
 }
@@ -170,6 +171,13 @@ function scoreNode(
   // Centrality: a symbol the codebase leans on is a likelier target.
   const fan = degree(graph, node.id);
   score += Math.min(8, Math.log2(1 + fan) * 2);
+
+  // How many modules put this symbol on the wire. Two symbols can match a name
+  // equally well while one is what a consumer imports and the other is a leftover
+  // major the package still ships behind a subpath; the re-export chain is what
+  // tells them apart, so it breaks the tie.
+  const surface = exportFanIn(graph, node.id);
+  if (surface > 0) score *= 1 + Math.min(0.4, Math.log2(1 + surface) * 0.14);
 
   // Dampen what is rarely the intended target.
   if (node.ignored) score *= 0.3;

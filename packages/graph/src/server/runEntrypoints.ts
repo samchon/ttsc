@@ -33,7 +33,11 @@ export function runEntrypoints(
     MAX_NEIGHBORS,
   );
 
-  const lookupResult = runLookup(graph, { type: "lookup", query, limit }).result;
+  const lookupResult = runLookup(graph, {
+    type: "lookup",
+    query,
+    limit,
+  }).result;
   const hits = lookupResult.hits.map((hit) => ({ ...hit }));
 
   const mentions = directMentions(graph, query).map((handle) => {
@@ -93,12 +97,12 @@ export function runEntrypoints(
     next: resolved
       ? resultNext(
           "inspect",
-          "These are first-pass handles; run one trace or details on the handle the question targets.",
+          "These are first-pass handles: one trace or details on the handle the question targets completes the answer.",
           "trace",
         )
       : resultNext(
           "outside",
-          "No entry handle resolved for this query; answer that the graph has nothing, or read source.",
+          "No entry handle resolved for this query, so the graph holds nothing for it.",
         ),
   };
 }

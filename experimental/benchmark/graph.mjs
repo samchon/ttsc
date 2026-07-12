@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 /**
- * One-shot AI token benchmark for @ttsc/graph, codegraph, codebase-memory,
- * and Serena on the performance fixtures.
+ * One-shot AI token benchmark for @ttsc/graph, codegraph, codebase-memory, and
+ * Serena on the graph benchmark fixtures.
  *
- * This runner intentionally stays separate from performance.mjs: it spends real
- * Claude/Codex credits, so it only runs when called explicitly. It reuses the
- * performance fixture setup (.work/<repo>@ttsc or @ttsc-lint), then drives the
- * agent-cost harnesses sequentially by project and model. No parallelism: large
- * projects such as VS Code already consume enough memory while their graph is
- * built.
+ * It stays separate from performance.mjs in every respect: it spends real
+ * Claude/Codex credits, so it only runs when called explicitly, and it owns its
+ * own fixtures — the `graph` branch of each benchmark repo, cloned into
+ * `../graph-benchmark-work` beside this repo, installed from the fixture's own
+ * lockfile. Two reasons the fixtures are not shared with the performance sweep:
+ * a graph-only fixture edit would change what the tsc-vs-ttsc cells compile,
+ * and a fixture under this repo hands the measured agent ttsc's own CLAUDE.md /
+ * AGENTS.md through the parent-directory walk both CLIs do.
+ *
+ * Projects run sequentially: a large fixture such as VS Code already consumes
+ * enough memory while its graph is built.
  */
 import cp from "node:child_process";
 import fs from "node:fs";
@@ -18,9 +23,14 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
-const workDir = process.env.TTSC_BENCH_WORK ?? path.resolve(here, ".work");
-const tgzDir = process.env.TTSC_BENCH_TGZ ?? path.join(os.tmpdir(), "ttsc-tgz");
-const performanceScript = path.join(here, "performance.mjs");
+// Outside the repo on purpose: the measured agent's cwd is the fixture clone,
+// and both CLIs walk the parent chain for CLAUDE.md / AGENTS.md, so a fixture
+// under `experimental/benchmark/.work` loaded ttsc's own agent instructions into
+// every cell — a vscode graph run was caught reading this repo's AGENTS.md
+// instead of touring vscode.
+const workDir =
+  process.env.TTSC_GRAPH_BENCH_WORK ??
+  path.resolve(repoRoot, "..", "graph-benchmark-work");
 const websiteJson = path.join(
   repoRoot,
   "website",
@@ -58,48 +68,44 @@ const PUBLISHED_SAMPLE_KEYS = [
   "attempts",
 ];
 
+// Each fixture is the `graph` branch of its benchmark repo, cloned and installed
+// by this runner alone. The graph benchmark used to measure the `ttsc` branch the
+// performance sweep compiles, which made the two fight over one tree: a
+// graph-only edit — a tsconfig whose program includes the tests, so a tour can
+// cite them — would have changed what the tsc-vs-ttsc cells compile. The `graph`
+// branch carries those edits and nothing else; the folder an agent sees is the
+// plain project name, because a `ttsc-benchmark-` cwd makes it hunt for harness
+// code instead of touring the source.
 const PROJECTS = {
-  excalidraw: {
-    repoName: "excalidraw",
-    sourceRepo: "https://github.com/samchon/ttsc-benchmark-excalidraw.git",
-    sourceBranch: "ttsc",
+  excalidraw: graphFixture("excalidraw", "ttsc-benchmark-excalidraw", {
     tsconfig: "tsconfig.json",
-  },
-  vue: {
-    repoName: "vue",
-    tsconfig: "tsconfig.graph.json",
-  },
-  rxjs: {
-    repoName: "rxjs",
-    tsconfig: "tsconfig.graph.json",
-  },
-  typeorm: {
-    repoName: "ttsc-benchmark-typeorm",
+  }),
+  vue: graphFixture("vue", "ttsc-benchmark-vue"),
+  rxjs: graphFixture("rxjs", "ttsc-benchmark-rxjs"),
+  typeorm: graphFixture("typeorm", "ttsc-benchmark-typeorm", {
     tsconfig: "tsconfig.json",
-  },
-  zod: {
-    repoName: "zod",
-    tsconfig: "tsconfig.graph.json",
-  },
-  nestjs: {
-    repoName: "nestjs",
-    tsconfig: "tsconfig.graph.json",
-  },
-  vscode: {
-    repoName: "vscode",
+  }),
+  zod: graphFixture("zod", "ttsc-benchmark-zod"),
+  nestjs: graphFixture("nestjs", "ttsc-benchmark-nestjs"),
+  vscode: graphFixture("vscode", "ttsc-benchmark-vscode", {
     tsconfig: "src/tsconfig.json",
-  },
-  "shopping-backend": {
-    repoName: "shopping-backend",
-    tsconfig: "tsconfig.json",
-  },
+  }),
+  "shopping-backend": graphFixture("shopping-backend", "shopping-backend"),
 };
 
+function graphFixture(name, repo, { tsconfig = "tsconfig.graph.json" } = {}) {
+  return {
+    repoName: name,
+    sourceRepo: `https://github.com/samchon/${repo}.git`,
+    sourceBranch: "graph",
+    tsconfig,
+  };
+}
+
 const parsed = parseArgs(process.argv.slice(2));
-const branch =
-  parsed.values.branch ?? parsed.values["fixture-branch"] ?? "ttsc";
-if (branch !== "ttsc" && branch !== "ttsc-lint")
-  throw new Error("--branch must be 'ttsc' or 'ttsc-lint'");
+// Every fixture is measured on its repo's `graph` branch; there is no branch
+// axis here (the tsc-vs-ttsc sweep owns `legacy` / `ttsc` / `ttsc-lint`).
+const branch = "graph";
 
 const selected = selectProjects(parsed);
 const arm = selectArm(parsed.values.arm ?? "both");
@@ -125,13 +131,6 @@ const maxRunRetries = parseNonNegativeInteger(
 const daemon = parsed.values.daemon ?? "0";
 const effort = "high";
 const codexModel = parsed.values["codex-model"] ?? "gpt-5.4-mini";
-const platformKey = `${process.platform}-${process.arch}`;
-const ttscVersion = JSON.parse(
-  fs.readFileSync(
-    path.join(repoRoot, "packages", "ttsc", "package.json"),
-    "utf8",
-  ),
-).version;
 const outDir = path.resolve(
   parsed.values.out ??
     process.env.TTSC_GRAPH_BENCH_OUT ??
@@ -144,7 +143,7 @@ if (parsed.flags.has("--list")) {
   for (const project of Object.keys(PROJECTS)) {
     const spec = PROJECTS[project];
     process.stdout.write(
-      `${project}: ${projectDir(spec, branch)} (${spec.tsconfig})\n`,
+      `${project}: ${projectDir(spec)} (${spec.tsconfig})\n`,
     );
   }
   process.exit(0);
@@ -156,24 +155,8 @@ if (selected.length === 0) {
 
 fs.mkdirSync(outDir, { recursive: true });
 
-const fixtureProjects = selected.filter((project) =>
-  usesPerformanceFixture(PROJECTS[project]),
-);
-const graphOnlyProjects = selected.filter((project) =>
-  isGraphOnlyProject(PROJECTS[project]),
-);
-
 if (!parsed.flags.has("--no-setup")) {
-  if (fixtureProjects.length > 0) {
-    if (
-      !parsed.flags.has("--no-pack") &&
-      process.env.TTSC_BENCH_SKIP_PACK !== "1"
-    ) {
-      packGraphTarballs();
-    }
-    runSetup(fixtureProjects, branch);
-  }
-  ensureGraphOnlyRepos(graphOnlyProjects);
+  ensureFixtures(selected);
 }
 
 if (parsed.flags.has("--setup-only")) {
@@ -196,8 +179,8 @@ const report = {
 
 for (const project of selected) {
   const spec = PROJECTS[project];
-  const branchLabel = projectBranch(spec, branch);
-  const repoDir = projectDir(spec, branch);
+  const branchLabel = spec.sourceBranch;
+  const repoDir = projectDir(spec);
   if (!fs.existsSync(repoDir))
     throw new Error(`missing graph benchmark clone: ${repoDir}`);
   if (!fs.existsSync(path.join(repoDir, spec.tsconfig)))
@@ -280,29 +263,6 @@ if (!parsed.flags.has("--no-website")) {
   process.stdout.write(
     `Graph benchmark website JSON: ${path.relative(repoRoot, websiteJson)}\n`,
   );
-}
-
-function runSetup(projects, targetBranch) {
-  const args = [
-    performanceScript,
-    "--setup-only",
-    "--no-pack",
-    `--project=${projects.join(",")}`,
-    `--cell-filter=:${targetBranch}:`,
-  ];
-  for (const flag of [
-    "--no-pack",
-    "--no-install",
-    "--force-install",
-    "--allow-missing",
-    "--verbose",
-  ]) {
-    if (parsed.flags.has(flag)) args.push(flag);
-  }
-  runChecked("node", args, {
-    label: "performance fixture setup",
-    logBase: path.join(outDir, "setup"),
-  });
 }
 
 function refreshCodexTraceAudit(cell, currentReportPath, currentReport) {
@@ -446,11 +406,7 @@ function runAgentCell({
     ...(data.promptId ? { promptId: data.promptId } : {}),
     promptFamily: data.promptFamily ?? promptFamily,
     ...(data.questionSha256 ? { questionSha256: data.questionSha256 } : {}),
-    ...(data.fixtureBranch
-      ? { fixtureBranch: data.fixtureBranch }
-      : usesPerformanceFixture(spec)
-        ? { fixtureBranch: branch }
-        : {}),
+    fixtureBranch: data.fixtureBranch ?? branch,
     daemon: daemon === "1" || daemon === "true",
     runs: data.runs ?? Number(runs),
     question: data.question,
@@ -799,41 +755,6 @@ function loadJson(file) {
   }
 }
 
-function packGraphTarballs() {
-  fs.mkdirSync(tgzDir, { recursive: true });
-  runPnpm(["--filter", "ttsc", "build"], "build ttsc");
-  runPnpm(["--filter", "@ttsc/lint", "build"], "build @ttsc/lint");
-  runPnpm(
-    ["--dir", path.join(repoRoot, "packages", `ttsc-${platformKey}`), "build"],
-    `build @ttsc/${platformKey}`,
-  );
-  for (const target of graphTarballTargets()) {
-    const out = path.join(tgzDir, target.file);
-    fs.rmSync(out, { force: true });
-    runPnpm(["pack", "--out", out], `pack ${target.name}`, target.dir);
-  }
-}
-
-function graphTarballTargets() {
-  return [
-    {
-      name: "ttsc",
-      dir: path.join(repoRoot, "packages", "ttsc"),
-      file: `ttsc-${ttscVersion}.tgz`,
-    },
-    {
-      name: "@ttsc/lint",
-      dir: path.join(repoRoot, "packages", "lint"),
-      file: `ttsc-lint-${ttscVersion}.tgz`,
-    },
-    {
-      name: `@ttsc/${platformKey}`,
-      dir: path.join(repoRoot, "packages", `ttsc-${platformKey}`),
-      file: `ttsc-${platformKey}-${ttscVersion}.tgz`,
-    },
-  ];
-}
-
 function summarize(data) {
   const baseline = armSummary(data.samples?.baseline ?? []);
   const graphSamples = data.samples?.graph ?? [];
@@ -848,7 +769,14 @@ function summarize(data) {
 }
 
 function armSummary(samples) {
-  const valid = samples.filter((sample) => Number(sample?.tokens ?? 0) > 0);
+  // A run the harness could not carry to an answer is not a cheap run, it is no
+  // run: an unparseable tool call ends the turn after one prompt, spends 70k
+  // tokens and zero tools, and lands in the table as a 96% saving the tool never
+  // earned. Tokens alone cannot tell that apart from a model that answered in one
+  // shot, so the run's own verdict is what counts it.
+  const valid = samples.filter(
+    (sample) => Number(sample?.tokens ?? 0) > 0 && sample?.ok !== false,
+  );
   return {
     samples: samples.length,
     validSamples: valid.length,
@@ -888,7 +816,7 @@ function runChecked(
   const result = cp.spawnSync(command, args, {
     cwd,
     encoding: "utf8",
-    env: { ...process.env, TTSC_BENCH_TGZ: tgzDir, ...env },
+    env: { ...process.env, ...env },
     windowsHide: true,
     maxBuffer: 512 * 1024 * 1024,
     timeout: Number(process.env.TTSC_GRAPH_BENCH_TIMEOUT_MS ?? 1_800_000),
@@ -903,49 +831,16 @@ function runChecked(
   }
 }
 
-function runPnpm(args, label, cwd = repoRoot) {
-  runChecked(...pnpmCommand(args), {
-    label,
-    logBase: path.join(outDir, label.replace(/[^a-z0-9_.-]+/gi, "-")),
-    cwd,
-  });
+function projectDir(spec) {
+  return path.join(workDir, `${spec.repoName}@${spec.sourceBranch}`);
 }
 
-function pnpmCommand(args) {
-  if (process.platform !== "win32") return ["pnpm", args];
-  return ["cmd.exe", ["/d", "/s", "/c", "pnpm", ...args]];
-}
-
-function fixtureDir(spec, targetBranch) {
-  return path.join(workDir, `${spec.repoName}@${targetBranch}`);
-}
-
-function projectDir(spec, targetBranch) {
-  return isGraphOnlyProject(spec)
-    ? path.join(workDir, `${spec.repoName}@${spec.sourceBranch ?? "source"}`)
-    : fixtureDir(spec, targetBranch);
-}
-
-function projectBranch(spec, targetBranch) {
-  return isGraphOnlyProject(spec)
-    ? (spec.sourceBranch ?? "source")
-    : targetBranch;
-}
-
-function usesPerformanceFixture(spec) {
-  return !isGraphOnlyProject(spec);
-}
-
-function isGraphOnlyProject(spec) {
-  return typeof spec.sourceRepo === "string" && spec.sourceRepo.length > 0;
-}
-
-function ensureGraphOnlyRepos(projects) {
+function ensureFixtures(projects) {
   for (const project of projects) {
     const spec = PROJECTS[project];
     const repoDir = projectDir(spec);
     if (fs.existsSync(repoDir)) {
-      process.stdout.write(`[graph] reusing graph-only repo ${project}\n`);
+      process.stdout.write(`[graph] reusing fixture ${project}\n`);
       continue;
     }
     fs.mkdirSync(path.dirname(repoDir), { recursive: true });
@@ -953,12 +848,13 @@ function ensureGraphOnlyRepos(projects) {
       "clone",
       "--depth",
       "1",
-      ...(spec.sourceBranch ? ["--branch", spec.sourceBranch] : []),
+      "--branch",
+      spec.sourceBranch,
       spec.sourceRepo,
       repoDir,
     ];
     runChecked("git", cloneArgs, {
-      label: `clone graph-only repo ${project}`,
+      label: `clone graph fixture ${project}`,
       logBase: path.join(outDir, `setup-${project}-source`),
     });
   }
