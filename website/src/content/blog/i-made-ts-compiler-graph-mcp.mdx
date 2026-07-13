@@ -43,7 +43,7 @@ You're new to a TypeScript repo, so you ask the agent for a tour: _"What's the m
 
 `@ttsc/graph` cuts that crawl short. It is an MCP server that gives your agent a code graph instead of source files: over MCP it hands over a graph of your TypeScript codebase that the compiler itself drew, what calls what, what depends on what, and where each piece lives. The agent answers structural questions straight from the graph instead of spelunking through files, and every claim it makes points at an exact `file:line` the compiler resolved.
 
-![Median token use across every repo, common prompt, Codex GPT-5.5](/benchmark/svg/graph-common-codex-gpt-5.5.svg)
+![Median token use across every repo, common prompt, Codex GPT-5.6 sol](/benchmark/svg/graph-common-codex-gpt-5.6-sol.svg)
 
 Here's the part that surprised me. This is supposed to be a solved problem: `codegraph`, `codebase-memory-mcp`, and `serena` all hand the agent a code graph over MCP for exactly this. But on the same question with the same agent, their token use swings all over the place, and on some repos they spend more than running with no tool at all. Only `@ttsc/graph` stays flat, however big the repo gets. That gap is why I built it. Every model and the full method are on the [interactive benchmark page](https://ttsc.dev/docs/benchmark/graph).
 
@@ -140,11 +140,11 @@ One thing up front. Cutting an agent's tool-call count is the easy part; cutting
 
 What actually happened was a lot less exciting than the pitch.
 
-![zod median tokens on the shared question, Codex GPT-5.5](/benchmark/svg/graph-zod-common-codex-gpt-5.5.svg)
+![zod median tokens on the shared question, Claude Code Opus 4.8](/benchmark/svg/graph-zod-common-claude-code-claude-opus-4-8.svg)
 
-> zod on GPT-5.5. All three (`codegraph`, `codebase-memory`, and `serena`) made the agent spend _more_ than it would have with no MCP at all, +22% to +27%. `@ttsc/graph` came in at 6% of the baseline. This is the starkest repo I found, but the pattern holds across the matrix.
+> zod on Opus 4.8. `@ttsc/graph` answers for **5% of the no-MCP baseline**; the three code-graph MCPs land at 41%, 56%, and 70% of it. They do save — and they still cost eight to fourteen times what the same answer costs through the graph.
 
-- The tokens didn't actually drop. The tool-call count did fall, but the thing you pay for, the tokens, didn't budge. On some cells it came out worse than the baseline: `codegraph` spent up to 47% more, `codebase-memory-mcp` up to 66% more, and `serena` up to 93% more.
+- The tokens didn't actually drop, or didn't drop where it mattered. The tool-call count fell, but the thing you pay for barely moved, and on a fair number of cells it moved the wrong way. On the GPT-5.6 grid, zod is the starkest: `codegraph` spent **4% more** than running with no MCP at all, `codebase-memory-mcp` **66% more**, and `serena` **130% more** — while `@ttsc/graph` answered the same question for 14% of the baseline. Across the GPT-5.6 matrix the worst cells run to +34% (`codegraph`), +82% (`codebase-memory-mcp`), and +207% (`serena`).
 - Claude Code and Codex answered less accurately, not more. They kept missing what I was actually asking for.
 - Extra MCP calls fired on their own and delayed the work I wanted done.
 - I couldn't just ask in plain language either. Every query had to be shaped by hand. `codebase-memory-mcp`'s sharpest tools want a Cypher query or an exact `qualified_name`, `codegraph` wants you to name the symbols in a flow, and `serena` wants you to activate the project and then hand it an exact `name_path` you don't have yet. The hand-shaping alone cost more time than the tools gave back.
@@ -260,7 +260,7 @@ export namespace ITtscGraphApplication {
 
   // The selected request's result; `result.type` mirrors `request.type`.
   export interface IOutput {
-    directive: string; // read first: an unedited result is complete, so answer and re-verify nothing
+    audit: string; // what the server checked this result against: every fact in it resolves to the type-checked program
     next: ITtscGraphNext; // what to do with result: answer, inspect one named request, or escape
     result:
       | ITtscGraphEntrypoints
