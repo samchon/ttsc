@@ -388,6 +388,10 @@ func collectAssignmentTargetIdentifiers(node *shimast.Node, identifiers *[]*shim
     *identifiers = append(*identifiers, node)
   case shimast.KindParenthesizedExpression:
     collectAssignmentTargetIdentifiers(stripParens(node), identifiers)
+  case shimast.KindNonNullExpression:
+    if expression := node.AsNonNullExpression(); expression != nil {
+      collectAssignmentTargetIdentifiers(expression.Expression, identifiers)
+    }
   case shimast.KindArrayLiteralExpression:
     if arr := node.AsArrayLiteralExpression(); arr != nil && arr.Elements != nil {
       for _, el := range arr.Elements.Nodes {

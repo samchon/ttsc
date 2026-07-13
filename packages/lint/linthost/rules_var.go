@@ -701,7 +701,7 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
       }
       if kind == preferConstSimpleAssignment && len(targets) > 1 {
         for _, target := range targets {
-          symbol := ctx.Checker.GetSymbolAtLocation(target)
+          symbol := preferConstValueSymbol(ctx, target)
           if candidate := bySymbol[symbol]; candidate != nil {
             groups[child] = appendPreferConstCandidate(groups[child], candidate)
           }
@@ -710,12 +710,16 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
     case shimast.KindPrefixUnaryExpression:
       expr := child.AsPrefixUnaryExpression()
       if expr != nil && (expr.Operator == shimast.KindPlusPlusToken || expr.Operator == shimast.KindMinusMinusToken) {
-        preferConstRecordWrite(ctx, bySymbol, writeTargets, expr.Operand, nil, preferConstReassignment)
+        for _, target := range assignmentTargetIdentifiers(expr.Operand) {
+          preferConstRecordWrite(ctx, bySymbol, writeTargets, target, nil, preferConstReassignment)
+        }
       }
     case shimast.KindPostfixUnaryExpression:
       expr := child.AsPostfixUnaryExpression()
       if expr != nil && (expr.Operator == shimast.KindPlusPlusToken || expr.Operator == shimast.KindMinusMinusToken) {
-        preferConstRecordWrite(ctx, bySymbol, writeTargets, expr.Operand, nil, preferConstReassignment)
+        for _, target := range assignmentTargetIdentifiers(expr.Operand) {
+          preferConstRecordWrite(ctx, bySymbol, writeTargets, target, nil, preferConstReassignment)
+        }
       }
     case shimast.KindForOfStatement, shimast.KindForInStatement:
       stmt := child.AsForInOrOfStatement()
@@ -744,7 +748,7 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
     if _, ok := candidateNames[identifierText(child)]; !ok {
       return
     }
-    symbol := ctx.Checker.GetSymbolAtLocation(child)
+    symbol := preferConstValueSymbol(ctx, child)
     candidate := bySymbol[symbol]
     if candidate == nil || candidate.initialized || len(candidate.writes) != 1 {
       return
@@ -809,7 +813,7 @@ func preferConstRecordWrite(
   if target == nil || target.Kind != shimast.KindIdentifier {
     return
   }
-  symbol := ctx.Checker.GetSymbolAtLocation(target)
+  symbol := preferConstValueSymbol(ctx, target)
   candidate := bySymbol[symbol]
   if candidate == nil {
     return
@@ -820,6 +824,18 @@ func preferConstRecordWrite(
     kind:       kind,
   })
   writeTargets[target] = struct{}{}
+}
+
+func preferConstValueSymbol(ctx *Context, identifier *shimast.Node) *shimast.Symbol {
+  if ctx == nil || ctx.Checker == nil || identifier == nil {
+    return nil
+  }
+  if parent := identifier.Parent; parent != nil && parent.Kind == shimast.KindShorthandPropertyAssignment {
+    if shorthand := parent.AsShorthandPropertyAssignment(); shorthand != nil && shorthand.Name() == identifier {
+      return ctx.Checker.GetShorthandAssignmentValueSymbol(parent)
+    }
+  }
+  return ctx.Checker.GetSymbolAtLocation(identifier)
 }
 
 func preferConstCandidateIsEligible(
@@ -888,7 +904,7 @@ func preferConstAssignmentCanInitialize(
     return false
   }
   for _, target := range targets {
-    symbol := ctx.Checker.GetSymbolAtLocation(target)
+    symbol := preferConstValueSymbol(ctx, target)
     grouped := bySymbol[symbol]
     if symbol == nil || !preferConstSymbolIsLocalToScope(symbol, candidate.scope) ||
       (grouped != nil && grouped.invalid) {
@@ -953,6 +969,10 @@ func preferConstAssignmentTargetHasMember(node *shimast.Node) bool {
     return true
   case shimast.KindParenthesizedExpression:
     return preferConstAssignmentTargetHasMember(stripParens(node))
+  case shimast.KindNonNullExpression:
+    if expression := node.AsNonNullExpression(); expression != nil {
+      return preferConstAssignmentTargetHasMember(expression.Expression)
+    }
   case shimast.KindArrayLiteralExpression:
     if array := node.AsArrayLiteralExpression(); array != nil && array.Elements != nil {
       for _, element := range array.Elements.Nodes {
@@ -1060,11 +1080,15 @@ func preferConstIsDestructuringDefaultAssignment(node *shimast.Node) bool {
       shimast.KindArrayLiteralExpression,
       shimast.KindObjectLiteralExpression,
       shimast.KindPropertyAssignment,
-      shimast.KindShorthandPropertyAssignment,
       shimast.KindSpreadElement,
       shimast.KindSpreadAssignment:
       current = parent
       continue
+    case shimast.KindShorthandPropertyAssignment:
+      // A shorthand's optional initializer is a read expression rather than
+      // part of the assignment target. Any binary expression nested there is
+      // a real write and must not inherit the outer destructuring assignment.
+      return false
     case shimast.KindBinaryExpression:
       expr := parent.AsBinaryExpression()
       return expr != nil && expr.OperatorToken != nil && isAssignmentOperator(expr.OperatorToken.Kind) &&
