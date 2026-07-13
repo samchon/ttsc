@@ -37,8 +37,8 @@ switch (incomplete) {
   default: break;
 }
 
-declare const open: string;
-switch (open) {
+declare const openValue: string;
+switch (openValue) {
   default: break;
 }
 `, map[string]any{
@@ -49,8 +49,8 @@ switch (open) {
   })
 
   assertSwitchExhaustivenessCheckForTest(t, `
-declare const open: string;
-switch (open) {
+declare const openValue: string;
+switch (openValue) {
   case "known": break;
 }
 
@@ -72,8 +72,8 @@ switch (mixed) {
   })
 
   assertSwitchExhaustivenessCheckForTest(t, `
-declare const open: string;
-switch (open) {
+declare const openValue: string;
+switch (openValue) {
   case "known": break;
   // No Default
 }
@@ -82,8 +82,8 @@ switch (open) {
   }, 0, nil)
 
   assertSwitchExhaustivenessCheckForTest(t, `
-declare const open: string;
-switch (open) {
+declare const openValue: string;
+switch (openValue) {
   case "known": break;
   // skip   default
 }

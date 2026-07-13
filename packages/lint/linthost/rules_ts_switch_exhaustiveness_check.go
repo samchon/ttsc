@@ -347,8 +347,7 @@ func switchExhaustivenessCheckIsLiteralLike(t *shimchecker.Type) bool {
     shimchecker.TypeFlagsLiteral|
       shimchecker.TypeFlagsUndefined|
       shimchecker.TypeFlagsNull|
-      shimchecker.TypeFlagsUniqueESSymbol
-  ) != 0
+      shimchecker.TypeFlagsUniqueESSymbol) != 0
 }
 
 func switchExhaustivenessCheckTypeName(

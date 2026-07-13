@@ -31,8 +31,8 @@ namespace Domain {
 declare const namespaceIncomplete: Domain.Mode;
 switch (namespaceIncomplete) { case Domain.Mode.Ready: break; }
 
-declare const open: string & Brand;
-switch (open) { case "known": break; }
+declare const openValue: string & Brand;
+switch (openValue) { case "known": break; }
 
 declare const impossible: never;
 switch (impossible) {}
@@ -67,8 +67,8 @@ namespace Domain {
 declare const namespaceComplete: Domain.Mode;
 switch (namespaceComplete) { case Domain.Mode.Ready: break; case Domain.Mode.Done: break; }
 
-declare const open: string & Brand;
-switch (open) { case "known": break; default: break; }
+declare const openValue: string & Brand;
+switch (openValue) { case "known": break; default: break; }
 
 declare const impossible: never;
 switch (impossible) { default: break; }
