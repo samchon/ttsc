@@ -31,6 +31,8 @@ import assert from "node:assert/strict";
  * - Cross-rule option leakage (`testIdPattern` on
  *   `cypress/unsafe-to-chain-command`) is rejected.
  * - A typo in a switch-exhaustiveness option is rejected.
+ * - An empty object policy for `typescript/ban-ts-comment` is rejected because
+ *   the object form requires `descriptionFormat`.
  * - A lint-only rule (`no-var`) cannot carry an options object.
  * - An identifier-form built-in name without the canonical slash (`reactJsxKey`)
  *   is rejected.
@@ -175,6 +177,17 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       ],
     },
   };
+  const banTsCommentMissingDescriptionFormat: ITtscLintConfig = {
+    rules: {
+      "typescript/ban-ts-comment": [
+        "error",
+        {
+          // @ts-expect-error — the object policy requires descriptionFormat.
+          "ts-expect-error": {},
+        },
+      ],
+    },
+  };
   const camelBuiltinName: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — built-in rules use kebab/slash names such as `react/jsx-key`; camelCase identifiers are not in the typed surface.
@@ -193,5 +206,6 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(crossRuleShape);
   assert.ok(lintRuleWithOptions);
   assert.ok(switchOptionTypo);
+  assert.ok(banTsCommentMissingDescriptionFormat);
   assert.ok(camelBuiltinName);
 };

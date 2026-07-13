@@ -214,7 +214,7 @@ Options:
 
   Minimum description length (counted in grapheme clusters, so one emoji is one character) for directives configured as `"allow-with-description"` or `{ descriptionFormat }`. Default: `3`.
 
-- `"ts-check"?`, `"ts-expect-error"?`, `"ts-ignore"?`, `"ts-nocheck"?: boolean | "allow-with-description" | { descriptionFormat?: string }`
+- `"ts-check"?`, `"ts-expect-error"?`, `"ts-ignore"?`, `"ts-nocheck"?: boolean | "allow-with-description" | { descriptionFormat: string }`
 
   Per-directive policy: `true` reports every use, `false` allows the directive, `"allow-with-description"` allows it with a long-enough description, and `{ descriptionFormat }` additionally requires the description to match the given regular expression. Defaults: `"ts-check": false`, `"ts-expect-error": "allow-with-description"`, `"ts-ignore": true`, `"ts-nocheck": true`.
 
