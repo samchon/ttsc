@@ -44,7 +44,7 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * Fill these fields in order before the call; each one narrows the reasoning
  * toward the single request you submit.
  *
- * - `question`: restate the code question.
+ * - `question`: the code question, in the user's own words.
  * - `draft`: `{ reason, type }` — why the smallest request that could answer it,
  *   then that request's `type`.
  * - `review`: fix a broad, stale, or duplicate draft. If the graph already
