@@ -709,9 +709,6 @@ func (noFloatingPromises) Check(ctx *Context, node *shimast.Node) {
   if options.IgnoreIIFE && isImmediatelyInvokedFunctionExpression(expr) {
     return
   }
-  if isKnownSafePromiseCall(ctx, expr, options.AllowForKnownSafeCalls) {
-    return
-  }
   result := analyzeFloatingPromise(ctx, expr, options)
   if !result.unhandled {
     return
@@ -745,6 +742,14 @@ func analyzeFloatingPromise(
 ) floatingPromiseResult {
   node = unwrapFloatingPromiseExpression(node)
   if node == nil {
+    return floatingPromiseResult{}
+  }
+
+  // A configured safe call stays safe wherever recursive expression analysis
+  // reaches it. The callee's symbol/source identity is unchanged by a comma,
+  // logical, conditional, or void parent, so the allowlist decision belongs
+  // at the call node rather than only at the root expression statement.
+  if isKnownSafePromiseCall(ctx, node, options.AllowForKnownSafeCalls) {
     return floatingPromiseResult{}
   }
 
