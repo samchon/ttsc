@@ -2219,7 +2219,7 @@ const name = (obj?.profile).name;
 
 Reject expression statements with no observable effect, like a bare `x;`, `a === b;`, or a tagged template literal statement.
 
-Directive prologues are determined by AST position, not by recognized text: the leading run of string-literal statements at the top of a script, module, namespace body, or function body is accepted whatever it says (`"use strict"`, `"use client"`, …), and the same strings anywhere else are rejected. Productive expressions — calls, `new`, assignments, updates, `delete`, `void`, `await`, `yield` — are accepted, so the `void promise()` opt-out idiom keeps working, and JSX statements are accepted by default. TypeScript wrappers (`as`, angle assertions, non-null `!`, instantiation expressions) inherit the classification of the expression they wrap.
+Directive prologues are determined by AST position, not by recognized text: the leading run of string-literal statements at the top of a script, module, namespace body, or function body is accepted whatever it says (`"use strict"`, `"use client"`, and any future directive), and the same strings anywhere else are rejected. Productive expressions (calls, `new`, assignments, updates, `delete`, `void`, `await`, `yield`) are accepted, so the `void promise()` opt-out idiom keeps working, and JSX statements are accepted by default. TypeScript wrappers (`as`, angle assertions, non-null `!`, instantiation expressions) inherit the classification of the expression they wrap.
 
 Options:
 

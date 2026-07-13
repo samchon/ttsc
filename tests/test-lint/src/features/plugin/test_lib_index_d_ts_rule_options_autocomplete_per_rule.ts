@@ -21,6 +21,8 @@ import assert from "node:assert/strict";
  * - Typo'd built-in rule name (`noVra`) is rejected.
  * - Typo'd option key (`metohds` for `methods` on
  *   `cypress/unsafe-to-chain-command`) is rejected.
+ * - Typo'd option key on the options-bearing core rule (`allowTernery` for
+ *   `allowTernary` on `no-unused-expressions`) is rejected.
  * - Cross-rule option leakage (`testIdPattern` on
  *   `cypress/unsafe-to-chain-command`) is rejected.
  * - A lint-only rule (`no-var`) cannot carry an options object.
@@ -41,6 +43,10 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   const config: ITtscLintConfig = {
     rules: {
       "no-var": "error",
+      "no-unused-expressions": [
+        "error",
+        { allowShortCircuit: true, allowTaggedTemplates: true },
+      ],
       "cypress/unsafe-to-chain-command": [
         "warning",
         { methods: ["customClick"] },
@@ -89,6 +95,12 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       "cypress/unsafe-to-chain-command": ["error", { metohds: ["click"] }],
     },
   };
+  const coreOptionKeyTypo: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — `allowTernery` is a typo of `allowTernary`; excess property check on the tuple's options slot fires.
+      "no-unused-expressions": ["error", { allowTernery: true }],
+    },
+  };
   const crossRuleShape: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `testIdPattern` belongs to testing-library/consistent-data-testid; cypress/unsafe-to-chain-command's option shape rejects it.
@@ -112,6 +124,7 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(bareTuple);
   assert.ok(ruleNameTypo);
   assert.ok(optionKeyTypo);
+  assert.ok(coreOptionKeyTypo);
   assert.ok(crossRuleShape);
   assert.ok(lintRuleWithOptions);
   assert.ok(camelBuiltinName);
