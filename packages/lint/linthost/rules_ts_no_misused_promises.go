@@ -451,7 +451,7 @@ func noMisusedPromisesParameterTypeAt(
       checker,
       shimchecker.Checker_getTypeOfSymbolAtLocation(checker, parameters[last], location),
     )
-    if shimchecker.IsTupleType(restType) {
+    if restType != nil && shimchecker.IsTupleType(restType) {
       elements := checker.GetTypeArguments(restType)
       offset := index - last
       if offset >= len(elements) {
@@ -593,6 +593,9 @@ func noMisusedPromisesCheckProperty(ctx *Context, node *shimast.Node) {
       value = property.Name()
     }
   case shimast.KindMethodDeclaration:
+    if name := node.Name(); name != nil && name.Kind == shimast.KindComputedPropertyName {
+      return
+    }
     value = node
   }
   if value == nil {
