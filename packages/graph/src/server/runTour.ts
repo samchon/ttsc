@@ -18,7 +18,6 @@ const MAX_LIMIT = 5;
 const FLOW_SEEDS = 4;
 /** How many ranked seeds deep to look for flows that actually move. */
 const FLOW_SEED_CANDIDATES = 4;
-const DETAIL_SEEDS = 3;
 const TEST_SEEDS = 3;
 const MAX_FLOW_ANCHORS = 8;
 const MAX_NEARBY = 10;
@@ -208,7 +207,7 @@ export function runTour(
       ? undefined
       : runDetails(graph, {
           type: "details",
-          handles: seedIds.slice(0, DETAIL_SEEDS),
+          handles: seedIds,
           neighbors: true,
           memberLimit: 4,
           dependencyLimit: 2,
@@ -1187,17 +1186,40 @@ function commonPrefixLength(a: string, b: string): number {
   return i;
 }
 
+/**
+ * The code paths around each selected symbol: what runs it, what it runs, and
+ * what it is declared against — in that order, once each.
+ *
+ * `dependsOn` is the union of what a symbol calls and what it names in a type
+ * position, so walking `calls`, then `types`, then `dependsOn` listed the same
+ * neighbour under three labels, and the ten nearby slots of Excalidraw's edit
+ * tour went: `_renderInteractiveScene` as a call, `_renderInteractiveScene` as
+ * a type, `InteractiveSceneRenderConfig` as a type, and the same again for the
+ * next symbol. Two of five stages consumed the whole list, and the stage the
+ * reader would have to look up next — who calls the mutation — was not in it.
+ * Sonnet then asked the graph "who calls this" thirteen times.
+ *
+ * So a neighbour is named once, and the callers come first. A tour follows what
+ * runs; a type reference is the weakest thing a symbol can say about itself,
+ * and it goes last, where the cap can drop it without dropping a call path.
+ */
 function nearbyAnchorsOf(details: ITtscGraphDetails): ITtscGraphTour.IAnchor[] {
-  const anchors: ITtscGraphTour.IAnchor[] = [];
-  for (const node of details.nodes) {
-    anchors.push(...anchorFromNode("selected symbol", detailNodeOf(node)));
+  const perNode = details.nodes.map((node) => {
+    // The selected symbol is not near itself. It is an entrypoint, with its
+    // span, its signature and its doc, and it is an answer anchor under that
+    // name — a third copy here spent half the nearby list saying what the top
+    // of the tour already said.
+    const anchors: ITtscGraphTour.IAnchor[] = [];
+    const named = new Set<string>([node.name]);
     for (const ref of [
+      ...(node.dependedOnBy ?? []),
       ...(node.calls ?? []),
-      ...(node.types ?? []),
       ...(node.implementedBy ?? []),
       ...(node.dependsOn ?? []),
-      ...(node.dependedOnBy ?? []),
+      ...(node.types ?? []),
     ]) {
+      if (named.has(ref.name)) continue;
+      named.add(ref.name);
       anchors.push(
         ...anchorFromEvidence(
           `${ref.relation} ${ref.name}`,
@@ -1206,31 +1228,24 @@ function nearbyAnchorsOf(details: ITtscGraphDetails): ITtscGraphTour.IAnchor[] {
         ),
       );
     }
-  }
-  return uniqueAnchors(anchors);
-}
+    return anchors;
+  });
 
-function detailNodeOf(node: ITtscGraphDetails.INode): ITtscGraphTour.INode {
-  return {
-    id: node.id,
-    name: node.name,
-    kind: node.kind,
-    file: node.file,
-    ...(node.line !== undefined ? { line: node.line } : {}),
-    ...(node.sourceSpan !== undefined
-      ? {
-          sourceSpan: {
-            file: node.sourceSpan.file,
-            startLine: node.sourceSpan.startLine,
-            ...(node.sourceSpan.endLine !== undefined
-              ? { endLine: node.sourceSpan.endLine }
-              : {}),
-          },
-        }
-      : {}),
-    ...(node.signature !== undefined ? { signature: node.signature } : {}),
-    ...(node.decorators !== undefined ? { decorators: node.decorators } : {}),
-  };
+  // A stage at a time, not a symbol at a time. The list is capped, and taken
+  // symbol by symbol the first one's neighbourhood filled it: Excalidraw's
+  // renderer spent six of the ten slots on its own callees and types, and the
+  // mutation, the history and the collaboration the question named got none.
+  const anchors: ITtscGraphTour.IAnchor[] = [];
+  const told = new Set<string>();
+  const depth = Math.max(0, ...perNode.map((list) => list.length));
+  for (let index = 0; index < depth; index++)
+    for (const list of perNode) {
+      const anchor = list[index];
+      if (anchor === undefined || told.has(anchor.name)) continue;
+      told.add(anchor.name);
+      anchors.push(anchor);
+    }
+  return uniqueAnchors(anchors);
 }
 
 /**
