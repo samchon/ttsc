@@ -21,6 +21,10 @@ import assert from "node:assert/strict";
  * - Typo'd built-in rule name (`noVra`) is rejected.
  * - Typo'd option key (`metohds` for `methods` on
  *   `cypress/unsafe-to-chain-command`) is rejected.
+ * - Typo'd option key on a bare-name core rule (`allowSeparateTypeImport` for
+ *   `allowSeparateTypeImports` on `no-duplicate-imports`) is rejected.
+ * - A non-boolean value for a boolean core-rule option (`includeExports: "yes"`
+ *   on `no-duplicate-imports`) is rejected.
  * - Cross-rule option leakage (`testIdPattern` on
  *   `cypress/unsafe-to-chain-command`) is rejected.
  * - A lint-only rule (`no-var`) cannot carry an options object.
@@ -41,6 +45,10 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   const config: ITtscLintConfig = {
     rules: {
       "no-var": "error",
+      "no-duplicate-imports": [
+        "error",
+        { allowSeparateTypeImports: true, includeExports: true },
+      ],
       "cypress/unsafe-to-chain-command": [
         "warning",
         { methods: ["customClick"] },
@@ -89,6 +97,18 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       "cypress/unsafe-to-chain-command": ["error", { metohds: ["click"] }],
     },
   };
+  const coreOptionKeyTypo: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — `allowSeparateTypeImport` is a typo of `allowSeparateTypeImports`; excess property check on the tuple's options slot fires.
+      "no-duplicate-imports": ["error", { allowSeparateTypeImport: true }],
+    },
+  };
+  const coreOptionValueShape: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — `includeExports` is a boolean option; a string value is rejected.
+      "no-duplicate-imports": ["error", { includeExports: "yes" }],
+    },
+  };
   const crossRuleShape: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `testIdPattern` belongs to testing-library/consistent-data-testid; cypress/unsafe-to-chain-command's option shape rejects it.
@@ -112,6 +132,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(bareTuple);
   assert.ok(ruleNameTypo);
   assert.ok(optionKeyTypo);
+  assert.ok(coreOptionKeyTypo);
+  assert.ok(coreOptionValueShape);
   assert.ok(crossRuleShape);
   assert.ok(lintRuleWithOptions);
   assert.ok(camelBuiltinName);

@@ -239,7 +239,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-dupe-else-if`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-dupe-else-if.ts): rejects repeated `else if` conditions.
 - [`no-dupe-keys`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-dupe-keys.ts): rejects duplicate object keys.
 - [`no-duplicate-case`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-duplicate-case.ts): rejects duplicate `switch` case labels.
-- [`no-duplicate-imports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-duplicate-imports.ts): reject two import declarations that resolve to the same module specifier.
+- [`no-duplicate-imports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-duplicate-imports.ts): reject a repeated module specifier when the import declarations could be merged into one; `allowSeparateTypeImports` and `includeExports` match the ESLint options.
 - [`no-else-return`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-else-return.ts): reject an `else` block whose preceding `if` branch already terminates with `return`, `throw`, `break`, or `continue`.
 - [`no-empty`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty.ts): rejects empty blocks.
 - [`no-empty-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-character-class.ts): rejects empty regex character classes.
