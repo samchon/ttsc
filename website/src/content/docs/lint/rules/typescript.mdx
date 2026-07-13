@@ -110,7 +110,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 
 - [`typescript/adjacent-overload-signatures`](#rule-typescript-adjacent-overload-signatures): Require overload declarations for the same member.
 - [`typescript/array-type`](#rule-typescript-array-type): Enforce one consistent spelling of array types.
-- [`typescript/await-thenable`](#rule-typescript-await-thenable): Reject `await` on operands that are not thenable.
+- [`typescript/await-thenable`](#rule-typescript-await-thenable): Reject non-awaitable operands and native Promise aggregator members, sync-only async iteration, and sync-only awaited disposal.
 - [`typescript/ban-ts-comment`](#rule-typescript-ban-ts-comment): Reject `@ts-<directive>` comments or require descriptions after directives.
 - [`typescript/ban-tslint-comment`](#rule-typescript-ban-tslint-comment): Reject `// tslint:disable` and related TSLint directive comments left behind from the legacy TSLint era.
 - [`typescript/class-literal-property-style`](#rule-typescript-class-literal-property-style): Prefer a `static readonly` field over a `get` accessor.
@@ -171,14 +171,30 @@ const a: Array<string> = [];
 
 ### `typescript/await-thenable`
 
-Reject `await` on operands that are not thenable.
+Reject `await` on operands that are not thenable, non-awaitable values passed to native `Promise.all` / `allSettled` / `any` / `race`, `for await...of` over values that are not async iterable, and `await using` of resources that are not async disposable.
 
-Type-aware, the Checker decides whether the awaited expression has a `then` method. Autofixable: drops the `await`.
+Type-aware.
+
+The Checker classifies awaitability as always, never, or uncertain; resolves aggregator receivers to the default-library `PromiseConstructor`; extracts array, tuple, and `Iterable` element types; and requires callable `[Symbol.asyncIterator]` and `[Symbol.asyncDispose]` members.
+
+Protocol lookups resolve through unions (any callable async constituent is accepted), intersections, type aliases, inherited members, and generic constraints.
+
+Autofixable only for ordinary non-thenable `await` operands because changing the other constructs can alter runtime behavior.
 
 Example:
 
 ```ts
 async function bad(): Promise<number> {
+  // reports: typescript/await-thenable (error)
+  void Promise.all([42]);
+  // reports: typescript/await-thenable (error)
+  await using resource = {
+    [Symbol.dispose](): void {},
+  };
+  // reports: typescript/await-thenable (error)
+  for await (const value of [1, 2, 3]) {
+    JSON.stringify([resource, value]);
+  }
   // reports: typescript/await-thenable (error)
   return await 42;
 }

@@ -416,26 +416,33 @@ Three observations:
 
 ## A type-aware rule: `await-thenable`
 
-For the canonical "use the Checker" rule, read [`rules_promise.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go). Its `isThenableType` helper detects whether a type carries a callable `.then` member, exactly the structural test ECMAScript uses for `await`:
+For the canonical "use the Checker" rule, read [`rules_promise.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go). Its `classifyPromiseAwaitability` helper separates definitely thenable, definitely non-thenable, and uncertain types so each syntax family can apply the correct quantifier:
 
 ```go
-func isThenableType(checker *shimchecker.Checker, t *shimchecker.Type) bool {
-  thenSym := checker.GetPropertyOfType(t, "then")
-  if thenSym == nil { return false }
-  thenT := checker.GetTypeOfSymbol(thenSym)
-  sigs := checker.GetSignaturesOfType(thenT, shimchecker.SignatureKindCall)
-  return len(sigs) > 0
+switch classifyPromiseAwaitability(checker, expression, t) {
+case promiseAwaitabilityAlways:
+  // Promise or valid structural thenable
+case promiseAwaitabilityNever:
+  // definitely non-awaitable
+case promiseAwaitabilityMay:
+  // any, unknown, or an unconstrained type parameter
 }
 ```
 
-The rule's `Check` first calls `checker.GetTypeAtLocation(expr)` on the awaited expression, then passes that `*Type` here. Two Checker calls inside the helper:
+The rule uses the classification in two ways:
 
-- `GetPropertyOfType(t, "then")`: look up a member by name. Returns `*Symbol` or nil.
-- `GetSignaturesOfType(thenT, SignatureKindCall)`: get every callable signature on the property type.
+- An ordinary `await` reports only a `Never` operand, while `any`, `unknown`, unconstrained type parameters, and maybe-Promise unions stay clean.
+- A native Promise aggregator reports an array-literal member only when all of its union constituents are `Never`, but reports a typed container when any possible element constituent is `Never`.
 
-If `then` is missing or non-callable, the value is not thenable and `await` on it is meaningless. The rule reports a finding; `--fix` could autosuggest removing the `await` (though `await-thenable` does not, that's a design choice, not a technical constraint).
+Aggregator dispatch first resolves the receiver type to a default-library `PromiseConstructor`, so aliases of native `Promise` are covered while shadowed lookalikes are ignored.
 
-For the full Checker surface and when to reach for `Checker_*` linkname wrappers, see [AST & Checker → Checker Basics](/docs/development/concepts/tsgo#checker-basics).
+Arrays and tuples use Checker index or type-argument APIs, and generic `Iterable<T>` inputs use their first type argument.
+
+The `for await...of` and `await using` arms resolve `[Symbol.asyncIterator]` and `[Symbol.asyncDispose]` through `Checker_getPropertyNameForKnownSymbolName`, then verify that the resolved property type has a call signature.
+
+Those findings have no autofix because removing `await` changes runtime behavior.
+
+For the full Checker surface and when to reach for `Checker_*` linkname wrappers, see [AST & Checker: Checker Basics](/docs/development/concepts/tsgo#checker-basics).
 
 ## A rule with autofix: anatomy of `ReportFix`
 

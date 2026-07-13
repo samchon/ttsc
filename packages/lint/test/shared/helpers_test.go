@@ -24,6 +24,14 @@ import (
 )
 
 var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
+var ansiControlSequencePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+
+// diagnosticOutputContains compares rendered diagnostics after removing ANSI
+// control sequences. Windows and POSIX runners color different path segments,
+// so raw file:line substrings are not portable even when the diagnostic is.
+func diagnosticOutputContains(output, substring string) bool {
+  return strings.Contains(ansiControlSequencePattern.ReplaceAllString(output, ""), substring)
+}
 
 type ruleExpectation struct {
   Rule     string

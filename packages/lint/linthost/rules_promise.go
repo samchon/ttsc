@@ -13,11 +13,27 @@ const promiseRulePrefix = "promise/"
 // recommended-type-checked:
 // https://typescript-eslint.io/rules/await-thenable/
 //
+// The upstream rule checks four `await`-related constructs, and this port
+// mirrors all four:
+//
+//   - `await expr` — the operand must be a Promise or a thenable
+//     (checkAwaitThenableExpression);
+//   - `for await...of expr` — the source must expose the async-iterator
+//     protocol (`[Symbol.asyncIterator]`), not merely the sync fallback
+//     JavaScript permits (checkAwaitThenableForAwaitOf);
+//   - `await using x = expr` — each initializer must expose the
+//     async-dispose protocol (`[Symbol.asyncDispose]`), not only
+//     `[Symbol.dispose]` (checkAwaitThenableAwaitUsing);
+//   - `Promise.all` / `allSettled` / `any` / `race` — the resolved receiver
+//     must be the native Promise constructor and iterable members must not be
+//     statically always non-awaitable (checkAwaitThenablePromiseAggregator).
+//
 // This is the first rule in the corpus to consult `ctx.Checker`. The
 // shim's `Checker` is a type alias for tsgo's `*innerchecker.Checker`,
 // so every exported method (`GetTypeAtLocation`, `GetPromisedTypeOfPromise`,
 // `GetPropertyOfType`, `GetSignaturesOfType`) is callable directly with
-// no shim addition.
+// no shim addition; the well-known-symbol lookups additionally go through
+// the linknamed `Checker_getPropertyNameForKnownSymbolName`.
 type awaitThenable struct{}
 
 func (awaitThenable) Name() string { return "typescript/await-thenable" }
@@ -25,12 +41,36 @@ func (awaitThenable) NeedsTypeChecker() bool {
   return true
 }
 func (awaitThenable) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindAwaitExpression}
+  return []shimast.Kind{
+    shimast.KindAwaitExpression,
+    shimast.KindCallExpression,
+    shimast.KindForOfStatement,
+    shimast.KindVariableDeclarationList,
+  }
 }
 func (awaitThenable) Check(ctx *Context, node *shimast.Node) {
   if ctx.Checker == nil {
     return
   }
+  switch node.Kind {
+  case shimast.KindAwaitExpression:
+    checkAwaitThenableExpression(ctx, node)
+  case shimast.KindCallExpression:
+    checkAwaitThenablePromiseAggregator(ctx, node)
+  case shimast.KindForOfStatement:
+    checkAwaitThenableForAwaitOf(ctx, node)
+  case shimast.KindVariableDeclarationList:
+    checkAwaitThenableAwaitUsing(ctx, node)
+  }
+}
+
+// checkAwaitThenableExpression handles the ordinary `await expr` arm. The
+// operand must be definitely non-awaitable before the rule reports. `any`,
+// `unknown`, unconstrained type parameters, and unions with a thenable member
+// remain clean because their awaitability is uncertain. The finding carries
+// an autofix that drops the redundant `await ` keyword, which is
+// behavior-preserving modulo one microtask hop.
+func checkAwaitThenableExpression(ctx *Context, node *shimast.Node) {
   expr := node.AsAwaitExpression()
   if expr == nil || expr.Expression == nil {
     return
@@ -39,10 +79,10 @@ func (awaitThenable) Check(ctx *Context, node *shimast.Node) {
   if operandType == nil {
     return
   }
-  if isAwaitable(ctx.Checker, operandType) {
+  if classifyPromiseAwaitability(ctx.Checker, expr.Expression, operandType) != promiseAwaitabilityNever {
     return
   }
-  message := "Unexpected `await` of a non-Promise (non-thenable) value."
+  message := "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
   // Fix: drop the `await ` keyword and the following whitespace by
   // replacing [node.Pos(), expr.Expression.Pos()) with empty text.
   // `node.Pos()` may include leading trivia; use tokenRange to anchor
@@ -60,49 +100,498 @@ func (awaitThenable) Check(ctx *Context, node *shimast.Node) {
   )
 }
 
-// isAwaitable reports whether `t` is safe to `await`. A type is awaitable
-// when it is `any` / `unknown` / `never` (out of scope for strictness),
-// when it is a Promise, when it is a thenable (has a callable `then`),
-// or — for union/intersection types — when ANY constituent satisfies one
-// of the above. The union case is the round-2 repair: `GetPromisedTypeOfPromise`
-// returns nil on `Promise<X> | number` because the outer type is not a
-// reference to globalPromise, and `GetPropertyOfType` filters `then` as
-// a partial member, so without iterating constituents the rule would
-// fire on legitimate code.
-// isAwaitable reports whether t is safe to await. A type is awaitable when:
-//   - its flags include Any, Unknown, or Never (these escape static strictness);
-//   - it is a Promise (GetPromisedTypeOfPromise returns non-nil); or
-//   - it is thenable (has a callable `then` property).
+// checkAwaitThenablePromiseAggregator handles the native Promise collection
+// methods. An array literal reports each always-non-awaitable member on that
+// member; a typed array, tuple, or Iterable reports once on the argument when
+// any possible element type is definitely non-awaitable. The paths
+// deliberately differ for a `Promise<T> | T` element: a literal member may be
+// awaitable at runtime, while a typed container includes a non-awaitable
+// possibility.
+func checkAwaitThenablePromiseAggregator(ctx *Context, node *shimast.Node) {
+  call := node.AsCallExpression()
+  object, _, ok := promiseAggregatorCallParts(call)
+  if !ok || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
+    return
+  }
+  objectType := ctx.Checker.GetTypeAtLocation(object)
+  if !isNativePromiseConstructorLike(ctx.Checker, objectType) {
+    return
+  }
+
+  argument := stripParens(call.Arguments.Nodes[0])
+  if argument == nil {
+    return
+  }
+  if argument.Kind == shimast.KindArrayLiteralExpression {
+    array := argument.AsArrayLiteralExpression()
+    if array == nil || array.Elements == nil {
+      return
+    }
+    for _, element := range array.Elements.Nodes {
+      if element == nil || element.Kind == shimast.KindOmittedExpression {
+        continue
+      }
+      elementType := ctx.Checker.GetTypeAtLocation(element)
+      if promiseTypePartsAllHaveAwaitability(ctx.Checker, element, elementType, promiseAwaitabilityNever) {
+        reportInvalidPromiseAggregatorInput(ctx, element)
+      }
+    }
+    return
+  }
+
+  argumentType := constrainedPromiseType(ctx.Checker, ctx.Checker.GetTypeAtLocation(argument))
+  if !isIterablePromiseAggregatorInput(ctx.Checker, argument, argumentType) {
+    return
+  }
+  for _, part := range promiseUnionParts(argumentType) {
+    for _, elementType := range promiseIterableElementTypes(ctx.Checker, part) {
+      if promiseTypePartsHaveAwaitability(ctx.Checker, argument, elementType, promiseAwaitabilityNever) {
+        reportInvalidPromiseAggregatorInput(ctx, argument)
+        return
+      }
+    }
+  }
+}
+
+func reportInvalidPromiseAggregatorInput(ctx *Context, node *shimast.Node) {
+  ctx.Report(node, "Unexpected iterable of non-Promise (non-\"Thenable\") values passed to promise aggregator.")
+}
+
+// checkAwaitThenableForAwaitOf handles the `for await...of` arm. Iterating a
+// merely sync iterable with `for await` is legal JavaScript (the runtime
+// falls back to the sync iterator and awaits each yielded value), but it has
+// different iterator-closing/error semantics than a plain `for...of` and can
+// obscure serial Promise consumption, so this port rejects any source
+// whose type does not expose a callable `[Symbol.asyncIterator]`. `any`
+// escapes the check, mirroring typescript-eslint's `isTypeAnyType` gate. The
+// diagnostic anchors on the iterable expression, not the whole statement, so
+// the banner points at the offending value. No autofix: upstream ships only a
+// manual suggestion here, because dropping the `await` changes runtime
+// behavior (e.g. a sync iterable of Promises would stop resolving its
+// elements).
+func checkAwaitThenableForAwaitOf(ctx *Context, node *shimast.Node) {
+  stmt := node.AsForInOrOfStatement()
+  if stmt == nil || stmt.AwaitModifier == nil || stmt.Expression == nil {
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(stmt.Expression)
+  if t == nil || t.Flags()&shimchecker.TypeFlagsAny != 0 {
+    return
+  }
+  if hasCallableWellKnownSymbolProperty(ctx.Checker, stmt.Expression, t, "asyncIterator") {
+    return
+  }
+  ctx.Report(stmt.Expression, "Unexpected `for await...of` of a value that is not async iterable.")
+}
+
+// checkAwaitThenableAwaitUsing handles the `await using` arm. Awaiting the
+// disposal of a resource that only implements `[Symbol.dispose]` is legal
+// (the runtime wraps the sync disposer), but the `await` adds a scheduling
+// point with no value, so this port requires every initializer to
+// expose a callable `[Symbol.asyncDispose]`. Declarations without an
+// initializer (the `for (await using x of ...)` binding form) are skipped, as
+// is `any`, mirroring typescript-eslint. Each offending declarator reports on
+// its own initializer expression. No autofix: upstream offers only a manual
+// suggestion, and only for single-declarator statements.
+func checkAwaitThenableAwaitUsing(ctx *Context, node *shimast.Node) {
+  if shimast.GetCombinedNodeFlags(node)&shimast.NodeFlagsBlockScoped != shimast.NodeFlagsAwaitUsing {
+    return
+  }
+  list := node.AsVariableDeclarationList()
+  if list == nil || list.Declarations == nil {
+    return
+  }
+  for _, declNode := range list.Declarations.Nodes {
+    decl := declNode.AsVariableDeclaration()
+    if decl == nil || decl.Initializer == nil {
+      continue
+    }
+    t := ctx.Checker.GetTypeAtLocation(decl.Initializer)
+    if t == nil || t.Flags()&shimchecker.TypeFlagsAny != 0 {
+      continue
+    }
+    if hasCallableWellKnownSymbolProperty(ctx.Checker, decl.Initializer, t, "asyncDispose") {
+      continue
+    }
+    ctx.Report(decl.Initializer, "Unexpected `await using` of a value that is not async disposable.")
+  }
+}
+
+// hasCallableWellKnownSymbolProperty reports whether `t` — or, for a union,
+// ANY constituent — exposes a callable property keyed by the global
+// well-known symbol `Symbol.<symbolName>`:
 //
-// For union and intersection types the function recurses into constituents: if
-// ANY constituent is awaitable the whole type is considered awaitable. This is
-// necessary because GetPromisedTypeOfPromise returns nil on composite types
-// like `Promise<X> | number` even though the expression can legally be awaited.
-func isAwaitable(checker *shimchecker.Checker, t *shimchecker.Type) bool {
+//   - the property NAME is resolved through the checker's own
+//     `getPropertyNameForKnownSymbolName`, i.e. through the unique-symbol
+//     type of the real global `SymbolConstructor` member, never by matching
+//     source text or declared type names;
+//   - the property LOOKUP goes through `GetPropertyOfType`, which resolves
+//     inherited members, intersections, and type aliases;
+//   - the property TYPE is resolved at the source location before checking
+//     call signatures, so a same-named non-callable property is not mistaken
+//     for an implemented protocol;
+//   - constrained type parameters recurse through their base constraint.
+//
+// Union constituents are tested individually because a union type only
+// surfaces properties present on every constituent, while upstream accepts a
+// union when at least one constituent implements the protocol (e.g.
+// `AsyncIterable<T> | Iterable<T>` stays valid under `for await`).
+func hasCallableWellKnownSymbolProperty(
+  checker *shimchecker.Checker,
+  location *shimast.Node,
+  t *shimchecker.Type,
+  symbolName string,
+) bool {
   if checker == nil || t == nil {
     return false
   }
-  flags := t.Flags()
-  if flags&shimchecker.TypeFlagsAny != 0 ||
-    flags&shimchecker.TypeFlagsUnknown != 0 ||
-    flags&shimchecker.TypeFlagsNever != 0 {
-    return true
+  if t.Flags()&shimchecker.TypeFlagsTypeParameter != 0 {
+    constraint := checker.GetBaseConstraintOfType(t)
+    if constraint == nil || constraint == t {
+      return false
+    }
+    return hasCallableWellKnownSymbolProperty(checker, location, constraint, symbolName)
   }
-  if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
+  if t.Flags()&shimchecker.TypeFlagsUnion != 0 {
     for _, part := range t.Types() {
       if part == nil {
         continue
       }
-      if isAwaitable(checker, part) {
+      if hasCallableWellKnownSymbolProperty(checker, location, part, symbolName) {
         return true
       }
     }
     return false
   }
-  if checker.GetPromisedTypeOfPromise(t) != nil {
+  name := shimchecker.Checker_getPropertyNameForKnownSymbolName(checker, symbolName)
+  if name == "" {
+    return false
+  }
+  property := checker.GetPropertyOfType(t, name)
+  if property == nil {
+    return false
+  }
+  propertyType := checker.GetTypeOfSymbolAtLocation(property, location)
+  if propertyType == nil {
+    return false
+  }
+  return len(checker.GetSignaturesOfType(propertyType, shimchecker.SignatureKindCall)) > 0
+}
+
+type promiseAwaitability uint8
+
+const (
+  promiseAwaitabilityAlways promiseAwaitability = iota
+  promiseAwaitabilityNever
+  promiseAwaitabilityMay
+)
+
+// classifyPromiseAwaitability is the shared await-thenable policy boundary.
+// It distinguishes definitely thenable, definitely non-thenable, and unknown
+// values so callers can choose their own quantifier. Ordinary `await` reports
+// only Never; literal aggregator members report when every union constituent
+// is Never; typed container members report when any constituent is Never.
+//
+// This classifier intentionally does not replace isPromiseTypedExpression.
+// no-floating-promises and no-misused-promises use a separate structural
+// Promise policy, and adopting this tri-state policy there requires an
+// explicit rule decision rather than an incidental helper refactor.
+func classifyPromiseAwaitability(
+  checker *shimchecker.Checker,
+  location *shimast.Node,
+  t *shimchecker.Type,
+) promiseAwaitability {
+  if checker == nil || t == nil {
+    return promiseAwaitabilityMay
+  }
+  if t.Flags()&shimchecker.TypeFlagsTypeParameter != 0 {
+    constraint := checker.GetBaseConstraintOfType(t)
+    if constraint == nil || constraint == t {
+      return promiseAwaitabilityMay
+    }
+    return classifyPromiseAwaitability(checker, location, constraint)
+  }
+  if t.Flags()&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown) != 0 {
+    return promiseAwaitabilityMay
+  }
+  if t.Flags()&shimchecker.TypeFlagsUnion != 0 {
+    parts := t.Types()
+    if len(parts) == 0 {
+      return promiseAwaitabilityMay
+    }
+    classification := classifyPromiseAwaitability(checker, location, parts[0])
+    for _, part := range parts[1:] {
+      if classifyPromiseAwaitability(checker, location, part) != classification {
+        return promiseAwaitabilityMay
+      }
+    }
+    return classification
+  }
+  if isThenableAtLocation(checker, location, t) {
+    return promiseAwaitabilityAlways
+  }
+  return promiseAwaitabilityNever
+}
+
+// isThenableAtLocation mirrors ts-api-utils' thenable predicate. A `then`
+// property is valid only when one call signature accepts a first parameter
+// whose apparent type is callable. Resolving both symbols at `location`
+// mirrors upstream's contextual symbol lookup.
+func isThenableAtLocation(checker *shimchecker.Checker, location *shimast.Node, t *shimchecker.Type) bool {
+  if checker == nil || t == nil {
+    return false
+  }
+  apparent := checker.GetApparentType(t)
+  if apparent == nil {
+    return false
+  }
+  for _, part := range promiseUnionParts(apparent) {
+    if part == nil {
+      continue
+    }
+    thenProperty := checker.GetPropertyOfType(part, "then")
+    if thenProperty == nil {
+      continue
+    }
+    thenType := checker.GetTypeOfSymbolAtLocation(thenProperty, location)
+    for _, thenPart := range promiseUnionParts(thenType) {
+      if thenPart == nil {
+        continue
+      }
+      for _, signature := range checker.GetSignaturesOfType(thenPart, shimchecker.SignatureKindCall) {
+        parameters := signature.Parameters()
+        if len(parameters) > 0 && isCallableCallbackParameter(checker, location, parameters[0]) {
+          return true
+        }
+      }
+    }
+  }
+  return false
+}
+
+func isCallableCallbackParameter(
+  checker *shimchecker.Checker,
+  location *shimast.Node,
+  parameter *shimast.Symbol,
+) bool {
+  if checker == nil || parameter == nil {
+    return false
+  }
+  callbackType := checker.GetTypeOfSymbolAtLocation(parameter, location)
+  if callbackType == nil {
+    return false
+  }
+  callbackType = checker.GetApparentType(callbackType)
+  if callbackType == nil {
+    return false
+  }
+  if declaration := parameter.ValueDeclaration; declaration != nil {
+    if parameterDeclaration := declaration.AsParameterDeclaration(); parameterDeclaration != nil && parameterDeclaration.DotDotDotToken != nil {
+      callbackType = checker.GetNumberIndexType(callbackType)
+      if callbackType == nil {
+        return false
+      }
+    }
+  }
+  for _, part := range promiseUnionParts(callbackType) {
+    if part != nil && len(checker.GetSignaturesOfType(part, shimchecker.SignatureKindCall)) > 0 {
+      return true
+    }
+  }
+  return false
+}
+
+func constrainedPromiseType(checker *shimchecker.Checker, t *shimchecker.Type) *shimchecker.Type {
+  if checker == nil || t == nil || t.Flags()&shimchecker.TypeFlagsTypeParameter == 0 {
+    return t
+  }
+  if constraint := checker.GetBaseConstraintOfType(t); constraint != nil && constraint != t {
+    return constraint
+  }
+  return t
+}
+
+func promiseUnionParts(t *shimchecker.Type) []*shimchecker.Type {
+  if t == nil {
+    return nil
+  }
+  if t.Flags()&shimchecker.TypeFlagsUnion != 0 {
+    return t.Types()
+  }
+  return []*shimchecker.Type{t}
+}
+
+func promiseTypePartsAllHaveAwaitability(
+  checker *shimchecker.Checker,
+  location *shimast.Node,
+  t *shimchecker.Type,
+  want promiseAwaitability,
+) bool {
+  parts := promiseUnionParts(t)
+  if len(parts) == 0 {
+    return false
+  }
+  for _, part := range parts {
+    if classifyPromiseAwaitability(checker, location, part) != want {
+      return false
+    }
+  }
+  return true
+}
+
+func promiseTypePartsHaveAwaitability(
+  checker *shimchecker.Checker,
+  location *shimast.Node,
+  t *shimchecker.Type,
+  want promiseAwaitability,
+) bool {
+  for _, part := range promiseUnionParts(t) {
+    if classifyPromiseAwaitability(checker, location, part) == want {
+      return true
+    }
+  }
+  return false
+}
+
+func promiseAggregatorCallParts(call *shimast.CallExpression) (*shimast.Node, string, bool) {
+  if call == nil || call.Expression == nil {
+    return nil, "", false
+  }
+  callee := stripParens(call.Expression)
+  if callee == nil {
+    return nil, "", false
+  }
+  var object *shimast.Node
+  var method string
+  switch callee.Kind {
+  case shimast.KindPropertyAccessExpression:
+    access := callee.AsPropertyAccessExpression()
+    if access == nil {
+      return nil, "", false
+    }
+    object = access.Expression
+    method = identifierText(access.Name())
+  case shimast.KindElementAccessExpression:
+    access := callee.AsElementAccessExpression()
+    if access == nil || access.ArgumentExpression == nil {
+      return nil, "", false
+    }
+    object = access.Expression
+    switch access.ArgumentExpression.Kind {
+    case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+      method = stringLiteralText(access.ArgumentExpression)
+    }
+  }
+  switch method {
+  case "all", "allSettled", "any", "race":
+    return object, method, object != nil
+  }
+  return nil, "", false
+}
+
+func isNativePromiseConstructorLike(checker *shimchecker.Checker, t *shimchecker.Type) bool {
+  return isNativePromiseConstructorLikeSeen(checker, t, map[*shimchecker.Type]struct{}{})
+}
+
+func isNativePromiseConstructorLikeSeen(
+  checker *shimchecker.Checker,
+  t *shimchecker.Type,
+  seen map[*shimchecker.Type]struct{},
+) bool {
+  if checker == nil || t == nil {
+    return false
+  }
+  if _, ok := seen[t]; ok {
+    return false
+  }
+  seen[t] = struct{}{}
+  defer delete(seen, t)
+
+  flags := t.Flags()
+  if flags&shimchecker.TypeFlagsIntersection != 0 {
+    for _, part := range t.Types() {
+      if isNativePromiseConstructorLikeSeen(checker, part, seen) {
+        return true
+      }
+    }
+    return false
+  }
+  if flags&shimchecker.TypeFlagsUnion != 0 {
+    parts := t.Types()
+    if len(parts) == 0 {
+      return false
+    }
+    for _, part := range parts {
+      if !isNativePromiseConstructorLikeSeen(checker, part, seen) {
+        return false
+      }
+    }
     return true
   }
-  return isThenableType(checker, t)
+  if flags&shimchecker.TypeFlagsTypeParameter != 0 {
+    return isNativePromiseConstructorLikeSeen(checker, checker.GetBaseConstraintOfType(t), seen)
+  }
+
+  symbol := t.Symbol()
+  if symbol == nil {
+    return false
+  }
+  if symbol.Name == "PromiseConstructor" && checker.IsLibSymbolForHoverVerbosity(symbol) {
+    return true
+  }
+  declared := checker.GetDeclaredTypeOfSymbol(symbol)
+  if declared == nil || declared.ObjectFlags()&shimchecker.ObjectFlagsClassOrInterface == 0 {
+    return false
+  }
+  for _, base := range checker.GetBaseTypes(declared) {
+    if isNativePromiseConstructorLikeSeen(checker, base, seen) {
+      return true
+    }
+  }
+  return false
+}
+
+func isIterablePromiseAggregatorInput(
+  checker *shimchecker.Checker,
+  location *shimast.Node,
+  t *shimchecker.Type,
+) bool {
+  parts := promiseUnionParts(t)
+  if len(parts) == 0 {
+    return false
+  }
+  for _, part := range parts {
+    if !hasCallableWellKnownSymbolProperty(checker, location, part, "iterator") {
+      return false
+    }
+  }
+  return true
+}
+
+// promiseIterableElementTypes extracts the value types exposed by a tuple,
+// array-like type, or generic Iterable reference. It intentionally returns all
+// tuple slots but only the first type argument of a general iterable, matching
+// the collection contract used by the native Promise aggregators.
+func promiseIterableElementTypes(checker *shimchecker.Checker, t *shimchecker.Type) []*shimchecker.Type {
+  if checker == nil || t == nil {
+    return nil
+  }
+  if shimchecker.IsTupleType(t) {
+    return checker.GetTypeArguments(t)
+  }
+  if checker.IsArrayLikeType(t) {
+    if elementType := checker.GetNumberIndexType(t); elementType != nil {
+      return []*shimchecker.Type{elementType}
+    }
+    return nil
+  }
+  if t.ObjectFlags()&shimchecker.ObjectFlagsReference != 0 {
+    arguments := checker.GetTypeArguments(t)
+    if len(arguments) > 0 {
+      return arguments[:1]
+    }
+  }
+  return nil
 }
 
 // isThenableType reports whether t has a callable `then` property, which is
@@ -223,11 +712,11 @@ func promiseMethodCallName(call *shimast.CallExpression) (string, bool) {
   return method, true
 }
 
-// isPromiseTypedExpression reports whether `t` represents a Promise (or thenable)
-// at runtime. Mirrors `isAwaitable` but is intentionally stricter: `any` and
-// `unknown` are NOT treated as floating, because that would explode on
-// generic-helper boundaries; `never` is also skipped because a function whose
-// return type is `never` cannot float a real Promise.
+// isPromiseTypedExpression reports whether `t` represents a Promise (or
+// structurally callable thenable) under the floating-Promise rules' existing
+// boolean policy. Unlike classifyPromiseAwaitability, `any`, `unknown`, and
+// `never` are skipped because they cannot prove that a real Promise is being
+// discarded.
 func isPromiseTypedExpression(checker *shimchecker.Checker, t *shimchecker.Type) bool {
   if checker == nil || t == nil {
     return false
