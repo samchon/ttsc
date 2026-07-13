@@ -3,6 +3,7 @@ package linthost
 import (
   "encoding/json"
   "path/filepath"
+  "runtime"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -829,6 +830,9 @@ func analyzeFloatingPromiseCall(
   case "catch":
     return rejectionHandlerResult(ctx, call, 0)
   case "then":
+    if call.Arguments != nil && len(call.Arguments.Nodes) != 0 && call.Arguments.Nodes[0].Kind == shimast.KindSpreadElement {
+      return floatingPromiseResult{unhandled: true}
+    }
     return rejectionHandlerResult(ctx, call, 1)
   case "finally":
     return analyzeFloatingPromise(ctx, receiver, options)
@@ -864,7 +868,7 @@ func floatingPromiseMethodCall(
   if call == nil || call.Expression == nil {
     return nil, "", false
   }
-  receiver, method, ok := promisePropertyAccessParts(call.Expression)
+  receiver, method, ok := floatingPromisePropertyAccessParts(call.Expression)
   if !ok {
     return nil, "", false
   }
@@ -882,6 +886,33 @@ func floatingPromiseMethodCall(
     return nil, "", false
   }
   return receiver, method, true
+}
+
+func floatingPromisePropertyAccessParts(node *shimast.Node) (*shimast.Node, string, bool) {
+  node = stripParens(node)
+  if node == nil {
+    return nil, "", false
+  }
+  switch node.Kind {
+  case shimast.KindPropertyAccessExpression:
+    access := node.AsPropertyAccessExpression()
+    if access == nil {
+      return nil, "", false
+    }
+    method := identifierText(access.Name())
+    return access.Expression, method, method != ""
+  case shimast.KindElementAccessExpression:
+    access := node.AsElementAccessExpression()
+    if access == nil || access.ArgumentExpression == nil {
+      return nil, "", false
+    }
+    switch access.ArgumentExpression.Kind {
+    case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+      method := stringLiteralText(access.ArgumentExpression)
+      return access.Expression, method, method != ""
+    }
+  }
+  return nil, "", false
 }
 
 func isFloatingPromiseReceiverType(
@@ -1220,31 +1251,39 @@ func promiseSymbolDeclaredInFile(ctx *Context, symbol *shimast.Symbol, configure
     if source == nil || ctx.Checker.IsLibSymbolForHoverVerbosity(symbol) {
       continue
     }
-    if configuredPath == "" || promiseDeclarationPathMatches(ctx.File.FileName(), source.FileName(), configuredPath) {
+    if configuredPath == "" {
+      if ctx.CurrentDirectory == "" || promisePathWithin(ctx.CurrentDirectory, source.FileName()) {
+        return true
+      }
+      continue
+    }
+    if promiseDeclarationPathMatches(ctx.CurrentDirectory, source.FileName(), configuredPath) {
       return true
     }
   }
   return false
 }
 
-func promiseDeclarationPathMatches(currentFile, declarationFile, configuredPath string) bool {
-  declarationFile = filepath.Clean(declarationFile)
+func promiseDeclarationPathMatches(currentDirectory, declarationFile, configuredPath string) bool {
   configuredPath = filepath.Clean(filepath.FromSlash(configuredPath))
-  if filepath.IsAbs(configuredPath) {
-    return strings.EqualFold(declarationFile, configuredPath)
+  if !filepath.IsAbs(configuredPath) {
+    configuredPath = filepath.Join(currentDirectory, configuredPath)
   }
-  directory := filepath.Dir(filepath.Clean(currentFile))
-  for {
-    candidate := filepath.Join(directory, configuredPath)
-    if strings.EqualFold(declarationFile, filepath.Clean(candidate)) {
-      return true
-    }
-    parent := filepath.Dir(directory)
-    if parent == directory {
-      return false
-    }
-    directory = parent
+  return promiseCanonicalPath(declarationFile) == promiseCanonicalPath(configuredPath)
+}
+
+func promisePathWithin(currentDirectory, declarationFile string) bool {
+  root := promiseCanonicalPath(currentDirectory)
+  declaration := promiseCanonicalPath(declarationFile)
+  return strings.HasPrefix(declaration, root)
+}
+
+func promiseCanonicalPath(path string) string {
+  path = filepath.Clean(path)
+  if runtime.GOOS == "windows" {
+    return strings.ToLower(path)
   }
+  return path
 }
 
 func promiseSymbolDeclaredInPackage(symbol *shimast.Symbol, packageName string) bool {
@@ -1303,10 +1342,6 @@ func unwrapFloatingPromiseExpression(node *shimast.Node) *shimast.Node {
   for node != nil {
     switch node.Kind {
     case shimast.KindParenthesizedExpression,
-      shimast.KindAsExpression,
-      shimast.KindSatisfiesExpression,
-      shimast.KindNonNullExpression,
-      shimast.KindTypeAssertionExpression,
       shimast.KindPartiallyEmittedExpression:
       next := node.Expression()
       if next == nil {

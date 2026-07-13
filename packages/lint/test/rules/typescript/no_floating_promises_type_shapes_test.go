@@ -7,6 +7,11 @@ import (
 
 // TestNoFloatingPromisesTypeAndExpressionShapes locks the checker-backed
 // Promise identity and recursive expression paths required by issue #412.
+//
+//  1. Build Promise aliases, subclasses, unions, intersections, composites,
+//     assertions, arrays, and explicit Promise/non-Promise tuples.
+//  2. Run the rule with scalar defaults.
+//  3. Assert every Promise-bearing shape and no clean control is reported.
 func TestNoFloatingPromisesTypeAndExpressionShapes(t *testing.T) {
   code, stdout, stderr := runNoFloatingPromisesCase(t, `type PromiseAlias<T> = Promise<T>;
 class DerivedPromise<T> extends Promise<T> {}
@@ -16,6 +21,9 @@ declare const intersectedPromise: Promise<void> & { readonly tag: true };
 declare const unionPromise: Promise<void> | undefined;
 declare const optionalFactory: (() => Promise<void>) | undefined;
 declare const flag: boolean;
+declare const unknownValue: unknown;
+declare const promiseTuple: readonly [Promise<void>, number];
+declare const valueTuple: readonly [number, string];
 aliasPromise;
 derivedPromise;
 intersectedPromise;
@@ -24,23 +32,28 @@ optionalFactory?.();
 flag ? Promise.resolve() : undefined;
 flag && Promise.resolve();
 (Promise.resolve(), undefined);
+promiseTuple;
 [Promise.resolve(), 1];
+valueTuple;
 [1, 2, 3];
 void Promise.resolve();
+unknownValue as Promise<void>;
 `, nil)
   if code != 2 || stdout != "" {
     t.Fatalf("type-shape run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
   expectedLines := []string{
-    "main.ts:9:",
-    "main.ts:10:",
-    "main.ts:11:",
     "main.ts:12:",
     "main.ts:13:",
     "main.ts:14:",
     "main.ts:15:",
     "main.ts:16:",
     "main.ts:17:",
+    "main.ts:18:",
+    "main.ts:19:",
+    "main.ts:20:",
+    "main.ts:21:",
+    "main.ts:25:",
   }
   if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != len(expectedLines) {
     t.Fatalf("expected %d shape findings, got %d:\n%s", len(expectedLines), got, stderr)

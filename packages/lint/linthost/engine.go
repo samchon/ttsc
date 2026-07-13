@@ -21,6 +21,7 @@ import (
   "encoding/json"
   "fmt"
   "os"
+  "path/filepath"
   "runtime"
   "sort"
   "sync"
@@ -90,10 +91,11 @@ func ruleNeedsTypeChecker(r Rule) bool {
 // accept options decode the blob into their own struct via
 // `(*Context).DecodeOptions` and fall back to defaults on nil.
 type Context struct {
-  File     *shimast.SourceFile
-  Checker  *shimchecker.Checker
-  Severity Severity
-  Options  json.RawMessage
+  File             *shimast.SourceFile
+  Checker          *shimchecker.Checker
+  CurrentDirectory string
+  Severity         Severity
+  Options          json.RawMessage
 
   rule           Rule
   isFormat       bool
@@ -489,7 +491,11 @@ func (e *Engine) EnabledRules() map[string]Severity { return e.enabled }
 // runs even when the per-file work happens out of order.
 func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) []*Finding {
   cycle := e.evaluateProject(publicrule.ProjectIdentity{}, files, checker)
-  fileFindings := e.runFiles(files, checker, cycle.results)
+  currentDirectory := ""
+  if len(files) != 0 && files[0] != nil {
+    currentDirectory = filepath.Dir(files[0].FileName())
+  }
+  fileFindings := e.runFiles(files, checker, cycle.results, currentDirectory)
   return append(cycle.findings, fileFindings...)
 }
 
@@ -497,6 +503,7 @@ func (e *Engine) runFiles(
   files []*shimast.SourceFile,
   checker *shimchecker.Checker,
   results publicrule.ProjectResultReader,
+  currentDirectory string,
 ) []*Finding {
   if e.runsSerial() {
     var findings []*Finding
@@ -504,7 +511,7 @@ func (e *Engine) runFiles(
       if file == nil {
         continue
       }
-      findings = append(findings, e.runFile(file, checker, results)...)
+      findings = append(findings, e.runFile(file, checker, results, currentDirectory)...)
     }
     return findings
   }
@@ -525,7 +532,7 @@ func (e *Engine) runFiles(
     go func(idx int, f *shimast.SourceFile) {
       defer wg.Done()
       defer func() { <-sem }()
-      perFile[idx] = e.runFile(f, checker, results)
+      perFile[idx] = e.runFile(f, checker, results, currentDirectory)
     }(i, file)
   }
   wg.Wait()
@@ -592,6 +599,7 @@ func (e *Engine) runFile(
   file *shimast.SourceFile,
   checker *shimchecker.Checker,
   results publicrule.ProjectResultReader,
+  currentDirectory string,
 ) []*Finding {
   var collected []*Finding
   collect := func(f *Finding) { collected = append(collected, f) }
@@ -632,14 +640,15 @@ func (e *Engine) runFile(
       if !built {
         if severity := fileRules.Severity(name); severity != SeverityOff {
           ctx = &Context{
-            File:           file,
-            Checker:        checker,
-            Severity:       severity,
-            Options:        e.config.RuleOptions(name),
-            rule:           rule,
-            isFormat:       isFormatRule(rule),
-            collect:        collect,
-            projectResults: results,
+            File:             file,
+            Checker:          checker,
+            CurrentDirectory: currentDirectory,
+            Severity:         severity,
+            Options:          e.config.RuleOptions(name),
+            rule:             rule,
+            isFormat:         isFormatRule(rule),
+            collect:          collect,
+            projectResults:   results,
           }
         }
         // A nil entry memoizes "off for this file" so a rule registered
