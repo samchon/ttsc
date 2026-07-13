@@ -13,7 +13,7 @@ import (
 // combined scopes layer in source order, retain non-conflicting keys, and then
 // yield conflicting keys to the exact single-language scope.
 //
-// 1. Configure top-level, exact, and two matching combined scopes.
+// 1. Configure top-level, exact, matching, and non-matching combined scopes.
 // 2. Give the scopes overlapping and disjoint formatter keys.
 // 3. Assert source-order merging and final exact-language precedence.
 func TestEditorFormatOverridesCombinedSectionsFollowSourceOrder(t *testing.T) {
@@ -32,6 +32,10 @@ func TestEditorFormatOverridesCombinedSectionsFollowSourceOrder(t *testing.T) {
   "[javascript][typescript]": {
     "editor.tabSize": 4,
     "editor.insertSpaces": true
+  },
+  "[json][markdown]": {
+    "editor.insertSpaces": false,
+    "files.eol": "\n"
   }
 }`
   writeFile(t, filepath.Join(root, ".vscode", "settings.json"), settings)
