@@ -7,8 +7,6 @@
 // Implemented here:
 //   - typescript/require-await
 //     (AST-only; async function with no `await` in its body)
-//   - typescript/no-misused-promises
-//     (type-aware; Promise in conditional / logical / forEach position)
 //   - typescript/use-unknown-in-catch-callback-variable
 //     (type-aware; `.catch(err)` / `.then(_, err)` must annotate `unknown`)
 //   - typescript/only-throw-error
@@ -108,134 +106,6 @@ func requireAwaitBodyHasAwait(body *shimast.Node) bool {
   }
   walk(body)
   return found
-}
-
-// noMisusedPromises reports Promises supplied where a boolean or a
-// `void`-returning callback is expected. The Promise is truthy as a
-// value, so the conditional silently passes; the discarded Promise then
-// leaks any rejection. typescript-eslint:
-// https://typescript-eslint.io/rules/no-misused-promises/
-//
-// Type-aware. Covers the three highest-signal positions:
-//   - conditional positions: `if (p)`, `while (p)`, `do … while (p)`,
-//     `for (; p; …)`, `p ? a : b`, `!p`;
-//   - short-circuit / nullish operators: `p && x`, `p || x`, `p ?? x`;
-//   - array iteration: `.forEach(async fn)` where the callback returns
-//     a Promise the iteration never observes.
-//
-// JSX event-handler positions and arbitrary user-defined
-// void-callback contracts are deferred — they need a richer expected-
-// type inspection than this baseline.
-type noMisusedPromises struct{}
-
-func (noMisusedPromises) Name() string { return "typescript/no-misused-promises" }
-func (noMisusedPromises) NeedsTypeChecker() bool {
-  return true
-}
-func (noMisusedPromises) Visits() []shimast.Kind {
-  return []shimast.Kind{
-    shimast.KindIfStatement,
-    shimast.KindWhileStatement,
-    shimast.KindDoStatement,
-    shimast.KindForStatement,
-    shimast.KindConditionalExpression,
-    shimast.KindPrefixUnaryExpression,
-    shimast.KindBinaryExpression,
-    shimast.KindCallExpression,
-  }
-}
-func (noMisusedPromises) Check(ctx *Context, node *shimast.Node) {
-  if ctx.Checker == nil {
-    return
-  }
-  switch node.Kind {
-  case shimast.KindIfStatement:
-    if stmt := node.AsIfStatement(); stmt != nil {
-      noMisusedPromisesReportConditional(ctx, stmt.Expression)
-    }
-  case shimast.KindWhileStatement:
-    if stmt := node.AsWhileStatement(); stmt != nil {
-      noMisusedPromisesReportConditional(ctx, stmt.Expression)
-    }
-  case shimast.KindDoStatement:
-    if stmt := node.AsDoStatement(); stmt != nil {
-      noMisusedPromisesReportConditional(ctx, stmt.Expression)
-    }
-  case shimast.KindForStatement:
-    if stmt := node.AsForStatement(); stmt != nil {
-      noMisusedPromisesReportConditional(ctx, stmt.Condition)
-    }
-  case shimast.KindConditionalExpression:
-    if expr := node.AsConditionalExpression(); expr != nil {
-      noMisusedPromisesReportConditional(ctx, expr.Condition)
-    }
-  case shimast.KindPrefixUnaryExpression:
-    expr := node.AsPrefixUnaryExpression()
-    if expr != nil && expr.Operator == shimast.KindExclamationToken {
-      noMisusedPromisesReportConditional(ctx, expr.Operand)
-    }
-  case shimast.KindBinaryExpression:
-    bin := node.AsBinaryExpression()
-    if bin == nil || bin.OperatorToken == nil {
-      return
-    }
-    switch bin.OperatorToken.Kind {
-    case shimast.KindAmpersandAmpersandToken,
-      shimast.KindBarBarToken,
-      shimast.KindQuestionQuestionToken:
-      noMisusedPromisesReportConditional(ctx, bin.Left)
-    }
-  case shimast.KindCallExpression:
-    if call := node.AsCallExpression(); call != nil {
-      noMisusedPromisesCheckVoidCallback(ctx, call)
-    }
-  }
-}
-
-// noMisusedPromisesReportConditional reports expr if it carries a
-// Promise type. `await x` and `void x` are author-acknowledged opt-outs
-// and pass through. `any` / `unknown` / `never` are intentionally NOT
-// flagged because they propagate from generic helpers and would
-// produce overwhelming false-positive volume in real codebases.
-func noMisusedPromisesReportConditional(ctx *Context, expr *shimast.Node) {
-  target := stripParens(expr)
-  if target == nil {
-    return
-  }
-  switch target.Kind {
-  case shimast.KindAwaitExpression, shimast.KindVoidExpression:
-    return
-  }
-  t := ctx.Checker.GetTypeAtLocation(target)
-  if t == nil || !isPromiseTypedExpression(ctx.Checker, t) {
-    return
-  }
-  ctx.Report(target, "Expected non-Promise value in a boolean conditional position; did you forget `await`?")
-}
-
-// noMisusedPromisesCheckVoidCallback fires when an async callback is
-// passed to a method that expects a void-returning callback. The
-// baseline targets the most common offender — `Array.prototype.forEach`
-// — by name rather than by signature inspection. Restricting to
-// `forEach` keeps the false-positive rate low; richer void-callback
-// detection (e.g., JSX event handlers, user methods with `void` in
-// their signature) is deferred.
-func noMisusedPromisesCheckVoidCallback(ctx *Context, call *shimast.CallExpression) {
-  if call == nil || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
-    return
-  }
-  _, method, ok := promisePropertyAccessParts(call.Expression)
-  if !ok || method != "forEach" {
-    return
-  }
-  callback := stripParens(call.Arguments.Nodes[0])
-  if callback == nil || !isFunctionLikeKind(callback) {
-    return
-  }
-  if !hasAsyncModifier(callback) {
-    return
-  }
-  ctx.Report(callback, "Async callback passed to forEach — the returned Promise will be discarded; use `for ... of` instead.")
 }
 
 // useUnknownInCatchCallbackVariable requires the parameter of `.catch`
@@ -393,7 +263,6 @@ func onlyThrowErrorIsPrimitive(checker *shimchecker.Checker, t *shimchecker.Type
 
 func init() {
   Register(requireAwait{})
-  Register(noMisusedPromises{})
   Register(useUnknownInCatchCallbackVariable{})
   Register(onlyThrowError{})
 }

@@ -33,7 +33,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/no-empty-object-type`](#rule-typescript-no-empty-object-type): Reject `{}` as a type annotation.
 - [`typescript/no-explicit-any`](#rule-typescript-no-explicit-any): Reject `any` type annotations.
 - [`typescript/no-extra-non-null-assertion`](#rule-typescript-no-extra-non-null-assertion): Reject `x!!`, chained non-null assertions.
-- [`typescript/no-floating-promises`](#rule-typescript-no-floating-promises): Reject Promise-typed expressions whose result is discarded, most often a bare `getPromise();` expression statement.
+- [`typescript/no-floating-promises`](#rule-typescript-no-floating-promises): Reject discarded built-in Promises, invalid rejection-handler chains, and Promise-bearing arrays.
 - [`typescript/no-for-in-array`](#rule-typescript-no-for-in-array): Reject `for (const k in arr)` where `arr` is statically typed as an array or tuple.
 - [`typescript/no-import-type-side-effects`](#rule-typescript-no-import-type-side-effects): Hoist inline `type` modifiers on individual imports into a single top-level `import type {}`.
 - [`typescript/no-inferrable-types`](#rule-typescript-no-inferrable-types): Reject explicit type annotations that TypeScript can already infer from the initializer.
@@ -41,7 +41,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/no-magic-numbers`](#rule-typescript-no-magic-numbers): TypeScript-aware extension of `no-magic-numbers`.
 - [`typescript/no-meaningless-void-operator`](#rule-typescript-no-meaningless-void-operator): Reject `void X` where `X` is already statically typed `void`, the `void` operator adds nothing.
 - [`typescript/no-misused-new`](#rule-typescript-no-misused-new): Reject signatures that fake a constructor or an instance `new` method.
-- [`typescript/no-misused-promises`](#rule-typescript-no-misused-promises): Reject Promise values supplied where a non-Promise was expected.
+- [`typescript/no-misused-promises`](#rule-typescript-no-misused-promises): Reject thenables in boolean, spread, disposal, and void-return contexts.
 - [`typescript/no-misused-spread`](#rule-typescript-no-misused-spread): Reject spread expressions whose operand is syntactically wrong for the surrounding context.
 - [`typescript/no-mixed-enums`](#rule-typescript-no-mixed-enums): Reject `enum`s that mix numeric and string members.
 - [`typescript/no-namespace`](#rule-typescript-no-namespace): Reject non-ambient `namespace` and `module Foo {}` declarations in regular `.ts` files.
@@ -61,7 +61,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/no-unnecessary-type-assertion`](#rule-typescript-no-unnecessary-type-assertion): Reject `x as T` and `<T>x` assertions.
 - [`typescript/no-unnecessary-type-constraint`](#rule-typescript-no-unnecessary-type-constraint): Reject `<T extends unknown>` and similar constraints.
 - [`typescript/no-unsafe-argument`](#rule-typescript-no-unsafe-argument): Reject passing an `any`-typed value into a parameter.
-- [`typescript/no-unsafe-assignment`](#rule-typescript-no-unsafe-assignment): Reject assigning an `any`-typed value into a concretely typed location.
+- [`typescript/no-unsafe-assignment`](#rule-typescript-no-unsafe-assignment): Reject direct and nested `any` values escaping through assignment boundaries.
 - [`typescript/no-unsafe-call`](#rule-typescript-no-unsafe-call): Reject calling a value whose static type is `any`.
 - [`typescript/no-unsafe-declaration-merging`](#rule-typescript-no-unsafe-declaration-merging): Reject declaration merging between an `interface` and a `class` with the same name.
 - [`typescript/no-unsafe-enum-comparison`](#rule-typescript-no-unsafe-enum-comparison): Reject `==` / `===` / `!=` / `!==` comparisons between an enum-typed value and a plain `number` or `string`.
@@ -110,8 +110,8 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 
 - [`typescript/adjacent-overload-signatures`](#rule-typescript-adjacent-overload-signatures): Require overload declarations for the same member.
 - [`typescript/array-type`](#rule-typescript-array-type): Enforce one consistent spelling of array types.
-- [`typescript/await-thenable`](#rule-typescript-await-thenable): Reject `await` on operands that are not thenable.
-- [`typescript/ban-ts-comment`](#rule-typescript-ban-ts-comment): Reject `@ts-ignore` and `@ts-expect-error` comments.
+- [`typescript/await-thenable`](#rule-typescript-await-thenable): Reject non-awaitable operands and native Promise aggregator members, sync-only async iteration, and sync-only awaited disposal.
+- [`typescript/ban-ts-comment`](#rule-typescript-ban-ts-comment): Reject `@ts-<directive>` comments or require descriptions after directives.
 - [`typescript/ban-tslint-comment`](#rule-typescript-ban-tslint-comment): Reject `// tslint:disable` and related TSLint directive comments left behind from the legacy TSLint era.
 - [`typescript/class-literal-property-style`](#rule-typescript-class-literal-property-style): Prefer a `static readonly` field over a `get` accessor.
 - [`typescript/explicit-function-return-type`](#rule-typescript-explicit-function-return-type): Require every exported function and method declaration to carry an explicit return-type annotation.
@@ -126,7 +126,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/restrict-template-expressions`](#rule-typescript-restrict-template-expressions): Reject template-literal interpolations.
 - [`typescript/return-await`](#rule-typescript-return-await): Reject `return promise` inside `try`, `catch`, or `finally`.
 - [`typescript/strict-boolean-expressions`](#rule-typescript-strict-boolean-expressions): Reject non-boolean values used in a boolean context.
-- [`typescript/switch-exhaustiveness-check`](#rule-typescript-switch-exhaustiveness-check): Require every member of a union or `enum` discriminant to be covered by an explicit `case`.
+- [`typescript/switch-exhaustiveness-check`](#rule-typescript-switch-exhaustiveness-check): Require every enumerable discriminant member to be covered by an explicit `case` by default.
 - [`typescript/triple-slash-reference`](#rule-typescript-triple-slash-reference): Reject `/// <reference path="..." />`, `/// <reference types="" />`, and `/// <reference lib="" />` directives.
 - [`typescript/unbound-method`](#rule-typescript-unbound-method): Reject referencing a class instance method as a value.
 - [`typescript/use-unknown-in-catch-callback-variable`](#rule-typescript-use-unknown-in-catch-callback-variable): Require the callback parameter of `.catch(...)` and the second argument of `.then(...)`.
@@ -171,14 +171,30 @@ const a: Array<string> = [];
 
 ### `typescript/await-thenable`
 
-Reject `await` on operands that are not thenable.
+Reject `await` on operands that are not thenable, non-awaitable values passed to native `Promise.all` / `allSettled` / `any` / `race`, `for await...of` over values that are not async iterable, and `await using` of resources that are not async disposable.
 
-Type-aware, the Checker decides whether the awaited expression has a `then` method. Autofixable: drops the `await`.
+Type-aware.
+
+The Checker classifies awaitability as always, never, or uncertain; resolves aggregator receivers to the default-library `PromiseConstructor`; derives custom iterable and primitive-string values from their synchronous iterator protocol while retaining tuple-slot precision; and requires callable `[Symbol.asyncIterator]` and `[Symbol.asyncDispose]` members.
+
+Protocol lookups resolve through unions (any callable async constituent is accepted), intersections, type aliases, inherited members, and generic constraints.
+
+Ordinary non-thenable `await` diagnostics offer an opt-in `quickfix.ttsc` action that removes the keyword. `ttsc fix` and `source.fixAll.ttsc` do not apply it because removing even a non-thenable await changes microtask ordering. The other constructs are diagnostic-only.
 
 Example:
 
 ```ts
 async function bad(): Promise<number> {
+  // reports: typescript/await-thenable (error)
+  void Promise.all([42]);
+  // reports: typescript/await-thenable (error)
+  await using resource = {
+    [Symbol.dispose](): void {},
+  };
+  // reports: typescript/await-thenable (error)
+  for await (const value of [1, 2, 3]) {
+    JSON.stringify([resource, value]);
+  }
   // reports: typescript/await-thenable (error)
   return await 42;
 }
@@ -188,9 +204,19 @@ async function bad(): Promise<number> {
 
 ### `typescript/ban-ts-comment`
 
-Reject `@ts-ignore` and `@ts-expect-error` comments.
+Reject `@ts-<directive>` comments or require descriptions after directives.
 
-The rule flags both directives unconditionally. There is no description-based allowance, and the `@typescript-eslint` options are not implemented.
+The rule follows `@typescript-eslint`'s recommended defaults: `@ts-ignore` and `@ts-nocheck` are reported, `@ts-check` is allowed, and `@ts-expect-error` is allowed when followed by a description of at least three characters. `@ts-nocheck` is only reported where the compiler honors it — before the first statement. A reported `@ts-ignore` offers an opt-in `quickfix.ttsc` action that replaces it with `@ts-expect-error`. `ttsc fix` and `source.fixAll.ttsc` do not apply the replacement because an error-free following line would start producing TS2578.
+
+Options:
+
+- `minimumDescriptionLength?: number`
+
+  Minimum description length (counted with Unicode 16.0 extended grapheme clusters, so one emoji is one character) for directives configured as `"allow-with-description"` or `{ descriptionFormat }`. Default: `3`.
+
+- `"ts-check"?`, `"ts-expect-error"?`, `"ts-ignore"?`, `"ts-nocheck"?: boolean | "allow-with-description" | { descriptionFormat: string }`
+
+  Per-directive policy: `true` reports every use, `false` allows the directive, `"allow-with-description"` allows it with a long-enough description, and `{ descriptionFormat }` additionally requires the description to match the given regular expression. Defaults: `"ts-check": false`, `"ts-expect-error": "allow-with-description"`, `"ts-ignore": true`, `"ts-nocheck": true`.
 
 Example:
 
@@ -198,6 +224,9 @@ Example:
 // reports: typescript/ban-ts-comment (error)
 // @ts-ignore
 const count: number = "oops";
+
+// @ts-expect-error: TS2322 pinned by a regression test — allowed by default
+const flag: number = "oops";
 ```
 
 <a id="rule-typescript-ban-tslint-comment"></a>
@@ -610,11 +639,13 @@ function f(x: number | null) {
 
 ### `typescript/no-floating-promises`
 
-Reject Promise-typed expressions whose result is discarded, most often a bare `getPromise();` expression statement.
+Reject discarded built-in Promises, invalid rejection-handler chains, and Promise-bearing arrays.
 
-Type-aware via the Checker. A floating promise loses its rejection channel and runs out of order with surrounding code.
+Type-aware via the Checker. A floating promise loses its rejection channel and runs out of order with surrounding code. A `.catch` or second `.then` argument handles rejection only when it is callable; `.finally` preserves the receiver chain's handled state.
 
-Acceptable sinks are `await`, `.catch(...)`, `.then(_, onRejected)`, `.finally(...)`, assignment, the `void` operator, and `return`.
+The scalar defaults ignore structural thenables, async IIFEs remain checked, and `void` is an explicit escape hatch. `checkThenables`, `ignoreIIFE`, `ignoreVoid`, `allowForKnownSafeCalls`, and `allowForKnownSafePromises` expose the upstream option boundary through typed rule tuples.
+
+Acceptable sinks are `await`, a callable rejection handler, assignment, the configured `void` escape, and `return`.
 
 Example:
 
@@ -750,11 +781,26 @@ interface I {
 
 ### `typescript/no-misused-promises`
 
-Reject Promise values supplied where a non-Promise was expected.
+Reject thenables used as boolean values or supplied to contracts that cannot observe their asynchronous result.
 
-Covers conditional positions (`if (promise)`, `while`, `for`, ternary, `&&`, `||`, `??`) where the Promise is truthy by reference.
+The default checks cover boolean conditions and array predicates, Promise object spreads, synchronous `using` resources whose `Symbol.dispose` returns a thenable, and Promise-returning functions supplied where a `void` return is expected. Void-return positions include call/construct arguments, JSX attributes, inherited methods, object properties, returned callbacks, and variables. The rule uses resolved signatures and contextual types, so ordinary Promise-returning functions are covered and Promise-aware callback APIs remain valid regardless of their method name.
 
-And `async` callbacks passed to APIs that expect a void-returning function (e.g. `Array#forEach`, JSX event handlers), where the returned Promise is silently dropped.
+All three scalar options default to `true`. `checksVoidReturn` also accepts an object whose independently configurable keys are `arguments`, `attributes`, `inheritedMethods`, `properties`, `returns`, and `variables`; omitted keys stay enabled.
+
+```json
+{
+  "rules": {
+    "typescript/no-misused-promises": [
+      "error",
+      {
+        "checksConditionals": true,
+        "checksSpreads": true,
+        "checksVoidReturn": { "arguments": false }
+      }
+    ]
+  }
+}
+```
 
 Example:
 
@@ -772,6 +818,11 @@ async function inIf(): Promise<void> {
     sideEffect();
   }
 }
+
+declare function consume(callback: () => void): void;
+
+// reports: typescript/no-misused-promises (error)
+consume(() => Promise.resolve());
 ```
 
 <a id="rule-typescript-no-misused-spread"></a>
@@ -1098,7 +1149,7 @@ const a = definitelyString as string;
 
 ### `typescript/no-unnecessary-type-constraint`
 
-Reject `<T extends unknown>` and similar constraints that match everything. Autofixable: drops the constraint.
+Reject `<T extends unknown>` and similar constraints that match everything. Autofixable: drops the constraint while retaining the `<T,>` disambiguation required by single-parameter generic arrows in `.tsx`, `.mts`, and `.cts` files.
 
 Example:
 
@@ -1133,9 +1184,11 @@ takesNumber(anyValue);
 
 ### `typescript/no-unsafe-assignment`
 
-Reject assigning an `any`-typed value into a concretely typed location, variable initializer with an explicit annotation, or a reassignment whose left-hand side has a static type.
+Reject direct and nested `any` values escaping through assignment boundaries. The rule covers annotated and inferred variables, reassignments, parameter and binding defaults, class fields and auto-accessors, contextual object and JSX properties, array spreads, and array or object destructuring.
 
-Type-aware via the Checker. `unknown` is not flagged.
+Type-aware via the Checker. Matching generic references are compared recursively with cycle protection, including tuples and mutable or readonly arrays. `any` may flow into `unknown`, including a corresponding nested generic argument, because `unknown` still requires narrowing before use. Structurally different reference targets are not compared by walking arbitrary properties.
+
+The rule has no options.
 
 Example:
 
@@ -1144,6 +1197,14 @@ const anyValue: any = JSON.parse("{}");
 
 // reports: typescript/no-unsafe-assignment (error)
 const num: number = anyValue;
+
+// reports: typescript/no-unsafe-assignment (error)
+const inferred = anyValue;
+
+const boundary: unknown = anyValue; // allowed
+
+// reports: typescript/no-unsafe-assignment (error)
+const nested: Set<Set<string>> = new Set<Set<any>>();
 ```
 
 <a id="rule-typescript-no-unsafe-call"></a>
@@ -1392,7 +1453,7 @@ class ParameterShorthand {
 
 Prefer `as const` over a literal type that repeats the literal it describes: `as "literal"` / `<"literal">` assertions, plus variable and class-property annotations such as `let x: "literal" = "literal"`. Literals are compared by raw source spelling, so `'value' as "value"` and `let n: 10 = 0xa` stay clean.
 
-Assertions are autofixable (the literal type becomes `const` in place). Annotation findings are detection-only: the rewrite moves the type out of the annotation, which the upstream rule offers only as a suggestion, never under `--fix`.
+Assertions are autofixable (the literal type becomes `const` in place). Annotation findings offer an editor quick fix that removes the annotation and appends `as const` after the initializer. That larger rewrite remains suggestion-only and is never applied by `ttsc fix`.
 
 Example:
 
@@ -1901,13 +1962,18 @@ if (count) {
 
 ### `typescript/switch-exhaustiveness-check`
 
-Require every member of a union or `enum` discriminant to be covered by an explicit `case`, unless a `default` clause is present.
+Require every enumerable member of a switch discriminant to be covered by an explicit `case` by default.
 
-Type-aware via the Checker. The rule resolves the discriminant type, walks each constituent of the union (or each member of the enum).
+Type-aware via the Checker. The rule handles singleton literals, string/number/bigint/boolean literal unions, enums, `null`, `undefined`, unique symbols, constrained generics, and finite pieces of intersections. Open pieces such as `string` cannot be enumerated, but they do not hide adjacent finite members such as the `undefined` in `string | undefined`.
 
-Matches it against the `case` expressions in the body, and flags the switch when at least one constituent is uncovered and no `default` clause is present.
+A real `default` does not suppress missing finite members under the scalar defaults. When every missing member has a safely accessible value name, the diagnostic offers an opt-in `quickfix.ttsc` action that inserts branches before a real or recognized comment default; `ttsc fix` and `source.fixAll.ttsc` never apply these throw-stub suggestions automatically.
 
-A `default` clause covers the remaining shape and silences the rule.
+Options:
+
+- `allowDefaultCaseForExhaustiveSwitch` (default `true`) allows a `default` after every finite member is explicitly covered. Set it to `false` to report that redundant default.
+- `considerDefaultExhaustiveForUnions` (default `false`) lets a real or recognized comment default satisfy otherwise missing finite members.
+- `requireDefaultForNonUnion` (default `false`) requires a real or recognized comment default when the discriminant contains an open, non-literal branch.
+- `defaultCaseCommentPattern` recognizes the final comment after the last case as a default marker. The fallback is the case-insensitive Unicode pattern `/^no default$/iu`; custom strings use Go's RE2 regular-expression syntax and are not made case-insensitive automatically.
 
 Example:
 
@@ -1925,6 +1991,9 @@ function handle(tag: Tag): void {
       break;
     case "b":
       sideEffect("b");
+      break;
+    default:
+      sideEffect("fallback");
       break;
   }
 }

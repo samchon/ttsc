@@ -367,7 +367,7 @@ func collectSecurityAssignedNames(node *shimast.Node) map[string]bool {
         return
       }
       if expr.Operator == shimast.KindPlusPlusToken || expr.Operator == shimast.KindMinusMinusToken {
-        if name := identifierText(expr.Operand); name != "" {
+        for _, name := range assignmentTargetNames(expr.Operand) {
           assigned[name] = true
         }
       }
@@ -377,9 +377,17 @@ func collectSecurityAssignedNames(node *shimast.Node) map[string]bool {
         return
       }
       if expr.Operator == shimast.KindPlusPlusToken || expr.Operator == shimast.KindMinusMinusToken {
-        if name := identifierText(expr.Operand); name != "" {
+        for _, name := range assignmentTargetNames(expr.Operand) {
           assigned[name] = true
         }
+      }
+    case shimast.KindForOfStatement, shimast.KindForInStatement:
+      stmt := child.AsForInOrOfStatement()
+      if stmt == nil || stmt.Initializer == nil || stmt.Initializer.Kind == shimast.KindVariableDeclarationList {
+        return
+      }
+      for _, name := range assignmentTargetNames(stmt.Initializer) {
+        assigned[name] = true
       }
     }
   })

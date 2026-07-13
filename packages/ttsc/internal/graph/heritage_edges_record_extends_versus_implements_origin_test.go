@@ -1,10 +1,10 @@
 package graph
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestHeritageEdgesRecordExtendsVersusImplementsOrigin verifies that a heritage
@@ -22,33 +22,33 @@ import (
 //  3. Assert the Sub->Sup heritage edge has Origin "extends" and the Sub->Iface
 //     heritage edge has Origin "implements".
 func TestHeritageEdgesRecordExtendsVersusImplementsOrigin(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
-	writeFile(t, filepath.Join(root, "src", "main.ts"), `export interface Iface {}
+  root := t.TempDir()
+  writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
+  writeFile(t, filepath.Join(root, "src", "main.ts"), `export interface Iface {}
 export class Sup {}
 export class Sub extends Sup implements Iface {}
 `)
 
-	prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(diags) != 0 {
-		t.Fatalf("unexpected diagnostics: %v", diags)
-	}
-	defer func() { _ = prog.Close() }()
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected diagnostics: %v", diags)
+  }
+  defer func() { _ = prog.Close() }()
 
-	graph := Build(prog)
-	path := sourceFile(t, prog, "main.ts").FileName()
+  graph := Build(prog)
+  path := sourceFile(t, prog, "main.ts").FileName()
 
-	sub := nodeID(path, "Sub", NodeClass)
-	sup := nodeID(path, "Sup", NodeClass)
-	iface := nodeID(path, "Iface", NodeInterface)
+  sub := nodeID(path, "Sub", NodeClass)
+  sup := nodeID(path, "Sup", NodeClass)
+  iface := nodeID(path, "Iface", NodeInterface)
 
-	if got := edgeOrigin(graph, sub, sup, EdgeHeritage); got != "extends" {
-		t.Fatalf("Sub -> Sup: want heritage Origin \"extends\", got %q; edges: %v", got, graph.Edges)
-	}
-	if got := edgeOrigin(graph, sub, iface, EdgeHeritage); got != "implements" {
-		t.Fatalf("Sub -> Iface: want heritage Origin \"implements\", got %q; edges: %v", got, graph.Edges)
-	}
+  if got := edgeOrigin(graph, sub, sup, EdgeHeritage); got != "extends" {
+    t.Fatalf("Sub -> Sup: want heritage Origin \"extends\", got %q; edges: %v", got, graph.Edges)
+  }
+  if got := edgeOrigin(graph, sub, iface, EdgeHeritage); got != "implements" {
+    t.Fatalf("Sub -> Iface: want heritage Origin \"implements\", got %q; edges: %v", got, graph.Edges)
+  }
 }

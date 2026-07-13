@@ -16,10 +16,10 @@ import (
 // with "no lint.config.* found" even though the project passed as cwd has one
 // sitting right there.
 //
-// 1. Put a lint.config.json in the cwd directory and only a tsconfig.json in a
-//    separate wrapper directory.
-// 2. Call findLintConfigFile with cwd=dir and tsconfig=wrapperDir/tsconfig.json.
-// 3. Assert the config next to cwd is discovered via the fallback origin.
+//  1. Put a lint.config.json in the cwd directory and only a tsconfig.json in a
+//     separate wrapper directory.
+//  2. Call findLintConfigFile with cwd=dir and tsconfig=wrapperDir/tsconfig.json.
+//  3. Assert the config next to cwd is discovered via the fallback origin.
 func TestFindLintConfigFileFallsBackToCwdForOutOfTreeTsconfig(t *testing.T) {
   dir := t.TempDir()
   wrapperDir := t.TempDir()

@@ -132,7 +132,7 @@ func run(args []string) int {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
     return 2
   }
-  registerContributors()
+  registerContributorsOnce()
   switch args[0] {
   case "check":     return RunCheck(args[1:])
   case "fix":       return RunFix(args[1:])
@@ -152,7 +152,7 @@ func run(args []string) int {
 The two-switch shape is intentional:
 
 - The **first switch** validates the subcommand. Unknown commands and `version` exit before any side-effect (the `version` banner does not need to register rules, parse configs, or load a Program).
-- `registerContributors()` walks the public `rule.Registered()` slice and adapts every contributor rule onto the engine's internal `Rule` interface. See [Contributor adapter](#contributor-adapter) below.
+- `registerContributorsOnce()` uses `sync.Once` to inspect the public contributor registries and adapt every contributor rule onto the engine's internal maps during the first valid command. Concurrent callers wait for that bootstrap to finish, and later calls reuse the published maps. See [Contributor adapter](#contributor-adapter) below.
 - The **second switch** dispatches to the actual implementation in `compile.go` / `fix.go` / `format.go`.
 
 `Version` is a package-level `var Version = "dev"` overridden at link time by `-ldflags "-X github.com/samchon/ttsc/packages/lint/linthost.Version=…"`. The release pipeline sets it; local `go build` calls leave it as `"dev"`.
@@ -281,7 +281,7 @@ func Register(rule Rule) {
 }
 ```
 
-Every built-in rule registers from its file's `init()`. By the time `main.run` calls `RunCheck`, the registry holds every rule the binary will ever see. Contributors register the same way but go through `rule.Register` instead; `registerContributors` adapts them onto the internal `Rule` interface after every `init()` has fired.
+Every built-in rule registers from its file's `init()`. Contributors register the same way but go through `rule.Register` instead. After every `init()` has fired, `registerContributorsOnce` adapts them onto the internal `Rule` interface exactly once before the first valid command dispatch, so every later `run` call reads the same registry state.
 
 ### Dispatch table
 
@@ -416,26 +416,33 @@ Three observations:
 
 ## A type-aware rule: `await-thenable`
 
-For the canonical "use the Checker" rule, read [`rules_promise.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go). Its `isThenableType` helper detects whether a type carries a callable `.then` member, exactly the structural test ECMAScript uses for `await`:
+For the canonical "use the Checker" rule, read [`rules_promise.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go). Its `classifyPromiseAwaitability` helper separates definitely thenable, definitely non-thenable, and uncertain types so each syntax family can apply the correct quantifier:
 
 ```go
-func isThenableType(checker *shimchecker.Checker, t *shimchecker.Type) bool {
-  thenSym := checker.GetPropertyOfType(t, "then")
-  if thenSym == nil { return false }
-  thenT := checker.GetTypeOfSymbol(thenSym)
-  sigs := checker.GetSignaturesOfType(thenT, shimchecker.SignatureKindCall)
-  return len(sigs) > 0
+switch classifyPromiseAwaitability(checker, expression, t) {
+case promiseAwaitabilityAlways:
+  // Promise or valid structural thenable
+case promiseAwaitabilityNever:
+  // definitely non-awaitable
+case promiseAwaitabilityMay:
+  // any, unknown, or an unconstrained type parameter
 }
 ```
 
-The rule's `Check` first calls `checker.GetTypeAtLocation(expr)` on the awaited expression, then passes that `*Type` here. Two Checker calls inside the helper:
+The rule uses the classification in two ways:
 
-- `GetPropertyOfType(t, "then")`: look up a member by name. Returns `*Symbol` or nil.
-- `GetSignaturesOfType(thenT, SignatureKindCall)`: get every callable signature on the property type.
+- An ordinary `await` reports only a `Never` operand, while `any`, `unknown`, unconstrained type parameters, and maybe-Promise unions stay clean.
+- A native Promise aggregator reports an array-literal member only when all of its union constituents are `Never`, but reports a typed container when any possible element constituent is `Never`.
 
-If `then` is missing or non-callable, the value is not thenable and `await` on it is meaningless. The rule reports a finding; `--fix` could autosuggest removing the `await` (though `await-thenable` does not, that's a design choice, not a technical constraint).
+Aggregator dispatch first resolves the receiver type to a default-library `PromiseConstructor`, so aliases of native `Promise` are covered while shadowed lookalikes are ignored.
 
-For the full Checker surface and when to reach for `Checker_*` linkname wrappers, see [AST & Checker → Checker Basics](/docs/development/concepts/tsgo#checker-basics).
+Arrays and tuples use Checker index or type-argument APIs, and generic `Iterable<T>` inputs use their first type argument.
+
+The `for await...of` and `await using` arms resolve `[Symbol.asyncIterator]` and `[Symbol.asyncDispose]` through `Checker_getPropertyNameForKnownSymbolName`, then verify that the resolved property type has a call signature.
+
+Those findings have no autofix because removing `await` changes runtime behavior. The ordinary `await` diagnostic exposes token removal only as an opt-in editor suggestion; `ttsc fix` and source fix-all never consume suggestion edits.
+
+For the full Checker surface and when to reach for `Checker_*` linkname wrappers, see [AST & Checker: Checker Basics](/docs/development/concepts/tsgo#checker-basics).
 
 ## A rule with autofix: anatomy of `ReportFix`
 
@@ -604,6 +611,39 @@ export default {
 ```
 
 This feeds into the same `contributors: [...]` array on the descriptor that the Go side then merges into one binary at build time.
+
+## Project-scoped contributor rules
+
+Use a `rule.ProjectRule` when a check belongs to the loaded Program rather than one source-file visit:
+
+```go
+type noCycles struct{}
+
+func (noCycles) Name() string { return "architecture/no-cycles" }
+func (noCycles) Check(ctx *rule.ProjectContext) {
+  if cycle := findCycle(ctx.Sources, ctx.Checker); cycle != "" {
+    ctx.Report(cycle)
+  }
+}
+
+func init() { rule.RegisterProject(noCycles{}) }
+```
+
+The host runs each project rule once per Program, before file rules, even when `ctx.Sources` is empty. `ctx.Identity` keeps the caller's logical config and root spelling separate from the real paths used by the compiler, and also carries the invocation cwd, optional explicit project root, plugin-config origin, and lifecycle id. `ctx.Report` records a project finding and fails the rule; `ctx.Fail` fails it silently. A later file rule reads the finalized state through `ctx.ProjectResult(name)`, whose status is one of `absent`, `off`, `not_evaluated`, `passed`, or `failed`.
+
+Configure a project rule in the same `rules` map, but only in entries without `files`:
+
+```ts
+export default {
+  rules: {
+    "architecture/no-cycles": ["error", { packages: ["src/**"] }],
+  },
+} satisfies ITtscLintConfig;
+```
+
+An entry containing `files` is rejected for a project rule even when the selector is empty or the rule is `off`. `extends` folds base first, a later global severity wins, and a later bare severity keeps the last explicit tuple options. Global `ignores` only filter `ctx.Sources`; they do not turn the project rule off.
+
+Project findings have no source file, range, or edit. Structured API output represents them with `file: null`. In LSP mode the sidecar returns them separately from document diagnostics, and `ttscserver` publishes the set at the logical config URI with a zero range and no version. They do not produce fixes or code actions.
 
 ## The contributor autofix path
 

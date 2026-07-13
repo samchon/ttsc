@@ -100,6 +100,21 @@ type LSPDocumentVersion struct {
   Version *int
 }
 
+// LSPProjectDiagnostics is one project-scoped diagnostic publication. URI is
+// the logical selected config URI and Diagnostics use a zero-width start range.
+type LSPProjectDiagnostics struct {
+  URI         string          `json:"uri"`
+  Diagnostics []LSPDiagnostic `json:"diagnostics"`
+}
+
+// LSPDiagnosticsResult separates diagnostics for the requested document from
+// the current project publication so the proxy never copies a project finding
+// onto every open source document.
+type LSPDiagnosticsResult struct {
+  Document []LSPDiagnostic        `json:"document"`
+  Project  *LSPProjectDiagnostics `json:"project,omitempty"`
+}
+
 // PluginSource is the seam between the LSP proxy and ttsc's plugin
 // pipeline. Returning empty slices/nil is a valid "no contribution"
 // answer; ttscserver still forwards the upstream tsgo response verbatim.
@@ -112,7 +127,7 @@ type PluginSource interface {
   // the field. The proxy appends these to whatever upstream tsgo
   // published, so duplicates between ttsc and tsgo must be deduplicated
   // on the source side.
-  Diagnostics(doc LSPDocumentVersion) []LSPDiagnostic
+  Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsResult
 
   // CodeActions contributes additional actions for the given range. The
   // proxy appends them to upstream responses, or answers locally when
@@ -138,7 +153,9 @@ type PluginSource interface {
 type NullPluginSource struct{}
 
 // Diagnostics returns no plugin diagnostics.
-func (NullPluginSource) Diagnostics(LSPDocumentVersion) []LSPDiagnostic { return nil }
+func (NullPluginSource) Diagnostics(LSPDocumentVersion) LSPDiagnosticsResult {
+  return LSPDiagnosticsResult{}
+}
 
 // CodeActions returns no plugin code actions.
 func (NullPluginSource) CodeActions(string, LSPRange, LSPCodeActionContext) []LSPCodeAction {

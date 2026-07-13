@@ -253,7 +253,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-extend-native`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-extend-native.ts): reject assignments to a built-in prototype such as `Array.prototype.foo = bar`.
 - [`no-extra-bind`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-extra-bind.ts): rejects unnecessary `.bind()` calls.
 - [`no-extra-boolean-cast`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-extra-boolean-cast.ts): rejects redundant boolean casts.
-- [`no-fallthrough`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-fallthrough.ts): rejects unmarked `switch` fallthrough.
+- [`no-fallthrough`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-fallthrough.ts): rejects `switch` cases whose end is reachable and that lack an intentional `// falls through` comment before the next label.
 - [`no-func-assign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-func-assign.ts): rejects reassignment of function declarations.
 - [`no-implicit-coercion`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-implicit-coercion.ts): reject common implicit-coercion idioms (`!!x`, `+x`, `"" + x`) in favor of the explicit `Boolean(x)` / `Number(x)` / `String(x)` conversions.
 - [`no-import-assign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-import-assign.ts): rejects writes to imported bindings (including `ns.x = ...` for namespace imports).
@@ -309,7 +309,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-unsafe-finally`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unsafe-finally.ts): rejects control flow from `finally`.
 - [`no-unsafe-negation`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unsafe-negation.ts): rejects unsafe negation before relational checks.
 - [`no-unsafe-optional-chaining`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unsafe-optional-chaining.ts): reject member access or call expressions that chain off an optional chain without continuing the chain.
-- [`no-unused-expressions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unused-expressions.ts): rejects expression statements with no effect.
+- [`no-unused-expressions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unused-expressions.ts): rejects expression statements with no effect under ESLint's default semantics, accepting directive prologues (arbitrary text, determined by AST position) and productive expressions such as `void promise()` while rejecting tagged templates and misplaced strings; the upstream options are supported.
 - [`no-unused-labels`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unused-labels.ts): rejects labels that no `break` or `continue` targets.
 - [`no-useless-assignment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-useless-assignment.ts): reject an assignment whose value is immediately overwritten by the very next statement without an intervening read of the same identifier.
 - [`no-useless-call`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-useless-call.ts): rejects unnecessary `.call()` and `.apply()`.
@@ -325,7 +325,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`object-shorthand`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/object-shorthand.ts): requires object property shorthand where possible.
 - [`operator-assignment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/operator-assignment.ts): prefers compound assignment operators.
 - [`prefer-arrow-callback`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-arrow-callback.ts): reject `function() { ... }` expressions passed as callback arguments. Prefer the arrow form.
-- [`prefer-const`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-const.ts): prefers `const` for `let` bindings that are never reassigned.
+- [`prefer-const`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-const.ts): prefers `const` for lexical `let` bindings that are never reassigned, including declaration-only and destructured bindings with ESLint-compatible options.
 - [`prefer-destructuring`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-destructuring.ts): reject single-property and single-index variable declarations (`const a = obj.a`, `const x = arr[0]`) that destructuring would replace verbatim.
 - [`prefer-exponentiation-operator`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-exponentiation-operator.ts): prefers `**` over `Math.pow`.
 - [`prefer-for-of`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/prefer-for-of.ts): prefers `for...of` for simple array iteration.
@@ -353,8 +353,8 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 
 - [`typescript/adjacent-overload-signatures`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/adjacent-overload-signatures.ts): keeps overload declarations for the same member adjacent.
 - [`typescript/array-type`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/array-type.ts): prefers `T[]` and `readonly T[]` over array helper types.
-- [`typescript/await-thenable`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/await-thenable.ts): rejects `await` on a value that is neither a Promise nor a thenable (type-aware).
-- [`typescript/ban-ts-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-ts-comment.ts): rejects TypeScript suppression comments such as `@ts-ignore`.
+- [`typescript/await-thenable`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/await-thenable.ts): rejects `await` on a value that is neither a Promise nor a thenable, non-awaitable members passed to native Promise aggregators, `for await...of` over a value that is not async iterable, and `await using` of a resource that is not async disposable (type-aware).
+- [`typescript/ban-ts-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-ts-comment.ts): rejects `@ts-ignore` and `@ts-nocheck`, and requires a description after `@ts-expect-error` (upstream recommended defaults; each directive configurable via `boolean`, `"allow-with-description"`, or `{ descriptionFormat }`).
 - [`typescript/ban-tslint-comment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/ban-tslint-comment.ts): rejects obsolete `tslint:` comments.
 - [`typescript/class-literal-property-style`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-class-literal-property-style.ts): prefer a `static readonly` field over a `get` accessor whose body is a single `return <literal>;`.
 - [`typescript/consistent-generic-constructors`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-consistent-generic-constructors.ts): reject the redundant pattern where a variable is annotated with a generic type AND the same generic arguments are repeated on the constructor: `const m: Map<K, V> = new Map<K, V>()`.
@@ -379,7 +379,7 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - [`typescript/no-explicit-any`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-explicit-any.ts): rejects explicit `any`.
 - [`typescript/no-extra-non-null-assertion`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-extra-non-null-assertion.ts): rejects repeated non-null assertions.
 - [`typescript/no-extraneous-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-extraneous-class.ts): reject classes that exist purely as a namespace for static members or that are entirely empty.
-- [`typescript/no-floating-promises`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-floating-promises.ts): reject Promise-typed expressions whose result is discarded, most often a bare `getPromise();` expression statement.
+- [`typescript/no-floating-promises`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-floating-promises.ts): rejects discarded built-in Promises, invalid rejection-handler chains, and Promise-bearing arrays; structural thenables, `void`, async IIFEs, and known-safe calls/types follow the rule's typed options.
 - [`typescript/no-for-in-array`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-for-in-array.ts): reject `for (const k in arr)` where `arr` is statically typed as an array or tuple.
 - [`typescript/no-import-type-side-effects`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-import-type-side-effects/violation.ts): hoists inline `type` modifiers into a single `import type` declaration.
 - [`typescript/no-inferrable-types`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-inferrable-types.ts): rejects type annotations TypeScript can infer.
@@ -387,7 +387,7 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - [`typescript/no-magic-numbers`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-magic-numbers.ts): typeScript-aware extension of `no-magic-numbers` that additionally ignores enum member values.
 - [`typescript/no-meaningless-void-operator`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-meaningless-void-operator.ts): reject `void X` where `X` is already statically typed `void`, the operator adds nothing because the operand already evaluates to `undefined` (type-aware).
 - [`typescript/no-misused-new`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-misused-new.ts): rejects constructor-like signatures in interfaces.
-- [`typescript/no-misused-promises`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-misused-promises.ts): reject Promise values supplied where a non-Promise was expected.
+- [`typescript/no-misused-promises`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-misused-promises.ts): reject thenables in boolean, spread, synchronous-disposal, and void-return contexts using resolved types.
 - [`typescript/no-misused-spread`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-misused-spread.ts): reject spread expressions whose operand is syntactically wrong for the surrounding context.
 - [`typescript/no-mixed-enums`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-mixed-enums.ts): rejects enums that mix numeric and string members.
 - [`typescript/no-namespace`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-namespace.ts): rejects non-ambient namespaces.
@@ -405,9 +405,9 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - [`typescript/no-unnecessary-template-expression`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unnecessary-template-expression.ts): reject template literals that collapse to a regular string, `` `${"abc"}` ``, `` `${name}` `` around a string-typed value, or a plain `` `abc` `` with no escaped backticks (type-aware).
 - [`typescript/no-unnecessary-type-arguments`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unnecessary-type-arguments.ts): reject `Foo<DefaultT>` calls where the supplied generic argument is the same as the parameter's default, the argument adds nothing (type-aware).
 - [`typescript/no-unnecessary-type-assertion`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unnecessary-type-assertion.ts): reject `x as T`, `<T>x`, and `x!` assertions whose target type is the same as `x`'s already-known static type, the assertion adds nothing (type-aware).
-- [`typescript/no-unnecessary-type-constraint`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unnecessary-type-constraint.ts): rejects redundant `extends any` and `extends unknown` constraints.
+- [`typescript/no-unnecessary-type-constraint`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unnecessary-type-constraint.ts): rejects redundant `extends any` and `extends unknown` constraints; its fix preserves the `<T,>` disambiguation required by single-parameter generic arrows in TSX, MTS, and CTS files.
 - [`typescript/no-unsafe-argument`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unsafe-argument.ts): reject passing an `any`-typed value to a parameter whose declared type is concrete (type-aware).
-- [`typescript/no-unsafe-assignment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unsafe-assignment.ts): reject assigning an `any`-typed value to a variable, parameter, or property whose declared type is concrete (type-aware).
+- [`typescript/no-unsafe-assignment`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unsafe-assignment.ts): reject direct and recursively nested `any` values escaping through annotated or inferred variables, reassignments, defaults, class members, contextual properties, spreads, and destructuring; `unknown` receivers remain allowed (type-aware, no options).
 - [`typescript/no-unsafe-call`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unsafe-call.ts): reject calling a value whose static type is `any` (type-aware).
 - [`typescript/no-unsafe-declaration-merging`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-unsafe-declaration-merging.ts): rejects unsafe class/interface declaration merging.
 - [`typescript/no-unsafe-enum-comparison`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-no-unsafe-enum-comparison.ts): reject `==` / `===` / `!=` / `!==` comparisons between an enum-typed value and a plain `number` or `string` of the same widened primitive, the comparison silently accepts unrelated enums and raw literals that happen to share the underlying primitive (type-aware).
@@ -445,7 +445,7 @@ Source: [`typescript-eslint`](https://github.com/typescript-eslint/typescript-es
 - [`typescript/return-await`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/return-await.ts): reject `return promise` inside `try`, `catch`, or `finally`; require `return await promise`.
 - [`typescript/sort-type-constituents`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-sort-type-constituents.ts): sort the members of union (`A | B | C`) and intersection (`A & B & C`) types into a canonical order so reorderings don't show up as diffs.
 - [`typescript/strict-boolean-expressions`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-strict-boolean-expressions.ts): rejects non-boolean values used in a boolean context such as `if`, `&&`, `||`, or `!` (type-aware).
-- [`typescript/switch-exhaustiveness-check`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-switch-exhaustiveness-check.ts): requires every member of a union or `enum` discriminant to be covered by a `case`, or a `default` clause to be present (type-aware).
+- [`typescript/switch-exhaustiveness-check`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-switch-exhaustiveness-check.ts): requires every enumerable discriminant member to have an explicit `case` by default; typed options control real/comment defaults and open types (type-aware).
 - [`typescript/triple-slash-reference`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/triple-slash-reference/violation.ts): rejects triple-slash reference directives.
 - [`typescript/unbound-method`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/typescript-unbound-method.ts): reject referencing a class instance method as a value instead of calling it (`obj.method` passed as a callback, aliased to a variable, or stored on another object).
 - [`typescript/use-unknown-in-catch-callback-variable`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/use-unknown-in-catch-callback-variable.ts): require the callback parameter of `.catch(...)` and the second argument of `.then(...)` to be typed `unknown`.
@@ -1133,6 +1133,32 @@ export default {
 Contributor rules emit autofixes the same way built-ins do, call `ctx.ReportFix(node, message, edits...)` or `ctx.ReportRangeFix(pos, end, message, edits...)`. The `rule/astutil` package re-exports the byte-range helpers built-ins use (`NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`). See the [contributor autofix path](https://ttsc.dev/docs/development/walkthroughs/lint#the-contributor-autofix-path) section for the full contract and an example.
 
 Contributor rules run on declaration files (`.d.ts`) by default. The engine skips its own value-level rules there — executable grammar cannot appear in a declaration file — but it cannot infer a third-party rule's shape, so contributors keep the conservative default. A rule that only inspects executable code can implement the optional `rule.DeclarationFileRule` marker (`VisitsDeclarationFiles() bool { return false }`) to get the same skip and save the dispatch on declaration-heavy projects.
+
+### Project-scoped contributor rules
+
+Contributors that validate the loaded Program rather than individual AST nodes can register a public `rule.ProjectRule`:
+
+```go
+type noCycles struct{}
+
+func (noCycles) Name() string { return "architecture/no-cycles" }
+func (noCycles) Check(ctx *rule.ProjectContext) {
+  // ctx.Sources is the tsconfig-selected user-source set, including an empty set.
+  // ctx.Checker is the Program checker, and ctx.Identity keeps logical and
+  // physical project paths separate.
+  if cycle := findCycle(ctx.Sources, ctx.Checker); cycle != "" {
+    ctx.Report(cycle)
+  }
+}
+
+func init() { rule.RegisterProject(noCycles{}) }
+```
+
+Each project rule runs once per loaded Program, before file rules. `ctx.Identity` includes the invocation cwd, logical and physical config paths and roots, an optional explicit project root, the plugin-config origin, and a lifecycle id. `Report` marks the rule failed and emits one project finding; `Fail` marks it failed without a finding. Later file rules can call `ctx.ProjectResult(name)` and distinguish `absent`, `off`, `not_evaluated`, `passed`, and `failed`.
+
+Project rules use the normal `rules` map and `extends` order, but only global config entries may configure them. Any entry that contains `files`, including `files: []` or an `off` value, is rejected. Global `ignores` remain source-file filters rather than project-rule selectors. A later bare severity preserves the last explicit tuple options while replacing severity.
+
+CLI, API, watch, and LSP runs carry the same project identity into the native host. Structured API findings use `file: null`. LSP publishes project findings once at the logical config URI with a zero range and no document version; project findings never provide fixes or code actions.
 
 ## Sponsors
 

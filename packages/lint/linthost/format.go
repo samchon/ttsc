@@ -64,7 +64,7 @@ func runFormat(opts *subcommandOpts) int {
   totalFixes := 0
   cascadeConverged := false
   for pass := 0; pass < maxFormatPasses; pass++ {
-    findings := engine.Run(prog.userSourceFiles(), prog.checker)
+    findings := prog.runLintCycle(engine)
     fixed, err := applyFindingFixes(opts.cwd, filterFormatFindings(findings))
     if err != nil {
       fmt.Fprintln(os.Stderr, err)
@@ -420,6 +420,15 @@ func (r formatCommandResolver) RuleOptions(name string) json.RawMessage {
   return nil
 }
 
+// ResolveProjectRules forwards project declarations unchanged. Format defaults
+// are file rules and cannot create or scope project-rule state.
+func (r formatCommandResolver) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
+  if r.inner == nil {
+    return RuleConfig{}.ResolveProjectRules(names)
+  }
+  return r.inner.ResolveProjectRules(names)
+}
+
 // formatOptionRuleNames returns the sorted list of rule names from the inner
 // resolver's options that are registered as format rules. These are the rules
 // that formatCommandResolver promotes from off to warn.
@@ -464,6 +473,8 @@ func (r formatCommandResolver) computeFormatOptionRuleNames() []string {
 // options (e.g. bare RuleConfig).
 func resolverOptions(resolver RuleResolver) RuleOptionsMap {
   switch r := resolver.(type) {
+  case boundProjectRuleResolver:
+    return resolverOptions(r.RuleResolver)
   case InlineRuleResolver:
     return r.Options
   case *ConfigStore:

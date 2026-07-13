@@ -125,7 +125,7 @@ func executeLSPFormatBufferEditForTest(t *testing.T, root string, uri string, st
       "--content-stdin",
     })
   })
-  if code != 0 || !isBenignContributorCollisionWarning(stderr) {
+  if code != 0 || stderr != "" {
     t.Fatalf("lsp-execute-command --content-stdin mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
   var edit lspWorkspaceEdit

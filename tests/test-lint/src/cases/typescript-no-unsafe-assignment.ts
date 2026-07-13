@@ -1,19 +1,47 @@
-declare const anyValue: any;
+declare const leaked: any;
 
-// Positive: assigning `any` to a typed local discards the static guarantee.
+// Direct annotated assignments are unsafe.
 // expect: typescript/no-unsafe-assignment error
-const num: number = anyValue;
+const explicit: string = leaked;
 
-// Positive: assigning `any` to a typed local is unsafe regardless of target.
+// `unknown` keeps the narrowing boundary and is allowed.
+const allowedUnknown: unknown = leaked;
+
+// Inferred variables still let `any` escape.
 // expect: typescript/no-unsafe-assignment error
-const str: string = anyValue;
+const inferred = leaked;
 
-// Positive: same hazard via a reassignment to a typed binding.
-let label: string = "ok";
+// Direct `any` destructuring reports once at the boundary.
 // expect: typescript/no-unsafe-assignment error
-label = anyValue;
+const [destructured] = leaked;
 
-// Negative: a properly typed initializer is fine.
-const safe: number = 1;
+function withDefault(
+  // expect: typescript/no-unsafe-assignment error
+  value = leaked,
+): unknown {
+  return value;
+}
 
-JSON.stringify({ num, str, label, safe });
+class Container {
+  // expect: typescript/no-unsafe-assignment error
+  public value = leaked;
+
+  // expect: typescript/no-unsafe-assignment error
+  public accessor accessorValue = leaked;
+}
+
+// Matching generic targets are compared recursively.
+// expect: typescript/no-unsafe-assignment error
+const genericTarget: Set<Set<string>> = new Set<Set<any>>();
+const genericUnknown: Set<Set<unknown>> = new Set<Set<any>>();
+
+export {
+  allowedUnknown,
+  Container,
+  destructured,
+  explicit,
+  genericTarget,
+  genericUnknown,
+  inferred,
+  withDefault,
+};

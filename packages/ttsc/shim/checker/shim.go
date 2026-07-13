@@ -11,6 +11,8 @@ package checker
 import (
   innerast "github.com/microsoft/typescript-go/internal/ast"
   innerchecker "github.com/microsoft/typescript-go/internal/checker"
+  innerdiagnostics "github.com/microsoft/typescript-go/internal/diagnostics"
+  innerprinter "github.com/microsoft/typescript-go/internal/printer"
   _ "unsafe"
 )
 
@@ -22,6 +24,71 @@ type Type = innerchecker.Type
 type TypeFlags = innerchecker.TypeFlags
 type ObjectFlags = innerchecker.ObjectFlags
 type ElementFlags = innerchecker.ElementFlags
+
+//go:linkname checkerGetRegularTypeOfLiteralType github.com/microsoft/typescript-go/internal/checker.(*Checker).getRegularTypeOfLiteralType
+func checkerGetRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerchecker.Type) *innerchecker.Type
+
+// Checker_getRegularTypeOfLiteralType returns the canonical regular form of a
+// literal type. TypeScript's checker uses this before comparing switch case
+// types because a source literal's fresh type and a union member's regular type
+// denote the same runtime value but have different pointers.
+func Checker_getRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerchecker.Type) *innerchecker.Type {
+  if recv == nil || t == nil {
+    return t
+  }
+  return checkerGetRegularTypeOfLiteralType(recv, t)
+}
+
+// Checker_typeToStringFullyQualified formats a type with the same stable,
+// alias-aware flags TypeScript uses in diagnostics that name union members.
+// Keeping the flag bundle inside the shim avoids leaking checker-internal enum
+// types through consumer code.
+func Checker_typeToStringFullyQualified(recv *innerchecker.Checker, t *innerchecker.Type, enclosingDeclaration *innerast.Node) string {
+  if recv == nil || t == nil {
+    return ""
+  }
+  return recv.TypeToStringEx(
+    t,
+    enclosingDeclaration,
+    innerchecker.TypeFormatFlagsAllowUniqueESSymbolType|
+      innerchecker.TypeFormatFlagsUseAliasDefinedOutsideCurrentScope|
+      innerchecker.TypeFormatFlagsUseFullyQualifiedType,
+    nil,
+  )
+}
+
+// Checker_symbolToValueString formats a symbol as a value-position expression
+// at enclosingDeclaration. AllowAnyNodeKind lets the checker emit indexed
+// access for enum members whose names cannot use dot notation.
+func Checker_symbolToValueString(recv *innerchecker.Checker, symbol *innerast.Symbol, enclosingDeclaration *innerast.Node) string {
+  if recv == nil || symbol == nil {
+    return ""
+  }
+  return recv.SymbolToStringEx(
+    symbol,
+    enclosingDeclaration,
+    innerast.SymbolFlagsValue,
+    innerchecker.SymbolFormatFlagsAllowAnyNodeKind,
+  )
+}
+
+// Checker_isSymbolAccessibleAsValue verifies that SymbolToStringEx can name a
+// symbol from enclosingDeclaration. Unlike GetAccessibleSymbolChain, the
+// checker also follows containing enum, class, and namespace symbols, so a
+// qualified member such as Domain.Mode.Done is accepted when its container is
+// visible.
+func Checker_isSymbolAccessibleAsValue(recv *innerchecker.Checker, symbol *innerast.Symbol, enclosingDeclaration *innerast.Node) bool {
+  if recv == nil || symbol == nil || enclosingDeclaration == nil {
+    return false
+  }
+  result := recv.IsSymbolAccessible(
+    symbol,
+    enclosingDeclaration,
+    innerast.SymbolFlagsValue,
+    false,
+  )
+  return result.Accessibility == innerprinter.SymbolAccessibilityAccessible
+}
 
 const (
   SignatureKindCall = innerchecker.SignatureKindCall
@@ -108,6 +175,59 @@ func Checker_getTypeOfSymbolAtLocation(recv *innerchecker.Checker, symbol *inner
 // and returns nil when no such property exists.
 func Checker_getTypeOfPropertyOfType(recv *innerchecker.Checker, t *innerchecker.Type, name string) *innerchecker.Type {
   return recv.GetTypeOfPropertyOfType(t, name)
+}
+
+//go:linkname checkerGetPropertyNameForKnownSymbolName github.com/microsoft/typescript-go/internal/checker.(*Checker).getPropertyNameForKnownSymbolName
+func checkerGetPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbolName string) string
+
+// Checker_getPropertyNameForKnownSymbolName returns the late-bound property
+// name the checker uses for a member keyed by the global well-known symbol
+// `Symbol.<symbolName>` (e.g. "asyncIterator", "asyncDispose", "iterator").
+// It resolves the unique-symbol type of that property on the global
+// `SymbolConstructor` — including lib-provided and `declare global` augmented
+// members — so `(*Checker).GetPropertyOfType(t, name)` with the returned name
+// finds exactly the members declared as `[Symbol.<symbolName>]`. This is the
+// same resolution the checker itself performs when it validates `for await`
+// iterability, which is why a lint rule that mirrors typescript-eslint's
+// well-known-symbol protocol checks must go through it instead of matching
+// property-name text. When the global `Symbol` constructor lacks the member,
+// the checker's internal fallback name (a `\xFE@`-prefixed string no
+// source-declared property can late-bind to) is returned, so lookups simply
+// find nothing. Returns "" if recv is nil.
+func Checker_getPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbolName string) string {
+  if recv == nil {
+    return ""
+  }
+  return checkerGetPropertyNameForKnownSymbolName(recv, symbolName)
+}
+
+//go:linkname checkerGetIterationTypeOfIterable github.com/microsoft/typescript-go/internal/checker.(*Checker).getIterationTypeOfIterable
+func checkerGetIterationTypeOfIterable(
+  recv *innerchecker.Checker,
+  use innerchecker.IterationUse,
+  typeKind innerchecker.IterationTypeKind,
+  inputType *innerchecker.Type,
+  errorNode *innerast.Node,
+) *innerchecker.Type
+
+// Checker_getSynchronousIterationYieldType returns the value type produced by
+// inputType's checked `[Symbol.iterator]` protocol. It delegates to the same
+// TypeScript-Go traversal used for synchronous iteration, including inherited
+// and structural iterables, instantiated iterator returns, intersections, and
+// primitive strings. A nil result means the checker could not derive a valid
+// synchronous iteration type. Diagnostics are intentionally disabled because
+// callers use this as a type query after normal TypeScript checking.
+func Checker_getSynchronousIterationYieldType(recv *innerchecker.Checker, inputType *innerchecker.Type) *innerchecker.Type {
+  if recv == nil || inputType == nil {
+    return nil
+  }
+  return checkerGetIterationTypeOfIterable(
+    recv,
+    innerchecker.IterationUseElement,
+    innerchecker.IterationTypeKindYield,
+    inputType,
+    nil,
+  )
 }
 
 //go:linkname checkerGetAliasSymbolForTypeNode github.com/microsoft/typescript-go/internal/checker.(*Checker).getAliasSymbolForTypeNode
@@ -267,6 +387,47 @@ func Checker_getSignaturesOfType(recv *innerchecker.Checker, t *innerchecker.Typ
     return nil
   }
   return recv.GetSignaturesOfType(t, kind)
+}
+
+//go:linkname checkerResolveCall github.com/microsoft/typescript-go/internal/checker.(*Checker).resolveCall
+func checkerResolveCall(
+  recv *innerchecker.Checker,
+  node *innerast.Node,
+  signatures []*innerchecker.Signature,
+  candidatesOutArray *[]*innerchecker.Signature,
+  checkMode innerchecker.CheckMode,
+  callChainFlags innerchecker.SignatureFlags,
+  headMessage *innerdiagnostics.Message,
+) *innerchecker.Signature
+
+// Checker_resolveCallSignatures selects the signature applicable to an
+// existing call expression from the supplied candidates. It delegates argument
+// compatibility, overload ordering, and generic inference to the same resolver
+// TypeScript uses for ordinary calls. The candidates output suppresses duplicate
+// compiler diagnostics; callers use the selected signature only for type queries.
+// Returns nil if recv, node, or signatures are absent.
+func Checker_resolveCallSignatures(
+  recv *innerchecker.Checker,
+  node *innerast.Node,
+  signatures []*innerchecker.Signature,
+) *innerchecker.Signature {
+  if recv == nil || node == nil || len(signatures) == 0 {
+    return nil
+  }
+  var candidates []*innerchecker.Signature
+  // Upstream defines normal checking and no call-chain flags as the zero values.
+  // Avoid selecting individual private enum members into the public shim surface.
+  var checkMode innerchecker.CheckMode
+  var callChainFlags innerchecker.SignatureFlags
+  return checkerResolveCall(
+    recv,
+    node,
+    signatures,
+    &candidates,
+    checkMode,
+    callChainFlags,
+    nil,
+  )
 }
 
 // Checker_getReturnTypeOfSignature returns the return type of signature, used to

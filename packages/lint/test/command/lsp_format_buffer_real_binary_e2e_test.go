@@ -64,7 +64,7 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
     if code != 0 {
       t.Fatalf("sidecar exit code = %d, want 0; stdout=%q stderr=%q", code, stdout, stderr)
     }
-    if !isBenignContributorCollisionWarning(stderr) {
+    if stderr != "" {
       t.Fatalf("unexpected sidecar stderr: %q", stderr)
     }
 
@@ -94,7 +94,7 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
     if code != 0 {
       t.Fatalf("sidecar exit code = %d, want 0; stdout=%q stderr=%q", code, stdout, stderr)
     }
-    if !isBenignContributorCollisionWarning(stderr) {
+    if stderr != "" {
       t.Fatalf("unexpected sidecar stderr: %q", stderr)
     }
     if got := strings.TrimSpace(stdout); got != "null" {

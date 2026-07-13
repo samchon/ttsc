@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "crypto/sha256"
   "encoding/json"
   "errors"
   "flag"
@@ -17,11 +18,14 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 const (
-  commandLintFixAll     = "ttsc.lint.fixAll"
-  commandFormatDocument = "ttsc.format.document"
+  commandLintFixAll          = "ttsc.lint.fixAll"
+  commandLintApplySuggestion = "ttsc.lint.applySuggestion"
+  commandFormatDocument      = "ttsc.format.document"
 )
 
 type lspPosition struct {
@@ -32,6 +36,16 @@ type lspPosition struct {
 type lspRange struct {
   Start lspPosition `json:"start"`
   End   lspPosition `json:"end"`
+}
+
+type lspPositionWire struct {
+  Line      *int `json:"line"`
+  Character *int `json:"character"`
+}
+
+type lspRangeWire struct {
+  Start *lspPositionWire `json:"start"`
+  End   *lspPositionWire `json:"end"`
 }
 
 type lspDiagnostic struct {
@@ -68,6 +82,27 @@ type lspWorkspaceEdit struct {
   Changes map[string][]lspTextEdit `json:"changes,omitempty"`
 }
 
+type lspSuggestionSelection struct {
+  Rule            string `json:"rule"`
+  Message         string `json:"message"`
+  Pos             int    `json:"pos"`
+  End             int    `json:"end"`
+  SuggestionIndex int    `json:"suggestionIndex"`
+  Title           string `json:"title"`
+  SourceHash      string `json:"sourceHash"`
+  Fingerprint     string `json:"fingerprint"`
+}
+
+type lspProjectDiagnostics struct {
+  URI         string          `json:"uri"`
+  Diagnostics []lspDiagnostic `json:"diagnostics"`
+}
+
+type lspDiagnosticsResult struct {
+  Document []lspDiagnostic        `json:"document"`
+  Project  *lspProjectDiagnostics `json:"project,omitempty"`
+}
+
 type lspCommandOptions struct {
   argumentsJSON string
   command       string
@@ -79,24 +114,26 @@ type lspCommandOptions struct {
   contentStdin bool
   cwd          string
   pluginsJSON  string
-  // rangeJSON is accepted from the ttsc LSP server
-  // (`internal/lspserver/lsp_native_plugin_source.go`) for forward
-  // compatibility, but no current code path consumes it — code actions
-  // always operate on the full file. Range-aware actions can read this
-  // field once they're implemented.
-  rangeJSON string
-  tsconfig  string
-  uri       string
+  // rangeJSON carries the editor selection used to limit quickfix.ttsc
+  // actions. Source fix-all and format actions remain document-wide.
+  rangeJSON       string
+  tsconfig        string
+  uri             string
+  projectIdentity publicrule.ProjectIdentity
 }
 
 // RunLSPCommandIDs prints the workspace/executeCommand ids owned by @ttsc/lint.
 func RunLSPCommandIDs([]string) int {
-  return writeJSON([]string{commandLintFixAll, commandFormatDocument})
+  return writeJSON([]string{
+    commandLintFixAll,
+    commandLintApplySuggestion,
+    commandFormatDocument,
+  })
 }
 
 // RunLSPCodeActionKinds prints the CodeActionKind values @ttsc/lint may return.
 func RunLSPCodeActionKinds([]string) int {
-  return writeJSON([]string{"source.fixAll.ttsc", "source.format"})
+  return writeJSON([]string{"quickfix.ttsc", "source.fixAll.ttsc", "source.format"})
 }
 
 // RunLSPDiagnostics prints lint diagnostics for one file URI as LSP JSON.
@@ -105,18 +142,28 @@ func RunLSPDiagnostics(args []string) int {
   if !ok {
     return 2
   }
-  findings, _, closeProgram, code := lspFindings(opts, false)
+  findings, prog, closeProgram, code := lspFindings(opts, false)
   if closeProgram != nil {
     defer closeProgram()
   }
   if code != 0 {
     return code
   }
-  diagnostics := make([]lspDiagnostic, 0, len(findings))
-  for _, finding := range findings {
-    diagnostics = append(diagnostics, findingToLSPDiagnostic(finding))
+  result := lspDiagnosticsResult{Document: []lspDiagnostic{}}
+  for _, finding := range filterFindingsForPath(findings, mustFilePathFromURI(opts.uri)) {
+    result.Document = append(result.Document, findingToLSPDiagnostic(finding))
   }
-  return writeJSON(diagnostics)
+  if prog != nil && prog.projectCycle != nil && len(prog.projectCycle.results.byName) > 0 {
+    publication := &lspProjectDiagnostics{
+      URI:         fileURL(prog.identity.LogicalConfigPath),
+      Diagnostics: []lspDiagnostic{},
+    }
+    for _, finding := range prog.projectCycle.findings {
+      publication.Diagnostics = append(publication.Diagnostics, findingToLSPDiagnostic(finding))
+    }
+    result.Project = publication
+  }
+  return writeJSON(result)
 }
 
 // RunLSPCodeActions prints code actions available for one file URI/range.
@@ -126,8 +173,13 @@ func RunLSPCodeActions(args []string) int {
     return 2
   }
   acceptsLint := acceptsActionKind(opts.contextJSON, "source.fixAll.ttsc")
+  acceptsQuickFix := acceptsActionKind(opts.contextJSON, "quickfix.ttsc")
   acceptsFormat := acceptsActionKind(opts.contextJSON, "source.format")
-  if !acceptsLint && !acceptsFormat {
+  quickFixRange, quickFixRangeOK := parseRequestedLSPRange(opts.rangeJSON)
+  if acceptsQuickFix && !quickFixRangeOK {
+    acceptsQuickFix = false
+  }
+  if !acceptsLint && !acceptsQuickFix && !acceptsFormat {
     return writeJSON([]lspCodeAction{})
   }
   if lspProjectTargetHasSegment(opts, "node_modules") {
@@ -143,9 +195,13 @@ func RunLSPCodeActions(args []string) int {
   if code != 0 {
     return code
   }
+  findings = filterFindingsForPath(findings, mustFilePathFromURI(opts.uri))
   lintFindings := filterLintFindings(findings)
   formatFindings := filterFormatFindings(findings)
   var actions []lspCodeAction
+  if acceptsQuickFix {
+    actions = append(actions, lspSuggestionCodeActions(opts, lintFindings, quickFixRange)...)
+  }
   if acceptsLint && hasFixableFinding(lintFindings) {
     uriArg, _ := json.Marshal(opts.uri)
     actions = append(actions, lspCodeAction{
@@ -180,7 +236,9 @@ func RunLSPExecuteCommand(args []string) int {
   if !ok {
     return 2
   }
-  if opts.command != commandLintFixAll && opts.command != commandFormatDocument {
+  if opts.command != commandLintFixAll &&
+    opts.command != commandLintApplySuggestion &&
+    opts.command != commandFormatDocument {
     fmt.Fprintf(os.Stderr, "@ttsc/lint lsp-execute-command: unknown command %q\n", opts.command)
     return 2
   }
@@ -190,6 +248,13 @@ func RunLSPExecuteCommand(args []string) int {
     return 2
   }
   opts.uri = uri
+  if opts.command == commandLintApplySuggestion {
+    edit, code := lspWorkspaceEditForSuggestion(opts)
+    if code != 0 {
+      return code
+    }
+    return writeJSON(edit)
+  }
   // --content-stdin selects the lightweight in-memory format path: the full
   // document buffer is read from stdin and formatted with AST+source rules
   // only, with no temp-workspace copy and no tsgo Program. It applies to
@@ -221,6 +286,7 @@ func parseLSPCommandOptions(name string, args []string) (*lspCommandOptions, boo
   cwd := fs.String("cwd", "", "")
   tsconfig := fs.String("tsconfig", "tsconfig.json", "")
   pluginsJSON := fs.String("plugins-json", "", "")
+  projectContextJSON := fs.String("project-context-json", "", "")
   uri := fs.String("uri", "", "")
   rangeJSON := fs.String("range-json", "", "")
   contextJSON := fs.String("context-json", "", "")
@@ -235,16 +301,22 @@ func parseLSPCommandOptions(name string, args []string) (*lspCommandOptions, boo
     fmt.Fprintln(os.Stderr, err)
     return nil, false
   }
+  projectIdentity, err := decodeProjectIdentity(*projectContextJSON)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return nil, false
+  }
   return &lspCommandOptions{
-    argumentsJSON: *argumentsJSON,
-    command:       *command,
-    contextJSON:   *contextJSON,
-    contentStdin:  *contentStdin,
-    cwd:           resolvedCwd,
-    pluginsJSON:   *pluginsJSON,
-    rangeJSON:     *rangeJSON,
-    tsconfig:      *tsconfig,
-    uri:           *uri,
+    argumentsJSON:   *argumentsJSON,
+    command:         *command,
+    contextJSON:     *contextJSON,
+    contentStdin:    *contentStdin,
+    cwd:             resolvedCwd,
+    pluginsJSON:     *pluginsJSON,
+    rangeJSON:       *rangeJSON,
+    tsconfig:        *tsconfig,
+    uri:             *uri,
+    projectIdentity: projectIdentity,
   }, true
 }
 
@@ -253,7 +325,7 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
     fmt.Fprintln(os.Stderr, "@ttsc/lint: lsp command requires --uri")
     return nil, nil, nil, 2
   }
-  target, err := filePathFromURI(opts.uri)
+  _, err := filePathFromURI(opts.uri)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, nil, nil, 2
@@ -270,6 +342,7 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
     forceNoEmit:      true,
     needsRuleChecker: engine.NeedsTypeChecker(),
+    projectIdentity:  opts.projectIdentity,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -279,18 +352,26 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
     // tsgo already owns parse diagnostics in the upstream LSP process.
     return nil, prog, prog.close, 0
   }
-  findings := filterFindingsForPath(engine.Run(prog.userSourceFiles(), prog.checker), target)
+  findings := prog.runLintCycle(engine)
   return findings, prog, prog.close, 0
 }
 
+func mustFilePathFromURI(uri string) string {
+  target, err := filePathFromURI(uri)
+  if err != nil {
+    return ""
+  }
+  return target
+}
+
 func filterFindingsForPath(findings []*Finding, target string) []*Finding {
-  target = canonicalProjectPath("", target)
+  target = canonicalProjectPath("", realProjectPath(target))
   out := make([]*Finding, 0, len(findings))
   for _, finding := range findings {
     if finding == nil || finding.File == nil {
       continue
     }
-    if canonicalProjectPath("", finding.File.FileName()) == target {
+    if canonicalProjectPath("", realProjectPath(finding.File.FileName())) == target {
       out = append(out, finding)
     }
   }
@@ -366,32 +447,247 @@ func acceptsActionKind(raw string, kind string) bool {
   return false
 }
 
+func lspSuggestionCodeActions(
+  opts *lspCommandOptions,
+  findings []*Finding,
+  requestedRange lspRange,
+) []lspCodeAction {
+  actions := make([]lspCodeAction, 0)
+  sourceHashes := make(map[*shimast.SourceFile]string)
+  for _, finding := range findings {
+    if finding == nil || finding.File == nil || len(finding.Suggestions) == 0 {
+      continue
+    }
+    if !lspRangesOverlap(requestedRange, lspRangeForFinding(finding)) {
+      continue
+    }
+    sourceHash, ok := sourceHashes[finding.File]
+    if !ok {
+      sourceHash = lspSourceHash(finding.File.Text())
+      sourceHashes[finding.File] = sourceHash
+    }
+    for index, suggestion := range finding.Suggestions {
+      if suggestion.Title == "" || len(suggestion.Edits) == 0 {
+        continue
+      }
+      uriArg, err := json.Marshal(opts.uri)
+      if err != nil {
+        continue
+      }
+      selectionArg, err := json.Marshal(lspSuggestionSelection{
+        Rule:            finding.Rule,
+        Message:         finding.Message,
+        Pos:             finding.Pos,
+        End:             finding.End,
+        SuggestionIndex: index,
+        Title:           suggestion.Title,
+        SourceHash:      sourceHash,
+        Fingerprint:     lspSuggestionFingerprint(finding, suggestion),
+      })
+      if err != nil {
+        continue
+      }
+      actions = append(actions, lspCodeAction{
+        Title: suggestion.Title,
+        Kind:  "quickfix.ttsc",
+        Command: &lspCommand{
+          Title:     suggestion.Title,
+          Command:   commandLintApplySuggestion,
+          Arguments: []json.RawMessage{uriArg, selectionArg},
+        },
+      })
+    }
+  }
+  return actions
+}
+
+func parseRequestedLSPRange(raw string) (lspRange, bool) {
+  var wire lspRangeWire
+  if strings.TrimSpace(raw) == "" || json.Unmarshal([]byte(raw), &wire) != nil ||
+    wire.Start == nil || wire.End == nil ||
+    wire.Start.Line == nil || wire.Start.Character == nil ||
+    wire.End.Line == nil || wire.End.Character == nil {
+    return lspRange{}, false
+  }
+  requested := lspRange{
+    Start: lspPosition{Line: *wire.Start.Line, Character: *wire.Start.Character},
+    End:   lspPosition{Line: *wire.End.Line, Character: *wire.End.Character},
+  }
+  if requested.Start.Line < 0 || requested.Start.Character < 0 ||
+    requested.End.Line < 0 || requested.End.Character < 0 ||
+    compareLSPPositions(requested.Start, requested.End) > 0 {
+    return lspRange{}, false
+  }
+  return requested, true
+}
+
+func lspRangesOverlap(left lspRange, right lspRange) bool {
+  if compareLSPPositions(left.Start, left.End) == 0 {
+    return compareLSPPositions(left.Start, right.Start) >= 0 &&
+      compareLSPPositions(left.Start, right.End) < 0
+  }
+  if compareLSPPositions(right.Start, right.End) == 0 {
+    return compareLSPPositions(right.Start, left.Start) >= 0 &&
+      compareLSPPositions(right.Start, left.End) < 0
+  }
+  return compareLSPPositions(left.Start, right.End) < 0 &&
+    compareLSPPositions(right.Start, left.End) < 0
+}
+
+func compareLSPPositions(left lspPosition, right lspPosition) int {
+  if left.Line < right.Line {
+    return -1
+  }
+  if left.Line > right.Line {
+    return 1
+  }
+  if left.Character < right.Character {
+    return -1
+  }
+  if left.Character > right.Character {
+    return 1
+  }
+  return 0
+}
+
+func lspSourceHash(source string) string {
+  return fmt.Sprintf("%x", sha256.Sum256([]byte(source)))
+}
+
+func lspSuggestionFingerprint(finding *Finding, suggestion Suggestion) string {
+  payload, _ := json.Marshal(struct {
+    Rule    string     `json:"rule"`
+    Message string     `json:"message"`
+    Pos     int        `json:"pos"`
+    End     int        `json:"end"`
+    Title   string     `json:"title"`
+    Edits   []TextEdit `json:"edits"`
+  }{
+    Rule:    finding.Rule,
+    Message: finding.Message,
+    Pos:     finding.Pos,
+    End:     finding.End,
+    Title:   suggestion.Title,
+    Edits:   suggestion.Edits,
+  })
+  return fmt.Sprintf("%x", sha256.Sum256(payload))
+}
+
+func lspWorkspaceEditForSuggestion(opts *lspCommandOptions) (*lspWorkspaceEdit, int) {
+  target, err := filePathFromURI(opts.uri)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return nil, 2
+  }
+  physicalCwd := realProjectPath(opts.cwd)
+  physicalTarget := realProjectPath(target)
+  if _, ok := projectRelativePath(physicalCwd, physicalTarget); !ok {
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", physicalTarget, physicalCwd)
+    return nil, 2
+  }
+  if lspProjectTargetHasSegment(opts, "node_modules") {
+    return nil, 0
+  }
+  selection, err := suggestionSelectionArgument(opts.argumentsJSON)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return nil, 2
+  }
+  current, err := os.ReadFile(physicalTarget)
+  if err != nil || lspSourceHash(string(current)) != selection.SourceHash {
+    return nil, 0
+  }
+  findings, _, closeProgram, code := lspFindings(opts, false)
+  if closeProgram != nil {
+    defer closeProgram()
+  }
+  if code != 0 {
+    return nil, code
+  }
+  findings = filterFindingsForPath(findings, physicalTarget)
+  for _, finding := range findings {
+    if finding == nil || finding.Rule != selection.Rule ||
+      finding.Message != selection.Message ||
+      finding.Pos != selection.Pos || finding.End != selection.End ||
+      selection.SuggestionIndex >= len(finding.Suggestions) {
+      continue
+    }
+    suggestion := finding.Suggestions[selection.SuggestionIndex]
+    if suggestion.Title != selection.Title || finding.File == nil ||
+      lspSourceHash(finding.File.Text()) != selection.SourceHash ||
+      lspSuggestionFingerprint(finding, suggestion) != selection.Fingerprint {
+      continue
+    }
+    source := finding.File.Text()
+    selected := selectTextEdits(len(source), suggestion.Edits)
+    if len(selected) == 0 || len(selected) != len(suggestion.Edits) {
+      return nil, 0
+    }
+    edits := make([]lspTextEdit, 0, len(selected))
+    for _, edit := range selected {
+      edits = append(edits, lspTextEdit{
+        Range: lspRange{
+          Start: byteOffsetToLSPPosition(source, edit.Pos),
+          End:   byteOffsetToLSPPosition(source, edit.End),
+        },
+        NewText: edit.Text,
+      })
+    }
+    current, err := os.ReadFile(physicalTarget)
+    if err != nil || lspSourceHash(string(current)) != selection.SourceHash {
+      return nil, 0
+    }
+    return &lspWorkspaceEdit{Changes: map[string][]lspTextEdit{opts.uri: edits}}, 0
+  }
+  return nil, 0
+}
+
+func suggestionSelectionArgument(raw string) (lspSuggestionSelection, error) {
+  var args []json.RawMessage
+  if strings.TrimSpace(raw) == "" || json.Unmarshal([]byte(raw), &args) != nil || len(args) < 2 {
+    return lspSuggestionSelection{}, errors.New("@ttsc/lint lsp-execute-command: missing suggestion selection argument")
+  }
+  var selection lspSuggestionSelection
+  if err := json.Unmarshal(args[1], &selection); err != nil {
+    return lspSuggestionSelection{}, fmt.Errorf("@ttsc/lint lsp-execute-command: invalid suggestion selection: %w", err)
+  }
+  if selection.Rule == "" || selection.Message == "" || selection.Title == "" ||
+    len(selection.SourceHash) != sha256.Size*2 ||
+    len(selection.Fingerprint) != sha256.Size*2 ||
+    selection.Pos < 0 || selection.End < selection.Pos || selection.SuggestionIndex < 0 {
+    return lspSuggestionSelection{}, errors.New("@ttsc/lint lsp-execute-command: invalid suggestion selection")
+  }
+  return selection, nil
+}
+
 func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int) {
   target, err := filePathFromURI(opts.uri)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
-  if _, ok := projectRelativePath(opts.cwd, target); !ok {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", target, opts.cwd)
-    return nil, 2
-  }
-  if projectPathHasSegment(opts.cwd, target, "node_modules") {
+  if lspProjectTargetHasSegment(opts, "node_modules") {
     return nil, 0
+  }
+  physicalCwd := realProjectPath(opts.cwd)
+  target = realProjectPath(target)
+  if _, ok := projectRelativePath(physicalCwd, target); !ok {
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", target, physicalCwd)
+    return nil, 2
   }
   original, err := os.ReadFile(target)
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: read %s: %v\n", target, err)
     return nil, 2
   }
-  tempRoot, tempTarget, tempTsconfig, cleanup, err := prepareLSPCommandWorkspace(opts.cwd, opts.tsconfig, target)
+  tempRoot, tempTarget, tempTsconfig, cleanup, err := prepareLSPCommandWorkspace(physicalCwd, opts.tsconfig, target)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
   defer cleanup()
 
-  pluginsJSON := remapLSPPluginsJSONForTempWorkspace(opts.pluginsJSON, opts.cwd, tempRoot)
+  pluginsJSON := remapLSPPluginsJSONForTempWorkspace(opts.pluginsJSON, physicalCwd, tempRoot)
   rules, err := loadRules(pluginsJSON, tempRoot, tempTsconfig)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
@@ -411,6 +707,7 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
     prog, parseDiags, err := loadProgram(tempRoot, tempTsconfig, loadProgramOptions{
       forceNoEmit:      true,
       needsRuleChecker: needsRuleChecker,
+      projectIdentity:  opts.projectIdentity,
     })
     if err != nil {
       fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -420,7 +717,7 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
       prog.close()
       return nil, 0
     }
-    findings := filterFindingsForPath(engine.Run(prog.userSourceFiles(), prog.checker), tempTarget)
+    findings := filterFindingsForPath(prog.runLintCycle(engine), tempTarget)
     prog.close()
     if opts.command == commandFormatDocument {
       findings = filterFormatFindings(findings)
@@ -471,11 +768,13 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
   }
   // Guard rails mirror lspWorkspaceEditForCommand: skip targets outside the
   // project root or inside node_modules.
-  if _, ok := projectRelativePath(opts.cwd, target); !ok {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", target, opts.cwd)
+  physicalCwd := realProjectPath(opts.cwd)
+  physicalTarget := realProjectPath(target)
+  if _, ok := projectRelativePath(physicalCwd, physicalTarget); !ok {
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", physicalTarget, physicalCwd)
     return nil, 2
   }
-  if projectPathHasSegment(opts.cwd, target, "node_modules") {
+  if lspProjectTargetHasSegment(opts, "node_modules") {
     return nil, 0
   }
 
@@ -741,7 +1040,11 @@ func lspProjectTargetHasSegment(opts *lspCommandOptions, segment string) bool {
   if err != nil {
     return false
   }
-  return projectPathHasSegment(opts.cwd, target, segment)
+  if opts.projectIdentity.LogicalProjectRoot != "" &&
+    projectPathHasSegment(opts.projectIdentity.LogicalProjectRoot, target, segment) {
+    return true
+  }
+  return projectPathHasSegment(realProjectPath(opts.cwd), realProjectPath(target), segment)
 }
 
 func lspProjectTargetOutsideCwd(opts *lspCommandOptions) bool {
@@ -752,7 +1055,7 @@ func lspProjectTargetOutsideCwd(opts *lspCommandOptions) bool {
   if err != nil {
     return false
   }
-  _, ok := projectRelativePath(opts.cwd, target)
+  _, ok := projectRelativePath(realProjectPath(opts.cwd), realProjectPath(target))
   return !ok
 }
 
@@ -792,8 +1095,8 @@ func remapLSPPluginsJSONForTempWorkspace(raw string, cwd string, tempRoot string
 }
 
 func tempPathFor(cwd string, tempRoot string, file string) (string, bool) {
-  rel, err := filepath.Rel(cwd, file)
-  if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+  rel, ok := projectRelativePath(realProjectPath(cwd), realProjectPath(file))
+  if !ok {
     return "", false
   }
   return filepath.Join(tempRoot, rel), true

@@ -100,6 +100,7 @@ interface ITtscPlugin {
   capabilities?: {
     diagnosticsTiming?: boolean;
     lsp?: boolean;
+    projectContextArgs?: boolean;
     threadingArgs?: boolean;
   };
   reportsTypeScriptDiagnostics?: boolean;
@@ -118,7 +119,7 @@ Field rules:
 - `source`: Go package directory or `go.mod` file. A `package main` source builds as an executable sidecar. A non-`main` transform source is linked into the selected native host and must register itself through `driver.RegisterPlugin`. Relative paths are resolved from the consumer project root; package descriptors should usually return an absolute path. A compiled-CommonJS descriptor can base it on `__dirname`, but a `.ts`-source or ESM descriptor must base it on `context.dirname` (or resolve from `context.projectRoot`) instead (see [ESM-safety](#manifest) above), since `__dirname` is undefined there.
 - `composes`: optional list of other plugin names (or original `transform` specifiers) whose source build should be redirected to this descriptor's `source`. Composition is **one hop only**: `A.composes = ["B"]` sends B to A's binary, but if `B.composes = ["C"]` then C is sent to B's original binary, not A's. Reciprocal entries (`A.composes = ["B"]` and `B.composes = ["A"]`) are rejected as a cycle.
 - `stage`: plugin kind. Omit for `"transform"`.
-- `capabilities`: optional host behaviors a strict sidecar would otherwise reject or not understand. Set `threadingArgs` only when the sidecar accepts `--singleThreaded` and `--checkers`; set `diagnosticsTiming` only when it accepts `--diagnostics`/`--extendedDiagnostics` and may print timing detail to stdout. Set `lsp` only when the sidecar implements the `ttscserver` LSP verbs below.
+- `capabilities`: optional host behaviors a strict sidecar would otherwise reject or not understand. Set `threadingArgs` only when the sidecar accepts `--singleThreaded` and `--checkers`; set `diagnosticsTiming` only when it accepts `--diagnostics`/`--extendedDiagnostics` and may print timing detail to stdout. Set `lsp` only when the sidecar implements the `ttscserver` LSP verbs below. Set `projectContextArgs` only when it accepts `--project-context-json` and preserves the supplied project identity.
 - `reportsTypeScriptDiagnostics`: check-stage capability flag. Set this only when the sidecar's `check` subcommand loads the project Program and reports normal TypeScript diagnostics itself; `ttsc` then skips the redundant `tsc --noEmit` guard. Ordinary check plugins should leave it unset so TypeScript diagnostics are still merged after their own output.
 - `contributors`: optional list of additional Go source packages to statically link into this plugin's binary at build time. Each entry's `source` is copied into the scratch build tree as `<scratch>/contrib/<name>/`, and a synthesized blank import in the entry package triggers the contributor's `init()` before `main`. See [Contributors](#contributors) below.
 
@@ -149,11 +150,15 @@ When the user runs `ttsc format`, `ttsc` invokes the same check-stage plugins wi
 | --- | --- |
 | `lsp-command-ids` | Print a JSON string array of `workspace/executeCommand` ids the sidecar owns. |
 | `lsp-code-action-kinds` | Print a JSON string array of CodeActionKind values the sidecar may return. |
-| `lsp-diagnostics` | Print LSP diagnostics for `--uri`. |
+| `lsp-diagnostics` | Print separate document and project diagnostic sets for `--uri`. |
 | `lsp-code-actions` | Print LSP code actions for `--uri`, `--range-json`, and `--context-json`. |
 | `lsp-execute-command` | Print a `changes`-map `WorkspaceEdit` or JSON `null` for `--command` and `--arguments-json`. |
 
 The host also passes `--cwd`, `--tsconfig`, and `--plugins-json` to each LSP verb. LSP sidecars currently compute diagnostics, code actions, and commands from the saved project state: they receive document URIs and reload the project from the selected tsconfig. Commands still return a `WorkspaceEdit`; the editor applies that edit only if the touched documents remain clean. While a document is dirty, `ttscserver` suppresses plugin diagnostics and code actions. For owned commands, the proxy also records the document generation when the request starts and returns JSON `null` if a dirty, saved, or closed document changed before the sidecar returned an edit for it.
+
+When `capabilities.projectContextArgs` is enabled, the host also passes `--project-context-json`. The JSON object separates `invocationCwd`, `logicalConfigPath`, and `logicalProjectRoot` from `physicalConfigPath` and `physicalProjectRoot`; it may also contain `explicitProjectRoot` and `pluginConfigOrigin`. A project lifecycle id is minted by the native Program host.
+
+The `lsp-diagnostics` result is `{ "document": [...], "project": { "uri": "file:///logical/tsconfig.json", "diagnostics": [...] } }`; omit `project` when the sidecar owns no project result. `ttscserver` merges document diagnostics with upstream diagnostics, but publishes the project set separately at its config URI with a zero range and no document version. A newer saved-document generation replaces the prior set, clears an old URI before publishing a new one, and suppresses stale asynchronous results. Project diagnostics do not participate in code actions or fixes.
 
 Each LSP verb has a 30-second timeout. The host reads at most 4 MiB from stdout and 1 MiB from stderr; oversized stdout is rejected before JSON decoding, and oversized failure stderr is truncated in the server log.
 

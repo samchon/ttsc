@@ -19,11 +19,11 @@ import (
 // report either. Running the whole family here seals the class instead of
 // pinning one rule.
 //
-// 1. Parse a component whose elements all carry `{...props}`, mirroring the
-//    shadcn/ui `<Comp {...props} />` repro.
-// 2. Enable every registered `jsx-a11y/*` rule.
-// 3. Assert zero findings: no recovered-panic findings and no
-//    missing-attribute reports.
+//  1. Parse a component whose elements all carry `{...props}`, mirroring the
+//     shadcn/ui `<Comp {...props} />` repro.
+//  2. Enable every registered `jsx-a11y/*` rule.
+//  3. Assert zero findings: no recovered-panic findings and no
+//     missing-attribute reports.
 func TestJsxA11yRulesSurviveSpreadAttributes(t *testing.T) {
   source := `declare const props: Record<string, unknown>;
 export const Component = () => (

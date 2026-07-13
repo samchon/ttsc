@@ -105,21 +105,10 @@ func filterInlineDisabledFindingsWithDirectives(file *shimast.SourceFile, findin
   return filtered
 }
 
-// parseLintInlineDirectives scans all comment tokens in `file` for
-// recognized directive markers and returns a structured summary of the
-// per-line and range-style suppressions found.
-//
-// The raw scanner does not split `KindTemplateExpression` on its own:
-// after returning `KindTemplateHead`/`KindTemplateMiddle`, it resumes
-// lexing the substitution as ordinary code, and a later `}` is reported
-// as `KindCloseBraceToken` instead of re-entering the template body.
-// Without intervention the next backtick would open a fresh template
-// scan that swallows the rest of the file (including every disable
-// directive comment) as one runaway unterminated literal. The parser
-// avoids this by calling `ReScanTemplateToken` on the matching `}`;
-// this loop mirrors that behavior with a brace-depth stack so comment
-// positions stay aligned with the source bytes past any template
-// substitution.
+// parseLintInlineDirectives scans all parser-classified comment tokens in
+// `file` (via the shared `forEachCommentToken` loop) for recognized directive
+// markers and returns a structured summary of the per-line and range-style
+// suppressions found.
 func parseLintInlineDirectives(file *shimast.SourceFile) *lintInlineDirectives {
   directives := &lintInlineDirectives{
     lines: make(map[int][]lintDirectiveRules),
@@ -135,58 +124,11 @@ func parseLintInlineDirectives(file *shimast.SourceFile) *lintInlineDirectives {
   if !strings.Contains(text, "-disable") && !strings.Contains(text, "-enable") {
     return directives
   }
-  scanner := shimscanner.NewScanner()
-  scanner.SetText(text)
-  scanner.SetSkipTrivia(false)
-
-  // templateBraceDepth tracks `{` nesting inside each open template
-  // substitution. A zero on top means the next `}` matches the original
-  // `${` and must be re-scanned as a template middle/tail token.
-  var templateBraceDepth []int
-
-scan:
-  for {
-    kind := scanner.Scan()
-    switch kind {
-    case shimast.KindEndOfFile:
-      break scan
-    case shimast.KindTemplateHead, shimast.KindTemplateMiddle:
-      // Entering a `${...}` substitution; account for its closing `}`.
-      templateBraceDepth = append(templateBraceDepth, 0)
-      continue
-    case shimast.KindOpenBraceToken:
-      if n := len(templateBraceDepth); n > 0 {
-        templateBraceDepth[n-1]++
-      }
-      continue
-    case shimast.KindCloseBraceToken:
-      n := len(templateBraceDepth)
-      if n == 0 {
-        continue
-      }
-      if templateBraceDepth[n-1] > 0 {
-        templateBraceDepth[n-1]--
-        continue
-      }
-      // Matching `}` for the original `${`. Pop the substitution and
-      // rescan as template; a `KindTemplateMiddle` reopens a new
-      // substitution, a `KindTemplateTail` closes the template literal.
-      templateBraceDepth = templateBraceDepth[:n-1]
-      rescanned := scanner.ReScanTemplateToken(false /*isTaggedTemplate*/)
-      if rescanned == shimast.KindTemplateMiddle {
-        templateBraceDepth = append(templateBraceDepth, 0)
-      }
-      continue
-    case shimast.KindSingleLineCommentTrivia, shimast.KindMultiLineCommentTrivia:
-    default:
-      continue
-    }
-    directive, ok := parseLintDirectiveComment(scanner.TokenText())
+  forEachCommentToken(file, func(_ shimast.Kind, start, end int) {
+    directive, ok := parseLintDirectiveComment(text[start:end])
     if !ok {
-      continue
+      return
     }
-    start := scanner.TokenStart()
-    end := scanner.TokenEnd()
     startLine := shimscanner.GetECMALineOfPosition(file, start)
     endLine := startLine
     if end > start {
@@ -217,7 +159,7 @@ scan:
     directives.records = append(directives.records, lintDirectiveRecord{
       ruleList: append([]string(nil), directive.ruleList...),
     })
-  }
+  })
   return directives
 }
 

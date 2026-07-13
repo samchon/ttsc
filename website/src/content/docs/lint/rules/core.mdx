@@ -56,7 +56,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-extend-native`](#rule-no-extend-native): Reject assignments to a built-in prototype such as `Array.prototype.foo = bar`.
 - [`no-extra-bind`](#rule-no-extra-bind): Reject unnecessary `Function.prototype.bind()` calls.
 - [`no-extra-boolean-cast`](#rule-no-extra-boolean-cast): Reject redundant boolean casts such as `!!Boolean(x)`, `if (Boolean(x))`, or `Boolean(!!x)`.
-- [`no-fallthrough`](#rule-no-fallthrough): Reject `switch` case fall-through unless preceded by an explicit `// falls through` comment.
+- [`no-fallthrough`](#rule-no-fallthrough): Reject `switch` cases that can reach the next label without an intentional `// falls through` comment.
 - [`no-func-assign`](#rule-no-func-assign): Reject reassignment of function declarations.
 - [`no-implicit-coercion`](#rule-no-implicit-coercion): Reject common implicit-coercion idioms.
 - [`no-import-assign`](#rule-no-import-assign): Reject writes to a binding introduced by an `import` declaration, assignment (`x = ...`), compound assignment.
@@ -112,7 +112,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-unsafe-finally`](#rule-no-unsafe-finally): Reject `return` and `throw` inside a `finally` block.
 - [`no-unsafe-negation`](#rule-no-unsafe-negation): Reject `!key in obj` and `!a instanceof B`.
 - [`no-unsafe-optional-chaining`](#rule-no-unsafe-optional-chaining): Reject member access or call expressions that chain off an optional chain.
-- [`no-unused-expressions`](#rule-no-unused-expressions): Reject expression statements with no observable effect, like a bare `x;` or `'use strict' && f();`.
+- [`no-unused-expressions`](#rule-no-unused-expressions): Reject expression statements with no observable effect, like a bare `x;`, `a === b;`, or a tagged template literal statement.
 - [`no-unused-labels`](#rule-no-unused-labels): Reject labels that no `break` or `continue` statement references.
 - [`no-useless-assignment`](#rule-no-useless-assignment): Reject an assignment whose value is immediately overwritten by the very next statement.
 - [`no-useless-call`](#rule-no-useless-call): Reject unnecessary `.call()` / `.apply()` calls.
@@ -1344,7 +1344,9 @@ function f(isReady: boolean) {
 
 ### `no-fallthrough`
 
-Reject `switch` case fall-through unless preceded by an explicit `// falls through` comment.
+Reject `switch` cases that can reach the next label without an intentional `// falls through` comment.
+
+Reachability follows statement completion, matching the ESLint rule: a case whose every path ends in `break`, `continue`, `return`, or `throw` (composed through blocks, `if/else`, loops, labeled statements, and `try/catch/finally`) needs no `break`. A catch contributes only when its try block has a reachable throw path, so a bare or literal `return` does not enter it while an explicit `throw` or an evaluated identifier, member access, call, or construction can. Parenthesized primitive literals are folded for loop tests, including zero and nonzero BigInt literals in every radix with separators, but unary expressions remain dynamic. Nested functions, class field initializers, and static blocks keep separate code paths, so their internal completions do not terminate the enclosing case. An intentional fallthrough is marked by the last comment before the next label (or before the closing brace when the case body is a single block) matching `/falls?\s?through/i`; directive comments such as `// eslint-disable-next-line ...` never count as markers.
 
 Example:
 
@@ -1353,13 +1355,35 @@ function f(x: number) {
   switch (x) {
     case 1:
       console.log("one");
-    // reports: no-fallthrough (error)
-    case 2:
+    case 2: // reports: no-fallthrough (error)
       console.log("two");
+      // falls through
+    case 3:
+      if (x > 1) {
+        return;
+      } else {
+        throw new Error("stop");
+      }
+    case 4: // no report: case 3 terminates on every path
+      console.log("four");
       break;
   }
 }
 ```
+
+Options:
+
+- `commentPattern?: string`
+
+  Regular expression an intentional-fallthrough comment must match. Replaces the default `/falls?\s?through/i` pattern entirely.
+
+- `allowEmptyCase?: boolean`
+
+  Allow an empty case separated from the next label by blank lines. Adjacent labels (`case 0: case 1:`) are always allowed. Default: `false`.
+
+- `reportUnusedFallthroughComment?: boolean`
+
+  Report a fallthrough marker on a case that cannot fall through (for example after a `break`). Default: `false`.
 
 <a id="rule-no-func-assign"></a>
 
@@ -2231,16 +2255,51 @@ const name = (obj?.profile).name;
 
 ### `no-unused-expressions`
 
-Reject expression statements with no observable effect, like a bare `x;` or `'use strict' && f();`.
+Reject expression statements with no observable effect, like a bare `x;`, `a === b;`, or a tagged template literal statement.
+
+Directive prologues are determined by AST position, not by recognized text: the leading run of string-literal statements at the top of a script, module, namespace body, or function body is accepted whatever it says (`"use strict"`, `"use client"`, and any future directive), and the same strings anywhere else are rejected. Productive expressions (calls, `new`, assignments, updates, `delete`, `void`, `await`, `yield`) are accepted, so the `void promise()` opt-out idiom keeps working, and JSX statements are accepted by default. TypeScript wrappers (`as`, angle assertions, non-null `!`, instantiation expressions) inherit the classification of the expression they wrap.
+
+Options:
+
+- `allowShortCircuit?: boolean`
+
+  Allow short-circuit statements such as `a && b()` whose right-hand side is a productive expression.
+
+- `allowTernary?: boolean`
+
+  Allow ternary statements such as `a ? b() : c()` whose result branches are both productive expressions.
+
+- `allowTaggedTemplates?: boolean`
+
+  Allow tagged template literal statements such as `` tag`value` ``.
+
+- `enforceForJSX?: boolean`
+
+  Report JSX elements and fragments standing alone as statements.
+
+- `ignoreDirectives?: boolean`
+
+  Also exempt statements that positionally look like directive-prologue members under the loose ESTree view upstream ESLint uses, in which parentheses are invisible. Real (unparenthesized) directive prologues are always exempt regardless of this flag.
 
 Example:
 
 ```ts
-function f(isReady: boolean, isCached: boolean): void {
+"use client";
+
+declare function work(): Promise<void>;
+declare const tag: (strings: TemplateStringsArray) => string;
+
+void work();
+
+// reports: no-unused-expressions (error)
+tag`value`;
+
+function misplacedDirective(): void {
+  "use totally custom prologue";
+  console.log("before");
   // reports: no-unused-expressions (error)
-  (isReady, isCached);
+  "use strict";
 }
-f(true, false);
 ```
 
 <a id="rule-no-unused-labels"></a>
@@ -2496,7 +2555,20 @@ list.map(
 
 ### `prefer-const`
 
-Require `const` for variables that are never reassigned after declaration. Autofixable for single-declaration `let`s.
+Require `const` for lexical bindings that are never reassigned after their initial value is established. Same-spelled bindings in sibling, nested, and shadowing scopes are analyzed independently. A declaration followed by one assignment in the same scope is reported without an automatic rewrite.
+
+The default options match ESLint:
+
+```json
+{
+  "destructuring": "any",
+  "ignoreReadBeforeAssign": false
+}
+```
+
+`destructuring: "any"` reports each const-eligible leaf of a destructuring pattern. Set it to `"all"` to report the pattern only when every leaf is const-eligible. Set `ignoreReadBeforeAssign` to `true` to keep declaration-only bindings that are read before their first assignment out of the findings.
+
+The fixer changes the shared `let` keyword only for a single initialized declaration when every binding affected by that keyword is const-eligible. Findings that would require moving an assignment, splitting a declaration, or preserving comments across statements are diagnostic-only.
 
 Example:
 
@@ -2505,6 +2577,14 @@ Example:
 let stable = 1;
 let changing = 1;
 changing = 2;
+
+let assignedLater: number;
+// reports: prefer-const (error, diagnostic-only)
+assignedLater = 1;
+
+const input = { first: 1, second: 2 };
+let { first, second } = input; // reports `second`
+first += 1;
 ```
 
 <a id="rule-prefer-destructuring"></a>

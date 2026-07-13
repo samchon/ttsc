@@ -38,7 +38,7 @@ func TestLSPNativePluginSourceAcceptsStdoutAtLimit(t *testing.T) {
     t.Fatalf("NewNativePluginSource failed: %v", err)
   }
   diagnostics := source.Diagnostics(driver.LSPDocumentVersion{URI: "file:///tmp/a.ts"})
-  if len(diagnostics) != 1 || diagnostics[0].Message == "" {
+  if len(diagnostics.Document) != 1 || diagnostics.Document[0].Message == "" {
     t.Fatalf("expected padded diagnostics payload to decode: %#v", diagnostics)
   }
   if errBuf.Len() != 0 {

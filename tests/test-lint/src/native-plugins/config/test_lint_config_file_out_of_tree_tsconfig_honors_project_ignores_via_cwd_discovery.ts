@@ -31,7 +31,8 @@ import {
  * 2. Write a wrapper tsconfig into a separate temp dir and compile via
  *    `TtscCompiler` with cwd/projectRoot = the project.
  * 3. Assert the failure diagnostics all point at `src/main.ts` (inherited `no-var`
- *    + local `no-console`) and none reference the ignored files.
+ *
+ *    - Local `no-console`) and none reference the ignored files.
  */
 export const test_lint_config_file_out_of_tree_tsconfig_honors_project_ignores_via_cwd_discovery =
   () => {

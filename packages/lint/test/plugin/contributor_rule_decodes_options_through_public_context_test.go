@@ -21,18 +21,20 @@ import (
 // internal Context into the public Context — otherwise contributor
 // rules silently see nil options and fall back to defaults.
 //
-//  1. Register a synthetic contributor rule that decodes a `Mode` option
-//     and asserts the decoded value.
+//  1. Inspect and install a synthetic contributor adapter that decodes a
+//     `Mode` option and asserts the decoded value.
 //  2. Run the engine with an InlineRuleResolver that supplies the
 //     options blob the contributor expects.
 //  3. Confirm the rule observed the user's option, not the zero value.
 func TestContributorRuleDecodesOptionsThroughPublicContext(t *testing.T) {
   recorder := &optionRecorder{}
-  rule.Register(&optionConsumingContributor{recorder: recorder})
-  registerContributors()
-  defer func() {
-    delete(registered.rules, "demo/option-consumer")
-  }()
+  contributor := &optionConsumingContributor{recorder: recorder}
+  metadata, err := inspectContributor(contributor)
+  if err != nil {
+    t.Fatalf("inspect contributor: %v", err)
+  }
+  registered.rules[metadata.name] = newContributorAdapter(metadata)
+  t.Cleanup(func() { delete(registered.rules, metadata.name) })
 
   file := parseTS(t, "const x = 1;\n")
   resolver := InlineRuleResolver{

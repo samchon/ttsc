@@ -47,9 +47,9 @@ func run(args []string) int {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
     return 2
   }
-  // Wire contributor rules into the engine's dispatch table after every
-  // package init has settled. See contrib_adapter.go for the rationale.
-  registerContributors()
+  // Wire init-time contributor rules into the engine's dispatch table once,
+  // after every package init has settled. See contrib_adapter.go.
+  registerContributorsOnce()
   switch args[0] {
   case "check":
     return RunCheck(args[1:])

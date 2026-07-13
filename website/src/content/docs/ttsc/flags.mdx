@@ -46,6 +46,7 @@ one layer and silently disappears at the next boundary.
 | `--init` | - | boolean | ttsc, build, check | tsgo | terminal | Write a starter tsconfig.json and exit (forwarded to tsgo). |
 | `--tsgo-args` | - | value | ttsc, build, check, fix, format, prepare, clean | host, lint | - | JSON-encoded tsgo passthrough argv (internal: emitted by runBuild). |
 | `--plugins-json` | - | value | build, check, fix, format | host, lint | - | JSON-encoded ttsc plugin manifest (internal: emitted by runBuild). |
+| `--project-context-json` | - | value | build, check, fix, format | lint | - | JSON-encoded lexical and physical project identity (internal: emitted by runBuild). |
 | `--manifest` | - | value | build | host | - | Write emitted file list as JSON to this path (host build only). |
 | `--file` | - | value | build, check | lint | - | Absolute or cwd-relative path of the .ts file to transform (lint transform only). |
 | `--out` | - | value | build, check | lint | - | Write transform output to PATH (lint transform only; default: stdout). |

@@ -1,8 +1,8 @@
 package graph
 
 import (
-	shimast "github.com/microsoft/typescript-go/shim/ast"
-	shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
 // markExports records a module's export surface: a node for the module itself
@@ -28,29 +28,29 @@ import (
 // answers "what is this package's public API", is the one file the index never
 // had. The module node is that anchor, and the export edges hang from it.
 func (g *Graph) markExports(checker *shimchecker.Checker, file *shimast.SourceFile) {
-	moduleSymbol := checker.GetSymbolAtLocation(file.AsNode())
-	if moduleSymbol == nil {
-		return
-	}
-	exports := shimchecker.Checker_getExportsOfModule(checker, moduleSymbol)
-	if len(exports) == 0 {
-		return
-	}
-	module := g.putModuleNode(file)
-	for _, export := range exports {
-		symbol := export
-		// A re-export is an alias; unwrap it to the declaration it points at so the
-		// exported flag lands on the real node, not a re-exporting index file's
-		// local alias symbol (which has no node of its own).
-		if symbol.Flags&shimast.SymbolFlagsAlias != 0 {
-			if aliased := shimchecker.Checker_getAliasedSymbol(checker, symbol); aliased != nil {
-				symbol = aliased
-			}
-		}
-		if id, ok := g.markExportedSymbol(symbol); ok {
-			g.addEdge(module.ID, id, EdgeExports)
-		}
-	}
+  moduleSymbol := checker.GetSymbolAtLocation(file.AsNode())
+  if moduleSymbol == nil {
+    return
+  }
+  exports := shimchecker.Checker_getExportsOfModule(checker, moduleSymbol)
+  if len(exports) == 0 {
+    return
+  }
+  module := g.putModuleNode(file)
+  for _, export := range exports {
+    symbol := export
+    // A re-export is an alias; unwrap it to the declaration it points at so the
+    // exported flag lands on the real node, not a re-exporting index file's
+    // local alias symbol (which has no node of its own).
+    if symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+      if aliased := shimchecker.Checker_getAliasedSymbol(checker, symbol); aliased != nil {
+        symbol = aliased
+      }
+    }
+    if id, ok := g.markExportedSymbol(symbol); ok {
+      g.addEdge(module.ID, id, EdgeExports)
+    }
+  }
 }
 
 // putModuleNode records the node for a source file. Its name is the file path,
@@ -65,23 +65,23 @@ func (g *Graph) markExports(checker *shimchecker.Checker, file *shimast.SourceFi
 // to read next could name two of zod's and none of NestJS's, and why the model
 // went off to glob for them.
 func (g *Graph) putModuleNode(file *shimast.SourceFile) *Node {
-	path := file.FileName()
-	id := nodeID(path, path, NodeModule)
-	if existing, ok := g.Nodes[id]; ok {
-		return existing
-	}
-	node := &Node{
-		ID:     id,
-		Name:   path,
-		Simple: path,
-		Kind:   NodeModule,
-		File:   path,
-		// A module that exports is by definition part of some surface; whether it is
-		// the package's front door is the package.json's to say, not the graph's.
-		Exported: true,
-	}
-	g.Nodes[id] = node
-	return node
+  path := file.FileName()
+  id := nodeID(path, path, NodeModule)
+  if existing, ok := g.Nodes[id]; ok {
+    return existing
+  }
+  node := &Node{
+    ID:     id,
+    Name:   path,
+    Simple: path,
+    Kind:   NodeModule,
+    File:   path,
+    // A module that exports is by definition part of some surface; whether it is
+    // the package's front door is the package.json's to say, not the graph's.
+    Exported: true,
+  }
+  g.Nodes[id] = node
+  return node
 }
 
 // markExportedSymbol sets Exported on the node a resolved export symbol declares
@@ -89,29 +89,29 @@ func (g *Graph) putModuleNode(file *shimast.SourceFile) *Node {
 // as a node (a re-exported value from a dependency, a kind it does not track) is
 // skipped rather than fabricated.
 func (g *Graph) markExportedSymbol(symbol *shimast.Symbol) (string, bool) {
-	declaration := declarationNode(symbol)
-	if declaration == nil {
-		return "", false
-	}
-	file := shimast.GetSourceFileOfNode(declaration)
-	if file == nil {
-		return "", false
-	}
-	kind := symbolNodeKind(symbol)
-	if kind == "" {
-		return "", false
-	}
-	name := qualifiedName(symbol)
-	if kind == NodeMethod {
-		name = methodName(symbol)
-	}
-	if name == "" {
-		return "", false
-	}
-	node, ok := g.Nodes[nodeID(file.FileName(), name, kind)]
-	if !ok {
-		return "", false
-	}
-	node.Exported = true
-	return node.ID, true
+  declaration := declarationNode(symbol)
+  if declaration == nil {
+    return "", false
+  }
+  file := shimast.GetSourceFileOfNode(declaration)
+  if file == nil {
+    return "", false
+  }
+  kind := symbolNodeKind(symbol)
+  if kind == "" {
+    return "", false
+  }
+  name := qualifiedName(symbol)
+  if kind == NodeMethod {
+    name = methodName(symbol)
+  }
+  if name == "" {
+    return "", false
+  }
+  node, ok := g.Nodes[nodeID(file.FileName(), name, kind)]
+  if !ok {
+    return "", false
+  }
+  node.Exported = true
+  return node.ID, true
 }

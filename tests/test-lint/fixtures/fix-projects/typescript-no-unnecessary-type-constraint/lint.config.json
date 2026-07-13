@@ -1,0 +1,5 @@
+{
+  "rules": {
+    "typescript/no-unnecessary-type-constraint": "error"
+  }
+}

@@ -10,9 +10,9 @@ import (
 //
 // `typescript/no-floating-promises` is type-aware: the engine's checker-less
 // AST harness used by `assertRuleCorpusCase` skips it because Context.Checker
-// is nil. The rule therefore reuses the `command_*` shape established by
-// `await-thenable`'s fix test: materialize a tsconfig project, run
-// `ttsc lint check`, and assert on the rendered diagnostics.
+// is nil. The rule therefore uses the command-test shape for type-aware rules:
+// materialize a tsconfig project, run `ttsc lint check`, and assert on the
+// rendered diagnostics.
 //
 // Fixture-shape parity with tests/test-lint/src/cases/no-floating-promises.ts
 // is enforced by the TypeScript feature corpus; this Go scenario locks the

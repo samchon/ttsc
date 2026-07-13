@@ -8,7 +8,6 @@ package linthost
 
 import (
   "encoding/json"
-  "io"
   "net/url"
   "os"
   "path/filepath"
@@ -24,6 +23,14 @@ import (
 )
 
 var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
+var ansiControlSequencePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+
+// diagnosticOutputContains compares rendered diagnostics after removing ANSI
+// control sequences. Windows and POSIX runners color different path segments,
+// so raw file:line substrings are not portable even when the diagnostic is.
+func diagnosticOutputContains(output, substring string) bool {
+  return strings.Contains(ansiControlSequencePattern.ReplaceAllString(output, ""), substring)
+}
 
 type ruleExpectation struct {
   Rule     string
@@ -258,22 +265,27 @@ func writeFile(t *testing.T, location, text string) {
 // sidecar command. Capturing the real streams keeps tests close to host
 // behavior while still allowing assertions on rendered diagnostics.
 //
-// 1. Swap os.Stdout and os.Stderr for pipes around the command function.
-// 2. Execute the command and close writers before reading captured output.
+// 1. Swap os.Stdout and os.Stderr for temporary files around the command.
+// 2. Execute the command and close files before reading captured output.
 // 3. Restore process streams before returning to the caller.
 func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
   t.Helper()
   prevOut, prevErr := os.Stdout, os.Stderr
-  outReader, outWriter, err := os.Pipe()
+  outputDirectory := t.TempDir()
+  outWriter, err := os.Create(filepath.Join(outputDirectory, "stdout"))
   if err != nil {
     t.Fatal(err)
   }
-  errReader, errWriter, err := os.Pipe()
+  errWriter, err := os.Create(filepath.Join(outputDirectory, "stderr"))
   if err != nil {
     t.Fatal(err)
   }
   os.Stdout = outWriter
   os.Stderr = errWriter
+  defer func() {
+    os.Stdout = prevOut
+    os.Stderr = prevErr
+  }()
   code := fn()
   if err := outWriter.Close(); err != nil {
     t.Fatal(err)
@@ -283,11 +295,11 @@ func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
   }
   os.Stdout = prevOut
   os.Stderr = prevErr
-  out, err := io.ReadAll(outReader)
+  out, err := os.ReadFile(outWriter.Name())
   if err != nil {
     t.Fatal(err)
   }
-  errOut, err := io.ReadAll(errReader)
+  errOut, err := os.ReadFile(errWriter.Name())
   if err != nil {
     t.Fatal(err)
   }
@@ -305,19 +317,36 @@ func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
 // 3. Return the root path for --cwd command execution.
 func seedLintProject(t *testing.T, source string) string {
   t.Helper()
-  root := t.TempDir()
-  writeFile(t, filepath.Join(root, "tsconfig.json"), `{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "strict": true,
-    "rootDir": "src",
-    "outDir": "dist"
-  },
-  "files": ["src/main.ts"]
+  return seedLintProjectFile(t, "main.ts", source)
 }
-`)
-  writeFile(t, filepath.Join(root, "src", "main.ts"), source)
+
+// seedLintProjectFile is seedLintProject with a caller-selected source name.
+// Snapshot tests use it when the filename controls TypeScript's grammar, while
+// command-frontdoor tests keep the main.ts default above.
+func seedLintProjectFile(t *testing.T, fileName, source string) string {
+  t.Helper()
+  root := t.TempDir()
+  compilerOptions := map[string]any{
+    "target":  "ES2022",
+    "module":  "commonjs",
+    "strict":  true,
+    "rootDir": "src",
+    "outDir":  "dist",
+  }
+  if strings.EqualFold(filepath.Ext(fileName), ".tsx") {
+    compilerOptions["jsx"] = "preserve"
+  }
+  config, err := json.MarshalIndent(map[string]any{
+    "compilerOptions": compilerOptions,
+    "files": []string{
+      filepath.ToSlash(filepath.Join("src", fileName)),
+    },
+  }, "", "  ")
+  if err != nil {
+    t.Fatalf("marshal tsconfig: %v", err)
+  }
+  writeFile(t, filepath.Join(root, "tsconfig.json"), string(config)+"\n")
+  writeFile(t, filepath.Join(root, "src", fileName), source)
   return root
 }
 
@@ -388,18 +417,12 @@ func lintTestFileURI(t *testing.T, file string) string {
   return (&url.URL{Scheme: "file", Path: uriPath}).String()
 }
 
-func isBenignContributorCollisionWarning(stderr string) bool {
-  trimmed := strings.TrimSpace(stderr)
-  return trimmed == "" ||
-    trimmed == `@ttsc/lint: contributor rule "demo/option-consumer" collides with an existing rule; dropping contributor entry`
-}
-
 // assertFixSnapshot runs one rule's findings through the native fix applier.
 //
 // Fixer tests need the real file-writing path, not just in-memory edit
 // selection, because RunFix reloads a fresh Program from disk after every pass.
 //
-// 1. Materialize a real source file and parse it through the shim parser.
+// 1. Materialize a real source file and load the AST or checker path the rule requires.
 // 2. Run one enabled rule and apply collected text edits to disk.
 // 3. Compare the rewritten source exactly.
 func assertFixSnapshot(t *testing.T, ruleName, source, expected string) {
@@ -410,6 +433,21 @@ func assertFixSnapshot(t *testing.T, ruleName, source, expected string) {
   }
   if got != expected {
     t.Fatalf("%s fixed source mismatch:\nwant %q\ngot  %q", ruleName, expected, got)
+  }
+}
+
+// assertFixSnapshotFile is assertFixSnapshot with a caller-selected source
+// filename. Fixers whose safety depends on TypeScript's extension-selected
+// grammar use it to exercise TS, TSX, MTS, and CTS without substituting a
+// synthetic main.ts mode.
+func assertFixSnapshotFile(t *testing.T, ruleName, fileName, source, expected string) {
+  t.Helper()
+  got, fixed := runFixSnapshotFile(t, ruleName, fileName, source)
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  if got != expected {
+    t.Fatalf("%s fixed source mismatch for %s:\nwant %q\ngot  %q", ruleName, fileName, expected, got)
   }
 }
 
@@ -432,11 +470,7 @@ func assertNoFixSnapshot(t *testing.T, ruleName, source string) {
 // that previously fired on the wrong shape and corrupted source.
 func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
   t.Helper()
-  root := t.TempDir()
-  filePath := filepath.Join(root, "src", "main.ts")
-  writeFile(t, filePath, source)
-  file := parseTSFile(t, filePath, source)
-  findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
   if len(findings) != 0 {
     t.Fatalf("%s: expected zero findings, got %d (%+v)", ruleName, len(findings), findings)
   }
@@ -447,18 +481,10 @@ func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
 // Mirrors `assertFixSnapshot`; option-gated sibling of
 // `assertRuleSkipsSourceWithOptions`. Cannot delegate to `runFixSnapshot`
 // because that path uses the default `NewEngine` rather than
-// `NewEngineWithResolver`, so the resolver wiring is inlined here.
+// `NewEngineWithResolver`; the shared findings loader selects the resolver.
 func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expected string) {
   t.Helper()
-  root := t.TempDir()
-  filePath := filepath.Join(root, "src", "main.ts")
-  writeFile(t, filePath, source)
-  file := parseTSFile(t, filePath, source)
-  resolver := InlineRuleResolver{
-    Rules:   RuleConfig{ruleName: SeverityError},
-    Options: RuleOptionsMap{ruleName: json.RawMessage(optsJSON)},
-  }
-  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  root, filePath, findings := runRuleFindingsSnapshot(t, ruleName, source, json.RawMessage(optsJSON))
   if len(findings) == 0 {
     t.Fatalf("%s: expected at least one finding", ruleName)
   }
@@ -485,15 +511,7 @@ func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expe
 // to inline `InlineRuleResolver` + `NewEngineWithResolver` boilerplate.
 func assertRuleSkipsSourceWithOptions(t *testing.T, ruleName, source, optsJSON string) {
   t.Helper()
-  root := t.TempDir()
-  filePath := filepath.Join(root, "src", "main.ts")
-  writeFile(t, filePath, source)
-  file := parseTSFile(t, filePath, source)
-  resolver := InlineRuleResolver{
-    Rules:   RuleConfig{ruleName: SeverityError},
-    Options: RuleOptionsMap{ruleName: json.RawMessage(optsJSON)},
-  }
-  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, json.RawMessage(optsJSON))
   if len(findings) != 0 {
     t.Fatalf("%s: expected zero findings, got %d (%+v)", ruleName, len(findings), findings)
   }
@@ -501,11 +519,18 @@ func assertRuleSkipsSourceWithOptions(t *testing.T, ruleName, source, optsJSON s
 
 func runFixSnapshot(t *testing.T, ruleName, source string) (string, int) {
   t.Helper()
-  root := t.TempDir()
-  filePath := filepath.Join(root, "src", "main.ts")
-  writeFile(t, filePath, source)
-  file := parseTSFile(t, filePath, source)
-  findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  return runFixSnapshotFile(t, ruleName, "main.ts", source)
+}
+
+func runFixSnapshotFile(t *testing.T, ruleName, fileName, source string) (string, int) {
+  t.Helper()
+  root, filePath, findings := runRuleFindingsSnapshotFile(
+    t,
+    ruleName,
+    fileName,
+    source,
+    nil,
+  )
   if len(findings) == 0 {
     t.Fatalf("%s: expected at least one finding", ruleName)
   }
@@ -518,4 +543,80 @@ func runFixSnapshot(t *testing.T, ruleName, source string) (string, int) {
     t.Fatalf("%s: ReadFile: %v", ruleName, err)
   }
   return string(got), fixed
+}
+
+// runRuleFindingsSnapshot runs one rule against a disk-backed source file.
+// AST-only rules keep the parser-only fast path; type-aware rules receive a
+// real Program and checker so fixer tests exercise the same binding identity
+// as command, LSP, and CLI execution.
+func runRuleFindingsSnapshot(
+  t *testing.T,
+  ruleName string,
+  source string,
+  options json.RawMessage,
+) (string, string, []*Finding) {
+  t.Helper()
+  return runRuleFindingsSnapshotFile(t, ruleName, "main.ts", source, options)
+}
+
+// runRuleFindingsSnapshotFile selects the lightweight parser or the real
+// Program/checker lifecycle from the configured engine's requirements. Both
+// paths materialize the caller's exact filename and project directory so the
+// returned findings can flow through the same disk-backed edit assertions.
+func runRuleFindingsSnapshotFile(
+  t *testing.T,
+  ruleName string,
+  fileName string,
+  source string,
+  options json.RawMessage,
+) (string, string, []*Finding) {
+  t.Helper()
+  var engine *Engine
+  if len(options) == 0 {
+    engine = NewEngine(RuleConfig{ruleName: SeverityError})
+  } else {
+    engine = NewEngineWithResolver(InlineRuleResolver{
+      Rules:   RuleConfig{ruleName: SeverityError},
+      Options: RuleOptionsMap{ruleName: options},
+    })
+  }
+
+  needsRuleChecker := engine.NeedsTypeChecker()
+  if !needsRuleChecker {
+    root := t.TempDir()
+    engine.SetCurrentDirectory(root)
+    filePath := filepath.Join(root, "src", fileName)
+    writeFile(t, filePath, source)
+    var file *shimast.SourceFile
+    if strings.EqualFold(filepath.Ext(fileName), ".tsx") {
+      file = parseTSXFile(t, filePath, source)
+    } else {
+      file = parseTSFile(t, filePath, source)
+    }
+    return root, filePath, engine.Run([]*shimast.SourceFile{file}, nil)
+  }
+
+  root := seedLintProjectFile(t, fileName, source)
+  engine.SetCurrentDirectory(root)
+  filePath := filepath.Join(root, "src", fileName)
+  program, diagnostics, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
+    forceNoEmit:      true,
+    needsRuleChecker: needsRuleChecker,
+  })
+  if program != nil {
+    defer program.close()
+  }
+  if err != nil {
+    t.Fatalf("%s: loadProgram: %v", ruleName, err)
+  }
+  if len(diagnostics) != 0 {
+    t.Fatalf("%s: loadProgram diagnostics: %+v", ruleName, diagnostics)
+  }
+  if program == nil {
+    t.Fatalf("%s: loadProgram returned no program", ruleName)
+  }
+  if program.checker == nil {
+    t.Fatalf("%s: loadProgram returned no checker for a type-aware rule", ruleName)
+  }
+  return root, filePath, program.runLintCycle(engine)
 }

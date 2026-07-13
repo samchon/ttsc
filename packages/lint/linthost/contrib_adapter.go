@@ -10,20 +10,31 @@
 // `package main` init functions and the relative order across files in
 // the same package is alphabetical — so we cannot blindly run the
 // contributor wiring from a file-level `init()` and expect built-in
-// registration to have already completed. Instead, `registerContributors`
-// is invoked explicitly from `main.run` after all built-in `init` calls
-// have settled, which makes the collision check meaningful.
+// registration to have already completed. Instead, `registerContributorsOnce`
+// is invoked explicitly from `run` after all built-in `init` calls have
+// settled, which makes the collision check meaningful.
 package linthost
 
 import (
   "fmt"
   "os"
   "sort"
+  "sync"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
 
   "github.com/samchon/ttsc/packages/lint/rule"
 )
+
+var contributorBootstrap sync.Once
+
+// registerContributorsOnce installs the immutable init-time contributor
+// registries exactly once. Main is a reusable library entry and may be called
+// concurrently, so every caller must wait for the same completed bootstrap
+// before constructing an Engine that reads the global rule maps.
+func registerContributorsOnce() {
+  contributorBootstrap.Do(registerContributors)
+}
 
 // registerContributors wraps every contributor rule registered through
 // the public `rule` package into the engine's internal `Rule` interface
@@ -68,6 +79,7 @@ func registerContributors() {
     }
     Register(adapter)
   }
+  registerProjectContributors()
 }
 
 // contributorMetadata is the immutable host-side view of a public contributor
@@ -169,12 +181,13 @@ func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil {
     return
   }
-  pubCtx := rule.NewContext(
+  pubCtx := rule.NewContextWithProjectResults(
     ctx.File,
     ctx.Checker,
     rule.Severity(ctx.Severity),
     ctx.Options,
     contextReporter{ctx: ctx},
+    ctx.projectResults,
   )
   a.inner.Check(pubCtx, node)
 }

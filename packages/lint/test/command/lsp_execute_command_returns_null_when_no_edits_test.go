@@ -37,7 +37,7 @@ func TestLSPExecuteCommandReturnsNullWhenNoEdits(t *testing.T) {
     })
   })
 
-  if code != 0 || !isBenignContributorCollisionWarning(stderr) {
+  if code != 0 || stderr != "" {
     t.Fatalf("lsp-execute-command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
   if strings.TrimSpace(stdout) != "null" {

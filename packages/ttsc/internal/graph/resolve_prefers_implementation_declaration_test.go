@@ -1,11 +1,11 @@
 package graph
 
 import (
-	"path/filepath"
-	"strings"
-	"testing"
+  "path/filepath"
+  "strings"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestResolvePrefersImplementationDeclarationSpan verifies overloaded callables
@@ -19,9 +19,9 @@ import (
 //  2. Resolve the function symbol.
 //  3. Assert the selected target span includes the implementation body.
 func TestResolvePrefersImplementationDeclarationSpan(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
-	writeFile(t, filepath.Join(root, "src", "main.ts"), `export function api(value: string): string
+  root := t.TempDir()
+  writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
+  writeFile(t, filepath.Join(root, "src", "main.ts"), `export function api(value: string): string
 export function api(value: string): string {
   return value.toUpperCase()
 }
@@ -29,22 +29,22 @@ export function api(value: string): string {
 api("x")
 `)
 
-	prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(diags) != 0 {
-		t.Fatalf("unexpected diagnostics: %v", diags)
-	}
-	defer func() { _ = prog.Close() }()
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected diagnostics: %v", diags)
+  }
+  defer func() { _ = prog.Close() }()
 
-	file := sourceFile(t, prog, "main.ts")
-	target := Resolve(prog.Checker, identifier(t, file, "api"))
-	if target == nil {
-		t.Fatal("Resolve returned nil for api")
-	}
-	source := file.Text()[target.Pos:target.End]
-	if !strings.Contains(source, "toUpperCase") {
-		t.Fatalf("expected Resolve to report the implementation span, got:\n%s", source)
-	}
+  file := sourceFile(t, prog, "main.ts")
+  target := Resolve(prog.Checker, identifier(t, file, "api"))
+  if target == nil {
+    t.Fatal("Resolve returned nil for api")
+  }
+  source := file.Text()[target.Pos:target.End]
+  if !strings.Contains(source, "toUpperCase") {
+    t.Fatalf("expected Resolve to report the implementation span, got:\n%s", source)
+  }
 }

@@ -11,6 +11,7 @@ import {
   loadProjectPlugins,
 } from "../../plugin/internal/loadProjectPlugins";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
+import type { ITtscProjectIdentity } from "../../structures/internal/ITtscProjectIdentity";
 import { resolveTtscserverBinary } from "./resolveTtscserverBinary";
 
 /**
@@ -107,9 +108,11 @@ function resolveTtscserverEnv(argv: readonly string[]): NodeJS.ProcessEnv {
   if (lspPlugins.length > 0) {
     env.TTSC_LSP_PLUGINS_JSON = JSON.stringify({
       plugins: serializeNativePlugins(context.nativePlugins),
+      projectContext: context.projectContext,
       lspPlugins: lspPlugins.map((plugin) => ({
         binary: plugin.binary,
         name: plugin.name,
+        projectContextArgs: plugin.capabilities?.projectContextArgs === true,
         stage: plugin.stage,
       })),
     });
@@ -119,10 +122,16 @@ function resolveTtscserverEnv(argv: readonly string[]): NodeJS.ProcessEnv {
 
 function resolveLspExecutionContext(argv: readonly string[]): {
   nativePlugins: readonly ITtscLoadedNativePlugin[];
+  projectContext?: ITtscProjectIdentity;
   tsgoBinary: string;
 } {
   const cwd = path.resolve(optionValue(argv, "--cwd") ?? process.cwd());
   const tsconfig = optionValue(argv, "--tsconfig");
+  const pluginConfigOrigin =
+    process.env.TTSC_PLUGIN_CONFIG_DIR === undefined ||
+    process.env.TTSC_PLUGIN_CONFIG_DIR === ""
+      ? undefined
+      : path.resolve(cwd, process.env.TTSC_PLUGIN_CONFIG_DIR);
   let project: ReturnType<typeof readProjectConfig>;
   try {
     project = readProjectConfig({ cwd, tsconfig });
@@ -149,12 +158,17 @@ function resolveLspExecutionContext(argv: readonly string[]): {
     ? loadProjectPlugins({
         binary: resolveBinary() ?? "",
         cwd,
+        pluginConfigDir: pluginConfigOrigin,
         projectRoot: project.root,
         tsconfig: project.path,
       })
     : { nativePlugins: [] };
   return {
     nativePlugins: loaded.nativePlugins,
+    projectContext: {
+      ...project.identity,
+      ...(pluginConfigOrigin === undefined ? {} : { pluginConfigOrigin }),
+    },
     tsgoBinary: tsgo.binary,
   };
 }

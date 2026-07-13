@@ -7,7 +7,7 @@ import "testing"
 //
 // All-literal concatenation is `no-useless-concat` territory — upstream
 // prefer-template only fires when a non-literal operand is mixed in, so
-// this chain must produce zero findings rather than an `` `ab` ``
+// this chain must produce zero findings rather than an “ `ab` “
 // rewrite. Pins the `hasOther` half of the detection gate against the
 // flattening changes in the fixer.
 //

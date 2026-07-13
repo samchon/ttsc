@@ -38,6 +38,15 @@ export interface ITtscPluginCapabilities {
   lsp?: boolean;
 
   /**
+   * Whether the sidecar accepts ttsc's `--project-context-json` identity
+   * protocol. The payload keeps lexical selection paths, physical Program
+   * paths, and explicit overrides as separate fields.
+   *
+   * @default false
+   */
+  projectContextArgs?: boolean;
+
+  /**
    * Whether the sidecar accepts `--singleThreaded` and `--checkers` on its
    * command line. The lint sidecar parses both flags via `parseSubcommandFlags`
    * and threads them into `loadProgram` (parse phase) and `engine.SetSerial`
