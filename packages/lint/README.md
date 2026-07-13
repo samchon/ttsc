@@ -253,7 +253,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-extend-native`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-extend-native.ts): reject assignments to a built-in prototype such as `Array.prototype.foo = bar`.
 - [`no-extra-bind`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-extra-bind.ts): rejects unnecessary `.bind()` calls.
 - [`no-extra-boolean-cast`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-extra-boolean-cast.ts): rejects redundant boolean casts.
-- [`no-fallthrough`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-fallthrough.ts): rejects unmarked `switch` fallthrough.
+- [`no-fallthrough`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-fallthrough.ts): rejects `switch` cases whose end is reachable and that lack an intentional `// falls through` comment before the next label.
 - [`no-func-assign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-func-assign.ts): rejects reassignment of function declarations.
 - [`no-implicit-coercion`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-implicit-coercion.ts): reject common implicit-coercion idioms (`!!x`, `+x`, `"" + x`) in favor of the explicit `Boolean(x)` / `Number(x)` / `String(x)` conversions.
 - [`no-import-assign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-import-assign.ts): rejects writes to imported bindings (including `ns.x = ...` for namespace imports).
