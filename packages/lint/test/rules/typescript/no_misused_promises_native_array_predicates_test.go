@@ -50,13 +50,13 @@ interface PromiseAwareReadonlyArray<T> extends ReadonlyArray<T> {
     thisArg?: any,
   ): S[];
   filter(
-    predicate: (value: T, index: number, array: readonly T[]) => unknown,
-    thisArg?: any,
-  ): T[];
-  filter(
     predicate: (value: T, index: number, array: readonly T[]) => Promise<boolean>,
     thisArg?: any,
   ): Promise<readonly T[]>;
+  filter(
+    predicate: (value: T, index: number, array: readonly T[]) => unknown,
+    thisArg?: any,
+  ): T[];
 }
 declare const promiseAwareReadonly: PromiseAwareReadonlyArray<number>;
 promiseAwareReadonly.filter(async value => value > 0);
