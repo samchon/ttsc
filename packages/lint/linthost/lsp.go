@@ -669,9 +669,10 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
   if lspProjectTargetHasSegment(opts, "node_modules") {
     return nil, 0
   }
+  physicalCwd := realProjectPath(opts.cwd)
   target = realProjectPath(target)
-  if _, ok := projectRelativePath(opts.cwd, target); !ok {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", target, opts.cwd)
+  if _, ok := projectRelativePath(physicalCwd, target); !ok {
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", target, physicalCwd)
     return nil, 2
   }
   original, err := os.ReadFile(target)
@@ -679,14 +680,14 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
     fmt.Fprintf(os.Stderr, "@ttsc/lint: read %s: %v\n", target, err)
     return nil, 2
   }
-  tempRoot, tempTarget, tempTsconfig, cleanup, err := prepareLSPCommandWorkspace(opts.cwd, opts.tsconfig, target)
+  tempRoot, tempTarget, tempTsconfig, cleanup, err := prepareLSPCommandWorkspace(physicalCwd, opts.tsconfig, target)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
   defer cleanup()
 
-  pluginsJSON := remapLSPPluginsJSONForTempWorkspace(opts.pluginsJSON, opts.cwd, tempRoot)
+  pluginsJSON := remapLSPPluginsJSONForTempWorkspace(opts.pluginsJSON, physicalCwd, tempRoot)
   rules, err := loadRules(pluginsJSON, tempRoot, tempTsconfig)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
@@ -767,9 +768,10 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
   }
   // Guard rails mirror lspWorkspaceEditForCommand: skip targets outside the
   // project root or inside node_modules.
+  physicalCwd := realProjectPath(opts.cwd)
   physicalTarget := realProjectPath(target)
-  if _, ok := projectRelativePath(opts.cwd, physicalTarget); !ok {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", target, opts.cwd)
+  if _, ok := projectRelativePath(physicalCwd, physicalTarget); !ok {
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", physicalTarget, physicalCwd)
     return nil, 2
   }
   if lspProjectTargetHasSegment(opts, "node_modules") {

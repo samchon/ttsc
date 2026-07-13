@@ -211,7 +211,7 @@ func realProjectPath(target string) string {
     if evaluated, err := filepath.EvalSymlinks(resolved); err == nil {
       resolved = filepath.Clean(evaluated)
     }
-    next, ok := resolveProjectLinkAncestor(resolved)
+    next, ok := resolveProjectPathAncestor(resolved)
     if !ok {
       return filepath.Clean(resolved)
     }
@@ -220,22 +220,36 @@ func realProjectPath(target string) string {
   return original
 }
 
-// resolveProjectLinkAncestor resolves the nearest symlink-like ancestor and
-// reattaches the remaining path. filepath.EvalSymlinks handles ordinary links,
-// but some Windows directory junctions are readable through os.Readlink while
-// EvalSymlinks either leaves the junction unchanged or fails on its children.
-// Walking ancestors keeps physical project identity and LSP containment checks
-// correct for both existing files and not-yet-created paths below such links.
-func resolveProjectLinkAncestor(target string) (string, bool) {
-  probe := filepath.Clean(target)
+// resolveProjectPathAncestor resolves the nearest existing or symlink-like
+// ancestor and reattaches the remaining path. Besides ordinary links, this
+// lets Windows expand an 8.3 short-name ancestor even when the target itself
+// has not been created yet. Some directory junctions are readable through
+// os.Readlink while EvalSymlinks either leaves them unchanged or fails on their
+// children, so both resolution paths are retained.
+func resolveProjectPathAncestor(target string) (string, bool) {
+  original := filepath.Clean(target)
+  probe := original
   suffix := make([]string, 0)
   for {
+    if evaluated, err := filepath.EvalSymlinks(probe); err == nil {
+      candidate := filepath.Clean(evaluated)
+      for i := len(suffix) - 1; i >= 0; i-- {
+        candidate = filepath.Join(candidate, suffix[i])
+      }
+      candidate = filepath.Clean(candidate)
+      if candidate != original {
+        return candidate, true
+      }
+    }
     if _, err := os.Readlink(probe); err == nil {
       destination := resolveDirLink(probe)
       for i := len(suffix) - 1; i >= 0; i-- {
         destination = filepath.Join(destination, suffix[i])
       }
-      return filepath.Clean(destination), true
+      destination = filepath.Clean(destination)
+      if destination != original {
+        return destination, true
+      }
     }
     parent := filepath.Dir(probe)
     if parent == probe {
