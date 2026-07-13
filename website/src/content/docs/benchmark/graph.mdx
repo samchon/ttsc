@@ -8,6 +8,16 @@ This benchmark measures what an agent spends to answer a real question, with and
 
 Bar labels such as `486k tokens` are token usage. Graph or comparator rows also show the token reduction versus the no-MCP baseline for that case.
 
+## What the baseline is told
+
+Every fixture is a famous open-source repository, so a model has read it before. Asked to tour one with nothing but the code, it answers from memory: it describes the upstream project as it stands today, cites little, opens less, and finishes cheap. Half the time the project has moved on and the recital is wrong. That is not a baseline any tool has to beat.
+
+So the baseline arm — and only the baseline arm — carries one extra sentence: answer from this checkout's own code, not from what you may already know about this project. It sends the model to the files, which is what a developer without the tool would actually do.
+
+No tool arm carries it. An arm whose facts come out of the compiler that just read these files is already answering from this checkout, and telling it every claim must trace to a symbol that exists here is not grounding but an order to go verify what the type checker already resolved. Measured on Sonnet: the same tour that took one graph call and zero file reads without the sentence took seven reads and eight greps with it.
+
+A run the harness could not carry to an answer is not a sample. An unparseable tool call ends the turn with tokens spent and no tools run, and counted as a measurement it reads as the cheapest cell in the table — a saving the tool never earned. Those runs are retried, and dropped if they fail again.
+
 ## Common Prompt
 
 The common lane uses my real repository-onboarding prompt. It is the one I use when I enter a new codebase.
