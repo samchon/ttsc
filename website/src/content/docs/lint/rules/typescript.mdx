@@ -33,7 +33,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/no-empty-object-type`](#rule-typescript-no-empty-object-type): Reject `{}` as a type annotation.
 - [`typescript/no-explicit-any`](#rule-typescript-no-explicit-any): Reject `any` type annotations.
 - [`typescript/no-extra-non-null-assertion`](#rule-typescript-no-extra-non-null-assertion): Reject `x!!`, chained non-null assertions.
-- [`typescript/no-floating-promises`](#rule-typescript-no-floating-promises): Reject Promise-typed expressions whose result is discarded, most often a bare `getPromise();` expression statement.
+- [`typescript/no-floating-promises`](#rule-typescript-no-floating-promises): Reject discarded built-in Promises, invalid rejection-handler chains, and Promise-bearing arrays.
 - [`typescript/no-for-in-array`](#rule-typescript-no-for-in-array): Reject `for (const k in arr)` where `arr` is statically typed as an array or tuple.
 - [`typescript/no-import-type-side-effects`](#rule-typescript-no-import-type-side-effects): Hoist inline `type` modifiers on individual imports into a single top-level `import type {}`.
 - [`typescript/no-inferrable-types`](#rule-typescript-no-inferrable-types): Reject explicit type annotations that TypeScript can already infer from the initializer.
@@ -639,11 +639,13 @@ function f(x: number | null) {
 
 ### `typescript/no-floating-promises`
 
-Reject Promise-typed expressions whose result is discarded, most often a bare `getPromise();` expression statement.
+Reject discarded built-in Promises, invalid rejection-handler chains, and Promise-bearing arrays.
 
-Type-aware via the Checker. A floating promise loses its rejection channel and runs out of order with surrounding code.
+Type-aware via the Checker. A floating promise loses its rejection channel and runs out of order with surrounding code. A `.catch` or second `.then` argument handles rejection only when it is callable; `.finally` preserves the receiver chain's handled state.
 
-Acceptable sinks are `await`, `.catch(...)`, `.then(_, onRejected)`, `.finally(...)`, assignment, the `void` operator, and `return`.
+The scalar defaults ignore structural thenables, async IIFEs remain checked, and `void` is an explicit escape hatch. `checkThenables`, `ignoreIIFE`, `ignoreVoid`, `allowForKnownSafeCalls`, and `allowForKnownSafePromises` expose the upstream option boundary through typed rule tuples.
+
+Acceptable sinks are `await`, a callable rejection handler, assignment, the configured `void` escape, and `return`.
 
 Example:
 
