@@ -45,8 +45,8 @@
     <text x="172.379" y="168.925" style="fill:#f59e0b;font-size:11px;font-weight:700">486k (-87%)</text>
     <rect x="124" y="174.125" width="464.639" height="9" style="fill:#a3e635"/>
     <text x="593.639" y="182.425" style="fill:#fb7185;font-size:11px">5.2M (+38%)</text>
-    <rect x="124" y="187.625" width="501.937" height="9" style="fill:#f472b6"/>
-    <text x="630.937" y="195.925" style="fill:#fb7185;font-size:11px">5.6M (+49%)</text>
+    <rect x="124" y="187.625" width="369.614" height="9" style="fill:#f472b6"/>
+    <text x="498.614" y="195.925" style="fill:#fb7185;font-size:11px">4.1M (+10%)</text>
    </g>
    <g>
     <path d="M 18 294.500 L 1016 294.500" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -59,8 +59,8 @@
     <text x="165.964" y="258.175" style="fill:#f59e0b;font-size:11px;font-weight:700">414k (-89%)</text>
     <rect x="124" y="263.375" width="183.178" height="9" style="fill:#a3e635"/>
     <text x="312.178" y="271.675" style="fill:#a3e635;font-size:11px">2.1M (-44%)</text>
-    <rect x="124" y="276.875" width="232.431" height="9" style="fill:#f472b6"/>
-    <text x="361.431" y="285.175" style="fill:#f472b6;font-size:11px">2.6M (-29%)</text>
+    <rect x="124" y="276.875" width="233.621" height="9" style="fill:#f472b6"/>
+    <text x="362.621" y="285.175" style="fill:#f472b6;font-size:11px">2.6M (-29%)</text>
    </g>
    <g>
     <path d="M 18 383.750 L 1016 383.750" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -73,8 +73,8 @@
     <text x="171.733" y="347.425" style="fill:#f59e0b;font-size:11px">479k (-78%)</text>
     <rect x="124" y="352.625" width="147.185" height="9" style="fill:#a3e635"/>
     <text x="276.185" y="360.925" style="fill:#a3e635;font-size:11px">1.7M (-24%)</text>
-    <rect x="124" y="366.125" width="298.928" height="9" style="fill:#f472b6"/>
-    <text x="427.928" y="374.425" style="fill:#fb7185;font-size:11px">3.4M (+54%)</text>
+    <rect x="124" y="366.125" width="120.356" height="9" style="fill:#f472b6"/>
+    <text x="249.356" y="374.425" style="fill:#f472b6;font-size:11px">1.3M (-38%)</text>
    </g>
    <g>
     <path d="M 18 473.000 L 1016 473.000" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -87,8 +87,8 @@
     <text x="160.171" y="436.675" style="fill:#f59e0b;font-size:11px;font-weight:700">349k (-85%)</text>
     <rect x="124" y="441.875" width="157.218" height="9" style="fill:#a3e635"/>
     <text x="286.218" y="450.175" style="fill:#a3e635;font-size:11px">1.8M (-24%)</text>
-    <rect x="124" y="455.375" width="182.685" height="9" style="fill:#f472b6"/>
-    <text x="311.685" y="463.675" style="fill:#f472b6;font-size:11px">2.0M (-12%)</text>
+    <rect x="124" y="455.375" width="121.093" height="9" style="fill:#f472b6"/>
+    <text x="250.093" y="463.675" style="fill:#f472b6;font-size:11px">1.4M (-42%)</text>
    </g>
    <g>
     <path d="M 18 562.250 L 1016 562.250" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -101,8 +101,8 @@
     <text x="185.392" y="525.925" style="fill:#f59e0b;font-size:11px">632k (-70%)</text>
     <rect x="124" y="531.125" width="170.827" height="9" style="fill:#a3e635"/>
     <text x="299.827" y="539.425" style="fill:#a3e635;font-size:11px">1.9M (-9%)</text>
-    <rect x="124" y="544.625" width="196.901" height="9" style="fill:#f472b6"/>
-    <text x="325.901" y="552.925" style="fill:#fb7185;font-size:11px">2.2M (+5%)</text>
+    <rect x="124" y="544.625" width="174.769" height="9" style="fill:#f472b6"/>
+    <text x="303.769" y="552.925" style="fill:#f472b6;font-size:11px">2.0M (-7%)</text>
    </g>
    <g>
     <path d="M 18 651.500 L 1016 651.500" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -115,8 +115,8 @@
     <text x="157.036" y="615.175" style="fill:#f59e0b;font-size:11px">314k (-80%)</text>
     <rect x="124" y="620.375" width="70.650" height="9" style="fill:#a3e635"/>
     <text x="199.650" y="628.675" style="fill:#a3e635;font-size:11px">792k (-50%)</text>
-    <rect x="124" y="633.875" width="135.871" height="9" style="fill:#f472b6"/>
-    <text x="264.871" y="642.175" style="fill:#f472b6;font-size:11px">1.5M (-4%)</text>
+    <rect x="124" y="633.875" width="66.133" height="9" style="fill:#f472b6"/>
+    <text x="195.133" y="642.175" style="fill:#f472b6;font-size:11px">741k (-53%)</text>
    </g>
    <g>
     <path d="M 18 740.750 L 1016 740.750" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -129,8 +129,8 @@
     <text x="156.191" y="704.425" style="fill:#f59e0b;font-size:11px;font-weight:700">305k (-85%)</text>
     <rect x="124" y="709.625" width="171.763" height="9" style="fill:#a3e635"/>
     <text x="300.763" y="717.925" style="fill:#a3e635;font-size:11px">1.9M (-3%)</text>
-    <rect x="124" y="723.125" width="214.932" height="9" style="fill:#f472b6"/>
-    <text x="343.932" y="731.425" style="fill:#fb7185;font-size:11px">2.4M (+21%)</text>
+    <rect x="124" y="723.125" width="69.279" height="9" style="fill:#f472b6"/>
+    <text x="198.279" y="731.425" style="fill:#f472b6;font-size:11px">777k (-61%)</text>
    </g>
    <g>
     <path d="M 18 830.000 L 1016 830.000" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -143,8 +143,8 @@
     <text x="273.483" y="793.675" style="fill:#f59e0b;font-size:11px">1.6M (-46%)</text>
     <rect x="124" y="798.875" width="190.782" height="9" style="fill:#a3e635"/>
     <text x="319.782" y="807.175" style="fill:#a3e635;font-size:11px">2.1M (-29%)</text>
-    <rect x="124" y="812.375" width="272.141" height="9" style="fill:#f472b6"/>
-    <text x="401.141" y="820.675" style="fill:#fb7185;font-size:11px">3.1M (+2%)</text>
+    <rect x="124" y="812.375" width="173.135" height="9" style="fill:#f472b6"/>
+    <text x="302.135" y="820.675" style="fill:#f472b6;font-size:11px">1.9M (-35%)</text>
    </g>
    <text x="570.000" y="28" style="fill:#f8fafc;font-size:20px;font-weight:600;text-anchor:middle">Dedicated prompt median token use, Claude Code claude-sonnet-5</text>
    <text x="570.000" y="874" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">Tokens</text>

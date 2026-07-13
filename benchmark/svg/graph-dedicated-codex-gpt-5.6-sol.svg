@@ -45,8 +45,8 @@
     <text x="532.113" y="168.925" style="fill:#f59e0b;font-size:11px">2.3M (-26%)</text>
     <rect x="124" y="174.125" width="383.639" height="9" style="fill:#a3e635"/>
     <text x="512.639" y="182.425" style="fill:#a3e635;font-size:11px">2.2M (-29%)</text>
-    <rect x="124" y="187.625" width="668.507" height="9" style="fill:#f472b6"/>
-    <text x="797.507" y="195.925" style="fill:#fb7185;font-size:11px">3.7M (+23%)</text>
+    <rect x="124" y="187.625" width="382.261" height="9" style="fill:#f472b6"/>
+    <text x="511.261" y="195.925" style="fill:#f472b6;font-size:11px">2.1M (-29%)</text>
    </g>
    <g>
     <path d="M 18 294.500 L 1016 294.500" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -59,8 +59,8 @@
     <text x="186.324" y="258.175" style="fill:#f59e0b;font-size:11px">321k (-76%)</text>
     <rect x="124" y="263.375" width="131.024" height="9" style="fill:#a3e635"/>
     <text x="260.024" y="271.675" style="fill:#a3e635;font-size:11px">734k (-45%)</text>
-    <rect x="124" y="276.875" width="85.509" height="9" style="fill:#f472b6"/>
-    <text x="214.509" y="285.175" style="fill:#f472b6;font-size:11px">479k (-64%)</text>
+    <rect x="124" y="276.875" width="129.863" height="9" style="fill:#f472b6"/>
+    <text x="258.863" y="285.175" style="fill:#f472b6;font-size:11px">728k (-45%)</text>
    </g>
    <g>
     <path d="M 18 383.750 L 1016 383.750" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -73,8 +73,8 @@
     <text x="161.313" y="347.425" style="fill:#f59e0b;font-size:11px">181k (-50%)</text>
     <rect x="124" y="352.625" width="95.977" height="9" style="fill:#a3e635"/>
     <text x="224.977" y="360.925" style="fill:#fb7185;font-size:11px">538k (+49%)</text>
-    <rect x="124" y="366.125" width="85.418" height="9" style="fill:#f472b6"/>
-    <text x="214.418" y="374.425" style="fill:#fb7185;font-size:11px">479k (+32%)</text>
+    <rect x="124" y="366.125" width="53.414" height="9" style="fill:#f472b6"/>
+    <text x="182.414" y="374.425" style="fill:#f472b6;font-size:11px">299k (-17%)</text>
    </g>
    <g>
     <path d="M 18 473.000 L 1016 473.000" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -87,8 +87,8 @@
     <text x="197.096" y="436.675" style="fill:#f59e0b;font-size:11px">382k (-56%)</text>
     <rect x="124" y="441.875" width="251.854" height="9" style="fill:#a3e635"/>
     <text x="380.854" y="450.175" style="fill:#fb7185;font-size:11px">1.4M (+64%)</text>
-    <rect x="124" y="455.375" width="471.710" height="9" style="fill:#f472b6"/>
-    <text x="600.710" y="463.675" style="fill:#fb7185;font-size:11px">2.6M (+207%)</text>
+    <rect x="124" y="455.375" width="138.094" height="9" style="fill:#f472b6"/>
+    <text x="267.094" y="463.675" style="fill:#f472b6;font-size:11px">774k (-10%)</text>
    </g>
    <g>
     <path d="M 18 562.250 L 1016 562.250" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -101,8 +101,8 @@
     <text x="230.091" y="525.925" style="fill:#fb7185;font-size:11px">567k (+5%)</text>
     <rect x="124" y="531.125" width="116.902" height="9" style="fill:#a3e635"/>
     <text x="245.902" y="539.425" style="fill:#fb7185;font-size:11px">655k (+22%)</text>
-    <rect x="124" y="544.625" width="248.512" height="9" style="fill:#f472b6"/>
-    <text x="377.512" y="552.925" style="fill:#fb7185;font-size:11px">1.4M (+158%)</text>
+    <rect x="124" y="544.625" width="125.399" height="9" style="fill:#f472b6"/>
+    <text x="254.399" y="552.925" style="fill:#fb7185;font-size:11px">703k (+30%)</text>
    </g>
    <g>
     <path d="M 18 651.500 L 1016 651.500" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -115,8 +115,8 @@
     <text x="184.766" y="615.175" style="fill:#f59e0b;font-size:11px">313k (-54%)</text>
     <rect x="124" y="620.375" width="109.443" height="9" style="fill:#a3e635"/>
     <text x="238.443" y="628.675" style="fill:#a3e635;font-size:11px">613k (-11%)</text>
-    <rect x="124" y="633.875" width="129.429" height="9" style="fill:#f472b6"/>
-    <text x="258.429" y="642.175" style="fill:#fb7185;font-size:11px">726k (+6%)</text>
+    <rect x="124" y="633.875" width="267.723" height="9" style="fill:#f472b6"/>
+    <text x="396.723" y="642.175" style="fill:#fb7185;font-size:11px">1.5M (+119%)</text>
    </g>
    <g>
     <path d="M 18 740.750 L 1016 740.750" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -129,8 +129,8 @@
     <text x="226.577" y="704.425" style="fill:#f59e0b;font-size:11px">547k (-41%)</text>
     <rect x="124" y="709.625" width="202.011" height="9" style="fill:#a3e635"/>
     <text x="331.011" y="717.925" style="fill:#fb7185;font-size:11px">1.1M (+22%)</text>
-    <rect x="124" y="723.125" width="107.094" height="9" style="fill:#f472b6"/>
-    <text x="236.094" y="731.425" style="fill:#f472b6;font-size:11px">600k (-35%)</text>
+    <rect x="124" y="723.125" width="249.821" height="9" style="fill:#f472b6"/>
+    <text x="378.821" y="731.425" style="fill:#fb7185;font-size:11px">1.4M (+51%)</text>
    </g>
    <g>
     <path d="M 18 830.000 L 1016 830.000" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
@@ -143,8 +143,8 @@
     <text x="183.000" y="793.675" style="fill:#f59e0b;font-size:11px">303k (-56%)</text>
     <rect x="124" y="798.875" width="173.824" height="9" style="fill:#a3e635"/>
     <text x="302.824" y="807.175" style="fill:#fb7185;font-size:11px">974k (+40%)</text>
-    <rect x="124" y="812.375" width="99.483" height="9" style="fill:#f472b6"/>
-    <text x="228.483" y="820.675" style="fill:#f472b6;font-size:11px">558k (-20%)</text>
+    <rect x="124" y="812.375" width="211.715" height="9" style="fill:#f472b6"/>
+    <text x="340.715" y="820.675" style="fill:#fb7185;font-size:11px">1.2M (+71%)</text>
    </g>
    <text x="570.000" y="28" style="fill:#f8fafc;font-size:20px;font-weight:600;text-anchor:middle">Dedicated prompt median token use, Codex GPT-5.6 sol</text>
    <text x="570.000" y="874" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">Tokens</text>
