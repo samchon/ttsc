@@ -502,64 +502,6 @@ func isIrregularWhitespace(r rune) bool {
   return false
 }
 
-// noFallthrough: `switch` cases that fall through to the next label
-// without an explicit `break` / `return` / `throw` / `continue`.
-type noFallthrough struct{}
-
-func (noFallthrough) Name() string           { return "no-fallthrough" }
-func (noFallthrough) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSwitchStatement} }
-func (noFallthrough) Check(ctx *Context, node *shimast.Node) {
-  sw := node.AsSwitchStatement()
-  if sw == nil || sw.CaseBlock == nil {
-    return
-  }
-  block := sw.CaseBlock.AsCaseBlock()
-  if block == nil || block.Clauses == nil {
-    return
-  }
-  clauses := block.Clauses.Nodes
-  for i := 0; i+1 < len(clauses); i++ {
-    clause := clauses[i].AsCaseOrDefaultClause()
-    if clause == nil || clause.Statements == nil {
-      continue
-    }
-    stmts := clause.Statements.Nodes
-    if len(stmts) == 0 {
-      continue // empty case is intentional, never a fallthrough.
-    }
-    if !isTerminating(stmts[len(stmts)-1]) {
-      ctx.Report(clauses[i+1], "Expected a 'break' statement before this case.")
-    }
-  }
-}
-
-// isTerminating reports whether stmt is a statement that unconditionally
-// transfers control out of the current block: break, continue, return,
-// throw, or a block whose last statement is terminating.
-func isTerminating(stmt *shimast.Node) bool {
-  if stmt == nil {
-    return false
-  }
-  switch stmt.Kind {
-  case shimast.KindBreakStatement,
-    shimast.KindContinueStatement,
-    shimast.KindReturnStatement,
-    shimast.KindThrowStatement:
-    return true
-  case shimast.KindBlock:
-    block := stmt.AsBlock()
-    if block == nil || block.Statements == nil {
-      return false
-    }
-    nodes := block.Statements.Nodes
-    if len(nodes) == 0 {
-      return false
-    }
-    return isTerminating(nodes[len(nodes)-1])
-  }
-  return false
-}
-
 // noInnerDeclarations: `function foo() { if (x) { function bar() {} } }`
 // — inner function declarations are hoisted differently in strict mode
 // vs sloppy and are confusing.
@@ -663,7 +605,6 @@ func init() {
   Register(noPromiseExecutorReturn{})
   Register(noControlRegex{})
   Register(noIrregularWhitespace{})
-  Register(noFallthrough{})
   Register(noInnerDeclarations{})
   Register(noObjCalls{})
 }

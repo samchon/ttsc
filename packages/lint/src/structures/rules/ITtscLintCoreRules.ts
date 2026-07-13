@@ -5,6 +5,7 @@ import type {
 import type {
   ITtscLintCoreNoDuplicateImportsRuleOptions,
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
+  ITtscLintNoFallthroughRuleOptions,
 } from "./ITtscLintCoreRuleOptions";
 
 /**
@@ -586,12 +587,19 @@ export interface ITtscLintCoreRules {
   "no-extra-boolean-cast"?: TtscLintRuleSetting;
 
   /**
-   * Reject `switch` case fall-through unless preceded by an explicit `// falls
-   * through` comment.
+   * Reject `switch` cases that can reach the next `case` / `default` label
+   * without an intentional-fallthrough comment (`// falls through` by
+   * default).
+   *
+   * Reachability follows statement completion: a case whose every path ends in
+   * `break`, `continue`, `return`, or `throw` (composed through blocks,
+   * `if/else`, loops, labeled statements, and `try/catch/finally`) does not
+   * fall through, while a `return` inside a nested function never terminates
+   * the case. Options: {@link ITtscLintNoFallthroughRuleOptions}.
    *
    * @reference https://eslint.org/docs/latest/rules/no-fallthrough
    */
-  "no-fallthrough"?: TtscLintRuleSetting;
+  "no-fallthrough"?: TtscLintRuleOptionsSetting<ITtscLintNoFallthroughRuleOptions>;
 
   /**
    * Reject reassignment of function declarations (`function f() {}; f = 0;`).

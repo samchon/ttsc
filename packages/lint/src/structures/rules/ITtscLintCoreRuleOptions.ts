@@ -79,3 +79,41 @@ export interface ITtscLintCoreNoUnusedExpressionsRuleOptions {
    */
   ignoreDirectives?: boolean;
 }
+
+/**
+ * `no-fallthrough` rule options.
+ *
+ * Mirrors the ESLint core rule's options schema.
+ *
+ * @reference https://eslint.org/docs/latest/rules/no-fallthrough
+ */
+export interface ITtscLintNoFallthroughRuleOptions {
+  /**
+   * Regular expression string that an intentional-fallthrough comment must
+   * match. Setting it replaces the default marker pattern
+   * (`/falls?\s?through/i`) entirely, so the standard `// falls through`
+   * spellings stop being accepted unless the custom pattern matches them.
+   *
+   * @default "falls?\\s?through" (case-insensitive)
+   */
+  commentPattern?: string;
+
+  /**
+   * Allow a case with no statements to be separated from the next label by
+   * blank lines. By default an empty case followed by a blank line is treated
+   * as an accidental fallthrough; adjacent labels (`case 0: case 1:`) are
+   * always allowed.
+   *
+   * @default false
+   */
+  allowEmptyCase?: boolean;
+
+  /**
+   * Report fallthrough marker comments on cases that cannot actually fall
+   * through (for example a `// falls through` after a `break`), since the
+   * comment documents behavior the code no longer has.
+   *
+   * @default false
+  */
+  reportUnusedFallthroughComment?: boolean;
+}
