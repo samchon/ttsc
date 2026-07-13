@@ -130,10 +130,9 @@ func isStringLikeType(t *shimchecker.Type) bool {
 
 // isSafeToStringType reports whether `t` can be implicitly coerced to a
 // string without producing the default `Object.prototype.toString`
-// output. The shape mirrors `isAwaitable` in rules_promise.go: union
-// constituents must all be safe; intersection constituents are safe
-// when any one of them is. The `any` / `unknown` / `never` cases pass
-// because flagging them would explode at generic-helper boundaries —
+// output. Union constituents must all be safe; intersection constituents
+// are safe when any one of them is. The `any` / `unknown` / `never` cases
+// pass because flagging them would explode at generic-helper boundaries —
 // the same conservatism `no-floating-promises` adopts.
 func isSafeToStringType(checker *shimchecker.Checker, t *shimchecker.Type) bool {
   if checker == nil || t == nil {

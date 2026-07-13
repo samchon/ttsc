@@ -11,10 +11,9 @@ import (
 //
 // None of these initializers declares `[Symbol.asyncDispose]` directly: the
 // member arrives through a type alias, an `extends` clause, an intersection
-// constituent, and a generic constraint's apparent type. A lookup keyed on
-// declared type names (`AsyncDisposable`) or on direct members only would
-// wrongly report all four; the checker-backed `GetPropertyOfType` path must
-// keep them clean.
+// constituent, and a generic constraint. A lookup keyed on declared type
+// names (`AsyncDisposable`) or on direct members only would wrongly report all
+// four; the checker-backed `GetPropertyOfType` path must keep them clean.
 //
 //  1. Seed a project with `await using` over aliased, inherited,
 //     intersected, and constraint-typed async disposables.

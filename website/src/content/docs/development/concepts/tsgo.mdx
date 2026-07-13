@@ -465,21 +465,52 @@ If you need an unexported method that is not yet shimmed, prefer the direct-meth
 
 ### Worked example: await-thenable
 
+The shared awaitability classifier is:
+
 ```go
-// Detect: await expr where expr's type has no callable `.then` member.
-func isThenable(checker *shimchecker.Checker, expr *shimast.Node) bool {
-    t := checker.GetTypeAtLocation(expr)
-    thenSym := checker.GetPropertyOfType(t, "then")
-    if thenSym == nil {
-        return false
+func classifyPromiseAwaitability(
+    checker *shimchecker.Checker,
+    location *shimast.Node,
+    t *shimchecker.Type,
+) promiseAwaitability {
+    if checker == nil || t == nil {
+        return promiseAwaitabilityMay
     }
-    thenT := checker.GetTypeOfSymbol(thenSym)
-    sigs := checker.GetSignaturesOfType(thenT, shimchecker.SignatureKindCall)
-    return len(sigs) > 0
+    if t.Flags()&shimchecker.TypeFlagsTypeParameter != 0 {
+        constraint := checker.GetBaseConstraintOfType(t)
+        if constraint == nil || constraint == t {
+            return promiseAwaitabilityMay
+        }
+        return classifyPromiseAwaitability(checker, location, constraint)
+    }
+    if t.Flags()&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown) != 0 {
+        return promiseAwaitabilityMay
+    }
+    if t.Flags()&shimchecker.TypeFlagsUnion != 0 {
+        parts := t.Types()
+        if len(parts) == 0 {
+            return promiseAwaitabilityMay
+        }
+        classification := classifyPromiseAwaitability(checker, location, parts[0])
+        for _, part := range parts[1:] {
+            if classifyPromiseAwaitability(checker, location, part) != classification {
+                return promiseAwaitabilityMay
+            }
+        }
+        return classification
+    }
+    if isThenableAtLocation(checker, location, t) {
+        return promiseAwaitabilityAlways
+    }
+    return promiseAwaitabilityNever
 }
 ```
 
-Source: [`packages/lint/linthost/rules_promise.go::awaitableType`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go). The example exercises three Checker categories (`GetTypeAtLocation`, `GetPropertyOfType`, `GetSignaturesOfType`) on real production code.
+Source: [`packages/lint/linthost/rules_promise.go::classifyPromiseAwaitability`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/rules_promise.go).
+
+Mixed union classifications, unconstrained type parameters, `any`, and `unknown` remain uncertain, while uniform union classifications retain their certainty.
+
+Promise aggregators reuse this classifier with different union quantifiers, while async iteration and disposal resolve callable well-known-symbol properties through the same Checker.
 
 ## Mutating the AST
 

@@ -13,9 +13,9 @@ import (
 // distinguishes always/never/maybe-thenable operands, so
 // `Promise<number> | number` must not report. Extending the rule to
 // `for await...of` and `await using` restructured `Check` into a kind
-// switch; this pins that the union-constituent walk in `isAwaitable` still
-// runs for KindAwaitExpression and the new arms did not turn the rule into a
-// blanket ban on mixed unions.
+// switch; this pins that the tri-state awaitability classifier still accepts
+// a union with a Promise constituent and the new arms did not turn the rule
+// into a blanket ban on mixed unions.
 //
 //  1. Seed a project awaiting a `Promise<number> | number` value.
 //  2. Run `check` with typescript/await-thenable enabled as error.

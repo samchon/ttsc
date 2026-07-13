@@ -58,11 +58,11 @@ func (requireArraySortCompare) Check(ctx *Context, node *shimast.Node) {
 }
 
 // requireArraySortCompareIsArrayLike reports whether t is provably an
-// array or a tuple. The check follows the same recurse-into-constituents
-// pattern as `isAwaitable` so a union like `number[] | string[]` still
-// resolves to "array" via every constituent. `any` / `unknown` / `never`
-// are intentionally NOT treated as array-like — they propagate from
-// generic helpers and would explode the false-positive volume.
+// array or a tuple. It recurses into constituents so a union like
+// `number[] | string[]` still resolves to "array" via every constituent.
+// `any` / `unknown` / `never` are intentionally NOT treated as array-like —
+// they propagate from generic helpers and would explode the false-positive
+// volume.
 func requireArraySortCompareIsArrayLike(checker *shimchecker.Checker, t *shimchecker.Type) bool {
   if checker == nil || t == nil {
     return false

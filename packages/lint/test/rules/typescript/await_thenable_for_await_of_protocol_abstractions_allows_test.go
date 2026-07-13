@@ -11,10 +11,9 @@ import (
 //
 // The `[Symbol.asyncIterator]` member is not declared on any of these types
 // directly: it arrives through a type alias, an `extends` clause, an
-// intersection constituent, and a generic constraint's apparent type. A
-// lookup that matched declared type names or direct members only would
-// wrongly report all four; the checker-backed `GetPropertyOfType` path must
-// keep them clean.
+// intersection constituent, and a generic constraint. A lookup that matched
+// declared type names or direct members only would wrongly report all four;
+// the checker-backed `GetPropertyOfType` path must keep them clean.
 //
 //  1. Seed a project iterating aliased, inherited, intersected, and
 //     constraint-typed async iterables with `for await`.

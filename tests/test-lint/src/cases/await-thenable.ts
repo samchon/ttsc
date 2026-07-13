@@ -46,6 +46,11 @@ async function asyncDisposal(): Promise<void> {
   JSON.stringify(resource);
 }
 
+// expect: typescript/await-thenable error
+void Promise.all([42]);
+
+void Promise.all([Promise.resolve(42)]);
+
 JSON.stringify([
   bad,
   good,
