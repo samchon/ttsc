@@ -475,6 +475,11 @@ function reachedFiles(graph: TtscGraphMemory, id: string): number {
           target === undefined ||
           target.external ||
           target.ignored ||
+          // A closure is not part of the surface a tour ranks, and counting one
+          // moves the score of the declaration that owns it: TypeORM's seeds
+          // reordered, its insert flow fell out of the tour, and the model went
+          // to the files.
+          target.closure === true ||
           isNoisePath(target.file)
         )
           continue;
@@ -490,8 +495,19 @@ function reachedFiles(graph: TtscGraphMemory, id: string): number {
   return files.size;
 }
 
+/**
+ * A tour ranks and walks the project's surface.
+ *
+ * A closure is a name the runtime calls, and a model can ask for it — by trace,
+ * by details, by lookup — but it is not what a tour is asked about, and letting
+ * it into the ranking reshuffled which flows a tour told: TypeORM's tour traded
+ * its insert flow for a walk through the query builder's fluent API, and the
+ * model went back to the files. The specific-flow lane wants the closures; the
+ * orientation lane wants the surface. Both ask, and both are answered.
+ */
 function isTourSeed(graph: TtscGraphMemory, node: ITtscGraphNode): boolean {
   return (
+    node.closure !== true &&
     TOUR_SEED_KINDS.has(node.kind) &&
     (node.kind !== "property" || executionDegree(graph, node.id).out > 0) &&
     !node.external &&
@@ -540,7 +556,11 @@ function isTourTraceNode(
   graph: TtscGraphMemory,
   node: ITtscGraphTrace.INode,
 ): boolean {
-  return !isNoisePath(node.file) && !isSharedUtility(graph, node.id);
+  return (
+    graph.node(node.id)?.closure !== true &&
+    !isNoisePath(node.file) &&
+    !isSharedUtility(graph, node.id)
+  );
 }
 
 function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
@@ -549,6 +569,8 @@ function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
   return (
     from !== undefined &&
     to !== undefined &&
+    from.closure !== true &&
+    to.closure !== true &&
     !STRUCTURAL_KINDS.has(hop.kind) &&
     !isNoisePath(from.file) &&
     !isNoisePath(to.file) &&
@@ -583,6 +605,19 @@ function flowStepOf(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): string {
   return `${lhs} -[${hop.kind}${at}]-> ${rhs}`;
 }
 
+/**
+ * True when the node at the other end of an edge is a closure.
+ *
+ * A tour scores the surface, and a closure is not on it — but a closure's edges
+ * still land on surface nodes, and counted there they move the score of the
+ * very declarations a tour ranks. Keeping closures out of the seed list was not
+ * enough: TypeORM's tour still traded its insert flow for a walk through the
+ * query builder's fluent API. The surface is scored by the surface.
+ */
+function touchesClosure(graph: TtscGraphMemory, id: string): boolean {
+  return graph.node(id)?.closure === true;
+}
+
 function realDegree(
   graph: TtscGraphMemory,
   id: string,
@@ -593,9 +628,11 @@ function realDegree(
   let incoming = 0;
   let outgoing = 0;
   for (const edge of graph.outgoing(id))
-    if (!STRUCTURAL_KINDS.has(edge.kind)) outgoing++;
+    if (!STRUCTURAL_KINDS.has(edge.kind) && !touchesClosure(graph, edge.to))
+      outgoing++;
   for (const edge of graph.incoming(id))
-    if (!STRUCTURAL_KINDS.has(edge.kind)) incoming++;
+    if (!STRUCTURAL_KINDS.has(edge.kind) && !touchesClosure(graph, edge.from))
+      incoming++;
   return { in: incoming, out: outgoing };
 }
 
@@ -609,9 +646,11 @@ function executionDegree(
   let incoming = 0;
   let outgoing = 0;
   for (const edge of graph.outgoing(id))
-    if (EXECUTION_KINDS.has(edge.kind)) outgoing++;
+    if (EXECUTION_KINDS.has(edge.kind) && !touchesClosure(graph, edge.to))
+      outgoing++;
   for (const edge of graph.incoming(id))
-    if (EXECUTION_KINDS.has(edge.kind)) incoming++;
+    if (EXECUTION_KINDS.has(edge.kind) && !touchesClosure(graph, edge.from))
+      incoming++;
   return { in: incoming, out: outgoing };
 }
 

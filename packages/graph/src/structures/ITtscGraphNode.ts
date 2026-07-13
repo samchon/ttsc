@@ -48,6 +48,18 @@ export interface ITtscGraphNode {
   /** True when the symbol is part of its module's export surface. */
   exported?: boolean;
 
+  /**
+   * True for a declaration made inside another declaration's body: Vue's
+   * `baseCreateRenderer.patch`, a callback bound to a const inside a method.
+   *
+   * It is a name the runtime calls, so a trace, a lookup, or a details request
+   * answers with it. An orientation tour does not rank or walk it: a tour is
+   * asked what the project's surface is and how it runs, and a body's inner
+   * functions are neither — letting them into the seed ranking reshuffled which
+   * flows a tour told, and the model went back to the files.
+   */
+  closure?: boolean;
+
   /** Declaration modifiers, when the declaration pass recorded any. */
   modifiers?: TtscGraphNodeModifier[];
 

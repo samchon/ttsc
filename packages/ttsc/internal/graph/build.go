@@ -141,6 +141,9 @@ func collectClosures(g *Graph, path string, declaration *shimast.Node) {
 			kind = NodeVariable
 		}
 		putDeclaredNode(g, path, name, kind, closure)
+		if node, ok := g.Nodes[nodeID(path, name, kind)]; ok {
+			node.Closure = true
+		}
 		collectClosures(g, path, closure)
 	}
 }
