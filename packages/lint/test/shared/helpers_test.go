@@ -556,6 +556,7 @@ func runRuleFindingsSnapshot(
 
   if !engine.NeedsTypeChecker() {
     root := t.TempDir()
+    engine.SetCurrentDirectory(root)
     filePath := filepath.Join(root, "src", "main.ts")
     writeFile(t, filePath, source)
     file := parseTSFile(t, filePath, source)
@@ -563,6 +564,7 @@ func runRuleFindingsSnapshot(
   }
 
   root := seedLintProject(t, source)
+  engine.SetCurrentDirectory(root)
   filePath := filepath.Join(root, "src", "main.ts")
   program, diagnostics, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
     forceNoEmit:      true,

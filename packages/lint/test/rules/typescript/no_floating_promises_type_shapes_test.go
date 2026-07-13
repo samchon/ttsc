@@ -38,6 +38,11 @@ valueTuple;
 [1, 2, 3];
 void Promise.resolve();
 unknownValue as Promise<void>;
+aliasPromise as unknown;
+aliasPromise!;
+unknownValue!;
+aliasPromise satisfies Promise<void>;
+0 satisfies number;
 `, nil)
   if code != 2 || stdout != "" {
     t.Fatalf("type-shape run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
@@ -54,6 +59,8 @@ unknownValue as Promise<void>;
     "main.ts:20:",
     "main.ts:21:",
     "main.ts:25:",
+    "main.ts:27:",
+    "main.ts:29:",
   }
   if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != len(expectedLines) {
     t.Fatalf("expected %d shape findings, got %d:\n%s", len(expectedLines), got, stderr)

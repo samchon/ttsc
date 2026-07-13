@@ -924,13 +924,23 @@ func isFloatingPromiseReceiverType(
   if t == nil {
     return false
   }
-  if typeMatchesSomePromiseSpecifier(ctx, t, options.AllowForKnownSafePromises) {
-    return true
+  apparent := ctx.Checker.GetApparentType(t)
+  if apparent == nil {
+    return false
   }
-  if isNativePromiseInstanceLike(ctx.Checker, t) {
-    return true
+  parts := promiseUnionParts(apparent)
+  if len(parts) == 0 {
+    return false
   }
-  return options.CheckThenables && isCatchableThenableAtLocation(ctx.Checker, location, t)
+  for _, part := range parts {
+    if typeMatchesSomePromiseSpecifier(ctx, part, options.AllowForKnownSafePromises) ||
+      isNativePromiseInstanceLike(ctx.Checker, part) ||
+      (options.CheckThenables && isCatchableThenableAtLocation(ctx.Checker, location, part)) {
+      continue
+    }
+    return false
+  }
+  return true
 }
 
 func isFloatingPromiseType(
@@ -1275,7 +1285,11 @@ func promiseDeclarationPathMatches(currentDirectory, declarationFile, configured
 func promisePathWithin(currentDirectory, declarationFile string) bool {
   root := promiseCanonicalPath(currentDirectory)
   declaration := promiseCanonicalPath(declarationFile)
-  return strings.HasPrefix(declaration, root)
+  relative, err := filepath.Rel(root, declaration)
+  if err != nil || filepath.IsAbs(relative) {
+    return false
+  }
+  return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func promiseCanonicalPath(path string) string {

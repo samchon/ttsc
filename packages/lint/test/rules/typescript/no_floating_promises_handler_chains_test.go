@@ -29,14 +29,17 @@ promise.catch(undefined);
 promise.then(undefined, undefined);
 promise.finally(() => undefined);
 promise.then(...noArguments, () => undefined);
+interface UnrelatedHandler { catch(handler: (reason: unknown) => void): Promise<void>; }
+declare const mixedReceiver: Promise<void> | UnrelatedHandler;
+mixedReceiver.catch(() => undefined);
 `, nil)
   if code != 2 || stdout != "" {
     t.Fatalf("handler run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
-  if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != 4 {
-    t.Fatalf("expected 4 findings, got %d:\n%s", got, stderr)
+  if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != 5 {
+    t.Fatalf("expected 5 findings, got %d:\n%s", got, stderr)
   }
-  for _, line := range []string{"main.ts:11:", "main.ts:12:", "main.ts:13:", "main.ts:14:"} {
+  for _, line := range []string{"main.ts:11:", "main.ts:12:", "main.ts:13:", "main.ts:14:", "main.ts:17:"} {
     if !diagnosticOutputContains(stderr, line) {
       t.Fatalf("missing handler finding at %s\n%s", line, stderr)
     }

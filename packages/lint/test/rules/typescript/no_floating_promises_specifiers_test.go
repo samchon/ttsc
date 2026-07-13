@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "encoding/json"
   "strings"
   "testing"
 )
@@ -79,5 +80,18 @@ localSafe;
   }, nil)
   if code != 2 || stdout != "" || strings.Count(stderr, "[typescript/no-floating-promises]") != 1 || !diagnosticOutputContains(stderr, "main.ts:5:") {
     t.Fatalf("lib specifier run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
+
+  _, _, findings := runRuleFindingsSnapshot(
+    t,
+    "typescript/no-floating-promises",
+    `class DirectSafePromise<T> extends Promise<T> {}
+declare const directSafe: DirectSafePromise<void>;
+directSafe;
+`,
+    json.RawMessage(`{"allowForKnownSafePromises":[{"from":"file","name":"DirectSafePromise","path":"src/main.ts"}]}`),
+  )
+  if len(findings) != 0 {
+    t.Fatalf("direct Engine.Run current-directory mismatch: %+v", findings)
   }
 }

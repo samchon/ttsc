@@ -21,7 +21,6 @@ import (
   "encoding/json"
   "fmt"
   "os"
-  "path/filepath"
   "runtime"
   "sort"
   "sync"
@@ -308,6 +307,7 @@ type Engine struct {
   serial             bool
   projectSettings    map[string]ProjectRuleSetting
   configError        error
+  currentDirectory   string
 }
 
 // SetSerial forces Engine.Run to walk files one at a time. The host calls
@@ -321,6 +321,14 @@ func (e *Engine) SetSerial(serial bool) {
     return
   }
   e.serial = serial
+}
+
+// SetCurrentDirectory supplies the compiler Program's current directory for
+// rule options whose relative paths are project-rooted.
+func (e *Engine) SetCurrentDirectory(currentDirectory string) {
+  if e != nil {
+    e.currentDirectory = currentDirectory
+  }
 }
 
 // runsSerial reports whether Run must walk files one at a time — either
@@ -491,9 +499,9 @@ func (e *Engine) EnabledRules() map[string]Severity { return e.enabled }
 // runs even when the per-file work happens out of order.
 func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) []*Finding {
   cycle := e.evaluateProject(publicrule.ProjectIdentity{}, files, checker)
-  currentDirectory := ""
-  if len(files) != 0 && files[0] != nil {
-    currentDirectory = filepath.Dir(files[0].FileName())
+  currentDirectory := e.currentDirectory
+  if currentDirectory == "" {
+    currentDirectory, _ = os.Getwd()
   }
   fileFindings := e.runFiles(files, checker, cycle.results, currentDirectory)
   return append(cycle.findings, fileFindings...)
