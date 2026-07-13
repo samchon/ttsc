@@ -69,9 +69,8 @@ export {};
     t.Fatalf("checksVoidReturn option mismatch: code=%d stdout=%q lines=%v stderr=%s", code, stdout, lines, stderr)
   }
 
-  scalarSource := `declare const condition: Promise<boolean>;
+  scalarSource := `[1].filter(() => Promise.resolve(true));
 const promisedObject = Promise.resolve({ value: 1 });
-if (condition) {}
 const spread = { ...promisedObject };
 void spread;
 `
@@ -80,8 +79,8 @@ void spread;
     options  map[string]any
     expected []int
   }{
-    {"conditionals", map[string]any{"checksConditionals": false}, []int{4}},
-    {"spreads", map[string]any{"checksSpreads": false}, []int{3}},
+    {"conditionals", map[string]any{"checksConditionals": false}, []int{3}},
+    {"spreads", map[string]any{"checksSpreads": false}, []int{1}},
     {"both", map[string]any{"checksConditionals": false, "checksSpreads": false}, []int{}},
   }
   for _, test := range scalarCases {
