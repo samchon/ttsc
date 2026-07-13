@@ -5,8 +5,8 @@ import type {
 import type {
   ITtscLintCoreNoDuplicateImportsRuleOptions,
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
-  ITtscLintNoFallthroughRuleOptions,
   ITtscLintCorePreferConstRuleOptions,
+  ITtscLintNoFallthroughRuleOptions,
 } from "./ITtscLintCoreRuleOptions";
 
 /**

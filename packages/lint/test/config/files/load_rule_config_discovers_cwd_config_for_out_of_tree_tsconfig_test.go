@@ -16,10 +16,10 @@ import (
 // must land on the project's config via the cwd fallback instead of failing
 // with a missing-config error.
 //
-// 1. Seed a project dir with lint.config.json and a separate wrapper dir with
-//    only a tsconfig.json.
-// 2. Call LoadRuleConfig with cwd=project and tsconfigPath=wrapper.
-// 3. Assert the project's rules are loaded.
+//  1. Seed a project dir with lint.config.json and a separate wrapper dir with
+//     only a tsconfig.json.
+//  2. Call LoadRuleConfig with cwd=project and tsconfigPath=wrapper.
+//  3. Assert the project's rules are loaded.
 func TestLoadRuleConfigDiscoversCwdConfigForOutOfTreeTsconfig(t *testing.T) {
   dir := t.TempDir()
   wrapperDir := t.TempDir()

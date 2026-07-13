@@ -34,8 +34,8 @@ type noMisusedPromisesOptions struct {
   checksSpreads      bool
   arguments          bool
   attributes         bool
-  inheritedMethods  bool
-  properties        bool
+  inheritedMethods   bool
+  properties         bool
   returns            bool
   variables          bool
 }
@@ -154,7 +154,7 @@ func noMisusedPromisesResolveOptions(ctx *Context) noMisusedPromisesOptions {
     checksSpreads:      true,
     arguments:          true,
     attributes:         true,
-    inheritedMethods:  true,
+    inheritedMethods:   true,
     properties:         true,
     returns:            true,
     variables:          true,

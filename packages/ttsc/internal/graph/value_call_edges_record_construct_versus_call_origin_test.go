@@ -1,10 +1,10 @@
 package graph
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestValueCallEdgesRecordConstructVersusCallOrigin verifies that a value-call
@@ -24,9 +24,9 @@ import (
 //  3. Assert the handle->Service.run edge has Origin "call" and the
 //     handle->Service edge has Origin "new".
 func TestValueCallEdgesRecordConstructVersusCallOrigin(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
-	writeFile(t, filepath.Join(root, "src", "main.ts"), `export class Service {
+  root := t.TempDir()
+  writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
+  writeFile(t, filepath.Join(root, "src", "main.ts"), `export class Service {
   run(): void {}
 }
 export class Controller {
@@ -38,38 +38,38 @@ export class Controller {
 }
 `)
 
-	prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(diags) != 0 {
-		t.Fatalf("unexpected diagnostics: %v", diags)
-	}
-	defer func() { _ = prog.Close() }()
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected diagnostics: %v", diags)
+  }
+  defer func() { _ = prog.Close() }()
 
-	graph := Build(prog)
-	path := sourceFile(t, prog, "main.ts").FileName()
+  graph := Build(prog)
+  path := sourceFile(t, prog, "main.ts").FileName()
 
-	handle := nodeID(path, "Controller.handle", NodeMethod)
-	run := nodeID(path, "Service.run", NodeMethod)
-	service := nodeID(path, "Service", NodeClass)
+  handle := nodeID(path, "Controller.handle", NodeMethod)
+  run := nodeID(path, "Service.run", NodeMethod)
+  service := nodeID(path, "Service", NodeClass)
 
-	if got := edgeOrigin(graph, handle, run, EdgeValueCall); got != "call" {
-		t.Fatalf("Controller.handle -> Service.run: want Origin \"call\", got %q; edges: %v", got, graph.Edges)
-	}
-	if got := edgeOrigin(graph, handle, service, EdgeValueCall); got != "new" {
-		t.Fatalf("Controller.handle -> Service (new): want Origin \"new\", got %q; edges: %v", got, graph.Edges)
-	}
+  if got := edgeOrigin(graph, handle, run, EdgeValueCall); got != "call" {
+    t.Fatalf("Controller.handle -> Service.run: want Origin \"call\", got %q; edges: %v", got, graph.Edges)
+  }
+  if got := edgeOrigin(graph, handle, service, EdgeValueCall); got != "new" {
+    t.Fatalf("Controller.handle -> Service (new): want Origin \"new\", got %q; edges: %v", got, graph.Edges)
+  }
 }
 
 // edgeOrigin returns the Origin of the first from->to edge of kind, or the
 // sentinel "<missing>" when no such edge exists, so a test distinguishes a wrong
 // origin from an absent edge.
 func edgeOrigin(graph *Graph, from, to string, kind EdgeKind) string {
-	for _, edge := range graph.Edges {
-		if edge.From == from && edge.To == to && edge.Kind == kind {
-			return edge.Origin
-		}
-	}
-	return "<missing>"
+  for _, edge := range graph.Edges {
+    if edge.From == from && edge.To == to && edge.Kind == kind {
+      return edge.Origin
+    }
+  }
+  return "<missing>"
 }

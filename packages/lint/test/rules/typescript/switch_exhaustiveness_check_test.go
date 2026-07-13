@@ -47,8 +47,8 @@ switch (maybeText) {
     break;
 }
 `, nil, 5, map[string]int{
-    `Cases not matched: "beta"`: 2,
-    `Cases not matched: "only"`: 1,
+    `Cases not matched: "beta"`:        2,
+    `Cases not matched: "only"`:        1,
     "Cases not matched: typeof second": 1,
     "Cases not matched: undefined":     1,
   })

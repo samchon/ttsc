@@ -1,10 +1,10 @@
 package graph
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestDecoratorsCaptureNameAndLiteralArguments verifies that collectDecorators
@@ -27,9 +27,9 @@ import (
 //     "users", one targets the method with name "Get" / literal ":id", and the
 //     undecorated method has no fact.
 func TestDecoratorsCaptureNameAndLiteralArguments(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
-	writeFile(t, filepath.Join(root, "src", "main.ts"), `function Controller(prefix: string): any {
+  root := t.TempDir()
+  writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
+  writeFile(t, filepath.Join(root, "src", "main.ts"), `function Controller(prefix: string): any {
   void prefix;
   return () => {};
 }
@@ -45,54 +45,54 @@ export class UsersController {
 }
 `)
 
-	prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(diags) != 0 {
-		t.Fatalf("unexpected diagnostics: %v", diags)
-	}
-	defer func() { _ = prog.Close() }()
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected diagnostics: %v", diags)
+  }
+  defer func() { _ = prog.Close() }()
 
-	graph := Build(prog)
-	path := sourceFile(t, prog, "main.ts").FileName()
+  graph := Build(prog)
+  path := sourceFile(t, prog, "main.ts").FileName()
 
-	controller := nodeID(path, "UsersController", NodeClass)
-	find := nodeID(path, "UsersController.find", NodeMethod)
-	plain := nodeID(path, "UsersController.plain", NodeMethod)
+  controller := nodeID(path, "UsersController", NodeClass)
+  find := nodeID(path, "UsersController.find", NodeMethod)
+  plain := nodeID(path, "UsersController.plain", NodeMethod)
 
-	classDec := findDecorator(graph, controller, "Controller")
-	if classDec == nil {
-		t.Fatalf("missing @Controller fact on the class; decorators: %v", graph.Decorators)
-	}
-	if len(classDec.Arguments) != 1 || classDec.Arguments[0].Literal != "users" {
-		t.Fatalf("@Controller args: want one literal \"users\", got %v", classDec.Arguments)
-	}
+  classDec := findDecorator(graph, controller, "Controller")
+  if classDec == nil {
+    t.Fatalf("missing @Controller fact on the class; decorators: %v", graph.Decorators)
+  }
+  if len(classDec.Arguments) != 1 || classDec.Arguments[0].Literal != "users" {
+    t.Fatalf("@Controller args: want one literal \"users\", got %v", classDec.Arguments)
+  }
 
-	methodDec := findDecorator(graph, find, "Get")
-	if methodDec == nil {
-		t.Fatalf("missing @Get fact on UsersController.find; decorators: %v", graph.Decorators)
-	}
-	if len(methodDec.Arguments) != 1 || methodDec.Arguments[0].Literal != ":id" {
-		t.Fatalf("@Get args: want one literal \":id\", got %v", methodDec.Arguments)
-	}
+  methodDec := findDecorator(graph, find, "Get")
+  if methodDec == nil {
+    t.Fatalf("missing @Get fact on UsersController.find; decorators: %v", graph.Decorators)
+  }
+  if len(methodDec.Arguments) != 1 || methodDec.Arguments[0].Literal != ":id" {
+    t.Fatalf("@Get args: want one literal \":id\", got %v", methodDec.Arguments)
+  }
 
-	// Negative twin: an undecorated method contributes no decorator fact, so a
-	// consumer sees no decorator on it.
-	for _, d := range graph.Decorators {
-		if d.Target == plain {
-			t.Fatalf("undecorated method UsersController.plain gained a decorator fact: %+v", d)
-		}
-	}
+  // Negative twin: an undecorated method contributes no decorator fact, so a
+  // consumer sees no decorator on it.
+  for _, d := range graph.Decorators {
+    if d.Target == plain {
+      t.Fatalf("undecorated method UsersController.plain gained a decorator fact: %+v", d)
+    }
+  }
 }
 
 // findDecorator returns the first decorator fact targeting target with the given
 // name, or nil.
 func findDecorator(graph *Graph, target, name string) *Decorator {
-	for _, d := range graph.Decorators {
-		if d.Target == target && d.Name == name {
-			return d
-		}
-	}
-	return nil
+  for _, d := range graph.Decorators {
+    if d.Target == target && d.Name == name {
+      return d
+    }
+  }
+  return nil
 }

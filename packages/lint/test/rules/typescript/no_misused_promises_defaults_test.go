@@ -5,10 +5,10 @@ import "testing"
 // TestNoMisusedPromisesDefaults covers every default rule family and its
 // Promise-aware negative controls.
 //
-// 1. Exercise conditions, arguments, predicates, spreads, inheritance,
-//    disposal, variables, object properties, returns, and JSX attributes.
-// 2. Pair them with synchronous and Promise-aware controls.
-// 3. Require only the Promise-producing boundaries to report.
+//  1. Exercise conditions, arguments, predicates, spreads, inheritance,
+//     disposal, variables, object properties, returns, and JSX attributes.
+//  2. Pair them with synchronous and Promise-aware controls.
+//  3. Require only the Promise-producing boundaries to report.
 func TestNoMisusedPromisesDefaults(t *testing.T) {
   assertNoMisusedPromisesCase(t, "main.tsx", `declare function consume(callback: () => void): void;
 declare function consumeAsync(callback: () => Promise<void>): void;

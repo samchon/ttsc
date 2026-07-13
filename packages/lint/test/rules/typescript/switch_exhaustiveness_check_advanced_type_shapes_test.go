@@ -39,9 +39,9 @@ switch (impossible) {}
 `, map[string]any{
     "requireDefaultForNonUnion": true,
   }, 6, map[string]int{
-    `Cases not matched: "alias-b"`:       1,
-    `Cases not matched: "branded-right"`: 1,
-    `Cases not matched: "right"`:         1,
+    `Cases not matched: "alias-b"`:        1,
+    `Cases not matched: "branded-right"`:  1,
+    `Cases not matched: "right"`:          1,
     "Cases not matched: Domain.Mode.Done": 1,
     "Cases not matched: default":          2,
   })

@@ -47,7 +47,10 @@ export interface ITtscLintTypeScriptNoFloatingPromisesRuleOptions {
   allowForKnownSafePromises?: readonly TtscLintTypeOrValueSpecifier[];
   /** Also inspect catchable structural thenables. Defaults to `false`. */
   checkThenables?: boolean;
-  /** Ignore immediately invoked function-expression results. Defaults to `false`. */
+  /**
+   * Ignore immediately invoked function-expression results. Defaults to
+   * `false`.
+   */
   ignoreIIFE?: boolean;
   /** Treat `void` as an explicit discard marker. Defaults to `true`. */
   ignoreVoid?: boolean;
@@ -122,8 +125,8 @@ export interface ITtscLintTypeScriptBanTsCommentRuleOptions {
   "ts-nocheck"?: TtscLintTypeScriptBanTsCommentDirectiveConfig;
 }
 
-/** Positions governed by `checksVoidReturn` in
- * `typescript/no-misused-promises`.
+/**
+ * Positions governed by `checksVoidReturn` in `typescript/no-misused-promises`.
  *
  * Omitted keys default to `true`.
  */
@@ -149,17 +152,23 @@ export interface ITtscLintTypeScriptNoMisusedPromisesChecksVoidReturnOptions {
 
 /** `typescript/no-misused-promises` rule options. */
 export interface ITtscLintTypeScriptNoMisusedPromisesRuleOptions {
-  /** Check thenables used in boolean condition and predicate positions.
+  /**
+   * Check thenables used in boolean condition and predicate positions.
+   *
    * @default true
    */
   checksConditionals?: boolean;
 
-  /** Check thenables spread into object literals.
+  /**
+   * Check thenables spread into object literals.
+   *
    * @default true
    */
   checksSpreads?: boolean;
 
-  /** Check Promise-returning functions where a void return is expected.
+  /**
+   * Check Promise-returning functions where a void return is expected.
+   *
    * @default true
    */
   checksVoidReturn?:

@@ -14,11 +14,11 @@ import "github.com/samchon/ttsc/packages/ttsc/driver"
 // column, message) so a future diagnostics integration starts from a proven
 // producer.
 func FileDiagnostics(prog *driver.Program, path string) []driver.Diagnostic {
-	out := make([]driver.Diagnostic, 0)
-	for _, diagnostic := range prog.Diagnostics() {
-		if diagnostic.File == path {
-			out = append(out, diagnostic)
-		}
-	}
-	return out
+  out := make([]driver.Diagnostic, 0)
+  for _, diagnostic := range prog.Diagnostics() {
+    if diagnostic.File == path {
+      out = append(out, diagnostic)
+    }
+  }
+  return out
 }

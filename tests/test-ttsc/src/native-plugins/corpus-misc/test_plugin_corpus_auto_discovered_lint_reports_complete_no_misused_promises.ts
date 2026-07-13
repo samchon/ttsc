@@ -14,8 +14,8 @@ import {
  * Verifies package auto-discovery runs complete no-misused-promises defaults
  * without a `compilerOptions.plugins` entry.
  *
- * The issue reproduction crosses callback, predicate, spread, inherited
- * method, and synchronous-disposal contexts while retaining synchronous and
+ * The issue reproduction crosses callback, predicate, spread, inherited method,
+ * and synchronous-disposal contexts while retaining synchronous and
  * Promise-aware controls. Exact lines protect against both omissions and the
  * former method-name false positive.
  *

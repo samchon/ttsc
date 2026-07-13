@@ -781,22 +781,11 @@ interface I {
 
 ### `typescript/no-misused-promises`
 
-Reject thenables used as boolean values or supplied to contracts that cannot
-observe their asynchronous result.
+Reject thenables used as boolean values or supplied to contracts that cannot observe their asynchronous result.
 
-The default checks cover boolean conditions and array predicates, Promise
-object spreads, synchronous `using` resources whose `Symbol.dispose` returns a
-thenable, and Promise-returning functions supplied where a `void` return is
-expected. Void-return positions include call/construct arguments, JSX
-attributes, inherited methods, object properties, returned callbacks, and
-variables. The rule uses resolved signatures and contextual types, so ordinary
-Promise-returning functions are covered and Promise-aware callback APIs remain
-valid regardless of their method name.
+The default checks cover boolean conditions and array predicates, Promise object spreads, synchronous `using` resources whose `Symbol.dispose` returns a thenable, and Promise-returning functions supplied where a `void` return is expected. Void-return positions include call/construct arguments, JSX attributes, inherited methods, object properties, returned callbacks, and variables. The rule uses resolved signatures and contextual types, so ordinary Promise-returning functions are covered and Promise-aware callback APIs remain valid regardless of their method name.
 
-All three scalar options default to `true`. `checksVoidReturn` also accepts an
-object whose independently configurable keys are `arguments`, `attributes`,
-`inheritedMethods`, `properties`, `returns`, and `variables`; omitted keys stay
-enabled.
+All three scalar options default to `true`. `checksVoidReturn` also accepts an object whose independently configurable keys are `arguments`, `attributes`, `inheritedMethods`, `properties`, `returns`, and `variables`; omitted keys stay enabled.
 
 ```json
 {

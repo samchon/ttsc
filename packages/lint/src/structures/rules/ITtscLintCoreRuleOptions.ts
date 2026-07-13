@@ -114,7 +114,7 @@ export interface ITtscLintNoFallthroughRuleOptions {
    * comment documents behavior the code no longer has.
    *
    * @default false
-  */
+   */
   reportUnusedFallthroughComment?: boolean;
 }
 
@@ -134,6 +134,6 @@ export interface ITtscLintCorePreferConstRuleOptions {
    * that require the declaration to stay at its original location.
    *
    * @default false
-  */
+   */
   ignoreReadBeforeAssign?: boolean;
 }

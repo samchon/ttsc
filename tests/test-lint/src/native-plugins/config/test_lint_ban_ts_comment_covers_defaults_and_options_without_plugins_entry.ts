@@ -24,14 +24,14 @@ const PACKAGE_JSON = JSON.stringify({
  *
  * The ordinary rule corpus uses `TestLint`, whose synthesized tsconfig names
  * `@ttsc/lint` explicitly. These two projects overwrite that tsconfig and add
- * only a direct package dependency, closing the consumer path required by
- * issue #415 while exercising both recommended defaults and every option arm.
+ * only a direct package dependency, closing the consumer path required by issue
+ * #415 while exercising both recommended defaults and every option arm.
  *
  * 1. Assert the scalar rule reports only default-forbidden `@ts-nocheck` while
  *    allowing a described `@ts-expect-error`.
- * 2. Assert the object form reports configured `@ts-check`, a description
- *    shorter than the configured minimum, and a format mismatch while allowing
- *    the matching and disabled directive arms.
+ * 2. Assert the object form reports configured `@ts-check`, a description shorter
+ *    than the configured minimum, and a format mismatch while allowing the
+ *    matching and disabled directive arms.
  */
 export const test_lint_ban_ts_comment_covers_defaults_and_options_without_plugins_entry =
   () => {

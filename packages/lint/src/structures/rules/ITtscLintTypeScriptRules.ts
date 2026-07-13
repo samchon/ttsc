@@ -817,8 +817,8 @@ export interface ITtscLintTypeScriptRules {
    * `<"literal">`) and matching literal type annotations on variable and
    * class-property declarations. Literals are compared by raw source spelling.
    * Assertions are autofixable. Annotation findings expose an editor quick fix
-   * that removes the annotation and appends `as const`; `ttsc fix` never applies
-   * that suggestion automatically.
+   * that removes the annotation and appends `as const`; `ttsc fix` never
+   * applies that suggestion automatically.
    *
    * @reference https://typescript-eslint.io/rules/prefer-as-const
    */

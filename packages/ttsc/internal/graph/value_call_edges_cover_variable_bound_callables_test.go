@@ -1,10 +1,10 @@
 package graph
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestValueCallEdgesCoverVariableBoundCallables verifies that a call made inside a
@@ -17,30 +17,30 @@ import (
 //  2. Build the graph.
 //  3. Assert a handler -> helper value-call edge exists.
 func TestValueCallEdgesCoverVariableBoundCallables(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
-	writeFile(t, filepath.Join(root, "src", "main.ts"), `export function helper(): void {}
+  root := t.TempDir()
+  writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
+  writeFile(t, filepath.Join(root, "src", "main.ts"), `export function helper(): void {}
 export const handler = (): void => {
   helper();
 };
 `)
 
-	prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(diags) != 0 {
-		t.Fatalf("unexpected diagnostics: %v", diags)
-	}
-	defer func() { _ = prog.Close() }()
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected diagnostics: %v", diags)
+  }
+  defer func() { _ = prog.Close() }()
 
-	graph := Build(prog)
-	path := sourceFile(t, prog, "main.ts").FileName()
+  graph := Build(prog)
+  path := sourceFile(t, prog, "main.ts").FileName()
 
-	handler := nodeID(path, "handler", NodeVariable)
-	helper := nodeID(path, "helper", NodeFunction)
+  handler := nodeID(path, "handler", NodeVariable)
+  helper := nodeID(path, "helper", NodeFunction)
 
-	if !hasEdge(graph, handler, helper, EdgeValueCall) {
-		t.Fatalf("missing value-call edge handler -> helper (variable-bound callable body); edges: %v", graph.Edges)
-	}
+  if !hasEdge(graph, handler, helper, EdgeValueCall) {
+    t.Fatalf("missing value-call edge handler -> helper (variable-bound callable body); edges: %v", graph.Edges)
+  }
 }

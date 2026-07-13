@@ -19,9 +19,9 @@ interface BunRuntimeGlobal {
  * Webpack, …). This entry is the runtime counterpart: loading it registers the
  * same transform on Bun's module loader, so `bun run` / `bun test` apply ttsc
  * plugins (e.g. typia's `typia/lib/transform`) as files are imported, with no
- * bundling step. Wire it up once via a `bunfig.toml` preload entry —
- * `preload = ["@ttsc/unplugin/bun-register"]` — or imperatively with
- * `import "@ttsc/unplugin/bun-register"`. Options are read from the nearest
+ * bundling step. Wire it up once via a `bunfig.toml` preload entry — `preload =
+ * ["@ttsc/unplugin/bun-register"]` — or imperatively with `import
+ * "@ttsc/unplugin/bun-register"`. Options are read from the nearest
  * `tsconfig.json`, identical to the bundler adapters.
  *
  * @throws When called explicitly off the Bun runtime (`globalThis.Bun.plugin`

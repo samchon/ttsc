@@ -1,10 +1,10 @@
 package graph
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
 // TestDumpIsAFunctionOfTheSource pins the graph to the code it describes: two
@@ -23,9 +23,9 @@ import (
 // than once and a per-class collision would surface here rather than in a
 // three-million-line repository.
 func TestDumpIsAFunctionOfTheSource(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
-	writeFile(t, filepath.Join(root, "src", "main.ts"), `export class Counter {
+  root := t.TempDir()
+  writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)
+  writeFile(t, filepath.Join(root, "src", "main.ts"), `export class Counter {
   #count = 0;
   #step: number;
   constructor(step: number) {
@@ -45,27 +45,27 @@ export class Other {
 }
 `)
 
-	first := dumpBytes(t, root)
-	second := dumpBytes(t, root)
-	if string(first) != string(second) {
-		t.Fatalf("two dumps of one unedited snapshot differ: the graph is not a function of the source")
-	}
+  first := dumpBytes(t, root)
+  second := dumpBytes(t, root)
+  if string(first) != string(second) {
+    t.Fatalf("two dumps of one unedited snapshot differ: the graph is not a function of the source")
+  }
 }
 
 func dumpBytes(t *testing.T, root string) []byte {
-	t.Helper()
-	prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(diags) != 0 {
-		t.Fatalf("unexpected diagnostics: %v", diags)
-	}
-	defer func() { _ = prog.Close() }()
+  t.Helper()
+  prog, diags, err := driver.LoadProgram(root, "tsconfig.json", driver.LoadProgramOptions{})
+  if err != nil {
+    t.Fatal(err)
+  }
+  if len(diags) != 0 {
+    t.Fatalf("unexpected diagnostics: %v", diags)
+  }
+  defer func() { _ = prog.Close() }()
 
-	data, err := MarshalDump(Build(prog), root, "tsconfig.json", nil, SourceTexts(prog), false)
-	if err != nil {
-		t.Fatalf("MarshalDump: %v", err)
-	}
-	return data
+  data, err := MarshalDump(Build(prog), root, "tsconfig.json", nil, SourceTexts(prog), false)
+  if err != nil {
+    t.Fatalf("MarshalDump: %v", err)
+  }
+  return data
 }

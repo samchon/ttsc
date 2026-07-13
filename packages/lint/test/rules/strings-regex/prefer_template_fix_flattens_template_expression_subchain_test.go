@@ -13,10 +13,10 @@ import "testing"
 // value-preserving. Only counting `KindStringLiteral` would demote the
 // sub-chain to one `${a + `x${y}`}` slot.
 //
-// 1. Snapshot a chain whose only left-side string-like operand is a
-//    substitution template.
-// 2. Apply `prefer-template` fix.
-// 3. Assert the sub-chain flattens into per-operand slots.
+//  1. Snapshot a chain whose only left-side string-like operand is a
+//     substitution template.
+//  2. Apply `prefer-template` fix.
+//  3. Assert the sub-chain flattens into per-operand slots.
 func TestFixPreferTemplateFlattensTemplateExpressionSubchain(t *testing.T) {
   assertFixSnapshot(
     t,

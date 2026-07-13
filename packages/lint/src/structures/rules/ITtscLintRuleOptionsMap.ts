@@ -9,8 +9,8 @@ import type {
 import type {
   ITtscLintCoreNoDuplicateImportsRuleOptions,
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
-  ITtscLintNoFallthroughRuleOptions,
   ITtscLintCorePreferConstRuleOptions,
+  ITtscLintNoFallthroughRuleOptions,
 } from "./ITtscLintCoreRuleOptions";
 import type { ITtscLintCypressUnsafeToChainCommandRuleOptions } from "./ITtscLintCypressRuleOptions";
 import type {

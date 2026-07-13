@@ -34,12 +34,12 @@ declare const second: unique symbol;
 declare const symbolIncomplete: typeof first | typeof second;
 switch (symbolIncomplete) { case first: break; }
 `, nil, 7, map[string]int{
-    `Cases not matched: "only"`:   1,
-    "Cases not matched: 42":       1,
-    "Cases not matched: Mode.Done": 1,
-    "Cases not matched: true":     1,
-    "Cases not matched: 2n":       1,
-    "Cases not matched: undefined": 1,
+    `Cases not matched: "only"`:        1,
+    "Cases not matched: 42":            1,
+    "Cases not matched: Mode.Done":     1,
+    "Cases not matched: true":          1,
+    "Cases not matched: 2n":            1,
+    "Cases not matched: undefined":     1,
     "Cases not matched: typeof second": 1,
   })
 
