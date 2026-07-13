@@ -1,179 +1,222 @@
 // Grapheme-cluster string length, mirroring typescript-eslint's
-// `getStringLength` util (which counts `Intl.Segmenter` grapheme segments,
-// not UTF-16 code units). `typescript/ban-ts-comment` measures directive
-// descriptions with it so that a single emoji — even a multi-code-point
-// ZWJ sequence like a family emoji — counts as one character, exactly as
-// the upstream rule and its regression tests define.
+// `getStringLength` utility. Directive descriptions are measured as Unicode
+// extended grapheme clusters, the same units exposed by `Intl.Segmenter` with
+// `granularity: "grapheme"`, rather than bytes, UTF-16 code units, or runes.
 //
-// Like display_width.go, this hand-rolls the Unicode logic instead of
-// pulling in a segmentation dependency. It implements the UAX #29
-// extended-grapheme-cluster rules that occur in real comment text:
-// CR LF (GB3), Hangul jamo composition (GB6–GB8), Extend and SpacingMark
-// continuation (GB9/GB9a), emoji ZWJ sequences (GB9/GB11), and regional
-// indicator pairing (GB12/GB13). Prepend (GB9b) is omitted — the class
-// covers a handful of rare Indic/Arabic signs that do not meaningfully
-// change a description-length gate.
+// The implementation follows the ordered extended-cluster rules in UAX #29.
+// Its generated property tables are pinned to Unicode 16.0.0, the Unicode
+// version used by the Node 24 runtime in this repository's CI. Regenerate the
+// tables and official conformance corpus together when that runtime advances.
 package linthost
 
-import "unicode"
+//go:generate go run ../tools/graphemegen -root ..
 
-// stringLength returns the number of grapheme clusters in s. ASCII-only
-// strings short-circuit to the byte length, matching the upstream helper.
+// stringLength returns the number of Unicode extended grapheme clusters in s.
 func stringLength(s string) int {
-  if isASCIIOnly(s) {
-    return len(s)
-  }
-  return graphemeCount(s)
+	return graphemeCount(s)
 }
 
-// isASCIIOnly reports whether every byte of s is < 0x80. For such strings
-// bytes, runes, and grapheme clusters all coincide.
-func isASCIIOnly(s string) bool {
-  for i := 0; i < len(s); i++ {
-    if s[i] >= 0x80 {
-      return false
-    }
-  }
-  return true
-}
-
-// graphemeCount walks s cluster by cluster and counts boundaries.
+// graphemeCount applies UAX #29's ordered boundary rules in one pass. The
+// segmenter carries only the left contexts required by GB9c, GB11, and
+// GB12/GB13, keeping long combining and regional-indicator runs linear.
 func graphemeCount(s string) int {
-  runes := []rune(s)
-  count := 0
-  for i := 0; i < len(runes); {
-    count++
-    i = nextGraphemeBoundary(runes, i)
-  }
-  return count
+	count := 0
+	var segmenter graphemeSegmenter
+	for _, current := range s {
+		properties := graphemeProperties(current)
+		if segmenter.hasBoundaryBefore(properties) {
+			count++
+		}
+		segmenter.consume(properties)
+	}
+	return count
 }
 
-// nextGraphemeBoundary returns the index just past the grapheme cluster
-// starting at runes[start].
-func nextGraphemeBoundary(runes []rune, start int) int {
-  first := runes[start]
-  i := start + 1
-
-  // GB3: CR LF is a single cluster. GB4: other controls stand alone.
-  if first == '\r' && i < len(runes) && runes[i] == '\n' {
-    return i + 1
-  }
-  if isGraphemeControl(first) {
-    return i
-  }
-
-  // GB12/GB13: regional indicators join in pairs (flag emoji), so a run
-  // of four RIs is two flags, not one cluster.
-  if isRegionalIndicator(first) && i < len(runes) && isRegionalIndicator(runes[i]) {
-    i++
-  }
-
-  for i < len(runes) {
-    cur := runes[i]
-    prev := runes[i-1]
-    switch {
-    case isGraphemeControl(cur):
-      return i
-    case cur == graphemeZWJ || isGraphemeExtend(cur):
-      // GB9/GB9a: Extend, ZWJ, and SpacingMark continue the cluster.
-      i++
-    case prev == graphemeZWJ && isExtendedPictographic(cur) && isExtendedPictographic(first):
-      // GB11: an emoji ZWJ sequence (pictograph ZWJ pictograph ...)
-      // stays one cluster; ZWJ between non-pictographs still breaks.
-      i++
-    case isHangulJoin(prev, cur):
-      // GB6–GB8: conjoining jamo compose into one syllable cluster.
-      i++
-    default:
-      return i
-    }
-  }
-  return i
+type graphemeRuneProperties struct {
+	breakClass          graphemeBreakClass
+	indicConjunctClass indicConjunctBreakClass
+	extendedPictographic bool
 }
 
-const graphemeZWJ = 0x200D
-
-// isGraphemeControl reports GB4/GB5 Control-class runes: line/paragraph
-// separators and the C0/C1 control blocks.
-func isGraphemeControl(r rune) bool {
-  return r == '\r' || r == '\n' || r == 0x2028 || r == 0x2029 ||
-    r < 0x20 || (r >= 0x7F && r <= 0x9F)
-}
-
-// isGraphemeExtend reports runes that extend the current cluster:
-// combining marks (Mn/Me), spacing marks (Mc, GB9a), the zero-width
-// non-joiner, and the emoji skin-tone modifiers (Emoji_Modifier is
-// Extend in UAX #29 even though its general category is Sk).
-func isGraphemeExtend(r rune) bool {
-  if unicode.Is(unicode.Mn, r) || unicode.Is(unicode.Me, r) || unicode.Is(unicode.Mc, r) {
-    return true
-  }
-  return r == 0x200C || (r >= 0x1F3FB && r <= 0x1F3FF)
-}
-
-// isRegionalIndicator reports the 26 regional-indicator symbols that pair
-// into flag emoji.
-func isRegionalIndicator(r rune) bool {
-  return r >= 0x1F1E6 && r <= 0x1F1FF
-}
-
-// isExtendedPictographic approximates the Extended_Pictographic property
-// over the blocks real emoji ZWJ sequences draw from: the SMP emoji and
-// symbol planes plus the BMP symbol blocks promoted to emoji.
-func isExtendedPictographic(r rune) bool {
-  switch {
-  case r >= 0x1F000 && r <= 0x1FBFF, // Mahjong .. Symbols for Legacy Computing
-    r >= 0x2600 && r <= 0x27BF,            // Miscellaneous Symbols, Dingbats
-    r >= 0x2B00 && r <= 0x2BFF,            // Miscellaneous Symbols and Arrows
-    r >= 0x2190 && r <= 0x21FF,            // Arrows (⬆ style ZWJ sequences)
-    r == 0x00A9, r == 0x00AE, r == 0x2122, // ©, ®, ™
-    r >= 0x2300 && r <= 0x23FF: // Miscellaneous Technical (⌚, ⏰, …)
-    return true
-  }
-  return false
-}
-
-// isHangulJoin reports the GB6–GB8 conjoining-jamo joins:
-// L × (L|V|LV|LVT), (LV|V) × (V|T), and (LVT|T) × T.
-func isHangulJoin(prev, cur rune) bool {
-  switch hangulClass(prev) {
-  case hangulL:
-    c := hangulClass(cur)
-    return c == hangulL || c == hangulV || c == hangulLV || c == hangulLVT
-  case hangulLV, hangulV:
-    c := hangulClass(cur)
-    return c == hangulV || c == hangulT
-  case hangulLVT, hangulT:
-    return hangulClass(cur) == hangulT
-  }
-  return false
-}
-
-type hangulSyllableClass int
+type indicConjunctState uint8
 
 const (
-  hangulNone hangulSyllableClass = iota
-  hangulL
-  hangulV
-  hangulT
-  hangulLV
-  hangulLVT
+	indicConjunctStateNone indicConjunctState = iota
+	indicConjunctStateConsonant
+	indicConjunctStateLinked
 )
 
-// hangulClass returns the UAX #29 Hangul syllable class of r.
-func hangulClass(r rune) hangulSyllableClass {
-  switch {
-  case (r >= 0x1100 && r <= 0x115F) || (r >= 0xA960 && r <= 0xA97C):
-    return hangulL
-  case (r >= 0x1160 && r <= 0x11A7) || (r >= 0xD7B0 && r <= 0xD7C6):
-    return hangulV
-  case (r >= 0x11A8 && r <= 0x11FF) || (r >= 0xD7CB && r <= 0xD7FB):
-    return hangulT
-  case r >= 0xAC00 && r <= 0xD7A3:
-    if (r-0xAC00)%28 == 0 {
-      return hangulLV
-    }
-    return hangulLVT
-  }
-  return hangulNone
+type emojiSequenceState uint8
+
+const (
+	emojiSequenceStateNone emojiSequenceState = iota
+	emojiSequenceStatePictographic
+	emojiSequenceStateZWJ
+)
+
+type graphemeSegmenter struct {
+	hasPrevious       bool
+	previous          graphemeRuneProperties
+	regionalIndicators int
+	indicConjunct     indicConjunctState
+	emojiSequence     emojiSequenceState
+}
+
+// hasBoundaryBefore applies GB3 through GB999 in normative order. Start of
+// text is always a boundary (GB1); end of text needs no explicit handling when
+// only the number of clusters is required.
+func (s *graphemeSegmenter) hasBoundaryBefore(current graphemeRuneProperties) bool {
+	if !s.hasPrevious {
+		return true
+	}
+	previous := s.previous.breakClass
+	next := current.breakClass
+
+	// GB3: keep CRLF together.
+	if previous == graphemeBreakCR && next == graphemeBreakLF {
+		return false
+	}
+	// GB4/GB5: otherwise break before and after controls.
+	if isGraphemeControlClass(previous) || isGraphemeControlClass(next) {
+		return true
+	}
+	// GB6-GB8: keep Hangul and other data-defined conjoining sequences.
+	if isConjoiningGraphemeJoin(previous, next) {
+		return false
+	}
+	// GB9/GB9a: extending characters, ZWJ, and spacing marks continue the
+	// current cluster.
+	if next == graphemeBreakExtend || next == graphemeBreakZWJ || next == graphemeBreakSpacingMark {
+		return false
+	}
+	// GB9b: Prepend joins the following non-control character.
+	if previous == graphemeBreakPrepend {
+		return false
+	}
+	// GB9c: an Indic consonant-linker sequence joins its next consonant.
+	if current.indicConjunctClass == indicConjunctBreakConsonant && s.indicConjunct == indicConjunctStateLinked {
+		return false
+	}
+	// GB11: Extended_Pictographic Extend* ZWJ joins the next pictograph.
+	if current.extendedPictographic && s.emojiSequence == emojiSequenceStateZWJ {
+		return false
+	}
+	// GB12/GB13: regional indicators join in pairs. The state is the
+	// uninterrupted RI count immediately before this boundary.
+	if next == graphemeBreakRegionalIndicator && s.regionalIndicators%2 == 1 {
+		return false
+	}
+	// GB999: all remaining positions are boundaries.
+	return true
+}
+
+func (s *graphemeSegmenter) consume(current graphemeRuneProperties) {
+	if current.breakClass == graphemeBreakRegionalIndicator {
+		s.regionalIndicators++
+	} else {
+		s.regionalIndicators = 0
+	}
+
+	switch current.indicConjunctClass {
+	case indicConjunctBreakConsonant:
+		s.indicConjunct = indicConjunctStateConsonant
+	case indicConjunctBreakExtend:
+		// Extend preserves a preceding consonant/linker context.
+	case indicConjunctBreakLinker:
+		if s.indicConjunct != indicConjunctStateNone {
+			s.indicConjunct = indicConjunctStateLinked
+		}
+	default:
+		s.indicConjunct = indicConjunctStateNone
+	}
+
+	switch {
+	case current.extendedPictographic:
+		s.emojiSequence = emojiSequenceStatePictographic
+	case current.breakClass == graphemeBreakExtend && s.emojiSequence == emojiSequenceStatePictographic:
+		// Extend preserves the pictograph context immediately before a ZWJ.
+	case current.breakClass == graphemeBreakZWJ && s.emojiSequence == emojiSequenceStatePictographic:
+		s.emojiSequence = emojiSequenceStateZWJ
+	default:
+		s.emojiSequence = emojiSequenceStateNone
+	}
+
+	s.previous = current
+	s.hasPrevious = true
+}
+
+func graphemeProperties(r rune) graphemeRuneProperties {
+	return graphemeRuneProperties{
+		breakClass:          lookupGraphemeBreakClass(r),
+		indicConjunctClass: lookupIndicConjunctBreakClass(r),
+		extendedPictographic: isExtendedPictographic(r),
+	}
+}
+
+func lookupGraphemeBreakClass(r rune) graphemeBreakClass {
+	lo, hi := 0, len(graphemeBreakRanges)
+	for lo < hi {
+		middle := int(uint(lo+hi) >> 1)
+		candidate := graphemeBreakRanges[middle]
+		switch {
+		case r < candidate.lo:
+			hi = middle
+		case r > candidate.hi:
+			lo = middle + 1
+		default:
+			return candidate.class
+		}
+	}
+	return graphemeBreakOther
+}
+
+func lookupIndicConjunctBreakClass(r rune) indicConjunctBreakClass {
+	lo, hi := 0, len(indicConjunctBreakRanges)
+	for lo < hi {
+		middle := int(uint(lo+hi) >> 1)
+		candidate := indicConjunctBreakRanges[middle]
+		switch {
+		case r < candidate.lo:
+			hi = middle
+		case r > candidate.hi:
+			lo = middle + 1
+		default:
+			return candidate.class
+		}
+	}
+	return indicConjunctBreakNone
+}
+
+func isExtendedPictographic(r rune) bool {
+	lo, hi := 0, len(extendedPictographicRanges)
+	for lo < hi {
+		middle := int(uint(lo+hi) >> 1)
+		candidate := extendedPictographicRanges[middle]
+		switch {
+		case r < candidate.lo:
+			hi = middle
+		case r > candidate.hi:
+			lo = middle + 1
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func isGraphemeControlClass(class graphemeBreakClass) bool {
+	return class == graphemeBreakControl || class == graphemeBreakCR || class == graphemeBreakLF
+}
+
+func isConjoiningGraphemeJoin(previous, next graphemeBreakClass) bool {
+	switch previous {
+	case graphemeBreakL:
+		return next == graphemeBreakL || next == graphemeBreakV || next == graphemeBreakLV || next == graphemeBreakLVT
+	case graphemeBreakLV, graphemeBreakV:
+		return next == graphemeBreakV || next == graphemeBreakT
+	case graphemeBreakLVT, graphemeBreakT:
+		return next == graphemeBreakT
+	default:
+		return false
+	}
 }

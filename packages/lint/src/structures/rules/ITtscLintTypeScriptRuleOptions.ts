@@ -88,9 +88,9 @@ export type TtscLintTypeScriptBanTsCommentDirectiveConfig =
  */
 export interface ITtscLintTypeScriptBanTsCommentRuleOptions {
   /**
-   * Minimum description length (counted in grapheme clusters, so one emoji is
-   * one character) for directives configured as `"allow-with-description"` or
-   * `{ descriptionFormat }`.
+   * Minimum description length (counted in Unicode 16.0 extended grapheme
+   * clusters, so one emoji is one character) for directives configured as
+   * `"allow-with-description"` or `{ descriptionFormat }`.
    *
    * @default 3
    */
