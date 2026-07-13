@@ -20,7 +20,7 @@ mutable.filter(async value => value > 0);
 // expect: typescript/no-misused-promises error
 mutable["find"](async value => value > 0);
 // expect: typescript/no-misused-promises error
-mutable[`some`](async value => value > 0);
+mutable[`+"`some`"+`](async value => value > 0);
 // expect: typescript/no-misused-promises error
 mutable[("filter")](async value => value > 0);
 // expect: typescript/no-misused-promises error
