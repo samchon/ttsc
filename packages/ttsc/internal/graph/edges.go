@@ -150,7 +150,7 @@ func forEachContainerIn(path string, statements []*shimast.Node, fn func(string,
 			// Closure nodes are not indexed (build.go): what a function body runs is
 			// implementation, and implementation is read from the file. The walker
 			// stays for the day the caller asks for them.
-			// forEachClosureIn(path, statement, fn)
+			forEachClosureIn(path, statement, fn)
 		case shimast.KindTypeAliasDeclaration:
 			if id := topLevelID(path, statement, NodeTypeAlias); id != "" {
 				fn(id, statement)
@@ -207,7 +207,7 @@ func topLevelID(path string, statement *shimast.Node, kind NodeKind) string {
 func forEachMember(path string, statement *shimast.Node, kind NodeKind, fn func(string, *shimast.Node)) {
 	containerID := topLevelID(path, statement, kind)
 	for _, member := range classMembers(statement) {
-		// forEachClosureIn(path, member, fn)
+		forEachClosureIn(path, member, fn)
 		if isMethodMember(member.Kind) {
 			if name := methodName(member.Symbol()); name != "" {
 				fn(nodeID(path, name, NodeMethod), member)
@@ -278,7 +278,7 @@ func forEachVariable(path string, statement *shimast.Node, fn func(string, *shim
 			continue
 		}
 		fn(nodeID(path, qualifiedName(symbol), NodeVariable), binding)
-		// forEachClosureIn(path, binding, fn)
+		forEachClosureIn(path, binding, fn)
 	}
 }
 
