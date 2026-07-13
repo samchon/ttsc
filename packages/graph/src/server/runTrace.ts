@@ -111,13 +111,20 @@ export function runTrace(
           start: summary(graph, start.node),
           candidates: target.candidates.map((n) => summary(graph, n)),
         },
-        next: pathNext,
+        next: resultNext(
+          "inspect",
+          "The target names several nodes; re-trace with the id of the one the question means.",
+          "trace",
+        ),
       };
     }
     if (target.node === undefined) {
       return {
         result: { ...base, start: summary(graph, start.node) },
-        next: pathNext,
+        next: resultNext(
+          "outside",
+          "The target resolved to no node, so the graph holds no path to it.",
+        ),
       };
     }
     const found = findPath(
@@ -139,7 +146,23 @@ export function runTrace(
         path: path.map((node, i) => summary(graph, node, i, false, true)),
         steps: traceSteps(graph, hops),
       },
-      next: pathNext,
+      // An empty path is a fact, not an answer, and the old message called it
+      // one: "its path nodes and evidence ranges are what the graph holds
+      // between the two ends" — of a result that held nothing. The two ends do
+      // not call each other, which in an event-driven codebase is the common
+      // case: a pointer handler emits, an emitter's `emit()` runs listeners a
+      // registration put in an array, and no call edge crosses that array. The
+      // callers of the target are the way across, and the graph has them, so
+      // say which call to make instead of handing back an empty result dressed
+      // as the answer. Excalidraw's tour spent eleven calls finding this out.
+      next:
+        hops.length > 0
+          ? pathNext
+          : resultNext(
+              "inspect",
+              "No call path runs from the start to the target, so nothing calls across the gap directly: either they are unrelated, or a callback stands between them (an event emitter, a subscription, a lifecycle hook), which no call edge crosses. Reverse-trace the target to see what actually reaches it.",
+              "trace",
+            ),
     };
   }
 
