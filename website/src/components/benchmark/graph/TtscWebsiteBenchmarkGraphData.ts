@@ -48,8 +48,6 @@ function modelLabel(cell: AgentCell): string {
       return `Claude Code / Sonnet ${claudeVersionLabel(version, "5")}`;
     case "claude-code-opus":
       return `Claude Code / Opus ${claudeVersionLabel(version, "4.8")}`;
-    case "codex-gpt":
-      return `Codex / ${gptVersionLabel(version) ?? "GPT-5.5"}`;
     case "codex-gpt-terra":
       return `Codex / ${gptVersionLabel(version) ?? "GPT-5.6 terra"}`;
     case "codex-gpt-sol":
@@ -72,9 +70,9 @@ function claudeVersionLabel(
 }
 
 /**
- * Turn a Codex model id (e.g. "gpt-5.5", "gpt-5.6-terra") into a display label
- * ("GPT-5.5", "GPT-5.6 terra"). A trailing token names the model within its
- * release, so it reads as a word rather than part of the version. Returns
+ * Turn a Codex model id (e.g. "gpt-5.6-sol", "gpt-5.6-terra") into a display
+ * label ("GPT-5.6 sol", "GPT-5.6 terra"). A trailing token names the model in
+ * its release, so it reads as a word rather than part of the version. Returns
  * undefined when there is no version.
  */
 function gptVersionLabel(version: string | undefined): string | undefined {
@@ -140,7 +138,6 @@ function modelOrder(model: string): number {
   const order = [
     "codex-gpt-terra",
     "codex-gpt-sol",
-    "codex-gpt",
     "claude-code-opus",
     "claude-code-sonnet",
   ];

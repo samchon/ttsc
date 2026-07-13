@@ -3,11 +3,6 @@
   "source": "https://developers.openai.com/api/docs/pricing",
   "fetched": "2026-07-13",
   "usdPerMillion": {
-    "gpt-5.5": {
-      "input": 5,
-      "cachedInput": 0.5,
-      "output": 30
-    },
     "gpt-5.6-terra": {
       "input": 2.5,
       "cachedInput": 0.25,
