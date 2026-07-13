@@ -75,6 +75,24 @@ declare const safeOverloaded: Promise<void> | SafeOverloadedCatchResult;
 declare const unsafeOverloaded: Promise<void> | UnsafeOverloadedCatchResult;
 safeOverloaded.catch(() => undefined);
 unsafeOverloaded.catch(() => undefined);
+interface SafeFirstCatchResult {
+  catch(onRejected: (reason: unknown) => void): undefined;
+  catch(onRejected: (reason: unknown) => void): Promise<void>;
+}
+interface UnsafeFirstCatchResult {
+  catch(onRejected: (reason: unknown) => void): Promise<void>;
+  catch(onRejected: (reason: unknown) => void): undefined;
+}
+interface GenericCatchResult {
+  catch<TResult = never>(onRejected: (reason: unknown) => TResult): TResult;
+}
+declare const safeFirst: Promise<void> | SafeFirstCatchResult;
+declare const unsafeFirst: Promise<void> | UnsafeFirstCatchResult;
+declare const genericResult: Promise<void> | GenericCatchResult;
+safeFirst.catch(() => undefined);
+unsafeFirst.catch(() => undefined);
+genericResult.catch(() => undefined);
+genericResult.catch(() => Promise.resolve());
 `, nil)
   if code != 2 || stdout != "" {
     t.Fatalf("mixed receiver run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
@@ -89,6 +107,8 @@ unsafeOverloaded.catch(() => undefined);
     "main.ts:45:",
     "main.ts:46:",
     "main.ts:58:",
+    "main.ts:74:",
+    "main.ts:76:",
   }
   if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != len(expectedLines) {
     t.Fatalf("expected %d mixed receiver findings, got %d:\n%s", len(expectedLines), got, stderr)
