@@ -104,12 +104,9 @@ export namespace ITtscGraphTour {
     steps: string[];
 
     /**
-     * Every node this flow reached, with the handle to call the graph with
-     * next.
-     *
-     * A step is prose — it names both of its ends and the file and line the
-     * call sits on — and it carries no handle. So the nodes a step names are
-     * listed here too: `steps` is the story, `reached` is what to go on with.
+     * Nodes this flow reached that its steps did not already name. A step names
+     * both of its ends and the file and line the call sits on, so repeating
+     * those nodes here would be the same fact twice.
      */
     reached: ITtscGraphTour.IReached[];
 
