@@ -1,7 +1,9 @@
 package graph
 
 import (
+	"bufio"
 	"encoding/json"
+	"io"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -167,6 +169,26 @@ func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, so
 		return json.MarshalIndent(d, "", "  ")
 	}
 	return json.Marshal(d)
+}
+
+// EncodeDump writes the export JSON straight to w, one buffered pass, ending it
+// with the newline the one-shot protocol expects.
+//
+// The alternative is what the dump command used to do: marshal the whole
+// document into a byte slice, convert that slice into a string, and print the
+// string. On VS Code the document is 323 MB, so the conversion was a second full
+// copy of it held live beside the first — half a gigabyte of peak heap that
+// bought nothing, because the bytes were already exactly what stdout wanted.
+func EncodeDump(w io.Writer, g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, pretty bool) error {
+	buffered := bufio.NewWriterSize(w, 1<<20)
+	encoder := json.NewEncoder(buffered)
+	if pretty {
+		encoder.SetIndent("", "  ")
+	}
+	if err := encoder.Encode(NewDump(g, project, tsconfig, ignored, sources)); err != nil {
+		return err
+	}
+	return buffered.Flush()
 }
 
 // dumpEdgeKind maps an internal edge kind, refined by Edge.Origin, onto the

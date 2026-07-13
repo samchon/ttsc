@@ -1,27 +1,30 @@
 #!/usr/bin/env node
 /**
- * Cold index build-time benchmark for the graph tool axis: what *readiness*
+ * Cold index build-time benchmark for the graph tool axis: what _readiness_
  * costs before a tool can answer its first question, per (tool × fixture).
  *
- * The agent benchmark (`graph.mjs`) measures what a question costs once a
- * tool is ready; this runner measures the readiness itself. Per cell it
- * deletes the tool's index, runs its build step once, and takes wall time:
+ * The agent benchmark (`graph.mjs`) measures what a question costs once a tool
+ * is ready; this runner measures the readiness itself. Per cell it deletes the
+ * tool's index, runs its build step once, and takes wall time:
  *
- * - `ttsc-graph`: `ttscgraph dump --cwd <fixture> --tsconfig <tsconfig>` —
- *   the MCP launcher runs exactly this at startup, so the agent's first
- *   question waits on it. The dump is stateless, so every run is cold.
+ * - `ttsc-graph`: `ttscgraph dump --cwd <fixture> --tsconfig <tsconfig>` — the
+ *   MCP launcher runs exactly this at startup, so the agent's first question
+ *   waits on it. The dump is stateless, so every run is cold.
  * - `codegraph`: `codegraph init <fixture>` after removing `.codegraph/`.
  * - `codebase-memory`: `codebase-memory-mcp cli index_repository` into an
  *   isolated `CBM_CACHE_DIR` after removing `.codebase-memory/`.
- * - `serena`: has NO build step in this harness — it starts a language
- *   server and resolves on demand. It is recorded as `hasBuildStep: false`,
- *   never as 0 ms: a missing number and a zero are different claims.
+ * - `serena`: `serena project create` (declining, on stdin, every language its
+ *   interview detects — VS Code detects twenty-two, and an unanswered prompt
+ *   aborts on EOF) and then `serena project index`, which is the step timed.
+ *   serena's own docs recommend it for larger projects, and this harness had
+ *   never run it: a benchmark that withholds a tool's prescribed setup measures
+ *   the withholding.
  *
  * One run per cell, sequentially, on a QUIET host — never beside the agent
  * benchmark, whose parallel cells would corrupt every wall-clock number.
  * Results land under a top-level `index` key in
- * `website/public/benchmark/graph.json`, beside `structural` and `agent`,
- * which this runner must not disturb.
+ * `website/public/benchmark/graph.json`, beside `structural` and `agent`, which
+ * this runner must not disturb.
  */
 import cp from "node:child_process";
 import fs from "node:fs";
@@ -47,13 +50,22 @@ const TOOL_TTSC = "ttsc-graph";
 const TOOL_CODEGRAPH = "codegraph";
 const TOOL_CODEBASE_MEMORY = "codebase-memory";
 const TOOL_SERENA = "serena";
-const ALL_TOOLS = [TOOL_TTSC, TOOL_CODEGRAPH, TOOL_CODEBASE_MEMORY, TOOL_SERENA];
+const ALL_TOOLS = [
+  TOOL_TTSC,
+  TOOL_CODEGRAPH,
+  TOOL_CODEBASE_MEMORY,
+  TOOL_SERENA,
+];
+
+// `serena project create` interviews the operator about every language it
+// detects, one prompt each, and VS Code detects twenty-two of them. Decline them
+// all: the fixture is TypeScript, and an unanswered prompt aborts the command on
+// EOF.
+const SERENA_DECLINE_ALL = "n\n".repeat(80);
 
 const parsed = parseArgs(process.argv.slice(2));
 const selected = selectProjects(parsed);
-const tools = selectTools(
-  parsed.values.tools ?? parsed.values.tool ?? "all",
-);
+const tools = selectTools(parsed.values.tools ?? parsed.values.tool ?? "all");
 const outDir = path.resolve(
   parsed.values.out ?? path.join(workDir, "graph-index", timestamp()),
 );
@@ -156,9 +168,35 @@ if (!parsed.flags.has("--no-website")) {
 
 function runIndexCell({ project, spec, repoDir, tool }) {
   if (tool === TOOL_SERENA) {
-    // No build step exists to time. What serena pays instead is visible in
-    // the agent cells: on-demand language-server resolution per question.
-    return { project, tool, buildMs: null, hasBuildStep: false };
+    // serena does ship a build step -- `serena project index`, which its own
+    // docs recommend for larger projects -- and the harness had never run it.
+    // A benchmark that withholds a tool's prescribed setup measures the
+    // withholding, so it is timed here like every other tool.
+    //
+    // `project create` comes first because `index` needs a project config, and
+    // it interviews the operator about every language it detects (VS Code
+    // detects twenty-two). Headless, that interview is an EOF and the command
+    // aborts, so every optional language is declined on stdin. Only the index
+    // itself is timed; the interview is setup, not work.
+    ensureLocalIgnored(repoDir, ".serena/");
+    cleanupInsideFixture(repoDir, ".serena");
+    try {
+      runChecked(...serenaCommand(["project", "create", repoDir]), {
+        label: `serena project create ${project}`,
+        logBase: path.join(outDir, `serena-create-${project}`),
+        cwd: repoDir,
+        input: SERENA_DECLINE_ALL,
+      });
+      const ms = timeChecked(...serenaCommand(["project", "index"]), {
+        label: `serena project index ${project}`,
+        logBase: path.join(outDir, `serena-index-${project}`),
+        cwd: repoDir,
+        input: SERENA_DECLINE_ALL,
+      });
+      return { project, tool, buildMs: ms };
+    } finally {
+      cleanupInsideFixture(repoDir, ".serena");
+    }
   }
   if (tool === TOOL_TTSC) {
     const logStem = path.join(outDir, `ttsc-graph-index-${project}`);
@@ -279,8 +317,7 @@ function measureScale(project, repoDir) {
     // unterminated final line — so the scale block is reproducible against
     // standard tooling.
     const newlines = (text.match(/\n/g) ?? []).length;
-    lines +=
-      newlines + (text.length > 0 && !text.endsWith("\n") ? 1 : 0);
+    lines += newlines + (text.length > 0 && !text.endsWith("\n") ? 1 : 0);
   }
   return { files: files.length, lines };
 }
@@ -338,7 +375,9 @@ function publishWebsiteIndex(currentReport) {
 
 function printCellSummary(project, cell) {
   if (cell.hasBuildStep === false) {
-    process.stdout.write(`[index-time] ${project} ${cell.tool}: no build step\n`);
+    process.stdout.write(
+      `[index-time] ${project} ${cell.tool}: no build step\n`,
+    );
     return;
   }
   process.stdout.write(
@@ -355,7 +394,7 @@ function timeChecked(command, args, options) {
 function runChecked(
   command,
   args,
-  { label, logBase, cwd = repoRoot, env = {}, discardStdout = false },
+  { label, logBase, cwd = repoRoot, env = {}, discardStdout = false, input },
 ) {
   process.stdout.write(`[index-time] ${label}\n`);
   const devNull = discardStdout ? fs.openSync(os.devNull, "w") : null;
@@ -364,6 +403,9 @@ function runChecked(
     result = cp.spawnSync(command, args, {
       cwd,
       encoding: "utf8",
+      // A tool that interviews the operator (serena, on every language it
+      // detects) would otherwise hit EOF and abort in a headless run.
+      ...(input === undefined ? {} : { input }),
       env: { ...process.env, ...env },
       windowsHide: true,
       maxBuffer: 512 * 1024 * 1024,
@@ -386,6 +428,23 @@ function runChecked(
 function codegraphCommand(args) {
   if (process.platform !== "win32") return ["codegraph", args];
   return ["cmd.exe", ["/d", "/s", "/c", "codegraph", ...args]];
+}
+
+// serena is launched the way the agent harness launches it: through uvx, from
+// its git source, so the measured tool is the one the agent cells talked to.
+function serenaCommand(args) {
+  const binary =
+    parsed.values["serena-command"] ?? process.env.SERENA_MCP_COMMAND ?? "uvx";
+  const full = [
+    "--from",
+    parsed.values["serena-source"] ??
+      process.env.SERENA_SOURCE ??
+      "git+https://github.com/oraios/serena",
+    "serena",
+    ...args,
+  ];
+  if (process.platform !== "win32") return [binary, full];
+  return ["cmd.exe", ["/d", "/s", "/c", binary, ...full]];
 }
 
 function codebaseMemoryCommand(args) {
