@@ -39,8 +39,8 @@
     <text x="108" y="163.625" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">excalidraw</text>
     <rect x="124" y="133.625" width="521.916" height="9" style="fill:#94a3b8"/>
     <text x="650.916" y="141.925" style="fill:#cbd5e1;font-size:11px">5.9M</text>
-    <rect x="124" y="147.125" width="16.811" height="9" style="fill:#22d3ee"/>
-    <text x="145.811" y="155.425" style="fill:#22d3ee;font-size:11px;font-weight:700">188k (-97%)</text>
+    <rect x="124" y="147.125" width="25.774" height="9" style="fill:#22d3ee"/>
+    <text x="154.774" y="155.425" style="fill:#22d3ee;font-size:11px;font-weight:700">289k (-95%)</text>
     <rect x="124" y="160.625" width="57.941" height="9" style="fill:#f59e0b"/>
     <text x="186.941" y="168.925" style="fill:#f59e0b;font-size:11px">650k (-89%)</text>
     <rect x="124" y="174.125" width="136.382" height="9" style="fill:#a3e635"/>
@@ -53,8 +53,8 @@
     <text x="108" y="252.875" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">nestjs</text>
     <rect x="124" y="222.875" width="121.374" height="9" style="fill:#94a3b8"/>
     <text x="250.374" y="231.175" style="fill:#cbd5e1;font-size:11px">1.4M</text>
-    <rect x="124" y="236.375" width="16.521" height="9" style="fill:#22d3ee"/>
-    <text x="145.521" y="244.675" style="fill:#22d3ee;font-size:11px;font-weight:700">185k (-86%)</text>
+    <rect x="124" y="236.375" width="16.519" height="9" style="fill:#22d3ee"/>
+    <text x="145.519" y="244.675" style="fill:#22d3ee;font-size:11px;font-weight:700">185k (-86%)</text>
     <rect x="124" y="249.875" width="25.886" height="9" style="fill:#f59e0b"/>
     <text x="154.886" y="258.175" style="fill:#f59e0b;font-size:11px">290k (-79%)</text>
     <rect x="124" y="263.375" width="221.441" height="9" style="fill:#a3e635"/>
@@ -67,8 +67,8 @@
     <text x="108" y="342.125" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">rxjs</text>
     <rect x="124" y="312.125" width="89.383" height="9" style="fill:#94a3b8"/>
     <text x="218.383" y="320.425" style="fill:#cbd5e1;font-size:11px">1.0M</text>
-    <rect x="124" y="325.625" width="16.288" height="9" style="fill:#22d3ee"/>
-    <text x="145.288" y="333.925" style="fill:#22d3ee;font-size:11px;font-weight:700">183k (-82%)</text>
+    <rect x="124" y="325.625" width="13.974" height="9" style="fill:#22d3ee"/>
+    <text x="142.974" y="333.925" style="fill:#22d3ee;font-size:11px;font-weight:700">157k (-84%)</text>
     <rect x="124" y="339.125" width="67.800" height="9" style="fill:#f59e0b"/>
     <text x="196.800" y="347.425" style="fill:#f59e0b;font-size:11px">760k (-24%)</text>
     <rect x="124" y="352.625" width="78.954" height="9" style="fill:#a3e635"/>
@@ -81,8 +81,8 @@
     <text x="108" y="431.375" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">shopping</text>
     <rect x="124" y="401.375" width="159.265" height="9" style="fill:#94a3b8"/>
     <text x="288.265" y="409.675" style="fill:#cbd5e1;font-size:11px">1.8M</text>
-    <rect x="124" y="414.875" width="15.247" height="9" style="fill:#22d3ee"/>
-    <text x="144.247" y="423.175" style="fill:#22d3ee;font-size:11px;font-weight:700">171k (-90%)</text>
+    <rect x="124" y="414.875" width="15.320" height="9" style="fill:#22d3ee"/>
+    <text x="144.320" y="423.175" style="fill:#22d3ee;font-size:11px;font-weight:700">172k (-90%)</text>
     <rect x="124" y="428.375" width="42.525" height="9" style="fill:#f59e0b"/>
     <text x="171.525" y="436.675" style="fill:#f59e0b;font-size:11px">477k (-73%)</text>
     <rect x="124" y="441.875" width="123.981" height="9" style="fill:#a3e635"/>
@@ -95,8 +95,8 @@
     <text x="108" y="520.625" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">typeorm</text>
     <rect x="124" y="490.625" width="103.469" height="9" style="fill:#94a3b8"/>
     <text x="232.469" y="498.925" style="fill:#cbd5e1;font-size:11px">1.2M</text>
-    <rect x="124" y="504.125" width="14.555" height="9" style="fill:#22d3ee"/>
-    <text x="143.555" y="512.425" style="fill:#22d3ee;font-size:11px;font-weight:700">163k (-86%)</text>
+    <rect x="124" y="504.125" width="26.092" height="9" style="fill:#22d3ee"/>
+    <text x="155.092" y="512.425" style="fill:#22d3ee;font-size:11px;font-weight:700">293k (-75%)</text>
     <rect x="124" y="517.625" width="42.789" height="9" style="fill:#f59e0b"/>
     <text x="171.789" y="525.925" style="fill:#f59e0b;font-size:11px">480k (-59%)</text>
     <rect x="124" y="531.125" width="136.311" height="9" style="fill:#a3e635"/>
@@ -109,8 +109,8 @@
     <text x="108" y="609.875" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">vscode</text>
     <rect x="124" y="579.875" width="154.629" height="9" style="fill:#94a3b8"/>
     <text x="283.629" y="588.175" style="fill:#cbd5e1;font-size:11px">1.7M</text>
-    <rect x="124" y="593.375" width="14.825" height="9" style="fill:#22d3ee"/>
-    <text x="143.825" y="601.675" style="fill:#22d3ee;font-size:11px;font-weight:700">166k (-90%)</text>
+    <rect x="124" y="593.375" width="25.928" height="9" style="fill:#22d3ee"/>
+    <text x="154.928" y="601.675" style="fill:#22d3ee;font-size:11px;font-weight:700">291k (-83%)</text>
     <rect x="124" y="606.875" width="39.009" height="9" style="fill:#f59e0b"/>
     <text x="168.009" y="615.175" style="fill:#f59e0b;font-size:11px">437k (-75%)</text>
     <rect x="124" y="620.375" width="117.418" height="9" style="fill:#a3e635"/>
@@ -123,8 +123,8 @@
     <text x="108" y="699.125" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">vue</text>
     <rect x="124" y="669.125" width="141.475" height="9" style="fill:#94a3b8"/>
     <text x="270.475" y="677.425" style="fill:#cbd5e1;font-size:11px">1.6M</text>
-    <rect x="124" y="682.625" width="14.433" height="9" style="fill:#22d3ee"/>
-    <text x="143.433" y="690.925" style="fill:#22d3ee;font-size:11px;font-weight:700">162k (-90%)</text>
+    <rect x="124" y="682.625" width="24.910" height="9" style="fill:#22d3ee"/>
+    <text x="153.910" y="690.925" style="fill:#22d3ee;font-size:11px;font-weight:700">279k (-82%)</text>
     <rect x="124" y="696.125" width="82.409" height="9" style="fill:#f59e0b"/>
     <text x="211.409" y="704.425" style="fill:#f59e0b;font-size:11px">924k (-42%)</text>
     <rect x="124" y="709.625" width="116.313" height="9" style="fill:#a3e635"/>
@@ -137,8 +137,8 @@
     <text x="108" y="788.375" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">zod</text>
     <rect x="124" y="758.375" width="179.968" height="9" style="fill:#94a3b8"/>
     <text x="308.968" y="766.675" style="fill:#cbd5e1;font-size:11px">2.0M</text>
-    <rect x="124" y="771.875" width="17.255" height="9" style="fill:#22d3ee"/>
-    <text x="146.255" y="780.175" style="fill:#22d3ee;font-size:11px;font-weight:700">193k (-90%)</text>
+    <rect x="124" y="771.875" width="26.216" height="9" style="fill:#22d3ee"/>
+    <text x="155.216" y="780.175" style="fill:#22d3ee;font-size:11px;font-weight:700">294k (-85%)</text>
     <rect x="124" y="785.375" width="70.384" height="9" style="fill:#f59e0b"/>
     <text x="199.384" y="793.675" style="fill:#f59e0b;font-size:11px">789k (-61%)</text>
     <rect x="124" y="798.875" width="152.258" height="9" style="fill:#a3e635"/>
