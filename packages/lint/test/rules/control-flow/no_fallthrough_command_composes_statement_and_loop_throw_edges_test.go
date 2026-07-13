@@ -8,7 +8,7 @@ import "testing"
 // return or a constant-false test makes them unreachable.
 //
 // 1. Pair reachable calls and conditions with unreachable statement twins.
-// 2. Exercise while, do/while, for initializer, and for increment boundaries.
+// 2. Exercise loop entry/update boundaries and empty-switch discriminants.
 // 3. Assert only reachable throwable nodes let the empty catch fall through.
 func TestNoFallthroughCommandComposesStatementAndLoopThrowEdges(t *testing.T) {
   assertNoFallthroughCommandMarkers(t, `declare const condition: boolean;

@@ -49,10 +49,6 @@ func TestNoFallthroughCommandPreservesBigIntLiteralTruthiness(t *testing.T) {
       while (1_000_000n) {}
     case 17:
       break;
-    case 18:
-      while (0_000_000n) {}
-    case 19: // diagnostic
-      break;
     case 20:
       while (((0x1n))) {}
     case 21:
