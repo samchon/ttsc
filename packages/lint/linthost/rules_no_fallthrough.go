@@ -673,6 +673,7 @@ func tryCompletion(s *shimast.TryStatement) caseCompletion {
     if clause := s.CatchClause.AsCatchClause(); clause != nil {
       hasCatch = true
       catchC = blockNodeCompletion(clause.Block)
+      mergeExpressionCompletion(&catchC, executableNodeCompletion(clause.VariableDeclaration))
     }
   }
   main := tryC
@@ -722,6 +723,9 @@ func executableNodeCompletion(node *shimast.Node) expressionCompletion {
   if node == nil {
     return expressionCompletion{}
   }
+  if noFallthroughNodeIsJSXTagName(node) {
+    return expressionCompletion{}
+  }
   if node.Kind == shimast.KindExpressionWithTypeArguments {
     if node.Parent != nil &&
       ((node.Parent.Kind >= shimast.KindFirstJSDocNode && node.Parent.Kind <= shimast.KindLastJSDocNode) ||
@@ -748,7 +752,10 @@ func executableNodeCompletion(node *shimast.Node) expressionCompletion {
   case shimast.KindFunctionDeclaration,
     shimast.KindFunctionExpression,
     shimast.KindArrowFunction,
-    shimast.KindClassStaticBlockDeclaration:
+    shimast.KindClassStaticBlockDeclaration,
+    shimast.KindInterfaceDeclaration,
+    shimast.KindTypeAliasDeclaration,
+    shimast.KindJsxNamespacedName:
     return expressionCompletion{}
   case shimast.KindMethodDeclaration,
     shimast.KindConstructor,
@@ -838,6 +845,16 @@ func noFallthroughIdentifierIsReference(node *shimast.Node) bool {
   }
   parent := node.Parent
   switch parent.Kind {
+  case shimast.KindJsxAttribute,
+    shimast.KindImportClause,
+    shimast.KindImportSpecifier,
+    shimast.KindNamespaceImport,
+    shimast.KindCatchClause:
+    return false
+  case shimast.KindArrayLiteralExpression:
+    return !isDestructuringAssignmentTarget(parent)
+  case shimast.KindSpreadElement, shimast.KindSpreadAssignment:
+    return !isDestructuringAssignmentTarget(parent)
   case shimast.KindPropertyAccessExpression:
     access := parent.AsPropertyAccessExpression()
     return access == nil || access.Name() != node
@@ -846,8 +863,16 @@ func noFallthroughIdentifierIsReference(node *shimast.Node) bool {
     return assignment == nil || assignment.Name() != node
   case shimast.KindBindingElement:
     element := parent.AsBindingElement()
-    return element == nil ||
-      (element.Name() != node && element.PropertyName != node)
+    if element == nil || (element.Name() != node && element.PropertyName != node) {
+      return true
+    }
+    if element.PropertyName == node || element.DotDotDotToken != nil {
+      return false
+    }
+    if element.Initializer != nil {
+      return true
+    }
+    return parent.Parent != nil && parent.Parent.Kind == shimast.KindObjectBindingPattern
   case shimast.KindVariableDeclaration:
     declaration := parent.AsVariableDeclaration()
     return declaration == nil || declaration.Name() != node
@@ -877,6 +902,28 @@ func noFallthroughIdentifierIsReference(node *shimast.Node) bool {
     return statement == nil || statement.Label != node
   }
   return true
+}
+
+// noFallthroughNodeIsJSXTagName excludes JSX tag names from Identifier and
+// MemberExpression throw heuristics. ESTree represents them as JSXIdentifier /
+// JSXMemberExpression rather than runtime Identifier / MemberExpression nodes;
+// evaluated attribute and child expressions remain traversable.
+func noFallthroughNodeIsJSXTagName(node *shimast.Node) bool {
+  current := node
+  for current != nil && current.Parent != nil && current.Parent.Kind == shimast.KindPropertyAccessExpression {
+    current = current.Parent
+  }
+  if current == nil || current.Parent == nil {
+    return false
+  }
+  switch current.Parent.Kind {
+  case shimast.KindJsxOpeningElement,
+    shimast.KindJsxSelfClosingElement,
+    shimast.KindJsxClosingElement:
+    return true
+  default:
+    return false
+  }
 }
 
 // literalTruthiness folds a loop test into a constant when it is a simple

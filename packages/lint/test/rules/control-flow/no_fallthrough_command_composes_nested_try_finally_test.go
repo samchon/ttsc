@@ -8,11 +8,12 @@ import "testing"
 // unreachable and must not invent an exception edge.
 //
 // 1. Nest return and throw paths through catches and ordinary finalizers.
-// 2. Exercise throwing and returning finalizers plus a non-completing try.
+// 2. Exercise finalizers, a non-completing try, and catch binding evaluation.
 // 3. Assert only throws that escape the nested construct reach the outer catch.
 func TestNoFallthroughCommandComposesNestedTryFinally(t *testing.T) {
   assertNoFallthroughCommandMarkers(t, `declare const identifier: number;
 declare function call(): void;
+declare function fallback(): number;
 
 function inspect(value: number): unknown {
   switch (value) {
@@ -89,6 +90,26 @@ function inspect(value: number): unknown {
         }
       } catch {}
     case 15:
+      break;
+    case 16:
+      try {
+        try {
+          throw {};
+        } catch ({ value = fallback() }) {
+          return;
+        }
+      } catch {}
+    case 17: // diagnostic
+      break;
+    case 18:
+      try {
+        try {
+          throw 0;
+        } catch (error) {
+          return;
+        }
+      } catch {}
+    case 19:
       break;
   }
 }

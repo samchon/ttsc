@@ -37,6 +37,8 @@ function inspect(value: number): unknown {
     case 4:
       try {
         const typedOnly: Shape | null = null;
+        type Alias = Shape;
+        interface LocalShape extends Shape {}
         class Nested implements Shape {
           field = identifier;
           method(): number {
