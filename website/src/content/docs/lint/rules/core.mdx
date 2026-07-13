@@ -112,7 +112,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-unsafe-finally`](#rule-no-unsafe-finally): Reject `return` and `throw` inside a `finally` block.
 - [`no-unsafe-negation`](#rule-no-unsafe-negation): Reject `!key in obj` and `!a instanceof B`.
 - [`no-unsafe-optional-chaining`](#rule-no-unsafe-optional-chaining): Reject member access or call expressions that chain off an optional chain.
-- [`no-unused-expressions`](#rule-no-unused-expressions): Reject expression statements with no observable effect, like a bare `x;` or `'use strict' && f();`.
+- [`no-unused-expressions`](#rule-no-unused-expressions): Reject expression statements with no observable effect, like a bare `x;`, `a === b;`, or a tagged template literal statement.
 - [`no-unused-labels`](#rule-no-unused-labels): Reject labels that no `break` or `continue` statement references.
 - [`no-useless-assignment`](#rule-no-useless-assignment): Reject an assignment whose value is immediately overwritten by the very next statement.
 - [`no-useless-call`](#rule-no-useless-call): Reject unnecessary `.call()` / `.apply()` calls.
@@ -2217,16 +2217,51 @@ const name = (obj?.profile).name;
 
 ### `no-unused-expressions`
 
-Reject expression statements with no observable effect, like a bare `x;` or `'use strict' && f();`.
+Reject expression statements with no observable effect, like a bare `x;`, `a === b;`, or a tagged template literal statement.
+
+Directive prologues are determined by AST position, not by recognized text: the leading run of string-literal statements at the top of a script, module, namespace body, or function body is accepted whatever it says (`"use strict"`, `"use client"`, …), and the same strings anywhere else are rejected. Productive expressions — calls, `new`, assignments, updates, `delete`, `void`, `await`, `yield` — are accepted, so the `void promise()` opt-out idiom keeps working, and JSX statements are accepted by default. TypeScript wrappers (`as`, angle assertions, non-null `!`, instantiation expressions) inherit the classification of the expression they wrap.
+
+Options:
+
+- `allowShortCircuit?: boolean`
+
+  Allow short-circuit statements such as `a && b()` whose right-hand side is a productive expression.
+
+- `allowTernary?: boolean`
+
+  Allow ternary statements such as `a ? b() : c()` whose result branches are both productive expressions.
+
+- `allowTaggedTemplates?: boolean`
+
+  Allow tagged template literal statements such as `` tag`value` ``.
+
+- `enforceForJSX?: boolean`
+
+  Report JSX elements and fragments standing alone as statements.
+
+- `ignoreDirectives?: boolean`
+
+  Also exempt statements that positionally look like directive-prologue members under the loose ESTree view upstream ESLint uses, in which parentheses are invisible. Real (unparenthesized) directive prologues are always exempt regardless of this flag.
 
 Example:
 
 ```ts
-function f(isReady: boolean, isCached: boolean): void {
+"use client";
+
+declare function work(): Promise<void>;
+declare const tag: (strings: TemplateStringsArray) => string;
+
+void work();
+
+// reports: no-unused-expressions (error)
+tag`value`;
+
+function misplacedDirective(): void {
+  "use totally custom prologue";
+  console.log("before");
   // reports: no-unused-expressions (error)
-  (isReady, isCached);
+  "use strict";
 }
-f(true, false);
 ```
 
 <a id="rule-no-unused-labels"></a>
