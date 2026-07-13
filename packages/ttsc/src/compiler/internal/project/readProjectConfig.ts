@@ -5,7 +5,7 @@ import path from "node:path";
 import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectLocatorOptions } from "../../../structures/internal/ITtscProjectLocatorOptions";
-import { resolveProjectConfig } from "./resolveProjectConfig";
+import { resolveProjectIdentity } from "./resolveProjectConfig";
 
 /**
  * Compiler option keys whose values are file-system paths that must be resolved
@@ -40,10 +40,9 @@ type ResolvedCompilerOptions = {
 export function readProjectConfig(
   opts: ITtscProjectLocatorOptions = {},
 ): ITtscParsedProjectConfig {
-  const tsconfig = resolveProjectConfig(opts);
-  const root = opts.projectRoot
-    ? path.resolve(opts.cwd ?? process.cwd(), opts.projectRoot)
-    : path.dirname(tsconfig);
+  const identity = resolveProjectIdentity(opts);
+  const tsconfig = identity.physicalConfigPath;
+  const root = identity.physicalProjectRoot;
   const compilerOptions = readResolvedCompilerOptions(tsconfig);
   return {
     compilerOptions: {
@@ -51,6 +50,7 @@ export function readProjectConfig(
       outDir: compilerOptions.outDir,
       plugins: compilerOptions.plugins,
     },
+    identity,
     path: tsconfig,
     pluginBaseDirs: compilerOptions.pluginBaseDirs,
     root,

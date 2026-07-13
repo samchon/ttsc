@@ -11,6 +11,7 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import { buildNativeCompiler } from "./buildNativeCompiler";
 import { packageRootDir } from "./paths";
+import { createNativeProjectContextArgs } from "./project/createNativeProjectContextArgs";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
@@ -169,7 +170,11 @@ function transformProjectWithPlugins(
   const plugin = selectSharedHostPlugin(transformers);
   const res = spawnNative(
     plugin.binary,
-    createNativeTransformArgs(project, transformers),
+    createNativeTransformArgs(
+      project,
+      transformers,
+      resolvePluginConfigDir(options),
+    ),
     {
       cwd: project.root,
       env: nativePluginEnv(options, tsgoBinary, loaded.nativePlugins, plugin),
@@ -219,7 +224,12 @@ function runNativeChecks(
   for (const plugin of checks) {
     const res = spawnNative(
       plugin.binary,
-      createNativeCheckArgs(project, nativePlugins),
+      createNativeCheckArgs(
+        project,
+        nativePlugins,
+        plugin,
+        resolvePluginConfigDir(options),
+      ),
       {
         cwd: project.root,
         env: nativePluginEnv(options, tsgoBinary, nativePlugins, plugin),
@@ -252,26 +262,39 @@ function runNativeChecks(
 function createNativeTransformArgs(
   project: ITtscParsedProjectConfig,
   plugins: readonly ITtscLoadedNativePlugin[],
+  pluginConfigOrigin?: string,
 ): string[] {
-  return [
+  const args = [
     "transform",
     "--tsconfig=" + project.path,
     "--plugins-json=" + serializeNativePlugins(plugins),
     "--cwd=" + project.root,
   ];
+  if (
+    selectSharedHostPlugin(plugins).capabilities?.projectContextArgs === true
+  ) {
+    args.push(...createNativeProjectContextArgs(project, pluginConfigOrigin));
+  }
+  return args;
 }
 
 /** Build the CLI argument list for the `check` subcommand. */
 function createNativeCheckArgs(
   project: ITtscParsedProjectConfig,
   plugins: readonly ITtscLoadedNativePlugin[],
+  plugin: ITtscLoadedNativePlugin,
+  pluginConfigOrigin?: string,
 ): string[] {
-  return [
+  const args = [
     "check",
     "--tsconfig=" + project.path,
     "--plugins-json=" + serializeNativePlugins(plugins),
     "--cwd=" + project.root,
   ];
+  if (plugin.capabilities?.projectContextArgs === true) {
+    args.push(...createNativeProjectContextArgs(project, pluginConfigOrigin));
+  }
+  return args;
 }
 
 /**

@@ -28,6 +28,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 // Rule is the contract every lint rule satisfies.
@@ -94,9 +95,10 @@ type Context struct {
   Severity Severity
   Options  json.RawMessage
 
-  rule     Rule
-  isFormat bool
-  collect  func(*Finding)
+  rule           Rule
+  isFormat       bool
+  collect        func(*Finding)
+  projectResults publicrule.ProjectResultReader
 }
 
 // DecodeOptions unmarshals the rule's options blob into `out`. Returns
@@ -302,6 +304,8 @@ type Engine struct {
   unknownDirectiveMu sync.Mutex
   needsTypeChecker   bool
   serial             bool
+  projectSettings    map[string]ProjectRuleSetting
+  configError        error
 }
 
 // SetSerial forces Engine.Run to walk files one at a time. The host calls
@@ -344,8 +348,18 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
     enabled:           make(map[string]Severity),
     unknownDirectives: make(map[string]struct{}),
   }
+  eng.projectSettings, eng.configError = config.ResolveProjectRules(allProjectRuleNames())
+  for _, setting := range eng.projectSettings {
+    if setting.Declared && setting.Severity != SeverityOff {
+      eng.needsTypeChecker = true
+      break
+    }
+  }
   displaySeverities := config.EnabledRuleConfig()
   for _, name := range config.ActiveRuleNames() {
+    if _, isProjectRule := registeredProjectRules[name]; isProjectRule {
+      continue
+    }
     rule, ok := registered.rules[name]
     if !ok {
       eng.unknown = append(eng.unknown, name)
@@ -454,6 +468,15 @@ func (e *Engine) NeedsTypeChecker() bool {
   return e != nil && e.needsTypeChecker
 }
 
+// ConfigError reports an invalid project-rule declaration discovered while
+// binding the resolver.
+func (e *Engine) ConfigError() error {
+  if e == nil {
+    return nil
+  }
+  return e.configError
+}
+
 // EnabledRules returns the active rule set keyed by name. Mostly for
 // tests + introspection.
 func (e *Engine) EnabledRules() map[string]Severity { return e.enabled }
@@ -465,13 +488,23 @@ func (e *Engine) EnabledRules() map[string]Severity { return e.enabled }
 // merged in source-file order so the diagnostic stream is deterministic across
 // runs even when the per-file work happens out of order.
 func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) []*Finding {
+  cycle := e.evaluateProject(publicrule.ProjectIdentity{}, files, checker)
+  fileFindings := e.runFiles(files, checker, cycle.results)
+  return append(cycle.findings, fileFindings...)
+}
+
+func (e *Engine) runFiles(
+  files []*shimast.SourceFile,
+  checker *shimchecker.Checker,
+  results publicrule.ProjectResultReader,
+) []*Finding {
   if e.runsSerial() {
     var findings []*Finding
     for _, file := range files {
       if file == nil {
         continue
       }
-      findings = append(findings, e.runFile(file, checker)...)
+      findings = append(findings, e.runFile(file, checker, results)...)
     }
     return findings
   }
@@ -492,7 +525,7 @@ func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) 
     go func(idx int, f *shimast.SourceFile) {
       defer wg.Done()
       defer func() { <-sem }()
-      perFile[idx] = e.runFile(f, checker)
+      perFile[idx] = e.runFile(f, checker, results)
     }(i, file)
   }
   wg.Wait()
@@ -555,7 +588,11 @@ func (w *lintFileWalker) visitChild(child *shimast.Node) bool {
 // runFile is the per-file driver. The visitor is allocated once per file
 // to keep the per-node hot path branch-free; it visits children
 // post-order so parents see their already-checked subtrees.
-func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker) []*Finding {
+func (e *Engine) runFile(
+  file *shimast.SourceFile,
+  checker *shimchecker.Checker,
+  results publicrule.ProjectResultReader,
+) []*Finding {
   var collected []*Finding
   collect := func(f *Finding) { collected = append(collected, f) }
   resolved := e.config.ResolveRules(file.FileName())
@@ -595,13 +632,14 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
       if !built {
         if severity := fileRules.Severity(name); severity != SeverityOff {
           ctx = &Context{
-            File:     file,
-            Checker:  checker,
-            Severity: severity,
-            Options:  e.config.RuleOptions(name),
-            rule:     rule,
-            isFormat: isFormatRule(rule),
-            collect:  collect,
+            File:           file,
+            Checker:        checker,
+            Severity:       severity,
+            Options:        e.config.RuleOptions(name),
+            rule:           rule,
+            isFormat:       isFormatRule(rule),
+            collect:        collect,
+            projectResults: results,
           }
         }
         // A nil entry memoizes "off for this file" so a rule registered

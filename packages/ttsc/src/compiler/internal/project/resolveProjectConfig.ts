@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import type { ITtscProjectIdentity } from "../../../structures/internal/ITtscProjectIdentity";
 import type { ITtscProjectLocatorOptions } from "../../../structures/internal/ITtscProjectLocatorOptions";
 
 /**
@@ -13,13 +14,29 @@ import type { ITtscProjectLocatorOptions } from "../../../structures/internal/IT
  *    walking up from the file's directory.
  * 3. `opts.cwd` — the nearest ancestor config walking up from cwd.
  *
- * Always returns a real (symlink-resolved) absolute path. Throws when no config
- * is found or the explicitly supplied path does not exist.
+ * Returns the real (symlink-resolved) absolute config path. Use
+ * {@link resolveProjectIdentity} when both the caller-selected spelling and the
+ * Program identity are required.
  */
 export function resolveProjectConfig(
   opts: ITtscProjectLocatorOptions = {},
 ): string {
+  return resolveProjectIdentity(opts).physicalConfigPath;
+}
+
+/**
+ * Resolve the selected config while retaining its lexical spelling separately
+ * from the physical paths used by the TypeScript Program.
+ */
+export function resolveProjectIdentity(
+  opts: ITtscProjectLocatorOptions = {},
+): Omit<ITtscProjectIdentity, "pluginConfigOrigin"> {
   const cwd = path.resolve(opts.cwd ?? process.cwd());
+  const explicitProjectRoot =
+    opts.projectRoot === undefined || opts.projectRoot === ""
+      ? undefined
+      : resolveAbsolutePath(cwd, opts.projectRoot);
+  let logicalConfigPath: string;
   if (opts.tsconfig) {
     const resolved = resolveAbsolutePath(cwd, opts.tsconfig);
     if (!fs.existsSync(resolved)) {
@@ -35,30 +52,43 @@ export function resolveProjectConfig(
     if (isDirectory(resolved)) {
       const tsconfigInDir = path.join(resolved, "tsconfig.json");
       if (fs.existsSync(tsconfigInDir)) {
-        return resolveRealPath(tsconfigInDir);
+        logicalConfigPath = tsconfigInDir;
+      } else {
+        const jsconfigInDir = path.join(resolved, "jsconfig.json");
+        if (fs.existsSync(jsconfigInDir)) {
+          logicalConfigPath = jsconfigInDir;
+        } else {
+          throw new Error(
+            `ttsc: directory has no tsconfig.json / jsconfig.json: ${resolved}`,
+          );
+        }
       }
-      const jsconfigInDir = path.join(resolved, "jsconfig.json");
-      if (fs.existsSync(jsconfigInDir)) {
-        return resolveRealPath(jsconfigInDir);
-      }
+    } else {
+      logicalConfigPath = resolved;
+    }
+  } else {
+    const start = opts.file ? resolveAbsolutePath(cwd, opts.file) : cwd;
+    const from = isDirectory(start) ? start : path.dirname(start);
+    const found = findUp(from, ["tsconfig.json", "jsconfig.json"]);
+    if (!found) {
       throw new Error(
-        `ttsc: directory has no tsconfig.json / jsconfig.json: ${resolved}`,
+        `ttsc: could not find tsconfig.json or jsconfig.json starting from ${from}`,
       );
     }
-    return resolveRealPath(resolved);
+    logicalConfigPath = found;
   }
-
-  const start = opts.file
-    ? resolveRealPath(resolveAbsolutePath(cwd, opts.file))
-    : cwd;
-  const from = isDirectory(start) ? start : path.dirname(start);
-  const found = findUp(from, ["tsconfig.json", "jsconfig.json"]);
-  if (!found) {
-    throw new Error(
-      `ttsc: could not find tsconfig.json or jsconfig.json starting from ${from}`,
-    );
-  }
-  return resolveRealPath(found);
+  const physicalConfigPath = resolveRealPath(logicalConfigPath);
+  const physicalProjectRoot = resolveRealPath(
+    explicitProjectRoot ?? path.dirname(physicalConfigPath),
+  );
+  return {
+    ...(explicitProjectRoot === undefined ? {} : { explicitProjectRoot }),
+    invocationCwd: cwd,
+    logicalConfigPath,
+    logicalProjectRoot: path.dirname(logicalConfigPath),
+    physicalConfigPath,
+    physicalProjectRoot,
+  };
 }
 
 /** Resolve `target` against `cwd` when it is not already absolute. */

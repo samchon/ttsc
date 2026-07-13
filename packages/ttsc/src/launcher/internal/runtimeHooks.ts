@@ -1133,6 +1133,7 @@ function buildDependency(
     plugins:
       process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1" ? false : undefined,
     quiet: true,
+    resolvedProject: project,
     // Emit only: the entry project's up-front check is the type gate. A
     // dependency build pulls its own transitive sources into the program and
     // would otherwise fail on type diagnostics that belong to those packages

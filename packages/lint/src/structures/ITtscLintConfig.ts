@@ -38,6 +38,9 @@ export interface ITtscLintConfig {
    * Built-in rules are concrete interface properties for autocomplete and typo
    * checking. Namespaced families and contributor rules use the familiar slash
    * form such as `react/jsx-key` or `demo/no-demo`.
+   *
+   * Project-scoped contributor rules use this same map, but their configuration
+   * must come from entries without a `files` selector.
    */
   rules?: ITtscLintRules;
 

@@ -31,6 +31,17 @@ func TestLSPNativePluginSourceRoutesSidecarProtocol(t *testing.T) {
   sidecar := buildFakeLSPSidecar(t, dir)
   logPath := filepath.Join(dir, "calls.log")
   t.Setenv("TTSC_FAKE_PLUGIN_LOG", logPath)
+  physicalConfig := filepath.Join(dir, "physical-tsconfig.json")
+  projectContext, err := json.Marshal(map[string]string{
+    "invocationCwd":       filepath.Join(dir, "logical"),
+    "logicalConfigPath":   filepath.Join(dir, "logical", "tsconfig.json"),
+    "logicalProjectRoot":  filepath.Join(dir, "logical"),
+    "physicalConfigPath":  physicalConfig,
+    "physicalProjectRoot": dir,
+  })
+  if err != nil {
+    t.Fatal(err)
+  }
 
   manifest, err := json.Marshal(driver.NativePluginManifest{
     Plugins: []driver.NativePluginConfigEntry{{
@@ -39,10 +50,12 @@ func TestLSPNativePluginSourceRoutesSidecarProtocol(t *testing.T) {
       Stage:  "check",
     }},
     LSPPlugins: []driver.NativeLSPPluginEntry{{
-      Binary: sidecar,
-      Name:   "@ttsc/fake",
-      Stage:  "check",
+      Binary:             sidecar,
+      Name:               "@ttsc/fake",
+      ProjectContextArgs: true,
+      Stage:              "check",
     }},
+    ProjectContext: projectContext,
   })
   if err != nil {
     t.Fatal(err)
@@ -53,7 +66,7 @@ func TestLSPNativePluginSourceRoutesSidecarProtocol(t *testing.T) {
     Cwd:          dir,
     Err:          &errBuf,
     ManifestJSON: string(manifest),
-    Tsconfig:     "tsconfig.app.json",
+    Tsconfig:     "logical-tsconfig.json",
   })
   if err != nil {
     t.Fatalf("NewNativePluginSource failed: %v", err)
@@ -66,8 +79,11 @@ func TestLSPNativePluginSourceRoutesSidecarProtocol(t *testing.T) {
   }
 
   diagnostics := source.Diagnostics(driver.LSPDocumentVersion{URI: "file:///tmp/main.ts"})
-  if len(diagnostics) != 1 || diagnostics[0].Source != "ttsc/fake" || diagnostics[0].Code != "fake-rule" {
+  if len(diagnostics.Document) != 1 || diagnostics.Document[0].Source != "ttsc/fake" || diagnostics.Document[0].Code != "fake-rule" {
     t.Fatalf("Diagnostics returned unexpected payload: %#v", diagnostics)
+  }
+  if diagnostics.Project == nil || diagnostics.Project.URI != "file:///logical/tsconfig.json" || len(diagnostics.Project.Diagnostics) != 1 {
+    t.Fatalf("Diagnostics dropped project publication: %#v", diagnostics)
   }
 
   actions := source.CodeActions(
@@ -100,7 +116,9 @@ func TestLSPNativePluginSourceRoutesSidecarProtocol(t *testing.T) {
     "lsp-code-actions",
     "lsp-execute-command",
     "--cwd=" + dir,
-    "--tsconfig=tsconfig.app.json",
+    "--tsconfig=" + physicalConfig,
+    "--project-context-json=",
+    `"logicalConfigPath"`,
     `"mode":"strict"`,
   } {
     if !strings.Contains(log, want) {
@@ -154,7 +172,7 @@ func main() {
   case "lsp-code-action-kinds":
     fmt.Println(` + "`" + `["source.fixAll.ttsc"]` + "`" + `)
   case "lsp-diagnostics":
-    fmt.Println(` + "`" + `[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"severity":1,"code":"fake-rule","source":"ttsc/fake","message":"fake diagnostic"}]` + "`" + `)
+    fmt.Println(` + "`" + `{"document":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"severity":1,"code":"fake-rule","source":"ttsc/fake","message":"fake diagnostic"}],"project":{"uri":"file:///logical/tsconfig.json","diagnostics":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"severity":1,"code":"fake-project","source":"ttsc/fake","message":"fake project diagnostic"}]}}` + "`" + `)
   case "lsp-code-actions":
     fmt.Println(` + "`" + `[{"title":"Fake fix","kind":"source.fixAll.ttsc","command":{"title":"Fake fix","command":"ttsc.fake.fix","arguments":["file:///tmp/main.ts"]}}]` + "`" + `)
   case "lsp-execute-command":

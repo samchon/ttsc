@@ -82,17 +82,17 @@ export interface ITtscGraphApplication {
    * request:
    *
    * - `tour`: architecture, the runtime flow from the public API to the code that
-   *   does the work, nearby paths, and the tests to read — a whole orientation in
-   *   one call
+   *   does the work, nearby paths, and the tests to read — a whole orientation
+   *   in one call
    * - `trace`: what a symbol calls, what calls it, or the path from A to B
    * - `details`: signatures, members, and what implements an interface
    * - `lookup`: where a named symbol is declared
    * - `entrypoints`: where execution starts, when the entry is unknown
    * - `overview`: the project's layers and folder structure
    *
-   * Every result is the checker's own resolution, audited before it is returned,
-   * so nothing in it needs verifying. Read a file for what the graph does not
-   * carry: a function's body, the text inside a span.
+   * Every result is the checker's own resolution, audited before it is
+   * returned, so nothing in it needs verifying. Read a file for what the graph
+   * does not carry: a function's body, the text inside a span.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
@@ -105,7 +105,13 @@ export interface ITtscGraphApplication {
 export namespace ITtscGraphApplication {
   /** Draft, review, then submit exactly one graph request or escape. */
   export interface IProps {
-    /** The code question being considered. */
+    /**
+     * The code question, in the user's own words.
+     *
+     * Cut a long message down to the sentences that state the ask, but keep
+     * their terms: the graph ranks against these words, so a rewrite ranks a
+     * different answer.
+     */
     question: string;
 
     /** The smallest request that could answer, and why. */

@@ -21,8 +21,9 @@ const nativePluginCommandStderrLimit = 1024 * 1024
 // passes through TTSC_LSP_PLUGINS_JSON after running normal project plugin
 // discovery and source-plugin builds.
 type NativePluginManifest struct {
-  Plugins    []NativePluginConfigEntry `json:"plugins"`
-  LSPPlugins []NativeLSPPluginEntry    `json:"lspPlugins"`
+  Plugins        []NativePluginConfigEntry `json:"plugins"`
+  LSPPlugins     []NativeLSPPluginEntry    `json:"lspPlugins"`
+  ProjectContext json.RawMessage           `json:"projectContext,omitempty"`
 }
 
 // NativePluginConfigEntry mirrors the compact sidecar protocol used by
@@ -36,9 +37,10 @@ type NativePluginConfigEntry struct {
 // NativeLSPPluginEntry names one built sidecar that opted into the LSP
 // protocol through its JavaScript descriptor capabilities.
 type NativeLSPPluginEntry struct {
-  Binary string `json:"binary"`
-  Name   string `json:"name,omitempty"`
-  Stage  string `json:"stage,omitempty"`
+  Binary             string `json:"binary"`
+  Name               string `json:"name,omitempty"`
+  ProjectContextArgs bool   `json:"projectContextArgs,omitempty"`
+  Stage              string `json:"stage,omitempty"`
 }
 
 // NativePluginSourceOptions configures a sidecar-backed PluginSource.
@@ -52,11 +54,12 @@ type NativePluginSourceOptions struct {
 // NativePluginSource implements PluginSource by delegating to native sidecars
 // that explicitly support ttsc's LSP subcommands.
 type NativePluginSource struct {
-  cwd         string
-  err         io.Writer
-  plugins     []NativeLSPPluginEntry
-  pluginsJSON string
-  tsconfig    string
+  cwd                string
+  err                io.Writer
+  plugins            []NativeLSPPluginEntry
+  pluginsJSON        string
+  projectContextJSON string
+  tsconfig           string
 
   commandIDs      []string
   codeActionKinds []string
@@ -110,38 +113,86 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
   if err != nil {
     return nil, fmt.Errorf("ttscserver: encode plugin manifest: %w", err)
   }
+  sidecarCwd := opts.Cwd
+  sidecarTsconfig := opts.Tsconfig
+  if len(manifest.ProjectContext) > 0 {
+    var identity struct {
+      PhysicalConfigPath  string `json:"physicalConfigPath"`
+      PhysicalProjectRoot string `json:"physicalProjectRoot"`
+    }
+    if err := json.Unmarshal(manifest.ProjectContext, &identity); err != nil {
+      return nil, fmt.Errorf("ttscserver: decode project context: %w", err)
+    }
+    if strings.TrimSpace(identity.PhysicalProjectRoot) != "" {
+      sidecarCwd = identity.PhysicalProjectRoot
+    }
+    if strings.TrimSpace(identity.PhysicalConfigPath) != "" {
+      sidecarTsconfig = identity.PhysicalConfigPath
+    }
+  }
   source := &NativePluginSource{
-    cwd:         opts.Cwd,
-    err:         opts.Err,
-    plugins:     manifest.LSPPlugins,
-    pluginsJSON: string(pluginsJSON),
-    tsconfig:    opts.Tsconfig,
-    owners:      map[string]NativeLSPPluginEntry{},
+    cwd:                sidecarCwd,
+    err:                opts.Err,
+    plugins:            manifest.LSPPlugins,
+    pluginsJSON:        string(pluginsJSON),
+    projectContextJSON: string(manifest.ProjectContext),
+    tsconfig:           sidecarTsconfig,
+    owners:             map[string]NativeLSPPluginEntry{},
   }
   source.discoverCommandIDs()
   return source, nil
 }
 
-// Diagnostics asks every LSP-capable sidecar for diagnostics matching doc.URI.
-func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) []LSPDiagnostic {
+// Diagnostics asks every LSP-capable sidecar for document diagnostics and its
+// separate project publication.
+func (s *NativePluginSource) Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsResult {
   if s == nil || doc.URI == "" {
-    return nil
+    return LSPDiagnosticsResult{}
   }
-  var out []LSPDiagnostic
+  out := LSPDiagnosticsResult{}
   for _, plugin := range s.plugins {
     body, err := s.run(plugin, "lsp-diagnostics", "--uri="+doc.URI)
     if err != nil {
       s.log("%v", err)
       continue
     }
-    var diagnostics []LSPDiagnostic
-    if err := json.Unmarshal(body, &diagnostics); err != nil {
+    result, err := decodeNativeDiagnostics(body)
+    if err != nil {
       s.log("ttscserver: %s lsp-diagnostics returned invalid JSON: %v", pluginLabel(plugin), err)
       continue
     }
-    out = append(out, diagnostics...)
+    out.Document = append(out.Document, result.Document...)
+    if result.Project == nil {
+      continue
+    }
+    if out.Project == nil {
+      copied := *result.Project
+      copied.Diagnostics = append([]LSPDiagnostic(nil), result.Project.Diagnostics...)
+      out.Project = &copied
+      continue
+    }
+    if out.Project.URI != result.Project.URI {
+      s.log("ttscserver: %s returned project diagnostics for %s after %s; replacing the prior project publication", pluginLabel(plugin), result.Project.URI, out.Project.URI)
+      copied := *result.Project
+      copied.Diagnostics = append([]LSPDiagnostic(nil), result.Project.Diagnostics...)
+      out.Project = &copied
+      continue
+    }
+    out.Project.Diagnostics = append(out.Project.Diagnostics, result.Project.Diagnostics...)
   }
   return out
+}
+
+func decodeNativeDiagnostics(body []byte) (LSPDiagnosticsResult, error) {
+  var result LSPDiagnosticsResult
+  if err := json.Unmarshal(body, &result); err == nil {
+    return result, nil
+  }
+  var legacy []LSPDiagnostic
+  if err := json.Unmarshal(body, &legacy); err != nil {
+    return LSPDiagnosticsResult{}, err
+  }
+  return LSPDiagnosticsResult{Document: legacy}, nil
 }
 
 // CodeActions asks every LSP-capable sidecar for actions matching the request.
@@ -352,6 +403,9 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
     "--cwd=" + s.cwd,
     "--tsconfig=" + s.tsconfig,
     "--plugins-json=" + s.pluginsJSON,
+  }
+  if plugin.ProjectContextArgs && strings.TrimSpace(s.projectContextJSON) != "" {
+    allArgs = append(allArgs, "--project-context-json="+s.projectContextJSON)
   }
   allArgs = append(allArgs, args...)
   cmd := exec.CommandContext(ctx, plugin.Binary, allArgs...)
