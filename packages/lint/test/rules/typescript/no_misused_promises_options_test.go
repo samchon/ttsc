@@ -22,26 +22,34 @@ class Implementation implements Contract { async execute(): Promise<void> {} }
 const property: { run: () => void } = { run: async () => {} };
 function factory(): () => void { return async () => {}; }
 const variable: () => void = async () => {};
-void [Implementation, property, factory, variable, view];
+function resources(): void {
+  using invalid = { async [Symbol.dispose](): Promise<void> {} };
+  void invalid;
+}
+void [Implementation, property, factory, variable, resources, view];
 export {};
 `
   positions := []struct {
-    name string
-    line int
+    name  string
+    lines []int
   }{
-    {"arguments", 4},
-    {"attributes", 5},
-    {"inheritedMethods", 7},
-    {"properties", 8},
-    {"returns", 9},
-    {"variables", 10},
+    {"arguments", []int{4}},
+    {"attributes", []int{5}},
+    {"inheritedMethods", []int{7}},
+    {"properties", []int{8}},
+    {"returns", []int{9}},
+    {"variables", []int{10, 12}},
   }
-  allLines := []int{4, 5, 7, 8, 9, 10}
+  allLines := []int{4, 5, 7, 8, 9, 10, 12}
   for _, disabled := range positions {
     t.Run(disabled.name, func(t *testing.T) {
-      expected := make([]int, 0, len(allLines)-1)
+      disabledLines := make(map[int]bool, len(disabled.lines))
+      for _, line := range disabled.lines {
+        disabledLines[line] = true
+      }
+      expected := make([]int, 0, len(allLines)-len(disabled.lines))
       for _, line := range allLines {
-        if line != disabled.line {
+        if !disabledLines[line] {
           expected = append(expected, line)
         }
       }
@@ -54,13 +62,20 @@ export {};
     })
   }
 
+  lines, code, stdout, stderr := runNoMisusedPromisesCase(t, "main.tsx", voidSource, map[string]any{
+    "checksVoidReturn": false,
+  })
+  if code != 0 || stdout != "" || len(lines) != 0 {
+    t.Fatalf("checksVoidReturn option mismatch: code=%d stdout=%q lines=%v stderr=%s", code, stdout, lines, stderr)
+  }
+
   scalarSource := `declare const condition: Promise<boolean>;
 const promisedObject = Promise.resolve({ value: 1 });
 if (condition) {}
 const spread = { ...promisedObject };
 void spread;
 `
-  lines, code, stdout, stderr := runNoMisusedPromisesCase(t, "main.ts", scalarSource, map[string]any{
+  lines, code, stdout, stderr = runNoMisusedPromisesCase(t, "main.ts", scalarSource, map[string]any{
     "checksConditionals": false,
     "checksSpreads":      false,
   })

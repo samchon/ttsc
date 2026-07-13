@@ -7,8 +7,6 @@
 // Implemented here:
 //   - typescript/require-await
 //     (AST-only; async function with no `await` in its body)
-//   - typescript/no-misused-promises
-//     (type-aware; Promise in conditional / logical / forEach position)
 //   - typescript/use-unknown-in-catch-callback-variable
 //     (type-aware; `.catch(err)` / `.then(_, err)` must annotate `unknown`)
 //   - typescript/only-throw-error
@@ -265,7 +263,6 @@ func onlyThrowErrorIsPrimitive(checker *shimchecker.Checker, t *shimchecker.Type
 
 func init() {
   Register(requireAwait{})
-  Register(noMisusedPromises{})
   Register(useUnknownInCatchCallbackVariable{})
   Register(onlyThrowError{})
 }

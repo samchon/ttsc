@@ -40,6 +40,8 @@ type noMisusedPromisesOptions struct {
   variables          bool
 }
 
+func init() { Register(noMisusedPromises{}) }
+
 func (noMisusedPromises) Name() string { return "typescript/no-misused-promises" }
 func (noMisusedPromises) NeedsTypeChecker() bool {
   return true

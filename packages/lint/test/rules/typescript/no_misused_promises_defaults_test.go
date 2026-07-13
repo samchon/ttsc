@@ -25,6 +25,9 @@ consumeAsync(async () => {});
 const promisedObject = Promise.resolve({ value: 1 });
 // expect: typescript/no-misused-promises error
 const spread = { ...promisedObject };
+declare const maybePromisedObject: Promise<{ value: number }> | { value: number };
+// expect: typescript/no-misused-promises error
+const maybeSpread = { ...maybePromisedObject };
 
 interface Contract { execute(): void; }
 // expect: typescript/no-misused-promises error
@@ -36,11 +39,25 @@ function resources(): void {
   using valid = { [Symbol.dispose](): void {} };
   void [invalid, valid];
 }
+async function asyncResources(): Promise<void> {
+  await using valid = { async [Symbol.asyncDispose](): Promise<void> {} };
+  void valid;
+}
 
 // expect: typescript/no-misused-promises error
 const variable: () => void = async () => {};
+let reassigned: () => void = () => {};
+// expect: typescript/no-misused-promises error
+reassigned = async () => {};
 // expect: typescript/no-misused-promises error
 const property: { run: () => void } = { run: async () => {} };
+const shorthandRun = async () => {};
+// expect: typescript/no-misused-promises error
+const shorthandProperty: { shorthandRun: () => void } = { shorthandRun };
+const methodProperty: { run(): void } = {
+  // expect: typescript/no-misused-promises error
+  async run(): Promise<void> {},
+};
 function factory(): () => void {
   // expect: typescript/no-misused-promises error
   return async () => {};
@@ -51,8 +68,10 @@ const view = <button onClick={() => Promise.resolve()} />;
 declare const condition: Promise<boolean>;
 // expect: typescript/no-misused-promises error
 if (condition) { void spread; }
+declare const maybeCondition: Promise<boolean> | boolean;
+if (maybeCondition) { void maybeSpread; }
 
-void [Implementation, resources, variable, property, factory, view];
+void [Implementation, resources, asyncResources, variable, reassigned, property, shorthandProperty, methodProperty, factory, view];
 export {};
 `, nil)
 }

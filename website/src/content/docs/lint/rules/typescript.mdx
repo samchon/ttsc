@@ -41,7 +41,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/no-magic-numbers`](#rule-typescript-no-magic-numbers): TypeScript-aware extension of `no-magic-numbers`.
 - [`typescript/no-meaningless-void-operator`](#rule-typescript-no-meaningless-void-operator): Reject `void X` where `X` is already statically typed `void`, the `void` operator adds nothing.
 - [`typescript/no-misused-new`](#rule-typescript-no-misused-new): Reject signatures that fake a constructor or an instance `new` method.
-- [`typescript/no-misused-promises`](#rule-typescript-no-misused-promises): Reject Promise values supplied where a non-Promise was expected.
+- [`typescript/no-misused-promises`](#rule-typescript-no-misused-promises): Reject thenables in boolean, spread, disposal, and void-return contexts.
 - [`typescript/no-misused-spread`](#rule-typescript-no-misused-spread): Reject spread expressions whose operand is syntactically wrong for the surrounding context.
 - [`typescript/no-mixed-enums`](#rule-typescript-no-mixed-enums): Reject `enum`s that mix numeric and string members.
 - [`typescript/no-namespace`](#rule-typescript-no-namespace): Reject non-ambient `namespace` and `module Foo {}` declarations in regular `.ts` files.
