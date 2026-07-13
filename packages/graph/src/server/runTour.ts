@@ -498,12 +498,24 @@ function reachedFiles(graph: TtscGraphMemory, id: string): number {
 /**
  * A tour ranks and walks the project's surface.
  *
- * A closure is a name the runtime calls, and a model can ask for it — by trace,
- * by details, by lookup — but it is not what a tour is asked about, and letting
- * it into the ranking reshuffled which flows a tour told: TypeORM's tour traded
- * its insert flow for a walk through the query builder's fluent API, and the
- * model went back to the files. The specific-flow lane wants the closures; the
- * orientation lane wants the surface. Both ask, and both are answered.
+ * Not because a closure is beneath an index — a trace, a lookup, or a details
+ * request answers with one, and that is what the specific-flow lane needed. It
+ * is because the seed score leans on reach, and reach breaks when it counts
+ * them. Reach stands in for "gets to the code that does the work", and a method
+ * whose body is full of callbacks lands in more files than one that calls three
+ * things and means them: TypeORM's `SelectQueryBuilder` outranked its insert
+ * path on breadth alone, and the tour it led came back a walk through the query
+ * builder's fluent API — escape, clone, addSelect, limit, offset — while the
+ * insert flow that reaches the broadcaster, the metadata, and the driver fell
+ * out of the tour entirely. Wide and shallow beat deep and few, and the model
+ * went back to the files.
+ *
+ * So the surface is scored by the surface, and the body is answered when it is
+ * asked for. The specific-flow lane wants the closures and gets them; the
+ * orientation lane wants the surface and gets that. Judged by the answer rather
+ * than the token count, the gated tour is the better one: it reaches the
+ * broadcaster and the driver, where the ungated tour reached `limit` and
+ * `offset`.
  */
 function isTourSeed(graph: TtscGraphMemory, node: ITtscGraphNode): boolean {
   return (
