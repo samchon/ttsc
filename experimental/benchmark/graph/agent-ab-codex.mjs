@@ -38,7 +38,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { GROUNDING } from "./prompt.mjs";
+import { GROUNDING, TOOL_NUDGE } from "./prompt.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
@@ -561,11 +561,19 @@ function promptForArm(baseQuestion, armName) {
   // is not a baseline (see GROUNDING). An arm whose facts come from this
   // checkout's compiler needs no such warning.
   if (armName === "baseline") return `${baseQuestion}\n\n${GROUNDING}`;
-  // The tool arm gets a neutral reminder that MCP tools exist, because
-  // tool-search models (e.g. gpt-5.6) do not surface MCP server tools from the
-  // server `instructions` alone. It names no tool and forces nothing; it only
-  // nudges appropriate use when a tool fits.
-  return `${baseQuestion}\n\nThis repository has a graph MCP tool available; make appropriate use of it when it fits the question.`;
+  // Every tool arm — this one's graph, codegraph, serena, codebase-memory — gets
+  // the same line, and the baseline gets none, because it has no tools to be told
+  // about.
+  //
+  // A model that never opens the tool list cannot be judged on its tools. Asked
+  // to tour NestJS with no line, gpt-5.6 spent eleven shell commands and 502k
+  // tokens and never mentioned the MCP; with the line it called the graph twice
+  // and spent 75k. The tools were mounted and visible in both runs — it simply
+  // never went looking, and a benchmark that says nothing measures that instead
+  // of the tool.
+  //
+  // It names no tool and forces nothing.
+  return `${baseQuestion}\n\n${TOOL_NUDGE}`;
 }
 
 function ensureInstalled(targetRepoDir) {

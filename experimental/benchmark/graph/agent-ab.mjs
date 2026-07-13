@@ -34,7 +34,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { GROUNDING } from "./prompt.mjs";
+import { GROUNDING, TOOL_NUDGE } from "./prompt.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
@@ -576,14 +576,11 @@ function promptForArm(baseQuestion, armName) {
   // facts from this checkout's compiler needs no such warning, and giving it one
   // is an order to go verify what the compiler already resolved.
   if (armName === "baseline") return `${baseQuestion}\n\n${GROUNDING}`;
-  // The tool arm gets a neutral reminder that an MCP tool exists, the same one
-  // the codex harness sends. Claude Code defers MCP tool schemas behind
-  // ToolSearch, so the model shell-explores the repo first and only then
-  // discovers the server: every graph cell but one opened with two Bash calls
-  // before its first graph call. The sentence names no tool and forces nothing;
-  // it only tells the model a tool is there, which an operator who installed the
-  // server already knows.
-  return `${baseQuestion}\n\nThis repository has a graph MCP tool available; make appropriate use of it when it fits the question.`;
+  // Every tool arm carries the same line, and the baseline none: see TOOL_NUDGE.
+  // Claude Code defers MCP tool schemas behind ToolSearch, so a model told nothing
+  // shell-explores the repo before it discovers the server at all — every graph
+  // cell but one opened with two Bash calls before its first graph call.
+  return `${baseQuestion}\n\n${TOOL_NUDGE}`;
 }
 
 // spawnAsync runs a child to completion and resolves its captured stdout/stderr,

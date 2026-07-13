@@ -8,7 +8,7 @@ import { ITtscGraphTour } from "./ITtscGraphTour";
 import { ITtscGraphTrace } from "./ITtscGraphTrace";
 
 /**
- * ## What This MCP Is
+ * ## Code Graph MCP
  *
  * `inspect_typescript_graph` returns a compiler-built TypeScript graph contract
  * for the current on-disk source snapshot.
@@ -74,11 +74,25 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  */
 export interface ITtscGraphApplication {
   /**
-   * Inspect the TypeScript compiler graph before searching the repo, for any
-   * answer about symbols, calls, types, references, or flow.
+   * Answer a TypeScript question from the compiler's own index of this
+   * repository.
    *
-   * Use `tour` for architecture and broad flow: one call carries the whole
-   * orientation answer.
+   * The graph holds every symbol, call, type, decorator and test, each with its
+   * file and line, resolved from the source on disk now. Submit exactly one
+   * request:
+   *
+   * - `tour`: architecture, the runtime flow from the public API to the code that
+   *   does the work, nearby paths, and the tests to read — a whole orientation in
+   *   one call
+   * - `trace`: what a symbol calls, what calls it, or the path from A to B
+   * - `details`: signatures, members, and what implements an interface
+   * - `lookup`: where a named symbol is declared
+   * - `entrypoints`: where execution starts, when the entry is unknown
+   * - `overview`: the project's layers and folder structure
+   *
+   * Every result is the checker's own resolution, audited before it is returned,
+   * so nothing in it needs verifying. Read a file for what the graph does not
+   * carry: a function's body, the text inside a span.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
