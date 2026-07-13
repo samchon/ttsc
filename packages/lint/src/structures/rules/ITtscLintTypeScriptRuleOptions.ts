@@ -73,6 +73,51 @@ export interface ITtscLintTypeScriptBanTsCommentRuleOptions {
   "ts-nocheck"?: TtscLintTypeScriptBanTsCommentDirectiveConfig;
 }
 
+/** Positions governed by `checksVoidReturn` in
+ * `typescript/no-misused-promises`.
+ *
+ * Omitted keys default to `true`.
+ */
+export interface ITtscLintTypeScriptNoMisusedPromisesChecksVoidReturnOptions {
+  /** Check Promise-returning callbacks passed as call/construct arguments. */
+  arguments?: boolean;
+
+  /** Check Promise-returning JSX attribute expressions. */
+  attributes?: boolean;
+
+  /** Check Promise-returning methods against extended/implemented types. */
+  inheritedMethods?: boolean;
+
+  /** Check Promise-returning functions in contextually typed properties. */
+  properties?: boolean;
+
+  /** Check Promise-returning functions returned from void-function factories. */
+  returns?: boolean;
+
+  /** Check Promise-returning functions assigned to variables. */
+  variables?: boolean;
+}
+
+/** `typescript/no-misused-promises` rule options. */
+export interface ITtscLintTypeScriptNoMisusedPromisesRuleOptions {
+  /** Check thenables used in boolean condition and predicate positions.
+   * @default true
+   */
+  checksConditionals?: boolean;
+
+  /** Check thenables spread into object literals.
+   * @default true
+   */
+  checksSpreads?: boolean;
+
+  /** Check Promise-returning functions where a void return is expected.
+   * @default true
+   */
+  checksVoidReturn?:
+    | boolean
+    | ITtscLintTypeScriptNoMisusedPromisesChecksVoidReturnOptions;
+}
+
 /**
  * `typescript/switch-exhaustiveness-check` rule options.
  *
