@@ -8,7 +8,6 @@ package linthost
 
 import (
   "encoding/json"
-  "io"
   "net/url"
   "os"
   "path/filepath"
@@ -266,22 +265,27 @@ func writeFile(t *testing.T, location, text string) {
 // sidecar command. Capturing the real streams keeps tests close to host
 // behavior while still allowing assertions on rendered diagnostics.
 //
-// 1. Swap os.Stdout and os.Stderr for pipes around the command function.
-// 2. Execute the command and close writers before reading captured output.
+// 1. Swap os.Stdout and os.Stderr for temporary files around the command.
+// 2. Execute the command and close files before reading captured output.
 // 3. Restore process streams before returning to the caller.
 func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
   t.Helper()
   prevOut, prevErr := os.Stdout, os.Stderr
-  outReader, outWriter, err := os.Pipe()
+  outputDirectory := t.TempDir()
+  outWriter, err := os.Create(filepath.Join(outputDirectory, "stdout"))
   if err != nil {
     t.Fatal(err)
   }
-  errReader, errWriter, err := os.Pipe()
+  errWriter, err := os.Create(filepath.Join(outputDirectory, "stderr"))
   if err != nil {
     t.Fatal(err)
   }
   os.Stdout = outWriter
   os.Stderr = errWriter
+  defer func() {
+    os.Stdout = prevOut
+    os.Stderr = prevErr
+  }()
   code := fn()
   if err := outWriter.Close(); err != nil {
     t.Fatal(err)
@@ -291,11 +295,11 @@ func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
   }
   os.Stdout = prevOut
   os.Stderr = prevErr
-  out, err := io.ReadAll(outReader)
+  out, err := os.ReadFile(outWriter.Name())
   if err != nil {
     t.Fatal(err)
   }
-  errOut, err := io.ReadAll(errReader)
+  errOut, err := os.ReadFile(errWriter.Name())
   if err != nil {
     t.Fatal(err)
   }
@@ -556,6 +560,7 @@ func runRuleFindingsSnapshot(
 
   if !engine.NeedsTypeChecker() {
     root := t.TempDir()
+    engine.SetCurrentDirectory(root)
     filePath := filepath.Join(root, "src", "main.ts")
     writeFile(t, filePath, source)
     file := parseTSFile(t, filePath, source)
@@ -563,6 +568,7 @@ func runRuleFindingsSnapshot(
   }
 
   root := seedLintProject(t, source)
+  engine.SetCurrentDirectory(root)
   filePath := filepath.Join(root, "src", "main.ts")
   program, diagnostics, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
     forceNoEmit:      true,

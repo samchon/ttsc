@@ -35,6 +35,7 @@ import type { ITtscLintStorybookNoUninstalledAddonsRuleOptions } from "./ITtscLi
 import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./ITtscLintTestingLibraryRuleOptions";
 import type {
   ITtscLintTypeScriptBanTsCommentRuleOptions,
+  ITtscLintTypeScriptNoFloatingPromisesRuleOptions,
   ITtscLintTypeScriptNoMisusedPromisesRuleOptions,
   ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
 } from "./ITtscLintTypeScriptRuleOptions";
@@ -62,6 +63,7 @@ import type {
  * surface.
  */
 export interface ITtscLintRuleOptionsMap {
+  "typescript/no-floating-promises": ITtscLintTypeScriptNoFloatingPromisesRuleOptions;
   "no-duplicate-imports": ITtscLintCoreNoDuplicateImportsRuleOptions;
   "no-unused-expressions": ITtscLintCoreNoUnusedExpressionsRuleOptions;
   "no-fallthrough": ITtscLintNoFallthroughRuleOptions;

@@ -1,6 +1,11 @@
 package linthost
 
 import (
+  "encoding/json"
+  "path/filepath"
+  "runtime"
+  "strings"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
@@ -612,20 +617,73 @@ func isThenableType(checker *shimchecker.Checker, t *shimchecker.Type) bool {
   return len(checker.GetSignaturesOfType(propType, shimchecker.SignatureKindCall)) > 0
 }
 
-// noFloatingPromises: an `ExpressionStatement` whose value is a Promise but
-// is neither awaited, wrapped in `void`, nor terminated by a rejection-aware
-// handler (`.catch`, `.finally`, or `.then(_, onRejected)`) silently swallows
-// any rejection produced by the Promise. The Node runtime emits
-// `unhandledRejection` only for the outermost discarded Promise, so a single
-// missing handler cascades into hard-to-trace failures. typescript-eslint
-// recommended-type-checked:
+// noFloatingPromises rejects discarded built-in Promises and, when requested,
+// catchable structural thenables. A Promise is handled only by await, the
+// configured void escape hatch, or a callable rejection handler; finally
+// preserves the receiver's handled state rather than swallowing rejection.
+// typescript-eslint recommended-type-checked:
 // https://typescript-eslint.io/rules/no-floating-promises/
 //
-// Only `ExpressionStatement` is visited: assignments, return values, and
-// argument positions are never "floating" because the surrounding context
-// captures the Promise. The handler set mirrors `await-thenable`'s shape so
-// the Checker calls stay confined to one file.
+// Only ExpressionStatement is visited because assignments, returns, and call
+// arguments transfer ownership. Recursive analysis is still required inside a
+// statement: sequence expressions hide earlier values, logical and conditional
+// branches hide Promise-producing alternatives, and arrays retain every
+// Promise element even though the container itself is not awaitable.
 type noFloatingPromises struct{}
+
+type noFloatingPromisesOptions struct {
+  AllowForKnownSafeCalls    []promiseTypeOrValueSpecifier `json:"allowForKnownSafeCalls"`
+  AllowForKnownSafePromises []promiseTypeOrValueSpecifier `json:"allowForKnownSafePromises"`
+  CheckThenables            bool                          `json:"checkThenables"`
+  IgnoreIIFE                bool                          `json:"ignoreIIFE"`
+  IgnoreVoid                *bool                         `json:"ignoreVoid"`
+}
+
+type promiseTypeOrValueSpecifier struct {
+  From        string
+  Names       []string
+  Path        string
+  PackageName string
+  Universal   bool
+}
+
+func (s *promiseTypeOrValueSpecifier) UnmarshalJSON(data []byte) error {
+  var name string
+  if err := json.Unmarshal(data, &name); err == nil {
+    s.Names = []string{name}
+    s.Universal = true
+    return nil
+  }
+
+  var raw struct {
+    From    string          `json:"from"`
+    Name    json.RawMessage `json:"name"`
+    Path    string          `json:"path"`
+    Package string          `json:"package"`
+  }
+  if err := json.Unmarshal(data, &raw); err != nil {
+    return err
+  }
+  if err := json.Unmarshal(raw.Name, &name); err == nil {
+    s.Names = []string{name}
+  } else if err := json.Unmarshal(raw.Name, &s.Names); err != nil {
+    return err
+  }
+  s.From = raw.From
+  s.Path = raw.Path
+  s.PackageName = raw.Package
+  return nil
+}
+
+func (o noFloatingPromisesOptions) ignoresVoid() bool {
+  return o.IgnoreVoid == nil || *o.IgnoreVoid
+}
+
+type floatingPromiseResult struct {
+  unhandled          bool
+  nonFunctionHandler bool
+  promiseArray       bool
+}
 
 func (noFloatingPromises) Name() string { return "typescript/no-floating-promises" }
 func (noFloatingPromises) NeedsTypeChecker() bool {
@@ -642,81 +700,681 @@ func (noFloatingPromises) Check(ctx *Context, node *shimast.Node) {
   if stmt == nil || stmt.Expression == nil {
     return
   }
-  expr := stripParens(stmt.Expression)
+  expr := unwrapFloatingPromiseExpression(stmt.Expression)
   if expr == nil {
     return
   }
-  // Syntactic discharges short-circuit the Checker call: any of these
-  // expression shapes already signals that the author opted out of the
-  // "discarded" reading, so the rule never needs to walk the type system.
-  if isPromiseHandledExpression(expr) {
+  var options noFloatingPromisesOptions
+  _ = ctx.DecodeOptions(&options)
+  if options.IgnoreIIFE && isImmediatelyInvokedFunctionExpression(expr) {
     return
   }
-  t := ctx.Checker.GetTypeAtLocation(expr)
-  if t == nil {
+  if isKnownSafePromiseCall(ctx, expr, options.AllowForKnownSafeCalls) {
     return
   }
-  if !isPromiseTypedExpression(ctx.Checker, t) {
+  result := analyzeFloatingPromise(ctx, expr, options)
+  if !result.unhandled {
     return
   }
-  ctx.Report(node, "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler, or be explicitly marked as ignored with the `void` operator.")
+  message := floatingPromiseMessage(options.ignoresVoid(), result)
+  ctx.Report(node, message)
 }
 
-// isPromiseHandledExpression reports whether the expression is syntactically
-// "handled" — already awaited, marked `void`, or terminated by a rejection-aware
-// promise method. The list of accepted methods matches typescript-eslint's
-// no-floating-promises: `catch` and `finally` always defuse the chain, while
-// `then` only defuses it when an explicit rejection handler is supplied as the
-// second argument.
-func isPromiseHandledExpression(expr *shimast.Node) bool {
-  if expr == nil {
+func floatingPromiseMessage(ignoreVoid bool, result floatingPromiseResult) string {
+  if result.promiseArray {
+    message := "An array of Promises may be unintentional. Consider handling the promises' fulfillment or rejection with Promise.all or similar"
+    if ignoreVoid {
+      return message + ", or explicitly marking the expression as ignored with the `void` operator."
+    }
+    return message + "."
+  }
+  message := "Promises must be awaited, end with a call to .catch, or end with a call to .then with a rejection handler."
+  if ignoreVoid {
+    message = "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator."
+  }
+  if result.nonFunctionHandler {
+    message += " A rejection handler that is not a function will be ignored."
+  }
+  return message
+}
+
+func analyzeFloatingPromise(
+  ctx *Context,
+  node *shimast.Node,
+  options noFloatingPromisesOptions,
+) floatingPromiseResult {
+  node = unwrapFloatingPromiseExpression(node)
+  if node == nil {
+    return floatingPromiseResult{}
+  }
+
+  if isAssignmentExpression(node) {
+    return floatingPromiseResult{}
+  }
+
+  if node.Kind == shimast.KindBinaryExpression {
+    binary := node.AsBinaryExpression()
+    if binary != nil && binary.OperatorToken != nil && binary.OperatorToken.Kind == shimast.KindCommaToken {
+      if result := analyzeFloatingPromise(ctx, binary.Left, options); result.unhandled {
+        return result
+      }
+      return analyzeFloatingPromise(ctx, binary.Right, options)
+    }
+  }
+
+  if !options.ignoresVoid() && node.Kind == shimast.KindVoidExpression {
+    expression := node.AsVoidExpression()
+    if expression == nil {
+      return floatingPromiseResult{}
+    }
+    return analyzeFloatingPromise(ctx, expression.Expression, options)
+  }
+
+  t := ctx.Checker.GetTypeAtLocation(node)
+  if t == nil {
+    return floatingPromiseResult{}
+  }
+  if isFloatingPromiseArray(ctx, node, t, options) {
+    return floatingPromiseResult{unhandled: true, promiseArray: true}
+  }
+  if node.Kind == shimast.KindAwaitExpression {
+    return floatingPromiseResult{}
+  }
+  if !isFloatingPromiseType(ctx, node, t, options) {
+    return floatingPromiseResult{}
+  }
+
+  switch node.Kind {
+  case shimast.KindCallExpression:
+    return analyzeFloatingPromiseCall(ctx, node, options)
+  case shimast.KindConditionalExpression:
+    conditional := node.AsConditionalExpression()
+    if conditional == nil {
+      return floatingPromiseResult{unhandled: true}
+    }
+    if result := analyzeFloatingPromise(ctx, conditional.WhenFalse, options); result.unhandled {
+      return result
+    }
+    return analyzeFloatingPromise(ctx, conditional.WhenTrue, options)
+  case shimast.KindBinaryExpression:
+    binary := node.AsBinaryExpression()
+    if binary != nil && binary.OperatorToken != nil {
+      switch binary.OperatorToken.Kind {
+      case shimast.KindAmpersandAmpersandToken,
+        shimast.KindBarBarToken,
+        shimast.KindQuestionQuestionToken:
+        if result := analyzeFloatingPromise(ctx, binary.Left, options); result.unhandled {
+          return result
+        }
+        return analyzeFloatingPromise(ctx, binary.Right, options)
+      }
+    }
+  }
+  return floatingPromiseResult{unhandled: true}
+}
+
+func analyzeFloatingPromiseCall(
+  ctx *Context,
+  node *shimast.Node,
+  options noFloatingPromisesOptions,
+) floatingPromiseResult {
+  call := node.AsCallExpression()
+  if call == nil {
+    return floatingPromiseResult{unhandled: true}
+  }
+  receiver, method, ok := floatingPromiseMethodCall(ctx, call, options)
+  if !ok {
+    return floatingPromiseResult{unhandled: true}
+  }
+  switch method {
+  case "catch":
+    return rejectionHandlerResult(ctx, call, 0)
+  case "then":
+    if call.Arguments != nil && len(call.Arguments.Nodes) != 0 && call.Arguments.Nodes[0].Kind == shimast.KindSpreadElement {
+      return floatingPromiseResult{unhandled: true}
+    }
+    return rejectionHandlerResult(ctx, call, 1)
+  case "finally":
+    return analyzeFloatingPromise(ctx, receiver, options)
+  default:
+    return floatingPromiseResult{unhandled: true}
+  }
+}
+
+func rejectionHandlerResult(ctx *Context, call *shimast.CallExpression, index int) floatingPromiseResult {
+  if call == nil || call.Arguments == nil || len(call.Arguments.Nodes) <= index {
+    return floatingPromiseResult{unhandled: true}
+  }
+  handler := unwrapFloatingPromiseExpression(call.Arguments.Nodes[index])
+  if handler == nil || handler.Kind == shimast.KindSpreadElement {
+    return floatingPromiseResult{unhandled: true}
+  }
+  t := ctx.Checker.GetTypeAtLocation(handler)
+  if t != nil && len(ctx.Checker.GetSignaturesOfType(t, shimchecker.SignatureKindCall)) > 0 {
+    return floatingPromiseResult{}
+  }
+  return floatingPromiseResult{unhandled: true, nonFunctionHandler: true}
+}
+
+// floatingPromiseMethodCall admits method names only after the receiver's
+// resolved type proves it is a Promise under this rule's policy. The textual
+// name selects Promise protocol behavior; it never turns an unrelated object's
+// same-named method into a rejection handler.
+func floatingPromiseMethodCall(
+  ctx *Context,
+  call *shimast.CallExpression,
+  options noFloatingPromisesOptions,
+) (*shimast.Node, string, bool) {
+  if call == nil || call.Expression == nil {
+    return nil, "", false
+  }
+  receiver, method, ok := floatingPromisePropertyAccessParts(call.Expression)
+  if !ok {
+    return nil, "", false
+  }
+  switch method {
+  case "catch", "then", "finally":
+  default:
+    return nil, "", false
+  }
+  receiver = unwrapFloatingPromiseExpression(receiver)
+  if receiver == nil {
+    return nil, "", false
+  }
+  receiverType := ctx.Checker.GetTypeAtLocation(receiver)
+  if !isFloatingPromiseReceiverType(ctx, receiver, receiverType, options) {
+    return nil, "", false
+  }
+  return receiver, method, true
+}
+
+func floatingPromisePropertyAccessParts(node *shimast.Node) (*shimast.Node, string, bool) {
+  node = stripParens(node)
+  if node == nil {
+    return nil, "", false
+  }
+  switch node.Kind {
+  case shimast.KindPropertyAccessExpression:
+    access := node.AsPropertyAccessExpression()
+    if access == nil {
+      return nil, "", false
+    }
+    method := identifierText(access.Name())
+    return access.Expression, method, method != ""
+  case shimast.KindElementAccessExpression:
+    access := node.AsElementAccessExpression()
+    if access == nil || access.ArgumentExpression == nil {
+      return nil, "", false
+    }
+    switch access.ArgumentExpression.Kind {
+    case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+      method := stringLiteralText(access.ArgumentExpression)
+      return access.Expression, method, method != ""
+    }
+  }
+  return nil, "", false
+}
+
+func isFloatingPromiseReceiverType(
+  ctx *Context,
+  location *shimast.Node,
+  t *shimchecker.Type,
+  options noFloatingPromisesOptions,
+) bool {
+  if t == nil {
     return false
   }
-  switch expr.Kind {
-  case shimast.KindAwaitExpression, shimast.KindVoidExpression:
-    return true
-  case shimast.KindCallExpression:
-    call := expr.AsCallExpression()
-    if call == nil {
-      return false
+  apparent := ctx.Checker.GetApparentType(t)
+  if apparent == nil {
+    return false
+  }
+  parts := promiseUnionParts(apparent)
+  if len(parts) == 0 {
+    return false
+  }
+  for _, part := range parts {
+    if typeMatchesSomePromiseSpecifier(ctx, part, options.AllowForKnownSafePromises) ||
+      isNativePromiseInstanceLike(ctx.Checker, part) ||
+      (options.CheckThenables && isCatchableThenableAtLocation(ctx.Checker, location, part)) {
+      continue
     }
-    method, ok := promiseMethodCallName(call)
-    if !ok {
-      return false
-    }
-    switch method {
-    case "catch", "finally":
+    return false
+  }
+  return true
+}
+
+func isFloatingPromiseType(
+  ctx *Context,
+  location *shimast.Node,
+  t *shimchecker.Type,
+  options noFloatingPromisesOptions,
+) bool {
+  if t == nil || typeMatchesSomePromiseSpecifier(ctx, t, options.AllowForKnownSafePromises) {
+    return false
+  }
+  apparent := ctx.Checker.GetApparentType(t)
+  if apparent == nil {
+    return false
+  }
+  for _, part := range promiseUnionParts(apparent) {
+    if isNativePromiseInstanceLike(ctx.Checker, part) {
       return true
-    case "then":
-      return call.Arguments != nil && len(call.Arguments.Nodes) >= 2
+    }
+  }
+  if !options.CheckThenables {
+    return false
+  }
+  return isCatchableThenableAtLocation(ctx.Checker, location, apparent)
+}
+
+func isCatchableThenableAtLocation(
+  checker *shimchecker.Checker,
+  location *shimast.Node,
+  t *shimchecker.Type,
+) bool {
+  if checker == nil || t == nil {
+    return false
+  }
+  apparent := checker.GetApparentType(t)
+  if apparent == nil {
+    return false
+  }
+  for _, part := range promiseUnionParts(apparent) {
+    thenProperty := checker.GetPropertyOfType(part, "then")
+    if thenProperty == nil {
+      continue
+    }
+    thenType := checker.GetTypeOfSymbolAtLocation(thenProperty, location)
+    for _, thenPart := range promiseUnionParts(thenType) {
+      if thenPart == nil {
+        continue
+      }
+      for _, signature := range checker.GetSignaturesOfType(thenPart, shimchecker.SignatureKindCall) {
+        parameters := signature.Parameters()
+        if len(parameters) >= 2 &&
+          isCallableCallbackParameter(checker, location, parameters[0]) &&
+          isCallableCallbackParameter(checker, location, parameters[1]) {
+          return true
+        }
+      }
     }
   }
   return false
 }
 
-// promiseMethodCallName returns the trailing property name when the call's
-// callee is a property access (e.g. `getPromise().catch` -> "catch"). Unlike
-// `promiseCallMethod`, it does NOT gate the result on whether the receiver
-// looks like a Promise — the Checker handles that downstream when deciding
-// whether the whole expression is still Promise-typed. The named-receiver
-// constraint would otherwise reject legitimate handlers on user-typed
-// objects such as `repo.users.findById(id).catch(reportError)`.
-func promiseMethodCallName(call *shimast.CallExpression) (string, bool) {
+func isFloatingPromiseArray(
+  ctx *Context,
+  location *shimast.Node,
+  t *shimchecker.Type,
+  options noFloatingPromisesOptions,
+) bool {
+  for _, part := range promiseUnionParts(t) {
+    apparent := ctx.Checker.GetApparentType(part)
+    if apparent == nil {
+      continue
+    }
+    if shimchecker.Checker_isArrayType(ctx.Checker, apparent) {
+      arguments := ctx.Checker.GetTypeArguments(apparent)
+      if len(arguments) > 0 && isFloatingPromiseType(ctx, location, arguments[0], options) {
+        return true
+      }
+    }
+    if shimchecker.IsTupleType(apparent) {
+      for _, element := range ctx.Checker.GetTypeArguments(apparent) {
+        if isFloatingPromiseType(ctx, location, element, options) {
+          return true
+        }
+      }
+    }
+  }
+  return false
+}
+
+func isNativePromiseInstanceLike(checker *shimchecker.Checker, t *shimchecker.Type) bool {
+  return isNativePromiseInstanceLikeSeen(checker, t, map[*shimchecker.Type]struct{}{})
+}
+
+func isNativePromiseInstanceLikeSeen(
+  checker *shimchecker.Checker,
+  t *shimchecker.Type,
+  seen map[*shimchecker.Type]struct{},
+) bool {
+  if checker == nil || t == nil {
+    return false
+  }
+  if _, ok := seen[t]; ok {
+    return false
+  }
+  seen[t] = struct{}{}
+  defer delete(seen, t)
+
+  flags := t.Flags()
+  if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
+    for _, part := range t.Types() {
+      if isNativePromiseInstanceLikeSeen(checker, part, seen) {
+        return true
+      }
+    }
+    return false
+  }
+  if flags&shimchecker.TypeFlagsTypeParameter != 0 {
+    return isNativePromiseInstanceLikeSeen(checker, checker.GetBaseConstraintOfType(t), seen)
+  }
+
+  symbol := t.Symbol()
+  if symbol == nil {
+    return false
+  }
+  if symbol.Name == "Promise" && checker.IsLibSymbolForHoverVerbosity(symbol) {
+    return true
+  }
+  declared := checker.GetDeclaredTypeOfSymbol(symbol)
+  if declared == nil || declared.ObjectFlags()&shimchecker.ObjectFlagsClassOrInterface == 0 {
+    return false
+  }
+  for _, base := range checker.GetBaseTypes(declared) {
+    if isNativePromiseInstanceLikeSeen(checker, base, seen) {
+      return true
+    }
+  }
+  return false
+}
+
+func isKnownSafePromiseCall(
+  ctx *Context,
+  node *shimast.Node,
+  specifiers []promiseTypeOrValueSpecifier,
+) bool {
+  if node == nil || node.Kind != shimast.KindCallExpression || len(specifiers) == 0 {
+    return false
+  }
+  call := node.AsCallExpression()
   if call == nil || call.Expression == nil {
-    return "", false
+    return false
   }
-  _, method, ok := promisePropertyAccessParts(call.Expression)
-  if !ok {
-    return "", false
+  callee := unwrapFloatingPromiseExpression(call.Expression)
+  if callee == nil {
+    return false
   }
-  return method, true
+  if valueMatchesSomePromiseSpecifier(ctx, callee, specifiers) {
+    return true
+  }
+  return typeMatchesSomePromiseSpecifier(ctx, ctx.Checker.GetTypeAtLocation(callee), specifiers)
+}
+
+func valueMatchesSomePromiseSpecifier(
+  ctx *Context,
+  node *shimast.Node,
+  specifiers []promiseTypeOrValueSpecifier,
+) bool {
+  staticName, symbol := promiseValueNameAndSymbol(ctx.Checker, node)
+  for _, specifier := range specifiers {
+    if promiseSpecifierMatchesSymbol(ctx, specifier, staticName, symbol) {
+      return true
+    }
+  }
+  return false
+}
+
+func promiseValueNameAndSymbol(
+  checker *shimchecker.Checker,
+  node *shimast.Node,
+) (string, *shimast.Symbol) {
+  if checker == nil || node == nil {
+    return "", nil
+  }
+  node = unwrapFloatingPromiseExpression(node)
+  if node == nil {
+    return "", nil
+  }
+  var nameNode *shimast.Node
+  var staticName string
+  switch node.Kind {
+  case shimast.KindIdentifier:
+    nameNode = node
+    staticName = identifierText(node)
+  case shimast.KindPropertyAccessExpression:
+    access := node.AsPropertyAccessExpression()
+    if access != nil {
+      nameNode = access.Name()
+      staticName = identifierText(nameNode)
+    }
+  case shimast.KindElementAccessExpression:
+    access := node.AsElementAccessExpression()
+    if access != nil && access.ArgumentExpression != nil {
+      switch access.ArgumentExpression.Kind {
+      case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+        staticName = stringLiteralText(access.ArgumentExpression)
+      }
+      receiverType := checker.GetTypeAtLocation(access.Expression)
+      if receiverType != nil && staticName != "" {
+        return staticName, checker.GetPropertyOfType(receiverType, staticName)
+      }
+    }
+  }
+  symbol := checker.GetSymbolAtLocation(nameNode)
+  if symbol != nil && symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+    symbol = checker.GetAliasedSymbol(symbol)
+  }
+  return staticName, symbol
+}
+
+func typeMatchesSomePromiseSpecifier(
+  ctx *Context,
+  t *shimchecker.Type,
+  specifiers []promiseTypeOrValueSpecifier,
+) bool {
+  for _, specifier := range specifiers {
+    if typeMatchesPromiseSpecifier(ctx, t, specifier) {
+      return true
+    }
+  }
+  return false
+}
+
+func typeMatchesPromiseSpecifier(
+  ctx *Context,
+  t *shimchecker.Type,
+  specifier promiseTypeOrValueSpecifier,
+) bool {
+  if ctx == nil || ctx.Checker == nil || t == nil {
+    return false
+  }
+  if t.Flags()&shimchecker.TypeFlagsUnion != 0 {
+    parts := t.Types()
+    if len(parts) == 0 {
+      return false
+    }
+    for _, part := range parts {
+      if !typeMatchesPromiseSpecifier(ctx, part, specifier) {
+        return false
+      }
+    }
+    return true
+  }
+
+  symbol := shimchecker.Type_getTypeNameSymbol(t)
+  if symbol == nil {
+    symbol = t.Symbol()
+  }
+  if symbol != nil && symbol.Flags&shimast.SymbolFlagsAlias != 0 {
+    symbol = ctx.Checker.GetAliasedSymbol(symbol)
+  }
+  if promiseSpecifierMatchesSymbol(ctx, specifier, "", symbol) {
+    return true
+  }
+  if t.Flags()&shimchecker.TypeFlagsIntersection != 0 {
+    for _, part := range t.Types() {
+      if typeMatchesPromiseSpecifier(ctx, part, specifier) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+func promiseSpecifierMatchesSymbol(
+  ctx *Context,
+  specifier promiseTypeOrValueSpecifier,
+  staticName string,
+  symbol *shimast.Symbol,
+) bool {
+  symbolName := ""
+  if symbol != nil {
+    symbolName = symbol.Name
+  }
+  if !promiseSpecifierNameMatches(specifier.Names, staticName, symbolName) {
+    return false
+  }
+  if specifier.Universal {
+    return true
+  }
+  switch specifier.From {
+  case "file":
+    return promiseSymbolDeclaredInFile(ctx, symbol, specifier.Path)
+  case "lib":
+    return symbol != nil && ctx.Checker.IsLibSymbolForHoverVerbosity(symbol)
+  case "package":
+    return promiseSymbolDeclaredInPackage(symbol, specifier.PackageName)
+  default:
+    return false
+  }
+}
+
+func promiseSpecifierNameMatches(names []string, candidates ...string) bool {
+  for _, name := range names {
+    for _, candidate := range candidates {
+      if name != "" && name == candidate {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+func promiseSymbolDeclaredInFile(ctx *Context, symbol *shimast.Symbol, configuredPath string) bool {
+  if ctx == nil || ctx.File == nil || symbol == nil {
+    return false
+  }
+  for _, declaration := range symbol.Declarations {
+    source := sourceFileForPromiseDeclaration(declaration)
+    if source == nil || ctx.Checker.IsLibSymbolForHoverVerbosity(symbol) {
+      continue
+    }
+    if configuredPath == "" {
+      if ctx.CurrentDirectory == "" || promisePathWithin(ctx.CurrentDirectory, source.FileName()) {
+        return true
+      }
+      continue
+    }
+    if promiseDeclarationPathMatches(ctx.CurrentDirectory, source.FileName(), configuredPath) {
+      return true
+    }
+  }
+  return false
+}
+
+func promiseDeclarationPathMatches(currentDirectory, declarationFile, configuredPath string) bool {
+  configuredPath = filepath.Clean(filepath.FromSlash(configuredPath))
+  if !filepath.IsAbs(configuredPath) {
+    configuredPath = filepath.Join(currentDirectory, configuredPath)
+  }
+  return promiseCanonicalPath(declarationFile) == promiseCanonicalPath(configuredPath)
+}
+
+func promisePathWithin(currentDirectory, declarationFile string) bool {
+  root := promiseCanonicalPath(currentDirectory)
+  declaration := promiseCanonicalPath(declarationFile)
+  relative, err := filepath.Rel(root, declaration)
+  if err != nil || filepath.IsAbs(relative) {
+    return false
+  }
+  return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+}
+
+func promiseCanonicalPath(path string) string {
+  path = filepath.Clean(path)
+  if runtime.GOOS == "windows" {
+    return strings.ToLower(path)
+  }
+  return path
+}
+
+func promiseSymbolDeclaredInPackage(symbol *shimast.Symbol, packageName string) bool {
+  if symbol == nil || packageName == "" {
+    return false
+  }
+  packagePath := "/node_modules/" + strings.Trim(packageName, "/") + "/"
+  typesName := strings.TrimPrefix(packageName, "@")
+  typesName = strings.Replace(typesName, "/", "__", 1)
+  typesPath := "/node_modules/@types/" + typesName + "/"
+  for _, declaration := range symbol.Declarations {
+    for parent := declaration; parent != nil; parent = parent.Parent {
+      if parent.Kind == shimast.KindModuleDeclaration {
+        if name := parent.Name(); name != nil && stringLiteralText(name) == packageName {
+          return true
+        }
+      }
+      if parent.Kind == shimast.KindSourceFile {
+        source := parent.AsSourceFile()
+        if source == nil {
+          break
+        }
+        fileName := "/" + strings.TrimLeft(filepath.ToSlash(source.FileName()), "/")
+        if strings.Contains(fileName, packagePath) || strings.Contains(fileName, typesPath) {
+          return true
+        }
+        break
+      }
+    }
+  }
+  return false
+}
+
+func sourceFileForPromiseDeclaration(node *shimast.Node) *shimast.SourceFile {
+  for current := node; current != nil; current = current.Parent {
+    if current.Kind == shimast.KindSourceFile {
+      return current.AsSourceFile()
+    }
+  }
+  return nil
+}
+
+func isImmediatelyInvokedFunctionExpression(node *shimast.Node) bool {
+  if node == nil || node.Kind != shimast.KindCallExpression {
+    return false
+  }
+  call := node.AsCallExpression()
+  if call == nil {
+    return false
+  }
+  callee := unwrapFloatingPromiseExpression(call.Expression)
+  return callee != nil && (callee.Kind == shimast.KindArrowFunction || callee.Kind == shimast.KindFunctionExpression)
+}
+
+func unwrapFloatingPromiseExpression(node *shimast.Node) *shimast.Node {
+  for node != nil {
+    switch node.Kind {
+    case shimast.KindParenthesizedExpression,
+      shimast.KindPartiallyEmittedExpression:
+      next := node.Expression()
+      if next == nil {
+        return node
+      }
+      node = next
+    default:
+      return node
+    }
+  }
+  return nil
 }
 
 // isPromiseTypedExpression reports whether `t` represents a Promise (or
-// structurally callable thenable) under the floating-Promise rules' existing
-// boolean policy. Unlike classifyPromiseAwaitability, `any`, `unknown`, and
-// `never` are skipped because they cannot prove that a real Promise is being
-// discarded.
+// structurally callable thenable) under the older shared boolean policy used by
+// the other Promise rules. no-floating-promises has its own option-aware native
+// Promise and catchable-thenable boundary above. Unlike
+// classifyPromiseAwaitability, `any`, `unknown`, and `never` are skipped because
+// they cannot prove that a real Promise is present.
 func isPromiseTypedExpression(checker *shimchecker.Checker, t *shimchecker.Type) bool {
   if checker == nil || t == nil {
     return false

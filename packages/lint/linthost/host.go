@@ -215,7 +215,7 @@ func (p *program) runLintCycle(engine *Engine) []*Finding {
     p.projectCycle = &cycle
   }
   projectFindings := append([]*Finding(nil), p.projectCycle.findings...)
-  return append(projectFindings, engine.runFiles(files, p.checker, p.projectCycle.results)...)
+  return append(projectFindings, engine.runFiles(files, p.checker, p.projectCycle.results, p.cwd)...)
 }
 
 // close releases the type checker acquired by loadProgram. Safe to call on
