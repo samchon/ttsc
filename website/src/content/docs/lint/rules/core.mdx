@@ -2394,13 +2394,20 @@ Reject `var` declarations.
 
 Use `let` for mutable bindings and `const` for immutable ones. Autofixable to `let`.
 
-The fix only fires when the rewrite cannot change behavior, mirroring ESLint's `no-var` fix conditions: the name binds exactly once in the file, is never read before the declaration or inside its own initializer, every reference stays inside the declaring block scope (a `var` declared in a block but read after it would stop compiling as `let`), a loop-local `var` is not captured by a function or arrow created inside the loop (those closures share one `var` binding but would capture a fresh per-iteration `let` binding), and the declaration does not sit under a `with` statement. Anything else reports without a fix.
+Every `var` declaration list reports, whether it appears as a statement or directly in a `for`, `for...in`, or `for...of` header.
+
+The fix only fires when the rewrite cannot change behavior, mirroring ESLint's `no-var` fix conditions: the name binds exactly once in the file, is never read before the declaration or inside its own initializer, every reference stays inside the declaring block scope (a `var` declared in a block but read after it would stop compiling as `let`; a loop-header `var` read after its loop likewise), a loop `var` — declared in the body or in the header itself — is not captured by a function or arrow created inside the loop (those closures share one `var` binding but would capture a fresh per-iteration `let` binding), and the declaration does not sit under a `with` statement. A `for...in`/`for...of` header additionally declines when its declarator carries an Annex-B initializer (`for (var i = 0 in o)`, a SyntaxError under `let`) or when the head expression reads the loop variable (`for (var x of x)`, a TDZ ReferenceError under `let`). Anything else reports without a fix.
 
 Example:
 
 ```ts
 // reports: no-var (error)
 var legacy = 1;
+
+// reports: no-var (error)
+for (var index = 0; index < 1; index += 1) {
+  JSON.stringify(index);
+}
 ```
 
 <a id="rule-no-with"></a>

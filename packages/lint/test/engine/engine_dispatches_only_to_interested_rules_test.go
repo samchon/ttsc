@@ -16,7 +16,7 @@ import (
 // unsupported node cast. This test uses two rules with non-overlapping kind sets on one
 // source file to confirm independent dispatch counts.
 //
-// 1. Build an engine with noVar (KindVariableStatement) and noDebugger (KindDebuggerStatement).
+// 1. Build an engine with noVar (KindVariableDeclarationList) and noDebugger (KindDebuggerStatement).
 // 2. Parse a file with two var declarations and one debugger statement.
 // 3. Assert three total findings split 2 and 1 across the two rules.
 func TestEngineDispatchesOnlyToInterestedRules(t *testing.T) {
