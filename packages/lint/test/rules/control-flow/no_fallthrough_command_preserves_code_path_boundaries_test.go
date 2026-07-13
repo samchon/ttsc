@@ -5,10 +5,11 @@ import "testing"
 // TestNoFallthroughCommandPreservesCodePathBoundaries verifies nested
 // functions, class fields, and static blocks do not leak return or throw paths
 // into the enclosing try. Immediately evaluated class heritage and computed
-// names remain part of the enclosing path.
+// names remain part of the enclosing path, as do the abrupt resumptions of a
+// yield expression in the current generator.
 //
 // 1. Put identifier reads inside every deferred function/class execution path.
-// 2. Pair them with class heritage, computed names, async, and generator reads.
+// 2. Pair them with class heritage, computed names, async, and generator paths.
 // 3. Assert only immediately evaluated references make catches reachable.
 func TestNoFallthroughCommandPreservesCodePathBoundaries(t *testing.T) {
   assertNoFallthroughCommandMarkers(t, `declare const identifier: number;
@@ -89,13 +90,26 @@ function* inspectGenerator(value: number): Generator<number, unknown, unknown> {
       try {
         return yield 1;
       } catch {}
-    case 1:
+    case 1: // diagnostic
       break;
     case 2:
       try {
         return yield identifier;
       } catch {}
     case 3: // diagnostic
+      break;
+    case 4:
+      try {
+        try {
+          yield 1;
+          while (true) {}
+        } catch {
+          while (true) {}
+        } finally {
+          identifier;
+        }
+      } catch {}
+    case 5: // diagnostic
       break;
   }
 }

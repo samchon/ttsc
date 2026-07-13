@@ -296,6 +296,20 @@ type caseCompletion struct {
   continues map[string]struct{}
 }
 
+// expressionCompletion records abrupt paths created while evaluating an
+// expression. In addition to ordinary exception edges, `yield` can resume via
+// either generator.throw() or generator.return(), so both paths must survive
+// into enclosing try/finally composition.
+type expressionCompletion struct {
+  returns bool
+  throws  bool
+}
+
+func (c *expressionCompletion) merge(other expressionCompletion) {
+  c.returns = c.returns || other.returns
+  c.throws = c.throws || other.throws
+}
+
 func (c *caseCompletion) addBreak(label string) {
   if c.breaks == nil {
     c.breaks = map[string]struct{}{}
@@ -367,9 +381,9 @@ func statementListCompletion(stmts []*shimast.Node) caseCompletion {
 // statementCompletion computes how a single statement can complete.
 // `labels` carries the label names bound to this statement by directly
 // wrapping labeled statements, so loops can absorb `continue L` / `break L`
-// aimed at themselves. Evaluated expressions are inspected only for the
-// throwable nodes that can reach a catch; nested function, class-field,
-// and static-block code paths remain isolated from the enclosing case.
+// aimed at themselves. Evaluated expressions are inspected for throwable
+// nodes and abrupt generator resumptions; nested function, class-field, and
+// static-block code paths remain isolated from the enclosing case.
 func statementCompletion(stmt *shimast.Node, labels []string) caseCompletion {
   if stmt == nil {
     return caseCompletion{normal: true}
@@ -377,14 +391,23 @@ func statementCompletion(stmt *shimast.Node, labels []string) caseCompletion {
   switch stmt.Kind {
   case shimast.KindReturnStatement:
     ret := stmt.AsReturnStatement()
+    expression := expressionCompletion{}
+    if ret != nil {
+      expression = executableNodeCompletion(ret.Expression)
+    }
     return caseCompletion{
       returns: true,
-      throws:  ret != nil && executableNodePotentiallyThrows(ret.Expression),
+      throws:  expression.throws,
     }
   case shimast.KindThrowStatement:
     // Evaluating the operand may throw first, and the statement itself
     // always produces a throw completion. Both reach the same catch edge.
-    return caseCompletion{throws: true}
+    throw := stmt.AsThrowStatement()
+    expression := expressionCompletion{}
+    if throw != nil {
+      expression = executableNodeCompletion(throw.Expression)
+    }
+    return caseCompletion{returns: expression.returns, throws: true}
   case shimast.KindBreakStatement:
     out := caseCompletion{}
     out.addBreak(identifierText(stmt.AsBreakStatement().Label))
@@ -412,8 +435,8 @@ func statementCompletion(stmt *shimast.Node, labels []string) caseCompletion {
       constTrue,
       constFalse,
       false,
-      executableNodePotentiallyThrows(s.Expression),
-      false,
+      executableNodeCompletion(s.Expression),
+      expressionCompletion{},
     )
   case shimast.KindDoStatement:
     s := stmt.AsDoStatement()
@@ -424,8 +447,8 @@ func statementCompletion(stmt *shimast.Node, labels []string) caseCompletion {
       constTrue,
       constFalse,
       true,
-      executableNodePotentiallyThrows(s.Expression),
-      false,
+      executableNodeCompletion(s.Expression),
+      expressionCompletion{},
     )
   case shimast.KindForStatement:
     s := stmt.AsForStatement()
@@ -440,19 +463,26 @@ func statementCompletion(stmt *shimast.Node, labels []string) caseCompletion {
       constTrue,
       constFalse,
       false,
-      executableNodePotentiallyThrows(s.Condition),
-      executableNodePotentiallyThrows(s.Incrementor),
+      executableNodeCompletion(s.Condition),
+      executableNodeCompletion(s.Incrementor),
     )
-    out.throws = out.throws || executableNodePotentiallyThrows(s.Initializer)
+    mergeExpressionCompletion(&out, executableNodeCompletion(s.Initializer))
     return out
   case shimast.KindForInStatement, shimast.KindForOfStatement:
     // The iterated collection may be empty, so the loop always offers
     // normal completion — identical to a non-constant loop test.
     s := stmt.AsForInOrOfStatement()
-    out := loopCompletion(s.Statement, labels, false, false, false, false, false)
-    out.throws = out.throws ||
-      executableNodePotentiallyThrows(s.Initializer) ||
-      executableNodePotentiallyThrows(s.Expression)
+    out := loopCompletion(
+      s.Statement,
+      labels,
+      false,
+      false,
+      false,
+      expressionCompletion{},
+      expressionCompletion{},
+    )
+    mergeExpressionCompletion(&out, executableNodeCompletion(s.Initializer))
+    mergeExpressionCompletion(&out, executableNodeCompletion(s.Expression))
     return out
   case shimast.KindSwitchStatement:
     return switchCompletion(stmt.AsSwitchStatement(), labels)
@@ -461,13 +491,14 @@ func statementCompletion(stmt *shimast.Node, labels []string) caseCompletion {
   case shimast.KindWithStatement:
     s := stmt.AsWithStatement()
     out := statementCompletion(s.Statement, nil)
-    out.throws = out.throws || executableNodePotentiallyThrows(s.Expression)
+    mergeExpressionCompletion(&out, executableNodeCompletion(s.Expression))
     return out
   default:
     // Leaf statements complete normally, but their evaluated expressions
     // can still enter an enclosing catch. The walker excludes type syntax
     // and nested function/class execution contexts.
-    return caseCompletion{normal: true, throws: executableNodePotentiallyThrows(stmt)}
+    expression := executableNodeCompletion(stmt)
+    return caseCompletion{normal: true, returns: expression.returns, throws: expression.throws}
   }
 }
 
@@ -481,15 +512,17 @@ func ifCompletion(s *shimast.IfStatement) caseCompletion {
     return caseCompletion{normal: true}
   }
   then := statementCompletion(s.ThenStatement, nil)
+  expression := executableNodeCompletion(s.Expression)
   if s.ElseStatement == nil {
     then.normal = true
-    then.throws = then.throws || executableNodePotentiallyThrows(s.Expression)
+    mergeExpressionCompletion(&then, expression)
     return then
   }
   els := statementCompletion(s.ElseStatement, nil)
   out := caseCompletion{
-    normal: then.normal || els.normal,
-    throws: executableNodePotentiallyThrows(s.Expression),
+    normal:  then.normal || els.normal,
+    returns: expression.returns,
+    throws:  expression.throws,
   }
   out.mergeAbrupt(then)
   out.mergeAbrupt(els)
@@ -527,12 +560,12 @@ func loopCompletion(
   body *shimast.Node,
   labels []string,
   constTrue, constFalse, isDoWhile bool,
-  testThrows, incrementThrows bool,
+  test, increment expressionCompletion,
 ) caseCompletion {
   if constFalse && !isDoWhile {
     // The body never runs, so nothing inside it (including breaks) can
     // execute. The test is still evaluated once before normal completion.
-    return caseCompletion{normal: true, throws: testThrows}
+    return caseCompletion{normal: true, returns: test.returns, throws: test.throws}
   }
   r := statementCompletion(body, nil)
   exitByBreak := r.hasBreak("")
@@ -544,10 +577,10 @@ func loopCompletion(
   if !isDoWhile || iterationEnds {
     // while/for tests run before the first iteration. A do/while test is
     // reachable only when the body reaches the iteration boundary.
-    r.throws = r.throws || testThrows
+    mergeExpressionCompletion(&r, test)
   }
   if iterationEnds {
-    r.throws = r.throws || incrementThrows
+    mergeExpressionCompletion(&r, increment)
   }
   var normal bool
   switch {
@@ -589,7 +622,8 @@ func switchCompletion(s *shimast.SwitchStatement, labels []string) caseCompletio
   hasDefault := false
   exitByBreak := false
   lastNormal := false
-  out := caseCompletion{throws: executableNodePotentiallyThrows(s.Expression)}
+  discriminant := executableNodeCompletion(s.Expression)
+  out := caseCompletion{returns: discriminant.returns, throws: discriminant.throws}
   for i, clauseNode := range clauses {
     if clauseNode == nil {
       continue
@@ -599,7 +633,7 @@ func switchCompletion(s *shimast.SwitchStatement, labels []string) caseCompletio
     }
     clause := clauseNode.AsCaseOrDefaultClause()
     if clause != nil {
-      out.throws = out.throws || executableNodePotentiallyThrows(clause.Expression)
+      mergeExpressionCompletion(&out, executableNodeCompletion(clause.Expression))
     }
     r := statementListCompletion(clauseStatements(clause))
     if r.hasBreak("") {
@@ -679,87 +713,104 @@ func blockNodeCompletion(node *shimast.Node) caseCompletion {
   return statementListCompletion(block.Statements.Nodes)
 }
 
-// executableNodePotentiallyThrows mirrors the throwable-node boundary in
-// ESLint's code-path analyzer. A reachable value-reference identifier,
-// member access, call, import call, or construction can enter the nearest
-// catch. Type syntax and separately analyzed function/class execution
-// contexts never leak throw edges into the enclosing statement.
-func executableNodePotentiallyThrows(node *shimast.Node) bool {
+// executableNodeCompletion mirrors ESLint's expression-level code-path
+// effects. A reachable value-reference identifier, member access, call,
+// import call, construction, or abrupt yield resumption can enter the nearest
+// catch. Type syntax and separately analyzed function/class execution contexts
+// never leak abrupt paths into the enclosing statement.
+func executableNodeCompletion(node *shimast.Node) expressionCompletion {
   if node == nil {
-    return false
+    return expressionCompletion{}
   }
   if node.Kind == shimast.KindExpressionWithTypeArguments {
-    return runtimeHeritageExpressionPotentiallyThrows(node)
+    return runtimeHeritageExpressionCompletion(node)
   }
   if node.Kind >= shimast.KindFirstTypeNode && node.Kind <= shimast.KindLastTypeNode {
-    return false
+    return expressionCompletion{}
   }
   switch node.Kind {
   case shimast.KindFunctionDeclaration,
     shimast.KindFunctionExpression,
     shimast.KindArrowFunction,
     shimast.KindClassStaticBlockDeclaration:
-    return false
+    return expressionCompletion{}
   case shimast.KindMethodDeclaration,
     shimast.KindConstructor,
     shimast.KindGetAccessor,
     shimast.KindSetAccessor,
     shimast.KindPropertyDeclaration:
-    return classElementHeaderPotentiallyThrows(node)
+    return classElementHeaderCompletion(node)
   case shimast.KindIdentifier:
-    return noFallthroughIdentifierIsReference(node)
+    return expressionCompletion{throws: noFallthroughIdentifierIsReference(node)}
+  case shimast.KindYieldExpression:
+    expression := expressionCompletion{returns: true, throws: true}
+    node.ForEachChild(func(child *shimast.Node) bool {
+      expression.merge(executableNodeCompletion(child))
+      return expression.returns && expression.throws
+    })
+    return expression
   case shimast.KindPropertyAccessExpression,
     shimast.KindElementAccessExpression,
     shimast.KindCallExpression,
     shimast.KindNewExpression:
-    return true
+    expression := expressionCompletion{throws: true}
+    node.ForEachChild(func(child *shimast.Node) bool {
+      expression.merge(executableNodeCompletion(child))
+      return expression.returns && expression.throws
+    })
+    return expression
   }
-  found := false
+  expression := expressionCompletion{}
   node.ForEachChild(func(child *shimast.Node) bool {
-    if executableNodePotentiallyThrows(child) {
-      found = true
-      return true
-    }
-    return false
+    expression.merge(executableNodeCompletion(child))
+    return expression.returns && expression.throws
   })
-  return found
+  return expression
 }
 
-// runtimeHeritageExpressionPotentiallyThrows retains the value expression in
+func mergeExpressionCompletion(completion *caseCompletion, expression expressionCompletion) {
+  completion.returns = completion.returns || expression.returns
+  completion.throws = completion.throws || expression.throws
+}
+
+// runtimeHeritageExpressionCompletion retains the value expression in
 // a class extends clause while excluding interface heritage and implements
 // clauses, which are type-only even though they share the same AST node kind.
-func runtimeHeritageExpressionPotentiallyThrows(node *shimast.Node) bool {
+func runtimeHeritageExpressionCompletion(node *shimast.Node) expressionCompletion {
   if node == nil || node.Parent == nil || node.Parent.Kind != shimast.KindHeritageClause {
-    return false
+    return expressionCompletion{}
   }
   clauseNode := node.Parent
   clause := clauseNode.AsHeritageClause()
   if clause == nil || clause.Token != shimast.KindExtendsKeyword || clauseNode.Parent == nil {
-    return false
+    return expressionCompletion{}
   }
   if clauseNode.Parent.Kind != shimast.KindClassDeclaration &&
     clauseNode.Parent.Kind != shimast.KindClassExpression {
-    return false
+    return expressionCompletion{}
   }
   expression := node.AsExpressionWithTypeArguments()
-  return expression != nil && executableNodePotentiallyThrows(expression.Expression)
+  if expression == nil {
+    return expressionCompletion{}
+  }
+  return executableNodeCompletion(expression.Expression)
 }
 
-// classElementHeaderPotentiallyThrows keeps class member bodies and field
+// classElementHeaderCompletion keeps class member bodies and field
 // initializers in their own code paths while retaining immediately evaluated
 // decorators and computed property names in the enclosing class evaluation.
-func classElementHeaderPotentiallyThrows(node *shimast.Node) bool {
+func classElementHeaderCompletion(node *shimast.Node) expressionCompletion {
   if node == nil {
-    return false
+    return expressionCompletion{}
   }
+  completion := expressionCompletion{}
   if modifiers := node.Modifiers(); modifiers != nil {
     for _, modifier := range modifiers.Nodes {
-      if executableNodePotentiallyThrows(modifier) {
-        return true
-      }
+      completion.merge(executableNodeCompletion(modifier))
     }
   }
-  return executableNodePotentiallyThrows(node.Name())
+  completion.merge(executableNodeCompletion(node.Name()))
+  return completion
 }
 
 // noFallthroughIdentifierIsReference excludes declaration names, property
