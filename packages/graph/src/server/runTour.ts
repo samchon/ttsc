@@ -365,26 +365,33 @@ function graphNodeOf(
 }
 
 /**
- * A node a flow reached, as a coordinate only. Its span and signature are
+ * A node a flow reached, as its handle and its line. Its span and signature are
  * already in the flow's `steps` and `anchors`, and carrying them a second time
  * cost half the tour's payload — enough that a client which caps a tool result
  * spilled the whole thing to a file, and the model shelled out to read back its
- * own answer. The flow's start keeps the full node; the chain behind it does
- * not need one.
+ * own answer.
+ *
+ * The file and the kind went the same way, for the same reason: a node id _is_
+ * `path/to/file.ts#Owner.member:kind`, so a reached node that also carried them
+ * bought one fact three times, and the flows are two thirds of a tour that is
+ * re-sent whole on every turn of the conversation it opened. The flow's start
+ * keeps the full node; the chain behind it does not need one.
  */
-function traceNodeOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
+function traceNodeOf(node: ITtscGraphTrace.INode): ITtscGraphTour.IReached {
   return {
     id: node.id,
     name: node.name,
-    kind: node.kind,
-    file: node.file,
     ...(node.line !== undefined ? { line: node.line } : {}),
   };
 }
 
 function flowStartOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
   return {
-    ...traceNodeOf(node),
+    id: node.id,
+    name: node.name,
+    kind: node.kind,
+    file: node.file,
+    ...(node.line !== undefined ? { line: node.line } : {}),
     ...(node.sourceSpan !== undefined
       ? {
           sourceSpan: {

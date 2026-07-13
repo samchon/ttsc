@@ -108,10 +108,30 @@ export namespace ITtscGraphTour {
      * both of its ends and the file and line the call sits on, so repeating
      * those nodes here would be the same fact twice.
      */
-    reached: ITtscGraphTour.INode[];
+    reached: ITtscGraphTour.IReached[];
 
     /** True when some low-signal flow steps were capped; the flow stands. */
     truncated?: boolean;
+  }
+
+  /**
+   * A node a flow reached, as its handle and its declaration line.
+   *
+   * A node id _is_ its coordinates — `path/to/file.ts#Owner.member:kind` — so a
+   * reached node carrying `file` and `kind` beside it bought the same fact
+   * three times. Across the benchmark corpus that repetition was 15% of every
+   * tour, and a tour is re-sent whole on every turn of the conversation it
+   * opened.
+   */
+  export interface IReached {
+    /** Stable node id for later graph calls: `file#Qualified.Name:kind`. */
+    id: string;
+
+    /** Qualified symbol name when available, otherwise the simple name. */
+    name: string;
+
+    /** 1-based declaration line, when known. */
+    line?: number;
   }
 
   /** A file/line citation chosen by the graph, not source body text. */
