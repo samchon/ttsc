@@ -60,6 +60,16 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
           rules: [{ from: "ui", allow: "domain" }],
         },
       ],
+      "typescript/ban-ts-comment": [
+        "error",
+        {
+          minimumDescriptionLength: 10,
+          "ts-expect-error": { descriptionFormat: "^: TS\\d+ because .+$" },
+          "ts-ignore": true,
+          "ts-nocheck": "allow-with-description",
+          "ts-check": false,
+        },
+      ],
     },
   };
 
