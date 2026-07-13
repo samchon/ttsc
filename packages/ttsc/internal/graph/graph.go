@@ -1,5 +1,9 @@
 package graph
 
+import (
+	shimast "github.com/microsoft/typescript-go/shim/ast"
+)
+
 // NodeKind classifies a graph node by what its symbol declares.
 type NodeKind string
 
@@ -127,7 +131,20 @@ type Graph struct {
 	bodyNodes map[string]bool
 	// seen deduplicates edges in O(1) during construction, so building a graph
 	// with N edges is O(N), not O(N²). Keyed by from\x00to\x00kind.
-	seen map[string]struct{}
+	seen map[edgeKey]struct{}
+
+	// resolved memoizes the checker resolution of an AST node for the length of a
+	// build: the edge pass visits the same node several times, and a resolution
+	// cannot change while the program is fixed.
+	resolved map[*shimast.Node]*Target
+}
+
+// edgeKey identifies an edge by its two ends and the wire kind it will surface
+// as: a comparable struct, so the dedup set costs no allocation per candidate.
+type edgeKey struct {
+	from string
+	to   string
+	kind string
 }
 
 // nodeID builds the position-invariant identity for a symbol named name,

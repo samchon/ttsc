@@ -35,6 +35,30 @@ type Target struct {
 	End      int
 }
 
+// resolve is Resolve with the graph's memo in front of it.
+//
+// The edge pass walks the same AST more than once by construction: `collectCalls`
+// and `collectTypeRefs` each descend the whole container tree, and a closure's
+// body is walked again for every container that encloses it. Every one of those
+// visits asked the checker again, and for an identifier that is not a cheap
+// lookup — typescript-go caches a resolved property access on the node, but a
+// plain identifier goes back through `resolveEntityName` and a full scope walk
+// each time.
+//
+// A node's resolution cannot change while the program is fixed, which it is for
+// the length of a build, so the second answer is always the first one.
+func (g *Graph) resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
+	if ref == nil {
+		return nil
+	}
+	if cached, hit := g.resolved[ref]; hit {
+		return cached
+	}
+	target := Resolve(checker, ref)
+	g.resolved[ref] = target
+	return target
+}
+
 // Resolve follows ref to the real declaration the checker binds it to. It
 // unwraps import/export alias chains so a reference through a barrel re-export
 // lands on the sibling source that declares the symbol, not the re-exporting

@@ -4,42 +4,66 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 // noVar: ban `var` declarations. ESLint canonical:
 // https://eslint.org/docs/latest/rules/no-var
+//
+// The rule registers KindVariableDeclarationList, not KindVariableStatement:
+// the grammar puts a `var` declaration list either inside a VariableStatement
+// or directly in a `for` / `for...in` / `for...of` header, and only the list
+// node is common to all four shapes. Registering the statement kind alone
+// left every loop-header `var` invisible (issue #409). Each list node occurs
+// exactly once in the tree, so every shape reports exactly once and no shape
+// can double-report.
 type noVar struct{}
 
-func (noVar) Name() string           { return "no-var" }
-func (noVar) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindVariableStatement} }
+func (noVar) Name() string { return "no-var" }
+func (noVar) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindVariableDeclarationList}
+}
 func (noVar) Check(ctx *Context, node *shimast.Node) {
-  stmt := node.AsVariableStatement()
-  if stmt == nil || stmt.DeclarationList == nil {
+  if node.AsVariableDeclarationList() == nil || !shimast.IsVar(node) {
     return
   }
   if ctx.File != nil && ctx.File.IsDeclarationFile {
     return
   }
-  if node.ModifierFlags()&shimast.ModifierFlagsAmbient != 0 {
+  owner := node.Parent
+  ownedByStatement := owner != nil && owner.Kind == shimast.KindVariableStatement
+  // `declare var x` describes an existing binding instead of creating one;
+  // like ESLint, the rule leaves ambient declarations alone. Only a
+  // VariableStatement can carry the modifier — loop headers cannot be
+  // ambient outside declaration files, which returned above.
+  if ownedByStatement && owner.ModifierFlags()&shimast.ModifierFlagsAmbient != 0 {
     return
   }
-  if shimast.IsVar(stmt.DeclarationList) {
-    const message = "Unexpected var, use let or const instead."
-    start := keywordStart(ctx.File, stmt.DeclarationList, "var")
-    if start >= 0 && isNoVarAutoFixSafe(ctx, node) {
-      ctx.ReportRangeFix(
-        start,
-        start+len("var"),
-        message,
-        TextEdit{Pos: start, End: start + len("var"), Text: "let"},
-      )
-      return
-    }
-    ctx.Report(node, message)
+  const message = "Unexpected var, use let or const instead."
+  start := keywordStart(ctx.File, node, "var")
+  if start >= 0 && isNoVarAutoFixSafe(ctx, node) {
+    ctx.ReportRangeFix(
+      start,
+      start+len("var"),
+      message,
+      TextEdit{Pos: start, End: start + len("var"), Text: "let"},
+    )
+    return
   }
+  if ownedByStatement {
+    // Fixless statement reports keep the whole-statement range (through the
+    // terminating semicolon) the rule has always rendered.
+    ctx.Report(owner, message)
+    return
+  }
+  // A loop-header list has no wrapping statement of its own; the list node
+  // (`var i = 0`) is the natural diagnostic range.
+  ctx.Report(node, message)
 }
 
-// isNoVarAutoFixSafe reports whether rewriting a `var` statement's keyword to
-// `let` is safe using only AST-local information (no scope/data-flow engine).
-// It mirrors the conservative posture of isEqeqeqAutoFixSafe: over-declining
-// is fine, corrupting source is not. Blindly turning every `var` into `let`
-// breaks two real shapes that `var` hoisting tolerates but `let` does not:
+// isNoVarAutoFixSafe reports whether rewriting a `var` declaration list's
+// keyword to `let` is safe using only AST-local information (no
+// scope/data-flow engine). `listNode` is the KindVariableDeclarationList the
+// rule visited; its parent is a VariableStatement or a `for` / `for...in` /
+// `for...of` header. It mirrors the conservative posture of
+// isEqeqeqAutoFixSafe: over-declining is fine, corrupting source is not.
+// Blindly turning every `var` into `let` breaks two real shapes that `var`
+// hoisting tolerates but `let` does not:
 //   - redeclaration (`var x=1; var x=2;`) → two `let x` is a SyntaxError;
 //   - use-before-declaration (a binding referenced above its own line) →
 //     `let` makes that reference a TDZ ReferenceError.
@@ -60,33 +84,39 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     destructure siblings, for-header var, …). It over-declines harmless
 //     cross-scope same-name bindings, which never corrupts.
 //  2. No use-before-declaration / TDZ. The declared name is not referenced as
-//     a VALUE before the statement's Pos(). A non-reference occurrence of the
+//     a VALUE before the list's Pos(). A non-reference occurrence of the
 //     same text — a member name (`o.x`), an object-literal key (`{x:1}`), a
 //     statement label (`x:`), or a type reference (`: x`) — binds no value and
 //     must not force a decline; isValueReferenceIdentifier classifies these.
 //  3. No block-scope escape. `var` is function/global-scoped while `let` is
 //     block-scoped, so a `var` declared inside a block and read after the
 //     block (`if (c) { var x = 1; } log(x);`) would stop compiling under
-//     `let`. The statement's parent must be a position where a lexical
-//     declaration is legal AND which forms the `let`'s block scope — a Block
-//     (plain, function-body, loop-body, …), a ModuleBlock, a switch
-//     Case/DefaultClause, or the SourceFile — and every value reference to
-//     the name must lie inside that parent's [Pos, End) span. A non-scope
-//     parent (`if (c) var x = 1;` — a single-statement body, where `let` is a
-//     SyntaxError outright) declines unconditionally. Given precondition 1
-//     (one binding file-wide), positional containment is exact: no other
-//     binding can shadow the name, so a reference outside the span really
-//     does resolve to this binding. Using the CaseClause (not the whole
-//     switch CaseBlock) as the scope over-declines cross-case references,
-//     which under `let` would flip from `undefined` reads to runtime TDZ
-//     throws — declining is the safe side. Mirrors ESLint no-var's
-//     isUsedFromOutsideOf.
-//  4. No loop-closure capture. When the statement sits inside a loop and the
-//     name is referenced from a function or arrow nested within that loop
-//     (`for (const k of keys) { var last = k; fns.push(() => last); }`),
-//     every closure shares ONE `var` binding but would capture a FRESH
-//     per-iteration `let` binding — the rewrite silently changes runtime
-//     results. Mirrors ESLint no-var's isReferencedInClosure loop check.
+//     `let`. For a statement list the statement's parent must be a position
+//     where a lexical declaration is legal AND which forms the `let`'s block
+//     scope — a Block (plain, function-body, loop-body, …), a ModuleBlock, a
+//     switch Case/DefaultClause, or the SourceFile — and every value
+//     reference to the name must lie inside that parent's [Pos, End) span. A
+//     non-scope parent (`if (c) var x = 1;` — a single-statement body, where
+//     `let` is a SyntaxError outright) declines unconditionally. For a
+//     loop-header list the loop statement itself is the scope: a header
+//     `let` is always grammatically legal and scopes to the whole loop
+//     (header plus body), so references must stay inside the loop's span
+//     (`for (var i = 0; …) {}` followed by `log(i);` declines). Given
+//     precondition 1 (one binding file-wide), positional containment is
+//     exact: no other binding can shadow the name, so a reference outside
+//     the span really does resolve to this binding. Using the CaseClause
+//     (not the whole switch CaseBlock) as the scope over-declines cross-case
+//     references, which under `let` would flip from `undefined` reads to
+//     runtime TDZ throws — declining is the safe side. Mirrors ESLint
+//     no-var's isUsedFromOutsideOf.
+//  4. No loop-closure capture. When the declaration sits inside a loop — a
+//     statement in a loop body OR the loop's own header — and the name is
+//     referenced from a function or arrow nested within that loop
+//     (`for (const k of keys) { var last = k; fns.push(() => last); }`,
+//     `for (var i = 0; i < n; i++) { fns.push(() => i); }`), every closure
+//     shares ONE `var` binding but would capture a FRESH per-iteration `let`
+//     binding — the rewrite silently changes runtime results. Mirrors ESLint
+//     no-var's isReferencedInClosure loop check.
 //  5. Not declared under a `with` statement. `var` hoists PAST the with body
 //     to the function scope, so references inside the body resolve through
 //     the with object first (`o.x` shadows the var when present); `let`
@@ -95,28 +125,43 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     any var with a WithStatement ancestor below the nearest function
 //     boundary declines.
 //
-// The var statement being fixed must itself be a single plain identifier
+// Two loop-header-only grammar/TDZ hazards also decline:
+//   - a `for...in` / `for...of` declarator with an initializer (Annex B
+//     tolerates `for (var i = 0 in o)`; `for (let i = 0 in o)` is a
+//     SyntaxError), and
+//   - a value reference to the name inside the `for...in` / `for...of` head
+//     expression (`for (var x of x)` reads the hoisted undefined `var`;
+//     under `let` the head expression evaluates inside the binding's TDZ
+//     and throws a ReferenceError).
+//
+// The var list being fixed must itself be a single plain identifier
 // declarator so the keyword rewrite has a simple `let x` rename target; a
-// destructuring var (`var {a}=o`) or a multi-binding list is declined here
-// even though its names might each bind only once.
-func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
+// destructuring var (`var {a}=o`, `for (var [a] of …)`) or a multi-binding
+// list is declined here even though its names might each bind only once.
+func isNoVarAutoFixSafe(ctx *Context, listNode *shimast.Node) bool {
   if ctx == nil || ctx.File == nil {
     return false
   }
-  // Precondition: the var being fixed is a single plain identifier declarator.
-  // variableStatementBindingNames returns plain identifier names only, so a
-  // destructuring declarator yields zero names; requiring exactly one name AND
-  // exactly one VariableDeclaration node rejects both multi-binding lists and
-  // any destructured (or destructured-sibling) declarator.
-  names := variableStatementBindingNames(node)
-  if len(names) != 1 {
+  owner := listNode.Parent
+  if owner == nil {
     return false
   }
-  if list := node.AsVariableStatement().DeclarationList.AsVariableDeclarationList(); list == nil ||
-    list.Declarations == nil || len(list.Declarations.Nodes) != 1 {
+  // Precondition: the var being fixed is a single plain identifier
+  // declarator. identifierText returns "" for a destructuring pattern, so
+  // requiring exactly one VariableDeclaration node AND a non-empty plain
+  // name rejects both multi-binding lists and destructured declarators.
+  list := listNode.AsVariableDeclarationList()
+  if list == nil || list.Declarations == nil || len(list.Declarations.Nodes) != 1 {
     return false
   }
-  target := names[0]
+  decl := list.Declarations.Nodes[0].AsVariableDeclaration()
+  if decl == nil {
+    return false
+  }
+  target := identifierText(decl.Name())
+  if target == "" {
+    return false
+  }
 
   // A name `var` tolerates but `let` cannot redeclare: `let let = 1;` is a
   // SyntaxError everywhere, and `let static = 1;` is one in strict mode
@@ -126,13 +171,33 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
     return false
   }
 
-  // Precondition 3 setup: the statement's parent must both allow a lexical
-  // declaration and act as the `let`'s block scope. Any other parent kind is
-  // a single-statement body (`if (c) var x = 1;`, `while (c) var x = 1;`,
-  // `label: var x = 1;`, `with (o) var x = 1;`) where `let` is a plain
-  // SyntaxError, so the fix declines before any reference is examined.
-  scopeNode := node.Parent
-  if scopeNode == nil || !isBlockScopeContainer(scopeNode.Kind) {
+  // Precondition 3 setup: resolve the node that will delimit the rewritten
+  // `let` binding's block scope, per owner shape.
+  var scopeNode *shimast.Node
+  switch owner.Kind {
+  case shimast.KindVariableStatement:
+    // The statement's parent must both allow a lexical declaration and act
+    // as the `let`'s block scope. Any other parent kind is a
+    // single-statement body (`if (c) var x = 1;`, `while (c) var x = 1;`,
+    // `label: var x = 1;`, `with (o) var x = 1;`) where `let` is a plain
+    // SyntaxError, so the fix declines before any reference is examined.
+    scopeNode = owner.Parent
+    if scopeNode == nil || !isBlockScopeContainer(scopeNode.Kind) {
+      return false
+    }
+  case shimast.KindForStatement:
+    scopeNode = owner
+  case shimast.KindForInStatement, shimast.KindForOfStatement:
+    // Annex B parses `for (var i = 0 in o)` in sloppy scripts; the same
+    // header with `let` is a SyntaxError everywhere, so any initializer on
+    // a for-in/for-of declarator declines outright.
+    if decl.Initializer != nil {
+      return false
+    }
+    scopeNode = owner
+  default:
+    // A declaration list can only be owned by the four shapes above; an
+    // unrecognized owner keeps the diagnostic but never offers a rewrite.
     return false
   }
   scopeStart, scopeEnd := scopeNode.Pos(), scopeNode.End()
@@ -140,27 +205,36 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
   // Precondition 5: a `var` declared under a `with` statement resolves its
   // references through the with object; the block-scoped `let` would shadow
   // that object instead, so the rewrite declines outright.
-  if isDeclaredInsideWithStatement(node) {
+  if isDeclaredInsideWithStatement(listNode) {
     return false
   }
 
-  // Precondition 4 setup: the outermost loop enclosing the statement without
-  // an intervening function boundary. nil when the statement is not
-  // loop-local, which disables the closure-capture check.
-  enclosingLoop := enclosingLoopWithinFunction(node)
+  // Precondition 4 setup: the outermost loop enclosing the declaration
+  // without an intervening function boundary. A loop-header list's first
+  // ancestor IS its loop, so header declarations always run the
+  // closure-capture check. nil when the declaration is not loop-local,
+  // which disables the check.
+  enclosingLoop := enclosingLoopWithinFunction(listNode)
 
-  declPos := node.Pos()
+  declPos := listNode.Pos()
   // The single declarator's initializer subtree. A value reference to `target`
   // inside this range is a self-reference that runs while `target` is still in
   // its temporal dead zone under `let` (`var x = typeof x;`, `var x = x;`,
   // `var x = (() => x)();`), so it must also force a decline even though its
-  // Pos() is AFTER the statement's start. initStart/initEnd are -1 when the
+  // Pos() is AFTER the list's start. initStart/initEnd are -1 when the
   // declarator has no initializer, which disables the range check.
   initStart, initEnd := -1, -1
-  if list := node.AsVariableStatement().DeclarationList.AsVariableDeclarationList(); list != nil &&
-    list.Declarations != nil && len(list.Declarations.Nodes) == 1 {
-    if decl := list.Declarations.Nodes[0].AsVariableDeclaration(); decl != nil && decl.Initializer != nil {
-      initStart, initEnd = decl.Initializer.Pos(), decl.Initializer.End()
+  if decl.Initializer != nil {
+    initStart, initEnd = decl.Initializer.Pos(), decl.Initializer.End()
+  }
+  // The for-in/for-of head expression evaluates while a `let` loop binding
+  // is still in its TDZ, so a self-reference there (`for (var x of x)`)
+  // must decline exactly like an initializer self-reference. -1 for the
+  // other owner shapes, which have no head expression.
+  exprStart, exprEnd := -1, -1
+  if owner.Kind == shimast.KindForInStatement || owner.Kind == shimast.KindForOfStatement {
+    if stmt := owner.AsForInOrOfStatement(); stmt != nil && stmt.Expression != nil {
+      exprStart, exprEnd = stmt.Expression.Pos(), stmt.Expression.End()
     }
   }
   bindingCount := 0
@@ -178,18 +252,22 @@ func isNoVarAutoFixSafe(ctx *Context, node *shimast.Node) bool {
     }
     // TDZ: a value reference to `target` turns into a ReferenceError under
     // `let` when it executes while `target` is still in its temporal dead
-    // zone. Two cases decline:
-    //   - a reference BEFORE the var's own position (`log(x); var x = 1;`);
+    // zone. Three cases decline:
+    //   - a reference BEFORE the list's own position (`log(x); var x = 1;`);
     //   - a self-reference WITHIN the declarator's own initializer range
     //     (`var x = typeof x;`). Conservatively, any value reference inside
     //     the initializer declines — including a deferred read in a nested
     //     closure (`var f = () => f;`) that is actually safe — because the
     //     AST-local gate does not track whether that closure runs during
-    //     initialization. Over-declining never corrupts source.
+    //     initialization. Over-declining never corrupts source;
+    //   - a self-reference within a for-in/for-of head expression
+    //     (`for (var x of x)`), which evaluates inside the `let` TDZ.
     if child.Kind == shimast.KindIdentifier && identifierText(child) == target &&
       isValueReferenceIdentifier(child) {
       pos := child.Pos()
-      if pos < declPos || (initStart >= 0 && pos >= initStart && pos < initEnd) {
+      if pos < declPos ||
+        (initStart >= 0 && pos >= initStart && pos < initEnd) ||
+        (exprStart >= 0 && pos >= exprStart && pos < exprEnd) {
         referencedBefore = true
       }
       // Scope escape: a value reference outside the enclosing block-scope
@@ -269,8 +347,9 @@ func isFunctionCaptureBoundary(node *shimast.Node) bool {
   return false
 }
 
-// isDeclaredInsideWithStatement reports whether the statement has a
-// WithStatement ancestor below the nearest function boundary. Under `var`
+// isDeclaredInsideWithStatement reports whether the declaration (a
+// statement's or loop header's `var` list) has a WithStatement ancestor
+// below the nearest function boundary. Under `var`
 // the binding hoists past the with body to the function scope, so a
 // same-name property on the with target intercepts every reference; under
 // `let` the binding lives inside the body's block and shadows the with

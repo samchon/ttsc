@@ -291,10 +291,18 @@ function compileSourcePlugin(opts: {
  *
  * The lock is an atomic `mkdir` on `<cacheDir>.lock`. The winner builds and
  * publishes the binary; every loser polls for that binary to appear and reuses
- * it. A loser that waits past `PLUGIN_BUILD_LOCK_STEAL_MS` (the builder crashed
- * without publishing) steals the abandoned lock and retries. This is the same
- * shape as `withBuildLock` in the runtime hooks, keyed on the plugin binary's
- * existence instead of a JSON meta marker.
+ * it. A loser distinguishes two ways the lock can stop blocking it:
+ *
+ * - `released`: the holder removed the lock itself — it published, or its build
+ *   threw and its `finally` freed the key. The loser simply retries the
+ *   ordinary acquisition; nothing is stale and nothing is reported.
+ * - `abandoned`: the lock still exists but its owner is provably dead, it is an
+ *   old metadata-less legacy lock, or the wait budget
+ *   (`PLUGIN_BUILD_LOCK_STEAL_MS`) expired. Only then does the loser report and
+ *   steal the lock before retrying.
+ *
+ * This is the same shape as `withBuildLock` in the runtime hooks, keyed on the
+ * plugin binary's existence instead of a JSON meta marker.
  *
  * Correctness still rests on `publishBuiltBinary`'s atomic rename: the lock is
  * an optimisation to avoid duplicate work, not the only guard against a corrupt
@@ -337,13 +345,19 @@ function buildUnderPluginLock(
         lockInfo,
         timeoutMs: PLUGIN_BUILD_LOCK_STEAL_MS,
       });
-      if (waited.published) {
+      if (waited.outcome === "published") {
         touchCacheEntry(cacheDir);
         return binaryPath;
       }
-      reportPluginLockSteal(lockDir, binaryPath, lockInfo, waited.reason);
-      // Builder appears to have crashed: steal the abandoned lock and retry.
-      fs.rmSync(lockDir, { force: true, recursive: true });
+      if (waited.outcome === "abandoned") {
+        // Builder appears to have crashed: steal the abandoned lock and retry.
+        reportPluginLockSteal(lockDir, binaryPath, lockInfo, waited.reason);
+        fs.rmSync(lockDir, { force: true, recursive: true });
+      }
+      // "released" needs no repair: the holder freed the key normally (its
+      // build published or failed), so retry the ordinary atomic acquisition.
+      // Reporting a steal or force-removing the path here would misclassify a
+      // routine handoff as abandonment (issue #421).
       continue;
     }
     try {
@@ -359,8 +373,30 @@ function buildUnderPluginLock(
   }
 }
 
-/** Poll for the locked builder to publish its binary, up to `timeoutMs`. */
-function waitForPluginBinary(opts: {
+/**
+ * Outcome of one waiting session on another process's plugin build lock.
+ *
+ * - `published`: the binary exists and can be reused.
+ * - `released`: the observed lock no longer exists and no binary appeared — the
+ *   holder freed the key normally, so the caller should retry the ordinary
+ *   atomic acquisition without reporting or removing anything.
+ * - `abandoned`: the lock still exists but is provably stale (dead owner, old
+ *   legacy lock) or the wait budget expired; the caller may report and steal
+ *   it.
+ *
+ * Exported for unit tests.
+ */
+export type PluginBinaryWaitResult =
+  | { outcome: "published" }
+  | { outcome: "released" }
+  | { outcome: "abandoned"; reason: string };
+
+/**
+ * Poll for the locked builder to publish its binary, up to `timeoutMs`.
+ *
+ * Exported for unit tests.
+ */
+export function waitForPluginBinary(opts: {
   binaryPath: string;
   lockDir: string;
   lockInfo: {
@@ -369,24 +405,30 @@ function waitForPluginBinary(opts: {
     quiet: boolean;
   };
   timeoutMs: number;
-}): { published: boolean; reason?: string } {
+}): PluginBinaryWaitResult {
   const startedAt = Date.now();
   let nextStatusAt = startedAt + PLUGIN_BUILD_LOCK_STATUS_MS;
   for (;;) {
     if (fs.existsSync(opts.binaryPath)) {
-      return { published: true };
+      return { outcome: "published" };
     }
     const now = Date.now();
-    const lockStatus = inspectPluginBuildLock(opts.lockDir, now);
-    if (lockStatus.abandoned) {
-      return {
-        published: false,
-        reason: lockStatus.reason,
-      };
+    const lock = inspectPluginBuildLock(opts.lockDir, now);
+    if (lock.state === "released") {
+      // The holder removed the lock between the binary check above and this
+      // observation. That is a normal release, not abandonment: prefer the
+      // binary when it landed inside that window, otherwise hand the free key
+      // back to the caller.
+      return fs.existsSync(opts.binaryPath)
+        ? { outcome: "published" }
+        : { outcome: "released" };
+    }
+    if (lock.state === "abandoned") {
+      return { outcome: "abandoned", reason: lock.reason };
     }
     if (now - startedAt > opts.timeoutMs) {
       return {
-        published: false,
+        outcome: "abandoned",
         reason: `timed out after ${formatDuration(now - startedAt)}`,
       };
     }
@@ -396,7 +438,7 @@ function waitForPluginBinary(opts: {
         elapsedMs: now - startedAt,
         lockDir: opts.lockDir,
         lockInfo: opts.lockInfo,
-        owner: lockStatus.owner,
+        owner: lock.owner,
       });
       nextStatusAt = now + PLUGIN_BUILD_LOCK_STATUS_MS;
     }
@@ -424,42 +466,63 @@ function writePluginBuildLockOwner(lockDir: string): void {
   }
 }
 
-function inspectPluginBuildLock(
+/**
+ * One observation of a plugin build lock directory's state.
+ *
+ * - `active`: the lock exists and its owner is alive (or cannot be disproven:
+ *   another host, no metadata but young). Keep waiting.
+ * - `abandoned`: the lock still exists and the evidence says nobody will ever
+ *   release it — a same-host owner that is no longer running, or an old
+ *   metadata-less legacy lock. Stealing is justified.
+ * - `released`: the lock directory no longer exists. The holder released it
+ *   normally (its build published or failed), so this is a routine handoff —
+ *   never an infinitely old abandoned lock (issue #421).
+ *
+ * Exported for unit tests.
+ */
+export type PluginBuildLockObservation =
+  | { state: "active"; owner: string }
+  | { state: "abandoned"; reason: string }
+  | { state: "released" };
+
+/**
+ * Classify the current state of a plugin build lock directory.
+ *
+ * Exported for unit tests.
+ */
+export function inspectPluginBuildLock(
   lockDir: string,
   now: number,
-): {
-  abandoned: boolean;
-  owner: string;
-  reason?: string;
-} {
+): PluginBuildLockObservation {
   const owner = readPluginBuildLockOwner(lockDir);
   if (owner !== null) {
     const label = describePluginBuildLockOwner(owner);
     if (isLocalHostName(owner.hostname) && !isProcessAlive(owner.pid)) {
       return {
-        abandoned: true,
-        owner: label,
+        state: "abandoned",
         reason: `${label} is no longer running`,
       };
     }
     return {
-      abandoned: false,
+      state: "active",
       owner: label,
     };
   }
 
   const ageMs = pluginBuildLockAgeMs(lockDir, now);
+  if (ageMs === null) {
+    return { state: "released" };
+  }
   if (ageMs > PLUGIN_BUILD_LOCK_LEGACY_STALE_MS) {
     return {
-      abandoned: true,
-      owner: `legacy lock with no ${PLUGIN_BUILD_LOCK_OWNER_FILE}`,
+      state: "abandoned",
       reason:
         `legacy lock has no ${PLUGIN_BUILD_LOCK_OWNER_FILE} and is ` +
         `${formatDuration(ageMs)} old`,
     };
   }
   return {
-    abandoned: false,
+    state: "active",
     owner: `legacy lock with no ${PLUGIN_BUILD_LOCK_OWNER_FILE}`,
   };
 }
@@ -490,11 +553,23 @@ function readPluginBuildLockOwner(
   }
 }
 
-function pluginBuildLockAgeMs(lockDir: string, now: number): number {
+/**
+ * Age of the lock directory, or `null` when it no longer exists (the holder
+ * released it between the caller's checks). "Missing" is a first-class
+ * observation, never encoded as a numeric age: the previous
+ * `Number.POSITIVE_INFINITY` encoding made a just-released lock look like an
+ * infinitely old abandoned legacy lock (issue #421).
+ *
+ * A stat failure that does not prove absence (e.g. `EPERM`) clamps to age 0:
+ * the lock is treated as fresh so a waiter never steals on ambiguous evidence,
+ * while the caller's wait budget still bounds the stall.
+ */
+function pluginBuildLockAgeMs(lockDir: string, now: number): number | null {
   try {
     return Math.max(0, now - fs.statSync(lockDir).mtimeMs);
-  } catch {
-    return Number.POSITIVE_INFINITY;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code === "ENOENT" || code === "ENOTDIR" ? null : 0;
   }
 }
 
@@ -547,17 +622,29 @@ function reportPluginLockSteal(
     pluginName: string;
     quiet: boolean;
   },
-  reason: string | undefined,
+  reason: string,
 ): void {
   if (lockInfo.quiet) return;
-  const suffix = reason === undefined ? "" : ` (${reason})`;
   process.stderr.write(
     `ttsc: reclaiming abandoned ${lockInfo.label} "${lockInfo.pluginName}" ` +
-      `cache lock at ${lockDir}; binary=${binaryPath}${suffix}\n`,
+      `cache lock at ${lockDir}; binary=${binaryPath} (${reason})\n`,
   );
 }
 
-function formatDuration(ms: number): string {
+/**
+ * Render a millisecond duration for lock diagnostics (`137ms`, `42s`, `9m 3s`).
+ *
+ * Total over every number: no caller produces a non-finite duration anymore
+ * (the lock state machine reports "released" instead of an Infinity age), but
+ * as defense in depth a non-finite input renders as `an unknown time` so no
+ * public diagnostic can ever print `Infinitym NaNs` again (issue #421).
+ *
+ * Exported for unit tests.
+ */
+export function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms)) {
+    return "an unknown time";
+  }
   if (ms < 1_000) {
     return `${Math.max(0, Math.round(ms))}ms`;
   }

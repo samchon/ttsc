@@ -37,7 +37,12 @@ func (g *Graph) addEdgeAt(from, to string, kind EdgeKind, origin string, pos, en
 	// target that surface as different relationships (a call and a `new`, an
 	// `extends` and an `implements` of the same base) are both kept, while
 	// repeated uses of the same form collapse to one edge.
-	key := from + "\x00" + to + "\x00" + wireEdgeKind(kind, origin)
+	//
+	// The key is a struct, not a concatenation. Concatenating allocated a fresh
+	// string per *candidate* edge — including the duplicates thrown away on the
+	// next line, which on a large program are most of them — and a comparable
+	// struct of the three fields hashes just as well for nothing.
+	key := edgeKey{from: from, to: to, kind: wireEdgeKind(kind, origin)}
 	if _, exists := g.seen[key]; exists {
 		return
 	}
@@ -101,7 +106,7 @@ func (g *Graph) heritageEdges(checker *shimchecker.Checker, path string, node *s
 			if base == nil || base.Expression == nil {
 				continue
 			}
-			target := Resolve(checker, base.Expression)
+			target := g.resolve(checker, base.Expression)
 			if target == nil || target.Symbol == nil {
 				continue
 			}
@@ -384,7 +389,7 @@ func (g *Graph) assignedFunctionTarget(checker *shimchecker.Checker, from string
 		!shimast.IsFunctionLike(binary.Right) {
 		return ""
 	}
-	target := Resolve(checker, binary.Left)
+	target := g.resolve(checker, binary.Left)
 	if target == nil || target.Symbol == nil {
 		return ""
 	}
@@ -475,7 +480,7 @@ func (g *Graph) valueUseEdge(checker *shimchecker.Checker, from string, targetEx
 	if targetExpr == nil {
 		return
 	}
-	target := Resolve(checker, targetExpr)
+	target := g.resolve(checker, targetExpr)
 	if target == nil || target.Symbol == nil {
 		return
 	}
@@ -539,7 +544,7 @@ func (g *Graph) typeRefEdge(checker *shimchecker.Checker, from string, typeName 
 	if typeName == nil {
 		return
 	}
-	target := Resolve(checker, typeName)
+	target := g.resolve(checker, typeName)
 	if target == nil || target.Symbol == nil {
 		return
 	}

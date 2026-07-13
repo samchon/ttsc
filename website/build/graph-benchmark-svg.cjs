@@ -40,6 +40,13 @@ const TOOLS = [
   { key: "serena", sample: "graph", label: "serena", color: "#f472b6" },
 ];
 
+const INDEX_TOOLS = [
+  { key: "ttsc-graph", label: "@ttsc/graph", color: "#22d3ee" },
+  { key: "codegraph", label: "codegraph", color: "#f59e0b" },
+  { key: "codebase-memory", label: "codebase-memory", color: "#4ade80" },
+  { key: "serena", label: "serena", color: "#e879f9" },
+];
+
 const REPO_LABELS = {
   excalidraw: "excalidraw",
   nestjs: "nestjs",
@@ -125,6 +132,13 @@ for (const combo of combos.values()) {
     );
   }
 }
+// The index axis: what readiness costs before a tool can answer anything. It
+// is not a token chart, so it renders on its own scale (wall clock).
+if (report.index && (report.index.cells ?? []).length > 0) {
+  writeSvg("graph-index-build-time.svg", renderIndex(report.index));
+  writeSvg("graph-time-to-answer.svg", renderTime(report.index, allCells));
+}
+
 const pngs = writePngs();
 console.log(
   `[build:graph-svg] wrote ${written} chart(s)${EXPORT_PNG ? ` and ${pngs} png(s)` : ""} to ${path.relative(ROOT, OUT_DIR)}`,
@@ -416,4 +430,229 @@ function escapeXml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
+}
+
+// Cold index build time, one bar per tool, repositories ordered by the size of
+// the program each index was built from — forty seconds on VS Code and one
+// second on a small backend are the same tool, not two. `serena` has no bar
+// because it has no build step: it starts a language server and resolves on
+// demand, and pays at query time instead.
+
+function renderIndex(index) {
+  const rows = [...new Set(index.cells.map((cell) => cell.project))]
+    .map((project) => ({
+      project,
+      label: REPO_LABELS[project] ?? project,
+      scale: index.scale?.[project] ?? { files: 0, lines: 0 },
+      values: INDEX_TOOLS.map((tool) => {
+        const cell = index.cells.find(
+          (item) => item.project === project && item.tool === tool.key,
+        );
+        return { ...tool, ms: cell?.buildMs ?? 0 };
+      }),
+    }))
+    .sort((a, b) => a.scale.lines - b.scale.lines);
+
+  const width = 1040;
+  const height = 760;
+  const chart = { left: 160, right: 990, top: 120, bottom: 690 };
+  const plotWidth = chart.right - chart.left;
+  const plotHeight = chart.bottom - chart.top;
+  const max = niceMax(
+    Math.max(1, ...rows.flatMap((row) => row.values.map((value) => value.ms))),
+  );
+  const ticks = [0, max * 0.25, max * 0.5, max * 0.75, max];
+  const rowHeight = plotHeight / rows.length;
+  const barHeight = 11;
+  const barStep = 15;
+  const title = "Cold index build time (lower is better)";
+  const host = index.host
+    ? `${index.host.cpu}, ${index.host.cores} cores, ${index.host.ramGB} GB — ${index.host.os}`
+    : "";
+
+  const grid = ticks
+    .map((tick) => {
+      const x = chart.left + (tick / max) * plotWidth;
+      return [
+        `  <line x1="${x.toFixed(1)}" y1="${chart.top}" x2="${x.toFixed(1)}" y2="${chart.bottom}" stroke="#1f2937" stroke-width="1"/>`,
+        `  <text x="${x.toFixed(1)}" y="${chart.bottom + 22}" fill="#94a3b8" font-size="12" text-anchor="middle">${escapeXml(fmtBuildMs(tick))}</text>`,
+      ].join("\n");
+    })
+    .join("\n");
+
+  const bars = rows
+    .map((row, rowIndex) => {
+      const center = chart.top + rowIndex * rowHeight + rowHeight / 2;
+      const groupTop = center - (INDEX_TOOLS.length * barStep) / 2;
+      const lines = [
+        `  <text x="${chart.left - 12}" y="${(center - 4).toFixed(1)}" fill="#e2e8f0" font-size="13" text-anchor="end">${escapeXml(row.label)}</text>`,
+        `  <text x="${chart.left - 12}" y="${(center + 12).toFixed(1)}" fill="#64748b" font-size="10" text-anchor="end">${row.scale.lines.toLocaleString()} lines</text>`,
+      ];
+      row.values.forEach((value, i) => {
+        const y = groupTop + i * barStep;
+        const barWidth = value.ms > 0 ? (value.ms / max) * plotWidth : 0;
+        lines.push(
+          `  <rect x="${chart.left}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight}" fill="${value.color}" rx="2"/>`,
+        );
+        if (value.ms > 0)
+          lines.push(
+            `  <text x="${(chart.left + barWidth + 8).toFixed(1)}" y="${(y + barHeight - 1).toFixed(1)}" fill="${value.color}" font-size="11">${escapeXml(fmtBuildMs(value.ms))}</text>`,
+          );
+      });
+      return lines.join("\n");
+    })
+    .join("\n");
+
+  const legend = INDEX_TOOLS.map((tool, i) =>
+    [
+      `  <rect x="${160 + i * 200}" y="80" width="12" height="12" fill="${tool.color}" rx="2"/>`,
+      `  <text x="${178 + i * 200}" y="90" fill="#cbd5f5" font-size="12">${escapeXml(tool.label)}</text>`,
+    ].join("\n"),
+  ).join("\n");
+
+  return [
+    `<?xml version="1.0" encoding="utf-8" standalone="no"?>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1" role="img" aria-label="${escapeXml(title)}">`,
+    ` <rect width="${width}" height="${height}" fill="#0b0f14"/>`,
+    ` <text x="40" y="46" fill="#f8fafc" font-size="20" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
+    ` <text x="40" y="68" fill="#64748b" font-size="12" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(host)}</text>`,
+    ` <text x="40" y="${height - 22}" fill="#64748b" font-size="11" font-family="DejaVu Sans, Arial, sans-serif">Every tool builds the index its own documentation prescribes; repositories are ordered by the size of the program each was built from.</text>`,
+    legend,
+    grid,
+    bars,
+    `</svg>`,
+  ].join("\n");
+}
+
+// The wall clock a first answer costs from a cold checkout: build the tool's
+// index once, then ask. The faded head of each bar is the build; the solid tail
+// is the median time the agent spent answering, over every model and both prompt
+// families, so each tool faces the same mix.
+//
+// It is the other half of the trade a context-saving tool is making. A tool that
+// cuts an agent's token bill and then spends four minutes indexing and three
+// more re-searching what it indexed has moved the cost, not removed it.
+function renderTime(index, cells) {
+  const rows = [...new Set(index.cells.map((cell) => cell.project))]
+    .map((project) => ({
+      project,
+      label: REPO_LABELS[project] ?? project,
+      scale: index.scale?.[project] ?? { files: 0, lines: 0 },
+      values: TOOLS.map((tool) => {
+        const build = index.cells.find(
+          (item) => item.project === project && item.tool === tool.key,
+        );
+        return {
+          ...tool,
+          buildMs: build?.buildMs ?? 0,
+          answerMs: medianAnswerMs(cells, project, tool.key),
+        };
+      }).filter((value) => value.answerMs > 0),
+    }))
+    .filter((row) => row.values.length > 0)
+    .sort((a, b) => a.scale.lines - b.scale.lines);
+
+  const width = 1040;
+  const height = 800;
+  const chart = { left: 160, right: 940, top: 120, bottom: 730 };
+  const plotWidth = chart.right - chart.left;
+  const plotHeight = chart.bottom - chart.top;
+  const max = niceMax(
+    Math.max(
+      1,
+      ...rows.flatMap((row) =>
+        row.values.map((value) => value.buildMs + value.answerMs),
+      ),
+    ),
+  );
+  const ticks = [0, max * 0.25, max * 0.5, max * 0.75, max];
+  const rowHeight = plotHeight / rows.length;
+  const barHeight = 11;
+  const barStep = 15;
+  const title = "Cold time to a first answer (lower is better)";
+  const host = index.host
+    ? `${index.host.cpu}, ${index.host.cores} cores, ${index.host.ramGB} GB — ${index.host.os}`
+    : "";
+
+  const grid = ticks
+    .map((tick) => {
+      const x = chart.left + (tick / max) * plotWidth;
+      return [
+        `  <line x1="${x.toFixed(1)}" y1="${chart.top}" x2="${x.toFixed(1)}" y2="${chart.bottom}" stroke="#1f2937" stroke-width="1"/>`,
+        `  <text x="${x.toFixed(1)}" y="${chart.bottom + 22}" fill="#94a3b8" font-size="12" text-anchor="middle">${escapeXml(fmtBuildMs(tick))}</text>`,
+      ].join("\n");
+    })
+    .join("\n");
+
+  const bars = rows
+    .map((row, rowIndex) => {
+      const center = chart.top + rowIndex * rowHeight + rowHeight / 2;
+      const groupTop = center - (row.values.length * barStep) / 2;
+      const lines = [
+        `  <text x="${chart.left - 12}" y="${(center - 4).toFixed(1)}" fill="#e2e8f0" font-size="13" text-anchor="end">${escapeXml(row.label)}</text>`,
+        `  <text x="${chart.left - 12}" y="${(center + 12).toFixed(1)}" fill="#64748b" font-size="10" text-anchor="end">${row.scale.lines.toLocaleString()} lines</text>`,
+      ];
+      row.values.forEach((value, i) => {
+        const y = groupTop + i * barStep;
+        const buildWidth = (value.buildMs / max) * plotWidth;
+        const answerWidth = (value.answerMs / max) * plotWidth;
+        if (value.buildMs > 0)
+          lines.push(
+            `  <rect x="${chart.left}" y="${y.toFixed(1)}" width="${buildWidth.toFixed(1)}" height="${barHeight}" fill="${value.color}" fill-opacity="0.35" rx="2"/>`,
+          );
+        lines.push(
+          `  <rect x="${(chart.left + buildWidth).toFixed(1)}" y="${y.toFixed(1)}" width="${answerWidth.toFixed(1)}" height="${barHeight}" fill="${value.color}" rx="2"/>`,
+        );
+        lines.push(
+          `  <text x="${(chart.left + buildWidth + answerWidth + 8).toFixed(1)}" y="${(y + barHeight - 1).toFixed(1)}" fill="${value.color}" font-size="11">${escapeXml(fmtBuildMs(value.buildMs + value.answerMs))}</text>`,
+        );
+      });
+      return lines.join("\n");
+    })
+    .join("\n");
+
+  const legend = TOOLS.map((tool, i) =>
+    [
+      `  <rect x="${100 + i * 175}" y="80" width="12" height="12" fill="${tool.color}" rx="2"/>`,
+      `  <text x="${118 + i * 175}" y="90" fill="#cbd5f5" font-size="12">${escapeXml(tool.label)}</text>`,
+    ].join("\n"),
+  ).join("\n");
+
+  return [
+    `<?xml version="1.0" encoding="utf-8" standalone="no"?>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1" role="img" aria-label="${escapeXml(title)}">`,
+    ` <rect width="${width}" height="${height}" fill="#0b0f14"/>`,
+    ` <text x="40" y="46" fill="#f8fafc" font-size="20" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
+    ` <text x="40" y="68" fill="#64748b" font-size="12" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(host)}</text>`,
+    ` <text x="40" y="${height - 22}" fill="#64748b" font-size="11" font-family="DejaVu Sans, Arial, sans-serif">Faded head: cold index build. Solid tail: median answer wall clock over four models and both prompt families.</text>`,
+    legend,
+    grid,
+    bars,
+    `</svg>`,
+  ].join("\n");
+}
+
+function medianAnswerMs(cells, project, tool) {
+  const durations = cells
+    .filter(
+      (cell) => cell.repo === project && (cell.tool ?? "ttsc-graph") === tool,
+    )
+    .flatMap((cell) => [
+      ...(cell.samples?.baseline ?? []),
+      ...(cell.samples?.graph ?? []),
+    ])
+    .filter((sample) => Number(sample.tokens) > 0 && Number(sample.durMs) > 0)
+    .map((sample) => Number(sample.durMs))
+    .sort((a, b) => a - b);
+  if (durations.length === 0) return 0;
+  const mid = Math.floor(durations.length / 2);
+  return durations.length % 2 === 0
+    ? (durations[mid - 1] + durations[mid]) / 2
+    : durations[mid];
+}
+
+function fmtBuildMs(ms) {
+  if (ms >= 60_000) return `${(ms / 60_000).toFixed(1)} min`;
+  if (ms >= 1000) return `${(ms / 1000).toFixed(0)} s`;
+  return `${Math.round(ms)} ms`;
 }
