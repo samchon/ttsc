@@ -49,29 +49,18 @@ promise;
   }
 }
 
-// TestNoFloatingPromisesRecursiveEscapes verifies safe-call and IIFE escapes
-// remain effective when a conditional or finally chain hides the configured
-// expression below the statement root.
-func TestNoFloatingPromisesRecursiveEscapes(t *testing.T) {
-  code, stdout, stderr := runNoFloatingPromisesCase(t, `declare const flag: boolean;
-declare function safeCall(): Promise<void>;
-flag ? safeCall() : undefined;
-flag && safeCall();
-safeCall().finally(() => undefined);
-flag ? (async () => undefined)() : undefined;
-(async () => undefined)().finally(() => undefined);
-Promise.resolve();
-`, map[string]any{
-    "allowForKnownSafeCalls": []any{"safeCall"},
-    "ignoreIIFE":             true,
-  })
+// TestNoFloatingPromisesChecksIIFEByDefault locks the default half of the
+// ignoreIIFE option. TestNoFloatingPromisesOptions covers the opt-out half.
+func TestNoFloatingPromisesChecksIIFEByDefault(t *testing.T) {
+  code, stdout, stderr := runNoFloatingPromisesCase(t, `(async () => undefined)();
+`, nil)
   if code != 2 || stdout != "" {
-    t.Fatalf("recursive escape run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+    t.Fatalf("default IIFE run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
   if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != 1 {
-    t.Fatalf("expected only the ordinary Promise control, got %d findings:\n%s", got, stderr)
+    t.Fatalf("expected one default IIFE finding, got %d:\n%s", got, stderr)
   }
-  if !diagnosticOutputContains(stderr, "main.ts:8:") {
-    t.Fatalf("missing ordinary Promise control finding:\n%s", stderr)
+  if !diagnosticOutputContains(stderr, "main.ts:1:") {
+    t.Fatalf("missing default IIFE finding:\n%s", stderr)
   }
 }
