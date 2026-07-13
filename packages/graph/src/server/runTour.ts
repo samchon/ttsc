@@ -187,18 +187,19 @@ export function runTour(
     const steps = hops
       .slice(0, MAX_FLOW_ANCHORS)
       .map((hop) => flowStepOf(graph, hop));
-    // A step already names both of its ends and the file and line the call sits
-    // on: `App.render -[calls at App.tsx:2093]-> renderScene`. Listing those
-    // nodes again with their coordinates, and then a third time as anchors, is
-    // the same fact bought three times — two thirds of a 30 KB tour, re-charged
-    // on every turn it stays in context, and a specific-flow question can spend
-    // a dozen calls. So `reached` carries what the steps did not name, and the
-    // step keeps the citation it already had.
-    const named = namesIn(steps);
+    // Every node the flow reached is listed, including the ones its steps name.
+    // A step is prose — `App.render -[calls at App.tsx:2093]-> renderScene` — and
+    // it carries the name and the citation but not the *handle*, and the handle
+    // is what a second call needs. Holding back the nodes the steps had named
+    // took their ids away with them: Sonnet traced `mutateElement` by name, got
+    // the several nodes that name, and re-traced it by id — two calls for one
+    // symbol, four times over in a single Excalidraw tour, which went from five
+    // graph calls to fifteen. What `reached` is for is not the story, which the
+    // steps tell; it is the handles to go on with.
     primaryFlow.push({
       start: flowStartOf(start),
       steps,
-      reached: reached.filter((node) => !named.has(node.name)).map(traceNodeOf),
+      reached: reached.map(traceNodeOf),
       ...(trace.truncated ? { truncated: true } : {}),
     });
   }
@@ -616,27 +617,6 @@ function overlaps(candidate: Set<string>, told: Set<string>): boolean {
   let shared = 0;
   for (const id of smaller) if (larger.has(id)) shared++;
   return shared / smaller.size >= FLOW_OVERLAP;
-}
-
-/**
- * The symbol names a flow's steps already carry.
- *
- * A step reads `App.render -[calls at App.tsx:2093]-> renderScene`, and the
- * pattern that was meant to read it back — `-[.+?]->` — is a character class:
- * it matches a single `.`, `+` or `?` between the dashes, and never a step. So
- * it matched nothing, and every node a step named was listed a second time in
- * `reached`, with its id and its line, which is the repetition this function
- * exists to prevent.
- */
-function namesIn(steps: string[]): Set<string> {
-  const names = new Set<string>();
-  for (const step of steps) {
-    const match = /^(.+?) -\[.+?\]-> (.+)$/.exec(step);
-    if (match === null) continue;
-    names.add(match[1]!.trim());
-    names.add(match[2]!.trim());
-  }
-  return names;
 }
 
 function isTourTraceNode(
