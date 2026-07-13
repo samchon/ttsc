@@ -34,32 +34,32 @@
   <path d="M 124 372 L 1016 372" style="fill:none;stroke:#64748b;stroke-width:0.8"/>
   <path d="M 124 72 L 124 372" style="fill:none;stroke:#64748b;stroke-width:0.8"/>
   <text x="570.000" y="414" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">Tokens</text>
-  <line x1="729.402" y1="72" x2="729.402" y2="372" style="stroke:#64748b;stroke-width:1;stroke-dasharray:4 4"/>
-   <text x="733.402" y="86" style="fill:#94a3b8;font-size:11px">no-MCP baseline</text>
+  <line x1="983.064" y1="72" x2="983.064" y2="372" style="stroke:#64748b;stroke-width:1;stroke-dasharray:4 4"/>
+   <text x="987.064" y="86" style="fill:#94a3b8;font-size:11px">no-MCP baseline</text>
   <g>
     <text x="116" y="106.000" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">baseline</text>
-    <rect x="124" y="87.000" width="605.402" height="30" style="fill:#94a3b8"/>
-    <text x="737.402" y="106.000" style="fill:#cbd5e1;font-size:12px">2.0M</text>
+    <rect x="124" y="87.000" width="859.064" height="30" style="fill:#94a3b8"/>
+    <text x="991.064" y="106.000" style="fill:#cbd5e1;font-size:12px">2.9M</text>
    </g>
    <g>
     <text x="116" y="166.000" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">@ttsc/graph</text>
-    <rect x="124" y="147.000" width="65.832" height="30" style="fill:#22d3ee"/>
-    <text x="197.832" y="166.000" style="fill:#22d3ee;font-size:12px">221k (-89%)</text>
+    <rect x="124" y="147.000" width="49.659" height="30" style="fill:#22d3ee"/>
+    <text x="181.659" y="166.000" style="fill:#22d3ee;font-size:12px">167k (-94%)</text>
    </g>
    <g>
     <text x="116" y="226.000" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">codegraph</text>
-    <rect x="124" y="207.000" width="166.165" height="30" style="fill:#f59e0b"/>
-    <text x="298.165" y="226.000" style="fill:#f59e0b;font-size:12px">559k (-73%)</text>
+    <rect x="124" y="207.000" width="293.093" height="30" style="fill:#f59e0b"/>
+    <text x="425.093" y="226.000" style="fill:#f59e0b;font-size:12px">986k (-66%)</text>
    </g>
    <g>
     <text x="116" y="286.000" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">codebase-memory</text>
-    <rect x="124" y="267.000" width="432.302" height="30" style="fill:#a3e635"/>
-    <text x="564.302" y="286.000" style="fill:#a3e635;font-size:12px">1.5M (-29%)</text>
+    <rect x="124" y="267.000" width="723.696" height="30" style="fill:#a3e635"/>
+    <text x="855.696" y="286.000" style="fill:#a3e635;font-size:12px">2.4M (-16%)</text>
    </g>
    <g>
     <text x="116" y="346.000" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">serena</text>
-    <rect x="124" y="327.000" width="429.709" height="30" style="fill:#f472b6"/>
-    <text x="561.709" y="346.000" style="fill:#f472b6;font-size:12px">1.4M (-29%)</text>
+    <rect x="124" y="327.000" width="518.981" height="30" style="fill:#f472b6"/>
+    <text x="650.981" y="346.000" style="fill:#f472b6;font-size:12px">1.7M (-40%)</text>
    </g>
  </g>
 </svg>
