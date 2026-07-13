@@ -29,8 +29,15 @@ import (
 
 // DumpEvidence is a 1-based source span grounding a node declaration or an edge
 // expression. It is display/expansion only, never identity.
+//
+// File is omitted when the reader reconstructs it exactly: a node's span is in
+// the node's file, and an edge's span is in the file its `from` id names. The
+// path is long, it rode the wire once per node and once per edge, and on VS Code
+// those two copies are 55 MB of a 323 MB document that then has to be encoded,
+// piped, parsed and validated. An `implementation` span keeps its file — that one
+// can genuinely live in another file from the declaration that owns it.
 type DumpEvidence struct {
-	File      string `json:"file"`
+	File      string `json:"file,omitempty"`
 	StartLine int    `json:"startLine"`
 	StartCol  int    `json:"startCol,omitempty"`
 	EndLine   int    `json:"endLine,omitempty"`
@@ -127,7 +134,7 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
 			Exported:       n.Exported,
 			Closure:        n.Closure,
 			Modifiers:      n.Modifiers,
-			Evidence:       ctx.evidence(n.File, n.Pos, n.End),
+			Evidence:       withoutFile(ctx.evidence(n.File, n.Pos, n.End)),
 			Implementation: ctx.evidence(n.ImplementationFile, n.ImplementationPos, n.ImplementationEnd),
 			Decorators:     decByNode[n.ID],
 		})
@@ -140,7 +147,7 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
 			From:     ctx.relID(e.From),
 			To:       ctx.relID(e.To),
 			Kind:     dumpEdgeKind(e),
-			Evidence: ctx.edgeEvidence(e),
+			Evidence: withoutFile(ctx.edgeEvidence(e)),
 		})
 	}
 	sort.Slice(edges, func(i, j int) bool {
@@ -374,6 +381,16 @@ func (c *dumpContext) edgeEvidence(e *Edge) *DumpEvidence {
 		return nil
 	}
 	return c.evidence(file, e.Pos, e.End)
+}
+
+// withoutFile drops a span file the reader reconstructs from the node or edge
+// that carries the span. It never touches an implementation span.
+func withoutFile(ev *DumpEvidence) *DumpEvidence {
+	if ev == nil {
+		return nil
+	}
+	ev.File = ""
+	return ev
 }
 
 // nodeFile recovers the source file path embedded in a node id

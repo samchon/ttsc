@@ -1,6 +1,8 @@
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
+import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
+import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
 
 /**
@@ -122,6 +124,24 @@ function fileNodeId(file: string): string {
   return file;
 }
 
+/**
+ * A wire span with its file put back: the one the builder left out because the
+ * reader has it, or the one it kept because it could not be derived (an
+ * implementation in another file).
+ */
+function spanIn(span: ITtscGraphSpan, file: string): ITtscGraphEvidence {
+  return { ...span, file: span.file ?? file };
+}
+
+/**
+ * The source file a node id names. An id is `path#Qualified.Name:kind`, and a
+ * file node's id is the path itself.
+ */
+function fileOfNodeId(id: string): string {
+  const hash = id.indexOf("#");
+  return hash === -1 ? id : id.slice(0, hash);
+}
+
 function basename(file: string): string {
   const slash = file.lastIndexOf("/");
   return slash >= 0 ? file.slice(slash + 1) : file;
@@ -147,13 +167,37 @@ function synthesize(dump: ITtscGraphDump): {
   const moduleIds = new Map(
     dump.nodes.filter((n) => n.kind === "module").map((n) => [n.id, n.file]),
   );
-  // Clone nodes so property refinement does not mutate the caller's dump.
+  // Clone nodes so property refinement does not mutate the caller's dump, and
+  // put back the file the builder left out of every span: a node's span is in
+  // the node's file, an edge's span is in the file its `from` id names. The
+  // builder omits both because they are exactly reconstructible and they are not
+  // small — the two copies are 17% of the document, 55 MB of VS Code's 323 MB,
+  // paid again in the encode, the pipe, the parse and the validation. Nothing
+  // downstream of this line sees a span without its file.
   const nodes: ITtscGraphNode[] = dump.nodes
     .filter((n) => n.kind !== "module")
-    .map((n) => ({ ...n }));
+    .map((n) => {
+      const { evidence, implementation, ...rest } = n;
+      return {
+        ...rest,
+        ...(evidence !== undefined
+          ? { evidence: spanIn(evidence, n.file) }
+          : {}),
+        ...(implementation !== undefined
+          ? { implementation: spanIn(implementation, n.file) }
+          : {}),
+      };
+    });
   const edges: ITtscGraphEdge[] = dump.edges.map((edge) => {
-    const file = moduleIds.get(edge.from);
-    return file === undefined ? edge : { ...edge, from: fileNodeId(file) };
+    const { evidence, ...rest } = edge;
+    const from = moduleIds.get(edge.from);
+    return {
+      ...rest,
+      ...(from !== undefined ? { from: fileNodeId(from) } : {}),
+      ...(evidence !== undefined
+        ? { evidence: spanIn(evidence, fileOfNodeId(edge.from)) }
+        : {}),
+    };
   });
 
   // Index workspace nodes by (file, within-file key) so ownership can resolve a
