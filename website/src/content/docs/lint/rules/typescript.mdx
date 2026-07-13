@@ -41,7 +41,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/no-magic-numbers`](#rule-typescript-no-magic-numbers): TypeScript-aware extension of `no-magic-numbers`.
 - [`typescript/no-meaningless-void-operator`](#rule-typescript-no-meaningless-void-operator): Reject `void X` where `X` is already statically typed `void`, the `void` operator adds nothing.
 - [`typescript/no-misused-new`](#rule-typescript-no-misused-new): Reject signatures that fake a constructor or an instance `new` method.
-- [`typescript/no-misused-promises`](#rule-typescript-no-misused-promises): Reject Promise values supplied where a non-Promise was expected.
+- [`typescript/no-misused-promises`](#rule-typescript-no-misused-promises): Reject thenables in boolean, spread, disposal, and void-return contexts.
 - [`typescript/no-misused-spread`](#rule-typescript-no-misused-spread): Reject spread expressions whose operand is syntactically wrong for the surrounding context.
 - [`typescript/no-mixed-enums`](#rule-typescript-no-mixed-enums): Reject `enum`s that mix numeric and string members.
 - [`typescript/no-namespace`](#rule-typescript-no-namespace): Reject non-ambient `namespace` and `module Foo {}` declarations in regular `.ts` files.
@@ -781,11 +781,37 @@ interface I {
 
 ### `typescript/no-misused-promises`
 
-Reject Promise values supplied where a non-Promise was expected.
+Reject thenables used as boolean values or supplied to contracts that cannot
+observe their asynchronous result.
 
-Covers conditional positions (`if (promise)`, `while`, `for`, ternary, `&&`, `||`, `??`) where the Promise is truthy by reference.
+The default checks cover boolean conditions and array predicates, Promise
+object spreads, synchronous `using` resources whose `Symbol.dispose` returns a
+thenable, and Promise-returning functions supplied where a `void` return is
+expected. Void-return positions include call/construct arguments, JSX
+attributes, inherited methods, object properties, returned callbacks, and
+variables. The rule uses resolved signatures and contextual types, so ordinary
+Promise-returning functions are covered and Promise-aware callback APIs remain
+valid regardless of their method name.
 
-And `async` callbacks passed to APIs that expect a void-returning function (e.g. `Array#forEach`, JSX event handlers), where the returned Promise is silently dropped.
+All three scalar options default to `true`. `checksVoidReturn` also accepts an
+object whose independently configurable keys are `arguments`, `attributes`,
+`inheritedMethods`, `properties`, `returns`, and `variables`; omitted keys stay
+enabled.
+
+```json
+{
+  "rules": {
+    "typescript/no-misused-promises": [
+      "error",
+      {
+        "checksConditionals": true,
+        "checksSpreads": true,
+        "checksVoidReturn": { "arguments": false }
+      }
+    ]
+  }
+}
+```
 
 Example:
 
@@ -803,6 +829,11 @@ async function inIf(): Promise<void> {
     sideEffect();
   }
 }
+
+declare function consume(callback: () => void): void;
+
+// reports: typescript/no-misused-promises (error)
+consume(() => Promise.resolve());
 ```
 
 <a id="rule-typescript-no-misused-spread"></a>

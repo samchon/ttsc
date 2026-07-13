@@ -36,6 +36,7 @@ import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./I
 import type {
   ITtscLintTypeScriptBanTsCommentRuleOptions,
   ITtscLintTypeScriptNoFloatingPromisesRuleOptions,
+  ITtscLintTypeScriptNoMisusedPromisesRuleOptions,
   ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
 } from "./ITtscLintTypeScriptRuleOptions";
 
@@ -102,5 +103,6 @@ export interface ITtscLintRuleOptionsMap {
   "storybook/no-uninstalled-addons": ITtscLintStorybookNoUninstalledAddonsRuleOptions;
   "react/only-export-components": ITtscLintReactOnlyExportComponentsRuleOptions;
   "typescript/ban-ts-comment": ITtscLintTypeScriptBanTsCommentRuleOptions;
+  "typescript/no-misused-promises": ITtscLintTypeScriptNoMisusedPromisesRuleOptions;
   "typescript/switch-exhaustiveness-check": ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions;
 }
