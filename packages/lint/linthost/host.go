@@ -13,8 +13,10 @@ import (
   "context"
   "errors"
   "fmt"
+  "os"
   "path/filepath"
   "strings"
+  "sync/atomic"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   "github.com/microsoft/typescript-go/shim/bundled"
@@ -25,7 +27,11 @@ import (
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs/cachedvfs"
   "github.com/microsoft/typescript-go/shim/vfs/osvfs"
+
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
+
+var programLifecycleSequence atomic.Uint64
 
 // program bundles the tsgo Program with the parsed config and a checker
 // release callback so the orchestration code can clean up after itself.
@@ -35,6 +41,8 @@ type program struct {
   parsed         *tsoptions.ParsedCommandLine
   checker        *shimchecker.Checker
   releaseChecker func()
+  identity       publicrule.ProjectIdentity
+  projectCycle   *projectCycle
 }
 
 type loadProgramOptions struct {
@@ -54,7 +62,8 @@ type loadProgramOptions struct {
   // `--target es2020`, …). They are parsed through TypeScript-Go's own
   // command-line parser into a CompilerOptions overlay that wins over the
   // tsconfig, exactly as tsgo's CLI merges them.
-  tsgoArgs []string
+  tsgoArgs        []string
+  projectIdentity publicrule.ProjectIdentity
 }
 
 // loadProgram parses the given tsconfig and builds a Program. When
@@ -144,7 +153,69 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
     parsed:         parsed,
     checker:        checker,
     releaseChecker: release,
+    identity:       normalizeProjectIdentity(options.projectIdentity, cwd, resolved),
   }, nil, nil
+}
+
+func normalizeProjectIdentity(
+  identity publicrule.ProjectIdentity,
+  cwd string,
+  configPath string,
+) publicrule.ProjectIdentity {
+  if identity.InvocationCwd == "" {
+    identity.InvocationCwd = cwd
+  }
+  if identity.LogicalConfigPath == "" {
+    identity.LogicalConfigPath = absoluteProjectPath(identity.InvocationCwd, configPath)
+  }
+  if identity.LogicalProjectRoot == "" {
+    identity.LogicalProjectRoot = filepath.Dir(identity.LogicalConfigPath)
+  }
+  if identity.PhysicalConfigPath == "" {
+    identity.PhysicalConfigPath = realProjectPath(absoluteProjectPath(cwd, configPath))
+  }
+  if identity.PhysicalProjectRoot == "" {
+    identity.PhysicalProjectRoot = realProjectPath(cwd)
+  }
+  if identity.PluginConfigOrigin == "" {
+    if origin := os.Getenv("TTSC_PLUGIN_CONFIG_DIR"); origin != "" {
+      identity.PluginConfigOrigin = absoluteProjectPath(identity.InvocationCwd, origin)
+    }
+  }
+  identity.LifecycleID = fmt.Sprintf(
+    "%d:%d",
+    os.Getpid(),
+    programLifecycleSequence.Add(1),
+  )
+  return identity
+}
+
+func absoluteProjectPath(cwd string, target string) string {
+  if filepath.IsAbs(target) {
+    return filepath.Clean(target)
+  }
+  return filepath.Clean(filepath.Join(cwd, target))
+}
+
+func realProjectPath(target string) string {
+  resolved, err := filepath.EvalSymlinks(target)
+  if err != nil {
+    return filepath.Clean(target)
+  }
+  return resolved
+}
+
+func (p *program) runLintCycle(engine *Engine) []*Finding {
+  if p == nil || engine == nil {
+    return nil
+  }
+  files := p.userSourceFiles()
+  if p.projectCycle == nil {
+    cycle := engine.evaluateProject(p.identity, files, p.checker)
+    p.projectCycle = &cycle
+  }
+  projectFindings := append([]*Finding(nil), p.projectCycle.findings...)
+  return append(projectFindings, engine.runFiles(files, p.checker, p.projectCycle.results)...)
 }
 
 // close releases the type checker acquired by loadProgram. Safe to call on

@@ -18,8 +18,8 @@ import (
 func TestLSPNullPluginSourceContributesNothing(t *testing.T) {
   src := driver.NullPluginSource{}
 
-  if got := src.Diagnostics(driver.LSPDocumentVersion{URI: "file:///x.ts"}); got != nil {
-    t.Fatalf("Diagnostics should be nil, got %#v", got)
+  if got := src.Diagnostics(driver.LSPDocumentVersion{URI: "file:///x.ts"}); got.Document != nil || got.Project != nil {
+    t.Fatalf("Diagnostics should be empty, got %#v", got)
   }
   if got := src.CodeActions("file:///x.ts", driver.LSPRange{}, driver.LSPCodeActionContext{}); got != nil {
     t.Fatalf("CodeActions should be nil, got %#v", got)

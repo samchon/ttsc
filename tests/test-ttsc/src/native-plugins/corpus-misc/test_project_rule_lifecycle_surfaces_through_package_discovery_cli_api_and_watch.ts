@@ -1,0 +1,284 @@
+import { TtscCompiler } from "ttsc";
+
+import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
+import {
+  assert,
+  child_process,
+  fs,
+  goPath,
+  nativeBinary,
+  os,
+  path,
+  setupLintProject,
+  spawn,
+  tsgoBinary,
+  ttscBin,
+} from "../../internal/plugin-corpus";
+
+const guardContributor = `package guard
+
+import (
+  "fmt"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "github.com/samchon/ttsc/packages/lint/rule"
+)
+
+type projectGuard struct{}
+
+func (projectGuard) Name() string { return "guard/project" }
+func (projectGuard) Check(ctx *rule.ProjectContext) {
+  message := fmt.Sprintf(
+    "project blocked logical=%s physical=%s invocation=%s lifecycle=%s explicit=%s origin=%s sources=%d",
+    ctx.Identity.LogicalConfigPath,
+    ctx.Identity.PhysicalConfigPath,
+    ctx.Identity.InvocationCwd,
+    ctx.Identity.LifecycleID,
+    ctx.Identity.ExplicitProjectRoot,
+    ctx.Identity.PluginConfigOrigin,
+    len(ctx.Sources),
+  )
+  ctx.Report(message)
+  ctx.Report(message)
+}
+
+type guardedProjectIO struct{}
+
+func (guardedProjectIO) Name() string { return "guard/project-io" }
+func (guardedProjectIO) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+func (guardedProjectIO) Check(ctx *rule.Context, node *shimast.Node) {
+  switch ctx.ProjectResult("guard/project").Status {
+  case rule.ProjectRuleAbsent, rule.ProjectRuleOff, rule.ProjectRuleFailed:
+    return
+  }
+  ctx.Report(node, "project I/O should have been skipped")
+}
+
+type independentAST struct{}
+
+func (independentAST) Name() string { return "guard/ast" }
+func (independentAST) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+func (independentAST) Check(ctx *rule.Context, node *shimast.Node) {
+  ctx.Report(node, "guard AST rule remained independent")
+}
+
+func init() {
+  rule.RegisterProject(projectGuard{})
+  rule.Register(guardedProjectIO{})
+  rule.Register(independentAST{})
+}
+`;
+
+const unrelatedContributor = `package unrelated
+
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  "github.com/samchon/ttsc/packages/lint/rule"
+)
+
+type independentAST struct{}
+
+func (independentAST) Name() string { return "unrelated/ast" }
+func (independentAST) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+func (independentAST) Check(ctx *rule.Context, node *shimast.Node) {
+  ctx.Report(node, "unrelated AST rule remained independent")
+}
+
+func init() { rule.Register(independentAST{}) }
+`;
+
+/**
+ * Verifies project rules retain one lifecycle and identity contract through
+ * package-discovered CLI, public API, and watch executions.
+ *
+ * The fixture has no `compilerOptions.plugins`; `@ttsc/lint` is discovered from
+ * package metadata, then its config contributes a project rule plus guarded and
+ * independent file rules. The project is selected through a junction/symlink so
+ * the contributor can prove logical and physical paths remain distinct.
+ *
+ * 1. Run CLI and assert one deduplicated project finding precedes independent file
+ *    findings while the guarded project-I/O rule returns early.
+ * 2. Run the public API with explicit root/config-origin channels and assert its
+ *    structured project diagnostic has `file: null`.
+ * 3. Trigger two watch cycles and assert each prints one finding with a distinct
+ *    host-owned lifecycle id.
+ */
+export const test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch =
+  async (): Promise<void> => {
+    const physicalRoot = setupLintProject("lint-violations");
+    fs.writeFileSync(
+      path.join(physicalRoot, "package.json"),
+      JSON.stringify({ devDependencies: { "@ttsc/lint": "*" } }),
+    );
+    fs.writeFileSync(
+      path.join(physicalRoot, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          target: "ES2022",
+          module: "commonjs",
+          strict: true,
+          noEmit: true,
+          rootDir: "src",
+        },
+        include: ["src"],
+      }),
+    );
+    fs.rmSync(path.join(physicalRoot, "lint.config.json"), { force: true });
+    fs.mkdirSync(path.join(physicalRoot, "contributors", "guard"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(physicalRoot, "contributors", "unrelated"), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(physicalRoot, "contributors", "guard", "guard.go"),
+      guardContributor,
+    );
+    fs.writeFileSync(
+      path.join(physicalRoot, "contributors", "unrelated", "unrelated.go"),
+      unrelatedContributor,
+    );
+    fs.writeFileSync(
+      path.join(physicalRoot, "lint.config.cjs"),
+      `const path = require("node:path");
+module.exports = {
+  plugins: {
+    guard: { source: path.join(__dirname, "contributors", "guard") },
+    unrelated: { source: path.join(__dirname, "contributors", "unrelated") },
+  },
+  rules: {
+    "guard/project": "error",
+    "guard/project-io": "error",
+    "guard/ast": "error",
+    "unrelated/ast": "error",
+  },
+};
+`,
+    );
+
+    const logicalParent = fs.mkdtempSync(
+      path.join(os.tmpdir(), "ttsc-project-rule-logical-"),
+    );
+    const logicalRoot = path.join(logicalParent, "linked-project");
+    fs.symlinkSync(
+      physicalRoot,
+      logicalRoot,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    const logicalConfig = path.join(logicalRoot, "tsconfig.json");
+    const physicalConfig = fs.realpathSync(
+      path.join(physicalRoot, "tsconfig.json"),
+    );
+    const env = {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+    };
+
+    const cli = spawn(ttscBin, ["--cwd", logicalRoot, "--noEmit"], {
+      cwd: logicalRoot,
+      env,
+    });
+    assert.notEqual(cli.status, 0, "project rule should fail the CLI check");
+    assert.equal(
+      cli.stderr.match(/\[guard\/project\]/g)?.length,
+      1,
+      `project reporter should deduplicate one CLI finding\n${cli.stderr}`,
+    );
+    assert.equal(cli.stderr.includes(`logical=${logicalConfig}`), true);
+    assert.equal(cli.stderr.includes(`physical=${physicalConfig}`), true);
+    assert.equal(cli.stderr.includes(`invocation=${logicalRoot}`), true);
+    assert.match(cli.stderr, /lifecycle=\S+/);
+    assert.equal(
+      cli.stderr.includes("project I/O should have been skipped"),
+      false,
+    );
+    assert.match(cli.stderr, /\[guard\/ast\].*remained independent/s);
+    assert.match(cli.stderr, /\[unrelated\/ast\].*remained independent/s);
+
+    const api = new TtscCompiler({
+      binary: tsgoBinary,
+      cacheDir: SHARED_PLUGIN_CACHE_DIR,
+      cwd: logicalRoot,
+      env,
+      pluginConfigDir: logicalRoot,
+      projectRoot: logicalRoot,
+    }).compile();
+    assert.equal(api.type, "failure");
+    if (api.type !== "failure") return;
+    const projectDiagnostic = api.diagnostics.find((diagnostic) =>
+      diagnostic.messageText.includes("project blocked"),
+    );
+    assert.notEqual(projectDiagnostic, undefined);
+    assert.equal(projectDiagnostic?.file, null);
+    assert.equal(
+      projectDiagnostic?.messageText.includes(`explicit=${logicalRoot}`),
+      true,
+    );
+    assert.equal(
+      projectDiagnostic?.messageText.includes(`origin=${logicalRoot}`),
+      true,
+    );
+
+    const child = child_process.spawn(
+      process.execPath,
+      [ttscBin, "--watch", "--cwd", logicalRoot, "--noEmit"],
+      {
+        cwd: logicalRoot,
+        env: {
+          ...process.env,
+          ...env,
+          TTSC_BINARY: nativeBinary,
+          TTSC_TSGO_BINARY: tsgoBinary,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+      },
+    );
+    let output = "";
+    let touched = false;
+    let terminated = false;
+    const exit = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        child.kill("SIGKILL");
+        reject(new Error(`project-rule watch timed out\n${output}`));
+      }, 120_000);
+      child.on("error", (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      child.on("close", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+    const onChunk = (chunk: Buffer): void => {
+      output += chunk.toString("utf8");
+      const cycles = output.match(
+        /\[ttsc\] watch build (?:complete|failed)/g,
+      )?.length;
+      if (!touched && (cycles ?? 0) >= 1) {
+        touched = true;
+        fs.writeFileSync(
+          path.join(physicalRoot, "src", "main.ts"),
+          `export const changed = ${Date.now()};\n`,
+        );
+      } else if (!terminated && (cycles ?? 0) >= 2) {
+        terminated = true;
+        child.kill("SIGTERM");
+      }
+    };
+    child.stdout.on("data", onChunk);
+    child.stderr.on("data", onChunk);
+    await exit;
+
+    assert.equal(terminated, true, output);
+    assert.equal(
+      output.match(/\[guard\/project\]/g)?.length,
+      2,
+      `watch should print one project finding per rebuild\n${output}`,
+    );
+    const lifecycleIDs = [...output.matchAll(/lifecycle=(\S+)/g)].map(
+      (match) => match[1],
+    );
+    assert.equal(new Set(lifecycleIDs).size, 2, output);
+  };

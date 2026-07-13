@@ -191,6 +191,7 @@ type Context struct {
   Options json.RawMessage
 
   reporter Reporter
+  results  ProjectResultReader
 }
 
 // NewContext constructs a Context for the engine to pass into a
@@ -203,13 +204,36 @@ func NewContext(
   options json.RawMessage,
   reporter Reporter,
 ) *Context {
+  return NewContextWithProjectResults(file, checker, severity, options, reporter, nil)
+}
+
+// NewContextWithProjectResults constructs a file-rule Context with the
+// finalized project state for the same loaded Program cycle.
+func NewContextWithProjectResults(
+  file *shimast.SourceFile,
+  checker *shimchecker.Checker,
+  severity Severity,
+  options json.RawMessage,
+  reporter Reporter,
+  results ProjectResultReader,
+) *Context {
   return &Context{
     File:     file,
     Checker:  checker,
     Severity: severity,
     Options:  options,
     reporter: reporter,
+    results:  results,
   }
+}
+
+// ProjectResult returns the finalized state for a named project rule in this
+// file's Program cycle. Missing registrations return ProjectRuleAbsent.
+func (c *Context) ProjectResult(name string) ProjectRuleResult {
+  if c == nil || c.results == nil {
+    return ProjectRuleResult{Status: ProjectRuleAbsent}
+  }
+  return c.results.ProjectResult(name)
 }
 
 // DecodeOptions unmarshals the rule's options blob into `out`. Returns

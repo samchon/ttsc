@@ -29,6 +29,7 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
         capabilities?: {
           diagnosticsTiming?: boolean;
           lsp?: boolean;
+          projectContextArgs?: boolean;
           threadingArgs?: boolean;
         };
         reportsTypeScriptDiagnostics?: boolean;
@@ -38,6 +39,7 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
         capabilities: {
           diagnosticsTiming: true,
           lsp: true,
+          projectContextArgs: true,
           threadingArgs: true,
         },
         reportsTypeScriptDiagnostics: true,

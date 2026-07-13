@@ -27,6 +27,8 @@ import (
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
   shimdw "github.com/microsoft/typescript-go/shim/diagnosticwriter"
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
+
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 // RunCheck implements `@ttsc/lint check` — typecheck + lint, no emit.
@@ -62,6 +64,7 @@ func RunTransform(args []string) int {
   tsconfig := fs.String("tsconfig", "tsconfig.json", "tsconfig owning --file")
   cwd := fs.String("cwd", "", "override the working directory")
   pluginsJSON := fs.String("plugins-json", "", "ttsc plugin manifest JSON")
+  projectContextJSON := fs.String("project-context-json", "", "ttsc project identity JSON")
   singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
   checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
   tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
@@ -84,6 +87,11 @@ func RunTransform(args []string) int {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
+  projectIdentity, err := decodeProjectIdentity(*projectContextJSON)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
   rules, err := loadRules(*pluginsJSON, resolvedCwd, *tsconfig)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
@@ -98,6 +106,7 @@ func RunTransform(args []string) int {
     singleThreaded:   *singleThreaded,
     checkers:         *checkers,
     tsgoArgs:         tsgoArgs,
+    projectIdentity:  projectIdentity,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -171,18 +180,19 @@ func RunTransform(args []string) int {
 }
 
 type subcommandOpts struct {
-  cwd            string
-  tsconfig       string
-  pluginsJSON    string
-  emit           bool
-  noEmit         bool
-  quiet          bool
-  verbose        bool
-  diagnostics    bool
-  outDir         string
-  singleThreaded bool
-  checkers       int
-  tsgoArgs       []string
+  cwd             string
+  tsconfig        string
+  pluginsJSON     string
+  emit            bool
+  noEmit          bool
+  quiet           bool
+  verbose         bool
+  diagnostics     bool
+  outDir          string
+  singleThreaded  bool
+  checkers        int
+  tsgoArgs        []string
+  projectIdentity publicrule.ProjectIdentity
 }
 
 // parseSubcommandFlags parses the shared flag set used by the `check`,
@@ -194,6 +204,7 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
   cwd := fs.String("cwd", "", "")
   tsconfig := fs.String("tsconfig", "tsconfig.json", "")
   pluginsJSON := fs.String("plugins-json", "", "")
+  projectContextJSON := fs.String("project-context-json", "", "")
   emit := fs.Bool("emit", false, "")
   noEmit := fs.Bool("noEmit", false, "")
   quiet := fs.Bool("quiet", false, "")
@@ -218,19 +229,24 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
   if err != nil {
     return nil, err
   }
+  projectIdentity, err := decodeProjectIdentity(*projectContextJSON)
+  if err != nil {
+    return nil, err
+  }
   return &subcommandOpts{
-    cwd:            resolvedCwd,
-    tsconfig:       *tsconfig,
-    pluginsJSON:    *pluginsJSON,
-    emit:           *emit,
-    noEmit:         *noEmit,
-    quiet:          *quiet,
-    verbose:        *verbose,
-    diagnostics:    *diagnostics || *extendedDiagnostics,
-    outDir:         *outDir,
-    singleThreaded: *singleThreaded,
-    checkers:       *checkers,
-    tsgoArgs:       tsgoArgs,
+    cwd:             resolvedCwd,
+    tsconfig:        *tsconfig,
+    pluginsJSON:     *pluginsJSON,
+    emit:            *emit,
+    noEmit:          *noEmit,
+    quiet:           *quiet,
+    verbose:         *verbose,
+    diagnostics:     *diagnostics || *extendedDiagnostics,
+    outDir:          *outDir,
+    singleThreaded:  *singleThreaded,
+    checkers:        *checkers,
+    tsgoArgs:        tsgoArgs,
+    projectIdentity: projectIdentity,
   }, nil
 }
 
@@ -268,6 +284,7 @@ func runProject(opts *subcommandOpts) int {
     singleThreaded:   opts.singleThreaded,
     checkers:         opts.checkers,
     tsgoArgs:         opts.tsgoArgs,
+    projectIdentity:  opts.projectIdentity,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -331,9 +348,24 @@ func loadRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error) {
     return nil, err
   }
   if entry == nil {
-    return RuleConfig{}, nil
+    return bindProjectRuleResolver(RuleConfig{})
   }
-  return LoadConfigResolver(entry, cwd, tsconfigPath)
+  resolver, err := LoadConfigResolver(entry, cwd, tsconfigPath)
+  if err != nil {
+    return nil, err
+  }
+  return bindProjectRuleResolver(resolver)
+}
+
+func decodeProjectIdentity(raw string) (publicrule.ProjectIdentity, error) {
+  if strings.TrimSpace(raw) == "" {
+    return publicrule.ProjectIdentity{}, nil
+  }
+  var identity publicrule.ProjectIdentity
+  if err := json.Unmarshal([]byte(raw), &identity); err != nil {
+    return publicrule.ProjectIdentity{}, fmt.Errorf("@ttsc/lint: invalid --project-context-json: %w", err)
+  }
+  return identity, nil
 }
 
 // warnUnknownRules writes one warning line per name in `unknown` to `w`.
@@ -396,9 +428,8 @@ type lintDiagnosticsTiming struct {
 func collectDiagnosticsTimed(prog *program, engine *Engine) ([]*shimast.Diagnostic, []*shimdw.LintDiagnostic, lintDiagnosticsTiming, error) {
   timing := lintDiagnosticsTiming{}
   astDiags := prog.programDiagnostics()
-  files := prog.userSourceFiles()
   lintStarted := time.Now()
-  findings := engine.Run(files, prog.checker)
+  findings := prog.runLintCycle(engine)
   timing.lint = time.Since(lintStarted)
   nativeDiags := make([]*shimdw.LintDiagnostic, 0, len(findings))
   for _, finding := range findings {

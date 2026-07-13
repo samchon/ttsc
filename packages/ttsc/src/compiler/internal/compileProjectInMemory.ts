@@ -120,6 +120,7 @@ function compileProjectWithPlugins(
       forceListEmittedFiles: true,
       outDir: tempOutDir,
       quiet: true,
+      resolvedProject: project,
       structuredDiagnostics: true,
       tsconfig: project.path,
     });

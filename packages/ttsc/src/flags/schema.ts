@@ -478,6 +478,14 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
       "JSON-encoded ttsc plugin manifest (internal: emitted by runBuild).",
   },
   {
+    name: "--project-context-json",
+    kind: "value",
+    subcommands: ["build", "check", "fix", "format"],
+    consumedBy: ["lint"],
+    description:
+      "JSON-encoded lexical and physical project identity (internal: emitted by runBuild).",
+  },
+  {
     name: "--manifest",
     kind: "value",
     subcommands: ["build"],

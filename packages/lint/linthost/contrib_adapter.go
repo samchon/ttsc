@@ -68,6 +68,7 @@ func registerContributors() {
     }
     Register(adapter)
   }
+  registerProjectContributors()
 }
 
 // contributorMetadata is the immutable host-side view of a public contributor
@@ -169,12 +170,13 @@ func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
   if ctx == nil {
     return
   }
-  pubCtx := rule.NewContext(
+  pubCtx := rule.NewContextWithProjectResults(
     ctx.File,
     ctx.Checker,
     rule.Severity(ctx.Severity),
     ctx.Options,
     contextReporter{ctx: ctx},
+    ctx.projectResults,
   )
   a.inner.Check(pubCtx, node)
 }

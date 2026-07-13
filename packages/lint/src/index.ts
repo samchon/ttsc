@@ -22,6 +22,7 @@ type TtscPluginDescriptor = {
   capabilities?: {
     diagnosticsTiming?: boolean;
     lsp?: boolean;
+    projectContextArgs?: boolean;
     threadingArgs?: boolean;
   };
   contributors?: TtscPluginContributor[];
@@ -129,7 +130,12 @@ export default function createTtscPlugin(
   // declared, so consumers (and the existing key-shape regression
   // tests) see the same surface as before this feature shipped.
   const descriptor: TtscPluginDescriptor = {
-    capabilities: { diagnosticsTiming: true, lsp: true, threadingArgs: true },
+    capabilities: {
+      diagnosticsTiming: true,
+      lsp: true,
+      projectContextArgs: true,
+      threadingArgs: true,
+    },
     name: "@ttsc/lint",
     reportsTypeScriptDiagnostics: true,
     // `context.dirname` is this descriptor's own directory in every load mode —

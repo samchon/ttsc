@@ -98,13 +98,16 @@ type Proxy struct {
   capabilityMu               sync.Mutex
   upstreamCodeActionProvider bool
 
-  diagnosticsMu        sync.Mutex
-  upstreamDiagnostics  map[string]cachedDiagnostics
-  pluginDiagnostics    map[string]cachedDiagnostics
-  diagnosticGeneration map[string]uint64
-  documentGeneration   map[string]uint64
-  dirtyDocuments       map[string]struct{}
-  dirtyVersions        map[string]*int
+  diagnosticsMu               sync.Mutex
+  upstreamDiagnostics         map[string]cachedDiagnostics
+  pluginDiagnostics           map[string]cachedDiagnostics
+  projectDiagnostics          cachedDiagnostics
+  projectDiagnosticsURI       string
+  projectDiagnosticGeneration uint64
+  diagnosticGeneration        map[string]uint64
+  documentGeneration          map[string]uint64
+  dirtyDocuments              map[string]struct{}
+  dirtyVersions               map[string]*int
   // documentText caches the live editor buffer per uri so the
   // textDocument/formatting handler can format the in-memory text instead
   // of the on-disk file. didOpen / full-sync didChange seed it with the full
@@ -928,9 +931,9 @@ func (p *Proxy) prepareUpstreamPublishDiagnostics(env Envelope) func() {
     return nil
   }
   p.rememberUpstreamDiagnostics(params.URI, params.Version, params.Diagnostics)
-  generation := p.nextPluginDiagnosticsGeneration(params.URI)
+  generation, projectGeneration := p.nextDiagnosticsGenerations(params.URI)
   return func() {
-    p.publishMergedPluginDiagnostics(params.URI, params.Version, true, generation)
+    p.publishMergedPluginDiagnostics(params.URI, params.Version, true, generation, projectGeneration)
   }
 }
 
@@ -945,8 +948,8 @@ func (p *Proxy) publishPluginDiagnosticsForDocumentNotification(env Envelope) {
     return
   }
   p.markDocumentClean(params.TextDocument.URI)
-  generation := p.nextPluginDiagnosticsGeneration(params.TextDocument.URI)
-  go p.publishMergedPluginDiagnostics(params.TextDocument.URI, params.TextDocument.Version, false, generation)
+  generation, projectGeneration := p.nextDiagnosticsGenerations(params.TextDocument.URI)
+  go p.publishMergedPluginDiagnostics(params.TextDocument.URI, params.TextDocument.Version, false, generation, projectGeneration)
 }
 
 func (p *Proxy) publishPluginDiagnosticsForDidOpen(env Envelope) error {
@@ -967,12 +970,12 @@ func (p *Proxy) publishPluginDiagnosticsForDidOpen(env Envelope) error {
     return nil
   }
   p.markDocumentClean(params.TextDocument.URI)
-  generation := p.nextPluginDiagnosticsGeneration(params.TextDocument.URI)
-  go p.publishMergedPluginDiagnostics(params.TextDocument.URI, params.TextDocument.Version, false, generation)
+  generation, projectGeneration := p.nextDiagnosticsGenerations(params.TextDocument.URI)
+  go p.publishMergedPluginDiagnostics(params.TextDocument.URI, params.TextDocument.Version, false, generation, projectGeneration)
   return nil
 }
 
-func (p *Proxy) publishMergedPluginDiagnostics(uri string, version *int, adoptCachedVersion bool, generation uint64) {
+func (p *Proxy) publishMergedPluginDiagnostics(uri string, version *int, adoptCachedVersion bool, generation uint64, projectGeneration uint64) {
   if !p.isLatestPluginDiagnosticsGeneration(uri, generation) || p.isDocumentDirty(uri) {
     return
   }
@@ -980,11 +983,13 @@ func (p *Proxy) publishMergedPluginDiagnostics(uri string, version *int, adoptCa
     URI:     uri,
     Version: version,
   })
-  version, merged, ok := p.prepareMergedPluginDiagnostics(uri, version, adoptCachedVersion, generation, diagnostics)
-  if !ok {
-    return
+  version, merged, ok := p.prepareMergedPluginDiagnostics(uri, version, adoptCachedVersion, generation, diagnostics.Document)
+  if ok {
+    p.reportAsyncError(p.writePublishDiagnosticsIfCurrent(uri, version, merged, generation))
   }
-  p.reportAsyncError(p.writePublishDiagnosticsIfCurrent(uri, version, merged, generation))
+  if diagnostics.Project != nil {
+    p.reportAsyncError(p.writeProjectDiagnosticsIfCurrent(diagnostics.Project, projectGeneration))
+  }
 }
 
 func (p *Proxy) writePublishDiagnostics(uri string, version *int, diagnostics []json.RawMessage) error {
@@ -1003,6 +1008,71 @@ func (p *Proxy) writePublishDiagnosticsIfCurrent(uri string, version *int, diagn
     return nil
   }
   return WriteFrame(p.editorOut, body)
+}
+
+func (p *Proxy) writeProjectDiagnosticsIfCurrent(publication *LSPProjectDiagnostics, generation uint64) error {
+  if publication == nil || publication.URI == "" {
+    return nil
+  }
+  diagnostics := append([]LSPDiagnostic(nil), publication.Diagnostics...)
+  for index := range diagnostics {
+    diagnostics[index].Range = LSPRange{}
+  }
+  rawDiagnostics := marshalLSPDiagnostics(diagnostics)
+  p.writeMu.Lock()
+  defer p.writeMu.Unlock()
+  p.diagnosticsMu.Lock()
+  defer p.diagnosticsMu.Unlock()
+  if p.projectDiagnosticGeneration != generation {
+    return nil
+  }
+
+  previousURI := p.projectDiagnosticsURI
+  previousHadDiagnostics := len(p.projectDiagnostics.diagnostics) > 0
+  changedURI := previousURI != "" && previousURI != publication.URI
+  if changedURI {
+    p.projectDiagnosticsURI = ""
+    p.projectDiagnostics = cachedDiagnostics{}
+    if err := WriteFrame(
+      p.editorOut,
+      p.publishDiagnosticsBody(previousURI, nil, p.mergedDiagnosticsLocked(previousURI)),
+    ); err != nil {
+      return err
+    }
+  }
+
+  p.projectDiagnosticsURI = publication.URI
+  p.projectDiagnostics = cachedDiagnostics{diagnostics: copyRawDiagnostics(rawDiagnostics)}
+  if len(rawDiagnostics) == 0 && !previousHadDiagnostics && !changedURI {
+    return nil
+  }
+  return WriteFrame(
+    p.editorOut,
+    p.publishDiagnosticsBody(publication.URI, nil, p.mergedDiagnosticsLocked(publication.URI)),
+  )
+}
+
+func marshalLSPDiagnostics(diagnostics []LSPDiagnostic) []json.RawMessage {
+  rawDiagnostics := make([]json.RawMessage, 0, len(diagnostics))
+  for _, diagnostic := range diagnostics {
+    raw, _ := json.Marshal(diagnostic)
+    rawDiagnostics = append(rawDiagnostics, raw)
+  }
+  return rawDiagnostics
+}
+
+func (p *Proxy) mergedDiagnosticsLocked(uri string) []json.RawMessage {
+  upstream := p.upstreamDiagnostics[uri].diagnostics
+  document := p.pluginDiagnostics[uri].diagnostics
+  project := []json.RawMessage(nil)
+  if p.projectDiagnosticsURI == uri {
+    project = p.projectDiagnostics.diagnostics
+  }
+  merged := make([]json.RawMessage, 0, len(upstream)+len(document)+len(project))
+  merged = append(merged, copyRawDiagnostics(upstream)...)
+  merged = append(merged, copyRawDiagnostics(document)...)
+  merged = append(merged, copyRawDiagnostics(project)...)
+  return merged
 }
 
 func (p *Proxy) writeLocalCodeActionsResultIfCurrent(id json.RawMessage, actions []LSPCodeAction, pending pendingCodeActionRequest) error {
@@ -1288,6 +1358,7 @@ func (p *Proxy) markDocumentDirtyURI(uri string, version *int) bool {
   delete(p.pluginDiagnostics, uri)
   delete(p.upstreamDiagnostics, uri)
   p.diagnosticGeneration[uri]++
+  p.projectDiagnosticGeneration++
   p.documentGeneration[uri]++
   return len(previous.diagnostics) > 0
 }
@@ -1363,12 +1434,13 @@ func filePathFromURI(raw string) (string, bool) {
   return abs, true
 }
 
-func (p *Proxy) nextPluginDiagnosticsGeneration(uri string) uint64 {
+func (p *Proxy) nextDiagnosticsGenerations(uri string) (uint64, uint64) {
   p.diagnosticsMu.Lock()
   defer p.diagnosticsMu.Unlock()
   next := p.diagnosticGeneration[uri] + 1
   p.diagnosticGeneration[uri] = next
-  return next
+  p.projectDiagnosticGeneration++
+  return next, p.projectDiagnosticGeneration
 }
 
 func (p *Proxy) isLatestPluginDiagnosticsGeneration(uri string, generation uint64) bool {
@@ -1401,11 +1473,7 @@ func (p *Proxy) prepareMergedPluginDiagnostics(
   if uri == "" {
     return nil, nil, false
   }
-  rawDiagnostics := make([]json.RawMessage, 0, len(diagnostics))
-  for _, diagnostic := range diagnostics {
-    raw, _ := json.Marshal(diagnostic)
-    rawDiagnostics = append(rawDiagnostics, raw)
-  }
+  rawDiagnostics := marshalLSPDiagnostics(diagnostics)
   inputVersion := copyIntPtr(version)
 
   p.diagnosticsMu.Lock()
@@ -1433,10 +1501,7 @@ func (p *Proxy) prepareMergedPluginDiagnostics(
   if len(rawDiagnostics) == 0 && !previousPluginDiagnostics {
     return nil, nil, false
   }
-  cachedDiagnostics := copyRawDiagnostics(cached.diagnostics)
-  merged := make([]json.RawMessage, 0, len(cachedDiagnostics)+len(rawDiagnostics))
-  merged = append(merged, cachedDiagnostics...)
-  merged = append(merged, rawDiagnostics...)
+  merged := p.mergedDiagnosticsLocked(uri)
   return copyIntPtr(version), merged, true
 }
 

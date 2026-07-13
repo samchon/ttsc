@@ -10,25 +10,29 @@ import (
 // is wired to a slice / function field so individual tests configure
 // only what they care about.
 type stubSource struct {
-  diagnostics        map[string][]driver.LSPDiagnostic
-  diagnosticsFor     func(driver.LSPDocumentVersion) []driver.LSPDiagnostic
-  actions            []driver.LSPCodeAction
-  actionsFor         func(uri string) []driver.LSPCodeAction
-  actionsWithContext func(uri string, ctx driver.LSPCodeActionContext) []driver.LSPCodeAction
-  commands           []string
-  codeActionKinds    []string
-  execute            func(command string, args []json.RawMessage) (*driver.LSPWorkspaceEdit, error)
-  executeWithContent func(command string, args []json.RawMessage, content string, hasContent bool) (*driver.LSPWorkspaceEdit, error)
+  diagnostics          map[string][]driver.LSPDiagnostic
+  diagnosticsFor       func(driver.LSPDocumentVersion) []driver.LSPDiagnostic
+  diagnosticsResultFor func(driver.LSPDocumentVersion) driver.LSPDiagnosticsResult
+  actions              []driver.LSPCodeAction
+  actionsFor           func(uri string) []driver.LSPCodeAction
+  actionsWithContext   func(uri string, ctx driver.LSPCodeActionContext) []driver.LSPCodeAction
+  commands             []string
+  codeActionKinds      []string
+  execute              func(command string, args []json.RawMessage) (*driver.LSPWorkspaceEdit, error)
+  executeWithContent   func(command string, args []json.RawMessage, content string, hasContent bool) (*driver.LSPWorkspaceEdit, error)
 }
 
-func (s *stubSource) Diagnostics(doc driver.LSPDocumentVersion) []driver.LSPDiagnostic {
+func (s *stubSource) Diagnostics(doc driver.LSPDocumentVersion) driver.LSPDiagnosticsResult {
   if s == nil {
-    return nil
+    return driver.LSPDiagnosticsResult{}
+  }
+  if s.diagnosticsResultFor != nil {
+    return s.diagnosticsResultFor(doc)
   }
   if s.diagnosticsFor != nil {
-    return s.diagnosticsFor(doc)
+    return driver.LSPDiagnosticsResult{Document: s.diagnosticsFor(doc)}
   }
-  return s.diagnostics[doc.URI]
+  return driver.LSPDiagnosticsResult{Document: s.diagnostics[doc.URI]}
 }
 
 func (s *stubSource) CodeActions(uri string, _ driver.LSPRange, ctx driver.LSPCodeActionContext) []driver.LSPCodeAction {

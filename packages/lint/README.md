@@ -1134,6 +1134,32 @@ Contributor rules emit autofixes the same way built-ins do, call `ctx.ReportFix(
 
 Contributor rules run on declaration files (`.d.ts`) by default. The engine skips its own value-level rules there — executable grammar cannot appear in a declaration file — but it cannot infer a third-party rule's shape, so contributors keep the conservative default. A rule that only inspects executable code can implement the optional `rule.DeclarationFileRule` marker (`VisitsDeclarationFiles() bool { return false }`) to get the same skip and save the dispatch on declaration-heavy projects.
 
+### Project-scoped contributor rules
+
+Contributors that validate the loaded Program rather than individual AST nodes can register a public `rule.ProjectRule`:
+
+```go
+type noCycles struct{}
+
+func (noCycles) Name() string { return "architecture/no-cycles" }
+func (noCycles) Check(ctx *rule.ProjectContext) {
+  // ctx.Sources is the tsconfig-selected user-source set, including an empty set.
+  // ctx.Checker is the Program checker, and ctx.Identity keeps logical and
+  // physical project paths separate.
+  if cycle := findCycle(ctx.Sources, ctx.Checker); cycle != "" {
+    ctx.Report(cycle)
+  }
+}
+
+func init() { rule.RegisterProject(noCycles{}) }
+```
+
+Each project rule runs once per loaded Program, before file rules. `ctx.Identity` includes the invocation cwd, logical and physical config paths and roots, an optional explicit project root, the plugin-config origin, and a lifecycle id. `Report` marks the rule failed and emits one project finding; `Fail` marks it failed without a finding. Later file rules can call `ctx.ProjectResult(name)` and distinguish `absent`, `off`, `not_evaluated`, `passed`, and `failed`.
+
+Project rules use the normal `rules` map and `extends` order, but only global config entries may configure them. Any entry that contains `files`, including `files: []` or an `off` value, is rejected. Global `ignores` remain source-file filters rather than project-rule selectors. A later bare severity preserves the last explicit tuple options while replacing severity.
+
+CLI, API, watch, and LSP runs carry the same project identity into the native host. Structured API findings use `file: null`. LSP publishes project findings once at the logical config URI with a zero range and no document version; project findings never provide fixes or code actions.
+
 ## Sponsors
 
 [![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
