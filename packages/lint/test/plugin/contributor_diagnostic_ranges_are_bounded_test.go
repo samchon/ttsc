@@ -143,6 +143,33 @@ func TestRangeSuggestionFindingUsesCanonicalBounds(t *testing.T) {
   }
 }
 
+// TestNodeReportBoundsBeforeSkippingTrivia proves a contributor cannot make
+// the host slice the current source at another file's otherwise-valid node
+// position. Normalization must happen before SkipTrivia, not only afterward.
+func TestNodeReportBoundsBeforeSkippingTrivia(t *testing.T) {
+  current := parseTSFile(t, "/virtual/current.ts", "x;\n")
+  foreign := parseTSFile(t, "/virtual/foreign.ts", strings.Repeat("const padding = 0;\n", 8)+"target;\n")
+  foreignNode := foreign.Statements.Nodes[len(foreign.Statements.Nodes)-1]
+  if foreignNode.Pos() <= len(current.Text()) {
+    t.Fatalf("fixture node position %d must exceed current source length %d", foreignNode.Pos(), len(current.Text()))
+  }
+
+  var finding *Finding
+  ctx := &Context{
+    File:     current,
+    Severity: SeverityError,
+    rule:     boundedDiagnosticRangeHostRule{},
+    collect:  func(got *Finding) { finding = got },
+  }
+  ctx.Report(foreignNode, "foreign node")
+  if finding == nil {
+    t.Fatal("foreign node diagnostic was not reported")
+  }
+  if got, want := [2]int{finding.Pos, finding.End}, [2]int{len(current.Text()), len(current.Text())}; got != want {
+    t.Fatalf("foreign node range = %v, want EOF %v", got, want)
+  }
+}
+
 type boundedDiagnosticRangeContributor struct {
   spans map[string][2]int
 }
