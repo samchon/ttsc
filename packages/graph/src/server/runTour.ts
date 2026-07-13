@@ -235,12 +235,15 @@ export function runTour(
     ...tests,
   ]).slice(0, MAX_READ_NEXT);
 
+  const bridges = bridgesBetween(graph, seeds, primaryFlow);
+
   return {
     result: {
       type: "tour",
       query,
       entrypoints,
       primaryFlow,
+      ...(bridges.length > 0 ? { bridges } : {}),
       nearby: nearby.slice(0, MAX_NEARBY),
       tests: tests.slice(0, MAX_TESTS),
       answerAnchors,
@@ -256,6 +259,111 @@ export function runTour(
       "The tour covers the question: its entrypoints, flow, nearby paths, tests, and anchors are the orientation answer.",
     ),
   };
+}
+
+/**
+ * How the tour's own entrypoints reach each other.
+ *
+ * A tour question names its stages — "from the pointer interaction through the
+ * scene mutation, the history, the rendering and the collaboration" — and the
+ * entrypoints are those stages. The flows say what each stage does downstream;
+ * none of them says what runs _between_ two of them, and that is the question.
+ * So the model went and asked: a `lookup` for the name, a `trace` from it, a
+ * path to the next stage, one round per stage. Sonnet spent 3 to 12 graph calls
+ * on a project-specific question that way, and Claude re-sends the whole
+ * context on every turn, so those calls are the token bill.
+ *
+ * The path between two selected symbols is a graph fact the server can resolve
+ * as cheaply as the flows, and `runTrace`'s path mode already resolves it. So
+ * it is resolved here, once, for the stages that actually reach each other.
+ *
+ * A bridge that only retraces a flow the tour already told is dropped, and the
+ * cap keeps a densely connected corpus from turning the tour into a matrix.
+ */
+const MAX_BRIDGES = 4;
+const BRIDGE_DEPTH = 8;
+const BRIDGE_STEPS = 6;
+
+function bridgesBetween(
+  graph: TtscGraphMemory,
+  seeds: ITtscGraphNode[],
+  flows: ITtscGraphTour.IFlow[],
+): ITtscGraphTour.IBridge[] {
+  if (seeds.length < 2) return [];
+  const told = new Set(flows.flatMap((flow) => flow.steps));
+  const candidates: {
+    from: ITtscGraphNode;
+    to: ITtscGraphNode;
+    steps: string[];
+  }[] = [];
+  const linked = new Set<string>();
+  for (const from of seeds) {
+    for (const to of seeds) {
+      if (from.id === to.id) continue;
+      // One direction per pair: the path back is the same two stages, reversed.
+      if (linked.has(pairKey(to.id, from.id))) continue;
+      const trace = runTrace(graph, {
+        type: "trace",
+        from: from.id,
+        to: to.id,
+        focus: "execution",
+        maxDepth: BRIDGE_DEPTH,
+      }).result;
+      const steps = trace.steps ?? [];
+      if (
+        trace.path === undefined ||
+        trace.path.length < 2 ||
+        steps.length === 0
+      )
+        continue;
+      // A bridge whose every step a flow already told is not a new fact.
+      if (steps.every((step) => told.has(step))) continue;
+      linked.add(pairKey(from.id, to.id));
+      candidates.push({ from, to, steps });
+    }
+  }
+
+  // Every stage of the question earns a bridge before any stage earns a second
+  // one. Taken in plain pair order, all four bridges of Excalidraw's edit
+  // pipeline landed on `mutateElement`: the tour said four times how to reach
+  // the mutation and never once what the mutation reaches. So each pick is the
+  // shortest path that touches a stage no bridge has touched yet.
+  const bridges: ITtscGraphTour.IBridge[] = [];
+  const touched = new Set<string>();
+  const remaining = [...candidates];
+  while (remaining.length > 0 && bridges.length < MAX_BRIDGES) {
+    let bestIndex = -1;
+    let bestFresh = -1;
+    let bestLength = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < remaining.length; i++) {
+      const item = remaining[i]!;
+      const fresh =
+        (touched.has(item.from.id) ? 0 : 1) + (touched.has(item.to.id) ? 0 : 1);
+      if (
+        fresh > bestFresh ||
+        (fresh === bestFresh && item.steps.length < bestLength)
+      ) {
+        bestIndex = i;
+        bestFresh = fresh;
+        bestLength = item.steps.length;
+      }
+    }
+    const [picked] = remaining.splice(bestIndex, 1);
+    if (picked === undefined) break;
+    touched.add(picked.from.id);
+    touched.add(picked.to.id);
+    for (const step of picked.steps) told.add(step);
+    bridges.push({
+      from: picked.from.name,
+      to: picked.to.name,
+      steps: picked.steps.slice(0, BRIDGE_STEPS),
+    });
+  }
+  return bridges;
+}
+
+function pairKey(from: string, to: string): string {
+  return `${from} -> ${to}`;
 }
 
 function tourSeedsOf(
@@ -836,15 +944,15 @@ function matchedTerms(words: string[], terms: string[]): Set<string> {
  *
  * Coverage multiplies a candidate's score; it does not replace it. A flat bonus
  * cannot: it was +120 against scores that topped out near 150, and once the
- * score grew a reach term and a wider fan-out cap it stopped deciding anything —
- * a second renderer, covering nothing new, outranked the first symbol of a layer
- * the question named. Letting coverage win outright is the opposite failure and
- * a worse one: on Excalidraw's edit pipeline a stats panel and a "go to
- * collaborator" action took two of the five seeds, each on the strength of one
- * rare word, and the model abandoned the tour and grepped thirteen files. A
- * factor keeps quality the gate and coverage the tiebreak — an unimportant
- * symbol covering two new terms still loses to the centre of the codebase, while
- * two comparable symbols are split by what they add.
+ * score grew a reach term and a wider fan-out cap it stopped deciding anything
+ * — a second renderer, covering nothing new, outranked the first symbol of a
+ * layer the question named. Letting coverage win outright is the opposite
+ * failure and a worse one: on Excalidraw's edit pipeline a stats panel and a
+ * "go to collaborator" action took two of the five seeds, each on the strength
+ * of one rare word, and the model abandoned the tour and grepped thirteen
+ * files. A factor keeps quality the gate and coverage the tiebreak — an
+ * unimportant symbol covering two new terms still loses to the centre of the
+ * codebase, while two comparable symbols are split by what they add.
  *
  * It picks `count` of them, not all of them. Ordering every candidate cost
  * O(n²) — on VS Code, where tens of thousands of symbols score above zero, one

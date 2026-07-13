@@ -14,6 +14,19 @@ export interface ITtscGraphTour {
   /** Selected primary runtime flows; sufficient for an index-level tour. */
   primaryFlow: ITtscGraphTour.IFlow[];
 
+  /**
+   * How the entrypoints reach each other: the resolved call path from one stage
+   * of the tour to the next, where one exists.
+   *
+   * A tour question usually names its stages — "from the pointer event through
+   * the mutation, the history, the render and the collaboration" — and the
+   * entrypoints above are those stages. What the flows alone do not say is what
+   * runs *between* two of them, so the model went and asked: a lookup for the
+   * name, a trace from it, a path to the next stage, once per stage. These are
+   * those paths, resolved here.
+   */
+  bridges?: ITtscGraphTour.IBridge[];
+
   /** Nearby dependency anchors around the selected entrypoints. */
   nearby: ITtscGraphTour.IAnchor[];
 
@@ -106,6 +119,18 @@ export namespace ITtscGraphTour {
 
     /** True when some low-signal flow steps were capped; the flow stands. */
     truncated?: boolean;
+  }
+
+  /** The resolved call path from one entrypoint of the tour to another. */
+  export interface IBridge {
+    /** The stage the path runs from. */
+    from: string;
+
+    /** The stage it reaches. */
+    to: string;
+
+    /** Compact edge summaries along the path, in call order. */
+    steps: string[];
   }
 
   /** A file/line citation chosen by the graph, not source body text. */
