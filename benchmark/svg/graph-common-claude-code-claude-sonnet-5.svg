@@ -39,10 +39,10 @@
     <text x="108" y="163.625" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">excalidraw</text>
     <rect x="124" y="133.625" width="868.451" height="9" style="fill:#94a3b8"/>
     <text x="997.451" y="141.925" style="fill:#cbd5e1;font-size:11px">4.9M</text>
-    <rect x="124" y="147.125" width="100.584" height="9" style="fill:#22d3ee"/>
-    <text x="229.584" y="155.425" style="fill:#22d3ee;font-size:11px">564k (-88%)</text>
+    <rect x="124" y="147.125" width="44.391" height="9" style="fill:#22d3ee"/>
+    <text x="173.391" y="155.425" style="fill:#22d3ee;font-size:11px;font-weight:700">249k (-95%)</text>
     <rect x="124" y="160.625" width="82.063" height="9" style="fill:#f59e0b"/>
-    <text x="211.063" y="168.925" style="fill:#f59e0b;font-size:11px;font-weight:700">460k (-91%)</text>
+    <text x="211.063" y="168.925" style="fill:#f59e0b;font-size:11px">460k (-91%)</text>
     <rect x="124" y="174.125" width="541.686" height="9" style="fill:#a3e635"/>
     <text x="670.686" y="182.425" style="fill:#a3e635;font-size:11px">3.0M (-38%)</text>
     <rect x="124" y="187.625" width="439.299" height="9" style="fill:#f472b6"/>
@@ -53,10 +53,10 @@
     <text x="108" y="252.875" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">nestjs</text>
     <rect x="124" y="222.875" width="423.855" height="9" style="fill:#94a3b8"/>
     <text x="552.855" y="231.175" style="fill:#cbd5e1;font-size:11px">2.4M</text>
-    <rect x="124" y="236.375" width="85.295" height="9" style="fill:#22d3ee"/>
-    <text x="214.295" y="244.675" style="fill:#22d3ee;font-size:11px">478k (-80%)</text>
+    <rect x="124" y="236.375" width="44.684" height="9" style="fill:#22d3ee"/>
+    <text x="173.684" y="244.675" style="fill:#22d3ee;font-size:11px;font-weight:700">250k (-89%)</text>
     <rect x="124" y="249.875" width="82.676" height="9" style="fill:#f59e0b"/>
-    <text x="211.676" y="258.175" style="fill:#f59e0b;font-size:11px;font-weight:700">463k (-80%)</text>
+    <text x="211.676" y="258.175" style="fill:#f59e0b;font-size:11px">463k (-80%)</text>
     <rect x="124" y="263.375" width="331.233" height="9" style="fill:#a3e635"/>
     <text x="460.233" y="271.675" style="fill:#a3e635;font-size:11px">1.9M (-22%)</text>
     <rect x="124" y="276.875" width="100.115" height="9" style="fill:#f472b6"/>
@@ -67,8 +67,8 @@
     <text x="108" y="342.125" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">rxjs</text>
     <rect x="124" y="312.125" width="226.248" height="9" style="fill:#94a3b8"/>
     <text x="355.248" y="320.425" style="fill:#cbd5e1;font-size:11px">1.3M</text>
-    <rect x="124" y="325.625" width="57.662" height="9" style="fill:#22d3ee"/>
-    <text x="186.662" y="333.925" style="fill:#22d3ee;font-size:11px;font-weight:700">323k (-75%)</text>
+    <rect x="124" y="325.625" width="44.255" height="9" style="fill:#22d3ee"/>
+    <text x="173.255" y="333.925" style="fill:#22d3ee;font-size:11px;font-weight:700">248k (-80%)</text>
     <rect x="124" y="339.125" width="130.379" height="9" style="fill:#f59e0b"/>
     <text x="259.379" y="347.425" style="fill:#f59e0b;font-size:11px">731k (-42%)</text>
     <rect x="124" y="352.625" width="666.935" height="9" style="fill:#a3e635"/>
@@ -81,8 +81,8 @@
     <text x="108" y="431.375" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">shopping</text>
     <rect x="124" y="401.375" width="461.231" height="9" style="fill:#94a3b8"/>
     <text x="590.231" y="409.675" style="fill:#cbd5e1;font-size:11px">2.6M</text>
-    <rect x="124" y="414.875" width="105.839" height="9" style="fill:#22d3ee"/>
-    <text x="234.839" y="423.175" style="fill:#22d3ee;font-size:11px;font-weight:700">593k (-77%)</text>
+    <rect x="124" y="414.875" width="46.327" height="9" style="fill:#22d3ee"/>
+    <text x="175.327" y="423.175" style="fill:#22d3ee;font-size:11px;font-weight:700">260k (-90%)</text>
     <rect x="124" y="428.375" width="192.762" height="9" style="fill:#f59e0b"/>
     <text x="321.762" y="436.675" style="fill:#f59e0b;font-size:11px">1.1M (-58%)</text>
     <rect x="124" y="441.875" width="481.141" height="9" style="fill:#a3e635"/>
@@ -95,8 +95,8 @@
     <text x="108" y="520.625" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">typeorm</text>
     <rect x="124" y="490.625" width="442.181" height="9" style="fill:#94a3b8"/>
     <text x="571.181" y="498.925" style="fill:#cbd5e1;font-size:11px">2.5M</text>
-    <rect x="124" y="504.125" width="56.218" height="9" style="fill:#22d3ee"/>
-    <text x="185.218" y="512.425" style="fill:#22d3ee;font-size:11px;font-weight:700">315k (-87%)</text>
+    <rect x="124" y="504.125" width="44.698" height="9" style="fill:#22d3ee"/>
+    <text x="173.698" y="512.425" style="fill:#22d3ee;font-size:11px;font-weight:700">251k (-90%)</text>
     <rect x="124" y="517.625" width="115.070" height="9" style="fill:#f59e0b"/>
     <text x="244.070" y="525.925" style="fill:#f59e0b;font-size:11px">645k (-74%)</text>
     <rect x="124" y="531.125" width="587.602" height="9" style="fill:#a3e635"/>
@@ -109,8 +109,8 @@
     <text x="108" y="609.875" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">vscode</text>
     <rect x="124" y="579.875" width="486.165" height="9" style="fill:#94a3b8"/>
     <text x="615.165" y="588.175" style="fill:#cbd5e1;font-size:11px">2.7M</text>
-    <rect x="124" y="593.375" width="62.052" height="9" style="fill:#22d3ee"/>
-    <text x="191.052" y="601.675" style="fill:#22d3ee;font-size:11px;font-weight:700">348k (-87%)</text>
+    <rect x="124" y="593.375" width="52.117" height="9" style="fill:#22d3ee"/>
+    <text x="181.117" y="601.675" style="fill:#22d3ee;font-size:11px;font-weight:700">292k (-89%)</text>
     <rect x="124" y="606.875" width="151.839" height="9" style="fill:#f59e0b"/>
     <text x="280.839" y="615.175" style="fill:#f59e0b;font-size:11px">851k (-69%)</text>
     <rect x="124" y="620.375" width="502.866" height="9" style="fill:#a3e635"/>
@@ -123,8 +123,8 @@
     <text x="108" y="699.125" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">vue</text>
     <rect x="124" y="669.125" width="295.935" height="9" style="fill:#94a3b8"/>
     <text x="424.935" y="677.425" style="fill:#cbd5e1;font-size:11px">1.7M</text>
-    <rect x="124" y="682.625" width="58.904" height="9" style="fill:#22d3ee"/>
-    <text x="187.904" y="690.925" style="fill:#22d3ee;font-size:11px;font-weight:700">330k (-80%)</text>
+    <rect x="124" y="682.625" width="44.499" height="9" style="fill:#22d3ee"/>
+    <text x="173.499" y="690.925" style="fill:#22d3ee;font-size:11px;font-weight:700">249k (-85%)</text>
     <rect x="124" y="696.125" width="227.086" height="9" style="fill:#f59e0b"/>
     <text x="356.086" y="704.425" style="fill:#f59e0b;font-size:11px">1.3M (-23%)</text>
     <rect x="124" y="709.625" width="474.536" height="9" style="fill:#a3e635"/>
@@ -137,10 +137,10 @@
     <text x="108" y="788.375" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">zod</text>
     <rect x="124" y="758.375" width="378.650" height="9" style="fill:#94a3b8"/>
     <text x="507.650" y="766.675" style="fill:#cbd5e1;font-size:11px">2.1M</text>
-    <rect x="124" y="771.875" width="221.189" height="9" style="fill:#22d3ee"/>
-    <text x="350.189" y="780.175" style="fill:#22d3ee;font-size:11px">1.2M (-42%)</text>
+    <rect x="124" y="771.875" width="157.603" height="9" style="fill:#22d3ee"/>
+    <text x="286.603" y="780.175" style="fill:#22d3ee;font-size:11px;font-weight:700">883k (-58%)</text>
     <rect x="124" y="785.375" width="164.571" height="9" style="fill:#f59e0b"/>
-    <text x="293.571" y="793.675" style="fill:#f59e0b;font-size:11px;font-weight:700">922k (-57%)</text>
+    <text x="293.571" y="793.675" style="fill:#f59e0b;font-size:11px">922k (-57%)</text>
     <rect x="124" y="798.875" width="295.651" height="9" style="fill:#a3e635"/>
     <text x="424.651" y="807.175" style="fill:#a3e635;font-size:11px">1.7M (-22%)</text>
     <rect x="124" y="812.375" width="383.336" height="9" style="fill:#f472b6"/>
