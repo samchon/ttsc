@@ -347,8 +347,9 @@ func isFunctionCaptureBoundary(node *shimast.Node) bool {
   return false
 }
 
-// isDeclaredInsideWithStatement reports whether the statement has a
-// WithStatement ancestor below the nearest function boundary. Under `var`
+// isDeclaredInsideWithStatement reports whether the declaration (a
+// statement's or loop header's `var` list) has a WithStatement ancestor
+// below the nearest function boundary. Under `var`
 // the binding hoists past the with body to the function scope, so a
 // same-name property on the with target intercepts every reference; under
 // `let` the binding lives inside the body's block and shadows the with
