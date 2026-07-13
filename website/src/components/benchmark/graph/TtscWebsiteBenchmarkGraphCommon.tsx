@@ -128,7 +128,7 @@ function TtscWebsiteBenchmarkGraphCommonGroup({
 }
 
 const isSummaryModel = (model: ModelGroup): boolean =>
-  model.model === "codex-gpt-mini";
+  model.model === "codex-gpt-terra";
 
 export default function TtscWebsiteBenchmarkGraphCommon({
   summary = false,

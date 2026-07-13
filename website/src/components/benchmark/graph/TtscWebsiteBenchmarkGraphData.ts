@@ -48,10 +48,10 @@ function modelLabel(cell: AgentCell): string {
       return `Claude Code / Sonnet ${claudeVersionLabel(version, "5")}`;
     case "claude-code-opus":
       return `Claude Code / Opus ${claudeVersionLabel(version, "4.8")}`;
-    case "codex-gpt":
-      return `Codex / ${gptVersionLabel(version) ?? "GPT-5.5"}`;
-    case "codex-gpt-mini":
-      return `Codex / ${gptVersionLabel(version) ?? "GPT-5.4 mini"}`;
+    case "codex-gpt-terra":
+      return `Codex / ${gptVersionLabel(version) ?? "GPT-5.6 terra"}`;
+    case "codex-gpt-sol":
+      return `Codex / ${gptVersionLabel(version) ?? "GPT-5.6 sol"}`;
     default:
       return `${cell.model} (${cell.harness})`;
   }
@@ -70,12 +70,16 @@ function claudeVersionLabel(
 }
 
 /**
- * Turn a Codex model id (e.g. "gpt-5.5", "gpt-5.4-mini") into a display label
- * ("GPT-5.5", "GPT-5.4 mini"). Returns undefined when there is no version.
+ * Turn a Codex model id (e.g. "gpt-5.6-sol", "gpt-5.6-terra") into a display
+ * label ("GPT-5.6 sol", "GPT-5.6 terra"). A trailing token names the model in
+ * its release, so it reads as a word rather than part of the version. Returns
+ * undefined when there is no version.
  */
 function gptVersionLabel(version: string | undefined): string | undefined {
   if (!version) return undefined;
-  return version.replace(/^gpt-/i, "GPT-").replace(/-mini$/i, " mini");
+  return version
+    .replace(/^gpt-/i, "GPT-")
+    .replace(/-(mini|terra|sol)$/i, " $1");
 }
 
 function repoLabel(repo: string): string {
@@ -127,13 +131,13 @@ function cellTool(cell: AgentCell): string {
 }
 
 /**
- * Display order for model rows and tabs. Keep Codex GPT-5.4 mini first because
- * it is the primary benchmark lane, then larger Codex and Claude models.
+ * Display order for model rows and tabs. Keep Codex GPT-5.6 terra first because
+ * it is the primary benchmark lane, then the other Codex and Claude models.
  */
 function modelOrder(model: string): number {
   const order = [
-    "codex-gpt-mini",
-    "codex-gpt",
+    "codex-gpt-terra",
+    "codex-gpt-sol",
     "claude-code-opus",
     "claude-code-sonnet",
   ];
