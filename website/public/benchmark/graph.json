@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-13T00:37:59.710Z",
+  "generatedAt": "2026-07-13T04:43:40.219Z",
   "structural": null,
   "agent": {
     "cells": [
@@ -15565,7 +15565,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 255878,
+              "tokens": 249434,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -15575,8 +15575,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.23219750000000003,
-              "durMs": 35756,
+              "cost": 0.1566095,
+              "durMs": 32076,
               "run": 1,
               "attempts": 1
             }
@@ -15600,7 +15600,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 252722,
+              "tokens": 248068,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -15610,8 +15610,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.22311330000000001,
-              "durMs": 36898,
+              "cost": 0.1650148,
+              "durMs": 37616,
               "run": 1,
               "attempts": 1
             }
@@ -15635,7 +15635,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 261610,
+              "tokens": 250548,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -15645,8 +15645,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.2487302,
-              "durMs": 34140,
+              "cost": 0.1800186,
+              "durMs": 43915,
               "run": 1,
               "attempts": 1
             }
@@ -15670,18 +15670,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 517808,
-              "tools": 3,
-              "reads": 0,
-              "grep": 0,
-              "shell": 1,
+              "tokens": 883425,
+              "tools": 8,
+              "reads": 5,
+              "grep": 2,
+              "shell": 0,
               "web": 0,
-              "graph": 2,
+              "graph": 1,
               "other": 0,
-              "sourceTouches": 1,
-              "shellSource": 1,
-              "cost": 0.35986720000000005,
-              "durMs": 64583,
+              "sourceTouches": 7,
+              "shellSource": 0,
+              "cost": 0.34516120000000006,
+              "durMs": 51334,
               "run": 1,
               "attempts": 1
             }
@@ -15705,7 +15705,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 258412,
+              "tokens": 250470,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -15715,8 +15715,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.23680220000000002,
-              "durMs": 35271,
+              "cost": 0.1614426,
+              "durMs": 30838,
               "run": 1,
               "attempts": 1
             }
@@ -15740,18 +15740,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 294422,
-              "tools": 2,
+              "tokens": 248828,
+              "tools": 1,
               "reads": 0,
               "grep": 0,
-              "shell": 1,
+              "shell": 0,
               "web": 0,
               "graph": 1,
               "other": 0,
-              "sourceTouches": 1,
-              "shellSource": 1,
-              "cost": 0.26913560000000003,
-              "durMs": 48037,
+              "sourceTouches": 0,
+              "shellSource": 0,
+              "cost": 0.1554817,
+              "durMs": 31613,
               "run": 1,
               "attempts": 1
             }
@@ -15775,7 +15775,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 266029,
+              "tokens": 259678,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -15785,8 +15785,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.27787680000000003,
-              "durMs": 36126,
+              "cost": 0.2031974,
+              "durMs": 37633,
               "run": 1,
               "attempts": 1
             }
@@ -15810,7 +15810,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 335914,
+              "tokens": 292133,
               "tools": 2,
               "reads": 0,
               "grep": 0,
@@ -15818,10 +15818,10 @@
               "web": 0,
               "graph": 1,
               "other": 0,
-              "sourceTouches": 0,
-              "shellSource": 0,
-              "cost": 0.2904652,
-              "durMs": 84390,
+              "sourceTouches": 1,
+              "shellSource": 1,
+              "cost": 0.1862958,
+              "durMs": 89139,
               "run": 1,
               "attempts": 1
             }
@@ -16965,18 +16965,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 1022771,
-              "tools": 8,
+              "tokens": 721056,
+              "tools": 5,
               "reads": 0,
               "grep": 0,
               "shell": 0,
               "web": 0,
-              "graph": 8,
+              "graph": 5,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.5254655,
-              "durMs": 86928,
+              "cost": 0.3157842,
+              "durMs": 78204,
               "run": 1,
               "attempts": 1
             }
@@ -17000,18 +17000,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 367272,
-              "tools": 2,
+              "tokens": 397354,
+              "tools": 3,
               "reads": 0,
               "grep": 0,
               "shell": 0,
               "web": 0,
-              "graph": 2,
+              "graph": 3,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.2998438,
-              "durMs": 49138,
+              "cost": 0.21776790000000001,
+              "durMs": 47946,
               "run": 1,
               "attempts": 1
             }
@@ -17035,7 +17035,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 841584,
+              "tokens": 741960,
               "tools": 5,
               "reads": 0,
               "grep": 0,
@@ -17045,8 +17045,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.5112629,
-              "durMs": 68502,
+              "cost": 0.37536959999999997,
+              "durMs": 74995,
               "run": 1,
               "attempts": 1
             }
@@ -17070,18 +17070,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 531956,
-              "tools": 3,
+              "tokens": 455689,
+              "tools": 2,
               "reads": 0,
               "grep": 0,
               "shell": 0,
               "web": 0,
-              "graph": 3,
+              "graph": 2,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.41642300000000004,
-              "durMs": 65390,
+              "cost": 0.2677963,
+              "durMs": 52819,
               "run": 1,
               "attempts": 1
             }
@@ -17105,7 +17105,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 868395,
+              "tokens": 867183,
               "tools": 5,
               "reads": 0,
               "grep": 0,
@@ -17115,8 +17115,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.5335732999999999,
-              "durMs": 91312,
+              "cost": 0.5171925,
+              "durMs": 99990,
               "run": 1,
               "attempts": 1
             }
@@ -17140,18 +17140,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 1747816,
-              "tools": 12,
+              "tokens": 1132020,
+              "tools": 7,
               "reads": 0,
               "grep": 0,
               "shell": 0,
               "web": 0,
-              "graph": 12,
+              "graph": 7,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.7395613000000001,
-              "durMs": 119965,
+              "cost": 0.5621908999999999,
+              "durMs": 101610,
               "run": 1,
               "attempts": 1
             }
@@ -17175,7 +17175,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 732029,
+              "tokens": 669346,
               "tools": 4,
               "reads": 0,
               "grep": 0,
@@ -17185,8 +17185,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.4540505,
-              "durMs": 66901,
+              "cost": 0.3024065,
+              "durMs": 48790,
               "run": 1,
               "attempts": 1
             }
@@ -17210,18 +17210,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 996681,
-              "tools": 7,
+              "tokens": 327522,
+              "tools": 2,
               "reads": 0,
               "grep": 0,
               "shell": 0,
               "web": 0,
-              "graph": 7,
+              "graph": 2,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.5013226,
-              "durMs": 125871,
+              "cost": 0.2179412,
+              "durMs": 92422,
               "run": 1,
               "attempts": 1
             }
@@ -18365,7 +18365,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 167526,
+              "tokens": 160828,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18375,8 +18375,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.528308,
-              "durMs": 39615,
+              "cost": 0.299303,
+              "durMs": 31968,
               "run": 1,
               "attempts": 1
             }
@@ -18400,7 +18400,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 161360,
+              "tokens": 156705,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18410,8 +18410,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.4923305,
-              "durMs": 36549,
+              "cost": 0.276822,
+              "durMs": 29739,
               "run": 1,
               "attempts": 1
             }
@@ -18435,18 +18435,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 172505,
-              "tools": 1,
+              "tokens": 248829,
+              "tools": 2,
               "reads": 0,
               "grep": 0,
-              "shell": 0,
+              "shell": 1,
               "web": 0,
               "graph": 1,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.5551305,
-              "durMs": 41785,
+              "cost": 0.34204100000000004,
+              "durMs": 50670,
               "run": 1,
               "attempts": 1
             }
@@ -18470,7 +18470,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 166873,
+              "tokens": 159050,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18480,8 +18480,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.5259875,
-              "durMs": 39102,
+              "cost": 0.29028849999999995,
+              "durMs": 36238,
               "run": 1,
               "attempts": 1
             }
@@ -18505,7 +18505,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 169954,
+              "tokens": 162772,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18515,8 +18515,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.528993,
-              "durMs": 32854,
+              "cost": 0.3080505,
+              "durMs": 32021,
               "run": 1,
               "attempts": 1
             }
@@ -18540,7 +18540,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 167060,
+              "tokens": 160478,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18550,8 +18550,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.517232,
-              "durMs": 37096,
+              "cost": 0.29996849999999997,
+              "durMs": 35427,
               "run": 1,
               "attempts": 1
             }
@@ -18575,7 +18575,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 180436,
+              "tokens": 172149,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18585,8 +18585,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.594335,
-              "durMs": 39114,
+              "cost": 0.365742,
+              "durMs": 37535,
               "run": 1,
               "attempts": 1
             }
@@ -18610,18 +18610,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 176556,
-              "tools": 1,
+              "tokens": 255126,
+              "tools": 2,
               "reads": 0,
               "grep": 0,
-              "shell": 0,
+              "shell": 1,
               "web": 0,
               "graph": 1,
               "other": 0,
-              "sourceTouches": 0,
-              "shellSource": 0,
-              "cost": 0.5814984999999999,
-              "durMs": 74012,
+              "sourceTouches": 1,
+              "shellSource": 1,
+              "cost": 0.35714850000000004,
+              "durMs": 80927,
               "run": 1,
               "attempts": 1
             }
@@ -19765,7 +19765,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 165460,
+              "tokens": 161806,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -19775,8 +19775,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.348514,
-              "durMs": 46615,
+              "cost": 0.31348600000000004,
+              "durMs": 39594,
               "run": 1,
               "attempts": 1
             }
@@ -19800,7 +19800,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 161085,
+              "tokens": 182598,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -19810,8 +19810,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.324811,
-              "durMs": 44092,
+              "cost": 0.2999005,
+              "durMs": 42625,
               "run": 1,
               "attempts": 1
             }
@@ -19835,7 +19835,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 170767,
+              "tokens": 163177,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -19845,8 +19845,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.3633025,
-              "durMs": 42967,
+              "cost": 0.310044,
+              "durMs": 35765,
               "run": 1,
               "attempts": 1
             }
@@ -19870,7 +19870,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 168386,
+              "tokens": 193442,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -19880,8 +19880,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.346057,
-              "durMs": 38529,
+              "cost": 0.33029450000000005,
+              "durMs": 46101,
               "run": 1,
               "attempts": 1
             }
@@ -19905,7 +19905,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 167524,
+              "tokens": 185214,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -19915,8 +19915,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.3540255,
-              "durMs": 43387,
+              "cost": 0.29657500000000003,
+              "durMs": 35853,
               "run": 1,
               "attempts": 1
             }
@@ -19940,7 +19940,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 170320,
+              "tokens": 188466,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -19950,8 +19950,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.3560065,
-              "durMs": 39428,
+              "cost": 0.3236375,
+              "durMs": 42890,
               "run": 1,
               "attempts": 1
             }
@@ -19975,7 +19975,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 180459,
+              "tokens": 170925,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -19985,8 +19985,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.420858,
-              "durMs": 48292,
+              "cost": 0.3681345,
+              "durMs": 43912,
               "run": 1,
               "attempts": 1
             }
@@ -20010,7 +20010,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 173762,
+              "tokens": 166196,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -20020,8 +20020,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.36889399999999994,
-              "durMs": 73863,
+              "cost": 0.3244745,
+              "durMs": 76960,
               "run": 1,
               "attempts": 1
             }
