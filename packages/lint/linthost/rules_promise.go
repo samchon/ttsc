@@ -818,23 +818,70 @@ func analyzeFloatingPromiseCall(
   if call == nil {
     return floatingPromiseResult{unhandled: true}
   }
-  receiver, method, ok := floatingPromiseMethodCall(ctx, call, options)
+  receiver, method, ok := floatingPromiseMethodCall(call)
   if !ok {
     return floatingPromiseResult{unhandled: true}
   }
+
+  receiverType := ctx.Checker.GetTypeAtLocation(receiver)
+  if receiverType == nil {
+    return floatingPromiseResult{unhandled: true}
+  }
+  apparent := ctx.Checker.GetApparentType(receiverType)
+  if apparent == nil {
+    return floatingPromiseResult{unhandled: true}
+  }
+
+  var nonPromiseReceivers []*shimchecker.Type
+  sawPromiseReceiver := false
+  receiverIsOptional := floatingPromisePropertyAccessIsOptional(call.Expression)
+  for _, part := range promiseUnionParts(apparent) {
+    if part == nil {
+      continue
+    }
+    if receiverIsOptional && part.Flags()&(shimchecker.TypeFlagsNull|shimchecker.TypeFlagsUndefined) != 0 {
+      continue
+    }
+
+    safePromise := typeMatchesSomePromiseSpecifier(ctx, part, options.AllowForKnownSafePromises)
+    if safePromise ||
+      isNativePromiseInstanceLike(ctx.Checker, part) ||
+      (options.CheckThenables && isCatchableThenableAtLocation(ctx.Checker, receiver, part)) {
+      sawPromiseReceiver = true
+      continue
+    }
+    nonPromiseReceivers = append(nonPromiseReceivers, part)
+  }
+  if !sawPromiseReceiver {
+    return floatingPromiseResult{unhandled: true}
+  }
+
   switch method {
   case "catch":
-    return rejectionHandlerResult(ctx, call, 0)
+    if result := rejectionHandlerResult(ctx, call, 0); result.unhandled {
+      return result
+    }
   case "then":
     if call.Arguments != nil && len(call.Arguments.Nodes) != 0 && call.Arguments.Nodes[0].Kind == shimast.KindSpreadElement {
       return floatingPromiseResult{unhandled: true}
     }
-    return rejectionHandlerResult(ctx, call, 1)
+    if result := rejectionHandlerResult(ctx, call, 1); result.unhandled {
+      return result
+    }
   case "finally":
-    return analyzeFloatingPromise(ctx, receiver, options)
+    if result := analyzeFloatingPromise(ctx, receiver, options); result.unhandled {
+      return result
+    }
   default:
     return floatingPromiseResult{unhandled: true}
   }
+
+  for _, part := range nonPromiseReceivers {
+    if floatingPromiseMethodReturnIsUnhandled(ctx, node, call, part, method, options) {
+      return floatingPromiseResult{unhandled: true}
+    }
+  }
+  return floatingPromiseResult{}
 }
 
 func rejectionHandlerResult(ctx *Context, call *shimast.CallExpression, index int) floatingPromiseResult {
@@ -852,15 +899,10 @@ func rejectionHandlerResult(ctx *Context, call *shimast.CallExpression, index in
   return floatingPromiseResult{unhandled: true, nonFunctionHandler: true}
 }
 
-// floatingPromiseMethodCall admits method names only after the receiver's
-// resolved type proves it is a Promise under this rule's policy. The textual
-// name selects Promise protocol behavior; it never turns an unrelated object's
-// same-named method into a rejection handler.
-func floatingPromiseMethodCall(
-  ctx *Context,
-  call *shimast.CallExpression,
-  options noFloatingPromisesOptions,
-) (*shimast.Node, string, bool) {
+// floatingPromiseMethodCall extracts only the three Promise protocol method
+// shapes. analyzeFloatingPromiseCall separately proves which receiver branches
+// implement that protocol and inspects the return types of every other branch.
+func floatingPromiseMethodCall(call *shimast.CallExpression) (*shimast.Node, string, bool) {
   if call == nil || call.Expression == nil {
     return nil, "", false
   }
@@ -877,11 +919,77 @@ func floatingPromiseMethodCall(
   if receiver == nil {
     return nil, "", false
   }
-  receiverType := ctx.Checker.GetTypeAtLocation(receiver)
-  if !isFloatingPromiseReceiverType(ctx, receiver, receiverType, options) {
-    return nil, "", false
-  }
   return receiver, method, true
+}
+
+func floatingPromisePropertyAccessIsOptional(node *shimast.Node) bool {
+  node = stripParens(node)
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindPropertyAccessExpression:
+    access := node.AsPropertyAccessExpression()
+    return access != nil && access.QuestionDotToken != nil
+  case shimast.KindElementAccessExpression:
+    access := node.AsElementAccessExpression()
+    return access != nil && access.QuestionDotToken != nil
+  }
+  return false
+}
+
+// floatingPromiseMethodReturnIsUnhandled determines what a non-Promise
+// receiver branch contributes to the union call. Method names alone are not a
+// Promise escape: the compiler-selected callable signature must return a value
+// that is safe to discard under the same Promise and thenable options as the
+// outer expression.
+func floatingPromiseMethodReturnIsUnhandled(
+  ctx *Context,
+  node *shimast.Node,
+  call *shimast.CallExpression,
+  receiverType *shimchecker.Type,
+  method string,
+  options noFloatingPromisesOptions,
+) bool {
+  property := ctx.Checker.GetPropertyOfType(receiverType, method)
+  if property == nil {
+    return true
+  }
+  propertyType := ctx.Checker.GetTypeOfSymbolAtLocation(property, call.Expression)
+  if propertyType == nil {
+    return true
+  }
+
+  sawBranch := false
+  for _, part := range promiseUnionParts(propertyType) {
+    if part == nil {
+      continue
+    }
+    if call.QuestionDotToken != nil && part.Flags()&(shimchecker.TypeFlagsNull|shimchecker.TypeFlagsUndefined) != 0 {
+      sawBranch = true
+      continue
+    }
+    signatures := ctx.Checker.GetSignaturesOfType(part, shimchecker.SignatureKindCall)
+    if len(signatures) == 0 {
+      if apparent := ctx.Checker.GetApparentType(part); apparent != nil && apparent != part {
+        signatures = ctx.Checker.GetSignaturesOfType(apparent, shimchecker.SignatureKindCall)
+      }
+    }
+    if len(signatures) == 0 {
+      return true
+    }
+    sawBranch = true
+    signature := shimchecker.Checker_resolveCallSignatures(ctx.Checker, node, signatures)
+    if signature == nil {
+      return true
+    }
+    returnType := ctx.Checker.GetReturnTypeOfSignature(signature)
+    if isFloatingPromiseType(ctx, node, returnType, options) ||
+      isFloatingPromiseArray(ctx, node, returnType, options) {
+      return true
+    }
+  }
+  return !sawBranch
 }
 
 func floatingPromisePropertyAccessParts(node *shimast.Node) (*shimast.Node, string, bool) {
@@ -911,7 +1019,7 @@ func floatingPromisePropertyAccessParts(node *shimast.Node) (*shimast.Node, stri
   return nil, "", false
 }
 
-func isFloatingPromiseReceiverType(
+func isFloatingPromiseType(
   ctx *Context,
   location *shimast.Node,
   t *shimchecker.Type,
@@ -924,43 +1032,18 @@ func isFloatingPromiseReceiverType(
   if apparent == nil {
     return false
   }
-  parts := promiseUnionParts(apparent)
-  if len(parts) == 0 {
-    return false
-  }
-  for _, part := range parts {
-    if typeMatchesSomePromiseSpecifier(ctx, part, options.AllowForKnownSafePromises) ||
-      isNativePromiseInstanceLike(ctx.Checker, part) ||
-      (options.CheckThenables && isCatchableThenableAtLocation(ctx.Checker, location, part)) {
+  for _, part := range promiseUnionParts(apparent) {
+    if part == nil || typeMatchesSomePromiseSpecifier(ctx, part, options.AllowForKnownSafePromises) {
       continue
     }
-    return false
-  }
-  return true
-}
-
-func isFloatingPromiseType(
-  ctx *Context,
-  location *shimast.Node,
-  t *shimchecker.Type,
-  options noFloatingPromisesOptions,
-) bool {
-  if t == nil || typeMatchesSomePromiseSpecifier(ctx, t, options.AllowForKnownSafePromises) {
-    return false
-  }
-  apparent := ctx.Checker.GetApparentType(t)
-  if apparent == nil {
-    return false
-  }
-  for _, part := range promiseUnionParts(apparent) {
     if isNativePromiseInstanceLike(ctx.Checker, part) {
       return true
     }
+    if options.CheckThenables && isCatchableThenableAtLocation(ctx.Checker, location, part) {
+      return true
+    }
   }
-  if !options.CheckThenables {
-    return false
-  }
-  return isCatchableThenableAtLocation(ctx.Checker, location, apparent)
+  return false
 }
 
 func isCatchableThenableAtLocation(
