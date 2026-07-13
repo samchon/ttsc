@@ -317,19 +317,36 @@ func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
 // 3. Return the root path for --cwd command execution.
 func seedLintProject(t *testing.T, source string) string {
   t.Helper()
-  root := t.TempDir()
-  writeFile(t, filepath.Join(root, "tsconfig.json"), `{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "strict": true,
-    "rootDir": "src",
-    "outDir": "dist"
-  },
-  "files": ["src/main.ts"]
+  return seedLintProjectFile(t, "main.ts", source)
 }
-`)
-  writeFile(t, filepath.Join(root, "src", "main.ts"), source)
+
+// seedLintProjectFile is seedLintProject with a caller-selected source name.
+// Snapshot tests use it when the filename controls TypeScript's grammar, while
+// command-frontdoor tests keep the main.ts default above.
+func seedLintProjectFile(t *testing.T, fileName, source string) string {
+  t.Helper()
+  root := t.TempDir()
+  compilerOptions := map[string]any{
+    "target":  "ES2022",
+    "module":  "commonjs",
+    "strict":  true,
+    "rootDir": "src",
+    "outDir":  "dist",
+  }
+  if strings.EqualFold(filepath.Ext(fileName), ".tsx") {
+    compilerOptions["jsx"] = "preserve"
+  }
+  config, err := json.MarshalIndent(map[string]any{
+    "compilerOptions": compilerOptions,
+    "files": []string{
+      filepath.ToSlash(filepath.Join("src", fileName)),
+    },
+  }, "", "  ")
+  if err != nil {
+    t.Fatalf("marshal tsconfig: %v", err)
+  }
+  writeFile(t, filepath.Join(root, "tsconfig.json"), string(config)+"\n")
+  writeFile(t, filepath.Join(root, "src", fileName), source)
   return root
 }
 
@@ -513,16 +530,13 @@ func runFixSnapshot(t *testing.T, ruleName, source string) (string, int) {
 
 func runFixSnapshotFile(t *testing.T, ruleName, fileName, source string) (string, int) {
   t.Helper()
-  root := t.TempDir()
-  filePath := filepath.Join(root, "src", fileName)
-  writeFile(t, filePath, source)
-  var file *shimast.SourceFile
-  if strings.EqualFold(filepath.Ext(fileName), ".tsx") {
-    file = parseTSXFile(t, filePath, source)
-  } else {
-    file = parseTSFile(t, filePath, source)
-  }
-  findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  root, filePath, findings := runRuleFindingsSnapshotFile(
+    t,
+    ruleName,
+    fileName,
+    source,
+    nil,
+  )
   if len(findings) == 0 {
     t.Fatalf("%s: expected at least one finding", ruleName)
   }
@@ -548,6 +562,21 @@ func runRuleFindingsSnapshot(
   options json.RawMessage,
 ) (string, string, []*Finding) {
   t.Helper()
+  return runRuleFindingsSnapshotFile(t, ruleName, "main.ts", source, options)
+}
+
+// runRuleFindingsSnapshotFile selects the lightweight parser or the real
+// Program/checker lifecycle from the configured engine's requirements. Both
+// paths materialize the caller's exact filename and project directory so the
+// returned findings can flow through the same disk-backed edit assertions.
+func runRuleFindingsSnapshotFile(
+  t *testing.T,
+  ruleName string,
+  fileName string,
+  source string,
+  options json.RawMessage,
+) (string, string, []*Finding) {
+  t.Helper()
   var engine *Engine
   if len(options) == 0 {
     engine = NewEngine(RuleConfig{ruleName: SeverityError})
@@ -561,15 +590,20 @@ func runRuleFindingsSnapshot(
   if !engine.NeedsTypeChecker() {
     root := t.TempDir()
     engine.SetCurrentDirectory(root)
-    filePath := filepath.Join(root, "src", "main.ts")
+    filePath := filepath.Join(root, "src", fileName)
     writeFile(t, filePath, source)
-    file := parseTSFile(t, filePath, source)
+    var file *shimast.SourceFile
+    if strings.EqualFold(filepath.Ext(fileName), ".tsx") {
+      file = parseTSXFile(t, filePath, source)
+    } else {
+      file = parseTSFile(t, filePath, source)
+    }
     return root, filePath, engine.Run([]*shimast.SourceFile{file}, nil)
   }
 
-  root := seedLintProject(t, source)
+  root := seedLintProjectFile(t, fileName, source)
   engine.SetCurrentDirectory(root)
-  filePath := filepath.Join(root, "src", "main.ts")
+  filePath := filepath.Join(root, "src", fileName)
   program, diagnostics, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
     forceNoEmit:      true,
     needsRuleChecker: true,
@@ -577,9 +611,15 @@ func runRuleFindingsSnapshot(
   if err != nil {
     t.Fatalf("%s: loadProgram: %v", ruleName, err)
   }
+  if len(diagnostics) != 0 {
+    t.Fatalf("%s: loadProgram diagnostics: %+v", ruleName, diagnostics)
+  }
   if program == nil {
-    t.Fatalf("%s: loadProgram returned no program (%+v)", ruleName, diagnostics)
+    t.Fatalf("%s: loadProgram returned no program", ruleName)
   }
   defer program.close()
-  return root, filePath, engine.Run(program.userSourceFiles(), program.checker)
+  if program.checker == nil {
+    t.Fatalf("%s: loadProgram returned no checker for a type-aware rule", ruleName)
+  }
+  return root, filePath, program.runLintCycle(engine)
 }
