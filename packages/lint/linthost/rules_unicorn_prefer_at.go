@@ -7,9 +7,10 @@
 // AST-only: visit each `ElementAccessExpression`. The index expression
 // must be a `BinaryExpression` whose operator is `-`, whose left side is
 // `PropertyAccess(_, length)`, and whose right side is a positive
-// numeric literal. The receiver of the `.length` access does not need
-// to match the element-access receiver textually; mismatches are
-// uncommon enough that the AST-only check stays useful in practice.
+// numeric literal. The `.length` receiver must be structurally equivalent to
+// the indexed receiver; otherwise recommending `.at(-N)` would change which
+// index is selected. The shared reference comparator ignores runtime-neutral
+// TypeScript wrappers while rejecting effectful repeated expressions.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-at.md
 package linthost
 
@@ -41,6 +42,9 @@ func (unicornPreferAt) Check(ctx *Context, node *shimast.Node) {
   }
   prop := left.AsPropertyAccessExpression()
   if prop == nil || identifierText(prop.Name()) != "length" {
+    return
+  }
+  if !sameReferenceExpression(access.Expression, prop.Expression) {
     return
   }
   right := stripParens(bin.Right)

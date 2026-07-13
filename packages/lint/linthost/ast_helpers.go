@@ -183,6 +183,184 @@ func stripParens(node *shimast.Node) *shimast.Node {
   return node
 }
 
+// sameReferenceExpression reports whether two expressions denote the same
+// repeatable runtime reference. Parentheses and TypeScript's type-only
+// expression wrappers are transparent; identifiers, primitive literals,
+// `this` / `super`, and property or element-access chains are compared
+// recursively. Calls and other effectful expressions are deliberately rejected
+// even when their source text is identical because evaluating them twice need
+// not produce the same value.
+//
+// Static member keys are normalized to their runtime property key, so `x.y`
+// and `x["y"]` compare equal. Optional and non-optional member accesses remain
+// distinct because optional chaining changes evaluation semantics.
+func sameReferenceExpression(left, right *shimast.Node) bool {
+  left = unwrapReferenceExpression(left)
+  right = unwrapReferenceExpression(right)
+  if left == nil || right == nil {
+    return false
+  }
+
+  switch left.Kind {
+  case shimast.KindIdentifier, shimast.KindPrivateIdentifier:
+    return left.Kind == right.Kind && shimast.NodeText(left) == shimast.NodeText(right)
+  case shimast.KindThisKeyword, shimast.KindSuperKeyword:
+    return left.Kind == right.Kind
+  case shimast.KindPropertyAccessExpression, shimast.KindElementAccessExpression:
+    leftMember, ok := referenceMemberParts(left)
+    if !ok {
+      return false
+    }
+    rightMember, ok := referenceMemberParts(right)
+    if !ok || leftMember.optional != rightMember.optional ||
+      !sameReferenceExpression(leftMember.object, rightMember.object) {
+      return false
+    }
+    if leftMember.staticKey != nil || rightMember.staticKey != nil {
+      return leftMember.staticKey != nil && rightMember.staticKey != nil &&
+        *leftMember.staticKey == *rightMember.staticKey &&
+        leftMember.private == rightMember.private
+    }
+    return sameReferenceExpression(leftMember.dynamicKey, rightMember.dynamicKey)
+  default:
+    leftValue, leftKind, leftOK := referencePrimitiveValue(left)
+    rightValue, rightKind, rightOK := referencePrimitiveValue(right)
+    return leftOK && rightOK && leftKind == rightKind && leftValue == rightValue
+  }
+}
+
+// unwrapReferenceExpression removes syntax that has no runtime evaluation of
+// its own. Keep this list explicit: optional chains, calls, and instantiation
+// expressions are not harmless wrappers and must remain visible to callers.
+func unwrapReferenceExpression(node *shimast.Node) *shimast.Node {
+  for node != nil {
+    switch node.Kind {
+    case shimast.KindParenthesizedExpression,
+      shimast.KindAsExpression,
+      shimast.KindSatisfiesExpression,
+      shimast.KindNonNullExpression,
+      shimast.KindTypeAssertionExpression:
+      next := node.Expression()
+      if next == nil {
+        return node
+      }
+      node = next
+    default:
+      return node
+    }
+  }
+  return nil
+}
+
+type referenceMember struct {
+  object     *shimast.Node
+  staticKey  *string
+  dynamicKey *shimast.Node
+  optional   bool
+  private    bool
+}
+
+func referenceMemberParts(node *shimast.Node) (referenceMember, bool) {
+  switch node.Kind {
+  case shimast.KindPropertyAccessExpression:
+    access := node.AsPropertyAccessExpression()
+    if access == nil || access.Expression == nil || access.Name() == nil {
+      return referenceMember{}, false
+    }
+    name := access.Name()
+    if name.Kind != shimast.KindIdentifier && name.Kind != shimast.KindPrivateIdentifier {
+      return referenceMember{}, false
+    }
+    key := shimast.NodeText(name)
+    return referenceMember{
+      object:    access.Expression,
+      staticKey: &key,
+      optional:  access.QuestionDotToken != nil,
+      private:   name.Kind == shimast.KindPrivateIdentifier,
+    }, true
+  case shimast.KindElementAccessExpression:
+    access := node.AsElementAccessExpression()
+    if access == nil || access.Expression == nil || access.ArgumentExpression == nil {
+      return referenceMember{}, false
+    }
+    member := referenceMember{
+      object:     access.Expression,
+      dynamicKey: access.ArgumentExpression,
+      optional:   access.QuestionDotToken != nil,
+    }
+    if key, ok := referenceStaticPropertyKey(access.ArgumentExpression); ok {
+      member.staticKey = &key
+      member.dynamicKey = nil
+    }
+    return member, true
+  default:
+    return referenceMember{}, false
+  }
+}
+
+func referenceStaticPropertyKey(node *shimast.Node) (string, bool) {
+  node = unwrapReferenceExpression(node)
+  if node == nil {
+    return "", false
+  }
+  value, kind, ok := referencePrimitiveValue(node)
+  if ok {
+    if kind == "bigint" {
+      value = strings.TrimSuffix(value, "n")
+    }
+    return value, true
+  }
+  if node.Kind != shimast.KindPrefixUnaryExpression {
+    return "", false
+  }
+  prefix := node.AsPrefixUnaryExpression()
+  if prefix == nil || prefix.Operand == nil {
+    return "", false
+  }
+  value, kind, ok = referencePrimitiveValue(prefix.Operand)
+  if !ok || (kind != "number" && kind != "bigint") {
+    return "", false
+  }
+  value = strings.TrimSuffix(value, "n")
+  switch prefix.Operator {
+  case shimast.KindPlusToken:
+    return value, kind == "number"
+  case shimast.KindMinusToken:
+    if strings.Trim(value, "0.") == "" {
+      return "0", true
+    }
+    return "-" + value, true
+  default:
+    return "", false
+  }
+}
+
+// referencePrimitiveValue returns a normalized value plus a runtime-kind tag.
+// The tag keeps numerically similar values such as `1` and `1n` distinct when
+// they are receivers; referenceStaticPropertyKey intentionally collapses them
+// later because JavaScript converts both to the same string property key.
+func referencePrimitiveValue(node *shimast.Node) (value, kind string, ok bool) {
+  if node == nil {
+    return "", "", false
+  }
+  switch node.Kind {
+  case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+    return stringLiteralText(node), "string", true
+  case shimast.KindNumericLiteral:
+    return numericLiteralText(node), "number", true
+  case shimast.KindBigIntLiteral:
+    return numericLiteralText(node), "bigint", true
+  case shimast.KindTrueKeyword:
+    return "true", "boolean", true
+  case shimast.KindFalseKeyword:
+    return "false", "boolean", true
+  case shimast.KindNullKeyword:
+    return "null", "null", true
+  default:
+    return "", "", false
+  }
+}
+
 // isMatchingPropertyAccess reports whether `node` reads the chain
 // `head.tail[0].tail[1]…`. Useful for detecting `obj.__proto__` or
 // `console.log` shapes regardless of nesting.

@@ -1373,7 +1373,10 @@ const hasLarge = xs.filter((x) => x > 1).length > 0;
 
 ### `unicorn/prefer-at`
 
-Prefer `Array#at` / `String#at` over index arithmetic and `charAt`.
+Prefer `Array#at` / `String#at` over negative index arithmetic when the
+indexed value and the `.length` receiver are the same runtime reference.
+Receiver mismatches are left unchanged because `.at(-N)` would select a
+different element.
 
 Example:
 
@@ -1381,6 +1384,9 @@ Example:
 const xs = [1, 2, 3];
 // reports: unicorn/prefer-at (error)
 const last = xs[xs.length - 1];
+
+const limits = [0, 1];
+const unchanged = xs[limits.length - 1];
 ```
 
 <a id="rule-unicorn-prefer-bigint-literals"></a>
