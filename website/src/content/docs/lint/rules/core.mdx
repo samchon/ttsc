@@ -1125,8 +1125,8 @@ import { first } from "some-module";
 import { second } from "some-module";
 
 // Not duplicates: named and namespace bindings cannot share one declaration.
-import { named } from "other-module";
-import * as namespace from "other-module";
+import { named } from "unmergeable-namespace";
+import * as namespace from "unmergeable-namespace";
 ```
 
 <a id="rule-no-else-return"></a>
