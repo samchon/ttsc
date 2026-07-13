@@ -97,11 +97,12 @@ export namespace ITtscGraphTour {
     /** Compact edge summaries in graph order. */
     steps: string[];
 
-    /** Nodes reached by this flow. */
+    /**
+     * Nodes this flow reached that its steps did not already name. A step names
+     * both of its ends and the file and line the call sits on, so repeating
+     * those nodes here would be the same fact twice.
+     */
     reached: ITtscGraphTour.INode[];
-
-    /** Edge and node anchors that explain the flow. */
-    anchors: ITtscGraphTour.IAnchor[];
 
     /** True when some low-signal flow steps were capped; the flow stands. */
     truncated?: boolean;

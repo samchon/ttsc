@@ -42,6 +42,12 @@ type Node struct {
 	// a barrel (`export *`) counts, not only an inline `export` modifier. It is
 	// the signal a public-API projection filters on.
 	Exported bool
+	// Closure marks a node declared inside another declaration's body — Vue's
+	// `baseCreateRenderer.patch`, a callback bound to a const inside a method.
+	// It is a name the runtime calls, and a model that asks for it by name gets
+	// it; but an orientation tour ranks and walks the surface, so the surface is
+	// what it sees. The flag is how a projection tells the two apart.
+	Closure bool
 	// Modifiers holds the declaration's syntactic modifiers as wire strings (a
 	// subset of the TtscGraphNodeModifier union: export/default/declare/abstract/
 	// static/readonly/async/const/public/private/protected). It is recorded from

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-12T20:19:26.113Z",
+  "generatedAt": "2026-07-13T04:43:40.219Z",
   "structural": null,
   "agent": {
     "cells": [
@@ -15559,45 +15559,13 @@
         "promptFamily": "common",
         "fixtureBranch": "graph",
         "daemon": false,
-        "runs": 3,
+        "runs": 1,
         "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 335540,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 1,
-              "other": 0,
-              "sourceTouches": 1,
-              "shellSource": 1,
-              "cost": 0.2558065,
-              "durMs": 44506,
-              "run": 1,
-              "attempts": 1
-            },
-            {
-              "tokens": 330180,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 1,
-              "other": 0,
-              "sourceTouches": 1,
-              "shellSource": 1,
-              "cost": 0.2485744,
-              "durMs": 51598,
-              "run": 2,
-              "attempts": 1
-            },
-            {
-              "tokens": 256118,
+              "tokens": 249434,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -15607,9 +15575,9 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.23195759999999999,
-              "durMs": 40034,
-              "run": 3,
+              "cost": 0.1566095,
+              "durMs": 32076,
+              "run": 1,
               "attempts": 1
             }
           ]
@@ -15626,45 +15594,13 @@
         "promptFamily": "common",
         "fixtureBranch": "graph",
         "daemon": false,
-        "runs": 3,
+        "runs": 1,
         "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 529950,
-              "tools": 3,
-              "reads": 0,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 2,
-              "other": 0,
-              "sourceTouches": 1,
-              "shellSource": 1,
-              "cost": 0.2957975,
-              "durMs": 60891,
-              "run": 1,
-              "attempts": 1
-            },
-            {
-              "tokens": 323216,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 1,
-              "other": 0,
-              "sourceTouches": 1,
-              "shellSource": 1,
-              "cost": 0.23759200000000003,
-              "durMs": 49693,
-              "run": 2,
-              "attempts": 1
-            },
-            {
-              "tokens": 249818,
+              "tokens": 248068,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -15674,9 +15610,9 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.2078812,
-              "durMs": 38499,
-              "run": 3,
+              "cost": 0.1650148,
+              "durMs": 37616,
+              "run": 1,
               "attempts": 1
             }
           ]
@@ -15693,45 +15629,13 @@
         "promptFamily": "common",
         "fixtureBranch": "graph",
         "daemon": false,
-        "runs": 3,
+        "runs": 1,
         "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 315121,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 1,
-              "other": 0,
-              "sourceTouches": 1,
-              "shellSource": 1,
-              "cost": 0.3140871,
-              "durMs": 65769,
-              "run": 1,
-              "attempts": 1
-            },
-            {
-              "tokens": 1039134,
-              "tools": 9,
-              "reads": 4,
-              "grep": 3,
-              "shell": 1,
-              "web": 0,
-              "graph": 1,
-              "other": 0,
-              "sourceTouches": 8,
-              "shellSource": 1,
-              "cost": 0.46213990000000005,
-              "durMs": 94709,
-              "run": 2,
-              "attempts": 1
-            },
-            {
-              "tokens": 259420,
+              "tokens": 250548,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -15741,9 +15645,9 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.25543689999999997,
-              "durMs": 59851,
-              "run": 3,
+              "cost": 0.1800186,
+              "durMs": 43915,
+              "run": 1,
               "attempts": 1
             }
           ]
@@ -15760,57 +15664,25 @@
         "promptFamily": "common",
         "fixtureBranch": "graph",
         "daemon": false,
-        "runs": 3,
+        "runs": 1,
         "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 1239847,
-              "tools": 13,
+              "tokens": 883425,
+              "tools": 8,
               "reads": 5,
-              "grep": 4,
-              "shell": 3,
-              "web": 0,
-              "graph": 1,
-              "other": 0,
-              "sourceTouches": 12,
-              "shellSource": 3,
-              "cost": 0.4877962,
-              "durMs": 77108,
-              "run": 1,
-              "attempts": 1
-            },
-            {
-              "tokens": 1288852,
-              "tools": 10,
-              "reads": 5,
-              "grep": 1,
-              "shell": 2,
-              "web": 0,
-              "graph": 2,
-              "other": 0,
-              "sourceTouches": 8,
-              "shellSource": 2,
-              "cost": 0.5197390000000001,
-              "durMs": 80740,
-              "run": 2,
-              "attempts": 1
-            },
-            {
-              "tokens": 255280,
-              "tools": 1,
-              "reads": 0,
-              "grep": 0,
+              "grep": 2,
               "shell": 0,
               "web": 0,
               "graph": 1,
               "other": 0,
-              "sourceTouches": 0,
+              "sourceTouches": 7,
               "shellSource": 0,
-              "cost": 0.23324899999999998,
-              "durMs": 36388,
-              "run": 3,
+              "cost": 0.34516120000000006,
+              "durMs": 51334,
+              "run": 1,
               "attempts": 1
             }
           ]
@@ -15827,45 +15699,13 @@
         "promptFamily": "common",
         "fixtureBranch": "graph",
         "daemon": false,
-        "runs": 3,
+        "runs": 1,
         "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 478113,
-              "tools": 4,
-              "reads": 0,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 3,
-              "other": 0,
-              "sourceTouches": 1,
-              "shellSource": 1,
-              "cost": 0.3833807,
-              "durMs": 66723,
-              "run": 1,
-              "attempts": 1
-            },
-            {
-              "tokens": 1333509,
-              "tools": 8,
-              "reads": 0,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 7,
-              "other": 0,
-              "sourceTouches": 1,
-              "shellSource": 1,
-              "cost": 0.6512719,
-              "durMs": 111406,
-              "run": 2,
-              "attempts": 1
-            },
-            {
-              "tokens": 257750,
+              "tokens": 250470,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -15875,9 +15715,9 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.23342200000000002,
-              "durMs": 45872,
-              "run": 3,
+              "cost": 0.1614426,
+              "durMs": 30838,
+              "run": 1,
               "attempts": 1
             }
           ]
@@ -15894,45 +15734,13 @@
         "promptFamily": "common",
         "fixtureBranch": "graph",
         "daemon": false,
-        "runs": 3,
+        "runs": 1,
         "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 563810,
-              "tools": 5,
-              "reads": 1,
-              "grep": 0,
-              "shell": 2,
-              "web": 0,
-              "graph": 2,
-              "other": 0,
-              "sourceTouches": 2,
-              "shellSource": 2,
-              "cost": 0.3124487,
-              "durMs": 67580,
-              "run": 1,
-              "attempts": 1
-            },
-            {
-              "tokens": 1376214,
-              "tools": 9,
-              "reads": 1,
-              "grep": 0,
-              "shell": 4,
-              "web": 0,
-              "graph": 4,
-              "other": 0,
-              "sourceTouches": 5,
-              "shellSource": 4,
-              "cost": 0.6220009999999999,
-              "durMs": 105743,
-              "run": 2,
-              "attempts": 1
-            },
-            {
-              "tokens": 216061,
+              "tokens": 248828,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -15942,9 +15750,9 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.2287142,
-              "durMs": 53349,
-              "run": 3,
+              "cost": 0.1554817,
+              "durMs": 31613,
+              "run": 1,
               "attempts": 1
             }
           ]
@@ -15961,45 +15769,13 @@
         "promptFamily": "common",
         "fixtureBranch": "graph",
         "daemon": false,
-        "runs": 3,
+        "runs": 1,
         "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 960686,
-              "tools": 9,
-              "reads": 6,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 2,
-              "other": 0,
-              "sourceTouches": 5,
-              "shellSource": 1,
-              "cost": 0.492388,
-              "durMs": 57183,
-              "run": 1,
-              "attempts": 1
-            },
-            {
-              "tokens": 593270,
-              "tools": 4,
-              "reads": 2,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 1,
-              "other": 0,
-              "sourceTouches": 3,
-              "shellSource": 1,
-              "cost": 0.3369764,
-              "durMs": 49994,
-              "run": 2,
-              "attempts": 1
-            },
-            {
-              "tokens": 266436,
+              "tokens": 259678,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -16009,9 +15785,9 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.2698624,
-              "durMs": 42639,
-              "run": 3,
+              "cost": 0.2031974,
+              "durMs": 37633,
+              "run": 1,
               "attempts": 1
             }
           ]
@@ -16028,13 +15804,13 @@
         "promptFamily": "common",
         "fixtureBranch": "graph",
         "daemon": false,
-        "runs": 3,
+        "runs": 1,
         "question": "I'm new to this TypeScript project and need a real code-based tour before my first behavior change.\n\nFind the central runtime flow, trace it from the public API to the code that does the work, and show the nearby code paths and tests I should read next.",
         "samples": {
           "baseline": [],
           "graph": [
             {
-              "tokens": 347826,
+              "tokens": 292133,
               "tools": 2,
               "reads": 0,
               "grep": 0,
@@ -16042,43 +15818,11 @@
               "web": 0,
               "graph": 1,
               "other": 0,
-              "sourceTouches": 0,
-              "shellSource": 0,
-              "cost": 0.3056004,
-              "durMs": 109799,
+              "sourceTouches": 1,
+              "shellSource": 1,
+              "cost": 0.1862958,
+              "durMs": 89139,
               "run": 1,
-              "attempts": 1
-            },
-            {
-              "tokens": 1385009,
-              "tools": 8,
-              "reads": 0,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 7,
-              "other": 0,
-              "sourceTouches": 0,
-              "shellSource": 0,
-              "cost": 0.6101616,
-              "durMs": 180202,
-              "run": 2,
-              "attempts": 1
-            },
-            {
-              "tokens": 333369,
-              "tools": 2,
-              "reads": 0,
-              "grep": 0,
-              "shell": 1,
-              "web": 0,
-              "graph": 1,
-              "other": 0,
-              "sourceTouches": 0,
-              "shellSource": 0,
-              "cost": 0.2903384,
-              "durMs": 100312,
-              "run": 3,
               "attempts": 1
             }
           ]
@@ -17221,18 +16965,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 871468,
-              "tools": 7,
+              "tokens": 721056,
+              "tools": 5,
               "reads": 0,
               "grep": 0,
-              "shell": 1,
+              "shell": 0,
               "web": 0,
-              "graph": 6,
+              "graph": 5,
               "other": 0,
-              "sourceTouches": 1,
-              "shellSource": 1,
-              "cost": 0.43727560000000004,
-              "durMs": 95992,
+              "sourceTouches": 0,
+              "shellSource": 0,
+              "cost": 0.3157842,
+              "durMs": 78204,
               "run": 1,
               "attempts": 1
             }
@@ -17256,18 +17000,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 721478,
-              "tools": 4,
+              "tokens": 397354,
+              "tools": 3,
               "reads": 0,
               "grep": 0,
               "shell": 0,
               "web": 0,
-              "graph": 4,
+              "graph": 3,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.4109381999999999,
-              "durMs": 64691,
+              "cost": 0.21776790000000001,
+              "durMs": 47946,
               "run": 1,
               "attempts": 1
             }
@@ -17291,7 +17035,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 786380,
+              "tokens": 741960,
               "tools": 5,
               "reads": 0,
               "grep": 0,
@@ -17301,8 +17045,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.4548771,
-              "durMs": 99353,
+              "cost": 0.37536959999999997,
+              "durMs": 74995,
               "run": 1,
               "attempts": 1
             }
@@ -17326,18 +17070,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 630048,
-              "tools": 4,
+              "tokens": 455689,
+              "tools": 2,
               "reads": 0,
               "grep": 0,
               "shell": 0,
               "web": 0,
-              "graph": 4,
+              "graph": 2,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.42025330000000005,
-              "durMs": 60493,
+              "cost": 0.2677963,
+              "durMs": 52819,
               "run": 1,
               "attempts": 1
             }
@@ -17361,18 +17105,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 1030972,
-              "tools": 6,
+              "tokens": 867183,
+              "tools": 5,
               "reads": 0,
               "grep": 0,
               "shell": 0,
               "web": 0,
-              "graph": 6,
+              "graph": 5,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.6030504,
-              "durMs": 116663,
+              "cost": 0.5171925,
+              "durMs": 99990,
               "run": 1,
               "attempts": 1
             }
@@ -17396,18 +17140,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 911042,
-              "tools": 5,
+              "tokens": 1132020,
+              "tools": 7,
               "reads": 0,
               "grep": 0,
               "shell": 0,
               "web": 0,
-              "graph": 5,
+              "graph": 7,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.5955828000000001,
-              "durMs": 103507,
+              "cost": 0.5621908999999999,
+              "durMs": 101610,
               "run": 1,
               "attempts": 1
             }
@@ -17431,7 +17175,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 688761,
+              "tokens": 669346,
               "tools": 4,
               "reads": 0,
               "grep": 0,
@@ -17441,8 +17185,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.45157939999999996,
-              "durMs": 48333,
+              "cost": 0.3024065,
+              "durMs": 48790,
               "run": 1,
               "attempts": 1
             }
@@ -17466,18 +17210,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 530070,
-              "tools": 3,
+              "tokens": 327522,
+              "tools": 2,
               "reads": 0,
               "grep": 0,
               "shell": 0,
               "web": 0,
-              "graph": 3,
+              "graph": 2,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.344638,
-              "durMs": 114166,
+              "cost": 0.2179412,
+              "durMs": 92422,
               "run": 1,
               "attempts": 1
             }
@@ -18621,7 +18365,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 167412,
+              "tokens": 160828,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18631,8 +18375,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.339446,
-              "durMs": 37331,
+              "cost": 0.299303,
+              "durMs": 31968,
               "run": 1,
               "attempts": 1
             }
@@ -18656,7 +18400,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 161387,
+              "tokens": 156705,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18666,8 +18410,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.31141549999999996,
-              "durMs": 37527,
+              "cost": 0.276822,
+              "durMs": 29739,
               "run": 1,
               "attempts": 1
             }
@@ -18691,18 +18435,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 172497,
-              "tools": 1,
+              "tokens": 248829,
+              "tools": 2,
               "reads": 0,
               "grep": 0,
-              "shell": 0,
+              "shell": 1,
               "web": 0,
               "graph": 1,
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.3795755,
-              "durMs": 47636,
+              "cost": 0.34204100000000004,
+              "durMs": 50670,
               "run": 1,
               "attempts": 1
             }
@@ -18726,7 +18470,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 166885,
+              "tokens": 159050,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18736,8 +18480,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.354718,
-              "durMs": 48793,
+              "cost": 0.29028849999999995,
+              "durMs": 36238,
               "run": 1,
               "attempts": 1
             }
@@ -18761,7 +18505,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 170256,
+              "tokens": 162772,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18771,8 +18515,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.3553855,
-              "durMs": 37002,
+              "cost": 0.3080505,
+              "durMs": 32021,
               "run": 1,
               "attempts": 1
             }
@@ -18796,7 +18540,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 167015,
+              "tokens": 160478,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18806,8 +18550,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.3388895,
-              "durMs": 40300,
+              "cost": 0.29996849999999997,
+              "durMs": 35427,
               "run": 1,
               "attempts": 1
             }
@@ -18831,7 +18575,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 180499,
+              "tokens": 172149,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -18841,8 +18585,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.40767700000000007,
-              "durMs": 39262,
+              "cost": 0.365742,
+              "durMs": 37535,
               "run": 1,
               "attempts": 1
             }
@@ -18866,18 +18610,18 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 176558,
-              "tools": 1,
+              "tokens": 255126,
+              "tools": 2,
               "reads": 0,
               "grep": 0,
-              "shell": 0,
+              "shell": 1,
               "web": 0,
               "graph": 1,
               "other": 0,
-              "sourceTouches": 0,
-              "shellSource": 0,
-              "cost": 0.4013835,
-              "durMs": 75019,
+              "sourceTouches": 1,
+              "shellSource": 1,
+              "cost": 0.35714850000000004,
+              "durMs": 80927,
               "run": 1,
               "attempts": 1
             }
@@ -20021,7 +19765,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 165566,
+              "tokens": 161806,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -20031,8 +19775,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.33713399999999993,
-              "durMs": 44736,
+              "cost": 0.31348600000000004,
+              "durMs": 39594,
               "run": 1,
               "attempts": 1
             }
@@ -20056,7 +19800,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 162631,
+              "tokens": 182598,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -20066,8 +19810,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.306491,
-              "durMs": 31523,
+              "cost": 0.2999005,
+              "durMs": 42625,
               "run": 1,
               "attempts": 1
             }
@@ -20091,7 +19835,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 198089,
+              "tokens": 163177,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -20101,8 +19845,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.3520715,
-              "durMs": 31274,
+              "cost": 0.310044,
+              "durMs": 35765,
               "run": 1,
               "attempts": 1
             }
@@ -20126,7 +19870,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 165929,
+              "tokens": 193442,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -20136,8 +19880,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.3268225,
-              "durMs": 34197,
+              "cost": 0.33029450000000005,
+              "durMs": 46101,
               "run": 1,
               "attempts": 1
             }
@@ -20161,7 +19905,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 167076,
+              "tokens": 185214,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -20171,8 +19915,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.358733,
-              "durMs": 45198,
+              "cost": 0.29657500000000003,
+              "durMs": 35853,
               "run": 1,
               "attempts": 1
             }
@@ -20196,7 +19940,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 170336,
+              "tokens": 188466,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -20206,8 +19950,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.357416,
-              "durMs": 44129,
+              "cost": 0.3236375,
+              "durMs": 42890,
               "run": 1,
               "attempts": 1
             }
@@ -20231,7 +19975,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 179799,
+              "tokens": 170925,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -20241,8 +19985,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.40259500000000004,
-              "durMs": 38025,
+              "cost": 0.3681345,
+              "durMs": 43912,
               "run": 1,
               "attempts": 1
             }
@@ -20266,7 +20010,7 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 172951,
+              "tokens": 166196,
               "tools": 1,
               "reads": 0,
               "grep": 0,
@@ -20276,8 +20020,8 @@
               "other": 0,
               "sourceTouches": 0,
               "shellSource": 0,
-              "cost": 0.344977,
-              "durMs": 59084,
+              "cost": 0.3244745,
+              "durMs": 76960,
               "run": 1,
               "attempts": 1
             }

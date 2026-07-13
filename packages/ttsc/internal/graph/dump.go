@@ -59,6 +59,7 @@ type DumpNode struct {
 	External       bool            `json:"external"`
 	Ignored        bool            `json:"ignored,omitempty"`
 	Exported       bool            `json:"exported,omitempty"`
+	Closure        bool            `json:"closure,omitempty"`
 	Modifiers      []string        `json:"modifiers,omitempty"`
 	Evidence       *DumpEvidence   `json:"evidence,omitempty"`
 	Implementation *DumpEvidence   `json:"implementation,omitempty"`
@@ -122,6 +123,7 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
 			External:       n.External,
 			Ignored:        ignored[n.File],
 			Exported:       n.Exported,
+			Closure:        n.Closure,
 			Modifiers:      n.Modifiers,
 			Evidence:       ctx.evidence(n.File, n.Pos, n.End),
 			Implementation: ctx.evidence(n.ImplementationFile, n.ImplementationPos, n.ImplementationEnd),

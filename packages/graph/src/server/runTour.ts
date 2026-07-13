@@ -183,13 +183,21 @@ export function runTour(
     const landed = new Set(reached.map((node) => node.id));
     if (told.some((earlier) => overlaps(landed, earlier))) continue;
     told.push(landed);
+    const steps = hops
+      .slice(0, MAX_FLOW_ANCHORS)
+      .map((hop) => flowStepOf(graph, hop));
+    // A step already names both of its ends and the file and line the call sits
+    // on: `App.render -[calls at App.tsx:2093]-> renderScene`. Listing those
+    // nodes again with their coordinates, and then a third time as anchors, is
+    // the same fact bought three times — two thirds of a 30 KB tour, re-charged
+    // on every turn it stays in context, and a specific-flow question can spend
+    // a dozen calls. So `reached` carries what the steps did not name, and the
+    // step keeps the citation it already had.
+    const named = namesIn(steps);
     primaryFlow.push({
       start: flowStartOf(start),
-      steps: hops
-        .slice(0, MAX_FLOW_ANCHORS)
-        .map((hop) => flowStepOf(graph, hop)),
-      reached: reached.map(traceNodeOf),
-      anchors: flowAnchorsOf(trace, hops, reached).slice(0, MAX_FLOW_ANCHORS),
+      steps,
+      reached: reached.filter((node) => !named.has(node.name)).map(traceNodeOf),
       ...(trace.truncated ? { truncated: true } : {}),
     });
   }
@@ -223,7 +231,6 @@ export function runTour(
     ...entrypoints.flatMap((node) =>
       anchorFromNode("central entrypoint", node),
     ),
-    ...primaryFlow.flatMap((flow) => flow.anchors),
     ...nearby,
     ...tests,
   ]).slice(0, MAX_READ_NEXT);
@@ -468,6 +475,11 @@ function reachedFiles(graph: TtscGraphMemory, id: string): number {
           target === undefined ||
           target.external ||
           target.ignored ||
+          // A closure is not part of the surface a tour ranks, and counting one
+          // moves the score of the declaration that owns it: TypeORM's seeds
+          // reordered, its insert flow fell out of the tour, and the model went
+          // to the files.
+          target.closure === true ||
           isNoisePath(target.file)
         )
           continue;
@@ -483,8 +495,31 @@ function reachedFiles(graph: TtscGraphMemory, id: string): number {
   return files.size;
 }
 
+/**
+ * A tour ranks and walks the project's surface.
+ *
+ * Not because a closure is beneath an index — a trace, a lookup, or a details
+ * request answers with one, and that is what the specific-flow lane needed. It
+ * is because the seed score leans on reach, and reach breaks when it counts
+ * them. Reach stands in for "gets to the code that does the work", and a method
+ * whose body is full of callbacks lands in more files than one that calls three
+ * things and means them: TypeORM's `SelectQueryBuilder` outranked its insert
+ * path on breadth alone, and the tour it led came back a walk through the query
+ * builder's fluent API — escape, clone, addSelect, limit, offset — while the
+ * insert flow that reaches the broadcaster, the metadata, and the driver fell
+ * out of the tour entirely. Wide and shallow beat deep and few, and the model
+ * went back to the files.
+ *
+ * So the surface is scored by the surface, and the body is answered when it is
+ * asked for. The specific-flow lane wants the closures and gets them; the
+ * orientation lane wants the surface and gets that. Judged by the answer rather
+ * than the token count, the gated tour is the better one: it reaches the
+ * broadcaster and the driver, where the ungated tour reached `limit` and
+ * `offset`.
+ */
 function isTourSeed(graph: TtscGraphMemory, node: ITtscGraphNode): boolean {
   return (
+    node.closure !== true &&
     TOUR_SEED_KINDS.has(node.kind) &&
     (node.kind !== "property" || executionDegree(graph, node.id).out > 0) &&
     !node.external &&
@@ -517,11 +552,27 @@ function overlaps(candidate: Set<string>, told: Set<string>): boolean {
   return shared / smaller.size >= FLOW_OVERLAP;
 }
 
+/** The symbol names a flow's steps already carry. */
+function namesIn(steps: string[]): Set<string> {
+  const names = new Set<string>();
+  for (const step of steps) {
+    const match = /^(.+?) -[.+?]-> (.+)$/.exec(step);
+    if (match === null) continue;
+    names.add(match[1]!.trim());
+    names.add(match[2]!.trim());
+  }
+  return names;
+}
+
 function isTourTraceNode(
   graph: TtscGraphMemory,
   node: ITtscGraphTrace.INode,
 ): boolean {
-  return !isNoisePath(node.file) && !isSharedUtility(graph, node.id);
+  return (
+    graph.node(node.id)?.closure !== true &&
+    !isNoisePath(node.file) &&
+    !isSharedUtility(graph, node.id)
+  );
 }
 
 function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
@@ -530,6 +581,8 @@ function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
   return (
     from !== undefined &&
     to !== undefined &&
+    from.closure !== true &&
+    to.closure !== true &&
     !STRUCTURAL_KINDS.has(hop.kind) &&
     !isNoisePath(from.file) &&
     !isNoisePath(to.file) &&
@@ -564,6 +617,19 @@ function flowStepOf(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): string {
   return `${lhs} -[${hop.kind}${at}]-> ${rhs}`;
 }
 
+/**
+ * True when the node at the other end of an edge is a closure.
+ *
+ * A tour scores the surface, and a closure is not on it — but a closure's edges
+ * still land on surface nodes, and counted there they move the score of the
+ * very declarations a tour ranks. Keeping closures out of the seed list was not
+ * enough: TypeORM's tour still traded its insert flow for a walk through the
+ * query builder's fluent API. The surface is scored by the surface.
+ */
+function touchesClosure(graph: TtscGraphMemory, id: string): boolean {
+  return graph.node(id)?.closure === true;
+}
+
 function realDegree(
   graph: TtscGraphMemory,
   id: string,
@@ -574,9 +640,11 @@ function realDegree(
   let incoming = 0;
   let outgoing = 0;
   for (const edge of graph.outgoing(id))
-    if (!STRUCTURAL_KINDS.has(edge.kind)) outgoing++;
+    if (!STRUCTURAL_KINDS.has(edge.kind) && !touchesClosure(graph, edge.to))
+      outgoing++;
   for (const edge of graph.incoming(id))
-    if (!STRUCTURAL_KINDS.has(edge.kind)) incoming++;
+    if (!STRUCTURAL_KINDS.has(edge.kind) && !touchesClosure(graph, edge.from))
+      incoming++;
   return { in: incoming, out: outgoing };
 }
 
@@ -590,9 +658,11 @@ function executionDegree(
   let incoming = 0;
   let outgoing = 0;
   for (const edge of graph.outgoing(id))
-    if (EXECUTION_KINDS.has(edge.kind)) outgoing++;
+    if (EXECUTION_KINDS.has(edge.kind) && !touchesClosure(graph, edge.to))
+      outgoing++;
   for (const edge of graph.incoming(id))
-    if (EXECUTION_KINDS.has(edge.kind)) incoming++;
+    if (EXECUTION_KINDS.has(edge.kind) && !touchesClosure(graph, edge.from))
+      incoming++;
   return { in: incoming, out: outgoing };
 }
 
