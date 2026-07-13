@@ -65,6 +65,31 @@ TTSC_BENCH_REQUIRE_QUIET=1 node experimental/benchmark/performance.mjs
 
 After the sweep, inspect the diff against `website/public/benchmark/performance.json`: every fixture row present, row order preserved, host panel reflects the machine that produced the numbers.
 
+## Changing `@ttsc/graph` while it is being benchmarked
+
+### Compute the blast radius before you measure, not after
+
+A tour is one payload, and every part of it is downstream of the ranking. Changing a seed score changes the seed order; the seed order changes which flows get traced; the flows change `nearby`, `tests` and the anchors. **A change that "only reorders seeds" changes the whole payload of every cell whose ranking it touches** — measuring the cell you were fixing and calling it done is how you fix Excalidraw and silently break TypeORM and RxJS.
+
+So before spending a token: call the tour offline for all sixteen (repository × prompt family) cells, on the old build and on the new one, and diff the payloads. What is byte-identical cannot have changed; what moved is what you have to think about. This costs nothing and takes minutes.
+
+### Any logic or text change means a full re-measurement of the `ttsc-graph` arm
+
+The offline diff tells you what *the server* did. It does not tell you what the *model* does with it, and models are not deterministic: a Sonnet cell has swung from 81% saved to 8% on the same build. So a change to the tour, the runners, the MCP instructions or the tool description means re-measuring **every** `ttsc-graph` cell — four models × two families × eight repositories — not just the cells the diff moved. The baseline and comparator arms never touch this server and stand.
+
+### The tool's own honesty is not a tuning knob
+
+Two things the server says are load-bearing, and both must be *true*, not persuasive:
+
+- **The audit** claims every fact was checked. It has to have been.
+- **`next`** claims the result is complete (`answer`) or partial (`inspect`). A tour that covers two of the five stages a question named and still says `answer` is lying, and the models that drill after it are right to. Fix the claim, not the model.
+
+Never buy tokens with an instruction that suppresses a legitimate follow-up. If the tour is incomplete, saying "answer and stop" only makes the answer worse — and a benchmark that rewards that is measuring the wrong thing.
+
+### Fixing one cell is not a result
+
+Three changes in one afternoon each fixed the cell they targeted and cost more elsewhere than they gained: a coverage-first seed cover put a stats panel in Excalidraw's tour, adding signatures to flow nodes grew the payload 22% and Sonnet answered with *more* calls, and dropping `answerAnchors` as a "repeated coordinate" took away what the model used as its citation list — 7 calls became 19. **If a change surprises you, you did not understand what you changed.** State the predicted effect on every moved cell before measuring it, and roll back on the first surprise rather than patching the patch.
+
 ## Fixture repositories
 
 Each fixture is a forked GitHub repo at `samchon/ttsc-benchmark-<name>`, plus `samchon/shopping-backend` for the plugin-heavy case. Every fixture carries four independent branches:
