@@ -11,7 +11,7 @@ import (
 //
 // When a client asks only for kinds @ttsc/lint cannot provide, the sidecar can
 // answer `[]` immediately. This avoids unnecessary tsconfig/project work on
-// ordinary quickfix requests.
+// sibling quickfix requests.
 //
 // 1. Create a directory without a tsconfig.
 // 2. Run `lsp-code-actions` with an unrelated `context.only`.
@@ -32,7 +32,7 @@ func TestLSPCodeActionsShortCircuitsUnownedContextOnly(t *testing.T) {
       "--plugins-json", lintManifest(t),
       "--uri", uri,
       "--range-json", `{"start":{"line":0,"character":0},"end":{"line":0,"character":1}}`,
-      "--context-json", `{"only":["quickfix"]}`,
+      "--context-json", `{"only":["quickfix.other"]}`,
     })
   })
   if code != 0 || stdout != "[]\n" || !isBenignContributorCollisionWarning(stderr) {

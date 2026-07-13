@@ -1,50 +1,68 @@
 package linthost
 
-import (
-  "strings"
-  "testing"
-)
+import "testing"
 
-// TestRuleCorpusSwitchExhaustivenessCheck verifies the lint rule corpus
-// fixture typescript-switch-exhaustiveness-check.ts under a real Program.
+// TestRuleCorpusSwitchExhaustivenessCheck pins the scalar-default reproduction
+// from issue #416 against a real TypeScript-Go Program.
 //
-// `typescript/switch-exhaustiveness-check` is type-aware: it queries
-// `GetTypeAtLocation` on the switch discriminant and on every case
-// expression to compute uncovered union members, so the engine's
-// checker-less AST harness used by `assertRuleCorpusCase` skips it
-// because Context.Checker is nil. This Go scenario therefore reuses the
-// `seedLintProject` shape established by `no-for-in-array` and
-// `restrict-plus-operands`: materialize a tsconfig project, run
-// `ttsc lint check`, and assert on the rendered diagnostics.
+// A real default does not hide an omitted finite member unless
+// considerDefaultExhaustiveForUnions is enabled. Singleton literals, unique
+// symbols, and the enumerable undefined part of an open union are checked too.
 //
-//  1. Seed a project that switches on a `"a" | "b" | "c"` union with
-//     only the `"a"` and `"b"` cases covered and no `default` clause.
-//  2. Run `check` with typescript/switch-exhaustiveness-check enabled as
-//     error.
-//  3. Assert the command exits non-zero and stderr mentions the rule.
+//  1. Exercise the five positive switches from the issue reproduction.
+//  2. Include a fully covered union with a permitted default as the negative
+//     control.
+//  3. Assert every diagnostic names its actual missing member.
 func TestRuleCorpusSwitchExhaustivenessCheck(t *testing.T) {
-  root := seedLintProject(t, `type Tag = "a" | "b" | "c";
-declare const tag: Tag;
-declare function sideEffect(value: string): void;
-switch (tag) {
-  case "a":
-    sideEffect("a");
+  assertSwitchExhaustivenessCheckForTest(t, `
+type Choice = "alpha" | "beta";
+declare const withDefault: Choice;
+switch (withDefault) {
+  case "alpha":
     break;
-  case "b":
-    sideEffect("b");
+  default:
     break;
 }
-`)
-  seedLintRules(t, root, map[string]string{"typescript/switch-exhaustiveness-check": "error"})
 
-  code, stdout, stderr := captureCommandOutput(t, func() int {
-    return run([]string{
-      "check",
-      "--cwd", root,
-      "--plugins-json", lintManifest(t),
-    })
+declare const withoutDefault: Choice;
+switch (withoutDefault) {
+  case "alpha":
+    break;
+}
+
+declare const singleton: "only";
+switch (singleton) {}
+
+declare const first: unique symbol;
+declare const second: unique symbol;
+declare const symbolValue: typeof first | typeof second;
+switch (symbolValue) {
+  case first:
+    break;
+}
+
+declare const maybeText: string | undefined;
+switch (maybeText) {
+  case "known":
+    break;
+}
+`, nil, 5, map[string]int{
+    `Cases not matched: "beta"`: 2,
+    `Cases not matched: "only"`: 1,
+    "Cases not matched: typeof second": 1,
+    "Cases not matched: undefined":     1,
   })
-  if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/switch-exhaustiveness-check]") {
-    t.Fatalf("switch-exhaustiveness-check diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-  }
+
+  assertSwitchExhaustivenessCheckForTest(t, `
+type Choice = "alpha" | "beta";
+declare const complete: Choice;
+switch (complete) {
+  case "alpha":
+    break;
+  case "beta":
+    break;
+  default:
+    break;
+}
+`, nil, 0, nil)
 }

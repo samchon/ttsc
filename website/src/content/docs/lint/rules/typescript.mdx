@@ -126,7 +126,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/restrict-template-expressions`](#rule-typescript-restrict-template-expressions): Reject template-literal interpolations.
 - [`typescript/return-await`](#rule-typescript-return-await): Reject `return promise` inside `try`, `catch`, or `finally`.
 - [`typescript/strict-boolean-expressions`](#rule-typescript-strict-boolean-expressions): Reject non-boolean values used in a boolean context.
-- [`typescript/switch-exhaustiveness-check`](#rule-typescript-switch-exhaustiveness-check): Require every member of a union or `enum` discriminant to be covered by an explicit `case`.
+- [`typescript/switch-exhaustiveness-check`](#rule-typescript-switch-exhaustiveness-check): Require every enumerable discriminant member to be covered by an explicit `case` by default.
 - [`typescript/triple-slash-reference`](#rule-typescript-triple-slash-reference): Reject `/// <reference path="..." />`, `/// <reference types="" />`, and `/// <reference lib="" />` directives.
 - [`typescript/unbound-method`](#rule-typescript-unbound-method): Reject referencing a class instance method as a value.
 - [`typescript/use-unknown-in-catch-callback-variable`](#rule-typescript-use-unknown-in-catch-callback-variable): Require the callback parameter of `.catch(...)` and the second argument of `.then(...)`.
@@ -1914,13 +1914,18 @@ if (count) {
 
 ### `typescript/switch-exhaustiveness-check`
 
-Require every member of a union or `enum` discriminant to be covered by an explicit `case`, unless a `default` clause is present.
+Require every enumerable member of a switch discriminant to be covered by an explicit `case` by default.
 
-Type-aware via the Checker. The rule resolves the discriminant type, walks each constituent of the union (or each member of the enum).
+Type-aware via the Checker. The rule handles singleton literals, string/number/bigint/boolean literal unions, enums, `null`, `undefined`, unique symbols, constrained generics, and finite pieces of intersections. Open pieces such as `string` cannot be enumerated, but they do not hide adjacent finite members such as the `undefined` in `string | undefined`.
 
-Matches it against the `case` expressions in the body, and flags the switch when at least one constituent is uncovered and no `default` clause is present.
+A real `default` does not suppress missing finite members under the scalar defaults. When every missing member has a safely accessible value name, the diagnostic offers an opt-in `quickfix.ttsc` action that inserts branches before a real or recognized comment default; `ttsc fix` and `source.fixAll.ttsc` never apply these throw-stub suggestions automatically.
 
-A `default` clause covers the remaining shape and silences the rule.
+Options:
+
+- `allowDefaultCaseForExhaustiveSwitch` (default `true`) allows a `default` after every finite member is explicitly covered. Set it to `false` to report that redundant default.
+- `considerDefaultExhaustiveForUnions` (default `false`) lets a real or recognized comment default satisfy otherwise missing finite members.
+- `requireDefaultForNonUnion` (default `false`) requires a real or recognized comment default when the discriminant contains an open, non-literal branch.
+- `defaultCaseCommentPattern` recognizes the final comment after the last case as a default marker. The fallback is the case-insensitive Unicode pattern `/^no default$/iu`; custom strings use Go's RE2 regular-expression syntax and are not made case-insensitive automatically.
 
 Example:
 
@@ -1938,6 +1943,9 @@ function handle(tag: Tag): void {
       break;
     case "b":
       sideEffect("b");
+      break;
+    default:
+      sideEffect("fallback");
       break;
   }
 }

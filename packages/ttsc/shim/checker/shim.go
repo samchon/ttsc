@@ -11,6 +11,7 @@ package checker
 import (
   innerast "github.com/microsoft/typescript-go/internal/ast"
   innerchecker "github.com/microsoft/typescript-go/internal/checker"
+  innerprinter "github.com/microsoft/typescript-go/internal/printer"
   _ "unsafe"
 )
 
@@ -22,6 +23,71 @@ type Type = innerchecker.Type
 type TypeFlags = innerchecker.TypeFlags
 type ObjectFlags = innerchecker.ObjectFlags
 type ElementFlags = innerchecker.ElementFlags
+
+//go:linkname checkerGetRegularTypeOfLiteralType github.com/microsoft/typescript-go/internal/checker.(*Checker).getRegularTypeOfLiteralType
+func checkerGetRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerchecker.Type) *innerchecker.Type
+
+// Checker_getRegularTypeOfLiteralType returns the canonical regular form of a
+// literal type. TypeScript's checker uses this before comparing switch case
+// types because a source literal's fresh type and a union member's regular type
+// denote the same runtime value but have different pointers.
+func Checker_getRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerchecker.Type) *innerchecker.Type {
+  if recv == nil || t == nil {
+    return t
+  }
+  return checkerGetRegularTypeOfLiteralType(recv, t)
+}
+
+// Checker_typeToStringFullyQualified formats a type with the same stable,
+// alias-aware flags TypeScript uses in diagnostics that name union members.
+// Keeping the flag bundle inside the shim avoids leaking checker-internal enum
+// types through consumer code.
+func Checker_typeToStringFullyQualified(recv *innerchecker.Checker, t *innerchecker.Type, enclosingDeclaration *innerast.Node) string {
+  if recv == nil || t == nil {
+    return ""
+  }
+  return recv.TypeToStringEx(
+    t,
+    enclosingDeclaration,
+    innerchecker.TypeFormatFlagsAllowUniqueESSymbolType|
+      innerchecker.TypeFormatFlagsUseAliasDefinedOutsideCurrentScope|
+      innerchecker.TypeFormatFlagsUseFullyQualifiedType,
+    nil,
+  )
+}
+
+// Checker_symbolToValueString formats a symbol as a value-position expression
+// at enclosingDeclaration. AllowAnyNodeKind lets the checker emit indexed
+// access for enum members whose names cannot use dot notation.
+func Checker_symbolToValueString(recv *innerchecker.Checker, symbol *innerast.Symbol, enclosingDeclaration *innerast.Node) string {
+  if recv == nil || symbol == nil {
+    return ""
+  }
+  return recv.SymbolToStringEx(
+    symbol,
+    enclosingDeclaration,
+    innerast.SymbolFlagsValue,
+    innerchecker.SymbolFormatFlagsAllowAnyNodeKind,
+  )
+}
+
+// Checker_isSymbolAccessibleAsValue verifies that SymbolToStringEx can name a
+// symbol from enclosingDeclaration. Unlike GetAccessibleSymbolChain, the
+// checker also follows containing enum, class, and namespace symbols, so a
+// qualified member such as Domain.Mode.Done is accepted when its container is
+// visible.
+func Checker_isSymbolAccessibleAsValue(recv *innerchecker.Checker, symbol *innerast.Symbol, enclosingDeclaration *innerast.Node) bool {
+  if recv == nil || symbol == nil || enclosingDeclaration == nil {
+    return false
+  }
+  result := recv.IsSymbolAccessible(
+    symbol,
+    enclosingDeclaration,
+    innerast.SymbolFlagsValue,
+    false,
+  )
+  return result.Accessibility == innerprinter.SymbolAccessibilityAccessible
+}
 
 const (
   SignatureKindCall = innerchecker.SignatureKindCall

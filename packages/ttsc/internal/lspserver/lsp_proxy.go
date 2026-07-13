@@ -427,6 +427,16 @@ func (p *Proxy) takePendingCommand(key string) bool {
   return true
 }
 
+type codeActionPositionWire struct {
+  Line      *int `json:"line"`
+  Character *int `json:"character"`
+}
+
+type codeActionRangeWire struct {
+  Start *codeActionPositionWire `json:"start"`
+  End   *codeActionPositionWire `json:"end"`
+}
+
 // decodeCodeActionRequest extracts the request payload so the matching
 // response from upstream can be augmented with ttsc-owned code actions
 // for the same range.
@@ -435,15 +445,37 @@ func (p *Proxy) decodeCodeActionRequest(env Envelope) (pendingCodeActionRequest,
     TextDocument struct {
       URI string `json:"uri"`
     } `json:"textDocument"`
-    Range   LSPRange             `json:"range"`
+    Range   *codeActionRangeWire `json:"range"`
     Context LSPCodeActionContext `json:"context"`
   }
   if err := json.Unmarshal(env.Params, &params); err != nil {
     return pendingCodeActionRequest{}, false
   }
+  if params.TextDocument.URI == "" || params.Range == nil ||
+    params.Range.Start == nil || params.Range.End == nil ||
+    params.Range.Start.Line == nil || params.Range.Start.Character == nil ||
+    params.Range.End.Line == nil || params.Range.End.Character == nil {
+    return pendingCodeActionRequest{}, false
+  }
+  rng := LSPRange{
+    Start: LSPPosition{
+      Line:      *params.Range.Start.Line,
+      Character: *params.Range.Start.Character,
+    },
+    End: LSPPosition{
+      Line:      *params.Range.End.Line,
+      Character: *params.Range.End.Character,
+    },
+  }
+  if rng.Start.Line < 0 || rng.Start.Character < 0 ||
+    rng.End.Line < 0 || rng.End.Character < 0 ||
+    rng.Start.Line > rng.End.Line ||
+    (rng.Start.Line == rng.End.Line && rng.Start.Character > rng.End.Character) {
+    return pendingCodeActionRequest{}, false
+  }
   return pendingCodeActionRequest{
     uri: params.TextDocument.URI,
-    rng: params.Range,
+    rng: rng,
     ctx: params.Context,
   }, true
 }

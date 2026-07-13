@@ -1,9 +1,7 @@
 /**
  * Options shapes for the configurable rules in {@link ITtscLintTypeScriptRules}.
  *
- * Currently only `typescript/ban-ts-comment` accepts options.
- *
- * @reference https://typescript-eslint.io/rules/ban-ts-comment
+ * @reference https://typescript-eslint.io/rules/
  */
 
 /**
@@ -73,4 +71,47 @@ export interface ITtscLintTypeScriptBanTsCommentRuleOptions {
    * @default true
    */
   "ts-nocheck"?: TtscLintTypeScriptBanTsCommentDirectiveConfig;
+}
+
+/**
+ * `typescript/switch-exhaustiveness-check` rule options.
+ *
+ * The defaults require every enumerable union member to have an explicit
+ * `case`, allow a redundant `default` on an already exhaustive switch, and do
+ * not require a `default` for open types such as `string` or `number`.
+ *
+ * @reference https://typescript-eslint.io/rules/switch-exhaustiveness-check
+ */
+export interface ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions {
+  /**
+   * Allow a `default` clause on a switch whose finite members are already
+   * covered explicitly.
+   *
+   * @default true
+   */
+  allowDefaultCaseForExhaustiveSwitch?: boolean;
+
+  /**
+   * Treat a real `default` clause or matching trailing comment as coverage for
+   * otherwise missing finite members.
+   *
+   * @default false
+   */
+  considerDefaultExhaustiveForUnions?: boolean;
+
+  /**
+   * Regular expression matched against the trimmed body of the last comment
+   * after the final `case`. The default marker is `/^no default$/iu`.
+   *
+   * Custom patterns use Go's RE2 `regexp` syntax.
+   */
+  defaultCaseCommentPattern?: string;
+
+  /**
+   * Require a real `default` clause or matching trailing comment when the
+   * discriminant contains an open, non-literal type.
+   *
+   * @default false
+   */
+  requireDefaultForNonUnion?: boolean;
 }

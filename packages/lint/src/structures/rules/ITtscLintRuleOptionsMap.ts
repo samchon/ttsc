@@ -28,7 +28,10 @@ import type { ITtscLintReactPerfRuleOptions } from "./ITtscLintReactPerfRuleOpti
 import type { ITtscLintReactOnlyExportComponentsRuleOptions } from "./ITtscLintReactRuleOptions";
 import type { ITtscLintStorybookNoUninstalledAddonsRuleOptions } from "./ITtscLintStorybookRuleOptions";
 import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./ITtscLintTestingLibraryRuleOptions";
-import type { ITtscLintTypeScriptBanTsCommentRuleOptions } from "./ITtscLintTypeScriptRuleOptions";
+import type {
+  ITtscLintTypeScriptBanTsCommentRuleOptions,
+  ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
+} from "./ITtscLintTypeScriptRuleOptions";
 
 /**
  * Index from typed rule name to its options object.
@@ -89,4 +92,5 @@ export interface ITtscLintRuleOptionsMap {
   "storybook/no-uninstalled-addons": ITtscLintStorybookNoUninstalledAddonsRuleOptions;
   "react/only-export-components": ITtscLintReactOnlyExportComponentsRuleOptions;
   "typescript/ban-ts-comment": ITtscLintTypeScriptBanTsCommentRuleOptions;
+  "typescript/switch-exhaustiveness-check": ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions;
 }

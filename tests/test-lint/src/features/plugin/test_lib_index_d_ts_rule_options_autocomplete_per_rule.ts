@@ -27,6 +27,7 @@ import assert from "node:assert/strict";
  *   on `no-duplicate-imports`) is rejected.
  * - Cross-rule option leakage (`testIdPattern` on
  *   `cypress/unsafe-to-chain-command`) is rejected.
+ * - A typo in a switch-exhaustiveness option is rejected.
  * - A lint-only rule (`no-var`) cannot carry an options object.
  * - An identifier-form built-in name without the canonical slash (`reactJsxKey`)
  *   is rejected.
@@ -76,6 +77,15 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
           "ts-ignore": true,
           "ts-nocheck": "allow-with-description",
           "ts-check": false,
+        },
+      ],
+      "typescript/switch-exhaustiveness-check": [
+        "error",
+        {
+          allowDefaultCaseForExhaustiveSwitch: false,
+          considerDefaultExhaustiveForUnions: true,
+          defaultCaseCommentPattern: "^skip\\s+default$",
+          requireDefaultForNonUnion: true,
         },
       ],
     },
@@ -131,6 +141,17 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       "no-var": ["error", { ignore: true }],
     },
   };
+  const switchOptionTypo: ITtscLintConfig = {
+    rules: {
+      "typescript/switch-exhaustiveness-check": [
+        "error",
+        {
+          // @ts-expect-error — `considerDefaultExhaustiveForUnion` is missing the final `s`.
+          considerDefaultExhaustiveForUnion: true,
+        },
+      ],
+    },
+  };
   const camelBuiltinName: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — built-in rules use kebab/slash names such as `react/jsx-key`; camelCase identifiers are not in the typed surface.
@@ -146,5 +167,6 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(coreOptionValueShape);
   assert.ok(crossRuleShape);
   assert.ok(lintRuleWithOptions);
+  assert.ok(switchOptionTypo);
   assert.ok(camelBuiltinName);
 };

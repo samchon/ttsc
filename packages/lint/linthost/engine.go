@@ -120,23 +120,32 @@ func (c *Context) DecodeOptions(out interface{}) error {
 // both categories — no filter — because `ttsc fix` is the
 // run-everything entry point.
 type Finding struct {
-  Rule     string
-  Severity Severity
-  File     *shimast.SourceFile
-  Pos      int
-  End      int
-  Message  string
-  Fix      []TextEdit
-  IsFormat bool
+  Rule        string
+  Severity    Severity
+  File        *shimast.SourceFile
+  Pos         int
+  End         int
+  Message     string
+  Fix         []TextEdit
+  Suggestions []Suggestion
+  IsFormat    bool
 }
 
-// TextEdit is one byte-range replacement offered by an autofixable finding.
+// TextEdit is one byte-range source replacement used by a fix or suggestion.
 // Positions use the same byte offsets as shim AST nodes and must point inside
 // the finding's source file.
 type TextEdit struct {
   Pos  int
   End  int
   Text string
+}
+
+// Suggestion is an opt-in editor action attached to a finding. Unlike Fix,
+// suggestion edits are never consumed by `ttsc fix` or source.fixAll.ttsc;
+// the LSP host exposes them as individual quick fixes selected by the user.
+type Suggestion struct {
+  Title string
+  Edits []TextEdit
 }
 
 // Report records a finding at the given node's source range. The pos is
@@ -167,6 +176,29 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
     Message:  message,
     Fix:      cloneTextEdits(edits),
     IsFormat: c.isFormat,
+  })
+}
+
+// ReportSuggestion records a node-scoped finding with one opt-in editor
+// action. The diagnostic is still reported when edits is empty, but no quick
+// fix is advertised.
+func (c *Context) ReportSuggestion(node *shimast.Node, message string, title string, edits ...TextEdit) {
+  if c.Severity == SeverityOff || node == nil {
+    return
+  }
+  pos := node.Pos()
+  if c.File != nil {
+    pos = shimscanner.SkipTrivia(c.File.Text(), pos)
+  }
+  c.collect(&Finding{
+    Rule:        c.rule.Name(),
+    Severity:    c.Severity,
+    File:        c.File,
+    Pos:         pos,
+    End:         node.End(),
+    Message:     message,
+    Suggestions: newSuggestions(title, edits),
+    IsFormat:    c.isFormat,
   })
 }
 
@@ -208,6 +240,14 @@ func cloneTextEdits(edits []TextEdit) []TextEdit {
   out := make([]TextEdit, len(edits))
   copy(out, edits)
   return out
+}
+
+func newSuggestions(title string, edits []TextEdit) []Suggestion {
+  cloned := cloneTextEdits(edits)
+  if title == "" || len(cloned) == 0 {
+    return nil
+  }
+  return []Suggestion{{Title: title, Edits: cloned}}
 }
 
 // registry stores the package-global rule list keyed by name. Tests can

@@ -2,7 +2,10 @@ import type {
   TtscLintRuleOptionsSetting,
   TtscLintRuleSetting,
 } from "../TtscLintRuleSetting";
-import type { ITtscLintTypeScriptBanTsCommentRuleOptions } from "./ITtscLintTypeScriptRuleOptions";
+import type {
+  ITtscLintTypeScriptBanTsCommentRuleOptions,
+  ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
+} from "./ITtscLintTypeScriptRuleOptions";
 
 /**
  * TypeScript-only rules and `@typescript-eslint` plugin equivalents, exposed
@@ -1128,18 +1131,19 @@ export interface ITtscLintTypeScriptRules {
   "typescript/strict-boolean-expressions"?: TtscLintRuleSetting;
 
   /**
-   * Require every member of a union or `enum` discriminant to be covered by an
-   * explicit `case`, unless a `default` clause is present.
+   * Require every enumerable member of a discriminant to be covered by an
+   * explicit `case`.
    *
-   * Type-aware via the Checker. The rule resolves the discriminant type, walks
-   * each constituent of the union (or each member of the enum), matches it
-   * against the `case` expressions in the body, and flags the switch when at
-   * least one constituent is uncovered and no `default` clause is present. A
-   * `default` clause covers the remaining shape and silences the rule.
+   * Type-aware via the Checker. Singleton literals, literal unions, enums,
+   * nullish members, bigint and boolean literals, unique symbols, constrained
+   * generics, and literal pieces of intersections are enumerable. Open
+   * primitive pieces remain unenumerated without hiding adjacent finite
+   * members. Under the default options, a `default` clause does not replace
+   * explicit finite-member coverage.
    *
    * @reference https://typescript-eslint.io/rules/switch-exhaustiveness-check
    */
-  "typescript/switch-exhaustiveness-check"?: TtscLintRuleSetting;
+  "typescript/switch-exhaustiveness-check"?: TtscLintRuleOptionsSetting<ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions>;
 
   /**
    * Reject `/// <reference path="..." />`, `/// <reference types="" />`, and
