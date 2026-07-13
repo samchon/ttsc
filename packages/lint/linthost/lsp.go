@@ -17,6 +17,8 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimparser "github.com/microsoft/typescript-go/shim/parser"
+
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 const (
@@ -68,6 +70,16 @@ type lspWorkspaceEdit struct {
   Changes map[string][]lspTextEdit `json:"changes,omitempty"`
 }
 
+type lspProjectDiagnostics struct {
+  URI         string          `json:"uri"`
+  Diagnostics []lspDiagnostic `json:"diagnostics"`
+}
+
+type lspDiagnosticsResult struct {
+  Document []lspDiagnostic        `json:"document"`
+  Project  *lspProjectDiagnostics `json:"project,omitempty"`
+}
+
 type lspCommandOptions struct {
   argumentsJSON string
   command       string
@@ -84,9 +96,10 @@ type lspCommandOptions struct {
   // compatibility, but no current code path consumes it — code actions
   // always operate on the full file. Range-aware actions can read this
   // field once they're implemented.
-  rangeJSON string
-  tsconfig  string
-  uri       string
+  rangeJSON       string
+  tsconfig        string
+  uri             string
+  projectIdentity publicrule.ProjectIdentity
 }
 
 // RunLSPCommandIDs prints the workspace/executeCommand ids owned by @ttsc/lint.
@@ -105,18 +118,28 @@ func RunLSPDiagnostics(args []string) int {
   if !ok {
     return 2
   }
-  findings, _, closeProgram, code := lspFindings(opts, false)
+  findings, prog, closeProgram, code := lspFindings(opts, false)
   if closeProgram != nil {
     defer closeProgram()
   }
   if code != 0 {
     return code
   }
-  diagnostics := make([]lspDiagnostic, 0, len(findings))
-  for _, finding := range findings {
-    diagnostics = append(diagnostics, findingToLSPDiagnostic(finding))
+  result := lspDiagnosticsResult{Document: []lspDiagnostic{}}
+  for _, finding := range filterFindingsForPath(findings, mustFilePathFromURI(opts.uri)) {
+    result.Document = append(result.Document, findingToLSPDiagnostic(finding))
   }
-  return writeJSON(diagnostics)
+  if prog != nil && prog.projectCycle != nil && len(prog.projectCycle.results.byName) > 0 {
+    publication := &lspProjectDiagnostics{
+      URI:         fileURL(prog.identity.LogicalConfigPath),
+      Diagnostics: []lspDiagnostic{},
+    }
+    for _, finding := range prog.projectCycle.findings {
+      publication.Diagnostics = append(publication.Diagnostics, findingToLSPDiagnostic(finding))
+    }
+    result.Project = publication
+  }
+  return writeJSON(result)
 }
 
 // RunLSPCodeActions prints code actions available for one file URI/range.
@@ -143,6 +166,7 @@ func RunLSPCodeActions(args []string) int {
   if code != 0 {
     return code
   }
+  findings = filterFindingsForPath(findings, mustFilePathFromURI(opts.uri))
   lintFindings := filterLintFindings(findings)
   formatFindings := filterFormatFindings(findings)
   var actions []lspCodeAction
@@ -221,6 +245,7 @@ func parseLSPCommandOptions(name string, args []string) (*lspCommandOptions, boo
   cwd := fs.String("cwd", "", "")
   tsconfig := fs.String("tsconfig", "tsconfig.json", "")
   pluginsJSON := fs.String("plugins-json", "", "")
+  projectContextJSON := fs.String("project-context-json", "", "")
   uri := fs.String("uri", "", "")
   rangeJSON := fs.String("range-json", "", "")
   contextJSON := fs.String("context-json", "", "")
@@ -235,16 +260,22 @@ func parseLSPCommandOptions(name string, args []string) (*lspCommandOptions, boo
     fmt.Fprintln(os.Stderr, err)
     return nil, false
   }
+  projectIdentity, err := decodeProjectIdentity(*projectContextJSON)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return nil, false
+  }
   return &lspCommandOptions{
-    argumentsJSON: *argumentsJSON,
-    command:       *command,
-    contextJSON:   *contextJSON,
-    contentStdin:  *contentStdin,
-    cwd:           resolvedCwd,
-    pluginsJSON:   *pluginsJSON,
-    rangeJSON:     *rangeJSON,
-    tsconfig:      *tsconfig,
-    uri:           *uri,
+    argumentsJSON:   *argumentsJSON,
+    command:         *command,
+    contextJSON:     *contextJSON,
+    contentStdin:    *contentStdin,
+    cwd:             resolvedCwd,
+    pluginsJSON:     *pluginsJSON,
+    rangeJSON:       *rangeJSON,
+    tsconfig:        *tsconfig,
+    uri:             *uri,
+    projectIdentity: projectIdentity,
   }, true
 }
 
@@ -253,7 +284,7 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
     fmt.Fprintln(os.Stderr, "@ttsc/lint: lsp command requires --uri")
     return nil, nil, nil, 2
   }
-  target, err := filePathFromURI(opts.uri)
+  _, err := filePathFromURI(opts.uri)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, nil, nil, 2
@@ -270,6 +301,7 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
     forceNoEmit:      true,
     needsRuleChecker: engine.NeedsTypeChecker(),
+    projectIdentity:  opts.projectIdentity,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -279,18 +311,26 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
     // tsgo already owns parse diagnostics in the upstream LSP process.
     return nil, prog, prog.close, 0
   }
-  findings := filterFindingsForPath(engine.Run(prog.userSourceFiles(), prog.checker), target)
+  findings := prog.runLintCycle(engine)
   return findings, prog, prog.close, 0
 }
 
+func mustFilePathFromURI(uri string) string {
+  target, err := filePathFromURI(uri)
+  if err != nil {
+    return ""
+  }
+  return target
+}
+
 func filterFindingsForPath(findings []*Finding, target string) []*Finding {
-  target = canonicalProjectPath("", target)
+  target = canonicalProjectPath("", realProjectPath(target))
   out := make([]*Finding, 0, len(findings))
   for _, finding := range findings {
     if finding == nil || finding.File == nil {
       continue
     }
-    if canonicalProjectPath("", finding.File.FileName()) == target {
+    if canonicalProjectPath("", realProjectPath(finding.File.FileName())) == target {
       out = append(out, finding)
     }
   }
@@ -372,12 +412,13 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
+  if lspProjectTargetHasSegment(opts, "node_modules") {
+    return nil, 0
+  }
+  target = realProjectPath(target)
   if _, ok := projectRelativePath(opts.cwd, target); !ok {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", target, opts.cwd)
     return nil, 2
-  }
-  if projectPathHasSegment(opts.cwd, target, "node_modules") {
-    return nil, 0
   }
   original, err := os.ReadFile(target)
   if err != nil {
@@ -411,6 +452,7 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
     prog, parseDiags, err := loadProgram(tempRoot, tempTsconfig, loadProgramOptions{
       forceNoEmit:      true,
       needsRuleChecker: needsRuleChecker,
+      projectIdentity:  opts.projectIdentity,
     })
     if err != nil {
       fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
@@ -420,7 +462,7 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
       prog.close()
       return nil, 0
     }
-    findings := filterFindingsForPath(engine.Run(prog.userSourceFiles(), prog.checker), tempTarget)
+    findings := filterFindingsForPath(prog.runLintCycle(engine), tempTarget)
     prog.close()
     if opts.command == commandFormatDocument {
       findings = filterFormatFindings(findings)
@@ -471,11 +513,12 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
   }
   // Guard rails mirror lspWorkspaceEditForCommand: skip targets outside the
   // project root or inside node_modules.
-  if _, ok := projectRelativePath(opts.cwd, target); !ok {
+  physicalTarget := realProjectPath(target)
+  if _, ok := projectRelativePath(opts.cwd, physicalTarget); !ok {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", target, opts.cwd)
     return nil, 2
   }
-  if projectPathHasSegment(opts.cwd, target, "node_modules") {
+  if lspProjectTargetHasSegment(opts, "node_modules") {
     return nil, 0
   }
 
@@ -741,7 +784,11 @@ func lspProjectTargetHasSegment(opts *lspCommandOptions, segment string) bool {
   if err != nil {
     return false
   }
-  return projectPathHasSegment(opts.cwd, target, segment)
+  if opts.projectIdentity.LogicalProjectRoot != "" &&
+    projectPathHasSegment(opts.projectIdentity.LogicalProjectRoot, target, segment) {
+    return true
+  }
+  return projectPathHasSegment(realProjectPath(opts.cwd), realProjectPath(target), segment)
 }
 
 func lspProjectTargetOutsideCwd(opts *lspCommandOptions) bool {
@@ -752,7 +799,7 @@ func lspProjectTargetOutsideCwd(opts *lspCommandOptions) bool {
   if err != nil {
     return false
   }
-  _, ok := projectRelativePath(opts.cwd, target)
+  _, ok := projectRelativePath(realProjectPath(opts.cwd), realProjectPath(target))
   return !ok
 }
 

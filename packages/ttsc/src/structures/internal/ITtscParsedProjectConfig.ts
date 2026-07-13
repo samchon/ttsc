@@ -1,4 +1,5 @@
 import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
+import type { ITtscProjectIdentity } from "./ITtscProjectIdentity";
 
 /** Resolved project config subset used inside the ttsc host. */
 export interface ITtscParsedProjectConfig {
@@ -9,6 +10,8 @@ export interface ITtscParsedProjectConfig {
     /** Project plugin entries after inheritance resolution. */
     plugins: ITtscProjectPluginConfig[];
   } & Record<string, unknown>;
+  /** Lexical and physical identities retained for native plugin contexts. */
+  identity: Omit<ITtscProjectIdentity, "pluginConfigOrigin">;
   /** Absolute path to the resolved tsconfig/jsconfig. */
   path: string;
   /** Directory that declared each inherited plugin entry. */

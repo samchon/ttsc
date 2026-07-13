@@ -93,6 +93,14 @@ type RuleConfig map[string]Severity
 // demand.
 type RuleOptionsMap map[string]json.RawMessage
 
+// ProjectRuleSetting is the global declaration resolved for one registered
+// project rule. Declared distinguishes a missing entry from an explicit off.
+type ProjectRuleSetting struct {
+  Declared bool
+  Severity Severity
+  Options  json.RawMessage
+}
+
 // ResolvedRuleConfig is the rule map that applies to one source file.
 // `Ignored` means an `ignores`-only config entry matched the file and the
 // engine should skip linting it entirely.
@@ -121,6 +129,39 @@ type RuleResolver interface {
   // rule was configured with a severity alone. Returns nil for unknown
   // rule names too — rules treat that as "use defaults".
   RuleOptions(name string) json.RawMessage
+  // ResolveProjectRules folds global declarations for registered project-rule
+  // names. A mention under a files selector is rejected because project state
+  // has no file identity.
+  ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error)
+}
+
+// boundProjectRuleResolver retains the one project-wide resolution performed
+// while loading a config. Engine construction reads a defensive copy instead
+// of folding the extends chain a second time.
+type boundProjectRuleResolver struct {
+  RuleResolver
+  settings map[string]ProjectRuleSetting
+}
+
+func bindProjectRuleResolver(resolver RuleResolver) (RuleResolver, error) {
+  if resolver == nil {
+    resolver = RuleConfig{}
+  }
+  settings, err := resolver.ResolveProjectRules(allProjectRuleNames())
+  if err != nil {
+    return nil, err
+  }
+  return boundProjectRuleResolver{RuleResolver: resolver, settings: settings}, nil
+}
+
+func (r boundProjectRuleResolver) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
+  settings := make(map[string]ProjectRuleSetting, len(names))
+  for _, name := range names {
+    setting := r.settings[name]
+    setting.Options = append(json.RawMessage(nil), setting.Options...)
+    settings[name] = setting
+  }
+  return settings, nil
 }
 
 // ResolveRules implements RuleResolver. A flat RuleConfig has no glob scoping,
@@ -151,6 +192,17 @@ func (c RuleConfig) EnabledRuleConfig() RuleConfig {
 // severity-only path used by Go unit tests and rule constructors that
 // predate option support.
 func (RuleConfig) RuleOptions(string) json.RawMessage { return nil }
+
+// ResolveProjectRules treats a flat RuleConfig as one global declaration.
+func (c RuleConfig) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
+  normalized := normalizeRuleConfigKeys(c)
+  out := make(map[string]ProjectRuleSetting, len(names))
+  for _, name := range names {
+    severity, declared := normalized[normalizeBuiltinRuleName(name)]
+    out[name] = ProjectRuleSetting{Declared: declared, Severity: severity}
+  }
+  return out, nil
+}
 
 func normalizeRuleConfigKeys(c RuleConfig) RuleConfig {
   if len(c) == 0 {
@@ -204,6 +256,18 @@ func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
   return nil
 }
 
+// ResolveProjectRules treats inline rules as global and preserves their
+// explicit options tuple.
+func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
+  settings, _ := r.Rules.ResolveProjectRules(names)
+  for _, name := range names {
+    setting := settings[name]
+    setting.Options = append(json.RawMessage(nil), r.RuleOptions(name)...)
+    settings[name] = setting
+  }
+  return settings, nil
+}
+
 // ConfigStore holds the parsed representation of a lint config file. It
 // implements RuleResolver with per-file glob scoping: ResolveRules walks the
 // entries in declaration order and the last matching entry wins. Options are
@@ -245,11 +309,13 @@ func (s *ConfigStore) RuleOptions(name string) json.RawMessage {
 // — these are evaluated first in ResolveRules and short-circuit the walk when
 // matched.
 type ConfigEntry struct {
-  BaseDir    string
-  Files      []string
-  Ignores    []string
-  Rules      RuleConfig
-  IgnoreOnly bool
+  BaseDir          string
+  Files            []string
+  HasFilesSelector bool
+  Ignores          []string
+  Rules            RuleConfig
+  Options          RuleOptionsMap
+  IgnoreOnly       bool
 }
 
 // ResolveRules implements RuleResolver. Ignore-only entries are checked first;
@@ -322,6 +388,47 @@ func (s *ConfigStore) EnabledRuleConfig() RuleConfig {
     }
   }
   return out
+}
+
+// ResolveProjectRules folds the extends-expanded entries base-first. Only
+// global entries participate; any project-rule mention under files is an
+// invalid configuration, including off declarations and option tuples.
+func (s *ConfigStore) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
+  out := make(map[string]ProjectRuleSetting, len(names))
+  wanted := make(map[string]string, len(names))
+  for _, name := range names {
+    canonical := normalizeBuiltinRuleName(name)
+    wanted[canonical] = name
+    out[name] = ProjectRuleSetting{}
+  }
+  if s == nil {
+    return out, nil
+  }
+  for _, entry := range s.entries {
+    if entry.IgnoreOnly {
+      continue
+    }
+    for configuredName, severity := range entry.Rules {
+      name, projectRule := wanted[normalizeBuiltinRuleName(configuredName)]
+      if !projectRule {
+        continue
+      }
+      if entry.HasFilesSelector {
+        return nil, fmt.Errorf(
+          "@ttsc/lint: project rule %q cannot be configured in an entry with files",
+          name,
+        )
+      }
+      setting := out[name]
+      setting.Declared = true
+      setting.Severity = severity
+      if raw := entry.Options[normalizeBuiltinRuleName(configuredName)]; len(raw) > 0 {
+        setting.Options = append(json.RawMessage(nil), raw...)
+      }
+      out[name] = setting
+    }
+  }
+  return out, nil
 }
 
 // Flatten returns the unconstrained union of all non-ignore-only entries,
@@ -558,6 +665,7 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
     }
   }
 
+  _, hasFilesSelector := obj["files"]
   files, err := parsePatternList(obj["files"], path+".files")
   if err != nil {
     return err
@@ -626,15 +734,17 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
     }
     merged := mergeRuleMaps(formatRulesRaw, rulesMap)
     if len(merged) > 0 {
-      parsed, err := parseExternalRuleMapInto(merged, path+".rules", store)
+      parsed, entryOptions, err := parseExternalRuleMapInto(merged, path+".rules", store)
       if err != nil {
         return err
       }
       store.entries = append(store.entries, ConfigEntry{
-        BaseDir: baseDir,
-        Files:   files,
-        Ignores: ignores,
-        Rules:   parsed,
+        BaseDir:          baseDir,
+        Files:            files,
+        HasFilesSelector: hasFilesSelector,
+        Ignores:          ignores,
+        Rules:            parsed,
+        Options:          entryOptions,
       })
     }
   }
@@ -644,15 +754,19 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
 // parseExternalRuleMapInto parses the rules map and folds any
 // option blobs into `store.options`. Used by entry-creation paths so
 // the store ends with a unified options map for RuleResolver consumers.
-func parseExternalRuleMapInto(raw any, path string, store *ConfigStore) (RuleConfig, error) {
+func parseExternalRuleMapInto(raw any, path string, store *ConfigStore) (RuleConfig, RuleOptionsMap, error) {
   out := RuleConfig{}
+  entryOptions := RuleOptionsMap{}
   if store.options == nil {
     store.options = RuleOptionsMap{}
   }
-  if err := collectExternalRuleMapWithOptions(out, store.options, raw, path); err != nil {
-    return nil, err
+  if err := collectExternalRuleMapWithOptions(out, entryOptions, raw, path); err != nil {
+    return nil, nil, err
   }
-  return out, nil
+  for name, raw := range entryOptions {
+    store.options[name] = append(json.RawMessage(nil), raw...)
+  }
+  return out, entryOptions, nil
 }
 
 // collectExternalRuleMapWithOptions also records the rule's options blob
@@ -1839,10 +1953,12 @@ func matchAnyPattern(baseDir string, patterns []string, fileName string) bool {
     if abs, err := filepath.Abs(base); err == nil {
       base = abs
     }
+    base = realProjectPath(base)
     file := fileName
     if abs, err := filepath.Abs(file); err == nil {
       file = abs
     }
+    file = realProjectPath(file)
     if candidate, err := filepath.Rel(base, file); err == nil {
       if candidate == ".." || strings.HasPrefix(candidate, ".."+string(filepath.Separator)) {
         return false

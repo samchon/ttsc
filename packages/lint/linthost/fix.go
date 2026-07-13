@@ -73,7 +73,7 @@ func runFix(opts *subcommandOpts) int {
   // kinds of findings in one pass — no filtering needed here.
   cascadeConverged := false
   for pass := 0; pass < maxFixPasses; pass++ {
-    findings := engine.Run(prog.userSourceFiles(), prog.checker)
+    findings := prog.runLintCycle(engine)
     fixed, err := applyFindingFixes(opts.cwd, findings)
     if err != nil {
       fmt.Fprintln(os.Stderr, err)
@@ -133,6 +133,7 @@ func loadFixProgram(opts *subcommandOpts, needsRuleChecker bool) (*program, int)
     singleThreaded:   opts.singleThreaded,
     checkers:         opts.checkers,
     tsgoArgs:         opts.tsgoArgs,
+    projectIdentity:  opts.projectIdentity,
   })
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)

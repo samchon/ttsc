@@ -71,8 +71,12 @@ function createProjectContext(
 ) {
   const project = readProjectConfig(
     options.project
-      ? { cwd, tsconfig: path.resolve(cwd, options.project) }
-      : { cwd, file: filename },
+      ? {
+          cwd,
+          projectRoot: options.projectRoot,
+          tsconfig: path.resolve(cwd, options.project),
+        }
+      : { cwd, file: filename, projectRoot: options.projectRoot },
   );
   const tsconfig = project.path;
   const root = project.root;
@@ -83,6 +87,7 @@ function createProjectContext(
   const processDir = path.join(cacheDir, "project", PROCESS_CACHE_KEY);
   const virtualRoot = path.join(processDir, "fs");
   return {
+    project,
     tsconfig,
     root,
     cacheDir,
@@ -152,8 +157,10 @@ function buildProject(
     // flag, so it never reaches a native plugin host's argument parser (issue
     // #353).
     forceRuntimeSourceMap: context.forceRuntimeSourceMap,
+    pluginConfigDir: options.pluginConfigDir,
     plugins: options.plugins,
     quiet: true,
+    resolvedProject: context.project,
     singleThreaded: options.singleThreaded,
     tsconfig: context.tsconfig,
   });

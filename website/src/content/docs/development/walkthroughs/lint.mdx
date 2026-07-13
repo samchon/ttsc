@@ -605,6 +605,39 @@ export default {
 
 This feeds into the same `contributors: [...]` array on the descriptor that the Go side then merges into one binary at build time.
 
+## Project-scoped contributor rules
+
+Use a `rule.ProjectRule` when a check belongs to the loaded Program rather than one source-file visit:
+
+```go
+type noCycles struct{}
+
+func (noCycles) Name() string { return "architecture/no-cycles" }
+func (noCycles) Check(ctx *rule.ProjectContext) {
+  if cycle := findCycle(ctx.Sources, ctx.Checker); cycle != "" {
+    ctx.Report(cycle)
+  }
+}
+
+func init() { rule.RegisterProject(noCycles{}) }
+```
+
+The host runs each project rule once per Program, before file rules, even when `ctx.Sources` is empty. `ctx.Identity` keeps the caller's logical config and root spelling separate from the real paths used by the compiler, and also carries the invocation cwd, optional explicit project root, plugin-config origin, and lifecycle id. `ctx.Report` records a project finding and fails the rule; `ctx.Fail` fails it silently. A later file rule reads the finalized state through `ctx.ProjectResult(name)`, whose status is one of `absent`, `off`, `not_evaluated`, `passed`, or `failed`.
+
+Configure a project rule in the same `rules` map, but only in entries without `files`:
+
+```ts
+export default {
+  rules: {
+    "architecture/no-cycles": ["error", { packages: ["src/**"] }],
+  },
+} satisfies ITtscLintConfig;
+```
+
+An entry containing `files` is rejected for a project rule even when the selector is empty or the rule is `off`. `extends` folds base first, a later global severity wins, and a later bare severity keeps the last explicit tuple options. Global `ignores` only filter `ctx.Sources`; they do not turn the project rule off.
+
+Project findings have no source file, range, or edit. Structured API output represents them with `file: null`. In LSP mode the sidecar returns them separately from document diagnostics, and `ttscserver` publishes the set at the logical config URI with a zero range and no version. They do not produce fixes or code actions.
+
 ## The contributor autofix path
 
 A contributor can emit fixes the same way built-in rules do:
