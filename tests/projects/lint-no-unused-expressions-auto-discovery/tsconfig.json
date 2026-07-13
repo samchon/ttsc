@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "strict": true,
+    "noEmit": true,
+    "rootDir": "src",
+    "jsx": "preserve"
+  },
+  "include": ["src"]
+}

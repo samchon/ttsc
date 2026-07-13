@@ -562,142 +562,585 @@ func isValueReferenceIdentifier(node *shimast.Node) bool {
   return true
 }
 
-// preferConst: flag `let` declarations whose binding is never reassigned.
-// This follows ESLint's core rule for the common AST-local cases. It is
-// intentionally conservative: destructuring and declaration-only `let`
-// variables (those without an initializer and not in a for-of/for-in
-// header) are skipped until the lint host grows full scope/data-flow state.
-// ESLint canonical: https://eslint.org/docs/latest/rules/prefer-const
+// preferConst follows ESLint's binding semantics rather than comparing
+// identifier text. TypeScript's checker resolves every declaration and write
+// target to its lexical symbol, so same-spelled bindings in sibling, nested,
+// and shadowing scopes remain independent. The rule records the declaration's
+// initialization plus subsequent writes, then reports bindings with exactly
+// one effective initialization.
+//
+// Declaration-only bindings are diagnostic-only. Rewriting `let value;` plus
+// a later `value = expression` requires moving comments and changing statement
+// structure, so the existing keyword edit stays limited to an initialized,
+// single-declarator list. ESLint canonical:
+// https://eslint.org/docs/latest/rules/prefer-const
 type preferConst struct{}
 
-func (preferConst) Name() string           { return "prefer-const" }
+type preferConstOptions struct {
+  Destructuring          string `json:"destructuring"`
+  IgnoreReadBeforeAssign bool   `json:"ignoreReadBeforeAssign"`
+}
+
+type preferConstWriteKind uint8
+
+const (
+  preferConstSimpleAssignment preferConstWriteKind = iota
+  preferConstReassignment
+)
+
+type preferConstWrite struct {
+  target     *shimast.Node
+  assignment *shimast.Node
+  kind       preferConstWriteKind
+}
+
+type preferConstCandidate struct {
+  symbol           *shimast.Symbol
+  nameNode         *shimast.Node
+  declaration      *shimast.Node
+  listNode         *shimast.Node
+  scope            *shimast.Node
+  declarationGroup *shimast.Node
+  initialized      bool
+  readBeforeAssign bool
+  invalid          bool
+  writes           []preferConstWrite
+}
+
+func (preferConst) Name() string { return "prefer-const" }
+func (preferConst) NeedsTypeChecker() bool {
+  return true
+}
 func (preferConst) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (preferConst) Check(ctx *Context, node *shimast.Node) {
-  type candidate struct {
-    name     string
-    node     *shimast.Node
-    listNode *shimast.Node
+  if ctx.Checker == nil {
+    return
   }
-  var candidates []candidate
-  assigned := map[string]bool{}
+
+  options := preferConstOptions{Destructuring: "any"}
+  _ = ctx.DecodeOptions(&options)
+  if options.Destructuring != "all" {
+    options.Destructuring = "any"
+  }
+
+  candidates := make([]*preferConstCandidate, 0)
+  bySymbol := make(map[*shimast.Symbol]*preferConstCandidate)
+  declarationNames := make(map[*shimast.Node]struct{})
+  candidateNames := make(map[string]struct{})
+  groups := make(map[*shimast.Node][]*preferConstCandidate)
 
   walkDescendants(node, func(child *shimast.Node) {
+    if child.Kind != shimast.KindVariableDeclaration {
+      return
+    }
+    decl := child.AsVariableDeclaration()
+    if decl == nil || child.Parent == nil || child.Parent.Kind != shimast.KindVariableDeclarationList {
+      return
+    }
+    listNode := child.Parent
+    if !shimast.IsLet(listNode) || preferConstIsForStatementInitializer(listNode) {
+      return
+    }
+
+    names := bindingIdentifierNodes(decl.Name())
+    if len(names) == 0 {
+      return
+    }
+    initialized := decl.Initializer != nil || preferConstIsForInOrOfInitializer(listNode)
+    destructuring := decl.Name() != nil && decl.Name().Kind != shimast.KindIdentifier
+    for _, nameNode := range names {
+      symbol := ctx.Checker.GetSymbolAtLocation(nameNode)
+      candidate := &preferConstCandidate{
+        symbol:      symbol,
+        nameNode:    nameNode,
+        declaration: child,
+        listNode:    listNode,
+        scope:       preferConstLexicalScope(nameNode),
+        initialized: initialized,
+      }
+      if destructuring {
+        candidate.declarationGroup = child
+        groups[child] = append(groups[child], candidate)
+      }
+      candidates = append(candidates, candidate)
+      declarationNames[nameNode] = struct{}{}
+      if name := identifierText(nameNode); name != "" {
+        candidateNames[name] = struct{}{}
+      }
+      if symbol == nil {
+        candidate.invalid = true
+        continue
+      }
+      if prior := bySymbol[symbol]; prior != nil {
+        // Duplicate lexical declarations are already a TypeScript error. Do
+        // not add a secondary const suggestion to either declaration.
+        prior.invalid = true
+        candidate.invalid = true
+        continue
+      }
+      bySymbol[symbol] = candidate
+    }
+  })
+
+  writeTargets := make(map[*shimast.Node]struct{})
+  walkDescendants(node, func(child *shimast.Node) {
     switch child.Kind {
-    case shimast.KindVariableDeclaration:
-      decl := child.AsVariableDeclaration()
-      if decl == nil || child.Parent == nil || child.Parent.Kind != shimast.KindVariableDeclarationList {
-        return
-      }
-      listNode := child.Parent
-      if !shimast.IsLet(listNode) {
-        return
-      }
-      name := identifierText(decl.Name())
-      if name == "" {
-        return
-      }
-      if !isConstEligibleLetDeclaration(child, decl) {
-        return
-      }
-      candidates = append(candidates, candidate{name: name, node: child, listNode: listNode})
     case shimast.KindBinaryExpression:
       expr := child.AsBinaryExpression()
-      if expr == nil || expr.OperatorToken == nil || !isAssignmentOperator(expr.OperatorToken.Kind) {
+      if expr == nil || expr.OperatorToken == nil || !isAssignmentOperator(expr.OperatorToken.Kind) ||
+        preferConstIsDestructuringDefaultAssignment(child) {
         return
       }
-      for _, name := range assignmentTargetNames(expr.Left) {
-        assigned[name] = true
+      kind := preferConstReassignment
+      if expr.OperatorToken.Kind == shimast.KindEqualsToken {
+        kind = preferConstSimpleAssignment
+      }
+      targets := assignmentTargetIdentifiers(expr.Left)
+      for _, target := range targets {
+        preferConstRecordWrite(ctx, bySymbol, writeTargets, target, child, kind)
+      }
+      if kind == preferConstSimpleAssignment && len(targets) > 1 {
+        for _, target := range targets {
+          symbol := preferConstValueSymbol(ctx, target)
+          if candidate := bySymbol[symbol]; candidate != nil {
+            groups[child] = appendPreferConstCandidate(groups[child], candidate)
+          }
+        }
       }
     case shimast.KindPrefixUnaryExpression:
       expr := child.AsPrefixUnaryExpression()
-      if expr == nil {
-        return
-      }
-      if expr.Operator == shimast.KindPlusPlusToken || expr.Operator == shimast.KindMinusMinusToken {
-        if name := identifierText(expr.Operand); name != "" {
-          assigned[name] = true
+      if expr != nil && (expr.Operator == shimast.KindPlusPlusToken || expr.Operator == shimast.KindMinusMinusToken) {
+        for _, target := range assignmentTargetIdentifiers(expr.Operand) {
+          preferConstRecordWrite(ctx, bySymbol, writeTargets, target, nil, preferConstReassignment)
         }
       }
     case shimast.KindPostfixUnaryExpression:
       expr := child.AsPostfixUnaryExpression()
-      if expr == nil {
-        return
-      }
-      if expr.Operator == shimast.KindPlusPlusToken || expr.Operator == shimast.KindMinusMinusToken {
-        if name := identifierText(expr.Operand); name != "" {
-          assigned[name] = true
+      if expr != nil && (expr.Operator == shimast.KindPlusPlusToken || expr.Operator == shimast.KindMinusMinusToken) {
+        for _, target := range assignmentTargetIdentifiers(expr.Operand) {
+          preferConstRecordWrite(ctx, bySymbol, writeTargets, target, nil, preferConstReassignment)
         }
       }
     case shimast.KindForOfStatement, shimast.KindForInStatement:
-      // `for (x of …)` / `for (x in …)` reassigns the existing binding `x`
-      // on every iteration. When the initializer IS a
-      // VariableDeclarationList (`for (const y of …)`) it declares a fresh
-      // binding instead, so only a non-declaration initializer counts as a
-      // reassignment target. Missing this lets a pre-existing `let` be
-      // rewritten to `const` that the loop then assigns to — a TS error and
-      // runtime TypeError.
       stmt := child.AsForInOrOfStatement()
-      if stmt == nil || stmt.Initializer == nil {
+      if stmt == nil || stmt.Initializer == nil || stmt.Initializer.Kind == shimast.KindVariableDeclarationList {
         return
       }
-      if stmt.Initializer.Kind == shimast.KindVariableDeclarationList {
-        return
-      }
-      for _, name := range assignmentTargetNames(stmt.Initializer) {
-        assigned[name] = true
+      for _, target := range assignmentTargetIdentifiers(stmt.Initializer) {
+        preferConstRecordWrite(ctx, bySymbol, writeTargets, target, nil, preferConstReassignment)
       }
     }
   })
 
-  for _, c := range candidates {
-    if !assigned[c.name] {
-      start := -1
-      if isSingleDeclarationList(c.listNode) {
-        start = keywordStart(ctx.File, c.listNode, "let")
+  // Only declaration-only candidates need read history. A read preceding the
+  // sole assignment changes the diagnostic location under the default option,
+  // and suppresses the diagnostic when ignoreReadBeforeAssign is enabled.
+  walkDescendants(node, func(child *shimast.Node) {
+    if child.Kind != shimast.KindIdentifier {
+      return
+    }
+    if _, ok := declarationNames[child]; ok {
+      return
+    }
+    if _, ok := writeTargets[child]; ok {
+      return
+    }
+    if _, ok := candidateNames[identifierText(child)]; !ok {
+      return
+    }
+    symbol := preferConstValueSymbol(ctx, child)
+    candidate := bySymbol[symbol]
+    if candidate == nil || candidate.initialized || len(candidate.writes) != 1 {
+      return
+    }
+    if child.Pos() < candidate.writes[0].target.Pos() {
+      candidate.readBeforeAssign = true
+    }
+  })
+
+  eligible := make(map[*preferConstCandidate]bool, len(candidates))
+  for _, candidate := range candidates {
+    eligible[candidate] = preferConstCandidateIsEligible(ctx, candidate, bySymbol, options)
+  }
+
+  for _, candidate := range candidates {
+    if !eligible[candidate] {
+      continue
+    }
+    group := candidate.declarationGroup
+    if group == nil && !candidate.initialized && len(candidate.writes) == 1 {
+      assignment := candidate.writes[0].assignment
+      if len(groups[assignment]) > 1 {
+        group = assignment
       }
-      if start >= 0 {
-        ctx.ReportFix(
-          c.node,
-          "Use const instead of let.",
-          TextEdit{Pos: start, End: start + len("let"), Text: "const"},
-        )
-      } else {
-        ctx.Report(c.node, "Use const instead of let.")
+    }
+    if options.Destructuring == "all" && group != nil && !preferConstGroupIsEligible(groups[group], eligible) {
+      continue
+    }
+
+    reportNode := candidate.nameNode
+    if !candidate.initialized && !candidate.readBeforeAssign && len(candidate.writes) == 1 {
+      reportNode = candidate.writes[0].target
+    }
+
+    start := -1
+    if candidate.initialized && isSingleDeclarationList(candidate.listNode) {
+      declarationGroup := groups[candidate.declaration]
+      if len(declarationGroup) == 0 || preferConstGroupIsEligible(declarationGroup, eligible) {
+        start = keywordStart(ctx.File, candidate.listNode, "let")
       }
+    }
+    if start >= 0 {
+      ctx.ReportFix(
+        reportNode,
+        "Use const instead of let.",
+        TextEdit{Pos: start, End: start + len("let"), Text: "const"},
+      )
+    } else {
+      ctx.Report(reportNode, "Use const instead of let.")
     }
   }
 }
 
-// isSingleDeclarationList reports whether the VariableDeclarationList node
-// declares exactly one binding, which is required before the `let` keyword
-// can safely be rewritten to `const` (a multi-binding list shares a single
-// keyword, so replacing just one binding's keyword is not valid).
+func preferConstRecordWrite(
+  ctx *Context,
+  bySymbol map[*shimast.Symbol]*preferConstCandidate,
+  writeTargets map[*shimast.Node]struct{},
+  target *shimast.Node,
+  assignment *shimast.Node,
+  kind preferConstWriteKind,
+) {
+  if target == nil || target.Kind != shimast.KindIdentifier {
+    return
+  }
+  symbol := preferConstValueSymbol(ctx, target)
+  candidate := bySymbol[symbol]
+  if candidate == nil {
+    return
+  }
+  candidate.writes = append(candidate.writes, preferConstWrite{
+    target:     target,
+    assignment: assignment,
+    kind:       kind,
+  })
+  writeTargets[target] = struct{}{}
+}
+
+func preferConstValueSymbol(ctx *Context, identifier *shimast.Node) *shimast.Symbol {
+  if ctx == nil || ctx.Checker == nil || identifier == nil {
+    return nil
+  }
+  if parent := identifier.Parent; parent != nil && parent.Kind == shimast.KindShorthandPropertyAssignment {
+    if shorthand := parent.AsShorthandPropertyAssignment(); shorthand != nil && shorthand.Name() == identifier {
+      return ctx.Checker.GetShorthandAssignmentValueSymbol(parent)
+    }
+  }
+  return ctx.Checker.GetSymbolAtLocation(identifier)
+}
+
+func preferConstCandidateIsEligible(
+  ctx *Context,
+  candidate *preferConstCandidate,
+  bySymbol map[*shimast.Symbol]*preferConstCandidate,
+  options preferConstOptions,
+) bool {
+  if candidate == nil || candidate.invalid || candidate.symbol == nil {
+    return false
+  }
+  if candidate.initialized {
+    return len(candidate.writes) == 0
+  }
+  if len(candidate.writes) != 1 || candidate.writes[0].kind != preferConstSimpleAssignment {
+    return false
+  }
+  if options.IgnoreReadBeforeAssign && candidate.readBeforeAssign {
+    return false
+  }
+  return preferConstAssignmentCanInitialize(ctx, candidate, candidate.writes[0], bySymbol)
+}
+
+func preferConstAssignmentCanInitialize(
+  ctx *Context,
+  candidate *preferConstCandidate,
+  write preferConstWrite,
+  bySymbol map[*shimast.Symbol]*preferConstCandidate,
+) bool {
+  assignment := write.assignment
+  if assignment == nil || assignment.Kind != shimast.KindBinaryExpression ||
+    candidate.scope == nil || candidate.scope != preferConstLexicalScope(write.target) {
+    return false
+  }
+  expr := assignment.AsBinaryExpression()
+  if expr == nil || expr.OperatorToken == nil || expr.OperatorToken.Kind != shimast.KindEqualsToken {
+    return false
+  }
+
+  statementOwner := assignment
+  for statementOwner.Parent != nil && statementOwner.Parent.Kind == shimast.KindParenthesizedExpression {
+    statementOwner = statementOwner.Parent
+  }
+  if statementOwner.Parent == nil || statementOwner.Parent.Kind != shimast.KindExpressionStatement {
+    return false
+  }
+  container := statementOwner.Parent.Parent
+  if container == nil {
+    return false
+  }
+  switch container.Kind {
+  case shimast.KindSourceFile,
+    shimast.KindBlock,
+    shimast.KindModuleBlock,
+    shimast.KindCaseClause,
+    shimast.KindDefaultClause:
+  default:
+    return false
+  }
+
+  if preferConstAssignmentTargetHasMember(expr.Left) {
+    return false
+  }
+  targets := assignmentTargetIdentifiers(expr.Left)
+  if len(targets) == 0 {
+    return false
+  }
+  for _, target := range targets {
+    symbol := preferConstValueSymbol(ctx, target)
+    grouped := bySymbol[symbol]
+    if symbol == nil || !preferConstSymbolIsLocalToScope(symbol, candidate.scope) ||
+      (grouped != nil && grouped.invalid) {
+      return false
+    }
+  }
+  return true
+}
+
+func preferConstSymbolIsLocalToScope(symbol *shimast.Symbol, scope *shimast.Node) bool {
+  if symbol == nil || scope == nil {
+    return false
+  }
+  for _, declaration := range symbol.Declarations {
+    if preferConstDeclarationScope(declaration) == scope {
+      return true
+    }
+  }
+  return false
+}
+
+// preferConstDeclarationScope returns the scope that owns a sibling target in
+// a destructuring assignment. Parameters cannot be folded into a declaration,
+// and `var` declarations hoist past ordinary blocks to their function-like
+// owner; every other declaration uses lexical scope.
+func preferConstDeclarationScope(declaration *shimast.Node) *shimast.Node {
+  if declaration == nil {
+    return nil
+  }
+  for ancestor := declaration; ancestor != nil; ancestor = ancestor.Parent {
+    if ancestor.Kind == shimast.KindParameter {
+      return nil
+    }
+    if isFunctionLikeKind(ancestor) {
+      break
+    }
+  }
+  for ancestor := declaration.Parent; ancestor != nil; ancestor = ancestor.Parent {
+    if ancestor.Kind != shimast.KindVariableDeclarationList {
+      continue
+    }
+    if !shimast.IsVar(ancestor) {
+      break
+    }
+    for scope := ancestor.Parent; scope != nil; scope = scope.Parent {
+      if scope.Kind == shimast.KindSourceFile || scope.Kind == shimast.KindModuleBlock ||
+        scope.Kind == shimast.KindClassStaticBlockDeclaration || isFunctionLikeKind(scope) {
+        return scope
+      }
+    }
+    return nil
+  }
+  return preferConstLexicalScope(declaration)
+}
+
+func preferConstAssignmentTargetHasMember(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindPropertyAccessExpression, shimast.KindElementAccessExpression:
+    return true
+  case shimast.KindParenthesizedExpression:
+    return preferConstAssignmentTargetHasMember(stripParens(node))
+  case shimast.KindNonNullExpression:
+    if expression := node.AsNonNullExpression(); expression != nil {
+      return preferConstAssignmentTargetHasMember(expression.Expression)
+    }
+  case shimast.KindArrayLiteralExpression:
+    if array := node.AsArrayLiteralExpression(); array != nil && array.Elements != nil {
+      for _, element := range array.Elements.Nodes {
+        if preferConstAssignmentTargetHasMember(element) {
+          return true
+        }
+      }
+    }
+  case shimast.KindObjectLiteralExpression:
+    if object := node.AsObjectLiteralExpression(); object != nil && object.Properties != nil {
+      for _, property := range object.Properties.Nodes {
+        if preferConstAssignmentTargetHasMember(property) {
+          return true
+        }
+      }
+    }
+  case shimast.KindSpreadElement:
+    if spread := node.AsSpreadElement(); spread != nil {
+      return preferConstAssignmentTargetHasMember(spread.Expression)
+    }
+  case shimast.KindSpreadAssignment:
+    if spread := node.AsSpreadAssignment(); spread != nil {
+      return preferConstAssignmentTargetHasMember(spread.Expression)
+    }
+  case shimast.KindPropertyAssignment:
+    if property := node.AsPropertyAssignment(); property != nil {
+      return preferConstAssignmentTargetHasMember(property.Initializer)
+    }
+  case shimast.KindBinaryExpression:
+    if expression := node.AsBinaryExpression(); expression != nil && expression.OperatorToken != nil &&
+      expression.OperatorToken.Kind == shimast.KindEqualsToken {
+      return preferConstAssignmentTargetHasMember(expression.Left)
+    }
+  // A shorthand property assignment writes its name. Its optional object
+  // assignment initializer is a default-value read, so member access there
+  // does not make the destructuring target unsafe.
+  case shimast.KindShorthandPropertyAssignment, shimast.KindIdentifier:
+    return false
+  }
+  return false
+}
+
+func preferConstGroupIsEligible(group []*preferConstCandidate, eligible map[*preferConstCandidate]bool) bool {
+  if len(group) == 0 {
+    return false
+  }
+  for _, candidate := range group {
+    if !eligible[candidate] {
+      return false
+    }
+  }
+  return true
+}
+
+func appendPreferConstCandidate(group []*preferConstCandidate, candidate *preferConstCandidate) []*preferConstCandidate {
+  for _, existing := range group {
+    if existing == candidate {
+      return group
+    }
+  }
+  return append(group, candidate)
+}
+
+func bindingIdentifierNodes(node *shimast.Node) []*shimast.Node {
+  if node == nil {
+    return nil
+  }
+  if node.Kind == shimast.KindIdentifier {
+    return []*shimast.Node{node}
+  }
+  pattern := node.AsBindingPattern()
+  if pattern == nil || pattern.Elements == nil {
+    return nil
+  }
+  var identifiers []*shimast.Node
+  for _, elementNode := range pattern.Elements.Nodes {
+    element := elementNode.AsBindingElement()
+    if element != nil {
+      identifiers = append(identifiers, bindingIdentifierNodes(element.Name())...)
+    }
+  }
+  return identifiers
+}
+
+func preferConstIsForStatementInitializer(listNode *shimast.Node) bool {
+  return listNode != nil && listNode.Parent != nil && listNode.Parent.Kind == shimast.KindForStatement
+}
+
+func preferConstIsForInOrOfInitializer(listNode *shimast.Node) bool {
+  if listNode == nil || listNode.Parent == nil {
+    return false
+  }
+  return listNode.Parent.Kind == shimast.KindForInStatement || listNode.Parent.Kind == shimast.KindForOfStatement
+}
+
+// preferConstIsDestructuringDefaultAssignment distinguishes the `a = 1`
+// syntax inside `[a = 1]` or `{a = 1}` from a second assignment. The default
+// node sits on the outer assignment's left-hand pattern path. A real assignment
+// inside the default expression's right side leaves that path and is counted.
+func preferConstIsDestructuringDefaultAssignment(node *shimast.Node) bool {
+  current := node
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    switch parent.Kind {
+    case shimast.KindParenthesizedExpression,
+      shimast.KindArrayLiteralExpression,
+      shimast.KindObjectLiteralExpression,
+      shimast.KindPropertyAssignment,
+      shimast.KindSpreadElement,
+      shimast.KindSpreadAssignment:
+      current = parent
+      continue
+    case shimast.KindShorthandPropertyAssignment:
+      // A shorthand's optional initializer is a read expression rather than
+      // part of the assignment target. Any binary expression nested there is
+      // a real write and must not inherit the outer destructuring assignment.
+      return false
+    case shimast.KindBinaryExpression:
+      expr := parent.AsBinaryExpression()
+      return expr != nil && expr.OperatorToken != nil && isAssignmentOperator(expr.OperatorToken.Kind) &&
+        current.Pos() >= expr.Left.Pos() && current.End() <= expr.Left.End()
+    default:
+      return false
+    }
+  }
+  return false
+}
+
+func preferConstLexicalScope(node *shimast.Node) *shimast.Node {
+  if node == nil {
+    return nil
+  }
+  for ancestor := node.Parent; ancestor != nil; ancestor = ancestor.Parent {
+    if isFunctionLikeKind(ancestor) {
+      return ancestor
+    }
+    switch ancestor.Kind {
+    case shimast.KindSourceFile,
+      shimast.KindModuleBlock,
+      shimast.KindCaseBlock,
+      shimast.KindForStatement,
+      shimast.KindForInStatement,
+      shimast.KindForOfStatement,
+      shimast.KindCatchClause,
+      shimast.KindClassStaticBlockDeclaration,
+      shimast.KindPropertyDeclaration:
+      return ancestor
+    case shimast.KindBlock:
+      if ancestor.Parent != nil && (isFunctionLikeKind(ancestor.Parent) ||
+        ancestor.Parent.Kind == shimast.KindClassStaticBlockDeclaration) {
+        return ancestor.Parent
+      }
+      return ancestor
+    }
+  }
+  return nil
+}
+
+// isSingleDeclarationList reports whether the VariableDeclarationList contains
+// exactly one declarator. Multiple comma-separated declarators share one
+// keyword, so replacing it for only one declarator is not valid. One
+// destructuring declarator may still contain several bindings; preferConst
+// separately requires every affected binding to be eligible before fixing it.
 func isSingleDeclarationList(node *shimast.Node) bool {
   if node == nil {
     return false
   }
   list := node.AsVariableDeclarationList()
   return list != nil && list.Declarations != nil && len(list.Declarations.Nodes) == 1
-}
-
-// isConstEligibleLetDeclaration reports whether a `let` VariableDeclaration
-// node is eligible for preferConst analysis. A declaration is eligible when:
-//   - it has an initializer (the value is set immediately), or
-//   - it is the loop variable of a for-in or for-of statement (e.g. `for (let k of m)`).
-//
-// For-statement initializers (`for (let i = 0; …)`) are eligible only when
-// the declaration list is a single binding; the loop index is a well-known
-// reassignment target so multi-binding for-statement lists are excluded.
-func isConstEligibleLetDeclaration(node *shimast.Node, decl *shimast.VariableDeclaration) bool {
-  if decl.Initializer != nil {
-    if node.Parent != nil && node.Parent.Parent != nil && node.Parent.Parent.Kind == shimast.KindForStatement {
-      list := node.Parent.AsVariableDeclarationList()
-      return list == nil || list.Declarations == nil || len(list.Declarations.Nodes) == 1
-    }
-    return true
-  }
-  return node.Parent != nil && node.Parent.Parent != nil &&
-    (node.Parent.Parent.Kind == shimast.KindForInStatement || node.Parent.Parent.Kind == shimast.KindForOfStatement)
 }
 
 // noUndefInit: forbid `let x = undefined` and `var x = undefined`.

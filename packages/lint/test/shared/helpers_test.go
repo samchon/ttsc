@@ -399,7 +399,7 @@ func isBenignContributorCollisionWarning(stderr string) bool {
 // Fixer tests need the real file-writing path, not just in-memory edit
 // selection, because RunFix reloads a fresh Program from disk after every pass.
 //
-// 1. Materialize a real source file and parse it through the shim parser.
+// 1. Materialize a real source file and load the AST or checker path the rule requires.
 // 2. Run one enabled rule and apply collected text edits to disk.
 // 3. Compare the rewritten source exactly.
 func assertFixSnapshot(t *testing.T, ruleName, source, expected string) {
@@ -432,11 +432,7 @@ func assertNoFixSnapshot(t *testing.T, ruleName, source string) {
 // that previously fired on the wrong shape and corrupted source.
 func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
   t.Helper()
-  root := t.TempDir()
-  filePath := filepath.Join(root, "src", "main.ts")
-  writeFile(t, filePath, source)
-  file := parseTSFile(t, filePath, source)
-  findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
   if len(findings) != 0 {
     t.Fatalf("%s: expected zero findings, got %d (%+v)", ruleName, len(findings), findings)
   }
@@ -447,18 +443,10 @@ func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
 // Mirrors `assertFixSnapshot`; option-gated sibling of
 // `assertRuleSkipsSourceWithOptions`. Cannot delegate to `runFixSnapshot`
 // because that path uses the default `NewEngine` rather than
-// `NewEngineWithResolver`, so the resolver wiring is inlined here.
+// `NewEngineWithResolver`; the shared findings loader selects the resolver.
 func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expected string) {
   t.Helper()
-  root := t.TempDir()
-  filePath := filepath.Join(root, "src", "main.ts")
-  writeFile(t, filePath, source)
-  file := parseTSFile(t, filePath, source)
-  resolver := InlineRuleResolver{
-    Rules:   RuleConfig{ruleName: SeverityError},
-    Options: RuleOptionsMap{ruleName: json.RawMessage(optsJSON)},
-  }
-  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  root, filePath, findings := runRuleFindingsSnapshot(t, ruleName, source, json.RawMessage(optsJSON))
   if len(findings) == 0 {
     t.Fatalf("%s: expected at least one finding", ruleName)
   }
@@ -485,15 +473,7 @@ func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expe
 // to inline `InlineRuleResolver` + `NewEngineWithResolver` boilerplate.
 func assertRuleSkipsSourceWithOptions(t *testing.T, ruleName, source, optsJSON string) {
   t.Helper()
-  root := t.TempDir()
-  filePath := filepath.Join(root, "src", "main.ts")
-  writeFile(t, filePath, source)
-  file := parseTSFile(t, filePath, source)
-  resolver := InlineRuleResolver{
-    Rules:   RuleConfig{ruleName: SeverityError},
-    Options: RuleOptionsMap{ruleName: json.RawMessage(optsJSON)},
-  }
-  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, json.RawMessage(optsJSON))
   if len(findings) != 0 {
     t.Fatalf("%s: expected zero findings, got %d (%+v)", ruleName, len(findings), findings)
   }
@@ -501,11 +481,7 @@ func assertRuleSkipsSourceWithOptions(t *testing.T, ruleName, source, optsJSON s
 
 func runFixSnapshot(t *testing.T, ruleName, source string) (string, int) {
   t.Helper()
-  root := t.TempDir()
-  filePath := filepath.Join(root, "src", "main.ts")
-  writeFile(t, filePath, source)
-  file := parseTSFile(t, filePath, source)
-  findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  root, filePath, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
   if len(findings) == 0 {
     t.Fatalf("%s: expected at least one finding", ruleName)
   }
@@ -518,4 +494,49 @@ func runFixSnapshot(t *testing.T, ruleName, source string) (string, int) {
     t.Fatalf("%s: ReadFile: %v", ruleName, err)
   }
   return string(got), fixed
+}
+
+// runRuleFindingsSnapshot runs one rule against a disk-backed source file.
+// AST-only rules keep the parser-only fast path; type-aware rules receive a
+// real Program and checker so fixer tests exercise the same binding identity
+// as command, LSP, and CLI execution.
+func runRuleFindingsSnapshot(
+  t *testing.T,
+  ruleName string,
+  source string,
+  options json.RawMessage,
+) (string, string, []*Finding) {
+  t.Helper()
+  var engine *Engine
+  if len(options) == 0 {
+    engine = NewEngine(RuleConfig{ruleName: SeverityError})
+  } else {
+    engine = NewEngineWithResolver(InlineRuleResolver{
+      Rules:   RuleConfig{ruleName: SeverityError},
+      Options: RuleOptionsMap{ruleName: options},
+    })
+  }
+
+  if !engine.NeedsTypeChecker() {
+    root := t.TempDir()
+    filePath := filepath.Join(root, "src", "main.ts")
+    writeFile(t, filePath, source)
+    file := parseTSFile(t, filePath, source)
+    return root, filePath, engine.Run([]*shimast.SourceFile{file}, nil)
+  }
+
+  root := seedLintProject(t, source)
+  filePath := filepath.Join(root, "src", "main.ts")
+  program, diagnostics, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
+    forceNoEmit:      true,
+    needsRuleChecker: true,
+  })
+  if err != nil {
+    t.Fatalf("%s: loadProgram: %v", ruleName, err)
+  }
+  if program == nil {
+    t.Fatalf("%s: loadProgram returned no program (%+v)", ruleName, diagnostics)
+  }
+  defer program.close()
+  return root, filePath, engine.Run(program.userSourceFiles(), program.checker)
 }
