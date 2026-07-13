@@ -116,7 +116,8 @@ func applyEditorSettings(out map[string]any, settings map[string]any) {
 // as "[typescript]" or "[javascript][typescript][json]". Each full selector is
 // one override scope; its identifiers are used only to determine whether that
 // scope applies to the requested language. Identifiers are trimmed and
-// deduplicated before exact-versus-combined precedence is decided.
+// deduplicated, and empty normalized identifiers are discarded, before
+// exact-versus-combined precedence is decided.
 func languageSectionIdentifiers(key string) ([]string, bool) {
   identifiers := []string{}
   for len(key) != 0 {
@@ -124,12 +125,13 @@ func languageSectionIdentifiers(key string) ([]string, bool) {
       return nil, false
     }
     close := strings.IndexByte(key, ']')
-    if close <= 1 || strings.ContainsRune(key[1:close], '[') {
+    if close <= 1 {
       return nil, false
     }
     identifier := strings.TrimSpace(key[1:close])
     if identifier == "" {
-      return nil, false
+      key = key[close+1:]
+      continue
     }
     if !languageSectionContains(identifiers, identifier) {
       identifiers = append(identifiers, identifier)
