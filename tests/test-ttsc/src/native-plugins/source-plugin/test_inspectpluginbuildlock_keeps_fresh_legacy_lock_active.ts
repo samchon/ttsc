@@ -29,8 +29,9 @@ export const test_inspectpluginbuildlock_keeps_fresh_legacy_lock_active =
 
     const observation = inspectPluginBuildLock(lockDir, Date.now());
 
-    assert.deepEqual(observation, {
-      state: "active",
-      owner: "legacy lock with no owner.json",
-    });
+    assert.equal(observation.state, "active");
+    if (observation.state !== "active") return;
+    assert.equal(observation.owner, "legacy lock with no owner.json");
+    assert.equal(observation.fence.protocol, "legacy");
+    assert.match(observation.fence.generation, /^[0-9a-f]{32}$/);
   };

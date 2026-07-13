@@ -146,7 +146,19 @@ Check:
 
 ## Concurrency
 
-Concurrent `ttsc` processes may build the same missing key at the same time. Scratch directories are unique, and the final move is atomic. This is wasteful but safe.
+Concurrent `ttsc` processes serialize a cold build per cache key. The
+`<key>.lock` coordination directory publishes a uniquely generated, non-empty
+`current` directory with an atomic rename. Waiters reuse the published binary;
+when an owner dies or times out, one waiter atomically retires that exact
+generation before acquiring its successor.
+
+Retired generations remain as non-empty tombstones inside the lock directory.
+Both reclaim and normal release rename `current` to the generation's fixed
+tombstone path, so a delayed observer or old holder cannot remove a newer
+generation: its destination already exists and a directory rename cannot
+replace it. Legacy pre-generation locks are fenced and retired to an adjacent
+tombstone before the v2 directory is initialized. Scratch directories remain
+unique and binary publication remains atomic as defense in depth.
 
 ## See also
 

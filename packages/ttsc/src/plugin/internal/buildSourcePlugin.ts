@@ -107,6 +107,12 @@ const PLUGIN_BUILD_LOCK_POLL_MS = 50;
 const PLUGIN_BUILD_LOCK_LEGACY_STALE_MS = 30_000;
 const PLUGIN_BUILD_LOCK_STATUS_MS = 30_000;
 const PLUGIN_BUILD_LOCK_OWNER_FILE = "owner.json";
+const PLUGIN_BUILD_LOCK_PROTOCOL_FILE = "protocol-v2";
+const PLUGIN_BUILD_LOCK_GENERATION_FILE = "generation";
+const PLUGIN_BUILD_LOCK_LEGACY_FENCE_FILE = "legacy-generation.json";
+const PLUGIN_BUILD_LOCK_CURRENT_DIR = "current";
+const PLUGIN_BUILD_LOCK_RETIRED_DIR = "retired";
+const PLUGIN_BUILD_LOCK_PROTOCOL = "ttsc-plugin-build-lock-v2\n";
 // The default cache lives INSIDE the workspace, at
 // `<workspaceRoot>/node_modules/.cache/ttsc`, so `rm -rf node_modules` (or
 // deleting the repo) reclaims every compiled plugin binary and Go object file.
@@ -289,25 +295,24 @@ function compileSourcePlugin(opts: {
  * cache key, so concurrent fan-out (parallel suites, a benchmark, a worker
  * pool) runs the `go build` once instead of once per process.
  *
- * The lock is an atomic `mkdir` on `<cacheDir>.lock`. The winner builds and
- * publishes the binary; every loser polls for that binary to appear and reuses
- * it. A loser distinguishes two ways the lock can stop blocking it:
+ * `<cacheDir>.lock` is a persistent coordination directory. A contender writes
+ * a non-empty candidate and atomically renames it to `current`; only one rename
+ * wins. The winner builds and publishes while every loser polls and reuses the
+ * resulting binary. A loser distinguishes two ways a generation stops blocking:
  *
- * - `released`: the holder removed the lock itself — it published, or its build
- *   threw and its `finally` freed the key. The loser simply retries the
+ * - `released`: the holder retired `current` itself — it published, or its
+ *   build threw and its `finally` freed the key. The loser simply retries the
  *   ordinary acquisition; nothing is stale and nothing is reported.
- * - `abandoned`: the lock still exists but its owner is provably dead, it is an
- *   old metadata-less legacy lock, or the wait budget
+ * - `abandoned`: `current` still exists but its owner is provably dead, it is
+ *   an old metadata-less legacy lock, or the wait budget
  *   (`PLUGIN_BUILD_LOCK_STEAL_MS`) expired. Only then does the loser report and
- *   steal the lock before retrying.
+ *   retire precisely that generation before retrying.
  *
- * This is the same shape as `withBuildLock` in the runtime hooks, keyed on the
- * plugin binary's existence instead of a JSON meta marker.
- *
- * Correctness still rests on `publishBuiltBinary`'s atomic rename: the lock is
- * an optimisation to avoid duplicate work, not the only guard against a corrupt
- * binary, so a stolen lock that races a slow builder cannot ship a half-written
- * file.
+ * Retired generations remain as non-empty tombstones. Release and reclaim both
+ * rename `current` to the observed generation's deterministic tombstone path.
+ * Once generation A is retired, a stale observer or old finalizer for A cannot
+ * rename successor B there because replacing the non-empty tombstone fails
+ * atomically. `publishBuiltBinary`'s atomic rename remains defense in depth.
  */
 function buildUnderPluginLock(
   cacheDir: string,
@@ -325,20 +330,15 @@ function buildUnderPluginLock(
       touchCacheEntry(cacheDir);
       return binaryPath;
     }
+    let lease: PluginBuildLockLease | null;
     try {
-      // Plain mkdir (no `recursive`): recursive mode is idempotent and would
-      // not throw EEXIST, defeating the lock. The parent `cacheDir` already
-      // exists, so a single-level mkdir is all that is needed and its EEXIST
-      // is exactly the "someone else holds the lock" signal.
-      fs.mkdirSync(lockDir);
-      writePluginBuildLockOwner(lockDir);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-        // A lock dir we cannot create for an unexpected reason (e.g. a
-        // read-only cache) must not silently skip the build. Fall back to an
-        // unlocked build — correctness is preserved by the atomic publish.
-        return build();
-      }
+      lease = acquirePluginBuildLock(lockDir);
+    } catch {
+      // An unusable coordination directory must not silently skip the build.
+      // Atomic publication still preserves binary integrity.
+      return build();
+    }
+    if (lease === null) {
       const waited = waitForPluginBinary({
         binaryPath,
         lockDir,
@@ -350,9 +350,10 @@ function buildUnderPluginLock(
         return binaryPath;
       }
       if (waited.outcome === "abandoned") {
-        // Builder appears to have crashed: steal the abandoned lock and retry.
+        // Retire only the generation that produced this observation. Losing
+        // the rename race means another waiter already made progress.
         reportPluginLockSteal(lockDir, binaryPath, lockInfo, waited.reason);
-        fs.rmSync(lockDir, { force: true, recursive: true });
+        reclaimPluginBuildLock(lockDir, waited.fence);
       }
       // "released" needs no repair: the holder freed the key normally (its
       // build published or failed), so retry the ordinary atomic acquisition.
@@ -368,9 +369,197 @@ function buildUnderPluginLock(
       }
       return build();
     } finally {
-      fs.rmSync(lockDir, { force: true, recursive: true });
+      releasePluginBuildLock(lockDir, lease);
     }
   }
+}
+
+/** Opaque identity of one observed lock generation. */
+export type PluginBuildLockFence = {
+  protocol: "legacy" | "v2";
+  generation: string;
+};
+
+/** Ownership token returned only to the process that acquired `current`. */
+export type PluginBuildLockLease = {
+  protocol: "v2";
+  generation: string;
+};
+
+/**
+ * Atomically acquire the current generation in a v2 coordination directory.
+ *
+ * A non-empty candidate is renamed to `current`. Directory rename cannot
+ * replace a non-empty `current`, so exactly one contender wins without an
+ * empty-owner publication window. `null` means either another v2 holder won or
+ * the path is a legacy lock that must be observed before it can be reclaimed.
+ *
+ * Exported for deterministic multi-process tests.
+ */
+export function acquirePluginBuildLock(
+  lockDir: string,
+): PluginBuildLockLease | null {
+  if (!ensurePluginBuildLockProtocol(lockDir)) {
+    return null;
+  }
+
+  const generation = crypto.randomBytes(16).toString("hex");
+  const candidateDir = path.join(lockDir, `candidate-${generation}`);
+  fs.mkdirSync(candidateDir);
+  try {
+    fs.writeFileSync(
+      path.join(candidateDir, PLUGIN_BUILD_LOCK_GENERATION_FILE),
+      `${generation}\n`,
+      { encoding: "utf8", flag: "wx" },
+    );
+    writePluginBuildLockOwner(candidateDir, generation);
+    try {
+      fs.renameSync(
+        candidateDir,
+        path.join(lockDir, PLUGIN_BUILD_LOCK_CURRENT_DIR),
+      );
+    } catch (error) {
+      if (
+        isMissingPathError(error) ||
+        isRenameDestinationOccupied(
+          error,
+          path.join(lockDir, PLUGIN_BUILD_LOCK_CURRENT_DIR),
+        )
+      ) {
+        return null;
+      }
+      throw error;
+    }
+    return { protocol: "v2", generation };
+  } finally {
+    // The candidate name contains this process's random generation and can
+    // never alias `current` or another contender's candidate.
+    fs.rmSync(candidateDir, { force: true, recursive: true });
+  }
+}
+
+/** Retire a held generation during the holder's `finally`. */
+export function releasePluginBuildLock(
+  lockDir: string,
+  lease: PluginBuildLockLease,
+): boolean {
+  return retireV2PluginBuildLock(lockDir, lease.generation);
+}
+
+/**
+ * Retire exactly the generation carried by an abandoned observation.
+ *
+ * Exported for deterministic multi-process tests.
+ */
+export function reclaimPluginBuildLock(
+  lockDir: string,
+  fence: PluginBuildLockFence,
+): boolean {
+  if (fence.protocol === "v2") {
+    return retireV2PluginBuildLock(lockDir, fence.generation);
+  }
+  return retireLegacyPluginBuildLock(lockDir, fence.generation);
+}
+
+function ensurePluginBuildLockProtocol(lockDir: string): boolean {
+  try {
+    fs.mkdirSync(lockDir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+      throw error;
+    }
+    return isPluginBuildLockProtocolV2(lockDir);
+  }
+
+  fs.mkdirSync(path.join(lockDir, PLUGIN_BUILD_LOCK_RETIRED_DIR));
+  fs.writeFileSync(
+    path.join(lockDir, PLUGIN_BUILD_LOCK_PROTOCOL_FILE),
+    PLUGIN_BUILD_LOCK_PROTOCOL,
+    { encoding: "utf8", flag: "wx" },
+  );
+  return true;
+}
+
+function isPluginBuildLockProtocolV2(lockDir: string): boolean {
+  try {
+    return (
+      fs.readFileSync(
+        path.join(lockDir, PLUGIN_BUILD_LOCK_PROTOCOL_FILE),
+        "utf8",
+      ) === PLUGIN_BUILD_LOCK_PROTOCOL
+    );
+  } catch {
+    return false;
+  }
+}
+
+function retireV2PluginBuildLock(
+  lockDir: string,
+  generation: string,
+): boolean {
+  if (!isPluginBuildLockGeneration(generation)) return false;
+  const retiredDir = path.join(lockDir, PLUGIN_BUILD_LOCK_RETIRED_DIR);
+  try {
+    fs.mkdirSync(retiredDir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+      if (isMissingPathError(error)) return false;
+      throw error;
+    }
+  }
+
+  const destination = path.join(retiredDir, generation);
+  try {
+    fs.renameSync(
+      path.join(lockDir, PLUGIN_BUILD_LOCK_CURRENT_DIR),
+      destination,
+    );
+    return true;
+  } catch (error) {
+    if (
+      isMissingPathError(error) ||
+      isRenameDestinationOccupied(error, destination)
+    ) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function retireLegacyPluginBuildLock(
+  lockDir: string,
+  generation: string,
+): boolean {
+  if (!isPluginBuildLockGeneration(generation)) return false;
+  const destination = `${lockDir}.retired-${generation}`;
+  try {
+    fs.renameSync(lockDir, destination);
+    return true;
+  } catch (error) {
+    if (
+      isMissingPathError(error) ||
+      isRenameDestinationOccupied(error, destination)
+    ) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function isMissingPathError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException).code;
+  return code === "ENOENT" || code === "ENOTDIR";
+}
+
+function isRenameDestinationOccupied(
+  error: unknown,
+  destination: string,
+): boolean {
+  const code = (error as NodeJS.ErrnoException).code;
+  if (code === "EEXIST" || code === "ENOTEMPTY") {
+    return true;
+  }
+  return (code === "EACCES" || code === "EPERM") && fs.existsSync(destination);
 }
 
 /**
@@ -389,7 +578,11 @@ function buildUnderPluginLock(
 export type PluginBinaryWaitResult =
   | { outcome: "published" }
   | { outcome: "released" }
-  | { outcome: "abandoned"; reason: string };
+  | {
+      outcome: "abandoned";
+      reason: string;
+      fence: PluginBuildLockFence;
+    };
 
 /**
  * Poll for the locked builder to publish its binary, up to `timeoutMs`.
@@ -424,12 +617,17 @@ export function waitForPluginBinary(opts: {
         : { outcome: "released" };
     }
     if (lock.state === "abandoned") {
-      return { outcome: "abandoned", reason: lock.reason };
+      return {
+        outcome: "abandoned",
+        reason: lock.reason,
+        fence: lock.fence,
+      };
     }
     if (now - startedAt > opts.timeoutMs) {
       return {
         outcome: "abandoned",
         reason: `timed out after ${formatDuration(now - startedAt)}`,
+        fence: lock.fence,
       };
     }
     if (!opts.lockInfo.quiet && now >= nextStatusAt) {
@@ -446,24 +644,24 @@ export function waitForPluginBinary(opts: {
   }
 }
 
-function writePluginBuildLockOwner(lockDir: string): void {
-  try {
-    fs.writeFileSync(
-      path.join(lockDir, PLUGIN_BUILD_LOCK_OWNER_FILE),
-      `${JSON.stringify(
-        {
-          hostname: os.hostname(),
-          pid: process.pid,
-          startedAt: new Date().toISOString(),
-        },
-        null,
-        2,
-      )}\n`,
-      "utf8",
-    );
-  } catch {
-    // Best-effort metadata: the mkdir lock still serializes the build.
-  }
+function writePluginBuildLockOwner(
+  generationDir: string,
+  generation: string,
+): void {
+  fs.writeFileSync(
+    path.join(generationDir, PLUGIN_BUILD_LOCK_OWNER_FILE),
+    `${JSON.stringify(
+      {
+        generation,
+        hostname: os.hostname(),
+        pid: process.pid,
+        startedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
 }
 
 /**
@@ -481,8 +679,16 @@ function writePluginBuildLockOwner(lockDir: string): void {
  * Exported for unit tests.
  */
 export type PluginBuildLockObservation =
-  | { state: "active"; owner: string }
-  | { state: "abandoned"; reason: string }
+  | {
+      state: "active";
+      owner: string;
+      fence: PluginBuildLockFence;
+    }
+  | {
+      state: "abandoned";
+      reason: string;
+      fence: PluginBuildLockFence;
+    }
   | { state: "released" };
 
 /**
@@ -494,22 +700,55 @@ export function inspectPluginBuildLock(
   lockDir: string,
   now: number,
 ): PluginBuildLockObservation {
-  const owner = readPluginBuildLockOwner(lockDir);
+  for (;;) {
+    if (isPluginBuildLockProtocolV2(lockDir)) {
+      return inspectV2PluginBuildLock(lockDir, now);
+    }
+    const legacy = captureLegacyPluginBuildLockFence(lockDir);
+    if (legacy !== null) {
+      return inspectLegacyPluginBuildLock(lockDir, now, legacy);
+    }
+    if (pluginBuildLockAgeMs(lockDir, now) === null) {
+      return { state: "released" };
+    }
+    // The path changed while its legacy fence was being captured. Re-observe
+    // the replacement rather than attaching the old state to a new owner.
+  }
+}
+
+function inspectV2PluginBuildLock(
+  lockDir: string,
+  now: number,
+): PluginBuildLockObservation {
+  const generationDir = path.join(lockDir, PLUGIN_BUILD_LOCK_CURRENT_DIR);
+  const generation = readPluginBuildLockGeneration(generationDir);
+  if (generation === null) {
+    if (pluginBuildLockAgeMs(generationDir, now) === null) {
+      return { state: "released" };
+    }
+    throw new Error(
+      `ttsc plugin build lock has no valid ${PLUGIN_BUILD_LOCK_GENERATION_FILE}: ${generationDir}`,
+    );
+  }
+  const fence: PluginBuildLockFence = { protocol: "v2", generation };
+  const owner = readPluginBuildLockOwner(generationDir);
   if (owner !== null) {
     const label = describePluginBuildLockOwner(owner);
     if (isLocalHostName(owner.hostname) && !isProcessAlive(owner.pid)) {
       return {
         state: "abandoned",
         reason: `${label} is no longer running`,
+        fence,
       };
     }
     return {
       state: "active",
       owner: label,
+      fence,
     };
   }
 
-  const ageMs = pluginBuildLockAgeMs(lockDir, now);
+  const ageMs = pluginBuildLockAgeMs(generationDir, now);
   if (ageMs === null) {
     return { state: "released" };
   }
@@ -517,14 +756,159 @@ export function inspectPluginBuildLock(
     return {
       state: "abandoned",
       reason:
+        `lock generation has no ${PLUGIN_BUILD_LOCK_OWNER_FILE} and is ` +
+        `${formatDuration(ageMs)} old`,
+      fence,
+    };
+  }
+  return {
+    state: "active",
+    owner: `lock generation with no ${PLUGIN_BUILD_LOCK_OWNER_FILE}`,
+    fence,
+  };
+}
+
+interface LegacyPluginBuildLockFence {
+  fence: PluginBuildLockFence;
+  legacyMtimeMs: number;
+}
+
+function inspectLegacyPluginBuildLock(
+  lockDir: string,
+  now: number,
+  legacy: LegacyPluginBuildLockFence,
+): PluginBuildLockObservation {
+  const owner = readPluginBuildLockOwner(lockDir);
+  if (owner !== null) {
+    const label = describePluginBuildLockOwner(owner);
+    if (isLocalHostName(owner.hostname) && !isProcessAlive(owner.pid)) {
+      return {
+        state: "abandoned",
+        reason: `${label} is no longer running`,
+        fence: legacy.fence,
+      };
+    }
+    return {
+      state: "active",
+      owner: label,
+      fence: legacy.fence,
+    };
+  }
+
+  const ageMs = Math.max(0, now - legacy.legacyMtimeMs);
+  if (ageMs > PLUGIN_BUILD_LOCK_LEGACY_STALE_MS) {
+    return {
+      state: "abandoned",
+      reason:
         `legacy lock has no ${PLUGIN_BUILD_LOCK_OWNER_FILE} and is ` +
         `${formatDuration(ageMs)} old`,
+      fence: legacy.fence,
     };
   }
   return {
     state: "active",
     owner: `legacy lock with no ${PLUGIN_BUILD_LOCK_OWNER_FILE}`,
+    fence: legacy.fence,
   };
+}
+
+function captureLegacyPluginBuildLockFence(
+  lockDir: string,
+): LegacyPluginBuildLockFence | null {
+  if (isPluginBuildLockProtocolV2(lockDir)) {
+    return null;
+  }
+
+  let legacyMtimeMs: number;
+  try {
+    legacyMtimeMs = fs.statSync(lockDir).mtimeMs;
+  } catch (error) {
+    if (isMissingPathError(error)) return null;
+    throw error;
+  }
+
+  const file = path.join(lockDir, PLUGIN_BUILD_LOCK_LEGACY_FENCE_FILE);
+  let captured = readLegacyPluginBuildLockFence(file);
+  if (captured === null) {
+    const generation = crypto.randomBytes(16).toString("hex");
+    try {
+      fs.writeFileSync(
+        file,
+        `${JSON.stringify({ generation, legacyMtimeMs })}\n`,
+        { encoding: "utf8", flag: "wx" },
+      );
+      captured = {
+        fence: { protocol: "legacy", generation },
+        legacyMtimeMs,
+      };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+        captured = readLegacyPluginBuildLockFence(file);
+      } else if (isMissingPathError(error)) {
+        return null;
+      } else {
+        throw error;
+      }
+    }
+  }
+  if (captured === null) {
+    throw new Error(`invalid legacy plugin build lock fence: ${file}`);
+  }
+
+  // A stale observer can resume after another process replaced the legacy
+  // path with a v2 root. Confirm both the layout and token after publication.
+  const confirmed = readLegacyPluginBuildLockFence(file);
+  if (
+    isPluginBuildLockProtocolV2(lockDir) ||
+    confirmed === null ||
+    confirmed.fence.generation !== captured.fence.generation
+  ) {
+    return null;
+  }
+  return captured;
+}
+
+function readLegacyPluginBuildLockFence(
+  file: string,
+): LegacyPluginBuildLockFence | null {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    if (
+      !isPluginBuildLockGeneration(parsed.generation) ||
+      typeof parsed.legacyMtimeMs !== "number" ||
+      !Number.isFinite(parsed.legacyMtimeMs) ||
+      parsed.legacyMtimeMs < 0
+    ) {
+      return null;
+    }
+    return {
+      fence: { protocol: "legacy", generation: parsed.generation },
+      legacyMtimeMs: parsed.legacyMtimeMs,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readPluginBuildLockGeneration(generationDir: string): string | null {
+  try {
+    const generation = fs
+      .readFileSync(
+        path.join(generationDir, PLUGIN_BUILD_LOCK_GENERATION_FILE),
+        "utf8",
+      )
+      .trim();
+    return isPluginBuildLockGeneration(generation) ? generation : null;
+  } catch {
+    return null;
+  }
+}
+
+function isPluginBuildLockGeneration(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{32}$/.test(value);
 }
 
 function readPluginBuildLockOwner(
@@ -2190,7 +2574,11 @@ function collectPluginCacheEntries(
     return entries;
   }
   for (const dirent of dirents) {
-    if (!dirent.isDirectory()) {
+    if (
+      !dirent.isDirectory() ||
+      dirent.name.endsWith(".lock") ||
+      dirent.name.includes(".lock.retired-")
+    ) {
       continue;
     }
     const dir = path.join(root, dirent.name);

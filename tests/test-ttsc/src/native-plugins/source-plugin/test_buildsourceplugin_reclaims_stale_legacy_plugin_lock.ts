@@ -6,6 +6,7 @@ import {
   computeCacheKey,
   createFakeGoBinary,
   fs,
+  inspectPluginBuildLock,
   path,
   resolveSourceBuildCachePaths,
 } from "../../internal/source-build";
@@ -21,7 +22,7 @@ import {
  * 1. Create a source-plugin cache entry with an old `.lock` directory and no
  *    binary.
  * 2. Run `buildSourcePlugin` through the fake Go toolchain.
- * 3. Assert the plugin binary is published and the stale lock is removed.
+ * 3. Assert the binary is published and the replacement v2 lock is released.
  */
 export const test_buildsourceplugin_reclaims_stale_legacy_plugin_lock = () => {
   const root = TestProject.tmpdir("ttsc-source-plugin-");
@@ -69,7 +70,9 @@ export const test_buildsourceplugin_reclaims_stale_legacy_plugin_lock = () => {
     });
 
     assert.equal(fs.existsSync(binary), true);
-    assert.equal(fs.existsSync(lockDir), false);
+    assert.deepEqual(inspectPluginBuildLock(lockDir, Date.now()), {
+      state: "released",
+    });
   } finally {
     restore("TTSC_GO_BINARY", saved.go);
     restore("TTSC_CACHE_DIR", saved.cache);
