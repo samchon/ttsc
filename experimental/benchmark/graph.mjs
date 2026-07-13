@@ -46,6 +46,9 @@ const TOOL_TTSC = "ttsc-graph";
 const TOOL_CODEGRAPH = "codegraph";
 const TOOL_CODEBASE_MEMORY = "codebase-memory";
 const TOOL_SERENA = "serena";
+
+/** Every language serena's project interview offers, declined. */
+const SERENA_DECLINE_ALL = "n\n".repeat(80);
 const TOOL_BASELINE = "baseline";
 const PUBLISHED_SAMPLE_KEYS = [
   "tokens",
@@ -200,7 +203,7 @@ for (const project of selected) {
           toolSetupMs = setup?.ms ?? null;
           codebaseMemoryCacheDir = setup?.cacheDir ?? null;
         } else if (tool === TOOL_SERENA) {
-          ensureSerenaIgnored(repoDir);
+          toolSetupMs = ensureSerenaIndex(project, repoDir);
         }
       }
 
@@ -619,6 +622,57 @@ function cleanupCodebaseMemoryIndex(repoDir, cacheDir) {
   if (cacheDir) safeRemoveInside(outDir, cacheDir);
 }
 
+/**
+ * Build serena's own index before its agent cells run.
+ *
+ * serena ships `serena project index` — its docs recommend it for larger
+ * projects — and this harness had never run it, so every serena cell answered
+ * from an unindexed language server. A benchmark that withholds a tool's own
+ * prescribed setup measures the withholding, not the tool.
+ *
+ * `project create` comes first because `index` needs a project config, and it
+ * interviews the operator about every language it detects (VS Code detects
+ * twenty-two); headless, an unanswered prompt aborts on EOF, so each is declined
+ * on stdin. The index build is timed and reported as `toolSetupMs`, the same
+ * field `codegraph` and `codebase-memory` already carry.
+ */
+function ensureSerenaIndex(project, repoDir) {
+  ensureSerenaIgnored(repoDir);
+  if (parsed.flags.has("--no-serena-index")) return null;
+  cleanupSerenaProject(repoDir);
+  runChecked(...serenaCommand(["project", "create", repoDir]), {
+    label: `serena project create ${project}`,
+    logBase: path.join(outDir, `serena-create-${project}`),
+    cwd: repoDir,
+    input: SERENA_DECLINE_ALL,
+  });
+  const start = process.hrtime.bigint();
+  runChecked(...serenaCommand(["project", "index"]), {
+    label: `serena project index ${project}`,
+    logBase: path.join(outDir, `serena-index-${project}`),
+    cwd: repoDir,
+    input: SERENA_DECLINE_ALL,
+  });
+  return Number(process.hrtime.bigint() - start) / 1e6;
+}
+
+/** serena is launched through `uvx` from its git source, as the agent cells do. */
+function serenaCommand(args) {
+  const binary =
+    parsed.values["serena-command"] ?? process.env.SERENA_MCP_COMMAND ?? "uvx";
+  const full = [
+    "--from",
+    parsed.values["serena-source"] ??
+      process.env.SERENA_SOURCE ??
+      "git+https://github.com/oraios/serena",
+    "serena",
+    ...args,
+  ];
+  if (process.platform !== "win32") return [binary, full];
+  return ["cmd.exe", ["/d", "/s", "/c", binary, ...full]];
+}
+
+
 function ensureSerenaIgnored(repoDir) {
   const exclude = path.join(repoDir, ".git", "info", "exclude");
   if (!fs.existsSync(exclude)) return;
@@ -810,12 +864,15 @@ function printCellSummary(cell) {
 function runChecked(
   command,
   args,
-  { label, logBase, cwd = repoRoot, env = {} },
+  { label, logBase, cwd = repoRoot, env = {}, input },
 ) {
   process.stdout.write(`[graph] ${label}\n`);
   const result = cp.spawnSync(command, args, {
     cwd,
     encoding: "utf8",
+    // A tool that interviews the operator (serena, on every language it detects)
+    // would otherwise hit EOF and abort in a headless run.
+    ...(input === undefined ? {} : { input }),
     env: { ...process.env, ...env },
     windowsHide: true,
     maxBuffer: 512 * 1024 * 1024,

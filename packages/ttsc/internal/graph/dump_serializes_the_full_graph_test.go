@@ -102,8 +102,18 @@ export function main(): void {
 	if call == nil {
 		t.Fatalf("no calls edge main -> helper in dump:\n%s", data)
 	}
-	if call.Evidence == nil || call.Evidence.StartLine == 0 || call.Evidence.File != "src/main.ts" {
-		t.Fatalf("call edge missing project-relative line/col evidence: %+v", call.Evidence)
+	// The edge's span carries no file: it is the file its `from` id names, which
+	// the loader reconstructs (see ITtscGraphDump.IEdge). Sending the path a
+	// second time on every edge is 17% of the document for a value the reader
+	// already holds.
+	if call.Evidence == nil || call.Evidence.StartLine == 0 {
+		t.Fatalf("call edge missing line/col evidence: %+v", call.Evidence)
+	}
+	if call.Evidence.File != "" {
+		t.Fatalf("call edge repeats the file its `from` id already names: %+v", call.Evidence)
+	}
+	if nodeFile(call.From) != "src/main.ts" {
+		t.Fatalf("the edge's file is not recoverable from its from id: %q", call.From)
 	}
 
 	// Every edge endpoint resolves to a dumped node.

@@ -20,6 +20,7 @@ node graph.mjs --all --models=gpt-5.4-mini --arm=graph --tools=ttsc-graph,codegr
 node graph/audit-codex-traces.mjs --dir=.work/graph/<timestamp> # inspect Codex message/tool/reasoning ledger and baseline savings
 node graph/audit-codex-traces.mjs --self-test # verify audit parser and savings semantics
 node graph/bench.mjs --project=../../packages/ttsc --runs=5 # structural graph metrics
+node graph/index-time.mjs --all # cold index build time per (tool x fixture), quiet host only
 ```
 
 The first run packs the local `ttsc` workspace into tarballs, clones each fixture's three branches into `.work/`, installs the tarballs, runs `ttsc prepare`, then measures the matrix sequentially. Subsequent runs reuse the clones.
@@ -33,6 +34,10 @@ The graph harnesses now live under `graph/` with the performance runner:
 - `graph/agent-ab-codex.mjs`: Codex/GPT agent-cost A/B.
 - `graph/run-suite.mjs`: multi-project suite runner over prepared `.work` fixtures.
 - `graph/questions/manifest.json`: prompt registry.
+- `graph/corpus.mjs`: the graph fixture corpus (repos, work directory, per-fixture tsconfig) as a single source of truth.
+- `graph/index-time.mjs`: cold index build-time axis.
+
+`graph/index-time.mjs` measures what _readiness_ costs before a tool can answer its first question: per (tool × fixture) it deletes the tool's index, runs its build step once cold, and records wall time — `ttscgraph dump` for `ttsc-graph` (the MCP launcher runs exactly this at startup), `codegraph init`, and `codebase-memory-mcp cli index_repository`. `serena` has no build step in this harness and is recorded as `hasBuildStep: false`, never as 0 s — what it pays instead is on-demand language-server resolution, visible as tool calls in the agent cells. Each fixture also gets a scale block (tracked non-`.d.ts` TypeScript/TSX files and lines via `git ls-files`) and the run records the host, because a wall-clock number without the machine it ran on is not a measurement. One run per cell, sequential, on a quiet host — never beside the agent benchmark, whose parallel cells would corrupt every number. Results are upserted under the top-level `index` key of `website/public/benchmark/graph.json` without disturbing `structural` or `agent`; `--no-website` keeps the run local, `--reset-index` discards prior index cells instead of merging.
 
 The prompt is tool-neutral. No graph-specific guidance is appended to the user prompt; tool guidance belongs in the MCP server descriptions so both arms pose the same question and the token comparison stays honest. Each sample captures the final answer for manual inspection, but the benchmark itself measures runtime behavior only: tokens, tool calls, and wall time. A graph-arm sample that completes without any MCP tool call, or that falls back to shell source reads/searches, is invalid for graph measurement and is retried before it can enter the median. If an arm has samples but no valid sample, `graph.mjs` leaves the report/audit on disk and fails instead of publishing that cell.
 
@@ -112,6 +117,9 @@ Graph-only flags:
 | `--codebase-memory-binary PATH` / `--cbm-binary PATH` | Use a specific `codebase-memory-mcp` binary instead of resolving it from `PATH`. |
 | `--no-codebase-memory-index` | Reuse the configured `CBM_CACHE_DIR` instead of running `codebase-memory-mcp cli index_repository`. |
 | `--keep-codebase-memory-index` | Keep `.codebase-memory/` and the isolated `CBM_CACHE_DIR` after the run for inspection or reuse. |
+| `--tools ttsc-graph,codegraph,codebase-memory,serena` (index-time) | Select tools for `graph/index-time.mjs`; defaults to `all`. |
+| `--no-setup` / `--no-install` (index-time) | Skip fixture cloning / dependency installation in `graph/index-time.mjs`. |
+| `--reset-index` (index-time) | Replace the website `index` section instead of upserting cells into it. |
 | `--serena-command CMD` | Use a specific Serena launcher instead of the default `uvx`. |
 | `--serena-args JSON_OR_TEXT` | Override Serena MCP args. Prefer a JSON string array; `{repo}` and `{cwd}` expand to the measured checkout. |
 | `--keep-serena-project` | Keep `.serena/` after the run for inspection or reuse. |
@@ -153,7 +161,7 @@ Graph-only flags:
 | `.work/report.json` | Same content plus per-sample timings, retry counts, and exit statuses. |
 | `.work/benchmark.checkpoint.json` | Same shape as `report.json`, rewritten after every cell so a Ctrl-C run leaves a resumable snapshot. |
 | `website/public/benchmark/performance.json` | Dashboard view consumed by https://ttsc.dev/benchmark. Merged in place, cells not re-measured in this run keep their previous values. Skip with `--no-website`, wipe and replace with `--reset`. |
-| `website/public/benchmark/graph.json` | Graph dashboard data. `graph.mjs` upserts only measured cells by harness, tool, repo, prompt id or family, stable model tier, effort, fixture branch, and daemon mode. For parallel `--no-website` graph runs, publish afterward with `node experimental/benchmark/graph/publish.mjs --from <out-dir>`. |
+| `website/public/benchmark/graph.json` | Graph dashboard data. `graph.mjs` upserts only measured cells by harness, tool, repo, prompt id or family, stable model tier, effort, fixture branch, and daemon mode. For parallel `--no-website` graph runs, publish afterward with `node experimental/benchmark/graph/publish.mjs --from <out-dir>`. `graph/index-time.mjs` owns only the top-level `index` key (`{ host, scale, cells }`), upserted by (project, tool). |
 | `.work/graph/<timestamp>/codex-trace-audit.json` | Codex trace audit written automatically for Codex cells: full exposed message timeline, tool-call ledger, reasoning token counts, visible-input ledger, baseline-median savings, duplicate-output exact savings, graph-replaceable shell-output surface, candidate MCP overfetch estimates, and observed later-turn prompt replay exposure. |
 
 `.work/` is git-ignored; results are an ephemeral artifact and never committed.
