@@ -17,17 +17,12 @@ import (
 // directions.
 //
 //  1. Seed a project with `await using ok = makeAsync(), bad = makeSync();`.
-//  2. Run `check` with typescript/await-thenable enabled as error.
-//  3. Assert exactly one finding, anchored at the second declarator's
+//  2. Prove the fixture type-checks without a lint plugin entry.
+//  3. Run `check` with typescript/await-thenable enabled as error.
+//  4. Assert exactly one finding, anchored at the second declarator's
 //     initializer expression.
 func TestAwaitThenableAwaitUsingMultiDeclaratorReportsOnlySyncResource(t *testing.T) {
-  root := seedLintProject(t, `export {};
-declare global {
-  interface SymbolConstructor {
-    readonly dispose: unique symbol;
-    readonly asyncDispose: unique symbol;
-  }
-}
+  root := seedAwaitUsingLintProject(t, `export {};
 interface AsyncResource {
   [Symbol.asyncDispose](): Promise<void>;
 }
@@ -42,6 +37,7 @@ async function main(): Promise<void> {
 }
 void main();
 `)
+  assertAwaitUsingProjectTypeChecks(t, root)
   seedLintRules(t, root, map[string]string{"typescript/await-thenable": "error"})
 
   code, stdout, stderr := captureCommandOutput(t, func() int {
@@ -57,7 +53,7 @@ void main();
   if got := strings.Count(stderr, "[typescript/await-thenable]"); got != 1 {
     t.Fatalf("expected 1 await-thenable finding, got %d:\n%s", got, stderr)
   }
-  if !diagnosticOutputContains(stderr, "main.ts:17:45") {
+  if !diagnosticOutputContains(stderr, "main.ts:11:45") {
     t.Fatalf("finding not anchored at the sync declarator's initializer:\n%s", stderr)
   }
 }
