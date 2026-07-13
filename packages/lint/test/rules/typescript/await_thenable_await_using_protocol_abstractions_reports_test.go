@@ -17,16 +17,11 @@ import (
 //
 //  1. Seed a project with `await using` over aliased, inherited,
 //     intersected, and constraint-typed SYNC-only disposables.
-//  2. Run `check` with typescript/await-thenable enabled as error.
-//  3. Assert exactly four findings on the four declaration lines.
+//  2. Prove the fixture type-checks without a lint plugin entry.
+//  3. Run `check` with typescript/await-thenable enabled as error.
+//  4. Assert exactly four findings on the four declaration lines.
 func TestAwaitThenableAwaitUsingProtocolAbstractionsReports(t *testing.T) {
-  root := seedLintProject(t, `export {};
-declare global {
-  interface SymbolConstructor {
-    readonly dispose: unique symbol;
-    readonly asyncDispose: unique symbol;
-  }
-}
+  root := seedAwaitUsingLintProject(t, `export {};
 interface SyncResource {
   [Symbol.dispose](): void;
 }
@@ -50,6 +45,7 @@ async function openConstrained<T extends SyncResource>(factory: () => T): Promis
 void main();
 void openConstrained(() => aliased);
 `)
+  assertAwaitUsingProjectTypeChecks(t, root)
   seedLintRules(t, root, map[string]string{"typescript/await-thenable": "error"})
 
   code, stdout, stderr := captureCommandOutput(t, func() int {
@@ -65,7 +61,7 @@ void openConstrained(() => aliased);
   if got := strings.Count(stderr, "[typescript/await-thenable]"); got != 4 {
     t.Fatalf("expected 4 await-thenable findings, got %d:\n%s", got, stderr)
   }
-  for _, anchor := range []string{"main.ts:19:", "main.ts:20:", "main.ts:21:", "main.ts:25:"} {
+  for _, anchor := range []string{"main.ts:13:", "main.ts:14:", "main.ts:15:", "main.ts:19:"} {
     if !diagnosticOutputContains(stderr, anchor) {
       t.Fatalf("missing finding at %s:\n%s", anchor, stderr)
     }

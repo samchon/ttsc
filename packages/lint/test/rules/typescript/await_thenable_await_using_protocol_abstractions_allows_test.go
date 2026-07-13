@@ -17,16 +17,11 @@ import (
 //
 //  1. Seed a project with `await using` over aliased, inherited,
 //     intersected, and constraint-typed async disposables.
-//  2. Run `check` with typescript/await-thenable enabled as error.
-//  3. Assert a clean exit with no await-thenable finding.
+//  2. Prove the fixture type-checks without a lint plugin entry.
+//  3. Run `check` with typescript/await-thenable enabled as error.
+//  4. Assert a clean exit with no await-thenable finding.
 func TestAwaitThenableAwaitUsingProtocolAbstractionsAllows(t *testing.T) {
-  root := seedLintProject(t, `export {};
-declare global {
-  interface SymbolConstructor {
-    readonly dispose: unique symbol;
-    readonly asyncDispose: unique symbol;
-  }
-}
+  root := seedAwaitUsingLintProject(t, `export {};
 interface AsyncResource {
   [Symbol.asyncDispose](): Promise<void>;
 }
@@ -50,6 +45,7 @@ async function openConstrained<T extends AsyncResource>(factory: () => T): Promi
 void main();
 void openConstrained(() => aliased);
 `)
+  assertAwaitUsingProjectTypeChecks(t, root)
   seedLintRules(t, root, map[string]string{"typescript/await-thenable": "error"})
 
   code, stdout, stderr := captureCommandOutput(t, func() int {

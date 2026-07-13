@@ -13,25 +13,19 @@ import (
 // a sync-only disposable never reported (#413). JavaScript permits the
 // fallback (the runtime wraps the sync disposer), which is exactly why only
 // the type-level `[Symbol.asyncDispose]` protocol check can catch the pointless
-// `await`. The disposable symbols come from a `declare global`
-// augmentation, the standard shape for projects without the
-// `ESNext.Disposable` lib, so the well-known-symbol resolution is exercised
-// through the merged SymbolConstructor rather than lib-provided members. The
-// expected column pins the diagnostic to the initializer expression.
+// `await`. The standard `ESNext.Disposable` library supplies both the global
+// protocol types and their well-known symbols, keeping compiler prerequisites
+// distinct from the lint finding. The expected column pins the diagnostic to
+// the initializer expression.
 //
 //  1. Seed a project declaring `await using` over a `[Symbol.dispose]`-only
 //     object literal.
-//  2. Run `check` with typescript/await-thenable enabled as error.
-//  3. Assert exactly one finding anchored at the initializer with the
+//  2. Prove the fixture type-checks without a lint plugin entry.
+//  3. Run `check` with typescript/await-thenable enabled as error.
+//  4. Assert exactly one finding anchored at the initializer with the
 //     upstream message text.
 func TestAwaitThenableAwaitUsingSyncDisposableReports(t *testing.T) {
-  root := seedLintProject(t, `export {};
-declare global {
-  interface SymbolConstructor {
-    readonly dispose: unique symbol;
-    readonly asyncDispose: unique symbol;
-  }
-}
+  root := seedAwaitUsingLintProject(t, `export {};
 async function main(): Promise<void> {
   await using resource = {
     [Symbol.dispose](): void {},
@@ -40,6 +34,7 @@ async function main(): Promise<void> {
 }
 void main();
 `)
+  assertAwaitUsingProjectTypeChecks(t, root)
   seedLintRules(t, root, map[string]string{"typescript/await-thenable": "error"})
 
   code, stdout, stderr := captureCommandOutput(t, func() int {
@@ -58,7 +53,7 @@ void main();
   if !strings.Contains(stderr, "Unexpected `await using` of a value that is not async disposable.") {
     t.Fatalf("missing upstream await-using message:\n%s", stderr)
   }
-  if !diagnosticOutputContains(stderr, "main.ts:9:26") {
+  if !diagnosticOutputContains(stderr, "main.ts:3:26") {
     t.Fatalf("finding not anchored at the initializer expression:\n%s", stderr)
   }
 }

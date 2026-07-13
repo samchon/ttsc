@@ -19,16 +19,11 @@ import (
 // surfaces here.
 //
 //  1. Seed a project containing all four valid resource-management shapes.
-//  2. Run `check` with typescript/await-thenable enabled as error.
-//  3. Assert a clean exit with no await-thenable finding.
+//  2. Prove the fixture type-checks without a lint plugin entry.
+//  3. Run `check` with typescript/await-thenable enabled as error.
+//  4. Assert a clean exit with no await-thenable finding.
 func TestAwaitThenableAwaitUsingAsyncDisposableAllows(t *testing.T) {
-  root := seedLintProject(t, `export {};
-declare global {
-  interface SymbolConstructor {
-    readonly dispose: unique symbol;
-    readonly asyncDispose: unique symbol;
-  }
-}
+  root := seedAwaitUsingLintProject(t, `export {};
 interface AsyncResource {
   [Symbol.asyncDispose](): Promise<void>;
 }
@@ -48,6 +43,7 @@ async function main(): Promise<void> {
 }
 void main();
 `)
+  assertAwaitUsingProjectTypeChecks(t, root)
   seedLintRules(t, root, map[string]string{"typescript/await-thenable": "error"})
 
   code, stdout, stderr := captureCommandOutput(t, func() int {
