@@ -36,7 +36,13 @@ export namespace ITtscGraphTour {
     /** Discriminator for code-tour indexing. */
     type: "tour";
 
-    /** The user's natural code-tour question. */
+    /**
+     * The tour question, in the user's own words — the same ask as `question`.
+     *
+     * Its terms rank the tour: a name sharing one is promoted, a name sharing
+     * none demoted. Trim what the user wrote, but neither reword it nor add
+     * terms of your own.
+     */
     query: string;
 
     /**
