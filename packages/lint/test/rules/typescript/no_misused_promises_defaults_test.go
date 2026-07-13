@@ -22,6 +22,8 @@ consumeAsync(async () => {});
 
 // expect: typescript/no-misused-promises error
 [1].filter(() => Promise.resolve(true));
+// expect: typescript/no-misused-promises error
+[1].findIndex(() => Promise.resolve(true));
 const promisedObject = Promise.resolve({ value: 1 });
 // expect: typescript/no-misused-promises error
 const spread = { ...promisedObject };
@@ -43,6 +45,8 @@ async function asyncResources(): Promise<void> {
   await using valid = { async [Symbol.asyncDispose](): Promise<void> {} };
   void valid;
 }
+// expect: typescript/no-misused-promises error
+const annotatedResource: Disposable = { async [Symbol.dispose](): Promise<void> {} };
 
 // expect: typescript/no-misused-promises error
 const variable: () => void = async () => {};
@@ -70,8 +74,11 @@ declare const condition: Promise<boolean>;
 if (condition) { void spread; }
 declare const maybeCondition: Promise<boolean> | boolean;
 if (maybeCondition) { void maybeSpread; }
+declare const gate: boolean;
+// expect: typescript/no-misused-promises error
+const nestedLogical = gate || (condition && true);
 
-void [Implementation, resources, asyncResources, variable, reassigned, property, shorthandProperty, methodProperty, factory, view];
+void [Implementation, resources, asyncResources, annotatedResource, variable, reassigned, property, shorthandProperty, methodProperty, factory, view, nestedLogical];
 export {};
 `, nil)
 }

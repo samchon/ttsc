@@ -36,9 +36,8 @@ async function inLogicalAnd(): Promise<number> {
   return getPromise() && 1;
 }
 
-// Positive: Promise on the LHS of `??`.
+// Negative: `??` checks nullishness rather than boolean truthiness.
 async function inNullishCoalescing(): Promise<number> {
-  // expect: typescript/no-misused-promises error
   return getPromise() ?? 0;
 }
 

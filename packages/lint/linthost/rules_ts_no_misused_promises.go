@@ -221,6 +221,15 @@ func noMisusedPromisesCheckBinary(ctx *Context, node *shimast.Node, options noMi
 }
 
 func noMisusedPromisesConditionalOwnedByAncestor(node *shimast.Node) bool {
+  owned, _ := noMisusedPromisesConditionalContextFromAncestor(node)
+  return owned
+}
+
+// noMisusedPromisesConditionalContextFromAncestor mirrors the upstream
+// checked-node set without retaining state between Check calls. It reports
+// whether an ancestor's recursive conditional walk reaches node and whether
+// that walk is inside a test expression.
+func noMisusedPromisesConditionalContextFromAncestor(node *shimast.Node) (bool, bool) {
   child := node
   for parent := node.Parent; parent != nil; parent = parent.Parent {
     if parent.Kind == shimast.KindParenthesizedExpression {
@@ -230,36 +239,49 @@ func noMisusedPromisesConditionalOwnedByAncestor(node *shimast.Node) bool {
     switch parent.Kind {
     case shimast.KindPrefixUnaryExpression:
       expression := parent.AsPrefixUnaryExpression()
-      return expression != nil && expression.Operator == shimast.KindExclamationToken && expression.Operand == child
+      if expression != nil && expression.Operator == shimast.KindExclamationToken && expression.Operand == child {
+        return true, true
+      }
+      return false, false
     case shimast.KindBinaryExpression:
       expression := parent.AsBinaryExpression()
       if expression == nil || expression.OperatorToken == nil {
-        return false
+        return false, false
       }
       switch expression.OperatorToken.Kind {
       case shimast.KindAmpersandAmpersandToken, shimast.KindBarBarToken, shimast.KindQuestionQuestionToken:
-        return expression.Left == child || expression.Right == child
+        parentOwned, testExpression := noMisusedPromisesConditionalContextFromAncestor(parent)
+        if !parentOwned {
+          testExpression = false
+        }
+        if expression.Left == child {
+          return expression.OperatorToken.Kind != shimast.KindQuestionQuestionToken || testExpression, testExpression
+        }
+        if expression.Right == child {
+          return testExpression, testExpression
+        }
+        return false, false
       }
-      return false
+      return false, false
     case shimast.KindConditionalExpression:
       expression := parent.AsConditionalExpression()
-      return expression != nil && expression.Condition == child
+      return expression != nil && expression.Condition == child, true
     case shimast.KindIfStatement:
       statement := parent.AsIfStatement()
-      return statement != nil && statement.Expression == child
+      return statement != nil && statement.Expression == child, true
     case shimast.KindWhileStatement:
       statement := parent.AsWhileStatement()
-      return statement != nil && statement.Expression == child
+      return statement != nil && statement.Expression == child, true
     case shimast.KindDoStatement:
       statement := parent.AsDoStatement()
-      return statement != nil && statement.Expression == child
+      return statement != nil && statement.Expression == child, true
     case shimast.KindForStatement:
       statement := parent.AsForStatement()
-      return statement != nil && statement.Condition == child
+      return statement != nil && statement.Condition == child, true
     }
-    return false
+    return false, false
   }
-  return false
+  return false, false
 }
 
 func noMisusedPromisesCheckConditional(ctx *Context, expression *shimast.Node, testExpression bool) {
@@ -332,7 +354,7 @@ func noMisusedPromisesCheckPredicate(ctx *Context, node *shimast.Node) {
 
 func noMisusedPromisesIsArrayPredicate(method string) bool {
   switch method {
-  case "every", "filter", "find", "findLast", "some":
+  case "every", "filter", "find", "findIndex", "findLast", "findLastIndex", "some":
     return true
   }
   return false
@@ -425,6 +447,18 @@ func noMisusedPromisesParameterTypeAt(
   }
   last := len(parameters) - 1
   if shimchecker.Signature_hasRestParameter(signature) && index >= last {
+    restType := constrainedPromiseType(
+      checker,
+      shimchecker.Checker_getTypeOfSymbolAtLocation(checker, parameters[last], location),
+    )
+    if shimchecker.IsTupleType(restType) {
+      elements := checker.GetTypeArguments(restType)
+      offset := index - last
+      if offset >= len(elements) {
+        return nil
+      }
+      return elements[offset]
+    }
     return shimchecker.Checker_getRestTypeOfSignature(checker, signature)
   }
   if index >= len(parameters) {
@@ -477,6 +511,11 @@ func noMisusedPromisesCheckVariable(ctx *Context, node *shimast.Node) {
     return
   }
   targetType := ctx.Checker.GetTypeAtLocation(declaration.Name())
+  if noMisusedPromisesHasVoidDispose(ctx.Checker, declaration.Name(), targetType) &&
+    noMisusedPromisesHasThenableDispose(ctx.Checker, declaration.Initializer) {
+    ctx.Report(declaration.Initializer, "Promise-returning `Symbol.dispose` assigned where synchronous disposal was expected.")
+    return
+  }
   if noMisusedPromisesIsVoidReturningFunctionType(ctx.Checker, declaration.Initializer, targetType) &&
     noMisusedPromisesReturnsThenable(ctx.Checker, declaration.Initializer) {
     ctx.Report(declaration.Initializer, "Promise-returning function assigned to a variable where a void return was expected.")
@@ -507,6 +546,32 @@ func noMisusedPromisesHasThenableDispose(checker *shimchecker.Checker, initializ
     }
     propertyType := shimchecker.Checker_getTypeOfSymbolAtLocation(checker, property, initializer)
     if noMisusedPromisesIsThenableReturningFunctionType(checker, initializer, propertyType) {
+      return true
+    }
+  }
+  return false
+}
+
+func noMisusedPromisesHasVoidDispose(
+  checker *shimchecker.Checker,
+  location *shimast.Node,
+  valueType *shimchecker.Type,
+) bool {
+  if checker == nil || location == nil || valueType == nil {
+    return false
+  }
+  propertyName := shimchecker.Checker_getPropertyNameForKnownSymbolName(checker, "dispose")
+  if propertyName == "" {
+    return false
+  }
+  valueType = checker.GetApparentType(constrainedPromiseType(checker, valueType))
+  for _, part := range promiseUnionParts(valueType) {
+    property := checker.GetPropertyOfType(part, propertyName)
+    if property == nil {
+      continue
+    }
+    propertyType := shimchecker.Checker_getTypeOfSymbolAtLocation(checker, property, location)
+    if noMisusedPromisesIsVoidReturningFunctionType(checker, location, propertyType) {
       return true
     }
   }

@@ -75,11 +75,25 @@ if (condition) {}
 const spread = { ...promisedObject };
 void spread;
 `
-  lines, code, stdout, stderr = runNoMisusedPromisesCase(t, "main.ts", scalarSource, map[string]any{
-    "checksConditionals": false,
-    "checksSpreads":      false,
-  })
-  if code != 0 || stdout != "" || len(lines) != 0 {
-    t.Fatalf("option mismatch: code=%d stdout=%q lines=%v stderr=%s", code, stdout, lines, stderr)
+  scalarCases := []struct {
+    name     string
+    options  map[string]any
+    expected []int
+  }{
+    {"conditionals", map[string]any{"checksConditionals": false}, []int{4}},
+    {"spreads", map[string]any{"checksSpreads": false}, []int{3}},
+    {"both", map[string]any{"checksConditionals": false, "checksSpreads": false}, []int{}},
+  }
+  for _, test := range scalarCases {
+    t.Run(test.name, func(t *testing.T) {
+      lines, code, stdout, stderr := runNoMisusedPromisesCase(t, "main.ts", scalarSource, test.options)
+      expectedCode := 2
+      if len(test.expected) == 0 {
+        expectedCode = 0
+      }
+      if code != expectedCode || stdout != "" || !reflect.DeepEqual(lines, test.expected) {
+        t.Fatalf("%s option mismatch: code=%d stdout=%q lines=%v want=%v stderr=%s", test.name, code, stdout, lines, test.expected, stderr)
+      }
+    })
   }
 }

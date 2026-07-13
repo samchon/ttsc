@@ -14,6 +14,7 @@ declare function optional(callback?: () => void): void;
 declare function optionalAsync(callback?: () => Promise<void>): void;
 declare function rest(...callbacks: Array<() => void>): void;
 declare function restAsync(...callbacks: Array<() => Promise<void>>): void;
+declare function tupleRest(...callbacks: [() => void, () => Promise<void>]): void;
 declare function generic<T extends () => void>(callback: T): void;
 declare function genericAsync<T extends () => Promise<void>>(callback: T): void;
 declare const acceptsEither: (callback: (() => void) | (() => Promise<void>)) => void;
@@ -35,6 +36,11 @@ optionalAsync(async () => {});
 // expect: typescript/no-misused-promises error
 rest(() => {}, async () => {});
 restAsync(async () => {}, () => Promise.resolve());
+tupleRest(
+  // expect: typescript/no-misused-promises error
+  async () => {},
+  async () => {},
+);
 // expect: typescript/no-misused-promises error
 generic(async () => {});
 genericAsync(async () => {});
