@@ -13,24 +13,38 @@ import (
 // Treating both occurrences as separate override scopes would preserve stale
 // keys that no longer exist in the parsed settings object.
 //
-// 1. Set tab size in the first occurrence of a combined language property.
-// 2. Replace that property with an object that sets only insertSpaces.
-// 3. Assert tab size falls back to the top level while the final object applies.
+// 1. Place a combined language property before another matching property.
+// 2. Repeat the first property later with a disjoint replacement object.
+// 3. Assert its stale value disappears and its original merge position remains.
 func TestEditorFormatOverridesDuplicateLanguageSectionUsesLastValue(t *testing.T) {
   root := t.TempDir()
   settings := `{
   "editor.tabSize": 8,
   "editor.insertSpaces": false,
-  "[javascript][typescript]": { "editor.tabSize": 4 },
-  "[javascript][typescript]": { "editor.insertSpaces": true }
+  "files.eol": "\r\n",
+  "[json][typescript]": { "files.eol": "\n" },
+  "[javascript][typescript]": { "editor.tabSize": 6 },
+  "[json][typescript]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true
+  }
 }`
   writeFile(t, filepath.Join(root, ".vscode", "settings.json"), settings)
 
   got := editorFormatOverrides(root, "typescript")
-  if got["tabWidth"] != float64(8) {
-    t.Fatalf("replaced section must not retain stale tabWidth; want 8, got %v", got["tabWidth"])
+  if got["tabWidth"] != float64(6) {
+    t.Fatalf(
+      "later distinct section should win at the duplicate key's original position, got %v",
+      got["tabWidth"],
+    )
   }
   if got["useTabs"] != false {
     t.Fatalf("last section value should set useTabs=false, got %v", got["useTabs"])
+  }
+  if got["endOfLine"] != "crlf" {
+    t.Fatalf(
+      "replaced section must not retain stale endOfLine; want crlf, got %v",
+      got["endOfLine"],
+    )
   }
 }
