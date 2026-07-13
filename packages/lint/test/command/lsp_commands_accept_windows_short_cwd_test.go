@@ -27,7 +27,7 @@ func TestLSPCommandsAcceptWindowsShortCwd(t *testing.T) {
       source,
       pluginsJSON,
     )
-    if want := "const value = 1;\n"; got != want {
+    if want := "let value = 1;\n"; got != want {
       t.Fatalf("LSP fix through short cwd: got %q, want %q", got, want)
     }
   })
