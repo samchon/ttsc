@@ -16,9 +16,9 @@ import {
  * last-used metadata is older than the 30-day retention window. Scoped to the
  * project cache root only — never a shared/global location.
  *
- * 1. Seed one stale and one fresh entry under the workspace-local plugin cache.
+ * 1. Seed stale/fresh entries plus generation-fencing lock artifacts.
  * 2. Resolve the default plugin cache root (no cacheDir/TTSC_CACHE_DIR override).
- * 3. Assert only the stale entry is removed and the fresh one is kept.
+ * 3. Assert the stale entry is removed while fresh data and fences remain.
  */
 export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
   const root = TestProject.tmpdir("ttsc-cache-gc-");
@@ -40,8 +40,14 @@ export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
     );
     const stale = path.join(pluginCache, "stale");
     const fresh = path.join(pluginCache, "fresh");
+    const lock = path.join(pluginCache, "stale.lock");
+    const v2Lock = path.join(pluginCache, "stale.lock.v2");
+    const retiredLegacy = path.join(pluginCache, "stale.lock.retired-deadbeef");
     fs.mkdirSync(stale, { recursive: true });
     fs.mkdirSync(fresh, { recursive: true });
+    fs.mkdirSync(lock, { recursive: true });
+    fs.mkdirSync(v2Lock, { recursive: true });
+    fs.mkdirSync(retiredLegacy, { recursive: true });
     fs.writeFileSync(path.join(stale, "plugin"), "stale\n", "utf8");
     fs.writeFileSync(path.join(fresh, "plugin"), "fresh\n", "utf8");
     const now = Date.now();
@@ -55,6 +61,9 @@ export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
     assert.equal(resolvePluginCacheRoot(root), pluginCache);
     assert.equal(fs.existsSync(stale), false);
     assert.equal(fs.existsSync(fresh), true);
+    assert.equal(fs.existsSync(lock), true);
+    assert.equal(fs.existsSync(v2Lock), true);
+    assert.equal(fs.existsSync(retiredLegacy), true);
   } finally {
     if (saved.cache === undefined) delete process.env.TTSC_CACHE_DIR;
     else process.env.TTSC_CACHE_DIR = saved.cache;

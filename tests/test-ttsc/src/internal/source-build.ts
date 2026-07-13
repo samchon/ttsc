@@ -13,12 +13,15 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  acquirePluginBuildLock,
   autoQuoteGoModToken,
   buildSourcePlugin,
   computeCacheKey,
   formatDuration,
   formatGoWorkPath,
   inspectPluginBuildLock,
+  reclaimPluginBuildLock,
+  releasePluginBuildLock,
   resolvePluginCacheRoot,
   resolveSourceBuildCachePaths,
   waitForPluginBinary,
@@ -203,6 +206,45 @@ interface ISourcePluginWorkerResult {
   stderr: string;
 }
 
+/** Spawn a Node.js worker script and capture its complete result. */
+function spawnNodeWorker(opts: {
+  env?: Record<string, string>;
+  script: string;
+  timeoutMs?: number;
+}): Promise<ISourcePluginWorkerResult> {
+  return new Promise((resolve, reject) => {
+    const child = child_process.spawn(process.execPath, [opts.script], {
+      env: { ...process.env, ...opts.env },
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: opts.timeoutMs ?? 120_000,
+      windowsHide: true,
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (status) => resolve({ status, stdout, stderr }));
+  });
+}
+
+/** Absolute path to the built source-plugin implementation used by workers. */
+function sourceBuildLibraryPath(): string {
+  return path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages",
+    "ttsc",
+    "lib",
+    "plugin",
+    "internal",
+    "buildSourcePlugin.js",
+  );
+}
+
 /**
  * Writes a CommonJS runner script that calls the workspace-built
  * `buildSourcePlugin` with the given fixed inputs and returns the script's
@@ -219,15 +261,7 @@ function createSourcePluginWorkerScript(opts: {
   root: string;
   source: string;
 }): string {
-  const libraryPath = path.join(
-    TestProject.WORKSPACE_ROOT,
-    "packages",
-    "ttsc",
-    "lib",
-    "plugin",
-    "internal",
-    "buildSourcePlugin.js",
-  );
+  const libraryPath = sourceBuildLibraryPath();
   const script = path.join(opts.root, "build-source-plugin-worker.cjs");
   fs.writeFileSync(
     script,
@@ -270,27 +304,12 @@ function spawnSourcePluginWorker(opts: {
   goBinary: string;
   script: string;
 }): Promise<ISourcePluginWorkerResult> {
-  return new Promise((resolve, reject) => {
-    const child = child_process.spawn(process.execPath, [opts.script], {
-      env: {
-        ...process.env,
-        TTSC_GO_BINARY: opts.goBinary,
-        ...opts.env,
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 120_000,
-      windowsHide: true,
-    });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", reject);
-    child.on("close", (status) => resolve({ status, stdout, stderr }));
+  return spawnNodeWorker({
+    env: {
+      TTSC_GO_BINARY: opts.goBinary,
+      ...opts.env,
+    },
+    script: opts.script,
   });
 }
 
@@ -315,6 +334,7 @@ async function waitForCondition(
 }
 
 export {
+  acquirePluginBuildLock,
   assert,
   autoQuoteGoModToken,
   buildSourcePlugin,
@@ -328,9 +348,13 @@ export {
   inspectPluginBuildLock,
   os,
   path,
+  reclaimPluginBuildLock,
+  releasePluginBuildLock,
   resolvePluginCacheRoot,
   resolveSourceBuildCachePaths,
   shellQuote,
+  spawnNodeWorker,
+  sourceBuildLibraryPath,
   spawnSourcePluginWorker,
   waitForCondition,
   waitForPluginBinary,

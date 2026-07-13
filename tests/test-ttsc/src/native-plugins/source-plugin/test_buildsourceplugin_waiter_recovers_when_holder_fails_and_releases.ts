@@ -15,8 +15,8 @@ import {
  * releases.
  *
  * End-to-end pin for issue #421: a holder whose `go build` throws releases the
- * lock in its `finally`, and the waiting process then observes a lock that no
- * longer exists. The old inspector classified that released lock as an
+ * generation in its `finally`, and the waiting process then observes no
+ * `current` generation. The old inspector classified that release as an
  * infinitely old abandoned legacy lock and printed `reclaiming abandoned ...
  * Infinitym NaNs old`. The waiter must instead treat the free key as a routine
  * handoff: reacquire it, run the build itself, and publish the one usable
