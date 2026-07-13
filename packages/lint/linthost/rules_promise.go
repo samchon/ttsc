@@ -941,8 +941,9 @@ func floatingPromisePropertyAccessIsOptional(node *shimast.Node) bool {
 
 // floatingPromiseMethodReturnIsUnhandled determines what a non-Promise
 // receiver branch contributes to the union call. Method names alone are not a
-// Promise escape: each callable signature must return a value that is safe to
-// discard under the same Promise and thenable options as the outer expression.
+// Promise escape: the compiler-selected callable signature must return a value
+// that is safe to discard under the same Promise and thenable options as the
+// outer expression.
 func floatingPromiseMethodReturnIsUnhandled(
   ctx *Context,
   node *shimast.Node,
