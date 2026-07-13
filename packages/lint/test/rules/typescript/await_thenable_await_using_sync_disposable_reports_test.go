@@ -12,8 +12,8 @@ import (
 // The rule historically visited only KindAwaitExpression, so `await using` of
 // a sync-only disposable never reported (#413). JavaScript permits the
 // fallback (the runtime wraps the sync disposer), which is exactly why only
-// the type-level `[Symbol.asyncDispose]` presence check can catch the
-// pointless `await`. The disposable symbols come from a `declare global`
+// the type-level `[Symbol.asyncDispose]` protocol check can catch the pointless
+// `await`. The disposable symbols come from a `declare global`
 // augmentation, the standard shape for projects without the
 // `ESNext.Disposable` lib, so the well-known-symbol resolution is exercised
 // through the merged SymbolConstructor rather than lib-provided members. The

@@ -41,10 +41,13 @@ export interface ITtscLintTypeScriptRules {
   "typescript/array-type"?: TtscLintRuleSetting;
 
   /**
-   * Reject `await` on operands that are not thenable.
+   * Reject non-awaitable ordinary `await` operands and native Promise
+   * aggregator members.
    *
-   * Type-aware — the Checker decides whether the awaited expression has a
-   * `then` method. Autofixable: drops the `await`.
+   * Also reject sync-only `for await...of` and `await using` constructs.
+   *
+   * Type-aware. The Checker resolves Promise and well-known-symbol protocols.
+   * Only the ordinary `await` finding is autofixable.
    *
    * @reference https://typescript-eslint.io/rules/await-thenable
    */

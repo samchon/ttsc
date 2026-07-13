@@ -7,30 +7,30 @@ import (
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
-// TestKnownSymbolPropertyNameFindsAsyncProtocolMembers is a shim-completeness
-// probe for `Checker_getPropertyNameForKnownSymbolName`: it runs a real
-// Checker over a ttsc-owned fixture and asserts the exposed op composes with
-// `GetPropertyOfType` into a working well-known-symbol member lookup — the
-// exact traversal `typescript/await-thenable` performs for its
-// `for await...of` (`Symbol.asyncIterator`) and `await using`
-// (`Symbol.asyncDispose`) arms.
+// TestKnownSymbolPropertyNameFindsIterationAndDisposalProtocolMembers is a
+// shim-completeness probe for `Checker_getPropertyNameForKnownSymbolName`: it
+// runs a real Checker over a ttsc-owned fixture and asserts the exposed op
+// composes with `GetPropertyOfType` into a working well-known-symbol member
+// lookup. It is the same traversal used by the `typescript/await-thenable`
+// rule for `for await...of` (`Symbol.asyncIterator`), Promise aggregator
+// (`Symbol.iterator`), and `await using` (`Symbol.asyncDispose`) arms.
 //
 // The closure auditor only proves the symbol is nameable; this probe proves
 // the RESOLUTION completes: the returned name must be the late-bound name of
-// the real global unique symbol (lib-provided for `asyncIterator`,
-// `declare global`-augmented for `asyncDispose`), because any other string —
-// including the checker's `\xFE@`-prefixed fallback — would silently match
-// nothing and the lint rule would report every `for await` / accept no
-// `await using`.
+// the real global unique symbol (lib-provided for `iterator` and
+// `asyncIterator`, `declare global`-augmented for `asyncDispose`). Any other
+// string, including the checker's `\xFE@`-prefixed fallback, would silently
+// match nothing. The lint rule would then report every `for await`, skip typed
+// Promise aggregator inputs, or accept no `await using`, depending on the
+// requested symbol.
 //
 //  1. Compile a fixture declaring `[Symbol.asyncIterator]`,
 //     `[Symbol.iterator]`, and `[Symbol.asyncDispose]` members, with the
 //     dispose symbols coming from a `declare global` augmentation.
-//  2. Resolve both protocol property names through the exposed shim op.
+//  2. Resolve all three protocol property names through the exposed shim op.
 //  3. Assert each name finds the implementing interface's member and does
-//     NOT find one on the sibling interface that only implements the sync
-//     protocol.
-func TestKnownSymbolPropertyNameFindsAsyncProtocolMembers(t *testing.T) {
+//     NOT find one on the sibling interface without that protocol.
+func TestKnownSymbolPropertyNameFindsIterationAndDisposalProtocolMembers(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
@@ -80,7 +80,7 @@ JSON.stringify(inventory);
     t.Fatal("loadProgram did not acquire a checker")
   }
 
-  probe := func(symbolName, implementing, syncOnly string) {
+  probe := func(symbolName, implementing, withoutProtocol string) {
     t.Helper()
     name := shimchecker.Checker_getPropertyNameForKnownSymbolName(prog.checker, symbolName)
     if name == "" || name == symbolName {
@@ -93,16 +93,18 @@ JSON.stringify(inventory);
     if prog.checker.GetPropertyOfType(implementingType, name) == nil {
       t.Fatalf("GetPropertyOfType(%s, %q) did not find the [Symbol.%s] member; the known-symbol name resolution dead-ends", implementing, name, symbolName)
     }
-    syncOnlyType := shimchecker.Checker_getDeclaredTypeOfSymbol(prog.checker, classSymbol(t, prog, syncOnly))
-    if syncOnlyType == nil {
-      t.Fatalf("no declared type for %s", syncOnly)
+    withoutProtocolType := shimchecker.Checker_getDeclaredTypeOfSymbol(prog.checker, classSymbol(t, prog, withoutProtocol))
+    if withoutProtocolType == nil {
+      t.Fatalf("no declared type for %s", withoutProtocol)
     }
-    if prog.checker.GetPropertyOfType(syncOnlyType, name) != nil {
-      t.Fatalf("GetPropertyOfType(%s, %q) over-matched a type without the [Symbol.%s] member", syncOnly, name, symbolName)
+    if prog.checker.GetPropertyOfType(withoutProtocolType, name) != nil {
+      t.Fatalf("GetPropertyOfType(%s, %q) over-matched a type without the [Symbol.%s] member", withoutProtocol, name, symbolName)
     }
   }
   // asyncIterator resolves through the ES2018+ lib's SymbolConstructor.
   probe("asyncIterator", "AsyncFeed", "SyncFeed")
+  // iterator resolves independently from asyncIterator on the sync protocol.
+  probe("iterator", "SyncFeed", "AsyncFeed")
   // asyncDispose resolves through the fixture's `declare global` augmentation.
   probe("asyncDispose", "AsyncResource", "SyncResource")
 }
