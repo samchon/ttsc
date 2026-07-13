@@ -275,7 +275,12 @@ function measureScale(project, repoDir) {
   let lines = 0;
   for (const file of files) {
     const text = fs.readFileSync(path.join(repoDir, file), "utf8");
-    lines += text.length === 0 ? 0 : text.split("\n").length;
+    // Count lines the way `wc -l` does — newlines, plus one for an
+    // unterminated final line — so the scale block is reproducible against
+    // standard tooling.
+    const newlines = (text.match(/\n/g) ?? []).length;
+    lines +=
+      newlines + (text.length > 0 && !text.endsWith("\n") ? 1 : 0);
   }
   return { files: files.length, lines };
 }
