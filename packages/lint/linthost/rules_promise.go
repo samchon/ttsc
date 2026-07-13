@@ -705,12 +705,6 @@ func (noFloatingPromises) Check(ctx *Context, node *shimast.Node) {
   }
   var options noFloatingPromisesOptions
   _ = ctx.DecodeOptions(&options)
-  if options.IgnoreIIFE && isImmediatelyInvokedFunctionExpression(expr) {
-    return
-  }
-  if isKnownSafePromiseCall(ctx, expr, options.AllowForKnownSafeCalls) {
-    return
-  }
   result := analyzeFloatingPromise(ctx, expr, options)
   if !result.unhandled {
     return
@@ -744,6 +738,13 @@ func analyzeFloatingPromise(
 ) floatingPromiseResult {
   node = unwrapFloatingPromiseExpression(node)
   if node == nil {
+    return floatingPromiseResult{}
+  }
+
+  if options.IgnoreIIFE && isImmediatelyInvokedFunctionExpression(node) {
+    return floatingPromiseResult{}
+  }
+  if isKnownSafePromiseCall(ctx, node, options.AllowForKnownSafeCalls) {
     return floatingPromiseResult{}
   }
 
