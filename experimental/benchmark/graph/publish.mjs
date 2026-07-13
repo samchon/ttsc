@@ -8,11 +8,9 @@
 // This script folds whichever of those exist into the committed, served
 // `website/public/benchmark/graph.json`, the graph sibling of the performance
 // dashboard's `performance.json`. Like `merge-website.mjs`, it merges in place:
-// each agent cell is keyed by
-// (harness, tool, repo, promptId/family, stable model tier, effort,
-// fixtureBranch, daemon) and upserted, so running one repo/model at a time
-// accumulates cells across separate quiet-host runs instead of clobbering the
-// others. The structural block is replaced whole.
+// each agent cell is keyed by `websiteCellKey` and upserted, so running one
+// repo/model at a time accumulates cells across separate quiet-host runs instead
+// of clobbering the others. The structural block is replaced whole.
 //
 // Only raw per-run samples are stored; medians and saved-percentages are left
 // for the reader to derive, so the published JSON never carries a derived
@@ -26,6 +24,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { websiteCellKey } from "./website-cell.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
@@ -235,19 +235,9 @@ function upsertAgentCell(cell) {
   // A manifest promptId narrows the cell within a family, so two prompt variants
   // of the same family upsert separately instead of clobbering. Plain --repo
   // runs (no promptId) keep keying by family, as before.
-  const key = (c) =>
-    JSON.stringify([
-      c.harness,
-      c.tool ?? "ttsc-graph",
-      c.repo,
-      c.promptId ?? "",
-      c.promptFamily ?? "project-specific",
-      c.model,
-      c.effort ?? "",
-      c.fixtureBranch ?? "ttsc",
-      c.daemon === true ? "daemon" : "single",
-    ]);
-  const at = out.agent.cells.findIndex((c) => key(c) === key(cell));
+  const at = out.agent.cells.findIndex(
+    (c) => websiteCellKey(c) === websiteCellKey(cell),
+  );
   if (at >= 0) {
     const existing = out.agent.cells[at];
     const existingBaseline = existing.samples?.baseline?.length ?? 0;
