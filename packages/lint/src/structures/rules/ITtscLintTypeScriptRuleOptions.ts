@@ -51,6 +51,8 @@ export interface ITtscLintTypeScriptNoFloatingPromisesRuleOptions {
   ignoreIIFE?: boolean;
   /** Treat `void` as an explicit discard marker. Defaults to `true`. */
   ignoreVoid?: boolean;
+}
+
 /**
  * Policy for one `@ts-<directive>` comment kind in `typescript/ban-ts-comment`.
  *
