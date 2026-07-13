@@ -1,4 +1,8 @@
-import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
+import type {
+  TtscLintRuleOptionsSetting,
+  TtscLintRuleSetting,
+} from "../TtscLintRuleSetting";
+import type { ITtscLintNoUnusedExpressionsRuleOptions } from "./ITtscLintCoreRuleOptions";
 
 /**
  * Generic ESLint-compatible rules that apply to both JavaScript and TypeScript
@@ -1074,12 +1078,20 @@ export interface ITtscLintCoreRules {
   "no-unsafe-optional-chaining"?: TtscLintRuleSetting;
 
   /**
-   * Reject expression statements with no observable effect, like a bare `x;` or
-   * `'use strict' && f();`.
+   * Reject expression statements with no observable effect, like a bare `x;`,
+   * `a === b;`, or a tagged template literal statement.
+   *
+   * Directive prologues — the leading run of string-literal statements at the
+   * top of a script, module, namespace body, or function body — are accepted
+   * whatever their text (`"use strict"`, `"use client"`, …); the same strings
+   * elsewhere are rejected. Productive expressions (calls, `new`, assignments,
+   * updates, `delete`, `void`, `await`, `yield`) are accepted, and JSX is
+   * accepted unless
+   * {@link ITtscLintNoUnusedExpressionsRuleOptions.enforceForJSX} is enabled.
    *
    * @reference https://eslint.org/docs/latest/rules/no-unused-expressions
    */
-  "no-unused-expressions"?: TtscLintRuleSetting;
+  "no-unused-expressions"?: TtscLintRuleOptionsSetting<ITtscLintNoUnusedExpressionsRuleOptions>;
 
   /**
    * Reject labels that no `break` or `continue` statement references.

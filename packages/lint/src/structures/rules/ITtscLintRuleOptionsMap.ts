@@ -6,6 +6,7 @@ import type {
   ITtscLintBoundariesNoPrivateRuleOptions,
   ITtscLintBoundariesNoUnknownRuleOptions,
 } from "./ITtscLintBoundariesRuleOptions";
+import type { ITtscLintNoUnusedExpressionsRuleOptions } from "./ITtscLintCoreRuleOptions";
 import type { ITtscLintCypressUnsafeToChainCommandRuleOptions } from "./ITtscLintCypressRuleOptions";
 import type {
   ITtscLintFunctionalEmptyRuleOptions,
@@ -51,6 +52,7 @@ import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./I
  * surface.
  */
 export interface ITtscLintRuleOptionsMap {
+  "no-unused-expressions": ITtscLintNoUnusedExpressionsRuleOptions;
   "testing-library/consistent-data-testid": ITtscLintTestingLibraryConsistentDataTestIdRuleOptions;
   "functional/functional-parameters": ITtscLintFunctionalParametersRuleOptions;
   "functional/immutable-data": ITtscLintFunctionalImmutableDataRuleOptions;
