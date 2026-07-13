@@ -113,6 +113,7 @@ const PLUGIN_BUILD_LOCK_LEGACY_FENCE_DIR = "legacy-generation";
 const PLUGIN_BUILD_LOCK_LEGACY_FENCE_RECORD = "fence.json";
 const PLUGIN_BUILD_LOCK_CURRENT_DIR = "current";
 const PLUGIN_BUILD_LOCK_RETIRED_DIR = "retired";
+const PLUGIN_BUILD_LOCK_V2_SUFFIX = ".v2";
 const PLUGIN_BUILD_LOCK_PROTOCOL = "ttsc-plugin-build-lock-v2\n";
 // The default cache lives INSIDE the workspace, at
 // `<workspaceRoot>/node_modules/.cache/ttsc`, so `rm -rf node_modules` (or
@@ -296,10 +297,14 @@ function compileSourcePlugin(opts: {
  * cache key, so concurrent fan-out (parallel suites, a benchmark, a worker
  * pool) runs the `go build` once instead of once per process.
  *
- * `<cacheDir>.lock` is a persistent coordination directory. A contender writes
- * a non-empty candidate and atomically renames it to `current`; only one rename
- * wins. The winner builds and publishes while every loser polls and reuses the
- * resulting binary. A loser distinguishes two ways a generation stops blocking:
+ * `<cacheDir>.lock.v2` is a persistent coordination directory. The adjacent
+ * `<cacheDir>.lock` path remains reserved for legacy holders and is never
+ * reused for a v2 generation: an old holder or stale legacy reclaimer can
+ * therefore remove only the legacy path, never a v2 successor. A contender
+ * writes a non-empty candidate and atomically renames it to `current`; only one
+ * rename wins. The winner builds and publishes while every loser polls and
+ * reuses the resulting binary. A loser distinguishes two ways a generation
+ * stops blocking:
  *
  * - `released`: the holder retired `current` itself — it published, or its
  *   build threw and its `finally` freed the key. The loser simply retries the
@@ -352,9 +357,12 @@ function buildUnderPluginLock(
       }
       if (waited.outcome === "abandoned") {
         // Retire only the generation that produced this observation. Losing
-        // the rename race means another waiter already made progress.
-        reportPluginLockSteal(lockDir, binaryPath, lockInfo, waited.reason);
-        reclaimPluginBuildLock(lockDir, waited.fence);
+        // the rename race means another waiter (or the holder's normal
+        // finalizer) already made progress, so do not report a stale result as
+        // an abandonment.
+        if (reclaimPluginBuildLock(lockDir, waited.fence)) {
+          reportPluginLockSteal(lockDir, binaryPath, lockInfo, waited.reason);
+        }
       }
       // "released" needs no repair: the holder freed the key normally (its
       // build published or failed), so retry the ordinary atomic acquisition.
@@ -400,12 +408,23 @@ export type PluginBuildLockLease = {
 export function acquirePluginBuildLock(
   lockDir: string,
 ): PluginBuildLockLease | null {
-  if (!ensurePluginBuildLockProtocol(lockDir)) {
+  // A legacy holder owns the old path. Never publish v2 ownership into that
+  // deletable namespace; wait until the legacy generation is released or
+  // reclaimed, then use the orthogonal persistent v2 directory.
+  if (pluginBuildLockPathExists(lockDir)) {
+    return null;
+  }
+  const protocolDir = pluginBuildLockProtocolDir(lockDir);
+  ensurePluginBuildLockProtocol(protocolDir);
+  // Close the initialization window as far as the legacy protocol permits. A
+  // legacy holder that appeared while v2 was initialized still blocks this
+  // acquisition. (A legacy executable cannot provide a true cross-path CAS.)
+  if (pluginBuildLockPathExists(lockDir)) {
     return null;
   }
 
   const generation = crypto.randomBytes(16).toString("hex");
-  const candidateDir = path.join(lockDir, `candidate-${generation}`);
+  const candidateDir = path.join(protocolDir, `candidate-${generation}`);
   fs.mkdirSync(candidateDir);
   try {
     fs.writeFileSync(
@@ -417,14 +436,14 @@ export function acquirePluginBuildLock(
     try {
       fs.renameSync(
         candidateDir,
-        path.join(lockDir, PLUGIN_BUILD_LOCK_CURRENT_DIR),
+        path.join(protocolDir, PLUGIN_BUILD_LOCK_CURRENT_DIR),
       );
     } catch (error) {
       if (
         isMissingPathError(error) ||
         isRenameDestinationOccupied(
           error,
-          path.join(lockDir, PLUGIN_BUILD_LOCK_CURRENT_DIR),
+          path.join(protocolDir, PLUGIN_BUILD_LOCK_CURRENT_DIR),
         )
       ) {
         return null;
@@ -444,7 +463,10 @@ export function releasePluginBuildLock(
   lockDir: string,
   lease: PluginBuildLockLease,
 ): boolean {
-  return retireV2PluginBuildLock(lockDir, lease.generation);
+  return retireV2PluginBuildLock(
+    pluginBuildLockProtocolDir(lockDir),
+    lease.generation,
+  );
 }
 
 /**
@@ -457,28 +479,47 @@ export function reclaimPluginBuildLock(
   fence: PluginBuildLockFence,
 ): boolean {
   if (fence.protocol === "v2") {
-    return retireV2PluginBuildLock(lockDir, fence.generation);
+    return retireV2PluginBuildLock(
+      pluginBuildLockProtocolDir(lockDir),
+      fence.generation,
+    );
   }
   return retireLegacyPluginBuildLock(lockDir, fence.generation);
 }
 
-function ensurePluginBuildLockProtocol(lockDir: string): boolean {
-  try {
-    fs.mkdirSync(lockDir);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-      throw error;
-    }
-    return isPluginBuildLockProtocolV2(lockDir);
+function pluginBuildLockProtocolDir(lockDir: string): string {
+  return `${lockDir}${PLUGIN_BUILD_LOCK_V2_SUFFIX}`;
+}
+
+function ensurePluginBuildLockProtocol(protocolDir: string): void {
+  if (isPluginBuildLockProtocolV2(protocolDir)) {
+    return;
   }
 
-  fs.mkdirSync(path.join(lockDir, PLUGIN_BUILD_LOCK_RETIRED_DIR));
-  fs.writeFileSync(
-    path.join(lockDir, PLUGIN_BUILD_LOCK_PROTOCOL_FILE),
-    PLUGIN_BUILD_LOCK_PROTOCOL,
-    { encoding: "utf8", flag: "wx" },
-  );
-  return true;
+  const generation = crypto.randomBytes(16).toString("hex");
+  const candidateDir = `${protocolDir}.candidate-${generation}`;
+  fs.mkdirSync(candidateDir);
+  try {
+    fs.mkdirSync(path.join(candidateDir, PLUGIN_BUILD_LOCK_RETIRED_DIR));
+    fs.writeFileSync(
+      path.join(candidateDir, PLUGIN_BUILD_LOCK_PROTOCOL_FILE),
+      PLUGIN_BUILD_LOCK_PROTOCOL,
+      { encoding: "utf8", flag: "wx" },
+    );
+    try {
+      fs.renameSync(candidateDir, protocolDir);
+    } catch (error) {
+      if (
+        isRenameDestinationOccupied(error, protocolDir) &&
+        isPluginBuildLockProtocolV2(protocolDir)
+      ) {
+        return;
+      }
+      throw error;
+    }
+  } finally {
+    fs.rmSync(candidateDir, { force: true, recursive: true });
+  }
 }
 
 function isPluginBuildLockProtocolV2(lockDir: string): boolean {
@@ -532,6 +573,12 @@ function retireLegacyPluginBuildLock(
   generation: string,
 ): boolean {
   if (!isPluginBuildLockGeneration(generation)) return false;
+  const captured = readLegacyPluginBuildLockFence(
+    path.join(lockDir, PLUGIN_BUILD_LOCK_LEGACY_FENCE_DIR),
+  );
+  if (captured?.fence.generation !== generation) {
+    return false;
+  }
   const destination = `${lockDir}.retired-${generation}`;
   try {
     fs.renameSync(lockDir, destination);
@@ -701,9 +748,13 @@ export function inspectPluginBuildLock(
   lockDir: string,
   now: number,
 ): PluginBuildLockObservation {
+  const protocolDir = pluginBuildLockProtocolDir(lockDir);
   for (;;) {
-    if (isPluginBuildLockProtocolV2(lockDir)) {
-      return inspectV2PluginBuildLock(lockDir, now);
+    if (isPluginBuildLockProtocolV2(protocolDir)) {
+      const v2 = inspectV2PluginBuildLock(protocolDir, now);
+      if (v2.state !== "released") {
+        return v2;
+      }
     }
     const legacy = captureLegacyPluginBuildLockFence(lockDir);
     if (legacy !== null) {
@@ -871,8 +922,9 @@ function captureLegacyPluginBuildLockFence(
     throw new Error(`invalid legacy plugin build lock fence: ${fenceDir}`);
   }
 
-  // A stale observer can resume after another process replaced the legacy
-  // path with a v2 root. Confirm both the layout and token after publication.
+  // A stale observer can resume after the legacy holder released or another
+  // process retired the path. Confirm both the legacy layout and token after
+  // publication; v2 ownership is kept in the orthogonal sibling directory.
   const confirmed = readLegacyPluginBuildLockFence(fenceDir);
   if (
     isPluginBuildLockProtocolV2(lockDir) ||
@@ -972,6 +1024,16 @@ function pluginBuildLockAgeMs(lockDir: string, now: number): number | null {
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     return code === "ENOENT" || code === "ENOTDIR" ? null : 0;
+  }
+}
+
+function pluginBuildLockPathExists(lockDir: string): boolean {
+  try {
+    fs.statSync(lockDir);
+    return true;
+  } catch (error) {
+    if (isMissingPathError(error)) return false;
+    throw error;
   }
 }
 
@@ -2595,7 +2657,7 @@ function collectPluginCacheEntries(
     if (
       !dirent.isDirectory() ||
       dirent.name.endsWith(".lock") ||
-      dirent.name.includes(".lock.retired-")
+      dirent.name.includes(".lock.")
     ) {
       continue;
     }

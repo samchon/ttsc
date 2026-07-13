@@ -146,19 +146,21 @@ Check:
 
 ## Concurrency
 
-Concurrent `ttsc` processes serialize a cold build per cache key. The
-`<key>.lock` coordination directory publishes a uniquely generated, non-empty
-`current` directory with an atomic rename. Waiters reuse the published binary;
-when an owner dies or times out, one waiter atomically retires that exact
-generation before acquiring its successor.
+Concurrent `ttsc` processes serialize a cold build per cache key. The persistent
+`<key>.lock.v2` coordination directory publishes a uniquely generated,
+non-empty `current` directory with an atomic rename. Waiters reuse the published
+binary; when an owner dies or times out, one waiter atomically retires that
+exact generation before acquiring its successor.
 
 Retired generations remain as non-empty tombstones inside the lock directory.
 Both reclaim and normal release rename `current` to the generation's fixed
 tombstone path, so a delayed observer or old holder cannot remove a newer
 generation: its destination already exists and a directory rename cannot
-replace it. Legacy pre-generation locks are fenced and retired to an adjacent
-tombstone before the v2 directory is initialized. Scratch directories remain
-unique and binary publication remains atomic as defense in depth.
+replace it. The adjacent `<key>.lock` path is reserved exclusively for legacy
+pre-generation holders. It is fenced and retired before v2 acquisition, but is
+never reused for v2 ownership, so a delayed legacy release or reclaim cannot
+delete a v2 successor. Scratch directories remain unique and binary publication
+remains atomic as defense in depth.
 
 ## See also
 

@@ -133,11 +133,13 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
       state: "released",
     });
     assert.equal(
-      fs.existsSync(path.join(lockDir, "retired", oldLease.generation)),
+      fs.existsSync(path.join(`${lockDir}.v2`, "retired", oldLease.generation)),
       true,
     );
     assert.equal(
-      fs.existsSync(path.join(lockDir, "retired", successorLease.generation)),
+      fs.existsSync(
+        path.join(`${lockDir}.v2`, "retired", successorLease.generation),
+      ),
       true,
     );
   };

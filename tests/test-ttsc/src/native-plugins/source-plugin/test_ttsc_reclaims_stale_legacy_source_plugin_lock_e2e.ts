@@ -41,6 +41,7 @@ export const test_ttsc_reclaims_stale_legacy_source_plugin_lock_e2e = () => {
     const lockDir = `${path.dirname(binary)}.lock`;
     fs.rmSync(binary, { force: true });
     fs.rmSync(lockDir, { force: true, recursive: true });
+    fs.rmSync(`${lockDir}.v2`, { force: true, recursive: true });
     fs.mkdirSync(lockDir, { recursive: true });
     const old = new Date(Date.now() - 120_000);
     fs.utimesSync(lockDir, old, old);

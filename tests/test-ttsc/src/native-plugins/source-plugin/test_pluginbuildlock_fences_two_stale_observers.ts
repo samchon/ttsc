@@ -199,11 +199,13 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
     state: "released",
   });
   assert.equal(
-    fs.existsSync(path.join(lockDir, "retired", seed.generation)),
+    fs.existsSync(path.join(`${lockDir}.v2`, "retired", seed.generation)),
     true,
   );
   assert.equal(
-    fs.existsSync(path.join(lockDir, "retired", successorLease.generation)),
+    fs.existsSync(
+      path.join(`${lockDir}.v2`, "retired", successorLease.generation),
+    ),
     true,
   );
 };

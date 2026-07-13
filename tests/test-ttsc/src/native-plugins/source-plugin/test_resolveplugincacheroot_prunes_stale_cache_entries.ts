@@ -41,10 +41,12 @@ export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
     const stale = path.join(pluginCache, "stale");
     const fresh = path.join(pluginCache, "fresh");
     const lock = path.join(pluginCache, "stale.lock");
+    const v2Lock = path.join(pluginCache, "stale.lock.v2");
     const retiredLegacy = path.join(pluginCache, "stale.lock.retired-deadbeef");
     fs.mkdirSync(stale, { recursive: true });
     fs.mkdirSync(fresh, { recursive: true });
     fs.mkdirSync(lock, { recursive: true });
+    fs.mkdirSync(v2Lock, { recursive: true });
     fs.mkdirSync(retiredLegacy, { recursive: true });
     fs.writeFileSync(path.join(stale, "plugin"), "stale\n", "utf8");
     fs.writeFileSync(path.join(fresh, "plugin"), "fresh\n", "utf8");
@@ -60,6 +62,7 @@ export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
     assert.equal(fs.existsSync(stale), false);
     assert.equal(fs.existsSync(fresh), true);
     assert.equal(fs.existsSync(lock), true);
+    assert.equal(fs.existsSync(v2Lock), true);
     assert.equal(fs.existsSync(retiredLegacy), true);
   } finally {
     if (saved.cache === undefined) delete process.env.TTSC_CACHE_DIR;
