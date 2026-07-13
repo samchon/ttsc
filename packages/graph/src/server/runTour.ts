@@ -183,13 +183,21 @@ export function runTour(
     const landed = new Set(reached.map((node) => node.id));
     if (told.some((earlier) => overlaps(landed, earlier))) continue;
     told.push(landed);
+    const steps = hops
+      .slice(0, MAX_FLOW_ANCHORS)
+      .map((hop) => flowStepOf(graph, hop));
+    // A step already names both of its ends and the file and line the call sits
+    // on: `App.render -[calls at App.tsx:2093]-> renderScene`. Listing those
+    // nodes again with their coordinates, and then a third time as anchors, is
+    // the same fact bought three times — two thirds of a 30 KB tour, re-charged
+    // on every turn it stays in context, and a specific-flow question can spend
+    // a dozen calls. So `reached` carries what the steps did not name, and the
+    // step keeps the citation it already had.
+    const named = namesIn(steps);
     primaryFlow.push({
       start: flowStartOf(start),
-      steps: hops
-        .slice(0, MAX_FLOW_ANCHORS)
-        .map((hop) => flowStepOf(graph, hop)),
-      reached: reached.map(traceNodeOf),
-      anchors: flowAnchorsOf(trace, hops, reached).slice(0, MAX_FLOW_ANCHORS),
+      steps,
+      reached: reached.filter((node) => !named.has(node.name)).map(traceNodeOf),
       ...(trace.truncated ? { truncated: true } : {}),
     });
   }
@@ -223,7 +231,6 @@ export function runTour(
     ...entrypoints.flatMap((node) =>
       anchorFromNode("central entrypoint", node),
     ),
-    ...primaryFlow.flatMap((flow) => flow.anchors),
     ...nearby,
     ...tests,
   ]).slice(0, MAX_READ_NEXT);
@@ -515,6 +522,18 @@ function overlaps(candidate: Set<string>, told: Set<string>): boolean {
   let shared = 0;
   for (const id of smaller) if (larger.has(id)) shared++;
   return shared / smaller.size >= FLOW_OVERLAP;
+}
+
+/** The symbol names a flow's steps already carry. */
+function namesIn(steps: string[]): Set<string> {
+  const names = new Set<string>();
+  for (const step of steps) {
+    const match = /^(.+?) -[.+?]-> (.+)$/.exec(step);
+    if (match === null) continue;
+    names.add(match[1]!.trim());
+    names.add(match[2]!.trim());
+  }
+  return names;
 }
 
 function isTourTraceNode(

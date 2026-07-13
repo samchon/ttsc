@@ -137,6 +137,10 @@ export function runTrace(
     );
     const path = found?.path ?? [];
     const hops = found?.hops ?? [];
+    const junctions =
+      hops.length > 0
+        ? []
+        : junctionsBetween(graph, start.node.id, target.node.id, focus);
     return {
       result: {
         ...base,
@@ -145,6 +149,7 @@ export function runTrace(
         hops,
         path: path.map((node, i) => summary(graph, node, i, false, true)),
         steps: traceSteps(graph, hops),
+        ...(junctions.length > 0 ? { junctions } : {}),
       },
       // An empty path is a fact, not an answer, and the old message called it
       // one: "its path nodes and evidence ranges are what the graph holds
@@ -158,11 +163,16 @@ export function runTrace(
       next:
         hops.length > 0
           ? pathNext
-          : resultNext(
-              "inspect",
-              "No call path runs from the start to the target, so nothing calls across the gap directly: either they are unrelated, or a callback stands between them (an event emitter, a subscription, a lifecycle hook), which no call edge crosses. Reverse-trace the target to see what actually reaches it.",
-              "trace",
-            ),
+          : junctions.length > 0
+            ? resultNext(
+                "inspect",
+                "No call path runs between the two ends — a callback stands between them (an event emitter, a subscription, a lifecycle hook), and no call edge crosses one. `junctions` names the symbols both ends touch, which is the seam: trace the junction to see who registers on it and who fires it.",
+                "trace",
+              )
+            : resultNext(
+                "outside",
+                "No call path runs from the start to the target and they touch nothing in common, so the graph holds no connection between them.",
+              ),
     };
   }
 
@@ -266,6 +276,94 @@ function traceSteps(
  * structural) forward edges, breadth-first, or null when `targetId` is not
  * reachable within maxDepth. Returns the nodes in order and the hops between.
  */
+/**
+ * The symbols both ends of an unreachable path touch.
+ *
+ * A call graph cannot cross a callback: the registration hands a listener to an
+ * emitter, and `emit()` runs whatever the registration put in an array. But the
+ * registration and the emit both reference the emitter, and those are edges the
+ * checker resolved — Excalidraw's `App.componentDidMount` and its
+ * `Store.emitDurableIncrement` both touch `Store.onDurableIncrementEmitter`,
+ * which is the exact seam the path walk stops at.
+ *
+ * So when the path is empty, name what the two ends share. It is not a path and
+ * the result says so; it is the symbol to inspect next, with the two edges that
+ * make it the seam. Nothing here is matched or inferred: a junction is an edge
+ * from each end to the same node.
+ */
+function junctionsBetween(
+  graph: TtscGraphMemory,
+  startId: string,
+  targetId: string,
+  focus: ITtscGraphTrace.IRequest["focus"],
+): ITtscGraphTrace.IJunction[] {
+  const startTouches = touchedBy(graph, startId, focus);
+  const targetTouches = touchedBy(graph, targetId, focus);
+  const out: ITtscGraphTrace.IJunction[] = [];
+  for (const [id, fromStart] of startTouches) {
+    const fromTarget = targetTouches.get(id);
+    if (fromTarget === undefined) continue;
+    const node = graph.node(id);
+    if (node === undefined || node.kind === "file" || isExternalNode(node))
+      continue;
+    out.push({
+      id: node.id,
+      name: node.qualifiedName ?? node.name,
+      kind: node.kind,
+      file: node.file,
+      ...(node.evidence?.startLine !== undefined
+        ? { line: node.evidence.startLine }
+        : {}),
+      fromStart,
+      fromTarget,
+    });
+  }
+  // A shared leaf helper is noise; a shared emitter, store, or registry is the
+  // seam. What both ends hold onto rather than merely call is the thing standing
+  // between them, so state comes first.
+  out.sort((a, b) => junctionRank(b) - junctionRank(a));
+  return out.slice(0, MAX_JUNCTIONS);
+}
+
+const MAX_JUNCTIONS = 4;
+
+/** How much a shared symbol looks like a seam rather than a shared utility. */
+function junctionRank(junction: ITtscGraphTrace.IJunction): number {
+  let rank = 0;
+  if (junction.kind === "variable" || junction.kind === "property") rank += 3;
+  if (junction.fromStart.kind === "accesses") rank += 2;
+  if (junction.fromTarget.kind === "accesses") rank += 2;
+  return rank;
+}
+
+/** Every node an end touches, with the edge that touches it. */
+function touchedBy(
+  graph: TtscGraphMemory,
+  id: string,
+  focus: ITtscGraphTrace.IRequest["focus"],
+): Map<string, ITtscGraphTrace.IJunctionEdge> {
+  const touched = new Map<string, ITtscGraphTrace.IJunctionEdge>();
+  for (const edge of graph.outgoing(id)) {
+    if (!traversable(edge.kind, focus)) continue;
+    if (!touched.has(edge.to))
+      touched.set(edge.to, {
+        kind: edge.kind,
+        outgoing: true,
+        ...(edge.evidence !== undefined ? { evidence: edge.evidence } : {}),
+      });
+  }
+  for (const edge of graph.incoming(id)) {
+    if (!traversable(edge.kind, focus)) continue;
+    if (!touched.has(edge.from))
+      touched.set(edge.from, {
+        kind: edge.kind,
+        outgoing: false,
+        ...(edge.evidence !== undefined ? { evidence: edge.evidence } : {}),
+      });
+  }
+  return touched;
+}
+
 function findPath(
   graph: TtscGraphMemory,
   startId: string,
