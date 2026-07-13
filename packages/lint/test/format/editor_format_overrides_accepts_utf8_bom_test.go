@@ -62,7 +62,7 @@ func TestEditorFormatOverridesAcceptsUTF8BOM(t *testing.T) {
     minimalRoot := t.TempDir()
     writeSettings(t, minimalRoot, withBOM(`{}`))
     minimal, ok := loadNearestVSCodeSettings(minimalRoot)
-    if !ok || len(minimal) != 0 {
+    if !ok || len(minimal.values) != 0 || len(minimal.languageSections) != 0 {
       t.Fatalf("BOM minimal object: want empty parsed object, got %#v, ok=%v", minimal, ok)
     }
 
@@ -89,7 +89,7 @@ func TestEditorFormatOverridesAcceptsUTF8BOM(t *testing.T) {
     if !ok {
       t.Fatal("settings with an embedded BOM should parse")
     }
-    if got := settings["marker"]; got != "\uFEFF" {
+    if got := settings.values["marker"]; got != "\uFEFF" {
       t.Fatalf("embedded BOM: want %q, got %#v", "\uFEFF", got)
     }
   })
@@ -102,7 +102,8 @@ func TestEditorFormatOverridesAcceptsUTF8BOM(t *testing.T) {
       t.Run(name, func(t *testing.T) {
         root := t.TempDir()
         writeSettings(t, root, body)
-        if settings, ok := loadNearestVSCodeSettings(root); ok || settings != nil {
+        if settings, ok := loadNearestVSCodeSettings(root); ok ||
+          settings.values != nil || len(settings.languageSections) != 0 {
           t.Fatalf("malformed settings: want nil, false; got %#v, %v", settings, ok)
         }
         if got := editorFormatOverrides(root, "typescript"); len(got) != 0 {
