@@ -624,7 +624,8 @@ export interface ITtscLintTypeScriptRules {
 
   /**
    * Reject `<T extends unknown>` and similar constraints that match everything.
-   * Autofixable: drops the constraint.
+   * Autofixable: drops the constraint while retaining the disambiguating comma
+   * required by single-parameter generic arrows in TSX, MTS, and CTS files.
    *
    * @reference https://typescript-eslint.io/rules/no-unnecessary-type-constraint
    */
