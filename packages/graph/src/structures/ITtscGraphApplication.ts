@@ -32,7 +32,9 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * - `trace`: follow calls or data flow forward or backward from a symbol, or —
  *   with `to` — the path between two symbols when both ends are known, which is
  *   the one call that answers "how does A reach B".
- * - `details`: signatures, members, and relations of named symbols.
+ * - `details`: signatures, members, and relations of named symbols — including
+ *   the classes that implement an interface, which is the one call that answers
+ *   "what actually implements this".
  * - `overview`: project layers and folder structure.
  * - `escape`: the answer is outside the graph (source body text, non-TypeScript
  *   files, exact search).
