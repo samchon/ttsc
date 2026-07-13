@@ -26,7 +26,7 @@ mutable?.["every"](async value => value > 0);
 // expect: typescript/no-misused-promises error
 maybeValues?.findIndex(async value => value > 0);
 // expect: typescript/no-misused-promises error
-readonlyValues["findLast"](async value => value > 0);
+readonlyValues["find"](async value => value > 0);
 // expect: typescript/no-misused-promises error
 tuple.some(async value => value > 0);
 
@@ -41,6 +41,12 @@ interface PromiseAwareArrayLike<T> {
 }
 declare const promiseAware: PromiseAwareArrayLike<number>;
 promiseAware.filter(async value => value > 0);
+
+type PromiseAwareReadonlyShape<T> = Omit<ReadonlyArray<T>, "filter"> & {
+  filter(predicate: (value: T) => Promise<boolean>): Promise<readonly T[]>;
+};
+declare const promiseAwareReadonly: PromiseAwareReadonlyShape<number>;
+promiseAwareReadonly.filter(async value => value > 0);
 
 declare const union: number[] | readonly number[];
 // expect: typescript/no-misused-promises error
@@ -62,6 +68,6 @@ declare const overlapping: ArrayWithVoidFilter;
 // expect: typescript/no-misused-promises error
 overlapping.filter(async value => { void value; });
 
-void [mutable, readonlyValues, tuple, maybeValues, promiseAware, union, intersection, checkConstrained, overlapping];
+void [mutable, readonlyValues, tuple, maybeValues, promiseAware, promiseAwareReadonly, union, intersection, checkConstrained, overlapping];
 `, nil)
 }
