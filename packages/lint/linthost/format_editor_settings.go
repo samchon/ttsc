@@ -115,7 +115,8 @@ func applyEditorSettings(out map[string]any, settings map[string]any) {
 // languageSectionIdentifiers parses a complete VS Code language selector such
 // as "[typescript]" or "[javascript][typescript][json]". Each full selector is
 // one override scope; its identifiers are used only to determine whether that
-// scope applies to the requested language.
+// scope applies to the requested language. Identifiers are trimmed and
+// deduplicated before exact-versus-combined precedence is decided.
 func languageSectionIdentifiers(key string) ([]string, bool) {
   identifiers := []string{}
   for len(key) != 0 {
@@ -126,7 +127,13 @@ func languageSectionIdentifiers(key string) ([]string, bool) {
     if close <= 1 || strings.ContainsRune(key[1:close], '[') {
       return nil, false
     }
-    identifiers = append(identifiers, key[1:close])
+    identifier := strings.TrimSpace(key[1:close])
+    if identifier == "" {
+      return nil, false
+    }
+    if !languageSectionContains(identifiers, identifier) {
+      identifiers = append(identifiers, identifier)
+    }
     key = key[close+1:]
   }
   return identifiers, len(identifiers) != 0
