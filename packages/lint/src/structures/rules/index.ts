@@ -27,5 +27,6 @@ export * from "./ITtscLintTanstackQueryRules";
 export * from "./ITtscLintTestingLibraryRuleOptions";
 export * from "./ITtscLintTestingLibraryRules";
 export * from "./ITtscLintTypeScriptRules";
+export * from "./ITtscLintTypeScriptRuleOptions";
 export * from "./ITtscLintUnicornRules";
 export * from "./ITtscLintVitestRules";

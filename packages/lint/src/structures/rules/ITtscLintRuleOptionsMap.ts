@@ -27,6 +27,7 @@ import type { ITtscLintReactPerfRuleOptions } from "./ITtscLintReactPerfRuleOpti
 import type { ITtscLintReactOnlyExportComponentsRuleOptions } from "./ITtscLintReactRuleOptions";
 import type { ITtscLintStorybookNoUninstalledAddonsRuleOptions } from "./ITtscLintStorybookRuleOptions";
 import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./ITtscLintTestingLibraryRuleOptions";
+import type { ITtscLintTypeScriptNoFloatingPromisesRuleOptions } from "./ITtscLintTypeScriptRuleOptions";
 
 /**
  * Index from typed rule name to its options object.
@@ -51,6 +52,7 @@ import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./I
  * surface.
  */
 export interface ITtscLintRuleOptionsMap {
+  "typescript/no-floating-promises": ITtscLintTypeScriptNoFloatingPromisesRuleOptions;
   "testing-library/consistent-data-testid": ITtscLintTestingLibraryConsistentDataTestIdRuleOptions;
   "functional/functional-parameters": ITtscLintFunctionalParametersRuleOptions;
   "functional/immutable-data": ITtscLintFunctionalImmutableDataRuleOptions;

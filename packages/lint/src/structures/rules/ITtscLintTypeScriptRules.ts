@@ -1,4 +1,8 @@
-import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
+import type {
+  TtscLintRuleOptionsSetting,
+  TtscLintRuleSetting,
+} from "../TtscLintRuleSetting";
+import type { ITtscLintTypeScriptNoFloatingPromisesRuleOptions } from "./ITtscLintTypeScriptRuleOptions";
 
 /**
  * TypeScript-only rules and `@typescript-eslint` plugin equivalents, exposed
@@ -310,12 +314,13 @@ export interface ITtscLintTypeScriptRules {
    *
    * Type-aware via the Checker. A floating promise loses its rejection channel
    * and runs out of order with surrounding code. Acceptable sinks are `await`,
-   * `.catch(...)`, `.then(_, onRejected)`, `.finally(...)`, assignment, the
-   * `void` operator, and `return`.
+   * callable rejection handlers, assignment, the `void` operator by default,
+   * and `return`. A `.finally(...)` call is clean only when its receiver was
+   * already handled.
    *
    * @reference https://typescript-eslint.io/rules/no-floating-promises
    */
-  "typescript/no-floating-promises"?: TtscLintRuleSetting;
+  "typescript/no-floating-promises"?: TtscLintRuleOptionsSetting<ITtscLintTypeScriptNoFloatingPromisesRuleOptions>;
 
   /**
    * Reject `for (const k in arr)` where `arr` is statically typed as an array
