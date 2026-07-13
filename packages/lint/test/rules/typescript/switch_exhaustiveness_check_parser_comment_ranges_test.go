@@ -17,14 +17,13 @@ import (
 //  2. Put a U+2028-separated real marker after another switch's last clause.
 //  3. Assert the negative twin reports once and the real marker suppresses.
 func TestSwitchExhaustivenessCheckParserCommentRanges(t *testing.T) {
-  assertSwitchExhaustivenessCheckForTest(t, `
-declare const value: string;
-switch (value) {
-  case "known":
-    `${"// No Default"}`;
-    break;
-}
-`, map[string]any{
+  templateSource := "\ndeclare const value: string;\n" +
+    "switch (value) {\n" +
+    "  case \"known\":\n" +
+    "    `${\"// No Default\"}`;\n" +
+    "    break;\n" +
+    "}\n"
+  assertSwitchExhaustivenessCheckForTest(t, templateSource, map[string]any{
     "requireDefaultForNonUnion": true,
   }, 1, map[string]int{"Cases not matched: default": 1})
 
