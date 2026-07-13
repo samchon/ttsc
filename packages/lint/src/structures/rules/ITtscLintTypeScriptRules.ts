@@ -4,6 +4,7 @@ import type {
 } from "../TtscLintRuleSetting";
 import type {
   ITtscLintTypeScriptBanTsCommentRuleOptions,
+  ITtscLintTypeScriptNoMisusedPromisesRuleOptions,
   ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
 } from "./ITtscLintTypeScriptRuleOptions";
 
@@ -405,15 +406,13 @@ export interface ITtscLintTypeScriptRules {
   /**
    * Reject Promise values supplied where a non-Promise was expected.
    *
-   * Covers conditional positions (`if (promise)`, `while`, `for`, ternary,
-   * `&&`, `||`, `??`) where the Promise is truthy by reference, and `async`
-   * callbacks passed to APIs that expect a void-returning function (e.g.
-   * `Array#forEach`, JSX event handlers), where the returned Promise is
-   * silently dropped.
+   * Covers conditional and predicate positions, Promise object spreads,
+   * synchronous disposal, and Promise-returning functions in void-return
+   * argument, JSX, inherited-method, property, return, and variable contexts.
    *
    * @reference https://typescript-eslint.io/rules/no-misused-promises
    */
-  "typescript/no-misused-promises"?: TtscLintRuleSetting;
+  "typescript/no-misused-promises"?: TtscLintRuleOptionsSetting<ITtscLintTypeScriptNoMisusedPromisesRuleOptions>;
 
   /**
    * Reject spread expressions whose operand is syntactically wrong for the
