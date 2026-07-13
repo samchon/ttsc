@@ -26,7 +26,7 @@ type TaggedCatchResult<T> = CatchResult<T> & { readonly tag: true };
 declare const safeDot: Promise<void> | CatchResult<undefined>;
 declare const unsafeDot: Promise<void> | CatchResult<Promise<void>>;
 declare const safeComputed: Promise<void> | CatchResult<void>;
-declare const unsafeComputed: Promise<void> | CatchResult<PromiseLike<void>>;
+declare const unsafeComputed: Promise<void> | CatchResult<Promise<void>>;
 declare const safeOptional: Promise<void> | CatchResult<undefined> | undefined;
 declare const unsafeOptional: Promise<void> | CatchResult<Promise<void>> | undefined;
 declare const safeIntersection: Promise<void> | TaggedCatchResult<undefined>;
