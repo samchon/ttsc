@@ -149,7 +149,7 @@ func noUnsafeAssignmentCheckObjectProperty(ctx *Context, node *shimast.Node) {
   property := node.AsPropertyAssignment()
   if property == nil || property.Name() == nil || property.Initializer == nil ||
     node.Parent == nil || node.Parent.Kind != shimast.KindObjectLiteralExpression ||
-    noUnsafeAssignmentIsAssignmentTarget(node) {
+    isDestructuringAssignmentTarget(node) {
     return
   }
   receiverType := ctx.Checker.GetContextualTypeForObjectLiteralElement(node, 0)
@@ -183,7 +183,7 @@ func noUnsafeAssignmentCheckShorthandProperty(ctx *Context, node *shimast.Node) 
   }
 
   if node.Parent == nil || node.Parent.Kind != shimast.KindObjectLiteralExpression ||
-    noUnsafeAssignmentIsAssignmentTarget(node) {
+    isDestructuringAssignmentTarget(node) {
     return
   }
   receiverType := ctx.Checker.GetContextualTypeForObjectLiteralElement(node, 0)
@@ -201,7 +201,7 @@ func noUnsafeAssignmentCheckArraySpread(ctx *Context, node *shimast.Node) {
   spread := node.AsSpreadElement()
   if spread == nil || spread.Expression == nil || node.Parent == nil ||
     node.Parent.Kind != shimast.KindArrayLiteralExpression ||
-    noUnsafeAssignmentIsAssignmentTarget(node) {
+    isDestructuringAssignmentTarget(node) {
     return
   }
   senderType := ctx.Checker.GetTypeAtLocation(spread.Expression)
@@ -643,50 +643,6 @@ func noUnsafeAssignmentNormalizeNumericKey(value string) string {
     return strconv.FormatFloat(number, 'g', -1, 64)
   }
   return value
-}
-
-// noUnsafeAssignmentIsAssignmentTarget distinguishes object/array literals on
-// the left of `=` from source literals. tsgo represents destructuring
-// assignment targets as literal-expression nodes, unlike binding declarations.
-func noUnsafeAssignmentIsAssignmentTarget(node *shimast.Node) bool {
-  child := node
-  for child != nil && child.Parent != nil {
-    parent := child.Parent
-    switch parent.Kind {
-    case shimast.KindBindingElement:
-      binding := parent.AsBindingElement()
-      if binding != nil &&
-        (binding.PropertyName == child || binding.Initializer == child) {
-        return false
-      }
-    case shimast.KindPropertyAssignment:
-      property := parent.AsPropertyAssignment()
-      if property != nil && property.Name() == child {
-        return false
-      }
-    case shimast.KindShorthandPropertyAssignment:
-      property := parent.AsShorthandPropertyAssignment()
-      if property != nil && property.ObjectAssignmentInitializer == child {
-        return false
-      }
-    case shimast.KindComputedPropertyName:
-      return false
-    }
-    if parent.Kind == shimast.KindBinaryExpression {
-      expression := parent.AsBinaryExpression()
-      if expression != nil && expression.OperatorToken != nil &&
-        expression.OperatorToken.Kind == shimast.KindEqualsToken {
-        if expression.Left == child {
-          return true
-        }
-        if expression.Right == child {
-          return false
-        }
-      }
-    }
-    child = parent
-  }
-  return false
 }
 
 func init() {

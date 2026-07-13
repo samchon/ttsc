@@ -5,9 +5,9 @@ import "testing"
 // TestNoFallthroughRejectsReturnInsideFunctionExpression verifies a nested function expression's return does not terminate the case.
 //
 // The `return` belongs to the callback, not to the case: after defining and
-// calling it, control still reaches the case end. Locks the
-// function-boundary rule — the completion analysis never descends into
-// expression trees, so nested function bodies stay invisible.
+// calling it, control still reaches the case end. Locks the function-boundary
+// rule: expression evaluation is inspected for abrupt edges, but nested
+// function bodies stay invisible.
 //
 // 1. End a case with a function expression containing `return` plus a call.
 // 2. Run the engine with no-fallthrough enabled.

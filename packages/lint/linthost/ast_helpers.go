@@ -378,6 +378,55 @@ func assignmentTargetNames(node *shimast.Node) []string {
   return names
 }
 
+// isDestructuringAssignmentTarget reports whether node belongs to the left
+// side of a destructuring assignment. TypeScript-Go represents those targets
+// as array/object literal expressions rather than binding-pattern nodes.
+// Property keys, computed names, and default-value expressions are reads and
+// therefore stop the target walk.
+func isDestructuringAssignmentTarget(node *shimast.Node) bool {
+  child := node
+  for child != nil && child.Parent != nil {
+    parent := child.Parent
+    switch parent.Kind {
+    case shimast.KindBindingElement:
+      binding := parent.AsBindingElement()
+      if binding != nil &&
+        (binding.PropertyName == child || binding.Initializer == child) {
+        return false
+      }
+    case shimast.KindPropertyAssignment:
+      property := parent.AsPropertyAssignment()
+      if property != nil && property.Name() == child {
+        return false
+      }
+    case shimast.KindShorthandPropertyAssignment:
+      property := parent.AsShorthandPropertyAssignment()
+      if property != nil && property.ObjectAssignmentInitializer == child {
+        return false
+      }
+    case shimast.KindComputedPropertyName:
+      return false
+    case shimast.KindForInStatement, shimast.KindForOfStatement:
+      statement := parent.AsForInOrOfStatement()
+      return statement != nil && statement.Initializer == child
+    }
+    if parent.Kind == shimast.KindBinaryExpression {
+      expression := parent.AsBinaryExpression()
+      if expression != nil && expression.OperatorToken != nil &&
+        expression.OperatorToken.Kind == shimast.KindEqualsToken {
+        if expression.Left == child {
+          return true
+        }
+        if expression.Right == child {
+          return false
+        }
+      }
+    }
+    child = parent
+  }
+  return false
+}
+
 // collectAssignmentTargetIdentifiers appends to `identifiers` every identifier in a
 // destructuring-assignment target. It descends only through write-target
 // positions so reads (object property keys, computed-member expressions)
