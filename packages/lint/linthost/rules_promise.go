@@ -13,11 +13,24 @@ const promiseRulePrefix = "promise/"
 // recommended-type-checked:
 // https://typescript-eslint.io/rules/await-thenable/
 //
+// The upstream rule checks three distinct `await`-flavored constructs, and
+// this port mirrors all three:
+//
+//   - `await expr` — the operand must be a Promise or a thenable
+//     (checkAwaitThenableExpression);
+//   - `for await...of expr` — the source must expose the async-iterator
+//     protocol (`[Symbol.asyncIterator]`), not merely the sync fallback
+//     JavaScript permits (checkAwaitThenableForAwaitOf);
+//   - `await using x = expr` — each initializer must expose the
+//     async-dispose protocol (`[Symbol.asyncDispose]`), not only
+//     `[Symbol.dispose]` (checkAwaitThenableAwaitUsing).
+//
 // This is the first rule in the corpus to consult `ctx.Checker`. The
 // shim's `Checker` is a type alias for tsgo's `*innerchecker.Checker`,
 // so every exported method (`GetTypeAtLocation`, `GetPromisedTypeOfPromise`,
 // `GetPropertyOfType`, `GetSignaturesOfType`) is callable directly with
-// no shim addition.
+// no shim addition; the well-known-symbol lookups additionally go through
+// the linknamed `Checker_getPropertyNameForKnownSymbolName`.
 type awaitThenable struct{}
 
 func (awaitThenable) Name() string { return "typescript/await-thenable" }
@@ -25,12 +38,32 @@ func (awaitThenable) NeedsTypeChecker() bool {
   return true
 }
 func (awaitThenable) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindAwaitExpression}
+  return []shimast.Kind{
+    shimast.KindAwaitExpression,
+    shimast.KindForOfStatement,
+    shimast.KindVariableDeclarationList,
+  }
 }
 func (awaitThenable) Check(ctx *Context, node *shimast.Node) {
   if ctx.Checker == nil {
     return
   }
+  switch node.Kind {
+  case shimast.KindAwaitExpression:
+    checkAwaitThenableExpression(ctx, node)
+  case shimast.KindForOfStatement:
+    checkAwaitThenableForAwaitOf(ctx, node)
+  case shimast.KindVariableDeclarationList:
+    checkAwaitThenableAwaitUsing(ctx, node)
+  }
+}
+
+// checkAwaitThenableExpression handles the ordinary `await expr` arm: the
+// operand must be awaitable (Promise, thenable, or a union/intersection with
+// an awaitable constituent — see isAwaitable). The finding carries an autofix
+// that drops the redundant `await ` keyword, which is behavior-preserving
+// modulo one microtask hop.
+func checkAwaitThenableExpression(ctx *Context, node *shimast.Node) {
   expr := node.AsAwaitExpression()
   if expr == nil || expr.Expression == nil {
     return
@@ -58,6 +91,106 @@ func (awaitThenable) Check(ctx *Context, node *shimast.Node) {
     message,
     TextEdit{Pos: startPos, End: operandStart, Text: ""},
   )
+}
+
+// checkAwaitThenableForAwaitOf handles the `for await...of` arm. Iterating a
+// merely sync iterable with `for await` is legal JavaScript (the runtime
+// falls back to the sync iterator and awaits each yielded value), but it has
+// different iterator-closing/error semantics than a plain `for...of` and can
+// obscure serial Promise consumption, so the upstream rule rejects any source
+// whose type does not expose `[Symbol.asyncIterator]`. `any` escapes the
+// check, mirroring typescript-eslint's `isTypeAnyType` gate. The diagnostic
+// anchors on the iterable expression, not the whole statement, so the banner
+// points at the offending value. No autofix: upstream ships only a manual
+// suggestion here, because dropping the `await` changes runtime behavior
+// (e.g. a sync iterable of Promises would stop resolving its elements).
+func checkAwaitThenableForAwaitOf(ctx *Context, node *shimast.Node) {
+  stmt := node.AsForInOrOfStatement()
+  if stmt == nil || stmt.AwaitModifier == nil || stmt.Expression == nil {
+    return
+  }
+  t := ctx.Checker.GetTypeAtLocation(stmt.Expression)
+  if t == nil || t.Flags()&shimchecker.TypeFlagsAny != 0 {
+    return
+  }
+  if hasWellKnownSymbolProperty(ctx.Checker, t, "asyncIterator") {
+    return
+  }
+  ctx.Report(stmt.Expression, "Unexpected `for await...of` of a value that is not async iterable.")
+}
+
+// checkAwaitThenableAwaitUsing handles the `await using` arm. Awaiting the
+// disposal of a resource that only implements `[Symbol.dispose]` is legal
+// (the runtime wraps the sync disposer), but the `await` adds a scheduling
+// point with no value, so the upstream rule requires every initializer to
+// expose `[Symbol.asyncDispose]`. Declarations without an initializer (the
+// `for (await using x of ...)` binding form) are skipped, as is `any`,
+// mirroring typescript-eslint. Each offending declarator reports on its own
+// initializer expression. No autofix: upstream offers only a manual
+// suggestion, and only for single-declarator statements.
+func checkAwaitThenableAwaitUsing(ctx *Context, node *shimast.Node) {
+  if shimast.GetCombinedNodeFlags(node)&shimast.NodeFlagsBlockScoped != shimast.NodeFlagsAwaitUsing {
+    return
+  }
+  list := node.AsVariableDeclarationList()
+  if list == nil || list.Declarations == nil {
+    return
+  }
+  for _, declNode := range list.Declarations.Nodes {
+    decl := declNode.AsVariableDeclaration()
+    if decl == nil || decl.Initializer == nil {
+      continue
+    }
+    t := ctx.Checker.GetTypeAtLocation(decl.Initializer)
+    if t == nil || t.Flags()&shimchecker.TypeFlagsAny != 0 {
+      continue
+    }
+    if hasWellKnownSymbolProperty(ctx.Checker, t, "asyncDispose") {
+      continue
+    }
+    ctx.Report(decl.Initializer, "Unexpected `await using` of a value that is not async disposable.")
+  }
+}
+
+// hasWellKnownSymbolProperty reports whether `t` — or, for a union, ANY of
+// its constituents — declares a property keyed by the global well-known
+// symbol `Symbol.<symbolName>`. This mirrors ts-api-utils'
+// `getWellKnownSymbolPropertyOfType` over `unionConstituents`, the exact
+// predicate typescript-eslint's await-thenable uses for its `for await...of`
+// and `await using` arms:
+//
+//   - the property NAME is resolved through the checker's own
+//     `getPropertyNameForKnownSymbolName`, i.e. through the unique-symbol
+//     type of the real global `SymbolConstructor` member, never by matching
+//     source text or declared type names;
+//   - the property LOOKUP goes through `GetPropertyOfType`, which resolves
+//     apparent types (generic constraints, primitives), inherited members,
+//     intersections, and type aliases.
+//
+// Union constituents are tested individually because a union type only
+// surfaces properties present on every constituent, while upstream accepts a
+// union when at least one constituent implements the protocol (e.g.
+// `AsyncIterable<T> | Iterable<T>` stays valid under `for await`).
+func hasWellKnownSymbolProperty(checker *shimchecker.Checker, t *shimchecker.Type, symbolName string) bool {
+  if checker == nil || t == nil {
+    return false
+  }
+  if t.Flags()&shimchecker.TypeFlagsUnion != 0 {
+    for _, part := range t.Types() {
+      if part == nil {
+        continue
+      }
+      if hasWellKnownSymbolProperty(checker, part, symbolName) {
+        return true
+      }
+    }
+    return false
+  }
+  name := shimchecker.Checker_getPropertyNameForKnownSymbolName(checker, symbolName)
+  if name == "" {
+    return false
+  }
+  return checker.GetPropertyOfType(t, name) != nil
 }
 
 // isAwaitable reports whether `t` is safe to `await`. A type is awaitable

@@ -171,14 +171,22 @@ const a: Array<string> = [];
 
 ### `typescript/await-thenable`
 
-Reject `await` on operands that are not thenable.
+Reject `await` on operands that are not thenable, `for await...of` over values that are not async iterable, and `await using` of resources that are not async disposable.
 
-Type-aware, the Checker decides whether the awaited expression has a `then` method. Autofixable: drops the `await`.
+Type-aware. The Checker decides whether the awaited expression has a callable `then` method, whether the `for await...of` source exposes `[Symbol.asyncIterator]`, and whether each `await using` initializer exposes `[Symbol.asyncDispose]`. The protocol lookups resolve through unions (any async constituent is accepted), intersections, type aliases, inherited members, and generic constraints. Autofixable: drops the `await` on a non-thenable operand. The `for await...of` and `await using` findings carry no autofix because removing that `await` changes runtime behavior.
 
 Example:
 
 ```ts
 async function bad(): Promise<number> {
+  // reports: typescript/await-thenable (error)
+  await using resource = {
+    [Symbol.dispose](): void {},
+  };
+  // reports: typescript/await-thenable (error)
+  for await (const value of [1, 2, 3]) {
+    JSON.stringify([resource, value]);
+  }
   // reports: typescript/await-thenable (error)
   return await 42;
 }

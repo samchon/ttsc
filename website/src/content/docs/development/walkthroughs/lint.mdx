@@ -433,7 +433,7 @@ The rule's `Check` first calls `checker.GetTypeAtLocation(expr)` on the awaited 
 - `GetPropertyOfType(t, "then")`: look up a member by name. Returns `*Symbol` or nil.
 - `GetSignaturesOfType(thenT, SignatureKindCall)`: get every callable signature on the property type.
 
-If `then` is missing or non-callable, the value is not thenable and `await` on it is meaningless. The rule reports a finding; `--fix` could autosuggest removing the `await` (though `await-thenable` does not, that's a design choice, not a technical constraint).
+If `then` is missing or non-callable, the value is not thenable and `await` on it is meaningless. The rule reports a finding with an autofix that drops the `await` keyword. The same rule also covers `for await...of` and `await using`: those arms resolve the well-known-symbol protocol members (`[Symbol.asyncIterator]`, `[Symbol.asyncDispose]`) through `Checker_getPropertyNameForKnownSymbolName` plus `GetPropertyOfType`, and report without an autofix because removing that `await` changes runtime behavior.
 
 For the full Checker surface and when to reach for `Checker_*` linkname wrappers, see [AST & Checker → Checker Basics](/docs/development/concepts/tsgo#checker-basics).
 
