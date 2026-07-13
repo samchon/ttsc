@@ -59,11 +59,21 @@ func runDump(args []string) int {
 
   g := graph.Build(prog)
   ignored := graph.GitIgnoredFiles(cwd, g)
-  data, err := graph.MarshalDump(g, cwd, tsconfig, ignored, graph.SourceTexts(prog), *prettyFlag)
-  if err != nil {
+  // Stream the document out instead of marshalling it into one byte slice and
+  // then copying that slice into a string: on VS Code the dump is 323 MB, so
+  // the string conversion alone was a second full copy of it, for nothing. The
+  // encoder writes through a buffer straight to stdout.
+  if err := graph.EncodeDump(
+    stdout,
+    g,
+    cwd,
+    tsconfig,
+    ignored,
+    graph.SourceTexts(prog),
+    *prettyFlag,
+  ); err != nil {
     fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
     return 1
   }
-  fmt.Fprintln(stdout, string(data))
   return 0
 }

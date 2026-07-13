@@ -1,10 +1,30 @@
 /**
- * Options shapes for rules in {@link ITtscLintCoreRules} that accept
- * configuration. Only `no-unused-expressions` is configurable in the current
- * native subset.
+ * Options shapes for the configurable rules in {@link ITtscLintCoreRules}.
  *
  * @reference https://eslint.org/docs/latest/rules/
  */
+
+/** `no-duplicate-imports` rule options. */
+export interface ITtscLintCoreNoDuplicateImportsRuleOptions {
+  /**
+   * Keep clause-level `import type` declarations out of the duplicate
+   * comparison with value-bearing declarations of the same module, so one
+   * runtime import plus one type-only import may coexist. Inline type
+   * specifiers such as `import { type Foo }` stay on the value side because the
+   * whole import clause is not type-only.
+   *
+   * @default false
+   */
+  allowSeparateTypeImports?: boolean;
+
+  /**
+   * Also treat `export … from` declarations of an already imported (or
+   * re-exported) module as duplicates when the declarations could be merged.
+   *
+   * @default false
+   */
+  includeExports?: boolean;
+}
 
 /**
  * `no-unused-expressions` rule options.
@@ -13,7 +33,7 @@
  *
  * @reference https://eslint.org/docs/latest/rules/no-unused-expressions
  */
-export interface ITtscLintNoUnusedExpressionsRuleOptions {
+export interface ITtscLintCoreNoUnusedExpressionsRuleOptions {
   /**
    * Allow short-circuit expression statements such as `a && b()`. Only the
    * right-hand side must be a productive expression; `a && b` stays reported.
@@ -31,7 +51,7 @@ export interface ITtscLintNoUnusedExpressionsRuleOptions {
   allowTernary?: boolean;
 
   /**
-   * Allow tagged template literal statements — the tag function call may have
+   * Allow tagged template literal statements. The tag function call may have
    * side effects. Untagged template literal statements stay reported.
    *
    * @default false

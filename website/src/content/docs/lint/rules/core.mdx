@@ -42,7 +42,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-dupe-else-if`](#rule-no-dupe-else-if): Reject `if (a) {} else if (a) {}`, the second branch is unreachable.
 - [`no-dupe-keys`](#rule-no-dupe-keys): Reject `{ a: 1, a: 2 }`, duplicate property keys in an object literal silently overwrite earlier values.
 - [`no-duplicate-case`](#rule-no-duplicate-case): Reject the same `case` label appearing twice in a `switch`, later duplicates are unreachable.
-- [`no-duplicate-imports`](#rule-no-duplicate-imports): Reject two import declarations that resolve to the same module specifier.
+- [`no-duplicate-imports`](#rule-no-duplicate-imports): Reject a repeated module specifier when the import declarations could be merged into one legal declaration.
 - [`no-else-return`](#rule-no-else-return): Reject an `else` block whose preceding `if` branch already terminates control flow with `return`, `throw`, `break`.
 - [`no-empty`](#rule-no-empty): Reject empty blocks that almost always indicate forgotten code.
 - [`no-empty-character-class`](#rule-no-empty-character-class): Reject empty regex character classes.
@@ -1105,14 +1105,28 @@ function f(x: number) {
 
 ### `no-duplicate-imports`
 
-Reject two import declarations that resolve to the same module specifier. The runtime sees one module load either way; the duplicated declaration is purely noise at the head of the file and obscures the dependency graph.
+Reject an import declaration whose module specifier already appeared above when the two declarations could be merged into one legal declaration. Same-module pairs TypeScript cannot consolidate, such as named next to namespace bindings or a type-only default next to type-only named bindings, are not duplicates.
+
+Options:
+
+- `allowSeparateTypeImports?: boolean`
+
+  Keep clause-level `import type` declarations out of the comparison with value imports of the same module, so one runtime import plus one type-only import may coexist. Inline type specifiers such as `import { type Foo }` stay on the value side because the whole import clause is not type-only. Default: `false`.
+
+- `includeExports?: boolean`
+
+  Also treat `export … from` declarations of an already imported or re-exported module as duplicates when the declarations could be merged. Default: `false`.
 
 Example:
 
 ```ts
-import { stringify } from "node:querystring";
+import { first } from "some-module";
 // reports: no-duplicate-imports (error)
-import { parse } from "node:querystring";
+import { second } from "some-module";
+
+// Not duplicates: named and namespace bindings cannot share one declaration.
+import { named } from "unmergeable-namespace";
+import * as namespace from "unmergeable-namespace";
 ```
 
 <a id="rule-no-else-return"></a>
@@ -2429,13 +2443,20 @@ Reject `var` declarations.
 
 Use `let` for mutable bindings and `const` for immutable ones. Autofixable to `let`.
 
-The fix only fires when the rewrite cannot change behavior, mirroring ESLint's `no-var` fix conditions: the name binds exactly once in the file, is never read before the declaration or inside its own initializer, every reference stays inside the declaring block scope (a `var` declared in a block but read after it would stop compiling as `let`), a loop-local `var` is not captured by a function or arrow created inside the loop (those closures share one `var` binding but would capture a fresh per-iteration `let` binding), and the declaration does not sit under a `with` statement. Anything else reports without a fix.
+Every `var` declaration list reports, whether it appears as a statement or directly in a `for`, `for...in`, or `for...of` header.
+
+The fix only fires when the rewrite cannot change behavior, mirroring ESLint's `no-var` fix conditions: the name binds exactly once in the file, is never read before the declaration or inside its own initializer, every reference stays inside the declaring block scope (a `var` declared in a block but read after it would stop compiling as `let`; a loop-header `var` read after its loop likewise), a loop `var` — declared in the body or in the header itself — is not captured by a function or arrow created inside the loop (those closures share one `var` binding but would capture a fresh per-iteration `let` binding), and the declaration does not sit under a `with` statement. A `for...in`/`for...of` header additionally declines when its declarator carries an Annex-B initializer (`for (var i = 0 in o)`, a SyntaxError under `let`) or when the head expression reads the loop variable (`for (var x of x)`, a TDZ ReferenceError under `let`). Anything else reports without a fix.
 
 Example:
 
 ```ts
 // reports: no-var (error)
 var legacy = 1;
+
+// reports: no-var (error)
+for (var index = 0; index < 1; index += 1) {
+  JSON.stringify(index);
+}
 ```
 
 <a id="rule-no-with"></a>

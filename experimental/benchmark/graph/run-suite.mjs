@@ -23,6 +23,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { websiteCellKey } from "./website-cell.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..");
 const work = path.join(repoRoot, "experimental", "benchmark", ".work");
@@ -489,18 +491,4 @@ function sanitizeSample(sample) {
     if (sample[key] !== undefined) out[key] = sample[key];
   }
   return out;
-}
-
-function websiteCellKey(cell) {
-  return JSON.stringify([
-    cell.harness,
-    cell.tool ?? "ttsc-graph",
-    cell.repo,
-    cell.promptId ?? "",
-    cell.promptFamily ?? "project-specific",
-    cell.model,
-    cell.effort ?? "",
-    cell.fixtureBranch ?? "ttsc",
-    cell.daemon === true ? "daemon" : "single",
-  ]);
 }

@@ -2,6 +2,7 @@ import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphDetails } from "../structures/ITtscGraphDetails";
 import { ITtscGraphEntrypoints } from "../structures/ITtscGraphEntrypoints";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
+import { ITtscGraphNext } from "../structures/ITtscGraphNext";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTour } from "../structures/ITtscGraphTour";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
@@ -251,11 +252,117 @@ export function runTour(
         ? { truncated: true }
         : {}),
     },
-    next: resultNext(
+    next: tourNext(graph, query, seeds, primaryFlow),
+  };
+}
+
+/**
+ * What the tour honestly leaves for a second call.
+ *
+ * The tour used to say `answer` — "the tour covers the question" — on every
+ * result, including the ones that plainly did not. Excalidraw's question names
+ * the pointer, the mutation, the history, the rendering and the collaboration;
+ * the tour has five seed slots, two of them go to renderers, and the history
+ * layer is a mid-level sink that no ranking will lift into a seed. It said
+ * `answer` anyway, and Sonnet, which does not take that on faith, went and
+ * found the missing stages itself: twelve calls, none of them re-asking
+ * anything the tour had given, every one of them reaching a stage the tour had
+ * not.
+ *
+ * A server that claims completeness it does not have teaches the model to
+ * distrust the claim. So the tour now says what it did not cover, when the
+ * thing it did not cover exists: a stage the question named, for which the
+ * graph holds a symbol, that no seed and no flow touched. `inspect` names the
+ * one request that closes the gap, and `answer` is reserved for the tours that
+ * earned it.
+ *
+ * The bar is deliberately narrow. A question word with no symbol behind it is
+ * not a missing stage, it is a word — turning every unmatched noun into an
+ * `inspect` would invite a second call from the models that need none (Opus and
+ * both Codex tiers answer these questions in one).
+ */
+function tourNext(
+  graph: TtscGraphMemory,
+  query: string,
+  seeds: ITtscGraphNode[],
+  flows: ITtscGraphTour.IFlow[],
+): ITtscGraphNext {
+  const uncovered = uncoveredStages(graph, query, seeds, flows);
+  if (uncovered.length === 0)
+    return resultNext(
       "answer",
       "The tour covers the question: its entrypoints, flow, nearby paths, tests, and anchors are the orientation answer.",
-    ),
-  };
+    );
+  return resultNext(
+    "inspect",
+    `The tour covers the question except for what it names as ${uncovered.join(" and ")}: the graph holds symbols for that, and no entrypoint or flow above reaches them. Look those up once, then answer from both results.`,
+    "lookup",
+  );
+}
+
+/**
+ * How close to the tour's weakest chosen seed a symbol must score before the
+ * stage it belongs to counts as one the tour owes the reader.
+ */
+const STAGE_FLOOR = 0.75;
+
+/**
+ * The terms of the question that name something the graph has and the tour did
+ * not surface.
+ */
+function uncoveredStages(
+  graph: TtscGraphMemory,
+  query: string,
+  seeds: ITtscGraphNode[],
+  flows: ITtscGraphTour.IFlow[],
+): string[] {
+  const terms = queryTermsOf(graph, query);
+  if (terms.length === 0) return [];
+
+  const told = new Set<string>();
+  for (const seed of seeds)
+    for (const term of matchedQueryTerms(seed, terms)) told.add(term);
+  const flowNames = flows.flatMap((flow) => [
+    flow.start.name,
+    ...flow.reached.map((node) => node.name),
+    ...flow.steps,
+  ]);
+  for (const term of matchedTerms(
+    flowNames.flatMap((name) => subwords(name)),
+    terms,
+  ))
+    told.add(term);
+
+  const missing = terms.filter((term) => !told.has(term));
+  if (missing.length === 0 || seeds.length === 0) return [];
+
+  // A stage is missing only when the graph holds a symbol for it that stands
+  // comparison with the symbols the tour did choose. Every other word of the
+  // question has *some* identifier behind it in a large repository — TypeORM has
+  // an "orm" in a hundred names, VS Code has a "communicate" — and calling those
+  // missing stages would put an `inspect` on every tour, which costs the models
+  // that answer these questions in a single call (Opus, both Codex tiers) a
+  // second one for nothing.
+  //
+  // The bar is the weakest seed the tour did select: a stage the question named,
+  // whose best symbol would have belonged among the entrypoints had a slot been
+  // free, is a stage the tour owes the reader. Comparing against the tour's own
+  // choices keeps the bar scale-free — no threshold to tune per repository.
+  const seedFloor = Math.min(
+    ...seeds.map((seed) => tourSeedScore(graph, seed, terms)),
+  );
+  const best = new Map<string, number>();
+  for (const node of graph.nodes) {
+    if (!isTourSeed(graph, node)) continue;
+    const matched = matchedQueryTerms(node, missing);
+    if (matched.size === 0) continue;
+    const score = tourSeedScore(graph, node, terms);
+    for (const term of matched)
+      if (score > (best.get(term) ?? 0)) best.set(term, score);
+  }
+  return missing.filter(
+    (term) => (best.get(term) ?? 0) >= seedFloor * STAGE_FLOOR,
+  );
 }
 
 function tourSeedsOf(
@@ -366,18 +473,29 @@ function flowAnchorsOf(
   ]);
 }
 
+/**
+ * The words of the question that could name code: the ranking's own terms.
+ *
+ * A question about TypeORM says "TypeORM", which splits into `type` and `orm`,
+ * and both are inside the project's own name — they say nothing about which
+ * part of the project is being asked about, while matching a hundred
+ * identifiers. Whole-word equality is not enough to drop them, so a term the
+ * project name contains goes too.
+ */
+function queryTermsOf(graph: TtscGraphMemory, query: string): string[] {
+  const project = graph.project.toLowerCase();
+  return subwords(query.replace(/\btypescript\b/gi, "typescript")).filter(
+    (term) =>
+      term.length > 2 && !QUERY_STOP_WORDS.has(term) && !project.includes(term),
+  );
+}
+
 function rankedTourSeeds(
   graph: TtscGraphMemory,
   query: string,
   count: number,
 ): ITtscGraphNode[] {
-  const projectTerms = new Set(subwords(graph.project));
-  const terms = subwords(
-    query.replace(/\btypescript\b/gi, "typescript"),
-  ).filter(
-    (term) =>
-      term.length > 2 && !QUERY_STOP_WORDS.has(term) && !projectTerms.has(term),
-  );
+  const terms = queryTermsOf(graph, query);
   const items = graph.nodes
     .filter((node) => isTourSeed(graph, node))
     .map((node) => ({
@@ -841,17 +959,22 @@ function matchedTerms(words: string[], terms: string[]): Set<string> {
  * and the picks it does make are the same ones.
  */
 function diverseTourSeeds<
-  T extends { score: number; matchedTerms: Set<string> },
+  T extends {
+    node: ITtscGraphNode;
+    score: number;
+    matchedTerms: Set<string>;
+  },
 >(items: T[], terms: string[], count: number): T[] {
   if (items.length <= 1 || terms.length === 0) return items.slice(0, count);
   const out: T[] = [];
   const remaining = [...items];
   const uncovered = new Set(terms);
   while (remaining.length > 0 && out.length < count) {
-    let bestIndex = 0;
+    let bestIndex = -1;
     let bestScore = Number.NEGATIVE_INFINITY;
     for (let i = 0; i < remaining.length; i++) {
       const item = remaining[i]!;
+      if (out.some((picked) => restates(picked.node, item.node))) continue;
       let coverage = 0;
       for (const term of item.matchedTerms) if (uncovered.has(term)) coverage++;
       const score = coverage * 120 + item.score;
@@ -860,11 +983,36 @@ function diverseTourSeeds<
         bestIndex = i;
       }
     }
+    if (bestIndex === -1) break;
     const [picked] = remaining.splice(bestIndex, 1);
     out.push(picked!);
     for (const term of picked!.matchedTerms) uncovered.delete(term);
   }
   return out;
+}
+
+/**
+ * Whether a candidate seed would only say again what a chosen seed says: the
+ * same file, and a name the chosen one already contains word for word.
+ *
+ * `LinearElementEditor.handlePointerMove` and its `...InEditMode` sibling, and
+ * `renderNewElementScene` beside its own throttled twin, took four of the five
+ * seeds on Excalidraw's edit-pipeline tour. The mutation and history layers the
+ * question named took none, and Sonnet spent twenty-two graph calls finding
+ * them. A seed that restates a chosen one is a slot spent on a fact the tour
+ * already has.
+ */
+function restates(chosen: ITtscGraphNode, candidate: ITtscGraphNode): boolean {
+  if (chosen.file !== candidate.file) return false;
+  const chosenWords = subwords(chosen.name).map(stemWord);
+  const candidateWords = subwords(candidate.name).map(stemWord);
+  const [shorter, longer] =
+    chosenWords.length <= candidateWords.length
+      ? [chosenWords, candidateWords]
+      : [candidateWords, chosenWords];
+  return (
+    shorter.length > 0 && shorter.every((word, index) => longer[index] === word)
+  );
 }
 
 function queryAlignmentFactor(
@@ -996,13 +1144,40 @@ function subwords(text: string): string[] {
     .map((word) => word.toLowerCase());
 }
 
+/**
+ * A question and the code it asks about name the same thing in different parts
+ * of speech: the asker writes "scene mutation", the symbol is `mutateElement`.
+ * Inflection alone does not bridge that — "mutation" and "mutate" share five
+ * characters and the prefix rule wants six — so a tour of Excalidraw's edit
+ * pipeline seeded four renderers, never surfaced the mutation layer the
+ * question named, and Sonnet went and found it itself in twenty-one further
+ * graph calls.
+ *
+ * Stripping the derivational suffixes as well collapses both spellings onto the
+ * same stem, so the noun in the question reaches the verb in the code.
+ */
 function stemWord(word: string): string {
-  for (const suffix of ["ing", "ed", "es", "s"]) {
+  for (const suffix of [
+    "ation",
+    "ing",
+    "ment",
+    "ence",
+    "ance",
+    "ion",
+    "ity",
+    "ed",
+    "es",
+    "s",
+  ]) {
     if (word.length > suffix.length + 3 && word.endsWith(suffix)) {
-      return word.slice(0, -suffix.length);
+      return trimTrailingE(word.slice(0, -suffix.length));
     }
   }
-  return word;
+  return trimTrailingE(word);
+}
+
+function trimTrailingE(word: string): string {
+  return word.length > 4 && word.endsWith("e") ? word.slice(0, -1) : word;
 }
 
 function commonPrefixLength(a: string, b: string): number {

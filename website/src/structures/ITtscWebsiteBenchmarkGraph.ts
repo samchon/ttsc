@@ -59,6 +59,50 @@ export namespace ITtscWebsiteBenchmarkGraph {
     agent?: {
       cells: AgentCell[];
     };
+    index?: IndexData;
+  }
+
+  /**
+   * What readiness costs: the cold build of each tool's index, per repository,
+   * measured on one quiet machine.
+   */
+  export interface IndexData {
+    host: IndexHost;
+
+    /** The program each index was built from, keyed by repository. */
+    scale: Record<string, IndexScale>;
+
+    cells: IndexCell[];
+  }
+
+  export interface IndexHost {
+    os: string;
+    kernel?: string;
+    cpu: string;
+    cores: number;
+    ramGB: number;
+    node?: string;
+  }
+
+  export interface IndexScale {
+    files: number;
+    lines: number;
+  }
+
+  export interface IndexCell {
+    project: string;
+    tool: string;
+
+    /** Wall-clock milliseconds of the cold build; null when it has no build. */
+    buildMs: number | null;
+
+    /**
+     * False for a tool with no build step at all. It is not a zero: a missing
+     * number and a zero are different claims.
+     */
+    hasBuildStep?: boolean;
+
+    failed?: boolean;
   }
 
   export interface Metrics {

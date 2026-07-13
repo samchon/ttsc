@@ -2,7 +2,10 @@ import type {
   TtscLintRuleOptionsSetting,
   TtscLintRuleSetting,
 } from "../TtscLintRuleSetting";
-import type { ITtscLintNoUnusedExpressionsRuleOptions } from "./ITtscLintCoreRuleOptions";
+import type {
+  ITtscLintCoreNoDuplicateImportsRuleOptions,
+  ITtscLintCoreNoUnusedExpressionsRuleOptions,
+} from "./ITtscLintCoreRuleOptions";
 
 /**
  * Generic ESLint-compatible rules that apply to both JavaScript and TypeScript
@@ -450,13 +453,17 @@ export interface ITtscLintCoreRules {
   "no-duplicate-case"?: TtscLintRuleSetting;
 
   /**
-   * Reject two import declarations that resolve to the same module specifier.
-   * The runtime sees one module load either way; the duplicated declaration is
-   * purely noise at the head of the file and obscures the dependency graph.
+   * Reject an import declaration whose module specifier already appeared above
+   * when the two declarations could be merged into one legal declaration.
+   * Same-module pairs TypeScript cannot consolidate — named next to namespace
+   * bindings, or a type-only default next to type-only named bindings — are not
+   * duplicates. `allowSeparateTypeImports` additionally keeps clause-level
+   * `import type` declarations apart from value imports, and `includeExports`
+   * folds `export … from` declarations into the same analysis.
    *
    * @reference https://eslint.org/docs/latest/rules/no-duplicate-imports
    */
-  "no-duplicate-imports"?: TtscLintRuleSetting;
+  "no-duplicate-imports"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoDuplicateImportsRuleOptions>;
 
   /**
    * Reject an `else` block whose preceding `if` branch already terminates
@@ -1087,11 +1094,12 @@ export interface ITtscLintCoreRules {
    * elsewhere are rejected. Productive expressions (calls, `new`, assignments,
    * updates, `delete`, `void`, `await`, `yield`) are accepted, and JSX is
    * accepted unless
-   * {@link ITtscLintNoUnusedExpressionsRuleOptions.enforceForJSX} is enabled.
+   * {@link ITtscLintCoreNoUnusedExpressionsRuleOptions.enforceForJSX} is
+   * enabled.
    *
    * @reference https://eslint.org/docs/latest/rules/no-unused-expressions
    */
-  "no-unused-expressions"?: TtscLintRuleOptionsSetting<ITtscLintNoUnusedExpressionsRuleOptions>;
+  "no-unused-expressions"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoUnusedExpressionsRuleOptions>;
 
   /**
    * Reject labels that no `break` or `continue` statement references.

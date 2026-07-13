@@ -377,45 +377,6 @@ func objectLiteralIsEmpty(node *shimast.Node) bool {
   return len(lit.Properties.Nodes) == 0
 }
 
-// noDuplicateImports reports two import declarations that resolve to
-// the same module specifier. Consolidating them into one import keeps
-// the dependency graph at the head of the file readable and avoids
-// surprising load-order interactions when the import has side effects.
-// https://eslint.org/docs/latest/rules/no-duplicate-imports
-//
-// The check is textual on the module specifier string — two imports
-// with the same exact string literal collide. `import type { … } from`
-// is folded together with value imports because the runtime sees only
-// one module load.
-type noDuplicateImports struct{}
-
-func (noDuplicateImports) Name() string { return "no-duplicate-imports" }
-func (noDuplicateImports) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindSourceFile}
-}
-func (noDuplicateImports) Check(ctx *Context, node *shimast.Node) {
-  seen := map[string]bool{}
-  node.ForEachChild(func(child *shimast.Node) bool {
-    if child == nil || child.Kind != shimast.KindImportDeclaration {
-      return false
-    }
-    decl := child.AsImportDeclaration()
-    if decl == nil || decl.ModuleSpecifier == nil {
-      return false
-    }
-    spec := stringLiteralText(decl.ModuleSpecifier)
-    if spec == "" {
-      return false
-    }
-    if seen[spec] {
-      ctx.Report(child, "Module `"+spec+"` is already imported above; consolidate the imports.")
-      return false
-    }
-    seen[spec] = true
-    return false
-  })
-}
-
 // getterReturn reports a `get` accessor whose body completes without
 // returning a value. The runtime returns `undefined` from such a
 // getter; in practice that is always a bug — the caller expects the
@@ -728,7 +689,6 @@ func init() {
   Register(noAwaitInLoop{})
   Register(noConstructorReturn{})
   Register(noDupeClassMembers{})
-  Register(noDuplicateImports{})
   Register(noImplicitCoercion{})
   Register(noNewSymbol{})
   Register(noThisBeforeSuper{})
