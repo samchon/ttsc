@@ -61,7 +61,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/no-unnecessary-type-assertion`](#rule-typescript-no-unnecessary-type-assertion): Reject `x as T` and `<T>x` assertions.
 - [`typescript/no-unnecessary-type-constraint`](#rule-typescript-no-unnecessary-type-constraint): Reject `<T extends unknown>` and similar constraints.
 - [`typescript/no-unsafe-argument`](#rule-typescript-no-unsafe-argument): Reject passing an `any`-typed value into a parameter.
-- [`typescript/no-unsafe-assignment`](#rule-typescript-no-unsafe-assignment): Reject assigning an `any`-typed value into a concretely typed location.
+- [`typescript/no-unsafe-assignment`](#rule-typescript-no-unsafe-assignment): Reject direct and nested `any` values escaping through assignment boundaries.
 - [`typescript/no-unsafe-call`](#rule-typescript-no-unsafe-call): Reject calling a value whose static type is `any`.
 - [`typescript/no-unsafe-declaration-merging`](#rule-typescript-no-unsafe-declaration-merging): Reject declaration merging between an `interface` and a `class` with the same name.
 - [`typescript/no-unsafe-enum-comparison`](#rule-typescript-no-unsafe-enum-comparison): Reject `==` / `===` / `!=` / `!==` comparisons between an enum-typed value and a plain `number` or `string`.
@@ -1146,9 +1146,11 @@ takesNumber(anyValue);
 
 ### `typescript/no-unsafe-assignment`
 
-Reject assigning an `any`-typed value into a concretely typed location, variable initializer with an explicit annotation, or a reassignment whose left-hand side has a static type.
+Reject direct and nested `any` values escaping through assignment boundaries. The rule covers annotated and inferred variables, reassignments, parameter and binding defaults, class fields and auto-accessors, contextual object and JSX properties, array spreads, and array or object destructuring.
 
-Type-aware via the Checker. `unknown` is not flagged.
+Type-aware via the Checker. Matching generic references are compared recursively with cycle protection, including tuples and mutable or readonly arrays. `any` may flow into `unknown`, including a corresponding nested generic argument, because `unknown` still requires narrowing before use. Structurally different reference targets are not compared by walking arbitrary properties.
+
+The rule has no options.
 
 Example:
 
@@ -1157,6 +1159,14 @@ const anyValue: any = JSON.parse("{}");
 
 // reports: typescript/no-unsafe-assignment (error)
 const num: number = anyValue;
+
+// reports: typescript/no-unsafe-assignment (error)
+const inferred = anyValue;
+
+const boundary: unknown = anyValue; // allowed
+
+// reports: typescript/no-unsafe-assignment (error)
+const nested: Set<Set<string>> = new Set<Set<any>>();
 ```
 
 <a id="rule-typescript-no-unsafe-call"></a>
