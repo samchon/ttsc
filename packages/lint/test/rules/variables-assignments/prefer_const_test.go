@@ -1,20 +1,51 @@
 package linthost
 
-import "testing"
+import (
+  "strings"
+  "testing"
+)
 
-// TestRuleCorpusPreferConst verifies the lint rule corpus fixture prefer-const.ts.
+// TestRuleCorpusPreferConst verifies the prefer-const corpus through a real Program.
 //
-// Rule corpus tests mirror tests/test-lint/src/cases inside Go unit coverage. Each generated
-// scenario keeps one annotated TypeScript fixture tied to the native Engine so individual rule
-// Check methods are measured by go test instead of only by the TypeScript feature runner.
+// Binding identity comes from TypeScript's checker, so the parser-only corpus
+// helper cannot exercise this rule. The command path supplies the checker and
+// preserves the existing positive and reassignment controls.
 //
-// This case enables the rule annotations declared in prefer-const.ts and compares normalized
-// rule, severity, and line triples. The source text stays embedded in the generated Go file so
-// the test remains package-local and deterministic.
-//
-// 1. Load the annotated TypeScript fixture source embedded below.
-// 2. Enable the rule severities declared by its // expect: comments.
-// 3. Assert the native Engine reports exactly the annotated diagnostics.
+//  1. Seed initialized, updated, loop, and destructuring-assignment bindings.
+//  2. Run check with only prefer-const enabled.
+//  3. Assert only the stable declaration and fresh for-of binding are reported.
 func TestRuleCorpusPreferConst(t *testing.T) {
-  assertRuleCorpusCase(t, "prefer-const.ts", "// expect: prefer-const error\nlet stable = 1;\nlet changing = 1;\nchanging = 2;\n\nfor (let i = 0; i < 2; i++) {\n  JSON.stringify(i);\n}\n\n// expect: prefer-const error\nfor (let item of [1, 2]) {\n  JSON.stringify(item);\n}\n\n// Destructuring-assignment targets reassign their identifiers, so neither\n// `swapLeft` nor `swapRight` is const-able and must stay unflagged.\nlet swapLeft = 1;\nlet swapRight = 2;\n[swapLeft, swapRight] = [swapRight, swapLeft];\n\n// Object-destructuring assignment reassigns `picked` through a property value.\nlet picked = 0;\n({ picked } = { picked: 9 });\n\nJSON.stringify([stable, changing, swapLeft, swapRight, picked]);\n")
+  root := seedLintProject(t, `let stable = 1;
+let changing = 1;
+changing = 2;
+
+for (let i = 0; i < 2; i++) {
+  JSON.stringify(i);
+}
+
+for (let item of [1, 2]) {
+  JSON.stringify(item);
+}
+
+let swapLeft = 1;
+let swapRight = 2;
+[swapLeft, swapRight] = [swapRight, swapLeft];
+
+let picked = 0;
+({ picked } = { picked: 9 });
+
+JSON.stringify([stable, changing, swapLeft, swapRight, picked]);
+`)
+  seedLintRules(t, root, map[string]string{"prefer-const": "error"})
+
+  code, stdout, stderr := captureCommandOutput(t, func() int {
+    return run([]string{
+      "check",
+      "--cwd", root,
+      "--plugins-json", lintManifest(t),
+    })
+  })
+  if code != 2 || stdout != "" || strings.Count(stderr, "[prefer-const]") != 2 {
+    t.Fatalf("prefer-const diagnostics mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
 }

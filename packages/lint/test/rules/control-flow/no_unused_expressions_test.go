@@ -16,5 +16,5 @@ import "testing"
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
 func TestRuleCorpusNoUnusedExpressions(t *testing.T) {
-  assertRuleCorpusCase(t, "no-unused-expressions.ts", "function f(a: any, b: any): void {\n  // expect: no-unused-expressions error\n  (a, b);\n}\nf(1, 2);\n")
+  assertRuleCorpusCase(t, "no-unused-expressions.ts", "\"use strict\";\n\"use client\";\n\ndeclare function work(): Promise<void>;\ndeclare const tag: (strings: TemplateStringsArray) => string;\n\nvoid work();\n\n// expect: no-unused-expressions error\ntag`value`;\n\n// expect: no-unused-expressions error\n(\"not a directive\");\n\nfunction misplacedDirective(): void {\n  \"use totally custom prologue\";\n  console.log(\"before\");\n  // expect: no-unused-expressions error\n  \"use strict\";\n}\n\nfunction f(a: number, b: number): void {\n  // expect: no-unused-expressions error\n  (a, b);\n}\n\nf(1, 2);\nmisplacedDirective();\n")
 }

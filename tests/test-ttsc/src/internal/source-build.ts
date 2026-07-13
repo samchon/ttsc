@@ -5,7 +5,9 @@
  * executable that satisfies the commands ttsc issues during plugin compilation
  * without running a real Go toolchain.
  */
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
+import child_process from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -14,9 +16,12 @@ import {
   autoQuoteGoModToken,
   buildSourcePlugin,
   computeCacheKey,
+  formatDuration,
   formatGoWorkPath,
+  inspectPluginBuildLock,
   resolvePluginCacheRoot,
   resolveSourceBuildCachePaths,
+  waitForPluginBinary,
 } from "../../../../packages/ttsc/lib/plugin/internal/buildSourcePlugin.js";
 
 /**
@@ -29,6 +34,19 @@ import {
  * Pass `{ executable: false }` to produce a non-executable POSIX file, which
  * lets tests verify that `buildSourcePlugin` fixes permissions before running
  * the toolchain.
+ *
+ * Environment hooks let lock-coordination tests sequence concurrent builders
+ * with explicit barriers instead of sleeps:
+ *
+ * - `FAKE_GO_INVOCATION_LOG`: append each invocation's arguments as one line to
+ *   this file.
+ * - `FAKE_GO_BUILD_BARRIER_FILE`: write this file when `go build` starts, so an
+ *   orchestrator can observe that the builder holds the lock and is inside its
+ *   build.
+ * - `FAKE_GO_BUILD_RELEASE_FILE`: block `go build` until this file exists
+ *   (bounded by a two-minute safety deadline).
+ * - `FAKE_GO_BUILD_EXIT_CODE`: exit `go build` with this status instead of
+ *   writing the output binary, simulating a failed compile.
  */
 function createFakeGoBinary(
   root: string,
@@ -41,6 +59,13 @@ function createFakeGoBinary(
       'const fs = require("node:fs");',
       'const path = require("node:path");',
       "const args = process.argv.slice(2);",
+      "if (process.env.FAKE_GO_INVOCATION_LOG) {",
+      "  fs.appendFileSync(",
+      "    process.env.FAKE_GO_INVOCATION_LOG,",
+      '    args.join(" ") + "\\n",',
+      '    "utf8",',
+      "  );",
+      "}",
       'if (args[0] === "version") {',
       '  console.log("go version fake");',
       "  process.exit(0);",
@@ -63,6 +88,27 @@ function createFakeGoBinary(
       'if (args[0] !== "build") {',
       '  console.error(`unexpected go command: ${args.join(" ")}`);',
       "  process.exit(1);",
+      "}",
+      "if (process.env.FAKE_GO_BUILD_BARRIER_FILE) {",
+      "  fs.writeFileSync(",
+      "    process.env.FAKE_GO_BUILD_BARRIER_FILE,",
+      '    "building\\n",',
+      '    "utf8",',
+      "  );",
+      "}",
+      "if (process.env.FAKE_GO_BUILD_RELEASE_FILE) {",
+      "  const releaseDeadline = Date.now() + 120000;",
+      "  while (!fs.existsSync(process.env.FAKE_GO_BUILD_RELEASE_FILE)) {",
+      "    if (Date.now() > releaseDeadline) {",
+      '      console.error("fake go: FAKE_GO_BUILD_RELEASE_FILE never appeared");',
+      "      process.exit(1);",
+      "    }",
+      "    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);",
+      "  }",
+      "}",
+      "if (process.env.FAKE_GO_BUILD_EXIT_CODE) {",
+      '  console.error("fake go: build failed as directed by FAKE_GO_BUILD_EXIT_CODE");',
+      "  process.exit(Number(process.env.FAKE_GO_BUILD_EXIT_CODE));",
       "}",
       "const required = [",
       '  "vendor/local/value.go",',
@@ -150,17 +196,142 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
+/** Captured output of one `buildSourcePlugin` child-process worker. */
+interface ISourcePluginWorkerResult {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+/**
+ * Writes a CommonJS runner script that calls the workspace-built
+ * `buildSourcePlugin` with the given fixed inputs and returns the script's
+ * path. Lock-coordination tests spawn this script as a real holder and a real
+ * waiter process for the same cache key; per-role behavior is injected only
+ * through the `FAKE_GO_BUILD_*` environment hooks of `createFakeGoBinary`.
+ *
+ * The runner prints the built (or reused) binary path on stdout and exits 0; a
+ * build failure prints the error message on stderr and exits 1.
+ */
+function createSourcePluginWorkerScript(opts: {
+  cacheDir: string;
+  pluginName: string;
+  root: string;
+  source: string;
+}): string {
+  const libraryPath = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages",
+    "ttsc",
+    "lib",
+    "plugin",
+    "internal",
+    "buildSourcePlugin.js",
+  );
+  const script = path.join(opts.root, "build-source-plugin-worker.cjs");
+  fs.writeFileSync(
+    script,
+    [
+      `const { buildSourcePlugin } = require(${JSON.stringify(libraryPath)});`,
+      "try {",
+      "  const binary = buildSourcePlugin({",
+      `    baseDir: ${JSON.stringify(opts.root)},`,
+      `    cacheDir: ${JSON.stringify(opts.cacheDir)},`,
+      "    overlayDirs: [],",
+      `    pluginName: ${JSON.stringify(opts.pluginName)},`,
+      "    quiet: false,",
+      `    source: ${JSON.stringify(opts.source)},`,
+      '    ttscVersion: "1.0.0",',
+      '    tsgoVersion: "7.0.0-dev",',
+      "  });",
+      '  process.stdout.write(binary + "\\n");',
+      "} catch (error) {",
+      "  process.stderr.write(",
+      '    String((error && error.message) || error) + "\\n",',
+      "  );",
+      "  process.exitCode = 1;",
+      "}",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  return script;
+}
+
+/**
+ * Spawns one `buildSourcePlugin` worker (see
+ * {@link createSourcePluginWorkerScript}) and resolves when it exits. `env`
+ * entries overlay the inherited environment — pass the `FAKE_GO_BUILD_*` hooks
+ * there to script the worker's fake toolchain. A two-minute kill timeout bounds
+ * a wedged worker so a broken lock never hangs the suite.
+ */
+function spawnSourcePluginWorker(opts: {
+  env?: Record<string, string>;
+  goBinary: string;
+  script: string;
+}): Promise<ISourcePluginWorkerResult> {
+  return new Promise((resolve, reject) => {
+    const child = child_process.spawn(process.execPath, [opts.script], {
+      env: {
+        ...process.env,
+        TTSC_GO_BINARY: opts.goBinary,
+        ...opts.env,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 120_000,
+      windowsHide: true,
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (status) => resolve({ status, stdout, stderr }));
+  });
+}
+
+/**
+ * Polls `predicate` every 25 ms until it holds, failing with `description`
+ * after `timeoutMs` (default one minute). This is observation of an explicit
+ * barrier another process definitely produces, not a timing assumption: the
+ * caller's correctness never depends on how long the wait took.
+ */
+async function waitForCondition(
+  predicate: () => boolean,
+  description: string,
+  timeoutMs = 60_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() > deadline) {
+      throw new Error(`timed out waiting for ${description}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 export {
   assert,
   autoQuoteGoModToken,
   buildSourcePlugin,
+  child_process,
   computeCacheKey,
   createFakeGoBinary,
+  createSourcePluginWorkerScript,
+  formatDuration,
   formatGoWorkPath,
   fs,
+  inspectPluginBuildLock,
   os,
   path,
   resolvePluginCacheRoot,
   resolveSourceBuildCachePaths,
   shellQuote,
+  spawnSourcePluginWorker,
+  waitForCondition,
+  waitForPluginBinary,
 };

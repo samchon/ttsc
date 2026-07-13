@@ -812,8 +812,23 @@ func needsParensForUnaryNegation(node *shimast.Node) bool {
 }
 
 // noUnusedExpressions: an expression statement whose value isn't used.
-// Filtered down to common patterns ESLint flags by default.
+// Direct port of ESLint's default semantics: a disallow-list of
+// side-effect-free expression shapes (unknown shapes are ignored, the way
+// upstream treats unknown node types), directive prologues exempted by AST
+// position rather than by recognized text, and the upstream option set
+// (`allowShortCircuit`, `allowTernary`, `allowTaggedTemplates`,
+// `enforceForJSX`, `ignoreDirectives`) decoded from the rule's options blob.
 type noUnusedExpressions struct{}
+
+// noUnusedExpressionsOptions mirrors the upstream ESLint option object;
+// every flag defaults to false, matching the rule's `defaultOptions`.
+type noUnusedExpressionsOptions struct {
+  AllowShortCircuit    bool `json:"allowShortCircuit"`
+  AllowTernary         bool `json:"allowTernary"`
+  AllowTaggedTemplates bool `json:"allowTaggedTemplates"`
+  EnforceForJSX        bool `json:"enforceForJSX"`
+  IgnoreDirectives     bool `json:"ignoreDirectives"`
+}
 
 func (noUnusedExpressions) Name() string { return "no-unused-expressions" }
 func (noUnusedExpressions) Visits() []shimast.Kind {
@@ -824,59 +839,196 @@ func (noUnusedExpressions) Check(ctx *Context, node *shimast.Node) {
   if stmt == nil || stmt.Expression == nil {
     return
   }
-  if isProductiveExpression(stmt.Expression) {
+  var opts noUnusedExpressionsOptions
+  _ = ctx.DecodeOptions(&opts)
+  if !noUnusedExpressionsDisallows(stmt.Expression, opts) {
+    return
+  }
+  // A directive prologue member ("use strict", "use client", …) is
+  // positionally meaningful whatever its text; never report it. The
+  // `ignoreDirectives` variant additionally applies upstream's loose
+  // ESTree view, in which parentheses are invisible, so a parenthesized
+  // string inside the leading string run is exempted too.
+  if noUnusedExpressionsIsDirective(node, false) {
+    return
+  }
+  if opts.IgnoreDirectives && noUnusedExpressionsIsDirective(node, true) {
     return
   }
   ctx.Report(node, "Expected an assignment or function call and instead saw an expression.")
 }
 
-func isProductiveExpression(node *shimast.Node) bool {
-  expr := stripParens(node)
+// noUnusedExpressionsDisallows reports whether expr is a side-effect-free
+// shape the rule must flag when it stands alone as a statement. Ports the
+// upstream Checker disallow-list: shapes not listed (calls, `new`,
+// assignments, updates, `await`, `yield`, `void`, `delete`, dynamic
+// `import()`, `satisfies`, …) are ignored, mirroring ESLint's "unknown
+// nodes are handled as false" contract. Parenthesized expressions are
+// transparent because ESTree has no parenthesized-expression node, and the
+// TypeScript wrapper expressions (`as`, angle assertions, non-null `!`,
+// instantiation expressions) inherit the classification of the expression
+// they wrap.
+func noUnusedExpressionsDisallows(expr *shimast.Node, opts noUnusedExpressionsOptions) bool {
+  expr = stripParens(expr)
   if expr == nil {
     return false
   }
   switch expr.Kind {
-  case shimast.KindCallExpression,
-    shimast.KindNewExpression,
-    shimast.KindAwaitExpression,
-    shimast.KindYieldExpression,
-    shimast.KindDeleteExpression,
-    shimast.KindBinaryExpression,
-    shimast.KindPrefixUnaryExpression,
-    shimast.KindPostfixUnaryExpression,
-    shimast.KindTaggedTemplateExpression:
-    // Most of these kinds are unconditionally productive (call, new, await,
-    // yield, delete, tagged template). The inner switch narrows the two kinds
-    // that can be non-productive: a BinaryExpression is only productive when
-    // it is an assignment, and a PrefixUnaryExpression is only productive when
-    // it is ++ or --. KindPostfixUnaryExpression is always productive (++ and
-    // -- are the only postfix operators). All un-matched cases reach the
-    // outer `return true` below.
-    switch expr.Kind {
-    case shimast.KindBinaryExpression:
-      bin := expr.AsBinaryExpression()
-      if bin != nil && bin.OperatorToken != nil && isAssignmentOperator(bin.OperatorToken.Kind) {
-        return true
-      }
+  case shimast.KindArrayLiteralExpression,
+    shimast.KindObjectLiteralExpression,
+    shimast.KindArrowFunction,
+    shimast.KindFunctionExpression,
+    shimast.KindClassExpression,
+    shimast.KindIdentifier,
+    shimast.KindPropertyAccessExpression,
+    shimast.KindElementAccessExpression,
+    shimast.KindMetaProperty,
+    shimast.KindThisKeyword,
+    shimast.KindStringLiteral,
+    shimast.KindNumericLiteral,
+    shimast.KindBigIntLiteral,
+    shimast.KindRegularExpressionLiteral,
+    shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword,
+    shimast.KindNullKeyword,
+    shimast.KindTemplateExpression,
+    shimast.KindNoSubstitutionTemplateLiteral,
+    shimast.KindTypeOfExpression:
+    return true
+  case shimast.KindBinaryExpression:
+    bin := expr.AsBinaryExpression()
+    if bin == nil || bin.OperatorToken == nil {
       return false
-    case shimast.KindPrefixUnaryExpression:
-      prefix := expr.AsPrefixUnaryExpression()
-      if prefix != nil && (prefix.Operator == shimast.KindPlusPlusToken || prefix.Operator == shimast.KindMinusMinusToken) {
-        return true
+    }
+    switch bin.OperatorToken.Kind {
+    case shimast.KindAmpersandAmpersandToken,
+      shimast.KindBarBarToken,
+      shimast.KindQuestionQuestionToken:
+      // ESTree LogicalExpression: only the right operand's value goes
+      // unused, so `allowShortCircuit` defers to its classification.
+      if opts.AllowShortCircuit {
+        return noUnusedExpressionsDisallows(bin.Right, opts)
       }
-      return false
-    case shimast.KindPostfixUnaryExpression:
       return true
     }
+    if isAssignmentOperator(bin.OperatorToken.Kind) {
+      // ESTree AssignmentExpression (including `&&=`, `||=`, `??=`) —
+      // productive.
+      return false
+    }
+    // Comma sequences and ordinary binary operators (`a + b`,
+    // `a === b`, `key in obj`, …) compute a value nobody reads.
     return true
-  case shimast.KindStringLiteral:
-    // "use strict" prologue.
-    text := expr.AsStringLiteral()
-    if text != nil && (text.Text == "use strict" || text.Text == "use asm") {
+  case shimast.KindPrefixUnaryExpression:
+    prefix := expr.AsPrefixUnaryExpression()
+    if prefix == nil {
+      return false
+    }
+    // `++x` / `--x` are ESTree UpdateExpressions (productive); the
+    // remaining prefix operators (`+`, `-`, `!`, `~`) are pure.
+    return prefix.Operator != shimast.KindPlusPlusToken &&
+      prefix.Operator != shimast.KindMinusMinusToken
+  case shimast.KindConditionalExpression:
+    cond := expr.AsConditionalExpression()
+    if cond == nil {
+      return false
+    }
+    if opts.AllowTernary {
+      // Disallowed when either result branch is itself side-effect
+      // free; recursion keeps nested allowances working.
+      return noUnusedExpressionsDisallows(cond.WhenTrue, opts) ||
+        noUnusedExpressionsDisallows(cond.WhenFalse, opts)
+    }
+    return true
+  case shimast.KindTaggedTemplateExpression:
+    return !opts.AllowTaggedTemplates
+  case shimast.KindJsxElement,
+    shimast.KindJsxSelfClosingElement,
+    shimast.KindJsxFragment:
+    return opts.EnforceForJSX
+  case shimast.KindAsExpression:
+    as := expr.AsAsExpression()
+    return as != nil && as.Expression != nil &&
+      noUnusedExpressionsDisallows(as.Expression, opts)
+  case shimast.KindTypeAssertionExpression:
+    assertion := expr.AsTypeAssertion()
+    return assertion != nil && assertion.Expression != nil &&
+      noUnusedExpressionsDisallows(assertion.Expression, opts)
+  case shimast.KindNonNullExpression:
+    nonNull := expr.AsNonNullExpression()
+    return nonNull != nil && nonNull.Expression != nil &&
+      noUnusedExpressionsDisallows(nonNull.Expression, opts)
+  case shimast.KindExpressionWithTypeArguments:
+    instantiation := expr.AsExpressionWithTypeArguments()
+    return instantiation != nil && instantiation.Expression != nil &&
+      noUnusedExpressionsDisallows(instantiation.Expression, opts)
+  }
+  return false
+}
+
+// noUnusedExpressionsIsDirective reports whether stmt sits inside its
+// container's directive prologue — the leading run of string-literal
+// expression statements of a script or module body, a function body, or a
+// TypeScript namespace/module block
+// (https://tc39.es/ecma262/#directive-prologue). Class static blocks and
+// plain nested blocks own no prologue.
+//
+// seeThroughParens selects the `ignoreDirectives` variant: upstream ESLint
+// evaluates that option against an ESTree, which has no
+// parenthesized-expression nodes, so the loose variant lets a
+// parenthesized string participate in the leading run. The strict variant
+// matches the parser's directive notion, where `("use strict")` is not a
+// directive and terminates the prologue.
+func noUnusedExpressionsIsDirective(stmt *shimast.Node, seeThroughParens bool) bool {
+  if stmt == nil || !noUnusedExpressionsCanOwnPrologue(stmt.Parent) {
+    return false
+  }
+  for _, sibling := range parentStatements(stmt.Parent) {
+    if !noUnusedExpressionsIsStringStatement(sibling, seeThroughParens) {
+      return false
+    }
+    if nodesShareLoc(sibling, stmt) {
       return true
     }
   }
   return false
+}
+
+// noUnusedExpressionsCanOwnPrologue reports whether parent is a statement
+// container whose leading string statements form a directive prologue: a
+// source file (script or module), a namespace/module block, or the body
+// block of a function-like declaration. Mirrors upstream ESLint's
+// isTopLevelExpressionStatement (Program | TSModuleBlock | function body).
+func noUnusedExpressionsCanOwnPrologue(parent *shimast.Node) bool {
+  if parent == nil {
+    return false
+  }
+  switch parent.Kind {
+  case shimast.KindSourceFile, shimast.KindModuleBlock:
+    return true
+  case shimast.KindBlock:
+    return isFunctionLikeKind(parent.Parent)
+  }
+  return false
+}
+
+// noUnusedExpressionsIsStringStatement reports whether stmt is an
+// expression statement consisting of a string literal — the shape that can
+// extend a directive prologue. With seeThroughParens the string may sit
+// behind parentheses (the ESTree view used by `ignoreDirectives`).
+func noUnusedExpressionsIsStringStatement(stmt *shimast.Node, seeThroughParens bool) bool {
+  if stmt == nil || stmt.Kind != shimast.KindExpressionStatement {
+    return false
+  }
+  inner := stmt.AsExpressionStatement()
+  if inner == nil || inner.Expression == nil {
+    return false
+  }
+  expr := inner.Expression
+  if seeThroughParens {
+    expr = stripParens(expr)
+  }
+  return expr != nil && expr.Kind == shimast.KindStringLiteral
 }
 
 // noUselessCall: `func.call(undefined, ...args)` / `func.apply(undefined, args)`

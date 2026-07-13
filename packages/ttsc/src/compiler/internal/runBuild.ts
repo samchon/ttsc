@@ -7,9 +7,11 @@ import {
 } from "../../plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
+import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
 import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOptions";
+import { createNativeProjectContextArgs } from "./project/createNativeProjectContextArgs";
 import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
@@ -32,6 +34,8 @@ type RunBuildOptions = TtscBuildOptions & {
    * emit honours the project's `sourceMap` setting.
    */
   forceRuntimeSourceMap?: boolean;
+  /** Retain an already selected project's lexical identity across API lanes. */
+  resolvedProject?: ITtscParsedProjectConfig;
 };
 
 type BuildTiming = {
@@ -763,6 +767,16 @@ function createNativeBuildArgs(
     "--plugins-json=" + serializeNativePlugins(plugins),
     "--cwd=" + execution.projectRoot,
   ];
+  if (
+    selectSharedHostPlugin(plugins).capabilities?.projectContextArgs === true
+  ) {
+    args.push(
+      ...createNativeProjectContextArgs(
+        execution.project,
+        execution.pluginConfigDir,
+      ),
+    );
+  }
   if (options.emit === true) {
     args.push("--emit");
   }
@@ -795,6 +809,14 @@ function createNativeCheckArgs(
     "--plugins-json=" + serializeNativePlugins(execution.nativePlugins),
     "--cwd=" + execution.projectRoot,
   ];
+  if (plugin.capabilities?.projectContextArgs === true) {
+    args.push(
+      ...createNativeProjectContextArgs(
+        execution.project,
+        execution.pluginConfigDir,
+      ),
+    );
+  }
   if (options.outDir) {
     args.push("--outDir=" + path.resolve(execution.cwd, options.outDir));
   }
@@ -1091,14 +1113,20 @@ export function createProcessDiagnostic(
  * here so every code path in `runBuild` shares the same resolution logic.
  */
 function resolveExecutionContext(
-  options: TtscCommonOptions & { emit?: boolean; tsconfig?: string },
+  options: TtscCommonOptions & {
+    emit?: boolean;
+    resolvedProject?: ITtscParsedProjectConfig;
+    tsconfig?: string;
+  },
 ) {
   const cwd = path.resolve(options.cwd ?? process.cwd());
-  const project = readProjectConfig({
-    cwd,
-    projectRoot: options.projectRoot,
-    tsconfig: options.tsconfig,
-  });
+  const project =
+    options.resolvedProject ??
+    readProjectConfig({
+      cwd,
+      projectRoot: options.projectRoot,
+      tsconfig: options.tsconfig,
+    });
   const tsconfig = project.path;
   const projectRoot = project.root;
   const tsgo = resolveTsgo({ ...options, cwd: projectRoot });
@@ -1132,6 +1160,7 @@ function resolveExecutionContext(
       pluginConfigDir: options.pluginConfigDir,
     }),
     pluginSetupFailure,
+    project,
     projectNoEmit: project.compilerOptions.noEmit === true,
     projectRoot,
     rewriteRelativeImportExtensionsForEmit:

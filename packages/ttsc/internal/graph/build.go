@@ -17,7 +17,8 @@ func Build(prog *driver.Program) *Graph {
 	g := &Graph{
 		Nodes:     map[string]*Node{},
 		bodyNodes: map[string]bool{},
-		seen:      map[string]struct{}{},
+		seen:      map[edgeKey]struct{}{},
+		resolved:  map[*shimast.Node]*Target{},
 	}
 	for _, file := range prog.SourceFiles() {
 		g.putModuleNode(file)
@@ -513,7 +514,40 @@ func simpleName(symbol *shimast.Symbol) string {
 	if symbol == nil || symbol.Name == "" {
 		return ""
 	}
-	return strings.ReplaceAll(symbol.Name, "\xFE", "__")
+	return stripPrivateMangling(strings.ReplaceAll(symbol.Name, "\xFE", "__"))
+}
+
+// stripPrivateMangling removes the checker's per-run counter from the name of a
+// private class member.
+//
+// A `#field` is bound under a mangled name — `__#41@#field` — whose number comes
+// from a counter that advances as the program is bound, so the same field is
+// `__#41@#field` in one run and `__#38@#field` in the next. That counter reached
+// the node id, and with it the wire: on VS Code, 661 nodes and 661 edges changed
+// identity between two dumps of the *same unedited source*. A handle the model
+// was given could name nothing after a restart, and no dump could be compared to
+// another to prove a change had left the facts alone.
+//
+// The number identifies nothing a reader can use — the class already
+// distinguishes the field, and `#field` is what the source calls it. Dropping it
+// makes the id a function of the code again.
+func stripPrivateMangling(name string) string {
+	const prefix = "__#"
+	start := strings.Index(name, prefix)
+	if start == -1 {
+		return name
+	}
+	rest := name[start+len(prefix):]
+	at := strings.IndexByte(rest, '@')
+	if at <= 0 {
+		return name
+	}
+	for _, char := range rest[:at] {
+		if char < '0' || char > '9' {
+			return name
+		}
+	}
+	return name[:start] + rest[at+1:]
 }
 
 // qualifiedName is the identity name of a symbol: its own name, prefixed by the

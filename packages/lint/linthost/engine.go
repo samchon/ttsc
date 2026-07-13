@@ -28,6 +28,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 // Rule is the contract every lint rule satisfies.
@@ -94,9 +95,10 @@ type Context struct {
   Severity Severity
   Options  json.RawMessage
 
-  rule     Rule
-  isFormat bool
-  collect  func(*Finding)
+  rule           Rule
+  isFormat       bool
+  collect        func(*Finding)
+  projectResults publicrule.ProjectResultReader
 }
 
 // DecodeOptions unmarshals the rule's options blob into `out`. Returns
@@ -120,23 +122,32 @@ func (c *Context) DecodeOptions(out interface{}) error {
 // both categories — no filter — because `ttsc fix` is the
 // run-everything entry point.
 type Finding struct {
-  Rule     string
-  Severity Severity
-  File     *shimast.SourceFile
-  Pos      int
-  End      int
-  Message  string
-  Fix      []TextEdit
-  IsFormat bool
+  Rule        string
+  Severity    Severity
+  File        *shimast.SourceFile
+  Pos         int
+  End         int
+  Message     string
+  Fix         []TextEdit
+  Suggestions []Suggestion
+  IsFormat    bool
 }
 
-// TextEdit is one byte-range replacement offered by an autofixable finding.
+// TextEdit is one byte-range source replacement used by a fix or suggestion.
 // Positions use the same byte offsets as shim AST nodes and must point inside
 // the finding's source file.
 type TextEdit struct {
   Pos  int
   End  int
   Text string
+}
+
+// Suggestion is an opt-in editor action attached to a finding. Unlike Fix,
+// suggestion edits are never consumed by `ttsc fix` or source.fixAll.ttsc;
+// the LSP host exposes them as individual quick fixes selected by the user.
+type Suggestion struct {
+  Title string
+  Edits []TextEdit
 }
 
 // Report records a finding at the given node's source range. The pos is
@@ -167,6 +178,29 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
     Message:  message,
     Fix:      cloneTextEdits(edits),
     IsFormat: c.isFormat,
+  })
+}
+
+// ReportSuggestion records a node-scoped finding with one opt-in editor
+// action. The diagnostic is still reported when edits is empty, but no quick
+// fix is advertised.
+func (c *Context) ReportSuggestion(node *shimast.Node, message string, title string, edits ...TextEdit) {
+  if c.Severity == SeverityOff || node == nil {
+    return
+  }
+  pos := node.Pos()
+  if c.File != nil {
+    pos = shimscanner.SkipTrivia(c.File.Text(), pos)
+  }
+  c.collect(&Finding{
+    Rule:        c.rule.Name(),
+    Severity:    c.Severity,
+    File:        c.File,
+    Pos:         pos,
+    End:         node.End(),
+    Message:     message,
+    Suggestions: newSuggestions(title, edits),
+    IsFormat:    c.isFormat,
   })
 }
 
@@ -208,6 +242,14 @@ func cloneTextEdits(edits []TextEdit) []TextEdit {
   out := make([]TextEdit, len(edits))
   copy(out, edits)
   return out
+}
+
+func newSuggestions(title string, edits []TextEdit) []Suggestion {
+  cloned := cloneTextEdits(edits)
+  if title == "" || len(cloned) == 0 {
+    return nil
+  }
+  return []Suggestion{{Title: title, Edits: cloned}}
 }
 
 // registry stores the package-global rule list keyed by name. Tests can
@@ -262,6 +304,8 @@ type Engine struct {
   unknownDirectiveMu sync.Mutex
   needsTypeChecker   bool
   serial             bool
+  projectSettings    map[string]ProjectRuleSetting
+  configError        error
 }
 
 // SetSerial forces Engine.Run to walk files one at a time. The host calls
@@ -304,8 +348,18 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
     enabled:           make(map[string]Severity),
     unknownDirectives: make(map[string]struct{}),
   }
+  eng.projectSettings, eng.configError = config.ResolveProjectRules(allProjectRuleNames())
+  for _, setting := range eng.projectSettings {
+    if setting.Declared && setting.Severity != SeverityOff {
+      eng.needsTypeChecker = true
+      break
+    }
+  }
   displaySeverities := config.EnabledRuleConfig()
   for _, name := range config.ActiveRuleNames() {
+    if _, isProjectRule := registeredProjectRules[name]; isProjectRule {
+      continue
+    }
     rule, ok := registered.rules[name]
     if !ok {
       eng.unknown = append(eng.unknown, name)
@@ -414,6 +468,15 @@ func (e *Engine) NeedsTypeChecker() bool {
   return e != nil && e.needsTypeChecker
 }
 
+// ConfigError reports an invalid project-rule declaration discovered while
+// binding the resolver.
+func (e *Engine) ConfigError() error {
+  if e == nil {
+    return nil
+  }
+  return e.configError
+}
+
 // EnabledRules returns the active rule set keyed by name. Mostly for
 // tests + introspection.
 func (e *Engine) EnabledRules() map[string]Severity { return e.enabled }
@@ -425,13 +488,23 @@ func (e *Engine) EnabledRules() map[string]Severity { return e.enabled }
 // merged in source-file order so the diagnostic stream is deterministic across
 // runs even when the per-file work happens out of order.
 func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) []*Finding {
+  cycle := e.evaluateProject(publicrule.ProjectIdentity{}, files, checker)
+  fileFindings := e.runFiles(files, checker, cycle.results)
+  return append(cycle.findings, fileFindings...)
+}
+
+func (e *Engine) runFiles(
+  files []*shimast.SourceFile,
+  checker *shimchecker.Checker,
+  results publicrule.ProjectResultReader,
+) []*Finding {
   if e.runsSerial() {
     var findings []*Finding
     for _, file := range files {
       if file == nil {
         continue
       }
-      findings = append(findings, e.runFile(file, checker)...)
+      findings = append(findings, e.runFile(file, checker, results)...)
     }
     return findings
   }
@@ -452,7 +525,7 @@ func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) 
     go func(idx int, f *shimast.SourceFile) {
       defer wg.Done()
       defer func() { <-sem }()
-      perFile[idx] = e.runFile(f, checker)
+      perFile[idx] = e.runFile(f, checker, results)
     }(i, file)
   }
   wg.Wait()
@@ -515,7 +588,11 @@ func (w *lintFileWalker) visitChild(child *shimast.Node) bool {
 // runFile is the per-file driver. The visitor is allocated once per file
 // to keep the per-node hot path branch-free; it visits children
 // post-order so parents see their already-checked subtrees.
-func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker) []*Finding {
+func (e *Engine) runFile(
+  file *shimast.SourceFile,
+  checker *shimchecker.Checker,
+  results publicrule.ProjectResultReader,
+) []*Finding {
   var collected []*Finding
   collect := func(f *Finding) { collected = append(collected, f) }
   resolved := e.config.ResolveRules(file.FileName())
@@ -555,13 +632,14 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
       if !built {
         if severity := fileRules.Severity(name); severity != SeverityOff {
           ctx = &Context{
-            File:     file,
-            Checker:  checker,
-            Severity: severity,
-            Options:  e.config.RuleOptions(name),
-            rule:     rule,
-            isFormat: isFormatRule(rule),
-            collect:  collect,
+            File:           file,
+            Checker:        checker,
+            Severity:       severity,
+            Options:        e.config.RuleOptions(name),
+            rule:           rule,
+            isFormat:       isFormatRule(rule),
+            collect:        collect,
+            projectResults: results,
           }
         }
         // A nil entry memoizes "off for this file" so a rule registered
@@ -593,8 +671,8 @@ func (e *Engine) runFile(file *shimast.SourceFile, checker *shimchecker.Checker)
 
     // SourceFile dispatches into its statement list directly; we walk
     // statements explicitly so the file node itself can be inspected by
-    // rules (e.g., `ban-ts-comment` reads CommentDirectives off the
-    // SourceFile).
+    // rules (e.g., `ban-ts-comment` scans the file's comment tokens once
+    // per SourceFile).
     if k := int(shimast.KindSourceFile); k >= 0 && k < len(byKind) {
       for _, bound := range byKind[k] {
         runRuleCheck(bound.rule, bound.ctx, file.AsNode(), collect)

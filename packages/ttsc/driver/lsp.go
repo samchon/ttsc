@@ -49,6 +49,12 @@ type LSPTextEdit = lspserver.LSPTextEdit
 // LSPDocumentVersion is the driver-level alias for lspserver.LSPDocumentVersion.
 type LSPDocumentVersion = lspserver.LSPDocumentVersion
 
+// LSPProjectDiagnostics is the driver-level alias for a project publication.
+type LSPProjectDiagnostics = lspserver.LSPProjectDiagnostics
+
+// LSPDiagnosticsResult separates document and project plugin diagnostics.
+type LSPDiagnosticsResult = lspserver.LSPDiagnosticsResult
+
 // LSPSymbolKind is the driver-level alias for lspserver.LSPSymbolKind.
 type LSPSymbolKind = lspserver.LSPSymbolKind
 

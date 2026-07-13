@@ -61,7 +61,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/no-unnecessary-type-assertion`](#rule-typescript-no-unnecessary-type-assertion): Reject `x as T` and `<T>x` assertions.
 - [`typescript/no-unnecessary-type-constraint`](#rule-typescript-no-unnecessary-type-constraint): Reject `<T extends unknown>` and similar constraints.
 - [`typescript/no-unsafe-argument`](#rule-typescript-no-unsafe-argument): Reject passing an `any`-typed value into a parameter.
-- [`typescript/no-unsafe-assignment`](#rule-typescript-no-unsafe-assignment): Reject assigning an `any`-typed value into a concretely typed location.
+- [`typescript/no-unsafe-assignment`](#rule-typescript-no-unsafe-assignment): Reject direct and nested `any` values escaping through assignment boundaries.
 - [`typescript/no-unsafe-call`](#rule-typescript-no-unsafe-call): Reject calling a value whose static type is `any`.
 - [`typescript/no-unsafe-declaration-merging`](#rule-typescript-no-unsafe-declaration-merging): Reject declaration merging between an `interface` and a `class` with the same name.
 - [`typescript/no-unsafe-enum-comparison`](#rule-typescript-no-unsafe-enum-comparison): Reject `==` / `===` / `!=` / `!==` comparisons between an enum-typed value and a plain `number` or `string`.
@@ -75,7 +75,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 
 ### Prefer
 
-- [`typescript/prefer-as-const`](#rule-typescript-prefer-as-const): Prefer `as const` over `as "literal"` assertions.
+- [`typescript/prefer-as-const`](#rule-typescript-prefer-as-const): Prefer `as const` over literal type assertions and matching literal type annotations.
 - [`typescript/prefer-enum-initializers`](#rule-typescript-prefer-enum-initializers): Require every `enum` member to have an explicit initializer.
 - [`typescript/prefer-find`](#rule-typescript-prefer-find): Prefer `arr.find(predicate)` over `arr.filter(predicate)[0]` and `arr.filter(predicate).at(0)`.
 - [`typescript/prefer-function-type`](#rule-typescript-prefer-function-type): Prefer a type alias over an interface.
@@ -111,7 +111,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/adjacent-overload-signatures`](#rule-typescript-adjacent-overload-signatures): Require overload declarations for the same member.
 - [`typescript/array-type`](#rule-typescript-array-type): Enforce one consistent spelling of array types.
 - [`typescript/await-thenable`](#rule-typescript-await-thenable): Reject non-awaitable operands and native Promise aggregator members, sync-only async iteration, and sync-only awaited disposal.
-- [`typescript/ban-ts-comment`](#rule-typescript-ban-ts-comment): Reject `@ts-ignore` and `@ts-expect-error` comments.
+- [`typescript/ban-ts-comment`](#rule-typescript-ban-ts-comment): Reject `@ts-<directive>` comments or require descriptions after directives.
 - [`typescript/ban-tslint-comment`](#rule-typescript-ban-tslint-comment): Reject `// tslint:disable` and related TSLint directive comments left behind from the legacy TSLint era.
 - [`typescript/class-literal-property-style`](#rule-typescript-class-literal-property-style): Prefer a `static readonly` field over a `get` accessor.
 - [`typescript/explicit-function-return-type`](#rule-typescript-explicit-function-return-type): Require every exported function and method declaration to carry an explicit return-type annotation.
@@ -126,7 +126,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/restrict-template-expressions`](#rule-typescript-restrict-template-expressions): Reject template-literal interpolations.
 - [`typescript/return-await`](#rule-typescript-return-await): Reject `return promise` inside `try`, `catch`, or `finally`.
 - [`typescript/strict-boolean-expressions`](#rule-typescript-strict-boolean-expressions): Reject non-boolean values used in a boolean context.
-- [`typescript/switch-exhaustiveness-check`](#rule-typescript-switch-exhaustiveness-check): Require every member of a union or `enum` discriminant to be covered by an explicit `case`.
+- [`typescript/switch-exhaustiveness-check`](#rule-typescript-switch-exhaustiveness-check): Require every enumerable discriminant member to be covered by an explicit `case` by default.
 - [`typescript/triple-slash-reference`](#rule-typescript-triple-slash-reference): Reject `/// <reference path="..." />`, `/// <reference types="" />`, and `/// <reference lib="" />` directives.
 - [`typescript/unbound-method`](#rule-typescript-unbound-method): Reject referencing a class instance method as a value.
 - [`typescript/use-unknown-in-catch-callback-variable`](#rule-typescript-use-unknown-in-catch-callback-variable): Require the callback parameter of `.catch(...)` and the second argument of `.then(...)`.
@@ -204,9 +204,19 @@ async function bad(): Promise<number> {
 
 ### `typescript/ban-ts-comment`
 
-Reject `@ts-ignore` and `@ts-expect-error` comments.
+Reject `@ts-<directive>` comments or require descriptions after directives.
 
-The rule flags both directives unconditionally. There is no description-based allowance, and the `@typescript-eslint` options are not implemented.
+The rule follows `@typescript-eslint`'s recommended defaults: `@ts-ignore` and `@ts-nocheck` are reported, `@ts-check` is allowed, and `@ts-expect-error` is allowed when followed by a description of at least three characters. `@ts-nocheck` is only reported where the compiler honors it — before the first statement. A reported `@ts-ignore` offers an autofix to the safer `@ts-expect-error`, which surfaces (never hides) a compiler error when the next line turns out to be error-free.
+
+Options:
+
+- `minimumDescriptionLength?: number`
+
+  Minimum description length (counted in grapheme clusters, so one emoji is one character) for directives configured as `"allow-with-description"` or `{ descriptionFormat }`. Default: `3`.
+
+- `"ts-check"?`, `"ts-expect-error"?`, `"ts-ignore"?`, `"ts-nocheck"?: boolean | "allow-with-description" | { descriptionFormat?: string }`
+
+  Per-directive policy: `true` reports every use, `false` allows the directive, `"allow-with-description"` allows it with a long-enough description, and `{ descriptionFormat }` additionally requires the description to match the given regular expression. Defaults: `"ts-check": false`, `"ts-expect-error": "allow-with-description"`, `"ts-ignore": true`, `"ts-nocheck": true`.
 
 Example:
 
@@ -214,6 +224,9 @@ Example:
 // reports: typescript/ban-ts-comment (error)
 // @ts-ignore
 const count: number = "oops";
+
+// @ts-expect-error: TS2322 pinned by a regression test — allowed by default
+const flag: number = "oops";
 ```
 
 <a id="rule-typescript-ban-tslint-comment"></a>
@@ -1114,7 +1127,7 @@ const a = definitelyString as string;
 
 ### `typescript/no-unnecessary-type-constraint`
 
-Reject `<T extends unknown>` and similar constraints that match everything. Autofixable: drops the constraint.
+Reject `<T extends unknown>` and similar constraints that match everything. Autofixable: drops the constraint while retaining the `<T,>` disambiguation required by single-parameter generic arrows in `.tsx`, `.mts`, and `.cts` files.
 
 Example:
 
@@ -1149,9 +1162,11 @@ takesNumber(anyValue);
 
 ### `typescript/no-unsafe-assignment`
 
-Reject assigning an `any`-typed value into a concretely typed location, variable initializer with an explicit annotation, or a reassignment whose left-hand side has a static type.
+Reject direct and nested `any` values escaping through assignment boundaries. The rule covers annotated and inferred variables, reassignments, parameter and binding defaults, class fields and auto-accessors, contextual object and JSX properties, array spreads, and array or object destructuring.
 
-Type-aware via the Checker. `unknown` is not flagged.
+Type-aware via the Checker. Matching generic references are compared recursively with cycle protection, including tuples and mutable or readonly arrays. `any` may flow into `unknown`, including a corresponding nested generic argument, because `unknown` still requires narrowing before use. Structurally different reference targets are not compared by walking arbitrary properties.
+
+The rule has no options.
 
 Example:
 
@@ -1160,6 +1175,14 @@ const anyValue: any = JSON.parse("{}");
 
 // reports: typescript/no-unsafe-assignment (error)
 const num: number = anyValue;
+
+// reports: typescript/no-unsafe-assignment (error)
+const inferred = anyValue;
+
+const boundary: unknown = anyValue; // allowed
+
+// reports: typescript/no-unsafe-assignment (error)
+const nested: Set<Set<string>> = new Set<Set<any>>();
 ```
 
 <a id="rule-typescript-no-unsafe-call"></a>
@@ -1406,13 +1429,23 @@ class ParameterShorthand {
 
 ### `typescript/prefer-as-const`
 
-Prefer `as const` over `as "literal"` assertions. Autofixable.
+Prefer `as const` over a literal type that repeats the literal it describes: `as "literal"` / `<"literal">` assertions, plus variable and class-property annotations such as `let x: "literal" = "literal"`. Literals are compared by raw source spelling, so `'value' as "value"` and `let n: 10 = 0xa` stay clean.
+
+Assertions are autofixable (the literal type becomes `const` in place). Annotation findings are detection-only: the rewrite moves the type out of the annotation, which the upstream rule offers only as a suggestion, never under `--fix`.
 
 Example:
 
 ```ts
 // reports: typescript/prefer-as-const (error)
 const status = "ready" as "ready";
+
+// reports: typescript/prefer-as-const (error)
+let stage: "init" = "init";
+
+class Task {
+  // reports: typescript/prefer-as-const (error)
+  state: "idle" = "idle";
+}
 ```
 
 <a id="rule-typescript-prefer-enum-initializers"></a>
@@ -1907,13 +1940,18 @@ if (count) {
 
 ### `typescript/switch-exhaustiveness-check`
 
-Require every member of a union or `enum` discriminant to be covered by an explicit `case`, unless a `default` clause is present.
+Require every enumerable member of a switch discriminant to be covered by an explicit `case` by default.
 
-Type-aware via the Checker. The rule resolves the discriminant type, walks each constituent of the union (or each member of the enum).
+Type-aware via the Checker. The rule handles singleton literals, string/number/bigint/boolean literal unions, enums, `null`, `undefined`, unique symbols, constrained generics, and finite pieces of intersections. Open pieces such as `string` cannot be enumerated, but they do not hide adjacent finite members such as the `undefined` in `string | undefined`.
 
-Matches it against the `case` expressions in the body, and flags the switch when at least one constituent is uncovered and no `default` clause is present.
+A real `default` does not suppress missing finite members under the scalar defaults. When every missing member has a safely accessible value name, the diagnostic offers an opt-in `quickfix.ttsc` action that inserts branches before a real or recognized comment default; `ttsc fix` and `source.fixAll.ttsc` never apply these throw-stub suggestions automatically.
 
-A `default` clause covers the remaining shape and silences the rule.
+Options:
+
+- `allowDefaultCaseForExhaustiveSwitch` (default `true`) allows a `default` after every finite member is explicitly covered. Set it to `false` to report that redundant default.
+- `considerDefaultExhaustiveForUnions` (default `false`) lets a real or recognized comment default satisfy otherwise missing finite members.
+- `requireDefaultForNonUnion` (default `false`) requires a real or recognized comment default when the discriminant contains an open, non-literal branch.
+- `defaultCaseCommentPattern` recognizes the final comment after the last case as a default marker. The fallback is the case-insensitive Unicode pattern `/^no default$/iu`; custom strings use Go's RE2 regular-expression syntax and are not made case-insensitive automatically.
 
 Example:
 
@@ -1931,6 +1969,9 @@ function handle(tag: Tag): void {
       break;
     case "b":
       sideEffect("b");
+      break;
+    default:
+      sideEffect("fallback");
       break;
   }
 }

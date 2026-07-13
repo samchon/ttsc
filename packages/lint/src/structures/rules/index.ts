@@ -1,6 +1,7 @@
 export * from "./ITtscLintBoundariesRuleOptions";
 export * from "./ITtscLintBoundariesRules";
 export * from "./ITtscLintContributorRules";
+export * from "./ITtscLintCoreRuleOptions";
 export * from "./ITtscLintCoreRules";
 export * from "./ITtscLintCypressRuleOptions";
 export * from "./ITtscLintCypressRules";
@@ -26,6 +27,7 @@ export * from "./ITtscLintStorybookRules";
 export * from "./ITtscLintTanstackQueryRules";
 export * from "./ITtscLintTestingLibraryRuleOptions";
 export * from "./ITtscLintTestingLibraryRules";
+export * from "./ITtscLintTypeScriptRuleOptions";
 export * from "./ITtscLintTypeScriptRules";
 export * from "./ITtscLintTypeScriptRuleOptions";
 export * from "./ITtscLintUnicornRules";

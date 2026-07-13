@@ -1,4 +1,13 @@
-import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
+import type {
+  TtscLintRuleOptionsSetting,
+  TtscLintRuleSetting,
+} from "../TtscLintRuleSetting";
+import type {
+  ITtscLintCoreNoDuplicateImportsRuleOptions,
+  ITtscLintCoreNoUnusedExpressionsRuleOptions,
+  ITtscLintNoFallthroughRuleOptions,
+  ITtscLintCorePreferConstRuleOptions,
+} from "./ITtscLintCoreRuleOptions";
 
 /**
  * Generic ESLint-compatible rules that apply to both JavaScript and TypeScript
@@ -446,13 +455,17 @@ export interface ITtscLintCoreRules {
   "no-duplicate-case"?: TtscLintRuleSetting;
 
   /**
-   * Reject two import declarations that resolve to the same module specifier.
-   * The runtime sees one module load either way; the duplicated declaration is
-   * purely noise at the head of the file and obscures the dependency graph.
+   * Reject an import declaration whose module specifier already appeared above
+   * when the two declarations could be merged into one legal declaration.
+   * Same-module pairs TypeScript cannot consolidate — named next to namespace
+   * bindings, or a type-only default next to type-only named bindings — are not
+   * duplicates. `allowSeparateTypeImports` additionally keeps clause-level
+   * `import type` declarations apart from value imports, and `includeExports`
+   * folds `export … from` declarations into the same analysis.
    *
    * @reference https://eslint.org/docs/latest/rules/no-duplicate-imports
    */
-  "no-duplicate-imports"?: TtscLintRuleSetting;
+  "no-duplicate-imports"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoDuplicateImportsRuleOptions>;
 
   /**
    * Reject an `else` block whose preceding `if` branch already terminates
@@ -575,12 +588,19 @@ export interface ITtscLintCoreRules {
   "no-extra-boolean-cast"?: TtscLintRuleSetting;
 
   /**
-   * Reject `switch` case fall-through unless preceded by an explicit `// falls
-   * through` comment.
+   * Reject `switch` cases that can reach the next `case` / `default` label
+   * without an intentional-fallthrough comment (`// falls through` by
+   * default).
+   *
+   * Reachability follows statement completion: a case whose every path ends in
+   * `break`, `continue`, `return`, or `throw` (composed through blocks,
+   * `if/else`, loops, labeled statements, and `try/catch/finally`) does not
+   * fall through, while a `return` inside a nested function never terminates
+   * the case. Options: {@link ITtscLintNoFallthroughRuleOptions}.
    *
    * @reference https://eslint.org/docs/latest/rules/no-fallthrough
    */
-  "no-fallthrough"?: TtscLintRuleSetting;
+  "no-fallthrough"?: TtscLintRuleOptionsSetting<ITtscLintNoFallthroughRuleOptions>;
 
   /**
    * Reject reassignment of function declarations (`function f() {}; f = 0;`).
@@ -1074,12 +1094,21 @@ export interface ITtscLintCoreRules {
   "no-unsafe-optional-chaining"?: TtscLintRuleSetting;
 
   /**
-   * Reject expression statements with no observable effect, like a bare `x;` or
-   * `'use strict' && f();`.
+   * Reject expression statements with no observable effect, like a bare `x;`,
+   * `a === b;`, or a tagged template literal statement.
+   *
+   * Directive prologues — the leading run of string-literal statements at the
+   * top of a script, module, namespace body, or function body — are accepted
+   * whatever their text (`"use strict"`, `"use client"`, …); the same strings
+   * elsewhere are rejected. Productive expressions (calls, `new`, assignments,
+   * updates, `delete`, `void`, `await`, `yield`) are accepted, and JSX is
+   * accepted unless
+   * {@link ITtscLintCoreNoUnusedExpressionsRuleOptions.enforceForJSX} is
+   * enabled.
    *
    * @reference https://eslint.org/docs/latest/rules/no-unused-expressions
    */
-  "no-unused-expressions"?: TtscLintRuleSetting;
+  "no-unused-expressions"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoUnusedExpressionsRuleOptions>;
 
   /**
    * Reject labels that no `break` or `continue` statement references.
@@ -1214,12 +1243,15 @@ export interface ITtscLintCoreRules {
   "prefer-arrow-callback"?: TtscLintRuleSetting;
 
   /**
-   * Require `const` for variables that are never reassigned after declaration.
-   * Autofixable for single-declaration `let`s.
+   * Require `const` for lexical bindings that are never reassigned after their
+   * initial value is established. Declaration-only and destructured bindings
+   * follow ESLint's `ignoreReadBeforeAssign` and `destructuring` options.
+   * Autofixable when one initialized declaration can safely change its shared
+   * `let` keyword.
    *
    * @reference https://eslint.org/docs/latest/rules/prefer-const
    */
-  "prefer-const"?: TtscLintRuleSetting;
+  "prefer-const"?: TtscLintRuleOptionsSetting<ITtscLintCorePreferConstRuleOptions>;
 
   /**
    * Reject single-property and single-index variable declarations (`const a =

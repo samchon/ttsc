@@ -29,7 +29,6 @@ func BenchmarkEngineRun(b *testing.B) {
   file := parseBenchTSFile(b, "/virtual/bench.ts", source)
   rules := RuleConfig{
     "no-var":                              SeverityError,
-    "prefer-const":                        SeverityError,
     "eqeqeq":                              SeverityError,
     "object-shorthand":                    SeverityError,
     "no-unneeded-ternary":                 SeverityError,

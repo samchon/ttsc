@@ -21,6 +21,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { websiteCellKey } from "./graph/website-cell.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
 // Outside the repo on purpose: the measured agent's cwd is the fixture clone,
@@ -46,6 +48,9 @@ const TOOL_TTSC = "ttsc-graph";
 const TOOL_CODEGRAPH = "codegraph";
 const TOOL_CODEBASE_MEMORY = "codebase-memory";
 const TOOL_SERENA = "serena";
+
+/** Every language serena's project interview offers, declined. */
+const SERENA_DECLINE_ALL = "n\n".repeat(80);
 const TOOL_BASELINE = "baseline";
 const PUBLISHED_SAMPLE_KEYS = [
   "tokens",
@@ -200,7 +205,7 @@ for (const project of selected) {
           toolSetupMs = setup?.ms ?? null;
           codebaseMemoryCacheDir = setup?.cacheDir ?? null;
         } else if (tool === TOOL_SERENA) {
-          ensureSerenaIgnored(repoDir);
+          toolSetupMs = ensureSerenaIndex(project, repoDir);
         }
       }
 
@@ -360,6 +365,10 @@ function runAgentCell({
     `--daemon=${daemon}`,
     `--model=${resolvedModel}`,
     `--prompt-family=${promptFamily}`,
+    // The fixture this runner clones is the branch it names, so say so. Left
+    // unsaid, the harness falls back to its own per-repo default and stamps the
+    // report with a branch the measurement never ran on.
+    `--fixture-branch=${branch}`,
     `--arm=${arm}`,
     `--max-run-retries=${maxRunRetries}`,
   ];
@@ -501,20 +510,6 @@ function sanitizeSample(sample) {
   return out;
 }
 
-function websiteCellKey(cell) {
-  return JSON.stringify([
-    cell.harness,
-    cell.tool ?? "ttsc-graph",
-    cell.repo,
-    cell.promptId ?? "",
-    cell.promptFamily ?? "project-specific",
-    cell.model,
-    cell.effort ?? "",
-    cell.fixtureBranch ?? "ttsc",
-    cell.daemon === true ? "daemon" : "single",
-  ]);
-}
-
 function ensureCodegraphIndex(project, repoDir) {
   if (parsed.flags.has("--no-codegraph-index")) return null;
   ensureCodegraphIgnored(repoDir);
@@ -617,6 +612,71 @@ function cleanupCodebaseMemoryIndex(repoDir, cacheDir) {
   if (parsed.flags.has("--keep-codebase-memory-index")) return;
   safeRemoveInside(repoDir, path.join(repoDir, ".codebase-memory"));
   if (cacheDir) safeRemoveInside(outDir, cacheDir);
+}
+
+/**
+ * Build serena's own index before its agent cells run.
+ *
+ * Serena ships `serena project index` — its docs recommend it for larger
+ * projects — and this harness had never run it, so every serena cell answered
+ * from an unindexed language server. A benchmark that withholds a tool's own
+ * prescribed setup measures the withholding, not the tool.
+ *
+ * `project create` comes first because `index` needs a project config, and it
+ * interviews the operator about every language it detects (VS Code detects
+ * twenty-two); headless, an unanswered prompt aborts on EOF, so each is
+ * declined on stdin. The index build is timed and reported as `toolSetupMs`,
+ * the same field `codegraph` and `codebase-memory` already carry.
+ */
+function ensureSerenaIndex(project, repoDir) {
+  ensureSerenaIgnored(repoDir);
+  if (parsed.flags.has("--no-serena-index")) return null;
+
+  // An index already on disk is reused. serena's cache is keyed by a content
+  // hash of each file and re-checked at every lookup, so a cache built from this
+  // fixture's unedited source is exactly the cache a fresh build would produce —
+  // and building it again costs what the index-time axis says it costs: four and
+  // a half minutes on VS Code, once per cell, four models and two prompt
+  // families over. It is the same index; measure the questions, not the rebuild.
+  if (
+    parsed.flags.has("--keep-serena-project") &&
+    fs.existsSync(path.join(repoDir, ".serena", "cache"))
+  ) {
+    process.stdout.write(`[graph] serena index ${project}: reused\n`);
+    return null;
+  }
+
+  cleanupSerenaProject(repoDir);
+  runChecked(...serenaCommand(["project", "create", repoDir]), {
+    label: `serena project create ${project}`,
+    logBase: path.join(outDir, `serena-create-${project}`),
+    cwd: repoDir,
+    input: SERENA_DECLINE_ALL,
+  });
+  const start = process.hrtime.bigint();
+  runChecked(...serenaCommand(["project", "index"]), {
+    label: `serena project index ${project}`,
+    logBase: path.join(outDir, `serena-index-${project}`),
+    cwd: repoDir,
+    input: SERENA_DECLINE_ALL,
+  });
+  return Number(process.hrtime.bigint() - start) / 1e6;
+}
+
+/** Serena is launched through `uvx` from its git source, as the agent cells do. */
+function serenaCommand(args) {
+  const binary =
+    parsed.values["serena-command"] ?? process.env.SERENA_MCP_COMMAND ?? "uvx";
+  const full = [
+    "--from",
+    parsed.values["serena-source"] ??
+      process.env.SERENA_SOURCE ??
+      "git+https://github.com/oraios/serena",
+    "serena",
+    ...args,
+  ];
+  if (process.platform !== "win32") return [binary, full];
+  return ["cmd.exe", ["/d", "/s", "/c", binary, ...full]];
 }
 
 function ensureSerenaIgnored(repoDir) {
@@ -810,12 +870,15 @@ function printCellSummary(cell) {
 function runChecked(
   command,
   args,
-  { label, logBase, cwd = repoRoot, env = {} },
+  { label, logBase, cwd = repoRoot, env = {}, input },
 ) {
   process.stdout.write(`[graph] ${label}\n`);
   const result = cp.spawnSync(command, args, {
     cwd,
     encoding: "utf8",
+    // A tool that interviews the operator (serena, on every language it detects)
+    // would otherwise hit EOF and abort in a headless run.
+    ...(input === undefined ? {} : { input }),
     env: { ...process.env, ...env },
     windowsHide: true,
     maxBuffer: 512 * 1024 * 1024,

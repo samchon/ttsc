@@ -336,8 +336,8 @@ func (w *descendantsWalker) visitChild(child *shimast.Node) bool {
   return false
 }
 
-// assignmentTargetNames collects the identifier names written by an
-// assignment's left-hand side. A bare Identifier yields one name. A
+// assignmentTargetIdentifiers collects the Identifier nodes written by an
+// assignment's left-hand side. A bare Identifier yields one node. A
 // destructuring-assignment target — parsed as an ArrayLiteralExpression
 // (`[a, b] = …`) or ObjectLiteralExpression (`({a} = …)`) rather than a
 // binding pattern — is walked so every nested write position is counted:
@@ -347,70 +347,88 @@ func (w *descendantsWalker) visitChild(child *shimast.Node) bool {
 // Property names in `{key: target}` are read positions, not writes, so
 // only the property value contributes; member-access targets (`obj.x`)
 // declare no local binding and are skipped. Returns nil for other shapes.
-func assignmentTargetNames(node *shimast.Node) []string {
+func assignmentTargetIdentifiers(node *shimast.Node) []*shimast.Node {
   if node == nil {
     return nil
   }
-  if name := identifierText(node); name != "" {
-    return []string{name}
+  if node.Kind == shimast.KindIdentifier {
+    return []*shimast.Node{node}
   }
-  var names []string
-  collectAssignmentTargetNames(node, &names)
+  var identifiers []*shimast.Node
+  collectAssignmentTargetIdentifiers(node, &identifiers)
+  return identifiers
+}
+
+// assignmentTargetNames is the text-only projection used by rules that do not
+// need binding identity.
+func assignmentTargetNames(node *shimast.Node) []string {
+  identifiers := assignmentTargetIdentifiers(node)
+  if len(identifiers) == 0 {
+    return nil
+  }
+  names := make([]string, 0, len(identifiers))
+  for _, identifier := range identifiers {
+    if name := identifierText(identifier); name != "" {
+      names = append(names, name)
+    }
+  }
   return names
 }
 
-// collectAssignmentTargetNames appends to `names` every identifier in a
+// collectAssignmentTargetIdentifiers appends to `identifiers` every identifier in a
 // destructuring-assignment target. It descends only through write-target
 // positions so reads (object property keys, computed-member expressions)
 // never count as reassignments.
-func collectAssignmentTargetNames(node *shimast.Node, names *[]string) {
+func collectAssignmentTargetIdentifiers(node *shimast.Node, identifiers *[]*shimast.Node) {
   if node == nil {
     return
   }
   switch node.Kind {
   case shimast.KindIdentifier:
-    if name := identifierText(node); name != "" {
-      *names = append(*names, name)
-    }
+    *identifiers = append(*identifiers, node)
   case shimast.KindParenthesizedExpression:
-    collectAssignmentTargetNames(stripParens(node), names)
+    collectAssignmentTargetIdentifiers(stripParens(node), identifiers)
+  case shimast.KindNonNullExpression:
+    if expression := node.AsNonNullExpression(); expression != nil {
+      collectAssignmentTargetIdentifiers(expression.Expression, identifiers)
+    }
   case shimast.KindArrayLiteralExpression:
     if arr := node.AsArrayLiteralExpression(); arr != nil && arr.Elements != nil {
       for _, el := range arr.Elements.Nodes {
-        collectAssignmentTargetNames(el, names)
+        collectAssignmentTargetIdentifiers(el, identifiers)
       }
     }
   case shimast.KindObjectLiteralExpression:
     if obj := node.AsObjectLiteralExpression(); obj != nil && obj.Properties != nil {
       for _, prop := range obj.Properties.Nodes {
-        collectAssignmentTargetNames(prop, names)
+        collectAssignmentTargetIdentifiers(prop, identifiers)
       }
     }
   case shimast.KindSpreadElement:
     if spread := node.AsSpreadElement(); spread != nil {
-      collectAssignmentTargetNames(spread.Expression, names)
+      collectAssignmentTargetIdentifiers(spread.Expression, identifiers)
     }
   case shimast.KindSpreadAssignment:
     if spread := node.AsSpreadAssignment(); spread != nil {
-      collectAssignmentTargetNames(spread.Expression, names)
+      collectAssignmentTargetIdentifiers(spread.Expression, identifiers)
     }
   case shimast.KindShorthandPropertyAssignment:
     // `{a}` and `{a = 1}` — the property name is the write target; any
     // ObjectAssignmentInitializer is a default value, not a target.
     if short := node.AsShorthandPropertyAssignment(); short != nil {
-      collectAssignmentTargetNames(short.Name(), names)
+      collectAssignmentTargetIdentifiers(short.Name(), identifiers)
     }
   case shimast.KindPropertyAssignment:
     // `{key: target}` — only the value (initializer) is written to.
     if assignment := node.AsPropertyAssignment(); assignment != nil {
-      collectAssignmentTargetNames(assignment.Initializer, names)
+      collectAssignmentTargetIdentifiers(assignment.Initializer, identifiers)
     }
   case shimast.KindBinaryExpression:
     // A default inside a pattern (`[a = 1]`, `{key: a = 1}`) parses as an
     // `=` BinaryExpression; only its left side is the write target.
     if expr := node.AsBinaryExpression(); expr != nil &&
       expr.OperatorToken != nil && expr.OperatorToken.Kind == shimast.KindEqualsToken {
-      collectAssignmentTargetNames(expr.Left, names)
+      collectAssignmentTargetIdentifiers(expr.Left, identifiers)
     }
   }
 }

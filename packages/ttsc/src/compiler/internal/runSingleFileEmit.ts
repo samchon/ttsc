@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
-import { resolveProjectConfig } from "./project/resolveProjectConfig";
+import { readProjectConfig } from "./project/readProjectConfig";
 import { resolveEmittedJavaScript } from "./resolveEmittedJavaScript";
 import { runBuild } from "./runBuild";
 
@@ -24,12 +24,14 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
       ? options.file
       : path.resolve(cwd, options.file),
   );
-  const tsconfig = resolveProjectConfig({
+  const project = readProjectConfig({
     cwd,
-    file: sourceFile,
+    file: options.file,
+    projectRoot: options.projectRoot,
     tsconfig: options.tsconfig,
   });
-  const projectRoot = path.dirname(tsconfig);
+  const tsconfig = project.path;
+  const projectRoot = project.root;
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-single-file-"));
   try {
     const result = runBuild({
@@ -38,6 +40,7 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
       emit: true,
       forceListEmittedFiles: true,
       outDir,
+      resolvedProject: project,
       tsconfig,
     });
     if (result.status !== 0) {

@@ -3,6 +3,7 @@ package linthost
 import (
   "encoding/json"
   "path/filepath"
+  "strings"
   "testing"
   "unicode/utf16"
 )
@@ -46,7 +47,28 @@ func executeLSPCommandEditForTest(t *testing.T, root string, uri string, command
 
 func executeLSPCommandEditWithManifestForTest(t *testing.T, root string, uri string, command string, pluginsJSON string) *lspWorkspaceEdit {
   t.Helper()
-  argsJSON, err := json.Marshal([]string{uri})
+  uriArg, err := json.Marshal(uri)
+  if err != nil {
+    t.Fatal(err)
+  }
+  return executeLSPCommandEditWithArgumentsForTest(
+    t,
+    root,
+    command,
+    []json.RawMessage{uriArg},
+    pluginsJSON,
+  )
+}
+
+func executeLSPCommandEditWithArgumentsForTest(
+  t *testing.T,
+  root string,
+  command string,
+  arguments []json.RawMessage,
+  pluginsJSON string,
+) *lspWorkspaceEdit {
+  t.Helper()
+  argsJSON, err := json.Marshal(arguments)
   if err != nil {
     t.Fatal(err)
   }
@@ -61,6 +83,9 @@ func executeLSPCommandEditWithManifestForTest(t *testing.T, root string, uri str
   })
   if code != 0 || !isBenignContributorCollisionWarning(stderr) {
     t.Fatalf("lsp-execute-command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
+  if strings.TrimSpace(stdout) == "null" {
+    return nil
   }
   var edit lspWorkspaceEdit
   if err := json.Unmarshal([]byte(stdout), &edit); err != nil {
@@ -77,6 +102,9 @@ func executeLSPCommandAppliedTextForTest(t *testing.T, root string, uri string, 
 func executeLSPCommandAppliedTextWithManifestForTest(t *testing.T, root string, uri string, command string, source string, pluginsJSON string) string {
   t.Helper()
   edit := executeLSPCommandEditWithManifestForTest(t, root, uri, command, pluginsJSON)
+  if edit == nil {
+    t.Fatalf("lsp-execute-command %s returned no edit", command)
+  }
   return applyLSPWorkspaceEditForTest(t, source, edit.Changes[uri])
 }
 
