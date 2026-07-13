@@ -21,6 +21,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { websiteCellKey } from "./graph/website-cell.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
 // Outside the repo on purpose: the measured agent's cwd is the fixture clone,
@@ -363,6 +365,10 @@ function runAgentCell({
     `--daemon=${daemon}`,
     `--model=${resolvedModel}`,
     `--prompt-family=${promptFamily}`,
+    // The fixture this runner clones is the branch it names, so say so. Left
+    // unsaid, the harness falls back to its own per-repo default and stamps the
+    // report with a branch the measurement never ran on.
+    `--fixture-branch=${branch}`,
     `--arm=${arm}`,
     `--max-run-retries=${maxRunRetries}`,
   ];
@@ -504,20 +510,6 @@ function sanitizeSample(sample) {
   return out;
 }
 
-function websiteCellKey(cell) {
-  return JSON.stringify([
-    cell.harness,
-    cell.tool ?? "ttsc-graph",
-    cell.repo,
-    cell.promptId ?? "",
-    cell.promptFamily ?? "project-specific",
-    cell.model,
-    cell.effort ?? "",
-    cell.fixtureBranch ?? "ttsc",
-    cell.daemon === true ? "daemon" : "single",
-  ]);
-}
-
 function ensureCodegraphIndex(project, repoDir) {
   if (parsed.flags.has("--no-codegraph-index")) return null;
   ensureCodegraphIgnored(repoDir);
@@ -625,20 +617,35 @@ function cleanupCodebaseMemoryIndex(repoDir, cacheDir) {
 /**
  * Build serena's own index before its agent cells run.
  *
- * serena ships `serena project index` — its docs recommend it for larger
+ * Serena ships `serena project index` — its docs recommend it for larger
  * projects — and this harness had never run it, so every serena cell answered
  * from an unindexed language server. A benchmark that withholds a tool's own
  * prescribed setup measures the withholding, not the tool.
  *
  * `project create` comes first because `index` needs a project config, and it
  * interviews the operator about every language it detects (VS Code detects
- * twenty-two); headless, an unanswered prompt aborts on EOF, so each is declined
- * on stdin. The index build is timed and reported as `toolSetupMs`, the same
- * field `codegraph` and `codebase-memory` already carry.
+ * twenty-two); headless, an unanswered prompt aborts on EOF, so each is
+ * declined on stdin. The index build is timed and reported as `toolSetupMs`,
+ * the same field `codegraph` and `codebase-memory` already carry.
  */
 function ensureSerenaIndex(project, repoDir) {
   ensureSerenaIgnored(repoDir);
   if (parsed.flags.has("--no-serena-index")) return null;
+
+  // An index already on disk is reused. serena's cache is keyed by a content
+  // hash of each file and re-checked at every lookup, so a cache built from this
+  // fixture's unedited source is exactly the cache a fresh build would produce —
+  // and building it again costs what the index-time axis says it costs: four and
+  // a half minutes on VS Code, once per cell, four models and two prompt
+  // families over. It is the same index; measure the questions, not the rebuild.
+  if (
+    parsed.flags.has("--keep-serena-project") &&
+    fs.existsSync(path.join(repoDir, ".serena", "cache"))
+  ) {
+    process.stdout.write(`[graph] serena index ${project}: reused\n`);
+    return null;
+  }
+
   cleanupSerenaProject(repoDir);
   runChecked(...serenaCommand(["project", "create", repoDir]), {
     label: `serena project create ${project}`,
@@ -656,7 +663,7 @@ function ensureSerenaIndex(project, repoDir) {
   return Number(process.hrtime.bigint() - start) / 1e6;
 }
 
-/** serena is launched through `uvx` from its git source, as the agent cells do. */
+/** Serena is launched through `uvx` from its git source, as the agent cells do. */
 function serenaCommand(args) {
   const binary =
     parsed.values["serena-command"] ?? process.env.SERENA_MCP_COMMAND ?? "uvx";
@@ -671,7 +678,6 @@ function serenaCommand(args) {
   if (process.platform !== "win32") return [binary, full];
   return ["cmd.exe", ["/d", "/s", "/c", binary, ...full]];
 }
-
 
 function ensureSerenaIgnored(repoDir) {
   const exclude = path.join(repoDir, ".git", "info", "exclude");

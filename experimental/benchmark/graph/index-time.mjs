@@ -81,6 +81,20 @@ if (parsed.flags.has("--list")) {
   process.exit(0);
 }
 
+// --publish <report.json> folds an already-measured report into the website JSON
+// without rebuilding anything. A tool whose code has not changed since it was
+// timed does not need to be timed again, and re-running it only to refill the
+// same number spends an hour to reproduce it: `@ttsc/graph` is remeasured when
+// its dump changes, and the comparators' cells are republished from the run that
+// measured them on the same quiet host.
+if (parsed.values.publish) {
+  publishWebsiteIndex(loadJson(path.resolve(parsed.values.publish)));
+  process.stdout.write(
+    `Index-time cells published from ${parsed.values.publish}\n`,
+  );
+  process.exit(0);
+}
+
 if (selected.length === 0) {
   throw new Error("index-time benchmark requires --project <name> or --all");
 }

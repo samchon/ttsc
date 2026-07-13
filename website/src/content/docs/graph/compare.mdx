@@ -20,7 +20,7 @@ The four tools side by side, then the measured cost.
 | Language scope | TypeScript only | 20+ | 158 | 40+ |
 | A query returns | Index: names, edges, signatures, spans (no bodies) | Verbatim source bodies grouped by file, plus call paths | Graph rows via an openCypher subset; snippets by exact qualified name | Symbol overviews, then source bodies on demand |
 | MCP tool surface | 1 | 1 by default (others via `CODEGRAPH_MCP_TOOLS`) | 14 | 40+ documented, about 27 active by default |
-| Setup step | None, rides the type-check | `codegraph init` | `index_repository`, auto-index off by default | Project activation and language-server start |
+| Setup step | No separate command; the graph is built with the type-check when the server starts | `codegraph init` | `index_repository`, auto-index off by default | `serena project index`, then language-server start |
 | Instruction strategy | States a condition, first-class `escape`, does not force | Forces hard: call before Read, do not grep | No MCP-handshake instructions; install-time skills and hooks | Replacement system prompt; recommends disabling Claude Code's own read and edit tools |
 | Its own headline claim | About 10x fewer tokens on open-ended questions | 58% fewer tool calls, file reads to about zero | Up to 120x fewer tokens on structural queries | Symbol tools "more token-efficient than typical alternatives" |
 
