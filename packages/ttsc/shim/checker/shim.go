@@ -110,6 +110,30 @@ func Checker_getTypeOfPropertyOfType(recv *innerchecker.Checker, t *innerchecker
   return recv.GetTypeOfPropertyOfType(t, name)
 }
 
+//go:linkname checkerGetPropertyNameForKnownSymbolName github.com/microsoft/typescript-go/internal/checker.(*Checker).getPropertyNameForKnownSymbolName
+func checkerGetPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbolName string) string
+
+// Checker_getPropertyNameForKnownSymbolName returns the late-bound property
+// name the checker uses for a member keyed by the global well-known symbol
+// `Symbol.<symbolName>` (e.g. "asyncIterator", "asyncDispose", "iterator").
+// It resolves the unique-symbol type of that property on the global
+// `SymbolConstructor` — including lib-provided and `declare global` augmented
+// members — so `(*Checker).GetPropertyOfType(t, name)` with the returned name
+// finds exactly the members declared as `[Symbol.<symbolName>]`. This is the
+// same resolution the checker itself performs when it validates `for await`
+// iterability, which is why a lint rule that mirrors typescript-eslint's
+// well-known-symbol protocol checks must go through it instead of matching
+// property-name text. When the global `Symbol` constructor lacks the member,
+// the checker's internal fallback name (a `\xFE@`-prefixed string no
+// source-declared property can late-bind to) is returned, so lookups simply
+// find nothing. Returns "" if recv is nil.
+func Checker_getPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbolName string) string {
+  if recv == nil {
+    return ""
+  }
+  return checkerGetPropertyNameForKnownSymbolName(recv, symbolName)
+}
+
 //go:linkname checkerGetAliasSymbolForTypeNode github.com/microsoft/typescript-go/internal/checker.(*Checker).getAliasSymbolForTypeNode
 func checkerGetAliasSymbolForTypeNode(recv *innerchecker.Checker, node *innerast.Node) *innerast.Symbol
 
