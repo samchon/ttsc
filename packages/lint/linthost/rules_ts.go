@@ -255,6 +255,11 @@ func preferAsConstLiteralsMatch(file *shimast.SourceFile, expr, typeNode *shimas
   if literalType == nil || literalType.Literal == nil {
     return false
   }
+  // ESTree does not represent expression parentheses, so upstream sees the
+  // bare literal in `('a') as 'a'` and reports it; descend to the same
+  // canonical node. Type-side parentheses stay significant: tsgo keeps a
+  // ParenthesizedType node, which is not a literal type.
+  expr = stripParens(expr)
   if !isPreferAsConstLiteral(expr) || !isPreferAsConstLiteral(literalType.Literal) {
     return false
   }
