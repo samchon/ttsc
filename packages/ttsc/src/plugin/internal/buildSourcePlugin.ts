@@ -109,7 +109,8 @@ const PLUGIN_BUILD_LOCK_STATUS_MS = 30_000;
 const PLUGIN_BUILD_LOCK_OWNER_FILE = "owner.json";
 const PLUGIN_BUILD_LOCK_PROTOCOL_FILE = "protocol-v2";
 const PLUGIN_BUILD_LOCK_GENERATION_FILE = "generation";
-const PLUGIN_BUILD_LOCK_LEGACY_FENCE_FILE = "legacy-generation.json";
+const PLUGIN_BUILD_LOCK_LEGACY_FENCE_DIR = "legacy-generation";
+const PLUGIN_BUILD_LOCK_LEGACY_FENCE_RECORD = "fence.json";
 const PLUGIN_BUILD_LOCK_CURRENT_DIR = "current";
 const PLUGIN_BUILD_LOCK_RETIRED_DIR = "retired";
 const PLUGIN_BUILD_LOCK_PROTOCOL = "ttsc-plugin-build-lock-v2\n";
@@ -566,12 +567,12 @@ function isRenameDestinationOccupied(
  * Outcome of one waiting session on another process's plugin build lock.
  *
  * - `published`: the binary exists and can be reused.
- * - `released`: the observed lock no longer exists and no binary appeared — the
- *   holder freed the key normally, so the caller should retry the ordinary
- *   atomic acquisition without reporting or removing anything.
+ * - `released`: the observed generation no longer exists and no binary
+ *   appeared — the holder freed the key normally, so the caller should retry
+ *   ordinary acquisition without reporting or removing anything.
  * - `abandoned`: the lock still exists but is provably stale (dead owner, old
- *   legacy lock) or the wait budget expired; the caller may report and steal
- *   it.
+ *   legacy lock) or the wait budget expired; the caller may report and retire
+ *   precisely the attached generation.
  *
  * Exported for unit tests.
  */
@@ -672,9 +673,9 @@ function writePluginBuildLockOwner(
  * - `abandoned`: the lock still exists and the evidence says nobody will ever
  *   release it — a same-host owner that is no longer running, or an old
  *   metadata-less legacy lock. Stealing is justified.
- * - `released`: the lock directory no longer exists. The holder released it
- *   normally (its build published or failed), so this is a routine handoff —
- *   never an infinitely old abandoned lock (issue #421).
+ * - `released`: the observed generation no longer exists. In v2 the persistent
+ *   coordination root remains while `current` is absent. This is a routine
+ *   handoff, never an infinitely old abandoned lock (issue #421).
  *
  * Exported for unit tests.
  */
@@ -827,37 +828,52 @@ function captureLegacyPluginBuildLockFence(
     throw error;
   }
 
-  const file = path.join(lockDir, PLUGIN_BUILD_LOCK_LEGACY_FENCE_FILE);
-  let captured = readLegacyPluginBuildLockFence(file);
+  const fenceDir = path.join(lockDir, PLUGIN_BUILD_LOCK_LEGACY_FENCE_DIR);
+  let captured = readLegacyPluginBuildLockFence(fenceDir);
   if (captured === null) {
     const generation = crypto.randomBytes(16).toString("hex");
+    const candidateDir = path.join(
+      lockDir,
+      `legacy-candidate-${generation}`,
+    );
     try {
+      fs.mkdirSync(candidateDir);
       fs.writeFileSync(
-        file,
+        path.join(candidateDir, PLUGIN_BUILD_LOCK_LEGACY_FENCE_RECORD),
         `${JSON.stringify({ generation, legacyMtimeMs })}\n`,
-        { encoding: "utf8", flag: "wx" },
+        "utf8",
       );
-      captured = {
-        fence: { protocol: "legacy", generation },
-        legacyMtimeMs,
-      };
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
-        captured = readLegacyPluginBuildLockFence(file);
-      } else if (isMissingPathError(error)) {
-        return null;
-      } else {
-        throw error;
+      try {
+        fs.renameSync(candidateDir, fenceDir);
+        captured = {
+          fence: { protocol: "legacy", generation },
+          legacyMtimeMs,
+        };
+      } catch (error) {
+        if (isRenameDestinationOccupied(error, fenceDir)) {
+          captured = readLegacyPluginBuildLockFence(fenceDir);
+        } else if (isMissingPathError(error)) {
+          return null;
+        } else {
+          throw error;
+        }
       }
+    } catch (error) {
+      if (isMissingPathError(error)) {
+        return null;
+      }
+      throw error;
+    } finally {
+      fs.rmSync(candidateDir, { force: true, recursive: true });
     }
   }
   if (captured === null) {
-    throw new Error(`invalid legacy plugin build lock fence: ${file}`);
+    throw new Error(`invalid legacy plugin build lock fence: ${fenceDir}`);
   }
 
   // A stale observer can resume after another process replaced the legacy
   // path with a v2 root. Confirm both the layout and token after publication.
-  const confirmed = readLegacyPluginBuildLockFence(file);
+  const confirmed = readLegacyPluginBuildLockFence(fenceDir);
   if (
     isPluginBuildLockProtocolV2(lockDir) ||
     confirmed === null ||
@@ -869,13 +885,15 @@ function captureLegacyPluginBuildLockFence(
 }
 
 function readLegacyPluginBuildLockFence(
-  file: string,
+  fenceDir: string,
 ): LegacyPluginBuildLockFence | null {
   try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Record<
-      string,
-      unknown
-    >;
+    const parsed = JSON.parse(
+      fs.readFileSync(
+        path.join(fenceDir, PLUGIN_BUILD_LOCK_LEGACY_FENCE_RECORD),
+        "utf8",
+      ),
+    ) as Record<string, unknown>;
     if (
       !isPluginBuildLockGeneration(parsed.generation) ||
       typeof parsed.legacyMtimeMs !== "number" ||
@@ -938,8 +956,8 @@ function readPluginBuildLockOwner(
 }
 
 /**
- * Age of the lock directory, or `null` when it no longer exists (the holder
- * released it between the caller's checks). "Missing" is a first-class
+ * Age of an observed lock directory, or `null` when it no longer exists. The
+ * holder may have retired it between the caller's checks. "Missing" is a
  * observation, never encoded as a numeric age: the previous
  * `Number.POSITIVE_INFINITY` encoding made a just-released lock look like an
  * infinitely old abandoned legacy lock (issue #421).

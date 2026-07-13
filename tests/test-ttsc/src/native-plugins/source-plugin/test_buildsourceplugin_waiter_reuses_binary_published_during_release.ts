@@ -15,9 +15,9 @@ import {
  * releases.
  *
  * Companion pin for issue #421's success-side race: the holder publishes the
- * binary and removes its lock while the waiter is between two observations.
+ * binary and retires its generation while the waiter is between observations.
  * Whatever the interleaving — the waiter sees the binary directly, or first
- * sees the released lock and re-checks — it must reuse the published binary,
+ * sees the released generation and re-checks — it must reuse the binary,
  * never rebuild it and never report the routine release as reclaiming an
  * abandoned lock.
  *
