@@ -175,7 +175,7 @@ Reject `await` on operands that are not thenable, non-awaitable values passed to
 
 Type-aware.
 
-The Checker classifies awaitability as always, never, or uncertain; resolves aggregator receivers to the default-library `PromiseConstructor`; extracts array, tuple, and `Iterable` element types; and requires callable `[Symbol.asyncIterator]` and `[Symbol.asyncDispose]` members.
+The Checker classifies awaitability as always, never, or uncertain; resolves aggregator receivers to the default-library `PromiseConstructor`; derives custom iterable and primitive-string values from their synchronous iterator protocol while retaining tuple-slot precision; and requires callable `[Symbol.asyncIterator]` and `[Symbol.asyncDispose]` members.
 
 Protocol lookups resolve through unions (any callable async constituent is accepted), intersections, type aliases, inherited members, and generic constraints.
 

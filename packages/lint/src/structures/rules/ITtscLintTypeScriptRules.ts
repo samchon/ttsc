@@ -55,7 +55,8 @@ export interface ITtscLintTypeScriptRules {
    *
    * Also reject sync-only `for await...of` and `await using` constructs.
    *
-   * Type-aware. The Checker resolves Promise and well-known-symbol protocols.
+   * Type-aware. The Checker resolves Promise and well-known-symbol protocols,
+   * including each Promise aggregator input's synchronous iterator yield type.
    * Only the ordinary `await` finding is autofixable.
    *
    * @reference https://typescript-eslint.io/rules/await-thenable

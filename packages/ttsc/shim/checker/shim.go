@@ -200,6 +200,35 @@ func Checker_getPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbo
   return checkerGetPropertyNameForKnownSymbolName(recv, symbolName)
 }
 
+//go:linkname checkerGetIterationTypeOfIterable github.com/microsoft/typescript-go/internal/checker.(*Checker).getIterationTypeOfIterable
+func checkerGetIterationTypeOfIterable(
+  recv *innerchecker.Checker,
+  use innerchecker.IterationUse,
+  typeKind innerchecker.IterationTypeKind,
+  inputType *innerchecker.Type,
+  errorNode *innerast.Node,
+) *innerchecker.Type
+
+// Checker_getSynchronousIterationYieldType returns the value type produced by
+// inputType's checked `[Symbol.iterator]` protocol. It delegates to the same
+// TypeScript-Go traversal used for synchronous iteration, including inherited
+// and structural iterables, instantiated iterator returns, intersections, and
+// primitive strings. A nil result means the checker could not derive a valid
+// synchronous iteration type. Diagnostics are intentionally disabled because
+// callers use this as a type query after normal TypeScript checking.
+func Checker_getSynchronousIterationYieldType(recv *innerchecker.Checker, inputType *innerchecker.Type) *innerchecker.Type {
+  if recv == nil || inputType == nil {
+    return nil
+  }
+  return checkerGetIterationTypeOfIterable(
+    recv,
+    innerchecker.IterationUseElement,
+    innerchecker.IterationTypeKindYield,
+    inputType,
+    nil,
+  )
+}
+
 //go:linkname checkerGetAliasSymbolForTypeNode github.com/microsoft/typescript-go/internal/checker.(*Checker).getAliasSymbolForTypeNode
 func checkerGetAliasSymbolForTypeNode(recv *innerchecker.Checker, node *innerast.Node) *innerast.Symbol
 
