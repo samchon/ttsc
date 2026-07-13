@@ -569,10 +569,14 @@ func switchExhaustivenessCheckCommentDefaultCase(
   candidateKind := shimast.KindUnknown
   candidatePos := -1
   candidateEnd := -1
-  forEachCommentToken(text[from:to], func(kind shimast.Kind, pos, end int) {
+  // `from:to` is itself a parser-classified trivia gap: it begins after the
+  // last clause and ends before the case block's closing-brace token. Scan the
+  // bounded gap directly so a file with many switches does not re-enumerate
+  // the whole AST for every switch node.
+  scanCommentGap(shimscanner.NewScanner(), text, from, to, func(kind shimast.Kind, pos, end int) {
     candidateKind = kind
-    candidatePos = from + pos
-    candidateEnd = from + end
+    candidatePos = pos
+    candidateEnd = end
   })
   if candidatePos < 0 || candidateEnd <= candidatePos {
     return nil

@@ -2,7 +2,8 @@
 // ban-ts-comment rule, including its recommended defaults, per-directive
 // options, description thresholds, and description-format matching.
 //
-// The rule scans every comment token itself (via forEachCommentToken)
+// The rule scans every parser-classified comment token (via
+// forEachCommentToken)
 // instead of reading `SourceFile.CommentDirectives`: the compiler-side
 // list only carries the error-suppression directives (`@ts-expect-error`,
 // `@ts-ignore`) and would miss `@ts-nocheck` / `@ts-check` entirely.
@@ -240,7 +241,7 @@ func (banTsComment) Check(ctx *Context, node *shimast.Node) {
     firstStatementLine = shimscanner.GetECMALineOfPosition(ctx.File, pos)
   }
 
-  forEachCommentToken(text, func(kind shimast.Kind, pos, end int) {
+  forEachCommentToken(ctx.File, func(kind shimast.Kind, pos, end int) {
     matched := findTsDirectiveInComment(kind, text[pos:end])
     if matched == nil {
       return

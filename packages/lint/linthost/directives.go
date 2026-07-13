@@ -105,8 +105,8 @@ func filterInlineDisabledFindingsWithDirectives(file *shimast.SourceFile, findin
   return filtered
 }
 
-// parseLintInlineDirectives scans all comment tokens in `file` (via the
-// shared `forEachCommentToken` raw-scanner loop) for recognized directive
+// parseLintInlineDirectives scans all parser-classified comment tokens in
+// `file` (via the shared `forEachCommentToken` loop) for recognized directive
 // markers and returns a structured summary of the per-line and range-style
 // suppressions found.
 func parseLintInlineDirectives(file *shimast.SourceFile) *lintInlineDirectives {
@@ -124,7 +124,7 @@ func parseLintInlineDirectives(file *shimast.SourceFile) *lintInlineDirectives {
   if !strings.Contains(text, "-disable") && !strings.Contains(text, "-enable") {
     return directives
   }
-  forEachCommentToken(text, func(_ shimast.Kind, start, end int) {
+  forEachCommentToken(file, func(_ shimast.Kind, start, end int) {
     directive, ok := parseLintDirectiveComment(text[start:end])
     if !ok {
       return
