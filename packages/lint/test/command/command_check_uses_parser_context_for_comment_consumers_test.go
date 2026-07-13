@@ -8,17 +8,18 @@ import (
 // TestCommandCheckUsesParserContextForCommentConsumers verifies the check
 // front door shares parser-aware comments across ban and inline-disable paths.
 //
-// Comment-shaped JSX text must not suppress a diagnostic, a real JSX
-// expression comment must suppress its next line, and regex braces inside a
-// nested template must not hide a later TypeScript directive. Exercising the
-// project command locks parser, engine, filter, and renderer integration.
+// Comment-shaped JSX text must neither suppress a diagnostic nor fabricate a
+// banned TypeScript directive, a real JSX expression comment must suppress its
+// next line, and regex braces inside a nested template must not hide a later
+// TypeScript directive. Exercising the project command locks parser, engine,
+// filter, and renderer integration.
 //
-//  1. Materialize a TSX project with fake and real JSX disable markers.
+//  1. Materialize a TSX project with fake lint and TypeScript markers in JSX text.
 //  2. Follow nested template regexes with one genuine `@ts-ignore` comment.
 //  3. Assert exact command diagnostics for the unsuppressed debugger and directive.
 func TestCommandCheckUsesParserContextForCommentConsumers(t *testing.T) {
   source := "declare namespace JSX { interface IntrinsicElements { div: any; } }\n" +
-    "const visible = <div>/* eslint-disable-next-line no-debugger */</div>;\n" +
+    "const visible = <div>/* eslint-disable-next-line no-debugger *//* @ts-ignore */</div>;\n" +
     "debugger;\n" +
     "const active = <div>{/* eslint-disable-next-line no-debugger */}</div>;\n" +
     "debugger;\n" +

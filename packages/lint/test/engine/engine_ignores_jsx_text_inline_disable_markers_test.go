@@ -8,26 +8,39 @@ import (
 )
 
 // TestEngineIgnoresJsxTextInlineDisableMarkers verifies JSX text cannot create
-// an inline lint directive while an expression-container comment still can.
+// or close an inline lint range while expression-container comments still can.
 //
 // JSX text has a parser-owned lexical goal in which slash-shaped bytes are
 // ordinary text. Treating those bytes as a block comment silently suppressed a
 // real diagnostic, whereas `{/* ... */}` is genuine JavaScript comment trivia.
 //
-//  1. Put a disable-next-line-shaped string directly in JSX text before `debugger`.
-//  2. Put the same marker in a JSX expression comment before another `debugger`.
-//  3. Assert only the first statement is reported at its exact source range.
+//  1. Put fake and real range-disable markers before separate `debugger` statements.
+//  2. Put fake and real range-enable markers around two more statements.
+//  3. Assert only the statements outside the genuine range are reported exactly.
 func TestEngineIgnoresJsxTextInlineDisableMarkers(t *testing.T) {
   const ruleName = "no-debugger"
-  source := "const visible = <div>/* eslint-disable-next-line no-debugger */</div>;\ndebugger;\nconst active = <div>{/* eslint-disable-next-line no-debugger */}</div>;\ndebugger;\nJSON.stringify([visible, active]);\n"
+  source := "const fakeDisable = <div>/* eslint-disable no-debugger */</div>;\n" +
+    "debugger;\n" +
+    "const realDisable = <div>{/* eslint-disable no-debugger */}</div>;\n" +
+    "debugger;\n" +
+    "const fakeEnable = <div>/* eslint-enable no-debugger */</div>;\n" +
+    "debugger;\n" +
+    "const realEnable = <div>{/* eslint-enable no-debugger */}</div>;\n" +
+    "debugger;\n" +
+    "JSON.stringify([fakeDisable, realDisable, fakeEnable, realEnable]);\n"
   file := parseTSXFile(t, "/virtual/test.tsx", source)
   findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
-  if len(findings) != 1 {
-    t.Fatalf("want 1 finding, got %d (%+v)", len(findings), findings)
+  if len(findings) != 2 {
+    t.Fatalf("want 2 findings, got %d (%+v)", len(findings), findings)
   }
-  start := strings.Index(source, "debugger;")
-  end := start + len("debugger;")
-  if findings[0].Pos != start || findings[0].End != end {
-    t.Fatalf("want first debugger range [%d,%d), got [%d,%d)", start, end, findings[0].Pos, findings[0].End)
+  starts := []int{
+    strings.Index(source, "debugger;"),
+    strings.LastIndex(source, "debugger;"),
+  }
+  for i, start := range starts {
+    end := start + len("debugger;")
+    if findings[i].Pos != start || findings[i].End != end {
+      t.Fatalf("finding %d: want debugger range [%d,%d), got [%d,%d)", i, start, end, findings[i].Pos, findings[i].End)
+    }
   }
 }
