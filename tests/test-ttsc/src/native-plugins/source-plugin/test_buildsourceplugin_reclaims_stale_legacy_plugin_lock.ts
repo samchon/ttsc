@@ -54,9 +54,7 @@ export const test_buildsourceplugin_reclaims_stale_legacy_plugin_lock = () => {
     const lockDir = `${cacheEntry}.lock`;
     fs.mkdirSync(cacheEntry, { recursive: true });
     fs.mkdirSync(lockDir, { recursive: true });
-    fs.mkdirSync(
-      path.join(lockDir, `legacy-candidate-${"0".repeat(32)}`),
-    );
+    fs.mkdirSync(`${lockDir}.legacy-candidate-${"0".repeat(32)}`);
     const old = new Date(Date.now() - 120_000);
     fs.utimesSync(lockDir, old, old);
 

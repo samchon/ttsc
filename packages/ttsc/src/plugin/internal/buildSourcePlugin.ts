@@ -609,8 +609,8 @@ export function waitForPluginBinary(opts: {
     const now = Date.now();
     const lock = inspectPluginBuildLock(opts.lockDir, now);
     if (lock.state === "released") {
-      // The holder removed the lock between the binary check above and this
-      // observation. That is a normal release, not abandonment: prefer the
+      // The holder retired its generation between the binary check above and
+      // this observation. That is a normal release, not abandonment: prefer the
       // binary when it landed inside that window, otherwise hand the free key
       // back to the caller.
       return fs.existsSync(opts.binaryPath)
@@ -672,7 +672,7 @@ function writePluginBuildLockOwner(
  *   another host, no metadata but young). Keep waiting.
  * - `abandoned`: the lock still exists and the evidence says nobody will ever
  *   release it — a same-host owner that is no longer running, or an old
- *   metadata-less legacy lock. Stealing is justified.
+ *   metadata-less legacy lock. Retiring its fenced generation is justified.
  * - `released`: the observed generation no longer exists. In v2 the persistent
  *   coordination root remains while `current` is absent. This is a routine
  *   handoff, never an infinitely old abandoned lock (issue #421).
@@ -832,10 +832,10 @@ function captureLegacyPluginBuildLockFence(
   let captured = readLegacyPluginBuildLockFence(fenceDir);
   if (captured === null) {
     const generation = crypto.randomBytes(16).toString("hex");
-    const candidateDir = path.join(
-      lockDir,
-      `legacy-candidate-${generation}`,
-    );
+    // Keep candidates beside the legacy lock. Creating one inside `lockDir`
+    // would advance its mtime before a contender publishes the shared fence;
+    // a concurrent contender could then record an old lock as freshly created.
+    const candidateDir = `${lockDir}.legacy-candidate-${generation}`;
     try {
       fs.mkdirSync(candidateDir);
       fs.writeFileSync(
