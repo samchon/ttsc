@@ -161,68 +161,131 @@ func (noThisAlias) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
-// preferAsConst: `as 'foo'` / `as 1` should be `as const`.
+// preferAsConst: `as 'foo'` / `<'foo'>` assertions and `let x: 'foo' = 'foo'`
+// variable / class-property annotations should use `as const`. Port of
+// `@typescript-eslint/prefer-as-const`, which visits the same four AST
+// families and compares the literals' raw source spelling.
 type preferAsConst struct{}
 
 func (preferAsConst) Name() string { return "typescript/prefer-as-const" }
 func (preferAsConst) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindAsExpression, shimast.KindTypeAssertionExpression}
+  return []shimast.Kind{
+    shimast.KindAsExpression,
+    shimast.KindTypeAssertionExpression,
+    shimast.KindVariableDeclaration,
+    shimast.KindPropertyDeclaration,
+  }
 }
 func (preferAsConst) Check(ctx *Context, node *shimast.Node) {
-  var expr, typeNode *shimast.Node
   switch node.Kind {
   case shimast.KindAsExpression:
-    as := node.AsAsExpression()
-    if as == nil {
-      return
+    if as := node.AsAsExpression(); as != nil {
+      preferAsConstCheckAssertion(ctx, as.Expression, as.Type)
     }
-    expr = as.Expression
-    typeNode = as.Type
   case shimast.KindTypeAssertionExpression:
-    ta := node.AsTypeAssertion()
-    if ta == nil {
+    if ta := node.AsTypeAssertion(); ta != nil {
+      preferAsConstCheckAssertion(ctx, ta.Expression, ta.Type)
+    }
+  case shimast.KindVariableDeclaration:
+    if decl := node.AsVariableDeclaration(); decl != nil {
+      preferAsConstCheckAnnotation(ctx, decl.Initializer, decl.Type)
+    }
+  case shimast.KindPropertyDeclaration:
+    decl := node.AsPropertyDeclaration()
+    if decl == nil {
       return
     }
-    expr = ta.Expression
-    typeNode = ta.Type
+    // `accessor` fields surface upstream as AccessorProperty nodes, which
+    // the rule's PropertyDefinition visitor never receives; get/set
+    // accessors and methods are separate AST kinds already.
+    if node.ModifierFlags()&shimast.ModifierFlagsAccessor != 0 {
+      return
+    }
+    preferAsConstCheckAnnotation(ctx, decl.Initializer, decl.Type)
   }
-  if expr == nil || typeNode == nil {
-    return
-  }
-  if typeNode.Kind != shimast.KindLiteralType {
-    return
-  }
-  literalType := typeNode.AsLiteralTypeNode()
-  if literalType == nil || literalType.Literal == nil {
-    return
-  }
-  if !literalsMatchSourceText(ctx.File, expr, literalType.Literal) {
+}
+
+// preferAsConstCheckAssertion handles the `expr as T` / `<T>expr` assertion
+// forms. These are directly autofixable: the literal type is replaced by the
+// `const` keyword in place, so no other source text moves.
+func preferAsConstCheckAssertion(ctx *Context, expr, typeNode *shimast.Node) {
+  if !preferAsConstLiteralsMatch(ctx.File, expr, typeNode) {
     return
   }
   message := "Expected `as const` instead of `as` literal type."
   pos, end := tokenRange(ctx.File, typeNode)
   if pos < 0 {
-    ctx.Report(node, message)
+    ctx.Report(typeNode, message)
     return
   }
   ctx.ReportFix(
-    node,
+    typeNode,
     message,
     TextEdit{Pos: pos, End: end, Text: "const"},
   )
 }
 
-// literalsMatchSourceText reports whether lhs and rhs are both literal
-// expressions whose source text is identical. Used by preferAsConst to
-// detect `x as "foo"` where "foo" matches x's literal value.
-func literalsMatchSourceText(file *shimast.SourceFile, lhs, rhs *shimast.Node) bool {
-  if lhs == nil || rhs == nil {
+// preferAsConstCheckAnnotation handles variable declarators and class
+// property declarations whose literal type annotation repeats the
+// initializer literal. The upstream rule pairs this report with a
+// suggestion, not an autofix — `eslint --fix` never rewrites these
+// declarations — and `ttsc fix` applies every emitted TextEdit
+// unconditionally, so the finding carries none.
+func preferAsConstCheckAnnotation(ctx *Context, init, typeNode *shimast.Node) {
+  if init == nil || !preferAsConstLiteralsMatch(ctx.File, init, typeNode) {
+    return
+  }
+  ctx.Report(typeNode, "Expected a `const` assertion instead of a literal type annotation.")
+}
+
+// preferAsConstLiteralsMatch reports whether typeNode is a literal type
+// whose literal token repeats expr's exact source spelling. Mirrors the
+// upstream check `valueNode.raw === typeNode.literal.raw` between ESTree
+// `Literal` nodes: string, numeric, bigint, and boolean literals qualify on
+// both sides. Template literals (ESTree `TemplateLiteral`) and `null`
+// (whose type position surfaces upstream as `TSNullKeyword`, not
+// `TSLiteralType`) are excluded, so a template literal asserted to its
+// identically spelled template literal type and `null as null` stay clean
+// exactly like the upstream fixtures.
+func preferAsConstLiteralsMatch(file *shimast.SourceFile, expr, typeNode *shimast.Node) bool {
+  if expr == nil || typeNode == nil || typeNode.Kind != shimast.KindLiteralType {
     return false
   }
-  if !isLiteralExpression(lhs) {
+  literalType := typeNode.AsLiteralTypeNode()
+  if literalType == nil || literalType.Literal == nil {
     return false
   }
-  return nodeText(file, lhs) == nodeText(file, rhs)
+  // ESTree does not represent expression parentheses, so upstream sees the
+  // bare literal in `('a') as 'a'` and reports it; descend to the same
+  // canonical node. Type-side parentheses stay significant: tsgo keeps a
+  // ParenthesizedType node, which is not a literal type.
+  expr = stripParens(expr)
+  if !isPreferAsConstLiteral(expr) || !isPreferAsConstLiteral(literalType.Literal) {
+    return false
+  }
+  return nodeText(file, expr) == nodeText(file, literalType.Literal)
+}
+
+// isPreferAsConstLiteral reports whether node is one of the literal token
+// kinds ts-estree maps to an ESTree `Literal` in both the expression and
+// the literal-type position. `null` and regular-expression literals map to
+// `Literal` in expression position only; neither can raw-match a literal
+// type (a `null` annotation is `TSNullKeyword` upstream and regexes cannot
+// appear in type position), so excluding them here is equivalent to the
+// upstream shape check.
+func isPreferAsConstLiteral(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindStringLiteral,
+    shimast.KindNumericLiteral,
+    shimast.KindBigIntLiteral,
+    shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword:
+    return true
+  }
+  return false
 }
 
 // noRequireImports: ban `require(...)` calls in TS source. Use
