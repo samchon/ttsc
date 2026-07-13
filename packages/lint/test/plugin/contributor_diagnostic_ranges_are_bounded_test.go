@@ -20,6 +20,7 @@ func TestContributorDiagnosticRangesAreBounded(t *testing.T) {
     parseTSFile(t, "/virtual/beyond.ts", "const beyond = 1;\n"),
     parseTSFile(t, "/virtual/eof.ts", "const eof = 1;\n"),
     parseTSFile(t, "/virtual/empty.ts", ""),
+    parseTSFile(t, "/virtual/valid.ts", "const valid = 1;\n"),
   }
   contributor := &boundedDiagnosticRangeContributor{
     spans: map[string][2]int{
@@ -28,6 +29,7 @@ func TestContributorDiagnosticRangesAreBounded(t *testing.T) {
       files[2].FileName(): {999, 1200},
       files[3].FileName(): {len(files[3].Text()), len(files[3].Text())},
       files[4].FileName(): {-4, 12},
+      files[5].FileName(): {6, 11},
     },
   }
   metadata, err := inspectContributor(contributor)
@@ -49,6 +51,7 @@ func TestContributorDiagnosticRangesAreBounded(t *testing.T) {
     files[2].FileName(): {len(files[2].Text()), len(files[2].Text())},
     files[3].FileName(): {len(files[3].Text()), len(files[3].Text())},
     files[4].FileName(): {0, 0},
+    files[5].FileName(): {6, 11},
   }
   for _, finding := range findings {
     want, ok := expected[finding.File.FileName()]

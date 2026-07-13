@@ -41,6 +41,7 @@ func TestDriverNewLintDiagnosticBoundsSourceRanges(t *testing.T) {
     {name: "reversed", pos: 8, end: 2, wantStart: 8, wantLength: 1},
     {name: "beyond EOF", pos: sourceLen + 10, end: sourceLen + 20, wantStart: sourceLen, wantLength: 0},
     {name: "zero-width EOF", pos: sourceLen, end: sourceLen, wantStart: sourceLen, wantLength: 0},
+    {name: "valid unchanged", pos: 7, end: 12, wantStart: 7, wantLength: 5},
   }
   for _, tc := range cases {
     t.Run(tc.name, func(t *testing.T) {
