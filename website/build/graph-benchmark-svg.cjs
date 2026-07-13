@@ -53,8 +53,8 @@ const REPO_LABELS = {
 
 const HARNESS_LABELS = { codex: "Codex", "claude-code": "Claude Code" };
 const MODEL_LABELS = {
-  "gpt-5.4-mini": "GPT-5.4 mini",
-  "gpt-5.5": "GPT-5.5",
+  "gpt-5.6-terra": "GPT-5.6 terra",
+  "gpt-5.6-sol": "GPT-5.6 sol",
   "claude-opus-4-8": "Opus 4.8",
   "claude-sonnet-4-6": "Sonnet 4.6",
 };
