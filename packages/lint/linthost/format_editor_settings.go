@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "bytes"
   "encoding/json"
   "errors"
   "os"
@@ -153,6 +154,7 @@ func loadNearestVSCodeSettings(startDir string) (map[string]any, bool) {
   for {
     candidate := filepath.Join(dir, ".vscode", "settings.json")
     if data, err := os.ReadFile(candidate); err == nil {
+      data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
       var parsed map[string]any
       if json.Unmarshal(stripJSONC(data), &parsed) == nil {
         return parsed, true
