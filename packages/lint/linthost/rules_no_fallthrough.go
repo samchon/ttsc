@@ -7,9 +7,11 @@
 //   - Reachability is decided by a structured statement completion
 //     analysis ("can this statement list complete normally?") that
 //     composes blocks, `if/else`, loops, `switch`, labeled statements,
-//     and `try/catch/finally`. Nested function and class bodies are
-//     never entered, so a callback's `return` does not terminate the
-//     enclosing case. The analysis is deliberately implemented here
+//     and `try/catch/finally`. Nested function bodies, class field
+//     initializers, and static blocks keep separate code paths, so their
+//     completions do not terminate the enclosing case; immediately evaluated
+//     class heritage and computed names remain visible. The analysis is
+//     deliberately implemented here
 //     instead of reusing the checker's flow nodes: binder flow graphs
 //     require a bound Program plus checker-side reachability walks,
 //     while this rule must stay AST-only so the engine can keep running
