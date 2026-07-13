@@ -18,7 +18,7 @@ func windowsShortPathForTest(t *testing.T, path string) string {
     t.Skip("Windows 8.3 paths are platform-specific")
   }
   command := fmt.Sprintf(`for %%I in ("%s") do @echo %%~sI`, strings.ReplaceAll(path, `"`, `""`))
-  output, err := exec.Command("cmd.exe", "/d", "/s", "/c", command).CombinedOutput()
+  output, err := exec.Command("cmd.exe", "/d", "/c", command).CombinedOutput()
   if err != nil {
     t.Fatalf("resolve Windows short path: %v: %s", err, output)
   }
