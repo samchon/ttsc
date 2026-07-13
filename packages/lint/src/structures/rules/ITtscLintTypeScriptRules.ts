@@ -1,4 +1,8 @@
-import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
+import type {
+  TtscLintRuleOptionsSetting,
+  TtscLintRuleSetting,
+} from "../TtscLintRuleSetting";
+import type { ITtscLintTypeScriptBanTsCommentRuleOptions } from "./ITtscLintTypeScriptRuleOptions";
 
 /**
  * TypeScript-only rules and `@typescript-eslint` plugin equivalents, exposed
@@ -51,15 +55,18 @@ export interface ITtscLintTypeScriptRules {
   "typescript/await-thenable"?: TtscLintRuleSetting;
 
   /**
-   * Reject `@ts-ignore` and `@ts-expect-error` comments.
+   * Reject `@ts-<directive>` comments, or require them to carry a description.
    *
-   * The rule flags both directives unconditionally. There is no
-   * description-based allowance, and the `@typescript-eslint` options are not
-   * implemented.
+   * With the upstream recommended defaults, `@ts-ignore` and `@ts-nocheck` are
+   * reported, `@ts-check` is allowed, and `@ts-expect-error` is allowed when
+   * followed by a description of at least three characters. Each directive is
+   * individually configurable as `boolean`, `"allow-with-description"`, or `{
+   * descriptionFormat }`, with `minimumDescriptionLength` governing the
+   * description-required forms.
    *
    * @reference https://typescript-eslint.io/rules/ban-ts-comment
    */
-  "typescript/ban-ts-comment"?: TtscLintRuleSetting;
+  "typescript/ban-ts-comment"?: TtscLintRuleOptionsSetting<ITtscLintTypeScriptBanTsCommentRuleOptions>;
 
   /**
    * Reject `// tslint:disable` and related TSLint directive comments left

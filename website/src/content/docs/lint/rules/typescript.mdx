@@ -111,7 +111,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`typescript/adjacent-overload-signatures`](#rule-typescript-adjacent-overload-signatures): Require overload declarations for the same member.
 - [`typescript/array-type`](#rule-typescript-array-type): Enforce one consistent spelling of array types.
 - [`typescript/await-thenable`](#rule-typescript-await-thenable): Reject `await` on operands that are not thenable.
-- [`typescript/ban-ts-comment`](#rule-typescript-ban-ts-comment): Reject `@ts-ignore` and `@ts-expect-error` comments.
+- [`typescript/ban-ts-comment`](#rule-typescript-ban-ts-comment): Reject `@ts-<directive>` comments or require descriptions after directives.
 - [`typescript/ban-tslint-comment`](#rule-typescript-ban-tslint-comment): Reject `// tslint:disable` and related TSLint directive comments left behind from the legacy TSLint era.
 - [`typescript/class-literal-property-style`](#rule-typescript-class-literal-property-style): Prefer a `static readonly` field over a `get` accessor.
 - [`typescript/explicit-function-return-type`](#rule-typescript-explicit-function-return-type): Require every exported function and method declaration to carry an explicit return-type annotation.
@@ -188,9 +188,19 @@ async function bad(): Promise<number> {
 
 ### `typescript/ban-ts-comment`
 
-Reject `@ts-ignore` and `@ts-expect-error` comments.
+Reject `@ts-<directive>` comments or require descriptions after directives.
 
-The rule flags both directives unconditionally. There is no description-based allowance, and the `@typescript-eslint` options are not implemented.
+The rule follows `@typescript-eslint`'s recommended defaults: `@ts-ignore` and `@ts-nocheck` are reported, `@ts-check` is allowed, and `@ts-expect-error` is allowed when followed by a description of at least three characters. `@ts-nocheck` is only reported where the compiler honors it — before the first statement. A reported `@ts-ignore` offers an autofix to the safer `@ts-expect-error`, which surfaces (never hides) a compiler error when the next line turns out to be error-free.
+
+Options:
+
+- `minimumDescriptionLength?: number`
+
+  Minimum description length (counted in grapheme clusters, so one emoji is one character) for directives configured as `"allow-with-description"` or `{ descriptionFormat }`. Default: `3`.
+
+- `"ts-check"?`, `"ts-expect-error"?`, `"ts-ignore"?`, `"ts-nocheck"?: boolean | "allow-with-description" | { descriptionFormat?: string }`
+
+  Per-directive policy: `true` reports every use, `false` allows the directive, `"allow-with-description"` allows it with a long-enough description, and `{ descriptionFormat }` additionally requires the description to match the given regular expression. Defaults: `"ts-check": false`, `"ts-expect-error": "allow-with-description"`, `"ts-ignore": true`, `"ts-nocheck": true`.
 
 Example:
 
@@ -198,6 +208,9 @@ Example:
 // reports: typescript/ban-ts-comment (error)
 // @ts-ignore
 const count: number = "oops";
+
+// @ts-expect-error: TS2322 pinned by a regression test — allowed by default
+const flag: number = "oops";
 ```
 
 <a id="rule-typescript-ban-tslint-comment"></a>
