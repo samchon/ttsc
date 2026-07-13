@@ -75,7 +75,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 
 ### Prefer
 
-- [`typescript/prefer-as-const`](#rule-typescript-prefer-as-const): Prefer `as const` over `as "literal"` assertions.
+- [`typescript/prefer-as-const`](#rule-typescript-prefer-as-const): Prefer `as const` over literal type assertions and matching literal type annotations.
 - [`typescript/prefer-enum-initializers`](#rule-typescript-prefer-enum-initializers): Require every `enum` member to have an explicit initializer.
 - [`typescript/prefer-find`](#rule-typescript-prefer-find): Prefer `arr.find(predicate)` over `arr.filter(predicate)[0]` and `arr.filter(predicate).at(0)`.
 - [`typescript/prefer-function-type`](#rule-typescript-prefer-function-type): Prefer a type alias over an interface.
@@ -1390,13 +1390,23 @@ class ParameterShorthand {
 
 ### `typescript/prefer-as-const`
 
-Prefer `as const` over `as "literal"` assertions. Autofixable.
+Prefer `as const` over a literal type that repeats the literal it describes: `as "literal"` / `<"literal">` assertions, plus variable and class-property annotations such as `let x: "literal" = "literal"`. Literals are compared by raw source spelling, so `'value' as "value"` and `let n: 10 = 0xa` stay clean.
+
+Assertions are autofixable (the literal type becomes `const` in place). Annotation findings are detection-only: the rewrite moves the type out of the annotation, which the upstream rule offers only as a suggestion, never under `--fix`.
 
 Example:
 
 ```ts
 // reports: typescript/prefer-as-const (error)
 const status = "ready" as "ready";
+
+// reports: typescript/prefer-as-const (error)
+let stage: "init" = "init";
+
+class Task {
+  // reports: typescript/prefer-as-const (error)
+  state: "idle" = "idle";
+}
 ```
 
 <a id="rule-typescript-prefer-enum-initializers"></a>

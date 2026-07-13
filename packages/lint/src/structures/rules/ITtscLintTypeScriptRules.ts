@@ -795,7 +795,11 @@ export interface ITtscLintTypeScriptRules {
   "typescript/parameter-properties"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `as const` over `as "literal"` assertions. Autofixable.
+   * Prefer `as const` over literal type assertions (`as "literal"`,
+   * `<"literal">`) and matching literal type annotations on variable and
+   * class-property declarations. Literals are compared by raw source spelling.
+   * Assertions are autofixable; annotation findings are detection-only
+   * (upstream offers only a suggestion, never a fix).
    *
    * @reference https://typescript-eslint.io/rules/prefer-as-const
    */
