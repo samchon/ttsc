@@ -29,7 +29,7 @@ func TestProjectRuleSourcesApplyOnlyGlobalIgnores(t *testing.T) {
     name: name,
     check: func(ctx *publicrule.ProjectContext) {
       for _, source := range ctx.Sources {
-        observed = append(observed, source.FileName())
+        observed = append(observed, filepath.Clean(source.FileName()))
       }
     },
   })
