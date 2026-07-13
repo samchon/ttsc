@@ -57,6 +57,8 @@ format: { severity: "off" }
 
 Formatting is configured **only** through the `format` block. The `rules` map is for lint rules; format settings placed there are ignored. Turn a behavior off through its `format` key (for example `trailingComma: "none"`), not a `rules` entry.
 
+When no `format` block is present, VS Code format-on-save reads `editor.tabSize`, `editor.insertSpaces`, and `files.eol` from the nearest `.vscode/settings.json`. Top-level values apply first, matching combined language sections apply in source order, and an exact single-language section such as `[typescript]` takes precedence over combined sections such as `[javascript][typescript]`. A configured `format` block remains authoritative.
+
 ## Individual format keys
 
 ### `semi`

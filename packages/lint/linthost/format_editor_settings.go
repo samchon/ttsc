@@ -4,6 +4,7 @@ import (
   "bytes"
   "encoding/json"
   "errors"
+  "io"
   "os"
   "path/filepath"
   "strings"
@@ -39,10 +40,10 @@ func loadFormatRules(pluginsJSON, cwd, tsconfigPath string) (RuleResolver, error
 //
 // This is consulted only when lint.config.* configures no `format` block: a
 // configured format block always wins and never reaches this path. Within
-// settings.json a language-specific section matching `language` (e.g.
-// "[typescript]" or a combined "[javascript][typescript][json]") wins over the
-// top-level keys, mirroring VS Code's own resolution. Pass language="" to skip
-// language sections (e.g. the project-wide `ttsc format` CLI path).
+// settings.json, matching combined language sections are applied in source
+// order and an exact single-language section is applied last, mirroring VS
+// Code's own resolution. Pass language="" to skip language sections (e.g. the
+// project-wide `ttsc format` CLI path).
 //
 // Mapping (values use JSON types so they parse identically to a real `format`
 // block, where numbers decode as float64):
@@ -64,17 +65,22 @@ func editorFormatOverrides(startDir string, language string) map[string]any {
   if !ok {
     return out
   }
-  // Top-level keys first, then language-specific sections override them.
-  applyEditorSettings(out, settings)
+  // Top-level keys first, then matching combined language sections in source
+  // order. VS Code holds an exact single-language section aside and applies it
+  // last, regardless of where its full selector appears in settings.json.
+  applyEditorSettings(out, settings.values)
   if language != "" {
-    for key, value := range settings {
-      if !sectionMatchesLanguage(key, language) {
+    var exact map[string]any
+    for _, section := range settings.languageSections {
+      if len(section.identifiers) == 1 && section.identifiers[0] == language {
+        exact = section.values
         continue
       }
-      if section, ok := value.(map[string]any); ok {
-        applyEditorSettings(out, section)
+      if languageSectionContains(section.identifiers, language) {
+        applyEditorSettings(out, section.values)
       }
     }
+    applyEditorSettings(out, exact)
   }
   return out
 }
@@ -106,20 +112,32 @@ func applyEditorSettings(out map[string]any, settings map[string]any) {
   }
 }
 
-// sectionMatchesLanguage reports whether a settings.json key is a
-// language-specific section header (e.g. "[typescript]" or the combined
-// "[javascript][typescript][json]") that applies to language. An empty
-// language never matches.
-func sectionMatchesLanguage(key string, language string) bool {
+// languageSectionIdentifiers parses a complete VS Code language selector such
+// as "[typescript]" or "[javascript][typescript][json]". Each full selector is
+// one override scope; its identifiers are used only to determine whether that
+// scope applies to the requested language.
+func languageSectionIdentifiers(key string) ([]string, bool) {
+  identifiers := []string{}
+  for len(key) != 0 {
+    if key[0] != '[' {
+      return nil, false
+    }
+    close := strings.IndexByte(key, ']')
+    if close <= 1 || strings.ContainsRune(key[1:close], '[') {
+      return nil, false
+    }
+    identifiers = append(identifiers, key[1:close])
+    key = key[close+1:]
+  }
+  return identifiers, len(identifiers) != 0
+}
+
+func languageSectionContains(identifiers []string, language string) bool {
   if language == "" {
     return false
   }
-  if !strings.HasPrefix(key, "[") || !strings.HasSuffix(key, "]") {
-    return false
-  }
-  inner := strings.TrimSuffix(strings.TrimPrefix(key, "["), "]")
-  for _, lang := range strings.Split(inner, "][") {
-    if lang == language {
+  for _, identifier := range identifiers {
+    if identifier == language {
       return true
     }
   }
@@ -144,29 +162,97 @@ func vscodeLanguageID(filePath string) string {
   }
 }
 
+type vscodeSettings struct {
+  values           map[string]any
+  languageSections []vscodeLanguageSection
+}
+
+type vscodeLanguageSection struct {
+  identifiers []string
+  values      map[string]any
+}
+
 // loadNearestVSCodeSettings walks up from startDir looking for a
 // `.vscode/settings.json`, returning the first one found decoded as a JSONC
 // document. It returns ok=false when none exists or the file cannot be parsed,
 // so a broken settings file degrades to the format defaults instead of breaking
 // the formatter.
-func loadNearestVSCodeSettings(startDir string) (map[string]any, bool) {
+func loadNearestVSCodeSettings(startDir string) (vscodeSettings, bool) {
   dir := startDir
   for {
     candidate := filepath.Join(dir, ".vscode", "settings.json")
     if data, err := os.ReadFile(candidate); err == nil {
       data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
-      var parsed map[string]any
-      if json.Unmarshal(stripJSONC(data), &parsed) == nil {
+      parsed, err := decodeVSCodeSettings(stripJSONC(data))
+      if err == nil {
         return parsed, true
       }
-      return nil, false
+      return vscodeSettings{}, false
     }
     parent := filepath.Dir(dir)
     if parent == dir {
-      return nil, false
+      return vscodeSettings{}, false
     }
     dir = parent
   }
+}
+
+// decodeVSCodeSettings decodes the top-level JSON object without discarding
+// declaration order. encoding/json maps are intentionally unordered, while VS
+// Code merges matching combined language sections in the order they appear in
+// settings.json and applies the exact single-language section afterwards.
+func decodeVSCodeSettings(data []byte) (vscodeSettings, error) {
+  decoder := json.NewDecoder(bytes.NewReader(data))
+  token, err := decoder.Token()
+  if err != nil {
+    return vscodeSettings{}, err
+  }
+  if token != json.Delim('{') {
+    return vscodeSettings{}, errors.New("VS Code settings must be a JSON object")
+  }
+
+  settings := vscodeSettings{values: map[string]any{}}
+  for decoder.More() {
+    token, err := decoder.Token()
+    if err != nil {
+      return vscodeSettings{}, err
+    }
+    key, ok := token.(string)
+    if !ok {
+      return vscodeSettings{}, errors.New("VS Code setting key must be a string")
+    }
+    var value any
+    if err := decoder.Decode(&value); err != nil {
+      return vscodeSettings{}, err
+    }
+    identifiers, isLanguageSection := languageSectionIdentifiers(key)
+    if !isLanguageSection {
+      settings.values[key] = value
+      continue
+    }
+    section, ok := value.(map[string]any)
+    if !ok {
+      continue
+    }
+    settings.languageSections = append(settings.languageSections, vscodeLanguageSection{
+      identifiers: identifiers,
+      values:      section,
+    })
+  }
+  token, err = decoder.Token()
+  if err != nil {
+    return vscodeSettings{}, err
+  }
+  if token != json.Delim('}') {
+    return vscodeSettings{}, errors.New("VS Code settings object is not closed")
+  }
+  if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+    if err != nil {
+      return vscodeSettings{}, err
+    }
+    return vscodeSettings{}, errors.New("VS Code settings contain trailing JSON")
+  }
+  return settings, nil
 }
 
 // stripJSONC removes `//` line comments, `/* */` block comments, and trailing
