@@ -38,13 +38,30 @@ func TestLSPCodeActionsSplitLintAndFormatCommands(t *testing.T) {
 
 func runLSPCodeActionsForTest(t *testing.T, root string, uri string, contextJSON string) []lspCodeAction {
   t.Helper()
+  return runLSPCodeActionsForRangeForTest(
+    t,
+    root,
+    uri,
+    `{"start":{"line":0,"character":0},"end":{"line":0,"character":1}}`,
+    contextJSON,
+  )
+}
+
+func runLSPCodeActionsForRangeForTest(
+  t *testing.T,
+  root string,
+  uri string,
+  rangeJSON string,
+  contextJSON string,
+) []lspCodeAction {
+  t.Helper()
   code, stdout, stderr := captureCommandOutput(t, func() int {
     return run([]string{
       "lsp-code-actions",
       "--cwd", root,
       "--plugins-json", lintManifest(t),
       "--uri", uri,
-      "--range-json", `{"start":{"line":0,"character":0},"end":{"line":0,"character":1}}`,
+      "--range-json", rangeJSON,
       "--context-json", contextJSON,
     })
   })

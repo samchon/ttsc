@@ -122,7 +122,7 @@ Formatter behavior is configured separately through the top-level `format` block
 - `typescript/prefer-as-const` (assertions only; annotation findings are detection-only), `no-useless-rename`, `object-shorthand`, `typescript/no-extra-non-null-assertion`
 - `typescript/no-unnecessary-type-constraint`, `typescript/prefer-namespace-keyword`, `no-useless-escape`
 - `typescript/no-import-type-side-effects` (hoists inline `type` modifiers)
-- `typescript/await-thenable` (type-aware: drops `await` on non-thenable operands)
+- `typescript/await-thenable` (type-aware: drops `await` only for its ordinary non-thenable operand finding)
 - Every format rule
 
 ## See also

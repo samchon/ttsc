@@ -33,6 +33,10 @@ import type { ITtscLintReactPerfRuleOptions } from "./ITtscLintReactPerfRuleOpti
 import type { ITtscLintReactOnlyExportComponentsRuleOptions } from "./ITtscLintReactRuleOptions";
 import type { ITtscLintStorybookNoUninstalledAddonsRuleOptions } from "./ITtscLintStorybookRuleOptions";
 import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./ITtscLintTestingLibraryRuleOptions";
+import type {
+  ITtscLintTypeScriptBanTsCommentRuleOptions,
+  ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
+} from "./ITtscLintTypeScriptRuleOptions";
 
 /**
  * Index from typed rule name to its options object.
@@ -95,4 +99,6 @@ export interface ITtscLintRuleOptionsMap {
   "react-perf/jsx-no-jsx-as-prop": ITtscLintReactPerfRuleOptions;
   "storybook/no-uninstalled-addons": ITtscLintStorybookNoUninstalledAddonsRuleOptions;
   "react/only-export-components": ITtscLintReactOnlyExportComponentsRuleOptions;
+  "typescript/ban-ts-comment": ITtscLintTypeScriptBanTsCommentRuleOptions;
+  "typescript/switch-exhaustiveness-check": ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions;
 }

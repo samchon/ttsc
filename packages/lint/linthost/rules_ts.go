@@ -313,26 +313,6 @@ func (noRequireImports) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
-// banTsComment: `// @ts-ignore` / `// @ts-expect-error` silence the type
-// checker. The rule flags `@ts-ignore` and `@ts-expect-error`.
-type banTsComment struct{}
-
-func (banTsComment) Name() string           { return "typescript/ban-ts-comment" }
-func (banTsComment) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
-func (banTsComment) Check(ctx *Context, node *shimast.Node) {
-  if ctx.File == nil {
-    return
-  }
-  for _, directive := range ctx.File.CommentDirectives {
-    switch directive.Kind {
-    case shimast.CommentDirectiveKindIgnore:
-      ctx.ReportRange(directive.Loc.Pos(), directive.Loc.End(), "Do not use `@ts-ignore` because it alters compilation errors.")
-    case shimast.CommentDirectiveKindExpectError:
-      ctx.ReportRange(directive.Loc.Pos(), directive.Loc.End(), "Do not use `@ts-expect-error` because it alters compilation errors.")
-    }
-  }
-}
-
 func init() {
   Register(noExplicitAny{})
   Register(noNonNullAssertion{})
@@ -342,5 +322,4 @@ func init() {
   Register(noThisAlias{})
   Register(preferAsConst{})
   Register(noRequireImports{})
-  Register(banTsComment{})
 }

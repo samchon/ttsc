@@ -24,6 +24,14 @@ import (
 )
 
 var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
+var ansiControlSequencePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+
+// diagnosticOutputContains compares rendered diagnostics after removing ANSI
+// control sequences. Windows and POSIX runners color different path segments,
+// so raw file:line substrings are not portable even when the diagnostic is.
+func diagnosticOutputContains(output, substring string) bool {
+  return strings.Contains(ansiControlSequencePattern.ReplaceAllString(output, ""), substring)
+}
 
 type ruleExpectation struct {
   Rule     string
@@ -413,6 +421,21 @@ func assertFixSnapshot(t *testing.T, ruleName, source, expected string) {
   }
 }
 
+// assertFixSnapshotFile is assertFixSnapshot with a caller-selected source
+// filename. Fixers whose safety depends on TypeScript's extension-selected
+// grammar use it to exercise TS, TSX, MTS, and CTS without substituting a
+// synthetic main.ts mode.
+func assertFixSnapshotFile(t *testing.T, ruleName, fileName, source, expected string) {
+  t.Helper()
+  got, fixed := runFixSnapshotFile(t, ruleName, fileName, source)
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  if got != expected {
+    t.Fatalf("%s fixed source mismatch for %s:\nwant %q\ngot  %q", ruleName, fileName, expected, got)
+  }
+}
+
 // assertNoFixSnapshot verifies a reported rule does not offer automatic edits.
 func assertNoFixSnapshot(t *testing.T, ruleName, source string) {
   t.Helper()
@@ -481,7 +504,21 @@ func assertRuleSkipsSourceWithOptions(t *testing.T, ruleName, source, optsJSON s
 
 func runFixSnapshot(t *testing.T, ruleName, source string) (string, int) {
   t.Helper()
-  root, filePath, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
+  return runFixSnapshotFile(t, ruleName, "main.ts", source)
+}
+
+func runFixSnapshotFile(t *testing.T, ruleName, fileName, source string) (string, int) {
+  t.Helper()
+  root := t.TempDir()
+  filePath := filepath.Join(root, "src", fileName)
+  writeFile(t, filePath, source)
+  var file *shimast.SourceFile
+  if strings.EqualFold(filepath.Ext(fileName), ".tsx") {
+    file = parseTSXFile(t, filePath, source)
+  } else {
+    file = parseTSFile(t, filePath, source)
+  }
+  findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
   if len(findings) == 0 {
     t.Fatalf("%s: expected at least one finding", ruleName)
   }

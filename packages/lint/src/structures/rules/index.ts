@@ -27,6 +27,7 @@ export * from "./ITtscLintStorybookRules";
 export * from "./ITtscLintTanstackQueryRules";
 export * from "./ITtscLintTestingLibraryRuleOptions";
 export * from "./ITtscLintTestingLibraryRules";
+export * from "./ITtscLintTypeScriptRuleOptions";
 export * from "./ITtscLintTypeScriptRules";
 export * from "./ITtscLintUnicornRules";
 export * from "./ITtscLintVitestRules";

@@ -1,4 +1,11 @@
-import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
+import type {
+  TtscLintRuleOptionsSetting,
+  TtscLintRuleSetting,
+} from "../TtscLintRuleSetting";
+import type {
+  ITtscLintTypeScriptBanTsCommentRuleOptions,
+  ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
+} from "./ITtscLintTypeScriptRuleOptions";
 
 /**
  * TypeScript-only rules and `@typescript-eslint` plugin equivalents, exposed
@@ -41,25 +48,31 @@ export interface ITtscLintTypeScriptRules {
   "typescript/array-type"?: TtscLintRuleSetting;
 
   /**
-   * Reject `await` on operands that are not thenable.
+   * Reject non-awaitable ordinary `await` operands and native Promise
+   * aggregator members.
    *
-   * Type-aware — the Checker decides whether the awaited expression has a
-   * `then` method. Autofixable: drops the `await`.
+   * Also reject sync-only `for await...of` and `await using` constructs.
+   *
+   * Type-aware. The Checker resolves Promise and well-known-symbol protocols.
+   * Only the ordinary `await` finding is autofixable.
    *
    * @reference https://typescript-eslint.io/rules/await-thenable
    */
   "typescript/await-thenable"?: TtscLintRuleSetting;
 
   /**
-   * Reject `@ts-ignore` and `@ts-expect-error` comments.
+   * Reject `@ts-<directive>` comments, or require them to carry a description.
    *
-   * The rule flags both directives unconditionally. There is no
-   * description-based allowance, and the `@typescript-eslint` options are not
-   * implemented.
+   * With the upstream recommended defaults, `@ts-ignore` and `@ts-nocheck` are
+   * reported, `@ts-check` is allowed, and `@ts-expect-error` is allowed when
+   * followed by a description of at least three characters. Each directive is
+   * individually configurable as `boolean`, `"allow-with-description"`, or `{
+   * descriptionFormat }`, with `minimumDescriptionLength` governing the
+   * description-required forms.
    *
    * @reference https://typescript-eslint.io/rules/ban-ts-comment
    */
-  "typescript/ban-ts-comment"?: TtscLintRuleSetting;
+  "typescript/ban-ts-comment"?: TtscLintRuleOptionsSetting<ITtscLintTypeScriptBanTsCommentRuleOptions>;
 
   /**
    * Reject `// tslint:disable` and related TSLint directive comments left
@@ -614,7 +627,8 @@ export interface ITtscLintTypeScriptRules {
 
   /**
    * Reject `<T extends unknown>` and similar constraints that match everything.
-   * Autofixable: drops the constraint.
+   * Autofixable: drops the constraint while retaining the disambiguating comma
+   * required by single-parameter generic arrows in TSX, MTS, and CTS files.
    *
    * @reference https://typescript-eslint.io/rules/no-unnecessary-type-constraint
    */
@@ -632,11 +646,14 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-unsafe-argument"?: TtscLintRuleSetting;
 
   /**
-   * Reject assigning an `any`-typed value into a concretely typed location —
-   * variable initializer with an explicit annotation, or a reassignment whose
-   * left-hand side has a static type.
+   * Reject direct and nested `any` values escaping through assignment
+   * boundaries. Covers annotated and inferred variables, reassignments,
+   * defaults, class members, contextual properties, spreads, and
+   * destructuring.
    *
-   * Type-aware via the Checker. `unknown` is not flagged.
+   * Type-aware via the Checker. Matching generic references are compared
+   * recursively with cycle protection. `any` may flow into `unknown`, including
+   * a corresponding nested generic argument. The rule has no options.
    *
    * @reference https://typescript-eslint.io/rules/no-unsafe-assignment
    */
@@ -1121,18 +1138,19 @@ export interface ITtscLintTypeScriptRules {
   "typescript/strict-boolean-expressions"?: TtscLintRuleSetting;
 
   /**
-   * Require every member of a union or `enum` discriminant to be covered by an
-   * explicit `case`, unless a `default` clause is present.
+   * Require every enumerable member of a discriminant to be covered by an
+   * explicit `case`.
    *
-   * Type-aware via the Checker. The rule resolves the discriminant type, walks
-   * each constituent of the union (or each member of the enum), matches it
-   * against the `case` expressions in the body, and flags the switch when at
-   * least one constituent is uncovered and no `default` clause is present. A
-   * `default` clause covers the remaining shape and silences the rule.
+   * Type-aware via the Checker. Singleton literals, literal unions, enums,
+   * nullish members, bigint and boolean literals, unique symbols, constrained
+   * generics, and literal pieces of intersections are enumerable. Open
+   * primitive pieces remain unenumerated without hiding adjacent finite
+   * members. Under the default options, a `default` clause does not replace
+   * explicit finite-member coverage.
    *
    * @reference https://typescript-eslint.io/rules/switch-exhaustiveness-check
    */
-  "typescript/switch-exhaustiveness-check"?: TtscLintRuleSetting;
+  "typescript/switch-exhaustiveness-check"?: TtscLintRuleOptionsSetting<ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions>;
 
   /**
    * Reject `/// <reference path="..." />`, `/// <reference types="" />`, and

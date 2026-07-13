@@ -27,10 +27,28 @@ switch (tag) {
     break;
 }
 
-// Negative: a `default` clause covers the remaining shape.
+// Positive: a real `default` does not replace explicit finite-member coverage
+// under the scalar defaults.
+// expect: typescript/switch-exhaustiveness-check error
 switch (tag) {
   case "a":
     sideEffect("a");
+    break;
+  default:
+    sideEffect("rest");
+    break;
+}
+
+// Negative: a fully covered union may still carry a `default` by default.
+switch (tag) {
+  case "a":
+    sideEffect("a");
+    break;
+  case "b":
+    sideEffect("b");
+    break;
+  case "c":
+    sideEffect("c");
     break;
   default:
     sideEffect("rest");

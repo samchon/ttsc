@@ -26,7 +26,11 @@ func TestLSPCommandDiscoveryReportsOwnedCommandsAndKinds(t *testing.T) {
   if err := json.Unmarshal([]byte(stdout), &commands); err != nil {
     t.Fatalf("lsp-command-ids JSON: %v\n%s", err, stdout)
   }
-  if got, want := commands, []string{commandLintFixAll, commandFormatDocument}; !stringSlicesEqual(got, want) {
+  if got, want := commands, []string{
+    commandLintFixAll,
+    commandLintApplySuggestion,
+    commandFormatDocument,
+  }; !stringSlicesEqual(got, want) {
     t.Fatalf("command ids mismatch: want %#v, got %#v", want, got)
   }
 
@@ -40,7 +44,7 @@ func TestLSPCommandDiscoveryReportsOwnedCommandsAndKinds(t *testing.T) {
   if err := json.Unmarshal([]byte(stdout), &kinds); err != nil {
     t.Fatalf("lsp-code-action-kinds JSON: %v\n%s", err, stdout)
   }
-  if got, want := kinds, []string{"source.fixAll.ttsc", "source.format"}; !stringSlicesEqual(got, want) {
+  if got, want := kinds, []string{"quickfix.ttsc", "source.fixAll.ttsc", "source.format"}; !stringSlicesEqual(got, want) {
     t.Fatalf("code action kinds mismatch: want %#v, got %#v", want, got)
   }
 }
