@@ -5,7 +5,7 @@ The `ttsc.dev` site. Built with Next.js 15 (App Router, static export) + Nextra 
 ## Three sections
 
 - **Docs**: Guide documents for consumers, plugin authors, lint users, and editor users (`src/content/docs/`).
-- **Blog**: MDX articles under `src/content/blog/`, rendered by the `src/app/blog/` routes; `build/blog.cjs` generates the RSS feed at build time.
+- **Blog**: MDX articles under `src/content/blog/`, rendered by the `src/app/blog/` routes; `build/blog.cjs` generates `/blog/rss.xml` at build time, and the root layout advertises it for RSS reader auto-discovery.
 - **Playground**: Monaco-based in-browser editor backed by the full Go compiler as wasm, with the banner, paths, strip, lint, and typia plugins linked in.
 
 ## Commands

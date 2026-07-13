@@ -48,6 +48,13 @@ export default async function RootLayout(props) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <Head>
+        {/* FEEDS */}
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="ttsc Blog RSS"
+          href="/blog/rss.xml"
+        />
         {/* ICONS */}
         <link rel="manifest" href="/favicon/site.webmanifest" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
