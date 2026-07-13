@@ -22,40 +22,54 @@ func TestNoFloatingPromisesCorrelatesMixedReceiverResults(t *testing.T) {
 interface ThenResult<T> {
   then(onFulfilled: undefined, onRejected: (reason: unknown) => void): T;
 }
+interface OptionalCatchResult<T> {
+  catch?: (onRejected: (reason: unknown) => void) => T;
+}
+interface FinallyResult<T> {
+  finally(onFinally: () => void): T;
+}
 type TaggedCatchResult<T> = CatchResult<T> & { readonly tag: true };
 declare const safeDot: Promise<void> | CatchResult<undefined>;
 declare const unsafeDot: Promise<void> | CatchResult<Promise<void>>;
 declare const safeComputed: Promise<void> | CatchResult<void>;
 declare const unsafeComputed: Promise<void> | CatchResult<Promise<void>>;
-declare const safeOptional: Promise<void> | CatchResult<undefined> | undefined;
-declare const unsafeOptional: Promise<void> | CatchResult<Promise<void>> | undefined;
+declare const safeOptionalReceiver: Promise<void> | CatchResult<undefined> | undefined;
+declare const unsafeOptionalReceiver: Promise<void> | CatchResult<Promise<void>> | undefined;
+declare const safeOptionalCall: Promise<void> | OptionalCatchResult<undefined>;
+declare const unsafeOptionalCall: Promise<void> | OptionalCatchResult<Promise<void>>;
 declare const safeIntersection: Promise<void> | TaggedCatchResult<undefined>;
 declare const unsafeIntersection: Promise<void> | TaggedCatchResult<Promise<void>>;
 declare const safeThen: Promise<void> | ThenResult<undefined>;
 declare const unsafeThen: Promise<void> | ThenResult<Promise<void>>;
+declare const mixedFinally: Promise<void> | FinallyResult<undefined>;
 declare const unrelated: CatchResult<Promise<void>>;
 safeDot.catch(() => undefined);
 unsafeDot.catch(() => undefined);
 safeComputed["catch"](() => undefined);
 unsafeComputed["catch"](() => undefined);
-safeOptional?.catch(() => undefined);
-unsafeOptional?.catch(() => undefined);
+safeOptionalReceiver?.catch(() => undefined);
+unsafeOptionalReceiver?.catch(() => undefined);
+safeOptionalCall.catch?.(() => undefined);
+unsafeOptionalCall.catch?.(() => undefined);
 safeIntersection.catch(() => undefined);
 unsafeIntersection.catch(() => undefined);
 safeThen.then(undefined, () => undefined);
 unsafeThen.then(undefined, () => undefined);
+mixedFinally.finally(() => undefined);
 unrelated.catch(() => undefined);
 `, nil)
   if code != 2 || stdout != "" {
     t.Fatalf("mixed receiver run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
   expectedLines := []string{
-    "main.ts:20:",
-    "main.ts:22:",
-    "main.ts:24:",
-    "main.ts:26:",
-    "main.ts:28:",
     "main.ts:29:",
+    "main.ts:31:",
+    "main.ts:33:",
+    "main.ts:35:",
+    "main.ts:37:",
+    "main.ts:39:",
+    "main.ts:40:",
+    "main.ts:41:",
   }
   if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != len(expectedLines) {
     t.Fatalf("expected %d mixed receiver findings, got %d:\n%s", len(expectedLines), got, stderr)
