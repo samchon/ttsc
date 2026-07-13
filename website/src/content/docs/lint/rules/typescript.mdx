@@ -214,7 +214,7 @@ Options:
 
   Minimum description length (counted in grapheme clusters, so one emoji is one character) for directives configured as `"allow-with-description"` or `{ descriptionFormat }`. Default: `3`.
 
-- `"ts-check"?`, `"ts-expect-error"?`, `"ts-ignore"?`, `"ts-nocheck"?: boolean | "allow-with-description" | { descriptionFormat?: string }`
+- `"ts-check"?`, `"ts-expect-error"?`, `"ts-ignore"?`, `"ts-nocheck"?: boolean | "allow-with-description" | { descriptionFormat: string }`
 
   Per-directive policy: `true` reports every use, `false` allows the directive, `"allow-with-description"` allows it with a long-enough description, and `{ descriptionFormat }` additionally requires the description to match the given regular expression. Defaults: `"ts-check": false`, `"ts-expect-error": "allow-with-description"`, `"ts-ignore": true`, `"ts-nocheck": true`.
 
@@ -1433,7 +1433,7 @@ class ParameterShorthand {
 
 Prefer `as const` over a literal type that repeats the literal it describes: `as "literal"` / `<"literal">` assertions, plus variable and class-property annotations such as `let x: "literal" = "literal"`. Literals are compared by raw source spelling, so `'value' as "value"` and `let n: 10 = 0xa` stay clean.
 
-Assertions are autofixable (the literal type becomes `const` in place). Annotation findings are detection-only: the rewrite moves the type out of the annotation, which the upstream rule offers only as a suggestion, never under `--fix`.
+Assertions are autofixable (the literal type becomes `const` in place). Annotation findings offer an editor quick fix that removes the annotation and appends `as const` after the initializer. That larger rewrite remains suggestion-only and is never applied by `ttsc fix`.
 
 Example:
 

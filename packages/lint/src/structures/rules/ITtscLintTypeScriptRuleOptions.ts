@@ -73,7 +73,7 @@ export type TtscLintTypeScriptBanTsCommentDirectiveConfig =
        * against the raw text following the directive, including its leading
        * whitespace, so anchored patterns usually start with `^: `.
        */
-      descriptionFormat?: string;
+      descriptionFormat: string;
     };
 
 /**
