@@ -830,9 +830,21 @@ function matchedTerms(words: string[], terms: string[]): Set<string> {
 }
 
 /**
- * Greedy set cover over the query's terms: each pick is the highest-scoring
- * candidate that still covers a term no pick covers yet, so the seeds spread
- * across the question instead of crowding onto its loudest word.
+ * Greedy set cover over the query's terms: each pick is the best candidate that
+ * still covers a term no pick covers yet, so the seeds spread across the
+ * question instead of crowding onto its loudest word.
+ *
+ * Coverage multiplies a candidate's score; it does not replace it. A flat bonus
+ * cannot: it was +120 against scores that topped out near 150, and once the
+ * score grew a reach term and a wider fan-out cap it stopped deciding anything —
+ * a second renderer, covering nothing new, outranked the first symbol of a layer
+ * the question named. Letting coverage win outright is the opposite failure and
+ * a worse one: on Excalidraw's edit pipeline a stats panel and a "go to
+ * collaborator" action took two of the five seeds, each on the strength of one
+ * rare word, and the model abandoned the tour and grepped thirteen files. A
+ * factor keeps quality the gate and coverage the tiebreak — an unimportant
+ * symbol covering two new terms still loses to the centre of the codebase, while
+ * two comparable symbols are split by what they add.
  *
  * It picks `count` of them, not all of them. Ordering every candidate cost
  * O(n²) — on VS Code, where tens of thousands of symbols score above zero, one
@@ -840,6 +852,8 @@ function matchedTerms(words: string[], terms: string[]): Set<string> {
  * keeps only the first few. Stopping at `count` makes the cover O(count · n),
  * and the picks it does make are the same ones.
  */
+const COVERAGE_FACTOR = 0.5;
+
 function diverseTourSeeds<
   T extends {
     node: ITtscGraphNode;
@@ -853,19 +867,15 @@ function diverseTourSeeds<
   const uncovered = new Set(terms);
   while (remaining.length > 0 && out.length < count) {
     let bestIndex = -1;
-    let bestCoverage = -1;
-    let bestScore = Number.NEGATIVE_INFINITY;
+    let bestValue = Number.NEGATIVE_INFINITY;
     for (let i = 0; i < remaining.length; i++) {
       const item = remaining[i]!;
       if (out.some((picked) => restates(picked.node, item.node))) continue;
       let coverage = 0;
       for (const term of item.matchedTerms) if (uncovered.has(term)) coverage++;
-      if (
-        coverage > bestCoverage ||
-        (coverage === bestCoverage && item.score > bestScore)
-      ) {
-        bestCoverage = coverage;
-        bestScore = item.score;
+      const value = item.score * (1 + COVERAGE_FACTOR * coverage);
+      if (value > bestValue) {
+        bestValue = value;
         bestIndex = i;
       }
     }
