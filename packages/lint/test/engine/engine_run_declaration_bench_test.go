@@ -13,7 +13,6 @@ import (
 func declarationBenchRules() RuleConfig {
   return RuleConfig{
     "no-var":                SeverityError,
-    "prefer-const":          SeverityError,
     "eqeqeq":                SeverityError,
     "object-shorthand":      SeverityError,
     "no-unneeded-ternary":   SeverityError,

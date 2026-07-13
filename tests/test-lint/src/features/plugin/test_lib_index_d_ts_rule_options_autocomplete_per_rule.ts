@@ -25,6 +25,9 @@ import assert from "node:assert/strict";
  *   `allowSeparateTypeImports` on `no-duplicate-imports`) is rejected.
  * - A non-boolean value for a boolean core-rule option (`includeExports: "yes"`
  *   on `no-duplicate-imports`) is rejected.
+ * - Typo'd option key on another options-bearing core rule (`allowTernery` for
+ *   `allowTernary` on `no-unused-expressions`) is rejected.
+ * - An unsupported `prefer-const` destructuring policy is rejected.
  * - Cross-rule option leakage (`testIdPattern` on
  *   `cypress/unsafe-to-chain-command`) is rejected.
  * - A typo in a switch-exhaustiveness option is rejected.
@@ -49,6 +52,14 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       "no-duplicate-imports": [
         "error",
         { allowSeparateTypeImports: true, includeExports: true },
+      ],
+      "no-unused-expressions": [
+        "error",
+        { allowShortCircuit: true, allowTaggedTemplates: true },
+      ],
+      "prefer-const": [
+        "error",
+        { destructuring: "all", ignoreReadBeforeAssign: true },
       ],
       "cypress/unsafe-to-chain-command": [
         "warning",
@@ -100,7 +111,7 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
 
   // Negative cases TypeScript enforces through the family-interface
   // intersection pattern. Each lives in its own const so TS evaluates
-  // them independently — bundling four broken cases into one object
+  // them independently. Bundling several broken cases into one object
   // literal makes TS skip the first excess-property error once other
   // assignment errors fire on later entries, masking the rule-name
   // typo branch and leaving its `@ts-expect-error` directive unused.
@@ -117,16 +128,28 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       "cypress/unsafe-to-chain-command": ["error", { metohds: ["click"] }],
     },
   };
-  const coreOptionKeyTypo: ITtscLintConfig = {
+  const noDuplicateImportsOptionKeyTypo: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `allowSeparateTypeImport` is a typo of `allowSeparateTypeImports`; excess property check on the tuple's options slot fires.
       "no-duplicate-imports": ["error", { allowSeparateTypeImport: true }],
     },
   };
-  const coreOptionValueShape: ITtscLintConfig = {
+  const noDuplicateImportsOptionValueShape: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `includeExports` is a boolean option; a string value is rejected.
       "no-duplicate-imports": ["error", { includeExports: "yes" }],
+    },
+  };
+  const noUnusedExpressionsOptionKeyTypo: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — `allowTernery` is a typo of `allowTernary`; excess property check on the tuple's options slot fires.
+      "no-unused-expressions": ["error", { allowTernery: true }],
+    },
+  };
+  const preferConstOptionValue: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — prefer-const accepts only the official `any` and `all` destructuring policies.
+      "prefer-const": ["error", { destructuring: "some" }],
     },
   };
   const crossRuleShape: ITtscLintConfig = {
@@ -163,8 +186,10 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(bareTuple);
   assert.ok(ruleNameTypo);
   assert.ok(optionKeyTypo);
-  assert.ok(coreOptionKeyTypo);
-  assert.ok(coreOptionValueShape);
+  assert.ok(noDuplicateImportsOptionKeyTypo);
+  assert.ok(noDuplicateImportsOptionValueShape);
+  assert.ok(noUnusedExpressionsOptionKeyTypo);
+  assert.ok(preferConstOptionValue);
   assert.ok(crossRuleShape);
   assert.ok(lintRuleWithOptions);
   assert.ok(switchOptionTypo);
