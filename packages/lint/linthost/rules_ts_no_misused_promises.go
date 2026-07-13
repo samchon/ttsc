@@ -115,11 +115,12 @@ func (noMisusedPromises) Check(ctx *Context, node *shimast.Node) {
   case shimast.KindBinaryExpression:
     noMisusedPromisesCheckBinary(ctx, node, options)
   case shimast.KindCallExpression, shimast.KindNewExpression:
+    var predicateArgument *shimast.Node
     if options.checksConditionals {
-      noMisusedPromisesCheckPredicate(ctx, node)
+      predicateArgument = noMisusedPromisesCheckPredicate(ctx, node)
     }
     if options.arguments {
-      noMisusedPromisesCheckArguments(ctx, node)
+      noMisusedPromisesCheckArguments(ctx, node, predicateArgument)
     }
   case shimast.KindSpreadAssignment:
     if options.checksSpreads {
@@ -334,22 +335,24 @@ func noMisusedPromisesIsAlwaysThenable(checker *shimchecker.Checker, node *shima
   return true
 }
 
-func noMisusedPromisesCheckPredicate(ctx *Context, node *shimast.Node) {
+func noMisusedPromisesCheckPredicate(ctx *Context, node *shimast.Node) *shimast.Node {
   if node.Kind != shimast.KindCallExpression {
-    return
+    return nil
   }
   call := node.AsCallExpression()
   if call == nil || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
-    return
+    return nil
   }
-  receiver, method, ok := promisePropertyAccessParts(call.Expression)
-  if !ok || !noMisusedPromisesIsArrayPredicate(method) || !noMisusedPromisesIsArrayLike(ctx.Checker, receiver) {
-    return
+  receiver, method, ok := noMisusedPromisesStaticMemberParts(call.Expression)
+  if !ok || !noMisusedPromisesIsArrayPredicate(method) || !noMisusedPromisesHasNativeArrayReceiver(ctx.Checker, receiver) {
+    return nil
   }
   callback := call.Arguments.Nodes[0]
   if noMisusedPromisesReturnsThenable(ctx.Checker, callback) {
     ctx.Report(callback, "Expected a non-Promise value to be returned from this predicate.")
+    return callback
   }
+  return nil
 }
 
 func noMisusedPromisesIsArrayPredicate(method string) bool {
@@ -360,26 +363,89 @@ func noMisusedPromisesIsArrayPredicate(method string) bool {
   return false
 }
 
-func noMisusedPromisesIsArrayLike(checker *shimchecker.Checker, node *shimast.Node) bool {
+func noMisusedPromisesStaticMemberParts(node *shimast.Node) (*shimast.Node, string, bool) {
+  node = stripParens(node)
+  if node == nil {
+    return nil, "", false
+  }
+  switch node.Kind {
+  case shimast.KindPropertyAccessExpression:
+    access := node.AsPropertyAccessExpression()
+    if access == nil {
+      return nil, "", false
+    }
+    method := identifierText(access.Name())
+    return access.Expression, method, method != ""
+  case shimast.KindElementAccessExpression:
+    access := node.AsElementAccessExpression()
+    if access == nil || access.ArgumentExpression == nil {
+      return nil, "", false
+    }
+    argument := stripParens(access.ArgumentExpression)
+    if argument == nil {
+      return nil, "", false
+    }
+    switch argument.Kind {
+    case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+      method := stringLiteralText(argument)
+      return access.Expression, method, method != ""
+    }
+  }
+  return nil, "", false
+}
+
+func noMisusedPromisesHasNativeArrayReceiver(checker *shimchecker.Checker, node *shimast.Node) bool {
   if checker == nil || node == nil {
     return false
   }
-  valueType := checker.GetApparentType(checker.GetTypeAtLocation(node))
-  for _, part := range promiseUnionParts(valueType) {
-    if part != nil && checker.IsArrayLikeType(part) {
-      return true
-    }
-  }
-  return false
+  return noMisusedPromisesTypeHasNativeArray(
+    checker,
+    checker.GetTypeAtLocation(node),
+    map[*shimchecker.Type]struct{}{},
+  )
 }
 
-func noMisusedPromisesCheckArguments(ctx *Context, node *shimast.Node) {
+func noMisusedPromisesTypeHasNativeArray(
+  checker *shimchecker.Checker,
+  valueType *shimchecker.Type,
+  seen map[*shimchecker.Type]struct{},
+) bool {
+  if checker == nil || valueType == nil {
+    return false
+  }
+  if _, ok := seen[valueType]; ok {
+    return false
+  }
+  seen[valueType] = struct{}{}
+  defer delete(seen, valueType)
+
+  flags := valueType.Flags()
+  if flags&shimchecker.TypeFlagsTypeParameter != 0 {
+    constraint := checker.GetBaseConstraintOfType(valueType)
+    return constraint != nil && constraint != valueType &&
+      noMisusedPromisesTypeHasNativeArray(checker, constraint, seen)
+  }
+  if flags&(shimchecker.TypeFlagsUnion|shimchecker.TypeFlagsIntersection) != 0 {
+    for _, part := range valueType.Types() {
+      if noMisusedPromisesTypeHasNativeArray(checker, part, seen) {
+        return true
+      }
+    }
+    return false
+  }
+  return shimchecker.Checker_isArrayType(checker, valueType) || shimchecker.IsTupleType(valueType)
+}
+
+func noMisusedPromisesCheckArguments(ctx *Context, node, predicateArgument *shimast.Node) {
   expression, arguments, signatureKind := noMisusedPromisesCallParts(node)
   if expression == nil || len(arguments) == 0 || noMisusedPromisesIsPromiseFinally(ctx.Checker, node, expression) {
     return
   }
   calleeType := ctx.Checker.GetApparentType(ctx.Checker.GetTypeAtLocation(expression))
   for index, argument := range arguments {
+    if argument == predicateArgument {
+      continue
+    }
     acceptsThenable := false
     acceptsVoid := false
     classify := func(target *shimchecker.Type) {
