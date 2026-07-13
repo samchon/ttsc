@@ -9,7 +9,11 @@
 package linthost
 
 import (
+  "path/filepath"
+  "strings"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
@@ -177,11 +181,46 @@ func (noUnnecessaryTypeConstraint) Check(ctx *Context, node *shimast.Node) {
     ctx.Report(param.Constraint, message)
     return
   }
+  replacement := ""
+  if requiresGenericArrowDisambiguation(ctx, node, param) {
+    replacement = ","
+  }
   ctx.ReportFix(
     param.Constraint,
     message,
-    TextEdit{Pos: name.End(), End: param.Constraint.End(), Text: ""},
+    TextEdit{Pos: name.End(), End: param.Constraint.End(), Text: replacement},
   )
+}
+
+// requiresGenericArrowDisambiguation reports whether deleting a redundant
+// constraint would leave a single generic arrow looking like JSX or another
+// reserved generic declaration. TypeScript-ESLint uses this same extension
+// boundary for TSX and the explicit Node module source modes.
+func requiresGenericArrowDisambiguation(
+  ctx *Context,
+  node *shimast.Node,
+  param *shimast.TypeParameterDeclaration,
+) bool {
+  if ctx == nil || ctx.File == nil || node == nil || param == nil ||
+    node.Parent == nil || node.Parent.Kind != shimast.KindArrowFunction {
+    return false
+  }
+  requiresDisambiguation := ctx.File.ScriptKind == shimcore.ScriptKindTSX
+  if !requiresDisambiguation {
+    switch strings.ToLower(filepath.Ext(ctx.File.FileName())) {
+    case ".mts", ".cts":
+      requiresDisambiguation = true
+    }
+  }
+  if !requiresDisambiguation {
+    return false
+  }
+  typeParameters := node.Parent.TypeParameterList()
+  return typeParameters != nil &&
+    len(typeParameters.Nodes) == 1 &&
+    typeParameters.Nodes[0] == node &&
+    !typeParameters.HasTrailingComma() &&
+    param.DefaultType == nil
 }
 
 // noUnsafeFunctionType: `Function` accepts any callable shape.

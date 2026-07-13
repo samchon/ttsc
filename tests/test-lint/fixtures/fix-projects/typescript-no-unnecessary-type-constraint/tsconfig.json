@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "target": "ES2022",
+    "jsx": "react-jsx",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  },
+  "files": [
+    "src/case.tsx",
+    "src/module.mts",
+    "src/commonjs.cts",
+    "src/plain.ts"
+  ]
+}

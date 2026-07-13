@@ -1111,7 +1111,7 @@ const a = definitelyString as string;
 
 ### `typescript/no-unnecessary-type-constraint`
 
-Reject `<T extends unknown>` and similar constraints that match everything. Autofixable: drops the constraint.
+Reject `<T extends unknown>` and similar constraints that match everything. Autofixable: drops the constraint while retaining the `<T,>` disambiguation required by single-parameter generic arrows in `.tsx`, `.mts`, and `.cts` files.
 
 Example:
 
