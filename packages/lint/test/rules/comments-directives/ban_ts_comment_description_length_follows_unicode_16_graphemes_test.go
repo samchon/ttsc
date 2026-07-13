@@ -12,8 +12,9 @@ import (
 //
 // GB9b Prepend, GB9c Indic conjuncts, and category-Cf emoji tags were absent
 // from the former approximation. Positive cases pin each no-break context;
-// reversed, incomplete, control, and missing-linker twins prevent broad joins
-// that would merely trade under-counting for over-counting.
+// reversed, control, and missing-linker twins prevent broad joins, while an
+// incomplete tag sequence proves tags extend clusters independent of emoji
+// sequence completeness.
 //
 // 1. Run standards-derived positive and negative twins through the real rule.
 // 2. Exercise custom two-cluster and default three-cluster thresholds.

@@ -34,10 +34,15 @@ func main() {
 	derivedCoreData := fetch("DerivedCoreProperties.txt")
 	emojiData := fetch("emoji/emoji-data.txt")
 	graphemeBreakTest := fetch("auxiliary/GraphemeBreakTest.txt")
+	versionParts := strings.Split(unicodeVersion, ".")
+	if len(versionParts) < 2 {
+		panic(fmt.Sprintf("invalid Unicode version %q", unicodeVersion))
+	}
+	emojiVersion := strings.Join(versionParts[:2], ".")
 
 	requireMarker("GraphemeBreakProperty.txt", graphemeBreakData, "GraphemeBreakProperty-"+unicodeVersion+".txt")
 	requireMarker("DerivedCoreProperties.txt", derivedCoreData, "DerivedCoreProperties-"+unicodeVersion+".txt")
-	requireMarker("emoji-data.txt", emojiData, "Emoji Version 16.0")
+	requireMarker("emoji-data.txt", emojiData, "Emoji Version "+emojiVersion)
 	requireMarker("GraphemeBreakTest.txt", graphemeBreakTest, "GraphemeBreakTest-"+unicodeVersion+".txt")
 
 	graphemeBreakRanges := parseGraphemeBreakProperties(graphemeBreakData)
