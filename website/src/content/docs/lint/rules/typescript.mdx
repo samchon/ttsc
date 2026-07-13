@@ -1431,7 +1431,7 @@ class ParameterShorthand {
 
 Prefer `as const` over a literal type that repeats the literal it describes: `as "literal"` / `<"literal">` assertions, plus variable and class-property annotations such as `let x: "literal" = "literal"`. Literals are compared by raw source spelling, so `'value' as "value"` and `let n: 10 = 0xa` stay clean.
 
-Assertions are autofixable (the literal type becomes `const` in place). Annotation findings are detection-only: the rewrite moves the type out of the annotation, which the upstream rule offers only as a suggestion, never under `--fix`.
+Assertions are autofixable (the literal type becomes `const` in place). Annotation findings offer an editor quick fix that removes the annotation and appends `as const` after the initializer. That larger rewrite remains suggestion-only and is never applied by `ttsc fix`.
 
 Example:
 

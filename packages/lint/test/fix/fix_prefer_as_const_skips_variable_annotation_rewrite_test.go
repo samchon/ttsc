@@ -6,9 +6,9 @@ import "testing"
 //
 // Upstream pairs the variable-annotation report with a suggestion, never an
 // autofix: `eslint --fix` leaves `let x: 'a' = 'a'` untouched because the
-// rewrite moves the type out of the annotation. `ttsc fix` applies every
-// emitted TextEdit unconditionally, so the finding must carry none or the
-// fix command would apply what upstream reserves for a manual action.
+// rewrite moves the type out of the annotation. The finding carries that
+// rewrite only in Suggestions, leaving Fix empty so `ttsc fix` cannot apply
+// what upstream reserves for a manual action.
 //
 // 1. Parse a source file with `let value: "literal" = "literal";`.
 // 2. Run preferAsConst and apply any offered text edits.

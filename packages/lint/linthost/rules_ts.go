@@ -4,7 +4,12 @@
 // Each rule is registered in the package init function at the bottom.
 package linthost
 
-import shimast "github.com/microsoft/typescript-go/shim/ast"
+import (
+  "strings"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+)
 
 // noExplicitAny: ban `: any` annotations. Loud equivalent of
 // `@typescript-eslint/no-explicit-any`.
@@ -188,7 +193,7 @@ func (preferAsConst) Check(ctx *Context, node *shimast.Node) {
     }
   case shimast.KindVariableDeclaration:
     if decl := node.AsVariableDeclaration(); decl != nil {
-      preferAsConstCheckAnnotation(ctx, decl.Initializer, decl.Type)
+      preferAsConstCheckAnnotation(ctx, node, decl.Initializer, decl.Type)
     }
   case shimast.KindPropertyDeclaration:
     decl := node.AsPropertyDeclaration()
@@ -201,41 +206,151 @@ func (preferAsConst) Check(ctx *Context, node *shimast.Node) {
     if node.ModifierFlags()&shimast.ModifierFlagsAccessor != 0 {
       return
     }
-    preferAsConstCheckAnnotation(ctx, decl.Initializer, decl.Type)
+    preferAsConstCheckAnnotation(ctx, node, decl.Initializer, decl.Type)
   }
 }
 
 // preferAsConstCheckAssertion handles the `expr as T` / `<T>expr` assertion
-// forms. These are directly autofixable: the literal type is replaced by the
-// `const` keyword in place, so no other source text moves.
+// forms. These are directly autofixable: the literal type becomes `const`, and
+// any type-only parentheses are removed without disturbing their comments.
 func preferAsConstCheckAssertion(ctx *Context, expr, typeNode *shimast.Node) {
   if !preferAsConstLiteralsMatch(ctx.File, expr, typeNode) {
     return
   }
   message := "Expected `as const` instead of `as` literal type."
-  pos, end := tokenRange(ctx.File, typeNode)
-  if pos < 0 {
+  edits := preferAsConstAssertionEdits(ctx.File, typeNode)
+  if len(edits) == 0 {
     ctx.Report(typeNode, message)
     return
   }
-  ctx.ReportFix(
-    typeNode,
-    message,
-    TextEdit{Pos: pos, End: end, Text: "const"},
-  )
+  ctx.ReportFix(typeNode, message, edits...)
+}
+
+// preferAsConstAssertionEdits replaces the innermost literal type and removes
+// only the syntactic parentheses around it. Keeping the trivia between those
+// tokens preserves comments while producing valid `as const` / `<const>`
+// syntax instead of the invalid `as (const)` shape.
+func preferAsConstAssertionEdits(file *shimast.SourceFile, typeNode *shimast.Node) []TextEdit {
+  if file == nil || typeNode == nil {
+    return nil
+  }
+  edits := []TextEdit{}
+  for typeNode.Kind == shimast.KindParenthesizedType {
+    parenthesized := typeNode.AsParenthesizedTypeNode()
+    if parenthesized == nil || parenthesized.Type == nil {
+      return nil
+    }
+    openScanner := shimscanner.GetScannerForSourceFile(file, typeNode.Pos())
+    if openScanner.Token() != shimast.KindOpenParenToken {
+      return nil
+    }
+    closeScanner := shimscanner.GetScannerForSourceFile(file, parenthesized.Type.End())
+    if closeScanner.Token() != shimast.KindCloseParenToken || closeScanner.TokenEnd() > typeNode.End() {
+      return nil
+    }
+    edits = append(edits,
+      TextEdit{Pos: openScanner.TokenStart(), End: openScanner.TokenEnd()},
+      TextEdit{Pos: closeScanner.TokenStart(), End: closeScanner.TokenEnd()},
+    )
+    typeNode = parenthesized.Type
+  }
+  pos, end := tokenRange(file, typeNode)
+  if pos < 0 {
+    return nil
+  }
+  return append(edits, TextEdit{Pos: pos, End: end, Text: "const"})
 }
 
 // preferAsConstCheckAnnotation handles variable declarators and class
 // property declarations whose literal type annotation repeats the
-// initializer literal. The upstream rule pairs this report with a
-// suggestion, not an autofix — `eslint --fix` never rewrites these
-// declarations — and `ttsc fix` applies every emitted TextEdit
-// unconditionally, so the finding carries none.
-func preferAsConstCheckAnnotation(ctx *Context, init, typeNode *shimast.Node) {
+// initializer literal. The upstream rule pairs this report with a manual
+// suggestion, not an autofix: it removes the annotation and appends `as const`
+// after the initializer while `eslint --fix` leaves the declaration alone.
+func preferAsConstCheckAnnotation(ctx *Context, declaration, init, typeNode *shimast.Node) {
   if init == nil || !preferAsConstLiteralsMatch(ctx.File, init, typeNode) {
     return
   }
-  ctx.Report(typeNode, "Expected a `const` assertion instead of a literal type annotation.")
+  annotationStart := preferAsConstAnnotationStart(ctx.File, declaration, typeNode)
+  _, annotationEnd := tokenRange(ctx.File, typeNode)
+  message := "Expected a `const` assertion instead of a literal type annotation."
+  if annotationStart < 0 || annotationEnd < annotationStart || init.End() < annotationEnd {
+    ctx.Report(typeNode, message)
+    return
+  }
+  ctx.ReportSuggestion(
+    typeNode,
+    message,
+    "Replace the literal type annotation with `as const`.",
+    TextEdit{
+      Pos:  annotationStart,
+      End:  annotationEnd,
+      Text: preferAsConstPreservedAnnotationComments(ctx.File, annotationStart, annotationEnd),
+    },
+    TextEdit{
+      Pos:  init.End(),
+      End:  init.End(),
+      Text: " as const",
+    },
+  )
+}
+
+// preferAsConstPreservedAnnotationComments keeps comments embedded in the
+// removed annotation. Multiline comments remain space-separated; line comments
+// retain their line ending so the following initializer cannot be commented
+// out. Syntax tokens and whitespace are intentionally discarded.
+func preferAsConstPreservedAnnotationComments(file *shimast.SourceFile, start, end int) string {
+  if file == nil || start < 0 || end <= start || end > len(file.Text()) {
+    return ""
+  }
+  src := file.Text()
+  scanner := shimscanner.GetScannerForSourceFile(file, start)
+  scanner.SetSkipTrivia(false)
+  var preserved strings.Builder
+  lineEnded := false
+  for scanner.TokenStart() < end && scanner.Token() != shimast.KindEndOfFile {
+    kind := scanner.Token()
+    if kind == shimast.KindSingleLineCommentTrivia || kind == shimast.KindMultiLineCommentTrivia {
+      if preserved.Len() == 0 || !lineEnded {
+        preserved.WriteByte(' ')
+      }
+      preserved.WriteString(scanner.TokenText())
+      lineEnded = false
+      if kind == shimast.KindSingleLineCommentTrivia {
+        switch tokenEnd := scanner.TokenEnd(); {
+        case tokenEnd+1 < len(src) && src[tokenEnd:tokenEnd+2] == "\r\n":
+          preserved.WriteString("\r\n")
+        case tokenEnd < len(src) && (src[tokenEnd] == '\r' || src[tokenEnd] == '\n'):
+          preserved.WriteByte(src[tokenEnd])
+        default:
+          preserved.WriteByte('\n')
+        }
+        lineEnded = true
+      }
+    }
+    scanner.Scan()
+  }
+  return preserved.String()
+}
+
+// preferAsConstAnnotationStart locates the annotation's colon by tokenizing
+// only the declaration segment between its name and type. This preserves
+// modifiers, computed names, and postfix `?` / `!` markers without relying on
+// source-text regular expressions.
+func preferAsConstAnnotationStart(file *shimast.SourceFile, declaration, typeNode *shimast.Node) int {
+  if file == nil || declaration == nil || typeNode == nil || declaration.Name() == nil {
+    return -1
+  }
+  scanner := shimscanner.GetScannerForSourceFile(file, declaration.Name().End())
+  for {
+    kind := scanner.Token()
+    if kind == shimast.KindColonToken {
+      return scanner.TokenStart()
+    }
+    if kind == shimast.KindEndOfFile || scanner.TokenStart() >= typeNode.End() {
+      return -1
+    }
+    scanner.Scan()
+  }
 }
 
 // preferAsConstLiteralsMatch reports whether typeNode is a literal type
@@ -248,7 +363,13 @@ func preferAsConstCheckAnnotation(ctx *Context, init, typeNode *shimast.Node) {
 // identically spelled template literal type and `null as null` stay clean
 // exactly like the upstream fixtures.
 func preferAsConstLiteralsMatch(file *shimast.SourceFile, expr, typeNode *shimast.Node) bool {
-  if expr == nil || typeNode == nil || typeNode.Kind != shimast.KindLiteralType {
+  if expr == nil || typeNode == nil {
+    return false
+  }
+  // typescript-estree erases both expression and type parentheses, so tsgo's
+  // ParenthesizedType wrappers must not affect the upstream raw-literal check.
+  typeNode = preferAsConstUnwrapType(typeNode)
+  if typeNode == nil || typeNode.Kind != shimast.KindLiteralType {
     return false
   }
   literalType := typeNode.AsLiteralTypeNode()
@@ -257,13 +378,23 @@ func preferAsConstLiteralsMatch(file *shimast.SourceFile, expr, typeNode *shimas
   }
   // ESTree does not represent expression parentheses, so upstream sees the
   // bare literal in `('a') as 'a'` and reports it; descend to the same
-  // canonical node. Type-side parentheses stay significant: tsgo keeps a
-  // ParenthesizedType node, which is not a literal type.
+  // canonical node.
   expr = stripParens(expr)
   if !isPreferAsConstLiteral(expr) || !isPreferAsConstLiteral(literalType.Literal) {
     return false
   }
   return nodeText(file, expr) == nodeText(file, literalType.Literal)
+}
+
+func preferAsConstUnwrapType(typeNode *shimast.Node) *shimast.Node {
+  for typeNode != nil && typeNode.Kind == shimast.KindParenthesizedType {
+    parenthesized := typeNode.AsParenthesizedTypeNode()
+    if parenthesized == nil || parenthesized.Type == nil {
+      return nil
+    }
+    typeNode = parenthesized.Type
+  }
+  return typeNode
 }
 
 // isPreferAsConstLiteral reports whether node is one of the literal token
