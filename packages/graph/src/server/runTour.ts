@@ -841,17 +841,22 @@ function matchedTerms(words: string[], terms: string[]): Set<string> {
  * and the picks it does make are the same ones.
  */
 function diverseTourSeeds<
-  T extends { score: number; matchedTerms: Set<string> },
+  T extends {
+    node: ITtscGraphNode;
+    score: number;
+    matchedTerms: Set<string>;
+  },
 >(items: T[], terms: string[], count: number): T[] {
   if (items.length <= 1 || terms.length === 0) return items.slice(0, count);
   const out: T[] = [];
   const remaining = [...items];
   const uncovered = new Set(terms);
   while (remaining.length > 0 && out.length < count) {
-    let bestIndex = 0;
+    let bestIndex = -1;
     let bestScore = Number.NEGATIVE_INFINITY;
     for (let i = 0; i < remaining.length; i++) {
       const item = remaining[i]!;
+      if (out.some((picked) => restates(picked.node, item.node))) continue;
       let coverage = 0;
       for (const term of item.matchedTerms) if (uncovered.has(term)) coverage++;
       const score = coverage * 120 + item.score;
@@ -860,11 +865,36 @@ function diverseTourSeeds<
         bestIndex = i;
       }
     }
+    if (bestIndex === -1) break;
     const [picked] = remaining.splice(bestIndex, 1);
     out.push(picked!);
     for (const term of picked!.matchedTerms) uncovered.delete(term);
   }
   return out;
+}
+
+/**
+ * Whether a candidate seed would only say again what a chosen seed says: the
+ * same file, and a name the chosen one already contains word for word.
+ *
+ * `LinearElementEditor.handlePointerMove` and its `...InEditMode` sibling, and
+ * `renderNewElementScene` beside its own throttled twin, took four of the five
+ * seeds on Excalidraw's edit-pipeline tour. The mutation and history layers the
+ * question named took none, and Sonnet spent twenty-two graph calls finding
+ * them. A seed that restates a chosen one is a slot spent on a fact the tour
+ * already has.
+ */
+function restates(chosen: ITtscGraphNode, candidate: ITtscGraphNode): boolean {
+  if (chosen.file !== candidate.file) return false;
+  const chosenWords = subwords(chosen.name).map(stemWord);
+  const candidateWords = subwords(candidate.name).map(stemWord);
+  const [shorter, longer] =
+    chosenWords.length <= candidateWords.length
+      ? [chosenWords, candidateWords]
+      : [candidateWords, chosenWords];
+  return (
+    shorter.length > 0 && shorter.every((word, index) => longer[index] === word)
+  );
 }
 
 function queryAlignmentFactor(
@@ -996,13 +1026,40 @@ function subwords(text: string): string[] {
     .map((word) => word.toLowerCase());
 }
 
+/**
+ * A question and the code it asks about name the same thing in different parts
+ * of speech: the asker writes "scene mutation", the symbol is `mutateElement`.
+ * Inflection alone does not bridge that — "mutation" and "mutate" share five
+ * characters and the prefix rule wants six — so a tour of Excalidraw's edit
+ * pipeline seeded four renderers, never surfaced the mutation layer the
+ * question named, and Sonnet went and found it itself in twenty-one further
+ * graph calls.
+ *
+ * Stripping the derivational suffixes as well collapses both spellings onto the
+ * same stem, so the noun in the question reaches the verb in the code.
+ */
 function stemWord(word: string): string {
-  for (const suffix of ["ing", "ed", "es", "s"]) {
+  for (const suffix of [
+    "ation",
+    "ing",
+    "ment",
+    "ence",
+    "ance",
+    "ion",
+    "ity",
+    "ed",
+    "es",
+    "s",
+  ]) {
     if (word.length > suffix.length + 3 && word.endsWith(suffix)) {
-      return word.slice(0, -suffix.length);
+      return trimTrailingE(word.slice(0, -suffix.length));
     }
   }
-  return word;
+  return trimTrailingE(word);
+}
+
+function trimTrailingE(word: string): string {
+  return word.length > 4 && word.endsWith("e") ? word.slice(0, -1) : word;
 }
 
 function commonPrefixLength(a: string, b: string): number {
