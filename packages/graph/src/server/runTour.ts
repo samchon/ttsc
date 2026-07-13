@@ -618,11 +618,20 @@ function overlaps(candidate: Set<string>, told: Set<string>): boolean {
   return shared / smaller.size >= FLOW_OVERLAP;
 }
 
-/** The symbol names a flow's steps already carry. */
+/**
+ * The symbol names a flow's steps already carry.
+ *
+ * A step reads `App.render -[calls at App.tsx:2093]-> renderScene`, and the
+ * pattern that was meant to read it back — `-[.+?]->` — is a character class:
+ * it matches a single `.`, `+` or `?` between the dashes, and never a step. So
+ * it matched nothing, and every node a step named was listed a second time in
+ * `reached`, with its id and its line, which is the repetition this function
+ * exists to prevent.
+ */
 function namesIn(steps: string[]): Set<string> {
   const names = new Set<string>();
   for (const step of steps) {
-    const match = /^(.+?) -[.+?]-> (.+)$/.exec(step);
+    const match = /^(.+?) -\[.+?\]-> (.+)$/.exec(step);
     if (match === null) continue;
     names.add(match[1]!.trim());
     names.add(match[2]!.trim());

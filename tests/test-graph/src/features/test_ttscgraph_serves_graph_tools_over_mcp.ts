@@ -374,10 +374,17 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       tour.primaryFlow.some(
         (flow) =>
           flow.start.name === "Service.run" &&
-          flow.reached.some((node) => node.name === "helper") &&
           flow.steps.some((step) => step.includes("helper")),
       ),
       `tour includes source-free primary flow: ${JSON.stringify(tour.primaryFlow)}`,
+    );
+    // A step names both of its ends and the file and line the call sits on, so a
+    // node a step named is not listed again among the nodes the flow reached.
+    assert.ok(
+      tour.primaryFlow.every(
+        (flow) => !flow.reached.some((node) => node.name === "helper"),
+      ),
+      `tour does not repeat a node its steps already named: ${JSON.stringify(tour.primaryFlow)}`,
     );
     assert.ok(
       tour.primaryFlow.every(
