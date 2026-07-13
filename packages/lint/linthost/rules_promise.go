@@ -573,10 +573,11 @@ func isIterablePromiseAggregatorInput(
   return true
 }
 
-// promiseIterableElementTypes extracts the value types exposed by a tuple,
-// array-like type, or generic Iterable reference. It intentionally returns all
-// tuple slots but only the first type argument of a general iterable, matching
-// the collection contract used by the native Promise aggregators.
+// promiseIterableElementTypes extracts the values produced by synchronous
+// iteration. Tuples retain slot-by-slot precision; every other iterable goes
+// through TypeScript-Go's checked `[Symbol.iterator]` traversal so a concrete
+// container's unrelated generic arguments are never mistaken for its yield
+// type.
 func promiseIterableElementTypes(checker *shimchecker.Checker, t *shimchecker.Type) []*shimchecker.Type {
   if checker == nil || t == nil {
     return nil
@@ -584,17 +585,8 @@ func promiseIterableElementTypes(checker *shimchecker.Checker, t *shimchecker.Ty
   if shimchecker.IsTupleType(t) {
     return checker.GetTypeArguments(t)
   }
-  if checker.IsArrayLikeType(t) {
-    if elementType := checker.GetNumberIndexType(t); elementType != nil {
-      return []*shimchecker.Type{elementType}
-    }
-    return nil
-  }
-  if t.ObjectFlags()&shimchecker.ObjectFlagsReference != 0 {
-    arguments := checker.GetTypeArguments(t)
-    if len(arguments) > 0 {
-      return arguments[:1]
-    }
+  if elementType := shimchecker.Checker_getSynchronousIterationYieldType(checker, t); elementType != nil {
+    return []*shimchecker.Type{elementType}
   }
   return nil
 }
