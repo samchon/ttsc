@@ -161,6 +161,7 @@ export function runTour(
   // so keep the first and walk on to one that tells something else.
   const primaryFlow: ITtscGraphTour.IFlow[] = [];
   const told: Set<string>[] = [];
+
   for (const id of flowSeedIdsOf(
     tourSeedsOf(graph, entry, query, limit * FLOW_SEED_CANDIDATES),
   )) {
@@ -310,8 +311,17 @@ function tourSeedsOf(
     seen.add(node.id);
     out.push(node);
   };
+  // A symbol the question names is an entrypoint of the tour, and a name the
+  // project declares more than once is not a name the project does not declare.
+  // Zod's question says `schema.parse`; the graph holds three `parse`s, so the
+  // mention came back as candidates rather than a node, and the tour dropped it
+  // and opened on `fromJSONSchema` — the model's first move was to go and trace
+  // `ZodType.parse` itself. The candidates arrive ranked by what the package
+  // publishes, and a tour is a ranked product: take the reading the ranking put
+  // first, which is the one a reader means.
   for (const mention of entry.mentions) {
-    add(mention.node === undefined ? undefined : graph.node(mention.node.id));
+    const named = mention.node ?? mention.candidates?.[0];
+    add(named === undefined ? undefined : graph.node(named.id));
   }
   if (hasExplicitSymbolHandle(query)) {
     for (const hit of entry.hits) add(graph.node(hit.id));

@@ -26,6 +26,13 @@ export interface IResolvedGraphHandle {
  * - A name the project declares more than once, which is not a name the project
  *   does not declare. The candidates come back ranked by what the package
  *   publishes, so the one a caller means is the one it reads first.
+ * - `schema.parse` — a call written the way it is written in a program, on a
+ *   value rather than on the type that declares it. There is no `schema` in the
+ *   graph, so every exact form misses, and the handle resolves to nothing for a
+ *   member the graph holds under `ZodType.parse`. It is how people name a
+ *   method (`db.query`, `app.listen`, `repo.save`), so the member is what it
+ *   means, and the candidates come back ranked when several classes declare
+ *   it.
  */
 export function resolveGraphHandle(
   graph: TtscGraphMemory,
@@ -43,7 +50,7 @@ export function resolveGraphHandle(
   if (byFile.node !== undefined || byFile.candidates !== undefined)
     return rank(graph, byFile, candidateLimit);
 
-  const symbol = symbolPartOf(handle);
+  const symbol = symbolPartOf(handle) ?? memberPartOf(handle);
   if (symbol !== undefined)
     return rank(
       graph,
@@ -51,6 +58,21 @@ export function resolveGraphHandle(
       candidateLimit,
     );
   return {};
+}
+
+/**
+ * The member a dotted handle names when its receiver is a value: the last
+ * segment of `schema.parse`, of `this.store.commit`, of `db.query`.
+ *
+ * It is the last thing tried, after the whole handle has failed as an id, as a
+ * qualified name, as a `.suffix`, and as a file-qualified name — so a receiver
+ * that _is_ a type or a file never reaches here.
+ */
+function memberPartOf(handle: string): string | undefined {
+  const dot = handle.lastIndexOf(".");
+  if (dot <= 0) return undefined;
+  const member = handle.slice(dot + 1);
+  return member.length > 0 ? member : undefined;
 }
 
 /** The symbol an id-shaped handle names: `dir/file.ts#Class.method:kind`. */

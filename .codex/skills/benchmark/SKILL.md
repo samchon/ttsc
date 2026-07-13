@@ -46,7 +46,7 @@ Option families:
 - **Output**: `--no-website` skips merging into `website/public/benchmark/performance.json`; `--reset` discards prior measurements instead of merging in place; `TTSC_BENCH_OUT` redirects the local report; `--verbose` tees child stdio with `[cmd]` / `[step]` / `[timer]` traces (default is milestone-only).
 - **Graph arms**: `graph.mjs --arm=baseline --tools=baseline` records only the empty-MCP baseline. Later `--arm=graph --tools=ttsc-graph,codegraph,codebase-memory,serena` runs add comparator samples against those website baseline cells. Prompt families are `dedicated` and `common`; `project-specific` and `shared-onboarding` remain accepted aliases. Graph-arm fallback to shell source reads/searches is a real measured outcome, not an invalid result; keep it visible through `shell`, `sourceTouches`, `graph`, and `attempts`. Exclude only zero-token infrastructure/capacity failures from published medians.
 - **Graph publication**: parallel graph sweeps must run with `--no-website` and unique `--out` directories, then publish afterward with `node experimental/benchmark/graph/publish.mjs --from <out-dir>` for each completed suite. Direct concurrent writes to `website/public/benchmark/graph.json` can race.
-- **A published cell is keyed by what the site renders**, and by nothing else: `experimental/benchmark/graph/website-cell.mjs` is the single definition, and every writer of `graph.json` imports it. Keying on metadata that merely rides along with a run — the fixture branch, the reasoning effort, the tool's setup time — makes a re-measurement land *beside* the old cell instead of replacing it, and the grid then renders the same model twice. That shipped to ttsc.dev once.
+- **A published cell is keyed by what the site renders**, and by nothing else: `experimental/benchmark/graph/website-cell.mjs` is the single definition, and every writer of `graph.json` imports it. Keying on metadata that merely rides along with a run — the fixture branch, the reasoning effort, the tool's setup time — makes a re-measurement land _beside_ the old cell instead of replacing it, and the grid then renders the same model twice. That shipped to ttsc.dev once.
 - **Comparators get the setup their own documentation prescribes.** serena's `serena project index` went unrun for months; with it, serena's savings moved from −26%…28% to 0…49%. A benchmark that withholds a tool's prescribed setup is measuring the withholding, and the reader is right not to trust the rest of the grid.
 - **Graph fixtures are the `graph` branch, outside the repo**: `graph.mjs` clones each benchmark repo's `graph` branch into `../graph-benchmark-work/<project>@graph`, installs it from its own lockfile, and never touches the performance sweep's `.work/` clones. The branch split keeps a graph-only fixture edit (a tsconfig whose program includes the tests) from changing what the `tsc`-vs-`ttsc` cells compile. The directory split keeps ttsc's own `CLAUDE.md` / `AGENTS.md` out of the measurement: the agent's cwd is the fixture, and both CLIs walk the parent chain for them (a vscode run under `experimental/benchmark/.work` was caught reading this repo's `AGENTS.md` instead of touring vscode). A graph number measured from a fixture under this repo is contaminated — re-measure it, do not publish it.
 - **Agent-visible names matter**: the folder is the agent's cwd, so it is the plain project name (`vue@graph`), never `ttsc-benchmark-vue@…` — the prefix makes an agent hunt for harness code instead of touring the source.
@@ -69,6 +69,16 @@ After the sweep, inspect the diff against `website/public/benchmark/performance.
 
 ## Changing `@ttsc/graph` while it is being benchmarked
 
+### The non-negotiables
+
+These are closed. Reopening one is a violation, not a proposal.
+
+- **No hardcoding, no monkey-patching, no over-fitting.** A change that only makes sense because a benchmark exists is not a change. Every rule in the server must be a property of graph shape or of English morphology, and must be right on a repository nobody has benchmarked.
+- **Never cripple the agent to win the number.** The tool exists for Claude Code and Codex to use. A payload that suppresses a legitimate follow-up, or an instruction that castrates the agent's own judgement, buys a chart and loses the product.
+- **Closures stay out of the tour** — not as seeds, not in reach, not in flows. Admitting them explodes the graph the tour walks and takes down the cells that were healthy. Tried, rejected, closed.
+- **A tour is a light, index-level overview.** It is not a path-stitching engine: seed-to-seed `bridges` were tried and withdrawn.
+- **N = 1 per cell.** The corpus is eight projects; that breadth is the sample. Never re-run a cell to average it.
+
 ### Compute the blast radius before you measure, not after
 
 A tour is one payload, and every part of it is downstream of the ranking. Changing a seed score changes the seed order; the seed order changes which flows get traced; the flows change `nearby`, `tests` and the anchors. **A change that "only reorders seeds" changes the whole payload of every cell whose ranking it touches** — measuring the cell you were fixing and calling it done is how you fix Excalidraw and silently break TypeORM and RxJS.
@@ -77,20 +87,20 @@ So before spending a token: call the tour offline for all sixteen (repository ×
 
 ### Any logic or text change means a full re-measurement of the `ttsc-graph` arm
 
-The offline diff tells you what *the server* did. It does not tell you what the *model* does with it, and models are not deterministic: a Sonnet cell has swung from 81% saved to 8% on the same build. So a change to the tour, the runners, the MCP instructions or the tool description means re-measuring **every** `ttsc-graph` cell — four models × two families × eight repositories — not just the cells the diff moved. The baseline and comparator arms never touch this server and stand.
+The offline diff tells you what _the server_ did. It does not tell you what the _model_ does with it, and models are not deterministic: a Sonnet cell has swung from 81% saved to 8% on the same build. So a change to the tour, the runners, the MCP instructions or the tool description means re-measuring **every** `ttsc-graph` cell — four models × two families × eight repositories — not just the cells the diff moved. The baseline and comparator arms never touch this server and stand.
 
 ### The tool's own honesty is not a tuning knob
 
-Two things the server says are load-bearing, and both must be *true*, not persuasive:
+Two things the server says are load-bearing, and both must be _true_, not persuasive:
 
 - **The audit** claims every fact was checked. It has to have been.
-- **`next`** claims the result is complete (`answer`) or partial (`inspect`). A tour that covers two of the five stages a question named and still says `answer` is lying, and the models that drill after it are right to. Fix the claim, not the model.
+- **`next`** may only carry what the server can establish about the request it answered: a handle that named several nodes, a handle that named none, a path that does not exist and the junction that does. It may not claim to know what the question _meant_ or whether the result _covered_ it. That claim was once made by matching the question's words against identifier names, and it reported "handling" missing from shopping-backend's tour on the strength of `handlePayment` — while the audit in the same payload promised a result with nothing "matched, ranked, or inferred" in it. A question names concepts and a graph holds identifiers; no lexical rule bridges the two.
 
-Never buy tokens with an instruction that suppresses a legitimate follow-up. If the tour is incomplete, saying "answer and stop" only makes the answer worse — and a benchmark that rewards that is measuring the wrong thing.
+Never buy tokens with an instruction that suppresses a legitimate follow-up, and never spend one with an instruction that invents a reason to drill. `RESULT_AUDIT` ends "re-call the graph only when `next` says inspect", so a false `inspect` does not merely misdirect the model — it lifts the stop rule.
 
 ### Fixing one cell is not a result
 
-Three changes in one afternoon each fixed the cell they targeted and cost more elsewhere than they gained: a coverage-first seed cover put a stats panel in Excalidraw's tour, adding signatures to flow nodes grew the payload 22% and Sonnet answered with *more* calls, and dropping `answerAnchors` as a "repeated coordinate" took away what the model used as its citation list — 7 calls became 19. **If a change surprises you, you did not understand what you changed.** State the predicted effect on every moved cell before measuring it, and roll back on the first surprise rather than patching the patch.
+Three changes in one afternoon each fixed the cell they targeted and cost more elsewhere than they gained: a coverage-first seed cover put a stats panel in Excalidraw's tour, adding signatures to flow nodes grew the payload 22% and Sonnet answered with _more_ calls, and dropping `answerAnchors` as a "repeated coordinate" took away what the model used as its citation list — 7 calls became 19. **If a change surprises you, you did not understand what you changed.** State the predicted effect on every moved cell before measuring it, and roll back on the first surprise rather than patching the patch.
 
 ## Fixture repositories
 
