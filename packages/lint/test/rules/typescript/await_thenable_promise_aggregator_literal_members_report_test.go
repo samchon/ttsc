@@ -38,12 +38,12 @@ Promise.all([
     t.Fatalf("expected 2 await-thenable findings, got %d:\n%s", got, stderr)
   }
   for _, anchor := range []string{"main.ts:3:", "main.ts:7:"} {
-    if !strings.Contains(stderr, anchor) {
+    if !diagnosticOutputContains(stderr, anchor) {
       t.Fatalf("missing literal-member finding at %s:\n%s", anchor, stderr)
     }
   }
   for _, clean := range []string{"main.ts:4:", "main.ts:5:"} {
-    if strings.Contains(stderr, clean) {
+    if diagnosticOutputContains(stderr, clean) {
       t.Fatalf("awaitable literal member reported at %s:\n%s", clean, stderr)
     }
   }

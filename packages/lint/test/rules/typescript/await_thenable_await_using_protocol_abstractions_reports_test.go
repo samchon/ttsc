@@ -66,7 +66,7 @@ void openConstrained(() => aliased);
     t.Fatalf("expected 4 await-thenable findings, got %d:\n%s", got, stderr)
   }
   for _, anchor := range []string{"main.ts:19:", "main.ts:20:", "main.ts:21:", "main.ts:25:"} {
-    if !strings.Contains(stderr, anchor) {
+    if !diagnosticOutputContains(stderr, anchor) {
       t.Fatalf("missing finding at %s:\n%s", anchor, stderr)
     }
   }

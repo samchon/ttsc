@@ -62,7 +62,7 @@ void main();
     t.Fatalf("expected 4 await-thenable findings, got %d:\n%s", got, stderr)
   }
   for _, anchor := range []string{"main.ts:9:", "main.ts:14:", "main.ts:17:", "main.ts:20:"} {
-    if !strings.Contains(stderr, anchor) {
+    if !diagnosticOutputContains(stderr, anchor) {
       t.Fatalf("missing finding at %s:\n%s", anchor, stderr)
     }
   }

@@ -58,7 +58,7 @@ void main();
     t.Fatalf("missing upstream for-await-of message:\n%s", stderr)
   }
   for _, anchor := range []string{"main.ts:2:29", "main.ts:8:27", "main.ts:12:32"} {
-    if !strings.Contains(stderr, anchor) {
+    if !diagnosticOutputContains(stderr, anchor) {
       t.Fatalf("finding not anchored at iterable expression %s:\n%s", anchor, stderr)
     }
   }

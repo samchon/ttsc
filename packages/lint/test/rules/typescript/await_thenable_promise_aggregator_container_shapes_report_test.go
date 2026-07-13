@@ -40,7 +40,7 @@ Promise.any(mixedContainers);
     t.Fatalf("expected 5 await-thenable findings, got %d:\n%s", got, stderr)
   }
   for _, anchor := range []string{"main.ts:6:", "main.ts:7:", "main.ts:8:", "main.ts:9:", "main.ts:10:"} {
-    if !strings.Contains(stderr, anchor) {
+    if !diagnosticOutputContains(stderr, anchor) {
       t.Fatalf("missing typed-container finding at %s:\n%s", anchor, stderr)
     }
   }

@@ -57,7 +57,7 @@ void main();
   if got := strings.Count(stderr, "[typescript/await-thenable]"); got != 1 {
     t.Fatalf("expected 1 await-thenable finding, got %d:\n%s", got, stderr)
   }
-  if !strings.Contains(stderr, "main.ts:17:") {
+  if !diagnosticOutputContains(stderr, "main.ts:17:") {
     t.Fatalf("finding not anchored on the declaration line:\n%s", stderr)
   }
 }

@@ -43,11 +43,11 @@ structural.race([3]);
   if got := strings.Count(stderr, "[typescript/await-thenable]"); got != 1 {
     t.Fatalf("expected only the native Promise alias finding, got %d:\n%s", got, stderr)
   }
-  if !strings.Contains(stderr, "main.ts:2:") {
+  if !diagnosticOutputContains(stderr, "main.ts:2:") {
     t.Fatalf("native Promise alias was not reported:\n%s", stderr)
   }
   for _, clean := range []string{"main.ts:9:", "main.ts:14:"} {
-    if strings.Contains(stderr, clean) {
+    if diagnosticOutputContains(stderr, clean) {
       t.Fatalf("structural Promise lookalike reported at %s:\n%s", clean, stderr)
     }
   }

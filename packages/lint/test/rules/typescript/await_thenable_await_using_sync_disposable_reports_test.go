@@ -58,7 +58,7 @@ void main();
   if !strings.Contains(stderr, "Unexpected `await using` of a value that is not async disposable.") {
     t.Fatalf("missing upstream await-using message:\n%s", stderr)
   }
-  if !strings.Contains(stderr, "main.ts:9:26") {
+  if !diagnosticOutputContains(stderr, "main.ts:9:26") {
     t.Fatalf("finding not anchored at the initializer expression:\n%s", stderr)
   }
 }

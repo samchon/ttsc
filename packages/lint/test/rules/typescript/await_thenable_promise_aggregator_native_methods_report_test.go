@@ -37,7 +37,7 @@ Promise.race([0n]);
     t.Fatalf("missing upstream Promise aggregator message:\n%s", stderr)
   }
   for _, anchor := range []string{"main.ts:1:", "main.ts:2:", "main.ts:3:", "main.ts:4:"} {
-    if !strings.Contains(stderr, anchor) {
+    if !diagnosticOutputContains(stderr, anchor) {
       t.Fatalf("missing Promise aggregator finding at %s:\n%s", anchor, stderr)
     }
   }
