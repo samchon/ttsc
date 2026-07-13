@@ -32,7 +32,7 @@ func graphemeCount(s string) int {
 	return count
 }
 
-type graphemePropertiesValue struct {
+type graphemeRuneProperties struct {
 	breakClass          graphemeBreakClass
 	indicConjunctClass indicConjunctBreakClass
 	extendedPictographic bool
@@ -56,7 +56,7 @@ const (
 
 type graphemeSegmenter struct {
 	hasPrevious       bool
-	previous          graphemePropertiesValue
+	previous          graphemeRuneProperties
 	regionalIndicators int
 	indicConjunct     indicConjunctState
 	emojiSequence     emojiSequenceState
@@ -65,7 +65,7 @@ type graphemeSegmenter struct {
 // hasBoundaryBefore applies GB3 through GB999 in normative order. Start of
 // text is always a boundary (GB1); end of text needs no explicit handling when
 // only the number of clusters is required.
-func (s *graphemeSegmenter) hasBoundaryBefore(current graphemePropertiesValue) bool {
+func (s *graphemeSegmenter) hasBoundaryBefore(current graphemeRuneProperties) bool {
 	if !s.hasPrevious {
 		return true
 	}
@@ -81,7 +81,7 @@ func (s *graphemeSegmenter) hasBoundaryBefore(current graphemePropertiesValue) b
 		return true
 	}
 	// GB6-GB8: keep Hangul and other data-defined conjoining sequences.
-	if isHangulGraphemeJoin(previous, next) {
+	if isConjoiningGraphemeJoin(previous, next) {
 		return false
 	}
 	// GB9/GB9a: extending characters, ZWJ, and spacing marks continue the
@@ -110,7 +110,7 @@ func (s *graphemeSegmenter) hasBoundaryBefore(current graphemePropertiesValue) b
 	return true
 }
 
-func (s *graphemeSegmenter) consume(current graphemePropertiesValue) {
+func (s *graphemeSegmenter) consume(current graphemeRuneProperties) {
 	if current.breakClass == graphemeBreakRegionalIndicator {
 		s.regionalIndicators++
 	} else {
@@ -145,8 +145,8 @@ func (s *graphemeSegmenter) consume(current graphemePropertiesValue) {
 	s.hasPrevious = true
 }
 
-func graphemeProperties(r rune) graphemePropertiesValue {
-	return graphemePropertiesValue{
+func graphemeProperties(r rune) graphemeRuneProperties {
+	return graphemeRuneProperties{
 		breakClass:          lookupGraphemeBreakClass(r),
 		indicConjunctClass: lookupIndicConjunctBreakClass(r),
 		extendedPictographic: isExtendedPictographic(r),
@@ -208,7 +208,7 @@ func isGraphemeControlClass(class graphemeBreakClass) bool {
 	return class == graphemeBreakControl || class == graphemeBreakCR || class == graphemeBreakLF
 }
 
-func isHangulGraphemeJoin(previous, next graphemeBreakClass) bool {
+func isConjoiningGraphemeJoin(previous, next graphemeBreakClass) bool {
 	switch previous {
 	case graphemeBreakL:
 		return next == graphemeBreakL || next == graphemeBreakV || next == graphemeBreakLV || next == graphemeBreakLVT
