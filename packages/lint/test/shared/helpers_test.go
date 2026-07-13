@@ -587,7 +587,8 @@ func runRuleFindingsSnapshotFile(
     })
   }
 
-  if !engine.NeedsTypeChecker() {
+  needsRuleChecker := engine.NeedsTypeChecker()
+  if !needsRuleChecker {
     root := t.TempDir()
     engine.SetCurrentDirectory(root)
     filePath := filepath.Join(root, "src", fileName)
@@ -606,8 +607,11 @@ func runRuleFindingsSnapshotFile(
   filePath := filepath.Join(root, "src", fileName)
   program, diagnostics, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
     forceNoEmit:      true,
-    needsRuleChecker: true,
+    needsRuleChecker: needsRuleChecker,
   })
+  if program != nil {
+    defer program.close()
+  }
   if err != nil {
     t.Fatalf("%s: loadProgram: %v", ruleName, err)
   }
@@ -617,7 +621,6 @@ func runRuleFindingsSnapshotFile(
   if program == nil {
     t.Fatalf("%s: loadProgram returned no program", ruleName)
   }
-  defer program.close()
   if program.checker == nil {
     t.Fatalf("%s: loadProgram returned no checker for a type-aware rule", ruleName)
   }
