@@ -137,6 +137,13 @@ for (const combo of combos.values()) {
 if (report.index && (report.index.cells ?? []).length > 0) {
   writeSvg("graph-index-build-time.svg", renderIndex(report.index));
   writeSvg("graph-time-to-answer.svg", renderTime(report.index, allCells));
+  writeSvg(
+    "graph-time-to-answer-vscode.svg",
+    renderTime(report.index, allCells, {
+      only: "vscode",
+      title: "Cold time to a first answer — VS Code, 3.4M lines (lower is better)",
+    }),
+  );
 }
 
 const pngs = writePngs();
@@ -525,15 +532,16 @@ function renderIndex(index) {
 }
 
 // The wall clock a first answer costs from a cold checkout: build the tool's
-// index once, then ask. The faded head of each bar is the build; the solid tail
-// is the median time the agent spent answering, over every model and both prompt
-// families, so each tool faces the same mix.
+// index once, then ask. The faded head of each bar is the index build; the
+// solid tail is the median time the LLM spent answering, over every model and
+// both prompt families, so each tool faces the same mix.
 //
 // It is the other half of the trade a context-saving tool is making. A tool that
 // cuts an agent's token bill and then spends four minutes indexing and three
 // more re-searching what it indexed has moved the cost, not removed it.
-function renderTime(index, cells) {
+function renderTime(index, cells, options = {}) {
   const rows = [...new Set(index.cells.map((cell) => cell.project))]
+    .filter((project) => !options.only || project === options.only)
     .map((project) => ({
       project,
       label: REPO_LABELS[project] ?? project,
@@ -552,16 +560,18 @@ function renderTime(index, cells) {
     .filter((row) => row.values.length > 0)
     .sort((a, b) => a.scale.lines - b.scale.lines);
 
-  // A group of five bars is 75px tall and the row it sat in was 76, so the
-  // repositories ran together into one wall and the reader had to count bars to
-  // find where Vue ended and NestJS began. The plot is taller now: each project
-  // gets its own band of whitespace, and the eye lands on a repository before it
-  // reads a tool.
+  // One repository per band of whitespace, so a project reads as a block before
+  // the eye starts picking tools out of it. A single-project render (the VS
+  // Code cut) gets thicker bars instead of empty air.
+  const single = rows.length === 1;
+  const barHeight = single ? 26 : 11;
+  const barStep = single ? 38 : 15;
+  const rowHeight = single ? 5 * barStep + 40 : 90;
   const width = 1040;
-  const height = 920;
-  const chart = { left: 160, right: 940, top: 130, bottom: 850 };
+  const chart = { left: 160, right: 900, top: 150 };
+  chart.bottom = chart.top + rows.length * rowHeight;
+  const height = chart.bottom + 80;
   const plotWidth = chart.right - chart.left;
-  const plotHeight = chart.bottom - chart.top;
   const max = niceMax(
     Math.max(
       1,
@@ -571,17 +581,13 @@ function renderTime(index, cells) {
     ),
   );
   const ticks = [0, max * 0.25, max * 0.5, max * 0.75, max];
-  const rowHeight = plotHeight / rows.length;
-  const barHeight = 11;
-  const barStep = 15;
   const bandHeight = rowHeight - 14;
-  const title = "Cold time to a first answer (lower is better)";
+  const title =
+    options.title ?? "Cold time to a first answer (lower is better)";
   const host = index.host
     ? `${index.host.cpu}, ${index.host.cores} cores, ${index.host.ramGB} GB — ${index.host.os}`
     : "";
 
-  // One band per repository, under the grid, so a project reads as a block
-  // before the eye starts picking tools out of it.
   const bands = rows
     .map((row, rowIndex) => {
       const center = chart.top + rowIndex * rowHeight + rowHeight / 2;
@@ -611,6 +617,7 @@ function renderTime(index, cells) {
         const y = groupTop + i * barStep;
         const buildWidth = (value.buildMs / max) * plotWidth;
         const answerWidth = (value.answerMs / max) * plotWidth;
+        const textY = y + barHeight / 2 + 4;
         if (value.buildMs > 0)
           lines.push(
             `  <rect x="${chart.left}" y="${y.toFixed(1)}" width="${buildWidth.toFixed(1)}" height="${barHeight}" fill="${value.color}" fill-opacity="0.35" rx="2"/>`,
@@ -618,42 +625,41 @@ function renderTime(index, cells) {
         lines.push(
           `  <rect x="${(chart.left + buildWidth).toFixed(1)}" y="${y.toFixed(1)}" width="${answerWidth.toFixed(1)}" height="${barHeight}" fill="${value.color}" rx="2"/>`,
         );
-        // Both halves of the wait, in the order they are paid: the index build,
-        // then the answer. A tool with no index to build says so with a zero,
-        // which is the point of putting them side by side.
+        // Both halves of the wait, in the order they are paid: (index / LLM).
+        // A tool with no index to build says so with a zero, which is the point
+        // of putting them side by side.
         lines.push(
-          `  <text x="${(chart.left + buildWidth + answerWidth + 8).toFixed(1)}" y="${(y + barHeight - 1).toFixed(1)}" fill="${value.color}" font-size="11">${escapeXml(`${fmtSeconds(value.buildMs)} / ${fmtSeconds(value.answerMs)}`)}</text>`,
+          `  <text x="${(chart.left + buildWidth + answerWidth + 8).toFixed(1)}" y="${textY.toFixed(1)}" fill="${value.color}" font-size="${single ? 13 : 11}">${escapeXml(`(${fmtCompact(value.buildMs)} / ${fmtCompact(value.answerMs)})`)}</text>`,
         );
       });
       return lines.join("\n");
     })
     .join("\n");
 
-  // Two legends, because the bar carries two facts. The colours say which tool,
-  // and the shades say which half of the wait — and the label beside each bar
-  // reads in that same order, `index / answer`, so a tool with no index to build
-  // shows a zero where the others show a minute.
+  // Two legends, because a bar carries two facts. The colours say which tool;
+  // the worked example says which shade is which wait, using the same two-tone
+  // bar the chart draws, so the reader learns the encoding by seeing it once.
   const legend = TOOLS.map((tool, i) =>
     [
-      `  <rect x="${100 + i * 175}" y="80" width="12" height="12" fill="${tool.color}" rx="2"/>`,
-      `  <text x="${118 + i * 175}" y="90" fill="#cbd5f5" font-size="12">${escapeXml(tool.label)}</text>`,
+      `  <rect x="${40 + i * 175}" y="78" width="12" height="12" fill="${tool.color}" rx="2"/>`,
+      `  <text x="${58 + i * 175}" y="88" fill="#cbd5f5" font-size="12">${escapeXml(tool.label)}</text>`,
     ].join("\n"),
   ).join("\n");
   const shadeLegend = [
-    `  <rect x="100" y="100" width="12" height="12" fill="#94a3b8" fill-opacity="0.35" rx="2"/>`,
-    `  <text x="118" y="110" fill="#94a3b8" font-size="11">index build</text>`,
-    `  <rect x="215" y="100" width="12" height="12" fill="#94a3b8" rx="2"/>`,
-    `  <text x="233" y="110" fill="#94a3b8" font-size="11">answer</text>`,
-    `  <text x="300" y="110" fill="#64748b" font-size="11">— each bar is labelled index / answer, in the order you wait for them</text>`,
+    `  <rect x="40" y="104" width="56" height="15" fill="#22d3ee" fill-opacity="0.35" rx="2"/>`,
+    `  <rect x="96" y="104" width="36" height="15" fill="#22d3ee" rx="2"/>`,
+    `  <text x="68" y="115.5" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">index</text>`,
+    `  <text x="114" y="115.5" fill="#0b0f14" font-size="10" font-weight="bold" text-anchor="middle">LLM</text>`,
+    `  <text x="142" y="115.5" fill="#cbd5f5" font-size="12">${escapeXml("faded = index build, solid = LLM answering — every bar is labelled (index / LLM)")}</text>`,
   ].join("\n");
 
   return [
     `<?xml version="1.0" encoding="utf-8" standalone="no"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1" role="img" aria-label="${escapeXml(title)}">`,
     ` <rect width="${width}" height="${height}" fill="#0b0f14"/>`,
-    ` <text x="40" y="46" fill="#f8fafc" font-size="20" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
-    ` <text x="40" y="68" fill="#64748b" font-size="12" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(host)}</text>`,
-    ` <text x="40" y="${height - 22}" fill="#64748b" font-size="11" font-family="DejaVu Sans, Arial, sans-serif">Cold checkout: build the tool's index once, then ask. The answer is the median wall clock over four models and both prompt families; the baseline has no index to build.</text>`,
+    ` <text x="40" y="42" fill="#f8fafc" font-size="20" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
+    ` <text x="40" y="62" fill="#64748b" font-size="12" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(host)}</text>`,
+    ` <text x="40" y="${height - 20}" fill="#64748b" font-size="11" font-family="DejaVu Sans, Arial, sans-serif">Cold checkout: build the tool's index once, then ask. LLM time is the median wall clock over four models and both prompt families; the baseline has no index to build.</text>`,
     legend,
     shadeLegend,
     bands,
@@ -661,6 +667,20 @@ function renderTime(index, cells) {
     bars,
     `</svg>`,
   ].join("\n");
+}
+
+/**
+ * Compact seconds for the in-chart labels: "30s", "5s", "0.4s", "732s".
+ *
+ * One unit, no space, because the label carries two of these plus punctuation
+ * and sits beside a bar; "(732s / 41s)" reads in a glance where
+ * "12.2 min / 41 s" makes the reader convert units before comparing.
+ */
+function fmtCompact(ms) {
+  const seconds = ms / 1000;
+  if (seconds === 0) return "0s";
+  if (seconds >= 10) return `${Math.round(seconds).toLocaleString("en-US")}s`;
+  return `${seconds.toFixed(1)}s`;
 }
 
 function medianAnswerMs(cells, project, tool) {
