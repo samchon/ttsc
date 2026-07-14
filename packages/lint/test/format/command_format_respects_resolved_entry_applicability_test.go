@@ -27,6 +27,43 @@ func TestCommandFormatRespectsResolvedEntryApplicability(t *testing.T) {
       "ignores": []string{"src/ignored.ts"},
     })
     assertFormatApplicability(t, root, files)
+
+    ignored := resolveFormatApplicability(t, root, "src/ignored.ts")
+    if !ignored.Ignored || ignored.OutOfScope {
+      t.Fatalf("normal resolution lost global ignore state: %+v", ignored)
+    }
+    included := resolveFormatApplicability(t, root, "src/included.ts")
+    if included.Ignored || included.OutOfScope {
+      t.Fatalf("normal resolution excluded unignored file: %+v", included)
+    }
+    assertLSPFormatApplicability(t, root, files)
+  })
+
+  t.Run("scoped_base_ignore_keeps_global_child_format", func(t *testing.T) {
+    files := []formatApplicabilityFile{
+      {name: "src/generated/model.ts", source: "const generated = 1\n", want: "const generated = 1;\n"},
+    }
+    root := seedFormatApplicabilityProject(t, files)
+    baseConfig := map[string]any{
+      "files":   []string{"src/**"},
+      "ignores": []string{"src/generated/**"},
+      "format":  map[string]any{"semi": true},
+    }
+    encodedBase, err := json.Marshal(baseConfig)
+    if err != nil {
+      t.Fatalf("marshal base config: %v", err)
+    }
+    writeFile(t, filepath.Join(root, "lint.base.json"), string(encodedBase))
+    seedLintConfig(t, root, map[string]any{
+      "extends": "./lint.base.json",
+      "format":  map[string]any{"semi": true},
+    })
+    assertFormatApplicability(t, root, files)
+
+    resolved := resolveFormatApplicability(t, root, files[0].name)
+    if resolved.Ignored || resolved.OutOfScope || len(resolved.RuleOptions("format/semi")) == 0 {
+      t.Fatalf("global child contribution was lost in normal resolution: %+v", resolved)
+    }
   })
 
   t.Run("overlapping_extends_entries_keep_each_others_match", func(t *testing.T) {
@@ -59,6 +96,18 @@ func TestCommandFormatRespectsResolvedEntryApplicability(t *testing.T) {
       "format":  map[string]any{"semi": true},
     })
     assertFormatApplicability(t, root, files)
+
+    for _, file := range files[:2] {
+      resolved := resolveFormatApplicability(t, root, file.name)
+      if resolved.Ignored || resolved.OutOfScope || len(resolved.RuleOptions("format/semi")) == 0 {
+        t.Fatalf("matching entry contribution was lost for %s: %+v", file.name, resolved)
+      }
+    }
+    outside := resolveFormatApplicability(t, root, files[2].name)
+    if outside.Ignored || !outside.OutOfScope || len(outside.Rules) != 0 || len(outside.Options) != 0 {
+      t.Fatalf("normal resolution retained state outside every entry: %+v", outside)
+    }
+    assertLSPFormatApplicability(t, root, files)
   })
 
   for _, scenario := range []struct {
@@ -120,5 +169,32 @@ func assertFormatApplicability(t *testing.T, root string, files []formatApplicab
     for _, file := range files {
       assertFileText(t, filepath.Join(root, filepath.FromSlash(file.name)), file.want)
     }
+  }
+}
+
+func resolveFormatApplicability(t *testing.T, root string, fileName string) ResolvedRuleConfig {
+  t.Helper()
+  resolver, err := loadRules(lintManifest(t), root, "")
+  if err != nil {
+    t.Fatalf("loadRules: %v", err)
+  }
+  return resolver.ResolveRules(filepath.Join(root, filepath.FromSlash(fileName)))
+}
+
+func assertLSPFormatApplicability(t *testing.T, root string, files []formatApplicabilityFile) {
+  t.Helper()
+  for _, file := range files {
+    target := filepath.Join(root, filepath.FromSlash(file.name))
+    got := executeLSPFormatBufferAppliedTextForTest(
+      t,
+      root,
+      lintTestFileURI(t, target),
+      file.source,
+      file.source,
+    )
+    if got != file.want {
+      t.Fatalf("LSP format mismatch for %s:\nwant %q\ngot  %q", file.name, file.want, got)
+    }
+    assertFileText(t, target, file.want)
   }
 }
