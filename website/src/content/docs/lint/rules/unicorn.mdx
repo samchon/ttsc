@@ -306,7 +306,7 @@ function formatNames(names: string[]) {
 
 ### `unicorn/consistent-template-literal-escape`
 
-Enforce a consistent style (always `\${` or always `$\{`) when escaping `${` in template literals.
+Enforce the `\${` spelling over `$\{` when escaping `${` in template literals. Both spellings cook to the same text, so the rule canonicalizes on the dollar escape and the autofix rewrites `$\{` and `\$\{` in place. Tagged templates are skipped because the tag function observes the raw text.
 
 Example:
 
@@ -1373,10 +1373,7 @@ const hasLarge = xs.filter((x) => x > 1).length > 0;
 
 ### `unicorn/prefer-at`
 
-Prefer `Array#at` / `String#at` over negative index arithmetic when the
-indexed value and the `.length` receiver are the same runtime reference.
-Receiver mismatches are left unchanged because `.at(-N)` would select a
-different element.
+Prefer `Array#at` / `String#at` over negative index arithmetic when the indexed value and the `.length` receiver are the same runtime reference. Receiver mismatches are left unchanged because `.at(-N)` would select a different element.
 
 Example:
 
@@ -2292,11 +2289,7 @@ switch (k) {
 
 ### `unicorn/switch-case-break-position`
 
-Require a terminating `break`, `continue`, `return`, or `throw` to sit inside
-a `case` clause's sole block instead of immediately after it. `break` and
-`continue` are automatically moved when comments and layout make that safe;
-`return` and `throw` remain diagnostic-only because moving their expressions
-can change block-scoped binding resolution.
+Require a terminating `break`, `continue`, `return`, or `throw` to sit inside a `case` clause's sole block instead of immediately after it. `break` and `continue` are automatically moved when comments and layout make that safe; `return` and `throw` remain diagnostic-only because moving their expressions can change block-scoped binding resolution.
 
 Illustrative shape:
 
@@ -2316,16 +2309,9 @@ switch (state) {
 
 ### `unicorn/template-indent`
 
-Normalize whitespace-insensitive multiline template bodies relative to the
-source line containing the opening backtick. Substitutions, nested expressions,
-raw escapes, blank lines, and the source line-ending style are preserved.
+Normalize whitespace-insensitive multiline template bodies relative to the source line containing the opening backtick. Substitutions, nested expressions, raw escapes, blank lines, and the source line-ending style are preserved.
 
-By default, the rule checks the `outdent`, `dedent`, `gql`, `sql`, `html`, and
-`styled` tags; template arguments passed directly to `dedent` or `stripIndent`;
-templates preceded by `/* HTML */` or `/* indent */`; and Jest inline snapshots.
-The options object can replace the `tags`, `functions`, `comments`, and
-`selectors` lists. `indent` accepts either a positive number of spaces or an
-exact non-empty whitespace string such as `"\t"`.
+By default, the rule checks the `outdent`, `dedent`, `gql`, `sql`, `html`, and `styled` tags; template arguments passed directly to `dedent` or `stripIndent`; templates preceded by `/* HTML */` or `/* indent */`; and Jest inline snapshots. The options object can replace the `tags`, `functions`, `comments`, and `selectors` lists. `indent` accepts either a positive number of spaces or an exact non-empty whitespace string such as `"\t"`.
 
 Illustrative shape:
 

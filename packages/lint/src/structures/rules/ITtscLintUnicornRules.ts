@@ -84,8 +84,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/consistent-function-scoping"?: TtscLintRuleSetting;
 
   /**
-   * Enforce a consistent style (always `\${` or always `$\{`) when escaping
-   * `${` in template literals.
+   * Enforce the `\${` spelling over `$\{` when escaping `${` in template
+   * literals.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/consistent-template-literal-escape.md
    */
@@ -1051,8 +1051,8 @@ export interface ITtscLintUnicornRules {
 
   /**
    * Replace discouraged words in bindings, compound names, properties, and
-   * filenames according to the canonical replacement table. The legacy rule
-   * ID retains the final upstream behavior from before its June 2026 rename to
+   * filenames according to the canonical replacement table. The legacy rule ID
+   * retains the final upstream behavior from before its June 2026 rename to
    * `name-replacements`.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/42abe74908e8/docs/rules/prevent-abbreviations.md
@@ -1129,8 +1129,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/switch-case-break-position"?: TtscLintRuleSetting;
 
   /**
-   * Normalize selected multiline template bodies while preserving
-   * substitutions and raw escape spelling.
+   * Normalize selected multiline template bodies while preserving substitutions
+   * and raw escape spelling.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/template-indent.md
    */
