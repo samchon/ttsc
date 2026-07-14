@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-13T23:37:32.017Z",
+  "generatedAt": "2026-07-14T00:42:21.869Z",
   "structural": null,
   "agent": {
     "cells": [
@@ -6640,17 +6640,17 @@
           "baseline": [],
           "graph": [
             {
-              "tokens": 153954,
-              "cached": 120832,
-              "reasoning": 1149,
-              "tokensWithReasoning": 155103,
+              "tokens": 72174,
+              "cached": 36352,
+              "reasoning": 461,
+              "tokensWithReasoning": 72635,
               "turns": 1,
-              "tools": 5,
-              "shell": 5,
+              "tools": 2,
+              "shell": 0,
               "web": 0,
-              "graph": 0,
-              "sourceTouches": 5,
-              "durMs": 72996,
+              "graph": 2,
+              "sourceTouches": 0,
+              "durMs": 40216,
               "run": 1,
               "attempts": 1
             }

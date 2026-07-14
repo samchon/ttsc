@@ -812,9 +812,32 @@ function parseStream(text, durMs) {
   };
 }
 
+/**
+ * A tool arm that never called its tool did not measure the tool.
+ *
+ * GPT-5.6 does not always open the tool list. Asked how RxJS carries a value
+ * from `subscribe` through the operators, it opened with "I'll trace the
+ * subscription path through the repository's implementation" and ran ten
+ * PowerShell commands, never naming the MCP once — the server was mounted, the
+ * other seven repositories of the same sweep called it twice each, and the
+ * prompt carried the same tool line they did. Re-run, the same cell called the
+ * graph twice, opened no file, and spent 72,174 tokens against the 153,954 it
+ * had spent shelling.
+ *
+ * That first run is not a measurement of the tool that goes in the table beside
+ * the runs that used it; it is a measurement of a model that did not look. The
+ * retry loop already re-runs a sample it marks `ok: false`, so the rule is
+ * simply written down here, where the rest of the arm's validity lives, rather
+ * than left to a reader of the audit to notice afterwards.
+ */
 function validateArmSample(sample, armName) {
-  void armName;
-  return sample;
+  if (armName === "baseline" || sample == null) return sample;
+  if (Number(sample.graph ?? 0) > 0) return sample;
+  return {
+    ...sample,
+    ok: false,
+    error: "graph arm never called the MCP; the model answered from the shell",
+  };
 }
 
 function runOrThrow(command, commandArgs, cwd, env) {

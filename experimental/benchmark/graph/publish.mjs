@@ -46,11 +46,19 @@ const prior =
     ? JSON.parse(fs.readFileSync(websiteJson, "utf8"))
     : { schemaVersion: 1, structural: null, agent: { cells: [] } };
 
+// Every block the document carries survives a publish that does not write it.
+// This one rebuilt `out` from `structural` and `agent` alone, so a run that
+// folded agent cells silently deleted the `index` axis — the cold build time,
+// one cell per tool per repository, and the two charts that read it stopped
+// being generated at all. The site went on serving the SVGs left on disk from
+// the last build, which is worse than serving none, because a missing chart is
+// visible and a stale one is not.
 const out = {
   schemaVersion: 1,
   generatedAt: new Date().toISOString(),
   structural: prior.structural ?? null,
   agent: { cells: [...(prior.agent?.cells ?? [])] },
+  ...(prior.index !== undefined ? { index: prior.index } : {}),
 };
 const PUBLISHED_SAMPLE_KEYS = [
   "tokens",
