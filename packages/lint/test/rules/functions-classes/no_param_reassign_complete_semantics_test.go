@@ -228,6 +228,7 @@ function mutate(target: any, ignored: any, regexName: any, condition: boolean): 
     property(15),
     property(16),
     property(17),
+    noParamReassignFinding{line: 21, target: "ignored", message: "Assignment to function parameter 'ignored'."},
     noParamReassignFinding{line: 26, target: "ignored", message: "Assignment to function parameter 'ignored'."},
     noParamReassignFinding{line: 27, target: "regexName", message: "Assignment to function parameter 'regexName'."},
   )
