@@ -20,7 +20,7 @@ func (noFuncAssign) Check(ctx *Context, node *shimast.Node) {
   functionSymbols := make(map[*shimast.Symbol]struct{})
   walkDescendants(node, func(child *shimast.Node) {
     name := noFuncAssignDeclarationName(child)
-    symbol := noFuncAssignCanonicalSymbol(ctx, name)
+    symbol := canonicalValueSymbol(ctx, name)
     if symbol != nil {
       functionSymbols[symbol] = struct{}{}
     }
@@ -31,11 +31,11 @@ func (noFuncAssign) Check(ctx *Context, node *shimast.Node) {
 
   reported := make(map[*shimast.Node]struct{})
   walkDescendants(node, func(child *shimast.Node) {
-    for _, target := range noFuncAssignWriteTargets(child) {
+    for _, target := range writeTargetIdentifiers(child) {
       if _, duplicate := reported[target]; duplicate {
         continue
       }
-      symbol := noFuncAssignCanonicalSymbol(ctx, target)
+      symbol := canonicalValueSymbol(ctx, target)
       if _, isFunction := functionSymbols[symbol]; !isFunction {
         continue
       }
@@ -63,53 +63,6 @@ func noFuncAssignDeclarationName(node *shimast.Node) *shimast.Node {
     }
   }
   return nil
-}
-
-// noFuncAssignWriteTargets returns every identifier written by one official
-// reference-writing form. Walking all nodes can encounter a destructuring
-// default both as part of its outer pattern and as a nested binary expression;
-// the caller deduplicates the shared identifier node before reporting it.
-func noFuncAssignWriteTargets(node *shimast.Node) []*shimast.Node {
-  if node == nil {
-    return nil
-  }
-  switch node.Kind {
-  case shimast.KindBinaryExpression:
-    expression := node.AsBinaryExpression()
-    if expression != nil && expression.OperatorToken != nil &&
-      isAssignmentOperator(expression.OperatorToken.Kind) {
-      return assignmentTargetIdentifiers(expression.Left)
-    }
-  case shimast.KindPrefixUnaryExpression:
-    expression := node.AsPrefixUnaryExpression()
-    if expression != nil &&
-      (expression.Operator == shimast.KindPlusPlusToken || expression.Operator == shimast.KindMinusMinusToken) {
-      return assignmentTargetIdentifiers(expression.Operand)
-    }
-  case shimast.KindPostfixUnaryExpression:
-    expression := node.AsPostfixUnaryExpression()
-    if expression != nil &&
-      (expression.Operator == shimast.KindPlusPlusToken || expression.Operator == shimast.KindMinusMinusToken) {
-      return assignmentTargetIdentifiers(expression.Operand)
-    }
-  case shimast.KindForInStatement, shimast.KindForOfStatement:
-    statement := node.AsForInOrOfStatement()
-    if statement != nil && statement.Initializer != nil &&
-      statement.Initializer.Kind != shimast.KindVariableDeclarationList {
-      return assignmentTargetIdentifiers(statement.Initializer)
-    }
-  }
-  return nil
-}
-
-// noFuncAssignCanonicalSymbol normalizes merged declarations, including the
-// TypeScript function-plus-namespace pattern, to one value-binding identity.
-func noFuncAssignCanonicalSymbol(ctx *Context, identifier *shimast.Node) *shimast.Symbol {
-  symbol := valueSymbolAtIdentifier(ctx, identifier)
-  if symbol == nil {
-    return nil
-  }
-  return ctx.Checker.GetMergedSymbol(symbol)
 }
 
 func init() {

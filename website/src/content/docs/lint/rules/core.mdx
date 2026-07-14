@@ -834,9 +834,9 @@ function f(x: number) {
 
 ### `no-class-assign`
 
-Reject reassigning a class binding (`class C {}; C = ...`).
+Reject every write to a binding introduced by a class declaration or named class expression.
 
-The declaration name is effectively final; overwriting it silently leaves other call sites pointing at the original class.
+The rule follows lexical binding identity rather than matching names. Same-spelled parameter, catch, block, and sibling bindings remain independent, while direct and compound assignments, updates, destructuring targets, and `for-in`/`for-of` targets all report writes to the actual class binding.
 
 Example:
 

@@ -559,6 +559,38 @@ func runRuleFindingsSnapshot(
   return runRuleFindingsSnapshotFile(t, ruleName, "main.ts", source, options)
 }
 
+// markedIdentifierRanges returns the exact identifier ranges immediately
+// following each marker. Rule tests use the marker-free finding set as their
+// oracle, so an extra, missing, duplicate, or over-wide diagnostic fails.
+func markedIdentifierRanges(t *testing.T, source string, marker string) [][2]int {
+  t.Helper()
+  if marker == "" {
+    t.Fatal("markedIdentifierRanges requires a non-empty marker")
+  }
+  ranges := make([][2]int, 0)
+  remaining := source
+  consumed := 0
+  for {
+    markerOffset := strings.Index(remaining, marker)
+    if markerOffset < 0 {
+      return ranges
+    }
+    start := consumed + markerOffset + len(marker)
+    end := start
+    for end < len(source) && (source[end] == '_' || source[end] == '$' ||
+      source[end] >= 'a' && source[end] <= 'z' || source[end] >= 'A' && source[end] <= 'Z' ||
+      end > start && source[end] >= '0' && source[end] <= '9') {
+      end++
+    }
+    if end == start {
+      t.Fatalf("marker at byte %d is not followed by an identifier", start-len(marker))
+    }
+    ranges = append(ranges, [2]int{start, end})
+    consumed = end
+    remaining = source[end:]
+  }
+}
+
 // runRuleFindingsSnapshotFile selects the lightweight parser or the real
 // Program/checker lifecycle from the configured engine's requirements. Both
 // paths materialize the caller's exact filename and project directory so the
