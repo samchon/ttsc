@@ -240,7 +240,9 @@ declare const assertionMismatch: Promise<void> | AssertionGenericCatch;
 declare const tupleRestOverflow: Promise<void> | TupleRestCatch;
 declare const functionContractSafe: Promise<void> | FunctionCatch;
 declare const privateMismatch: Promise<void> | PrivateGenericCatch;
+declare const privateSourceMismatch: Promise<void> | TaggedGenericCatch;
 declare const publicTaggedFactory: (() => undefined) & { tag: true };
+declare const privateTaggedFactory: PrivateFactory<undefined>;
 fixedValid.then(1, () => undefined);
 fixedMismatch.then("not a number", () => undefined);
 callbackValid.then(1, (reason: unknown) => undefined);
@@ -260,6 +262,7 @@ assertionMismatch.catch<undefined>((value: unknown): void => {});
 tupleRestOverflow.catch(() => undefined, () => undefined);
 functionContractSafe.catch(() => undefined);
 privateMismatch.catch(publicTaggedFactory);
+privateSourceMismatch.catch(privateTaggedFactory);
 function checkUncertain<U>(
   uncertainResult: Promise<void> | ExplicitGenericCatch,
   factory: () => U,
@@ -290,6 +293,7 @@ function checkUncertainArray<U>(
     "assertionMismatch.catch",
     "tupleRestOverflow.catch",
     "privateMismatch.catch",
+    "privateSourceMismatch.catch",
     "uncertainResult.catch",
     "uncertainArrayResult.catch",
   }

@@ -1009,7 +1009,11 @@ func floatingPromiseApplicableSignature(
     switch floatingPromiseSignatureApplicability(ctx.Checker, call, signature) {
     case floatingPromiseCallApplicable:
       applicable = append(applicable, signature)
+    case floatingPromiseCallIncompatible:
+      continue
     case floatingPromiseCallUncertain:
+      return nil
+    default:
       return nil
     }
   }
@@ -1367,16 +1371,16 @@ func floatingPromiseCallableArgumentApplicability(
     return floatingPromiseCallUncertain
   }
   for _, expectedProperty := range shimchecker.Checker_getPropertiesOfType(checker, expectedType) {
-    if declaration := expectedProperty.ValueDeclaration; declaration != nil &&
-      declaration.ModifierFlags()&(shimast.ModifierFlagsPrivate|shimast.ModifierFlagsProtected) != 0 {
-      return floatingPromiseCallUncertain
-    }
     actualProperty := checker.GetPropertyOfType(actualType, expectedProperty.Name)
     if actualProperty == nil {
       if expectedProperty.Flags&shimast.SymbolFlagsOptional != 0 {
         continue
       }
       return floatingPromiseCallIncompatible
+    }
+    if floatingPromiseSymbolHasNonPublicDeclaration(expectedProperty) ||
+      floatingPromiseSymbolHasNonPublicDeclaration(actualProperty) {
+      return floatingPromiseCallUncertain
     }
     expectedPropertyType := checker.GetTypeOfSymbolAtLocation(expectedProperty, call.Expression)
     actualPropertyType := checker.GetTypeOfSymbolAtLocation(actualProperty, argument)
@@ -1461,6 +1465,25 @@ func floatingPromiseCallableArgumentApplicability(
     return floatingPromiseCallApplicable
   }
   return floatingPromiseCallIncompatible
+}
+
+func floatingPromiseSymbolHasNonPublicDeclaration(symbol *shimast.Symbol) bool {
+  if symbol == nil {
+    return false
+  }
+  hasNonPublicModifier := func(declaration *shimast.Node) bool {
+    return declaration != nil &&
+      declaration.ModifierFlags()&(shimast.ModifierFlagsPrivate|shimast.ModifierFlagsProtected) != 0
+  }
+  if hasNonPublicModifier(symbol.ValueDeclaration) {
+    return true
+  }
+  for _, declaration := range symbol.Declarations {
+    if hasNonPublicModifier(declaration) {
+      return true
+    }
+  }
+  return false
 }
 
 func floatingPromiseTypeParameterCandidateApplicability(
