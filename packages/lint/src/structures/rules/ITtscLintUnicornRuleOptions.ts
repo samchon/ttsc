@@ -176,3 +176,55 @@ export interface ITtscLintUnicornPreventAbbreviationsRuleOptions {
   /** Regular-expression strings matched against a complete name or basename. */
   ignore?: readonly string[];
 }
+
+/**
+ * One replacement entry for `unicorn/string-content`.
+ *
+ * The object form of a `patterns` value. A plain string value is shorthand for
+ * `{ suggest: value }`.
+ */
+export interface ITtscLintUnicornStringContentPatternOptions {
+  /** Replacement text applied to every match of the pattern. */
+  suggest: string;
+
+  /**
+   * Apply the replacement automatically; `false` reports the diagnostic with an
+   * opt-in editor suggestion instead.
+   *
+   * @default true
+   */
+  fix?: boolean;
+
+  /**
+   * Match the pattern case-sensitively.
+   *
+   * @default true
+   */
+  caseSensitive?: boolean;
+
+  /**
+   * Custom diagnostic message; `{{match}}` and `{{suggest}}` placeholders
+   * interpolate the pattern source and replacement text.
+   */
+  message?: string;
+}
+
+/**
+ * Options for `unicorn/string-content`.
+ *
+ * The rule has no default patterns: without a configured `patterns` object it
+ * reports nothing. Each key is a regular-expression source matched against
+ * string-literal values and template-quasi raw text; the FIRST matching pattern
+ * per node wins and every occurrence is replaced.
+ *
+ * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/string-content.md
+ */
+export interface ITtscLintUnicornStringContentRuleOptions {
+  /** Regular-expression sources mapped to replacement text or an entry object. */
+  patterns?: Readonly<
+    Record<string, string | ITtscLintUnicornStringContentPatternOptions>
+  >;
+
+  /** AST selectors that replace the default Literal/TemplateElement targets. */
+  selectors?: readonly string[];
+}

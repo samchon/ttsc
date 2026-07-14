@@ -23,6 +23,7 @@ import (
 )
 
 var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
+var ruleOptionsDirectivePattern = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-options:\s*(\S+)\s+(\S.*?)\s*$`)
 var ansiControlSequencePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
 // diagnosticOutputContains compares rendered diagnostics after removing ANSI
@@ -115,7 +116,7 @@ func assertRuleCorpusCase(t *testing.T, relativeFile, source string) {
     rules[exp.Rule] = exp.Severity
   }
   file := parseTSFile(t, "/virtual/"+filepath.ToSlash(relativeFile), source)
-  findings := NewEngine(rules).Run([]*shimast.SourceFile{file}, nil)
+  findings := newRuleCorpusEngine(t, relativeFile, source, rules).Run([]*shimast.SourceFile{file}, nil)
   actual := normalizeRuleFindings(file, findings)
   if len(actual) != len(expected) {
     t.Fatalf("%s: want %v, got %v", relativeFile, expected, actual)
@@ -148,7 +149,7 @@ func assertRuleCorpusCaseTSX(t *testing.T, relativeFile, source string) {
     rules[exp.Rule] = exp.Severity
   }
   file := parseTSXFile(t, "/virtual/"+filepath.ToSlash(relativeFile), source)
-  findings := NewEngine(rules).Run([]*shimast.SourceFile{file}, nil)
+  findings := newRuleCorpusEngine(t, relativeFile, source, rules).Run([]*shimast.SourceFile{file}, nil)
   actual := normalizeRuleFindings(file, findings)
   if len(actual) != len(expected) {
     t.Fatalf("%s: want %v, got %v", relativeFile, expected, actual)
@@ -158,6 +159,54 @@ func assertRuleCorpusCaseTSX(t *testing.T, relativeFile, source string) {
       t.Fatalf("%s[%d]: want %+v, got %+v; all findings=%+v", relativeFile, i, expected[i], actual[i], actual)
     }
   }
+}
+
+// newRuleCorpusEngine builds the engine for one annotated corpus fixture.
+// Severities come from the `// expect:` annotations; a fixture that needs
+// rule options carries them in `// @ttsc-corpus-options:` directives (the
+// Go mirror of the TypeScript corpus runner's `[severity, options]` rule
+// entries). Options for a rule the fixture never expects a finding from are
+// a fixture bug and fail loudly, as does a payload the engine rejects.
+func newRuleCorpusEngine(t *testing.T, relativeFile, source string, rules RuleConfig) *Engine {
+  t.Helper()
+  options := parseRuleOptionsDirectives(t, relativeFile, source)
+  if len(options) == 0 {
+    return NewEngine(rules)
+  }
+  for rule := range options {
+    if _, enabled := rules[rule]; !enabled {
+      t.Fatalf("%s: @ttsc-corpus-options names %q, which has no // expect: annotation", relativeFile, rule)
+    }
+  }
+  engine := NewEngineWithResolver(InlineRuleResolver{Rules: rules, Options: options})
+  if err := engine.ConfigError(); err != nil {
+    t.Fatalf("%s: @ttsc-corpus-options rejected by the engine: %v", relativeFile, err)
+  }
+  return engine
+}
+
+// parseRuleOptionsDirectives reads `// @ttsc-corpus-options: <rule> <json>`
+// directives, mirroring the TypeScript corpus helper. Each directive supplies
+// the options half of the named rule's `[severity, options]` config entry.
+func parseRuleOptionsDirectives(t *testing.T, relativeFile, source string) RuleOptionsMap {
+  t.Helper()
+  options := RuleOptionsMap{}
+  for _, line := range strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n") {
+    match := ruleOptionsDirectivePattern.FindStringSubmatch(line)
+    if match == nil {
+      continue
+    }
+    rule := match[1]
+    payload := json.RawMessage(match[2])
+    if !json.Valid(payload) {
+      t.Fatalf("%s: @ttsc-corpus-options for %q carries invalid JSON: %s", relativeFile, rule, payload)
+    }
+    if _, duplicate := options[rule]; duplicate {
+      t.Fatalf("%s: duplicate @ttsc-corpus-options directive for %q", relativeFile, rule)
+    }
+    options[rule] = payload
+  }
+  return options
 }
 
 // parseRuleExpectations mirrors the TypeScript fixture helper's annotation

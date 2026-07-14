@@ -49,6 +49,7 @@ import type {
   ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
+  ITtscLintUnicornStringContentRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
 } from "./ITtscLintUnicornRuleOptions";
 
@@ -128,4 +129,5 @@ export interface ITtscLintRuleOptionsMap {
   "unicorn/prevent-abbreviations": ITtscLintUnicornPreventAbbreviationsRuleOptions;
   "unicorn/import-style": ITtscLintUnicornImportStyleRuleOptions;
   "unicorn/filename-case": ITtscLintUnicornFilenameCaseRuleOptions;
+  "unicorn/string-content": ITtscLintUnicornStringContentRuleOptions;
 }

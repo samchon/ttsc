@@ -42,15 +42,18 @@ export function assertAllLintCases(partition?: {
  * exactly the diagnostics annotated in its `// expect:` comments.
  *
  * Reads the rule set from the fixture's own annotations so that adding or
- * removing a rule only requires editing the fixture — no other file changes.
- * Extra sources in the same subdirectory (e.g. `src/` fixtures for multi-file
- * rules) are gathered by `collectExtraSources`.
+ * removing a rule only requires editing the fixture — no other file changes. A
+ * rule that needs options carries them in a `// @ttsc-corpus-options: <rule>
+ * <json>` directive, which upgrades that rule's config entry to the `[severity,
+ * options]` tuple (see `applyCorpusOptions`). Extra sources in the same
+ * subdirectory (e.g. `src/` fixtures for multi-file rules) are gathered by
+ * `collectExtraSources`.
  *
  * Honors the `// @ttsc-corpus-skip: <reason>` directive: a fixture marked with
  * one is loaded and validated against the directive shape but the native lint
  * run is skipped — useful for rules whose contract requires project-level
  * inputs the flat corpus runner does not synthesize (a `src/pages/...` path, a
- * sibling `package.json`, rule-specific options).
+ * sibling `package.json`).
  *
  * Honors the `// @ttsc-corpus-filename: <path>` directive: the fixture is
  * materialized at the given project-root-relative path (under `src/`) instead
@@ -77,7 +80,11 @@ export function assertLintCase(relativeFile: string): void {
     name: relativeFile,
     source,
     sourcePath: parseCorpusFilename(source, relativeFile),
-    rules: TestLint.rulesFromExpectations(expected),
+    rules: applyCorpusOptions(
+      relativeFile,
+      source,
+      TestLint.rulesFromExpectations(expected),
+    ),
     extraSources: collectExtraSources(relativeFile),
   });
 
@@ -95,6 +102,54 @@ export function assertLintCase(relativeFile: string): void {
     expected.map(({ rule, severity, line }) => ({ rule, severity, line })),
     result.stderr,
   );
+}
+
+/**
+ * Merge `// @ttsc-corpus-options: <rule> <json>` directives into the rules map
+ * parsed from the fixture's `// expect:` annotations. Each directive turns the
+ * named rule's severity into the `[severity, options]` tuple the lint config
+ * format accepts, so option-bearing rules (e.g. `unicorn/string-content`, which
+ * reports nothing without configured patterns) can run through the same flat
+ * corpus as default-configured ones.
+ *
+ * A directive naming a rule without any expectation is a fixture bug: the
+ * options would silently configure nothing, so it fails loudly. The Go rule
+ * corpus helper (`newRuleCorpusEngine`) parses the identical directive.
+ */
+function applyCorpusOptions(
+  relativeFile: string,
+  source: string,
+  rules: Record<string, TestLint.LintRuleConfigEntry>,
+): Record<string, TestLint.LintRuleConfigEntry> {
+  for (const line of source.split(/\r?\n/)) {
+    const match = line.match(
+      /^\s*\/\/\s*@ttsc-corpus-options:\s*(\S+)\s+(\S.*?)\s*$/,
+    );
+    if (!match) continue;
+    const [, rule, payload] = match;
+    if (!rule || !payload) continue;
+    const severity = rules[rule];
+    assert.notEqual(
+      severity,
+      undefined,
+      `${relativeFile}: @ttsc-corpus-options names ${rule}, which has no // expect: annotation`,
+    );
+    assert.ok(
+      typeof severity === "string",
+      `${relativeFile}: duplicate @ttsc-corpus-options directive for ${rule}`,
+    );
+    let options: unknown;
+    try {
+      options = JSON.parse(payload);
+    } catch (error) {
+      throw new Error(
+        `${relativeFile}: @ttsc-corpus-options for ${rule} carries invalid JSON: ${payload}`,
+        { cause: error },
+      );
+    }
+    rules[rule] = [severity, options];
+  }
+  return rules;
 }
 
 /**

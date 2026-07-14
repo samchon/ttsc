@@ -7,6 +7,7 @@ import type {
   ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
+  ITtscLintUnicornStringContentRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
 } from "./ITtscLintUnicornRuleOptions";
 
@@ -1108,12 +1109,13 @@ export interface ITtscLintUnicornRules {
   "unicorn/require-post-message-target-origin"?: TtscLintRuleSetting;
 
   /**
-   * Enforce or replace configured string-content patterns (e.g., curly quotes
-   * for straight ones).
+   * Rewrite configured `patterns` inside string literals and template quasis
+   * (e.g., curly quotes for straight ones). No default patterns: a bare
+   * severity reports nothing.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/string-content.md
    */
-  "unicorn/string-content"?: TtscLintRuleSetting;
+  "unicorn/string-content"?: TtscLintRuleOptionsSetting<ITtscLintUnicornStringContentRuleOptions>;
 
   /**
    * Enforce a consistent presence/absence of `{}` braces around `case` clauses

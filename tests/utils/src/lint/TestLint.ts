@@ -80,6 +80,13 @@ export namespace TestLint {
   export type LintSeverity = "warn" | "error";
   /** User-facing rule config severities accepted in test tsconfig snippets. */
   export type LintRuleConfigSeverity = "off" | "warning" | LintSeverity;
+  /**
+   * One `rules` map entry: a bare severity or the `[severity, options]` tuple
+   * the lint config format accepts for option-bearing rules.
+   */
+  export type LintRuleConfigEntry =
+    | LintRuleConfigSeverity
+    | readonly [LintRuleConfigSeverity, unknown];
 
   /** Parsed representation of one rendered lint diagnostic. */
   export interface ILintDiagnostic {
@@ -124,7 +131,7 @@ export namespace TestLint {
     sourcePath?: string;
     /** Optional disposable root under the OS temp dir; cleanup removes it. */
     projectRoot?: string;
-    rules?: Record<string, LintRuleConfigSeverity>;
+    rules?: Record<string, LintRuleConfigEntry>;
     pluginConfig?: Record<string, unknown>;
     extraSources?: Record<string, string>;
     linkNodeModules?: string[];

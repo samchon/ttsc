@@ -324,6 +324,14 @@ func astSelectorMatchesNodeType(node *shimast.Node, requested string) bool {
     return node.Kind == shimast.KindSuperKeyword
   case "templateliteral":
     return node.Kind == shimast.KindTemplateExpression || node.Kind == shimast.KindNoSubstitutionTemplateLiteral
+  case "templateelement":
+    // ESTree models each quasi as a TemplateElement; TypeScript-Go spells
+    // them TemplateHead/Middle/Tail. A no-substitution template is its own
+    // single quasi (ESTree wraps it in a one-element TemplateLiteral).
+    return node.Kind == shimast.KindTemplateHead ||
+      node.Kind == shimast.KindTemplateMiddle ||
+      node.Kind == shimast.KindTemplateTail ||
+      node.Kind == shimast.KindNoSubstitutionTemplateLiteral
   case "property":
     switch node.Kind {
     case shimast.KindPropertyAssignment,
