@@ -117,6 +117,24 @@ func TestUnicornTemplateIndentFixPreservesQuasisSubstitutionsEscapesAndBlankLine
     "  four\n" +
     "`;\n"
 
+  _, _, findings := runRuleFindingsSnapshot(t, unicornTemplateIndentRuleName, source, nil)
+  if len(findings) != 1 {
+    t.Fatalf("want one finding, got %d (%+v)", len(findings), findings)
+  }
+  expressionStart := strings.Index(source, "${value}")
+  expressionEnd := expressionStart + len("${value}")
+  if expressionStart < 0 {
+    t.Fatal("substitution oracle is missing")
+  }
+  if len(findings[0].Fix) != 2 {
+    t.Fatalf("one-substitution template must expose two quasi edits, got %+v", findings[0].Fix)
+  }
+  for _, edit := range findings[0].Fix {
+    if edit.Pos < expressionEnd && edit.End > expressionStart {
+      t.Fatalf("quasi edit [%d,%d) overlaps substitution [%d,%d)", edit.Pos, edit.End, expressionStart, expressionEnd)
+    }
+  }
+
   assertFixSnapshot(t, unicornTemplateIndentRuleName, source, expected)
   file := parseTSFile(t, "/virtual/fixed-template.ts", expected)
   if diagnostics := file.Diagnostics(); len(diagnostics) != 0 {
@@ -258,6 +276,7 @@ func TestUnicornTemplateIndentSkipsUnselectedSingleLineAndAlreadyCorrectTemplate
     "const calledTag = makeTag()`\n        one\n        `;\n",
     "const lineComment = // indent\n`\n        one\n        `;\n",
     "if (ready) {\n  use();\n}\nconst correct = gql`\n  one\n    child\n`;\n",
+    "const existingTemplateIndent = gql`\n        one\n        two\n`;\n",
   }
   for index, source := range sources {
     t.Run(fmtTestName(index), func(t *testing.T) {
@@ -328,6 +347,7 @@ func fmtTestName(index int) string {
     "call-result-tag",
     "line-comment",
     "already-correct",
+    "existing-template-indent-fallback",
   }
   return names[index]
 }

@@ -1,7 +1,7 @@
 /**
  * Options for `unicorn/template-indent`.
  *
- * Each selector list replaces the corresponding default list. `indent` is
+ * Each selection list replaces the corresponding default list. `indent` is
  * either a positive number of spaces or the exact non-empty whitespace string
  * added after the opening template's source-line margin.
  *

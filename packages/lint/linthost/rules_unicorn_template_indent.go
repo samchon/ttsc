@@ -293,7 +293,7 @@ func unicornTemplateIndentMatchesName(file *shimast.SourceFile, node *shimast.No
     return false
   }
   for _, name := range names {
-    if path == strings.TrimSpace(name) {
+    if path == unicornTemplateIndentTrim(name) {
       return true
     }
   }
@@ -382,7 +382,7 @@ func unicornTemplateIndentCommentMatches(source string, start int, comments []st
   if open < 0 {
     return false
   }
-  value := strings.ToLower(strings.TrimSpace(source[open+2 : end-2]))
+  value := strings.ToLower(unicornTemplateIndentTrim(source[open+2 : end-2]))
   for _, comment := range comments {
     if value == comment {
       return true
@@ -424,9 +424,11 @@ func unicornTemplateIndentEdits(
         unicornTemplateIndentSourceForDetection(source, ignoredLines),
       )
       if indent == "" {
-        indent = unicornTemplateIndentDetect(
-          unicornTemplateIndentTextForDetection(unicornTemplateIndentStrip(joined)),
-        )
+        templateText := unicornTemplateIndentTextForDetection(joined)
+        indent = unicornTemplateIndentDetect(unicornTemplateIndentStrip(templateText))
+        if indent == "" {
+          indent = unicornTemplateIndentDetect(templateText)
+        }
       }
       if indent == "" {
         indent = " "
@@ -685,6 +687,12 @@ func unicornTemplateIndentWhitespaceOnly(text string) bool {
     }
   }
   return true
+}
+
+func unicornTemplateIndentTrim(text string) string {
+  return strings.TrimFunc(text, func(character rune) bool {
+    return unicode.IsSpace(character) || character == '\uFEFF'
+  })
 }
 
 func unicornTemplateIndentDetect(text string) string {
