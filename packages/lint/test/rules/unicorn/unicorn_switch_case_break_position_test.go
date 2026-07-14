@@ -268,21 +268,21 @@ switch (key) {
 `,
     },
     {
-      name: "continue",
-      source: `for (const key of ["first"]) {
+      name: "labeled continue",
+      source: `outer: for (const key of ["first"]) {
   switch (key) {
     case "first": {
       void key;
     }
-    continue;
+    continue outer;
   }
 }
 `,
-      expected: `for (const key of ["first"]) {
+      expected: `outer: for (const key of ["first"]) {
   switch (key) {
     case "first": {
       void key;
-      continue;
+      continue outer;
     }
   }
 }
@@ -308,6 +308,37 @@ switch (key) {
     void key; // keep inline
 
     // keep before terminator
+    break;
+  }
+}
+`,
+    },
+    {
+      name: "nested control flow and block comment",
+      source: `declare const key: string;
+declare function use(value: string): void;
+switch (key) {
+  case "first": {
+    if (key) {
+      use(key);
+    } else {
+      use("fallback");
+    }
+    /* keep after nested statement */
+  }
+  break;
+}
+`,
+      expected: `declare const key: string;
+declare function use(value: string): void;
+switch (key) {
+  case "first": {
+    if (key) {
+      use(key);
+    } else {
+      use("fallback");
+    }
+    /* keep after nested statement */
     break;
   }
 }
