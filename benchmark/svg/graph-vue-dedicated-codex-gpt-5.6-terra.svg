@@ -17,49 +17,49 @@
   </g>
   <g>
    <path d="M 347.000 72 L 347.000 372" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-   <text x="347.000" y="390" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">250k</text>
+   <text x="347.000" y="390" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">125k</text>
   </g>
   <g>
    <path d="M 570.000 72 L 570.000 372" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-   <text x="570.000" y="390" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">500k</text>
+   <text x="570.000" y="390" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">250k</text>
   </g>
   <g>
    <path d="M 793.000 72 L 793.000 372" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-   <text x="793.000" y="390" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">750k</text>
+   <text x="793.000" y="390" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">375k</text>
   </g>
   <g>
    <path d="M 1016.000 72 L 1016.000 372" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-   <text x="1016.000" y="390" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">1M</text>
+   <text x="1016.000" y="390" style="fill:#cbd5e1;font-size:11px;text-anchor:middle">500k</text>
   </g>
   <path d="M 124 372 L 1016 372" style="fill:none;stroke:#64748b;stroke-width:0.8"/>
   <path d="M 124 72 L 124 372" style="fill:none;stroke:#64748b;stroke-width:0.8"/>
   <text x="570.000" y="414" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">Tokens</text>
-  <line x1="590.969" y1="72" x2="590.969" y2="372" style="stroke:#64748b;stroke-width:1;stroke-dasharray:4 4"/>
-   <text x="594.969" y="86" style="fill:#94a3b8;font-size:11px">no-MCP baseline</text>
+  <line x1="938.633" y1="72" x2="938.633" y2="372" style="stroke:#64748b;stroke-width:1;stroke-dasharray:4 4"/>
+   <text x="942.633" y="86" style="fill:#94a3b8;font-size:11px">no-MCP baseline</text>
   <g>
     <text x="116" y="106.000" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">baseline</text>
-    <rect x="124" y="87.000" width="466.969" height="30" style="fill:#94a3b8"/>
-    <text x="598.969" y="106.000" style="fill:#cbd5e1;font-size:12px">524k</text>
+    <rect x="124" y="87.000" width="814.633" height="30" style="fill:#94a3b8"/>
+    <text x="946.633" y="106.000" style="fill:#cbd5e1;font-size:12px">457k</text>
    </g>
    <g>
     <text x="116" y="166.000" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">@ttsc/graph</text>
-    <rect x="124" y="147.000" width="84.989" height="30" style="fill:#22d3ee"/>
-    <text x="216.989" y="166.000" style="fill:#22d3ee;font-size:12px">95k (-82%)</text>
+    <rect x="124" y="147.000" width="166.426" height="30" style="fill:#22d3ee"/>
+    <text x="298.426" y="166.000" style="fill:#22d3ee;font-size:12px">93k (-80%)</text>
    </g>
    <g>
     <text x="116" y="226.000" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">codegraph</text>
-    <rect x="124" y="207.000" width="468.502" height="30" style="fill:#f59e0b"/>
-    <text x="600.502" y="226.000" style="fill:#f59e0b;font-size:12px">525k (-0%)</text>
+    <rect x="124" y="207.000" width="755.426" height="30" style="fill:#f59e0b"/>
+    <text x="887.426" y="226.000" style="fill:#f59e0b;font-size:12px">423k (-7%)</text>
    </g>
    <g>
     <text x="116" y="286.000" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">codebase-memory</text>
-    <rect x="124" y="267.000" width="340.222" height="30" style="fill:#a3e635"/>
-    <text x="472.222" y="286.000" style="fill:#a3e635;font-size:12px">381k (-27%)</text>
+    <rect x="124" y="267.000" width="547.401" height="30" style="fill:#a3e635"/>
+    <text x="679.401" y="286.000" style="fill:#a3e635;font-size:12px">307k (-33%)</text>
    </g>
    <g>
     <text x="116" y="346.000" style="fill:#f8fafc;font-size:13px;font-weight:600;text-anchor:end">serena</text>
-    <rect x="124" y="327.000" width="271.497" height="30" style="fill:#f472b6"/>
-    <text x="403.497" y="346.000" style="fill:#f472b6;font-size:12px">304k (-42%)</text>
+    <rect x="124" y="327.000" width="873.307" height="30" style="fill:#f472b6"/>
+    <text x="964.800" y="346.000" style="fill:#fb7185;font-size:12px">490k (+7%)</text>
    </g>
  </g>
 </svg>
