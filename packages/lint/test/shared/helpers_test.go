@@ -569,41 +569,13 @@ func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
   }
 }
 
-// assertFixSnapshotWithOptions runs one rule (configured with optsJSON)
-// through the native fix applier and snapshots the rewritten source.
-// Mirrors `assertFixSnapshot`; option-gated sibling of
-// `assertRuleSkipsSourceWithOptions`. Cannot delegate to `runFixSnapshot`
-// because that path uses the default `NewEngine` rather than
-// `NewEngineWithResolver`; the shared findings loader selects the resolver.
-func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expected string) {
-  t.Helper()
-  root, filePath, findings := runRuleFindingsSnapshot(t, ruleName, source, json.RawMessage(optsJSON))
-  if len(findings) == 0 {
-    t.Fatalf("%s: expected at least one finding", ruleName)
-  }
-  fixed, err := applyFindingFixes(root, findings)
-  if err != nil {
-    t.Fatalf("%s: applyFindingFixes: %v", ruleName, err)
-  }
-  if fixed == 0 {
-    t.Fatalf("%s: expected at least one applied fix", ruleName)
-  }
-  got, err := os.ReadFile(filePath)
-  if err != nil {
-    t.Fatalf("%s: ReadFile: %v", ruleName, err)
-  }
-  if string(got) != expected {
-    t.Fatalf("%s fixed source mismatch:\nwant %q\ngot  %q", ruleName, expected, string(got))
-  }
-}
-
 // assertRuleFindingRanges asserts the rule reports exactly one finding per
 // marker, in source order, each spanning that marker's byte range.
 //
 // Markers are literal substrings of `source` and must occur exactly once, so
 // a missing, extra, duplicated, or over-wide diagnostic fails the assertion
 // instead of hiding behind a bare count. Passing no marker asserts the rule
-// stays silent, which keeps a positive arm and its negative twin in the same
+// stays silent, which keeps a positive arm and its negative twin in one
 // helper.
 func assertRuleFindingRanges(t *testing.T, ruleName, source string, markers ...string) {
   t.Helper()
@@ -632,6 +604,34 @@ func assertRuleFindingRanges(t *testing.T, ruleName, source string, markers ...s
         finding.End,
       )
     }
+  }
+}
+
+// assertFixSnapshotWithOptions runs one rule (configured with optsJSON)
+// through the native fix applier and snapshots the rewritten source.
+// Mirrors `assertFixSnapshot`; option-gated sibling of
+// `assertRuleSkipsSourceWithOptions`. Cannot delegate to `runFixSnapshot`
+// because that path uses the default `NewEngine` rather than
+// `NewEngineWithResolver`; the shared findings loader selects the resolver.
+func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expected string) {
+  t.Helper()
+  root, filePath, findings := runRuleFindingsSnapshot(t, ruleName, source, json.RawMessage(optsJSON))
+  if len(findings) == 0 {
+    t.Fatalf("%s: expected at least one finding", ruleName)
+  }
+  fixed, err := applyFindingFixes(root, findings)
+  if err != nil {
+    t.Fatalf("%s: applyFindingFixes: %v", ruleName, err)
+  }
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  got, err := os.ReadFile(filePath)
+  if err != nil {
+    t.Fatalf("%s: ReadFile: %v", ruleName, err)
+  }
+  if string(got) != expected {
+    t.Fatalf("%s fixed source mismatch:\nwant %q\ngot  %q", ruleName, expected, string(got))
   }
 }
 

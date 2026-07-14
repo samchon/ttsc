@@ -10,9 +10,10 @@ import "testing"
 // the scan has to be UTF-8 safe (a multi-byte sequence carries no ASCII
 // bytes, and a reported range is a byte range that must still land on the
 // token) and line-ending agnostic (a CRLF template segment is one token
-// spanning two lines). A backslash before a line terminator is a line
-// continuation, not an escape opener, so the characters behind it are
-// literal — the negative twin a parity miscount would report.
+// spanning two lines). A backslash before a line terminator opens a line
+// continuation: the CR is the escaped character, so the text behind it is
+// literal and a scan that stepped over the line break to find its escape
+// would report the `xa9` that follows.
 //
 //  1. Lint CRLF sources whose literals carry astral and CJK characters next
 //     to escapes.

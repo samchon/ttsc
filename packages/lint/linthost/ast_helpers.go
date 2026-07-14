@@ -134,6 +134,7 @@ func isTaggedTemplateElement(node *shimast.Node) bool {
   template := node
   switch node.Kind {
   case shimast.KindNoSubstitutionTemplateLiteral:
+    // The literal is the whole template; the tag, if any, is its parent.
   case shimast.KindTemplateHead:
     template = node.Parent
   case shimast.KindTemplateMiddle, shimast.KindTemplateTail:
