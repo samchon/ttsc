@@ -66,7 +66,7 @@ async function conditionPositions(): Promise<void> {
 async function nestedForAwait(): Promise<void> {
   while (outerCondition()) {
     for /* a comment deliberately longer than the former source window */ await (const value of stream()) {
-      consume(value);
+      await consumeAsync(value);
     }
     break;
   }
@@ -127,7 +127,7 @@ consume({ forPositions, iterablePositions, conditionPositions, nestedForAwait, i
 //  3. Run the real check command and require the same diagnostic count and lines.
 func TestNoAwaitInLoopMatchesExecutionPositionsAndImplicitAwaits(t *testing.T) {
   nestedForAwaitTarget := `for /* a comment deliberately longer than the former source window */ await (const value of stream()) {
-      consume(value);
+      await consumeAsync(value);
     }`
   targets := []string{
     "await repeatedCondition()",

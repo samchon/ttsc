@@ -98,7 +98,7 @@ async function nestedForAwait(): Promise<void> {
   while (shouldContinue()) {
     // expect: no-await-in-loop error
     for /* comments can exceed the former source-text window */ await (const value of getAsyncIterator()) {
-      JSON.stringify(value);
+      await Promise.resolve(value);
     }
     break;
   }

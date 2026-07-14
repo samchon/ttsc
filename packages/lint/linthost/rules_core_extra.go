@@ -3,7 +3,7 @@
 // hadn't migrated yet.
 //
 // Implemented here:
-//   - no-await-in-loop: await inside a loop body iterates sequentially
+//   - no-await-in-loop: explicit or implicit await in a repeated loop position
 //   - no-dupe-class-members: duplicate class member declarations
 //   - no-this-before-super: `this` (or `super.x`) before `super()` in
 //     derived constructors
