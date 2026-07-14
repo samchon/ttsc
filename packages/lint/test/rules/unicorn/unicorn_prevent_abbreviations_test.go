@@ -333,6 +333,36 @@ func TestUnicornPreventAbbreviationsAppliesImportControlsToStaticRequireBindings
   )
 }
 
+func TestUnicornPreventAbbreviationsRecognizesOnlyCanonicalStaticRequireCalls(t *testing.T) {
+  cases := []struct {
+    name        string
+    initializer string
+  }{
+    {name: "extra argument", initializer: `require("./local", {})`},
+    {name: "optional call", initializer: `require?.("./local")`},
+    {name: "template argument", initializer: "require(`./local`)"},
+  }
+  for _, testCase := range cases {
+    t.Run(testCase.name, func(t *testing.T) {
+      source := "declare function require(...values: unknown[]): unknown;\nconst err = " + testCase.initializer + ";\nvoid err;\n"
+      assertFixSnapshotWithOptions(
+        t,
+        unicornPreventAbbreviationsRuleName,
+        source,
+        `{"checkDefaultAndNamespaceImports":false}`,
+        "declare function require(...values: unknown[]): unknown;\nconst error = " + testCase.initializer + ";\nvoid error;\n",
+      )
+    })
+  }
+
+  assertRuleSkipsSourceWithOptions(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    "declare function require(...values: unknown[]): unknown;\nconst err = require(\"\");\nvoid err;\n",
+    `{"checkDefaultAndNamespaceImports":false}`,
+  )
+}
+
 func TestUnicornPreventAbbreviationsChecksShorthandDestructuringOnlyWhenEnabled(t *testing.T) {
   source := "declare const source: { err: Error };\nconst { err } = source;\nconsole.error(err);\n"
   assertRuleSkipsSource(t, unicornPreventAbbreviationsRuleName, source)

@@ -992,7 +992,7 @@ func unicornPreventAbbreviationsShouldCheckBinding(
   case shimast.KindVariableDeclaration:
     variable := declaration.AsVariableDeclaration()
     if variable != nil {
-      if _, required := requireExpressionModule(variable.Initializer); required {
+      if _, required := unicornPreventAbbreviationsStaticRequireModule(variable.Initializer); required {
         return unicornPreventAbbreviationsImportAllowed(
           options.checkDefaultAndNamespaceImports,
           unicornPreventAbbreviationsIsInternalImport(declaration),
@@ -1054,7 +1054,7 @@ func unicornPreventAbbreviationsIsInternalImport(declaration *shimast.Node) bool
     if variable == nil {
       return false
     }
-    source, required := requireExpressionModule(variable.Initializer)
+    source, required := unicornPreventAbbreviationsStaticRequireModule(variable.Initializer)
     return required && unicornPreventAbbreviationsIsInternalModule(source)
   }
   for ancestor := declaration; ancestor != nil; ancestor = ancestor.Parent {
@@ -1086,6 +1086,29 @@ func unicornPreventAbbreviationsIsInternalImport(declaration *shimast.Node) bool
 func unicornPreventAbbreviationsIsInternalModule(source string) bool {
   return !strings.Contains(source, "node_modules") &&
     (strings.HasPrefix(source, ".") || strings.HasPrefix(source, "/"))
+}
+
+// Import controls apply only to upstream's exact static-require shape: one
+// ordinary string-literal argument on a non-optional bare require call.
+func unicornPreventAbbreviationsStaticRequireModule(node *shimast.Node) (string, bool) {
+  node = stripParens(node)
+  if node == nil || node.Kind != shimast.KindCallExpression {
+    return "", false
+  }
+  call := node.AsCallExpression()
+  if call == nil || call.QuestionDotToken != nil || callCalleeName(call) != "require" ||
+    call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return "", false
+  }
+  argument := call.Arguments.Nodes[0]
+  if argument == nil || argument.Kind != shimast.KindStringLiteral {
+    return "", false
+  }
+  literal := argument.AsStringLiteral()
+  if literal == nil {
+    return "", false
+  }
+  return literal.Text, true
 }
 
 func unicornPreventAbbreviationsIsExternalImportEquals(declaration *shimast.Node) bool {
