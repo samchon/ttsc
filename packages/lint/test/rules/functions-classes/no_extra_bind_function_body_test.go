@@ -10,10 +10,11 @@ import (
 // TestRuleNoExtraBindFunctionBody verifies argument shape and `this` scope
 // boundaries are both required before reporting a bind call.
 //
-// A nested arrow and computed member key inherit the enclosing regular
-// function's receiver, while nested regular functions, method bodies, class
-// fields, and static blocks own a different receiver. Bind arguments after the
-// receiver and spread calls are partial-application shapes, even for arrows.
+// Nested arrows, computed member keys, and decorators inherit the enclosing
+// regular function's receiver, while nested regular functions, method bodies,
+// class fields, and static blocks own a different receiver. Bind arguments
+// after the receiver and spread calls are partial-application shapes, even for
+// arrows.
 //
 // 1. Exercise direct, zero-argument, partial, spread, and dynamic-member calls.
 // 2. Place `this` across function, method, computed-key, and class-owned scopes.
