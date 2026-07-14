@@ -277,13 +277,41 @@ func TestUnicornPreventAbbreviationsSupportsCanonicalEmptyReplacementSpelling(t 
   )
 }
 
-func TestUnicornPreventAbbreviationsSuffixesJavaScriptReservedWordReplacements(t *testing.T) {
+func TestUnicornPreventAbbreviationsUsesStrictBindingGrammarForCustomReplacements(t *testing.T) {
+  for _, name := range []string{
+    "arguments", "await", "break", "case", "catch", "class", "const", "continue",
+    "debugger", "default", "delete", "do", "else", "enum", "eval", "export",
+    "extends", "false", "finally", "for", "function", "if", "implements", "import",
+    "in", "instanceof", "interface", "let", "new", "null", "package", "private",
+    "protected", "public", "return", "static", "super", "switch", "this", "throw",
+    "true", "try", "typeof", "var", "void", "while", "with", "yield",
+  } {
+    if unicornPreventAbbreviationsValidIdentifier(name) {
+      t.Fatalf("strict binding reserved word %q must not be used directly", name)
+    }
+  }
+  for _, name := range []string{
+    "any", "as", "boolean", "constructor", "declare", "from", "get", "module",
+    "number", "of", "require", "set", "string", "symbol", "type",
+  } {
+    if !unicornPreventAbbreviationsValidIdentifier(name) {
+      t.Fatalf("contextual TypeScript keyword %q is a valid binding name", name)
+    }
+  }
+
+  assertFixSnapshotWithOptions(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    "export {};\nconst err = new Error();\nvoid err;\n",
+    `{"extendDefaultReplacements":false,"replacements":{"err":{"eval":true}}}`,
+    "export {};\nconst eval_ = new Error();\nvoid eval_;\n",
+  )
   assertFixSnapshotWithOptions(
     t,
     unicornPreventAbbreviationsRuleName,
     "const err = new Error();\nvoid err;\n",
-    `{"extendDefaultReplacements":false,"replacements":{"err":{"break":true}}}`,
-    "const break_ = new Error();\nvoid break_;\n",
+    `{"extendDefaultReplacements":false,"replacements":{"err":{"type":true}}}`,
+    "const type = new Error();\nvoid type;\n",
   )
 }
 

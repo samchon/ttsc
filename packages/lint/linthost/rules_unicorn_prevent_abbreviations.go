@@ -194,19 +194,20 @@ var unicornPreventAbbreviationsDefaultIgnore = []string{
   "jQuery",
 }
 
+// A source-only rename must remain a valid binding in modules and strict-mode
+// code. TypeScript's contextual keywords are deliberately absent: names such
+// as `type`, `module`, and `constructor` remain legal lexical bindings.
 var unicornPreventAbbreviationsReservedWords = map[string]struct{}{
-  "any": {}, "arguments": {}, "as": {}, "await": {},
-  "boolean": {},
-  "break": {}, "case": {}, "catch": {}, "class": {}, "const": {}, "constructor": {},
-  "continue": {}, "debugger": {}, "declare": {}, "default": {}, "delete": {},
+  "arguments": {}, "await": {},
+  "break": {}, "case": {}, "catch": {}, "class": {}, "const": {},
+  "continue": {}, "debugger": {}, "default": {}, "delete": {},
   "do": {}, "else": {}, "enum": {}, "export": {}, "extends": {},
-  "false": {}, "finally": {}, "for": {}, "from": {}, "function": {},
-  "get": {}, "if": {}, "implements": {}, "import": {}, "in": {},
-  "instanceof": {}, "interface": {}, "let": {}, "module": {}, "new": {},
-  "null": {}, "number": {}, "of": {}, "package": {}, "private": {}, "protected": {},
-  "public": {}, "require": {}, "return": {}, "set": {}, "static": {},
-  "string": {}, "super": {}, "switch": {}, "symbol": {}, "this": {}, "throw": {}, "true": {},
-  "try": {}, "type": {}, "typeof": {}, "var": {}, "void": {}, "while": {},
+  "eval": {}, "false": {}, "finally": {}, "for": {}, "function": {},
+  "if": {}, "implements": {}, "import": {}, "in": {}, "instanceof": {},
+  "interface": {}, "let": {}, "new": {}, "null": {}, "package": {},
+  "private": {}, "protected": {}, "public": {}, "return": {}, "static": {},
+  "super": {}, "switch": {}, "this": {}, "throw": {}, "true": {},
+  "try": {}, "typeof": {}, "var": {}, "void": {}, "while": {},
   "with": {}, "yield": {},
 }
 
