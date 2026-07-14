@@ -1428,6 +1428,13 @@ func floatingPromiseGenericArgumentApplicability(
     }
     return floatingPromiseCallIncompatible
   }
+  if floatingPromiseTypeContainsOpaqueMappedObject(checker, parameterType, nil) {
+    // Reverse inference from mapped types depends on private mapped-type
+    // constraints and templates that the public Checker surface does not
+    // expose. In particular, a mapped constituent can report no properties or
+    // index infos while still inferring a method type parameter.
+    return floatingPromiseCallUncertain
+  }
 
   apparentParameter := checker.GetApparentType(parameterType)
   if apparentParameter != nil && len(checker.GetSignaturesOfType(apparentParameter, shimchecker.SignatureKindCall)) != 0 {
@@ -1705,6 +1712,42 @@ func floatingPromiseInferencesHaveWitness(checker *shimchecker.Checker, inferred
   return false
 }
 
+func floatingPromiseTypeContainsOpaqueMappedObject(
+  checker *shimchecker.Checker,
+  t *shimchecker.Type,
+  visited map[*shimchecker.Type]bool,
+) bool {
+  if checker == nil || t == nil {
+    return false
+  }
+  if visited == nil {
+    visited = make(map[*shimchecker.Type]bool)
+  }
+  if visited[t] {
+    return false
+  }
+  visited[t] = true
+  if t.Flags()&shimchecker.TypeFlagsObject != 0 &&
+    t.ObjectFlags()&(shimchecker.ObjectFlagsMapped|shimchecker.ObjectFlagsReverseMapped) != 0 {
+    return true
+  }
+  if t.Flags()&shimchecker.TypeFlagsUnionOrIntersection != 0 {
+    for _, part := range t.Types() {
+      if floatingPromiseTypeContainsOpaqueMappedObject(checker, part, visited) {
+        return true
+      }
+    }
+  }
+  if t.Flags()&shimchecker.TypeFlagsObject != 0 && t.ObjectFlags()&shimchecker.ObjectFlagsReference != 0 {
+    for _, typeArgument := range checker.GetTypeArguments(t) {
+      if floatingPromiseTypeContainsOpaqueMappedObject(checker, typeArgument, visited) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
 func floatingPromiseTypeContainsAnyTypeParameter(
   checker *shimchecker.Checker,
   t *shimchecker.Type,
@@ -1726,6 +1769,10 @@ func floatingPromiseTypeContainsAnyTypeParameter(
     return false
   }
   visited[t] = true
+  if t.Flags()&shimchecker.TypeFlagsObject != 0 &&
+    t.ObjectFlags()&(shimchecker.ObjectFlagsMapped|shimchecker.ObjectFlagsReverseMapped) != 0 {
+    return true
+  }
 
   if t.Flags()&shimchecker.TypeFlagsUnionOrIntersection != 0 {
     for _, part := range t.Types() {
