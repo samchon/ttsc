@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "flag"
   "fmt"
   "sort"
   "strings"
@@ -100,6 +101,19 @@ func verifyRecordedBehavioralWitnessCoverage() error {
   return err
 }
 
+// shouldVerifyRecordedBehavioralWitnessCoverage preserves focused test and
+// test-listing workflows. The aggregate contract is evaluated only when the
+// complete package suite ran; CI and scripts/test-go-lint.cjs use that path.
+func shouldVerifyRecordedBehavioralWitnessCoverage() bool {
+  for _, name := range []string{"test.run", "test.skip", "test.list"} {
+    value := flag.Lookup(name)
+    if value != nil && value.Value.String() != "" {
+      return false
+    }
+  }
+  return true
+}
+
 // auditBehavioralWitnesses returns exactly one deterministic route for every
 // public built-in. Test-only, demo, and formatter registrations never enter the
 // public set because registeredRuleSetForParity applies the same boundary as
@@ -125,12 +139,16 @@ func auditBehavioralWitnesses(
       }
       return routes[i].Kind < routes[j].Kind
     })
-    selected := routes[0]
-    if selected.Rule != ruleName || selected.Route == "" || !validBehavioralWitnessKind(selected.Kind) {
-      invalid = append(invalid, fmt.Sprintf("%s=%+v", ruleName, selected))
-      continue
+    valid := true
+    for _, candidate := range routes {
+      if candidate.Rule != ruleName || candidate.Route == "" || !validBehavioralWitnessKind(candidate.Kind) {
+        invalid = append(invalid, fmt.Sprintf("%s=%+v", ruleName, candidate))
+        valid = false
+      }
     }
-    canonical[ruleName] = selected
+    if valid {
+      canonical[ruleName] = routes[0]
+    }
   }
   for ruleName := range candidates {
     if _, ok := public[ruleName]; !ok && !isNonPublicRuleName(ruleName) {
@@ -243,5 +261,19 @@ func TestBehavioralWitnessAuditPublishesOneDeterministicRoutePerRule(t *testing.
   }
   if len(canonical) != 1 || canonical["fixture/rule"].Route != "TestAlpha" {
     t.Fatalf("canonical route was not deterministic: %+v", canonical)
+  }
+}
+
+func TestBehavioralWitnessAuditRejectsInvalidNonCanonicalCandidate(t *testing.T) {
+  public := map[string]struct{}{"fixture/rule": {}}
+  candidates := map[string][]behavioralWitness{
+    "fixture/rule": {
+      {Rule: "fixture/rule", Route: "TestAlpha", Kind: behavioralWitnessEngine},
+      {Rule: "fixture/other", Route: "TestZulu", Kind: behavioralWitnessEngine},
+    },
+  }
+  _, err := auditBehavioralWitnesses(public, candidates)
+  if err == nil || !strings.Contains(err.Error(), "fixture/other") {
+    t.Fatalf("invalid non-canonical candidate was not rejected: %v", err)
   }
 }

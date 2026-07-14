@@ -145,7 +145,7 @@ func TestMain(m *testing.M) {
     os.Exit(1)
   }
   code := m.Run()
-  if code == 0 {
+  if code == 0 && shouldVerifyRecordedBehavioralWitnessCoverage() {
     if err := verifyRecordedBehavioralWitnessCoverage(); err != nil {
       fmt.Fprintln(os.Stderr, err)
       code = 1

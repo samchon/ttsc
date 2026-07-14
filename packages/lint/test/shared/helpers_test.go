@@ -25,7 +25,7 @@ import (
 var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
 var ruleOptionsDirectivePattern = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-options:\s*(\S+)\s+(\S.*?)\s*$`)
 var ansiControlSequencePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
-var renderedRuleDiagnosticPattern = regexp.MustCompile(`\[([@\w/-]+)\]`)
+var renderedRuleDiagnosticPattern = regexp.MustCompile(`(?m)(?:^|[\s/])[^\s:]+\.tsx?:\d+:\d+\s+-\s+(?:error|warning)\s+TS\d+:\s*\[([@\w/-]+)\]`)
 
 // diagnosticOutputContains compares rendered diagnostics after removing ANSI
 // control sequences. Windows and POSIX runners color different path segments,
@@ -373,7 +373,8 @@ func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
   }
   stderr := string(errOut)
   public := registeredRuleSetForParity()
-  for _, match := range renderedRuleDiagnosticPattern.FindAllStringSubmatch(stderr, -1) {
+  normalizedStderr := ansiControlSequencePattern.ReplaceAllString(stderr, "")
+  for _, match := range renderedRuleDiagnosticPattern.FindAllStringSubmatch(normalizedStderr, -1) {
     if len(match) != 2 {
       continue
     }
