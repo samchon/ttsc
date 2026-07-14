@@ -1930,6 +1930,8 @@ Prefer structurally simple conditions before complex conditions in boolean `&&` 
 
 The fixer uses a stable partition, retaining the relative order of all simple conditions and of all complex conditions. It fixes only when every crossed complex condition is safe to move and no comment or TypeScript wrapper owns the affected logical syntax; otherwise the rule reports a diagnostic and leaves short-circuit behavior for manual review.
 
+This rule has no options.
+
 Illustrative shape:
 
 ```ts
@@ -1940,6 +1942,7 @@ function isAllowed(user: { role: string }) {
 const user = { role: "admin" };
 const featureEnabled = true;
 
+// reports: unicorn/prefer-simple-condition-first (error)
 if (isAllowed(user) && featureEnabled) {
   console.log("enabled");
 }
