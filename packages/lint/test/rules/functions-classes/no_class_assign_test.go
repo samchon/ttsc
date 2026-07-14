@@ -99,9 +99,9 @@ const writeCaptured = (): void => {
   /* report */captured = replacement;
 };
 
-let expression = class namedExpression {
+let expression = class expression {
   static replace(): void {
-    /* report */namedExpression = replacement;
+    /* report */expression = replacement;
   }
 };
 expression = replacement;

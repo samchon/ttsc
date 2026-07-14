@@ -91,8 +91,8 @@ const writeCaptured = (): void => {
   /* report */captured = replacement;
 };
 
-let expression = function namedExpression() {
-  /* report */namedExpression = replacement;
+let expression = function expression() {
+  /* report */expression = replacement;
 };
 expression = replacement;
 
