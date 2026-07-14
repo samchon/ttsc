@@ -556,6 +556,67 @@ func valueSymbolAtIdentifier(ctx *Context, identifier *shimast.Node) *shimast.Sy
   return ctx.Checker.GetSymbolAtLocation(identifier)
 }
 
+// canonicalValueSymbol resolves an identifier in value position and
+// normalizes exported local/export pairs and declaration merges to one binding
+// identity. TypeScript binds an exported declaration to both a local symbol
+// (used by references in the declaring module) and its ExportSymbol (returned
+// for the declaration name), so both sides must converge before comparison.
+// Rules that protect declarations from writes use this for both the
+// declaration name and every modifying reference, including shorthand
+// destructuring targets.
+func canonicalValueSymbol(ctx *Context, identifier *shimast.Node) *shimast.Symbol {
+  symbol := valueSymbolAtIdentifier(ctx, identifier)
+  if symbol == nil {
+    return nil
+  }
+  if symbol.Flags&shimast.SymbolFlagsExportValue != 0 && symbol.ExportSymbol != nil {
+    symbol = symbol.ExportSymbol
+  }
+  return ctx.Checker.GetMergedSymbol(symbol)
+}
+
+// writeTargetIdentifiers returns every identifier written by one reference-
+// modifying syntax node. It recognizes assignment operators, update
+// expressions, and expression initializers of for-in/of statements; nested
+// destructuring and TypeScript assertion wrappers are delegated to the shared
+// assignment-target walker.
+//
+// Walking all nodes can encounter a destructuring default both through its
+// outer pattern and as a nested binary expression. Callers that report a full
+// tree must therefore deduplicate the returned identifier nodes.
+func writeTargetIdentifiers(node *shimast.Node) []*shimast.Node {
+  if node == nil {
+    return nil
+  }
+  switch node.Kind {
+  case shimast.KindBinaryExpression:
+    expression := node.AsBinaryExpression()
+    if expression != nil && expression.OperatorToken != nil &&
+      isAssignmentOperator(expression.OperatorToken.Kind) {
+      return assignmentTargetIdentifiers(expression.Left)
+    }
+  case shimast.KindPrefixUnaryExpression:
+    expression := node.AsPrefixUnaryExpression()
+    if expression != nil &&
+      (expression.Operator == shimast.KindPlusPlusToken || expression.Operator == shimast.KindMinusMinusToken) {
+      return assignmentTargetIdentifiers(expression.Operand)
+    }
+  case shimast.KindPostfixUnaryExpression:
+    expression := node.AsPostfixUnaryExpression()
+    if expression != nil &&
+      (expression.Operator == shimast.KindPlusPlusToken || expression.Operator == shimast.KindMinusMinusToken) {
+      return assignmentTargetIdentifiers(expression.Operand)
+    }
+  case shimast.KindForInStatement, shimast.KindForOfStatement:
+    statement := node.AsForInOrOfStatement()
+    if statement != nil && statement.Initializer != nil &&
+      statement.Initializer.Kind != shimast.KindVariableDeclarationList {
+      return assignmentTargetIdentifiers(statement.Initializer)
+    }
+  }
+  return nil
+}
+
 // assignmentTargetNames is the text-only projection used by rules that do not
 // need binding identity.
 func assignmentTargetNames(node *shimast.Node) []string {

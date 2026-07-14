@@ -2,7 +2,6 @@ package linthost
 
 import (
   "fmt"
-  "strings"
   "testing"
 )
 
@@ -92,8 +91,8 @@ const writeCaptured = (): void => {
   /* report */captured = replacement;
 };
 
-let expression = function namedExpression() {
-  /* report */namedExpression = replacement;
+let expression = function expression() {
+  /* report */expression = replacement;
 };
 expression = replacement;
 
@@ -112,6 +111,12 @@ namespace merged {
   export const member = 1;
 }
 /* report */merged = replacement;
+
+export function exportedFunction() {}
+/* report */exportedFunction = replacement;
+
+export default function defaultExportedFunction() {}
+/* report */defaultExportedFunction = replacement;
 
 function leftScope() {
   function same() {}
@@ -164,7 +169,7 @@ holder.method = replacement;
 `
 
   _, _, findings := runRuleFindingsSnapshot(t, "no-func-assign", source, nil)
-  expected := noFuncAssignMarkedRanges(t, source)
+  expected := markedIdentifierRanges(t, source, "/* report */")
   if len(findings) != len(expected) {
     t.Fatalf("expected %d no-func-assign findings, got %d: %#v", len(expected), len(findings), findings)
   }
@@ -181,32 +186,5 @@ holder.method = replacement;
     if len(finding.Fix) != 0 || len(finding.Suggestions) != 0 {
       t.Fatalf("finding %d unexpectedly offered edits: %+v", index, finding)
     }
-  }
-}
-
-func noFuncAssignMarkedRanges(t *testing.T, source string) [][2]int {
-  t.Helper()
-  const marker = "/* report */"
-  ranges := make([][2]int, 0)
-  remaining := source
-  consumed := 0
-  for {
-    markerOffset := strings.Index(remaining, marker)
-    if markerOffset < 0 {
-      return ranges
-    }
-    start := consumed + markerOffset + len(marker)
-    end := start
-    for end < len(source) && (source[end] == '_' || source[end] == '$' ||
-      source[end] >= 'a' && source[end] <= 'z' || source[end] >= 'A' && source[end] <= 'Z' ||
-      end > start && source[end] >= '0' && source[end] <= '9') {
-      end++
-    }
-    if end == start {
-      t.Fatalf("marker at byte %d is not followed by an identifier", start-len(marker))
-    }
-    ranges = append(ranges, [2]int{start, end})
-    consumed = end
-    remaining = source[end:]
   }
 }

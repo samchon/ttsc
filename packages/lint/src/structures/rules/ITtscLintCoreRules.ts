@@ -314,10 +314,13 @@ export interface ITtscLintCoreRules {
   "no-case-declarations"?: TtscLintRuleSetting;
 
   /**
-   * Reject reassigning a class binding (`class C {}; C = ...`).
+   * Reject every write to a binding introduced by a class declaration or
+   * named class expression.
    *
-   * The declaration name is effectively final; overwriting it silently leaves
-   * other call sites pointing at the original class.
+   * Binding identity is resolved lexically, so same-spelled parameter, catch,
+   * block, and sibling bindings remain independent. Direct and compound
+   * assignments, updates, destructuring targets, and `for-in`/`for-of` targets
+   * are all covered.
    *
    * @reference https://eslint.org/docs/latest/rules/no-class-assign
    */
