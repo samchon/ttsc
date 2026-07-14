@@ -65,7 +65,9 @@ func TestUnicornTemplateIndentHonorsConfiguredTagsFunctionsCommentsAndSelectors(
       "const computedTagIsNotAPath = utils[\"dedent\"]`\nfive\n`;\n" +
       "const callResultTagIsNotAPath = makeTag()`\nsix\n`;\n" +
       "const defaultFunctionIsReplaced = stripIndent(`\nseven\n`);\n" +
-      "const defaultCommentIsReplaced = /* indent */ `\neight\n`;\n"
+      "const defaultCommentIsReplaced = /* indent */ `\neight\n`;\n" +
+      "const parenthesizedTag = (utils.dedent)`\nnine\n`;\n" +
+      "const parenthesizedCall = (helpers.strip)((`\nten\n`));\n"
     options := json.RawMessage(`{
       "tags":["utils.dedent"],
       "functions":["helpers.strip"],
@@ -73,10 +75,10 @@ func TestUnicornTemplateIndentHonorsConfiguredTagsFunctionsCommentsAndSelectors(
       "selectors":[]
     }`)
     _, _, findings := runRuleFindingsSnapshot(t, unicornTemplateIndentRuleName, source, options)
-    if len(findings) != 3 {
-      t.Fatalf("want exactly the configured tag, function, and comment findings; got %d (%+v)", len(findings), findings)
+    if len(findings) != 5 {
+      t.Fatalf("want configured and parenthesized tag/function plus comment findings; got %d (%+v)", len(findings), findings)
     }
-    for _, text := range []string{"`\none", "`\ntwo", "`\nthree"} {
+    for _, text := range []string{"`\none", "`\ntwo", "`\nthree", "`\nnine", "`\nten"} {
       start := strings.Index(source, text)
       found := false
       for _, finding := range findings {
@@ -493,5 +495,14 @@ func TestUnicornTemplateIndentRejectsJestInlineSnapshotNearMisses(t *testing.T) 
     t.Run(test.name, func(t *testing.T) {
       assertRuleSkipsSource(t, unicornTemplateIndentRuleName, test.source)
     })
+  }
+}
+
+func TestUnicornTemplateIndentAcceptsParenthesizedJestInlineSnapshot(t *testing.T) {
+  source := "declare const value: unknown;\n" +
+    "(expect)(value).toMatchInlineSnapshot((`\nsnapshot\n`));\n"
+  _, _, findings := runRuleFindingsSnapshot(t, unicornTemplateIndentRuleName, source, nil)
+  if len(findings) != 1 {
+    t.Fatalf("parenthesized Jest inline snapshot must be selected, got %+v", findings)
   }
 }

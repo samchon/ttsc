@@ -274,7 +274,8 @@ func unicornTemplateIndentShouldCheck(
     return true
   }
 
-  parent := template.Parent
+  argument := unicornTemplateIndentOuterParenthesizedExpression(template)
+  parent := argument.Parent
   if parent == nil {
     return false
   }
@@ -287,7 +288,7 @@ func unicornTemplateIndentShouldCheck(
     return false
   }
   call := parent.AsCallExpression()
-  if call == nil || call.Arguments == nil || !unicornTemplateIndentContainsNode(call.Arguments.Nodes, template) {
+  if call == nil || call.Arguments == nil || !unicornTemplateIndentContainsNode(call.Arguments.Nodes, argument) {
     return false
   }
   return unicornTemplateIndentMatchesName(file, call.Expression, options.functions)
@@ -307,6 +308,7 @@ func unicornTemplateIndentMatchesName(file *shimast.SourceFile, node *shimast.No
 }
 
 func unicornTemplateIndentNamePath(file *shimast.SourceFile, node *shimast.Node) string {
+  node = stripParens(node)
   if node == nil {
     return ""
   }
@@ -346,6 +348,7 @@ func unicornTemplateIndentContainsNode(nodes []*shimast.Node, target *shimast.No
 }
 
 func unicornTemplateIndentIsJestInlineSnapshot(template *shimast.Node) bool {
+  template = unicornTemplateIndentOuterParenthesizedExpression(template)
   if template == nil || template.Parent == nil || template.Parent.Kind != shimast.KindCallExpression {
     return false
   }
@@ -357,16 +360,27 @@ func unicornTemplateIndentIsJestInlineSnapshot(template *shimast.Node) bool {
   if snapshotCall.Expression == nil {
     return false
   }
-  member := snapshotCall.Expression.AsPropertyAccessExpression()
+  member := stripParens(snapshotCall.Expression).AsPropertyAccessExpression()
   if member == nil || member.QuestionDotToken != nil || identifierText(member.Name()) != "toMatchInlineSnapshot" {
     return false
   }
   if member.Expression == nil {
     return false
   }
-  expectCall := member.Expression.AsCallExpression()
+  expectCall := stripParens(member.Expression).AsCallExpression()
   return expectCall != nil && expectCall.QuestionDotToken == nil && expectCall.Arguments != nil &&
-    len(expectCall.Arguments.Nodes) == 1 && identifierText(expectCall.Expression) == "expect"
+    len(expectCall.Arguments.Nodes) == 1 && identifierText(stripParens(expectCall.Expression)) == "expect"
+}
+
+func unicornTemplateIndentOuterParenthesizedExpression(node *shimast.Node) *shimast.Node {
+  for node != nil && node.Parent != nil && node.Parent.Kind == shimast.KindParenthesizedExpression {
+    parenthesized := node.Parent.AsParenthesizedExpression()
+    if parenthesized == nil || parenthesized.Expression != node {
+      break
+    }
+    node = node.Parent
+  }
+  return node
 }
 
 func unicornTemplateIndentCommentMatches(
