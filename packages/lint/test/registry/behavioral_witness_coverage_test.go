@@ -7,6 +7,8 @@ import (
   "strings"
   "sync"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 // behavioralWitnessKind describes the production prerequisite exercised by a
@@ -94,11 +96,42 @@ func recordedBehavioralWitnesses() map[string][]behavioralWitness {
 // A rule can enter the canonical map only after a positive assertion executed,
 // so registry parity can no longer be satisfied by an inert rule object.
 func verifyRecordedBehavioralWitnessCoverage() error {
+  candidates := recordedBehavioralWitnesses()
   _, err := auditBehavioralWitnesses(
     registeredRuleSetForParity(),
-    recordedBehavioralWitnesses(),
+    candidates,
   )
-  return err
+  if err != nil {
+    return err
+  }
+  return verifyRequiredBehavioralWitnessKinds(candidates)
+}
+
+func verifyRequiredBehavioralWitnessKinds(candidates map[string][]behavioralWitness) error {
+  seen := map[behavioralWitnessKind]struct{}{}
+  for _, routes := range candidates {
+    for _, candidate := range routes {
+      seen[candidate.Kind] = struct{}{}
+    }
+  }
+  required := []behavioralWitnessKind{
+    behavioralWitnessEngine,
+    behavioralWitnessOptions,
+    behavioralWitnessFilename,
+    behavioralWitnessProject,
+    behavioralWitnessChecker,
+    behavioralWitnessPlatform,
+  }
+  missing := make([]string, 0)
+  for _, kind := range required {
+    if _, ok := seen[kind]; !ok {
+      missing = append(missing, string(kind))
+    }
+  }
+  if len(missing) != 0 {
+    return fmt.Errorf("behavioral witness audit did not exercise prerequisite kinds: %v", missing)
+  }
+  return nil
 }
 
 // shouldVerifyRecordedBehavioralWitnessCoverage preserves focused test and
@@ -198,23 +231,41 @@ func isNonPublicRuleName(ruleName string) bool {
     strings.HasPrefix(ruleName, "demo/")
 }
 
-// TestBehavioralWitnessAuditRejectsInertPublicRule is the regression sentinel:
-// a registered key with no successful production diagnostic must fail even
-// though its name is otherwise registry-compatible.
+type inertBehavioralWitnessRule struct{}
+
+func (inertBehavioralWitnessRule) Name() string {
+  return "test/behavioral-witness-inert"
+}
+
+func (inertBehavioralWitnessRule) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindSourceFile}
+}
+
+func (inertBehavioralWitnessRule) Check(*Context, *shimast.Node) {}
+
+// TestBehavioralWitnessAuditRejectsInertPublicRule is the regression sentinel.
+// It runs an actual registered no-op rule through production Engine dispatch,
+// then proves that the absence of a diagnostic leaves the synthetic public key
+// uncovered.
 func TestBehavioralWitnessAuditRejectsInertPublicRule(t *testing.T) {
-  public := map[string]struct{}{
-    "test/working-fixture": {},
-    "test/inert-fixture":   {},
+  inert := inertBehavioralWitnessRule{}
+  Register(inert)
+  t.Cleanup(func() {
+    delete(registered.rules, inert.Name())
+  })
+  file := parseTS(t, "const value = 1;\nvoid value;\n")
+  findings := NewEngine(RuleConfig{inert.Name(): SeverityError}).Run(
+    []*shimast.SourceFile{file},
+    nil,
+  )
+  if len(findings) != 0 {
+    t.Fatalf("inert fixture unexpectedly diagnosed: %+v", findings)
   }
-  candidates := map[string][]behavioralWitness{
-    "test/working-fixture": {{
-      Rule:  "test/working-fixture",
-      Route: "TestWorkingFixture",
-      Kind:  behavioralWitnessEngine,
-    }},
-  }
-  _, err := auditBehavioralWitnesses(public, candidates)
-  if err == nil || !strings.Contains(err.Error(), "test/inert-fixture") {
+  _, err := auditBehavioralWitnesses(
+    map[string]struct{}{inert.Name(): {}},
+    map[string][]behavioralWitness{},
+  )
+  if err == nil || !strings.Contains(err.Error(), inert.Name()) {
     t.Fatalf("inert public rule was not rejected: %v", err)
   }
 }
@@ -248,6 +299,14 @@ func TestBehavioralWitnessAuditAcceptsProductionPrerequisiteKinds(t *testing.T) 
   }
   if len(canonical) != len(public) {
     t.Fatalf("canonical routes = %d, want %d: %+v", len(canonical), len(public), canonical)
+  }
+  candidates["fixture/engine"] = []behavioralWitness{{
+    Rule:  "fixture/engine",
+    Route: "Testengine",
+    Kind:  behavioralWitnessEngine,
+  }}
+  if err := verifyRequiredBehavioralWitnessKinds(candidates); err != nil {
+    t.Fatalf("required prerequisite kinds were rejected: %v", err)
   }
 }
 
