@@ -1195,15 +1195,15 @@ func floatingPromiseSignatureApplicability(
     if argument.Kind == shimast.KindSpreadElement {
       return floatingPromiseCallUncertain
     }
+    if floatingPromiseExpressionNeedsCandidateContext(argument) {
+      return floatingPromiseCallUncertain
+    }
     parameterType := floatingPromiseParameterType(checker, call, signature, index)
     argumentType := checker.GetTypeAtLocation(argument)
     if parameterType == nil || argumentType == nil {
       return floatingPromiseCallUncertain
     }
-    if checker.IsContextSensitive(argument) {
-      if !floatingPromiseFunctionArgument(argument) {
-        return floatingPromiseCallUncertain
-      }
+    if floatingPromiseFunctionArgument(argument) {
       if !floatingPromiseTypeMayAcceptFunction(checker, parameterType) {
         if checker.IsTypeAssignableTo(argumentType, parameterType) {
           continue
@@ -1229,6 +1229,9 @@ func floatingPromiseSignatureApplicability(
         return applicability
       }
       continue
+    }
+    if checker.IsContextSensitive(argument) {
+      return floatingPromiseCallUncertain
     }
     if !checker.IsTypeAssignableTo(argumentType, parameterType) {
       return floatingPromiseCallIncompatible
@@ -1351,6 +1354,9 @@ func floatingPromiseGenericArgumentApplicability(
   explicit []*shimchecker.Type,
   inferred map[*shimchecker.Type][]*shimchecker.Type,
 ) floatingPromiseCallApplicability {
+  if floatingPromiseExpressionNeedsCandidateContext(argument) {
+    return floatingPromiseCallUncertain
+  }
   argumentType := checker.GetTypeAtLocation(argument)
   if argumentType == nil {
     return floatingPromiseCallUncertain
@@ -1531,13 +1537,21 @@ func floatingPromiseCallableArgumentApplicability(
   if expectedReturn == nil || actualReturn == nil {
     return floatingPromiseCallUncertain
   }
+  implicitReturn := floatingPromiseFunctionHasImplicitReturnType(argument)
+  returnNeedsContext := floatingPromiseFunctionReturnNeedsCandidateContext(argument)
   if typeParameterIndex := floatingPromiseTypeParameterIndex(typeParameters, expectedReturn); typeParameterIndex >= 0 {
     typeParameter := typeParameters[typeParameterIndex]
     if explicitType := explicit[typeParameterIndex]; explicitType != nil {
+      if explicitType.Flags()&shimchecker.TypeFlagsVoid != 0 {
+        return floatingPromiseCallApplicable
+      }
+      if returnNeedsContext {
+        return floatingPromiseCallUncertain
+      }
       if checker.IsTypeAssignableTo(actualReturn, explicitType) {
         return floatingPromiseCallApplicable
       }
-      if checker.IsContextSensitive(argument) {
+      if implicitReturn || checker.IsContextSensitive(argument) {
         return floatingPromiseCallUncertain
       }
       return floatingPromiseCallIncompatible
@@ -1550,10 +1564,14 @@ func floatingPromiseCallableArgumentApplicability(
       call.Expression,
     )
     if applicability != floatingPromiseCallApplicable {
-      if applicability == floatingPromiseCallIncompatible && checker.IsContextSensitive(argument) {
+      if applicability == floatingPromiseCallIncompatible &&
+        (implicitReturn || checker.IsContextSensitive(argument)) {
         return floatingPromiseCallUncertain
       }
       return applicability
+    }
+    if returnNeedsContext && checker.GetConstraintOfTypeParameter(typeParameter) != nil {
+      return floatingPromiseCallUncertain
     }
     inferred[typeParameter] = append(inferred[typeParameter], actualReturn)
     return floatingPromiseCallApplicable
@@ -1564,10 +1582,13 @@ func floatingPromiseCallableArgumentApplicability(
   if expectedReturn.Flags()&shimchecker.TypeFlagsVoid != 0 {
     return floatingPromiseCallApplicable
   }
+  if returnNeedsContext {
+    return floatingPromiseCallUncertain
+  }
   if checker.IsTypeAssignableTo(actualReturn, expectedReturn) {
     return floatingPromiseCallApplicable
   }
-  if checker.IsContextSensitive(argument) {
+  if implicitReturn || checker.IsContextSensitive(argument) {
     // The cached argument type belongs to the original call's contextual
     // signature. A different overload candidate can supply a different return
     // context (for example, string versus a string literal), so that cached
@@ -1734,6 +1755,75 @@ func floatingPromiseTypeContainsAnyTypeParameter(
 func floatingPromiseFunctionArgument(node *shimast.Node) bool {
   node = unwrapFloatingPromiseExpression(node)
   return node != nil && (node.Kind == shimast.KindArrowFunction || node.Kind == shimast.KindFunctionExpression)
+}
+
+// floatingPromiseExpressionNeedsCandidateContext reports expression shapes
+// whose type or validity can change when TypeScript rechecks them against an
+// overload parameter. Checker.IsContextSensitive has a narrower purpose: it
+// tracks nested untyped functions for inference and therefore returns false for
+// ordinary object and array literals. Treat those literals and the expression
+// forms that propagate an outer context as uncertain instead of comparing a
+// type cached under the canonical call's different overload.
+func floatingPromiseExpressionNeedsCandidateContext(node *shimast.Node) bool {
+  node = unwrapFloatingPromiseExpression(node)
+  if node == nil {
+    return true
+  }
+  switch node.Kind {
+  case shimast.KindObjectLiteralExpression,
+    shimast.KindArrayLiteralExpression,
+    shimast.KindConditionalExpression:
+    return true
+  case shimast.KindBinaryExpression:
+    binary := node.AsBinaryExpression()
+    if binary == nil || binary.OperatorToken == nil {
+      return true
+    }
+    switch binary.OperatorToken.Kind {
+    case shimast.KindAmpersandAmpersandToken,
+      shimast.KindBarBarToken,
+      shimast.KindQuestionQuestionToken,
+      shimast.KindCommaToken:
+      return true
+    }
+  }
+  return false
+}
+
+func floatingPromiseFunctionHasImplicitReturnType(node *shimast.Node) bool {
+  node = unwrapFloatingPromiseExpression(node)
+  return floatingPromiseFunctionArgument(node) && node.Type() == nil
+}
+
+func floatingPromiseFunctionReturnNeedsCandidateContext(node *shimast.Node) bool {
+  node = unwrapFloatingPromiseExpression(node)
+  if !floatingPromiseFunctionHasImplicitReturnType(node) {
+    return false
+  }
+  if node.Kind == shimast.KindFunctionExpression {
+    expression := node.AsFunctionExpression()
+    if expression == nil || expression.AsteriskToken != nil {
+      return true
+    }
+  }
+  body := node.Body()
+  if body == nil {
+    return true
+  }
+  if body.Kind != shimast.KindBlock {
+    return floatingPromiseExpressionNeedsCandidateContext(body)
+  }
+  needsContext := false
+  walkConsistentReturnBody(body, func(statement *shimast.Node) {
+    if needsContext || statement == nil {
+      return
+    }
+    if expression := statement.Expression(); expression != nil &&
+      floatingPromiseExpressionNeedsCandidateContext(expression) {
+      needsContext = true
+    }
+  })
+  return needsContext
 }
 
 func floatingPromiseTypeMayAcceptFunction(checker *shimchecker.Checker, t *shimchecker.Type) bool {
