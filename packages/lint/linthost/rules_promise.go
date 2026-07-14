@@ -776,13 +776,15 @@ func analyzeFloatingPromise(
   if node.Kind == shimast.KindAwaitExpression {
     return floatingPromiseResult{}
   }
-  if !isFloatingPromiseType(ctx, node, t, options) {
+  callResultIsFloating := isFloatingPromiseType(ctx, node, t, options)
+  if node.Kind == shimast.KindCallExpression {
+    return analyzeFloatingPromiseCall(ctx, node, options, callResultIsFloating)
+  }
+  if !callResultIsFloating {
     return floatingPromiseResult{}
   }
 
   switch node.Kind {
-  case shimast.KindCallExpression:
-    return analyzeFloatingPromiseCall(ctx, node, options)
   case shimast.KindConditionalExpression:
     conditional := node.AsConditionalExpression()
     if conditional == nil {
@@ -813,23 +815,24 @@ func analyzeFloatingPromiseCall(
   ctx *Context,
   node *shimast.Node,
   options noFloatingPromisesOptions,
+  callResultIsFloating bool,
 ) floatingPromiseResult {
   call := node.AsCallExpression()
   if call == nil {
-    return floatingPromiseResult{unhandled: true}
+    return floatingPromiseResult{unhandled: callResultIsFloating}
   }
   receiver, method, ok := floatingPromiseMethodCall(call)
   if !ok {
-    return floatingPromiseResult{unhandled: true}
+    return floatingPromiseResult{unhandled: callResultIsFloating}
   }
 
   receiverType := ctx.Checker.GetTypeAtLocation(receiver)
   if receiverType == nil {
-    return floatingPromiseResult{unhandled: true}
+    return floatingPromiseResult{unhandled: callResultIsFloating}
   }
   apparent := ctx.Checker.GetApparentType(receiverType)
   if apparent == nil {
-    return floatingPromiseResult{unhandled: true}
+    return floatingPromiseResult{unhandled: callResultIsFloating}
   }
 
   var nonPromiseReceivers []*shimchecker.Type
@@ -853,7 +856,7 @@ func analyzeFloatingPromiseCall(
     nonPromiseReceivers = append(nonPromiseReceivers, part)
   }
   if !sawPromiseReceiver {
-    return floatingPromiseResult{unhandled: true}
+    return floatingPromiseResult{unhandled: callResultIsFloating}
   }
 
   switch method {
@@ -1992,7 +1995,8 @@ func floatingPromiseSignatureReturnIsUnhandled(
   }
   typeParameters := signature.TypeParameters()
   if len(typeParameters) == 0 {
-    return isFloatingPromiseType(ctx, node, returnType, options) ||
+    return floatingPromiseInferenceIsUncertain(returnType, nil) ||
+      isFloatingPromiseType(ctx, node, returnType, options) ||
       isFloatingPromiseArray(ctx, node, returnType, options)
   }
   for index, typeParameter := range typeParameters {
