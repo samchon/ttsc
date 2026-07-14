@@ -1926,7 +1926,9 @@ const n = [...s].length;
 
 ### `unicorn/prefer-simple-condition-first`
 
-Prefer the simpler operand on the left of `&&` / `||` so the short-circuit reads in evaluation order.
+Prefer structurally simple conditions before complex conditions in boolean `&&` / `||` chains. A simple condition is an identifier, a negated simple condition, or a strict comparison whose operands are identifiers, `typeof` identifiers, or literals. Value-producing logical expressions are not reported.
+
+The fixer uses a stable partition, retaining the relative order of all simple conditions and of all complex conditions. It fixes only when every crossed complex condition is safe to move and no comment or TypeScript wrapper owns the affected logical syntax; otherwise the rule reports a diagnostic and leaves short-circuit behavior for manual review.
 
 Illustrative shape:
 
@@ -1939,6 +1941,11 @@ const user = { role: "admin" };
 const featureEnabled = true;
 
 if (isAllowed(user) && featureEnabled) {
+  console.log("enabled");
+}
+
+// fixed form
+if (featureEnabled && isAllowed(user)) {
   console.log("enabled");
 }
 ```

@@ -940,8 +940,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-set-size"?: TtscLintRuleSetting;
 
   /**
-   * Prefer the simpler operand on the left of `&&` / `||` so the short-circuit
-   * reads in evaluation order.
+   * Place identifier and strict-comparison gates before complex conditions in
+   * boolean `&&` / `||` chains, preserving short-circuit evaluation safety.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-simple-condition-first.md
    */
