@@ -1,0 +1,22 @@
+[
+  {
+    "rule": "nextjs/no-typos",
+    "constraint": "filename",
+    "harness": "packages/lint/test/rules/nextjs/no_typos_reports_misspelled_data_export_test.go"
+  },
+  {
+    "rule": "storybook/no-uninstalled-addons",
+    "constraint": "platform",
+    "harness": "packages/lint/test/rules/storybook/no_uninstalled_addons_test.go"
+  },
+  {
+    "rule": "testing-library/consistent-data-testid",
+    "constraint": "options",
+    "harness": "packages/lint/test/rules/testing-library/misc_testing_library_rules_test.go"
+  },
+  {
+    "rule": "typescript/no-restricted-types",
+    "constraint": "options",
+    "harness": "packages/lint/test/rules/typescript/no_restricted_types_test.go"
+  }
+]

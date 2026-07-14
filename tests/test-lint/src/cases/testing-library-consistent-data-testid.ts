@@ -1,4 +1,4 @@
-// @ttsc-corpus-skip: rule requires a configured `testIdPattern` option; the flat corpus does not synthesize per-rule options. Positive Go coverage lives at packages/lint/test/rules/testing-library/misc_testing_library_rules_test.go.
+// @ttsc-corpus-skip(options): rule requires a configured `testIdPattern` option; the flat corpus does not synthesize per-rule options. Positive Go coverage lives at packages/lint/test/rules/testing-library/misc_testing_library_rules_test.go.
 declare const render: any;
 declare const screen: any;
 declare const fireEvent: any;
