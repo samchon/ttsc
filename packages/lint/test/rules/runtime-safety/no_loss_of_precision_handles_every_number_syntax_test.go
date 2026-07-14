@@ -10,7 +10,7 @@ import "testing"
 //
 // 1. Check exact and inexact decimal integers, fractions, and exponents.
 // 2. Check binary, octal, hexadecimal, legacy octal, and separator spellings.
-// 3. Check overflow, underflow, zero, malformed input, and BigInt exclusions.
+// 3. Check rounding ties, coefficient carry, range edges, and exclusions.
 func TestNoLossOfPrecisionHandlesEveryNumberSyntax(t *testing.T) {
   tests := []struct {
     name    string
@@ -28,6 +28,7 @@ func TestNoLossOfPrecisionHandlesEveryNumberSyntax(t *testing.T) {
     {name: "ordinary fraction", literal: "123.456", loses: false},
     {name: "rounded fraction", literal: "1.0000000000000001", loses: true},
     {name: "representable adjacent fraction", literal: "1.0000000000000002", loses: false},
+    {name: "rounding carry changes magnitude", literal: "9.9999999999999999", loses: true},
     {name: "separated rounded fraction", literal: "1.0_000000000000001", loses: true},
     {name: "leading decimal point", literal: ".42", loses: false},
     {name: "trailing decimal point", literal: "42.", loses: false},
@@ -65,4 +66,11 @@ func TestNoLossOfPrecisionHandlesEveryNumberSyntax(t *testing.T) {
       }
     })
   }
+
+  t.Run("decimal tie rounds upward", func(t *testing.T) {
+    coefficient, magnitude := roundFloatToDecimalPrecision(1.25, 2)
+    if coefficient != "13" || magnitude != 0 {
+      t.Fatalf("roundFloatToDecimalPrecision(1.25, 2) = %se%d, want 13e0", coefficient, magnitude)
+    }
+  })
 }
