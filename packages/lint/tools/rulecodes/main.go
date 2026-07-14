@@ -34,14 +34,14 @@ func main() {
 func readLedger(path string) map[string]int32 {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return map[string]int32{}
-		}
 		panic(err)
 	}
 	var ledger map[string]int32
 	if err := json.Unmarshal(content, &ledger); err != nil {
 		panic(fmt.Sprintf("parse %s: %v", path, err))
+	}
+	if len(ledger) == 0 {
+		panic(fmt.Sprintf("%s is empty; restore it from version control before generation", path))
 	}
 	return ledger
 }

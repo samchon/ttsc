@@ -31,6 +31,9 @@ func mustLoadBuiltInRuleCodes() map[string]int32 {
 	if err := json.Unmarshal(ruleCodeLedgerJSON, &ledger); err != nil {
 		panic(fmt.Sprintf("@ttsc/lint: parse rule code ledger: %v", err))
 	}
+	if len(ledger) == 0 {
+		panic("@ttsc/lint: rule code ledger is empty; restore it from version control")
+	}
 	validated, err := rulecode.Allocate(ledger, nil)
 	if err != nil {
 		panic(fmt.Sprintf("@ttsc/lint: invalid rule code ledger: %v", err))
