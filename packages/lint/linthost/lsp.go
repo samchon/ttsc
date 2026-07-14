@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "context"
   "crypto/sha256"
   "encoding/json"
   "errors"
@@ -710,12 +711,42 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
     fmt.Fprintf(os.Stderr, "@ttsc/lint: read %s: %v\n", target, err)
     return nil, 2
   }
+
+  return lspWorkspaceEditForSeededCommand(opts, target, string(original), nil)
+}
+
+// lspWorkspaceEditForSeededCommand runs a command in the ordinary temporary
+// project while optionally replacing the target copy with editor-owned text.
+// original is always the document against which the returned full-document
+// edit is measured. A non-nil sourceOverlay is written only inside the
+// temporary workspace, so type-aware contributor rules receive a real Program
+// and Checker for the dirty document without using or mutating its disk twin as
+// command input. Dirty buffers with syntax errors fail closed before any fix is
+// applied.
+func lspWorkspaceEditForSeededCommand(
+  opts *lspCommandOptions,
+  target string,
+  original string,
+  sourceOverlay *string,
+) (*lspWorkspaceEdit, int) {
+  physicalCwd := realProjectPath(opts.cwd)
   tempRoot, tempTarget, tempTsconfig, cleanup, err := prepareLSPCommandWorkspace(physicalCwd, opts.tsconfig, target)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
   }
   defer cleanup()
+
+  if sourceOverlay != nil {
+    if err := os.MkdirAll(filepath.Dir(tempTarget), 0o755); err != nil {
+      fmt.Fprintf(os.Stderr, "@ttsc/lint: create dirty-buffer directory: %v\n", err)
+      return nil, 2
+    }
+    if err := os.WriteFile(tempTarget, []byte(*sourceOverlay), 0o600); err != nil {
+      fmt.Fprintf(os.Stderr, "@ttsc/lint: seed dirty buffer %s: %v\n", target, err)
+      return nil, 2
+    }
+  }
 
   pluginsJSON := remapLSPPluginsJSONForTempWorkspace(opts.pluginsJSON, physicalCwd, tempRoot)
   rules, err := loadLSPCommandRules(
@@ -750,6 +781,14 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
       prog.close()
       return nil, 0
     }
+    if sourceOverlay != nil {
+      targetFile := prog.findSourceFile(tempTarget)
+      if targetFile == nil ||
+        len(prog.tsProgram.GetSyntacticDiagnostics(context.Background(), targetFile)) > 0 {
+        prog.close()
+        return nil, 0
+      }
+    }
     findings := filterFindingsForPath(prog.runLintCycle(engine), tempTarget)
     prog.close()
     if opts.command == commandFormatDocument {
@@ -778,18 +817,18 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
     fmt.Fprintf(os.Stderr, "@ttsc/lint: read cascaded %s: %v\n", tempTarget, err)
     return nil, 2
   }
-  return workspaceEditForFullDocument(opts.uri, string(original), string(next)), 0
+  return workspaceEditForFullDocument(opts.uri, original, string(next)), 0
 }
 
 // lspFormatBuffer formats an in-memory document buffer using only the
-// format-class rules, with no tsgo Program and no temp-workspace copy. It is
-// the lightweight path behind --content-stdin for ttsc.format.document.
+// format-class rules. It is the path behind --content-stdin for
+// ttsc.format.document.
 //
-// Format rules are AST+source only (`IsFormat() == true`); none implement
-// typeAwareRule, so the engine runs them with a nil checker. The document
-// content comes entirely from `content` — the file on disk at opts.uri is
-// never read — so an editor can format an unsaved buffer without paying the
-// disk-copy + full-program-load cost of lspWorkspaceEditForCommand.
+// Built-in format rules are AST+source only and use the lightweight single-file
+// parser below. Contributor format rules conservatively require a checker, so
+// they use a temporary project seeded with `content`. Both branches derive
+// findings and edits from the supplied buffer; neither uses stale disk content
+// as the document or mutates the original project.
 //
 // Returns the same WorkspaceEdit shape as the disk path, or (nil, 0) on a
 // no-op (no fixable findings, or text unchanged after convergence).
@@ -824,12 +863,17 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
   }
   engine := NewEngineWithResolver(resolver)
   if engine.NeedsTypeChecker() {
-    // A format-class contributor rule (formatContributorAdapter) needs the type
-    // checker, which the single-file in-memory parse can't supply. Fall back to
-    // the disk path, which builds a full program with a checker, so the result
-    // matches `ttsc format`; the dirty buffer can't be honored for these rules.
-    // Built-in format rules are AST-only, so they keep the fast in-memory path.
-    return lspWorkspaceEditForCommand(opts)
+    // Contributor format rules conservatively require a checker. Seed the
+    // dirty text into the temporary project so the checker, findings, fix
+    // ranges, and final WorkspaceEdit all describe the same editor document.
+    // Built-in AST-only format rules keep the fast single-file path below.
+    sourceOverlay := content
+    return lspWorkspaceEditForSeededCommand(
+      opts,
+      physicalTarget,
+      content,
+      &sourceOverlay,
+    )
   }
   scriptKind := scriptKindForPath(target)
 
