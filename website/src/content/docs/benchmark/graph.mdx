@@ -1,6 +1,5 @@
 import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphCommon";
 import TtscWebsiteBenchmarkGraphDedicated from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphDedicated";
-import TtscWebsiteBenchmarkGraphIndex from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphIndex";
 import TtscWebsiteBenchmarkGraphStructural from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphStructural";
 import TtscWebsiteBenchmarkGraphTime from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphTime";
 
@@ -30,23 +29,21 @@ Switch projects with the tabs. Each chart row is one measured model.
 
 <TtscWebsiteBenchmarkGraphDedicated />
 
-## Index Build Time
-
-The charts above measure what a _question_ costs once a tool is ready. This one measures the readiness itself: each tool's index is deleted, built once, and timed on a quiet machine.
-
-It is a competitive dimension in its own right, because a developer waits for it before the agent can ask anything — and the wait is not evenly distributed. On VS Code's three million lines, `codegraph` spends **twelve minutes** and `serena` five, where `@ttsc/graph` — which reads the graph the TypeScript compiler has to build anyway — takes under thirty seconds.
-
-Every tool is given the index its own documentation prescribes: `codegraph init`, `codebase-memory-mcp index_repository` in its default `full` mode (the mode the token charts above also ran), and `serena project index`, which serena recommends for larger projects. That last one is a correction: the harness had not been running it, and a benchmark that withholds a tool's own prescribed setup is measuring the withholding.
-
-Repositories are ordered by the size of the program each index was built from, because thirty seconds on VS Code and one second on a small backend are the same tool, not two.
-
-<TtscWebsiteBenchmarkGraphIndex />
-
 ## Time to an Answer
 
-A tool that cuts an agent's token bill and then spends four minutes indexing, and three more re-searching what it indexed, has moved the cost rather than removed it. This chart adds the two waits a developer actually sits through: the cold index build, then the agent answering with that index in hand.
+The charts above measure what a _question_ costs once a tool is ready. This one adds the readiness itself. Each bar is the two waits a developer actually sits through, in the order they are paid: the cold index build (the faded segment), then the LLM answering with that index in hand (the solid one). A tool that cuts an agent's token bill and then spends four minutes indexing, and three more re-searching what it indexed, has moved the cost rather than removed it.
+
+The wait is not evenly distributed. On VS Code's three million lines, `codegraph` spends **twelve minutes** building and `serena` almost five, where `@ttsc/graph` — which reads the graph the TypeScript compiler has to build anyway — takes under thirty seconds.
+
+Every tool is given the index its own documentation prescribes: `codegraph init`, `codebase-memory-mcp index_repository` in its default `full` mode (the mode the token charts above also ran), and `serena project index`, which serena recommends for larger projects. Repositories are ordered by the size of the program each index was built from.
 
 <TtscWebsiteBenchmarkGraphTime />
+
+### VS Code, alone
+
+Three million lines is where the index question stops being academic: it is the difference between a tool that answers while you pour a coffee and one you configure before lunch. The same bars as above, isolated.
+
+<TtscWebsiteBenchmarkGraphTime project="vscode" />
 
 ## Structural Coverage
 
