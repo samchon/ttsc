@@ -15,6 +15,7 @@ import (
   "encoding/json"
   "fmt"
   "io"
+  "sort"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -28,9 +29,21 @@ type noRestrictedSyntaxOption struct {
   messageSet bool
 }
 
+type noRestrictedSyntaxOptionKey struct {
+  selector   string
+  message    string
+  messageSet bool
+  structured bool
+}
+
 type compiledNoRestrictedSyntaxOption struct {
   selector *astSelector
   message  string
+}
+
+type noRestrictedSyntaxMatch struct {
+  node    *shimast.Node
+  message string
 }
 
 func (noRestrictedSyntax) Name() string { return "no-restricted-syntax" }
@@ -56,10 +69,17 @@ func (noRestrictedSyntax) Check(ctx *Context, node *shimast.Node) {
     // side-effect-free for direct contributor calls that bypass validation.
     return
   }
+  matches := make([]noRestrictedSyntaxMatch, 0)
   for _, option := range options {
     for _, restricted := range matchASTSelector(node, option.selector) {
-      ctx.Report(restricted, option.message)
+      matches = append(matches, noRestrictedSyntaxMatch{node: restricted, message: option.message})
     }
+  }
+  sort.SliceStable(matches, func(left, right int) bool {
+    return matches[left].node.Pos() < matches[right].node.Pos()
+  })
+  for _, match := range matches {
+    ctx.Report(match.node, match.message)
   }
 }
 
@@ -110,37 +130,46 @@ func decodeNoRestrictedSyntaxOptions(raw json.RawMessage) ([]noRestrictedSyntaxO
   }
 
   options := make([]noRestrictedSyntaxOption, 0, len(encoded))
-  seen := make(map[string]struct{}, len(encoded))
+  seen := make(map[noRestrictedSyntaxOptionKey]struct{}, len(encoded))
   for index, item := range encoded {
     item = bytes.TrimSpace(item)
     if len(item) == 0 {
       return nil, fmt.Errorf("no-restricted-syntax option %d is empty", index+1)
     }
     option := noRestrictedSyntaxOption{}
-    uniquenessKey := ""
+    uniquenessKey := noRestrictedSyntaxOptionKey{}
     switch item[0] {
     case '"':
       if err := decodeStrictJSON(item, &option.selector); err != nil {
         return nil, fmt.Errorf("no-restricted-syntax option %d must be a selector string: %w", index+1, err)
       }
-      uniquenessKey = "string\x00" + option.selector
+      uniquenessKey.selector = option.selector
     case '{':
       object := struct {
-        Selector *string `json:"selector"`
-        Message  *string `json:"message"`
+        Selector json.RawMessage `json:"selector"`
+        Message  json.RawMessage `json:"message"`
       }{}
       if err := decodeStrictJSON(item, &object); err != nil {
         return nil, fmt.Errorf("no-restricted-syntax option %d must contain only selector and message: %w", index+1, err)
       }
-      if object.Selector == nil {
+      if len(object.Selector) == 0 {
         return nil, fmt.Errorf("no-restricted-syntax option %d is missing selector", index+1)
       }
-      option.selector = *object.Selector
-      if object.Message != nil {
-        option.message = *object.Message
+      if err := decodeNoRestrictedSyntaxString(object.Selector, &option.selector); err != nil {
+        return nil, fmt.Errorf("no-restricted-syntax option %d selector must be a string: %w", index+1, err)
+      }
+      if len(object.Message) != 0 {
+        if err := decodeNoRestrictedSyntaxString(object.Message, &option.message); err != nil {
+          return nil, fmt.Errorf("no-restricted-syntax option %d message must be a string: %w", index+1, err)
+        }
         option.messageSet = true
       }
-      uniquenessKey = "object\x00" + option.selector + "\x00" + strconvBool(option.messageSet) + "\x00" + option.message
+      uniquenessKey = noRestrictedSyntaxOptionKey{
+        selector:   option.selector,
+        message:    option.message,
+        messageSet: option.messageSet,
+        structured: true,
+      }
     default:
       return nil, fmt.Errorf("no-restricted-syntax option %d must be a selector string or {selector,message} object", index+1)
     }
@@ -156,6 +185,14 @@ func decodeNoRestrictedSyntaxOptions(raw json.RawMessage) ([]noRestrictedSyntaxO
   return options, nil
 }
 
+func decodeNoRestrictedSyntaxString(raw json.RawMessage, out *string) error {
+  trimmed := bytes.TrimSpace(raw)
+  if len(trimmed) < 2 || trimmed[0] != '"' {
+    return fmt.Errorf("expected JSON string")
+  }
+  return decodeStrictJSON(trimmed, out)
+}
+
 func decodeStrictJSON(raw json.RawMessage, out any) error {
   decoder := json.NewDecoder(bytes.NewReader(raw))
   decoder.DisallowUnknownFields()
@@ -169,13 +206,6 @@ func decodeStrictJSON(raw json.RawMessage, out any) error {
     return err
   }
   return nil
-}
-
-func strconvBool(value bool) string {
-  if value {
-    return "true"
-  }
-  return "false"
 }
 
 func init() {

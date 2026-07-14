@@ -279,7 +279,11 @@ func (p *astSelectorParser) parseAttributeValue(operator string) (astSelectorVal
     }
     p.offset += len("type(")
     p.skipSpace()
-    name := p.parseIdentifier()
+    start := p.offset
+    for !p.eof() && !isASTSelectorSpace(p.peek()) && p.peek() != ')' {
+      p.offset++
+    }
+    name := p.source[start:p.offset]
     p.skipSpace()
     if name == "" || p.eof() || p.peek() != ')' {
       return astSelectorValue{}, p.errorf("invalid type() value")
@@ -287,11 +291,39 @@ func (p *astSelectorParser) parseAttributeValue(operator string) (astSelectorVal
     p.offset++
     return astSelectorValue{kind: astSelectorValueType, literal: name}, nil
   }
-  start := p.offset
-  for !p.eof() && !isASTSelectorSpace(p.peek()) && p.peek() != ']' {
+  if p.peek() == '.' {
+    start := p.offset
     p.offset++
+    for !p.eof() && p.peek() >= '0' && p.peek() <= '9' {
+      p.offset++
+    }
+    raw := p.source[start:p.offset]
+    if !astSelectorNumberPattern.MatchString(raw) {
+      return astSelectorValue{}, p.errorf("invalid attribute value")
+    }
+    number, _ := strconv.ParseFloat(raw, 64)
+    return astSelectorValue{kind: astSelectorValueLiteral, literal: raw, number: &number}, nil
   }
-  raw := p.source[start:p.offset]
+  if p.peek() >= '0' && p.peek() <= '9' {
+    start := p.offset
+    for !p.eof() && p.peek() >= '0' && p.peek() <= '9' {
+      p.offset++
+    }
+    if !p.eof() && p.peek() == '.' {
+      p.offset++
+      for !p.eof() && p.peek() >= '0' && p.peek() <= '9' {
+        p.offset++
+      }
+      raw := p.source[start:p.offset]
+      if !astSelectorNumberPattern.MatchString(raw) {
+        return astSelectorValue{}, p.errorf("invalid attribute value")
+      }
+      number, _ := strconv.ParseFloat(raw, 64)
+      return astSelectorValue{kind: astSelectorValueLiteral, literal: raw, number: &number}, nil
+    }
+    p.offset = start
+  }
+  raw := p.parseIdentifier()
   if raw == "" {
     return astSelectorValue{}, p.errorf("expected attribute value")
   }
@@ -566,7 +598,7 @@ func (p *astSelectorParser) parseIdentifier() string {
   start := p.offset
   for !p.eof() {
     ch := p.peek()
-    if isASTSelectorSpace(ch) || strings.ContainsRune("[](),:#!=><~+.*'\"/", rune(ch)) {
+    if isASTSelectorSpace(ch) || strings.ContainsRune("[](),:#!=><~+.", rune(ch)) {
       break
     }
     p.offset++
