@@ -11,41 +11,165 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-// noDupeElseIf: `if (a) {} else if (a) {}` — the second branch is
-// unreachable.
+// noDupeElseIf rejects an else-if branch when earlier conditions in the
+// same chain already cover every path that can make its condition true.
 type noDupeElseIf struct{}
 
 func (noDupeElseIf) Name() string           { return "no-dupe-else-if" }
 func (noDupeElseIf) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindIfStatement} }
 func (noDupeElseIf) Check(ctx *Context, node *shimast.Node) {
-  // Only fire on the *outermost* if; the recursion below scans the
-  // chain once.
-  if parent := node.Parent; parent != nil {
-    if parent.Kind == shimast.KindIfStatement {
-      outer := parent.AsIfStatement()
-      if outer != nil && outer.ElseStatement == node {
+  statement := node.AsIfStatement()
+  if statement == nil || statement.Expression == nil {
+    return
+  }
+
+  test := stripParens(statement.Expression)
+  conditionsToCheck := []*shimast.Node{test}
+  if noDupeElseIfLogicalOperator(test) == shimast.KindAmpersandAmpersandToken {
+    conditionsToCheck = append(conditionsToCheck, noDupeElseIfSplit(test, shimast.KindAmpersandAmpersandToken)...)
+  }
+
+  candidates := make([][][]*shimast.Node, 0, len(conditionsToCheck))
+  for _, condition := range conditionsToCheck {
+    orOperands := noDupeElseIfSplit(condition, shimast.KindBarBarToken)
+    conjunctions := make([][]*shimast.Node, 0, len(orOperands))
+    for _, operand := range orOperands {
+      conjunctions = append(conjunctions, noDupeElseIfSplit(operand, shimast.KindAmpersandAmpersandToken))
+    }
+    candidates = append(candidates, conjunctions)
+  }
+
+  current := node
+  for current.Parent != nil && current.Parent.Kind == shimast.KindIfStatement {
+    parent := current.Parent
+    parentStatement := parent.AsIfStatement()
+    if parentStatement == nil || parentStatement.ElseStatement != current || parentStatement.Expression == nil {
+      break
+    }
+
+    earlierOrOperands := noDupeElseIfSplit(stripParens(parentStatement.Expression), shimast.KindBarBarToken)
+    earlierConjunctions := make([][]*shimast.Node, 0, len(earlierOrOperands))
+    for _, operand := range earlierOrOperands {
+      earlierConjunctions = append(earlierConjunctions, noDupeElseIfSplit(operand, shimast.KindAmpersandAmpersandToken))
+    }
+
+    for i, disjunction := range candidates {
+      remaining := disjunction[:0]
+      for _, conjunction := range disjunction {
+        covered := false
+        for _, earlier := range earlierConjunctions {
+          if noDupeElseIfSubset(ctx.File, earlier, conjunction) {
+            covered = true
+            break
+          }
+        }
+        if !covered {
+          remaining = append(remaining, conjunction)
+        }
+      }
+      candidates[i] = remaining
+      if len(remaining) == 0 {
+        ctx.Report(statement.Expression, "This branch can never execute. Its condition is a duplicate or covered by previous conditions in the if-else-if chain.")
         return
       }
     }
+
+    current = parent
   }
-  seen := map[string]bool{}
-  cur := node
-  for cur != nil && cur.Kind == shimast.KindIfStatement {
-    stmt := cur.AsIfStatement()
-    if stmt == nil || stmt.Expression == nil {
-      break
-    }
-    key := nodeText(ctx.File, stmt.Expression)
-    if key != "" {
-      if seen[key] {
-        ctx.Report(stmt.Expression, "This branch can never execute. Its condition is a duplicate of an earlier branch.")
-      } else {
-        seen[key] = true
+}
+
+func noDupeElseIfLogicalOperator(node *shimast.Node) shimast.Kind {
+  node = stripParens(node)
+  if node == nil || node.Kind != shimast.KindBinaryExpression {
+    return shimast.KindUnknown
+  }
+  expression := node.AsBinaryExpression()
+  if expression == nil || expression.OperatorToken == nil {
+    return shimast.KindUnknown
+  }
+  switch expression.OperatorToken.Kind {
+  case shimast.KindAmpersandAmpersandToken, shimast.KindBarBarToken:
+    return expression.OperatorToken.Kind
+  default:
+    return shimast.KindUnknown
+  }
+}
+
+func noDupeElseIfSplit(node *shimast.Node, operator shimast.Kind) []*shimast.Node {
+  node = stripParens(node)
+  if noDupeElseIfLogicalOperator(node) != operator {
+    return []*shimast.Node{node}
+  }
+  expression := node.AsBinaryExpression()
+  operands := noDupeElseIfSplit(expression.Left, operator)
+  return append(operands, noDupeElseIfSplit(expression.Right, operator)...)
+}
+
+func noDupeElseIfSubset(file *shimast.SourceFile, subset, set []*shimast.Node) bool {
+  for _, candidate := range subset {
+    matched := false
+    for _, element := range set {
+      if noDupeElseIfEqual(file, candidate, element) {
+        matched = true
+        break
       }
     }
-    cur = stmt.ElseStatement
+    if !matched {
+      return false
+    }
+  }
+  return true
+}
+
+// noDupeElseIfEqual compares boolean expressions structurally. Logical AND
+// and OR are commutative in a condition's truth table; every other expression
+// must retain the same token kinds and values.
+func noDupeElseIfEqual(file *shimast.SourceFile, left, right *shimast.Node) bool {
+  left = stripParens(left)
+  right = stripParens(right)
+  if left == nil || right == nil || left.Kind != right.Kind {
+    return false
+  }
+
+  operator := noDupeElseIfLogicalOperator(left)
+  if operator != shimast.KindUnknown && operator == noDupeElseIfLogicalOperator(right) {
+    leftExpression := left.AsBinaryExpression()
+    rightExpression := right.AsBinaryExpression()
+    return noDupeElseIfEqual(file, leftExpression.Left, rightExpression.Left) &&
+      noDupeElseIfEqual(file, leftExpression.Right, rightExpression.Right) ||
+      noDupeElseIfEqual(file, leftExpression.Left, rightExpression.Right) &&
+        noDupeElseIfEqual(file, leftExpression.Right, rightExpression.Left)
+  }
+
+  return noDupeElseIfEqualTokens(file, left, right)
+}
+
+func noDupeElseIfEqualTokens(file *shimast.SourceFile, left, right *shimast.Node) bool {
+  leftText := nodeText(file, left)
+  rightText := nodeText(file, right)
+  if leftText == "" || rightText == "" {
+    return false
+  }
+
+  leftScanner := shimscanner.NewScanner()
+  leftScanner.SetText(leftText)
+  leftScanner.SetSkipTrivia(true)
+  rightScanner := shimscanner.NewScanner()
+  rightScanner.SetText(rightText)
+  rightScanner.SetSkipTrivia(true)
+
+  for {
+    leftKind := leftScanner.Scan()
+    rightKind := rightScanner.Scan()
+    if leftKind != rightKind || leftScanner.TokenText() != rightScanner.TokenText() {
+      return false
+    }
+    if leftKind == shimast.KindEndOfFile {
+      return true
+    }
   }
 }
 
