@@ -67,7 +67,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-labels`](#rule-no-labels): Reject labeled statements.
 - [`no-lone-blocks`](#rule-no-lone-blocks): Reject standalone `{ ... }` blocks that introduce no lexical scope distinct from the surrounding block.
 - [`no-lonely-if`](#rule-no-lonely-if): Reject `if (cond) { if (...) { ... } }`.
-- [`no-loop-func`](#rule-no-loop-func): Reject function declarations defined inside the body of a loop.
+- [`no-loop-func`](#rule-no-loop-func): Reject loop-created closures that capture bindings which can change between iterations.
 - [`no-loss-of-precision`](#rule-no-loss-of-precision): Reject numeric literals whose source text cannot round-trip through `Number`.
 - [`no-magic-numbers`](#rule-no-magic-numbers): Reject inline numeric literals outside `const` initializer position.
 - [`no-misleading-character-class`](#rule-no-misleading-character-class): Reject regex character classes that contain combined Unicode sequences (e.g. surrogate pairs).
@@ -1629,21 +1629,26 @@ function chooseMode(isPrimary: boolean, isFallback: boolean) {
 
 ### `no-loop-func`
 
-Reject function declarations defined inside the body of a loop.
+Reject loop-created closures that capture bindings which can change between iterations.
 
-Each iteration of the loop allocates a fresh function whose closure captures the surrounding `let`/`var` binding, a class of bugs where every captured function reads the iteration's final value instead of its own.
+The rule follows binding identity and write locations instead of rejecting every function beneath a loop. A shared `var` counter or an outer binding written after the loop starts is unsafe. Constants, per-iteration `let` bindings, functions with no upper-scope references, and unreferenced synchronous IIFEs are safe.
 
 Example:
 
 ```ts
 function inForLoop(): void {
-  for (let i = 0; i < 3; i++) {
+  for (var i = 0; i < 3; i++) {
     // reports: no-loop-func (error)
     function inner() {
       return i;
     }
     inner();
   }
+}
+
+for (let i = 0; i < 3; i++) {
+  const safe = () => i;
+  safe();
 }
 ```
 

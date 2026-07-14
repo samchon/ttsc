@@ -267,7 +267,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-labels`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-labels.ts): rejects labels.
 - [`no-lone-blocks`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-lone-blocks.ts): rejects unnecessary standalone blocks.
 - [`no-lonely-if`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-lonely-if.ts): rejects `if` as the only statement in an `else`.
-- [`no-loop-func`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-loop-func.ts): reject function declarations defined inside the body of a loop.
+- [`no-loop-func`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-loop-func.ts): reject loop-created closures only when they capture bindings that can change between iterations.
 - [`no-loss-of-precision`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-loss-of-precision.ts): rejects number literals that lose precision.
 - [`no-magic-numbers`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-magic-numbers.ts): reject inline numeric literals outside `const` initializer position. `0`, `1`, `-1`, array indices, and enum values are exempt.
 - [`no-misleading-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-misleading-character-class.ts): rejects misleading regex character classes.

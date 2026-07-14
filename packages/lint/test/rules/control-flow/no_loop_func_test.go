@@ -2,17 +2,62 @@ package linthost
 
 import "testing"
 
-// TestRuleCorpusNoLoopFunc verifies the lint rule corpus fixture no-loop-func.ts.
+// TestRuleCorpusNoLoopFunc verifies the real-command corpus fixture's unsafe
+// reference semantics through the same checker-backed native rule engine.
 //
-// The rule visits every loop kind (for, for-in, for-of, while, do-while)
-// and walks the loop body, reporting any nested function-like
-// declaration. Inner loops and inner function-likes are walk boundaries
-// so each enclosing loop only reports the function-likes directly inside
-// its own body.
+// The corpus is the end-to-end command oracle, while this package-local twin
+// keeps its exact positive and negative cases visible in focused Go coverage.
 //
-// 1. Load the annotated TypeScript fixture source embedded below.
-// 2. Enable the rule severity declared by its `// expect:` comments.
-// 3. Assert the native Engine reports exactly the annotated diagnostics.
+// 1. Run the annotated fixture source with a real Program and checker.
+// 2. Assert the outer mutable/var closure and returned closure are reported.
+// 3. Assert safe lets, consts, no-capture closures, and a direct IIFE are not.
 func TestRuleCorpusNoLoopFunc(t *testing.T) {
-  assertRuleCorpusCase(t, "no-loop-func.ts", "function inForLoop(): void {\n  for (let i = 0; i < 3; i++) {\n    // expect: no-loop-func error\n    function inner() {\n      return i;\n    }\n    inner();\n  }\n}\nfunction inWhileLoop(): void {\n  let i = 0;\n  while (i < 3) {\n    // expect: no-loop-func error\n    const inner = () => i;\n    inner();\n    i++;\n  }\n}\nfunction inForOfLoop(items: number[]): void {\n  for (const item of items) {\n    // expect: no-loop-func error\n    const make = function () {\n      return item;\n    };\n    make();\n  }\n}\nfunction inForInLoop(obj: Record<string, number>): void {\n  for (const key in obj) {\n    // expect: no-loop-func error\n    const grab = () => obj[key];\n    grab();\n  }\n}\nfunction inDoWhileLoop(): void {\n  let i = 0;\n  do {\n    // expect: no-loop-func error\n    const inner = () => i;\n    inner();\n    i++;\n  } while (i < 3);\n}\nJSON.stringify({ inForLoop, inWhileLoop, inForOfLoop, inForInLoop, inDoWhileLoop });\n")
+  source := `// Positive: a closure captures both an outer binding written after the loop
+// begins and a var loop counter shared by every iteration.
+let mutable = 0;
+for (var index = 0; index < 2; index++) {
+  // expect: no-loop-func error
+  const unsafe = () => mutable + index;
+  void unsafe;
+}
+mutable = 1;
+
+// Negative: const and per-iteration let bindings cannot change underneath a
+// closure from a different iteration.
+const fixed = 1;
+for (let iteration = 0; iteration < 2; iteration++) {
+  const safe = () => fixed + iteration;
+  const noCapture = () => 42;
+  void [safe, noCapture];
+}
+
+// Negative: an unreferenced synchronous IIFE completes in this iteration.
+for (let iteration = 0; iteration < 1; iteration++) {
+  (() => mutable)();
+}
+
+// Positive: the nested closure returned by an IIFE can escape the iteration.
+for (let iteration = 0; iteration < 1; iteration++) {
+  // expect: no-loop-func error
+  const escaped = (() => () => mutable)();
+  void escaped;
+}
+mutable = 2;
+
+JSON.stringify({ mutable, fixed });
+`
+  assertNoLoopFuncFindings(
+    t,
+    runNoLoopFunc(t, source),
+    noLoopFuncFinding{
+      line:    6,
+      target:  "() => mutable + index",
+      message: "Function declared in a loop contains unsafe references to variable(s) 'mutable', 'index'.",
+    },
+    noLoopFuncFinding{
+      line:    28,
+      target:  "() => mutable",
+      message: "Function declared in a loop contains unsafe references to variable(s) 'mutable'.",
+    },
+  )
 }

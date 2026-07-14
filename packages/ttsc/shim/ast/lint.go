@@ -327,6 +327,11 @@ func GetCombinedNodeFlags(node *Node) NodeFlags {
 // its own contextual type to the asserted expression.
 func IsConstAssertion(node *Node) bool { return innerast.IsConstAssertion(node) }
 
+// IsPartOfTypeNode reports whether node belongs to syntax that is evaluated
+// only by the type system. Lint rules use the upstream classifier so runtime
+// reference analysis stays aligned with TypeScript's AST semantics.
+func IsPartOfTypeNode(node *Node) bool { return innerast.IsPartOfTypeNode(node) }
+
 // IsLet reports whether the declaration was introduced by `let` / `using`.
 func IsLet(node *Node) bool { return GetCombinedNodeFlags(node)&NodeFlagsLet != 0 }
 

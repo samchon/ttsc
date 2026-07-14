@@ -1,70 +1,33 @@
-// Positive: function declaration inside a `for` loop body.
-function inForLoop(): void {
-  for (let i = 0; i < 3; i++) {
-    // expect: no-loop-func error
-    function inner() {
-      return i;
-    }
-    inner();
-  }
+// Positive: a closure captures both an outer binding written after the loop
+// begins and a var loop counter shared by every iteration.
+let mutable = 0;
+for (var index = 0; index < 2; index++) {
+  // expect: no-loop-func error
+  const unsafe = () => mutable + index;
+  void unsafe;
+}
+mutable = 1;
+
+// Negative: const and per-iteration let bindings cannot change underneath a
+// closure from a different iteration.
+const fixed = 1;
+for (let iteration = 0; iteration < 2; iteration++) {
+  const safe = () => fixed + iteration;
+  const noCapture = () => 42;
+  void [safe, noCapture];
 }
 
-// Positive: arrow function inside a `while` loop body.
-function inWhileLoop(): void {
-  let i = 0;
-  while (i < 3) {
-    // expect: no-loop-func error
-    const inner = () => i;
-    inner();
-    i++;
-  }
+// Negative: an unreferenced synchronous IIFE completes in this iteration.
+for (let iteration = 0; iteration < 1; iteration++) {
+  (() => mutable)();
 }
 
-// Positive: function expression inside a `for ... of` loop body.
-function inForOfLoop(items: number[]): void {
-  for (const item of items) {
-    // expect: no-loop-func error
-    const make = function () {
-      return item;
-    };
-    make();
-  }
+// Positive: the nested closure returned by an IIFE can escape the iteration.
+for (let iteration = 0; iteration < 1; iteration++) {
+  // expect: no-loop-func error
+  const escaped = (() => () => mutable)();
+  void escaped;
 }
+mutable = 2;
 
-// Positive: arrow function inside a `for ... in` loop body.
-function inForInLoop(obj: Record<string, number>): void {
-  for (const key in obj) {
-    // expect: no-loop-func error
-    const grab = () => obj[key];
-    grab();
-  }
-}
-
-// Positive: arrow function inside a `do ... while` loop body.
-function inDoWhileLoop(): void {
-  let i = 0;
-  do {
-    // expect: no-loop-func error
-    const inner = () => i;
-    inner();
-    i++;
-  } while (i < 3);
-}
-
-// Negative: function declared OUTSIDE the loop — the closure captures
-// the binding once, not per iteration.
-function outsideLoop(): void {
-  const make = (x: number) => () => x;
-  for (let i = 0; i < 3; i++) {
-    make(i)();
-  }
-}
-
-JSON.stringify({
-  inForLoop,
-  inWhileLoop,
-  inForOfLoop,
-  inForInLoop,
-  inDoWhileLoop,
-  outsideLoop,
-});
+JSON.stringify({ mutable, fixed });

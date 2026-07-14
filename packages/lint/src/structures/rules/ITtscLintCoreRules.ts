@@ -711,10 +711,9 @@ export interface ITtscLintCoreRules {
   "no-lonely-if"?: TtscLintRuleSetting;
 
   /**
-   * Reject function declarations defined inside the body of a loop. Each
-   * iteration of the loop allocates a fresh function whose closure captures the
-   * surrounding `let`/`var` binding — a class of bugs where every captured
-   * function reads the iteration's final value instead of its own.
+   * Reject loop-created closures that capture bindings which can change between
+   * iterations. Constants, per-iteration `let` bindings, and unreferenced
+   * synchronous IIFEs are safe.
    *
    * @reference https://eslint.org/docs/latest/rules/no-loop-func
    */
