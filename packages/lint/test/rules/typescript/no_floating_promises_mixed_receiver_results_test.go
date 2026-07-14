@@ -203,6 +203,7 @@ interface NonGenericCallbackCatch {
   catch(onRejected: (reason: unknown) => void): undefined;
 }
 type TaggedFactory<T> = (() => T) & { readonly tag: true };
+type OptionalTaggedFactory<T> = (() => T) & { readonly tag?: true };
 interface TaggedGenericCatch {
   catch<T>(onRejected: TaggedFactory<T>): T;
 }
@@ -247,6 +248,7 @@ declare const nonGenericCallbackMismatch: Promise<void> | NonGenericCallbackCatc
 declare const taggedValid: Promise<void> | TaggedGenericCatch;
 declare const taggedMismatch: Promise<void> | TaggedGenericCatch;
 declare const taggedFactory: TaggedFactory<undefined>;
+declare const optionalTaggedFactory: OptionalTaggedFactory<undefined>;
 declare const uncertainOverload: Promise<void> | UncertainOverloadedCatch;
 declare const predicateMismatch: Promise<void> | PredicateGenericCatch;
 declare const predicateTargetMismatch: Promise<void> | PredicateGenericCatch;
@@ -274,6 +276,7 @@ nonGenericCallbackValid.catch((reason: unknown) => undefined);
 nonGenericCallbackMismatch.catch((reason: string) => undefined);
 taggedValid.catch(taggedFactory);
 taggedMismatch.catch(() => undefined);
+taggedMismatch.catch(optionalTaggedFactory);
 uncertainOverload.catch(() => undefined);
 predicateMismatch.catch<undefined>((value: unknown): boolean => true);
 predicateTargetMismatch.catch<undefined>((value: unknown): value is string => true);
@@ -309,6 +312,7 @@ function checkUncertainArray<U>(
     "dependentConstraintMismatch.then",
     "nonGenericCallbackMismatch.catch",
     "taggedMismatch.catch",
+    "taggedMismatch.catch(optionalTaggedFactory)",
     "uncertainOverload.catch",
     "predicateMismatch.catch",
     "predicateTargetMismatch.catch",

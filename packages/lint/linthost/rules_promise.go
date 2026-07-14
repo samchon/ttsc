@@ -1385,11 +1385,15 @@ func floatingPromiseCallableArgumentApplicability(
     return floatingPromiseCallUncertain
   }
   for _, expectedProperty := range shimchecker.Checker_getPropertiesOfType(checker, expectedType) {
+    expectedOptional := expectedProperty.Flags&shimast.SymbolFlagsOptional != 0
     actualProperty := checker.GetPropertyOfType(actualType, expectedProperty.Name)
     if actualProperty == nil {
-      if expectedProperty.Flags&shimast.SymbolFlagsOptional != 0 {
+      if expectedOptional {
         continue
       }
+      return floatingPromiseCallIncompatible
+    }
+    if !expectedOptional && actualProperty.Flags&shimast.SymbolFlagsOptional != 0 {
       return floatingPromiseCallIncompatible
     }
     if floatingPromiseSymbolHasNonPublicDeclaration(expectedProperty) ||
