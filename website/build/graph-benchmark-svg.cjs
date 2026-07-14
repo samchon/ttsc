@@ -629,7 +629,7 @@ function renderTime(index, cells, options = {}) {
         // A tool with no index to build says so with a zero, which is the point
         // of putting them side by side.
         lines.push(
-          `  <text x="${(chart.left + buildWidth + answerWidth + 8).toFixed(1)}" y="${textY.toFixed(1)}" fill="${value.color}" font-size="${single ? 13 : 11}">${escapeXml(`(${fmtCompact(value.buildMs)} / ${fmtCompact(value.answerMs)})`)}</text>`,
+          `  <text x="${(chart.left + buildWidth + answerWidth + 8).toFixed(1)}" y="${textY.toFixed(1)}" font-size="${single ? 13 : 11}"><tspan fill="${value.color}" fill-opacity="0.55">${escapeXml(fmtCompact(value.buildMs))}</tspan><tspan fill="#64748b"> / </tspan><tspan fill="${value.color}">${escapeXml(fmtCompact(value.answerMs))}</tspan></text>`,
         );
       });
       return lines.join("\n");
@@ -650,7 +650,7 @@ function renderTime(index, cells, options = {}) {
     `  <rect x="96" y="104" width="36" height="15" fill="#22d3ee" rx="2"/>`,
     `  <text x="68" y="115.5" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">index</text>`,
     `  <text x="114" y="115.5" fill="#0b0f14" font-size="10" font-weight="bold" text-anchor="middle">LLM</text>`,
-    `  <text x="142" y="115.5" fill="#cbd5f5" font-size="12">${escapeXml("faded = index build, solid = LLM answering — every bar is labelled (index / LLM)")}</text>`,
+    `  <text x="142" y="115.5" fill="#cbd5f5" font-size="12">${escapeXml("faded = index build, solid = LLM answering — each label reads index / LLM in the same shades")}</text>`,
   ].join("\n");
 
   return [
