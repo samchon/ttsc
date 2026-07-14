@@ -11,11 +11,15 @@ import "testing"
 // comment, or the newline of a wrapped comparison. `> -1` is the asymmetric
 // arm — its right operand already spells the sentinel, so upstream edits only
 // the operator and the fix must not rewrite `-1` into `-1` (or worse, into the
-// literal's paren-stripped range). The expected output is the upstream oracle's
-// fixed source, not this port's own emission.
+// literal's paren-stripped range). Upstream matches the literal's numeric
+// *value*, so `0x0` and `0e0` are zeros and `-1.0` is negative one; this pins
+// that TypeScript's normalized literal text agrees, and that the edit spans the
+// literal as written rather than as normalized. The expected output is the
+// upstream oracle's fixed source, not this port's own emission.
 //
 //  1. Lint a source stacking `< 0`, `>= 0`, `> -1`, a parenthesized literal,
-//     an interior comment, and a comparison split across lines.
+//     an interior comment, a comparison split across lines, and hex/scientific/
+//     decimal spellings of the same two values.
 //  2. Apply the collected fixes through the real disk-backed fix applier.
 //  3. Assert the rewritten file byte for byte.
 func TestUnicornConsistentExistenceIndexCheckFixRewritesMagnitudeComparisons(t *testing.T) {
@@ -41,6 +45,15 @@ void (
   split
     >= 0
 );
+
+const hex = array.indexOf(7);
+void (hex < 0x0);
+
+const scientific = array.indexOf(8);
+void (scientific >= 0e0);
+
+const decimal = array.indexOf(9);
+void (decimal > -1.0);
 `
   expected := `declare const array: number[];
 
@@ -64,6 +77,15 @@ void (
   split
     !== -1
 );
+
+const hex = array.indexOf(7);
+void (hex === -1);
+
+const scientific = array.indexOf(8);
+void (scientific !== -1);
+
+const decimal = array.indexOf(9);
+void (decimal !== -1.0);
 `
   assertFixSnapshot(t, "unicorn/consistent-existence-index-check", source, expected)
 }

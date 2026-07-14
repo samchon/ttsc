@@ -27,6 +27,8 @@ func TestUnicornConsistentExistenceIndexCheckSkipsUpstreamValidForms(t *testing.
   source := `declare const array: number[];
 declare const collection: { indexOf(value: number): number };
 declare const table: Record<string, (value: number) => number>;
+declare const holder: { indexOf: number };
+declare function indexOf(value: number): number;
 declare function compute(): number;
 declare function consume(value: number): void;
 
@@ -46,6 +48,12 @@ const dynamic = table["indexOf"](3);
 void (dynamic < 0);
 const bracketed = collection["indexOf"](4);
 void (bracketed > -1);
+// A standalone call, not a method call — the callee is no member at all.
+const standalone = indexOf(18);
+void (standalone < 0);
+// The right name, but read as a property instead of called.
+const property = holder.indexOf;
+void (property >= 0);
 
 // Optional chains are ChainExpressions upstream, which never match.
 const optionalMember = collection?.indexOf(5);
@@ -80,7 +88,9 @@ void (canonical !== -1);
 void (-1 === canonical);
 void (-1 !== canonical);
 
-// Operator and literal pairs upstream does not recognize.
+// Operator and literal pairs upstream does not recognize. ` + "`-0`" + ` is a unary
+// expression and ` + "`0n`" + ` is a BigInt literal, so neither is the numeric zero
+// upstream matches.
 const neighbours = array.indexOf(13);
 void (neighbours < 1);
 void (neighbours > 0);
@@ -88,6 +98,7 @@ void (neighbours >= -1);
 void (neighbours <= -1);
 void (neighbours > -2);
 void (neighbours < -0);
+void (neighbours < 0n);
 
 // A parameter, not a declared index.
 function fromParameter(index: number): boolean {
