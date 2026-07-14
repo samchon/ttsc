@@ -2,6 +2,7 @@ package linthost
 
 import (
   "strings"
+  "unicode/utf8"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
@@ -128,21 +129,18 @@ func reportStringEscapes(ctx *Context, raw string, base int, whitelist string, i
       continue
     }
     if isUselessStringEscape(next, whitelist) {
+      message := uselessEscapeMessage(raw[i+1:])
       // Only emit a fix when both surrounding bytes are plain ASCII so
       // deleting one byte cannot corrupt a multi-byte sequence.
       if next < 0x80 {
         ctx.ReportRangeFix(
           base+i,
           base+i+1,
-          "Unnecessary escape character: \\"+string(next)+".",
+          message,
           TextEdit{Pos: base + i, End: base + i + 1, Text: ""},
         )
       } else {
-        ctx.ReportRange(
-          base+i,
-          base+i+1,
-          "Unnecessary escape character: \\"+string(next)+".",
-        )
+        ctx.ReportRange(base+i, base+i+1, message)
       }
     }
     i++ // skip the escaped char so `\\\\` doesn't double-report.
@@ -182,23 +180,33 @@ func reportRegexEscapes(ctx *Context, raw string, base int) {
       // base + 1 (for the leading `/`) + i is the byte offset of the
       // backslash in the source.
       pos := base + 1 + i
+      message := uselessEscapeMessage(body[i+1:])
       if next < 0x80 {
         ctx.ReportRangeFix(
           pos,
           pos+1,
-          "Unnecessary escape character: \\"+string(next)+".",
+          message,
           TextEdit{Pos: pos, End: pos + 1, Text: ""},
         )
       } else {
-        ctx.ReportRange(
-          pos,
-          pos+1,
-          "Unnecessary escape character: \\"+string(next)+".",
-        )
+        ctx.ReportRange(pos, pos+1, message)
       }
     }
     i++ // consume the escaped character.
   }
+}
+
+// uselessEscapeMessage renders the diagnostic for one redundant backslash.
+// `rest` is the raw source starting at the escaped character, of which only
+// the leading UTF-8 rune is named. Decoding is required because the escape
+// target may be multi-byte: converting the lone lead byte would reinterpret it
+// as the code point of the same numeric value, so `\你` (lead byte 0xE4) would
+// accuse `ä` (U+00E4). ESLint canonical names the whole code point as well.
+// A byte that is not valid UTF-8 decodes to U+FFFD, which keeps the message
+// itself well-formed.
+func uselessEscapeMessage(rest string) string {
+  escaped, _ := utf8.DecodeRuneInString(rest)
+  return "Unnecessary escape character: \\" + string(escaped) + "."
 }
 
 // isUselessStringEscape reports whether a backslash before `ch` is redundant
