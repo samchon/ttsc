@@ -11,10 +11,10 @@ import "testing"
 // 2. Export `getStaticProp`, one edit away from `getStaticProps`.
 // 3. Assert `nextjs/no-typos` reports the export name.
 func TestNextjsNoTyposReportsMisspelledDataExport(t *testing.T) {
-  assertRuleCorpusCase(t, "pages/index.ts", `
+  assertRuleCorpusCaseWithKind(t, "pages/index.ts", `
 // expect: nextjs/no-typos error
 export function getStaticProp() {
   return { props: {} };
 }
-`)
+`, behavioralWitnessFilename)
 }

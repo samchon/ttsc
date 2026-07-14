@@ -105,11 +105,15 @@ func verifyRecordedBehavioralWitnessCoverage() error {
 // test-listing workflows. The aggregate contract is evaluated only when the
 // complete package suite ran; CI and scripts/test-go-lint.cjs use that path.
 func shouldVerifyRecordedBehavioralWitnessCoverage() bool {
-  for _, name := range []string{"test.run", "test.skip", "test.list"} {
+  for _, name := range []string{"test.run", "test.skip", "test.list", "test.fuzz"} {
     value := flag.Lookup(name)
     if value != nil && value.Value.String() != "" {
       return false
     }
+  }
+  short := flag.Lookup("test.short")
+  if short != nil && short.Value.String() == "true" {
+    return false
   }
   return true
 }

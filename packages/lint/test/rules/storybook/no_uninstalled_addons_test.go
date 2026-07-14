@@ -31,4 +31,7 @@ func TestRuleCorpusStorybookNoUninstalledAddons(t *testing.T) {
       t.Fatalf("[%d]: want %+v, got %+v; all findings=%+v", i, expected[i], actual[i], actual)
     }
   }
+  // The real sibling package lookup crosses OS path semantics; recording only
+  // after the exact finding comparison keeps the platform harness trustworthy.
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessPlatform)
 }

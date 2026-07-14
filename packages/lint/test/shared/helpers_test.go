@@ -25,7 +25,7 @@ import (
 var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
 var ruleOptionsDirectivePattern = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-options:\s*(\S+)\s+(\S.*?)\s*$`)
 var ansiControlSequencePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
-var renderedRuleDiagnosticPattern = regexp.MustCompile(`(?m)(?:^|[\s/])[^\s:]+\.tsx?:\d+:\d+\s+-\s+(?:error|warning)\s+TS\d+:\s*\[([@\w/-]+)\]`)
+var renderedRuleDiagnosticPattern = regexp.MustCompile(`(?m)(?:^|[\s/\\])[^\s:]+\.(?:[cm]?tsx?|jsx?):\d+:\d+\s+-\s+(?:error|warning)\s+TS\d+:\s*\[([@\w/-]+)\]`)
 
 // diagnosticOutputContains compares rendered diagnostics after removing ANSI
 // control sequences. Windows and POSIX runners color different path segments,
@@ -108,6 +108,16 @@ func parseTSXFile(t *testing.T, fileName, source string) *shimast.SourceFile {
 //  3. Compare normalized findings so every rule fixture contributes Go coverage.
 func assertRuleCorpusCase(t *testing.T, relativeFile, source string) {
   t.Helper()
+  assertRuleCorpusCaseWithKind(t, relativeFile, source, behavioralWitnessEngine)
+}
+
+func assertRuleCorpusCaseWithKind(
+  t *testing.T,
+  relativeFile string,
+  source string,
+  kind behavioralWitnessKind,
+) {
+  t.Helper()
   expected := parseRuleExpectations(t, source)
   if len(expected) == 0 {
     t.Fatalf("%s has no rule expectations", relativeFile)
@@ -127,7 +137,7 @@ func assertRuleCorpusCase(t *testing.T, relativeFile, source string) {
       t.Fatalf("%s[%d]: want %+v, got %+v; all findings=%+v", relativeFile, i, expected[i], actual[i], actual)
     }
   }
-  recordExpectedBehavioralWitnesses(t, expected, behavioralWitnessEngine)
+  recordExpectedBehavioralWitnesses(t, expected, kind)
 }
 
 // assertRuleCorpusCaseTSX runs one annotated TSX fixture through the native

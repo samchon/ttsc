@@ -20,7 +20,9 @@ func runFunctionalRuleWithOptions(t *testing.T, ruleName, source, optsJSON strin
     Rules:   RuleConfig{ruleName: SeverityError},
     Options: RuleOptionsMap{ruleName: json.RawMessage(optsJSON)},
   }
-  return NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessOptions)
+  return findings
 }
 
 func assertFunctionalFinding(t *testing.T, ruleName string, findings []*Finding, messagePart string) {
@@ -47,7 +49,6 @@ func assertFunctionalFinding(t *testing.T, ruleName string, findings []*Finding,
   if messagePart != "" && !strings.Contains(finding.Message, messagePart) {
     t.Fatalf("%s: finding message %q does not contain %q", ruleName, finding.Message, messagePart)
   }
-  recordBehavioralWitness(t, ruleName, behavioralWitnessOptions)
 }
 
 func assertNoFunctionalFinding(t *testing.T, ruleName string, findings []*Finding) {

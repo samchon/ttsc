@@ -15,6 +15,7 @@ func runTestingLibraryResolver(t *testing.T, source string, resolver RuleResolve
   t.Helper()
   file := parseTSXFile(t, "/virtual/component.test.tsx", source)
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessOptions)
   return normalizeRuleFindings(file, findings)
 }
 
@@ -40,5 +41,4 @@ func assertTestingLibraryExpectedFindings(t *testing.T, actual, expected []ruleE
       t.Fatalf("[%d]: want %+v, got %+v; all findings=%+v", i, expected[i], actual[i], actual)
     }
   }
-  recordExpectedBehavioralWitnesses(t, expected, behavioralWitnessOptions)
 }
