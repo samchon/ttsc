@@ -1783,6 +1783,9 @@ func floatingPromiseExpressionNeedsCandidateContext(
     shimast.KindNonNullExpression,
     shimast.KindYieldExpression:
     return floatingPromiseExpressionChildNeedsCandidateContext(checker, node.Expression())
+  case shimast.KindAsExpression,
+    shimast.KindTypeAssertionExpression:
+    return shimast.IsConstAssertion(node)
   case shimast.KindCallExpression,
     shimast.KindNewExpression,
     shimast.KindTaggedTemplateExpression:

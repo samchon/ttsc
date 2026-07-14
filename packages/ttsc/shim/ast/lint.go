@@ -322,6 +322,11 @@ func GetCombinedNodeFlags(node *Node) NodeFlags {
   return innerast.GetCombinedNodeFlags(node)
 }
 
+// IsConstAssertion reports whether node is an `as const` or `<const>`
+// assertion. Unlike ordinary type assertions, a const assertion propagates
+// its own contextual type to the asserted expression.
+func IsConstAssertion(node *Node) bool { return innerast.IsConstAssertion(node) }
+
 // IsLet reports whether the declaration was introduced by `let` / `using`.
 func IsLet(node *Node) bool { return GetCombinedNodeFlags(node)&NodeFlagsLet != 0 }
 

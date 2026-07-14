@@ -52,24 +52,39 @@ interface GenericTemplateCandidate {
   then<T = undefined>(value: __BACKTICK__item-${number}__BACKTICK__, onRejected: () => T): Promise<void>;
   then<T = undefined>(value: string, onRejected: () => T): undefined;
 }
+interface ConstAssertionCandidate {
+  then(value: { callback: (input: "narrow") => "narrow" }, onRejected: () => void): Promise<void>;
+  then(value: { callback: (input: string) => string }, onRejected: () => void): undefined;
+}
 declare const arrayCandidate: ArrayCandidate;
 declare const genericArrayCandidate: GenericArrayCandidate;
 declare const callbackCandidate: CallbackCandidate;
 declare const genericCallbackCandidate: GenericCallbackCandidate;
 declare const templateCandidate: TemplateCandidate;
 declare const genericTemplateCandidate: GenericTemplateCandidate;
+declare const constAssertionCandidate: ConstAssertionCandidate;
 arrayCandidate.then([1, 2], () => undefined);
 genericArrayCandidate.then([1, 2], () => undefined);
 callbackCandidate.catch((reason: unknown): { kind: "narrow" } => ({ kind: "narrow" }));
 genericCallbackCandidate.catch((reason: unknown): { kind: "narrow" } => ({ kind: "narrow" }));
 templateCandidate.then(__BACKTICK__item-${1 as number}__BACKTICK__, () => undefined);
 genericTemplateCandidate.then(__BACKTICK__item-${1 as number}__BACKTICK__, () => undefined);
+constAssertionCandidate.then({ callback: input => input } as const, () => undefined);
 declare function contextualArray(value: number[], onRejected: () => undefined): void;
 declare function contextualCallback(onRejected: (reason: unknown) => { kind: string }): void;
 declare function contextualString(value: string, onRejected: () => undefined): void;
+declare function contextualConstAssertion(
+  value: { callback: (input: string) => string },
+  onRejected: () => undefined,
+): void;
 declare function contextualValue<T>(): T;
 contextualArray([1, 2], () => undefined);
 contextualCallback((reason: unknown) => ({ kind: "narrow" }));
+contextualConstAssertion({ callback: input => input } as const, () => undefined);
+contextualConstAssertion(
+  { callback: (input: string) => input } as { callback: (input: string) => string },
+  () => undefined,
+);
 async function candidateContextWrappers(): Promise<void> {
   contextualArray(await [1, 2], () => undefined);
   contextualArray(([1, 2])!, () => undefined);
@@ -164,6 +179,24 @@ async function candidateContextWrappers(): Promise<void> {
     t.Fatal("annotated callback with a plain object return unexpectedly uses the narrow context-sensitive classification")
   }
 
+  contextualConstAssertion := callAt("contextualConstAssertion({ callback")
+  if contextualConstAssertion.Arguments == nil || len(contextualConstAssertion.Arguments.Nodes) != 2 {
+    t.Fatal("contextual const-assertion fixture does not have two arguments")
+  }
+  constAssertionArgument := contextualConstAssertion.Arguments.Nodes[0]
+  if !shimast.IsConstAssertion(constAssertionArgument) {
+    t.Fatal("contextual const-assertion fixture is not an as-const assertion")
+  }
+
+  ordinaryAssertion := callAt("contextualConstAssertion(\n  { callback: (input: string)")
+  if ordinaryAssertion.Arguments == nil || len(ordinaryAssertion.Arguments.Nodes) != 2 {
+    t.Fatal("ordinary assertion fixture does not have two arguments")
+  }
+  ordinaryAssertionArgument := ordinaryAssertion.Arguments.Nodes[0]
+  if shimast.IsConstAssertion(ordinaryAssertionArgument) {
+    t.Fatal("ordinary type assertion was classified as a const assertion")
+  }
+
   cases := []struct {
     name       string
     call       *shimast.CallExpression
@@ -214,6 +247,11 @@ async function candidateContextWrappers(): Promise<void> {
       call:       callAt("contextualString(`item-${1 as number}`"),
       signatures: signaturesAt(callAt("genericTemplateCandidate.then"), "then"),
     },
+    {
+      name:       "const assertion",
+      call:       contextualConstAssertion,
+      signatures: signaturesAt(callAt("constAssertionCandidate.then"), "then"),
+    },
   }
   ctx := &Context{File: file, Checker: prog.checker, CurrentDirectory: root}
   for _, test := range cases {
@@ -229,5 +267,22 @@ async function candidateContextWrappers(): Promise<void> {
     if got := floatingPromiseApplicableSignature(ctx, test.call, test.signatures); got != nil {
       t.Fatalf("%s selected a signature from candidate-contextual cached evidence", test.name)
     }
+  }
+
+  ordinarySignatures := signaturesAt(callAt("constAssertionCandidate.then"), "then")
+  if len(ordinarySignatures) != 2 {
+    t.Fatalf("ordinary assertion signatures = %d, want two", len(ordinarySignatures))
+  }
+  if got := floatingPromiseSignatureApplicability(prog.checker, ordinaryAssertion, ordinarySignatures[0]);
+    got != floatingPromiseCallIncompatible {
+    t.Fatalf("ordinary narrow-candidate applicability = %d, want incompatible", got)
+  }
+  if got := floatingPromiseSignatureApplicability(prog.checker, ordinaryAssertion, ordinarySignatures[1]);
+    got != floatingPromiseCallApplicable {
+    t.Fatalf("ordinary broad-candidate applicability = %d, want applicable", got)
+  }
+  if got := floatingPromiseApplicableSignature(ctx, ordinaryAssertion, ordinarySignatures);
+    got != ordinarySignatures[1] {
+    t.Fatal("ordinary type assertion did not select its proven broad candidate")
   }
 }
