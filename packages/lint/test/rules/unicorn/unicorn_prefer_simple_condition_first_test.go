@@ -110,7 +110,7 @@ if ((ready satisfies boolean) && check()) { void 0; }
     },
     {
       name:   "positive bigint is not a supported signed operand",
-      source: "declare const ready: boolean; declare const value: bigint; declare function check(): boolean; if (check() && value === +1n && ready) { void 0; }",
+      source: "declare const ready: boolean; declare const value: number; declare function check(): boolean; if (check() && value === +(1n as unknown as number) && ready) { void 0; }",
     },
     {
       name:   "property access is complex",
@@ -137,9 +137,11 @@ declare function consume(value: unknown): void;
 const assigned = check() && ready;
 consume(check() && ready);
 const tuple = [check() && ready];
+const optionalCast = Boolean?.(check() && ready);
 function value() { return check() && ready; }
 void assigned;
 void tuple;
+void optionalCast;
 void value;
 `
   assertRuleSkipsSource(t, preferSimpleConditionFirstRule, ignored)
@@ -188,6 +190,7 @@ func TestUnicornPreferSimpleConditionFirstWithholdsUnsafeAndSyntaxOwnedFixes(t *
     {"optional access changes evaluation", "record?.enabled && ready", false},
     {"unsafe conditional branch", "(ready ? check() : false) && other", false},
     {"inner comment owns source", "(ready ? true : false) && /* keep */ other", true},
+    {"leading comment owns source", "/* keep */ (ready ? true : false) && other", true},
     {"trailing comment owns source", "(ready ? true : false) && other /* keep */", true},
     {"typescript wrapper owns a logical subchain", "(((ready ? true : false) && other) as boolean) && final", true},
   }
@@ -214,6 +217,34 @@ if (` + test.expression + `) { void 0; }
       }
     })
   }
+}
+
+func TestUnicornPreferSimpleConditionFirstHandlesOrChainsAndNonLogicalTypeWrappers(t *testing.T) {
+  orSource := `declare const flag: boolean;
+declare const ready: boolean;
+declare const other: boolean;
+if ((flag ? true : false) || ready || other) { void 0; }
+`
+  orExpected := `declare const flag: boolean;
+declare const ready: boolean;
+declare const other: boolean;
+if (ready || other || (flag ? true : false)) { void 0; }
+`
+  _, _, findings := runRuleFindingsSnapshot(t, preferSimpleConditionFirstRule, orSource, nil)
+  if len(findings) != 1 || findings[0].Message != "Prefer this simple condition first in the `||` expression." {
+    t.Fatalf("want one exact || finding, got %+v", findings)
+  }
+  assertFixSnapshot(t, preferSimpleConditionFirstRule, orSource, orExpected)
+
+  wrappedSource := `declare const flag: boolean;
+declare const ready: boolean;
+if (((flag ? true : false) as boolean) && ready) { void 0; }
+`
+  wrappedExpected := `declare const flag: boolean;
+declare const ready: boolean;
+if (ready && ((flag ? true : false) as boolean)) { void 0; }
+`
+  assertFixSnapshot(t, preferSimpleConditionFirstRule, wrappedSource, wrappedExpected)
 }
 
 func TestUnicornPreferSimpleConditionFirstParserAwareCommentsDoNotMistakeLiteralText(t *testing.T) {

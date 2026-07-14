@@ -31,12 +31,17 @@ type unicornPreferSimpleConditionFirstOperand struct {
   simple bool
 }
 
+type unicornPreferSimpleConditionFirstCommentSpan struct {
+  start int
+  end   int
+}
+
 func (unicornPreferSimpleConditionFirst) Name() string {
   return "unicorn/prefer-simple-condition-first"
 }
 
 func (unicornPreferSimpleConditionFirst) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindBinaryExpression}
+  return []shimast.Kind{shimast.KindSourceFile}
 }
 
 // The checker is used only to distinguish the global Boolean conversion
@@ -44,7 +49,26 @@ func (unicornPreferSimpleConditionFirst) Visits() []shimast.Kind {
 // structural.
 func (unicornPreferSimpleConditionFirst) NeedsTypeChecker() bool { return true }
 
-func (unicornPreferSimpleConditionFirst) Check(ctx *Context, node *shimast.Node) {
+func (unicornPreferSimpleConditionFirst) Check(ctx *Context, root *shimast.Node) {
+  if ctx == nil || ctx.File == nil || root == nil {
+    return
+  }
+  comments := make([]unicornPreferSimpleConditionFirstCommentSpan, 0)
+  forEachCommentToken(ctx.File, func(_ shimast.Kind, start, end int) {
+    comments = append(comments, unicornPreferSimpleConditionFirstCommentSpan{start: start, end: end})
+  })
+  walkDescendants(root, func(node *shimast.Node) {
+    if node.Kind == shimast.KindBinaryExpression {
+      unicornPreferSimpleConditionFirstCheckLogical(ctx, node, comments)
+    }
+  })
+}
+
+func unicornPreferSimpleConditionFirstCheckLogical(
+  ctx *Context,
+  node *shimast.Node,
+  comments []unicornPreferSimpleConditionFirstCommentSpan,
+) {
   binary := node.AsBinaryExpression()
   if binary == nil || binary.OperatorToken == nil ||
     !unicornPreferSimpleConditionFirstIsLogicalOperator(binary.OperatorToken.Kind) {
@@ -95,7 +119,7 @@ func (unicornPreferSimpleConditionFirst) Check(ctx *Context, node *shimast.Node)
   reportNode := unicornPreferSimpleConditionFirstReportNode(nodes[firstMisplacedSimple])
   if !canSafelyReorder ||
     unicornPreferSimpleConditionFirstHasTypeScriptWrappedLogical(node, operator) ||
-    unicornPreferSimpleConditionFirstCommentsPreventFix(ctx, node, nodes) {
+    unicornPreferSimpleConditionFirstCommentsPreventFix(ctx, node, nodes, comments) {
     ctx.Report(reportNode, message)
     return
   }
@@ -411,6 +435,7 @@ func unicornPreferSimpleConditionFirstCommentsPreventFix(
   ctx *Context,
   node *shimast.Node,
   operands []*shimast.Node,
+  comments []unicornPreferSimpleConditionFirstCommentSpan,
 ) bool {
   if ctx == nil || ctx.File == nil || len(operands) == 0 {
     return true
@@ -435,19 +460,14 @@ func unicornPreferSimpleConditionFirstCommentsPreventFix(
     {leadingStart, firstStart},
     {lastEnd, trailingEnd},
   }
-  found := false
-  forEachCommentToken(ctx.File, func(_ shimast.Kind, start, end int) {
-    if found {
-      return
-    }
+  for _, comment := range comments {
     for _, span := range ranges {
-      if start < span[1] && end > span[0] {
-        found = true
-        return
+      if comment.start < span[1] && comment.end > span[0] {
+        return true
       }
     }
-  })
-  return found
+  }
+  return false
 }
 
 func unicornPreferSimpleConditionFirstOperandText(
