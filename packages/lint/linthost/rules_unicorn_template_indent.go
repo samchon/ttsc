@@ -360,14 +360,22 @@ func unicornTemplateIndentIsJestInlineSnapshot(template *shimast.Node) bool {
   if snapshotCall.Expression == nil {
     return false
   }
-  member := stripParens(snapshotCall.Expression).AsPropertyAccessExpression()
+  memberNode := stripParens(snapshotCall.Expression)
+  if memberNode == nil || memberNode.Kind != shimast.KindPropertyAccessExpression {
+    return false
+  }
+  member := memberNode.AsPropertyAccessExpression()
   if member == nil || member.QuestionDotToken != nil || identifierText(member.Name()) != "toMatchInlineSnapshot" {
     return false
   }
   if member.Expression == nil {
     return false
   }
-  expectCall := stripParens(member.Expression).AsCallExpression()
+  expectNode := stripParens(member.Expression)
+  if expectNode == nil || expectNode.Kind != shimast.KindCallExpression {
+    return false
+  }
+  expectCall := expectNode.AsCallExpression()
   return expectCall != nil && expectCall.QuestionDotToken == nil && expectCall.Arguments != nil &&
     len(expectCall.Arguments.Nodes) == 1 && identifierText(stripParens(expectCall.Expression)) == "expect"
 }

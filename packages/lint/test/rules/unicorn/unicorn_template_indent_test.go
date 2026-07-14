@@ -444,10 +444,12 @@ func TestUnicornTemplateIndentRejectsMalformedOptionsBeforeLinting(t *testing.T)
 func TestCommandFixUnicornTemplateIndentConvergesAndIsIdempotent(t *testing.T) {
   source := "declare const ready: boolean;\n" +
     "declare function use(): void;\n" +
+    "declare function gql(strings: TemplateStringsArray): string;\n" +
     "if (ready) {\n  use();\n}\n" +
     "const query = gql`\none\n  child\n`;\n"
   expected := "declare const ready: boolean;\n" +
     "declare function use(): void;\n" +
+    "declare function gql(strings: TemplateStringsArray): string;\n" +
     "if (ready) {\n  use();\n}\n" +
     "const query = gql`\n  one\n    child\n`;\n"
   root := seedLintProject(t, source)
