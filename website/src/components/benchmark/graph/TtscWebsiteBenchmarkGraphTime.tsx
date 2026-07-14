@@ -50,7 +50,7 @@ interface TimeBar {
   tool: string;
   /** Cold index build, once per checkout; null for a tool that has none. */
   buildMs: number | null;
-  /** Median wall clock the agent spent answering, index already built. */
+  /** Median wall clock the LLM spent answering, index already built. */
   answerMs: number;
 }
 
@@ -69,10 +69,12 @@ interface TimeRow {
  * four models, both prompt families — so the mix of fast and slow models is the
  * same for every tool, and the bars compare the tools rather than the models.
  */
-function buildRows(report: Report): TimeRow[] {
+function buildRows(report: Report, only?: string): TimeRow[] {
   const cells: AgentCell[] = report.agent?.cells ?? [];
   const index = report.index;
-  const projects = [...new Set(cells.map((cell) => cell.repo))];
+  const projects = [...new Set(cells.map((cell) => cell.repo))].filter(
+    (project) => !only || project === only,
+  );
   return projects
     .map((project) => {
       const scale = index?.scale[project];
@@ -111,28 +113,96 @@ function buildRows(report: Report): TimeRow[] {
     .sort((a, b) => a.lines - b.lines);
 }
 
-function fmtDuration(ms: number): string {
-  return ms >= 60_000
-    ? `${(ms / 60_000).toFixed(1)} min`
-    : `${Math.round(ms / 1000)} s`;
+/**
+ * Compact seconds, one unit throughout: "29s", "0.8s", "731s".
+ *
+ * The label carries two of these side by side, and minutes beside seconds make
+ * the reader convert units before the shape appears — and the shape is the
+ * finding.
+ */
+function fmtCompact(ms: number): string {
+  const seconds = ms / 1000;
+  if (seconds === 0) return "0s";
+  if (seconds >= 10) return `${Math.round(seconds).toLocaleString("en-US")}s`;
+  return `${seconds.toFixed(1)}s`;
 }
 
-function Bars({ row, max }: { row: TimeRow; max: number }) {
+/**
+ * On hover, the two waits spelled out: which tool, how long its index build
+ * took, and the median wall clock the LLM spent answering with it.
+ */
+function TimeTooltip({
+  row,
+  bar,
+  tool,
+}: {
+  row: TimeRow;
+  bar: TimeBar;
+  tool: (typeof TOOLS)[number];
+}) {
+  const build = bar.buildMs ?? 0;
   return (
-    <div className="space-y-1">
+    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 rounded-md border border-[#2a313e] bg-[#090b10] p-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45)] group-hover:block">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{
+          background: `linear-gradient(to right, transparent, ${tool.text}99, transparent)`,
+        }}
+      />
+      <p className="truncate font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+        {row.label}
+      </p>
+      <p className="mt-1 text-[12px] font-semibold" style={{ color: tool.text }}>
+        {tool.label}
+      </p>
+      <div className="mt-2 space-y-1 font-mono text-[11px] tabular-nums">
+        <div className="flex justify-between gap-4">
+          <span className="text-neutral-500">index build</span>
+          <span className="text-neutral-300">
+            {build > 0 ? fmtCompact(build) : "none"}
+          </span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-neutral-500">LLM answering</span>
+          <span className="text-neutral-300">{fmtCompact(bar.answerMs)}</span>
+        </div>
+        <div className="flex justify-between gap-4 border-t border-[#1c2230] pt-1">
+          <span className="text-neutral-500">first answer</span>
+          <span className="text-neutral-100">
+            {fmtCompact(build + bar.answerMs)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Bars({
+  row,
+  max,
+  thick,
+}: {
+  row: TimeRow;
+  max: number;
+  thick: boolean;
+}) {
+  return (
+    <div className={thick ? "space-y-2" : "space-y-1"}>
       {row.bars.map((bar) => {
         const tool = TOOLS.find((item) => item.id === bar.tool)!;
         const build = bar.buildMs ?? 0;
         const total = build + bar.answerMs;
         return (
-          <div key={bar.tool} className="flex items-center gap-2">
+          <div key={bar.tool} className="group relative flex items-center gap-2">
             <span
-              className="w-28 shrink-0 truncate font-mono text-[10px]"
+              className="w-32 shrink-0 truncate font-mono text-[11px]"
               style={{ color: tool.text }}
             >
               {tool.label}
             </span>
-            <div className="relative h-3 flex-1 overflow-hidden rounded-sm bg-[#0c0e13]">
+            <div
+              className={`relative flex-1 overflow-hidden rounded-sm bg-[#0c0e13] ${thick ? "h-6" : "h-3.5"}`}
+            >
               <span
                 className="absolute inset-y-0 left-0 flex"
                 style={{ width: `${Math.max(1.5, (total / max) * 100)}%` }}
@@ -152,15 +222,10 @@ function Bars({ row, max }: { row: TimeRow; max: number }) {
                 />
               </span>
             </div>
-            <span className="w-28 shrink-0 text-right font-mono text-[11px] tabular-nums text-neutral-300">
-              {fmtDuration(total)}
-              {build > 0 ? (
-                <span className="text-neutral-500">
-                  {" "}
-                  ({fmtDuration(build)} build)
-                </span>
-              ) : null}
+            <span className="w-28 shrink-0 text-right font-mono text-[12px] tabular-nums text-neutral-200">
+              {fmtCompact(build)} / {fmtCompact(bar.answerMs)}
             </span>
+            <TimeTooltip row={row} bar={bar} tool={tool} />
           </div>
         );
       })}
@@ -168,9 +233,49 @@ function Bars({ row, max }: { row: TimeRow; max: number }) {
   );
 }
 
-export default function TtscWebsiteBenchmarkGraphTime() {
+/**
+ * The legend is a worked example: the same two-tone bar the chart draws, with
+ * the two waits named on their own segments.
+ */
+function ShadeLegend() {
+  return (
+    <div className="flex items-center gap-3 border-b border-[#1c212b] px-5 py-2.5">
+      <span className="flex h-4 overflow-hidden rounded-sm font-mono text-[9px] font-bold leading-4">
+        <span
+          className="px-2 text-center text-neutral-100"
+          style={{
+            background: TtscWebsiteBenchmarkGraphUi.TTSC_FILL as string,
+            opacity: 0.4,
+          }}
+        >
+          index
+        </span>
+        <span
+          className="px-2 text-center text-[#0b0f14]"
+          style={{ background: TtscWebsiteBenchmarkGraphUi.TTSC_FILL as string }}
+        >
+          LLM
+        </span>
+      </span>
+      <span className="text-[11px] text-neutral-400">
+        faded = index build, solid = LLM answering — each bar is labelled index
+        / LLM
+      </span>
+    </div>
+  );
+}
+
+export default function TtscWebsiteBenchmarkGraphTime({
+  project,
+}: {
+  /** Render a single repository with thick bars, e.g. `"vscode"`. */
+  project?: string;
+}) {
   const { report, error, loading } = useTtscWebsiteBenchmarkGraphData();
-  const rows = useMemo(() => (report ? buildRows(report) : []), [report]);
+  const rows = useMemo(
+    () => (report ? buildRows(report, project) : []),
+    [report, project],
+  );
   const max = useMemo(
     () =>
       Math.max(
@@ -207,24 +312,29 @@ export default function TtscWebsiteBenchmarkGraphTime() {
     >
       <TtscWebsiteBenchmarkGraphUi.SectionHeader
         eyebrow="Time"
-        title="Cold time to a first answer"
-        description="Build the tool's index once, then ask: the faded segment is the index build, the solid one the median wall clock the agent spent answering. Repositories are ordered by program size."
-        aside="Answer time is the median across four models and both prompt families, so every tool faces the same mix."
+        title={
+          project
+            ? `Cold time to a first answer — ${rows[0]?.label ?? project}`
+            : "Cold time to a first answer"
+        }
+        description="Build the tool's index once, then ask. The faded segment is the index build, the solid one the median wall clock the LLM spent answering."
+        aside="LLM time is the median across four models and both prompt families, so every tool faces the same mix."
       />
+      <ShadeLegend />
       <div className="space-y-4 px-5 py-4">
         {rows.map((row) => (
           <div key={row.project} className="space-y-1.5">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="font-mono text-[12px] text-neutral-200">
+              <span className="font-mono text-[13px] font-semibold text-neutral-100">
                 {row.label}
               </span>
               {row.lines > 0 ? (
-                <span className="font-mono text-[10px] tabular-nums text-neutral-500">
+                <span className="font-mono text-[11px] tabular-nums text-neutral-500">
                   {row.lines.toLocaleString()} lines
                 </span>
               ) : null}
             </div>
-            <Bars row={row} max={max} />
+            <Bars row={row} max={max} thick={Boolean(project)} />
           </div>
         ))}
       </div>

@@ -135,8 +135,14 @@ for (const combo of combos.values()) {
 // The index axis: what readiness costs before a tool can answer anything. It
 // is not a token chart, so it renders on its own scale (wall clock).
 if (report.index && (report.index.cells ?? []).length > 0) {
-  writeSvg("graph-index-build-time.svg", renderIndex(report.index));
   writeSvg("graph-time-to-answer.svg", renderTime(report.index, allCells));
+  writeSvg(
+    "graph-time-to-answer-vscode.svg",
+    renderTime(report.index, allCells, {
+      only: "vscode",
+      title: "Cold time to a first answer — VS Code, 3.4M lines (lower is better)",
+    }),
+  );
 }
 
 const pngs = writePngs();
@@ -185,12 +191,12 @@ function buildRows(input) {
 
 function render(rows, title) {
   const width = 1040;
-  const height = 900;
+  const height = 940;
   const chart = {
-    left: 124,
+    left: 136,
     right: 1016,
-    top: 116,
-    bottom: 830,
+    top: 128,
+    bottom: 866,
   };
   const plotWidth = chart.right - chart.left;
   const plotHeight = chart.bottom - chart.top;
@@ -202,8 +208,8 @@ function render(rows, title) {
   );
   const ticks = [0, max * 0.25, max * 0.5, max * 0.75, max];
   const rowHeight = plotHeight / rows.length;
-  const barHeight = 9;
-  const barStep = 13.5;
+  const barHeight = 10.5;
+  const barStep = 15.5;
 
   return `<?xml version="1.0" encoding="utf-8" standalone="no"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1" role="img" aria-label="${escapeXml(title)}">
@@ -226,7 +232,7 @@ function render(rows, title) {
        const x = chart.left + (tick / max) * plotWidth;
        return `<g>
     <path d="M ${x.toFixed(3)} ${chart.top} L ${x.toFixed(3)} ${chart.bottom}" style="fill:none;stroke:${COLORS.grid};stroke-width:0.7"/>
-    <text x="${x.toFixed(3)}" y="${chart.bottom + 18}" style="fill:${COLORS.label};font-size:11px;text-anchor:middle">${formatTick(tick)}</text>
+    <text x="${x.toFixed(3)}" y="${chart.bottom + 18}" style="fill:${COLORS.label};font-size:13px;text-anchor:middle">${formatTick(tick)}</text>
    </g>`;
      })
      .join("\n   ")}
@@ -237,31 +243,31 @@ function render(rows, title) {
        const barTop = rowTop + (rowHeight - (TOOLS.length - 1) * barStep) / 2;
        return `<g>
     <path d="M 18 ${(rowTop + rowHeight).toFixed(3)} L ${chart.right} ${(rowTop + rowHeight).toFixed(3)}" style="fill:none;stroke:${COLORS.grid};stroke-width:0.6"/>
-    <text x="${chart.left - 16}" y="${labelY.toFixed(3)}" style="fill:${COLORS.title};font-size:13px;font-weight:600;text-anchor:end">${escapeXml(row.label)}</text>
+    <text x="${chart.left - 16}" y="${labelY.toFixed(3)}" style="fill:${COLORS.title};font-size:15px;font-weight:600;text-anchor:end">${escapeXml(row.label)}</text>
     ${row.values
       .map((value, valueIndex) => {
         if (value.value <= 0) return "";
         const barWidth = Math.max(2, (value.value / max) * plotWidth);
         const label = valueLabel(row, value);
         const best = value.value === minTokens(row);
-        const labelWidth = estimateTextWidth(label, 11, best ? 700 : 400);
+        const labelWidth = estimateTextWidth(label, 13, best ? 700 : 400);
         const textX = Math.min(
           chart.left + barWidth + 5,
           width - labelWidth - 8,
         );
         const y = barTop + valueIndex * barStep;
         return `<rect x="${chart.left}" y="${y.toFixed(3)}" width="${barWidth.toFixed(3)}" height="${barHeight}" style="fill:${value.color}"/>
-    <text x="${textX.toFixed(3)}" y="${(y + barHeight - 0.7).toFixed(3)}" style="fill:${valueLabelColor(row, value)};font-size:11px${best ? ";font-weight:700" : ""}">${escapeXml(label)}</text>`;
+    <text x="${textX.toFixed(3)}" y="${(y + barHeight - 0.7).toFixed(3)}" style="fill:${valueLabelColor(row, value)};font-size:13px${best ? ";font-weight:700" : ""}">${escapeXml(label)}</text>`;
       })
       .filter(Boolean)
       .join("\n    ")}
    </g>`;
      })
      .join("\n   ")}
-   <text x="${(chart.left + plotWidth / 2).toFixed(3)}" y="28" style="fill:${COLORS.title};font-size:20px;font-weight:600;text-anchor:middle">${escapeXml(title)}</text>
-   <text x="${(chart.left + plotWidth / 2).toFixed(3)}" y="${chart.bottom + 44}" style="fill:${COLORS.label};font-size:13px;text-anchor:middle">Tokens</text>
-   ${renderLegend(chart.left, 58)}
-   <text x="${chart.left}" y="80" style="fill:${COLORS.muted};font-size:12px">Lower is better. Percentage is versus the no-MCP baseline.</text>
+   <text x="${(chart.left + plotWidth / 2).toFixed(3)}" y="30" style="fill:${COLORS.title};font-size:22px;font-weight:600;text-anchor:middle">${escapeXml(title)}</text>
+   <text x="${(chart.left + plotWidth / 2).toFixed(3)}" y="${chart.bottom + 46}" style="fill:${COLORS.label};font-size:14px;text-anchor:middle">Tokens</text>
+   ${renderLegend(chart.left, 60)}
+   <text x="${chart.left}" y="86" style="fill:${COLORS.muted};font-size:13px">Lower is better. Percentage is versus the no-MCP baseline.</text>
   </g>
  </g>
 </svg>`;
@@ -272,8 +278,8 @@ function render(rows, title) {
 // read at a glance.
 function renderSingle(row, cfg) {
   const width = 1040;
-  const height = 430;
-  const left = 124;
+  const height = 440;
+  const left = 136;
   const right = 1016;
   const top = 72;
   const bottom = 372;
@@ -292,12 +298,12 @@ function renderSingle(row, cfg) {
       const center = barY + barHeight / 2;
       const barWidth = Math.max(2, (value.value / max) * plotWidth);
       const label = valueLabel(row, value);
-      const labelWidth = estimateTextWidth(label, 12, 400);
+      const labelWidth = estimateTextWidth(label, 14, 400);
       const textX = Math.min(left + barWidth + 8, width - labelWidth - 8);
       return `<g>
-    <text x="${left - 8}" y="${(center + 4).toFixed(3)}" style="fill:${COLORS.title};font-size:13px;font-weight:600;text-anchor:end">${escapeXml(value.label)}</text>
+    <text x="${left - 8}" y="${(center + 4).toFixed(3)}" style="fill:${COLORS.title};font-size:15px;font-weight:600;text-anchor:end">${escapeXml(value.label)}</text>
     <rect x="${left}" y="${barY.toFixed(3)}" width="${barWidth.toFixed(3)}" height="${barHeight}" style="fill:${value.color}"/>
-    <text x="${textX.toFixed(3)}" y="${(center + 4).toFixed(3)}" style="fill:${valueLabelColor(row, value)};font-size:12px">${escapeXml(label)}</text>
+    <text x="${textX.toFixed(3)}" y="${(center + 4).toFixed(3)}" style="fill:${valueLabelColor(row, value)};font-size:14px">${escapeXml(label)}</text>
    </g>`;
     })
     .join("\n   ");
@@ -305,7 +311,7 @@ function renderSingle(row, cfg) {
   const baselineRef =
     row.baseline > 0
       ? `<line x1="${baselineX.toFixed(3)}" y1="${top}" x2="${baselineX.toFixed(3)}" y2="${bottom}" style="stroke:${COLORS.axis};stroke-width:1;stroke-dasharray:4 4"/>
-   <text x="${(baselineX + 4).toFixed(3)}" y="${top + 14}" style="fill:${COLORS.muted};font-size:11px">no-MCP baseline</text>`
+   <text x="${(baselineX + 4).toFixed(3)}" y="${top + 14}" style="fill:${COLORS.muted};font-size:12.5px">no-MCP baseline</text>`
       : "";
 
   return `<?xml version="1.0" encoding="utf-8" standalone="no"?>
@@ -318,21 +324,21 @@ function renderSingle(row, cfg) {
  </defs>
  <g>
   <path d="M 0 ${height} L ${width} ${height} L ${width} 0 L 0 0 z" style="fill:${COLORS.background}"/>
-  <text x="${left}" y="30" style="fill:${COLORS.title};font-size:16px;font-weight:600">${escapeXml(cfg.title)}</text>
-  ${cfg.subtitle ? `<text x="${left}" y="52" style="fill:${COLORS.muted};font-size:12px">${escapeXml(cfg.subtitle)}</text>` : ""}
+  <text x="${left}" y="30" style="fill:${COLORS.title};font-size:19px;font-weight:600">${escapeXml(cfg.title)}</text>
+  ${cfg.subtitle ? `<text x="${left}" y="52" style="fill:${COLORS.muted};font-size:13px">${escapeXml(cfg.subtitle)}</text>` : ""}
   <path d="M ${left} ${top} L ${right} ${top} L ${right} ${bottom} L ${left} ${bottom} z" style="fill:${COLORS.panel}"/>
   ${ticks
     .map((tick) => {
       const x = left + (tick / max) * plotWidth;
       return `<g>
    <path d="M ${x.toFixed(3)} ${top} L ${x.toFixed(3)} ${bottom}" style="fill:none;stroke:${COLORS.grid};stroke-width:0.7"/>
-   <text x="${x.toFixed(3)}" y="${bottom + 18}" style="fill:${COLORS.label};font-size:11px;text-anchor:middle">${formatTick(tick)}</text>
+   <text x="${x.toFixed(3)}" y="${bottom + 18}" style="fill:${COLORS.label};font-size:13px;text-anchor:middle">${formatTick(tick)}</text>
   </g>`;
     })
     .join("\n  ")}
   <path d="M ${left} ${bottom} L ${right} ${bottom}" style="fill:none;stroke:${COLORS.axis};stroke-width:0.8"/>
   <path d="M ${left} ${top} L ${left} ${bottom}" style="fill:none;stroke:${COLORS.axis};stroke-width:0.8"/>
-  <text x="${(left + plotWidth / 2).toFixed(3)}" y="${bottom + 42}" style="fill:${COLORS.label};font-size:13px;text-anchor:middle">Tokens</text>
+  <text x="${(left + plotWidth / 2).toFixed(3)}" y="${bottom + 44}" style="fill:${COLORS.label};font-size:14px;text-anchor:middle">Tokens</text>
   ${baselineRef}
   ${bars}
  </g>
@@ -514,8 +520,8 @@ function renderIndex(index) {
     `<?xml version="1.0" encoding="utf-8" standalone="no"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1" role="img" aria-label="${escapeXml(title)}">`,
     ` <rect width="${width}" height="${height}" fill="#0b0f14"/>`,
-    ` <text x="40" y="46" fill="#f8fafc" font-size="20" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
-    ` <text x="40" y="68" fill="#64748b" font-size="12" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(host)}</text>`,
+    ` <text x="40" y="46" fill="#f8fafc" font-size="22" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
+    ` <text x="40" y="68" fill="#64748b" font-size="13" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(host)}</text>`,
     ` <text x="40" y="${height - 22}" fill="#64748b" font-size="11" font-family="DejaVu Sans, Arial, sans-serif">Every tool builds the index its own documentation prescribes; repositories are ordered by the size of the program each was built from.</text>`,
     legend,
     grid,
@@ -525,15 +531,16 @@ function renderIndex(index) {
 }
 
 // The wall clock a first answer costs from a cold checkout: build the tool's
-// index once, then ask. The faded head of each bar is the build; the solid tail
-// is the median time the agent spent answering, over every model and both prompt
-// families, so each tool faces the same mix.
+// index once, then ask. The faded head of each bar is the index build; the
+// solid tail is the median time the LLM spent answering, over every model and
+// both prompt families, so each tool faces the same mix.
 //
 // It is the other half of the trade a context-saving tool is making. A tool that
 // cuts an agent's token bill and then spends four minutes indexing and three
 // more re-searching what it indexed has moved the cost, not removed it.
-function renderTime(index, cells) {
+function renderTime(index, cells, options = {}) {
   const rows = [...new Set(index.cells.map((cell) => cell.project))]
+    .filter((project) => !options.only || project === options.only)
     .map((project) => ({
       project,
       label: REPO_LABELS[project] ?? project,
@@ -552,16 +559,18 @@ function renderTime(index, cells) {
     .filter((row) => row.values.length > 0)
     .sort((a, b) => a.scale.lines - b.scale.lines);
 
-  // A group of five bars is 75px tall and the row it sat in was 76, so the
-  // repositories ran together into one wall and the reader had to count bars to
-  // find where Vue ended and NestJS began. The plot is taller now: each project
-  // gets its own band of whitespace, and the eye lands on a repository before it
-  // reads a tool.
+  // One repository per band of whitespace, so a project reads as a block before
+  // the eye starts picking tools out of it. A single-project render (the VS
+  // Code cut) gets thicker bars instead of empty air.
+  const single = rows.length === 1;
+  const barHeight = single ? 28 : 12.5;
+  const barStep = single ? 40 : 17;
+  const rowHeight = single ? 5 * barStep + 44 : 100;
   const width = 1040;
-  const height = 920;
-  const chart = { left: 160, right: 940, top: 130, bottom: 850 };
+  const chart = { left: 160, right: 900, top: 150 };
+  chart.bottom = chart.top + rows.length * rowHeight;
+  const height = chart.bottom + 80;
   const plotWidth = chart.right - chart.left;
-  const plotHeight = chart.bottom - chart.top;
   const max = niceMax(
     Math.max(
       1,
@@ -571,17 +580,13 @@ function renderTime(index, cells) {
     ),
   );
   const ticks = [0, max * 0.25, max * 0.5, max * 0.75, max];
-  const rowHeight = plotHeight / rows.length;
-  const barHeight = 11;
-  const barStep = 15;
   const bandHeight = rowHeight - 14;
-  const title = "Cold time to a first answer (lower is better)";
+  const title =
+    options.title ?? "Cold time to a first answer (lower is better)";
   const host = index.host
     ? `${index.host.cpu}, ${index.host.cores} cores, ${index.host.ramGB} GB — ${index.host.os}`
     : "";
 
-  // One band per repository, under the grid, so a project reads as a block
-  // before the eye starts picking tools out of it.
   const bands = rows
     .map((row, rowIndex) => {
       const center = chart.top + rowIndex * rowHeight + rowHeight / 2;
@@ -611,6 +616,7 @@ function renderTime(index, cells) {
         const y = groupTop + i * barStep;
         const buildWidth = (value.buildMs / max) * plotWidth;
         const answerWidth = (value.answerMs / max) * plotWidth;
+        const textY = y + barHeight / 2 + 4;
         if (value.buildMs > 0)
           lines.push(
             `  <rect x="${chart.left}" y="${y.toFixed(1)}" width="${buildWidth.toFixed(1)}" height="${barHeight}" fill="${value.color}" fill-opacity="0.35" rx="2"/>`,
@@ -618,42 +624,41 @@ function renderTime(index, cells) {
         lines.push(
           `  <rect x="${(chart.left + buildWidth).toFixed(1)}" y="${y.toFixed(1)}" width="${answerWidth.toFixed(1)}" height="${barHeight}" fill="${value.color}" rx="2"/>`,
         );
-        // Both halves of the wait, in the order they are paid: the index build,
-        // then the answer. A tool with no index to build says so with a zero,
-        // which is the point of putting them side by side.
+        // Both halves of the wait, in the order they are paid: (index / LLM).
+        // A tool with no index to build says so with a zero, which is the point
+        // of putting them side by side.
         lines.push(
-          `  <text x="${(chart.left + buildWidth + answerWidth + 8).toFixed(1)}" y="${(y + barHeight - 1).toFixed(1)}" fill="${value.color}" font-size="11">${escapeXml(`${fmtSeconds(value.buildMs)} / ${fmtSeconds(value.answerMs)}`)}</text>`,
+          `  <text x="${(chart.left + buildWidth + answerWidth + 8).toFixed(1)}" y="${textY.toFixed(1)}" fill="#cbd5f5" font-size="${single ? 13 : 11}">${escapeXml(`${fmtCompact(value.buildMs)} / ${fmtCompact(value.answerMs)}`)}</text>`,
         );
       });
       return lines.join("\n");
     })
     .join("\n");
 
-  // Two legends, because the bar carries two facts. The colours say which tool,
-  // and the shades say which half of the wait — and the label beside each bar
-  // reads in that same order, `index / answer`, so a tool with no index to build
-  // shows a zero where the others show a minute.
+  // Two legends, because a bar carries two facts. The colours say which tool;
+  // the worked example says which shade is which wait, using the same two-tone
+  // bar the chart draws, so the reader learns the encoding by seeing it once.
   const legend = TOOLS.map((tool, i) =>
     [
-      `  <rect x="${100 + i * 175}" y="80" width="12" height="12" fill="${tool.color}" rx="2"/>`,
-      `  <text x="${118 + i * 175}" y="90" fill="#cbd5f5" font-size="12">${escapeXml(tool.label)}</text>`,
+      `  <rect x="${40 + i * 180}" y="76" width="13" height="13" fill="${tool.color}" rx="2"/>`,
+      `  <text x="${59 + i * 180}" y="87" fill="#cbd5f5" font-size="13.5">${escapeXml(tool.label)}</text>`,
     ].join("\n"),
   ).join("\n");
   const shadeLegend = [
-    `  <rect x="100" y="100" width="12" height="12" fill="#94a3b8" fill-opacity="0.35" rx="2"/>`,
-    `  <text x="118" y="110" fill="#94a3b8" font-size="11">index build</text>`,
-    `  <rect x="215" y="100" width="12" height="12" fill="#94a3b8" rx="2"/>`,
-    `  <text x="233" y="110" fill="#94a3b8" font-size="11">answer</text>`,
-    `  <text x="300" y="110" fill="#64748b" font-size="11">— each bar is labelled index / answer, in the order you wait for them</text>`,
+    `  <rect x="40" y="102" width="60" height="17" fill="#22d3ee" fill-opacity="0.35" rx="2"/>`,
+    `  <rect x="100" y="102" width="40" height="17" fill="#22d3ee" rx="2"/>`,
+    `  <text x="70" y="115" fill="#e2e8f0" font-size="11" font-weight="bold" text-anchor="middle">index</text>`,
+    `  <text x="120" y="115" fill="#0b0f14" font-size="11" font-weight="bold" text-anchor="middle">LLM</text>`,
+    `  <text x="150" y="115" fill="#cbd5f5" font-size="13">${escapeXml("faded = index build, solid = LLM answering — each bar is labelled index / LLM")}</text>`,
   ].join("\n");
 
   return [
     `<?xml version="1.0" encoding="utf-8" standalone="no"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1" role="img" aria-label="${escapeXml(title)}">`,
     ` <rect width="${width}" height="${height}" fill="#0b0f14"/>`,
-    ` <text x="40" y="46" fill="#f8fafc" font-size="20" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
-    ` <text x="40" y="68" fill="#64748b" font-size="12" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(host)}</text>`,
-    ` <text x="40" y="${height - 22}" fill="#64748b" font-size="11" font-family="DejaVu Sans, Arial, sans-serif">Cold checkout: build the tool's index once, then ask. The answer is the median wall clock over four models and both prompt families; the baseline has no index to build.</text>`,
+    ` <text x="40" y="42" fill="#f8fafc" font-size="20" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
+    ` <text x="40" y="62" fill="#64748b" font-size="12" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(host)}</text>`,
+    ` <text x="40" y="${height - 20}" fill="#64748b" font-size="12.5" font-family="DejaVu Sans, Arial, sans-serif">Cold checkout: build the tool's index once, then ask. LLM time is the median wall clock over four models and both prompt families; the baseline has no index to build.</text>`,
     legend,
     shadeLegend,
     bands,
@@ -661,6 +666,20 @@ function renderTime(index, cells) {
     bars,
     `</svg>`,
   ].join("\n");
+}
+
+/**
+ * Compact seconds for the in-chart labels: "30s", "5s", "0.4s", "732s".
+ *
+ * One unit, no space, because the label carries two of these plus punctuation
+ * and sits beside a bar; "(732s / 41s)" reads in a glance where
+ * "12.2 min / 41 s" makes the reader convert units before comparing.
+ */
+function fmtCompact(ms) {
+  const seconds = ms / 1000;
+  if (seconds === 0) return "0s";
+  if (seconds >= 10) return `${Math.round(seconds).toLocaleString("en-US")}s`;
+  return `${seconds.toFixed(1)}s`;
 }
 
 function medianAnswerMs(cells, project, tool) {

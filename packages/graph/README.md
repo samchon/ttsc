@@ -57,9 +57,13 @@ Every repository is asked the same onboarding question, a plain code tour. Acros
 
 An index answers nothing until it is built, and a developer waits for it before the agent can ask anything at all. This is the other half of the trade: a tool that cuts the token bill and then spends twelve minutes indexing has moved the cost, not removed it.
 
-The faded head of each bar is the cold index build, the solid tail is the answer, and every bar is labelled `index / answer` in the order you wait for them. The baseline has no index to build.
+The faded head of each bar is the cold index build, the solid tail is the LLM answering, and every bar is labelled `index / LLM` in the order you wait for them. The baseline has no index to build.
 
 ![Cold time to a first answer, per repository](https://ttsc.dev/benchmark/svg/graph-time-to-answer.svg)
+
+At three million lines the index question stops being academic. On VS Code, `@ttsc/graph` builds in 29 seconds — the graph is a byproduct of the type-check the compiler runs anyway — where `codegraph` spends twelve minutes and serena four and a half:
+
+![Cold time to a first answer, VS Code alone](https://ttsc.dev/benchmark/svg/graph-time-to-answer-vscode.svg)
 
 The interactive charts, every model, and the method are on the benchmark page: https://ttsc.dev/docs/benchmark/graph
 
