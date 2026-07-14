@@ -45,6 +45,7 @@ import type {
   ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
 } from "./ITtscLintTypeScriptRuleOptions";
 import type {
+  ITtscLintUnicornConsistentFunctionScopingRuleOptions,
   ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
@@ -122,6 +123,7 @@ export interface ITtscLintRuleOptionsMap {
   "typescript/no-misused-promises": ITtscLintTypeScriptNoMisusedPromisesRuleOptions;
   "typescript/no-restricted-types": ITtscLintTypeScriptNoRestrictedTypesRuleOptions;
   "typescript/switch-exhaustiveness-check": ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions;
+  "unicorn/consistent-function-scoping": ITtscLintUnicornConsistentFunctionScopingRuleOptions;
   "unicorn/prevent-abbreviations": ITtscLintUnicornPreventAbbreviationsRuleOptions;
   "unicorn/import-style": ITtscLintUnicornImportStyleRuleOptions;
 }

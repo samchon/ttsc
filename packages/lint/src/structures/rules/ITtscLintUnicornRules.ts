@@ -3,6 +3,7 @@ import type {
   TtscLintRuleSetting,
 } from "../TtscLintRuleSetting";
 import type {
+  ITtscLintUnicornConsistentFunctionScopingRuleOptions,
   ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
@@ -82,7 +83,7 @@ export interface ITtscLintUnicornRules {
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/consistent-function-scoping.md
    */
-  "unicorn/consistent-function-scoping"?: TtscLintRuleSetting;
+  "unicorn/consistent-function-scoping"?: TtscLintRuleOptionsSetting<ITtscLintUnicornConsistentFunctionScopingRuleOptions>;
 
   /**
    * Enforce the `\${` spelling over `$\{` when escaping `${` in template

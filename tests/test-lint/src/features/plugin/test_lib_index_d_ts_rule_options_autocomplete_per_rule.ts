@@ -152,6 +152,10 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
           requireDefaultForNonUnion: true,
         },
       ],
+      "unicorn/consistent-function-scoping": [
+        "error",
+        { checkArrowFunctions: false },
+      ],
       "unicorn/template-indent": [
         "warning",
         {
@@ -430,6 +434,17 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       ],
     },
   };
+  const unicornFunctionScopingOptionShape: ITtscLintConfig = {
+    rules: {
+      "unicorn/consistent-function-scoping": [
+        "error",
+        {
+          // @ts-expect-error — checkArrowFunctions is a boolean switch.
+          checkArrowFunctions: "no",
+        },
+      ],
+    },
+  };
   const unicornReplacementShape: ITtscLintConfig = {
     rules: {
       "unicorn/prevent-abbreviations": [
@@ -511,6 +526,7 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(switchOptionTypo);
   assert.ok(templateIndentOptionTypo);
   assert.ok(unicornImportModeTypo);
+  assert.ok(unicornFunctionScopingOptionShape);
   assert.ok(unicornReplacementShape);
   assert.ok(importStyleOptionKeyTypo);
   assert.ok(importStyleModuleEntryShape);

@@ -302,6 +302,11 @@ function formatNames(names: string[]) {
 }
 ```
 
+The rule checks arrow functions by default. Set `checkArrowFunctions: false` in
+the rule options to restrict diagnostics to function declarations and function
+expressions. Functions that capture an enclosing binding, lexical `this`,
+`arguments`, `super`, or a private name remain in their current scope.
+
 <a id="rule-unicorn-consistent-template-literal-escape"></a>
 
 ### `unicorn/consistent-template-literal-escape`
