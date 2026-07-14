@@ -231,7 +231,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-alert`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-alert.ts): rejects `alert`, `confirm`, and `prompt`.
 - [`no-array-constructor`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-array-constructor.ts): rejects `Array` constructor calls.
 - [`no-async-promise-executor`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-async-promise-executor.ts): rejects async Promise executors.
-- [`no-await-in-loop`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-await-in-loop.ts): reject `await` expressions evaluated inside a loop body.
+- [`no-await-in-loop`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-await-in-loop.ts): reject explicit and implicit awaits evaluated in repeated loop positions.
 - [`no-bitwise`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-bitwise.ts): rejects bitwise operators.
 - [`no-caller`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-caller.ts): rejects `arguments.caller` and `arguments.callee`.
 - [`no-case-declarations`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-case-declarations.ts): rejects lexical declarations directly inside `case` clauses.

@@ -23,7 +23,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-alert`](#rule-no-alert): Reject calls to `alert`, `confirm`, and `prompt`.
 - [`no-array-constructor`](#rule-no-array-constructor): Reject `Array(...)` and `new Array(...)` constructor calls.
 - [`no-async-promise-executor`](#rule-no-async-promise-executor): Reject `new Promise(async (resolve, reject) => { ... })`.
-- [`no-await-in-loop`](#rule-no-await-in-loop): Reject `await` expressions evaluated inside a loop body.
+- [`no-await-in-loop`](#rule-no-await-in-loop): Reject explicit and implicit awaits evaluated in repeated loop positions.
 - [`no-bitwise`](#rule-no-bitwise): Reject bitwise operators.
 - [`no-caller`](#rule-no-caller): Reject `arguments.caller` and `arguments.callee`, both deprecated properties forbidden in strict mode.
 - [`no-case-declarations`](#rule-no-case-declarations): Reject lexical declarations inside `case` or `default` clauses.
@@ -755,11 +755,11 @@ new Promise(async (resolve) => {
 
 ### `no-await-in-loop`
 
-Reject `await` expressions evaluated inside a loop body.
+Reject explicit `await` expressions and implicit awaits from `for await ... of` or `await using` when they execute in a repeated loop position. A `for` initializer and the right-hand side of `for...in` or `for...of` run once and are allowed; loop tests, updates, and bodies repeat and are checked.
 
 The loop runs strictly serially because each iteration blocks on the previous one's microtask hop; when the operations are independent the equivalent `Promise.all([...])` is dramatically faster.
 
-The rule intentionally exempts `for await ... of` because the awaitable iterator is the loop's whole reason for existing.
+The rule treats a `for await ... of` as a boundary for its own body because asynchronous iteration is intentional. The same statement is reported when nested in an ordinary loop, where creating and consuming the async iterator becomes part of each outer iteration.
 
 Example:
 

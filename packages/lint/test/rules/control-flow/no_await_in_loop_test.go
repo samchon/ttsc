@@ -5,9 +5,8 @@ import "testing"
 // TestRuleCorpusNoAwaitInLoop verifies the lint rule corpus fixture
 // no-await-in-loop.ts.
 //
-// The rule walks up from an `await` expression to find the nearest
-// enclosing loop, stopping at function-like boundaries. `for await … of`
-// loops are exempt by design — the awaited iterator IS the loop.
+// The rule walks from each explicit or implicit await through repeated loop
+// positions, stopping at function-like and intentional for-await boundaries.
 //
 // 1. Load the annotated TypeScript source embedded below.
 // 2. Enable the rule severity declared by its `// expect:` comment.
