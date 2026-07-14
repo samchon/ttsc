@@ -19,18 +19,20 @@ func (runtimeRuleCodeTestRule) Check(*Context, *shimast.Node) {}
 // Contributor names are not frozen in the package ledger because the host does
 // not control their installed set. For one unchanged set, however, registration
 // order must not affect codes and a legacy hash collision must never leak into
-// the native diagnostic stream.
+// the native diagnostic stream, including across file and project rules.
 //
-//  1. Insert a synthetic colliding contributor pair in forward order.
+//  1. Insert a synthetic colliding file/project contributor pair in forward order.
 //  2. Reinsert the same pair in reverse order and compare assignments.
 //  3. Require both mappings to remain distinct from each other and built-ins.
 func TestRuntimeRuleCodesAreCollisionFreeAndOrderIndependent(t *testing.T) {
 	left, right := findSyntheticRuleCodeCollision(t)
-	if LookupRule(left) != nil || LookupRule(right) != nil {
+	_, leftProject := registeredProjectRules[left]
+	_, rightProject := registeredProjectRules[right]
+	if LookupRule(left) != nil || LookupRule(right) != nil || leftProject || rightProject {
 		t.Fatalf("synthetic contributor names unexpectedly registered: %q, %q", left, right)
 	}
-	forward := runtimeCodesForInsertionOrder(t, []string{left, right})
-	reverse := runtimeCodesForInsertionOrder(t, []string{right, left})
+	forward := runtimeCodesForInsertionOrder(t, left, right, []string{left, right})
+	reverse := runtimeCodesForInsertionOrder(t, left, right, []string{right, left})
 	if !reflect.DeepEqual(forward, reverse) {
 		t.Fatalf("runtime codes depend on registration order: forward=%#v reverse=%#v", forward, reverse)
 	}
@@ -44,16 +46,19 @@ func TestRuntimeRuleCodesAreCollisionFreeAndOrderIndependent(t *testing.T) {
 	}
 }
 
-func runtimeCodesForInsertionOrder(t *testing.T, names []string) map[string]int32 {
+func runtimeCodesForInsertionOrder(t *testing.T, fileName string, projectName string, names []string) map[string]int32 {
 	t.Helper()
 	for _, name := range names {
-		registered.rules[name] = runtimeRuleCodeTestRule{name: name}
-	}
-	invalidateRuntimeRuleCodes()
-	defer func() {
-		for _, name := range names {
-			delete(registered.rules, name)
+		if name == fileName {
+			Register(runtimeRuleCodeTestRule{name: name})
+			continue
 		}
+		registeredProjectRules[name] = projectRuleAdapter{name: name}
+		invalidateRuntimeRuleCodes()
+	}
+	defer func() {
+		delete(registered.rules, fileName)
+		delete(registeredProjectRules, projectName)
 		invalidateRuntimeRuleCodes()
 	}()
 	codes := make(map[string]int32, len(names))
