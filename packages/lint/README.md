@@ -105,6 +105,7 @@ export default {
     trailingComma: "all",
     sortImports: {
       order: ["<BUILTIN_MODULES>", "", "<THIRD_PARTY_MODULES>", "", "^[./]"],
+      unsafeSortRuntimeImports: true, // accepts module evaluation reordering
     },
     jsDoc: true,
   },
@@ -126,10 +127,12 @@ Each `format` key controls one behavior:
 | `quoteProps` | Quote or unquote object property keys. |
 | `trailingComma` | Add trailing commas to multi-line lists. |
 | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Column-aware line reflow. Object/array literals, call/new arguments, and named import/export clauses break across lines when their flat form overflows the budget. |
-| `sortImports` (opt-in) | Group imports by `order`, alphabetize each group + its specifiers, and merge duplicate modules. |
+| `sortImports` (opt-in) | Sort named specifiers and erased type-only imports. Runtime declaration sorting requires `unsafeSortRuntimeImports`. |
 | `jsDoc` (on by default) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
 `sortImports` is **opt-in** — it takes effect only when you set it. Every other key takes effect as soon as the `format` block is present (JSDoc normalization included; set `jsDoc: false` to opt out), which also applies several keyless layout behaviors (statement splitting, indentation, whitespace normalization, clause joining, declaration-header reflow, ternary-nullish parens, leading-semicolon merging, and parameter-property breaking).
+
+The safe default preserves the source order of every runtime-bearing import, including default, namespace, named, and bare imports, because each form can evaluate its dependency module. It still alphabetizes named specifiers within one declaration and can sort or merge a block made entirely of erased `import type` declarations. Set `unsafeSortRuntimeImports: true` only when every dependency in the block is order-independent. `combineTypeAndValue` affects a mixed type/value block only under that unsafe opt-in.
 
 Formatting is configured **only** through the `format` block. The `rules` map is for lint rules; a `format/*` id placed there is ignored. To turn a format behavior off, set its `format` key (for example `trailingComma: "none"`), not a `rules` entry.
 

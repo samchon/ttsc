@@ -9,7 +9,7 @@ import "testing"
 // the case-insensitive default, isolating the caseSensitive branch.
 //
 //  1. Parse imports of `apple` and `React`.
-//  2. Apply the rule with caseSensitive enabled.
+//  2. Enable caseSensitive and unsafe runtime sorting.
 //  3. Assert `React` sorts before `apple`.
 func TestFormatSortImportsOrdersCaseSensitivelyWhenEnabled(t *testing.T) {
   source := "import apple from \"apple\";\n" +
@@ -20,5 +20,5 @@ func TestFormatSortImportsOrdersCaseSensitivelyWhenEnabled(t *testing.T) {
     "import apple from \"apple\";\n" +
     "React;\n" +
     "apple;\n"
-  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"caseSensitive":true}`, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"caseSensitive":true,"unsafeSortRuntimeImports":true}`, expected)
 }

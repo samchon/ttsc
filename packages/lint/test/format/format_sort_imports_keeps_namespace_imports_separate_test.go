@@ -10,7 +10,7 @@ import "testing"
 //
 //  1. Parse a file with a namespace and a named import of the same module plus
 //     a later-sorting third-party import.
-//  2. Apply the rule with default options.
+//  2. Apply the rule with unsafe runtime sorting enabled.
 //  3. Assert the namespace import stays its own declaration.
 func TestFormatSortImportsKeepsNamespaceImportsSeparate(t *testing.T) {
   source := "import { z } from \"z\";\n" +
@@ -25,5 +25,5 @@ func TestFormatSortImportsKeepsNamespaceImportsSeparate(t *testing.T) {
     "z;\n" +
     "ns;\n" +
     "a;\n"
-  assertFixSnapshot(t, "format/sort-imports", source, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"unsafeSortRuntimeImports":true}`, expected)
 }

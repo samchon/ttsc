@@ -316,8 +316,14 @@ func expandSortImportsBlock(v any) (map[string]any, bool, error) {
           return nil, false, err
         }
         opts["combineTypeAndValue"] = b
+      case "unsafeSortRuntimeImports":
+        b, err := asBool("format.sortImports.unsafeSortRuntimeImports", val)
+        if err != nil {
+          return nil, false, err
+        }
+        opts["unsafeSortRuntimeImports"] = b
       default:
-        return nil, false, fmt.Errorf("@ttsc/lint: format.sortImports unknown key %q (allowed: order, caseSensitive, combineTypeAndValue)", key)
+        return nil, false, fmt.Errorf("@ttsc/lint: format.sortImports unknown key %q (allowed: order, caseSensitive, combineTypeAndValue, unsafeSortRuntimeImports)", key)
       }
     }
     return opts, true, nil

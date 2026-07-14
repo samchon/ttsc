@@ -8,8 +8,8 @@ import (
 // TestFormatBlockRejectsNonBoolSortImportsOptions verifies the boolean
 // sub-options of sortImports reject non-boolean values.
 //
-// Locks the asBool error paths for caseSensitive and combineTypeAndValue. A
-// non-bool value for either must be surfaced at the format-block boundary
+// Locks the asBool error paths for every boolean option. A non-bool value must
+// be surfaced at the format-block boundary
 // rather than coerced.
 //
 //  1. For each boolean sub-option, build sortImports with a non-bool value.
@@ -23,6 +23,7 @@ func TestFormatBlockRejectsNonBoolSortImportsOptions(t *testing.T) {
   }{
     {"caseSensitive", "yes", "format.sortImports.caseSensitive"},
     {"combineTypeAndValue", 1, "format.sortImports.combineTypeAndValue"},
+    {"unsafeSortRuntimeImports", "yes", "format.sortImports.unsafeSortRuntimeImports"},
   }
   for _, tc := range cases {
     _, err := expandFormatBlock(map[string]any{

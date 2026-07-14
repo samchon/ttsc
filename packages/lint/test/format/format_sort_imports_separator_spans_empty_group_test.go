@@ -10,7 +10,7 @@ import "testing"
 // single blank line carried by the skipped middle group.
 //
 //  1. Parse a third-party and a relative import (no @api import).
-//  2. Apply the rule with an order whose middle group is empty.
+//  2. Apply that order with unsafe runtime sorting enabled.
 //  3. Assert one blank line separates the two populated groups.
 func TestFormatSortImportsSeparatorSpansEmptyGroup(t *testing.T) {
   source := "import { a } from \"alpha\";\n" +
@@ -22,5 +22,5 @@ func TestFormatSortImportsSeparatorSpansEmptyGroup(t *testing.T) {
     "import { b } from \"./local\";\n" +
     "a;\n" +
     "b;\n"
-  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<THIRD_PARTY_MODULES>","","@api/(.*)","","^[.]"]}`, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<THIRD_PARTY_MODULES>","","@api/(.*)","","^[.]"],"unsafeSortRuntimeImports":true}`, expected)
 }

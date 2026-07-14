@@ -20,5 +20,5 @@ func TestFormatSortImportsMergesTypeNamedBinding(t *testing.T) {
     "foo;\n"
   expected := "import { foo, type type as bar } from \"m\";\n" +
     "foo;\n"
-  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"combineTypeAndValue":true}`, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"combineTypeAndValue":true,"unsafeSortRuntimeImports":true}`, expected)
 }

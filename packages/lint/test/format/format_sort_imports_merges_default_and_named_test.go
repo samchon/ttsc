@@ -8,7 +8,7 @@ import "testing"
 // The default binding survives alongside the union of named specifiers.
 //
 //  1. Parse a file importing `{ b }` and a default from the same module.
-//  2. Apply the rule with default options.
+//  2. Apply the rule with unsafe runtime sorting enabled.
 //  3. Assert one merged `default, { named }` declaration.
 func TestFormatSortImportsMergesDefaultAndNamed(t *testing.T) {
   source := "import { b } from \"m\";\n" +
@@ -18,5 +18,5 @@ func TestFormatSortImportsMergesDefaultAndNamed(t *testing.T) {
   expected := "import a, { b } from \"m\";\n" +
     "a;\n" +
     "b;\n"
-  assertFixSnapshot(t, "format/sort-imports", source, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"unsafeSortRuntimeImports":true}`, expected)
 }

@@ -9,7 +9,7 @@ import "testing"
 // `<TYPES>` group placed first pulls every `import type` to the top.
 //
 //  1. Parse a value import and a type-only import.
-//  2. Apply the rule with order ["<TYPES>", "<THIRD_PARTY_MODULES>"].
+//  2. Apply that order with unsafe runtime sorting enabled.
 //  3. Assert the type-only import sorts first.
 func TestFormatSortImportsGroupsTypeOnlyImports(t *testing.T) {
   source := "import { a } from \"m\";\n" +
@@ -18,5 +18,5 @@ func TestFormatSortImportsGroupsTypeOnlyImports(t *testing.T) {
   expected := "import type { B } from \"n\";\n" +
     "import { a } from \"m\";\n" +
     "a;\n"
-  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<TYPES>","<THIRD_PARTY_MODULES>"]}`, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["<TYPES>","<THIRD_PARTY_MODULES>"],"unsafeSortRuntimeImports":true}`, expected)
 }

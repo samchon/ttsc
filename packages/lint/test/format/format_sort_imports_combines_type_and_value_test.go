@@ -10,7 +10,7 @@ import "testing"
 // declaration is no longer type-only.
 //
 //  1. Parse a value import and a type-only import of the same module.
-//  2. Apply the rule with combineTypeAndValue enabled.
+//  2. Enable combineTypeAndValue and unsafe runtime sorting.
 //  3. Assert one declaration with the value specifier before the inline `type`.
 func TestFormatSortImportsCombinesTypeAndValue(t *testing.T) {
   source := "import { foo } from \"m\";\n" +
@@ -18,5 +18,5 @@ func TestFormatSortImportsCombinesTypeAndValue(t *testing.T) {
     "foo;\n"
   expected := "import { foo, type Bar } from \"m\";\n" +
     "foo;\n"
-  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"combineTypeAndValue":true}`, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"combineTypeAndValue":true,"unsafeSortRuntimeImports":true}`, expected)
 }

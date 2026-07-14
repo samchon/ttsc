@@ -18,6 +18,7 @@ export default {
     trailingComma: "all",
     sortImports: {
       order: ["<BUILTIN_MODULES>", "", "<THIRD_PARTY_MODULES>", "", "^[./]"],
+      unsafeSortRuntimeImports: true, // accepts module evaluation reordering
     },
     jsDoc: true,
   },
@@ -38,7 +39,7 @@ Presence of the block (even empty `format: {}`) configures the format rules at P
 | `quoteProps` | Quote or unquote object property keys. |
 | `trailingComma` | Add trailing commas to multi-line lists. |
 | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. |
-| `sortImports` (opt-in) | Group imports by `order`, alphabetize them, and merge duplicate modules. |
+| `sortImports` (opt-in) | Sort named specifiers and erased type-only imports. Runtime declaration sorting requires `unsafeSortRuntimeImports`. |
 | `jsDoc` (on by default) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
 
 `sortImports` is **opt-in**: it only runs when you set it. Every other format behavior — including JSDoc normalization (set `jsDoc: false` to opt out) — runs as soon as a `format` block is present, along with the keyless layout passes (statement splitting, indentation, whitespace, clause joining, declaration headers, ternary and nullish parens, orphan semicolons, and parameter properties).
@@ -87,7 +88,7 @@ Enforce trailing commas in **multiline** literals, object literals, array litera
 
 ### `sortImports`
 
-**Opt-in.** Reorder, group, and merge imports. Set `format.sortImports` to `true` for defaults, or to an object to customize.
+**Opt-in.** Sort named specifiers and erased type-only imports. Set `format.sortImports` to `true` for safe defaults, or to an object to customize.
 
 The `order` array drives grouping. Each entry is a regular expression matched against a module specifier, or one of these placeholders:
 
@@ -96,7 +97,9 @@ The `order` array drives grouping. Each entry is a regular expression matched ag
 - `<TYPES>` — `import type` declarations (optionally scoped, e.g. `<TYPES>^[.]`).
 - `""` — emit one blank line at this position.
 
-The default `order` is `["<BUILTIN_MODULES>", "<THIRD_PARTY_MODULES>", "^[.]"]`, with **no** blank lines between groups (add `""` entries to insert them). Within each group declarations sort by specifier — case-insensitively unless `caseSensitive: true` — and named specifiers always sort. Duplicate imports of the same module are merged; `combineTypeAndValue: true` additionally folds a type-only import into a value import (`import { foo, type Bar } from "m"`). A merge that would produce invalid syntax — such as a type-only default alongside type-only named bindings (`import type D, { A } from "m"` is TS1363) — is skipped, and the declarations stay separate while still grouped and sorted. Autofixable.
+The default `order` is `["<BUILTIN_MODULES>", "<THIRD_PARTY_MODULES>", "^[.]"]`, with **no** blank lines between groups (add `""` entries to insert them). Named specifiers always sort. A block made entirely of erased `import type` declarations is grouped, sorted, and merged according to these options.
+
+Runtime-bearing declarations keep source order by default. Default, namespace, named, and bare imports can all evaluate their dependency modules, so changing their order can change program behavior. `unsafeSortRuntimeImports: true` explicitly permits grouping, sorting, and merging those declarations when every dependency in the block is order-independent. `combineTypeAndValue: true` folds a type-only import into a value import (`import { foo, type Bar } from "m"`) only under that unsafe opt-in. A merge that would produce invalid syntax, such as a type-only default alongside type-only named bindings (`import type D, { A } from "m"` is TS1363), is skipped. Autofixable.
 
 ### `jsDoc`
 

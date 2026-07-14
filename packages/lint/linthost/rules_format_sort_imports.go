@@ -29,9 +29,10 @@ const (
 
 // formatSortImportsOptions mirrors `ITtscLintFormatSortImports`.
 type formatSortImportsOptions struct {
-  Order               []string `json:"order"`
-  CaseSensitive       bool     `json:"caseSensitive"`
-  CombineTypeAndValue bool     `json:"combineTypeAndValue"`
+  Order                    []string `json:"order"`
+  CaseSensitive            bool     `json:"caseSensitive"`
+  CombineTypeAndValue      bool     `json:"combineTypeAndValue"`
+  UnsafeSortRuntimeImports bool     `json:"unsafeSortRuntimeImports"`
 }
 
 // defaultImportOrder is used when the user supplies no `order`: Node built-ins,
@@ -44,12 +45,13 @@ var defaultImportOrder = []string{
   `^[.]`,
 }
 
-// formatSortImports orders the file's top-level import declarations into
-// canonical groups, alphabetizes each group, merges duplicate imports of the
-// same module, and (when `combineTypeAndValue` is on) folds a type-only
-// import into a value import of the same module. Groups are user-configurable
-// via the `order` option; when omitted, the rule falls back to {@link
-// defaultImportOrder}.
+// formatSortImports safely sorts named specifiers and erased type-only import
+// blocks. Runtime-bearing declarations retain source order unless the user
+// explicitly enables `unsafeSortRuntimeImports`; only then are they grouped,
+// alphabetized, and merged. When that unsafe mode and `combineTypeAndValue`
+// are both on, a type-only import may fold into a value import of the same
+// module. Groups are user-configurable via the `order` option; when omitted,
+// the rule falls back to {@link defaultImportOrder}.
 //
 // Within each group, declarations are sorted by their module-specifier text
 // (ASCII order, or case-insensitive unless `caseSensitive: true`). Named
@@ -58,9 +60,9 @@ var defaultImportOrder = []string{
 // Safety policy: if any byte between the contiguous imports is not
 // whitespace, the rule bails. Comments anchored to specific imports would
 // otherwise move with the wrong declaration, which is a strictly worse
-// outcome than declining to sort. Side-effect imports (`import "foo"`) also
-// bail the whole block because their evaluation order can carry meaning the
-// rule cannot reason about.
+// outcome than declining to sort. Every import other than `import type` can
+// evaluate a module, including default, namespace, and named binding imports,
+// so declaration-level rewriting is disabled for those blocks by default.
 type formatSortImports struct{}
 
 func (formatSortImports) Name() string   { return "format/sort-imports" }
@@ -80,19 +82,15 @@ func (formatSortImports) Check(ctx *Context, node *shimast.Node) {
     return
   }
   imports := collectLeadingImports(statements.Nodes)
-  // Block-level reorder runs only when the rule can do it safely:
-  // two or more contiguous imports with no comment trivia between
-  // them (comments anchor to specific imports and moving them would
-  // mis-attach the user's intent), AND no side-effect-only imports
-  // in the block. A side-effect import (`import "./polyfill"`) runs
-  // its module's top-level code for its observable effect; sorting it
-  // across a sibling import that depends on the polyfill being
-  // initialized first would silently change runtime behavior. The
-  // rule conservatively refuses to reorder the entire block in that
-  // case.
+  // Block-level rewriting runs only for erased type-only imports or after the
+  // caller explicitly accepts runtime reordering. Binding imports execute
+  // their dependencies just like bare imports, so preserving only
+  // `import "./polyfill"` is insufficient. Comment trivia remains an
+  // unconditional barrier even in unsafe mode because the rebuilder cannot
+  // preserve a comment's declaration attachment.
   if len(imports) >= 2 &&
     leadingTriviaIsAllWhitespace(src, imports) &&
-    !containsSideEffectImport(imports) {
+    (opts.unsafeSortRuntimeImports || !importsHaveRuntimeEvaluation(imports)) {
     first := imports[0]
     last := imports[len(imports)-1]
     replaceStart := shimscanner.SkipTrivia(src, first.Pos())
@@ -118,9 +116,10 @@ func (formatSortImports) Check(ctx *Context, node *shimast.Node) {
 // during one Check call. All option defaults are applied here so the
 // rest of the rule code does not branch on nil-ness.
 type resolvedSortImportsOptions struct {
-  groups              []sortImportsGroup
-  caseSensitive       bool
-  combineTypeAndValue bool
+  groups                   []sortImportsGroup
+  caseSensitive            bool
+  combineTypeAndValue      bool
+  unsafeSortRuntimeImports bool
 }
 
 // sortImportsGroup is one resolved entry of the `order` array. A separator
@@ -144,9 +143,10 @@ func loadSortImportsOptions(ctx *Context) resolvedSortImportsOptions {
   }
   groups := parseImportOrder(order)
   return resolvedSortImportsOptions{
-    groups:              groups,
-    caseSensitive:       raw.CaseSensitive,
-    combineTypeAndValue: raw.CombineTypeAndValue,
+    groups:                   groups,
+    caseSensitive:            raw.CaseSensitive,
+    combineTypeAndValue:      raw.CombineTypeAndValue,
+    unsafeSortRuntimeImports: raw.UnsafeSortRuntimeImports,
   }
 }
 
@@ -298,21 +298,22 @@ func specifierListHasCommentTrivia(src string, specifiers []*shimast.Node) bool 
   return false
 }
 
-// containsSideEffectImport reports whether any import in the contiguous
-// block has no import clause (i.e. is a side-effect-only `import "x"`).
-// These imports are evaluated for their top-level effect; their order
-// relative to other imports may carry meaning the rule cannot reason
-// about, so the safety policy is to refuse to sort.
-func containsSideEffectImport(imports []*shimast.Node) bool {
+// importsHaveRuntimeEvaluation reports whether a contiguous block contains an
+// import that survives as a module dependency. Bare, default, namespace,
+// named, and deferred imports can all trigger top-level evaluation; only a
+// clause explicitly marked `type` is erased. Unexpected AST shapes are treated
+// as runtime-bearing so a parser change cannot silently weaken the guard.
+func importsHaveRuntimeEvaluation(imports []*shimast.Node) bool {
   for _, decl := range imports {
     if decl == nil {
-      continue
+      return true
     }
     imp := decl.AsImportDeclaration()
-    if imp == nil {
-      continue
+    if imp == nil || imp.ImportClause == nil {
+      return true
     }
-    if imp.ImportClause == nil {
+    clause := imp.ImportClause.AsImportClause()
+    if clause == nil || clause.PhaseModifier != shimast.KindTypeKeyword {
       return true
     }
   }

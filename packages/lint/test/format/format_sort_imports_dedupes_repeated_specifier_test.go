@@ -9,7 +9,7 @@ import "testing"
 // declarations each importing `{ a }` yield one `{ a }`.
 //
 //  1. Parse two imports of `{ a }` from the same module.
-//  2. Apply the rule with default options.
+//  2. Apply the rule with unsafe runtime sorting enabled.
 //  3. Assert the merged declaration lists `a` once.
 func TestFormatSortImportsDedupesRepeatedSpecifier(t *testing.T) {
   source := "import { a } from \"m\";\n" +
@@ -17,5 +17,5 @@ func TestFormatSortImportsDedupesRepeatedSpecifier(t *testing.T) {
     "a;\n"
   expected := "import { a } from \"m\";\n" +
     "a;\n"
-  assertFixSnapshot(t, "format/sort-imports", source, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"unsafeSortRuntimeImports":true}`, expected)
 }

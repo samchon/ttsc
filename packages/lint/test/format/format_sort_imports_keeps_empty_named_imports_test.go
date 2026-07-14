@@ -11,7 +11,7 @@ import "testing"
 //
 //  1. Parse two `import {}` declarations from the same module plus a
 //     later-sorting third-party import.
-//  2. Apply the rule with default options.
+//  2. Apply the rule with unsafe runtime sorting enabled.
 //  3. Assert the empty imports survive as separate declarations.
 func TestFormatSortImportsKeepsEmptyNamedImports(t *testing.T) {
   source := "import { z } from \"z\";\n" +
@@ -22,5 +22,5 @@ func TestFormatSortImportsKeepsEmptyNamedImports(t *testing.T) {
     "import {} from \"m\";\n" +
     "import { z } from \"z\";\n" +
     "z;\n"
-  assertFixSnapshot(t, "format/sort-imports", source, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"unsafeSortRuntimeImports":true}`, expected)
 }

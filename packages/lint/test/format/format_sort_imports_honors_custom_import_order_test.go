@@ -21,8 +21,7 @@ import (
 // the engine.
 //
 //  1. Parse a source file with mixed import classes.
-//  2. Apply the rule with a custom `order` (third-party, then `@api/*`, then
-//     relative) separated by blank lines.
+//  2. Apply the custom order and separators with unsafe runtime sorting.
 //  3. Assert the rewritten file has the imports laid out per the spec.
 func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
   root := t.TempDir()
@@ -39,7 +38,7 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
     Rules: RuleConfig{"format/sort-imports": SeverityError},
     Options: RuleOptionsMap{
       "format/sort-imports": json.RawMessage(
-        `{"order":["<THIRD_PARTY_MODULES>","","@api(.*)$","","^[./]"]}`,
+        `{"order":["<THIRD_PARTY_MODULES>","","@api(.*)$","","^[./]"],"unsafeSortRuntimeImports":true}`,
       ),
     },
   }

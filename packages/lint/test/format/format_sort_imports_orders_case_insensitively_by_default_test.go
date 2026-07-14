@@ -9,7 +9,7 @@ import "testing"
 // default lowercases both before comparing, so `apple` precedes `React`.
 //
 //  1. Parse imports of `React` and `apple`.
-//  2. Apply the rule with default options.
+//  2. Enable unsafe runtime sorting with the default comparison mode.
 //  3. Assert `apple` sorts before `React`.
 func TestFormatSortImportsOrdersCaseInsensitivelyByDefault(t *testing.T) {
   source := "import React from \"React\";\n" +
@@ -20,5 +20,5 @@ func TestFormatSortImportsOrdersCaseInsensitivelyByDefault(t *testing.T) {
     "import React from \"React\";\n" +
     "React;\n" +
     "apple;\n"
-  assertFixSnapshot(t, "format/sort-imports", source, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"unsafeSortRuntimeImports":true}`, expected)
 }

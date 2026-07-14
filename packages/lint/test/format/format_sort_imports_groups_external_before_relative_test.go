@@ -26,5 +26,5 @@ func TestFormatSortImportsGroupsExternalBeforeRelative(t *testing.T) {
     "import { x } from \"./local-a\";\n" +
     "import { reduce } from \"./local-b\";\n" +
     "JSON.stringify({ reduce, zebra, x, alpha });\n"
-  assertFixSnapshot(t, "format/sort-imports", source, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"unsafeSortRuntimeImports":true}`, expected)
 }

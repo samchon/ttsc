@@ -15,7 +15,7 @@ import "testing"
 //
 //  1. Parse two identical named imports carrying a specifier comment plus a
 //     later-sorting third-party import.
-//  2. Apply the rule with default options.
+//  2. Apply the rule with unsafe runtime sorting enabled.
 //  3. Assert both commented declarations survive verbatim, sorted first.
 func TestFormatSortImportsKeepsIdenticalCommentedImportsUnmerged(t *testing.T) {
   source := "import { z } from \"z\";\n" +
@@ -26,5 +26,5 @@ func TestFormatSortImportsKeepsIdenticalCommentedImportsUnmerged(t *testing.T) {
     "import { a /* keep */ } from \"m\";\n" +
     "import { z } from \"z\";\n" +
     "z;\n"
-  assertFixSnapshot(t, "format/sort-imports", source, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"unsafeSortRuntimeImports":true}`, expected)
 }

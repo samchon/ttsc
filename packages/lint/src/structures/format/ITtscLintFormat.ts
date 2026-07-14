@@ -120,8 +120,9 @@ export interface ITtscLintFormat {
   endOfLine?: "lf" | "crlf";
 
   /**
-   * Import sorting & merging. Off unless present; `true` enables it with
-   * defaults, an object customizes.
+   * Import formatting. Off unless present; `true` sorts named specifiers and
+   * erased type-only imports with defaults, and an object customizes behavior.
+   * Runtime declaration reordering requires an explicit unsafe opt-in.
    *
    * @default false
    */

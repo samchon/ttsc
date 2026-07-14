@@ -9,7 +9,7 @@ import "testing"
 // built-in specifier must land there ahead of everything else.
 //
 //  1. Parse a file mixing a built-in, a third-party, and a relative import.
-//  2. Apply the rule with default options.
+//  2. Apply the rule with unsafe runtime sorting enabled.
 //  3. Assert the built-in import sits first.
 func TestFormatSortImportsGroupsBuiltinsFirst(t *testing.T) {
   source := "import { x } from \"./local\";\n" +
@@ -20,5 +20,5 @@ func TestFormatSortImportsGroupsBuiltinsFirst(t *testing.T) {
     "import express from \"express\";\n" +
     "import { x } from \"./local\";\n" +
     "JSON.stringify({ x, express, readFile });\n"
-  assertFixSnapshot(t, "format/sort-imports", source, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"unsafeSortRuntimeImports":true}`, expected)
 }

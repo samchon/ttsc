@@ -10,7 +10,7 @@ import "testing"
 // unmatched specifier.
 //
 //  1. Parse a third-party and a relative import.
-//  2. Apply the rule with order ["[", "^[.]"] (the first entry is invalid).
+//  2. Apply that order with unsafe runtime sorting (the first entry is invalid).
 //  3. Assert the run continues and groups by the surviving order.
 func TestFormatSortImportsSkipsInvalidRegexGroup(t *testing.T) {
   source := "import { b } from \"./local\";\n" +
@@ -21,5 +21,5 @@ func TestFormatSortImportsSkipsInvalidRegexGroup(t *testing.T) {
     "import { b } from \"./local\";\n" +
     "a;\n" +
     "b;\n"
-  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["[","^[.]"]}`, expected)
+  assertFixSnapshotWithOptions(t, "format/sort-imports", source, `{"order":["[","^[.]"],"unsafeSortRuntimeImports":true}`, expected)
 }

@@ -2,9 +2,9 @@
  * Object form of {@link ITtscLintFormat.sortImports}.
  *
  * The declarative {@link order} array expresses group order, blank-line
- * separation, and special groups all by position. Multiple imports of the same
- * module are always merged into one declaration; merging a value import with a
- * type-only import additionally requires {@link combineTypeAndValue}.
+ * separation, and special groups all by position. By default, declaration-level
+ * sorting and merging are limited to erased `import type` blocks. Runtime
+ * imports retain source order unless {@link unsafeSortRuntimeImports} is set.
  */
 export interface ITtscLintFormatSortImports {
   /**
@@ -54,9 +54,26 @@ export interface ITtscLintFormatSortImports {
    * Merge a value import and a type-only import of the same module into one
    * declaration with inline `type` specifiers: `import { foo } from "m"` plus
    * `import type { Bar } from "m"` collapse to `import { foo, type Bar } from
-   * "m"`.
+   * "m"`. Mixed type/value blocks are left unchanged unless
+   * {@link unsafeSortRuntimeImports} is also enabled.
    *
    * @default false
    */
   combineTypeAndValue?: boolean;
+
+  /**
+   * Permit declaration-level sorting and merging of runtime-bearing imports.
+   *
+   * Every default, namespace, named, and bare import can evaluate its module.
+   * Reordering those declarations can therefore change program behavior. Keep
+   * this disabled unless every imported module in the block is order-independent.
+   * Named specifiers inside a declaration and erased `import type` blocks are
+   * still sorted when this option is disabled.
+   *
+   * {@link combineTypeAndValue} only affects mixed type/value blocks when this
+   * option is enabled.
+   *
+   * @default false
+   */
+  unsafeSortRuntimeImports?: boolean;
 }
