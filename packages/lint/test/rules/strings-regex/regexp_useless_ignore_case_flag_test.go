@@ -41,6 +41,7 @@ func TestRegexpUselessIgnoreCaseFlag(t *testing.T) {
     {`/\cA/i`, true, "\\cA is a control code point"},
     {`/\60/i`, true, "the legacy octal escape \\60 decodes to the digit 0"},
     {`/\8/i`, true, "Annex B \\8 matches the bare digit"},
+    {`/\ud801\udc00/i`, true, "without u these are two caseless code units, not a code point"},
     {`/\w+/i`, true, "without u, \\w is [A-Za-z0-9_] with or without the flag"},
     {`/\b\d/i`, true, "without u, \\b is defined over that same \\w"},
     {`/(?<year>\d{4})/i`, true, "a group name is never matched against the input"},
