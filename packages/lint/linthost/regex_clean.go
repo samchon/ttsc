@@ -189,33 +189,3 @@ func regexCleanHasFlags(regexFlags, replaceFlags string) bool {
   }
   return true
 }
-
-// regexEscapeStringJsesc reproduces the subset of jsesc used by unicorn's
-// `escapeString` helper (`{quotes, wrap: true, es6: true, minimal: true}`):
-// wrap the string in `quote`, escaping only the backslash, the wrapping quote,
-// and the line/paragraph separators that are invalid unescaped in a string
-// literal. Every other byte is emitted verbatim, matching jsesc's minimal
-// mode.
-func regexEscapeStringJsesc(value string, quote byte) string {
-  var builder strings.Builder
-  builder.WriteByte(quote)
-  for _, runeValue := range value {
-    switch {
-    case runeValue == '\\':
-      builder.WriteString(`\\`)
-    case runeValue < 128 && byte(runeValue) == quote:
-      builder.WriteByte('\\')
-      builder.WriteByte(quote)
-    case runeValue == 0x2028:
-      builder.WriteByte(0x5c)
-      builder.WriteString("u2028")
-    case runeValue == 0x2029:
-      builder.WriteByte(0x5c)
-      builder.WriteString("u2029")
-    default:
-      builder.WriteRune(runeValue)
-    }
-  }
-  builder.WriteByte(quote)
-  return builder.String()
-}

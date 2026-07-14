@@ -129,6 +129,12 @@ func unicornBetterRegexCheckLiteral(ctx *Context, node *shimast.Node) {
 // string argument via the clean-regexp table. Only a bare `new RegExp(...)`
 // with a string-literal first argument qualifies; a regex-literal argument is
 // left to the literal branch, and non-`RegExp` / non-string forms are ignored.
+//
+// clean-regexp works on the literal's cooked value, so the rewritten pattern is
+// re-escaped through the shared escapeString port before it goes back into the
+// source, keeping the original quote character. Emitting the cooked bytes
+// directly would break the literal the moment the pattern carried a line
+// terminator.
 func unicornBetterRegexCheckConstructor(ctx *Context, node *shimast.Node) {
   newExpr := node.AsNewExpression()
   if newExpr == nil || identifierText(newExpr.Expression) != "RegExp" {
@@ -159,7 +165,7 @@ func unicornBetterRegexCheckConstructor(ctx *Context, node *shimast.Node) {
     return
   }
   quote := source[patternStart]
-  replacement := regexEscapeStringJsesc(newPattern, quote)
+  replacement := escapeString(newPattern, quote)
   ctx.ReportFix(
     node,
     fmt.Sprintf("%s can be optimized to %s.", oldPattern, newPattern),

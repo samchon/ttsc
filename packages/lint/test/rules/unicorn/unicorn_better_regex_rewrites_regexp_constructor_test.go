@@ -9,8 +9,8 @@ import "testing"
 //
 // The constructor branch only handles a bare `new RegExp(...)` whose first
 // argument is a string literal; the fix replaces just that argument and
-// preserves its quote character (jsesc minimal escaping). A regex-literal
-// first argument is optimized by the literal branch on the inner node instead.
+// preserves its quote character. A regex-literal first argument is optimized by
+// the literal branch on the inner node instead.
 // The negatives pin every disqualifier upstream honors — plain call, wrong
 // callee, member callee, non-string / numeric / missing argument, and an
 // already-optimal pattern.
