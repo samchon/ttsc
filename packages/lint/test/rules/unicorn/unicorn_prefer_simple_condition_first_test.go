@@ -275,3 +275,41 @@ if ((a || b) && c) { void 0; }
     t.Fatalf("mixed logical operand must remain diagnostic-only, got %+v", findings[0])
   }
 }
+
+func TestUnicornPreferSimpleConditionFirstReviewsEachHomogeneousMixedOperatorChain(t *testing.T) {
+  source := `declare const flag: boolean;
+declare const ready: boolean;
+declare const enabled: boolean;
+if (((flag ? true : false) && ready) || enabled) { void 0; }
+`
+  _, _, findings := runRuleFindingsSnapshot(t, preferSimpleConditionFirstRule, source, nil)
+  if len(findings) != 2 {
+    t.Fatalf("want inner safe and outer unsafe findings, got %d (%+v)", len(findings), findings)
+  }
+  safe := 0
+  unsafe := 0
+  fixes := 0
+  for _, finding := range findings {
+    switch finding.Message {
+    case "Prefer this simple condition first in the `&&` expression.":
+      safe++
+    case unicornPreferSimpleConditionFirstUnsafeMessage:
+      unsafe++
+    default:
+      t.Fatalf("unexpected mixed-chain message: %+v", finding)
+    }
+    fixes += len(finding.Fix)
+  }
+  if safe != 1 || unsafe != 1 || fixes != 1 {
+    t.Fatalf("want one safe fix and one unsafe diagnostic, got safe=%d unsafe=%d fixes=%d", safe, unsafe, fixes)
+  }
+  expected := `declare const flag: boolean;
+declare const ready: boolean;
+declare const enabled: boolean;
+if ((ready && (flag ? true : false)) || enabled) { void 0; }
+`
+  fixed, count := runFixSnapshot(t, preferSimpleConditionFirstRule, source)
+  if count != 1 || fixed != expected {
+    t.Fatalf("mixed-chain fix: want count=1 and %q, got count=%d and %q", expected, count, fixed)
+  }
+}
