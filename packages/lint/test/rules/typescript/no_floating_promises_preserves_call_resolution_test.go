@@ -123,11 +123,11 @@ contextual(function () { return nestedFunctionUncached.catch(() => undefined); }
     t.Helper()
     signature := prog.checker.GetResolvedSignature(node)
     if signature == nil {
-      t.Fatalf("canonical signature is nil at %q", node.Text())
+      t.Fatalf("canonical signature is nil at %q", shimast.NodeText(node))
     }
     returnType := prog.checker.GetReturnTypeOfSignature(signature)
     if returnType == nil {
-      t.Fatalf("canonical return type is nil at %q", node.Text())
+      t.Fatalf("canonical return type is nil at %q", shimast.NodeText(node))
     }
     return canonical{
       signature:  signature,
@@ -138,10 +138,10 @@ contextual(function () { return nestedFunctionUncached.catch(() => undefined); }
     t.Helper()
     signature := prog.checker.GetResolvedSignature(node)
     if signature != want.signature {
-      t.Fatalf("canonical signature changed at %q", node.Text())
+      t.Fatalf("canonical signature changed at %q", shimast.NodeText(node))
     }
     if got := prog.checker.GetReturnTypeOfSignature(signature); got != want.returnType {
-      t.Fatalf("canonical return type changed at %q", node.Text())
+      t.Fatalf("canonical return type changed at %q", shimast.NodeText(node))
     }
   }
   assertSameCanonicalShape := func(label string, got canonical, want canonical) {
