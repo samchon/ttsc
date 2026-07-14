@@ -849,7 +849,12 @@ func unicornPreventAbbreviationsBindingScope(declaration *shimast.Node) *shimast
     }
     return nil
   }
-  return preferConstLexicalScope(declaration)
+  scope := preferConstLexicalScope(declaration)
+  if scope != nil && scope.Kind == shimast.KindBlock && scope.Parent != nil &&
+    scope.Parent.Kind == shimast.KindCatchClause {
+    return scope.Parent
+  }
+  return scope
 }
 
 // Destructuring BindingElements inherit declaration-kind semantics from the
@@ -1425,8 +1430,42 @@ func unicornPreventAbbreviationsBindingReferenceScopes(
     scopes = append(scopes, scope)
   }
   add(binding.scope)
+  for _, scope := range unicornPreventAbbreviationsVarRestrictedScopes(binding.declaration, binding.scope) {
+    add(scope)
+  }
   for _, reference := range binding.references {
     add(unicornPreventAbbreviationsReferenceScope(reference))
+  }
+  return scopes
+}
+
+// A var declaration is function-scoped, but ECMAScript early errors also
+// prohibit it from crossing lexical declarations in any containing block,
+// loop, switch, or catch before that function boundary. Record those syntactic
+// containers in addition to the var binding's function scope.
+func unicornPreventAbbreviationsVarRestrictedScopes(
+  declaration *shimast.Node,
+  bindingScope *shimast.Node,
+) []*shimast.Node {
+  root := unicornPreventAbbreviationsRootDeclaration(declaration)
+  if root == nil || root.Kind != shimast.KindVariableDeclaration || root.Parent == nil ||
+    root.Parent.Kind != shimast.KindVariableDeclarationList || !shimast.IsVar(root.Parent) {
+    return nil
+  }
+  scopes := make([]*shimast.Node, 0)
+  for current := root.Parent.Parent; current != nil && current != bindingScope; current = current.Parent {
+    switch current.Kind {
+    case shimast.KindBlock:
+      if current.Parent == nil || !unicornPreventAbbreviationsIsFunctionLike(current.Parent) {
+        scopes = append(scopes, current)
+      }
+    case shimast.KindCaseBlock,
+      shimast.KindForStatement,
+      shimast.KindForInStatement,
+      shimast.KindForOfStatement,
+      shimast.KindCatchClause:
+      scopes = append(scopes, current)
+    }
   }
   return scopes
 }

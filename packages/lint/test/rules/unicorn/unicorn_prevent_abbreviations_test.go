@@ -91,6 +91,26 @@ func TestUnicornPreventAbbreviationsUsesFunctionScopeForDestructuredVarCollision
   )
 }
 
+func TestUnicornPreventAbbreviationsAvoidsCatchParameterBodyRedeclarations(t *testing.T) {
+  source := "try {\n  throw 0;\n} catch (idx) {\n  const i = 1;\n  console.log(i);\n}\n"
+  assertFixSnapshot(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    "try {\n  throw 0;\n} catch (index) {\n  const index_ = 1;\n  console.log(index_);\n}\n",
+  )
+}
+
+func TestUnicornPreventAbbreviationsAvoidsVarLexicalEarlyErrorCollisions(t *testing.T) {
+  source := "function check(values: number[]): void {\n  {\n    const cur = 0;\n    if (cur === 0) {\n      var curr = 1;\n      console.log(curr);\n    }\n  }\n  for (const idx of values) {\n    if (values.length > 0) {\n      var i = 1;\n      console.log(i);\n    }\n  }\n  try {\n    throw { value: 0 };\n  } catch ({ value: fn }) {\n    if (values.length > 0) {\n      var func = 1;\n      console.log(func);\n    }\n  }\n}\nvoid check;\n"
+  assertFixSnapshot(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    "function check(values: number[]): void {\n  {\n    const current = 0;\n    if (current === 0) {\n      var current_ = 1;\n      console.log(current_);\n    }\n  }\n  for (const index of values) {\n    if (values.length > 0) {\n      var index_ = 1;\n      console.log(index_);\n    }\n  }\n  try {\n    throw { value: 0 };\n  } catch ({ value: function_ }) {\n    if (values.length > 0) {\n      var function__ = 1;\n      console.log(function__);\n    }\n  }\n}\nvoid check;\n",
+  )
+}
+
 func TestUnicornPreventAbbreviationsSeparatesGeneratedNamesInOneScope(t *testing.T) {
   source := "const idx = 0;\nconst i = 1;\nconsole.log(idx, i);\n"
   assertFixSnapshot(
