@@ -43,6 +43,9 @@ func TestFormatCommandResolverSkipsUpgradeForEntryIgnoredFile(t *testing.T) {
   resolver := formatCommandResolver{inner: store}
 
   ignored := resolver.ResolveRules("/project/src/driver/mongodb/typings.ts")
+  if !ignored.OutOfScope {
+    t.Fatalf("entry-ignored file was not marked inapplicable: %+v", ignored)
+  }
   if ignored.Rules.Severity("format/semi") != SeverityOff {
     t.Fatalf("ignored file: want formatSemi off, got %v (resolved=%+v)",
       ignored.Rules.Severity("format/semi"), ignored.Rules)

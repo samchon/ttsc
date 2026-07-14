@@ -106,7 +106,10 @@ type ProjectRuleSetting struct {
 // its severity.
 //
 // `Ignored` means an `ignores`-only config entry matched the file and the
-// engine should skip linting it entirely.
+// engine should skip linting it entirely. `OutOfScope` means the store has at
+// least one rule-bearing entry but none applies to this file. Keeping the two
+// states distinct lets wrappers preserve entry-local ignores: one entry may
+// reject a file while another matching entry still contributes rules.
 type ResolvedRuleConfig struct {
   Rules           RuleConfig
   Options         RuleOptionsMap
@@ -115,6 +118,7 @@ type ResolvedRuleConfig struct {
   // RuleResolver.RuleOptions.
   OptionsResolved bool
   Ignored         bool
+  OutOfScope      bool
 }
 
 // RuleOptions returns the file-resolved option payload for name. Built-in
@@ -438,10 +442,17 @@ func (s *ConfigStore) ResolveRules(fileName string) ResolvedRuleConfig {
   }
   out := RuleConfig{}
   options := RuleOptionsMap{}
+  hasEntries := false
+  matchedEntry := false
   for _, entry := range s.entries {
-    if entry.IgnoreOnly || !entry.matchesFile(fileName) {
+    if entry.IgnoreOnly {
       continue
     }
+    hasEntries = true
+    if !entry.matchesFile(fileName) {
+      continue
+    }
+    matchedEntry = true
     for name, sev := range entry.Rules {
       canonical := normalizeBuiltinRuleName(name)
       out[canonical] = sev
@@ -450,7 +461,12 @@ func (s *ConfigStore) ResolveRules(fileName string) ResolvedRuleConfig {
       }
     }
   }
-  return ResolvedRuleConfig{Rules: out, Options: options, OptionsResolved: true}
+  return ResolvedRuleConfig{
+    Rules:           out,
+    Options:         options,
+    OptionsResolved: true,
+    OutOfScope:      hasEntries && !matchedEntry,
+  }
 }
 
 // ActiveRuleNames implements RuleResolver. Returns the sorted union of all rule
