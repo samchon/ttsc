@@ -362,6 +362,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
             "I'm new here; trace Service.run to the work it does and show tests to read next.",
           request: {
             type: "tour",
+            reinterpretations: ["Service.run", "helper"],
           },
         }),
       })) as ToolResult,

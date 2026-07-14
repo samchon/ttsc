@@ -8,6 +8,7 @@ import { ITtscGraphTour } from "../structures/ITtscGraphTour";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
 import { exportFanIn, hasExportSurface } from "./exportSurface";
 import { isSupportPath, isTestPath } from "./pathPolicy";
+import { resolveGraphHandle } from "./resolveHandle";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, docOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
@@ -15,6 +16,20 @@ import { runTrace } from "./runTrace";
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 5;
+/**
+ * The share of a tour's seeds the symbols the caller named may take.
+ *
+ * Two authorities pick a tour, and neither is allowed to be the only one. Half
+ * the seeds go to what the caller says the answer is made of — it has read the
+ * question and the codebase's docs, and the tour has read neither. The other
+ * half goes to what the graph says is central to the question, and the names do
+ * not touch that ranking, because a caller cannot name what it does not know is
+ * there: Opus named ten symbols along RxJS's subscribe path, and `operate` —
+ * the head of the operator chain the question asked about, and the second seed
+ * of the same tour with no names at all — fell out of the tour it did not
+ * name.
+ */
+const NAMED_SHARE = 0.5;
 const FLOW_SEEDS = 4;
 /** How many ranked seeds deep to look for flows that actually move. */
 const FLOW_SEED_CANDIDATES = 4;
@@ -136,6 +151,7 @@ export function runTour(
   question: string,
 ): IRunnerOutput<ITtscGraphTour> {
   const query = question.trim();
+  const named = namedNodesOf(graph, query, props.reinterpretations);
   const limit = bound(props.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
   const entry = runEntrypoints(graph, {
     type: "entrypoints",
@@ -143,7 +159,7 @@ export function runTour(
     limit,
     neighbors: 1,
   }).result;
-  const seeds = tourSeedsOf(graph, entry, query, limit);
+  const seeds = tourSeedsOf(graph, entry, query, limit, named);
   const seedIds = seeds.map((node) => node.id);
   const entrypoints = seeds.map((node) => graphNodeOf(graph, node));
 
@@ -164,7 +180,7 @@ export function runTour(
   const told: Set<string>[] = [];
 
   for (const id of flowSeedIdsOf(
-    tourSeedsOf(graph, entry, query, limit * FLOW_SEED_CANDIDATES),
+    tourSeedsOf(graph, entry, query, limit * FLOW_SEED_CANDIDATES, named),
   )) {
     if (primaryFlow.length >= FLOW_SEEDS) break;
     const trace = runTrace(graph, {
@@ -299,11 +315,62 @@ function tourNext(): ITtscGraphNext {
   );
 }
 
+/**
+ * The symbols the caller named, as the graph knows them.
+ *
+ * A name is not a word. Ranked as text, the reading `setupRenderEffect` — the
+ * render effect Opus was asking about, and had written down — is shredded into
+ * "setup", "render", "effect", and the tour opens on `queuePostRenderEffect`
+ * instead. The model then traced `setupRenderEffect` by hand, which is the call
+ * the tour exists to save.
+ *
+ * So each entry is resolved the way a handle is: the graph either holds that
+ * symbol or it does not, and what it does not hold is dropped without ceremony.
+ * A phrase is not a name and resolves to nothing, so prose costs the tour
+ * nothing — which is what makes a guess free, and a repository the caller has
+ * never seen safe to guess about.
+ */
+function namedNodesOf(
+  graph: TtscGraphMemory,
+  question: string,
+  names: readonly string[],
+): ReadonlySet<string> {
+  const out = new Set<string>();
+  // A question that names no machinery has nothing to reinterpret, so nothing
+  // the caller names is an answer to it. Strip the stop words from "I'm new
+  // here, show me the central runtime flow and the tests to read next" and
+  // nothing is left: the question is asking for the centre of the repository,
+  // and the centre is the graph's to know. Sonnet, asked for names it could not
+  // have, guessed RxJS's `lift` and `operate` from memory; the tour narrowed
+  // onto them and it spent three more calls climbing back out. The names are how
+  // a caller says which of several readings of *its question* it means — with no
+  // reading to choose between, they are the model's imagination, and the tour
+  // does not rank on imagination.
+  if (queryTermsOf(graph, question).length === 0) return out;
+  for (const raw of names) {
+    const name = raw.trim();
+    if (name.length === 0 || /\s/.test(name)) continue;
+    // An ambiguous guess is not evidence. A name the project declares once is a
+    // symbol the caller named; a name it declares many times is a word, and the
+    // graph does not get to decide which one was meant. Resolving to the first
+    // candidate decides anyway: Sonnet asked for `handlePointerDown`, Excalidraw
+    // declares it on several classes, and the tour of a drawing app opened on
+    // its line editor and cost eight calls. Boosting all of them instead only
+    // spreads the same guess wider. Both are the graph inventing a belief the
+    // caller did not have, so an ambiguous name is dropped, exactly like a name
+    // the graph has never heard of.
+    const resolved = resolveGraphHandle(graph, name);
+    if (resolved.node !== undefined) out.add(resolved.node.id);
+  }
+  return out;
+}
+
 function tourSeedsOf(
   graph: TtscGraphMemory,
   entry: ITtscGraphEntrypoints,
   query: string,
   limit: number,
+  named: ReadonlySet<string>,
 ): ITtscGraphNode[] {
   const out: ITtscGraphNode[] = [];
   const seen = new Set<string>();
@@ -322,12 +389,31 @@ function tourSeedsOf(
   // publishes, and a tour is a ranked product: take the reading the ranking put
   // first, which is the one a reader means.
   for (const mention of entry.mentions) {
-    const named = mention.node ?? mention.candidates?.[0];
-    add(named === undefined ? undefined : graph.node(named.id));
+    const mentioned = mention.node ?? mention.candidates?.[0];
+    add(mentioned === undefined ? undefined : graph.node(mentioned.id));
   }
   if (hasExplicitSymbolHandle(query)) {
     for (const hit of entry.hits) add(graph.node(hit.id));
   }
+  // The symbols the caller named get seats, and the graph's own centre keeps the
+  // rest. A name the *user* wrote is seeded outright, above — it is the symbol
+  // the question is about. A name the *caller* wrote is a belief about where the
+  // answer lives, which is worth a seat and is not worth the tour: the beliefs
+  // are ranked among themselves and take half the seeds, and centrality fills
+  // what is left. A caller that names nine symbols does not get nine names and
+  // no centre, and one that names the wrong symbol still gets a tour.
+  const share = Math.floor(limit * NAMED_SHARE);
+  if (share > 0 && named.size !== 0) {
+    for (const node of rankedTourSeeds(graph, query, share, named)) add(node);
+  }
+  // The other half is the graph's, and the names do not reach it. Weighting the
+  // named symbols in this ranking too let them take both halves: Opus named ten
+  // symbols along RxJS's subscribe path, they filled the seeds, and `operate` —
+  // the second seed of the same tour without any names, and the head of the
+  // operator chain the question asked about — fell out of it. The model fetched
+  // it by hand and said so. A caller's belief about where the answer lives is
+  // worth half a tour; the other half is what the codebase says is central,
+  // including the symbol the caller did not think to name.
   for (const node of rankedTourSeeds(graph, query, limit)) add(node);
   if (out.length === 0) {
     for (const hit of entry.hits) add(graph.node(hit.id));
@@ -444,10 +530,14 @@ function rankedTourSeeds(
   graph: TtscGraphMemory,
   query: string,
   count: number,
+  only?: ReadonlySet<string>,
 ): ITtscGraphNode[] {
   const terms = queryTermsOf(graph, query);
   const items = graph.nodes
-    .filter((node) => isTourSeed(graph, node))
+    .filter(
+      (node) =>
+        isTourSeed(graph, node) && (only === undefined || only.has(node.id)),
+    )
     .map((node) => ({
       node,
       score: tourSeedScore(graph, node, terms),

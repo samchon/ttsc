@@ -49,7 +49,12 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   then that request's `type`.
  * - `review`: fix a broad, stale, or duplicate draft. If the graph already
  *   answered, or the evidence is outside it, escape.
- * - `request`: the final choice.
+ * - `request`: the final choice. A `tour` takes one more step of reasoning — its
+ *   `reinterpretations`: a list of symbol names, never a sentence, naming the
+ *   machinery you expect the answer to be made of. The graph looks each name
+ *   up, steers the tour with the ones it holds and drops the rest, so a wrong
+ *   guess is free and a right one saves a call. Send `[]` when the question
+ *   names no machinery.
  *
  * ## Sacred Contract
  *

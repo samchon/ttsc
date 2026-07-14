@@ -52,6 +52,37 @@ export namespace ITtscGraphTour {
     type: "tour";
 
     /**
+     * A list of symbol names. Not a sentence — names, one per entry, the way
+     * you would type them into a search: `["track", "trigger",
+     * "ReactiveEffect", "setupRenderEffect", "queueJob", "patch"]`.
+     *
+     * They are the machinery you expect the answer to be made of. The question
+     * is above, in the user's words, and the tour ranks against them — but a
+     * codebase names many things alike, and the question's words cannot tell
+     * them apart. "Dependency tracking" matches Vue's devtools hook
+     * `onRenderTracked` as well as `track`, the function that actually records
+     * the dependency; "request" matches a message listener as well as the HTTP
+     * router. The names are how you say which one you mean.
+     *
+     * Names, not prose. Each is looked up in the graph the way a handle is — a
+     * symbol name, a `Class.member`, a `file.symbol`. The ones the graph holds
+     * take half the tour's entrypoints; the other half stays with what the
+     * graph finds central, so a name you get wrong cannot cost you the tour. A
+     * name it does not know, or one it knows several of, is simply dropped: a
+     * wrong guess is free, and a phrase like "the public API and its runtime
+     * path" buys nothing. Write the names you would grep for, before you have
+     * seen a line.
+     *
+     * Send `[]` when the question names no machinery — an orientation tour of a
+     * repository you have not seen, "show me the central flow". Then there is
+     * nothing to reinterpret: the tour ranks on structure, which is what that
+     * question is asking for, and `[]` is the whole and correct answer. Do not
+     * go looking for names to put here first. A lookup before the tour is a
+     * call spent to fill a field that the tour would have ignored anyway.
+     */
+    reinterpretations: string[];
+
+    /**
      * Central entrypoints to seed the tour. Raise only when the question names
      * several public paths that must all appear in one answer.
      *
