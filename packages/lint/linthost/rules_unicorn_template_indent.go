@@ -67,6 +67,11 @@ type unicornTemplateIndentStat struct {
   weight int
 }
 
+type unicornTemplateIndentLine struct {
+  text       string
+  terminator string
+}
+
 func (unicornTemplateIndent) Name() string { return "unicorn/template-indent" }
 func (unicornTemplateIndent) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
@@ -574,7 +579,7 @@ func unicornTemplateIndentParentMargin(source string, pos int) string {
   }
   lineStart := 0
   for index := 0; index < pos; {
-    if width := unicornTemplateIndentSourceLineBreakWidth(source, index); width > 0 {
+    if width := unicornTemplateIndentLineBreakWidth(source, index); width > 0 {
       lineStart = index + width
       index += width
       continue
@@ -584,7 +589,7 @@ func unicornTemplateIndentParentMargin(source string, pos int) string {
   }
   lineEnd := len(source)
   for index := pos; index < len(source); {
-    if width := unicornTemplateIndentSourceLineBreakWidth(source, index); width > 0 {
+    if width := unicornTemplateIndentLineBreakWidth(source, index); width > 0 {
       lineEnd = index
       break
     }
@@ -607,14 +612,14 @@ func unicornTemplateIndentParentMargin(source string, pos int) string {
 }
 
 func unicornTemplateIndentStrip(text string) string {
-  lines := strings.Split(text, "\n")
+  lines := unicornTemplateIndentSplitLines(text)
   minimum := -1
   for _, line := range lines {
     indent := 0
-    for indent < len(line) && (line[indent] == ' ' || line[indent] == '\t') {
+    for indent < len(line.text) && (line.text[indent] == ' ' || line.text[indent] == '\t') {
       indent++
     }
-    if unicornTemplateIndentWhitespaceOnly(line[indent:]) {
+    if unicornTemplateIndentWhitespaceOnly(line.text[indent:]) {
       continue
     }
     if minimum < 0 || indent < minimum {
@@ -624,26 +629,55 @@ func unicornTemplateIndentStrip(text string) string {
   if minimum <= 0 {
     return text
   }
-  for index, line := range lines {
+  for index := range lines {
     removable := 0
-    for removable < len(line) && removable < minimum && (line[removable] == ' ' || line[removable] == '\t') {
+    for removable < len(lines[index].text) && removable < minimum &&
+      (lines[index].text[removable] == ' ' || lines[index].text[removable] == '\t') {
       removable++
     }
     if removable == minimum {
-      lines[index] = line[minimum:]
+      lines[index].text = lines[index].text[minimum:]
     }
   }
-  return strings.Join(lines, "\n")
+  return unicornTemplateIndentJoinLines(lines)
 }
 
 func unicornTemplateIndentIndentNonEmpty(text, indent string) string {
-  lines := strings.Split(text, "\n")
-  for index, line := range lines {
-    if !unicornTemplateIndentWhitespaceOnly(line) {
-      lines[index] = indent + line
+  lines := unicornTemplateIndentSplitLines(text)
+  for index := range lines {
+    if !unicornTemplateIndentWhitespaceOnly(lines[index].text) {
+      lines[index].text = indent + lines[index].text
     }
   }
-  return strings.Join(lines, "\n")
+  return unicornTemplateIndentJoinLines(lines)
+}
+
+func unicornTemplateIndentSplitLines(text string) []unicornTemplateIndentLine {
+  lines := make([]unicornTemplateIndentLine, 0, strings.Count(text, "\n")+1)
+  start := 0
+  for index := 0; index < len(text); {
+    if width := unicornTemplateIndentLineBreakWidth(text, index); width > 0 {
+      lines = append(lines, unicornTemplateIndentLine{
+        text:       text[start:index],
+        terminator: text[index : index+width],
+      })
+      index += width
+      start = index
+      continue
+    }
+    _, width := utf8.DecodeRuneInString(text[index:])
+    index += width
+  }
+  return append(lines, unicornTemplateIndentLine{text: text[start:]})
+}
+
+func unicornTemplateIndentJoinLines(lines []unicornTemplateIndentLine) string {
+  var joined strings.Builder
+  for _, line := range lines {
+    joined.WriteString(line.text)
+    joined.WriteString(line.terminator)
+  }
+  return joined.String()
 }
 
 func unicornTemplateIndentOnlyHorizontalSpace(text string) bool {
@@ -679,7 +713,7 @@ func unicornTemplateIndentIgnoredLines(source string, templates []*shimast.Node)
 func unicornTemplateIndentSourceLineStarts(source string) []int {
   starts := []int{0}
   for index := 0; index < len(source); {
-    if width := unicornTemplateIndentSourceLineBreakWidth(source, index); width > 0 {
+    if width := unicornTemplateIndentLineBreakWidth(source, index); width > 0 {
       index += width
       starts = append(starts, index)
       continue
@@ -690,7 +724,7 @@ func unicornTemplateIndentSourceLineStarts(source string) []int {
   return starts
 }
 
-func unicornTemplateIndentSourceLineBreakWidth(source string, index int) int {
+func unicornTemplateIndentLineBreakWidth(source string, index int) int {
   if index < 0 || index >= len(source) {
     return 0
   }
@@ -722,7 +756,7 @@ func unicornTemplateIndentSourceForDetection(source string, ignored map[int]stru
   var normalized strings.Builder
   normalized.Grow(len(source))
   for index := 0; index < len(source); {
-    if width := unicornTemplateIndentSourceLineBreakWidth(source, index); width > 0 {
+    if width := unicornTemplateIndentLineBreakWidth(source, index); width > 0 {
       normalized.WriteByte('\n')
       index += width
       continue

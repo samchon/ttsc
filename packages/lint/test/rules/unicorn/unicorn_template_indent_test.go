@@ -241,6 +241,28 @@ func TestUnicornTemplateIndentPreservesMixedInteriorLineEndings(t *testing.T) {
   assertRuleSkipsSource(t, unicornTemplateIndentRuleName, expected)
 }
 
+func TestUnicornTemplateIndentPreservesEveryInteriorECMAScriptLineEnding(t *testing.T) {
+  source := "if (ready) {\n  use();\n}\n" +
+    "const query = gql`\n" +
+    "one\r" +
+    "  child\u2028" +
+    "    grandchild\u2029" +
+    "      last\n" +
+    "`;\n"
+  expected := "if (ready) {\n  use();\n}\n" +
+    "const query = gql`\n" +
+    "  one\r" +
+    "    child\u2028" +
+    "      grandchild\u2029" +
+    "        last\n" +
+    "`;\n"
+  assertFixSnapshot(t, unicornTemplateIndentRuleName, source, expected)
+  if !strings.Contains(expected, "one\r    child\u2028      grandchild\u2029        last") {
+    t.Fatal("mixed ECMAScript line-ending oracle must retain every interior separator")
+  }
+  assertRuleSkipsSource(t, unicornTemplateIndentRuleName, expected)
+}
+
 func TestUnicornTemplateIndentRecognizesEveryECMAScriptSourceLineSeparator(t *testing.T) {
   separators := []struct {
     name string
