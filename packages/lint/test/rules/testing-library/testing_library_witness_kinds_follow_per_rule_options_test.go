@@ -9,6 +9,8 @@ import (
 // resolver from labeling unrelated findings as option-dependent.
 func TestTestingLibraryWitnessKindsFollowPerRuleOptions(t *testing.T) {
   source := `
+import { render } from "@testing-library/react";
+
 function testCase() {
   const wrapper = render(<button data-testid="Bad Value">Save</button>);
   void wrapper;
@@ -25,8 +27,8 @@ function testCase() {
   }
   actual := runTestingLibraryResolver(t, source, resolver)
   expected := []ruleExpectation{
-    {Rule: "testing-library/consistent-data-testid", Severity: SeverityError, Line: 3},
-    {Rule: "testing-library/render-result-naming-convention", Severity: SeverityError, Line: 3},
+    {Rule: "testing-library/consistent-data-testid", Severity: SeverityError, Line: 5},
+    {Rule: "testing-library/render-result-naming-convention", Severity: SeverityError, Line: 5},
   }
   assertTestingLibraryExpectedFindings(t, actual, expected)
 
