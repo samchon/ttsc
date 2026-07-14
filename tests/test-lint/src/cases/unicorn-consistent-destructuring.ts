@@ -1,1 +1,9 @@
-// @ttsc-corpus-skip: unicorn/consistent-destructuring not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+const settings = { theme: "dark", volume: 5 };
+const backup = { theme: "light" };
+
+const { theme } = settings;
+// expect: unicorn/consistent-destructuring error
+const current = settings.theme;
+const fallback = backup.theme;
+const volume = settings.volume;
+void [theme, current, fallback, volume];
