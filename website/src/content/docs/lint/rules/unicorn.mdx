@@ -1355,16 +1355,13 @@ const n = 1.0;
 
 ### `unicorn/number-literal-case`
 
-Enforce one consistent case for every letter of a numeric literal: a lowercase radix prefix (`0x`, `0b`, `0o`), uppercase hex digits, and a lowercase exponent (`0xFF` over `0xff`, `1e10` over `1E10`). The autofix rewrites the literal in place; only letter case changes, so the value is preserved. BigInt literals are covered too, and their `n` suffix stays lowercase (`0xFFn`).
+Enforce one consistent case for every letter of a numeric literal: a lowercase radix prefix (`0x`, `0b`, `0o`), uppercase hex digits, and a lowercase exponent (`0xFF` over `0xff`, `1e10` over `1E10`). BigInt literals are covered too, and their `n` suffix stays lowercase (`0xFFn`). The autofix rewrites the literal in place. Only letter case changes, so the value is preserved.
 
 Example:
 
 ```ts
 // reports: unicorn/number-literal-case (error)
-const n = 0xff;
-
-// reports: unicorn/number-literal-case (error)
-const exponent = 1E10;
+const n = 1E10;
 ```
 
 <a id="rule-unicorn-numeric-separators-style"></a>
