@@ -17,21 +17,30 @@ import (
 // character that never appeared in the source. ESLint canonical names the whole
 // code point — the string arm reports `match[0].slice(1)` under a `/u` pattern,
 // the regex arm `characterNode.raw.slice(1)` — so an astral rune must survive
-// whole as well. The ASCII arm is the negative twin: its message must stay
-// byte-identical, since a rune below 0x80 decodes to itself.
+// whole, while an escaped ASCII letter carrying a combining mark must still name
+// the letter alone: the unit is one code point, not one grapheme cluster. The
+// ASCII arm is the negative twin — a rune below 0x80 decodes to itself, so its
+// message must stay byte-identical.
 //
-//  1. Lint a source that uselessly escapes a BMP rune, an astral rune, and an
-//     ASCII letter, in both a string literal and a regex literal.
-//  2. Enable only `no-useless-escape`.
-//  3. Assert each message names the exact character that follows the backslash.
+//  1. Lint escapes of a two-byte, three-byte, and astral rune plus an ASCII
+//     letter, in both a string literal and a regex literal.
+//  2. Add an escaped ASCII letter followed by a combining acute accent, whose
+//     message must name the letter and stop there.
+//  3. Enable only `no-useless-escape` and assert each message names the exact
+//     character that follows the backslash.
 func TestNoUselessEscapeMessageNamesDecodedRune(t *testing.T) {
-  source := `const stringWide = "\你";
+  // The combining accent is written as an escape so no editor can silently
+  // normalize the fixture into a precomposed single rune.
+  source := "const stringCombining = \"\\e\u0301\";\n" + `const stringLatin = "\ä";
+const stringWide = "\你";
 const stringAstral = "\😀";
 const stringAscii = "\a";
+const regexLatin = /\ä/;
 const regexWide = /\你/;
 const regexAstral = /\😀/;
 const regexAscii = /\a/;
-JSON.stringify([stringWide, stringAstral, stringAscii, regexWide, regexAstral, regexAscii]);
+JSON.stringify([stringCombining, stringLatin, stringWide, stringAstral, stringAscii]);
+JSON.stringify([regexLatin, regexWide, regexAstral, regexAscii]);
 `
   file := parseTS(t, source)
   findings := NewEngine(RuleConfig{
@@ -39,9 +48,12 @@ JSON.stringify([stringWide, stringAstral, stringAscii, regexWide, regexAstral, r
   }).Run([]*shimast.SourceFile{file}, nil)
   sort.Slice(findings, func(i, j int) bool { return findings[i].Pos < findings[j].Pos })
   expected := []string{
+    "Unnecessary escape character: \\e.",
+    "Unnecessary escape character: \\ä.",
     "Unnecessary escape character: \\你.",
     "Unnecessary escape character: \\😀.",
     "Unnecessary escape character: \\a.",
+    "Unnecessary escape character: \\ä.",
     "Unnecessary escape character: \\你.",
     "Unnecessary escape character: \\😀.",
     "Unnecessary escape character: \\a.",

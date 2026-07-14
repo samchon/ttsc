@@ -33,17 +33,22 @@ func TestNoUselessEscapeInvalidUtf8NamesReplacementCharacter(t *testing.T) {
   if len(findings) != 2 {
     t.Fatalf("want 2 findings, got %d (%+v)", len(findings), findings)
   }
-  const message = "Unnecessary escape character: \\�."
+  const message = "Unnecessary escape character: \\\uFFFD."
   wanted := []int{
     strings.Index(source, "\\\xff"),
     strings.LastIndex(source, "\\\xff"),
   }
   for i, finding := range findings {
-    if finding.Message != message {
-      t.Fatalf("[%d]: message mismatch:\nwant %q\ngot  %q", i, message, finding.Message)
+    if wanted[i] < 0 {
+      t.Fatalf("[%d]: fixture lost its escape", i)
     }
+    // Checked before the exact match so a regression that leaks the raw byte
+    // back into the message is named as such instead of as a text mismatch.
     if !utf8.ValidString(finding.Message) {
       t.Fatalf("[%d]: message is not valid UTF-8: %x", i, finding.Message)
+    }
+    if finding.Message != message {
+      t.Fatalf("[%d]: message mismatch:\nwant %q\ngot  %q", i, message, finding.Message)
     }
     if finding.Pos != wanted[i] || finding.End != wanted[i]+1 {
       t.Fatalf("[%d]: want range [%d,%d), got [%d,%d)",
