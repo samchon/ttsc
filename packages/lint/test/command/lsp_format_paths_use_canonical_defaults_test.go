@@ -40,18 +40,19 @@ func TestLSPFormatPathsUseDefaultsWithoutFormatBlock(t *testing.T) {
 //
 // The combined selector intentionally disagrees with both the project-wide
 // value and the exact TypeScript selector. LSP requests must resolve the real
-// document language, while the CLI uses the matching project-wide value; all
-// paths therefore converge on the same two-space output for the right reasons.
+// document language, while the CLI uses the matching project-wide value. The
+// shared value is deliberately non-default, so omitting editor settings cannot
+// accidentally satisfy the assertion.
 func TestLSPFormatPathsUseEditorLanguageOverrides(t *testing.T) {
   source := "function outer() {\n    const value = 1\n}\n"
   root := seedLintProject(t, source)
   writeFile(t, filepath.Join(root, ".vscode", "settings.json"), `{
-  "editor.tabSize": 2,
+  "editor.tabSize": 3,
   "[javascript][typescript]": { "editor.tabSize": 6 },
-  "[typescript]": { "editor.tabSize": 2 }
+  "[typescript]": { "editor.tabSize": 3 }
 }`)
 
-  assertCanonicalLSPFormatPaths(t, root, source, "function outer() {\n  const value = 1;\n}\n")
+  assertCanonicalLSPFormatPaths(t, root, source, "function outer() {\n   const value = 1;\n}\n")
 }
 
 // TestLSPFormatPathsHonorEntryIgnores guards scoping parity across every
