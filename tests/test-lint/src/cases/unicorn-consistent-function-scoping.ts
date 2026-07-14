@@ -1,1 +1,8 @@
-// @ttsc-corpus-skip: unicorn/consistent-function-scoping not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+export function formatNames(names: string[]): string[] {
+  // expect: unicorn/consistent-function-scoping error
+  function normalize(name: string): string {
+    return name.trim().toLowerCase();
+  }
+
+  return names.map(normalize);
+}

@@ -81,6 +81,12 @@ export type TtscLintUnicornPreventAbbreviationsReplacement =
   | false
   | Readonly<Record<string, boolean>>;
 
+/** Options for `unicorn/consistent-function-scoping`. */
+export interface ITtscLintUnicornConsistentFunctionScopingRuleOptions {
+  /** Also check arrow functions for movable definitions. @default true */
+  checkArrowFunctions?: boolean;
+}
+
 /** Options for `unicorn/prevent-abbreviations`. */
 export interface ITtscLintUnicornPreventAbbreviationsRuleOptions {
   /** Also check property definitions and writes. @default false */
