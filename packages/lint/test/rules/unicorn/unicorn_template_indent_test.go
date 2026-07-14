@@ -60,14 +60,14 @@ func TestUnicornTemplateIndentHonorsConfiguredTagsFunctionsCommentsAndSelectors(
   t.Run("name and comment lists replace defaults", func(t *testing.T) {
     source := "const tagged = utils.dedent`\none\n`;\n" +
       "const called = helpers.strip(`\ntwo\n`);\n" +
-      "const commented = /* Please Indent */ `\nthree\n`;\n" +
+      "const commented = /* Please /* Indent */ `\nthree\n`;\n" +
       "const defaultTagIsReplaced = gql`\nfour\n`;\n" +
       "const computedTagIsNotAPath = utils[\"dedent\"]`\nfive\n`;\n" +
       "const callResultTagIsNotAPath = makeTag()`\nsix\n`;\n"
     options := json.RawMessage(`{
       "tags":["utils.dedent"],
       "functions":["helpers.strip"],
-      "comments":["please indent"],
+      "comments":["please /* indent"],
       "selectors":[]
     }`)
     _, _, findings := runRuleFindingsSnapshot(t, unicornTemplateIndentRuleName, source, options)
@@ -103,15 +103,19 @@ func TestUnicornTemplateIndentHonorsConfiguredTagsFunctionsCommentsAndSelectors(
 
 func TestUnicornTemplateIndentFixPreservesQuasisSubstitutionsEscapesAndBlankLines(t *testing.T) {
   source := "declare const value: string;\n" +
+    "declare const other: string;\n" +
     "const query = gql`\n" +
-    "        one ${value} \\n \\` literal\n" +
+    "        one ${value /* keep */}\n" +
+    "          two \\n \\` literal ${other}\n" +
     "          three\n" +
     "        \n" +
     "        four\n" +
     "        `;\n"
   expected := "declare const value: string;\n" +
+    "declare const other: string;\n" +
     "const query = gql`\n" +
-    "  one ${value} \\n \\` literal\n" +
+    "  one ${value /* keep */}\n" +
+    "    two \\n \\` literal ${other}\n" +
     "    three\n" +
     "\n" +
     "  four\n" +
@@ -121,17 +125,20 @@ func TestUnicornTemplateIndentFixPreservesQuasisSubstitutionsEscapesAndBlankLine
   if len(findings) != 1 {
     t.Fatalf("want one finding, got %d (%+v)", len(findings), findings)
   }
-  expressionStart := strings.Index(source, "${value}")
-  expressionEnd := expressionStart + len("${value}")
-  if expressionStart < 0 {
-    t.Fatal("substitution oracle is missing")
+  expressions := []string{"${value /* keep */}", "${other}"}
+  if len(findings[0].Fix) != 3 {
+    t.Fatalf("two-substitution template must expose three quasi edits, got %+v", findings[0].Fix)
   }
-  if len(findings[0].Fix) != 2 {
-    t.Fatalf("one-substitution template must expose two quasi edits, got %+v", findings[0].Fix)
-  }
-  for _, edit := range findings[0].Fix {
-    if edit.Pos < expressionEnd && edit.End > expressionStart {
-      t.Fatalf("quasi edit [%d,%d) overlaps substitution [%d,%d)", edit.Pos, edit.End, expressionStart, expressionEnd)
+  for _, expression := range expressions {
+    expressionStart := strings.Index(source, expression)
+    if expressionStart < 0 {
+      t.Fatalf("substitution oracle %q is missing", expression)
+    }
+    expressionEnd := expressionStart + len(expression)
+    for _, edit := range findings[0].Fix {
+      if edit.Pos < expressionEnd && edit.End > expressionStart {
+        t.Fatalf("quasi edit [%d,%d) overlaps substitution %q at [%d,%d)", edit.Pos, edit.End, expression, expressionStart, expressionEnd)
+      }
     }
   }
 
@@ -140,7 +147,8 @@ func TestUnicornTemplateIndentFixPreservesQuasisSubstitutionsEscapesAndBlankLine
   if diagnostics := file.Diagnostics(); len(diagnostics) != 0 {
     t.Fatalf("fixed source has parse diagnostics: %+v\n%s", diagnostics, expected)
   }
-  if !strings.Contains(expected, "${value}") || !strings.Contains(expected, "\\n \\` literal") {
+  if !strings.Contains(expected, "${value /* keep */}") || !strings.Contains(expected, "${other}") ||
+    !strings.Contains(expected, "\\n \\` literal") {
     t.Fatal("test oracle must retain substitution and raw escape spelling")
   }
   assertRuleSkipsSource(t, unicornTemplateIndentRuleName, expected)
@@ -233,6 +241,28 @@ func TestUnicornTemplateIndentPreservesMixedInteriorLineEndings(t *testing.T) {
   assertRuleSkipsSource(t, unicornTemplateIndentRuleName, expected)
 }
 
+func TestUnicornTemplateIndentFallsBackToOneSpaceWithoutAnyIndentSignal(t *testing.T) {
+  source := "const query = gql`\none\ntwo\n`;\n"
+  expected := "const query = gql`\n one\n two\n`;\n"
+  assertFixSnapshot(t, unicornTemplateIndentRuleName, source, expected)
+  assertRuleSkipsSource(t, unicornTemplateIndentRuleName, expected)
+}
+
+func TestUnicornTemplateIndentPreservesContentTrailingSpaces(t *testing.T) {
+  source := "if (ready) {\n  use();\n}\n" +
+    "const query = gql`\n" +
+    "one    \n" +
+    "  child  \n" +
+    "`;\n"
+  expected := "if (ready) {\n  use();\n}\n" +
+    "const query = gql`\n" +
+    "  one    \n" +
+    "    child  \n" +
+    "`;\n"
+  assertFixSnapshot(t, unicornTemplateIndentRuleName, source, expected)
+  assertRuleSkipsSource(t, unicornTemplateIndentRuleName, expected)
+}
+
 func TestUnicornTemplateIndentHonorsNumericAndWhitespaceIndentOptions(t *testing.T) {
   cases := []struct {
     name     string
@@ -275,6 +305,7 @@ func TestUnicornTemplateIndentSkipsUnselectedSingleLineAndAlreadyCorrectTemplate
     "const computed = utils[\"dedent\"]`\n        one\n        `;\n",
     "const calledTag = makeTag()`\n        one\n        `;\n",
     "const lineComment = // indent\n`\n        one\n        `;\n",
+    "const nestedFunctionArgument = stripIndent([`\n        one\n        `]);\n",
     "if (ready) {\n  use();\n}\nconst correct = gql`\n  one\n    child\n`;\n",
     "const existingTemplateIndent = gql`\n        one\n        two\n`;\n",
   }
@@ -346,8 +377,28 @@ func fmtTestName(index int) string {
     "computed-tag",
     "call-result-tag",
     "line-comment",
+    "non-direct-function-argument",
     "already-correct",
     "existing-template-indent-fallback",
   }
   return names[index]
+}
+
+func TestUnicornTemplateIndentRejectsJestInlineSnapshotNearMisses(t *testing.T) {
+  cases := []struct {
+    name   string
+    source string
+  }{
+    {name: "expect has no argument", source: "expect().toMatchInlineSnapshot(`\n        one\n        `);\n"},
+    {name: "snapshot has extra argument", source: "expect(value).toMatchInlineSnapshot(`\n        one\n        `, extra);\n"},
+    {name: "wrong expect name", source: "notExpect(value).toMatchInlineSnapshot(`\n        one\n        `);\n"},
+    {name: "member expect", source: "assert.expect(value).toMatchInlineSnapshot(`\n        one\n        `);\n"},
+    {name: "computed snapshot method", source: "expect(value)[\"toMatchInlineSnapshot\"](`\n        one\n        `);\n"},
+    {name: "optional snapshot call", source: "expect(value).toMatchInlineSnapshot?.(`\n        one\n        `);\n"},
+  }
+  for _, test := range cases {
+    t.Run(test.name, func(t *testing.T) {
+      assertRuleSkipsSource(t, unicornTemplateIndentRuleName, test.source)
+    })
+  }
 }

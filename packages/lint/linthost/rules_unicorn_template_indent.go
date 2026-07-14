@@ -90,6 +90,7 @@ func (unicornTemplateIndent) Check(ctx *Context, root *shimast.Node) {
 
   source := ctx.File.Text()
   templates := collectUnicornTemplateIndentTemplates(root)
+  commentFactory := shimast.NewNodeFactory(shimast.NodeFactoryHooks{})
   selected := make(map[*shimast.Node]struct{})
   for _, selector := range options.selectors {
     for _, match := range matchASTSelector(root, selector) {
@@ -101,7 +102,7 @@ func (unicornTemplateIndent) Check(ctx *Context, root *shimast.Node) {
   ignoredLines := unicornTemplateIndentIgnoredLines(source, templates)
 
   for _, template := range templates {
-    if !unicornTemplateIndentShouldCheck(ctx.File, source, template, options, selected) {
+    if !unicornTemplateIndentShouldCheck(ctx.File, commentFactory, source, template, options, selected) {
       continue
     }
     edits, changed := unicornTemplateIndentEdits(source, template, options, ignoredLines)
@@ -252,6 +253,7 @@ func isUnicornTemplateIndentLiteral(node *shimast.Node) bool {
 
 func unicornTemplateIndentShouldCheck(
   file *shimast.SourceFile,
+  commentFactory *shimast.NodeFactory,
   source string,
   template *shimast.Node,
   options unicornTemplateIndentOptions,
@@ -261,7 +263,7 @@ func unicornTemplateIndentShouldCheck(
     return true
   }
   start := shimscanner.SkipTrivia(source, template.Pos())
-  if unicornTemplateIndentCommentMatches(source, start, options.comments) {
+  if unicornTemplateIndentCommentMatches(commentFactory, source, template.Pos(), start, options.comments) {
     return true
   }
   if unicornTemplateIndentIsJestInlineSnapshot(template) {
@@ -363,26 +365,40 @@ func unicornTemplateIndentIsJestInlineSnapshot(template *shimast.Node) bool {
     len(expectCall.Arguments.Nodes) == 1 && identifierText(expectCall.Expression) == "expect"
 }
 
-func unicornTemplateIndentCommentMatches(source string, start int, comments []string) bool {
-  if len(comments) == 0 || start <= 0 || start > len(source) {
+func unicornTemplateIndentCommentMatches(
+  factory *shimast.NodeFactory,
+  source string,
+  triviaStart int,
+  tokenStart int,
+  comments []string,
+) bool {
+  if factory == nil || len(comments) == 0 || triviaStart < 0 ||
+    tokenStart <= triviaStart || tokenStart > len(source) {
     return false
   }
-  end := start
-  for end > 0 {
-    character, size := utf8.DecodeLastRuneInString(source[:end])
-    if !unicode.IsSpace(character) && character != '\uFEFF' {
-      break
+
+  var previous shimast.CommentRange
+  found := false
+  consider := func(comment shimast.CommentRange) {
+    if comment.Pos() < triviaStart || comment.End() > tokenStart {
+      return
     }
-    end -= size
+    if !found || comment.End() > previous.End() {
+      previous = comment
+      found = true
+    }
   }
-  if end < 2 || source[end-2:end] != "*/" {
+  for comment := range shimscanner.GetTrailingCommentRanges(factory, source, triviaStart) {
+    consider(comment)
+  }
+  for comment := range shimscanner.GetLeadingCommentRanges(factory, source, triviaStart) {
+    consider(comment)
+  }
+  if !found || previous.Kind != shimast.KindMultiLineCommentTrivia ||
+    previous.Pos()+4 > previous.End() || previous.End() > len(source) {
     return false
   }
-  open := strings.LastIndex(source[:end-2], "/*")
-  if open < 0 {
-    return false
-  }
-  value := strings.ToLower(unicornTemplateIndentTrim(source[open+2 : end-2]))
+  value := strings.ToLower(unicornTemplateIndentTrim(source[previous.Pos()+2 : previous.End()-2]))
   for _, comment := range comments {
     if value == comment {
       return true
