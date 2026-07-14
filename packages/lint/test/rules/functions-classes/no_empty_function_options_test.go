@@ -149,6 +149,36 @@ class Example extends Base {
       source: `const object = { value: function () {} };`,
       allow:  []string{"functions"},
     },
+    {
+      name:   "function expression reports by default",
+      source: `const empty = function () {};`,
+      want:   1,
+    },
+    {
+      name:   "functions includes function expressions",
+      source: `const empty = function () {};`,
+      allow:  []string{"functions"},
+    },
+    {
+      name:   "generator expression reports by default",
+      source: `const empty = function* () {};`,
+      want:   1,
+    },
+    {
+      name:   "generator functions includes expressions",
+      source: `const empty = function* () {};`,
+      allow:  []string{"generatorFunctions"},
+    },
+    {
+      name:   "object method reports by default",
+      source: `const object = { method() {} };`,
+      want:   1,
+    },
+    {
+      name:   "methods includes object methods",
+      source: `const object = { method() {} };`,
+      allow:  []string{"methods"},
+    },
   }
 
   for _, test := range tests {
