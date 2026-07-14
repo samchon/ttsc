@@ -10,8 +10,8 @@ import (
 // other branch contributes its own method return type.
 //
 // The matrix covers dot, computed, and optional calls, intersection members,
-// generic return carriers, overload selection, structural thenables, and both
-// safe option families.
+// generic and uncertain return carriers, overload selection, structural
+// thenables, and both safe option families.
 //
 //  1. Pair safe undefined returns with unsafe Promise returns in mixed calls.
 //  2. Repeat the distinction with thenable checks and configured safe values.
@@ -93,6 +93,37 @@ safeFirst.catch(() => undefined);
 unsafeFirst.catch(() => undefined);
 genericResult.catch(() => undefined);
 genericResult.catch(() => Promise.resolve());
+genericResult.catch<undefined>(() => undefined);
+genericResult.catch<Promise<void>>(() => Promise.resolve());
+interface ReorderedCatchResult {
+  catch(onRejected: (reason: unknown) => void): undefined;
+}
+interface ReorderedCatchResult {
+  catch(onRejected: (reason: unknown) => void): Promise<void>;
+}
+declare const reordered: Promise<void> | ReorderedCatchResult;
+reordered.catch(() => undefined);
+type ThenKey = "key";
+interface SpecializedThenResult {
+  then(key: ThenKey, onRejected: () => void): undefined;
+  then(key: "key", onRejected: () => void): Promise<void>;
+}
+declare const specialized: Promise<void> | SpecializedThenResult;
+specialized.then("key", () => undefined);
+interface AnyCatchResult {
+  catch(onRejected: (reason: unknown) => void): any;
+}
+interface UnknownCatchResult {
+  catch(onRejected: (reason: unknown) => void): unknown;
+}
+declare const anyResult: Promise<void> | AnyCatchResult;
+declare const unknownResult: Promise<void> | UnknownCatchResult;
+anyResult.catch(() => undefined);
+unknownResult.catch(() => undefined);
+declare const unrelatedAny: AnyCatchResult;
+declare const unrelatedUnknown: UnknownCatchResult;
+unrelatedAny.catch(() => undefined);
+unrelatedUnknown.catch(() => undefined);
 `, nil)
   if code != 2 || stdout != "" {
     t.Fatalf("mixed receiver run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
@@ -109,6 +140,11 @@ genericResult.catch(() => Promise.resolve());
     "main.ts:58:",
     "main.ts:74:",
     "main.ts:76:",
+    "main.ts:78:",
+    "main.ts:86:",
+    "main.ts:93:",
+    "main.ts:102:",
+    "main.ts:103:",
   }
   if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != len(expectedLines) {
     t.Fatalf("expected %d mixed receiver findings, got %d:\n%s", len(expectedLines), got, stderr)
@@ -138,10 +174,17 @@ handledThenableReceiver.catch(() => undefined);
 unsafeThenableReturn.catch(() => undefined);
 allowedCall();
 Promise.resolve();
+interface IgnoredPromise<T> extends Promise<T> {
+  catch<TResult = never>(
+    onRejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null,
+  ): IgnoredPromise<T | TResult>;
+}
+declare const ignoredPromise: IgnoredPromise<void>;
+ignoredPromise.catch();
 `
   options := map[string]any{
     "allowForKnownSafeCalls":    []any{"allowedCall"},
-    "allowForKnownSafePromises": []any{"SafePromise"},
+    "allowForKnownSafePromises": []any{"SafePromise", "IgnoredPromise"},
     "checkThenables":            true,
   }
   code, stdout, stderr = runNoFloatingPromisesCase(t, optionSource, options)

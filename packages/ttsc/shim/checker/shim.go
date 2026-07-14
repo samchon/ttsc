@@ -11,7 +11,6 @@ package checker
 import (
   innerast "github.com/microsoft/typescript-go/internal/ast"
   innerchecker "github.com/microsoft/typescript-go/internal/checker"
-  innerdiagnostics "github.com/microsoft/typescript-go/internal/diagnostics"
   innerprinter "github.com/microsoft/typescript-go/internal/printer"
   _ "unsafe"
 )
@@ -387,47 +386,6 @@ func Checker_getSignaturesOfType(recv *innerchecker.Checker, t *innerchecker.Typ
     return nil
   }
   return recv.GetSignaturesOfType(t, kind)
-}
-
-//go:linkname checkerResolveCall github.com/microsoft/typescript-go/internal/checker.(*Checker).resolveCall
-func checkerResolveCall(
-  recv *innerchecker.Checker,
-  node *innerast.Node,
-  signatures []*innerchecker.Signature,
-  candidatesOutArray *[]*innerchecker.Signature,
-  checkMode innerchecker.CheckMode,
-  callChainFlags innerchecker.SignatureFlags,
-  headMessage *innerdiagnostics.Message,
-) *innerchecker.Signature
-
-// Checker_resolveCallSignatures selects the signature applicable to an
-// existing call expression from the supplied candidates. It delegates argument
-// compatibility, overload ordering, and generic inference to the same resolver
-// TypeScript uses for ordinary calls. The candidates output suppresses duplicate
-// compiler diagnostics; callers use the selected signature only for type queries.
-// Returns nil if recv, node, or signatures are absent.
-func Checker_resolveCallSignatures(
-  recv *innerchecker.Checker,
-  node *innerast.Node,
-  signatures []*innerchecker.Signature,
-) *innerchecker.Signature {
-  if recv == nil || node == nil || len(signatures) == 0 {
-    return nil
-  }
-  var candidates []*innerchecker.Signature
-  // Upstream defines normal checking and no call-chain flags as the zero values.
-  // Avoid selecting individual private enum members into the public shim surface.
-  var checkMode innerchecker.CheckMode
-  var callChainFlags innerchecker.SignatureFlags
-  return checkerResolveCall(
-    recv,
-    node,
-    signatures,
-    &candidates,
-    checkMode,
-    callChainFlags,
-    nil,
-  )
 }
 
 // Checker_getReturnTypeOfSignature returns the return type of signature, used to

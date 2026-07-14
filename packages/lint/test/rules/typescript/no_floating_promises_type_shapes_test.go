@@ -43,6 +43,20 @@ aliasPromise!;
 unknownValue!;
 aliasPromise satisfies Promise<void>;
 0 satisfies number;
+declare const anyValue: any;
+declare const maybePromise: Promise<void> | undefined;
+flag ? Promise.resolve() : anyValue;
+flag ? Promise.resolve() : unknownValue;
+maybePromise && anyValue;
+unknownValue || Promise.resolve();
+flag ? undefined : anyValue;
+unknownValue || 0;
+[Promise.resolve(), anyValue];
+[Promise.resolve(), unknownValue];
+[undefined, anyValue];
+[undefined, unknownValue];
+[...[Promise.resolve(), anyValue], anyValue];
+[...[undefined, anyValue], anyValue];
 `, nil)
   if code != 2 || stdout != "" {
     t.Fatalf("type-shape run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
@@ -61,6 +75,13 @@ aliasPromise satisfies Promise<void>;
     "main.ts:25:",
     "main.ts:27:",
     "main.ts:29:",
+    "main.ts:33:",
+    "main.ts:34:",
+    "main.ts:35:",
+    "main.ts:36:",
+    "main.ts:39:",
+    "main.ts:40:",
+    "main.ts:43:",
   }
   if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != len(expectedLines) {
     t.Fatalf("expected %d shape findings, got %d:\n%s", len(expectedLines), got, stderr)
