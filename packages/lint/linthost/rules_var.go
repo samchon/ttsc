@@ -701,7 +701,7 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
       }
       if kind == preferConstSimpleAssignment && len(targets) > 1 {
         for _, target := range targets {
-          symbol := preferConstValueSymbol(ctx, target)
+          symbol := valueSymbolAtIdentifier(ctx, target)
           if candidate := bySymbol[symbol]; candidate != nil {
             groups[child] = appendPreferConstCandidate(groups[child], candidate)
           }
@@ -748,7 +748,7 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
     if _, ok := candidateNames[identifierText(child)]; !ok {
       return
     }
-    symbol := preferConstValueSymbol(ctx, child)
+    symbol := valueSymbolAtIdentifier(ctx, child)
     candidate := bySymbol[symbol]
     if candidate == nil || candidate.initialized || len(candidate.writes) != 1 {
       return
@@ -813,7 +813,7 @@ func preferConstRecordWrite(
   if target == nil || target.Kind != shimast.KindIdentifier {
     return
   }
-  symbol := preferConstValueSymbol(ctx, target)
+  symbol := valueSymbolAtIdentifier(ctx, target)
   candidate := bySymbol[symbol]
   if candidate == nil {
     return
@@ -824,18 +824,6 @@ func preferConstRecordWrite(
     kind:       kind,
   })
   writeTargets[target] = struct{}{}
-}
-
-func preferConstValueSymbol(ctx *Context, identifier *shimast.Node) *shimast.Symbol {
-  if ctx == nil || ctx.Checker == nil || identifier == nil {
-    return nil
-  }
-  if parent := identifier.Parent; parent != nil && parent.Kind == shimast.KindShorthandPropertyAssignment {
-    if shorthand := parent.AsShorthandPropertyAssignment(); shorthand != nil && shorthand.Name() == identifier {
-      return ctx.Checker.GetShorthandAssignmentValueSymbol(parent)
-    }
-  }
-  return ctx.Checker.GetSymbolAtLocation(identifier)
 }
 
 func preferConstCandidateIsEligible(
@@ -904,7 +892,7 @@ func preferConstAssignmentCanInitialize(
     return false
   }
   for _, target := range targets {
-    symbol := preferConstValueSymbol(ctx, target)
+    symbol := valueSymbolAtIdentifier(ctx, target)
     grouped := bySymbol[symbol]
     if symbol == nil || !preferConstSymbolIsLocalToScope(symbol, candidate.scope) ||
       (grouped != nil && grouped.invalid) {

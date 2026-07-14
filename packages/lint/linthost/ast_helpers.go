@@ -540,6 +540,22 @@ func assignmentTargetIdentifiers(node *shimast.Node) []*shimast.Node {
   return identifiers
 }
 
+// valueSymbolAtIdentifier resolves an identifier in value position. A
+// shorthand property assignment needs the checker's dedicated value-symbol
+// lookup because GetSymbolAtLocation otherwise resolves the object property
+// rather than the binding written by `({name} = value)`.
+func valueSymbolAtIdentifier(ctx *Context, identifier *shimast.Node) *shimast.Symbol {
+  if ctx == nil || ctx.Checker == nil || identifier == nil {
+    return nil
+  }
+  if parent := identifier.Parent; parent != nil && parent.Kind == shimast.KindShorthandPropertyAssignment {
+    if shorthand := parent.AsShorthandPropertyAssignment(); shorthand != nil && shorthand.Name() == identifier {
+      return ctx.Checker.GetShorthandAssignmentValueSymbol(parent)
+    }
+  }
+  return ctx.Checker.GetSymbolAtLocation(identifier)
+}
+
 // assignmentTargetNames is the text-only projection used by rules that do not
 // need binding identity.
 func assignmentTargetNames(node *shimast.Node) []string {

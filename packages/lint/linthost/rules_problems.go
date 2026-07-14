@@ -198,9 +198,10 @@ func (noExAssign) Check(ctx *Context, node *shimast.Node) {
 }
 
 // walkAssignments invokes `report` on every `<name> = ...` shape inside
-// `root`. Used by noExAssign to scan a single catch block; the
-// file-wide noFuncAssign / noClassAssign scans go through
-// reportAssignmentsToDeclarations instead.
+// `root`. Used by noExAssign to scan a single catch block; the file-wide
+// noClassAssign scan goes through
+// reportAssignmentsToDeclarations instead. noFuncAssign requires checker
+// binding identity and lives in rules_no_func_assign.go.
 func walkAssignments(root *shimast.Node, name string, report func(*shimast.Node)) {
   if root == nil {
     return
@@ -307,15 +308,6 @@ func (noClassAssign) Check(ctx *Context, node *shimast.Node) {
   reportAssignmentsToDeclarations(ctx, node, shimast.KindClassDeclaration, "is a class.")
 }
 
-// noFuncAssign: same idea, but for function declarations.
-type noFuncAssign struct{}
-
-func (noFuncAssign) Name() string           { return "no-func-assign" }
-func (noFuncAssign) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
-func (noFuncAssign) Check(ctx *Context, node *shimast.Node) {
-  reportAssignmentsToDeclarations(ctx, node, shimast.KindFunctionDeclaration, "is a function.")
-}
-
 // reportAssignmentsToDeclarations flags every `<name> = …` assignment whose
 // target identifier names a `declKind` declaration found anywhere in the
 // file. It walks the file exactly once — gathering declared names and
@@ -323,8 +315,8 @@ func (noFuncAssign) Check(ctx *Context, node *shimast.Node) {
 //
 // The earlier shape registered for `declKind` directly and, on every
 // declaration, re-scanned the whole file for assignments: O(declarations ×
-// file size), which blows up quadratically on a file with many top-level
-// functions. Visiting `KindSourceFile` once and cross-referencing afterward
+// file size), which blows up quadratically on a file with many declarations.
+// Visiting `KindSourceFile` once and cross-referencing afterward
 // keeps the same findings without the repeated scans.
 func reportAssignmentsToDeclarations(
   ctx *Context,
@@ -585,7 +577,6 @@ func init() {
   Register(noMisleadingCharacterClass{})
   Register(noLossOfPrecision{})
   Register(noClassAssign{})
-  Register(noFuncAssign{})
   Register(noPrototypeBuiltins{})
   Register(noAsyncPromiseExecutor{})
   Register(noControlRegex{})

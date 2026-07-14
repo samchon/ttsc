@@ -607,10 +607,12 @@ export interface ITtscLintCoreRules {
   "no-fallthrough"?: TtscLintRuleOptionsSetting<ITtscLintNoFallthroughRuleOptions>;
 
   /**
-   * Reject reassignment of function declarations (`function f() {}; f = 0;`).
+   * Reject writes to bindings introduced by function declarations and named
+   * function expressions. Lexical binding identity keeps same-spelled shadows
+   * independent across parameters, blocks, catches, and sibling scopes.
    *
-   * The hoisted binding looks final to most readers; overwriting it makes the
-   * original implementation unreachable from other references.
+   * Direct and compound assignment, updates, destructuring, and for-in/of
+   * targets are all modifying references to the function binding.
    *
    * @reference https://eslint.org/docs/latest/rules/no-func-assign
    */

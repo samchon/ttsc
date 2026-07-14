@@ -1438,9 +1438,9 @@ Options:
 
 ### `no-func-assign`
 
-Reject reassignment of function declarations (`function f() {}; f = 0;`).
+Reject writes to bindings introduced by function declarations and named function expressions.
 
-The hoisted binding looks final to most readers; overwriting it makes the original implementation unreachable from other references.
+The rule follows lexical binding identity, so same-spelled parameters, block variables, catch variables, and sibling bindings remain independent. Direct and compound assignments, updates, destructuring targets, and for-in/of targets all count as writes.
 
 Example:
 
