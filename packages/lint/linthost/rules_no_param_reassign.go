@@ -1,96 +1,285 @@
-// noParamReassign: reassigning a function parameter inside the body of
-// the function it belongs to. Mutating the binding makes the declared
-// name stop pointing at the caller's argument and is the usual ESLint
-// baseline of `no-param-reassign` — without the `props: true` extension
-// that would also flag `param.foo = …`.
+// noParamReassign rejects writes to the binding introduced by a function
+// parameter. Binding identity comes from the TypeScript checker, so a local
+// shadow is independent while a nested function that closes over the parameter
+// still counts. Destructured, defaulted, and rest parameters are resolved by
+// their individual binding leaves.
 //
-// Conservative scope tracking: collect simple-identifier parameter
-// names, walk the body until a nested function-like introduces a fresh
-// scope, and flag `name = …` / `name op= …` / `++name` / `name--` at
-// any depth in between. A local `const name = 1` that shadows a
-// parameter name will produce a false positive in v1 — proper scope
-// tracking needs the resolver, which the AST-only baseline avoids.
-// Destructured parameter bindings are skipped for the same reason.
+// With `props: true`, the rule also follows the parameter reference through
+// member, call, conditional-result, and destructuring-target syntax to find
+// property writes. The two official ignore lists apply only to those property
+// writes; assigning the parameter binding itself is always reported.
 // https://eslint.org/docs/latest/rules/no-param-reassign
 package linthost
 
-import shimast "github.com/microsoft/typescript-go/shim/ast"
+import (
+  "regexp"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
 
 type noParamReassign struct{}
 
-func (noParamReassign) Name() string { return "no-param-reassign" }
-func (noParamReassign) Visits() []shimast.Kind {
-  return []shimast.Kind{
-    shimast.KindFunctionDeclaration,
-    shimast.KindFunctionExpression,
-    shimast.KindArrowFunction,
-    shimast.KindMethodDeclaration,
-    shimast.KindConstructor,
-    shimast.KindGetAccessor,
-    shimast.KindSetAccessor,
-  }
+type noParamReassignOptions struct {
+  Props                               bool     `json:"props"`
+  IgnorePropertyModificationsFor      []string `json:"ignorePropertyModificationsFor"`
+  IgnorePropertyModificationsForRegex []string `json:"ignorePropertyModificationsForRegex"`
 }
+
+type noParamReassignParameter struct {
+  name string
+}
+
+func (noParamReassign) Name() string { return "no-param-reassign" }
+func (noParamReassign) NeedsTypeChecker() bool {
+  return true
+}
+func (noParamReassign) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+
 func (noParamReassign) Check(ctx *Context, node *shimast.Node) {
-  body := node.Body()
-  if body == nil {
+  if ctx == nil || ctx.Checker == nil || node == nil {
     return
   }
-  names := map[string]bool{}
-  for _, p := range node.Parameters() {
-    if decl := p.AsParameterDeclaration(); decl != nil {
-      if name := identifierText(decl.Name()); name != "" {
-        names[name] = true
+
+  var options noParamReassignOptions
+  _ = ctx.DecodeOptions(&options)
+
+  parameters := make(map[*shimast.Symbol]noParamReassignParameter)
+  parameterNames := make(map[string]struct{})
+  walkDescendants(node, func(child *shimast.Node) {
+    if !isFunctionLikeKind(child) {
+      return
+    }
+    for _, parameterNode := range child.Parameters() {
+      parameter := parameterNode.AsParameterDeclaration()
+      if parameter == nil {
+        continue
+      }
+      for _, nameNode := range bindingIdentifierNodes(parameter.Name()) {
+        symbol := ctx.Checker.GetSymbolAtLocation(nameNode)
+        name := identifierText(nameNode)
+        if symbol == nil || name == "" {
+          continue
+        }
+        parameters[symbol] = noParamReassignParameter{name: name}
+        parameterNames[name] = struct{}{}
       }
     }
-  }
-  if len(names) == 0 {
+  })
+  if len(parameters) == 0 {
     return
   }
-  walkParamReassignBody(body, names, func(target *shimast.Node) {
-    ctx.Report(target, "Assignment to function parameter.")
+
+  directTargets := make(map[*shimast.Node]struct{})
+  reportDirectTarget := func(target *shimast.Node) {
+    if target == nil || target.Kind != shimast.KindIdentifier {
+      return
+    }
+    if _, reported := directTargets[target]; reported {
+      return
+    }
+    parameter, ok := parameters[valueSymbolAtIdentifier(ctx, target)]
+    if !ok {
+      return
+    }
+    directTargets[target] = struct{}{}
+    ctx.Report(target, "Assignment to function parameter '"+parameter.name+"'.")
+  }
+
+  walkDescendants(node, func(child *shimast.Node) {
+    switch child.Kind {
+    case shimast.KindBinaryExpression:
+      expression := child.AsBinaryExpression()
+      if expression == nil || expression.OperatorToken == nil ||
+        !isAssignmentOperator(expression.OperatorToken.Kind) ||
+        isDestructuringDefaultAssignment(child) {
+        return
+      }
+      for _, target := range assignmentTargetIdentifiers(expression.Left) {
+        reportDirectTarget(target)
+      }
+    case shimast.KindPrefixUnaryExpression:
+      expression := child.AsPrefixUnaryExpression()
+      if expression == nil ||
+        (expression.Operator != shimast.KindPlusPlusToken && expression.Operator != shimast.KindMinusMinusToken) {
+        return
+      }
+      for _, target := range assignmentTargetIdentifiers(expression.Operand) {
+        reportDirectTarget(target)
+      }
+    case shimast.KindPostfixUnaryExpression:
+      expression := child.AsPostfixUnaryExpression()
+      if expression == nil ||
+        (expression.Operator != shimast.KindPlusPlusToken && expression.Operator != shimast.KindMinusMinusToken) {
+        return
+      }
+      for _, target := range assignmentTargetIdentifiers(expression.Operand) {
+        reportDirectTarget(target)
+      }
+    case shimast.KindForInStatement, shimast.KindForOfStatement:
+      statement := child.AsForInOrOfStatement()
+      if statement == nil || statement.Initializer == nil ||
+        statement.Initializer.Kind == shimast.KindVariableDeclarationList {
+        return
+      }
+      for _, target := range assignmentTargetIdentifiers(statement.Initializer) {
+        reportDirectTarget(target)
+      }
+    }
+  })
+
+  if !options.Props {
+    return
+  }
+  ignoredNames := make(map[string]struct{}, len(options.IgnorePropertyModificationsFor))
+  for _, name := range options.IgnorePropertyModificationsFor {
+    ignoredNames[name] = struct{}{}
+  }
+  ignoredPatterns := make([]*regexp.Regexp, 0, len(options.IgnorePropertyModificationsForRegex))
+  for _, pattern := range options.IgnorePropertyModificationsForRegex {
+    if compiled, err := regexp.Compile(pattern); err == nil {
+      ignoredPatterns = append(ignoredPatterns, compiled)
+    }
+  }
+
+  walkDescendants(node, func(child *shimast.Node) {
+    if child.Kind != shimast.KindIdentifier {
+      return
+    }
+    if _, direct := directTargets[child]; direct {
+      return
+    }
+    if _, possibleParameter := parameterNames[identifierText(child)]; !possibleParameter {
+      return
+    }
+    parameter, ok := parameters[valueSymbolAtIdentifier(ctx, child)]
+    if !ok || noParamReassignIgnoresProperty(parameter.name, ignoredNames, ignoredPatterns) {
+      return
+    }
+    if noParamReassignModifiesProperty(child) {
+      ctx.Report(child, "Assignment to property of function parameter '"+parameter.name+"'.")
+    }
   })
 }
 
-// walkParamReassignBody visits every assignment-like write in `root`
-// without crossing nested function-like scopes. The target identifier
-// must be a bare name in `names` for `report` to fire.
-func walkParamReassignBody(root *shimast.Node, names map[string]bool, report func(*shimast.Node)) {
-  if root == nil {
-    return
+func noParamReassignIgnoresProperty(
+  name string,
+  names map[string]struct{},
+  patterns []*regexp.Regexp,
+) bool {
+  if _, ignored := names[name]; ignored {
+    return true
   }
-  var walk func(*shimast.Node)
-  hits := func(operand *shimast.Node) bool {
-    name := identifierText(stripParens(operand))
-    return name != "" && names[name]
-  }
-  walk = func(node *shimast.Node) {
-    if node == nil || (node != root && isFunctionLikeKind(node)) {
-      return
+  for _, pattern := range patterns {
+    if pattern.MatchString(name) {
+      return true
     }
-    switch node.Kind {
+  }
+  return false
+}
+
+// noParamReassignModifiesProperty mirrors ESLint's reference-parent walk. A
+// parameter reference contributes to the value being mutated only through the
+// receiver/callee side of member and call expressions. Computed keys, call
+// arguments, property names, and conditional tests are read-only branches.
+func noParamReassignModifiesProperty(identifier *shimast.Node) bool {
+  current := identifier
+  for current != nil && current.Parent != nil {
+    parent := current.Parent
+    switch parent.Kind {
     case shimast.KindBinaryExpression:
-      expr := node.AsBinaryExpression()
-      if expr != nil && expr.OperatorToken != nil &&
-        isAssignmentOperator(expr.OperatorToken.Kind) && hits(expr.Left) {
-        report(node)
+      expression := parent.AsBinaryExpression()
+      if expression != nil && expression.OperatorToken != nil && isAssignmentOperator(expression.OperatorToken.Kind) {
+        return expression.Left == current
       }
     case shimast.KindPrefixUnaryExpression:
-      pre := node.AsPrefixUnaryExpression()
-      if pre != nil && (pre.Operator == shimast.KindPlusPlusToken || pre.Operator == shimast.KindMinusMinusToken) && hits(pre.Operand) {
-        report(node)
+      expression := parent.AsPrefixUnaryExpression()
+      if expression != nil &&
+        (expression.Operator == shimast.KindPlusPlusToken || expression.Operator == shimast.KindMinusMinusToken) {
+        return expression.Operand == current
       }
     case shimast.KindPostfixUnaryExpression:
-      post := node.AsPostfixUnaryExpression()
-      if post != nil && (post.Operator == shimast.KindPlusPlusToken || post.Operator == shimast.KindMinusMinusToken) && hits(post.Operand) {
-        report(node)
+      expression := parent.AsPostfixUnaryExpression()
+      if expression != nil &&
+        (expression.Operator == shimast.KindPlusPlusToken || expression.Operator == shimast.KindMinusMinusToken) {
+        return expression.Operand == current
       }
-    }
-    node.ForEachChild(func(child *shimast.Node) bool {
-      walk(child)
+    case shimast.KindDeleteExpression:
+      expression := parent.AsDeleteExpression()
+      return expression != nil && expression.Expression == current
+    case shimast.KindForInStatement, shimast.KindForOfStatement:
+      statement := parent.AsForInOrOfStatement()
+      return statement != nil && statement.Initializer == current
+    case shimast.KindCallExpression:
+      expression := parent.AsCallExpression()
+      if expression == nil || expression.Expression != current {
+        return false
+      }
+    case shimast.KindNewExpression:
+      expression := parent.AsNewExpression()
+      if expression == nil || expression.Expression != current {
+        return false
+      }
+    case shimast.KindPropertyAccessExpression:
+      expression := parent.AsPropertyAccessExpression()
+      if expression == nil || expression.Expression != current {
+        return false
+      }
+    case shimast.KindElementAccessExpression:
+      expression := parent.AsElementAccessExpression()
+      if expression == nil || expression.Expression != current {
+        return false
+      }
+    case shimast.KindConditionalExpression:
+      expression := parent.AsConditionalExpression()
+      if expression == nil || expression.Condition == current {
+        return false
+      }
+    case shimast.KindPropertyAssignment:
+      property := parent.AsPropertyAssignment()
+      if property == nil || property.Name() == current {
+        return false
+      }
+    case shimast.KindShorthandPropertyAssignment:
+      property := parent.AsShorthandPropertyAssignment()
+      if property == nil || property.Name() == current {
+        return false
+      }
+    case shimast.KindBindingElement:
+      element := parent.AsBindingElement()
+      if element == nil || element.PropertyName == current || element.Initializer == current {
+        return false
+      }
+    case shimast.KindComputedPropertyName:
       return false
-    })
+    }
+
+    if noParamReassignPropertyWalkStopsAt(parent) {
+      return false
+    }
+    current = parent
   }
-  walk(root)
+  return false
+}
+
+func noParamReassignPropertyWalkStopsAt(node *shimast.Node) bool {
+  if node == nil || node.Kind == shimast.KindSourceFile || isFunctionLikeKind(node) {
+    return true
+  }
+  if node.Kind >= shimast.KindFirstStatement && node.Kind <= shimast.KindLastStatement {
+    return true
+  }
+  switch node.Kind {
+  case shimast.KindParameter,
+    shimast.KindVariableDeclaration,
+    shimast.KindPropertyDeclaration,
+    shimast.KindClassDeclaration,
+    shimast.KindInterfaceDeclaration,
+    shimast.KindTypeAliasDeclaration,
+    shimast.KindEnumDeclaration,
+    shimast.KindModuleDeclaration:
+    return true
+  }
+  return false
 }
 
 func init() {

@@ -6,6 +6,7 @@ import type {
   ITtscLintCoreNoDuplicateImportsRuleOptions,
   ITtscLintCoreNoEmptyFunctionRuleOptions,
   ITtscLintCoreNoEmptyRuleOptions,
+  ITtscLintCoreNoParamReassignRuleOptions,
   ITtscLintCoreNoPromiseExecutorReturnRuleOptions,
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
   ITtscLintCorePreferConstRuleOptions,
@@ -857,13 +858,14 @@ export interface ITtscLintCoreRules {
   "no-octal-escape"?: TtscLintRuleSetting;
 
   /**
-   * Reject reassigning a function parameter inside the body of the function it
-   * belongs to. The parameter name stops pointing at the caller's argument
-   * after the write. Property mutations (`param.foo = …`) are not flagged.
+   * Reject writes to a function parameter's binding, including through nested
+   * closures and destructuring assignment targets. `props: true` also reports
+   * property writes, with the official exact-name and regular-expression
+   * ignore lists.
    *
    * @reference https://eslint.org/docs/latest/rules/no-param-reassign
    */
-  "no-param-reassign"?: TtscLintRuleSetting;
+  "no-param-reassign"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoParamReassignRuleOptions>;
 
   /**
    * Reject `++` and `--` operators.

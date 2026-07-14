@@ -10,6 +10,7 @@ import type {
   ITtscLintCoreNoDuplicateImportsRuleOptions,
   ITtscLintCoreNoEmptyFunctionRuleOptions,
   ITtscLintCoreNoEmptyRuleOptions,
+  ITtscLintCoreNoParamReassignRuleOptions,
   ITtscLintCoreNoPromiseExecutorReturnRuleOptions,
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
   ITtscLintCorePreferConstRuleOptions,
@@ -71,6 +72,7 @@ export interface ITtscLintRuleOptionsMap {
   "no-duplicate-imports": ITtscLintCoreNoDuplicateImportsRuleOptions;
   "no-empty": ITtscLintCoreNoEmptyRuleOptions;
   "no-empty-function": ITtscLintCoreNoEmptyFunctionRuleOptions;
+  "no-param-reassign": ITtscLintCoreNoParamReassignRuleOptions;
   "no-promise-executor-return": ITtscLintCoreNoPromiseExecutorReturnRuleOptions;
   "no-unused-expressions": ITtscLintCoreNoUnusedExpressionsRuleOptions;
   "no-fallthrough": ITtscLintNoFallthroughRuleOptions;

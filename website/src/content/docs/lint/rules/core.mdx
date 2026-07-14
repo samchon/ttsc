@@ -1886,7 +1886,15 @@ const s: string = "\251";
 
 ### `no-param-reassign`
 
-Reject reassigning a function parameter inside the body of the function it belongs to. The parameter name stops pointing at the caller's argument after the write. Property mutations (`param.foo = ...`) are not flagged.
+Reject writes to a function parameter binding, including destructured
+parameters and writes from nested closures. Shadowing locals are independent
+bindings and are not reported.
+
+Property mutations (`param.foo = ...`) are accepted by default. Set `props` to
+`true` to report them. With `props: true`,
+`ignorePropertyModificationsFor` accepts exact parameter names and
+`ignorePropertyModificationsForRegex` accepts regular-expression strings for
+parameters whose property writes should remain allowed.
 
 Example:
 
@@ -1895,6 +1903,11 @@ function reassignSimple(x: number): number {
   // reports: no-param-reassign (error)
   x = 1;
   return x;
+}
+
+function mutateDraft(draft: { value: number }): void {
+  // reports with { props: true }: no-param-reassign (error)
+  draft.value = 1;
 }
 ```
 

@@ -688,7 +688,7 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
     case shimast.KindBinaryExpression:
       expr := child.AsBinaryExpression()
       if expr == nil || expr.OperatorToken == nil || !isAssignmentOperator(expr.OperatorToken.Kind) ||
-        preferConstIsDestructuringDefaultAssignment(child) {
+        isDestructuringDefaultAssignment(child) {
         return
       }
       kind := preferConstReassignment
@@ -701,7 +701,7 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
       }
       if kind == preferConstSimpleAssignment && len(targets) > 1 {
         for _, target := range targets {
-          symbol := preferConstValueSymbol(ctx, target)
+          symbol := valueSymbolAtIdentifier(ctx, target)
           if candidate := bySymbol[symbol]; candidate != nil {
             groups[child] = appendPreferConstCandidate(groups[child], candidate)
           }
@@ -748,7 +748,7 @@ func (preferConst) Check(ctx *Context, node *shimast.Node) {
     if _, ok := candidateNames[identifierText(child)]; !ok {
       return
     }
-    symbol := preferConstValueSymbol(ctx, child)
+    symbol := valueSymbolAtIdentifier(ctx, child)
     candidate := bySymbol[symbol]
     if candidate == nil || candidate.initialized || len(candidate.writes) != 1 {
       return
@@ -813,7 +813,7 @@ func preferConstRecordWrite(
   if target == nil || target.Kind != shimast.KindIdentifier {
     return
   }
-  symbol := preferConstValueSymbol(ctx, target)
+  symbol := valueSymbolAtIdentifier(ctx, target)
   candidate := bySymbol[symbol]
   if candidate == nil {
     return
@@ -824,18 +824,6 @@ func preferConstRecordWrite(
     kind:       kind,
   })
   writeTargets[target] = struct{}{}
-}
-
-func preferConstValueSymbol(ctx *Context, identifier *shimast.Node) *shimast.Symbol {
-  if ctx == nil || ctx.Checker == nil || identifier == nil {
-    return nil
-  }
-  if parent := identifier.Parent; parent != nil && parent.Kind == shimast.KindShorthandPropertyAssignment {
-    if shorthand := parent.AsShorthandPropertyAssignment(); shorthand != nil && shorthand.Name() == identifier {
-      return ctx.Checker.GetShorthandAssignmentValueSymbol(parent)
-    }
-  }
-  return ctx.Checker.GetSymbolAtLocation(identifier)
 }
 
 func preferConstCandidateIsEligible(
@@ -1078,38 +1066,6 @@ func preferConstIsForInOrOfInitializer(listNode *shimast.Node) bool {
     return false
   }
   return listNode.Parent.Kind == shimast.KindForInStatement || listNode.Parent.Kind == shimast.KindForOfStatement
-}
-
-// preferConstIsDestructuringDefaultAssignment distinguishes the `a = 1`
-// syntax inside `[a = 1]` or `{a = 1}` from a second assignment. The default
-// node sits on the outer assignment's left-hand pattern path. A real assignment
-// inside the default expression's right side leaves that path and is counted.
-func preferConstIsDestructuringDefaultAssignment(node *shimast.Node) bool {
-  current := node
-  for parent := node.Parent; parent != nil; parent = parent.Parent {
-    switch parent.Kind {
-    case shimast.KindParenthesizedExpression,
-      shimast.KindArrayLiteralExpression,
-      shimast.KindObjectLiteralExpression,
-      shimast.KindPropertyAssignment,
-      shimast.KindSpreadElement,
-      shimast.KindSpreadAssignment:
-      current = parent
-      continue
-    case shimast.KindShorthandPropertyAssignment:
-      // A shorthand's optional initializer is a read expression rather than
-      // part of the assignment target. Any binary expression nested there is
-      // a real write and must not inherit the outer destructuring assignment.
-      return false
-    case shimast.KindBinaryExpression:
-      expr := parent.AsBinaryExpression()
-      return expr != nil && expr.OperatorToken != nil && isAssignmentOperator(expr.OperatorToken.Kind) &&
-        current.Pos() >= expr.Left.Pos() && current.End() <= expr.Left.End()
-    default:
-      return false
-    }
-  }
-  return false
 }
 
 func preferConstLexicalScope(node *shimast.Node) *shimast.Node {

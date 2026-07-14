@@ -540,6 +540,22 @@ func assignmentTargetIdentifiers(node *shimast.Node) []*shimast.Node {
   return identifiers
 }
 
+// valueSymbolAtIdentifier returns the checker symbol for an identifier in a
+// value position. A shorthand property assignment needs the checker's
+// dedicated value-symbol query because GetSymbolAtLocation resolves the
+// syntactic property name rather than the binding written by `({name} = value)`.
+func valueSymbolAtIdentifier(ctx *Context, identifier *shimast.Node) *shimast.Symbol {
+  if ctx == nil || ctx.Checker == nil || identifier == nil || identifier.Kind != shimast.KindIdentifier {
+    return nil
+  }
+  if parent := identifier.Parent; parent != nil && parent.Kind == shimast.KindShorthandPropertyAssignment {
+    if shorthand := parent.AsShorthandPropertyAssignment(); shorthand != nil && shorthand.Name() == identifier {
+      return ctx.Checker.GetShorthandAssignmentValueSymbol(parent)
+    }
+  }
+  return ctx.Checker.GetSymbolAtLocation(identifier)
+}
+
 // assignmentTargetNames is the text-only projection used by rules that do not
 // need binding identity.
 func assignmentTargetNames(node *shimast.Node) []string {
@@ -673,6 +689,39 @@ func collectAssignmentTargetIdentifiers(node *shimast.Node, identifiers *[]*shim
       collectAssignmentTargetIdentifiers(expr.Left, identifiers)
     }
   }
+}
+
+// isDestructuringDefaultAssignment distinguishes the `a = 1` syntax inside
+// `[a = 1]` or `{a = 1}` from a second assignment. A real assignment nested
+// in the default expression's right side leaves the outer target path and is
+// therefore not classified as a default.
+func isDestructuringDefaultAssignment(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  current := node
+  for parent := node.Parent; parent != nil; parent = parent.Parent {
+    switch parent.Kind {
+    case shimast.KindParenthesizedExpression,
+      shimast.KindArrayLiteralExpression,
+      shimast.KindObjectLiteralExpression,
+      shimast.KindPropertyAssignment,
+      shimast.KindSpreadElement,
+      shimast.KindSpreadAssignment:
+      current = parent
+      continue
+    case shimast.KindShorthandPropertyAssignment:
+      return false
+    case shimast.KindBinaryExpression:
+      expression := parent.AsBinaryExpression()
+      return expression != nil && expression.OperatorToken != nil &&
+        isAssignmentOperator(expression.OperatorToken.Kind) &&
+        current.Pos() >= expression.Left.Pos() && current.End() <= expression.Left.End()
+    default:
+      return false
+    }
+  }
+  return false
 }
 
 // isLiteralLike reports whether `node` (after stripping parentheses) is a

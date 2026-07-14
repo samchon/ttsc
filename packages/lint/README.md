@@ -284,7 +284,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-object-constructor`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-object-constructor.ts): rejects `new Object()`.
 - [`no-octal`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-octal.ts): rejects legacy octal literals.
 - [`no-octal-escape`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-octal-escape.ts): rejects octal escape sequences.
-- [`no-param-reassign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-param-reassign.ts): reject reassigning a function parameter inside the body of the function it belongs to.
+- [`no-param-reassign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-param-reassign.ts): rejects writes to parameter bindings, with `props` and property-ignore options matching ESLint.
 - [`no-plusplus`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-plusplus.ts): rejects `++` and `--`.
 - [`no-promise-executor-return`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-promise-executor-return.ts): rejects values returned by global Promise executors, with an `allowVoid` option for explicit unary `void` returns.
 - [`no-proto`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-proto.ts): rejects `__proto__`.

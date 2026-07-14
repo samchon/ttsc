@@ -29,6 +29,7 @@ import assert from "node:assert/strict";
  *   `allowTernary` on `no-unused-expressions`) is rejected.
  * - Unsupported declaration and block-function modes for
  *   `no-inner-declarations` are rejected.
+ * - `no-param-reassign` exposes its discriminated `props` and ignore options.
  * - An unsupported `prefer-const` destructuring policy is rejected.
  * - Cross-rule option leakage (`testIdPattern` on
  *   `cypress/unsafe-to-chain-command`) is rejected.
@@ -65,6 +66,14 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
         "error",
         "both",
         { blockScopedFunctions: "disallow" },
+      ],
+      "no-param-reassign": [
+        "error",
+        {
+          props: true,
+          ignorePropertyModificationsFor: ["draft"],
+          ignorePropertyModificationsForRegex: ["^mutable"],
+        },
       ],
       "prefer-const": [
         "error",
@@ -179,6 +188,27 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       "prefer-const": ["error", { destructuring: "some" }],
     },
   };
+  const noParamReassignIgnoreWithoutProps: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error —property ignore lists require `props: true` in the official schema.
+      "no-param-reassign": [
+        "error",
+        { props: false, ignorePropertyModificationsFor: ["draft"] },
+      ],
+    },
+  };
+  const noParamReassignInvalidIgnoreEntry: ITtscLintConfig = {
+    rules: {
+      "no-param-reassign": [
+        "error",
+        {
+          props: true,
+          // @ts-expect-error —property ignore entries are regular-expression strings.
+          ignorePropertyModificationsForRegex: [42],
+        },
+      ],
+    },
+  };
   const crossRuleShape: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `testIdPattern` belongs to testing-library/consistent-data-testid; cypress/unsafe-to-chain-command's option shape rejects it.
@@ -229,6 +259,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(noUnusedExpressionsOptionKeyTypo);
   assert.ok(noInnerDeclarationsModeTypo);
   assert.ok(noInnerDeclarationsBlockModeTypo);
+  assert.ok(noParamReassignIgnoreWithoutProps);
+  assert.ok(noParamReassignInvalidIgnoreEntry);
   assert.ok(preferConstOptionValue);
   assert.ok(crossRuleShape);
   assert.ok(lintRuleWithOptions);
