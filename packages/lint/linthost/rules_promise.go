@@ -1077,6 +1077,9 @@ func floatingPromiseEquivalentOverloads(
       declaration.Parent != firstDeclaration.Parent {
       stableSourceOrder = false
     }
+    if !floatingPromiseSignatureParametersHaveSameSyntax(first, signature) {
+      stableSourceOrder = false
+    }
     if !firstHasLiteralParameters && floatingPromiseSignatureHasLiteralParameters(signature) {
       stableSourceOrder = false
     }
@@ -1094,6 +1097,29 @@ func floatingPromiseEquivalentOverloads(
   }
   for _, signature := range signatures[1:] {
     if checker.GetReturnTypeOfSignature(signature) != firstReturn {
+      return false
+    }
+  }
+  return true
+}
+
+func floatingPromiseSignatureParametersHaveSameSyntax(
+  left *shimchecker.Signature,
+  right *shimchecker.Signature,
+) bool {
+  if left == nil || right == nil || left.Declaration() == nil || right.Declaration() == nil {
+    return false
+  }
+  leftParameters := left.Declaration().Parameters()
+  rightParameters := right.Declaration().Parameters()
+  if len(leftParameters) != len(rightParameters) {
+    return false
+  }
+  for index := range leftParameters {
+    leftType := leftParameters[index].Type()
+    rightType := rightParameters[index].Type()
+    if leftType == nil || rightType == nil ||
+      leftType.Kind != rightType.Kind || leftType.Text() != rightType.Text() {
       return false
     }
   }
