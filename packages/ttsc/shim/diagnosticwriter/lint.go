@@ -30,6 +30,35 @@ const (
   LintCategoryError
 )
 
+// NormalizeLintRange returns a renderer-safe half-open source span. Diagnostic
+// producers are a plugin trust boundary, so offsets are clamped even when the
+// caller's contract says they point inside the current file. Reversed and
+// zero-width ranges select one byte when one exists at pos; EOF and empty-file
+// ranges remain zero-width instead of manufacturing a byte past the source.
+func NormalizeLintRange(file *ast.SourceFile, pos, end int) (int, int) {
+  if file == nil {
+    return 0, 0
+  }
+  sourceLen := len(file.Text())
+  if pos < 0 {
+    pos = 0
+  } else if pos > sourceLen {
+    pos = sourceLen
+  }
+  if end < 0 {
+    end = 0
+  } else if end > sourceLen {
+    end = sourceLen
+  }
+  if end <= pos {
+    end = pos
+    if pos < sourceLen {
+      end++
+    }
+  }
+  return pos, end
+}
+
 // LintDiagnostic is a public, plugin-emittable diagnostic shaped like the
 // `internal/diagnosticwriter.Diagnostic` interface. The internal type is
 // unexported, so this is the only way to mix lint output with tsgo's own
@@ -47,9 +76,7 @@ type LintDiagnostic struct {
 // supplied source file. `code` shows up in the rendered banner — the
 // convention is to give each rule its own stable integer.
 func NewLintDiagnostic(file *ast.SourceFile, pos, end int, code int32, category LintCategory, message string) *LintDiagnostic {
-  if end <= pos {
-    end = pos + 1
-  }
+  pos, end = NormalizeLintRange(file, pos, end)
   return &LintDiagnostic{
     file:     file,
     pos:      pos,

@@ -27,6 +27,7 @@ import (
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
+  shimdw "github.com/microsoft/typescript-go/shim/diagnosticwriter"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
@@ -169,16 +170,13 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
   if c.Severity == SeverityOff || node == nil {
     return
   }
-  pos := node.Pos()
-  if c.File != nil {
-    pos = shimscanner.SkipTrivia(c.File.Text(), pos)
-  }
+  pos, end := c.nodeFindingRange(node)
   c.collect(&Finding{
     Rule:     c.rule.Name(),
     Severity: c.Severity,
     File:     c.File,
     Pos:      pos,
-    End:      node.End(),
+    End:      end,
     Message:  message,
     Fix:      cloneTextEdits(edits),
     IsFormat: c.isFormat,
@@ -192,20 +190,31 @@ func (c *Context) ReportSuggestion(node *shimast.Node, message string, title str
   if c.Severity == SeverityOff || node == nil {
     return
   }
-  pos := node.Pos()
-  if c.File != nil {
-    pos = shimscanner.SkipTrivia(c.File.Text(), pos)
-  }
+  pos, end := c.nodeFindingRange(node)
   c.collect(&Finding{
     Rule:        c.rule.Name(),
     Severity:    c.Severity,
     File:        c.File,
     Pos:         pos,
-    End:         node.End(),
+    End:         end,
     Message:     message,
     Suggestions: newSuggestions(title, edits),
     IsFormat:    c.isFormat,
   })
+}
+
+// nodeFindingRange bounds an arbitrary rule-supplied node before reading the
+// current file's source text. Contributors can accidentally report a node from
+// another file, whose otherwise valid Pos may exceed this Context's source.
+func (c *Context) nodeFindingRange(node *shimast.Node) (int, int) {
+  if node == nil {
+    return shimdw.NormalizeLintRange(c.File, 0, 0)
+  }
+  pos, end := shimdw.NormalizeLintRange(c.File, node.Pos(), node.End())
+  if c.File != nil {
+    pos = shimscanner.SkipTrivia(c.File.Text(), pos)
+  }
+  return shimdw.NormalizeLintRange(c.File, pos, end)
 }
 
 // ReportRange records a finding at an explicit byte range inside the
@@ -220,9 +229,7 @@ func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit
   if c.Severity == SeverityOff || c.File == nil {
     return
   }
-  if end <= pos {
-    end = pos + 1
-  }
+  pos, end = shimdw.NormalizeLintRange(c.File, pos, end)
   c.collect(&Finding{
     Rule:     c.rule.Name(),
     Severity: c.Severity,
@@ -242,9 +249,7 @@ func (c *Context) ReportRangeSuggestion(pos, end int, message string, title stri
   if c.Severity == SeverityOff || c.File == nil {
     return
   }
-  if end <= pos {
-    end = pos + 1
-  }
+  pos, end = shimdw.NormalizeLintRange(c.File, pos, end)
   c.collect(&Finding{
     Rule:        c.rule.Name(),
     Severity:    c.Severity,
@@ -792,6 +797,7 @@ func runRuleCheck(rule Rule, ctx *Context, node *shimast.Node, collect func(*Fin
     if end <= pos {
       end = pos + 1
     }
+    pos, end = shimdw.NormalizeLintRange(ctx.File, pos, end)
     collect(&Finding{
       Rule:     rule.Name(),
       Severity: SeverityError,

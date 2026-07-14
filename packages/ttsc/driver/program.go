@@ -81,15 +81,14 @@ func NewLintDiagnostic(
     lint:     lint,
   }
   if file != nil {
+    pos = lint.Pos()
     d.File = file.FileName()
-    if pos >= 0 {
-      length := lint.Len()
-      d.Start = &pos
-      d.Length = &length
-      line, col := shimscanner.GetECMALineAndByteOffsetOfPosition(file, pos)
-      d.Line = line + 1
-      d.Column = col + 1
-    }
+    length := lint.Len()
+    d.Start = &pos
+    d.Length = &length
+    line, col := shimscanner.GetECMALineAndByteOffsetOfPosition(file, pos)
+    d.Line = line + 1
+    d.Column = col + 1
   }
   return d
 }
