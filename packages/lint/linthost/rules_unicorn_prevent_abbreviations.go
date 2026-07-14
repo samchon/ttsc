@@ -1632,7 +1632,7 @@ func reportUnicornPreventAbbreviationsFilename(
   options unicornPreventAbbreviationsOptions,
 ) {
   filenameWithPath := ctx.File.FileName()
-  if filenameWithPath == "" || strings.Contains(filenameWithPath, "<") || strings.Contains(filenameWithPath, ">") {
+  if filenameWithPath == "" || filenameWithPath == "<input>" || filenameWithPath == "<text>" {
     return
   }
   filename := filepath.Base(filenameWithPath)

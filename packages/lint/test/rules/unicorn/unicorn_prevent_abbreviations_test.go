@@ -438,6 +438,36 @@ func TestUnicornPreventAbbreviationsChecksPhysicalFilenameWithoutOfferingEdits(t
   if extension := unicornPreventAbbreviationsFilenameExtension(".err"); extension != "" {
     t.Fatalf("leading-dot basename must not be treated as an extension: %q", extension)
   }
+
+  _, _, findings = runRuleFindingsSnapshotFile(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    "foo<err>.ts",
+    "export {};\n",
+    nil,
+  )
+  if len(findings) != 1 || !strings.Contains(findings[0].Message, "`foo<error>.ts`") {
+    t.Fatalf("physical filenames containing angle brackets must still be checked: %+v", findings)
+  }
+
+  for _, filename := range []string{"<input>", "<text>"} {
+    _, _, findings = runRuleFindingsSnapshotFile(
+      t,
+      unicornPreventAbbreviationsRuleName,
+      filename,
+      "export {};\n",
+      json.RawMessage(`{
+        "extendDefaultReplacements": false,
+        "replacements": {
+          "input": {"source": true},
+          "text": {"source": true}
+        }
+      }`),
+    )
+    if len(findings) != 0 {
+      t.Fatalf("virtual filename %q must be skipped: %+v", filename, findings)
+    }
+  }
 }
 
 func TestUnicornPreventAbbreviationsKeepsExportedJSDocAndJSXBindingsDiagnosticOnly(t *testing.T) {
