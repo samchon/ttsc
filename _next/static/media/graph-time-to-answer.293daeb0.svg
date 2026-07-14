@@ -42,8 +42,8 @@
   <rect x="160.0" y="145.0" width="101.0" height="11" fill="#94a3b8" rx="2"/>
   <text x="269.0" y="155.0" fill="#94a3b8" font-size="11">0 s / 129 s</text>
   <rect x="160" y="160.0" width="0.8" height="11" fill="#22d3ee" fill-opacity="0.35" rx="2"/>
-  <rect x="160.8" y="160.0" width="25.9" height="11" fill="#22d3ee" rx="2"/>
-  <text x="194.7" y="170.0" fill="#22d3ee" font-size="11">1.0 s / 33 s</text>
+  <rect x="160.8" y="160.0" width="30.2" height="11" fill="#22d3ee" rx="2"/>
+  <text x="199.0" y="170.0" fill="#22d3ee" font-size="11">1.0 s / 39 s</text>
   <rect x="160" y="175.0" width="7.3" height="11" fill="#f59e0b" fill-opacity="0.35" rx="2"/>
   <rect x="167.3" y="175.0" width="53.1" height="11" fill="#f59e0b" rx="2"/>
   <text x="228.4" y="185.0" fill="#f59e0b" font-size="11">9.4 s / 68 s</text>
@@ -55,8 +55,8 @@
   <rect x="160.0" y="227.5" width="136.1" height="11" fill="#94a3b8" rx="2"/>
   <text x="304.1" y="237.5" fill="#94a3b8" font-size="11">0 s / 174 s</text>
   <rect x="160" y="242.5" width="1.2" height="11" fill="#22d3ee" fill-opacity="0.35" rx="2"/>
-  <rect x="161.2" y="242.5" width="33.8" height="11" fill="#22d3ee" rx="2"/>
-  <text x="203.0" y="252.5" fill="#22d3ee" font-size="11">1.5 s / 43 s</text>
+  <rect x="161.2" y="242.5" width="35.3" height="11" fill="#22d3ee" rx="2"/>
+  <text x="204.5" y="252.5" fill="#22d3ee" font-size="11">1.5 s / 45 s</text>
   <rect x="160" y="257.5" width="8.0" height="11" fill="#f59e0b" fill-opacity="0.35" rx="2"/>
   <rect x="168.0" y="257.5" width="52.9" height="11" fill="#f59e0b" rx="2"/>
   <text x="228.9" y="267.5" fill="#f59e0b" font-size="11">10 s / 68 s</text>
@@ -71,8 +71,8 @@
   <rect x="160.0" y="317.5" width="123.2" height="11" fill="#94a3b8" rx="2"/>
   <text x="291.2" y="327.5" fill="#94a3b8" font-size="11">0 s / 158 s</text>
   <rect x="160" y="332.5" width="0.9" height="11" fill="#22d3ee" fill-opacity="0.35" rx="2"/>
-  <rect x="160.9" y="332.5" width="42.9" height="11" fill="#22d3ee" rx="2"/>
-  <text x="211.7" y="342.5" fill="#22d3ee" font-size="11">1.1 s / 55 s</text>
+  <rect x="160.9" y="332.5" width="51.8" height="11" fill="#22d3ee" rx="2"/>
+  <text x="220.6" y="342.5" fill="#22d3ee" font-size="11">1.1 s / 66 s</text>
   <rect x="160" y="347.5" width="16.1" height="11" fill="#f59e0b" fill-opacity="0.35" rx="2"/>
   <rect x="176.1" y="347.5" width="45.0" height="11" fill="#f59e0b" rx="2"/>
   <text x="229.0" y="357.5" fill="#f59e0b" font-size="11">21 s / 58 s</text>
@@ -87,8 +87,8 @@
   <rect x="160.0" y="407.5" width="91.1" height="11" fill="#94a3b8" rx="2"/>
   <text x="259.1" y="417.5" fill="#94a3b8" font-size="11">0 s / 117 s</text>
   <rect x="160" y="422.5" width="0.6" height="11" fill="#22d3ee" fill-opacity="0.35" rx="2"/>
-  <rect x="160.6" y="422.5" width="35.0" height="11" fill="#22d3ee" rx="2"/>
-  <text x="203.6" y="432.5" fill="#22d3ee" font-size="11">0.8 s / 45 s</text>
+  <rect x="160.6" y="422.5" width="34.0" height="11" fill="#22d3ee" rx="2"/>
+  <text x="202.7" y="432.5" fill="#22d3ee" font-size="11">0.8 s / 44 s</text>
   <rect x="160" y="437.5" width="12.6" height="11" fill="#f59e0b" fill-opacity="0.35" rx="2"/>
   <rect x="172.6" y="437.5" width="50.8" height="11" fill="#f59e0b" rx="2"/>
   <text x="231.4" y="447.5" fill="#f59e0b" font-size="11">16 s / 65 s</text>
@@ -103,8 +103,8 @@
   <rect x="160.0" y="497.5" width="116.9" height="11" fill="#94a3b8" rx="2"/>
   <text x="284.9" y="507.5" fill="#94a3b8" font-size="11">0 s / 150 s</text>
   <rect x="160" y="512.5" width="1.6" height="11" fill="#22d3ee" fill-opacity="0.35" rx="2"/>
-  <rect x="161.6" y="512.5" width="37.0" height="11" fill="#22d3ee" rx="2"/>
-  <text x="206.5" y="522.5" fill="#22d3ee" font-size="11">2.0 s / 47 s</text>
+  <rect x="161.6" y="512.5" width="38.9" height="11" fill="#22d3ee" rx="2"/>
+  <text x="208.4" y="522.5" fill="#22d3ee" font-size="11">2.0 s / 50 s</text>
   <rect x="160" y="527.5" width="9.7" height="11" fill="#f59e0b" fill-opacity="0.35" rx="2"/>
   <rect x="169.7" y="527.5" width="55.2" height="11" fill="#f59e0b" rx="2"/>
   <text x="232.9" y="537.5" fill="#f59e0b" font-size="11">12 s / 71 s</text>
@@ -119,8 +119,8 @@
   <rect x="160.0" y="587.5" width="164.6" height="11" fill="#94a3b8" rx="2"/>
   <text x="332.6" y="597.5" fill="#94a3b8" font-size="11">0 s / 211 s</text>
   <rect x="160" y="602.5" width="1.5" height="11" fill="#22d3ee" fill-opacity="0.35" rx="2"/>
-  <rect x="161.5" y="602.5" width="38.6" height="11" fill="#22d3ee" rx="2"/>
-  <text x="208.0" y="612.5" fill="#22d3ee" font-size="11">1.9 s / 49 s</text>
+  <rect x="161.5" y="602.5" width="44.4" height="11" fill="#22d3ee" rx="2"/>
+  <text x="213.9" y="612.5" fill="#22d3ee" font-size="11">1.9 s / 57 s</text>
   <rect x="160" y="617.5" width="13.9" height="11" fill="#f59e0b" fill-opacity="0.35" rx="2"/>
   <rect x="173.9" y="617.5" width="58.0" height="11" fill="#f59e0b" rx="2"/>
   <text x="239.8" y="627.5" fill="#f59e0b" font-size="11">18 s / 74 s</text>
@@ -135,8 +135,8 @@
   <rect x="160.0" y="677.5" width="132.0" height="11" fill="#94a3b8" rx="2"/>
   <text x="300.0" y="687.5" fill="#94a3b8" font-size="11">0 s / 169 s</text>
   <rect x="160" y="692.5" width="1.9" height="11" fill="#22d3ee" fill-opacity="0.35" rx="2"/>
-  <rect x="161.9" y="692.5" width="36.9" height="11" fill="#22d3ee" rx="2"/>
-  <text x="206.8" y="702.5" fill="#22d3ee" font-size="11">2.4 s / 47 s</text>
+  <rect x="161.9" y="692.5" width="38.9" height="11" fill="#22d3ee" rx="2"/>
+  <text x="208.8" y="702.5" fill="#22d3ee" font-size="11">2.4 s / 50 s</text>
   <rect x="160" y="707.5" width="43.1" height="11" fill="#f59e0b" fill-opacity="0.35" rx="2"/>
   <rect x="203.1" y="707.5" width="50.2" height="11" fill="#f59e0b" rx="2"/>
   <text x="261.3" y="717.5" fill="#f59e0b" font-size="11">55 s / 64 s</text>
@@ -151,8 +151,8 @@
   <rect x="160.0" y="767.5" width="133.0" height="11" fill="#94a3b8" rx="2"/>
   <text x="301.0" y="777.5" fill="#94a3b8" font-size="11">0 s / 171 s</text>
   <rect x="160" y="782.5" width="22.4" height="11" fill="#22d3ee" fill-opacity="0.35" rx="2"/>
-  <rect x="182.4" y="782.5" width="65.7" height="11" fill="#22d3ee" rx="2"/>
-  <text x="256.0" y="792.5" fill="#22d3ee" font-size="11">29 s / 84 s</text>
+  <rect x="182.4" y="782.5" width="79.2" height="11" fill="#22d3ee" rx="2"/>
+  <text x="269.6" y="792.5" fill="#22d3ee" font-size="11">29 s / 102 s</text>
   <rect x="160" y="797.5" width="570.5" height="11" fill="#f59e0b" fill-opacity="0.35" rx="2"/>
   <rect x="730.5" y="797.5" width="84.8" height="11" fill="#f59e0b" rx="2"/>
   <text x="823.4" y="807.5" fill="#f59e0b" font-size="11">731 s / 109 s</text>
