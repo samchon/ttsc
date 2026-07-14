@@ -13,6 +13,7 @@ import type {
   ITtscLintNoFallthroughRuleOptions,
   TtscLintCoreNoInnerDeclarationsRuleSetting,
   TtscLintCoreNoRestrictedImportsRuleSetting,
+  TtscLintCoreNoRestrictedSyntaxRuleSetting,
 } from "./ITtscLintCoreRuleOptions";
 
 /**
@@ -939,11 +940,15 @@ export interface ITtscLintCoreRules {
   "no-restricted-imports"?: TtscLintCoreNoRestrictedImportsRuleSetting;
 
   /**
-   * Reject AST node kinds listed in the project denylist.
+   * Reject syntax matching the configured AST selectors. With no selector
+   * options the rule is silent; it does not impose a built-in denylist.
+   *
+   * Native TypeScript-Go kind names and the documented esquery-compatible
+   * selector forms are supported, including TypeScript-only syntax.
    *
    * @reference https://eslint.org/docs/latest/rules/no-restricted-syntax
    */
-  "no-restricted-syntax"?: TtscLintRuleSetting;
+  "no-restricted-syntax"?: TtscLintCoreNoRestrictedSyntaxRuleSetting;
 
   /**
    * Reject assignment expressions used as the operand of `return` (`return x =

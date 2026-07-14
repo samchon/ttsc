@@ -1,6 +1,5 @@
 function runWith(target: { value: number }): number {
   let total = 0;
-  // expect: no-restricted-syntax error
   with (target) {
     total = value;
   }
@@ -9,7 +8,6 @@ function runWith(target: { value: number }): number {
 
 function runLabeled(): number {
   let acc = 0;
-  // expect: no-restricted-syntax error
   outer: for (let i = 0; i < 3; i += 1) {
     for (let j = 0; j < 3; j += 1) {
       if (i + j > 3) break outer;

@@ -96,6 +96,15 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
           ],
         },
       ],
+      "no-restricted-syntax": [
+        "error",
+        "WithStatement",
+        {
+          selector: "CallExpression[callee.name='eval']",
+          message: "Do not evaluate source text.",
+        },
+        "TSAsExpression",
+      ],
       "prefer-const": [
         "error",
         { destructuring: "all", ignoreReadBeforeAssign: true },
@@ -321,6 +330,24 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       ],
     },
   };
+  const noRestrictedSyntaxNonSelector: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — selector entries are strings or {selector,message} objects.
+      "no-restricted-syntax": ["error", 42],
+    },
+  };
+  const noRestrictedSyntaxUnknownObjectKey: ITtscLintConfig = {
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "WithStatement",
+          // @ts-expect-error — selector objects expose only selector and message.
+          reason: "legacy scope mutation",
+        },
+      ],
+    },
+  };
   const crossRuleShape: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `testIdPattern` belongs to testing-library/consistent-data-testid; cypress/unsafe-to-chain-command's option shape rejects it.
@@ -380,6 +407,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(noRestrictedImportsPatternModeConflict);
   assert.ok(noRestrictedImportsPatternNameConflict);
   assert.ok(noRestrictedImportsEmptyStructuredPatternList);
+  assert.ok(noRestrictedSyntaxNonSelector);
+  assert.ok(noRestrictedSyntaxUnknownObjectKey);
   assert.ok(preferConstOptionValue);
   assert.ok(crossRuleShape);
   assert.ok(lintRuleWithOptions);

@@ -150,6 +150,30 @@ export type TtscLintCoreNoInnerDeclarationsRuleSetting =
       ITtscLintCoreNoInnerDeclarationsRuleOptions,
     ];
 
+/** One restriction accepted by ESLint's `no-restricted-syntax` rule. */
+export type TtscLintCoreNoRestrictedSyntaxSelector =
+  | string
+  | {
+      /** esquery selector evaluated against the TypeScript-Go AST. */
+      selector: string;
+
+      /** Diagnostic text replacing the canonical default message. */
+      message?: string;
+    };
+
+/**
+ * Canonical variadic setting for `no-restricted-syntax`.
+ *
+ * Every tuple item after the severity is one independently reported selector.
+ * A bare severity or one-element tuple carries no selectors and is silent.
+ */
+export type TtscLintCoreNoRestrictedSyntaxRuleSetting =
+  | TtscLintRuleSetting
+  | readonly [
+      TtscLintSeverity,
+      ...TtscLintCoreNoRestrictedSyntaxSelector[],
+    ];
+
 /**
  * `no-fallthrough` rule options.
  *

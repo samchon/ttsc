@@ -92,7 +92,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-redeclare`](#rule-no-redeclare): Reject declaring the same binding more than once in the same scope.
 - [`no-regex-spaces`](#rule-no-regex-spaces): Reject more than one consecutive literal space in a regex.
 - [`no-restricted-imports`](#rule-no-restricted-imports): Reject static imports and re-exports selected by configured exact paths, gitignore-style groups, or regular expressions.
-- [`no-restricted-syntax`](#rule-no-restricted-syntax): Reject AST node kinds listed in the project denylist.
+- [`no-restricted-syntax`](#rule-no-restricted-syntax): Reject only syntax matching configured TypeScript-Go AST selectors.
 - [`no-return-assign`](#rule-no-return-assign): Reject assignment expressions used as the operand of `return` , almost always a typo for `===`.
 - [`no-script-url`](#rule-no-script-url): Reject `javascript:` URLs in string literals, they execute their body as code on browser navigation.
 - [`no-self-assign`](#rule-no-self-assign): Reject `x = x` and destructuring forms.
@@ -2088,7 +2088,60 @@ export default {
 
 ### `no-restricted-syntax`
 
-Reject AST node kinds listed in the project denylist.
+Reject only syntax matching selectors supplied after the severity. The rule has
+no default denylist: `"no-restricted-syntax": "error"` and
+`["error"]` are both silent.
+
+```ts
+export default {
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      "WithStatement",
+      {
+        selector: "CallExpression[callee.name='eval']",
+        message: "Do not evaluate source text.",
+      },
+      "TSAsExpression > Literal.expression",
+    ],
+  },
+};
+```
+
+The selector grammar follows esquery and supports:
+
+- native TypeScript-Go node kinds without the `Kind` prefix, plus `*`;
+- attribute presence, equality/inequality, numeric comparisons,
+  `type(...)`, nested paths, and `/pattern/imsu` regular expressions;
+- child (`>`), descendant (space), following-sibling (`~`), and adjacent
+  (`+`) combinators;
+- `:not`, `:is`/`:matches`, `:has`, `:first-child`, `:last-child`,
+  `:nth-child(n)`, `:nth-last-child(n)`, and `!` subjects;
+- the `:statement`, `:expression`, `:declaration`, `:function`, and
+  `:pattern` classes; and
+- field selectors such as `FunctionDeclaration > Identifier.id`.
+
+Native names are case-insensitive. Common ESTree names including `Program`,
+`ArrowFunctionExpression`, `ObjectExpression`, `ArrayExpression`,
+`VariableDeclarator`, `MemberExpression`, `AssignmentExpression`,
+`UpdateExpression`, `UnaryExpression`, `Literal`, `Property`, and the
+`TSAsExpression`/`TSTypeAssertion`/`TSSatisfiesExpression`/
+`TSNonNullExpression` family are aliases for their TypeScript-Go equivalents.
+
+Attribute paths expose `type`, `name`, `value`/`raw`, `operator`, variable
+`kind`, `async`, `generator`, `static`, `readonly`, `declare`, `optional`,
+`computed`, and the usual structural fields (`id`, `params`, `body`, `callee`,
+`arguments`, `object`, `property`, `left`, `right`, `argument`, `expression`,
+`test`, `consequent`, `alternate`, `init`, `update`, `declarations`, `elements`,
+`properties`, `key`, `source`, and `statements`). Regular expressions use Go's
+linear-time RE2 syntax; `i`, `m`, and `s` change matching and `u` is accepted as
+an explicit no-op because Go strings are already UTF-8.
+
+Tree relationships intentionally use TypeScript-Go's `Parent` and
+`ForEachChild` order. That makes TypeScript type, modifier, and token nodes
+selectable without constructing or monkeypatching a second ESTree. It also
+means sibling and child-position selectors describe the native tree rather
+than an ESTree projection.
 
 Example:
 
