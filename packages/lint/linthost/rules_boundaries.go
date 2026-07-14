@@ -18,17 +18,6 @@ type boundariesEntryPoint struct{}
 type boundariesNoPrivate struct{}
 type boundariesNoUnknown struct{}
 
-// boundariesDependencies is a v1 stub for the upstream unified
-// `boundaries/dependencies` rule, which replaces the legacy
-// `element-types` / `entry-point` / `external` / `no-private` /
-// `no-unknown` rules with a single direction-aware policy block.
-//
-// The native engine accepts the same `elements` + `rules` config shape so
-// projects can claim the rule id today, but the full direction
-// validation is deferred. Until then this rule registers, decodes
-// options without crashing, and emits no diagnostics.
-type boundariesDependencies struct{}
-
 func (boundariesElementTypes) Name() string { return "boundaries/element-types" }
 func (boundariesExternal) Name() string     { return "boundaries/external" }
 func (boundariesEntryPoint) Name() string   { return "boundaries/entry-point" }
@@ -42,15 +31,6 @@ func (boundariesEntryPoint) Visits() []shimast.Kind   { return []shimast.Kind{sh
 func (boundariesNoPrivate) Visits() []shimast.Kind    { return []shimast.Kind{shimast.KindSourceFile} }
 func (boundariesNoUnknown) Visits() []shimast.Kind    { return []shimast.Kind{shimast.KindSourceFile} }
 func (boundariesDependencies) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
-
-// Check is intentionally a no-op for the v1 stub. The rule accepts the
-// upstream config shape via the shared `boundariesOptions` decoder so
-// downstream configs type-check and load, then exits without reporting
-// findings. Replace this body when the unified direction validation
-// lands.
-func (boundariesDependencies) Check(ctx *Context, node *shimast.Node) {
-  _ = decodeBoundariesOptions(ctx)
-}
 
 func (boundariesElementTypes) Check(ctx *Context, node *shimast.Node) {
   opts := decodeBoundariesOptions(ctx)
@@ -239,6 +219,9 @@ type boundaryDependency struct {
   node      *shimast.Node
   specifier string
   relative  bool
+  kind      string
+  nodeKind  string
+  specifiers []string
 }
 
 func decodeBoundariesOptions(ctx *Context) boundariesOptions {
@@ -251,6 +234,19 @@ func decodeBoundariesOptions(ctx *Context) boundariesOptions {
 
 func collectBoundaryDependencies(node *shimast.Node) []boundaryDependency {
   out := []boundaryDependency{}
+  appendDependency := func(sourceNode *shimast.Node, specifier, kind, nodeKind string, specifiers []string) {
+    if sourceNode == nil || specifier == "" {
+      return
+    }
+    out = append(out, boundaryDependency{
+      node:       sourceNode,
+      specifier:  specifier,
+      relative:   isRelativeBoundarySpecifier(specifier),
+      kind:       kind,
+      nodeKind:   nodeKind,
+      specifiers: specifiers,
+    })
+  }
   var walk func(*shimast.Node)
   walk = func(n *shimast.Node) {
     if n == nil {
@@ -260,25 +256,73 @@ func collectBoundaryDependencies(node *shimast.Node) []boundaryDependency {
     case shimast.KindImportDeclaration:
       if imp := n.AsImportDeclaration(); imp != nil && imp.ModuleSpecifier != nil {
         specifier := stringLiteralText(imp.ModuleSpecifier)
-        if specifier != "" {
-          out = append(out, boundaryDependency{
-            node:      imp.ModuleSpecifier,
-            specifier: specifier,
-            relative:  isRelativeBoundarySpecifier(specifier),
-          })
-        }
+        names, typeOnly := noRestrictedImportsImportNames(imp)
+        appendDependency(
+          imp.ModuleSpecifier,
+          specifier,
+          boundaryDependencyKind(typeOnly, false),
+          "ImportDeclaration",
+          boundaryImportedNames(names),
+        )
       }
     case shimast.KindExportDeclaration:
       if exp := n.AsExportDeclaration(); exp != nil && exp.ModuleSpecifier != nil {
         specifier := stringLiteralText(exp.ModuleSpecifier)
-        if specifier != "" {
-          out = append(out, boundaryDependency{
-            node:      exp.ModuleSpecifier,
-            specifier: specifier,
-            relative:  isRelativeBoundarySpecifier(specifier),
-          })
+        names, typeOnly := noRestrictedImportsExportNames(nil, n, exp)
+        appendDependency(
+          exp.ModuleSpecifier,
+          specifier,
+          boundaryDependencyKind(typeOnly, false),
+          "ExportDeclaration",
+          boundaryImportedNames(names),
+        )
+      }
+    case shimast.KindImportEqualsDeclaration:
+      declaration := n.AsImportEqualsDeclaration()
+      if declaration != nil && declaration.ModuleReference != nil &&
+        declaration.ModuleReference.Kind == shimast.KindExternalModuleReference {
+        module := declaration.ModuleReference.AsExternalModuleReference()
+        if module != nil && module.Expression != nil {
+          appendDependency(
+            module.Expression,
+            stringLiteralText(module.Expression),
+            boundaryDependencyKind(declaration.IsTypeOnly, false),
+            "ImportEqualsDeclaration",
+            nil,
+          )
         }
       }
+    case shimast.KindCallExpression:
+      call := n.AsCallExpression()
+      if call == nil || call.Expression == nil || call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+        break
+      }
+      argument := call.Arguments.Nodes[0]
+      if argument == nil {
+        break
+      }
+      switch {
+      case call.Expression.Kind == shimast.KindImportKeyword:
+        appendDependency(argument, stringLiteralText(argument), "value", "ImportCall", nil)
+      case identifierText(call.Expression) == "require":
+        appendDependency(argument, stringLiteralText(argument), "value", "RequireCall", nil)
+      }
+    case shimast.KindImportType:
+      imported := n.AsImportTypeNode()
+      if imported == nil || imported.Argument == nil || imported.Argument.Kind != shimast.KindLiteralType {
+        break
+      }
+      literalType := imported.Argument.AsLiteralTypeNode()
+      if literalType == nil || literalType.Literal == nil {
+        break
+      }
+      appendDependency(
+        literalType.Literal,
+        stringLiteralText(literalType.Literal),
+        boundaryDependencyKind(false, imported.IsTypeOf),
+        "ImportType",
+        nil,
+      )
     }
     n.ForEachChild(func(child *shimast.Node) bool {
       walk(child)
@@ -287,6 +331,26 @@ func collectBoundaryDependencies(node *shimast.Node) []boundaryDependency {
   }
   walk(node)
   return out
+}
+
+func boundaryDependencyKind(typeOnly, typeOf bool) string {
+  if typeOf {
+    return "typeof"
+  }
+  if typeOnly {
+    return "type"
+  }
+  return "value"
+}
+
+func boundaryImportedNames(names []noRestrictedImportsImportedName) []string {
+  out := make([]string, 0, len(names))
+  for _, name := range names {
+    if name.name != "" {
+      out = append(out, name.name)
+    }
+  }
+  return uniqueBoundaryStrings(out)
 }
 
 func classifyBoundaryFile(fileName string, elements []boundaryElement) *boundaryFile {
@@ -357,10 +421,10 @@ func resolveBoundaryImport(sourceFileName, specifier string) (string, bool) {
   target := filepath.Clean(filepath.Join(base, filepath.FromSlash(specifier)))
   candidates := []string{target}
   if filepath.Ext(target) == "" {
-    for _, ext := range []string{".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"} {
+    for _, ext := range []string{".ts", ".tsx", ".mts", ".cts", ".d.ts", ".d.mts", ".d.cts", ".js", ".jsx", ".mjs", ".cjs"} {
       candidates = append(candidates, target+ext)
     }
-    for _, ext := range []string{".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"} {
+    for _, ext := range []string{".ts", ".tsx", ".mts", ".cts", ".d.ts", ".d.mts", ".d.cts", ".js", ".jsx", ".mjs", ".cjs"} {
       candidates = append(candidates, filepath.Join(target, "index"+ext))
     }
   }
@@ -499,6 +563,7 @@ func boundaryDisplayPath(path string) string {
 }
 
 func normalizeBoundaryPath(path string) string {
+  path = strings.ReplaceAll(path, `\`, "/")
   return filepath.ToSlash(filepath.Clean(path))
 }
 

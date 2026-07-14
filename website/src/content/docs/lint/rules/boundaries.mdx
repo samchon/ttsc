@@ -185,26 +185,74 @@ import "../shared/util";
 
 ### `boundaries/dependencies`
 
-Unified dependency-direction rule from upstream `eslint-plugin-boundaries`, intended to replace `element-types` / `entry-point` / `external` / `no-private` / `no-unknown` with a single policy block.
+Unified, direction-aware dependency policy from upstream `eslint-plugin-boundaries`.
 
-The native port registers the rule name and accepts the same `elements` + `rules` config shape as `element-types`, but does not emit diagnostics yet (v1 stub; full direction validation deferred).
+The rule classifies TypeScript-resolved targets, including `paths` aliases and re-exports, before evaluating policy. It recognizes static imports, exports, `import = require`, dynamic `import()`, static `require()`, and `import()` type nodes. Declaration files use the same policy.
 
-Configure it today to claim the upstream rule id; the legacy split rules continue to enforce policy.
+Policies are processed in order and the last matching effect wins. Within one policy, `disallow` is checked before `allow`. String selectors remain shorthand for element types; object selectors can also match `origin`, `source`, element-local `path`, and `entry` / `private` / `unknown` classification.
 
 Options:
 
 - `default?: "allow" | "disallow"`
 
-  Fallback policy when no rule matches. Default: `"allow"`.
+  Fallback policy when no effect matches. Default: `"disallow"`.
 
-- `rules?: readonly ITtscLintBoundariesElementTypesRule[]`
+- `policies?: readonly ITtscLintBoundariesDependenciesPolicy[]`
 
-  Ordered dependency policies. First matching policy wins.
+  Ordered dependency policies. This is the preferred current name.
+
+- `rules?: readonly ITtscLintBoundariesDependenciesPolicy[]`
+
+  Compatibility alias for `policies`; do not configure both.
+
+- `checkAllOrigins?: boolean`
+
+  Check external and `node:` dependencies as well as local targets. Default: `false`.
+
+- `checkUnknownLocals?: boolean`
+
+  Check resolved or unresolved local targets that match no configured element. Default: `false`.
+
+- `checkInternals?: boolean`
+
+  Check dependencies within the same configured element root. Default: `false`.
+
+- `message?: string`
+
+  Global diagnostic override. Policy messages take precedence. Messages can use `{{from.type}}`, `{{to.type}}`, `{{dependency.source}}`, `{{dependency.kind}}`, and `{{policy.index}}`.
 
 Example:
 
 ```ts
 // src/app/main.ts
+// reports: boundaries/dependencies (error)
 import "../domain/internal";
 import "./local";
+
+// lint.config.ts
+export default {
+  rules: {
+    "boundaries/dependencies": [
+      "error",
+      {
+        elements: [
+          { type: "app", pattern: "src/app/**" },
+          {
+            type: "domain",
+            pattern: "src/domain/**",
+            entry: "index.ts",
+            private: "internal/**",
+          },
+        ],
+        default: "allow",
+        policies: [
+          {
+            from: "app",
+            disallow: { to: { type: "domain", private: true } },
+          },
+        ],
+      },
+    ],
+  },
+} satisfies ITtscLintConfig;
 ```
