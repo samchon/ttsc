@@ -1,4 +1,8 @@
-import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
+import type {
+  TtscLintRuleOptionsSetting,
+  TtscLintRuleSetting,
+} from "../TtscLintRuleSetting";
+import type { ITtscLintUnicornPreventAbbreviationsRuleOptions } from "./ITtscLintUnicornRuleOptions";
 
 /**
  * Modernization and style rules from `eslint-plugin-unicorn`.
@@ -8,7 +12,8 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * counterparts, forbid known anti-patterns, and pin a consistent style for
  * things ESLint core and `typescript/*` leave underspecified.
  *
- * Pure-AST; no checker dependencies.
+ * Most rules are pure AST checks. Binding-aware rules use the TypeScript
+ * checker when lexical identity is part of the upstream contract.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn
  */
@@ -1042,12 +1047,14 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-type-error"?: TtscLintRuleSetting;
 
   /**
-   * Reject common identifier abbreviations (`btn`, `arr`, `idx`) and replace
-   * them with their long forms.
+   * Replace discouraged words in bindings, compound names, properties, and
+   * filenames according to the canonical replacement table. The legacy rule
+   * ID retains the final upstream behavior from before its June 2026 rename to
+   * `name-replacements`.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prevent-abbreviations.md
    */
-  "unicorn/prevent-abbreviations"?: TtscLintRuleSetting;
+  "unicorn/prevent-abbreviations"?: TtscLintRuleOptionsSetting<ITtscLintUnicornPreventAbbreviationsRuleOptions>;
 
   /**
    * Enforce a single style (always leading `./` vs. never) for relative URLs

@@ -1,125 +1,1286 @@
-// unicorn/prevent-abbreviations: abbreviated identifier names (`err`,
-// `cb`, `ctx`, `idx`) are a project-wide readability tax — every
-// reader has to expand the shorthand mentally on the spot. The
-// upstream rule maintains a large allowlist + replacements map; this
-// MVP carries the most universal abbreviations only and fires on any
-// identifier whose lower-cased text matches one of them, in both
-// reference and declaration positions, so a `param` parameter and a
-// `void param` read are both reported.
+// unicorn/prevent-abbreviations keeps the final pre-rename contract from
+// eslint-plugin-unicorn. Upstream renamed the rule to `name-replacements` in
+// June 2026; ttsc retains the established rule ID so existing configurations
+// remain source-compatible while using the complete replacement semantics.
 //
-// AST-only: visit every `Identifier`, lowercase the lexeme, look it up
-// in `unicornPreventAbbreviationsDictionary`. No scope analysis is
-// performed because the rule's diagnostic is about the *name*, not the
-// binding — every occurrence of `idx` is equally noisy.
+// Variable diagnostics are binding-based. The TypeScript checker connects one
+// declaration to all of its references, including shadowed names, shorthand
+// syntax, JSX, and TypeScript type predicates. A binding is reported once at
+// its declaration. A single unambiguous replacement is autofixed only when the
+// whole rename is safe; ambiguous replacements are exposed as suggestions.
 //
-// Hot-path budget: `KindIdentifier` is the most frequent AST kind in
-// any TypeScript program, so this Check is invoked tens-of-thousands
-// of times per file. A length pre-filter eliminates ~90 % of inputs
-// without touching memory (the longest dictionary entry is six
-// characters); an additional `isAllLowerASCII` check skips
-// `strings.ToLower`'s allocation for the common case of already-
-// lower-cased identifiers.
-// https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prevent-abbreviations.md
+// The canonical replacement table and defaults are pinned to the last
+// `prevent-abbreviations` implementation before the upstream rename:
+// https://github.com/sindresorhus/eslint-plugin-unicorn/blob/42abe74908e8/rules/prevent-abbreviations.js
 package linthost
 
 import (
+  "bytes"
+  "encoding/json"
+  "errors"
+  "fmt"
+  "io"
+  "math"
+  "path/filepath"
+  "regexp"
+  "sort"
   "strings"
+  "unicode"
+  "unicode/utf8"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// unicornPreventAbbreviationsDictionary is the MVP allowlist of
-// abbreviations that fire the rule. Lower-cased keys; the rule
-// case-folds the identifier before lookup. Intentionally conservative
-// — picks the abbreviations universally agreed across upstream
-// presets so the rule doesn't flap on neutral words.
-var unicornPreventAbbreviationsDictionary = map[string]struct{}{
-  "arr":    {},
-  "args":   {},
-  "attr":   {},
-  "btn":    {},
-  "cb":     {},
-  "cmd":    {},
-  "ctx":    {},
-  "db":     {},
-  "dest":   {},
-  "dir":    {},
-  "doc":    {},
-  "el":     {},
-  "elem":   {},
-  "env":    {},
-  "err":    {},
-  "evt":    {},
-  "fn":     {},
-  "func":   {},
-  "idx":    {},
-  "len":    {},
-  "lib":    {},
-  "mgr":    {},
-  "mod":    {},
-  "msg":    {},
-  "num":    {},
-  "obj":    {},
-  "opts":   {},
-  "param":  {},
-  "params": {},
-  "pkg":    {},
-  "prev":   {},
-  "prop":   {},
-  "props":  {},
-  "ref":    {},
-  "res":    {},
-  "ret":    {},
-  "src":    {},
-  "str":    {},
-  "tmp":    {},
-  "val":    {},
-  "var":    {},
-}
-
-// unicornPreventAbbreviationsMaxLen is the longest dictionary key
-// length. Any identifier longer than this cannot match — the Check
-// returns immediately without touching the dictionary.
-const unicornPreventAbbreviationsMaxLen = 6
-
 type unicornPreventAbbreviations struct{}
 
-func (unicornPreventAbbreviations) Name() string { return "unicorn/prevent-abbreviations" }
-func (unicornPreventAbbreviations) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindIdentifier}
-}
-func (unicornPreventAbbreviations) Check(ctx *Context, node *shimast.Node) {
-  name := identifierText(node)
-  if name == "" || len(name) > unicornPreventAbbreviationsMaxLen {
-    return
-  }
-  // Fast path: dictionary keys are pre-lowercased, so an
-  // already-lower-case identifier avoids `strings.ToLower`'s
-  // allocation entirely. The Check is invoked once per identifier
-  // in the file, so the saved allocations multiply.
-  lookup := name
-  if !isAllLowerASCII(name) {
-    lookup = strings.ToLower(name)
-  }
-  if _, ok := unicornPreventAbbreviationsDictionary[lookup]; !ok {
-    return
-  }
-  ctx.Report(node, "Prefer the long form over abbreviated identifiers (e.g. `error` over `err`).")
+type unicornPreventAbbreviationsImportMode uint8
+
+const (
+  unicornPreventAbbreviationsImportOff unicornPreventAbbreviationsImportMode = iota
+  unicornPreventAbbreviationsImportInternal
+  unicornPreventAbbreviationsImportAll
+)
+
+type unicornPreventAbbreviationsOptions struct {
+  checkProperties                  bool
+  checkVariables                   bool
+  checkDefaultAndNamespaceImports unicornPreventAbbreviationsImportMode
+  checkShorthandImports            unicornPreventAbbreviationsImportMode
+  checkShorthandProperties         bool
+  checkFilenames                   bool
+  replacements                    map[string][]string
+  allowList                        map[string]bool
+  ignore                           []*regexp.Regexp
 }
 
-// isAllLowerASCII reports whether `s` is a non-empty ASCII string
-// whose every byte is a lower-case letter. Used by hot-path Checks
-// that look up an already-normalized dictionary — the result is
-// equivalent to `s == strings.ToLower(s)` for all-ASCII inputs but
-// avoids the lowercase allocation.
-func isAllLowerASCII(s string) bool {
-  for i := 0; i < len(s); i++ {
-    c := s[i]
-    if c >= 'A' && c <= 'Z' {
+type unicornPreventAbbreviationsRawOptions struct {
+  CheckProperties                  *bool           `json:"checkProperties"`
+  CheckVariables                   *bool           `json:"checkVariables"`
+  CheckDefaultAndNamespaceImports json.RawMessage `json:"checkDefaultAndNamespaceImports"`
+  CheckShorthandImports            json.RawMessage `json:"checkShorthandImports"`
+  CheckShorthandProperties         *bool           `json:"checkShorthandProperties"`
+  CheckFilenames                   *bool           `json:"checkFilenames"`
+  ExtendDefaultReplacements        *bool           `json:"extendDefaultReplacements"`
+  Replacements                    json.RawMessage `json:"replacements"`
+  ExtendDefaultAllowList           *bool           `json:"extendDefaultAllowList"`
+  AllowList                        json.RawMessage `json:"allowList"`
+  Ignore                           json.RawMessage `json:"ignore"`
+}
+
+type unicornPreventAbbreviationsReplacementPatch struct {
+  disabled bool
+  values   map[string]bool
+}
+
+type unicornPreventAbbreviationsNameReplacements struct {
+  total   int
+  samples []string
+}
+
+type unicornPreventAbbreviationsBinding struct {
+  declaration *shimast.Node
+  nameNode    *shimast.Node
+  name        string
+  symbol      *shimast.Symbol
+  scope       *shimast.Node
+  references  []*shimast.Node
+  seen        map[*shimast.Node]struct{}
+}
+
+// This is the complete canonical table, not a project-specific subset.
+// Replacement order is normalized before diagnostics and suggestions.
+var unicornPreventAbbreviationsDefaultReplacements = map[string][]string{
+  "acc":    {"accumulator"},
+  "arg":    {"argument"},
+  "args":   {"arguments"},
+  "arr":    {"array"},
+  "attr":   {"attribute"},
+  "attrs":  {"attributes"},
+  "btn":    {"button"},
+  "cb":     {"callback"},
+  "conf":   {"config"},
+  "ctx":    {"context"},
+  "cur":    {"current"},
+  "curr":   {"current"},
+  "db":     {"database"},
+  "def":    {"defer", "deferred", "define", "definition"},
+  "dest":   {"destination"},
+  "dev":    {"development"},
+  "dir":    {"direction", "directory"},
+  "dirs":   {"directories"},
+  "dist":   {"distribution"},
+  "doc":    {"document"},
+  "docs":   {"documentation", "documents"},
+  "dst":    {"daylightSavingTime", "destination", "distribution"},
+  "e":      {"error", "event"},
+  "el":     {"element"},
+  "elem":   {"element"},
+  "elems":  {"elements"},
+  "env":    {"environment"},
+  "envs":   {"environments"},
+  "err":    {"error"},
+  "ev":     {"event"},
+  "evt":    {"event"},
+  "ext":    {"extension"},
+  "exts":   {"extensions"},
+  "fn":     {"function"},
+  "func":   {"function"},
+  "i":      {"index"},
+  "idx":    {"index"},
+  "j":      {"index"},
+  "len":    {"length"},
+  "lib":    {"library"},
+  "mod":    {"module"},
+  "msg":    {"message"},
+  "num":    {"number"},
+  "obj":    {"object"},
+  "opts":   {"options"},
+  "param":  {"parameter"},
+  "params": {"parameters"},
+  "pkg":    {"package"},
+  "prev":   {"previous"},
+  "prod":   {"production"},
+  "prop":   {"property"},
+  "props":  {"properties"},
+  "ref":    {"reference"},
+  "refs":   {"references"},
+  "rel":    {"related", "relationship", "relative"},
+  "req":    {"request"},
+  "res":    {"resource", "response", "result"},
+  "ret":    {"returnValue"},
+  "retval": {"returnValue"},
+  "sep":    {"separator"},
+  "src":    {"source"},
+  "stdDev": {"standardDeviation"},
+  "str":    {"string"},
+  "tbl":    {"table"},
+  "temp":   {"temporary"},
+  "tit":    {"title"},
+  "tmp":    {"temporary"},
+  "util":   {"utility"},
+  "utils":  {"utilities"},
+  "val":    {"value"},
+  "var":    {"variable"},
+  "vars":   {"variables"},
+  "ver":    {"version"},
+}
+
+var unicornPreventAbbreviationsDefaultAllowList = map[string]bool{
+  "defaultProps":             true,
+  "devDependencies":         true,
+  "EmberENV":                true,
+  "getDerivedStateFromProps": true,
+  "getInitialProps":          true,
+  "getServerSideProps":       true,
+  "getStaticProps":           true,
+  "iOS":                      true,
+  "propTypes":                true,
+  "setupFilesAfterEnv":       true,
+}
+
+var unicornPreventAbbreviationsDefaultIgnore = []string{
+  "i18n",
+  "l10n",
+  "a11y",
+  "e2e",
+  "jQuery",
+}
+
+var unicornPreventAbbreviationsReservedWords = map[string]struct{}{
+  "arguments": {}, "as": {}, "async": {}, "await": {}, "break": {},
+  "case": {}, "catch": {}, "class": {}, "const": {}, "constructor": {},
+  "continue": {}, "debugger": {}, "declare": {}, "default": {}, "delete": {},
+  "do": {}, "else": {}, "enum": {}, "export": {}, "extends": {},
+  "false": {}, "finally": {}, "for": {}, "from": {}, "function": {},
+  "get": {}, "if": {}, "implements": {}, "import": {}, "in": {},
+  "instanceof": {}, "interface": {}, "let": {}, "module": {}, "new": {},
+  "null": {}, "of": {}, "package": {}, "private": {}, "protected": {},
+  "public": {}, "require": {}, "return": {}, "set": {}, "static": {},
+  "super": {}, "switch": {}, "this": {}, "throw": {}, "true": {},
+  "try": {}, "type": {}, "typeof": {}, "var": {}, "void": {}, "while": {},
+  "with": {}, "yield": {},
+}
+
+func (unicornPreventAbbreviations) Name() string { return "unicorn/prevent-abbreviations" }
+func (unicornPreventAbbreviations) NeedsTypeChecker() bool {
+  return true
+}
+func (unicornPreventAbbreviations) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindSourceFile}
+}
+func (unicornPreventAbbreviations) ValidateOptions(raw json.RawMessage) error {
+  _, err := decodeUnicornPreventAbbreviationsOptions(raw)
+  return err
+}
+
+func (unicornPreventAbbreviations) Check(ctx *Context, node *shimast.Node) {
+  if ctx == nil || ctx.File == nil || ctx.Checker == nil || node == nil {
+    return
+  }
+  options, err := decodeUnicornPreventAbbreviationsOptions(ctx.Options)
+  if err != nil {
+    return
+  }
+
+  bindings, bySymbol, byDeclaration, occupied := collectUnicornPreventAbbreviationsBindings(ctx, node)
+  collectUnicornPreventAbbreviationsReferences(ctx, node, bySymbol, byDeclaration)
+
+  generated := make(map[string][]*shimast.Node)
+  if options.checkVariables {
+    for _, binding := range bindings {
+      reportUnicornPreventAbbreviationsBinding(ctx, binding, options, occupied, generated)
+    }
+  }
+  if options.checkProperties {
+    walkDescendants(node, func(candidate *shimast.Node) {
+      reportUnicornPreventAbbreviationsProperty(ctx, candidate, options)
+    })
+  }
+  if options.checkFilenames {
+    reportUnicornPreventAbbreviationsFilename(ctx, node, options)
+  }
+}
+
+func decodeUnicornPreventAbbreviationsOptions(raw json.RawMessage) (unicornPreventAbbreviationsOptions, error) {
+  options := unicornPreventAbbreviationsOptions{
+    checkVariables:                   true,
+    checkDefaultAndNamespaceImports: unicornPreventAbbreviationsImportInternal,
+    checkShorthandImports:            unicornPreventAbbreviationsImportInternal,
+    checkFilenames:                   true,
+    replacements:                    cloneUnicornPreventAbbreviationsReplacements(unicornPreventAbbreviationsDefaultReplacements),
+    allowList:                        cloneUnicornPreventAbbreviationsAllowList(unicornPreventAbbreviationsDefaultAllowList),
+  }
+  for _, pattern := range unicornPreventAbbreviationsDefaultIgnore {
+    options.ignore = append(options.ignore, regexp.MustCompile(pattern))
+  }
+  if len(bytes.TrimSpace(raw)) == 0 {
+    return options, nil
+  }
+
+  decoder := json.NewDecoder(bytes.NewReader(raw))
+  decoder.DisallowUnknownFields()
+  var configured unicornPreventAbbreviationsRawOptions
+  if err := decoder.Decode(&configured); err != nil {
+    return options, fmt.Errorf("options must be an object: %w", err)
+  }
+  if err := requireUnicornPreventAbbreviationsEOF(decoder); err != nil {
+    return options, err
+  }
+
+  if configured.CheckProperties != nil {
+    options.checkProperties = *configured.CheckProperties
+  }
+  if configured.CheckVariables != nil {
+    options.checkVariables = *configured.CheckVariables
+  }
+  if configured.CheckShorthandProperties != nil {
+    options.checkShorthandProperties = *configured.CheckShorthandProperties
+  }
+  if configured.CheckFilenames != nil {
+    options.checkFilenames = *configured.CheckFilenames
+  }
+
+  var err error
+  options.checkDefaultAndNamespaceImports, err = decodeUnicornPreventAbbreviationsImportMode(
+    configured.CheckDefaultAndNamespaceImports,
+    "checkDefaultAndNamespaceImports",
+    unicornPreventAbbreviationsImportInternal,
+  )
+  if err != nil {
+    return options, err
+  }
+  options.checkShorthandImports, err = decodeUnicornPreventAbbreviationsImportMode(
+    configured.CheckShorthandImports,
+    "checkShorthandImports",
+    unicornPreventAbbreviationsImportInternal,
+  )
+  if err != nil {
+    return options, err
+  }
+
+  extendReplacements := configured.ExtendDefaultReplacements == nil || *configured.ExtendDefaultReplacements
+  if !extendReplacements {
+    options.replacements = make(map[string][]string)
+  }
+  patches, err := decodeUnicornPreventAbbreviationsReplacementPatches(configured.Replacements)
+  if err != nil {
+    return options, err
+  }
+  applyUnicornPreventAbbreviationsReplacementPatches(options.replacements, patches)
+
+  extendAllowList := configured.ExtendDefaultAllowList == nil || *configured.ExtendDefaultAllowList
+  if !extendAllowList {
+    options.allowList = make(map[string]bool)
+  }
+  allowList, err := decodeUnicornPreventAbbreviationsBooleanMap(configured.AllowList, "allowList")
+  if err != nil {
+    return options, err
+  }
+  for name, allowed := range allowList {
+    if allowed {
+      options.allowList[name] = true
+    } else {
+      delete(options.allowList, name)
+    }
+  }
+
+  ignore, err := decodeUnicornPreventAbbreviationsIgnore(configured.Ignore)
+  if err != nil {
+    return options, err
+  }
+  options.ignore = append(options.ignore, ignore...)
+  return options, nil
+}
+
+func requireUnicornPreventAbbreviationsEOF(decoder *json.Decoder) error {
+  var trailing any
+  if err := decoder.Decode(&trailing); err != io.EOF {
+    if err == nil {
+      return errors.New("options must contain exactly one object")
+    }
+    return fmt.Errorf("options contain trailing data: %w", err)
+  }
+  return nil
+}
+
+func decodeUnicornPreventAbbreviationsImportMode(
+  raw json.RawMessage,
+  name string,
+  fallback unicornPreventAbbreviationsImportMode,
+) (unicornPreventAbbreviationsImportMode, error) {
+  if len(raw) == 0 {
+    return fallback, nil
+  }
+  var value any
+  if err := json.Unmarshal(raw, &value); err != nil {
+    return fallback, fmt.Errorf("option %q must be a boolean or \"internal\"", name)
+  }
+  switch configured := value.(type) {
+  case bool:
+    if configured {
+      return unicornPreventAbbreviationsImportAll, nil
+    }
+    return unicornPreventAbbreviationsImportOff, nil
+  case string:
+    if configured == "internal" {
+      return unicornPreventAbbreviationsImportInternal, nil
+    }
+  }
+  return fallback, fmt.Errorf("option %q must be a boolean or \"internal\"", name)
+}
+
+func decodeUnicornPreventAbbreviationsReplacementPatches(
+  raw json.RawMessage,
+) (map[string]unicornPreventAbbreviationsReplacementPatch, error) {
+  patches := make(map[string]unicornPreventAbbreviationsReplacementPatch)
+  if len(raw) == 0 {
+    return patches, nil
+  }
+  var entries map[string]json.RawMessage
+  if err := json.Unmarshal(raw, &entries); err != nil || entries == nil {
+    return nil, errors.New("option \"replacements\" must be an object")
+  }
+  for name, value := range entries {
+    if name == "" {
+      return nil, errors.New("option \"replacements\" keys must not be empty")
+    }
+    var disabled bool
+    if err := json.Unmarshal(value, &disabled); err == nil {
+      if disabled {
+        return nil, fmt.Errorf("option \"replacements.%s\" must be false or an object", name)
+      }
+      patches[name] = unicornPreventAbbreviationsReplacementPatch{disabled: true}
+      continue
+    }
+    replacements, err := decodeUnicornPreventAbbreviationsBooleanMap(value, "replacements."+name)
+    if err != nil {
+      return nil, err
+    }
+    patches[name] = unicornPreventAbbreviationsReplacementPatch{values: replacements}
+  }
+  return patches, nil
+}
+
+func decodeUnicornPreventAbbreviationsBooleanMap(raw json.RawMessage, name string) (map[string]bool, error) {
+  values := make(map[string]bool)
+  if len(raw) == 0 {
+    return values, nil
+  }
+  if err := json.Unmarshal(raw, &values); err != nil || values == nil {
+    return nil, fmt.Errorf("option %q must be an object with boolean values", name)
+  }
+  for key := range values {
+    if key == "" {
+      return nil, fmt.Errorf("option %q keys must not be empty", name)
+    }
+  }
+  return values, nil
+}
+
+func decodeUnicornPreventAbbreviationsIgnore(raw json.RawMessage) ([]*regexp.Regexp, error) {
+  if len(raw) == 0 {
+    return nil, nil
+  }
+  var patterns []string
+  if err := json.Unmarshal(raw, &patterns); err != nil || patterns == nil {
+    return nil, errors.New("option \"ignore\" must be an array of regular-expression strings")
+  }
+  compiled := make([]*regexp.Regexp, 0, len(patterns))
+  for index, pattern := range patterns {
+    expression, err := regexp.Compile(pattern)
+    if err != nil {
+      return nil, fmt.Errorf("option \"ignore\"[%d] must be a valid regular expression: %w", index, err)
+    }
+    compiled = append(compiled, expression)
+  }
+  return compiled, nil
+}
+
+func cloneUnicornPreventAbbreviationsReplacements(source map[string][]string) map[string][]string {
+  clone := make(map[string][]string, len(source))
+  for name, replacements := range source {
+    clone[name] = append([]string(nil), replacements...)
+  }
+  return clone
+}
+
+func cloneUnicornPreventAbbreviationsAllowList(source map[string]bool) map[string]bool {
+  clone := make(map[string]bool, len(source))
+  for name, allowed := range source {
+    clone[name] = allowed
+  }
+  return clone
+}
+
+func applyUnicornPreventAbbreviationsReplacementPatches(
+  replacements map[string][]string,
+  patches map[string]unicornPreventAbbreviationsReplacementPatch,
+) {
+  for name, patch := range patches {
+    if patch.disabled {
+      delete(replacements, name)
+      continue
+    }
+    values := make(map[string]bool)
+    for _, replacement := range replacements[name] {
+      values[replacement] = true
+    }
+    for replacement, enabled := range patch.values {
+      values[replacement] = enabled
+    }
+    merged := make([]string, 0, len(values))
+    for replacement, enabled := range values {
+      if enabled {
+        merged = append(merged, replacement)
+      }
+    }
+    sort.Strings(merged)
+    replacements[name] = merged
+  }
+}
+
+func collectUnicornPreventAbbreviationsBindings(
+  ctx *Context,
+  root *shimast.Node,
+) (
+  []*unicornPreventAbbreviationsBinding,
+  map[*shimast.Symbol]*unicornPreventAbbreviationsBinding,
+  map[*shimast.Node]*unicornPreventAbbreviationsBinding,
+  map[string][]*shimast.Node,
+) {
+  bindings := make([]*unicornPreventAbbreviationsBinding, 0)
+  bySymbol := make(map[*shimast.Symbol]*unicornPreventAbbreviationsBinding)
+  byDeclaration := make(map[*shimast.Node]*unicornPreventAbbreviationsBinding)
+  occupied := make(map[string][]*shimast.Node)
+  seenNames := make(map[*shimast.Node]struct{})
+
+  walkDescendants(root, func(node *shimast.Node) {
+    nameNode := unicornPreventAbbreviationsBindingIdentifier(node)
+    if nameNode == nil {
+      return
+    }
+    if _, duplicate := seenNames[nameNode]; duplicate {
+      return
+    }
+    seenNames[nameNode] = struct{}{}
+    name := identifierText(nameNode)
+    if name == "" {
+      return
+    }
+    scope := unicornPreventAbbreviationsBindingScope(node)
+    occupied[name] = append(occupied[name], scope)
+
+    symbol := canonicalValueSymbol(ctx, nameNode)
+    if symbol == nil {
+      return
+    }
+    if existing := bySymbol[symbol]; existing != nil {
+      byDeclaration[node] = existing
+      return
+    }
+    binding := &unicornPreventAbbreviationsBinding{
+      declaration: node,
+      nameNode:    nameNode,
+      name:        name,
+      symbol:      symbol,
+      scope:       scope,
+      seen:        make(map[*shimast.Node]struct{}),
+    }
+    bindings = append(bindings, binding)
+    bySymbol[symbol] = binding
+    byDeclaration[node] = binding
+    for _, declaration := range symbol.Declarations {
+      byDeclaration[declaration] = binding
+    }
+  })
+  return bindings, bySymbol, byDeclaration, occupied
+}
+
+func unicornPreventAbbreviationsBindingIdentifier(node *shimast.Node) *shimast.Node {
+  if node == nil {
+    return nil
+  }
+  switch node.Kind {
+  case shimast.KindVariableDeclaration:
+    if declaration := node.AsVariableDeclaration(); declaration != nil {
+      return unicornPreventAbbreviationsPlainBindingName(declaration.Name())
+    }
+  case shimast.KindParameter:
+    if declaration := node.AsParameterDeclaration(); declaration != nil {
+      return unicornPreventAbbreviationsPlainBindingName(declaration.Name())
+    }
+  case shimast.KindBindingElement:
+    if element := node.AsBindingElement(); element != nil {
+      return unicornPreventAbbreviationsPlainBindingName(element.Name())
+    }
+  case shimast.KindFunctionDeclaration,
+    shimast.KindFunctionExpression,
+    shimast.KindClassDeclaration,
+    shimast.KindClassExpression,
+    shimast.KindEnumDeclaration,
+    shimast.KindModuleDeclaration,
+    shimast.KindInterfaceDeclaration,
+    shimast.KindTypeAliasDeclaration,
+    shimast.KindTypeParameter:
+    return unicornPreventAbbreviationsPlainBindingName(node.Name())
+  case shimast.KindImportClause,
+    shimast.KindNamespaceImport,
+    shimast.KindImportSpecifier,
+    shimast.KindImportEqualsDeclaration:
+    return unicornPreventAbbreviationsPlainBindingName(node.Name())
+  }
+  return nil
+}
+
+func unicornPreventAbbreviationsPlainBindingName(node *shimast.Node) *shimast.Node {
+  if node != nil && node.Kind == shimast.KindIdentifier {
+    return node
+  }
+  return nil
+}
+
+func unicornPreventAbbreviationsBindingScope(declaration *shimast.Node) *shimast.Node {
+  if declaration == nil {
+    return nil
+  }
+  if declaration.Kind == shimast.KindFunctionExpression || declaration.Kind == shimast.KindClassExpression {
+    return declaration
+  }
+  return preferConstLexicalScope(declaration)
+}
+
+func collectUnicornPreventAbbreviationsReferences(
+  ctx *Context,
+  root *shimast.Node,
+  bySymbol map[*shimast.Symbol]*unicornPreventAbbreviationsBinding,
+  byDeclaration map[*shimast.Node]*unicornPreventAbbreviationsBinding,
+) {
+  walkDescendants(root, func(node *shimast.Node) {
+    if node.Kind != shimast.KindIdentifier {
+      return
+    }
+    symbol := canonicalValueSymbol(ctx, node)
+    if symbol == nil {
+      return
+    }
+    binding := bySymbol[symbol]
+    if binding == nil {
+      for _, declaration := range symbol.Declarations {
+        if candidate := byDeclaration[declaration]; candidate != nil {
+          binding = candidate
+          break
+        }
+      }
+    }
+    if binding == nil {
+      return
+    }
+    if _, duplicate := binding.seen[node]; duplicate {
+      return
+    }
+    binding.seen[node] = struct{}{}
+    binding.references = append(binding.references, node)
+  })
+}
+
+func reportUnicornPreventAbbreviationsBinding(
+  ctx *Context,
+  binding *unicornPreventAbbreviationsBinding,
+  options unicornPreventAbbreviationsOptions,
+  occupied map[string][]*shimast.Node,
+  generated map[string][]*shimast.Node,
+) {
+  if binding == nil || !unicornPreventAbbreviationsShouldCheckBinding(binding, options) {
+    return
+  }
+  replacements := getUnicornPreventAbbreviationsNameReplacements(binding.name, options, 3)
+  if replacements.total == 0 {
+    return
+  }
+
+  safeToRename := unicornPreventAbbreviationsCanRenameBinding(ctx, binding)
+  available := make([]string, 0, len(replacements.samples))
+  for _, replacement := range replacements.samples {
+    name := unicornPreventAbbreviationsAvailableName(replacement, binding.scope, occupied, generated)
+    if name != "" {
+      available = append(available, name)
+    }
+  }
+  replacements.samples = available
+  message := unicornPreventAbbreviationsMessage(binding.name, replacements, "variable")
+
+  if replacements.total == 1 && len(replacements.samples) == 1 && safeToRename {
+    replacement := replacements.samples[0]
+    edits := unicornPreventAbbreviationsRenameEdits(ctx, binding, replacement)
+    if len(edits) > 0 {
+      generated[replacement] = append(generated[replacement], binding.scope)
+      ctx.ReportFix(binding.nameNode, message, edits...)
+      return
+    }
+  }
+
+  suggestions := make([]Suggestion, 0, len(replacements.samples))
+  if replacements.total > 1 && safeToRename {
+    for _, replacement := range replacements.samples {
+      edits := unicornPreventAbbreviationsRenameEdits(ctx, binding, replacement)
+      if len(edits) == 0 {
+        continue
+      }
+      suggestions = append(suggestions, Suggestion{
+        Title: fmt.Sprintf("Rename to `%s`.", replacement),
+        Edits: edits,
+      })
+    }
+  }
+  ctx.ReportFixSuggestions(binding.nameNode, message, nil, suggestions...)
+}
+
+func unicornPreventAbbreviationsShouldCheckBinding(
+  binding *unicornPreventAbbreviationsBinding,
+  options unicornPreventAbbreviationsOptions,
+) bool {
+  declaration := binding.declaration
+  if declaration == nil {
+    return false
+  }
+  if unicornPreventAbbreviationsIsShorthandBinding(declaration) && !options.checkShorthandProperties {
+    return false
+  }
+  switch declaration.Kind {
+  case shimast.KindImportClause, shimast.KindNamespaceImport, shimast.KindImportEqualsDeclaration:
+    return unicornPreventAbbreviationsImportAllowed(
+      options.checkDefaultAndNamespaceImports,
+      unicornPreventAbbreviationsIsInternalImport(declaration),
+    )
+  case shimast.KindImportSpecifier:
+    specifier := declaration.AsImportSpecifier()
+    if specifier != nil && specifier.PropertyName == nil {
+      return unicornPreventAbbreviationsImportAllowed(
+        options.checkShorthandImports,
+        unicornPreventAbbreviationsIsInternalImport(declaration),
+      )
+    }
+  }
+  return true
+}
+
+func unicornPreventAbbreviationsIsShorthandBinding(declaration *shimast.Node) bool {
+  if declaration == nil || declaration.Kind != shimast.KindBindingElement {
+    return false
+  }
+  element := declaration.AsBindingElement()
+  return element != nil && element.PropertyName == nil && element.DotDotDotToken == nil &&
+    declaration.Parent != nil && declaration.Parent.Kind == shimast.KindObjectBindingPattern
+}
+
+func unicornPreventAbbreviationsImportAllowed(
+  mode unicornPreventAbbreviationsImportMode,
+  internal bool,
+) bool {
+  return mode == unicornPreventAbbreviationsImportAll ||
+    mode == unicornPreventAbbreviationsImportInternal && internal
+}
+
+func unicornPreventAbbreviationsIsInternalImport(declaration *shimast.Node) bool {
+  for ancestor := declaration; ancestor != nil; ancestor = ancestor.Parent {
+    if ancestor.Kind == shimast.KindImportDeclaration {
+      imported := ancestor.AsImportDeclaration()
+      if imported == nil {
+        return false
+      }
+      source := stringLiteralText(imported.ModuleSpecifier)
+      return strings.HasPrefix(source, ".") || strings.HasPrefix(source, "/")
+    }
+    if ancestor.Kind == shimast.KindImportEqualsDeclaration {
+      source := nodeText(shimast.GetSourceFileOfNode(ancestor), ancestor)
+      return strings.Contains(source, "require(\".") || strings.Contains(source, "require('.") ||
+        strings.Contains(source, "require(\"/") || strings.Contains(source, "require('/")
+    }
+  }
+  return false
+}
+
+func unicornPreventAbbreviationsCanRenameBinding(ctx *Context, binding *unicornPreventAbbreviationsBinding) bool {
+  if binding == nil || len(binding.references) == 0 || unicornPreventAbbreviationsBindingIsExported(binding) {
+    return false
+  }
+  if strings.EqualFold(filepath.Ext(ctx.File.FileName()), ".vue") {
+    return false
+  }
+  if binding.declaration != nil && binding.declaration.Kind == shimast.KindParameter &&
+    unicornPreventAbbreviationsParameterHasJSDoc(ctx, binding.declaration) {
+    return false
+  }
+  for _, reference := range binding.references {
+    if noFallthroughNodeIsJSXTagName(reference) {
+      return false
+    }
+    if pos, end := tokenRange(ctx.File, reference); pos < 0 || end <= pos {
       return false
     }
   }
   return true
+}
+
+func unicornPreventAbbreviationsBindingIsExported(binding *unicornPreventAbbreviationsBinding) bool {
+  declaration := binding.declaration
+  if declaration == nil {
+    return false
+  }
+  if declaration.Kind == shimast.KindVariableDeclaration {
+    for owner := declaration.Parent; owner != nil; owner = owner.Parent {
+      if owner.Kind == shimast.KindVariableStatement {
+        declaration = owner
+        break
+      }
+      if isFunctionLikeKind(owner) || owner.Kind == shimast.KindSourceFile {
+        break
+      }
+    }
+  }
+  return declaration.ModifierFlags()&shimast.ModifierFlagsExport != 0
+}
+
+func unicornPreventAbbreviationsParameterHasJSDoc(ctx *Context, parameter *shimast.Node) bool {
+  if ctx == nil || ctx.File == nil || parameter == nil {
+    return false
+  }
+  function := parameter.Parent
+  for function != nil && !isFunctionLikeKind(function) {
+    function = function.Parent
+  }
+  if function == nil {
+    return false
+  }
+  commentable := function
+  for parent := function.Parent; parent != nil; parent = parent.Parent {
+    switch parent.Kind {
+    case shimast.KindVariableDeclaration,
+      shimast.KindVariableDeclarationList,
+      shimast.KindVariableStatement,
+      shimast.KindPropertyDeclaration,
+      shimast.KindPropertyAssignment,
+      shimast.KindExpressionStatement:
+      commentable = parent
+    default:
+      parent = nil
+    }
+    if parent == nil {
+      break
+    }
+  }
+  start, _ := tokenRange(ctx.File, commentable)
+  if start <= 0 {
+    return false
+  }
+  prefix := strings.TrimRightFunc(ctx.File.Text()[:start], unicode.IsSpace)
+  if !strings.HasSuffix(prefix, "*/") {
+    return false
+  }
+  open := strings.LastIndex(prefix, "/**")
+  if open < 0 {
+    return false
+  }
+  return strings.Contains(prefix[open:], "@param")
+}
+
+func unicornPreventAbbreviationsRenameEdits(
+  ctx *Context,
+  binding *unicornPreventAbbreviationsBinding,
+  replacement string,
+) []TextEdit {
+  if !unicornPreventAbbreviationsValidIdentifier(replacement) {
+    return nil
+  }
+  edits := make([]TextEdit, 0, len(binding.references))
+  seen := make(map[[2]int]struct{}, len(binding.references))
+  for _, reference := range binding.references {
+    pos, end := tokenRange(ctx.File, reference)
+    if pos < 0 || end <= pos {
+      return nil
+    }
+    key := [2]int{pos, end}
+    if _, duplicate := seen[key]; duplicate {
+      continue
+    }
+    seen[key] = struct{}{}
+    edits = append(edits, TextEdit{
+      Pos:  pos,
+      End:  end,
+      Text: unicornPreventAbbreviationsReferenceReplacement(reference, binding.name, replacement),
+    })
+  }
+  sort.Slice(edits, func(i, j int) bool {
+    if edits[i].Pos == edits[j].Pos {
+      return edits[i].End < edits[j].End
+    }
+    return edits[i].Pos < edits[j].Pos
+  })
+  return edits
+}
+
+func unicornPreventAbbreviationsReferenceReplacement(node *shimast.Node, oldName, newName string) string {
+  if node == nil || node.Parent == nil {
+    return newName
+  }
+  parent := node.Parent
+  switch parent.Kind {
+  case shimast.KindShorthandPropertyAssignment:
+    shorthand := parent.AsShorthandPropertyAssignment()
+    if shorthand != nil && shorthand.Name() == node {
+      return oldName + ": " + newName
+    }
+  case shimast.KindBindingElement:
+    element := parent.AsBindingElement()
+    if element != nil && element.Name() == node && element.PropertyName == nil && element.DotDotDotToken == nil &&
+      parent.Parent != nil && parent.Parent.Kind == shimast.KindObjectBindingPattern {
+      return oldName + ": " + newName
+    }
+  case shimast.KindImportSpecifier:
+    specifier := parent.AsImportSpecifier()
+    if specifier != nil && specifier.Name() == node && specifier.PropertyName == nil {
+      return oldName + " as " + newName
+    }
+  case shimast.KindExportSpecifier:
+    specifier := parent.AsExportSpecifier()
+    if specifier != nil && specifier.Name() == node && specifier.PropertyName == nil {
+      return newName + " as " + oldName
+    }
+  }
+  return newName
+}
+
+func unicornPreventAbbreviationsAvailableName(
+  desired string,
+  scope *shimast.Node,
+  occupied map[string][]*shimast.Node,
+  generated map[string][]*shimast.Node,
+) string {
+  candidate := desired
+  if !unicornPreventAbbreviationsValidIdentifier(candidate) {
+    candidate += "_"
+    if !unicornPreventAbbreviationsValidIdentifier(candidate) {
+      return ""
+    }
+  }
+  for unicornPreventAbbreviationsNameCollides(candidate, scope, occupied) ||
+    unicornPreventAbbreviationsNameCollides(candidate, scope, generated) {
+    candidate += "_"
+  }
+  return candidate
+}
+
+func unicornPreventAbbreviationsNameCollides(
+  name string,
+  scope *shimast.Node,
+  names map[string][]*shimast.Node,
+) bool {
+  for _, existingScope := range names[name] {
+    if unicornPreventAbbreviationsScopesOverlap(scope, existingScope) {
+      return true
+    }
+  }
+  return false
+}
+
+func unicornPreventAbbreviationsScopesOverlap(left, right *shimast.Node) bool {
+  if left == nil || right == nil {
+    return true
+  }
+  return left == right || unicornPreventAbbreviationsIsAncestor(left, right) ||
+    unicornPreventAbbreviationsIsAncestor(right, left)
+}
+
+func unicornPreventAbbreviationsIsAncestor(ancestor, node *shimast.Node) bool {
+  for current := node.Parent; current != nil; current = current.Parent {
+    if current == ancestor {
+      return true
+    }
+  }
+  return false
+}
+
+func reportUnicornPreventAbbreviationsProperty(
+  ctx *Context,
+  node *shimast.Node,
+  options unicornPreventAbbreviationsOptions,
+) {
+  if node == nil || node.Kind != shimast.KindIdentifier || identifierText(node) == "__proto__" ||
+    !unicornPreventAbbreviationsIsProperty(node) {
+    return
+  }
+  name := identifierText(node)
+  replacements := getUnicornPreventAbbreviationsNameReplacements(name, options, 3)
+  if replacements.total == 0 {
+    return
+  }
+  message := unicornPreventAbbreviationsMessage(name, replacements, "property")
+  suggestions := make([]Suggestion, 0, len(replacements.samples))
+  if replacements.total > 1 && (node.Parent == nil || node.Parent.Kind != shimast.KindExportSpecifier) {
+    pos, end := tokenRange(ctx.File, node)
+    if pos >= 0 {
+      for _, replacement := range replacements.samples {
+        if !unicornPreventAbbreviationsValidIdentifier(replacement) {
+          continue
+        }
+        suggestions = append(suggestions, Suggestion{
+          Title: fmt.Sprintf("Rename to `%s`.", replacement),
+          Edits: []TextEdit{{Pos: pos, End: end, Text: replacement}},
+        })
+      }
+    }
+  }
+  ctx.ReportFixSuggestions(node, message, nil, suggestions...)
+}
+
+func unicornPreventAbbreviationsIsProperty(node *shimast.Node) bool {
+  if node == nil || node.Parent == nil {
+    return false
+  }
+  parent := node.Parent
+  switch parent.Kind {
+  case shimast.KindPropertyAccessExpression:
+    access := parent.AsPropertyAccessExpression()
+    if access == nil || access.Name() != node || parent.Parent == nil {
+      return false
+    }
+    switch parent.Parent.Kind {
+    case shimast.KindBinaryExpression:
+      expression := parent.Parent.AsBinaryExpression()
+      return expression != nil && expression.Left == parent && expression.OperatorToken != nil &&
+        isAssignmentOperator(expression.OperatorToken.Kind)
+    case shimast.KindPrefixUnaryExpression:
+      expression := parent.Parent.AsPrefixUnaryExpression()
+      return expression != nil && expression.Operand == parent &&
+        (expression.Operator == shimast.KindPlusPlusToken || expression.Operator == shimast.KindMinusMinusToken)
+    case shimast.KindPostfixUnaryExpression:
+      expression := parent.Parent.AsPostfixUnaryExpression()
+      return expression != nil && expression.Operand == parent &&
+        (expression.Operator == shimast.KindPlusPlusToken || expression.Operator == shimast.KindMinusMinusToken)
+    }
+  case shimast.KindPropertyAssignment:
+    assignment := parent.AsPropertyAssignment()
+    return assignment != nil && assignment.Name() == node
+  case shimast.KindMethodDeclaration,
+    shimast.KindPropertyDeclaration,
+    shimast.KindGetAccessor,
+    shimast.KindSetAccessor,
+    shimast.KindMethodSignature,
+    shimast.KindPropertySignature:
+    return parent.Name() == node
+  case shimast.KindExportSpecifier:
+    specifier := parent.AsExportSpecifier()
+    return specifier != nil && specifier.PropertyName != nil && specifier.Name() == node
+  }
+  return false
+}
+
+func reportUnicornPreventAbbreviationsFilename(
+  ctx *Context,
+  node *shimast.Node,
+  options unicornPreventAbbreviationsOptions,
+) {
+  filenameWithPath := ctx.File.FileName()
+  if filenameWithPath == "" || strings.Contains(filenameWithPath, "<") || strings.Contains(filenameWithPath, ">") {
+    return
+  }
+  filename := filepath.Base(filenameWithPath)
+  extension := filepath.Ext(filename)
+  basename := strings.TrimSuffix(filename, extension)
+  replacements := getUnicornPreventAbbreviationsNameReplacements(basename, options, 3)
+  if replacements.total == 0 {
+    return
+  }
+  for index := range replacements.samples {
+    replacements.samples[index] += extension
+  }
+  ctx.Report(node, unicornPreventAbbreviationsMessage(filename, replacements, "filename"))
+}
+
+func getUnicornPreventAbbreviationsNameReplacements(
+  name string,
+  options unicornPreventAbbreviationsOptions,
+  limit int,
+) unicornPreventAbbreviationsNameReplacements {
+  if name == "" || strings.ToUpper(name) == name || options.allowList[name] {
+    return unicornPreventAbbreviationsNameReplacements{}
+  }
+  for _, pattern := range options.ignore {
+    if pattern.MatchString(name) {
+      return unicornPreventAbbreviationsNameReplacements{}
+    }
+  }
+
+  exact := getUnicornPreventAbbreviationsWordReplacements(name, options)
+  if len(exact) > 0 {
+    total := len(exact)
+    if len(exact) > limit {
+      exact = exact[:limit]
+    }
+    return unicornPreventAbbreviationsNameReplacements{total: total, samples: exact}
+  }
+
+  words := splitUnicornPreventAbbreviationsWords(name)
+  combinations := make([][]string, 0, len(words))
+  total := 1
+  changed := false
+  for _, word := range words {
+    replacements := getUnicornPreventAbbreviationsWordReplacements(word, options)
+    if len(replacements) == 0 {
+      replacements = []string{word}
+    } else {
+      changed = true
+    }
+    combinations = append(combinations, replacements)
+    if total > math.MaxInt/len(replacements) {
+      total = math.MaxInt
+    } else {
+      total *= len(replacements)
+    }
+  }
+  if !changed {
+    return unicornPreventAbbreviationsNameReplacements{}
+  }
+  samples := cartesianUnicornPreventAbbreviationsSamples(combinations, limit)
+  for index, parts := range samples {
+    for part := len(parts) - 1; part > 0; part-- {
+      if unicornPreventAbbreviationsASCIIWord(parts[part]) && strings.HasSuffix(parts[part-1], parts[part]) {
+        parts = append(parts[:part], parts[part+1:]...)
+      }
+    }
+    samples[index] = parts
+  }
+  joined := make([]string, 0, len(samples))
+  for _, parts := range samples {
+    joined = append(joined, strings.Join(parts, ""))
+  }
+  return unicornPreventAbbreviationsNameReplacements{total: total, samples: joined}
+}
+
+func getUnicornPreventAbbreviationsWordReplacements(
+  word string,
+  options unicornPreventAbbreviationsOptions,
+) []string {
+  if word == "" || strings.ToUpper(word) == word || options.allowList[word] {
+    return nil
+  }
+  keys := []string{
+    lowerUnicornPreventAbbreviationsFirst(word),
+    word,
+    upperUnicornPreventAbbreviationsFirst(word),
+  }
+  var replacements []string
+  for _, key := range keys {
+    if configured, ok := options.replacements[key]; ok {
+      replacements = configured
+      break
+    }
+  }
+  if len(replacements) == 0 {
+    return nil
+  }
+  transformed := make([]string, 0, len(replacements))
+  upperFirst := unicornPreventAbbreviationsStartsUpper(word)
+  for _, replacement := range replacements {
+    if upperFirst {
+      transformed = append(transformed, upperUnicornPreventAbbreviationsFirst(replacement))
+    } else {
+      transformed = append(transformed, lowerUnicornPreventAbbreviationsFirst(replacement))
+    }
+  }
+  sort.Strings(transformed)
+  return transformed
+}
+
+func splitUnicornPreventAbbreviationsWords(name string) []string {
+  runes := []rune(name)
+  if len(runes) == 0 {
+    return nil
+  }
+  words := make([]string, 0, len(runes))
+  start := 0
+  flush := func(end int) {
+    if end > start {
+      words = append(words, string(runes[start:end]))
+    }
+    start = end
+  }
+  for index, current := range runes {
+    if !unicode.IsLetter(current) {
+      flush(index)
+      words = append(words, string(current))
+      start = index + 1
+      continue
+    }
+    if index == start || !unicode.IsUpper(current) {
+      continue
+    }
+    previous := runes[index-1]
+    nextLower := index+1 < len(runes) && unicode.IsLower(runes[index+1])
+    if unicode.IsLower(previous) || unicode.IsDigit(previous) || unicode.IsUpper(previous) && nextLower {
+      flush(index)
+    }
+  }
+  flush(len(runes))
+  return words
+}
+
+func cartesianUnicornPreventAbbreviationsSamples(parts [][]string, limit int) [][]string {
+  if len(parts) == 0 || limit <= 0 {
+    return nil
+  }
+  samples := make([][]string, 0, limit)
+  current := make([]string, len(parts))
+  var visit func(int)
+  visit = func(index int) {
+    if len(samples) >= limit {
+      return
+    }
+    if index == len(parts) {
+      samples = append(samples, append([]string(nil), current...))
+      return
+    }
+    for _, value := range parts[index] {
+      current[index] = value
+      visit(index + 1)
+      if len(samples) >= limit {
+        return
+      }
+    }
+  }
+  visit(0)
+  return samples
+}
+
+func unicornPreventAbbreviationsMessage(
+  discouragedName string,
+  replacements unicornPreventAbbreviationsNameReplacements,
+  nameType string,
+) string {
+  const suffix = " A more descriptive name will do too."
+  if replacements.total == 1 && len(replacements.samples) == 1 {
+    return fmt.Sprintf(
+      "The %s `%s` should be named `%s`.%s",
+      nameType,
+      discouragedName,
+      replacements.samples[0],
+      suffix,
+    )
+  }
+  names := make([]string, 0, len(replacements.samples))
+  for _, replacement := range replacements.samples {
+    names = append(names, "`"+replacement+"`")
+  }
+  rendered := strings.Join(names, ", ")
+  omitted := replacements.total - len(replacements.samples)
+  if omitted > 0 {
+    count := fmt.Sprintf("%d", omitted)
+    if omitted > 99 {
+      count = "99+"
+    }
+    rendered += fmt.Sprintf(", ... (%s more omitted)", count)
+  }
+  return fmt.Sprintf(
+    "Please rename the %s `%s`. Suggested names are: %s.%s",
+    nameType,
+    discouragedName,
+    rendered,
+    suffix,
+  )
+}
+
+func unicornPreventAbbreviationsValidIdentifier(name string) bool {
+  if name == "" {
+    return false
+  }
+  if _, reserved := unicornPreventAbbreviationsReservedWords[name]; reserved {
+    return false
+  }
+  first, size := utf8.DecodeRuneInString(name)
+  if first == utf8.RuneError && size == 0 || !(unicode.IsLetter(first) || first == '_' || first == '$') {
+    return false
+  }
+  for _, character := range name[size:] {
+    if !unicode.IsLetter(character) && !unicode.IsDigit(character) &&
+      !unicode.IsMark(character) && character != '_' && character != '$' &&
+      character != '\u200C' && character != '\u200D' {
+      return false
+    }
+  }
+  return true
+}
+
+func unicornPreventAbbreviationsASCIIWord(value string) bool {
+  if value == "" {
+    return false
+  }
+  for _, character := range value {
+    if character > unicode.MaxASCII || !unicode.IsLetter(character) {
+      return false
+    }
+  }
+  return true
+}
+
+func unicornPreventAbbreviationsStartsUpper(value string) bool {
+  first, _ := utf8.DecodeRuneInString(value)
+  return unicode.IsUpper(first)
+}
+
+func lowerUnicornPreventAbbreviationsFirst(value string) string {
+  first, size := utf8.DecodeRuneInString(value)
+  if size == 0 {
+    return value
+  }
+  return string(unicode.ToLower(first)) + value[size:]
+}
+
+func upperUnicornPreventAbbreviationsFirst(value string) string {
+  first, size := utf8.DecodeRuneInString(value)
+  if size == 0 {
+    return value
+  }
+  return string(unicode.ToUpper(first)) + value[size:]
 }
 
 func init() {
