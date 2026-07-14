@@ -10,31 +10,32 @@ import (
 // This fixture records only collisions present when the ledger was introduced.
 // Future collisions must rely on the append-only ledger instead of being added
 // here, because a later name may sort before the historical incumbent.
-var initialRuleCodeMigrationCollisions = []struct {
-	incumbent string
-	displaced string
+var initialRuleCodeMigrationCollisions = [21]struct {
+	incumbent     string
+	displaced     string
+	displacedCode int32
 }{
-	{"react/no-direct-mutation-state", "regexp/require-unicode-regexp"},
-	{"no-loss-of-precision", "playwright/no-hooks"},
-	{"typescript/no-unnecessary-type-constraint", "unicorn/no-typeof-undefined"},
-	{"getter-return", "vitest/no-conditional-tests"},
-	{"complexity", "vars-on-top"},
-	{"jsdoc/check-values", "no-bitwise"},
-	{"no-obj-calls", "react/jsx-no-script-url"},
-	{"format/declaration-header", "unicorn/prefer-array-some"},
-	{"no-var", "typescript/no-this-alias"},
-	{"solid/prefer-for", "unicorn/no-useless-undefined"},
-	{"regexp/no-useless-escape", "vitest/no-done-callback"},
-	{"jsx-a11y/label-has-associated-control", "no-useless-rename"},
-	{"no-alert", "no-unreachable"},
-	{"no-sequences", "typescript/await-thenable"},
-	{"testing-library/no-wait-for-snapshot", "unicorn/prefer-dom-node-text-content"},
-	{"playwright/no-wait-for-navigation", "unicorn/no-useless-error-capture-stack-trace"},
-	{"react/no-danger-with-children", "unicorn/prefer-string-replace-all"},
-	{"jsx-a11y/no-distracting-elements", "unicorn/prefer-math-trunc"},
-	{"regexp/no-dupe-characters-character-class", "security/detect-non-literal-regexp"},
-	{"functional/no-mixed-types", "object-shorthand"},
-	{"jsx-a11y/heading-has-content", "solid/jsx-no-duplicate-props"},
+	{"react/no-direct-mutation-state", "regexp/require-unicode-regexp", 9037},
+	{"no-loss-of-precision", "playwright/no-hooks", 9082},
+	{"typescript/no-unnecessary-type-constraint", "unicorn/no-typeof-undefined", 9275},
+	{"getter-return", "vitest/no-conditional-tests", 9584},
+	{"complexity", "vars-on-top", 10346},
+	{"jsdoc/check-values", "no-bitwise", 10529},
+	{"no-obj-calls", "react/jsx-no-script-url", 11455},
+	{"format/declaration-header", "unicorn/prefer-array-some", 11818},
+	{"no-var", "typescript/no-this-alias", 11967},
+	{"solid/prefer-for", "unicorn/no-useless-undefined", 12738},
+	{"regexp/no-useless-escape", "vitest/no-done-callback", 13468},
+	{"jsx-a11y/label-has-associated-control", "no-useless-rename", 13516},
+	{"no-alert", "no-unreachable", 13730},
+	{"no-sequences", "typescript/await-thenable", 14106},
+	{"testing-library/no-wait-for-snapshot", "unicorn/prefer-dom-node-text-content", 14576},
+	{"playwright/no-wait-for-navigation", "unicorn/no-useless-error-capture-stack-trace", 14878},
+	{"react/no-danger-with-children", "unicorn/prefer-string-replace-all", 14980},
+	{"jsx-a11y/no-distracting-elements", "unicorn/prefer-math-trunc", 14993},
+	{"regexp/no-dupe-characters-character-class", "security/detect-non-literal-regexp", 16372},
+	{"functional/no-mixed-types", "object-shorthand", 16865},
+	{"jsx-a11y/heading-has-content", "solid/jsx-no-duplicate-props", 17486},
 }
 
 // TestRuleCodesAreUniqueAcrossCompleteRegistry verifies the frozen built-in
@@ -67,8 +68,8 @@ func TestRuleCodesAreUniqueAcrossCompleteRegistry(t *testing.T) {
 		if code, exists := builtInRuleCodes[collision.incumbent]; !exists || code != legacy {
 			t.Fatalf("initial migration incumbent %q changed from %d to %d (exists=%t)", collision.incumbent, legacy, code, exists)
 		}
-		if code, exists := builtInRuleCodes[collision.displaced]; !exists || code == legacy {
-			t.Fatalf("initial migration collision loser %q has code %d (exists=%t, incumbent=%d)", collision.displaced, code, exists, legacy)
+		if code, exists := builtInRuleCodes[collision.displaced]; !exists || code != collision.displacedCode {
+			t.Fatalf("initial migration collision loser %q changed from %d to %d (exists=%t)", collision.displaced, collision.displacedCode, code, exists)
 		}
 	}
 
