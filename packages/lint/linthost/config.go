@@ -761,9 +761,9 @@ func parseExternalRuleMapInto(raw any, path string, store *ConfigStore) (RuleCon
   return out, entryOptions, nil
 }
 
-// collectExternalRuleMapWithOptions also records the rule's options blob
-// when the entry is a `[severity, options]` tuple. `opts` may be nil
-// when the caller does not need option capture.
+// collectExternalRuleMapWithOptions also records the rule's option payload
+// when the entry is a `[severity, ...options]` tuple. `opts` may be nil when
+// the caller does not need option capture.
 func collectExternalRuleMapWithOptions(out RuleConfig, opts RuleOptionsMap, raw any, path string) error {
   dict, ok := raw.(map[string]any)
   if !ok {
