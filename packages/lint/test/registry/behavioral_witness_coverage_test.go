@@ -345,3 +345,32 @@ func TestBehavioralWitnessAuditRejectsInvalidNonCanonicalCandidate(t *testing.T)
     t.Fatalf("invalid non-canonical candidate was not rejected: %v", err)
   }
 }
+
+func TestRequiredBehavioralWitnessKindsIgnoreNonPublicCandidates(t *testing.T) {
+  public := map[string]struct{}{
+    "fixture/engine":   {},
+    "fixture/options":  {},
+    "fixture/filename": {},
+    "fixture/project":  {},
+    "fixture/checker":  {},
+  }
+  candidates := map[string][]behavioralWitness{}
+  for ruleName, kind := range map[string]behavioralWitnessKind{
+    "fixture/engine":   behavioralWitnessEngine,
+    "fixture/options":  behavioralWitnessOptions,
+    "fixture/filename": behavioralWitnessFilename,
+    "fixture/project":  behavioralWitnessProject,
+    "fixture/checker":  behavioralWitnessChecker,
+    "test/platform":    behavioralWitnessPlatform,
+  } {
+    candidates[ruleName] = []behavioralWitness{{
+      Rule:  ruleName,
+      Route: "Test" + string(kind),
+      Kind:  kind,
+    }}
+  }
+  err := verifyRequiredBehavioralWitnessKinds(public, candidates)
+  if err == nil || !strings.Contains(err.Error(), string(behavioralWitnessPlatform)) {
+    t.Fatalf("non-public platform candidate satisfied the public kind audit: %v", err)
+  }
+}

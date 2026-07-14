@@ -91,6 +91,16 @@ export function assertLintCase(relativeFile: string): void {
       true,
       `${relativeFile}: referenced positive harness test does not exist: ${replacement}`,
     );
+    const rule = parseSkippedRule(relativeFile, source);
+    const replacementSource = fs.readFileSync(
+      path.join(repoRoot, replacement),
+      "utf8",
+    );
+    assert.equal(
+      replacementSource.includes(rule),
+      true,
+      `${relativeFile}: referenced harness ${replacement} does not exercise ${rule}`,
+    );
     return;
   }
   const expected = TestLint.parseExpectations(source);
@@ -228,6 +238,22 @@ function listLintCases(): string[] {
         parseCorpusSkip(source) !== null
       );
     });
+}
+
+function parseSkippedRule(relativeFile: string, source: string): string {
+  const expected = new Set(
+    TestLint.parseExpectations(source).map((item) => item.rule),
+  );
+  const declared = source.match(
+    /^\s*\/\/\s*@ttsc-corpus-rule:\s*([@\w/-]+)\s*$/m,
+  )?.[1];
+  if (declared) expected.add(declared);
+  assert.equal(
+    expected.size,
+    1,
+    `${relativeFile}: a corpus skip must identify exactly one rule through an expectation or \`// @ttsc-corpus-rule:\``,
+  );
+  return [...expected][0] as string;
 }
 
 /**
