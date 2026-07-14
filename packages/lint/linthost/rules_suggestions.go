@@ -259,6 +259,11 @@ func noExtraBindThisBelongsToFunction(node, root *shimast.Node) bool {
     switch ancestor.Kind {
     case shimast.KindComputedPropertyName, shimast.KindDecorator:
       outerEvaluation = true
+    case shimast.KindClassDeclaration, shimast.KindClassExpression:
+      // A class decorator runs outside that class, but still inside any
+      // enclosing method/function. Do not carry its marker across the class
+      // and accidentally skip an unrelated outer method boundary.
+      outerEvaluation = false
     case shimast.KindClassStaticBlockDeclaration:
       return false
     case shimast.KindPropertyDeclaration:

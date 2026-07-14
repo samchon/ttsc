@@ -36,6 +36,7 @@ const computedMethodKey = function (this: { value: number }) { return { [this.va
 const nestedMethodBody = function () { return { method() { return this; } }; }.bind(receiver); // diagnostic
 const classComputedKey = function (this: { value: number }) { return class { [this.value]() {} }; }.bind(receiver);
 const methodDecorator = function (this: { value: number }) { return class { @this.value method() {} }; }.bind(receiver);
+const nestedClassDecorator = function () { return { method() { @this.value class Nested {} return Nested; } }; }.bind(receiver); // diagnostic
 const classFieldInitializer = function () { return class { value = this; }; }.bind(receiver); // diagnostic
 const classStaticBlock = function () { return class { static { void this; } }; }.bind(receiver); // diagnostic
 `
