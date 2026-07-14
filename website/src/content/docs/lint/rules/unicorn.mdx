@@ -1089,12 +1089,33 @@ async function f() {
 
 Reject polyfill imports for APIs already available in the project's targeted Node / browser baseline.
 
-Illustrative shape:
+Every static `import`, dynamic `import()`, and static `require(…)` of a bare specifier is matched against the polyfill packages tracked by `core-js-compat` (both the `core-js` / `core-js-pure` submodule entries and standalone packages like `object-assign`, `es6-promise`, `array.prototype.flat`, `mdn-polyfills/*`, `polyfill-*`). The import is reported only when every targeted runtime already ships the feature natively.
+
+The target environments are resolved in the same order as the upstream rule:
+
+1. The `targets` option, when present — a [Browserslist](https://github.com/browserslist/browserslist) query string, an array of queries, or a Browserslist targets object (for example `{ "node": "18" }`). Query forms are resolved under the `production` environment.
+2. Otherwise, standard Browserslist config discovery from the linted file's directory: a `browserslist` / `.browserslistrc` file, a `package.json` `browserslist` field or section, custom `browserslist-stats.json`, and the `BROWSERSLIST*` environment overrides.
+3. Otherwise, the `engines` field of the nearest `package.json`.
+
+When no targets can be resolved the rule stays silent. Queries that need inputs the native lint host cannot supply (`extends <pkg>`, `supports <feature>`, regional `in XX` usage, `baseline …`, and `current node`) are treated the same way and leave the rule silent for that file. The compatibility dataset is generated from pinned upstream package versions; see `packages/lint/tools/polyfilldata/generate.mjs` for provenance.
+
+Example:
 
 ```ts
-import "core-js/features/array/at";
+import "core-js/features/array/at"; // reports when every target already has Array#at
+```
 
-const last = ["a", "b"].at(-1);
+```ts
+export default {
+  rules: {
+    "unicorn/no-unnecessary-polyfills": [
+      "error",
+      {
+        targets: { node: "18" },
+      },
+    ],
+  },
+};
 ```
 
 <a id="rule-unicorn-no-unnecessary-slice-end"></a>
