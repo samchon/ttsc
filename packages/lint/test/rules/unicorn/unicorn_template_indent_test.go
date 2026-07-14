@@ -164,7 +164,7 @@ func TestUnicornTemplateIndentFixesEmptyBoundaryQuasisWithInsertions(t *testing.
     "const query = gql`${value}\none${other}`;\n"
   expected := "declare const value: string;\n" +
     "declare const other: string;\n" +
-    "const query = gql`\n ${value}\n one${other}\n`;\n"
+    "const query = gql`\n  ${value}\n  one${other}\n`;\n"
 
   _, _, findings := runRuleFindingsSnapshot(t, unicornTemplateIndentRuleName, source, nil)
   if len(findings) != 1 || len(findings[0].Fix) != 3 {
@@ -249,7 +249,7 @@ func TestUnicornTemplateIndentPreservesCRLF(t *testing.T) {
 
 func TestUnicornTemplateIndentPreservesLeadingByteOrderMark(t *testing.T) {
   source := "\uFEFFconst query = gql`\none\n`;\n"
-  expected := "\uFEFFconst query = gql`\n one\n`;\n"
+  expected := "\uFEFFconst query = gql`\n  one\n`;\n"
   assertFixSnapshot(t, unicornTemplateIndentRuleName, source, expected)
   if strings.Count(expected, "\uFEFF") != 1 || !strings.HasPrefix(expected, "\uFEFF") {
     t.Fatal("the fixed source must preserve exactly one leading byte-order mark")
@@ -321,7 +321,7 @@ func TestUnicornTemplateIndentRecognizesEveryECMAScriptSourceLineSeparator(t *te
         "  const query = gql`\none\n`;" + separator.text +
         "}" + separator.text
       expected := "if (ready) {" + separator.text +
-        "  const query = gql`\n   one\n  `;" + separator.text +
+        "  const query = gql`\n    one\n  `;" + separator.text +
         "}" + separator.text
       assertFixSnapshot(t, unicornTemplateIndentRuleName, source, expected)
       assertRuleSkipsSource(t, unicornTemplateIndentRuleName, expected)
@@ -329,9 +329,9 @@ func TestUnicornTemplateIndentRecognizesEveryECMAScriptSourceLineSeparator(t *te
   }
 }
 
-func TestUnicornTemplateIndentFallsBackToOneSpaceWithoutAnyIndentSignal(t *testing.T) {
+func TestUnicornTemplateIndentFallsBackToTwoSpacesWithoutAnyIndentSignal(t *testing.T) {
   source := "const query = gql`\none\ntwo\n`;\n"
-  expected := "const query = gql`\n one\n two\n`;\n"
+  expected := "const query = gql`\n  one\n  two\n`;\n"
   assertFixSnapshot(t, unicornTemplateIndentRuleName, source, expected)
   assertRuleSkipsSource(t, unicornTemplateIndentRuleName, expected)
 }

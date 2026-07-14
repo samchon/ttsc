@@ -473,12 +473,12 @@ func unicornTemplateIndentEdits(
         }
       }
       if indent == "" {
-        indent = " "
+        indent = "  "
       }
     } else if parentMargin[0] == '\t' {
       indent = "\t"
     } else {
-      indent = " "
+      indent = "  "
     }
   }
 
