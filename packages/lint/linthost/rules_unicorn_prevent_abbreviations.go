@@ -195,7 +195,7 @@ var unicornPreventAbbreviationsDefaultIgnore = []string{
 var unicornPreventAbbreviationsReservedWords = map[string]struct{}{
   "any": {}, "arguments": {}, "as": {}, "await": {},
   "boolean": {},
-  "case": {}, "catch": {}, "class": {}, "const": {}, "constructor": {},
+  "break": {}, "case": {}, "catch": {}, "class": {}, "const": {}, "constructor": {},
   "continue": {}, "debugger": {}, "declare": {}, "default": {}, "delete": {},
   "do": {}, "else": {}, "enum": {}, "export": {}, "extends": {},
   "false": {}, "finally": {}, "for": {}, "from": {}, "function": {},

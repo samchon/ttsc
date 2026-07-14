@@ -253,6 +253,16 @@ func TestUnicornPreventAbbreviationsSupportsCanonicalEmptyReplacementSpelling(t 
   )
 }
 
+func TestUnicornPreventAbbreviationsSuffixesJavaScriptReservedWordReplacements(t *testing.T) {
+  assertFixSnapshotWithOptions(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    "const err = new Error();\nvoid err;\n",
+    `{"extendDefaultReplacements":false,"replacements":{"err":{"break":true}}}`,
+    "const break_ = new Error();\nvoid break_;\n",
+  )
+}
+
 func TestUnicornPreventAbbreviationsAppliesInternalImportDefaultsAndPreservesImportedNames(t *testing.T) {
   source := "import err from \"./local-default\";\nimport * as ctx from \"external-ns\";\nimport doc from \"./node_modules/external-default\";\nimport { prop } from \"./local-named\";\nimport { ref } from \"external-named\";\nvoid [err, ctx, doc, prop, ref];\n"
   assertFixSnapshot(
