@@ -291,7 +291,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-prototype-builtins`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-prototype-builtins.ts): rejects direct `Object.prototype` method calls.
 - [`no-redeclare`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-redeclare.ts): rejects redeclaring a binding in the same scope.
 - [`no-regex-spaces`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-regex-spaces.ts): rejects repeated literal spaces in regexes.
-- [`no-restricted-imports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-restricted-imports.ts): reject `import` declarations targeting any module specifier in the project denylist.
+- [`no-restricted-imports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-restricted-imports.ts): reject static imports and re-exports selected by user-configured exact paths, gitignore-style groups, or regular expressions.
 - [`no-restricted-syntax`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-restricted-syntax.ts): reject AST node kinds listed in the project denylist.
 - [`no-return-assign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-return-assign.ts): rejects assignments in `return`.
 - [`no-script-url`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-script-url.ts): rejects `javascript:` URLs.

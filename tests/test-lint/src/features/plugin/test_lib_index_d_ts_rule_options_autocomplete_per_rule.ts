@@ -75,6 +75,27 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
           ignorePropertyModificationsForRegex: ["^mutable"],
         },
       ],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            "node:fs",
+            {
+              name: "legacy-package",
+              importNames: ["default", "unsafe"],
+              message: "Use the supported package.",
+              allowTypeImports: true,
+            },
+          ],
+          patterns: [
+            {
+              group: ["internal/*", "!internal/public"],
+              allowImportNamePattern: "^public",
+              caseSensitive: true,
+            },
+          ],
+        },
+      ],
       "prefer-const": [
         "error",
         { destructuring: "all", ignoreReadBeforeAssign: true },
@@ -231,6 +252,75 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       ],
     },
   };
+  const noRestrictedImportsPositionalPaths: ITtscLintConfig = {
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        "node:fs",
+        { name: "legacy-package", allowImportNames: ["safe"] },
+      ],
+    },
+  };
+  const noRestrictedImportsConflictingPathNames: ITtscLintConfig = {
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "legacy-package",
+              importNames: ["unsafe"],
+              // @ts-expect-error — exact path entries cannot combine a denylist with an allowlist.
+              allowImportNames: ["safe"],
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const noRestrictedImportsPatternModeConflict: ITtscLintConfig = {
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            // @ts-expect-error — a structured pattern selects exactly one of gitignore-style `group` or `regex`.
+            { group: ["internal/*"], regex: "^internal/" },
+          ],
+        },
+      ],
+    },
+  };
+  const noRestrictedImportsPatternNameConflict: ITtscLintConfig = {
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            // @ts-expect-error — deny-name controls cannot be combined with an allow-name pattern.
+            {
+              regex: "^internal/",
+              importNames: ["unsafe"],
+              allowImportNamePattern: "^public",
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const noRestrictedImportsEmptyStructuredPatternList: ITtscLintConfig = {
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            // @ts-expect-error — structured pattern groups must contain at least one string.
+            { group: [] },
+          ],
+        },
+      ],
+    },
+  };
   const crossRuleShape: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — `testIdPattern` belongs to testing-library/consistent-data-testid; cypress/unsafe-to-chain-command's option shape rejects it.
@@ -285,6 +375,11 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(noParamReassignIgnoreWithoutProps);
   assert.ok(noParamReassignInvalidIgnoreEntry);
   assert.ok(noParamReassignOptionKeyTypo);
+  assert.ok(noRestrictedImportsPositionalPaths);
+  assert.ok(noRestrictedImportsConflictingPathNames);
+  assert.ok(noRestrictedImportsPatternModeConflict);
+  assert.ok(noRestrictedImportsPatternNameConflict);
+  assert.ok(noRestrictedImportsEmptyStructuredPatternList);
   assert.ok(preferConstOptionValue);
   assert.ok(crossRuleShape);
   assert.ok(lintRuleWithOptions);

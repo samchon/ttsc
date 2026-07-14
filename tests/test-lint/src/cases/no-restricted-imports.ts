@@ -1,12 +1,10 @@
-// Positive: hard-coded deny list flags `lodash` at the specifier.
-// expect: no-restricted-imports error
+// No options means no project policy is inferred.
 import _ from "lodash";
 
-// Positive: a `from` re-export hits the same deny list.
-// expect: no-restricted-imports error
+// Re-exports are likewise unrestricted until paths or patterns are supplied.
 export { isArray } from "underscore";
 
-// Negative: any specifier outside the deny list passes through.
+// Arbitrary imports remain accepted.
 import * as fs from "node:fs";
 
 void _;

@@ -12,6 +12,7 @@ import type {
   ITtscLintCorePreferConstRuleOptions,
   ITtscLintNoFallthroughRuleOptions,
   TtscLintCoreNoInnerDeclarationsRuleSetting,
+  TtscLintCoreNoRestrictedImportsRuleSetting,
 } from "./ITtscLintCoreRuleOptions";
 
 /**
@@ -930,12 +931,12 @@ export interface ITtscLintCoreRules {
   "no-regex-spaces"?: TtscLintRuleSetting;
 
   /**
-   * Reject `import` declarations targeting any module specifier in the project
-   * denylist.
+   * Reject static imports and re-exports selected by exact paths or patterns.
+   * Missing or empty restrictions are a no-op.
    *
    * @reference https://eslint.org/docs/latest/rules/no-restricted-imports
    */
-  "no-restricted-imports"?: TtscLintRuleSetting;
+  "no-restricted-imports"?: TtscLintCoreNoRestrictedImportsRuleSetting;
 
   /**
    * Reject AST node kinds listed in the project denylist.

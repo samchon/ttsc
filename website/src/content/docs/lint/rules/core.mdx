@@ -91,7 +91,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-prototype-builtins`](#rule-no-prototype-builtins): Reject `obj.hasOwnProperty(key)` and other direct `Object.prototype` builtins on user objects.
 - [`no-redeclare`](#rule-no-redeclare): Reject declaring the same binding more than once in the same scope.
 - [`no-regex-spaces`](#rule-no-regex-spaces): Reject more than one consecutive literal space in a regex.
-- [`no-restricted-imports`](#rule-no-restricted-imports): Reject `import` declarations targeting any module specifier in the project denylist.
+- [`no-restricted-imports`](#rule-no-restricted-imports): Reject static imports and re-exports selected by configured exact paths, gitignore-style groups, or regular expressions.
 - [`no-restricted-syntax`](#rule-no-restricted-syntax): Reject AST node kinds listed in the project denylist.
 - [`no-return-assign`](#rule-no-return-assign): Reject assignment expressions used as the operand of `return` , almost always a typo for `===`.
 - [`no-script-url`](#rule-no-script-url): Reject `javascript:` URLs in string literals, they execute their body as code on browser navigation.
@@ -2026,13 +2026,62 @@ const r = /a  b/;
 
 ### `no-restricted-imports`
 
-Reject `import` declarations targeting any module specifier in the project denylist.
+Reject static imports and re-exports selected by user-configured exact paths,
+gitignore-style groups, or regular expressions. A severity-only setting, an
+empty `paths` list, and an empty `patterns` list are all no-ops; the rule never
+infers a project denylist.
+
+Exact-path and structured-pattern entries can restrict or allow selected source
+names, append a custom message, and permit type-only imports and re-exports.
+Pattern entries also support case-sensitive matching and source-name regular
+expressions.
+
+Options:
+
+- `paths?: (string | { name, message?, importNames?, allowImportNames?, allowTypeImports? })[]`
+- `patterns?: string[] | ({ group } | { regex })[]`
+
+  Structured pattern entries also accept `message`, `caseSensitive`,
+  `importNames`, `allowImportNames`, `importNamePattern`,
+  `allowImportNamePattern`, and `allowTypeImports`. Each entry uses either
+  deny-name controls or allow-name controls, not both.
 
 Example:
 
 ```ts
 // reports: no-restricted-imports (error)
-import _ from "lodash";
+import legacy from "legacy-package";
+
+// reports: no-restricted-imports (error)
+export { privateApi } from "internal/private";
+```
+
+```ts filename="ttsc.lint.config.ts"
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        paths: [
+          {
+            name: "legacy-package",
+            importNames: ["default"],
+            message: "Use the supported package.",
+            allowTypeImports: true,
+          },
+        ],
+        patterns: [
+          {
+            group: ["internal/*", "!internal/public"],
+            allowImportNames: ["publicApi"],
+          },
+        ],
+      },
+    ],
+  },
+} satisfies ITtscLintConfig;
 ```
 
 <a id="rule-no-restricted-syntax"></a>

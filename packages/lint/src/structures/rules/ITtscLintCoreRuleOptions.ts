@@ -237,6 +237,113 @@ export type ITtscLintCoreNoParamReassignRuleOptions =
       ignorePropertyModificationsForRegex?: string[];
     };
 
+/** Shared message and type-import switches for one restricted import entry. */
+interface ITtscLintCoreNoRestrictedImportsEntryBase {
+  /** Text appended to the standard diagnostic. */
+  message?: string;
+
+  /** Permit whole type-only declarations and type-only named specifiers. */
+  allowTypeImports?: boolean;
+}
+
+/** Non-empty string collection required by structured pattern controls. */
+type TtscLintCoreNoRestrictedImportsNonEmptyStrings = readonly [
+  string,
+  ...string[],
+];
+
+/** Mutually exclusive imported-name controls accepted for an exact path. */
+type TtscLintCoreNoRestrictedImportsPathNames =
+  | {
+      /** Imported names to reject; aliases are matched by their source name. */
+      importNames?: string[];
+      allowImportNames?: never;
+    }
+  | {
+      importNames?: never;
+      /** Reject every imported name outside this allowlist. */
+      allowImportNames: string[];
+    };
+
+/** One exact path restriction in `no-restricted-imports`. */
+export type TtscLintCoreNoRestrictedImportsPath =
+  | string
+  | (ITtscLintCoreNoRestrictedImportsEntryBase &
+      TtscLintCoreNoRestrictedImportsPathNames & {
+        /** Module specifier matched exactly. */
+        name: string;
+      });
+
+/** Mutually exclusive imported-name controls accepted for a path pattern. */
+type TtscLintCoreNoRestrictedImportsPatternNames =
+  | {
+      /** Imported names rejected by exact match. */
+      importNames?: TtscLintCoreNoRestrictedImportsNonEmptyStrings;
+      /** Imported names rejected by a regular expression. */
+      importNamePattern?: string;
+      allowImportNames?: never;
+      allowImportNamePattern?: never;
+    }
+  | {
+      importNames?: never;
+      importNamePattern?: never;
+      /** Reject every imported name outside this allowlist. */
+      allowImportNames: TtscLintCoreNoRestrictedImportsNonEmptyStrings;
+      allowImportNamePattern?: never;
+    }
+  | {
+      importNames?: never;
+      importNamePattern?: never;
+      allowImportNames?: never;
+      /** Reject every imported name that does not match this expression. */
+      allowImportNamePattern: string;
+    };
+
+/** One gitignore-style group or regular-expression path restriction. */
+export type ITtscLintCoreNoRestrictedImportsPattern =
+  ITtscLintCoreNoRestrictedImportsEntryBase &
+    TtscLintCoreNoRestrictedImportsPatternNames & {
+      /** Match module specifiers case-sensitively instead of the default fold. */
+      caseSensitive?: boolean;
+    } &
+    (
+      | {
+          /** Ordered gitignore-style path patterns, including `!` negation. */
+          group: TtscLintCoreNoRestrictedImportsNonEmptyStrings;
+          regex?: never;
+        }
+      | {
+          group?: never;
+          /** Regular expression tested against the module specifier. */
+          regex: string;
+        }
+    );
+
+/** Object form of the current ESLint `no-restricted-imports` options. */
+export interface ITtscLintCoreNoRestrictedImportsRuleOptions {
+  /** Exact module specifiers to restrict. */
+  paths?: TtscLintCoreNoRestrictedImportsPath[];
+
+  /** Gitignore-style strings or structured pattern entries. */
+  patterns?: string[] | ITtscLintCoreNoRestrictedImportsPattern[];
+}
+
+/**
+ * Canonical setting for `no-restricted-imports`.
+ *
+ * ESLint accepts either positional path entries or one `{ paths, patterns }`
+ * object. Both forms remain available so existing configurations need no
+ * ttsc-specific reshaping.
+ */
+export type TtscLintCoreNoRestrictedImportsRuleSetting =
+  | TtscLintRuleSetting
+  | readonly [TtscLintSeverity, ITtscLintCoreNoRestrictedImportsRuleOptions]
+  | readonly [
+      TtscLintSeverity,
+      TtscLintCoreNoRestrictedImportsPath,
+      ...TtscLintCoreNoRestrictedImportsPath[],
+    ];
+
 /** `prefer-const` rule options. */
 export interface ITtscLintCorePreferConstRuleOptions {
   /**
