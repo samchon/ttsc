@@ -2075,11 +2075,15 @@ const b = Array.from(a);
 
 Prefer `String.raw` for path literals and other strings that would otherwise need backslash escapes.
 
+The rule only reports when a `String.raw` template would reproduce the value exactly, so a literal is left alone when it carries any escape other than `\\` (`"\\d\t"` would turn its tab into the two characters `\t`), when its value ends with a backslash (a raw template cannot end in one), when it contains a backtick or `${` (the template would close early or interpolate), or when a line continuation spreads it over two lines. A no-substitution template is reported under the same value-preserving condition, except that its newlines are already literal, so a multi-line template stays reportable; the quasi of a tagged template — including `` String.raw`…` `` itself — is never reported. The report carries no autofix.
+
 Example:
 
 ```ts
 // reports: unicorn/prefer-string-raw (error)
 const p = "C:\\Users\\me";
+// not reported: the tab escape would not survive String.raw
+const q = "C:\\Users\tme";
 ```
 
 <a id="rule-unicorn-prefer-string-replace-all"></a>
