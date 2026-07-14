@@ -53,8 +53,18 @@ try { /* intentional */ } catch { /* intentional */ } finally { /* intentional *
       want:   1,
     },
     {
+      name:   "comment before block opening brace stays exterior",
+      source: `declare const value: boolean; if (value) /* before brace */ {}`,
+      want:   1,
+    },
+    {
       name:   "comments outside switch braces do not preserve switch",
       source: `declare const value: boolean; /* before */ switch (value) {} /* after */`,
+      want:   1,
+    },
+    {
+      name:   "comment before switch opening brace stays exterior",
+      source: `declare const value: boolean; switch (value) /* before brace */ {}`,
       want:   1,
     },
     {name: "function body belongs to sibling rule", source: `function empty() {}`},
@@ -85,6 +95,7 @@ func TestNoEmptyStaticBlockCommentBoundaries(t *testing.T) {
     {name: "interior block comment", source: `class Example { static { /* intentional */ } }`},
     {name: "interior line comment", source: "class Example { static { // intentional\n} }"},
     {name: "leading exterior comment", source: `class Example { /* before */ static {} }`, want: 1},
+    {name: "comment before opening brace", source: `class Example { static /* before brace */ {} }`, want: 1},
     {name: "trailing exterior comment", source: `class Example { static {} /* after */ }`, want: 1},
     {name: "nonempty", source: `class Example { static { initialize(); } }`},
   }

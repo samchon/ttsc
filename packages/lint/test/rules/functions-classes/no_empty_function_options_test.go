@@ -179,6 +179,11 @@ class Example extends Base {
       want:   1,
     },
     {
+      name:   "comment before function opening brace stays exterior",
+      source: `function empty() /* before brace */ {}`,
+      want:   1,
+    },
+    {
       name:   "object property function remains a function",
       source: `const object = { value: function () {} };`,
       allow:  []string{"functions"},
