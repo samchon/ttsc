@@ -1116,6 +1116,9 @@ func floatingPromiseSignatureParametersHaveSameSyntax(
     return false
   }
   for index := range leftParameters {
+    if leftParameters[index] == nil || rightParameters[index] == nil {
+      return false
+    }
     leftType := leftParameters[index].Type()
     rightType := rightParameters[index].Type()
     if leftType == nil || rightType == nil ||
