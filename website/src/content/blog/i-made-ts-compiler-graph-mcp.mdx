@@ -87,7 +87,7 @@ export interface ITtscGraphApplication {
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): ITtscGraphApplication.IOutput;
+  ): Promise<ITtscGraphApplication.IOutput>;
 }
 
 export namespace ITtscGraphApplication {
@@ -239,7 +239,7 @@ export interface ITtscGraphApplication {
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): ITtscGraphApplication.IOutput;
+  ): Promise<ITtscGraphApplication.IOutput>;
 }
 
 export namespace ITtscGraphApplication {
@@ -280,7 +280,7 @@ export namespace ITtscGraphApplication {
 }
 ```
 
-Read those fields top to bottom, because that's the order the model fills them in. It restates and sharpens the question in `question`, sketches the smallest plan in `draft`, second-guesses that plan in `review`, and only then commits the final `request`. The property order is the chain-of-thought: one refining step per field, each building on the last, ending in the request it reasoned its way to. typia compiles this type into the tool's JSON schema and validator, so a submission that skipped a step is rejected right at the call boundary.
+Read those fields top to bottom, because that's the order the model fills them in. It writes the question in `question`, in the user's own words rather than its own, sketches the smallest plan in `draft`, second-guesses that plan in `review`, and only then commits the final `request`. The property order is the chain-of-thought: one refining step per field, each building on the last, ending in the request it reasoned its way to. typia compiles this type into the tool's JSON schema and validator, so a submission that skipped a step is rejected right at the call boundary.
 
 As typia puts it, "free prose can hide a skipped step; a typed submission cannot." Why that matters more than any instruction is the thread I pick back up in §5.
 

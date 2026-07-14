@@ -133,8 +133,9 @@ const QUERY_STOP_WORDS = new Set<string>([
 export function runTour(
   graph: TtscGraphMemory,
   props: ITtscGraphTour.IRequest,
+  question: string,
 ): IRunnerOutput<ITtscGraphTour> {
-  const query = props.query.trim();
+  const query = question.trim();
   const limit = bound(props.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
   const entry = runEntrypoints(graph, {
     type: "entrypoints",

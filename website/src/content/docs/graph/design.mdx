@@ -42,7 +42,7 @@ export interface ITtscGraphApplication {
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
-  ): Promise<ITtscGraphApplication.IResult>;
+  ): Promise<ITtscGraphApplication.IOutput>;
 }
 
 export namespace ITtscGraphApplication {
@@ -75,7 +75,7 @@ The `MCP INSTRUCTION` and `TOOL DESCRIPTION` blocks are trimmed to placeholders 
 
 > One tool call, filled top to bottom: question, then draft, then review, then exactly one request, or an escape out of the graph.
 
-The request carries three reasoning fields before it carries the operation. `question` restates the code question, `draft` names the smallest request type and the reason it looks smallest, and `review` corrects a wrong or overbroad draft before anything runs. Only then does `request` commit to one branch. The order of the fields is the order the model fills them in, one refining step per field.
+The request carries three reasoning fields before it carries the operation. `question` carries the code question in the user's own words, trimmed but not reworded, because the graph ranks against those words and a rewrite ranks a different answer. `draft` names the smallest request type and the reason it looks smallest, and `review` corrects a wrong or overbroad draft before anything runs. Only then does `request` commit to one branch. The order of the fields is the order the model fills them in, one refining step per field.
 
 Those fields are required, and that is the point. A line of prose instruction can be read and then ignored; a required field on a typed schema cannot be left blank. So instead of asking the agent to reason before it acts, the tool makes the reasoning an argument it has to supply, and it routes the choice of operation through a union of types instead of a paragraph of persuasion.
 
@@ -140,11 +140,17 @@ The request branches, their results, and the facts each node and edge carries.
 
 `ITtscGraphEscape.IRequest` returns a small no-op result when the review finds that no graph operation should run.
 
-### 2.2. Results and the directive
+### 2.2. Results, the audit, and what comes next
 
 The concrete payloads carry node coordinates, edge evidence ranges, citation spans, and stable node ids for follow-up graph calls. A span is an `ITtscGraphEvidence` coordinate (project-relative `file` plus 1-based start and end line and column), a place to open and verify, not inlined source text.
 
-Every result is wrapped as `{ directive, result }`, with `directive` stamped as the first property. It is a constant compiler-truth reminder: the result was computed for the current unedited source, so it is complete and errorless. Answer from it and open no file to re-verify a fact it already gave. Only a source edit changes the graph, so a re-call is warranted only after you edit.
+Every result is wrapped as `{ audit, next, result }`, and the two fields around the payload are there to answer the two questions a reader of a tool result has: can I trust this, and am I finished?
+
+`audit` is stamped first, so it is the first text the model reads. It gives its evidence before it instructs: the server assembled the result, then took every name, span, edge, signature and step in it back to the type-checked program for the snapshot this call synced to and resolved it there. Nothing in it was matched, ranked, guessed or inferred. Only then does it draw the conclusion — answer from the result, and do not spend a second call, or a file read, checking a fact the compiler resolved and the server verified again on the way out.
+
+The order matters more than the volume. A tool result is untrusted input, and a demand for obedience inside one has the shape of a prompt injection; asked to trust a result on nothing but insistence, a model checks it against the sources on principle and says so in its answer. Evidence first, instruction second.
+
+`next` says only what the server can establish about the request it just answered: `clarify` when a handle named several nodes, `outside` when it named none, `inspect` when a path does not exist but the junction between its two ends does, and `answer` otherwise. It does not claim to know what the question meant, or whether the result covered it — a question names concepts and a graph holds identifiers, and no rule in a server bridges the two. A `next` that overreaches does not merely misdirect a call: because the audit ends "re-call the graph only when `next` says inspect", a false `inspect` lifts the stop rule as well.
 
 ### 2.3. Node kinds
 

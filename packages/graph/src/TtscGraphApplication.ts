@@ -97,7 +97,9 @@ export class TtscGraphApplication implements ITtscGraphApplication {
         };
       }
       case "tour": {
-        const r = runTour(graph, props.request);
+        // The tour ranks against the question, and the question is `props`
+        // — the caller wrote it once, at the top, in the user's words.
+        const r = runTour(graph, props.request, props.question);
         return {
           audit: RESULT_AUDIT,
           next: r.next,

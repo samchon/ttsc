@@ -5,7 +5,7 @@ export interface ITtscGraphTour {
   /** Discriminator for code-tour indexing. */
   type: "tour";
 
-  /** Natural code question this tour was built for. */
+  /** The question this tour was built for, as the caller wrote it. */
   query: string;
 
   /** Central entrypoints selected for the tour. */
@@ -31,19 +31,25 @@ export namespace ITtscGraphTour {
   /**
    * The whole answer surface for a broad code tour: entrypoints, primary flow,
    * nearby paths, tests, and answer anchors.
+   *
+   * It asks for no question of its own. It used to carry a `query`, described
+   * in its own schema as "the same ask as `question`" — the field the caller
+   * has already filled two lines above — and a schema that asks for one string
+   * twice gets it once: GPT-5.6 sent `{ "type": "tour" }` with no query in **31
+   * of 32 cells**, the validator rejected it, and the model re-sent the whole
+   * call. Every Codex tour cost a wasted round trip, and a Codex turn re-sends
+   * its whole context, so the duplicate field was most of what the tool spent.
+   *
+   * The words that rank the tour are the question's, and the question is where
+   * the caller writes them. Asking for them twice also lost them: told to keep
+   * the user's words in `question`, Opus wrote `how does Zod carry
+   * `schema.parse` from the public API`, and then paraphrased them into `query`
+   * as "how does Zod carry schema.parse" — dropping the backticks the mention
+   * resolver reads to find the symbol the user named.
    */
   export interface IRequest {
     /** Discriminator for code-tour indexing. */
     type: "tour";
-
-    /**
-     * The tour question, in the user's own words — the same ask as `question`.
-     *
-     * Its terms rank the tour: a name sharing one is promoted, a name sharing
-     * none demoted. Trim what the user wrote, but neither reword it nor add
-     * terms of your own.
-     */
-    query: string;
 
     /**
      * Central entrypoints to seed the tour. Raise only when the question names

@@ -356,12 +356,12 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       (await client.request("tools/call", {
         name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
+          // The tour asks for no question of its own: it ranks against the one
+          // the caller already wrote, which `graphArguments` puts in `question`.
           thinking:
-            "Build a code-tour index for Service.run before reading source.",
+            "I'm new here; trace Service.run to the work it does and show tests to read next.",
           request: {
             type: "tour",
-            query:
-              "I'm new here; trace Service.run to the work it does and show tests to read next.",
           },
         }),
       })) as ToolResult,
