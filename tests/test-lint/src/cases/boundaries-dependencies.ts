@@ -3,16 +3,14 @@
  *
  * The unified upstream rule replaces `element-types` / `entry-point` /
  * `external` / `no-private` / `no-unknown` with one direction-aware
- * policy block. The native port currently ships as a v1 stub: it
- * registers the rule name, accepts the upstream `elements` + `rules`
- * config shape, and emits no diagnostics. The Go test under
- * `packages/lint/test/rules/boundaries/boundaries_dependencies_test.go`
- * pins that contract.
+ * policy block. The native port resolves local targets through TypeScript,
+ * classifies aliases and relative imports against `elements`, and evaluates
+ * ordered allow/disallow effects across entity and dependency metadata.
  *
  * This fixture exists to document the rule id in the consumer corpus
  * tree. It declares no `// expect:` annotations, so the corpus runner
- * skips it; once the rule grows real diagnostics, replace this body
- * with annotated positive/negative cases.
+ * skips it; package-level tests materialize the multi-file layouts and real
+ * command runs needed to exercise the rule.
  *
  * Example config:
  *

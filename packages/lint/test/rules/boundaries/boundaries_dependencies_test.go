@@ -2,33 +2,25 @@ package linthost
 
 import "testing"
 
-// TestBoundariesDependenciesLoadsWithoutDiagnostics verifies the
-// `boundaries/dependencies` rule registers, accepts the upstream
-// `elements` + `rules` config shape, and silently passes for any file
-// in the v1 stub release.
+// TestBoundariesDependenciesRejectsDisallowedDirection verifies the unified
+// rule enforces a configured source-to-target dependency policy.
 //
-// The unified rule will eventually subsume `element-types`,
-// `entry-point`, `external`, `no-private`, and `no-unknown`. Until that
-// port lands, this test pins the contract: configs may claim the rule
-// id today without breaking lint runs, and no diagnostic appears for
-// files the legacy split rules would have flagged.
+// This replaces the former zero-diagnostic stub witness with an observable
+// direction check. The adjacent same-element import is the negative twin: it
+// remains outside evaluation unless `checkInternals` is enabled.
 //
-// 1. Materialize an app/domain project that `element-types` would flag.
-// 2. Configure `boundaries/dependencies` with the equivalent policy.
-// 3. Assert zero findings (stub behavior).
-func TestBoundariesDependenciesLoadsWithoutDiagnostics(t *testing.T) {
+// 1. Materialize app, domain, and app-local source files.
+// 2. Disallow app-to-domain dependencies with an allow fallback.
+// 3. Assert only the domain module literal is reported at its exact range.
+func TestBoundariesDependenciesRejectsDisallowedDirection(t *testing.T) {
   const ruleName = "boundaries/dependencies"
-  if LookupRule(ruleName) == nil {
-    t.Fatalf("missing %s rule registration", ruleName)
-  }
-  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
-    import "../domain/internal";
-    import "./local";
-  `, `{
+  source := "import \"../domain/internal\";\nimport \"./local\";\n"
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", source, `{
     "elements": [
       { "type": "app", "pattern": "src/app/**" },
       { "type": "domain", "pattern": "src/domain/**" }
     ],
+    "default": "allow",
     "rules": [
       { "from": "app", "disallow": "domain" }
     ]
@@ -36,7 +28,6 @@ func TestBoundariesDependenciesLoadsWithoutDiagnostics(t *testing.T) {
     "src/app/local.ts":       "export {};",
     "src/domain/internal.ts": "export {};",
   })
-  if len(findings) != 0 {
-    t.Fatalf("%s v1 stub must not emit diagnostics yet, got %d (%+v)", ruleName, len(findings), findings)
-  }
+  assertSingleBoundaryFinding(t, ruleName, findings, `domain`)
+  assertBoundaryFindingTexts(t, source, findings, `"../domain/internal"`)
 }
