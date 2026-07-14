@@ -422,11 +422,32 @@ export function renderUserProfile() {}
 
 Restrict each module's allowed import styles (named only, default only, namespace only).
 
-Illustrative shape:
+Every reference to a configured module — static `import`, dynamic `import()`, `require(…)`, and (opt-in) `export … from` — is classified into the styles it actually uses (`unassigned`, `default`, `namespace`, `named`) and reported when any of them falls outside the module's allowed set. `node:`-prefixed specifiers inherit the bare module name's policy. The built-in table allows only default imports of `chalk` and `path` and only named imports of `util`.
+
+The option object supports `styles` (per-module maps of style-name booleans, or `false` to lift a module's restrictions), `extendDefaultStyles`, and the `checkImport`, `checkDynamicImport`, `checkExportFrom`, and `checkRequire` toggles. `checkExportFrom` defaults to `false`; the other toggles default to `true`. For `require`, an allowed `default` style also accepts whole-object bindings because CommonJS offers no interop that distinguishes them.
+
+Example:
 
 ```ts
-// With Node.js builtins configured for namespace imports.
-import { readFile } from "node:fs/promises";
+// reports: unicorn/import-style (error) — use named import for module `util`
+import util from "node:util";
+```
+
+```ts
+export default {
+  rules: {
+    "unicorn/import-style": [
+      "error",
+      {
+        styles: {
+          lodash: { named: true },
+          react: { default: true, named: true },
+          path: false,
+        },
+      },
+    ],
+  },
+};
 ```
 
 <a id="rule-unicorn-isolated-functions"></a>

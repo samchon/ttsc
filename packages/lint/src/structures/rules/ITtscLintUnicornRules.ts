@@ -3,6 +3,7 @@ import type {
   TtscLintRuleSetting,
 } from "../TtscLintRuleSetting";
 import type {
+  ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
 } from "./ITtscLintUnicornRuleOptions";
@@ -152,7 +153,7 @@ export interface ITtscLintUnicornRules {
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/import-style.md
    */
-  "unicorn/import-style"?: TtscLintRuleSetting;
+  "unicorn/import-style"?: TtscLintRuleOptionsSetting<ITtscLintUnicornImportStyleRuleOptions>;
 
   /**
    * Reject references to outer-scope variables inside functions marked as

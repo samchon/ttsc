@@ -37,6 +37,8 @@ import assert from "node:assert/strict";
  * - `unicorn/template-indent` exposes its tag/function/selector/comment and
  *   indentation options without leaking arbitrary keys.
  * - Unicorn replacement maps and import modes retain their exact public shape.
+ * - `unicorn/import-style` accepts per-module style maps and `false` module
+ *   entries, and rejects a non-`false` scalar module entry.
  * - An empty object policy for `typescript/ban-ts-comment` is rejected because
  *   the object form requires `descriptionFormat`.
  * - A lint-only rule (`no-var`) cannot carry an options object.
@@ -168,6 +170,17 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
           replacements: {
             cmd: { command: true },
             ref: false,
+          },
+        },
+      ],
+      "unicorn/import-style": [
+        "error",
+        {
+          checkExportFrom: true,
+          extendDefaultStyles: false,
+          styles: {
+            lodash: { named: true, default: false },
+            util: false,
           },
         },
       ],
@@ -430,6 +443,30 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       ],
     },
   };
+  const importStyleOptionKeyTypo: ITtscLintConfig = {
+    rules: {
+      "unicorn/import-style": [
+        "error",
+        {
+          // @ts-expect-error — `stylez` is a typo of `styles`; the rule exposes no arbitrary option keys.
+          stylez: {},
+        },
+      ],
+    },
+  };
+  const importStyleModuleEntryShape: ITtscLintConfig = {
+    rules: {
+      "unicorn/import-style": [
+        "error",
+        {
+          styles: {
+            // @ts-expect-error — a module entry is `false` or a per-style boolean map; `true` is rejected.
+            util: true,
+          },
+        },
+      ],
+    },
+  };
   const banTsCommentMissingDescriptionFormat: ITtscLintConfig = {
     rules: {
       "typescript/ban-ts-comment": [
@@ -475,6 +512,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(templateIndentOptionTypo);
   assert.ok(unicornImportModeTypo);
   assert.ok(unicornReplacementShape);
+  assert.ok(importStyleOptionKeyTypo);
+  assert.ok(importStyleModuleEntryShape);
   assert.ok(banTsCommentMissingDescriptionFormat);
   assert.ok(camelBuiltinName);
 };

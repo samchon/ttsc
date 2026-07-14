@@ -24,6 +24,48 @@ export interface ITtscLintUnicornTemplateIndentRuleOptions {
   tags?: readonly string[];
 }
 
+/**
+ * Per-module style policy for `unicorn/import-style`.
+ *
+ * `false` removes every restriction from the module. An object maps style names
+ * (`unassigned`, `default`, `namespace`, `named`) to booleans; with
+ * `extendDefaultStyles` the flags merge over the module's built-in entry. A
+ * module whose four canonical styles are all explicitly `false` is reported as
+ * misconfigured on every reference — use `no-restricted-imports` to ban a
+ * module outright.
+ */
+export type TtscLintUnicornImportStyleModuleStyles =
+  | false
+  | Readonly<Record<string, boolean>>;
+
+/**
+ * Options for `unicorn/import-style`.
+ *
+ * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/import-style.md
+ */
+export interface ITtscLintUnicornImportStyleRuleOptions {
+  /** Check static `import` declarations. @default true */
+  checkImport?: boolean;
+
+  /** Check dynamic `import()` expressions. @default true */
+  checkDynamicImport?: boolean;
+
+  /** Check `export … from` declarations. @default false */
+  checkExportFrom?: boolean;
+
+  /** Check `require(…)` calls. @default true */
+  checkRequire?: boolean;
+
+  /** Merge `styles` into the built-in per-module table. @default true */
+  extendDefaultStyles?: boolean;
+
+  /**
+   * Allowed import styles per module name. `node:`-prefixed references inherit
+   * the bare module name's policy.
+   */
+  styles?: Readonly<Record<string, TtscLintUnicornImportStyleModuleStyles>>;
+}
+
 /** Import categories accepted by `unicorn/prevent-abbreviations`. */
 export type TtscLintUnicornPreventAbbreviationsImportMode =
   | boolean
