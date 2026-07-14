@@ -10,10 +10,12 @@ import "testing"
 // literal type, an enum initializer, a numeric property key, a template
 // substitution, and a JSX attribute expression are all in scope. Each position
 // is a different parent shape whose text range the autofix must land inside
-// exactly; an off-by-one there would eat the surrounding `{`, `,`, or `}`.
+// exactly; an off-by-one there would eat the surrounding `{`, `,`, or `}`. A
+// literal behind a leading comment pins the same range against the node's Pos,
+// which starts at the trivia rather than at the token.
 //
-//  1. Fix a literal in a type, enum, key, and template-substitution position
-//     through the standard TS path.
+//  1. Fix a literal in a type, enum, key, template-substitution, and
+//     comment-preceded position through the standard TS path.
 //  2. Fix a literal in a JSX attribute through the TSX path.
 //  3. Assert every rewritten source keeps its surrounding syntax intact.
 func TestUnicornNumberLiteralCaseFixesLiteralsInEverySyntacticPosition(t *testing.T) {
@@ -25,6 +27,7 @@ func TestUnicornNumberLiteralCaseFixesLiteralsInEverySyntacticPosition(t *testin
     {source: "enum E {\n  A = 1E3,\n}\n", expected: "enum E {\n  A = 1e3,\n}\n"},
     {source: "const o = { 1E3: true };\n", expected: "const o = { 1e3: true };\n"},
     {source: "const s = `${1E3}`;\n", expected: "const s = `${1e3}`;\n"},
+    {source: "const c = /* hex */ 0Xff;\n", expected: "const c = /* hex */ 0xFF;\n"},
   } {
     assertFixSnapshot(
       t,
