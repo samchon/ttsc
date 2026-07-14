@@ -55,6 +55,8 @@ function strictOuter() {
   "use strict";
   if (condition) {
     function strictNested() {}
+    // expect: no-inner-declarations error
+    var strictNestedVariable = 1;
   }
 }
 
