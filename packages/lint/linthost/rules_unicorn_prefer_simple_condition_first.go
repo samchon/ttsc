@@ -354,7 +354,11 @@ func unicornPreferSimpleConditionFirstIsGlobalBooleanCall(
     call.Arguments.Nodes[0] != argument || argument.Kind == shimast.KindSpreadElement {
     return false
   }
-  callee := unicornPreferSimpleConditionFirstUnwrap(call.Expression)
+  // ESTree erases grouping parentheses around a callee, but retains
+  // TypeScript assertion wrappers. Only the former may be transparent here:
+  // `(Boolean)(value)` is the global conversion, while
+  // `(Boolean as Converter)(value)` is not the canonical call shape.
+  callee := stripParens(call.Expression)
   if identifierText(callee) != "Boolean" {
     return false
   }

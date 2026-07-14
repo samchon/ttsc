@@ -138,10 +138,12 @@ const assigned = check() && ready;
 consume(check() && ready);
 const tuple = [check() && ready];
 const optionalCast = Boolean?.(check() && ready);
+const assertedCast = (Boolean as (value: unknown) => boolean)(check() && ready);
 function value() { return check() && ready; }
 void assigned;
 void tuple;
 void optionalCast;
+void assertedCast;
 void value;
 `
   assertRuleSkipsSource(t, preferSimpleConditionFirstRule, ignored)
