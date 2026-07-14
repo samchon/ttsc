@@ -1,7 +1,6 @@
 package linthost
 
 import (
-  "strconv"
   "strings"
   "testing"
 )
@@ -177,14 +176,30 @@ function checkUncertainArray<U>(
   if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != len(lintMarkers) {
     t.Fatalf("expected %d generic applicability findings, got %d:\n%s", len(lintMarkers), got, stderr)
   }
+  _, _, findings := runRuleFindingsSnapshot(t, "typescript/no-floating-promises", source, nil)
+  if len(findings) != len(lintMarkers) {
+    t.Fatalf("expected %d raw generic applicability findings, got %d: %+v", len(lintMarkers), len(findings), findings)
+  }
   for _, marker := range lintMarkers {
     offset := strings.Index(source, marker)
     if offset < 0 {
       t.Fatalf("missing source marker %q", marker)
     }
-    location := "main.ts:" + strconv.Itoa(strings.Count(source[:offset], "\n")+1) + ":"
-    if !diagnosticOutputContains(stderr, location) {
-      t.Fatalf("missing generic applicability finding at %s (%s)\n%s", location, marker, stderr)
+    lineStart := strings.LastIndex(source[:offset], "\n") + 1
+    lineEnd := len(source)
+    if relativeEnd := strings.Index(source[offset:], "\n"); relativeEnd >= 0 {
+      lineEnd = offset + relativeEnd
+    }
+    found := false
+    for _, finding := range findings {
+      if finding != nil && finding.Rule == "typescript/no-floating-promises" &&
+        finding.Pos >= lineStart && finding.Pos < lineEnd {
+        found = true
+        break
+      }
+    }
+    if !found {
+      t.Fatalf("missing raw generic applicability finding for %q on [%d, %d): %+v", marker, lineStart, lineEnd, findings)
     }
   }
   root := seedLintProject(t, source)
