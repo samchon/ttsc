@@ -1,3 +1,6 @@
+import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
+import type { TtscLintSeverity } from "../TtscLintSeverity";
+
 /**
  * Options shapes for the configurable rules in {@link ITtscLintCoreRules}.
  *
@@ -119,6 +122,33 @@ export interface ITtscLintCoreNoUnusedExpressionsRuleOptions {
    */
   ignoreDirectives?: boolean;
 }
+
+/** Object option for ESLint's canonical `no-inner-declarations` tuple. */
+export interface ITtscLintCoreNoInnerDeclarationsRuleOptions {
+  /**
+   * Allow ES2015 block-scoped function declarations in strict scripts and
+   * function bodies, modules, and class code, or report them as a style policy.
+   *
+   * @default "allow"
+   */
+  blockScopedFunctions?: "allow" | "disallow";
+}
+
+/**
+ * Canonical positional setting for `no-inner-declarations`.
+ *
+ * The declaration mode is ESLint's first option. The optional object remains
+ * the second option, so existing ESLint configurations can be copied without
+ * reshaping them into a ttsc-only object.
+ */
+export type TtscLintCoreNoInnerDeclarationsRuleSetting =
+  | TtscLintRuleSetting
+  | readonly [TtscLintSeverity, "functions" | "both"]
+  | readonly [
+      TtscLintSeverity,
+      "functions" | "both",
+      ITtscLintCoreNoInnerDeclarationsRuleOptions,
+    ];
 
 /**
  * `no-fallthrough` rule options.

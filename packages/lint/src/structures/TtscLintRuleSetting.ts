@@ -27,8 +27,9 @@ export type TtscLintRuleSetting =
   | readonly [TtscLintSeverity];
 
 /**
- * Per-rule severity-plus-options setting for rules that accept a typed options
- * object.
+ * Per-rule severity-plus-options setting for rules that accept one typed
+ * options object. Rules with canonical positional option lists expose a
+ * dedicated setting type instead.
  *
  * This is the tuple form ESLint users know — `[severity, options]` — kept
  * strongly typed by way of the rule's dedicated options interface (see

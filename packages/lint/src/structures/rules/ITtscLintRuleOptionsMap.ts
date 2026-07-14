@@ -44,10 +44,11 @@ import type {
 } from "./ITtscLintTypeScriptRuleOptions";
 
 /**
- * Index from typed rule name to its options object.
+ * Index from typed rule name to its single options-object slot.
  *
- * Built-in rule families with configurable options are listed here. Contributor
- * plugins extend the map by augmenting it from their own package:
+ * Built-in rule families with one object option are listed here. Rules with
+ * canonical positional lists expose dedicated setting types instead.
+ * Contributor plugins extend the map by augmenting it from their own package:
  *
  * ```ts
  * declare module "@ttsc/lint" {

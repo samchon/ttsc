@@ -86,11 +86,10 @@ func FindLintEntry(entries []PluginEntry) (*PluginEntry, error) {
 // rule name (e.g. "no-var").
 type RuleConfig map[string]Severity
 
-// RuleOptionsMap captures the rule-specific options blob, keyed by rule
-// name. Severity-only rules never appear here. The values are the raw
-// JSON the user wrote in the second tuple slot of a `["error", { ... }]`
-// rule setting; each rule decodes the blob into its own option struct on
-// demand.
+// RuleOptionsMap captures the rule-specific options payload, keyed by rule
+// name. Severity-only rules never appear here. A single option slot preserves
+// its JSON shape; multiple positional slots are encoded as an array. Each rule
+// decodes the payload according to its public option type on demand.
 type RuleOptionsMap map[string]json.RawMessage
 
 // ProjectRuleSetting is the global declaration resolved for one registered
@@ -479,9 +478,9 @@ func ParseRules(raw any) (RuleConfig, error) {
 }
 
 // ParseRulesWithOptions accepts either a severity literal or a
-// `[severity, options]` tuple per rule and returns the severity map
+// `[severity, ...options]` tuple per rule and returns the severity map
 // alongside an options map keyed by rule name. The options map only
-// contains entries for rules whose configuration was the tuple form.
+// contains entries for rules whose configuration carries option slots.
 func ParseRulesWithOptions(raw any) (RuleConfig, RuleOptionsMap, error) {
   if raw == nil {
     return RuleConfig{}, RuleOptionsMap{}, nil
@@ -505,10 +504,10 @@ func ParseRulesWithOptions(raw any) (RuleConfig, RuleOptionsMap, error) {
   return cfg, opts, nil
 }
 
-// parseRuleEntry splits a rule entry into its severity and (optional) options
-// payload. Bare severity literals produce a nil options blob; `[severity]`
-// (no options) does the same; `[severity, options]` re-serializes the options
-// to JSON so each rule can decode it into its own struct later.
+// parseRuleEntry splits a rule entry into its severity and optional positional
+// options. A single option keeps its JSON shape for existing object-option
+// rules. Two or more options become a JSON array so canonical ESLint rules
+// with several positional slots can decode them without parser special cases.
 func parseRuleEntry(value any) (Severity, json.RawMessage, error) {
   if tuple, ok := value.([]any); ok {
     if len(tuple) == 0 {
@@ -521,21 +520,14 @@ func parseRuleEntry(value any) (Severity, json.RawMessage, error) {
     if len(tuple) == 1 {
       return sev, nil, nil
     }
-    if len(tuple) > 2 {
-      return SeverityOff, nil, fmt.Errorf("severity tuple must be [severity] or [severity, options], got %d elements", len(tuple))
-    }
-    if tuple[1] == nil {
+    if len(tuple) == 2 && tuple[1] == nil {
       return sev, nil, nil
     }
-    if _, ok := tuple[1].(map[string]any); !ok {
-      // A positional string option (e.g. `["error", "single"]`) is
-      // rejected: every option struct in TtscLintRuleOptions is an
-      // object, and silently encoding a non-object slot would land in
-      // DecodeOptions as a decode error that every rule discards. Fail
-      // loudly so users discover the proper `["error", { … }]` form.
-      return SeverityOff, nil, fmt.Errorf("severity tuple's options slot must be an object, got %T", tuple[1])
+    var payload any = tuple[1]
+    if len(tuple) > 2 {
+      payload = tuple[1:]
     }
-    encoded, err := json.Marshal(tuple[1])
+    encoded, err := json.Marshal(payload)
     if err != nil {
       return SeverityOff, nil, fmt.Errorf("encode options: %w", err)
     }
@@ -769,9 +761,9 @@ func parseExternalRuleMapInto(raw any, path string, store *ConfigStore) (RuleCon
   return out, entryOptions, nil
 }
 
-// collectExternalRuleMapWithOptions also records the rule's options blob
-// when the entry is a `[severity, options]` tuple. `opts` may be nil
-// when the caller does not need option capture.
+// collectExternalRuleMapWithOptions also records the rule's option payload
+// when the entry is a `[severity, ...options]` tuple. `opts` may be nil when
+// the caller does not need option capture.
 func collectExternalRuleMapWithOptions(out RuleConfig, opts RuleOptionsMap, raw any, path string) error {
   dict, ok := raw.(map[string]any)
   if !ok {

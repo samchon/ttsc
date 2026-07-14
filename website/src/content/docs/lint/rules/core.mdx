@@ -60,7 +60,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-func-assign`](#rule-no-func-assign): Reject reassignment of function declarations.
 - [`no-implicit-coercion`](#rule-no-implicit-coercion): Reject common implicit-coercion idioms.
 - [`no-import-assign`](#rule-no-import-assign): Reject writes to a binding introduced by an `import` declaration, assignment (`x = ...`), compound assignment.
-- [`no-inner-declarations`](#rule-no-inner-declarations): Reject `function` and `var` declarations nested in non-function blocks , they hoist in surprising ways.
+- [`no-inner-declarations`](#rule-no-inner-declarations): Reject block functions with legacy sloppy semantics; `"both"` also checks nested `var` declarations.
 - [`no-invalid-this`](#rule-no-invalid-this): Reject `this` references outside any function-like, class method, or class-static-block context.
 - [`no-irregular-whitespace`](#rule-no-irregular-whitespace): Reject irregular whitespace characters in source.
 - [`no-iterator`](#rule-no-iterator): Reject the legacy `__iterator__` property, a SpiderMonkey-only extension predating ES2015 iterators.
@@ -1488,7 +1488,21 @@ x = 5;
 
 ### `no-inner-declarations`
 
-Reject `function` and `var` declarations nested in non-function blocks (loops, `if`, etc.), they hoist in surprising ways.
+By default, reject function declarations in nested blocks when the enclosing code is sloppy and legacy function-hoisting semantics apply. Strict scripts and function bodies, ECMAScript modules, and class code use ES2015 block-scoped functions and are allowed by default.
+
+Use the canonical `"both"` positional mode to check nested `var` declarations too. Set `blockScopedFunctions` to `"disallow"` when strict block functions should be rejected as a style policy:
+
+```ts
+const config = {
+  rules: {
+    "no-inner-declarations": [
+      "error",
+      "both",
+      { blockScopedFunctions: "disallow" },
+    ],
+  },
+};
+```
 
 Example:
 

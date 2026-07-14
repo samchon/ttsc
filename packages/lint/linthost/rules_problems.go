@@ -531,49 +531,6 @@ func isIrregularWhitespace(r rune) bool {
   return false
 }
 
-// noInnerDeclarations: `function foo() { if (x) { function bar() {} } }`
-// — inner function declarations are hoisted differently in strict mode
-// vs sloppy and are confusing.
-type noInnerDeclarations struct{}
-
-func (noInnerDeclarations) Name() string { return "no-inner-declarations" }
-func (noInnerDeclarations) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindFunctionDeclaration, shimast.KindVariableStatement}
-}
-func (noInnerDeclarations) Check(ctx *Context, node *shimast.Node) {
-  if node.Kind == shimast.KindVariableStatement {
-    stmt := node.AsVariableStatement()
-    if stmt == nil || stmt.DeclarationList == nil {
-      return
-    }
-    // Only `var` is hoisted oddly.
-    if !shimast.IsVar(stmt.DeclarationList) {
-      return
-    }
-  }
-  parent := node.Parent
-  if parent == nil {
-    return
-  }
-  switch parent.Kind {
-  case shimast.KindSourceFile, shimast.KindModuleBlock:
-    return
-  case shimast.KindBlock:
-    grand := parent.Parent
-    if grand == nil {
-      return
-    }
-    if isFunctionLikeKind(grand) {
-      return
-    }
-  }
-  what := "function"
-  if node.Kind == shimast.KindVariableStatement {
-    what = "variable"
-  }
-  ctx.Report(node, "Move "+what+" declaration to the function scope.")
-}
-
 // noObjCalls: `Math()`, `JSON()` — these globals are objects, not
 // callables. ESLint catches a small list.
 type noObjCalls struct{}
@@ -633,6 +590,5 @@ func init() {
   Register(noAsyncPromiseExecutor{})
   Register(noControlRegex{})
   Register(noIrregularWhitespace{})
-  Register(noInnerDeclarations{})
   Register(noObjCalls{})
 }
