@@ -36,6 +36,7 @@ import assert from "node:assert/strict";
  * - A typo in a switch-exhaustiveness option is rejected.
  * - `unicorn/template-indent` exposes its tag/function/selector/comment and
  *   indentation options without leaking arbitrary keys.
+ * - `unicorn/filename-case` accepts only the five canonical case-style keys.
  * - Unicorn replacement maps and import modes retain their exact public shape.
  * - `unicorn/import-style` accepts per-module style maps and `false` module
  *   entries, and rejects a non-`false` scalar module entry.
@@ -186,6 +187,15 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
             lodash: { named: true, default: false },
             util: false,
           },
+        },
+      ],
+      "unicorn/filename-case": [
+        "error",
+        {
+          cases: { kebabCase: true, pascalCase: true },
+          ignore: ["^vendor-"],
+          multipleFileExtensions: false,
+          checkDirectories: false,
         },
       ],
     },
@@ -423,6 +433,17 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       ],
     },
   };
+  const filenameCaseUnknownStyle: ITtscLintConfig = {
+    rules: {
+      "unicorn/filename-case": [
+        "error",
+        {
+          // @ts-expect-error — `case` accepts only the five canonical case-style keys, not kebab-case spellings.
+          case: "kebab-case",
+        },
+      ],
+    },
+  };
   const unicornImportModeTypo: ITtscLintConfig = {
     rules: {
       "unicorn/prevent-abbreviations": [
@@ -525,6 +546,7 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(lintRuleWithOptions);
   assert.ok(switchOptionTypo);
   assert.ok(templateIndentOptionTypo);
+  assert.ok(filenameCaseUnknownStyle);
   assert.ok(unicornImportModeTypo);
   assert.ok(unicornFunctionScopingOptionShape);
   assert.ok(unicornReplacementShape);

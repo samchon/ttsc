@@ -47,6 +47,7 @@ import type {
 import type {
   ITtscLintUnicornConsistentFunctionScopingRuleOptions,
   ITtscLintUnicornImportStyleRuleOptions,
+  ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
 } from "./ITtscLintUnicornRuleOptions";
@@ -126,4 +127,5 @@ export interface ITtscLintRuleOptionsMap {
   "unicorn/consistent-function-scoping": ITtscLintUnicornConsistentFunctionScopingRuleOptions;
   "unicorn/prevent-abbreviations": ITtscLintUnicornPreventAbbreviationsRuleOptions;
   "unicorn/import-style": ITtscLintUnicornImportStyleRuleOptions;
+  "unicorn/filename-case": ITtscLintUnicornFilenameCaseRuleOptions;
 }

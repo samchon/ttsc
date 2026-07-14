@@ -1,3 +1,45 @@
+/** Case-style keys accepted by `unicorn/filename-case`. */
+export type TtscLintUnicornFilenameCaseName =
+  | "camelCase"
+  | "camelCaseWithAcronyms"
+  | "kebabCase"
+  | "snakeCase"
+  | "pascalCase";
+
+/**
+ * Options for `unicorn/filename-case`.
+ *
+ * `case` and `cases` are mutually exclusive: configure either the single
+ * enforced style or a map of allowed styles. With neither configured — or
+ * with every `cases` entry disabled — the rule enforces kebab-case.
+ *
+ * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/filename-case.md
+ */
+export interface ITtscLintUnicornFilenameCaseRuleOptions {
+  /** The single filename and directory name case style. @default "kebabCase" */
+  case?: TtscLintUnicornFilenameCaseName;
+
+  /** The allowed filename and directory name case styles. */
+  cases?: Partial<Readonly<Record<TtscLintUnicornFilenameCaseName, boolean>>>;
+
+  /**
+   * Regular-expression strings; a file is exempt when any pattern matches any
+   * segment of its project-relative path.
+   */
+  ignore?: readonly string[];
+
+  /**
+   * Treat additional dot-separated parts of a filename as file extensions,
+   * checking only the stem before the first dot.
+   *
+   * @default true
+   */
+  multipleFileExtensions?: boolean;
+
+  /** Check directory names. @default true */
+  checkDirectories?: boolean;
+}
+
 /**
  * Options for `unicorn/template-indent`.
  *

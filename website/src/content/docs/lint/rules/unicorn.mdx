@@ -164,7 +164,7 @@ Rules whose native port is registered but intentionally diagnostic-free are mark
 - [`unicorn/escape-case`](#rule-unicorn-escape-case): Require consistent case for escape sequences.
 - [`unicorn/expiring-todo-comments`](#rule-unicorn-expiring-todo-comments): Require every `TODO`/`FIXME`/`XXX` comment to declare an expiration date or package version.
 - [`unicorn/explicit-length-check`](#rule-unicorn-explicit-length-check): Require explicit comparison of `.length` / `.size`.
-- [`unicorn/filename-case`](#rule-unicorn-filename-case): Enforce a single case style (kebab / camel / snake / pascal) for source filenames.
+- [`unicorn/filename-case`](#rule-unicorn-filename-case): Enforce a single case style (kebab / camel / snake / pascal) for source filenames and directory names.
 - [`unicorn/import-style`](#rule-unicorn-import-style): Restrict each module's allowed import styles.
 - [`unicorn/isolated-functions`](#rule-unicorn-isolated-functions): Reject references to outer-scope variables inside functions marked as isolated.
 - [`unicorn/new-for-builtins`](#rule-unicorn-new-for-builtins): Require `new` when calling builtin constructors like `Error`, `Map`, `Set`, `Date`.
@@ -412,13 +412,33 @@ if (
 
 ### `unicorn/filename-case`
 
-Enforce a single case style (kebab / camel / snake / pascal) for source filenames.
+Enforce a single case style (kebab / camel / snake / pascal) for source filenames and directory names.
 
-Illustrative shape:
+Every segment of a file's project-relative path is checked — directories first, then the filename, then a lowercase check on the file extension — and the first offending segment produces the file's single diagnostic with concrete rename samples. Files outside the project directory are judged by basename alone. `$`-prefixed segments, the default `index.js` / `index.mjs` / `index.cjs` / `index.ts` / `index.tsx` / `index.vue` basenames, and characters outside `[a-zA-Z0-9_-]` are exempt from case conversion.
+
+The option object supports `case` (one enforced style: `kebabCase` — the default — `camelCase`, `camelCaseWithAcronyms`, `snakeCase`, or `pascalCase`), `cases` (a map of allowed styles; `case` and `cases` are mutually exclusive, and enabling none falls back to kebab-case), `ignore` (regular-expression strings matched against each path segment), `multipleFileExtensions` (default `true`: only the stem before the first dot is checked), and `checkDirectories` (default `true`).
+
+Example:
 
 ```ts
-// File: UserProfile.ts
+// File: src/UserProfile.ts
+// reports: unicorn/filename-case (error)
+// Filename is not in kebab case. Rename it to `user-profile.ts`.
 export function renderUserProfile() {}
+```
+
+```ts
+export default {
+  rules: {
+    "unicorn/filename-case": [
+      "error",
+      {
+        cases: { kebabCase: true, pascalCase: true },
+        ignore: ["^vendor-"],
+      },
+    ],
+  },
+};
 ```
 
 <a id="rule-unicorn-import-style"></a>
