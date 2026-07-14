@@ -26,7 +26,8 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * and submit exactly that one.
  *
  * - `tour`: architecture, runtime flow, orientation, or a code tour. One call is
- *   the whole answer; do not split it.
+ *   the whole answer; do not split it. Name the machinery you expect it to be
+ *   made of in its `reinterpretations`, or send none.
  * - `entrypoints`: find where execution starts when entry points are unknown.
  * - `lookup`: locate a named symbol.
  * - `trace`: follow calls or data flow forward or backward from a symbol, or —
@@ -49,12 +50,8 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *   then that request's `type`.
  * - `review`: fix a broad, stale, or duplicate draft. If the graph already
  *   answered, or the evidence is outside it, escape.
- * - `request`: the final choice. A `tour` takes one more step of reasoning — its
- *   `reinterpretations`: a list of symbol names, never a sentence, naming the
- *   machinery you expect the answer to be made of. The graph looks each name
- *   up, steers the tour with the ones it holds and drops the rest, so a wrong
- *   guess is free and a right one saves a call. Send `[]` when the question
- *   names no machinery.
+ * - `request`: the final choice. Each branch documents its own fields; fill them
+ *   from what the branch says, not from what another branch wanted.
  *
  * ## Sacred Contract
  *

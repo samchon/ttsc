@@ -257,7 +257,6 @@ export function runTour(
   return {
     result: {
       type: "tour",
-      query,
       entrypoints,
       primaryFlow,
       nearby: nearby.slice(0, MAX_NEARBY),

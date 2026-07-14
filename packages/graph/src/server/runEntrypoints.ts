@@ -88,7 +88,6 @@ export function runEntrypoints(
   return {
     result: {
       type: "entrypoints",
-      query,
       hits,
       mentions,
       neighborhood,

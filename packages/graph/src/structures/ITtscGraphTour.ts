@@ -5,9 +5,6 @@ export interface ITtscGraphTour {
   /** Discriminator for code-tour indexing. */
   type: "tour";
 
-  /** The question this tour was built for, as the caller wrote it. */
-  query: string;
-
   /** Central entrypoints selected for the tour. */
   entrypoints: ITtscGraphTour.INode[];
 
@@ -29,56 +26,39 @@ export interface ITtscGraphTour {
 
 export namespace ITtscGraphTour {
   /**
-   * The whole answer surface for a broad code tour: entrypoints, primary flow,
-   * nearby paths, tests, and answer anchors.
+   * A broad code tour: entrypoints, primary flow, nearby paths, and tests.
    *
-   * It asks for no question of its own. It used to carry a `query`, described
-   * in its own schema as "the same ask as `question`" — the field the caller
-   * has already filled two lines above — and a schema that asks for one string
-   * twice gets it once: GPT-5.6 sent `{ "type": "tour" }` with no query in **31
-   * of 32 cells**, the validator rejected it, and the model re-sent the whole
-   * call. Every Codex tour cost a wasted round trip, and a Codex turn re-sends
-   * its whole context, so the duplicate field was most of what the tool spent.
-   *
-   * The words that rank the tour are the question's, and the question is where
-   * the caller writes them. Asking for them twice also lost them: told to keep
-   * the user's words in `question`, Opus wrote `how does Zod carry
-   * `schema.parse` from the public API`, and then paraphrased them into `query`
-   * as "how does Zod carry schema.parse" — dropping the backticks the mention
-   * resolver reads to find the symbol the user named.
+   * It asks for no question of its own — it ranks against the `question` the
+   * caller has already written, in the user's words.
    */
   export interface IRequest {
     /** Discriminator for code-tour indexing. */
     type: "tour";
 
     /**
-     * A list of symbol names. Not a sentence — names, one per entry, the way
-     * you would type them into a search: `["track", "trigger",
-     * "ReactiveEffect", "setupRenderEffect", "queueJob", "patch"]`.
+     * Symbol names, never a sentence: the machinery you expect the answer to be
+     * made of, spelled the way this codebase would spell it. A question about
+     * how a job reaches a worker is reinterpreted as `["JobQueue.push",
+     * "Scheduler.tick", "Worker.run", "drainQueue"]`.
      *
-     * They are the machinery you expect the answer to be made of. The question
-     * is above, in the user's words, and the tour ranks against them — but a
-     * codebase names many things alike, and the question's words cannot tell
-     * them apart. "Dependency tracking" matches Vue's devtools hook
-     * `onRenderTracked` as well as `track`, the function that actually records
-     * the dependency; "request" matches a message listener as well as the HTTP
-     * router. The names are how you say which one you mean.
+     * Write them from the question, before you have seen a line of the code. A
+     * codebase names many things alike, and the question's own words cannot
+     * tell them apart: a question about _tracking_ matches the debug hook named
+     * after tracking as readily as the function that does it, and one about a
+     * _request_ matches a message listener as readily as an HTTP router. The
+     * names say which you meant.
      *
-     * Names, not prose. Each is looked up in the graph the way a handle is — a
-     * symbol name, a `Class.member`, a `file.symbol`. The ones the graph holds
-     * take half the tour's entrypoints; the other half stays with what the
-     * graph finds central, so a name you get wrong cannot cost you the tour. A
-     * name it does not know, or one it knows several of, is simply dropped: a
-     * wrong guess is free, and a phrase like "the public API and its runtime
-     * path" buys nothing. Write the names you would grep for, before you have
-     * seen a line.
+     * Each is resolved like a handle — a symbol name, a `Class.member`. The
+     * ones the graph holds take half the tour's entrypoints, the rest stays
+     * with what the graph finds central, and a name it does not know, or knows
+     * several of, is dropped. So a wrong guess costs nothing, and a specific
+     * name is worth more than a general one: `drainQueue` resolves, `queue`
+     * does not.
      *
-     * Send `[]` when the question names no machinery — an orientation tour of a
-     * repository you have not seen, "show me the central flow". Then there is
-     * nothing to reinterpret: the tour ranks on structure, which is what that
-     * question is asking for, and `[]` is the whole and correct answer. Do not
-     * go looking for names to put here first. A lookup before the tour is a
-     * call spent to fill a field that the tour would have ignored anyway.
+     * Send `[]` when the question names no machinery — "show me the central
+     * flow" in a repository you have never seen. There is nothing to
+     * reinterpret then: the tour ranks on structure, which is what that
+     * question asks for. Do not look names up first to fill this.
      */
     reinterpretations: string[];
 

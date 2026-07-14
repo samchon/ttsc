@@ -6,9 +6,6 @@ export interface ITtscGraphEntrypoints {
   /** Discriminator for first-pass question indexing. */
   type: "entrypoints";
 
-  /** The original question/search phrase the entrypoints were built for. */
-  query: string;
-
   /** Ranked symbols relevant to the query. */
   hits: ITtscGraphEntrypoints.IHit[];
 
