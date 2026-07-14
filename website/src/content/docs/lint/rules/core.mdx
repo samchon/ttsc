@@ -1475,7 +1475,9 @@ const asBool = !!value;
 
 ### `no-import-assign`
 
-Reject writes to a binding introduced by an `import` declaration, assignment (`x = ...`), compound assignment, or increment/decrement of an imported name, plus property mutations of a namespace import (`ns.foo = ...`).
+Reject assignments, updates, destructuring writes, and `for-in` / `for-of` targets that resolve to an imported binding. Same-spelled local shadows remain independent because the rule follows binding identity rather than identifier text.
+
+For namespace imports, the rule also rejects direct member assignment, update, deletion, and the standard mutating `Object` / `Reflect` calls such as `Object.assign(ns, value)`. Objects exported below a namespace member remain mutable (`ns.value.property = next`).
 
 Imported bindings are read-only at runtime; mutating them either throws under strict mode or silently desynchronises the module's view of its own exports.
 
@@ -1483,9 +1485,13 @@ Example:
 
 ```ts
 import { x } from "y";
+import * as ns from "y";
 
 // reports: no-import-assign (error)
 x = 5;
+
+// reports: no-import-assign (error)
+Object.assign(ns, { x: 5 });
 ```
 
 <a id="rule-no-inner-declarations"></a>
