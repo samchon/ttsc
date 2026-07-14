@@ -21,7 +21,6 @@ func TestNoFloatingPromisesCorrelatesMixedReceiverResults(t *testing.T) {
   code, stdout, stderr := runNoFloatingPromisesCase(t, `interface CatchResult<T> {
   catch(onRejected: (reason: unknown) => void): T;
 }
-
 interface ThenResult<T> {
   then(onFulfilled: undefined, onRejected: (reason: unknown) => void): T;
 }
@@ -191,6 +190,17 @@ interface ConstrainedGenericCatch {
 interface ExplicitGenericCatch {
   catch<T>(onRejected: () => T): T;
 }
+interface NonGenericCallbackCatch {
+  catch(onRejected: (reason: unknown) => void): undefined;
+}
+type TaggedFactory<T> = (() => T) & { readonly tag: true };
+interface TaggedGenericCatch {
+  catch<T>(onRejected: TaggedFactory<T>): T;
+}
+interface UncertainOverloadedCatch {
+  catch(onRejected: () => void): undefined;
+  catch<T>(onRejected: (reason: T) => void): Promise<void>;
+}
 declare const fixedValid: Promise<void> | FixedGenericThen;
 declare const fixedMismatch: Promise<void> | FixedGenericThen;
 declare const callbackValid: Promise<void> | CallbackGenericThen;
@@ -199,6 +209,12 @@ declare const constrainedValid: Promise<void> | ConstrainedGenericCatch;
 declare const constrainedMismatch: Promise<void> | ConstrainedGenericCatch;
 declare const explicitValid: Promise<void> | ExplicitGenericCatch;
 declare const explicitMismatch: Promise<void> | ExplicitGenericCatch;
+declare const nonGenericCallbackValid: Promise<void> | NonGenericCallbackCatch;
+declare const nonGenericCallbackMismatch: Promise<void> | NonGenericCallbackCatch;
+declare const taggedValid: Promise<void> | TaggedGenericCatch;
+declare const taggedMismatch: Promise<void> | TaggedGenericCatch;
+declare const taggedFactory: TaggedFactory<undefined>;
+declare const uncertainOverload: Promise<void> | UncertainOverloadedCatch;
 fixedValid.then(1, () => undefined);
 fixedMismatch.then("not a number", () => undefined);
 callbackValid.then(1, (reason: unknown) => undefined);
@@ -207,6 +223,17 @@ constrainedValid.catch<number>(() => 1);
 constrainedMismatch.catch<string>(() => "not a number");
 explicitValid.catch<undefined>(() => undefined);
 explicitMismatch.catch<undefined>(() => Promise.resolve());
+nonGenericCallbackValid.catch((reason: unknown) => undefined);
+nonGenericCallbackMismatch.catch((reason: string) => undefined);
+taggedValid.catch(taggedFactory);
+taggedMismatch.catch(() => undefined);
+uncertainOverload.catch(() => undefined);
+function checkUncertain<U>(
+  uncertainResult: Promise<void> | ExplicitGenericCatch,
+  factory: () => U,
+): void {
+  uncertainResult.catch(factory);
+}
 `
   code, stdout, stderr := runNoFloatingPromisesCase(t, source, nil)
   if code != 2 || stdout != "" {
@@ -217,6 +244,10 @@ explicitMismatch.catch<undefined>(() => Promise.resolve());
     "callbackMismatch.then",
     "constrainedMismatch.catch",
     "explicitMismatch.catch",
+    "nonGenericCallbackMismatch.catch",
+    "taggedMismatch.catch",
+    "uncertainOverload.catch",
+    "uncertainResult.catch",
   }
   if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != len(unsafeMarkers) {
     t.Fatalf("expected %d generic applicability findings, got %d:\n%s", len(unsafeMarkers), got, stderr)

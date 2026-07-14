@@ -1006,8 +1006,11 @@ func floatingPromiseApplicableSignature(
   }
   var applicable []*shimchecker.Signature
   for _, signature := range signatures {
-    if floatingPromiseSignatureAcceptsCall(ctx.Checker, call, signature) {
+    switch floatingPromiseSignatureApplicability(ctx.Checker, call, signature) {
+    case floatingPromiseCallApplicable:
       applicable = append(applicable, signature)
+    case floatingPromiseCallUncertain:
+      return nil
     }
   }
   if len(applicable) == 1 {
@@ -1021,6 +1024,14 @@ func floatingPromiseApplicableSignature(
   // but do not guess between merely overlapping parameter types.
   return applicable[0]
 }
+
+type floatingPromiseCallApplicability uint8
+
+const (
+  floatingPromiseCallIncompatible floatingPromiseCallApplicability = iota
+  floatingPromiseCallApplicable
+  floatingPromiseCallUncertain
+)
 
 func floatingPromiseEquivalentOverloads(
   checker *shimchecker.Checker,
@@ -1058,13 +1069,16 @@ func floatingPromiseEquivalentOverloads(
   return true
 }
 
-func floatingPromiseSignatureAcceptsCall(
+func floatingPromiseSignatureApplicability(
   checker *shimchecker.Checker,
   call *shimast.CallExpression,
   signature *shimchecker.Signature,
-) bool {
+) floatingPromiseCallApplicability {
   if checker == nil || call == nil || signature == nil {
-    return false
+    return floatingPromiseCallUncertain
+  }
+  if signature.ThisParameter() != nil {
+    return floatingPromiseCallUncertain
   }
   arguments := []*shimast.Node(nil)
   if call.Arguments != nil {
@@ -1072,15 +1086,15 @@ func floatingPromiseSignatureAcceptsCall(
   }
   parameters := signature.Parameters()
   if len(arguments) < shimchecker.Checker_getMinArgumentCount(checker, signature) {
-    return false
+    return floatingPromiseCallIncompatible
   }
   if len(arguments) > len(parameters) && !signature.HasRestParameter() {
-    return false
+    return floatingPromiseCallIncompatible
   }
   typeArguments := call.AsNode().TypeArguments()
   typeParameters := signature.TypeParameters()
   if len(typeArguments) > len(typeParameters) || (len(typeArguments) != 0 && len(typeParameters) == 0) {
-    return false
+    return floatingPromiseCallIncompatible
   }
   if len(typeParameters) != 0 {
     return floatingPromiseGenericSignatureAcceptsCall(
@@ -1093,29 +1107,49 @@ func floatingPromiseSignatureAcceptsCall(
     )
   }
   for index, argument := range arguments {
-    if argument == nil || argument.Kind == shimast.KindSpreadElement {
-      return false
+    if argument == nil {
+      return floatingPromiseCallUncertain
+    }
+    if argument.Kind == shimast.KindSpreadElement {
+      return floatingPromiseCallUncertain
     }
     parameterType := floatingPromiseParameterType(checker, call, signature, index)
     argumentType := checker.GetTypeAtLocation(argument)
     if parameterType == nil || argumentType == nil {
-      return false
+      return floatingPromiseCallUncertain
     }
     if floatingPromiseArgumentNeedsCandidateContext(argument) {
-      if floatingPromiseFunctionArgument(argument) && !floatingPromiseTypeMayAcceptFunction(checker, parameterType) {
-        return false
+      if !floatingPromiseFunctionArgument(argument) {
+        return floatingPromiseCallUncertain
       }
-      // A context-sensitive function, object, array, or branch can acquire a
-      // different type for each overload. Keep every plausible candidate in
-      // play; excluding one from the canonical union-context type would turn
-      // uncertainty into a false safe result.
+      if !floatingPromiseTypeMayAcceptFunction(checker, parameterType) {
+        return floatingPromiseCallIncompatible
+      }
+      if parameterType.Flags()&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown) != 0 {
+        if checker.IsTypeAssignableTo(argumentType, parameterType) {
+          continue
+        }
+        return floatingPromiseCallIncompatible
+      }
+      applicability := floatingPromiseCallableArgumentApplicability(
+        checker,
+        call,
+        argument,
+        parameterType,
+        nil,
+        nil,
+        nil,
+      )
+      if applicability != floatingPromiseCallApplicable {
+        return applicability
+      }
       continue
     }
     if !checker.IsTypeAssignableTo(argumentType, parameterType) {
-      return false
+      return floatingPromiseCallIncompatible
     }
   }
-  return true
+  return floatingPromiseCallApplicable
 }
 
 // floatingPromiseGenericSignatureAcceptsCall proves the deliberately small
@@ -1131,18 +1165,28 @@ func floatingPromiseGenericSignatureAcceptsCall(
   arguments []*shimast.Node,
   typeArgumentNodes []*shimast.Node,
   typeParameters []*shimchecker.Type,
-) bool {
+) floatingPromiseCallApplicability {
   if len(typeArgumentNodes) != 0 && len(typeArgumentNodes) < checker.GetMinTypeArgumentCount(typeParameters) {
-    return false
+    return floatingPromiseCallIncompatible
   }
   explicit := make([]*shimchecker.Type, len(typeParameters))
   for index, typeArgumentNode := range typeArgumentNodes {
     if typeArgumentNode == nil {
-      return false
+      return floatingPromiseCallUncertain
     }
     typeArgument := checker.GetTypeFromTypeNode(typeArgumentNode)
-    if typeArgument == nil || !floatingPromiseTypeParameterAccepts(checker, typeParameters[index], typeArgument) {
-      return false
+    if typeArgument == nil {
+      return floatingPromiseCallUncertain
+    }
+    applicability := floatingPromiseTypeParameterCandidateApplicability(
+      checker,
+      typeParameters[index],
+      typeArgument,
+      typeParameters,
+      call.Expression,
+    )
+    if applicability != floatingPromiseCallApplicable {
+      return applicability
     }
     explicit[index] = typeArgument
   }
@@ -1150,10 +1194,13 @@ func floatingPromiseGenericSignatureAcceptsCall(
   inferred := make(map[*shimchecker.Type][]*shimchecker.Type, len(typeParameters))
   for index, argument := range arguments {
     if argument == nil || argument.Kind == shimast.KindSpreadElement {
-      return false
+      return floatingPromiseCallUncertain
     }
     parameterType := floatingPromiseParameterType(checker, call, signature, index)
-    if parameterType == nil || !floatingPromiseGenericArgumentAccepts(
+    if parameterType == nil {
+      return floatingPromiseCallUncertain
+    }
+    applicability := floatingPromiseGenericArgumentApplicability(
       checker,
       call,
       argument,
@@ -1161,8 +1208,9 @@ func floatingPromiseGenericSignatureAcceptsCall(
       typeParameters,
       explicit,
       inferred,
-    ) {
-      return false
+    )
+    if applicability != floatingPromiseCallApplicable {
+      return applicability
     }
   }
 
@@ -1173,19 +1221,29 @@ func floatingPromiseGenericSignatureAcceptsCall(
     candidates := inferred[typeParameter]
     if len(candidates) != 0 {
       if !floatingPromiseInferencesHaveWitness(checker, candidates) {
-        return false
+        return floatingPromiseCallUncertain
       }
       continue
     }
     defaultType := checker.GetDefaultFromTypeParameter(typeParameter)
-    if defaultType == nil || !floatingPromiseTypeParameterAccepts(checker, typeParameter, defaultType) {
-      return false
+    if defaultType == nil {
+      return floatingPromiseCallUncertain
+    }
+    applicability := floatingPromiseTypeParameterCandidateApplicability(
+      checker,
+      typeParameter,
+      defaultType,
+      typeParameters,
+      call.Expression,
+    )
+    if applicability != floatingPromiseCallApplicable {
+      return applicability
     }
   }
-  return true
+  return floatingPromiseCallApplicable
 }
 
-func floatingPromiseGenericArgumentAccepts(
+func floatingPromiseGenericArgumentApplicability(
   checker *shimchecker.Checker,
   call *shimast.CallExpression,
   argument *shimast.Node,
@@ -1193,29 +1251,45 @@ func floatingPromiseGenericArgumentAccepts(
   typeParameters []*shimchecker.Type,
   explicit []*shimchecker.Type,
   inferred map[*shimchecker.Type][]*shimchecker.Type,
-) bool {
+) floatingPromiseCallApplicability {
   argumentType := checker.GetTypeAtLocation(argument)
   if argumentType == nil {
-    return false
+    return floatingPromiseCallUncertain
   }
   if typeParameterIndex := floatingPromiseTypeParameterIndex(typeParameters, parameterType); typeParameterIndex >= 0 {
     if floatingPromiseArgumentNeedsCandidateContext(argument) {
-      return false
+      return floatingPromiseCallUncertain
     }
     typeParameter := typeParameters[typeParameterIndex]
     if explicitType := explicit[typeParameterIndex]; explicitType != nil {
-      return checker.IsTypeAssignableTo(argumentType, explicitType)
+      if checker.IsTypeAssignableTo(argumentType, explicitType) {
+        return floatingPromiseCallApplicable
+      }
+      return floatingPromiseCallIncompatible
     }
-    if !floatingPromiseTypeParameterAccepts(checker, typeParameter, argumentType) {
-      return false
+    applicability := floatingPromiseTypeParameterCandidateApplicability(
+      checker,
+      typeParameter,
+      argumentType,
+      typeParameters,
+      call.Expression,
+    )
+    if applicability != floatingPromiseCallApplicable {
+      return applicability
     }
     inferred[typeParameter] = append(inferred[typeParameter], argumentType)
-    return true
+    return floatingPromiseCallApplicable
+  }
+  if parameterType.Flags()&(shimchecker.TypeFlagsAny|shimchecker.TypeFlagsUnknown) != 0 {
+    if checker.IsTypeAssignableTo(argumentType, parameterType) {
+      return floatingPromiseCallApplicable
+    }
+    return floatingPromiseCallIncompatible
   }
 
   apparentParameter := checker.GetApparentType(parameterType)
   if apparentParameter != nil && len(checker.GetSignaturesOfType(apparentParameter, shimchecker.SignatureKindCall)) != 0 {
-    return floatingPromiseCallableArgumentAccepts(
+    return floatingPromiseCallableArgumentApplicability(
       checker,
       call,
       argument,
@@ -1226,17 +1300,20 @@ func floatingPromiseGenericArgumentAccepts(
     )
   }
   if floatingPromiseTypeContainsAnyTypeParameter(checker, parameterType, typeParameters, call.Expression, nil) {
-    return false
+    return floatingPromiseCallUncertain
   }
   if floatingPromiseArgumentNeedsCandidateContext(argument) {
     // Object, array, and branching literals require the candidate-specific
     // contextual mapper that is intentionally unavailable here.
-    return false
+    return floatingPromiseCallUncertain
   }
-  return checker.IsTypeAssignableTo(argumentType, parameterType)
+  if checker.IsTypeAssignableTo(argumentType, parameterType) {
+    return floatingPromiseCallApplicable
+  }
+  return floatingPromiseCallIncompatible
 }
 
-func floatingPromiseCallableArgumentAccepts(
+func floatingPromiseCallableArgumentApplicability(
   checker *shimchecker.Checker,
   call *shimast.CallExpression,
   argument *shimast.Node,
@@ -1244,30 +1321,69 @@ func floatingPromiseCallableArgumentAccepts(
   typeParameters []*shimchecker.Type,
   explicit []*shimchecker.Type,
   inferred map[*shimchecker.Type][]*shimchecker.Type,
-) bool {
+) floatingPromiseCallApplicability {
   argumentType := checker.GetTypeAtLocation(argument)
+  if argumentType == nil {
+    return floatingPromiseCallUncertain
+  }
   expectedType := checker.GetApparentType(parameterType)
   actualType := checker.GetApparentType(argumentType)
   if expectedType == nil || actualType == nil {
-    return false
+    return floatingPromiseCallUncertain
   }
   expectedSignatures := checker.GetSignaturesOfType(expectedType, shimchecker.SignatureKindCall)
   actualSignatures := checker.GetSignaturesOfType(actualType, shimchecker.SignatureKindCall)
-  if len(expectedSignatures) != 1 || len(actualSignatures) != 1 {
-    return false
+  if len(expectedSignatures) != 1 {
+    return floatingPromiseCallUncertain
+  }
+  if len(actualSignatures) == 0 {
+    return floatingPromiseCallIncompatible
+  }
+  if len(actualSignatures) != 1 {
+    return floatingPromiseCallUncertain
   }
   expected := expectedSignatures[0]
   actual := actualSignatures[0]
   if expected.HasRestParameter() || actual.HasRestParameter() ||
     expected.ThisParameter() != nil || actual.ThisParameter() != nil ||
     len(expected.TypeParameters()) != 0 || len(actual.TypeParameters()) != 0 {
-    return false
+    return floatingPromiseCallUncertain
+  }
+  if len(checker.GetSignaturesOfType(expectedType, shimchecker.SignatureKindConstruct)) != 0 ||
+    len(checker.GetIndexInfosOfType(expectedType)) != 0 {
+    return floatingPromiseCallUncertain
+  }
+  for _, expectedProperty := range shimchecker.Checker_getPropertiesOfType(checker, expectedType) {
+    actualProperty := checker.GetPropertyOfType(actualType, expectedProperty.Name)
+    if actualProperty == nil {
+      if expectedProperty.Flags&shimast.SymbolFlagsOptional != 0 {
+        continue
+      }
+      return floatingPromiseCallIncompatible
+    }
+    expectedPropertyType := checker.GetTypeOfSymbolAtLocation(expectedProperty, call.Expression)
+    actualPropertyType := checker.GetTypeOfSymbolAtLocation(actualProperty, argument)
+    if expectedPropertyType == nil || actualPropertyType == nil {
+      return floatingPromiseCallUncertain
+    }
+    if floatingPromiseTypeContainsAnyTypeParameter(
+      checker,
+      expectedPropertyType,
+      typeParameters,
+      call.Expression,
+      nil,
+    ) {
+      return floatingPromiseCallUncertain
+    }
+    if !checker.IsTypeAssignableTo(actualPropertyType, expectedPropertyType) {
+      return floatingPromiseCallIncompatible
+    }
   }
   expectedParameters := expected.Parameters()
   actualParameters := actual.Parameters()
   if shimchecker.Checker_getMinArgumentCount(checker, actual) >
     shimchecker.Checker_getMinArgumentCount(checker, expected) {
-    return false
+    return floatingPromiseCallIncompatible
   }
   comparableParameters := len(actualParameters)
   if comparableParameters > len(expectedParameters) {
@@ -1281,36 +1397,76 @@ func floatingPromiseCallableArgumentAccepts(
       call.Expression,
     )
     actualParameter := floatingPromiseSignatureParameterType(checker, actual, index, argument)
-    if expectedParameter == nil || actualParameter == nil ||
-      floatingPromiseTypeContainsAnyTypeParameter(checker, expectedParameter, typeParameters, call.Expression, nil) ||
-      !checker.IsTypeAssignableTo(expectedParameter, actualParameter) {
-      return false
+    if expectedParameter == nil || actualParameter == nil {
+      return floatingPromiseCallUncertain
+    }
+    if floatingPromiseTypeContainsAnyTypeParameter(checker, expectedParameter, typeParameters, call.Expression, nil) {
+      return floatingPromiseCallUncertain
+    }
+    if !checker.IsTypeAssignableTo(expectedParameter, actualParameter) {
+      return floatingPromiseCallIncompatible
     }
   }
 
   expectedReturn := checker.GetReturnTypeOfSignature(expected)
   actualReturn := checker.GetReturnTypeOfSignature(actual)
   if expectedReturn == nil || actualReturn == nil {
-    return false
+    return floatingPromiseCallUncertain
   }
   if typeParameterIndex := floatingPromiseTypeParameterIndex(typeParameters, expectedReturn); typeParameterIndex >= 0 {
     typeParameter := typeParameters[typeParameterIndex]
     if explicitType := explicit[typeParameterIndex]; explicitType != nil {
-      return checker.IsTypeAssignableTo(actualReturn, explicitType)
+      if checker.IsTypeAssignableTo(actualReturn, explicitType) {
+        return floatingPromiseCallApplicable
+      }
+      return floatingPromiseCallIncompatible
     }
-    if !floatingPromiseTypeParameterAccepts(checker, typeParameter, actualReturn) {
-      return false
+    applicability := floatingPromiseTypeParameterCandidateApplicability(
+      checker,
+      typeParameter,
+      actualReturn,
+      typeParameters,
+      call.Expression,
+    )
+    if applicability != floatingPromiseCallApplicable {
+      return applicability
     }
     inferred[typeParameter] = append(inferred[typeParameter], actualReturn)
-    return true
+    return floatingPromiseCallApplicable
   }
   if floatingPromiseTypeContainsAnyTypeParameter(checker, expectedReturn, typeParameters, call.Expression, nil) {
-    return false
+    return floatingPromiseCallUncertain
   }
   if expectedReturn.Flags()&shimchecker.TypeFlagsVoid != 0 {
-    return true
+    return floatingPromiseCallApplicable
   }
-  return checker.IsTypeAssignableTo(actualReturn, expectedReturn)
+  if checker.IsTypeAssignableTo(actualReturn, expectedReturn) {
+    return floatingPromiseCallApplicable
+  }
+  return floatingPromiseCallIncompatible
+}
+
+func floatingPromiseTypeParameterCandidateApplicability(
+  checker *shimchecker.Checker,
+  typeParameter *shimchecker.Type,
+  candidate *shimchecker.Type,
+  typeParameters []*shimchecker.Type,
+  location *shimast.Node,
+) floatingPromiseCallApplicability {
+  if checker == nil || typeParameter == nil || candidate == nil {
+    return floatingPromiseCallUncertain
+  }
+  constraint := checker.GetBaseConstraintOfType(typeParameter)
+  if constraint == nil || constraint == typeParameter {
+    return floatingPromiseCallApplicable
+  }
+  if floatingPromiseTypeContainsAnyTypeParameter(checker, constraint, typeParameters, location, nil) {
+    return floatingPromiseCallUncertain
+  }
+  if checker.IsTypeAssignableTo(candidate, constraint) {
+    return floatingPromiseCallApplicable
+  }
+  return floatingPromiseCallIncompatible
 }
 
 func floatingPromiseTypeParameterIndex(typeParameters []*shimchecker.Type, candidate *shimchecker.Type) int {
@@ -1543,7 +1699,8 @@ func floatingPromiseSignatureReturnIsUnhandled(
       return true
     }
     for _, inferredType := range inferred {
-      if isFloatingPromiseType(ctx, node, inferredType, options) ||
+      if floatingPromiseInferenceIsUncertain(inferredType, nil) ||
+        isFloatingPromiseType(ctx, node, inferredType, options) ||
         isFloatingPromiseArray(ctx, node, inferredType, options) {
         return true
       }
@@ -1554,6 +1711,39 @@ func floatingPromiseSignatureReturnIsUnhandled(
   // requires TypeScript's full inference mapper. With no public candidate-set
   // API, treating that shape as safe would hide a possible Promise.
   return true
+}
+
+func floatingPromiseInferenceIsUncertain(
+  t *shimchecker.Type,
+  visited map[*shimchecker.Type]bool,
+) bool {
+  if t == nil {
+    return true
+  }
+  if t.Flags()&(shimchecker.TypeFlagsAny|
+    shimchecker.TypeFlagsUnknown|
+    shimchecker.TypeFlagsTypeParameter|
+    shimchecker.TypeFlagsConditional|
+    shimchecker.TypeFlagsIndexedAccess|
+    shimchecker.TypeFlagsSubstitution) != 0 {
+    return true
+  }
+  if t.Flags()&shimchecker.TypeFlagsUnionOrIntersection == 0 {
+    return false
+  }
+  if visited == nil {
+    visited = make(map[*shimchecker.Type]bool)
+  }
+  if visited[t] {
+    return false
+  }
+  visited[t] = true
+  for _, part := range t.Types() {
+    if floatingPromiseInferenceIsUncertain(part, visited) {
+      return true
+    }
+  }
+  return false
 }
 
 func floatingPromiseNakedReturnInferences(
