@@ -149,11 +149,23 @@ What actually happened was a lot less exciting than the pitch.
 - Extra MCP calls fired on their own and delayed the work I wanted done.
 - I couldn't just ask in plain language either. Every query had to be shaped by hand. `codebase-memory-mcp`'s sharpest tools want a Cypher query or an exact `qualified_name`, `codegraph` wants you to name the symbols in a flow, and `serena` wants you to activate the project and then hand it an exact `name_path` you don't have yet. The hand-shaping alone cost more time than the tools gave back.
 
+zod wasn't a lucky pick, so here is the whole corpus on one question. This is the same onboarding prompt on all eight repositories — the one I actually paste when I enter a codebase I don't know — and the shape to look at is not any single bar but the *variance*. The cyan bars sit flat at roughly a quarter-million tokens whether the repository is a 51k-line backend or three-million-line VS Code, because an index answer is the size of the answer, not the size of the code. Every other bar swings with the repository, because bodies and searches grow with what they crawl:
+
+![Median token use across every repository, shared onboarding question, Claude Code Sonnet 5](/benchmark/svg/graph-common-claude-code-claude-sonnet-5.svg)
+
+And because a benchmark that only runs the author's own prompt proves nothing, the second lane borrows the competition's: `codegraph` ships its own per-repository architecture questions, and this chart runs them verbatim, one per project. Same ordering on someone else's questions:
+
+![Median token use, codegraph's own per-repository questions, Claude Code Sonnet 5](/benchmark/svg/graph-dedicated-claude-code-claude-sonnet-5.svg)
+
 And none of that counts the wait before the first question. A code-graph MCP has to index the repository before it can answer anything, and you sit through that build on a cold checkout whether the answer that follows is cheap or not.
 
 ![Cold time to a first answer, per repository](/benchmark/svg/graph-time-to-answer.svg)
 
-> The faded head of each bar is the index build, the solid tail is the answer, and each bar is labelled `index / answer` in the order you wait for them. On VS Code, `@ttsc/graph` builds in 29 seconds; `codegraph` takes 732. A tool that cuts the token bill and then spends twelve minutes indexing has moved the cost, not removed it.
+> The faded head of each bar is the index build, the solid tail is the LLM answering, and each bar is labelled `index / LLM` in the order you wait for them. A tool that cuts the token bill and then spends twelve minutes indexing has moved the cost, not removed it.
+
+The place that trade bites hardest deserves its own frame. VS Code is three million lines, and on it the index builds diverge by a factor of twenty-five: `@ttsc/graph` is ready in 29 seconds because the graph falls out of the type-check the compiler was going to run anyway, while `codegraph` crawls for twelve minutes and serena for four and a half before either can say a word:
+
+![Cold time to a first answer, VS Code alone](/benchmark/svg/graph-time-to-answer-vscode.svg)
 
 So for my kind of question, all three left me worse off than before I installed them. Two things are true at once: they're the strongest tools of their kind, built by people who saw the problem before I did; and on an open question, every one made the agent spend more than nothing would have. That's when I went digging.
 

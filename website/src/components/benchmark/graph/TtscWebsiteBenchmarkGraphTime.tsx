@@ -195,13 +195,13 @@ function Bars({
         return (
           <div key={bar.tool} className="group relative flex items-center gap-2">
             <span
-              className="w-28 shrink-0 truncate font-mono text-[10px]"
+              className="w-32 shrink-0 truncate font-mono text-[11px]"
               style={{ color: tool.text }}
             >
               {tool.label}
             </span>
             <div
-              className={`relative flex-1 overflow-hidden rounded-sm bg-[#0c0e13] ${thick ? "h-5" : "h-3"}`}
+              className={`relative flex-1 overflow-hidden rounded-sm bg-[#0c0e13] ${thick ? "h-6" : "h-3.5"}`}
             >
               <span
                 className="absolute inset-y-0 left-0 flex"
@@ -222,7 +222,7 @@ function Bars({
                 />
               </span>
             </div>
-            <span className="w-24 shrink-0 text-right font-mono text-[11px] tabular-nums text-neutral-300">
+            <span className="w-28 shrink-0 text-right font-mono text-[12px] tabular-nums text-neutral-200">
               {fmtCompact(build)} / {fmtCompact(bar.answerMs)}
             </span>
             <TimeTooltip row={row} bar={bar} tool={tool} />
@@ -325,11 +325,11 @@ export default function TtscWebsiteBenchmarkGraphTime({
         {rows.map((row) => (
           <div key={row.project} className="space-y-1.5">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="font-mono text-[12px] text-neutral-200">
+              <span className="font-mono text-[13px] font-semibold text-neutral-100">
                 {row.label}
               </span>
               {row.lines > 0 ? (
-                <span className="font-mono text-[10px] tabular-nums text-neutral-500">
+                <span className="font-mono text-[11px] tabular-nums text-neutral-500">
                   {row.lines.toLocaleString()} lines
                 </span>
               ) : null}
