@@ -45,9 +45,21 @@ Every arm that mounts a tool — this one and each comparator alike — is told 
 
 Every repository is asked the same onboarding question, a plain code tour. Across the corpus, `@ttsc/graph` holds a flat, low median token cost while the alternatives swing with repository size.
 
+![Agent token cost, shared onboarding question, Claude Code Sonnet](https://ttsc.dev/benchmark/svg/graph-common-claude-code-claude-sonnet-5.svg)
+
 ### Dedicated
 
 `codegraph`'s own per-repository questions, verbatim, one architecture question per project.
+
+![Agent token cost, project-specific questions, Claude Code Sonnet](https://ttsc.dev/benchmark/svg/graph-dedicated-claude-code-claude-sonnet-5.svg)
+
+### Time to an answer
+
+An index answers nothing until it is built, and a developer waits for it before the agent can ask anything at all. This is the other half of the trade: a tool that cuts the token bill and then spends twelve minutes indexing has moved the cost, not removed it.
+
+The faded head of each bar is the cold index build, the solid tail is the answer, and every bar is labelled `index / answer` in the order you wait for them. The baseline has no index to build.
+
+![Cold time to a first answer, per repository](https://ttsc.dev/benchmark/svg/graph-time-to-answer.svg)
 
 The interactive charts, every model, and the method are on the benchmark page: https://ttsc.dev/docs/benchmark/graph
 
@@ -91,7 +103,7 @@ The interactive charts, every model, and the method are on the benchmark page: h
  * Fill these fields in order before the call; each one narrows the reasoning
  * toward the single request you submit.
  *
- * - `question`: restate the code question.
+ * - `question`: the code question, in the user's own words.
  * - `draft`: `{ reason, type }` — why the smallest request that could answer it,
  *   then that request's `type`.
  * - `review`: fix a broad, stale, or duplicate draft. If the graph already
@@ -152,7 +164,13 @@ export interface ITtscGraphApplication {
 export namespace ITtscGraphApplication {
   /** Draft, review, then submit exactly one graph request or escape. */
   export interface IProps {
-    /** The code question being considered. */
+    /**
+     * The code question, in the user's own words.
+     *
+     * Cut a long message down to the sentences that state the ask, but keep
+     * their terms: the graph ranks against these words, so a rewrite ranks a
+     * different answer.
+     */
     question: string;
 
     /** The smallest request that could answer, and why. */

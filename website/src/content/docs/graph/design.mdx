@@ -48,7 +48,7 @@ export interface ITtscGraphApplication {
 export namespace ITtscGraphApplication {
   // The forced chain-of-thought, then exactly one graph request.
   export interface IProps {
-    question: string; // restate the code question being asked
+    question: string; // the code question, in the user's own words
     draft: IDraft;    // the request type it plans, and why it is the smallest
     review: string;   // self-correct a wrong/broad draft; pick `escape` if off-graph
     request:          // the final operation, chosen after review

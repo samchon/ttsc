@@ -552,9 +552,14 @@ function renderTime(index, cells) {
     .filter((row) => row.values.length > 0)
     .sort((a, b) => a.scale.lines - b.scale.lines);
 
+  // A group of five bars is 75px tall and the row it sat in was 76, so the
+  // repositories ran together into one wall and the reader had to count bars to
+  // find where Vue ended and NestJS began. The plot is taller now: each project
+  // gets its own band of whitespace, and the eye lands on a repository before it
+  // reads a tool.
   const width = 1040;
-  const height = 800;
-  const chart = { left: 160, right: 940, top: 120, bottom: 730 };
+  const height = 920;
+  const chart = { left: 160, right: 940, top: 130, bottom: 850 };
   const plotWidth = chart.right - chart.left;
   const plotHeight = chart.bottom - chart.top;
   const max = niceMax(
@@ -569,17 +574,27 @@ function renderTime(index, cells) {
   const rowHeight = plotHeight / rows.length;
   const barHeight = 11;
   const barStep = 15;
+  const bandHeight = rowHeight - 14;
   const title = "Cold time to a first answer (lower is better)";
   const host = index.host
     ? `${index.host.cpu}, ${index.host.cores} cores, ${index.host.ramGB} GB — ${index.host.os}`
     : "";
+
+  // One band per repository, under the grid, so a project reads as a block
+  // before the eye starts picking tools out of it.
+  const bands = rows
+    .map((row, rowIndex) => {
+      const center = chart.top + rowIndex * rowHeight + rowHeight / 2;
+      return `  <rect x="${chart.left}" y="${(center - bandHeight / 2).toFixed(1)}" width="${plotWidth}" height="${bandHeight.toFixed(1)}" fill="#111a24" fill-opacity="${rowIndex % 2 === 0 ? 0.6 : 0.25}" rx="3"/>`;
+    })
+    .join("\n");
 
   const grid = ticks
     .map((tick) => {
       const x = chart.left + (tick / max) * plotWidth;
       return [
         `  <line x1="${x.toFixed(1)}" y1="${chart.top}" x2="${x.toFixed(1)}" y2="${chart.bottom}" stroke="#1f2937" stroke-width="1"/>`,
-        `  <text x="${x.toFixed(1)}" y="${chart.bottom + 22}" fill="#94a3b8" font-size="12" text-anchor="middle">${escapeXml(fmtBuildMs(tick))}</text>`,
+        `  <text x="${x.toFixed(1)}" y="${chart.bottom + 22}" fill="#94a3b8" font-size="12" text-anchor="middle">${escapeXml(fmtSeconds(tick))}</text>`,
       ].join("\n");
     })
     .join("\n");
@@ -603,20 +618,34 @@ function renderTime(index, cells) {
         lines.push(
           `  <rect x="${(chart.left + buildWidth).toFixed(1)}" y="${y.toFixed(1)}" width="${answerWidth.toFixed(1)}" height="${barHeight}" fill="${value.color}" rx="2"/>`,
         );
+        // Both halves of the wait, in the order they are paid: the index build,
+        // then the answer. A tool with no index to build says so with a zero,
+        // which is the point of putting them side by side.
         lines.push(
-          `  <text x="${(chart.left + buildWidth + answerWidth + 8).toFixed(1)}" y="${(y + barHeight - 1).toFixed(1)}" fill="${value.color}" font-size="11">${escapeXml(fmtBuildMs(value.buildMs + value.answerMs))}</text>`,
+          `  <text x="${(chart.left + buildWidth + answerWidth + 8).toFixed(1)}" y="${(y + barHeight - 1).toFixed(1)}" fill="${value.color}" font-size="11">${escapeXml(`${fmtSeconds(value.buildMs)} / ${fmtSeconds(value.answerMs)}`)}</text>`,
         );
       });
       return lines.join("\n");
     })
     .join("\n");
 
+  // Two legends, because the bar carries two facts. The colours say which tool,
+  // and the shades say which half of the wait — and the label beside each bar
+  // reads in that same order, `index / answer`, so a tool with no index to build
+  // shows a zero where the others show a minute.
   const legend = TOOLS.map((tool, i) =>
     [
       `  <rect x="${100 + i * 175}" y="80" width="12" height="12" fill="${tool.color}" rx="2"/>`,
       `  <text x="${118 + i * 175}" y="90" fill="#cbd5f5" font-size="12">${escapeXml(tool.label)}</text>`,
     ].join("\n"),
   ).join("\n");
+  const shadeLegend = [
+    `  <rect x="100" y="100" width="12" height="12" fill="#94a3b8" fill-opacity="0.35" rx="2"/>`,
+    `  <text x="118" y="110" fill="#94a3b8" font-size="11">index build</text>`,
+    `  <rect x="215" y="100" width="12" height="12" fill="#94a3b8" rx="2"/>`,
+    `  <text x="233" y="110" fill="#94a3b8" font-size="11">answer</text>`,
+    `  <text x="300" y="110" fill="#64748b" font-size="11">— each bar is labelled index / answer, in the order you wait for them</text>`,
+  ].join("\n");
 
   return [
     `<?xml version="1.0" encoding="utf-8" standalone="no"?>`,
@@ -624,8 +653,10 @@ function renderTime(index, cells) {
     ` <rect width="${width}" height="${height}" fill="#0b0f14"/>`,
     ` <text x="40" y="46" fill="#f8fafc" font-size="20" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
     ` <text x="40" y="68" fill="#64748b" font-size="12" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(host)}</text>`,
-    ` <text x="40" y="${height - 22}" fill="#64748b" font-size="11" font-family="DejaVu Sans, Arial, sans-serif">Faded head: cold index build. Solid tail: median answer wall clock over four models and both prompt families.</text>`,
+    ` <text x="40" y="${height - 22}" fill="#64748b" font-size="11" font-family="DejaVu Sans, Arial, sans-serif">Cold checkout: build the tool's index once, then ask. The answer is the median wall clock over four models and both prompt families; the baseline has no index to build.</text>`,
     legend,
+    shadeLegend,
+    bands,
     grid,
     bars,
     `</svg>`,
@@ -655,4 +686,19 @@ function fmtBuildMs(ms) {
   if (ms >= 60_000) return `${(ms / 60_000).toFixed(1)} min`;
   if (ms >= 1000) return `${(ms / 1000).toFixed(0)} s`;
   return `${Math.round(ms)} ms`;
+}
+
+/**
+ * Seconds, always, on a chart whose whole subject is how long a person waits.
+ *
+ * Minutes read as a different quantity from seconds — a reader comparing "29 s"
+ * against "12.2 min" has to do the arithmetic before they can see the shape,
+ * and the shape is the finding. One unit, one glance.
+ */
+function fmtSeconds(ms) {
+  const seconds = ms / 1000;
+  if (seconds === 0) return "0 s";
+  if (seconds >= 100) return `${Math.round(seconds).toLocaleString("en-US")} s`;
+  if (seconds >= 10) return `${seconds.toFixed(0)} s`;
+  return `${seconds.toFixed(1)} s`;
 }

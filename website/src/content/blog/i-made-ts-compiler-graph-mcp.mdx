@@ -93,7 +93,7 @@ export interface ITtscGraphApplication {
 export namespace ITtscGraphApplication {
   // The forced chain-of-thought, then exactly one graph request.
   export interface IProps {
-    question: string; // restate the code question being asked
+    question: string; // the code question, in the user's own words
     draft: IDraft;    // the request type it plans, and why it is the smallest
     review: string;   // self-correct a wrong/broad draft; pick `escape` if off-graph
     request:          // the final operation, chosen after review
@@ -148,6 +148,12 @@ What actually happened was a lot less exciting than the pitch.
 - Claude Code and Codex answered less accurately, not more. They kept missing what I was actually asking for.
 - Extra MCP calls fired on their own and delayed the work I wanted done.
 - I couldn't just ask in plain language either. Every query had to be shaped by hand. `codebase-memory-mcp`'s sharpest tools want a Cypher query or an exact `qualified_name`, `codegraph` wants you to name the symbols in a flow, and `serena` wants you to activate the project and then hand it an exact `name_path` you don't have yet. The hand-shaping alone cost more time than the tools gave back.
+
+And none of that counts the wait before the first question. A code-graph MCP has to index the repository before it can answer anything, and you sit through that build on a cold checkout whether the answer that follows is cheap or not.
+
+![Cold time to a first answer, per repository](/benchmark/svg/graph-time-to-answer.svg)
+
+> The faded head of each bar is the index build, the solid tail is the answer, and each bar is labelled `index / answer` in the order you wait for them. On VS Code, `@ttsc/graph` builds in 29 seconds; `codegraph` takes 732. A tool that cuts the token bill and then spends twelve minutes indexing has moved the cost, not removed it.
 
 So for my kind of question, all three left me worse off than before I installed them. Two things are true at once: they're the strongest tools of their kind, built by people who saw the problem before I did; and on an open question, every one made the agent spend more than nothing would have. That's when I went digging.
 
@@ -239,7 +245,7 @@ export interface ITtscGraphApplication {
 export namespace ITtscGraphApplication {
   // The forced chain-of-thought, then exactly one graph request.
   export interface IProps {
-    question: string; // restate the code question being asked
+    question: string; // the code question, in the user's own words
     draft: IDraft;    // the request type it plans, and why it is the smallest
     review: string;   // self-correct a wrong/broad draft; pick `escape` if off-graph
     request:          // the final operation, chosen after review
