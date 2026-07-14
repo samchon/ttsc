@@ -248,6 +248,33 @@ func TestUnicornPreventAbbreviationsHonorsReplacementAllowAndIgnoreOptions(t *te
   )
 }
 
+func TestUnicornPreventAbbreviationsHonorsNegativeReplacementAndAllowListPatches(t *testing.T) {
+  assertFixSnapshotWithOptions(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    "const e = new Error();\nvoid e;\n",
+    `{"replacements":{"e":{"event":false}}}`,
+    "const error = new Error();\nvoid error;\n",
+  )
+
+  source := "const defaultProps = {};\nvoid defaultProps;\n"
+  assertRuleSkipsSource(t, unicornPreventAbbreviationsRuleName, source)
+  assertFixSnapshotWithOptions(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    `{"allowList":{"defaultProps":false}}`,
+    "const defaultProperties = {};\nvoid defaultProperties;\n",
+  )
+  assertFixSnapshotWithOptions(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    `{"extendDefaultAllowList":false}`,
+    "const defaultProperties = {};\nvoid defaultProperties;\n",
+  )
+}
+
 func TestUnicornPreventAbbreviationsFalseReplacementDisablesCompoundMatches(t *testing.T) {
   source := "const ref = 1;\nconst someRef = ref;\nvoid someRef;\n"
   assertRuleSkipsSourceWithOptions(
