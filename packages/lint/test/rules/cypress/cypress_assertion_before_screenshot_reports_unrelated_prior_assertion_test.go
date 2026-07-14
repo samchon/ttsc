@@ -26,4 +26,5 @@ func TestCypressAssertionBeforeScreenshotReportsUnrelatedPriorAssertion(t *testi
   if got := findingRules(findings); len(got) != 1 || got[0] != "cypress/assertion-before-screenshot" {
     t.Fatalf("want one assertion-before-screenshot finding, got %v", got)
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

@@ -43,4 +43,5 @@ function Widget(count: number) {
       t.Fatalf("rules[%d]: want %q, got %q; all=%v", i, expected[i], rules[i], rules)
     }
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

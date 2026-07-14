@@ -18,6 +18,11 @@ func reactPerfFindingLines(t *testing.T, ruleName, fileName, source string, opti
   }
   file := parseTSXFile(t, fileName, source)
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  kind := behavioralWitnessEngine
+  if len(options) != 0 {
+    kind = behavioralWitnessOptions
+  }
+  recordFindingBehavioralWitnesses(t, findings, kind)
   lines := make([]int, 0, len(findings))
   for _, finding := range findings {
     if finding.Rule != ruleName {

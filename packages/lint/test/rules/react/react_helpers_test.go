@@ -20,6 +20,7 @@ func assertReactRuleFinds(t *testing.T, ruleName, source, messagePart string) {
   if messagePart != "" && !strings.Contains(findings[0].Message, messagePart) {
     t.Fatalf("%s: message %q does not contain %q", ruleName, findings[0].Message, messagePart)
   }
+  recordBehavioralWitness(t, ruleName, behavioralWitnessEngine)
 }
 
 func assertReactRuleSkips(t *testing.T, ruleName, source string) {

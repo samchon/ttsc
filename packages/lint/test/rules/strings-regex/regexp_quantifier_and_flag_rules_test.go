@@ -42,5 +42,6 @@ func TestRegexpQuantifierAndFlagRules(t *testing.T) {
     if actual[0] != expected[0] {
       t.Fatalf("%s: want %+v, got %+v; all findings=%+v", tc.rule, expected[0], actual[0], actual)
     }
+    recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
   }
 }

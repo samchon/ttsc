@@ -55,4 +55,5 @@ export const ok = 1;
       t.Fatalf("[%d]: want %+v, got %+v; all findings=%+v", i, expected[i], actual[i], actual)
     }
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

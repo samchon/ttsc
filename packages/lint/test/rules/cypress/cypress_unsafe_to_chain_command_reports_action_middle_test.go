@@ -24,4 +24,5 @@ func TestCypressUnsafeToChainCommandReportsActionMiddle(t *testing.T) {
   if got := findingRules(findings); len(got) != 1 || got[0] != "cypress/unsafe-to-chain-command" {
     t.Fatalf("want one unsafe-to-chain-command finding, got %v", got)
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

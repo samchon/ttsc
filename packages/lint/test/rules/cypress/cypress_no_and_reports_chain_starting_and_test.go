@@ -24,4 +24,5 @@ func TestCypressNoAndReportsChainStartingAnd(t *testing.T) {
   if got := findingRules(findings); len(got) != 1 || got[0] != "cypress/no-and" {
     t.Fatalf("want one no-and finding, got %v", got)
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

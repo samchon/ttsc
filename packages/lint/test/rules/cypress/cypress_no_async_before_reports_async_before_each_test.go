@@ -26,4 +26,5 @@ func TestCypressNoAsyncBeforeReportsAsyncBeforeEach(t *testing.T) {
   if got := findingRules(findings); len(got) != 1 || got[0] != "cypress/no-async-before" {
     t.Fatalf("want one no-async-before finding, got %v", got)
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

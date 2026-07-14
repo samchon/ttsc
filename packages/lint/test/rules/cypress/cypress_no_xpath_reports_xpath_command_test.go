@@ -23,4 +23,5 @@ func TestCypressNoXpathReportsXpathCommand(t *testing.T) {
   if got := findingRules(findings); len(got) != 1 || got[0] != "cypress/no-xpath" {
     t.Fatalf("want one no-xpath finding, got %v", got)
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

@@ -20,7 +20,6 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`solid/jsx-no-duplicate-props`](#rule-solid-jsx-no-duplicate-props): Reject duplicate JSX props on the same Solid element.
 - [`solid/jsx-no-script-url`](#rule-solid-jsx-no-script-url): Reject `javascript:` URLs in Solid JSX attributes (`href`, `src`, ...).
 - [`solid/jsx-no-undef`](#rule-solid-jsx-no-undef): Reject Solid JSX component names that are not declared or imported in scope.
-- [`solid/jsx-uses-vars`](#rule-solid-jsx-uses-vars): Scope-marker compatibility rule.
 - [`solid/no-array-handlers`](#rule-solid-no-array-handlers): Reject array values passed as Solid event handlers.
 - [`solid/no-destructure`](#rule-solid-no-destructure): Reject destructured Solid component props, destructuring breaks reactivity by reading the property eagerly.
 - [`solid/no-innerhtml`](#rule-solid-no-innerhtml): Reject `innerHTML` JSX attributes because they bypass sanitization and are a common XSS sink.
@@ -139,25 +138,6 @@ createSignal(0);
 
 // reports: solid/jsx-no-undef (error)
 const tree = <Missing />;
-```
-
-<a id="rule-solid-jsx-uses-vars"></a>
-
-### `solid/jsx-uses-vars`
-
-Scope-marker compatibility rule (mirrors ESLint's `react/jsx-uses-vars`).
-
-The native engine emits no diagnostics for this id.
-
-Example:
-
-```tsx
-import { createSignal } from "solid-js";
-
-createSignal(0);
-const Button = () => <button />;
-
-const tree = <Button />;
 ```
 
 <a id="rule-solid-no-array-handlers"></a>

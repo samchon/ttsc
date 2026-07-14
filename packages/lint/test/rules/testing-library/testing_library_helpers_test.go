@@ -8,13 +8,36 @@ import (
 
 func runTestingLibraryRules(t *testing.T, source string, rules RuleConfig) []ruleExpectation {
   t.Helper()
-  return runTestingLibraryResolver(t, source, rules)
+  return runTestingLibraryResolverWithOptions(
+    t,
+    source,
+    rules,
+    nil,
+  )
 }
 
-func runTestingLibraryResolver(t *testing.T, source string, resolver RuleResolver) []ruleExpectation {
+func runTestingLibraryResolver(t *testing.T, source string, resolver InlineRuleResolver) []ruleExpectation {
+  t.Helper()
+  return runTestingLibraryResolverWithOptions(
+    t,
+    source,
+    resolver,
+    resolver.Options,
+  )
+}
+
+func runTestingLibraryResolverWithOptions(
+  t *testing.T,
+  source string,
+  resolver RuleResolver,
+  options RuleOptionsMap,
+) []ruleExpectation {
   t.Helper()
   file := parseTSXFile(t, "/virtual/component.test.tsx", source)
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  recordFindingBehavioralWitnessesByRule(t, findings, func(ruleName string) behavioralWitnessKind {
+    return behavioralWitnessKindForOptions(ruleName, options)
+  })
   return normalizeRuleFindings(file, findings)
 }
 
@@ -24,7 +47,7 @@ func assertTestingLibraryFindings(t *testing.T, source string, rules RuleConfig,
   assertTestingLibraryExpectedFindings(t, actual, expected)
 }
 
-func assertTestingLibraryFindingsWithResolver(t *testing.T, source string, resolver RuleResolver, expected []ruleExpectation) {
+func assertTestingLibraryFindingsWithResolver(t *testing.T, source string, resolver InlineRuleResolver, expected []ruleExpectation) {
   t.Helper()
   actual := runTestingLibraryResolver(t, source, resolver)
   assertTestingLibraryExpectedFindings(t, actual, expected)

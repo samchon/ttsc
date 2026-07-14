@@ -25,6 +25,7 @@ import (
 var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
 var ruleOptionsDirectivePattern = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-options:\s*(\S+)\s+(\S.*?)\s*$`)
 var ansiControlSequencePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+var renderedRuleDiagnosticPattern = regexp.MustCompile(`(?m)(?:^|[\s/\\])[^\s:]+\.(?:[cm]?tsx?|jsx?):\d+:\d+\s+-\s+(?:error|warning)\s+TS\d+:\s*\[([@\w/-]+)\]`)
 
 // diagnosticOutputContains compares rendered diagnostics after removing ANSI
 // control sequences. Windows and POSIX runners color different path segments,
@@ -107,6 +108,16 @@ func parseTSXFile(t *testing.T, fileName, source string) *shimast.SourceFile {
 //  3. Compare normalized findings so every rule fixture contributes Go coverage.
 func assertRuleCorpusCase(t *testing.T, relativeFile, source string) {
   t.Helper()
+  assertRuleCorpusCaseWithKind(t, relativeFile, source, behavioralWitnessEngine)
+}
+
+func assertRuleCorpusCaseWithKind(
+  t *testing.T,
+  relativeFile string,
+  source string,
+  kind behavioralWitnessKind,
+) {
+  t.Helper()
   expected := parseRuleExpectations(t, source)
   if len(expected) == 0 {
     t.Fatalf("%s has no rule expectations", relativeFile)
@@ -126,6 +137,7 @@ func assertRuleCorpusCase(t *testing.T, relativeFile, source string) {
       t.Fatalf("%s[%d]: want %+v, got %+v; all findings=%+v", relativeFile, i, expected[i], actual[i], actual)
     }
   }
+  recordExpectedBehavioralWitnesses(t, expected, kind)
 }
 
 // assertRuleCorpusCaseTSX runs one annotated TSX fixture through the native
@@ -158,6 +170,23 @@ func assertRuleCorpusCaseTSX(t *testing.T, relativeFile, source string) {
     if actual[i] != expected[i] {
       t.Fatalf("%s[%d]: want %+v, got %+v; all findings=%+v", relativeFile, i, expected[i], actual[i], actual)
     }
+  }
+  recordExpectedBehavioralWitnesses(t, expected, behavioralWitnessEngine)
+}
+
+func recordExpectedBehavioralWitnesses(
+  t *testing.T,
+  expected []ruleExpectation,
+  kind behavioralWitnessKind,
+) {
+  t.Helper()
+  recorded := map[string]struct{}{}
+  for _, expectation := range expected {
+    if _, ok := recorded[expectation.Rule]; ok {
+      continue
+    }
+    recorded[expectation.Rule] = struct{}{}
+    recordBehavioralWitness(t, expectation.Rule, kind)
   }
 }
 
@@ -352,7 +381,22 @@ func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
   if err != nil {
     t.Fatal(err)
   }
-  return code, string(out), string(errOut)
+  stderr := string(errOut)
+  public := registeredRuleSetForParity()
+  normalizedStderr := ansiControlSequencePattern.ReplaceAllString(stderr, "")
+  for _, match := range renderedRuleDiagnosticPattern.FindAllStringSubmatch(normalizedStderr, -1) {
+    if len(match) != 2 {
+      continue
+    }
+    if _, ok := public[match[1]]; ok {
+      recordBehavioralWitness(
+        t,
+        match[1],
+        behavioralWitnessKindForRule(match[1]),
+      )
+    }
+  }
+  return code, string(out), stderr
 }
 
 // seedLintProject materializes a minimal project for command-frontdoor tests.
@@ -674,7 +718,13 @@ func runRuleFindingsSnapshotFile(
     } else {
       file = parseTSFile(t, filePath, source)
     }
-    return root, filePath, engine.Run([]*shimast.SourceFile{file}, nil)
+    findings := engine.Run([]*shimast.SourceFile{file}, nil)
+    kind := behavioralWitnessEngine
+    if len(options) != 0 {
+      kind = behavioralWitnessOptions
+    }
+    recordFindingBehavioralWitnesses(t, findings, kind)
+    return root, filePath, findings
   }
 
   root := seedLintProjectFile(t, fileName, source)
@@ -699,5 +749,7 @@ func runRuleFindingsSnapshotFile(
   if program.checker == nil {
     t.Fatalf("%s: loadProgram returned no checker for a type-aware rule", ruleName)
   }
-  return root, filePath, program.runLintCycle(engine)
+  findings := program.runLintCycle(engine)
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessChecker)
+  return root, filePath, findings
 }

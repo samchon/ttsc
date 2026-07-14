@@ -24,4 +24,5 @@ func TestCypressNoUnnecessaryWaitingReportsNumericWait(t *testing.T) {
   if got := findingRules(findings); len(got) != 1 || got[0] != "cypress/no-unnecessary-waiting" {
     t.Fatalf("want one no-unnecessary-waiting finding, got %v", got)
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

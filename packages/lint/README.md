@@ -592,7 +592,6 @@ Source: [`eslint-plugin-solid`](https://github.com/solidjs-community/eslint-plug
 - [`solid/jsx-no-duplicate-props`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/solid-jsx-no-duplicate-props.tsx): reject duplicate JSX attributes on the same element.
 - [`solid/jsx-no-script-url`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/solid-jsx-no-script-url.tsx): reject `javascript:` URLs on JSX `href`/`src` literals.
 - [`solid/jsx-no-undef`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/solid-jsx-no-undef.tsx): reject JSX component tags with no in-scope binding.
-- [`solid/jsx-uses-vars`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/solid-jsx-uses-vars.tsx): accepted for config compatibility; emits no diagnostics because `@ttsc/lint` does not run ESLint's unused-variable marker pass.
 - [`solid/no-array-handlers`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/solid-no-array-handlers.tsx): reject array-form `[handler, data]` event handlers easily confused with React dep arrays.
 - [`solid/no-destructure`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/solid-no-destructure.tsx): reject destructured component props that lose reactive accessor wiring.
 - [`solid/no-innerhtml`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/solid-no-innerhtml.tsx): reject `innerHTML` JSX props that bypass the reconciler.

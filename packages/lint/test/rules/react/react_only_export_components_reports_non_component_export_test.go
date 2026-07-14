@@ -29,4 +29,5 @@ export function App() {
   if len(actual) != 1 || actual[0] != expected {
     t.Fatalf("want %v, got %v", []ruleExpectation{expected}, actual)
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

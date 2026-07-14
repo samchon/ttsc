@@ -22,4 +22,5 @@ func TestSecurityDetectBidiCharacters(t *testing.T) {
   if len(findings) != 1 || findings[0].Rule != "security/detect-bidi-characters" {
     t.Fatalf("want one bidi finding, got %+v", findingRules(findings))
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

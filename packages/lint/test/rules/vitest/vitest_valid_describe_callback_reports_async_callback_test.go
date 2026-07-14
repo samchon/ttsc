@@ -23,4 +23,5 @@ func TestVitestValidDescribeCallbackReportsAsyncCallback(t *testing.T) {
   if len(findings) != 1 {
     t.Fatalf("expected one finding, got %v", findingRules(findings))
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

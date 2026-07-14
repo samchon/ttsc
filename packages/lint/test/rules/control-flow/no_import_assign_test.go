@@ -34,4 +34,5 @@ func TestRuleCorpusNoImportAssign(t *testing.T) {
     t.Fatalf("want exact assignment range [%d,%d), got [%d,%d)",
       start, start+len("x = 5"), finding.Pos, finding.End)
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessChecker)
 }

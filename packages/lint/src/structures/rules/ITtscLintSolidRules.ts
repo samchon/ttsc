@@ -65,15 +65,6 @@ export interface ITtscLintSolidRules {
   "solid/jsx-no-undef"?: TtscLintRuleSetting;
 
   /**
-   * Scope-marker compatibility rule (mirrors ESLint's `react/jsx-uses-vars`).
-   *
-   * The native engine emits no diagnostics for this id.
-   *
-   * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/jsx-uses-vars.md
-   */
-  "solid/jsx-uses-vars"?: TtscLintRuleSetting;
-
-  /**
    * Reject array values passed as Solid event handlers — Solid does not unwrap
    * the array form React supports.
    *

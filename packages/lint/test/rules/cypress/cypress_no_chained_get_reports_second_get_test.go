@@ -23,4 +23,5 @@ func TestCypressNoChainedGetReportsSecondGet(t *testing.T) {
   if got := findingRules(findings); len(got) != 1 || got[0] != "cypress/no-chained-get" {
     t.Fatalf("want one no-chained-get finding, got %v", got)
   }
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessEngine)
 }

@@ -23,7 +23,9 @@ func runBoundaryRule(t *testing.T, ruleName, sourcePath, source, optsJSON string
     Rules:   RuleConfig{ruleName: SeverityError},
     Options: RuleOptionsMap{ruleName: json.RawMessage(optsJSON)},
   }
-  return NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  recordFindingBehavioralWitnesses(t, findings, behavioralWitnessProject)
+  return findings
 }
 
 func assertSingleBoundaryFinding(t *testing.T, ruleName string, findings []*Finding, messagePart string) {

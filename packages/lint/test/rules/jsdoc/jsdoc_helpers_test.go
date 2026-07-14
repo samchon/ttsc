@@ -19,4 +19,7 @@ func assertJSDocRuleLines(t *testing.T, ruleName, source string, lines ...int) {
       t.Fatalf("%s[%d]: want line %d, got %+v; all findings=%+v", ruleName, i, line, actual[i], actual)
     }
   }
+  if len(lines) != 0 {
+    recordBehavioralWitness(t, ruleName, behavioralWitnessEngine)
+  }
 }
