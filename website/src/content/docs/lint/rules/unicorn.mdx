@@ -1143,11 +1143,19 @@ const r = (() => Math.random())();
 
 Reject object properties that are never read after definition.
 
-Illustrative shape:
+The rule follows every reference to a variable bound to an object literal (or
+annotated with an inline `{...}` type, including function parameters) and
+reports the properties no reference can reach. Static accesses must name the
+key, destructuring must bind it, and matching references recurse into nested
+objects. Any escape — aliasing, passing, returning, spreading, exporting,
+mutating, or a dynamic key access — conservatively keeps every property.
+
+Example:
 
 ```ts
 const user = {
   id: "u_1",
+  // reports: unicorn/no-unused-properties (error)
   debugLabel: "local-only",
 };
 
