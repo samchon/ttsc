@@ -219,6 +219,33 @@ func (c *Context) ReportSuggestion(node *shimast.Node, message string, title str
   })
 }
 
+// ReportFixSuggestions records one node-scoped diagnostic with an optional
+// automatic fix and any number of opt-in editor suggestions. Each slice is
+// cloned before collection so a rule cannot mutate a previously reported
+// finding through retained backing storage.
+func (c *Context) ReportFixSuggestions(
+  node *shimast.Node,
+  message string,
+  fix []TextEdit,
+  suggestions ...Suggestion,
+) {
+  if c.Severity == SeverityOff || node == nil {
+    return
+  }
+  pos, end := c.nodeFindingRange(node)
+  c.collect(&Finding{
+    Rule:        c.rule.Name(),
+    Severity:    c.Severity,
+    File:        c.File,
+    Pos:         pos,
+    End:         end,
+    Message:     message,
+    Fix:         cloneTextEdits(fix),
+    Suggestions: cloneSuggestions(suggestions),
+    IsFormat:    c.isFormat,
+  })
+}
+
 // nodeFindingRange bounds an arbitrary rule-supplied node before reading the
 // current file's source text. Contributors can accidentally report a node from
 // another file, whose otherwise valid Pos may exceed this Context's source.
@@ -297,6 +324,24 @@ func newSuggestions(title string, edits []TextEdit) []Suggestion {
     return nil
   }
   return []Suggestion{{Title: title, Edits: cloned}}
+}
+
+func cloneSuggestions(suggestions []Suggestion) []Suggestion {
+  if len(suggestions) == 0 {
+    return nil
+  }
+  cloned := make([]Suggestion, 0, len(suggestions))
+  for _, suggestion := range suggestions {
+    edits := cloneTextEdits(suggestion.Edits)
+    if suggestion.Title == "" || len(edits) == 0 {
+      continue
+    }
+    cloned = append(cloned, Suggestion{Title: suggestion.Title, Edits: edits})
+  }
+  if len(cloned) == 0 {
+    return nil
+  }
+  return cloned
 }
 
 // registry stores the package-global rule list keyed by name. Tests can

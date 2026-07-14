@@ -39,6 +39,34 @@ export type TtscLintTypeOrValueSpecifier =
   | ITtscLintLibTypeOrValueSpecifier
   | ITtscLintPackageTypeOrValueSpecifier;
 
+/** One structured replacement policy in `typescript/no-restricted-types`. */
+export interface ITtscLintTypeScriptNoRestrictedTypesTypeConfig {
+  /** Custom text appended to the standard diagnostic. */
+  message: string;
+  /** Replacement applied automatically by `ttsc fix`. */
+  fixWith?: string;
+  /** Replacement choices exposed as opt-in editor suggestions. */
+  suggest?: readonly string[];
+}
+
+/** Policy value for one normalized type spelling. */
+export type TtscLintTypeScriptNoRestrictedTypesTypeValue =
+  | boolean
+  | string
+  | ITtscLintTypeScriptNoRestrictedTypesTypeConfig
+  | null;
+
+/** Options for `typescript/no-restricted-types`. */
+export interface ITtscLintTypeScriptNoRestrictedTypesRuleOptions {
+  /**
+   * Type spellings to reject. Whitespace is ignored in both keys and source
+   * spellings; `false` and `null` entries explicitly disable a key.
+   */
+  types?: Readonly<
+    Record<string, TtscLintTypeScriptNoRestrictedTypesTypeValue>
+  >;
+}
+
 /** Options for `typescript/no-floating-promises`. */
 export interface ITtscLintTypeScriptNoFloatingPromisesRuleOptions {
   /** Functions whose returned Promises may be discarded safely. */
