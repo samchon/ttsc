@@ -63,7 +63,9 @@ func TestUnicornTemplateIndentHonorsConfiguredTagsFunctionsCommentsAndSelectors(
       "const commented = /* Please /* Indent */ `\nthree\n`;\n" +
       "const defaultTagIsReplaced = gql`\nfour\n`;\n" +
       "const computedTagIsNotAPath = utils[\"dedent\"]`\nfive\n`;\n" +
-      "const callResultTagIsNotAPath = makeTag()`\nsix\n`;\n"
+      "const callResultTagIsNotAPath = makeTag()`\nsix\n`;\n" +
+      "const defaultFunctionIsReplaced = stripIndent(`\nseven\n`);\n" +
+      "const defaultCommentIsReplaced = /* indent */ `\neight\n`;\n"
     options := json.RawMessage(`{
       "tags":["utils.dedent"],
       "functions":["helpers.strip"],
@@ -239,6 +241,16 @@ func TestUnicornTemplateIndentPreservesCRLF(t *testing.T) {
   assertFixSnapshot(t, unicornTemplateIndentRuleName, source, expected)
   if strings.ReplaceAll(expected, "\r\n", "") == expected {
     t.Fatal("CRLF oracle must contain CRLF line endings")
+  }
+  assertRuleSkipsSource(t, unicornTemplateIndentRuleName, expected)
+}
+
+func TestUnicornTemplateIndentPreservesLeadingByteOrderMark(t *testing.T) {
+  source := "\uFEFFconst query = gql`\none\n`;\n"
+  expected := "\uFEFFconst query = gql`\n one\n`;\n"
+  assertFixSnapshot(t, unicornTemplateIndentRuleName, source, expected)
+  if strings.Count(expected, "\uFEFF") != 1 || !strings.HasPrefix(expected, "\uFEFF") {
+    t.Fatal("the fixed source must preserve exactly one leading byte-order mark")
   }
   assertRuleSkipsSource(t, unicornTemplateIndentRuleName, expected)
 }

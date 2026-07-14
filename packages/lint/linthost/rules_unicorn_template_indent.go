@@ -598,6 +598,10 @@ func unicornTemplateIndentParentMargin(source string, pos int) string {
   }
   line := source[lineStart:lineEnd]
   index := 0
+  if lineStart == 0 && strings.HasPrefix(line, "\uFEFF") {
+    index = len("\uFEFF")
+  }
+  marginStart := index
   for index < len(line) {
     character, size := utf8.DecodeRuneInString(line[index:])
     if !unicornTemplateIndentIsECMAScriptWhitespace(character) {
@@ -608,7 +612,7 @@ func unicornTemplateIndentParentMargin(source string, pos int) string {
   if index == len(line) {
     return ""
   }
-  return line[:index]
+  return line[marginStart:index]
 }
 
 func unicornTemplateIndentStrip(text string) string {
@@ -755,7 +759,11 @@ func unicornTemplateIndentLineAt(starts []int, pos int) int {
 func unicornTemplateIndentSourceForDetection(source string, ignored map[int]struct{}) string {
   var normalized strings.Builder
   normalized.Grow(len(source))
-  for index := 0; index < len(source); {
+  index := 0
+  if strings.HasPrefix(source, "\uFEFF") {
+    index = len("\uFEFF")
+  }
+  for index < len(source) {
     if width := unicornTemplateIndentLineBreakWidth(source, index); width > 0 {
       normalized.WriteByte('\n')
       index += width
