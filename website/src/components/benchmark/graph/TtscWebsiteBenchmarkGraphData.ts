@@ -92,6 +92,8 @@ function repoLabel(repo: string): string {
       return "TypeORM";
     case "nestjs":
       return "NestJS";
+    case "shopping-backend":
+      return "Shopping";
     case "excalidraw":
       return "Excalidraw";
     case "vue":
@@ -313,7 +315,11 @@ function buildPromptModeGroups(projects: ProjectGroup[]): PromptModeGroup[] {
       ({ key, items }): PromptModeGroup => ({
         id: key,
         promptFamily: items[0]?.promptFamily ?? key,
-        projects: items,
+        projects: [...items].sort(
+          (a, b) =>
+            repoLabel(a.repo).localeCompare(repoLabel(b.repo)) ||
+            (a.promptId ?? "").localeCompare(b.promptId ?? ""),
+        ),
       }),
     )
     .sort(

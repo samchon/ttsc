@@ -51,9 +51,10 @@ interface IndexRow {
 }
 
 /**
- * Rows ordered by the size of the program each index was built from, so a build
- * time is read against the work it had to do: forty seconds on VS Code and one
- * second on a small backend are the same tool, not two.
+ * Rows are listed alphabetically by repository. Each row still carries the
+ * program's file and line counts, so a build time is read against the work it
+ * had to do: forty seconds on VS Code and one second on a small backend are the
+ * same tool, not two.
  */
 function buildRows(data: IndexData): IndexRow[] {
   const projects = [...new Set(data.cells.map((cell) => cell.project))];
@@ -77,7 +78,7 @@ function buildRows(data: IndexData): IndexRow[] {
         }),
       };
     })
-    .sort((a, b) => a.lines - b.lines);
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function Bars({ row, max }: { row: IndexRow; max: number }) {
