@@ -97,19 +97,23 @@ func recordedBehavioralWitnesses() map[string][]behavioralWitness {
 // so registry parity can no longer be satisfied by an inert rule object.
 func verifyRecordedBehavioralWitnessCoverage() error {
   candidates := recordedBehavioralWitnesses()
-  _, err := auditBehavioralWitnesses(
-    registeredRuleSetForParity(),
-    candidates,
-  )
+  public := registeredRuleSetForParity()
+  _, err := auditBehavioralWitnesses(public, candidates)
   if err != nil {
     return err
   }
-  return verifyRequiredBehavioralWitnessKinds(candidates)
+  return verifyRequiredBehavioralWitnessKinds(public, candidates)
 }
 
-func verifyRequiredBehavioralWitnessKinds(candidates map[string][]behavioralWitness) error {
+func verifyRequiredBehavioralWitnessKinds(
+  public map[string]struct{},
+  candidates map[string][]behavioralWitness,
+) error {
   seen := map[behavioralWitnessKind]struct{}{}
-  for _, routes := range candidates {
+  for ruleName, routes := range candidates {
+    if _, ok := public[ruleName]; !ok {
+      continue
+    }
     for _, candidate := range routes {
       seen[candidate.Kind] = struct{}{}
     }
@@ -300,12 +304,13 @@ func TestBehavioralWitnessAuditAcceptsProductionPrerequisiteKinds(t *testing.T) 
   if len(canonical) != len(public) {
     t.Fatalf("canonical routes = %d, want %d: %+v", len(canonical), len(public), canonical)
   }
+  public["fixture/engine"] = struct{}{}
   candidates["fixture/engine"] = []behavioralWitness{{
     Rule:  "fixture/engine",
     Route: "Testengine",
     Kind:  behavioralWitnessEngine,
   }}
-  if err := verifyRequiredBehavioralWitnessKinds(candidates); err != nil {
+  if err := verifyRequiredBehavioralWitnessKinds(public, candidates); err != nil {
     t.Fatalf("required prerequisite kinds were rejected: %v", err)
   }
 }
