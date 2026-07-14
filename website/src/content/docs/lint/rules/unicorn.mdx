@@ -2441,9 +2441,19 @@ const enc = "UTF-8";
 
 Require `throw new Error(...)` over `throw Error(...)`.
 
+A thrown call is reported when its callee names an error constructor: a plain identifier, or a non-computed property access whose property name matches `^(?:[A-Z][\da-z]*)*Error$` (capitalized words closed by `Error`). That covers the built-ins (`TypeError`) and user-defined classes alike (`ValidationError`, `ns.HttpError`), while `getError()`, `fooError()`, and computed access (`ns["FooError"]()`) stay silent. An optional-chained callee (`Error?.()`, `ns?.FooError()`) is never reported, because `new` cannot be applied to an optional chain.
+
+The autofix inserts `new` in front of the call. It parenthesizes a callee whose object chain still exposes a call, because a `new` expression's callee ends at the first argument list: `throw getGlobalThis().Error()` becomes `throw new (getGlobalThis().Error)()`.
+
 Example:
 
 ```ts
 // reports: unicorn/throw-new-error (error)
 throw Error("oops");
+
+// reports: unicorn/throw-new-error (error)
+throw ValidationError("bad");
+
+// reports: unicorn/throw-new-error (error)
+throw ns.HttpError(404);
 ```
