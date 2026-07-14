@@ -40,4 +40,5 @@ func assertTestingLibraryExpectedFindings(t *testing.T, actual, expected []ruleE
       t.Fatalf("[%d]: want %+v, got %+v; all findings=%+v", i, expected[i], actual[i], actual)
     }
   }
+  recordExpectedBehavioralWitnesses(t, expected, behavioralWitnessOptions)
 }

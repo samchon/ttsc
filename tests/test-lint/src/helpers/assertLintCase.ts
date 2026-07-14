@@ -5,6 +5,9 @@ import path from "node:path";
 
 /** Absolute path to the `src/cases` tree relative to the test-lint package. */
 const casesRoot = path.join(process.cwd(), "src", "cases");
+const repoRoot = path.resolve(casesRoot, "../../../..");
+const positiveHarnessPathPattern =
+  /\bpackages\/lint\/test\/[\w./-]+_test\.go\b/;
 
 /**
  * Discover and assert every annotated lint fixture under `src/cases`.
@@ -72,6 +75,21 @@ export function assertLintCase(relativeFile: string): void {
       skip.length,
       0,
       `${relativeFile}: \`// @ttsc-corpus-skip:\` requires a non-empty reason`,
+    );
+    assert.equal(
+      /not yet implemented/i.test(skip),
+      false,
+      `${relativeFile}: a public rule cannot skip the corpus as "not yet implemented"`,
+    );
+    const replacement = skip.match(positiveHarnessPathPattern)?.[0];
+    assert.ok(
+      replacement,
+      `${relativeFile}: corpus skips must reference a positive Go harness test under packages/lint/test/`,
+    );
+    assert.equal(
+      fs.existsSync(path.join(repoRoot, replacement)),
+      true,
+      `${relativeFile}: referenced positive harness test does not exist: ${replacement}`,
     );
     return;
   }
@@ -201,11 +219,14 @@ function parseCorpusFilename(
  */
 function listLintCases(): string[] {
   return walk(casesRoot)
-    .filter((file) => file.endsWith(".ts"))
+    .filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"))
     .map((file) => path.relative(casesRoot, file).replaceAll(path.sep, "/"))
     .filter((file) => {
       const source = fs.readFileSync(path.join(casesRoot, file), "utf8");
-      return TestLint.parseExpectations(source).length !== 0;
+      return (
+        TestLint.parseExpectations(source).length !== 0 ||
+        parseCorpusSkip(source) !== null
+      );
     });
 }
 

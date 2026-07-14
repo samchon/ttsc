@@ -144,7 +144,14 @@ func TestMain(m *testing.M) {
     fmt.Fprintf(os.Stderr, "contributor bootstrap lifecycle: %v\n", err)
     os.Exit(1)
   }
-  os.Exit(m.Run())
+  code := m.Run()
+  if code == 0 {
+    if err := verifyRecordedBehavioralWitnessCoverage(); err != nil {
+      fmt.Fprintln(os.Stderr, err)
+      code = 1
+    }
+  }
+  os.Exit(code)
 }
 
 func verifyInitialContributorBootstrap() error {

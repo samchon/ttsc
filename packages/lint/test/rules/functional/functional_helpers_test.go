@@ -47,6 +47,7 @@ func assertFunctionalFinding(t *testing.T, ruleName string, findings []*Finding,
   if messagePart != "" && !strings.Contains(finding.Message, messagePart) {
     t.Fatalf("%s: finding message %q does not contain %q", ruleName, finding.Message, messagePart)
   }
+  recordBehavioralWitness(t, ruleName, behavioralWitnessOptions)
 }
 
 func assertNoFunctionalFinding(t *testing.T, ruleName string, findings []*Finding) {

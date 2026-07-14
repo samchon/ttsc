@@ -19,4 +19,5 @@ func assertSolidFindings(t *testing.T, source string, rules RuleConfig, expected
       t.Fatalf("[%d]: want %+v, got %+v; all findings=%+v", i, expected[i], actual[i], actual)
     }
   }
+  recordExpectedBehavioralWitnesses(t, expected, behavioralWitnessEngine)
 }

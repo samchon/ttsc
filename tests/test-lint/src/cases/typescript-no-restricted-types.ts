@@ -1,6 +1,4 @@
-// @ttsc-corpus-skip: this rule requires a configured `types` map; the corpus
-// runner enables rules with bare severities and intentionally supplies no
-// per-rule options.
+// @ttsc-corpus-skip: rule requires a configured `types` map; the flat corpus supplies no per-rule options. Positive Go coverage lives at packages/lint/test/rules/typescript/no_restricted_types_test.go.
 
 // No type spelling is restricted by default.
 const wrapper: Object = {};

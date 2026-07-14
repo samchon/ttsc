@@ -39,6 +39,9 @@ func reactPerfAssertLines(t *testing.T, ruleName, source string, want []int) {
       t.Fatalf("%s[%d]: want line %d, got %d; all lines=%v", ruleName, i, want[i], got[i], got)
     }
   }
+  if len(want) != 0 {
+    recordBehavioralWitness(t, ruleName, behavioralWitnessEngine)
+  }
 }
 
 func reactPerfAssertZero(t *testing.T, ruleName, fileName, source string, options json.RawMessage) {
