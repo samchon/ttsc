@@ -389,11 +389,11 @@ func captureCommandOutput(t *testing.T, fn func() int) (int, string, string) {
       continue
     }
     if _, ok := public[match[1]]; ok {
-      kind := behavioralWitnessEngine
-      if rule := LookupRule(match[1]); ruleNeedsTypeChecker(rule) {
-        kind = behavioralWitnessChecker
-      }
-      recordBehavioralWitness(t, match[1], kind)
+      recordBehavioralWitness(
+        t,
+        match[1],
+        behavioralWitnessKindForRule(match[1]),
+      )
     }
   }
   return code, string(out), stderr

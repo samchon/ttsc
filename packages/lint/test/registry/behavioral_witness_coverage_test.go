@@ -407,6 +407,13 @@ func validBehavioralWitnessKind(kind behavioralWitnessKind) bool {
   }
 }
 
+func behavioralWitnessKindForRule(ruleName string) behavioralWitnessKind {
+  if rule := LookupRule(ruleName); ruleNeedsTypeChecker(rule) {
+    return behavioralWitnessChecker
+  }
+  return behavioralWitnessEngine
+}
+
 func validBehavioralWitnessSources(sources []string) bool {
   if len(sources) != 1 {
     return false
@@ -565,6 +572,23 @@ func TestRequiredBehavioralWitnessKindsIgnoreNonPublicCandidates(t *testing.T) {
   }
 }
 
+func TestBehavioralWitnessKindForRuleRequiresTypeAwareRule(t *testing.T) {
+  for _, test := range []struct {
+    rule string
+    want behavioralWitnessKind
+  }{
+    {rule: "no-debugger", want: behavioralWitnessEngine},
+    {rule: "typescript/await-thenable", want: behavioralWitnessChecker},
+  } {
+    if LookupRule(test.rule) == nil {
+      t.Fatalf("regression fixture rule is not registered: %s", test.rule)
+    }
+    if got := behavioralWitnessKindForRule(test.rule); got != test.want {
+      t.Fatalf("behavioral witness kind for %s = %s, want %s", test.rule, got, test.want)
+    }
+  }
+}
+
 func TestBehavioralWitnessExclusionAuditBindsConstraintAndHarness(t *testing.T) {
   ruleName := "fixture/options-rule"
   harness := "packages/lint/test/rules/fixture/options_rule_test.go"
@@ -616,7 +640,24 @@ func TestBehavioralWitnessExclusionAuditBindsConstraintAndHarness(t *testing.T) 
 
   escaped := append([]behavioralWitnessExclusion(nil), entries...)
   escaped[0].Harness = "packages/lint/test/../outside_test.go"
-  if err := auditBehavioralWitnessExclusions(public, valid, escaped, testFiles); err == nil {
+  escapedCandidates := map[string][]behavioralWitness{
+    ruleName: {{
+      Rule:    ruleName,
+      Route:   "TestOutsideRule",
+      Kind:    behavioralWitnessOptions,
+      Sources: []string{"outside_test.go"},
+    }},
+  }
+  escapedTestFiles := map[string]int{
+    escaped[0].Harness: 1,
+    "outside_test.go":  1,
+  }
+  if err := auditBehavioralWitnessExclusions(
+    public,
+    escapedCandidates,
+    escaped,
+    escapedTestFiles,
+  ); err == nil {
     t.Fatal("path-traversing harness satisfied a corpus exclusion")
   }
 }
