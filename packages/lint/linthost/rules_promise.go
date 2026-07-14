@@ -1504,6 +1504,9 @@ func floatingPromiseCallableArgumentApplicability(
       if checker.IsTypeAssignableTo(actualReturn, explicitType) {
         return floatingPromiseCallApplicable
       }
+      if checker.IsContextSensitive(argument) {
+        return floatingPromiseCallUncertain
+      }
       return floatingPromiseCallIncompatible
     }
     applicability := floatingPromiseTypeParameterCandidateApplicability(
@@ -1514,6 +1517,9 @@ func floatingPromiseCallableArgumentApplicability(
       call.Expression,
     )
     if applicability != floatingPromiseCallApplicable {
+      if applicability == floatingPromiseCallIncompatible && checker.IsContextSensitive(argument) {
+        return floatingPromiseCallUncertain
+      }
       return applicability
     }
     inferred[typeParameter] = append(inferred[typeParameter], actualReturn)
