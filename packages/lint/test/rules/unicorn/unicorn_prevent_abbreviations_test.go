@@ -273,6 +273,17 @@ func TestUnicornPreventAbbreviationsPreservesCanonicalUpperFirstForUncasedPrefix
   )
 }
 
+func TestUnicornPreventAbbreviationsPreservesAstralFirstRuneCasing(t *testing.T) {
+  const astralUpper = "\U00010400Name"
+  const astralLower = "\U00010428Name"
+  if actual := lowerUnicornPreventAbbreviationsFirst(astralUpper); actual != astralUpper {
+    t.Fatalf("lower-first must preserve an astral first rune: %q", actual)
+  }
+  if actual := upperUnicornPreventAbbreviationsFirst(astralLower); actual != astralLower {
+    t.Fatalf("upper-first must preserve an astral first rune: %q", actual)
+  }
+}
+
 func TestUnicornPreventAbbreviationsAppliesInternalImportDefaultsAndPreservesImportedNames(t *testing.T) {
   source := "import err from \"./local-default\";\nimport * as ctx from \"external-ns\";\nimport doc from \"./node_modules/external-default\";\nimport { prop } from \"./local-named\";\nimport { ref } from \"external-named\";\nvoid [err, ctx, doc, prop, ref];\n"
   assertFixSnapshot(

@@ -1930,12 +1930,20 @@ func lowerUnicornPreventAbbreviationsFirst(value string) string {
   if size == 0 {
     return value
   }
+  // JavaScript's charAt(0) sees only the high surrogate of an astral rune, so
+  // the final upstream implementation leaves that first rune unchanged.
+  if first > 0xFFFF {
+    return value
+  }
   return string(unicode.ToLower(first)) + value[size:]
 }
 
 func upperUnicornPreventAbbreviationsFirst(value string) string {
   first, size := utf8.DecodeRuneInString(value)
   if size == 0 {
+    return value
+  }
+  if first > 0xFFFF {
     return value
   }
   return string(unicode.ToUpper(first)) + value[size:]
