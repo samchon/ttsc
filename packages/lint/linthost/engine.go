@@ -361,7 +361,11 @@ func Register(rule Rule) {
   if _, exists := registered.rules[rule.Name()]; exists {
     panic("@ttsc/lint: rule " + rule.Name() + " registered twice")
   }
-  registered.rules[rule.Name()] = rule
+  name := rule.Name()
+  registered.rules[name] = rule
+  if _, builtIn := builtInRuleCodes[name]; !builtIn {
+    invalidateRuntimeRuleCodes()
+  }
 }
 
 // LookupRule returns the registered rule by name, or nil if missing.

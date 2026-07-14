@@ -43,6 +43,7 @@ func registerProjectContributors() {
       continue
     }
     registeredProjectRules[adapter.name] = adapter
+    invalidateRuntimeRuleCodes()
   }
 }
 
