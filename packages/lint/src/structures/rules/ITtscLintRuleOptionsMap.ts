@@ -44,7 +44,10 @@ import type {
   ITtscLintTypeScriptNoRestrictedTypesRuleOptions,
   ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
 } from "./ITtscLintTypeScriptRuleOptions";
-import type { ITtscLintUnicornTemplateIndentRuleOptions } from "./ITtscLintUnicornRuleOptions";
+import type {
+  ITtscLintUnicornPreventAbbreviationsRuleOptions,
+  ITtscLintUnicornTemplateIndentRuleOptions,
+} from "./ITtscLintUnicornRuleOptions";
 
 /**
  * Index from typed rule name to its single options-object slot.
@@ -118,4 +121,5 @@ export interface ITtscLintRuleOptionsMap {
   "typescript/no-misused-promises": ITtscLintTypeScriptNoMisusedPromisesRuleOptions;
   "typescript/no-restricted-types": ITtscLintTypeScriptNoRestrictedTypesRuleOptions;
   "typescript/switch-exhaustiveness-check": ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions;
+  "unicorn/prevent-abbreviations": ITtscLintUnicornPreventAbbreviationsRuleOptions;
 }

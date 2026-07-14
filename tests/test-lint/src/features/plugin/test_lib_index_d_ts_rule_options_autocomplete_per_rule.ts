@@ -36,6 +36,7 @@ import assert from "node:assert/strict";
  * - A typo in a switch-exhaustiveness option is rejected.
  * - `unicorn/template-indent` exposes its tag/function/selector/comment and
  *   indentation options without leaking arbitrary keys.
+ * - Unicorn replacement maps and import modes retain their exact public shape.
  * - An empty object policy for `typescript/ban-ts-comment` is rejected because
  *   the object form requires `descriptionFormat`.
  * - A lint-only rule (`no-var`) cannot carry an options object.
@@ -157,6 +158,17 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
           indent: "\t",
           selectors: ["TaggedTemplateExpression > TemplateLiteral"],
           tags: ["utils.gql"],
+        },
+      ],
+      "unicorn/prevent-abbreviations": [
+        "error",
+        {
+          checkDefaultAndNamespaceImports: "internal",
+          checkProperties: true,
+          replacements: {
+            cmd: { command: true },
+            ref: false,
+          },
         },
       ],
     },
@@ -394,6 +406,30 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       ],
     },
   };
+  const unicornImportModeTypo: ITtscLintConfig = {
+    rules: {
+      "unicorn/prevent-abbreviations": [
+        "error",
+        {
+          // @ts-expect-error — import checks accept booleans or the canonical `internal` mode.
+          checkShorthandImports: "external",
+        },
+      ],
+    },
+  };
+  const unicornReplacementShape: ITtscLintConfig = {
+    rules: {
+      "unicorn/prevent-abbreviations": [
+        "error",
+        {
+          replacements: {
+            // @ts-expect-error — a replacement entry is `false` or a boolean-valued replacement map.
+            err: true,
+          },
+        },
+      ],
+    },
+  };
   const banTsCommentMissingDescriptionFormat: ITtscLintConfig = {
     rules: {
       "typescript/ban-ts-comment": [
@@ -437,6 +473,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(lintRuleWithOptions);
   assert.ok(switchOptionTypo);
   assert.ok(templateIndentOptionTypo);
+  assert.ok(unicornImportModeTypo);
+  assert.ok(unicornReplacementShape);
   assert.ok(banTsCommentMissingDescriptionFormat);
   assert.ok(camelBuiltinName);
 };

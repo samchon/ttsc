@@ -6,7 +6,7 @@ They span array iteration, string and regex idioms, Node.js APIs, error handling
 
 They rewrite legacy patterns into modern counterparts, forbid known anti-patterns, and pin a consistent style for things [Core](./core) and [TypeScript](./typescript) leave underspecified.
 
-Pure-AST; no checker dependencies.
+Most rules are pure AST checks. Binding-aware rules use the TypeScript checker when lexical identity is part of the contract.
 
 Source: [`eslint-plugin-unicorn`](https://github.com/sindresorhus/eslint-plugin-unicorn) (MIT).
 
@@ -170,7 +170,7 @@ Rules whose native port is registered but intentionally diagnostic-free are mark
 - [`unicorn/new-for-builtins`](#rule-unicorn-new-for-builtins): Require `new` when calling builtin constructors like `Error`, `Map`, `Set`, `Date`.
 - [`unicorn/number-literal-case`](#rule-unicorn-number-literal-case): Enforce one consistent case for the prefix and digits of hex / binary / octal literals.
 - [`unicorn/numeric-separators-style`](#rule-unicorn-numeric-separators-style): Enforce `_` separator grouping in numeric literals.
-- [`unicorn/prevent-abbreviations`](#rule-unicorn-prevent-abbreviations): Reject common identifier abbreviations and replace them with their long forms.
+- [`unicorn/prevent-abbreviations`](#rule-unicorn-prevent-abbreviations): Apply canonical replacement semantics to bindings, compound names, opt-in property checks, and filenames.
 - [`unicorn/relative-url-style`](#rule-unicorn-relative-url-style): Enforce a single style for relative URLs passed to `new URL`.
 - [`unicorn/string-content`](#rule-unicorn-string-content): Enforce or replace configured string-content patterns.
 - [`unicorn/switch-case-braces`](#rule-unicorn-switch-case-braces): Enforce a consistent presence/absence of `{}` braces around `case` clauses inside `switch`.
@@ -2131,13 +2131,37 @@ function f(x: unknown) {
 
 ### `unicorn/prevent-abbreviations`
 
-Reject common identifier abbreviations (`btn`, `arr`, `idx`) and replace them with their long forms.
+Apply the complete canonical replacement table to lexical bindings and their references, compound and cased names, and physical filenames.
+
+The established `unicorn/prevent-abbreviations` ID is retained for configuration compatibility. Its behavior follows the final upstream version before `eslint-plugin-unicorn` renamed the rule to `name-replacements` in June 2026.
+
+A binding is diagnosed once at its declaration. One collision-free replacement is autofixed across every reference, while ambiguous replacements are editor suggestions. Bindings declared with a named `export` modifier, plus ambient, cross-file-merged, JSX tag, `.vue` source, parameter-property, and attached-JSDoc `@param` bindings, remain diagnostic-only because a source-only rename cannot safely preserve their external names or references. A local binding re-exported through an export list remains fixable because the fixer preserves the external spelling (`export { err }` becomes `export { error as err }`). Default-export local names can likewise change without changing the external `default` name. The conservative `.vue` gate protects template references that are outside TypeScript's source-file AST.
+
+The option object supports `replacements`, `extendDefaultReplacements`, `allowList`, `extendDefaultAllowList`, `ignore`, `checkVariables`, `checkProperties`, `checkFilenames`, `checkShorthandProperties`, `checkDefaultAndNamespaceImports`, and `checkShorthandImports`. Import controls accept `true`, `false`, or `"internal"`. The `ignore` option accepts regular-expression strings.
 
 Example:
 
 ```ts
-// reports: unicorn/prevent-abbreviations (error)
+// reports once and fixes both occurrences to `button`
 const btn = document.querySelector("button");
+btn?.focus();
+```
+
+```ts
+export default {
+  rules: {
+    "unicorn/prevent-abbreviations": [
+      "error",
+      {
+        checkProperties: true,
+        replacements: {
+          cmd: { command: true },
+          ref: false,
+        },
+      },
+    ],
+  },
+};
 ```
 
 <a id="rule-unicorn-relative-url-style"></a>

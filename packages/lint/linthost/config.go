@@ -100,23 +100,50 @@ type ProjectRuleSetting struct {
   Options  json.RawMessage
 }
 
-// ResolvedRuleConfig is the rule map that applies to one source file.
+// ResolvedRuleConfig is the complete rule setting that applies to one source
+// file. Rules and Options are folded from the same matching config entries so
+// an option tuple can never cross a files/ignores boundary independently of
+// its severity.
+//
 // `Ignored` means an `ignores`-only config entry matched the file and the
-// engine should skip linting it entirely.
+// engine should skip linting it entirely. `OutOfScope` means the store has at
+// least one rule-bearing entry but none applies to this file. Keeping the two
+// states distinct lets wrappers preserve entry-local ignores: one entry may
+// reject a file while another matching entry still contributes rules.
 type ResolvedRuleConfig struct {
-  Rules   RuleConfig
-  Ignored bool
+  Rules           RuleConfig
+  Options         RuleOptionsMap
+  // OptionsResolved distinguishes an authoritative empty per-file option map
+  // from a legacy custom resolver that still supplies options exclusively via
+  // RuleResolver.RuleOptions.
+  OptionsResolved bool
+  Ignored         bool
+  OutOfScope      bool
+}
+
+// RuleOptions returns the file-resolved option payload for name. Built-in
+// aliases are normalized on lookup so the same key selects both severity and
+// options.
+func (r ResolvedRuleConfig) RuleOptions(name string) json.RawMessage {
+  if raw := r.Options[name]; len(raw) > 0 {
+    return raw
+  }
+  if raw := r.Options[normalizeBuiltinRuleName(name)]; len(raw) > 0 {
+    return raw
+  }
+  return nil
 }
 
 // RuleResolver is the engine-facing view of a resolved lint configuration.
 // Implementations include RuleConfig (severity-only, no options),
 // InlineRuleResolver (a severity map plus per-rule options), and *ConfigStore
-// (a parsed lint config file, with per-file glob resolution and a unified
-// options map).
+// (a parsed lint config file, with per-file glob resolution for both severity
+// and options).
 type RuleResolver interface {
-  // ResolveRules returns the effective severity map for the given source file.
-  // Implementations that support `files`/`ignores` patterns apply them here;
-  // flat RuleConfig always returns all rules unchanged.
+  // ResolveRules returns the effective severities and option payloads for the
+  // given source file. Implementations that support `files`/`ignores`
+  // patterns apply both halves of each rule setting here; flat RuleConfig
+  // always returns all severities unchanged and no options.
   ResolveRules(fileName string) ResolvedRuleConfig
   // ActiveRuleNames returns the sorted names of every rule that is not SeverityOff
   // in at least one config entry. Used to build the engine's dispatch table.
@@ -124,14 +151,36 @@ type RuleResolver interface {
   // EnabledRuleConfig returns the project-wide severity map for rules that are
   // not SeverityOff. Where multiple entries disagree, SeverityError wins.
   EnabledRuleConfig() RuleConfig
-  // RuleOptions returns the raw JSON options for `name`, or nil when the
-  // rule was configured with a severity alone. Returns nil for unknown
-  // rule names too — rules treat that as "use defaults".
+  // RuleOptions is the file-agnostic compatibility lookup used by flat and
+  // metadata-only consumers. Runtime file binding reads
+  // ResolveRules(fileName).RuleOptions(name), which is authoritative for
+  // scoped resolvers. Returns nil for severity-only and unknown rules.
   RuleOptions(name string) json.RawMessage
   // ResolveProjectRules folds global declarations for registered project-rule
   // names. A mention under a files selector is rejected because project state
   // has no file identity.
   ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error)
+}
+
+// RuleOptionsVariantsResolver is an optional extension for resolvers that can
+// declare more than one option payload for a rule. Engine construction uses
+// it to validate every files/extends variant before any file is visited.
+// Custom resolvers that omit this interface remain compatible through the
+// single RuleResolver.RuleOptions fallback.
+type RuleOptionsVariantsResolver interface {
+  RuleOptionsVariants(name string) []json.RawMessage
+}
+
+// resolvedRuleOptionsVariants returns every option shape a rule may receive.
+// File-scoped resolvers expose all declarations through the internal
+// extension; flat and external resolvers retain the RuleOptions fallback.
+func resolvedRuleOptionsVariants(resolver RuleResolver, name string) []json.RawMessage {
+  if variants, ok := resolver.(RuleOptionsVariantsResolver); ok {
+    if values := variants.RuleOptionsVariants(name); len(values) > 0 {
+      return values
+    }
+  }
+  return []json.RawMessage{append(json.RawMessage(nil), resolver.RuleOptions(name)...)}
 }
 
 // boundProjectRuleResolver retains the one project-wide resolution performed
@@ -163,10 +212,17 @@ func (r boundProjectRuleResolver) ResolveProjectRules(names []string) (map[strin
   return settings, nil
 }
 
+func (r boundProjectRuleResolver) RuleOptionsVariants(name string) []json.RawMessage {
+  return resolvedRuleOptionsVariants(r.RuleResolver, name)
+}
+
 // ResolveRules implements RuleResolver. A flat RuleConfig has no glob scoping,
 // so every file receives the full map unchanged.
 func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {
-  return ResolvedRuleConfig{Rules: normalizeRuleConfigKeys(c)}
+  return ResolvedRuleConfig{
+    Rules:           normalizeRuleConfigKeys(c),
+    OptionsResolved: true,
+  }
 }
 
 // ActiveRuleNames implements RuleResolver. Returns rule names whose severity
@@ -225,7 +281,22 @@ type InlineRuleResolver struct {
 // ResolveRules implements RuleResolver. Inline rules have no glob scoping;
 // the full map applies to every file.
 func (r InlineRuleResolver) ResolveRules(string) ResolvedRuleConfig {
-  return ResolvedRuleConfig{Rules: normalizeRuleConfigKeys(r.Rules)}
+  return ResolvedRuleConfig{
+    Rules:           normalizeRuleConfigKeys(r.Rules),
+    Options:         normalizeRuleOptionsKeys(r.Options),
+    OptionsResolved: true,
+  }
+}
+
+func normalizeRuleOptionsKeys(options RuleOptionsMap) RuleOptionsMap {
+  if len(options) == 0 {
+    return nil
+  }
+  normalized := make(RuleOptionsMap, len(options))
+  for name, raw := range options {
+    normalized[normalizeBuiltinRuleName(name)] = append(json.RawMessage(nil), raw...)
+  }
+  return normalized
 }
 
 // ActiveRuleNames implements RuleResolver by delegating to the inner RuleConfig.
@@ -269,9 +340,11 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 
 // ConfigStore holds the parsed representation of a lint config file. It
 // implements RuleResolver with per-file glob scoping: ResolveRules walks the
-// entries in declaration order and the last matching entry wins. Options are
-// intentionally NOT per-file — one project-wide options map is kept so rule
-// behavior is uniform across the codebase even when severity varies by glob.
+// entries in declaration order and folds each matching rule's severity and
+// options together. A later option tuple replaces the inherited payload; a
+// later severity-only declaration preserves options from an earlier matching
+// entry and cannot borrow them from an entry that did not match the file.
+// https://eslint.org/docs/latest/use/configure/rules#using-configuration-files
 //
 // A config file is a single `ITtscLintConfig` object. Its `extends` field
 // names another config file to fold in first; the extends chain produces one
@@ -279,27 +352,64 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 // extending file's own entry so local rules win on collision.
 type ConfigStore struct {
   entries []ConfigEntry
-  // options is a flat rule-name → JSON map. Options are not scoped by
-  // `files` / `ignores`: a rule's behavior is a single project-wide
-  // configuration even when its severity is per-file. The simplification
-  // matches prettier-style options (one setting per project) while
-  // keeping severity layering intact.
-  options RuleOptionsMap
 }
 
-// RuleOptions implements RuleResolver.RuleOptions on ConfigStore.
+// RuleOptions implements the file-agnostic RuleResolver compatibility method.
+// Engine execution does not use this representative value: ResolveRules
+// carries the matching file's options. Callers that only understand the older
+// interface observe the final declared tuple, preserving the former flat
+// resolver behavior without storing a second source of truth.
 func (s *ConfigStore) RuleOptions(name string) json.RawMessage {
   if s == nil {
     return nil
   }
-  if raw := s.options[name]; len(raw) > 0 {
-    return raw
+  canonical := normalizeBuiltinRuleName(name)
+  var selected json.RawMessage
+  for _, entry := range s.entries {
+    if raw := entry.Options[canonical]; len(raw) > 0 {
+      selected = raw
+    }
+  }
+  return append(json.RawMessage(nil), selected...)
+}
+
+// flattenOptions returns the final declared payload for each rule without
+// claiming that it applies to any particular file. Metadata-only consumers
+// use this to enumerate option-bearing rules; execution always uses
+// ResolveRules instead.
+func (s *ConfigStore) flattenOptions() RuleOptionsMap {
+  if s == nil {
+    return nil
+  }
+  options := RuleOptionsMap{}
+  for _, entry := range s.entries {
+    for name, raw := range entry.Options {
+      options[normalizeBuiltinRuleName(name)] = append(json.RawMessage(nil), raw...)
+    }
+  }
+  return options
+}
+
+// RuleOptionsVariants exposes every entry-local payload (including a nil
+// severity-only declaration) so engine construction validates the full
+// files/extends surface rather than whichever tuple happened to be parsed
+// last.
+func (s *ConfigStore) RuleOptionsVariants(name string) []json.RawMessage {
+  if s == nil {
+    return nil
   }
   canonical := normalizeBuiltinRuleName(name)
-  if raw := s.options[canonical]; len(raw) > 0 {
-    return raw
+  variants := make([]json.RawMessage, 0)
+  for _, entry := range s.entries {
+    if entry.IgnoreOnly {
+      continue
+    }
+    if _, declared := entry.Rules[canonical]; !declared {
+      continue
+    }
+    variants = append(variants, append(json.RawMessage(nil), entry.Options[canonical]...))
   }
-  return nil
+  return variants
 }
 
 // ConfigEntry is the parsed form of one config file in the extends chain.
@@ -323,23 +433,40 @@ type ConfigEntry struct {
 // entry wins (later entries shadow earlier ones for the same rule name).
 func (s *ConfigStore) ResolveRules(fileName string) ResolvedRuleConfig {
   if s == nil {
-    return ResolvedRuleConfig{Rules: RuleConfig{}}
+    return ResolvedRuleConfig{Rules: RuleConfig{}, OptionsResolved: true}
   }
   for _, entry := range s.entries {
     if entry.IgnoreOnly && entry.matchesIgnores(fileName) {
-      return ResolvedRuleConfig{Rules: RuleConfig{}, Ignored: true}
+      return ResolvedRuleConfig{Rules: RuleConfig{}, OptionsResolved: true, Ignored: true}
     }
   }
   out := RuleConfig{}
+  options := RuleOptionsMap{}
+  hasEntries := false
+  matchedEntry := false
   for _, entry := range s.entries {
-    if entry.IgnoreOnly || !entry.matchesFile(fileName) {
+    if entry.IgnoreOnly {
       continue
     }
+    hasEntries = true
+    if !entry.matchesFile(fileName) {
+      continue
+    }
+    matchedEntry = true
     for name, sev := range entry.Rules {
-      out[normalizeBuiltinRuleName(name)] = sev
+      canonical := normalizeBuiltinRuleName(name)
+      out[canonical] = sev
+      if raw := entry.Options[canonical]; len(raw) > 0 {
+        options[canonical] = append(json.RawMessage(nil), raw...)
+      }
     }
   }
-  return ResolvedRuleConfig{Rules: out}
+  return ResolvedRuleConfig{
+    Rules:           out,
+    Options:         options,
+    OptionsResolved: true,
+    OutOfScope:      hasEntries && !matchedEntry,
+  }
 }
 
 // ActiveRuleNames implements RuleResolver. Returns the sorted union of all rule
@@ -726,7 +853,7 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
     }
     merged := mergeRuleMaps(formatRulesRaw, rulesMap)
     if len(merged) > 0 {
-      parsed, entryOptions, err := parseExternalRuleMapInto(merged, path+".rules", store)
+      parsed, entryOptions, err := parseExternalRuleMapInto(merged, path+".rules")
       if err != nil {
         return err
       }
@@ -743,20 +870,14 @@ func collectConfigObject(store *ConfigStore, raw any, baseDir, path string, chai
   return nil
 }
 
-// parseExternalRuleMapInto parses the rules map and folds any
-// option blobs into `store.options`. Used by entry-creation paths so
-// the store ends with a unified options map for RuleResolver consumers.
-func parseExternalRuleMapInto(raw any, path string, store *ConfigStore) (RuleConfig, RuleOptionsMap, error) {
+// parseExternalRuleMapInto parses one entry's rules and option tuples. Options
+// stay on the ConfigEntry that owns their files/ignores scope; no project-wide
+// mirror is created.
+func parseExternalRuleMapInto(raw any, path string) (RuleConfig, RuleOptionsMap, error) {
   out := RuleConfig{}
   entryOptions := RuleOptionsMap{}
-  if store.options == nil {
-    store.options = RuleOptionsMap{}
-  }
   if err := collectExternalRuleMapWithOptions(out, entryOptions, raw, path); err != nil {
     return nil, nil, err
-  }
-  for name, raw := range entryOptions {
-    store.options[name] = append(json.RawMessage(nil), raw...)
   }
   return out, entryOptions, nil
 }

@@ -12,6 +12,14 @@ src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const inst
 
 A lint rule. Reported as `error TS11966`. The same `error TSxxxxx` shape your editor already underlines, your CI already gates on, and your IDE already takes you to with one click. No second tool, no second config, no second CI step.
 
+## Diagnostic code compatibility
+
+Each built-in rule owns one positive numeric code in the reserved `TS9000` through `TS17999` band. The assignments use an append-only ledger, so a new built-in rule does not renumber existing rules and a removed rule's code is not reused. LSP diagnostics expose the stable rule ID, such as `no-var`, in their `code` field.
+
+The ledger introduction preserved every legacy code that was already unique. For each pre-existing collision group, the alphabetically first rule kept the shared legacy code and every other rule received an available code. Those resolved assignments are now frozen by the same append-only policy.
+
+Rules contributed by another Go package use the same collision-free band. Their codes are deterministic for an unchanged complete contributor set and do not depend on registration order. Changing that contributor set recomputes its assignments and can change contributor codes, but it cannot change a built-in assignment.
+
 ## The shape of the chapter
 
 1. [Setup](/docs/lint/setup): install and write `lint.config.ts`. Five minutes.

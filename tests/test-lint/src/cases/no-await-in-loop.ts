@@ -1,5 +1,10 @@
 declare function getPromise(): Promise<number>;
 declare function getAsyncIterator(): AsyncIterableIterator<number>;
+declare function getObject(): Promise<Record<string, number>>;
+declare function getValues(): Promise<number[]>;
+declare function getResource(): any;
+declare function getResources(): any[];
+declare function shouldContinue(): boolean;
 
 // Positive: await inside `for` loop body.
 async function inForLoop(): Promise<number> {
@@ -59,6 +64,85 @@ async function nestedClosureInsideLoop(): Promise<void> {
   }
 }
 
+// A `for` initializer runs once, while its test, update, and body repeat.
+async function inForPositions(): Promise<void> {
+  for (
+    let index = await getPromise();
+    // expect: no-await-in-loop error
+    await getPromise();
+    // expect: no-await-in-loop error
+    index = await getPromise()
+  ) {
+    // expect: no-await-in-loop error
+    await getPromise();
+    break;
+  }
+}
+
+// The enumerable/iterable operand runs once; only the bodies repeat.
+async function inIterablePositions(): Promise<void> {
+  for (const key in await getObject()) {
+    JSON.stringify(key);
+    // expect: no-await-in-loop error
+    await getPromise();
+  }
+  for (const value of await getValues()) {
+    JSON.stringify(value);
+    // expect: no-await-in-loop error
+    await getPromise();
+  }
+}
+
+// A nested for-await statement is an implicit await of every outer iteration.
+async function nestedForAwait(): Promise<void> {
+  while (shouldContinue()) {
+    // expect: no-await-in-loop error
+    for /* comments can exceed the former source-text window */ await (const value of getAsyncIterator()) {
+      await Promise.resolve(value);
+    }
+    break;
+  }
+}
+
+// The same spelling at a function boundary is intentional async iteration.
+async function typedForAwaitBoundary(): Promise<void> {
+  for /* comments and spacing do not affect the typed modifier */ await (const value of getAsyncIterator()) {
+    await Promise.resolve(value);
+  }
+}
+
+// Await-using is implicit await. A for initializer is single-shot, while a
+// loop body and an await-using for-of binding repeat.
+async function awaitUsingPositions(): Promise<void> {
+  for (await using initialResource = getResource(); false; ) {
+    JSON.stringify(initialResource);
+  }
+  while (shouldContinue()) {
+    // expect: no-await-in-loop error
+    await using bodyResource = getResource();
+    JSON.stringify(bodyResource);
+    break;
+  }
+  // expect: no-await-in-loop error
+  for (await using resource of getResources()) {
+    JSON.stringify(resource);
+  }
+}
+
+// Function and static method bodies establish independent execution scopes.
+async function functionAndClassBoundaries(): Promise<void> {
+  while (shouldContinue()) {
+    const nested = async (): Promise<number> => await getPromise();
+    class Holder {
+      static async load(): Promise<number> {
+        return await getPromise();
+      }
+    }
+    JSON.stringify({ nested, Holder });
+    break;
+  }
+}
+
 JSON.stringify({
   inForLoop,
   inWhileLoop,
@@ -66,4 +150,10 @@ JSON.stringify({
   inForAwaitOfLoop,
   awaitNotInLoop,
   nestedClosureInsideLoop,
+  inForPositions,
+  inIterablePositions,
+  nestedForAwait,
+  typedForAwaitBoundary,
+  awaitUsingPositions,
+  functionAndClassBoundaries,
 });

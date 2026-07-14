@@ -2,9 +2,10 @@ module github.com/samchon/ttsc/packages/lint
 
 go 1.26
 
-// The plugin depends only on the `microsoft/typescript-go/shim/*`
-// modules so that `go mod tidy` works against the public proxy. The
-// bootstrap glue (Program creation, diagnostic rendering, emit) is
+// The plugin's TypeScript integration depends only on the
+// `microsoft/typescript-go/shim/*` modules so that `go mod tidy` works against
+// the public proxy. The bootstrap glue (Program creation, diagnostic
+// rendering, emit) is
 // inlined under ./plugin/host.go to avoid a transitive dependency on the
 // in-tree `github.com/samchon/ttsc/packages/ttsc` module — that module
 // has no public version tag and would only resolve through ttsc's
@@ -25,6 +26,7 @@ require (
 	github.com/microsoft/typescript-go/shim/vfs v0.0.0
 	github.com/microsoft/typescript-go/shim/vfs/cachedvfs v0.0.0
 	github.com/microsoft/typescript-go/shim/vfs/osvfs v0.0.0
+	golang.org/x/text v0.35.0
 )
 
 require (
@@ -34,5 +36,4 @@ require (
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
 )

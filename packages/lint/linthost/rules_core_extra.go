@@ -3,7 +3,7 @@
 // hadn't migrated yet.
 //
 // Implemented here:
-//   - no-await-in-loop: await inside a loop body iterates sequentially
+//   - no-await-in-loop: explicit or implicit await in a repeated loop position
 //   - no-dupe-class-members: duplicate class member declarations
 //   - no-this-before-super: `this` (or `super.x`) before `super()` in
 //     derived constructors
@@ -14,75 +14,85 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// noAwaitInLoop reports an `await` expression evaluated inside the body
-// of a sequential loop (for / while / do-while / for-in / for-of). Each
-// iteration of the loop blocks on the previous one's microtask hop, so
-// the loop body runs strictly serially even when the underlying
-// operations are independent and could overlap with Promise.all.
+// noAwaitInLoop reports explicit and implicit awaits evaluated in a repeated
+// loop position. Initializers and iterable expressions run only once per loop,
+// while tests, updates, bodies, nested for-await statements, and await-using
+// declarations in repeated positions serialize iterations.
 // https://eslint.org/docs/latest/rules/no-await-in-loop
-//
-// `for await … of` loops are exempt — the for-await iterator protocol
-// is the whole reason the loop exists, and rejecting its `await` would
-// just suggest the developer abandon the iterator.
 type noAwaitInLoop struct{}
 
 func (noAwaitInLoop) Name() string { return "no-await-in-loop" }
 func (noAwaitInLoop) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindAwaitExpression}
+  return []shimast.Kind{
+    shimast.KindAwaitExpression,
+    shimast.KindForOfStatement,
+    shimast.KindVariableDeclarationList,
+  }
 }
 func (noAwaitInLoop) Check(ctx *Context, node *shimast.Node) {
-  for cur := node.Parent; cur != nil; cur = cur.Parent {
-    if isFunctionLikeKind(cur) {
-      return
-    }
-    switch cur.Kind {
-    case shimast.KindForStatement,
-      shimast.KindWhileStatement,
-      shimast.KindDoStatement,
-      shimast.KindForInStatement:
-      ctx.Report(node, "Unexpected `await` inside a loop — iterations run sequentially; prefer `Promise.all` when independent.")
-      return
-    case shimast.KindForOfStatement:
-      // `for await … of` loops are exempt by design — the await
-      // is the iteration itself, not a sequential block.
-      if isForAwaitOfStatement(ctx.File, cur) {
-        return
-      }
+  if node == nil || !isAwaitInLoopCandidate(node) {
+    return
+  }
+  child := node
+  for parent := node.Parent; parent != nil && !isAwaitInLoopBoundary(parent); parent = parent.Parent {
+    if isRepeatedLoopPosition(child, parent) {
       ctx.Report(node, "Unexpected `await` inside a loop — iterations run sequentially; prefer `Promise.all` when independent.")
       return
     }
+    child = parent
   }
 }
 
-// isForAwaitOfStatement reports whether the for-of statement at `node`
-// is a `for await … of` (rather than a plain `for … of`). The shim AST
-// does not expose `AwaitModifier` as a typed field, so the check is
-// textual: locate the `for` keyword and look for the `await` keyword
-// in the small window before the opening parenthesis. The width 24
-// covers any reasonable spacing/comment-free header.
-func isForAwaitOfStatement(file *shimast.SourceFile, node *shimast.Node) bool {
-  if file == nil || node == nil {
+func isAwaitInLoopCandidate(node *shimast.Node) bool {
+  switch node.Kind {
+  case shimast.KindAwaitExpression:
+    return true
+  case shimast.KindForOfStatement:
+    statement := node.AsForInOrOfStatement()
+    return statement != nil && statement.AwaitModifier != nil
+  case shimast.KindVariableDeclarationList:
+    return isAwaitUsingDeclarationList(node)
+  default:
     return false
   }
-  forPos := keywordStart(file, node, "for")
-  if forPos < 0 {
+}
+
+func isAwaitInLoopBoundary(node *shimast.Node) bool {
+  if isFunctionLikeKind(node) {
+    return true
+  }
+  if node == nil || node.Kind != shimast.KindForOfStatement {
     return false
   }
-  src := file.Text()
-  limit := forPos + 24
-  if limit > len(src) {
-    limit = len(src)
+  statement := node.AsForInOrOfStatement()
+  return statement != nil && statement.AwaitModifier != nil
+}
+
+func isRepeatedLoopPosition(child, parent *shimast.Node) bool {
+  switch parent.Kind {
+  case shimast.KindForStatement:
+    statement := parent.AsForStatement()
+    return statement != nil &&
+      (child == statement.Condition || child == statement.Incrementor || child == statement.Statement)
+  case shimast.KindForInStatement, shimast.KindForOfStatement:
+    statement := parent.AsForInOrOfStatement()
+    return statement != nil &&
+      (child == statement.Statement ||
+        (child == statement.Initializer && isAwaitUsingDeclarationList(child)))
+  case shimast.KindWhileStatement:
+    statement := parent.AsWhileStatement()
+    return statement != nil && (child == statement.Expression || child == statement.Statement)
+  case shimast.KindDoStatement:
+    statement := parent.AsDoStatement()
+    return statement != nil && (child == statement.Expression || child == statement.Statement)
+  default:
+    return false
   }
-  if node.End() < limit {
-    limit = node.End()
-  }
-  for i := forPos + 3; i < limit; i++ {
-    if src[i] == '(' {
-      limit = i
-      break
-    }
-  }
-  return findKeyword(file, forPos+3, limit, "await") >= 0
+}
+
+func isAwaitUsingDeclarationList(node *shimast.Node) bool {
+  return node != nil && node.Kind == shimast.KindVariableDeclarationList &&
+    shimast.GetCombinedNodeFlags(node)&shimast.NodeFlagsBlockScoped == shimast.NodeFlagsAwaitUsing
 }
 
 // noDupeClassMembers reports two declarations of the same member on a

@@ -45,6 +45,14 @@ Found 3 errors in the same file, starting at: src/index.ts:3
 
 Type errors (`TS2322`) and lint violations (`TS17397`, `TS11966`) come out together. No second tool, no second CI step.
 
+## Diagnostic code compatibility
+
+Every built-in rule has a unique positive numeric code in the reserved `TS9000` through `TS17999` band. These assignments are kept in an append-only ledger: adding a built-in rule does not renumber existing rules, and a removed rule's code is not reused. The LSP surface continues to expose the rule ID, such as `no-var`, in its diagnostic `code` field.
+
+The ledger introduction preserved every legacy code that was already unique. For each pre-existing collision group, the alphabetically first rule kept the shared legacy code and every other rule received an available code. Those resolved assignments are now frozen by the same append-only policy.
+
+Rules contributed by another Go package share the same collision-free band. Their codes are deterministic for an unchanged complete set of loaded contributors and do not depend on registration order. Adding or removing a contributor recomputes assignments for that complete contributor set and can change contributor codes, but never changes a built-in assignment.
+
 ## Setup
 
 ```bash
@@ -223,7 +231,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-alert`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-alert.ts): rejects `alert`, `confirm`, and `prompt`.
 - [`no-array-constructor`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-array-constructor.ts): rejects `Array` constructor calls.
 - [`no-async-promise-executor`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-async-promise-executor.ts): rejects async Promise executors.
-- [`no-await-in-loop`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-await-in-loop.ts): reject `await` expressions evaluated inside a loop body.
+- [`no-await-in-loop`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-await-in-loop.ts): reject explicit and implicit awaits evaluated in repeated loop positions.
 - [`no-bitwise`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-bitwise.ts): rejects bitwise operators.
 - [`no-caller`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-caller.ts): rejects `arguments.caller` and `arguments.callee`.
 - [`no-case-declarations`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-case-declarations.ts): rejects lexical declarations directly inside `case` clauses.
@@ -804,7 +812,7 @@ Source: [`eslint-plugin-promise`](https://github.com/eslint-community/eslint-plu
 
 ### Unicorn
 
-Modernization and style rules spanning array iteration, string and regex idioms, Node.js APIs, error handling, module syntax, DOM APIs, and code shape. Rewrite legacy patterns into their modern counterparts (`for...of` over `forEach`, `Array#flatMap` over `map().flat()`, `String#replaceAll` over a global-regex `replace`, `Math.trunc` over `| 0`), forbid known anti-patterns (`null` literals, abusive `eslint-disable`, `new Buffer`, `process.exit`, `instanceof Array`), and pin a consistent style for things [ESLint core](#eslint-core) and [TypeScript](#typescript) leave underspecified (filename case, numeric separators, catch-binding names, expiring TODOs, escape-sequence case, switch-case braces). Pure-AST; no checker dependencies.
+Modernization and style rules spanning array iteration, string and regex idioms, Node.js APIs, error handling, module syntax, DOM APIs, and code shape. Rewrite legacy patterns into their modern counterparts (`for...of` over `forEach`, `Array#flatMap` over `map().flat()`, `String#replaceAll` over a global-regex `replace`, `Math.trunc` over `| 0`), forbid known anti-patterns (`null` literals, abusive `eslint-disable`, `new Buffer`, `process.exit`, `instanceof Array`), and pin a consistent style for things [ESLint core](#eslint-core) and [TypeScript](#typescript) leave underspecified (filename case, numeric separators, catch-binding names, expiring TODOs, escape-sequence case, switch-case braces). Most rules are pure AST checks; binding-aware rules use the TypeScript checker when lexical identity is part of the contract.
 
 Source: [`eslint-plugin-unicorn`](https://github.com/sindresorhus/eslint-plugin-unicorn).
 
@@ -941,7 +949,7 @@ Source: [`eslint-plugin-unicorn`](https://github.com/sindresorhus/eslint-plugin-
 - [`unicorn/prefer-ternary`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-prefer-ternary.ts): prefer a ternary over `if` / `else` whose two branches differ only in the right-hand side of a common assignment, `return`, or `throw`.
 - [`unicorn/prefer-top-level-await`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-prefer-top-level-await.ts): prefer top-level `await` over `.then` / IIFE wrappers in ES modules.
 - [`unicorn/prefer-type-error`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-prefer-type-error.ts): require throwing `TypeError` (not a bare `Error`) when the surrounding `if` is a runtime type check.
-- [`unicorn/prevent-abbreviations`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-prevent-abbreviations.ts): reject common identifier abbreviations (`btn`, `arr`, `idx`) and replace them with their long forms.
+- [`unicorn/prevent-abbreviations`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-prevent-abbreviations.ts): apply the canonical word-replacement table to bindings, compound names, opt-in property checks, and filenames. This compatibility ID retains the final upstream behavior from before the rule was renamed to `name-replacements`.
 - [`unicorn/relative-url-style`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-relative-url-style.ts): enforce a single style (always leading `./` vs. never) for relative URLs passed to `new URL`.
 - [`unicorn/require-array-join-separator`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-require-array-join-separator.ts): require an explicit separator argument to `Array#join` instead of relying on the default `","`.
 - [`unicorn/require-module-attributes`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/unicorn-require-module-attributes.ts): require non-empty `with` / `assert` options on `import` / `export` statements that use them at all.

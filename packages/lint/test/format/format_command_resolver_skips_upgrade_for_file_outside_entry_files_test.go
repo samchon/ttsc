@@ -21,8 +21,7 @@ import (
 // gap.
 //
 //  1. Build a `*ConfigStore` whose single non-IgnoreOnly entry restricts
-//     `files` to `src/**/*.ts`, and whose options map registers a `format/*`
-//     rule.
+//     `files` to `src/**/*.ts` and declares a `format/*` option tuple.
 //  2. Resolve rules for an in-scope path and for an out-of-scope path.
 //  3. Assert the out-of-scope path receives no format-rule upgrade and the
 //     in-scope path receives the standard warn-severity upgrade.
@@ -33,12 +32,13 @@ func TestFormatCommandResolverSkipsUpgradeForFileOutsideEntryFiles(t *testing.T)
         BaseDir: "/project",
         Files:   []string{"src/**/*.ts"},
         Rules: RuleConfig{
-          "no-var": SeverityError,
+          "no-var":      SeverityError,
+          "format/semi": SeverityOff,
+        },
+        Options: RuleOptionsMap{
+          "format/semi": json.RawMessage(`{"prefer":"always"}`),
         },
       },
-    },
-    options: RuleOptionsMap{
-      "format/semi": json.RawMessage(`{"prefer":"always"}`),
     },
   }
   resolver := formatCommandResolver{inner: store}
@@ -50,6 +50,9 @@ func TestFormatCommandResolverSkipsUpgradeForFileOutsideEntryFiles(t *testing.T)
   }
 
   outOfScope := resolver.ResolveRules("/project/extensions/theme-defaults/themes/dark_modern.json")
+  if !outOfScope.OutOfScope {
+    t.Fatalf("out-of-scope file was not marked inapplicable: %+v", outOfScope)
+  }
   if outOfScope.Rules.Severity("format/semi") != SeverityOff {
     t.Fatalf("out-of-scope file: want formatSemi off, got %v (resolved=%+v)",
       outOfScope.Rules.Severity("format/semi"), outOfScope.Rules)
