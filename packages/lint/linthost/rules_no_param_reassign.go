@@ -55,8 +55,8 @@ func (noParamReassign) Check(ctx *Context, node *shimast.Node) {
         continue
       }
       for _, nameNode := range bindingIdentifierNodes(parameter.Name()) {
-        symbol := ctx.Checker.GetSymbolAtLocation(nameNode)
         name := identifierText(nameNode)
+        symbol := noParamReassignParameterSymbol(ctx, parameterNode, nameNode, name)
         if symbol == nil || name == "" {
           continue
         }
@@ -159,6 +159,28 @@ func (noParamReassign) Check(ctx *Context, node *shimast.Node) {
       ctx.Report(child, "Assignment to property of function parameter '"+parameter.name+"'.")
     }
   })
+}
+
+// A TypeScript parameter property has two symbols at one declaration: the
+// constructor-local parameter and the class member. GetSymbolAtLocation is
+// deliberately fuzzy for declaration names and may select the member, while
+// references in the constructor body resolve to the parameter. Ask the checker
+// for the explicit pair and keep the parameter half.
+func noParamReassignParameterSymbol(
+  ctx *Context,
+  parameterNode *shimast.Node,
+  nameNode *shimast.Node,
+  name string,
+) *shimast.Symbol {
+  if ctx == nil || ctx.Checker == nil || parameterNode == nil || nameNode == nil || name == "" {
+    return nil
+  }
+  if parameterNode.Parent != nil && parameterNode.Parent.Kind == shimast.KindConstructor &&
+    isParameterProperty(parameterNode) {
+    parameterSymbol, _ := ctx.Checker.GetSymbolsOfParameterPropertyDeclaration(parameterNode, name)
+    return parameterSymbol
+  }
+  return ctx.Checker.GetSymbolAtLocation(nameNode)
 }
 
 func noParamReassignIgnoresProperty(
