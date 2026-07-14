@@ -41,6 +41,20 @@ export interface ITtscLintUnicornFilenameCaseRuleOptions {
 }
 
 /**
+ * Options for `unicorn/better-regex`.
+ *
+ * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/better-regex.md
+ */
+export interface ITtscLintUnicornBetterRegexRuleOptions {
+  /**
+   * Sort and merge adjacent character-class ranges (e.g. `[d-ea-c]` ->
+   * `[a-e]`). Defaults to `true`; set `false` to keep the source order and
+   * only apply the length-reducing shorthands.
+   */
+  sortCharacterClasses?: boolean;
+}
+
+/**
  * Options for `unicorn/template-indent`.
  *
  * Each selection list replaces the corresponding default list. `indent` is

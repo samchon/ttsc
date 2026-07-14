@@ -3,6 +3,7 @@ import type {
   TtscLintRuleSetting,
 } from "../TtscLintRuleSetting";
 import type {
+  ITtscLintUnicornBetterRegexRuleOptions,
   ITtscLintUnicornConsistentFunctionScopingRuleOptions,
   ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornImportStyleRuleOptions,
@@ -32,7 +33,7 @@ export interface ITtscLintUnicornRules {
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/better-regex.md
    */
-  "unicorn/better-regex"?: TtscLintRuleSetting;
+  "unicorn/better-regex"?: TtscLintRuleOptionsSetting<ITtscLintUnicornBetterRegexRuleOptions>;
 
   /**
    * Enforce a canonical parameter name (`error`) in `catch` clauses.

@@ -1524,8 +1524,8 @@ func regexTransformUngroup(re *regexRegExpNode) {
       }
     }
     if alt, childIsAlt := child.(*regexAlternativeNode); childIsAlt {
-    // A multi-term group body merges only into a surrounding
-    // Alternative; under any other parent it stays grouped.
+      // A multi-term group body merges only into a surrounding
+      // Alternative; under any other parent it stays grouped.
       if parentIsAlt && slot.list != nil {
         list := slot.list
         idx := slot.index
@@ -1566,13 +1566,6 @@ func regexTransformCombineRepeating(re *regexRegExpNode) {
       index++
     }
   })
-}
-
-func maxInt(a, b int) int {
-  if a > b {
-    return a
-  }
-  return b
 }
 
 // abcabc -> (?:abc){2}

@@ -232,6 +232,7 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
           },
         },
       ],
+      "unicorn/better-regex": ["warning", { sortCharacterClasses: false }],
     },
   };
 
@@ -576,6 +577,12 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       ],
     },
   };
+  const betterRegexOptionKeyTypo: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — `sortCharacterClass` is a typo of `sortCharacterClasses`; the rule exposes no arbitrary option keys.
+      "unicorn/better-regex": ["error", { sortCharacterClass: true }],
+    },
+  };
   const camelBuiltinName: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — built-in rules use kebab/slash names such as `react/jsx-key`; camelCase identifiers are not in the typed surface.
@@ -618,5 +625,6 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(isolatedFunctionsOptionKeyTypo);
   assert.ok(isolatedFunctionsGlobalPolicyShape);
   assert.ok(banTsCommentMissingDescriptionFormat);
+  assert.ok(betterRegexOptionKeyTypo);
   assert.ok(camelBuiltinName);
 };

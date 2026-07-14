@@ -45,6 +45,7 @@ import type {
   ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
 } from "./ITtscLintTypeScriptRuleOptions";
 import type {
+  ITtscLintUnicornBetterRegexRuleOptions,
   ITtscLintUnicornConsistentFunctionScopingRuleOptions,
   ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornImportStyleRuleOptions,
@@ -127,6 +128,7 @@ export interface ITtscLintRuleOptionsMap {
   "typescript/no-restricted-types": ITtscLintTypeScriptNoRestrictedTypesRuleOptions;
   "typescript/switch-exhaustiveness-check": ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions;
   "unicorn/consistent-function-scoping": ITtscLintUnicornConsistentFunctionScopingRuleOptions;
+  "unicorn/better-regex": ITtscLintUnicornBetterRegexRuleOptions;
   "unicorn/prevent-abbreviations": ITtscLintUnicornPreventAbbreviationsRuleOptions;
   "unicorn/import-style": ITtscLintUnicornImportStyleRuleOptions;
   "unicorn/filename-case": ITtscLintUnicornFilenameCaseRuleOptions;

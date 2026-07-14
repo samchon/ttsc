@@ -187,10 +187,23 @@ Rules whose native port is registered but intentionally diagnostic-free are mark
 
 Rewrite regex literals into shorter, consistent, and safer form (character-class shorthands, redundant ranges).
 
-Illustrative shape:
+Each regex literal is optimized the way [`regexp-tree`](https://github.com/DmitrySoshnikov/regexp-tree) canonicalizes it: character classes collapse to their shorthands (`[0-9]` → `\d`, `[^A-Za-z0-9_]` → `\W`), ranges are deduplicated and sorted, flags are alphabetized, and redundant quantifiers merge (`\s?\s?\s?` → `\s{0,3}`). The autofix replaces the whole literal, except when it is the object of a `.source` or `.toString` member access — those are reported without a fix so a serialized-source consumer is not rewritten under it. Literals carrying the `u` or `v` flag are skipped, matching upstream, because `regexp-tree` does not handle Unicode / Unicode-sets mode reliably. A `new RegExp("pattern", "flags")` string constructor rewrites its pattern argument through the same character-class shorthands.
+
+The one option, `sortCharacterClasses` (default `true`), turns off only the class range sort/merge step when set to `false`; the length-reducing shorthands still apply.
+
+Example:
 
 ```ts
-const digits = /[0-9]+/;
+// reports: unicorn/better-regex (error) — /[0-9]/ can be optimized to /\d/
+const digits = /[0-9]/;
+```
+
+```ts
+export default {
+  rules: {
+    "unicorn/better-regex": ["error", { sortCharacterClasses: false }],
+  },
+};
 ```
 
 <a id="rule-unicorn-catch-error-name"></a>
