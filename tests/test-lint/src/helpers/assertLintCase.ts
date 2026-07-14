@@ -77,7 +77,7 @@ export function assertLintCase(relativeFile: string): void {
       `${relativeFile}: \`// @ttsc-corpus-skip:\` requires a non-empty reason`,
     );
     assert.equal(
-      /not yet implemented/i.test(skip),
+      /not yet implemented/i.test(source),
       false,
       `${relativeFile}: a public rule cannot skip the corpus as "not yet implemented"`,
     );
@@ -181,7 +181,7 @@ function applyCorpusOptions(
 }
 
 /**
- * Read the first `// @ttsc-corpus-skip: <reason>` directive from the source, if
+ * Read the single `// @ttsc-corpus-skip: <reason>` directive from the source, if
  * any. Returns the reason string (possibly empty — assertLintCase rejects empty
  * reasons), or `null` when the directive is absent.
  *
@@ -189,13 +189,14 @@ function applyCorpusOptions(
  * line. Callers iterate the fixture tree once, so a linear scan is fine.
  */
 function parseCorpusSkip(source: string): string | null {
-  for (const line of source.split(/\r?\n/)) {
-    const match = line.match(/^\s*\/\/\s*@ttsc-corpus-skip:\s*(.*?)\s*$/);
-    if (match) {
-      return match[1] ?? "";
-    }
-  }
-  return null;
+  const reasons = [
+    ...source.matchAll(/^\s*\/\/\s*@ttsc-corpus-skip:\s*(.*?)\s*$/gm),
+  ].map((match) => match[1] ?? "");
+  assert.ok(
+    reasons.length <= 1,
+    "a lint fixture may declare at most one `// @ttsc-corpus-skip:` directive",
+  );
+  return reasons[0] ?? null;
 }
 
 /**
