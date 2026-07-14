@@ -749,4 +749,3 @@ var initialRuleCodeAssignments = map[string]int32{
 	"vitest/valid-title": 17918,
 	"yoda": 9522,
 }
-
