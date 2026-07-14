@@ -74,8 +74,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/consistent-empty-array-spread"?: TtscLintRuleSetting;
 
   /**
-   * Enforce a consistent comparison form (`< 0` vs `=== -1`, `>= 0` vs `!==
-   * -1`) for `indexOf` / `findIndex` existence checks.
+   * Compare a `const` bound to `indexOf` / `lastIndexOf` / `findIndex` /
+   * `findLastIndex` against the `-1` sentinel (`=== -1` / `!== -1`) rather than
+   * against zero (`< 0`, `>= 0`, `> -1`).
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/consistent-existence-index-check.md
    */

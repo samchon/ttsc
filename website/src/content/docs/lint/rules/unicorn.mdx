@@ -150,7 +150,7 @@ Rules whose native port is registered but intentionally diagnostic-free are mark
 - [`unicorn/consistent-date-clone`](#rule-unicorn-consistent-date-clone): Prefer passing a `Date` directly to the `Date` constructor.
 - [`unicorn/consistent-destructuring`](#rule-unicorn-consistent-destructuring): Once a property is destructured from an object, require subsequent reads to use the destructured binding.
 - [`unicorn/consistent-empty-array-spread`](#rule-unicorn-consistent-empty-array-spread): Require both branches of a ternary spread inside an array literal.
-- [`unicorn/consistent-existence-index-check`](#rule-unicorn-consistent-existence-index-check): Enforce a consistent comparison form for `indexOf` / `findIndex` existence checks.
+- [`unicorn/consistent-existence-index-check`](#rule-unicorn-consistent-existence-index-check): Compare a `const` index against the `-1` sentinel instead of against zero.
 - [`unicorn/consistent-function-scoping`](#rule-unicorn-consistent-function-scoping): Hoist function declarations to the highest scope.
 - [`unicorn/consistent-template-literal-escape`](#rule-unicorn-consistent-template-literal-escape): Enforce a consistent style when escaping `${` in template literals.
 
@@ -286,15 +286,18 @@ const a = [1, ...(cond ? [x] : 2)];
 
 ### `unicorn/consistent-existence-index-check`
 
-Enforce a consistent comparison form (`< 0` vs `=== -1`, `>= 0` vs `!== -1`) for `indexOf` / `findIndex` existence checks.
+Compare an index against the `-1` sentinel instead of against zero. On a `const` bound to `indexOf`, `lastIndexOf`, `findIndex`, or `findLastIndex`, the rule rewrites `index < 0` to `index === -1`, and `index >= 0` / `index > -1` to `index !== -1`.
 
 Example:
 
 ```ts
 const arr = [1, 2, 3];
+const index = arr.indexOf(2);
 // reports: unicorn/consistent-existence-index-check (error)
-const found = arr.indexOf(2) >= 0;
+const found = index >= 0;
 ```
+
+Only a comparison on a `const` index binding is reported, matching the upstream rule. An inline `arr.indexOf(2) >= 0` binds no index and is left alone, as is an index declared with `let` or `var`.
 
 <a id="rule-unicorn-consistent-function-scoping"></a>
 
