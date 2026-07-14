@@ -27,6 +27,7 @@ func TestNoLossOfPrecisionHandlesEveryNumberSyntax(t *testing.T) {
     {name: "separated exact decimal", literal: "9_007_199_254_740_992", loses: false},
     {name: "separated inexact decimal", literal: "9_007_199_254_740_993", loses: true},
     {name: "ordinary fraction", literal: "123.456", loses: false},
+    {name: "separated exact fraction", literal: "123.4_56", loses: false},
     {name: "rounded fraction", literal: "1.0000000000000001", loses: true},
     {name: "representable adjacent fraction", literal: "1.0000000000000002", loses: false},
     {name: "rounding carry changes magnitude", literal: "9.9999999999999999", loses: true},
@@ -34,6 +35,7 @@ func TestNoLossOfPrecisionHandlesEveryNumberSyntax(t *testing.T) {
     {name: "leading decimal point", literal: ".42", loses: false},
     {name: "trailing decimal point", literal: "42.", loses: false},
     {name: "ordinary exponent", literal: "123e34", loses: false},
+    {name: "separated exact exponent", literal: "12_3e3_4", loses: false},
     {name: "rounded exponent", literal: "9.007199254740993e15", loses: true},
     {name: "separated rounded exponent", literal: "9.0_0719925_474099_3e1_5", loses: true},
     {name: "sign does not change precision", literal: "-9007199254740993", loses: true},
@@ -59,6 +61,7 @@ func TestNoLossOfPrecisionHandlesEveryNumberSyntax(t *testing.T) {
     {name: "underflow", literal: "1e-324", loses: true},
     {name: "enormous underflow exponent", literal: "1e-999999999999999999999999", loses: true},
     {name: "decimal bigint", literal: "9007199254740993n", loses: false},
+    {name: "separated decimal bigint", literal: "9_007_199_254_740_993n", loses: false},
     {name: "hexadecimal bigint", literal: "0x20000000000001n", loses: false},
     {name: "malformed literal", literal: "1e", loses: false},
   }
