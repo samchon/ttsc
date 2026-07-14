@@ -52,6 +52,12 @@ export function assertAllLintCases(partition?: {
  * inputs the flat corpus runner does not synthesize (a `src/pages/...` path, a
  * sibling `package.json`, rule-specific options).
  *
+ * Honors the `// @ttsc-corpus-filename: <path>` directive: the fixture is
+ * materialized at the given project-root-relative path (under `src/`) instead
+ * of the default `src/main.ts`, so path-sensitive rules (filename
+ * conventions, directory layouts) can carry their logical filename while the
+ * on-disk fixture keeps a corpus-friendly name.
+ *
  * @param relativeFile - File path relative to `casesRoot` (forward-slash
  *   separated, e.g. `"consistentTypeImports/violation.ts"`).
  */
@@ -70,6 +76,7 @@ export function assertLintCase(relativeFile: string): void {
   const result = TestLint.run({
     name: relativeFile,
     source,
+    sourcePath: parseCorpusFilename(source, relativeFile),
     rules: TestLint.rulesFromExpectations(expected),
     extraSources: collectExtraSources(relativeFile),
   });
@@ -106,6 +113,31 @@ function parseCorpusSkip(source: string): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Read the first `// @ttsc-corpus-filename: <path>` directive from the
+ * source, if any. Returns the project-root-relative path the fixture should
+ * be materialized at, or `undefined` to use the harness default
+ * (`src/main.ts`). Path validation (must stay under `src/`) is owned by
+ * `TestLint`.
+ */
+function parseCorpusFilename(
+  source: string,
+  relativeFile: string,
+): string | undefined {
+  for (const line of source.split(/\r?\n/)) {
+    const match = line.match(/^\s*\/\/\s*@ttsc-corpus-filename:\s*(.*?)\s*$/);
+    if (match) {
+      assert.notEqual(
+        (match[1] ?? "").length,
+        0,
+        `${relativeFile}: \`// @ttsc-corpus-filename:\` requires a path`,
+      );
+      return match[1];
+    }
+  }
+  return undefined;
 }
 
 /**

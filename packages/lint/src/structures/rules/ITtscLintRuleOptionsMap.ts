@@ -46,6 +46,7 @@ import type {
 } from "./ITtscLintTypeScriptRuleOptions";
 import type {
   ITtscLintUnicornImportStyleRuleOptions,
+  ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
 } from "./ITtscLintUnicornRuleOptions";
@@ -124,4 +125,5 @@ export interface ITtscLintRuleOptionsMap {
   "typescript/switch-exhaustiveness-check": ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions;
   "unicorn/prevent-abbreviations": ITtscLintUnicornPreventAbbreviationsRuleOptions;
   "unicorn/import-style": ITtscLintUnicornImportStyleRuleOptions;
+  "unicorn/filename-case": ITtscLintUnicornFilenameCaseRuleOptions;
 }

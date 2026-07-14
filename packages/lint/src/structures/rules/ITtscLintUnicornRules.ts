@@ -4,6 +4,7 @@ import type {
 } from "../TtscLintRuleSetting";
 import type {
   ITtscLintUnicornImportStyleRuleOptions,
+  ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
 } from "./ITtscLintUnicornRuleOptions";
@@ -141,11 +142,11 @@ export interface ITtscLintUnicornRules {
 
   /**
    * Enforce a single case style (kebab / camel / snake / pascal) for source
-   * filenames.
+   * filenames and directory names.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/filename-case.md
    */
-  "unicorn/filename-case"?: TtscLintRuleSetting;
+  "unicorn/filename-case"?: TtscLintRuleOptionsSetting<ITtscLintUnicornFilenameCaseRuleOptions>;
 
   /**
    * Restrict each module's allowed import styles (named only, default only,

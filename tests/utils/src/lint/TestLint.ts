@@ -114,6 +114,14 @@ export namespace TestLint {
   export interface IRunLintOptions {
     name: string;
     source: string;
+    /**
+     * Project-root-relative path the main `source` is written to (default
+     * `src/main.ts`). Path-sensitive rules (filename conventions, directory
+     * layouts) use it to give the fixture its logical filename. The path must
+     * stay inside `src/` so the synthesized tsconfig's `rootDir`/`include`
+     * still cover it.
+     */
+    sourcePath?: string;
     /** Optional disposable root under the OS temp dir; cleanup removes it. */
     projectRoot?: string;
     rules?: Record<string, LintRuleConfigSeverity>;
@@ -160,6 +168,7 @@ export namespace TestLint {
     const {
       name,
       source,
+      sourcePath,
       projectRoot,
       rules,
       pluginConfig,
@@ -176,7 +185,7 @@ export namespace TestLint {
       // The tsconfig plugin entry never carries rules: it is empty, or
       // optionally names a config file via `configFile`. When a test uses the
       // `rules` shorthand, materialize a discoverable `lint.config.json`.
-      writeFixtureProject(tmpdir, source, pluginConfig ?? {});
+      writeFixtureProject(tmpdir, source, pluginConfig ?? {}, sourcePath);
       if (extraSources) {
         for (const [relPath, content] of Object.entries(extraSources) as [
           string,
@@ -248,9 +257,11 @@ export namespace TestLint {
     tmpdir: string,
     source: string,
     pluginConfig: Record<string, unknown>,
+    sourcePath: string = path.posix.join("src", "main.ts"),
   ): void {
-    fs.mkdirSync(path.join(tmpdir, "src"), { recursive: true });
-    fs.writeFileSync(path.join(tmpdir, "src", "main.ts"), source, "utf8");
+    const target = path.join(tmpdir, resolveMainSourcePath(sourcePath));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, source, "utf8");
     fs.writeFileSync(
       path.join(tmpdir, "tsconfig.json"),
       JSON.stringify(
@@ -275,6 +286,32 @@ export namespace TestLint {
       ),
       "utf8",
     );
+  }
+
+  /**
+   * Validate a caller-selected main-source path and normalize it to POSIX
+   * separators relative to the project root.
+   *
+   * The synthesized tsconfig pins `rootDir: "src"` and `include: ["src"]`, so
+   * a logical filename outside `src/` would silently fall out of the compiled
+   * program instead of exercising the rule under test. Escapes and absolute
+   * paths are rejected for the same reason fixture roots are validated: the
+   * harness must never write outside its disposable project.
+   */
+  function resolveMainSourcePath(sourcePath: string): string {
+    const normalized = path.posix.normalize(sourcePath.replaceAll("\\", "/"));
+    if (
+      path.isAbsolute(normalized) ||
+      !normalized.startsWith("src/") ||
+      normalized
+        .split("/")
+        .some((segment) => segment === ".." || segment === "")
+    ) {
+      throw new Error(
+        `TestLint sourcePath must be a project-root-relative path under src/: ${sourcePath}`,
+      );
+    }
+    return normalized;
   }
 
   function assertDisposableProjectRoot(projectRoot: string): void {
