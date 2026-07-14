@@ -347,6 +347,15 @@ func TestUnicornPreventAbbreviationsUsesDefaultImportControlForNamedDefaultSynta
   )
 }
 
+func TestUnicornPreventAbbreviationsPreservesExplicitImportedAliasNames(t *testing.T) {
+  assertFixSnapshot(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    "import { err as err } from \"external\";\nvoid err;\n",
+    "import { err as error } from \"external\";\nvoid error;\n",
+  )
+}
+
 func TestUnicornPreventAbbreviationsDoesNotApplyRequireModeToQualifiedImportEquals(t *testing.T) {
   source := "namespace Source {\n  export const err = new Error();\n}\nimport err = Source.err;\nvoid err;\n"
   assertFixSnapshotWithOptions(
