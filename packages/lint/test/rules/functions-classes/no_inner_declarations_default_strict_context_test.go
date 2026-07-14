@@ -90,7 +90,7 @@ function rootFunction() {}
 // 2. Place block functions at program and nested-function depth.
 // 3. Assert the default rule emits no diagnostics.
 func TestNoInnerDeclarationsDefaultAllowsStrictScriptBlockFunctions(t *testing.T) {
-  assertNoInnerDeclarationsCase(t, "default-strict-script.ts", `"use strict";
+  assertNoInnerDeclarationsCase(t, "default-strict-script.ts", `'use strict';
 
 if (programCondition) {
   function programNested() {}
