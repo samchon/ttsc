@@ -1259,6 +1259,7 @@ func floatingPromiseCallableArgumentAccepts(
   expected := expectedSignatures[0]
   actual := actualSignatures[0]
   if expected.HasRestParameter() || actual.HasRestParameter() ||
+    expected.ThisParameter() != nil || actual.ThisParameter() != nil ||
     len(expected.TypeParameters()) != 0 || len(actual.TypeParameters()) != 0 {
     return false
   }

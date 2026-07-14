@@ -179,11 +179,11 @@ Promise.resolve();
 // parameter, explicit type argument, and callback return must also satisfy the
 // candidate declaration before the branch can make the mixed call safe.
 func TestNoFloatingPromisesRejectsInapplicableGenericReceiverBranches(t *testing.T) {
-  source := `interface FixedGenericCatch {
-  catch<T>(onRejected: () => T, value: number): T;
+  source := `interface FixedGenericThen {
+  then<T>(value: number, factory: () => T): T;
 }
-interface CallbackGenericCatch {
-  catch<T>(onRejected: (reason: unknown) => T): T;
+interface CallbackGenericThen {
+  then<T>(value: number, factory: (reason: unknown) => T): T;
 }
 interface ConstrainedGenericCatch {
   catch<T extends number>(onRejected: () => T): T;
@@ -191,18 +191,18 @@ interface ConstrainedGenericCatch {
 interface ExplicitGenericCatch {
   catch<T>(onRejected: () => T): T;
 }
-declare const fixedValid: Promise<void> | FixedGenericCatch;
-declare const fixedMismatch: Promise<void> | FixedGenericCatch;
-declare const callbackValid: Promise<void> | CallbackGenericCatch;
-declare const callbackMismatch: Promise<void> | CallbackGenericCatch;
+declare const fixedValid: Promise<void> | FixedGenericThen;
+declare const fixedMismatch: Promise<void> | FixedGenericThen;
+declare const callbackValid: Promise<void> | CallbackGenericThen;
+declare const callbackMismatch: Promise<void> | CallbackGenericThen;
 declare const constrainedValid: Promise<void> | ConstrainedGenericCatch;
 declare const constrainedMismatch: Promise<void> | ConstrainedGenericCatch;
 declare const explicitValid: Promise<void> | ExplicitGenericCatch;
 declare const explicitMismatch: Promise<void> | ExplicitGenericCatch;
-fixedValid.catch(() => undefined, 1);
-fixedMismatch.catch(() => undefined, "not a number");
-callbackValid.catch((reason: unknown) => undefined);
-callbackMismatch.catch((reason: string) => undefined);
+fixedValid.then(1, () => undefined);
+fixedMismatch.then("not a number", () => undefined);
+callbackValid.then(1, (reason: unknown) => undefined);
+callbackMismatch.then(1, (reason: string) => undefined);
 constrainedValid.catch<number>(() => 1);
 constrainedMismatch.catch<string>(() => "not a number");
 explicitValid.catch<undefined>(() => undefined);
@@ -213,8 +213,8 @@ explicitMismatch.catch<undefined>(() => Promise.resolve());
     t.Fatalf("generic applicability run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
   unsafeMarkers := []string{
-    "fixedMismatch.catch",
-    "callbackMismatch.catch",
+    "fixedMismatch.then",
+    "callbackMismatch.then",
     "constrainedMismatch.catch",
     "explicitMismatch.catch",
   }
