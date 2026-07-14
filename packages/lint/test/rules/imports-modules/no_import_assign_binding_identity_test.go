@@ -44,14 +44,23 @@ declare const record: Record<string, any>;
 (/* no-import-assign:start */{ key: aliased = 0 } = record/* no-import-assign:end */);
 (/* no-import-assign:start */{ value } = record/* no-import-assign:end */);
 (/* no-import-assign:start */[...aliased] = values/* no-import-assign:end */);
+(/* no-import-assign:start */[value = replacement] = values/* no-import-assign:end */);
+(/* no-import-assign:start */{ ...aliased } = record/* no-import-assign:end */);
+(/* no-import-assign:start */[value, aliased] = values/* no-import-assign:end */);
+(/* no-import-assign:start */(value as any) = replacement/* no-import-assign:end */);
 /* no-import-assign:start */for (value of values) {}/* no-import-assign:end */
 /* no-import-assign:start */for (aliased in record) {}/* no-import-assign:end */
 
 /* no-import-assign:start */namespaceValue.member = 1/* no-import-assign:end */;
+/* no-import-assign:start */namespaceValue.member += 1/* no-import-assign:end */;
 /* no-import-assign:start */namespaceValue["member"]++/* no-import-assign:end */;
+/* no-import-assign:start */++namespaceValue.member/* no-import-assign:end */;
 /* no-import-assign:start */delete namespaceValue.member/* no-import-assign:end */;
 /* no-import-assign:start */delete namespaceValue?.member/* no-import-assign:end */;
 (/* no-import-assign:start */[namespaceValue.member] = values/* no-import-assign:end */);
+(/* no-import-assign:start */{ key: namespaceValue.member = 0 } = record/* no-import-assign:end */);
+(/* no-import-assign:start */{ ...namespaceValue.member } = record/* no-import-assign:end */);
+(/* no-import-assign:start */namespaceValue[replacement as any] = 1/* no-import-assign:end */);
 /* no-import-assign:start */for (namespaceValue["member"] of values) {}/* no-import-assign:end */
 /* no-import-assign:start */namespaceValue = replacement/* no-import-assign:end */;
 
@@ -92,13 +101,23 @@ declare const record: Record<string, any>;
     binding("{ key: aliased = 0 } = record", "aliased"),
     binding("{ value } = record", "value"),
     binding("[...aliased] = values", "aliased"),
+    binding("[value = replacement] = values", "value"),
+    binding("{ ...aliased } = record", "aliased"),
+    binding("[value, aliased] = values", "value"),
+    binding("[value, aliased] = values", "aliased"),
+    binding("(value as any) = replacement", "value"),
     binding("for (value of values) {}", "value"),
     binding("for (aliased in record) {}", "aliased"),
     member("namespaceValue.member = 1", "namespaceValue"),
+    member("namespaceValue.member += 1", "namespaceValue"),
     member("namespaceValue[\"member\"]++", "namespaceValue"),
+    member("++namespaceValue.member", "namespaceValue"),
     member("delete namespaceValue.member", "namespaceValue"),
     member("delete namespaceValue?.member", "namespaceValue"),
     member("[namespaceValue.member] = values", "namespaceValue"),
+    member("{ key: namespaceValue.member = 0 } = record", "namespaceValue"),
+    member("{ ...namespaceValue.member } = record", "namespaceValue"),
+    member("namespaceValue[replacement as any] = 1", "namespaceValue"),
     member("for (namespaceValue[\"member\"] of values) {}", "namespaceValue"),
     binding("namespaceValue = replacement", "namespaceValue"),
     member("Object[\"assign\"](namespaceValue, {})", "namespaceValue"),
@@ -165,10 +184,28 @@ declare const record: Record<string, any>;
 declare function consume(value: unknown): void;
 
 defaultValue.member = 1;
+(defaultValue.member as any) += 1;
+defaultValue.member++;
+delete defaultValue.member;
+for (defaultValue.member in record) {}
+[defaultValue.member] = [record];
+({ ...defaultValue.member } = record);
 (value as any).member = 2;
 namespaceValue.member.deep = 3;
 namespaceValue["member"].deep = 4;
+namespaceValue.member.deep++;
+delete namespaceValue.member.deep;
+for (namespaceValue.member.deep of []) {}
+[namespaceValue.member.deep] = [];
+({ ...namespaceValue.member.deep } = record);
 Object.assign(namespaceValue.member, {});
+Object.defineProperty(namespaceValue.member, "deep", {});
+Object.assign(defaultValue, {});
+Object.seal(namespaceValue);
+Object.preventExtensions(namespaceValue);
+Object.getPrototypeOf(namespaceValue);
+Object[record.method](namespaceValue, {});
+Reflect.preventExtensions(namespaceValue);
 consume(namespaceValue);
 legacy.member = 5;
 ({ [value]: record.local, key: record.other = value } = record);
@@ -298,7 +335,12 @@ func assertNoImportAssignFindings(
     pos := markerPos + len(noImportAssignRangeStart)
     wants = append(wants, rangedFinding{pos: pos, end: pos + len(item.snippet), message: item.message})
   }
-  sort.Slice(wants, func(i, j int) bool { return wants[i].pos < wants[j].pos })
+  sort.Slice(wants, func(i, j int) bool {
+    if wants[i].pos != wants[j].pos {
+      return wants[i].pos < wants[j].pos
+    }
+    return wants[i].message < wants[j].message
+  })
   sort.Slice(findings, func(i, j int) bool {
     if findings[i].Pos != findings[j].Pos {
       return findings[i].Pos < findings[j].Pos
