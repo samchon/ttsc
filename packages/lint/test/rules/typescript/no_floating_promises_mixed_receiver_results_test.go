@@ -211,6 +211,17 @@ interface UncertainOverloadedCatch {
   catch(onRejected: () => void): undefined;
   catch<T>(onRejected: (reason: T) => void): Promise<void>;
 }
+type BivariantCallback<T> = {
+  method(reason: unknown): T;
+}["method"];
+interface BivariantOverloadedCatch {
+  catch<T>(onRejected: BivariantCallback<T>): Promise<void>;
+  catch(onRejected: (reason: string) => void): undefined;
+}
+interface VoidArityOverloadedCatch {
+  catch(handler: void): Promise<void>;
+  catch(): undefined;
+}
 interface PredicateGenericCatch {
   catch<T>(onRejected: (value: unknown) => value is T): T;
 }
@@ -250,6 +261,8 @@ declare const taggedMismatch: Promise<void> | TaggedGenericCatch;
 declare const taggedFactory: TaggedFactory<undefined>;
 declare const optionalTaggedFactory: OptionalTaggedFactory<undefined>;
 declare const uncertainOverload: Promise<void> | UncertainOverloadedCatch;
+declare const bivariantOverload: Promise<void> | BivariantOverloadedCatch;
+declare const voidArityOverload: Promise<void> | VoidArityOverloadedCatch;
 declare const predicateMismatch: Promise<void> | PredicateGenericCatch;
 declare const predicateTargetMismatch: Promise<void> | PredicateGenericCatch;
 declare const assertionMismatch: Promise<void> | AssertionGenericCatch;
@@ -278,6 +291,8 @@ taggedValid.catch(taggedFactory);
 taggedMismatch.catch(() => undefined);
 taggedMismatch.catch(optionalTaggedFactory);
 uncertainOverload.catch(() => undefined);
+bivariantOverload.catch((reason: string) => undefined);
+voidArityOverload.catch();
 predicateMismatch.catch<undefined>((value: unknown): boolean => true);
 predicateTargetMismatch.catch<undefined>((value: unknown): value is string => true);
 assertionMismatch.catch<undefined>((value: unknown): void => {});
@@ -314,6 +329,8 @@ function checkUncertainArray<U>(
     "taggedMismatch.catch",
     "taggedMismatch.catch(optionalTaggedFactory)",
     "uncertainOverload.catch",
+    "bivariantOverload.catch",
+    "voidArityOverload.catch",
     "predicateMismatch.catch",
     "predicateTargetMismatch.catch",
     "assertionMismatch.catch",

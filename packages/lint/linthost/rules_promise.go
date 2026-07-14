@@ -1090,7 +1090,12 @@ func floatingPromiseSignatureApplicability(
   }
   parameters := signature.Parameters()
   if len(arguments) < shimchecker.Checker_getMinArgumentCount(checker, signature) {
-    return floatingPromiseCallIncompatible
+    // TypeScript still accepts an omitted required parameter when every
+    // missing position admits void. The public surface does not expose the
+    // resolver's position-sensitive acceptsVoid check, so another overload
+    // must not become uniquely safe merely because this candidate is short on
+    // arguments.
+    return floatingPromiseCallUncertain
   }
   // Array and tuple rest parameters require TypeScript's position-sensitive
   // effective-rest expansion, including a bounded tuple's maximum arity. A
@@ -1443,7 +1448,11 @@ func floatingPromiseCallableArgumentApplicability(
       return floatingPromiseCallUncertain
     }
     if !checker.IsTypeAssignableTo(expectedParameter, actualParameter) {
-      return floatingPromiseCallIncompatible
+      // Callback parameter variance depends on the target declaration kind
+      // and strictFunctionTypes. A raw parameter-to-parameter comparison can
+      // therefore disprove neither method bivariance nor a candidate-specific
+      // contextual comparison.
+      return floatingPromiseCallUncertain
     }
   }
 
