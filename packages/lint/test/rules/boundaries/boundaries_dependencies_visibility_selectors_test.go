@@ -31,7 +31,7 @@ func TestBoundariesDependenciesSelectsEntryAndPrivateTargets(t *testing.T) {
       {"from":"app","disallow":{"to":{"type":"domain","entry":false,"path":"public/**"}}}
     ]
   }`, map[string]string{
-    "src/domain/index.ts":          "export {};",
+    "src/domain/index.ts":           "export {};",
     "src/domain/internal/secret.ts": "export {};",
     "src/domain/public/detail.ts":   "export {};",
   })

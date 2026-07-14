@@ -47,13 +47,13 @@ type boundaryDependenciesPolicy struct {
 }
 
 type boundaryDependenciesEntitySelector struct {
-  Types    boundaryStringList
-  Origins  boundaryStringList
-  Sources  boundaryStringList
-  Paths    boundaryStringList
-  Entry    *bool
-  Private  *bool
-  Unknown  *bool
+  Types   boundaryStringList
+  Origins boundaryStringList
+  Sources boundaryStringList
+  Paths   boundaryStringList
+  Entry   *bool
+  Private *bool
+  Unknown *bool
 }
 
 type boundaryDependenciesInfoSelector struct {
@@ -70,14 +70,13 @@ type boundaryDependenciesSelector struct {
 }
 
 type boundaryDependenciesEntity struct {
-  Type       string
-  Origin     string
-  Source     string
-  Path       string
-  Entry      bool
-  Private    bool
-  Unknown    bool
-  boundary   *boundaryFile
+  Type    string
+  Origin  string
+  Source  string
+  Path    string
+  Entry   bool
+  Private bool
+  Unknown bool
 }
 
 type boundaryDependenciesDescription struct {
@@ -113,7 +112,7 @@ func (boundariesDependencies) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
-  for _, dependency := range collectBoundaryDependencies(node) {
+  for _, dependency := range collectBoundaryPolicyDependencies(node) {
     if boundaryDependenciesShadowedRequire(ctx, dependency) {
       continue
     }
@@ -206,11 +205,13 @@ func parseBoundaryDependenciesOptions(raw json.RawMessage) (boundaryDependencies
   if hasPolicies && hasRules {
     return options, fmt.Errorf("options %q and %q cannot be combined", "policies", "rules")
   }
+  policiesKey := "policies"
   if !hasPolicies {
     policiesRaw = rulesRaw
+    policiesKey = "rules"
   }
   if hasPolicies || hasRules {
-    options.Policies, err = parseBoundaryDependenciesPolicies(policiesRaw)
+    options.Policies, err = parseBoundaryDependenciesPolicies(policiesRaw, policiesKey)
     if err != nil {
       return options, err
     }
@@ -265,14 +266,14 @@ func parseBoundaryDependenciesElements(raw json.RawMessage) ([]boundaryElement, 
   return elements, nil
 }
 
-func parseBoundaryDependenciesPolicies(raw json.RawMessage) ([]boundaryDependenciesPolicy, error) {
-  entries, err := boundaryDependenciesArray(raw, "policies")
+func parseBoundaryDependenciesPolicies(raw json.RawMessage, key string) ([]boundaryDependenciesPolicy, error) {
+  entries, err := boundaryDependenciesArray(raw, key)
   if err != nil {
     return nil, err
   }
   policies := make([]boundaryDependenciesPolicy, 0, len(entries))
   for index, entry := range entries {
-    policy, err := parseBoundaryDependenciesPolicy(entry, index)
+    policy, err := parseBoundaryDependenciesPolicy(entry, fmt.Sprintf("%s[%d]", key, index))
     if err != nil {
       return nil, err
     }
@@ -281,9 +282,8 @@ func parseBoundaryDependenciesPolicies(raw json.RawMessage) ([]boundaryDependenc
   return policies, nil
 }
 
-func parseBoundaryDependenciesPolicy(raw json.RawMessage, index int) (boundaryDependenciesPolicy, error) {
+func parseBoundaryDependenciesPolicy(raw json.RawMessage, path string) (boundaryDependenciesPolicy, error) {
   var policy boundaryDependenciesPolicy
-  path := fmt.Sprintf("policies[%d]", index)
   fields, err := boundaryDependenciesObject(raw, path)
   if err != nil {
     return policy, err
@@ -318,14 +318,15 @@ func parseBoundaryDependenciesPolicy(raw json.RawMessage, index int) (boundaryDe
       return policy, err
     }
   }
+  _, hasFrom := fields["from"]
   if value, present := fields["allow"]; present {
-    policy.Allow, err = parseBoundaryDependenciesEffect(value, path+".allow")
+    policy.Allow, err = parseBoundaryDependenciesEffect(value, path+".allow", hasFrom)
     if err != nil {
       return policy, err
     }
   }
   if value, present := fields["disallow"]; present {
-    policy.Disallow, err = parseBoundaryDependenciesEffect(value, path+".disallow")
+    policy.Disallow, err = parseBoundaryDependenciesEffect(value, path+".disallow", hasFrom)
     if err != nil {
       return policy, err
     }
@@ -514,7 +515,7 @@ func parseBoundaryDependenciesInfoSelectors(raw json.RawMessage, path string) ([
   return []boundaryDependenciesInfoSelector{selector}, nil
 }
 
-func parseBoundaryDependenciesEffect(raw json.RawMessage, path string) ([]boundaryDependenciesSelector, error) {
+func parseBoundaryDependenciesEffect(raw json.RawMessage, path string, targetsDestination bool) ([]boundaryDependenciesSelector, error) {
   raw = bytes.TrimSpace(raw)
   if len(raw) == 0 {
     return nil, fmt.Errorf("%s must be a selector", path)
@@ -529,7 +530,7 @@ func parseBoundaryDependenciesEffect(raw json.RawMessage, path string) ([]bounda
     }
     selectors := make([]boundaryDependenciesSelector, 0, len(entries))
     for index, entry := range entries {
-      parsed, err := parseBoundaryDependenciesEffect(entry, fmt.Sprintf("%s[%d]", path, index))
+      parsed, err := parseBoundaryDependenciesEffect(entry, fmt.Sprintf("%s[%d]", path, index), targetsDestination)
       if err != nil {
         return nil, err
       }
@@ -577,7 +578,13 @@ func parseBoundaryDependenciesEffect(raw json.RawMessage, path string) ([]bounda
   }
   selectors := make([]boundaryDependenciesSelector, 0, len(entities))
   for _, entity := range entities {
-    selectors = append(selectors, boundaryDependenciesSelector{To: []boundaryDependenciesEntitySelector{entity}})
+    selector := boundaryDependenciesSelector{}
+    if targetsDestination {
+      selector.To = []boundaryDependenciesEntitySelector{entity}
+    } else {
+      selector.From = []boundaryDependenciesEntitySelector{entity}
+    }
+    selectors = append(selectors, selector)
   }
   return selectors, nil
 }
@@ -607,10 +614,7 @@ func describeBoundaryDependency(
     }
   }
 
-  origin := "external"
-  if strings.HasPrefix(dependency.specifier, "node:") {
-    origin = "core"
-  }
+  origin := boundaryDependenciesOrigin(dependency.specifier)
   return boundaryDependenciesDescription{
     From: from,
     To: boundaryDependenciesEntity{
@@ -627,7 +631,6 @@ func boundaryDependenciesEntityFromFile(file *boundaryFile, path, origin string)
     Origin: origin,
     Source: normalizeBoundaryPath(path),
     Path:   boundaryDisplayPath(path),
-    boundary: file,
   }
   if file == nil {
     return entity
@@ -685,9 +688,19 @@ func boundaryDependenciesProjectLocalPath(root, path string) bool {
 }
 
 func boundaryDependenciesPathHasSegment(path, segment string) bool {
-  normalized := strings.ToLower(filepath.ToSlash(filepath.Clean(path)))
+  normalized := strings.ToLower(normalizeBoundaryPath(path))
   segment = "/" + strings.ToLower(strings.Trim(segment, "/")) + "/"
   return strings.Contains("/"+strings.Trim(normalized, "/")+"/", segment)
+}
+
+func boundaryDependenciesOrigin(specifier string) string {
+  if strings.HasPrefix(specifier, "node:") {
+    return "core"
+  }
+  if _, ok := unicornPreferNodeProtocolBuiltins[specifier]; ok {
+    return "core"
+  }
+  return "external"
 }
 
 func boundaryDependenciesShadowedRequire(ctx *Context, dependency boundaryDependency) bool {

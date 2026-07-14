@@ -219,14 +219,14 @@ Options:
 
 - `message?: string`
 
-  Global diagnostic override. Policy messages take precedence. Messages can use `{{from.type}}`, `{{to.type}}`, `{{dependency.source}}`, `{{dependency.kind}}`, and `{{policy.index}}`.
+  Global diagnostic override. Policy messages take precedence. Messages can use `{{from.type}}`, `{{from.path}}`, `{{from.origin}}`, `{{to.type}}`, `{{to.path}}`, `{{to.origin}}`, `{{dependency.source}}`, `{{dependency.kind}}`, `{{dependency.nodeKind}}`, and `{{policy.index}}`.
 
 Example:
 
 ```ts
 // src/app/main.ts
 // reports: boundaries/dependencies (error)
-import "../domain/internal";
+import "../domain/internal/secret";
 import "./local";
 
 // lint.config.ts

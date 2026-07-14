@@ -7,7 +7,10 @@ import "testing"
 //
 // TypeScript `paths` aliases omit the relative prefix used by the filesystem
 // fallback. The checker must resolve ordinary imports, re-exports, and dynamic
-// imports to the same domain source file before element classification.
+// imports to the same domain source file before element classification. The
+// fixture uses bundler resolution because that is the module mode in which an
+// extensionless alias is legal for every one of those syntaxes; NodeNext
+// rejects it for ESM-mode dynamic imports before lint ever runs.
 //
 // 1. Configure an `@domain/*` tsconfig path alias to a domain element.
 // 2. Import, re-export, and dynamically import the aliased module from app.
@@ -36,7 +39,9 @@ void model;
       "src/domain/model.ts": "export const model = 1;",
     },
     map[string]any{
-      "paths": map[string]any{"@domain/*": []string{"src/domain/*"}},
+      "module":           "ESNext",
+      "moduleResolution": "Bundler",
+      "paths":            map[string]any{"@domain/*": []string{"src/domain/*"}},
     },
   )
   assertBoundaryFindingTexts(

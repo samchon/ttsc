@@ -23,11 +23,11 @@ func TestBoundariesDependenciesReportsThroughCheckCommand(t *testing.T) {
   writeFile(t, filepath.Join(root, "src", "domain", "model.ts"), `export {};`)
   tsconfig, err := json.Marshal(map[string]any{
     "compilerOptions": map[string]any{
-      "target":   "ES2022",
-      "module":   "NodeNext",
-      "strict":   true,
-      "noEmit":   true,
-      "rootDir":  "src",
+      "target":  "ES2022",
+      "module":  "NodeNext",
+      "strict":  true,
+      "noEmit":  true,
+      "rootDir": "src",
     },
     "files": []string{"src/app/main.ts", "src/domain/model.ts"},
   })

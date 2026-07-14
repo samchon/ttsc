@@ -9,18 +9,21 @@ import "testing"
 // a collector that only recognizes ordinary imports or erases type metadata
 // cannot satisfy the complete exact-range oracle.
 //
-// 1. Parse static import/export, dynamic import, require, and import-type forms.
-// 2. Select each form through dependency metadata under app-to-domain policy.
-// 3. Assert all six module literals report, including type and typeof imports.
+//  1. Parse static import/export, import-equals, dynamic import, require, and
+//     import-type forms.
+//  2. Select each form through dependency metadata under app-to-domain policy.
+//  3. Assert all seven module literals report, including type and typeof imports.
 func TestBoundariesDependenciesCollectsModuleSyntaxAndMetadata(t *testing.T) {
   const ruleName = "boundaries/dependencies"
   source := `import type { Foo } from "../domain/types";
 export { value } from "../domain/value";
+import legacy = require("../domain/required");
 void import("../domain/dynamic");
 const required = require("../domain/required");
 type Imported = import("../domain/types").Foo;
 type Namespace = typeof import("../domain/value");
 void required;
+void legacy;
 `
   findings := runBoundaryRule(t, ruleName, "src/app/main.ts", source, `{
     "elements": [
@@ -33,7 +36,7 @@ void required;
         "from":"app",
         "disallow":{
           "to":"domain",
-          "dependency":{"nodeKind":["ExportDeclaration","ImportCall","RequireCall","ImportType"]}
+          "dependency":{"nodeKind":["ExportDeclaration","ImportEqualsDeclaration","ImportCall","RequireCall","ImportType"]}
         }
       },
       {
@@ -57,6 +60,7 @@ void required;
     `"../domain/types"`,
     `"../domain/value"`,
     `"../domain/dynamic"`,
+    `"../domain/required"`,
     `"../domain/required"`,
     `"../domain/types"`,
     `"../domain/value"`,

@@ -216,11 +216,11 @@ type boundaryFile struct {
 }
 
 type boundaryDependency struct {
-  node      *shimast.Node
-  specifier string
-  relative  bool
-  kind      string
-  nodeKind  string
+  node       *shimast.Node
+  specifier  string
+  relative   bool
+  kind       string
+  nodeKind   string
   specifiers []string
 }
 
@@ -233,6 +233,14 @@ func decodeBoundariesOptions(ctx *Context) boundariesOptions {
 }
 
 func collectBoundaryDependencies(node *shimast.Node) []boundaryDependency {
+  return collectBoundaryDependenciesWithSyntax(node, false)
+}
+
+func collectBoundaryPolicyDependencies(node *shimast.Node) []boundaryDependency {
+  return collectBoundaryDependenciesWithSyntax(node, true)
+}
+
+func collectBoundaryDependenciesWithSyntax(node *shimast.Node, extended bool) []boundaryDependency {
   out := []boundaryDependency{}
   appendDependency := func(sourceNode *shimast.Node, specifier, kind, nodeKind string, specifiers []string) {
     if sourceNode == nil || specifier == "" {
@@ -278,6 +286,9 @@ func collectBoundaryDependencies(node *shimast.Node) []boundaryDependency {
         )
       }
     case shimast.KindImportEqualsDeclaration:
+      if !extended {
+        break
+      }
       declaration := n.AsImportEqualsDeclaration()
       if declaration != nil && declaration.ModuleReference != nil &&
         declaration.ModuleReference.Kind == shimast.KindExternalModuleReference {
@@ -293,6 +304,9 @@ func collectBoundaryDependencies(node *shimast.Node) []boundaryDependency {
         }
       }
     case shimast.KindCallExpression:
+      if !extended {
+        break
+      }
       call := n.AsCallExpression()
       if call == nil || call.Expression == nil || call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
         break
@@ -308,6 +322,9 @@ func collectBoundaryDependencies(node *shimast.Node) []boundaryDependency {
         appendDependency(argument, stringLiteralText(argument), "value", "RequireCall", nil)
       }
     case shimast.KindImportType:
+      if !extended {
+        break
+      }
       imported := n.AsImportTypeNode()
       if imported == nil || imported.Argument == nil || imported.Argument.Kind != shimast.KindLiteralType {
         break
@@ -319,7 +336,10 @@ func collectBoundaryDependencies(node *shimast.Node) []boundaryDependency {
       appendDependency(
         literalType.Literal,
         stringLiteralText(literalType.Literal),
-        boundaryDependencyKind(false, imported.IsTypeOf),
+        // An `import("m")` node in type position resolves types only, so it
+        // is a `type` dependency; the `typeof import("m")` flavor queries the
+        // module's value shape and keeps the dedicated `typeof` kind.
+        boundaryDependencyKind(true, imported.IsTypeOf),
         "ImportType",
         nil,
       )

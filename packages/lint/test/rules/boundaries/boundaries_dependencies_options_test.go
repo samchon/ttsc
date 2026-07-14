@@ -33,9 +33,12 @@ func TestBoundariesDependenciesValidatesCompleteOptionShape(t *testing.T) {
     {`{"elements":[{"type":"app"}]}`, `requires non-empty "type" and "pattern"`},
     {`{"elements":[{"type":"app","pattern":"src/**","entry":1}]}`, `entry must be a string or array of strings`},
     {`{"policies":{}}`, `policies must be an array`},
+    {`{"rules":{}}`, `rules must be an array`},
+    {`{"rules":[{"from":"app"}]}`, `rules[0] requires at least one of "allow" or "disallow"`},
     {`{"policies":[{"from":"app"}]}`, `requires at least one of "allow" or "disallow"`},
     {`{"policies":[{"disallow":{"unexpected":true}}]}`, `unknown option "unexpected"`},
     {`{"policies":[{"disallow":{"dependency":{"kind":"runtime"}}}]}`, `unsupported value "runtime"`},
+    {`{"policies":[{"importKind":"runtime","disallow":"app"}]}`, `importKind must be "value", "type", or "typeof"`},
     {`{"checkAllOrigins":"yes"}`, `checkAllOrigins must be a boolean`},
   }
   for _, test := range invalid {

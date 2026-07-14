@@ -123,19 +123,12 @@ export interface ITtscLintBoundariesDependenciesEntitySelectorObject {
 export type ITtscLintBoundariesDependenciesEntitySelector =
   | string
   | ITtscLintBoundariesDependenciesEntitySelectorObject
-  | readonly (
-      | string
-      | ITtscLintBoundariesDependenciesEntitySelectorObject
-    )[];
+  | readonly (string | ITtscLintBoundariesDependenciesEntitySelectorObject)[];
 
 /** Metadata selector for the import or re-export itself. */
 export interface ITtscLintBoundariesDependenciesInfoSelector {
   /** TypeScript dependency kind. */
-  kind?: "value" | "type" | "typeof" | readonly (
-    | "value"
-    | "type"
-    | "typeof"
-  )[];
+  kind?: "value" | "type" | "typeof" | readonly ("value" | "type" | "typeof")[];
 
   /** Import specifier glob(s). */
   source?: string | readonly string[];
@@ -200,11 +193,10 @@ export interface ITtscLintBoundariesDependenciesPolicy {
 /**
  * `boundaries/dependencies` rule options.
  *
- * Policies are evaluated in order and the last matching effect wins. Within
- * one policy, `disallow` takes precedence over `allow`.
+ * Policies are evaluated in order and the last matching effect wins. Within one
+ * policy, `disallow` takes precedence over `allow`.
  */
-export interface ITtscLintBoundariesDependenciesRuleOptions
-  extends ITtscLintBoundariesElementsOptions {
+export interface ITtscLintBoundariesDependenciesRuleOptions extends ITtscLintBoundariesElementsOptions {
   /**
    * Fallback policy when no rule matches.
    *
@@ -230,8 +222,10 @@ export interface ITtscLintBoundariesDependenciesRuleOptions
   /**
    * Global diagnostic override.
    *
-   * Supports `{{from.type}}`, `{{to.type}}`, `{{dependency.source}}`,
-   * `{{dependency.kind}}`, and `{{policy.index}}` placeholders.
+   * Supports `{{from.type}}`, `{{from.path}}`, `{{from.origin}}`,
+   * `{{to.type}}`, `{{to.path}}`, `{{to.origin}}`, `{{dependency.source}}`,
+   * `{{dependency.kind}}`, `{{dependency.nodeKind}}`, and `{{policy.index}}`
+   * placeholders.
    */
   message?: string;
 }
