@@ -18,5 +18,10 @@
     "rule": "typescript/no-restricted-types",
     "constraint": "options",
     "harness": "packages/lint/test/rules/typescript/no_restricted_types_test.go"
+  },
+  {
+    "rule": "unicorn/no-unnecessary-polyfills",
+    "constraint": "options",
+    "harness": "packages/lint/test/rules/unicorn/unicorn_no_unnecessary_polyfills_options_test.go"
   }
 ]
