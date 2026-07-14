@@ -947,17 +947,32 @@ type WithAny = string | any;
 
 ### `typescript/no-restricted-types`
 
-Reject specific type-reference names that are almost always a mistake, by default the global wrapper types `Object`, `Function`, `Number`, `String`, and `Boolean`.
+Reject exact type spellings from the configured `types` map. With no options or an empty map, the rule reports nothing.
 
-The lowercase primitives (`number`, `string`, `boolean`) and explicit call signatures convey the intended type without the runtime-boxing semantics that the wrapper names imply.
+Keys and source spellings are compared after removing whitespace, so `NS . Legacy` matches `"NS.Legacy"`. A `true` entry uses the standard message, a string appends a custom message, and a structured entry may add `fixWith` plus editor-only `suggest` replacements. `false` and `null` entries disable a key.
 
-AST-only baseline: shadow guard reuses the same file-scope check as `no-wrapper-object-types` so a user-declared `interface String {}` is not flagged as the global wrapper.
+This is intentionally a source-spelling policy: a configured local, shadowed, or imported alias is still restricted, while a qualified name only matches its exact qualified key. Type queries and runtime value expressions are not type-reference matches.
 
 Example:
 
 ```ts
-// reports: typescript/no-restricted-types (error)
-const a: Object = {};
+export default {
+  rules: {
+    "typescript/no-restricted-types": [
+      "error",
+      {
+        types: {
+          Legacy: {
+            message: "Use Modern instead.",
+            fixWith: "Modern",
+            suggest: ["Safe", "UnknownLegacy"],
+          },
+          "NS.Legacy": true,
+        },
+      },
+    ],
+  },
+};
 ```
 
 <a id="rule-typescript-no-require-imports"></a>

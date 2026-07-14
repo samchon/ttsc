@@ -41,6 +41,7 @@ import type {
   ITtscLintTypeScriptBanTsCommentRuleOptions,
   ITtscLintTypeScriptNoFloatingPromisesRuleOptions,
   ITtscLintTypeScriptNoMisusedPromisesRuleOptions,
+  ITtscLintTypeScriptNoRestrictedTypesRuleOptions,
   ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
 } from "./ITtscLintTypeScriptRuleOptions";
 
@@ -113,5 +114,6 @@ export interface ITtscLintRuleOptionsMap {
   "react/only-export-components": ITtscLintReactOnlyExportComponentsRuleOptions;
   "typescript/ban-ts-comment": ITtscLintTypeScriptBanTsCommentRuleOptions;
   "typescript/no-misused-promises": ITtscLintTypeScriptNoMisusedPromisesRuleOptions;
+  "typescript/no-restricted-types": ITtscLintTypeScriptNoRestrictedTypesRuleOptions;
   "typescript/switch-exhaustiveness-check": ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions;
 }

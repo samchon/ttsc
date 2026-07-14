@@ -6,6 +6,7 @@ import type {
   ITtscLintTypeScriptBanTsCommentRuleOptions,
   ITtscLintTypeScriptNoFloatingPromisesRuleOptions,
   ITtscLintTypeScriptNoMisusedPromisesRuleOptions,
+  ITtscLintTypeScriptNoRestrictedTypesRuleOptions,
   ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
 } from "./ITtscLintTypeScriptRuleOptions";
 
@@ -497,19 +498,13 @@ export interface ITtscLintTypeScriptRules {
   "typescript/no-redundant-type-constituents"?: TtscLintRuleSetting;
 
   /**
-   * Reject specific type-reference names that are almost always a mistake — by
-   * default the global wrapper types `Object`, `Function`, `Number`, `String`,
-   * and `Boolean`. The lowercase primitives (`number`, `string`, `boolean`) and
-   * explicit call signatures convey the intended type without the
-   * runtime-boxing semantics that the wrapper names imply.
-   *
-   * AST-only baseline: shadow guard reuses the same file-scope check as
-   * `no-wrapper-object-types` so a user-declared `interface String {}` is not
-   * flagged as the global wrapper.
+   * Reject the exact type spellings configured in the `types` map. The rule is
+   * a no-op without options. Entries can carry a custom message, an automatic
+   * replacement, and editor-only replacement suggestions.
    *
    * @reference https://typescript-eslint.io/rules/no-restricted-types
    */
-  "typescript/no-restricted-types"?: TtscLintRuleSetting;
+  "typescript/no-restricted-types"?: TtscLintRuleOptionsSetting<ITtscLintTypeScriptNoRestrictedTypesRuleOptions>;
 
   /**
    * Reject `require(...)` calls and `import x = require(...)` declarations.
