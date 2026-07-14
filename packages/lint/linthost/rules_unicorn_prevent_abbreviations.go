@@ -1188,7 +1188,10 @@ func unicornPreventAbbreviationsBindingIsExternallyVisible(
     }
     seen[declaration] = struct{}{}
     source := shimast.GetSourceFileOfNode(declaration)
-    if source != nil && source != ctx.File {
+    // A source-only edit is safe only when every declaration is proven to
+    // belong to the current file. Detached or synthetic declarations fail
+    // closed just like declarations owned by another source file.
+    if source == nil || source != ctx.File {
       return true
     }
     if unicornPreventAbbreviationsDeclarationIsExportedOrAmbient(declaration) {
