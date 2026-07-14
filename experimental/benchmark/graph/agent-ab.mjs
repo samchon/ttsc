@@ -305,6 +305,13 @@ if (withCfg) {
             },
           };
   validateMcpServerConfig(serverCfg);
+  // A session that opens before its MCP server has connected is a session whose
+  // first turn has no tool: Claude Code reports the server as `pending` in its
+  // init event, the model sees a tool name and no schema, and it goes to the
+  // shell. `alwaysLoad` holds the session open until the server answers the
+  // handshake. Every arm's server gets it — the flag is a property of the
+  // benchmark, not of a tool.
+  for (const server of Object.values(serverCfg)) server.alwaysLoad = true;
   fs.writeFileSync(withCfg, JSON.stringify({ mcpServers: serverCfg }));
 }
 if (emptyCfg) fs.writeFileSync(emptyCfg, JSON.stringify({ mcpServers: {} }));
@@ -512,6 +519,14 @@ async function runClaude(question, cfg, armName, runNumber) {
       ...process.env,
       HOME: claudeHome,
       USERPROFILE: claudeHome,
+      // Claude Code 2.1.207 defers MCP tool schemas behind a `ToolSearch` call
+      // by default. A model that has not searched yet holds a tool name and no
+      // schema, and it answers the question from the shell instead — which is a
+      // property of the client, not of the tool being measured, and it lands on
+      // whichever server is slowest to connect. Every arm therefore runs with
+      // the schemas loaded upfront, which is what the tool sees in a session a
+      // person opens and keeps.
+      ENABLE_TOOL_SEARCH: "false",
     },
     input: delayedInput ? streamJsonUserInput(question) : question,
     inputDelayMs: delayedInput ? claudeStartupGraceMs : 0,
@@ -603,9 +618,10 @@ function spawnAsync(
     child.on("error", (error) => resolve({ error, stdout, stderr }));
     child.on("close", () => resolve({ stdout, stderr }));
     if (input) {
-      // Claude Code can begin a print-mode turn before stdio MCP servers finish
-      // connecting. The graph arm keeps stdin open briefly so the MCP client can
-      // attach before the unchanged benchmark question is delivered.
+      // Nobody speaks the instant a client opens. Claude Code spawns its stdio
+      // MCP servers when the CLI starts but only opens the session when the
+      // first message arrives, so the question is held back to let the servers
+      // finish booting first. Every MCP arm gets the same wait.
       const writeInput = () => {
         if (!child.stdin || child.stdin.destroyed || !child.stdin.writable)
           return;

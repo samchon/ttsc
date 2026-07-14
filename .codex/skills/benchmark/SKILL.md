@@ -69,6 +69,16 @@ After the sweep, inspect the diff against `website/public/benchmark/performance.
 
 ## Changing `@ttsc/graph` while it is being benchmarked
 
+### The non-negotiables
+
+These are closed. Reopening one is a violation, not a proposal.
+
+- **No hardcoding, no monkey-patching, no over-fitting.** A change that only makes sense because a benchmark exists is not a change. Every rule in the server must be a property of graph shape or of English morphology, and must be right on a repository nobody has benchmarked.
+- **Never cripple the agent to win the number.** The tool exists for Claude Code and Codex to use. A payload that suppresses a legitimate follow-up, or an instruction that castrates the agent's own judgement, buys a chart and loses the product.
+- **Closures stay out of the tour** — not as seeds, not in reach, not in flows. Admitting them explodes the graph the tour walks and takes down the cells that were healthy. Tried, rejected, closed.
+- **A tour is a light, index-level overview.** It is not a path-stitching engine: seed-to-seed `bridges` were tried and withdrawn.
+- **N = 1 per cell.** The corpus is eight projects; that breadth is the sample. Never re-run a cell to average it.
+
 ### Compute the blast radius before you measure, not after
 
 A tour is one payload, and every part of it is downstream of the ranking. Changing a seed score changes the seed order; the seed order changes which flows get traced; the flows change `nearby`, `tests` and the anchors. **A change that "only reorders seeds" changes the whole payload of every cell whose ranking it touches** — measuring the cell you were fixing and calling it done is how you fix Excalidraw and silently break TypeORM and RxJS.
@@ -84,9 +94,9 @@ The offline diff tells you what _the server_ did. It does not tell you what the 
 Two things the server says are load-bearing, and both must be _true_, not persuasive:
 
 - **The audit** claims every fact was checked. It has to have been.
-- **`next`** claims the result is complete (`answer`) or partial (`inspect`). A tour that covers two of the five stages a question named and still says `answer` is lying, and the models that drill after it are right to. Fix the claim, not the model.
+- **`next`** may only carry what the server can establish about the request it answered: a handle that named several nodes, a handle that named none, a path that does not exist and the junction that does. It may not claim to know what the question _meant_ or whether the result _covered_ it. That claim was once made by matching the question's words against identifier names, and it reported "handling" missing from shopping-backend's tour on the strength of `handlePayment` — while the audit in the same payload promised a result with nothing "matched, ranked, or inferred" in it. A question names concepts and a graph holds identifiers; no lexical rule bridges the two.
 
-Never buy tokens with an instruction that suppresses a legitimate follow-up. If the tour is incomplete, saying "answer and stop" only makes the answer worse — and a benchmark that rewards that is measuring the wrong thing.
+Never buy tokens with an instruction that suppresses a legitimate follow-up, and never spend one with an instruction that invents a reason to drill. `RESULT_AUDIT` ends "re-call the graph only when `next` says inspect", so a false `inspect` does not merely misdirect the model — it lifts the stop rule.
 
 ### Fixing one cell is not a result
 

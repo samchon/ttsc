@@ -7,7 +7,7 @@ import { ITtscGraphDetails } from "../structures/ITtscGraphDetails";
 import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
-import { isExternalNode } from "./pathPolicy";
+import { isExternalNode, isTestPath } from "./pathPolicy";
 import { resolveGraphHandle } from "./resolveHandle";
 import { IRunnerOutput, resultNext } from "./resultNext";
 
@@ -463,11 +463,24 @@ function bound(
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
+/**
+ * Which references a capped list keeps.
+ *
+ * Kind leads: what a symbol calls says more about it than what it names in a
+ * type position. Within a kind the source order decides, which is a stable
+ * tiebreak and nothing more — so a symbol with two hundred callers used to
+ * answer with whichever two happened to be written nearest the top of their
+ * file, and for Excalidraw's `mutateElement` those two were a sort test and a
+ * duplication test. A test is not who runs the code in production, and the tour
+ * already carries the tests it found in a section of their own, so a reference
+ * from a test file ranks below every reference from the code under test.
+ */
 function refRank(
   ref: ITtscGraphDetails.IReference,
   edge: ITtscGraphEdge,
 ): number {
   return (
+    (isTestPath(ref.file) ? 1 : 0) * 10_000_000 +
     edgeKindRank(edge.kind) * 100_000 +
     evidenceRank(edge) +
     (ref.file.startsWith("bundled://") ? 20_000 : 0)

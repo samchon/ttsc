@@ -18,7 +18,6 @@ const MAX_LIMIT = 5;
 const FLOW_SEEDS = 4;
 /** How many ranked seeds deep to look for flows that actually move. */
 const FLOW_SEED_CANDIDATES = 4;
-const DETAIL_SEEDS = 3;
 const TEST_SEEDS = 3;
 const MAX_FLOW_ANCHORS = 8;
 const MAX_NEARBY = 10;
@@ -162,6 +161,7 @@ export function runTour(
   // so keep the first and walk on to one that tells something else.
   const primaryFlow: ITtscGraphTour.IFlow[] = [];
   const told: Set<string>[] = [];
+
   for (const id of flowSeedIdsOf(
     tourSeedsOf(graph, entry, query, limit * FLOW_SEED_CANDIDATES),
   )) {
@@ -187,18 +187,19 @@ export function runTour(
     const steps = hops
       .slice(0, MAX_FLOW_ANCHORS)
       .map((hop) => flowStepOf(graph, hop));
-    // A step already names both of its ends and the file and line the call sits
-    // on: `App.render -[calls at App.tsx:2093]-> renderScene`. Listing those
-    // nodes again with their coordinates, and then a third time as anchors, is
-    // the same fact bought three times — two thirds of a 30 KB tour, re-charged
-    // on every turn it stays in context, and a specific-flow question can spend
-    // a dozen calls. So `reached` carries what the steps did not name, and the
-    // step keeps the citation it already had.
-    const named = namesIn(steps);
+    // Every node the flow reached is listed, including the ones its steps name.
+    // A step is prose — `App.render -[calls at App.tsx:2093]-> renderScene` — and
+    // it carries the name and the citation but not the *handle*, and the handle
+    // is what a second call needs. Holding back the nodes the steps had named
+    // took their ids away with them: Sonnet traced `mutateElement` by name, got
+    // the several nodes that name, and re-traced it by id — two calls for one
+    // symbol, four times over in a single Excalidraw tour, which went from five
+    // graph calls to fifteen. What `reached` is for is not the story, which the
+    // steps tell; it is the handles to go on with.
     primaryFlow.push({
       start: flowStartOf(start),
       steps,
-      reached: reached.filter((node) => !named.has(node.name)).map(traceNodeOf),
+      reached: reached.map(traceNodeOf),
       ...(trace.truncated ? { truncated: true } : {}),
     });
   }
@@ -208,7 +209,7 @@ export function runTour(
       ? undefined
       : runDetails(graph, {
           type: "details",
-          handles: seedIds.slice(0, DETAIL_SEEDS),
+          handles: seedIds,
           neighbors: true,
           memberLimit: 4,
           dependencyLimit: 2,
@@ -252,116 +253,48 @@ export function runTour(
         ? { truncated: true }
         : {}),
     },
-    next: tourNext(graph, query, seeds, primaryFlow),
+    next: tourNext(),
   };
 }
 
 /**
- * What the tour honestly leaves for a second call.
+ * What the tour says it is.
  *
- * The tour used to say `answer` — "the tour covers the question" — on every
- * result, including the ones that plainly did not. Excalidraw's question names
- * the pointer, the mutation, the history, the rendering and the collaboration;
- * the tour has five seed slots, two of them go to renderers, and the history
- * layer is a mid-level sink that no ranking will lift into a seed. It said
- * `answer` anyway, and Sonnet, which does not take that on faith, went and
- * found the missing stages itself: twelve calls, none of them re-asking
- * anything the tour had given, every one of them reaching a stage the tour had
- * not.
+ * It used to say what it had _covered of the question_, and it could not know
+ * that. The claim was decided by matching the question's words against
+ * identifier names: a word the tour's own symbols did not spell, and for which
+ * some symbol somewhere in the graph did, came back as a stage the tour owed
+ * the reader — `inspect`, with the tool description telling the model to make
+ * exactly the one request it names.
  *
- * A server that claims completeness it does not have teaches the model to
- * distrust the claim. So the tour now says what it did not cover, when the
- * thing it did not cover exists: a stage the question named, for which the
- * graph holds a symbol, that no seed and no flow touched. `inspect` names the
- * one request that closes the gap, and `answer` is reserved for the tours that
- * earned it.
+ * What that string match actually found, on the corpus: shopping-backend's
+ * question says "from request handling through auth, provider logic, Prisma",
+ * and the tour reported "handling" missing on the strength of `handlePayment`
+ * and `handleCancel`, two deposit and order helpers with nothing to do with
+ * handling a request. Vue's says "a component/template read", and "template"
+ * came back missing because the compiler's AST has a `TemplateLiteral`. Zod's
+ * ends "the returned result", and `ParseResult.data` made "result" a stage. In
+ * five of the eight project-specific tours the server reported a hole it did
+ * not have and spent the model a call on it — and the drill-down started there:
+ * shopping-backend's eight follow-ups open with the `lookup` this `next` asked
+ * for.
  *
- * The bar is deliberately narrow. A question word with no symbol behind it is
- * not a missing stage, it is a word — turning every unmatched noun into an
- * `inspect` would invite a second call from the models that need none (Opus and
- * both Codex tiers answer these questions in one).
+ * The failure is not a threshold. A question names concepts and a graph holds
+ * identifiers, and no lexical rule bridges the two: "request handling" is not
+ * `handlePayment` and never will be. The server cannot know what the question
+ * means, so it cannot know whether it answered it — and the audit riding in the
+ * same payload says as much, promising a result with nothing "matched, ranked,
+ * or inferred" in it.
+ *
+ * So the tour states what it returned, which is a fact, and leaves what to do
+ * with it to the reader, which was never the server's to decide. A tour that
+ * misses what the reader needs is a tour the reader keeps asking past — and the
+ * models do exactly that, without being told to.
  */
-function tourNext(
-  graph: TtscGraphMemory,
-  query: string,
-  seeds: ITtscGraphNode[],
-  flows: ITtscGraphTour.IFlow[],
-): ITtscGraphNext {
-  const uncovered = uncoveredStages(graph, query, seeds, flows);
-  if (uncovered.length === 0)
-    return resultNext(
-      "answer",
-      "The tour covers the question: its entrypoints, flow, nearby paths, tests, and anchors are the orientation answer.",
-    );
+function tourNext(): ITtscGraphNext {
   return resultNext(
-    "inspect",
-    `The tour covers the question except for what it names as ${uncovered.join(" and ")}: the graph holds symbols for that, and no entrypoint or flow above reaches them. Look those up once, then answer from both results.`,
-    "lookup",
-  );
-}
-
-/**
- * How close to the tour's weakest chosen seed a symbol must score before the
- * stage it belongs to counts as one the tour owes the reader.
- */
-const STAGE_FLOOR = 0.75;
-
-/**
- * The terms of the question that name something the graph has and the tour did
- * not surface.
- */
-function uncoveredStages(
-  graph: TtscGraphMemory,
-  query: string,
-  seeds: ITtscGraphNode[],
-  flows: ITtscGraphTour.IFlow[],
-): string[] {
-  const terms = queryTermsOf(graph, query);
-  if (terms.length === 0) return [];
-
-  const told = new Set<string>();
-  for (const seed of seeds)
-    for (const term of matchedQueryTerms(seed, terms)) told.add(term);
-  const flowNames = flows.flatMap((flow) => [
-    flow.start.name,
-    ...flow.reached.map((node) => node.name),
-    ...flow.steps,
-  ]);
-  for (const term of matchedTerms(
-    flowNames.flatMap((name) => subwords(name)),
-    terms,
-  ))
-    told.add(term);
-
-  const missing = terms.filter((term) => !told.has(term));
-  if (missing.length === 0 || seeds.length === 0) return [];
-
-  // A stage is missing only when the graph holds a symbol for it that stands
-  // comparison with the symbols the tour did choose. Every other word of the
-  // question has *some* identifier behind it in a large repository — TypeORM has
-  // an "orm" in a hundred names, VS Code has a "communicate" — and calling those
-  // missing stages would put an `inspect` on every tour, which costs the models
-  // that answer these questions in a single call (Opus, both Codex tiers) a
-  // second one for nothing.
-  //
-  // The bar is the weakest seed the tour did select: a stage the question named,
-  // whose best symbol would have belonged among the entrypoints had a slot been
-  // free, is a stage the tour owes the reader. Comparing against the tour's own
-  // choices keeps the bar scale-free — no threshold to tune per repository.
-  const seedFloor = Math.min(
-    ...seeds.map((seed) => tourSeedScore(graph, seed, terms)),
-  );
-  const best = new Map<string, number>();
-  for (const node of graph.nodes) {
-    if (!isTourSeed(graph, node)) continue;
-    const matched = matchedQueryTerms(node, missing);
-    if (matched.size === 0) continue;
-    const score = tourSeedScore(graph, node, terms);
-    for (const term of matched)
-      if (score > (best.get(term) ?? 0)) best.set(term, score);
-  }
-  return missing.filter(
-    (term) => (best.get(term) ?? 0) >= seedFloor * STAGE_FLOOR,
+    "answer",
+    "This is what the graph holds for the query: the entrypoints it ranked, the flows they run, the paths and tests around them, and the anchors to cite. Nothing in it needs verifying, and anything past it is another request.",
   );
 }
 
@@ -379,8 +312,17 @@ function tourSeedsOf(
     seen.add(node.id);
     out.push(node);
   };
+  // A symbol the question names is an entrypoint of the tour, and a name the
+  // project declares more than once is not a name the project does not declare.
+  // Zod's question says `schema.parse`; the graph holds three `parse`s, so the
+  // mention came back as candidates rather than a node, and the tour dropped it
+  // and opened on `fromJSONSchema` — the model's first move was to go and trace
+  // `ZodType.parse` itself. The candidates arrive ranked by what the package
+  // publishes, and a tour is a ranked product: take the reading the ranking put
+  // first, which is the one a reader means.
   for (const mention of entry.mentions) {
-    add(mention.node === undefined ? undefined : graph.node(mention.node.id));
+    const named = mention.node ?? mention.candidates?.[0];
+    add(named === undefined ? undefined : graph.node(named.id));
   }
   if (hasExplicitSymbolHandle(query)) {
     for (const hit of entry.hits) add(graph.node(hit.id));
@@ -424,26 +366,33 @@ function graphNodeOf(
 }
 
 /**
- * A node a flow reached, as a coordinate only. Its span and signature are
+ * A node a flow reached, as its handle and its line. Its span and signature are
  * already in the flow's `steps` and `anchors`, and carrying them a second time
  * cost half the tour's payload — enough that a client which caps a tool result
  * spilled the whole thing to a file, and the model shelled out to read back its
- * own answer. The flow's start keeps the full node; the chain behind it does
- * not need one.
+ * own answer.
+ *
+ * The file and the kind went the same way, for the same reason: a node id _is_
+ * `path/to/file.ts#Owner.member:kind`, so a reached node that also carried them
+ * bought one fact three times, and the flows are two thirds of a tour that is
+ * re-sent whole on every turn of the conversation it opened. The flow's start
+ * keeps the full node; the chain behind it does not need one.
  */
-function traceNodeOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
+function traceNodeOf(node: ITtscGraphTrace.INode): ITtscGraphTour.IReached {
   return {
     id: node.id,
     name: node.name,
-    kind: node.kind,
-    file: node.file,
     ...(node.line !== undefined ? { line: node.line } : {}),
   };
 }
 
 function flowStartOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
   return {
-    ...traceNodeOf(node),
+    id: node.id,
+    name: node.name,
+    kind: node.kind,
+    file: node.file,
+    ...(node.line !== undefined ? { line: node.line } : {}),
     ...(node.sourceSpan !== undefined
       ? {
           sourceSpan: {
@@ -668,18 +617,6 @@ function overlaps(candidate: Set<string>, told: Set<string>): boolean {
   let shared = 0;
   for (const id of smaller) if (larger.has(id)) shared++;
   return shared / smaller.size >= FLOW_OVERLAP;
-}
-
-/** The symbol names a flow's steps already carry. */
-function namesIn(steps: string[]): Set<string> {
-  const names = new Set<string>();
-  for (const step of steps) {
-    const match = /^(.+?) -[.+?]-> (.+)$/.exec(step);
-    if (match === null) continue;
-    names.add(match[1]!.trim());
-    names.add(match[2]!.trim());
-  }
-  return names;
 }
 
 function isTourTraceNode(
@@ -1187,17 +1124,40 @@ function commonPrefixLength(a: string, b: string): number {
   return i;
 }
 
+/**
+ * The code paths around each selected symbol: what runs it, what it runs, and
+ * what it is declared against — in that order, once each.
+ *
+ * `dependsOn` is the union of what a symbol calls and what it names in a type
+ * position, so walking `calls`, then `types`, then `dependsOn` listed the same
+ * neighbour under three labels, and the ten nearby slots of Excalidraw's edit
+ * tour went: `_renderInteractiveScene` as a call, `_renderInteractiveScene` as
+ * a type, `InteractiveSceneRenderConfig` as a type, and the same again for the
+ * next symbol. Two of five stages consumed the whole list, and the stage the
+ * reader would have to look up next — who calls the mutation — was not in it.
+ * Sonnet then asked the graph "who calls this" thirteen times.
+ *
+ * So a neighbour is named once, and the callers come first. A tour follows what
+ * runs; a type reference is the weakest thing a symbol can say about itself,
+ * and it goes last, where the cap can drop it without dropping a call path.
+ */
 function nearbyAnchorsOf(details: ITtscGraphDetails): ITtscGraphTour.IAnchor[] {
-  const anchors: ITtscGraphTour.IAnchor[] = [];
-  for (const node of details.nodes) {
-    anchors.push(...anchorFromNode("selected symbol", detailNodeOf(node)));
+  const perNode = details.nodes.map((node) => {
+    // The selected symbol is not near itself. It is an entrypoint, with its
+    // span, its signature and its doc, and it is an answer anchor under that
+    // name — a third copy here spent half the nearby list saying what the top
+    // of the tour already said.
+    const anchors: ITtscGraphTour.IAnchor[] = [];
+    const named = new Set<string>([node.name]);
     for (const ref of [
+      ...(node.dependedOnBy ?? []),
       ...(node.calls ?? []),
-      ...(node.types ?? []),
       ...(node.implementedBy ?? []),
       ...(node.dependsOn ?? []),
-      ...(node.dependedOnBy ?? []),
+      ...(node.types ?? []),
     ]) {
+      if (named.has(ref.name)) continue;
+      named.add(ref.name);
       anchors.push(
         ...anchorFromEvidence(
           `${ref.relation} ${ref.name}`,
@@ -1206,31 +1166,24 @@ function nearbyAnchorsOf(details: ITtscGraphDetails): ITtscGraphTour.IAnchor[] {
         ),
       );
     }
-  }
-  return uniqueAnchors(anchors);
-}
+    return anchors;
+  });
 
-function detailNodeOf(node: ITtscGraphDetails.INode): ITtscGraphTour.INode {
-  return {
-    id: node.id,
-    name: node.name,
-    kind: node.kind,
-    file: node.file,
-    ...(node.line !== undefined ? { line: node.line } : {}),
-    ...(node.sourceSpan !== undefined
-      ? {
-          sourceSpan: {
-            file: node.sourceSpan.file,
-            startLine: node.sourceSpan.startLine,
-            ...(node.sourceSpan.endLine !== undefined
-              ? { endLine: node.sourceSpan.endLine }
-              : {}),
-          },
-        }
-      : {}),
-    ...(node.signature !== undefined ? { signature: node.signature } : {}),
-    ...(node.decorators !== undefined ? { decorators: node.decorators } : {}),
-  };
+  // A stage at a time, not a symbol at a time. The list is capped, and taken
+  // symbol by symbol the first one's neighbourhood filled it: Excalidraw's
+  // renderer spent six of the ten slots on its own callees and types, and the
+  // mutation, the history and the collaboration the question named got none.
+  const anchors: ITtscGraphTour.IAnchor[] = [];
+  const told = new Set<string>();
+  const depth = Math.max(0, ...perNode.map((list) => list.length));
+  for (let index = 0; index < depth; index++)
+    for (const list of perNode) {
+      const anchor = list[index];
+      if (anchor === undefined || told.has(anchor.name)) continue;
+      told.add(anchor.name);
+      anchors.push(anchor);
+    }
+  return uniqueAnchors(anchors);
 }
 
 /**

@@ -22,6 +22,22 @@ const MAX_IMPACT_DEPTH = 4;
 const MAX_IMPACT_NODES = 16;
 const MAX_HOPS_PER_NODE = 2;
 const MAX_STEPS = 12;
+const EXECUTION_KINDS = new Set<string>([
+  "calls",
+  "instantiates",
+  "accesses",
+  "renders",
+]);
+const DISPATCH_KINDS = new Set<string>(["overrides", "implements"]);
+// An interface the codebase implements everywhere — a disposable, a listener, a
+// lifecycle hook — is not a step in one flow, and naming its implementors is a
+// dump of the codebase rather than an answer. Past this many, the declaration
+// stays a leaf and `details` answers `implementedBy` for a caller that wants the
+// list. The cut is the graph's existing definition of a hub (see
+// `isSharedUtility`): across the benchmark corpus it follows 84–100% of dispatch
+// sites per project and refuses only the genuinely polymorphic ones (zod's
+// 36-way schema interface, VS Code's 533-way disposable).
+const DISPATCH_HUB = 12;
 
 /**
  * Breadth-first trace along the dependency graph. Structural
@@ -193,7 +209,9 @@ export function runTrace(
       }
       const edges = orderedEdges(
         graph,
-        reverse ? graph.incoming(id) : graph.outgoing(id),
+        reverse
+          ? graph.incoming(id)
+          : [...graph.outgoing(id), ...dispatchEdges(graph, id, focus)],
         direction,
         reverse,
       );
@@ -389,7 +407,10 @@ function findPath(
     const next: Array<{ id: string; depth: number }> = [];
     for (const { id, depth } of queue) {
       if (depth >= maxDepth) continue;
-      for (const edge of graph.outgoing(id)) {
+      for (const edge of [
+        ...graph.outgoing(id),
+        ...dispatchEdges(graph, id, focus),
+      ]) {
         if (!traversable(edge.kind, focus)) continue;
         const otherId = edge.to;
         if (visited.has(otherId)) continue;
@@ -535,6 +556,55 @@ function summary(
   return out;
 }
 
+/**
+ * The implementations a call that lands here actually runs.
+ *
+ * A call resolved to an abstract method or an interface member lands on a
+ * declaration with no body. A forward walk stops there — and the code that
+ * executes is one _incoming_ `overrides`/`implements` edge away, which no
+ * forward traversal crosses. NestJS's whole request pipeline sits behind one:
+ * `ContextCreator.createContext` calls the abstract `createConcreteContext`,
+ * and the guards, pipes and interceptors contexts are its overrides, so the
+ * graph said a request reaches an abstract declaration and stops, and the guard
+ * it runs was reachable from nothing but its own unit test. Between 1% and 8%
+ * of every called symbol in the benchmark projects is such a declaration; every
+ * codebase with an abstract base, a strategy, an adapter or a visitor has
+ * them.
+ *
+ * So the walk dispatches: a called declaration with no body continues in the
+ * implementations that have one, as a `dispatches` hop cited at the
+ * implementation — which is the fact, since the call site named the base and
+ * the runtime lands in the override.
+ */
+function dispatchEdges(
+  graph: TtscGraphMemory,
+  id: string,
+  focus: ITtscGraphTrace.IRequest["focus"],
+): ITtscGraphEdge[] {
+  if (focus === "types" || hasExecutionBody(graph, id)) return [];
+  const out: ITtscGraphEdge[] = [];
+  for (const edge of graph.incoming(id)) {
+    if (!DISPATCH_KINDS.has(edge.kind)) continue;
+    const implementation = graph.node(edge.from);
+    if (implementation === undefined || !hasExecutionBody(graph, edge.from))
+      continue;
+    out.push({
+      from: id,
+      to: edge.from,
+      kind: "dispatches",
+      ...(edge.evidence !== undefined ? { evidence: edge.evidence } : {}),
+    });
+  }
+  return out.length >= DISPATCH_HUB ? [] : out;
+}
+
+/** Whether the declaration has a body: something it calls, reads, or renders. */
+function hasExecutionBody(graph: TtscGraphMemory, id: string): boolean {
+  for (const edge of graph.outgoing(id))
+    if (EXECUTION_KINDS.has(edge.kind)) return true;
+  return false;
+}
+
 /** An edge the trace should follow: a real dependency, not a structural edge. */
 function traversable(
   kind: string,
@@ -543,6 +613,7 @@ function traversable(
   if (kind === "contains" || kind === "exports" || kind === "imports") {
     return false;
   }
+  if (kind === "dispatches") return focus !== "types";
   if (focus === "execution") {
     return (
       kind === "calls" ||
@@ -567,6 +638,11 @@ function edgeKindRank(kind: string): number {
   switch (kind) {
     case "calls":
       return 0;
+    // Where a call landed on a declaration, the implementation it dispatches to
+    // is the continuation of that call, not an afterthought behind the
+    // declaration's type references.
+    case "dispatches":
+      return 1;
     case "instantiates":
       return 1;
     case "renders":

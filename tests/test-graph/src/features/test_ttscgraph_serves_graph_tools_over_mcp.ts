@@ -347,7 +347,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       primaryFlow: {
         start: { name: string };
         steps: string[];
-        reached: { name: string }[];
+        reached: { id: string; name: string }[];
         anchors: { file: string; startLine: number; source?: string }[];
       }[];
       tests: { file: string; startLine: number; source?: string }[];
@@ -370,14 +370,20 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       tour.entrypoints.some((node) => node.name === "Service.run"),
       `tour includes central entrypoints: ${JSON.stringify(tour.entrypoints)}`,
     );
+    // A step is prose: it names both of its ends and the file and line the call
+    // sits on, but it carries no handle. So every node the flow reached is listed
+    // with its id, including the ones the steps name — that id is what a second
+    // call is made with.
     assert.ok(
       tour.primaryFlow.some(
         (flow) =>
           flow.start.name === "Service.run" &&
-          flow.reached.some((node) => node.name === "helper") &&
-          flow.steps.some((step) => step.includes("helper")),
+          flow.steps.some((step) => step.includes("helper")) &&
+          flow.reached.some(
+            (node) => node.name === "helper" && node.id.includes("app.ts#"),
+          ),
       ),
-      `tour includes source-free primary flow: ${JSON.stringify(tour.primaryFlow)}`,
+      `tour includes source-free primary flow with handles: ${JSON.stringify(tour.primaryFlow)}`,
     );
     assert.ok(
       tour.primaryFlow.every(
