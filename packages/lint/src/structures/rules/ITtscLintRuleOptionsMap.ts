@@ -8,6 +8,8 @@ import type {
 } from "./ITtscLintBoundariesRuleOptions";
 import type {
   ITtscLintCoreNoDuplicateImportsRuleOptions,
+  ITtscLintCoreNoEmptyFunctionRuleOptions,
+  ITtscLintCoreNoEmptyRuleOptions,
   ITtscLintCoreNoPromiseExecutorReturnRuleOptions,
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
   ITtscLintCorePreferConstRuleOptions,
@@ -66,6 +68,8 @@ import type {
 export interface ITtscLintRuleOptionsMap {
   "typescript/no-floating-promises": ITtscLintTypeScriptNoFloatingPromisesRuleOptions;
   "no-duplicate-imports": ITtscLintCoreNoDuplicateImportsRuleOptions;
+  "no-empty": ITtscLintCoreNoEmptyRuleOptions;
+  "no-empty-function": ITtscLintCoreNoEmptyFunctionRuleOptions;
   "no-promise-executor-return": ITtscLintCoreNoPromiseExecutorReturnRuleOptions;
   "no-unused-expressions": ITtscLintCoreNoUnusedExpressionsRuleOptions;
   "no-fallthrough": ITtscLintNoFallthroughRuleOptions;

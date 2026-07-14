@@ -31,8 +31,11 @@ func (noEmptyStaticBlock) Check(ctx *Context, node *shimast.Node) {
     return
   }
   body := block.Body.AsBlock()
-  if body == nil || body.Statements == nil || len(body.Statements.Nodes) == 0 {
-    ctx.Report(node, "Unexpected empty static block.")
+  if body == nil || body.Statements != nil && len(body.Statements.Nodes) != 0 {
+    return
+  }
+  if !emptyBracedBodyHasComment(ctx.File, block.Body) {
+    ctx.Report(block.Body, "Unexpected empty static block.")
   }
 }
 

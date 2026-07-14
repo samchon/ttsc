@@ -244,12 +244,12 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-duplicate-case`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-duplicate-case.ts): rejects duplicate `switch` case labels.
 - [`no-duplicate-imports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-duplicate-imports.ts): reject a repeated module specifier when the import declarations could be merged into one; `allowSeparateTypeImports` and `includeExports` match the ESLint options.
 - [`no-else-return`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-else-return.ts): reject an `else` block whose preceding `if` branch already terminates with `return`, `throw`, `break`, or `continue`.
-- [`no-empty`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty.ts): rejects empty blocks.
+- [`no-empty`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty.ts): rejects uncommented empty blocks and switches; `allowEmptyCatch` accepts empty catches.
 - [`no-empty-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-character-class.ts): rejects empty regex character classes.
-- [`no-empty-function`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-function.ts): rejects empty functions.
+- [`no-empty-function`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-function.ts): rejects uncommented empty functions unless their category is allowed.
 - [`no-empty-named-blocks`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-named-blocks.ts): rejects empty named import/export clauses (`import {} from "x"`, `export {}`).
 - [`no-empty-pattern`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-pattern.ts): rejects empty destructuring patterns.
-- [`no-empty-static-block`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-static-block.ts): rejects empty class static blocks.
+- [`no-empty-static-block`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-static-block.ts): rejects uncommented empty class static blocks.
 - [`no-eq-null`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-eq-null.ts): rejects loose null comparisons.
 - [`no-eval`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-eval.ts): rejects `eval`.
 - [`no-ex-assign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-ex-assign.ts): rejects reassignment of caught exceptions.

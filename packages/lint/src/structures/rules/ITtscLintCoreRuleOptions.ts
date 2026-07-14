@@ -26,6 +26,46 @@ export interface ITtscLintCoreNoDuplicateImportsRuleOptions {
   includeExports?: boolean;
 }
 
+/** `no-empty` rule options. */
+export interface ITtscLintCoreNoEmptyRuleOptions {
+  /**
+   * Allow a catch clause with no statements or interior comment. Other empty
+   * blocks remain reportable.
+   *
+   * @default false
+   */
+  allowEmptyCatch?: boolean;
+}
+
+/** Function categories accepted by `no-empty-function`. */
+export type TtscLintCoreNoEmptyFunctionAllow =
+  | "functions"
+  | "arrowFunctions"
+  | "generatorFunctions"
+  | "methods"
+  | "generatorMethods"
+  | "getters"
+  | "setters"
+  | "constructors"
+  | "asyncFunctions"
+  | "asyncMethods"
+  | "privateConstructors"
+  | "protectedConstructors"
+  | "decoratedFunctions"
+  | "overrideMethods";
+
+/** `no-empty-function` rule options. */
+export interface ITtscLintCoreNoEmptyFunctionRuleOptions {
+  /**
+   * Function categories that may have an empty, uncommented block body.
+   * TypeScript parameter-property constructors are always accepted because
+   * their parameters initialize fields even when the block has no statements.
+   *
+   * @default []
+   */
+  allow?: TtscLintCoreNoEmptyFunctionAllow[];
+}
+
 /**
  * `no-unused-expressions` rule options.
  *

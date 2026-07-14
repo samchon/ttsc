@@ -44,12 +44,12 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-duplicate-case`](#rule-no-duplicate-case): Reject the same `case` label appearing twice in a `switch`, later duplicates are unreachable.
 - [`no-duplicate-imports`](#rule-no-duplicate-imports): Reject a repeated module specifier when the import declarations could be merged into one legal declaration.
 - [`no-else-return`](#rule-no-else-return): Reject an `else` block whose preceding `if` branch already terminates control flow with `return`, `throw`, `break`.
-- [`no-empty`](#rule-no-empty): Reject empty blocks that almost always indicate forgotten code.
+- [`no-empty`](#rule-no-empty): Reject uncommented empty blocks and switches.
 - [`no-empty-character-class`](#rule-no-empty-character-class): Reject empty regex character classes.
-- [`no-empty-function`](#rule-no-empty-function): Reject empty function and method bodies.
+- [`no-empty-function`](#rule-no-empty-function): Reject uncommented empty function and method bodies unless their category is allowed.
 - [`no-empty-named-blocks`](#rule-no-empty-named-blocks): Reject empty named import or export clauses, `import {} from "x"`, `import name, {} from "x"`, and `export {}`.
 - [`no-empty-pattern`](#rule-no-empty-pattern): Reject empty destructuring patterns.
-- [`no-empty-static-block`](#rule-no-empty-static-block): Reject empty `static {}` class initialization blocks.
+- [`no-empty-static-block`](#rule-no-empty-static-block): Reject uncommented empty `static {}` class initialization blocks.
 - [`no-eq-null`](#rule-no-eq-null): Reject loose null comparisons.
 - [`no-eval`](#rule-no-eval): Reject `eval(...)` and indirect `eval` calls, almost always a security or correctness bug.
 - [`no-ex-assign`](#rule-no-ex-assign): Reject reassigning the parameter of a `catch` clause.
@@ -1152,7 +1152,9 @@ function describe(kind: string): string {
 
 ### `no-empty`
 
-Reject empty blocks (`if (x) {}`, `while (x) {}`, `try {} catch (e) {}` etc.) that almost always indicate forgotten code.
+Reject empty blocks and switches that have no interior comment. Empty catch
+clauses are reported by default; set `allowEmptyCatch` to `true` when silently
+ignoring caught errors is an established project convention.
 
 Example:
 
@@ -1162,6 +1164,16 @@ function f(x: number) {
   if (x === 0) {
   }
 }
+```
+
+```ts filename="ttsc.lint.config.ts"
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-empty": ["error", { allowEmptyCatch: true }],
+  },
+} satisfies ITtscLintConfig;
 ```
 
 <a id="rule-no-empty-character-class"></a>
@@ -1184,9 +1196,10 @@ const r = /[]/;
 
 ### `no-empty-function`
 
-Reject empty function and method bodies (`function f() {}`, `() => {}`).
-
-Use `() => undefined` or a leading TODO comment when the empty body is intentional.
+Reject empty function bodies that have no interior comment. The `allow` option
+accepts the same function, arrow, generator, method, accessor, constructor,
+async, decorator, and override categories as ESLint. TypeScript parameter-property
+constructors are always accepted because their parameters initialize fields.
 
 Example:
 
@@ -1194,6 +1207,19 @@ Example:
 // reports: no-empty-function (error)
 function f(): void {}
 f();
+```
+
+```ts filename="ttsc.lint.config.ts"
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-empty-function": [
+      "error",
+      { allow: ["constructors", "overrideMethods"] },
+    ],
+  },
+} satisfies ITtscLintConfig;
 ```
 
 <a id="rule-no-empty-named-blocks"></a>
@@ -1233,7 +1259,8 @@ f({ a: 1 });
 
 ### `no-empty-static-block`
 
-Reject empty `static {}` class initialization blocks.
+Reject empty `static {}` class initialization blocks unless an interior comment
+documents why the block is intentionally empty.
 
 Example:
 

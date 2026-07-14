@@ -4,6 +4,8 @@ import type {
 } from "../TtscLintRuleSetting";
 import type {
   ITtscLintCoreNoDuplicateImportsRuleOptions,
+  ITtscLintCoreNoEmptyFunctionRuleOptions,
+  ITtscLintCoreNoEmptyRuleOptions,
   ITtscLintCoreNoPromiseExecutorReturnRuleOptions,
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
   ITtscLintCorePreferConstRuleOptions,
@@ -478,12 +480,12 @@ export interface ITtscLintCoreRules {
   "no-else-return"?: TtscLintRuleSetting;
 
   /**
-   * Reject empty blocks (`if (x) {}`, `while (x) {}`, `try {} catch (e) {}`
-   * etc.) that almost always indicate forgotten code.
+   * Reject empty, uncommented blocks and switches. Set `allowEmptyCatch` to
+   * accept an uncommented empty catch clause; its default is `false`.
    *
    * @reference https://eslint.org/docs/latest/rules/no-empty
    */
-  "no-empty"?: TtscLintRuleSetting;
+  "no-empty"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoEmptyRuleOptions>;
 
   /**
    * Reject empty regex character classes (`[]`).
@@ -496,14 +498,13 @@ export interface ITtscLintCoreRules {
   "no-empty-character-class"?: TtscLintRuleSetting;
 
   /**
-   * Reject empty function and method bodies (`function f() {}`, `() => {}`).
-   *
-   * Use `() => undefined` or a leading TODO comment when the empty body is
-   * intentional.
+   * Reject empty, uncommented function bodies. The `allow` option accepts
+   * canonical function, method, accessor, constructor, async, generator,
+   * decorator, and override categories.
    *
    * @reference https://eslint.org/docs/latest/rules/no-empty-function
    */
-  "no-empty-function"?: TtscLintRuleSetting;
+  "no-empty-function"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoEmptyFunctionRuleOptions>;
 
   /**
    * Reject empty named import or export clauses — `import {} from "x"`, `import
