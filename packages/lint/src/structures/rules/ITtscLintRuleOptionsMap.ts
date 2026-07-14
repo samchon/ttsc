@@ -44,7 +44,10 @@ import type {
   ITtscLintTypeScriptNoRestrictedTypesRuleOptions,
   ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions,
 } from "./ITtscLintTypeScriptRuleOptions";
-import type { ITtscLintUnicornPreventAbbreviationsRuleOptions } from "./ITtscLintUnicornRuleOptions";
+import type {
+  ITtscLintUnicornPreventAbbreviationsRuleOptions,
+  ITtscLintUnicornTemplateIndentRuleOptions,
+} from "./ITtscLintUnicornRuleOptions";
 
 /**
  * Index from typed rule name to its single options-object slot.
@@ -70,6 +73,7 @@ import type { ITtscLintUnicornPreventAbbreviationsRuleOptions } from "./ITtscLin
  * surface.
  */
 export interface ITtscLintRuleOptionsMap {
+  "unicorn/template-indent": ITtscLintUnicornTemplateIndentRuleOptions;
   "typescript/no-floating-promises": ITtscLintTypeScriptNoFloatingPromisesRuleOptions;
   "no-duplicate-imports": ITtscLintCoreNoDuplicateImportsRuleOptions;
   "no-empty": ITtscLintCoreNoEmptyRuleOptions;

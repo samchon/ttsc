@@ -2,7 +2,10 @@ import type {
   TtscLintRuleOptionsSetting,
   TtscLintRuleSetting,
 } from "../TtscLintRuleSetting";
-import type { ITtscLintUnicornPreventAbbreviationsRuleOptions } from "./ITtscLintUnicornRuleOptions";
+import type {
+  ITtscLintUnicornPreventAbbreviationsRuleOptions,
+  ITtscLintUnicornTemplateIndentRuleOptions,
+} from "./ITtscLintUnicornRuleOptions";
 
 /**
  * Modernization and style rules from `eslint-plugin-unicorn`.
@@ -1126,12 +1129,12 @@ export interface ITtscLintUnicornRules {
   "unicorn/switch-case-break-position"?: TtscLintRuleSetting;
 
   /**
-   * Re-indent the body of tagged template literals (`html`, `gql`, `sql`) to
-   * the indentation of the opening backtick.
+   * Normalize selected multiline template bodies while preserving
+   * substitutions and raw escape spelling.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/template-indent.md
    */
-  "unicorn/template-indent"?: TtscLintRuleSetting;
+  "unicorn/template-indent"?: TtscLintRuleOptionsSetting<ITtscLintUnicornTemplateIndentRuleOptions>;
 
   /**
    * Enforce a canonical case for text-encoding identifiers — `"utf-8"` (not
