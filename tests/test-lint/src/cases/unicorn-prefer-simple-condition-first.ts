@@ -1,1 +1,14 @@
-// @ttsc-corpus-skip: unicorn/prefer-simple-condition-first not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const ready: boolean;
+declare function check(): boolean;
+
+if (
+  check() &&
+  // expect: unicorn/prefer-simple-condition-first error
+  ready
+) {
+  void 0;
+}
+
+if (ready && check()) {
+  void 0;
+}

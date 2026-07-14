@@ -122,7 +122,7 @@ Rules whose native port is registered but intentionally diagnostic-free are mark
 - [`unicorn/prefer-response-static-json`](#rule-unicorn-prefer-response-static-json): Prefer `Response.json(value)`.
 - [`unicorn/prefer-set-has`](#rule-unicorn-prefer-set-has): Prefer `Set#has` over `Array#includes` for repeated membership lookups against a constant collection.
 - [`unicorn/prefer-set-size`](#rule-unicorn-prefer-set-size): Prefer `Set#size` over `[...set].length` and `Array.from(set).length`.
-- [`unicorn/prefer-simple-condition-first`](#rule-unicorn-prefer-simple-condition-first): Prefer the simpler operand on the left of `&&` / `||`.
+- [`unicorn/prefer-simple-condition-first`](#rule-unicorn-prefer-simple-condition-first): Place identifier and strict-comparison gates before complex conditions in boolean `&&` / `||` chains.
 - [`unicorn/prefer-single-call`](#rule-unicorn-prefer-single-call): Prefer a single `push` / `unshift` / `classList.add` / `addEventListener` with multiple arguments.
 - [`unicorn/prefer-spread`](#rule-unicorn-prefer-spread): Prefer spread over `Array.from`, `Array.prototype.slice.call`, `concat([])`, and `split('')`.
 - [`unicorn/prefer-string-raw`](#rule-unicorn-prefer-string-raw): Prefer `String.raw` for path literals and other strings.
@@ -1926,7 +1926,11 @@ const n = [...s].length;
 
 ### `unicorn/prefer-simple-condition-first`
 
-Prefer the simpler operand on the left of `&&` / `||` so the short-circuit reads in evaluation order.
+Prefer structurally simple conditions before complex conditions in boolean `&&` / `||` chains. A simple condition is an identifier, a negated simple condition, or a strict comparison whose operands are identifiers, `typeof` identifiers, or literals. Value-producing logical expressions are not reported.
+
+The fixer uses a stable partition, retaining the relative order of all simple conditions and of all complex conditions. It fixes only when every crossed complex condition is safe to move and no comment or TypeScript wrapper owns the affected logical syntax; otherwise the rule reports a diagnostic and leaves short-circuit behavior for manual review.
+
+This rule has no options.
 
 Illustrative shape:
 
@@ -1938,7 +1942,13 @@ function isAllowed(user: { role: string }) {
 const user = { role: "admin" };
 const featureEnabled = true;
 
+// reports: unicorn/prefer-simple-condition-first (error)
 if (isAllowed(user) && featureEnabled) {
+  console.log("enabled");
+}
+
+// fixed form
+if (featureEnabled && isAllowed(user)) {
   console.log("enabled");
 }
 ```
