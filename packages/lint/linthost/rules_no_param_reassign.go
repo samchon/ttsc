@@ -164,8 +164,10 @@ func (noParamReassign) Check(ctx *Context, node *shimast.Node) {
 // A TypeScript parameter property has two symbols at one declaration: the
 // constructor-local parameter and the class member. GetSymbolAtLocation is
 // deliberately fuzzy for declaration names and may select the member, while
-// references in the constructor body resolve to the parameter. Ask the checker
-// for the explicit pair and keep the parameter half.
+// references in the constructor body resolve to the parameter. The constructor
+// locals are the canonical binding table for body references; looking up that
+// table also avoids the checker's pair API, which panics on malformed parameter
+// properties instead of returning a partial result.
 func noParamReassignParameterSymbol(
   ctx *Context,
   parameterNode *shimast.Node,
@@ -177,8 +179,7 @@ func noParamReassignParameterSymbol(
   }
   if parameterNode.Parent != nil && parameterNode.Parent.Kind == shimast.KindConstructor &&
     isParameterProperty(parameterNode) {
-    parameterSymbol, _ := ctx.Checker.GetSymbolsOfParameterPropertyDeclaration(parameterNode, name)
-    return parameterSymbol
+    return parameterNode.Parent.Locals()[name]
   }
   return ctx.Checker.GetSymbolAtLocation(nameNode)
 }
