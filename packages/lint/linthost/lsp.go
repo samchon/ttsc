@@ -325,18 +325,21 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
     fmt.Fprintln(os.Stderr, "@ttsc/lint: lsp command requires --uri")
     return nil, nil, nil, 2
   }
-  _, err := filePathFromURI(opts.uri)
+  target, err := filePathFromURI(opts.uri)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, nil, nil, 2
   }
-  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
+  rules, err := loadLSPCommandRules(
+    opts.pluginsJSON,
+    opts.cwd,
+    opts.tsconfig,
+    target,
+    includeFormatDefaults,
+  )
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, nil, nil, 2
-  }
-  if includeFormatDefaults {
-    rules = formatCommandResolver{inner: rules}
   }
   engine := NewEngineWithResolver(rules)
   prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
@@ -354,6 +357,33 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
   }
   findings := prog.runLintCycle(engine)
   return findings, prog, prog.close, 0
+}
+
+// loadLSPCommandRules constructs the resolver shared by every LSP command
+// path. Format requests use the same missing-config fallback, documented
+// defaults, editor overrides, and language precedence as the CLI formatter and
+// in-memory buffer formatter; lint-only requests retain the strict lint loader.
+// formatTarget is the real editor document even when cwd/tsconfig point at the
+// temporary workspace used by the disk execute-command path.
+func loadLSPCommandRules(
+  pluginsJSON string,
+  cwd string,
+  tsconfigPath string,
+  formatTarget string,
+  includeFormatDefaults bool,
+) (RuleResolver, error) {
+  if !includeFormatDefaults {
+    return loadRules(pluginsJSON, cwd, tsconfigPath)
+  }
+  rules, err := loadFormatRules(pluginsJSON, cwd, tsconfigPath)
+  if err != nil {
+    return nil, err
+  }
+  return newFormatCommandResolver(
+    rules,
+    filepath.Dir(formatTarget),
+    vscodeLanguageID(formatTarget),
+  )
 }
 
 func mustFilePathFromURI(uri string) string {
@@ -688,13 +718,16 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
   defer cleanup()
 
   pluginsJSON := remapLSPPluginsJSONForTempWorkspace(opts.pluginsJSON, physicalCwd, tempRoot)
-  rules, err := loadRules(pluginsJSON, tempRoot, tempTsconfig)
+  rules, err := loadLSPCommandRules(
+    pluginsJSON,
+    tempRoot,
+    tempTsconfig,
+    target,
+    opts.command == commandFormatDocument,
+  )
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
-  }
-  if opts.command == commandFormatDocument {
-    rules = formatCommandResolver{inner: rules}
   }
   engine := NewEngineWithResolver(rules)
   needsRuleChecker := engine.NeedsTypeChecker()
@@ -778,12 +811,13 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
     return nil, 0
   }
 
-  rules, err := loadFormatRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
-  if err != nil {
-    fmt.Fprintln(os.Stderr, err)
-    return nil, 2
-  }
-  resolver, err := newFormatCommandResolver(rules, filepath.Dir(target), vscodeLanguageID(target))
+  resolver, err := loadLSPCommandRules(
+    opts.pluginsJSON,
+    opts.cwd,
+    opts.tsconfig,
+    target,
+    true,
+  )
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
