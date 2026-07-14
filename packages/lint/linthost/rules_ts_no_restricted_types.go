@@ -286,13 +286,15 @@ func decodeRestrictedTypeConfig(raw json.RawMessage) (noRestrictedTypeConfig, er
   if err := decoder.Decode(&object); err != nil {
     return noRestrictedTypeConfig{}, fmt.Errorf("invalid restriction object: %w", err)
   }
-  if len(object.Message) == 0 {
-    return noRestrictedTypeConfig{}, errors.New("restriction object requires a string message")
-  }
+  // The official runtime schema keeps message optional even though its
+  // exported TypeScript object type requires one. Empty, fix-only, and
+  // suggest-only objects therefore ban with the standard diagnostic.
   var restriction noRestrictedTypeConfig
-  if !isRestrictedTypeJSONString(object.Message) ||
-    json.Unmarshal(object.Message, &restriction.message) != nil {
-    return noRestrictedTypeConfig{}, errors.New("restriction object message must be a string")
+  if len(object.Message) != 0 {
+    if !isRestrictedTypeJSONString(object.Message) ||
+      json.Unmarshal(object.Message, &restriction.message) != nil {
+      return noRestrictedTypeConfig{}, errors.New("restriction object message must be a string")
+    }
   }
   if len(object.FixWith) != 0 {
     if !isRestrictedTypeJSONString(object.FixWith) ||

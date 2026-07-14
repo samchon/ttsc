@@ -313,6 +313,86 @@ func TestNoRestrictedTypesStructuredPolicyProvidesFixAndEverySuggestion(t *testi
     "type Value = /*target*/Modern;\n",
     options,
   )
+
+  optionalFields := []struct {
+    name        string
+    typeName    string
+    policy      string
+    fixWith     string
+    suggestions []string
+  }{
+    {
+      name:     "empty object uses the default message",
+      typeName: "EmptyPolicy",
+      policy:   `{}`,
+    },
+    {
+      name:     "fix without message",
+      typeName: "FixOnly",
+      policy:   `{"fixWith":"Modern"}`,
+      fixWith:  "Modern",
+    },
+    {
+      name:        "suggestions without message",
+      typeName:    "SuggestOnly",
+      policy:      `{"suggest":["Safer","Safest"]}`,
+      suggestions: []string{"Safer", "Safest"},
+    },
+  }
+  for _, test := range optionalFields {
+    t.Run(test.name, func(t *testing.T) {
+      source := "type Value = " + test.typeName + ";\n"
+      options := json.RawMessage(
+        `{"types":{"` + test.typeName + `":` + test.policy + `}}`,
+      )
+      findings := runNoRestrictedTypes(t, source, options)
+      if len(findings) != 1 {
+        t.Fatalf("findings = %d, want 1: %+v", len(findings), findings)
+      }
+      finding := findings[0]
+      if finding.Message != "Don't use `"+test.typeName+"` as a type." {
+        t.Fatalf("default message mismatch: %+v", finding)
+      }
+      if test.fixWith == "" {
+        if len(finding.Fix) != 0 {
+          t.Fatalf("unexpected automatic fix: %+v", finding.Fix)
+        }
+      } else {
+        rewritten, applied := applyFindingFixesToText(source, findings)
+        if applied != 1 {
+          t.Fatalf("automatic fix applied %d edits, want 1", applied)
+        }
+        noRestrictedTypesAssertStableRewrite(
+          t,
+          rewritten,
+          "type Value = "+test.fixWith+";\n",
+          options,
+        )
+      }
+      if len(finding.Suggestions) != len(test.suggestions) {
+        t.Fatalf("suggestions = %+v, want %v", finding.Suggestions, test.suggestions)
+      }
+      for index, replacement := range test.suggestions {
+        suggestion := finding.Suggestions[index]
+        if suggestion.Title != "Replace `"+test.typeName+"` with `"+replacement+"`." {
+          t.Fatalf("suggestion %d title = %q", index, suggestion.Title)
+        }
+        rewritten, applied := applyFindingFixesToText(
+          source,
+          []*Finding{{Fix: suggestion.Edits}},
+        )
+        if applied != 1 {
+          t.Fatalf("suggestion %d applied %d edits, want 1", index, applied)
+        }
+        noRestrictedTypesAssertStableRewrite(
+          t,
+          rewritten,
+          "type Value = "+replacement+";\n",
+          options,
+        )
+      }
+    })
+  }
 }
 
 func TestNoRestrictedTypesFixesWholeQualifiedGenericAndEmptyTypeSurfaces(t *testing.T) {

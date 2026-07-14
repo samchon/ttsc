@@ -15,7 +15,7 @@ func noRestrictedTypesValidationEngine(options json.RawMessage) *Engine {
   })
 }
 
-func TestNoRestrictedTypesOptionsValidatorAcceptsTheCompletePublicSchema(t *testing.T) {
+func TestNoRestrictedTypesOptionsValidatorAcceptsTheCompleteOfficialRuntimeSchema(t *testing.T) {
   tests := []struct {
     name    string
     options json.RawMessage
@@ -30,6 +30,9 @@ func TestNoRestrictedTypesOptionsValidatorAcceptsTheCompletePublicSchema(t *test
         "Disabled":false,
         "Cleared":null,
         "Message":"Use Safe.",
+        "EmptyObject":{},
+        "FixOnly":{"fixWith":"Safe"},
+        "SuggestOnly":{"suggest":["Safer","Safest"]},
         "Structured":{"message":"Use Safe.","fixWith":"Safe","suggest":["Safer","Safest"]}
       }}`),
     },
@@ -62,7 +65,6 @@ func TestNoRestrictedTypesOptionsValidatorRejectsEveryMalformedSchemaBoundary(t 
     {name: "types is null", options: json.RawMessage(`{"types":null}`), want: "options.types must be an object"},
     {name: "types is array", options: json.RawMessage(`{"types":[]}`), want: "options.types must be an object"},
     {name: "numeric entry", options: json.RawMessage(`{"types":{"Banned":1}}`), want: "restriction must be a boolean, string, object, or null"},
-    {name: "object misses message", options: json.RawMessage(`{"types":{"Banned":{"fixWith":"Safe"}}}`), want: "requires a string message"},
     {name: "object has unknown key", options: json.RawMessage(`{"types":{"Banned":{"message":"Use Safe.","replacement":"Safe"}}}`), want: "unknown field"},
     {name: "message is boolean", options: json.RawMessage(`{"types":{"Banned":{"message":true}}}`), want: "message must be a string"},
     {name: "message is null", options: json.RawMessage(`{"types":{"Banned":{"message":null}}}`), want: "message must be a string"},
@@ -93,7 +95,7 @@ func TestNoRestrictedTypesExternalConfigIsValidatedWhenTheEngineBindsIt(t *testi
     "rules": map[string]any{
       noRestrictedTypesRuleName: []any{
         "error",
-        map[string]any{"types": map[string]any{"Banned": map[string]any{"fixWith": "Safe"}}},
+        map[string]any{"types": map[string]any{"Banned": map[string]any{"fixWith": true}}},
       },
     },
   }, "")
@@ -101,7 +103,7 @@ func TestNoRestrictedTypesExternalConfigIsValidatedWhenTheEngineBindsIt(t *testi
     t.Fatalf("parseExternalConfigStore: %v", err)
   }
   engine := NewEngineWithResolver(store)
-  if err := engine.ConfigError(); err == nil || !strings.Contains(err.Error(), "requires a string message") {
+  if err := engine.ConfigError(); err == nil || !strings.Contains(err.Error(), "fixWith must be a string") {
     t.Fatalf("engine ConfigError = %v", err)
   }
   if _, active := engine.EnabledRules()[noRestrictedTypesRuleName]; active {
