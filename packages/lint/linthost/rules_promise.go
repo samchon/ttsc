@@ -1049,6 +1049,7 @@ func floatingPromiseEquivalentOverloads(
   firstParameters := first.Parameters()
   firstDeclaration := first.Declaration()
   stableSourceOrder := firstDeclaration != nil
+  firstHasLiteralParameters := floatingPromiseSignatureHasLiteralParameters(first)
   if first.HasRestParameter() || len(first.TypeParameters()) != 0 {
     return false
   }
@@ -1076,6 +1077,9 @@ func floatingPromiseEquivalentOverloads(
       declaration.Parent != firstDeclaration.Parent {
       stableSourceOrder = false
     }
+    if !firstHasLiteralParameters && floatingPromiseSignatureHasLiteralParameters(signature) {
+      stableSourceOrder = false
+    }
   }
   if stableSourceOrder {
     return true
@@ -1094,6 +1098,18 @@ func floatingPromiseEquivalentOverloads(
     }
   }
   return true
+}
+
+func floatingPromiseSignatureHasLiteralParameters(signature *shimchecker.Signature) bool {
+  if signature == nil || signature.Declaration() == nil {
+    return false
+  }
+  for _, parameter := range signature.Declaration().Parameters() {
+    if parameter != nil && parameter.Type() != nil && parameter.Type().Kind == shimast.KindLiteralType {
+      return true
+    }
+  }
+  return false
 }
 
 func floatingPromiseSignatureApplicability(

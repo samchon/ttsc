@@ -103,6 +103,13 @@ interface ReorderedCatchResult {
 }
 declare const reordered: Promise<void> | ReorderedCatchResult;
 reordered.catch(() => undefined);
+type ThenKey = "key";
+interface SpecializedThenResult {
+  then(key: ThenKey, onRejected: () => void): undefined;
+  then(key: "key", onRejected: () => void): Promise<void>;
+}
+declare const specialized: Promise<void> | SpecializedThenResult;
+specialized.then("key", () => undefined);
 `, nil)
   if code != 2 || stdout != "" {
     t.Fatalf("mixed receiver run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
@@ -121,6 +128,7 @@ reordered.catch(() => undefined);
     "main.ts:76:",
     "main.ts:78:",
     "main.ts:86:",
+    "main.ts:93:",
   }
   if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != len(expectedLines) {
     t.Fatalf("expected %d mixed receiver findings, got %d:\n%s", len(expectedLines), got, stderr)
