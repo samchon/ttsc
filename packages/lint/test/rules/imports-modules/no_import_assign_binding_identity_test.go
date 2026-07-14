@@ -294,10 +294,11 @@ func assertNoImportAssignFindings(
   }
   for index, finding := range findings {
     want := wants[index]
-    if finding.Pos != want.pos || finding.End != want.end || finding.Message != want.message {
-      t.Fatalf("finding %d mismatch: want [%d,%d) %q, got [%d,%d) %q",
+    if finding.Rule != "no-import-assign" || finding.Severity != SeverityError ||
+      finding.Pos != want.pos || finding.End != want.end || finding.Message != want.message {
+      t.Fatalf("finding %d mismatch: want no-import-assign/error [%d,%d) %q, got %s/%s [%d,%d) %q",
         index, want.pos, want.end, want.message,
-        finding.Pos, finding.End, finding.Message)
+        finding.Rule, finding.Severity.String(), finding.Pos, finding.End, finding.Message)
     }
   }
 }
