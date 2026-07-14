@@ -38,21 +38,21 @@ func TestLSPFormatPathsUseDefaultsWithoutFormatBlock(t *testing.T) {
 // TestLSPFormatPathsUseEditorLanguageOverrides guards the resolver context
 // used by editor-originated format requests.
 //
-// The combined selector intentionally disagrees with both the project-wide
-// value and the exact TypeScript selector. LSP requests must resolve the real
-// document language, while the CLI uses the matching project-wide value. The
-// shared value is deliberately non-default, so omitting editor settings cannot
-// accidentally satisfy the assertion.
+// The project-wide, combined, and exact TypeScript values all disagree. LSP
+// requests must resolve the real document language and select the exact scope;
+// the project-wide CLI must use only the top-level value. Every value is
+// deliberately non-default so neither path can pass by skipping settings.
 func TestLSPFormatPathsUseEditorLanguageOverrides(t *testing.T) {
   source := "function outer() {\n    const value = 1\n}\n"
   root := seedLintProject(t, source)
   writeFile(t, filepath.Join(root, ".vscode", "settings.json"), `{
   "editor.tabSize": 3,
   "[javascript][typescript]": { "editor.tabSize": 6 },
-  "[typescript]": { "editor.tabSize": 3 }
+  "[typescript]": { "editor.tabSize": 4 }
 }`)
 
-  assertCanonicalLSPFormatPaths(t, root, source, "function outer() {\n   const value = 1;\n}\n")
+  assertLSPFormatPaths(t, root, source, "function outer() {\n    const value = 1;\n}\n")
+  assertCLIFormatText(t, root, "function outer() {\n   const value = 1;\n}\n")
 }
 
 // TestLSPFormatPathsHonorEntryIgnores guards scoping parity across every
@@ -83,6 +83,12 @@ func TestLSPFormatPathsHonorEntryIgnores(t *testing.T) {
 
 func assertCanonicalLSPFormatPaths(t *testing.T, root string, source string, want string) {
   t.Helper()
+  assertLSPFormatPaths(t, root, source, want)
+  assertCLIFormatText(t, root, want)
+}
+
+func assertLSPFormatPaths(t *testing.T, root string, source string, want string) {
+  t.Helper()
   uri := lintTestFileURI(t, filepath.Join(root, "src", "main.ts"))
 
   actions := runLSPCodeActionsForTest(t, root, uri, `{"only":["source.format"]}`)
@@ -95,8 +101,6 @@ func assertCanonicalLSPFormatPaths(t *testing.T, root string, source string, wan
   if got := executeLSPFormatBufferAppliedTextForTest(t, root, uri, source, source); got != want {
     t.Fatalf("buffer format text = %q, want %q", got, want)
   }
-
-  assertCLIFormatText(t, root, want)
 }
 
 func assertCLIFormatText(t *testing.T, root string, want string) {
