@@ -551,6 +551,31 @@ func TestUnicornPreventAbbreviationsKeepsExportedJSDocAndJSXBindingsDiagnosticOn
       fileName: "main.ts",
       source:   "declare namespace API {\n  const err: Error;\n}\n",
     },
+    {
+      name:     "JSDoc parameter through parentheses",
+      fileName: "main.ts",
+      source:   "/** @param ctx middleware context */\nconst middleware = ((ctx: object): object => ctx);\n",
+    },
+    {
+      name:     "JSDoc parameter through as assertion",
+      fileName: "main.ts",
+      source:   "/** @param ctx middleware context */\nconst middleware = (((ctx: object): object => ctx) as ((value: object) => object));\n",
+    },
+    {
+      name:     "JSDoc parameter through satisfies",
+      fileName: "main.ts",
+      source:   "/** @param ctx middleware context */\nconst middleware = (((ctx: object): object => ctx) satisfies ((value: object) => object));\n",
+    },
+    {
+      name:     "JSDoc parameter through non-null assertion",
+      fileName: "main.ts",
+      source:   "/** @param ctx middleware context */\nconst middleware = (((ctx: object): object => ctx)!);\n",
+    },
+    {
+      name:     "JSDoc parameter through angle-bracket assertion",
+      fileName: "main.ts",
+      source:   "/** @param ctx middleware context */\nconst middleware = <((value: object) => object)>((ctx: object): object => ctx);\n",
+    },
   }
   for _, testCase := range cases {
     t.Run(testCase.name, func(t *testing.T) {

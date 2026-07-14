@@ -1268,6 +1268,12 @@ func unicornPreventAbbreviationsParameterHasJSDoc(
       expression := parent.AsBinaryExpression()
       attachable = expression != nil && expression.Right == commentable &&
         expression.OperatorToken != nil && isAssignmentOperator(expression.OperatorToken.Kind)
+    case shimast.KindParenthesizedExpression,
+      shimast.KindAsExpression,
+      shimast.KindSatisfiesExpression,
+      shimast.KindNonNullExpression,
+      shimast.KindTypeAssertionExpression:
+      attachable = parent.Expression() == commentable
     }
     if !attachable {
       break
