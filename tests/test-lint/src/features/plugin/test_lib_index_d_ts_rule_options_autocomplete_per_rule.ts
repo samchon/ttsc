@@ -183,6 +183,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
             lodash: { named: true, default: false },
             util: false,
           },
+        },
+      ],
       "unicorn/filename-case": [
         "error",
         {
