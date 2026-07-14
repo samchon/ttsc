@@ -87,6 +87,11 @@ type unicornPreventAbbreviationsBinding struct {
   seen        map[*shimast.Node]struct{}
 }
 
+type unicornPreventAbbreviationsOccupiedName struct {
+  scope     *shimast.Node
+  reference bool
+}
+
 // This is the complete canonical table, not a project-specific subset.
 // Replacement order is normalized before diagnostics and suggestions.
 var unicornPreventAbbreviationsDefaultReplacements = map[string][]string{
@@ -187,16 +192,17 @@ var unicornPreventAbbreviationsDefaultIgnore = []string{
 }
 
 var unicornPreventAbbreviationsReservedWords = map[string]struct{}{
-  "arguments": {}, "as": {}, "async": {}, "await": {}, "break": {},
+  "any": {}, "arguments": {}, "as": {}, "async": {}, "await": {},
+  "boolean": {},
   "case": {}, "catch": {}, "class": {}, "const": {}, "constructor": {},
   "continue": {}, "debugger": {}, "declare": {}, "default": {}, "delete": {},
   "do": {}, "else": {}, "enum": {}, "export": {}, "extends": {},
   "false": {}, "finally": {}, "for": {}, "from": {}, "function": {},
   "get": {}, "if": {}, "implements": {}, "import": {}, "in": {},
   "instanceof": {}, "interface": {}, "let": {}, "module": {}, "new": {},
-  "null": {}, "of": {}, "package": {}, "private": {}, "protected": {},
+  "null": {}, "number": {}, "of": {}, "package": {}, "private": {}, "protected": {},
   "public": {}, "require": {}, "return": {}, "set": {}, "static": {},
-  "super": {}, "switch": {}, "this": {}, "throw": {}, "true": {},
+  "string": {}, "super": {}, "switch": {}, "symbol": {}, "this": {}, "throw": {}, "true": {},
   "try": {}, "type": {}, "typeof": {}, "var": {}, "void": {}, "while": {},
   "with": {}, "yield": {},
 }
@@ -253,11 +259,32 @@ func decodeUnicornPreventAbbreviationsOptions(raw json.RawMessage) (unicornPreve
   for _, pattern := range unicornPreventAbbreviationsDefaultIgnore {
     options.ignore = append(options.ignore, regexp.MustCompile(pattern))
   }
-  if len(bytes.TrimSpace(raw)) == 0 {
+  trimmed := bytes.TrimSpace(raw)
+  if len(trimmed) == 0 {
     return options, nil
   }
+  if trimmed[0] != '{' {
+    return options, errors.New("options must be an object")
+  }
 
-  decoder := json.NewDecoder(bytes.NewReader(raw))
+  var rawFields map[string]json.RawMessage
+  if err := json.Unmarshal(trimmed, &rawFields); err != nil {
+    return options, fmt.Errorf("options must be an object: %w", err)
+  }
+  for _, name := range []string{
+    "checkProperties",
+    "checkVariables",
+    "checkShorthandProperties",
+    "checkFilenames",
+    "extendDefaultReplacements",
+    "extendDefaultAllowList",
+  } {
+    if value, present := rawFields[name]; present && bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+      return options, fmt.Errorf("option %q must be a boolean", name)
+    }
+  }
+
+  decoder := json.NewDecoder(bytes.NewReader(trimmed))
   decoder.DisallowUnknownFields()
   var configured unicornPreventAbbreviationsRawOptions
   if err := decoder.Decode(&configured); err != nil {
@@ -458,7 +485,9 @@ func applyUnicornPreventAbbreviationsReplacementPatches(
 ) {
   for name, patch := range patches {
     if patch.disabled {
-      delete(replacements, name)
+      // Keep an empty entry so lower-first lookup stops here instead of
+      // falling through to a differently cased custom key.
+      replacements[name] = nil
       continue
     }
     values := make(map[string]bool)
@@ -486,12 +515,12 @@ func collectUnicornPreventAbbreviationsBindings(
   []*unicornPreventAbbreviationsBinding,
   map[*shimast.Symbol]*unicornPreventAbbreviationsBinding,
   map[*shimast.Node]*unicornPreventAbbreviationsBinding,
-  map[string][]*shimast.Node,
+  map[string][]unicornPreventAbbreviationsOccupiedName,
 ) {
   bindings := make([]*unicornPreventAbbreviationsBinding, 0)
   bySymbol := make(map[*shimast.Symbol]*unicornPreventAbbreviationsBinding)
   byDeclaration := make(map[*shimast.Node]*unicornPreventAbbreviationsBinding)
-  occupied := make(map[string][]*shimast.Node)
+  occupied := make(map[string][]unicornPreventAbbreviationsOccupiedName)
   seenNames := make(map[*shimast.Node]struct{})
 
   walkDescendants(root, func(node *shimast.Node) {
@@ -508,7 +537,7 @@ func collectUnicornPreventAbbreviationsBindings(
       return
     }
     scope := unicornPreventAbbreviationsBindingScope(node)
-    occupied[name] = append(occupied[name], scope)
+    occupied[name] = append(occupied[name], unicornPreventAbbreviationsOccupiedName{scope: scope})
 
     symbol := canonicalValueSymbol(ctx, nameNode)
     if symbol == nil {
@@ -533,7 +562,118 @@ func collectUnicornPreventAbbreviationsBindings(
       byDeclaration[declaration] = binding
     }
   })
+  collectUnicornPreventAbbreviationsOccupiedReferences(
+    ctx,
+    root,
+    bySymbol,
+    byDeclaration,
+    occupied,
+  )
   return bindings, bySymbol, byDeclaration, occupied
+}
+
+// References to globals, ambient symbols, or unresolved names also constrain
+// a rename. Introducing a local with the same spelling would capture those
+// reads even though they have no local declaration for the binding pass above
+// to collect.
+func collectUnicornPreventAbbreviationsOccupiedReferences(
+  ctx *Context,
+  root *shimast.Node,
+  bySymbol map[*shimast.Symbol]*unicornPreventAbbreviationsBinding,
+  byDeclaration map[*shimast.Node]*unicornPreventAbbreviationsBinding,
+  occupied map[string][]unicornPreventAbbreviationsOccupiedName,
+) {
+  walkDescendants(root, func(node *shimast.Node) {
+    if node.Kind != shimast.KindIdentifier || !unicornPreventAbbreviationsIsNameReference(node) {
+      return
+    }
+    symbol := canonicalValueSymbol(ctx, node)
+    if symbol != nil {
+      if bySymbol[symbol] != nil {
+        return
+      }
+      for _, declaration := range symbol.Declarations {
+        if byDeclaration[declaration] != nil {
+          return
+        }
+      }
+    }
+    name := identifierText(node)
+    if name != "" {
+      occupied[name] = append(occupied[name], unicornPreventAbbreviationsOccupiedName{
+        scope:     unicornPreventAbbreviationsReferenceScope(node),
+        reference: true,
+      })
+    }
+  })
+}
+
+func unicornPreventAbbreviationsReferenceScope(node *shimast.Node) *shimast.Node {
+  for scope := node.Parent; scope != nil; scope = scope.Parent {
+    if isFunctionLikeKind(scope) {
+      return scope
+    }
+    switch scope.Kind {
+    case shimast.KindClassDeclaration,
+      shimast.KindClassExpression,
+      shimast.KindInterfaceDeclaration,
+      shimast.KindTypeAliasDeclaration,
+      shimast.KindModuleBlock,
+      shimast.KindSourceFile,
+      shimast.KindClassStaticBlockDeclaration:
+      return scope
+    case shimast.KindBlock:
+      if scope.Parent != nil && isFunctionLikeKind(scope.Parent) {
+        return scope.Parent
+      }
+      return scope
+    }
+  }
+  return nil
+}
+
+func unicornPreventAbbreviationsIsNameReference(node *shimast.Node) bool {
+  if node == nil || node.Parent == nil {
+    return true
+  }
+  parent := node.Parent
+  switch parent.Kind {
+  case shimast.KindPropertyAccessExpression:
+    access := parent.AsPropertyAccessExpression()
+    return access == nil || access.Name() != node
+  case shimast.KindQualifiedName:
+    name := parent.AsQualifiedName()
+    return name == nil || name.Right != node
+  case shimast.KindPropertyAssignment:
+    assignment := parent.AsPropertyAssignment()
+    return assignment == nil || assignment.Name() != node
+  case shimast.KindMethodDeclaration,
+    shimast.KindPropertyDeclaration,
+    shimast.KindGetAccessor,
+    shimast.KindSetAccessor,
+    shimast.KindMethodSignature,
+    shimast.KindPropertySignature,
+    shimast.KindEnumMember:
+    return parent.Name() != node
+  case shimast.KindImportSpecifier:
+    specifier := parent.AsImportSpecifier()
+    return specifier == nil || specifier.PropertyName != node
+  case shimast.KindExportSpecifier:
+    specifier := parent.AsExportSpecifier()
+    return specifier == nil || specifier.Name() != node || specifier.PropertyName == nil
+  case shimast.KindLabeledStatement:
+    statement := parent.AsLabeledStatement()
+    return statement == nil || statement.Label != node
+  case shimast.KindBreakStatement:
+    statement := parent.AsBreakStatement()
+    return statement == nil || statement.Label != node
+  case shimast.KindContinueStatement:
+    statement := parent.AsContinueStatement()
+    return statement == nil || statement.Label != node
+  case shimast.KindJsxAttribute:
+    return parent.Name() != node
+  }
+  return true
 }
 
 func unicornPreventAbbreviationsBindingIdentifier(node *shimast.Node) *shimast.Node {
@@ -586,6 +726,35 @@ func unicornPreventAbbreviationsBindingScope(declaration *shimast.Node) *shimast
   if declaration.Kind == shimast.KindFunctionExpression || declaration.Kind == shimast.KindClassExpression {
     return declaration
   }
+  if declaration.Kind == shimast.KindVariableDeclaration && declaration.Parent != nil &&
+    declaration.Parent.Kind == shimast.KindVariableDeclarationList && shimast.IsVar(declaration.Parent) {
+    for scope := declaration.Parent.Parent; scope != nil; scope = scope.Parent {
+      if isFunctionLikeKind(scope) {
+        return scope
+      }
+      switch scope.Kind {
+      case shimast.KindSourceFile, shimast.KindModuleBlock, shimast.KindClassStaticBlockDeclaration:
+        return scope
+      }
+    }
+    return nil
+  }
+  if declaration.Kind == shimast.KindTypeParameter {
+    for scope := declaration.Parent; scope != nil; scope = scope.Parent {
+      if isFunctionLikeKind(scope) {
+        return scope
+      }
+      switch scope.Kind {
+      case shimast.KindClassDeclaration,
+        shimast.KindClassExpression,
+        shimast.KindInterfaceDeclaration,
+        shimast.KindTypeAliasDeclaration,
+        shimast.KindMethodSignature:
+        return scope
+      }
+    }
+    return nil
+  }
   return preferConstLexicalScope(declaration)
 }
 
@@ -627,7 +796,7 @@ func reportUnicornPreventAbbreviationsBinding(
   ctx *Context,
   binding *unicornPreventAbbreviationsBinding,
   options unicornPreventAbbreviationsOptions,
-  occupied map[string][]*shimast.Node,
+  occupied map[string][]unicornPreventAbbreviationsOccupiedName,
   generated map[string][]*shimast.Node,
 ) {
   if binding == nil || !unicornPreventAbbreviationsShouldCheckBinding(binding, options) {
@@ -687,6 +856,16 @@ func unicornPreventAbbreviationsShouldCheckBinding(
     return false
   }
   switch declaration.Kind {
+  case shimast.KindVariableDeclaration:
+    variable := declaration.AsVariableDeclaration()
+    if variable != nil {
+      if _, required := requireExpressionModule(variable.Initializer); required {
+        return unicornPreventAbbreviationsImportAllowed(
+          options.checkDefaultAndNamespaceImports,
+          unicornPreventAbbreviationsIsInternalImport(declaration),
+        )
+      }
+    }
   case shimast.KindImportClause, shimast.KindNamespaceImport, shimast.KindImportEqualsDeclaration:
     return unicornPreventAbbreviationsImportAllowed(
       options.checkDefaultAndNamespaceImports,
@@ -694,6 +873,13 @@ func unicornPreventAbbreviationsShouldCheckBinding(
     )
   case shimast.KindImportSpecifier:
     specifier := declaration.AsImportSpecifier()
+    if specifier != nil && specifier.PropertyName != nil &&
+      moduleExportNameText(specifier.PropertyName) == "default" {
+      return unicornPreventAbbreviationsImportAllowed(
+        options.checkDefaultAndNamespaceImports,
+        unicornPreventAbbreviationsIsInternalImport(declaration),
+      )
+    }
     if specifier != nil && specifier.PropertyName == nil {
       return unicornPreventAbbreviationsImportAllowed(
         options.checkShorthandImports,
@@ -722,6 +908,14 @@ func unicornPreventAbbreviationsImportAllowed(
 }
 
 func unicornPreventAbbreviationsIsInternalImport(declaration *shimast.Node) bool {
+  if declaration != nil && declaration.Kind == shimast.KindVariableDeclaration {
+    variable := declaration.AsVariableDeclaration()
+    if variable == nil {
+      return false
+    }
+    source, required := requireExpressionModule(variable.Initializer)
+    return required && (strings.HasPrefix(source, ".") || strings.HasPrefix(source, "/"))
+  }
   for ancestor := declaration; ancestor != nil; ancestor = ancestor.Parent {
     if ancestor.Kind == shimast.KindImportDeclaration {
       imported := ancestor.AsImportDeclaration()
@@ -741,7 +935,7 @@ func unicornPreventAbbreviationsIsInternalImport(declaration *shimast.Node) bool
 }
 
 func unicornPreventAbbreviationsCanRenameBinding(ctx *Context, binding *unicornPreventAbbreviationsBinding) bool {
-  if binding == nil || len(binding.references) == 0 || unicornPreventAbbreviationsBindingIsExported(binding) {
+  if binding == nil || len(binding.references) == 0 || unicornPreventAbbreviationsBindingIsExternallyVisible(ctx, binding) {
     return false
   }
   if strings.EqualFold(filepath.Ext(ctx.File.FileName()), ".vue") {
@@ -762,11 +956,33 @@ func unicornPreventAbbreviationsCanRenameBinding(ctx *Context, binding *unicornP
   return true
 }
 
-func unicornPreventAbbreviationsBindingIsExported(binding *unicornPreventAbbreviationsBinding) bool {
-  declaration := binding.declaration
-  if declaration == nil {
-    return false
+func unicornPreventAbbreviationsBindingIsExternallyVisible(
+  ctx *Context,
+  binding *unicornPreventAbbreviationsBinding,
+) bool {
+  if ctx == nil || ctx.File == nil || binding == nil || binding.symbol == nil || ctx.File.IsDeclarationFile {
+    return true
   }
+  declarations := binding.symbol.Declarations
+  if len(declarations) == 0 {
+    declarations = []*shimast.Node{binding.declaration}
+  }
+  for _, declaration := range declarations {
+    if declaration == nil {
+      return true
+    }
+    source := shimast.GetSourceFileOfNode(declaration)
+    if source != nil && source != ctx.File {
+      return true
+    }
+    if unicornPreventAbbreviationsDeclarationIsExportedOrAmbient(declaration) {
+      return true
+    }
+  }
+  return false
+}
+
+func unicornPreventAbbreviationsDeclarationIsExportedOrAmbient(declaration *shimast.Node) bool {
   if declaration.Kind == shimast.KindVariableDeclaration {
     for owner := declaration.Parent; owner != nil; owner = owner.Parent {
       if owner.Kind == shimast.KindVariableStatement {
@@ -778,7 +994,8 @@ func unicornPreventAbbreviationsBindingIsExported(binding *unicornPreventAbbrevi
       }
     }
   }
-  return declaration.ModifierFlags()&shimast.ModifierFlagsExport != 0
+  flags := declaration.ModifierFlags()
+  return flags&shimast.ModifierFlagsExport != 0 || flags&shimast.ModifierFlagsAmbient != 0
 }
 
 func unicornPreventAbbreviationsParameterHasJSDoc(ctx *Context, parameter *shimast.Node) bool {
@@ -821,7 +1038,18 @@ func unicornPreventAbbreviationsParameterHasJSDoc(ctx *Context, parameter *shima
   if open < 0 {
     return false
   }
-  return strings.Contains(prefix[open:], "@param")
+  comment := prefix[open:]
+  for offset := 0; ; {
+    index := strings.Index(comment[offset:], "@param")
+    if index < 0 {
+      return false
+    }
+    end := offset + index + len("@param")
+    if end == len(comment) || !isIdentifierPart(comment[end]) {
+      return true
+    }
+    offset = end
+  }
 }
 
 func unicornPreventAbbreviationsRenameEdits(
@@ -893,7 +1121,7 @@ func unicornPreventAbbreviationsReferenceReplacement(node *shimast.Node, oldName
 func unicornPreventAbbreviationsAvailableName(
   desired string,
   scope *shimast.Node,
-  occupied map[string][]*shimast.Node,
+  occupied map[string][]unicornPreventAbbreviationsOccupiedName,
   generated map[string][]*shimast.Node,
 ) string {
   candidate := desired
@@ -903,14 +1131,34 @@ func unicornPreventAbbreviationsAvailableName(
       return ""
     }
   }
-  for unicornPreventAbbreviationsNameCollides(candidate, scope, occupied) ||
-    unicornPreventAbbreviationsNameCollides(candidate, scope, generated) {
+  for unicornPreventAbbreviationsOccupiedNameCollides(candidate, scope, occupied) ||
+    unicornPreventAbbreviationsGeneratedNameCollides(candidate, scope, generated) {
     candidate += "_"
   }
   return candidate
 }
 
-func unicornPreventAbbreviationsNameCollides(
+func unicornPreventAbbreviationsOccupiedNameCollides(
+  name string,
+  scope *shimast.Node,
+  names map[string][]unicornPreventAbbreviationsOccupiedName,
+) bool {
+  for _, occupied := range names[name] {
+    if occupied.reference {
+      if scope == nil || occupied.scope == nil || scope == occupied.scope ||
+        unicornPreventAbbreviationsIsAncestor(scope, occupied.scope) {
+        return true
+      }
+      continue
+    }
+    if unicornPreventAbbreviationsScopesOverlap(scope, occupied.scope) {
+      return true
+    }
+  }
+  return false
+}
+
+func unicornPreventAbbreviationsGeneratedNameCollides(
   name string,
   scope *shimast.Node,
   names map[string][]*shimast.Node,

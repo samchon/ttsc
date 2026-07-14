@@ -1052,7 +1052,7 @@ export interface ITtscLintUnicornRules {
    * ID retains the final upstream behavior from before its June 2026 rename to
    * `name-replacements`.
    *
-   * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prevent-abbreviations.md
+   * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/42abe74908e8/docs/rules/prevent-abbreviations.md
    */
   "unicorn/prevent-abbreviations"?: TtscLintRuleOptionsSetting<ITtscLintUnicornPreventAbbreviationsRuleOptions>;
 

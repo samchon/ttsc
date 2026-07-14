@@ -41,6 +41,36 @@ func TestUnicornPreventAbbreviationsKeepsShadowedBindingsIndependentAndAvoidsCol
   )
 }
 
+func TestUnicornPreventAbbreviationsDoesNotCaptureUnresolvedNames(t *testing.T) {
+  source := "function render(err: string): string {\n  console.log(error);\n  return err;\n}\nvoid render;\n"
+  assertFixSnapshot(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    "function render(error_: string): string {\n  console.log(error);\n  return error_;\n}\nvoid render;\n",
+  )
+}
+
+func TestUnicornPreventAbbreviationsUsesFunctionScopeForVarCollisions(t *testing.T) {
+  source := "function render(condition: boolean): string {\n  if (condition) {\n    var err = \"first\";\n  }\n  if (!condition) {\n    var error = \"second\";\n  }\n  return err + error;\n}\nvoid render;\n"
+  assertFixSnapshot(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    "function render(condition: boolean): string {\n  if (condition) {\n    var error_ = \"first\";\n  }\n  if (!condition) {\n    var error = \"second\";\n  }\n  return error_ + error;\n}\nvoid render;\n",
+  )
+}
+
+func TestUnicornPreventAbbreviationsSeparatesGeneratedNamesInOneScope(t *testing.T) {
+  source := "const idx = 0;\nconst i = 1;\nconsole.log(idx, i);\n"
+  assertFixSnapshot(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    "const index = 0;\nconst index_ = 1;\nconsole.log(index, index_);\n",
+  )
+}
+
 func TestUnicornPreventAbbreviationsExpandsCompoundAndCasedNamesButSkipsConstants(t *testing.T) {
   source := "class BtnFactory {}\nconst errCb = (): void => {};\nconst ENV = \"test\";\nvoid [BtnFactory, errCb, ENV];\n"
   assertFixSnapshot(
@@ -103,6 +133,15 @@ func TestUnicornPreventAbbreviationsFalseReplacementDisablesCompoundMatches(t *t
   )
 }
 
+func TestUnicornPreventAbbreviationsFalseReplacementStopsCaseVariantFallback(t *testing.T) {
+  assertRuleSkipsSourceWithOptions(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    "const err = new Error();\nvoid err;\n",
+    `{"replacements":{"err":false,"Err":{"failure":true}}}`,
+  )
+}
+
 func TestUnicornPreventAbbreviationsAppliesInternalImportDefaultsAndPreservesImportedNames(t *testing.T) {
   source := "import err from \"./local-default\";\nimport * as ctx from \"external-ns\";\nimport { prop } from \"./local-named\";\nimport { ref } from \"external-named\";\nvoid [err, ctx, prop, ref];\n"
   assertFixSnapshot(
@@ -128,6 +167,34 @@ func TestUnicornPreventAbbreviationsAppliesInternalImportDefaultsAndPreservesImp
   )
 }
 
+func TestUnicornPreventAbbreviationsUsesDefaultImportControlForNamedDefaultSyntax(t *testing.T) {
+  source := "import { default as err } from \"external\";\nvoid err;\n"
+  assertRuleSkipsSource(t, unicornPreventAbbreviationsRuleName, source)
+  assertFixSnapshotWithOptions(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    `{"checkDefaultAndNamespaceImports":true}`,
+    "import { default as error } from \"external\";\nvoid error;\n",
+  )
+}
+
+func TestUnicornPreventAbbreviationsAppliesImportControlsToStaticRequireBindings(t *testing.T) {
+  source := "declare function require(name: string): unknown;\nconst err = require(\"./local\");\nconst ctx = require(\"external\");\nvoid [err, ctx];\n"
+  assertFixSnapshot(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    "declare function require(name: string): unknown;\nconst error = require(\"./local\");\nconst ctx = require(\"external\");\nvoid [error, ctx];\n",
+  )
+  assertRuleSkipsSourceWithOptions(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    `{"checkDefaultAndNamespaceImports":false}`,
+  )
+}
+
 func TestUnicornPreventAbbreviationsChecksShorthandDestructuringOnlyWhenEnabled(t *testing.T) {
   source := "declare const source: { err: Error };\nconst { err } = source;\nconsole.error(err);\n"
   assertRuleSkipsSource(t, unicornPreventAbbreviationsRuleName, source)
@@ -137,6 +204,16 @@ func TestUnicornPreventAbbreviationsChecksShorthandDestructuringOnlyWhenEnabled(
     source,
     `{"checkShorthandProperties":true}`,
     "declare const source: { err: Error };\nconst { err: error } = source;\nconsole.error(error);\n",
+  )
+}
+
+func TestUnicornPreventAbbreviationsPreservesShorthandExportNames(t *testing.T) {
+  source := "const err = new Error();\nexport { err };\n"
+  assertFixSnapshot(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    "const error = new Error();\nexport { error as err };\n",
   )
 }
 
@@ -204,6 +281,11 @@ func TestUnicornPreventAbbreviationsKeepsExportedJSDocAndJSXBindingsDiagnosticOn
       fileName: "main.tsx",
       source:   "const Btn = (): JSX.Element => <button />;\nconst view = <Btn />;\nvoid view;\n",
     },
+    {
+      name:     "merged exported declaration",
+      fileName: "main.ts",
+      source:   "interface Ctx {}\nexport namespace Ctx {}\nconst value: Ctx = {};\nvoid value;\n",
+    },
   }
   for _, testCase := range cases {
     t.Run(testCase.name, func(t *testing.T) {
@@ -234,7 +316,9 @@ func TestUnicornPreventAbbreviationsRenamesTypePredicateReferences(t *testing.T)
 func TestUnicornPreventAbbreviationsRejectsMalformedOptions(t *testing.T) {
   invalid := []string{
     `[]`,
+    `null`,
     `{"unknown":true}`,
+    `{"checkVariables":null}`,
     `{"checkShorthandImports":"external"}`,
     `{"replacements":{"err":true}}`,
     `{"allowList":{"err":"yes"}}`,
