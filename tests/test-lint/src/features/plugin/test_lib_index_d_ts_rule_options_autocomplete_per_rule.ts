@@ -188,9 +188,19 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       "prefer-const": ["error", { destructuring: "some" }],
     },
   };
+
+  // ESLint's schema accepts ignore lists with `props` omitted; they remain inactive.
+  const noParamReassignImplicitProps: ITtscLintConfig = {
+    rules: {
+      "no-param-reassign": [
+        "error",
+        { ignorePropertyModificationsFor: ["inactiveWithoutProps"] },
+      ],
+    },
+  };
   const noParamReassignIgnoreWithoutProps: ITtscLintConfig = {
     rules: {
-      // @ts-expect-error — property ignore lists require `props: true` in the official schema.
+      // @ts-expect-error — an explicit `props: false` cannot carry property ignore lists.
       "no-param-reassign": [
         "error",
         { props: false, ignorePropertyModificationsFor: ["draft"] },
@@ -264,6 +274,7 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
 
   assert.ok(config);
   assert.ok(bareTuple);
+  assert.ok(noParamReassignImplicitProps);
   assert.ok(ruleNameTypo);
   assert.ok(optionKeyTypo);
   assert.ok(noDuplicateImportsOptionKeyTypo);

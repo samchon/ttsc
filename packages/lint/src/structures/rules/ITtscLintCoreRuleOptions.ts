@@ -205,8 +205,9 @@ export interface ITtscLintCoreNoPromiseExecutorReturnRuleOptions {
  * `no-param-reassign` rule options.
  *
  * The ignore lists are meaningful only when property writes are enabled. The
- * discriminated union preserves ESLint's schema: a `props: false` object may
- * not carry either ignore list.
+ * discriminated union preserves ESLint's schema: an explicit `props: false`
+ * object may not carry either ignore list. ESLint also accepts an ignore list
+ * with `props` omitted, although it stays inactive until `props` is `true`.
  *
  * @reference https://eslint.org/docs/latest/rules/no-param-reassign
  */
@@ -224,7 +225,7 @@ export type ITtscLintCoreNoParamReassignRuleOptions =
     }
   | {
       /** Report writes to properties reached through a parameter reference. */
-      props: true;
+      props?: true;
 
       /** Parameter names whose property writes are accepted. */
       ignorePropertyModificationsFor?: string[];
