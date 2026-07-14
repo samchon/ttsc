@@ -2110,6 +2110,12 @@ func floatingPromiseNakedReturnInferences(
         if checker.GetReturnTypeOfSignature(parameterSignature) != typeParameter {
           continue
         }
+        // The candidate can accept an unconstrained callback return while the
+        // return itself still needs fresh candidate-specific checking. Do not
+        // classify T from a callback type cached under another overload.
+        if floatingPromiseFunctionReturnNeedsCandidateContext(checker, argument) {
+          return nil
+        }
         for _, argumentPart := range promiseUnionParts(argumentType) {
           for _, argumentSignature := range checker.GetSignaturesOfType(argumentPart, shimchecker.SignatureKindCall) {
             if actualReturn := checker.GetReturnTypeOfSignature(argumentSignature); actualReturn != nil {

@@ -56,6 +56,9 @@ interface ConstAssertionCandidate {
   then(value: { callback: (input: "narrow") => "narrow" }, onRejected: () => void): Promise<void>;
   then(value: { callback: (input: string) => string }, onRejected: () => void): undefined;
 }
+interface NakedGenericCallbackCandidate {
+  catch<T>(onRejected: () => T): T;
+}
 declare const arrayCandidate: ArrayCandidate;
 declare const genericArrayCandidate: GenericArrayCandidate;
 declare const callbackCandidate: CallbackCandidate;
@@ -63,6 +66,7 @@ declare const genericCallbackCandidate: GenericCallbackCandidate;
 declare const templateCandidate: TemplateCandidate;
 declare const genericTemplateCandidate: GenericTemplateCandidate;
 declare const constAssertionCandidate: ConstAssertionCandidate;
+declare const nakedGenericCallbackCandidate: NakedGenericCallbackCandidate;
 arrayCandidate.then([1, 2], () => undefined);
 genericArrayCandidate.then([1, 2], () => undefined);
 callbackCandidate.catch((reason: unknown): { kind: "narrow" } => ({ kind: "narrow" }));
@@ -70,6 +74,7 @@ genericCallbackCandidate.catch((reason: unknown): { kind: "narrow" } => ({ kind:
 templateCandidate.then(__BACKTICK__item-${1 as number}__BACKTICK__, () => undefined);
 genericTemplateCandidate.then(__BACKTICK__item-${1 as number}__BACKTICK__, () => undefined);
 constAssertionCandidate.then({ callback: input => input } as const, () => undefined);
+nakedGenericCallbackCandidate.catch(() => [Promise.resolve()]);
 declare function contextualArray(value: number[], onRejected: () => undefined): void;
 declare function contextualCallback(onRejected: (reason: unknown) => { kind: string }): void;
 declare function contextualString(value: string, onRejected: () => undefined): void;
@@ -78,6 +83,7 @@ declare function contextualConstAssertion(
   onRejected: () => undefined,
 ): void;
 declare function contextualValue<T>(): T;
+declare function contextualPromiseArray(onRejected: () => unknown[]): void;
 contextualArray([1, 2], () => undefined);
 contextualCallback((reason: unknown) => ({ kind: "narrow" }));
 contextualConstAssertion({ callback: input => input } as const, () => undefined);
@@ -85,6 +91,7 @@ contextualConstAssertion(
   { callback: (input: string) => input } as { callback: (input: string) => string },
   () => undefined,
 );
+contextualPromiseArray(() => [Promise.resolve()]);
 async function candidateContextWrappers(): Promise<void> {
   contextualArray(await [1, 2], () => undefined);
   contextualArray(([1, 2])!, () => undefined);
@@ -284,5 +291,52 @@ async function candidateContextWrappers(): Promise<void> {
   if got := floatingPromiseApplicableSignature(ctx, ordinaryAssertion, ordinarySignatures);
     got != ordinarySignatures[1] {
     t.Fatal("ordinary type assertion did not select its proven broad candidate")
+  }
+
+  contextualPromiseArray := callAt("contextualPromiseArray(()")
+  if contextualPromiseArray.Arguments == nil || len(contextualPromiseArray.Arguments.Nodes) != 1 {
+    t.Fatal("contextual Promise-array callback fixture does not have one argument")
+  }
+  promiseArrayCallback := contextualPromiseArray.Arguments.Nodes[0]
+  promiseArrayCallbackType := prog.checker.GetTypeAtLocation(promiseArrayCallback)
+  if promiseArrayCallbackType == nil {
+    t.Fatal("contextual Promise-array callback has no type")
+  }
+  promiseArrayCallbackSignatures := prog.checker.GetSignaturesOfType(
+    promiseArrayCallbackType,
+    shimchecker.SignatureKindCall,
+  )
+  if len(promiseArrayCallbackSignatures) != 1 {
+    t.Fatalf("contextual Promise-array callback signatures = %d, want one", len(promiseArrayCallbackSignatures))
+  }
+  cachedPromiseArrayReturn := prog.checker.GetReturnTypeOfSignature(promiseArrayCallbackSignatures[0])
+  if cachedPromiseArrayReturn == nil || prog.checker.TypeToString(cachedPromiseArrayReturn) != "unknown[]" {
+    t.Fatal("callback return was not widened by the canonical unknown-array context")
+  }
+  freshGenericCall := callAt("nakedGenericCallbackCandidate.catch")
+  freshGenericReturn := prog.checker.GetTypeAtLocation(freshGenericCall.AsNode())
+  if freshGenericReturn == nil || prog.checker.TypeToString(freshGenericReturn) != "Promise<void>[]" {
+    t.Fatal("fresh generic callback call did not infer its Promise-array return")
+  }
+  nakedSignatures := signaturesAt(callAt("nakedGenericCallbackCandidate.catch"), "catch")
+  if len(nakedSignatures) != 1 {
+    t.Fatalf("naked generic callback signatures = %d, want one", len(nakedSignatures))
+  }
+  if got := floatingPromiseSignatureApplicability(prog.checker, contextualPromiseArray, nakedSignatures[0]);
+    got != floatingPromiseCallApplicable {
+    t.Fatalf("naked generic callback applicability = %d, want applicable", got)
+  }
+  if got := floatingPromiseApplicableSignature(ctx, contextualPromiseArray, nakedSignatures);
+    got != nakedSignatures[0] {
+    t.Fatal("naked generic callback candidate was not selected")
+  }
+  if !floatingPromiseSignatureReturnIsUnhandled(
+    ctx,
+    contextualPromiseArray.AsNode(),
+    contextualPromiseArray,
+    nakedSignatures[0],
+    noFloatingPromisesOptions{},
+  ) {
+    t.Fatal("candidate-contextual Promise-array return was treated as safe")
   }
 }
