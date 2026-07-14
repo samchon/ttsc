@@ -150,13 +150,9 @@ function checkUncertainArray<U>(
     t.Fatalf("generic applicability run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
   unsafeMarkers := []string{
-    "fixedMismatch.then",
-    "callbackMismatch.then",
-    "constrainedMismatch.catch",
     "explicitMismatch.catch",
     "partialDefaultMismatch.then",
     "dependentDefaultMismatch.then",
-    "dependentConstraintMismatch.then",
     "nonGenericCallbackMismatch.catch",
     "taggedMismatch.catch",
     "taggedMismatch.catch(optionalTaggedFactory)",
@@ -182,6 +178,22 @@ function checkUncertainArray<U>(
     location := "main.ts:" + strconv.Itoa(strings.Count(source[:offset], "\n")+1) + ":"
     if !diagnosticOutputContains(stderr, location) {
       t.Fatalf("missing generic applicability finding at %s (%s)\n%s", location, marker, stderr)
+    }
+  }
+  compilerRejectedMarkers := []string{
+    "fixedMismatch.then",
+    "callbackMismatch.then",
+    "constrainedMismatch.catch",
+    "dependentConstraintMismatch.then",
+  }
+  for _, marker := range compilerRejectedMarkers {
+    offset := strings.Index(source, marker)
+    if offset < 0 {
+      t.Fatalf("missing compiler-rejected source marker %q", marker)
+    }
+    location := "main.ts:" + strconv.Itoa(strings.Count(source[:offset], "\n")+1) + ":"
+    if !diagnosticOutputContains(stderr, location) {
+      t.Fatalf("missing compiler rejection at %s (%s)\n%s", location, marker, stderr)
     }
   }
 }
