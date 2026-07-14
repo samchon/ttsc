@@ -1583,13 +1583,16 @@ function inForLoop(): void {
 
 ### `no-loss-of-precision`
 
-Reject numeric literals whose source text cannot round-trip through `Number` without losing digits, including overflow.
+Reject decimal, binary, octal, and hexadecimal numeric literals whose requested significant digits cannot survive `Number` conversion. This includes fractions, exponents, numeric separators, underflow, and overflow. BigInt literals are excluded.
 
 Example:
 
 ```ts
 // reports: no-loss-of-precision (error)
 const big = 9007199254740993;
+
+// reports: no-loss-of-precision (error)
+const roundedHex = 0x20000000000001;
 ```
 
 <a id="rule-no-magic-numbers"></a>

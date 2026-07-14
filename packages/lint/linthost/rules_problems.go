@@ -8,7 +8,6 @@
 package linthost
 
 import (
-  "strconv"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -158,10 +157,9 @@ func regexHasSurrogatePair(src string) bool {
   return false
 }
 
-// noLossOfPrecision: `9007199254740993` — decimal numeric literal whose
-// source text changes when parsed as a JavaScript Number. We read the source
-// form instead of the parser's normalized .Text, which has already lost
-// precision.
+// noLossOfPrecision: a Number literal whose requested significant digits
+// change during IEEE-754 conversion. We read the source form instead of the
+// parser's normalized .Text, which has already lost spelling and precision.
 type noLossOfPrecision struct{}
 
 func (noLossOfPrecision) Name() string           { return "no-loss-of-precision" }
@@ -174,48 +172,6 @@ func (noLossOfPrecision) Check(ctx *Context, node *shimast.Node) {
   if numericLiteralLosesPrecision(source) {
     ctx.Report(node, "This number literal will lose precision at runtime.")
   }
-}
-
-// numericLiteralLosesPrecision reports whether the decimal integer literal text
-// changes when parsed as a JavaScript Number. Non-decimal literals (hex, octal,
-// binary) and literals with exponents or decimal points are exempt because
-// their precision loss is caller-visible and intentional.
-func numericLiteralLosesPrecision(text string) bool {
-  // Strip underscore separators, exponents, decimal/hex/oct/binary
-  // markers — for the simple-base-10 integer case the round-trip
-  // parse → format check is sufficient.
-  clean := strings.ReplaceAll(text, "_", "")
-  if strings.ContainsAny(clean, "eE.xXoObB") {
-    return false
-  }
-  if len(clean) < 16 {
-    return false
-  }
-  // Trim leading zeros for comparison.
-  trimmed := strings.TrimLeft(clean, "0")
-  if trimmed == "" {
-    return false
-  }
-  // 2^53 is unsafe for arithmetic comparisons but still exactly representable.
-  // 2^53+1 is the first plain decimal integer that changes when parsed.
-  const firstPossibleLoss = "9007199254740993"
-  if len(trimmed) < len(firstPossibleLoss) {
-    return false
-  }
-  if len(trimmed) == len(firstPossibleLoss) && trimmed < firstPossibleLoss {
-    return false
-  }
-  // Number.MAX_VALUE is around 1.79e308, so any integer with more than 309
-  // decimal digits cannot round-trip through a finite JavaScript Number.
-  const maxFiniteDecimalDigits = 309
-  if len(trimmed) > maxFiniteDecimalDigits {
-    return true
-  }
-  parsed, err := strconv.ParseFloat(trimmed, 64)
-  if err != nil && parsed == 0 {
-    return false
-  }
-  return strconv.FormatFloat(parsed, 'f', 0, 64) != trimmed
 }
 
 // noClassAssign: assigning to a class declaration's name.
