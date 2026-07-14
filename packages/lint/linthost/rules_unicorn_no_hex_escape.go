@@ -9,20 +9,17 @@
 // template (or a template literal type) is built from, read each token's raw
 // source text via `nodeText` (the parser already decodes escapes into the
 // `.Text` value, so a normal accessor would see `©` instead of `\xA9`), and
-// fire when the text contains a `\xHH` occurrence where HH is two hex digits.
-// Tagged templates are skipped: their tag observes the raw text, where `\xA9`
-// and `©` differ.
+// fire when the text carries an active `\xHH` escape. Tagged templates are
+// skipped: their tag observes the raw text, where `\xA9` and `©` differ.
+// See `literal_escape_scan.go` for the parity and digit-width rules the scan
+// enforces.
 //
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-hex-escape.md
 package linthost
 
 import (
-  "regexp"
-
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
-
-var unicornNoHexEscapePattern = regexp.MustCompile(`\\x[0-9A-Fa-f]{2}`)
 
 type unicornNoHexEscape struct{}
 
@@ -44,9 +41,15 @@ func (unicornNoHexEscape) Check(ctx *Context, node *shimast.Node) {
   if source == "" {
     return
   }
-  if unicornNoHexEscapePattern.MatchString(source) {
+  if hasActiveLiteralEscape(source, unicornNoHexEscapeIsHex) {
     ctx.Report(node, "Prefer Unicode escapes (`\\uXXXX`) over hex escapes (`\\xHH`).")
   }
+}
+
+// unicornNoHexEscapeIsHex selects the `\xHH` form. The `\uHHHH` and
+// `\u{HEX...}` forms are the shapes upstream rewrites *to*, so they pass.
+func unicornNoHexEscapeIsHex(escape literalEscape) bool {
+  return escape.Prefix == 'x'
 }
 
 func init() {

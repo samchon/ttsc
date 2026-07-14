@@ -382,6 +382,8 @@ throw new Error();
 
 Require consistent case for escape sequences (`\xA9` over `\xa9`, `\u00B5` over `\u00b5`).
 
+Escapes are read from the raw source of string literals and of every template segment, including the segments of an interpolated template. An escaped backslash opens no escape, so `"\\xa9"` is left alone, and an escape ends after its digits, so the canonical `"\x41bcd"` is not read as a lowercase one. Tagged templates are skipped because the tag function observes the raw text.
+
 Example:
 
 ```ts
@@ -742,6 +744,8 @@ for (let i = 0; i < xs.length; i++) {
 ### `unicorn/no-hex-escape`
 
 Prefer Unicode escape (`\u00A9`) over hexadecimal escape (`\xA9`).
+
+Escapes are read from the raw source of string literals and of every template segment, including the segments of an interpolated template. An escaped backslash opens no escape, so `"\\x64"` is left alone. Tagged templates are skipped because the tag function observes the raw text.
 
 Example:
 
