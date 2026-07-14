@@ -569,6 +569,44 @@ func assertRuleSkipsSource(t *testing.T, ruleName, source string) {
   }
 }
 
+// assertRuleFindingRanges asserts the rule reports exactly one finding per
+// marker, in source order, each spanning that marker's byte range.
+//
+// Markers are literal substrings of `source` and must occur exactly once, so
+// a missing, extra, duplicated, or over-wide diagnostic fails the assertion
+// instead of hiding behind a bare count. Passing no marker asserts the rule
+// stays silent, which keeps a positive arm and its negative twin in one
+// helper.
+func assertRuleFindingRanges(t *testing.T, ruleName, source string, markers ...string) {
+  t.Helper()
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
+  if len(findings) != len(markers) {
+    t.Fatalf("%s: want %d findings, got %d (%+v)", ruleName, len(markers), len(findings), findings)
+  }
+  for index, marker := range markers {
+    start := strings.Index(source, marker)
+    if start < 0 {
+      t.Fatalf("%s: marker %q missing from source", ruleName, marker)
+    }
+    if strings.Contains(source[start+1:], marker) {
+      t.Fatalf("%s: marker %q occurs more than once in source", ruleName, marker)
+    }
+    finding := findings[index]
+    if finding.Pos != start || finding.End != start+len(marker) {
+      t.Fatalf(
+        "%s: finding %d range: want [%d,%d) %q, got [%d,%d)",
+        ruleName,
+        index,
+        start,
+        start+len(marker),
+        marker,
+        finding.Pos,
+        finding.End,
+      )
+    }
+  }
+}
+
 // assertFixSnapshotWithOptions runs one rule (configured with optsJSON)
 // through the native fix applier and snapshots the rewritten source.
 // Mirrors `assertFixSnapshot`; option-gated sibling of

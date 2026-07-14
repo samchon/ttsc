@@ -113,6 +113,46 @@ func tokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
   return pos, end
 }
 
+// isTaggedTemplateElement reports whether a template token — a
+// `KindNoSubstitutionTemplateLiteral` or one of the
+// `KindTemplateHead`/`Middle`/`Tail` elements of a `KindTemplateExpression`
+// — belongs to the quasi of a TaggedTemplateExpression. The tag function
+// observes the raw text (`String.raw`, `dedent`, `gql`, `css`, …), so rules
+// that police escape spelling must leave tagged templates alone; this is
+// upstream's `isTaggedTemplateLiteral(node.parent)` guard on its
+// `TemplateElement` handlers.
+//
+// A template that merely appears inside a tagged template — nested in one of
+// its substitutions — is not tagged itself and stays checked, so the walk
+// stops at the element's own enclosing template instead of searching upward
+// for any tag. Template literal *types* can never be tagged and always
+// answer false.
+func isTaggedTemplateElement(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  template := node
+  switch node.Kind {
+  case shimast.KindNoSubstitutionTemplateLiteral:
+    // The literal is the whole template; the tag, if any, is its parent.
+  case shimast.KindTemplateHead:
+    template = node.Parent
+  case shimast.KindTemplateMiddle, shimast.KindTemplateTail:
+    if node.Parent == nil {
+      return false
+    }
+    template = node.Parent.Parent
+  default:
+    return false
+  }
+  if template == nil || template.Parent == nil ||
+    template.Parent.Kind != shimast.KindTaggedTemplateExpression {
+    return false
+  }
+  tagged := template.Parent.AsTaggedTemplateExpression()
+  return tagged != nil && tagged.Template == template
+}
+
 // hasCommentBetween reports whether a comment begins anywhere in the source
 // range [from, to). Fixers whose TextEdit keeps only part of the replaced
 // span use it on the discarded sub-ranges: a comment there would be silently
