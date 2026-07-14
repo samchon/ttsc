@@ -294,8 +294,7 @@ Example:
 const arr = [1, 2, 3];
 const index = arr.indexOf(2);
 // reports: unicorn/consistent-existence-index-check (error)
-// fixes to: index !== -1
-void (index >= 0);
+const found = index >= 0;
 ```
 
 Only a comparison on a `const` index binding is reported, matching the upstream rule. An inline `arr.indexOf(2) >= 0` binds no index and is left alone, as is an index declared with `let` or `var`.
