@@ -53,9 +53,17 @@ func TestUnicornEscapeCaseReportsInterpolatedTemplateSegments(t *testing.T) {
       },
     },
     {
-      name:    "template literal type",
+      name:    "template literal type head",
       source:  "type T = `\\xa9${string}`;\n",
       markers: []string{"`\\xa9${"},
+    },
+    {
+      name:   "template literal type middle and tail",
+      source: "type T = `${string}\\xa9${string}\\xa9`;\n",
+      markers: []string{
+        "}\\xa9${",
+        "}\\xa9`",
+      },
     },
     {
       name:    "no-substitution template",

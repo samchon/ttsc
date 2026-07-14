@@ -53,9 +53,17 @@ func TestUnicornNoHexEscapeReportsInterpolatedTemplateSegments(t *testing.T) {
       },
     },
     {
-      name:    "template literal type",
+      name:    "template literal type head",
       source:  "type T = `\\xA9${string}`;\n",
       markers: []string{"`\\xA9${"},
+    },
+    {
+      name:   "template literal type middle and tail",
+      source: "type T = `${string}\\xA9${string}\\xA9`;\n",
+      markers: []string{
+        "}\\xA9${",
+        "}\\xA9`",
+      },
     },
     {
       name:    "no-substitution template",
