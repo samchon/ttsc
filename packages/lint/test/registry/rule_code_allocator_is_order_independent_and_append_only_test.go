@@ -40,6 +40,24 @@ func TestRuleCodeAllocatorIsOrderIndependentAndAppendOnly(t *testing.T) {
 		t.Fatalf("allocator mutated frozen input: %#v", frozen)
 	}
 
+	// A later rule may sort before the historical incumbent. Append-only
+	// compatibility still wins over lexical order once the incumbent is frozen.
+	earlier, later := left, right
+	if earlier > later {
+		earlier, later = later, earlier
+	}
+	laterIncumbent := map[string]int32{later: rulecode.Legacy(later)}
+	earlierNewcomer, err := rulecode.Allocate(laterIncumbent, []string{earlier})
+	if err != nil {
+		t.Fatalf("allocate alphabetically earlier collision: %v", err)
+	}
+	if earlierNewcomer[later] != laterIncumbent[later] {
+		t.Fatalf("later-sorting incumbent %q changed from %d to %d", later, laterIncumbent[later], earlierNewcomer[later])
+	}
+	if earlierNewcomer[earlier] == earlierNewcomer[later] {
+		t.Fatalf("alphabetically earlier newcomer %q displaced incumbent %q", earlier, later)
+	}
+
 	names := []string{left, right}
 	for index := 0; index < 128; index++ {
 		names = append(names, fmt.Sprintf("contributor/order-shield-%03d", index))
