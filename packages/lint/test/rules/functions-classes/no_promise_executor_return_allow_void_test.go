@@ -35,7 +35,7 @@ new Promise(() => {
   return undefined; // diagnostic
 });
 new Promise(() => {
-  return (0, void consume(5)); // diagnostic
+  return (consume(5), void consume(6)); // diagnostic
 });
 new Promise(() => {
   function nested() {

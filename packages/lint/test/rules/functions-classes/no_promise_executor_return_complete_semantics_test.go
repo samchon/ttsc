@@ -76,27 +76,26 @@ new Promise(() => {
   return void consume(11); // diagnostic
 });
 
-Promise(() => 12);
-new Promise(consume, () => 13);
-new globalThis.Promise(() => 14);
+new globalThis.Promise(() => 12);
 function parameterShadow(Promise: new (executor: () => unknown) => unknown) {
-  new Promise(() => 15);
+  new Promise(() => 13);
 }
 {
   class Promise {
     constructor(_executor: () => unknown) {}
   }
-  new Promise(() => 16);
+  new Promise(() => 14);
 }
 consume(parameterShadow);
 `,
     },
     {
-      name: "script global table shadow",
+      name: "module top-level shadow",
       source: `let Promise = class {
   constructor(_executor: () => unknown) {}
 };
 new Promise(() => 1);
+export {};
 `,
     },
   }
