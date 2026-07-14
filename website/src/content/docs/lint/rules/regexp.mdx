@@ -97,7 +97,9 @@ const emptyCap = /()/;
 
 ### `regexp/no-empty-character-class`
 
-Reject empty regex character classes (`[]`). Alias of the bare core check.
+Reject non-negated empty regex character classes (`[]`), including nested
+classes in Unicode Sets (`v`) mode. The negated form `[^]` matches any character
+and is allowed. Alias of the bare core check.
 
 Example:
 

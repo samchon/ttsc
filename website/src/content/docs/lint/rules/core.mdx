@@ -1168,9 +1168,10 @@ function f(x: number) {
 
 ### `no-empty-character-class`
 
-Reject empty regex character classes (`[]`).
-
-An empty class never matches anything, so the entire pattern can never succeed; the negated form `[^]` (matches any character) is allowed.
+Reject non-negated empty regex character classes (`[]`), including nested
+classes in Unicode Sets (`v`) mode. An empty class never matches a character,
+so its containing alternative cannot match through that class; the negated
+form `[^]` matches any character and is allowed.
 
 Example:
 

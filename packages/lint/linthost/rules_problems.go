@@ -107,31 +107,10 @@ func (noEmptyCharacterClass) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindRegularExpressionLiteral}
 }
 func (noEmptyCharacterClass) Check(ctx *Context, node *shimast.Node) {
-  src := nodeText(ctx.File, node)
-  if hasEmptyCharClass(src) {
+  parts, ok := parseRegexpLiteralParts(ctx, node)
+  if ok && regexpHasEmptyCharacterClass(parts) {
     ctx.Report(node, "Empty class.")
   }
-}
-
-// hasEmptyCharClass reports whether the regex source text src contains an
-// empty character class (`[]` or `[^]`). Respects backslash escapes.
-func hasEmptyCharClass(src string) bool {
-  // Walk the regex literal source manually, respecting escapes.
-  for i := 0; i < len(src); i++ {
-    switch src[i] {
-    case '\\':
-      i++ // skip escape
-    case '[':
-      j := i + 1
-      if j < len(src) && src[j] == '^' {
-        j++
-      }
-      if j < len(src) && src[j] == ']' {
-        return true
-      }
-    }
-  }
-  return false
 }
 
 // noMisleadingCharacterClass: `/[👍]/` — surrogate pairs in regex.

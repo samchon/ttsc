@@ -6,6 +6,7 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // regexpSourceRule implements the high-confidence, source-text subset of
@@ -143,6 +144,43 @@ func regexpHasEmptyLookaround(parts regexpLiteralParts) bool {
       strings.HasPrefix(pattern[i:], "(?<=)") ||
       strings.HasPrefix(pattern[i:], "(?<!)")
   })
+}
+
+// regexpHasEmptyCharacterClass reports non-negated character classes whose
+// parsed element list is empty. The compiler's regexp parser is the syntax
+// authority; the structural walk runs only after that parser accepts the full
+// literal, so malformed escapes, flags, and class-set expressions cannot
+// create lint findings.
+func regexpHasEmptyCharacterClass(parts regexpLiteralParts) bool {
+  if !shimscanner.IsValidRegularExpressionLiteral(parts.raw) {
+    return false
+  }
+  unicodeSets := strings.Contains(parts.flags, "v")
+  depth := 0
+  for i := 0; i < len(parts.pattern); i++ {
+    switch parts.pattern[i] {
+    case '\\':
+      i++
+    case '[':
+      if depth != 0 && !unicodeSets {
+        continue
+      }
+      depth++
+      content := i + 1
+      negated := content < len(parts.pattern) && parts.pattern[content] == '^'
+      if negated {
+        content++
+      }
+      if !negated && content < len(parts.pattern) && parts.pattern[content] == ']' {
+        return true
+      }
+    case ']':
+      if depth > 0 {
+        depth--
+      }
+    }
+  }
+  return false
 }
 
 func regexpHasZeroQuantifier(parts regexpLiteralParts) bool {
@@ -385,9 +423,7 @@ func init() {
   Register(regexpSourceRule{name: "regexp/no-dupe-characters-character-class", check: regexpHasDuplicateClassCharacter})
   Register(regexpSourceRule{name: "regexp/no-empty-alternative", check: regexpHasEmptyAlternative})
   Register(regexpSourceRule{name: "regexp/no-empty-capturing-group", check: regexpHasEmptyCapturingGroup})
-  Register(regexpSourceRule{name: "regexp/no-empty-character-class", check: func(parts regexpLiteralParts) bool {
-    return hasEmptyCharClass(parts.raw)
-  }})
+  Register(regexpSourceRule{name: "regexp/no-empty-character-class", check: regexpHasEmptyCharacterClass})
   Register(regexpSourceRule{name: "regexp/no-empty-group", check: regexpHasEmptyGroup})
   Register(regexpSourceRule{name: "regexp/no-empty-lookarounds-assertion", check: regexpHasEmptyLookaround})
   Register(regexpSourceRule{name: "regexp/no-misleading-unicode-character", check: func(parts regexpLiteralParts) bool {
