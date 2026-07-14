@@ -600,7 +600,7 @@ function renderTime(index, cells, options = {}) {
       }).filter((value) => value.answerMs > 0),
     }))
     .filter((row) => row.values.length > 0)
-    .sort((a, b) => a.scale.lines - b.scale.lines);
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   // Banded blocks like the grouped chart: repo header + one row per tool, the
   // two-tone bar (faded index build + solid LLM answer) inside a full-width

@@ -110,7 +110,7 @@ function buildRows(report: Report, only?: string): TimeRow[] {
       };
     })
     .filter((row) => row.bars.length > 0)
-    .sort((a, b) => a.lines - b.lines);
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /**
