@@ -78,3 +78,28 @@ class StrictClass {
 function rootFunction() {}
 `, "")
 }
+
+// TestNoInnerDeclarationsDefaultAllowsStrictScriptBlockFunctions verifies a
+// source-file directive prologue.
+//
+// A real top-level `"use strict"` directive makes the entire script strict,
+// including nested function bodies. The default option must therefore allow
+// block functions at both depths without confusing the source with a module.
+//
+// 1. Start an otherwise ordinary script with a real strict directive.
+// 2. Place block functions at program and nested-function depth.
+// 3. Assert the default rule emits no diagnostics.
+func TestNoInnerDeclarationsDefaultAllowsStrictScriptBlockFunctions(t *testing.T) {
+  assertNoInnerDeclarationsCase(t, "default-strict-script.ts", `"use strict";
+
+if (programCondition) {
+  function programNested() {}
+}
+
+function outer() {
+  if (functionCondition) {
+    function functionNested() {}
+  }
+}
+`, "")
+}
