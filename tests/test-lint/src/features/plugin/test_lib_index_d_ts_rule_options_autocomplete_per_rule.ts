@@ -42,6 +42,9 @@ import assert from "node:assert/strict";
  * - Unicorn replacement maps and import modes retain their exact public shape.
  * - `unicorn/import-style` accepts per-module style maps and `false` module
  *   entries, and rejects a non-`false` scalar module entry.
+ * - `unicorn/isolated-functions` exposes its function/selector/comment lists and
+ *   per-name `overrideGlobals` policies, rejecting arbitrary keys and
+ *   out-of-enum global policies.
  * - An empty object policy for `typescript/ban-ts-comment` is rejected because
  *   the object form requires `descriptionFormat`.
  * - A lint-only rule (`no-var`) cannot carry an options object.
@@ -213,6 +216,20 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
             },
           },
           selectors: ['VariableDeclarator[id.name="description"] > Literal'],
+        },
+      ],
+      "unicorn/isolated-functions": [
+        "error",
+        {
+          functions: ["makeSynchronous", "runInWorker"],
+          selectors: ["FunctionDeclaration[id.name=/^lambda/]"],
+          comments: ["@isolated", "@remote"],
+          overrideGlobals: {
+            console: "writable",
+            fetch: "readonly",
+            process: "off",
+            document: true,
+          },
         },
       ],
     },
@@ -533,6 +550,21 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       ],
     },
   };
+  const isolatedFunctionsOptionKeyTypo: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — `comment` is a typo of `comments`; the rule exposes no arbitrary option keys.
+      "unicorn/isolated-functions": ["error", { comment: ["@isolated"] }],
+    },
+  };
+  const isolatedFunctionsGlobalPolicyShape: ITtscLintConfig = {
+    rules: {
+      "unicorn/isolated-functions": [
+        "error",
+        // @ts-expect-error — a global policy is a boolean or one of "readonly" | "writable" | "writeable" | "off".
+        { overrideGlobals: { console: "sometimes" } },
+      ],
+    },
+  };
   const banTsCommentMissingDescriptionFormat: ITtscLintConfig = {
     rules: {
       "typescript/ban-ts-comment": [
@@ -583,6 +615,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(unicornReplacementShape);
   assert.ok(importStyleOptionKeyTypo);
   assert.ok(importStyleModuleEntryShape);
+  assert.ok(isolatedFunctionsOptionKeyTypo);
+  assert.ok(isolatedFunctionsGlobalPolicyShape);
   assert.ok(banTsCommentMissingDescriptionFormat);
   assert.ok(camelBuiltinName);
 };

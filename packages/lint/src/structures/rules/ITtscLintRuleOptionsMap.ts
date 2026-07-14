@@ -46,8 +46,9 @@ import type {
 } from "./ITtscLintTypeScriptRuleOptions";
 import type {
   ITtscLintUnicornConsistentFunctionScopingRuleOptions,
-  ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornFilenameCaseRuleOptions,
+  ITtscLintUnicornImportStyleRuleOptions,
+  ITtscLintUnicornIsolatedFunctionsRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornStringContentRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
@@ -130,4 +131,5 @@ export interface ITtscLintRuleOptionsMap {
   "unicorn/import-style": ITtscLintUnicornImportStyleRuleOptions;
   "unicorn/filename-case": ITtscLintUnicornFilenameCaseRuleOptions;
   "unicorn/string-content": ITtscLintUnicornStringContentRuleOptions;
+  "unicorn/isolated-functions": ITtscLintUnicornIsolatedFunctionsRuleOptions;
 }

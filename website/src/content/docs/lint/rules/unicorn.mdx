@@ -479,15 +479,17 @@ export default {
 
 ### `unicorn/isolated-functions`
 
-Reject references to outer-scope variables inside functions marked as isolated (e.g., the body of a web worker).
+Reject references to outer-scope variables (and `this` / `super`) inside functions that run outside their defining context. Functions are recognized as isolated when passed to a configured name (`makeSynchronous` and `workerize` by default), to `browser.execute` / `page.evaluate`, as the `func` property of `chrome.scripting.executeScript` / `browser.scripting.executeScript`, or when preceded by an `@isolated` comment; the `functions`, `selectors`, `comments`, and `overrideGlobals` options tune this.
 
-Illustrative shape:
+Example:
 
 ```ts
 const prefix = "user:";
-const isolated = (task: () => string) => task;
 
-const worker = isolated(() => `${prefix}ready`);
+// `makeSynchronous` runs the callback in a separate context, so the captured
+// `prefix` is unavailable there.
+// reports: unicorn/isolated-functions (error)
+const build = makeSynchronous(() => `${prefix}ready`);
 ```
 
 <a id="rule-unicorn-new-for-builtins"></a>
