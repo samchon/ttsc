@@ -410,9 +410,6 @@ func decodeUnicornPreventAbbreviationsReplacementPatches(
     return nil, errors.New("option \"replacements\" must be an object")
   }
   for name, value := range entries {
-    if name == "" {
-      return nil, errors.New("option \"replacements\" keys must not be empty")
-    }
     var disabled bool
     if err := json.Unmarshal(value, &disabled); err == nil {
       if disabled {
@@ -437,11 +434,6 @@ func decodeUnicornPreventAbbreviationsBooleanMap(raw json.RawMessage, name strin
   }
   if err := json.Unmarshal(raw, &values); err != nil || values == nil {
     return nil, fmt.Errorf("option %q must be an object with boolean values", name)
-  }
-  for key := range values {
-    if key == "" {
-      return nil, fmt.Errorf("option %q keys must not be empty", name)
-    }
   }
   return values, nil
 }
@@ -628,6 +620,9 @@ func unicornPreventAbbreviationsReferenceScope(node *shimast.Node) *shimast.Node
       return scope
     }
     switch scope.Kind {
+    case shimast.KindMappedType,
+      shimast.KindConditionalType:
+      return scope
     case shimast.KindClassDeclaration,
       shimast.KindClassExpression,
       shimast.KindInterfaceDeclaration,
@@ -765,6 +760,14 @@ func unicornPreventAbbreviationsBindingScope(declaration *shimast.Node) *shimast
   if declaration.Kind == shimast.KindFunctionExpression || declaration.Kind == shimast.KindClassExpression {
     return declaration
   }
+  if parameter := unicornPreventAbbreviationsEnclosingParameter(declaration); parameter != nil {
+    for scope := parameter.Parent; scope != nil; scope = scope.Parent {
+      if unicornPreventAbbreviationsIsFunctionLike(scope) {
+        return scope
+      }
+    }
+    return nil
+  }
   if declaration.Kind == shimast.KindVariableDeclaration && declaration.Parent != nil &&
     declaration.Parent.Kind == shimast.KindVariableDeclarationList && shimast.IsVar(declaration.Parent) {
     for scope := declaration.Parent.Parent; scope != nil; scope = scope.Parent {
@@ -784,6 +787,9 @@ func unicornPreventAbbreviationsBindingScope(declaration *shimast.Node) *shimast
         return scope
       }
       switch scope.Kind {
+      case shimast.KindMappedType,
+        shimast.KindConditionalType:
+        return scope
       case shimast.KindClassDeclaration,
         shimast.KindClassExpression,
         shimast.KindInterfaceDeclaration,
@@ -795,6 +801,21 @@ func unicornPreventAbbreviationsBindingScope(declaration *shimast.Node) *shimast
     return nil
   }
   return preferConstLexicalScope(declaration)
+}
+
+func unicornPreventAbbreviationsEnclosingParameter(declaration *shimast.Node) *shimast.Node {
+  for current := declaration; current != nil; current = current.Parent {
+    if current.Kind == shimast.KindParameter {
+      return current
+    }
+    if current != declaration && unicornPreventAbbreviationsIsFunctionLike(current) {
+      return nil
+    }
+    if current.Kind == shimast.KindSourceFile {
+      return nil
+    }
+  }
+  return nil
 }
 
 func collectUnicornPreventAbbreviationsReferences(
@@ -1023,12 +1044,11 @@ func unicornPreventAbbreviationsCanRenameBinding(
   if strings.EqualFold(filepath.Ext(ctx.File.FileName()), ".vue") {
     return false
   }
-  if binding.declaration != nil && binding.declaration.Kind == shimast.KindParameter &&
-    unicornPreventAbbreviationsParameterHasJSDoc(ctx, binding.declaration, comments) {
+  parameter := unicornPreventAbbreviationsEnclosingParameter(binding.declaration)
+  if parameter != nil && unicornPreventAbbreviationsParameterHasJSDoc(ctx, parameter, comments) {
     return false
   }
-  if binding.declaration != nil && binding.declaration.Kind == shimast.KindParameter &&
-    isParameterProperty(binding.declaration) {
+  if parameter != nil && isParameterProperty(parameter) {
     return false
   }
   for _, reference := range binding.references {
@@ -1073,18 +1093,31 @@ func unicornPreventAbbreviationsBindingIsExternallyVisible(
 }
 
 func unicornPreventAbbreviationsDeclarationIsExportedOrAmbient(declaration *shimast.Node) bool {
-  if declaration.Kind == shimast.KindVariableDeclaration {
-    for owner := declaration.Parent; owner != nil; owner = owner.Parent {
-      if owner.Kind == shimast.KindVariableStatement {
-        declaration = owner
-        break
-      }
-      if unicornPreventAbbreviationsIsFunctionLike(owner) || owner.Kind == shimast.KindSourceFile {
-        break
-      }
+  if declaration == nil {
+    return true
+  }
+  for owner := declaration; owner != nil; owner = owner.Parent {
+    if owner.Flags&shimast.NodeFlagsAmbient != 0 ||
+      owner.ModifierFlags()&shimast.ModifierFlagsAmbient != 0 {
+      return true
+    }
+    if owner.Kind == shimast.KindSourceFile {
+      break
     }
   }
-  flags := declaration.ModifierFlags()
+
+  owner := declaration
+  for current := declaration; current != nil; current = current.Parent {
+    if current.Kind == shimast.KindVariableDeclaration {
+      owner = current
+      break
+    }
+    if current.Kind == shimast.KindParameter || current.Kind == shimast.KindCatchClause ||
+      unicornPreventAbbreviationsIsFunctionLike(current) || current.Kind == shimast.KindSourceFile {
+      break
+    }
+  }
+  flags := shimast.GetCombinedModifierFlags(owner)
   return flags&shimast.ModifierFlagsExport != 0 || flags&shimast.ModifierFlagsAmbient != 0
 }
 
@@ -1596,7 +1629,7 @@ func splitUnicornPreventAbbreviationsWords(name string) []string {
     }
     // This is the rune-level equivalent of upstream's
     // /(?=\P{Lowercase_Letter})|(?<=\P{Letter})/u split expression.
-    if !unicode.IsLower(current) || !unicode.IsLetter(runes[index-1]) {
+    if !unicode.Is(unicode.Ll, current) || !unicode.IsLetter(runes[index-1]) {
       flush(index)
     }
   }

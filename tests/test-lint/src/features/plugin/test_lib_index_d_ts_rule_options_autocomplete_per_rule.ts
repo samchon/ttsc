@@ -361,7 +361,7 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       "unicorn/prevent-abbreviations": [
         "error",
         {
-          // @ts-expect-error ??import checks accept booleans or the canonical `internal` mode.
+          // @ts-expect-error — import checks accept booleans or the canonical `internal` mode.
           checkShorthandImports: "external",
         },
       ],
@@ -373,7 +373,7 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
         "error",
         {
           replacements: {
-            // @ts-expect-error ??a replacement entry is `false` or a boolean-valued replacement map.
+            // @ts-expect-error — a replacement entry is `false` or a boolean-valued replacement map.
             err: true,
           },
         },

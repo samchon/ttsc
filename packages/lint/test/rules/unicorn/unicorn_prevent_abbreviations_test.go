@@ -112,12 +112,12 @@ func TestUnicornPreventAbbreviationsSeparatesGeneratedNamesAtCrossScopeReads(t *
 }
 
 func TestUnicornPreventAbbreviationsExpandsCompoundAndCasedNamesButSkipsConstants(t *testing.T) {
-  source := "class BtnFactory {}\nconst errCb = (): void => {};\nconst err文 = 1;\nconst ENV = \"test\";\nvoid [BtnFactory, errCb, err文, ENV];\n"
+  source := "class BtnFactory {}\nconst errCb = (): void => {};\nconst err文 = 1;\nconst errʰ = 2;\nconst ENV = \"test\";\nvoid [BtnFactory, errCb, err文, errʰ, ENV];\n"
   assertFixSnapshot(
     t,
     unicornPreventAbbreviationsRuleName,
     source,
-    "class ButtonFactory {}\nconst errorCallback = (): void => {};\nconst error文 = 1;\nconst ENV = \"test\";\nvoid [ButtonFactory, errorCallback, error文, ENV];\n",
+    "class ButtonFactory {}\nconst errorCallback = (): void => {};\nconst error文 = 1;\nconst errorʰ = 2;\nconst ENV = \"test\";\nvoid [ButtonFactory, errorCallback, error文, errorʰ, ENV];\n",
   )
 }
 
@@ -179,6 +179,16 @@ func TestUnicornPreventAbbreviationsFalseReplacementStopsCaseVariantFallback(t *
     unicornPreventAbbreviationsRuleName,
     "const err = new Error();\nvoid err;\n",
     `{"replacements":{"err":false,"Err":{"failure":true}}}`,
+  )
+}
+
+func TestUnicornPreventAbbreviationsSupportsCanonicalEmptyReplacementSpelling(t *testing.T) {
+  assertFixSnapshotWithOptions(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    "const err = new Error();\nvoid err;\n",
+    `{"extendDefaultReplacements":false,"replacements":{"err":{"":true}}}`,
+    "const _ = new Error();\nvoid _;\n",
   )
 }
 
@@ -382,6 +392,21 @@ func TestUnicornPreventAbbreviationsKeepsExportedJSDocAndJSXBindingsDiagnosticOn
       fileName: "main.ts",
       source:   "/** @param ctx middleware context */\ntype Middleware = (ctx: object) => void;\n",
     },
+    {
+      name:     "JSDoc destructured parameter",
+      fileName: "main.ts",
+      source:   "/** @param options supplied options */\nfunction log({ cause: err }: { cause: Error }): void {\n  console.error(err);\n}\nvoid log;\n",
+    },
+    {
+      name:     "exported destructured declaration",
+      fileName: "main.ts",
+      source:   "declare const source: { cause: Error };\nexport const { cause: err } = source;\n",
+    },
+    {
+      name:     "nested ambient declaration",
+      fileName: "main.ts",
+      source:   "declare namespace API {\n  const err: Error;\n}\n",
+    },
   }
   for _, testCase := range cases {
     t.Run(testCase.name, func(t *testing.T) {
@@ -440,6 +465,16 @@ func TestUnicornPreventAbbreviationsKeepsTypeScriptSignatureScopesIndependent(t 
     unicornPreventAbbreviationsRuleName,
     source,
     "type First = (context: object) => void;\ntype Second = new (context: object) => object;\ninterface Third {\n  (context: object): void;\n  method(context: object): void;\n}\n",
+  )
+}
+
+func TestUnicornPreventAbbreviationsKeepsMappedAndConditionalTypeScopesIndependent(t *testing.T) {
+  source := "type Pair<T, U> = [\n  T extends infer Ctx ? Ctx : never,\n  U extends infer Ctx ? Ctx : never,\n  { [Ctx in keyof T]: T[Ctx] },\n  { [Ctx in keyof U]: U[Ctx] },\n];\n"
+  assertFixSnapshot(
+    t,
+    unicornPreventAbbreviationsRuleName,
+    source,
+    "type Pair<T, U> = [\n  T extends infer Context ? Context : never,\n  U extends infer Context ? Context : never,\n  { [Context in keyof T]: T[Context] },\n  { [Context in keyof U]: U[Context] },\n];\n",
   )
 }
 
