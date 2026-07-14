@@ -1,5 +1,6 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphDetails } from "../structures/ITtscGraphDetails";
+import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEntrypoints } from "../structures/ITtscGraphEntrypoints";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNext } from "../structures/ITtscGraphNext";
@@ -65,80 +66,6 @@ const TOUR_SEED_KINDS = new Set<string>([
   "namespace",
   "enum",
 ]);
-const QUERY_STOP_WORDS = new Set<string>([
-  "about",
-  "after",
-  "and",
-  "are",
-  "api",
-  "architecture",
-  "around",
-  "before",
-  "based",
-  "behavior",
-  "between",
-  "but",
-  "can",
-  "central",
-  "change",
-  "changes",
-  "code",
-  "does",
-  "for",
-  "first",
-  "find",
-  "flow",
-  "from",
-  "has",
-  "have",
-  "how",
-  "include",
-  "including",
-  "implementation",
-  "into",
-  "its",
-  "nearby",
-  "need",
-  "needs",
-  "new",
-  "next",
-  "path",
-  "paths",
-  // English filler, never a code term. "plus nearby paths and tests" matched
-  // ExcalidrawPlus, and that one word — worth a name match and the alignment
-  // bonus that rides on it — put an app's export-to-cloud dialog at the head of
-  // a tour whose subject was the drawing engine.
-  "plus",
-  "also",
-  "along",
-  "well",
-  "etc",
-  "more",
-  "please",
-  "project",
-  "public",
-  "read",
-  "real",
-  "runtime",
-  "should",
-  "show",
-  "that",
-  "the",
-  "this",
-  "test",
-  "tests",
-  "trace",
-  "through",
-  "with",
-  "without",
-  "tour",
-  "typescript",
-  "user",
-  "what",
-  "where",
-  "which",
-  "work",
-]);
 
 /**
  * Compose a repository-orientation/code-tour answer surface from existing graph
@@ -151,7 +78,12 @@ export function runTour(
   question: string,
 ): IRunnerOutput<ITtscGraphTour> {
   const query = question.trim();
-  const named = namedNodesOf(graph, query, props.reinterpretations);
+  const named = namedNodesOf(graph, props.reinterpretations);
+  // The words that rank the tour are the caller's names, never the question's
+  // prose. Which words in a question are its keywords is the caller's judgement
+  // to make -- it read the question -- and the server used to make it instead,
+  // with a list of sixty-eight words it happened to think were filler.
+  const terms = queryTermsOf(graph, props.reinterpretations);
   const limit = bound(props.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
   const entry = runEntrypoints(graph, {
     type: "entrypoints",
@@ -159,7 +91,7 @@ export function runTour(
     limit,
     neighbors: 1,
   }).result;
-  const seeds = tourSeedsOf(graph, entry, query, limit, named);
+  const seeds = tourSeedsOf(graph, entry, query, limit, named, terms);
   const seedIds = seeds.map((node) => node.id);
   const entrypoints = seeds.map((node) => graphNodeOf(graph, node));
 
@@ -180,7 +112,14 @@ export function runTour(
   const told: Set<string>[] = [];
 
   for (const id of flowSeedIdsOf(
-    tourSeedsOf(graph, entry, query, limit * FLOW_SEED_CANDIDATES, named),
+    tourSeedsOf(
+      graph,
+      entry,
+      query,
+      limit * FLOW_SEED_CANDIDATES,
+      named,
+      terms,
+    ),
   )) {
     if (primaryFlow.length >= FLOW_SEEDS) break;
     const trace = runTrace(graph, {
@@ -331,21 +270,9 @@ function tourNext(): ITtscGraphNext {
  */
 function namedNodesOf(
   graph: TtscGraphMemory,
-  question: string,
   names: readonly string[],
 ): ReadonlySet<string> {
   const out = new Set<string>();
-  // A question that names no machinery has nothing to reinterpret, so nothing
-  // the caller names is an answer to it. Strip the stop words from "I'm new
-  // here, show me the central runtime flow and the tests to read next" and
-  // nothing is left: the question is asking for the centre of the repository,
-  // and the centre is the graph's to know. Sonnet, asked for names it could not
-  // have, guessed RxJS's `lift` and `operate` from memory; the tour narrowed
-  // onto them and it spent three more calls climbing back out. The names are how
-  // a caller says which of several readings of *its question* it means — with no
-  // reading to choose between, they are the model's imagination, and the tour
-  // does not rank on imagination.
-  if (queryTermsOf(graph, question).length === 0) return out;
   for (const raw of names) {
     const name = raw.trim();
     if (name.length === 0 || /\s/.test(name)) continue;
@@ -370,6 +297,7 @@ function tourSeedsOf(
   query: string,
   limit: number,
   named: ReadonlySet<string>,
+  terms: string[],
 ): ITtscGraphNode[] {
   const out: ITtscGraphNode[] = [];
   const seen = new Set<string>();
@@ -403,7 +331,7 @@ function tourSeedsOf(
   // no centre, and one that names the wrong symbol still gets a tour.
   const share = Math.floor(limit * NAMED_SHARE);
   if (share > 0 && named.size !== 0) {
-    for (const node of rankedTourSeeds(graph, query, share, named)) add(node);
+    for (const node of rankedTourSeeds(graph, terms, share, named)) add(node);
   }
   // The other half is the graph's, and the names do not reach it. Weighting the
   // named symbols in this ranking too let them take both halves: Opus named ten
@@ -413,7 +341,7 @@ function tourSeedsOf(
   // it by hand and said so. A caller's belief about where the answer lives is
   // worth half a tour; the other half is what the codebase says is central,
   // including the symbol the caller did not think to name.
-  for (const node of rankedTourSeeds(graph, query, limit)) add(node);
+  for (const node of rankedTourSeeds(graph, terms, limit)) add(node);
   if (out.length === 0) {
     for (const hit of entry.hits) add(graph.node(hit.id));
   }
@@ -517,21 +445,27 @@ function flowAnchorsOf(
  * identifiers. Whole-word equality is not enough to drop them, so a term the
  * project name contains goes too.
  */
-function queryTermsOf(graph: TtscGraphMemory, query: string): string[] {
+function queryTermsOf(
+  graph: TtscGraphMemory,
+  names: readonly string[],
+): string[] {
   const project = graph.project.toLowerCase();
-  return subwords(query.replace(/\btypescript\b/gi, "typescript")).filter(
-    (term) =>
-      term.length > 2 && !QUERY_STOP_WORDS.has(term) && !project.includes(term),
-  );
+  const out: string[] = [];
+  for (const name of names) {
+    for (const term of subwords(name)) {
+      if (term.length <= 2 || project.includes(term)) continue;
+      if (!out.includes(term)) out.push(term);
+    }
+  }
+  return out;
 }
 
 function rankedTourSeeds(
   graph: TtscGraphMemory,
-  query: string,
+  terms: string[],
   count: number,
   only?: ReadonlySet<string>,
 ): ITtscGraphNode[] {
-  const terms = queryTermsOf(graph, query);
   const items = graph.nodes
     .filter(
       (node) =>
@@ -547,109 +481,166 @@ function rankedTourSeeds(
   return diverseTourSeeds(items, terms, count).map((item) => item.node);
 }
 
+/**
+ * How central a symbol is to running this codebase, as one standard algorithm
+ * instead of a ledger of hand-tuned bonuses.
+ *
+ * This score used to be a sum: so many points for the symbol's kind, so many
+ * per log of each degree, a capped term for its reach, another for what its
+ * package exports, another for what the tests call — nine signals, each with a
+ * multiplier and a cap that someone picked while watching a benchmark. Word
+ * lists in numeric form. All of it was approximating one question the graph can
+ * answer exactly: _if you use what this package publishes, what runs?_
+ *
+ * Personalized PageRank answers it. The walker starts on the export surface —
+ * the symbols the package puts on the wire, members included — and follows the
+ * execution edges, crossing from an abstract declaration to its implementations
+ * the way `runTrace` does. Public entries hold mass because the walk starts on
+ * them; the spine holds mass because every path runs through it. One damping
+ * constant, 0.85, from the literature — the same algorithm aider's repo map
+ * ranks symbols with.
+ */
 function tourSeedScore(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
   terms: string[],
 ): number {
-  const degree = realDegree(graph, node.id);
-  const execution = executionDegree(graph, node.id);
   const queryWords = new Set(terms);
   const matchScore = queryMatchScore(node, terms);
-  let score = kindScore(graph, node);
-  const surface = publicSurfaceScore(graph, node);
-  score += surface;
-  score += runtimeEntryScore(node, surface);
-  score += Math.min(14, Math.log2(1 + degree.in) * 4);
-  score += Math.min(30, Math.log2(1 + degree.out) * 9);
-  // What a symbol drives. The cap used to sit at 28, which Excalidraw's App class
-  // (426 execution edges) and an arrow-dragging helper (11) both hit, so the
-  // score could not tell the centre of the application from a leaf of it.
-  score += Math.min(56, Math.log2(1 + execution.out) * 8);
-  score += executionReachScore(graph, node);
-  if (node.exported) score += 14;
-  if (node.decorators !== undefined && node.decorators.length > 0) score += 10;
-  score += matchScore;
+  let score = centralityOf(graph, node.id) + matchScore;
   score *= queryAlignmentFactor(matchScore, queryWords);
-  score *= broadTourDamping(node, queryWords);
+  score *= broadTourDamping(node);
   return score;
 }
 
-/**
- * How far the node's own execution carries into the codebase: the files its
- * forward call chain reaches. It leads the seed score, because reaching the
- * work is what the question asks of an entry, and because the export chain
- * cannot say it: a class method is on no module's export table, so NestJS's
- * real entry (`NestFactoryStatic.create`, 37 files reached) carries an export
- * count of zero while a lifecycle hook re-exported through two barrels (7
- * files) carries two.
- *
- * A tour question asks for the flow that runs from the public API to the code
- * that does the work, and "does the work" is a property of the chain, not of
- * the symbol. Fan-out alone cannot see it — a shutdown-hook helper that calls
- * four neighbours outscores a bootstrap entry that calls two functions which
- * between them reach half the framework, which is how NestJS's tour opened on
- * shutdown plumbing while the model went looking for `NestFactory.create`
- * itself. Reach is what separates them, and it is a fact the call graph already
- * holds.
- *
- * Bounded by depth and node budget so a fan-out hub cannot walk the program.
- */
-function executionReachScore(
-  graph: TtscGraphMemory,
-  node: ITtscGraphNode,
-): number {
-  return Math.min(64, reachedFiles(graph, node.id) * 1.8);
+/** Centrality is reported on a 0..100 scale: 100 is this graph's most central. */
+const CENTRALITY_SCALE = 100;
+/** Execution reach is walked this deep and no further. */
+const REACH_DEPTH = 4;
+const REACH_NODE_BUDGET = 400;
+/** Invocation: the edges that mean "this makes that run". */
+const INVOKE_KINDS = new Set<string>(["calls", "instantiates", "renders"]);
+const DISPATCH_KINDS = new Set<string>(["overrides", "implements"]);
+
+const centralityCache = new WeakMap<TtscGraphMemory, Map<string, number>>();
+
+function centralityOf(graph: TtscGraphMemory, id: string): number {
+  let ranks = centralityCache.get(graph);
+  if (ranks === undefined) {
+    ranks = computeCentrality(graph);
+    centralityCache.set(graph, ranks);
+  }
+  return ranks.get(id) ?? 0;
 }
 
-const REACH_DEPTH = 4;
-const REACH_NODE_BUDGET = 180;
-const reachCache = new WeakMap<TtscGraphMemory, Map<string, number>>();
+/**
+ * Three facts, one product: `log2(1 + published) * max(reach, fan-in)`.
+ *
+ * - _Published_: how many modules put the symbol on the wire, counting the class
+ *   that owns it — a member is published by publishing its owner.
+ * - _Reach_: how many production files its forward invocation chain touches,
+ *   crossing from an abstract declaration to the implementations, the way
+ *   execution does. This is what separates an entry that drives half the
+ *   framework from a fat method whose fifty calls stay in its own file.
+ * - _Fan-in_: how many production call sites invoke it. This is what separates
+ *   the spine everything runs through from a leaf beside it.
+ *
+ * The product means a symbol must be public _and_ load-bearing: a utility is
+ * published everywhere but drives nothing and dies on the max term's
+ * normalization; an internal engine drives everything but is published nowhere
+ * and dies on the surface term. Tests and generated support files are not part
+ * of the structure being toured and stay out of all three.
+ */
+function computeCentrality(graph: TtscGraphMemory): Map<string, number> {
+  const production = (node: ITtscGraphNode): boolean =>
+    !node.external &&
+    !node.ignored &&
+    !isTestPath(node.file) &&
+    !isNoisePath(node.file);
 
-/** Distinct workspace files the node's forward execution chain touches. */
-function reachedFiles(graph: TtscGraphMemory, id: string): number {
-  let cache = reachCache.get(graph);
-  if (cache === undefined) {
-    cache = new Map();
-    reachCache.set(graph, cache);
-  }
-  const hit = cache.get(id);
-  if (hit !== undefined) return hit;
-
-  const files = new Set<string>();
-  const seen = new Set<string>([id]);
-  let frontier = [id];
-  for (let depth = 0; depth < REACH_DEPTH && seen.size < REACH_NODE_BUDGET; ) {
-    depth++;
-    const next: string[] = [];
-    for (const current of frontier) {
-      for (const edge of graph.outgoing(current)) {
-        if (STRUCTURAL_KINDS.has(edge.kind) || edge.kind === "type_ref")
-          continue;
-        if (seen.has(edge.to) || seen.size >= REACH_NODE_BUDGET) continue;
-        const target = graph.node(edge.to);
-        if (
-          target === undefined ||
-          target.external ||
-          target.ignored ||
-          // A closure is not part of the surface a tour ranks, and counting one
-          // moves the score of the declaration that owns it: TypeORM's seeds
-          // reordered, its insert flow fell out of the tour, and the model went
-          // to the files.
-          target.closure === true ||
-          isNoisePath(target.file)
-        )
-          continue;
-        seen.add(edge.to);
-        files.add(target.file);
-        next.push(edge.to);
+  const invoked = (id: string): string[] => {
+    const out: string[] = [];
+    let hasBody = false;
+    for (const edge of graph.outgoing(id)) {
+      if (!INVOKE_KINDS.has(edge.kind)) continue;
+      hasBody = true;
+      out.push(edge.to);
+    }
+    if (!hasBody) {
+      for (const edge of graph.incoming(id)) {
+        if (DISPATCH_KINDS.has(edge.kind)) out.push(edge.from);
       }
     }
-    if (next.length === 0) break;
-    frontier = next;
+    return out;
+  };
+
+  const reachOf = (id: string): number => {
+    const seen = new Set<string>([id]);
+    const files = new Set<string>();
+    let frontier = [id];
+    for (
+      let depth = 0;
+      depth < REACH_DEPTH && seen.size < REACH_NODE_BUDGET;
+      depth++
+    ) {
+      const next: string[] = [];
+      for (const current of frontier) {
+        for (const to of invoked(current)) {
+          if (seen.has(to)) continue;
+          const target = graph.node(to);
+          if (target === undefined || !production(target)) continue;
+          seen.add(to);
+          files.add(target.file);
+          next.push(to);
+        }
+      }
+      if (next.length === 0) break;
+      frontier = next;
+    }
+    return files.size;
+  };
+
+  const out = new Map<string, number>();
+  const candidates: { id: string; surface: number; fanIn: number }[] = [];
+  for (const node of graph.nodes) {
+    if (!production(node)) continue;
+    const surface = publicFanIn(graph, node.id);
+    if (surface <= 0) continue;
+    let fanIn = 0;
+    for (const edge of graph.incoming(node.id)) {
+      if (!INVOKE_KINDS.has(edge.kind)) continue;
+      const caller = graph.node(edge.from);
+      if (caller !== undefined && production(caller)) fanIn++;
+    }
+    candidates.push({ id: node.id, surface, fanIn });
   }
-  cache.set(id, files.size);
-  return files.size;
+
+  let reachMax = 1;
+  let fanInMax = 1;
+  const reaches = new Map<string, number>();
+  for (const candidate of candidates) {
+    const reach = reachOf(candidate.id);
+    reaches.set(candidate.id, reach);
+    if (reach > reachMax) reachMax = reach;
+    if (candidate.fanIn > fanInMax) fanInMax = candidate.fanIn;
+  }
+
+  let max = 0;
+  const raw = new Map<string, number>();
+  for (const candidate of candidates) {
+    const load = Math.max(
+      (reaches.get(candidate.id) ?? 0) / reachMax,
+      candidate.fanIn / fanInMax,
+    );
+    const score = Math.log2(1 + candidate.surface) * load;
+    raw.set(candidate.id, score);
+    if (score > max) max = score;
+  }
+  if (max > 0) {
+    for (const [id, score] of raw)
+      out.set(id, (score / max) * CENTRALITY_SCALE);
+  }
+  return out;
 }
 
 /**
@@ -820,125 +811,61 @@ function executionDegree(
  * lost their tour seats to `ZodType.safeParse`, a method of the previous
  * major.
  */
-function kindScore(graph: TtscGraphMemory, node: ITtscGraphNode): number {
-  switch (node.kind) {
-    case "function":
-    case "method":
-      return 28;
-    case "property":
-    case "variable":
-      return executionDegree(graph, node.id).out > 0 ? 26 : 8;
-    case "class":
-      return 24;
-    case "module":
-    case "namespace":
-      return 16;
-    case "enum":
-      return 10;
-    default:
-      return 0;
+
+/**
+ * How many modules put a symbol on the wire — counting the one that owns it.
+ *
+ * A method is not exported; its class is. `Observable.subscribe` and
+ * `ZodType.parse` carry an export fan-in of zero, because nothing re-exports a
+ * member: what a package publishes is `Observable`, and calling `subscribe` on
+ * it is what publishing `Observable` was for. Scored on its own fan-in, the
+ * public method a whole library exists to be called through ranks below every
+ * loose function beside it, and a list of English verbs — `parse`, `subscribe`,
+ * `render` — was what used to put it back.
+ *
+ * A member inherits the surface of what contains it. That is an edge the graph
+ * already draws, and it says the same thing in a codebase whose classes are
+ * named in Japanese.
+ */
+function publicFanIn(graph: TtscGraphMemory, id: string): number {
+  const own = exportFanIn(graph, id);
+  const owner = ownerOf(graph, id);
+  return owner === undefined ? own : Math.max(own, exportFanIn(graph, owner));
+}
+
+function ownerOf(graph: TtscGraphMemory, id: string): string | undefined {
+  for (const edge of graph.incoming(id)) {
+    if (edge.kind !== "contains") continue;
+    const owner = graph.node(edge.from);
+    if (
+      owner !== undefined &&
+      owner.kind !== "file" &&
+      owner.kind !== "module"
+    ) {
+      return owner.id;
+    }
   }
+  return undefined;
 }
 
 /**
- * How far in front of the codebase a node stands.
+ * What a user of this package can call, as the graph knows it.
  *
- * Where the dump carries an export surface, the number of modules that put a
- * symbol on the wire says it — see {@link exportFanIn} — and a guess drawn from
- * a filename has nothing to add. Where it does not, the filename is all there
- * is, and the old heuristic still speaks.
+ * This used to pay for an English verb anywhere in the name — `create`,
+ * `parse`, `render`, `subscribe` — and for a class whose name contained `app`,
+ * `server` or `factory`. Neither is a fact about the code. They are a guess
+ * about the language its authors happened to write in, and a codebase that
+ * names its entry `起動` or `mk` or `boot` is one the guess is simply wrong
+ * about. It was also wrong in English: `onRenderTracked` is a devtools hook and
+ * it took the bonus for the "render" inside it, outranking `track`, the
+ * function it is named after.
+ *
+ * Two facts say the same thing without reading a word of the name. The package
+ * _publishes_ this symbol — that is its export surface, counted in
+ * {@link exportFanIn} — and it is a _callable_, so publishing it is publishing
+ * something to run. A user calls what a package exports and what a package
+ * exports to be called.
  */
-function publicSurfaceScore(
-  graph: TtscGraphMemory,
-  node: ITtscGraphNode,
-): number {
-  if (!hasExportSurface(graph)) return entrySurfaceScore(node);
-  return Math.min(40, Math.log2(1 + exportFanIn(graph, node.id)) * 14);
-}
-
-function entrySurfaceScore(node: ITtscGraphNode): number {
-  const file = node.file.replace(/\\/g, "/");
-  const base = file.slice(file.lastIndexOf("/") + 1).toLowerCase();
-  const stem = base.replace(/\.[cm]?[tj]sx?$/, "");
-  const depth = sourceDepth(file);
-  let score = 0;
-  if (stem === "index") {
-    if (depth <= 0) score += 48;
-    else if (depth === 1) score += 32;
-    else if (depth === 2) score += 12;
-  } else if (stem === "main" || stem === "server" || stem === "bootstrap")
-    score += 42;
-  else if (stem === "app" || stem === "application") score += 28;
-
-  if (depth <= 1) score += 22;
-  else if (depth === 2) score += 12;
-  else if (depth === 3) score += 5;
-
-  if (node.exported && score > 0) score += 12;
-  return score;
-}
-
-function runtimeEntryScore(node: ITtscGraphNode, surface: number): number {
-  const words = new Set([
-    ...subwords(node.name),
-    ...subwords(node.qualifiedName ?? ""),
-  ]);
-  if (isPrivateLike(node, words)) return 0;
-  const hasVerb = hasAny(words, [
-    "bootstrap",
-    "create",
-    "execute",
-    "handle",
-    "init",
-    "initialize",
-    "listen",
-    "mount",
-    "open",
-    "parse",
-    "render",
-    "run",
-    "safe",
-    "safeparse",
-    "start",
-    "startup",
-    "subscribe",
-    "update",
-  ]);
-  if (node.kind === "method" && hasVerb) return 90;
-  if (
-    (node.kind === "function" ||
-      node.kind === "property" ||
-      node.kind === "variable") &&
-    surface > 0 &&
-    hasVerb
-  ) {
-    return 70;
-  }
-  if (
-    node.kind === "class" &&
-    hasAny(words, [
-      "application",
-      "app",
-      "backend",
-      "client",
-      "datasource",
-      "factory",
-      "server",
-    ])
-  ) {
-    return 45;
-  }
-  return 0;
-}
-
-function sourceDepth(file: string): number {
-  const parts = file.split("/").filter(Boolean);
-  if (parts[0] === "src") return Math.max(0, parts.length - 2);
-  if (parts[0] === "packages" && parts.length >= 3) {
-    return Math.max(0, parts.length - 3);
-  }
-  return Math.max(0, parts.length - 1);
-}
 
 function queryMatchScore(node: ITtscGraphNode, terms: string[]): number {
   return (
@@ -1052,89 +979,33 @@ function queryAlignmentFactor(
   return 0.45;
 }
 
-function broadTourDamping(
-  node: ITtscGraphNode,
-  queryWords: ReadonlySet<string>,
-): number {
-  const words = new Set([
-    ...subwords(node.name),
-    ...subwords(node.qualifiedName ?? ""),
-    ...subwords(node.file),
-  ]);
-  let factor = 1;
-  if (
-    !hasAny(queryWords, ["internal", "private"]) &&
-    isPrivateLike(node, words)
-  ) {
-    factor *= 0.25;
-  }
-  if (
-    !hasAny(queryWords, ["error", "errors", "exception", "exceptions"]) &&
-    hasAny(words, ["error", "errors", "exception", "exceptions"])
-  ) {
-    factor *= 0.25;
-  }
-  if (
-    !hasAny(queryWords, [
-      "config",
-      "configuration",
-      "env",
-      "environment",
-      "option",
-      "options",
-      "port",
-    ]) &&
-    (node.kind === "variable" || node.kind === "property") &&
-    hasAny(words, [
-      "config",
-      "configuration",
-      "env",
-      "environment",
-      "option",
-      "options",
-      "port",
-    ])
-  ) {
-    factor *= 0.35;
-  }
-  if (
-    !hasAny(queryWords, [
-      "deserialize",
-      "deserializer",
-      "serializer",
-      "serialize",
-      "serialization",
-    ]) &&
-    hasAny(words, [
-      "deserialize",
-      "deserializer",
-      "serializer",
-      "serialize",
-      "serialization",
-    ])
-  ) {
-    factor *= 0.25;
-  }
-  return factor;
+/**
+ * What a tour demotes, without reading a word of the name.
+ *
+ * This used to hold four lists of English words -- error, exception, config,
+ * env, option, port, serialize, deserialize, internal, private -- and it
+ * quartered the score of any symbol whose name contained one, unless the
+ * question contained it too. A codebase that names its errors `エラー` was never
+ * damped, and a question asked in Japanese never lifted the damping. The lists
+ * were a guess about the language, not a fact about the code.
+ *
+ * A leading underscore stays: it is punctuation, and it means the same thing in
+ * every language a symbol can be named in. Everything else a tour used to
+ * demote by vocabulary -- a config bag, an error type, a serializer -- the
+ * score already demotes by structure: they run nothing, so they carry no
+ * execution degree and no execution reach.
+ */
+function broadTourDamping(node: ITtscGraphNode): number {
+  return isPrivateLike(node) ? 0.25 : 1;
 }
 
-function hasAny(
-  words: ReadonlySet<string>,
-  candidates: readonly string[],
-): boolean {
-  return candidates.some((word) => words.has(word));
-}
-
-function isPrivateLike(
-  node: ITtscGraphNode,
-  words: ReadonlySet<string>,
-): boolean {
+function isPrivateLike(node: ITtscGraphNode): boolean {
+  // The leading underscore is punctuation, not vocabulary: it means the same
+  // in a codebase whose symbols are named in Japanese as in one named in
+  // English. The words that used to sit here -- "inner", "internal",
+  // "private" -- did not.
   const name = node.qualifiedName ?? node.name;
-  return (
-    name.startsWith("_") ||
-    name.includes("._") ||
-    hasAny(words, ["inner", "internal", "private"])
-  );
+  return name.startsWith("_") || name.includes("._");
 }
 
 function hasExplicitSymbolHandle(query: string): boolean {
