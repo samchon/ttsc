@@ -11233,5 +11233,219 @@
         }
       }
     ]
+  },
+  "index": {
+    "host": {
+      "os": "Windows_NT 10.0.26200",
+      "kernel": "10.0.26200",
+      "cpu": "AMD Ryzen 9 7940HS w/ Radeon 780M Graphics",
+      "cores": 16,
+      "ramGB": 31,
+      "node": "v22.21.0"
+    },
+    "scale": {
+      "excalidraw": {
+        "files": 599,
+        "lines": 172012
+      },
+      "vue": {
+        "files": 476,
+        "lines": 151184
+      },
+      "rxjs": {
+        "files": 681,
+        "lines": 91238
+      },
+      "typeorm": {
+        "files": 3548,
+        "lines": 299837
+      },
+      "zod": {
+        "files": 404,
+        "lines": 79306
+      },
+      "nestjs": {
+        "files": 1543,
+        "lines": 88775
+      },
+      "vscode": {
+        "files": 10161,
+        "lines": 3094212
+      },
+      "shopping-backend": {
+        "files": 550,
+        "lines": 51478
+      }
+    },
+    "cells": [
+      {
+        "project": "excalidraw",
+        "tool": "ttsc-graph",
+        "buildMs": 1873.1909
+      },
+      {
+        "project": "excalidraw",
+        "tool": "codegraph",
+        "buildMs": 17773.0345
+      },
+      {
+        "project": "excalidraw",
+        "tool": "codebase-memory",
+        "buildMs": 1943.6569,
+        "mode": "full"
+      },
+      {
+        "project": "excalidraw",
+        "tool": "serena",
+        "buildMs": 14673.183
+      },
+      {
+        "project": "vue",
+        "tool": "ttsc-graph",
+        "buildMs": 1991.9231
+      },
+      {
+        "project": "vue",
+        "tool": "codegraph",
+        "buildMs": 12401.8457
+      },
+      {
+        "project": "vue",
+        "tool": "codebase-memory",
+        "buildMs": 1064.236,
+        "mode": "full"
+      },
+      {
+        "project": "vue",
+        "tool": "serena",
+        "buildMs": 12572.7481
+      },
+      {
+        "project": "rxjs",
+        "tool": "ttsc-graph",
+        "buildMs": 811.6695
+      },
+      {
+        "project": "rxjs",
+        "tool": "codegraph",
+        "buildMs": 16134.9294
+      },
+      {
+        "project": "rxjs",
+        "tool": "codebase-memory",
+        "buildMs": 1338.7913,
+        "mode": "full"
+      },
+      {
+        "project": "rxjs",
+        "tool": "serena",
+        "buildMs": 14868.9227
+      },
+      {
+        "project": "typeorm",
+        "tool": "ttsc-graph",
+        "buildMs": 2400.6607
+      },
+      {
+        "project": "typeorm",
+        "tool": "codegraph",
+        "buildMs": 55248.4782
+      },
+      {
+        "project": "typeorm",
+        "tool": "codebase-memory",
+        "buildMs": 2970.1427,
+        "mode": "full"
+      },
+      {
+        "project": "typeorm",
+        "tool": "serena",
+        "buildMs": 28889.8541
+      },
+      {
+        "project": "zod",
+        "tool": "ttsc-graph",
+        "buildMs": 1538.3172
+      },
+      {
+        "project": "zod",
+        "tool": "codegraph",
+        "buildMs": 10243.7564
+      },
+      {
+        "project": "zod",
+        "tool": "codebase-memory",
+        "buildMs": 839.1504,
+        "mode": "full"
+      },
+      {
+        "project": "zod",
+        "tool": "serena",
+        "buildMs": 9596.7367
+      },
+      {
+        "project": "nestjs",
+        "tool": "ttsc-graph",
+        "buildMs": 1101.6075
+      },
+      {
+        "project": "nestjs",
+        "tool": "codegraph",
+        "buildMs": 20606.8314
+      },
+      {
+        "project": "nestjs",
+        "tool": "codebase-memory",
+        "buildMs": 1415.5663,
+        "mode": "full"
+      },
+      {
+        "project": "nestjs",
+        "tool": "serena",
+        "buildMs": 17824.4745
+      },
+      {
+        "project": "vscode",
+        "tool": "ttsc-graph",
+        "buildMs": 28680.8615
+      },
+      {
+        "project": "vscode",
+        "tool": "codegraph",
+        "buildMs": 731470.0857
+      },
+      {
+        "project": "vscode",
+        "tool": "codebase-memory",
+        "buildMs": 118784.6552,
+        "mode": "full"
+      },
+      {
+        "project": "vscode",
+        "tool": "serena",
+        "buildMs": 273930.9252
+      },
+      {
+        "project": "shopping-backend",
+        "tool": "ttsc-graph",
+        "buildMs": 1014.0171
+      },
+      {
+        "project": "shopping-backend",
+        "tool": "codegraph",
+        "buildMs": 9392.0311
+      },
+      {
+        "project": "shopping-backend",
+        "tool": "codebase-memory",
+        "buildMs": 791.9612,
+        "mode": "full"
+      },
+      {
+        "project": "shopping-backend",
+        "tool": "serena",
+        "buildMs": 12745.7866
+      }
+    ]
   }
 }
