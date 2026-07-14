@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "strconv"
   "strings"
   "testing"
 )
@@ -20,6 +21,7 @@ func TestNoFloatingPromisesCorrelatesMixedReceiverResults(t *testing.T) {
   code, stdout, stderr := runNoFloatingPromisesCase(t, `interface CatchResult<T> {
   catch(onRejected: (reason: unknown) => void): T;
 }
+
 interface ThenResult<T> {
   then(onFulfilled: undefined, onRejected: (reason: unknown) => void): T;
 }
@@ -168,5 +170,65 @@ Promise.resolve();
     !diagnosticOutputContains(stderr, "main.ts:19:") ||
     diagnosticOutputContains(stderr, "main.ts:17:") {
     t.Fatalf("disabled thenable run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
+}
+
+// TestNoFloatingPromisesRejectsInapplicableGenericReceiverBranches locks the
+// conservative proof used for generic non-Promise receiver methods. A return
+// type inferred as undefined is not enough: every fixed argument, callback
+// parameter, explicit type argument, and callback return must also satisfy the
+// candidate declaration before the branch can make the mixed call safe.
+func TestNoFloatingPromisesRejectsInapplicableGenericReceiverBranches(t *testing.T) {
+  source := `interface FixedGenericCatch {
+  catch<T>(onRejected: () => T, value: number): T;
+}
+interface CallbackGenericCatch {
+  catch<T>(onRejected: (reason: unknown) => T): T;
+}
+interface ConstrainedGenericCatch {
+  catch<T extends number>(onRejected: () => T): T;
+}
+interface ExplicitGenericCatch {
+  catch<T>(onRejected: () => T): T;
+}
+declare const fixedValid: Promise<void> | FixedGenericCatch;
+declare const fixedMismatch: Promise<void> | FixedGenericCatch;
+declare const callbackValid: Promise<void> | CallbackGenericCatch;
+declare const callbackMismatch: Promise<void> | CallbackGenericCatch;
+declare const constrainedValid: Promise<void> | ConstrainedGenericCatch;
+declare const constrainedMismatch: Promise<void> | ConstrainedGenericCatch;
+declare const explicitValid: Promise<void> | ExplicitGenericCatch;
+declare const explicitMismatch: Promise<void> | ExplicitGenericCatch;
+fixedValid.catch(() => undefined, 1);
+fixedMismatch.catch(() => undefined, "not a number");
+callbackValid.catch((reason: unknown) => undefined);
+callbackMismatch.catch((reason: string) => undefined);
+constrainedValid.catch<number>(() => 1);
+constrainedMismatch.catch<string>(() => "not a number");
+explicitValid.catch<undefined>(() => undefined);
+explicitMismatch.catch<undefined>(() => Promise.resolve());
+`
+  code, stdout, stderr := runNoFloatingPromisesCase(t, source, nil)
+  if code != 2 || stdout != "" {
+    t.Fatalf("generic applicability run mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+  }
+  unsafeMarkers := []string{
+    "fixedMismatch.catch",
+    "callbackMismatch.catch",
+    "constrainedMismatch.catch",
+    "explicitMismatch.catch",
+  }
+  if got := strings.Count(stderr, "[typescript/no-floating-promises]"); got != len(unsafeMarkers) {
+    t.Fatalf("expected %d generic applicability findings, got %d:\n%s", len(unsafeMarkers), got, stderr)
+  }
+  for _, marker := range unsafeMarkers {
+    offset := strings.Index(source, marker)
+    if offset < 0 {
+      t.Fatalf("missing source marker %q", marker)
+    }
+    location := "main.ts:" + strconv.Itoa(strings.Count(source[:offset], "\n")+1) + ":"
+    if !diagnosticOutputContains(stderr, location) {
+      t.Fatalf("missing generic applicability finding at %s (%s)\n%s", location, marker, stderr)
+    }
   }
 }

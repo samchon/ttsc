@@ -1082,12 +1082,15 @@ func floatingPromiseSignatureAcceptsCall(
   if len(typeArguments) > len(typeParameters) || (len(typeArguments) != 0 && len(typeParameters) == 0) {
     return false
   }
-  // A generic candidate remains possible after arity and explicit-type-
-  // argument checks. Its inferred return is handled separately and
-  // conservatively below; comparing an argument to an uninstantiated type
-  // parameter here could reject a candidate that inference would accept.
   if len(typeParameters) != 0 {
-    return true
+    return floatingPromiseGenericSignatureAcceptsCall(
+      checker,
+      call,
+      signature,
+      arguments,
+      typeArguments,
+      typeParameters,
+    )
   }
   for index, argument := range arguments {
     if argument == nil || argument.Kind == shimast.KindSpreadElement {
@@ -1113,6 +1116,310 @@ func floatingPromiseSignatureAcceptsCall(
     }
   }
   return true
+}
+
+// floatingPromiseGenericSignatureAcceptsCall proves the deliberately small
+// generic subset whose result can be correlated without instantiating a
+// candidate through TypeScript's private resolver. Every argument must match a
+// fixed parameter or provide a direct, constraint-valid inference for a naked
+// type parameter. Callback inference is accepted only after its complete input
+// contract and return are checked.
+func floatingPromiseGenericSignatureAcceptsCall(
+  checker *shimchecker.Checker,
+  call *shimast.CallExpression,
+  signature *shimchecker.Signature,
+  arguments []*shimast.Node,
+  typeArgumentNodes []*shimast.Node,
+  typeParameters []*shimchecker.Type,
+) bool {
+  if len(typeArgumentNodes) != 0 && len(typeArgumentNodes) < checker.GetMinTypeArgumentCount(typeParameters) {
+    return false
+  }
+  explicit := make([]*shimchecker.Type, len(typeParameters))
+  for index, typeArgumentNode := range typeArgumentNodes {
+    if typeArgumentNode == nil {
+      return false
+    }
+    typeArgument := checker.GetTypeFromTypeNode(typeArgumentNode)
+    if typeArgument == nil || !floatingPromiseTypeParameterAccepts(checker, typeParameters[index], typeArgument) {
+      return false
+    }
+    explicit[index] = typeArgument
+  }
+
+  inferred := make(map[*shimchecker.Type][]*shimchecker.Type, len(typeParameters))
+  for index, argument := range arguments {
+    if argument == nil || argument.Kind == shimast.KindSpreadElement {
+      return false
+    }
+    parameterType := floatingPromiseParameterType(checker, call, signature, index)
+    if parameterType == nil || !floatingPromiseGenericArgumentAccepts(
+      checker,
+      call,
+      argument,
+      parameterType,
+      typeParameters,
+      explicit,
+      inferred,
+    ) {
+      return false
+    }
+  }
+
+  for index, typeParameter := range typeParameters {
+    if explicit[index] != nil {
+      continue
+    }
+    candidates := inferred[typeParameter]
+    if len(candidates) != 0 {
+      if !floatingPromiseInferencesHaveWitness(checker, candidates) {
+        return false
+      }
+      continue
+    }
+    defaultType := checker.GetDefaultFromTypeParameter(typeParameter)
+    if defaultType == nil || !floatingPromiseTypeParameterAccepts(checker, typeParameter, defaultType) {
+      return false
+    }
+  }
+  return true
+}
+
+func floatingPromiseGenericArgumentAccepts(
+  checker *shimchecker.Checker,
+  call *shimast.CallExpression,
+  argument *shimast.Node,
+  parameterType *shimchecker.Type,
+  typeParameters []*shimchecker.Type,
+  explicit []*shimchecker.Type,
+  inferred map[*shimchecker.Type][]*shimchecker.Type,
+) bool {
+  argumentType := checker.GetTypeAtLocation(argument)
+  if argumentType == nil {
+    return false
+  }
+  if typeParameterIndex := floatingPromiseTypeParameterIndex(typeParameters, parameterType); typeParameterIndex >= 0 {
+    if floatingPromiseArgumentNeedsCandidateContext(argument) {
+      return false
+    }
+    typeParameter := typeParameters[typeParameterIndex]
+    if explicitType := explicit[typeParameterIndex]; explicitType != nil {
+      return checker.IsTypeAssignableTo(argumentType, explicitType)
+    }
+    if !floatingPromiseTypeParameterAccepts(checker, typeParameter, argumentType) {
+      return false
+    }
+    inferred[typeParameter] = append(inferred[typeParameter], argumentType)
+    return true
+  }
+
+  apparentParameter := checker.GetApparentType(parameterType)
+  if apparentParameter != nil && len(checker.GetSignaturesOfType(apparentParameter, shimchecker.SignatureKindCall)) != 0 {
+    return floatingPromiseCallableArgumentAccepts(
+      checker,
+      call,
+      argument,
+      parameterType,
+      typeParameters,
+      explicit,
+      inferred,
+    )
+  }
+  if floatingPromiseTypeContainsAnyTypeParameter(checker, parameterType, typeParameters, call.Expression, nil) {
+    return false
+  }
+  if floatingPromiseArgumentNeedsCandidateContext(argument) {
+    // Object, array, and branching literals require the candidate-specific
+    // contextual mapper that is intentionally unavailable here.
+    return false
+  }
+  return checker.IsTypeAssignableTo(argumentType, parameterType)
+}
+
+func floatingPromiseCallableArgumentAccepts(
+  checker *shimchecker.Checker,
+  call *shimast.CallExpression,
+  argument *shimast.Node,
+  parameterType *shimchecker.Type,
+  typeParameters []*shimchecker.Type,
+  explicit []*shimchecker.Type,
+  inferred map[*shimchecker.Type][]*shimchecker.Type,
+) bool {
+  argumentType := checker.GetTypeAtLocation(argument)
+  expectedType := checker.GetApparentType(parameterType)
+  actualType := checker.GetApparentType(argumentType)
+  if expectedType == nil || actualType == nil {
+    return false
+  }
+  expectedSignatures := checker.GetSignaturesOfType(expectedType, shimchecker.SignatureKindCall)
+  actualSignatures := checker.GetSignaturesOfType(actualType, shimchecker.SignatureKindCall)
+  if len(expectedSignatures) != 1 || len(actualSignatures) != 1 {
+    return false
+  }
+  expected := expectedSignatures[0]
+  actual := actualSignatures[0]
+  if expected.HasRestParameter() || actual.HasRestParameter() ||
+    len(expected.TypeParameters()) != 0 || len(actual.TypeParameters()) != 0 {
+    return false
+  }
+  expectedParameters := expected.Parameters()
+  actualParameters := actual.Parameters()
+  if shimchecker.Checker_getMinArgumentCount(checker, actual) >
+    shimchecker.Checker_getMinArgumentCount(checker, expected) {
+    return false
+  }
+  comparableParameters := len(actualParameters)
+  if comparableParameters > len(expectedParameters) {
+    comparableParameters = len(expectedParameters)
+  }
+  for index := 0; index < comparableParameters; index++ {
+    expectedParameter := floatingPromiseSignatureParameterType(
+      checker,
+      expected,
+      index,
+      call.Expression,
+    )
+    actualParameter := floatingPromiseSignatureParameterType(checker, actual, index, argument)
+    if expectedParameter == nil || actualParameter == nil ||
+      floatingPromiseTypeContainsAnyTypeParameter(checker, expectedParameter, typeParameters, call.Expression, nil) ||
+      !checker.IsTypeAssignableTo(expectedParameter, actualParameter) {
+      return false
+    }
+  }
+
+  expectedReturn := checker.GetReturnTypeOfSignature(expected)
+  actualReturn := checker.GetReturnTypeOfSignature(actual)
+  if expectedReturn == nil || actualReturn == nil {
+    return false
+  }
+  if typeParameterIndex := floatingPromiseTypeParameterIndex(typeParameters, expectedReturn); typeParameterIndex >= 0 {
+    typeParameter := typeParameters[typeParameterIndex]
+    if explicitType := explicit[typeParameterIndex]; explicitType != nil {
+      return checker.IsTypeAssignableTo(actualReturn, explicitType)
+    }
+    if !floatingPromiseTypeParameterAccepts(checker, typeParameter, actualReturn) {
+      return false
+    }
+    inferred[typeParameter] = append(inferred[typeParameter], actualReturn)
+    return true
+  }
+  if floatingPromiseTypeContainsAnyTypeParameter(checker, expectedReturn, typeParameters, call.Expression, nil) {
+    return false
+  }
+  if expectedReturn.Flags()&shimchecker.TypeFlagsVoid != 0 {
+    return true
+  }
+  return checker.IsTypeAssignableTo(actualReturn, expectedReturn)
+}
+
+func floatingPromiseTypeParameterIndex(typeParameters []*shimchecker.Type, candidate *shimchecker.Type) int {
+  for index, typeParameter := range typeParameters {
+    if candidate == typeParameter {
+      return index
+    }
+  }
+  return -1
+}
+
+func floatingPromiseInferencesHaveWitness(checker *shimchecker.Checker, inferred []*shimchecker.Type) bool {
+  for _, witness := range inferred {
+    if witness == nil {
+      continue
+    }
+    acceptsAll := true
+    for _, candidate := range inferred {
+      if candidate == nil || !checker.IsTypeAssignableTo(candidate, witness) {
+        acceptsAll = false
+        break
+      }
+    }
+    if acceptsAll {
+      return true
+    }
+  }
+  return false
+}
+
+func floatingPromiseTypeContainsAnyTypeParameter(
+  checker *shimchecker.Checker,
+  t *shimchecker.Type,
+  typeParameters []*shimchecker.Type,
+  location *shimast.Node,
+  visited map[*shimchecker.Type]bool,
+) bool {
+  if checker == nil || t == nil {
+    return true
+  }
+  if floatingPromiseTypeParameterIndex(typeParameters, t) >= 0 ||
+    t.Flags()&shimchecker.TypeFlagsTypeParameter != 0 {
+    return true
+  }
+  if visited == nil {
+    visited = make(map[*shimchecker.Type]bool)
+  }
+  if visited[t] {
+    return false
+  }
+  visited[t] = true
+
+  if t.Flags()&shimchecker.TypeFlagsUnionOrIntersection != 0 {
+    for _, part := range t.Types() {
+      if floatingPromiseTypeContainsAnyTypeParameter(checker, part, typeParameters, location, visited) {
+        return true
+      }
+    }
+  }
+  if t.Flags()&shimchecker.TypeFlagsObject != 0 && t.ObjectFlags()&shimchecker.ObjectFlagsReference != 0 {
+    for _, typeArgument := range checker.GetTypeArguments(t) {
+      if floatingPromiseTypeContainsAnyTypeParameter(checker, typeArgument, typeParameters, location, visited) {
+        return true
+      }
+    }
+  }
+  if t.Flags()&(shimchecker.TypeFlagsConditional|
+    shimchecker.TypeFlagsIndexedAccess|
+    shimchecker.TypeFlagsSubstitution|
+    shimchecker.TypeFlagsStringMapping|
+    shimchecker.TypeFlagsTemplateLiteral) != 0 {
+    return true
+  }
+  for _, kind := range []shimchecker.SignatureKind{
+    shimchecker.SignatureKindCall,
+    shimchecker.SignatureKindConstruct,
+  } {
+    for _, signature := range checker.GetSignaturesOfType(t, kind) {
+      if len(signature.TypeParameters()) != 0 {
+        return true
+      }
+      for index := range signature.Parameters() {
+        parameterType := floatingPromiseSignatureParameterType(checker, signature, index, location)
+        if parameterType == nil ||
+          floatingPromiseTypeContainsAnyTypeParameter(checker, parameterType, typeParameters, location, visited) {
+          return true
+        }
+      }
+      if returnType := checker.GetReturnTypeOfSignature(signature); returnType == nil ||
+        floatingPromiseTypeContainsAnyTypeParameter(checker, returnType, typeParameters, location, visited) {
+        return true
+      }
+    }
+  }
+  if t.Flags()&shimchecker.TypeFlagsObject != 0 {
+    for _, property := range shimchecker.Checker_getPropertiesOfType(checker, t) {
+      propertyType := checker.GetTypeOfSymbolAtLocation(property, location)
+      if propertyType == nil ||
+        floatingPromiseTypeContainsAnyTypeParameter(checker, propertyType, typeParameters, location, visited) {
+        return true
+      }
+    }
+    for _, indexInfo := range checker.GetIndexInfosOfType(t) {
+      if indexInfo == nil ||
+        floatingPromiseTypeContainsAnyTypeParameter(checker, indexInfo.ValueType(), typeParameters, location, visited) {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 func floatingPromiseFunctionArgument(node *shimast.Node) bool {
@@ -1169,6 +1476,18 @@ func floatingPromiseParameterType(
   if checker == nil || call == nil || signature == nil || index < 0 {
     return nil
   }
+  return floatingPromiseSignatureParameterType(checker, signature, index, call.Expression)
+}
+
+func floatingPromiseSignatureParameterType(
+  checker *shimchecker.Checker,
+  signature *shimchecker.Signature,
+  index int,
+  location *shimast.Node,
+) *shimchecker.Type {
+  if checker == nil || signature == nil || index < 0 || location == nil {
+    return nil
+  }
   parameters := signature.Parameters()
   if len(parameters) == 0 {
     return nil
@@ -1180,7 +1499,7 @@ func floatingPromiseParameterType(
     }
     parameterIndex = len(parameters) - 1
   }
-  parameterType := checker.GetTypeOfSymbolAtLocation(parameters[parameterIndex], call.Expression)
+  parameterType := checker.GetTypeOfSymbolAtLocation(parameters[parameterIndex], location)
   if parameterType == nil {
     return nil
   }
