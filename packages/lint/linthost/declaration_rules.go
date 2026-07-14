@@ -159,15 +159,16 @@ var declarationFileRuleNames = map[string]bool{
   "functional/type-declaration-immutability": true,
 
   // unicorn/* rules over file names, comments, identifier naming, and
-  // the numeric literals that appear in enum initializers and literal
-  // types.
-  "unicorn/empty-brace-spaces":        true,
-  "unicorn/expiring-todo-comments":    true,
-  "unicorn/filename-case":             true,
-  "unicorn/no-abusive-eslint-disable": true,
-  "unicorn/no-empty-file":             true,
-  "unicorn/no-keyword-prefix":         true,
-  "unicorn/number-literal-case":       true,
-  "unicorn/numeric-separators-style":  true,
-  "unicorn/prevent-abbreviations":     true,
+  // the literals that appear in enum initializers and literal types
+  // (numeric literals, template literal types).
+  "unicorn/consistent-template-literal-escape": true,
+  "unicorn/empty-brace-spaces":                 true,
+  "unicorn/expiring-todo-comments":             true,
+  "unicorn/filename-case":                      true,
+  "unicorn/no-abusive-eslint-disable":          true,
+  "unicorn/no-empty-file":                      true,
+  "unicorn/no-keyword-prefix":                  true,
+  "unicorn/number-literal-case":                true,
+  "unicorn/numeric-separators-style":           true,
+  "unicorn/prevent-abbreviations":              true,
 }

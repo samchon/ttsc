@@ -1,1 +1,17 @@
-// @ttsc-corpus-skip: unicorn/consistent-template-literal-escape not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+// expect: unicorn/consistent-template-literal-escape error
+const braceEscaped = `link $\{target}`;
+// expect: unicorn/consistent-template-literal-escape error
+const bothEscaped = `link \$\{target}`;
+// expect: unicorn/consistent-template-literal-escape error
+// expect: unicorn/consistent-template-literal-escape error
+const mixedElements = `$\{head}${braceEscaped}$\{tail}`;
+// expect: unicorn/consistent-template-literal-escape error
+type BraceEscapedType = `$\{value}${string}`;
+// expect: unicorn/consistent-template-literal-escape error
+const multiline = `first ${braceEscaped}
+second $\{closing}`;
+const canonical = `use \${target} with ${bothEscaped}`;
+const escapedBackslash = `keep \\\${mixedElements}`;
+const tagged = String.raw`$\{canonical}` as BraceEscapedType;
+const plainString = "$\{escapedBackslash}" + tagged + multiline;
+export default plainString;
