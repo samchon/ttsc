@@ -1211,7 +1211,7 @@ func floatingPromiseGenericSignatureApplicability(
       explicit[:len(typeArgumentNodes)],
       typeParameters,
       checker.GetMinTypeArgumentCount(typeParameters),
-      false,
+      floatingPromiseSignatureIsJavaScript(signature),
     )
     if len(explicit) != len(typeParameters) {
       return floatingPromiseCallUncertain
@@ -1710,6 +1710,14 @@ func floatingPromiseSignatureParameterType(
   return parameterType
 }
 
+func floatingPromiseSignatureIsJavaScript(signature *shimchecker.Signature) bool {
+  if signature == nil {
+    return false
+  }
+  declaration := signature.Declaration()
+  return declaration != nil && declaration.Flags&shimast.NodeFlagsJavaScriptFile != 0
+}
+
 // floatingPromiseSignatureReturnIsUnhandled proves the selected declaration's
 // return is safe without instantiating a signature through private Checker
 // machinery. Concrete returns use the ordinary Promise classifiers. A naked
@@ -1815,7 +1823,7 @@ func floatingPromiseNakedReturnInferences(
       provided,
       signature.TypeParameters(),
       checker.GetMinTypeArgumentCount(signature.TypeParameters()),
-      false,
+      floatingPromiseSignatureIsJavaScript(signature),
     )
     if typeParameterIndex < 0 || typeParameterIndex >= len(filled) {
       return nil
