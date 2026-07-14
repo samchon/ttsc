@@ -25,8 +25,13 @@ func TestNoEmptyCompleteSemantics(t *testing.T) {
     {name: "try catch finally blocks", source: `try {} catch {} finally {}`, want: 3},
     {name: "catch is rejected by default", source: `try { work(); } catch {}`, want: 1},
     {
-      name:    "allowEmptyCatch accepts only catch",
-      source:  `try {} catch {}`,
+      name:    "allowEmptyCatch accepts catch",
+      source:  `try { work(); } catch {}`,
+      options: json.RawMessage(`{"allowEmptyCatch":true}`),
+    },
+    {
+      name:    "allowEmptyCatch does not accept other blocks",
+      source:  `declare const value: boolean; if (value) {}`,
       options: json.RawMessage(`{"allowEmptyCatch":true}`),
       want:    1,
     },
