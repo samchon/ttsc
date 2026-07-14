@@ -464,14 +464,34 @@ func unicornPreferSimpleConditionFirstCommentsPreventFix(
     {leadingStart, firstStart},
     {lastEnd, trailingEnd},
   }
-  for _, comment := range comments {
-    for _, span := range ranges {
-      if comment.start < span[1] && comment.end > span[0] {
-        return true
-      }
+  for _, span := range ranges {
+    if unicornPreferSimpleConditionFirstCommentsOverlap(comments, span[0], span[1]) {
+      return true
     }
   }
   return false
+}
+
+// forEachCommentToken returns non-overlapping spans in source order. Find the
+// first comment whose end lies after start, then only that span can be the
+// earliest overlap. This keeps a comment-heavy file from multiplying every
+// reportable chain by the file's complete comment count.
+func unicornPreferSimpleConditionFirstCommentsOverlap(
+  comments []unicornPreferSimpleConditionFirstCommentSpan,
+  start int,
+  end int,
+) bool {
+  low := 0
+  high := len(comments)
+  for low < high {
+    middle := low + (high-low)/2
+    if comments[middle].end <= start {
+      low = middle + 1
+    } else {
+      high = middle
+    }
+  }
+  return low < len(comments) && comments[low].start < end
 }
 
 func unicornPreferSimpleConditionFirstOperandText(
