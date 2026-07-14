@@ -1,174 +1,175 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="940" viewBox="0 0 1040 940" version="1.1" role="img" aria-label="Common prompt median token use, Codex GPT-5.6 terra">
- <defs>
-  <style type="text/css">
-   *{stroke-linejoin:round;stroke-linecap:butt}
-   text{font-family:DejaVu Sans, Arial, sans-serif}
-  </style>
- </defs>
- <g id="figure_1">
-  <g id="patch_1">
-   <path d="M 0 940 L 1040 940 L 1040 0 L 0 0 z" style="fill:#05070b"/>
-  </g>
-  <g id="axes_1">
-   <path d="M 136 128 L 1016 128 L 1016 866 L 136 866 z" style="fill:#0b111a"/>
-   <path d="M 136 866 L 1016 866" style="fill:none;stroke:#64748b;stroke-width:0.8"/>
-   <path d="M 136 128 L 136 866" style="fill:none;stroke:#64748b;stroke-width:0.8"/>
-   <g>
-    <path d="M 136.000 128 L 136.000 866" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-    <text x="136.000" y="884" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">0</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1884" viewBox="0 0 1240 1884" version="1.1" role="img" aria-label="Common prompt median token use, Codex GPT-5.6 terra">
+ <defs><style type="text/css">text{font-family:DejaVu Sans, Arial, sans-serif}</style></defs>
+ <rect width="1240" height="1884" style="fill:#05070b"/>
+ <text x="36" y="48" style="fill:#f8fafc;font-size:27px;font-weight:700">Common prompt median token use, Codex GPT-5.6 terra</text>
+ <text x="36" y="78" style="fill:#94a3b8;font-size:15px">Lower is better</text>
+ <rect x="28" y="100.0" width="1184.0" height="208.0" rx="10" style="fill:#111a24;fill-opacity:0.55"/>
+   <text x="60" y="130.0" style="fill:#f8fafc;font-size:22px;font-weight:700">Excalidraw</text>
+   <rect x="270" y="144.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="144.0" width="334.3" height="20" rx="10.0" style="fill:#94a3b8"/>
+    <text x="60" y="160.0" style="fill:#9aa3b2;font-size:17px">baseline</text>
+    <text x="1204" y="160.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">882k tokens</text>
+    <rect x="268.0" y="172.0" width="762.0" height="24.0" rx="12.0" style="fill:none;stroke:#d7f9ff;stroke-opacity:0.18;stroke-width:3.5"/>
+    <rect x="270" y="174.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#d7f9ff;stroke-width:1.6"/><rect x="270" y="174.0" width="27.5" height="20" rx="10.0" style="fill:#22d3ee"/><g transform="translate(38.00 176.00) scale(1.000)" style="fill:none;stroke:#36e2ee;stroke-width:1.5">
+    <path d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z" style="stroke-linejoin:round"/>
+    <path d="M3.5 12.5 h9" style="stroke-linecap:round"/>
    </g>
-   <g>
-    <path d="M 356.000 128 L 356.000 866" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-    <text x="356.000" y="884" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">500k</text>
+    <text x="60" y="190.0" style="fill:#22d3ee;font-size:17px;font-weight:700">@ttsc/graph</text>
+    <text x="1204" y="190.0" style="fill:#36e2ee;font-size:17px;font-weight:700;text-anchor:end">92% saved</text>
+    <rect x="270" y="204.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="204.0" width="108.0" height="20" rx="10.0" style="fill:#f59e0b"/>
+    <text x="60" y="220.0" style="fill:#f59e0b;font-size:17px">codegraph</text>
+    <text x="1204" y="220.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">68% saved</text>
+    <rect x="270" y="234.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="234.0" width="349.4" height="20" rx="10.0" style="fill:#a3e635"/>
+    <text x="60" y="250.0" style="fill:#a3e635;font-size:17px">codebase-memory</text>
+    <text x="1204" y="250.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">5% over</text>
+    <rect x="270" y="264.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="264.0" width="394.9" height="20" rx="10.0" style="fill:#f472b6"/>
+    <text x="60" y="280.0" style="fill:#f472b6;font-size:17px">serena</text>
+    <text x="1204" y="280.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">18% over</text>
+  <rect x="28" y="320.0" width="1184.0" height="208.0" rx="10" style="fill:#111a24;fill-opacity:0.25"/>
+   <text x="60" y="350.0" style="fill:#f8fafc;font-size:22px;font-weight:700">NestJS</text>
+   <rect x="270" y="364.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="364.0" width="185.6" height="20" rx="10.0" style="fill:#94a3b8"/>
+    <text x="60" y="380.0" style="fill:#9aa3b2;font-size:17px">baseline</text>
+    <text x="1204" y="380.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">490k tokens</text>
+    <rect x="268.0" y="392.0" width="762.0" height="24.0" rx="12.0" style="fill:none;stroke:#d7f9ff;stroke-opacity:0.18;stroke-width:3.5"/>
+    <rect x="270" y="394.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#d7f9ff;stroke-width:1.6"/><rect x="270" y="394.0" width="34.3" height="20" rx="10.0" style="fill:#22d3ee"/><g transform="translate(38.00 396.00) scale(1.000)" style="fill:none;stroke:#36e2ee;stroke-width:1.5">
+    <path d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z" style="stroke-linejoin:round"/>
+    <path d="M3.5 12.5 h9" style="stroke-linecap:round"/>
    </g>
-   <g>
-    <path d="M 576.000 128 L 576.000 866" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-    <text x="576.000" y="884" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">1M</text>
+    <text x="60" y="410.0" style="fill:#22d3ee;font-size:17px;font-weight:700">@ttsc/graph</text>
+    <text x="1204" y="410.0" style="fill:#36e2ee;font-size:17px;font-weight:700;text-anchor:end">81% saved</text>
+    <rect x="270" y="424.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="424.0" width="59.2" height="20" rx="10.0" style="fill:#f59e0b"/>
+    <text x="60" y="440.0" style="fill:#f59e0b;font-size:17px">codegraph</text>
+    <text x="1204" y="440.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">68% saved</text>
+    <rect x="270" y="454.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="454.0" width="367.3" height="20" rx="10.0" style="fill:#a3e635"/>
+    <text x="60" y="470.0" style="fill:#a3e635;font-size:17px">codebase-memory</text>
+    <text x="1204" y="470.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">98% over</text>
+    <rect x="270" y="484.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="484.0" width="177.3" height="20" rx="10.0" style="fill:#f472b6"/>
+    <text x="60" y="500.0" style="fill:#f472b6;font-size:17px">serena</text>
+    <text x="1204" y="500.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">4% saved</text>
+  <rect x="28" y="540.0" width="1184.0" height="208.0" rx="10" style="fill:#111a24;fill-opacity:0.55"/>
+   <text x="60" y="570.0" style="fill:#f8fafc;font-size:22px;font-weight:700">RxJS</text>
+   <rect x="270" y="584.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="584.0" width="142.5" height="20" rx="10.0" style="fill:#94a3b8"/>
+    <text x="60" y="600.0" style="fill:#9aa3b2;font-size:17px">baseline</text>
+    <text x="1204" y="600.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">376k tokens</text>
+    <rect x="268.0" y="612.0" width="762.0" height="24.0" rx="12.0" style="fill:none;stroke:#d7f9ff;stroke-opacity:0.18;stroke-width:3.5"/>
+    <rect x="270" y="614.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#d7f9ff;stroke-width:1.6"/><rect x="270" y="614.0" width="16.5" height="20" rx="10.0" style="fill:#22d3ee"/><g transform="translate(38.00 616.00) scale(1.000)" style="fill:none;stroke:#36e2ee;stroke-width:1.5">
+    <path d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z" style="stroke-linejoin:round"/>
+    <path d="M3.5 12.5 h9" style="stroke-linecap:round"/>
    </g>
-   <g>
-    <path d="M 796.000 128 L 796.000 866" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-    <text x="796.000" y="884" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">1.5M</text>
+    <text x="60" y="630.0" style="fill:#22d3ee;font-size:17px;font-weight:700">@ttsc/graph</text>
+    <text x="1204" y="630.0" style="fill:#36e2ee;font-size:17px;font-weight:700;text-anchor:end">88% saved</text>
+    <rect x="270" y="644.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="644.0" width="81.0" height="20" rx="10.0" style="fill:#f59e0b"/>
+    <text x="60" y="660.0" style="fill:#f59e0b;font-size:17px">codegraph</text>
+    <text x="1204" y="660.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">43% saved</text>
+    <rect x="270" y="674.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="674.0" width="164.9" height="20" rx="10.0" style="fill:#a3e635"/>
+    <text x="60" y="690.0" style="fill:#a3e635;font-size:17px">codebase-memory</text>
+    <text x="1204" y="690.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">16% over</text>
+    <rect x="270" y="704.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="704.0" width="203.5" height="20" rx="10.0" style="fill:#f472b6"/>
+    <text x="60" y="720.0" style="fill:#f472b6;font-size:17px">serena</text>
+    <text x="1204" y="720.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">43% over</text>
+  <rect x="28" y="760.0" width="1184.0" height="208.0" rx="10" style="fill:#111a24;fill-opacity:0.25"/>
+   <text x="60" y="790.0" style="fill:#f8fafc;font-size:22px;font-weight:700">Shopping</text>
+   <rect x="270" y="804.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="804.0" width="190.5" height="20" rx="10.0" style="fill:#94a3b8"/>
+    <text x="60" y="820.0" style="fill:#9aa3b2;font-size:17px">baseline</text>
+    <text x="1204" y="820.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">503k tokens</text>
+    <rect x="268.0" y="832.0" width="762.0" height="24.0" rx="12.0" style="fill:none;stroke:#d7f9ff;stroke-opacity:0.18;stroke-width:3.5"/>
+    <rect x="270" y="834.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#d7f9ff;stroke-width:1.6"/><rect x="270" y="834.0" width="17.3" height="20" rx="10.0" style="fill:#22d3ee"/><g transform="translate(38.00 836.00) scale(1.000)" style="fill:none;stroke:#36e2ee;stroke-width:1.5">
+    <path d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z" style="stroke-linejoin:round"/>
+    <path d="M3.5 12.5 h9" style="stroke-linecap:round"/>
    </g>
-   <g>
-    <path d="M 1016.000 128 L 1016.000 866" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-    <text x="1016.000" y="884" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">2M</text>
+    <text x="60" y="850.0" style="fill:#22d3ee;font-size:17px;font-weight:700">@ttsc/graph</text>
+    <text x="1204" y="850.0" style="fill:#36e2ee;font-size:17px;font-weight:700;text-anchor:end">91% saved</text>
+    <rect x="270" y="864.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="864.0" width="268.4" height="20" rx="10.0" style="fill:#f59e0b"/>
+    <text x="60" y="880.0" style="fill:#f59e0b;font-size:17px">codegraph</text>
+    <text x="1204" y="880.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">41% over</text>
+    <rect x="270" y="894.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/>
+    <text x="60" y="910.0" style="fill:#a3e635;font-size:17px">codebase-memory</text>
+    <text x="1204" y="910.0" style="fill:#94a3b8;font-size:17px;font-weight:500;text-anchor:end">no data</text>
+    <rect x="270" y="924.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="924.0" width="285.8" height="20" rx="10.0" style="fill:#f472b6"/>
+    <text x="60" y="940.0" style="fill:#f472b6;font-size:17px">serena</text>
+    <text x="1204" y="940.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">50% over</text>
+  <rect x="28" y="980.0" width="1184.0" height="208.0" rx="10" style="fill:#111a24;fill-opacity:0.55"/>
+   <text x="60" y="1010.0" style="fill:#f8fafc;font-size:22px;font-weight:700">TypeORM</text>
+   <rect x="270" y="1024.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1024.0" width="235.2" height="20" rx="10.0" style="fill:#94a3b8"/>
+    <text x="60" y="1040.0" style="fill:#9aa3b2;font-size:17px">baseline</text>
+    <text x="1204" y="1040.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">621k tokens</text>
+    <rect x="268.0" y="1052.0" width="762.0" height="24.0" rx="12.0" style="fill:none;stroke:#d7f9ff;stroke-opacity:0.18;stroke-width:3.5"/>
+    <rect x="270" y="1054.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#d7f9ff;stroke-width:1.6"/><rect x="270" y="1054.0" width="34.9" height="20" rx="10.0" style="fill:#22d3ee"/><g transform="translate(38.00 1056.00) scale(1.000)" style="fill:none;stroke:#36e2ee;stroke-width:1.5">
+    <path d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z" style="stroke-linejoin:round"/>
+    <path d="M3.5 12.5 h9" style="stroke-linecap:round"/>
    </g>
-   <g>
-    <path d="M 18 220.250 L 1016 220.250" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
-    <text x="120" y="177.125" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">excalidraw</text>
-    <rect x="136" y="143.125" width="388.127" height="10.5" style="fill:#94a3b8"/>
-    <text x="529.127" y="152.925" style="fill:#cbd5e1;font-size:13px">882k</text>
-    <rect x="136" y="158.625" width="31.940" height="10.5" style="fill:#22d3ee"/>
-    <text x="172.940" y="168.425" style="fill:#22d3ee;font-size:13px;font-weight:700">73k (-92%)</text>
-    <rect x="136" y="174.125" width="125.340" height="10.5" style="fill:#f59e0b"/>
-    <text x="266.340" y="183.925" style="fill:#f59e0b;font-size:13px">285k (-68%)</text>
-    <rect x="136" y="189.625" width="405.670" height="10.5" style="fill:#a3e635"/>
-    <text x="546.670" y="199.425" style="fill:#fb7185;font-size:13px">922k (+5%)</text>
-    <rect x="136" y="205.125" width="458.484" height="10.5" style="fill:#f472b6"/>
-    <text x="599.484" y="214.925" style="fill:#fb7185;font-size:13px">1.0M (+18%)</text>
+    <text x="60" y="1070.0" style="fill:#22d3ee;font-size:17px;font-weight:700">@ttsc/graph</text>
+    <text x="1204" y="1070.0" style="fill:#36e2ee;font-size:17px;font-weight:700;text-anchor:end">85% saved</text>
+    <rect x="270" y="1084.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1084.0" width="142.0" height="20" rx="10.0" style="fill:#f59e0b"/>
+    <text x="60" y="1100.0" style="fill:#f59e0b;font-size:17px">codegraph</text>
+    <text x="1204" y="1100.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">40% saved</text>
+    <rect x="270" y="1114.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1114.0" width="182.8" height="20" rx="10.0" style="fill:#a3e635"/>
+    <text x="60" y="1130.0" style="fill:#a3e635;font-size:17px">codebase-memory</text>
+    <text x="1204" y="1130.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">22% saved</text>
+    <rect x="270" y="1144.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1144.0" width="162.2" height="20" rx="10.0" style="fill:#f472b6"/>
+    <text x="60" y="1160.0" style="fill:#f472b6;font-size:17px">serena</text>
+    <text x="1204" y="1160.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">31% saved</text>
+  <rect x="28" y="1200.0" width="1184.0" height="208.0" rx="10" style="fill:#111a24;fill-opacity:0.25"/>
+   <text x="60" y="1230.0" style="fill:#f8fafc;font-size:22px;font-weight:700">VS Code</text>
+   <rect x="270" y="1244.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1244.0" width="448.7" height="20" rx="10.0" style="fill:#94a3b8"/>
+    <text x="60" y="1260.0" style="fill:#9aa3b2;font-size:17px">baseline</text>
+    <text x="1204" y="1260.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">1.2M tokens</text>
+    <rect x="268.0" y="1272.0" width="762.0" height="24.0" rx="12.0" style="fill:none;stroke:#d7f9ff;stroke-opacity:0.18;stroke-width:3.5"/>
+    <rect x="270" y="1274.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#d7f9ff;stroke-width:1.6"/><rect x="270" y="1274.0" width="72.9" height="20" rx="10.0" style="fill:#22d3ee"/><g transform="translate(38.00 1276.00) scale(1.000)" style="fill:none;stroke:#36e2ee;stroke-width:1.5">
+    <path d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z" style="stroke-linejoin:round"/>
+    <path d="M3.5 12.5 h9" style="stroke-linecap:round"/>
    </g>
-   <g>
-    <path d="M 18 312.500 L 1016 312.500" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
-    <text x="120" y="269.375" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">nestjs</text>
-    <rect x="136" y="235.375" width="215.483" height="10.5" style="fill:#94a3b8"/>
-    <text x="356.483" y="245.175" style="fill:#cbd5e1;font-size:13px">490k</text>
-    <rect x="136" y="250.875" width="39.873" height="10.5" style="fill:#22d3ee"/>
-    <text x="180.873" y="260.675" style="fill:#22d3ee;font-size:13px;font-weight:700">91k (-81%)</text>
-    <rect x="136" y="266.375" width="68.735" height="10.5" style="fill:#f59e0b"/>
-    <text x="209.735" y="276.175" style="fill:#f59e0b;font-size:13px">156k (-68%)</text>
-    <rect x="136" y="281.875" width="426.383" height="10.5" style="fill:#a3e635"/>
-    <text x="567.383" y="291.675" style="fill:#fb7185;font-size:13px">969k (+98%)</text>
-    <rect x="136" y="297.375" width="205.830" height="10.5" style="fill:#f472b6"/>
-    <text x="346.830" y="307.175" style="fill:#f472b6;font-size:13px">468k (-4%)</text>
+    <text x="60" y="1290.0" style="fill:#22d3ee;font-size:17px;font-weight:700">@ttsc/graph</text>
+    <text x="1204" y="1290.0" style="fill:#36e2ee;font-size:17px;font-weight:700;text-anchor:end">84% saved</text>
+    <rect x="270" y="1304.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1304.0" width="306.3" height="20" rx="10.0" style="fill:#f59e0b"/>
+    <text x="60" y="1320.0" style="fill:#f59e0b;font-size:17px">codegraph</text>
+    <text x="1204" y="1320.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">32% saved</text>
+    <rect x="270" y="1334.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1334.0" width="461.2" height="20" rx="10.0" style="fill:#a3e635"/>
+    <text x="60" y="1350.0" style="fill:#a3e635;font-size:17px">codebase-memory</text>
+    <text x="1204" y="1350.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">3% over</text>
+    <rect x="270" y="1364.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1364.0" width="410.5" height="20" rx="10.0" style="fill:#f472b6"/>
+    <text x="60" y="1380.0" style="fill:#f472b6;font-size:17px">serena</text>
+    <text x="1204" y="1380.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">9% saved</text>
+  <rect x="28" y="1420.0" width="1184.0" height="208.0" rx="10" style="fill:#111a24;fill-opacity:0.55"/>
+   <text x="60" y="1450.0" style="fill:#f8fafc;font-size:22px;font-weight:700">Vue</text>
+   <rect x="270" y="1464.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1464.0" width="172.7" height="20" rx="10.0" style="fill:#94a3b8"/>
+    <text x="60" y="1480.0" style="fill:#9aa3b2;font-size:17px">baseline</text>
+    <text x="1204" y="1480.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">456k tokens</text>
+    <rect x="268.0" y="1492.0" width="762.0" height="24.0" rx="12.0" style="fill:none;stroke:#d7f9ff;stroke-opacity:0.18;stroke-width:3.5"/>
+    <rect x="270" y="1494.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#d7f9ff;stroke-width:1.6"/><rect x="270" y="1494.0" width="27.2" height="20" rx="10.0" style="fill:#22d3ee"/><g transform="translate(38.00 1496.00) scale(1.000)" style="fill:none;stroke:#36e2ee;stroke-width:1.5">
+    <path d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z" style="stroke-linejoin:round"/>
+    <path d="M3.5 12.5 h9" style="stroke-linecap:round"/>
    </g>
-   <g>
-    <path d="M 18 404.750 L 1016 404.750" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
-    <text x="120" y="361.625" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">rxjs</text>
-    <rect x="136" y="327.625" width="165.465" height="10.5" style="fill:#94a3b8"/>
-    <text x="306.465" y="337.425" style="fill:#cbd5e1;font-size:13px">376k</text>
-    <rect x="136" y="343.125" width="19.131" height="10.5" style="fill:#22d3ee"/>
-    <text x="160.131" y="352.925" style="fill:#22d3ee;font-size:13px;font-weight:700">43k (-88%)</text>
-    <rect x="136" y="358.625" width="94.059" height="10.5" style="fill:#f59e0b"/>
-    <text x="235.059" y="368.425" style="fill:#f59e0b;font-size:13px">214k (-43%)</text>
-    <rect x="136" y="374.125" width="191.475" height="10.5" style="fill:#a3e635"/>
-    <text x="332.475" y="383.925" style="fill:#fb7185;font-size:13px">435k (+16%)</text>
-    <rect x="136" y="389.625" width="236.266" height="10.5" style="fill:#f472b6"/>
-    <text x="377.266" y="399.425" style="fill:#fb7185;font-size:13px">537k (+43%)</text>
+    <text x="60" y="1510.0" style="fill:#22d3ee;font-size:17px;font-weight:700">@ttsc/graph</text>
+    <text x="1204" y="1510.0" style="fill:#36e2ee;font-size:17px;font-weight:700;text-anchor:end">84% saved</text>
+    <rect x="270" y="1524.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1524.0" width="261.0" height="20" rx="10.0" style="fill:#f59e0b"/>
+    <text x="60" y="1540.0" style="fill:#f59e0b;font-size:17px">codegraph</text>
+    <text x="1204" y="1540.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">51% over</text>
+    <rect x="270" y="1554.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1554.0" width="151.3" height="20" rx="10.0" style="fill:#a3e635"/>
+    <text x="60" y="1570.0" style="fill:#a3e635;font-size:17px">codebase-memory</text>
+    <text x="1204" y="1570.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">12% saved</text>
+    <rect x="270" y="1584.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1584.0" width="247.0" height="20" rx="10.0" style="fill:#f472b6"/>
+    <text x="60" y="1600.0" style="fill:#f472b6;font-size:17px">serena</text>
+    <text x="1204" y="1600.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">43% over</text>
+  <rect x="28" y="1640.0" width="1184.0" height="208.0" rx="10" style="fill:#111a24;fill-opacity:0.25"/>
+   <text x="60" y="1670.0" style="fill:#f8fafc;font-size:22px;font-weight:700">Zod</text>
+   <rect x="270" y="1684.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1684.0" width="210.0" height="20" rx="10.0" style="fill:#94a3b8"/>
+    <text x="60" y="1700.0" style="fill:#9aa3b2;font-size:17px">baseline</text>
+    <text x="1204" y="1700.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">554k tokens</text>
+    <rect x="268.0" y="1712.0" width="762.0" height="24.0" rx="12.0" style="fill:none;stroke:#d7f9ff;stroke-opacity:0.18;stroke-width:3.5"/>
+    <rect x="270" y="1714.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#d7f9ff;stroke-width:1.6"/><rect x="270" y="1714.0" width="14.4" height="20" rx="10.0" style="fill:#22d3ee"/><g transform="translate(38.00 1716.00) scale(1.000)" style="fill:none;stroke:#36e2ee;stroke-width:1.5">
+    <path d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z" style="stroke-linejoin:round"/>
+    <path d="M3.5 12.5 h9" style="stroke-linecap:round"/>
    </g>
-   <g>
-    <path d="M 18 497.000 L 1016 497.000" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
-    <text x="120" y="453.875" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">shopping</text>
-    <rect x="136" y="419.875" width="221.217" height="10.5" style="fill:#94a3b8"/>
-    <text x="362.217" y="429.675" style="fill:#cbd5e1;font-size:13px">503k</text>
-    <rect x="136" y="435.375" width="20.039" height="10.5" style="fill:#22d3ee"/>
-    <text x="161.039" y="445.175" style="fill:#22d3ee;font-size:13px;font-weight:700">46k (-91%)</text>
-    <rect x="136" y="450.875" width="311.629" height="10.5" style="fill:#f59e0b"/>
-    <text x="452.629" y="460.675" style="fill:#fb7185;font-size:13px">708k (+41%)</text>
-    <rect x="136" y="481.875" width="331.835" height="10.5" style="fill:#f472b6"/>
-    <text x="472.835" y="491.675" style="fill:#fb7185;font-size:13px">754k (+50%)</text>
-   </g>
-   <g>
-    <path d="M 18 589.250 L 1016 589.250" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
-    <text x="120" y="546.125" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">typeorm</text>
-    <rect x="136" y="512.125" width="273.106" height="10.5" style="fill:#94a3b8"/>
-    <text x="414.106" y="521.925" style="fill:#cbd5e1;font-size:13px">621k</text>
-    <rect x="136" y="527.625" width="40.563" height="10.5" style="fill:#22d3ee"/>
-    <text x="181.563" y="537.425" style="fill:#22d3ee;font-size:13px;font-weight:700">92k (-85%)</text>
-    <rect x="136" y="543.125" width="164.893" height="10.5" style="fill:#f59e0b"/>
-    <text x="305.893" y="552.925" style="fill:#f59e0b;font-size:13px">375k (-40%)</text>
-    <rect x="136" y="558.625" width="212.252" height="10.5" style="fill:#a3e635"/>
-    <text x="353.252" y="568.425" style="fill:#a3e635;font-size:13px">482k (-22%)</text>
-    <rect x="136" y="574.125" width="188.293" height="10.5" style="fill:#f472b6"/>
-    <text x="329.293" y="583.925" style="fill:#f472b6;font-size:13px">428k (-31%)</text>
-   </g>
-   <g>
-    <path d="M 18 681.500 L 1016 681.500" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
-    <text x="120" y="638.375" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">vscode</text>
-    <rect x="136" y="604.375" width="520.947" height="10.5" style="fill:#94a3b8"/>
-    <text x="661.947" y="614.175" style="fill:#cbd5e1;font-size:13px">1.2M</text>
-    <rect x="136" y="619.875" width="84.671" height="10.5" style="fill:#22d3ee"/>
-    <text x="225.671" y="629.675" style="fill:#22d3ee;font-size:13px;font-weight:700">192k (-84%)</text>
-    <rect x="136" y="635.375" width="355.542" height="10.5" style="fill:#f59e0b"/>
-    <text x="496.542" y="645.175" style="fill:#f59e0b;font-size:13px">808k (-32%)</text>
-    <rect x="136" y="650.875" width="535.373" height="10.5" style="fill:#a3e635"/>
-    <text x="676.373" y="660.675" style="fill:#fb7185;font-size:13px">1.2M (+3%)</text>
-    <rect x="136" y="666.375" width="476.529" height="10.5" style="fill:#f472b6"/>
-    <text x="617.529" y="676.175" style="fill:#f472b6;font-size:13px">1.1M (-9%)</text>
-   </g>
-   <g>
-    <path d="M 18 773.750 L 1016 773.750" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
-    <text x="120" y="730.625" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">vue</text>
-    <rect x="136" y="696.625" width="200.444" height="10.5" style="fill:#94a3b8"/>
-    <text x="341.444" y="706.425" style="fill:#cbd5e1;font-size:13px">456k</text>
-    <rect x="136" y="712.125" width="31.614" height="10.5" style="fill:#22d3ee"/>
-    <text x="172.614" y="721.925" style="fill:#22d3ee;font-size:13px;font-weight:700">72k (-84%)</text>
-    <rect x="136" y="727.625" width="302.983" height="10.5" style="fill:#f59e0b"/>
-    <text x="443.983" y="737.425" style="fill:#fb7185;font-size:13px">689k (+51%)</text>
-    <rect x="136" y="743.125" width="175.652" height="10.5" style="fill:#a3e635"/>
-    <text x="316.652" y="752.925" style="fill:#a3e635;font-size:13px">399k (-12%)</text>
-    <rect x="136" y="758.625" width="286.784" height="10.5" style="fill:#f472b6"/>
-    <text x="427.784" y="768.425" style="fill:#fb7185;font-size:13px">652k (+43%)</text>
-   </g>
-   <g>
-    <path d="M 18 866.000 L 1016 866.000" style="fill:none;stroke:#1f2937;stroke-width:0.6"/>
-    <text x="120" y="822.875" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">zod</text>
-    <rect x="136" y="788.875" width="243.828" height="10.5" style="fill:#94a3b8"/>
-    <text x="384.828" y="798.675" style="fill:#cbd5e1;font-size:13px">554k</text>
-    <rect x="136" y="804.375" width="16.750" height="10.5" style="fill:#22d3ee"/>
-    <text x="157.750" y="814.175" style="fill:#22d3ee;font-size:13px;font-weight:700">38k (-93%)</text>
-    <rect x="136" y="819.875" width="326.925" height="10.5" style="fill:#f59e0b"/>
-    <text x="467.925" y="829.675" style="fill:#fb7185;font-size:13px">743k (+34%)</text>
-    <rect x="136" y="835.375" width="173.358" height="10.5" style="fill:#a3e635"/>
-    <text x="314.358" y="845.175" style="fill:#a3e635;font-size:13px">394k (-29%)</text>
-    <rect x="136" y="850.875" width="440.893" height="10.5" style="fill:#f472b6"/>
-    <text x="581.893" y="860.675" style="fill:#fb7185;font-size:13px">1.0M (+81%)</text>
-   </g>
-   <text x="576.000" y="30" style="fill:#f8fafc;font-size:22px;font-weight:600;text-anchor:middle">Common prompt median token use, Codex GPT-5.6 terra</text>
-   <text x="576.000" y="912" style="fill:#cbd5e1;font-size:14px;text-anchor:middle">Tokens</text>
-   <g id="legend_1">
-   <g>
-    <rect x="136" y="51" width="14" height="9" style="fill:#94a3b8"/>
-    <text x="156" y="60" style="fill:#cbd5e1;font-size:12px">baseline</text>
-   </g>
-   <g>
-    <rect x="231.76" y="51" width="14" height="9" style="fill:#22d3ee"/>
-    <text x="251.76" y="60" style="fill:#cbd5e1;font-size:12px">@ttsc/graph</text>
-   </g>
-   <g>
-    <rect x="347.68" y="51" width="14" height="9" style="fill:#f59e0b"/>
-    <text x="367.68" y="60" style="fill:#cbd5e1;font-size:12px">codegraph</text>
-   </g>
-   <g>
-    <rect x="450.16" y="51" width="14" height="9" style="fill:#a3e635"/>
-    <text x="470.16" y="60" style="fill:#cbd5e1;font-size:12px">codebase-memory</text>
-   </g>
-   <g>
-    <rect x="592.96" y="51" width="14" height="9" style="fill:#f472b6"/>
-    <text x="612.96" y="60" style="fill:#cbd5e1;font-size:12px">serena</text>
-   </g>
-  </g>
-   <text x="136" y="86" style="fill:#94a3b8;font-size:13px">Lower is better. Percentage is versus the no-MCP baseline.</text>
-  </g>
- </g>
+    <text x="60" y="1730.0" style="fill:#22d3ee;font-size:17px;font-weight:700">@ttsc/graph</text>
+    <text x="1204" y="1730.0" style="fill:#36e2ee;font-size:17px;font-weight:700;text-anchor:end">93% saved</text>
+    <rect x="270" y="1744.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1744.0" width="281.6" height="20" rx="10.0" style="fill:#f59e0b"/>
+    <text x="60" y="1760.0" style="fill:#f59e0b;font-size:17px">codegraph</text>
+    <text x="1204" y="1760.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">34% over</text>
+    <rect x="270" y="1774.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1774.0" width="149.3" height="20" rx="10.0" style="fill:#a3e635"/>
+    <text x="60" y="1790.0" style="fill:#a3e635;font-size:17px">codebase-memory</text>
+    <text x="1204" y="1790.0" style="fill:#cbd5e1;font-size:17px;font-weight:500;text-anchor:end">29% saved</text>
+    <rect x="270" y="1804.0" width="758.0" height="20" rx="10.0" style="fill:undefined;stroke:#ffffff;stroke-opacity:0.05;stroke-width:1"/><rect x="270" y="1804.0" width="379.8" height="20" rx="10.0" style="fill:#f472b6"/>
+    <text x="60" y="1820.0" style="fill:#f472b6;font-size:17px">serena</text>
+    <text x="1204" y="1820.0" style="fill:#fb7185;font-size:17px;font-weight:500;text-anchor:end">81% over</text>
 </svg>
