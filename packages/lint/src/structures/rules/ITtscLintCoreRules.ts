@@ -4,6 +4,7 @@ import type {
 } from "../TtscLintRuleSetting";
 import type {
   ITtscLintCoreNoDuplicateImportsRuleOptions,
+  ITtscLintCoreNoPromiseExecutorReturnRuleOptions,
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
   ITtscLintCorePreferConstRuleOptions,
   ITtscLintNoFallthroughRuleOptions,
@@ -871,12 +872,14 @@ export interface ITtscLintCoreRules {
   "no-plusplus"?: TtscLintRuleSetting;
 
   /**
-   * Reject `return` inside the Promise executor function — the value is
-   * ignored.
+   * Reject values returned by the global Promise constructor's executor. This
+   * covers concise arrows and explicit returns without crossing nested
+   * function boundaries. Set `allowVoid` to accept an explicit unary `void`
+   * return.
    *
    * @reference https://eslint.org/docs/latest/rules/no-promise-executor-return
    */
-  "no-promise-executor-return"?: TtscLintRuleSetting;
+  "no-promise-executor-return"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoPromiseExecutorReturnRuleOptions>;
 
   /**
    * Reject access to `obj.__proto__`; use `Object.getPrototypeOf` /

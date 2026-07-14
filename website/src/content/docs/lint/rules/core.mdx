@@ -86,7 +86,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-octal-escape`](#rule-no-octal-escape): Reject octal escape sequences in string literals.
 - [`no-param-reassign`](#rule-no-param-reassign): Reject reassigning a function parameter inside the body of the function it belongs to.
 - [`no-plusplus`](#rule-no-plusplus): Reject `++` and `--` operators.
-- [`no-promise-executor-return`](#rule-no-promise-executor-return): Reject `return` inside the Promise executor function.
+- [`no-promise-executor-return`](#rule-no-promise-executor-return): Reject values returned by global Promise executors.
 - [`no-proto`](#rule-no-proto): Reject access to `obj.__proto__`; use `Object.getPrototypeOf` / `Object.setPrototypeOf`.
 - [`no-prototype-builtins`](#rule-no-prototype-builtins): Reject `obj.hasOwnProperty(key)` and other direct `Object.prototype` builtins on user objects.
 - [`no-redeclare`](#rule-no-redeclare): Reject declaring the same binding more than once in the same scope.
@@ -1856,13 +1856,30 @@ i++;
 
 ### `no-promise-executor-return`
 
-Reject `return` inside the Promise executor function, the value is ignored.
+Reject values returned by the global `Promise` constructor's executor because the constructor ignores them. The rule checks concise arrow bodies and every explicit value return in block arrows or function expressions without crossing nested function boundaries. A locally shadowed `Promise` constructor is not checked.
+
+Set `allowVoid` to `true` to accept concise `void expression` bodies and explicit `return void expression` statements. It defaults to `false`.
 
 Example:
 
 ```ts
 // reports: no-promise-executor-return (error)
 new Promise((resolve) => resolve(1));
+
+new Promise(() => {
+  // reports: no-promise-executor-return (error)
+  return 1;
+});
+```
+
+```ts filename="ttsc.lint.config.ts"
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-promise-executor-return": ["error", { allowVoid: true }],
+  },
+} satisfies ITtscLintConfig;
 ```
 
 <a id="rule-no-proto"></a>

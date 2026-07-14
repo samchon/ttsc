@@ -286,7 +286,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-octal-escape`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-octal-escape.ts): rejects octal escape sequences.
 - [`no-param-reassign`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-param-reassign.ts): reject reassigning a function parameter inside the body of the function it belongs to.
 - [`no-plusplus`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-plusplus.ts): rejects `++` and `--`.
-- [`no-promise-executor-return`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-promise-executor-return.ts): rejects returned values from Promise executors.
+- [`no-promise-executor-return`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-promise-executor-return.ts): rejects values returned by global Promise executors, with an `allowVoid` option for explicit unary `void` returns.
 - [`no-proto`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-proto.ts): rejects `__proto__`.
 - [`no-prototype-builtins`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-prototype-builtins.ts): rejects direct `Object.prototype` method calls.
 - [`no-redeclare`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-redeclare.ts): rejects redeclaring a binding in the same scope.

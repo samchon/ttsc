@@ -430,36 +430,6 @@ func (noAsyncPromiseExecutor) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
-// noPromiseExecutorReturn: `new Promise(() => 1)` — the value is
-// thrown away.
-type noPromiseExecutorReturn struct{}
-
-func (noPromiseExecutorReturn) Name() string { return "no-promise-executor-return" }
-func (noPromiseExecutorReturn) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindNewExpression}
-}
-func (noPromiseExecutorReturn) Check(ctx *Context, node *shimast.Node) {
-  ne := node.AsNewExpression()
-  if ne == nil || identifierText(ne.Expression) != "Promise" {
-    return
-  }
-  if ne.Arguments == nil || len(ne.Arguments.Nodes) == 0 {
-    return
-  }
-  executor := ne.Arguments.Nodes[0]
-  if executor == nil || executor.Kind != shimast.KindArrowFunction {
-    return
-  }
-  arrow := executor.AsArrowFunction()
-  if arrow == nil || arrow.Body == nil {
-    return
-  }
-  // Concise arrow body returns the value implicitly.
-  if arrow.Body.Kind != shimast.KindBlock {
-    ctx.Report(arrow.Body, "Return values from promise executor functions cannot be read.")
-  }
-}
-
 // noControlRegex: `/\x00/` — control characters in regex are usually
 // the result of accidentally typing the escape rather than the printable
 // counterpart.
@@ -661,7 +631,6 @@ func init() {
   Register(noFuncAssign{})
   Register(noPrototypeBuiltins{})
   Register(noAsyncPromiseExecutor{})
-  Register(noPromiseExecutorReturn{})
   Register(noControlRegex{})
   Register(noIrregularWhitespace{})
   Register(noInnerDeclarations{})

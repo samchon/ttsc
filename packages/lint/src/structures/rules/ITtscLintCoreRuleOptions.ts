@@ -118,6 +118,19 @@ export interface ITtscLintNoFallthroughRuleOptions {
   reportUnusedFallthroughComment?: boolean;
 }
 
+/** `no-promise-executor-return` rule options. */
+export interface ITtscLintCoreNoPromiseExecutorReturnRuleOptions {
+  /**
+   * Allow an executor to explicitly discard a value with the unary `void`
+   * operator, in either a concise arrow body or a `return void expression`
+   * statement. Other expressions that happen to have the `void` type remain
+   * reportable because their explicit return value is still ignored.
+   *
+   * @default false
+   */
+  allowVoid?: boolean;
+}
+
 /** `prefer-const` rule options. */
 export interface ITtscLintCorePreferConstRuleOptions {
   /**
