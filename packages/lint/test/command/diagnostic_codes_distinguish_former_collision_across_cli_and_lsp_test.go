@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -49,7 +48,7 @@ stopped();
 	}
 	wantAlert := fmt.Sprintf("TS%d: [no-alert] Unexpected alert.", alertCode)
 	wantUnreachable := fmt.Sprintf("TS%d: [no-unreachable] Unreachable code.", unreachableCode)
-	if !strings.Contains(stderr, wantAlert) || !strings.Contains(stderr, wantUnreachable) {
+	if !diagnosticOutputContains(stderr, wantAlert) || !diagnosticOutputContains(stderr, wantUnreachable) {
 		t.Fatalf("native diagnostics missing distinct rule codes:\nwant %q\nwant %q\nstderr=%q", wantAlert, wantUnreachable, stderr)
 	}
 
