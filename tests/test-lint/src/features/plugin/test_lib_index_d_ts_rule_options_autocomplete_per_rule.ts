@@ -27,6 +27,8 @@ import assert from "node:assert/strict";
  *   on `no-duplicate-imports`) is rejected.
  * - Typo'd option key on another options-bearing core rule (`allowTernery` for
  *   `allowTernary` on `no-unused-expressions`) is rejected.
+ * - Unsupported declaration and block-function modes for
+ *   `no-inner-declarations` are rejected.
  * - An unsupported `prefer-const` destructuring policy is rejected.
  * - Cross-rule option leakage (`testIdPattern` on
  *   `cypress/unsafe-to-chain-command`) is rejected.
@@ -58,6 +60,11 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       "no-unused-expressions": [
         "error",
         { allowShortCircuit: true, allowTaggedTemplates: true },
+      ],
+      "no-inner-declarations": [
+        "error",
+        "both",
+        { blockScopedFunctions: "disallow" },
       ],
       "prefer-const": [
         "error",
@@ -148,6 +155,24 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       "no-unused-expressions": ["error", { allowTernery: true }],
     },
   };
+  const noInnerDeclarationsModeTypo: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — no-inner-declarations accepts only the official `functions` and `both` declaration modes.
+      "no-inner-declarations": ["error", "variables"],
+    },
+  };
+  const noInnerDeclarationsBlockModeTypo: ITtscLintConfig = {
+    rules: {
+      "no-inner-declarations": [
+        "error",
+        "functions",
+        {
+          // @ts-expect-error — blockScopedFunctions accepts only `allow` and `disallow`.
+          blockScopedFunctions: "ignore",
+        },
+      ],
+    },
+  };
   const preferConstOptionValue: ITtscLintConfig = {
     rules: {
       // @ts-expect-error — prefer-const accepts only the official `any` and `all` destructuring policies.
@@ -202,6 +227,8 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
   assert.ok(noDuplicateImportsOptionKeyTypo);
   assert.ok(noDuplicateImportsOptionValueShape);
   assert.ok(noUnusedExpressionsOptionKeyTypo);
+  assert.ok(noInnerDeclarationsModeTypo);
+  assert.ok(noInnerDeclarationsBlockModeTypo);
   assert.ok(preferConstOptionValue);
   assert.ok(crossRuleShape);
   assert.ok(lintRuleWithOptions);

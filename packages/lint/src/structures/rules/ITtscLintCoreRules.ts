@@ -8,6 +8,7 @@ import type {
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
   ITtscLintCorePreferConstRuleOptions,
   ITtscLintNoFallthroughRuleOptions,
+  TtscLintCoreNoInnerDeclarationsRuleSetting,
 } from "./ITtscLintCoreRuleOptions";
 
 /**
@@ -636,12 +637,13 @@ export interface ITtscLintCoreRules {
   "no-import-assign"?: TtscLintRuleSetting;
 
   /**
-   * Reject `function` and `var` declarations nested in non-function blocks
-   * (loops, `if`, etc.) — they hoist in surprising ways.
+   * Reject function declarations nested in sloppy blocks. The `"both"` mode
+   * also checks `var`; strict ES2015 block-scoped functions are allowed by
+   * default and can be disabled through `blockScopedFunctions`.
    *
    * @reference https://eslint.org/docs/latest/rules/no-inner-declarations
    */
-  "no-inner-declarations"?: TtscLintRuleSetting;
+  "no-inner-declarations"?: TtscLintCoreNoInnerDeclarationsRuleSetting;
 
   /**
    * Reject `this` references outside any function-like, class method, or

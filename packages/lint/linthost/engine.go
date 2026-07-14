@@ -85,11 +85,10 @@ func ruleNeedsTypeChecker(r Rule) bool {
 
 // Context is the per-(file, rule) handle the engine passes to `Check`.
 //
-// `Options` is the raw JSON blob the user wrote in their rule
-// configuration's second tuple slot (`["warning", { ... }]`). It is nil
-// when the rule was configured with a bare severity literal. Rules that
-// accept options decode the blob into their own struct via
-// `(*Context).DecodeOptions` and fall back to defaults on nil.
+// `Options` is the raw JSON payload from the rule configuration. One option
+// slot preserves its scalar or object shape; multiple positional options are
+// an array. It is nil for a bare severity. Rules decode the payload according
+// to their public option type and fall back to defaults on nil.
 type Context struct {
   File             *shimast.SourceFile
   Checker          *shimchecker.Checker
