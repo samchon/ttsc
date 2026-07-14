@@ -2135,7 +2135,7 @@ Apply the complete canonical replacement table to lexical bindings and their ref
 
 The established `unicorn/prevent-abbreviations` ID is retained for configuration compatibility. Its behavior follows the final upstream version before `eslint-plugin-unicorn` renamed the rule to `name-replacements` in June 2026.
 
-A binding is diagnosed once at its declaration. One collision-free replacement is autofixed across every reference, while ambiguous replacements are editor suggestions. Exported declarations, JSX tag bindings, Vue template references, and parameters with attached JSDoc `@param` text remain diagnostic-only because a source-only rename cannot safely preserve their external references.
+A binding is diagnosed once at its declaration. One collision-free replacement is autofixed across every reference, while ambiguous replacements are editor suggestions. Directly exported, ambient, cross-file-merged, JSX tag, `.vue` source, parameter-property, and attached-JSDoc `@param` bindings remain diagnostic-only because a source-only rename cannot safely preserve their external names or references. The conservative `.vue` gate protects template references that are outside TypeScript's source-file AST.
 
 The option object supports `replacements`, `extendDefaultReplacements`, `allowList`, `extendDefaultAllowList`, `ignore`, `checkVariables`, `checkProperties`, `checkFilenames`, `checkShorthandProperties`, `checkDefaultAndNamespaceImports`, and `checkShorthandImports`. Import controls accept `true`, `false`, or `"internal"`. The `ignore` option accepts regular-expression strings.
 
