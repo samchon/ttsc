@@ -4,8 +4,9 @@ import type {
 } from "../TtscLintRuleSetting";
 import type {
   ITtscLintUnicornConsistentFunctionScopingRuleOptions,
-  ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornFilenameCaseRuleOptions,
+  ITtscLintUnicornImportStyleRuleOptions,
+  ITtscLintUnicornIsolatedFunctionsRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornStringContentRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
@@ -159,12 +160,13 @@ export interface ITtscLintUnicornRules {
   "unicorn/import-style"?: TtscLintRuleOptionsSetting<ITtscLintUnicornImportStyleRuleOptions>;
 
   /**
-   * Reject references to outer-scope variables inside functions marked as
-   * isolated (e.g., the body of a web worker).
+   * Reject references to outer-scope variables (and `this` / `super`) inside
+   * functions that run outside their defining context (e.g., the body of a web
+   * worker or a `page.evaluate` payload).
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/isolated-functions.md
    */
-  "unicorn/isolated-functions"?: TtscLintRuleSetting;
+  "unicorn/isolated-functions"?: TtscLintRuleOptionsSetting<ITtscLintUnicornIsolatedFunctionsRuleOptions>;
 
   /**
    * Require `new` when calling builtin constructors like `Error`, `Map`, `Set`,

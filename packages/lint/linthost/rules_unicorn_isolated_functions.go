@@ -564,6 +564,15 @@ func unicornIsolatedFunctionsIsReference(node *shimast.Node) bool {
   if !isValueReferenceIdentifier(node) {
     return false
   }
+  // TypeScript-Go models the `this` at the head of a type-query entity name
+  // (`typeof this.foo`) as an identifier named "this"; ESTree models every
+  // `this` as a ThisExpression, which is never a scope reference. `this` is
+  // reserved and can name no binding, so any identifier spelled "this" is that
+  // pseudo-identifier, owned by the `this`/`super` context walk. Leaving it
+  // here would double-report it as an externally-scoped variable.
+  if identifierText(node) == "this" {
+    return false
+  }
   parent := node.Parent
   if parent == nil {
     return true

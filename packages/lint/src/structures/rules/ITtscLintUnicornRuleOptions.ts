@@ -108,6 +108,62 @@ export interface ITtscLintUnicornImportStyleRuleOptions {
   styles?: Readonly<Record<string, TtscLintUnicornImportStyleModuleStyles>>;
 }
 
+/**
+ * Global-variable policy for one `unicorn/isolated-functions` override.
+ *
+ * `true` / `"writable"` / `"writeable"` permit writes, `false` / `"readonly"`
+ * permit reads only, and `"off"` forbids the global entirely inside isolated
+ * scopes.
+ */
+export type TtscLintUnicornIsolatedFunctionsGlobalPolicy =
+  | boolean
+  | "readonly"
+  | "writable"
+  | "writeable"
+  | "off";
+
+/**
+ * Options for `unicorn/isolated-functions`.
+ *
+ * Each list replaces the corresponding default. A function is treated as
+ * isolated when a call to a name in `functions` receives it as an argument,
+ * when it matches one of the `selectors`, or when one of the `comments` markers
+ * precedes it; `overrideGlobals` retunes which global names may be read or
+ * written inside isolated scopes.
+ *
+ * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/isolated-functions.md
+ */
+export interface ITtscLintUnicornIsolatedFunctionsRuleOptions {
+  /**
+   * Callee names whose call arguments are isolated functions.
+   *
+   * @default ["makeSynchronous", "workerize"]
+   */
+  functions?: readonly string[];
+
+  /**
+   * AST selectors whose matching functions are isolated.
+   *
+   * @default []
+   */
+  selectors?: readonly string[];
+
+  /**
+   * Comment markers that isolate the function they immediately precede.
+   *
+   * @default ["@isolated"]
+   */
+  comments?: readonly string[];
+
+  /**
+   * Per-name overrides for which globals may be read or written inside isolated
+   * scopes.
+   */
+  overrideGlobals?: Readonly<
+    Record<string, TtscLintUnicornIsolatedFunctionsGlobalPolicy>
+  >;
+}
+
 /** Import categories accepted by `unicorn/prevent-abbreviations`. */
 export type TtscLintUnicornPreventAbbreviationsImportMode =
   | boolean
