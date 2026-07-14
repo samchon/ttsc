@@ -158,7 +158,7 @@ void value;
     {"for", "for (; check() && ready;) { break; }"},
     {"ternary test", "const value = check() && ready ? 1 : 0; void value;"},
     {"logical negation", "const value = !(check() && ready); void value;"},
-    {"nested logical context", "if ((check() && ready) || other) { void 0; }"},
+    {"nested logical context", "if (other || (check() && ready)) { void 0; }"},
     {"global Boolean", "const value = Boolean(check() && ready); void value;"},
   }
   declarations := "declare const ready: boolean; declare const other: boolean; declare function check(): boolean; "
