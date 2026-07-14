@@ -1111,8 +1111,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/switch-case-braces"?: TtscLintRuleSetting;
 
   /**
-   * Enforce a consistent position for `break` (or `return` / `throw`) inside
-   * `case` clauses.
+   * Require a terminating `break`, `continue`, `return`, or `throw` to sit
+   * inside a `case` clause's sole block instead of immediately after it.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/switch-case-break-position.md
    */

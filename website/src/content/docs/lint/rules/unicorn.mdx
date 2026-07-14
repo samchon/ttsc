@@ -174,7 +174,7 @@ Rules whose native port is registered but intentionally diagnostic-free are mark
 - [`unicorn/relative-url-style`](#rule-unicorn-relative-url-style): Enforce a single style for relative URLs passed to `new URL`.
 - [`unicorn/string-content`](#rule-unicorn-string-content): Enforce or replace configured string-content patterns.
 - [`unicorn/switch-case-braces`](#rule-unicorn-switch-case-braces): Enforce a consistent presence/absence of `{}` braces around `case` clauses inside `switch`.
-- [`unicorn/switch-case-break-position`](#rule-unicorn-switch-case-break-position): Enforce a consistent position for `break` inside `case` clauses.
+- [`unicorn/switch-case-break-position`](#rule-unicorn-switch-case-break-position): Require terminating statements to sit inside a `case` clause's sole block.
 - [`unicorn/template-indent`](#rule-unicorn-template-indent): Re-indent the body of tagged template literals to the indentation of the opening backtick.
 - [`unicorn/text-encoding-identifier-case`](#rule-unicorn-text-encoding-identifier-case): Enforce a canonical case for text-encoding identifiers, `"utf-8"`.
 - [`unicorn/throw-new-error`](#rule-unicorn-throw-new-error): Require `throw new Error(...)` over `throw Error(...)`.
@@ -2258,7 +2258,11 @@ switch (k) {
 
 ### `unicorn/switch-case-break-position`
 
-Enforce a consistent position for `break` (or `return` / `throw`) inside `case` clauses.
+Require a terminating `break`, `continue`, `return`, or `throw` to sit inside
+a `case` clause's sole block instead of immediately after it. `break` and
+`continue` are automatically moved when comments and layout make that safe;
+`return` and `throw` remain diagnostic-only because moving their expressions
+can change block-scoped binding resolution.
 
 Illustrative shape:
 
@@ -2267,9 +2271,10 @@ const state = "idle";
 function reset(): void {}
 
 switch (state) {
-  case "idle":
-    break;
+  case "idle": {
     reset();
+  }
+  break;
 }
 ```
 

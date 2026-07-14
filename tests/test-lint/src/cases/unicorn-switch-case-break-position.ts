@@ -1,1 +1,8 @@
-// @ttsc-corpus-skip: unicorn/switch-case-break-position not yet implemented; fixture exists as the link target referenced from packages/lint/README.md and website/src/content/docs/lint/rules/unicorn.mdx. The skip directive is removed and replaced with a `// expect:` annotation once the rule lands in this PR (feat/lint-unicorn-rules).
+declare const key: string;
+switch (key) {
+  case "first": {
+    void key;
+  }
+  // expect: unicorn/switch-case-break-position error
+  break;
+}
