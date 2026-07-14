@@ -299,8 +299,8 @@ func TestUnicornPreventAbbreviationsUsesJavaScriptFullUnicodeCasing(t *testing.T
     t,
     unicornPreventAbbreviationsRuleName,
     "const ß = 1;\nvoid ß;\n",
-    `{"extendDefaultReplacements":false,"replacements":{"ß":{"name":true}}}`,
-    "const name = 1;\nvoid name;\n",
+    `{"extendDefaultReplacements":false,"replacements":{"ß":{"sharpSValue":true}}}`,
+    "const sharpSValue = 1;\nvoid sharpSValue;\n",
   )
   if actual := upperUnicornPreventAbbreviationsFirst("ßeta"); actual != "SSeta" {
     t.Fatalf("upper-first must use full Unicode casing: %q", actual)
