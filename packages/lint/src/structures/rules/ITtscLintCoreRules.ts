@@ -431,8 +431,8 @@ export interface ITtscLintCoreRules {
   "no-dupe-class-members"?: TtscLintRuleSetting;
 
   /**
-   * Reject `if (a) {} else if (a) {}` — the second branch is unreachable
-   * because the first condition already handled it.
+   * Reject an `else if` branch when duplicate or structurally covered
+   * conditions earlier in the same chain make it unreachable.
    *
    * @reference https://eslint.org/docs/latest/rules/no-dupe-else-if
    */

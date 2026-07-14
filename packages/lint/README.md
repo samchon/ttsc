@@ -239,7 +239,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-delete-var`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-delete-var.ts): rejects deleting variables.
 - [`no-dupe-args`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-dupe-args.ts): rejects duplicate function parameters.
 - [`no-dupe-class-members`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-dupe-class-members.ts): reject two declarations of the same member on a single class.
-- [`no-dupe-else-if`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-dupe-else-if.ts): rejects repeated `else if` conditions.
+- [`no-dupe-else-if`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-dupe-else-if.ts): rejects duplicate or logically covered `else if` conditions.
 - [`no-dupe-keys`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-dupe-keys.ts): rejects duplicate object keys.
 - [`no-duplicate-case`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-duplicate-case.ts): rejects duplicate `switch` case labels.
 - [`no-duplicate-imports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-duplicate-imports.ts): reject a repeated module specifier when the import declarations could be merged into one; `allowSeparateTypeImports` and `includeExports` match the ESLint options.
