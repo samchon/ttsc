@@ -18,6 +18,8 @@ func TestNoEmptyCompleteSemantics(t *testing.T) {
     {name: "while block", source: `declare const value: boolean; while (value) {}`, want: 1},
     {name: "do block", source: `declare const value: boolean; do {} while (value);`, want: 1},
     {name: "for block", source: `declare const value: boolean; for (; value;) {}`, want: 1},
+    {name: "for in block", source: `declare const object: object; for (const key in object) {}`, want: 1},
+    {name: "for of block", source: `declare const values: unknown[]; for (const value of values) {}`, want: 1},
     {name: "standalone block", source: `{}`, want: 1},
     {name: "empty switch", source: `declare const value: boolean; switch (value) {}`, want: 1},
     {name: "try catch finally blocks", source: `try {} catch {} finally {}`, want: 3},
@@ -35,6 +37,8 @@ if (value) { /* intentional */ }
 while (value) { /* intentional */ }
 do { /* intentional */ } while (value);
 for (; value;) { /* intentional */ }
+for (const key in { value }) { /* intentional */ }
+for (const item of [value]) { /* intentional */ }
 switch (value) { /* intentional */ }
 try { /* intentional */ } catch { /* intentional */ } finally { /* intentional */ }`,
     },
