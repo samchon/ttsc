@@ -1528,6 +1528,13 @@ func floatingPromiseCallableArgumentApplicability(
   if checker.IsTypeAssignableTo(actualReturn, expectedReturn) {
     return floatingPromiseCallApplicable
   }
+  if checker.IsContextSensitive(argument) {
+    // The cached argument type belongs to the original call's contextual
+    // signature. A different overload candidate can supply a different return
+    // context (for example, string versus a string literal), so that cached
+    // mismatch cannot prove the candidate is inapplicable.
+    return floatingPromiseCallUncertain
+  }
   return floatingPromiseCallIncompatible
 }
 
