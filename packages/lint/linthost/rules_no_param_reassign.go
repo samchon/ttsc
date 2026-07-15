@@ -237,7 +237,7 @@ func (noParamReassign) Check(ctx *Context, node *shimast.Node) {
   }
   ignoredPatterns := make([]*regexp.Regexp, 0, len(options.IgnorePropertyModificationsForRegex))
   for _, pattern := range options.IgnorePropertyModificationsForRegex {
-    compiled, err := regexp.Compile(pattern)
+    compiled, err := compileUserPattern(pattern)
     if err != nil {
       return
     }

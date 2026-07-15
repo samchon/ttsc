@@ -37,11 +37,13 @@ If you only have five minutes: read [Setup](/docs/lint/setup), copy the `lint.co
 
 ```bash
 npx ttsc                # type-check + lint + format diagnostics
-npx ttsc fix            # autofix everything (lint and format), then re-check
+npx ttsc fix            # autofix lint + configured format rules, then re-check
 npx ttsc format         # rewrite source files with the format rules only
 ```
 
 `ttsc fix` is a one-shot project pass. It rejects `--watch`, single-file mode, and `--emit`. Fixes write to disk before the recheck runs, so source stays modified even when the command exits non-zero on remaining errors. Recommended flow: `ttsc fix` locally, commit, then CI runs `ttsc --noEmit` to gate on cleanliness.
+
+`ttsc fix` and `ttsc format` differ on defaults: `ttsc format` applies the always-on default formatter even when no `format` block is configured, while `ttsc fix` applies formatting only from a configured `format` block. With no `format` block, `ttsc fix` is a pure lint autofix pass — add a `format` block (or run `ttsc format`) to reformat as well.
 
 ## What you don't get (yet)
 
