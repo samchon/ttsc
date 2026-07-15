@@ -1,3 +1,5 @@
+// @ttsc-corpus-skip(project): rule requires configured source and target elements; positive project coverage lives at packages/lint/test/rules/boundaries/boundaries_element_types_rejects_disallowed_import_test.go.
+// @ttsc-corpus-rule: boundaries/element-types
 /**
  * Fixture for `boundaries/element-types`.
  *
@@ -6,7 +8,7 @@
  * fire, so a single virtual fixture cannot produce a diagnostic; the Go test
  * under `packages/lint/test/rules/boundaries/` pins the actual contract.
  *
- * This fixture documents the rule id in the consumer corpus tree. It declares
- * no `// expect:` annotations, so the corpus runner skips it.
+ * This fixture documents the rule id in the consumer corpus tree. Its audited
+ * project skip points to that positive package-level witness.
  */
 export {};

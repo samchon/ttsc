@@ -9,4 +9,5 @@
  * 1. Render a `<div>` with `aria-hidden="yes"`.
  * 2. Lint flags the value as wrong for the declared boolean type.
  */
+// expect: jsx-a11y/aria-proptypes error
 export const X = () => <div aria-hidden="yes" />;

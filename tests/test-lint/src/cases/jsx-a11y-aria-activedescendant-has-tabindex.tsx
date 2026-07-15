@@ -9,4 +9,5 @@
  * 1. Render a `<div>` with `aria-activedescendant` and no `tabIndex`.
  * 2. Lint flags the missing tabindex on the composite host.
  */
+// expect: jsx-a11y/aria-activedescendant-has-tabindex error
 export const X = () => <div aria-activedescendant="opt-1" />;

@@ -8,4 +8,5 @@
  * 1. Render a `<div>` with `scope="col"`.
  * 2. Lint flags the misplaced scope attribute.
  */
+// expect: jsx-a11y/scope error
 export const X = () => <div scope="col" />;

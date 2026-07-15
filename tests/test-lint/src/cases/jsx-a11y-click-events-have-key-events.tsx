@@ -9,4 +9,5 @@
  * 1. Render a `<div>` with an `onClick` and no key handler.
  * 2. Lint flags the missing keyboard counterpart.
  */
+// expect: jsx-a11y/click-events-have-key-events error
 export const X = () => <div onClick={() => {}} />;

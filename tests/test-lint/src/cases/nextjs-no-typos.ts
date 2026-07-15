@@ -1,7 +1,7 @@
-// @ttsc-corpus-skip(filename): rule fires only on files whose path contains `/pages/`; the flat corpus runner writes every fixture to `src/main.ts`. Go corpus coverage lives at packages/lint/test/rules/nextjs/no_typos_reports_misspelled_data_export_test.go.
+// @ttsc-corpus-filename: src/pages/index.ts
 // Positive: near-miss typo on a Next.js data-fetching export.
 // expect: nextjs/no-typos error
-export function getstaticprops() {
+export function getStaticProp() {
   return { props: {} };
 }
 
@@ -10,4 +10,4 @@ export function getStaticProps() {
   return { props: {} };
 }
 
-JSON.stringify({ getstaticprops, getStaticProps });
+JSON.stringify({ getStaticProp, getStaticProps });

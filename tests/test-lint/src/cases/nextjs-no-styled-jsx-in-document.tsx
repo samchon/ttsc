@@ -1,3 +1,4 @@
+// @ttsc-corpus-filename: src/pages/_document.tsx
 // Positive: `styled-jsx` tag inside `pages/_document.tsx`.
 const a = (
   <div>

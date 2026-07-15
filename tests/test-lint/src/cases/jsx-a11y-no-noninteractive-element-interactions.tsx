@@ -9,4 +9,5 @@
  * 1. Render an `<li>` with an `onClick` and no interactive role.
  * 2. Lint flags the handler on the non-interactive element.
  */
+// expect: jsx-a11y/no-noninteractive-element-interactions error
 export const X = () => <li onClick={() => {}}>row</li>;

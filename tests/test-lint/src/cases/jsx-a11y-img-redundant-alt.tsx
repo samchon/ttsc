@@ -8,4 +8,5 @@
  * 1. Render an `<img>` whose `alt` includes the word "photo".
  * 2. Lint flags the redundant alt phrasing.
  */
+// expect: jsx-a11y/img-redundant-alt error
 export const X = () => <img src="/cat.png" alt="A photo of a cat" />;

@@ -9,4 +9,5 @@
  * 1. Render a `<button>` with `aria-hidden`.
  * 2. Lint flags the focusable hidden element.
  */
+// expect: jsx-a11y/no-aria-hidden-on-focusable error
 export const X = () => <button aria-hidden="true">Save</button>;

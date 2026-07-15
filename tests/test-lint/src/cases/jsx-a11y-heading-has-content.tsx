@@ -1,12 +1,11 @@
 /**
- * Verifies jsx-a11y/heading-has-content: heading tags need announcable
- * content.
+ * Verifies jsx-a11y/heading-has-content: heading tags need announcable content.
  *
- * Pins the "empty heading" branch — assistive tech cannot announce
- * what does not exist, so the rule rejects an `<h1>` (or peer heading)
- * with no children.
+ * Pins the self-closing branch: assistive tech cannot announce a heading with
+ * no children or accessible label.
  *
- * 1. Render an `<h1>` with no children.
+ * 1. Render an empty self-closing `<h1 />` element.
  * 2. Lint flags the empty heading.
  */
+// expect: jsx-a11y/heading-has-content error
 export const X = () => <h1 />;

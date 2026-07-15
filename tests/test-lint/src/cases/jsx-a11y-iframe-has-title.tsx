@@ -8,4 +8,5 @@
  * 1. Render an `<iframe>` with `src` but no `title`.
  * 2. Lint flags the missing iframe title.
  */
+// expect: jsx-a11y/iframe-has-title error
 export const X = () => <iframe src="/embed" />;

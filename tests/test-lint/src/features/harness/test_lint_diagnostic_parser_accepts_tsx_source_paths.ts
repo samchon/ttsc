@@ -2,25 +2,18 @@ import { TestLint } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies the lint diagnostic parser accepts both TSX and TS source paths.
+ * Verifies the lint diagnostic parser accepts every TypeScript source suffix.
  *
- * Preserving a corpus fixture as `src/main.tsx` also changes the filename in
- * rendered diagnostics. The parser must retain TSX lint records without
- * regressing the original TS path or accepting unrelated JavaScript output.
+ * Corpus diagnostics are exact only when the parser retains the source file and
+ * every rendered field without admitting unrelated JavaScript output.
  *
- * 1. Render adjacent TSX, TS, and JavaScript diagnostic lines.
- * 2. Parse the combined stderr stream.
- * 3. Assert both TypeScript records survive and the JavaScript line is ignored.
+ * 1. Render diagnostics for every supported TypeScript suffix.
+ * 2. Preserve file, position, severity, rule, and message expectations.
+ * 3. Assert JavaScript and non-canonical uppercase suffixes are ignored.
  */
 export const test_lint_diagnostic_parser_accepts_tsx_source_paths =
   (): void => {
-    const stderr = [
-      "src/main.tsx:6:12 - error TS9001: [react/jsx-key] Missing key.",
-      "src/main.ts:2:3 - warning TS9002: [no-console] Unexpected console.",
-      "src/main.js:1:1 - error TS9003: [no-debugger] Unexpected debugger.",
-    ].join("\n");
-
-    assert.deepEqual(TestLint.parseDiagnostics(stderr), [
+    const expected: TestLint.ILintDiagnostic[] = [
       {
         file: "src/main.tsx",
         line: 6,
@@ -30,12 +23,42 @@ export const test_lint_diagnostic_parser_accepts_tsx_source_paths =
         message: "Missing key.",
       },
       {
-        file: "src/main.ts",
+        file: "src/my fixture.ts",
         line: 2,
         column: 3,
         severity: "warn",
         rule: "no-console",
         message: "Unexpected console.",
       },
-    ]);
+      ...[
+        "src/component fixture.mts",
+        "src/main.cts",
+        "src/main.d.ts",
+        "src/main.d.mts",
+        "src/main.d.cts",
+      ].map(
+        (file, index): TestLint.ILintDiagnostic => ({
+          file,
+          line: index + 10,
+          column: 2,
+          severity: "error",
+          rule: "fixture/rule",
+          message: `Message ${index}.`,
+        }),
+      ),
+    ];
+    const stderr = [
+      ...expected.map(
+        ({ file, line, column, severity, rule, message }) =>
+          `${file}:${line}:${column} - ${
+            severity === "warn" ? "warning" : "error"
+          } TS9001: [${rule}] ${message}`,
+      ),
+      "src/main.js:1:1 - error TS9003: [no-debugger] Unexpected debugger.",
+      "src/uppercase.TS:1:1 - error TS9003: [fixture/rule] Ignored.",
+      "src/uppercase.TSX:1:1 - error TS9003: [fixture/rule] Ignored.",
+      "src/uppercase.D.TS:1:1 - error TS9003: [fixture/rule] Ignored.",
+    ].join("\n");
+
+    assert.deepEqual(TestLint.parseDiagnostics(stderr), expected);
   };

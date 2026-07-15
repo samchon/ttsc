@@ -10,4 +10,5 @@
  *    `tabIndex`.
  * 2. Lint flags the missing focusability.
  */
+// expect: jsx-a11y/interactive-supports-focus error
 export const X = () => <div role="button" onClick={() => {}} />;

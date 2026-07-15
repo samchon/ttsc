@@ -8,4 +8,5 @@
  * 1. Render a `<button>` with `role="button"`.
  * 2. Lint flags the redundant role attribute.
  */
+// expect: jsx-a11y/no-redundant-roles error
 export const X = () => <button role="button">Save</button>;

@@ -1,11 +1,11 @@
 /**
  * Verifies jsx-a11y/anchor-has-content: anchors need accessible content.
  *
- * Pins the "empty anchor" branch — an `<a>` with no text, no
- * `aria-label`, and no labelled child gives assistive tech nothing to
- * announce, so the rule rejects it.
+ * Pins the self-closing branch: an `<a />` with no text, `aria-label`, or
+ * labelled child gives assistive tech nothing to announce.
  *
- * 1. Render an `<a>` with an `href` but no children or label.
+ * 1. Render an empty self-closing anchor with an `href` but no label.
  * 2. Lint flags the empty anchor.
  */
+// expect: jsx-a11y/anchor-has-content error
 export const X = () => <a href="/docs" />;

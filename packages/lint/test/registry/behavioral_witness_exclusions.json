@@ -1,8 +1,33 @@
 [
   {
-    "rule": "nextjs/no-typos",
-    "constraint": "filename",
-    "harness": "packages/lint/test/rules/nextjs/no_typos_reports_misspelled_data_export_test.go"
+    "rule": "boundaries/dependencies",
+    "constraint": "project",
+    "harness": "packages/lint/test/rules/boundaries/boundaries_dependencies_test.go"
+  },
+  {
+    "rule": "boundaries/element-types",
+    "constraint": "project",
+    "harness": "packages/lint/test/rules/boundaries/boundaries_element_types_rejects_disallowed_import_test.go"
+  },
+  {
+    "rule": "boundaries/entry-point",
+    "constraint": "project",
+    "harness": "packages/lint/test/rules/boundaries/boundaries_entry_point_rejects_non_entry_import_test.go"
+  },
+  {
+    "rule": "boundaries/external",
+    "constraint": "project",
+    "harness": "packages/lint/test/rules/boundaries/boundaries_external_rejects_disallowed_package_test.go"
+  },
+  {
+    "rule": "boundaries/no-private",
+    "constraint": "project",
+    "harness": "packages/lint/test/rules/boundaries/boundaries_no_private_rejects_cross_element_private_import_test.go"
+  },
+  {
+    "rule": "boundaries/no-unknown",
+    "constraint": "project",
+    "harness": "packages/lint/test/rules/boundaries/boundaries_no_unknown_rejects_unknown_import_target_test.go"
   },
   {
     "rule": "storybook/no-uninstalled-addons",

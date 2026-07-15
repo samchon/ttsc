@@ -9,4 +9,5 @@
  * 1. Render a `<div>` with `role="link"` and `aria-checked`.
  * 2. Lint flags the aria prop that the role does not support.
  */
+// expect: jsx-a11y/role-supports-aria-props error
 export const X = () => <div role="link" aria-checked="true" />;

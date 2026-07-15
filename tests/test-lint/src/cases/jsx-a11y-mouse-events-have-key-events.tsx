@@ -9,4 +9,5 @@
  * 1. Render a `<div>` with `onMouseOver` and no `onFocus`.
  * 2. Lint flags the missing focus counterpart.
  */
+// expect: jsx-a11y/mouse-events-have-key-events error
 export const X = () => <div onMouseOver={() => {}} />;

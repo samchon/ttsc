@@ -8,4 +8,5 @@
  * 1. Render an `<img>` with only a `src`, no `alt` and no `aria-label`.
  * 2. Lint flags it as a missing text-alternative.
  */
+// expect: jsx-a11y/alt-text error
 export const X = () => <img src="/logo.png" />;
