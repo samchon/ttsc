@@ -71,7 +71,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-loss-of-precision`](#rule-no-loss-of-precision): Reject numeric literals whose source text cannot round-trip through `Number`.
 - [`no-magic-numbers`](#rule-no-magic-numbers): Reject inline numeric literals outside `const` initializer position.
 - [`no-misleading-character-class`](#rule-no-misleading-character-class): Reject regex character classes that contain combined Unicode sequences (e.g. surrogate pairs).
-- [`no-mixed-operators`](#rule-no-mixed-operators): Reject mixing operators of different precedence families in the same expression.
+- [`no-mixed-operators`](#rule-no-mixed-operators): Reject mixing different operators from one precedence group (e.g. `a && b || c`, `a + b * c`) without parentheses.
 - [`no-multi-assign`](#rule-no-multi-assign): Reject chained assignment such as `a = b = 0`.
 - [`no-multi-str`](#rule-no-multi-str): Reject backslash-newline multiline string literals.
 - [`no-negated-condition`](#rule-no-negated-condition): Reject `if (!cond) { ... } else { ... }`, flip the branches.
@@ -1751,19 +1751,19 @@ const r = /[👍]/;
 
 ### `no-mixed-operators`
 
-Reject mixing operators of different precedence families in the same expression without explicit parentheses around the inner sub-expression.
+Reject mixing two different operators from one precedence group without parentheses when the operators do not share a precedence. The groups mirror ESLint's defaults — arithmetic (`+ - * / % **`), bitwise (`& | ^ ~ << >> >>>`), comparison (`== != === !== > >= < <=`), logical (`&& ||`), and relational (`in instanceof`) — and the rule fires only when both operators fall in the same group.
 
-The famous case is `a && b || c`: readers expect left-to-right grouping but the parser sees `(a && b) || c` because `&&` binds tighter than `||`.
+The famous case is `a && b || c`: readers expect left-to-right grouping but the parser sees `(a && b) || c` because `&&` binds tighter than `||`. Arithmetic mixes such as `a + b * c` are reported for the same reason. Cross-group pairs (`a | b && c`) and same-precedence pairs (`a + b - c`) are left alone.
 
-The conservative baseline only flags the highest-confusion mixes, logical mixed with a different logical (`&&` next to `||` / `??`), and bitwise (`&`, `|`, `^`) next to a comparison or logical.
-
-Wrapping the inner sub-expression in parens suppresses the report.
+Wrapping the inner sub-expression in parens suppresses the report. The `groups` and `allowSamePrecedence` options tune the groups and the same-precedence allowance exactly as they do in ESLint.
 
 Example:
 
 ```ts
 // reports: no-mixed-operators (error)
-const m1 = (a && b) || c;
+const m1 = a && b || c;
+// ok — the grouping is explicit
+const m2 = (a && b) || c;
 ```
 
 <a id="rule-no-multi-assign"></a>
