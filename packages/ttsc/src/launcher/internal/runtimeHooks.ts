@@ -132,6 +132,85 @@ function manifest(): RuntimeManifest | null {
   return manifestCache;
 }
 
+/**
+ * Lowest Node.js the ttsx source runtime supports. The synchronous
+ * `module.registerHooks` (Node 22.15.0) is the highest floor among the runtime
+ * APIs these hooks depend on — `stripTypeScriptTypes` (22.13.0) and the child's
+ * `--disable-warning` flag (20.11.0) are both lower — so it sets the effective
+ * minimum. Kept in sync with `packages/ttsc/package.json#engines.node` and the
+ * documented requirement in `website/src/content/docs/development/index.mdx`.
+ */
+export const TTSX_MINIMUM_NODE_VERSION = "22.15.0";
+
+const TTSX_MINIMUM_NODE_PARTS: readonly [number, number, number] = [22, 15, 0];
+
+/**
+ * Report why the running (or a candidate) Node.js version cannot execute the
+ * ttsx source runtime, or `null` when it can. Returning an actionable message
+ * — rather than letting the child die with an internal `TypeError` on the
+ * missing `registerHooks`, or Node 18 rejecting `--disable-warning` with exit 9
+ * — is what turns an opaque internal failure into a clear version diagnostic.
+ *
+ * Exported for direct exercise by the ttsx e2e suite: the built launcher can
+ * only be spawned under the Node version running the tests, so the boundary
+ * around the floor cannot otherwise be pinned on CI.
+ */
+export function checkNodeRuntimeSupport(version: string): string | null {
+  const parts = parseNodeVersion(version);
+  if (parts === null) {
+    // An unrecognizable version string is not proof of an unsupported runtime;
+    // let execution proceed rather than block on a parsing quirk.
+    return null;
+  }
+  if (compareVersionParts(parts, TTSX_MINIMUM_NODE_PARTS) >= 0) {
+    return null;
+  }
+  return (
+    `ttsx requires Node.js ${TTSX_MINIMUM_NODE_VERSION} or later, but this ` +
+    `process is Node.js ${version}. The source runtime installs synchronous ` +
+    `module hooks (module.registerHooks, Node 22.15.0) and strips types with ` +
+    `module.stripTypeScriptTypes (Node 22.13.0), neither of which exists on ` +
+    `earlier releases. Upgrade Node.js to 22.15.0+ (or the current LTS), or ` +
+    `compile the project with \`ttsc\` and run the emitted JavaScript directly.`
+  );
+}
+
+function parseNodeVersion(
+  version: string,
+): [number, number, number] | null {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version.trim());
+  if (match === null) {
+    return null;
+  }
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function compareVersionParts(
+  a: readonly [number, number, number],
+  b: readonly [number, number, number],
+): number {
+  for (let index = 0; index < 3; index += 1) {
+    if (a[index]! !== b[index]!) {
+      return a[index]! < b[index]! ? -1 : 1;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Throw an actionable version error when the current Node.js cannot run the
+ * ttsx source runtime. Guards the hook-installation boundary directly (a child
+ * or grandchild that inherits the runtime preload under an unsupported Node)
+ * so the failure is diagnosed here instead of surfacing as a bare `TypeError:
+ * registerHooks is not a function`.
+ */
+function assertNodeRuntimeSupport(): void {
+  const message = checkNodeRuntimeSupport(process.versions.node);
+  if (message !== null) {
+    throw new Error(message);
+  }
+}
+
 let installed = false;
 
 /**
@@ -151,6 +230,7 @@ export function installRuntimeHooks(): void {
   if (installed) {
     return;
   }
+  assertNodeRuntimeSupport();
   installed = true;
   // Map error stacks through the source maps the serve path now inlines, so a
   // thrown frame reports the true `.ts` line:col out of the box (no
@@ -743,14 +823,161 @@ function collectCommonJsExportNames(
 }
 
 function collectStaticCommonJsExportNames(source: string): Set<string> {
+  // Scan executable syntax only. Text that merely resembles an assignment —
+  // `exports.x =` inside a comment, string, or template-literal text — must not
+  // become an ESM-visible export name, or a named import of it would link to
+  // `undefined` for a property the CommonJS module never defines. Masking the
+  // inert lexical spans before matching keeps genuine top-level assignments
+  // (and executable `${ ... }` template substitutions) while dropping the
+  // decoys.
+  const scannable = maskCommentsAndStrings(source);
   const names = new Set<string>();
   const pattern =
     /(?:^|[^\w$])(?:exports|module\.exports)\.([A-Za-z_$][\w$]*)\s*=/g;
   let match: RegExpExecArray | null;
-  while ((match = pattern.exec(source)) !== null) {
+  while ((match = pattern.exec(scannable)) !== null) {
     names.add(match[1]!);
   }
   return names;
+}
+
+/**
+ * Blank out the interior of line comments, block comments, string literals, and
+ * template-literal text in emitted JavaScript, replacing each masked character
+ * with a space while preserving newlines, code, and template `${ ... }`
+ * substitutions verbatim. Positions and length are preserved so an offset in the
+ * masked text maps back to the same offset in the source.
+ *
+ * The input is tsgo's CommonJS emit (well-formed JavaScript), so a character
+ * scanner that tracks the standard comment/string/template states is sufficient
+ * to separate executable tokens from inert text. Regular-expression literals are
+ * intentionally not masked: distinguishing `/`-division from a regex literal
+ * needs full tokenization, and tsgo's CommonJS emit never wraps an
+ * `exports.<name> =` assignment inside a regex literal.
+ */
+function maskCommentsAndStrings(source: string): string {
+  const out = source.split("");
+  const n = out.length;
+  const blank = (index: number): void => {
+    const ch = out[index];
+    if (ch !== "\n" && ch !== "\r") {
+      out[index] = " ";
+    }
+  };
+  // A stack of lexical contexts. The base is code; each backtick pushes a
+  // template context, and each `${` inside a template pushes a nested code
+  // context whose `braceDepth` tracks `{}` nesting so an object literal inside
+  // the substitution does not end it early.
+  interface Context {
+    kind: "code" | "template";
+    braceDepth: number;
+  }
+  const stack: Context[] = [{ kind: "code", braceDepth: 0 }];
+  let i = 0;
+  while (i < n) {
+    const top = stack[stack.length - 1]!;
+    const ch = out[i]!;
+    if (top.kind === "template") {
+      if (ch === "\\") {
+        blank(i);
+        blank(i + 1);
+        i += 2;
+        continue;
+      }
+      if (ch === "`") {
+        blank(i);
+        stack.pop();
+        i += 1;
+        continue;
+      }
+      if (ch === "$" && out[i + 1] === "{") {
+        // Enter a code substitution: `${` and its contents stay executable.
+        stack.push({ kind: "code", braceDepth: 0 });
+        i += 2;
+        continue;
+      }
+      blank(i);
+      i += 1;
+      continue;
+    }
+    // Code context.
+    if (ch === "/" && out[i + 1] === "/") {
+      blank(i);
+      blank(i + 1);
+      i += 2;
+      while (i < n && out[i] !== "\n") {
+        blank(i);
+        i += 1;
+      }
+      continue;
+    }
+    if (ch === "/" && out[i + 1] === "*") {
+      blank(i);
+      blank(i + 1);
+      i += 2;
+      while (i < n && !(out[i] === "*" && out[i + 1] === "/")) {
+        blank(i);
+        i += 1;
+      }
+      if (i < n) {
+        blank(i);
+        blank(i + 1);
+        i += 2;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      blank(i);
+      i += 1;
+      while (i < n && out[i] !== ch) {
+        if (out[i] === "\\") {
+          blank(i);
+          blank(i + 1);
+          i += 2;
+          continue;
+        }
+        // A bare newline ends an unterminated string; stop masking so the rest
+        // of the line is still scanned as code (defensive — tsgo never emits
+        // one).
+        if (out[i] === "\n") {
+          break;
+        }
+        blank(i);
+        i += 1;
+      }
+      if (i < n && out[i] === ch) {
+        blank(i);
+        i += 1;
+      }
+      continue;
+    }
+    if (ch === "`") {
+      blank(i);
+      stack.push({ kind: "template", braceDepth: 0 });
+      i += 1;
+      continue;
+    }
+    if (ch === "{") {
+      top.braceDepth += 1;
+      i += 1;
+      continue;
+    }
+    if (ch === "}") {
+      if (top.braceDepth === 0 && stack.length > 1) {
+        // Close the enclosing template `${ ... }` and resume template text.
+        stack.pop();
+        i += 1;
+        continue;
+      }
+      if (top.braceDepth > 0) {
+        top.braceDepth -= 1;
+      }
+      i += 1;
+      continue;
+    }
+    i += 1;
+  }
+  return out.join("");
 }
 
 function collectSourceCommonJsExportNames(

@@ -40,6 +40,9 @@
   },
   "author": "Jeongho Nam",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.15.0"
+  },
   "bugs": {
     "url": "https://github.com/samchon/ttsc/issues"
   },

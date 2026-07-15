@@ -461,6 +461,12 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   const result = parseFlags({
     argv,
     errorPrefix: "ttsc:",
+    // A bare token is a single-file input only when it carries a TypeScript
+    // source extension; any other bare token is the space-separated value of a
+    // preceding forwarded flag (e.g. the `es2020` in `--target es2020`). The
+    // parser routes those values into `passthrough` in place, so the forwarded
+    // flag/value pairs reach tsgo in their original order.
+    isPositional: looksLikeInputFile,
     subcommand: "build",
   });
   // Defaults: pinned by the previous hand-parser. `quiet` defaults true,
@@ -476,15 +482,13 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
   else if (explicitNoEmit === true) emit = false;
   if (emit === undefined && checkOnly) emit = false;
 
-  const files = result.positional.filter(looksLikeInputFile);
-  // Bare non-file positionals are flag values (e.g. the `es2020` in
-  // `--target es2020`). The engine left them in `positional` because the
-  // forwarded flag is unknown to the schema; route them back into
-  // passthrough so the user's pair reaches tsgo intact.
-  const trailingValues = result.positional.filter(
-    (token) => !looksLikeInputFile(token),
-  );
-  const passthrough = [...result.passthrough, ...trailingValues];
+  // `isPositional: looksLikeInputFile` guarantees every `result.positional`
+  // token is a TypeScript input file; forwarded flag values already live in
+  // `result.passthrough` in their original order, so no reconstruction is
+  // needed here (the previous `[...passthrough, ...trailingValues]` concat
+  // reordered every flag ahead of every value).
+  const files = [...result.positional];
+  const passthrough = [...result.passthrough];
 
   return {
     binary: getString(result, "--binary"),

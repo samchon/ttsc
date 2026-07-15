@@ -58,6 +58,24 @@ export interface ParseOptions {
    * `--` is appended to `passthrough` as-is (ttsx already does this).
    */
   readonly honorDoubleDashSeparator?: boolean;
+  /**
+   * Classifies a bare (non-dash) token as a genuine positional argument (a
+   * source file, the ttsx entry, a project path) rather than the space-separated
+   * value of a preceding forwarded flag.
+   *
+   * When omitted, every bare token is a positional — the historical behaviour
+   * for project-shaped subcommands that never forward `--flag value` pairs.
+   *
+   * When provided, a bare token that fails the predicate is appended to
+   * `passthrough` in its original position instead of `positional`, so an
+   * unknown `--flag value` pair reaches tsgo with its adjacency and relative
+   * order intact. The parser deliberately does not guess a forwarded flag's
+   * arity from the flag itself (it has no schema for a truly unknown flag);
+   * the predicate is the only signal that separates a forwarded value from a
+   * real input file, and both callers key it on the TypeScript source
+   * extension.
+   */
+  readonly isPositional?: (token: string) => boolean;
 }
 
 /**
@@ -153,7 +171,17 @@ export function parseFlags(opts: ParseOptions): ParseResult {
       continue;
     }
 
-    // Bare token: positional argument (file / entry / project path).
+    // Bare token: either a genuine positional argument (file / entry / project
+    // path) or the space-separated value of a preceding forwarded flag. When a
+    // caller forwards unknown flags it supplies `isPositional` to tell the two
+    // apart; a forwarded value is appended to `passthrough` in place so the
+    // `--flag value` pair reaches tsgo in its original order and adjacency,
+    // instead of being split into a separate bucket the caller later
+    // concatenates out of order.
+    if (opts.isPositional !== undefined && !opts.isPositional(current)) {
+      passthrough.push(current);
+      continue;
+    }
     positional.push(current);
     if (opts.forwardAfterFirstPositional === true && positional.length === 1) {
       forwardingTail = true;
