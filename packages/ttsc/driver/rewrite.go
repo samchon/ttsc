@@ -598,6 +598,7 @@ func rewriteAliases(r Rewrite, emittedBindings map[string][]emittedImportBinding
   }
   candidates := []emittedImportBinding{}
   preferred := []emittedImportBinding{}
+  sourceBindings := sourceTopLevelVariableNames(r.File)
   wantKind := emittedImportDirect
   switch imported.kind {
   case sourceImportDefault:
@@ -606,6 +607,9 @@ func rewriteAliases(r Rewrite, emittedBindings map[string][]emittedImportBinding
     wantKind = emittedImportNamespace
   }
   for _, binding := range emittedBindings[imported.module] {
+    if _, sourceOwned := sourceBindings[binding.name]; sourceOwned {
+      continue
+    }
     if !emittedNameForRoot(binding.name, r.RootName) {
       continue
     }
@@ -677,6 +681,39 @@ func sourceImportForRoot(file *ast.SourceFile, root string) (sourceImport, bool)
     }
   }
   return sourceImport{}, false
+}
+
+func sourceTopLevelVariableNames(file *ast.SourceFile) map[string]struct{} {
+  names := map[string]struct{}{}
+  if file == nil || file.Statements == nil {
+    return names
+  }
+  for _, statement := range file.Statements.Nodes {
+    if statement == nil || statement.Kind != ast.KindVariableStatement {
+      continue
+    }
+    variables := statement.AsVariableStatement()
+    if variables == nil || variables.DeclarationList == nil {
+      continue
+    }
+    declarations := variables.DeclarationList.AsVariableDeclarationList()
+    if declarations == nil || declarations.Declarations == nil {
+      continue
+    }
+    for _, declaration := range declarations.Declarations.Nodes {
+      if declaration == nil {
+        continue
+      }
+      variable := declaration.AsVariableDeclaration()
+      if variable == nil {
+        continue
+      }
+      if name := identifierName(variable.Name()); name != "" {
+        names[name] = struct{}{}
+      }
+    }
+  }
+  return names
 }
 
 func emittedNameForRoot(name, root string) bool {
