@@ -49,10 +49,10 @@ The lead validates every proposal and applies the Team Review Cycle stop rule. E
 
 Use issue discovery only as part of the issue-campaign skill.
 
-1. Form the largest practical review team, up to six agents, and apply the briefing rules below. Give every agent the entire campaign scope.
-2. Every agent independently audits source, tests, documentation, CI, packaging, generated artifacts, platform behavior, upstream or downstream provenance, and open and closed issue or pull-request history. Never divide the repository by package, file, concern, agent, or round.
+1. Form the largest practical review team, up to six agents, and apply the briefing rules below. Give every agent the entire campaign scope and require the issue-campaign, project, development, and review skills in its brief.
+2. Every agent independently audits source, tests, documentation, CI, packaging, generated artifacts, platform behavior, upstream or downstream provenance, and open and closed issue or pull-request history. Audit the current implementation and history against the repository development skill's **Forbidden** section; a verified violation remains a meaningful candidate even when existing tests pass. Never divide the repository by package, file, concern, agent, or round.
 3. Each agent submits its own evidence-backed candidates without discussion or a shared list.
-4. The lead reopens the evidence, reproduces the behavior, checks ownership and provenance, and compares existing issues and pull requests. Reject, rewrite, combine, partially accept, or return a proposal as the evidence requires.
+4. The lead reopens the evidence, reproduces the behavior, checks ownership, provenance, and any claimed **Forbidden** classification, and compares existing issues and pull requests. Reject, rewrite, combine, partially accept, or return a proposal as the evidence requires.
 5. Record only surviving candidates in the campaign knowledge base. If any meaningful candidate survives, replace the team and run another complete discovery round.
 6. Stop only when a complete round from every agent produces no meaningful candidate that survives lead verification.
 
