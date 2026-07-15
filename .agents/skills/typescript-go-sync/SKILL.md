@@ -65,10 +65,11 @@ Install the produced tarballs into `../typia` (or another consumer) and run a re
 
 ## Mechanical completeness gate
 
-`packages/ttsc/tools/shim_audit` enforces shim completeness in CI (the `shim-audit` job runs `pnpm --filter ttsc shim:audit`) so the recurring "missing re-export" class cannot return. It treats the shim as a closure: if a type is aliased, everything reachable from it should be reachable through the shim. Three layers:
+`packages/ttsc/tools/shim_audit` enforces shim completeness in CI (the `shim-audit` job runs `pnpm --filter ttsc shim:audit`) so the recurring "missing re-export" class cannot return. It treats the shim as a closure: if a type is aliased, everything reachable from it should be reachable through the shim. Four layers:
 
 - **Enum families (zero-tolerance).** `shim/<pkg>/enums_gen.go` completes every exposed enum family, re-exporting any member not already re-exported in the package's `shim.go`/`surface.go`; the gate fails on any partial enum. After a typescript-go bump, run `pnpm --filter ttsc shim:audit -fix` to regenerate it. This is the `SignatureKindConstruct` (#230) class.
 - **Reachable funcs / escaping types (ratcheted).** `tools/shim_audit/baseline.json` grandfathers the current backlog; the gate fails on any _new_ gap. Expose the symbol, or run `pnpm --filter ttsc shim:audit -write-baseline` to accept it deliberately.
+- **Producer closure (zero-tolerance).** Every pointer-like compiler object consumed by an exported wrapper must come from an exported wrapper return, a callback supplied by the compiler, or a reasoned public root in `baseline.json`'s `producer_exemptions`. `-write-baseline` never infers or accepts producer exemptions. Add an exported producer when the object represents compiler state; exempt only caller-owned configuration, nullable optional inputs, and equivalent roots with a non-empty rationale.
 - **Unexported helpers.** Closure cannot predict these (a new consumer's first ask for an internal helper); the audit lists them as a demand pool. Expose with the `//go:linkname` pattern above (`Checker_getMinArgumentCount` is the worked example).
 
 ## Traversal-completeness probes
@@ -77,6 +78,6 @@ Closure and the audit only see whether a symbol is _nameable_ or whether a compo
 
 Catch that class with a runtime probe over a ttsc-owned fixture. The probe must use the exposed traversal and assert that it reaches the expected endpoint; compilation alone proves linkage, not traversal completeness.
 
-The worked example is `packages/lint/test/shim/base_chain_walk_crosses_generic_boundary_test.go`. It builds a real Checker through the lint host's `loadProgram`, then walks `Base{#brand} <- Mid<T> <- Sub extends Mid<string>` using only shim APIs. The test proves the naive walk stops before `Base` while the `getDeclaredTypeOfSymbol` bridge reaches it.
+The worked examples are `packages/lint/test/shim/base_chain_walk_crosses_generic_boundary_test.go` and `packages/lint/test/shim/signature_introspection_reaches_runtime_endpoints_test.go`. They build a real Checker through the lint host's `loadProgram`. The first proves the naive base walk stops before `Base` while the declared-type bridge reaches it. The second obtains real construct and call signatures through the shim, then asserts minimum and declared arity, parameters, rest elements, and return types for `()`, `(x?)`, `(x)`, `(...xs)`, and `(x, ...rest)`.
 
 Keep these probes in `packages/lint/test/`, the ttsc-owned Go harness with a Checker over source, and run them through `pnpm test:go`. Add a fixture and endpoint assertion whenever a new graph-walk operation could introduce a silent dead end.

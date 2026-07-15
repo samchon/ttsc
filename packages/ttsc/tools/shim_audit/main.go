@@ -10,7 +10,7 @@
 // The invariant. The shim should be TRANSITIVELY CLOSED over the operations of
 // the types it already exposes. If the shim already aliases an upstream type T,
 // then everything a plugin can *reach* starting from T should also be reachable
-// through the shim. Three closure rules are checked:
+// through the shim. Four closure rules are checked:
 //
 //   - ENUM   every exported const whose type is an already-exposed enum type
 //     must be re-exported. (This is the `SignatureKindConstruct` class —
@@ -22,6 +22,9 @@
 //   - ESCAPE every exported named type that appears in the signature of an
 //     already-exposed operation but is not itself aliased. (A plugin can
 //     obtain the value but cannot name its type.)
+//   - PRODUCER every pointer-like compiler object consumed by an exported shim
+//     wrapper must also be returned by an exported wrapper. A type alias alone
+//     only makes the object nameable; it does not provide a meaningful value.
 //
 // What it deliberately does NOT find: UNEXPORTED helpers a plugin needs by name
 // (e.g. `(*Checker).getMinArgumentCount`, #230 rule 2). Those are invisible to
@@ -101,6 +104,53 @@ func (r reachable) add(pkg, name string) {
   r[pkg][name] = true
 }
 
+// flowType identifies an internal compiler object in the public wrapper flow.
+// Package suffixes retain nested shim ownership (for example vfs/osvfs).
+type flowType struct {
+  pkg  string
+  name string
+}
+
+// producerSurface records the exported wrapper operations that consume and
+// produce pointer-like compiler objects. Values are operation names so a gap
+// explains which public wrapper requires the missing producer.
+type producerSurface struct {
+  consumed map[flowType]map[string]bool
+  produced map[flowType]map[string]bool
+}
+
+func newProducerSurface() producerSurface {
+  return producerSurface{
+    consumed: map[flowType]map[string]bool{},
+    produced: map[flowType]map[string]bool{},
+  }
+}
+
+func (s producerSurface) add(direction flowDirection, typ flowType, operation string) {
+  target := s.consumed
+  if direction == flowProduce {
+    target = s.produced
+  }
+  if target[typ] == nil {
+    target[typ] = map[string]bool{}
+  }
+  target[typ][operation] = true
+}
+
+type flowDirection uint8
+
+const (
+  flowConsume flowDirection = iota
+  flowProduce
+)
+
+func opposite(direction flowDirection) flowDirection {
+  if direction == flowConsume {
+    return flowProduce
+  }
+  return flowConsume
+}
+
 // linknameRe captures the trailing symbol name of a go:linkname target like
 // `...internal/checker.(*Checker).getMinArgumentCount` or `...checker.foo`.
 var linknameRe = regexp.MustCompile(`(?m)^//go:linkname\s+\S+\s+` +
@@ -158,6 +208,173 @@ func scanShimReachable(shimRoot string) (reachable, error) {
     }
   }
   return r, nil
+}
+
+// scanShimProducerSurface parses normal shim source and models value flow over
+// exported package-level wrappers. A pointer to an internal named type is a
+// compiler-owned graph object: parameters consume one and results produce one.
+// Callback variance is reversed for callback parameters and preserved for
+// callback results, so an input callback's arguments count as values produced
+// by the shim rather than values the plugin must somehow manufacture.
+func scanShimProducerSurface(shimRoot string) (producerSurface, error) {
+  surface := newProducerSurface()
+  localTypes := map[string]map[string]flowType{}
+  sources := map[string]map[string][]byte{}
+  for dir, suffix := range shimDirs {
+    paths, _ := filepath.Glob(filepath.Join(shimRoot, dir, "*.go"))
+    for _, path := range paths {
+      if strings.HasSuffix(path, "_test.go") {
+        continue
+      }
+      src, err := os.ReadFile(path)
+      if err != nil {
+        return producerSurface{}, err
+      }
+      if sources[suffix] == nil {
+        sources[suffix] = map[string][]byte{}
+      }
+      sources[suffix][path] = src
+      aliases, err := internalImportAliases(src, path)
+      if err != nil {
+        return producerSurface{}, err
+      }
+      file, err := parser.ParseFile(token.NewFileSet(), path, src, parser.SkipObjectResolution)
+      if err != nil {
+        return producerSurface{}, fmt.Errorf("%s: %w", path, err)
+      }
+      for _, decl := range file.Decls {
+        gen, ok := decl.(*ast.GenDecl)
+        if !ok || gen.Tok != token.TYPE {
+          continue
+        }
+        for _, spec := range gen.Specs {
+          typ, ok := spec.(*ast.TypeSpec)
+          if !ok || !ast.IsExported(typ.Name.Name) {
+            continue
+          }
+          selector, ok := typ.Type.(*ast.SelectorExpr)
+          if !ok {
+            continue
+          }
+          qualifier, ok := selector.X.(*ast.Ident)
+          if !ok {
+            continue
+          }
+          importedSuffix, internal := aliases[qualifier.Name]
+          if !internal {
+            continue
+          }
+          if localTypes[suffix] == nil {
+            localTypes[suffix] = map[string]flowType{}
+          }
+          localTypes[suffix][typ.Name.Name] = flowType{pkg: importedSuffix, name: selector.Sel.Name}
+        }
+      }
+    }
+  }
+  for suffix, files := range sources {
+    for path, src := range files {
+      if err := scanProducerFile(src, path, suffix, localTypes[suffix], surface); err != nil {
+        return producerSurface{}, err
+      }
+    }
+  }
+  return surface, nil
+}
+
+func internalImportAliases(src []byte, filename string) (map[string]string, error) {
+  file, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.SkipObjectResolution)
+  if err != nil {
+    return nil, fmt.Errorf("%s: %w", filename, err)
+  }
+  aliases := map[string]string{}
+  for _, imp := range file.Imports {
+    path := strings.Trim(imp.Path.Value, `"`)
+    if !strings.HasPrefix(path, internalPrefix) {
+      continue
+    }
+    importedSuffix := strings.TrimPrefix(path, internalPrefix)
+    name := importedSuffix[strings.LastIndex(importedSuffix, "/")+1:]
+    if imp.Name != nil {
+      name = imp.Name.Name
+    }
+    aliases[name] = importedSuffix
+  }
+  return aliases, nil
+}
+
+func scanProducerFile(src []byte, filename, suffix string, localTypes map[string]flowType, surface producerSurface) error {
+  file, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.SkipObjectResolution)
+  if err != nil {
+    return fmt.Errorf("%s: %w", filename, err)
+  }
+  aliases, err := internalImportAliases(src, filename)
+  if err != nil {
+    return err
+  }
+  for _, decl := range file.Decls {
+    fn, ok := decl.(*ast.FuncDecl)
+    if !ok || fn.Recv != nil || !ast.IsExported(fn.Name.Name) {
+      continue
+    }
+    operation := suffix + "." + fn.Name.Name
+    collectFieldFlow(fn.Type.Params, aliases, localTypes, flowConsume, false, operation, surface)
+    collectFieldFlow(fn.Type.Results, aliases, localTypes, flowProduce, false, operation, surface)
+  }
+  return nil
+}
+
+func collectFieldFlow(fields *ast.FieldList, aliases map[string]string, localTypes map[string]flowType, direction flowDirection, pointerLike bool, operation string, surface producerSurface) {
+  if fields == nil {
+    return
+  }
+  for _, field := range fields.List {
+    collectTypeFlow(field.Type, aliases, localTypes, direction, pointerLike, operation, surface)
+  }
+}
+
+func collectTypeFlow(expr ast.Expr, aliases map[string]string, localTypes map[string]flowType, direction flowDirection, pointerLike bool, operation string, surface producerSurface) {
+  switch node := expr.(type) {
+  case *ast.StarExpr:
+    collectTypeFlow(node.X, aliases, localTypes, direction, true, operation, surface)
+  case *ast.ArrayType:
+    collectTypeFlow(node.Elt, aliases, localTypes, direction, pointerLike, operation, surface)
+  case *ast.Ellipsis:
+    collectTypeFlow(node.Elt, aliases, localTypes, direction, pointerLike, operation, surface)
+  case *ast.MapType:
+    collectTypeFlow(node.Key, aliases, localTypes, direction, pointerLike, operation, surface)
+    collectTypeFlow(node.Value, aliases, localTypes, direction, pointerLike, operation, surface)
+  case *ast.ChanType:
+    collectTypeFlow(node.Value, aliases, localTypes, direction, pointerLike, operation, surface)
+  case *ast.ParenExpr:
+    collectTypeFlow(node.X, aliases, localTypes, direction, pointerLike, operation, surface)
+  case *ast.IndexExpr:
+    collectTypeFlow(node.X, aliases, localTypes, direction, pointerLike, operation, surface)
+    collectTypeFlow(node.Index, aliases, localTypes, direction, false, operation, surface)
+  case *ast.IndexListExpr:
+    collectTypeFlow(node.X, aliases, localTypes, direction, pointerLike, operation, surface)
+    for _, index := range node.Indices {
+      collectTypeFlow(index, aliases, localTypes, direction, false, operation, surface)
+    }
+  case *ast.FuncType:
+    collectFieldFlow(node.Params, aliases, localTypes, opposite(direction), false, operation, surface)
+    collectFieldFlow(node.Results, aliases, localTypes, direction, false, operation, surface)
+  case *ast.InterfaceType:
+    collectFieldFlow(node.Methods, aliases, localTypes, opposite(direction), false, operation, surface)
+  case *ast.Ident:
+    if typ, internal := localTypes[node.Name]; pointerLike && internal {
+      surface.add(direction, typ, operation)
+    }
+  case *ast.SelectorExpr:
+    qualifier, ok := node.X.(*ast.Ident)
+    if !pointerLike || !ok || !ast.IsExported(node.Sel.Name) {
+      return
+    }
+    importedSuffix, internal := aliases[qualifier.Name]
+    if internal {
+      surface.add(direction, flowType{pkg: importedSuffix, name: node.Sel.Name}, operation)
+    }
+  }
 }
 
 // hasShimSource reports whether dir holds non-test Go source — i.e. an actual
@@ -416,7 +633,7 @@ func attachUntypedConsts(enumNames []string, typedMembers map[string][]string, u
 
 // Finding kinds.
 type finding struct {
-  kind   string // ENUM / FUNC / ESCAPE
+  kind   string // ENUM / FUNC / ESCAPE / PRODUCER
   pkg    string
   symbol string
   detail string
@@ -444,6 +661,11 @@ func main() {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(1)
   }
+  producerSurface, err := scanShimProducerSurface(*shimRoot)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, "shim_audit:", err)
+    os.Exit(1)
+  }
   inner, err := loadInner(*anchor)
   if err != nil {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
@@ -451,6 +673,7 @@ func main() {
   }
 
   findings, pool := analyze(r, inner)
+  findings = dedupe(append(findings, producerFindings(producerSurface)...))
 
   switch {
   case *fix:
@@ -464,7 +687,28 @@ func main() {
   }
 }
 
-// analyze runs the three closure checks plus the unexported demand-pool scan and
+func producerFindings(surface producerSurface) []finding {
+  var findings []finding
+  for typ, operations := range surface.consumed {
+    if len(surface.produced[typ]) > 0 {
+      continue
+    }
+    names := make([]string, 0, len(operations))
+    for operation := range operations {
+      names = append(names, operation)
+    }
+    sort.Strings(names)
+    findings = append(findings, finding{
+      kind:   "PRODUCER",
+      pkg:    typ.pkg,
+      symbol: typ.name,
+      detail: "consumed by " + strings.Join(names, ", ") + " but no exported shim wrapper returns it",
+    })
+  }
+  return dedupe(findings)
+}
+
+// analyze runs the upstream closure checks plus the unexported demand-pool scan and
 // returns the deduped findings and pool.
 func analyze(r reachable, inner map[string]*packages.Package) (findings, unexportedPool []finding) {
   for suffix, pkg := range inner {
@@ -731,7 +975,7 @@ func tierOf(kind string) int {
   switch kind {
   case "ENUM": // partial enum — some members exposed, siblings missing
     return 1
-  case "FUNC": // exported op over already-reachable types
+  case "FUNC", "PRODUCER": // callable ops and constructible object flow
     return 2
   case "ESCAPE": // type returned by an exposed op but not aliased
     return 3
@@ -771,7 +1015,7 @@ func report(findings, pool []finding, md bool) {
   } else {
     fmt.Printf("=== Shim closure audit ===\n")
   }
-  fmt.Printf("Tier 1 PARTIAL-ENUM (near-certain bugs): %d | Tier 2 FUNC-over-exposed: %d | Tier 3 ESCAPE: %d | Tier 4 type-only enums: %d | Unexported demand pool: %d\n",
+  fmt.Printf("Tier 1 PARTIAL-ENUM (near-certain bugs): %d | Tier 2 FUNC/PRODUCER: %d | Tier 3 ESCAPE: %d | Tier 4 type-only enums: %d | Unexported demand pool: %d\n",
     len(tiers[1]), len(tiers[2]), len(tiers[3]), len(tiers[4]), len(pool))
 
   h("TIER 1 — partial enums (a sibling const is missing; this is the #230 class)")
@@ -780,7 +1024,7 @@ func report(findings, pool []finding, md bool) {
     row(f)
   }
 
-  h("TIER 2 — exported funcs whose params/results are all already reachable")
+  h("TIER 2 — reachable funcs and consumed compiler objects without producers")
   thead()
   for _, f := range tiers[2] {
     row(f)
@@ -824,11 +1068,69 @@ func countByPkg(in []finding) string {
 // findingKey is the stable identity of a gap, used for baseline membership.
 func findingKey(f finding) string { return f.kind + "|" + f.pkg + "|" + f.symbol }
 
+func producerExemptionKey(f finding) string { return f.pkg + "." + f.symbol }
+
 // baselineFile is the on-disk schema of accepted TIER-2/3 gaps. TIER-1 enum
-// gaps are never baselined — they are zero-tolerance and fixed by -fix.
+// gaps are never baselined. Producer gaps require a separate, reasoned root
+// exemption because accepting an ordinary symbol gap must not waive object
+// constructibility.
 type baselineFile struct {
-  Note     string   `json:"note"`
-  Accepted []string `json:"accepted"`
+  Note               string            `json:"note"`
+  Accepted           []string          `json:"accepted"`
+  ProducerExemptions map[string]string `json:"producer_exemptions,omitempty"`
+}
+
+type baselineEvaluation struct {
+  enumGaps        []finding
+  newGaps         []finding
+  producerGaps    []finding
+  invalidReasons []string
+  staleAccepted  int
+  staleProducers int
+}
+
+func evaluateBaseline(findings []finding, baseline baselineFile) baselineEvaluation {
+  accepted := map[string]bool{}
+  for _, key := range baseline.Accepted {
+    accepted[key] = true
+  }
+  evaluation := baselineEvaluation{}
+  liveAccepted := map[string]bool{}
+  liveProducers := map[string]bool{}
+  for _, f := range findings {
+    switch f.kind {
+    case "ENUM":
+      evaluation.enumGaps = append(evaluation.enumGaps, f)
+    case "FUNC", "ESCAPE":
+      key := findingKey(f)
+      liveAccepted[key] = true
+      if !accepted[key] {
+        evaluation.newGaps = append(evaluation.newGaps, f)
+      }
+    case "PRODUCER":
+      key := producerExemptionKey(f)
+      liveProducers[key] = true
+      rationale, exempted := baseline.ProducerExemptions[key]
+      if !exempted || strings.TrimSpace(rationale) == "" {
+        evaluation.producerGaps = append(evaluation.producerGaps, f)
+      }
+    }
+  }
+  for key := range accepted {
+    if !liveAccepted[key] {
+      evaluation.staleAccepted++
+    }
+  }
+  for key, rationale := range baseline.ProducerExemptions {
+    if strings.TrimSpace(rationale) == "" {
+      evaluation.invalidReasons = append(evaluation.invalidReasons, key)
+    }
+    if !liveProducers[key] {
+      evaluation.staleProducers++
+    }
+  }
+  sort.Strings(evaluation.invalidReasons)
+  return evaluation
 }
 
 // shimPackageName reads the `package` clause from a .go file in dir.
@@ -906,7 +1208,8 @@ func runFix(findings []finding, shimRoot string) {
 }
 
 // runWriteBaseline records the current TIER-2/3 gaps as accepted, so the gate
-// fails only on NEW ones. The list can only shrink as gaps get exposed.
+// fails only on NEW ones. Producer exemptions are preserved rather than
+// inferred: each root needs an explicit human rationale.
 func runWriteBaseline(findings []finding, path string) {
   var keys []string
   for _, f := range findings {
@@ -915,9 +1218,19 @@ func runWriteBaseline(findings []finding, path string) {
     }
   }
   sort.Strings(keys)
+  producerExemptions := map[string]string{}
+  if existing, err := os.ReadFile(path); err == nil {
+    var baseline baselineFile
+    if err := json.Unmarshal(existing, &baseline); err != nil {
+      fmt.Fprintf(os.Stderr, "shim_audit: parse %s: %v\n", path, err)
+      os.Exit(2)
+    }
+    producerExemptions = baseline.ProducerExemptions
+  }
   data, err := json.MarshalIndent(baselineFile{
-    Note:     "Accepted TIER-2 (reachable funcs) and TIER-3 (escaping types) shim gaps. The gate fails on any gap NOT listed here; expose a symbol and remove its line, or run -write-baseline to accept new ones deliberately. TIER-1 enum gaps are never listed — they are zero-tolerance (run -fix).",
-    Accepted: keys,
+    Note:               "Accepted TIER-2 (reachable funcs) and TIER-3 (escaping types) shim gaps. The gate fails on any gap NOT listed here; expose a symbol and remove its line, or run -write-baseline to accept new ones deliberately. TIER-1 enum and PRODUCER gaps are zero-tolerance; producer_exemptions must name genuine roots with non-empty rationales.",
+    Accepted:           keys,
+    ProducerExemptions: producerExemptions,
   }, "", "  ")
   if err != nil {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
@@ -930,64 +1243,59 @@ func runWriteBaseline(findings []finding, path string) {
   fmt.Printf("shim_audit: wrote %s (%d accepted gaps)\n", path, len(keys))
 }
 
-// runCheck is the CI gate. It fails on any TIER-1 enum gap (zero tolerance) or
-// any TIER-2/3 gap not present in the baseline.
+// runCheck is the CI gate. It fails on any TIER-1 enum gap, any unreasoned
+// producer gap, or any TIER-2/3 gap not present in the baseline.
 func runCheck(findings []finding, path string) {
-  accepted := map[string]bool{}
+  baseline := baselineFile{}
   if data, err := os.ReadFile(path); err == nil {
-    var bf baselineFile
-    if err := json.Unmarshal(data, &bf); err != nil {
+    if err := json.Unmarshal(data, &baseline); err != nil {
       fmt.Fprintf(os.Stderr, "shim_audit: parse %s: %v\n", path, err)
       os.Exit(2)
     }
-    for _, k := range bf.Accepted {
-      accepted[k] = true
-    }
   } else {
-    fmt.Fprintf(os.Stderr, "shim_audit: WARNING no baseline at %s; treating all func/type gaps as new\n", path)
+    fmt.Fprintf(os.Stderr, "shim_audit: WARNING no baseline at %s; treating all func/type and producer gaps as new\n", path)
   }
 
-  var enumGaps, newGaps []finding
-  live := map[string]bool{}
-  for _, f := range findings {
-    switch f.kind {
-    case "ENUM":
-      enumGaps = append(enumGaps, f)
-    case "FUNC", "ESCAPE":
-      live[findingKey(f)] = true
-      if !accepted[findingKey(f)] {
-        newGaps = append(newGaps, f)
-      }
-    }
-  }
+  evaluation := evaluateBaseline(findings, baseline)
   // Non-failing hygiene note: baseline lines that no longer match a gap (the
   // symbol got exposed) are dead weight; the ratchet stays safe but suggest a prune.
-  var stale int
-  for k := range accepted {
-    if !live[k] {
-      stale++
-    }
+  if evaluation.staleAccepted > 0 {
+    fmt.Fprintf(os.Stderr, "shim_audit: note: %d baseline entr(y/ies) no longer match a gap; prune with -write-baseline\n", evaluation.staleAccepted)
   }
-  if stale > 0 {
-    fmt.Fprintf(os.Stderr, "shim_audit: note: %d baseline entr(y/ies) no longer match a gap; prune with -write-baseline\n", stale)
+  if evaluation.staleProducers > 0 {
+    fmt.Fprintf(os.Stderr, "shim_audit: note: %d producer exemption(s) no longer match a gap; remove them\n", evaluation.staleProducers)
   }
 
-  if len(enumGaps) == 0 && len(newGaps) == 0 {
-    fmt.Println("shim_audit: OK — every exposed enum family is complete and no new reachable gaps")
+  if len(evaluation.enumGaps) == 0 && len(evaluation.newGaps) == 0 &&
+    len(evaluation.producerGaps) == 0 && len(evaluation.invalidReasons) == 0 {
+    fmt.Println("shim_audit: OK — exposed enums, reachable symbols, and compiler-object producers are closed")
     return
   }
-  if len(enumGaps) > 0 {
-    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d enum-family member(s) of an EXPOSED enum are not re-exported.\n", len(enumGaps))
+  if len(evaluation.enumGaps) > 0 {
+    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d enum-family member(s) of an EXPOSED enum are not re-exported.\n", len(evaluation.enumGaps))
     fmt.Fprintf(os.Stderr, "  This is the #230 class. Fix mechanically: `pnpm --filter ttsc shim:audit -fix`.\n")
-    for _, f := range enumGaps {
+    for _, f := range evaluation.enumGaps {
       fmt.Fprintf(os.Stderr, "    ENUM   %s.%s\n", f.pkg, f.symbol)
     }
   }
-  if len(newGaps) > 0 {
-    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d new reachable gap(s) not in the baseline.\n", len(newGaps))
+  if len(evaluation.newGaps) > 0 {
+    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d new reachable gap(s) not in the baseline.\n", len(evaluation.newGaps))
     fmt.Fprintf(os.Stderr, "  Expose them in the shim, or accept deliberately: `pnpm --filter ttsc shim:audit -write-baseline`.\n")
-    for _, f := range newGaps {
+    for _, f := range evaluation.newGaps {
       fmt.Fprintf(os.Stderr, "    %-6s %s.%s — %s\n", f.kind, f.pkg, f.symbol, f.detail)
+    }
+  }
+  if len(evaluation.producerGaps) > 0 {
+    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d consumed compiler object(s) have no public producer.\n", len(evaluation.producerGaps))
+    fmt.Fprintf(os.Stderr, "  Add a general exported producer, or document a genuine external root in producer_exemptions.\n")
+    for _, f := range evaluation.producerGaps {
+      fmt.Fprintf(os.Stderr, "    PRODUCER %s.%s — %s\n", f.pkg, f.symbol, f.detail)
+    }
+  }
+  if len(evaluation.invalidReasons) > 0 {
+    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d producer exemption(s) have an empty rationale.\n", len(evaluation.invalidReasons))
+    for _, key := range evaluation.invalidReasons {
+      fmt.Fprintf(os.Stderr, "    PRODUCER-EXEMPTION %s\n", key)
     }
   }
   fmt.Fprintln(os.Stderr)

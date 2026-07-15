@@ -1,5 +1,5 @@
 {
-  "note": "Accepted TIER-2 (reachable funcs) and TIER-3 (escaping types) shim gaps. The gate fails on any gap NOT listed here; expose a symbol and remove its line, or run -write-baseline to accept new ones deliberately. TIER-1 enum gaps are never listed — they are zero-tolerance (run -fix).",
+  "note": "Accepted TIER-2 (reachable funcs) and TIER-3 (escaping types) shim gaps. The gate fails on any gap NOT listed here; expose a symbol and remove its line, or run -write-baseline to accept new ones deliberately. TIER-1 enum and PRODUCER gaps are zero-tolerance; producer_exemptions must name genuine roots with non-empty rationales.",
   "accepted": [
     "ESCAPE|checker|ConditionalType",
     "ESCAPE|checker|ConstrainedType",
@@ -18,7 +18,6 @@
     "ESCAPE|checker|NodeBuilder",
     "ESCAPE|checker|NodeBuilderContext",
     "ESCAPE|checker|ObjectType",
-    "ESCAPE|checker|Program",
     "ESCAPE|checker|ReverseMappedType",
     "ESCAPE|checker|SignatureFlags",
     "ESCAPE|checker|StringMappingType",
@@ -27,7 +26,6 @@
     "ESCAPE|checker|SymbolFormatFlags",
     "ESCAPE|checker|SymbolTrackerImpl",
     "ESCAPE|checker|TemplateLiteralType",
-    "ESCAPE|checker|Tracer",
     "ESCAPE|checker|TupleType",
     "ESCAPE|checker|TypeFormatFlags",
     "ESCAPE|checker|TypeId",
@@ -93,7 +91,6 @@
     "FUNC|ast|GetAssignmentTarget",
     "FUNC|ast|GetBinaryOperatorPrecedence",
     "FUNC|ast|GetClassLikeDeclarationOfSymbol",
-    "FUNC|ast|GetCombinedModifierFlags",
     "FUNC|ast|GetContainingClass",
     "FUNC|ast|GetContainingFunction",
     "FUNC|ast|GetDeclarationContainer",
@@ -237,7 +234,6 @@
     "FUNC|ast|IsComputedPropertyName",
     "FUNC|ast|IsConditionalExpression",
     "FUNC|ast|IsConditionalTypeNode",
-    "FUNC|ast|IsConstAssertion",
     "FUNC|ast|IsConstTypeReference",
     "FUNC|ast|IsConstructSignatureDeclaration",
     "FUNC|ast|IsConstructorDeclaration",
@@ -498,7 +494,6 @@
     "FUNC|ast|IsParseTreeNode",
     "FUNC|ast|IsPartOfExclusivelyTypeOnlyImportOrExportDeclaration",
     "FUNC|ast|IsPartOfParameterDeclaration",
-    "FUNC|ast|IsPartOfTypeNode",
     "FUNC|ast|IsPartOfTypeOnlyImportOrExportDeclaration",
     "FUNC|ast|IsPartOfTypeQuery",
     "FUNC|ast|IsPartiallyEmittedExpression",
@@ -701,5 +696,19 @@
     "FUNC|transformers|IsOriginalNodeSingleLine",
     "FUNC|transformers|MoveRangePastDecorators",
     "FUNC|transformers|MoveRangePastModifiers"
-  ]
+  ],
+  "producer_exemptions": {
+    "ast.Expression": "AST expressions are views of parser or NodeFactory-produced nodes, reached through the exported Node conversion surface.",
+    "ast.Identifier": "Identifiers are views of parser or NodeFactory-produced nodes, reached through the exported Node conversion surface.",
+    "ast.ObjectLiteralExpression": "Object literals are views of parser or NodeFactory-produced nodes, reached through the exported Node conversion surface.",
+    "ast.PropertyAssignment": "Property assignments are views of parser or NodeFactory-produced nodes, reached through the exported Node conversion surface.",
+    "checker.Tracer": "NewChecker accepts nil when tracing is disabled; a non-nil tracer is an optional host-owned facility.",
+    "collections.OrderedMap": "These configuration APIs accept nil for the optional raw-options map; populated maps are owned by the compiler configuration host.",
+    "core.BuildOptions": "Build options are caller-owned configuration data that can be allocated through the exported type alias.",
+    "core.CompilerOptions": "Compiler options are caller-owned configuration data that can be allocated through the exported type alias.",
+    "core.TypeAcquisition": "Type-acquisition options are caller-owned configuration data that can be allocated through the exported type alias.",
+    "core.WatchOptions": "Watch options are caller-owned configuration data that can be allocated through the exported type alias.",
+    "lsp.ServerOptions": "Server options are caller-owned configuration data that can be allocated through the exported type alias.",
+    "scanner.SkipTriviaOptions": "Trivia options are caller-owned configuration data that can be allocated through the exported type alias."
+  }
 }

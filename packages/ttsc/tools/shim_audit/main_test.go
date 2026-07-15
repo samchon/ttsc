@@ -65,7 +65,7 @@ func TestDedupe(t *testing.T) {
 
 // TestTierOf pins the kind→tier mapping the gate and report depend on.
 func TestTierOf(t *testing.T) {
-  cases := map[string]int{"ENUM": 1, "FUNC": 2, "ESCAPE": 3, "ENUM?": 4, "UNEXPORTED": 4}
+  cases := map[string]int{"ENUM": 1, "FUNC": 2, "PRODUCER": 2, "ESCAPE": 3, "ENUM?": 4, "UNEXPORTED": 4}
   for kind, want := range cases {
     if got := tierOf(kind); got != want {
       t.Errorf("tierOf(%q) = %d, want %d", kind, got, want)
