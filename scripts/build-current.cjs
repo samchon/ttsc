@@ -21,6 +21,10 @@ const PLATFORM = Symbol("platform");
 // packages they never package or execute.
 const SCOPES = {
   // Everything, in dependency-safe order (native binary before graph/demo).
+  // @ttsc/wasm is built types-only (`build:ts`, no Go→WASM binary) and
+  // @ttsc/playground after it, so the test-playground typecheck + feature lanes
+  // (and local `pnpm test`) can import the built playground lib without a real
+  // WASM build.
   full: [
     "ttsc",
     "@ttsc/banner",
@@ -31,6 +35,8 @@ const SCOPES = {
     PLATFORM,
     "@ttsc/graph",
     "lint-contributor-demo",
+    { filter: "@ttsc/wasm", script: "build:ts" },
+    "@ttsc/playground",
   ],
   // test-ttsc drives ttsc + the banner/lint native plugins and asserts on the
   // @ttsc/vscode install artifact (its .vsix); it never touches graph/metro/
@@ -71,6 +77,10 @@ for (const target of plan) {
       ["--dir", platformDir, "build"],
       scope === "experimental" ? { TTSC_PLATFORM_BUILD_TARGETS: "ttsc" } : {},
     );
+  } else if (typeof target === "object") {
+    // `{ filter, script }` — build a package via a non-default script (e.g.
+    // @ttsc/wasm's `build:ts`, which skips the heavy Go→WASM binary build).
+    run(["--filter", target.filter, target.script]);
   } else {
     run(["--filter", target, "build"]);
   }

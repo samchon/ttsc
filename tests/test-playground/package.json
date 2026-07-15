@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "name": "@ttsc/test-playground",
+  "version": "0.18.4",
+  "description": "@ttsc/playground worker plugin-failure, npm-discovery, and sandbox feature tests.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"
+  },
+  "devDependencies": {
+    "@ttsc/playground": "workspace:*",
+    "@ttsc/testing": "workspace:*",
+    "@ttsc/wasm": "workspace:*",
+    "@types/node": "catalog:utils",
+    "typescript": "catalog:typescript"
+  }
+}
