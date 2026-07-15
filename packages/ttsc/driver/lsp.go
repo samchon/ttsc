@@ -130,6 +130,7 @@ var ErrFrameClosed = lspserver.ErrFrameClosed
 var ErrFrameTooLarge = lspserver.ErrFrameTooLarge
 var ErrInvalidJSONRPC = lspserver.ErrInvalidJSONRPC
 var ErrLSPUpstreamPanic = lspserver.ErrLSPUpstreamPanic
+var ErrLSPUpstreamRunnerRequired = lspserver.ErrLSPUpstreamRunnerRequired
 var ErrLSPCwdRequired = lspserver.ErrLSPCwdRequired
 var ErrLSPTsgoBinaryRequired = lspserver.ErrLSPTsgoBinaryRequired
 

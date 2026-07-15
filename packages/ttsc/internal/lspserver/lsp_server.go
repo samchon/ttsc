@@ -81,6 +81,7 @@ type LSPServerOptions struct {
   // The zero value selects the production tsgo process and validates
   // TsgoBinary. Embedders supplying a Runner may also supply a Validator;
   // a nil custom Validator means the custom runner owns its prerequisites.
+  // A Validator without a Runner is rejected as an incomplete dependency pair.
   Upstream LSPUpstream
 }
 
@@ -92,6 +93,10 @@ var ErrLSPCwdRequired = errors.New("ttscserver: cwd is required")
 // ErrLSPTsgoBinaryRequired is returned when no upstream tsgo executable
 // path was supplied by the JavaScript launcher or native caller.
 var ErrLSPTsgoBinaryRequired = errors.New("ttscserver: tsgo binary is required")
+
+// ErrLSPUpstreamRunnerRequired is returned when an invocation supplies a
+// custom upstream validator without the runner whose prerequisites it checks.
+var ErrLSPUpstreamRunnerRequired = errors.New("ttscserver: custom upstream validator requires a runner")
 
 // LSPUpstreamRunner is the seam tests use to substitute the external
 // tsgo process with a controllable fake.
@@ -158,10 +163,11 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
   }
   upstream := opts.Upstream
   if upstream.Runner == nil {
-    upstream.Runner = defaultUpstreamRunner
-    if upstream.Validator == nil {
-      upstream.Validator = validateDefaultUpstreamOptions
+    if upstream.Validator != nil {
+      return ErrLSPUpstreamRunnerRequired
     }
+    upstream.Runner = defaultUpstreamRunner
+    upstream.Validator = validateDefaultUpstreamOptions
   }
   if upstream.Validator != nil {
     if err := upstream.Validator(opts); err != nil {
