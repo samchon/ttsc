@@ -10,6 +10,16 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
+// readFileForTest returns one fixture artifact as text.
+func readFileForTest(t *testing.T, path string) string {
+  t.Helper()
+  contents, err := os.ReadFile(path)
+  if err != nil {
+    t.Fatal(err)
+  }
+  return string(contents)
+}
+
 // writeProjectFile materializes one project-shaped fixture file. The tests in
 // this package intentionally build real tsconfig projects instead of mocking
 // compiler internals, so each scenario owns its whole temporary project tree.
