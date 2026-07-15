@@ -3,6 +3,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const zlib = require("node:zlib");
 
+const { resolveGoTarget } = require("./platform-target.cjs");
+
 const cwd = process.cwd();
 const manifest = JSON.parse(
   fs.readFileSync(path.join(cwd, "package.json"), "utf8"),
@@ -18,8 +20,8 @@ if (!match) {
 }
 
 const [, npmOs, npmArch] = match;
-const goos = npmOs === "win32" ? "windows" : npmOs;
-const goarch = npmArch === "x64" ? "amd64" : npmArch;
+const goTarget = resolveGoTarget(npmOs, npmArch);
+const { goos, goarch, goarm } = goTarget;
 const root = path.resolve(cwd, "../..");
 const source = path.join(root, "packages", "ttsc");
 const outDir = path.join(cwd, "bin");
@@ -106,6 +108,9 @@ function buildGoTarget(name, output, pkg) {
       CGO_ENABLED: "0",
       GOARCH: goarch,
       GOOS: goos,
+      // Pin the ARM baseline for the 32-bit arm package so the executables match
+      // the bundled linux-armv6l SDK instead of defaulting to ARMv7.
+      ...(goarm ? { GOARM: goarm } : {}),
       PATH: pathValue,
     },
     stdio: "inherit",
@@ -244,10 +249,7 @@ function goArchiveName(version) {
 }
 
 function goArchiveTarget() {
-  const os = npmOs === "win32" ? "windows" : npmOs;
-  const arch =
-    npmArch === "x64" ? "amd64" : npmArch === "arm" ? "armv6l" : npmArch;
-  return `${os}-${arch}`;
+  return goTarget.archiveTarget;
 }
 
 function extractZipArchive(archivePath, extractDir) {
