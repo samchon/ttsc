@@ -27,10 +27,15 @@ import (
 
   "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimparser "github.com/microsoft/typescript-go/shim/parser"
 )
 
 // Rewrite describes one emit-time patch. Produced by CollectCallSites after
-// the engine has generated a replacement JS fragment for the call.
+// the engine has generated a replacement JS fragment for the call. When
+// RootName names a default or namespace import, emit resolves it through the
+// matching emitted require declaration, including any collision suffix chosen
+// by TypeScript-Go.
 type Rewrite struct {
   File          *ast.SourceFile
   RootName      string
@@ -233,12 +238,25 @@ func applyRewrites(outputName, text string, rs *RewriteSet, cursors map[string]i
     return text, nil
   }
   rewrites := rs.byPath[srcPath]
+  emittedBindings := map[string][]emittedImportBinding{}
+  for _, rewrite := range rewrites {
+    if _, imported := sourceImportForRoot(rewrite.File, rewrite.RootName); imported {
+      emittedBindings = collectEmittedImportBindings(outputName, text)
+      break
+    }
+  }
   pos := cursors[srcPath]
   out := text
   searchFrom := 0
+  aliasesByRoot := map[string][]string{}
   for pos < len(rewrites) {
     r := rewrites[pos]
-    replaced, nextSearchFrom, ok, err := spliceCall(out, r, searchFrom)
+    aliases, cached := aliasesByRoot[r.RootName]
+    if !cached {
+      aliases = rewriteAliases(r, emittedBindings)
+      aliasesByRoot[r.RootName] = aliases
+    }
+    replaced, nextSearchFrom, ok, err := spliceCallWithAliases(out, r, aliases, searchFrom)
     if err != nil {
       return "", err
     }
@@ -247,7 +265,7 @@ func applyRewrites(outputName, text string, rs *RewriteSet, cursors map[string]i
       if len(preview) > 400 {
         preview = preview[:400] + "…"
       }
-      return "", fmt.Errorf("driver: could not locate %s.%s(…) call in %s (tried roots %v; preview: %q)", joinRootAndNamespaces(r), r.Method, outputName, candidateRoots(r.RootName), preview)
+      return "", fmt.Errorf("driver: could not locate %s.%s(…) call in %s (tried roots %v; preview: %q)", joinRootAndNamespaces(r), r.Method, outputName, aliases, preview)
     }
     out = replaced
     searchFrom = nextSearchFrom
@@ -349,7 +367,15 @@ func sourceTail(srcPath, commonDir string) string {
 // Returns the patched text, the byte position to resume from on the next
 // call, a found flag, and any error from the paren-matching step.
 func spliceCall(text string, r Rewrite, searchFrom int) (string, int, bool, error) {
-  aliases := candidateRoots(r.RootName)
+  emittedBindings := map[string][]emittedImportBinding{}
+  if _, imported := sourceImportForRoot(r.File, r.RootName); imported {
+    emittedBindings = collectEmittedImportBindings("/rewrite.js", text)
+  }
+  aliases := rewriteAliases(r, emittedBindings)
+  return spliceCallWithAliases(text, r, aliases, searchFrom)
+}
+
+func spliceCallWithAliases(text string, r Rewrite, aliases []string, searchFrom int) (string, int, bool, error) {
   pattern := callRegexFor(aliases, r.Namespaces, r.Method)
   idx, needleLen := findCallMatch(text, pattern, searchFrom)
   if idx < 0 {
@@ -366,6 +392,349 @@ func spliceCall(text string, r Rewrite, searchFrom int) (string, int, bool, erro
   }
   replaced := text[:idx] + r.Replacement + text[idx+needleLen:]
   return replaced, idx + len(r.Replacement), true, nil
+}
+
+// collectEmittedImportBindings recovers the identifiers TypeScript-Go
+// actually assigned to top-level CommonJS imports in one emitted JavaScript
+// file. The source-level import name is not enough: the emitter owns collision
+// suffixes and may choose any free number. Parsing the emitted declarations
+// keeps alias discovery coupled to that output instead of guessing a maximum.
+type emittedImportKind uint8
+
+const (
+  emittedImportDirect emittedImportKind = iota
+  emittedImportDefault
+  emittedImportNamespace
+  emittedImportRetainedDefault
+  emittedImportRetainedNamespace
+)
+
+type emittedImportBinding struct {
+  name string
+  kind emittedImportKind
+}
+
+func collectEmittedImportBindings(outputName, text string) map[string][]emittedImportBinding {
+  parseName := filepath.ToSlash(outputName)
+  if !filepath.IsAbs(outputName) {
+    parseName = "/" + strings.TrimPrefix(parseName, "/")
+  }
+  file := shimparser.ParseSourceFile(ast.SourceFileParseOptions{FileName: parseName}, text, shimcore.ScriptKindJS)
+  bindings := map[string][]emittedImportBinding{}
+  if file == nil || file.Statements == nil {
+    return bindings
+  }
+  for _, statement := range file.Statements.Nodes {
+    if statement == nil {
+      continue
+    }
+    if statement.Kind == ast.KindImportDeclaration {
+      collectRetainedImportBinding(bindings, statement.AsImportDeclaration())
+      continue
+    }
+    if statement.Kind != ast.KindVariableStatement {
+      continue
+    }
+    variables := statement.AsVariableStatement()
+    if variables == nil || variables.DeclarationList == nil {
+      continue
+    }
+    declarations := variables.DeclarationList.AsVariableDeclarationList()
+    if declarations == nil || declarations.Declarations == nil {
+      continue
+    }
+    for _, declaration := range declarations.Declarations.Nodes {
+      if declaration == nil {
+        continue
+      }
+      variable := declaration.AsVariableDeclaration()
+      if variable == nil {
+        continue
+      }
+      name := identifierName(variable.Name())
+      module, kind, ok := emittedRequireModule(variable.Initializer)
+      if name == "" || !ok {
+        continue
+      }
+      bindings[module] = append(bindings[module], emittedImportBinding{name: name, kind: kind})
+    }
+  }
+  return bindings
+}
+
+func collectRetainedImportBinding(bindings map[string][]emittedImportBinding, declaration *ast.ImportDeclaration) {
+  if declaration == nil || declaration.ImportClause == nil {
+    return
+  }
+  module, ok := stringLiteralValue(declaration.ModuleSpecifier)
+  if !ok {
+    return
+  }
+  clause := declaration.ImportClause.AsImportClause()
+  if clause == nil {
+    return
+  }
+  if name := identifierName(clause.Name()); name != "" {
+    bindings[module] = append(bindings[module], emittedImportBinding{name: name, kind: emittedImportRetainedDefault})
+  }
+  if clause.NamedBindings == nil || clause.NamedBindings.Kind != ast.KindNamespaceImport {
+    return
+  }
+  namespace := clause.NamedBindings.AsNamespaceImport()
+  if namespace == nil {
+    return
+  }
+  if name := identifierName(namespace.Name()); name != "" {
+    bindings[module] = append(bindings[module], emittedImportBinding{name: name, kind: emittedImportRetainedNamespace})
+  }
+}
+
+// emittedRequireModule recognizes the declaration shapes TypeScript-Go owns
+// for CommonJS imports: a direct require or a require wrapped in its
+// __importDefault/__importStar helper. User calls with other wrappers are not
+// import declarations and therefore cannot become rewrite aliases.
+func emittedRequireModule(node *ast.Node) (string, emittedImportKind, bool) {
+  node = unwrapParentheses(node)
+  if node == nil || node.Kind != ast.KindCallExpression {
+    return "", emittedImportDirect, false
+  }
+  call := node.AsCallExpression()
+  if call == nil || call.QuestionDotToken != nil || call.Arguments == nil || len(call.Arguments.Nodes) != 1 {
+    return "", emittedImportDirect, false
+  }
+  if identifierName(call.Expression) == "require" {
+    module, ok := stringLiteralValue(call.Arguments.Nodes[0])
+    return module, emittedImportDirect, ok
+  }
+  helper := callExpressionName(call.Expression)
+  if helper != "__importDefault" && helper != "__importStar" {
+    return "", emittedImportDirect, false
+  }
+  module, _, ok := emittedRequireModule(call.Arguments.Nodes[0])
+  if !ok {
+    return "", emittedImportDirect, false
+  }
+  if helper == "__importDefault" {
+    return module, emittedImportDefault, true
+  }
+  return module, emittedImportNamespace, true
+}
+
+func callExpressionName(node *ast.Node) string {
+  node = unwrapParentheses(node)
+  if name := identifierName(node); name != "" {
+    return name
+  }
+  if node == nil || node.Kind != ast.KindPropertyAccessExpression {
+    return ""
+  }
+  access := node.AsPropertyAccessExpression()
+  if access == nil {
+    return ""
+  }
+  return identifierName(access.Name())
+}
+
+func unwrapParentheses(node *ast.Node) *ast.Node {
+  for node != nil && node.Kind == ast.KindParenthesizedExpression {
+    expression := node.AsParenthesizedExpression()
+    if expression == nil || expression.Expression == nil {
+      return nil
+    }
+    node = expression.Expression
+  }
+  return node
+}
+
+func identifierName(node *ast.Node) string {
+  if node == nil || node.Kind != ast.KindIdentifier {
+    return ""
+  }
+  identifier := node.AsIdentifier()
+  if identifier == nil {
+    return ""
+  }
+  return identifier.Text
+}
+
+func stringLiteralValue(node *ast.Node) (string, bool) {
+  if node == nil || node.Kind != ast.KindStringLiteral {
+    return "", false
+  }
+  literal := node.AsStringLiteral()
+  if literal == nil {
+    return "", false
+  }
+  return literal.Text, true
+}
+
+// rewriteAliases binds one source import to the identifiers recovered from its
+// emitted require declaration. Retained ESM imports and non-import roots keep
+// their source spelling; CommonJS imports use only emitter-owned bindings so a
+// nearby identifier cannot be mistaken for the plugin call.
+type sourceImportKind uint8
+
+const (
+  sourceImportDefault sourceImportKind = iota
+  sourceImportNamespace
+  sourceImportEquals
+)
+
+type sourceImport struct {
+  module string
+  kind   sourceImportKind
+}
+
+func rewriteAliases(r Rewrite, emittedBindings map[string][]emittedImportBinding) []string {
+  imported, ok := sourceImportForRoot(r.File, r.RootName)
+  if !ok {
+    return []string{r.RootName + ".default", r.RootName}
+  }
+  retainedKind := emittedImportRetainedDefault
+  if imported.kind == sourceImportNamespace {
+    retainedKind = emittedImportRetainedNamespace
+  }
+  if imported.kind != sourceImportEquals {
+    for _, binding := range emittedBindings[imported.module] {
+      if binding.name == r.RootName && binding.kind == retainedKind {
+        return []string{r.RootName}
+      }
+    }
+  }
+  candidates := []emittedImportBinding{}
+  preferred := []emittedImportBinding{}
+  sourceBindings := sourceTopLevelVariableNames(r.File)
+  wantKind := emittedImportDirect
+  switch imported.kind {
+  case sourceImportDefault:
+    wantKind = emittedImportDefault
+  case sourceImportNamespace:
+    wantKind = emittedImportNamespace
+  }
+  for _, binding := range emittedBindings[imported.module] {
+    if _, sourceOwned := sourceBindings[binding.name]; sourceOwned {
+      continue
+    }
+    if !emittedNameForRoot(binding.name, r.RootName) {
+      continue
+    }
+    candidates = append(candidates, binding)
+    if binding.kind == wantKind {
+      preferred = append(preferred, binding)
+    }
+  }
+  var binding emittedImportBinding
+  switch {
+  case len(preferred) == 1:
+    binding = preferred[0]
+  case len(preferred) > 1:
+    return []string{r.RootName}
+  case len(candidates) == 1:
+    binding = candidates[0]
+  case len(candidates) > 1:
+    return []string{r.RootName}
+  default:
+    // An ESM emit retains the source binding instead of creating a require.
+    return []string{r.RootName}
+  }
+  if imported.kind == sourceImportDefault {
+    return []string{binding.name + ".default"}
+  }
+  return []string{binding.name}
+}
+
+func sourceImportForRoot(file *ast.SourceFile, root string) (sourceImport, bool) {
+  if file == nil || file.Statements == nil {
+    return sourceImport{}, false
+  }
+  for _, statement := range file.Statements.Nodes {
+    if statement == nil {
+      continue
+    }
+    switch statement.Kind {
+    case ast.KindImportDeclaration:
+      declaration := statement.AsImportDeclaration()
+      if declaration == nil || declaration.ImportClause == nil {
+        continue
+      }
+      clause := declaration.ImportClause.AsImportClause()
+      if clause == nil {
+        continue
+      }
+      if identifierName(clause.Name()) == root {
+        module, ok := stringLiteralValue(declaration.ModuleSpecifier)
+        return sourceImport{module: module, kind: sourceImportDefault}, ok
+      }
+      if clause.NamedBindings != nil && clause.NamedBindings.Kind == ast.KindNamespaceImport {
+        namespace := clause.NamedBindings.AsNamespaceImport()
+        if namespace != nil && identifierName(namespace.Name()) == root {
+          module, ok := stringLiteralValue(declaration.ModuleSpecifier)
+          return sourceImport{module: module, kind: sourceImportNamespace}, ok
+        }
+      }
+    case ast.KindImportEqualsDeclaration:
+      declaration := statement.AsImportEqualsDeclaration()
+      if declaration == nil || identifierName(declaration.Name()) != root || declaration.ModuleReference == nil ||
+        declaration.ModuleReference.Kind != ast.KindExternalModuleReference {
+        continue
+      }
+      reference := declaration.ModuleReference.AsExternalModuleReference()
+      if reference != nil {
+        module, ok := stringLiteralValue(reference.Expression)
+        return sourceImport{module: module, kind: sourceImportEquals}, ok
+      }
+    }
+  }
+  return sourceImport{}, false
+}
+
+func sourceTopLevelVariableNames(file *ast.SourceFile) map[string]struct{} {
+  names := map[string]struct{}{}
+  if file == nil || file.Statements == nil {
+    return names
+  }
+  for _, statement := range file.Statements.Nodes {
+    if statement == nil || statement.Kind != ast.KindVariableStatement {
+      continue
+    }
+    variables := statement.AsVariableStatement()
+    if variables == nil || variables.DeclarationList == nil {
+      continue
+    }
+    declarations := variables.DeclarationList.AsVariableDeclarationList()
+    if declarations == nil || declarations.Declarations == nil {
+      continue
+    }
+    for _, declaration := range declarations.Declarations.Nodes {
+      if declaration == nil {
+        continue
+      }
+      variable := declaration.AsVariableDeclaration()
+      if variable == nil {
+        continue
+      }
+      if name := identifierName(variable.Name()); name != "" {
+        names[name] = struct{}{}
+      }
+    }
+  }
+  return names
+}
+
+func emittedNameForRoot(name, root string) bool {
+  if name == root {
+    return true
+  }
+  suffix := strings.TrimPrefix(name, root+"_")
+  if suffix == "" || suffix == name {
+    return false
+  }
+  for _, ch := range suffix {
+    if ch < '0' || ch > '9' {
+      return false
+    }
+  }
+  return true
 }
 
 // callRegexFor compiles the loose-match needle pattern used by spliceCall.
@@ -441,22 +810,6 @@ func findCallMatch(text string, pattern *regexp.Regexp, searchFrom int) (int, in
     return matchStart, parenStart - matchStart
   }
   return -1, 0
-}
-
-// candidateRoots expands a bare module name into the set of identifier stems
-// tsgo's CommonJS emitter may produce for it. For example "typia" becomes
-// ["typia", "typia_1.default", "typia_2.default", "typia.default",
-// "typia_1", "typia_2"]. The regex alternation built from these candidates
-// matches the emitted call regardless of which deduplication suffix tsgo chose.
-func candidateRoots(root string) []string {
-  return []string{
-    root,
-    root + "_1.default",
-    root + "_2.default",
-    root + ".default",
-    root + "_1",
-    root + "_2",
-  }
 }
 
 // joinRootAndNamespaces returns the human-readable "root.ns1.ns2" form of
