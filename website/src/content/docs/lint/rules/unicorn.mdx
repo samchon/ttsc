@@ -1056,11 +1056,16 @@ class C {
 
 Reject `typeof x === "undefined"`; compare against `undefined` directly.
 
+Only a `typeof` on the left of an equality comparison (`===`, `==`, `!==`, `!=`) against the string literal `"undefined"` is reported. A reversed `"undefined" === typeof x`, a template-literal operand (`` typeof x === `undefined` ``), and a global operand are all left alone, matching upstream: rewriting `typeof window === "undefined"` to `window === undefined` throws a `ReferenceError` when the global is undeclared. A global here means an identifier that resolves to no local binding. Enable `checkGlobalVariables` to also check global operands, which are then offered an opt-in suggestion rather than an automatic fix.
+
+The autofix removes the `typeof`, upgrades `==` / `!=` to their strict form, and replaces the literal, but declines rather than risk an incorrect edit when removing `typeof` could trigger Automatic Semicolon Insertion (the operand starts on a different line, or begins with a character that could merge with the preceding token).
+
 Example:
 
 ```ts
+let value: unknown;
 // reports: unicorn/no-typeof-undefined (error)
-typeof globalThis === "undefined";
+typeof value === "undefined";
 ```
 
 <a id="rule-unicorn-no-unnecessary-array-flat-depth"></a>
