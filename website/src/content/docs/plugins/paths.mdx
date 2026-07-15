@@ -52,6 +52,7 @@ import { value } from "./modules/value.js";
 - When several patterns match one specifier, an exact pattern wins, then the longest literal prefix: the same order tsc uses to resolve the import.
 - Rewrites JavaScript-family emit (`.js`, `.mjs`, `.cjs`, `.jsx`) and `.d.ts` declarations.
 - Resolves extensionless path targets against `.ts`, `.tsx`, `.mts`, `.cts`, then `.js`, `.jsx`, `.mjs`, and `.cjs` source files.
+- Preserves the extension of assets the compiler copies rather than transpiles: an exact alias to a `.json` source pulled in by `resolveJsonModule` rewrites to `./data.json`, the file TypeScript-Go actually copies, keeping any `import ... with { type: "json" }` attribute intact — never an invented `./data.js`.
 - No separate plugin config.
 - Only rewrites specifiers that match `compilerOptions.paths`; relative, absolute, and non-matching package specifiers are left alone.
 - Uses TypeScript-Go's emitted runtime suffix for matched targets (`.js`, `.mjs`, `.cjs`, or `.jsx` depending on the source file and `jsx` mode).

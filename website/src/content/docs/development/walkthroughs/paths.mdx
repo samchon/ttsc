@@ -389,7 +389,7 @@ The captured `*` substitutes into each target: `./src/modules/*` → `./src/modu
 
 `lookupSource` walks three stages, falling through on each miss: literal match in the `sourceFiles` map → stem with each of `.ts` / `.tsx` / `.mts` / `.cts` / `.js` / `.jsx` / `.mjs` / `.cjs` appended → stem + `/index.<ext>` for directory-style imports. The exact source is in [`driver/paths.go::lookupSource`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/paths.go).
 
-### 5. Mapping source to emitted-JS path
+### 5. Mapping source to emitted-output path
 
 ```go
 func (r *rewriter) outputPathForSource(source string) string {
@@ -400,11 +400,14 @@ func (r *rewriter) outputPathForSource(source string) string {
   if err != nil || isOutsideRelativePath(rel) {
     return ""
   }
-  return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedJavaScriptExtension(rel, r.jsxPreserve))))
+  return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedExtension(rel, r.jsxPreserve))))
 }
 
-func emittedJavaScriptExtension(source string, jsxPreserve bool) string {
-  switch strings.ToLower(filepath.Ext(source)) {
+func emittedExtension(source string, jsxPreserve bool) string {
+  ext := filepath.Ext(source)
+  switch strings.ToLower(ext) {
+  case ".ts", ".js":
+    return ".js"
   case ".mts", ".mjs":
     return ".mjs"
   case ".cts", ".cjs":
@@ -415,12 +418,12 @@ func emittedJavaScriptExtension(source string, jsxPreserve bool) string {
     }
     return ".js"
   default:
-    return ".js"
+    return ext
   }
 }
 ```
 
-The mapping is tsgo's emit rule, replicated here because the plugin needs to predict the output path the compiler will write. `replaceSourceExtension(rel, ext)` strips the source extension and appends `.js`, `.mjs`, `.cjs`, or `.jsx` depending on the matched source and `jsx` mode.
+The mapping is tsgo's emit rule, replicated here because the plugin needs to predict the output path the compiler will write. `replaceSourceExtension(rel, ext)` strips the source extension and appends the predicted one. TypeScript/JavaScript-family sources transpile to `.js`, `.mjs`, `.cjs`, or `.jsx` depending on the matched source and `jsx` mode. The `default` branch returns the source's own extension unchanged, so an asset the compiler _copies_ rather than transpiles — a `.json` source pulled in by `resolveJsonModule` — keeps its extension and the rewritten specifier names the file tsgo actually writes (`./data.json`) instead of an invented `./data.js` that never exists on disk.
 
 `isOutsideRelativePath` checks `rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))`, sources outside the rootDir do not have a well-defined output and the rewriter bails out.
 

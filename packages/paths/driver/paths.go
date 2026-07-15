@@ -264,13 +264,21 @@ func (r *rewriter) outputPathForSource(source string) string {
   if err != nil || isOutsideRelativePath(rel) {
     return ""
   }
-  return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedJavaScriptExtension(rel, r.jsxPreserve))))
+  return normalizePath(filepath.Join(r.outDir, replaceSourceExtension(rel, emittedExtension(rel, r.jsxPreserve))))
 }
 
-// emittedJavaScriptExtension returns the JavaScript file extension that TypeScript
-// emits for a given source path.
-func emittedJavaScriptExtension(source string, jsxPreserve bool) string {
-  switch strings.ToLower(filepath.Ext(source)) {
+// emittedExtension returns the output-file extension that TypeScript-Go writes
+// for a given Program source. TypeScript/JavaScript-family sources are
+// transpiled to the matching JavaScript runtime extension. Non-transpiled
+// assets that the compiler copies verbatim — such as `.json` sources pulled in
+// by resolveJsonModule — keep their original extension, so a rewritten
+// specifier names the file the compiler actually emits instead of an invented
+// `.js` sibling that never exists on disk.
+func emittedExtension(source string, jsxPreserve bool) string {
+  ext := filepath.Ext(source)
+  switch strings.ToLower(ext) {
+  case ".ts", ".js":
+    return ".js"
   case ".mts", ".mjs":
     return ".mjs"
   case ".cts", ".cjs":
@@ -281,7 +289,7 @@ func emittedJavaScriptExtension(source string, jsxPreserve bool) string {
     }
     return ".js"
   default:
-    return ".js"
+    return ext
   }
 }
 

@@ -80,5 +80,5 @@ func pathsReplaceSourceExtension(value string, ext string) string
 //go:linkname pathsIsOutsideRelativePath github.com/samchon/ttsc/packages/paths/driver.isOutsideRelativePath
 func pathsIsOutsideRelativePath(rel string) bool
 
-//go:linkname pathsEmittedJavaScriptExtension github.com/samchon/ttsc/packages/paths/driver.emittedJavaScriptExtension
-func pathsEmittedJavaScriptExtension(source string, jsxPreserve bool) string
+//go:linkname pathsEmittedExtension github.com/samchon/ttsc/packages/paths/driver.emittedExtension
+func pathsEmittedExtension(source string, jsxPreserve bool) string
