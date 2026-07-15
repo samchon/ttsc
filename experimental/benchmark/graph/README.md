@@ -6,7 +6,7 @@ Two benchmarks, mirroring the two codegraph publishes: a structural one (`bench.
 
 Measures `@ttsc/graph` on a real project, the way codegraph reports coverage: how long the resident `Program` takes to load, how cheap graph extraction is on top of that already-built `Program`, the node and edge counts, and the "fair coverage" (share of symbol-bearing source files with at least one resolved cross-file edge).
 
-The counts and coverage are deterministic. The timings are indicative and only trustworthy on a quiet host (see `.codex/skills/benchmark`); a CI run shows the shape, not a publishable figure.
+The counts and coverage are deterministic. The timings are indicative and only trustworthy on a quiet host (see `.agents/skills/benchmark/SKILL.md`); a CI run shows the shape, not a publishable figure.
 
 ### Run
 

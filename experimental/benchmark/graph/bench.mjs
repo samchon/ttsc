@@ -4,8 +4,8 @@
 // symbol-bearing source files with at least one resolved cross-file edge).
 //
 // Counts and coverage are deterministic. Timings are indicative and only
-// trustworthy on a quiet host (see .codex/skills/benchmark); CI numbers show the
-// shape, not a publishable figure.
+// trustworthy on a quiet host (see .agents/skills/benchmark/SKILL.md); CI
+// numbers show the shape, not a publishable figure.
 //
 // Usage:
 //   node experimental/benchmark/graph/bench.mjs                       # default: packages/ttsc
