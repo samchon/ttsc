@@ -2,8 +2,6 @@
 //
 // Current responsibilities:
 //   - Report version and platform (`ttsc --version`).
-//   - Exercise a native rewrite backend end-to-end (`ttsc demo --type=string`)
-//     so smoke tests can verify the Go binary really runs.
 //   - Host the native project build and check paths used by plugin-selected
 //     sidecars and smoke tests.
 //
@@ -12,7 +10,6 @@
 package main
 
 import (
-  "flag"
   "fmt"
   "io"
   "os"
@@ -51,8 +48,6 @@ func run(args []string) int {
   case "-v", "--version", "version":
     printVersion(stdout)
     return 0
-  case "demo":
-    return runDemo(args[1:])
   case "build":
     return runBuild(args[1:])
   case "api-compile":
@@ -126,7 +121,6 @@ Project build:
   ttsc compiles the current tsconfig.json, matching the tsc/tsgo shape.
   build         Compatibility alias for the same project build lane.
   check         Compatibility alias for --noEmit validation.
-  demo          Run a native backend smoke pipeline with synthetic input.
   version       Print version, build info, and platform.
   help          Show this help.
 
@@ -139,16 +133,11 @@ Build options:
   --verbose         Print the per-call summary banner and emitted file list.
   --manifest=FILE   Write emitted file paths as JSON to FILE after build --emit.
 
-Demo options:
-  --type=T          Atomic TypeScript type to simulate. One of:
-                      string, number, boolean, bigint, any (default: string).
-
 Examples:
   ttsc --version
   ttsc
   ttsc -p ./tsconfig.json
   ttsc --noEmit
-  ttsc demo --type=number
 
 Integration guide (bundlers):
   - Next.js / Nuxt / Bun: "ttsc" in your pipeline replaces tsc and
@@ -156,43 +145,4 @@ Integration guide (bundlers):
   - Monorepo / pnpm workspace: share one ttsc binary via a root script;
     per-package tsconfig.json references work unchanged.
 `))
-}
-
-func runDemo(args []string) int {
-  fs := flag.NewFlagSet("demo", flag.ContinueOnError)
-  fs.SetOutput(stderr)
-  typ := fs.String("type", "string", "atomic type to simulate")
-  if err := fs.Parse(args); err != nil {
-    return 2
-  }
-
-  arrow, err := demoArrow(*typ)
-  if err != nil {
-    fmt.Fprintf(stderr, "ttsc demo: %v\n", err)
-    return 2
-  }
-
-  fmt.Fprintf(stdout, "// demo<%s> -> emitted by ttsc %s\n", *typ, version)
-  fmt.Fprintln(stdout, arrow)
-  return 0
-}
-
-// demoArrow returns a JavaScript arrow-function expression that validates the
-// named atomic TypeScript type at runtime. Used by the demo sub-command to
-// produce a small synthetic emit that smoke tests can assert on.
-func demoArrow(name string) (string, error) {
-  switch strings.ToLower(name) {
-  case "any":
-    return "(input) => true", nil
-  case "boolean":
-    return `(input) => "boolean" === typeof input`, nil
-  case "number":
-    return `(input) => "number" === typeof input`, nil
-  case "bigint":
-    return `(input) => "bigint" === typeof input`, nil
-  case "string", "":
-    return `(input) => "string" === typeof input`, nil
-  default:
-    return "", fmt.Errorf("unknown --type value %q (want: string|number|boolean|bigint|any)", name)
-  }
 }

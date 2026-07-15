@@ -205,11 +205,16 @@ function verifyInstalledPackages() {
     "ttsc package must not ship a workspace-local native fallback",
   );
 
-  const nativeDemo = run("npx ttsc demo --type=string", workspace).stdout;
+  const platformVersion = runExecutable(
+    platformBin,
+    ["--version"],
+    workspace,
+    `${path.relative(workspace, platformBin)} --version`,
+  ).stdout;
   assert(
-    nativeDemo.includes("emitted by ttsc platform helper") &&
-      nativeDemo.includes('"string" === typeof input'),
-    "npx ttsc demo must execute the installed platform helper",
+    /^ttsc platform helper /m.test(platformVersion) &&
+      /commit .+, built .+, .+\/.+, go /m.test(platformVersion),
+    "the exact installed platform binary must print build metadata",
   );
 
   const version = run("npx ttsc --version", workspace).stdout;
@@ -457,6 +462,26 @@ function runNode(args, cwd, label) {
     `$ ${command} finished in ${formatDuration(Date.now() - started)}`,
   );
   assert(result.status === 0, `node ${args.join(" ")} failed`);
+  return result;
+}
+
+function runExecutable(executable, args, cwd, label) {
+  const command = label ?? [executable, ...args].join(" ");
+  console.log(`$ ${command}`);
+  const started = Date.now();
+  const result = cp.spawnSync(executable, args, {
+    cwd,
+    encoding: "utf8",
+    env: process.env,
+    maxBuffer: 1024 * 1024 * 64,
+    windowsHide: true,
+  });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  console.log(
+    `$ ${command} finished in ${formatDuration(Date.now() - started)}`,
+  );
+  assert(result.status === 0, `${command} failed`);
   return result;
 }
 

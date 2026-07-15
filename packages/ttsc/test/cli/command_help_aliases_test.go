@@ -13,7 +13,7 @@ import (
 //
 // 1. Execute `-h`, `--help`, and `help`.
 // 2. Assert every alias exits successfully.
-// 3. Assert the output includes the project-build and demo command sections.
+// 3. Assert the output includes the project-build commands but no removed demo.
 func TestCLICommandHelpAliases(t *testing.T) {
   for _, flag := range []string{"-h", "--help", "help"} {
     t.Run(flag, func(t *testing.T) {
@@ -21,7 +21,7 @@ func TestCLICommandHelpAliases(t *testing.T) {
       if code != 0 {
         t.Fatalf("%s help alias failed: code=%d stdout=%q stderr=%q", flag, code, out, errOut)
       }
-      if !strings.Contains(out, "Project build:") || !strings.Contains(out, "demo") {
+      if !strings.Contains(out, "Project build:") || !strings.Contains(out, "version") || strings.Contains(out, "demo") {
         t.Fatalf("%s help output missing expected sections:\n%s", flag, out)
       }
     })
