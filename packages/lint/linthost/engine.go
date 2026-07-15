@@ -18,6 +18,7 @@
 package linthost
 
 import (
+  "bytes"
   "encoding/json"
   "errors"
   "fmt"
@@ -81,6 +82,17 @@ type ruleOptionsValidator interface {
   ValidateOptions(json.RawMessage) error
 }
 
+// ruleOptionsConsumer marks a rule that reads a configuration options payload
+// but declares no ValidateOptions schema (it decodes leniently). It lets the
+// engine tell a genuinely optionless rule — where a supplied payload is a
+// configuration error rather than an ignored typo — from an options-bearing
+// rule that merely skips strict validation. ValidateOptions implementers and
+// format rules already advertise option support through their own interfaces
+// and need not implement this.
+type ruleOptionsConsumer interface {
+  ConsumesOptions() bool
+}
+
 // isFormatRule reports whether `r` opts into the format category.
 func isFormatRule(r Rule) bool {
   fr, ok := r.(FormatRule)
@@ -98,6 +110,32 @@ func validateRuleOptions(r Rule, options json.RawMessage) error {
     return nil
   }
   return validator.ValidateOptions(options)
+}
+
+// ruleAcceptsOptions reports whether the rule can receive a configuration
+// options payload. A rule advertises option support one of three ways: a
+// ValidateOptions schema, the format category (options arrive from the
+// top-level `format` block), or the ConsumesOptions marker for rules that
+// decode leniently. A rule matching none is optionless, so a payload targeting
+// it is a configuration error instead of a silently dropped setting.
+func ruleAcceptsOptions(r Rule) bool {
+  if _, ok := r.(ruleOptionsValidator); ok {
+    return true
+  }
+  if isFormatRule(r) {
+    return true
+  }
+  consumer, ok := r.(ruleOptionsConsumer)
+  return ok && consumer.ConsumesOptions()
+}
+
+// hasOptionsPayload reports whether raw carries an actual options value rather
+// than a bare severity. Nil, empty, and an explicit JSON null all mean "no
+// options"; anything else — an object, array, string, number, or boolean — is a
+// payload the rule is expected to honor.
+func hasOptionsPayload(raw json.RawMessage) bool {
+  trimmed := bytes.TrimSpace(raw)
+  return len(trimmed) != 0 && !bytes.Equal(trimmed, []byte("null"))
 }
 
 // Context is the per-(file, rule) handle the engine passes to `Check`.
@@ -514,6 +552,7 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
       continue
     }
     optionsValid := true
+    acceptsOptions := ruleAcceptsOptions(rule)
     seenOptions := make(map[string]struct{})
     for _, options := range resolvedRuleOptionsVariants(config, name) {
       key := string(options)
@@ -521,6 +560,19 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
         continue
       }
       seenOptions[key] = struct{}{}
+      if !acceptsOptions {
+        // An optionless rule that is handed a payload would silently drop it,
+        // leaving the user's config inert. Surface it like the validator path
+        // so a config typo or an unsupported option is a hard error.
+        if hasOptionsPayload(options) {
+          eng.configError = errors.Join(
+            eng.configError,
+            fmt.Errorf("@ttsc/lint: rule %q does not accept options", name),
+          )
+          optionsValid = false
+        }
+        continue
+      }
       if err := validateRuleOptions(rule, options); err != nil {
         eng.configError = errors.Join(
           eng.configError,

@@ -164,6 +164,17 @@ func (a contributorAdapter) VisitsDeclarationFiles() bool {
   return a.visitsDeclarationFiles
 }
 
+// ConsumesOptions keeps every contributor rule eligible for a configuration
+// options payload. The public `rule.Context` exposes `Options` /
+// `DecodeOptions` with no schema or optionless marker, so the host cannot infer
+// that a third-party rule rejects options. Treating them all as option-bearing
+// preserves the public contract — rejecting a payload a contributor honors
+// would break its config — at the cost of not surfacing an unsupported option
+// for contributor rules, the same conservative default as NeedsTypeChecker.
+func (a contributorAdapter) ConsumesOptions() bool {
+  return true
+}
+
 // formatContributorAdapter is the FormatRule-tagged variant of
 // contributorAdapter. Wrapping the lint-only adapter (rather than
 // duplicating its method set) keeps the marker addition trivial and
