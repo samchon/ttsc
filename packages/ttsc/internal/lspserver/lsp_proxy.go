@@ -44,6 +44,11 @@ const (
 // formats the live (possibly dirty) buffer rather than the on-disk file.
 const formatDocumentCommand = "ttsc.format.document"
 
+// utf8BOM is the UTF-8 byte-order mark (U+FEFF, bytes EF BB BF). It is stripped
+// from both the on-disk bytes and the editor buffer before a clean/dirty
+// comparison so a BOM present on only one side does not read as an edit.
+const utf8BOM = "\uFEFF"
+
 // ProxyOptions wires the byte-level proxy together. ttscserver creates
 // the upstream pipes around `tsgo --lsp --stdio` and hands the proxy
 // editor stdio plus those pipe ends.
@@ -1441,7 +1446,14 @@ func documentTextMatchesDisk(uri string, text string) bool {
     return false
   }
   disk, err := os.ReadFile(file)
-  return err == nil && string(disk) == text
+  if err != nil {
+    return false
+  }
+  // Editors commonly strip a leading UTF-8 BOM from the buffer text they send
+  // while it stays on disk (or add one the disk lacks). A raw byte compare would
+  // then misclassify an unedited file as dirty and suppress plugin diagnostics
+  // until the first save, so a single leading BOM is dropped from both sides.
+  return strings.TrimPrefix(string(disk), utf8BOM) == strings.TrimPrefix(text, utf8BOM)
 }
 
 func filePathFromURI(raw string) (string, bool) {
