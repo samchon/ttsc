@@ -1083,13 +1083,11 @@ class Repeated {
 
 ### `typescript/no-unnecessary-qualifier`
 
-Reject `Foo.Bar` references written inside `namespace Foo { ... }` or `enum Foo { ..., X = Foo.Y, ... }` where the `Foo.` qualifier names the same lexical scope the access lives in.
+Reject `Foo.Bar` references written inside `namespace Foo { ... }` or `enum Foo { ..., X = Foo.Y, ... }` where the `Foo.` qualifier is redundant — the unqualified name already resolves to the same binding.
 
-Dropping the qualifier leaves the identical binding lookup.
+Type-aware via the Checker. The qualifier is flagged only when the head resolves to a namespace or enum symbol declared by one of the enclosing declarations, and the member name — looked up unqualified from the same location — resolves to that same symbol.
 
-AST-only: walks `Parent` links for an enclosing namespace or enum declaration whose identifier matches the qualifier's head.
-
-The Checker is not required because the upstream rule operates on lexical scope identity, which the AST already encodes via declaration ancestry.
+A shadowed member (a local `bar` hiding `Foo.bar`) or a shadowed namespace name (a local `Foo` object) keeps its qualifier: dropping it would silently change which binding the code reads.
 
 Example:
 
