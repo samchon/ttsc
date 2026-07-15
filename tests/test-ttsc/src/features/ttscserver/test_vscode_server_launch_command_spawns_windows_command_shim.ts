@@ -19,8 +19,8 @@ import path from "node:path";
  * 2. Assert only the `.cmd`/`.bat` executables carry `windowsVerbatimArguments`.
  * 3. On Windows, spawn a recording `.cmd` and `.bat` with the exact executable
  *    options and confirm the recorded args equal the expected LSP args.
- * 4. Spawn the same command without the flag and confirm the shim does not
- *    receive those args.
+ * 4. Spawn the same command without the flag and confirm the shim does not receive
+ *    those args.
  */
 export const test_vscode_server_launch_command_spawns_windows_command_shim =
   () => {

@@ -1,21 +1,28 @@
-import { assert, fs, path, requireFromTest, workspaceRoot } from "../../internal/toolchain";
+import {
+  assert,
+  fs,
+  path,
+  requireFromTest,
+  workspaceRoot,
+} from "../../internal/toolchain";
 
 /**
- * Verifies the platform build target matrix pins linux-arm to the ARMv6 baseline.
+ * Verifies the platform build target matrix pins linux-arm to the ARMv6
+ * baseline.
  *
  * Locks `scripts/platform-target.cjs::resolveGoTarget` and its use in
  * `scripts/build-platform-package.cjs`. The linux-arm package bundles the
  * `linux-armv6l` Go SDK, but the executables were cross-compiled with no GOARM,
  * which the toolchain defaults to ARMv7; the SDK and executables then targeted
  * different CPU baselines. The fix forces GOARM=6 and derives the SDK archive
- * suffix from the same record so all three executables and the bundled SDK share
- * one baseline. arm64 and non-ARM targets are the negative twins that must never
- * acquire a GOARM.
+ * suffix from the same record so all three executables and the bundled SDK
+ * share one baseline. arm64 and non-ARM targets are the negative twins that
+ * must never acquire a GOARM.
  *
  * 1. Resolve the Go target for linux-arm and assert GOOS=linux, GOARCH=arm,
  *    GOARM=6, and archiveTarget=linux-armv6l.
- * 2. Resolve the negative twins (linux-arm64, linux-x64, darwin-arm64,
- *    win32-x64) and assert none carries a GOARM and each keeps its own archive.
+ * 2. Resolve the negative twins (linux-arm64, linux-x64, darwin-arm64, win32-x64)
+ *    and assert none carries a GOARM and each keeps its own archive.
  * 3. Read build-platform-package.cjs and assert the shared record injects GOARM
  *    into a single buildGoTarget that builds all three executables.
  */

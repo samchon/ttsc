@@ -11,8 +11,8 @@ import { assertBunAdapterSurvivesPluginReportedDependencies } from "../../intern
  * channel, so the adapter must pass an explicit no-op watch context; a valid
  * dependency list must never crash the loader.
  *
- * 1. Build the `emit-dependencies` fixture whose plugin reports a mix of
- *    relative, absolute, duplicate, and self dependency entries.
+ * 1. Build the `emit-dependencies` fixture whose plugin reports a mix of relative,
+ *    absolute, duplicate, and self dependency entries.
  * 2. Capture the Bun `onLoad` handler and invoke it for the main module.
  * 3. Assert the fresh transform returns plugin-transformed `ts` output without
  *    throwing, and that the subsequent cache-hit load (which replays the same

@@ -25,7 +25,11 @@ export const test_memfs_truncate_resizes_file_and_validates =
     host.mkdirp("/dir");
 
     await callMutation((cb) => host.fs.truncate("/t.txt", 2, cb));
-    TestValidator.equals("shrink drops trailing bytes", host.readFileText("/t.txt"), "ab");
+    TestValidator.equals(
+      "shrink drops trailing bytes",
+      host.readFileText("/t.txt"),
+      "ab",
+    );
 
     await callMutation((cb) => host.fs.truncate("/t.txt", 5, cb));
     const grown = host.readFile("/t.txt");

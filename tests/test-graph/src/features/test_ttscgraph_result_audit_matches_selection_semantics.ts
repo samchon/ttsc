@@ -21,7 +21,10 @@ const graphArguments = (props: {
   request: GraphRequest;
 }) => ({
   question: props.thinking,
-  draft: { reason: "The smallest useful graph step.", type: props.request.type },
+  draft: {
+    reason: "The smallest useful graph step.",
+    type: props.request.type,
+  },
   review: "Confirmed: keep this request; answer from graph facts.",
   request: props.request,
 });
@@ -120,11 +123,12 @@ export const test_ttscgraph_result_audit_matches_selection_semantics =
         RESULT_AUDIT_SELECTION,
         `lookup is a ranked shortlist and must carry the selection audit: ${JSON.stringify(lookup.structuredContent)}`,
       );
-      const hits = (lookup.structuredContent?.result?.hits ??
-        []) as { name: string; score: number }[];
+      const hits = (lookup.structuredContent?.result?.hits ?? []) as {
+        name: string;
+        score: number;
+      }[];
       assert.ok(
-        hits.length >= 2 &&
-          hits.every((hit) => typeof hit.score === "number"),
+        hits.length >= 2 && hits.every((hit) => typeof hit.score === "number"),
         `lookup returns multiple hits each carrying a numeric score: ${JSON.stringify(hits)}`,
       );
       for (let i = 1; i < hits.length; i++) {
@@ -150,8 +154,9 @@ export const test_ttscgraph_result_audit_matches_selection_semantics =
         RESULT_AUDIT_SELECTION,
         `entrypoints is a ranked shortlist and must carry the selection audit: ${JSON.stringify(entrypoints.structuredContent)}`,
       );
-      const epHits = (entrypoints.structuredContent?.result?.hits ??
-        []) as { score: number }[];
+      const epHits = (entrypoints.structuredContent?.result?.hits ?? []) as {
+        score: number;
+      }[];
       assert.ok(
         epHits.length >= 1 &&
           epHits.every((hit) => typeof hit.score === "number"),

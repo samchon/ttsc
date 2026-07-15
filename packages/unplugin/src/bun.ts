@@ -26,12 +26,12 @@ export type BunLoader = "ts" | "tsx";
  * Options accepted by {@link bun}, either resolved eagerly or supplied through a
  * provider evaluated lazily on the first `onLoad` call.
  *
- * The provider form exists for the runtime registration path
- * (`bun-register`), where a single Bun plugin is registered on import but its
- * effective options may be overridden by an explicit `register(options)` call
- * made in the same synchronous tick. Resolving through the provider on first
- * load, rather than at registration, lets that later call win without Bun ever
- * seeing a second shadowing loader.
+ * The provider form exists for the runtime registration path (`bun-register`),
+ * where a single Bun plugin is registered on import but its effective options
+ * may be overridden by an explicit `register(options)` call made in the same
+ * synchronous tick. Resolving through the provider on first load, rather than
+ * at registration, lets that later call win without Bun ever seeing a second
+ * shadowing loader.
  */
 export type TtscBunOptions =
   | TtscUnpluginOptions

@@ -146,10 +146,10 @@ const TTSX_MINIMUM_NODE_PARTS: readonly [number, number, number] = [22, 15, 0];
 
 /**
  * Report why the running (or a candidate) Node.js version cannot execute the
- * ttsx source runtime, or `null` when it can. Returning an actionable message
- * — rather than letting the child die with an internal `TypeError` on the
- * missing `registerHooks`, or Node 18 rejecting `--disable-warning` with exit 9
- * — is what turns an opaque internal failure into a clear version diagnostic.
+ * ttsx source runtime, or `null` when it can. Returning an actionable message —
+ * rather than letting the child die with an internal `TypeError` on the missing
+ * `registerHooks`, or Node 18 rejecting `--disable-warning` with exit 9 — is
+ * what turns an opaque internal failure into a clear version diagnostic.
  *
  * Exported for direct exercise by the ttsx e2e suite: the built launcher can
  * only be spawned under the Node version running the tests, so the boundary
@@ -175,9 +175,7 @@ export function checkNodeRuntimeSupport(version: string): string | null {
   );
 }
 
-function parseNodeVersion(
-  version: string,
-): [number, number, number] | null {
+function parseNodeVersion(version: string): [number, number, number] | null {
   const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version.trim());
   if (match === null) {
     return null;
@@ -200,8 +198,8 @@ function compareVersionParts(
 /**
  * Throw an actionable version error when the current Node.js cannot run the
  * ttsx source runtime. Guards the hook-installation boundary directly (a child
- * or grandchild that inherits the runtime preload under an unsupported Node)
- * so the failure is diagnosed here instead of surfacing as a bare `TypeError:
+ * or grandchild that inherits the runtime preload under an unsupported Node) so
+ * the failure is diagnosed here instead of surfacing as a bare `TypeError:
  * registerHooks is not a function`.
  */
 function assertNodeRuntimeSupport(): void {
@@ -845,14 +843,14 @@ function collectStaticCommonJsExportNames(source: string): Set<string> {
  * Blank out the interior of line comments, block comments, string literals, and
  * template-literal text in emitted JavaScript, replacing each masked character
  * with a space while preserving newlines, code, and template `${ ... }`
- * substitutions verbatim. Positions and length are preserved so an offset in the
- * masked text maps back to the same offset in the source.
+ * substitutions verbatim. Positions and length are preserved so an offset in
+ * the masked text maps back to the same offset in the source.
  *
  * The input is tsgo's CommonJS emit (well-formed JavaScript), so a character
  * scanner that tracks the standard comment/string/template states is sufficient
- * to separate executable tokens from inert text. Regular-expression literals are
- * intentionally not masked: distinguishing `/`-division from a regex literal
- * needs full tokenization, and tsgo's CommonJS emit never wraps an
+ * to separate executable tokens from inert text. Regular-expression literals
+ * are intentionally not masked: distinguishing `/`-division from a regex
+ * literal needs full tokenization, and tsgo's CommonJS emit never wraps an
  * `exports.<name> =` assignment inside a regex literal.
  */
 function maskCommentsAndStrings(source: string): string {
@@ -1300,7 +1298,10 @@ export function readDependencyCache(
   } catch {
     return null;
   }
-  if (!isDependencyGeneration(meta.generation) || typeof meta.rootDir !== "string") {
+  if (
+    !isDependencyGeneration(meta.generation) ||
+    typeof meta.rootDir !== "string"
+  ) {
     return null;
   }
   const emitDir = dependencyGenerationDir(cacheDir, meta.generation);
@@ -1317,11 +1318,12 @@ export function readDependencyCache(
 }
 
 /**
- * Run `build` while holding the fenced lock for this dependency, re-checking the
- * cache once the lock is held (a concurrent builder may have just finished). A
- * loser polls for the winner's completion marker and, only when the holding
- * generation is provably abandoned (dead owner or the steal budget elapsed),
- * retires precisely that generation before retrying — never a successor's.
+ * Run `build` while holding the fenced lock for this dependency, re-checking
+ * the cache once the lock is held (a concurrent builder may have just
+ * finished). A loser polls for the winner's completion marker and, only when
+ * the holding generation is provably abandoned (dead owner or the steal budget
+ * elapsed), retires precisely that generation before retrying — never a
+ * successor's.
  */
 function withBuildLock(
   cacheDir: string,
@@ -1804,7 +1806,10 @@ function readDependencyLockGeneration(generationDir: string): string | null {
 }
 
 /** Age of an observed lock directory, or `null` when it no longer exists. */
-function dependencyLockAgeMs(generationDir: string, now: number): number | null {
+function dependencyLockAgeMs(
+  generationDir: string,
+  now: number,
+): number | null {
   try {
     return Math.max(0, now - fs.statSync(generationDir).mtimeMs);
   } catch (error) {

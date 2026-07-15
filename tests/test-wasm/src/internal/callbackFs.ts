@@ -40,9 +40,7 @@ export async function expectFsError(
 /** Read the sorted immediate child names of directory `path`. */
 export function readdir(fs: IWasmExecFS, path: string): Promise<string[]> {
   return new Promise<string[]>((resolve, reject) => {
-    fs.readdir(path, (err, entries) =>
-      err ? reject(err) : resolve(entries),
-    );
+    fs.readdir(path, (err, entries) => (err ? reject(err) : resolve(entries)));
   });
 }
 

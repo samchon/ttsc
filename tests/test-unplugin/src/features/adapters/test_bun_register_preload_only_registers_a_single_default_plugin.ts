@@ -5,9 +5,9 @@ import { assertBunRegisterPreloadOnlyRegistersOneDefaultPlugin } from "../../int
  * (#676).
  *
  * The negative twin of the same-runtime shadowing fix: the one-line
- * `bunfig.toml` preload convenience must keep working. Importing the side-effect
- * entry under Bun with no explicit `register` call must register exactly one
- * default loader, which transforms using the project's own tsconfig
+ * `bunfig.toml` preload convenience must keep working. Importing the
+ * side-effect entry under Bun with no explicit `register` call must register
+ * exactly one default loader, which transforms using the project's own tsconfig
  * configuration.
  *
  * 1. Freshly evaluate the entry with a Bun-like global present and make no

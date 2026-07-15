@@ -1,8 +1,8 @@
 package paths_test
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 )
 
 // TestRewriterResolvesExactJsonAliasWithoutWideningExtensionlessLookup pins the
@@ -23,40 +23,40 @@ import (
 //  3. Assert the exact alias rewrites to `./data.json` and the extensionless one
 //     is left unchanged.
 func TestRewriterResolvesExactJsonAliasWithoutWideningExtensionlessLookup(t *testing.T) {
-	root := filepath.ToSlash(filepath.Join(t.TempDir(), "repo"))
-	src := root + "/src"
-	out := root + "/dist"
-	rewriter := &pathsRewriter{
-		basePath: root,
-		outDir:   out,
-		rootDir:  src,
-		patterns: []pathsPathPattern{
-			{pattern: "@data", targets: []string{"src/data.json"}},
-			{pattern: "@bare", targets: []string{"src/config"}},
-		},
-		sourceFiles: map[string]string{
-			src + "/main.ts":     src + "/main.ts",
-			src + "/data.json":   src + "/data.json",
-			src + "/config.json": src + "/config.json",
-		},
-	}
+  root := filepath.ToSlash(filepath.Join(t.TempDir(), "repo"))
+  src := root + "/src"
+  out := root + "/dist"
+  rewriter := &pathsRewriter{
+    basePath: root,
+    outDir:   out,
+    rootDir:  src,
+    patterns: []pathsPathPattern{
+      {pattern: "@data", targets: []string{"src/data.json"}},
+      {pattern: "@bare", targets: []string{"src/config"}},
+    },
+    sourceFiles: map[string]string{
+      src + "/main.ts":     src + "/main.ts",
+      src + "/data.json":   src + "/data.json",
+      src + "/config.json": src + "/config.json",
+    },
+  }
 
-	// Transformation direction: an exact `.json` alias resolves to the copied
-	// source and rewrites to the extension the compiler actually emits.
-	if source, ok := pathsResolveSource(rewriter, "@data"); !ok || source != src+"/data.json" {
-		t.Fatalf("exact json source mismatch: source=%q ok=%v", source, ok)
-	}
-	if rewritten, ok := pathsRewrite(rewriter, src+"/main.ts", "@data"); !ok || rewritten != "./data.json" {
-		t.Fatalf("exact json rewrite mismatch: rewritten=%q ok=%v", rewritten, ok)
-	}
+  // Transformation direction: an exact `.json` alias resolves to the copied
+  // source and rewrites to the extension the compiler actually emits.
+  if source, ok := pathsResolveSource(rewriter, "@data"); !ok || source != src+"/data.json" {
+    t.Fatalf("exact json source mismatch: source=%q ok=%v", source, ok)
+  }
+  if rewritten, ok := pathsRewrite(rewriter, src+"/main.ts", "@data"); !ok || rewritten != "./data.json" {
+    t.Fatalf("exact json rewrite mismatch: rewritten=%q ok=%v", rewritten, ok)
+  }
 
-	// Negative twin: an extensionless target backed only by a `.json` source must
-	// not resolve, because `.json` is not a source-lookup extension. The alias is
-	// left untouched instead of being rewritten to an invented file.
-	if source, ok := pathsResolveSource(rewriter, "@bare"); ok {
-		t.Fatalf("extensionless json target must not resolve: source=%q", source)
-	}
-	if rewritten, ok := pathsRewrite(rewriter, src+"/main.ts", "@bare"); ok || rewritten != "@bare" {
-		t.Fatalf("extensionless json rewrite must be left alone: rewritten=%q ok=%v", rewritten, ok)
-	}
+  // Negative twin: an extensionless target backed only by a `.json` source must
+  // not resolve, because `.json` is not a source-lookup extension. The alias is
+  // left untouched instead of being rewritten to an invented file.
+  if source, ok := pathsResolveSource(rewriter, "@bare"); ok {
+    t.Fatalf("extensionless json target must not resolve: source=%q", source)
+  }
+  if rewritten, ok := pathsRewrite(rewriter, src+"/main.ts", "@bare"); ok || rewritten != "@bare" {
+    t.Fatalf("extensionless json rewrite must be left alone: rewritten=%q ok=%v", rewritten, ok)
+  }
 }

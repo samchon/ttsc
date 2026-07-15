@@ -28,20 +28,17 @@ function readPackedManifest(): Record<string, any> {
   });
   assert.equal(pack.status, 0, `pnpm pack failed:\n${pack.stderr}`);
 
-  const tarball = fs
-    .readdirSync(dest)
-    .find((name) => name.endsWith(".tgz"));
+  const tarball = fs.readdirSync(dest).find((name) => name.endsWith(".tgz"));
   assert.ok(tarball, "pnpm pack produced no tarball");
 
   // Extract just the manifest to stdout; `tar -O` is available cross-platform
   // (bsdtar on Windows, GNU tar elsewhere) and avoids a tar library. Run with
   // `cwd: dest` and a relative tarball name so a Windows drive-letter colon in
   // the path is never mistaken for a remote `host:path` spec by GNU tar.
-  const show = spawnSync(
-    "tar",
-    ["-xzOf", tarball, "package/package.json"],
-    { cwd: dest, encoding: "utf8" },
-  );
+  const show = spawnSync("tar", ["-xzOf", tarball, "package/package.json"], {
+    cwd: dest,
+    encoding: "utf8",
+  });
   assert.equal(show.status, 0, `tar extraction failed:\n${show.stderr}`);
   return JSON.parse(show.stdout);
 }
@@ -50,11 +47,12 @@ function readPackedManifest(): Record<string, any> {
  * Asserts the published `@ttsc/unplugin` manifest declares its external `ttsc`
  * host in the runtime dependency contract.
  *
- * The package imports `ttsc` at runtime but the Rollup build leaves it external.
- * With `ttsc` declared only under `devDependencies`, a clean install succeeded
- * yet the first import failed with `Cannot find module 'ttsc'`. The host must be
- * a required `peerDependency` so a package manager installs, validates, or warns
- * about it — while staying external (never a bundled second compiler copy).
+ * The package imports `ttsc` at runtime but the Rollup build leaves it
+ * external. With `ttsc` declared only under `devDependencies`, a clean install
+ * succeeded yet the first import failed with `Cannot find module 'ttsc'`. The
+ * host must be a required `peerDependency` so a package manager installs,
+ * validates, or warns about it — while staying external (never a bundled second
+ * compiler copy).
  *
  * 1. Pack the package as it would be published (rewriting `workspace:*`).
  * 2. Assert `ttsc` is declared as a required peer dependency with a concrete

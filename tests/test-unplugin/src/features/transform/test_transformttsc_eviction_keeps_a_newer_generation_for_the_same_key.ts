@@ -4,9 +4,9 @@ import { assertStaleEvictionKeepsNewerGeneration } from "../../internal/transfor
  * Verifies failed-generation eviction is identity-guarded (#672).
  *
  * Eviction must remove only the exact failed generation, never a newer one that
- * another caller installed under the same key while the failure was resolving. A
- * naive `cache.delete(key)` would drop a valid in-flight replacement and force a
- * redundant recompile (or lose single-flight sharing).
+ * another caller installed under the same key while the failure was resolving.
+ * A naive `cache.delete(key)` would drop a valid in-flight replacement and
+ * force a redundant recompile (or lose single-flight sharing).
  *
  * 1. Prime a shared cache, then plant a rejected generation under its key.
  * 2. Start the retry (which begins awaiting the rejected generation) and, before

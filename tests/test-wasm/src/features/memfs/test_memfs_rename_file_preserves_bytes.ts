@@ -17,13 +17,18 @@ import { callMutation } from "../../internal/callbackFs";
  * 2. Rename `/a.txt` to `/b.txt`.
  * 3. Assert `/a.txt` is gone, `/b.txt` exists, and its bytes are still "hello".
  */
-export const test_memfs_rename_file_preserves_bytes = async (): Promise<void> => {
-  const host = createMemFS();
-  host.writeFile("/a.txt", "hello");
+export const test_memfs_rename_file_preserves_bytes =
+  async (): Promise<void> => {
+    const host = createMemFS();
+    host.writeFile("/a.txt", "hello");
 
-  await callMutation((cb) => host.fs.rename("/a.txt", "/b.txt", cb));
+    await callMutation((cb) => host.fs.rename("/a.txt", "/b.txt", cb));
 
-  TestValidator.predicate("source removed", host.exists("/a.txt") === false);
-  TestValidator.predicate("destination created", host.exists("/b.txt"));
-  TestValidator.equals("bytes preserved", host.readFileText("/b.txt"), "hello");
-};
+    TestValidator.predicate("source removed", host.exists("/a.txt") === false);
+    TestValidator.predicate("destination created", host.exists("/b.txt"));
+    TestValidator.equals(
+      "bytes preserved",
+      host.readFileText("/b.txt"),
+      "hello",
+    );
+  };

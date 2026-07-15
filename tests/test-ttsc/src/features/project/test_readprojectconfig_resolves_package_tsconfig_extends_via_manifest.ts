@@ -1,11 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 
-import {
-  assert,
-  fs,
-  path,
-  readProjectConfig,
-} from "../../internal/project";
+import { assert, fs, path, readProjectConfig } from "../../internal/project";
 
 /**
  * Verifies readProjectConfig resolves package tsconfig extends via
@@ -14,8 +9,8 @@ import {
  * A bare `extends` specifier may name an npm preset that selects its config
  * file through `package.json#tsconfig` and ships no JavaScript/JSON entrypoint.
  * Node's entrypoint resolver and the `<specifier>.json` fallback both miss such
- * a package, so `readProjectConfig` must honor the manifest field the way
- * `tsc` does, or a TypeScript-valid project fails before native compilation.
+ * a package, so `readProjectConfig` must honor the manifest field the way `tsc`
+ * does, or a TypeScript-valid project fails before native compilation.
  *
  * 1. Create `node_modules/example-preset` whose `package.json` has only a
  *    `tsconfig` field (no `main`/`exports`) pointing at `base.json`.

@@ -4,8 +4,8 @@ import { createMemFS } from "@ttsc/wasm";
 import {
   callMutation,
   openFd,
-  readdir,
   readFdText,
+  readdir,
   stat,
 } from "../../internal/callbackFs";
 
@@ -16,8 +16,8 @@ import {
  * Pins the exact defect from RA-13: the pre-fix `rename` moved only the named
  * directory node, orphaning every descendant at the old prefix and stranding
  * any file descriptor that pointed inside the moved subtree. A successful
- * rename must re-parent the whole subtree and keep an open `fd` reading the same
- * inode, now reachable at its new path.
+ * rename must re-parent the whole subtree and keep an open `fd` reading the
+ * same inode, now reachable at its new path.
  *
  * 1. Seed `/old/child/file.txt` with "abcdef" and open it for reading.
  * 2. Rename `/old` to `/new`.

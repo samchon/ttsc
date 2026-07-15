@@ -6,8 +6,8 @@ import { assert, computeCacheKey, fs, path } from "../../internal/source-build";
  * Verifies computeCacheKey separates cache keys by its injected `env` argument,
  * independently of `process.env`.
  *
- * A programmatic `TtscCompiler` passes its effective instance environment
- * (`{ ...process.env, ...context.env }`) into the source-build cache key so two
+ * A programmatic `TtscCompiler` passes its effective instance environment (`{
+ * ...process.env, ...context.env }`) into the source-build cache key so two
  * instances that pin different Go build variables never reuse one another's
  * plugin binaries. The key must fold in the passed `env`, not the ambient
  * `process.env`; otherwise instances with contradictory `context.env` collide

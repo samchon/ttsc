@@ -13,9 +13,10 @@ import {
  *
  * The old parser split every unknown flag from its bare value and rebuilt the
  * stream as `[...flags, ...values]`, so `--target es2020 --module commonjs`
- * reached tsgo as `--target --module es2020 commonjs`. tsgo then reads `--module`
- * as the value of `--target`, rejects it as an invalid target, and the build
- * fails. A build that succeeds and emits proves each value stayed with its flag.
+ * reached tsgo as `--target --module es2020 commonjs`. tsgo then reads
+ * `--module` as the value of `--target`, rejects it as an invalid target, and
+ * the build fails. A build that succeeds and emits proves each value stayed
+ * with its flag.
  *
  * 1. Create a minimal project.
  * 2. Run `ttsc --emit --target es2020 --module commonjs`.

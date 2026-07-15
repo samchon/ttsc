@@ -120,7 +120,9 @@ async function primeSuccessfulTransform(): Promise<{
   api: {
     createTtscTransformCache: () => Map<string, Promise<unknown>>;
     resolveOptions: (raw?: unknown) => unknown;
-    transformTtsc: (...args: unknown[]) => Promise<{ code: string } | undefined>;
+    transformTtsc: (
+      ...args: unknown[]
+    ) => Promise<{ code: string } | undefined>;
   };
   cache: Map<string, Promise<unknown>>;
   key: string;
@@ -135,7 +137,13 @@ async function primeSuccessfulTransform(): Promise<{
   const file = TestUnpluginProject.mainFile(root);
   const source = TestUnpluginProject.mainSource(root);
   const options = api.resolveOptions();
-  const first = await api.transformTtsc(file, source, options, undefined, cache);
+  const first = await api.transformTtsc(
+    file,
+    source,
+    options,
+    undefined,
+    cache,
+  );
   assert.ok(first, "expected the primed transform to produce output");
   TestUnpluginProject.assertTransformedToPlugin(first.code);
   assert.equal(cache.size, 1);
@@ -149,11 +157,11 @@ async function primeSuccessfulTransform(): Promise<{
  * and evicted, so a corrected environment recovers.
  *
  * The cache stores the transform Promise before it settles so concurrent
- * callers share one compile. If a rejected generation stayed cached, a transient
- * toolchain/host failure would become permanent for a long-lived Metro or
- * Turbopack worker: every later request for the unchanged module would replay
- * the old rejection instead of retrying. Replacing the primed success with a
- * rejected Promise reproduces the `await transformed` branch exactly.
+ * callers share one compile. If a rejected generation stayed cached, a
+ * transient toolchain/host failure would become permanent for a long-lived
+ * Metro or Turbopack worker: every later request for the unchanged module would
+ * replay the old rejection instead of retrying. Replacing the primed success
+ * with a rejected Promise reproduces the `await transformed` branch exactly.
  */
 async function assertRejectedTransformIsEvictedAndRecovers(): Promise<void> {
   const { api, cache, key, file, source, options } =
@@ -222,8 +230,8 @@ async function assertHostExceptionTransformIsEvictedAndRecovers(): Promise<void>
 }
 
 /**
- * Asserts a failed generation's cleanup cannot remove a newer generation another
- * caller installed under the same key.
+ * Asserts a failed generation's cleanup cannot remove a newer generation
+ * another caller installed under the same key.
  *
  * Eviction is identity-guarded: it deletes the entry only when the cache still
  * holds the exact failed generation. This pins that guard by replacing the

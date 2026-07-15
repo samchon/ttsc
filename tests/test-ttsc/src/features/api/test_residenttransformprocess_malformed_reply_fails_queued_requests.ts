@@ -41,15 +41,15 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * line can never be mispaired with the wrong queued request.
  *
  * A malformed line steals the first request's FIFO slot; the host's real reply
- * then arrives one slot late and, if accepted, would answer the *next* request
- * with the *previous* request's data. Treating the malformed line as fatal
+ * then arrives one slot late and, if accepted, would answer the _next_ request
+ * with the _previous_ request's data. Treating the malformed line as fatal
  * seals that desync: every in-flight request rejects, the trailing valid line
  * is discarded as benign, and no subsequent request is served.
  *
  * 1. Queue two transform requests before any reply arrives.
  * 2. The host emits one malformed line then a valid reply for the first.
- * 3. Assert both queued requests reject and a third request also rejects
- *    (the process is failed, not silently answering the late reply).
+ * 3. Assert both queued requests reject and a third request also rejects (the
+ *    process is failed, not silently answering the late reply).
  */
 export const test_residenttransformprocess_malformed_reply_fails_queued_requests =
   async () => {

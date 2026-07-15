@@ -184,7 +184,8 @@ export function createServerLaunchCommand(
  * `cmd.exe /c` payload, so its process options must set
  * `windowsVerbatimArguments` to stop Node from escaping that payload a second
  * time; every other launcher keeps the default array escaping. The cwd and
- * TypeScript-Go environment injection from `serverProcessOptions` are preserved.
+ * TypeScript-Go environment injection from `serverProcessOptions` are
+ * preserved.
  */
 export function createServerExecutable(
   launcher: string,

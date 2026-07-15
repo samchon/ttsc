@@ -9,15 +9,15 @@ import {
  * Verifies ttsx diagnoses every Node.js version below its documented floor with
  * an actionable message and admits the floor and later.
  *
- * The runtime's highest requirement is synchronous `module.registerHooks`
- * (Node 22.15.0); the docs, `engines.node`, and this diagnostic must agree on
- * that floor. The e2e suite runs under a single Node version, so the boundary is
+ * The runtime's highest requirement is synchronous `module.registerHooks` (Node
+ * 22.15.0); the docs, `engines.node`, and this diagnostic must agree on that
+ * floor. The e2e suite runs under a single Node version, so the boundary is
  * pinned by exercising the exported guard directly rather than by spawning many
  * runtimes. Below the floor the message must name the version and the missing
  * API instead of surfacing an internal `TypeError`.
  *
- * 1. Assert Node 18, 20, and 22.13 (below 22.15) each return a message that
- *    names the required version and `registerHooks`.
+ * 1. Assert Node 18, 20, and 22.13 (below 22.15) each return a message that names
+ *    the required version and `registerHooks`.
  * 2. Assert the floor 22.15.0 and a later 24.x return `null` (supported).
  * 3. Assert an unparseable version returns `null` rather than blocking on a
  *    parsing quirk.

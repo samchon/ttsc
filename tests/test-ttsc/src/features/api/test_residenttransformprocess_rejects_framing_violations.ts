@@ -41,8 +41,8 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * carry a reply's fields; each is a framing violation and must reject, not
  * masquerade as a domain negative.
  *
- * 1. For each of `not-json`, `[]`, `42`, `"str"`, `true`, and `null`, spawn a
- *    stub that answers with exactly that raw line.
+ * 1. For each of `not-json`, `[]`, `42`, `"str"`, `true`, and `null`, spawn a stub
+ *    that answers with exactly that raw line.
  * 2. Send one transform request.
  * 3. Assert the request rejects with a "malformed reply" protocol error.
  */

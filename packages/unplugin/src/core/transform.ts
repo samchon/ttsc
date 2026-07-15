@@ -198,10 +198,9 @@ export async function transformTtsc(
  *
  * The cache stores the in-flight transform Promise before it settles so
  * concurrent callers share one compilation. A rejected generation must not
- * remain the authoritative cached result, or a transient toolchain/host
- * failure becomes permanent for a long-lived worker. Eviction is
- * identity-guarded so a newer generation another caller installed under the
- * same key survives.
+ * remain the authoritative cached result, or a transient toolchain/host failure
+ * becomes permanent for a long-lived worker. Eviction is identity-guarded so a
+ * newer generation another caller installed under the same key survives.
  */
 async function awaitOrEvict(
   cache: TtscTransformCache | undefined,

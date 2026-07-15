@@ -24,5 +24,9 @@ export const test_memfs_rename_onto_self_is_noop = async (): Promise<void> => {
   await callMutation((cb) => host.fs.rename("/keep.txt", "/./keep.txt", cb));
 
   TestValidator.predicate("file still present", host.exists("/keep.txt"));
-  TestValidator.equals("bytes untouched", host.readFileText("/keep.txt"), "same");
+  TestValidator.equals(
+    "bytes untouched",
+    host.readFileText("/keep.txt"),
+    "same",
+  );
 };

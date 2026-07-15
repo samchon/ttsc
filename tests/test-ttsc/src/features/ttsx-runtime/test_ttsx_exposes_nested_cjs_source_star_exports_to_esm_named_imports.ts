@@ -14,8 +14,8 @@ import assert from "node:assert/strict";
  *
  * 1. Install a `lib` package with no `type` field whose TS entry re-exports value
  *    names through a nested `export *` chain, alongside `exports.<name> =`
- *    assignment-shaped decoys inside a comment, a block comment, a string, and a
- *    template literal.
+ *    assignment-shaped decoys inside a comment, a block comment, a string, and
+ *    a template literal.
  * 2. Run an ESM ttsx entry that imports `{ foo, bar }` from `lib`.
  * 3. Run a CJS ttsx entry that requires the same `lib` package.
  * 4. Assert both module formats observe the re-exported runtime values and that

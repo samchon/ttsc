@@ -8,16 +8,17 @@ import { openFd, readFdText } from "../../internal/callbackFs";
  * Verifies that after a boot fails past global installation and a retry
  * succeeds, the returned host is the exact filesystem the Go runtime captured.
  *
- * This is the RA-20 defect: a failed attempt left its `globalThis.fs` installed,
- * so a retry (which only installs `fs` when absent) created a fresh host, saw
- * the stale global, and returned a host the runtime never used — files written
- * through it were invisible to the compiler. Restoring the failed attempt's own
- * globals lets the retry install and return the host its runtime binds.
+ * This is the RA-20 defect: a failed attempt left its `globalThis.fs`
+ * installed, so a retry (which only installs `fs` when absent) created a fresh
+ * host, saw the stale global, and returned a host the runtime never used —
+ * files written through it were invisible to the compiler. Restoring the failed
+ * attempt's own globals lets the retry install and return the host its runtime
+ * binds.
  *
  * 1. First fetch returns 503 (fail after installing `fs`); second returns 200.
  * 2. The successful runtime records the `globalThis.fs` it captured at start.
- * 3. Assert the returned `host.fs` is that captured fs and a file written
- *    through the returned host is readable via that same fs.
+ * 3. Assert the returned `host.fs` is that captured fs and a file written through
+ *    the returned host is readable via that same fs.
  */
 export const test_boot_ttsc_retry_returns_runtime_host =
   async (): Promise<void> => {

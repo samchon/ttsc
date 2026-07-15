@@ -71,8 +71,7 @@ export async function withBootStubs<T>(
   // from "was present" (reassign) — `process` genuinely exists in Node and must
   // survive untouched.
   const snapshot = new Map<string, { had: boolean; value: unknown }>();
-  for (const key of keys)
-    snapshot.set(key, { had: key in g, value: g[key] });
+  for (const key of keys) snapshot.set(key, { had: key in g, value: g[key] });
   const wasmDescriptor = Object.getOwnPropertyDescriptor(
     WebAssembly,
     "instantiateStreaming",
@@ -97,8 +96,7 @@ export async function withBootStubs<T>(
           },
           signalFailed(error: unknown): void {
             const cb = g[apiName + "Failed"];
-            if (typeof cb === "function")
-              (cb as (e: unknown) => void)(error);
+            if (typeof cb === "function") (cb as (e: unknown) => void)(error);
           },
         };
         return options.onRun(runtime);
@@ -126,9 +124,12 @@ export async function withBootStubs<T>(
     return await body();
   } finally {
     if (wasmDescriptor)
-      Object.defineProperty(WebAssembly, "instantiateStreaming", wasmDescriptor);
-    else
-      delete (WebAssembly as unknown as GlobalRecord).instantiateStreaming;
+      Object.defineProperty(
+        WebAssembly,
+        "instantiateStreaming",
+        wasmDescriptor,
+      );
+    else delete (WebAssembly as unknown as GlobalRecord).instantiateStreaming;
     for (const [key, snap] of snapshot) {
       if (snap.had) g[key] = snap.value;
       else delete g[key];

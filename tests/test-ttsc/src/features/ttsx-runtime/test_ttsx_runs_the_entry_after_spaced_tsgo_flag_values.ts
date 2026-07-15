@@ -2,15 +2,15 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 
 /**
- * Verifies ttsx runs the entry when space-valued tsgo flags precede it and keeps
- * the program tail out of tsgo.
+ * Verifies ttsx runs the entry when space-valued tsgo flags precede it and
+ * keeps the program tail out of tsgo.
  *
  * With `forwardAfterFirstPositional`, the old parser treated the `es2020` of a
  * pre-entry `--target es2020` as the first positional sentinel, so the real
  * entry was routed into the program tail and ttsx died with "entry file is
- * required" before ever invoking tsgo. The entry must instead be found after the
- * forwarded pairs, and post-entry tokens must reach the program's argv, never
- * tsgo's option parser.
+ * required" before ever invoking tsgo. The entry must instead be found after
+ * the forwarded pairs, and post-entry tokens must reach the program's argv,
+ * never tsgo's option parser.
  *
  * 1. Create a CJS entry that prints `process.argv.slice(2)` as JSON.
  * 2. Run `ttsx --target es2020 --module commonjs src/main.ts alpha beta`.

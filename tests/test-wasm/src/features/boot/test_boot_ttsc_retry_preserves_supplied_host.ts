@@ -13,11 +13,9 @@ import { FAKE_API, withBootStubs } from "../../internal/bootHarness";
  * host the runtime captured. Reusing one host across attempts is explicitly
  * supported and must stay safe.
  *
- * 1. Pass one `createMemFS()` host to both attempts; first fetch 503, second
- *    200.
+ * 1. Pass one `createMemFS()` host to both attempts; first fetch 503, second 200.
  * 2. The successful runtime records its captured `globalThis.fs`.
- * 3. Assert the returned host is the supplied host and its fs is the captured
- *    one.
+ * 3. Assert the returned host is the supplied host and its fs is the captured one.
  */
 export const test_boot_ttsc_retry_preserves_supplied_host =
   async (): Promise<void> => {
