@@ -443,9 +443,11 @@ class MissingReturn {
 
 ### `grouped-accessor-pairs`
 
-Require the `get` and `set` accessors of a single property to be declared adjacent in the class body.
+Require the `get` and `set` accessors of a single property to be declared next to each other, in either a class body or an object literal.
 
-When the read and write halves of a property are split apart by unrelated members, a reader scanning the class has to chase the pair across the body, and patches to one half are easy to make without noticing the other.
+When the read and write halves of a property are split apart by unrelated members, a reader scanning the declaration has to chase the pair across the body, and patches to one half are easy to make without noticing the other.
+
+The optional order argument (`"anyOrder"`, the default, `"getBeforeSet"`, or `"setBeforeGet"`) also fixes the relative order of an already adjacent pair.
 
 Example:
 
