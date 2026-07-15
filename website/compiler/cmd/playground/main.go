@@ -8,6 +8,7 @@
 package main
 
 import (
+  "context"
   "fmt"
   "os"
 
@@ -31,7 +32,10 @@ func main() {
     name, command := args[0], args[1]
     for _, p := range plugins {
       if p.Name() == name {
-        os.Exit(p.Run(command, args[2:]))
+        result := host.InvokePlugin(context.Background(), p, command, args[2:])
+        fmt.Fprint(os.Stdout, result.Stdout)
+        fmt.Fprint(os.Stderr, result.Stderr)
+        os.Exit(result.Code)
       }
     }
   }

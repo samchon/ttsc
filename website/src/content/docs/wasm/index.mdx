@@ -207,16 +207,18 @@ Inside wasm there is no subprocess boundary, so plugins cannot be launched as ex
 ```go
 type Plugin interface {
   Name() string
-  Run(command string, args []string) int
+  Run(invocation *PluginInvocation) int
 }
 ```
 
 The method should forward to the same command dispatcher your native sidecar uses. The first-party playground does this for `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`, `@ttsc/lint`, and typia:
 
 - `Name()` returns the id the Worker passes to `api.plugin`.
-- `Run(command, args)` runs `build`, `check`, `transform`, `format`, or any other plugin command you support.
-- Anything written to `os.Stdout` or `os.Stderr` is captured and returned to JavaScript as `stdout` or `stderr`.
+- `invocation.Command` and `invocation.Args` carry the requested verb and CLI-shaped flags.
+- Write to `invocation.Stdout` and `invocation.Stderr`; those request-owned streams become JavaScript `stdout` and `stderr` without replacing process globals.
 - Return codes should mirror the native CLI: `0` success, `2` usage or diagnostics, `3` runtime failure.
+
+For utility-backed plugins, call `utility.RunBuildWithIO(invocation.Args, invocation.Stdout, invocation.Stderr)` (or the matching check/transform function). Use `invocation.Go` when a child goroutine contributes to the result. The host accepts registrations only while `Run` is active, waits for every registered child, then closes the streams. An unregistered goroutine that writes after completion receives `io.ErrClosedPipe` and cannot contaminate another request.
 
 For a real reference, read the playground wasm sources:
 
@@ -253,7 +255,7 @@ GOOS=js GOARCH=wasm go build -trimpath \
 | `WebAssembly.instantiateStreaming` fails | Serve `.wasm` with `Content-Type: application/wasm`. |
 | The page locks up | Booted wasm on the main thread. Move it into a Worker. |
 | `ENOENT` for `tsconfig.json` | Write `/work/tsconfig.json` and every included source file before calling the API. |
-| Plugin output is empty | For custom plugins, make sure the plugin writes to `os.Stdout`/`os.Stderr` or returns data through the virtual filesystem. |
+| Plugin output is empty | For custom plugins, write to `invocation.Stdout`/`invocation.Stderr` or return data through the virtual filesystem. |
 | Two wasm binaries conflict | Give each binary a unique `apiName`. Use separate Workers when they need independent `fs`/`process` globals or filesystems. |
 
 ## Published tarball layout

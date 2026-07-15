@@ -17,16 +17,16 @@ catalogs:
       version: 4.60.4
   samchon:
     '@typia/interface':
-      specifier: ^13.1.0
+      specifier: 13.1.0
       version: 13.1.0
     '@typia/mcp':
-      specifier: ^13.1.0
+      specifier: 13.1.0
       version: 13.1.0
     '@typia/utils':
-      specifier: ^13.1.0
+      specifier: 13.1.0
       version: 13.1.0
     typia:
-      specifier: ^13.1.0
+      specifier: 13.1.0
       version: 13.1.0
   typescript:
     ts-legacy:

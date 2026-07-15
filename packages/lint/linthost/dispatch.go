@@ -8,6 +8,7 @@ package linthost
 
 import (
   "fmt"
+  "io"
   "os"
 )
 
@@ -27,6 +28,39 @@ var Version = "dev"
 // ttscserver. Anything else is a usage error (exit code 2).
 func Main(args []string) int {
   return run(args)
+}
+
+// MainWithIO dispatches the browser-owned project commands without consulting
+// process-global stdout or stderr. Native-only mutation and LSP commands retain
+// Main as their CLI entrypoint.
+func MainWithIO(args []string, stdout, stderr io.Writer) int {
+  if stdout == nil {
+    stdout = io.Discard
+  }
+  if stderr == nil {
+    stderr = io.Discard
+  }
+  if len(args) == 0 {
+    fmt.Fprintln(stderr, "@ttsc/lint: command required (expected check|build|transform|version)")
+    return 2
+  }
+  switch args[0] {
+  case "-v", "--version", "version":
+    fmt.Fprintf(stdout, "@ttsc/lint %s\n", Version)
+    return 0
+  case "check":
+    registerContributorsOnce()
+    return RunCheckWithIO(args[1:], stdout, stderr)
+  case "build":
+    registerContributorsOnce()
+    return RunBuildWithIO(args[1:], stdout, stderr)
+  case "transform":
+    registerContributorsOnce()
+    return RunTransformWithIO(args[1:], stdout, stderr)
+  default:
+    fmt.Fprintf(stderr, "@ttsc/lint: command %q is unavailable in the browser host\n", args[0])
+    return 2
+  }
 }
 
 // run is the package-local dispatcher invoked by Main and by the in-tree

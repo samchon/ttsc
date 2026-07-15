@@ -10,10 +10,10 @@
 package host
 
 import (
+  "context"
   "fmt"
   "os"
   "runtime"
-  "sync"
   "sync/atomic"
   "syscall/js"
   "time"
@@ -180,9 +180,7 @@ func jsPluginDispatch(plugins map[string]Plugin) func(this js.Value, args []js.V
       return errorPromise(2, fmt.Sprintf("host: unknown plugin %q", name))
     }
     return makePromise(func() any {
-      res := runWithCapturedIO(func() int {
-        return plugin.Run(command, argv)
-      })
+      res := InvokePlugin(context.Background(), plugin, command, argv)
       return js.ValueOf(map[string]any{
         "code":   res.Code,
         "stdout": res.Stdout,
@@ -324,106 +322,3 @@ func stringProp(obj js.Value, key string) string {
   }
   return v.String()
 }
-
-// runWithCapturedIO redirects os.Stdout / os.Stderr to temp MemFS files for
-// the duration of `task`. Plugin Run methods write to os.Stdout / os.Stderr
-// the same way the native sidecar binaries do; capturing the output lets the
-// JS host render it in a console panel without spawning a subprocess.
-//
-// We use MemFS temp files instead of os.Pipe because Go's js/wasm runtime
-// returns `pipe: not implemented on js` for `syscall.Pipe` — pipes are not
-// supported on the wasm target. The temp-file approach works because the
-// MemFS shim implements file open/write/read.
-func runWithCapturedIO(task func() int) APIResult {
-  captureMu.Lock()
-  defer captureMu.Unlock()
-
-  prevOut, prevErr := os.Stdout, os.Stderr
-  // The defer is a safety net: if an early return skips the explicit restore
-  // below, os.Stdout/os.Stderr are still restored. The explicit restore that
-  // follows the task call is a no-op for the defer but makes the happy path
-  // readable without tracing the defer.
-  defer func() {
-    os.Stdout = prevOut
-    os.Stderr = prevErr
-  }()
-
-  stdoutPath := fmt.Sprintf("/tmp/ttsc-host-capture-%d-%d.stdout", os.Getpid(), captureCounter.Add(1))
-  stderrPath := fmt.Sprintf("/tmp/ttsc-host-capture-%d-%d.stderr", os.Getpid(), captureCounter.Add(1))
-
-  outFile, outErr := os.Create(stdoutPath)
-  errFile, errErr := os.Create(stderrPath)
-  if outErr != nil || errErr != nil {
-    // Fall back to the original streams. Better to lose capture than the
-    // call. The MemFS writeSync shim surfaces the failure to the host
-    // console so the regression is visible.
-    if outErr != nil {
-      fmt.Fprintf(prevErr, "host.runWithCapturedIO: stdout temp file failed: %v\n", outErr)
-    }
-    if errErr != nil {
-      fmt.Fprintf(prevErr, "host.runWithCapturedIO: stderr temp file failed: %v\n", errErr)
-    }
-    if outFile != nil {
-      _ = outFile.Close()
-      _ = os.Remove(stdoutPath)
-    }
-    if errFile != nil {
-      _ = errFile.Close()
-      _ = os.Remove(stderrPath)
-    }
-    return APIResult{Code: task()}
-  }
-  capturing := false
-  defer func() {
-    if capturing {
-      os.Stdout = prevOut
-      os.Stderr = prevErr
-    }
-    if outFile != nil {
-      _ = outFile.Close()
-    }
-    if errFile != nil {
-      _ = errFile.Close()
-    }
-    _ = os.Remove(stdoutPath)
-    _ = os.Remove(stderrPath)
-  }()
-
-  os.Stdout = outFile
-  os.Stderr = errFile
-  capturing = true
-
-  code := task()
-
-  // Sync + close BEFORE swapping back, so the plugin's last writes hit the
-  // file before we read it.
-  _ = outFile.Sync()
-  _ = errFile.Sync()
-  _ = outFile.Close()
-  outFile = nil
-  _ = errFile.Close()
-  errFile = nil
-
-  os.Stdout = prevOut
-  os.Stderr = prevErr
-  capturing = false
-
-  stdoutBytes, _ := os.ReadFile(stdoutPath)
-  stderrBytes, _ := os.ReadFile(stderrPath)
-
-  return APIResult{
-    Code:   code,
-    Stdout: string(stdoutBytes),
-    Stderr: string(stderrBytes),
-  }
-}
-
-// captureCounter avoids temp-file name collisions when plugin dispatches
-// overlap (multiple goroutines could be in runWithCapturedIO concurrently
-// from independent JS callers).
-var captureCounter atomic.Uint64
-
-// captureMu serializes temporary replacement of package-global stdout/stderr.
-// The temp filenames are unique, but os.Stdout/os.Stderr themselves are shared
-// process state in the wasm runtime.
-var captureMu sync.Mutex

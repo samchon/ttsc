@@ -1,32 +1,12 @@
-// Builds website/public/compiler/typia-runtime-pack.json — a CommonJS bundle
-// the playground's Execute sandbox uses to resolve typia/@typia/randexp
-// requires emitted by typia's source transform.
-//
-// Unlike pack-typia-sources.cjs (which ships TypeScript source so the wasm's
-// tsgo can typecheck `import typia, { tags } from "typia"`), this pack ships
-// the published JS so the Execute sandbox can actually call typia helpers at
-// runtime.
-//
-// Why it exists:
-//   The typia transform emits calls like
-//     require("typia/lib/internal/_isFormatEmail")
-//   in the CommonJS bundle the Execute sandbox runs. Without those modules
-//   resolvable, every "Execute" hit throws
-//     require("typia/lib/internal/...") is not available in the playground sandbox.
-//
-// Source roots: website/compiler-dependencies/node_modules/. That tree has
-// typia + transitive deps pinned to the same version the playground wasm was
-// built against, installed by npm (not pnpm) so hoisting matches a normal
-// consumer install.
-//
-// Output shape: { [absoluteSpec]: jsCode }. Mounts under sandbox-relative
-// paths like `typia/lib/internal/_isFormatEmail.js`.
+// Packs the CommonJS graph reachable from Typia's exported runtime surface.
+// Transitive packages are discovered from actual require/import statements.
 
 const fs = require("fs");
 const path = require("path");
 
+const { createTypiaDependencyGraph } = require("./typia-dependency-graph.cjs");
+
 const websiteRoot = path.resolve(__dirname, "..");
-const repoRoot = path.resolve(websiteRoot, "..");
 const outFile = path.join(
   websiteRoot,
   "public",
@@ -34,120 +14,24 @@ const outFile = path.join(
   "typia-runtime-pack.json",
 );
 
-// Resolve packages the same way pack-typia-sources.cjs does so the runtime
-// pack ships JS from the SAME typia install whose source the wasm sees. A
-// version skew between this pack and the source pack would let the Compiled
-// JS preview show typia.is(...) lowered against helpers the sandbox can't
-// resolve.
-function resolvePackageRoot(packageName) {
-  const candidates = [
-    path.join(websiteRoot, "node_modules", ...packageName.split("/")),
-  ];
-  const pnpmStore = path.join(repoRoot, "node_modules", ".pnpm");
-  if (fs.existsSync(pnpmStore)) {
-    for (const entry of fs.readdirSync(pnpmStore)) {
-      const candidate = path.join(pnpmStore, entry, "node_modules", ...packageName.split("/"));
-      candidates.push(candidate);
-    }
-  }
-  candidates.push(
-    path.join(websiteRoot, "compiler-dependencies", "node_modules", ...packageName.split("/")),
-  );
-  for (const c of candidates) {
-    try {
-      const real = fs.realpathSync(c);
-      if (fs.existsSync(path.join(real, "package.json"))) return real;
-    } catch {
-      /* keep trying */
-    }
-  }
-  return candidates[0];
-}
-
-// Each entry packs `<pkgDir>/lib/**/*.js` (or full tree for randexp & friends
-// which don't have a lib/ subdir). Maps & ESM `.mjs` variants are skipped:
-// the sandbox is CJS-only so mjs only adds weight.
-const SOURCES = [
-  { name: "typia", root: resolvePackageRoot("typia"), pickDirs: ["lib"], pickRoot: true },
-  { name: "@typia/utils", root: resolvePackageRoot("@typia/utils"), pickDirs: ["lib"], pickRoot: true },
-  { name: "@typia/core", root: resolvePackageRoot("@typia/core"), pickDirs: ["lib"], pickRoot: true },
-  { name: "@typia/interface", root: resolvePackageRoot("@typia/interface"), pickDirs: ["lib"], pickRoot: true },
-  // randexp + its transitive runtime deps (typia.random's regex generators).
-  { name: "randexp", root: resolvePackageRoot("randexp"), pickDirs: ["lib"], pickRoot: true },
-  { name: "ret", root: resolvePackageRoot("ret"), pickDirs: ["lib"], pickRoot: true },
-  { name: "drange", root: resolvePackageRoot("drange"), pickDirs: ["lib"], pickRoot: true },
-  { name: "discontinuous-range", root: resolvePackageRoot("discontinuous-range"), pickDirs: [], pickRoot: true },
-];
-
-function walk(dir) {
-  const out = [];
-  const stack = [dir];
-  while (stack.length > 0) {
-    const cur = stack.pop();
-    let entries;
-    try {
-      entries = fs.readdirSync(cur, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      if (entry.name === "node_modules") continue;
-      const full = path.join(cur, entry.name);
-      if (entry.isDirectory()) stack.push(full);
-      else if (entry.isFile()) out.push(full);
-    }
-  }
-  return out;
-}
-
-const KEEP = /\.js$/;
-const SKIP = /(\.mjs|\.map|\.d\.ts|\.test\.js|\.spec\.js)$/;
-
-function packDir(out, pkgName, pkgRoot, sub) {
-  const start = path.join(pkgRoot, sub);
-  if (!fs.existsSync(start)) return;
-  for (const file of walk(start)) {
-    if (SKIP.test(file)) continue;
-    if (!KEEP.test(file)) continue;
-    const rel = path.relative(pkgRoot, file).split(path.sep).join("/");
-    out[`${pkgName}/${rel}`] = fs.readFileSync(file, "utf8");
-  }
-}
-
-function packPackageJson(out, pkgName, pkgRoot) {
-  const pj = path.join(pkgRoot, "package.json");
-  if (fs.existsSync(pj)) {
-    out[`${pkgName}/package.json`] = fs.readFileSync(pj, "utf8");
-  }
-}
-
 function main() {
-  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  const graph = createTypiaDependencyGraph({ websiteRoot });
+  const closure = graph.collect("runtime");
   const pack = {};
-  for (const source of SOURCES) {
-    if (!fs.existsSync(source.root)) {
-      console.warn(`[pack-typia-runtime] missing ${source.name} at ${source.root}`);
-      continue;
-    }
-    if (source.pickRoot) packPackageJson(pack, source.name, source.root);
-    if (source.pickDirs.length === 0) {
-      // Pack the entire package root (excluding node_modules, maps, mjs).
-      for (const file of walk(source.root)) {
-        if (SKIP.test(file)) continue;
-        if (!KEEP.test(file)) continue;
-        const rel = path.relative(source.root, file).split(path.sep).join("/");
-        pack[`${source.name}/${rel}`] = fs.readFileSync(file, "utf8");
-      }
-    } else {
-      for (const sub of source.pickDirs) packDir(pack, source.name, source.root, sub);
-    }
+  for (const [key, file] of [...closure.files].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
+    pack[key] = fs.readFileSync(file, "utf8");
   }
+  for (const [name, pkg] of [...closure.packages].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
+    pack[`${name}/package.json`] = JSON.stringify(pkg.manifest, null, 2);
+  }
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
   fs.writeFileSync(outFile, JSON.stringify(pack));
-  const stats = fs.statSync(outFile);
   console.log(
-    `[pack-typia-runtime] wrote ${Object.keys(pack).length} files (${(
-      stats.size / 1024
-    ).toFixed(1)} KB) to ${path.relative(websiteRoot, outFile)}`,
+    `[pack-typia-runtime] typia@${graph.version}: ${closure.packages.size} packages, ${Object.keys(pack).length} files (${(fs.statSync(outFile).size / 1024).toFixed(1)} KB)`,
   );
 }
 

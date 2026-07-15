@@ -2,9 +2,7 @@
 //
 // Mirrors the dispatch flow of typia's `cmd/ttsc-typia/{build,transform}.go`,
 // but reframes it as a host.Plugin so the playground wasm can run typia's
-// real transform inline. Whereas the standalone `ttsc-typia` binary owns
-// its own package-level stdout/stderr, here we rely on host.runWithCapturedIO
-// to redirect `os.Stdout` / `os.Stderr` for us — the Plugin contract.
+// real transform inline. Its stdout and stderr belong to one invocation.
 //
 // As of typia 13.0.0-dev the native backend is AST-integrated: typia's
 // per-file node transformer runs inside tsgo's emit pipeline (sharing the
@@ -24,6 +22,7 @@ import (
   "encoding/json"
   "flag"
   "fmt"
+  "io"
   "os"
   "path/filepath"
   "regexp"
@@ -34,6 +33,7 @@ import (
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/wasm/host"
   typiaadapter "github.com/samchon/typia/packages/typia/native/adapter"
   nativecontext "github.com/samchon/typia/packages/typia/native/core/context"
   nativetransform "github.com/samchon/typia/packages/typia/native/transform"
@@ -48,23 +48,24 @@ func (typiaPlugin) Name() string { return "typia" }
 // Run dispatches the typia subcommands. The verb defaults to `transform` —
 // the playground's TypeScript view is what users see, so an unspecified
 // command should return the rewritten TS rather than spawn an emit pass.
-func (typiaPlugin) Run(command string, args []string) int {
+func (typiaPlugin) Run(invocation *host.PluginInvocation) int {
+  command := invocation.Command
   if command == "" {
     command = "transform"
   }
   switch command {
   case "build":
-    return runTypiaBuild(args)
+    return runTypiaBuild(invocation.Args, invocation.Stdout, invocation.Stderr)
   case "check":
     // `check` is `build --noEmit` in typia's CLI; mirror that here.
-    return runTypiaBuild(append([]string{"--noEmit"}, args...))
+    return runTypiaBuild(append([]string{"--noEmit"}, invocation.Args...), invocation.Stdout, invocation.Stderr)
   case "transform":
-    return runTypiaTransform(args)
+    return runTypiaTransform(invocation.Args, invocation.Stdout, invocation.Stderr)
   case "-v", "--version", "version":
-    fmt.Fprintln(os.Stdout, "typia (playground-wasm bundled)")
+    fmt.Fprintln(invocation.Stdout, "typia (playground-wasm bundled)")
     return 0
   default:
-    fmt.Fprintf(os.Stderr, "typia: unknown command %q\n", command)
+    fmt.Fprintf(invocation.Stderr, "typia: unknown command %q\n", command)
     return 2
   }
 }
@@ -91,7 +92,7 @@ func (d typiaTransformDiag) String(cwd string) string {
   return fmt.Sprintf("%s - error TS(%s): %s", file, d.Code, d.Message)
 }
 
-func writeTypiaTransformDiagnostics(w *os.File, diagnostics []typiaTransformDiag, cwd string) {
+func writeTypiaTransformDiagnostics(w io.Writer, diagnostics []typiaTransformDiag, cwd string) {
   for _, diag := range diagnostics {
     fmt.Fprintln(w, diag.String(cwd))
   }
@@ -121,11 +122,11 @@ func buildTypiaTransform(prog *driver.Program, cwd, tsconfigPath string) (driver
 // runTypiaBuild is a stripped-down port of typia's `cmd/ttsc-typia/build.go`
 // runBuild. Differences from the upstream:
 //
-//   - writes via os.Stdout / os.Stderr (no package-level writer indirection)
+//   - writes through invocation-owned stdout and stderr
 //   - omits the manifest output (the playground has no use for it)
-func runTypiaBuild(args []string) int {
+func runTypiaBuild(args []string, stdout, stderr io.Writer) int {
   fs := flag.NewFlagSet("build", flag.ContinueOnError)
-  fs.SetOutput(os.Stderr)
+  fs.SetOutput(stderr)
   tsconfigPath := fs.String("tsconfig", "tsconfig.json", "path to tsconfig.json")
   cwdOverride := fs.String("cwd", "", "override the working directory")
   quiet := fs.Bool("quiet", true, "suppress the per-call diagnostic summary")
@@ -138,7 +139,7 @@ func runTypiaBuild(args []string) int {
     return 2
   }
   if *emit && *noEmit {
-    fmt.Fprintln(os.Stderr, "typia build: --emit and --noEmit are mutually exclusive")
+    fmt.Fprintln(stderr, "typia build: --emit and --noEmit are mutually exclusive")
     return 2
   }
   if *verbose {
@@ -150,7 +151,7 @@ func runTypiaBuild(args []string) int {
     var err error
     cwd, err = os.Getwd()
     if err != nil {
-      fmt.Fprintf(os.Stderr, "typia build: cwd: %v\n", err)
+      fmt.Fprintf(stderr, "typia build: cwd: %v\n", err)
       return 2
     }
   }
@@ -160,23 +161,23 @@ func runTypiaBuild(args []string) int {
     OutDir:      *outDir,
   })
   if err != nil {
-    fmt.Fprintf(os.Stderr, "typia build: %v\n", err)
+    fmt.Fprintf(stderr, "typia build: %v\n", err)
     return 2
   }
   if len(diags) > 0 {
-    driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
+    driver.WritePrettyDiagnostics(stderr, diags, cwd)
     return 2
   }
   defer prog.Close()
   if pdiags := prog.Diagnostics(); len(pdiags) > 0 {
-    driver.WritePrettyDiagnostics(os.Stderr, pdiags, cwd)
+    driver.WritePrettyDiagnostics(stderr, pdiags, cwd)
     return 2
   }
 
   shouldEmit := !prog.ParsedConfig.ParsedConfig.CompilerOptions.NoEmit.IsTrue()
   typiaTransform, transformDiags := buildTypiaTransform(prog, cwd, *tsconfigPath)
   if !*quiet {
-    fmt.Fprintf(os.Stdout, "// typia build: tsconfig=%s cwd=%s emit=%v\n", *tsconfigPath, cwd, shouldEmit)
+    fmt.Fprintf(stdout, "// typia build: tsconfig=%s cwd=%s emit=%v\n", *tsconfigPath, cwd, shouldEmit)
   }
   if shouldEmit {
     emitted := 0
@@ -186,18 +187,18 @@ func runTypiaBuild(args []string) int {
     })
     eDiags, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{typiaTransform}, writeFile)
     if err != nil {
-      fmt.Fprintf(os.Stderr, "typia build: emit failed: %v\n", err)
+      fmt.Fprintf(stderr, "typia build: emit failed: %v\n", err)
       return 3
     }
     for _, d := range eDiags {
-      fmt.Fprintln(os.Stderr, "  -", d.String())
+      fmt.Fprintln(stderr, "  -", d.String())
     }
     if !*quiet {
-      fmt.Fprintf(os.Stdout, "// typia build: emitted=%d files\n", emitted)
+      fmt.Fprintf(stdout, "// typia build: emitted=%d files\n", emitted)
     }
   }
   if len(*transformDiags) > 0 {
-    writeTypiaTransformDiagnostics(os.Stderr, *transformDiags, cwd)
+    writeTypiaTransformDiagnostics(stderr, *transformDiags, cwd)
     return 3
   }
   return 0
@@ -208,9 +209,9 @@ func runTypiaBuild(args []string) int {
 // (the JSON-shaped output that maps file path → rewritten source); we keep
 // the single-file emit branch so command-line smoke tests stay close to the
 // CLI flow.
-func runTypiaTransform(args []string) int {
+func runTypiaTransform(args []string, stdout, stderr io.Writer) int {
   fs := flag.NewFlagSet("transform", flag.ContinueOnError)
-  fs.SetOutput(os.Stderr)
+  fs.SetOutput(stderr)
   file := fs.String("file", "", "absolute or cwd-relative path of the .ts file to transform")
   tsconfigPath := fs.String("tsconfig", "tsconfig.json", "tsconfig.json owning --file")
   cwdOverride := fs.String("cwd", "", "override the working directory")
@@ -221,7 +222,7 @@ func runTypiaTransform(args []string) int {
     return 2
   }
   if *output != "js" && *output != "ts" {
-    fmt.Fprintf(os.Stderr, "typia transform: unknown --output value %q\n", *output)
+    fmt.Fprintf(stderr, "typia transform: unknown --output value %q\n", *output)
     return 2
   }
   cwd := *cwdOverride
@@ -229,7 +230,7 @@ func runTypiaTransform(args []string) int {
     var err error
     cwd, err = os.Getwd()
     if err != nil {
-      fmt.Fprintf(os.Stderr, "typia transform: cwd: %v\n", err)
+      fmt.Fprintf(stderr, "typia transform: cwd: %v\n", err)
       return 2
     }
   }
@@ -238,11 +239,11 @@ func runTypiaTransform(args []string) int {
     ForceEmit: true,
   })
   if err != nil {
-    fmt.Fprintf(os.Stderr, "typia transform: %v\n", err)
+    fmt.Fprintf(stderr, "typia transform: %v\n", err)
     return 2
   }
   if len(diags) > 0 {
-    driver.WritePrettyDiagnostics(os.Stderr, diags, cwd)
+    driver.WritePrettyDiagnostics(stderr, diags, cwd)
     return 2
   }
   defer prog.Close()
@@ -251,10 +252,10 @@ func runTypiaTransform(args []string) int {
 
   if *file == "" {
     if *out != "" {
-      fmt.Fprintln(os.Stderr, "typia transform: --out requires --file")
+      fmt.Fprintln(stderr, "typia transform: --out requires --file")
       return 2
     }
-    return runTypiaTransformProject(prog, cwd, typiaTransform, transformDiags)
+    return runTypiaTransformProject(prog, cwd, typiaTransform, transformDiags, stdout, stderr)
   }
 
   absFile := *file
@@ -264,15 +265,15 @@ func runTypiaTransform(args []string) int {
   absFile = filepath.ToSlash(absFile)
   target := prog.SourceFile(absFile)
   if target == nil {
-    fmt.Fprintf(os.Stderr, "typia transform: source file is not in program: %s\n", absFile)
+    fmt.Fprintf(stderr, "typia transform: source file is not in program: %s\n", absFile)
     return 2
   }
 
   if *output == "js" {
-    return runTypiaTransformSingleJS(prog, typiaTransform, absFile, *out)
+    return runTypiaTransformSingleJS(prog, typiaTransform, absFile, *out, stdout, stderr)
   }
   text := transformFileToTypeScript(prog, typiaTransform, target)
-  return writeSingleOutput(text, *out)
+  return writeSingleOutput(text, *out, stdout, stderr)
 }
 
 // runTypiaTransformProject walks every project source file and writes a JSON
@@ -283,6 +284,8 @@ func runTypiaTransformProject(
   cwd string,
   typiaTransform driver.PluginTransform,
   transformDiags *[]typiaTransformDiag,
+  stdout io.Writer,
+  stderr io.Writer,
 ) int {
   type compilerDiag struct {
     File        *string `json:"file"`
@@ -322,8 +325,8 @@ func runTypiaTransformProject(
       MessageText: diag.Message,
     })
   }
-  if err := json.NewEncoder(os.Stdout).Encode(res); err != nil {
-    fmt.Fprintf(os.Stderr, "typia transform: encode output: %v\n", err)
+  if err := json.NewEncoder(stdout).Encode(res); err != nil {
+    fmt.Fprintf(stderr, "typia transform: encode output: %v\n", err)
     return 3
   }
   if len(res.Diagnostics) > 0 {
@@ -360,6 +363,8 @@ func runTypiaTransformSingleJS(
   typiaTransform driver.PluginTransform,
   absFile string,
   outPath string,
+  stdout io.Writer,
+  stderr io.Writer,
 ) int {
   var captured string
   found := false
@@ -372,14 +377,14 @@ func runTypiaTransformSingleJS(
     return nil
   })
   if _, err := prog.EmitWithPluginTransformers([]driver.PluginTransform{typiaTransform}, writeFile); err != nil {
-    fmt.Fprintf(os.Stderr, "typia transform: emit: %v\n", err)
+    fmt.Fprintf(stderr, "typia transform: emit: %v\n", err)
     return 3
   }
   if !found {
-    fmt.Fprintf(os.Stderr, "typia transform: no output produced for %s\n", absFile)
+    fmt.Fprintf(stderr, "typia transform: no output produced for %s\n", absFile)
     return 3
   }
-  return writeSingleOutput(captured, outPath)
+  return writeSingleOutput(captured, outPath, stdout, stderr)
 }
 
 // sameSourceStem reports whether an emitted .js path corresponds to a .ts source
@@ -395,19 +400,19 @@ func sameSourceStem(tsPath, jsPath string) bool {
   return filepath.Base(jsStem) == filepath.Base(tsStem)
 }
 
-func writeSingleOutput(text, outPath string) int {
+func writeSingleOutput(text, outPath string, stdout, stderr io.Writer) int {
   if outPath == "" {
-    fmt.Fprint(os.Stdout, text)
+    fmt.Fprint(stdout, text)
     return 0
   }
   if dir := filepath.Dir(outPath); dir != "" {
     if err := os.MkdirAll(dir, 0o755); err != nil {
-      fmt.Fprintf(os.Stderr, "typia transform: mkdir: %v\n", err)
+      fmt.Fprintf(stderr, "typia transform: mkdir: %v\n", err)
       return 3
     }
   }
   if err := os.WriteFile(outPath, []byte(text), 0o644); err != nil {
-    fmt.Fprintf(os.Stderr, "typia transform: write %s: %v\n", outPath, err)
+    fmt.Fprintf(stderr, "typia transform: write %s: %v\n", outPath, err)
     return 3
   }
   return 0

@@ -92,54 +92,19 @@ const force =
 //     the EXACT typia install the wasm is compiled against, not a different
 //     install that happens to share a major version).
 //
-// Resolve the typia install in the same priority order go.mod uses (see
-// website/compiler/go.mod `replace github.com/samchon/typia/... =>
-// ../node_modules/typia/native`). website/node_modules wins; pnpm virtual
-// store comes second; compiler-dependencies/ is the last fallback.
-const resolvePackagePathForCacheKey = (packageName) => {
-  const candidates = [
-    path.join(ROOT, "node_modules", ...packageName.split("/")),
-  ];
-  const pnpmStore = path.join(REPO_ROOT, "node_modules", ".pnpm");
-  if (fs.existsSync(pnpmStore)) {
-    for (const entry of fs.readdirSync(pnpmStore)) {
-      candidates.push(path.join(pnpmStore, entry, "node_modules", ...packageName.split("/")));
-    }
-  }
-  candidates.push(
-    path.join(ROOT, "compiler-dependencies", "node_modules", ...packageName.split("/")),
-  );
-  for (const c of candidates) {
-    try {
-      const real = fs.realpathSync(c);
-      if (fs.existsSync(path.join(real, "package.json"))) return real;
-    } catch { /* keep trying */ }
-  }
-  return null;
-};
-
-const TYPIA_ROOT = resolvePackagePathForCacheKey("typia");
-let typiaPkgVersion = "unknown";
-if (TYPIA_ROOT) {
-  try {
-    typiaPkgVersion = JSON.parse(fs.readFileSync(path.join(TYPIA_ROOT, "package.json"), "utf8")).version;
-  } catch {
-    /* fresh checkout — leave as "unknown" */
-  }
-}
-const TYPIA_NATIVE_ADAPTER = TYPIA_ROOT
-  ? (() => {
-      const adapter = path.join(TYPIA_ROOT, "native", "adapter");
-      return fs.existsSync(adapter) ? adapter : null;
-    })()
-  : null;
+// Resolve the one website/node_modules/typia install named by compiler/go.mod.
+// The same graph object owns the version stamp and all generated packs.
+const { createTypiaDependencyGraph } = require("./typia-dependency-graph.cjs");
+const typiaGraph = createTypiaDependencyGraph({ websiteRoot: ROOT });
+const typiaPkgVersion = typiaGraph.version;
+const TYPIA_NATIVE_ADAPTER = typiaGraph.goAdapterRoot;
 const wasmSourceMtime = Math.max(
   newestMtime(COMPILER_DIR),
   newestMtime(path.join(REPO_ROOT, "packages", "wasm")),
   newestMtime(path.join(REPO_ROOT, "packages", "ttsc")),
   newestMtime(path.join(REPO_ROOT, "packages", "lint", "linthost")),
   newestMtime(path.join(REPO_ROOT, "packages", "lint", "rule")),
-  TYPIA_NATIVE_ADAPTER ? newestMtime(TYPIA_NATIVE_ADAPTER) : 0,
+  newestMtime(TYPIA_NATIVE_ADAPTER),
 );
 // Stamp the typia version into a sidecar file so a version bump alone busts
 // the cache. The wasm itself doesn't carry the version, so without this a
@@ -215,7 +180,7 @@ require("./typia-types.cjs");
 
 // ── 5. Build the typia source pack the worker mounts into MemFS ────────────
 // Mirrors typia's own `typia-pack.js` flow: copies the published source tree
-// under `node_modules/typia` (plus @typia/{interface,utils,core}) into one
+// under `node_modules/typia` with its discovered dependency closure into one
 // JSON blob the worker fetches at boot. Without it, the wasm-side compiler
 // can't resolve `import typia, { tags } from "typia"`.
 require("./pack-typia-sources.cjs");
@@ -225,8 +190,7 @@ require("./pack-typia-sources.cjs");
 // `new Function(...)` sandbox. The bundle does `require("typia/lib/internal/X")`
 // for the per-feature helpers typia's transform emits (validators, random
 // generators, JSON encoders). Without resolvable modules, every Execute
-// throws. The runtime pack ships the published JS for typia + @typia/* +
-// randexp so the sandbox can resolve those requires.
+// throws. The runtime pack follows those real requires transitively.
 require("./pack-typia-runtime.cjs");
 
 log("done.");

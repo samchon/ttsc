@@ -1,60 +1,128 @@
 package host
 
-// API stability: experimental until v1.0; signatures may change between
-// minor releases. Pin exact versions in production playgrounds.
-//
+import (
+  "bytes"
+  "context"
+  "io"
+  "sync"
+)
+
 // Plugin is the in-process equivalent of ttsc's native CLI sidecar.
 //
-// The native CLI invokes plugins by spawning their binary with argv (e.g.
-// `@ttsc/lint check --tsconfig=tsconfig.json --plugins-json=...`). Inside the
-// wasm there is no subprocess support, so the consumer wasm bundles plugin
-// code directly and exposes the same dispatch through Plugin.Run.
-//
-// A typical Plugin implementation in the consumer wasm is a thin adapter that
-// forwards to the same Run* function the native sidecar's `main.go` calls:
-//
-//  type bannerPlugin struct{}
-//
-//  func (bannerPlugin) Name() string { return "@ttsc/banner" }
-//  func (bannerPlugin) Run(command string, args []string) int {
-//    switch command {
-//    case "build":     return utility.RunBuild(args)
-//    case "check":     return utility.RunCheck(args)
-//    case "transform": return utility.RunTransform(args)
-//    default:          return 2
-//    }
-//  }
-//
-// The host installs the package-level writers in `runWithCapturedIO` before
-// calling Run, so anything the plugin writes to ttsc's `stdout` / `stderr`
-// streams is captured and returned to the JS caller.
+// The browser cannot spawn plugin binaries, so a consumer wasm links their Go
+// adapters and registers them with Config. Every run receives invocation-owned
+// streams; a plugin must write only to those streams, never os.Stdout or
+// os.Stderr.
 type Plugin interface {
-  // Name is the npm-style plugin id (e.g. `@ttsc/banner`). The JS side
-  // passes this exact string when dispatching:
-  // `api.plugin({ name: "@ttsc/banner", command: "build", ...opts })`.
-  // Names must be unique within a Config.
+  // Name is the npm-style plugin id passed to api.plugin.
   Name() string
 
-  // Run dispatches a subcommand. `command` is the verb the JS caller asked
-  // for (typically build / check / transform / fix / format / version);
-  // `args` is the rest of the argv, already prefixed with `--flag=value`
-  // pairs the host built from the JS options object.
-  //
-  // Return the exit code (0 for success, 2 for compiler/config/usage errors, 3
-  // for runtime errors — mirrors the native CLI exit-code contract). Anything written
-  // to `os.Stdout` / `os.Stderr` is captured by the host.
-  //
-  // API stability: experimental until v1.0; the signature is expected to
-  // change to `Run(ctx *PluginContext) int` in a follow-up release.
-  Run(command string, args []string) int
+  // Run dispatches one subcommand and returns the native CLI exit code.
+  Run(invocation *PluginInvocation) int
+}
+
+// PluginInvocation owns all mutable state for one plugin call.
+//
+// A plugin that needs asynchronous work must register it with Go before Run
+// returns. InvokePlugin waits for every registered function. Registration
+// after Run returns is rejected, and writes made after the invocation closes
+// return io.ErrClosedPipe. This gives child goroutines an explicit ownership
+// boundary without sharing process-global output state.
+type PluginInvocation struct {
+  Context context.Context
+  Command string
+  Args    []string
+  Stdout  io.Writer
+  Stderr  io.Writer
+
+  childrenMu     sync.Mutex
+  children       sync.WaitGroup
+  acceptingChild bool
+}
+
+// Go registers and starts invocation-owned asynchronous work. It returns false
+// when Run has already returned and the ownership boundary is closed.
+func (invocation *PluginInvocation) Go(task func(context.Context)) bool {
+  if task == nil {
+    return false
+  }
+  invocation.childrenMu.Lock()
+  if !invocation.acceptingChild {
+    invocation.childrenMu.Unlock()
+    return false
+  }
+  invocation.children.Add(1)
+  invocation.childrenMu.Unlock()
+  go func() {
+    defer invocation.children.Done()
+    task(invocation.Context)
+  }()
+  return true
+}
+
+// InvokePlugin executes one plugin call and captures its request-owned output.
+// Independent invocations may run concurrently without sharing buffers.
+func InvokePlugin(ctx context.Context, plugin Plugin, command string, args []string) APIResult {
+  if ctx == nil {
+    ctx = context.Background()
+  }
+  stdout := &invocationBuffer{}
+  stderr := &invocationBuffer{}
+  invocation := &PluginInvocation{
+    Context:        ctx,
+    Command:        command,
+    Args:           append([]string(nil), args...),
+    Stdout:         stdout,
+    Stderr:         stderr,
+    acceptingChild: true,
+  }
+  code := plugin.Run(invocation)
+
+  invocation.childrenMu.Lock()
+  invocation.acceptingChild = false
+  invocation.childrenMu.Unlock()
+  invocation.children.Wait()
+
+  stdout.close()
+  stderr.close()
+  return APIResult{
+    Code:   code,
+    Stdout: stdout.String(),
+    Stderr: stderr.String(),
+  }
 }
 
 // Config carries the optional registrations the host applies before binding
-// `globalThis[name]`. Pass `Config{}` for a vanilla ttsc + tsgo wasm.
+// globalThis[name]. Pass Config{} for a vanilla ttsc + tsgo wasm.
 type Config struct {
-  // Plugins are dispatched through `api.plugin({ name, command, ...opts })` from
-  // JS. Their Run methods share the same `os.Stdout` / `os.Stderr` streams
-  // the base build/check/transform endpoints use, so diagnostics render
-  // the same way no matter which lane produced them.
   Plugins []Plugin
+}
+
+// invocationBuffer serializes writers owned by one invocation. Closing it
+// prevents an unregistered or late goroutine from modifying a completed result.
+type invocationBuffer struct {
+  mu     sync.Mutex
+  data   bytes.Buffer
+  closed bool
+}
+
+func (buffer *invocationBuffer) Write(data []byte) (int, error) {
+  buffer.mu.Lock()
+  defer buffer.mu.Unlock()
+  if buffer.closed {
+    return 0, io.ErrClosedPipe
+  }
+  return buffer.data.Write(data)
+}
+
+func (buffer *invocationBuffer) String() string {
+  buffer.mu.Lock()
+  defer buffer.mu.Unlock()
+  return buffer.data.String()
+}
+
+func (buffer *invocationBuffer) close() {
+  buffer.mu.Lock()
+  buffer.closed = true
+  buffer.mu.Unlock()
 }

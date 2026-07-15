@@ -16,7 +16,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// APIResult is the stdout/stderr capture returned by runWithCapturedIO. The
+// APIResult is the stdout/stderr capture returned by InvokePlugin. The
 // js/wasm binding wraps it in the same JS result envelope that build/check/
 // transform use, adding `result` when an endpoint has a JSON payload. `code`
 // follows the native CLI exit-code contract (0 success, 2 compiler/config/

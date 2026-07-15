@@ -56,7 +56,7 @@ type serveUpdateResponse struct {
 // in and out are explicit so the request loop is testable; the utility-host
 // command wires them to os.Stdin and os.Stdout.
 func RunServe(in io.Reader, out io.Writer, args []string) int {
-  opts, ok := parseHostOptions("serve", args)
+  opts, ok := parseHostOptions("serve", args, out, os.Stderr)
   if !ok {
     return 2
   }

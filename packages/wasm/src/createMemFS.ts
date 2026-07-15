@@ -334,10 +334,8 @@ export function createMemFS(): IMemFSHost {
           console.error("[wasm]", line);
         return buf.length;
       }
-      // Open-file fds (>= 100): append to the underlying file. This is the
-      // path the wasm host's runWithCapturedIO uses to capture plugin
-      // stdout/stderr via /tmp/* temp files (os.Pipe is not implemented on
-      // js/wasm so we mirror its semantics via files).
+      // Open-file fds (>= 100): append to the underlying file. Browser-hosted
+      // tools use this path for ordinary virtual files and explicit outputs.
       const entry = fdTable.get(fd);
       if (entry) {
         const node = nodes.get(entry.path);

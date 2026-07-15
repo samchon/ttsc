@@ -47,6 +47,7 @@ The native sibling `main.go` is recommended when you want `go run ./cmd/your-was
 package main
 
 import (
+  "context"
   "fmt"
   "os"
 
@@ -60,7 +61,10 @@ func main() {
     name, command := os.Args[1], os.Args[2]
     for _, p := range plugins {
       if p.Name() == name {
-        os.Exit(p.Run(command, os.Args[3:]))
+        result := host.InvokePlugin(context.Background(), p, command, os.Args[3:])
+        fmt.Fprint(os.Stdout, result.Stdout)
+        fmt.Fprint(os.Stderr, result.Stderr)
+        os.Exit(result.Code)
       }
     }
   }
@@ -169,12 +173,14 @@ Verbs and payload types:
 
 ```go
 type Plugin interface {
-  Name() string                            // e.g. "@ttsc/banner"
-  Run(command string, args []string) int   // returns CLI exit code
+  Name() string
+  Run(invocation *PluginInvocation) int
 }
 ```
 
-The host installs `globalThis[apiName].plugin({ name, command, ...opts })` that translates the JS options object into a CLI-shaped argv and calls your plugin's `Run`. Your `Run` body can forward to the same function the native sidecar's `main.go` calls, for example `utility.RunBuild(args)` for plugins backed by `packages/ttsc/utility`.
+The host installs `globalThis[apiName].plugin({ name, command, ...opts })` that translates the JS options object into `invocation.Command` and CLI-shaped `invocation.Args`. Write output to `invocation.Stdout` and `invocation.Stderr`. Utility-backed plugins can call `utility.RunBuildWithIO(invocation.Args, invocation.Stdout, invocation.Stderr)` so the native command and browser adapter share implementation without replacing process-global streams.
+
+Use `invocation.Go` for asynchronous work that belongs to the result. Register it before `Run` returns; the host waits for registered work, closes registration when `Run` returns, and rejects later writes to the invocation streams.
 
 ## Published-tarball Go module layout
 
