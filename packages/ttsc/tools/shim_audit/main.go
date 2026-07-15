@@ -1234,9 +1234,9 @@ func findingKey(f finding) string { return f.kind + "|" + f.pkg + "|" + f.symbol
 func producerExemptionKey(f finding) string { return f.pkg + "." + f.symbol }
 
 // baselineFile is the on-disk schema of accepted TIER-2/3 gaps. TIER-1 enum
-// gaps are never baselined. Producer gaps require a separate, reasoned root
-// exemption because accepting an ordinary symbol gap must not waive object
-// constructibility.
+// gaps are never baselined. Producer gaps require a separate, reasoned root or
+// ownership-boundary exemption because accepting an ordinary symbol gap must
+// not waive object constructibility.
 type baselineFile struct {
   Note               string            `json:"note"`
   Accepted           []string          `json:"accepted"`
@@ -1391,7 +1391,7 @@ func runWriteBaseline(findings []finding, path string) {
     producerExemptions = baseline.ProducerExemptions
   }
   data, err := json.MarshalIndent(baselineFile{
-    Note:               "Accepted TIER-2 (reachable funcs) and TIER-3 (escaping types) shim gaps. The gate fails on any gap NOT listed here; expose a symbol and remove its line, or run -write-baseline to accept new ones deliberately. TIER-1 enum and PRODUCER gaps are zero-tolerance; producer_exemptions must name genuine roots with non-empty rationales.",
+    Note:               "Accepted TIER-2 (reachable funcs) and TIER-3 (escaping types) shim gaps. The gate fails on any gap NOT listed here; expose a symbol and remove its line, or run -write-baseline to accept new ones deliberately. TIER-1 enum and PRODUCER gaps are zero-tolerance; producer_exemptions must name genuine roots or ownership boundaries with non-empty rationales.",
     Accepted:           keys,
     ProducerExemptions: producerExemptions,
   }, "", "  ")
@@ -1450,7 +1450,7 @@ func runCheck(findings []finding, path string) {
   }
   if len(evaluation.producerGaps) > 0 {
     fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d consumed compiler object(s) have no public producer.\n", len(evaluation.producerGaps))
-    fmt.Fprintf(os.Stderr, "  Add a general exported producer, or document a genuine external root in producer_exemptions.\n")
+    fmt.Fprintf(os.Stderr, "  Add a general exported producer, or document a genuine root or ownership boundary in producer_exemptions.\n")
     for _, f := range evaluation.producerGaps {
       fmt.Fprintf(os.Stderr, "    PRODUCER %s.%s — %s\n", f.pkg, f.symbol, f.detail)
     }

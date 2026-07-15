@@ -1,5 +1,5 @@
 {
-  "note": "Accepted TIER-2 (reachable funcs) and TIER-3 (escaping types) shim gaps. The gate fails on any gap NOT listed here; expose a symbol and remove its line, or run -write-baseline to accept new ones deliberately. TIER-1 enum and PRODUCER gaps are zero-tolerance; producer_exemptions must name genuine roots with non-empty rationales.",
+  "note": "Accepted TIER-2 (reachable funcs) and TIER-3 (escaping types) shim gaps. The gate fails on any gap NOT listed here; expose a symbol and remove its line, or run -write-baseline to accept new ones deliberately. TIER-1 enum and PRODUCER gaps are zero-tolerance; producer_exemptions must name genuine roots or ownership boundaries with non-empty rationales.",
   "accepted": [
     "ESCAPE|checker|ConditionalType",
     "ESCAPE|checker|ConstrainedType",
