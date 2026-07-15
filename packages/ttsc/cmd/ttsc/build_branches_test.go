@@ -84,7 +84,11 @@ export { value };
   code, _, errText = captureCommand(t, func() int {
     return runBuild([]string{"--cwd", root, "--tsconfig", "tsconfig.json", "--emit", "--outDir", "blocked"})
   })
-  if code != 2 || !strings.Contains(errText, "not a directory") {
+  // The write fails because outDir is a regular file. Assert on the exit code
+  // and the platform-agnostic TS5033 "Could not write file" diagnostic prefix,
+  // not the OS errno, which differs by platform (POSIX ENOTDIR "not a
+  // directory" vs Windows "The system cannot find the path specified").
+  if code != 2 || !strings.Contains(errText, "Could not write file") {
     t.Fatalf("emit failure mismatch: code=%d stderr=%q", code, errText)
   }
 
