@@ -12,6 +12,7 @@ import type { ITtscLintPromiseRules } from "./ITtscLintPromiseRules";
 import type { ITtscLintReactPerfRules } from "./ITtscLintReactPerfRules";
 import type { ITtscLintReactRules } from "./ITtscLintReactRules";
 import type { ITtscLintRegexpRules } from "./ITtscLintRegexpRules";
+import type { TtscLintRuleOptionsOverlay } from "./ITtscLintRuleOptionsMap";
 import type { ITtscLintSecurityRules } from "./ITtscLintSecurityRules";
 import type { ITtscLintSolidRules } from "./ITtscLintSolidRules";
 import type { ITtscLintStorybookRules } from "./ITtscLintStorybookRules";
@@ -51,7 +52,10 @@ import type { ITtscLintVitestRules } from "./ITtscLintVitestRules";
  *   public rules surface.
  * - Any other `"<namespace>/<rule>"` key is accepted via
  *   {@link ITtscLintContributorRules} so plugin-shipped rules compose cleanly
- *   without ambient module augmentation.
+ *   without ambient module augmentation. A plugin can augment
+ *   `ITtscLintRuleOptionsMap`; {@link TtscLintRuleOptionsOverlay} then tightens
+ *   that rule's options while the open fallback remains for unregistered
+ *   contributor names.
  */
 export type ITtscLintRules = ITtscLintCoreRules &
   ITtscLintTypeScriptRules &
@@ -74,4 +78,5 @@ export type ITtscLintRules = ITtscLintCoreRules &
   ITtscLintTestingLibraryRules &
   ITtscLintUnicornRules &
   ITtscLintVitestRules &
-  ITtscLintContributorRules;
+  ITtscLintContributorRules &
+  TtscLintRuleOptionsOverlay;

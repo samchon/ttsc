@@ -20,7 +20,7 @@ package linthost
 
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
-type groupedAccessorPairs struct{}
+type groupedAccessorPairs struct{ optionsRule }
 
 func (groupedAccessorPairs) Name() string { return "grouped-accessor-pairs" }
 func (groupedAccessorPairs) Visits() []shimast.Kind {

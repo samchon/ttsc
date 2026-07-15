@@ -15,7 +15,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 const noPromiseExecutorReturnMessage = "Return values from promise executor functions cannot be read."
 
-type noPromiseExecutorReturn struct{}
+type noPromiseExecutorReturn struct{ optionsRule }
 
 type noPromiseExecutorReturnOptions struct {
   AllowVoid bool `json:"allowVoid"`

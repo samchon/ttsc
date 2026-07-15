@@ -12,6 +12,7 @@ import (
 type reactPerfMatcher func(*shimast.Node) bool
 
 type reactPerfRule struct {
+  optionsRule
   name    string
   message string
   matcher reactPerfMatcher

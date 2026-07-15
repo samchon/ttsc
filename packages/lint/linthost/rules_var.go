@@ -574,7 +574,7 @@ func isValueReferenceIdentifier(node *shimast.Node) bool {
 // structure, so the existing keyword edit stays limited to an initialized,
 // single-declarator list. ESLint canonical:
 // https://eslint.org/docs/latest/rules/prefer-const
-type preferConst struct{}
+type preferConst struct{ optionsRule }
 
 type preferConstOptions struct {
   Destructuring          string `json:"destructuring"`

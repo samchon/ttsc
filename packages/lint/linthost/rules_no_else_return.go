@@ -27,7 +27,7 @@ import (
 
 const noElseReturnMessage = "Remove the `else` — the preceding `if` branch already returns."
 
-type noElseReturn struct{}
+type noElseReturn struct{ optionsRule }
 
 // noElseReturnOptions mirrors ESLint's single object option. `AllowElseIf`
 // is a pointer so a missing option decodes to the upstream default (`true`)

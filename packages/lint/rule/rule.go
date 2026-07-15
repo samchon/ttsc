@@ -133,6 +133,18 @@ type TypeAwareRule interface {
   NeedsTypeChecker() bool
 }
 
+// OptionsRule is an optional marker contributors implement to declare whether
+// their rule accepts an options slot in its `[severity, options]` setting.
+// Contributor rules default to accepting options for backward compatibility
+// with the original public Context.Options contract. Return false for a
+// genuinely optionless rule so the host can reject accidental payloads before
+// linting. The domain-specific method name prevents an unrelated generic
+// AcceptsOptions method on an existing contributor from opting in by accident.
+// ProjectRule implementations may use the same marker.
+type OptionsRule interface {
+  AcceptsTtscLintOptions() bool
+}
+
 // Reporter is the engine-supplied callback that records a finding. The
 // host implements this and passes it to `NewContext` when invoking a
 // contributor rule.

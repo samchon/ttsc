@@ -22,7 +22,7 @@ import (
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-type noRestrictedImports struct{}
+type noRestrictedImports struct{ optionsRule }
 
 type noRestrictedImportsOptions struct {
   paths    []noRestrictedImportsPath

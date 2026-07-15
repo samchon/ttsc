@@ -13,7 +13,7 @@ import (
 // JavaScript and TypeScript with the current ECMAScript grammar, so strict
 // functions in ordinary parsed source have ES2015 block-function semantics.
 // https://eslint.org/docs/latest/rules/no-inner-declarations
-type noInnerDeclarations struct{}
+type noInnerDeclarations struct{ optionsRule }
 
 type noInnerDeclarationsOptions struct {
   both                 bool

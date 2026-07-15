@@ -33,6 +33,8 @@ export default {
 
 `"error"` fails the build. `"warning"` prints. `"off"` disables the rule.
 
+Rules with options use an ESLint-style tuple such as `["error", { "allowElseIf": false }]`. A built-in rule documented without options accepts only a severity, either bare or in a one-element tuple; adding an object or positional payload is a configuration error instead of a silently ignored setting, including while the rule is `"off"`.
+
 To exclude generated files from linting entirely, add a top-level `ignores` list (e.g. `ignores: [".next/**/*.ts", "next-env.d.ts"]`). Without a `files` filter it is a global ignore: the matched paths are skipped by every rule, including rules inherited through `extends`.
 
 The `format` block configures the formatter, keys mirror `.prettierrc`. Presence of the block (even empty `format: {}`) enables `ttsc format` at Prettier defaults. It does not make `ttsc check` fail on formatting unless you set `format.severity`.

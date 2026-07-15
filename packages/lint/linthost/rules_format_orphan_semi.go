@@ -24,7 +24,7 @@ import (
 // is left alone, dropping a redundant `;` safely depends on the
 // surrounding semicolon policy and is out of scope here. Idempotent:
 // once merged the gap holds no newline, so the rule finds nothing to do.
-type formatOrphanSemi struct{}
+type formatOrphanSemi struct{ optionsRule }
 
 // formatOrphanSemiOptions carries the effective `semi` setting, mirrored
 // from format.semi by the config layer. Defaults to true (semicolons),

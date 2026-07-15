@@ -20,7 +20,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-type noParamReassign struct{}
+type noParamReassign struct{ optionsRule }
 
 type noParamReassignOptions struct {
   Props                               bool     `json:"props"`

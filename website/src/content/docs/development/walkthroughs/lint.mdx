@@ -299,6 +299,8 @@ type Engine struct {
 
 The constructor also deduplicates kinds per rule, if a contributor accidentally listed `KindCallExpression` twice in `Visits()`, it only registers once. This is a deliberate kindness; the alternative would be a rule that silently fires twice per call.
 
+Before it builds that table, the constructor validates every options payload declared for a registered rule, including payloads on `"off"` rules and every file-scoped variant. Built-in rules opt into an options slot through a structural capability on their implementation. A severity-only built-in rejects any object, scalar, or positional payload instead of silently ignoring it.
+
 `unknown` collects names from the user's config that have no registered implementation. The CLI surfaces these as configuration warnings instead of silent typos.
 
 ### AST walk
@@ -498,11 +500,13 @@ The adapter layer lives in `linthost/contrib_adapter.go`. Third-party rule contr
 ```go
 type contributorAdapter struct {
   inner                  rule.Rule
+  acceptsOptions         bool
   name                   string
   visits                 []shimast.Kind
   visitsDeclarationFiles bool
 }
 
+func (a contributorAdapter) AcceptsTtscLintOptions() bool { return a.acceptsOptions }
 func (a contributorAdapter) Name() string           { return a.name }
 func (a contributorAdapter) Visits() []shimast.Kind { return a.visits }
 func (a contributorAdapter) Check(ctx *Context, node *shimast.Node) {
@@ -518,7 +522,7 @@ Two adapters, not one, `contributorAdapter` for lint-class rules, `formatContrib
 
 **Why two parallel interfaces?** The engine's internal `Rule` is allowed to evolve freely; the public `rule.Rule` is the stability boundary contributors compile against. By separating the two and bridging through an adapter, we can refactor the internal engine without breaking every published contributor.
 
-`registerContributors` evaluates `Name`, `Visits`, `IsFormat`, and `VisitsDeclarationFiles` once behind a recover barrier and stores the results in the adapter. A panic in those startup methods drops only that contributor entry with a stderr warning. A panic in `Check` becomes an error finding for that rule, and the engine continues running the remaining contributor and built-in rules.
+`registerContributors` evaluates `Name`, `Visits`, `IsFormat`, `VisitsDeclarationFiles`, and the optional `OptionsRule` capability once behind a recover barrier and stores the results in the adapter. Existing contributors default to accepting options because the public `Context.Options` field predates this capability. A genuinely optionless contributor returns `false` from `AcceptsTtscLintOptions`; the host then rejects a payload before linting. The domain-specific method name does not capture an unrelated `AcceptsOptions` method from an older contributor API. A panic in those startup methods drops only that contributor entry with a stderr warning. A panic in `Check` becomes an error finding for that rule, and the engine continues running the remaining contributor and built-in rules.
 
 The collision policy is "later wins is dangerous; prefer determinism." A contributor whose cached name collides with an existing rule is dropped with a stderr warning, not panicked-on. This is the same trade-off `@ttsc/lint` makes for the panic barrier: keep the build going whenever possible, surface the problem clearly.
 
@@ -540,7 +544,10 @@ ttsc-lint-plugin-demo/
 The JS descriptor:
 
 ```ts
-import type { ITtscLintPlugin } from "@ttsc/lint";
+import type {
+  ITtscLintPlugin,
+  TtscLintRuleSetting,
+} from "@ttsc/lint";
 import path from "node:path";
 
 const plugin = {
@@ -553,12 +560,16 @@ declare module "@ttsc/lint" {
   interface ITtscLintRuleOptionsMap {
     "demo/no-todo-comment": { markers?: readonly string[] };
   }
+
+  interface ITtscLintContributorRules {
+    "demo/capitalize-exports"?: TtscLintRuleSetting;
+  }
 }
 
 export default plugin;
 ```
 
-The `declare module` block is a **TypeScript declaration-merge** into `@ttsc/lint`'s public type surface. Users who write `["error", { markers: ["TODO"] }]` in their `lint.config.ts` get autocomplete and type-checking against your option shape, without `@ttsc/lint` knowing about your plugin at all.
+The `declare module` block is a **TypeScript declaration-merge** into `@ttsc/lint`'s public rule types. An option-bearing rule augments `ITtscLintRuleOptionsMap`; `ITtscLintRules` consumes its mapped overlay, so importing the plugin makes `["error", { markers: ["TODO"] }]` autocomplete and type-check against the exact shape. An optionless rule augments `ITtscLintContributorRules` directly with `TtscLintRuleSetting`, which rejects a second tuple slot. Contributor names with no imported augmentation keep the open `unknown`-options fallback for compatibility.
 
 The Go rule file:
 
@@ -575,6 +586,7 @@ type noTodoComment struct{}
 
 func (noTodoComment) Name() string           { return "demo/no-todo-comment" }
 func (noTodoComment) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
+func (noTodoComment) AcceptsTtscLintOptions() bool { return true }
 func (noTodoComment) Check(ctx *rule.Context, node *shimast.Node) {
   var opts struct {
     Markers []string `json:"markers"`
@@ -631,6 +643,8 @@ func init() { rule.RegisterProject(noCycles{}) }
 ```
 
 The host runs each project rule once per Program, before file rules, even when `ctx.Sources` is empty. `ctx.Identity` keeps the caller's logical config and root spelling separate from the real paths used by the compiler, and also carries the invocation cwd, optional explicit project root, plugin-config origin, and lifecycle id. `ctx.Report` records a project finding and fails the rule; `ctx.Fail` fails it silently. A later file rule reads the finalized state through `ctx.ProjectResult(name)`, whose status is one of `absent`, `off`, `not_evaluated`, `passed`, or `failed`.
+
+Project contributors follow the same options compatibility boundary as file contributors. They accept options by default, while a genuinely optionless implementation can add `AcceptsTtscLintOptions() bool { return false }` to reject accidental payloads.
 
 Configure a project rule in the same `rules` map, but only in entries without `files`:
 

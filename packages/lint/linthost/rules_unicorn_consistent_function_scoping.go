@@ -31,7 +31,7 @@ import (
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-type unicornConsistentFunctionScoping struct{}
+type unicornConsistentFunctionScoping struct{ optionsRule }
 
 type unicornConsistentFunctionScopingOptions struct {
   checkArrowFunctions bool

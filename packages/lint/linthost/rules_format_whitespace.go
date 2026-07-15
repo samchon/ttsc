@@ -34,7 +34,7 @@ import (
 // Idempotent: a file that already has no trailing whitespace, at most
 // one consecutive blank line, no leading/trailing blank lines, and a
 // single final EOL produces no edits.
-type formatWhitespace struct{}
+type formatWhitespace struct{ optionsRule }
 
 // formatWhitespaceOptions carries only the EOL setting; the rule needs
 // it to synthesize the file's final newline. Indentation is irrelevant

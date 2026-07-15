@@ -160,6 +160,8 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
+Rules with options use an ESLint-style tuple such as `["error", { allowElseIf: false }]`. A built-in rule whose typed setting is severity-only accepts no payload, even while it is `"off"`; the engine reports an invalid configuration instead of silently discarding the extra value.
+
 Rule IDs use ESLint-style kebab-case and slash namespaces, `no-var`, `react/jsx-key`, `testing-library/prefer-screen-queries`. The exported `ITtscLintRules` type is the intersection of family-specific interfaces such as `ITtscLintCoreRules`, `ITtscLintTypeScriptRules`, `ITtscLintReactRules`, and `ITtscLintVitestRules`, so users can type a whole config or a narrower family-shaped object.
 
 Each rule below links to its TypeScript fixture under [`tests/test-lint/src/cases/`](https://github.com/samchon/ttsc/tree/master/tests/test-lint/src/cases).
@@ -251,7 +253,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`no-dupe-keys`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-dupe-keys.ts): rejects duplicate object keys.
 - [`no-duplicate-case`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-duplicate-case.ts): rejects duplicate `switch` case labels.
 - [`no-duplicate-imports`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-duplicate-imports.ts): reject a repeated module specifier when the import declarations could be merged into one; `allowSeparateTypeImports` and `includeExports` match the ESLint options.
-- [`no-else-return`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-else-return.ts): reject an `else` block whose preceding `if` branch already terminates with `return`, `throw`, `break`, or `continue`.
+- [`no-else-return`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-else-return.ts): reject an `else` block whose preceding `if` branch returns on every path.
 - [`no-empty`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty.ts): rejects uncommented empty blocks and switches; `allowEmptyCatch` accepts empty catches.
 - [`no-empty-character-class`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-character-class.ts): rejects empty regex character classes.
 - [`no-empty-function`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/no-empty-function.ts): rejects uncommented empty functions unless their category is allowed.
@@ -1143,6 +1145,20 @@ export default {
 Contributor rules emit autofixes the same way built-ins do, call `ctx.ReportFix(node, message, edits...)` or `ctx.ReportRangeFix(pos, end, message, edits...)`. The `rule/astutil` package re-exports the byte-range helpers built-ins use (`NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`). See the [contributor autofix path](https://ttsc.dev/docs/development/walkthroughs/lint#the-contributor-autofix-path) section for the full contract and an example.
 
 Contributor rules run on declaration files (`.d.ts`) by default. The engine skips its own value-level rules there — executable grammar cannot appear in a declaration file — but it cannot infer a third-party rule's shape, so contributors keep the conservative default. A rule that only inspects executable code can implement the optional `rule.DeclarationFileRule` marker (`VisitsDeclarationFiles() bool { return false }`) to get the same skip and save the dispatch on declaration-heavy projects.
+
+Contributor rules also keep accepting options by default because `rule.Context.Options` predates the options-capability contract. A contributor that is genuinely optionless can implement `rule.OptionsRule` with `AcceptsTtscLintOptions() bool { return false }`; the host then rejects any payload before calling the rule. The domain-specific method name avoids capturing an unrelated `AcceptsOptions` method on an existing contributor. The same marker applies to `rule.ProjectRule` implementations.
+
+A typed contributor package should publish the same optionless contract by augmenting `ITtscLintContributorRules` directly with `TtscLintRuleSetting`. Without this augmentation, the open contributor fallback keeps accepting an unknown payload for packages whose typings were not imported.
+
+```ts
+import type { TtscLintRuleSetting } from "@ttsc/lint";
+
+declare module "@ttsc/lint" {
+  interface ITtscLintContributorRules {
+    "demo/capitalize-exports"?: TtscLintRuleSetting;
+  }
+}
+```
 
 ### Project-scoped contributor rules
 

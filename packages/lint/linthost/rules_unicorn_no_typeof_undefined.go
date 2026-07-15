@@ -40,7 +40,7 @@ import (
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-type unicornNoTypeofUndefined struct{}
+type unicornNoTypeofUndefined struct{ optionsRule }
 
 // unicornNoTypeofUndefinedOptions is the decoded option payload. Upstream's
 // only option is `checkGlobalVariables`, defaulting to false.

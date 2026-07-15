@@ -39,7 +39,7 @@ var (
   unicornIsolatedFunctionsCommentMarginPattern = regexp.MustCompile(`^(?:\*\s*)*`)
 )
 
-type unicornIsolatedFunctions struct{}
+type unicornIsolatedFunctions struct{ optionsRule }
 
 type unicornIsolatedFunctionsRawOptions struct {
   Functions       json.RawMessage `json:"functions"`

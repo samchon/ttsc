@@ -620,7 +620,7 @@ func isThenableType(checker *shimchecker.Checker, t *shimchecker.Type) bool {
 // statement: sequence expressions hide earlier values, logical and conditional
 // branches hide Promise-producing alternatives, and arrays retain every
 // Promise element even though the container itself is not awaitable.
-type noFloatingPromises struct{}
+type noFloatingPromises struct{ optionsRule }
 
 type noFloatingPromisesOptions struct {
   AllowForKnownSafeCalls    []promiseTypeOrValueSpecifier `json:"allowForKnownSafeCalls"`

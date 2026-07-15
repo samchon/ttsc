@@ -26,7 +26,7 @@ import (
 // or the `=>`, so a chained arrow `a => b => …` has each eligible arm
 // normalized independently. Idempotent: a parameter already in the
 // preferred shape compares equal and emits nothing.
-type formatArrowParens struct{}
+type formatArrowParens struct{ optionsRule }
 
 type formatArrowParensOptions struct {
   Prefer string `json:"prefer"`

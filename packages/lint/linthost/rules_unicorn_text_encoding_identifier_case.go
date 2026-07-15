@@ -31,7 +31,7 @@ import (
 
 const unicornTextEncodingIdentifierCaseRuleName = "unicorn/text-encoding-identifier-case"
 
-type unicornTextEncodingIdentifierCase struct{}
+type unicornTextEncodingIdentifierCase struct{ optionsRule }
 
 // unicornTextEncodingIdentifierCaseOptions decodes the single `{withDash}`
 // option slot. `withDash: true` prefers the dashed WHATWG spelling (`utf-8`)

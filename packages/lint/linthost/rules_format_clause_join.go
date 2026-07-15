@@ -23,7 +23,7 @@ import (
 // `format/indent` (leading whitespace of a line) or `format/print-width`
 // (interior reflow). Idempotent: once joined the gap holds no newline
 // and the rule abstains.
-type formatClauseJoin struct{}
+type formatClauseJoin struct{ optionsRule }
 
 // formatClauseJoinOptions mirrors the printWidth/indent keys the rule
 // needs to decide whether the joined line fits. The config layer mirrors

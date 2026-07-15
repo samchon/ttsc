@@ -6,26 +6,26 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-type functionalParameters struct{}
-type functionalImmutableData struct{}
-type functionalNoClassInheritance struct{}
-type functionalNoClasses struct{}
-type functionalNoConditionalStatements struct{}
-type functionalNoExpressionStatements struct{}
-type functionalNoLet struct{}
-type functionalNoLoopStatements struct{}
-type functionalNoMixedTypes struct{}
-type functionalNoPromiseReject struct{}
-type functionalNoReturnVoid struct{}
-type functionalNoThisExpressions struct{}
-type functionalNoThrowStatements struct{}
-type functionalNoTryStatements struct{}
-type functionalPreferImmutableTypes struct{}
-type functionalPreferPropertySignatures struct{}
-type functionalPreferReadonlyType struct{}
-type functionalPreferTacit struct{}
-type functionalReadonlyType struct{}
-type functionalTypeDeclarationImmutability struct{}
+type functionalParameters struct{ optionsRule }
+type functionalImmutableData struct{ optionsRule }
+type functionalNoClassInheritance struct{ optionsRule }
+type functionalNoClasses struct{ optionsRule }
+type functionalNoConditionalStatements struct{ optionsRule }
+type functionalNoExpressionStatements struct{ optionsRule }
+type functionalNoLet struct{ optionsRule }
+type functionalNoLoopStatements struct{ optionsRule }
+type functionalNoMixedTypes struct{ optionsRule }
+type functionalNoPromiseReject struct{ optionsRule }
+type functionalNoReturnVoid struct{ optionsRule }
+type functionalNoThisExpressions struct{ optionsRule }
+type functionalNoThrowStatements struct{ optionsRule }
+type functionalNoTryStatements struct{ optionsRule }
+type functionalPreferImmutableTypes struct{ optionsRule }
+type functionalPreferPropertySignatures struct{ optionsRule }
+type functionalPreferReadonlyType struct{ optionsRule }
+type functionalPreferTacit struct{ optionsRule }
+type functionalReadonlyType struct{ optionsRule }
+type functionalTypeDeclarationImmutability struct{ optionsRule }
 
 func (functionalParameters) Name() string              { return "functional/functional-parameters" }
 func (functionalImmutableData) Name() string           { return "functional/immutable-data" }

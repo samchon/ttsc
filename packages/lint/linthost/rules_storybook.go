@@ -215,7 +215,7 @@ func (storybookNoTitlePropertyInMeta) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
-type storybookNoUninstalledAddons struct{}
+type storybookNoUninstalledAddons struct{ optionsRule }
 
 type storybookNoUninstalledAddonsOptions struct {
   PackageJSONLocation string   `json:"packageJsonLocation"`

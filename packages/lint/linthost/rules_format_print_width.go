@@ -49,7 +49,7 @@ import (
 // configured severities. Reuses the `error` severity caveat from
 // other format rules: only set `error` once the full reflow coverage
 // is mature.
-type formatPrintWidth struct{}
+type formatPrintWidth struct{ optionsRule }
 
 // formatPrintWidthOptions mirrors `TtscLintRuleOptions.PrintWidth`.
 //

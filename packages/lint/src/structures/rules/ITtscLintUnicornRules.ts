@@ -8,10 +8,13 @@ import type {
   ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornIsolatedFunctionsRuleOptions,
+  ITtscLintUnicornNoTypeofUndefinedRuleOptions,
   ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions,
+  ITtscLintUnicornPreferNumberPropertiesRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornStringContentRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
+  ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions,
 } from "./ITtscLintUnicornRuleOptions";
 
 /**
@@ -460,7 +463,7 @@ export interface ITtscLintUnicornRules {
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-typeof-undefined.md
    */
-  "unicorn/no-typeof-undefined"?: TtscLintRuleSetting;
+  "unicorn/no-typeof-undefined"?: TtscLintRuleOptionsSetting<ITtscLintUnicornNoTypeofUndefinedRuleOptions>;
 
   /**
    * Reject `1` as the explicit depth argument of `Array#flat`; the default is
@@ -885,7 +888,7 @@ export interface ITtscLintUnicornRules {
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-number-properties.md
    */
-  "unicorn/prefer-number-properties"?: TtscLintRuleSetting;
+  "unicorn/prefer-number-properties"?: TtscLintRuleOptionsSetting<ITtscLintUnicornPreferNumberPropertiesRuleOptions>;
 
   /**
    * Prefer `Object.fromEntries` over `reduce`-into-object patterns.
@@ -1147,12 +1150,13 @@ export interface ITtscLintUnicornRules {
   "unicorn/template-indent"?: TtscLintRuleOptionsSetting<ITtscLintUnicornTemplateIndentRuleOptions>;
 
   /**
-   * Enforce a canonical case for text-encoding identifiers — `"utf-8"` (not
-   * `"UTF-8"` / `"utf8"`).
+   * Enforce canonical text-encoding identifiers: dash-less `"utf8"` by default,
+   * dashed `"utf-8"` for APIs that require it or when `withDash` is enabled,
+   * and lowercase `"ascii"`.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/text-encoding-identifier-case.md
    */
-  "unicorn/text-encoding-identifier-case"?: TtscLintRuleSetting;
+  "unicorn/text-encoding-identifier-case"?: TtscLintRuleOptionsSetting<ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions>;
 
   /**
    * Require `throw new Error(...)` over `throw Error(...)`.

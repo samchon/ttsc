@@ -18,6 +18,7 @@ type bootstrapFileRuleCounts struct {
   visits                atomic.Int32
   isFormat              atomic.Int32
   visitsDeclarationFile atomic.Int32
+  acceptsOptions        atomic.Int32
 }
 
 type bootstrapCountingFileRule struct {
@@ -34,6 +35,10 @@ func (r *bootstrapCountingFileRule) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
 func (*bootstrapCountingFileRule) Check(*publicrule.Context, *shimast.Node) {}
+func (r *bootstrapCountingFileRule) AcceptsTtscLintOptions() bool {
+  r.counts.acceptsOptions.Add(1)
+  return true
+}
 
 type bootstrapPanickingFileRule struct {
   method string
@@ -69,9 +74,17 @@ func (r *bootstrapPanickingFileRule) VisitsDeclarationFiles() bool {
   }
   return true
 }
+func (r *bootstrapPanickingFileRule) AcceptsTtscLintOptions() bool {
+  r.counts.acceptsOptions.Add(1)
+  if r.method == "AcceptsTtscLintOptions" {
+    panic("bootstrap AcceptsTtscLintOptions boom")
+  }
+  return true
+}
 
 type bootstrapProjectRuleCounts struct {
-  name atomic.Int32
+  name           atomic.Int32
+  acceptsOptions atomic.Int32
 }
 
 type bootstrapCountingProjectRule struct {
@@ -84,16 +97,31 @@ func (r *bootstrapCountingProjectRule) Name() string {
   return r.name
 }
 func (*bootstrapCountingProjectRule) Check(*publicrule.ProjectContext) {}
+func (r *bootstrapCountingProjectRule) AcceptsTtscLintOptions() bool {
+  r.counts.acceptsOptions.Add(1)
+  return true
+}
 
 type bootstrapPanickingProjectRule struct {
+  method string
   counts bootstrapProjectRuleCounts
 }
 
 func (r *bootstrapPanickingProjectRule) Name() string {
   r.counts.name.Add(1)
-  panic("bootstrap project Name boom")
+  if r.method == "Name" {
+    panic("bootstrap project Name boom")
+  }
+  return "test/bootstrap-project-metadata-panic-" + strings.ToLower(r.method)
 }
 func (*bootstrapPanickingProjectRule) Check(*publicrule.ProjectContext) {}
+func (r *bootstrapPanickingProjectRule) AcceptsTtscLintOptions() bool {
+  r.counts.acceptsOptions.Add(1)
+  if r.method == "AcceptsTtscLintOptions" {
+    panic("bootstrap project AcceptsTtscLintOptions boom")
+  }
+  return true
+}
 
 var bootstrapFileRules = []*bootstrapCountingFileRule{
   {name: "test/bootstrap-file-file"},
@@ -106,6 +134,7 @@ var bootstrapPanickingFileRules = []*bootstrapPanickingFileRule{
   {method: "Visits"},
   {method: "IsFormat"},
   {method: "VisitsDeclarationFiles"},
+  {method: "AcceptsTtscLintOptions"},
 }
 
 var bootstrapProjectRules = []*bootstrapCountingProjectRule{
@@ -114,7 +143,10 @@ var bootstrapProjectRules = []*bootstrapCountingProjectRule{
   {name: "test/bootstrap-file-project"},
 }
 
-var bootstrapPanickingProjectRuleInstance = &bootstrapPanickingProjectRule{}
+var bootstrapPanickingProjectRules = []*bootstrapPanickingProjectRule{
+  {method: "Name"},
+  {method: "AcceptsTtscLintOptions"},
+}
 
 func init() {
   for _, fileRule := range bootstrapFileRules {
@@ -126,7 +158,9 @@ func init() {
   for _, projectRule := range bootstrapProjectRules {
     publicrule.RegisterProject(projectRule)
   }
-  publicrule.RegisterProject(bootstrapPanickingProjectRuleInstance)
+  for _, projectRule := range bootstrapPanickingProjectRules {
+    publicrule.RegisterProject(projectRule)
+  }
 }
 
 // TestMain exercises the only fresh-process bootstrap before ordinary tests
@@ -179,8 +213,10 @@ func verifyInitialContributorBootstrap() error {
     "metadata panicked: bootstrap Visits boom; dropping contributor entry",
     "metadata panicked: bootstrap IsFormat boom; dropping contributor entry",
     "metadata panicked: bootstrap VisitsDeclarationFiles boom; dropping contributor entry",
+    "metadata panicked: bootstrap AcceptsTtscLintOptions boom; dropping contributor entry",
     `contributor rule "test/bootstrap-file-file" collides with an existing rule; dropping contributor entry`,
     "metadata panicked: bootstrap project Name boom; dropping project contributor entry",
+    "metadata panicked: bootstrap project AcceptsTtscLintOptions boom; dropping project contributor entry",
     `contributor project rule "test/bootstrap-file-project" collides with a file rule; dropping project contributor entry`,
     `contributor project rule "test/bootstrap-project-project" collides with an existing project rule; dropping contributor entry`,
   }
@@ -215,8 +251,8 @@ func verifyInitialContributorBootstrap() error {
 
 func verifyContributorMetadataCounts() error {
   for index, fileRule := range bootstrapFileRules {
-    if names, visits := fileRule.counts.name.Load(), fileRule.counts.visits.Load(); names != 1 || visits != 1 {
-      return fmt.Errorf("file contributor %d metadata calls: Name=%d Visits=%d, want 1 each", index, names, visits)
+    if names, visits, options := fileRule.counts.name.Load(), fileRule.counts.visits.Load(), fileRule.counts.acceptsOptions.Load(); names != 1 || visits != 1 || options != 1 {
+      return fmt.Errorf("file contributor %d metadata calls: Name=%d Visits=%d AcceptsTtscLintOptions=%d, want 1 each", index, names, visits, options)
     }
   }
   expectedPanics := []struct {
@@ -224,11 +260,13 @@ func verifyContributorMetadataCounts() error {
     visits                int32
     isFormat              int32
     visitsDeclarationFile int32
+    acceptsOptions        int32
   }{
     {name: 1},
     {name: 1, visits: 1},
     {name: 1, visits: 1, isFormat: 1},
     {name: 1, visits: 1, isFormat: 1, visitsDeclarationFile: 1},
+    {name: 1, visits: 1, isFormat: 1, visitsDeclarationFile: 1, acceptsOptions: 1},
   }
   for index, fileRule := range bootstrapPanickingFileRules {
     expected := expectedPanics[index]
@@ -236,28 +274,49 @@ func verifyContributorMetadataCounts() error {
     if actual.name.Load() != expected.name ||
       actual.visits.Load() != expected.visits ||
       actual.isFormat.Load() != expected.isFormat ||
-      actual.visitsDeclarationFile.Load() != expected.visitsDeclarationFile {
+      actual.visitsDeclarationFile.Load() != expected.visitsDeclarationFile ||
+      actual.acceptsOptions.Load() != expected.acceptsOptions {
       return fmt.Errorf(
-        "panicking file contributor %d metadata calls = (%d,%d,%d,%d), want (%d,%d,%d,%d)",
+        "panicking file contributor %d metadata calls = (%d,%d,%d,%d,%d), want (%d,%d,%d,%d,%d)",
         index,
         actual.name.Load(),
         actual.visits.Load(),
         actual.isFormat.Load(),
         actual.visitsDeclarationFile.Load(),
+        actual.acceptsOptions.Load(),
         expected.name,
         expected.visits,
         expected.isFormat,
         expected.visitsDeclarationFile,
+        expected.acceptsOptions,
       )
     }
   }
   for index, projectRule := range bootstrapProjectRules {
-    if names := projectRule.counts.name.Load(); names != 1 {
-      return fmt.Errorf("project contributor %d Name calls = %d, want 1", index, names)
+    if names, options := projectRule.counts.name.Load(), projectRule.counts.acceptsOptions.Load(); names != 1 || options != 1 {
+      return fmt.Errorf("project contributor %d metadata calls: Name=%d AcceptsTtscLintOptions=%d, want 1 each", index, names, options)
     }
   }
-  if names := bootstrapPanickingProjectRuleInstance.counts.name.Load(); names != 1 {
-    return fmt.Errorf("panicking project contributor Name calls = %d, want 1", names)
+  expectedProjectPanics := []struct {
+    name           int32
+    acceptsOptions int32
+  }{
+    {name: 1},
+    {name: 1, acceptsOptions: 1},
+  }
+  for index, projectRule := range bootstrapPanickingProjectRules {
+    expected := expectedProjectPanics[index]
+    if projectRule.counts.name.Load() != expected.name ||
+      projectRule.counts.acceptsOptions.Load() != expected.acceptsOptions {
+      return fmt.Errorf(
+        "panicking project contributor %d metadata calls = (%d,%d), want (%d,%d)",
+        index,
+        projectRule.counts.name.Load(),
+        projectRule.counts.acceptsOptions.Load(),
+        expected.name,
+        expected.acceptsOptions,
+      )
+    }
   }
   return nil
 }

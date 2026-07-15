@@ -11,8 +11,9 @@ import (
 // projectRuleAdapter caches contributor metadata and keeps project checks on a
 // separate lifecycle from node rules.
 type projectRuleAdapter struct {
-  inner publicrule.ProjectRule
-  name  string
+  inner          publicrule.ProjectRule
+  name           string
+  acceptsOptions bool
 }
 
 var registeredProjectRules = map[string]projectRuleAdapter{}
@@ -56,7 +57,15 @@ func inspectProjectContributor(project publicrule.ProjectRule) (adapter projectR
   if project == nil {
     return projectRuleAdapter{}, fmt.Errorf("nil contributor project rule")
   }
-  return projectRuleAdapter{inner: project, name: project.Name()}, nil
+  adapter = projectRuleAdapter{
+    inner:          project,
+    name:           project.Name(),
+    acceptsOptions: true,
+  }
+  if optionsRule, ok := project.(publicrule.OptionsRule); ok {
+    adapter.acceptsOptions = optionsRule.AcceptsTtscLintOptions()
+  }
+  return adapter, nil
 }
 
 func allProjectRuleNames() []string {

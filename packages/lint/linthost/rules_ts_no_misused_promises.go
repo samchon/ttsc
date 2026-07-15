@@ -12,7 +12,7 @@ import (
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
-type noMisusedPromises struct{}
+type noMisusedPromises struct{ optionsRule }
 
 type noMisusedPromisesRawOptions struct {
   ChecksConditionals *bool           `json:"checksConditionals"`

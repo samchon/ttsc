@@ -46,7 +46,7 @@ import (
 // breaking heritage clause at once), a header carrying comments, or a
 // type/parameter that is itself multi-line makes the rule ABSTAIN, so it
 // never emits a header it cannot reproduce exactly.
-type formatDeclarationHeader struct{}
+type formatDeclarationHeader struct{ optionsRule }
 
 type formatDeclarationHeaderOptions struct {
   PrintWidth *int    `json:"printWidth"`

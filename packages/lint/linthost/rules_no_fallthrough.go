@@ -71,7 +71,7 @@ type noFallthroughOptions struct {
   ReportUnusedFallthroughComment bool `json:"reportUnusedFallthroughComment"`
 }
 
-type noFallthrough struct{}
+type noFallthrough struct{ optionsRule }
 
 func (noFallthrough) Name() string           { return "no-fallthrough" }
 func (noFallthrough) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSwitchStatement} }

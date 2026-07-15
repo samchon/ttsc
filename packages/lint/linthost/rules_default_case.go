@@ -45,7 +45,7 @@ type defaultCaseOptions struct {
   CommentPattern string `json:"commentPattern"`
 }
 
-type defaultCase struct{}
+type defaultCase struct{ optionsRule }
 
 func (defaultCase) Name() string           { return "default-case" }
 func (defaultCase) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSwitchStatement} }

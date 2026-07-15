@@ -710,7 +710,7 @@ func regexHasMultipleSpaces(src string) bool {
 }
 
 // noReturnAssign: `return a = b` mixes assignment with return.
-type noReturnAssign struct{}
+type noReturnAssign struct{ optionsRule }
 
 func (noReturnAssign) Name() string { return "no-return-assign" }
 func (noReturnAssign) Visits() []shimast.Kind {
@@ -972,7 +972,7 @@ func needsParensForUnaryNegation(node *shimast.Node) bool {
 // position rather than by recognized text, and the upstream option set
 // (`allowShortCircuit`, `allowTernary`, `allowTaggedTemplates`,
 // `enforceForJSX`, `ignoreDirectives`) decoded from the rule's options blob.
-type noUnusedExpressions struct{}
+type noUnusedExpressions struct{ optionsRule }
 
 // noUnusedExpressionsOptions mirrors the upstream ESLint option object;
 // every flag defaults to false, matching the rule's `defaultOptions`.

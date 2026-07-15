@@ -20,7 +20,7 @@ import (
 // the first) with no escapes. A key with escapes, unicode, a leading digit
 // (numeric-looking), or any non-identifier byte is left quoted in every
 // mode, so the rule can never produce an invalid key. Idempotent.
-type formatQuoteProps struct{}
+type formatQuoteProps struct{ optionsRule }
 
 type formatQuotePropsOptions struct {
   Mode string `json:"mode"`

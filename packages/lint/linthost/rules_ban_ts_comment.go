@@ -209,7 +209,7 @@ func normalizeTsDirectiveConfig(raw json.RawMessage, def tsDirectivePolicy) tsDi
 }
 
 // banTsComment implements typescript/ban-ts-comment.
-type banTsComment struct{}
+type banTsComment struct{ optionsRule }
 
 func (banTsComment) Name() string           { return "typescript/ban-ts-comment" }
 func (banTsComment) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }

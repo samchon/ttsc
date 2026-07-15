@@ -21,7 +21,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-type noRestrictedSyntax struct{}
+type noRestrictedSyntax struct{ optionsRule }
 
 type noRestrictedSyntaxOption struct {
   selector   string

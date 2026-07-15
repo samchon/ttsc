@@ -31,7 +31,7 @@ import (
 //
 // Idempotent: a correctly-indented statement compares equal in step 3
 // and emits nothing.
-type formatIndent struct{}
+type formatIndent struct{ optionsRule }
 
 func (formatIndent) Name() string   { return "format/indent" }
 func (formatIndent) IsFormat() bool { return true }

@@ -18,7 +18,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-type noRestrictedTypes struct{}
+type noRestrictedTypes struct{ optionsRule }
 
 type noRestrictedTypeConfig struct {
   enabled     bool

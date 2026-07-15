@@ -41,6 +41,8 @@ func (noMarkerComment) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
 
+func (noMarkerComment) AcceptsTtscLintOptions() bool { return true }
+
 func (noMarkerComment) Check(ctx *rule.Context, _ *shimast.Node) {
   if ctx == nil || ctx.File == nil {
     return
