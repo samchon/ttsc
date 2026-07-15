@@ -64,15 +64,13 @@ export function createSandboxRequire(
       return null;
     }
     if (subpath === null) {
-      // bare "name": honor exports["."] → string, else main, else index.
-      const exportsAny = pj.exports;
-      if (typeof exportsAny === "object" && exportsAny !== null) {
-        const root = (exportsAny as Record<string, unknown>)["."];
-        const r = pickConditionalExport(root);
-        if (r) {
-          const resolved = `${pkg}/${stripDotSlash(r)}`;
-          return has(resolved) ? resolved : null;
-        }
+      // bare "name": honor the root `exports` entry (string, subpath table
+      // "." key, or bare condition map) → CJS target, else main, else index.
+      const root = rootExportTarget(pj.exports);
+      const r = pickConditionalExport(root);
+      if (r) {
+        const resolved = `${pkg}/${stripDotSlash(r)}`;
+        return has(resolved) ? resolved : null;
       }
       if (typeof pj.main === "string") {
         return tryPaths(
@@ -218,6 +216,31 @@ export function createSandboxRequire(
     }
     return evaluate(resolved).exports;
   };
+}
+
+/**
+ * Reduce a `package.json` `exports` field to the value describing its ROOT
+ * (".") entry, ready for {@link pickConditionalExport}. Node accepts three valid
+ * root shapes and they must all resolve consistently:
+ *
+ * - A bare string target — `"exports": "./index.cjs"`;
+ * - A subpath table keyed by "." — `{ ".": <target>, "./sub": ... }`;
+ * - A bare condition map whose keys are all conditions, not subpaths — `{
+ *   "require": "./index.cjs", "default": "./index.cjs" }`.
+ *
+ * Node forbids mixing subpath keys with condition keys, so the presence of any
+ * "."-prefixed key decides the interpretation: a subpath table exposes its root
+ * as `exports["."]`, while a condition map is itself the root target. Returns
+ * null when `exports` is absent, empty, or describes no root entry.
+ */
+function rootExportTarget(exports: unknown): unknown {
+  if (typeof exports === "string") return exports;
+  if (!exports || typeof exports !== "object") return null;
+  const obj = exports as Record<string, unknown>;
+  const keys = Object.keys(obj);
+  if (keys.length === 0) return null;
+  const hasSubpathKey = keys.some((k) => k === "." || k.startsWith("./"));
+  return hasSubpathKey ? obj["."] : obj;
 }
 
 function pickConditionalExport(value: unknown): string | null {

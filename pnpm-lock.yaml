@@ -509,6 +509,24 @@ importers:
         specifier: catalog:typescript
         version: 7.0.2
 
+  tests/test-playground:
+    devDependencies:
+      '@ttsc/playground':
+        specifier: workspace:*
+        version: link:../../packages/playground
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@ttsc/wasm':
+        specifier: workspace:*
+        version: link:../../packages/wasm
+      '@types/node':
+        specifier: catalog:utils
+        version: 25.9.1
+      typescript:
+        specifier: catalog:typescript
+        version: 7.0.2
+
   tests/test-strip:
     devDependencies:
       '@ttsc/strip':

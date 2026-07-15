@@ -51,6 +51,16 @@ jobs:
               run: "pnpm run check:flags && node --test packages/ttsc/scripts/check-flags.test.cjs && pnpm run test:typecheck",
             }
           - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
+          # test-playground exercises the @ttsc/playground worker plugin-failure
+          # boundary, npm dependency discovery, and Execute sandbox against the
+          # built playground lib with fakes — no browser and no real WASM boot.
+          # It needs only the wasm TS types (build:ts, no Go→WASM binary) and the
+          # playground build, so it skips the full build:current graph/native cost.
+          - {
+              name: playground,
+              build: "pnpm --filter @ttsc/wasm build:ts && pnpm --filter @ttsc/playground build",
+              run: "pnpm --filter @ttsc/test-playground start",
+            }
           - { name: factory, run: "pnpm --filter @ttsc/test-factory start" }
           - { name: paths, run: "pnpm --filter @ttsc/test-paths start" }
           - { name: strip, run: "pnpm --filter @ttsc/test-strip start" }
