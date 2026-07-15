@@ -27,6 +27,8 @@ function errnoForCode(code: string): number {
       return -2;
     case "EBADF":
       return -9;
+    case "EBUSY":
+      return -16;
     case "EEXIST":
       return -17;
     case "ENOTDIR":
@@ -37,6 +39,8 @@ function errnoForCode(code: string): number {
       return -22;
     case "ESPIPE":
       return -29;
+    case "ENOTEMPTY":
+      return -39;
     default:
       return -1;
   }

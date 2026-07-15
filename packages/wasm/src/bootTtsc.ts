@@ -109,56 +109,124 @@ async function bootTtscOnce(
 
   const host = options.host ?? createMemFS();
   const globalAny = globalThis as Record<string, unknown>;
-  // Only install fs / process if they aren't already in place. A caller
-  // booting a second wasm over the same MemFS reuses the same shims.
-  if (!globalAny.fs) globalAny.fs = host.fs;
-  if (!globalAny.process) globalAny.process = createProcessShim();
-
-  // wasm_exec.js installs `globalThis.Go`. It also reads globalThis.fs at
-  // module-eval time, so this import must follow the assignment above.
-  importScripts(wasmExecUrl);
-
-  // Race the Ready resolver against a Failed signal so a wasm-side fault
-  // (e.g. `host.Expose` refusing a duplicate call) surfaces here instead of
-  // hanging on `await ready` forever. `go.run` is fire-and-forget so its
-  // own rejection cannot reach this promise without an explicit channel.
-  const ready = new Promise<void>((resolve, reject) => {
-    globalAny[apiName + "Ready"] = () => {
-      delete globalAny[apiName + "Failed"];
-      resolve();
-    };
-    globalAny[apiName + "Failed"] = (err: unknown) => {
-      delete globalAny[apiName + "Ready"];
-      reject(err instanceof Error ? err : new Error(String(err)));
-    };
-  });
-
-  const goCtor = (globalAny as { Go?: new () => IGoInstance }).Go;
-  if (typeof goCtor !== "function") {
-    throw new Error(
-      `bootTtsc: globalThis.Go was not installed by ${wasmExecUrl} — the file may not have loaded (CSP block, wrong content type, 404), or it is not the wasm_exec.js shipped with the Go toolchain.`,
-    );
+  // Install fs / process only if they aren't already in place, and remember
+  // whether THIS attempt installed them. The Go runtime this boot starts reads
+  // `globalThis.fs` when it runs, so the returned `host` must be the exact host
+  // backing those globals. A caller booting a second wasm over the same MemFS
+  // (or reusing one host across retries) reuses the same shims. When an earlier
+  // failed attempt already installed a different host's shims, those are torn
+  // down on failure below so this attempt can install its own.
+  const installedFs = !globalAny.fs;
+  const installedProcess = !globalAny.process;
+  let processShim: unknown;
+  if (installedFs) globalAny.fs = host.fs;
+  if (installedProcess) {
+    processShim = createProcessShim();
+    globalAny.process = processShim;
   }
-  const go = new goCtor();
 
-  const response = await fetch(wasmUrl);
-  if (!response.ok) {
-    throw new Error(`bootTtsc: failed to fetch ${wasmUrl}: ${response.status}`);
-  }
-  const wasm = await WebAssembly.instantiateStreaming(
-    response,
-    go.importObject,
-  );
-  // go.run never resolves until the wasm exits; we don't await it.
-  void go.run(wasm.instance);
-  await ready;
+  // Any failure after global installation must leave the globals as this
+  // attempt found them, so a retry installs its own host's fs (and the returned
+  // host keeps matching the runtime's filesystem). Only remove what we
+  // installed and only while it is still ours — never stomp a foreign fs or one
+  // a concurrently-booted runtime already claimed.
+  const restoreGlobals = (): void => {
+    if (installedFs && globalAny.fs === host.fs) delete globalAny.fs;
+    if (installedProcess && globalAny.process === processShim)
+      delete globalAny.process;
+  };
 
-  const api = (globalAny as Record<string, ITtscApi | undefined>)[apiName];
-  if (!api)
-    throw new Error(
-      `bootTtsc: ${apiName} global was not set — was the wasm built with host.Expose(${JSON.stringify(apiName)}, ...)?`,
+  try {
+    // wasm_exec.js installs `globalThis.Go`. It also reads globalThis.fs at
+    // module-eval time, so this import must follow the assignment above.
+    importScripts(wasmExecUrl);
+
+    // Race the Ready resolver against a Failed signal so a wasm-side fault
+    // (e.g. `host.Expose` refusing a duplicate call) surfaces here instead of
+    // hanging on `await ready` forever.
+    let readyCb!: () => void;
+    let failedCb!: (err: unknown) => void;
+    const ready = new Promise<void>((resolve, reject) => {
+      readyCb = () => {
+        delete globalAny[apiName + "Failed"];
+        resolve();
+      };
+      failedCb = (err: unknown) => {
+        delete globalAny[apiName + "Ready"];
+        reject(err instanceof Error ? err : new Error(String(err)));
+      };
+      globalAny[apiName + "Ready"] = readyCb;
+      globalAny[apiName + "Failed"] = failedCb;
+    });
+
+    const goCtor = (globalAny as { Go?: new () => IGoInstance }).Go;
+    if (typeof goCtor !== "function") {
+      throw new Error(
+        `bootTtsc: globalThis.Go was not installed by ${wasmExecUrl} — the file may not have loaded (CSP block, wrong content type, 404), or it is not the wasm_exec.js shipped with the Go toolchain.`,
+      );
+    }
+    const go = new goCtor();
+
+    const response = await fetch(wasmUrl);
+    if (!response.ok) {
+      throw new Error(
+        `bootTtsc: failed to fetch ${wasmUrl}: ${response.status}`,
+      );
+    }
+    const wasm = await WebAssembly.instantiateStreaming(
+      response,
+      go.importObject,
     );
-  return { api, host };
+
+    // A normal host keeps `go.run` pending forever after signaling Ready, so a
+    // settlement (fulfil OR reject) BEFORE Ready means the Go runtime exited or
+    // panicked before it could register — e.g. an early `host.Expose` panic
+    // that never reached the Failed bridge. Race that early exit against
+    // readiness so the boot rejects with an actionable cause instead of hanging.
+    // The standard Go runner discards the exit code, so an unknown early exit
+    // can only synthesize a generic message; known host validation failures
+    // reject through Failed above and keep their original cause.
+    const runPromise = Promise.resolve(go.run(wasm.instance));
+    const earlyExit = runPromise.then(
+      () => {
+        throw new Error(
+          `bootTtsc: the ${apiName} wasm runtime exited before signaling readiness (the host may have panicked; check the wasm stderr).`,
+        );
+      },
+      (err: unknown) => {
+        throw new Error(
+          `bootTtsc: the ${apiName} wasm runtime failed before signaling readiness: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      },
+    );
+    // When Ready wins, the long-running runtime's eventual `go.run` settlement
+    // must not surface as an unhandled rejection. Attach a terminal handler to
+    // the losing branch.
+    earlyExit.catch(() => {});
+
+    try {
+      await Promise.race([ready, earlyExit]);
+    } finally {
+      // Drop this attempt's readiness bridge so a later boot for the same
+      // apiName installs a clean pair and no stale resolver survives.
+      if (globalAny[apiName + "Ready"] === readyCb)
+        delete globalAny[apiName + "Ready"];
+      if (globalAny[apiName + "Failed"] === failedCb)
+        delete globalAny[apiName + "Failed"];
+    }
+
+    const api = (globalAny as Record<string, ITtscApi | undefined>)[apiName];
+    if (!api)
+      throw new Error(
+        `bootTtsc: ${apiName} global was not set — was the wasm built with host.Expose(${JSON.stringify(apiName)}, ...)?`,
+      );
+    return { api, host };
+  } catch (err) {
+    restoreGlobals();
+    throw err;
+  }
 }
 
 /**

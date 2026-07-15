@@ -160,6 +160,59 @@ export function createMemFS(): IMemFSHost {
     }
   }
 
+  /** Absolute parent directory of a normalized path (`/` for a top-level path). */
+  function parentDir(norm: string): string {
+    const idx = norm.lastIndexOf("/");
+    return idx <= 0 ? "/" : norm.slice(0, idx);
+  }
+
+  /** True when `dir` has at least one descendant node in the tree. */
+  function hasChildren(dir: string): boolean {
+    const prefix = dir === "/" ? "/" : dir + "/";
+    for (const key of nodes.keys()) {
+      if (key !== dir && key.startsWith(prefix)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Grow or shrink a file's byte buffer to exactly `length`, zero-filling any
+   * extension. Callers validate `length >= 0` first.
+   */
+  function resizeFileData(data: Uint8Array, length: number): Uint8Array {
+    const next = new Uint8Array(length);
+    next.set(data.subarray(0, Math.min(length, data.byteLength)));
+    return next;
+  }
+
+  /**
+   * Move the entire subtree rooted at `src` to `dest`, overwriting any existing
+   * `dest` node. Every descendant key is re-parented so no old-prefix node is
+   * left orphaned, and open descriptors that referenced a moved path follow to
+   * the new location (a rename must not strand an fd's inode).
+   */
+  function moveSubtree(src: string, dest: string): void {
+    const srcPrefix = src + "/";
+    const moves: Array<[string, INode]> = [];
+    for (const [key, node] of nodes) {
+      if (key === src) moves.push([dest, node]);
+      else if (key.startsWith(srcPrefix))
+        moves.push([dest + "/" + key.slice(srcPrefix.length), node]);
+    }
+    // Delete the whole source subtree first so a nested overwrite cannot leave
+    // a stale descendant behind, then reinsert at the destination prefix. Any
+    // pre-existing `dest` node is replaced by the reinsert.
+    for (const key of [...nodes.keys()]) {
+      if (key === src || key.startsWith(srcPrefix)) nodes.delete(key);
+    }
+    for (const [key, node] of moves) nodes.set(key, node);
+    for (const entry of fdTable.values()) {
+      if (entry.path === src) entry.path = dest;
+      else if (entry.path.startsWith(srcPrefix))
+        entry.path = dest + "/" + entry.path.slice(srcPrefix.length);
+    }
+  }
+
   function mkdirp(p: string): void {
     const segments = normalize(p).split("/").filter(Boolean);
     let cursor = "";
@@ -508,8 +561,17 @@ export function createMemFS(): IMemFSHost {
 
     unlink(p, callback) {
       const norm = normalize(p);
-      if (!nodes.has(norm)) {
+      const node = nodes.get(norm);
+      if (!node) {
         callback(new MemFSError("ENOENT", "unlink", norm));
+        return;
+      }
+      // POSIX unlink refuses directories (EISDIR/EPERM). Go's os.Remove tries
+      // unlink first and only falls back to rmdir when it fails, so a false
+      // success here would delete just the directory node and orphan every
+      // descendant. Reject so the rmdir path (which validates emptiness) runs.
+      if (node.kind === "dir") {
+        callback(new MemFSError("EISDIR", "unlink", norm));
         return;
       }
       nodes.delete(norm);
@@ -523,14 +585,73 @@ export function createMemFS(): IMemFSHost {
         callback(new MemFSError("ENOENT", "rename", src));
         return;
       }
+      if (src === "/") {
+        callback(new MemFSError("EBUSY", "rename", src));
+        return;
+      }
       const dest = normalize(to);
-      nodes.delete(src);
-      nodes.set(dest, node);
+      // Renaming a path onto itself is a defined no-op success.
+      if (src === dest) {
+        callback(null);
+        return;
+      }
+      // A directory cannot be moved inside itself or its own descendants.
+      if (node.kind === "dir" && dest.startsWith(src + "/")) {
+        callback(new MemFSError("EINVAL", "rename", src));
+        return;
+      }
+      // The destination's parent must already exist as a directory.
+      const parent = nodes.get(parentDir(dest));
+      if (!parent) {
+        callback(new MemFSError("ENOENT", "rename", dest));
+        return;
+      }
+      if (parent.kind !== "dir") {
+        callback(new MemFSError("ENOTDIR", "rename", dest));
+        return;
+      }
+      // Reconcile against an existing destination before mutating anything so a
+      // rejected rename leaves the tree untouched (no partial state).
+      const destNode = nodes.get(dest);
+      if (destNode) {
+        if (node.kind === "file") {
+          if (destNode.kind === "dir") {
+            callback(new MemFSError("EISDIR", "rename", dest));
+            return;
+          }
+        } else if (destNode.kind !== "dir") {
+          callback(new MemFSError("ENOTDIR", "rename", dest));
+          return;
+        } else if (hasChildren(dest)) {
+          callback(new MemFSError("ENOTEMPTY", "rename", dest));
+          return;
+        }
+      }
+      moveSubtree(src, dest);
       callback(null);
     },
 
     rmdir(p, callback) {
-      this.unlink(p, callback);
+      const norm = normalize(p);
+      const node = nodes.get(norm);
+      if (!node) {
+        callback(new MemFSError("ENOENT", "rmdir", norm));
+        return;
+      }
+      if (node.kind !== "dir") {
+        callback(new MemFSError("ENOTDIR", "rmdir", norm));
+        return;
+      }
+      if (norm === "/") {
+        callback(new MemFSError("EBUSY", "rmdir", norm));
+        return;
+      }
+      if (hasChildren(norm)) {
+        callback(new MemFSError("ENOTEMPTY", "rmdir", norm));
+        return;
+      }
+      nodes.delete(norm);
+      callback(null);
     },
 
     chmod(_p, _mode, callback) {
@@ -560,10 +681,51 @@ export function createMemFS(): IMemFSHost {
     readlink(_p, callback) {
       callback(new MemFSError("EINVAL", "readlink"), "");
     },
-    truncate(_p, _length, callback) {
+    truncate(p, length, callback) {
+      const norm = normalize(p);
+      const node = nodes.get(norm);
+      if (!node) {
+        callback(new MemFSError("ENOENT", "truncate", norm));
+        return;
+      }
+      if (node.kind !== "file") {
+        callback(new MemFSError("EISDIR", "truncate", norm));
+        return;
+      }
+      if (!Number.isInteger(length) || length < 0) {
+        callback(new MemFSError("EINVAL", "truncate", norm));
+        return;
+      }
+      node.data = resizeFileData(node.data, length);
+      node.mtimeMs = Date.now();
       callback(null);
     },
-    ftruncate(_fd, _length, callback) {
+    ftruncate(fd, length, callback) {
+      // Pipe ends and the reserved stdout/stderr fds have no truncatable file.
+      if (pipes.has(fd)) {
+        callback(new MemFSError("EINVAL", "ftruncate"));
+        return;
+      }
+      const entry = fdTable.get(fd);
+      if (!entry) {
+        callback(new MemFSError("EBADF", "ftruncate"));
+        return;
+      }
+      if (entry.isStdout || entry.isStderr) {
+        callback(new MemFSError("EINVAL", "ftruncate"));
+        return;
+      }
+      const node = nodes.get(entry.path);
+      if (!node || node.kind !== "file") {
+        callback(new MemFSError("EINVAL", "ftruncate", entry.path));
+        return;
+      }
+      if (!Number.isInteger(length) || length < 0) {
+        callback(new MemFSError("EINVAL", "ftruncate", entry.path));
+        return;
+      }
+      node.data = resizeFileData(node.data, length);
+      node.mtimeMs = Date.now();
       callback(null);
     },
     pipe2(_flags, callback) {
