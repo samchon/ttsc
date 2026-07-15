@@ -1,6 +1,10 @@
 // Loading @ttsc/testing evaluates TestUnpluginProject, which seeds
 // TTSC_TSGO_BINARY for in-process transformTtsc calls.
-import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
+import {
+  TestProject,
+  TestUnpluginProject,
+  TestUnpluginRuntime,
+} from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -101,6 +105,183 @@ async function assertCacheHitsDespiteOutOfWalkOutputKey(): Promise<void> {
   for (const code of outputs) {
     assert.match(code, /PROBED/);
   }
+}
+
+/**
+ * Prime a shared cache with one real successful transform of the default
+ * fixture and return the cache API, the single cache key, the resolved good
+ * generation value, and the arguments needed to retry the same module.
+ *
+ * The eviction scenarios below reuse this to plant a failed generation under
+ * the exact key `transformTtsc` computes, without depending on the private
+ * cache-key encoding.
+ */
+async function primeSuccessfulTransform(): Promise<{
+  api: {
+    createTtscTransformCache: () => Map<string, Promise<unknown>>;
+    resolveOptions: (raw?: unknown) => unknown;
+    transformTtsc: (...args: unknown[]) => Promise<{ code: string } | undefined>;
+  };
+  cache: Map<string, Promise<unknown>>;
+  key: string;
+  good: unknown;
+  file: string;
+  source: string;
+  options: unknown;
+}> {
+  const api = await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject();
+  const cache = api.createTtscTransformCache();
+  const file = TestUnpluginProject.mainFile(root);
+  const source = TestUnpluginProject.mainSource(root);
+  const options = api.resolveOptions();
+  const first = await api.transformTtsc(file, source, options, undefined, cache);
+  assert.ok(first, "expected the primed transform to produce output");
+  TestUnpluginProject.assertTransformedToPlugin(first.code);
+  assert.equal(cache.size, 1);
+  const key = [...cache.keys()][0]!;
+  const good = await cache.get(key);
+  return { api, cache, key, good, file, source, options };
+}
+
+/**
+ * Asserts a rejected in-flight transform generation is surfaced to the caller
+ * and evicted, so a corrected environment recovers.
+ *
+ * The cache stores the transform Promise before it settles so concurrent
+ * callers share one compile. If a rejected generation stayed cached, a transient
+ * toolchain/host failure would become permanent for a long-lived Metro or
+ * Turbopack worker: every later request for the unchanged module would replay
+ * the old rejection instead of retrying. Replacing the primed success with a
+ * rejected Promise reproduces the `await transformed` branch exactly.
+ */
+async function assertRejectedTransformIsEvictedAndRecovers(): Promise<void> {
+  const { api, cache, key, file, source, options } =
+    await primeSuccessfulTransform();
+
+  const rejected = Promise.reject(new Error("transient host failure"));
+  rejected.catch(() => undefined); // suppress the unhandled-rejection warning
+  cache.set(key, rejected);
+
+  await assert.rejects(
+    () => api.transformTtsc(file, source, options, undefined, cache),
+    /transient host failure/,
+  );
+  assert.equal(cache.size, 0, "rejected generation must not stay cached");
+
+  const recovered = await api.transformTtsc(
+    file,
+    source,
+    options,
+    undefined,
+    cache,
+  );
+  assert.ok(recovered, "corrected retry must re-run the transform");
+  TestUnpluginProject.assertTransformedToPlugin(recovered.code);
+  assert.equal(cache.size, 1);
+}
+
+/**
+ * Asserts a resolved host-`"exception"` envelope is surfaced and evicted.
+ *
+ * A generation can also fail by resolving to an `ITtscCompilerTransformation`
+ * whose `type` is `"exception"`, which makes `selectTransformedSource` throw.
+ * That is a failed generation too and must not be retained, or a long-lived
+ * worker replays the exception forever. Reusing the primed generation's project
+ * root and input hashes keeps `matchesCachedSource` passing so control reaches
+ * the exception path.
+ */
+async function assertHostExceptionTransformIsEvictedAndRecovers(): Promise<void> {
+  const { api, cache, key, good, file, source, options } =
+    await primeSuccessfulTransform();
+
+  cache.set(
+    key,
+    Promise.resolve({
+      ...(good as Record<string, unknown>),
+      result: { type: "exception", error: new Error("host exploded") },
+    }),
+  );
+
+  await assert.rejects(
+    () => api.transformTtsc(file, source, options, undefined, cache),
+    /host exploded/,
+  );
+  assert.equal(cache.size, 0, "resolved-exception generation must not persist");
+
+  const recovered = await api.transformTtsc(
+    file,
+    source,
+    options,
+    undefined,
+    cache,
+  );
+  assert.ok(recovered, "corrected retry must re-run the transform");
+  TestUnpluginProject.assertTransformedToPlugin(recovered.code);
+  assert.equal(cache.size, 1);
+}
+
+/**
+ * Asserts a failed generation's cleanup cannot remove a newer generation another
+ * caller installed under the same key.
+ *
+ * Eviction is identity-guarded: it deletes the entry only when the cache still
+ * holds the exact failed generation. This pins that guard by replacing the
+ * failed generation with a fresh one after the failing call has begun awaiting
+ * but before its rejection eviction runs; the newer generation must survive.
+ */
+async function assertStaleEvictionKeepsNewerGeneration(): Promise<void> {
+  const { api, cache, key, good, file, source, options } =
+    await primeSuccessfulTransform();
+
+  const stale = Promise.reject(new Error("stale generation"));
+  stale.catch(() => undefined);
+  cache.set(key, stale);
+  const newer = Promise.resolve(good);
+
+  // transformTtsc runs synchronously up to `await` on the stale generation, then
+  // yields. Swap in the newer generation before the rejection eviction fires.
+  const pending = api.transformTtsc(file, source, options, undefined, cache);
+  cache.set(key, newer);
+
+  await assert.rejects(() => pending, /stale generation/);
+  assert.equal(
+    cache.get(key),
+    newer,
+    "stale generation's eviction must not remove the newer entry",
+  );
+}
+
+/**
+ * Asserts concurrent transforms of one module still compile the project once.
+ *
+ * The eviction fix must not weaken the single-flight guarantee: two callers
+ * racing for the same key share the one in-flight generation stored in the
+ * cache. The run-log fixture counts whole-project compiles, so two concurrent
+ * `transformTtsc` calls must produce exactly one.
+ */
+async function assertConcurrentTransformsCompileOnce(): Promise<void> {
+  const { createTtscTransformCache, resolveOptions, transformTtsc } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const project = createCacheProject({ fileCount: 1 });
+  const cache = createTtscTransformCache();
+  const file = path.join(project.root, "src", "mod0.ts");
+  const source = fs.readFileSync(file, "utf8");
+  const options = resolveOptions();
+
+  const [first, second] = await Promise.all([
+    transformTtsc(file, source, options, undefined, cache),
+    transformTtsc(file, source, options, undefined, cache),
+  ]);
+  assert.ok(first);
+  assert.ok(second);
+  assert.match(first.code, /PROBED/);
+  assert.match(second.code, /PROBED/);
+
+  const pluginRuns = fs.existsSync(project.runLog)
+    ? fs.readFileSync(project.runLog, "utf8").length
+    : 0;
+  assert.equal(pluginRuns, 1, "concurrent callers must share one compile");
 }
 
 /** Absolute, sorted list of the project's `src/*.ts` modules. */
@@ -301,4 +482,8 @@ function writeGoPlugin(root: string): void {
 export {
   assertCacheHitsDespiteOutOfWalkOutputKey,
   assertCacheTransformsMultiFileProjectOnce,
+  assertConcurrentTransformsCompileOnce,
+  assertHostExceptionTransformIsEvictedAndRecovers,
+  assertRejectedTransformIsEvictedAndRecovers,
+  assertStaleEvictionKeepsNewerGeneration,
 };
