@@ -168,7 +168,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`for-direction`](#rule-for-direction): Reject `for` statements whose update clause moves the counter away from the termination condition.
 - [`getter-return`](#rule-getter-return): Require a `get` accessor's body to return a value on every reachable exit.
 - [`grouped-accessor-pairs`](#rule-grouped-accessor-pairs): Require the `get` and `set` accessors of a single property.
-- [`guard-for-in`](#rule-guard-for-in): Require the body of every `for (key in obj)` loop to begin with a guard against inherited keys.
+- [`guard-for-in`](#rule-guard-for-in): Require the body of every `for (key in obj)` loop to begin with an `if` statement that can filter inherited keys.
 - [`id-length`](#rule-id-length): Reject identifier names shorter than two characters.
 - [`init-declarations`](#rule-init-declarations): Require every `var` / `let` declaration.
 - [`max-classes-per-file`](#rule-max-classes-per-file): Reject a source file that declares more than one class.
@@ -455,11 +455,11 @@ class SplitAccessor {
 
 ### `guard-for-in`
 
-Require the body of every `for (key in obj)` loop to begin with a guard against inherited keys: `Object.hasOwn(obj, key)` or the older `Object.prototype.hasOwnProperty.call(obj, key)`.
+Require the body of every `for (key in obj)` loop to begin with an `if` statement, so inherited keys walked in from the prototype chain can be filtered out. Following ESLint, the check is purely structural: it never inspects what the `if` tests, so any guard satisfies it — `Object.hasOwn(obj, key)`, `obj.hasOwnProperty(key)`, or an arbitrary predicate.
 
-The inverted-guard early-skip shape `if (!Object.hasOwn(...)) continue;` is also accepted.
+The body is accepted when it is an empty statement, an `if` statement, an empty block, a block whose only statement is an `if`, or a block whose leading `if` skips inherited keys with `continue` (for example `if (!Object.hasOwn(obj, key)) continue;`). Any other body is reported.
 
-Without the guard the loop processes every enumerable name on the prototype chain, including monkey-patches someone else attached to `Object.prototype`, so an unguarded body silently leaks work onto inherited entries.
+Without a guard the loop processes every enumerable name on the prototype chain, including monkey-patches someone else attached to `Object.prototype`, so an unguarded body silently leaks work onto inherited entries.
 
 Example:
 
