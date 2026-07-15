@@ -99,11 +99,11 @@ func (noDupeArgs) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
-// propertyKey returns a stable key for a property in an object literal.
-// Computed names without a literal payload return "" so the dedupe pass
-// can skip them safely (a typed field is fine — duplicate identical
-// expressions still won't cause false positives because the same expr
-// produces the same source text).
+// propertyKey returns a stable dedupe key for a property in an object literal,
+// mirroring ESLint's getStaticPropertyName. A property whose name is not
+// statically known — a computed name built from a non-constant expression —
+// returns "" so the dedupe pass skips it and never treats two distinct dynamic
+// keys as duplicates.
 func propertyKey(file *shimast.SourceFile, prop *shimast.Node) string {
   if prop == nil {
     return ""
@@ -152,11 +152,15 @@ func propertyKey(file *shimast.SourceFile, prop *shimast.Node) string {
   return ""
 }
 
-// staticPropertyKey extracts a comparable string key from a property name node.
-// Identifiers, string/numeric literals, and computed names with a literal
-// payload all produce a stable string. Other computed names (dynamic
-// expressions) return "" so the caller skips them without false positives.
-func staticPropertyKey(file *shimast.SourceFile, name *shimast.Node) string {
+// staticPropertyKey extracts a comparable string key from a property name node,
+// mirroring ESLint's getStaticPropertyName. A bare identifier yields its name,
+// and string / numeric / bigint literals yield their text. A computed name
+// yields a key only when its bracketed expression is itself a constant literal
+// (resolved like getStaticStringValue): `["a"]` resolves to `a` so it collides
+// with the identifier key `a`, while a non-constant computed name such as
+// `[f()]` or `[x]` resolves to "" and the caller skips it. The file argument is
+// unused here but kept so the whole property-key family shares one signature.
+func staticPropertyKey(_ *shimast.SourceFile, name *shimast.Node) string {
   if name == nil {
     return ""
   }
@@ -168,9 +172,30 @@ func staticPropertyKey(file *shimast.SourceFile, name *shimast.Node) string {
   case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
     return numericLiteralText(name)
   case shimast.KindComputedPropertyName:
-    // fall back to source text so a computed `[`foo`]` still compares
-    // against the literal `foo` form when both appear together.
-    return nodeText(file, name)
+    computed := name.AsComputedPropertyName()
+    if computed == nil {
+      return ""
+    }
+    return staticComputedKey(computed.Expression)
+  }
+  return ""
+}
+
+// staticComputedKey resolves the expression inside a `[...]` computed property
+// name to a static key, mirroring ESLint's getStaticStringValue: only a
+// constant literal (string, template without substitutions, numeric, or bigint)
+// contributes a key. Parentheses are transparent, matching ESTree, which has no
+// parenthesized-expression node. Any other expression contributes "".
+func staticComputedKey(expr *shimast.Node) string {
+  expr = stripParens(expr)
+  if expr == nil {
+    return ""
+  }
+  switch expr.Kind {
+  case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+    return stringLiteralText(expr)
+  case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
+    return numericLiteralText(expr)
   }
   return ""
 }

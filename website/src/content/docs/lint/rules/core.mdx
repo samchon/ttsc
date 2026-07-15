@@ -1068,7 +1068,7 @@ function chooseCacheMode(isReady: boolean, isCached: boolean) {
 
 ### `no-dupe-keys`
 
-Reject `{ a: 1, a: 2 }`, duplicate property keys in an object literal silently overwrite earlier values.
+Reject `{ a: 1, a: 2 }`, duplicate property keys in an object literal silently overwrite earlier values. A computed key is resolved to its static literal value, so `["a"]` duplicates the identifier key `a`; a non-constant computed key such as `[f()]` or `[x]` is not statically known and is never treated as a duplicate.
 
 Example:
 
@@ -1077,6 +1077,8 @@ const o = {
   a: 1,
   // reports: no-dupe-keys (error)
   a: 2,
+  // reports: no-dupe-keys (error)
+  ["a"]: 3,
 };
 ```
 
