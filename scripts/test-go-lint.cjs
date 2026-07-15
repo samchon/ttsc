@@ -25,12 +25,26 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+const { copyGoTestsFlat } = require("./ci/go-test-overlay.cjs");
+
 const root = path.resolve(__dirname, "..");
 const lintPkgDir = path.join(root, "packages", "lint");
 const lintTestsDir = path.join(lintPkgDir, "test");
 const ttscDir = path.join(root, "packages", "ttsc");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
-const ttsxBinary = path.join(ttscDir, "lib", "launcher", "ttsx.js");
+const ttsxBinary =
+  process.env.TTSC_TTSX_BINARY ??
+  path.join(ttscDir, "lib", "launcher", "ttsx.js");
+// Fail loudly in an unbuilt tree instead of letting the config-loader tests
+// fail deep inside `go test` with an opaque `Cannot find module '…/ttsx.js'`
+// (issue #622). test-go-lint drives the real ttsx launcher, which only exists
+// after the ttsc package is built.
+if (!fs.existsSync(ttsxBinary)) {
+  throw new Error(
+    `ttsc lint Go tests need the ttsx launcher at ${ttsxBinary}, which does not exist.\n` +
+      "Build it first with `pnpm --filter ttsc build`, or set TTSC_TTSX_BINARY to an existing launcher.",
+  );
+}
 const tsgoBinary = resolveTsgoBinary();
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-go-test-"));
@@ -73,7 +87,7 @@ try {
         ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
         : process.env.PATH,
       TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgoBinary,
-      TTSC_TTSX_BINARY: process.env.TTSC_TTSX_BINARY ?? ttsxBinary,
+      TTSC_TTSX_BINARY: ttsxBinary,
     },
     stdio: "inherit",
     windowsHide: true,
@@ -99,32 +113,6 @@ function resolveTsgoBinary() {
     "lib",
     process.platform === "win32" ? "tsc.exe" : "tsc",
   );
-}
-
-function copyGoTestsFlat(sourceDir, targetDir) {
-  fs.mkdirSync(targetDir, { recursive: true });
-  const seen = new Set();
-  for (const file of walkForGoFiles(sourceDir)) {
-    const basename = path.basename(file);
-    if (seen.has(basename)) {
-      throw new Error(`duplicate lint Go test filename: ${basename}`);
-    }
-    seen.add(basename);
-    fs.copyFileSync(file, path.join(targetDir, basename));
-  }
-}
-
-function walkForGoFiles(dir) {
-  const out = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const file = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      out.push(...walkForGoFiles(file));
-    } else if (entry.isFile() && entry.name.endsWith(".go")) {
-      out.push(file);
-    }
-  }
-  return out.sort();
 }
 
 function walkForGoMod(dir, out) {

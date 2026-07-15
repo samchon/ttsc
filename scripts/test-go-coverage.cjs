@@ -5,6 +5,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+const { copyGoTestsFlat } = require("./ci/go-test-overlay.cjs");
+
 const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const ttscDir = path.join(root, "packages", "ttsc");
@@ -385,32 +387,6 @@ function writeGoWork(location, packageDir) {
     ].join("\n"),
     "utf8",
   );
-}
-
-function copyGoTestsFlat(sourceDir, targetDir) {
-  fs.mkdirSync(targetDir, { recursive: true });
-  const seen = new Set();
-  for (const file of walkForGoFiles(sourceDir)) {
-    const basename = path.basename(file);
-    if (seen.has(basename)) {
-      throw new Error(`duplicate lint Go test filename: ${basename}`);
-    }
-    seen.add(basename);
-    fs.copyFileSync(file, path.join(targetDir, basename));
-  }
-}
-
-function walkForGoFiles(dir) {
-  const out = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const file = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      out.push(...walkForGoFiles(file));
-    } else if (entry.isFile() && entry.name.endsWith(".go")) {
-      out.push(file);
-    }
-  }
-  return out.sort();
 }
 
 function walkForGoMod(dir, out) {

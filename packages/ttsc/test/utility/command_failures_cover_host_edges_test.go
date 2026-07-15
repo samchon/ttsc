@@ -3,6 +3,7 @@ package ttsc_test
 import (
   "os"
   "path/filepath"
+  "runtime"
   "strings"
   "testing"
 
@@ -127,7 +128,11 @@ func TestUtilityCommandFailuresCoverHostEdges(t *testing.T) {
       "--outDir", "blocked",
     })
   })
-  if code != 2 || !strings.Contains(errOut, "not a directory") {
+  // The write fails because outDir is a regular file. Assert on the exit code
+  // and the platform-agnostic TS5033 "Could not write file" diagnostic prefix,
+  // not the OS errno, which differs by platform (POSIX ENOTDIR "not a
+  // directory" vs Windows "The system cannot find the path specified").
+  if code != 2 || !strings.Contains(errOut, "Could not write file") {
     t.Fatalf("emit failure mismatch: code=%d stderr=%q", code, errOut)
   }
 
@@ -135,25 +140,31 @@ func TestUtilityCommandFailuresCoverHostEdges(t *testing.T) {
   if err != nil {
     t.Fatal(err)
   }
-  deleted := t.TempDir()
-  if err := os.Chdir(deleted); err != nil {
-    t.Fatal(err)
-  }
-  if err := os.Remove(deleted); err != nil {
-    t.Fatal(err)
-  }
   defer os.Chdir(previous)
-  code, _, errOut = captureUtilityOutput(t, func() int {
-    return utility.RunCheck(nil)
-  })
-  if code != 2 || !strings.Contains(errOut, "cwd") {
-    t.Fatalf("deleted cwd mismatch: code=%d stderr=%q", code, errOut)
-  }
-  code, _, errOut = captureUtilityOutput(t, func() int {
-    return utility.RunCheck([]string{"--cwd", filepath.Base(root)})
-  })
-  if code != 2 || !strings.Contains(errOut, "cwd") {
-    t.Fatalf("relative cwd mismatch: code=%d stderr=%q", code, errOut)
+  // Removing the process's own working directory is a POSIX-only capability;
+  // Windows locks the cwd against deletion ("The process cannot access the file
+  // because it is being used by another process"), so the deleted-cwd
+  // getwd-failure branch is only reachable off Windows.
+  if runtime.GOOS != "windows" {
+    deleted := t.TempDir()
+    if err := os.Chdir(deleted); err != nil {
+      t.Fatal(err)
+    }
+    if err := os.Remove(deleted); err != nil {
+      t.Fatal(err)
+    }
+    code, _, errOut = captureUtilityOutput(t, func() int {
+      return utility.RunCheck(nil)
+    })
+    if code != 2 || !strings.Contains(errOut, "cwd") {
+      t.Fatalf("deleted cwd mismatch: code=%d stderr=%q", code, errOut)
+    }
+    code, _, errOut = captureUtilityOutput(t, func() int {
+      return utility.RunCheck([]string{"--cwd", filepath.Base(root)})
+    })
+    if code != 2 || !strings.Contains(errOut, "cwd") {
+      t.Fatalf("relative cwd mismatch: code=%d stderr=%q", code, errOut)
+    }
   }
 
   relativeParent := t.TempDir()

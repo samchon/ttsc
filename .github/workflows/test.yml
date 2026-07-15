@@ -1,6 +1,11 @@
 name: test
 
 on:
+  # Validate master after every merge so a red lane cannot persist unnoticed;
+  # pull_request only guards the change, never the post-merge trunk (issue #622).
+  push:
+    branches:
+      - master
   pull_request:
     paths:
       - ".github/workflows/test.yml"
