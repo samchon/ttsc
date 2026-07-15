@@ -1,15 +1,17 @@
 ---
 name: typescript-go-sync
-description: Keeping packages/ttsc/shim/* synced with typescript-go and complete for plugin authors. Read before adding a re-export, bumping the pinned typescript-go version, or chasing a missing AST/transform/printer/emit API a plugin needs.
+description: Defines how packages/ttsc/shim stays synchronized with typescript-go and complete for plugin authors. Use before adding a shim re-export, bumping the pinned typescript-go version, or investigating a missing AST, transform, printer, checker, or emit API.
 ---
 
 # TypeScript-Go Shim Sync
 
 ## Why the shim exists
 
-`ttsc` is built on top of typescript-go (the Go port of `tsc`, module `github.com/microsoft/typescript-go`). Almost all of its real compiler surface lives under that module's `internal/*` packages, and Go forbids importing another module's `internal/` tree. So ttsc re-exports the pieces it needs through `packages/ttsc/shim/<name>`, where each shim sub-module (`ast`, `checker`, `compiler`, `core`, `printer`, `scanner`, `parser`, `tsoptions`, `tspath`, `vfs`, ...) is its own Go module that wraps the matching `internal/<name>` package.
+`ttsc` is built on typescript-go, the Go port of `tsc` at module `github.com/microsoft/typescript-go`. Most compiler APIs live under that module's `internal/*` tree, which another Go module cannot import directly.
 
-Keeping this shim synced and complete is a core purpose of ttsc, not a chore. The shim is the only typescript-go surface that source-plugin authors (typia, nestia, and third-party rules) can touch. The job is to track typescript-go source changes and expose EVERY AST, transform, printer, and emit API a plugin needs, so plugins never have to reach into `internal/` themselves. A missing re-export is an ttsc bug, not a plugin bug.
+`packages/ttsc/shim/<name>` is the legal bridge. Each shim directory (`ast`, `checker`, `compiler`, `core`, `printer`, `scanner`, `parser`, `tsoptions`, `tspath`, `vfs`, and others) is its own Go module wrapping the matching `internal/<name>` package.
+
+The shim is the only typescript-go surface available to source-plugin authors such as typia, nestia, and third-party rules. Keep it synchronized with upstream and expose every AST, transform, printer, checker, and emit API a plugin needs. A missing re-export is a ttsc bug, not a plugin bug.
 
 ## Shim structure
 
@@ -56,7 +58,7 @@ A shim change is only proven by a downstream plugin compiling and passing agains
 ```bash
 pnpm package:tgz            # full release-rehearsal tarballs
 # or, faster for a single platform:
-TTSC_TARBALLS_CURRENT=1 pnpm package:tgz
+pnpm package:tgz -- --current
 ```
 
 Install the produced tarballs into `../typia` (or another consumer) and run a relevant typia test that exercises the new API. The `experimental/tarballs/index.ts` flow is what CI uses; `--current` / `TTSC_TARBALLS_CURRENT=1` packs only the current-platform package for a quick loop.
@@ -73,4 +75,8 @@ Install the produced tarballs into `../typia` (or another consumer) and run a re
 
 Closure and the audit only see whether a symbol is _nameable_ or whether a composition _compiles_. They cannot see a _runtime dead-end_: an exposed graph-walk op that silently can't reach part of the graph. `Checker_getBaseTypes` nil-derefs on a generic `Reference` base, so a base-chain walk dead-ends at the generic boundary — invisible to the audit, surfaced only when a consumer crashes (#246).
 
-The net for that class is a runtime probe that exercises the exposed traversal over a ttsc-owned fixture and asserts it _completes_. The worked example is `packages/lint/test/shim/base_chain_walk_crosses_generic_boundary_test.go`: it builds a real Checker via the lint host's `loadProgram`, walks a `Base{#brand} <- Mid<T> <- Sub extends Mid<string>` chain through only the exposed shim ops, and asserts the naive walk dead-ends before `Base` (the gap is real) while the `getDeclaredTypeOfSymbol`-bridged walk reaches it. These live in `packages/lint/test/` (the only ttsc-owned Go harness with a Checker-over-source) and run in `pnpm test:go`. When you expose a new graph-walk op, add a fixture + completeness assertion so its dead-ends can't silently return — prefer this over a compile-only guard, which proves linkage but not traversal.
+Catch that class with a runtime probe over a ttsc-owned fixture. The probe must use the exposed traversal and assert that it reaches the expected endpoint; compilation alone proves linkage, not traversal completeness.
+
+The worked example is `packages/lint/test/shim/base_chain_walk_crosses_generic_boundary_test.go`. It builds a real Checker through the lint host's `loadProgram`, then walks `Base{#brand} <- Mid<T> <- Sub extends Mid<string>` using only shim APIs. The test proves the naive walk stops before `Base` while the `getDeclaredTypeOfSymbol` bridge reaches it.
+
+Keep these probes in `packages/lint/test/`, the ttsc-owned Go harness with a Checker over source, and run them through `pnpm test:go`. Add a fixture and endpoint assertion whenever a new graph-walk operation could introduce a silent dead end.

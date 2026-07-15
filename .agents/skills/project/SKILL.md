@@ -1,6 +1,6 @@
 ---
 name: project
-description: What ttsc is, the workspace layout, and the canonical commands.
+description: Defines the ttsc product contract, workspace layout, package boundaries, and canonical commands. Use when orienting in the repository, working inside any package, or choosing a build, test, or format command.
 ---
 
 # Project Outline
@@ -16,7 +16,7 @@ description: What ttsc is, the workspace layout, and the canonical commands.
 
 The contract is general-purpose. Downstream projects like `typia` and `nestia` are compatibility fixtures, not the product definition.
 
-Graph MCP work has an additional contract in `.codex/skills/project/graph.md`. Read it before changing `packages/graph`, graph benchmark prompts, graph benchmark runners, or the graph benchmark website.
+Graph MCP work has an additional contract in [graph.md](graph.md). Read it before changing `packages/graph`, graph benchmark prompts, graph benchmark runners, or the graph benchmark website.
 
 ## Layout
 

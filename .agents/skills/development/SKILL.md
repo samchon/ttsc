@@ -1,9 +1,19 @@
 ---
 name: development
-description: Work rules, testing, validation, and change integrity. Read before writing or modifying code.
+description: Defines ttsc implementation rules, testing standards, validation, consequence analysis, and change integrity. Use before writing or modifying source, tests, workflows, package wiring, fixtures, generated baselines, or algorithms.
 ---
 
 # Development
+
+## Contents
+
+- [Forbidden](#forbidden)
+- [Work Rules](#work-rules)
+- [Consequence Analysis](#consequence-analysis)
+- [Plugin Configuration](#plugin-configuration)
+- [Testing](#testing)
+- [Validation](#validation)
+- [Change Integrity](#change-integrity)
 
 ## Forbidden
 
@@ -21,20 +31,34 @@ These four are never acceptable; choosing any one means the approach is already 
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
 - When code behavior changes, update the matching page under `website/src/content/docs/` in the same change.
-- Run `pnpm format` before every commit and stage the result; never commit unformatted output. This keeps the tree consistent with the format gate and avoids a follow-up "format" commit.
+- Run `pnpm format` before every ordinary commit and stage the result; never commit unformatted output. The sole exception is an active issue campaign: campaign issue pull requests must not run the repository-wide formatter, and the issue-campaign skill performs one dedicated Post-Campaign Cleanup format pull request after the campaign ends.
+
+## Consequence Analysis
+
+Treat a reported example as one witness of a cause, not the complete problem statement. Before changing code, trace the same cause through:
+
+- every caller and downstream consumer;
+- normal, error, and recovery state transitions;
+- concurrency, caching, and generated output;
+- Windows and POSIX behavior;
+- compatibility constraints and boundary inputs.
+
+Fix the verified class of failure, not only the reported witness. Cover positive, negative, and boundary cases without expanding the user's product goal.
 
 ## Plugin Configuration
 
 First-party plugin configuration lives in dedicated `*.config.{ts,cts,mts,js,cjs,mjs,json}` files, auto-discovered by upward walk from the entry. Shipped ttsc packages accept only `configFile` (an explicit path) beyond host-owned entry keys.
 
-Inline option keys for `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`, and `@ttsc/lint` were withdrawn so package config has one typed, discoverable home, do not reintroduce them.
+Inline option keys for `@ttsc/banner`, `@ttsc/paths`, `@ttsc/strip`, and `@ttsc/lint` were withdrawn so package config has one typed, discoverable home. Do not reintroduce them.
 
 ## Testing
 
 **One test case per file, named after what it asserts.** Applies to both layers.
 
-- **Go unit tests** live in `packages/*/test/`; one `Test*` per file. Run the real command entrypoint (e.g. `go run ./plugin`) so wrapper branches stay covered.
-- **TypeScript e2e tests** live in `tests/test-*/src/features/`. The suites that build real Go plugin binaries additionally split those go-binary scenarios into `tests/test-*/src/native-plugins/<category>/` so CI can isolate them on their own trimmed-build lanes; the cheap tests stay under `features/`. Each file exports exactly one `test_<snake_case>` function with a matching file name; `DynamicExecutor` discovers them by prefix. Materialize a temp project, spawn the real binary, and assert on observable output.
+- **Go unit tests:** keep them in `packages/*/test/` with one `Test*` per file. Run the real command entrypoint, such as `go run ./plugin`, so wrapper branches stay covered.
+- **TypeScript e2e tests:** keep ordinary scenarios in `tests/test-*/src/features/`.
+- **Native-plugin lanes:** when a suite builds real Go plugin binaries, put those scenarios in `tests/test-*/src/native-plugins/<category>/` so CI can isolate them. Keep cheap scenarios under `features/`.
+- **TypeScript test contract:** export exactly one `test_<snake_case>` function from a matching filename. `DynamicExecutor` discovers that prefix. Materialize a temporary project, spawn the real binary, and assert observable output.
 
 Open every case with a doc comment in the same three-part shape: a one-line `Verifies …` headline, a short paragraph stating the non-obvious _why_ (which branch or regression is being pinned), and a 2–4-step numbered list summarizing the scenario.
 

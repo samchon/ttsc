@@ -6,7 +6,7 @@
 // it N times and take medians.
 //
 // Counts and coverage are deterministic; timings are indicative and only
-// meaningful on a quiet host (see .codex/skills/benchmark).
+// meaningful on a quiet host (see .agents/skills/benchmark/SKILL.md).
 package main
 
 import (
