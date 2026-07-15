@@ -5,7 +5,7 @@
 // convention. The Go/wasm runtime is the real caller; these adapters let the
 // tests drive the exact same entry points and assert on the settled result
 // instead of nesting callbacks.
-import type { IWasmExecFS } from "@ttsc/wasm";
+import type { IFileStats, IWasmExecFS } from "@ttsc/wasm";
 
 /** A rejected `IWasmExecFS` callback error, carrying its POSIX `code`. */
 export interface IFsError extends Error {
@@ -35,6 +35,22 @@ export async function expectFsError(
   } catch (err) {
     return (err as IFsError).code ?? "UNKNOWN";
   }
+}
+
+/** Read the sorted immediate child names of directory `path`. */
+export function readdir(fs: IWasmExecFS, path: string): Promise<string[]> {
+  return new Promise<string[]>((resolve, reject) => {
+    fs.readdir(path, (err, entries) =>
+      err ? reject(err) : resolve(entries),
+    );
+  });
+}
+
+/** Stat `path` and resolve to its `IFileStats`. */
+export function stat(fs: IWasmExecFS, path: string): Promise<IFileStats> {
+  return new Promise<IFileStats>((resolve, reject) => {
+    fs.stat(path, (err, stats) => (err ? reject(err) : resolve(stats)));
+  });
 }
 
 /** Open `path` with the given flags and resolve to its file descriptor. */

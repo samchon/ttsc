@@ -1,7 +1,11 @@
 import { TestValidator } from "@nestia/e2e";
 import { createMemFS } from "@ttsc/wasm";
 
-import { callMutation, expectFsError } from "../../internal/callbackFs";
+import {
+  callMutation,
+  expectFsError,
+  readdir,
+} from "../../internal/callbackFs";
 
 /**
  * Verifies MemFS rmdir removes an empty directory and rejects every other case
@@ -46,5 +50,10 @@ export const test_memfs_rmdir_enforces_empty_directory =
     TestValidator.predicate(
       "non-empty directory and its descendant survive",
       host.exists("/full") && host.readFileText("/full/child.txt") === "child",
+    );
+    TestValidator.equals(
+      "readdir still lists the surviving descendant (no orphan drop)",
+      await readdir(host.fs, "/full"),
+      ["child.txt"],
     );
   };
