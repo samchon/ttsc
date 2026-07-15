@@ -338,14 +338,14 @@ func collectTypeFlow(expr ast.Expr, aliases map[string]string, localTypes map[st
   case *ast.StarExpr:
     collectTypeFlow(node.X, aliases, localTypes, direction, true, operation, surface)
   case *ast.ArrayType:
-    collectTypeFlow(node.Elt, aliases, localTypes, direction, pointerLike, operation, surface)
+    collectTypeFlow(node.Elt, aliases, localTypes, direction, false, operation, surface)
   case *ast.Ellipsis:
-    collectTypeFlow(node.Elt, aliases, localTypes, direction, pointerLike, operation, surface)
+    collectTypeFlow(node.Elt, aliases, localTypes, direction, false, operation, surface)
   case *ast.MapType:
-    collectTypeFlow(node.Key, aliases, localTypes, direction, pointerLike, operation, surface)
-    collectTypeFlow(node.Value, aliases, localTypes, direction, pointerLike, operation, surface)
+    collectTypeFlow(node.Key, aliases, localTypes, direction, false, operation, surface)
+    collectTypeFlow(node.Value, aliases, localTypes, direction, false, operation, surface)
   case *ast.ChanType:
-    collectTypeFlow(node.Value, aliases, localTypes, direction, pointerLike, operation, surface)
+    collectTypeFlow(node.Value, aliases, localTypes, direction, false, operation, surface)
   case *ast.ParenExpr:
     collectTypeFlow(node.X, aliases, localTypes, direction, pointerLike, operation, surface)
   case *ast.IndexExpr:
@@ -360,7 +360,7 @@ func collectTypeFlow(expr ast.Expr, aliases map[string]string, localTypes map[st
     collectFieldFlow(node.Params, aliases, localTypes, opposite(direction), false, operation, surface)
     collectFieldFlow(node.Results, aliases, localTypes, direction, false, operation, surface)
   case *ast.InterfaceType:
-    collectFieldFlow(node.Methods, aliases, localTypes, opposite(direction), false, operation, surface)
+    collectFieldFlow(node.Methods, aliases, localTypes, direction, false, operation, surface)
   case *ast.Ident:
     if typ, internal := localTypes[node.Name]; pointerLike && internal {
       surface.add(direction, typ, operation)
@@ -815,14 +815,14 @@ func collectGoTypeFlowSeen(typ types.Type, direction flowDirection, pointerLike 
   case *types.Pointer:
     collectGoTypeFlowSeen(current.Elem(), direction, true, operation, surface, seen)
   case *types.Slice:
-    collectGoTypeFlowSeen(current.Elem(), direction, pointerLike, operation, surface, seen)
+    collectGoTypeFlowSeen(current.Elem(), direction, false, operation, surface, seen)
   case *types.Array:
-    collectGoTypeFlowSeen(current.Elem(), direction, pointerLike, operation, surface, seen)
+    collectGoTypeFlowSeen(current.Elem(), direction, false, operation, surface, seen)
   case *types.Map:
-    collectGoTypeFlowSeen(current.Key(), direction, pointerLike, operation, surface, seen)
-    collectGoTypeFlowSeen(current.Elem(), direction, pointerLike, operation, surface, seen)
+    collectGoTypeFlowSeen(current.Key(), direction, false, operation, surface, seen)
+    collectGoTypeFlowSeen(current.Elem(), direction, false, operation, surface, seen)
   case *types.Chan:
-    collectGoTypeFlowSeen(current.Elem(), direction, pointerLike, operation, surface, seen)
+    collectGoTypeFlowSeen(current.Elem(), direction, false, operation, surface, seen)
   case *types.Signature:
     collectGoTupleFlowSeen(current.Params(), opposite(direction), operation, surface, seen)
     collectGoTupleFlowSeen(current.Results(), direction, operation, surface, seen)

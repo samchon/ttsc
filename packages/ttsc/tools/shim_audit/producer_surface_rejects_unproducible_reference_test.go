@@ -20,7 +20,10 @@ func ConsumeToken(value *inner.Token) {}
 func ProduceToken() []*inner.Token { return nil }
 func Register(handler func(*inner.Event) *inner.Reply) {}
 func ProduceReply() *inner.Reply { return nil }
+func RegisterInterface(handler interface { Handle(*inner.Notice) *inner.Ack }) {}
+func ProduceAck() *inner.Ack { return nil }
 func ConsumeOrphan(value *inner.Orphan) {}
+func IgnorePointedContainer(value *[]inner.ContainerValue) {}
 func IgnoreValue(value inner.Mode) {}
 func hidden(value *inner.Hidden) {}
 `
