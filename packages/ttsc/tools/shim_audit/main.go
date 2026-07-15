@@ -10,7 +10,7 @@
 // The invariant. The shim should be TRANSITIVELY CLOSED over the operations of
 // the types it already exposes. If the shim already aliases an upstream type T,
 // then everything a plugin can *reach* starting from T should also be reachable
-// through the shim. Three closure rules are checked:
+// through the shim. Four closure rules are checked:
 //
 //   - ENUM   every exported const whose type is an already-exposed enum type
 //     must be re-exported. (This is the `SignatureKindConstruct` class —
@@ -22,6 +22,10 @@
 //   - ESCAPE every exported named type that appears in the signature of an
 //     already-exposed operation but is not itself aliased. (A plugin can
 //     obtain the value but cannot name its type.)
+//   - PRODUCER every pointer-like compiler object consumed by a public shim
+//     operation must be obtainable from an explicit root or a public operation
+//     whose compiler-object inputs and receiver are themselves obtainable. A
+//     type alias alone only makes the object nameable; it provides no value.
 //
 // What it deliberately does NOT find: UNEXPORTED helpers a plugin needs by name
 // (e.g. `(*Checker).getMinArgumentCount`, #230 rule 2). Those are invisible to
@@ -101,6 +105,79 @@ func (r reachable) add(pkg, name string) {
   r[pkg][name] = true
 }
 
+// flowType identifies an internal compiler object in the public wrapper flow.
+// Package suffixes retain nested shim ownership (for example vfs/osvfs).
+type flowType struct {
+  pkg  string
+  name string
+}
+
+// producerSurface records the public shim operations that consume and
+// produce pointer-like compiler objects. Values are operation names so a gap
+// explains which public wrapper requires the missing producer.
+type producerSurface struct {
+  consumed   map[flowType]map[string]bool
+  produced   map[flowType]map[string]bool
+  operations []operationFlow
+}
+
+// operationFlow keeps results conditional on every compiler-object input and,
+// for methods, an obtainable receiver. Flattening results into the unconditional
+// producer set would let rootless function or method cycles satisfy the audit.
+type operationFlow struct {
+  receiver *flowType
+  consumed map[flowType]map[string]bool
+  produced map[flowType]map[string]bool
+}
+
+// localFlowDefinition resolves named callback and container contracts declared
+// by the shim itself. Alias definitions preserve the surrounding pointer state;
+// defined types expose their callable/container underlying shape but are not
+// mistaken for the internal named type they were declared from.
+type localFlowDefinition struct {
+  expression ast.Expr
+  aliases    map[string]string
+  alias      bool
+}
+
+type localFlowVisit struct {
+  name        string
+  direction   flowDirection
+  pointerLike bool
+}
+
+func newProducerSurface() producerSurface {
+  return producerSurface{
+    consumed: map[flowType]map[string]bool{},
+    produced: map[flowType]map[string]bool{},
+  }
+}
+
+func (s producerSurface) add(direction flowDirection, typ flowType, operation string) {
+  target := s.consumed
+  if direction == flowProduce {
+    target = s.produced
+  }
+  if target[typ] == nil {
+    target[typ] = map[string]bool{}
+  }
+  target[typ][operation] = true
+}
+
+type flowDirection uint8
+
+const (
+  flowConsume flowDirection = iota
+  flowProduce
+)
+
+func opposite(direction flowDirection) flowDirection {
+  if direction == flowConsume {
+    return flowProduce
+  }
+  return flowConsume
+}
+
 // linknameRe captures the trailing symbol name of a go:linkname target like
 // `...internal/checker.(*Checker).getMinArgumentCount` or `...checker.foo`.
 var linknameRe = regexp.MustCompile(`(?m)^//go:linkname\s+\S+\s+` +
@@ -158,6 +235,231 @@ func scanShimReachable(shimRoot string) (reachable, error) {
     }
   }
   return r, nil
+}
+
+// scanShimProducerSurface parses normal shim source and models value flow over
+// exported package functions and methods. A pointer to an internal named type is a
+// compiler-owned graph object: parameters consume one and results produce one.
+// Callback variance is reversed for callback parameters and preserved for
+// callback results, so an input callback's arguments count as values produced
+// by the shim rather than values the plugin must somehow manufacture.
+func scanShimProducerSurface(shimRoot string, inner map[string]*packages.Package) (producerSurface, error) {
+  surface := newProducerSurface()
+  localTypes := map[string]map[string]localFlowDefinition{}
+  sources := map[string]map[string][]byte{}
+  for dir, suffix := range shimDirs {
+    paths, _ := filepath.Glob(filepath.Join(shimRoot, dir, "*.go"))
+    for _, path := range paths {
+      if strings.HasSuffix(path, "_test.go") {
+        continue
+      }
+      src, err := os.ReadFile(path)
+      if err != nil {
+        return producerSurface{}, err
+      }
+      if sources[suffix] == nil {
+        sources[suffix] = map[string][]byte{}
+      }
+      sources[suffix][path] = src
+      imports, err := internalImportAliases(src, path)
+      if err != nil {
+        return producerSurface{}, err
+      }
+      for _, importedSuffix := range imports {
+        if inner[importedSuffix] == nil {
+          return producerSurface{}, fmt.Errorf("%s: internal package %s has no loaded type information", path, importedSuffix)
+        }
+      }
+      definitions, err := scanLocalFlowDefinitions(src, path)
+      if err != nil {
+        return producerSurface{}, err
+      }
+      if localTypes[suffix] == nil {
+        localTypes[suffix] = map[string]localFlowDefinition{}
+      }
+      for name, definition := range definitions {
+        localTypes[suffix][name] = definition
+      }
+    }
+  }
+  for suffix, files := range sources {
+    for path, src := range files {
+      if err := scanProducerFile(src, path, suffix, localTypes[suffix], inner, &surface); err != nil {
+        return producerSurface{}, err
+      }
+    }
+  }
+  return surface, nil
+}
+
+func scanLocalFlowDefinitions(src []byte, filename string) (map[string]localFlowDefinition, error) {
+  aliases, err := internalImportAliases(src, filename)
+  if err != nil {
+    return nil, err
+  }
+  file, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.SkipObjectResolution)
+  if err != nil {
+    return nil, fmt.Errorf("%s: %w", filename, err)
+  }
+  definitions := map[string]localFlowDefinition{}
+  for _, decl := range file.Decls {
+    gen, ok := decl.(*ast.GenDecl)
+    if !ok || gen.Tok != token.TYPE {
+      continue
+    }
+    for _, spec := range gen.Specs {
+      typ, ok := spec.(*ast.TypeSpec)
+      if !ok {
+        continue
+      }
+      definitions[typ.Name.Name] = localFlowDefinition{
+        expression: typ.Type,
+        aliases:    aliases,
+        alias:      typ.Assign.IsValid(),
+      }
+    }
+  }
+  return definitions, nil
+}
+
+func internalImportAliases(src []byte, filename string) (map[string]string, error) {
+  file, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.SkipObjectResolution)
+  if err != nil {
+    return nil, fmt.Errorf("%s: %w", filename, err)
+  }
+  aliases := map[string]string{}
+  for _, imp := range file.Imports {
+    path := strings.Trim(imp.Path.Value, `"`)
+    if !strings.HasPrefix(path, internalPrefix) {
+      continue
+    }
+    importedSuffix := strings.TrimPrefix(path, internalPrefix)
+    name := importedSuffix[strings.LastIndex(importedSuffix, "/")+1:]
+    if imp.Name != nil {
+      name = imp.Name.Name
+    }
+    aliases[name] = importedSuffix
+  }
+  return aliases, nil
+}
+
+func scanProducerFile(src []byte, filename, suffix string, localTypes map[string]localFlowDefinition, inner map[string]*packages.Package, surface *producerSurface) error {
+  file, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.SkipObjectResolution)
+  if err != nil {
+    return fmt.Errorf("%s: %w", filename, err)
+  }
+  aliases, err := internalImportAliases(src, filename)
+  if err != nil {
+    return err
+  }
+  for _, decl := range file.Decls {
+    fn, ok := decl.(*ast.FuncDecl)
+    if !ok || !ast.IsExported(fn.Name.Name) {
+      continue
+    }
+    operation := suffix + "." + fn.Name.Name
+    if fn.Recv != nil && len(fn.Recv.List) > 0 {
+      operation = suffix + "." + receiverTypeName(fn.Recv.List[0].Type) + "." + fn.Name.Name
+    }
+    operationSurface := newProducerSurface()
+    collectFieldFlow(fn.Type.Params, aliases, localTypes, inner, flowConsume, false, operation, operationSurface)
+    collectFieldFlow(fn.Type.Results, aliases, localTypes, inner, flowProduce, false, operation, operationSurface)
+    if len(operationSurface.consumed) == 0 && len(operationSurface.produced) == 0 {
+      continue
+    }
+    surface.operations = append(surface.operations, operationFlow{
+      consumed: operationSurface.consumed,
+      produced: operationSurface.produced,
+    })
+  }
+  return nil
+}
+
+func receiverTypeName(expr ast.Expr) string {
+  switch receiver := expr.(type) {
+  case *ast.Ident:
+    return receiver.Name
+  case *ast.StarExpr:
+    return receiverTypeName(receiver.X)
+  case *ast.IndexExpr:
+    return receiverTypeName(receiver.X)
+  case *ast.IndexListExpr:
+    return receiverTypeName(receiver.X)
+  default:
+    return "receiver"
+  }
+}
+
+func collectFieldFlow(fields *ast.FieldList, aliases map[string]string, localTypes map[string]localFlowDefinition, inner map[string]*packages.Package, direction flowDirection, pointerLike bool, operation string, surface producerSurface) {
+  collectFieldFlowSeen(fields, aliases, localTypes, inner, direction, pointerLike, operation, surface, map[localFlowVisit]bool{})
+}
+
+func collectFieldFlowSeen(fields *ast.FieldList, aliases map[string]string, localTypes map[string]localFlowDefinition, inner map[string]*packages.Package, direction flowDirection, pointerLike bool, operation string, surface producerSurface, seen map[localFlowVisit]bool) {
+  if fields == nil {
+    return
+  }
+  for _, field := range fields.List {
+    collectTypeFlowSeen(field.Type, aliases, localTypes, inner, direction, pointerLike, operation, surface, seen)
+  }
+}
+
+func collectTypeFlowSeen(expr ast.Expr, aliases map[string]string, localTypes map[string]localFlowDefinition, inner map[string]*packages.Package, direction flowDirection, pointerLike bool, operation string, surface producerSurface, seen map[localFlowVisit]bool) {
+  switch node := expr.(type) {
+  case *ast.StarExpr:
+    collectTypeFlowSeen(node.X, aliases, localTypes, inner, direction, true, operation, surface, seen)
+  case *ast.ArrayType:
+    collectTypeFlowSeen(node.Elt, aliases, localTypes, inner, direction, false, operation, surface, seen)
+  case *ast.Ellipsis:
+    collectTypeFlowSeen(node.Elt, aliases, localTypes, inner, direction, false, operation, surface, seen)
+  case *ast.MapType:
+    collectTypeFlowSeen(node.Key, aliases, localTypes, inner, direction, false, operation, surface, seen)
+    collectTypeFlowSeen(node.Value, aliases, localTypes, inner, direction, false, operation, surface, seen)
+  case *ast.ChanType:
+    collectTypeFlowSeen(node.Value, aliases, localTypes, inner, direction, false, operation, surface, seen)
+  case *ast.ParenExpr:
+    collectTypeFlowSeen(node.X, aliases, localTypes, inner, direction, pointerLike, operation, surface, seen)
+  case *ast.IndexExpr:
+    collectTypeFlowSeen(node.X, aliases, localTypes, inner, direction, pointerLike, operation, surface, seen)
+    collectTypeFlowSeen(node.Index, aliases, localTypes, inner, direction, false, operation, surface, seen)
+  case *ast.IndexListExpr:
+    collectTypeFlowSeen(node.X, aliases, localTypes, inner, direction, pointerLike, operation, surface, seen)
+    for _, index := range node.Indices {
+      collectTypeFlowSeen(index, aliases, localTypes, inner, direction, false, operation, surface, seen)
+    }
+  case *ast.FuncType:
+    collectFieldFlowSeen(node.Params, aliases, localTypes, inner, opposite(direction), false, operation, surface, seen)
+    collectFieldFlowSeen(node.Results, aliases, localTypes, inner, direction, false, operation, surface, seen)
+  case *ast.InterfaceType:
+    collectFieldFlowSeen(node.Methods, aliases, localTypes, inner, direction, false, operation, surface, seen)
+  case *ast.Ident:
+    definition, local := localTypes[node.Name]
+    if !local {
+      return
+    }
+    visit := localFlowVisit{name: node.Name, direction: direction, pointerLike: pointerLike}
+    if seen[visit] {
+      return
+    }
+    seen[visit] = true
+    collectTypeFlowSeen(definition.expression, definition.aliases, localTypes, inner, direction, definition.alias && pointerLike, operation, surface, seen)
+  case *ast.SelectorExpr:
+    qualifier, ok := node.X.(*ast.Ident)
+    if !ok || !ast.IsExported(node.Sel.Name) {
+      return
+    }
+    importedSuffix, internal := aliases[qualifier.Name]
+    if !internal {
+      return
+    }
+    typ := flowType{pkg: importedSuffix, name: node.Sel.Name}
+    if pointerLike {
+      surface.add(direction, typ, operation)
+    } else if pkg := inner[importedSuffix]; pkg != nil && pkg.Types != nil {
+      if typeName, ok := pkg.Types.Scope().Lookup(node.Sel.Name).(*types.TypeName); ok {
+        collectGoTypeFlow(typeName.Type(), direction, false, operation, surface)
+      }
+    }
+  }
 }
 
 // hasShimSource reports whether dir holds non-test Go source — i.e. an actual
@@ -230,36 +532,69 @@ func loadInner(anchorDir string) (map[string]*packages.Package, error) {
   if err != nil {
     return nil, err
   }
-  out := map[string]*packages.Package{}
-  errored := map[string]string{}
-  for _, p := range loaded {
-    suffix := strings.TrimPrefix(p.PkgPath, internalPrefix)
-    if len(p.Errors) > 0 {
-      errored[suffix] = p.Errors[0].Error()
-      continue
-    }
-    out[suffix] = p
-  }
+  indexed, errored := indexInternalPackages(loaded)
   // A package that fails to load (or is missing entirely) must FAIL the audit,
   // never be silently skipped — otherwise a load error in any environment turns
   // the gate into a no-op that passes blind.
-  var failed []string
+  failures := map[string]string{}
   for suffix := range expected {
-    if _, ok := out[suffix]; ok {
+    if _, ok := indexed[suffix]; ok {
       continue
     }
-    msg := errored[suffix]
-    if msg == "" {
-      msg = "did not load"
+    failures[suffix] = errored[suffix]
+    if failures[suffix] == "" {
+      failures[suffix] = "did not load"
     }
-    failed = append(failed, suffix+": "+msg)
   }
-  if len(failed) > 0 {
+  if len(failures) > 0 {
+    failed := make([]string, 0, len(failures))
+    for suffix, message := range failures {
+      failed = append(failed, suffix+": "+message)
+    }
     sort.Strings(failed)
-    return nil, fmt.Errorf("%d shim package(s) failed to load (audit would be incomplete):\n  %s",
+    return nil, fmt.Errorf("%d internal package(s) failed to load (audit would be incomplete):\n  %s",
       len(failed), strings.Join(failed, "\n  "))
   }
-  return out, nil
+  roots := map[string]*packages.Package{}
+  for suffix := range expected {
+    roots[suffix] = indexed[suffix]
+  }
+  return roots, nil
+}
+
+// indexInternalPackages includes dependency packages because public contracts
+// in a registered shim package can name callback/container types declared in an
+// unregistered internal dependency. Dropping such a package would make the AST
+// producer scan silently stop at the selector.
+func indexInternalPackages(roots []*packages.Package) (map[string]*packages.Package, map[string]string) {
+  indexed := map[string]*packages.Package{}
+  errored := map[string]string{}
+  visited := map[*packages.Package]bool{}
+  var visit func(*packages.Package)
+  visit = func(pkg *packages.Package) {
+    if pkg == nil || visited[pkg] {
+      return
+    }
+    visited[pkg] = true
+    if strings.HasPrefix(pkg.PkgPath, internalPrefix) {
+      suffix := strings.TrimPrefix(pkg.PkgPath, internalPrefix)
+      switch {
+      case len(pkg.Errors) > 0:
+        errored[suffix] = pkg.Errors[0].Error()
+      case pkg.Types == nil:
+        errored[suffix] = "type information did not load"
+      default:
+        indexed[suffix] = pkg
+      }
+    }
+    for _, imported := range pkg.Imports {
+      visit(imported)
+    }
+  }
+  for _, root := range roots {
+    visit(root)
+  }
+  return indexed, errored
 }
 
 // namedInfo returns the defining package suffix and name of a named OR
@@ -416,7 +751,7 @@ func attachUntypedConsts(enumNames []string, typedMembers map[string][]string, u
 
 // Finding kinds.
 type finding struct {
-  kind   string // ENUM / FUNC / ESCAPE
+  kind   string // ENUM / FUNC / ESCAPE / PRODUCER
   pkg    string
   symbol string
   detail string
@@ -449,8 +784,20 @@ func main() {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(1)
   }
+  rootPackages := make([]*packages.Package, 0, len(inner))
+  for _, pkg := range inner {
+    rootPackages = append(rootPackages, pkg)
+  }
+  typeGraph, _ := indexInternalPackages(rootPackages)
+  producerSurface, err := scanShimProducerSurface(*shimRoot, typeGraph)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, "shim_audit:", err)
+    os.Exit(1)
+  }
 
   findings, pool := analyze(r, inner)
+  addExposedMethodFlow(r, inner, &producerSurface)
+  producerSurface = canonicalizeProducerSurface(producerSurface, typeGraph)
 
   switch {
   case *fix:
@@ -458,13 +805,314 @@ func main() {
   case *writeBaseline:
     runWriteBaseline(findings, *baselinePath)
   case *check:
-    runCheck(findings, *baselinePath)
+    runCheck(findings, producerSurface, *baselinePath)
   default:
-    report(findings, pool, *md)
+    producerEvaluation := evaluateProducerSurface(producerSurface, nil)
+    report(dedupe(append(findings, producerEvaluation.gaps...)), pool, *md)
   }
 }
 
-// analyze runs the three closure checks plus the unexported demand-pool scan and
+type producerEvaluation struct {
+  gaps      []finding
+  usedRoots map[string]bool
+}
+
+// evaluateProducerSurface computes the obtainable compiler-object set to a
+// fixed point. Package operations are exposed immediately and methods after
+// their receiver is obtainable, but either unlocks results only after every
+// compiler-object input is obtainable. Explicit baseline roots participate in
+// the same graph without exempting downstream objects.
+func evaluateProducerSurface(surface producerSurface, roots map[string]string) producerEvaluation {
+  reachable := map[flowType]bool{}
+  for typ := range surface.produced {
+    reachable[typ] = true
+  }
+  allTypes := map[flowType]bool{}
+  for typ := range surface.consumed {
+    allTypes[typ] = true
+  }
+  for typ := range surface.produced {
+    allTypes[typ] = true
+  }
+  for _, operation := range surface.operations {
+    if operation.receiver != nil {
+      allTypes[*operation.receiver] = true
+    }
+    for typ := range operation.consumed {
+      allTypes[typ] = true
+    }
+    for typ := range operation.produced {
+      allTypes[typ] = true
+    }
+  }
+  usedRoots := map[string]bool{}
+  for key, rationale := range roots {
+    if strings.TrimSpace(rationale) == "" {
+      continue
+    }
+    typ, ok := parseProducerExemptionKey(key)
+    if !ok || !allTypes[typ] || reachable[typ] {
+      continue
+    }
+    reachable[typ] = true
+    usedRoots[key] = true
+  }
+
+  consumed := map[flowType]map[string]bool{}
+  mergeFlows := func(target map[flowType]map[string]bool, flows map[flowType]map[string]bool) {
+    for typ, operations := range flows {
+      if target[typ] == nil {
+        target[typ] = map[string]bool{}
+      }
+      for operation := range operations {
+        target[typ][operation] = true
+      }
+    }
+  }
+  mergeFlows(consumed, surface.consumed)
+  exposed := make([]bool, len(surface.operations))
+  callable := make([]bool, len(surface.operations))
+  for changed := true; changed; {
+    changed = false
+    for index, operation := range surface.operations {
+      if !exposed[index] {
+        if operation.receiver != nil && !reachable[*operation.receiver] {
+          continue
+        }
+        exposed[index] = true
+        changed = true
+        mergeFlows(consumed, operation.consumed)
+      }
+      if callable[index] {
+        continue
+      }
+      requirementsMet := true
+      for typ := range operation.consumed {
+        if !reachable[typ] {
+          requirementsMet = false
+          break
+        }
+      }
+      if !requirementsMet {
+        continue
+      }
+      callable[index] = true
+      changed = true
+      for typ := range operation.produced {
+        if !reachable[typ] {
+          reachable[typ] = true
+        }
+      }
+    }
+  }
+
+  var findings []finding
+  for typ, operations := range consumed {
+    if reachable[typ] {
+      continue
+    }
+    names := make([]string, 0, len(operations))
+    for operation := range operations {
+      names = append(names, operation)
+    }
+    sort.Strings(names)
+    findings = append(findings, finding{
+      kind:   "PRODUCER",
+      pkg:    typ.pkg,
+      symbol: typ.name,
+      detail: "consumed by " + strings.Join(names, ", ") + " but no reachable public shim operation produces it",
+    })
+  }
+  return producerEvaluation{gaps: dedupe(findings), usedRoots: usedRoots}
+}
+
+func parseProducerExemptionKey(key string) (flowType, bool) {
+  separator := strings.LastIndexByte(key, '.')
+  if separator <= 0 || separator == len(key)-1 {
+    return flowType{}, false
+  }
+  return flowType{pkg: key[:separator], name: key[separator+1:]}, true
+}
+
+func canonicalizeProducerSurface(surface producerSurface, inner map[string]*packages.Package) producerSurface {
+  canonical := newProducerSurface()
+  copyDirection := func(direction flowDirection, flows map[flowType]map[string]bool) {
+    for typ, operations := range flows {
+      typ = canonicalFlowType(typ, inner)
+      for operation := range operations {
+        canonical.add(direction, typ, operation)
+      }
+    }
+  }
+  copyDirection(flowConsume, surface.consumed)
+  copyDirection(flowProduce, surface.produced)
+  for _, operation := range surface.operations {
+    converted := operationFlow{
+      consumed: map[flowType]map[string]bool{},
+      produced: map[flowType]map[string]bool{},
+    }
+    if operation.receiver != nil {
+      receiver := canonicalFlowType(*operation.receiver, inner)
+      converted.receiver = &receiver
+    }
+    copyOperationDirection := func(target map[flowType]map[string]bool, flows map[flowType]map[string]bool) {
+      for typ, operations := range flows {
+        typ = canonicalFlowType(typ, inner)
+        if target[typ] == nil {
+          target[typ] = map[string]bool{}
+        }
+        for operation := range operations {
+          target[typ][operation] = true
+        }
+      }
+    }
+    copyOperationDirection(converted.consumed, operation.consumed)
+    copyOperationDirection(converted.produced, operation.produced)
+    canonical.operations = append(canonical.operations, converted)
+  }
+  return canonical
+}
+
+func canonicalFlowType(typ flowType, inner map[string]*packages.Package) flowType {
+  pkg := inner[typ.pkg]
+  if pkg == nil || pkg.Types == nil {
+    return typ
+  }
+  named, ok := pkg.Types.Scope().Lookup(typ.name).(*types.TypeName)
+  if !ok {
+    return typ
+  }
+  if pkgSuffix, name, ok := namedInfo(types.Unalias(named.Type())); ok {
+    return flowType{pkg: pkgSuffix, name: name}
+  }
+  return typ
+}
+
+// addExposedMethodFlow covers the method set published automatically by each
+// exposed type alias. Those methods do not appear as declarations in shim
+// source, but their receiver, parameter, callback, and result flows are part of
+// the same public surface as hand-written package wrappers.
+func addExposedMethodFlow(r reachable, inner map[string]*packages.Package, surface *producerSurface) {
+  for suffix, pkg := range inner {
+    scope := pkg.Types.Scope()
+    for _, name := range scope.Names() {
+      typeName, ok := scope.Lookup(name).(*types.TypeName)
+      if !ok || !r.has(suffix, name) {
+        continue
+      }
+      exposed := types.Unalias(typeName.Type())
+      named, ok := exposed.(*types.Named)
+      if !ok {
+        continue
+      }
+      receiver := types.Type(named)
+      if _, isInterface := named.Underlying().(*types.Interface); !isInterface {
+        receiver = types.NewPointer(named)
+      }
+      methods := types.NewMethodSet(receiver)
+      for i := 0; i < methods.Len(); i++ {
+        method, ok := methods.At(i).Obj().(*types.Func)
+        if !ok || !method.Exported() {
+          continue
+        }
+        signature := method.Signature()
+        operation := suffix + "." + name + "." + method.Name()
+        methodSurface := newProducerSurface()
+        collectGoTupleFlow(signature.Params(), flowConsume, operation, methodSurface)
+        collectGoTupleFlow(signature.Results(), flowProduce, operation, methodSurface)
+        if len(methodSurface.consumed) == 0 && len(methodSurface.produced) == 0 {
+          continue
+        }
+        // Key the dependency to the exposed outer type, not the declaring
+        // receiver of a promoted method: callers need an outer value to invoke
+        // the selected method and never manufacture an embedded implementation
+        // receiver directly.
+        receiverType := flowType{pkg: suffix, name: name}
+        surface.operations = append(surface.operations, operationFlow{
+          receiver: &receiverType,
+          consumed: methodSurface.consumed,
+          produced: methodSurface.produced,
+        })
+      }
+    }
+  }
+}
+
+func collectGoTupleFlow(tuple *types.Tuple, direction flowDirection, operation string, surface producerSurface) {
+  collectGoTupleFlowSeen(tuple, direction, operation, surface, map[flowVisit]bool{})
+}
+
+type flowVisit struct {
+  typ         types.Type
+  direction   flowDirection
+  pointerLike bool
+}
+
+func collectGoTupleFlowSeen(tuple *types.Tuple, direction flowDirection, operation string, surface producerSurface, seen map[flowVisit]bool) {
+  if tuple == nil {
+    return
+  }
+  for i := 0; i < tuple.Len(); i++ {
+    collectGoTypeFlowSeen(tuple.At(i).Type(), direction, false, operation, surface, seen)
+  }
+}
+
+func collectGoTypeFlow(typ types.Type, direction flowDirection, pointerLike bool, operation string, surface producerSurface) {
+  collectGoTypeFlowSeen(typ, direction, pointerLike, operation, surface, map[flowVisit]bool{})
+}
+
+func collectGoTypeFlowSeen(typ types.Type, direction flowDirection, pointerLike bool, operation string, surface producerSurface, seen map[flowVisit]bool) {
+  visit := flowVisit{typ: typ, direction: direction, pointerLike: pointerLike}
+  if seen[visit] {
+    return
+  }
+  seen[visit] = true
+  switch current := typ.(type) {
+  case *types.Alias:
+    collectGoTypeFlowSeen(types.Unalias(current), direction, pointerLike, operation, surface, seen)
+  case *types.Pointer:
+    collectGoTypeFlowSeen(current.Elem(), direction, true, operation, surface, seen)
+  case *types.Slice:
+    collectGoTypeFlowSeen(current.Elem(), direction, false, operation, surface, seen)
+  case *types.Array:
+    collectGoTypeFlowSeen(current.Elem(), direction, false, operation, surface, seen)
+  case *types.Map:
+    collectGoTypeFlowSeen(current.Key(), direction, false, operation, surface, seen)
+    collectGoTypeFlowSeen(current.Elem(), direction, false, operation, surface, seen)
+  case *types.Chan:
+    collectGoTypeFlowSeen(current.Elem(), direction, false, operation, surface, seen)
+  case *types.Signature:
+    collectGoTupleFlowSeen(current.Params(), opposite(direction), operation, surface, seen)
+    collectGoTupleFlowSeen(current.Results(), direction, operation, surface, seen)
+  case *types.Interface:
+    current.Complete()
+    for i := 0; i < current.NumMethods(); i++ {
+      signature, ok := current.Method(i).Type().(*types.Signature)
+      if !ok {
+        continue
+      }
+      collectGoTupleFlowSeen(signature.Params(), opposite(direction), operation, surface, seen)
+      collectGoTupleFlowSeen(signature.Results(), direction, operation, surface, seen)
+    }
+  case *types.Named:
+    if pointerLike {
+      if pkg, name, ok := namedInfo(current); ok {
+        surface.add(direction, flowType{pkg: pkg, name: name}, operation)
+      }
+    }
+    if args := current.TypeArgs(); args != nil {
+      for i := 0; i < args.Len(); i++ {
+        collectGoTypeFlowSeen(args.At(i), direction, false, operation, surface, seen)
+      }
+    }
+    switch underlying := current.Underlying().(type) {
+    case *types.Interface, *types.Signature, *types.Slice, *types.Array, *types.Map, *types.Chan, *types.Pointer:
+      collectGoTypeFlowSeen(underlying, direction, false, operation, surface, seen)
+    }
+  }
+}
+
+// analyze runs the upstream closure checks plus the unexported demand-pool scan and
 // returns the deduped findings and pool.
 func analyze(r reachable, inner map[string]*packages.Package) (findings, unexportedPool []finding) {
   for suffix, pkg := range inner {
@@ -731,7 +1379,7 @@ func tierOf(kind string) int {
   switch kind {
   case "ENUM": // partial enum — some members exposed, siblings missing
     return 1
-  case "FUNC": // exported op over already-reachable types
+  case "FUNC", "PRODUCER": // callable ops and constructible object flow
     return 2
   case "ESCAPE": // type returned by an exposed op but not aliased
     return 3
@@ -771,7 +1419,7 @@ func report(findings, pool []finding, md bool) {
   } else {
     fmt.Printf("=== Shim closure audit ===\n")
   }
-  fmt.Printf("Tier 1 PARTIAL-ENUM (near-certain bugs): %d | Tier 2 FUNC-over-exposed: %d | Tier 3 ESCAPE: %d | Tier 4 type-only enums: %d | Unexported demand pool: %d\n",
+  fmt.Printf("Tier 1 PARTIAL-ENUM (near-certain bugs): %d | Tier 2 FUNC/PRODUCER: %d | Tier 3 ESCAPE: %d | Tier 4 type-only enums: %d | Unexported demand pool: %d\n",
     len(tiers[1]), len(tiers[2]), len(tiers[3]), len(tiers[4]), len(pool))
 
   h("TIER 1 — partial enums (a sibling const is missing; this is the #230 class)")
@@ -780,7 +1428,7 @@ func report(findings, pool []finding, md bool) {
     row(f)
   }
 
-  h("TIER 2 — exported funcs whose params/results are all already reachable")
+  h("TIER 2 — reachable funcs and consumed compiler objects without producers")
   thead()
   for _, f := range tiers[2] {
     row(f)
@@ -825,10 +1473,60 @@ func countByPkg(in []finding) string {
 func findingKey(f finding) string { return f.kind + "|" + f.pkg + "|" + f.symbol }
 
 // baselineFile is the on-disk schema of accepted TIER-2/3 gaps. TIER-1 enum
-// gaps are never baselined — they are zero-tolerance and fixed by -fix.
+// gaps are never baselined. Producer gaps require a separate, reasoned root or
+// ownership-boundary exemption because accepting an ordinary symbol gap must
+// not waive object constructibility.
 type baselineFile struct {
-  Note     string   `json:"note"`
-  Accepted []string `json:"accepted"`
+  Note               string            `json:"note"`
+  Accepted           []string          `json:"accepted"`
+  ProducerExemptions map[string]string `json:"producer_exemptions,omitempty"`
+}
+
+type baselineEvaluation struct {
+  enumGaps       []finding
+  newGaps        []finding
+  producerGaps   []finding
+  invalidReasons []string
+  staleAccepted  int
+  staleProducers int
+}
+
+func evaluateBaseline(findings []finding, baseline baselineFile, usedProducerRoots map[string]bool) baselineEvaluation {
+  accepted := map[string]bool{}
+  for _, key := range baseline.Accepted {
+    accepted[key] = true
+  }
+  evaluation := baselineEvaluation{}
+  liveAccepted := map[string]bool{}
+  for _, f := range findings {
+    switch f.kind {
+    case "ENUM":
+      evaluation.enumGaps = append(evaluation.enumGaps, f)
+    case "FUNC", "ESCAPE":
+      key := findingKey(f)
+      liveAccepted[key] = true
+      if !accepted[key] {
+        evaluation.newGaps = append(evaluation.newGaps, f)
+      }
+    case "PRODUCER":
+      evaluation.producerGaps = append(evaluation.producerGaps, f)
+    }
+  }
+  for key := range accepted {
+    if !liveAccepted[key] {
+      evaluation.staleAccepted++
+    }
+  }
+  for key, rationale := range baseline.ProducerExemptions {
+    if strings.TrimSpace(rationale) == "" {
+      evaluation.invalidReasons = append(evaluation.invalidReasons, key)
+    }
+    if !usedProducerRoots[key] {
+      evaluation.staleProducers++
+    }
+  }
+  sort.Strings(evaluation.invalidReasons)
+  return evaluation
 }
 
 // shimPackageName reads the `package` clause from a .go file in dir.
@@ -906,7 +1604,8 @@ func runFix(findings []finding, shimRoot string) {
 }
 
 // runWriteBaseline records the current TIER-2/3 gaps as accepted, so the gate
-// fails only on NEW ones. The list can only shrink as gaps get exposed.
+// fails only on NEW ones. Producer exemptions are preserved rather than
+// inferred: each root needs an explicit human rationale.
 func runWriteBaseline(findings []finding, path string) {
   var keys []string
   for _, f := range findings {
@@ -915,9 +1614,19 @@ func runWriteBaseline(findings []finding, path string) {
     }
   }
   sort.Strings(keys)
+  producerExemptions := map[string]string{}
+  if existing, err := os.ReadFile(path); err == nil {
+    var baseline baselineFile
+    if err := json.Unmarshal(existing, &baseline); err != nil {
+      fmt.Fprintf(os.Stderr, "shim_audit: parse %s: %v\n", path, err)
+      os.Exit(2)
+    }
+    producerExemptions = baseline.ProducerExemptions
+  }
   data, err := json.MarshalIndent(baselineFile{
-    Note:     "Accepted TIER-2 (reachable funcs) and TIER-3 (escaping types) shim gaps. The gate fails on any gap NOT listed here; expose a symbol and remove its line, or run -write-baseline to accept new ones deliberately. TIER-1 enum gaps are never listed — they are zero-tolerance (run -fix).",
-    Accepted: keys,
+    Note:               "Accepted TIER-2 (reachable funcs) and TIER-3 (escaping types) shim gaps. The gate fails on any gap NOT listed here; expose a symbol and remove its line, or run -write-baseline to accept new ones deliberately. TIER-1 enum and PRODUCER gaps are zero-tolerance; producer_exemptions must name genuine roots or ownership boundaries with non-empty rationales.",
+    Accepted:           keys,
+    ProducerExemptions: producerExemptions,
   }, "", "  ")
   if err != nil {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
@@ -930,64 +1639,61 @@ func runWriteBaseline(findings []finding, path string) {
   fmt.Printf("shim_audit: wrote %s (%d accepted gaps)\n", path, len(keys))
 }
 
-// runCheck is the CI gate. It fails on any TIER-1 enum gap (zero tolerance) or
-// any TIER-2/3 gap not present in the baseline.
-func runCheck(findings []finding, path string) {
-  accepted := map[string]bool{}
+// runCheck is the CI gate. It fails on any TIER-1 enum gap, any unreasoned
+// producer gap, or any TIER-2/3 gap not present in the baseline.
+func runCheck(findings []finding, surface producerSurface, path string) {
+  baseline := baselineFile{}
   if data, err := os.ReadFile(path); err == nil {
-    var bf baselineFile
-    if err := json.Unmarshal(data, &bf); err != nil {
+    if err := json.Unmarshal(data, &baseline); err != nil {
       fmt.Fprintf(os.Stderr, "shim_audit: parse %s: %v\n", path, err)
       os.Exit(2)
     }
-    for _, k := range bf.Accepted {
-      accepted[k] = true
-    }
   } else {
-    fmt.Fprintf(os.Stderr, "shim_audit: WARNING no baseline at %s; treating all func/type gaps as new\n", path)
+    fmt.Fprintf(os.Stderr, "shim_audit: WARNING no baseline at %s; treating all func/type and producer gaps as new\n", path)
   }
 
-  var enumGaps, newGaps []finding
-  live := map[string]bool{}
-  for _, f := range findings {
-    switch f.kind {
-    case "ENUM":
-      enumGaps = append(enumGaps, f)
-    case "FUNC", "ESCAPE":
-      live[findingKey(f)] = true
-      if !accepted[findingKey(f)] {
-        newGaps = append(newGaps, f)
-      }
-    }
-  }
+  producerEvaluation := evaluateProducerSurface(surface, baseline.ProducerExemptions)
+  findings = dedupe(append(findings, producerEvaluation.gaps...))
+  evaluation := evaluateBaseline(findings, baseline, producerEvaluation.usedRoots)
   // Non-failing hygiene note: baseline lines that no longer match a gap (the
   // symbol got exposed) are dead weight; the ratchet stays safe but suggest a prune.
-  var stale int
-  for k := range accepted {
-    if !live[k] {
-      stale++
-    }
+  if evaluation.staleAccepted > 0 {
+    fmt.Fprintf(os.Stderr, "shim_audit: note: %d baseline entr(y/ies) no longer match a gap; prune with -write-baseline\n", evaluation.staleAccepted)
   }
-  if stale > 0 {
-    fmt.Fprintf(os.Stderr, "shim_audit: note: %d baseline entr(y/ies) no longer match a gap; prune with -write-baseline\n", stale)
+  if evaluation.staleProducers > 0 {
+    fmt.Fprintf(os.Stderr, "shim_audit: note: %d producer exemption(s) no longer match a gap; remove them\n", evaluation.staleProducers)
   }
 
-  if len(enumGaps) == 0 && len(newGaps) == 0 {
-    fmt.Println("shim_audit: OK — every exposed enum family is complete and no new reachable gaps")
+  if len(evaluation.enumGaps) == 0 && len(evaluation.newGaps) == 0 &&
+    len(evaluation.producerGaps) == 0 && len(evaluation.invalidReasons) == 0 {
+    fmt.Println("shim_audit: OK — exposed enums, reachable symbols, and compiler-object producers are closed")
     return
   }
-  if len(enumGaps) > 0 {
-    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d enum-family member(s) of an EXPOSED enum are not re-exported.\n", len(enumGaps))
+  if len(evaluation.enumGaps) > 0 {
+    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d enum-family member(s) of an EXPOSED enum are not re-exported.\n", len(evaluation.enumGaps))
     fmt.Fprintf(os.Stderr, "  This is the #230 class. Fix mechanically: `pnpm --filter ttsc shim:audit -fix`.\n")
-    for _, f := range enumGaps {
+    for _, f := range evaluation.enumGaps {
       fmt.Fprintf(os.Stderr, "    ENUM   %s.%s\n", f.pkg, f.symbol)
     }
   }
-  if len(newGaps) > 0 {
-    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d new reachable gap(s) not in the baseline.\n", len(newGaps))
+  if len(evaluation.newGaps) > 0 {
+    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d new reachable gap(s) not in the baseline.\n", len(evaluation.newGaps))
     fmt.Fprintf(os.Stderr, "  Expose them in the shim, or accept deliberately: `pnpm --filter ttsc shim:audit -write-baseline`.\n")
-    for _, f := range newGaps {
+    for _, f := range evaluation.newGaps {
       fmt.Fprintf(os.Stderr, "    %-6s %s.%s — %s\n", f.kind, f.pkg, f.symbol, f.detail)
+    }
+  }
+  if len(evaluation.producerGaps) > 0 {
+    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d consumed compiler object(s) have no public producer.\n", len(evaluation.producerGaps))
+    fmt.Fprintf(os.Stderr, "  Add a general exported producer, or document a genuine root or ownership boundary in producer_exemptions.\n")
+    for _, f := range evaluation.producerGaps {
+      fmt.Fprintf(os.Stderr, "    PRODUCER %s.%s — %s\n", f.pkg, f.symbol, f.detail)
+    }
+  }
+  if len(evaluation.invalidReasons) > 0 {
+    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d producer exemption(s) have an empty rationale.\n", len(evaluation.invalidReasons))
+    for _, key := range evaluation.invalidReasons {
+      fmt.Fprintf(os.Stderr, "    PRODUCER-EXEMPTION %s\n", key)
     }
   }
   fmt.Fprintln(os.Stderr)
