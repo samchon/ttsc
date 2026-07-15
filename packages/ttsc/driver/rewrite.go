@@ -400,6 +400,8 @@ const (
   emittedImportDirect emittedImportKind = iota
   emittedImportDefault
   emittedImportNamespace
+  emittedImportRetainedDefault
+  emittedImportRetainedNamespace
 )
 
 type emittedImportBinding struct {
@@ -418,7 +420,14 @@ func collectEmittedImportBindings(outputName, text string) map[string][]emittedI
     return bindings
   }
   for _, statement := range file.Statements.Nodes {
-    if statement == nil || statement.Kind != ast.KindVariableStatement {
+    if statement == nil {
+      continue
+    }
+    if statement.Kind == ast.KindImportDeclaration {
+      collectRetainedImportBinding(bindings, statement.AsImportDeclaration())
+      continue
+    }
+    if statement.Kind != ast.KindVariableStatement {
       continue
     }
     variables := statement.AsVariableStatement()
@@ -446,6 +455,33 @@ func collectEmittedImportBindings(outputName, text string) map[string][]emittedI
     }
   }
   return bindings
+}
+
+func collectRetainedImportBinding(bindings map[string][]emittedImportBinding, declaration *ast.ImportDeclaration) {
+  if declaration == nil || declaration.ImportClause == nil {
+    return
+  }
+  module, ok := stringLiteralValue(declaration.ModuleSpecifier)
+  if !ok {
+    return
+  }
+  clause := declaration.ImportClause.AsImportClause()
+  if clause == nil {
+    return
+  }
+  if name := identifierName(clause.Name()); name != "" {
+    bindings[module] = append(bindings[module], emittedImportBinding{name: name, kind: emittedImportRetainedDefault})
+  }
+  if clause.NamedBindings == nil || clause.NamedBindings.Kind != ast.KindNamespaceImport {
+    return
+  }
+  namespace := clause.NamedBindings.AsNamespaceImport()
+  if namespace == nil {
+    return
+  }
+  if name := identifierName(namespace.Name()); name != "" {
+    bindings[module] = append(bindings[module], emittedImportBinding{name: name, kind: emittedImportRetainedNamespace})
+  }
 }
 
 // emittedRequireModule recognizes the declaration shapes TypeScript-Go owns
@@ -548,6 +584,17 @@ func rewriteAliases(r Rewrite, emittedBindings map[string][]emittedImportBinding
   imported, ok := sourceImportForRoot(r.File, r.RootName)
   if !ok {
     return []string{r.RootName + ".default", r.RootName}
+  }
+  retainedKind := emittedImportRetainedDefault
+  if imported.kind == sourceImportNamespace {
+    retainedKind = emittedImportRetainedNamespace
+  }
+  if imported.kind != sourceImportEquals {
+    for _, binding := range emittedBindings[imported.module] {
+      if binding.name == r.RootName && binding.kind == retainedKind {
+        return []string{r.RootName}
+      }
+    }
   }
   candidates := []emittedImportBinding{}
   preferred := []emittedImportBinding{}
