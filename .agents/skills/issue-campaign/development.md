@@ -66,7 +66,7 @@ An implementation agent may find that an issue is false or too broad. The lead m
 
 Commit and push every coherent implementation increment to the claimed branch. Immediately pass the exact-SHA cancellation gate after each push; do not hold a completed implementation locally until handoff or continue working while that gate is unresolved.
 
-Before merge, complete solo Self-Review. The lead then rechecks issue fit, evidence, verification, and pull-request scope. Merge only with user authorization.
+Before merge, complete solo Self-Review. The lead then rechecks issue fit, evidence, verification, and pull-request scope. Merge once those gates pass: with explicit user authorization, or on a standing autonomous mandate — an autonomous or remote-control campaign, or an instruction to carry the campaign through merge — without a separate per-pull-request request.
 
 ## Remove Every Finished Worktree
 
@@ -108,7 +108,7 @@ Run this phase only after the user ends the campaign, every campaign pull reques
 5. If formatting changes files, create a dedicated topic branch containing the formatter result and only directly necessary fixes.
 6. Commit and push under the pull-request skill, pass the exact-SHA cancellation gate, open the Post-Campaign Cleanup pull request, and pass the gate again for pull-request-triggered runs.
 7. Diagnose any locally reproducible failure, fix it, commit, push, and cancel the new commit's runs by the same gate.
-8. Merge only with user authorization.
+8. Merge once required checks pass: with explicit user authorization, or on a standing autonomous mandate without a separate request.
 9. If cleanup used the main checkout, return it to `master`, pull with `git pull --ff-only origin master`, and delete the local cleanup branch.
 10. If cleanup used an auxiliary worktree, remove it and its branch under Remove Every Finished Worktree, then pull `master` in the main checkout.
 11. Require the main checkout to be clean. Compare the final repository Actions permission and workflow inventory with the initial record and require that the campaign made no change.

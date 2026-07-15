@@ -1,11 +1,11 @@
 ---
 name: pull-request
-description: Defines ttsc branch, commit, pull-request, check, and merge workflows. Use only when the user explicitly asks to open, submit, update, or merge a pull request; never open, push, update, or merge one on initiative.
+description: Defines ttsc branch, commit, pull-request, check, and merge workflows. Use when the user explicitly asks to open, submit, update, or merge a pull request, or when a standing autonomous mandate authorizes end-to-end delivery; never open, push, update, or merge one on unprompted initiative.
 ---
 
 # Pull Request Submission
 
-Act on this skill only when the user explicitly requests the corresponding remote action. Permission to edit locally is not permission to push or open a pull request, and permission to open or update is not permission to merge.
+Act on this skill only when the user explicitly requests the corresponding remote action, or when a standing autonomous mandate authorizes it. Permission to edit locally is not permission to push or open a pull request, and permission to open or update is not permission to merge. The one exception is a standing autonomous mandate — an autonomous or remote-control campaign, or an explicit instruction to carry the work through merge: it is the request for every step it names, including push and merge, and the skill's check, verification, and self-review gates still apply to each step.
 
 ## Branch From The Target
 
@@ -37,8 +37,8 @@ Before any issue-campaign push or pull request, complete `.agents/skills/issue-c
 
 After each ordinary push, including every Post-Campaign Cleanup push, monitor the pull-request checks until every check settles. Only CI-suspended campaign implementation waves skip this loop. On failure, fetch the relevant job log, diagnose the real cause, fix it in place, push a new commit, and resume monitoring. Do not treat a green unrelated job as acceptance for a failed required surface.
 
-## Merge Only On Explicit Request
+## Merge On Explicit Request Or Standing Autonomous Mandate
 
-Do not merge, squash-merge, rebase, or update the target branch on initiative. When the user explicitly asks to merge, use the repository's established merge method unless they specify another one.
+Do not merge, squash-merge, rebase, or update the target branch on unprompted initiative. Merge when the user explicitly asks, or when a standing autonomous mandate authorizes end-to-end delivery; use the repository's established merge method unless another is specified. Under an autonomous mandate the lead still clears the merge gate below for every pull request before merging.
 
 Before merging an ordinary or Post-Campaign Cleanup pull request, confirm required checks pass. For a campaign implementation pull request whose automatic CI is deliberately suspended, confirm the issue-campaign local-verification and lead-review gates instead. If branch protection blocks the requested merge, report the blocker rather than bypassing it.

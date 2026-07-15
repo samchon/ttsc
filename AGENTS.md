@@ -46,7 +46,7 @@ Structured multi-agent topic discussion with persistent research notes and trans
 
 ### Pull Request Submission
 
-Branch, commit, pull request, check, and merge flow, `.agents/skills/pull-request/SKILL.md`. Read only when the user explicitly asks to open, submit, update, or merge a pull request; never open, push, or propose one on your own initiative.
+Branch, commit, pull request, check, and merge flow, `.agents/skills/pull-request/SKILL.md`. Read when the user explicitly asks to open, submit, update, or merge a pull request, or when a standing autonomous mandate authorizes end-to-end delivery; never open, push, or propose one on unprompted initiative.
 
 ### Benchmark
 
