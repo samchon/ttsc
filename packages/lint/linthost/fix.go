@@ -43,13 +43,19 @@ func runFix(opts *subcommandOpts) int {
     fmt.Fprintln(os.Stderr, err)
     return 2
   }
-  // `ttsc fix` is the run-everything entry point: lint fixes AND formatter
-  // edits. Formatting is configured solely through the `format` block (a
-  // format/* key in `rules` is dropped), so wrap the resolver the same way
-  // `ttsc format` and the LSP paths do — formatCommandResolver force-
-  // activates the format rules the format block configured. A project with
-  // no format block populates no format options, so nothing extra is enabled
-  // and fix stays a pure lint pass.
+  // `ttsc fix` runs lint autofixes AND format-rule edits in one pass. Formatting
+  // is configured solely through the `format` block (a format/* key in `rules`
+  // is dropped), so wrap the resolver in formatCommandResolver to force-activate
+  // the format rules that block configured — the same promotion `ttsc format`
+  // applies to a configured block.
+  //
+  // Deliberately NOT newFormatCommandResolver: fix supplies no defaultOptions, so
+  // a project with no `format` block enables no format rules and fix stays a pure
+  // lint pass. Loading the always-on default formatter is `ttsc format`'s job;
+  // doing it here would reformat every file during a plain lint fix. This
+  // divergence is the contract pinned by
+  // command_fix_skips_default_formatting_that_format_applies_test.go and the
+  // website lint docs.
   engine := NewEngineWithResolver(formatCommandResolver{inner: rules})
   if err := engine.ConfigError(); err != nil {
     fmt.Fprintln(os.Stderr, err)
