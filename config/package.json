@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/config",
-  "version": "0.18.4",
+  "version": "0.19.0",
   "description": "Shared build configuration for ttsc packages.",
   "devDependencies": {
     "@rollup/plugin-commonjs": "catalog:rollup",
