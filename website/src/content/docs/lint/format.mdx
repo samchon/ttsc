@@ -86,6 +86,8 @@ Quoting of object-literal property keys. `"as-needed"` (default) unquotes keys t
 
 Enforce trailing commas in **multiline** literals, object literals, array literals, function parameter lists, function call arguments, and import/export specifier lists. Single-line literals are untouched. Driven by `format.trailingComma`.
 
+A trailing comma is never inserted after a rest element (`...rest`), where the grammar forbids one: rest parameters, and destructuring **assignment targets** that end in a rest such as `({ a, ...rest } = obj)` or `[a, ...rest] = arr`. A real value literal with a trailing spread (`{ a, ...o }`, `[a, ...rest]`) and a non-rest assignment target (`{ a, b } = obj`) still receive one. The `printWidth` reflow honors the same rule.
+
 ### `sortImports`
 
 **Opt-in.** Sort named specifiers and erased type-only imports. Set `format.sortImports` to `true` for safe defaults, or to an object to customize.

@@ -21,3 +21,10 @@ JSON.stringify({
   settings,
   sample: describe("a", { name: "x", value: 1 }),
 });
+
+let received: number;
+let others: { timeout: number };
+({
+  received,
+  ...others
+} = { received: 1, timeout: 2 });

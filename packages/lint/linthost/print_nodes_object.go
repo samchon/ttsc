@@ -66,12 +66,18 @@ func printObjectLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   // trailing commas in ES5 so both "all" and "es5" keep them; only
   // "none" suppresses. Pairs with the call/array branches so the printer
   // never disagrees with the trailing-comma rule on the same setting.
+  //
+  // A destructuring assignment target ending in a rest
+  // (`({ a, ...rest } = obj)`) is the one exception: a trailing comma
+  // after its `AssignmentRestProperty` is a syntax error, so the reflow
+  // must not emit one even under "all"/"es5". Matches the same suppression
+  // in `format/trailing-comma`; see isRestAssignmentTargetLiteral.
   return printList(ctx, listShape{
     OpenTok:     "{",
     CloseTok:    "}",
     Items:       items,
     Space:       true,
-    AddComma:    ctx.allowsEs5TrailingComma(),
+    AddComma:    ctx.allowsEs5TrailingComma() && !isRestAssignmentTargetLiteral(node),
     ForceBreak:  forceBreak,
     BlankBefore: blankBeforeItems(ctx.Source, obj.Properties.Nodes),
   }), covered

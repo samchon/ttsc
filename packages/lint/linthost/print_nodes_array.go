@@ -53,12 +53,18 @@ func printArrayLiteral(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   // suppresses. Hardcoding `true` would oscillate against Prettier on
   // every `none` project (the trailing-comma rule wouldn't insert one
   // and the printer would put one back).
+  //
+  // A destructuring assignment target ending in a rest
+  // (`[a, ...rest] = arr`) is the one exception: a trailing comma after
+  // its `AssignmentRestElement` is a syntax error, so the reflow must not
+  // emit one even under "all"/"es5". Matches the same suppression in
+  // `format/trailing-comma`; see isRestAssignmentTargetLiteral.
   return printList(ctx, listShape{
     OpenTok:     "[",
     CloseTok:    "]",
     Items:       items,
     Space:       false,
-    AddComma:    ctx.allowsEs5TrailingComma(),
+    AddComma:    ctx.allowsEs5TrailingComma() && !isRestAssignmentTargetLiteral(node),
     Fill:        isConciselyPrintedArray(arr.Elements.Nodes),
     ForceBreak:  arrayShouldForceBreak(arr.Elements.Nodes),
     BlankBefore: blankBeforeItems(ctx.Source, arr.Elements.Nodes),
