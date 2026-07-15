@@ -117,6 +117,17 @@ type flowType struct {
 type producerSurface struct {
   consumed map[flowType]map[string]bool
   produced map[flowType]map[string]bool
+  methods  []methodFlow
+}
+
+// methodFlow keeps method results conditional on an obtainable receiver. A
+// public method name alone cannot produce anything when its receiver is itself
+// unreachable; flattening method returns into producerSurface.produced would
+// let rootless method cycles satisfy the audit.
+type methodFlow struct {
+  receiver flowType
+  consumed map[flowType]map[string]bool
+  produced map[flowType]map[string]bool
 }
 
 func newProducerSurface() producerSurface {
@@ -691,9 +702,8 @@ func main() {
   }
 
   findings, pool := analyze(r, inner)
-  addExposedMethodFlow(r, inner, producerSurface)
+  addExposedMethodFlow(r, inner, &producerSurface)
   producerSurface = canonicalizeProducerSurface(producerSurface, inner)
-  findings = dedupe(append(findings, producerFindings(producerSurface)...))
 
   switch {
   case *fix:
@@ -701,16 +711,90 @@ func main() {
   case *writeBaseline:
     runWriteBaseline(findings, *baselinePath)
   case *check:
-    runCheck(findings, *baselinePath)
+    runCheck(findings, producerSurface, *baselinePath)
   default:
-    report(findings, pool, *md)
+    producerEvaluation := evaluateProducerSurface(producerSurface, nil)
+    report(dedupe(append(findings, producerEvaluation.gaps...)), pool, *md)
   }
 }
 
-func producerFindings(surface producerSurface) []finding {
+type producerEvaluation struct {
+  gaps      []finding
+  usedRoots map[string]bool
+}
+
+// evaluateProducerSurface computes the obtainable compiler-object set to a
+// fixed point. Package functions and callbacks provide unconditional roots;
+// method flows become active only after their receiver is obtainable. Explicit
+// baseline roots participate in the same graph, so a reasoned receiver root can
+// unlock its real method results without exempting those downstream objects.
+func evaluateProducerSurface(surface producerSurface, roots map[string]string) producerEvaluation {
+  reachable := map[flowType]bool{}
+  for typ := range surface.produced {
+    reachable[typ] = true
+  }
+  allTypes := map[flowType]bool{}
+  for typ := range surface.consumed {
+    allTypes[typ] = true
+  }
+  for typ := range surface.produced {
+    allTypes[typ] = true
+  }
+  for _, method := range surface.methods {
+    allTypes[method.receiver] = true
+    for typ := range method.consumed {
+      allTypes[typ] = true
+    }
+    for typ := range method.produced {
+      allTypes[typ] = true
+    }
+  }
+  usedRoots := map[string]bool{}
+  for key, rationale := range roots {
+    if strings.TrimSpace(rationale) == "" {
+      continue
+    }
+    typ, ok := parseProducerExemptionKey(key)
+    if !ok || !allTypes[typ] || reachable[typ] {
+      continue
+    }
+    reachable[typ] = true
+    usedRoots[key] = true
+  }
+
+  consumed := map[flowType]map[string]bool{}
+  mergeFlows := func(target map[flowType]map[string]bool, flows map[flowType]map[string]bool) {
+    for typ, operations := range flows {
+      if target[typ] == nil {
+        target[typ] = map[string]bool{}
+      }
+      for operation := range operations {
+        target[typ][operation] = true
+      }
+    }
+  }
+  mergeFlows(consumed, surface.consumed)
+  active := make([]bool, len(surface.methods))
+  for changed := true; changed; {
+    changed = false
+    for index, method := range surface.methods {
+      if active[index] || !reachable[method.receiver] {
+        continue
+      }
+      active[index] = true
+      changed = true
+      mergeFlows(consumed, method.consumed)
+      for typ := range method.produced {
+        if !reachable[typ] {
+          reachable[typ] = true
+        }
+      }
+    }
+  }
+
   var findings []finding
-  for typ, operations := range surface.consumed {
-    if len(surface.produced[typ]) > 0 {
+  for typ, operations := range consumed {
+    if reachable[typ] {
       continue
     }
     names := make([]string, 0, len(operations))
@@ -722,10 +806,18 @@ func producerFindings(surface producerSurface) []finding {
       kind:   "PRODUCER",
       pkg:    typ.pkg,
       symbol: typ.name,
-      detail: "consumed by " + strings.Join(names, ", ") + " but no public shim operation returns it",
+      detail: "consumed by " + strings.Join(names, ", ") + " but no reachable public shim operation produces it",
     })
   }
-  return dedupe(findings)
+  return producerEvaluation{gaps: dedupe(findings), usedRoots: usedRoots}
+}
+
+func parseProducerExemptionKey(key string) (flowType, bool) {
+  separator := strings.LastIndexByte(key, '.')
+  if separator <= 0 || separator == len(key)-1 {
+    return flowType{}, false
+  }
+  return flowType{pkg: key[:separator], name: key[separator+1:]}, true
 }
 
 func canonicalizeProducerSurface(surface producerSurface, inner map[string]*packages.Package) producerSurface {
@@ -740,6 +832,27 @@ func canonicalizeProducerSurface(surface producerSurface, inner map[string]*pack
   }
   copyDirection(flowConsume, surface.consumed)
   copyDirection(flowProduce, surface.produced)
+  for _, method := range surface.methods {
+    converted := methodFlow{
+      receiver: canonicalFlowType(method.receiver, inner),
+      consumed: map[flowType]map[string]bool{},
+      produced: map[flowType]map[string]bool{},
+    }
+    copyMethodDirection := func(target map[flowType]map[string]bool, flows map[flowType]map[string]bool) {
+      for typ, operations := range flows {
+        typ = canonicalFlowType(typ, inner)
+        if target[typ] == nil {
+          target[typ] = map[string]bool{}
+        }
+        for operation := range operations {
+          target[typ][operation] = true
+        }
+      }
+    }
+    copyMethodDirection(converted.consumed, method.consumed)
+    copyMethodDirection(converted.produced, method.produced)
+    canonical.methods = append(canonical.methods, converted)
+  }
   return canonical
 }
 
@@ -762,7 +875,7 @@ func canonicalFlowType(typ flowType, inner map[string]*packages.Package) flowTyp
 // exposed type alias. Those methods do not appear as declarations in shim
 // source, but their receiver, parameter, callback, and result flows are part of
 // the same public surface as hand-written package wrappers.
-func addExposedMethodFlow(r reachable, inner map[string]*packages.Package, surface producerSurface) {
+func addExposedMethodFlow(r reachable, inner map[string]*packages.Package, surface *producerSurface) {
   for suffix, pkg := range inner {
     scope := pkg.Types.Scope()
     for _, name := range scope.Names() {
@@ -787,12 +900,21 @@ func addExposedMethodFlow(r reachable, inner map[string]*packages.Package, surfa
         }
         signature := method.Signature()
         operation := suffix + "." + name + "." + method.Name()
-        // The receiver is the exposed object whose usable operations the shim
-        // is describing, not a new input edge. Track only explicit method
-        // parameters and returns; promoted declaring receivers can be embedded
-        // implementation details that callers never manufacture directly.
-        collectGoTupleFlow(signature.Params(), flowConsume, operation, surface)
-        collectGoTupleFlow(signature.Results(), flowProduce, operation, surface)
+        methodSurface := newProducerSurface()
+        collectGoTupleFlow(signature.Params(), flowConsume, operation, methodSurface)
+        collectGoTupleFlow(signature.Results(), flowProduce, operation, methodSurface)
+        if len(methodSurface.consumed) == 0 && len(methodSurface.produced) == 0 {
+          continue
+        }
+        // Key the dependency to the exposed outer type, not the declaring
+        // receiver of a promoted method: callers need an outer value to invoke
+        // the selected method and never manufacture an embedded implementation
+        // receiver directly.
+        surface.methods = append(surface.methods, methodFlow{
+          receiver: flowType{pkg: suffix, name: name},
+          consumed: methodSurface.consumed,
+          produced: methodSurface.produced,
+        })
       }
     }
   }
@@ -1231,8 +1353,6 @@ func countByPkg(in []finding) string {
 // findingKey is the stable identity of a gap, used for baseline membership.
 func findingKey(f finding) string { return f.kind + "|" + f.pkg + "|" + f.symbol }
 
-func producerExemptionKey(f finding) string { return f.pkg + "." + f.symbol }
-
 // baselineFile is the on-disk schema of accepted TIER-2/3 gaps. TIER-1 enum
 // gaps are never baselined. Producer gaps require a separate, reasoned root or
 // ownership-boundary exemption because accepting an ordinary symbol gap must
@@ -1244,22 +1364,21 @@ type baselineFile struct {
 }
 
 type baselineEvaluation struct {
-  enumGaps        []finding
-  newGaps         []finding
-  producerGaps    []finding
+  enumGaps       []finding
+  newGaps        []finding
+  producerGaps   []finding
   invalidReasons []string
   staleAccepted  int
   staleProducers int
 }
 
-func evaluateBaseline(findings []finding, baseline baselineFile) baselineEvaluation {
+func evaluateBaseline(findings []finding, baseline baselineFile, usedProducerRoots map[string]bool) baselineEvaluation {
   accepted := map[string]bool{}
   for _, key := range baseline.Accepted {
     accepted[key] = true
   }
   evaluation := baselineEvaluation{}
   liveAccepted := map[string]bool{}
-  liveProducers := map[string]bool{}
   for _, f := range findings {
     switch f.kind {
     case "ENUM":
@@ -1271,12 +1390,7 @@ func evaluateBaseline(findings []finding, baseline baselineFile) baselineEvaluat
         evaluation.newGaps = append(evaluation.newGaps, f)
       }
     case "PRODUCER":
-      key := producerExemptionKey(f)
-      liveProducers[key] = true
-      rationale, exempted := baseline.ProducerExemptions[key]
-      if !exempted || strings.TrimSpace(rationale) == "" {
-        evaluation.producerGaps = append(evaluation.producerGaps, f)
-      }
+      evaluation.producerGaps = append(evaluation.producerGaps, f)
     }
   }
   for key := range accepted {
@@ -1288,7 +1402,7 @@ func evaluateBaseline(findings []finding, baseline baselineFile) baselineEvaluat
     if strings.TrimSpace(rationale) == "" {
       evaluation.invalidReasons = append(evaluation.invalidReasons, key)
     }
-    if !liveProducers[key] {
+    if !usedProducerRoots[key] {
       evaluation.staleProducers++
     }
   }
@@ -1408,7 +1522,7 @@ func runWriteBaseline(findings []finding, path string) {
 
 // runCheck is the CI gate. It fails on any TIER-1 enum gap, any unreasoned
 // producer gap, or any TIER-2/3 gap not present in the baseline.
-func runCheck(findings []finding, path string) {
+func runCheck(findings []finding, surface producerSurface, path string) {
   baseline := baselineFile{}
   if data, err := os.ReadFile(path); err == nil {
     if err := json.Unmarshal(data, &baseline); err != nil {
@@ -1419,7 +1533,9 @@ func runCheck(findings []finding, path string) {
     fmt.Fprintf(os.Stderr, "shim_audit: WARNING no baseline at %s; treating all func/type and producer gaps as new\n", path)
   }
 
-  evaluation := evaluateBaseline(findings, baseline)
+  producerEvaluation := evaluateProducerSurface(surface, baseline.ProducerExemptions)
+  findings = dedupe(append(findings, producerEvaluation.gaps...))
+  evaluation := evaluateBaseline(findings, baseline, producerEvaluation.usedRoots)
   // Non-failing hygiene note: baseline lines that no longer match a gap (the
   // symbol got exposed) are dead weight; the ratchet stays safe but suggest a prune.
   if evaluation.staleAccepted > 0 {

@@ -36,7 +36,7 @@ func hidden(value *inner.Hidden) {}
     if err := scanProducerFile([]byte(input), "fixture.go", "fixture", nil, surface); err != nil {
       t.Fatal(err)
     }
-    return producerFindings(surface)
+    return evaluateProducerSurface(surface, nil).gaps
   }
 
   complete := scan(source)
