@@ -54,7 +54,18 @@ export function resolveUpstreamTransformer(
   load: (modulePath: string) => UpstreamTransformer | undefined = tryRequire,
 ): UpstreamTransformer {
   if (customPath !== undefined && customPath.length !== 0) {
-    const upstream = load(customPath);
+    let upstream: UpstreamTransformer | undefined;
+    try {
+      upstream = load(customPath);
+    } catch (cause) {
+      // The module resolves but failed while initializing (a top-level throw,
+      // a missing peer/transitive dependency, or a runtime-ABI rejection).
+      // Preserve the original diagnostic instead of masking it as absence.
+      throw new Error(
+        `[@ttsc/metro] Failed to load the configured upstream transformer "${customPath}": ${errorMessage(cause)}`,
+        { cause },
+      );
+    }
     if (upstream === undefined) {
       throw new Error(
         `[@ttsc/metro] Could not load the configured upstream transformer: ${customPath}`,
@@ -64,7 +75,19 @@ export function resolveUpstreamTransformer(
   }
 
   for (const candidate of UPSTREAM_CANDIDATES) {
-    const upstream = load(candidate);
+    let upstream: UpstreamTransformer | undefined;
+    try {
+      upstream = load(candidate);
+    } catch (cause) {
+      // A candidate that resolves but throws while initializing is a broken
+      // installation of the active stack, not an absent optional peer. Surface
+      // it rather than silently falling through to a candidate that does not
+      // match this project.
+      throw new Error(
+        `[@ttsc/metro] The upstream Metro transformer "${candidate}" is installed but failed to initialize: ${errorMessage(cause)}`,
+        { cause },
+      );
+    }
     if (upstream !== undefined) {
       return upstream;
     }
@@ -78,10 +101,50 @@ export function resolveUpstreamTransformer(
   );
 }
 
+/**
+ * Load an upstream transformer module, separating genuine absence from a broken
+ * installation.
+ *
+ * Resolution and execution are split deliberately. `require.resolve` only walks
+ * the module graph for the requested specifier; it never executes third-party
+ * code, so a failure there proves the requested candidate itself is not present
+ * — reported as `undefined` (absence) so automatic probing continues to the
+ * next optional peer. Once resolution succeeds, any error thrown by the actual
+ * `require` comes from executing the module body, including a missing peer or
+ * transitive dependency; that is a real initialization failure and is rethrown
+ * with its original message and stack so the caller can preserve it.
+ */
 function tryRequire(modulePath: string): UpstreamTransformer | undefined {
   try {
-    return nodeRequire(modulePath) as UpstreamTransformer;
-  } catch {
-    return undefined;
+    nodeRequire.resolve(modulePath);
+  } catch (error) {
+    if (isModuleNotFound(error)) {
+      return undefined;
+    }
+    // A non-"not found" resolution error (e.g. an invalid specifier) is not
+    // evidence of a plain absence; surface it.
+    throw error;
   }
+  return nodeRequire(modulePath) as UpstreamTransformer;
+}
+
+/**
+ * Whether a resolution error means the requested module could not be found.
+ *
+ * A CJS `require.resolve` failure carries `code === "MODULE_NOT_FOUND"`; the
+ * ESM loader uses `ERR_MODULE_NOT_FOUND`. Because resolution never executes the
+ * module, this error can only refer to the requested specifier, never a
+ * transitive import of it.
+ */
+function isModuleNotFound(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null | undefined)?.code;
+  return code === "MODULE_NOT_FOUND" || code === "ERR_MODULE_NOT_FOUND";
+}
+
+/** Best-effort message extraction for wrapping an unknown thrown value. */
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }
