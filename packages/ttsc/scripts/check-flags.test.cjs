@@ -84,7 +84,7 @@ test("a real content change drifts under both LF and CRLF before-states", () => 
     for (const target of targets) {
       before[target] = withEol(after[target], eol);
     }
-    // Flip one non-terminator byte so the difference is content, not EOL.
+    // Add a non-terminator change so the difference is real content, not EOL.
     before[victim] = `${before[victim]}// hand-edited drift`;
     assert.deepEqual(
       computeDrift(before, after, targets),
