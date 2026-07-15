@@ -4,11 +4,11 @@ Read this document in full when the user authorizes implementation pull requests
 
 ## Flow
 
-- [Suspend Repository Actions](#suspend-repository-actions)
+- [Cancel Campaign CI After Every Push](#cancel-campaign-ci-after-every-push)
 - [Plan And Claim A Pull Request Wave](#plan-and-claim-a-pull-request-wave)
 - [Implement And Revalidate A Batch](#implement-and-revalidate-a-batch)
 - [Remove Every Finished Worktree](#remove-every-finished-worktree)
-- [While Actions Are Suspended](#while-actions-are-suspended)
+- [While Campaign CI Is Cancelled](#while-campaign-ci-is-cancelled)
 - [Repeat A Campaign Cycle](#repeat-a-campaign-cycle)
 - [Post-Campaign Cleanup](#post-campaign-cleanup)
 
@@ -16,24 +16,21 @@ Three rules govern the entire implementation phase:
 
 - Local tests, lead verification, and solo Self-Review are the implementation gates.
 - Do not run `pnpm format` during discovery, issue publication, or implementation. Post-Campaign Cleanup owns the repository-wide formatter result.
-- Disable repository Actions before the first campaign push. Keep Actions disabled through every implementation push, pull request, review fix, merge, and renewed discovery cycle.
+- Never disable repository Actions or any workflow for a campaign. After every campaign push and pull-request creation, immediately cancel only the runs for that campaign commit and verify cancellation before continuing.
 
-## Suspend Repository Actions
+## Cancel Campaign CI After Every Push
 
-Disable GitHub Actions at repository level before the first campaign branch push. This gate covers existing workflows, workflows first introduced by a campaign branch, chained events, and ruleset-required Actions workflows.
+Repository-wide Actions and workflow settings must remain unchanged. Before the first push, record `gh api repos/{owner}/{repo}/actions/permissions` and `gh workflow list --all --limit 1000 --json id,name,path,state` in `.wiki/<campaign>/ci-state.md` so the lead can prove the campaign did not alter them.
 
-Do not substitute per-workflow disabling, draft pull requests, concurrency groups, path filters, or commit-message skip markers. Any of them can leave a path that consumes runners.
+Every push gets its own cancellation gate:
 
-### Shutdown Gate
+1. Record the campaign branch and pushed commit SHA.
+2. List runs for that exact SHA with `gh run list --commit <sha> --limit 100 --json databaseId,headBranch,headSha,status,conclusion,url`.
+3. Cancel every `queued`, `in_progress`, `waiting`, `pending`, or `requested` run for that SHA with `gh run cancel <run-id>`. Never cancel by broad repository, workflow, or contributor filters.
+4. Poll again because push, pull-request, chained, and ruleset runs can appear after the first query. Continue until two consecutive polls find no new run and every observed run is terminal; every run observed as active must end `cancelled`, while a run already terminal when first observed is only recorded.
+5. Record the run IDs and final states in `.wiki/<campaign>/ci-state.md`. Stop further pushes or pull-request mutations if enumeration, cancellation, or readback fails.
 
-1. Confirm the repository and default branch. Record `gh workflow list --all --limit 1000 --json id,name,path,state` in `.wiki/<campaign>/ci-state.md`.
-2. Save `gh api repos/{owner}/{repo}/actions/permissions` verbatim as `.wiki/<campaign>/actions-permissions.json`.
-3. If `allowed_actions` is `selected`, also save `/actions/permissions/selected-actions` as `.wiki/<campaign>/selected-actions.json`.
-4. Run `gh api --method PUT repos/{owner}/{repo}/actions/permissions -F enabled=false`.
-5. Read the permission back and require `enabled: false`. Stop before any push or pull request if the mutation or readback fails.
-6. Inspect queued and running workflow runs. Suspension does not cancel an existing run. Cancel only accidental campaign runs, never unrelated contributors' runs.
-
-The repository remains fully suspended, including manual Actions runs, until Post-Campaign Cleanup restores the saved policy.
+Opening or updating a pull request can enqueue additional runs for the already-pushed SHA. Run the same gate immediately after pull-request creation and after any operation that retriggers checks. The exact-SHA boundary is mandatory: never cancel unrelated contributors' runs.
 
 ## Plan And Claim A Pull Request Wave
 
@@ -50,9 +47,10 @@ Claim each unclaimed batch before implementation begins:
 
 1. Create one isolated worktree and topic branch.
 2. Create one implementation-free claim commit with `git commit --allow-empty`.
-3. Push the branch and open a draft pull request.
-4. Link every batched issue, mark verification as pending, and state the batch scope.
-5. Record the batch, worktree, branch, issues, and pull request in the campaign knowledge base.
+3. Push the branch and pass the exact-SHA cancellation gate.
+4. Open a draft pull request and pass the gate again for runs triggered by pull-request creation.
+5. Link every batched issue, mark verification as pending, and state the batch scope.
+6. Record the batch, worktree, branch, issues, pull request, and cancelled run IDs in the campaign knowledge base.
 
 The draft pull request reserves the whole batch before code is written, preventing another contributor from starting overlapping work.
 
@@ -66,7 +64,7 @@ An implementation agent may find that an issue is false or too broad. The lead m
 - For a confirmed-invalid issue, record the evidence and close the issue.
 - If no issue remains in the batch, close the claim pull request instead of leaving an orphan reservation.
 
-Commit and push every coherent implementation increment to the claimed branch. Do not hold a completed implementation locally until handoff.
+Commit and push every coherent implementation increment to the claimed branch. Immediately pass the exact-SHA cancellation gate after each push; do not hold a completed implementation locally until handoff or continue working while that gate is unresolved.
 
 Before merge, complete solo Self-Review. The lead then rechecks issue fit, evidence, verification, and pull-request scope. Merge only with user authorization.
 
@@ -87,17 +85,17 @@ If an assignment ends without a merge, first record retained evidence and confir
 
 Apply this rule to every campaign-created worktree, including one used for Post-Campaign Cleanup. Do not mark an assignment complete while its worktree remains on disk.
 
-## While Actions Are Suspended
+## While Campaign CI Is Cancelled
 
 - Record local verification for each pull request. Do not dispatch replacement CI.
-- Before and after every push, require `enabled: false` and verify that no campaign workflow started. Stop publication on any mismatch.
-- If work pauses, report the saved and live settings. Leave Actions suspended until the campaign resumes or terminates.
+- Keep repository Actions and workflow settings unchanged. Cancel only exact-SHA campaign runs after every push or pull-request retrigger.
+- If work pauses, report local verification and the final state of every run for the latest campaign SHAs.
 
 ## Repeat A Campaign Cycle
 
 Report the wave after every surviving issue is covered by its assigned batch pull request.
 
-When the user requests another discovery cycle, return to the parent skill's Discover Issues phase and start new unlimited full rounds over the entire campaign scope. Earlier rounds are not coverage. Actions stays disabled, and discovery alone does not authorize issue publication, pull requests, or merging.
+When the user requests another discovery cycle, return to the parent skill's Discover Issues phase and start new unlimited full rounds over the entire campaign scope. Earlier rounds are not coverage. Repository Actions remains unchanged, and discovery alone does not authorize issue publication, pull requests, or merging.
 
 ## Post-Campaign Cleanup
 
@@ -106,30 +104,11 @@ Run this phase only after the user ends the campaign, every campaign pull reques
 1. Return to `master` in the main checkout and confirm it contains no unrelated user changes.
 2. Pull the final campaign result with `git pull --ff-only origin master`.
 3. Run `pnpm format` once against the integrated repository.
-4. If formatting produces no diff, restore the exact saved Actions policy, verify it, report that no cleanup pull request was needed, and stop.
+4. If formatting produces no diff, report that no cleanup pull request was needed and stop.
 5. If formatting changes files, create a dedicated topic branch containing the formatter result and only directly necessary fixes.
-6. Restore and verify the exact saved Actions policy before the first cleanup-branch push. If that policy enables Actions, the cleanup pull request receives normal CI; never enable a repository that was disabled before the campaign.
-7. Commit, push, and open the Post-Campaign Cleanup pull request under the pull-request skill.
-8. Watch every check. Diagnose every red result, fix it, commit, and push on the same branch until all required checks are green.
-9. Merge only with user authorization.
-10. If cleanup used the main checkout, return it to `master`, pull with `git pull --ff-only origin master`, and delete the local cleanup branch.
-11. If cleanup used an auxiliary worktree, remove it and its branch under Remove Every Finished Worktree, then pull `master` in the main checkout.
-12. Require the main checkout to be clean. Read the repository Actions policy back one final time and require it to match the saved policy.
-
-### Restore Actions Exactly
-
-Restoration means returning to the previous policy, not merely setting `enabled=true`.
-
-Restore the saved repository permission:
-
-```powershell
-gh api --method PUT repos/{owner}/{repo}/actions/permissions -F enabled=<saved-boolean> -f allowed_actions=<saved-value> -F sha_pinning_required=<saved-boolean>
-```
-
-If the saved `allowed_actions` value is `selected`, also restore its selection:
-
-```powershell
-gh api --method PUT repos/{owner}/{repo}/actions/permissions/selected-actions --input .wiki/<campaign>/selected-actions.json
-```
-
-Compare the live responses with both snapshots. Never broaden the prior policy. Record the final policy and workflow inventory in `.wiki/<campaign>/ci-state.md`.
+6. Commit and push under the pull-request skill, pass the exact-SHA cancellation gate, open the Post-Campaign Cleanup pull request, and pass the gate again for pull-request-triggered runs.
+7. Diagnose any locally reproducible failure, fix it, commit, push, and cancel the new commit's runs by the same gate.
+8. Merge only with user authorization.
+9. If cleanup used the main checkout, return it to `master`, pull with `git pull --ff-only origin master`, and delete the local cleanup branch.
+10. If cleanup used an auxiliary worktree, remove it and its branch under Remove Every Finished Worktree, then pull `master` in the main checkout.
+11. Require the main checkout to be clean. Compare the final repository Actions permission and workflow inventory with the initial record and require that the campaign made no change.

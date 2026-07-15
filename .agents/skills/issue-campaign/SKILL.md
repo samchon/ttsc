@@ -1,6 +1,6 @@
 ---
 name: issue-campaign
-description: Defines repository-wide issue discovery, lead-vetted issue publication, CI-suspended implementation waves, and post-campaign cleanup for ttsc. Use when the user asks for a broad audit, many issue candidates, or a repeated issue-to-pull-request campaign; do not use for one already-defined issue or an ordinary pull request.
+description: Defines repository-wide issue discovery, lead-vetted issue publication, per-push CI cancellation during implementation waves, and post-campaign cleanup for ttsc. Use when the user asks for a broad audit, many issue candidates, or a repeated issue-to-pull-request campaign; do not use for one already-defined issue or an ordinary pull request.
 ---
 
 # Issue Campaign
@@ -18,7 +18,7 @@ Keep concise, current Markdown documents for:
 - repository provenance, architecture, and ownership boundaries;
 - experiments, reproductions, dogfooding, and related issue or pull-request history;
 - candidates, evidence, dependencies, and lead disposition;
-- implementation pull requests, local verification, and suspended Actions state when those phases apply.
+- implementation pull requests, local verification, and cancelled campaign-run records when those phases apply.
 
 The knowledge base supports the campaign but is not the final issue body. A published issue must stand alone without access to `.wiki`.
 
@@ -57,6 +57,6 @@ Use tables for repeated case mappings. Read the rendered issue back and keep its
 
 ## Develop And Repeat The Campaign
 
-Read [development.md](development.md) in full when the user authorizes implementation pull requests or ends a campaign that entered implementation. It owns Actions suspension, DAG-based batching, claim pull requests, implementation waves, worktree cleanup, renewed discovery, the no-format rule, and Post-Campaign Cleanup. Do not push or open a pull request before its shutdown gate passes.
+Read [development.md](development.md) in full when the user authorizes implementation pull requests or ends a campaign that entered implementation. It owns per-push campaign CI cancellation, DAG-based batching, claim pull requests, implementation waves, worktree cleanup, renewed discovery, the no-format rule, and Post-Campaign Cleanup. Do not continue after a push until its cancellation gate passes.
 
 An audit or issue-publication-only campaign does not load development procedure or mutate repository Actions.
