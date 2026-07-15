@@ -22,8 +22,8 @@
 //   - ESCAPE every exported named type that appears in the signature of an
 //     already-exposed operation but is not itself aliased. (A plugin can
 //     obtain the value but cannot name its type.)
-//   - PRODUCER every pointer-like compiler object consumed by an exported shim
-//     wrapper must also be returned by an exported wrapper. A type alias alone
+//   - PRODUCER every pointer-like compiler object consumed by a public shim
+//     operation must also be returned by a public operation. A type alias alone
 //     only makes the object nameable; it does not provide a meaningful value.
 //
 // What it deliberately does NOT find: UNEXPORTED helpers a plugin needs by name
@@ -111,7 +111,7 @@ type flowType struct {
   name string
 }
 
-// producerSurface records the exported wrapper operations that consume and
+// producerSurface records the public shim operations that consume and
 // produce pointer-like compiler objects. Values are operation names so a gap
 // explains which public wrapper requires the missing producer.
 type producerSurface struct {
@@ -211,7 +211,7 @@ func scanShimReachable(shimRoot string) (reachable, error) {
 }
 
 // scanShimProducerSurface parses normal shim source and models value flow over
-// exported package-level wrappers. A pointer to an internal named type is a
+// exported package functions and methods. A pointer to an internal named type is a
 // compiler-owned graph object: parameters consume one and results produce one.
 // Callback variance is reversed for callback parameters and preserved for
 // callback results, so an input callback's arguments count as values produced
@@ -314,14 +314,32 @@ func scanProducerFile(src []byte, filename, suffix string, localTypes map[string
   }
   for _, decl := range file.Decls {
     fn, ok := decl.(*ast.FuncDecl)
-    if !ok || fn.Recv != nil || !ast.IsExported(fn.Name.Name) {
+    if !ok || !ast.IsExported(fn.Name.Name) {
       continue
     }
     operation := suffix + "." + fn.Name.Name
+    if fn.Recv != nil && len(fn.Recv.List) > 0 {
+      operation = suffix + "." + receiverTypeName(fn.Recv.List[0].Type) + "." + fn.Name.Name
+    }
     collectFieldFlow(fn.Type.Params, aliases, localTypes, flowConsume, false, operation, surface)
     collectFieldFlow(fn.Type.Results, aliases, localTypes, flowProduce, false, operation, surface)
   }
   return nil
+}
+
+func receiverTypeName(expr ast.Expr) string {
+  switch receiver := expr.(type) {
+  case *ast.Ident:
+    return receiver.Name
+  case *ast.StarExpr:
+    return receiverTypeName(receiver.X)
+  case *ast.IndexExpr:
+    return receiverTypeName(receiver.X)
+  case *ast.IndexListExpr:
+    return receiverTypeName(receiver.X)
+  default:
+    return "receiver"
+  }
 }
 
 func collectFieldFlow(fields *ast.FieldList, aliases map[string]string, localTypes map[string]flowType, direction flowDirection, pointerLike bool, operation string, surface producerSurface) {
@@ -704,7 +722,7 @@ func producerFindings(surface producerSurface) []finding {
       kind:   "PRODUCER",
       pkg:    typ.pkg,
       symbol: typ.name,
-      detail: "consumed by " + strings.Join(names, ", ") + " but no exported shim wrapper returns it",
+      detail: "consumed by " + strings.Join(names, ", ") + " but no public shim operation returns it",
     })
   }
   return dedupe(findings)

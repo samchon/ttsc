@@ -10,9 +10,10 @@ import (
 // The regression is type-flow specific: callback inputs are producers, callback
 // results are consumers, and non-pointer values must not enter the object graph.
 //
-//  1. Scan a generic surface containing a return, an input-only object, and a callback.
+//  1. Scan a generic surface containing returns, callbacks, and a source method.
 //  2. Confirm only the intentionally input-only object is initially unreachable.
-//  3. Remove the ordinary producer and confirm the generic type-keyed gap appears.
+//  3. Remove a package producer and confirm its generic type-keyed gap appears.
+//  4. Remove a method consumer's producer and confirm that gap appears too.
 func TestProducerSurfaceRejectsUnproducibleReference(t *testing.T) {
   source := `package fixture
 import inner "github.com/microsoft/typescript-go/internal/fixture"
@@ -22,6 +23,9 @@ func Register(handler func(*inner.Event) *inner.Reply) {}
 func ProduceReply() *inner.Reply { return nil }
 func RegisterInterface(handler interface { Handle(*inner.Notice) *inner.Ack }) {}
 func ProduceAck() *inner.Ack { return nil }
+type Owner struct{}
+func (*Owner) ConsumeMethod(value *inner.MethodToken) {}
+func ProduceMethodToken() *inner.MethodToken { return nil }
 func ConsumeOrphan(value *inner.Orphan) {}
 func IgnorePointedContainer(value *[]inner.ContainerValue) {}
 func IgnoreValue(value inner.Mode) {}
@@ -48,5 +52,10 @@ func hidden(value *inner.Hidden) {}
     if finding.kind != "PRODUCER" || strings.Contains(finding.detail, "Signature") {
       t.Fatalf("finding is not generic producer evidence: %+v", finding)
     }
+  }
+
+  mutatedMethod := scan(strings.Replace(source, "func ProduceMethodToken() *inner.MethodToken { return nil }\n", "", 1))
+  if len(mutatedMethod) != 2 || mutatedMethod[0].symbol != "MethodToken" || mutatedMethod[1].symbol != "Orphan" {
+    t.Fatalf("source-method mutation findings = %+v, want MethodToken and Orphan", mutatedMethod)
   }
 }
