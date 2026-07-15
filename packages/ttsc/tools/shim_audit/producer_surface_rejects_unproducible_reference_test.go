@@ -74,21 +74,25 @@ func hidden(value *inner.Hidden) {}
 import inner "github.com/microsoft/typescript-go/internal/fixture"
 type Factory func() *inner.FactoryToken
 type Batch []*inner.BatchToken
+type PointerBatch []*inner.PointerBatchToken
 type Recursive func(Recursive)
 func RegisterFactory(factory Factory) {}
 func ConsumeBatch(batch Batch) {}
+func ConsumePointerBatch(batch *PointerBatch) {}
 func RegisterRecursive(callback Recursive) {}
 func ProduceFactoryToken() *inner.FactoryToken { return nil }
 func ProduceBatchToken() *inner.BatchToken { return nil }
+func ProducePointerBatchToken() *inner.PointerBatchToken { return nil }
 `
   if findings := scan(namedSource); len(findings) != 0 {
     t.Fatalf("named callback/container findings = %+v, want none", findings)
   }
   namedMutated := strings.Replace(namedSource, "func ProduceFactoryToken() *inner.FactoryToken { return nil }\n", "", 1)
   namedMutated = strings.Replace(namedMutated, "func ProduceBatchToken() *inner.BatchToken { return nil }\n", "", 1)
+  namedMutated = strings.Replace(namedMutated, "func ProducePointerBatchToken() *inner.PointerBatchToken { return nil }\n", "", 1)
   namedFindings := scan(namedMutated)
-  if len(namedFindings) != 2 || namedFindings[0].symbol != "BatchToken" || namedFindings[1].symbol != "FactoryToken" {
-    t.Fatalf("named callback/container mutation findings = %+v, want BatchToken and FactoryToken", namedFindings)
+  if len(namedFindings) != 3 || namedFindings[0].symbol != "BatchToken" || namedFindings[1].symbol != "FactoryToken" || namedFindings[2].symbol != "PointerBatchToken" {
+    t.Fatalf("named callback/container mutation findings = %+v, want BatchToken, FactoryToken, and PointerBatchToken", namedFindings)
   }
 
   upstream := types.NewPackage(internalPrefix+"fixture", "fixture")

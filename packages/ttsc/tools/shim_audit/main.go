@@ -426,7 +426,7 @@ func collectTypeFlowSeen(expr ast.Expr, aliases map[string]string, localTypes ma
     collectFieldFlowSeen(node.Methods, aliases, localTypes, inner, direction, false, operation, surface, seen)
   case *ast.Ident:
     definition, local := localTypes[node.Name]
-    if !local || (!definition.alias && pointerLike) {
+    if !local {
       return
     }
     visit := localFlowVisit{name: node.Name, direction: direction, pointerLike: pointerLike}
