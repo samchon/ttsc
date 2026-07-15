@@ -12,6 +12,7 @@ import {
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
 import { resolveCacheDir } from "./resolveCacheDir";
+import { checkNodeRuntimeSupport } from "./runtimeHooks";
 
 /**
  * CLI entry point for `ttsx`. Type-checks the owning project via tsgo, emits
@@ -43,6 +44,17 @@ function run(argv: readonly string[]): number {
       `${getCompilerVersionText().replace(/^ttsc\b/, "ttsx")}\n`,
     );
     return 0;
+  }
+
+  // Refuse an unsupported Node.js before type-checking and spawning the child:
+  // the child inherits this process's Node version, so an early diagnostic here
+  // pre-empts both the Node 18 `--disable-warning` rejection and the Node 20
+  // missing-`registerHooks` TypeError with one actionable message. `--help` and
+  // `--version` are handled above so they still print on any Node.
+  const nodeSupport = checkNodeRuntimeSupport(process.versions.node);
+  if (nodeSupport !== null) {
+    process.stderr.write(`ttsx: ${nodeSupport}\n`);
+    return 2;
   }
 
   const cwd = path.resolve(parsed.cwd ?? process.cwd());
@@ -109,6 +121,14 @@ function parseCLI(argv: readonly string[]) {
     errorPrefix: "ttsx:",
     forwardAfterFirstPositional: true,
     honorDoubleDashSeparator: true,
+    // Only a TypeScript-extensioned bare token is the entry; every other bare
+    // token before it (e.g. the `es2020` in `--target es2020 entry.ts`) is a
+    // forwarded flag value. Classifying values via the predicate keeps them in
+    // `passthrough` in order AND stops a pre-entry value from being mistaken for
+    // the first positional sentinel — which previously flipped the parser into
+    // tail mode and pushed the real entry into `tail`, failing with
+    // "entry file is required".
+    isPositional: looksLikeEntryFile,
     subcommand: "ttsx",
   });
 
@@ -116,18 +136,13 @@ function parseCLI(argv: readonly string[]) {
   if (entry === undefined) {
     throw new Error("ttsx: entry file is required");
   }
-  // With `forwardAfterFirstPositional: true` the parser reports
-  // `result.positional` as just the entry, `result.passthrough` as flags
-  // arriving BEFORE the entry (tsgo-forwarded), and `result.tail` as every
-  // token AFTER the entry — those are the user program's argv (e.g. the
-  // `generate --input src/input` tail of `ttsx typia.ts generate
-  // --input src/input`) and MUST NOT reach tsgo. Anything in positional
-  // that is not the entry is a pre-entry flag value (e.g. `--target es2020`)
-  // that the parser stored positionally; forward those to tsgo with the
-  // rest of `passthrough`.
-  const preEntryValues: string[] = result.positional.filter(
-    (token) => token !== entry && !looksLikeEntryFile(token),
-  );
+  // With `forwardAfterFirstPositional: true` and `isPositional:
+  // looksLikeEntryFile`, the parser reports `result.positional` as just the
+  // entry, `result.passthrough` as the tsgo-forwarded flags (and their
+  // in-order space values) arriving BEFORE the entry, and `result.tail` as
+  // every token AFTER the entry — the user program's argv (e.g. the `generate
+  // --input src/input` tail of `ttsx typia.ts generate --input src/input`),
+  // which MUST NOT reach tsgo.
   const postEntryArgs: string[] = [...result.tail];
 
   const preload: string[] = [];
@@ -170,7 +185,7 @@ function parseCLI(argv: readonly string[]) {
     preload,
     project: getString(result, "--tsconfig"),
     singleThreaded: getBoolean(result, "--singleThreaded") === true,
-    tsgoFlags: [...result.passthrough, ...preEntryValues],
+    tsgoFlags: [...result.passthrough],
   };
 }
 

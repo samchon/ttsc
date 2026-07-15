@@ -132,6 +132,85 @@ function manifest(): RuntimeManifest | null {
   return manifestCache;
 }
 
+/**
+ * Lowest Node.js the ttsx source runtime supports. The synchronous
+ * `module.registerHooks` (Node 22.15.0) is the highest floor among the runtime
+ * APIs these hooks depend on — `stripTypeScriptTypes` (22.13.0) and the child's
+ * `--disable-warning` flag (20.11.0) are both lower — so it sets the effective
+ * minimum. Kept in sync with `packages/ttsc/package.json#engines.node` and the
+ * documented requirement in `website/src/content/docs/development/index.mdx`.
+ */
+export const TTSX_MINIMUM_NODE_VERSION = "22.15.0";
+
+const TTSX_MINIMUM_NODE_PARTS: readonly [number, number, number] = [22, 15, 0];
+
+/**
+ * Report why the running (or a candidate) Node.js version cannot execute the
+ * ttsx source runtime, or `null` when it can. Returning an actionable message
+ * — rather than letting the child die with an internal `TypeError` on the
+ * missing `registerHooks`, or Node 18 rejecting `--disable-warning` with exit 9
+ * — is what turns an opaque internal failure into a clear version diagnostic.
+ *
+ * Exported for direct exercise by the ttsx e2e suite: the built launcher can
+ * only be spawned under the Node version running the tests, so the boundary
+ * around the floor cannot otherwise be pinned on CI.
+ */
+export function checkNodeRuntimeSupport(version: string): string | null {
+  const parts = parseNodeVersion(version);
+  if (parts === null) {
+    // An unrecognizable version string is not proof of an unsupported runtime;
+    // let execution proceed rather than block on a parsing quirk.
+    return null;
+  }
+  if (compareVersionParts(parts, TTSX_MINIMUM_NODE_PARTS) >= 0) {
+    return null;
+  }
+  return (
+    `ttsx requires Node.js ${TTSX_MINIMUM_NODE_VERSION} or later, but this ` +
+    `process is Node.js ${version}. The source runtime installs synchronous ` +
+    `module hooks (module.registerHooks, Node 22.15.0) and strips types with ` +
+    `module.stripTypeScriptTypes (Node 22.13.0), neither of which exists on ` +
+    `earlier releases. Upgrade Node.js to 22.15.0+ (or the current LTS), or ` +
+    `compile the project with \`ttsc\` and run the emitted JavaScript directly.`
+  );
+}
+
+function parseNodeVersion(
+  version: string,
+): [number, number, number] | null {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version.trim());
+  if (match === null) {
+    return null;
+  }
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function compareVersionParts(
+  a: readonly [number, number, number],
+  b: readonly [number, number, number],
+): number {
+  for (let index = 0; index < 3; index += 1) {
+    if (a[index]! !== b[index]!) {
+      return a[index]! < b[index]! ? -1 : 1;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Throw an actionable version error when the current Node.js cannot run the
+ * ttsx source runtime. Guards the hook-installation boundary directly (a child
+ * or grandchild that inherits the runtime preload under an unsupported Node)
+ * so the failure is diagnosed here instead of surfacing as a bare `TypeError:
+ * registerHooks is not a function`.
+ */
+function assertNodeRuntimeSupport(): void {
+  const message = checkNodeRuntimeSupport(process.versions.node);
+  if (message !== null) {
+    throw new Error(message);
+  }
+}
+
 let installed = false;
 
 /**
@@ -151,6 +230,7 @@ export function installRuntimeHooks(): void {
   if (installed) {
     return;
   }
+  assertNodeRuntimeSupport();
   installed = true;
   // Map error stacks through the source maps the serve path now inlines, so a
   // thrown frame reports the true `.ts` line:col out of the box (no
@@ -743,14 +823,161 @@ function collectCommonJsExportNames(
 }
 
 function collectStaticCommonJsExportNames(source: string): Set<string> {
+  // Scan executable syntax only. Text that merely resembles an assignment —
+  // `exports.x =` inside a comment, string, or template-literal text — must not
+  // become an ESM-visible export name, or a named import of it would link to
+  // `undefined` for a property the CommonJS module never defines. Masking the
+  // inert lexical spans before matching keeps genuine top-level assignments
+  // (and executable `${ ... }` template substitutions) while dropping the
+  // decoys.
+  const scannable = maskCommentsAndStrings(source);
   const names = new Set<string>();
   const pattern =
     /(?:^|[^\w$])(?:exports|module\.exports)\.([A-Za-z_$][\w$]*)\s*=/g;
   let match: RegExpExecArray | null;
-  while ((match = pattern.exec(source)) !== null) {
+  while ((match = pattern.exec(scannable)) !== null) {
     names.add(match[1]!);
   }
   return names;
+}
+
+/**
+ * Blank out the interior of line comments, block comments, string literals, and
+ * template-literal text in emitted JavaScript, replacing each masked character
+ * with a space while preserving newlines, code, and template `${ ... }`
+ * substitutions verbatim. Positions and length are preserved so an offset in the
+ * masked text maps back to the same offset in the source.
+ *
+ * The input is tsgo's CommonJS emit (well-formed JavaScript), so a character
+ * scanner that tracks the standard comment/string/template states is sufficient
+ * to separate executable tokens from inert text. Regular-expression literals are
+ * intentionally not masked: distinguishing `/`-division from a regex literal
+ * needs full tokenization, and tsgo's CommonJS emit never wraps an
+ * `exports.<name> =` assignment inside a regex literal.
+ */
+function maskCommentsAndStrings(source: string): string {
+  const out = source.split("");
+  const n = out.length;
+  const blank = (index: number): void => {
+    const ch = out[index];
+    if (ch !== "\n" && ch !== "\r") {
+      out[index] = " ";
+    }
+  };
+  // A stack of lexical contexts. The base is code; each backtick pushes a
+  // template context, and each `${` inside a template pushes a nested code
+  // context whose `braceDepth` tracks `{}` nesting so an object literal inside
+  // the substitution does not end it early.
+  interface Context {
+    kind: "code" | "template";
+    braceDepth: number;
+  }
+  const stack: Context[] = [{ kind: "code", braceDepth: 0 }];
+  let i = 0;
+  while (i < n) {
+    const top = stack[stack.length - 1]!;
+    const ch = out[i]!;
+    if (top.kind === "template") {
+      if (ch === "\\") {
+        blank(i);
+        blank(i + 1);
+        i += 2;
+        continue;
+      }
+      if (ch === "`") {
+        blank(i);
+        stack.pop();
+        i += 1;
+        continue;
+      }
+      if (ch === "$" && out[i + 1] === "{") {
+        // Enter a code substitution: `${` and its contents stay executable.
+        stack.push({ kind: "code", braceDepth: 0 });
+        i += 2;
+        continue;
+      }
+      blank(i);
+      i += 1;
+      continue;
+    }
+    // Code context.
+    if (ch === "/" && out[i + 1] === "/") {
+      blank(i);
+      blank(i + 1);
+      i += 2;
+      while (i < n && out[i] !== "\n") {
+        blank(i);
+        i += 1;
+      }
+      continue;
+    }
+    if (ch === "/" && out[i + 1] === "*") {
+      blank(i);
+      blank(i + 1);
+      i += 2;
+      while (i < n && !(out[i] === "*" && out[i + 1] === "/")) {
+        blank(i);
+        i += 1;
+      }
+      if (i < n) {
+        blank(i);
+        blank(i + 1);
+        i += 2;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      blank(i);
+      i += 1;
+      while (i < n && out[i] !== ch) {
+        if (out[i] === "\\") {
+          blank(i);
+          blank(i + 1);
+          i += 2;
+          continue;
+        }
+        // A bare newline ends an unterminated string; stop masking so the rest
+        // of the line is still scanned as code (defensive — tsgo never emits
+        // one).
+        if (out[i] === "\n") {
+          break;
+        }
+        blank(i);
+        i += 1;
+      }
+      if (i < n && out[i] === ch) {
+        blank(i);
+        i += 1;
+      }
+      continue;
+    }
+    if (ch === "`") {
+      blank(i);
+      stack.push({ kind: "template", braceDepth: 0 });
+      i += 1;
+      continue;
+    }
+    if (ch === "{") {
+      top.braceDepth += 1;
+      i += 1;
+      continue;
+    }
+    if (ch === "}") {
+      if (top.braceDepth === 0 && stack.length > 1) {
+        // Close the enclosing template `${ ... }` and resume template text.
+        stack.pop();
+        i += 1;
+        continue;
+      }
+      if (top.braceDepth > 0) {
+        top.braceDepth -= 1;
+      }
+      i += 1;
+      continue;
+    }
+    i += 1;
+  }
+  return out.join("");
 }
 
 function collectSourceCommonJsExportNames(
@@ -960,8 +1187,19 @@ function serveBuiltDependency(
       };
 }
 
-/** On-disk completion marker for a built dependency, shared across processes. */
+/**
+ * On-disk completion marker for a built dependency, shared across processes.
+ *
+ * `generation` names the exact immutable emit directory this marker describes
+ * (`<cacheDir>/gen-<generation>`). Binding metadata to one generation is what
+ * makes publication atomic: a reader that parses this marker reads the emit of
+ * the SAME generation, never old metadata combined with a different, still
+ * partially-written directory. The marker is the last thing a build writes, and
+ * it is written by an atomic temp-and-rename, so a reader observes either one
+ * complete old generation or one complete new generation.
+ */
 interface DependencyCacheMeta {
+  generation: string;
   rootDir: string;
   moduleOption?: string;
 }
@@ -983,25 +1221,28 @@ function ensureProjectBuilt(tsconfig: string): BuiltProject {
   if (cached !== undefined) {
     return cached;
   }
-  const { emitDir, lockDir, metaPath, root } = dependencyCachePaths(tsconfig);
+  const { cacheDir, lockDir, metaPath, root } = dependencyCachePaths(tsconfig);
 
-  const reuse = readDependencyCache(emitDir, metaPath);
+  const reuse = readDependencyCache(cacheDir, metaPath);
   if (reuse !== null) {
     builtProjects.set(tsconfig, reuse);
     return reuse;
   }
 
   fs.mkdirSync(root, { recursive: true });
-  const built = withBuildLock(lockDir, metaPath, emitDir, () =>
-    buildDependency(tsconfig, emitDir, metaPath),
+  const built = withBuildLock(cacheDir, metaPath, lockDir, () =>
+    buildDependency(tsconfig, cacheDir, metaPath),
   );
   builtProjects.set(tsconfig, built);
   return built;
 }
 
 interface DependencyCachePaths {
-  emitDir: string;
+  /** Container of this dependency's generation-stamped emit directories. */
+  cacheDir: string;
+  /** Fenced cross-process coordination directory (`<key>.lock`). */
   lockDir: string;
+  /** Atomic completion pointer (`<key>.json`) naming the live generation. */
   metaPath: string;
   root: string;
 }
@@ -1014,16 +1255,43 @@ function dependencyCachePaths(tsconfig: string): DependencyCachePaths {
     .slice(0, 16);
   const root = dependencyCacheRoot();
   return {
-    emitDir: path.join(root, key),
+    cacheDir: path.join(root, key),
     lockDir: path.join(root, `${key}.lock`),
     metaPath: path.join(root, `${key}.json`),
     root,
   };
 }
 
-/** Reuse a dependency another process (or an earlier import) already built. */
-function readDependencyCache(
-  emitDir: string,
+/** The immutable emit directory of one build generation under `cacheDir`. */
+function dependencyGenerationDir(cacheDir: string, generation: string): string {
+  return path.join(cacheDir, `gen-${generation}`);
+}
+
+/** A fresh 128-bit build-generation identifier. */
+function newDependencyGeneration(): string {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+/** True for a well-formed 128-bit hex build generation. */
+function isDependencyGeneration(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{32}$/.test(value);
+}
+
+/**
+ * Reuse a dependency another process (or an earlier import) already built.
+ *
+ * The completion marker names the exact emit generation, so this reads metadata
+ * and emit as one unit: it returns a hit only when the marker parses to a valid
+ * generation AND that generation's directory holds emitted JavaScript. A reader
+ * that runs while a replacement build is populating a DIFFERENT generation
+ * directory keeps returning the previous complete generation until the atomic
+ * marker swap points at the new one — never a mix of old metadata and a partial
+ * new emit.
+ *
+ * Exported for the ttsx dependency-cache regressions.
+ */
+export function readDependencyCache(
+  cacheDir: string,
   metaPath: string,
 ): BuiltProject | null {
   let meta: DependencyCacheMeta;
@@ -1032,67 +1300,75 @@ function readDependencyCache(
   } catch {
     return null;
   }
+  if (!isDependencyGeneration(meta.generation) || typeof meta.rootDir !== "string") {
+    return null;
+  }
+  const emitDir = dependencyGenerationDir(cacheDir, meta.generation);
   if (!emittedAnything(emitDir)) {
     return null;
   }
   return {
     emitDir,
     emittedFiles: undefined,
-    moduleOption: meta.moduleOption,
+    moduleOption:
+      typeof meta.moduleOption === "string" ? meta.moduleOption : undefined,
     rootDir: meta.rootDir,
   };
 }
 
 /**
- * Run `build` while holding an exclusive lock for this dependency, re-checking
- * the cache once the lock is held (a concurrent builder may have just
- * finished). A waiter polls for the winner's meta marker, and steals an
- * abandoned lock (a builder that crashed) after a generous timeout so the run
- * never wedges.
+ * Run `build` while holding the fenced lock for this dependency, re-checking the
+ * cache once the lock is held (a concurrent builder may have just finished). A
+ * loser polls for the winner's completion marker and, only when the holding
+ * generation is provably abandoned (dead owner or the steal budget elapsed),
+ * retires precisely that generation before retrying — never a successor's.
  */
 function withBuildLock(
-  lockDir: string,
+  cacheDir: string,
   metaPath: string,
-  emitDir: string,
+  lockDir: string,
   build: () => BuiltProject,
 ): BuiltProject {
-  const stealAfterMs = 600_000;
   for (;;) {
-    try {
-      fs.mkdirSync(lockDir);
-    } catch {
-      const waited = waitForDependencyCache(emitDir, metaPath, stealAfterMs);
-      if (waited !== null) {
-        return waited;
-      }
-      fs.rmSync(lockDir, { force: true, recursive: true });
-      continue;
-    }
-    try {
-      const reuse = readDependencyCache(emitDir, metaPath);
-      return reuse ?? build();
-    } finally {
-      fs.rmSync(lockDir, { force: true, recursive: true });
-    }
-  }
-}
-
-/** Poll for a concurrent builder's completion, up to `timeoutMs`. */
-function waitForDependencyCache(
-  emitDir: string,
-  metaPath: string,
-  timeoutMs: number,
-): BuiltProject | null {
-  const startedAt = Date.now();
-  for (;;) {
-    const reuse = readDependencyCache(emitDir, metaPath);
+    const reuse = readDependencyCache(cacheDir, metaPath);
     if (reuse !== null) {
       return reuse;
     }
-    if (Date.now() - startedAt > timeoutMs) {
-      return null;
+    let lease: DependencyBuildLockLease | null;
+    try {
+      lease = acquireDependencyBuildLock(lockDir);
+    } catch {
+      // An unusable coordination directory must not silently skip the build.
+      // Generation-stamped emit and the atomic marker swap still keep every
+      // reader's view of publication consistent without the lock.
+      return build();
     }
-    sleepSync(50);
+    if (lease === null) {
+      const waited = waitForDependencyBuild(
+        cacheDir,
+        metaPath,
+        lockDir,
+        DEP_BUILD_LOCK_STEAL_MS,
+      );
+      if (waited.outcome === "built") {
+        return waited.built;
+      }
+      if (waited.outcome === "abandoned") {
+        // Retire only the generation this observation named. Losing the rename
+        // race means the holder's own release (or another waiter) already made
+        // progress, so a stale result never removes a live successor.
+        reclaimDependencyBuildLock(lockDir, waited.fence);
+      }
+      // "released" needs no repair: the holder freed the lock normally, so
+      // retry the ordinary acquisition.
+      continue;
+    }
+    try {
+      const reuseUnderLock = readDependencyCache(cacheDir, metaPath);
+      return reuseUnderLock ?? build();
+    } finally {
+      releaseDependencyBuildLock(lockDir, lease);
+    }
   }
 }
 
@@ -1101,14 +1377,27 @@ function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-/** Compile a dependency project to `emitDir` and write its completion marker. */
+/**
+ * Compile a dependency project into a fresh generation directory and publish
+ * its completion marker atomically.
+ *
+ * The emit lands in `<cacheDir>/gen-<generation>`, a directory no other
+ * generation or process shares, so it is never mutated in place while a reader
+ * looks at it. Only after the emit is proven non-empty is the marker written by
+ * temp-and-rename, binding metadata to that exact generation. A build that
+ * produced no output drops its partial directory so a failed generation can
+ * never be reused.
+ */
 function buildDependency(
   tsconfig: string,
-  emitDir: string,
+  cacheDir: string,
   metaPath: string,
 ): BuiltProject {
   const project = readProjectConfig({ cwd: path.dirname(tsconfig), tsconfig });
+  const generation = newDependencyGeneration();
+  const emitDir = dependencyGenerationDir(cacheDir, generation);
   fs.rmSync(emitDir, { force: true, recursive: true });
+  fs.mkdirSync(emitDir, { recursive: true });
   const result = runBuild({
     cwd: project.root,
     emit: true,
@@ -1149,6 +1438,9 @@ function buildDependency(
   // even on a clean build. A genuinely empty output directory is the real
   // failure; the caller then falls back to type-stripping the one file.
   if (!emittedAnything(emitDir)) {
+    // Drop the failed generation so its partial directory can never be mistaken
+    // for a reusable build.
+    fs.rmSync(emitDir, { force: true, recursive: true });
     throw new Error(
       [
         `ttsx: dependency build produced no output for ${tsconfig}`,
@@ -1166,15 +1458,33 @@ function buildDependency(
     typeof project.compilerOptions.module === "string"
       ? project.compilerOptions.module
       : undefined;
-  writeDependencyMeta(metaPath, { moduleOption, rootDir });
+  publishDependencyMeta(metaPath, { generation, moduleOption, rootDir });
   return { emitDir, emittedFiles: undefined, moduleOption, rootDir };
 }
 
-function writeDependencyMeta(
+/**
+ * Publish the completion marker atomically: write it to a private temp name in
+ * the same directory, then rename onto `metaPath`. Node's rename replaces an
+ * existing file atomically on POSIX and Windows alike, so a concurrent reader
+ * sees either the whole previous marker or the whole new one, never a
+ * half-written file. The marker is the LAST artifact a build writes, after its
+ * generation's emit is complete, so observing the new marker guarantees the new
+ * generation is complete.
+ */
+function publishDependencyMeta(
   metaPath: string,
   meta: DependencyCacheMeta,
 ): void {
-  fs.writeFileSync(metaPath, JSON.stringify(meta), "utf8");
+  const tmp = `${metaPath}.${process.pid}.${Date.now()}.${crypto
+    .randomBytes(6)
+    .toString("hex")}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(meta), "utf8");
+  try {
+    fs.renameSync(tmp, metaPath);
+  } catch (error) {
+    fs.rmSync(tmp, { force: true });
+    throw error;
+  }
 }
 
 function dependencyCacheRoot(): string {
@@ -1182,6 +1492,373 @@ function dependencyCacheRoot(): string {
   return m !== null && m.depCacheDir.length !== 0
     ? m.depCacheDir
     : path.join(os.tmpdir(), "ttsx-dep");
+}
+
+// -----------------------------------------------------------------------------
+// Fenced dependency-build lock.
+//
+// The lock serialises concurrent first-builders of one dependency so the
+// expensive `runBuild` runs once per key while the rest wait and reuse the
+// published generation. It is generation-fenced so a stale observer or a former
+// owner can never release a successor's lock:
+//
+//   * `<lockDir>/current` is the held generation — a directory carrying a
+//     `generation` id and an `owner.json` (pid + hostname). A contender writes a
+//     private candidate and atomically renames it onto `current`; a directory
+//     rename cannot replace a non-empty `current`, so exactly one contender wins
+//     with no empty-owner publication window.
+//   * Release and reclaim both retire a generation by renaming `current` to its
+//     deterministic tombstone `<lockDir>/retired/<generation>`. The only way to
+//     free `current` is to create that tombstone, so a successor can acquire only
+//     after its predecessor's tombstone exists. A late or duplicate retire of an
+//     already-retired generation therefore finds the tombstone occupied and
+//     fails atomically, and a reclaim that named an old generation can never move
+//     a different successor into that old tombstone.
+//
+// This mirrors the source-plugin v2 protocol (`buildSourcePlugin.ts`) proven by
+// issue #452 / PR #460, minus the legacy-compatibility layer: the ttsx
+// dependency cache lives under a per-run directory with no shipped on-disk
+// format to stay compatible with.
+// -----------------------------------------------------------------------------
+
+const DEP_BUILD_LOCK_STEAL_MS = 600_000;
+const DEP_BUILD_LOCK_POLL_MS = 50;
+const DEP_BUILD_LOCK_STALE_MS = 30_000;
+const DEP_BUILD_LOCK_CURRENT_DIR = "current";
+const DEP_BUILD_LOCK_RETIRED_DIR = "retired";
+const DEP_BUILD_LOCK_GENERATION_FILE = "generation";
+const DEP_BUILD_LOCK_OWNER_FILE = "owner.json";
+
+/** Ownership token returned only to the process that acquired `current`. */
+export type DependencyBuildLockLease = { generation: string };
+
+/** Opaque identity of one observed lock generation. */
+export type DependencyBuildLockFence = { generation: string };
+
+/**
+ * Atomically acquire the current generation of a dependency build lock, or
+ * `null` when another process already holds it. Exported for the deterministic
+ * multi-process cache regressions.
+ */
+export function acquireDependencyBuildLock(
+  lockDir: string,
+): DependencyBuildLockLease | null {
+  ensureDependencyLockRoot(lockDir);
+  const generation = newDependencyGeneration();
+  const candidateDir = path.join(lockDir, `candidate-${generation}`);
+  fs.mkdirSync(candidateDir);
+  try {
+    fs.writeFileSync(
+      path.join(candidateDir, DEP_BUILD_LOCK_GENERATION_FILE),
+      `${generation}\n`,
+      { encoding: "utf8", flag: "wx" },
+    );
+    writeDependencyLockOwner(candidateDir, generation);
+    const currentDir = path.join(lockDir, DEP_BUILD_LOCK_CURRENT_DIR);
+    try {
+      fs.renameSync(candidateDir, currentDir);
+    } catch (error) {
+      if (
+        isMissingPathError(error) ||
+        isRenameDestinationOccupied(error, currentDir)
+      ) {
+        return null;
+      }
+      throw error;
+    }
+    return { generation };
+  } finally {
+    // The candidate name carries this process's random generation and can never
+    // alias `current` or another contender's candidate.
+    fs.rmSync(candidateDir, { force: true, recursive: true });
+  }
+}
+
+/** Retire a held generation during the holder's `finally`. */
+export function releaseDependencyBuildLock(
+  lockDir: string,
+  lease: DependencyBuildLockLease,
+): boolean {
+  return retireDependencyBuildLock(lockDir, lease.generation);
+}
+
+/**
+ * Retire exactly the generation carried by an abandoned observation. Exported
+ * for the deterministic multi-process cache regressions.
+ */
+export function reclaimDependencyBuildLock(
+  lockDir: string,
+  fence: DependencyBuildLockFence,
+): boolean {
+  return retireDependencyBuildLock(lockDir, fence.generation);
+}
+
+function retireDependencyBuildLock(
+  lockDir: string,
+  generation: string,
+): boolean {
+  if (!isDependencyGeneration(generation)) {
+    return false;
+  }
+  const retiredDir = path.join(lockDir, DEP_BUILD_LOCK_RETIRED_DIR);
+  try {
+    fs.mkdirSync(retiredDir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+      if (isMissingPathError(error)) {
+        return false;
+      }
+      throw error;
+    }
+  }
+  const destination = path.join(retiredDir, generation);
+  try {
+    fs.renameSync(path.join(lockDir, DEP_BUILD_LOCK_CURRENT_DIR), destination);
+    return true;
+  } catch (error) {
+    if (
+      isMissingPathError(error) ||
+      isRenameDestinationOccupied(error, destination)
+    ) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+/** One observation of a dependency build lock's state. */
+export type DependencyBuildLockObservation =
+  | { state: "active"; owner: string; fence: DependencyBuildLockFence }
+  | { state: "abandoned"; reason: string; fence: DependencyBuildLockFence }
+  | { state: "released" };
+
+/**
+ * Classify the current state of a dependency build lock directory. Exported for
+ * the deterministic multi-process cache regressions.
+ */
+export function inspectDependencyBuildLock(
+  lockDir: string,
+  now: number,
+): DependencyBuildLockObservation {
+  const currentDir = path.join(lockDir, DEP_BUILD_LOCK_CURRENT_DIR);
+  const generation = readDependencyLockGeneration(currentDir);
+  if (generation === null) {
+    if (dependencyLockAgeMs(currentDir, now) === null) {
+      return { state: "released" };
+    }
+    // `current` exists without a readable generation id. Acquisition writes the
+    // id into the candidate BEFORE the atomic rename, so this is a transient or
+    // corrupt state; keep waiting rather than steal on ambiguous evidence.
+    return {
+      state: "active",
+      owner: "lock generation without a readable id",
+      fence: { generation: "" },
+    };
+  }
+  const fence: DependencyBuildLockFence = { generation };
+  const owner = readDependencyLockOwner(currentDir);
+  if (owner !== null) {
+    const label = describeDependencyLockOwner(owner);
+    if (isLocalHostName(owner.hostname) && !isProcessAlive(owner.pid)) {
+      return {
+        state: "abandoned",
+        reason: `${label} is no longer running`,
+        fence,
+      };
+    }
+    return { state: "active", owner: label, fence };
+  }
+  const ageMs = dependencyLockAgeMs(currentDir, now);
+  if (ageMs === null) {
+    return { state: "released" };
+  }
+  if (ageMs > DEP_BUILD_LOCK_STALE_MS) {
+    return {
+      state: "abandoned",
+      reason: `lock generation has no ${DEP_BUILD_LOCK_OWNER_FILE} and is ${formatDuration(
+        ageMs,
+      )} old`,
+      fence,
+    };
+  }
+  return {
+    state: "active",
+    owner: `lock generation with no ${DEP_BUILD_LOCK_OWNER_FILE}`,
+    fence,
+  };
+}
+
+/** Outcome of one waiting session on another process's dependency build lock. */
+type DependencyBuildWaitResult =
+  | { outcome: "built"; built: BuiltProject }
+  | { outcome: "released" }
+  | { outcome: "abandoned"; reason: string; fence: DependencyBuildLockFence };
+
+/** Poll for the locked builder to publish, up to `timeoutMs`. */
+function waitForDependencyBuild(
+  cacheDir: string,
+  metaPath: string,
+  lockDir: string,
+  timeoutMs: number,
+): DependencyBuildWaitResult {
+  const startedAt = Date.now();
+  for (;;) {
+    const reuse = readDependencyCache(cacheDir, metaPath);
+    if (reuse !== null) {
+      return { outcome: "built", built: reuse };
+    }
+    const now = Date.now();
+    const lock = inspectDependencyBuildLock(lockDir, now);
+    if (lock.state === "released") {
+      // The holder retired its generation between the cache check above and this
+      // observation: prefer the marker if it landed in that window, otherwise
+      // hand the free lock back to the caller to re-acquire.
+      const built = readDependencyCache(cacheDir, metaPath);
+      return built !== null
+        ? { outcome: "built", built }
+        : { outcome: "released" };
+    }
+    if (lock.state === "abandoned") {
+      return { outcome: "abandoned", reason: lock.reason, fence: lock.fence };
+    }
+    if (now - startedAt > timeoutMs) {
+      return {
+        outcome: "abandoned",
+        reason: `timed out after ${formatDuration(now - startedAt)}`,
+        fence: lock.fence,
+      };
+    }
+    sleepSync(DEP_BUILD_LOCK_POLL_MS);
+  }
+}
+
+function ensureDependencyLockRoot(lockDir: string): void {
+  fs.mkdirSync(path.join(lockDir, DEP_BUILD_LOCK_RETIRED_DIR), {
+    recursive: true,
+  });
+}
+
+interface DependencyLockOwner {
+  hostname: string;
+  pid: number;
+  startedAt?: string;
+}
+
+function writeDependencyLockOwner(
+  generationDir: string,
+  generation: string,
+): void {
+  fs.writeFileSync(
+    path.join(generationDir, DEP_BUILD_LOCK_OWNER_FILE),
+    `${JSON.stringify({
+      generation,
+      hostname: os.hostname(),
+      pid: process.pid,
+      startedAt: new Date().toISOString(),
+    })}\n`,
+    "utf8",
+  );
+}
+
+function readDependencyLockOwner(
+  generationDir: string,
+): DependencyLockOwner | null {
+  try {
+    const parsed = JSON.parse(
+      fs.readFileSync(
+        path.join(generationDir, DEP_BUILD_LOCK_OWNER_FILE),
+        "utf8",
+      ),
+    ) as Record<string, unknown>;
+    if (
+      typeof parsed.hostname !== "string" ||
+      typeof parsed.pid !== "number" ||
+      !Number.isInteger(parsed.pid) ||
+      parsed.pid <= 0
+    ) {
+      return null;
+    }
+    return {
+      hostname: parsed.hostname,
+      pid: parsed.pid,
+      startedAt:
+        typeof parsed.startedAt === "string" ? parsed.startedAt : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readDependencyLockGeneration(generationDir: string): string | null {
+  try {
+    const generation = fs
+      .readFileSync(
+        path.join(generationDir, DEP_BUILD_LOCK_GENERATION_FILE),
+        "utf8",
+      )
+      .trim();
+    return isDependencyGeneration(generation) ? generation : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Age of an observed lock directory, or `null` when it no longer exists. */
+function dependencyLockAgeMs(generationDir: string, now: number): number | null {
+  try {
+    return Math.max(0, now - fs.statSync(generationDir).mtimeMs);
+  } catch (error) {
+    return isMissingPathError(error) ? null : 0;
+  }
+}
+
+function describeDependencyLockOwner(owner: DependencyLockOwner): string {
+  const started =
+    owner.startedAt === undefined ? "" : ` started at ${owner.startedAt}`;
+  return `pid ${owner.pid} on ${owner.hostname}${started}`;
+}
+
+function isLocalHostName(hostname: string): boolean {
+  return hostname.toLowerCase() === os.hostname().toLowerCase();
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+function isMissingPathError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException).code;
+  return code === "ENOENT" || code === "ENOTDIR";
+}
+
+function isRenameDestinationOccupied(
+  error: unknown,
+  destination: string,
+): boolean {
+  const code = (error as NodeJS.ErrnoException).code;
+  if (code === "EEXIST" || code === "ENOTEMPTY") {
+    return true;
+  }
+  return (code === "EACCES" || code === "EPERM") && fs.existsSync(destination);
+}
+
+/** Render a millisecond duration for lock diagnostics (`137ms`, `42s`, `9m 3s`). */
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms)) {
+    return "an unknown time";
+  }
+  if (ms < 1_000) {
+    return `${Math.max(0, Math.round(ms))}ms`;
+  }
+  const seconds = Math.floor(ms / 1_000);
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return minutes === 0 ? `${seconds}s` : `${minutes}m ${remainder}s`;
 }
 
 /** Owning-tsconfig cache keyed by directory, mirroring `packageTypeCache`. */
