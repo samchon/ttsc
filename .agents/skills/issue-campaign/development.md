@@ -43,14 +43,13 @@ Batching follows these rules:
 - Split jointly implementable issues only for a concrete dependency, ownership, atomicity, or validation reason. Record that reason in the campaign knowledge base.
 - Immediately before claiming a batch, check again for an overlapping implementation pull request or branch.
 
-Claim each unclaimed batch before implementation begins:
+The agent assigned a batch claims it as its first action, before writing any code:
 
 1. Create one isolated worktree and topic branch.
 2. Create one implementation-free claim commit with `git commit --allow-empty`.
 3. Push the branch and pass the exact-SHA cancellation gate.
-4. Open a draft pull request and pass the gate again for runs triggered by pull-request creation.
-5. Link every batched issue, mark verification as pending, and state the batch scope.
-6. Record the batch, worktree, branch, issues, pull request, and cancelled run IDs in the campaign knowledge base.
+4. Open a draft pull request that overviews the batch scope and links every batched issue, then pass the gate again for runs triggered by pull-request creation.
+5. Mark verification as pending, and record the batch, worktree, branch, issues, pull request, and cancelled run IDs in the campaign knowledge base.
 
 The draft pull request reserves the whole batch before code is written, preventing another contributor from starting overlapping work.
 
@@ -66,7 +65,7 @@ An implementation agent may find that an issue is false or too broad. The lead m
 
 Commit and push every coherent implementation increment to the claimed branch. Immediately pass the exact-SHA cancellation gate after each push; do not hold a completed implementation locally until handoff or continue working while that gate is unresolved.
 
-Before merge, complete solo Self-Review. The lead then rechecks issue fit, evidence, verification, and pull-request scope. Merge once those gates pass: with explicit user authorization, or on a standing autonomous mandate — an autonomous or remote-control campaign, or an instruction to carry the campaign through merge — without a separate per-pull-request request.
+Before merge, complete solo Self-Review, opening each round by commenting its findings and remediation plan on the pull request before acting on them so the thread records why every follow-up change happened. The lead then rechecks issue fit, evidence, verification, and pull-request scope. Merge once those gates pass: with explicit user authorization, or on a standing autonomous mandate — an autonomous or remote-control campaign, or an instruction to carry the campaign through merge — without a separate per-pull-request request.
 
 ## Remove Every Finished Worktree
 
