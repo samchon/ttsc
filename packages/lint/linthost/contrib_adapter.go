@@ -92,6 +92,7 @@ type contributorMetadata struct {
   name                   string
   visits                 []shimast.Kind
   visitsDeclarationFiles bool
+  needsTypeChecker       bool
 }
 
 // inspectContributor evaluates the public rule metadata behind a recover
@@ -110,12 +111,16 @@ func inspectContributor(contributor rule.Rule) (metadata contributorMetadata, er
     name:                   contributor.Name(),
     visits:                 append([]shimast.Kind(nil), contributor.Visits()...),
     visitsDeclarationFiles: true,
+    needsTypeChecker:       true,
   }
   if formatRule, ok := contributor.(rule.FormatRule); ok {
     metadata.isFormat = formatRule.IsFormat()
   }
   if declarationRule, ok := contributor.(rule.DeclarationFileRule); ok {
     metadata.visitsDeclarationFiles = declarationRule.VisitsDeclarationFiles()
+  }
+  if typeAware, ok := contributor.(rule.TypeAwareRule); ok {
+    metadata.needsTypeChecker = typeAware.NeedsTypeChecker()
   }
   return metadata, nil
 }
@@ -130,6 +135,7 @@ func newContributorAdapter(metadata contributorMetadata) contributorAdapter {
     name:                   metadata.name,
     visits:                 metadata.visits,
     visitsDeclarationFiles: metadata.visitsDeclarationFiles,
+    needsTypeChecker:       metadata.needsTypeChecker,
   }
 }
 
@@ -145,13 +151,18 @@ type contributorAdapter struct {
   name                   string
   visits                 []shimast.Kind
   visitsDeclarationFiles bool
+  needsTypeChecker       bool
 }
 
-// NeedsTypeChecker keeps contributor rules on the historical checker path.
-// The public rule.Context exposes Checker and has no mandatory marker, so the
-// host cannot safely infer that a third-party rule is AST-only.
+// NeedsTypeChecker keeps contributor rules on the conservative checker path
+// unless the contributor opts out through the public `rule.TypeAwareRule`
+// marker. The public rule.Context exposes Checker, so the host cannot infer a
+// third-party rule is AST-only — the default is type-aware, and only a rule
+// that explicitly returns false stays off the checker path (and no longer
+// pins TypeScript-Go's checker pool). The default-true / marker-override
+// policy is applied once in inspectContributor.
 func (a contributorAdapter) NeedsTypeChecker() bool {
-  return true
+  return a.needsTypeChecker
 }
 
 // VisitsDeclarationFiles keeps contributor rules running on declaration
