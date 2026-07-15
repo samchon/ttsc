@@ -704,10 +704,17 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
   if lspProjectTargetHasSegment(opts, "node_modules") {
     return nil, 0
   }
+  // Containment is the only physical guard: resolve both sides so a symlinked
+  // or short-name spelling of either cannot smuggle the target outside cwd.
+  // `target` itself stays in its LOGICAL (URI) spelling for everything that
+  // indexes into the temp workspace below — the temp tree materializes a
+  // project-internal symlink/junction under its logical name, so resolving the
+  // target to its physical destination here would address a path the temp tree
+  // never created (samchon/ttsc#614).
   physicalCwd := realProjectPath(opts.cwd)
-  target = realProjectPath(target)
-  if _, ok := projectRelativePath(physicalCwd, target); !ok {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", target, physicalCwd)
+  physicalTarget := realProjectPath(target)
+  if _, ok := projectRelativePath(physicalCwd, physicalTarget); !ok {
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: LSP command target %s is outside cwd %s\n", physicalTarget, physicalCwd)
     return nil, 2
   }
   original, err := os.ReadFile(target)
@@ -715,7 +722,6 @@ func lspWorkspaceEditForCommand(opts *lspCommandOptions) (*lspWorkspaceEdit, int
     fmt.Fprintf(os.Stderr, "@ttsc/lint: read %s: %v\n", target, err)
     return nil, 2
   }
-
   return lspWorkspaceEditForSeededCommand(opts, target, string(original), nil)
 }
 
@@ -733,8 +739,11 @@ func lspWorkspaceEditForSeededCommand(
   original string,
   sourceOverlay *string,
 ) (*lspWorkspaceEdit, int) {
-  physicalCwd := realProjectPath(opts.cwd)
-  tempRoot, tempTarget, tempTsconfig, cleanup, err := prepareLSPCommandWorkspace(physicalCwd, opts.tsconfig, target)
+  // Pass the LOGICAL cwd/target so the temp workspace is indexed by the
+  // project's logical layout (a project-internal symlink or junction keeps its
+  // logical name). Physical resolution stays inside prepareLSPCommandWorkspace
+  // for the copy source and inside tempPathFor's boundary-alias fallback.
+  tempRoot, tempTarget, tempTsconfig, cleanup, err := prepareLSPCommandWorkspace(opts.cwd, opts.tsconfig, target)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
     return nil, 2
@@ -752,7 +761,7 @@ func lspWorkspaceEditForSeededCommand(
     }
   }
 
-  pluginsJSON := remapLSPPluginsJSONForTempWorkspace(opts.pluginsJSON, physicalCwd, tempRoot)
+  pluginsJSON := remapLSPPluginsJSONForTempWorkspace(opts.pluginsJSON, opts.cwd, tempRoot)
   rules, err := loadLSPCommandRules(
     pluginsJSON,
     tempRoot,
@@ -789,13 +798,25 @@ func lspWorkspaceEditForSeededCommand(
       prog.close()
       return nil, 0
     }
-    if sourceOverlay != nil {
-      targetFile := prog.findSourceFile(tempTarget)
-      if targetFile == nil ||
-        len(prog.tsProgram.GetSyntacticDiagnostics(context.Background(), targetFile)) > 0 {
-        prog.close()
-        return nil, 0
-      }
+    // The command target must resolve to a source file the temp program loaded.
+    // A nil here means the temp workspace did not materialize the target under
+    // the spelling the tsconfig references — the signature of the symlink/
+    // junction copy regression. Fail loud (exit 2) instead of returning a silent
+    // nil edit the editor cannot distinguish from an already-clean document.
+    targetFile := prog.findSourceFile(tempTarget)
+    if targetFile == nil {
+      prog.close()
+      fmt.Fprintf(os.Stderr,
+        "@ttsc/lint: LSP %s: target source file %s is not in the program\n",
+        opts.command, tempTarget)
+      return nil, 2
+    }
+    if sourceOverlay != nil &&
+      len(prog.tsProgram.GetSyntacticDiagnostics(context.Background(), targetFile)) > 0 {
+      // A dirty overlay buffer with syntax errors is a benign no-op: don't fight
+      // the editor's own diagnostics on the dirty document with a partial fix.
+      prog.close()
+      return nil, 0
     }
     findings := filterFindingsForPath(prog.runLintCycle(engine), tempTarget)
     prog.close()
@@ -879,10 +900,13 @@ func lspFormatBuffer(content string, opts *lspCommandOptions) (*lspWorkspaceEdit
     // dirty text into the temporary project so the checker, findings, fix
     // ranges, and final WorkspaceEdit all describe the same editor document.
     // Built-in AST-only format rules keep the fast single-file path below.
+    // Pass the LOGICAL target: the seeded command indexes it into the temp
+    // workspace (which mirrors the project's logical layout), so a
+    // project-internal symlink/junction must keep its logical name here too.
     sourceOverlay := content
     return lspWorkspaceEditForSeededCommand(
       opts,
-      physicalTarget,
+      target,
       content,
       &sourceOverlay,
     )
@@ -935,21 +959,23 @@ func scriptKindForPath(path string) shimcore.ScriptKind {
 }
 
 // applyFindingFixesToText is the in-memory counterpart of
-// applyFindingFixes/applyTextEditsToFile (fix.go): it collects every fixable
-// finding's TextEdit, selects a non-overlapping set with the same
-// selectTextEdits logic, applies them right-to-left to `text`, and returns the
-// new string plus the number of edits applied. It never writes to disk and
-// never reloads a Program. Findings carry byte offsets into the same `text`
-// that was just parsed, so no per-file grouping is needed.
+// applyFindingFixes/applyTextEditsToFile (fix.go): it groups every fixable
+// finding's edits, selects a non-overlapping, per-finding-atomic set with the
+// same selectTextEditGroups logic, applies them right-to-left to `text`, and
+// returns the new string plus the number of edits applied. It never writes to
+// disk and never reloads a Program. Findings carry byte offsets into the same
+// `text` that was just parsed, so no per-file grouping is needed — but each
+// finding still forms its own atomic edit group so a partially-overlapped
+// multi-edit fix is dropped whole rather than half-applied (samchon/ttsc#605).
 func applyFindingFixesToText(text string, findings []*Finding) (string, int) {
-  edits := make([]TextEdit, 0, len(findings))
+  groups := make([][]TextEdit, 0, len(findings))
   for _, finding := range findings {
     if finding == nil || len(finding.Fix) == 0 {
       continue
     }
-    edits = append(edits, finding.Fix...)
+    groups = append(groups, finding.Fix)
   }
-  selected := selectTextEdits(len(text), edits)
+  selected := selectTextEditGroups(len(text), groups)
   if len(selected) == 0 {
     return text, 0
   }
@@ -987,11 +1013,15 @@ func prepareLSPCommandWorkspace(cwd string, tsconfig string, target string) (str
     cleanup()
     return "", "", "", nil, fmt.Errorf("@ttsc/lint: LSP command target %s is outside cwd %s", target, cwd)
   }
-  if err := copyLSPCommandWorkspace(cwd, tempRoot); err != nil {
+  // Copy from the resolved (physical) cwd so a symlinked or short-name project
+  // root still descends into the real tree; the copy reproduces the project's
+  // LOGICAL layout, which tempPathFor above indexes into by the logical cwd.
+  physicalCwd := realProjectPath(cwd)
+  if err := copyLSPCommandWorkspace(physicalCwd, tempRoot); err != nil {
     cleanup()
     return "", "", "", nil, err
   }
-  if err := linkNearestNodeModules(tempRoot, cwd); err != nil {
+  if err := linkNearestNodeModules(tempRoot, physicalCwd); err != nil {
     cleanup()
     return "", "", "", nil, err
   }
@@ -1022,7 +1052,11 @@ func copyLSPCommandWorkspace(src string, dst string) error {
       if entry.IsDir() {
         return filepath.SkipDir
       }
-      if entry.Type()&fs.ModeSymlink != 0 {
+      // A skipped directory that is a reparse point (a symlinked or junctioned
+      // node_modules/.git) is dropped without materializing its contents. A
+      // junction reports ModeSymlink on current toolchains and ModeIrregular on
+      // older ones, so check both bits.
+      if entry.Type()&(fs.ModeSymlink|fs.ModeIrregular) != 0 {
         return nil
       }
     }
@@ -1041,28 +1075,34 @@ func copyLSPCommandWorkspaceEntry(src string, dst string, seenDirs map[string]st
     if err != nil {
       return err
     }
-    isSymlink := linkInfo.Mode()&os.ModeSymlink != 0
-    if isSymlink {
-      realDir, err := filepath.EvalSymlinks(src)
-      if err == nil {
-        if _, ok := seenDirs[realDir]; ok {
-          return nil
-        }
-        // Track the real path only for the active recursion branch.
-        // Releasing it on return lets sibling aliases pointing at the
-        // same real directory (e.g. `src-a -> real-src` and
-        // `src-b -> real-src` in different tsconfig entries) each get
-        // materialized; the test
-        // `TestLSPExecuteCommandMaterializesDuplicateSymlinkedDirectories`
-        // pins this contract.
-        seenDirs[realDir] = struct{}{}
-        defer delete(seenDirs, realDir)
+    // A directory that is itself a reparse point — a symlink OR an NTFS
+    // junction — is not descended into by filepath.WalkDir, so its contents
+    // must be materialized here under the LOGICAL name. Go reports a junction as
+    // ModeSymlink on current toolchains but as ModeIrregular on older ones;
+    // treat either bit as a link so the copy is correct regardless of version.
+    // A plain directory (neither bit) is created empty and left for WalkDir to
+    // descend (samchon/ttsc#614).
+    isLink := linkInfo.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0
+    if isLink {
+      // resolveDirLink chases the symlink/junction via os.Readlink, which
+      // resolves junctions that neither ModeSymlink nor EvalSymlinks expose on
+      // older toolchains. The real path keys the cycle guard, scoped to the
+      // active recursion branch (defer delete) so sibling aliases pointing at
+      // one real directory (e.g. `src-a -> real-src` and `src-b -> real-src` in
+      // different tsconfig entries) each get materialized; the test
+      // `TestLSPExecuteCommandMaterializesDuplicateSymlinkedDirectories` pins
+      // this contract.
+      realDir := resolveDirLink(src)
+      if _, ok := seenDirs[realDir]; ok {
+        return nil
       }
+      seenDirs[realDir] = struct{}{}
+      defer delete(seenDirs, realDir)
     }
     if err := os.MkdirAll(dst, mode.Perm()); err != nil {
       return err
     }
-    if !isSymlink {
+    if !isLink {
       return nil
     }
     entries, err := os.ReadDir(src)
@@ -1184,7 +1224,21 @@ func remapLSPPluginsJSONForTempWorkspace(raw string, cwd string, tempRoot string
   return string(next)
 }
 
+// tempPathFor maps a project `file` to its location inside the temp workspace,
+// which mirrors the project's LOGICAL layout. It therefore prefers the logical
+// relative path: a project-internal symlink or junction (src -> real-src),
+// materialized by copyLSPCommandWorkspace under its logical name, must be
+// addressed the same way here — resolving `file` physically would point at a
+// spelling (real-src/main.ts) the temp tree never created (samchon/ttsc#614).
+// Only when cwd and file don't share a logical prefix — an incidental boundary
+// alias such as a Windows 8.3 short cwd or macOS /tmp -> /private/tmp, where the
+// two spellings can independently pick either alias — does it fall back to
+// realProjectPath to reconcile them. Containment guards resolve physically and
+// live at the call sites, not here.
 func tempPathFor(cwd string, tempRoot string, file string) (string, bool) {
+  if rel, ok := projectRelativePath(cwd, file); ok {
+    return filepath.Join(tempRoot, rel), true
+  }
   rel, ok := projectRelativePath(realProjectPath(cwd), realProjectPath(file))
   if !ok {
     return "", false

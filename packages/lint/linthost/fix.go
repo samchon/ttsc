@@ -160,13 +160,14 @@ func reloadFixProgram(current *program, opts *subcommandOpts, needsRuleChecker b
   return loadFixProgram(opts, needsRuleChecker)
 }
 
-// fileFixes groups all pending automatic TextEdit fixes for a single file.
-// `text` is the source content at the time the findings were collected;
-// byte offsets in `edits` are relative to this snapshot.
+// fileFixes groups all pending automatic TextEdit fixes for a single file,
+// one edit group per finding so a multi-edit atomic fix stays all-or-nothing
+// during selection. `text` is the source content at the time the findings were
+// collected; byte offsets in `groups` are relative to this snapshot.
 type fileFixes struct {
-  path  string
-  text  string
-  edits []TextEdit
+  path   string
+  text   string
+  groups [][]TextEdit
 }
 
 // applyFindingFixes groups all fixable findings by file, resolves each
@@ -194,7 +195,7 @@ func applyFindingFixes(cwd string, findings []*Finding) (int, error) {
       bucket = &fileFixes{path: path, text: finding.File.Text()}
       byFile[path] = bucket
     }
-    bucket.edits = append(bucket.edits, finding.Fix...)
+    bucket.groups = append(bucket.groups, finding.Fix)
   }
 
   paths := make([]string, 0, len(byFile))
@@ -205,7 +206,7 @@ func applyFindingFixes(cwd string, findings []*Finding) (int, error) {
   total := 0
   for _, p := range paths {
     bucket := byFile[p]
-    fixed, err := applyTextEditsToFile(bucket.path, bucket.text, bucket.edits)
+    fixed, err := applyTextEditsToFile(bucket.path, bucket.text, bucket.groups)
     if err != nil {
       return total, err
     }
@@ -214,12 +215,13 @@ func applyFindingFixes(cwd string, findings []*Finding) (int, error) {
   return total, nil
 }
 
-// applyTextEditsToFile selects the non-overlapping edits from `edits`, applies
-// them to `source` in reverse order (right-to-left) to preserve earlier
-// offsets, and writes the result to `path`. Returns the number of edits
-// applied, or 0 when no edits survive selection.
-func applyTextEditsToFile(path, source string, edits []TextEdit) (int, error) {
-  selected := selectTextEdits(len(source), edits)
+// applyTextEditsToFile selects a non-overlapping, per-finding-atomic set of
+// edits from `groups` (one group per finding), applies them to `source` in
+// reverse order (right-to-left) to preserve earlier offsets, and writes the
+// result to `path`. Returns the number of edits applied, or 0 when no edits
+// survive selection.
+func applyTextEditsToFile(path, source string, groups [][]TextEdit) (int, error) {
+  selected := selectTextEditGroups(len(source), groups)
   if len(selected) == 0 {
     return 0, nil
   }
@@ -296,4 +298,101 @@ func selectTextEdits(sourceLen int, edits []TextEdit) []TextEdit {
     }
   }
   return selected
+}
+
+// selectTextEditGroups selects a non-overlapping application sequence from
+// per-finding edit GROUPS, applying each group all-or-nothing. Unlike
+// selectTextEdits, which resolves conflicts edit-by-edit, this keeps a
+// finding's multi-edit fix atomic: a fix such as noImportTypeSideEffects emits
+// an `import type` insert paired with an inline `type` deletion, and applying
+// only one member emits invalid code (`import type { type A }`). Groups are
+// considered earliest-edit-first, and a group is accepted only when every one
+// of its edits coexists — under the same disjointness rules as selectTextEdits
+// — with the edits already accepted from earlier groups. If any member would be
+// dropped (it overlaps an already-selected group, duplicates an already-
+// selected edit, is a coincident zero-width insert, or is out of bounds), the
+// WHOLE group is skipped so the owning finding re-fires on the next cascade
+// pass rather than half-applying (samchon/ttsc#605).
+func selectTextEditGroups(sourceLen int, groups [][]TextEdit) []TextEdit {
+  order := make([]int, 0, len(groups))
+  for i := range groups {
+    if len(groups[i]) > 0 {
+      order = append(order, i)
+    }
+  }
+  sort.SliceStable(order, func(a, b int) bool {
+    return textEditGroupLess(groups[order[a]], groups[order[b]])
+  })
+  selected := make([]TextEdit, 0)
+  for _, index := range order {
+    group := dedupeTextEdits(groups[index])
+    candidate := make([]TextEdit, 0, len(selected)+len(group))
+    candidate = append(candidate, selected...)
+    candidate = append(candidate, group...)
+    kept := selectTextEdits(sourceLen, candidate)
+    // Accept the group only if nothing was dropped: a shorter result means one
+    // of its edits collided with an already-selected edit (or a sibling edit of
+    // its own group), so the group cannot apply atomically here.
+    if len(kept) == len(candidate) {
+      selected = kept
+    }
+  }
+  return selected
+}
+
+// dedupeTextEdits removes exact-duplicate edits while preserving order. A
+// finding that emits the same edit twice still applies its distinct edits;
+// deduping here keeps such a finding from being rejected as "internally
+// inconsistent" by selectTextEditGroups, since an exact duplicate is not a
+// conflict the way an overlap is.
+func dedupeTextEdits(edits []TextEdit) []TextEdit {
+  if len(edits) == 0 {
+    return nil
+  }
+  seen := make(map[TextEdit]struct{}, len(edits))
+  out := make([]TextEdit, 0, len(edits))
+  for _, edit := range edits {
+    if _, ok := seen[edit]; ok {
+      continue
+    }
+    seen[edit] = struct{}{}
+    out = append(out, edit)
+  }
+  return out
+}
+
+// textEditGroupLess orders edit groups by their earliest member under the same
+// (Pos, End, Text) key selectTextEdits sorts by, so selection is deterministic
+// and the earliest-starting finding wins a contested range.
+func textEditGroupLess(a, b []TextEdit) bool {
+  ea, eb := minTextEdit(a), minTextEdit(b)
+  if ea.Pos != eb.Pos {
+    return ea.Pos < eb.Pos
+  }
+  if ea.End != eb.End {
+    return ea.End < eb.End
+  }
+  return ea.Text < eb.Text
+}
+
+// minTextEdit returns the least edit of a non-empty group under the
+// (Pos, End, Text) order. Panics on an empty slice; callers filter empties out.
+func minTextEdit(edits []TextEdit) TextEdit {
+  least := edits[0]
+  for _, edit := range edits[1:] {
+    if textEditLess(edit, least) {
+      least = edit
+    }
+  }
+  return least
+}
+
+func textEditLess(a, b TextEdit) bool {
+  if a.Pos != b.Pos {
+    return a.Pos < b.Pos
+  }
+  if a.End != b.End {
+    return a.End < b.End
+  }
+  return a.Text < b.Text
 }
