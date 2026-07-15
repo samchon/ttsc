@@ -158,7 +158,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 ### Other checks
 
 - [`curly`](#rule-curly): Require block statements for every `if`, `else`, `while`, `for`, and `do` body, reject the single-statement shorthand.
-- [`default-case`](#rule-default-case): Require `switch` statements to include a `default` clause.
+- [`default-case`](#rule-default-case): Require `switch` statements to include a `default` clause unless a `// no default` marker comment opts out.
 - [`default-case-last`](#rule-default-case-last): Require the `default` clause of a `switch` statement.
 - [`camelcase`](#rule-camelcase): Reject identifier declarations that aren't camelCase or PascalCase, snake_case bindings are flagged.
 - [`complexity`](#rule-complexity): Reject function bodies whose cyclomatic complexity exceeds twenty (default ESLint threshold).
@@ -209,7 +209,7 @@ Require `switch` statements to include a `default` clause.
 
 A switch without `default` silently drops every discriminant value that no `case` label matched.
 
-The rule forces the catch-all branch to be written out so unhandled cases become an intentional decision instead of a hidden fall-through.
+The rule forces the catch-all branch to be written out so unhandled cases become an intentional decision instead of a hidden fall-through. An empty switch (`switch (x) {}`) is skipped, matching ESLint. A switch may opt out by placing a marker comment whose trimmed text matches `commentPattern` (default `/^no default$/i`, for example `// no default`) as the last comment after its final clause.
 
 Example:
 
@@ -224,7 +224,22 @@ function classify(kind: string): string {
   }
   return "unknown";
 }
+
+function classifyMarked(kind: string): string {
+  switch (kind) {
+    case "a":
+      return "letter-a";
+    // no default
+  }
+  return "unknown";
+}
 ```
+
+Options:
+
+- `commentPattern?: string`
+
+  Regular expression the opt-out marker comment must match. Replaces the default `/^no default$/i` pattern entirely.
 
 <a id="rule-default-case-last"></a>
 
