@@ -1344,7 +1344,7 @@ try {
 
 ### `no-extend-native`
 
-Reject assignments to a built-in prototype such as `Array.prototype.foo = bar`. Only `<Builtin>.prototype.<key> = ...` is flagged; assigning to `Object.foo = ...` (a static property) is left alone.
+Reject extending a built-in prototype such as `Array.prototype.foo = bar`. Every shape that adds to a native prototype is flagged: dotted (`X.prototype.y = ...`) and computed (`X.prototype["y"] = ...`) member assignment, plus `Object.defineProperty` / `Object.defineProperties` whose target is a native prototype. Assigning to `Object.foo = ...` (a static property) is left alone. The `exceptions` option lists builtins to allow.
 
 Example:
 
@@ -1353,7 +1353,17 @@ Example:
 Array.prototype.firstItem = 1;
 // reports: no-extend-native (error)
 String.prototype.upper = function (): void {};
+// reports: no-extend-native (error)
+Array.prototype["lastItem"] = 2;
+// reports: no-extend-native (error)
+Object.defineProperty(Number.prototype, "half", { value: 3 });
 Object.debugLabel = 1;
+```
+
+Allow specific builtins with the `exceptions` option:
+
+```json
+{ "rules": { "no-extend-native": ["error", { "exceptions": ["Array"] }] } }
 ```
 
 <a id="rule-no-extra-bind"></a>
