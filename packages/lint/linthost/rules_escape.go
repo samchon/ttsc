@@ -38,8 +38,11 @@ func (noUselessEscape) Check(ctx *Context, node *shimast.Node) {
   // Tagged templates expose the raw bytes of the template to the tag
   // function (`String.raw`, `dedent`, `gql`, `css`, …), so a backslash
   // that looks redundant to the JS lexer is meaningful at the tag
-  // boundary. ESLint canonical skips tagged templates entirely.
-  if isInsideTaggedTemplate(node) {
+  // boundary. ESLint canonical skips a tagged template's own quasis, but a
+  // literal merely nested inside a tag's substitution is not itself tagged
+  // and stays checked — so this consults the literal's OWN enclosing
+  // template, not any ancestor tag.
+  if isTaggedTemplateElement(node) {
     return
   }
   // tsgo's `node.Pos()` points at the start of leading trivia; the regex
@@ -270,33 +273,6 @@ func isUselessRegexEscape(ch byte, inClass bool) bool {
     }
   }
   return true
-}
-
-// isInsideTaggedTemplate reports whether `node` is the template payload of
-// a TaggedTemplateExpression. Two AST shapes reach here:
-//
-//   - `KindNoSubstitutionTemplateLiteral` — the direct child of a
-//     TaggedTemplateExpression's Template slot.
-//   - `KindTemplateHead/Middle/Tail` — wrapped in TemplateSpan and
-//     TemplateExpression nodes; the TemplateExpression's parent is the
-//     TaggedTemplateExpression.
-func isInsideTaggedTemplate(node *shimast.Node) bool {
-  if node == nil || node.Parent == nil {
-    return false
-  }
-  parent := node.Parent
-  if parent.Kind == shimast.KindTaggedTemplateExpression {
-    return true
-  }
-  // Walk up at most two more hops to reach the TaggedTemplateExpression
-  // for the spans family.
-  for i := 0; i < 2 && parent.Parent != nil; i++ {
-    parent = parent.Parent
-    if parent.Kind == shimast.KindTaggedTemplateExpression {
-      return true
-    }
-  }
-  return false
 }
 
 func init() {
