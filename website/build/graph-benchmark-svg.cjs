@@ -150,13 +150,6 @@ for (const combo of combos.values()) {
 // is not a token chart, so it renders on its own scale (wall clock).
 if (report.index && (report.index.cells ?? []).length > 0) {
   writeSvg("graph-time-to-answer.svg", renderTime(report.index, allCells));
-  writeSvg(
-    "graph-time-to-answer-vscode.svg",
-    renderTime(report.index, allCells, {
-      only: "vscode",
-      title: "Cold time to a first answer — VS Code, 3.4M lines (lower is better)",
-    }),
-  );
 }
 
 const pngs = writePngs();
@@ -581,9 +574,8 @@ function renderIndex(index) {
 // It is the other half of the trade a context-saving tool is making. A tool that
 // cuts an agent's token bill and then spends four minutes indexing and three
 // more re-searching what it indexed has moved the cost, not removed it.
-function renderTime(index, cells, options = {}) {
+function renderTime(index, cells) {
   const rows = [...new Set(index.cells.map((cell) => cell.project))]
-    .filter((project) => !options.only || project === options.only)
     .map((project) => ({
       project,
       label: REPO_LABELS[project] ?? project,
@@ -604,7 +596,7 @@ function renderTime(index, cells, options = {}) {
 
   // Banded blocks like the grouped chart: repo header + one row per tool, the
   // two-tone bar (faded index build + solid LLM answer) inside a full-width
-  // track. A single-project render (the VS Code cut) gets thicker bars.
+  // track. A report with one project gets thicker bars.
   const single = rows.length === 1;
   const width = 1240;
   const margin = 36;
@@ -622,8 +614,7 @@ function renderTime(index, cells, options = {}) {
   const titleBlock = 132;
   const fontSize = single ? 18 : 17;
   const crownSize = single ? 18 : 16;
-  const title =
-    options.title ?? "Cold time to a first answer (lower is better)";
+  const title = "Cold time to a first answer (lower is better)";
 
   const max = niceMax(
     Math.max(

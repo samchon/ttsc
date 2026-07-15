@@ -163,9 +163,7 @@ And none of that counts the wait before the first question. A code-graph MCP has
 
 > The faded head of each bar is the index build, the solid tail is the LLM answering, and each bar is labelled `index / LLM` in the order you wait for them. A tool that cuts the token bill and then spends twelve minutes indexing has moved the cost, not removed it.
 
-The place that trade bites hardest deserves its own frame. VS Code is three million lines, and on it the index builds diverge by a factor of twenty-five: `@ttsc/graph` is ready in 29 seconds because the graph falls out of the type-check the compiler was going to run anyway, while `codegraph` crawls for twelve minutes and serena for four and a half before either can say a word:
-
-![Cold time to a first answer, VS Code alone](/benchmark/svg/graph-time-to-answer-vscode.svg)
+The trade bites hardest on VS Code, a three-million-line repository. Its index builds diverge by a factor of twenty-five: `@ttsc/graph` is ready in 29 seconds because the graph falls out of the type-check the compiler was going to run anyway, while `codegraph` crawls for twelve minutes and serena for four and a half before either can say a word.
 
 So for my kind of question, all three left me worse off than before I installed them. Two things are true at once: they're the strongest tools of their kind, built by people who saw the problem before I did; and on an open question, every one made the agent spend more than nothing would have. That's when I went digging.
 

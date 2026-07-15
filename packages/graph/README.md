@@ -61,9 +61,7 @@ The faded head of each bar is the cold index build, the solid tail is the LLM an
 
 ![Cold time to a first answer, per repository](https://ttsc.dev/benchmark/svg/graph-time-to-answer.svg)
 
-At three million lines the index question stops being academic. On VS Code, `@ttsc/graph` builds in 29 seconds — the graph is a byproduct of the type-check the compiler runs anyway — where `codegraph` spends twelve minutes and serena four and a half:
-
-![Cold time to a first answer, VS Code alone](https://ttsc.dev/benchmark/svg/graph-time-to-answer-vscode.svg)
+At three million lines the index question stops being academic. On VS Code, `@ttsc/graph` builds in 29 seconds because the graph is a byproduct of the type-check the compiler runs anyway, while `codegraph` spends twelve minutes and serena four and a half.
 
 The interactive charts, every model, and the method are on the benchmark page: https://ttsc.dev/docs/benchmark/graph
 
