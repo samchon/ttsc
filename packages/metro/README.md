@@ -41,7 +41,7 @@ module.exports = withTtsc(getDefaultConfig(__dirname));
 
 `withTtsc` sets `transformer.babelTransformerPath` and leaves the rest of your config untouched. It auto-detects the upstream transformer to delegate to (`@expo/metro-config/babel-transformer` for Expo, then `@react-native/metro-babel-transformer`, then the legacy `metro-react-native-babel-transformer`).
 
-Auto-detection only skips a candidate that is genuinely **not installed**. A candidate that _is_ installed but fails while loading — a top-level throw, an incompatible runtime ABI, or a missing peer/transitive dependency — surfaces its original error (as the `cause` of a `@ttsc/metro` wrapper) instead of being treated as absent. This stops a broken Expo/React Native install from silently falling through to the wrong transformer, and stops an explicit `upstreamTransformer` failure from being reported as if the module did not exist.
+Auto-detection only skips a candidate whose entry point is genuinely **not available** — the package is not installed, or it is installed but the requested subpath is not exported (Expo/React Native version skew). A candidate that _does_ resolve but fails while loading — a top-level throw, an incompatible runtime ABI, or a missing peer/transitive dependency — surfaces its original error (as the `cause` of a `@ttsc/metro` wrapper) instead of being treated as absent. This stops a broken Expo/React Native install from silently falling through to the wrong transformer, and stops an explicit `upstreamTransformer` failure from being reported as if the module did not exist.
 
 ## Configuration
 

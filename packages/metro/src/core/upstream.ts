@@ -118,27 +118,44 @@ function tryRequire(modulePath: string): UpstreamTransformer | undefined {
   try {
     nodeRequire.resolve(modulePath);
   } catch (error) {
-    if (isModuleNotFound(error)) {
+    if (isCandidateAbsent(error)) {
       return undefined;
     }
-    // A non-"not found" resolution error (e.g. an invalid specifier) is not
-    // evidence of a plain absence; surface it.
+    // A resolution error that is not one of the known "entry point absent"
+    // codes (e.g. an invalid specifier) is not evidence of a plain absence;
+    // surface it rather than silently skipping the candidate.
     throw error;
   }
   return nodeRequire(modulePath) as UpstreamTransformer;
 }
 
 /**
- * Whether a resolution error means the requested module could not be found.
+ * Whether a resolution error means the requested candidate's entry point is not
+ * available here — i.e. genuine absence, not a broken initialization.
  *
- * A CJS `require.resolve` failure carries `code === "MODULE_NOT_FOUND"`; the
- * ESM loader uses `ERR_MODULE_NOT_FOUND`. Because resolution never executes the
- * module, this error can only refer to the requested specifier, never a
- * transitive import of it.
+ * Resolution never executes the module body, so a `require.resolve` failure can
+ * only concern the requested specifier, never a transitive import of it. Each
+ * recognised code says the same thing about that specifier:
+ *
+ * - `MODULE_NOT_FOUND` / `ERR_MODULE_NOT_FOUND` — the package or file itself is
+ *   not installed (CJS and ESM loaders respectively).
+ * - `ERR_PACKAGE_PATH_NOT_EXPORTED` — the package is installed but the requested
+ *   subpath is not exported (or its export target is missing). This matters for
+ *   the `@expo/metro-config/babel-transformer` candidate, a package subpath:
+ *   under Expo/React Native version skew a present but non-exporting package
+ *   must stay non-fatal so auto-detection falls through to the next candidate,
+ *   exactly as a wholly absent package does.
+ *
+ * An error thrown later, while the resolved module executes, is a real
+ * initialization failure and is never routed here — the caller preserves it.
  */
-function isModuleNotFound(error: unknown): boolean {
+function isCandidateAbsent(error: unknown): boolean {
   const code = (error as { code?: unknown } | null | undefined)?.code;
-  return code === "MODULE_NOT_FOUND" || code === "ERR_MODULE_NOT_FOUND";
+  return (
+    code === "MODULE_NOT_FOUND" ||
+    code === "ERR_MODULE_NOT_FOUND" ||
+    code === "ERR_PACKAGE_PATH_NOT_EXPORTED"
+  );
 }
 
 /** Best-effort message extraction for wrapping an unknown thrown value. */

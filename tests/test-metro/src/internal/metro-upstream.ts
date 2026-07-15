@@ -134,6 +134,32 @@ export async function assertAbsentConfiguredPathReportsNotLoaded(): Promise<void
 }
 
 /**
+ * Asserts an explicit configured path that resolves to an installed package but
+ * whose requested subpath is NOT exported is reported as absence ("could not
+ * load"), NOT as an initialization failure, on the PRODUCTION path. Node throws
+ * `ERR_PACKAGE_PATH_NOT_EXPORTED` (not `MODULE_NOT_FOUND`) during resolution for
+ * such a specifier; because resolution never executes the module, this proves
+ * the requested candidate entry point is unavailable, so it must stay a plain
+ * absence — the boundary that keeps auto-detection falling through under
+ * Expo/React Native version skew instead of hard-failing. `typescript` is a
+ * stable devDependency with an `exports` map, so a bogus subpath of it triggers
+ * the code deterministically.
+ */
+export async function assertUnexportedSubpathReportsNotLoaded(): Promise<void> {
+  const { resolveUpstreamTransformer } = await TestMetroRuntime.loadUpstream();
+  const error = captureThrow(() =>
+    resolveUpstreamTransformer("typescript/@@ttsc-metro-absent-subpath@@"),
+  );
+  assert.match(
+    error.message,
+    /Could not load the configured upstream transformer/,
+  );
+  // A non-exported subpath is absence, not a wrapped initialization failure.
+  assert.doesNotMatch(error.message, /failed to (load|initialize)/i);
+  assert.equal((error as { cause?: unknown }).cause, undefined);
+}
+
+/**
  * Asserts an explicit configured transformer that throws while initializing
  * fails with its ORIGINAL diagnostic preserved (message + `cause`), not the
  * generic "Could not load the configured upstream transformer" absence message.
