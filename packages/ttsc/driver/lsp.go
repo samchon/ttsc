@@ -110,6 +110,12 @@ type LSPServerOptions = lspserver.LSPServerOptions
 // LSPUpstreamRunner is the driver-level alias for lspserver.LSPUpstreamRunner.
 type LSPUpstreamRunner = lspserver.LSPUpstreamRunner
 
+// LSPUpstreamValidator is the driver-level alias for lspserver.LSPUpstreamValidator.
+type LSPUpstreamValidator = lspserver.LSPUpstreamValidator
+
+// LSPUpstream is the driver-level alias for lspserver.LSPUpstream.
+type LSPUpstream = lspserver.LSPUpstream
+
 // MaxFrameBytes is the maximum byte length of a single JSON-RPC frame
 // the proxy will read without returning ErrFrameTooLarge.
 const MaxFrameBytes = lspserver.MaxFrameBytes
@@ -134,7 +140,6 @@ var NewFrameReader = lspserver.NewFrameReader
 var WriteFrame = lspserver.WriteFrame
 var ParseEnvelope = lspserver.ParseEnvelope
 var RecoverPanicAs = lspserver.RecoverPanicAs
-var WithUpstreamRunnerForTest = lspserver.WithUpstreamRunnerForTest
 var RunLSPServer = lspserver.RunLSPServer
 var DenyNpmInstall = lspserver.DenyNpmInstall
 

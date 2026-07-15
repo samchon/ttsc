@@ -14,8 +14,7 @@ import (
 
 // ErrLSPUpstreamPanic wraps a panic recovered from inside an upstream
 // runner. The production runner is an external tsgo process, but tests
-// and embedders can still install in-process runners through
-// WithUpstreamRunnerForTest.
+// and embedders can still supply an in-process runner per invocation.
 var ErrLSPUpstreamPanic = errors.New("ttscserver: tsgo upstream runner panicked")
 
 // RecoverPanicAs runs fn and converts a panic into an
@@ -78,6 +77,11 @@ type LSPServerOptions struct {
   // ProgressDelay is accepted for CLI compatibility. The external tsgo
   // LSP command does not currently expose a progress-delay flag.
   ProgressDelay time.Duration
+  // Upstream binds one runner and its validation policy to this invocation.
+  // The zero value selects the production tsgo process and validates
+  // TsgoBinary. Embedders supplying a Runner may also supply a Validator;
+  // a nil custom Validator means the custom runner owns its prerequisites.
+  Upstream LSPUpstream
 }
 
 // ErrLSPCwdRequired is returned when LSPServerOptions.Cwd is empty.
@@ -93,32 +97,20 @@ var ErrLSPTsgoBinaryRequired = errors.New("ttscserver: tsgo binary is required")
 // tsgo process with a controllable fake.
 type LSPUpstreamRunner func(ctx context.Context, in io.Reader, out io.Writer, opts LSPServerOptions) error
 
-// upstreamRunner is replaced in tests via WithUpstreamRunnerForTest.
-var upstreamRunner LSPUpstreamRunner = defaultUpstreamRunner
+// LSPUpstreamValidator checks one invocation's upstream prerequisites before
+// the proxy or runner goroutines start.
+type LSPUpstreamValidator func(opts LSPServerOptions) error
 
-// upstreamValidator checks production-only upstream requirements before any
-// proxy goroutine starts. Test upstream runners replace it with a no-op.
-var upstreamValidator = validateDefaultUpstreamOptions
-
-// WithUpstreamRunnerForTest substitutes the upstream runner used by
-// RunLSPServer. Returns a function the caller defers to restore the
-// production runner. The seam stays in the public driver API because
-// tests and embedders otherwise have no way to bypass tsgo.
-func WithUpstreamRunnerForTest(runner LSPUpstreamRunner) func() {
-  prev := upstreamRunner
-  prevValidator := upstreamValidator
-  upstreamRunner = runner
-  upstreamValidator = func(LSPServerOptions) error { return nil }
-  return func() {
-    upstreamRunner = prev
-    upstreamValidator = prevValidator
-  }
+// LSPUpstream is the immutable dependency pair captured by RunLSPServer for
+// one invocation. Its zero value selects the production tsgo runner and
+// validation policy.
+type LSPUpstream struct {
+  Runner    LSPUpstreamRunner
+  Validator LSPUpstreamValidator
 }
 
 // validateDefaultUpstreamOptions enforces production-only requirements
-// before any process or proxy goroutine is started. Test upstream runners
-// bypass this via WithUpstreamRunnerForTest, which replaces upstreamValidator
-// with a no-op.
+// before any process or proxy goroutine is started.
 func validateDefaultUpstreamOptions(opts LSPServerOptions) error {
   if opts.TsgoBinary == "" {
     return ErrLSPTsgoBinaryRequired
@@ -164,9 +156,19 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
   if opts.Cwd == "" {
     return ErrLSPCwdRequired
   }
-  if err := upstreamValidator(opts); err != nil {
-    return err
+  upstream := opts.Upstream
+  if upstream.Runner == nil {
+    upstream.Runner = defaultUpstreamRunner
+    if upstream.Validator == nil {
+      upstream.Validator = validateDefaultUpstreamOptions
+    }
   }
+  if upstream.Validator != nil {
+    if err := upstream.Validator(opts); err != nil {
+      return err
+    }
+  }
+  runner := upstream.Runner
   source := opts.Source
   if source == nil {
     source = NullPluginSource{}
@@ -212,7 +214,7 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
     defer upstreamOutW.Close()
     defer upstreamInR.Close()
     serverErr = RecoverPanicAs(func() error {
-      return upstreamRunner(serverCtx, upstreamInR, upstreamOutW, opts)
+      return runner(serverCtx, upstreamInR, upstreamOutW, opts)
     })
   }()
   go func() {

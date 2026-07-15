@@ -22,9 +22,6 @@ func TestLSPServerPropagatesRunnerError(t *testing.T) {
   failing := func(_ context.Context, _ io.Reader, _ io.Writer, _ driver.LSPServerOptions) error {
     return sentinel
   }
-  restore := driver.WithUpstreamRunnerForTest(failing)
-  defer restore()
-
   editorInR, editorInW := io.Pipe()
   editorOutR, editorOutW := io.Pipe()
   defer editorInR.Close()
@@ -39,6 +36,9 @@ func TestLSPServerPropagatesRunnerError(t *testing.T) {
       Out: editorOutW,
       Err: io.Discard,
       Cwd: t.TempDir(),
+      Upstream: driver.LSPUpstream{
+        Runner: failing,
+      },
     })
   }()
 

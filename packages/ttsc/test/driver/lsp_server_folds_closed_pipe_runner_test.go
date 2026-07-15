@@ -22,9 +22,6 @@ func TestLSPServerFoldsClosedPipeRunner(t *testing.T) {
   runner := func(_ context.Context, _ io.Reader, _ io.Writer, _ driver.LSPServerOptions) error {
     return fmt.Errorf("upstream wrote to closed pipe: %w", io.ErrClosedPipe)
   }
-  restore := driver.WithUpstreamRunnerForTest(runner)
-  defer restore()
-
   editorInR, editorInW := io.Pipe()
   editorOutR, editorOutW := io.Pipe()
   defer editorInR.Close()
@@ -39,6 +36,9 @@ func TestLSPServerFoldsClosedPipeRunner(t *testing.T) {
       Out: editorOutW,
       Err: io.Discard,
       Cwd: t.TempDir(),
+      Upstream: driver.LSPUpstream{
+        Runner: runner,
+      },
     })
   }()
 

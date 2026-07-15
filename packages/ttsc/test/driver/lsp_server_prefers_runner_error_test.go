@@ -21,10 +21,9 @@ import (
 // 3. Assert RunLSPServer returns the runner sentinel.
 func TestLSPServerPrefersRunnerError(t *testing.T) {
   runnerSentinel := errors.New("synthetic upstream failure")
-  restore := driver.WithUpstreamRunnerForTest(func(_ context.Context, _ io.Reader, _ io.Writer, _ driver.LSPServerOptions) error {
+  runner := func(_ context.Context, _ io.Reader, _ io.Writer, _ driver.LSPServerOptions) error {
     return runnerSentinel
-  })
-  defer restore()
+  }
 
   // Editor pipes are set up so the proxy will fail too: closing the
   // editor reader before the proxy's pumpUpstreamToEditor writes
@@ -44,6 +43,9 @@ func TestLSPServerPrefersRunnerError(t *testing.T) {
       Out: editorOutW,
       Err: io.Discard,
       Cwd: t.TempDir(),
+      Upstream: driver.LSPUpstream{
+        Runner: runner,
+      },
     })
   }()
 
