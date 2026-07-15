@@ -10,6 +10,7 @@
     "build:compiler": "node build/compiler.cjs",
     "build:blog:rss": "node build/blog.cjs",
     "test:rss-autodiscovery": "node --test test/rss-autodiscovery.test.cjs",
+    "test:typia-dependency-graph": "node --test test/typia-dependency-graph.test.cjs",
     "build:benchmark:graph": "node build/graph-benchmark-svg.cjs",
     "build:benchmark:png": "node build/graph-benchmark-svg.cjs --png",
     "charts:png": "node build/svg-to-png.cjs",
