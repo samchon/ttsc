@@ -635,6 +635,40 @@ func assertFixSnapshotWithOptions(t *testing.T, ruleName, source, optsJSON, expe
   }
 }
 
+// assertFixCRLFConsistentWithOptions runs one rule (configured with optsJSON,
+// which must set endOfLine:"crlf") through the fixer, asserts the rewritten
+// source equals `expected`, and additionally asserts the output carries zero
+// lone LFs — every "\n" belongs to a "\r\n". The lone-LF invariant is the
+// direct regression shield for issue #616: a reflow builder that hard-codes
+// "\n" injects a bare LF into an otherwise-CRLF file, so this check fails on a
+// reintroduced literal independently of the exact snapshot. It is checked on
+// the real applied output, not on the oracle literal.
+func assertFixCRLFConsistentWithOptions(t *testing.T, ruleName, source, optsJSON, expected string) {
+  t.Helper()
+  root, filePath, findings := runRuleFindingsSnapshot(t, ruleName, source, json.RawMessage(optsJSON))
+  if len(findings) == 0 {
+    t.Fatalf("%s: expected at least one finding", ruleName)
+  }
+  fixed, err := applyFindingFixes(root, findings)
+  if err != nil {
+    t.Fatalf("%s: applyFindingFixes: %v", ruleName, err)
+  }
+  if fixed == 0 {
+    t.Fatalf("%s: expected at least one applied fix", ruleName)
+  }
+  raw, err := os.ReadFile(filePath)
+  if err != nil {
+    t.Fatalf("%s: ReadFile: %v", ruleName, err)
+  }
+  got := string(raw)
+  if got != expected {
+    t.Fatalf("%s fixed source mismatch:\nwant %q\ngot  %q", ruleName, expected, got)
+  }
+  if lf, crlf := strings.Count(got, "\n"), strings.Count(got, "\r\n"); lf != crlf {
+    t.Fatalf("%s: output has lone LFs (%d LF, %d CRLF): %q", ruleName, lf, crlf, got)
+  }
+}
+
 // assertRuleSkipsSourceWithOptions asserts the rule emits zero findings for
 // the input when configured with the given options JSON. Mirrors
 // `assertRuleSkipsSource`; used for option-gated skip arms (e.g.
