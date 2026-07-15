@@ -154,6 +154,51 @@ export namespace TestMetroRuntime {
     return file;
   }
 
+  let throwingUpstreamPath: string | undefined;
+  let missingDepUpstreamPath: string | undefined;
+
+  /**
+   * A fake upstream module that throws while initializing (a top-level `throw`),
+   * modelling an installed transformer that rejects the current runtime ABI. Its
+   * resolution succeeds, so the loader must classify it as a broken module, not
+   * as an absent candidate.
+   */
+  export function throwingUpstreamOnDisk(): string {
+    if (throwingUpstreamPath !== undefined) {
+      return throwingUpstreamPath;
+    }
+    const dir = TestProject.tmpdir("ttsc-metro-upstream-broken-");
+    const file = path.join(dir, "upstream.cjs");
+    fs.writeFileSync(
+      file,
+      'throw new Error("upstream dependency ABI mismatch");\n',
+      "utf8",
+    );
+    throwingUpstreamPath = file;
+    return file;
+  }
+
+  /**
+   * A fake upstream module that resolves but `require`s a transitive dependency
+   * that is not installed, so loading it throws `MODULE_NOT_FOUND` for that
+   * dependency — never for the candidate itself. The loader must report the
+   * dependency failure rather than claiming the candidate is absent.
+   */
+  export function missingDependencyUpstreamOnDisk(): string {
+    if (missingDepUpstreamPath !== undefined) {
+      return missingDepUpstreamPath;
+    }
+    const dir = TestProject.tmpdir("ttsc-metro-upstream-missingdep-");
+    const file = path.join(dir, "upstream.cjs");
+    fs.writeFileSync(
+      file,
+      'require("@@ttsc-metro-absent-transitive-dependency@@");\n',
+      "utf8",
+    );
+    missingDepUpstreamPath = file;
+    return file;
+  }
+
   /**
    * Set the worker-env options, load a fresh transformer, run `body`, and
    * always restore the previous env. Used by transform and cache-key tests that
