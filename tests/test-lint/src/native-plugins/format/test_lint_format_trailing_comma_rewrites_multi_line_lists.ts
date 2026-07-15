@@ -10,12 +10,16 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
  * Verifies lint format trailing-comma: rewrites multi-line lists end-to-end.
  *
  * The fixture mixes a single-line array, a multi-line object, a multi-line
- * nested call inside a function declaration, and a multi-line `JSON.stringify`
- * whose closing `}` and `)` collapse onto a single line. The single-line array
- * is the negative anchor for the no-newlines short-circuit; the
- * `JSON.stringify({...})` call is the close-paren-shares-line regression anchor
- * — its `}` and `)` end up on the same line as the rule's would-be insertion
- * point, so the rule must abstain.
+ * nested call inside a function declaration, a multi-line `JSON.stringify`
+ * whose closing `}` and `)` collapse onto a single line, and a multi-line
+ * object destructuring assignment target ending in a rest
+ * (`({ received, ...others } = …)`). The single-line array is the negative
+ * anchor for the no-newlines short-circuit; the `JSON.stringify({...})` call is
+ * the close-paren-shares-line regression anchor — its `}` and `)` end up on the
+ * same line as the rule's would-be insertion point, so the rule must abstain;
+ * the rest assignment target is the issue #608 anchor — a trailing comma after
+ * its `AssignmentRestProperty` is a syntax error, so the format cascade must
+ * leave it comma-free.
  *
  * 1. Copy `fixtures/format-projects/format-trailing-comma` into a temp project.
  * 2. Run `ttsc format` through the real launcher with `@ttsc/lint` linked.
