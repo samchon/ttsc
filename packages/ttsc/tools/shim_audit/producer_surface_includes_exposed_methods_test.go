@@ -14,7 +14,7 @@ import (
 // aliases such as Expression and Node can spell the same compiler object twice.
 //
 //  1. Build a rooted exposed owner with consumer and producer methods.
-//  2. Remove the producer and confirm the method parameter becomes a generic gap.
+//  2. Remove the producer and confirm direct and named-callback inputs become a gap.
 //  3. Confirm an alias and canonical producer close the same object edge.
 //  4. Remove the receiver root and confirm its result no longer counts.
 //  5. Restore it explicitly, then prove a rootless self-cycle still fails.
@@ -37,6 +37,26 @@ func TestProducerSurfaceIncludesExposedMethods(t *testing.T) {
       false,
     )
     ownerType.AddMethod(types.NewFunc(token.NoPos, pkg, "Consume", consume))
+    factoryName := types.NewTypeName(token.NoPos, pkg, "TokenFactory", nil)
+    factorySignature := types.NewSignatureType(
+      nil,
+      nil,
+      nil,
+      types.NewTuple(),
+      types.NewTuple(types.NewVar(token.NoPos, pkg, "value", types.NewPointer(tokenType))),
+      false,
+    )
+    factoryType := types.NewNamed(factoryName, factorySignature, nil)
+    pkg.Scope().Insert(factoryName)
+    register := types.NewSignatureType(
+      receiver,
+      nil,
+      nil,
+      types.NewTuple(types.NewVar(token.NoPos, pkg, "factory", factoryType)),
+      types.NewTuple(),
+      false,
+    )
+    ownerType.AddMethod(types.NewFunc(token.NoPos, pkg, "Register", register))
     if includeProducer {
       produce := types.NewSignatureType(
         receiver,

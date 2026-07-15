@@ -23,8 +23,9 @@
 //     already-exposed operation but is not itself aliased. (A plugin can
 //     obtain the value but cannot name its type.)
 //   - PRODUCER every pointer-like compiler object consumed by a public shim
-//     operation must also be returned by a public operation. A type alias alone
-//     only makes the object nameable; it does not provide a meaningful value.
+//     operation must be obtainable from an unconditional public return or
+//     callback, a method on an obtainable receiver, or an explicit root. A type
+//     alias alone only makes the object nameable; it provides no meaningful value.
 //
 // What it deliberately does NOT find: UNEXPORTED helpers a plugin needs by name
 // (e.g. `(*Checker).getMinArgumentCount`, #230 rule 2). Those are invisible to
@@ -130,6 +131,22 @@ type methodFlow struct {
   produced map[flowType]map[string]bool
 }
 
+// localFlowDefinition resolves named callback and container contracts declared
+// by the shim itself. Alias definitions preserve the surrounding pointer state;
+// defined types expose their callable/container underlying shape but are not
+// mistaken for the internal named type they were declared from.
+type localFlowDefinition struct {
+  expression ast.Expr
+  aliases    map[string]string
+  alias      bool
+}
+
+type localFlowVisit struct {
+  name        string
+  direction   flowDirection
+  pointerLike bool
+}
+
 func newProducerSurface() producerSurface {
   return producerSurface{
     consumed: map[flowType]map[string]bool{},
@@ -227,9 +244,9 @@ func scanShimReachable(shimRoot string) (reachable, error) {
 // Callback variance is reversed for callback parameters and preserved for
 // callback results, so an input callback's arguments count as values produced
 // by the shim rather than values the plugin must somehow manufacture.
-func scanShimProducerSurface(shimRoot string) (producerSurface, error) {
+func scanShimProducerSurface(shimRoot string, inner map[string]*packages.Package) (producerSurface, error) {
   surface := newProducerSurface()
-  localTypes := map[string]map[string]flowType{}
+  localTypes := map[string]map[string]localFlowDefinition{}
   sources := map[string]map[string][]byte{}
   for dir, suffix := range shimDirs {
     paths, _ := filepath.Glob(filepath.Join(shimRoot, dir, "*.go"))
@@ -245,52 +262,56 @@ func scanShimProducerSurface(shimRoot string) (producerSurface, error) {
         sources[suffix] = map[string][]byte{}
       }
       sources[suffix][path] = src
-      aliases, err := internalImportAliases(src, path)
+      definitions, err := scanLocalFlowDefinitions(src, path)
       if err != nil {
         return producerSurface{}, err
       }
-      file, err := parser.ParseFile(token.NewFileSet(), path, src, parser.SkipObjectResolution)
-      if err != nil {
-        return producerSurface{}, fmt.Errorf("%s: %w", path, err)
+      if localTypes[suffix] == nil {
+        localTypes[suffix] = map[string]localFlowDefinition{}
       }
-      for _, decl := range file.Decls {
-        gen, ok := decl.(*ast.GenDecl)
-        if !ok || gen.Tok != token.TYPE {
-          continue
-        }
-        for _, spec := range gen.Specs {
-          typ, ok := spec.(*ast.TypeSpec)
-          if !ok || !ast.IsExported(typ.Name.Name) {
-            continue
-          }
-          selector, ok := typ.Type.(*ast.SelectorExpr)
-          if !ok {
-            continue
-          }
-          qualifier, ok := selector.X.(*ast.Ident)
-          if !ok {
-            continue
-          }
-          importedSuffix, internal := aliases[qualifier.Name]
-          if !internal {
-            continue
-          }
-          if localTypes[suffix] == nil {
-            localTypes[suffix] = map[string]flowType{}
-          }
-          localTypes[suffix][typ.Name.Name] = flowType{pkg: importedSuffix, name: selector.Sel.Name}
-        }
+      for name, definition := range definitions {
+        localTypes[suffix][name] = definition
       }
     }
   }
   for suffix, files := range sources {
     for path, src := range files {
-      if err := scanProducerFile(src, path, suffix, localTypes[suffix], surface); err != nil {
+      if err := scanProducerFile(src, path, suffix, localTypes[suffix], inner, surface); err != nil {
         return producerSurface{}, err
       }
     }
   }
   return surface, nil
+}
+
+func scanLocalFlowDefinitions(src []byte, filename string) (map[string]localFlowDefinition, error) {
+  aliases, err := internalImportAliases(src, filename)
+  if err != nil {
+    return nil, err
+  }
+  file, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.SkipObjectResolution)
+  if err != nil {
+    return nil, fmt.Errorf("%s: %w", filename, err)
+  }
+  definitions := map[string]localFlowDefinition{}
+  for _, decl := range file.Decls {
+    gen, ok := decl.(*ast.GenDecl)
+    if !ok || gen.Tok != token.TYPE {
+      continue
+    }
+    for _, spec := range gen.Specs {
+      typ, ok := spec.(*ast.TypeSpec)
+      if !ok {
+        continue
+      }
+      definitions[typ.Name.Name] = localFlowDefinition{
+        expression: typ.Type,
+        aliases:    aliases,
+        alias:      typ.Assign.IsValid(),
+      }
+    }
+  }
+  return definitions, nil
 }
 
 func internalImportAliases(src []byte, filename string) (map[string]string, error) {
@@ -314,7 +335,7 @@ func internalImportAliases(src []byte, filename string) (map[string]string, erro
   return aliases, nil
 }
 
-func scanProducerFile(src []byte, filename, suffix string, localTypes map[string]flowType, surface producerSurface) error {
+func scanProducerFile(src []byte, filename, suffix string, localTypes map[string]localFlowDefinition, inner map[string]*packages.Package, surface producerSurface) error {
   file, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.SkipObjectResolution)
   if err != nil {
     return fmt.Errorf("%s: %w", filename, err)
@@ -332,8 +353,8 @@ func scanProducerFile(src []byte, filename, suffix string, localTypes map[string
     if fn.Recv != nil && len(fn.Recv.List) > 0 {
       operation = suffix + "." + receiverTypeName(fn.Recv.List[0].Type) + "." + fn.Name.Name
     }
-    collectFieldFlow(fn.Type.Params, aliases, localTypes, flowConsume, false, operation, surface)
-    collectFieldFlow(fn.Type.Results, aliases, localTypes, flowProduce, false, operation, surface)
+    collectFieldFlow(fn.Type.Params, aliases, localTypes, inner, flowConsume, false, operation, surface)
+    collectFieldFlow(fn.Type.Results, aliases, localTypes, inner, flowProduce, false, operation, surface)
   }
   return nil
 }
@@ -353,55 +374,74 @@ func receiverTypeName(expr ast.Expr) string {
   }
 }
 
-func collectFieldFlow(fields *ast.FieldList, aliases map[string]string, localTypes map[string]flowType, direction flowDirection, pointerLike bool, operation string, surface producerSurface) {
+func collectFieldFlow(fields *ast.FieldList, aliases map[string]string, localTypes map[string]localFlowDefinition, inner map[string]*packages.Package, direction flowDirection, pointerLike bool, operation string, surface producerSurface) {
+  collectFieldFlowSeen(fields, aliases, localTypes, inner, direction, pointerLike, operation, surface, map[localFlowVisit]bool{})
+}
+
+func collectFieldFlowSeen(fields *ast.FieldList, aliases map[string]string, localTypes map[string]localFlowDefinition, inner map[string]*packages.Package, direction flowDirection, pointerLike bool, operation string, surface producerSurface, seen map[localFlowVisit]bool) {
   if fields == nil {
     return
   }
   for _, field := range fields.List {
-    collectTypeFlow(field.Type, aliases, localTypes, direction, pointerLike, operation, surface)
+    collectTypeFlowSeen(field.Type, aliases, localTypes, inner, direction, pointerLike, operation, surface, seen)
   }
 }
 
-func collectTypeFlow(expr ast.Expr, aliases map[string]string, localTypes map[string]flowType, direction flowDirection, pointerLike bool, operation string, surface producerSurface) {
+func collectTypeFlowSeen(expr ast.Expr, aliases map[string]string, localTypes map[string]localFlowDefinition, inner map[string]*packages.Package, direction flowDirection, pointerLike bool, operation string, surface producerSurface, seen map[localFlowVisit]bool) {
   switch node := expr.(type) {
   case *ast.StarExpr:
-    collectTypeFlow(node.X, aliases, localTypes, direction, true, operation, surface)
+    collectTypeFlowSeen(node.X, aliases, localTypes, inner, direction, true, operation, surface, seen)
   case *ast.ArrayType:
-    collectTypeFlow(node.Elt, aliases, localTypes, direction, false, operation, surface)
+    collectTypeFlowSeen(node.Elt, aliases, localTypes, inner, direction, false, operation, surface, seen)
   case *ast.Ellipsis:
-    collectTypeFlow(node.Elt, aliases, localTypes, direction, false, operation, surface)
+    collectTypeFlowSeen(node.Elt, aliases, localTypes, inner, direction, false, operation, surface, seen)
   case *ast.MapType:
-    collectTypeFlow(node.Key, aliases, localTypes, direction, false, operation, surface)
-    collectTypeFlow(node.Value, aliases, localTypes, direction, false, operation, surface)
+    collectTypeFlowSeen(node.Key, aliases, localTypes, inner, direction, false, operation, surface, seen)
+    collectTypeFlowSeen(node.Value, aliases, localTypes, inner, direction, false, operation, surface, seen)
   case *ast.ChanType:
-    collectTypeFlow(node.Value, aliases, localTypes, direction, false, operation, surface)
+    collectTypeFlowSeen(node.Value, aliases, localTypes, inner, direction, false, operation, surface, seen)
   case *ast.ParenExpr:
-    collectTypeFlow(node.X, aliases, localTypes, direction, pointerLike, operation, surface)
+    collectTypeFlowSeen(node.X, aliases, localTypes, inner, direction, pointerLike, operation, surface, seen)
   case *ast.IndexExpr:
-    collectTypeFlow(node.X, aliases, localTypes, direction, pointerLike, operation, surface)
-    collectTypeFlow(node.Index, aliases, localTypes, direction, false, operation, surface)
+    collectTypeFlowSeen(node.X, aliases, localTypes, inner, direction, pointerLike, operation, surface, seen)
+    collectTypeFlowSeen(node.Index, aliases, localTypes, inner, direction, false, operation, surface, seen)
   case *ast.IndexListExpr:
-    collectTypeFlow(node.X, aliases, localTypes, direction, pointerLike, operation, surface)
+    collectTypeFlowSeen(node.X, aliases, localTypes, inner, direction, pointerLike, operation, surface, seen)
     for _, index := range node.Indices {
-      collectTypeFlow(index, aliases, localTypes, direction, false, operation, surface)
+      collectTypeFlowSeen(index, aliases, localTypes, inner, direction, false, operation, surface, seen)
     }
   case *ast.FuncType:
-    collectFieldFlow(node.Params, aliases, localTypes, opposite(direction), false, operation, surface)
-    collectFieldFlow(node.Results, aliases, localTypes, direction, false, operation, surface)
+    collectFieldFlowSeen(node.Params, aliases, localTypes, inner, opposite(direction), false, operation, surface, seen)
+    collectFieldFlowSeen(node.Results, aliases, localTypes, inner, direction, false, operation, surface, seen)
   case *ast.InterfaceType:
-    collectFieldFlow(node.Methods, aliases, localTypes, direction, false, operation, surface)
+    collectFieldFlowSeen(node.Methods, aliases, localTypes, inner, direction, false, operation, surface, seen)
   case *ast.Ident:
-    if typ, internal := localTypes[node.Name]; pointerLike && internal {
-      surface.add(direction, typ, operation)
+    definition, local := localTypes[node.Name]
+    if !local || (!definition.alias && pointerLike) {
+      return
     }
+    visit := localFlowVisit{name: node.Name, direction: direction, pointerLike: pointerLike}
+    if seen[visit] {
+      return
+    }
+    seen[visit] = true
+    collectTypeFlowSeen(definition.expression, definition.aliases, localTypes, inner, direction, definition.alias && pointerLike, operation, surface, seen)
   case *ast.SelectorExpr:
     qualifier, ok := node.X.(*ast.Ident)
-    if !pointerLike || !ok || !ast.IsExported(node.Sel.Name) {
+    if !ok || !ast.IsExported(node.Sel.Name) {
       return
     }
     importedSuffix, internal := aliases[qualifier.Name]
-    if internal {
-      surface.add(direction, flowType{pkg: importedSuffix, name: node.Sel.Name}, operation)
+    if !internal {
+      return
+    }
+    typ := flowType{pkg: importedSuffix, name: node.Sel.Name}
+    if pointerLike {
+      surface.add(direction, typ, operation)
+    } else if pkg := inner[importedSuffix]; pkg != nil && pkg.Types != nil {
+      if typeName, ok := pkg.Types.Scope().Lookup(node.Sel.Name).(*types.TypeName); ok {
+        collectGoTypeFlow(typeName.Type(), direction, false, operation, surface)
+      }
     }
   }
 }
@@ -690,12 +730,12 @@ func main() {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(1)
   }
-  producerSurface, err := scanShimProducerSurface(*shimRoot)
+  inner, err := loadInner(*anchor)
   if err != nil {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(1)
   }
-  inner, err := loadInner(*anchor)
+  producerSurface, err := scanShimProducerSurface(*shimRoot, inner)
   if err != nil {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(1)
@@ -987,7 +1027,8 @@ func collectGoTypeFlowSeen(typ types.Type, direction flowDirection, pointerLike 
         collectGoTypeFlowSeen(args.At(i), direction, false, operation, surface, seen)
       }
     }
-    if underlying, ok := current.Underlying().(*types.Interface); ok {
+    switch underlying := current.Underlying().(type) {
+    case *types.Interface, *types.Signature, *types.Slice, *types.Array, *types.Map, *types.Chan, *types.Pointer:
       collectGoTypeFlowSeen(underlying, direction, false, operation, surface, seen)
     }
   }
