@@ -27,11 +27,13 @@ import (
 // an already-broken list contains a newline and is skipped.
 type formatParameterProperties struct{}
 
-// formatParameterPropertiesOptions carries the indentation settings the
-// rewrite needs. The config layer mirrors format.tabWidth/useTabs in.
+// formatParameterPropertiesOptions carries the indentation + EOL settings
+// the rewrite needs. The config layer mirrors
+// format.tabWidth/useTabs/endOfLine in.
 type formatParameterPropertiesOptions struct {
-  TabWidth *int  `json:"tabWidth"`
-  UseTabs  *bool `json:"useTabs"`
+  TabWidth  *int    `json:"tabWidth"`
+  UseTabs   *bool   `json:"useTabs"`
+  EndOfLine *string `json:"endOfLine"`
 }
 
 func (formatParameterProperties) Name() string   { return "format/parameter-properties" }
@@ -111,10 +113,18 @@ func (formatParameterProperties) Check(ctx *Context, node *shimast.Node) {
   } else if opts.TabWidth != nil && *opts.TabWidth > 0 {
     oneLevel = strings.Repeat(" ", *opts.TabWidth)
   }
+  // The synthesized break mirrors loadFormatLayout: `"\n"` by default,
+  // `"\r\n"` under endOfLine:"crlf", so a broken CRLF constructor keeps
+  // consistent line endings instead of gaining lone LFs.
+  eol := "\n"
+  if opts.EndOfLine != nil && *opts.EndOfLine == "crlf" {
+    eol = "\r\n"
+  }
   inner := indent + oneLevel
 
   var b strings.Builder
-  b.WriteString("(\n")
+  b.WriteString("(")
+  b.WriteString(eol)
   for i, p := range params {
     if p == nil {
       return
@@ -129,7 +139,7 @@ func (formatParameterProperties) Check(ctx *Context, node *shimast.Node) {
     if i < len(params)-1 {
       b.WriteByte(',')
     }
-    b.WriteByte('\n')
+    b.WriteString(eol)
   }
   b.WriteString(indent)
   b.WriteByte(')')

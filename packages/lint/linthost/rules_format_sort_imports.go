@@ -27,12 +27,15 @@ const (
   separatorPlaceholder = ""
 )
 
-// formatSortImportsOptions mirrors `ITtscLintFormatSortImports`.
+// formatSortImportsOptions mirrors `ITtscLintFormatSortImports`, plus the
+// top-level `endOfLine` the config layer threads in so the rebuilt block
+// joins declarations with the file's line ending.
 type formatSortImportsOptions struct {
   Order                    []string `json:"order"`
   CaseSensitive            bool     `json:"caseSensitive"`
   CombineTypeAndValue      bool     `json:"combineTypeAndValue"`
   UnsafeSortRuntimeImports bool     `json:"unsafeSortRuntimeImports"`
+  EndOfLine                *string  `json:"endOfLine"`
 }
 
 // defaultImportOrder is used when the user supplies no `order`: Node built-ins,
@@ -120,6 +123,10 @@ type resolvedSortImportsOptions struct {
   caseSensitive            bool
   combineTypeAndValue      bool
   unsafeSortRuntimeImports bool
+  // eol is the newline joined between rebuilt declarations: `"\n"` by
+  // default, `"\r\n"` under endOfLine:"crlf". Verbatim declaration text is
+  // preserved as-is; only the synthesized inter-declaration joins use it.
+  eol string
 }
 
 // sortImportsGroup is one resolved entry of the `order` array. A separator
@@ -142,11 +149,16 @@ func loadSortImportsOptions(ctx *Context) resolvedSortImportsOptions {
     order = defaultImportOrder
   }
   groups := parseImportOrder(order)
+  eol := "\n"
+  if raw.EndOfLine != nil && *raw.EndOfLine == "crlf" {
+    eol = "\r\n"
+  }
   return resolvedSortImportsOptions{
     groups:                   groups,
     caseSensitive:            raw.CaseSensitive,
     combineTypeAndValue:      raw.CombineTypeAndValue,
     unsafeSortRuntimeImports: raw.UnsafeSortRuntimeImports,
+    eol:                      eol,
   }
 }
 
@@ -421,9 +433,11 @@ func buildSortedImportBlock(src string, imports []*shimast.Node, opts resolvedSo
   for i, e := range entries {
     if i > 0 {
       if e.group != prevGroup && separatorBetween(opts.groups, prevGroup, e.group) {
-        b.WriteString("\n\n")
+        // A blank line between groups is two line endings.
+        b.WriteString(opts.eol)
+        b.WriteString(opts.eol)
       } else {
-        b.WriteString("\n")
+        b.WriteString(opts.eol)
       }
     }
     b.WriteString(e.text)
