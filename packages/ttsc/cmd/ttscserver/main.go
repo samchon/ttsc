@@ -133,9 +133,11 @@ func runLSP(args []string) int {
   }
 
   // The SymbolProvider answers textDocument/documentSymbol and
-  // textDocument/references locally from ttsc's compiler-backed code graph;
-  // tsgo's native LSP does not implement them. It loads the program lazily on
-  // the first such request, so wiring it here adds no startup cost.
+  // textDocument/references from ttsc's compiler-backed code graph. tsgo
+  // implements both methods itself, so the proxy forwards to tsgo whenever it
+  // advertises the capability and consults this provider only as a fallback
+  // (tsgo did not advertise). It loads the program lazily on the first such
+  // request, so wiring it here adds no startup cost.
   symbolProvider := graphsymbols.NewProvider(cwd, strings.TrimSpace(*tsconfigFlag))
 
   err = runLSPServer(ctx, lspserver.LSPServerOptions{
