@@ -12,7 +12,7 @@ import { createEffect, createSignal } from "solid-js";
 
 function App() {
   const [count] = createSignal(0);
-  createEffect(async () => count());
+  createEffect(() => count());
   // expect: solid/reactivity error
   return <span>{count}</span>;
 }

@@ -188,7 +188,7 @@ func (s *solidState) collectVariable(node *shimast.Node) {
   }
   collectSolidBindingNames(decl.Name(), s.declared)
   init := stripParens(decl.Initializer)
-  if init == nil {
+  if init == nil || init.Kind != shimast.KindCallExpression {
     return
   }
   initCall := init.AsCallExpression()
@@ -203,7 +203,11 @@ func (s *solidState) collectVariable(node *shimast.Node) {
   if binding == nil || binding.Elements == nil || len(binding.Elements.Nodes) == 0 {
     return
   }
-  first := binding.Elements.Nodes[0].AsBindingElement()
+  firstNode := binding.Elements.Nodes[0]
+  if firstNode == nil || firstNode.Kind != shimast.KindBindingElement {
+    return
+  }
+  first := firstNode.AsBindingElement()
   if first == nil {
     return
   }
@@ -461,7 +465,7 @@ func (s *solidState) reportPreferClassList(ctx *Context) {
       continue
     }
     expr := solidJSXAttrExpression(attr)
-    if expr == nil {
+    if expr == nil || expr.Kind != shimast.KindCallExpression {
       continue
     }
     call := expr.AsCallExpression()
@@ -562,6 +566,9 @@ func (s *solidState) reportStyleProp(ctx *Context) {
       continue
     }
     for _, propNode := range obj.Properties.Nodes {
+      if propNode == nil || propNode.Kind != shimast.KindPropertyAssignment {
+        continue
+      }
       prop := propNode.AsPropertyAssignment()
       if prop == nil {
         continue
@@ -728,6 +735,9 @@ func collectSolidBindingNames(node *shimast.Node, out map[string]bool) {
       return
     }
     for _, elementNode := range pattern.Elements.Nodes {
+      if elementNode == nil || elementNode.Kind != shimast.KindBindingElement {
+        continue
+      }
       el := elementNode.AsBindingElement()
       if el != nil {
         collectSolidBindingNames(el.Name(), out)

@@ -174,6 +174,9 @@ func (a *reactHooksAnalyzer) checkComponentHookFactories(root *shimast.Node) {
 
 func (a *reactHooksAnalyzer) checkSetStateInRender(root *shimast.Node) {
   walkDescendants(root, func(node *shimast.Node) {
+    if node == nil || node.Kind != shimast.KindCallExpression {
+      return
+    }
     call := node.AsCallExpression()
     if call == nil {
       return
@@ -192,6 +195,9 @@ func (a *reactHooksAnalyzer) checkSetStateInRender(root *shimast.Node) {
 
 func (a *reactHooksAnalyzer) checkSetStateInEffect(root *shimast.Node) {
   walkDescendants(root, func(node *shimast.Node) {
+    if node == nil || node.Kind != shimast.KindCallExpression {
+      return
+    }
     call := node.AsCallExpression()
     if call == nil {
       return
@@ -255,6 +261,9 @@ func (a *reactHooksAnalyzer) reportImmutableWrite(target *shimast.Node, reportNo
 
 func (a *reactHooksAnalyzer) checkRefs(root *shimast.Node) {
   walkDescendants(root, func(node *shimast.Node) {
+    if node == nil || node.Kind != shimast.KindPropertyAccessExpression {
+      return
+    }
     access := node.AsPropertyAccessExpression()
     if access == nil || identifierText(access.Name()) != "current" {
       return
@@ -279,6 +288,9 @@ func (a *reactHooksAnalyzer) collectFunctionBindings(fn *reactHooksFunction) {
   }
   walkDescendants(fn.body, func(node *shimast.Node) {
     if a.nearestFunction(node) != fn {
+      return
+    }
+    if node == nil || node.Kind != shimast.KindVariableDeclaration {
       return
     }
     decl := node.AsVariableDeclaration()
@@ -487,7 +499,11 @@ func isNamedReactCallee(node *shimast.Node, name string) bool {
 }
 
 func isNamedReactCalleeFromCall(node *shimast.Node, name string) bool {
-  call := stripParens(node).AsCallExpression()
+  node = stripParens(node)
+  if node == nil || node.Kind != shimast.KindCallExpression {
+    return false
+  }
+  call := node.AsCallExpression()
   return call != nil && isNamedReactCallee(call.Expression, name)
 }
 
@@ -563,7 +579,7 @@ func statementContainsOwnReturn(stmt *shimast.Node, fnNode *shimast.Node) bool {
 func functionContainsReactHookCall(node *shimast.Node) bool {
   found := false
   walkDescendants(reactFunctionBody(node), func(child *shimast.Node) {
-    if found || child == node {
+    if found || child == nil || child == node || child.Kind != shimast.KindCallExpression {
       return
     }
     call := child.AsCallExpression()

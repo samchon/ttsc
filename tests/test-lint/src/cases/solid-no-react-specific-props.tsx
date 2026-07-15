@@ -13,6 +13,8 @@ import { createSignal } from "solid-js";
 createSignal(0);
 
 // expect: solid/no-react-specific-props error
+// expect: solid/no-react-specific-props error
+// expect: solid/no-react-specific-props error
 const tree = <label className="primary" htmlFor="field" key="save" />;
 
 JSON.stringify({ tree });

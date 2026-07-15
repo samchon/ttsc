@@ -2,9 +2,9 @@ declare function useEffect(effect: () => void, deps: ReadonlyArray<unknown>): vo
 
 function Component(props: { value: number }) {
   // Positive: deps array omits `props.value`.
-  // expect: react/exhaustive-deps error
   useEffect(() => {
     JSON.stringify(props.value);
+    // expect: react/exhaustive-deps error
   }, []);
 
   // Negative: deps array lists every reactive identifier.
