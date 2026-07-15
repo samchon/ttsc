@@ -17,11 +17,11 @@ import (
 //
 // 1. Invoke each documented help alias through run.
 // 2. Capture stdout and stderr for every alias.
-// 3. Assert successful status and the demo usage line.
+// 3. Assert successful status and only the version usage line.
 func TestCommandPrintsHelpAliases(t *testing.T) {
   for _, argument := range []string{"-h", "--help", "help"} {
     code, stdout, stderr := runPlatformCommand(t, argument)
-    if code != 0 || stderr != "" || !strings.Contains(stdout, "ttsc demo --type=string") {
+    if code != 0 || stderr != "" || !strings.Contains(stdout, "ttsc --version") || strings.Contains(stdout, "demo") {
       t.Fatalf("help alias %q mismatch: code=%d stdout=%q stderr=%q", argument, code, stdout, stderr)
     }
   }

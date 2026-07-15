@@ -1,11 +1,9 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
 import { TtscCompiler } from "../../TtscCompiler";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import { resolveProjectConfig } from "../../compiler/internal/project/resolveProjectConfig";
-import { resolveBinary } from "../../compiler/internal/resolveBinary";
 import { runBuild } from "../../compiler/internal/runBuild";
 import { runSingleFileEmit } from "../../compiler/internal/runSingleFileEmit";
 import {
@@ -68,8 +66,6 @@ export function runTtsc(
         return runClean(rest);
       case "prepare":
         return runPrepare(rest);
-      case "demo":
-        return delegateToNative(argv);
       case "-p":
       case "--project":
         return runCompatibleBuild(argv, "build");
@@ -389,54 +385,6 @@ function isOutsideRelativePath(relative: string): boolean {
     relative.startsWith(`..${path.sep}`) ||
     path.isAbsolute(relative)
   );
-}
-
-function delegateToNative(argv: readonly string[]): number {
-  const bin = resolveBinary();
-  if (!bin) {
-    process.stderr.write(
-      [
-        `ttsc: platform-specific helper binary not found (@ttsc/${process.platform}-${process.arch}).`,
-        `Set TTSC_BINARY to an absolute helper path or reinstall with optional dependencies enabled.`,
-      ].join("\n") + "\n",
-    );
-    return 1;
-  }
-  const viaNode = /\.(?:[cm]?js|ts)$/i.test(bin);
-  if (!viaNode) {
-    ensureExecutable(bin);
-  }
-  const result = spawnSync(
-    viaNode ? process.execPath : bin,
-    viaNode ? [bin, ...argv] : [...argv],
-    {
-      stdio: "inherit",
-      env: process.env,
-      windowsHide: true,
-    },
-  );
-  if (result.error) {
-    process.stderr.write(`${result.error.message}\n`);
-    return 1;
-  }
-  return result.status ?? 1;
-}
-
-function ensureExecutable(binary: string): void {
-  if (process.platform === "win32") {
-    return;
-  }
-  try {
-    fs.accessSync(binary, fs.constants.X_OK);
-    return;
-  } catch {
-    try {
-      const mode = fs.statSync(binary).mode & 0o777;
-      fs.chmodSync(binary, mode | 0o755);
-    } catch {
-      /* keep the original spawn error path */
-    }
-  }
 }
 
 function parseProjectArgs(argv: readonly string[]) {

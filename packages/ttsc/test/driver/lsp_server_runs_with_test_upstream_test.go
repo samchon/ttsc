@@ -34,9 +34,6 @@ func TestLSPServerRunsWithTestUpstream(t *testing.T) {
       _ = ctx
     }
   }
-  restore := driver.WithUpstreamRunnerForTest(echo)
-  defer restore()
-
   editorInR, editorInW := io.Pipe()
   editorOutR, editorOutW := io.Pipe()
   ctx, cancel := context.WithCancel(context.Background())
@@ -48,6 +45,9 @@ func TestLSPServerRunsWithTestUpstream(t *testing.T) {
       Out: editorOutW,
       Err: io.Discard,
       Cwd: t.TempDir(),
+      Upstream: driver.LSPUpstream{
+        Runner: echo,
+      },
     })
   }()
 

@@ -18,9 +18,9 @@ import (
 // 2. Capture the helper stdout and stderr writers.
 // 3. Assert command-error status and the unknown-command diagnostic.
 func TestCommandRejectsUnknown(t *testing.T) {
-  code, stdout, stderr := runPlatformCommand(t, "compile")
+  code, stdout, stderr := runPlatformCommand(t, "demo")
   if code != 2 || stdout != "" ||
-    !strings.Contains(stderr, `unknown command "compile"`) ||
+    !strings.Contains(stderr, `unknown command "demo"`) ||
     !strings.Contains(stderr, `run "ttsc --help" through the JavaScript CLI`) {
     t.Fatalf("unknown command mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }

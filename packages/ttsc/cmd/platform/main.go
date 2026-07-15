@@ -2,12 +2,10 @@
 //
 // The real compiler and runner commands live in the JavaScript launchers so
 // they can resolve the consuming project's `typescript` and
-// plugin descriptors. This binary only supplies version/platform metadata and
-// a tiny demo command for package smoke tests.
+// plugin descriptors. This binary only supplies version/platform metadata.
 package main
 
 import (
-  "flag"
   "fmt"
   "io"
   "os"
@@ -50,8 +48,6 @@ func run(args []string) int {
   case "-v", "--version", "version":
     printVersion(stdout)
     return 0
-  case "demo":
-    return runDemo(args[1:])
   case "build", "check":
     fmt.Fprintf(
       stderr,
@@ -90,48 +86,5 @@ plugin-selected native sidecar.
 
 Usage:
   ttsc --version
-  ttsc demo --type=string
 `))
-}
-
-// runDemo implements the demo sub-command, printing a synthetic JavaScript
-// arrow function for the requested atomic type. Smoke tests in CI invoke this
-// to verify the binary executes correctly.
-func runDemo(args []string) int {
-  fs := flag.NewFlagSet("demo", flag.ContinueOnError)
-  fs.SetOutput(stderr)
-  typ := fs.String("type", "string", "atomic type to simulate")
-  if err := fs.Parse(args); err != nil {
-    return 2
-  }
-
-  arrow, err := demoArrow(*typ)
-  if err != nil {
-    fmt.Fprintf(stderr, "ttsc platform helper demo: %v\n", err)
-    return 2
-  }
-
-  fmt.Fprintf(stdout, "// demo<%s> -> emitted by ttsc platform helper %s\n", *typ, version)
-  fmt.Fprintln(stdout, arrow)
-  return 0
-}
-
-// demoArrow returns a JavaScript arrow-function expression for the named
-// atomic TypeScript type. It is the platform-helper counterpart of the same
-// function in cmd/ttsc, kept separate to avoid a shared-binary dependency.
-func demoArrow(name string) (string, error) {
-  switch strings.ToLower(name) {
-  case "any":
-    return "(input) => true", nil
-  case "boolean":
-    return `(input) => "boolean" === typeof input`, nil
-  case "number":
-    return `(input) => "number" === typeof input`, nil
-  case "bigint":
-    return `(input) => "bigint" === typeof input`, nil
-  case "string", "":
-    return `(input) => "string" === typeof input`, nil
-  default:
-    return "", fmt.Errorf("unknown --type value %q (want: string|number|boolean|bigint|any)", name)
-  }
 }

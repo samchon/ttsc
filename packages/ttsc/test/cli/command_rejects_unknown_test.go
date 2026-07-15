@@ -16,7 +16,7 @@ import (
 // 2. Assert the command exits with code 2.
 // 3. Assert stderr identifies the unknown command and mentions help.
 func TestCLICommandRejectsUnknown(t *testing.T) {
-  code, out, errOut := runNativeCommand(t, "fly-to-mars")
+  code, out, errOut := runNativeCommand(t, "demo")
   if code != 2 {
     t.Fatalf("unknown command should fail: code=%d stdout=%q stderr=%q", code, out, errOut)
   }

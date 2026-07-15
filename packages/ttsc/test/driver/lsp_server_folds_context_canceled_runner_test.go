@@ -21,9 +21,6 @@ func TestLSPServerFoldsContextCanceledRunner(t *testing.T) {
   runner := func(_ context.Context, _ io.Reader, _ io.Writer, _ driver.LSPServerOptions) error {
     return context.Canceled
   }
-  restore := driver.WithUpstreamRunnerForTest(runner)
-  defer restore()
-
   editorInR, editorInW := io.Pipe()
   editorOutR, editorOutW := io.Pipe()
   defer editorInR.Close()
@@ -38,6 +35,9 @@ func TestLSPServerFoldsContextCanceledRunner(t *testing.T) {
       Out: editorOutW,
       Err: io.Discard,
       Cwd: t.TempDir(),
+      Upstream: driver.LSPUpstream{
+        Runner: runner,
+      },
     })
   }()
 
