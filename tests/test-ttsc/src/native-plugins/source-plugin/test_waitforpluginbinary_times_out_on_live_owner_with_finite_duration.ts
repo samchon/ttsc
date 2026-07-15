@@ -47,10 +47,7 @@ export const test_waitforpluginbinary_times_out_on_live_owner_with_finite_durati
       if (result.outcome !== "abandoned") return;
       // The elapsed poll normally reads ~50ms, but a loaded CI runner can stall
       // past the 1s/1m formatting boundaries, so accept any finite rendering.
-      assert.match(
-        result.reason,
-        /^timed out after (\d+ms|\d+s|\d+m \d+s)$/,
-      );
+      assert.match(result.reason, /^timed out after (\d+ms|\d+s|\d+m \d+s)$/);
       assert.doesNotMatch(result.reason, /Infinity|NaN/);
       assert.deepEqual(result.fence, lease);
     } finally {

@@ -259,8 +259,7 @@ async function candidateContextWrappers(): Promise<void> {
       t.Fatalf("%s signatures = %d, want two", test.name, len(test.signatures))
     }
     for index, signature := range test.signatures {
-      if got := floatingPromiseSignatureApplicability(prog.checker, test.call, signature);
-        got != floatingPromiseCallUncertain {
+      if got := floatingPromiseSignatureApplicability(prog.checker, test.call, signature); got != floatingPromiseCallUncertain {
         t.Fatalf("%s candidate %d applicability = %d, want uncertain", test.name, index, got)
       }
     }
@@ -273,16 +272,13 @@ async function candidateContextWrappers(): Promise<void> {
   if len(ordinarySignatures) != 2 {
     t.Fatalf("ordinary assertion signatures = %d, want two", len(ordinarySignatures))
   }
-  if got := floatingPromiseSignatureApplicability(prog.checker, ordinaryAssertion, ordinarySignatures[0]);
-    got != floatingPromiseCallIncompatible {
+  if got := floatingPromiseSignatureApplicability(prog.checker, ordinaryAssertion, ordinarySignatures[0]); got != floatingPromiseCallIncompatible {
     t.Fatalf("ordinary narrow-candidate applicability = %d, want incompatible", got)
   }
-  if got := floatingPromiseSignatureApplicability(prog.checker, ordinaryAssertion, ordinarySignatures[1]);
-    got != floatingPromiseCallApplicable {
+  if got := floatingPromiseSignatureApplicability(prog.checker, ordinaryAssertion, ordinarySignatures[1]); got != floatingPromiseCallApplicable {
     t.Fatalf("ordinary broad-candidate applicability = %d, want applicable", got)
   }
-  if got := floatingPromiseApplicableSignature(ctx, ordinaryAssertion, ordinarySignatures);
-    got != ordinarySignatures[1] {
+  if got := floatingPromiseApplicableSignature(ctx, ordinaryAssertion, ordinarySignatures); got != ordinarySignatures[1] {
     t.Fatal("ordinary type assertion did not select its proven broad candidate")
   }
 }

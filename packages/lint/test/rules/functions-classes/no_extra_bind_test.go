@@ -34,7 +34,7 @@ const computed = (function () {
 // expect: no-extra-bind error
 const template = (function () {
   return 4;
-})[` + "`bind`" + `](receiver);
+})[`+"`bind`"+`](receiver);
 
 // expect: no-extra-bind error
 const optionalMember = (function () {

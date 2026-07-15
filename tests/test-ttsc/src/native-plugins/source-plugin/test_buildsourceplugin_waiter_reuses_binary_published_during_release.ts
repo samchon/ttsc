@@ -17,9 +17,9 @@ import {
  * Companion pin for issue #421's success-side race: the holder publishes the
  * binary and retires its generation while the waiter is between observations.
  * Whatever the interleaving — the waiter sees the binary directly, or first
- * sees the released generation and re-checks — it must reuse the binary,
- * never rebuild it and never report the routine release as reclaiming an
- * abandoned lock.
+ * sees the released generation and re-checks — it must reuse the binary, never
+ * rebuild it and never report the routine release as reclaiming an abandoned
+ * lock.
  *
  * 1. Start a holder worker whose fake `go build` writes a barrier file and blocks;
  *    start a waiter on the same cache key once the barrier exists.

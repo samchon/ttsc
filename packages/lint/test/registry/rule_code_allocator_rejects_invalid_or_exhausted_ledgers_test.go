@@ -1,10 +1,10 @@
 package linthost
 
 import (
-	"fmt"
-	"testing"
+  "fmt"
+  "testing"
 
-	"github.com/samchon/ttsc/packages/lint/internal/rulecode"
+  "github.com/samchon/ttsc/packages/lint/internal/rulecode"
 )
 
 // TestRuleCodeAllocatorRejectsInvalidOrExhaustedLedgers verifies allocation
@@ -18,22 +18,22 @@ import (
 //  2. Reject two frozen names sharing one code.
 //  3. Fill every slot and require allocation of one more rule to fail.
 func TestRuleCodeAllocatorRejectsInvalidOrExhaustedLedgers(t *testing.T) {
-	invalidLedgers := []map[string]int32{
-		{"below": rulecode.Minimum - 1},
-		{"above": rulecode.MaximumExclusive},
-		{"left": rulecode.Minimum, "right": rulecode.Minimum},
-	}
-	for index, ledger := range invalidLedgers {
-		if _, err := rulecode.Allocate(ledger, nil); err == nil {
-			t.Fatalf("invalid ledger %d was accepted: %#v", index, ledger)
-		}
-	}
+  invalidLedgers := []map[string]int32{
+    {"below": rulecode.Minimum - 1},
+    {"above": rulecode.MaximumExclusive},
+    {"left": rulecode.Minimum, "right": rulecode.Minimum},
+  }
+  for index, ledger := range invalidLedgers {
+    if _, err := rulecode.Allocate(ledger, nil); err == nil {
+      t.Fatalf("invalid ledger %d was accepted: %#v", index, ledger)
+    }
+  }
 
-	full := make(map[string]int32, rulecode.MaximumExclusive-rulecode.Minimum)
-	for code := rulecode.Minimum; code < rulecode.MaximumExclusive; code++ {
-		full[fmt.Sprintf("frozen/%d", code)] = code
-	}
-	if _, err := rulecode.Allocate(full, []string{"contributor/overflow"}); err == nil {
-		t.Fatal("allocator reused a code after the reserved band was exhausted")
-	}
+  full := make(map[string]int32, rulecode.MaximumExclusive-rulecode.Minimum)
+  for code := rulecode.Minimum; code < rulecode.MaximumExclusive; code++ {
+    full[fmt.Sprintf("frozen/%d", code)] = code
+  }
+  if _, err := rulecode.Allocate(full, []string{"contributor/overflow"}); err == nil {
+    t.Fatal("allocator reused a code after the reserved band was exhausted")
+  }
 }

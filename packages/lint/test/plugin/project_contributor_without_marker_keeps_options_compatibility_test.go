@@ -45,5 +45,5 @@ func TestProjectContributorWithoutMarkerKeepsOptionsCompatibility(t *testing.T) 
 
 type compatibleProjectContributor struct{}
 
-func (compatibleProjectContributor) Name() string { return "project-test/options-compatible" }
+func (compatibleProjectContributor) Name() string                     { return "project-test/options-compatible" }
 func (compatibleProjectContributor) Check(*publicrule.ProjectContext) {}

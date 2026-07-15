@@ -14,7 +14,7 @@ type noEmptyOptions struct {
   AllowEmptyCatch bool `json:"allowEmptyCatch"`
 }
 
-func (noEmpty) Name() string           { return "no-empty" }
+func (noEmpty) Name() string { return "no-empty" }
 func (noEmpty) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindBlock, shimast.KindSwitchStatement}
 }

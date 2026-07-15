@@ -20,9 +20,9 @@ import (
 func TestFormatBlockPropagatesSortImportsOptions(t *testing.T) {
   out, err := expandFormatBlock(map[string]any{
     "sortImports": map[string]any{
-      "order":               []any{"<TYPES>", "", "^[./]"},
-      "caseSensitive":       true,
-      "combineTypeAndValue": true,
+      "order":                    []any{"<TYPES>", "", "^[./]"},
+      "caseSensitive":            true,
+      "combineTypeAndValue":      true,
       "unsafeSortRuntimeImports": true,
     },
   })

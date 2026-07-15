@@ -142,8 +142,7 @@ export class JsSafeCatch {
     if !floatingPromiseSignatureIsJavaScript(signature) {
       t.Fatalf("%s signature was not recognized as JavaScript", test.marker)
     }
-    if got := floatingPromiseSignatureApplicability(prog.checker, call, signature);
-      got != floatingPromiseCallApplicable {
+    if got := floatingPromiseSignatureApplicability(prog.checker, call, signature); got != floatingPromiseCallApplicable {
       t.Fatalf("%s applicability = %d, want applicable", test.marker, got)
     }
     typeParameters := signature.TypeParameters()

@@ -11,10 +11,10 @@ import "testing"
 // non-arrow function syntactically: owned inside the isolated function it is a
 // local (clean); owned outside it is a captured binding (reported).
 //
-// 1. Assert a makeSynchronous function expression using its own `arguments`
-//    stays clean.
-// 2. Assert an isolated arrow reaching the enclosing function's `arguments`
-//    reports it.
+//  1. Assert a makeSynchronous function expression using its own `arguments`
+//     stays clean.
+//  2. Assert an isolated arrow reaching the enclosing function's `arguments`
+//     reports it.
 func TestUnicornIsolatedFunctionsArguments(t *testing.T) {
   own := `declare function makeSynchronous<T>(fn: T): T;
 

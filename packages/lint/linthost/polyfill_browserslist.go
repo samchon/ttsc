@@ -873,523 +873,523 @@ var browserslistQueries []browserslistQueryDef
 
 func init() {
   browserslistQueries = []browserslistQueryDef{
-  {
-    name: "last_major_versions",
-    re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+major\s+versions?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      count := int(jsParseInt(node.matches[0]))
-      var selected []string
-      for _, name := range ctx.data.agentOrder {
-        data := browserslistByName(ctx, name)
-        if data == nil {
-          continue
+    {
+      name: "last_major_versions",
+      re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+major\s+versions?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        count := int(jsParseInt(node.matches[0]))
+        var selected []string
+        for _, name := range ctx.data.agentOrder {
+          data := browserslistByName(ctx, name)
+          if data == nil {
+            continue
+          }
+          list := browserslistGetMajorVersions(data.released, count)
+          list = browserslistNameMapper(data.name, list)
+          list = browserslistFilterJumps(ctx, list, data.name, count)
+          selected = append(selected, list...)
+        }
+        return selected, nil
+      },
+    },
+    {
+      name: "last_versions",
+      re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+versions?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        count := int(jsParseInt(node.matches[0]))
+        var selected []string
+        for _, name := range ctx.data.agentOrder {
+          data := browserslistByName(ctx, name)
+          if data == nil {
+            continue
+          }
+          list := browserslistLastSlice(data.released, count)
+          list = browserslistNameMapper(data.name, list)
+          list = browserslistFilterJumps(ctx, list, data.name, count)
+          selected = append(selected, list...)
+        }
+        return selected, nil
+      },
+    },
+    {
+      name: "last_electron_major_versions",
+      re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+electron\s+major\s+versions?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        count := int(jsParseInt(node.matches[0]))
+        valid := browserslistGetMajorVersions(ctx.data.e2cOrder, count)
+        result := make([]string, len(valid))
+        for i, version := range valid {
+          result[i] = "chrome " + ctx.data.e2c[version]
+        }
+        return result, nil
+      },
+    },
+    {
+      name: "last_node_major_versions",
+      re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+node\s+major\s+versions?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        count := int(jsParseInt(node.matches[0]))
+        return browserslistNameMapper("node", browserslistGetMajorVersions(ctx.data.nodeVersions, count)), nil
+      },
+    },
+    {
+      name: "last_browser_major_versions",
+      re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+(\w+)\s+major\s+versions?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        count := int(jsParseInt(node.matches[0]))
+        data, err := browserslistCheckName(ctx, node.matches[1])
+        if err != nil {
+          return nil, err
         }
         list := browserslistGetMajorVersions(data.released, count)
-        list = browserslistNameMapper(data.name, list)
-        list = browserslistFilterJumps(ctx, list, data.name, count)
-        selected = append(selected, list...)
-      }
-      return selected, nil
+        mapped := browserslistNameMapper(data.name, list)
+        return browserslistFilterJumps(ctx, mapped, data.name, count), nil
+      },
     },
-  },
-  {
-    name: "last_versions",
-    re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+versions?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      count := int(jsParseInt(node.matches[0]))
-      var selected []string
-      for _, name := range ctx.data.agentOrder {
-        data := browserslistByName(ctx, name)
-        if data == nil {
-          continue
+    {
+      name: "last_electron_versions",
+      re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+electron\s+versions?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        count := int(jsParseInt(node.matches[0]))
+        versions := browserslistLastSlice(ctx.data.e2cOrder, count)
+        result := make([]string, len(versions))
+        for i, version := range versions {
+          result[i] = "chrome " + ctx.data.e2c[version]
+        }
+        return result, nil
+      },
+    },
+    {
+      name: "last_node_versions",
+      re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+node\s+versions?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        count := int(jsParseInt(node.matches[0]))
+        return browserslistNameMapper("node", browserslistLastSlice(ctx.data.nodeVersions, count)), nil
+      },
+    },
+    {
+      name: "last_browser_versions",
+      re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+(\w+)\s+versions?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        count := int(jsParseInt(node.matches[0]))
+        data, err := browserslistCheckName(ctx, node.matches[1])
+        if err != nil {
+          return nil, err
         }
         list := browserslistLastSlice(data.released, count)
-        list = browserslistNameMapper(data.name, list)
-        list = browserslistFilterJumps(ctx, list, data.name, count)
-        selected = append(selected, list...)
-      }
-      return selected, nil
+        mapped := browserslistNameMapper(data.name, list)
+        return browserslistFilterJumps(ctx, mapped, data.name, count), nil
+      },
     },
-  },
-  {
-    name: "last_electron_major_versions",
-    re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+electron\s+major\s+versions?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      count := int(jsParseInt(node.matches[0]))
-      valid := browserslistGetMajorVersions(ctx.data.e2cOrder, count)
-      result := make([]string, len(valid))
-      for i, version := range valid {
-        result[i] = "chrome " + ctx.data.e2c[version]
-      }
-      return result, nil
-    },
-  },
-  {
-    name: "last_node_major_versions",
-    re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+node\s+major\s+versions?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      count := int(jsParseInt(node.matches[0]))
-      return browserslistNameMapper("node", browserslistGetMajorVersions(ctx.data.nodeVersions, count)), nil
-    },
-  },
-  {
-    name: "last_browser_major_versions",
-    re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+(\w+)\s+major\s+versions?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      count := int(jsParseInt(node.matches[0]))
-      data, err := browserslistCheckName(ctx, node.matches[1])
-      if err != nil {
-        return nil, err
-      }
-      list := browserslistGetMajorVersions(data.released, count)
-      mapped := browserslistNameMapper(data.name, list)
-      return browserslistFilterJumps(ctx, mapped, data.name, count), nil
-    },
-  },
-  {
-    name: "last_electron_versions",
-    re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+electron\s+versions?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      count := int(jsParseInt(node.matches[0]))
-      versions := browserslistLastSlice(ctx.data.e2cOrder, count)
-      result := make([]string, len(versions))
-      for i, version := range versions {
-        result[i] = "chrome " + ctx.data.e2c[version]
-      }
-      return result, nil
-    },
-  },
-  {
-    name: "last_node_versions",
-    re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+node\s+versions?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      count := int(jsParseInt(node.matches[0]))
-      return browserslistNameMapper("node", browserslistLastSlice(ctx.data.nodeVersions, count)), nil
-    },
-  },
-  {
-    name: "last_browser_versions",
-    re:   regexp.MustCompile(`(?i)^last\s+(\d+)\s+(\w+)\s+versions?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      count := int(jsParseInt(node.matches[0]))
-      data, err := browserslistCheckName(ctx, node.matches[1])
-      if err != nil {
-        return nil, err
-      }
-      list := browserslistLastSlice(data.released, count)
-      mapped := browserslistNameMapper(data.name, list)
-      return browserslistFilterJumps(ctx, mapped, data.name, count), nil
-    },
-  },
-  {
-    name: "unreleased_versions",
-    re:   regexp.MustCompile(`(?i)^unreleased\s+versions$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      var selected []string
-      for _, name := range ctx.data.agentOrder {
-        data := browserslistByName(ctx, name)
-        if data == nil {
-          continue
+    {
+      name: "unreleased_versions",
+      re:   regexp.MustCompile(`(?i)^unreleased\s+versions$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        var selected []string
+        for _, name := range ctx.data.agentOrder {
+          data := browserslistByName(ctx, name)
+          if data == nil {
+            continue
+          }
+          for _, version := range data.versions {
+            if !browserslistContains(data.released, version) {
+              selected = append(selected, data.name+" "+version)
+            }
+          }
         }
+        return selected, nil
+      },
+    },
+    {
+      name: "unreleased_electron_versions",
+      re:   regexp.MustCompile(`(?i)^unreleased\s+electron\s+versions?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return nil, nil
+      },
+    },
+    {
+      name: "unreleased_browser_versions",
+      re:   regexp.MustCompile(`(?i)^unreleased\s+(\w+)\s+versions?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        data, err := browserslistCheckName(ctx, node.matches[0])
+        if err != nil {
+          return nil, err
+        }
+        var selected []string
         for _, version := range data.versions {
           if !browserslistContains(data.released, version) {
             selected = append(selected, data.name+" "+version)
           }
         }
-      }
-      return selected, nil
+        return selected, nil
+      },
     },
-  },
-  {
-    name: "unreleased_electron_versions",
-    re:   regexp.MustCompile(`(?i)^unreleased\s+electron\s+versions?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return nil, nil
+    {
+      name: "last_years",
+      re:   regexp.MustCompile(`(?i)^last\s+((\d+\.)?\d+)\s+years?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        years := jsParseFloat(node.matches[0])
+        nowMs := float64(ctx.clock().UnixMilli())
+        return browserslistFilterByYear(ctx, nowMs-browserslistYearMs*years), nil
+      },
     },
-  },
-  {
-    name: "unreleased_browser_versions",
-    re:   regexp.MustCompile(`(?i)^unreleased\s+(\w+)\s+versions?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      data, err := browserslistCheckName(ctx, node.matches[0])
-      if err != nil {
-        return nil, err
-      }
-      var selected []string
-      for _, version := range data.versions {
-        if !browserslistContains(data.released, version) {
-          selected = append(selected, data.name+" "+version)
+    {
+      name:     "since_y",
+      re:       regexp.MustCompile(`(?i)^since (\d+)$`),
+      selectFn: browserslistSinceQuery,
+    },
+    {
+      name:     "since_y_m",
+      re:       regexp.MustCompile(`(?i)^since (\d+)-(\d+)$`),
+      selectFn: browserslistSinceQuery,
+    },
+    {
+      name:     "since_y_m_d",
+      re:       regexp.MustCompile(`(?i)^since (\d+)-(\d+)-(\d+)$`),
+      selectFn: browserslistSinceQuery,
+    },
+    {
+      name: "baseline",
+      re: regexp.MustCompile(
+        `(?i)^baseline\s+(?:(\d+)|(newly|widely)\s+available(?:\s+on\s+(\d{4}-\d{2}-\d{2}))?)?(\s+with\s+downstream)?(\s+including\s+kaios)?$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return nil, newBrowserslistError(
+          "`baseline` queries are not supported by the ttsc browserslist port")
+      },
+    },
+    {
+      name:     "popularity",
+      re:       regexp.MustCompile(`^(>=?|<=?)\s*(\d+|\d+\.\d+|\.\d+)%$`),
+      selectFn: browserslistPopularitySelect(false),
+    },
+    {
+      name:     "popularity_in_my_stats",
+      re:       regexp.MustCompile(`^(>=?|<=?)\s*(\d+|\d+\.\d+|\.\d+)%\s+in\s+my\s+stats$`),
+      selectFn: browserslistPopularitySelect(true),
+    },
+    {
+      name: "popularity_in_config_stats",
+      re:   regexp.MustCompile(`^(>=?|<=?)\s*(\d+|\d+\.\d+|\.\d+)%\s+in\s+(\S+)\s+stats$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return nil, newBrowserslistError(
+          "Package-provided usage statistics are not supported by the ttsc browserslist port")
+      },
+    },
+    {
+      name: "popularity_in_place",
+      re:   regexp.MustCompile(`^(>=?|<=?)\s*(\d+|\d+\.\d+|\.\d+)%\s+in\s+((alt-)?\w\w)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return nil, newBrowserslistError(
+          "Regional usage data is not supported by the ttsc browserslist port")
+      },
+    },
+    {
+      name: "cover",
+      re:   regexp.MustCompile(`(?i)^cover\s+(\d+|\d+\.\d+|\.\d+)%$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return browserslistCoverSelect(ctx, node)
+      },
+    },
+    {
+      name: "cover_in",
+      re:   regexp.MustCompile(`(?i)^cover\s+(\d+|\d+\.\d+|\.\d+)%\s+in\s+(my\s+stats|(alt-)?\w\w)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return browserslistCoverSelect(ctx, node)
+      },
+    },
+    {
+      name: "cover_config",
+      re:   regexp.MustCompile(`(?i)^cover\s+(\d+|\d+\.\d+|\.\d+)%\s+in\s+(\S+)\s+stats$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return nil, newBrowserslistError(
+          "Package-provided usage statistics are not supported by the ttsc browserslist port")
+      },
+    },
+    {
+      name: "supports",
+      re:   regexp.MustCompile(`^(?:(fully|partially)\s+)?supports\s+([\w-]+)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return nil, newBrowserslistError(
+          "`supports` queries are not supported by the ttsc browserslist port")
+      },
+    },
+    {
+      name: "electron_range",
+      re:   regexp.MustCompile(`(?i)^electron\s+([\d.]+)\s*-\s*([\d.]+)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        from := browserslistNormalizeElectron(node.matches[0])
+        to := browserslistNormalizeElectron(node.matches[1])
+        if _, ok := ctx.data.e2c[from]; !ok {
+          return nil, newBrowserslistError("Unknown version %s of electron", node.matches[0])
         }
-      }
-      return selected, nil
-    },
-  },
-  {
-    name: "last_years",
-    re:   regexp.MustCompile(`(?i)^last\s+((\d+\.)?\d+)\s+years?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      years := jsParseFloat(node.matches[0])
-      nowMs := float64(ctx.clock().UnixMilli())
-      return browserslistFilterByYear(ctx, nowMs-browserslistYearMs*years), nil
-    },
-  },
-  {
-    name:     "since_y",
-    re:       regexp.MustCompile(`(?i)^since (\d+)$`),
-    selectFn: browserslistSinceQuery,
-  },
-  {
-    name:     "since_y_m",
-    re:       regexp.MustCompile(`(?i)^since (\d+)-(\d+)$`),
-    selectFn: browserslistSinceQuery,
-  },
-  {
-    name:     "since_y_m_d",
-    re:       regexp.MustCompile(`(?i)^since (\d+)-(\d+)-(\d+)$`),
-    selectFn: browserslistSinceQuery,
-  },
-  {
-    name: "baseline",
-    re: regexp.MustCompile(
-      `(?i)^baseline\s+(?:(\d+)|(newly|widely)\s+available(?:\s+on\s+(\d{4}-\d{2}-\d{2}))?)?(\s+with\s+downstream)?(\s+including\s+kaios)?$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return nil, newBrowserslistError(
-        "`baseline` queries are not supported by the ttsc browserslist port")
-    },
-  },
-  {
-    name:     "popularity",
-    re:       regexp.MustCompile(`^(>=?|<=?)\s*(\d+|\d+\.\d+|\.\d+)%$`),
-    selectFn: browserslistPopularitySelect(false),
-  },
-  {
-    name:     "popularity_in_my_stats",
-    re:       regexp.MustCompile(`^(>=?|<=?)\s*(\d+|\d+\.\d+|\.\d+)%\s+in\s+my\s+stats$`),
-    selectFn: browserslistPopularitySelect(true),
-  },
-  {
-    name: "popularity_in_config_stats",
-    re:   regexp.MustCompile(`^(>=?|<=?)\s*(\d+|\d+\.\d+|\.\d+)%\s+in\s+(\S+)\s+stats$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return nil, newBrowserslistError(
-        "Package-provided usage statistics are not supported by the ttsc browserslist port")
-    },
-  },
-  {
-    name: "popularity_in_place",
-    re:   regexp.MustCompile(`^(>=?|<=?)\s*(\d+|\d+\.\d+|\.\d+)%\s+in\s+((alt-)?\w\w)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return nil, newBrowserslistError(
-        "Regional usage data is not supported by the ttsc browserslist port")
-    },
-  },
-  {
-    name: "cover",
-    re:   regexp.MustCompile(`(?i)^cover\s+(\d+|\d+\.\d+|\.\d+)%$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return browserslistCoverSelect(ctx, node)
-    },
-  },
-  {
-    name: "cover_in",
-    re:   regexp.MustCompile(`(?i)^cover\s+(\d+|\d+\.\d+|\.\d+)%\s+in\s+(my\s+stats|(alt-)?\w\w)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return browserslistCoverSelect(ctx, node)
-    },
-  },
-  {
-    name: "cover_config",
-    re:   regexp.MustCompile(`(?i)^cover\s+(\d+|\d+\.\d+|\.\d+)%\s+in\s+(\S+)\s+stats$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return nil, newBrowserslistError(
-        "Package-provided usage statistics are not supported by the ttsc browserslist port")
-    },
-  },
-  {
-    name: "supports",
-    re:   regexp.MustCompile(`^(?:(fully|partially)\s+)?supports\s+([\w-]+)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return nil, newBrowserslistError(
-        "`supports` queries are not supported by the ttsc browserslist port")
-    },
-  },
-  {
-    name: "electron_range",
-    re:   regexp.MustCompile(`(?i)^electron\s+([\d.]+)\s*-\s*([\d.]+)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      from := browserslistNormalizeElectron(node.matches[0])
-      to := browserslistNormalizeElectron(node.matches[1])
-      if _, ok := ctx.data.e2c[from]; !ok {
-        return nil, newBrowserslistError("Unknown version %s of electron", node.matches[0])
-      }
-      if _, ok := ctx.data.e2c[to]; !ok {
-        return nil, newBrowserslistError("Unknown version %s of electron", node.matches[1])
-      }
-      lower := browserslistSemverFilterLoose(">=", node.matches[0])
-      upper := browserslistSemverFilterLoose("<=", node.matches[1])
-      var result []string
-      for _, version := range ctx.data.e2cOrder {
-        if lower(version) && upper(version) {
-          result = append(result, "chrome "+ctx.data.e2c[version])
+        if _, ok := ctx.data.e2c[to]; !ok {
+          return nil, newBrowserslistError("Unknown version %s of electron", node.matches[1])
         }
-      }
-      return result, nil
-    },
-  },
-  {
-    name: "node_range",
-    re:   regexp.MustCompile(`(?i)^node\s+([\d.]+)\s*-\s*([\d.]+)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      lower := browserslistSemverFilterLoose(">=", node.matches[0])
-      upper := browserslistSemverFilterLoose("<=", node.matches[1])
-      var result []string
-      for _, version := range ctx.data.nodeVersions {
-        if lower(version) && upper(version) {
-          result = append(result, "node "+version)
+        lower := browserslistSemverFilterLoose(">=", node.matches[0])
+        upper := browserslistSemverFilterLoose("<=", node.matches[1])
+        var result []string
+        for _, version := range ctx.data.e2cOrder {
+          if lower(version) && upper(version) {
+            result = append(result, "chrome "+ctx.data.e2c[version])
+          }
         }
-      }
-      return result, nil
+        return result, nil
+      },
     },
-  },
-  {
-    name: "browser_range",
-    re:   regexp.MustCompile(`(?i)^(\w+)\s+([\d.]+)\s*-\s*([\d.]+)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      data, err := browserslistCheckName(ctx, node.matches[0])
-      if err != nil {
-        return nil, err
-      }
-      fromVersion := browserslistNormalizeVersion(ctx, data, node.matches[1])
-      if fromVersion == "" {
-        fromVersion = node.matches[1]
-      }
-      toVersion := browserslistNormalizeVersion(ctx, data, node.matches[2])
-      if toVersion == "" {
-        toVersion = node.matches[2]
-      }
-      from := jsParseFloat(fromVersion)
-      to := jsParseFloat(toVersion)
-      var result []string
-      for _, version := range data.released {
-        parsed := jsParseFloat(version)
-        if parsed >= from && parsed <= to {
-          result = append(result, data.name+" "+version)
+    {
+      name: "node_range",
+      re:   regexp.MustCompile(`(?i)^node\s+([\d.]+)\s*-\s*([\d.]+)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        lower := browserslistSemverFilterLoose(">=", node.matches[0])
+        upper := browserslistSemverFilterLoose("<=", node.matches[1])
+        var result []string
+        for _, version := range ctx.data.nodeVersions {
+          if lower(version) && upper(version) {
+            result = append(result, "node "+version)
+          }
         }
-      }
-      return result, nil
+        return result, nil
+      },
     },
-  },
-  {
-    name: "electron_ray",
-    re:   regexp.MustCompile(`(?i)^electron\s*(>=?|<=?)\s*([\d.]+)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      version := browserslistNormalizeElectron(node.matches[1])
-      filter := browserslistFloatFilter(node.matches[0], version)
-      var result []string
-      for _, candidate := range ctx.data.e2cOrder {
-        if filter(candidate) {
-          result = append(result, "chrome "+ctx.data.e2c[candidate])
+    {
+      name: "browser_range",
+      re:   regexp.MustCompile(`(?i)^(\w+)\s+([\d.]+)\s*-\s*([\d.]+)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        data, err := browserslistCheckName(ctx, node.matches[0])
+        if err != nil {
+          return nil, err
         }
-      }
-      return result, nil
-    },
-  },
-  {
-    name: "node_ray",
-    re:   regexp.MustCompile(`(?i)^node\s*(>=?|<=?)\s*([\d.]+)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      filter := browserslistSemverFilter(node.matches[0], node.matches[1])
-      var result []string
-      for _, version := range ctx.data.nodeVersions {
-        if filter(version) {
-          result = append(result, "node "+version)
+        fromVersion := browserslistNormalizeVersion(ctx, data, node.matches[1])
+        if fromVersion == "" {
+          fromVersion = node.matches[1]
         }
-      }
-      return result, nil
-    },
-  },
-  {
-    name: "browser_ray",
-    re:   regexp.MustCompile(`(?i)^(\w+)\s*(>=?|<=?)\s*([\d.]+|esr)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      version := node.matches[2]
-      data, err := browserslistCheckName(ctx, node.matches[0])
-      if err != nil {
-        return nil, err
-      }
-      if alias := ctx.data.versionAliases[data.name][strings.ToLower(version)]; alias != "" {
-        version = alias
-      }
-      if !browserslistHasDigitOrDot(version) {
-        return nil, newBrowserslistError("Unknown version %s of %s", version, node.matches[0])
-      }
-      filter := browserslistFloatFilter(node.matches[1], version)
-      var result []string
-      for _, candidate := range data.released {
-        if filter(candidate) {
-          result = append(result, data.name+" "+candidate)
+        toVersion := browserslistNormalizeVersion(ctx, data, node.matches[2])
+        if toVersion == "" {
+          toVersion = node.matches[2]
         }
-      }
-      return result, nil
-    },
-  },
-  {
-    name: "firefox_esr",
-    re:   regexp.MustCompile(`(?i)^(firefox|ff|fx)\s+esr$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return []string{"firefox " + ctx.data.constants.FirefoxEsr}, nil
-    },
-  },
-  {
-    name: "opera_mini_all",
-    re:   regexp.MustCompile(`(?i)(operamini|op_mini)\s+all`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return []string{"op_mini all"}, nil
-    },
-  },
-  {
-    name: "electron_version",
-    re:   regexp.MustCompile(`(?i)^electron\s+([\d.]+)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      version := browserslistNormalizeElectron(node.matches[0])
-      chrome, ok := ctx.data.e2c[version]
-      if !ok {
-        return nil, newBrowserslistError("Unknown version %s of electron", node.matches[0])
-      }
-      return []string{"chrome " + chrome}, nil
-    },
-  },
-  {
-    name:     "node_major_version",
-    re:       regexp.MustCompile(`(?i)^node\s+(\d+)$`),
-    selectFn: browserslistNodeQuery,
-  },
-  {
-    name:     "node_minor_version",
-    re:       regexp.MustCompile(`(?i)^node\s+(\d+\.\d+)$`),
-    selectFn: browserslistNodeQuery,
-  },
-  {
-    name:     "node_patch_version",
-    re:       regexp.MustCompile(`(?i)^node\s+(\d+\.\d+\.\d+)$`),
-    selectFn: browserslistNodeQuery,
-  },
-  {
-    name: "current_node",
-    re:   regexp.MustCompile(`(?i)^current\s+node$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return nil, newBrowserslistError(
-        "`current node` is not supported by the ttsc browserslist port: the lint host does not run inside Node.js")
-    },
-  },
-  {
-    name: "maintained_node",
-    re:   regexp.MustCompile(`(?i)^maintained\s+node\s+versions$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      now := ctx.clock().UnixMilli()
-      var queries []string
-      for key, schedule := range ctx.data.schedule {
-        start, startErr := browserslistParseScheduleDate(schedule.Start)
-        end, endErr := browserslistParseScheduleDate(schedule.End)
-        if startErr != nil || endErr != nil {
-          continue
+        from := jsParseFloat(fromVersion)
+        to := jsParseFloat(toVersion)
+        var result []string
+        for _, version := range data.released {
+          parsed := jsParseFloat(version)
+          if parsed >= from && parsed <= to {
+            result = append(result, data.name+" "+version)
+          }
         }
-        if now < end && now > start && browserslistIsEolReleased(ctx, key) {
-          queries = append(queries, "node "+strings.TrimPrefix(key, "v"))
+        return result, nil
+      },
+    },
+    {
+      name: "electron_ray",
+      re:   regexp.MustCompile(`(?i)^electron\s*(>=?|<=?)\s*([\d.]+)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        version := browserslistNormalizeElectron(node.matches[1])
+        filter := browserslistFloatFilter(node.matches[0], version)
+        var result []string
+        for _, candidate := range ctx.data.e2cOrder {
+          if filter(candidate) {
+            result = append(result, "chrome "+ctx.data.e2c[candidate])
+          }
         }
-      }
-      return browserslistResolveNodes(browserslistParseQueries(queries), ctx)
+        return result, nil
+      },
     },
-  },
-  {
-    name: "phantomjs_1_9",
-    re:   regexp.MustCompile(`(?i)^phantomjs\s+1.9$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return []string{"safari 5"}, nil
+    {
+      name: "node_ray",
+      re:   regexp.MustCompile(`(?i)^node\s*(>=?|<=?)\s*([\d.]+)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        filter := browserslistSemverFilter(node.matches[0], node.matches[1])
+        var result []string
+        for _, version := range ctx.data.nodeVersions {
+          if filter(version) {
+            result = append(result, "node "+version)
+          }
+        }
+        return result, nil
+      },
     },
-  },
-  {
-    name: "phantomjs_2_1",
-    re:   regexp.MustCompile(`(?i)^phantomjs\s+2.1$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return []string{"safari 6"}, nil
+    {
+      name: "browser_ray",
+      re:   regexp.MustCompile(`(?i)^(\w+)\s*(>=?|<=?)\s*([\d.]+|esr)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        version := node.matches[2]
+        data, err := browserslistCheckName(ctx, node.matches[0])
+        if err != nil {
+          return nil, err
+        }
+        if alias := ctx.data.versionAliases[data.name][strings.ToLower(version)]; alias != "" {
+          version = alias
+        }
+        if !browserslistHasDigitOrDot(version) {
+          return nil, newBrowserslistError("Unknown version %s of %s", version, node.matches[0])
+        }
+        filter := browserslistFloatFilter(node.matches[1], version)
+        var result []string
+        for _, candidate := range data.released {
+          if filter(candidate) {
+            result = append(result, data.name+" "+candidate)
+          }
+        }
+        return result, nil
+      },
     },
-  },
-  {
-    name: "browser_version",
-    re:   regexp.MustCompile(`(?i)^(\w+)\s+(tp|[\d.]+)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      version := node.matches[1]
-      if strings.EqualFold(version, "tp") {
-        version = "TP"
-      }
-      data, err := browserslistCheckName(ctx, node.matches[0])
-      if err != nil {
-        return nil, err
-      }
-      alias := browserslistNormalizeVersion(ctx, data, version)
-      if alias != "" {
-        version = alias
-      } else {
-        if !strings.Contains(version, ".") {
-          alias = version + ".0"
+    {
+      name: "firefox_esr",
+      re:   regexp.MustCompile(`(?i)^(firefox|ff|fx)\s+esr$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return []string{"firefox " + ctx.data.constants.FirefoxEsr}, nil
+      },
+    },
+    {
+      name: "opera_mini_all",
+      re:   regexp.MustCompile(`(?i)(operamini|op_mini)\s+all`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return []string{"op_mini all"}, nil
+      },
+    },
+    {
+      name: "electron_version",
+      re:   regexp.MustCompile(`(?i)^electron\s+([\d.]+)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        version := browserslistNormalizeElectron(node.matches[0])
+        chrome, ok := ctx.data.e2c[version]
+        if !ok {
+          return nil, newBrowserslistError("Unknown version %s of electron", node.matches[0])
+        }
+        return []string{"chrome " + chrome}, nil
+      },
+    },
+    {
+      name:     "node_major_version",
+      re:       regexp.MustCompile(`(?i)^node\s+(\d+)$`),
+      selectFn: browserslistNodeQuery,
+    },
+    {
+      name:     "node_minor_version",
+      re:       regexp.MustCompile(`(?i)^node\s+(\d+\.\d+)$`),
+      selectFn: browserslistNodeQuery,
+    },
+    {
+      name:     "node_patch_version",
+      re:       regexp.MustCompile(`(?i)^node\s+(\d+\.\d+\.\d+)$`),
+      selectFn: browserslistNodeQuery,
+    },
+    {
+      name: "current_node",
+      re:   regexp.MustCompile(`(?i)^current\s+node$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return nil, newBrowserslistError(
+          "`current node` is not supported by the ttsc browserslist port: the lint host does not run inside Node.js")
+      },
+    },
+    {
+      name: "maintained_node",
+      re:   regexp.MustCompile(`(?i)^maintained\s+node\s+versions$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        now := ctx.clock().UnixMilli()
+        var queries []string
+        for key, schedule := range ctx.data.schedule {
+          start, startErr := browserslistParseScheduleDate(schedule.Start)
+          end, endErr := browserslistParseScheduleDate(schedule.End)
+          if startErr != nil || endErr != nil {
+            continue
+          }
+          if now < end && now > start && browserslistIsEolReleased(ctx, key) {
+            queries = append(queries, "node "+strings.TrimPrefix(key, "v"))
+          }
+        }
+        return browserslistResolveNodes(browserslistParseQueries(queries), ctx)
+      },
+    },
+    {
+      name: "phantomjs_1_9",
+      re:   regexp.MustCompile(`(?i)^phantomjs\s+1.9$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return []string{"safari 5"}, nil
+      },
+    },
+    {
+      name: "phantomjs_2_1",
+      re:   regexp.MustCompile(`(?i)^phantomjs\s+2.1$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return []string{"safari 6"}, nil
+      },
+    },
+    {
+      name: "browser_version",
+      re:   regexp.MustCompile(`(?i)^(\w+)\s+(tp|[\d.]+)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        version := node.matches[1]
+        if strings.EqualFold(version, "tp") {
+          version = "TP"
+        }
+        data, err := browserslistCheckName(ctx, node.matches[0])
+        if err != nil {
+          return nil, err
+        }
+        alias := browserslistNormalizeVersion(ctx, data, version)
+        if alias != "" {
+          version = alias
         } else {
-          alias = strings.TrimSuffix(version, ".0")
+          if !strings.Contains(version, ".") {
+            alias = version + ".0"
+          } else {
+            alias = strings.TrimSuffix(version, ".0")
+          }
+          alias = browserslistNormalizeVersion(ctx, data, alias)
+          if alias == "" {
+            return nil, newBrowserslistError(
+              "Unknown version %s of %s", version, node.matches[0])
+          }
+          version = alias
         }
-        alias = browserslistNormalizeVersion(ctx, data, alias)
-        if alias == "" {
-          return nil, newBrowserslistError(
-            "Unknown version %s of %s", version, node.matches[0])
-        }
-        version = alias
-      }
-      return []string{data.name + " " + version}, nil
+        return []string{data.name + " " + version}, nil
+      },
     },
-  },
-  {
-    name:      "browserslist_config",
-    re:        regexp.MustCompile(`(?i)^browserslist config$`),
-    needsPath: true,
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return browserslistResolve(nil, false, browserslistOpts{
-        path: ctx.path,
-        env:  ctx.env,
-        now:  ctx.now,
-      })
+    {
+      name:      "browserslist_config",
+      re:        regexp.MustCompile(`(?i)^browserslist config$`),
+      needsPath: true,
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return browserslistResolve(nil, false, browserslistOpts{
+          path: ctx.path,
+          env:  ctx.env,
+          now:  ctx.now,
+        })
+      },
     },
-  },
-  {
-    name:      "extends",
-    re:        regexp.MustCompile(`(?i)^extends (.+)$`),
-    needsPath: true,
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return nil, newBrowserslistError(
-        "`extends` queries are not supported by the ttsc browserslist port: shareable configs are JavaScript modules")
+    {
+      name:      "extends",
+      re:        regexp.MustCompile(`(?i)^extends (.+)$`),
+      needsPath: true,
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return nil, newBrowserslistError(
+          "`extends` queries are not supported by the ttsc browserslist port: shareable configs are JavaScript modules")
+      },
     },
-  },
-  {
-    name: "defaults",
-    re:   regexp.MustCompile(`(?i)^defaults$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return browserslistResolveNodes(
-        browserslistParseQueries(ctx.data.constants.Defaults), ctx)
+    {
+      name: "defaults",
+      re:   regexp.MustCompile(`(?i)^defaults$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return browserslistResolveNodes(
+          browserslistParseQueries(ctx.data.constants.Defaults), ctx)
+      },
     },
-  },
-  {
-    name: "dead",
-    re:   regexp.MustCompile(`(?i)^dead$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return browserslistResolveNodes(
-        browserslistParseQueries(ctx.data.constants.Dead), ctx)
+    {
+      name: "dead",
+      re:   regexp.MustCompile(`(?i)^dead$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return browserslistResolveNodes(
+          browserslistParseQueries(ctx.data.constants.Dead), ctx)
+      },
     },
-  },
-  {
-    name: "unknown",
-    re:   regexp.MustCompile(`(?i)^(\w+)$`),
-    selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
-      return nil, browserslistUnknownQueryError(ctx, node)
+    {
+      name: "unknown",
+      re:   regexp.MustCompile(`(?i)^(\w+)$`),
+      selectFn: func(ctx *browserslistContext, node *browserslistQueryNode) ([]string, error) {
+        return nil, browserslistUnknownQueryError(ctx, node)
+      },
     },
-  },
   }
 }
 

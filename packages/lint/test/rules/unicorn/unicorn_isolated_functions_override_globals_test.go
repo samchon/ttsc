@@ -12,10 +12,10 @@ import "testing"
 // all-readonly ES-globals default, overrideGlobals is the writability/off
 // escape hatch, and an override on a resolved non-global reference is ignored.
 //
-// 1. Assert the read/write outcome of `console` under no option, "writable",
-//    "off", and "readonly".
-// 2. Assert `overrideGlobals: {foo: true}` still reports a captured module
-//    `foo`.
+//  1. Assert the read/write outcome of `console` under no option, "writable",
+//     "off", and "readonly".
+//  2. Assert `overrideGlobals: {foo: true}` still reports a captured module
+//     `foo`.
 func TestUnicornIsolatedFunctionsOverrideGlobals(t *testing.T) {
   reason := `callee of function named "makeSynchronous"`
   writeSource := `makeSynchronous(function () {

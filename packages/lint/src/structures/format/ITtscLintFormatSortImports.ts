@@ -66,9 +66,9 @@ export interface ITtscLintFormatSortImports {
    *
    * Every default, namespace, named, and bare import can evaluate its module.
    * Reordering those declarations can therefore change program behavior. Keep
-   * this disabled unless every imported module in the block is order-independent.
-   * Named specifiers inside a declaration and erased `import type` blocks are
-   * still sorted when this option is disabled.
+   * this disabled unless every imported module in the block is
+   * order-independent. Named specifiers inside a declaration and erased `import
+   * type` blocks are still sorted when this option is disabled.
    *
    * {@link combineTypeAndValue} only affects mixed type/value blocks when this
    * option is enabled.

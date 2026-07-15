@@ -16,11 +16,11 @@ func TestConfigStoreResolvesOptionsWithEntryScope(t *testing.T) {
       BaseDir: root,
       Rules: RuleConfig{
         "no-restricted-syntax": SeverityError,
-        "custom/rule":         SeverityWarn,
+        "custom/rule":          SeverityWarn,
       },
       Options: RuleOptionsMap{
         "no-restricted-syntax": json.RawMessage(`"VariableDeclaration"`),
-        "custom/rule":         json.RawMessage(`{"mode":"base"}`),
+        "custom/rule":          json.RawMessage(`{"mode":"base"}`),
       },
     },
     {
@@ -34,11 +34,11 @@ func TestConfigStoreResolvesOptionsWithEntryScope(t *testing.T) {
       Files:   []string{"generated/**"},
       Rules: RuleConfig{
         "no-restricted-syntax": SeverityError,
-        "custom/rule":         SeverityError,
+        "custom/rule":          SeverityError,
       },
       Options: RuleOptionsMap{
         "no-restricted-syntax": json.RawMessage(`"WithStatement"`),
-        "custom/rule":         json.RawMessage(`{"mode":"generated"}`),
+        "custom/rule":          json.RawMessage(`{"mode":"generated"}`),
       },
     },
     {

@@ -116,19 +116,16 @@ export const test_pluginbuildlock_old_finalizer_preserves_successor =
     const whileSuccessorHeld = inspectPluginBuildLock(lockDir, Date.now());
     assert.equal(whileSuccessorHeld.state, "active");
     assert.deepEqual(
-      whileSuccessorHeld.state === "active"
-        ? whileSuccessorHeld.fence
-        : null,
+      whileSuccessorHeld.state === "active" ? whileSuccessorHeld.fence : null,
       successorLease,
     );
 
     fs.writeFileSync(successorReleaseFile, "release\n", "utf8");
     const successorResult = await successor;
     assert.equal(successorResult.status, 0, successorResult.stderr);
-    assert.deepEqual(
-      JSON.parse(fs.readFileSync(successorResultFile, "utf8")),
-      { released: true },
-    );
+    assert.deepEqual(JSON.parse(fs.readFileSync(successorResultFile, "utf8")), {
+      released: true,
+    });
     assert.deepEqual(inspectPluginBuildLock(lockDir, Date.now()), {
       state: "released",
     });

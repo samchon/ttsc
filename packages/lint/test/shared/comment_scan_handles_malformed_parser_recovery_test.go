@@ -28,17 +28,17 @@ func TestCommentScanHandlesMalformedParserRecovery(t *testing.T) {
     comments []string
   }{
     {
-      name: "template",
+      name:     "template",
       fileName: "/virtual/broken.ts",
-      kind: shimcore.ScriptKindTS,
-      source: "/* leading-real */\nconst broken = `// fake-template ${/[{]/.test(\"{\") /* expression-real */}\n// fake-tail",
+      kind:     shimcore.ScriptKindTS,
+      source:   "/* leading-real */\nconst broken = `// fake-template ${/[{]/.test(\"{\") /* expression-real */}\n// fake-tail",
       comments: []string{"/* leading-real */", "/* expression-real */"},
     },
     {
-      name: "jsx",
+      name:     "jsx",
       fileName: "/virtual/broken.tsx",
-      kind: shimcore.ScriptKindTSX,
-      source: "/* leading-real */\nconst view = <div>/* fake-jsx */{/* expression-real */}",
+      kind:     shimcore.ScriptKindTSX,
+      source:   "/* leading-real */\nconst view = <div>/* fake-jsx */{/* expression-real */}",
       comments: []string{"/* leading-real */", "/* expression-real */"},
     },
   }

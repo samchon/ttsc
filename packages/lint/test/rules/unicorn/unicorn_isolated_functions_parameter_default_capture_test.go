@@ -11,9 +11,9 @@ import "testing"
 // as an analysis root and reports the captured initializer while the parameter
 // names themselves stay declared-in-scope.
 //
-// 1. Capture outer `outer` from a plain parameter default and from a
-//    destructuring element default under makeSynchronous.
-// 2. Assert each reference is reported once, and the parameter names are not.
+//  1. Capture outer `outer` from a plain parameter default and from a
+//     destructuring element default under makeSynchronous.
+//  2. Assert each reference is reported once, and the parameter names are not.
 func TestUnicornIsolatedFunctionsParameterDefaultCapture(t *testing.T) {
   reason := `callee of function named "makeSynchronous"`
   source := `declare function makeSynchronous<T>(fn: T): T;

@@ -15,10 +15,10 @@ import { assertPackageBuildKeepsRuntimeDependenciesExternal } from "../../intern
  * 2. Read `rollup.config.mjs` from `packages/unplugin`.
  * 3. Assert `ttsc` appears as a runtime import in the CJS and ESM outputs.
  * 4. Assert no virtual-module paths, `__dirname` refs, or workspace-relative paths
- *    are present in any output; assert stale externals are absent from the config
- *    and all outputs; and assert the config no longer imports the removed
- *    `rollup-plugin-node-externals` / `rollup-plugin-auto-external` (whose v9
- *    needs Node 24).
+ *    are present in any output; assert stale externals are absent from the
+ *    config and all outputs; and assert the config no longer imports the
+ *    removed `rollup-plugin-node-externals` / `rollup-plugin-auto-external`
+ *    (whose v9 needs Node 24).
  */
 export const test_package_build_keeps_runtime_dependencies_external = () => {
   assertPackageBuildKeepsRuntimeDependenciesExternal();

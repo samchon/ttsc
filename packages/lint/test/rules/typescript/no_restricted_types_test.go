@@ -225,7 +225,7 @@ func TestNoRestrictedTypesUsesConfiguredSurfaceSpellingAcrossSymbols(t *testing.
 type Use = Shadowed;
 `,
       options: json.RawMessage(`{"types":{"Shadowed":true}}`),
-      want: 1,
+      want:    1,
     },
     {
       name: "imported alias spelling is restricted",
@@ -233,7 +233,7 @@ type Use = Shadowed;
 type Use = Imported;
 `,
       options: json.RawMessage(`{"types":{"Imported":true}}`),
-      want: 1,
+      want:    1,
     },
     {
       name: "original export name does not replace alias spelling",

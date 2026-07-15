@@ -153,9 +153,10 @@ export const test_pluginbuildlock_fences_two_stale_observers = async () => {
     () => fs.existsSync(reclaimedA) && fs.existsSync(buildingA),
     "observer A to hold the successor generation",
   );
-  const successorLease = JSON.parse(
-    fs.readFileSync(buildingA, "utf8"),
-  ) as { generation: string; protocol: "v2" };
+  const successorLease = JSON.parse(fs.readFileSync(buildingA, "utf8")) as {
+    generation: string;
+    protocol: "v2";
+  };
 
   fs.writeFileSync(releaseB, "release\n", "utf8");
   await waitForCondition(

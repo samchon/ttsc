@@ -13,11 +13,11 @@ import "testing"
 // the function-expression-name scope above the function scope — is reported
 // when used recursively.
 //
-// 1. Pass arrows, async arrows, function expressions, and a parenthesized
-//    arrow to makeSynchronous/workerize and assert each capture is reported.
-// 2. Assert unlisted callees, member callees, and object arguments are clean.
-// 3. Re-run with functions ["myIsolate"] and assert the defaults stop
-//    matching while the custom name reports.
+//  1. Pass arrows, async arrows, function expressions, and a parenthesized
+//     arrow to makeSynchronous/workerize and assert each capture is reported.
+//  2. Assert unlisted callees, member callees, and object arguments are clean.
+//  3. Re-run with functions ["myIsolate"] and assert the defaults stop
+//     matching while the custom name reports.
 func TestUnicornIsolatedFunctionsFunctionNameCallees(t *testing.T) {
   source := `declare function makeSynchronous(...args: unknown[]): unknown;
 declare function workerize(...args: unknown[]): unknown;

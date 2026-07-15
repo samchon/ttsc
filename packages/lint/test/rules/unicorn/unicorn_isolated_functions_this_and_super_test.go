@@ -12,10 +12,10 @@ import "testing"
 // while a nested regular function or class method introduces a fresh context
 // whose `this` is its own, so those stay clean.
 //
-// 1. Assert direct `this` in an @isolated method, `super` in an @isolated
-//    method, and both through a nested arrow are reported.
-// 2. Assert a nested regular function's `this` and a nested class method's
-//    `this` stay clean.
+//  1. Assert direct `this` in an @isolated method, `super` in an @isolated
+//     method, and both through a nested arrow are reported.
+//  2. Assert a nested regular function's `this` and a nested class method's
+//     `this` stay clean.
 func TestUnicornIsolatedFunctionsThisAndSuper(t *testing.T) {
   comment := `follows comment "@isolated"`
 

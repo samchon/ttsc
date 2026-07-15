@@ -171,7 +171,7 @@ export const test_vscode_server_launch_command_spawns_windows_command_shim =
     const spawnResults = parsed.spawn;
     assert.ok(spawnResults);
     for (const ext of ["cmd", "bat"] as const) {
-      const shim = spawnResults[ext];
+      const shim: ShimResult = spawnResults[ext];
       assert.equal(shim.verbatimStatus, 0, `verbatim ${ext} exit status`);
       assert.deepEqual(
         shim.verbatimRecord,
