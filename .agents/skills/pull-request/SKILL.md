@@ -39,6 +39,6 @@ After each ordinary push, including every Post-Campaign Cleanup push, monitor th
 
 ## Merge On Explicit Request Or Standing Autonomous Mandate
 
-Do not merge, squash-merge, rebase, or update the target branch on unprompted initiative. Merge when the user explicitly asks, or when a standing autonomous mandate authorizes end-to-end delivery; use the repository's established merge method unless another is specified. Under an autonomous mandate the lead still clears the merge gate below for every pull request before merging.
+Do not merge, squash-merge, rebase, or update the target branch on unprompted initiative. Merge when the user explicitly asks, or when a standing autonomous mandate authorizes end-to-end delivery; use the repository's established merge method unless another is specified. Under an autonomous mandate the author that owns the pull request merges it themselves once the merge gate below passes, without separate approval.
 
 Before merging an ordinary or Post-Campaign Cleanup pull request, confirm required checks pass. For a campaign implementation pull request whose automatic CI is deliberately suspended, confirm the issue-campaign local-verification and lead-review gates instead. If branch protection blocks the requested merge, report the blocker rather than bypassing it.
