@@ -1,7 +1,6 @@
 package linthost
 
 import (
-  "regexp"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -921,7 +920,7 @@ func functionalPatternMatches(pattern, name string) bool {
   if pattern == name {
     return true
   }
-  re, err := regexp.Compile(pattern)
+  re, err := compileUserPattern(pattern)
   return err == nil && re.MatchString(name)
 }
 
