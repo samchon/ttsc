@@ -18,14 +18,18 @@ import {
  * return `type: "error"` with the build never invoked.
  *
  * 1. `api.plugin` rejects → error, build skipped.
- * 2. code 0 with non-JSON stdout → error (unusable configured transform).
- * 3. Boundary: code 0 with empty stdout → success, build runs once (no rewrite
- *    was produced, so the original source is compiled legitimately).
+ * 2. Code 0 with non-JSON stdout → error (unusable configured transform).
+ * 3. Boundary: code 0 with empty stdout → success, build runs once (no rewrite was
+ *    produced, so the original source is compiled legitimately).
  */
 export const test_playground_plugin_failure_transform_rejection_and_bad_output =
   async () => {
     const source = "export const x = 1;";
-    const opts = { ...BASE_OPTIONS, typiaPlugin: {}, lintPlugin: false } as const;
+    const opts = {
+      ...BASE_OPTIONS,
+      typiaPlugin: {},
+      lintPlugin: false,
+    } as const;
 
     // 1. Rejected plugin call.
     {
@@ -37,7 +41,11 @@ export const test_playground_plugin_failure_transform_rejection_and_bad_output =
       });
       const result = await service.compile({ source });
       assert.equal(result.type, "error", "a rejected transform must error");
-      assert.equal(record.build.length, 0, "no build after a rejected transform");
+      assert.equal(
+        record.build.length,
+        0,
+        "no build after a rejected transform",
+      );
       assert.match(
         String((result as { value: { message: string } }).value.message),
         /wasm host crashed/,

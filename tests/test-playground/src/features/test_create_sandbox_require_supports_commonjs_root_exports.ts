@@ -12,12 +12,11 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  * RA-12 (#670): the pre-fix resolver honored only `exports["."]`; a root string
  * or root condition map threw `require(...) is not available`.
  *
- * 1. Root string, `"."`-table, and bare condition map all load the same CJS
- *    entry and return its exports.
+ * 1. Root string, `"."`-table, and bare condition map all load the same CJS entry
+ *    and return its exports.
  * 2. `require` is preferred over `default` in a condition map (CJS precedence).
- * 3. Negative twin: an ESM-only root condition map with no CJS-compatible
- *    target and no main/index fallback still fails, naming the requested
- *    package.
+ * 3. Negative twin: an ESM-only root condition map with no CJS-compatible target
+ *    and no main/index fallback still fails, naming the requested package.
  */
 export const test_create_sandbox_require_supports_commonjs_root_exports =
   () => {
@@ -32,7 +31,9 @@ export const test_create_sandbox_require_supports_commonjs_root_exports =
       )("fixture");
 
     // Root "." subpath table (already supported — must keep working).
-    assert.deepEqual(load({ ".": { require: "./entry.cjs" } }), { value: "ok" });
+    assert.deepEqual(load({ ".": { require: "./entry.cjs" } }), {
+      value: "ok",
+    });
     assert.deepEqual(load({ ".": "./entry.cjs" }), { value: "ok" });
 
     // Root string target.

@@ -42,9 +42,7 @@ export interface IWorkerCompilerDeps {
 }
 
 /** Outcome of a transform-verb plugin call before the build proceeds. */
-type ITransformOutcome =
-  | { ok: true }
-  | { ok: false; message: string };
+type ITransformOutcome = { ok: true } | { ok: false; message: string };
 
 /**
  * Dependency-injected worker `ICompilerService` factory. See

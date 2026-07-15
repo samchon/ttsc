@@ -21,7 +21,9 @@ export const test_create_sandbox_require_preserves_fallback_resolution = () => {
       "i/package.json": JSON.stringify({}),
       "i/index.js": "module.exports = { v: 'index' };",
       // exact subpath export
-      "s/package.json": JSON.stringify({ exports: { "./sub": "./dist/sub.js" } }),
+      "s/package.json": JSON.stringify({
+        exports: { "./sub": "./dist/sub.js" },
+      }),
       "s/dist/sub.js": "module.exports = { v: 'sub' };",
       // wildcard subpath export
       "w/package.json": JSON.stringify({
@@ -45,7 +47,11 @@ export const test_create_sandbox_require_preserves_fallback_resolution = () => {
   assert.deepEqual(require("m"), { v: "main" }, "main fallback");
   assert.deepEqual(require("i"), { v: "index" }, "index fallback");
   assert.deepEqual(require("s/sub"), { v: "sub" }, "exact subpath export");
-  assert.deepEqual(require("w/feat/x"), { v: "wild" }, "wildcard subpath export");
+  assert.deepEqual(
+    require("w/feat/x"),
+    { v: "wild" },
+    "wildcard subpath export",
+  );
   assert.deepEqual(require("@sc/pkg"), { v: "scoped" }, "scoped package name");
   assert.deepEqual(require("r"), { v: 42 }, "relative sibling require");
   assert.deepEqual(require("j"), { v: "json" }, "JSON module");

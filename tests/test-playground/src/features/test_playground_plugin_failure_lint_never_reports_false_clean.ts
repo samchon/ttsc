@@ -4,7 +4,7 @@ import { BASE_OPTIONS, envelope, makeFakeWorker } from "../internal/fakeWorker";
 
 /**
  * A lint plugin that fails to run must stay visible; it can never collapse into
- * an empty (clean) diagnostic list. A lint run that *completed* — even with a
+ * an empty (clean) diagnostic list. A lint run that _completed_ — even with a
  * nonzero exit because it found violations — reports its parsed findings
  * unchanged.
  *
@@ -12,11 +12,11 @@ import { BASE_OPTIONS, envelope, makeFakeWorker } from "../internal/fakeWorker";
  * returned `{ diagnostics: [] }`, so a crashed or nonzero-with-no-output plugin
  * looked identical to a clean file.
  *
- * 1. code 2 whose stderr yields no parseable diagnostic → exactly one error
+ * 1. Code 2 whose stderr yields no parseable diagnostic → exactly one error
  *    diagnostic (a surfaced failure, not an empty clean result).
  * 2. Rejected plugin call → exactly one error diagnostic.
- * 3. Negative twin: code 2 whose stderr parses into a real finding → that
- *    finding is preserved, not replaced by a generic failure.
+ * 3. Negative twin: code 2 whose stderr parses into a real finding → that finding
+ *    is preserved, not replaced by a generic failure.
  * 4. Boundary: code 0 with empty stderr → genuinely clean empty result.
  */
 export const test_playground_plugin_failure_lint_never_reports_false_clean =
@@ -27,7 +27,8 @@ export const test_playground_plugin_failure_lint_never_reports_false_clean =
     // 1. Nonzero exit, no parseable diagnostic → surfaced failure.
     {
       const { service } = makeFakeWorker(opts, {
-        plugin: () => envelope({ code: 2, stderr: "panic: lint host exploded" }),
+        plugin: () =>
+          envelope({ code: 2, stderr: "panic: lint host exploded" }),
       });
       const { diagnostics } = await service.lint({ source });
       assert.equal(diagnostics.length, 1, "a failed lint must not look clean");
@@ -42,7 +43,11 @@ export const test_playground_plugin_failure_lint_never_reports_false_clean =
         },
       });
       const { diagnostics } = await service.lint({ source });
-      assert.equal(diagnostics.length, 1, "a rejected lint must not look clean");
+      assert.equal(
+        diagnostics.length,
+        1,
+        "a rejected lint must not look clean",
+      );
       assert.match(String(diagnostics[0]?.message), /worker terminated/);
     }
 

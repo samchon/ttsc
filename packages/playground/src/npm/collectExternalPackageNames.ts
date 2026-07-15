@@ -19,8 +19,8 @@ export function collectExternalPackageNames(
 }
 
 /**
- * Collect the string specifiers of every executable module-loading construct
- * in `source`: `import`/`export ... from`, side-effect `import "x"`, dynamic
+ * Collect the string specifiers of every executable module-loading construct in
+ * `source`: `import`/`export ... from`, side-effect `import "x"`, dynamic
  * `import("x")`, and `require("x")` calls.
  *
  * The scan tokenizes `source` first so import/export/require lookalikes that
@@ -145,10 +145,7 @@ function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
   const n = source.length;
   const isIdStart = (c: string): boolean =>
-    (c >= "a" && c <= "z") ||
-    (c >= "A" && c <= "Z") ||
-    c === "_" ||
-    c === "$";
+    (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_" || c === "$";
   const isIdPart = (c: string): boolean =>
     isIdStart(c) || (c >= "0" && c <= "9");
   const isDigit = (c: string): boolean => c >= "0" && c <= "9";

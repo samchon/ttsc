@@ -220,13 +220,13 @@ export function createSandboxRequire(
 
 /**
  * Reduce a `package.json` `exports` field to the value describing its ROOT
- * (".") entry, ready for {@link pickConditionalExport}. Node accepts three
- * valid root shapes and they must all resolve consistently:
+ * (".") entry, ready for {@link pickConditionalExport}. Node accepts three valid
+ * root shapes and they must all resolve consistently:
  *
- *   - a bare string target — `"exports": "./index.cjs"`;
- *   - a subpath table keyed by "." — `{ ".": <target>, "./sub": ... }`;
- *   - a bare condition map whose keys are all conditions, not subpaths —
- *     `{ "require": "./index.cjs", "default": "./index.cjs" }`.
+ * - A bare string target — `"exports": "./index.cjs"`;
+ * - A subpath table keyed by "." — `{ ".": <target>, "./sub": ... }`;
+ * - A bare condition map whose keys are all conditions, not subpaths — `{
+ *   "require": "./index.cjs", "default": "./index.cjs" }`.
  *
  * Node forbids mixing subpath keys with condition keys, so the presence of any
  * "."-prefixed key decides the interpretation: a subpath table exposes its root

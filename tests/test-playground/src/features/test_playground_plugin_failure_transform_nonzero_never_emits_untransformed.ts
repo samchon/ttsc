@@ -32,7 +32,8 @@ export const test_playground_plugin_failure_transform_nonzero_never_emits_untran
         { ...BASE_OPTIONS, typiaPlugin: {}, lintPlugin: false },
         {
           plugin: () => envelope({ code: 2, stderr: "typia rule violation" }),
-          build: () => envelope({ result: compilePayload({ "index.js": "1;" }) }),
+          build: () =>
+            envelope({ result: compilePayload({ "index.js": "1;" }) }),
         },
       );
       const result = await service[verb]({ source });
@@ -64,7 +65,9 @@ export const test_playground_plugin_failure_transform_nonzero_never_emits_untran
             }),
           }),
         build: () =>
-          envelope({ result: compilePayload({ "src/playground.js": "x = 1;" }) }),
+          envelope({
+            result: compilePayload({ "src/playground.js": "x = 1;" }),
+          }),
       },
     );
     const ok = await service.compile({ source });

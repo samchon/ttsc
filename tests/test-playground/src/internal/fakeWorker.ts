@@ -22,8 +22,8 @@ import type { ICreateWorkerCompilerOptions } from "../../../../packages/playgrou
 
 /**
  * Required-field defaults for `ICreateWorkerCompilerOptions`. The fake boot
- * ignores `wasmUrl` / `apiName`, but the public option type demands them; a test
- * spreads this and adds only the plugin toggles it exercises.
+ * ignores `wasmUrl` / `apiName`, but the public option type demands them; a
+ * test spreads this and adds only the plugin toggles it exercises.
  */
 export const BASE_OPTIONS = {
   wasmUrl: "test://playground.wasm",
