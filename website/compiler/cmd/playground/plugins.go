@@ -9,17 +9,11 @@ package main
 import (
   "encoding/json"
   "fmt"
-  "io"
-  "os"
 
   "github.com/samchon/ttsc/packages/lint/linthost"
   "github.com/samchon/ttsc/packages/ttsc/utility"
+  "github.com/samchon/ttsc/packages/wasm/host"
 )
-
-// stderrOf returns the host stderr stream. utility.Run* writes to os.Stderr
-// directly, so we use the same writer to keep plugin diagnostics on one
-// stream the host can capture.
-func stderrOf(_ []string) io.Writer { return os.Stderr }
 
 type bannerPlugin struct{}
 
@@ -27,8 +21,8 @@ func newBannerPlugin() bannerPlugin { return bannerPlugin{} }
 
 func (bannerPlugin) Name() string { return "@ttsc/banner" }
 
-func (bannerPlugin) Run(command string, args []string) int {
-  return runUtilityPlugin("@ttsc/banner", command, args)
+func (bannerPlugin) Run(invocation *host.PluginInvocation) int {
+  return runUtilityPlugin("@ttsc/banner", invocation)
 }
 
 type pathsPlugin struct{}
@@ -37,8 +31,8 @@ func newPathsPlugin() pathsPlugin { return pathsPlugin{} }
 
 func (pathsPlugin) Name() string { return "@ttsc/paths" }
 
-func (pathsPlugin) Run(command string, args []string) int {
-  return runUtilityPlugin("@ttsc/paths", command, args)
+func (pathsPlugin) Run(invocation *host.PluginInvocation) int {
+  return runUtilityPlugin("@ttsc/paths", invocation)
 }
 
 type stripPlugin struct{}
@@ -47,8 +41,8 @@ func newStripPlugin() stripPlugin { return stripPlugin{} }
 
 func (stripPlugin) Name() string { return "@ttsc/strip" }
 
-func (stripPlugin) Run(command string, args []string) int {
-  return runUtilityPlugin("@ttsc/strip", command, args)
+func (stripPlugin) Run(invocation *host.PluginInvocation) int {
+  return runUtilityPlugin("@ttsc/strip", invocation)
 }
 
 // lintPlugin runs the real `@ttsc/lint` engine inside the playground wasm by
@@ -69,20 +63,21 @@ func newLintPlugin() lintPlugin { return lintPlugin{} }
 
 func (lintPlugin) Name() string { return "@ttsc/lint" }
 
-func (lintPlugin) Run(command string, args []string) int {
+func (lintPlugin) Run(invocation *host.PluginInvocation) int {
+  command := invocation.Command
   if command == "" {
     command = "check"
   }
-  args = ensureLintPluginsJSON(args)
+  args := ensureLintPluginsJSON(invocation.Args, invocation.Stderr)
   dispatch := append([]string{command}, args...)
-  return linthost.Main(dispatch)
+  return linthost.MainWithIO(dispatch, invocation.Stdout, invocation.Stderr)
 }
 
 // ensureLintPluginsJSON injects a synthetic `--plugins-json` payload when the
 // caller didn't supply one. The default enables the full recommended preset
 // so users who paste a snippet into the playground see the same diagnostics
 // they would in a project that extends `@ttsc/lint/lib/recommended`.
-func ensureLintPluginsJSON(args []string) []string {
+func ensureLintPluginsJSON(args []string, stderr interface{ Write([]byte) (int, error) }) []string {
   for _, a := range args {
     if hasFlagPrefix(a, "--plugins-json=") || a == "--plugins-json" {
       return args
@@ -99,7 +94,7 @@ func ensureLintPluginsJSON(args []string) []string {
     },
   })
   if err != nil {
-    fmt.Fprintf(stderrOf(args), "@ttsc/lint: synthesize plugins-json: %v\n", err)
+    fmt.Fprintf(stderr, "@ttsc/lint: synthesize plugins-json: %v\n", err)
     return args
   }
   return append(args, "--plugins-json="+string(payload))
@@ -130,24 +125,24 @@ var playgroundLintRules = map[string]any{
 // host reads that JSON to decide which transforms to run (banner = source
 // preamble; paths = module specifier rewrite; strip = call/statement
 // stripping); other plugin names in the payload are ignored.
-func runUtilityPlugin(name, command string, args []string) int {
+func runUtilityPlugin(name string, invocation *host.PluginInvocation) int {
   payload, err := json.Marshal([]map[string]any{
     {"name": name, "config": map[string]any{}, "stage": "transform"},
   })
   if err != nil {
-    fmt.Fprintf(stderrOf(args), "%s: synthesize plugins-json: %v\n", name, err)
+    fmt.Fprintf(invocation.Stderr, "%s: synthesize plugins-json: %v\n", name, err)
     return 2
   }
-  args = appendArg(args, "--plugins-json="+string(payload))
-  switch command {
+  args := appendArg(invocation.Args, "--plugins-json="+string(payload))
+  switch invocation.Command {
   case "build", "":
-    return utility.RunBuild(args)
+    return utility.RunBuildWithIO(args, invocation.Stdout, invocation.Stderr)
   case "check":
-    return utility.RunCheck(args)
+    return utility.RunCheckWithIO(args, invocation.Stdout, invocation.Stderr)
   case "transform":
-    return utility.RunTransform(args)
+    return utility.RunTransformWithIO(args, invocation.Stdout, invocation.Stderr)
   default:
-    fmt.Fprintf(stderrOf(args), "%s: unknown command %q\n", name, command)
+    fmt.Fprintf(invocation.Stderr, "%s: unknown command %q\n", name, invocation.Command)
     return 2
   }
 }

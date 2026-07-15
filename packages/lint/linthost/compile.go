@@ -33,9 +33,14 @@ import (
 
 // RunCheck implements `@ttsc/lint check` — typecheck + lint, no emit.
 func RunCheck(args []string) int {
-  opts, err := parseSubcommandFlags("check", args)
+  return RunCheckWithIO(args, os.Stdout, os.Stderr)
+}
+
+// RunCheckWithIO runs check with invocation-owned output streams.
+func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
+  opts, err := parseSubcommandFlagsWithIO("check", args, stdout, stderr)
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(stderr, err)
     return 2
   }
   opts.noEmit = true
@@ -45,9 +50,14 @@ func RunCheck(args []string) int {
 // RunBuild implements `@ttsc/lint build` — same diagnostic flow as
 // `check`, plus the tsgo emit pipeline when emit is requested.
 func RunBuild(args []string) int {
-  opts, err := parseSubcommandFlags("build", args)
+  return RunBuildWithIO(args, os.Stdout, os.Stderr)
+}
+
+// RunBuildWithIO runs build with invocation-owned output streams.
+func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
+  opts, err := parseSubcommandFlagsWithIO("build", args, stdout, stderr)
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(stderr, err)
     return 2
   }
   return runProject(opts)
@@ -57,8 +67,13 @@ func RunBuild(args []string) int {
 // still run for the whole program (lint quality depends on context), but
 // emit is restricted to the requested file's JS output.
 func RunTransform(args []string) int {
+  return RunTransformWithIO(args, os.Stdout, os.Stderr)
+}
+
+// RunTransformWithIO runs transform with invocation-owned output streams.
+func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   fs := flag.NewFlagSet("transform", flag.ContinueOnError)
-  fs.SetOutput(os.Stderr)
+  fs.SetOutput(stderr)
   file := fs.String("file", "", "absolute or cwd-relative path of the .ts file to transform")
   out := fs.String("out", "", "write output JS to PATH (default: stdout)")
   tsconfig := fs.String("tsconfig", "tsconfig.json", "tsconfig owning --file")
@@ -74,32 +89,32 @@ func RunTransform(args []string) int {
     return 2
   }
   if *file == "" {
-    fmt.Fprintln(os.Stderr, "@ttsc/lint transform: --file is required")
+    fmt.Fprintln(stderr, "@ttsc/lint transform: --file is required")
     return 2
   }
   tsgoArgs, err := decodeTsgoArgs(*tsgoArgsRaw)
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(stderr, err)
     return 2
   }
   resolvedCwd, err := resolveCwd(*cwd)
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(stderr, err)
     return 2
   }
   projectIdentity, err := decodeProjectIdentity(*projectContextJSON)
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(stderr, err)
     return 2
   }
   rules, err := loadRules(*pluginsJSON, resolvedCwd, *tsconfig)
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(stderr, err)
     return 2
   }
   engine := NewEngineWithResolver(rules)
   if err := engine.ConfigError(); err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(stderr, err)
     return 2
   }
   engine.SetSerial(*singleThreaded)
@@ -113,22 +128,22 @@ func RunTransform(args []string) int {
     projectIdentity:  projectIdentity,
   })
   if err != nil {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
+    fmt.Fprintf(stderr, "@ttsc/lint: %v\n", err)
     return 2
   }
   if len(parseDiags) > 0 {
-    shimdw.FormatASTDiagnosticsWithColorAndContext(os.Stderr, parseDiags, resolvedCwd)
+    shimdw.FormatASTDiagnosticsWithColorAndContext(stderr, parseDiags, resolvedCwd)
     return 2
   }
   defer prog.close()
 
   astDiags, lintDiags, err := collectDiagnostics(prog, engine)
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(stderr, err)
     return 2
   }
-  warnUnknownRules(os.Stderr, engine.UnknownRules())
-  if errors := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, resolvedCwd); errors > 0 {
+  warnUnknownRules(stderr, engine.UnknownRules())
+  if errors := shimdw.FormatMixedDiagnostics(stderr, astDiags, lintDiags, resolvedCwd); errors > 0 {
     return 2
   }
 
@@ -141,7 +156,7 @@ func RunTransform(args []string) int {
   absFile := shimtspath.ResolvePath(resolvedCwd, *file)
   target := prog.findSourceFile(absFile)
   if target == nil {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint transform: source file not in program: %s\n", absFile)
+    fmt.Fprintf(stderr, "@ttsc/lint transform: source file not in program: %s\n", absFile)
     return 2
   }
 
@@ -158,26 +173,26 @@ func RunTransform(args []string) int {
     WriteFile:        shimcompiler.WriteFile(capture),
   })
   if result == nil {
-    fmt.Fprintln(os.Stderr, "@ttsc/lint transform: Emit returned nil")
+    fmt.Fprintln(stderr, "@ttsc/lint transform: Emit returned nil")
     return 3
   }
   if len(result.Diagnostics) > 0 {
-    shimdw.FormatASTDiagnosticsWithColorAndContext(os.Stderr, result.Diagnostics, resolvedCwd)
+    shimdw.FormatASTDiagnosticsWithColorAndContext(stderr, result.Diagnostics, resolvedCwd)
   }
   if captured == "" {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint transform: no output produced for %s\n", absFile)
+    fmt.Fprintf(stderr, "@ttsc/lint transform: no output produced for %s\n", absFile)
     return 3
   }
   if *out == "" {
-    fmt.Fprint(os.Stdout, captured)
+    fmt.Fprint(stdout, captured)
     return 0
   }
   if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint transform: mkdir: %v\n", err)
+    fmt.Fprintf(stderr, "@ttsc/lint transform: mkdir: %v\n", err)
     return 3
   }
   if err := os.WriteFile(*out, []byte(captured), 0o644); err != nil {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint transform: write: %v\n", err)
+    fmt.Fprintf(stderr, "@ttsc/lint transform: write: %v\n", err)
     return 3
   }
   return 0
@@ -197,14 +212,26 @@ type subcommandOpts struct {
   checkers        int
   tsgoArgs        []string
   projectIdentity publicrule.ProjectIdentity
+  stdout          io.Writer
+  stderr          io.Writer
 }
 
 // parseSubcommandFlags parses the shared flag set used by the `check`,
 // `build`, and `fix`/`format` subcommands. Unknown flags are silently
 // stripped by `filterKnownFlags` before the standard FlagSet sees them.
 func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
+  return parseSubcommandFlagsWithIO(name, args, os.Stdout, os.Stderr)
+}
+
+func parseSubcommandFlagsWithIO(name string, args []string, stdout, stderr io.Writer) (*subcommandOpts, error) {
+  if stdout == nil {
+    stdout = io.Discard
+  }
+  if stderr == nil {
+    stderr = io.Discard
+  }
   fs := flag.NewFlagSet(name, flag.ContinueOnError)
-  fs.SetOutput(os.Stderr)
+  fs.SetOutput(stderr)
   cwd := fs.String("cwd", "", "")
   tsconfig := fs.String("tsconfig", "tsconfig.json", "")
   pluginsJSON := fs.String("plugins-json", "", "")
@@ -251,6 +278,8 @@ func parseSubcommandFlags(name string, args []string) (*subcommandOpts, error) {
     checkers:        *checkers,
     tsgoArgs:        tsgoArgs,
     projectIdentity: projectIdentity,
+    stdout:          stdout,
+    stderr:          stderr,
   }, nil
 }
 
@@ -274,12 +303,12 @@ func decodeTsgoArgs(raw string) ([]string, error) {
 func runProject(opts *subcommandOpts) int {
   rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(opts.stderr, err)
     return 2
   }
   engine := NewEngineWithResolver(rules)
   if err := engine.ConfigError(); err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(opts.stderr, err)
     return 2
   }
   engine.SetSerial(opts.singleThreaded)
@@ -295,23 +324,23 @@ func runProject(opts *subcommandOpts) int {
     projectIdentity:  opts.projectIdentity,
   })
   if err != nil {
-    fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
+    fmt.Fprintf(opts.stderr, "@ttsc/lint: %v\n", err)
     return 2
   }
   if len(parseDiags) > 0 {
-    shimdw.FormatASTDiagnosticsWithColorAndContext(os.Stderr, parseDiags, opts.cwd)
+    shimdw.FormatASTDiagnosticsWithColorAndContext(opts.stderr, parseDiags, opts.cwd)
     return 2
   }
   defer prog.close()
 
   astDiags, lintDiags, diagnosticsTiming, err := collectDiagnosticsTimed(prog, engine)
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(opts.stderr, err)
     return 2
   }
-  printLintDiagnosticsTiming(os.Stdout, opts.diagnostics, diagnosticsTiming)
-  warnUnknownRules(os.Stderr, engine.UnknownRules())
-  if errCount := shimdw.FormatMixedDiagnostics(os.Stderr, astDiags, lintDiags, opts.cwd); errCount > 0 {
+  printLintDiagnosticsTiming(opts.stdout, opts.diagnostics, diagnosticsTiming)
+  warnUnknownRules(opts.stderr, engine.UnknownRules())
+  if errCount := shimdw.FormatMixedDiagnostics(opts.stderr, astDiags, lintDiags, opts.cwd); errCount > 0 {
     return 2
   }
 
@@ -325,19 +354,19 @@ func runProject(opts *subcommandOpts) int {
     }),
   })
   if result == nil {
-    fmt.Fprintln(os.Stderr, "@ttsc/lint: Emit returned nil")
+    fmt.Fprintln(opts.stderr, "@ttsc/lint: Emit returned nil")
     return 3
   }
   if len(result.Diagnostics) > 0 {
-    errCount := shimdw.FormatMixedDiagnostics(os.Stderr, result.Diagnostics, nil, opts.cwd)
+    errCount := shimdw.FormatMixedDiagnostics(opts.stderr, result.Diagnostics, nil, opts.cwd)
     if errCount > 0 {
       return 2
     }
   }
   if opts.verbose && result.EmittedFiles != nil {
-    fmt.Fprintf(os.Stdout, "@ttsc/lint: emitted=%d files\n", len(result.EmittedFiles))
+    fmt.Fprintf(opts.stdout, "@ttsc/lint: emitted=%d files\n", len(result.EmittedFiles))
     for _, f := range result.EmittedFiles {
-      fmt.Fprintln(os.Stdout, "  +", f)
+      fmt.Fprintln(opts.stdout, "  +", f)
     }
   }
   return 0

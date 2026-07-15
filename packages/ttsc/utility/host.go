@@ -4,6 +4,7 @@ import (
   "encoding/json"
   "flag"
   "fmt"
+  "io"
   "os"
   "path/filepath"
   "strings"
@@ -29,6 +30,8 @@ type hostOptions struct {
   singleThreaded bool
   checkers       int
   tsgoArgs       []string
+  stdout         io.Writer
+  stderr         io.Writer
   // fs overrides the filesystem the program loads from. Only the resident serve
   // host sets it (to an OverlayFS), so build/check/transform leave it nil and
   // LoadProgram falls back to the default filesystem.
@@ -46,7 +49,12 @@ type transformResult struct {
 // RunCheck validates the project and linked plugin configuration without
 // emitting output.
 func RunCheck(args []string) int {
-  opts, ok := parseHostOptions("check", args)
+  return RunCheckWithIO(args, os.Stdout, os.Stderr)
+}
+
+// RunCheckWithIO runs check with invocation-owned output streams.
+func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
+  opts, ok := parseHostOptions("check", args, stdout, stderr)
   if !ok {
     return 2
   }
@@ -57,7 +65,7 @@ func RunCheck(args []string) int {
   }
   defer prog.Close()
   if err := prog.ApplyLinkedPlugins(); err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(opts.stderr, err)
     return 2
   }
   return 0
@@ -65,7 +73,12 @@ func RunCheck(args []string) int {
 
 // RunBuild hosts linked transform packages inside one compiler emit.
 func RunBuild(args []string) int {
-  opts, ok := parseHostOptions("build", args)
+  return RunBuildWithIO(args, os.Stdout, os.Stderr)
+}
+
+// RunBuildWithIO runs build with invocation-owned output streams.
+func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
+  opts, ok := parseHostOptions("build", args, stdout, stderr)
   if !ok {
     return 2
   }
@@ -81,21 +94,21 @@ func RunBuild(args []string) int {
     opts.quiet = false // --verbose overrides the default --quiet=true
   }
   if !opts.quiet {
-    fmt.Fprintf(os.Stdout, "// ttsc utility: plugins=%d emit=%v\n", len(entries), !opts.noEmit)
+    fmt.Fprintf(opts.stdout, "// ttsc utility: plugins=%d emit=%v\n", len(entries), !opts.noEmit)
   }
   res, eDiags, err := prog.EmitAllRaw(makeSourcePreambleWriteFile(prog))
   if err != nil {
-    fmt.Fprintf(os.Stderr, "ttsc utility: emit failed: %v\n", err)
+    fmt.Fprintf(opts.stderr, "ttsc utility: emit failed: %v\n", err)
     return 3
   }
   for _, d := range eDiags {
-    fmt.Fprintln(os.Stderr, "  -", d.String())
+    fmt.Fprintln(opts.stderr, "  -", d.String())
   }
   if driver.CountErrors(eDiags) > 0 {
     return 2
   }
   if res != nil && !opts.quiet {
-    fmt.Fprintf(os.Stdout, "// ttsc utility: emitted=%d files\n", len(res.EmittedFiles))
+    fmt.Fprintf(opts.stdout, "// ttsc utility: emitted=%d files\n", len(res.EmittedFiles))
   }
   return 0
 }
@@ -103,7 +116,12 @@ func RunBuild(args []string) int {
 // RunTransform returns the project TypeScript text after linked source
 // mutations.
 func RunTransform(args []string) int {
-  opts, ok := parseHostOptions("transform", args)
+  return RunTransformWithIO(args, os.Stdout, os.Stderr)
+}
+
+// RunTransformWithIO runs transform with invocation-owned output streams.
+func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
+  opts, ok := parseHostOptions("transform", args, stdout, stderr)
   if !ok {
     return 2
   }
@@ -113,7 +131,7 @@ func RunTransform(args []string) int {
   }
   defer prog.Close()
   if err := prog.ApplyLinkedPlugins(); err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(opts.stderr, err)
     return 2
   }
   printer := shimprinter.NewPrinter(shimprinter.PrinterOptions{}, shimprinter.PrintHandlers{}, nil)
@@ -123,7 +141,7 @@ func RunTransform(args []string) int {
     out.TypeScript[apiOutputKey(opts.cwd, file.FileName())] = text
   }
   data, _ := json.Marshal(out)
-  fmt.Fprintln(os.Stdout, string(data))
+  fmt.Fprintln(opts.stdout, string(data))
   return 0
 }
 
@@ -131,9 +149,15 @@ func RunTransform(args []string) int {
 // Unknown flags forwarded from the JS launcher are stripped by filterHostArgs
 // before flag.FlagSet sees them, so spurious "flag provided but not defined"
 // errors are avoided. Returns (zero, false) on any parse or validation error.
-func parseHostOptions(command string, args []string) (hostOptions, bool) {
+func parseHostOptions(command string, args []string, stdout, stderr io.Writer) (hostOptions, bool) {
+  if stdout == nil {
+    stdout = io.Discard
+  }
+  if stderr == nil {
+    stderr = io.Discard
+  }
   fs := flag.NewFlagSet(command, flag.ContinueOnError)
-  fs.SetOutput(os.Stderr)
+  fs.SetOutput(stderr)
   cwd := fs.String("cwd", "", "project directory")
   emit := fs.Bool("emit", false, "force emit")
   noEmit := fs.Bool("noEmit", false, "force no emit")
@@ -151,12 +175,12 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
   var tsgoArgs []string
   if *tsgoArgsRaw != "" {
     if err := json.Unmarshal([]byte(*tsgoArgsRaw), &tsgoArgs); err != nil {
-      fmt.Fprintf(os.Stderr, "ttsc utility: invalid --tsgo-args: %v\n", err)
+      fmt.Fprintf(stderr, "ttsc utility: invalid --tsgo-args: %v\n", err)
       return hostOptions{}, false
     }
   }
   if *emit && *noEmit {
-    fmt.Fprintln(os.Stderr, "ttsc utility: --emit and --noEmit are mutually exclusive")
+    fmt.Fprintln(stderr, "ttsc utility: --emit and --noEmit are mutually exclusive")
     return hostOptions{}, false
   }
   resolvedCwd := *cwd
@@ -164,14 +188,14 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
     var err error
     resolvedCwd, err = os.Getwd()
     if err != nil {
-      fmt.Fprintf(os.Stderr, "ttsc utility: cwd: %v\n", err)
+      fmt.Fprintf(stderr, "ttsc utility: cwd: %v\n", err)
       return hostOptions{}, false
     }
   }
   if !filepath.IsAbs(resolvedCwd) {
     abs, err := filepath.Abs(resolvedCwd)
     if err != nil {
-      fmt.Fprintf(os.Stderr, "ttsc utility: cwd: %v\n", err)
+      fmt.Fprintf(stderr, "ttsc utility: cwd: %v\n", err)
       return hostOptions{}, false
     }
     resolvedCwd = abs
@@ -188,6 +212,8 @@ func parseHostOptions(command string, args []string) (hostOptions, bool) {
     singleThreaded: *singleThreaded,
     checkers:       *checkers,
     tsgoArgs:       tsgoArgs,
+    stdout:         stdout,
+    stderr:         stderr,
   }, true
 }
 
@@ -243,7 +269,7 @@ func flagName(arg string) (string, bool) {
 func loadUtilityProgram(opts hostOptions) (*driver.Program, []driver.PluginEntry, bool) {
   entries, err := parsePluginEntries(opts.pluginsJSON)
   if err != nil {
-    fmt.Fprintln(os.Stderr, err)
+    fmt.Fprintln(opts.stderr, err)
     return nil, nil, false
   }
   restoreEnv := setLinkedPluginManifest(opts.pluginsJSON)
@@ -259,15 +285,15 @@ func loadUtilityProgram(opts hostOptions) (*driver.Program, []driver.PluginEntry
     FS:             opts.fs,
   })
   if err != nil {
-    fmt.Fprintf(os.Stderr, "ttsc utility: %v\n", err)
+    fmt.Fprintf(opts.stderr, "ttsc utility: %v\n", err)
     return nil, nil, false
   }
   if len(diags) > 0 {
-    driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
+    driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
     return nil, nil, false
   }
   if diags := prog.Diagnostics(); len(diags) > 0 {
-    driver.WritePrettyDiagnostics(os.Stderr, diags, opts.cwd)
+    driver.WritePrettyDiagnostics(opts.stderr, diags, opts.cwd)
     _ = prog.Close()
     return nil, nil, false
   }
