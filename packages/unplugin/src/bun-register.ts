@@ -13,6 +13,21 @@ interface BunRuntimeGlobal {
 }
 
 /**
+ * Effective options for the single runtime loader.
+ *
+ * Bun uses the first matching `onLoad` hook and does not fall through to a
+ * later overlapping plugin (oven-sh/bun#20583). Registering twice — once
+ * implicitly on import, once explicitly — would let the default loader shadow
+ * the configured one. Instead exactly one Bun plugin is registered; it resolves
+ * these options lazily on first load (see {@link bun}'s provider form), so an
+ * explicit `register(options)` made right after importing this module overrides
+ * the preload defaults without a second shadowing registration.
+ */
+let activeOptions: TtscUnpluginOptions | undefined;
+/** Whether the single runtime loader has already been registered with Bun. */
+let registered = false;
+
+/**
  * Register the ttsc transform as a Bun **runtime** plugin.
  *
  * The other `@ttsc/unplugin/*` adapters cover bundlers (`Bun.build`, Vite,
@@ -23,6 +38,12 @@ interface BunRuntimeGlobal {
  * ["@ttsc/unplugin/bun-register"]` — or imperatively with `import
  * "@ttsc/unplugin/bun-register"`. Options are read from the nearest
  * `tsconfig.json`, identical to the bundler adapters.
+ *
+ * Registration is idempotent: the first call (implicit on import, or explicit)
+ * registers the one loader with Bun; later calls only update the effective
+ * options, so accessing the explicit API cannot install a second default loader
+ * that shadows the caller's configuration. Repeated explicit calls are
+ * last-write-wins for the effective options.
  *
  * @throws When called explicitly off the Bun runtime (`globalThis.Bun.plugin`
  *   is unavailable). The auto-registration below stays silent off Bun so the
@@ -37,7 +58,15 @@ export function register(options?: TtscUnpluginOptions): void {
         "@ttsc/unplugin/vite for non-Bun toolchains.",
     );
   }
-  runtime.plugin(bun(options));
+  activeOptions = options;
+  if (registered) {
+    return;
+  }
+  registered = true;
+  // Register a single loader whose options are read from `activeOptions` on
+  // first load, so an explicit call made after the import-time auto-register
+  // still wins.
+  runtime.plugin(bun(() => activeOptions));
 }
 
 function bunRuntime(): BunRuntimeGlobal | undefined {

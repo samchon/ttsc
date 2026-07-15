@@ -12,23 +12,67 @@ async function runTurbopackLoader(props: {
   source: string;
   options?: unknown;
 }): Promise<string> {
+  return (await runTurbopackLoaderWithContext(props)).content;
+}
+
+/**
+ * Invoke the built turbopack loader and return both the transformed content and
+ * the files it registered through the webpack loader context's
+ * `addDependency(file)` — the channel that feeds Turbopack's `fileDependencies`
+ * invalidation set. Setting `omitAddDependency` models a minimal/older loader
+ * context that does not expose the method at all, proving the loader stays
+ * optional about it.
+ */
+async function runTurbopackLoaderWithContext(props: {
+  resourcePath: string;
+  source: string;
+  options?: unknown;
+  omitAddDependency?: boolean;
+}): Promise<{ content: string; dependencies: string[] }> {
   const loader = await TestUnpluginRuntime.loadUnpluginAdapter("turbopack");
-  return new Promise<string>((resolve, reject) => {
-    const context = {
-      resourcePath: props.resourcePath,
-      getOptions: () => props.options,
-      async:
-        () =>
-        (error?: unknown, content?: string): void => {
-          if (error !== undefined && error !== null) {
-            reject(error instanceof Error ? error : new Error(String(error)));
-            return;
-          }
-          resolve(content ?? "");
-        },
-    };
-    loader.call(context, props.source);
-  });
+  const dependencies: string[] = [];
+  return new Promise<{ content: string; dependencies: string[] }>(
+    (resolve, reject) => {
+      const context: Record<string, unknown> = {
+        resourcePath: props.resourcePath,
+        getOptions: () => props.options,
+        async:
+          () =>
+          (error?: unknown, content?: string): void => {
+            if (error !== undefined && error !== null) {
+              reject(error instanceof Error ? error : new Error(String(error)));
+              return;
+            }
+            resolve({ content: content ?? "", dependencies });
+          },
+      };
+      if (props.omitAddDependency !== true) {
+        context.addDependency = function (this: unknown, file: string): void {
+          // Capture `this` binding: the loader must call addDependency bound to
+          // the webpack loader context, not the transform hooks object.
+          assert.equal(this, context, "addDependency lost its context binding");
+          dependencies.push(file);
+        };
+      }
+      loader.call(context, props.source);
+    },
+  );
+}
+
+/**
+ * Plugin descriptor routing the fixture through the `emit-dependencies`
+ * operation with the given dependency entries. Options ride the plugin entry's
+ * top level; the protocol forwards the whole entry as the plugin's config.
+ */
+function emitDependenciesPlugins(dependencies: string[]): unknown[] {
+  return [
+    {
+      transform: "./plugin.cjs",
+      name: "fixture",
+      operation: "emit-dependencies",
+      dependencies,
+    },
+  ];
 }
 
 /**
@@ -85,8 +129,116 @@ async function assertTurbopackLoaderPassesThroughFilteredPaths(): Promise<void> 
   assert.equal(vendoredOut, vendored);
 }
 
+/**
+ * Asserts the loader registers plugin-reported dependencies through
+ * `addDependency`, normalized exactly as the other adapters normalize their
+ * watch files: project-relative entries absolutized against the project root,
+ * absolute entries kept, duplicates collapsed, and the transformed module itself
+ * excluded.
+ *
+ * The standalone Turbopack loader used to call the shared transform without a
+ * hooks argument, so the reported dependency list was silently dropped and
+ * type-only inputs never entered Turbopack's invalidation graph. The dependency
+ * list mixes a relative entry, an absolute entry, a duplicate, and the module
+ * itself to pin the normalization.
+ */
+async function assertTurbopackLoaderRegistersPluginDependencies(): Promise<void> {
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  const absolute = path.join(root, "types", "model.d.ts");
+  const { content, dependencies } = await runTurbopackLoaderWithContext({
+    resourcePath: TestUnpluginProject.mainFile(root),
+    source: TestUnpluginProject.mainSource(root),
+    options: {
+      plugins: emitDependenciesPlugins([
+        "src/types.d.ts",
+        absolute,
+        "src/types.d.ts",
+        "src/main.ts",
+      ]),
+    },
+  });
+  TestUnpluginProject.assertTransformedToPlugin(content);
+  assert.deepEqual(dependencies, [
+    path.join(root, "src", "types.d.ts"),
+    absolute,
+  ]);
+}
+
+/**
+ * Asserts a cache-served transform still registers the dependency list.
+ *
+ * The Turbopack loader shares one transform cache for the worker lifetime across
+ * requests, but Turbopack rebuilds its `fileDependencies` set per loader
+ * invocation. A cache hit that skipped re-registration would drop invalidation
+ * for the second and later requests, so the loader must replay the dependencies
+ * on every call, not only the fresh compile.
+ */
+async function assertTurbopackLoaderRegistersDependenciesOnCacheHit(): Promise<void> {
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  const options = {
+    plugins: emitDependenciesPlugins(["src/types.d.ts"]),
+  };
+  const expected = [path.join(root, "src", "types.d.ts")];
+
+  const first = await runTurbopackLoaderWithContext({
+    resourcePath: TestUnpluginProject.mainFile(root),
+    source: TestUnpluginProject.mainSource(root),
+    options,
+  });
+  TestUnpluginProject.assertTransformedToPlugin(first.content);
+  assert.deepEqual(first.dependencies, expected);
+
+  const second = await runTurbopackLoaderWithContext({
+    resourcePath: TestUnpluginProject.mainFile(root),
+    source: TestUnpluginProject.mainSource(root),
+    options,
+  });
+  TestUnpluginProject.assertTransformedToPlugin(second.content);
+  assert.deepEqual(second.dependencies, expected);
+}
+
+/**
+ * Asserts the negative twin: a transform whose plugin reports no `dependencies`
+ * envelope field registers nothing, while still transforming the module. A
+ * loader that fabricated dependencies would pollute Turbopack's invalidation
+ * graph.
+ */
+async function assertTurbopackLoaderRegistersNoDependenciesWithoutReport(): Promise<void> {
+  const root = TestUnpluginProject.createProject();
+  const { content, dependencies } = await runTurbopackLoaderWithContext({
+    resourcePath: TestUnpluginProject.mainFile(root),
+    source: TestUnpluginProject.mainSource(root),
+  });
+  TestUnpluginProject.assertTransformedToPlugin(content);
+  assert.deepEqual(dependencies, []);
+}
+
+/**
+ * Asserts a loader context that does not expose `addDependency` (a minimal stub
+ * or a Turbopack build predating the method) still transforms without throwing.
+ * The dependency channel is a best-effort enhancement, not a hard requirement of
+ * the loader contract.
+ */
+async function assertTurbopackLoaderTransformsWithoutAddDependency(): Promise<void> {
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  const { content, dependencies } = await runTurbopackLoaderWithContext({
+    resourcePath: TestUnpluginProject.mainFile(root),
+    source: TestUnpluginProject.mainSource(root),
+    options: {
+      plugins: emitDependenciesPlugins(["src/types.d.ts"]),
+    },
+    omitAddDependency: true,
+  });
+  TestUnpluginProject.assertTransformedToPlugin(content);
+  assert.deepEqual(dependencies, []);
+}
+
 export {
   assertTurbopackLoaderForwardsRuleOptions,
   assertTurbopackLoaderPassesThroughFilteredPaths,
+  assertTurbopackLoaderRegistersDependenciesOnCacheHit,
+  assertTurbopackLoaderRegistersNoDependenciesWithoutReport,
+  assertTurbopackLoaderRegistersPluginDependencies,
   assertTurbopackLoaderTransformsSource,
+  assertTurbopackLoaderTransformsWithoutAddDependency,
 };

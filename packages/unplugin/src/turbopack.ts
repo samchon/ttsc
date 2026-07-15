@@ -21,6 +21,14 @@ export interface TtscTurbopackLoaderContext {
   resourcePath: string;
   /** The rule's `options` object, when one was configured. */
   getOptions?(): TtscUnpluginOptions | undefined;
+  /**
+   * Register an additional file the transformed module depends on. Part of the
+   * webpack loader context contract Turbopack implements; a registered file
+   * enters Turbopack's `fileDependencies` set so editing it re-runs this loader
+   * for the owning module. Optional so a minimal stub context (or a Turbopack
+   * build that predates the method) still loads.
+   */
+  addDependency?(file: string): void;
 }
 
 /** Matches any path segment that is a `node_modules` directory (cross-platform). */
@@ -71,12 +79,19 @@ export default function turbopack(
     callback(undefined, source);
     return;
   }
+  // Forward plugin-reported dependencies into Turbopack's `fileDependencies`
+  // set so editing a type-only input a transform consulted re-runs this loader.
+  // `addDependency` is bound so the webpack loader context stays `this` inside
+  // it; the hook fires on cache hits too, which is required because the shared
+  // transform cache lives for the worker lifetime across requests.
+  const addDependency = this.addDependency?.bind(this);
   transformTtsc(
     file,
     source,
     resolveOptions(this.getOptions?.() ?? {}),
     undefined,
     transformCache,
+    addDependency === undefined ? undefined : { addWatchFile: addDependency },
   ).then(
     (result) => callback(undefined, result?.code ?? source),
     (error) => callback(error),

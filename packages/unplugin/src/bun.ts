@@ -23,6 +23,44 @@ export interface BunLikePlugin {
 export type BunLoader = "ts" | "tsx";
 
 /**
+ * Options accepted by {@link bun}, either resolved eagerly or supplied through a
+ * provider evaluated lazily on the first `onLoad` call.
+ *
+ * The provider form exists for the runtime registration path
+ * (`bun-register`), where a single Bun plugin is registered on import but its
+ * effective options may be overridden by an explicit `register(options)` call
+ * made in the same synchronous tick. Resolving through the provider on first
+ * load, rather than at registration, lets that later call win without Bun ever
+ * seeing a second shadowing loader.
+ */
+export type TtscBunOptions =
+  | TtscUnpluginOptions
+  | (() => TtscUnpluginOptions | undefined);
+
+/**
+ * Transform context handed to the raw unplugin transform under Bun.
+ *
+ * The shared transform calls `addWatchFile` once per plugin-reported dependency
+ * so type-only inputs can enter a bundler's watch graph. Bun's bundler and
+ * runtime loaders expose no per-module dependency-registration channel, so the
+ * hook is an explicit no-op here: reported dependencies cannot participate in
+ * Bun invalidation, but a valid dependency list must never crash the loader by
+ * reaching a missing context method. Passing an empty object made
+ * `this.addWatchFile` `undefined`, so any plugin reporting dependencies threw
+ * `TypeError: this.addWatchFile is not a function`.
+ */
+const bunTransformContext = {
+  addWatchFile(): void {},
+};
+
+/** Resolve {@link TtscBunOptions} to a plain options object (or `undefined`). */
+function resolveBunOptions(
+  options?: TtscBunOptions,
+): TtscUnpluginOptions | undefined {
+  return typeof options === "function" ? options() : options;
+}
+
+/**
  * Minimal subset of the Bun `BuildConfig` plugin build object.
  *
  * Only the `onLoad` hook is used; other hooks are not needed for a
@@ -61,17 +99,31 @@ export interface BunLikeBuild {
  * transpiling the emitted TypeScript at runtime; `sourceFilePattern` only
  * matches TypeScript, so the loader is always `ts`/`tsx`.
  */
-export default function bun(options?: TtscUnpluginOptions): BunLikePlugin {
+export default function bun(options?: TtscBunOptions): BunLikePlugin {
   return {
     name: "ttsc-unplugin",
     setup(build) {
-      const raw = unplugin.raw(options, {} as UnpluginContextMeta);
+      // Build the raw transform lazily on first load rather than in `setup`.
+      // Bun runs `setup` synchronously when the plugin is registered, so a
+      // runtime registration (bun-register) that resolves its effective options
+      // through a provider must defer that resolution until after any explicit
+      // `register(options)` call in the same tick. Deferring also keeps a single
+      // transform (and its project cache) shared across every loaded module.
+      let raw: ReturnType<typeof unplugin.raw> | undefined;
       build.onLoad({ filter: sourceFilePattern }, async (args) => {
+        raw ??= unplugin.raw(
+          resolveBunOptions(options),
+          {} as UnpluginContextMeta,
+        );
         const loader = bunLoaderFor(args.path);
         const source = await fs.readFile(args.path, "utf8");
         const result =
           typeof raw.transform === "function"
-            ? await raw.transform.call({} as never, source, args.path)
+            ? await raw.transform.call(
+                bunTransformContext as never,
+                source,
+                args.path,
+              )
             : undefined;
         // Unpack both shorthand string and object result shapes.
         if (typeof result === "string") {
