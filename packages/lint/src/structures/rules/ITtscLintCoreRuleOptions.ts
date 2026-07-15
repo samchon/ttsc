@@ -64,7 +64,7 @@ export interface ITtscLintCoreNoEmptyFunctionRuleOptions {
    * TypeScript parameter-property constructors are always accepted because
    * their parameters initialize fields even when the block has no statements.
    *
-   * @default []
+   * @default [ ]
    */
   allow?: TtscLintCoreNoEmptyFunctionAllow[];
 }
@@ -127,7 +127,8 @@ export interface ITtscLintCoreNoUnusedExpressionsRuleOptions {
 export interface ITtscLintCoreNoInnerDeclarationsRuleOptions {
   /**
    * Allow ES2015 block-scoped function declarations in strict scripts and
-   * function bodies, modules, and class code, or report them as a style policy.
+   * function bodies, modules, and class code, or report them as a style
+   * policy.
    *
    * @default "allow"
    */
@@ -154,7 +155,7 @@ export type TtscLintCoreNoInnerDeclarationsRuleSetting =
 export type TtscLintCoreNoRestrictedSyntaxSelector =
   | string
   | {
-      /** esquery selector evaluated against the TypeScript-Go AST. */
+      /** Esquery selector evaluated against the TypeScript-Go AST. */
       selector: string;
 
       /** Diagnostic text replacing the canonical default message. */
@@ -164,15 +165,12 @@ export type TtscLintCoreNoRestrictedSyntaxSelector =
 /**
  * Canonical variadic setting for `no-restricted-syntax`.
  *
- * Every tuple item after the severity is one independently reported selector.
- * A bare severity or one-element tuple carries no selectors and is silent.
+ * Every tuple item after the severity is one independently reported selector. A
+ * bare severity or one-element tuple carries no selectors and is silent.
  */
 export type TtscLintCoreNoRestrictedSyntaxRuleSetting =
   | TtscLintRuleSetting
-  | readonly [
-      TtscLintSeverity,
-      ...TtscLintCoreNoRestrictedSyntaxSelector[],
-    ];
+  | readonly [TtscLintSeverity, ...TtscLintCoreNoRestrictedSyntaxSelector[]];
 
 /**
  * `no-fallthrough` rule options.
@@ -329,8 +327,7 @@ export type ITtscLintCoreNoRestrictedImportsPattern =
     TtscLintCoreNoRestrictedImportsPatternNames & {
       /** Match module specifiers case-sensitively instead of the default fold. */
       caseSensitive?: boolean;
-    } &
-    (
+    } & (
       | {
           /** Ordered gitignore-style path patterns, including `!` negation. */
           group: TtscLintCoreNoRestrictedImportsNonEmptyStrings;

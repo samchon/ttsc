@@ -533,8 +533,8 @@ func unicornTemplateIndentQuasis(source string, template *shimast.Node) ([]unico
       return nil, false
     }
     quasis := []unicornTemplateIndentQuasi{{
-      pos: headStart + 1,
-      end: headEnd - 2,
+      pos:  headStart + 1,
+      end:  headEnd - 2,
       text: source[headStart+1 : headEnd-2],
     }}
     for _, spanNode := range expression.TemplateSpans.Nodes {
@@ -558,8 +558,8 @@ func unicornTemplateIndentQuasis(source string, template *shimast.Node) ([]unico
         return nil, false
       }
       quasis = append(quasis, unicornTemplateIndentQuasi{
-        pos: start + 1,
-        end: end - suffix,
+        pos:  start + 1,
+        end:  end - suffix,
         text: source[start+1 : end-suffix],
       })
     }

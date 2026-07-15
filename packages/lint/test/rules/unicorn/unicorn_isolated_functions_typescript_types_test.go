@@ -11,9 +11,9 @@ import "testing"
 // and conditional types stay silent while their runtime values are declared
 // inside the function.
 //
-// 1. Reference outer `a` (via `typeof`) and outer `MyType` only in type
-//    positions inside a makeSynchronous callback.
-// 2. Assert nothing is reported.
+//  1. Reference outer `a` (via `typeof`) and outer `MyType` only in type
+//     positions inside a makeSynchronous callback.
+//  2. Assert nothing is reported.
 func TestUnicornIsolatedFunctionsTypeScriptTypes(t *testing.T) {
   source := `declare function makeSynchronous<T>(fn: T): T;
 

@@ -12,7 +12,7 @@ import "testing"
 //
 //  1. Assert `"NO"` produces zero findings under case-sensitive `{no: yes}`.
 //  2. Fix `"End of Day"`, `"END OF DAY"`, the multi-variant `"no No NO"`,
-//     and a template `` `NO` `` under `caseSensitive: false` patterns.
+//     and a template “ `NO` “ under `caseSensitive: false` patterns.
 //  3. Compare each rewritten source with the upstream oracle.
 func TestUnicornStringContentMatchesCaseInsensitivelyWhenConfigured(t *testing.T) {
   assertRuleSkipsSourceWithOptions(

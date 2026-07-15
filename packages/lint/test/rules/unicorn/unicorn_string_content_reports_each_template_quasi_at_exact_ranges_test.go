@@ -10,7 +10,7 @@ import (
 // substitution template reports one finding per matching quasi.
 //
 // Upstream targets `TemplateElement`, not the template literal, so
-// `` `no${foo}no${foo}no` `` yields three findings whose ranges include the
+// “ `no${foo}no${foo}no` “ yields three findings whose ranges include the
 // quasi delimiters (backtick / `${` / `}`), and each fix edit must stay
 // inside its own quasi payload without touching the substitutions.
 //

@@ -52,11 +52,11 @@ func TestCommentScanUsesParserLexicalRangesAcrossSourceModes(t *testing.T) {
   }
 
   cases := []struct {
-    name       string
-    fileName   string
-    kind       shimcore.ScriptKind
-    source     string
-    comments   []string
+    name     string
+    fileName string
+    kind     shimcore.ScriptKind
+    source   string
+    comments []string
   }{
     {name: "ts", fileName: "/virtual/comments.ts", kind: shimcore.ScriptKindTS, source: scriptSource, comments: scriptComments},
     {name: "js", fileName: "/virtual/comments.js", kind: shimcore.ScriptKindJS, source: scriptSource, comments: scriptComments},

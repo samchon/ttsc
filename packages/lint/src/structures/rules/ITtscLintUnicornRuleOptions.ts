@@ -10,8 +10,8 @@ export type TtscLintUnicornFilenameCaseName =
  * Options for `unicorn/filename-case`.
  *
  * `case` and `cases` are mutually exclusive: configure either the single
- * enforced style or a map of allowed styles. With neither configured — or
- * with every `cases` entry disabled — the rule enforces kebab-case.
+ * enforced style or a map of allowed styles. With neither configured — or with
+ * every `cases` entry disabled — the rule enforces kebab-case.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/filename-case.md
  */
@@ -48,8 +48,8 @@ export interface ITtscLintUnicornFilenameCaseRuleOptions {
 export interface ITtscLintUnicornBetterRegexRuleOptions {
   /**
    * Sort and merge adjacent character-class ranges (e.g. `[d-ea-c]` ->
-   * `[a-e]`). Defaults to `true`; set `false` to keep the source order and
-   * only apply the length-reducing shorthands.
+   * `[a-e]`). Defaults to `true`; set `false` to keep the source order and only
+   * apply the length-reducing shorthands.
    */
   sortCharacterClasses?: boolean;
 }
@@ -158,7 +158,7 @@ export interface ITtscLintUnicornIsolatedFunctionsRuleOptions {
   /**
    * AST selectors whose matching functions are isolated.
    *
-   * @default []
+   * @default [ ]
    */
   selectors?: readonly string[];
 
@@ -302,11 +302,11 @@ export interface ITtscLintUnicornStringContentRuleOptions {
 /**
  * Explicit target runtimes for `unicorn/no-unnecessary-polyfills`.
  *
- * A Browserslist query string, an array of such queries, or a
- * core-js-compat targets object (engine name to a version string or number,
- * plus the special `browsers` / `esmodules` keys). Resolved with the
- * `production` environment against the linted file's directory, exactly as
- * upstream passes the value to core-js-compat.
+ * A Browserslist query string, an array of such queries, or a core-js-compat
+ * targets object (engine name to a version string or number, plus the special
+ * `browsers` / `esmodules` keys). Resolved with the `production` environment
+ * against the linted file's directory, exactly as upstream passes the value to
+ * core-js-compat.
  */
 export type TtscLintUnicornNoUnnecessaryPolyfillsTargets =
   | string
@@ -317,9 +317,9 @@ export type TtscLintUnicornNoUnnecessaryPolyfillsTargets =
  * Options for `unicorn/no-unnecessary-polyfills`.
  *
  * Without this option the rule resolves targets from Browserslist config
- * discovery and, as a last resort, the nearest `package.json` `engines`
- * field. Set `targets` to pin the baseline explicitly; it mirrors upstream's
- * required `targets` schema property.
+ * discovery and, as a last resort, the nearest `package.json` `engines` field.
+ * Set `targets` to pin the baseline explicitly; it mirrors upstream's required
+ * `targets` schema property.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-polyfills.md
  */

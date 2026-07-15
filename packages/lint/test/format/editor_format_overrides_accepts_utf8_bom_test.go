@@ -96,7 +96,7 @@ func TestEditorFormatOverridesAcceptsUTF8BOM(t *testing.T) {
 
   t.Run("malformed input still falls back", func(t *testing.T) {
     for name, body := range map[string][]byte{
-      "BOM only":       append([]byte{}, bom...),
+      "BOM only":        append([]byte{}, bom...),
       "malformed JSONC": withBOM(`{"editor.tabSize":}`),
     } {
       t.Run(name, func(t *testing.T) {

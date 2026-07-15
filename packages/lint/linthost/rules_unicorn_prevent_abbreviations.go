@@ -45,29 +45,29 @@ const (
 )
 
 type unicornPreventAbbreviationsOptions struct {
-  checkProperties                  bool
-  checkVariables                   bool
+  checkProperties                 bool
+  checkVariables                  bool
   checkDefaultAndNamespaceImports unicornPreventAbbreviationsImportMode
-  checkShorthandImports            unicornPreventAbbreviationsImportMode
-  checkShorthandProperties         bool
-  checkFilenames                   bool
+  checkShorthandImports           unicornPreventAbbreviationsImportMode
+  checkShorthandProperties        bool
+  checkFilenames                  bool
   replacements                    map[string][]string
-  allowList                        map[string]bool
-  ignore                           []*regexp.Regexp
+  allowList                       map[string]bool
+  ignore                          []*regexp.Regexp
 }
 
 type unicornPreventAbbreviationsRawOptions struct {
-  CheckProperties                  *bool           `json:"checkProperties"`
-  CheckVariables                   *bool           `json:"checkVariables"`
+  CheckProperties                 *bool           `json:"checkProperties"`
+  CheckVariables                  *bool           `json:"checkVariables"`
   CheckDefaultAndNamespaceImports json.RawMessage `json:"checkDefaultAndNamespaceImports"`
-  CheckShorthandImports            json.RawMessage `json:"checkShorthandImports"`
-  CheckShorthandProperties         *bool           `json:"checkShorthandProperties"`
-  CheckFilenames                   *bool           `json:"checkFilenames"`
-  ExtendDefaultReplacements        *bool           `json:"extendDefaultReplacements"`
+  CheckShorthandImports           json.RawMessage `json:"checkShorthandImports"`
+  CheckShorthandProperties        *bool           `json:"checkShorthandProperties"`
+  CheckFilenames                  *bool           `json:"checkFilenames"`
+  ExtendDefaultReplacements       *bool           `json:"extendDefaultReplacements"`
   Replacements                    json.RawMessage `json:"replacements"`
-  ExtendDefaultAllowList           *bool           `json:"extendDefaultAllowList"`
-  AllowList                        json.RawMessage `json:"allowList"`
-  Ignore                           json.RawMessage `json:"ignore"`
+  ExtendDefaultAllowList          *bool           `json:"extendDefaultAllowList"`
+  AllowList                       json.RawMessage `json:"allowList"`
+  Ignore                          json.RawMessage `json:"ignore"`
 }
 
 type unicornPreventAbbreviationsReplacementPatch struct {
@@ -175,8 +175,8 @@ var unicornPreventAbbreviationsDefaultReplacements = map[string][]string{
 
 var unicornPreventAbbreviationsDefaultAllowList = map[string]bool{
   "defaultProps":             true,
-  "devDependencies":         true,
-  "EmberENV":                true,
+  "devDependencies":          true,
+  "EmberENV":                 true,
   "getDerivedStateFromProps": true,
   "getInitialProps":          true,
   "getServerSideProps":       true,
@@ -254,12 +254,12 @@ func (unicornPreventAbbreviations) Check(ctx *Context, node *shimast.Node) {
 
 func decodeUnicornPreventAbbreviationsOptions(raw json.RawMessage) (unicornPreventAbbreviationsOptions, error) {
   options := unicornPreventAbbreviationsOptions{
-    checkVariables:                   true,
+    checkVariables:                  true,
     checkDefaultAndNamespaceImports: unicornPreventAbbreviationsImportInternal,
-    checkShorthandImports:            unicornPreventAbbreviationsImportInternal,
-    checkFilenames:                   true,
+    checkShorthandImports:           unicornPreventAbbreviationsImportInternal,
+    checkFilenames:                  true,
     replacements:                    cloneUnicornPreventAbbreviationsReplacements(unicornPreventAbbreviationsDefaultReplacements),
-    allowList:                        cloneUnicornPreventAbbreviationsAllowList(unicornPreventAbbreviationsDefaultAllowList),
+    allowList:                       cloneUnicornPreventAbbreviationsAllowList(unicornPreventAbbreviationsDefaultAllowList),
   }
   for _, pattern := range unicornPreventAbbreviationsDefaultIgnore {
     options.ignore = append(options.ignore, regexp.MustCompile(pattern))
@@ -279,17 +279,17 @@ func decodeUnicornPreventAbbreviationsOptions(raw json.RawMessage) (unicornPreve
   // The value marks boolean fields, whose pointer-backed decoding would
   // otherwise make an explicit null indistinguishable from omission.
   knownFields := map[string]bool{
-    "checkProperties":                  true,
-    "checkVariables":                   true,
+    "checkProperties":                 true,
+    "checkVariables":                  true,
     "checkDefaultAndNamespaceImports": false,
-    "checkShorthandImports":            false,
-    "checkShorthandProperties":         true,
-    "checkFilenames":                   true,
-    "extendDefaultReplacements":        true,
-    "replacements":                     false,
-    "extendDefaultAllowList":           true,
-    "allowList":                        false,
-    "ignore":                           false,
+    "checkShorthandImports":           false,
+    "checkShorthandProperties":        true,
+    "checkFilenames":                  true,
+    "extendDefaultReplacements":       true,
+    "replacements":                    false,
+    "extendDefaultAllowList":          true,
+    "allowList":                       false,
+    "ignore":                          false,
   }
   for name, value := range rawFields {
     boolean, known := knownFields[name]

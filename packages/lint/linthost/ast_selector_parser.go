@@ -614,7 +614,7 @@ func (p *astSelectorParser) skipSpace() bool {
   return p.offset != start
 }
 
-func (p *astSelectorParser) eof() bool { return p.offset >= len(p.source) }
+func (p *astSelectorParser) eof() bool  { return p.offset >= len(p.source) }
 func (p *astSelectorParser) peek() byte { return p.source[p.offset] }
 
 func (p *astSelectorParser) errorf(format string, args ...any) error {

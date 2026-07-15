@@ -147,8 +147,7 @@ callableMapped.catch(callableValue);
     ) {
       t.Fatalf("%s mapped constituent escaped the latent-type guard", marker)
     }
-    if got := floatingPromiseSignatureApplicability(prog.checker, call, signature);
-      got != floatingPromiseCallUncertain {
+    if got := floatingPromiseSignatureApplicability(prog.checker, call, signature); got != floatingPromiseCallUncertain {
       t.Fatalf("%s applicability = %d, want uncertain", marker, got)
     }
   }

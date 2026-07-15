@@ -557,9 +557,9 @@ func TestUnicornFilenameCaseUpstreamInvalidFilenames(t *testing.T) {
 // while leaving the untouched middle parts verbatim — `foo.SPEC.JS` keeps
 // `.SPEC` but fixes `.JS`.
 //
-// 1. Lint each snapshot filename.
-// 2. Assert the exact extension (or filename) message derived from the rule's
-//    upstream source.
+//  1. Lint each snapshot filename.
+//  2. Assert the exact extension (or filename) message derived from the rule's
+//     upstream source.
 func TestUnicornFilenameCaseExtensionLowercase(t *testing.T) {
   cases := []struct {
     file    string
@@ -689,10 +689,10 @@ func TestUnicornFilenameCaseIgnorePatternsMatchSegments(t *testing.T) {
 // the ESLint cwd by basename alone — so `Src` in an outside path must never be
 // reported.
 //
-// 1. Lint layouts with bad directories, `$` directories, and disabled
-//    directory checking.
-// 2. Lint project-rooted and outside-project absolute paths.
-// 3. Assert exactly the upstream-selected diagnostic for each.
+//  1. Lint layouts with bad directories, `$` directories, and disabled
+//     directory checking.
+//  2. Lint project-rooted and outside-project absolute paths.
+//  3. Assert exactly the upstream-selected diagnostic for each.
 func TestUnicornFilenameCaseDirectoryHandling(t *testing.T) {
   assertUnicornFilenameCaseMessage(
     t,
@@ -865,9 +865,9 @@ func TestUnicornFilenameCaseMultipleFileExtensionsOption(t *testing.T) {
 // ignored run that survives into rename samples unchanged. A name whose word
 // runs are all valid therefore passes even with accents between them.
 //
-// 1. Lint an accented lowercase name (valid) and its capitalized twin
-//    (invalid).
-// 2. Assert the rename sample preserves the accented characters.
+//  1. Lint an accented lowercase name (valid) and its capitalized twin
+//     (invalid).
+//  2. Assert the rename sample preserves the accented characters.
 func TestUnicornFilenameCaseUnicodeSegments(t *testing.T) {
   assertUnicornFilenameCaseValid(t, "src/résumé.js", "")
   assertUnicornFilenameCaseMessage(

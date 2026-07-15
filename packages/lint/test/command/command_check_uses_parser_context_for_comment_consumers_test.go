@@ -29,7 +29,7 @@ func TestCommandCheckUsesParserContextForCommentConsumers(t *testing.T) {
     "JSON.stringify([visible, active, value, answer]);\n"
   root := seedLintProjectFile(t, "main.tsx", source)
   seedLintRules(t, root, map[string]string{
-    "no-debugger": "error",
+    "no-debugger":               "error",
     "typescript/ban-ts-comment": "error",
   })
   code, stdout, stderr := captureCommandOutput(t, func() int {

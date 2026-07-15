@@ -318,10 +318,7 @@ function formatNames(names: string[]) {
 }
 ```
 
-The rule checks arrow functions by default. Set `checkArrowFunctions: false` in
-the rule options to restrict diagnostics to function declarations and function
-expressions. Functions that capture an enclosing binding, lexical `this`,
-`arguments`, `super`, or a private name remain in their current scope.
+The rule checks arrow functions by default. Set `checkArrowFunctions: false` in the rule options to restrict diagnostics to function declarations and function expressions. Functions that capture an enclosing binding, lexical `this`, `arguments`, `super`, or a private name remain in their current scope.
 
 <a id="rule-unicorn-consistent-template-literal-escape"></a>
 
@@ -1191,12 +1188,7 @@ const r = (() => Math.random())();
 
 Reject object properties that are never read after definition.
 
-The rule follows every reference to a variable bound to an object literal (or
-annotated with an inline `{...}` type, including function parameters) and
-reports the properties no reference can reach. Static accesses must name the
-key, destructuring must bind it, and matching references recurse into nested
-objects. Any escape — aliasing, passing, returning, spreading, exporting,
-mutating, or a dynamic key access — conservatively keeps every property.
+The rule follows every reference to a variable bound to an object literal (or annotated with an inline `{...}` type, including function parameters) and reports the properties no reference can reach. Static accesses must name the key, destructuring must bind it, and matching references recurse into nested objects. Any escape — aliasing, passing, returning, spreading, exporting, mutating, or a dynamic key access — conservatively keeps every property.
 
 Example:
 

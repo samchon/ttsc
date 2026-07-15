@@ -9,10 +9,10 @@ import "testing"
 // while no main-path block completes normally, leaving the case end
 // unreachable. Locks the three-block join of tryCompletion in one scenario.
 //
-// 1. End a case with a throwable call before `return`, a rethrowing catch, and
-//    a normally completing finally.
-// 2. Run the engine with no-fallthrough enabled.
-// 3. Assert zero findings.
+//  1. End a case with a throwable call before `return`, a rethrowing catch, and
+//     a normally completing finally.
+//  2. Run the engine with no-fallthrough enabled.
+//  3. Assert zero findings.
 func TestNoFallthroughAcceptsTerminatingTryAndCatchWithNormalFinally(t *testing.T) {
   assertNoFallthroughClean(t, `declare const foo: number;
 declare function maybeThrow(): void;

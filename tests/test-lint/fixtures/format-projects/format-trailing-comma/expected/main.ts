@@ -24,7 +24,4 @@ JSON.stringify({
 
 let received: number;
 let others: { timeout: number };
-({
-  received,
-  ...others
-} = { received: 1, timeout: 2 });
+({ received, ...others } = { received: 1, timeout: 2 });

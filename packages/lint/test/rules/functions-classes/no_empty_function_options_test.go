@@ -86,10 +86,10 @@ void [ordinary, expression, arrow, generator, generatorExpression,
 // to nearby function shapes.
 func TestNoEmptyFunctionTypeScriptExceptionsAndCategoryBoundaries(t *testing.T) {
   tests := []struct {
-    name    string
-    source  string
-    allow   []string
-    want    int
+    name   string
+    source string
+    allow  []string
+    want   int
   }{
     {
       name: "every parameter property constructor always has work",

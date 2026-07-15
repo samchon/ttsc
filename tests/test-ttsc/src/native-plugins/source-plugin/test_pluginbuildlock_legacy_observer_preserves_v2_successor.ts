@@ -139,9 +139,7 @@ export const test_pluginbuildlock_legacy_observer_preserves_v2_successor =
     assert.equal(reclaimed, false);
     assert.equal(afterStaleReclaim.state, "active");
     assert.deepEqual(
-      afterStaleReclaim.state === "active"
-        ? afterStaleReclaim.fence
-        : null,
+      afterStaleReclaim.state === "active" ? afterStaleReclaim.fence : null,
       successorLease,
     );
     assert.deepEqual(JSON.parse(fs.readFileSync(successorResult, "utf8")), {

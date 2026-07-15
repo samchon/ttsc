@@ -111,8 +111,8 @@ type ProjectRuleSetting struct {
 // states distinct lets wrappers preserve entry-local ignores: one entry may
 // reject a file while another matching entry still contributes rules.
 type ResolvedRuleConfig struct {
-  Rules           RuleConfig
-  Options         RuleOptionsMap
+  Rules   RuleConfig
+  Options RuleOptionsMap
   // OptionsResolved distinguishes an authoritative empty per-file option map
   // from a legacy custom resolver that still supplies options exclusively via
   // RuleResolver.RuleOptions.

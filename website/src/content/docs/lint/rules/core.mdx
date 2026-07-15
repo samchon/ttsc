@@ -1154,18 +1154,13 @@ import * as namespace from "unmergeable-namespace";
 
 ### `no-else-return`
 
-Reject an `else` block whose preceding `if` branch already ends in a `return`,
-so its body can be flattened into the surrounding scope for one less level of
-nesting. Only `return` counts as leaving the branch; `throw`, `break`, and
-`continue` keep the `else` in place.
+Reject an `else` block whose preceding `if` branch already ends in a `return`, so its body can be flattened into the surrounding scope for one less level of nesting. Only `return` counts as leaving the branch; `throw`, `break`, and `continue` keep the `else` in place.
 
 Options:
 
 - `allowElseIf?: boolean`
 
-  When `true` (the default), a `return` followed by an `else if` chain that does
-  not end in a plain `else` is left alone, so the common early-return chain
-  stays valid. Set it to `false` to also reject the `else if`. Default: `true`.
+  When `true` (the default), a `return` followed by an `else if` chain that does not end in a plain `else` is left alone, so the common early-return chain stays valid. Set it to `false` to also reject the `else if`. Default: `true`.
 
 Example:
 
@@ -1194,16 +1189,13 @@ function classifySign(n: number): string {
 
 ### `no-empty`
 
-Reject empty blocks and switches that have no interior comment. Empty catch
-clauses are reported by default; set `allowEmptyCatch` to `true` when silently
-ignoring caught errors is an established project convention.
+Reject empty blocks and switches that have no interior comment. Empty catch clauses are reported by default; set `allowEmptyCatch` to `true` when silently ignoring caught errors is an established project convention.
 
 Options:
 
 - `allowEmptyCatch?: boolean`
 
-  Accept uncommented empty catch clauses while continuing to report every
-  other uncommented empty block. Default: `false`.
+  Accept uncommented empty catch clauses while continuing to report every other uncommented empty block. Default: `false`.
 
 Example:
 
@@ -1229,10 +1221,7 @@ export default {
 
 ### `no-empty-character-class`
 
-Reject non-negated empty regex character classes (`[]`), including nested
-classes in Unicode Sets (`v`) mode. An empty class never matches a character,
-so its containing alternative cannot match through that class; the negated
-form `[^]` matches any character and is allowed.
+Reject non-negated empty regex character classes (`[]`), including nested classes in Unicode Sets (`v`) mode. An empty class never matches a character, so its containing alternative cannot match through that class; the negated form `[^]` matches any character and is allowed.
 
 Example:
 
@@ -1245,20 +1234,13 @@ const r = /[]/;
 
 ### `no-empty-function`
 
-Reject empty function bodies that have no interior comment. The `allow` option
-accepts the same function, arrow, generator, method, accessor, constructor,
-async, decorator, and override categories as ESLint. TypeScript parameter-property
-constructors are always accepted because their parameters initialize fields.
+Reject empty function bodies that have no interior comment. The `allow` option accepts the same function, arrow, generator, method, accessor, constructor, async, decorator, and override categories as ESLint. TypeScript parameter-property constructors are always accepted because their parameters initialize fields.
 
 Options:
 
 - `allow?: TtscLintCoreNoEmptyFunctionAllow[]`
 
-  Accept the selected categories: `functions`, `arrowFunctions`,
-  `generatorFunctions`, `methods`, `generatorMethods`, `getters`, `setters`,
-  `constructors`, `asyncFunctions`, `asyncMethods`, `privateConstructors`,
-  `protectedConstructors`, `decoratedFunctions`, and `overrideMethods`.
-  Default: `[]`.
+  Accept the selected categories: `functions`, `arrowFunctions`, `generatorFunctions`, `methods`, `generatorMethods`, `getters`, `setters`, `constructors`, `asyncFunctions`, `asyncMethods`, `privateConstructors`, `protectedConstructors`, `decoratedFunctions`, and `overrideMethods`. Default: `[]`.
 
 Example:
 
@@ -1318,8 +1300,7 @@ f({ a: 1 });
 
 ### `no-empty-static-block`
 
-Reject empty `static {}` class initialization blocks unless an interior comment
-documents why the block is intentionally empty.
+Reject empty `static {}` class initialization blocks unless an interior comment documents why the block is intentionally empty.
 
 Example:
 
@@ -1949,15 +1930,9 @@ const s: string = "\251";
 
 ### `no-param-reassign`
 
-Reject writes to a function parameter binding, including destructured
-parameters and writes from nested closures. Shadowing locals are independent
-bindings and are not reported.
+Reject writes to a function parameter binding, including destructured parameters and writes from nested closures. Shadowing locals are independent bindings and are not reported.
 
-Property mutations (`param.foo = ...`) are accepted by default. Set `props` to
-`true` to report them. With `props: true`,
-`ignorePropertyModificationsFor` accepts exact parameter names and
-`ignorePropertyModificationsForRegex` accepts regular-expression strings for
-parameters whose property writes should remain allowed.
+Property mutations (`param.foo = ...`) are accepted by default. Set `props` to `true` to report them. With `props: true`, `ignorePropertyModificationsFor` accepts exact parameter names and `ignorePropertyModificationsForRegex` accepts regular-expression strings for parameters whose property writes should remain allowed.
 
 Example:
 
@@ -2083,25 +2058,16 @@ const r = /a  b/;
 
 ### `no-restricted-imports`
 
-Reject static imports and re-exports selected by user-configured exact paths,
-gitignore-style groups, or regular expressions. A severity-only setting, an
-empty `paths` list, and an empty `patterns` list are all no-ops; the rule never
-infers a project denylist.
+Reject static imports and re-exports selected by user-configured exact paths, gitignore-style groups, or regular expressions. A severity-only setting, an empty `paths` list, and an empty `patterns` list are all no-ops; the rule never infers a project denylist.
 
-Exact-path and structured-pattern entries can restrict or allow selected source
-names, append a custom message, and permit type-only imports and re-exports.
-Pattern entries also support case-sensitive matching and source-name regular
-expressions.
+Exact-path and structured-pattern entries can restrict or allow selected source names, append a custom message, and permit type-only imports and re-exports. Pattern entries also support case-sensitive matching and source-name regular expressions.
 
 Options:
 
 - `paths?: (string | { name, message?, importNames?, allowImportNames?, allowTypeImports? })[]`
 - `patterns?: string[] | ({ group } | { regex })[]`
 
-  Structured pattern entries also accept `message`, `caseSensitive`,
-  `importNames`, `allowImportNames`, `importNamePattern`,
-  `allowImportNamePattern`, and `allowTypeImports`. Each entry uses either
-  deny-name controls or allow-name controls, not both.
+  Structured pattern entries also accept `message`, `caseSensitive`, `importNames`, `allowImportNames`, `importNamePattern`, `allowImportNamePattern`, and `allowTypeImports`. Each entry uses either deny-name controls or allow-name controls, not both.
 
 Example:
 
@@ -2145,9 +2111,7 @@ export default {
 
 ### `no-restricted-syntax`
 
-Reject only syntax matching selectors supplied after the severity. The rule has
-no default denylist: `"no-restricted-syntax": "error"` and
-`["error"]` are both silent.
+Reject only syntax matching selectors supplied after the severity. The rule has no default denylist: `"no-restricted-syntax": "error"` and `["error"]` are both silent.
 
 ```ts
 export default {
@@ -2168,43 +2132,17 @@ export default {
 The selector grammar follows esquery and supports:
 
 - native TypeScript-Go node kinds without the `Kind` prefix, plus `*`;
-- attribute presence, equality/inequality, numeric comparisons,
-  `type(...)`, nested paths, and `/pattern/imsu` regular expressions;
-- child (`>`), descendant (space), following-sibling (`~`), and adjacent
-  (`+`) combinators;
-- `:not`, `:is`/`:matches`, `:has`, `:first-child`, `:last-child`,
-  `:nth-child(n)`, `:nth-last-child(n)`, and `!` subjects;
-- the `:statement`, `:expression`, `:declaration`, `:function`, and
-  `:pattern` classes; and
+- attribute presence, equality/inequality, numeric comparisons, `type(...)`, nested paths, and `/pattern/imsu` regular expressions;
+- child (`>`), descendant (space), following-sibling (`~`), and adjacent (`+`) combinators;
+- `:not`, `:is`/`:matches`, `:has`, `:first-child`, `:last-child`, `:nth-child(n)`, `:nth-last-child(n)`, and `!` subjects;
+- the `:statement`, `:expression`, `:declaration`, `:function`, and `:pattern` classes; and
 - field selectors such as `FunctionDeclaration > Identifier.id`.
 
-Native names are case-insensitive. Supported ESTree aliases are `Program`,
-`ArrowFunctionExpression`, `ObjectExpression`, `ArrayExpression`,
-`ObjectPattern`, `ArrayPattern`, `VariableDeclarator`, `MemberExpression`,
-`AssignmentExpression`,
-`LogicalExpression`, `UpdateExpression`, `UnaryExpression`, `Literal`,
-`Property`, `SpreadElement`, `RestElement`, `ThisExpression`, `Super`,
-`TemplateLiteral`, and the
-`TSAsExpression`/`TSTypeAssertion`/`TSSatisfiesExpression`/
-`TSNonNullExpression` family are aliases for their TypeScript-Go equivalents.
+Native names are case-insensitive. Supported ESTree aliases are `Program`, `ArrowFunctionExpression`, `ObjectExpression`, `ArrayExpression`, `ObjectPattern`, `ArrayPattern`, `VariableDeclarator`, `MemberExpression`, `AssignmentExpression`, `LogicalExpression`, `UpdateExpression`, `UnaryExpression`, `Literal`, `Property`, `SpreadElement`, `RestElement`, `ThisExpression`, `Super`, `TemplateLiteral`, and the `TSAsExpression`/`TSTypeAssertion`/`TSSatisfiesExpression`/ `TSNonNullExpression` family are aliases for their TypeScript-Go equivalents.
 
-Attribute paths expose `type`, `name`, `value`/`raw`, `operator`, variable
-`kind`, `async`, `generator`, `static`, `readonly`, `declare`, `optional`,
-`computed`, `prefix`, and the usual structural fields (`id`, `params`, `body`,
-`callee`, `arguments`, `object`, `property`, `left`, `right`, `argument`, `expression`,
-`test`, `consequent`, `alternate`, `init`, `update`, `declarations`, `elements`,
-`members`, `properties`, `key`, `source`, and `statements`). Regular expressions use Go's
-linear-time RE2 syntax; `i`, `m`, and `s` change matching and `u` is accepted as
-an explicit no-op because Go strings are already UTF-8. Numeric segments index
-node-list paths, so selectors such as `[params.0.name='value']` are supported.
-Boolean properties are absent on node kinds that do not define them, rather
-than appearing as a synthetic `false` on every node.
+Attribute paths expose `type`, `name`, `value`/`raw`, `operator`, variable `kind`, `async`, `generator`, `static`, `readonly`, `declare`, `optional`, `computed`, `prefix`, and the usual structural fields (`id`, `params`, `body`, `callee`, `arguments`, `object`, `property`, `left`, `right`, `argument`, `expression`, `test`, `consequent`, `alternate`, `init`, `update`, `declarations`, `elements`, `members`, `properties`, `key`, `source`, and `statements`). Regular expressions use Go's linear-time RE2 syntax; `i`, `m`, and `s` change matching and `u` is accepted as an explicit no-op because Go strings are already UTF-8. Numeric segments index node-list paths, so selectors such as `[params.0.name='value']` are supported. Boolean properties are absent on node kinds that do not define them, rather than appearing as a synthetic `false` on every node.
 
-Tree descent and parent relationships use TypeScript-Go's `ForEachChild` and
-`Parent` surfaces. Sibling and child-position selectors stay within one of the
-exposed node-list fields above, matching esquery's array-field semantics. This
-makes TypeScript-only nodes selectable without constructing or monkeypatching
-a second ESTree.
+Tree descent and parent relationships use TypeScript-Go's `ForEachChild` and `Parent` surfaces. Sibling and child-position selectors stay within one of the exposed node-list fields above, matching esquery's array-field semantics. This makes TypeScript-only nodes selectable without constructing or monkeypatching a second ESTree.
 
 Example:
 

@@ -10,11 +10,11 @@ import "testing"
 // including the recursion-through-hoisted-name report the upstream scope
 // model mandates.
 //
-// 1. Run the annotated fixture source with a real Program and checker.
-// 2. Assert the captured references, the hoisted-name recursion, and the
-//    `this` usage are reported with their isolation reasons.
-// 3. Assert the clean twin using parameters, locals, and ambient globals
-//    stays silent.
+//  1. Run the annotated fixture source with a real Program and checker.
+//  2. Assert the captured references, the hoisted-name recursion, and the
+//     `this` usage are reported with their isolation reasons.
+//  3. Assert the clean twin using parameters, locals, and ambient globals
+//     stays silent.
 func TestRuleCorpusUnicornIsolatedFunctions(t *testing.T) {
   source := `declare function makeSynchronous<T>(fn: T): T;
 

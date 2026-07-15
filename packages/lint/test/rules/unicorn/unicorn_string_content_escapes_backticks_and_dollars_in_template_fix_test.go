@@ -14,7 +14,7 @@ import "testing"
 //  1. Fix templates whose replacements contain backticks, `${...}` text, and
 //     a `{`-completing suffix after both bare and escaped dollars.
 //  2. Compare each rewritten source with the upstream oracle.
-//  3. Assert an already-escaped `` \` `` template stays silent under a
+//  3. Assert an already-escaped “ \` “ template stays silent under a
 //     non-matching pattern (no double escaping ever happens).
 func TestUnicornStringContentEscapesBackticksAndDollarsInTemplateFix(t *testing.T) {
   cases := []struct {

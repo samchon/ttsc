@@ -12,10 +12,10 @@ import "testing"
 // the bare marker or `marker - ` / `marker -- ` prefixes; the comment must be
 // the token immediately before the (possibly hoisted) declaration.
 //
-// 1. Assert declaration, arrow, inline, block, multiline-JSDoc, explanation,
-//    export const/default, object method, and object property forms report.
-// 2. Assert a non-matching marker and a marker separated by another statement
-//    stay clean.
+//  1. Assert declaration, arrow, inline, block, multiline-JSDoc, explanation,
+//     export const/default, object method, and object property forms report.
+//  2. Assert a non-matching marker and a marker separated by another statement
+//     stay clean.
 func TestUnicornIsolatedFunctionsComments(t *testing.T) {
   reason := `follows comment "@isolated"`
   captured := func(line int) unicornIsolatedFunctionsFinding {

@@ -43,9 +43,9 @@ type noLoopFuncAnalysis struct {
   skippedIIFEs           map[*shimast.Node]struct{}
 }
 
-func (noLoopFunc) Name() string             { return "no-loop-func" }
-func (noLoopFunc) NeedsTypeChecker() bool   { return true }
-func (noLoopFunc) Visits() []shimast.Kind   { return []shimast.Kind{shimast.KindSourceFile} }
+func (noLoopFunc) Name() string           { return "no-loop-func" }
+func (noLoopFunc) NeedsTypeChecker() bool { return true }
+func (noLoopFunc) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (noLoopFunc) Check(ctx *Context, node *shimast.Node) {
   if ctx.Checker == nil || node == nil {
     return

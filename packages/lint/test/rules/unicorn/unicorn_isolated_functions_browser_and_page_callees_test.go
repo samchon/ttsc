@@ -11,11 +11,11 @@ import "testing"
 // chaining, and must reject computed member access, other receivers, and
 // later argument positions.
 //
-// 1. Assert captures in the first argument of browser.execute and
-//    page.evaluate (plain and optional-chained) are reported.
-// 2. Assert frame.evaluate, computed page["evaluate"], and second arguments
-//    stay clean.
-// 3. Re-run with functions [] and assert the built-in shapes still report.
+//  1. Assert captures in the first argument of browser.execute and
+//     page.evaluate (plain and optional-chained) are reported.
+//  2. Assert frame.evaluate, computed page["evaluate"], and second arguments
+//     stay clean.
+//  3. Re-run with functions [] and assert the built-in shapes still report.
 func TestUnicornIsolatedFunctionsBrowserAndPageCallees(t *testing.T) {
   source := `declare const browser: { execute(...args: unknown[]): unknown };
 declare const page: { evaluate(...args: unknown[]): unknown };

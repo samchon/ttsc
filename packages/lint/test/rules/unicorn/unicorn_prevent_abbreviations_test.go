@@ -488,7 +488,7 @@ func TestUnicornPreventAbbreviationsRecognizesOnlyCanonicalStaticRequireCalls(t 
         unicornPreventAbbreviationsRuleName,
         source,
         `{"checkDefaultAndNamespaceImports":false}`,
-        "declare function require(...values: unknown[]): unknown;\nconst error = " + testCase.initializer + ";\nvoid error;\n",
+        "declare function require(...values: unknown[]): unknown;\nconst error = "+testCase.initializer+";\nvoid error;\n",
       )
     })
   }

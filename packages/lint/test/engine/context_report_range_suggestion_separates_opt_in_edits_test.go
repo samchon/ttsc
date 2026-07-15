@@ -8,8 +8,8 @@ import (
 
 type reportRangeSuggestionTestRule struct{}
 
-func (reportRangeSuggestionTestRule) Name() string              { return "test/range-suggestion" }
-func (reportRangeSuggestionTestRule) Visits() []shimast.Kind    { return nil }
+func (reportRangeSuggestionTestRule) Name() string                  { return "test/range-suggestion" }
+func (reportRangeSuggestionTestRule) Visits() []shimast.Kind        { return nil }
 func (reportRangeSuggestionTestRule) Check(*Context, *shimast.Node) {}
 
 // TestContextReportRangeSuggestionSeparatesOptInEdits verifies the explicit

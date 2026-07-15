@@ -141,12 +141,10 @@ genericContextual<"narrow">(() => "narrow");
     t.Fatal("original callback context did not widen the literal return to string")
   }
 
-  if got := floatingPromiseSignatureApplicability(prog.checker, contextualExpression, signatures[0]);
-    got != floatingPromiseCallUncertain {
+  if got := floatingPromiseSignatureApplicability(prog.checker, contextualExpression, signatures[0]); got != floatingPromiseCallUncertain {
     t.Fatalf("literal-return candidate applicability = %d, want uncertain", got)
   }
-  if got := floatingPromiseSignatureApplicability(prog.checker, contextualExpression, signatures[1]);
-    got != floatingPromiseCallApplicable {
+  if got := floatingPromiseSignatureApplicability(prog.checker, contextualExpression, signatures[1]); got != floatingPromiseCallApplicable {
     t.Fatalf("safe concrete candidate applicability = %d, want applicable", got)
   }
   ctx := &Context{File: file, Checker: prog.checker, CurrentDirectory: root}

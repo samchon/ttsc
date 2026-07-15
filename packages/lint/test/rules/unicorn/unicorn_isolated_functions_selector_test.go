@@ -11,9 +11,9 @@ import "testing"
 // the selector against the tree and attaches the reason in option order. The
 // reason string is the JSON-quoted selector source, combinators included.
 //
-// 1. Isolate `FunctionDeclaration[id.name=/lambdaHandler.*/]` and assert the
-//    matching declaration's captured `foo` is reported.
-// 2. Assert the non-matching declaration's identical capture stays clean.
+//  1. Isolate `FunctionDeclaration[id.name=/lambdaHandler.*/]` and assert the
+//     matching declaration's captured `foo` is reported.
+//  2. Assert the non-matching declaration's identical capture stays clean.
 func TestUnicornIsolatedFunctionsSelector(t *testing.T) {
   source := `const foo = "hi";
 

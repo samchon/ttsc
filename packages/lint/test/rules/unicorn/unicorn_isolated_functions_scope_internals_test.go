@@ -13,9 +13,9 @@ import "testing"
 // isolated scope, so a resolved inner binding (including a shadow of an outer
 // name) must stay silent. An over-match here would fire on ordinary code.
 //
-// 1. Exercise nested closure/function, object-method params+locals+global,
-//    destructuring params, and a shadowing local.
-// 2. Assert nothing is reported.
+//  1. Exercise nested closure/function, object-method params+locals+global,
+//     destructuring params, and a shadowing local.
+//  2. Assert nothing is reported.
 func TestUnicornIsolatedFunctionsScopeInternals(t *testing.T) {
   source := `declare function makeSynchronous<T>(fn: T): T;
 

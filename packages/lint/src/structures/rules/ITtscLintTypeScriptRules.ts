@@ -73,9 +73,8 @@ export interface ITtscLintTypeScriptRules {
    * followed by a description of at least three characters. Each directive is
    * individually configurable as `boolean`, `"allow-with-description"`, or `{
    * descriptionFormat }`, with `minimumDescriptionLength` governing the
-   * description-required forms.
-   * Banned `@ts-ignore` findings offer replacement with `@ts-expect-error` only
-   * as an opt-in editor suggestion.
+   * description-required forms. Banned `@ts-ignore` findings offer replacement
+   * with `@ts-expect-error` only as an opt-in editor suggestion.
    *
    * @reference https://typescript-eslint.io/rules/ban-ts-comment
    */
