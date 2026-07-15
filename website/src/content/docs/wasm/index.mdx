@@ -105,6 +105,7 @@ For the base endpoints, `raw.result` is a JSON string. Use `parseResult<T>` at t
 - `host.readFileText` reads emitted or transformed virtual files if your plugin writes into the MemFS.
 - `host.stdout.buffer` and `host.stderr.buffer` capture direct writes to fd 1 and fd 2. Call `host.resetStdio()` when you intentionally inspect those buffers across separate runs.
 - The filesystem is memory-only. Recreate the project tree from UI state before each compile, or serialize calls that mutate the same paths.
+- Mutations enforce POSIX-style invariants: renaming a directory moves its whole subtree (and follows open descriptors), `rmdir` requires an empty directory, `unlink` refuses directories, and `truncate`/`ftruncate` resize file bytes — zero-filling any growth — or reject an invalid path, descriptor, or length. A mutation that cannot satisfy its contract returns an error instead of partially changing the tree.
 - Symlinks and hardlinks are intentionally unsupported. Treat the project as a flat virtual workspace.
 
 The ttsc.dev playground writes one `/work` project per request, serializes all compile/lint/bundle calls, and reuses a single booted wasm for the whole Worker lifetime.
@@ -247,6 +248,7 @@ GOOS=js GOARCH=wasm go build -trimpath \
 | `Go is not defined` | `wasm_exec.js` was not loaded. Check `wasmExecUrl`; the default is the same directory as `wasmUrl`. |
 | `importScripts is not defined` | The worker was emitted as a module worker or the code ran on the main thread. Use a classic Worker-style bundle. |
 | `global was not set` | `apiName` does not match the name passed to `host.Expose`, or the wasm panicked before registering. |
+| Boot rejects with `exited before signaling readiness` | The Go host exited or panicked before calling `Ready` — often a `host.Expose` misconfiguration such as duplicate plugin names. `bootTtsc` now rejects with the cause instead of hanging forever; check the wasm stderr. |
 | `failed to fetch` | The `.wasm` URL is wrong, blocked by CORS, or not copied into the static output. |
 | `WebAssembly.instantiateStreaming` fails | Serve `.wasm` with `Content-Type: application/wasm`. |
 | The page locks up | Booted wasm on the main thread. Move it into a Worker. |

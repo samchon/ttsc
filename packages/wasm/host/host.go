@@ -81,7 +81,19 @@ func Expose(apiName string, cfg Config) {
       continue
     }
     if _, dup := plugins[name]; dup {
-      panic(fmt.Sprintf("host.Expose: duplicate plugin name %q", name))
+      // A duplicate plugin name is a host-configuration error, but panicking
+      // here would terminate the Go runtime before any Ready/Failed signal is
+      // installed, leaving bootTtsc's `await ready` pending forever with no
+      // observable cause. Mirror the double-Expose path: surface the cause via
+      // console.error + the JS-visible Failed bridge, then return without
+      // starting the keepalive runtime so the boot rejects with the real
+      // reason instead of a generic "exited before readiness" error.
+      msg := fmt.Sprintf("host.Expose: duplicate plugin name %q", name)
+      fmt.Fprintln(os.Stderr, msg)
+      if failed := js.Global().Get(apiName + "Failed"); failed.Type() == js.TypeFunction {
+        failed.Invoke(js.Global().Get("Error").New(msg))
+      }
+      return
     }
     plugins[name] = p
     pluginNames = append(pluginNames, name)
