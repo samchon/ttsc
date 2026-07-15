@@ -248,9 +248,14 @@ func applyRewrites(outputName, text string, rs *RewriteSet, cursors map[string]i
   pos := cursors[srcPath]
   out := text
   searchFrom := 0
+  aliasesByRoot := map[string][]string{}
   for pos < len(rewrites) {
     r := rewrites[pos]
-    aliases := rewriteAliases(r, emittedBindings)
+    aliases, cached := aliasesByRoot[r.RootName]
+    if !cached {
+      aliases = rewriteAliases(r, emittedBindings)
+      aliasesByRoot[r.RootName] = aliases
+    }
     replaced, nextSearchFrom, ok, err := spliceCallWithAliases(out, r, aliases, searchFrom)
     if err != nil {
       return "", err
