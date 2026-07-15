@@ -67,6 +67,41 @@ function copyDirectory(from: string, to: string): void {
   fs.cpSync(from, to, { recursive: true });
 }
 
+/**
+ * List the content-keyed plugin-binary directories under a plugin cache root,
+ * excluding the lock-coordination directories `buildSourcePlugin` leaves beside
+ * them.
+ *
+ * A source-plugin build creates the PERSISTENT `<key>.lock.v2` coordination
+ * directory (and can leave `<key>.lock` / `<key>.lock.retired-*` tombstones) as
+ * SIBLINGS of the `<key>` binary directory. ttsc's own cache GC
+ * (`buildSourcePlugin.ts::collectPluginCacheEntries`) skips exactly these when
+ * it enumerates cache entries, so a test that counts cache entries must do the
+ * same. Otherwise the persistent v2 lock directory is miscounted as a second
+ * content-keyed binary and a one-plugin build looks like two.
+ */
+function pluginCacheEntryDirs(pluginCacheRoot: string): string[] {
+  return fs
+    .readdirSync(pluginCacheRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && isPluginCacheEntryDir(entry.name))
+    .map((entry) => entry.name);
+}
+
+/**
+ * Report whether a directory name under the plugin cache root is a
+ * content-keyed binary entry rather than a lock-coordination sibling. Mirrors
+ * the `.lock`-family exclusion in
+ * `buildSourcePlugin.ts::collectPluginCacheEntries`; the `scratch-` guard is a
+ * legacy carry-over from when build scratch dirs lived under the cache root.
+ */
+function isPluginCacheEntryDir(name: string): boolean {
+  return (
+    !name.startsWith("scratch-") &&
+    !name.endsWith(".lock") &&
+    !name.includes(".lock.")
+  );
+}
+
 function writeRelativePackagePlugin(
   root: string,
   name: string,
@@ -227,6 +262,7 @@ export {
   parseDiagnostics,
   parseExpectations,
   path,
+  pluginCacheEntryDirs,
   pluginProject,
   REQUIRE_FROM_TEST as requireFromTest,
   setupLintProject,
