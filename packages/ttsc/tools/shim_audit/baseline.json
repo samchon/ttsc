@@ -698,17 +698,16 @@
     "FUNC|transformers|MoveRangePastModifiers"
   ],
   "producer_exemptions": {
-    "ast.Expression": "AST expressions are views of parser or NodeFactory-produced nodes, reached through the exported Node conversion surface.",
-    "ast.Identifier": "Identifiers are views of parser or NodeFactory-produced nodes, reached through the exported Node conversion surface.",
-    "ast.ObjectLiteralExpression": "Object literals are views of parser or NodeFactory-produced nodes, reached through the exported Node conversion surface.",
-    "ast.PropertyAssignment": "Property assignments are views of parser or NodeFactory-produced nodes, reached through the exported Node conversion surface.",
+    "ast.FileReference": "File references are caller-owned value records and are also available from parser-produced SourceFile directive fields.",
     "checker.Tracer": "NewChecker accepts nil when tracing is disabled; a non-nil tracer is an optional host-owned facility.",
-    "collections.OrderedMap": "These configuration APIs accept nil for the optional raw-options map; populated maps are owned by the compiler configuration host.",
+    "checker.VerbosityContext": "Checker formatting methods accept nil for default output; non-nil verbosity state is optional caller-owned formatting context.",
     "core.BuildOptions": "Build options are caller-owned configuration data that can be allocated through the exported type alias.",
-    "core.CompilerOptions": "Compiler options are caller-owned configuration data that can be allocated through the exported type alias.",
-    "core.TypeAcquisition": "Type-acquisition options are caller-owned configuration data that can be allocated through the exported type alias.",
+    "core.ParsedOptions": "SetParsedOptions is an upstream mutation hook on ParsedCommandLine; shim consumers obtain populated commands from the exported parse operations instead.",
     "core.WatchOptions": "Watch options are caller-owned configuration data that can be allocated through the exported type alias.",
     "lsp.ServerOptions": "Server options are caller-owned configuration data that can be allocated through the exported type alias.",
-    "scanner.SkipTriviaOptions": "Trivia options are caller-owned configuration data that can be allocated through the exported type alias."
+    "lsp/lsproto.FileSystemWatcher": "WatchFiles receives protocol payloads owned by the LSP host; plugin callers do not construct the internal transport type.",
+    "lsp/lsproto.PublishDiagnosticsParams": "PublishDiagnostics receives protocol payloads owned by the LSP host; plugin callers do not construct the internal transport type.",
+    "scanner.SkipTriviaOptions": "Trivia options are caller-owned configuration data that can be allocated through the exported type alias.",
+    "sourcemap.Generator": "Printer.Write is an upstream emit hook whose generator is compiler-owned; plugin emit uses the exported compiler and printer entry points."
   }
 }

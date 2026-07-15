@@ -673,6 +673,8 @@ func main() {
   }
 
   findings, pool := analyze(r, inner)
+  addExposedMethodFlow(r, inner, producerSurface)
+  producerSurface = canonicalizeProducerSurface(producerSurface, inner)
   findings = dedupe(append(findings, producerFindings(producerSurface)...))
 
   switch {
@@ -706,6 +708,149 @@ func producerFindings(surface producerSurface) []finding {
     })
   }
   return dedupe(findings)
+}
+
+func canonicalizeProducerSurface(surface producerSurface, inner map[string]*packages.Package) producerSurface {
+  canonical := newProducerSurface()
+  copyDirection := func(direction flowDirection, flows map[flowType]map[string]bool) {
+    for typ, operations := range flows {
+      typ = canonicalFlowType(typ, inner)
+      for operation := range operations {
+        canonical.add(direction, typ, operation)
+      }
+    }
+  }
+  copyDirection(flowConsume, surface.consumed)
+  copyDirection(flowProduce, surface.produced)
+  return canonical
+}
+
+func canonicalFlowType(typ flowType, inner map[string]*packages.Package) flowType {
+  pkg := inner[typ.pkg]
+  if pkg == nil || pkg.Types == nil {
+    return typ
+  }
+  named, ok := pkg.Types.Scope().Lookup(typ.name).(*types.TypeName)
+  if !ok {
+    return typ
+  }
+  if pkgSuffix, name, ok := namedInfo(types.Unalias(named.Type())); ok {
+    return flowType{pkg: pkgSuffix, name: name}
+  }
+  return typ
+}
+
+// addExposedMethodFlow covers the method set published automatically by each
+// exposed type alias. Those methods do not appear as declarations in shim
+// source, but their receiver, parameter, callback, and result flows are part of
+// the same public surface as hand-written package wrappers.
+func addExposedMethodFlow(r reachable, inner map[string]*packages.Package, surface producerSurface) {
+  for suffix, pkg := range inner {
+    scope := pkg.Types.Scope()
+    for _, name := range scope.Names() {
+      typeName, ok := scope.Lookup(name).(*types.TypeName)
+      if !ok || !r.has(suffix, name) {
+        continue
+      }
+      exposed := types.Unalias(typeName.Type())
+      named, ok := exposed.(*types.Named)
+      if !ok {
+        continue
+      }
+      receiver := types.Type(named)
+      if _, isInterface := named.Underlying().(*types.Interface); !isInterface {
+        receiver = types.NewPointer(named)
+      }
+      methods := types.NewMethodSet(receiver)
+      for i := 0; i < methods.Len(); i++ {
+        method, ok := methods.At(i).Obj().(*types.Func)
+        if !ok || !method.Exported() {
+          continue
+        }
+        signature := method.Signature()
+        operation := suffix + "." + name + "." + method.Name()
+        // The receiver is the exposed object whose usable operations the shim
+        // is describing, not a new input edge. Track only explicit method
+        // parameters and returns; promoted declaring receivers can be embedded
+        // implementation details that callers never manufacture directly.
+        collectGoTupleFlow(signature.Params(), flowConsume, operation, surface)
+        collectGoTupleFlow(signature.Results(), flowProduce, operation, surface)
+      }
+    }
+  }
+}
+
+func collectGoTupleFlow(tuple *types.Tuple, direction flowDirection, operation string, surface producerSurface) {
+  collectGoTupleFlowSeen(tuple, direction, operation, surface, map[flowVisit]bool{})
+}
+
+type flowVisit struct {
+  typ         types.Type
+  direction   flowDirection
+  pointerLike bool
+}
+
+func collectGoTupleFlowSeen(tuple *types.Tuple, direction flowDirection, operation string, surface producerSurface, seen map[flowVisit]bool) {
+  if tuple == nil {
+    return
+  }
+  for i := 0; i < tuple.Len(); i++ {
+    collectGoTypeFlowSeen(tuple.At(i).Type(), direction, false, operation, surface, seen)
+  }
+}
+
+func collectGoTypeFlow(typ types.Type, direction flowDirection, pointerLike bool, operation string, surface producerSurface) {
+  collectGoTypeFlowSeen(typ, direction, pointerLike, operation, surface, map[flowVisit]bool{})
+}
+
+func collectGoTypeFlowSeen(typ types.Type, direction flowDirection, pointerLike bool, operation string, surface producerSurface, seen map[flowVisit]bool) {
+  visit := flowVisit{typ: typ, direction: direction, pointerLike: pointerLike}
+  if seen[visit] {
+    return
+  }
+  seen[visit] = true
+  switch current := typ.(type) {
+  case *types.Alias:
+    collectGoTypeFlowSeen(types.Unalias(current), direction, pointerLike, operation, surface, seen)
+  case *types.Pointer:
+    collectGoTypeFlowSeen(current.Elem(), direction, true, operation, surface, seen)
+  case *types.Slice:
+    collectGoTypeFlowSeen(current.Elem(), direction, pointerLike, operation, surface, seen)
+  case *types.Array:
+    collectGoTypeFlowSeen(current.Elem(), direction, pointerLike, operation, surface, seen)
+  case *types.Map:
+    collectGoTypeFlowSeen(current.Key(), direction, pointerLike, operation, surface, seen)
+    collectGoTypeFlowSeen(current.Elem(), direction, pointerLike, operation, surface, seen)
+  case *types.Chan:
+    collectGoTypeFlowSeen(current.Elem(), direction, pointerLike, operation, surface, seen)
+  case *types.Signature:
+    collectGoTupleFlowSeen(current.Params(), opposite(direction), operation, surface, seen)
+    collectGoTupleFlowSeen(current.Results(), direction, operation, surface, seen)
+  case *types.Interface:
+    current.Complete()
+    for i := 0; i < current.NumMethods(); i++ {
+      signature, ok := current.Method(i).Type().(*types.Signature)
+      if !ok {
+        continue
+      }
+      collectGoTupleFlowSeen(signature.Params(), opposite(direction), operation, surface, seen)
+      collectGoTupleFlowSeen(signature.Results(), direction, operation, surface, seen)
+    }
+  case *types.Named:
+    if pointerLike {
+      if pkg, name, ok := namedInfo(current); ok {
+        surface.add(direction, flowType{pkg: pkg, name: name}, operation)
+      }
+    }
+    if args := current.TypeArgs(); args != nil {
+      for i := 0; i < args.Len(); i++ {
+        collectGoTypeFlowSeen(args.At(i), direction, false, operation, surface, seen)
+      }
+    }
+    if underlying, ok := current.Underlying().(*types.Interface); ok {
+      collectGoTypeFlowSeen(underlying, direction, false, operation, surface, seen)
+    }
+  }
 }
 
 // analyze runs the upstream closure checks plus the unexported demand-pool scan and
