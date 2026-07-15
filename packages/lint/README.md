@@ -218,7 +218,7 @@ Source: [ESLint core rules](https://eslint.org/docs/latest/rules/).
 - [`for-direction`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/for-direction.ts): catches loop counters updated in the wrong direction.
 - [`getter-return`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/getter-return.ts): require a `get` accessor's body to return a value on every reachable exit.
 - [`grouped-accessor-pairs`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/grouped-accessor-pairs.ts): require the `get` and `set` accessors of a property to be declared adjacent in the class body.
-- [`guard-for-in`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/guard-for-in.ts): require `for...in` bodies to guard against inherited keys with `Object.hasOwn` or `Object.prototype.hasOwnProperty.call`.
+- [`guard-for-in`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/guard-for-in.ts): require a `for...in` body to be wrapped in an `if` statement (or to skip iterations with a leading `if (...) continue`) so inherited keys are guarded, matching ESLint core's structural check.
 - [`id-length`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/id-length.ts): reject identifier names shorter than two characters.
 - [`init-declarations`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/init-declarations.ts): require every `var` / `let` declaration to be initialized at its declaration site.
 - [`max-classes-per-file`](https://github.com/samchon/ttsc/blob/master/tests/test-lint/src/cases/max-classes-per-file.ts): reject a source file that declares more than one class.
