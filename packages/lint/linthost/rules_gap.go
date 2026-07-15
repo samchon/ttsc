@@ -560,8 +560,25 @@ func (dotNotation) Check(ctx *Context, node *shimast.Node) {
   } else {
     replaceFrom = access.Expression.End()
     replacement = "." + key
+    // A bare decimal-integer receiver lexes an immediately following `.` as
+    // the number's own decimal point, so `5["toString"]` → `5.toString` is a
+    // syntax error (TS1351). Emit a separating space (`5 .toString`) exactly
+    // where ESLint's dot-notation does. Parenthesized `(5)`, hex/octal/binary,
+    // float, exponent, and bigint receivers all take `.` as member access
+    // cleanly, so they keep the dot tight.
+    if access.Expression.Kind == shimast.KindNumericLiteral &&
+      isDecimalIntegerLiteralText(nodeText(ctx.File, access.Expression)) {
+      replacement = " " + replacement
+    }
   }
   if replaceFrom < 0 || replaceFrom >= node.End() {
+    ctx.Report(node, message)
+    return
+  }
+  // A comment inside the replaced `[…]` tail (`p1 /* keep */ ["foo"]`) would be
+  // silently deleted by the splice. Decline to a report-only diagnostic,
+  // matching ESLint dot-notation's `commentsExistBetween` guard.
+  if hasCommentBetween(src, replaceFrom, node.End()) {
     ctx.Report(node, message)
     return
   }
@@ -570,6 +587,24 @@ func (dotNotation) Check(ctx *Context, node *shimast.Node) {
     message,
     TextEdit{Pos: replaceFrom, End: node.End(), Text: replacement},
   )
+}
+
+// isDecimalIntegerLiteralText reports whether raw is a numeric literal written
+// as a plain decimal integer — ASCII digits with optional `_` separators and
+// no radix prefix, decimal point, exponent, or bigint `n` suffix. A `.`
+// spliced directly after such a receiver is lexed as the number's own decimal
+// point (`5["x"]` → `5.x` is a SyntaxError), so dot-notation inserts a
+// separating space. Mirrors ESLint astUtils.isDecimalInteger.
+func isDecimalIntegerLiteralText(raw string) bool {
+  if raw == "" {
+    return false
+  }
+  for i := 0; i < len(raw); i++ {
+    if c := raw[i]; (c < '0' || c > '9') && c != '_' {
+      return false
+    }
+  }
+  return true
 }
 
 // isReservedWord reports whether `value` is an ECMAScript reserved word. The

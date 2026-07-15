@@ -363,6 +363,8 @@ Prefer dot access (`obj.value`) over bracket access (`obj["value"]`) when the st
 
 Bracket access remains accepted for reserved words, dynamic keys, or keys containing characters that cannot appear in an identifier.
 
+The autofix inserts a space after a bare decimal-integer receiver (`5["toString"]` becomes `5 .toString`) so the dot is not lexed as the number's decimal point, and declines the rewrite when a comment sits inside the bracket span rather than deleting it.
+
 Example:
 
 ```ts
@@ -2173,6 +2175,8 @@ function runWith(target: { value: number }): number {
 
 Reject assignment expressions used as the operand of `return` (`return x = 1`), almost always a typo for `===`.
 
+Follows ESLint's default `except-parens` option: an assignment wrapped in explicit parentheses (`return (count = 1)`) is treated as intentional and left alone. Pass the `"always"` option to flag the parenthesized form as well.
+
 Example:
 
 ```ts
@@ -2180,7 +2184,7 @@ let count = 0;
 
 function f() {
   // reports: no-return-assign (error)
-  return (count = 1);
+  return count = 1;
 }
 ```
 
