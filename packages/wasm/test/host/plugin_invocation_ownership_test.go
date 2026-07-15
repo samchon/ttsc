@@ -97,23 +97,33 @@ func TestPluginInvocationOutputOwnership(t *testing.T) {
       <-start
       for range 32 {
         fmt.Fprint(invocation.Stdout, invocation.Args[0])
-        fmt.Fprint(invocation.Stderr, invocation.Args[0])
+        fmt.Fprint(invocation.Stderr, invocation.Args[1])
       }
       return 0
     }}
     results := make(chan host.APIResult, 2)
-    go func() { results <- host.InvokePlugin(context.Background(), plugin, "run", []string{"A"}) }()
-    go func() { results <- host.InvokePlugin(context.Background(), plugin, "run", []string{"B"}) }()
+    go func() {
+      results <- host.InvokePlugin(context.Background(), plugin, "run", []string{"A-out", "A-err"})
+    }()
+    go func() {
+      results <- host.InvokePlugin(context.Background(), plugin, "run", []string{"B-out", "B-err"})
+    }()
     ready.Wait()
     close(start)
+    want := map[string]string{
+      strings.Repeat("A-out", 32): strings.Repeat("A-err", 32),
+      strings.Repeat("B-out", 32): strings.Repeat("B-err", 32),
+    }
     for range 2 {
       got := <-results
-      if got.Stdout == "" || got.Stdout != got.Stderr {
-        t.Fatalf("mismatched streams: %#v", got)
+      stderr, ok := want[got.Stdout]
+      if !ok || got.Stderr != stderr {
+        t.Fatalf("concurrent output was contaminated or incomplete: %#v", got)
       }
-      if strings.Contains(got.Stdout, "A") && strings.Contains(got.Stdout, "B") {
-        t.Fatalf("concurrent output was contaminated: %q", got.Stdout)
-      }
+      delete(want, got.Stdout)
+    }
+    if len(want) != 0 {
+      t.Fatalf("missing concurrent invocation results: %#v", want)
     }
   })
 
