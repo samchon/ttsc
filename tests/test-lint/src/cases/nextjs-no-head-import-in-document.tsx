@@ -1,3 +1,4 @@
+// @ttsc-corpus-filename: src/pages/_document.tsx
 // Positive: `next/head` import inside `pages/_document.tsx`.
 // expect: nextjs/no-head-import-in-document error
 import Head from "next/head";

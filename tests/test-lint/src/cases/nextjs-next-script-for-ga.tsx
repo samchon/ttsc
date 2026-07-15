@@ -1,13 +1,19 @@
+import Script from "next/script";
+
 // Positive: hand-written Google Analytics `<script>` tag.
-// expect: nextjs/next-script-for-ga error
 const a = (
+  // expect: nextjs/next-script-for-ga error
   <script
     async
     src="https://www.googletagmanager.com/gtag/js?id=GA_TRACKING_ID"
   />
 );
 
-// Negative: same effect achieved through `next/script` GA helper.
-const b = null;
+// Negative: the imported `next/script` component is not a native script tag.
+const b = (
+  <Script
+    src="https://www.googletagmanager.com/gtag/js?id=GA_TRACKING_ID"
+  />
+);
 
 JSON.stringify({ a, b });

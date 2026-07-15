@@ -9,10 +9,10 @@ import { TestProject } from "../TestProject";
 // Spawn the real `ttsc` binary against an isolated TypeScript fixture
 // and parse the rendered stderr diagnostics into structured records.
 //
-// Each rule's e2e test passes one `.ts` file (the violation case) and a
-// rules-map. The helper:
-//   1. mkdtemp's a fixture project with the supplied source as
-//      `src/main.ts` and a synthesized `tsconfig.json`.
+// Each rule's e2e test passes one `.ts` or `.tsx` file (the violation case) and
+// a rules-map. The helper:
+//   1. mkdtemp's a fixture project with the supplied source at the selected
+//      path (default `src/main.ts`) and a synthesized `tsconfig.json`.
 //   2. Symlinks `node_modules/@ttsc/lint` to the workspace package so
 //      the plugin resolver finds it the same way it would for an npm
 //      install.
@@ -189,19 +189,24 @@ export namespace TestLint {
       assertDisposableProjectRoot(projectRoot);
     }
     try {
+      const materializedExtraSources = Object.entries(extraSources ?? {}).map(
+        ([relativePath, content]) =>
+          [normalizeFixtureRelativePath(relativePath), content] as const,
+      );
       // The tsconfig plugin entry never carries rules: it is empty, or
       // optionally names a config file via `configFile`. When a test uses the
       // `rules` shorthand, materialize a discoverable `lint.config.json`.
-      writeFixtureProject(tmpdir, source, pluginConfig ?? {}, sourcePath);
-      if (extraSources) {
-        for (const [relPath, content] of Object.entries(extraSources) as [
-          string,
-          string,
-        ][]) {
-          const target = path.join(tmpdir, relPath);
-          fs.mkdirSync(path.dirname(target), { recursive: true });
-          fs.writeFileSync(target, content, "utf8");
-        }
+      writeFixtureProject(
+        tmpdir,
+        source,
+        pluginConfig ?? {},
+        sourcePath,
+        materializedExtraSources.map(([relativePath]) => relativePath),
+      );
+      for (const [relativePath, content] of materializedExtraSources) {
+        const target = path.join(tmpdir, relativePath);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, content, "utf8");
       }
       if (rules !== undefined) {
         fs.writeFileSync(
@@ -265,8 +270,13 @@ export namespace TestLint {
     source: string,
     pluginConfig: Record<string, unknown>,
     sourcePath: string = path.posix.join("src", "main.ts"),
+    extraSourcePaths: readonly string[] = [],
   ): void {
-    const target = path.join(tmpdir, resolveMainSourcePath(sourcePath));
+    const mainSourcePath = resolveMainSourcePath(sourcePath);
+    const usesTSX = [mainSourcePath, ...extraSourcePaths].some(
+      isIncludedTSXSourcePath,
+    );
+    const target = path.join(tmpdir, mainSourcePath);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, source, "utf8");
     fs.writeFileSync(
@@ -279,6 +289,7 @@ export namespace TestLint {
             strict: true,
             noEmit: true,
             rootDir: "src",
+            ...(usesTSX ? { jsx: "react-jsx" } : {}),
             plugins: [
               {
                 transform: "@ttsc/lint",
@@ -299,14 +310,14 @@ export namespace TestLint {
    * Validate a caller-selected main-source path and normalize it to POSIX
    * separators relative to the project root.
    *
-   * The synthesized tsconfig pins `rootDir: "src"` and `include: ["src"]`, so
-   * a logical filename outside `src/` would silently fall out of the compiled
+   * The synthesized tsconfig pins `rootDir: "src"` and `include: ["src"]`, so a
+   * logical filename outside `src/` would silently fall out of the compiled
    * program instead of exercising the rule under test. Escapes and absolute
    * paths are rejected for the same reason fixture roots are validated: the
    * harness must never write outside its disposable project.
    */
   function resolveMainSourcePath(sourcePath: string): string {
-    const normalized = path.posix.normalize(sourcePath.replaceAll("\\", "/"));
+    const normalized = normalizeFixtureRelativePath(sourcePath);
     if (
       path.isAbsolute(normalized) ||
       !normalized.startsWith("src/") ||
@@ -319,6 +330,20 @@ export namespace TestLint {
       );
     }
     return normalized;
+  }
+
+  /** Normalize caller paths so POSIX and Windows separators materialize alike. */
+  function normalizeFixtureRelativePath(sourcePath: string): string {
+    return path.posix.normalize(sourcePath.replaceAll("\\", "/"));
+  }
+
+  /** Whether a generated tsconfig includes this TSX source under `src/`. */
+  function isIncludedTSXSourcePath(sourcePath: string): boolean {
+    const normalized = normalizeFixtureRelativePath(sourcePath);
+    return (
+      normalized.startsWith("src/") &&
+      path.posix.extname(normalized).toLowerCase() === ".tsx"
+    );
   }
 
   function assertDisposableProjectRoot(projectRoot: string): void {
@@ -392,7 +417,7 @@ export namespace TestLint {
 
   const ANSI_PATTERN = /\x1b\[[0-9;]*[A-Za-z]/g;
   const BANNER_PATTERN =
-    /(?:^|[\s/])([^\s:]+\.ts):(\d+):(\d+)\s+-\s+(error|warning)\s+TS\d+:\s*\[([^\]]+)\]\s*(.*)$/;
+    /(?:^|[\s/])([^\s:]+\.tsx?):(\d+):(\d+)\s+-\s+(error|warning)\s+TS\d+:\s*\[([^\]]+)\]\s*(.*)$/;
 
   /**
    * Parse the renderer's stderr into structured records.

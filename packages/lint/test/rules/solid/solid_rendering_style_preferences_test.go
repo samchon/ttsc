@@ -39,10 +39,10 @@ function Icon() {
     "solid/self-closing-comp": SeverityError,
     "solid/style-prop":        SeverityError,
   }, []ruleExpectation{
-    {Rule: "solid/prefer-classlist", Severity: SeverityError, Line: 1},
-    {Rule: "solid/prefer-for", Severity: SeverityError, Line: 1},
-    {Rule: "solid/prefer-show", Severity: SeverityError, Line: 1},
-    {Rule: "solid/self-closing-comp", Severity: SeverityError, Line: 1},
-    {Rule: "solid/style-prop", Severity: SeverityError, Line: 1},
+    {Rule: "solid/prefer-for", Severity: SeverityError, Line: 8},
+    {Rule: "solid/prefer-show", Severity: SeverityError, Line: 9},
+    {Rule: "solid/prefer-classlist", Severity: SeverityError, Line: 10},
+    {Rule: "solid/style-prop", Severity: SeverityError, Line: 11},
+    {Rule: "solid/self-closing-comp", Severity: SeverityError, Line: 12},
   })
 }

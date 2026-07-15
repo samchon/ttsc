@@ -79,30 +79,119 @@ func nextjsInlineScriptID(ctx *Context, file *shimast.Node) {
 }
 
 func nextjsNextScriptForGA(ctx *Context, file *shimast.Node) {
-  imports := nextjsCollectImports(file)
-  if len(imports.scriptFromNextScript) == 0 {
-    return
-  }
-  walkDescendants(file, func(node *shimast.Node) {
-    if node.Kind != shimast.KindJsxElement && node.Kind != shimast.KindJsxSelfClosingElement {
-      return
-    }
-    opening := nextjsOpeningLike(node)
-    if !imports.scriptFromNextScript[nextjsJSXName(opening)] {
+  nextjsWalkOpeningLike(file, func(opening *shimast.Node) {
+    if nextjsJSXName(opening) != "script" {
       return
     }
     src := nextjsJSXAttrString(opening, "src")
-    if strings.Contains(src, "googletagmanager.com/gtag/js") || strings.Contains(src, "googletagmanager.com/gtm.js") {
+    if strings.Contains(src, "www.google-analytics.com/analytics.js") ||
+      strings.Contains(src, "www.googletagmanager.com/gtag/js") {
       ctx.Report(opening, "Use Next.js Google Analytics helpers instead of hand-written gtag scripts.")
       return
     }
-    if node.Kind == shimast.KindJsxElement {
-      text := nodeText(ctx.File, node)
-      if strings.Contains(text, "gtag(") || strings.Contains(text, "GTM-") {
-        ctx.Report(opening, "Use Next.js Google Analytics helpers instead of hand-written gtag scripts.")
-      }
+    inline := nextjsDangerouslySetInnerHTMLSource(opening)
+    if strings.Contains(inline, "www.google-analytics.com/analytics.js") ||
+      strings.Contains(inline, "www.googletagmanager.com/gtm.js") {
+      ctx.Report(opening, "Use Next.js Google Analytics helpers instead of hand-written gtag scripts.")
     }
   })
+}
+
+// nextjsDangerouslySetInnerHTMLSource returns the final static `__html`
+// payload from `dangerouslySetInnerHTML={{ __html: "..." }}`. Object-literal
+// properties are inspected from last to first so an earlier spread or dynamic
+// property cannot obscure a later static assignment, while any later write
+// that might replace `__html` keeps the payload unknown.
+func nextjsDangerouslySetInnerHTMLSource(opening *shimast.Node) string {
+  attrNode := nextjsJSXAttr(opening, "dangerouslySetInnerHTML")
+  if attrNode == nil {
+    return ""
+  }
+  attr := attrNode.AsJsxAttribute()
+  if attr == nil || attr.Initializer == nil || attr.Initializer.Kind != shimast.KindJsxExpression {
+    return ""
+  }
+  container := attr.Initializer.AsJsxExpression()
+  if container == nil {
+    return ""
+  }
+  expression := stripParens(container.Expression)
+  if expression == nil || expression.Kind != shimast.KindObjectLiteralExpression {
+    return ""
+  }
+  object := expression.AsObjectLiteralExpression()
+  if object == nil || object.Properties == nil {
+    return ""
+  }
+  properties := object.Properties.Nodes
+  for i := len(properties) - 1; i >= 0; i-- {
+    propertyNode := properties[i]
+    if propertyNode == nil {
+      return ""
+    }
+    if propertyNode.Kind == shimast.KindSpreadAssignment {
+      return ""
+    }
+
+    switch propertyNode.Kind {
+    case shimast.KindPropertyAssignment:
+      property := propertyNode.AsPropertyAssignment()
+      if property == nil {
+        return ""
+      }
+      name, known := nextjsStaticPropertyName(property.Name())
+      if !known {
+        return ""
+      }
+      if name == "__html" {
+        return stringLiteralText(stripParens(property.Initializer))
+      }
+    case shimast.KindShorthandPropertyAssignment,
+      shimast.KindMethodDeclaration,
+      shimast.KindGetAccessor,
+      shimast.KindSetAccessor:
+      name, known := nextjsStaticPropertyName(propertyNode.Name())
+      if !known {
+        return ""
+      }
+      if name == "__html" {
+        return ""
+      }
+    default:
+      return ""
+    }
+  }
+  return ""
+}
+
+func nextjsStaticPropertyName(node *shimast.Node) (string, bool) {
+  if node == nil {
+    return "", false
+  }
+  switch node.Kind {
+  case shimast.KindIdentifier:
+    return identifierText(node), true
+  case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+    return stringLiteralText(node), true
+  case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
+    return numericLiteralText(node), true
+  case shimast.KindComputedPropertyName:
+    computed := node.AsComputedPropertyName()
+    if computed == nil {
+      return "", false
+    }
+    expression := stripParens(computed.Expression)
+    if expression == nil {
+      return "", false
+    }
+    switch expression.Kind {
+    case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+      return stringLiteralText(expression), true
+    case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
+      return numericLiteralText(expression), true
+    }
+  }
+  return "", false
 }
 
 func nextjsNoAssignModuleVariable(ctx *Context, file *shimast.Node) {

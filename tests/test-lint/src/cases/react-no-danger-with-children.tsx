@@ -1,8 +1,8 @@
 declare const html: string;
 
 // Positive: `dangerouslySetInnerHTML` combined with children content.
-// expect: react/no-danger-with-children error
 const a = (
+  // expect: react/no-danger-with-children error
   <div dangerouslySetInnerHTML={{ __html: html }}>extra</div>
 );
 

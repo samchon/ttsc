@@ -49,9 +49,9 @@ const corpusSkipManifest = loadCorpusSkipManifest();
  * expectation or corpus-skip directive and delegates to `assertLintCase` for
  * each. Fails immediately if the corpus is empty.
  *
- * A fixture may opt out with one
- * `// @ttsc-corpus-skip(<constraint>): <reason>` directive. Its rule,
- * constraint, and Go harness must match the mechanically audited manifest.
+ * A fixture may opt out with one `// @ttsc-corpus-skip(<constraint>): <reason>`
+ * directive. Its rule, constraint, and Go harness must match the mechanically
+ * audited manifest.
  *
  * The corpus is the single heaviest lint scenario, so CI runs it as a handful
  * of parallel partitions: pass `{ index, total }` and this asserts only the `i
@@ -92,9 +92,10 @@ export function assertAllLintCases(partition?: {
  *
  * Honors the `// @ttsc-corpus-filename: <path>` directive: the fixture is
  * materialized at the given project-root-relative path (under `src/`) instead
- * of the default `src/main.ts`, so path-sensitive rules (filename
- * conventions, directory layouts) can carry their logical filename while the
- * on-disk fixture keeps a corpus-friendly name.
+ * of the extension-preserving default (`src/main.ts` or `src/main.tsx`), so
+ * path-sensitive rules (filename conventions, directory layouts) can carry
+ * their logical filename while the on-disk fixture keeps a corpus-friendly
+ * name.
  *
  * @param relativeFile - File path relative to `casesRoot` (forward-slash
  *   separated, e.g. `"consistentTypeImports/violation.ts"`).
@@ -110,7 +111,7 @@ export function assertLintCase(relativeFile: string): void {
   const result = TestLint.run({
     name: relativeFile,
     source,
-    sourcePath: parseCorpusFilename(source, relativeFile),
+    sourcePath: resolveCorpusSourcePath(source, relativeFile),
     rules: applyCorpusOptions(
       relativeFile,
       source,
@@ -362,28 +363,29 @@ function parseCorpusSkip(
 }
 
 /**
- * Read the first `// @ttsc-corpus-filename: <path>` directive from the
- * source, if any. Returns the project-root-relative path the fixture should
- * be materialized at, or `undefined` to use the harness default
- * (`src/main.ts`). Path validation (must stay under `src/`) is owned by
+ * Resolve the project-root-relative path at which a corpus fixture is
+ * materialized. An explicit `// @ttsc-corpus-filename: <path>` directive wins;
+ * otherwise the fixture's TypeScript extension is preserved under `src/` so TSX
+ * is parsed as TSX. Path validation (must stay under `src/`) is owned by
  * `TestLint`.
  */
-function parseCorpusFilename(
+export function resolveCorpusSourcePath(
   source: string,
   relativeFile: string,
-): string | undefined {
+): string {
   for (const line of source.split(/\r?\n/)) {
     const match = line.match(/^\s*\/\/\s*@ttsc-corpus-filename:\s*(.*?)\s*$/);
     if (match) {
+      const sourcePath = match[1] ?? "";
       assert.notEqual(
-        (match[1] ?? "").length,
+        sourcePath.length,
         0,
         `${relativeFile}: \`// @ttsc-corpus-filename:\` requires a path`,
       );
-      return match[1];
+      return sourcePath;
     }
   }
-  return undefined;
+  return path.posix.join("src", `main${path.posix.extname(relativeFile)}`);
 }
 
 /**
@@ -408,9 +410,7 @@ function parseSkippedRule(relativeFile: string, source: string): string {
     TestLint.parseExpectations(source).map((item) => item.rule),
   );
   const declared = [
-    ...source.matchAll(
-      /^\s*\/\/\s*@ttsc-corpus-rule:\s*([@\w/-]+)\s*$/gm,
-    ),
+    ...source.matchAll(/^\s*\/\/\s*@ttsc-corpus-rule:\s*([@\w/-]+)\s*$/gm),
   ].map((match) => match[1] as string);
   assert.ok(
     declared.length <= 1,

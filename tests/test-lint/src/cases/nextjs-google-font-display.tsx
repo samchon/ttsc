@@ -1,6 +1,6 @@
 // Positive: Google Fonts `<link>` without a `font-display` parameter.
-// expect: nextjs/google-font-display error
 const a = (
+  // expect: nextjs/google-font-display error
   <link
     rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Inter"

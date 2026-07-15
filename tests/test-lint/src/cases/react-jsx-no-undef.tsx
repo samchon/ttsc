@@ -5,8 +5,8 @@ declare const Declared: () => JSX.Element;
 const a = <Missing />;
 
 // Positive: capitalized tag inside a paired element, still undeclared.
-// expect: react/jsx-no-undef error
 const b = (
+  // expect: react/jsx-no-undef error
   <AlsoMissing>
     text
   </AlsoMissing>
