@@ -23,6 +23,8 @@ jobs:
       - uses: pnpm/action-setup@v4
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Preflight - validate release tag and package versions
+        run: node scripts/release-preflight.cjs
       - name: Build all packages
         run: pnpm run build
       - name: Assert dist/ttsc.wasm exists and is >10MB
