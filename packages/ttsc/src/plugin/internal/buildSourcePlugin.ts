@@ -169,8 +169,8 @@ export interface ITtscSourceBuildCachePaths {
 /**
  * Build one Go source plugin into a cached executable.
  *
- * `opts.env` is the effective environment for this build — the caller merges
- * `{ ...process.env, ...context.env }` so a programmatic `TtscCompiler` instance
+ * `opts.env` is the effective environment for this build — the caller merges `{
+ * ...process.env, ...context.env }` so a programmatic `TtscCompiler` instance
  * can pin its own Go toolchain (`TTSC_GO_BINARY`), Go build cache
  * (`TTSC_GO_CACHE_DIR`), and Go build variables (`GOFLAGS`, `CGO_*`, …) without
  * mutating the shared `process.env`. CLI callers omit it and inherit
@@ -331,11 +331,11 @@ function compileSourcePlugin(opts: {
  * reuses the resulting binary. A loser distinguishes two ways a generation
  * stops blocking:
  *
- * - `released`: the holder retired `current` itself — it published, or its
- *   build threw and its `finally` freed the key. The loser simply retries the
+ * - `released`: the holder retired `current` itself — it published, or its build
+ *   threw and its `finally` freed the key. The loser simply retries the
  *   ordinary acquisition; nothing is stale and nothing is reported.
- * - `abandoned`: `current` still exists but its owner is provably dead, it is
- *   an old metadata-less legacy lock, or the wait budget
+ * - `abandoned`: `current` still exists but its owner is provably dead, it is an
+ *   old metadata-less legacy lock, or the wait budget
  *   (`PLUGIN_BUILD_LOCK_STEAL_MS`) expired. Only then does the loser report and
  *   retire precisely that generation before retrying.
  *
@@ -560,10 +560,7 @@ function isPluginBuildLockProtocolV2(lockDir: string): boolean {
   }
 }
 
-function retireV2PluginBuildLock(
-  lockDir: string,
-  generation: string,
-): boolean {
+function retireV2PluginBuildLock(lockDir: string, generation: string): boolean {
   if (!isPluginBuildLockGeneration(generation)) return false;
   const retiredDir = path.join(lockDir, PLUGIN_BUILD_LOCK_RETIRED_DIR);
   try {
@@ -639,9 +636,9 @@ function isRenameDestinationOccupied(
  * Outcome of one waiting session on another process's plugin build lock.
  *
  * - `published`: the binary exists and can be reused.
- * - `released`: the observed generation no longer exists and no binary
- *   appeared — the holder freed the key normally, so the caller should retry
- *   ordinary acquisition without reporting or removing anything.
+ * - `released`: the observed generation no longer exists and no binary appeared —
+ *   the holder freed the key normally, so the caller should retry ordinary
+ *   acquisition without reporting or removing anything.
  * - `abandoned`: the lock still exists but is provably stale (dead owner, old
  *   legacy lock) or the wait budget expired; the caller may report and retire
  *   precisely the attached generation.

@@ -1,8 +1,4 @@
-import {
-  TtscGraphSession,
-  loadGraph,
-  resolveGraphBinary,
-} from "@ttsc/graph";
+import { TtscGraphSession, loadGraph, resolveGraphBinary } from "@ttsc/graph";
 import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
@@ -75,13 +71,17 @@ function runLauncher(
   args: string[],
   options: { cwd: string; graphBinary: string },
 ) {
-  return TestProject.spawn(process.execPath, [resolveGraphLauncher(), ...args], {
-    cwd: options.cwd,
-    // Neutralize any ambient override so `--cwd` anchoring is what resolves the
-    // binary; a non-empty value here would short-circuit resolution.
-    env: { TTSC_GRAPH_BINARY: options.graphBinary },
-    timeout: 60_000,
-  });
+  return TestProject.spawn(
+    process.execPath,
+    [resolveGraphLauncher(), ...args],
+    {
+      cwd: options.cwd,
+      // Neutralize any ambient override so `--cwd` anchoring is what resolves the
+      // binary; a non-empty value here would short-circuit resolution.
+      env: { TTSC_GRAPH_BINARY: options.graphBinary },
+      timeout: 60_000,
+    },
+  );
 }
 
 /**
@@ -90,22 +90,22 @@ function runLauncher(
  * directory.
  *
  * The lanes retained the target cwd only in the arguments forwarded to the
- * native process, and each called `resolveGraphBinary()` with no cwd first, so a
- * server, viewer, dump, or API call started from a directory without `ttsc`
+ * native process, and each called `resolveGraphBinary()` with no cwd first, so
+ * a server, viewer, dump, or API call started from a directory without `ttsc`
  * reported the binary missing even though the target project installed it. The
  * resolver already accepted a cwd anchor; the callers discarded it. This case
  * pins every lane to the anchored resolution and keeps the override precedence
  * and the actionable failure intact.
  *
- * 1. Install a fake target project whose local `node_modules` carries a
- *    resolvable `ttsc` and platform binary, and a separate empty directory with
- *    neither.
+ * 1. Install a fake target project whose local `node_modules` carries a resolvable
+ *    `ttsc` and platform binary, and a separate empty directory with neither.
  * 2. For the resolver owner and the `dump`, `view`, `loadGraph`, and
- *    `TtscGraphSession` lanes, drive resolution anchored at the fake target from
- *    an unrelated process cwd and assert it succeeds; drive the empty directory
- *    as the negative twin and assert the actionable failure survives.
- * 3. Assert `TTSC_GRAPH_BINARY` (absolute) still overrides, a relative override
- *    is ignored, and the default (no cwd) anchor stays `process.cwd()`.
+ *    `TtscGraphSession` lanes, drive resolution anchored at the fake target
+ *    from an unrelated process cwd and assert it succeeds; drive the empty
+ *    directory as the negative twin and assert the actionable failure
+ *    survives.
+ * 3. Assert `TTSC_GRAPH_BINARY` (absolute) still overrides, a relative override is
+ *    ignored, and the default (no cwd) anchor stays `process.cwd()`.
  */
 export const test_ttscgraph_dump_resolves_binary_from_target_cwd =
   async (): Promise<void> => {

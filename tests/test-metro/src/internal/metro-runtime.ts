@@ -158,10 +158,10 @@ export namespace TestMetroRuntime {
   let missingDepUpstreamPath: string | undefined;
 
   /**
-   * A fake upstream module that throws while initializing (a top-level `throw`),
-   * modelling an installed transformer that rejects the current runtime ABI. Its
-   * resolution succeeds, so the loader must classify it as a broken module, not
-   * as an absent candidate.
+   * A fake upstream module that throws while initializing (a top-level
+   * `throw`), modelling an installed transformer that rejects the current
+   * runtime ABI. Its resolution succeeds, so the loader must classify it as a
+   * broken module, not as an absent candidate.
    */
   export function throwingUpstreamOnDisk(): string {
     if (throwingUpstreamPath !== undefined) {

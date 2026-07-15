@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { ResidentTransformProcess } from "../../../../../packages/ttsc/lib/compiler/internal/residentTransformProcess.js";
 
 /**
- * A stub that answers a transform request (`file` set) with a valid
- * `{ typescript: "", found: false }` and an update request (`update` set) with
- * a valid `{ updated: false }`. Both are the host's genuine negative results,
- * so they must resolve, not reject.
+ * A stub that answers a transform request (`file` set) with a valid `{
+ * typescript: "", found: false }` and an update request (`update` set) with a
+ * valid `{ updated: false }`. Both are the host's genuine negative results, so
+ * they must resolve, not reject.
  */
 const NEGATIVE_STUB = `
 process.stdin.setEncoding("utf8");
@@ -42,15 +42,15 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * and operation-shape hardening — the negative twin of the rejection tests.
  *
  * The stricter protocol boundary must reject only replies the host could never
- * validly send; it must not reclassify a legitimate `found: false` or
- * `updated: false` as a protocol failure. Losing these would turn every absent
- * file and every non-compiling edit into a rejection instead of the documented
+ * validly send; it must not reclassify a legitimate `found: false` or `updated:
+ * false` as a protocol failure. Losing these would turn every absent file and
+ * every non-compiling edit into a rejection instead of the documented
  * `undefined` / `false` domain result.
  *
- * 1. Answer a transform request with `{ found: false }`; it resolves with
- *    `found === false`.
- * 2. Answer an update request with `{ updated: false }`; it resolves with
- *    `updated === false`.
+ * 1. Answer a transform request with `{ found: false }`; it resolves with `found
+ *    === false`.
+ * 2. Answer an update request with `{ updated: false }`; it resolves with `updated
+ *    === false`.
  */
 export const test_residenttransformprocess_resolves_valid_negative_replies =
   async () => {

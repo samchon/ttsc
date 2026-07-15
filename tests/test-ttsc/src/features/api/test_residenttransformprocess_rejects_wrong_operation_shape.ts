@@ -5,7 +5,7 @@ import { ResidentTransformProcess } from "../../../../../packages/ttsc/lib/compi
 /**
  * A stub serve host that answers every request line with one fixed JSON reply
  * object. `reply` is a plain object serialized to one line, so the reply is a
- * well-formed JSON object whose *shape* may not match the operation requested.
+ * well-formed JSON object whose _shape_ may not match the operation requested.
  */
 function jsonReplyStub(reply: unknown): string {
   return `
@@ -43,8 +43,8 @@ function spawnStub(stub: string): ResidentTransformProcess {
  * operation and rejects a mismatch. The negative twins — valid `found: false`
  * and `updated: false` — must still resolve (a separate test).
  *
- * 1. Answer a transform request with `{ updated: true }` and with
- *    `{ found: true }` (no `typescript`); both must reject.
+ * 1. Answer a transform request with `{ updated: true }` and with `{ found: true
+ *    }` (no `typescript`); both must reject.
  * 2. Answer an update request with `{ found: true, typescript: "x" }`; it must
  *    reject.
  * 3. Assert each rejection names the offending operation.
@@ -80,8 +80,7 @@ export const test_residenttransformprocess_rejects_wrong_operation_shape =
       const proc = spawnStub(jsonReplyStub({ found: true, typescript: "x" }));
       try {
         await assert.rejects(
-          () =>
-            proc.request({ content: "x", update: "a.ts" }, "update"),
+          () => proc.request({ content: "x", update: "a.ts" }, "update"),
           /invalid update reply/,
         );
       } finally {

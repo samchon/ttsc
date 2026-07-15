@@ -133,8 +133,8 @@ async function assertTurbopackLoaderPassesThroughFilteredPaths(): Promise<void> 
  * Asserts the loader registers plugin-reported dependencies through
  * `addDependency`, normalized exactly as the other adapters normalize their
  * watch files: project-relative entries absolutized against the project root,
- * absolute entries kept, duplicates collapsed, and the transformed module itself
- * excluded.
+ * absolute entries kept, duplicates collapsed, and the transformed module
+ * itself excluded.
  *
  * The standalone Turbopack loader used to call the shared transform without a
  * hooks argument, so the reported dependency list was silently dropped and
@@ -167,8 +167,8 @@ async function assertTurbopackLoaderRegistersPluginDependencies(): Promise<void>
 /**
  * Asserts a cache-served transform still registers the dependency list.
  *
- * The Turbopack loader shares one transform cache for the worker lifetime across
- * requests, but Turbopack rebuilds its `fileDependencies` set per loader
+ * The Turbopack loader shares one transform cache for the worker lifetime
+ * across requests, but Turbopack rebuilds its `fileDependencies` set per loader
  * invocation. A cache hit that skipped re-registration would drop invalidation
  * for the second and later requests, so the loader must replay the dependencies
  * on every call, not only the fresh compile.
@@ -216,8 +216,8 @@ async function assertTurbopackLoaderRegistersNoDependenciesWithoutReport(): Prom
 /**
  * Asserts a loader context that does not expose `addDependency` (a minimal stub
  * or a Turbopack build predating the method) still transforms without throwing.
- * The dependency channel is a best-effort enhancement, not a hard requirement of
- * the loader contract.
+ * The dependency channel is a best-effort enhancement, not a hard requirement
+ * of the loader contract.
  */
 async function assertTurbopackLoaderTransformsWithoutAddDependency(): Promise<void> {
   const root = TestUnpluginProject.createProject({ plugins: [] });

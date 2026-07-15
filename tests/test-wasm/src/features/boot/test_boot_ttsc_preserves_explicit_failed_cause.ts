@@ -39,7 +39,10 @@ export const test_boot_ttsc_preserves_explicit_failed_cause =
         },
         async () => {
           try {
-            await bootTtsc({ apiName, wasmUrl: "http://local/failed-cause.wasm" });
+            await bootTtsc({
+              apiName,
+              wasmUrl: "http://local/failed-cause.wasm",
+            });
           } catch (error) {
             caught = error as Error;
           }

@@ -140,9 +140,9 @@ export const test_ttsx_dependency_cache_fences_two_stale_observers_of_a_dead_own
       () => fs.existsSync(reclaimedA) && fs.existsSync(holdingA),
       "observer A holds the successor",
     );
-    const successorLease = JSON.parse(
-      fs.readFileSync(holdingA, "utf8"),
-    ) as { generation: string };
+    const successorLease = JSON.parse(fs.readFileSync(holdingA, "utf8")) as {
+      generation: string;
+    };
 
     // Now let stale observer B attempt its reclaim of the already-retired gen.
     fs.writeFileSync(releaseB, "release\n", "utf8");

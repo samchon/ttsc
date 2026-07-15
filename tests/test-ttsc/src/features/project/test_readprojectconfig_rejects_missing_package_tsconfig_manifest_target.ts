@@ -13,8 +13,8 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project";
  * resolution and hide the misconfiguration. This is the negative twin of the
  * successful manifest-selected resolution.
  *
- * 1. Create `node_modules/broken-preset` whose `package.json#tsconfig` points at
- *    a non-existent `missing.json`.
+ * 1. Create `node_modules/broken-preset` whose `package.json#tsconfig` points at a
+ *    non-existent `missing.json`.
  * 2. Write a project tsconfig that extends the bare `"broken-preset"`.
  * 3. Assert `readProjectConfig` throws about the unresolved extended tsconfig.
  */

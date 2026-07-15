@@ -28,11 +28,11 @@ import {
  * read the ambient environment, both instances would share one cache root and
  * their prepared binaries would collide.
  *
- * 1. Build the same source plugin through two instances whose `context.env`
- *    names different project-local cache roots.
+ * 1. Build the same source plugin through two instances whose `context.env` names
+ *    different project-local cache roots.
  * 2. Snapshot `process.env.TTSC_CACHE_DIR` before and after.
- * 3. Assert each binary lives under its own cache root, the two paths differ,
- *    and the ambient `TTSC_CACHE_DIR` was never mutated.
+ * 3. Assert each binary lives under its own cache root, the two paths differ, and
+ *    the ambient `TTSC_CACHE_DIR` was never mutated.
  */
 export const test_ttsccompiler_prepare_isolates_instances_by_context_env_cache =
   () => {

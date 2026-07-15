@@ -10,8 +10,8 @@ import { assertTurbopackLoaderRegistersPluginDependencies } from "../../internal
  * dependency through the webpack loader context's `addDependency(file)`, with
  * the same path normalization the other adapters use.
  *
- * 1. Build the `emit-dependencies` fixture reporting a mix of relative,
- *    absolute, duplicate, and self dependency entries.
+ * 1. Build the `emit-dependencies` fixture reporting a mix of relative, absolute,
+ *    duplicate, and self dependency entries.
  * 2. Invoke the loader with a context that records `addDependency` calls.
  * 3. Assert the module transformed and the registered paths are the absolutized,
  *    deduplicated set with the module itself excluded.

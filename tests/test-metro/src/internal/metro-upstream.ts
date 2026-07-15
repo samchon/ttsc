@@ -137,10 +137,10 @@ export async function assertAbsentConfiguredPathReportsNotLoaded(): Promise<void
  * Asserts an explicit configured path that resolves to an installed package but
  * whose requested subpath is NOT exported is reported as absence ("could not
  * load"), NOT as an initialization failure, on the PRODUCTION path. Node throws
- * `ERR_PACKAGE_PATH_NOT_EXPORTED` (not `MODULE_NOT_FOUND`) during resolution for
- * such a specifier; because resolution never executes the module, this proves
- * the requested candidate entry point is unavailable, so it must stay a plain
- * absence — the boundary that keeps auto-detection falling through under
+ * `ERR_PACKAGE_PATH_NOT_EXPORTED` (not `MODULE_NOT_FOUND`) during resolution
+ * for such a specifier; because resolution never executes the module, this
+ * proves the requested candidate entry point is unavailable, so it must stay a
+ * plain absence — the boundary that keeps auto-detection falling through under
  * Expo/React Native version skew instead of hard-failing. `typescript` is a
  * stable devDependency with an `exports` map, so a bogus subpath of it triggers
  * the code deterministically.
@@ -186,8 +186,8 @@ export async function assertConfiguredInitFailurePreservesCause(): Promise<void>
 
 /**
  * Asserts a configured transformer whose transitive dependency is missing
- * reports THAT dependency failure (its `MODULE_NOT_FOUND`), rather than claiming
- * the candidate itself is absent. This is the differentiator between a
+ * reports THAT dependency failure (its `MODULE_NOT_FOUND`), rather than
+ * claiming the candidate itself is absent. This is the differentiator between a
  * resolution failure of the requested specifier and a `MODULE_NOT_FOUND` raised
  * while the (resolvable) module executes.
  */
@@ -210,7 +210,8 @@ export async function assertMissingTransitiveDependencyReported(): Promise<void>
 /**
  * Asserts auto-detection does NOT fall through to a later candidate when an
  * earlier, resolvable candidate throws during initialization. A broken Expo
- * install must surface, not silently select the legacy React Native transformer.
+ * install must surface, not silently select the legacy React Native
+ * transformer.
  */
 export async function assertAutoDetectInitFailureDoesNotFallThrough(): Promise<void> {
   const { resolveUpstreamTransformer, UPSTREAM_CANDIDATES } =

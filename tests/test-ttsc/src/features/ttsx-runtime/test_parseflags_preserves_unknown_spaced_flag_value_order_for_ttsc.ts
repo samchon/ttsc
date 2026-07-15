@@ -19,9 +19,9 @@ const isTsInput = (token: string): boolean =>
  * 1. Parse `--target es2020 --module commonjs a.ts` with the TS-extension
  *    predicate.
  * 2. Assert `passthrough` is exactly the two pairs interleaved in order.
- * 3. Assert the negative twins: the `.ts` input is the only positional, an
- *    inline `--flag=value` stays one token, and an unknown boolean is not given
- *    a value.
+ * 3. Assert the negative twins: the `.ts` input is the only positional, an inline
+ *    `--flag=value` stays one token, and an unknown boolean is not given a
+ *    value.
  */
 export const test_parseflags_preserves_unknown_spaced_flag_value_order_for_ttsc =
   () => {

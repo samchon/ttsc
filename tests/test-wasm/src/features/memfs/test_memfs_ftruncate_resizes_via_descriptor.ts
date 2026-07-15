@@ -13,8 +13,8 @@ import { callMutation, expectFsError, openFd } from "../../internal/callbackFs";
  * a no-op, so a descriptor-based truncate left the file unchanged.
  *
  * 1. Seed `/t.txt`="abcdef" and open it, then ftruncate the descriptor to 3.
- * 2. Read the file back and attempt ftruncate on an unknown fd, the stdout fd,
- *    and a negative length.
+ * 2. Read the file back and attempt ftruncate on an unknown fd, the stdout fd, and
+ *    a negative length.
  * 3. Assert the file shrank to "abc" and each invalid call carries its code.
  */
 export const test_memfs_ftruncate_resizes_via_descriptor =

@@ -7,16 +7,16 @@ import { assert, fs, path, spawnNodeWorker } from "../../internal/source-build";
  * the `ttsx` descriptor child, so a TypeScript descriptor reads `context.env`
  * values rather than the ambient `process.env`.
  *
- * RA-07 requires the effective environment (`{ ...process.env, ...context.env }`)
- * to reach not only Go subprocesses but also the `ttsx` fallback that loads
- * `.ts` plugin descriptors. Without that forwarding a programmatic embedder that
- * pins a value only in `context.env` cannot influence a descriptor evaluated in
- * the child interpreter.
+ * RA-07 requires the effective environment (`{ ...process.env, ...context.env
+ * }`) to reach not only Go subprocesses but also the `ttsx` fallback that loads
+ * `.ts` plugin descriptors. Without that forwarding a programmatic embedder
+ * that pins a value only in `context.env` cannot influence a descriptor
+ * evaluated in the child interpreter.
  *
  * The load runs in a plain child `node` (no TypeScript loader registered) so
  * that `require()` of the `.ts` descriptor fails and the loader is genuinely
- * forced through `ttsx` — the in-process test runner would otherwise resolve the
- * `.ts` entry directly and never spawn the child whose environment is under
+ * forced through `ttsx` — the in-process test runner would otherwise resolve
+ * the `.ts` entry directly and never spawn the child whose environment is under
  * test.
  *
  * Transformation direction with a negative twin: the marker is supplied only in
@@ -28,8 +28,8 @@ import { assert, fs, path, spawnNodeWorker } from "../../internal/source-build";
  * 1. Write a `type: module` project whose `.ts` barrel descriptor sets its
  *    `source` to `absent-<marker>`, reading `<marker>` from
  *    `process.env.TTSC_DESC_MARKER` at module eval.
- * 2. Spawn a worker that calls `loadProjectPlugins` with the marker only in
- *    `env`, and `TTSC_DESC_MARKER=ambient` in the worker's own environment.
+ * 2. Spawn a worker that calls `loadProjectPlugins` with the marker only in `env`,
+ *    and `TTSC_DESC_MARKER=ambient` in the worker's own environment.
  * 3. Assert the error names `absent-context-only`, never `absent-ambient`.
  */
 export const test_loadprojectplugins_ttsx_descriptor_reads_context_env =

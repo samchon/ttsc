@@ -35,10 +35,10 @@ async function withBunRuntime(
 
 /**
  * Freshly evaluate the built `bun-register` entry, so the module-level
- * auto-registration runs during import exactly as it would inside a Bun preload.
- * A unique query busts the ESM module cache so each call re-runs the module's
- * registration state. The caller must already have a Bun-like global installed
- * (see {@link withBunRuntime}).
+ * auto-registration runs during import exactly as it would inside a Bun
+ * preload. A unique query busts the ESM module cache so each call re-runs the
+ * module's registration state. The caller must already have a Bun-like global
+ * installed (see {@link withBunRuntime}).
  */
 async function importFreshBunRegister(): Promise<(options?: unknown) => void> {
   const url = `${TestUnpluginRuntime.libUrl("bun-register")}?ra23=${Date.now()}-${Math.random()}`;
@@ -103,12 +103,12 @@ async function assertBunRegisterRegistersRuntimePlugin() {
  * same-runtime order cannot install a shadowing default loader, and that the
  * explicit options are the ones that transform.
  *
- * Bun uses the first matching `onLoad` hook and does not fall through to a later
- * overlapping plugin (oven-sh/bun#20583). The module auto-registers on import,
- * so a caller importing it to reach `register(options)` would, under the old
- * code, get a default plugin registered first that shadows the explicit one.
- * The entry must register exactly one Bun loader whose effective options are
- * resolved on first load, so the later explicit call wins.
+ * Bun uses the first matching `onLoad` hook and does not fall through to a
+ * later overlapping plugin (oven-sh/bun#20583). The module auto-registers on
+ * import, so a caller importing it to reach `register(options)` would, under
+ * the old code, get a default plugin registered first that shadows the explicit
+ * one. The entry must register exactly one Bun loader whose effective options
+ * are resolved on first load, so the later explicit call wins.
  */
 async function assertBunRegisterSameRuntimeExplicitOptionsWin(): Promise<void> {
   const captured: CapturedPlugin[] = [];

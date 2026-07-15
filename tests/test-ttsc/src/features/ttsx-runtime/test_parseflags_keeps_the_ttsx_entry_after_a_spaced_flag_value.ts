@@ -20,8 +20,7 @@ const isEntry = (token: string): boolean =>
  *    the entry predicate and `forwardAfterFirstPositional`.
  * 2. Assert the entry is the only positional and the two forwarded pairs keep
  *    their order in `passthrough`.
- * 3. Assert the post-entry tokens are the program `tail`, never forwarded to
- *    tsgo.
+ * 3. Assert the post-entry tokens are the program `tail`, never forwarded to tsgo.
  */
 export const test_parseflags_keeps_the_ttsx_entry_after_a_spaced_flag_value =
   () => {

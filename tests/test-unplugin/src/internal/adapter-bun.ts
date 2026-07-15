@@ -14,13 +14,13 @@ type BunLoader = (args: {
 }) => Promise<{ contents: string; loader: string }>;
 
 /**
- * Register the Bun adapter against a capturing `setup` stub and return the first
- * `onLoad` handler plus its filter, mirroring how Bun drives the plugin. No real
- * Bun runtime is required.
+ * Register the Bun adapter against a capturing `setup` stub and return the
+ * first `onLoad` handler plus its filter, mirroring how Bun drives the plugin.
+ * No real Bun runtime is required.
  */
-async function captureBunLoader(
-  plugin: { setup(build: unknown): void },
-): Promise<{ loader: BunLoader; options: BunLoadOptions }> {
+async function captureBunLoader(plugin: {
+  setup(build: unknown): void;
+}): Promise<{ loader: BunLoader; options: BunLoadOptions }> {
   const loaders: { loader: BunLoader; options: BunLoadOptions }[] = [];
   plugin.setup({
     onLoad(options: BunLoadOptions, loader: BunLoader) {
@@ -69,16 +69,16 @@ async function assertBunAdapterTransformsSource() {
  * dependencies, and keeps producing correct output on both the fresh transform
  * and the subsequent cache hit.
  *
- * The shared transform calls `addWatchFile` once per plugin-reported dependency.
- * The Bun adapter used to invoke the raw transform with an empty receiver
- * (`{}`), so `this.addWatchFile` was `undefined` and any reported dependency
- * threw `TypeError: this.addWatchFile is not a function` before the loader could
- * return transformed source. Bun exposes no per-module dependency channel, so
- * the adapter must supply an explicit no-op watch context rather than a missing
- * one. The dependency list deliberately mixes a project-relative entry, an
- * absolute entry, a duplicate, and the module itself — every shape that reaches
- * the watch hook — because a single reported entry is enough to trip the old
- * crash.
+ * The shared transform calls `addWatchFile` once per plugin-reported
+ * dependency. The Bun adapter used to invoke the raw transform with an empty
+ * receiver (`{}`), so `this.addWatchFile` was `undefined` and any reported
+ * dependency threw `TypeError: this.addWatchFile is not a function` before the
+ * loader could return transformed source. Bun exposes no per-module dependency
+ * channel, so the adapter must supply an explicit no-op watch context rather
+ * than a missing one. The dependency list deliberately mixes a project-relative
+ * entry, an absolute entry, a duplicate, and the module itself — every shape
+ * that reaches the watch hook — because a single reported entry is enough to
+ * trip the old crash.
  */
 async function assertBunAdapterSurvivesPluginReportedDependencies() {
   const unpluginBun = await TestUnpluginRuntime.loadUnpluginAdapter("bun");
@@ -89,7 +89,12 @@ async function assertBunAdapterSurvivesPluginReportedDependencies() {
         transform: "./plugin.cjs",
         name: "fixture",
         operation: "emit-dependencies",
-        dependencies: ["src/types.d.ts", absolute, "src/types.d.ts", "src/main.ts"],
+        dependencies: [
+          "src/types.d.ts",
+          absolute,
+          "src/types.d.ts",
+          "src/main.ts",
+        ],
       },
     ],
   });

@@ -9,12 +9,11 @@ import { FAKE_API, withBootStubs } from "../../internal/bootHarness";
  *
  * This is the positive baseline the early-exit rejection cases are twinned
  * against: a normal Go host fires `Ready` and then keeps `go.run` pending
- * forever. The boot must resolve on `Ready`, return the exact host it installed,
- * and the never-settling `go.run` branch that lost the readiness race must not
- * surface as an unhandled rejection.
+ * forever. The boot must resolve on `Ready`, return the exact host it
+ * installed, and the never-settling `go.run` branch that lost the readiness
+ * race must not surface as an unhandled rejection.
  *
- * 1. Stub a fake runtime that signals ready then returns a never-settling
- *    promise.
+ * 1. Stub a fake runtime that signals ready then returns a never-settling promise.
  * 2. Boot it and let a few event-loop turns pass.
  * 3. Assert the api and host came back and no unhandled rejection fired.
  */

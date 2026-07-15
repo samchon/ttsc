@@ -68,12 +68,12 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * `audit` says so on every result.
  *
  * Selection is the separate question. `lookup`, `entrypoints`, and `tour` match
- * your question and return a scored, ranked, per-file-capped, limited shortlist;
- * their facts are still verified, but whether the shortlist covers what you
- * asked is yours to judge, and their `audit` says that instead of claiming
- * completeness. A follow-up request or a read of a cited span for missed
- * coverage is legitimate — re-confirming a fact the graph already resolved is
- * not.
+ * your question and return a scored, ranked, per-file-capped, limited
+ * shortlist; their facts are still verified, but whether the shortlist covers
+ * what you asked is yours to judge, and their `audit` says that instead of
+ * claiming completeness. A follow-up request or a read of a cited span for
+ * missed coverage is legitimate — re-confirming a fact the graph already
+ * resolved is not.
  *
  * ## Stop
  *
@@ -81,9 +81,9 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * resolved.
  *
  * - A span is a citation, not a cue to open the file to re-check a fact.
- * - Follow the result's `next`: `answer` means stop and answer from it,
- *   `inspect` means make exactly the one request it names, `outside` means
- *   escape, `clarify` means restate the request.
+ * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
+ *   means make exactly the one request it names, `outside` means escape,
+ *   `clarify` means restate the request.
  * - For a ranked shortlist (`lookup`, `entrypoints`, `tour`), `next` and
  *   `truncated` say whether coverage is settled; when it is not, one more
  *   request is the right move — not a file read to re-verify facts already

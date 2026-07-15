@@ -28,8 +28,8 @@ import {
  * 1. Seed a project-local plugin cache, an external `TTSC_GO_CACHE_DIR`, and a
  *    user `GOCACHE`, with `TTSC_GO_CACHE_DIR` absent from `process.env`.
  * 2. Run `clean()` on an instance whose `context.env` carries both Go caches.
- * 3. Assert the plugin cache and external Go cache are removed, the user
- *    `GOCACHE` survives, and `process.env.TTSC_GO_CACHE_DIR` is still unset.
+ * 3. Assert the plugin cache and external Go cache are removed, the user `GOCACHE`
+ *    survives, and `process.env.TTSC_GO_CACHE_DIR` is still unset.
  */
 export const test_ttsccompiler_clean_removes_context_env_external_go_cache =
   () => {

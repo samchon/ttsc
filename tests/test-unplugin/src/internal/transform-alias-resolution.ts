@@ -269,13 +269,13 @@ function createManifestPresetProject(): string {
  * selected through `package.json#tsconfig`.
  *
  * The transform overlay re-states the project's effective `paths` (walking the
- * `extends` chain) whenever a bundler alias is forwarded. If the unplugin reader
- * cannot resolve a bare manifest-selected preset, its inherited `#preset/*`
- * alias disappears from the overlay and the aliased import collapses to `any` —
- * no diagnostic surfaces. The probe is a deliberate type error through the
- * inherited alias: it can only be reported when `PresetModel` resolved to the
- * real interface. The negative twin (well-typed source) pins that the overlay
- * introduces no diagnostics of its own.
+ * `extends` chain) whenever a bundler alias is forwarded. If the unplugin
+ * reader cannot resolve a bare manifest-selected preset, its inherited
+ * `#preset/*` alias disappears from the overlay and the aliased import
+ * collapses to `any` — no diagnostic surfaces. The probe is a deliberate type
+ * error through the inherited alias: it can only be reported when `PresetModel`
+ * resolved to the real interface. The negative twin (well-typed source) pins
+ * that the overlay introduces no diagnostics of its own.
  */
 async function assertAliasOverlayResolvesPackageTsconfigPresetPaths(): Promise<void> {
   const root = createManifestPresetProject();
@@ -300,7 +300,7 @@ async function assertAliasOverlayResolvesPackageTsconfigPresetPaths(): Promise<v
     aliases,
     [
       'import type { PresetModel } from "#preset/model";',
-      'export const good: PresetModel = { id: 1 };',
+      "export const good: PresetModel = { id: 1 };",
       "",
     ].join("\n"),
   );

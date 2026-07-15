@@ -10,10 +10,9 @@ import { assertConcurrentTransformsCompileOnce } from "../../internal/transform-
  * scenarios.
  *
  * 1. Build the run-log fixture that counts whole-project compiles.
- * 2. Fire two `transformTtsc` calls for the same module concurrently, sharing
- *    one cache.
- * 3. Assert both return transformed output and the fixture compiled exactly
- *    once.
+ * 2. Fire two `transformTtsc` calls for the same module concurrently, sharing one
+ *    cache.
+ * 3. Assert both return transformed output and the fixture compiled exactly once.
  */
 export const test_transformttsc_shares_one_compile_across_concurrent_callers =
   async () => {

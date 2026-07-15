@@ -12,9 +12,10 @@ import { assertMissingTransitiveDependencyReported } from "../../internal/metro-
  *
  * 1. Point `upstreamTransformer` at a module that requires an absent dependency.
  * 2. Resolve it through the real loader.
- * 3. Assert the diagnostic names the missing dependency, not the "could not
- *    load" absence message.
+ * 3. Assert the diagnostic names the missing dependency, not the "could not load"
+ *    absence message.
  */
-export const test_upstream_missing_transitive_dependency_reported = async () => {
-  await assertMissingTransitiveDependencyReported();
-};
+export const test_upstream_missing_transitive_dependency_reported =
+  async () => {
+    await assertMissingTransitiveDependencyReported();
+  };

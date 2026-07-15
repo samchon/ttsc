@@ -70,17 +70,21 @@ export const test_memfs_rename_rejects_invalid_targets_without_partial_state =
         host.exists("/nonexistent") === false &&
         host.exists("/dir/sub/inner") === false,
     );
-    TestValidator.equals("tree contents intact", {
-      a: host.readFileText("/dir/a.txt"),
-      b: host.readFileText("/dir/sub/b.txt"),
-      file: host.readFileText("/file.txt"),
-      empty: host.exists("/empty"),
-      empty2: host.exists("/empty2"),
-    }, {
-      a: "AAA",
-      b: "BBB",
-      file: "FILE",
-      empty: true,
-      empty2: true,
-    });
+    TestValidator.equals(
+      "tree contents intact",
+      {
+        a: host.readFileText("/dir/a.txt"),
+        b: host.readFileText("/dir/sub/b.txt"),
+        file: host.readFileText("/file.txt"),
+        empty: host.exists("/empty"),
+        empty2: host.exists("/empty2"),
+      },
+      {
+        a: "AAA",
+        b: "BBB",
+        file: "FILE",
+        empty: true,
+        empty2: true,
+      },
+    );
   };

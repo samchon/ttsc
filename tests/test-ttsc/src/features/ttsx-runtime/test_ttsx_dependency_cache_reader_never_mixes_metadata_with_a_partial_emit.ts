@@ -22,10 +22,10 @@ import {
  * files.
  *
  * 1. Seed a complete generation A with a published marker.
- * 2. A holder builds generation B, writes its first file, and halts at a
- *    barrier before publishing B's marker; the reader observes A only.
- * 3. Release the holder to swap the marker atomically; the reader now observes
- *    the complete B and never a directory that lacks emitted JavaScript.
+ * 2. A holder builds generation B, writes its first file, and halts at a barrier
+ *    before publishing B's marker; the reader observes A only.
+ * 3. Release the holder to swap the marker atomically; the reader now observes the
+ *    complete B and never a directory that lacks emitted JavaScript.
  */
 export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_partial_emit =
   async () => {
@@ -41,7 +41,11 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
     fs.writeFileSync(path.join(genADir, "index.js"), "exports.value = 'A';\n");
     fs.writeFileSync(
       metaPath,
-      JSON.stringify({ generation: genA, moduleOption: "commonjs", rootDir: "/root" }),
+      JSON.stringify({
+        generation: genA,
+        moduleOption: "commonjs",
+        rootDir: "/root",
+      }),
       "utf8",
     );
 
@@ -105,7 +109,11 @@ export const test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_parti
     fs.mkdirSync(path.join(cacheDir, `gen-${genC}`), { recursive: true });
     fs.writeFileSync(
       metaPath,
-      JSON.stringify({ generation: genC, moduleOption: "commonjs", rootDir: "/root" }),
+      JSON.stringify({
+        generation: genC,
+        moduleOption: "commonjs",
+        rootDir: "/root",
+      }),
       "utf8",
     );
     assert.equal(readDependencyCache(cacheDir, metaPath), null);

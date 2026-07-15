@@ -38,8 +38,8 @@
  * A returned fact and the set it was chosen from are not audited to the same
  * standard, and one audit that conflated them was dishonest. Every operation
  * resolves each fact it returns — a name, a span, an edge, a signature — to the
- * type-checked program, so a returned fact cannot be wrong for the snapshot. But
- * `lookup`, `entrypoints`, and `tour` do not answer with the structure at a
+ * type-checked program, so a returned fact cannot be wrong for the snapshot.
+ * But `lookup`, `entrypoints`, and `tour` do not answer with the structure at a
  * handle you named; they match your natural-language question, score and rank
  * the graph against it, cap hits per file, and cut to a limit. Their `score`
  * and `truncated` fields say so, while the single old audit — "matched, ranked,
@@ -52,7 +52,7 @@
  * result is what the graph holds for what you named, bounded only where
  * `truncated` says. {@link RESULT_AUDIT_SELECTION} covers the ranked shortlists
  * (`lookup`, `entrypoints`, `tour`): it keeps the same fact-verification and
- * adds that the *selection* is heuristic, so whether the shortlist covers the
+ * adds that the _selection_ is heuristic, so whether the shortlist covers the
  * question is the caller's to judge — and a follow-up request or a read of a
  * cited span is a sound next step, not a failure to trust the result.
  *
@@ -82,7 +82,7 @@ after you edit the source.
 /**
  * The audit for the ranked-shortlist operations (`lookup`, `entrypoints`,
  * `tour`). It keeps {@link RESULT_AUDIT}'s fact verification and is honest that
- * the *selection* — which symbols answered the question, in what order, and how
+ * the _selection_ — which symbols answered the question, in what order, and how
  * many — is heuristic, so coverage is the caller's to judge.
  */
 export const RESULT_AUDIT_SELECTION: string = `

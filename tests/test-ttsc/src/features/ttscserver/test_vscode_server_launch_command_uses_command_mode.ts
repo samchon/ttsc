@@ -57,7 +57,11 @@ export const test_vscode_server_launch_command_uses_command_mode = () => {
   );
   assert.equal(result.status, 0, result.stderr);
   const parsed = JSON.parse(result.stdout) as {
-    cmd: { args: string[]; command: string; windowsVerbatimArguments?: boolean };
+    cmd: {
+      args: string[];
+      command: string;
+      windowsVerbatimArguments?: boolean;
+    };
     js: { args: string[]; command: string; windowsVerbatimArguments?: boolean };
     native: {
       args: string[];

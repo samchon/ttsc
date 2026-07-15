@@ -19,8 +19,8 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
  * 1. Build a NodeNext `resolveJsonModule` project whose `@data` alias targets
  *    `./src/data.json`, imported with an attribute from `src/main.mts`.
  * 2. Run real `ttsc --emit`.
- * 3. Assert the emitted specifier is `./data.json` with its attribute retained,
- *    no `.js` JSON target appears in the JavaScript or declaration output, and
+ * 3. Assert the emitted specifier is `./data.json` with its attribute retained, no
+ *    `.js` JSON target appears in the JavaScript or declaration output, and
  *    `dist/data.json` exists.
  */
 export const test_paths_rewrites_esm_json_alias_with_import_attribute = () => {

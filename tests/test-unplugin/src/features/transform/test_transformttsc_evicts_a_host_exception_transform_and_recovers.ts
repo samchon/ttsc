@@ -11,8 +11,8 @@ import { assertHostExceptionTransformIsEvictedAndRecovers } from "../../internal
  * removed like a rejected one.
  *
  * 1. Prime a shared cache with one successful transform of the fixture.
- * 2. Replace that entry with a resolved `"exception"` envelope (reusing the
- *    primed project hashes so the cached entry validates) and retry the module.
+ * 2. Replace that entry with a resolved `"exception"` envelope (reusing the primed
+ *    project hashes so the cached entry validates) and retry the module.
  * 3. Assert the retry throws and the entry is evicted, then a further retry
  *    re-runs the transform and succeeds.
  */

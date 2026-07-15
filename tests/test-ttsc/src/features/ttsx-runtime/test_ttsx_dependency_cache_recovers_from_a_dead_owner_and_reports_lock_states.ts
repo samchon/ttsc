@@ -18,14 +18,14 @@ import {
  * correctly.
  *
  * A builder that crashes mid-build would otherwise wedge every waiter until the
- * generous steal timeout; keying abandonment on a same-host owner pid that is no
- * longer running lets the next contender reclaim immediately. The active and
+ * generous steal timeout; keying abandonment on a same-host owner pid that is
+ * no longer running lets the next contender reclaim immediately. The active and
  * released twins pin that a live owner is never stolen and a retired generation
  * reads back as released.
  *
  * 1. A child acquires a generation and exits without releasing it.
- * 2. Assert the lock reads abandoned, reclaim it, then acquire it live and
- *    assert it reads active with the live fence.
+ * 2. Assert the lock reads abandoned, reclaim it, then acquire it live and assert
+ *    it reads active with the live fence.
  * 3. Release the live generation and assert the lock reads released.
  */
 export const test_ttsx_dependency_cache_recovers_from_a_dead_owner_and_reports_lock_states =
@@ -65,7 +65,11 @@ export const test_ttsx_dependency_cache_recovers_from_a_dead_owner_and_reports_l
     // Recover: retire the dead generation, then take it live.
     assert.equal(reclaimDependencyBuildLock(lockDir, seed), true);
     const lease = acquireDependencyBuildLock(lockDir);
-    assert.notEqual(lease, null, "a fresh contender should acquire after recovery");
+    assert.notEqual(
+      lease,
+      null,
+      "a fresh contender should acquire after recovery",
+    );
 
     // A live local owner is never stolen.
     const active = inspectDependencyBuildLock(lockDir, Date.now());
