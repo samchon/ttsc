@@ -134,12 +134,33 @@ func recordedBehavioralWitnesses() map[string][]behavioralWitness {
   return out
 }
 
+// behavioralWitnessPublicRuleSet is the rule set the witness audit requires a
+// positive production witness for: every user-facing registered rule. It is the
+// typed-key parity set (registeredRuleSetForParity) plus the format/* family.
+// Format rules are user-facing but configured through the `format` block rather
+// than a typed `rules` key, so registeredRuleSetForParity — which must match the
+// typed keys — excludes them. The witness audit asks a different question ("does
+// every user-facing rule fire in production?"), so it must not: the formatter
+// family is precisely the over-match-prone surface the witness doctrine exists
+// to guard. Format rules earn their witnesses through the dedicated fixer
+// harnesses under packages/lint/test/format, the same route other rules that
+// cannot run the flat corpus already use.
+func behavioralWitnessPublicRuleSet() map[string]struct{} {
+  public := registeredRuleSetForParity()
+  for _, name := range AllRuleNames() {
+    if strings.HasPrefix(name, "format/") {
+      public[name] = struct{}{}
+    }
+  }
+  return public
+}
+
 // verifyRecordedBehavioralWitnessCoverage runs after the package test suite.
 // A rule can enter the canonical map only after a positive assertion executed,
 // so registry parity can no longer be satisfied by an inert rule object.
 func verifyRecordedBehavioralWitnessCoverage() error {
   candidates := recordedBehavioralWitnesses()
-  public := registeredRuleSetForParity()
+  public := behavioralWitnessPublicRuleSet()
   _, err := auditBehavioralWitnesses(public, candidates)
   if err != nil {
     return err
@@ -444,9 +465,13 @@ func validBehavioralWitnessSources(sources []string) bool {
     strings.HasSuffix(source, "_test.go")
 }
 
+// isNonPublicRuleName reports whether a recorded witness belongs to a rule that
+// is intentionally outside the public audit set. Only the test/ and demo/
+// families qualify: format/* rules ARE public (see behavioralWitnessPublicRuleSet),
+// so a stray format witness for an unregistered id is now correctly flagged
+// instead of silently tolerated.
 func isNonPublicRuleName(ruleName string) bool {
-  return strings.HasPrefix(ruleName, "format/") ||
-    strings.HasPrefix(ruleName, "test/") ||
+  return strings.HasPrefix(ruleName, "test/") ||
     strings.HasPrefix(ruleName, "demo/")
 }
 
