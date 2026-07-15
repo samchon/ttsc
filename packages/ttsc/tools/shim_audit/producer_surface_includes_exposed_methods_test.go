@@ -18,6 +18,7 @@ import (
 //  3. Confirm an alias and canonical producer close the same object edge.
 //  4. Remove the receiver root and confirm its result no longer counts.
 //  5. Restore it explicitly, then prove a rootless self-cycle still fails.
+//  6. Prove reachable receivers do not legitimize argument/result cycles.
 func TestProducerSurfaceIncludesExposedMethods(t *testing.T) {
   build := func(includeProducer bool) (reachable, map[string]*packages.Package) {
     pkg := types.NewPackage(internalPrefix+"fixture", "fixture")
@@ -106,8 +107,8 @@ func TestProducerSurfaceIncludesExposedMethods(t *testing.T) {
   token := flowType{pkg: "fixture", name: "Token"}
   owner := flowType{pkg: "fixture", name: "Owner"}
   rootless.add(flowConsume, token, "fixture.UseToken")
-  rootless.methods = append(rootless.methods, methodFlow{
-    receiver: owner,
+  rootless.operations = append(rootless.operations, operationFlow{
+    receiver: &owner,
     consumed: map[flowType]map[string]bool{},
     produced: map[flowType]map[string]bool{token: {"fixture.Owner.Produce": true}},
   })
@@ -121,12 +122,33 @@ func TestProducerSurfaceIncludesExposedMethods(t *testing.T) {
 
   cycle := newProducerSurface()
   cycle.add(flowConsume, owner, "fixture.UseOwner")
-  cycle.methods = append(cycle.methods, methodFlow{
-    receiver: owner,
+  cycle.operations = append(cycle.operations, operationFlow{
+    receiver: &owner,
     consumed: map[flowType]map[string]bool{},
     produced: map[flowType]map[string]bool{owner: {"fixture.Owner.Clone": true}},
   })
   if findings := evaluateProducerSurface(cycle, nil).gaps; len(findings) != 1 || findings[0].symbol != "Owner" {
     t.Fatalf("rootless self-cycle findings = %+v, want fixture.Owner", findings)
+  }
+
+  methodCycle := newProducerSurface()
+  methodCycle.add(flowProduce, owner, "fixture.NewOwner")
+  left := flowType{pkg: "fixture", name: "Left"}
+  right := flowType{pkg: "fixture", name: "Right"}
+  methodCycle.operations = append(methodCycle.operations,
+    operationFlow{
+      receiver: &owner,
+      consumed: map[flowType]map[string]bool{left: {"fixture.Owner.RightFromLeft": true}},
+      produced: map[flowType]map[string]bool{right: {"fixture.Owner.RightFromLeft": true}},
+    },
+    operationFlow{
+      receiver: &owner,
+      consumed: map[flowType]map[string]bool{right: {"fixture.Owner.LeftFromRight": true}},
+      produced: map[flowType]map[string]bool{left: {"fixture.Owner.LeftFromRight": true}},
+    },
+  )
+  methodFindings := evaluateProducerSurface(methodCycle, nil).gaps
+  if len(methodFindings) != 2 || methodFindings[0].symbol != "Left" || methodFindings[1].symbol != "Right" {
+    t.Fatalf("rootless method argument cycle findings = %+v, want Left and Right", methodFindings)
   }
 }

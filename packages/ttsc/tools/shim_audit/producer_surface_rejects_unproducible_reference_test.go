@@ -20,6 +20,7 @@ import (
 //  3. Remove a package producer and confirm its generic type-keyed gap appears.
 //  4. Remove a method consumer's producer and confirm that gap appears too.
 //  5. Repeat through recursive named callbacks and containers without hanging.
+//  6. Prove package-operation cycles fail until an independent root is added.
 func TestProducerSurfaceRejectsUnproducibleReference(t *testing.T) {
   source := `package fixture
 import inner "github.com/microsoft/typescript-go/internal/fixture"
@@ -43,7 +44,7 @@ func hidden(value *inner.Hidden) {}
     if err != nil {
       t.Fatal(err)
     }
-    if err := scanProducerFile([]byte(input), "fixture.go", "fixture", definitions, inner, surface); err != nil {
+    if err := scanProducerFile([]byte(input), "fixture.go", "fixture", definitions, inner, &surface); err != nil {
       t.Fatal(err)
     }
     return evaluateProducerSurface(surface, nil).gaps
@@ -122,5 +123,20 @@ func ProduceUpstreamToken() *inner.UpstreamToken { return nil }
   upstreamFindings := scanWithInner(upstreamMutated, upstreamInner)
   if len(upstreamFindings) != 1 || upstreamFindings[0].symbol != "UpstreamToken" {
     t.Fatalf("upstream named callback mutation findings = %+v, want UpstreamToken", upstreamFindings)
+  }
+
+  cycleSource := `package fixture
+import inner "github.com/microsoft/typescript-go/internal/fixture"
+func AFromB(value *inner.B) *inner.A { return nil }
+func BFromA(value *inner.A) *inner.B { return nil }
+func UseA(value *inner.A) {}
+`
+  cycleFindings := scan(cycleSource)
+  if len(cycleFindings) != 2 || cycleFindings[0].symbol != "A" || cycleFindings[1].symbol != "B" {
+    t.Fatalf("rootless operation cycle findings = %+v, want A and B", cycleFindings)
+  }
+  rootedChain := strings.Replace(cycleSource, "func UseA(value *inner.A) {}\n", "func NewA() *inner.A { return nil }\nfunc UseA(value *inner.A) {}\n", 1)
+  if findings := scan(rootedChain); len(findings) != 0 {
+    t.Fatalf("rooted operation chain findings = %+v, want none", findings)
   }
 }

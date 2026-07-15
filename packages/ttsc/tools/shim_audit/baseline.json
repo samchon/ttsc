@@ -708,6 +708,7 @@
     "lsp/lsproto.FileSystemWatcher": "WatchFiles receives protocol payloads owned by the LSP host; plugin callers do not construct the internal transport type.",
     "lsp/lsproto.PublishDiagnosticsParams": "PublishDiagnostics receives protocol payloads owned by the LSP host; plugin callers do not construct the internal transport type.",
     "scanner.SkipTriviaOptions": "Trivia options are caller-owned configuration data that can be allocated through the exported type alias.",
-    "sourcemap.Generator": "Printer.Write is an upstream emit hook whose generator is compiler-owned; plugin emit uses the exported compiler and printer entry points."
+    "sourcemap.Generator": "Printer.Write is an upstream emit hook whose generator is compiler-owned; plugin emit uses the exported compiler and printer entry points.",
+    "tsoptions.ExtendedConfigCacheEntry": "ParseExtendedConfig accepts a nil optional cache and produces the first entry without requiring a prior cache result."
   }
 }

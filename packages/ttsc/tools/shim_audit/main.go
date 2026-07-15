@@ -23,9 +23,9 @@
 //     already-exposed operation but is not itself aliased. (A plugin can
 //     obtain the value but cannot name its type.)
 //   - PRODUCER every pointer-like compiler object consumed by a public shim
-//     operation must be obtainable from an unconditional public return or
-//     callback, a method on an obtainable receiver, or an explicit root. A type
-//     alias alone only makes the object nameable; it provides no meaningful value.
+//     operation must be obtainable from an explicit root or a public operation
+//     whose compiler-object inputs and receiver are themselves obtainable. A
+//     type alias alone only makes the object nameable; it provides no value.
 //
 // What it deliberately does NOT find: UNEXPORTED helpers a plugin needs by name
 // (e.g. `(*Checker).getMinArgumentCount`, #230 rule 2). Those are invisible to
@@ -116,17 +116,16 @@ type flowType struct {
 // produce pointer-like compiler objects. Values are operation names so a gap
 // explains which public wrapper requires the missing producer.
 type producerSurface struct {
-  consumed map[flowType]map[string]bool
-  produced map[flowType]map[string]bool
-  methods  []methodFlow
+  consumed   map[flowType]map[string]bool
+  produced   map[flowType]map[string]bool
+  operations []operationFlow
 }
 
-// methodFlow keeps method results conditional on an obtainable receiver. A
-// public method name alone cannot produce anything when its receiver is itself
-// unreachable; flattening method returns into producerSurface.produced would
-// let rootless method cycles satisfy the audit.
-type methodFlow struct {
-  receiver flowType
+// operationFlow keeps results conditional on every compiler-object input and,
+// for methods, an obtainable receiver. Flattening results into the unconditional
+// producer set would let rootless function or method cycles satisfy the audit.
+type operationFlow struct {
+  receiver *flowType
   consumed map[flowType]map[string]bool
   produced map[flowType]map[string]bool
 }
@@ -285,7 +284,7 @@ func scanShimProducerSurface(shimRoot string, inner map[string]*packages.Package
   }
   for suffix, files := range sources {
     for path, src := range files {
-      if err := scanProducerFile(src, path, suffix, localTypes[suffix], inner, surface); err != nil {
+      if err := scanProducerFile(src, path, suffix, localTypes[suffix], inner, &surface); err != nil {
         return producerSurface{}, err
       }
     }
@@ -344,7 +343,7 @@ func internalImportAliases(src []byte, filename string) (map[string]string, erro
   return aliases, nil
 }
 
-func scanProducerFile(src []byte, filename, suffix string, localTypes map[string]localFlowDefinition, inner map[string]*packages.Package, surface producerSurface) error {
+func scanProducerFile(src []byte, filename, suffix string, localTypes map[string]localFlowDefinition, inner map[string]*packages.Package, surface *producerSurface) error {
   file, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.SkipObjectResolution)
   if err != nil {
     return fmt.Errorf("%s: %w", filename, err)
@@ -362,8 +361,16 @@ func scanProducerFile(src []byte, filename, suffix string, localTypes map[string
     if fn.Recv != nil && len(fn.Recv.List) > 0 {
       operation = suffix + "." + receiverTypeName(fn.Recv.List[0].Type) + "." + fn.Name.Name
     }
-    collectFieldFlow(fn.Type.Params, aliases, localTypes, inner, flowConsume, false, operation, surface)
-    collectFieldFlow(fn.Type.Results, aliases, localTypes, inner, flowProduce, false, operation, surface)
+    operationSurface := newProducerSurface()
+    collectFieldFlow(fn.Type.Params, aliases, localTypes, inner, flowConsume, false, operation, operationSurface)
+    collectFieldFlow(fn.Type.Results, aliases, localTypes, inner, flowProduce, false, operation, operationSurface)
+    if len(operationSurface.consumed) == 0 && len(operationSurface.produced) == 0 {
+      continue
+    }
+    surface.operations = append(surface.operations, operationFlow{
+      consumed: operationSurface.consumed,
+      produced: operationSurface.produced,
+    })
   }
   return nil
 }
@@ -811,10 +818,10 @@ type producerEvaluation struct {
 }
 
 // evaluateProducerSurface computes the obtainable compiler-object set to a
-// fixed point. Package functions and callbacks provide unconditional roots;
-// method flows become active only after their receiver is obtainable. Explicit
-// baseline roots participate in the same graph, so a reasoned receiver root can
-// unlock its real method results without exempting those downstream objects.
+// fixed point. Package operations are exposed immediately and methods after
+// their receiver is obtainable, but either unlocks results only after every
+// compiler-object input is obtainable. Explicit baseline roots participate in
+// the same graph without exempting downstream objects.
 func evaluateProducerSurface(surface producerSurface, roots map[string]string) producerEvaluation {
   reachable := map[flowType]bool{}
   for typ := range surface.produced {
@@ -827,12 +834,14 @@ func evaluateProducerSurface(surface producerSurface, roots map[string]string) p
   for typ := range surface.produced {
     allTypes[typ] = true
   }
-  for _, method := range surface.methods {
-    allTypes[method.receiver] = true
-    for typ := range method.consumed {
+  for _, operation := range surface.operations {
+    if operation.receiver != nil {
+      allTypes[*operation.receiver] = true
+    }
+    for typ := range operation.consumed {
       allTypes[typ] = true
     }
-    for typ := range method.produced {
+    for typ := range operation.produced {
       allTypes[typ] = true
     }
   }
@@ -861,17 +870,35 @@ func evaluateProducerSurface(surface producerSurface, roots map[string]string) p
     }
   }
   mergeFlows(consumed, surface.consumed)
-  active := make([]bool, len(surface.methods))
+  exposed := make([]bool, len(surface.operations))
+  callable := make([]bool, len(surface.operations))
   for changed := true; changed; {
     changed = false
-    for index, method := range surface.methods {
-      if active[index] || !reachable[method.receiver] {
+    for index, operation := range surface.operations {
+      if !exposed[index] {
+        if operation.receiver != nil && !reachable[*operation.receiver] {
+          continue
+        }
+        exposed[index] = true
+        changed = true
+        mergeFlows(consumed, operation.consumed)
+      }
+      if callable[index] {
         continue
       }
-      active[index] = true
+      requirementsMet := true
+      for typ := range operation.consumed {
+        if !reachable[typ] {
+          requirementsMet = false
+          break
+        }
+      }
+      if !requirementsMet {
+        continue
+      }
+      callable[index] = true
       changed = true
-      mergeFlows(consumed, method.consumed)
-      for typ := range method.produced {
+      for typ := range operation.produced {
         if !reachable[typ] {
           reachable[typ] = true
         }
@@ -919,13 +946,16 @@ func canonicalizeProducerSurface(surface producerSurface, inner map[string]*pack
   }
   copyDirection(flowConsume, surface.consumed)
   copyDirection(flowProduce, surface.produced)
-  for _, method := range surface.methods {
-    converted := methodFlow{
-      receiver: canonicalFlowType(method.receiver, inner),
+  for _, operation := range surface.operations {
+    converted := operationFlow{
       consumed: map[flowType]map[string]bool{},
       produced: map[flowType]map[string]bool{},
     }
-    copyMethodDirection := func(target map[flowType]map[string]bool, flows map[flowType]map[string]bool) {
+    if operation.receiver != nil {
+      receiver := canonicalFlowType(*operation.receiver, inner)
+      converted.receiver = &receiver
+    }
+    copyOperationDirection := func(target map[flowType]map[string]bool, flows map[flowType]map[string]bool) {
       for typ, operations := range flows {
         typ = canonicalFlowType(typ, inner)
         if target[typ] == nil {
@@ -936,9 +966,9 @@ func canonicalizeProducerSurface(surface producerSurface, inner map[string]*pack
         }
       }
     }
-    copyMethodDirection(converted.consumed, method.consumed)
-    copyMethodDirection(converted.produced, method.produced)
-    canonical.methods = append(canonical.methods, converted)
+    copyOperationDirection(converted.consumed, operation.consumed)
+    copyOperationDirection(converted.produced, operation.produced)
+    canonical.operations = append(canonical.operations, converted)
   }
   return canonical
 }
@@ -997,8 +1027,9 @@ func addExposedMethodFlow(r reachable, inner map[string]*packages.Package, surfa
         // receiver of a promoted method: callers need an outer value to invoke
         // the selected method and never manufacture an embedded implementation
         // receiver directly.
-        surface.methods = append(surface.methods, methodFlow{
-          receiver: flowType{pkg: suffix, name: name},
+        receiverType := flowType{pkg: suffix, name: name}
+        surface.operations = append(surface.operations, operationFlow{
+          receiver: &receiverType,
           consumed: methodSurface.consumed,
           produced: methodSurface.produced,
         })
