@@ -40,7 +40,7 @@ jobs:
               name: windows-go,
               os: windows-latest,
               build: "pnpm --filter ttsc build",
-              run: "pnpm run test:go",
+              run: "node --test packages/ttsc/scripts/check-flags.test.cjs && pnpm run test:go",
             }
           - {
               name: shim-audit,
@@ -48,7 +48,7 @@ jobs:
             }
           - {
               name: typecheck,
-              run: "pnpm run check:flags && pnpm run test:typecheck",
+              run: "pnpm run check:flags && node --test packages/ttsc/scripts/check-flags.test.cjs && pnpm run test:typecheck",
             }
           - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
           - { name: factory, run: "pnpm --filter @ttsc/test-factory start" }

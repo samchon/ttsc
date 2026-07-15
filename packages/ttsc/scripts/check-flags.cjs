@@ -20,62 +20,60 @@ const targets = [
   path.join(repoRoot, "website/src/content/docs/ttsc/flags.mdx"),
 ];
 
-const before = snapshot(targets);
+function main() {
+  const before = snapshot(targets);
 
-const result = child.spawnSync(
-  process.execPath,
-  ["--experimental-strip-types", path.join(here, "gen-flags.mts")],
-  { stdio: "inherit" },
-);
-if (result.status !== 0) {
-  process.exit(result.status ?? 1);
-}
-
-// gofmt the generated Go files so alignment matches the committed copy. The
-// generator emits raw key:value entries and gofmt aligns the `:` column;
-// skipping this step here would surface as drift on any local edit.
-for (const target of targets) {
-  if (!target.endsWith(".go")) continue;
-  const script = path.join(repoRoot, ".vscode/gofmt-2spaces.sh");
-  const gofmt = child.spawnSync(...shellScriptCommand(script, ["-w", target]), {
-    stdio: "inherit",
-  });
-  if (gofmt.error) {
-    throw gofmt.error;
-  }
-  if (gofmt.status !== 0) {
-    process.exit(gofmt.status ?? 1);
-  }
-}
-
-const after = snapshot(targets);
-const drift = [];
-for (const target of targets) {
-  if (normalizeEol(before[target]) !== normalizeEol(after[target])) {
-    drift.push(target);
-  }
-}
-if (drift.length !== 0) {
-  process.stderr.write(
-    "ttsc flag schema: generated output drifted from src/flags/schema.ts:\n",
+  const result = child.spawnSync(
+    process.execPath,
+    ["--experimental-strip-types", path.join(here, "gen-flags.mts")],
+    { stdio: "inherit" },
   );
-  for (const file of drift) {
-    process.stderr.write(`  ${path.relative(repoRoot, file)}\n`);
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
   }
-  process.stderr.write(
-    "run `pnpm format` to regenerate and commit the result.\n",
-  );
-  process.exit(1);
-}
 
-process.stdout.write("ttsc flag schema: generated output matches schema.\n");
+  // gofmt the generated Go files so alignment matches the committed copy. The
+  // generator emits raw key:value entries and gofmt aligns the `:` column;
+  // skipping this step here would surface as drift on any local edit.
+  for (const target of targets) {
+    if (!target.endsWith(".go")) continue;
+    const script = path.join(repoRoot, ".vscode/gofmt-2spaces.sh");
+    const gofmt = child.spawnSync(
+      ...shellScriptCommand(script, ["-w", target]),
+      {
+        stdio: "inherit",
+      },
+    );
+    if (gofmt.error) {
+      throw gofmt.error;
+    }
+    if (gofmt.status !== 0) {
+      process.exit(gofmt.status ?? 1);
+    }
+  }
+
+  const after = snapshot(targets);
+  const drift = computeDrift(before, after, targets);
+  if (drift.length !== 0) {
+    process.stderr.write(
+      "ttsc flag schema: generated output drifted from src/flags/schema.ts:\n",
+    );
+    for (const file of drift) {
+      process.stderr.write(`  ${path.relative(repoRoot, file)}\n`);
+    }
+    process.stderr.write(
+      "run `pnpm format` to regenerate and commit the result.\n",
+    );
+    process.exit(1);
+  }
+
+  process.stdout.write("ttsc flag schema: generated output matches schema.\n");
+}
 
 function snapshot(files) {
   const out = {};
   for (const file of files) {
-    out[file] = fs.existsSync(file)
-      ? fs.readFileSync(file, "utf8")
-      : "";
+    out[file] = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
   }
   return out;
 }
@@ -92,9 +90,31 @@ function normalizeEol(text) {
   return text.replace(/\r\n?/g, "\n");
 }
 
+// Decide which targets genuinely drifted between the committed snapshot and the
+// freshly regenerated one. Line terminators are folded first (see normalizeEol)
+// so a checkout's CRLF materialization is not mistaken for content drift, but
+// every other byte still counts. A target absent from `before` (never committed)
+// normalizes to "" and so drifts against any regenerated content.
+function computeDrift(before, after, files) {
+  const keys = files ?? Object.keys(after);
+  const drift = [];
+  for (const key of keys) {
+    if (normalizeEol(before[key] ?? "") !== normalizeEol(after[key] ?? "")) {
+      drift.push(key);
+    }
+  }
+  return drift;
+}
+
 function shellScriptCommand(script, args) {
   if (process.platform === "win32") {
     return ["bash", [script, ...args]];
   }
   return [script, args];
 }
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = { computeDrift, normalizeEol, snapshot, targets };
