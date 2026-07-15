@@ -45,7 +45,10 @@ export class TtscGraphSession {
     tsconfig: string;
     binary?: string;
   }) {
-    const binary = options.binary ?? resolveGraphBinary();
+    // Resolve the platform binary from the project this session serves, so the
+    // MCP server started from an unrelated directory still finds the target's
+    // installed `ttsc`.
+    const binary = options.binary ?? resolveGraphBinary(process.env, options.cwd);
     if (binary === null) {
       throw new Error(
         "@ttsc/graph: could not resolve the ttscgraph binary. " +
