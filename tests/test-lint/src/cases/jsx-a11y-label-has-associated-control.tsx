@@ -9,4 +9,5 @@
  *    control.
  * 2. Lint flags the unassociated label.
  */
+// expect: jsx-a11y/label-has-associated-control error
 export const X = () => <label>Name</label>;

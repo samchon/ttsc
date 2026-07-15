@@ -1,7 +1,9 @@
-// No options means no project policy is inferred.
+// @ttsc-corpus-options: no-restricted-imports {"paths":["lodash"]}
+// Positive: the configured exact path is rejected.
+// expect: no-restricted-imports error
 import _ from "lodash";
 
-// Re-exports are likewise unrestricted until paths or patterns are supplied.
+// Negative: re-exports outside the configured paths remain unrestricted.
 export { isArray } from "underscore";
 
 // Arbitrary imports remain accepted.

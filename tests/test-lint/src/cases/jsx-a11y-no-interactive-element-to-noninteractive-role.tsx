@@ -9,4 +9,5 @@
  * 1. Render a `<button>` with `role="presentation"`.
  * 2. Lint flags the downgrade to a non-interactive role.
  */
+// expect: jsx-a11y/no-interactive-element-to-noninteractive-role error
 export const X = () => <button role="presentation">Save</button>;

@@ -1,12 +1,12 @@
 /**
- * Verifies jsx-a11y/autocomplete-valid: `autocomplete` token must match
- * the HTML vocabulary and the surrounding `type`.
+ * Verifies jsx-a11y/autocomplete-valid: `autocomplete` tokens must suit the
+ * input type that consumes them.
  *
- * Pins the "type/token mismatch" branch — `autocomplete="url"` and
- * `type="email"` belong to disjoint vocabularies, so the rule rejects
- * the pair.
+ * Pins type compatibility: `url` is a real token, but an email input cannot
+ * consume a URL-specific autofill value.
  *
- * 1. Render an `<input type="email">` with `autocomplete="url"`.
- * 2. Lint flags the token as invalid for the input type.
+ * 1. Render an email input with `autocomplete="url"`.
+ * 2. Lint flags the token as inappropriate for that input type.
  */
+// expect: jsx-a11y/autocomplete-valid error
 export const X = () => <input type="email" autoComplete="url" />;

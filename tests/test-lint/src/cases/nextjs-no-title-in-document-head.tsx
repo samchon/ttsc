@@ -1,3 +1,4 @@
+// @ttsc-corpus-filename: src/pages/_document.tsx
 import { Head } from "next/document";
 
 // Positive: `<title>` inside `Head` from `next/document`.

@@ -9,7 +9,8 @@ import { TestProject } from "../TestProject";
 // Spawn the real `ttsc` binary against an isolated TypeScript fixture
 // and parse the rendered stderr diagnostics into structured records.
 //
-// Each rule's e2e test passes one `.ts` or `.tsx` file (the violation case) and
+// Each rule's e2e test passes one supported TypeScript source file (the
+// violation case) and
 // a rules-map. The helper:
 //   1. mkdtemp's a fixture project with the supplied source at the selected
 //      path (default `src/main.ts`) and a synthesized `tsconfig.json`.
@@ -98,7 +99,7 @@ export namespace TestLint {
     message: string;
   }
 
-  /** Expected diagnostic encoded in a fixture with `// expect:` comments. */
+  /** Expected diagnostic encoded in a fixture expectation comment. */
   export interface ILintExpectation {
     rule: string;
     severity: LintSeverity;
@@ -129,7 +130,7 @@ export namespace TestLint {
      * still cover it.
      */
     sourcePath?: string;
-    /** Optional disposable root under the OS temp dir; cleanup removes it. */
+    /** Optional nonexistent or empty disposable root under the OS temp dir. */
     projectRoot?: string;
     rules?: Record<string, LintRuleConfigEntry>;
     pluginConfig?: Record<string, unknown>;
@@ -182,17 +183,24 @@ export namespace TestLint {
       extraSources,
       linkNodeModules,
     } = options;
-    const tmpdir =
-      projectRoot ??
-      TestProject.tmpdir(`ttsc-lint-case-${sanitizeForFsName(name)}-`);
+    const linkedNodeModules = resolveLinkedNodeModules(linkNodeModules);
+    const mainSourcePath = resolveMainSourcePath(
+      sourcePath ?? path.posix.join("src", "main.ts"),
+    );
+    const resolvedExtraSources = resolveExtraSourcePaths(mainSourcePath, {
+      extraSources,
+      linkedNodeModulePaths: linkedNodeModules.map(
+        ({ relativePath }) => relativePath,
+      ),
+      writesGeneratedLintConfig: rules !== undefined,
+    });
     if (projectRoot !== undefined) {
       assertDisposableProjectRoot(projectRoot);
     }
+    const tmpdir =
+      projectRoot ??
+      TestProject.tmpdir(`ttsc-lint-case-${sanitizeForFsName(name)}-`);
     try {
-      const materializedExtraSources = Object.entries(extraSources ?? {}).map(
-        ([relativePath, content]) =>
-          [normalizeFixtureRelativePath(relativePath), content] as const,
-      );
       // The tsconfig plugin entry never carries rules: it is empty, or
       // optionally names a config file via `configFile`. When a test uses the
       // `rules` shorthand, materialize a discoverable `lint.config.json`.
@@ -200,10 +208,10 @@ export namespace TestLint {
         tmpdir,
         source,
         pluginConfig ?? {},
-        sourcePath,
-        materializedExtraSources.map(([relativePath]) => relativePath),
+        mainSourcePath,
+        resolvedExtraSources.map(([relativePath]) => relativePath),
       );
-      for (const [relativePath, content] of materializedExtraSources) {
+      for (const [relativePath, content] of resolvedExtraSources) {
         const target = path.join(tmpdir, relativePath);
         fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.writeFileSync(target, content, "utf8");
@@ -216,10 +224,8 @@ export namespace TestLint {
         );
       }
       seedNodeModulesLink(tmpdir);
-      if (linkNodeModules) {
-        for (const packageName of linkNodeModules) {
-          linkNodeModulePackage(tmpdir, packageName);
-        }
+      for (const linkedNodeModule of linkedNodeModules) {
+        linkNodeModulePackage(tmpdir, linkedNodeModule);
       }
       return {
         tmpdir,
@@ -269,10 +275,9 @@ export namespace TestLint {
     tmpdir: string,
     source: string,
     pluginConfig: Record<string, unknown>,
-    sourcePath: string = path.posix.join("src", "main.ts"),
-    extraSourcePaths: readonly string[] = [],
+    mainSourcePath: string,
+    extraSourcePaths: readonly string[],
   ): void {
-    const mainSourcePath = resolveMainSourcePath(sourcePath);
     const usesTSX = [mainSourcePath, ...extraSourcePaths].some(
       isIncludedTSXSourcePath,
     );
@@ -317,14 +322,13 @@ export namespace TestLint {
    * harness must never write outside its disposable project.
    */
   function resolveMainSourcePath(sourcePath: string): string {
-    const normalized = normalizeFixtureRelativePath(sourcePath);
-    if (
-      path.isAbsolute(normalized) ||
-      !normalized.startsWith("src/") ||
-      normalized
-        .split("/")
-        .some((segment) => segment === ".." || segment === "")
-    ) {
+    const normalized = resolveProjectSourcePath(sourcePath, "sourcePath");
+    assertCanonicalTypeScriptSourceExtension(
+      normalized,
+      "sourcePath",
+      sourcePath,
+    );
+    if (!normalized.startsWith("src/")) {
       throw new Error(
         `TestLint sourcePath must be a project-root-relative path under src/: ${sourcePath}`,
       );
@@ -332,55 +336,242 @@ export namespace TestLint {
     return normalized;
   }
 
-  /** Normalize caller paths so POSIX and Windows separators materialize alike. */
-  function normalizeFixtureRelativePath(sourcePath: string): string {
-    return path.posix.normalize(sourcePath.replaceAll("\\", "/"));
+  /**
+   * Normalize every extra-source target and reject portable aliases before the
+   * fixture writes its main source or generated config files.
+   */
+  function resolveExtraSourcePaths(
+    mainSourcePath: string,
+    options: {
+      extraSources: Record<string, string> | undefined;
+      linkedNodeModulePaths: readonly string[];
+      writesGeneratedLintConfig: boolean;
+    },
+  ): [string, string][] {
+    const sources = [mainSourcePath];
+    const generatedTargets: readonly {
+      path: string;
+      sourceMayReplaceExactFile: boolean;
+    }[] = [
+      { path: "tsconfig.json", sourceMayReplaceExactFile: true },
+      ...(options.writesGeneratedLintConfig
+        ? [{ path: "lint.config.json", sourceMayReplaceExactFile: false }]
+        : []),
+      {
+        path: "node_modules/@ttsc/lint",
+        sourceMayReplaceExactFile: false,
+      },
+      ...options.linkedNodeModulePaths.map((relativePath) => ({
+        path: relativePath,
+        sourceMayReplaceExactFile: false,
+      })),
+    ];
+    if (options.extraSources === undefined) return [];
+    return (Object.entries(options.extraSources) as [string, string][]).map(
+      ([sourcePath, content]) => {
+        const normalized = resolveProjectSourcePath(
+          sourcePath,
+          "extraSources path",
+        );
+        assertCanonicalTypeScriptSourceExtension(
+          normalized,
+          "extraSources path",
+          sourcePath,
+        );
+        if (
+          normalized.toLowerCase().startsWith("src/") &&
+          !normalized.startsWith("src/")
+        ) {
+          throw new Error(
+            `TestLint extraSources path must spell the included source root as src/: ${sourcePath}`,
+          );
+        }
+        for (const previous of sources) {
+          assertFixtureTargetsDoNotCollide(previous, normalized, sourcePath);
+        }
+        for (const generated of generatedTargets) {
+          const generatedKey = portableFixturePathKey(generated.path);
+          const sourceKey = portableFixturePathKey(normalized);
+          if (
+            isStrictFixturePathAncestor(generatedKey, sourceKey) ||
+            isStrictFixturePathAncestor(sourceKey, generatedKey) ||
+            (generatedKey === sourceKey &&
+              (!generated.sourceMayReplaceExactFile ||
+                normalized !== generated.path))
+          ) {
+            throw new Error(
+              `TestLint fixture source path collides with generated target: ${sourcePath} and ${generated.path}`,
+            );
+          }
+        }
+        sources.push(normalized);
+        return [normalized, content];
+      },
+    );
+  }
+
+  function assertFixtureTargetsDoNotCollide(
+    previous: string,
+    normalized: string,
+    sourcePath: string,
+  ): void {
+    const previousKey = portableFixturePathKey(previous);
+    const sourceKey = portableFixturePathKey(normalized);
+    if (
+      previousKey === sourceKey ||
+      isStrictFixturePathAncestor(previousKey, sourceKey) ||
+      isStrictFixturePathAncestor(sourceKey, previousKey)
+    ) {
+      throw new Error(
+        `TestLint fixture source paths collide after portable normalization: ${previous} and ${sourcePath}`,
+      );
+    }
+  }
+
+  function isStrictFixturePathAncestor(parent: string, child: string): boolean {
+    return child.startsWith(`${parent}/`);
+  }
+
+  /** Normalize a writable fixture target to one project-relative POSIX path. */
+  function resolveProjectSourcePath(
+    sourcePath: string,
+    optionName: string,
+  ): string {
+    const portable = sourcePath.replaceAll("\\", "/");
+    const normalized = path.posix.normalize(portable);
+    const hasNonPortableWindowsSegment = portable
+      .split("/")
+      .some(
+        (segment) =>
+          segment !== "." &&
+          segment !== ".." &&
+          (/[<>:"|?*\u0000-\u001f]/.test(segment) ||
+            /[. ]$/.test(segment) ||
+            /^(?:con|prn|aux|nul|clock\$|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?$/i.test(
+              segment,
+            )),
+      );
+    if (
+      sourcePath.trim().length === 0 ||
+      sourcePath.includes("\0") ||
+      hasNonPortableWindowsSegment ||
+      portable.endsWith("/") ||
+      path.posix.isAbsolute(portable) ||
+      path.win32.parse(sourcePath).root.length !== 0 ||
+      normalized === "." ||
+      normalized === ".." ||
+      normalized.startsWith("../")
+    ) {
+      throw new Error(
+        `TestLint ${optionName} must be a portable non-empty project-root-relative file path: ${sourcePath}`,
+      );
+    }
+    return normalized;
+  }
+
+  /** Match Windows path aliases even when the test suite runs on POSIX. */
+  function portableFixturePathKey(sourcePath: string): string {
+    return sourcePath.toLowerCase();
   }
 
   /** Whether a generated tsconfig includes this TSX source under `src/`. */
   function isIncludedTSXSourcePath(sourcePath: string): boolean {
-    const normalized = normalizeFixtureRelativePath(sourcePath);
     return (
-      normalized.startsWith("src/") &&
-      path.posix.extname(normalized).toLowerCase() === ".tsx"
+      sourcePath.startsWith("src/") &&
+      typescriptSourceExtension(sourcePath) === ".tsx"
     );
   }
 
   function assertDisposableProjectRoot(projectRoot: string): void {
     const tempRoot = path.resolve(os.tmpdir());
     const resolved = path.resolve(projectRoot);
-    const tempRoots = new Set([tempRoot, realpathIfPossible(tempRoot)]);
+    const canonicalTempRoot = realpathWithMissingSuffix(tempRoot);
+    const tempRoots = new Set([tempRoot, canonicalTempRoot]);
+    const canonicalResolved = realpathWithMissingSuffix(resolved);
+    let existingRoot: fs.Stats | undefined;
+    try {
+      existingRoot = fs.lstatSync(resolved);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
     if (
-      [...tempRoots].some(
-        (candidate) =>
-          isSameOrChildPath(candidate, resolved) ||
-          isSameOrChildPath(candidate, realpathIfPossible(resolved)),
-      )
+      [...tempRoots].some((candidate) =>
+        isStrictChildPath(candidate, resolved),
+      ) &&
+      isStrictChildPath(canonicalTempRoot, canonicalResolved) &&
+      (existingRoot === undefined ||
+        (existingRoot.isDirectory() && fs.readdirSync(resolved).length === 0))
     ) {
       return;
     }
     throw new Error(
-      `TestLint projectRoot must be a disposable directory under ${tempRoot}: ${projectRoot}`,
+      `TestLint projectRoot must be an empty disposable directory strictly under ${tempRoot}: ${projectRoot}`,
     );
   }
 
-  function isSameOrChildPath(parent: string, child: string): boolean {
+  function isStrictChildPath(parent: string, child: string): boolean {
     const relative = path.relative(parent, child);
-    if (
-      relative === "" ||
-      (!relative.startsWith("..") && !path.isAbsolute(relative))
-    ) {
-      return true;
-    }
-    return false;
+    return (
+      relative !== "" &&
+      relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative)
+    );
   }
 
-  function realpathIfPossible(location: string): string {
-    try {
-      return fs.realpathSync(location);
-    } catch {
-      return location;
+  /** Canonicalize through the nearest existing ancestor without creating it. */
+  function realpathWithMissingSuffix(location: string): string {
+    let existing = location;
+    const missing: string[] = [];
+    while (!fs.existsSync(existing)) {
+      const parent = path.dirname(existing);
+      if (parent === existing) return location;
+      missing.unshift(path.basename(existing));
+      existing = parent;
     }
+    return path.resolve(fs.realpathSync(existing), ...missing);
+  }
+
+  function resolveLinkedNodeModules(
+    packageNames: readonly string[] | undefined,
+  ): { packageName: string; relativePath: string }[] {
+    return (packageNames ?? []).map((packageName) => {
+      const segments = packageName.split("/");
+      const [scopeOrName, scopedName] = segments;
+      const isPackageSegment = (segment: string): boolean =>
+        segment.length > 0 &&
+        !segment.startsWith(".") &&
+        !segment.startsWith("_") &&
+        /^[a-z0-9._~-]+$/.test(segment);
+      const valid =
+        packageName.length <= 214 &&
+        ((segments.length === 1 && isPackageSegment(scopeOrName ?? "")) ||
+          (segments.length === 2 &&
+            scopeOrName !== undefined &&
+            scopeOrName.startsWith("@") &&
+            isPackageSegment(scopeOrName.slice(1)) &&
+            isPackageSegment(scopedName ?? "")));
+      if (!valid) {
+        throw new Error(
+          `TestLint linkNodeModules entry must be an npm package name: ${packageName}`,
+        );
+      }
+      let relativePath: string;
+      try {
+        relativePath = resolveProjectSourcePath(
+          path.posix.join("node_modules", ...segments),
+          "linkNodeModules entry",
+        );
+      } catch {
+        throw new Error(
+          `TestLint linkNodeModules entry must be a portable npm package name: ${packageName}`,
+        );
+      }
+      return {
+        packageName,
+        relativePath,
+      };
+    });
   }
 
   /** Link the workspace @ttsc/lint package as if the fixture had installed it. */
@@ -397,7 +588,11 @@ export namespace TestLint {
   }
 
   /** Link optional runtime dependencies used by ESLint-backed config tests. */
-  function linkNodeModulePackage(tmpdir: string, packageName: string): void {
+  function linkNodeModulePackage(
+    tmpdir: string,
+    linkedNodeModule: { packageName: string; relativePath: string },
+  ): void {
+    const { packageName, relativePath } = linkedNodeModule;
     const packageJson = TestProject.REQUIRE_FROM_TEST.resolve(
       `${packageName}/package.json`,
       {
@@ -405,7 +600,7 @@ export namespace TestLint {
       },
     );
     const source = path.dirname(packageJson);
-    const target = path.join(tmpdir, "node_modules", ...packageName.split("/"));
+    const target = path.join(tmpdir, relativePath);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     try {
       fs.symlinkSync(source, target, "junction");
@@ -417,7 +612,43 @@ export namespace TestLint {
 
   const ANSI_PATTERN = /\x1b\[[0-9;]*[A-Za-z]/g;
   const BANNER_PATTERN =
-    /(?:^|[\s/])([^\s:]+\.tsx?):(\d+):(\d+)\s+-\s+(error|warning)\s+TS\d+:\s*\[([^\]]+)\]\s*(.*)$/;
+    /^(.+):(\d+):(\d+)\s+-\s+(error|warning)\s+TS\d+:\s*\[([^\]]+)\]\s*(.*)$/;
+  const TYPESCRIPT_SOURCE_EXTENSION_PATTERN =
+    /(\.d\.mts|\.d\.cts|\.d\.ts|\.tsx|\.mts|\.cts|\.ts)$/;
+  const TYPESCRIPT_SOURCE_EXTENSION_CASE_INSENSITIVE_PATTERN =
+    /(\.d\.mts|\.d\.cts|\.d\.ts|\.tsx|\.mts|\.cts|\.ts)$/i;
+
+  /** Return the canonical supported TypeScript suffix for a source path. */
+  export function typescriptSourceExtension(sourcePath: string): string | null {
+    return sourcePath.match(TYPESCRIPT_SOURCE_EXTENSION_PATTERN)?.[1] ?? null;
+  }
+
+  /** Whether a path has one of the TypeScript source extensions we execute. */
+  export function isTypeScriptSourcePath(sourcePath: string): boolean {
+    return typescriptSourceExtension(sourcePath) !== null;
+  }
+
+  /** Whether a TypeScript-looking suffix differs from the compiler's casing. */
+  export function hasNonCanonicalTypeScriptSourceExtension(
+    sourcePath: string,
+  ): boolean {
+    return (
+      !isTypeScriptSourcePath(sourcePath) &&
+      TYPESCRIPT_SOURCE_EXTENSION_CASE_INSENSITIVE_PATTERN.test(sourcePath)
+    );
+  }
+
+  function assertCanonicalTypeScriptSourceExtension(
+    normalized: string,
+    optionName: string,
+    sourcePath: string,
+  ): void {
+    if (hasNonCanonicalTypeScriptSourceExtension(normalized)) {
+      throw new Error(
+        `TestLint ${optionName} must use a canonical lowercase TypeScript source extension: ${sourcePath}`,
+      );
+    }
+  }
 
   /**
    * Parse the renderer's stderr into structured records.
@@ -434,6 +665,7 @@ export namespace TestLint {
       const [, file, lineStr, columnStr, category, rule, message] = match;
       if (
         !file ||
+        !isTypeScriptSourcePath(file) ||
         !lineStr ||
         !columnStr ||
         !category ||
@@ -454,27 +686,23 @@ export namespace TestLint {
   }
 
   /**
-   * Read `// expect: <rule> <severity>` comments and return the line each one
-   * anchors to (the next non-comment, non-blank line after the annotation).
-   * Mirrors the ttsc plugin corpus expectation format.
+   * Read standalone line or JSX-block expectation comments and return the
+   * target line each one anchors to. Mirrors the ttsc plugin corpus expectation
+   * format.
    *
-   * Blank lines and stacked `// expect:` annotations between the marker and its
+   * Blank lines and stacked expectation annotations between the marker and its
    * target are skipped. A `@ts-expect-error` / `@ts-ignore` suppressor is also
-   * skipped unless the rule being tested is `ban-ts-comment` itself.
+   * skipped unless the rule being tested is `ban-ts-comment` itself. Malformed
+   * markers and markers without a following target fail immediately.
    */
   export function parseExpectations(source: string): ILintExpectation[] {
     const lines = source.split(/\r?\n/);
     const expected: ILintExpectation[] = [];
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i] ?? "";
-      const match = line.match(
-        /\/\/\s*expect:\s*([\w][\w/-]*)\s+(error|warn)\s*$/,
-      );
-      if (!match) continue;
-      const rule = match[1];
-      const severity = match[2] as LintSeverity | undefined;
-      if (!rule || !severity) continue;
-      // Skip blank lines and other `// expect:` annotations stacked
+      const marker = parseExpectationMarker(lines[i] ?? "", i + 1);
+      if (marker === null) continue;
+      const { rule, severity } = marker;
+      // Skip blank lines and other expectation annotations stacked
       // above the same target, but NOT regular comment lines — rules
       // like typescript/ban-ts-comment / typescript/triple-slash-reference
       // fire on a comment itself, and the convention is to put the
@@ -483,7 +711,7 @@ export namespace TestLint {
       while (
         target < lines.length &&
         (/^\s*$/.test(lines[target] ?? "") ||
-          /^\s*\/\/\s*expect:/.test(lines[target] ?? "") ||
+          parseExpectationMarker(lines[target] ?? "", target + 1) !== null ||
           (rule !== "typescript/ban-ts-comment" &&
             /^\s*\/\/\s*@ts-(?:expect-error|ignore)\b/.test(
               lines[target] ?? "",
@@ -491,16 +719,45 @@ export namespace TestLint {
       ) {
         target++;
       }
-      if (target < lines.length) {
-        expected.push({ rule, severity, line: target + 1 });
+      if (target >= lines.length) {
+        throw new Error(
+          `lint expectation at line ${i + 1} has no following target`,
+        );
       }
+      expected.push({ rule, severity, line: target + 1 });
     }
     return expected;
   }
 
+  function parseExpectationMarker(
+    line: string,
+    lineNumber: number,
+  ): { rule: string; severity: LintSeverity } | null {
+    const isLineMarker = /^\s*\/\/\s*expect\b/.test(line);
+    const isJsxMarker = /^\s*\{\s*\/\*\s*expect\b/.test(line);
+    if (!isLineMarker && !isJsxMarker) return null;
+
+    const match = isLineMarker
+      ? line.match(/^\s*\/\/\s*expect:\s*([\w][\w/-]*)\s+(error|warn)\s*$/)
+      : line.match(
+          /^\s*\{\s*\/\*\s*expect:\s*([\w][\w/-]*)\s+(error|warn)\s*\*\/\s*\}\s*$/,
+        );
+    if (!match?.[1] || !match[2]) {
+      throw new Error(
+        `malformed lint expectation at line ${lineNumber}; expected ` +
+          "`// expect: <rule> <error|warn>` or " +
+          "`{ /* expect: <rule> <error|warn> */ }`",
+      );
+    }
+    return {
+      rule: match[1],
+      severity: match[2] as LintSeverity,
+    };
+  }
+
   /**
    * Build a `rules` map for tsconfig from the expectations parsed out of a
-   * fixture file. Every rule that appears in `// expect:` annotations is
+   * fixture file. Every rule that appears in an expectation annotation is
    * enabled at its annotated severity; everything else is implicitly off (the
    * default for unconfigured rules).
    */

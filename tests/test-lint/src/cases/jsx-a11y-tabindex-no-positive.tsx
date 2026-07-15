@@ -8,4 +8,5 @@
  * 1. Render a `<button>` with `tabIndex={1}`.
  * 2. Lint flags the positive tabindex value.
  */
+// expect: jsx-a11y/tabindex-no-positive error
 export const X = () => <button tabIndex={1}>Save</button>;

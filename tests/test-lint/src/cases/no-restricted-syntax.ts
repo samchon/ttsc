@@ -1,13 +1,8 @@
-function runWith(target: { value: number }): number {
-  let total = 0;
-  with (target) {
-    total = value;
-  }
-  return total;
-}
+// @ttsc-corpus-options: no-restricted-syntax "LabeledStatement"
 
 function runLabeled(): number {
   let acc = 0;
+  // expect: no-restricted-syntax error
   outer: for (let i = 0; i < 3; i += 1) {
     for (let j = 0; j < 3; j += 1) {
       if (i + j > 3) break outer;
@@ -23,7 +18,6 @@ function plain(value: number): number {
 }
 
 JSON.stringify({
-  runWith: runWith({ value: 7 }),
   runLabeled: runLabeled(),
   plain: plain(3),
 });

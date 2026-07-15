@@ -8,4 +8,5 @@
  * 1. Render a `<div>` with `role="range"`.
  * 2. Lint flags the abstract role assignment.
  */
+// expect: jsx-a11y/aria-role error
 export const X = () => <div role="range" />;

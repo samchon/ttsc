@@ -9,4 +9,5 @@
  * 1. Render a `<div>` with a misspelled `aria-labeledby` attribute.
  * 2. Lint flags the unknown ARIA property name.
  */
+// expect: jsx-a11y/aria-props error
 export const X = () => <div aria-labeledby="title" />;

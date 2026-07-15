@@ -40,14 +40,22 @@ interface CorpusSkipManifestEntry {
   harness: string;
 }
 
+interface CorpusFileRecord {
+  relativeFile: string;
+  source: string;
+  expectations: TestLint.ILintExpectation[];
+  skip: CorpusSkipDirective | null;
+  companion: boolean;
+}
+
 const corpusSkipManifest = loadCorpusSkipManifest();
 
 /**
- * Discover and assert every annotated lint fixture under `src/cases`.
+ * Discover and assert every classified lint fixture under `src/cases`.
  *
- * Iterates all `.ts` and `.tsx` files in the cases tree that contain an
- * expectation or corpus-skip directive and delegates to `assertLintCase` for
- * each. Fails immediately if the corpus is empty.
+ * Classifies every supported TypeScript source in the cases tree as a positive
+ * entry, audited skip, or explicit companion, then delegates every entry to
+ * `assertLintCase`. Unclassified or conflicting sources fail immediately.
  *
  * A fixture may opt out with one `// @ttsc-corpus-skip(<constraint>): <reason>`
  * directive. Its rule, constraint, and Go harness must match the mechanically
@@ -68,22 +76,45 @@ export function assertAllLintCases(partition?: {
   const selected = partition
     ? cases.filter((_, i) => i % partition.total === partition.index)
     : cases;
-  for (const file of selected) {
-    assertLintCase(file);
+  assertLintCases(selected);
+}
+
+/**
+ * Assert a batch of lint fixtures and report every failure from the sweep.
+ *
+ * Corpus partitions are expensive real-launcher tests. Continuing after an
+ * individual mismatch exposes all stale fixture contracts in one run instead of
+ * requiring a full partition restart for each successive failure.
+ */
+export function assertLintCases(relativeFiles: readonly string[]): void {
+  const failures: Error[] = [];
+  for (const file of relativeFiles) {
+    try {
+      assertLintCase(file);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      failures.push(new Error(`${file}: ${detail}`, { cause: error }));
+    }
+  }
+  if (failures.length !== 0) {
+    throw new AggregateError(
+      failures,
+      `${failures.length} lint corpus fixture(s) failed`,
+    );
   }
 }
 
 /**
  * Assert that running the native lint engine on a single fixture file produces
- * exactly the diagnostics annotated in its `// expect:` comments.
+ * exactly the diagnostics declared by its expectation comments.
  *
  * Reads the rule set from the fixture's own annotations so that adding or
  * removing a rule only requires editing the fixture — no other file changes. A
  * rule that needs options carries them in a `// @ttsc-corpus-options: <rule>
  * <json>` directive, which upgrades that rule's config entry to the `[severity,
  * options]` tuple (see `applyCorpusOptions`). Extra sources in the same
- * subdirectory (e.g. `src/` fixtures for multi-file rules) are gathered by
- * `collectExtraSources`.
+ * subdirectory carry `// @ttsc-corpus-companion`; `collectExtraSources`
+ * materializes those files at their case-root-relative paths.
  *
  * Honors the audited `// @ttsc-corpus-skip(<constraint>): <reason>` directive:
  * a matching fixture is validated but its flat native run is skipped. The
@@ -92,26 +123,36 @@ export function assertAllLintCases(partition?: {
  *
  * Honors the `// @ttsc-corpus-filename: <path>` directive: the fixture is
  * materialized at the given project-root-relative path (under `src/`) instead
- * of the extension-preserving default (`src/main.ts` or `src/main.tsx`), so
- * path-sensitive rules (filename conventions, directory layouts) can carry
- * their logical filename while the on-disk fixture keeps a corpus-friendly
- * name.
+ * of the extension-preserving `src/main<suffix>` default, so path-sensitive
+ * rules (filename conventions, directory layouts) can carry their logical
+ * filename while the on-disk fixture keeps a corpus-friendly name.
  *
  * @param relativeFile - File path relative to `casesRoot` (forward-slash
- *   separated, e.g. `"consistentTypeImports/violation.ts"`).
+ *   separated, e.g. `"consistent-type-imports/violation.ts"`).
  */
 export function assertLintCase(relativeFile: string): void {
   const source = fs.readFileSync(path.join(casesRoot, relativeFile), "utf8");
+  assert.equal(
+    parseCorpusCompanion(relativeFile, source),
+    false,
+    `${relativeFile}: a corpus companion cannot run as a standalone fixture`,
+  );
   const skip = parseCorpusSkip(relativeFile, source);
   if (skip !== null) {
     validateCorpusSkip(relativeFile, source, skip);
     return;
   }
   const expected = TestLint.parseExpectations(source);
+  assert.notEqual(
+    expected.length,
+    0,
+    `${relativeFile}: a corpus entry requires an expectation or audited skip`,
+  );
+  const sourcePath = resolveCorpusSourcePath(source, relativeFile);
   const result = TestLint.run({
     name: relativeFile,
     source,
-    sourcePath: resolveCorpusSourcePath(source, relativeFile),
+    sourcePath,
     rules: applyCorpusOptions(
       relativeFile,
       source,
@@ -125,15 +166,46 @@ export function assertLintCase(relativeFile: string): void {
     0,
     `${relativeFile} should report lint diagnostics.\n${result.stderr}`,
   );
+  assertLintDiagnostics(
+    sourcePath,
+    result.diagnostics,
+    expected,
+    result.stderr,
+  );
+}
+
+/**
+ * Assert exact corpus diagnostics, including their portable fixture-file
+ * identity. TestLint rejects case-only source aliases, so case folding here
+ * identifies the same target consistently on Windows and POSIX runners.
+ */
+export function assertLintDiagnostics(
+  sourcePath: string,
+  diagnostics: readonly TestLint.ILintDiagnostic[],
+  expected: readonly TestLint.ILintExpectation[],
+  message?: string,
+): void {
+  const file = portableSourceFileIdentity(sourcePath);
   assert.deepEqual(
-    result.diagnostics.map(({ rule, severity, line }) => ({
+    diagnostics.map(({ file: actualFile, rule, severity, line }) => ({
+      file: portableSourceFileIdentity(actualFile),
       rule,
       severity,
       line,
     })),
-    expected.map(({ rule, severity, line }) => ({ rule, severity, line })),
-    result.stderr,
+    expected.map(({ rule, severity, line }) => ({
+      file,
+      rule,
+      severity,
+      line,
+    })),
+    message,
   );
+}
+
+/** Normalize a rendered source path to the fixture's portable identity. */
+function portableSourceFileIdentity(sourcePath: string): string {
+  return path.posix.normalize(sourcePath.replaceAll("\\", "/")).toLowerCase();
 }
 
 function validateCorpusSkip(
@@ -196,7 +268,9 @@ function validateCorpusSkip(
   return rule;
 }
 
-function validateCorpusSkipManifestCoverage(cases: readonly string[]): void {
+export function validateCorpusSkipManifestCoverage(
+  cases: readonly string[],
+): void {
   const used = new Set<string>();
   for (const relativeFile of cases) {
     const source = fs.readFileSync(path.join(casesRoot, relativeFile), "utf8");
@@ -282,7 +356,7 @@ function isCorpusConstraint(value: unknown): value is CorpusConstraint {
 
 /**
  * Merge `// @ttsc-corpus-options: <rule> <json>` directives into the rules map
- * parsed from the fixture's `// expect:` annotations. Each directive turns the
+ * parsed from the fixture's expectation annotations. Each directive turns the
  * named rule's severity into the `[severity, options]` tuple the lint config
  * format accepts, so option-bearing rules (e.g. `unicorn/string-content`, which
  * reports nothing without configured patterns) can run through the same flat
@@ -292,23 +366,32 @@ function isCorpusConstraint(value: unknown): value is CorpusConstraint {
  * options would silently configure nothing, so it fails loudly. The Go rule
  * corpus helper (`newRuleCorpusEngine`) parses the identical directive.
  */
-function applyCorpusOptions(
+export function applyCorpusOptions(
   relativeFile: string,
   source: string,
   rules: Record<string, TestLint.LintRuleConfigEntry>,
 ): Record<string, TestLint.LintRuleConfigEntry> {
-  for (const line of source.split(/\r?\n/)) {
-    const match = line.match(
-      /^\s*\/\/\s*@ttsc-corpus-options:\s*(\S+)\s+(\S.*?)\s*$/,
-    );
-    if (!match) continue;
+  const markerCount = [
+    ...source.matchAll(/^\s*\/\/\s*@ttsc-corpus-options(?=\s|:|$).*$/gm),
+  ].length;
+  const directives = [
+    ...source.matchAll(
+      /^\s*\/\/\s*@ttsc-corpus-options\s*:\s*(\S+)\s+(\S.*?)\s*$/gm,
+    ),
+  ];
+  assert.equal(
+    directives.length,
+    markerCount,
+    `${relativeFile}: malformed \`// @ttsc-corpus-options: <rule> <json>\` directive`,
+  );
+  for (const match of directives) {
     const [, rule, payload] = match;
     if (!rule || !payload) continue;
     const severity = rules[rule];
     assert.notEqual(
       severity,
       undefined,
-      `${relativeFile}: @ttsc-corpus-options names ${rule}, which has no // expect: annotation`,
+      `${relativeFile}: @ttsc-corpus-options names ${rule}, which has no expectation annotation`,
     );
     assert.ok(
       typeof severity === "string",
@@ -373,36 +456,154 @@ export function resolveCorpusSourcePath(
   source: string,
   relativeFile: string,
 ): string {
-  for (const line of source.split(/\r?\n/)) {
-    const match = line.match(/^\s*\/\/\s*@ttsc-corpus-filename:\s*(.*?)\s*$/);
-    if (match) {
-      const sourcePath = match[1] ?? "";
-      assert.notEqual(
-        sourcePath.length,
-        0,
-        `${relativeFile}: \`// @ttsc-corpus-filename:\` requires a path`,
-      );
-      return sourcePath;
-    }
+  const markerCount = [
+    ...source.matchAll(/^\s*\/\/\s*@ttsc-corpus-filename(?=\s|:|$).*$/gm),
+  ].length;
+  const directives = [
+    ...source.matchAll(/^\s*\/\/\s*@ttsc-corpus-filename\s*:\s*(.*?)\s*$/gm),
+  ];
+  assert.equal(
+    directives.length,
+    markerCount,
+    `${relativeFile}: malformed \`// @ttsc-corpus-filename: <path>\` directive`,
+  );
+  assert.ok(
+    directives.length <= 1,
+    `${relativeFile}: a lint fixture may declare at most one corpus-filename directive`,
+  );
+  if (directives[0]) {
+    const sourcePath = directives[0][1] ?? "";
+    assert.notEqual(
+      sourcePath.length,
+      0,
+      `${relativeFile}: \`// @ttsc-corpus-filename:\` requires a path`,
+    );
+    return sourcePath;
   }
-  return path.posix.join("src", `main${path.posix.extname(relativeFile)}`);
+  if (TestLint.hasNonCanonicalTypeScriptSourceExtension(relativeFile)) {
+    throw new Error(
+      `${relativeFile}: TypeScript source extension must use canonical lowercase spelling`,
+    );
+  }
+  const extension = TestLint.typescriptSourceExtension(relativeFile);
+  assert.notEqual(
+    extension,
+    null,
+    `${relativeFile}: unsupported TypeScript source extension`,
+  );
+  return path.posix.join("src", `main${extension}`);
 }
 
 /**
- * List every expected or explicitly excluded lint fixture under `casesRoot` as
- * a forward-slash path relative to that root.
+ * List every lint entry under a corpus root as a forward-slash relative path.
+ *
+ * Discovery starts from every TypeScript source instead of treating the
+ * presence of an expectation as an implicit entry marker. Each source must be a
+ * positive entry, an audited skip, or an explicit companion; an unclassified
+ * source fails loudly so a typo cannot silently remove coverage.
  */
-function listLintCases(): string[] {
-  return walk(casesRoot)
-    .filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"))
-    .map((file) => path.relative(casesRoot, file).replaceAll(path.sep, "/"))
+export function listLintCases(root: string = casesRoot): string[] {
+  const records = walk(root)
     .filter((file) => {
-      const source = fs.readFileSync(path.join(casesRoot, file), "utf8");
+      if (TestLint.hasNonCanonicalTypeScriptSourceExtension(file)) {
+        const relativeFile = path
+          .relative(root, file)
+          .replaceAll(path.sep, "/");
+        throw new Error(
+          `${relativeFile}: TypeScript source extension must use canonical lowercase spelling`,
+        );
+      }
+      return TestLint.isTypeScriptSourcePath(file);
+    })
+    .map((file): CorpusFileRecord => {
+      const relativeFile = path.relative(root, file).replaceAll(path.sep, "/");
+      const source = fs.readFileSync(file, "utf8");
+      return {
+        relativeFile,
+        source,
+        expectations: TestLint.parseExpectations(source),
+        skip: parseCorpusSkip(relativeFile, source),
+        companion: parseCorpusCompanion(relativeFile, source),
+      };
+    });
+
+  for (const record of records) {
+    if (record.companion) {
+      validateCorpusCompanionRole(record);
+      continue;
+    }
+    assert.ok(
+      record.expectations.length !== 0 || record.skip !== null,
+      `${record.relativeFile}: a corpus source must declare an expectation, audited skip, or @ttsc-corpus-companion`,
+    );
+  }
+  validateCorpusCompanionCoverage(records);
+  return records
+    .filter((record) => !record.companion)
+    .map((record) => record.relativeFile);
+}
+
+/** Read and validate the single explicit companion marker, if present. */
+function parseCorpusCompanion(relativeFile: string, source: string): boolean {
+  const markerCount = [
+    ...source.matchAll(/^\s*\/\/\s*@ttsc-corpus-companion\b.*$/gm),
+  ].length;
+  const directives = [
+    ...source.matchAll(/^\s*\/\/\s*@ttsc-corpus-companion\s*$/gm),
+  ];
+  assert.equal(
+    directives.length,
+    markerCount,
+    `${relativeFile}: malformed \`// @ttsc-corpus-companion\` directive`,
+  );
+  assert.ok(
+    directives.length <= 1,
+    `${relativeFile}: a corpus source may declare at most one companion directive`,
+  );
+  return directives.length === 1;
+}
+
+function validateCorpusCompanionRole(record: CorpusFileRecord): void {
+  assert.equal(
+    record.expectations.length,
+    0,
+    `${record.relativeFile}: a corpus companion cannot declare expectations`,
+  );
+  assert.equal(
+    record.skip,
+    null,
+    `${record.relativeFile}: a corpus companion cannot also be an audited skip`,
+  );
+  assert.equal(
+    /^\s*\/\/\s*@ttsc-corpus-(?:filename|options|rule)\b/m.test(record.source),
+    false,
+    `${record.relativeFile}: a corpus companion cannot declare entry directives`,
+  );
+}
+
+function validateCorpusCompanionCoverage(
+  records: readonly CorpusFileRecord[],
+): void {
+  const entries = records.filter(
+    (record) =>
+      !record.companion &&
+      record.skip === null &&
+      record.expectations.length !== 0,
+  );
+  for (const companion of records.filter((record) => record.companion)) {
+    const owners = entries.filter((entry) => {
+      const caseDirectory = path.posix.dirname(entry.relativeFile);
       return (
-        TestLint.parseExpectations(source).length !== 0 ||
-        parseCorpusSkip(file, source) !== null
+        caseDirectory !== "." &&
+        companion.relativeFile.startsWith(`${caseDirectory}/src/`)
       );
     });
+    assert.equal(
+      owners.length,
+      1,
+      `${companion.relativeFile}: a corpus companion must belong to exactly one positive entry whose case directory contains it under src/`,
+    );
+  }
 }
 
 function parseSkippedRule(relativeFile: string, source: string): string {
@@ -426,24 +627,32 @@ function parseSkippedRule(relativeFile: string, source: string): string {
 }
 
 /**
- * Gather sibling files from the same subdirectory as `relativeFile` to pass as
- * extra sources. Used for rules that need a companion type-declaration or
- * separate module file (e.g. `consistentTypeImports/src/types-fixture.ts`).
+ * Gather explicitly marked companion files from the same grouped case as
+ * `relativeFile`. The companion tree mirrors project-root-relative paths, so a
+ * case's `src/types-fixture.ts` is materialized once at that exact path.
  *
  * Returns an empty object when the fixture sits directly under `casesRoot`
  * (i.e. no subdirectory companion files are expected).
  *
- * @param relativeFile - File path relative to `casesRoot`.
+ * @param relativeFile - File path relative to `root`.
+ * @param root - Corpus root containing the grouped case.
  */
-function collectExtraSources(relativeFile: string): Record<string, string> {
-  const dir = path.dirname(relativeFile);
+export function collectExtraSources(
+  relativeFile: string,
+  root: string = casesRoot,
+): Record<string, string> {
+  const dir = path.posix.dirname(relativeFile);
   if (dir === ".") return {};
-  const root = path.join(casesRoot, dir);
+  const caseRoot = path.join(root, dir);
   const out: Record<string, string> = {};
-  for (const file of walk(root)) {
-    const rel = path.relative(root, file).replaceAll(path.sep, "/");
-    if (rel === path.basename(relativeFile)) continue;
-    out[path.posix.join("src", rel)] = fs.readFileSync(file, "utf8");
+  for (const file of walk(caseRoot)) {
+    const rel = path.relative(caseRoot, file).replaceAll(path.sep, "/");
+    if (!rel.startsWith("src/")) continue;
+    if (!TestLint.isTypeScriptSourcePath(file)) continue;
+    const source = fs.readFileSync(file, "utf8");
+    const companionFile = path.posix.join(dir, rel);
+    if (!parseCorpusCompanion(companionFile, source)) continue;
+    out[rel] = source;
   }
   return out;
 }

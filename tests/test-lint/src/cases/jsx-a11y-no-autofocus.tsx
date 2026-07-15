@@ -8,4 +8,5 @@
  * 1. Render an `<input>` with the `autoFocus` attribute.
  * 2. Lint flags the prohibited autofocus.
  */
+// expect: jsx-a11y/no-autofocus error
 export const X = () => <input autoFocus />;

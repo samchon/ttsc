@@ -9,4 +9,5 @@
  * 1. Render an `<li>` with `role="button"`.
  * 2. Lint flags the upgrade to an interactive role.
  */
+// expect: jsx-a11y/no-noninteractive-element-to-interactive-role error
 export const X = () => <li role="button">click</li>;

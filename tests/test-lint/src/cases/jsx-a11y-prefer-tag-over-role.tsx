@@ -9,4 +9,5 @@
  * 1. Render a `<div>` with `role="button"`.
  * 2. Lint flags the role that a native tag already covers.
  */
+// expect: jsx-a11y/prefer-tag-over-role error
 export const X = () => <div role="button">Save</div>;

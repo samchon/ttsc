@@ -8,4 +8,5 @@
  * 1. Render an `<a>` whose `href` is a `javascript:` URL.
  * 2. Lint flags the invalid anchor target.
  */
+// expect: jsx-a11y/anchor-is-valid error
 export const X = () => <a href="javascript:void(0)">go</a>;

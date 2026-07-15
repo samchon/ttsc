@@ -9,4 +9,5 @@
  * 1. Render an empty `<button>` with no labelling attribute.
  * 2. Lint flags the missing accessible label.
  */
+// expect: jsx-a11y/control-has-associated-label error
 export const X = () => <button />;

@@ -8,4 +8,5 @@
  * 1. Render a `<label>` with no `htmlFor` and no wrapped control.
  * 2. Lint flags the missing association under the legacy rule.
  */
+// expect: jsx-a11y/label-has-for error
 export const X = () => <label>Email</label>;

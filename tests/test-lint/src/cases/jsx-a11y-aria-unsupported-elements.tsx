@@ -8,4 +8,5 @@
  * 1. Render a `<meta>` element with an ARIA attribute.
  * 2. Lint flags the ARIA attribute on the unsupported element.
  */
+// expect: jsx-a11y/aria-unsupported-elements error
 export const X = () => <meta aria-checked="true" />;

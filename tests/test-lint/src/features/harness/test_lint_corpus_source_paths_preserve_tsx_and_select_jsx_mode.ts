@@ -26,6 +26,19 @@ export const test_lint_corpus_source_paths_preserve_tsx_and_select_jsx_mode =
     const tsxSourcePath = resolveCorpusSourcePath("", "react/jsx-key.tsx");
     assert.equal(tsSourcePath, "src/main.ts");
     assert.equal(tsxSourcePath, "src/main.tsx");
+    for (const [fixture, expected] of [
+      ["module.mts", "src/main.mts"],
+      ["module.cts", "src/main.cts"],
+      ["types.d.ts", "src/main.d.ts"],
+      ["types.d.mts", "src/main.d.mts"],
+      ["types.d.cts", "src/main.d.cts"],
+    ] as const) {
+      assert.equal(resolveCorpusSourcePath("", fixture), expected);
+    }
+    assert.throws(
+      () => resolveCorpusSourcePath("", "module.TS"),
+      /module\.TS.*canonical lowercase/,
+    );
     assert.equal(
       resolveCorpusSourcePath(
         "// @ttsc-corpus-filename: src/components/Named.tsx\n",

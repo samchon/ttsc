@@ -3,7 +3,7 @@ declare const names: string[];
 // Positive: the accumulator is annotated only via `as` on the initial
 // value — `reduce<T>(...)` would lock the accumulator type at the call
 // site instead. The rule reports on the `as` expression itself, so the
-// expect annotation anchors to the initial-value line.
+// expectation annotation anchors to the initial-value line.
 const intoSet = names.reduce(
   (acc, name) => {
     acc.add(name);

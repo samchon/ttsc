@@ -9,4 +9,5 @@
  * 1. Render a `<div>` with `tabIndex={0}` and no interactive role.
  * 2. Lint flags the tabindex on a non-interactive element.
  */
+// expect: jsx-a11y/no-noninteractive-tabindex error
 export const X = () => <div tabIndex={0} />;

@@ -8,4 +8,5 @@
  * 1. Render a `<marquee>` element.
  * 2. Lint flags the distracting element.
  */
+// expect: jsx-a11y/no-distracting-elements error
 export const X = () => <marquee>scroll</marquee>;

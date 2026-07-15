@@ -5,6 +5,7 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  "golang.org/x/text/language"
 )
 
 type jsxAttr struct {
@@ -456,7 +457,7 @@ func jsxIsFocusable(info jsxElementInfo) bool {
 
 func jsxIsNonInteractiveElement(tag string) bool {
   switch tag {
-  case "article", "aside", "div", "footer", "header", "li", "main", "nav", "ol", "p", "section", "ul",
+  case "article", "aside", "footer", "header", "li", "main", "nav", "ol", "p", "section", "ul",
     "h1", "h2", "h3", "h4", "h5", "h6":
     return true
   }
@@ -573,7 +574,26 @@ var jsxAutocompleteTokens = map[string]bool{
   "transaction-currency": true, "transaction-amount": true, "language": true, "bday": true,
   "bday-day": true, "bday-month": true, "bday-year": true, "sex": true, "tel": true,
   "tel-country-code": true, "tel-national": true, "tel-area-code": true, "tel-local": true,
-  "tel-extension": true, "impp": true, "url": true, "photo": true,
+  "tel-local-prefix": true, "tel-local-suffix": true, "tel-extension": true,
+  "impp": true, "url": true, "photo": true,
+}
+
+var jsxAutocompleteContactQualifiers = map[string]bool{
+  "home": true, "work": true, "mobile": true, "fax": true, "pager": true,
+}
+
+var jsxAutocompleteContactPurposes = map[string]bool{
+  "email": true, "impp": true, "tel": true, "tel-country-code": true,
+  "tel-national": true, "tel-area-code": true, "tel-local": true,
+  "tel-local-prefix": true, "tel-local-suffix": true, "tel-extension": true,
+}
+
+var jsxHTMLInputTypes = map[string]bool{
+  "button": true, "checkbox": true, "color": true, "date": true, "datetime-local": true,
+  "email": true, "file": true, "hidden": true, "image": true, "month": true,
+  "number": true, "password": true, "radio": true, "range": true, "reset": true,
+  "search": true, "submit": true, "tel": true, "text": true, "time": true,
+  "url": true, "week": true,
 }
 
 type jsxA11yAltText struct{}
@@ -608,8 +628,10 @@ func (jsxA11yAltText) Check(ctx *Context, node *shimast.Node) {
 
 type jsxA11yAnchorHasContent struct{}
 
-func (jsxA11yAnchorHasContent) Name() string           { return "jsx-a11y/anchor-has-content" }
-func (jsxA11yAnchorHasContent) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindJsxElement} }
+func (jsxA11yAnchorHasContent) Name() string { return "jsx-a11y/anchor-has-content" }
+func (jsxA11yAnchorHasContent) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindJsxElement, shimast.KindJsxSelfClosingElement}
+}
 func (jsxA11yAnchorHasContent) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
   if info.tag == "a" && !info.spread && !jsxHasAccessibleLabel(info) {
@@ -756,21 +778,123 @@ func (jsxA11yAutocompleteValid) Visits() []shimast.Kind {
 }
 func (jsxA11yAutocompleteValid) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  attr, ok := jsxKnownAttr(info.attrs, "autoComplete")
-  if !ok {
-    attr, ok = jsxKnownAttr(info.attrs, "autocomplete")
-  }
-  if !ok || strings.TrimSpace(attr.value) == "" {
+  if info.tag != "input" {
     return
   }
-  for _, token := range strings.Fields(strings.ToLower(attr.value)) {
-    if strings.HasPrefix(token, "section-") || token == "shipping" || token == "billing" || token == "home" || token == "work" || token == "mobile" || token == "fax" || token == "pager" {
-      continue
+  attr, ok := info.attrs["autoComplete"]
+  if !ok {
+    attr, ok = info.attrs["autocomplete"]
+  }
+  if !ok {
+    return
+  }
+  value, ok := jsxStringLiteralAttrValue(attr)
+  if !ok || strings.TrimSpace(value) == "" {
+    return
+  }
+  purpose, valid := jsxAutocompletePurpose(value)
+  if !valid {
+    ctx.Report(attr.node, "autocomplete contains an invalid token sequence.")
+    return
+  }
+  if !jsxAutocompletePurposeAllowsInputType(purpose, jsxAutocompleteInputType(info)) {
+    ctx.Report(attr.node, "autocomplete token is not valid for this input type.")
+  }
+}
+
+func jsxStringLiteralAttrValue(attr jsxAttr) (string, bool) {
+  if attr.node == nil || attr.boolean {
+    return "", false
+  }
+  jsx := attr.node.AsJsxAttribute()
+  if jsx == nil || jsx.Initializer == nil {
+    return "", false
+  }
+  switch jsx.Initializer.Kind {
+  case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+    return stringLiteralText(jsx.Initializer), true
+  case shimast.KindJsxExpression:
+    expression := jsx.Initializer.AsJsxExpression()
+    if expression != nil && expression.Expression != nil && (expression.Expression.Kind == shimast.KindStringLiteral || expression.Expression.Kind == shimast.KindNoSubstitutionTemplateLiteral) {
+      return stringLiteralText(expression.Expression), true
     }
-    if !jsxAutocompleteTokens[token] {
-      ctx.Report(attr.node, "autocomplete contains an invalid token.")
-      return
+  }
+  return "", false
+}
+
+func jsxAutocompletePurpose(value string) (string, bool) {
+  tokens := strings.Fields(strings.ToLower(value))
+  if len(tokens) == 1 && (tokens[0] == "on" || tokens[0] == "off") {
+    return tokens[0], true
+  }
+  index := 0
+  if index < len(tokens) && strings.HasPrefix(tokens[index], "section-") {
+    if len(tokens[index]) == len("section-") {
+      return "", false
     }
+    index++
+  }
+  if index < len(tokens) && (tokens[index] == "shipping" || tokens[index] == "billing") {
+    index++
+  }
+  qualifier := ""
+  if index < len(tokens) && jsxAutocompleteContactQualifiers[tokens[index]] {
+    qualifier = tokens[index]
+    index++
+  }
+  if index >= len(tokens) {
+    return "", false
+  }
+  purpose := tokens[index]
+  index++
+  if index < len(tokens) {
+    if index != len(tokens)-1 || tokens[index] != "webauthn" {
+      return "", false
+    }
+    index++
+  }
+  if purpose == "on" || purpose == "off" || !jsxAutocompleteTokens[purpose] {
+    return "", false
+  }
+  if qualifier != "" && !jsxAutocompleteContactPurposes[purpose] {
+    return "", false
+  }
+  return purpose, index == len(tokens)
+}
+
+func jsxAutocompleteInputType(info jsxElementInfo) string {
+  attr, ok := jsxKnownAttr(info.attrs, "type")
+  if !ok {
+    return "text"
+  }
+  inputType := strings.ToLower(strings.TrimSpace(attr.value))
+  if !jsxHTMLInputTypes[inputType] {
+    return "text"
+  }
+  return inputType
+}
+
+func jsxAutocompletePurposeAllowsInputType(purpose string, inputType string) bool {
+  if purpose == "" || purpose == "on" || purpose == "off" || inputType == "text" {
+    return true
+  }
+  switch purpose {
+  case "email", "username":
+    return inputType == "email" || inputType == "search"
+  case "url", "photo", "impp":
+    return inputType == "url" || inputType == "search"
+  case "tel", "tel-country-code", "tel-national", "tel-area-code", "tel-local", "tel-local-prefix", "tel-local-suffix", "tel-extension":
+    return inputType == "tel" || inputType == "search"
+  case "new-password", "current-password":
+    return inputType == "password" || inputType == "search"
+  case "bday":
+    return inputType == "date" || inputType == "search"
+  case "cc-exp":
+    return inputType == "month" || inputType == "tel" || inputType == "search"
+  case "cc-number", "cc-exp-month", "cc-exp-year", "cc-csc", "transaction-amount", "bday-day", "bday-month", "bday-year":
+    return inputType == "number" || inputType == "tel" || inputType == "search"
+  default:
+    return false
   }
 }
 
@@ -806,7 +930,7 @@ type jsxA11yHeadingHasContent struct{}
 
 func (jsxA11yHeadingHasContent) Name() string { return "jsx-a11y/heading-has-content" }
 func (jsxA11yHeadingHasContent) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindJsxElement}
+  return []shimast.Kind{shimast.KindJsxElement, shimast.KindJsxSelfClosingElement}
 }
 func (jsxA11yHeadingHasContent) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
@@ -826,8 +950,55 @@ func (jsxA11yHtmlHasLang) Visits() []shimast.Kind {
 }
 func (jsxA11yHtmlHasLang) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  if info.tag == "html" && !info.spread && !jsxHasAttr(info.attrs, "lang") {
-    ctx.Report(info.opening, "The html element must have a lang attribute.")
+  if info.tag != "html" {
+    return
+  }
+  if !jsxHasAttr(info.attrs, "lang") {
+    if !info.spread {
+      ctx.Report(info.opening, "The html element must have a lang attribute.")
+    }
+    return
+  }
+  if attr := info.attrs["lang"]; jsxA11yHtmlLangIsStaticallyFalsy(attr) {
+    ctx.Report(attr.node, "The html element must have a non-empty lang attribute.")
+  }
+}
+
+func jsxA11yHtmlLangIsStaticallyFalsy(attr jsxAttr) bool {
+  if attr.node == nil || attr.boolean {
+    return false
+  }
+  jsx := attr.node.AsJsxAttribute()
+  if jsx == nil || jsx.Initializer == nil {
+    return false
+  }
+  if jsx.Initializer.Kind == shimast.KindStringLiteral || jsx.Initializer.Kind == shimast.KindNoSubstitutionTemplateLiteral {
+    return strings.TrimSpace(stringLiteralText(jsx.Initializer)) == ""
+  }
+  if jsx.Initializer.Kind != shimast.KindJsxExpression {
+    return false
+  }
+  expression := jsx.Initializer.AsJsxExpression()
+  if expression == nil || expression.Expression == nil {
+    return true
+  }
+  switch expression.Expression.Kind {
+  case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+    return strings.TrimSpace(stringLiteralText(expression.Expression)) == ""
+  case shimast.KindFalseKeyword, shimast.KindNullKeyword:
+    return true
+  case shimast.KindNumericLiteral:
+    value := strings.ReplaceAll(numericLiteralText(expression.Expression), "_", "")
+    if integer, err := strconv.ParseInt(value, 0, 64); err == nil {
+      return integer == 0
+    }
+    if unsigned, err := strconv.ParseUint(value, 0, 64); err == nil {
+      return unsigned == 0
+    }
+    number, err := strconv.ParseFloat(value, 64)
+    return err == nil && number == 0
+  default:
+    return identifierText(expression.Expression) == "undefined"
   }
 }
 
@@ -910,21 +1081,60 @@ func (jsxA11yLang) Visits() []shimast.Kind {
 }
 func (jsxA11yLang) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
-  attr, ok := jsxKnownAttr(info.attrs, "lang")
+  if info.tag != "html" {
+    return
+  }
+  attr, ok := info.attrs["lang"]
   if !ok {
     return
   }
-  value := strings.TrimSpace(attr.value)
-  parts := strings.Split(value, "-")
-  if value == "" || len(parts[0]) < 2 || len(parts[0]) > 3 {
+  if jsxA11yLangIsInvalid(attr) {
     ctx.Report(attr.node, "lang must be a valid BCP 47 language tag.")
+  }
+}
+
+func jsxA11yLangIsInvalid(attr jsxAttr) bool {
+  if attr.node == nil || attr.boolean {
+    return true
+  }
+  jsx := attr.node.AsJsxAttribute()
+  if jsx == nil || jsx.Initializer == nil {
+    return true
+  }
+  validate := func(value string) bool {
+    if value != strings.TrimSpace(value) {
+      return true
+    }
+    _, err := language.Parse(value)
+    return err != nil
+  }
+  switch jsx.Initializer.Kind {
+  case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+    return validate(stringLiteralText(jsx.Initializer))
+  case shimast.KindJsxExpression:
+    expression := jsx.Initializer.AsJsxExpression()
+    if expression == nil || expression.Expression == nil {
+      return true
+    }
+    switch expression.Expression.Kind {
+    case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+      return validate(stringLiteralText(expression.Expression))
+    case shimast.KindTrueKeyword, shimast.KindFalseKeyword, shimast.KindNumericLiteral:
+      return true
+    default:
+      return identifierText(expression.Expression) == "undefined"
+    }
+  default:
+    return false
   }
 }
 
 type jsxA11yMediaHasCaption struct{}
 
-func (jsxA11yMediaHasCaption) Name() string           { return "jsx-a11y/media-has-caption" }
-func (jsxA11yMediaHasCaption) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindJsxElement} }
+func (jsxA11yMediaHasCaption) Name() string { return "jsx-a11y/media-has-caption" }
+func (jsxA11yMediaHasCaption) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindJsxElement, shimast.KindJsxSelfClosingElement}
+}
 func (jsxA11yMediaHasCaption) Check(ctx *Context, node *shimast.Node) {
   info := jsxElementFromNode(node)
   if (info.tag == "audio" || info.tag == "video") && !info.spread && !jsxHasTrackCaption(info.children) {
