@@ -18,11 +18,26 @@ export type ResolutionCandidateInput = {
 export type ServerProcessOptions = {
   cwd: string;
   env: NodeJS.ProcessEnv;
+  // Node-only `child_process.spawn` option. `vscode-languageclient`'s
+  // `ExecutableOptions` does not declare it, but the client forwards
+  // `command.options` verbatim to `spawn`, so carrying it here lets a pre-quoted
+  // Windows `cmd.exe /c` payload reach cmd without a second escaping pass.
+  windowsVerbatimArguments?: boolean;
 };
 
 export type ServerLaunchCommand = {
   args: string[];
   command: string;
+  // True only for the Windows `.cmd`/`.bat` command-shim launch path, whose
+  // `args` are already a single fully quoted `/c` payload. Non-command launchers
+  // omit it so their argument arrays keep Node's default escaping.
+  windowsVerbatimArguments?: boolean;
+};
+
+export type ServerExecutable = {
+  args: string[];
+  command: string;
+  options: ServerProcessOptions | undefined;
 };
 
 export type ClientRootSelection = {
@@ -155,9 +170,38 @@ export function createServerLaunchCommand(
     return {
       command: env.ComSpec || "cmd.exe",
       args: ["/d", "/s", "/c", quoteWindowsCommand([launcher, ...args])],
+      windowsVerbatimArguments: true,
     };
   }
   return { command: launcher, args };
+}
+
+/**
+ * Compose the full launch command with its `child_process` spawn options.
+ *
+ * This is the boundary handed to `vscode-languageclient`'s `Executable`. A
+ * Windows `.cmd`/`.bat` launcher is already encoded as one fully quoted
+ * `cmd.exe /c` payload, so its process options must set
+ * `windowsVerbatimArguments` to stop Node from escaping that payload a second
+ * time; every other launcher keeps the default array escaping. The cwd and
+ * TypeScript-Go environment injection from `serverProcessOptions` are preserved.
+ */
+export function createServerExecutable(
+  launcher: string,
+  candidate: ResolutionCandidate,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): ServerExecutable {
+  const launch = createServerLaunchCommand(launcher, candidate, platform, env);
+  const options = serverProcessOptions(candidate.cwd);
+  return {
+    command: launch.command,
+    args: launch.args,
+    options:
+      options && launch.windowsVerbatimArguments
+        ? { ...options, windowsVerbatimArguments: true }
+        : options,
+  };
 }
 
 export function quoteWindowsCommand(args: readonly string[]): string {
