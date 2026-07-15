@@ -31,4 +31,37 @@ class Grouped {
   }
 }
 
-JSON.stringify({ splayed: new Splayed(), grouped: new Grouped() });
+// Positive: object literals are inspected too. This one splits its
+// `get total` and `set total` halves with an unrelated method between them,
+// so the trailing setter is reported just like the split class above.
+let counted = 0;
+const splitObject = {
+  get total(): number {
+    return counted;
+  },
+  bump(): void {
+    counted += 1;
+  },
+  // expect: grouped-accessor-pairs error
+  set total(next: number) {
+    counted = next;
+  },
+};
+
+// Negative: the object literal keeps its `get`/`set` pair adjacent, the
+// grouped layout the rule wants, so nothing is reported.
+const groupedObject = {
+  get total(): number {
+    return counted;
+  },
+  set total(next: number) {
+    counted = next;
+  },
+};
+
+JSON.stringify({
+  splayed: new Splayed(),
+  grouped: new Grouped(),
+  splitObject,
+  groupedObject,
+});
