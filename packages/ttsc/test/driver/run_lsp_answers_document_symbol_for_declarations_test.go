@@ -59,10 +59,12 @@ export class Service {
 export type Payload = { name: string };
 `
 
-// TestRunLSPAnswersDocumentSymbolForDeclarations proves ttscserver answers
-// textDocument/documentSymbol locally (never forwarding to upstream tsgo) with
-// the declarations of the requested file: a function and a class, the class's
-// method nested under it.
+// TestRunLSPAnswersDocumentSymbolForDeclarations proves that when upstream tsgo
+// has not advertised documentSymbol (no initialize handshake here, so the proxy
+// treats it as unsupported), ttscserver falls back to the local graph
+// SymbolProvider and answers with the declarations of the requested file: a
+// function and a class, the class's method nested under it. It also pins that
+// the per-file module node is skipped, so no returned name is a file path.
 func TestRunLSPAnswersDocumentSymbolForDeclarations(t *testing.T) {
   root, mainURI := writeGraphSymbolProject(t, graphSymbolMainTS)
   provider := graphsymbols.NewProvider(root, "tsconfig.json")
@@ -82,6 +84,9 @@ func TestRunLSPAnswersDocumentSymbolForDeclarations(t *testing.T) {
   decodeResult(t, h.recvEditor(), &symbols)
   // The request is answered locally, so nothing reaches upstream tsgo.
   h.expectNoUpstreamFrame(150 * time.Millisecond)
+  // The graph's per-file module node carries the file path as its name; it must
+  // not leak into the outline.
+  assertNoPathSeparatorSymbolNames(t, symbols)
 
   byName := map[string]driver.LSPDocumentSymbol{}
   for _, s := range symbols {

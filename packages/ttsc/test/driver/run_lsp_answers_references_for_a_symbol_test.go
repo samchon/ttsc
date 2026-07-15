@@ -8,10 +8,12 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graphsymbols"
 )
 
-// TestRunLSPAnswersReferencesForASymbol proves ttscserver answers
-// textDocument/references locally with the usage sites of the symbol under the
-// cursor, honoring context.includeDeclaration. In the fixture greet() is
-// declared on line 0 and called from Service.run on line 6.
+// TestRunLSPAnswersReferencesForASymbol proves that when upstream tsgo has not
+// advertised references (no initialize handshake here, so the proxy treats it as
+// unsupported), ttscserver falls back to the local graph SymbolProvider and
+// answers with the usage sites of the symbol under the cursor, honoring
+// context.includeDeclaration. In the fixture greet() is declared on line 0 and
+// called from Service.run on line 6.
 func TestRunLSPAnswersReferencesForASymbol(t *testing.T) {
   root, mainURI := writeGraphSymbolProject(t, graphSymbolMainTS)
   provider := graphsymbols.NewProvider(root, "tsconfig.json")

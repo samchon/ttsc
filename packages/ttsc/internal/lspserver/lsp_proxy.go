@@ -44,6 +44,11 @@ const (
 // formats the live (possibly dirty) buffer rather than the on-disk file.
 const formatDocumentCommand = "ttsc.format.document"
 
+// utf8BOM is the UTF-8 byte-order mark (U+FEFF, bytes EF BB BF). It is stripped
+// from both the on-disk bytes and the editor buffer before a clean/dirty
+// comparison so a BOM present on only one side does not read as an edit.
+const utf8BOM = "\uFEFF"
+
 // ProxyOptions wires the byte-level proxy together. ttscserver creates
 // the upstream pipes around `tsgo --lsp --stdio` and hands the proxy
 // editor stdio plus those pipe ends.
@@ -64,10 +69,18 @@ type ProxyOptions struct {
   // avoid collisions; incoming prefixed ids are mapped back before dispatch.
   ExecuteCommandIDPrefix string
   // SymbolProvider answers textDocument/documentSymbol and
-  // textDocument/references locally from ttsc's compiler-backed code graph.
-  // When nil the proxy forwards those methods to upstream tsgo (its default
-  // behavior), which does not implement them.
+  // textDocument/references from ttsc's compiler-backed code graph. tsgo
+  // implements both methods, so the proxy forwards to tsgo whenever it
+  // advertises the capability and consults this provider only as a fallback
+  // (tsgo did not advertise) or when ForceLocalSymbolProvider is set. Nil leaves
+  // both methods forwarded to tsgo unconditionally.
   SymbolProvider SymbolProvider
+  // ForceLocalSymbolProvider answers documentSymbol/references from
+  // SymbolProvider even when upstream tsgo advertises the capability. It serves
+  // a raw-LSP graph consumer (such as @samchon/graph) that wants graph-derived
+  // declarations and usages instead of tsgo's language-service answers. Ignored
+  // when SymbolProvider is nil.
+  ForceLocalSymbolProvider bool
 }
 
 // Proxy bridges the editor and an upstream tsgo LSP process, intercepting
@@ -83,6 +96,7 @@ type Proxy struct {
   suppressedExecuteCommandIDs    map[string]struct{}
   executeCommandIDPrefix         string
   symbolProvider                 SymbolProvider
+  forceLocalSymbolProvider       bool
 
   writeMu         sync.Mutex // serializes WriteFrame calls to editorOut
   upstreamWriteMu sync.Mutex // serializes writes to upstreamIn
@@ -95,8 +109,10 @@ type Proxy struct {
   pendingCommands          map[string]struct{}
   pendingInitialize        map[string]struct{}
 
-  capabilityMu               sync.Mutex
-  upstreamCodeActionProvider bool
+  capabilityMu                   sync.Mutex
+  upstreamCodeActionProvider     bool
+  upstreamDocumentSymbolProvider bool
+  upstreamReferencesProvider     bool
 
   diagnosticsMu               sync.Mutex
   upstreamDiagnostics         map[string]cachedDiagnostics
@@ -155,6 +171,7 @@ func NewProxy(opts ProxyOptions) *Proxy {
     suppressedExecuteCommandIDs:    commandIDSet(opts.SuppressedExecuteCommandIDs),
     executeCommandIDPrefix:         opts.ExecuteCommandIDPrefix,
     symbolProvider:                 opts.SymbolProvider,
+    forceLocalSymbolProvider:       opts.ForceLocalSymbolProvider,
     asyncErrCh:                     make(chan error, 1),
     pendingActions:                 make(map[string]pendingCodeActionRequest),
     pendingAugmentingActions:       make(map[string]struct{}),
@@ -271,10 +288,12 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     }
   case methodDidSave:
     if env.IsNotification() {
+      p.invalidateSymbolProvider()
       p.publishPluginDiagnosticsForDocumentNotification(env)
     }
   case methodDidChange:
     if env.IsNotification() {
+      p.invalidateSymbolProvider()
       p.cacheDidChangeText(env)
       if err := p.markDocumentDirty(env); err != nil {
         return false, err
@@ -1441,7 +1460,14 @@ func documentTextMatchesDisk(uri string, text string) bool {
     return false
   }
   disk, err := os.ReadFile(file)
-  return err == nil && string(disk) == text
+  if err != nil {
+    return false
+  }
+  // Editors commonly strip a leading UTF-8 BOM from the buffer text they send
+  // while it stays on disk (or add one the disk lacks). A raw byte compare would
+  // then misclassify an unedited file as dirty and suppress plugin diagnostics
+  // until the first save, so a single leading BOM is dropped from both sides.
+  return strings.TrimPrefix(string(disk), utf8BOM) == strings.TrimPrefix(text, utf8BOM)
 }
 
 func filePathFromURI(raw string) (string, bool) {
@@ -1580,6 +1606,11 @@ func (p *Proxy) augmentInitializeResult(env Envelope) ([]byte, bool) {
   }
   codeActionProvider := caps["codeActionProvider"]
   p.setUpstreamCodeActionProvider(codeActionProvider)
+  // Record whether upstream tsgo answers documentSymbol/references itself. The
+  // per-method handlers forward to tsgo when it does, so this must be set before
+  // the shouldAnswer* checks below read it.
+  p.setUpstreamDocumentSymbolProvider(caps["documentSymbolProvider"])
+  p.setUpstreamReferencesProvider(caps["referencesProvider"])
   codeActionKinds := p.pluginCodeActionKinds()
   changed := false
   if (len(sourceCommands) > 0 || len(codeActionKinds) > 0) && codeActionProvider == nil {
@@ -1613,20 +1644,19 @@ func (p *Proxy) augmentInitializeResult(env Envelope) ([]byte, bool) {
       changed = true
     }
   }
-  // Advertise documentSymbol/references when a local SymbolProvider is wired so
-  // graph consumers know to call them. The proxy intercepts both methods
-  // (handleEditorEnvelope) whether or not upstream tsgo advertised them, so
-  // forcing the capability on is safe: tsgo's own (incomplete) handlers are
-  // never reached for these methods.
-  if p.symbolProvider != nil {
-    if existing, ok := caps["documentSymbolProvider"].(bool); !ok || !existing {
-      caps["documentSymbolProvider"] = true
-      changed = true
-    }
-    if existing, ok := caps["referencesProvider"].(bool); !ok || !existing {
-      caps["referencesProvider"] = true
-      changed = true
-    }
+  // Advertise documentSymbol/references only when the proxy will actually answer
+  // them locally — upstream tsgo did not advertise the capability (fallback) or
+  // ForceLocalSymbolProvider is set. When tsgo advertises and the flag is off,
+  // the method is forwarded to tsgo, whose own capability already tells the
+  // editor to send the request, so its (possibly richer) capability is left
+  // untouched here.
+  if p.shouldAnswerDocumentSymbolLocally() && !capabilityAdvertised(caps["documentSymbolProvider"]) {
+    caps["documentSymbolProvider"] = true
+    changed = true
+  }
+  if p.shouldAnswerReferencesLocally() && !capabilityAdvertised(caps["referencesProvider"]) {
+    caps["referencesProvider"] = true
+    changed = true
   }
   if !changed {
     return nil, false
@@ -1730,6 +1760,71 @@ func (p *Proxy) setUpstreamCodeActionProvider(value any) {
   p.capabilityMu.Lock()
   defer p.capabilityMu.Unlock()
   p.upstreamCodeActionProvider = provides
+}
+
+func (p *Proxy) setUpstreamDocumentSymbolProvider(value any) {
+  p.capabilityMu.Lock()
+  defer p.capabilityMu.Unlock()
+  p.upstreamDocumentSymbolProvider = capabilityAdvertised(value)
+}
+
+func (p *Proxy) setUpstreamReferencesProvider(value any) {
+  p.capabilityMu.Lock()
+  defer p.capabilityMu.Unlock()
+  p.upstreamReferencesProvider = capabilityAdvertised(value)
+}
+
+// shouldAnswerDocumentSymbolLocally reports whether the proxy answers
+// textDocument/documentSymbol from the local SymbolProvider instead of
+// forwarding to upstream tsgo: a provider must be wired, and either the caller
+// forced it or tsgo did not advertise the capability.
+func (p *Proxy) shouldAnswerDocumentSymbolLocally() bool {
+  if p.symbolProvider == nil {
+    return false
+  }
+  if p.forceLocalSymbolProvider {
+    return true
+  }
+  p.capabilityMu.Lock()
+  defer p.capabilityMu.Unlock()
+  return !p.upstreamDocumentSymbolProvider
+}
+
+// shouldAnswerReferencesLocally mirrors shouldAnswerDocumentSymbolLocally for
+// textDocument/references.
+func (p *Proxy) shouldAnswerReferencesLocally() bool {
+  if p.symbolProvider == nil {
+    return false
+  }
+  if p.forceLocalSymbolProvider {
+    return true
+  }
+  p.capabilityMu.Lock()
+  defer p.capabilityMu.Unlock()
+  return !p.upstreamReferencesProvider
+}
+
+// invalidateSymbolProvider drops the SymbolProvider's cached compiler state so
+// the next documentSymbol/references request reflects the latest sources. It is
+// a no-op when no provider is wired.
+func (p *Proxy) invalidateSymbolProvider() {
+  if p.symbolProvider != nil {
+    p.symbolProvider.Invalidate()
+  }
+}
+
+// capabilityAdvertised reports whether an LSP server-capability value means the
+// server implements the capability: boolean true, or an options object. Absent
+// (nil), false, or any other shape counts as unsupported.
+func capabilityAdvertised(value any) bool {
+  switch v := value.(type) {
+  case bool:
+    return v
+  case map[string]any:
+    return v != nil
+  default:
+    return false
+  }
 }
 
 func mergeCommandIDs(existing any, additions []string) []string {

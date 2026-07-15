@@ -1,9 +1,13 @@
 // Package graphsymbols answers the two graph-oriented LSP methods
 // (textDocument/documentSymbol and textDocument/references) from ttsc's
 // compiler-backed code graph. It is the lspserver.SymbolProvider implementation
-// ttscserver wires in so a raw-LSP graph consumer such as @samchon/graph gets
-// compiler-complete declarations (graph nodes) and usages (graph edges) instead
-// of the empty answers tsgo's native LSP returns for these methods.
+// ttscserver wires in so a raw-LSP graph consumer such as @samchon/graph can get
+// declarations (graph nodes) and usages (graph edges) computed from that graph.
+//
+// tsgo's own LSP implements both methods with its compiler-exact language
+// service, so the proxy forwards to tsgo by default and falls back to this
+// provider only when tsgo does not advertise the capability, or when a consumer
+// explicitly opts into graph-derived answers (see lspserver.Proxy).
 //
 // It lives in its own package rather than in internal/lspserver because it
 // imports internal/graph and driver, and driver already imports lspserver;
@@ -31,9 +35,9 @@ import (
 
 // Provider computes documentSymbol/references from a code graph built for one
 // project (tsconfig). The graph is loaded lazily on the first request and
-// cached for the process lifetime: the graph-indexing use case walks a project
-// once, so a single compiler load keeps indexing fast without re-checking on
-// every request. It is safe for concurrent use.
+// cached until Invalidate is called; the proxy invalidates on didChange/didSave
+// so a long-lived editor session reflects source edits instead of freezing at
+// the first request's snapshot. It is safe for concurrent use.
 type Provider struct {
   cwd      string
   tsconfig string
@@ -88,6 +92,19 @@ func (pr *Provider) load() (*graph.Graph, map[string]string, error) {
   return pr.graph, pr.sources, nil
 }
 
+// Invalidate discards the cached graph so the next DocumentSymbols/References
+// call rebuilds it against the current on-disk sources. The proxy calls this on
+// didChange/didSave; without it the first request's snapshot would answer every
+// later request for the process lifetime.
+func (pr *Provider) Invalidate() {
+  pr.mu.Lock()
+  defer pr.mu.Unlock()
+  pr.loaded = false
+  pr.graph = nil
+  pr.sources = nil
+  pr.loadErr = nil
+}
+
 // DocumentSymbols returns the declarations in uri as a hierarchy: top-level
 // declarations at the root, class/interface members nested under their owner.
 func (pr *Provider) DocumentSymbols(uri string) ([]lspserver.LSPDocumentSymbol, error) {
@@ -103,7 +120,7 @@ func (pr *Provider) DocumentSymbols(uri string) ([]lspserver.LSPDocumentSymbol, 
 
   var fileNodes []*graph.Node
   for _, n := range g.Nodes {
-    if n.External {
+    if !surfaceableNode(n) {
       continue
     }
     if pathsEqual(n.File, file) {
@@ -233,12 +250,10 @@ func nodeToSymbol(n *graph.Node, text string) lspserver.LSPDocumentSymbol {
     Start: offsetToPosition(text, start),
     End:   offsetToPosition(text, end),
   }
-  name := n.Simple
-  if name == "" {
-    name = n.Name
-  }
+  // Callers pass only surfaceableNode candidates, so Simple is the declared
+  // identifier and never the file path a module node carries as its name.
   return lspserver.LSPDocumentSymbol{
-    Name:  name,
+    Name:  n.Simple,
     Kind:  symbolKind(n.Kind),
     Range: rng,
     // The graph does not record the identifier's own span separately, so the
@@ -294,7 +309,7 @@ func symbolKind(k graph.NodeKind) lspserver.LSPSymbolKind {
 func targetNodeAt(g *graph.Graph, file string, offset int) *graph.Node {
   var best *graph.Node
   for _, n := range g.Nodes {
-    if n.External || !pathsEqual(n.File, file) {
+    if !surfaceableNode(n) || !pathsEqual(n.File, file) {
       continue
     }
     if offset >= n.Pos && offset < n.End {
@@ -323,6 +338,16 @@ func targetNodeAt(g *graph.Graph, file string, offset int) *graph.Node {
 // a place it is used.
 func isStructuralEdge(kind graph.EdgeKind) bool {
   return kind == graph.EdgeExports
+}
+
+// surfaceableNode reports whether a graph node should appear as a user-facing
+// LSP symbol or reference target. A per-file module node (NodeModule) carries
+// the source file path as its name and spans the whole file, so surfacing it
+// would put the absolute path in the outline and swallow whole-file reference
+// queries. External boundary leaves and nameless nodes are likewise not
+// addressable declarations.
+func surfaceableNode(n *graph.Node) bool {
+  return !n.External && n.Kind != graph.NodeModule && n.Simple != ""
 }
 
 func sortNodes(nodes []*graph.Node) {

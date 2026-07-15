@@ -1,11 +1,12 @@
 package lspserver
 
-// lsp_symbols.go adds the two graph-oriented language methods the proxy answers
-// locally instead of forwarding to the wrapped tsgo LSP, which does not
-// implement them: textDocument/documentSymbol and textDocument/references. The
-// facts come from a SymbolProvider computed off ttsc's compiler-backed code
-// graph (see internal/graphsymbols), so a raw-LSP graph consumer such as
-// @samchon/graph gets compiler-complete declarations (nodes) and usages (edges).
+// lsp_symbols.go lets the proxy answer two language methods from a local
+// SymbolProvider computed off ttsc's compiler-backed code graph (see
+// internal/graphsymbols): textDocument/documentSymbol and
+// textDocument/references. The wrapped tsgo LSP implements both itself, so the
+// proxy forwards to tsgo whenever it advertises the capability and only answers
+// locally as a fallback or when a consumer opts into the graph answers (see
+// shouldAnswerDocumentSymbolLocally / shouldAnswerReferencesLocally).
 
 import "encoding/json"
 
@@ -43,8 +44,9 @@ type LSPLocation struct {
 }
 
 // SymbolProvider computes documentSymbol and references locally from ttsc's
-// compiler-backed code graph so the proxy can answer these two methods rather
-// than forwarding them to tsgo's native LSP, which does not implement them.
+// compiler-backed code graph. tsgo implements both methods too, so the proxy
+// consults a provider only as a fallback or when a consumer opts into the graph
+// answers; see shouldAnswerDocumentSymbolLocally / shouldAnswerReferencesLocally.
 //
 // Implementations may load a compiler Program lazily and must be safe to call
 // from multiple goroutines: the proxy invokes them off its pump goroutine so a
@@ -59,15 +61,22 @@ type SymbolProvider interface {
   // identified by uri. includeDeclaration adds the symbol's own declaration to
   // the result. A position that resolves to no symbol yields an empty slice.
   References(uri string, pos LSPPosition, includeDeclaration bool) ([]LSPLocation, error)
+
+  // Invalidate discards any cached compiler state so the next DocumentSymbols or
+  // References call reflects the current sources. The proxy calls it on
+  // didChange/didSave; a provider that recomputes on every call may no-op.
+  Invalidate()
 }
 
 // handleDocumentSymbolRequest answers textDocument/documentSymbol from the local
-// SymbolProvider. When no provider is wired it returns false so the request
-// flows to upstream tsgo, preserving the proxy's default forward behavior. The
-// computation runs on its own goroutine (a program load can be slow) so the
-// editor->upstream pump keeps servicing other traffic.
+// SymbolProvider only when shouldAnswerDocumentSymbolLocally says to (no
+// provider wired, upstream tsgo did not advertise the capability, or a consumer
+// forced the local provider). Otherwise it returns false so the request flows to
+// upstream tsgo's compiler-exact handler. The computation runs on its own
+// goroutine (a program load can be slow) so the editor->upstream pump keeps
+// servicing other traffic.
 func (p *Proxy) handleDocumentSymbolRequest(env Envelope) (bool, error) {
-  if p.symbolProvider == nil {
+  if !p.shouldAnswerDocumentSymbolLocally() {
     return false, nil
   }
   var params struct {
@@ -93,10 +102,10 @@ func (p *Proxy) completeDocumentSymbolRequest(env Envelope, uri string) {
 }
 
 // handleReferencesRequest answers textDocument/references from the local
-// SymbolProvider, mirroring handleDocumentSymbolRequest's forward-when-unwired
-// and off-pump-goroutine behavior.
+// SymbolProvider, mirroring handleDocumentSymbolRequest's gating (via
+// shouldAnswerReferencesLocally) and off-pump-goroutine behavior.
 func (p *Proxy) handleReferencesRequest(env Envelope) (bool, error) {
-  if p.symbolProvider == nil {
+  if !p.shouldAnswerReferencesLocally() {
     return false, nil
   }
   var params struct {
