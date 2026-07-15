@@ -1877,14 +1877,30 @@ import * as fs from "fs";
 
 ### `unicorn/prefer-number-properties`
 
-Prefer `Number.isNaN` / `Number.parseInt` / `Number.NaN` over their global counterparts.
+Prefer the ES2015 `Number` static members over their global counterparts: `Number.isNaN`, `Number.isFinite`, `Number.parseInt`, `Number.parseFloat`, and, when enabled, `Number.NaN`, `Number.POSITIVE_INFINITY`, and `Number.NEGATIVE_INFINITY`. The namespaced forms coerce more predictably and are easier to discover. Only a reference to the real global is reported, so a locally shadowed `parseInt` or `isNaN` is left alone, and a `parseInt(value)` or `parseInt(value, 10)` call (already base 10) is not flagged.
 
 Example:
 
 ```ts
 // reports: unicorn/prefer-number-properties (error)
 void isNaN(0);
+
+const options = {
+  // reports: unicorn/prefer-number-properties (error)
+  normalize: parseFloat,
+  // reports: unicorn/prefer-number-properties (error)
+  parseInt,
+};
 ```
+
+`NaN` and `Infinity` are unchecked by default. Set `checkNaN: true` to flag `NaN`, and `checkInfinity: true` to flag `Infinity` (a negated `-Infinity` fixes to `Number.NEGATIVE_INFINITY`):
+
+```jsonc
+// lint.config.json rule entry
+"unicorn/prefer-number-properties": ["error", { "checkInfinity": true, "checkNaN": true }]
+```
+
+The pure aliases (`parseInt`, `parseFloat`, `NaN`, `Infinity`) autofix directly. `isNaN` and `isFinite` autofix only when their sole argument is a number, since `Number.isNaN` and `Number.isFinite` skip the coercion the global forms perform; otherwise the rewrite is offered as a suggestion.
 
 <a id="rule-unicorn-prefer-object-from-entries"></a>
 
