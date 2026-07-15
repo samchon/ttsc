@@ -254,11 +254,67 @@ function resolveExtendsConfig(tsconfig: string, specifier: string): string {
     return resolveExistingExtendsPath(path.resolve(baseDir, specifier));
   }
   const resolver = createRequire(tsconfig);
+  // A bare package root selects its preset through `package.json#tsconfig`,
+  // matching TypeScript's config resolution. Presets shipped this way often
+  // have no JavaScript/JSON entrypoint at all, so Node's entrypoint resolver
+  // and the `<specifier>.json` fallback below both miss them.
+  const viaManifest = resolvePackageManifestTsconfig(resolver, specifier);
+  if (viaManifest !== undefined) {
+    return resolveExistingExtendsPath(viaManifest);
+  }
   try {
     return resolveRealPath(resolver.resolve(specifier));
   } catch {
     return resolveRealPath(resolver.resolve(`${specifier}.json`));
   }
+}
+
+/**
+ * When `specifier` names a bare package root, resolve the config file its
+ * `package.json#tsconfig` field selects (anchored at the package directory).
+ * Returns `undefined` when the specifier is a subpath, the manifest is
+ * unresolvable/unparsable, or it declares no `tsconfig` field, so the caller
+ * falls back to Node entrypoint resolution.
+ */
+function resolvePackageManifestTsconfig(
+  resolver: NodeRequire,
+  specifier: string,
+): string | undefined {
+  if (!isBarePackageRoot(specifier)) {
+    return undefined;
+  }
+  let manifestPath: string;
+  try {
+    manifestPath = resolver.resolve(`${specifier}/package.json`);
+  } catch {
+    return undefined;
+  }
+  let field: unknown;
+  try {
+    field = (
+      JSON.parse(stripLeadingBom(fs.readFileSync(manifestPath, "utf8"))) as {
+        tsconfig?: unknown;
+      }
+    ).tsconfig;
+  } catch {
+    return undefined;
+  }
+  if (typeof field !== "string" || field.length === 0) {
+    return undefined;
+  }
+  return path.resolve(path.dirname(manifestPath), field);
+}
+
+/**
+ * Return true when `specifier` is a bare package root (no subpath): a plain
+ * package name (`preset`) or a scoped name (`@scope/preset`). Subpaths such as
+ * `@scope/preset/base.json` resolve directly and keep their current meaning.
+ */
+function isBarePackageRoot(specifier: string): boolean {
+  if (specifier.startsWith("@")) {
+    return specifier.split("/").length === 2;
+  }
+  return !specifier.includes("/");
 }
 
 /**

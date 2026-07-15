@@ -147,10 +147,14 @@ export async function transformTtsc(
 
   let transformed = cache?.get(key);
   if (transformed !== undefined) {
-    const cached = await transformed;
+    // A rejected in-flight generation must not stay cached: evict it (only if
+    // it is still the current entry) so a later call re-runs the transform.
+    const cached = await awaitOrEvict(cache, key, transformed);
     if (matchesCachedSource(cached, file, source)) {
       reportSuccessDiagnostics(cached.result);
-      const code = selectTransformedSource({
+      // A resolved `"exception"` / `"failure"` envelope makes this throw; that
+      // is a failed generation too, so evict before surfacing it.
+      const code = selectOrEvict(cache, key, transformed, {
         file,
         projectRoot: cached.projectRoot,
         result: cached.result,
@@ -177,11 +181,79 @@ export async function transformTtsc(
     });
     cache?.set(key, transformed);
   }
-  const { projectRoot, result } = await transformed;
+  const generation = transformed;
+  const { projectRoot, result } = await awaitOrEvict(cache, key, generation);
   reportSuccessDiagnostics(result);
-  const code = selectTransformedSource({ file, projectRoot, result });
+  const code = selectOrEvict(cache, key, generation, {
+    file,
+    projectRoot,
+    result,
+  });
   notifyFileDependencies(hooks, { file, projectRoot, result });
   return createTransformResult(source, code);
+}
+
+/**
+ * Await a cached generation, evicting it on rejection.
+ *
+ * The cache stores the in-flight transform Promise before it settles so
+ * concurrent callers share one compilation. A rejected generation must not
+ * remain the authoritative cached result, or a transient toolchain/host
+ * failure becomes permanent for a long-lived worker. Eviction is
+ * identity-guarded so a newer generation another caller installed under the
+ * same key survives.
+ */
+async function awaitOrEvict(
+  cache: TtscTransformCache | undefined,
+  key: string,
+  generation: Promise<TtscCachedProjectTransform>,
+): Promise<TtscCachedProjectTransform> {
+  try {
+    return await generation;
+  } catch (error) {
+    evictGeneration(cache, key, generation);
+    throw error;
+  }
+}
+
+/**
+ * Extract the transformed source, evicting the generation when the result is a
+ * host `"exception"` or compiler `"failure"` (which makes
+ * {@link selectTransformedSource} throw). Such a failed generation must not be
+ * replayed to later callers of an unchanged module.
+ */
+function selectOrEvict(
+  cache: TtscTransformCache | undefined,
+  key: string,
+  generation: Promise<TtscCachedProjectTransform>,
+  props: {
+    file: string;
+    projectRoot: string;
+    result: ITtscCompilerTransformation;
+  },
+): string {
+  try {
+    return selectTransformedSource(props);
+  } catch (error) {
+    evictGeneration(cache, key, generation);
+    throw error;
+  }
+}
+
+/**
+ * Delete a failed generation from the cache only when it is still the entry
+ * stored under `key`. The identity check prevents an older failed generation's
+ * cleanup from removing a newer replacement created by another caller for the
+ * same key.
+ */
+function evictGeneration(
+  cache: TtscTransformCache | undefined,
+  key: string,
+  generation: Promise<TtscCachedProjectTransform>,
+): void {
+  if (cache?.get(key) === generation) {
+    cache.delete(key);
+  }
 }
 
 /**
