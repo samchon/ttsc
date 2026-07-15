@@ -1904,7 +1904,7 @@ const obj = entries.reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
 
 ### `unicorn/prefer-optional-catch-binding`
 
-Prefer `catch { ... }` over `catch (e) { ... }` when `e` is unused.
+Prefer `catch { ... }` over `catch (binding) { ... }` when the caught error is never referenced. The binding is resolved through the type checker, so any unused name reports and a name that only appears in a comment or string literal still counts as unused.
 
 Example:
 
