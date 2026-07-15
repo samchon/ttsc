@@ -13,10 +13,13 @@ import assert from "node:assert/strict";
  * still make those names visible to the ESM named-import bridge.
  *
  * 1. Install a `lib` package with no `type` field whose TS entry re-exports value
- *    names through a nested `export *` chain.
+ *    names through a nested `export *` chain, alongside `exports.<name> =`
+ *    assignment-shaped decoys inside a comment, a block comment, a string, and a
+ *    template literal.
  * 2. Run an ESM ttsx entry that imports `{ foo, bar }` from `lib`.
  * 3. Run a CJS ttsx entry that requires the same `lib` package.
- * 4. Assert both module formats observe the re-exported runtime values.
+ * 4. Assert both module formats observe the re-exported runtime values and that
+ *    none of the assignment-shaped decoys leak into the namespace.
  */
 export const test_ttsx_exposes_nested_cjs_source_star_exports_to_esm_named_imports =
   () => {
@@ -49,12 +52,21 @@ export const test_ttsx_exposes_nested_cjs_source_star_exports_to_esm_named_impor
         `export type Hidden = string;`,
         `// export const commentedGhost: string = "nope";`,
         `const decoy: string = "export const stringGhost: string = 'nope';";`,
+        // Assignment-shaped decoys: exactly the `exports.<name> =` /
+        // `module.exports.<name> =` form the static collector matches, placed in
+        // inert lexical positions. None is executable, so none may become a
+        // namespace key.
+        `// exports.commentAssignGhost = 1;`,
+        `/* module.exports.blockAssignGhost = 2; */`,
+        `const stringAssign: string = "exports.stringAssignGhost = 3;";`,
+        `const templateAssign: string = \`module.exports.templateAssignGhost = 4;\`;`,
         `const renamed: string = "renamed-ok";`,
         `export const foo: string = "foo-ok";`,
         `export function bar(): string {`,
         `  return "bar-ok";`,
         `}`,
         `export { renamed as qux };`,
+        `export const decoyLength: number = decoy.length + stringAssign.length + templateAssign.length;`,
         ``,
       ].join("\n"),
       "node_modules/lib/src/leaf.ts": `export const leaf: string = "leaf-ok";\n`,
@@ -64,6 +76,10 @@ export const test_ttsx_exposes_nested_cjs_source_star_exports_to_esm_named_impor
         `if ("Hidden" in lib) throw new Error("type-only export leaked");`,
         `if ("commentedGhost" in lib) throw new Error("comment export leaked");`,
         `if ("stringGhost" in lib) throw new Error("string export leaked");`,
+        `if ("commentAssignGhost" in lib) throw new Error("comment assign export leaked");`,
+        `if ("blockAssignGhost" in lib) throw new Error("block assign export leaked");`,
+        `if ("stringAssignGhost" in lib) throw new Error("string assign export leaked");`,
+        `if ("templateAssignGhost" in lib) throw new Error("template assign export leaked");`,
         `console.log(foo + ":" + bar() + ":" + qux + ":" + grouped.leaf);`,
         ``,
       ].join("\n"),
@@ -73,6 +89,10 @@ export const test_ttsx_exposes_nested_cjs_source_star_exports_to_esm_named_impor
         `if ("Hidden" in lib) throw new Error("type-only export leaked");`,
         `if ("commentedGhost" in lib) throw new Error("comment export leaked");`,
         `if ("stringGhost" in lib) throw new Error("string export leaked");`,
+        `if ("commentAssignGhost" in lib) throw new Error("comment assign export leaked");`,
+        `if ("blockAssignGhost" in lib) throw new Error("block assign export leaked");`,
+        `if ("stringAssignGhost" in lib) throw new Error("string assign export leaked");`,
+        `if ("templateAssignGhost" in lib) throw new Error("template assign export leaked");`,
         `console.log(lib.foo + ":" + lib.bar() + ":" + lib.qux + ":" + lib.grouped.leaf);`,
         ``,
       ].join("\n"),
