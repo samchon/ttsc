@@ -298,3 +298,32 @@ export interface ITtscLintUnicornStringContentRuleOptions {
   /** AST selectors that replace the default Literal/TemplateElement targets. */
   selectors?: readonly string[];
 }
+
+/**
+ * A Browserslist / core-js-compat targets object: each runtime or browser name
+ * mapped to the minimum supported version (`{ node: "18" }`), or an ESM
+ * capability flag (`{ esmodules: true }`). The `browsers` key may carry a
+ * Browserslist query string or an array of queries.
+ */
+export type TtscLintUnicornPolyfillTargets = Readonly<
+  Record<string, string | number | boolean | readonly string[]>
+>;
+
+/**
+ * Options for `unicorn/no-unnecessary-polyfills`.
+ *
+ * `targets` selects the runtime baseline each imported polyfill is compared
+ * against. Omit it to fall back to Browserslist config discovery from the
+ * linted file's directory and, last, the nearest `package.json` `engines`
+ * field — mirroring the upstream rule.
+ *
+ * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-polyfills.md
+ */
+export interface ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions {
+  /**
+   * A Browserslist query string (`"node 18"`), an array of queries
+   * (`["node 18", "chrome 120"]`), or a targets object mapping each runtime to
+   * its minimum version.
+   */
+  targets?: string | readonly string[] | TtscLintUnicornPolyfillTargets;
+}

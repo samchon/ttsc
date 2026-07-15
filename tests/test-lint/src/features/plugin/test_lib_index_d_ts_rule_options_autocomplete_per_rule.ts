@@ -47,6 +47,9 @@ import assert from "node:assert/strict";
  *   out-of-enum global policies.
  * - An empty object policy for `typescript/ban-ts-comment` is rejected because
  *   the object form requires `descriptionFormat`.
+ * - `unicorn/no-unnecessary-polyfills` accepts `targets` as a query string, an
+ *   array of queries, or a targets object, and the option may be omitted;
+ *   a typo'd key and a non-query `targets` value are rejected.
  * - A lint-only rule (`no-var`) cannot carry an options object.
  * - An identifier-form built-in name without the canonical slash (`reactJsxKey`)
  *   is rejected.
@@ -233,8 +236,33 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
         },
       ],
       "unicorn/better-regex": ["warning", { sortCharacterClasses: false }],
+      "unicorn/no-unnecessary-polyfills": [
+        "error",
+        { targets: { node: "18", esmodules: true, browsers: ["chrome 120"] } },
+      ],
     },
   };
+
+  // `unicorn/no-unnecessary-polyfills` accepts `targets` as a Browserslist query
+  // string, an array of queries, or a targets object, and the option may be
+  // omitted (config discovery / package.json engines resolves the baseline).
+  const polyfillsTargetForms: readonly ITtscLintConfig[] = [
+    {
+      rules: {
+        "unicorn/no-unnecessary-polyfills": ["error", { targets: "node 18" }],
+      },
+    },
+    {
+      rules: {
+        "unicorn/no-unnecessary-polyfills": [
+          "error",
+          { targets: ["node 18", "chrome 120"] },
+        ],
+      },
+    },
+    { rules: { "unicorn/no-unnecessary-polyfills": "error" } },
+    { rules: { "unicorn/no-unnecessary-polyfills": ["error"] } },
+  ];
 
   const bareTuple: ITtscLintConfig = {
     rules: {
@@ -589,8 +617,23 @@ export const test_lib_index_d_ts_rule_options_autocomplete_per_rule = () => {
       reactJsxKey: "error",
     },
   };
+  const polyfillsOptionKeyTypo: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — `target` is a typo of `targets`; the rule exposes no arbitrary option keys.
+      "unicorn/no-unnecessary-polyfills": ["error", { target: "node 18" }],
+    },
+  };
+  const polyfillsTargetsValueShape: ITtscLintConfig = {
+    rules: {
+      // @ts-expect-error — targets is a query string, an array of queries, or a targets object; a bare number is rejected.
+      "unicorn/no-unnecessary-polyfills": ["error", { targets: 42 }],
+    },
+  };
 
   assert.ok(config);
+  assert.ok(polyfillsTargetForms.every((form) => form.rules));
+  assert.ok(polyfillsOptionKeyTypo);
+  assert.ok(polyfillsTargetsValueShape);
   assert.ok(bareTuple);
   assert.ok(noParamReassignImplicitProps);
   assert.ok(ruleNameTypo);
