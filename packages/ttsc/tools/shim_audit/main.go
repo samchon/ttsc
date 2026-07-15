@@ -262,6 +262,15 @@ func scanShimProducerSurface(shimRoot string, inner map[string]*packages.Package
         sources[suffix] = map[string][]byte{}
       }
       sources[suffix][path] = src
+      imports, err := internalImportAliases(src, path)
+      if err != nil {
+        return producerSurface{}, err
+      }
+      for _, importedSuffix := range imports {
+        if inner[importedSuffix] == nil {
+          return producerSurface{}, fmt.Errorf("%s: internal package %s has no loaded type information", path, importedSuffix)
+        }
+      }
       definitions, err := scanLocalFlowDefinitions(src, path)
       if err != nil {
         return producerSurface{}, err
@@ -516,36 +525,69 @@ func loadInner(anchorDir string) (map[string]*packages.Package, error) {
   if err != nil {
     return nil, err
   }
-  out := map[string]*packages.Package{}
-  errored := map[string]string{}
-  for _, p := range loaded {
-    suffix := strings.TrimPrefix(p.PkgPath, internalPrefix)
-    if len(p.Errors) > 0 {
-      errored[suffix] = p.Errors[0].Error()
-      continue
-    }
-    out[suffix] = p
-  }
+  indexed, errored := indexInternalPackages(loaded)
   // A package that fails to load (or is missing entirely) must FAIL the audit,
   // never be silently skipped — otherwise a load error in any environment turns
   // the gate into a no-op that passes blind.
-  var failed []string
+  failures := map[string]string{}
   for suffix := range expected {
-    if _, ok := out[suffix]; ok {
+    if _, ok := indexed[suffix]; ok {
       continue
     }
-    msg := errored[suffix]
-    if msg == "" {
-      msg = "did not load"
+    failures[suffix] = errored[suffix]
+    if failures[suffix] == "" {
+      failures[suffix] = "did not load"
     }
-    failed = append(failed, suffix+": "+msg)
   }
-  if len(failed) > 0 {
+  if len(failures) > 0 {
+    failed := make([]string, 0, len(failures))
+    for suffix, message := range failures {
+      failed = append(failed, suffix+": "+message)
+    }
     sort.Strings(failed)
-    return nil, fmt.Errorf("%d shim package(s) failed to load (audit would be incomplete):\n  %s",
+    return nil, fmt.Errorf("%d internal package(s) failed to load (audit would be incomplete):\n  %s",
       len(failed), strings.Join(failed, "\n  "))
   }
-  return out, nil
+  roots := map[string]*packages.Package{}
+  for suffix := range expected {
+    roots[suffix] = indexed[suffix]
+  }
+  return roots, nil
+}
+
+// indexInternalPackages includes dependency packages because public contracts
+// in a registered shim package can name callback/container types declared in an
+// unregistered internal dependency. Dropping such a package would make the AST
+// producer scan silently stop at the selector.
+func indexInternalPackages(roots []*packages.Package) (map[string]*packages.Package, map[string]string) {
+  indexed := map[string]*packages.Package{}
+  errored := map[string]string{}
+  visited := map[*packages.Package]bool{}
+  var visit func(*packages.Package)
+  visit = func(pkg *packages.Package) {
+    if pkg == nil || visited[pkg] {
+      return
+    }
+    visited[pkg] = true
+    if strings.HasPrefix(pkg.PkgPath, internalPrefix) {
+      suffix := strings.TrimPrefix(pkg.PkgPath, internalPrefix)
+      switch {
+      case len(pkg.Errors) > 0:
+        errored[suffix] = pkg.Errors[0].Error()
+      case pkg.Types == nil:
+        errored[suffix] = "type information did not load"
+      default:
+        indexed[suffix] = pkg
+      }
+    }
+    for _, imported := range pkg.Imports {
+      visit(imported)
+    }
+  }
+  for _, root := range roots {
+    visit(root)
+  }
+  return indexed, errored
 }
 
 // namedInfo returns the defining package suffix and name of a named OR
@@ -735,7 +777,12 @@ func main() {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(1)
   }
-  producerSurface, err := scanShimProducerSurface(*shimRoot, inner)
+  rootPackages := make([]*packages.Package, 0, len(inner))
+  for _, pkg := range inner {
+    rootPackages = append(rootPackages, pkg)
+  }
+  typeGraph, _ := indexInternalPackages(rootPackages)
+  producerSurface, err := scanShimProducerSurface(*shimRoot, typeGraph)
   if err != nil {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(1)
@@ -743,7 +790,7 @@ func main() {
 
   findings, pool := analyze(r, inner)
   addExposedMethodFlow(r, inner, &producerSurface)
-  producerSurface = canonicalizeProducerSurface(producerSurface, inner)
+  producerSurface = canonicalizeProducerSurface(producerSurface, typeGraph)
 
   switch {
   case *fix:

@@ -1,8 +1,12 @@
 package main
 
 import (
+  "go/token"
+  "go/types"
   "strings"
   "testing"
+
+  "golang.org/x/tools/go/packages"
 )
 
 // Verifies producer closure rejects a consumed reference after its only producer is removed.
@@ -33,17 +37,18 @@ func IgnorePointedContainer(value *[]inner.ContainerValue) {}
 func IgnoreValue(value inner.Mode) {}
 func hidden(value *inner.Hidden) {}
 `
-  scan := func(input string) []finding {
+  scanWithInner := func(input string, inner map[string]*packages.Package) []finding {
     surface := newProducerSurface()
     definitions, err := scanLocalFlowDefinitions([]byte(input), "fixture.go")
     if err != nil {
       t.Fatal(err)
     }
-    if err := scanProducerFile([]byte(input), "fixture.go", "fixture", definitions, nil, surface); err != nil {
+    if err := scanProducerFile([]byte(input), "fixture.go", "fixture", definitions, inner, surface); err != nil {
       t.Fatal(err)
     }
     return evaluateProducerSurface(surface, nil).gaps
   }
+  scan := func(input string) []finding { return scanWithInner(input, nil) }
 
   complete := scan(source)
   if len(complete) != 1 || complete[0].symbol != "Orphan" {
@@ -84,5 +89,34 @@ func ProduceBatchToken() *inner.BatchToken { return nil }
   namedFindings := scan(namedMutated)
   if len(namedFindings) != 2 || namedFindings[0].symbol != "BatchToken" || namedFindings[1].symbol != "FactoryToken" {
     t.Fatalf("named callback/container mutation findings = %+v, want BatchToken and FactoryToken", namedFindings)
+  }
+
+  upstream := types.NewPackage(internalPrefix+"fixture", "fixture")
+  upstreamTokenName := types.NewTypeName(token.NoPos, upstream, "UpstreamToken", nil)
+  upstreamToken := types.NewNamed(upstreamTokenName, types.NewStruct(nil, nil), nil)
+  upstream.Scope().Insert(upstreamTokenName)
+  upstreamFactoryName := types.NewTypeName(token.NoPos, upstream, "UpstreamFactory", nil)
+  types.NewNamed(upstreamFactoryName, types.NewSignatureType(
+    nil,
+    nil,
+    nil,
+    types.NewTuple(),
+    types.NewTuple(types.NewVar(token.NoPos, upstream, "value", types.NewPointer(upstreamToken))),
+    false,
+  ), nil)
+  upstream.Scope().Insert(upstreamFactoryName)
+  upstreamInner := map[string]*packages.Package{"fixture": {Types: upstream}}
+  upstreamSource := `package fixture
+import inner "github.com/microsoft/typescript-go/internal/fixture"
+func RegisterUpstreamFactory(factory inner.UpstreamFactory) {}
+func ProduceUpstreamToken() *inner.UpstreamToken { return nil }
+`
+  if findings := scanWithInner(upstreamSource, upstreamInner); len(findings) != 0 {
+    t.Fatalf("upstream named callback findings = %+v, want none", findings)
+  }
+  upstreamMutated := strings.Replace(upstreamSource, "func ProduceUpstreamToken() *inner.UpstreamToken { return nil }\n", "", 1)
+  upstreamFindings := scanWithInner(upstreamMutated, upstreamInner)
+  if len(upstreamFindings) != 1 || upstreamFindings[0].symbol != "UpstreamToken" {
+    t.Fatalf("upstream named callback mutation findings = %+v, want UpstreamToken", upstreamFindings)
   }
 }

@@ -5,6 +5,8 @@ import (
   "go/types"
   "reflect"
   "testing"
+
+  "golang.org/x/tools/go/packages"
 )
 
 // TestLinknameRe pins the two //go:linkname target shapes the reachability scan
@@ -70,6 +72,31 @@ func TestTierOf(t *testing.T) {
     if got := tierOf(kind); got != want {
       t.Errorf("tierOf(%q) = %d, want %d", kind, got, want)
     }
+  }
+}
+
+// TestIndexInternalPackages proves dependency-only internal type packages stay
+// available to the named producer-contract scanner and load failures stay fatal.
+func TestIndexInternalPackages(t *testing.T) {
+  dependencyTypes := types.NewPackage(internalPrefix+"lsp/lsproto", "lsproto")
+  dependency := &packages.Package{
+    PkgPath: internalPrefix + "lsp/lsproto",
+    Types:   dependencyTypes,
+  }
+  root := &packages.Package{
+    PkgPath: internalPrefix + "lsp",
+    Types:   types.NewPackage(internalPrefix+"lsp", "lsp"),
+    Imports: map[string]*packages.Package{dependency.PkgPath: dependency},
+  }
+  indexed, errored := indexInternalPackages([]*packages.Package{root})
+  if indexed["lsp"] != root || indexed["lsp/lsproto"] != dependency || len(errored) != 0 {
+    t.Fatalf("indexed=%+v errored=%+v, want root and dependency", indexed, errored)
+  }
+
+  dependency.Types = nil
+  indexed, errored = indexInternalPackages([]*packages.Package{root})
+  if indexed["lsp/lsproto"] != nil || errored["lsp/lsproto"] == "" {
+    t.Fatalf("failed dependency indexed=%+v errored=%+v, want closed failure", indexed, errored)
   }
 }
 
