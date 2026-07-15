@@ -180,14 +180,14 @@ func TestRewriterHelpersCoverResolutionEdges(t *testing.T) {
   if !pathsIsOutsideRelativePath("..") || !pathsIsOutsideRelativePath(filepath.Join("..", "x")) || pathsIsOutsideRelativePath("..x") {
     t.Fatal("outside relative path classification mismatch")
   }
-  if pathsEmittedJavaScriptExtension("x.mts", false) != ".mjs" ||
-    pathsEmittedJavaScriptExtension("x.mjs", false) != ".mjs" ||
-    pathsEmittedJavaScriptExtension("x.cts", false) != ".cjs" ||
-    pathsEmittedJavaScriptExtension("x.cjs", false) != ".cjs" ||
-    pathsEmittedJavaScriptExtension("x.tsx", true) != ".jsx" ||
-    pathsEmittedJavaScriptExtension("x.jsx", true) != ".jsx" ||
-    pathsEmittedJavaScriptExtension("x.jsx", false) != ".js" ||
-    pathsEmittedJavaScriptExtension("x.ts", false) != ".js" {
+  if pathsEmittedExtension("x.mts", false) != ".mjs" ||
+    pathsEmittedExtension("x.mjs", false) != ".mjs" ||
+    pathsEmittedExtension("x.cts", false) != ".cjs" ||
+    pathsEmittedExtension("x.cjs", false) != ".cjs" ||
+    pathsEmittedExtension("x.tsx", true) != ".jsx" ||
+    pathsEmittedExtension("x.jsx", true) != ".jsx" ||
+    pathsEmittedExtension("x.jsx", false) != ".js" ||
+    pathsEmittedExtension("x.ts", false) != ".js" {
     t.Fatal("emitted extension mismatch")
   }
 }
