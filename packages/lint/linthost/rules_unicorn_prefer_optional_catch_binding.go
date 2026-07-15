@@ -5,39 +5,31 @@
 // and signals that the catch body still cares about the error when in
 // fact it doesn't.
 //
-// AST-only: visit each `CatchClause`, restrict to the common-case
-// binding names `e` and `error` (true scope analysis would require a
-// resolver), and confirm the body's source text does not contain the
-// binding name as a word-bounded identifier. The previous substring
-// scan was load-bearing-wrong: `strings.Contains(body, "e")` matches
-// nearly any English identifier, hiding the rule entirely; word
-// boundaries (`\bname\b`) correctly distinguish `e` from `error`,
-// `error` from `errorMessage`, etc. False positives on `name` inside
-// string literals or comments are acceptable because the rule is
-// conservative by design.
+// Report any identifier catch binding whose declared variable is never
+// referenced, matching upstream's `getDeclaredVariables(node).some(v =>
+// v.references.length > 0)` check. Binding identity comes from the
+// TypeScript checker: the block is walked for identifiers that resolve to
+// the binding's symbol, so a comment or string literal that merely spells
+// the name is not a use, a reference from a nested closure still is, and a
+// nested shadow that rebinds the name leaves the catch binding unused.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-optional-catch-binding.md
 package linthost
 
-import (
-  "regexp"
-
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-)
-
-var unicornPreferOptionalCatchBindingNamePattern = map[string]*regexp.Regexp{
-  "e":     regexp.MustCompile(`\be\b`),
-  "error": regexp.MustCompile(`\berror\b`),
-}
+import shimast "github.com/microsoft/typescript-go/shim/ast"
 
 type unicornPreferOptionalCatchBinding struct{}
 
 func (unicornPreferOptionalCatchBinding) Name() string {
   return "unicorn/prefer-optional-catch-binding"
 }
+func (unicornPreferOptionalCatchBinding) NeedsTypeChecker() bool { return true }
 func (unicornPreferOptionalCatchBinding) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindCatchClause}
 }
 func (unicornPreferOptionalCatchBinding) Check(ctx *Context, node *shimast.Node) {
+  if ctx == nil || ctx.Checker == nil || node == nil {
+    return
+  }
   catch := node.AsCatchClause()
   if catch == nil || catch.VariableDeclaration == nil || catch.Block == nil {
     return
@@ -46,12 +38,20 @@ func (unicornPreferOptionalCatchBinding) Check(ctx *Context, node *shimast.Node)
   if binding == nil || binding.Kind != shimast.KindIdentifier {
     return
   }
-  name := identifierText(binding)
-  pattern, ok := unicornPreferOptionalCatchBindingNamePattern[name]
-  if !ok {
+  symbol := ctx.Checker.GetSymbolAtLocation(binding)
+  if symbol == nil {
     return
   }
-  if pattern.MatchString(nodeText(ctx.File, catch.Block)) {
+  used := false
+  walkDescendants(catch.Block, func(child *shimast.Node) {
+    if used || child.Kind != shimast.KindIdentifier {
+      return
+    }
+    if valueSymbolAtIdentifier(ctx, child) == symbol {
+      used = true
+    }
+  })
+  if used {
     return
   }
   ctx.Report(binding, "Prefer optional catch binding `catch { ... }` when the error is unused.")
