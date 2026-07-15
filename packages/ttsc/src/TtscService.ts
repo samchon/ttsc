@@ -58,9 +58,14 @@ export class TtscService {
    * carries the host's diagnostics so callers can surface a real build error.
    */
   public async transformFile(fileName: string): Promise<string | undefined> {
-    const reply = await this.resident.request({
-      file: this.absolutePath(fileName),
-    });
+    const reply = await this.resident.request(
+      { file: this.absolutePath(fileName) },
+      "transform",
+    );
+    // The resident client already validated the reply shape (boolean `found`,
+    // string `typescript` when found), so a malformed or wrong-shape reply
+    // rejected instead of reaching here. `found: false` is the only path to
+    // `undefined`; a protocol failure never masquerades as an absent file.
     return reply.found === true && typeof reply.typescript === "string"
       ? reply.typescript
       : undefined;
@@ -74,10 +79,13 @@ export class TtscService {
    * `fileName` is resolved against the project root.
    */
   public async updateFile(fileName: string, content: string): Promise<boolean> {
-    const reply = await this.resident.request({
-      content,
-      update: this.absolutePath(fileName),
-    });
+    const reply = await this.resident.request(
+      { content, update: this.absolutePath(fileName) },
+      "update",
+    );
+    // The resident client validated the reply carries a boolean `updated`, so a
+    // malformed or wrong-shape reply rejected instead of collapsing to `false`.
+    // `false` here means only that the edit did not compile.
     return reply.updated === true;
   }
 

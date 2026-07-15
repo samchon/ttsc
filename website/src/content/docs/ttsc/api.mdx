@@ -156,6 +156,8 @@ The constructor takes the same [`ITtscCompilerContext`](#context-options) and la
 - `updateFile(name, content)` → `Promise<boolean>`. Apply new in-memory content for a file and re-transform. Returns whether the rebuild succeeded; `false` means the edit did not compile and the previous transform is still in effect.
 - `dispose()`. Terminate the resident host and reject any in-flight requests. Always call it (use `try`/`finally`) so the host process does not leak.
 
+`undefined` and `false` are the service's domain negatives — a genuinely absent file and an edit that did not compile. A reply the host could never validly send (a malformed line, a non-object, or a well-formed object of the wrong operation shape) is a protocol failure, not a negative result: the call rejects rather than collapsing to `undefined`/`false`, and a corrupt line can no longer be mispaired with a later request.
+
 `TtscService` runs through the linked-plugin host, the only host that serves resident requests, so the project must declare at least one transform-stage plugin. It is source-to-source: it returns TypeScript, never JS or `.d.ts` (use [`compile()`](#compile) for emit).
 
 The service is resident within one process. It does not share a host across separate worker processes (for example a Metro worker pool); each process that constructs a `TtscService` runs its own host. A shared cross-process daemon is tracked in [#255](https://github.com/samchon/ttsc/issues/255).
