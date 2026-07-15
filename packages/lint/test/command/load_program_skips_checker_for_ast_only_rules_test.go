@@ -5,18 +5,17 @@ import (
   "testing"
 )
 
-// TestLoadProgramLeavesCheckerPoolForAstOnlyRules verifies AST-only lint does
-// not pin TypeScript-Go's checker pool.
+// TestLoadProgramSkipsCheckerForAstOnlyRules verifies AST-only lint preserves
+// the Program's requested checker pool without creating a lint checker.
 //
-// Vue and shopping-backend benchmark configs enable only AST rules. Clamping their
-// programs to one checker serializes semantic diagnostics even though no rule
-// receives Context.Checker, so loadProgram should preserve the requested
-// checker count until a type-aware rule asks for the checker.
+// A syntactic rule never reads Context.Checker, so constructing a standalone
+// checker and forcing the engine onto its serial walk would be wasted work.
+// The Program pool remains independent and keeps the caller's configured size.
 //
-// 1. Materialize a tiny TypeScript project.
-// 2. loadProgram with checkers=8 and needsRuleChecker=false.
-// 3. Assert Checkers remains 8 and no rule checker was acquired.
-func TestLoadProgramLeavesCheckerPoolForAstOnlyRules(t *testing.T) {
+//  1. Materialize a tiny TypeScript project.
+//  2. Load it with eight Program checkers and no rule checker request.
+//  3. Assert the pool stays at eight and no lint checker was created.
+func TestLoadProgramSkipsCheckerForAstOnlyRules(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
@@ -50,9 +49,6 @@ func TestLoadProgramLeavesCheckerPoolForAstOnlyRules(t *testing.T) {
     t.Fatalf("Checkers = %d, want 8", *checkers)
   }
   if prog.checker != nil {
-    t.Fatal("AST-only load acquired a rule checker")
-  }
-  if prog.releaseChecker != nil {
-    t.Fatal("AST-only load installed a checker release callback")
+    t.Fatal("AST-only load created a standalone lint checker")
   }
 }

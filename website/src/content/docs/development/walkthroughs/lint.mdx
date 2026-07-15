@@ -163,11 +163,10 @@ Banner, strip, and paths run as linked transform packages inside a generic host.
 
 ```go
 type program struct {
-  cwd            string
-  tsProgram      *shimcompiler.Program
-  parsed         *tsoptions.ParsedCommandLine
-  checker        *shimchecker.Checker
-  releaseChecker func()
+  cwd       string
+  tsProgram *shimcompiler.Program
+  parsed    *tsoptions.ParsedCommandLine
+  checker   *shimchecker.Checker
 }
 
 func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program, []*shimast.Diagnostic, error) {
@@ -177,12 +176,14 @@ func loadProgram(cwd, tsconfigPath string, options loadProgramOptions) (*program
   // 4. Parse the tsconfig: tsoptions.GetParsedCommandLineOfConfigFile.
   // 5. Apply ForceEmit / ForceNoEmit / OutDir overrides.
   // 6. Build the Program: shimcompiler.NewProgram(ProgramOptions{...}).
-  // 7. Lease a Checker: tsProgram.GetTypeChecker(context.Background()).
-  // 8. Return *program with a release callback bound to the lease.
+  // 7. For type-aware rules, create a standalone Checker over the Program.
+  // 8. Return *program with that Checker owned by the lint lifecycle.
 }
 ```
 
 (Each step expanded in [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go).)
+
+The Program keeps its configured checker pool for parallel semantic diagnostics. Type-aware rules walk files serially through a separate `checker.NewChecker(program, nil)`, so every lint type belongs to one checker without forcing the Program pool down to one worker. AST-only rule sets create no standalone checker and keep the engine's parallel file walk.
 
 Two design decisions worth highlighting:
 

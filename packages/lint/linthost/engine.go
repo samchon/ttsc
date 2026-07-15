@@ -452,8 +452,8 @@ type Engine struct {
 // this when `--singleThreaded` reaches the lint sidecar so the benchmark
 // (and any caller that wants a deterministic, low-overhead pass) can opt
 // out of file-level parallelism. Type-aware rule sets always run serial
-// regardless of this flag — the single shared checker is not concurrent —
-// so callers do not need to clear it themselves.
+// regardless of this flag because their standalone checker is not concurrent,
+// so callers do not need to force serial execution themselves.
 func (e *Engine) SetSerial(serial bool) {
   if e == nil {
     return
@@ -469,9 +469,9 @@ func (e *Engine) SetCurrentDirectory(currentDirectory string) {
   }
 }
 
-// runsSerial reports whether Run must walk files one at a time — either
-// because the caller asked for it or because a type-aware rule pins the
-// engine to the shared single checker.
+// runsSerial reports whether Run must walk files one at a time: either because
+// the caller asked for it or because a type-aware rule uses the standalone
+// checker shared by every linted file.
 func (e *Engine) runsSerial() bool {
   return e == nil || e.serial || e.needsTypeChecker
 }

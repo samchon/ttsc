@@ -158,9 +158,9 @@ type contributorAdapter struct {
 // unless the contributor opts out through the public `rule.TypeAwareRule`
 // marker. The public rule.Context exposes Checker, so the host cannot infer a
 // third-party rule is AST-only — the default is type-aware, and only a rule
-// that explicitly returns false stays off the checker path (and no longer
-// pins TypeScript-Go's checker pool). The default-true / marker-override
-// policy is applied once in inspectContributor.
+// that explicitly returns false skips the standalone checker and keeps the
+// parallel file walk. The default-true / marker-override policy is applied
+// once in inspectContributor.
 func (a contributorAdapter) NeedsTypeChecker() bool {
   return a.needsTypeChecker
 }

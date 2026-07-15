@@ -3,11 +3,12 @@ package linthost
 import "testing"
 
 // TestEngineRequiresTypeCheckerForTypeAwareRule verifies type-aware built-ins
-// keep the historical single-checker path.
+// request the standalone lint checker path.
 //
 // awaitThenable calls ctx.Checker.GetTypeAtLocation. Running that rule without
-// a checker would silently drop diagnostics, while running it against a
-// multi-checker program can resolve cross-file types through the wrong checker.
+// a checker would silently drop diagnostics. The marker makes loadProgram
+// create one checker dedicated to lint instead of borrowing a Program pool
+// member whose type graph belongs to only part of a multi-checker pass.
 //
 // 1. Build an engine with awaitThenable enabled.
 // 2. Ask whether the engine needs a type checker.
