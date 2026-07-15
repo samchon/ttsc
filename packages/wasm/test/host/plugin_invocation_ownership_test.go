@@ -1,9 +1,11 @@
 package host_test
 
 import (
+  "bytes"
   "context"
   "fmt"
   "io"
+  "os"
   "strings"
   "sync"
   "testing"
@@ -27,6 +29,42 @@ func (plugin invocationPlugin) Run(invocation *host.PluginInvocation) int {
 // that owns their writers. It prevents the browser host from regressing to
 // process-global stdout/stderr capture.
 func TestPluginInvocationOutputOwnership(t *testing.T) {
+  t.Run("leaves unrelated process output outside the result", func(t *testing.T) {
+    originalStdout, originalStderr := os.Stdout, os.Stderr
+    ready := make(chan struct{})
+    release := make(chan struct{})
+    result := make(chan host.APIResult, 1)
+    plugin := invocationPlugin{name: "global-sentinel", run: func(invocation *host.PluginInvocation) int {
+      close(ready)
+      <-release
+      fmt.Fprint(invocation.Stdout, "owned-stdout")
+      fmt.Fprint(invocation.Stderr, "owned-stderr")
+      return 0
+    }}
+    go func() {
+      result <- host.InvokePlugin(context.Background(), plugin, "run", nil)
+    }()
+    <-ready
+
+    // This write is deliberately unrelated to the invocation and occurs while
+    // Plugin.Run is active. InvokePlugin must never redirect the exported
+    // process-global file pointers to its request-owned buffers.
+    fmt.Fprint(os.Stdout, "unrelated-process-sentinel")
+    close(release)
+    got := <-result
+
+    if os.Stdout != originalStdout || os.Stderr != originalStderr {
+      t.Fatal("InvokePlugin mutated process-global stdout or stderr")
+    }
+    if bytes.Contains([]byte(got.Stdout), []byte("unrelated-process-sentinel")) ||
+      bytes.Contains([]byte(got.Stderr), []byte("unrelated-process-sentinel")) {
+      t.Fatalf("unrelated process output entered invocation result: %#v", got)
+    }
+    if got.Stdout != "owned-stdout" || got.Stderr != "owned-stderr" {
+      t.Fatalf("unexpected owned output: %#v", got)
+    }
+  })
+
   t.Run("captures normal and registered child output", func(t *testing.T) {
     childRelease := make(chan struct{})
     result := make(chan host.APIResult, 1)

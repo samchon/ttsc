@@ -5,7 +5,15 @@ const path = require("path");
 const DEFAULT_WEBSITE_ROOT = path.resolve(__dirname, "..");
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts", ".d.ts"];
 const RUNTIME_EXTENSIONS = [".js", ".cjs", ".mjs"];
-const TYPE_EXTENSIONS = [".d.ts", ".d.mts", ".d.cts"];
+const TYPE_EXTENSIONS = [
+  ".d.ts",
+  ".d.mts",
+  ".d.cts",
+  ".ts",
+  ".tsx",
+  ".mts",
+  ".cts",
+];
 const BUILTINS = new Set(
   moduleApi.builtinModules.flatMap((name) => [name, `node:${name}`]),
 );
@@ -38,7 +46,9 @@ function createTypiaDependencyGraph(options = {}) {
     goAdapterRoot,
     collect(kind) {
       if (!new Set(["source", "runtime", "types"]).has(kind)) {
-        throw new Error(`[typia-graph] unknown closure kind ${JSON.stringify(kind)}`);
+        throw new Error(
+          `[typia-graph] unknown closure kind ${JSON.stringify(kind)}`,
+        );
       }
       return collectClosure({
         kind,
@@ -58,7 +68,12 @@ function collectClosure({ kind, root, manifest, expectedVersion }) {
 
   registerPackage(packages, manifest.name, root, manifest, expectedVersion);
   for (const entry of rootEntrypoints(root, manifest, kind)) {
-    queued.push({ file: entry, packageName: manifest.name, packageRoot: root });
+    queued.push({
+      file: entry,
+      packageName: manifest.name,
+      packageRoot: root,
+      chain: [],
+    });
   }
 
   while (queued.length > 0) {
@@ -68,29 +83,47 @@ function collectClosure({ kind, root, manifest, expectedVersion }) {
     visited.add(real);
     const rel = slash(path.relative(current.packageRoot, real));
     if (rel === ".." || rel.startsWith("../")) {
-      throw new Error(`[typia-graph] resolved file escaped package root: ${real}`);
+      throw new Error(
+        `[typia-graph] resolved file escaped package root: ${real}`,
+      );
     }
-    files.set(`${current.packageName}/${rel}`, real);
+    const key = `${current.packageName}/${rel}`;
+    if (kind === "runtime" && real.endsWith(".mjs")) {
+      throw new Error(
+        `[typia-graph] ${formatImportChain(current.chain, key)} resolves to an ESM-only runtime module; the playground Execute sandbox requires CommonJS`,
+      );
+    }
+    files.set(key, real);
 
     const text = fs.readFileSync(real, "utf8");
     for (const specifier of parseModuleSpecifiers(text)) {
       if (BUILTINS.has(specifier) || specifier.startsWith("node:")) continue;
       if (specifier.startsWith(".") || specifier.startsWith("/")) {
-        const target = resolveFile(path.resolve(path.dirname(real), specifier), kind);
+        const target = resolveFile(
+          path.resolve(path.dirname(real), specifier),
+          kind,
+        );
         if (!target) {
           throw new Error(
-            `[typia-graph] ${current.packageName}/${rel} imports missing ${JSON.stringify(specifier)}`,
+            `[typia-graph] ${formatImportChain(current.chain, key)} imports missing ${JSON.stringify(specifier)}`,
           );
         }
-        queued.push({ ...current, file: target });
+        queued.push({
+          ...current,
+          file: target,
+          chain: [...current.chain, key],
+        });
         continue;
       }
 
       const { packageName, subpath } = splitPackageSpecifier(specifier);
-      const dependencyRoot = findDependencyRoot(current.packageRoot, packageName);
+      const dependencyRoot = findDependencyRoot(
+        current.packageRoot,
+        packageName,
+      );
       if (!dependencyRoot) {
         throw new Error(
-          `[typia-graph] ${current.packageName}/${rel} imports missing package ${JSON.stringify(packageName)}`,
+          `[typia-graph] ${formatImportChain(current.chain, key)} imports missing package ${JSON.stringify(packageName)}`,
         );
       }
       const dependencyManifest = readManifest(dependencyRoot);
@@ -114,13 +147,14 @@ function collectClosure({ kind, root, manifest, expectedVersion }) {
       );
       if (!target) {
         throw new Error(
-          `[typia-graph] ${current.packageName}/${rel} cannot resolve ${JSON.stringify(specifier)} for ${kind}`,
+          `[typia-graph] ${formatImportChain(current.chain, key)} cannot resolve ${JSON.stringify(specifier)} for ${kind}`,
         );
       }
       queued.push({
         file: target,
         packageName,
         packageRoot: dependencyRoot,
+        chain: [...current.chain, key],
       });
     }
   }
@@ -144,10 +178,20 @@ function rootEntrypoints(root, manifest, kind) {
   entries.push(resolvedRoot);
 
   for (const [subpath, value] of Object.entries(manifest.exports ?? {})) {
-    if (!subpath.includes("*")) continue;
+    if (subpath === "." || subpath === "./package.json") continue;
     const target = selectConditionalTarget(value, kind);
-    if (typeof target !== "string" || !target.includes("*")) continue;
-    entries.push(...expandWildcardTarget(root, target, kind));
+    if (typeof target !== "string") continue;
+    if (target.includes("*")) {
+      entries.push(...expandWildcardTarget(root, target, kind));
+      continue;
+    }
+    const resolved = resolveManifestTarget(root, target, kind);
+    if (!resolved) {
+      throw new Error(
+        `[typia-graph] typia ${kind} export ${JSON.stringify(subpath)} is missing: ${target}`,
+      );
+    }
+    entries.push(resolved);
   }
   return [...new Set(entries.map((entry) => fs.realpathSync(entry)))];
 }
@@ -180,9 +224,11 @@ function resolvePackageImport(root, manifest, subpath, kind) {
 function selectTarget(rootExport, manifest, kind) {
   const exported = selectConditionalTarget(rootExport, kind);
   if (typeof exported === "string") return exported;
-  if (kind === "types") return manifest.types ?? manifest.typings ?? manifest.main;
-  if (kind === "source") return manifest.types ?? manifest.typings ?? manifest.main;
-  return manifest.main ?? manifest.module;
+  if (kind === "types")
+    return manifest.types ?? manifest.typings ?? manifest.main;
+  if (kind === "source")
+    return manifest.types ?? manifest.typings ?? manifest.main;
+  return manifest.main;
 }
 
 function selectConditionalTarget(value, kind) {
@@ -191,7 +237,7 @@ function selectConditionalTarget(value, kind) {
   const conditions =
     kind === "types" || kind === "source"
       ? ["types", "default", "import", "require"]
-      : ["require", "default", "import"];
+      : ["require", "default"];
   for (const condition of conditions) {
     const selected = selectConditionalTarget(value[condition], kind);
     if (selected) return selected;
@@ -210,7 +256,8 @@ function mapPublishedPathToSource(root, relative) {
     .replace(/^lib\//, "src/")
     .replace(/\.d\.(?:mts|cts|ts)$/, ".ts")
     .replace(/\.(?:mjs|cjs|js)$/, ".ts");
-  if (mapped.includes("*") && fs.existsSync(path.join(root, "src"))) return mapped;
+  if (mapped.includes("*") && fs.existsSync(path.join(root, "src")))
+    return mapped;
   return resolveFile(path.join(root, mapped), "source") ? mapped : relative;
 }
 
@@ -222,11 +269,17 @@ function expandWildcardTarget(root, target, kind) {
   const suffix = relative.slice(star + 1);
   const searchRoot = path.join(root, path.dirname(prefix));
   if (!fs.existsSync(searchRoot)) {
-    throw new Error(`[typia-graph] wildcard export root is missing: ${searchRoot}`);
+    throw new Error(
+      `[typia-graph] wildcard export root is missing: ${searchRoot}`,
+    );
   }
   return walkFiles(searchRoot).filter((file) => {
     const rel = slash(path.relative(root, file));
-    return rel.startsWith(prefix) && rel.endsWith(suffix) && extensionAllowed(rel, kind);
+    return (
+      rel.startsWith(prefix) &&
+      rel.endsWith(suffix) &&
+      extensionAllowed(rel, kind)
+    );
   });
 }
 
@@ -239,7 +292,8 @@ function resolveFile(base, kind) {
         : TYPE_EXTENSIONS;
   const candidates = [base];
   for (const extension of extensions) candidates.push(`${base}${extension}`);
-  for (const extension of extensions) candidates.push(path.join(base, `index${extension}`));
+  for (const extension of extensions)
+    candidates.push(path.join(base, `index${extension}`));
   for (const candidate of candidates) {
     try {
       if (fs.statSync(candidate).isFile()) return fs.realpathSync(candidate);
@@ -253,7 +307,7 @@ function resolveFile(base, kind) {
 function extensionAllowed(file, kind) {
   if (kind === "source") return /\.(?:ts|tsx|mts|cts)$/.test(file);
   if (kind === "runtime") return /\.(?:js|cjs|mjs)$/.test(file);
-  return /\.d\.(?:ts|mts|cts)$/.test(file);
+  return /(?:\.d)?\.(?:ts|tsx|mts|cts)$/.test(file);
 }
 
 function parseModuleSpecifiers(text) {
@@ -295,7 +349,11 @@ function registerPackage(packages, name, root, manifest, expectedVersion) {
 function findDependencyRoot(fromPackageRoot, packageName) {
   let current = fs.realpathSync(fromPackageRoot);
   while (true) {
-    const candidate = path.join(current, "node_modules", ...packageName.split("/"));
+    const candidate = path.join(
+      current,
+      "node_modules",
+      ...packageName.split("/"),
+    );
     try {
       return realPackageRoot(candidate, packageName);
     } catch {
@@ -327,8 +385,12 @@ function readManifest(root) {
 }
 
 function readExactTypiaPin(repoRoot) {
-  const workspace = fs.readFileSync(path.join(repoRoot, "pnpm-workspace.yaml"), "utf8");
-  const samchon = workspace.match(/\n  samchon:\r?\n([\s\S]*?)(?:\n  [a-zA-Z]|$)/)?.[1] ?? "";
+  const workspace = fs.readFileSync(
+    path.join(repoRoot, "pnpm-workspace.yaml"),
+    "utf8",
+  );
+  const samchon =
+    workspace.match(/\n  samchon:\r?\n([\s\S]*?)(?:\n  [a-zA-Z]|$)/)?.[1] ?? "";
   const version = samchon.match(/^    typia:\s+['"]?([^'"\s#]+)['"]?/m)?.[1];
   if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
     throw new Error(
@@ -341,7 +403,10 @@ function readExactTypiaPin(repoRoot) {
 function splitPackageSpecifier(specifier) {
   const parts = specifier.split("/");
   if (specifier.startsWith("@")) {
-    return { packageName: parts.slice(0, 2).join("/"), subpath: parts.slice(2).join("/") };
+    return {
+      packageName: parts.slice(0, 2).join("/"),
+      subpath: parts.slice(2).join("/"),
+    };
   }
   return { packageName: parts[0], subpath: parts.slice(1).join("/") };
 }
@@ -362,18 +427,21 @@ function walkFiles(root) {
 }
 
 function rewriteSourceManifest(manifest, packageRoot) {
-  const hasSourceTree = packageRoot && fs.existsSync(path.join(packageRoot, "src"));
+  const hasSourceTree =
+    packageRoot && fs.existsSync(path.join(packageRoot, "src"));
   const rewrite = (value) => {
     if (typeof value === "string") {
-      if (!hasSourceTree || !value.startsWith("./lib/")) return value;
+      if (!hasSourceTree || !/^(?:\.\/)?lib\//.test(value)) return value;
       return value
-        .replace(/^\.\/lib\//, "./src/")
+        .replace(/^(\.\/)?lib\//, "$1src/")
         .replace(/\.d\.(?:mts|cts|ts)$/, ".ts")
         .replace(/\.(?:mjs|cjs|js)$/, ".ts");
     }
     if (!value || typeof value !== "object") return value;
     if (Array.isArray(value)) return value.map(rewrite);
-    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, rewrite(child)]));
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [key, rewrite(child)]),
+    );
   };
   const output = { ...manifest };
   if (output.main) output.main = rewrite(output.main);
@@ -382,6 +450,10 @@ function rewriteSourceManifest(manifest, packageRoot) {
   if (output.typings) output.typings = rewrite(output.typings);
   if (output.exports) output.exports = rewrite(output.exports);
   return output;
+}
+
+function formatImportChain(chain, key) {
+  return [...chain, key].join(" -> ");
 }
 
 function slash(value) {

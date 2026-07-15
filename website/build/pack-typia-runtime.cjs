@@ -18,11 +18,14 @@ function main() {
   const graph = createTypiaDependencyGraph({ websiteRoot });
   const closure = graph.collect("runtime");
   const pack = {};
-  for (const [key, file] of [...closure.files].sort(([left], [right]) => left.localeCompare(right))) {
-    if (file.endsWith(".mjs")) continue;
+  for (const [key, file] of [...closure.files].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
     pack[key] = fs.readFileSync(file, "utf8");
   }
-  for (const [name, pkg] of [...closure.packages].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [name, pkg] of [...closure.packages].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
     pack[`${name}/package.json`] = JSON.stringify(pkg.manifest, null, 2);
   }
   fs.mkdirSync(path.dirname(outFile), { recursive: true });
