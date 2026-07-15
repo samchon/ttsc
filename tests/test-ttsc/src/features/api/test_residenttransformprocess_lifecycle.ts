@@ -54,8 +54,8 @@ export const test_residenttransformprocess_lifecycle = async () => {
     const proc = spawnStub(ECHO_STUB);
     try {
       const [a, b] = await Promise.all([
-        proc.request({ file: "a.ts" }),
-        proc.request({ file: "b.ts" }),
+        proc.request({ file: "a.ts" }, "transform"),
+        proc.request({ file: "b.ts" }, "transform"),
       ]);
       assert.equal(a.found, true);
       assert.equal(a.typescript, "echo:a.ts");
@@ -68,10 +68,10 @@ export const test_residenttransformprocess_lifecycle = async () => {
   // 2. dispose() rejects any later request.
   {
     const proc = spawnStub(ECHO_STUB);
-    const warm = await proc.request({ file: "warm.ts" });
+    const warm = await proc.request({ file: "warm.ts" }, "transform");
     assert.equal(warm.typescript, "echo:warm.ts");
     proc.dispose();
-    await assert.rejects(() => proc.request({ file: "after.ts" }));
+    await assert.rejects(() => proc.request({ file: "after.ts" }, "transform"));
     proc.dispose(); // idempotent
   }
 
@@ -79,7 +79,7 @@ export const test_residenttransformprocess_lifecycle = async () => {
   //    crash the consumer; the stream "error" handlers swallow the broken pipe.
   {
     const proc = spawnStub(DIE_STUB);
-    await assert.rejects(() => proc.request({ file: "x.ts" }));
+    await assert.rejects(() => proc.request({ file: "x.ts" }, "transform"));
     proc.dispose(); // safe on an already-dead host
   }
 };

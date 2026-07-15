@@ -4,6 +4,19 @@ import { type Interface, createInterface } from "node:readline";
 /** Cap on retained stderr so a long-lived host cannot grow it without bound. */
 const STDERR_TAIL_LIMIT = 64 * 1024;
 
+/** Cap on how much of an offending line an error message echoes back. */
+const REPLY_ECHO_LIMIT = 200;
+
+/**
+ * The operation a request expects a reply for. The host answers a transform
+ * request (`{"file":...}`) with `{"typescript":...,"found":...}` and an update
+ * request (`{"update":...,"content":...}`) with `{"updated":...}`. The client
+ * knows which it sent, so it validates the reply's shape against the operation
+ * before handing it back — a well-formed JSON object of the wrong operation
+ * shape is a protocol error, not a valid negative result.
+ */
+export type ResidentReplyKind = "transform" | "update";
+
 /** Options for spawning the resident transform host. */
 export interface ResidentTransformProcessOptions {
   args: readonly string[];
@@ -13,6 +26,7 @@ export interface ResidentTransformProcessOptions {
 }
 
 interface PendingRequest {
+  kind: ResidentReplyKind;
   reject: (reason: Error) => void;
   resolve: (reply: Record<string, unknown>) => void;
 }
@@ -78,13 +92,16 @@ export class ResidentTransformProcess {
   }
 
   /**
-   * Send one request to the host and resolve with its parsed JSON reply. The
-   * host answers in FIFO order, so the caller interprets the reply shape by the
-   * payload it sent (a transform reply vs an update reply). Rejects when the
-   * host has already failed or exited, or if writing the request fails.
+   * Send one request to the host and resolve with its validated JSON reply. The
+   * host answers in FIFO order; `kind` tells the client which reply shape the
+   * payload asks for, so the reply is validated as a well-formed `kind` reply
+   * before it resolves. Rejects when the reply is not a valid `kind` reply,
+   * when the host has already failed or exited, or if writing the request
+   * fails.
    */
   public request(
     payload: Record<string, unknown>,
+    kind: ResidentReplyKind,
   ): Promise<Record<string, unknown>> {
     if (this.failure !== undefined) {
       return Promise.reject(this.failure);
@@ -96,7 +113,7 @@ export class ResidentTransformProcess {
       );
     }
     return new Promise<Record<string, unknown>>((resolve, reject) => {
-      const pending: PendingRequest = { reject, resolve };
+      const pending: PendingRequest = { kind, reject, resolve };
       this.pending.push(pending);
       stdin.write(`${JSON.stringify(payload)}\n`, (error) => {
         if (error) {
@@ -149,7 +166,39 @@ export class ResidentTransformProcess {
       }
       return;
     }
-    request.resolve(parseReply(trimmed));
+    const reply = parseReplyObject(trimmed);
+    if (reply === undefined) {
+      // Framing violation: the line is not a JSON object, so it cannot
+      // represent any reply. This request already left the FIFO, so reject it,
+      // then fail the whole process: a bad line may be corruption that shifted
+      // the stream, and the host's real reply that follows must not be paired
+      // with a later request. `fail` marks the failure so that trailing line is
+      // treated as benign instead of unsolicited.
+      const error = new Error(
+        `ttsc: resident transform host sent a malformed reply: ${echoLine(
+          trimmed,
+        )}`,
+      );
+      request.reject(error);
+      this.fail(error);
+      return;
+    }
+    if (!isValidReply(reply, request.kind)) {
+      // Operation-shape violation: a well-formed JSON object that is not a valid
+      // reply for the operation this request sent. FIFO framing is intact — one
+      // line consumed exactly one slot — so only this request is corrupt; later
+      // replies still pair correctly. Reject just this request instead of
+      // failing the whole process.
+      request.reject(
+        new Error(
+          `ttsc: resident transform host sent an invalid ${request.kind} reply: ${echoLine(
+            trimmed,
+          )}`,
+        ),
+      );
+      return;
+    }
+    request.resolve(reply);
   }
 
   private onReaderClose(): void {
@@ -194,23 +243,48 @@ export class ResidentTransformProcess {
 }
 
 /**
- * Parse one reply line into a plain object. A malformed line degrades to an
- * empty object rather than throwing, so one bad line never rejects a request
- * the FIFO has already advanced past; the caller reads missing fields as
- * absent.
+ * Parse one reply line into a plain object, or `undefined` when the line is not
+ * a JSON object. Invalid JSON, arrays, primitives, and `null` all yield
+ * `undefined`: none of them can carry a reply's fields, so the caller treats
+ * them as a framing failure rather than an empty reply. Returning `{}` here
+ * would let a corrupt line masquerade as a valid negative result.
  */
-function parseReply(line: string): Record<string, unknown> {
+function parseReplyObject(line: string): Record<string, unknown> | undefined {
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(line) as unknown;
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      !Array.isArray(parsed)
-    ) {
-      return parsed as Record<string, unknown>;
-    }
+    parsed = JSON.parse(line);
   } catch {
-    // A non-object or unparseable line is treated as an empty reply.
+    return undefined;
   }
-  return {};
+  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+    return parsed as Record<string, unknown>;
+  }
+  return undefined;
+}
+
+/**
+ * Whether a parsed reply object is a well-formed reply for the given operation.
+ * A transform reply must carry a boolean `found`, and when `found` is `true` a
+ * string `typescript` (a found file always carries its transformed text); when
+ * `found` is `false` the text is irrelevant. An update reply must carry a
+ * boolean `updated`. Every other object shape is a protocol error.
+ */
+function isValidReply(
+  reply: Record<string, unknown>,
+  kind: ResidentReplyKind,
+): boolean {
+  if (kind === "transform") {
+    if (typeof reply.found !== "boolean") {
+      return false;
+    }
+    return reply.found ? typeof reply.typescript === "string" : true;
+  }
+  return typeof reply.updated === "boolean";
+}
+
+/** Truncate an offending reply line so error messages stay bounded. */
+function echoLine(line: string): string {
+  return line.length > REPLY_ECHO_LIMIT
+    ? `${line.slice(0, REPLY_ECHO_LIMIT)}…`
+    : line;
 }
