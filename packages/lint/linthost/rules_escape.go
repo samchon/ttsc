@@ -86,6 +86,16 @@ const templateValidEscapes = "`'\"\\bfnrtv0xuU$\n\r"
 const regexNonClassValidEscapes = "^$\\.*+?()[]{}|/-\n\r"
 const regexClassValidEscapes = "\\]-^\n\r"
 
+// regexClassSetValidEscapes is the in-class allowlist for a `v`-flag
+// (unicodeSets) regex. There the ClassSetSyntaxCharacters `( ) [ ] { } / | -`
+// stay meaningful inside `[...]`, so a backslash before them is load-bearing:
+// stripping it (e.g. `/[\(]/v` → `/[(]/v`) turns valid source into a
+// `SyntaxError: Invalid character in character class`. Mirrors ESLint's
+// REGEX_CLASSSET_CHARACTER_ESCAPES; its `q` (from `\q{…}`) is handled with the
+// other shorthand letters in `isUselessRegexEscape`. `]` and `-` already sit
+// in the base set above.
+const regexClassSetValidEscapes = regexClassValidEscapes + "()[{}|/"
+
 // reportStringEscapes walks the raw source bytes of a string or template
 // literal and reports each backslash whose following character is not in
 // `whitelist`. `base` is the source offset of `raw[0]` so reported ranges
@@ -152,7 +162,9 @@ func reportStringEscapes(ctx *Context, raw string, base int, whitelist string, i
 
 // reportRegexEscapes walks the pattern body of a regex literal and reports
 // backslashes that escape non-special characters. `base` is the source offset
-// of `raw[0]`. Character-class context (`[…]`) widens the legal set slightly.
+// of `raw[0]`. Character-class context (`[…]`) widens the legal set slightly,
+// and the trailing `v` (unicodeSets) flag widens it further because more
+// punctuation is meaningful inside a class in that mode.
 func reportRegexEscapes(ctx *Context, raw string, base int) {
   if len(raw) < 3 || raw[0] != '/' {
     return
@@ -164,6 +176,12 @@ func reportRegexEscapes(ctx *Context, raw string, base int) {
     return
   }
   body := raw[1:closing]
+  // Flags follow the closing slash. The `v` (unicodeSets) flag promotes the
+  // ClassSetSyntaxCharacters to meaningful members of a character class, so
+  // their escapes must be preserved there; deleting one corrupts the source.
+  // Mirrors ESLint selecting REGEX_CLASSSET_CHARACTER_ESCAPES over
+  // REGEX_GENERAL_ESCAPES on that flag.
+  unicodeSets := strings.IndexByte(raw[closing+1:], 'v') >= 0
   inClass := false
   for i := 0; i < len(body); i++ {
     ch := body[i]
@@ -179,7 +197,7 @@ func reportRegexEscapes(ctx *Context, raw string, base int) {
       continue
     }
     next := body[i+1]
-    if isUselessRegexEscape(next, inClass) {
+    if isUselessRegexEscape(next, inClass, unicodeSets) {
       // base + 1 (for the leading `/`) + i is the byte offset of the
       // backslash in the source.
       pos := base + 1 + i
@@ -241,12 +259,18 @@ func isUselessStringEscape(ch byte, whitelist string) bool {
 // character class, which narrows the set of meaningful meta-char escapes:
 // most regex meta-chars (`.`, `*`, `+`, `?`, `(`, `)`, `{`, `}`, `|`, `^`,
 // `$`, `/`) are literal inside a class, so escaping them there is noise.
-func isUselessRegexEscape(ch byte, inClass bool) bool {
+// `unicodeSets` is true for a `v`-flag regex, where the ClassSetSyntaxCharacters
+// regain meaning inside a class and their escapes are therefore required.
+func isUselessRegexEscape(ch byte, inClass, unicodeSets bool) bool {
   if ch < 0x20 {
     return false
   }
   if inClass {
-    if strings.IndexByte(regexClassValidEscapes, ch) >= 0 {
+    classEscapes := regexClassValidEscapes
+    if unicodeSets {
+      classEscapes = regexClassSetValidEscapes
+    }
+    if strings.IndexByte(classEscapes, ch) >= 0 {
       return false
     }
   } else if strings.IndexByte(regexNonClassValidEscapes, ch) >= 0 {
