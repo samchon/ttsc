@@ -13,6 +13,14 @@ export {
   RESULT_AUDIT_SELECTION,
 } from "./server/resultAudit";
 
+// Programmatic entry points. Each resolves its native binary from the project
+// `cwd` it is given (see `resolveGraphBinary`), so a caller that graphs a
+// project other than its own process directory names it once and the binary is
+// found under that project's installed `ttsc`.
+export { resolveGraphBinary } from "./resolveGraphBinary";
+export { loadGraph } from "./model/loadGraph";
+export { TtscGraphSession } from "./model/TtscGraphSession";
+
 // The server version reported in the MCP handshake; read from this package.
 const VERSION: string = (require("../package.json") as { version: string })
   .version;
