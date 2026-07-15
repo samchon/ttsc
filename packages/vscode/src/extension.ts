@@ -27,7 +27,7 @@ import {
 import {
   createDocumentSelectorPattern,
   createResolutionCandidates,
-  createServerLaunchCommand,
+  createServerExecutable,
   executeCommandIDPrefix,
   filterNonOverlappingCandidates,
   isPathInsideRoot,
@@ -38,7 +38,6 @@ import {
   rootsToStopForPlan,
   rootsToStopForTarget,
   selectDeepestRootForPath,
-  serverProcessOptions,
 } from "./serverResolution";
 
 type ServerLaunchSpec = {
@@ -153,12 +152,10 @@ function createServerOptions(
   launcher: string,
   candidate: ReturnType<typeof createResolutionCandidates>[number],
 ): ServerOptions {
-  const launch = createServerLaunchCommand(launcher, candidate);
-  return {
-    command: launch.command,
-    args: launch.args,
-    options: serverProcessOptions(candidate.cwd),
-  };
+  // `ServerExecutable.options` carries the Node-only `windowsVerbatimArguments`
+  // flag that `ExecutableOptions` does not declare; the client forwards it to
+  // `child_process.spawn` verbatim, so it is structurally compatible here.
+  return createServerExecutable(launcher, candidate);
 }
 
 function workspaceFolderFor(root: string, index: number): WorkspaceFolder {

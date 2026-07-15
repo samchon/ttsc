@@ -57,9 +57,13 @@ export const test_vscode_server_launch_command_uses_command_mode = () => {
   );
   assert.equal(result.status, 0, result.stderr);
   const parsed = JSON.parse(result.stdout) as {
-    cmd: { args: string[]; command: string };
-    js: { args: string[]; command: string };
-    native: { args: string[]; command: string };
+    cmd: { args: string[]; command: string; windowsVerbatimArguments?: boolean };
+    js: { args: string[]; command: string; windowsVerbatimArguments?: boolean };
+    native: {
+      args: string[];
+      command: string;
+      windowsVerbatimArguments?: boolean;
+    };
     otherPrefix: string;
     prefix: string;
   };
@@ -83,6 +87,11 @@ export const test_vscode_server_launch_command_uses_command_mode = () => {
     "--execute-command-id-prefix=" + parsed.prefix,
     "--tsconfig=" + tsconfig,
   ]);
+  // Only the pre-quoted Windows command shim requests verbatim spawn arguments;
+  // JS and native launchers keep Node's default array escaping.
+  assert.equal(parsed.cmd.windowsVerbatimArguments, true);
+  assert.equal(parsed.js.windowsVerbatimArguments, undefined);
+  assert.equal(parsed.native.windowsVerbatimArguments, undefined);
   assert.equal(parsed.cmd.command, "cmd.exe");
   assert.equal(parsed.cmd.args[0], "/d");
   assert.equal(parsed.cmd.args[1], "/s");
