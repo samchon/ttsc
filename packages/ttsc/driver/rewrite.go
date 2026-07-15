@@ -23,6 +23,7 @@ import (
   "strings"
   "sync"
   "unicode"
+  "unicode/utf8"
 
   "github.com/microsoft/typescript-go/shim/ast"
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
@@ -427,7 +428,13 @@ func findCallMatch(text string, pattern *regexp.Regexp, searchFrom int) (int, in
     }
     matchStart := start + loc[0]
     parenStart := start + loc[2]
-    if matchStart > 0 && isIdentifierPart(rune(text[matchStart-1])) {
+    // Decode the whole preceding rune rather than widening the single byte at
+    // text[matchStart-1]: for a multi-byte identifier char (e.g. `й`, `한`, an
+    // astral letter) that byte is a UTF-8 continuation/lead byte, not the
+    // character, so the boundary guard would be bypassed and the rewriter would
+    // splice into the middle of a larger identifier.
+    prev, _ := utf8.DecodeLastRuneInString(text[:matchStart])
+    if matchStart > 0 && isIdentifierPart(prev) {
       start = matchStart + 1
       continue
     }
