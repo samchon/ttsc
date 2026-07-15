@@ -37,7 +37,9 @@ export function loadGraph(
 ): TtscGraphMemory {
   const cwd = options.cwd ?? process.cwd();
   const tsconfig = options.tsconfig ?? "tsconfig.json";
-  const binary = options.binary ?? resolveGraphBinary();
+  // Resolve the platform binary from the selected project cwd, not the caller's
+  // process directory, so a one-shot load names its own installation.
+  const binary = options.binary ?? resolveGraphBinary(process.env, cwd);
   if (binary === null) {
     throw new Error(
       "@ttsc/graph: could not resolve the ttscgraph binary. " +

@@ -51,7 +51,9 @@ function parseViewArgs(argv: readonly string[]): ViewOptions {
 export function runView(argv: readonly string[]): number | void {
   const opts = parseViewArgs(argv);
 
-  const binary = resolveGraphBinary();
+  // Anchor binary resolution at the project selected by `--cwd`, so `view` from
+  // an unrelated directory still finds the `ttsc` installed under the target.
+  const binary = resolveGraphBinary(process.env, opts.cwd);
   if (binary === null) {
     process.stderr.write(
       "@ttsc/graph: could not resolve the ttscgraph binary. " +

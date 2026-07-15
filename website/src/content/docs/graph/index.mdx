@@ -61,7 +61,7 @@ Install, connect an agent, and where to read next.
 
 ### 3.1. Install and connect
 
-`@ttsc/graph` resolves the native binary from the `ttsc` platform package, so install `ttsc` alongside it.
+`@ttsc/graph` resolves the native binary from the `ttsc` platform package installed in the project it graphs, so install `ttsc` alongside it. When you launch from an unrelated directory and name the project with `--cwd`, the binary is resolved from that target project, not from the launcher's working directory.
 
 ```bash
 npm install -D ttsc @ttsc/graph typescript

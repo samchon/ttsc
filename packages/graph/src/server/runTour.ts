@@ -237,9 +237,10 @@ export function runTour(
  * The failure is not a threshold. A question names concepts and a graph holds
  * identifiers, and no lexical rule bridges the two: "request handling" is not
  * `handlePayment` and never will be. The server cannot know what the question
- * means, so it cannot know whether it answered it — and the audit riding in the
- * same payload says as much, promising a result with nothing "matched, ranked,
- * or inferred" in it.
+ * means, so it cannot know whether it answered it — and the selection audit
+ * riding in the same payload says exactly that: each fact is compiler-verified,
+ * but the shortlist was ranked against the question and whether it covers the
+ * question is the caller's to judge.
  *
  * So the tour states what it returned, which is a fact, and leaves what to do
  * with it to the reader, which was never the server's to decide. A tour that

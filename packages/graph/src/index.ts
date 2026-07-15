@@ -7,7 +7,19 @@ import { startServer } from "./server/startServer";
 import { runView } from "./view";
 
 /** What a graph result says about where its facts came from. */
-export { RESULT_AUDIT, RESULT_AUDIT_ESCAPE } from "./server/resultAudit";
+export {
+  RESULT_AUDIT,
+  RESULT_AUDIT_ESCAPE,
+  RESULT_AUDIT_SELECTION,
+} from "./server/resultAudit";
+
+// Programmatic entry points. Each resolves its native binary from the project
+// `cwd` it is given (see `resolveGraphBinary`), so a caller that graphs a
+// project other than its own process directory names it once and the binary is
+// found under that project's installed `ttsc`.
+export { resolveGraphBinary } from "./resolveGraphBinary";
+export { loadGraph } from "./model/loadGraph";
+export { TtscGraphSession } from "./model/TtscGraphSession";
 
 // The server version reported in the MCP handshake; read from this package.
 const VERSION: string = (require("../package.json") as { version: string })
@@ -68,7 +80,10 @@ export function runGraph(
  * on this process's stdout. Returns the child's exit code.
  */
 function runDump(argv: readonly string[]): number {
-  const binary = resolveGraphBinary();
+  // Resolve the native binary from the target project the caller named with
+  // `--cwd`, not from wherever the launcher process happened to start.
+  const { cwd } = parseProjectArgs(argv);
+  const binary = resolveGraphBinary(process.env, cwd);
   if (binary === null) {
     process.stderr.write(
       "@ttsc/graph: could not resolve the ttscgraph binary. " +

@@ -1,5 +1,9 @@
 import { TtscGraphMemory } from "./model/TtscGraphMemory";
-import { RESULT_AUDIT, RESULT_AUDIT_ESCAPE } from "./server/resultAudit";
+import {
+  RESULT_AUDIT,
+  RESULT_AUDIT_ESCAPE,
+  RESULT_AUDIT_SELECTION,
+} from "./server/resultAudit";
 import { resultNext } from "./server/resultNext";
 import { runDetails } from "./server/runDetails";
 import { runEntrypoints } from "./server/runEntrypoints";
@@ -57,17 +61,22 @@ export class TtscGraphApplication implements ITtscGraphApplication {
     const graph = await this.graph();
     switch (props.request.type) {
       case "entrypoints": {
+        // A ranked shortlist matched against the question: its facts are
+        // compiler-verified, but its selection is heuristic, so it carries the
+        // selection audit rather than the exact-structure one.
         const r = runEntrypoints(graph, props.request);
         return {
-          audit: RESULT_AUDIT,
+          audit: RESULT_AUDIT_SELECTION,
           next: r.next,
           result: r.result,
         };
       }
       case "lookup": {
+        // Natural-query ranker (see `runLookup`): scored, ranked, per-file
+        // capped, and limited, so the selection is heuristic.
         const r = runLookup(graph, props.request);
         return {
-          audit: RESULT_AUDIT,
+          audit: RESULT_AUDIT_SELECTION,
           next: r.next,
           result: r.result,
         };
@@ -98,10 +107,12 @@ export class TtscGraphApplication implements ITtscGraphApplication {
       }
       case "tour": {
         // The tour ranks against the question, and the question is `props`
-        // — the caller wrote it once, at the top, in the user's words.
+        // — the caller wrote it once, at the top, in the user's words. It
+        // ranks seeds, walks bounded flows, and slices to a limit, so its
+        // selection is heuristic.
         const r = runTour(graph, props.request, props.question);
         return {
-          audit: RESULT_AUDIT,
+          audit: RESULT_AUDIT_SELECTION,
           next: r.next,
           result: r.result,
         };

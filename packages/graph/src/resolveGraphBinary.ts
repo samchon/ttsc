@@ -15,8 +15,10 @@ import path from "node:path";
  * 2. The per-platform npm package `@ttsc/<platform>-<arch>/bin/ttscgraph[.exe]`.
  *    That package carries `ttsc`, `ttscserver`, and `ttscgraph` together and is
  *    an `optionalDependency` of `ttsc`, so it is resolved from `ttsc`'s
- *    location — found from `process.cwd()` (the project where the agent ran the
- *    server).
+ *    location — found from `cwd`, the project the caller selected (via `--cwd`
+ *    or an API `cwd` option), defaulting to `process.cwd()` when no project was
+ *    named. A launcher started from an unrelated directory still resolves the
+ *    `ttsc` installed under the target project it was asked to graph.
  */
 export function resolveGraphBinary(
   env: NodeJS.ProcessEnv = process.env,
@@ -27,8 +29,10 @@ export function resolveGraphBinary(
   }
   const exe = process.platform === "win32" ? "ttscgraph.exe" : "ttscgraph";
   try {
+    // Anchor package lookup at the absolute project root so a relative `--cwd`
+    // resolves the same way the native process interprets it.
     const ttscPackageJson = require.resolve("ttsc/package.json", {
-      paths: [cwd],
+      paths: [path.resolve(cwd)],
     });
     const fromTtsc = createRequire(ttscPackageJson);
     return fromTtsc.resolve(

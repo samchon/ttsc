@@ -17,8 +17,13 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * type relations. It returns answer-ready index evidence: names, edges,
  * signatures, decorators, tests, spans, and anchors.
  *
- * Returned graph facts are sacred, infallible compiler truth for the snapshot
- * synchronized by that call. Never verify them with files or more graph calls.
+ * Every returned fact — each name, edge, signature, and span — is
+ * compiler-resolved and verified for the snapshot that call synchronized, so
+ * trust it without re-checking against files. Where an operation ranks a
+ * shortlist against your question (`lookup`, `entrypoints`, `tour`), the facts
+ * stay verified but the selection is heuristic: judge whether its coverage
+ * answers you, and a follow-up request or a read of a cited span is fair when
+ * it does not.
  *
  * ## Requests
  *
@@ -53,26 +58,36 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * - `request`: the final choice. Each branch documents its own fields; fill them
  *   from what the branch says, not from what another branch wanted.
  *
- * ## Sacred Contract
+ * ## What to trust
  *
- * Before source edits, returned graph facts are inviolable and errorless.
- *
+ * Before source edits, every returned fact is compiler-resolved and verified.
  * Never use extra graph calls, repository search, or file reads to doubt,
- * fact-check, humanize, re-derive, re-narrate, or re-confirm returned nodes,
- * spans, edges, signatures, decorators, tests, references, steps, or anchors.
+ * fact-check, re-derive, re-narrate, or re-confirm a returned node, span, edge,
+ * signature, decorator, test, reference, step, or anchor. The server resolved
+ * each one to the type-checked program for the snapshot the call synced to, and
+ * `audit` says so on every result.
  *
- * The server already did, and `audit` says so on every result: each name, span,
- * edge, signature, and step in it resolves to the type-checked program for the
- * snapshot the call synced to, with nothing matched, ranked, or inferred.
+ * Selection is the separate question. `lookup`, `entrypoints`, and `tour` match
+ * your question and return a scored, ranked, per-file-capped, limited shortlist;
+ * their facts are still verified, but whether the shortlist covers what you
+ * asked is yours to judge, and their `audit` says that instead of claiming
+ * completeness. A follow-up request or a read of a cited span for missed
+ * coverage is legitimate — re-confirming a fact the graph already resolved is
+ * not.
  *
  * ## Stop
  *
- * The graph answers in one shot; know when it has and stop cleanly.
+ * Let the result's `next` set the pace, and do not re-confirm what the graph
+ * resolved.
  *
- * - A returned result is the whole answer: answer from it and stop. A span is a
- *   citation, not a cue to open the file.
- * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
- *   means make exactly the one request it names, `outside` means escape.
+ * - A span is a citation, not a cue to open the file to re-check a fact.
+ * - Follow the result's `next`: `answer` means stop and answer from it,
+ *   `inspect` means make exactly the one request it names, `outside` means
+ *   escape, `clarify` means restate the request.
+ * - For a ranked shortlist (`lookup`, `entrypoints`, `tour`), `next` and
+ *   `truncated` say whether coverage is settled; when it is not, one more
+ *   request is the right move — not a file read to re-verify facts already
+ *   given.
  */
 export interface ITtscGraphApplication {
   /**
@@ -92,9 +107,10 @@ export interface ITtscGraphApplication {
    * - `entrypoints`: where execution starts, when the entry is unknown
    * - `overview`: the project's layers and folder structure
    *
-   * Every result is the checker's own resolution, audited before it is
-   * returned, so nothing in it needs verifying. Read a file for what the graph
-   * does not carry: a function's body, the text inside a span.
+   * Every fact in a result is the checker's own resolution, audited before
+   * return, so no fact needs verifying; for the ranked operations (`lookup`,
+   * `entrypoints`, `tour`), judge whether the shortlist covers your question.
+   * Read a file for what the graph does not carry: a body, the text in a span.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
@@ -150,12 +166,16 @@ export namespace ITtscGraphApplication {
     /**
      * What the server audited this result against before returning it, in its
      * own words: every node, span, edge, signature, member, and step in it
-     * resolves to the type-checked program for the snapshot the call synced
-     * to.
+     * resolves to the type-checked program for the snapshot the call synced to,
+     * so opening a file it cites only returns a fact already in it.
      *
-     * Nothing here was matched, ranked, or inferred, so the result is checker
-     * output end to end — complete and errorless for that snapshot, and opening
-     * a file it cites returns the fact already in it.
+     * The audit is operation-aware. For the exact operations (`trace`,
+     * `details`, `overview`) it reports the result as the structure the graph
+     * holds for the handles named, bounded only where `truncated` says. For the
+     * ranked operations (`lookup`, `entrypoints`, `tour`) it adds that the
+     * selection is heuristic — matched, scored, ranked, and limited against the
+     * question — so the facts are verified but the shortlist's coverage is the
+     * caller's to judge.
      */
     audit: string;
 
