@@ -43,7 +43,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`no-dupe-keys`](#rule-no-dupe-keys): Reject `{ a: 1, a: 2 }`, duplicate property keys in an object literal silently overwrite earlier values.
 - [`no-duplicate-case`](#rule-no-duplicate-case): Reject the same `case` label appearing twice in a `switch`, later duplicates are unreachable.
 - [`no-duplicate-imports`](#rule-no-duplicate-imports): Reject a repeated module specifier when the import declarations could be merged into one legal declaration.
-- [`no-else-return`](#rule-no-else-return): Reject an `else` block whose preceding `if` branch already terminates control flow with `return`, `throw`, `break`.
+- [`no-else-return`](#rule-no-else-return): Reject an `else` block whose preceding `if` branch already ends in a `return`.
 - [`no-empty`](#rule-no-empty): Reject uncommented empty blocks and switches.
 - [`no-empty-character-class`](#rule-no-empty-character-class): Reject empty regex character classes.
 - [`no-empty-function`](#rule-no-empty-function): Reject uncommented empty function and method bodies unless their category is allowed.
@@ -1133,7 +1133,18 @@ import * as namespace from "unmergeable-namespace";
 
 ### `no-else-return`
 
-Reject an `else` block whose preceding `if` branch already terminates control flow with `return`, `throw`, `break`, or `continue`, flatten the body into the surrounding scope.
+Reject an `else` block whose preceding `if` branch already ends in a `return`,
+so its body can be flattened into the surrounding scope for one less level of
+nesting. Only `return` counts as leaving the branch; `throw`, `break`, and
+`continue` keep the `else` in place.
+
+Options:
+
+- `allowElseIf?: boolean`
+
+  When `true` (the default), a `return` followed by an `else if` chain that does
+  not end in a plain `else` is left alone, so the common early-return chain
+  stays valid. Set it to `false` to also reject the `else if`. Default: `true`.
 
 Example:
 
@@ -1145,6 +1156,16 @@ function describe(kind: string): string {
   } else {
     return "other";
   }
+}
+
+// Allowed by default (`allowElseIf: true`): a `return` + `else if` chain.
+function classifySign(n: number): string {
+  if (n > 0) {
+    return "positive";
+  } else if (n < 0) {
+    return "negative";
+  }
+  return "zero";
 }
 ```
 
