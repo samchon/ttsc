@@ -5,6 +5,7 @@ import {
   fs,
   goPath,
   path,
+  pluginCacheEntryDirs,
   setupLintProject,
   spawn,
   ttscBin,
@@ -78,10 +79,6 @@ export const test_plugin_corpus_ttsc_lint_option_changes_reuse_the_source_plugin
     assert.equal(fs.existsSync(path.join(root, "custom", "main.js")), true);
 
     const pluginCache = path.join(cacheDir, "plugins");
-    const entries = fs
-      .readdirSync(pluginCache, { withFileTypes: true })
-      .filter(
-        (entry) => entry.isDirectory() && !entry.name.startsWith("scratch-"),
-      );
+    const entries = pluginCacheEntryDirs(pluginCache);
     assert.equal(entries.length, 1);
   };

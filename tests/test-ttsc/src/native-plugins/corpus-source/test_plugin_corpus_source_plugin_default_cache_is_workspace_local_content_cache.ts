@@ -4,6 +4,7 @@ import {
   fs,
   goPath,
   path,
+  pluginCacheEntryDirs,
   spawn,
   ttscBin,
 } from "../../internal/plugin-corpus";
@@ -41,11 +42,7 @@ export const test_plugin_corpus_source_plugin_default_cache_is_workspace_local_c
       "ttsc",
       "plugins",
     );
-    const entries = fs
-      .readdirSync(pluginCache, { withFileTypes: true })
-      .filter(
-        (entry) => entry.isDirectory() && !entry.name.startsWith("scratch-"),
-      );
+    const entries = pluginCacheEntryDirs(pluginCache);
     assert.equal(entries.length, 1);
     const entry = entries[0];
     assert.ok(entry);
@@ -53,7 +50,7 @@ export const test_plugin_corpus_source_plugin_default_cache_is_workspace_local_c
       fs.existsSync(
         path.join(
           pluginCache,
-          entry.name,
+          entry,
           process.platform === "win32" ? "plugin.exe" : "plugin",
         ),
       ),

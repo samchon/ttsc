@@ -7,6 +7,7 @@ import {
   goPath,
   os,
   path,
+  pluginCacheEntryDirs,
   spawn,
   ttscBin,
 } from "../../internal/plugin-corpus";
@@ -44,16 +45,13 @@ export const test_plugin_corpus_prepare_builds_source_plugins_without_emitting_p
     assert.match(prepared.stderr, /building source plugin "go-source-plugin"/);
     assert.equal(fs.existsSync(path.join(root, "dist")), false);
     const pluginCache = path.join(cacheDir, "plugins");
-    const binaries = fs
-      .readdirSync(pluginCache, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) =>
-        path.join(
-          pluginCache,
-          entry.name,
-          process.platform === "win32" ? "plugin.exe" : "plugin",
-        ),
-      );
+    const binaries = pluginCacheEntryDirs(pluginCache).map((name) =>
+      path.join(
+        pluginCache,
+        name,
+        process.platform === "win32" ? "plugin.exe" : "plugin",
+      ),
+    );
     assert.equal(binaries.length, 1);
     const binary = binaries[0];
     assert.ok(binary);
