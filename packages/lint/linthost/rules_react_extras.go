@@ -1,6 +1,8 @@
 package linthost
 
 import (
+  "sync/atomic"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
@@ -32,7 +34,7 @@ func (reactJSXNoUndef) Check(ctx *Context, node *shimast.Node) {
   if first < 'A' || first > 'Z' {
     return
   }
-  if reactExtrasFileHasDeclaration(ctx.File.AsNode(), name) {
+  if ctx.reactDeclaredNames()[name] {
     return
   }
   ctx.Report(info.opening, "'"+name+"' is not defined.")
@@ -102,77 +104,101 @@ func reactExtrasOpeningTagNameNode(opening *shimast.Node) *shimast.Node {
   return nil
 }
 
-// reactExtrasFileHasDeclaration reports whether `name` is bound anywhere
-// in the source file by an import, function declaration, class
-// declaration, variable declaration, parameter, or enum declaration. The
-// walk is whole-file because JSX names resolve lexically in the
-// surrounding closure, not against a single statement list.
-func reactExtrasFileHasDeclaration(root *shimast.Node, name string) bool {
-  if root == nil || name == "" {
-    return false
+// reactDeclaredNamesKey is the fileMemo sentinel under which a file's set
+// of value-level declared names is cached.
+type reactDeclaredNamesKey struct{}
+
+// reactDeclaredNamesCollectCount records how many times
+// reactExtrasFileDeclaredNames walks a file. The memoized accessor triggers
+// it once per file, so a regression back to the per-tag walk makes this scale
+// with the JSX-element count — the property the scaling test pins. Read only
+// by tests; the per-file atomic add is negligible next to the walk it guards.
+var reactDeclaredNamesCollectCount atomic.Int64
+
+// reactDeclaredNames returns the set of value-level names declared anywhere
+// in this file, computed once per file and cached on the shared fileMemo so
+// react/jsx-no-undef does an O(1) membership check per capitalized tag rather
+// than walking the whole file per JSX element. Without a memo (a Context built
+// outside the engine) it recomputes, matching the pre-memoization behavior.
+func (c *Context) reactDeclaredNames() map[string]bool {
+  if cached, ok := c.fileValue(reactDeclaredNamesKey{}); ok {
+    return cached.(map[string]bool)
   }
-  found := false
+  names := reactExtrasFileDeclaredNames(c.File.AsNode())
+  c.setFileValue(reactDeclaredNamesKey{}, names)
+  return names
+}
+
+// reactExtrasFileDeclaredNames collects every name bound in the source file
+// by an import, function declaration, class declaration, variable
+// declaration, parameter, or enum declaration. The walk is whole-file because
+// JSX names resolve lexically in the surrounding closure, not against a single
+// statement list; membership in the returned set answers exactly what the old
+// per-name predicate did, so react/jsx-no-undef's findings are unchanged.
+func reactExtrasFileDeclaredNames(root *shimast.Node) map[string]bool {
+  reactDeclaredNamesCollectCount.Add(1)
+  names := map[string]bool{}
+  if root == nil {
+    return names
+  }
+  add := func(name string) {
+    if name != "" {
+      names[name] = true
+    }
+  }
   walkDescendants(root, func(child *shimast.Node) {
-    if found || child == nil {
+    if child == nil {
       return
     }
     switch child.Kind {
     case shimast.KindFunctionDeclaration:
-      if fn := child.AsFunctionDeclaration(); fn != nil && identifierText(fn.Name()) == name {
-        found = true
+      if fn := child.AsFunctionDeclaration(); fn != nil {
+        add(identifierText(fn.Name()))
       }
     case shimast.KindClassDeclaration:
-      if cl := child.AsClassDeclaration(); cl != nil && identifierText(cl.Name()) == name {
-        found = true
+      if cl := child.AsClassDeclaration(); cl != nil {
+        add(identifierText(cl.Name()))
       }
     case shimast.KindVariableDeclaration:
-      if v := child.AsVariableDeclaration(); v != nil && identifierText(v.Name()) == name {
-        found = true
+      if v := child.AsVariableDeclaration(); v != nil {
+        add(identifierText(v.Name()))
       }
     case shimast.KindParameter:
-      if p := child.AsParameterDeclaration(); p != nil && identifierText(p.Name()) == name {
-        found = true
+      if p := child.AsParameterDeclaration(); p != nil {
+        add(identifierText(p.Name()))
       }
     case shimast.KindEnumDeclaration:
-      if e := child.AsEnumDeclaration(); e != nil && identifierText(e.Name()) == name {
-        found = true
+      if e := child.AsEnumDeclaration(); e != nil {
+        add(identifierText(e.Name()))
       }
     case shimast.KindImportClause:
       clause := child.AsImportClause()
       if clause == nil {
         return
       }
-      if identifierText(clause.Name()) == name {
-        found = true
+      add(identifierText(clause.Name()))
+      if clause.NamedBindings == nil {
         return
       }
-      if clause.NamedBindings != nil {
-        switch clause.NamedBindings.Kind {
-        case shimast.KindNamespaceImport:
-          ns := clause.NamedBindings.AsNamespaceImport()
-          if ns != nil && identifierText(ns.Name()) == name {
-            found = true
-          }
-        case shimast.KindNamedImports:
-          named := clause.NamedBindings.AsNamedImports()
-          if named == nil || named.Elements == nil {
-            return
-          }
-          for _, spec := range named.Elements.Nodes {
-            s := spec.AsImportSpecifier()
-            if s == nil {
-              continue
-            }
-            if identifierText(s.Name()) == name {
-              found = true
-              return
-            }
+      switch clause.NamedBindings.Kind {
+      case shimast.KindNamespaceImport:
+        if ns := clause.NamedBindings.AsNamespaceImport(); ns != nil {
+          add(identifierText(ns.Name()))
+        }
+      case shimast.KindNamedImports:
+        named := clause.NamedBindings.AsNamedImports()
+        if named == nil || named.Elements == nil {
+          return
+        }
+        for _, spec := range named.Elements.Nodes {
+          if s := spec.AsImportSpecifier(); s != nil {
+            add(identifierText(s.Name()))
           }
         }
       }
     }
   })
-  return found
+  return names
 }
 
 // reactExtrasIsDisplayNameWrapperCall reports whether the call

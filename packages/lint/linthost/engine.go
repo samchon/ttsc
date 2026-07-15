@@ -114,11 +114,53 @@ type Context struct {
   Severity         Severity
   Options          json.RawMessage
 
-  rule             Rule
-  isFormat         bool
-  quarantined      bool
-  collect          func(*Finding)
-  projectResults   publicrule.ProjectResultReader
+  rule           Rule
+  isFormat       bool
+  quarantined    bool
+  collect        func(*Finding)
+  projectResults publicrule.ProjectResultReader
+  fileMemo       *fileMemo
+}
+
+// fileMemo caches file-invariant values that rules would otherwise
+// recompute once per visited node. The engine binds one instance per
+// source file and shares it across every Context it builds for that
+// file's rules, so a whole-file table — the security binding table, the
+// set of top-level declared JSX names — is computed once per file
+// instead of once per matching node, collapsing an O(nodes × matches)
+// rule to O(nodes). Each file's walk is serial and gets its own
+// instance, so the map needs no locking.
+//
+// Keys are sentinel zero-size struct values whose distinct types make
+// collisions impossible without a central registry; the engine never
+// inspects them, keeping the hook general.
+type fileMemo struct {
+  values map[any]any
+}
+
+// fileValue returns the cached value stored under key, reporting whether
+// one was present. A nil memo (a Context built outside the engine, e.g.
+// in a focused unit test) always misses, so callers transparently fall
+// back to recomputing.
+func (c *Context) fileValue(key any) (any, bool) {
+  if c == nil || c.fileMemo == nil || c.fileMemo.values == nil {
+    return nil, false
+  }
+  value, ok := c.fileMemo.values[key]
+  return value, ok
+}
+
+// setFileValue records value under key for the rest of this file's walk.
+// A nil memo drops the write, leaving the caller to recompute on the next
+// request — behavior-preserving, just uncached.
+func (c *Context) setFileValue(key, value any) {
+  if c == nil || c.fileMemo == nil {
+    return
+  }
+  if c.fileMemo.values == nil {
+    c.fileMemo.values = map[any]any{}
+  }
+  c.fileMemo.values[key] = value
 }
 
 // DecodeOptions unmarshals the rule's options blob into `out`. Returns
@@ -763,6 +805,10 @@ func (e *Engine) runFile(
   bound := 0
   byKind := make([][]boundRule, len(e.rules))
   ctxByRule := make(map[string]*Context, len(e.enabled))
+  // One memo per file, shared by every rule's Context below, so
+  // file-invariant tables (security bindings, declared JSX names) are
+  // built once per file instead of once per visited node.
+  memo := &fileMemo{}
   for kind, rules := range e.rules {
     if len(rules) == 0 {
       continue
@@ -792,6 +838,7 @@ func (e *Engine) runFile(
             isFormat:         isFormatRule(rule),
             collect:          collect,
             projectResults:   results,
+            fileMemo:         memo,
           }
         }
         // A nil entry memoizes "off for this file" so a rule registered

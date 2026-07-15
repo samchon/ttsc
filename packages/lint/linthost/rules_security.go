@@ -2,12 +2,40 @@ package linthost
 
 import (
   "strings"
+  "sync/atomic"
   "unicode/utf8"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
 const securityRulePrefix = "security/"
+
+// securityBindingsKey is the fileMemo sentinel under which a file's
+// security binding table is cached. Every `security/*` rule shares the
+// identical file-invariant table, so keying it on the type — not on a
+// per-rule value — lets one walk serve all of them for the whole file.
+type securityBindingsKey struct{}
+
+// securityBindingsCollectCount records how many times collectSecurityBindings
+// actually walks a file. The memoized accessor triggers it once per file, so a
+// regression that reintroduces the per-node rebuild makes this scale with the
+// visited call-node count — the property the scaling test pins. Read only by
+// tests; the per-file atomic add is negligible next to the walk it guards.
+var securityBindingsCollectCount atomic.Int64
+
+// securityBindings returns this file's binding table, computing it once
+// per file and caching it on the shared fileMemo so every security rule
+// and every visited call/new node reuses one table instead of rebuilding
+// it. Without a memo (a Context built outside the engine) it recomputes,
+// matching the pre-memoization behavior exactly.
+func (c *Context) securityBindings() securityBindings {
+  if cached, ok := c.fileValue(securityBindingsKey{}); ok {
+    return cached.(securityBindings)
+  }
+  bindings := collectSecurityBindings(c.File)
+  c.setFileValue(securityBindingsKey{}, bindings)
+  return bindings
+}
 
 type securityDetectBidiCharacters struct{}
 
@@ -63,7 +91,7 @@ func (securityDetectChildProcess) Check(ctx *Context, node *shimast.Node) {
   if call == nil {
     return
   }
-  bindings := collectSecurityBindings(ctx.File)
+  bindings := ctx.securityBindings()
   if module, ok := requireCallModule(call); ok && isChildProcessModule(module) {
     if isInlineChildProcessExecRequire(node, bindings) {
       return
@@ -112,7 +140,7 @@ func (securityDetectEvalWithExpression) Check(ctx *Context, node *shimast.Node) 
   if call == nil || callCalleeName(call) != "eval" || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
     return
   }
-  bindings := collectSecurityBindings(ctx.File)
+  bindings := ctx.securityBindings()
   if !isSecurityStaticExpression(call.Arguments.Nodes[0], bindings, nil) {
     ctx.Report(node, "eval called with a non-literal expression.")
   }
@@ -129,7 +157,7 @@ func (securityDetectNewBuffer) Check(ctx *Context, node *shimast.Node) {
   if expr == nil || identifierText(expr.Expression) != "Buffer" || expr.Arguments == nil || len(expr.Arguments.Nodes) == 0 {
     return
   }
-  bindings := collectSecurityBindings(ctx.File)
+  bindings := ctx.securityBindings()
   if !isSecurityStaticExpression(expr.Arguments.Nodes[0], bindings, nil) {
     ctx.Report(node, "Found new Buffer with a non-literal argument.")
   }
@@ -178,7 +206,7 @@ func (securityDetectNonLiteralFSFilename) Check(ctx *Context, node *shimast.Node
   if call == nil || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
     return
   }
-  bindings := collectSecurityBindings(ctx.File)
+  bindings := ctx.securityBindings()
   method, module, ok := fsCallInfo(call, bindings)
   if !ok || !isFSFilenameMethod(method) {
     return
@@ -215,7 +243,7 @@ func (securityDetectNonLiteralRegexp) Check(ctx *Context, node *shimast.Node) {
   if len(args) == 0 {
     return
   }
-  bindings := collectSecurityBindings(ctx.File)
+  bindings := ctx.securityBindings()
   if !isSecurityStaticExpression(args[0], bindings, nil) {
     ctx.Report(node, "Found non-literal argument to RegExp constructor.")
   }
@@ -234,7 +262,7 @@ func (securityDetectNonLiteralRequire) Check(ctx *Context, node *shimast.Node) {
   if call == nil || callCalleeName(call) != "require" || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
     return
   }
-  bindings := collectSecurityBindings(ctx.File)
+  bindings := ctx.securityBindings()
   if !isSecurityStaticExpression(call.Arguments.Nodes[0], bindings, nil) {
     ctx.Report(node, "Found non-literal argument in require.")
   }
@@ -323,6 +351,7 @@ type securityBindings struct {
 }
 
 func collectSecurityBindings(file *shimast.SourceFile) securityBindings {
+  securityBindingsCollectCount.Add(1)
   bindings := securityBindings{
     Modules: map[string]string{},
     Named:   map[string]securityNamedBinding{},
