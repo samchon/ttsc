@@ -35,6 +35,16 @@ import (
 // element. The same restriction applies to rest binding patterns, which
 // the rule does not visit at all.
 //
+// Destructuring assignment TARGETS are the one array/object-literal shape
+// where the same rest restriction bites: `({ a, ...rest } = obj)` and
+// `[a, ...rest] = arr` parse as ObjectLiteralExpression /
+// ArrayLiteralExpression (not binding patterns) and are therefore visited,
+// yet a trailing comma after their `AssignmentRestProperty` /
+// `AssignmentRestElement` is a syntax error. `isRestAssignmentTargetLiteral`
+// suppresses the insert for exactly those; a real value literal with a
+// trailing spread (`{ a, ...o }`) and a non-rest target (`{ a, b } = obj`)
+// both legally keep the comma.
+//
 // Unparenthesized arrow parameters (`a => …`) are also skipped: there is
 // no parameter-list paren to anchor the comma against, and ECMAScript has
 // no place to insert one. `findCloseTokenAfter` bails on the first
@@ -94,10 +104,16 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
     if arr == nil {
       return
     }
+    if isRestAssignmentTargetLiteral(node) {
+      return
+    }
     considerTrailingComma(ctx, arr.Elements, node.End()-1)
   case shimast.KindObjectLiteralExpression:
     obj := node.AsObjectLiteralExpression()
     if obj == nil {
+      return
+    }
+    if isRestAssignmentTargetLiteral(node) {
       return
     }
     considerTrailingComma(ctx, obj.Properties, node.End()-1)
@@ -349,6 +365,53 @@ func considerFunctionParameterComma(ctx *Context, list *shimast.NodeList) {
     return
   }
   considerTrailingComma(ctx, list, closePos)
+}
+
+// isRestAssignmentTargetLiteral reports whether node is an object- or
+// array-literal used as a destructuring ASSIGNMENT TARGET whose last
+// element is a rest (`...x`). ECMAScript forbids a trailing comma after an
+// `AssignmentRestElement` / `AssignmentRestProperty`, so neither this rule
+// nor the print-width printer (which shares this helper) may add one there.
+//
+// The two-pronged guard is what keeps it from over-suppressing. Only a
+// destructuring assignment target that ENDS in a rest is illegal:
+//
+//   - A real value literal with a trailing spread (`{ a, ...o }`,
+//     `[a, ...rest]`) is not a target, so isDestructuringAssignmentTarget
+//     returns false and the comma stays legal.
+//   - A non-rest assignment target (`{ a, b } = obj`) fails the
+//     last-element-is-rest check and keeps its comma.
+//
+// It handles nested targets (`[{ a, ...rest }] = arr`,
+// `({ x: [a, ...rest] } = obj)`) and for-of/for-in assignment initializers
+// through isDestructuringAssignmentTarget's ancestor walk.
+func isRestAssignmentTargetLiteral(node *shimast.Node) bool {
+  if node == nil {
+    return false
+  }
+  switch node.Kind {
+  case shimast.KindArrayLiteralExpression:
+    arr := node.AsArrayLiteralExpression()
+    if arr == nil || arr.Elements == nil || len(arr.Elements.Nodes) == 0 {
+      return false
+    }
+    last := arr.Elements.Nodes[len(arr.Elements.Nodes)-1]
+    if last == nil || last.Kind != shimast.KindSpreadElement {
+      return false
+    }
+  case shimast.KindObjectLiteralExpression:
+    obj := node.AsObjectLiteralExpression()
+    if obj == nil || obj.Properties == nil || len(obj.Properties.Nodes) == 0 {
+      return false
+    }
+    last := obj.Properties.Nodes[len(obj.Properties.Nodes)-1]
+    if last == nil || last.Kind != shimast.KindSpreadAssignment {
+      return false
+    }
+  default:
+    return false
+  }
+  return isDestructuringAssignmentTarget(node)
 }
 
 // lastParameterIsRest reports whether the parameter list ends with a
