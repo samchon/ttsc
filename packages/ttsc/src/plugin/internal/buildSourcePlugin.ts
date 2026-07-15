@@ -166,35 +166,47 @@ export interface ITtscSourceBuildCachePaths {
   goBuildRootSource: "ttsc-cache" | "TTSC_GO_CACHE_DIR" | "GOCACHE";
 }
 
-/** Build one Go source plugin into a cached executable. */
+/**
+ * Build one Go source plugin into a cached executable.
+ *
+ * `opts.env` is the effective environment for this build — the caller merges
+ * `{ ...process.env, ...context.env }` so a programmatic `TtscCompiler` instance
+ * can pin its own Go toolchain (`TTSC_GO_BINARY`), Go build cache
+ * (`TTSC_GO_CACHE_DIR`), and Go build variables (`GOFLAGS`, `CGO_*`, …) without
+ * mutating the shared `process.env`. CLI callers omit it and inherit
+ * `process.env`, so ambient behavior is unchanged.
+ */
 export function buildSourcePlugin(opts: {
   source: string;
   pluginName: string;
   baseDir: string;
   cacheDir?: string;
   contributors?: readonly ITtscBuildContributor[];
+  env?: NodeJS.ProcessEnv;
   label?: string;
   overlayDirs?: readonly string[];
   quiet?: boolean;
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
+  const env = opts.env ?? process.env;
   const { dir, entry, source } = resolveSourceBuildTarget(opts);
   const overlayDirs = [...(opts.overlayDirs ?? findTtscOverlayDirs())].sort();
   const contributors = opts.contributors ?? [];
-  const goBinary = resolveGoCompiler();
+  const goBinary = resolveGoCompiler(env);
   ensureExecutableGoToolchain(goBinary);
   const key = computeCacheKey({
     contributors,
     dir,
     entry,
+    env,
     goBinary,
     overlayDirs,
     ttscVersion: opts.ttscVersion,
     tsgoVersion: opts.tsgoVersion,
   });
-  const paths = resolveSourceBuildCachePaths(opts.baseDir, opts.cacheDir);
-  maybePrunePluginCache(paths, opts.cacheDir);
+  const paths = resolveSourceBuildCachePaths(opts.baseDir, opts.cacheDir, env);
+  maybePrunePluginCache(paths, opts.cacheDir, env);
   const cacheDir = path.join(paths.pluginRoot, key);
   const binaryName = process.platform === "win32" ? "plugin.exe" : "plugin";
   const binaryPath = path.join(cacheDir, binaryName);
@@ -216,6 +228,7 @@ export function buildSourcePlugin(opts: {
         contributors,
         dir,
         entry,
+        env,
         goBinary,
         key,
         label,
@@ -235,6 +248,7 @@ function compileSourcePlugin(opts: {
   contributors: readonly ITtscBuildContributor[];
   dir: string;
   entry: string;
+  env: NodeJS.ProcessEnv;
   goBinary: string;
   goBuildCacheRoot: string;
   key: string;
@@ -262,7 +276,11 @@ function compileSourcePlugin(opts: {
   );
   try {
     materializeScratchDir(opts.dir, scratchDir);
-    const goModReader = createGoModReader(opts.goBinary, opts.pluginName);
+    const goModReader = createGoModReader(
+      opts.goBinary,
+      opts.pluginName,
+      opts.env,
+    );
     if (opts.contributors.length > 0) {
       mergeContributors({
         contributors: opts.contributors,
@@ -272,7 +290,13 @@ function compileSourcePlugin(opts: {
         scratchDir,
       });
     }
-    writeGoWork(scratchDir, opts.overlayDirs, opts.goBinary, opts.pluginName);
+    writeGoWork(
+      scratchDir,
+      opts.overlayDirs,
+      opts.goBinary,
+      opts.pluginName,
+      opts.env,
+    );
     const scratchBinaryName =
       process.platform === "win32" ? ".ttsc-plugin.exe" : ".ttsc-plugin";
     runGoBuild(
@@ -282,6 +306,7 @@ function compileSourcePlugin(opts: {
       opts.pluginName,
       opts.goBinary,
       opts.goBuildCacheRoot,
+      opts.env,
     );
     const builtBinary = path.join(scratchDir, scratchBinaryName);
     publishBuiltBinary(builtBinary, opts.binaryPath);
@@ -1359,8 +1384,9 @@ function writeGoWork(
   useDirs: readonly string[],
   goBinary: string,
   pluginName: string,
+  env: NodeJS.ProcessEnv,
 ): void {
-  const goModReader = createGoModReader(goBinary, pluginName);
+  const goModReader = createGoModReader(goBinary, pluginName, env);
   validateSourceReplacements(scratchDir, useDirs, goModReader, pluginName);
   const sourceInfo = goModReader.read(scratchDir);
   const effectiveUseDirs =
@@ -1587,7 +1613,11 @@ interface GoModJson {
   }[];
 }
 
-function createGoModReader(goBinary: string, pluginName: string): GoModReader {
+function createGoModReader(
+  goBinary: string,
+  pluginName: string,
+  env: NodeJS.ProcessEnv,
+): GoModReader {
   const cache = new Map<string, GoModInfo>();
   return {
     read(dir) {
@@ -1596,7 +1626,7 @@ function createGoModReader(goBinary: string, pluginName: string): GoModReader {
       if (cached !== undefined) {
         return cached;
       }
-      const info = readGoModInfo(resolved, goBinary, pluginName);
+      const info = readGoModInfo(resolved, goBinary, pluginName, env);
       cache.set(resolved, info);
       return info;
     },
@@ -1607,6 +1637,7 @@ function readGoModInfo(
   dir: string,
   goBinary: string,
   pluginName: string,
+  env: NodeJS.ProcessEnv,
 ): GoModInfo {
   if (!fs.existsSync(path.join(dir, "go.mod"))) {
     return emptyGoModInfo();
@@ -1615,7 +1646,7 @@ function readGoModInfo(
   const result = spawnGoTool(goBinary, ["mod", "edit", "-json"], {
     cwd: dir,
     encoding: "utf8",
-    env: goBuildEnv(goBinary),
+    env: goBuildEnv(goBinary, undefined, env),
     maxBuffer: 1024 * 1024 * 16,
     windowsHide: true,
   });
@@ -1700,12 +1731,13 @@ function runGoBuild(
   pluginName: string,
   goBinary: string,
   goBuildCacheRoot: string,
+  env: NodeJS.ProcessEnv,
 ): void {
   ensureExecutableGoToolchain(goBinary);
   const result = spawnGoTool(goBinary, ["build", "-o", binaryName, entry], {
     cwd,
     encoding: "utf8",
-    env: goBuildEnv(goBinary, goBuildCacheRoot),
+    env: goBuildEnv(goBinary, goBuildCacheRoot, env),
     maxBuffer: 1024 * 1024 * 64,
     windowsHide: true,
   });
@@ -1755,8 +1787,9 @@ function shouldSpawnGoToolThroughShell(goBinary: string): boolean {
 function goBuildEnv(
   goBinary: string,
   goBuildCacheRoot?: string,
+  effectiveEnv: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  const env = { ...process.env };
+  const env = { ...effectiveEnv };
   env.GOWORK = "auto";
   // Only the actual `go build` needs ttsc's GOCACHE; read-only metadata spawns
   // (`go mod edit`, `go env`, `go version`) call goBuildEnv with no cache root
@@ -1865,9 +1898,10 @@ function walkForGoMod(dir: string, out: string[]): void {
 export function resolvePluginCacheRoot(
   projectRoot: string,
   cacheDir?: string,
+  env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const paths = resolveSourceBuildCachePaths(projectRoot, cacheDir);
-  maybePrunePluginCache(paths, cacheDir);
+  const paths = resolveSourceBuildCachePaths(projectRoot, cacheDir, env);
+  maybePrunePluginCache(paths, cacheDir, env);
   return paths.pluginRoot;
 }
 
@@ -2032,12 +2066,15 @@ function resolveGoBuildCacheRoot(
 
 function maybePrunePluginCache(
   paths: ITtscSourceBuildCachePaths,
-  cacheDir?: string,
+  cacheDir: string | undefined,
+  env: NodeJS.ProcessEnv = process.env,
 ): void {
   // GC only the default (workspace-local) location. When the user pins an
   // explicit `cacheDir`/`TTSC_CACHE_DIR`, they own its lifetime, so ttsc must
-  // not delete entries out from under them.
-  if (!cacheDir && !process.env.TTSC_CACHE_DIR) {
+  // not delete entries out from under them. `env` is the effective instance
+  // environment so a programmatic caller that pins `TTSC_CACHE_DIR` only in
+  // `context.env` is honored without leaning on the shared `process.env`.
+  if (!cacheDir && !env.TTSC_CACHE_DIR) {
     prunePluginCacheRoot(paths.pluginRoot);
   }
 }
@@ -2121,8 +2158,8 @@ export function isPathWithin(child: string, parent: string): boolean {
   );
 }
 
-function resolveGoCompiler(): string {
-  const explicit = process.env.TTSC_GO_BINARY;
+function resolveGoCompiler(env: NodeJS.ProcessEnv = process.env): string {
+  const explicit = env.TTSC_GO_BINARY;
   if (explicit && explicit.length > 0) return explicit;
 
   try {
@@ -2161,7 +2198,7 @@ function resolveGoCompiler(): string {
   if (fs.existsSync(local)) return local;
 
   const homeSdk = path.join(
-    process.env.HOME ?? "",
+    env.HOME ?? "",
     "go-sdk",
     "go",
     "bin",
@@ -2187,21 +2224,23 @@ export function computeCacheKey(inputs: {
   contributors?: readonly ITtscBuildContributor[];
   dir: string;
   entry: string;
+  env?: NodeJS.ProcessEnv;
   goBinary?: string;
   overlayDirs?: readonly string[];
   ttscVersion: string;
   tsgoVersion: string;
 }): string {
+  const env = inputs.env ?? process.env;
   const hash = crypto.createHash("sha256");
   hash.update(`ttsc=${inputs.ttscVersion}\n`);
   hash.update(`tsgo=${inputs.tsgoVersion}\n`);
   hash.update(`platform=${process.platform}/${process.arch}\n`);
   hash.update(`entry=${inputs.entry}\n`);
   if (inputs.goBinary !== undefined) {
-    hash.update(`go=${resolveGoCompilerIdentity(inputs.goBinary)}\n`);
+    hash.update(`go=${resolveGoCompilerIdentity(inputs.goBinary, env)}\n`);
   }
-  hashGoBuildEnvironment(hash, inputs.goBinary, inputs.dir);
-  hashExternalGoBuildEnvironment(hash);
+  hashGoBuildEnvironment(hash, inputs.goBinary, inputs.dir, env);
+  hashExternalGoBuildEnvironment(hash, env);
   hashSourceDirectory(hash, "plugin", inputs.dir);
   for (const [index, dir] of [...(inputs.overlayDirs ?? [])].sort().entries()) {
     hashSourceDirectory(hash, `overlay:${index}`, dir);
@@ -2296,8 +2335,11 @@ function isHashableFile(name: string): boolean {
 // cwd/custom env (the spawn passes neither), so cwd is not part of the key.
 const goCompilerIdentityCache = new Map<string, string>();
 
-function resolveGoCompilerIdentity(goBinary: string): string {
-  const resolved = resolveExecutableIdentityPath(goBinary);
+function resolveGoCompilerIdentity(
+  goBinary: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const resolved = resolveExecutableIdentityPath(goBinary, env);
   const memoKey = goCompilerIdentityMemoKey(goBinary, resolved);
   if (memoKey !== null) {
     const cached = goCompilerIdentityCache.get(memoKey);
@@ -2343,14 +2385,17 @@ function computeGoCompilerIdentity(goBinary: string, resolved: string): string {
   return `sha256:${binaryHash}:${versionText}`;
 }
 
-function resolveExecutableIdentityPath(binary: string): string {
+function resolveExecutableIdentityPath(
+  binary: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   if (path.isAbsolute(binary)) {
     return resolveRealPath(binary);
   }
   if (binary.includes(path.sep)) {
     return resolveRealPath(path.resolve(binary));
   }
-  for (const dir of readPathEnvironment().split(path.delimiter)) {
+  for (const dir of readPathEnvironment(env).split(path.delimiter)) {
     if (dir.length === 0) continue;
     const candidate = path.join(dir, binary);
     if (fs.existsSync(candidate)) {
@@ -2361,7 +2406,7 @@ function resolveExecutableIdentityPath(binary: string): string {
       // a `.cmd`/`.bat` wrapper resolves to its real file and is hashed into the
       // cache key. Otherwise the wrapper reads as "missing" and a change to it
       // would not invalidate the cached plugin binary.
-      for (const ext of windowsExecutableExtensions()) {
+      for (const ext of windowsExecutableExtensions(env)) {
         const executable = `${candidate}${ext}`;
         if (fs.existsSync(executable)) {
           return resolveRealPath(executable);
@@ -2372,8 +2417,10 @@ function resolveExecutableIdentityPath(binary: string): string {
   return binary;
 }
 
-function windowsExecutableExtensions(): readonly string[] {
-  const pathext = process.env.PATHEXT;
+function windowsExecutableExtensions(
+  env: NodeJS.ProcessEnv = process.env,
+): readonly string[] {
+  const pathext = env.PATHEXT;
   const raw = pathext && pathext.length > 0 ? pathext : ".COM;.EXE;.BAT;.CMD";
   return raw
     .split(";")
@@ -2381,8 +2428,8 @@ function windowsExecutableExtensions(): readonly string[] {
     .filter((ext) => ext.length > 0);
 }
 
-function readPathEnvironment(): string {
-  return process.env.PATH ?? process.env.Path ?? "";
+function readPathEnvironment(env: NodeJS.ProcessEnv = process.env): string {
+  return env.PATH ?? env.Path ?? "";
 }
 
 function resolveRealPath(location: string): string {
@@ -2403,8 +2450,9 @@ function hashGoBuildEnvironment(
   hash: crypto.Hash,
   goBinary: string | undefined,
   cwd: string,
+  env: NodeJS.ProcessEnv,
 ): void {
-  const values = resolveGoBuildEnvironment(goBinary, cwd);
+  const values = resolveGoBuildEnvironment(goBinary, cwd, env);
   for (const key of GO_BUILD_ENV_KEYS) {
     const value = values.get(key);
     if (value !== undefined && value !== "") {
@@ -2416,6 +2464,7 @@ function hashGoBuildEnvironment(
 function resolveGoBuildEnvironment(
   goBinary: string | undefined,
   cwd: string,
+  env: NodeJS.ProcessEnv,
 ): Map<string, string> {
   const values = new Map<string, string>();
   if (goBinary !== undefined) {
@@ -2425,7 +2474,7 @@ function resolveGoBuildEnvironment(
       {
         cwd,
         encoding: "utf8",
-        env: goBuildEnv(goBinary),
+        env: goBuildEnv(goBinary, undefined, env),
         maxBuffer: 1024 * 1024,
         windowsHide: true,
       },
@@ -2436,41 +2485,48 @@ function resolveGoBuildEnvironment(
         for (const key of GO_BUILD_ENV_KEYS) {
           const raw = parsed[key];
           if (typeof raw === "string" && raw !== "") {
-            values.set(key, normalizeGoBuildEnvValue(key, raw));
+            values.set(key, normalizeGoBuildEnvValue(key, raw, env));
           }
         }
       } catch {
-        // Fall back to process.env below; a cache key is still better than
-        // failing before `go build` can produce the actionable error.
+        // Fall back to the effective env below; a cache key is still better
+        // than failing before `go build` can produce the actionable error.
       }
     }
   }
   for (const key of GO_BUILD_ENV_KEYS) {
     if (values.has(key)) continue;
-    const value = process.env[key];
+    const value = env[key];
     if (value !== undefined && value !== "") {
-      values.set(key, normalizeGoBuildEnvValue(key, value));
+      values.set(key, normalizeGoBuildEnvValue(key, value, env));
     }
   }
   return values;
 }
 
-function normalizeGoBuildEnvValue(key: string, value: string): string {
+function normalizeGoBuildEnvValue(
+  key: string,
+  value: string,
+  env: NodeJS.ProcessEnv,
+): string {
   if (key === "GOROOT") {
     return resolveGoRootCacheIdentity(value);
   }
   if (GO_BUILD_COMMAND_ENV_KEYS.has(key)) {
-    return `${value}\0${resolveCommandCacheIdentity(value)}`;
+    return `${value}\0${resolveCommandCacheIdentity(value, env)}`;
   }
   return value;
 }
 
-function resolveCommandCacheIdentity(command: string): string {
+function resolveCommandCacheIdentity(
+  command: string,
+  env: NodeJS.ProcessEnv,
+): string {
   const executable = firstCommandToken(command);
   if (executable === null) {
     return "command:empty";
   }
-  const resolved = resolveExecutableIdentityPath(executable);
+  const resolved = resolveExecutableIdentityPath(executable, env);
   if (!fs.existsSync(resolved)) {
     return `command:missing:${executable}`;
   }
@@ -2494,9 +2550,12 @@ function firstCommandToken(command: string): string | null {
   return trimmed.split(/\s+/)[0] ?? null;
 }
 
-function hashExternalGoBuildEnvironment(hash: crypto.Hash): void {
+function hashExternalGoBuildEnvironment(
+  hash: crypto.Hash,
+  env: NodeJS.ProcessEnv,
+): void {
   for (const key of EXTERNAL_GO_BUILD_ENV_KEYS) {
-    const value = process.env[key];
+    const value = env[key];
     if (value !== undefined && value !== "") {
       hash.update(`${key}=${value}\n`);
     }

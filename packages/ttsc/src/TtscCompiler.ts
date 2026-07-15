@@ -74,6 +74,7 @@ export class TtscCompiler {
       cacheDir: this.resolvePluginCacheDir(),
       cwd: execution.cwd,
       entries: this.context.plugins,
+      env: this.resolveEffectiveEnv(),
       pluginConfigDir: this.context.pluginConfigDir,
       projectRoot: execution.projectRoot,
       tsconfig: execution.tsconfig,
@@ -109,16 +110,20 @@ export class TtscCompiler {
       // cache dir.
       return removeExistingDirectories([explicitCacheDir, ...legacyTargets]);
     }
-    // Default / `context.env.TTSC_CACHE_DIR`: resolve the cache root exactly as
-    // prepare() does (`context.env.TTSC_CACHE_DIR`) and the Go build cache from
-    // the ambient process env — the same source `go build` reads via
-    // goBuildEnv — then remove only the ttsc-owned subdirectories, so a
-    // possibly-shared root is never deleted.
+    // Default / `context.env.TTSC_CACHE_DIR`: resolve the cache root and the Go
+    // build cache (`TTSC_GO_CACHE_DIR`) from this instance's effective
+    // environment — the same `{ ...process.env, ...context.env }` that
+    // prepare()/compile()/transform() build with — then remove only the
+    // ttsc-owned subdirectories, so a possibly-shared root is never deleted and
+    // a user-provided `GOCACHE` is never touched. Using the effective env (not
+    // ambient `process.env`) makes clean() remove exactly the artifacts this
+    // instance owns, including a `TTSC_GO_CACHE_DIR` supplied only in
+    // `context.env`.
     return removeExistingDirectories(
       resolveCleanTargets(
         projectRoot,
         this.resolvePluginCacheDir(),
-        process.env,
+        this.resolveEffectiveEnv(),
       ),
     );
   }
@@ -219,6 +224,19 @@ export class TtscCompiler {
 
   private resolvePluginCacheDir(): string | undefined {
     return this.resolveCacheDir() ?? this.context.env?.TTSC_CACHE_DIR;
+  }
+
+  /**
+   * The effective environment for this instance's source-plugin builds and
+   * clean targets: `context.env` merged over `process.env`, matching the
+   * documented {@link ITtscCompilerContext.env} contract that child compiler,
+   * native-plugin, and native-host processes already receive. Returned as a
+   * fresh object so callers never mutate the shared `process.env`; when no
+   * `context.env` was supplied this is a plain copy of `process.env`, so CLI /
+   * default behavior is unchanged.
+   */
+  private resolveEffectiveEnv(): NodeJS.ProcessEnv {
+    return { ...process.env, ...this.context.env };
   }
 }
 

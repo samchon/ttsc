@@ -78,7 +78,7 @@ The `go.work` file tells Go where `v0.0.0` lives locally. The plugin `go.mod` ke
 
 ## pnpm
 
-Published plugins and normal consumer builds work with pnpm's isolated linker. `ttsc` resolves descriptors through Node's package resolver and stores source-plugin binaries in the shared user cache, so separate pnpm virtual-store paths can reuse the same native binary when the plugin source content matches.
+Published plugins and normal consumer builds work with pnpm's isolated linker. `ttsc` resolves descriptors through Node's package resolver and stores source-plugin binaries in the workspace-local cache (`<workspaceRoot>/node_modules/.cache/ttsc` by default; set `TTSC_CACHE_DIR` for a persistent or shared root). Separate pnpm virtual-store paths within one workspace can therefore reuse the same native binary when the plugin source content matches; unrelated workspaces do not share a machine-global cache.
 
 Only manual Go tooling in a plugin development checkout needs the `go.work` file above. If that file points at `./node_modules/ttsc`, make sure your development checkout actually exposes that path. Pnpm's isolated linker may not. Use an absolute replacement to the installed `ttsc` package, or opt into a hoisted development layout:
 

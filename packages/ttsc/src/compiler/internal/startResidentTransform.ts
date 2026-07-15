@@ -52,6 +52,7 @@ export function startResidentTransform(
     cacheDir: context.cacheDir ?? context.env?.TTSC_CACHE_DIR,
     cwd,
     entries: context.plugins,
+    env: { ...process.env, ...context.env },
     pluginConfigDir: context.pluginConfigDir,
     projectRoot: context.projectRoot,
     tsconfig: project.path,
