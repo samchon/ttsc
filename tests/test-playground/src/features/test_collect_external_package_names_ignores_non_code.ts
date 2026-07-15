@@ -88,6 +88,21 @@ export const test_collect_external_package_names_ignores_non_code =
       ["keep-me"],
     );
 
+    // Boundary: escaped quotes inside a string keep import-like text inert; the
+    // tokenizer decodes `\"` while scanning the literal, so the embedded
+    // specifier never closes the string early or leaks a package. A real import
+    // after the string is still discovered.
+    assert.deepEqual(
+      collectExternalPackageNames(
+        [
+          `const evil = "a \\"import y from 'ghost-escaped'\\" b";`,
+          `import "real-after-escape";`,
+        ].join("\n"),
+        [],
+      ),
+      ["real-after-escape"],
+    );
+
     // Integration: phantom-only source installs nothing (no network at all).
     const phantomOnly = [
       `// import "ghost-a";`,
