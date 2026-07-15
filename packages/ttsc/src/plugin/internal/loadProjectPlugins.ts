@@ -48,6 +48,9 @@ type PackageManifest = {
  * @param options.cwd - Working directory for resolving relative paths.
  * @param options.entries - Explicit plugin entries; `false` disables all
  *   plugins (skips both tsconfig entries and package auto-discovery).
+ * @param options.env - Effective environment for source-plugin builds and the
+ *   `ttsx` descriptor child (`{ ...process.env, ...context.env }`). Defaults to
+ *   `process.env` for CLI callers, so ambient behavior is unchanged.
  * @param options.file - Path to the tsconfig/jsconfig file.
  * @param options.pluginConfigDir - Caller-declared anchor for plugin
  *   config-file discovery (see `ITtscPluginFactoryContext.pluginConfigDir`).
@@ -59,6 +62,7 @@ export function loadProjectPlugins(options: {
   cacheDir?: string;
   cwd?: string;
   entries?: readonly ITtscProjectPluginConfig[] | false;
+  env?: NodeJS.ProcessEnv;
   file?: string;
   pluginConfigDir?: string;
   projectRoot?: string;
@@ -67,6 +71,7 @@ export function loadProjectPlugins(options: {
   nativePlugins: ITtscLoadedNativePlugin[];
   project: ITtscParsedProjectConfig;
 } {
+  const effectiveEnv = options.env ?? process.env;
   const project = readProjectConfig({
     cwd: options.cwd,
     file: options.file,
@@ -103,6 +108,7 @@ export function loadProjectPlugins(options: {
         entry.config,
         { ...context, plugin: entry.config },
         entry.baseDir,
+        effectiveEnv,
       ),
     ),
   );
@@ -163,6 +169,7 @@ export function loadProjectPlugins(options: {
         baseDir: context.projectRoot,
         cacheDir: options.cacheDir,
         contributors: mergeContributors(record.contributors, hostContributors),
+        env: effectiveEnv,
         pluginName: record.label,
         source: record.source,
         ttscVersion,
@@ -176,6 +183,7 @@ export function loadProjectPlugins(options: {
           baseDir: context.projectRoot,
           cacheDir: options.cacheDir,
           contributors: linkedContributors,
+          env: effectiveEnv,
           label: "linked plugin host",
           pluginName: "linked-plugin-host",
           source: path.join(ttscPackageRoot(), "cmd", "utility-host"),
@@ -197,6 +205,7 @@ export function loadProjectPlugins(options: {
               baseDir: context.projectRoot,
               cacheDir: options.cacheDir,
               contributors: record.contributors,
+              env: effectiveEnv,
               pluginName: record.label,
               source: record.source,
               ttscVersion,
@@ -579,6 +588,7 @@ function loadPluginEntry(
   entry: ITtscProjectPluginConfig,
   base: Omit<ITtscPluginFactoryContext, "dirname" | "filename">,
   baseDir: string,
+  effectiveEnv: NodeJS.ProcessEnv,
 ): ITtscPlugin {
   return withPluginLoaderEnv(() => {
     const specifier = entry.transform;
@@ -599,7 +609,7 @@ function loadPluginEntry(
       dirname: path.dirname(request),
       filename: request,
     };
-    const mod = requirePluginEntry(request, context) as {
+    const mod = requirePluginEntry(request, context, effectiveEnv) as {
       createTtscPlugin?: TtscPluginFactory;
       default?: ITtscPlugin | TtscPluginFactory;
     } & Partial<Record<"plugin", ITtscPlugin | TtscPluginFactory>>;
@@ -646,6 +656,7 @@ function loadPluginEntry(
 function requirePluginEntry(
   request: string,
   context: ITtscPluginFactoryContext,
+  effectiveEnv: NodeJS.ProcessEnv,
 ): unknown {
   try {
     return require(request);
@@ -653,7 +664,7 @@ function requirePluginEntry(
     if (!TS_SOURCE_PATTERN.test(request)) {
       throw error;
     }
-    const descriptor = loadDescriptorViaTtsx(request, context);
+    const descriptor = loadDescriptorViaTtsx(request, context, effectiveEnv);
     if (descriptor === undefined) {
       throw error;
     }
@@ -673,9 +684,16 @@ const TS_SOURCE_PATTERN = /\.(?:[cm]?ts|tsx)$/i;
 function loadDescriptorViaTtsx(
   request: string,
   context: ITtscPluginFactoryContext,
+  effectiveEnv: NodeJS.ProcessEnv,
 ): unknown {
-  const node = process.env.TTSC_NODE_BINARY ?? process.execPath;
-  const ttsx = process.env.TTSC_TTSX_BINARY;
+  // Binary discovery prefers the instance environment, then the ambient
+  // process.env (where `withPluginLoaderEnv` injects ttsc's own node/ttsx paths
+  // just before this runs), then the running interpreter.
+  const node =
+    effectiveEnv.TTSC_NODE_BINARY ??
+    process.env.TTSC_NODE_BINARY ??
+    process.execPath;
+  const ttsx = effectiveEnv.TTSC_TTSX_BINARY ?? process.env.TTSC_TTSX_BINARY;
   if (ttsx === undefined || ttsx.length === 0) {
     return undefined;
   }
@@ -715,7 +733,12 @@ function loadDescriptorViaTtsx(
       cwd: context.projectRoot,
       encoding: "utf8",
       env: {
-        ...process.env,
+        ...effectiveEnv,
+        // Carry ttsc's own node/ttsx locators explicitly so the child (which
+        // may recurse into further descriptor loads) finds them even when the
+        // instance-env snapshot predates `withPluginLoaderEnv`.
+        TTSC_NODE_BINARY: node,
+        TTSC_TTSX_BINARY: ttsx,
         TTSC_PLUGIN_CONTEXT: JSON.stringify({
           binary: context.binary,
           cwd: context.cwd,

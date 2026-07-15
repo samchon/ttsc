@@ -128,6 +128,7 @@ function transformProjectWithPlugins(
     cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
     cwd,
     entries: options.plugins,
+    env: { ...process.env, ...options.env },
     pluginConfigDir: options.pluginConfigDir,
     projectRoot: options.projectRoot,
     tsconfig: project.path,

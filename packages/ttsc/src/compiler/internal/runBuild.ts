@@ -1139,6 +1139,7 @@ function resolveExecutionContext(
         cacheDir: options.cacheDir ?? options.env?.TTSC_CACHE_DIR,
         cwd,
         entries: options.plugins,
+        env: { ...process.env, ...options.env },
         pluginConfigDir: options.pluginConfigDir,
         projectRoot,
         tsconfig,
