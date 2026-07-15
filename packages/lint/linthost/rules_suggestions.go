@@ -4,6 +4,7 @@
 package linthost
 
 import (
+  "encoding/json"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -716,13 +717,14 @@ func (noReturnAssign) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindReturnStatement, shimast.KindArrowFunction}
 }
 func (noReturnAssign) Check(ctx *Context, node *shimast.Node) {
+  always := noReturnAssignAlways(ctx)
   switch node.Kind {
   case shimast.KindReturnStatement:
     ret := node.AsReturnStatement()
     if ret == nil || ret.Expression == nil {
       return
     }
-    if isAssignmentExpression(stripParens(ret.Expression)) {
+    if noReturnAssignFlags(ret.Expression, always) {
       ctx.Report(node, "Return statement should not contain assignment.")
     }
   case shimast.KindArrowFunction:
@@ -730,10 +732,51 @@ func (noReturnAssign) Check(ctx *Context, node *shimast.Node) {
     if arrow == nil || arrow.Body == nil || arrow.Body.Kind == shimast.KindBlock {
       return
     }
-    if isAssignmentExpression(stripParens(arrow.Body)) {
+    if noReturnAssignFlags(arrow.Body, always) {
       ctx.Report(node, "Arrow function should not return an assignment.")
     }
   }
+}
+
+// noReturnAssignFlags reports whether a return/arrow operand should be flagged.
+// Under the default `except-parens` an explicitly parenthesized assignment
+// (`return (a = 1)`) is allowed, so the operand is tested as written: a
+// wrapping ParenthesizedExpression is not a BinaryExpression and fails the
+// assignment test. Under `always` the parentheses are stripped first so the
+// wrapped assignment is flagged too. This matches ESLint no-return-assign's
+// default and the parenthesis exemption `no-cond-assign` already applies.
+func noReturnAssignFlags(expr *shimast.Node, always bool) bool {
+  if always {
+    return isAssignmentExpression(stripParens(expr))
+  }
+  return isAssignmentExpression(expr)
+}
+
+// noReturnAssignAlways reports whether the rule runs in `always` mode, where a
+// parenthesized assignment is flagged as well. The single positional string
+// option arrives either bare (`"always"`) or as the first slot of an array,
+// mirroring the transport `resolveNoInnerDeclarationsOptions` documents.
+func noReturnAssignAlways(ctx *Context) bool {
+  if ctx == nil || len(ctx.Options) == 0 {
+    return false
+  }
+  raw := strings.TrimSpace(string(ctx.Options))
+  if raw == "" {
+    return false
+  }
+  var slots []json.RawMessage
+  if raw[0] == '[' {
+    if err := json.Unmarshal([]byte(raw), &slots); err != nil {
+      return false
+    }
+  } else {
+    slots = []json.RawMessage{json.RawMessage(raw)}
+  }
+  if len(slots) == 0 {
+    return false
+  }
+  var mode string
+  return json.Unmarshal(slots[0], &mode) == nil && mode == "always"
 }
 
 // noSequences: `(a, b)` — comma operator. Almost always a confusing
@@ -1269,6 +1312,14 @@ func reportUselessRenameFix(ctx *Context, node, propertyName, name *shimast.Node
     ctx.Report(node, message)
     return
   }
+  // A comment between the two names (`{ a as /* c */ a }`) sits inside the
+  // deleted rename tail; dropping it would be silent data loss, so decline to
+  // a report-only diagnostic. Mirrors ESLint no-useless-rename's
+  // `commentsExistBetween` guard.
+  if hasCommentBetween(ctx.File.Text(), propertyName.End(), name.End()) {
+    ctx.Report(node, message)
+    return
+  }
   ctx.ReportFix(
     node,
     message,
@@ -1298,6 +1349,14 @@ func (objectShorthand) Check(ctx *Context, node *shimast.Node) {
   // at the end of the property name and ends at the end of the
   // initializer; any whitespace between `:` and the value is part of
   // that range.
+  //
+  // A comment inside that range (`{ x: /* c */ x }`) would be dropped by the
+  // deletion, so decline to a report-only diagnostic. Mirrors ESLint
+  // object-shorthand's `commentsExistBetween` guard.
+  if hasCommentBetween(ctx.File.Text(), prop.Name().End(), prop.Initializer.End()) {
+    ctx.Report(node, "Expected property shorthand.")
+    return
+  }
   ctx.ReportFix(
     node,
     "Expected property shorthand.",
@@ -1435,11 +1494,42 @@ func (preferTemplate) Check(ctx *Context, node *shimast.Node) {
     ctx.Report(node, message)
     return
   }
+  // A comment in an operator seam (`"a" + /* c */ b`) is dropped by the
+  // template rebuild, so decline to a report-only diagnostic. Mirrors ESLint
+  // prefer-template's `commentsExistBetween` guard. Only the seams are scanned:
+  // operand interiors are copied verbatim (their comments survive) and string
+  // contents are cooked, so scanning the whole span would misread a `//` or
+  // `/*` inside a string literal (`"https://" + host`) as a comment.
+  if concatOperandSeamsHaveComment(src, operands) {
+    ctx.Report(node, message)
+    return
+  }
   ctx.ReportFix(
     node,
     message,
     TextEdit{Pos: editPos, End: node.End(), Text: template},
   )
+}
+
+// concatOperandSeamsHaveComment reports whether a comment sits in any seam
+// between the flattened concat operands — the `+`-operator gaps the template
+// rebuild collapses. A leading comment before an operand is skipped by the
+// renderer (both string and expression operands begin at their trimmed token),
+// so a seam comment would be lost and the fix must decline. Operand interiors
+// are excluded because the renderer copies expression operands verbatim and
+// cooks string operands, so their contents — including a `//`-bearing URL
+// string — never trigger a false positive.
+func concatOperandSeamsHaveComment(src string, operands []*shimast.Node) bool {
+  for i := 0; i+1 < len(operands); i++ {
+    left, right := operands[i], operands[i+1]
+    if left == nil || right == nil {
+      continue
+    }
+    if hasCommentBetween(src, left.End(), shimscanner.SkipTrivia(src, right.Pos())) {
+      return true
+    }
+  }
+  return false
 }
 
 func concatChainShape(node *shimast.Node) (hasString bool, hasOther bool) {
