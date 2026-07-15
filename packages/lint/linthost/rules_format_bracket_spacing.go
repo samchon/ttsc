@@ -22,7 +22,7 @@ import (
 // and an empty `{}` has no interior to pad. It rewrites just the whitespace
 // run immediately inside each brace, so it never disturbs the contents.
 // Idempotent: a pair already in the preferred shape compares equal.
-type formatBracketSpacing struct{}
+type formatBracketSpacing struct{ optionsRule }
 
 type formatBracketSpacingOptions struct {
   Spacing *bool `json:"spacing"`

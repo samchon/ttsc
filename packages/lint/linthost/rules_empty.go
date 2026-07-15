@@ -8,7 +8,7 @@ import (
 // noEmpty rejects empty block and switch statements unless an interior
 // comment documents the intentional no-op.
 // https://eslint.org/docs/latest/rules/no-empty
-type noEmpty struct{}
+type noEmpty struct{ optionsRule }
 
 type noEmptyOptions struct {
   AllowEmptyCatch bool `json:"allowEmptyCatch"`
@@ -57,7 +57,7 @@ func (noEmpty) Check(ctx *Context, node *shimast.Node) {
 
 // noEmptyFunction: empty function / method / arrow / accessor bodies.
 // https://eslint.org/docs/latest/rules/no-empty-function
-type noEmptyFunction struct{}
+type noEmptyFunction struct{ optionsRule }
 
 type noEmptyFunctionOptions struct {
   Allow []string `json:"allow"`

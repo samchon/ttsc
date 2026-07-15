@@ -42,7 +42,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-type unicornFilenameCase struct{}
+type unicornFilenameCase struct{ optionsRule }
 
 func (unicornFilenameCase) Name() string           { return "unicorn/filename-case" }
 func (unicornFilenameCase) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }

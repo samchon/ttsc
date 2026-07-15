@@ -12,11 +12,11 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-type boundariesElementTypes struct{}
-type boundariesExternal struct{}
-type boundariesEntryPoint struct{}
-type boundariesNoPrivate struct{}
-type boundariesNoUnknown struct{}
+type boundariesElementTypes struct{ optionsRule }
+type boundariesExternal struct{ optionsRule }
+type boundariesEntryPoint struct{ optionsRule }
+type boundariesNoPrivate struct{ optionsRule }
+type boundariesNoUnknown struct{ optionsRule }
 
 func (boundariesElementTypes) Name() string { return "boundaries/element-types" }
 func (boundariesExternal) Name() string     { return "boundaries/external" }

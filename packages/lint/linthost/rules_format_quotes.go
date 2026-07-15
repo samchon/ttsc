@@ -23,7 +23,7 @@ import (
 // quotes corrupts working code. Template literals, no-substitution
 // template literals, and JSX text nodes use distinct AST kinds and are
 // also intentionally out of scope.
-type formatQuotes struct{}
+type formatQuotes struct{ optionsRule }
 
 // formatQuotesOptions mirrors `TtscLintRuleOptions.Quotes`. Prefer accepts
 // `"double"` (the default, enforces double quotes) or `"single"` (enforces

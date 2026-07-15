@@ -387,3 +387,82 @@ export interface ITtscLintCorePreferConstRuleOptions {
    */
   ignoreReadBeforeAssign?: boolean;
 }
+
+/** `default-case` rule options. */
+export interface ITtscLintCoreDefaultCaseRuleOptions {
+  /**
+   * Regular-expression string that marks an intentionally omitted default
+   * clause. It replaces the default `^no default$` pattern.
+   */
+  commentPattern?: string;
+}
+
+/** Relative order accepted by `grouped-accessor-pairs`. */
+export type TtscLintCoreGroupedAccessorPairsOrder =
+  | "anyOrder"
+  | "getBeforeSet"
+  | "setBeforeGet";
+
+/** Canonical positional setting for `grouped-accessor-pairs`. */
+export type TtscLintCoreGroupedAccessorPairsRuleSetting =
+  | TtscLintRuleSetting
+  | readonly [TtscLintSeverity, TtscLintCoreGroupedAccessorPairsOrder];
+
+/** `no-else-return` rule options. */
+export interface ITtscLintCoreNoElseReturnRuleOptions {
+  /** Allow an `else if` after a branch that always returns. @default true */
+  allowElseIf?: boolean;
+}
+
+/** `no-extend-native` rule options. */
+export interface ITtscLintCoreNoExtendNativeRuleOptions {
+  /** Native constructor names whose prototypes may be extended. @default [] */
+  exceptions?: readonly string[];
+}
+
+/** Operator spelling accepted in a `no-mixed-operators` group. */
+export type TtscLintCoreNoMixedOperatorsOperator =
+  | "+"
+  | "-"
+  | "*"
+  | "/"
+  | "%"
+  | "**"
+  | "&"
+  | "|"
+  | "^"
+  | "~"
+  | "<<"
+  | ">>"
+  | ">>>"
+  | "=="
+  | "!="
+  | "==="
+  | "!=="
+  | ">"
+  | ">="
+  | "<"
+  | "<="
+  | "&&"
+  | "||"
+  | "in"
+  | "instanceof"
+  | "??"
+  | "?:";
+
+/** `no-mixed-operators` rule options. */
+export interface ITtscLintCoreNoMixedOperatorsRuleOptions {
+  /** Operator groups within which an unparenthesized mix is checked. */
+  groups?: readonly (readonly TtscLintCoreNoMixedOperatorsOperator[])[];
+
+  /** Allow different operators with the same precedence. @default true */
+  allowSamePrecedence?: boolean;
+}
+
+/** Canonical positional mode for `no-return-assign`. */
+export type TtscLintCoreNoReturnAssignMode = "except-parens" | "always";
+
+/** Canonical positional setting for `no-return-assign`. */
+export type TtscLintCoreNoReturnAssignRuleSetting =
+  | TtscLintRuleSetting
+  | readonly [TtscLintSeverity, TtscLintCoreNoReturnAssignMode];

@@ -36,7 +36,7 @@ import (
 //
 // Idempotent: once each statement is alone on its line, step 2 abstains
 // for all of them and the rule emits nothing.
-type formatStatementSplit struct{}
+type formatStatementSplit struct{ optionsRule }
 
 // formatStatementSplitOptions carries the indentation + EOL settings the
 // rule needs to synthesize the inserted line break. The JSON tags match

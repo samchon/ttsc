@@ -25,7 +25,7 @@ import (
 // `/** ... */` blocks; it deliberately avoids relying on the JSDoc AST
 // because comment attachment is a moving target across TypeScript
 // versions.
-type formatJSDoc struct{}
+type formatJSDoc struct{ optionsRule }
 
 // formatJSDocOptions mirrors `TtscLintRuleOptions.JSDoc`. The
 // `tagSynonyms` map layers on top of the built-in synonym table so

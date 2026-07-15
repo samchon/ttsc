@@ -12,7 +12,7 @@ type cypressNoUnnecessaryWaiting struct{}
 type cypressNoForce struct{}
 type cypressNoPause struct{}
 type cypressNoDebug struct{}
-type cypressUnsafeToChainCommand struct{}
+type cypressUnsafeToChainCommand struct{ optionsRule }
 type cypressAssertionBeforeScreenshot struct{}
 type cypressNoAsyncTests struct{}
 type cypressNoAsyncBefore struct{}

@@ -30,7 +30,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-type unicornImportStyle struct{}
+type unicornImportStyle struct{ optionsRule }
 
 const (
   unicornImportStyleUnassigned = "unassigned"

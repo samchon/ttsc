@@ -35,7 +35,7 @@ var (
   unicornTemplateIndentDefaultComments  = []string{"HTML", "indent"}
 )
 
-type unicornTemplateIndent struct{}
+type unicornTemplateIndent struct{ optionsRule }
 
 type unicornTemplateIndentRawOptions struct {
   Indent    json.RawMessage `json:"indent"`

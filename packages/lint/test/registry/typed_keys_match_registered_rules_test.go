@@ -15,36 +15,24 @@ import (
 // surface exposed to plugin authors) and `AllRuleNames()` (the Go
 // runtime). Both sides must agree exactly on which rule ids exist.
 //
-// Round-1 review (Agent A) found zero drift today, but the surface
-// is ~470 rules and growing. A new rule added in Go without a typed
-// counterpart would only surface as a silent autocomplete miss; a new
-// typed key without a Go registration would silently no-op at runtime.
-// This test makes both sides honest at build time.
+// The surface contains hundreds of rules and keeps growing. A new rule added in
+// Go without a typed counterpart would only surface as a silent autocomplete
+// miss; a new typed key without a Go registration would silently no-op at
+// runtime. This test makes both sides honest at build time.
 //
-// `format/*` rules are deliberately registered in Go but absent from
-// the typed `rules` surface — formatter behavior is configured through
-// `ITtscLintFormat` (the top-level `format` block). They are filtered
-// out before the diff.
-//
-// `test/*` is reserved for in-test stubs (e.g. the
-// `duplicate-guard-sentinel` used by
-// `TestRegisterRejectsDuplicateRuleName`). Any name under that prefix
-// is also filtered out before the diff so the parity check does not
-// flap when other registry tests run in the same binary.
-//
-// `demo/*` is the upstream-facing contributor-plugin example namespace;
-// the in-tree tests under `test/plugin/` register their own `demo/*`
-// stubs that exist only at test time. These are not part of the public
-// rules surface and are filtered out as well.
+// The runtime side is classified without namespace assumptions. FormatRule
+// implementations are absent because formatter behavior belongs to the
+// top-level ITtscLintFormat block. Contributor adapters and arbitrary direct
+// test registrations are absent because only native built-ins own entries in
+// the append-only built-in rule-code ledger.
 //
 //  1. Walk every `ITtscLint*Rules.ts` file under
 //     `packages/lint/src/structures/rules/`.
 //  2. Extract every property key matching `"<id>"?` — either quoted
 //     kebab-case form. Bare-identifier keys are also accepted because
 //     three Core keys historically used the bare form.
-//  3. Compare the typed-key set against `AllRuleNames()` filtered as
-//     above. Report missing-from-TS and missing-from-Go separately so
-//     the failure points at the side that drifted.
+//  3. Compare the typed-key set against structurally classified built-in,
+//     non-format registrations, reporting drift on each side separately.
 func TestTypedKeysMatchRegisteredRules(t *testing.T) {
   typed, err := readTypedRuleKeys()
   if err != nil {
@@ -74,15 +62,14 @@ func TestTypedKeysMatchRegisteredRules(t *testing.T) {
   }
 }
 
-// registeredRuleSetForParity returns the canonical rule-name set used
-// by the parity check: everything from `AllRuleNames()` minus the
-// formatter-internal `format/*` ids and the test-only `test/*` ids.
+// registeredRuleSetForParity returns the canonical built-in, non-format rule
+// set used by typed-surface parity. Runtime contributors and test-only direct
+// registrations have no built-in TypeScript family property, while format
+// rules are configured through ITtscLintFormat instead of ITtscLintRules.
 func registeredRuleSetForParity() map[string]struct{} {
   out := make(map[string]struct{}, len(AllRuleNames()))
   for _, name := range AllRuleNames() {
-    if strings.HasPrefix(name, "format/") ||
-      strings.HasPrefix(name, "test/") ||
-      strings.HasPrefix(name, "demo/") {
+    if !isRegisteredBuiltInNonFormatRule(name, LookupRule(name)) {
       continue
     }
     out[name] = struct{}{}
@@ -90,10 +77,51 @@ func registeredRuleSetForParity() map[string]struct{} {
   return out
 }
 
+// isRegisteredBuiltInNonFormatRule classifies registry entries by runtime
+// provenance rather than namespace spelling. The append-only built-in rule-code
+// ledger excludes arbitrary direct registrations, and the structural adapter
+// check also excludes a contributor that reuses a retired ledger name.
+func isRegisteredBuiltInNonFormatRule(name string, candidate Rule) bool {
+  return isRegisteredBuiltInRule(name, candidate) && !isFormatRule(candidate)
+}
+
+// isRegisteredBuiltInFormatRule is the format-side twin used to compare the
+// live format-block expansion with every native formatter registration.
+func isRegisteredBuiltInFormatRule(name string, candidate Rule) bool {
+  return isRegisteredBuiltInRule(name, candidate) && isFormatRule(candidate)
+}
+
+func isRegisteredBuiltInRule(name string, candidate Rule) bool {
+  if candidate == nil {
+    return false
+  }
+  switch candidate.(type) {
+  case contributorAdapter, formatContributorAdapter:
+    return false
+  }
+  _, builtIn := builtInRuleCodes[name]
+  return builtIn
+}
+
 // readTypedRuleKeys scans `packages/lint/src/structures/rules/`
 // relative to this test file and pulls out every property key in
 // every family interface.
 func readTypedRuleKeys() (map[string]struct{}, error) {
+  settings, err := readTypedRuleSettings()
+  if err != nil {
+    return nil, err
+  }
+  keys := make(map[string]struct{}, len(settings))
+  for name := range settings {
+    keys[name] = struct{}{}
+  }
+  return keys, nil
+}
+
+// readTypedRuleSettings returns the declared property type for every concrete
+// built-in rule key. The options-contract parity test shares this source walk
+// so name parity and setting-shape parity cannot drift onto different parsers.
+func readTypedRuleSettings() (map[string]string, error) {
   _, thisFile, _, ok := runtime.Caller(0)
   if !ok {
     return nil, errMissingCaller{}
@@ -110,9 +138,9 @@ func readTypedRuleKeys() (map[string]struct{}, error) {
   if err != nil {
     return nil, err
   }
-  keys := make(map[string]struct{})
-  quoted := regexp.MustCompile(`^\s*"([\w][\w/-]*)"\?\s*:`)
-  bare := regexp.MustCompile(`^\s*([a-zA-Z_$][\w]*)\?\s*:\s*Ttsc`)
+  settings := make(map[string]string)
+  quoted := regexp.MustCompile(`^\s*"([\w][\w/-]*)"\?\s*:\s*([^;]+);`)
+  bare := regexp.MustCompile(`^\s*([a-zA-Z_$][\w]*)\?\s*:\s*([^;]+);`)
   for _, entry := range entries {
     name := entry.Name()
     if entry.IsDir() || !strings.HasSuffix(name, ".ts") {
@@ -133,15 +161,15 @@ func readTypedRuleKeys() (map[string]struct{}, error) {
     }
     for _, line := range strings.Split(string(body), "\n") {
       if m := quoted.FindStringSubmatch(line); m != nil {
-        keys[m[1]] = struct{}{}
+        settings[m[1]] = strings.TrimSpace(m[2])
         continue
       }
       if m := bare.FindStringSubmatch(line); m != nil {
-        keys[m[1]] = struct{}{}
+        settings[m[1]] = strings.TrimSpace(m[2])
       }
     }
   }
-  return keys, nil
+  return settings, nil
 }
 
 type errMissingCaller struct{}

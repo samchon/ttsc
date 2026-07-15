@@ -88,6 +88,7 @@ func registerContributors() {
 // panic later during registry sorting or engine construction.
 type contributorMetadata struct {
   inner                  rule.Rule
+  acceptsOptions         bool
   isFormat               bool
   name                   string
   visits                 []shimast.Kind
@@ -108,6 +109,7 @@ func inspectContributor(contributor rule.Rule) (metadata contributorMetadata, er
   }()
   metadata = contributorMetadata{
     inner:                  contributor,
+    acceptsOptions:         true,
     name:                   contributor.Name(),
     visits:                 append([]shimast.Kind(nil), contributor.Visits()...),
     visitsDeclarationFiles: true,
@@ -122,6 +124,9 @@ func inspectContributor(contributor rule.Rule) (metadata contributorMetadata, er
   if typeAware, ok := contributor.(rule.TypeAwareRule); ok {
     metadata.needsTypeChecker = typeAware.NeedsTypeChecker()
   }
+  if optionsRule, ok := contributor.(rule.OptionsRule); ok {
+    metadata.acceptsOptions = optionsRule.AcceptsTtscLintOptions()
+  }
   return metadata, nil
 }
 
@@ -132,6 +137,7 @@ func inspectContributor(contributor rule.Rule) (metadata contributorMetadata, er
 func newContributorAdapter(metadata contributorMetadata) contributorAdapter {
   return contributorAdapter{
     inner:                  metadata.inner,
+    acceptsOptions:         metadata.acceptsOptions,
     name:                   metadata.name,
     visits:                 metadata.visits,
     visitsDeclarationFiles: metadata.visitsDeclarationFiles,
@@ -148,10 +154,19 @@ func newContributorAdapter(metadata contributorMetadata) contributorAdapter {
 // same shim AST types, so no wrapping / unwrapping of nodes is needed.
 type contributorAdapter struct {
   inner                  rule.Rule
+  acceptsOptions         bool
   name                   string
   visits                 []shimast.Kind
   visitsDeclarationFiles bool
   needsTypeChecker       bool
+}
+
+// AcceptsTtscLintOptions preserves the public contributor contract:
+// contributors have historically been allowed to decode an arbitrary options
+// blob, so the conservative default is true. A contributor can implement
+// rule.OptionsRule and return false to declare a genuinely optionless rule.
+func (a contributorAdapter) AcceptsTtscLintOptions() bool {
+  return a.acceptsOptions
 }
 
 // NeedsTypeChecker keeps contributor rules on the conservative checker path

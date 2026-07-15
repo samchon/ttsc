@@ -59,7 +59,7 @@ type noMixedOperatorsOptions struct {
   AllowSamePrecedence *bool      `json:"allowSamePrecedence"`
 }
 
-type noMixedOperators struct{}
+type noMixedOperators struct{ optionsRule }
 
 func (noMixedOperators) Name() string           { return "no-mixed-operators" }
 func (noMixedOperators) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindBinaryExpression} }

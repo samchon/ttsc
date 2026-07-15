@@ -9,7 +9,7 @@ import (
 // onlyExportComponents enforces React Fast Refresh's module boundary rule:
 // files that export React components should not also export non-components.
 // Ported from eslint-plugin-react-refresh's only-export-components rule.
-type onlyExportComponents struct{}
+type onlyExportComponents struct{ optionsRule }
 
 type onlyExportComponentsOptions struct {
   ExtraHOCs           []string `json:"extraHOCs"`

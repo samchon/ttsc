@@ -13,6 +13,15 @@ type testingLibraryRule struct {
   name string
 }
 
+// testingLibraryOptionsRule marks the one rule in the shared SourceFile
+// dispatcher whose public contract includes an options object. Embedding the
+// base rule keeps dispatch shared while leaving every sibling genuinely
+// optionless in the registry.
+type testingLibraryOptionsRule struct {
+  testingLibraryRule
+  optionsRule
+}
+
 func (r testingLibraryRule) Name() string { return "testing-library/" + r.name }
 func (r testingLibraryRule) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
@@ -1168,11 +1177,13 @@ func testingLibraryFileName(fileName string) string {
 }
 
 func init() {
+  Register(testingLibraryOptionsRule{
+    testingLibraryRule: testingLibraryRule{name: "consistent-data-testid"},
+  })
   for _, name := range []string{
     "await-async-events",
     "await-async-queries",
     "await-async-utils",
-    "consistent-data-testid",
     "no-await-sync-events",
     "no-await-sync-queries",
     "no-container",

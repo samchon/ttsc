@@ -9,7 +9,7 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // `Object.defineProperty` / `Object.defineProperties` calls whose target is a
 // native prototype. The `exceptions` option removes builtins from the set.
 // https://eslint.org/docs/latest/rules/no-extend-native
-type noExtendNative struct{}
+type noExtendNative struct{ optionsRule }
 
 type noExtendNativeOptions struct {
   Exceptions []string `json:"exceptions"`

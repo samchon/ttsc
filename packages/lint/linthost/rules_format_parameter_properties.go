@@ -25,7 +25,7 @@ import (
 // region and emits no trailing comma, format/trailing-comma adds it on
 // the now-multi-line list, so the two rules stay disjoint. Idempotent:
 // an already-broken list contains a newline and is skipped.
-type formatParameterProperties struct{}
+type formatParameterProperties struct{ optionsRule }
 
 // formatParameterPropertiesOptions carries the indentation + EOL settings
 // the rewrite needs. The config layer mirrors

@@ -45,7 +45,7 @@ func unicornNoUnnecessaryPolyfillsCoreJsMessage(coreJsModule string) string {
     "` are available as built-ins. Use the built-ins instead."
 }
 
-type unicornNoUnnecessaryPolyfills struct{}
+type unicornNoUnnecessaryPolyfills struct{ optionsRule }
 
 func (unicornNoUnnecessaryPolyfills) Name() string { return "unicorn/no-unnecessary-polyfills" }
 func (unicornNoUnnecessaryPolyfills) Visits() []shimast.Kind {

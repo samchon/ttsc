@@ -15,7 +15,7 @@ import (
 // optional semicolon. Body-shaped declarations (functions, classes,
 // namespaces, enums) and control-flow statements (if/for/while/try)
 // are out of scope because they parse correctly without a terminator.
-type formatSemi struct{}
+type formatSemi struct{ optionsRule }
 
 // formatSemiOptions is the Go mirror of `TtscLintRuleOptions.Semi`. The
 // JSON tag matches the TypeScript field name so users get the same key

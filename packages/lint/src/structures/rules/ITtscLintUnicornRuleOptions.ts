@@ -327,3 +327,24 @@ export interface ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions {
   /** Browserslist query, array of queries, or a core-js-compat targets object. */
   targets: TtscLintUnicornNoUnnecessaryPolyfillsTargets;
 }
+
+/** Options for `unicorn/no-typeof-undefined`. */
+export interface ITtscLintUnicornNoTypeofUndefinedRuleOptions {
+  /** Also report undeclared global identifiers. @default false */
+  checkGlobalVariables?: boolean;
+}
+
+/** Options for `unicorn/prefer-number-properties`. */
+export interface ITtscLintUnicornPreferNumberPropertiesRuleOptions {
+  /** Also replace the global `Infinity` binding. @default false */
+  checkInfinity?: boolean;
+
+  /** Also replace the global `NaN` binding. @default false */
+  checkNaN?: boolean;
+}
+
+/** Options for `unicorn/text-encoding-identifier-case`. */
+export interface ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions {
+  /** Prefer `utf-8` instead of `utf8` outside dash-required APIs. @default false */
+  withDash?: boolean;
+}

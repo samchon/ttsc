@@ -47,7 +47,7 @@ var unicornPreferNumberPropertiesGlobals = map[string]bool{
   "isFinite":   false,
 }
 
-type unicornPreferNumberProperties struct{}
+type unicornPreferNumberProperties struct{ optionsRule }
 
 type unicornPreferNumberPropertiesOptions struct {
   checkInfinity bool

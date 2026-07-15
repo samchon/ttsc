@@ -19,7 +19,7 @@ import (
 // so it is a normalization rule rather than part of the print-width
 // reflow. Idempotent: a wrapped operand parses as a parenthesized
 // expression, not a bare `??`, so the next pass leaves it alone.
-type formatTernaryNullishParens struct{}
+type formatTernaryNullishParens struct{ optionsRule }
 
 func (formatTernaryNullishParens) Name() string   { return "format/ternary-nullish-parens" }
 func (formatTernaryNullishParens) IsFormat() bool { return true }

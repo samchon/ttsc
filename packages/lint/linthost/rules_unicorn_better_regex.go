@@ -26,7 +26,7 @@ import (
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-type unicornBetterRegex struct{}
+type unicornBetterRegex struct{ optionsRule }
 
 // unicornBetterRegexOptions is the rule's public option object. A nil
 // `SortCharacterClasses` keeps the upstream default (sort/merge enabled).

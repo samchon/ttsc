@@ -20,6 +20,8 @@ type capitalizeExports struct{}
 
 func (capitalizeExports) Name() string { return "demo/capitalize-exports" }
 
+func (capitalizeExports) AcceptsTtscLintOptions() bool { return false }
+
 func (capitalizeExports) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindVariableStatement}
 }

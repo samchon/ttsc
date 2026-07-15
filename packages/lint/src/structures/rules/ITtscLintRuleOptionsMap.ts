@@ -1,3 +1,4 @@
+import type { TtscLintRuleOptionsSetting } from "../TtscLintRuleSetting";
 import type {
   ITtscLintBoundariesDependenciesRuleOptions,
   ITtscLintBoundariesElementTypesRuleOptions,
@@ -7,9 +8,13 @@ import type {
   ITtscLintBoundariesNoUnknownRuleOptions,
 } from "./ITtscLintBoundariesRuleOptions";
 import type {
+  ITtscLintCoreDefaultCaseRuleOptions,
   ITtscLintCoreNoDuplicateImportsRuleOptions,
+  ITtscLintCoreNoElseReturnRuleOptions,
   ITtscLintCoreNoEmptyFunctionRuleOptions,
   ITtscLintCoreNoEmptyRuleOptions,
+  ITtscLintCoreNoExtendNativeRuleOptions,
+  ITtscLintCoreNoMixedOperatorsRuleOptions,
   ITtscLintCoreNoParamReassignRuleOptions,
   ITtscLintCoreNoPromiseExecutorReturnRuleOptions,
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
@@ -50,10 +55,13 @@ import type {
   ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornIsolatedFunctionsRuleOptions,
+  ITtscLintUnicornNoTypeofUndefinedRuleOptions,
   ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions,
+  ITtscLintUnicornPreferNumberPropertiesRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornStringContentRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
+  ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions,
 } from "./ITtscLintUnicornRuleOptions";
 
 /**
@@ -66,25 +74,31 @@ import type {
  * ```ts
  * declare module "@ttsc/lint" {
  *   interface ITtscLintRuleOptionsMap {
- *     "demo/no-marker-comment": { marker: string };
+ *     "demo/no-marker-comment": { markers?: readonly string[] };
  *   }
  * }
  * ```
  *
- * After augmentation, `{@link TtscLintRuleOptionsSetting}` tuples and the
- * `defineConfig`-style helpers in plugin packages can type-check the options
- * object against the contributor's declared shape.
+ * {@link TtscLintRuleOptionsOverlay} maps every entry to its strongly typed
+ * severity tuple. {@link ITtscLintRules} intersects that overlay with the
+ * built-in families and the open contributor fallback, so importing a plugin's
+ * augmentation tightens its registered rule while unknown contributor names
+ * retain the backward-compatible `unknown` options slot.
  *
  * `format/*` is **not** listed: formatter behavior is configured through the
  * top-level `format` block ({@link ITtscLintFormat}), not through the `rules`
  * surface.
  */
 export interface ITtscLintRuleOptionsMap {
+  "default-case": ITtscLintCoreDefaultCaseRuleOptions;
   "unicorn/template-indent": ITtscLintUnicornTemplateIndentRuleOptions;
   "typescript/no-floating-promises": ITtscLintTypeScriptNoFloatingPromisesRuleOptions;
   "no-duplicate-imports": ITtscLintCoreNoDuplicateImportsRuleOptions;
+  "no-else-return": ITtscLintCoreNoElseReturnRuleOptions;
   "no-empty": ITtscLintCoreNoEmptyRuleOptions;
   "no-empty-function": ITtscLintCoreNoEmptyFunctionRuleOptions;
+  "no-extend-native": ITtscLintCoreNoExtendNativeRuleOptions;
+  "no-mixed-operators": ITtscLintCoreNoMixedOperatorsRuleOptions;
   "no-param-reassign": ITtscLintCoreNoParamReassignRuleOptions;
   "no-promise-executor-return": ITtscLintCoreNoPromiseExecutorReturnRuleOptions;
   "no-unused-expressions": ITtscLintCoreNoUnusedExpressionsRuleOptions;
@@ -135,5 +149,21 @@ export interface ITtscLintRuleOptionsMap {
   "unicorn/filename-case": ITtscLintUnicornFilenameCaseRuleOptions;
   "unicorn/string-content": ITtscLintUnicornStringContentRuleOptions;
   "unicorn/isolated-functions": ITtscLintUnicornIsolatedFunctionsRuleOptions;
+  "unicorn/no-typeof-undefined": ITtscLintUnicornNoTypeofUndefinedRuleOptions;
   "unicorn/no-unnecessary-polyfills": ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions;
+  "unicorn/prefer-number-properties": ITtscLintUnicornPreferNumberPropertiesRuleOptions;
+  "unicorn/text-encoding-identifier-case": ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions;
 }
+
+/**
+ * Strongly typed rule settings derived from the augmentable options map.
+ *
+ * This mapped overlay is consumed by {@link ITtscLintRules}; keeping the
+ * derivation here makes module augmentation immediately affect the public
+ * configuration type without a second per-plugin rule-name declaration.
+ */
+export type TtscLintRuleOptionsOverlay = {
+  [TRuleName in keyof ITtscLintRuleOptionsMap]?: TtscLintRuleOptionsSetting<
+    ITtscLintRuleOptionsMap[TRuleName]
+  >;
+};

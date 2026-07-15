@@ -24,7 +24,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-type boundariesDependencies struct{}
+type boundariesDependencies struct{ optionsRule }
 
 type boundaryDependenciesOptions struct {
   Elements           []boundaryElement

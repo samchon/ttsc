@@ -49,7 +49,7 @@ var unicornStringContentIgnoredMemberObjects = map[string]struct{}{
   "styled": {},
 }
 
-type unicornStringContent struct{}
+type unicornStringContent struct{ optionsRule }
 
 type unicornStringContentPattern struct {
   match         string

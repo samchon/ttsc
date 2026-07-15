@@ -81,6 +81,21 @@ type ruleOptionsValidator interface {
   ValidateOptions(json.RawMessage) error
 }
 
+// ruleOptionsAcceptor is the structural declaration that a rule owns an
+// options schema. The engine uses the capability instead of a rule-name list,
+// so adding an options payload to a rule requires the implementation itself to
+// opt in. A false result is equivalent to omitting the interface.
+type ruleOptionsAcceptor interface {
+  AcceptsTtscLintOptions() bool
+}
+
+// optionsRule is embedded by built-in rules whose public configuration accepts
+// an options slot. Keeping the marker next to each implementation makes the
+// registry the runtime source of truth without a parallel name table.
+type optionsRule struct{}
+
+func (optionsRule) AcceptsTtscLintOptions() bool { return true }
+
 // isFormatRule reports whether `r` opts into the format category.
 func isFormatRule(r Rule) bool {
   fr, ok := r.(FormatRule)
@@ -92,7 +107,15 @@ func ruleNeedsTypeChecker(r Rule) bool {
   return ok && tr.NeedsTypeChecker()
 }
 
+func ruleAcceptsOptions(r Rule) bool {
+  acceptor, ok := r.(ruleOptionsAcceptor)
+  return ok && acceptor.AcceptsTtscLintOptions()
+}
+
 func validateRuleOptions(r Rule, options json.RawMessage) error {
+  if len(options) > 0 && !ruleAcceptsOptions(r) {
+    return errors.New("rule does not accept options")
+  }
   validator, ok := r.(ruleOptionsValidator)
   if !ok {
     return nil
@@ -496,24 +519,24 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
     enabled:           make(map[string]Severity),
     unknownDirectives: make(map[string]struct{}),
   }
-  eng.projectSettings, eng.configError = config.ResolveProjectRules(allProjectRuleNames())
-  for _, setting := range eng.projectSettings {
+  projectRuleNames := allProjectRuleNames()
+  eng.projectSettings, eng.configError = config.ResolveProjectRules(projectRuleNames)
+  for _, name := range projectRuleNames {
+    setting := eng.projectSettings[name]
+    if setting.Declared && len(setting.Options) > 0 && !registeredProjectRules[name].acceptsOptions {
+      eng.configError = errors.Join(
+        eng.configError,
+        fmt.Errorf("@ttsc/lint: invalid options for rule %q: rule does not accept options", name),
+      )
+    }
     if setting.Declared && setting.Severity != SeverityOff {
       eng.needsTypeChecker = true
-      break
     }
   }
   displaySeverities := config.EnabledRuleConfig()
-  for _, name := range config.ActiveRuleNames() {
-    if _, isProjectRule := registeredProjectRules[name]; isProjectRule {
-      continue
-    }
-    rule, ok := registered.rules[name]
-    if !ok {
-      eng.unknown = append(eng.unknown, name)
-      continue
-    }
-    optionsValid := true
+  invalidRuleOptions := make(map[string]struct{})
+  for _, name := range AllRuleNames() {
+    rule := registered.rules[name]
     seenOptions := make(map[string]struct{})
     for _, options := range resolvedRuleOptionsVariants(config, name) {
       key := string(options)
@@ -526,10 +549,20 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
           eng.configError,
           fmt.Errorf("@ttsc/lint: invalid options for rule %q: %w", name, err),
         )
-        optionsValid = false
+        invalidRuleOptions[name] = struct{}{}
       }
     }
-    if !optionsValid {
+  }
+  for _, name := range config.ActiveRuleNames() {
+    if _, isProjectRule := registeredProjectRules[name]; isProjectRule {
+      continue
+    }
+    rule, ok := registered.rules[name]
+    if !ok {
+      eng.unknown = append(eng.unknown, name)
+      continue
+    }
+    if _, invalid := invalidRuleOptions[name]; invalid {
       continue
     }
     if ruleNeedsTypeChecker(rule) {

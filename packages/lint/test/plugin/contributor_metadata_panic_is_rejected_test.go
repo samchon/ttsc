@@ -13,18 +13,20 @@ import (
 // are converted to one rejected registration instead of escaping startup.
 //
 // Contributor methods run before the engine can dispatch Check, so the normal
-// per-node panic barrier cannot protect Name or Visits. inspectContributor owns
-// that earlier boundary and must return an actionable error without panicking.
+// per-node panic barrier cannot protect Name, Visits, or optional capability
+// methods. inspectContributor owns that earlier boundary and must return an
+// actionable error without panicking.
 //
-//  1. Construct a public contributor whose Name method panics.
-//  2. Inspect its metadata through the host adapter.
-//  3. Assert the panic becomes an error naming the contributor failure.
+//  1. Construct public contributors whose metadata methods panic in turn.
+//  2. Inspect each contributor through the host adapter.
+//  3. Assert every panic becomes an error naming the contributor failure.
 func TestContributorMetadataPanicIsRejected(t *testing.T) {
   for _, method := range []string{
     "Name",
     "Visits",
     "IsFormat",
     "VisitsDeclarationFiles",
+    "AcceptsTtscLintOptions",
   } {
     t.Run(method, func(t *testing.T) {
       _, err := inspectContributor(metadataPanickingContributor{method: method})
@@ -62,6 +64,12 @@ func (r metadataPanickingContributor) IsFormat() bool {
 func (r metadataPanickingContributor) VisitsDeclarationFiles() bool {
   if r.method == "VisitsDeclarationFiles" {
     panic("VisitsDeclarationFiles boom")
+  }
+  return true
+}
+func (r metadataPanickingContributor) AcceptsTtscLintOptions() bool {
+  if r.method == "AcceptsTtscLintOptions" {
+    panic("AcceptsTtscLintOptions boom")
   }
   return true
 }

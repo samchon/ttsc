@@ -10,7 +10,7 @@
 // `rule.Register(noTodoComment{})`. The literal tuple is `as const` so
 // the host's `ITtscLintConfig` type can suggest valid
 // `demo/no-todo-comment` keys in the user's `rules` map.
-import type { ITtscLintPlugin } from "@ttsc/lint";
+import type { ITtscLintPlugin, TtscLintRuleSetting } from "@ttsc/lint";
 import path from "node:path";
 
 /**
@@ -35,20 +35,23 @@ const plugin = {
   source: path.resolve(__dirname, "..", "rules"),
 } satisfies ITtscLintPlugin;
 
-// `demo/no-marker-comment` accepts a `{ markers: string[] }` options
-// blob. Augmenting `ITtscLintRuleOptionsMap` here is what unlocks the
-// `[severity, options]` tuple form in user configs — the autocomplete
-// for `markers` flows from this interface declaration into the
-// `ITtscLintRules` interface the user writes against. The Go
-// rule's option struct (`noMarkerCommentOptions` in
-// `rules/no_marker_comment.go`) uses matching JSON tags so the wire
-// payload decodes cleanly on the host side.
+// `demo/no-marker-comment` accepts a `{ markers: string[] }` options blob.
+// Augmenting `ITtscLintRuleOptionsMap` adds this key to @ttsc/lint's mapped
+// options overlay, which is intersected into `ITtscLintRules`. The known rule
+// therefore gets exact `markers` checking while the contributor index
+// signature remains an `unknown`-options fallback for plugins whose typings
+// were not imported. The Go rule's `noMarkerCommentOptions` struct uses the
+// same JSON key so the checked payload decodes cleanly on the host side.
 declare module "@ttsc/lint" {
   interface ITtscLintRuleOptionsMap {
     "demo/no-marker-comment": {
       /** Comment substrings to flag. Defaults to `["TODO", "FIXME"]`. */
       markers?: readonly string[];
     };
+  }
+
+  interface ITtscLintContributorRules {
+    "demo/capitalize-exports"?: TtscLintRuleSetting;
   }
 }
 

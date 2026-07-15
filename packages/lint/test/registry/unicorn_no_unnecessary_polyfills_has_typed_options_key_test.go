@@ -9,22 +9,17 @@ import (
   "testing"
 )
 
-// TestUnicornNoUnnecessaryPolyfillsHasTypedOptionsKey pins the typed surface for
-// `unicorn/no-unnecessary-polyfills` against its Go runtime.
+// TestUnicornNoUnnecessaryPolyfillsHasTypedOptionsKey pins the typed payload
+// surface for `unicorn/no-unnecessary-polyfills` against its Go runtime.
 //
 // The Go rule accepts and honors a `targets` option (validated in
 // `unicornNoUnnecessaryPolyfillsDecodeOptions`, consumed in Check), but the
-// published TypeScript key was severity-only (`TtscLintRuleSetting`), so a
-// type-checked `lint.config.ts` passing `{ targets: "node 18" }` was a TS error
-// even though the runtime needs it (samchon/ttsc#626). This test locks the
-// three-part wiring — the rules key, the options map, and the options interface —
-// so the typed surface can never silently regress back to severity-only.
-//
-// A general options-parity sweep (every ValidateOptions/DecodeOptions rule owns
-// an options-typed key) is intentionally NOT asserted here: several unrelated
-// rules still carry severity-only keys on master and are being corrected in
-// separate parity PRs, so a broad assertion would fail on rules outside this
-// change. This test is scoped to the rule this change fixes.
+// published TypeScript key was once severity-only, so a type-checked config
+// passing `{ targets: "node 18" }` failed even though the runtime needed it
+// (samchon/ttsc#626). The general options-parity test now locks the rule key,
+// marker, and options-map connection, but it cannot inspect semantic fields
+// inside each options interface. This focused assertion keeps the `targets`
+// payload itself from silently disappearing.
 //
 //  1. Read the three structures/rules TS sources next to this scratch test.
 //  2. Assert the rules key references TtscLintRuleOptionsSetting with the
@@ -54,17 +49,21 @@ func TestUnicornNoUnnecessaryPolyfillsHasTypedOptionsKey(t *testing.T) {
 
   optionsIface := readStructuresRuleFile(t, rulesDir, "ITtscLintUnicornRuleOptions.ts")
   ifacePattern := regexp.MustCompile(
-    `interface ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions\s*\{[^}]*\btargets\b`,
+    `(?s)export interface ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions\s*\{(.*?)\n\}`,
   )
-  if !ifacePattern.MatchString(optionsIface) {
+  iface := ifacePattern.FindStringSubmatch(optionsIface)
+  propertyPattern := regexp.MustCompile(
+    `(?m)^\s*targets\s*:\s*TtscLintUnicornNoUnnecessaryPolyfillsTargets\s*;\s*$`,
+  )
+  if iface == nil || !propertyPattern.MatchString(iface[1]) {
     t.Fatal("ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions must declare a `targets` property")
   }
 }
 
-// structuresRulesDir resolves packages/lint/src/structures/rules relative to the
-// running test file. scripts/test-go-lint.cjs flattens the Go tests into
+// structuresRulesDir resolves packages/lint/src/structures/rules relative to
+// the running test file. scripts/test-go-lint.cjs flattens the Go tests into
 // linthost/ alongside the verbatim src/ tree, so the rules directory sits one
-// level up — the same layout the name-parity test relies on.
+// level up, matching the layout used by the general parity tests.
 func structuresRulesDir(t *testing.T) string {
   t.Helper()
   _, thisFile, _, ok := runtime.Caller(0)

@@ -34,7 +34,7 @@ import (
   "golang.org/x/text/language"
 )
 
-type unicornPreventAbbreviations struct{}
+type unicornPreventAbbreviations struct{ optionsRule }
 
 type unicornPreventAbbreviationsImportMode uint8
 

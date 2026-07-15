@@ -3,17 +3,23 @@ import type {
   TtscLintRuleSetting,
 } from "../TtscLintRuleSetting";
 import type {
+  ITtscLintCoreDefaultCaseRuleOptions,
   ITtscLintCoreNoDuplicateImportsRuleOptions,
+  ITtscLintCoreNoElseReturnRuleOptions,
   ITtscLintCoreNoEmptyFunctionRuleOptions,
   ITtscLintCoreNoEmptyRuleOptions,
+  ITtscLintCoreNoExtendNativeRuleOptions,
+  ITtscLintCoreNoMixedOperatorsRuleOptions,
   ITtscLintCoreNoParamReassignRuleOptions,
   ITtscLintCoreNoPromiseExecutorReturnRuleOptions,
   ITtscLintCoreNoUnusedExpressionsRuleOptions,
   ITtscLintCorePreferConstRuleOptions,
   ITtscLintNoFallthroughRuleOptions,
+  TtscLintCoreGroupedAccessorPairsRuleSetting,
   TtscLintCoreNoInnerDeclarationsRuleSetting,
   TtscLintCoreNoRestrictedImportsRuleSetting,
   TtscLintCoreNoRestrictedSyntaxRuleSetting,
+  TtscLintCoreNoReturnAssignRuleSetting,
 } from "./ITtscLintCoreRuleOptions";
 
 /**
@@ -53,7 +59,7 @@ export interface ITtscLintCoreRules {
    *
    * @reference https://eslint.org/docs/latest/rules/default-case
    */
-  "default-case"?: TtscLintRuleSetting;
+  "default-case"?: TtscLintRuleOptionsSetting<ITtscLintCoreDefaultCaseRuleOptions>;
 
   /**
    * Require the `default` clause of a `switch` statement to appear after every
@@ -151,7 +157,7 @@ export interface ITtscLintCoreRules {
    *
    * @reference https://eslint.org/docs/latest/rules/grouped-accessor-pairs
    */
-  "grouped-accessor-pairs"?: TtscLintRuleSetting;
+  "grouped-accessor-pairs"?: TtscLintCoreGroupedAccessorPairsRuleSetting;
 
   /**
    * Require the body of every `for (key in obj)` loop to begin with a guard
@@ -317,8 +323,8 @@ export interface ITtscLintCoreRules {
   "no-case-declarations"?: TtscLintRuleSetting;
 
   /**
-   * Reject every write to a binding introduced by a class declaration or
-   * named class expression.
+   * Reject every write to a binding introduced by a class declaration or named
+   * class expression.
    *
    * Binding identity is resolved lexically, so same-spelled parameter, catch,
    * block, and sibling bindings remain independent. Direct and compound
@@ -478,13 +484,12 @@ export interface ITtscLintCoreRules {
   "no-duplicate-imports"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoDuplicateImportsRuleOptions>;
 
   /**
-   * Reject an `else` block whose preceding `if` branch already terminates
-   * control flow with `return`, `throw`, `break`, or `continue` — flatten the
-   * body into the surrounding scope.
+   * Reject an `else` block whose preceding `if` branch returns on every path;
+   * flatten the body into the surrounding scope.
    *
    * @reference https://eslint.org/docs/latest/rules/no-else-return
    */
-  "no-else-return"?: TtscLintRuleSetting;
+  "no-else-return"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoElseReturnRuleOptions>;
 
   /**
    * Reject empty, uncommented blocks and switches. Set `allowEmptyCatch` to
@@ -572,13 +577,13 @@ export interface ITtscLintCoreRules {
   "no-ex-assign"?: TtscLintRuleSetting;
 
   /**
-   * Reject assignments to a built-in prototype such as `Array.prototype.foo =
-   * bar`. Only `<Builtin>.prototype.<key> = …` is flagged; assigning to
-   * `Object.foo = …` (a static property) is left alone.
+   * Reject extending a built-in prototype through direct assignment or
+   * `Object.defineProperty` / `Object.defineProperties`. Assigning to a static
+   * property such as `Object.foo` is left alone.
    *
    * @reference https://eslint.org/docs/latest/rules/no-extend-native
    */
-  "no-extend-native"?: TtscLintRuleSetting;
+  "no-extend-native"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoExtendNativeRuleOptions>;
 
   /**
    * Reject `.bind(thisArg)` on an arrow function or on a regular function whose
@@ -751,14 +756,14 @@ export interface ITtscLintCoreRules {
    * The famous case is `a && b || c`: readers expect left-to-right grouping but
    * the parser sees `(a && b) || c` because `&&` binds tighter than `||`.
    *
-   * The conservative baseline only flags the highest-confusion mixes — logical
-   * mixed with a different logical (`&&` next to `||` / `??`), and bitwise
-   * (`&`, `|`, `^`) next to a comparison or logical. Wrapping the inner
-   * sub-expression in parens suppresses the report.
+   * The default groups cover arithmetic, bitwise, comparison, logical, and
+   * relational operators, matching ESLint. A custom `groups` option replaces
+   * that grouping, while `allowSamePrecedence` controls equal-precedence mixes.
+   * Wrapping the inner sub-expression in parens suppresses the report.
    *
    * @reference https://eslint.org/docs/latest/rules/no-mixed-operators
    */
-  "no-mixed-operators"?: TtscLintRuleSetting;
+  "no-mixed-operators"?: TtscLintRuleOptionsSetting<ITtscLintCoreNoMixedOperatorsRuleOptions>;
 
   /**
    * Reject chained assignment such as `a = b = 0`, which obscures intent and
@@ -866,8 +871,8 @@ export interface ITtscLintCoreRules {
   /**
    * Reject writes to a function parameter's binding, including through nested
    * closures and destructuring assignment targets. `props: true` also reports
-   * property writes, with the official exact-name and regular-expression
-   * ignore lists.
+   * property writes, with the official exact-name and regular-expression ignore
+   * lists.
    *
    * @reference https://eslint.org/docs/latest/rules/no-param-reassign
    */
@@ -885,9 +890,8 @@ export interface ITtscLintCoreRules {
 
   /**
    * Reject values returned by the global Promise constructor's executor. This
-   * covers concise arrows and explicit returns without crossing nested
-   * function boundaries. Set `allowVoid` to accept an explicit unary `void`
-   * return.
+   * covers concise arrows and explicit returns without crossing nested function
+   * boundaries. Set `allowVoid` to accept an explicit unary `void` return.
    *
    * @reference https://eslint.org/docs/latest/rules/no-promise-executor-return
    */
@@ -955,7 +959,7 @@ export interface ITtscLintCoreRules {
    *
    * @reference https://eslint.org/docs/latest/rules/no-return-assign
    */
-  "no-return-assign"?: TtscLintRuleSetting;
+  "no-return-assign"?: TtscLintCoreNoReturnAssignRuleSetting;
 
   /**
    * Reject `javascript:` URLs in string literals — they execute their body as

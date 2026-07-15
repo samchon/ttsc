@@ -66,7 +66,7 @@ var defaultImportOrder = []string{
 // outcome than declining to sort. Every import other than `import type` can
 // evaluate a module, including default, namespace, and named binding imports,
 // so declaration-level rewriting is disabled for those blocks by default.
-type formatSortImports struct{}
+type formatSortImports struct{ optionsRule }
 
 func (formatSortImports) Name() string   { return "format/sort-imports" }
 func (formatSortImports) IsFormat() bool { return true }

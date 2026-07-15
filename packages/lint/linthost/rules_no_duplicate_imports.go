@@ -63,7 +63,7 @@ type importExportEntry struct {
   isExport bool
 }
 
-type noDuplicateImports struct{}
+type noDuplicateImports struct{ optionsRule }
 
 func (noDuplicateImports) Name() string { return "no-duplicate-imports" }
 func (noDuplicateImports) Visits() []shimast.Kind {

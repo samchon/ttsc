@@ -50,7 +50,7 @@ import (
 // no place to insert one. `findCloseTokenAfter` bails on the first
 // non-trivia byte after the parameter's `End()` (the `=>` token), so the
 // rule abstains without emitting an edit.
-type formatTrailingComma struct{}
+type formatTrailingComma struct{ optionsRule }
 
 // formatTrailingCommaOptions mirrors `TtscLintRuleOptions.TrailingComma`.
 type formatTrailingCommaOptions struct {

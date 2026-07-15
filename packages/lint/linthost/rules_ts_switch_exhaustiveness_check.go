@@ -16,7 +16,7 @@ import (
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
-type switchExhaustivenessCheck struct{}
+type switchExhaustivenessCheck struct{ optionsRule }
 
 type switchExhaustivenessCheckOptions struct {
   AllowDefaultCaseForExhaustiveSwitch *bool   `json:"allowDefaultCaseForExhaustiveSwitch"`
