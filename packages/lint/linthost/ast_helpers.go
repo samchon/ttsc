@@ -184,6 +184,32 @@ func isTaggedTemplateElement(node *shimast.Node) bool {
   return tagged != nil && tagged.Template == template
 }
 
+// isInsideTaggedTemplate reports whether a whole-template node — a
+// `KindNoSubstitutionTemplateLiteral` or a `KindTemplateExpression` — sits
+// anywhere inside a TaggedTemplateExpression, walking up to three ancestors so
+// a template reached through a substitution span also answers true. Unlike the
+// precise `isTaggedTemplateElement`, which asks only whether a template token's
+// OWN enclosing template is tagged, this treats any enclosing tag as tainting.
+// Used by `typescript/no-unnecessary-template-expression`.
+func isInsideTaggedTemplate(node *shimast.Node) bool {
+  if node == nil || node.Parent == nil {
+    return false
+  }
+  parent := node.Parent
+  if parent.Kind == shimast.KindTaggedTemplateExpression {
+    return true
+  }
+  // Walk up at most two more hops to reach the TaggedTemplateExpression
+  // for the spans family.
+  for i := 0; i < 2 && parent.Parent != nil; i++ {
+    parent = parent.Parent
+    if parent.Kind == shimast.KindTaggedTemplateExpression {
+      return true
+    }
+  }
+  return false
+}
+
 // hasCommentBetween reports whether a comment begins anywhere in the source
 // range [from, to). Fixers whose TextEdit keeps only part of the replaced
 // span use it on the discarded sub-ranges: a comment there would be silently
