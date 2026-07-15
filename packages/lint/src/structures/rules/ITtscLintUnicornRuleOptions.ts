@@ -298,3 +298,32 @@ export interface ITtscLintUnicornStringContentRuleOptions {
   /** AST selectors that replace the default Literal/TemplateElement targets. */
   selectors?: readonly string[];
 }
+
+/**
+ * Explicit target runtimes for `unicorn/no-unnecessary-polyfills`.
+ *
+ * A Browserslist query string, an array of such queries, or a
+ * core-js-compat targets object (engine name to a version string or number,
+ * plus the special `browsers` / `esmodules` keys). Resolved with the
+ * `production` environment against the linted file's directory, exactly as
+ * upstream passes the value to core-js-compat.
+ */
+export type TtscLintUnicornNoUnnecessaryPolyfillsTargets =
+  | string
+  | readonly string[]
+  | Readonly<Record<string, string | number | boolean | readonly string[]>>;
+
+/**
+ * Options for `unicorn/no-unnecessary-polyfills`.
+ *
+ * Without this option the rule resolves targets from Browserslist config
+ * discovery and, as a last resort, the nearest `package.json` `engines`
+ * field. Set `targets` to pin the baseline explicitly; it mirrors upstream's
+ * required `targets` schema property.
+ *
+ * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-polyfills.md
+ */
+export interface ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions {
+  /** Browserslist query, array of queries, or a core-js-compat targets object. */
+  targets: TtscLintUnicornNoUnnecessaryPolyfillsTargets;
+}

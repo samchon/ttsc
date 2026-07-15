@@ -8,6 +8,7 @@ import type {
   ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornIsolatedFunctionsRuleOptions,
+  ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornStringContentRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
@@ -490,7 +491,7 @@ export interface ITtscLintUnicornRules {
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-polyfills.md
    */
-  "unicorn/no-unnecessary-polyfills"?: TtscLintRuleSetting;
+  "unicorn/no-unnecessary-polyfills"?: TtscLintRuleOptionsSetting<ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions>;
 
   /**
    * Reject `.length` / `Infinity` as the end argument to `slice`; omit it to

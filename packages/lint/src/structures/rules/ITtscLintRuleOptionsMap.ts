@@ -50,6 +50,7 @@ import type {
   ITtscLintUnicornFilenameCaseRuleOptions,
   ITtscLintUnicornImportStyleRuleOptions,
   ITtscLintUnicornIsolatedFunctionsRuleOptions,
+  ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions,
   ITtscLintUnicornPreventAbbreviationsRuleOptions,
   ITtscLintUnicornStringContentRuleOptions,
   ITtscLintUnicornTemplateIndentRuleOptions,
@@ -134,4 +135,5 @@ export interface ITtscLintRuleOptionsMap {
   "unicorn/filename-case": ITtscLintUnicornFilenameCaseRuleOptions;
   "unicorn/string-content": ITtscLintUnicornStringContentRuleOptions;
   "unicorn/isolated-functions": ITtscLintUnicornIsolatedFunctionsRuleOptions;
+  "unicorn/no-unnecessary-polyfills": ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions;
 }
