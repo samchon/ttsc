@@ -221,12 +221,20 @@ func expandFormatBlock(raw map[string]any) (map[string]any, error) {
   out["format/whitespace"] = ruleEntry(wsOpts)
 
   // formatSortImports, opt-in by `sortImports` (a boolean or options object).
+  // The top-level `endOfLine` is threaded in (like the other layout rules)
+  // so the rebuilt import block joins declarations with the file's line
+  // ending instead of a hard-coded LF. `endOfLine` is not a sortImports
+  // sub-key, so it is injected here rather than validated by
+  // expandSortImportsBlock.
   if v, ok := raw["sortImports"]; ok && v != nil {
     siOpts, enabled, err := expandSortImportsBlock(v)
     if err != nil {
       return nil, err
     }
     if enabled {
+      if eol, ok := layoutOpts["endOfLine"]; ok {
+        siOpts["endOfLine"] = eol
+      }
       out["format/sort-imports"] = ruleEntry(siOpts)
     }
   }

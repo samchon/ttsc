@@ -44,6 +44,8 @@ Presence of the block (even empty `format: {}`) configures the format rules at P
 
 `sortImports` is **opt-in**: it only runs when you set it. Every other format behavior — including JSDoc normalization (set `jsDoc: false` to opt out) — runs as soon as a `format` block is present, along with the keyless layout passes (statement splitting, indentation, whitespace, clause joining, declaration headers, ternary and nullish parens, orphan semicolons, and parameter properties).
 
+`format.endOfLine` (`"lf"` by default, or `"crlf"`) sets the newline every pass synthesizes — `printWidth` reflow, statement splitting, indentation, whitespace, declaration headers, parameter properties, and import sorting all emit it — so reformatting a CRLF file never leaves mixed line endings.
+
 ### `format.severity`
 
 `format.severity` (default `"off"`) sets the diagnostic level for every format rule in `ttsc check`. It is a property of the `format` block, not an external escape hatch:

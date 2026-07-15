@@ -172,7 +172,7 @@ func (formatDeclarationHeader) Check(ctx *Context, node *shimast.Node) {
     // with a non-empty body; an interface (any body) and an empty body
     // keep `{` glued to the last header line (so an empty body reads
     // `… {}`). isClass && !emptyBody captures that.
-    brace := headerBrace(isClass, emptyBody, base)
+    brace := headerBrace(isClass, emptyBody, base, layout.eol)
     target, ok = brokenDeclarationHeader(src, base, prefix, typeParams, paramTexts, clauses, layout, brace, emptyBody, isClass)
     if !ok {
       return // unverified combination: abstain
@@ -194,6 +194,11 @@ type declarationHeaderLayout struct {
   printWidth int
   tabWidth   int
   oneLevel   string
+  // eol is the newline the reflow builders synthesize. It mirrors
+  // loadFormatLayout: `"\n"` by default, `"\r\n"` under endOfLine:"crlf",
+  // so a reflowed CRLF header stays consistently CRLF instead of gaining
+  // lone LFs.
+  eol string
 }
 
 func (l declarationHeaderLayout) indent(base string, depth int) string {
@@ -203,7 +208,7 @@ func (l declarationHeaderLayout) indent(base string, depth int) string {
 func loadDeclarationHeaderLayout(ctx *Context) declarationHeaderLayout {
   var opts formatDeclarationHeaderOptions
   _ = ctx.DecodeOptions(&opts)
-  l := declarationHeaderLayout{printWidth: 80, tabWidth: 2, oneLevel: "  "}
+  l := declarationHeaderLayout{printWidth: 80, tabWidth: 2, oneLevel: "  ", eol: "\n"}
   if opts.PrintWidth != nil && *opts.PrintWidth > 0 {
     l.printWidth = *opts.PrintWidth
   }
@@ -214,6 +219,9 @@ func loadDeclarationHeaderLayout(ctx *Context) declarationHeaderLayout {
     l.oneLevel = "\t"
   } else if opts.TabWidth != nil && *opts.TabWidth > 0 {
     l.oneLevel = strings.Repeat(" ", *opts.TabWidth)
+  }
+  if opts.EndOfLine != nil && *opts.EndOfLine == "crlf" {
+    l.eol = "\r\n"
   }
   return l
 }
@@ -392,11 +400,11 @@ func multiClauseHeader(prefix string, clauses []heritageClauseText, layout decla
   indent1 := layout.indent(base, 1)
   indent2 := layout.indent(base, 2)
   for ci, c := range clauses {
-    b.WriteString("\n")
+    b.WriteString(layout.eol)
     b.WriteString(indent1)
     b.WriteString(c.keyword)
     inlineWidth := visualWidth(indent1+c.keyword+" "+strings.Join(c.types, ", "), layout.tabWidth)
-    if ci == len(clauses)-1 && !strings.HasPrefix(brace, "\n") {
+    if ci == len(clauses)-1 && !strings.HasPrefix(brace, layout.eol) {
       inlineWidth += visualWidth(brace, layout.tabWidth)
     }
     if inlineWidth <= layout.printWidth {
@@ -405,7 +413,7 @@ func multiClauseHeader(prefix string, clauses []heritageClauseText, layout decla
       continue
     }
     for i, t := range c.types {
-      b.WriteString("\n")
+      b.WriteString(layout.eol)
       b.WriteString(indent2)
       b.WriteString(t)
       if i < len(c.types)-1 {
@@ -427,7 +435,7 @@ func multiTypeHeader(prefix string, clause heritageClauseText, layout declaratio
   indent1 := layout.indent(base, 1)
   inline := indent1 + clause.keyword + " " + strings.Join(clause.types, ", ")
   inlineWidth := visualWidth(inline, layout.tabWidth)
-  if !strings.HasPrefix(brace, "\n") {
+  if !strings.HasPrefix(brace, layout.eol) {
     inlineWidth += visualWidth(brace, layout.tabWidth)
   }
   if emptyBody {
@@ -437,16 +445,16 @@ func multiTypeHeader(prefix string, clause heritageClauseText, layout declaratio
     inlineWidth++
   }
   if inlineWidth <= layout.printWidth {
-    return prefix + "\n" + inline + brace
+    return prefix + layout.eol + inline + brace
   }
 
   var b strings.Builder
   b.WriteString(prefix)
-  b.WriteString("\n")
+  b.WriteString(layout.eol)
   b.WriteString(indent1)
   b.WriteString(clause.keyword)
   for i, t := range clause.types {
-    b.WriteString("\n")
+    b.WriteString(layout.eol)
     b.WriteString(layout.indent(base, 2))
     b.WriteString(t)
     if i < len(clause.types)-1 {
@@ -524,14 +532,15 @@ func singleGenericHeritageHeader(src, base, prefix string, typeParams, heritage 
   b.WriteString(keyword)
   b.WriteString(" ")
   b.WriteString(typeName)
-  b.WriteString("<\n")
+  b.WriteString("<")
+  b.WriteString(layout.eol)
   for i, a := range args {
     b.WriteString(layout.indent(base, 1))
     b.WriteString(a)
     if i < len(args)-1 {
       b.WriteString(",")
     }
-    b.WriteString("\n")
+    b.WriteString(layout.eol)
   }
   b.WriteString(base)
   b.WriteString("> {")
@@ -541,10 +550,11 @@ func singleGenericHeritageHeader(src, base, prefix string, typeParams, heritage 
 // headerBrace returns the opening-brace fragment that closes a broken
 // header. Prettier puts `{` on its own line only for a class with a
 // non-empty body; an interface and any empty body keep it glued to the
-// last header line.
-func headerBrace(isClass, emptyBody bool, base string) string {
+// last header line. `eol` is the synthesized newline (LF or CRLF) so the
+// own-line brace matches the file's line endings.
+func headerBrace(isClass, emptyBody bool, base, eol string) string {
   if isClass && !emptyBody {
-    return "\n" + base + "{"
+    return eol + base + "{"
   }
   return " {"
 }
@@ -579,11 +589,13 @@ func typeParamExplodeHeader(
 ) string {
   var b strings.Builder
   b.WriteString(prefix)
-  b.WriteString("<\n")
+  b.WriteString("<")
+  b.WriteString(layout.eol)
   paramIndent := layout.indent(base, 1)
   for _, p := range typeParams.Nodes {
     b.WriteString(renderExplodedTypeParam(src, p, layout, paramIndent))
-    b.WriteString(",\n")
+    b.WriteString(",")
+    b.WriteString(layout.eol)
   }
   b.WriteString(base)
   b.WriteString(">")
@@ -594,7 +606,7 @@ func typeParamExplodeHeader(
     //   >
     //     extends IPage.IRequest {
     c := clauses[0]
-    b.WriteString("\n")
+    b.WriteString(layout.eol)
     b.WriteString(layout.indent(base, 1))
     b.WriteString(c.keyword)
     b.WriteString(" ")
@@ -628,7 +640,7 @@ func renderExplodedTypeParam(src string, p *shimast.Node, layout declarationHead
         head := strings.TrimRight(src[start:defStart], " \t") // ends in `=`
         def := strings.TrimSpace(src[defStart:end])
         if head != "" && def != "" {
-          return paramIndent + head + "\n" + paramIndent + layout.oneLevel + def
+          return paramIndent + head + layout.eol + paramIndent + layout.oneLevel + def
         }
       }
     }
