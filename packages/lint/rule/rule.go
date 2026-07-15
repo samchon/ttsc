@@ -118,17 +118,16 @@ type DeclarationFileRule interface {
 // marker keeps the conservative default: it is treated as type-aware and
 // receives a live checker.
 //
-// Being treated as type-aware is not free. To hand a rule types drawn from
-// every source file on one checker, the host pins TypeScript-Go's checker
-// pool to a single checker, which serializes the whole program's semantic
-// typecheck (normally spread across the pool). A purely syntactic rule that
-// never touches `Context.Checker` pays that whole-program cost for nothing.
+// Being treated as type-aware is not free. The host creates a standalone
+// checker spanning every source file, and the engine walks files serially so
+// that checker is never accessed concurrently. A purely syntactic rule that
+// never touches `Context.Checker` pays both costs for nothing.
 //
 // A contributor whose rule is AST-only can implement this with
 // `NeedsTypeChecker() bool { return false }` to opt out of the checker path,
-// so its presence no longer pins the checker pool. Returning `true` is
-// equivalent to not implementing the interface at all. A rule that returns
-// `false` must not read `Context.Checker`: the host is free to leave it nil.
+// preserving the engine's parallel file walk. Returning `true` is equivalent
+// to not implementing the interface at all. A rule that returns `false` must
+// not read `Context.Checker`: the host is free to leave it nil.
 type TypeAwareRule interface {
   Rule
   NeedsTypeChecker() bool

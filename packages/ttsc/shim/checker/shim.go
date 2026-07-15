@@ -9,6 +9,8 @@
 package checker
 
 import (
+  "sync"
+
   innerast "github.com/microsoft/typescript-go/internal/ast"
   innerchecker "github.com/microsoft/typescript-go/internal/checker"
   innerprinter "github.com/microsoft/typescript-go/internal/printer"
@@ -23,6 +25,15 @@ type Type = innerchecker.Type
 type TypeFlags = innerchecker.TypeFlags
 type ObjectFlags = innerchecker.ObjectFlags
 type ElementFlags = innerchecker.ElementFlags
+type Program = innerchecker.Program
+type Tracer = innerchecker.Tracer
+
+// NewChecker creates a checker that owns its complete type graph for program.
+// The returned mutex is the upstream checker-pool synchronization primitive;
+// callers that share the checker must serialize access through it.
+func NewChecker(program Program, tracer *Tracer) (*Checker, *sync.Mutex) {
+  return innerchecker.NewChecker(program, tracer)
+}
 
 //go:linkname checkerGetRegularTypeOfLiteralType github.com/microsoft/typescript-go/internal/checker.(*Checker).getRegularTypeOfLiteralType
 func checkerGetRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerchecker.Type) *innerchecker.Type

@@ -106,7 +106,7 @@ Most shipped third-party-shaped consumers in this repo use this path:
 - [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go): the generic linked transform host (`loadUtilityProgram`).
 - [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go): compact Program/Checker fixture.
 
-`@ttsc/lint` is the exception: [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go) inlines the same Program/Checker bootstrap so its standalone native engine and WASM build can share one package without importing the public `driver` facade.
+`@ttsc/lint` is the exception: [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go) inlines the Program bootstrap, then creates a dedicated checker for type-aware lint rules so its native engine and WASM build can share one package without importing the public `driver` facade.
 
 For the full driver surface (rewrites, emit, source preambles, LSP host), see [Reference → Driver API](/docs/development/reference/driver-api).
 
