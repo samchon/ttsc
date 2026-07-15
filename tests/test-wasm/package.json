@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "name": "@ttsc/test-wasm",
+  "version": "0.18.4",
+  "description": "@ttsc/wasm MemFS mutation and boot-lifecycle feature tests.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --import ../../scripts/register-extensionless-ts-loader.mjs --experimental-transform-types src/index.ts"
+  },
+  "devDependencies": {
+    "@nestia/e2e": "catalog:utils",
+    "@ttsc/testing": "workspace:*",
+    "@ttsc/wasm": "workspace:*",
+    "@types/node": "catalog:utils",
+    "typescript": "catalog:typescript"
+  }
+}
