@@ -63,6 +63,36 @@ body {
   background: rgba(49, 120, 198, 0.22);
 }
 
+body:has(.ttsc-landing) .nextra-navbar-blur {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(35, 90, 151, 0.96) !important;
+}
+
+body:has(.ttsc-landing) .nextra-navbar a,
+body:has(.ttsc-landing) .nextra-navbar button {
+  color: #f7fbff !important;
+}
+
+body:has(.ttsc-landing) .nextra-navbar input {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: white !important;
+}
+
+body:has(.ttsc-landing) .nextra-navbar input::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+body:has(.ttsc-landing) .ttsc-site-logo {
+  color: white;
+}
+
+body:has(.ttsc-landing) .ttsc-site-logo-mark {
+  background: white;
+  color: var(--ttsc-blue);
+  box-shadow: none;
+}
+
 /* ── Landing page: full-bleed canvas ── */
 :has(.ttsc-landing) article {
   max-width: 100% !important;
