@@ -59,6 +59,12 @@ func runDump(args []string) int {
 
   g := graph.Build(prog)
   ignored := graph.GitIgnoredFiles(cwd, g)
+  texts := graph.SourceTexts(prog)
+  origin, err := dumpOrigin(prog, cwd, texts)
+  if err != nil {
+    fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
+    return 1
+  }
   // Stream the document out instead of marshalling it into one byte slice and
   // then copying that slice into a string: on VS Code the dump is 323 MB, so
   // the string conversion alone was a second full copy of it, for nothing. The
@@ -69,11 +75,44 @@ func runDump(args []string) int {
     cwd,
     tsconfig,
     ignored,
-    graph.SourceTexts(prog),
+    texts,
+    origin,
     *prettyFlag,
   ); err != nil {
     fmt.Fprintf(stderr, "ttscgraph: %v\n", err)
     return 1
   }
   return 0
+}
+
+// dumpOrigin assembles the one-shot command's snapshot evidence. A dump written
+// to a file outlives the process that made it and is read by tooling that never
+// saw the project, so it carries the same provenance a served snapshot does:
+// without it the file is a pile of facts with no way to tell which program, or
+// which day, they describe.
+func dumpOrigin(prog *driver.Program, cwd string, texts map[string]string) (graph.DumpOrigin, error) {
+  configs, err := parsedConfigs(prog)
+  if err != nil {
+    return graph.DumpOrigin{}, err
+  }
+  configHashes, err := hashFiles(configFiles(configs))
+  if err != nil {
+    return graph.DumpOrigin{}, err
+  }
+  _, diskDigests, err := hashProgramSources(prog)
+  if err != nil {
+    return graph.DumpOrigin{}, err
+  }
+  return graph.DumpOrigin{
+    Provenance: graph.NewProvenance(
+      cwd,
+      serveProducer(),
+      fullSnapshotCapabilities,
+      fileDigests(configHashes),
+      rootFileEntries(projectRootFilesFromConfigs(configs, false)),
+      texts,
+      diskDigests,
+    ),
+    Diagnostics: graph.NewDiagnostics(prog, cwd),
+  }, nil
 }

@@ -22,6 +22,17 @@ export interface ITtscGraphDump {
   /** The tsconfig the program was loaded from, relative to `project`. */
   tsconfig: string;
 
+  /** Evidence about the one program that produced everything below. */
+  provenance: ITtscGraphDump.IProvenance;
+
+  /**
+   * The compiler's findings for the same generation that produced the facts.
+   *
+   * Empty means the program reported none. It does not mean they were not
+   * collected — `provenance.capabilities` is what says whether they were.
+   */
+  diagnostics: ITtscGraphDump.IDiagnostic[];
+
   /** Every node the build recorded. */
   nodes: ITtscGraphDump.INode[];
 
@@ -30,6 +41,151 @@ export interface ITtscGraphDump {
 }
 
 export namespace ITtscGraphDump {
+  /**
+   * What a snapshot knows about its own origin.
+   *
+   * The graph's claim is that its nodes, edges, spans, and diagnostics all came
+   * from one `Program`. Without this the claim is unprovable from the response:
+   * a consumer could only re-read the disk afterwards and hope nothing moved,
+   * which is not sound — a write that lands and reverts in between is invisible
+   * to it, and a re-read proves what the disk says now, never what the checker
+   * resolved against.
+   *
+   * This carries no source text. A digest is the opposite of inlining: it is
+   * what lets a consumer prove byte-identity against text it read itself,
+   * without the graph ever shipping that text.
+   */
+  export interface IProvenance {
+    /**
+     * The dump body's schema version, moved when a field is added, removed, or
+     * redefined. Independent of the serve protocol's version: a dump written to
+     * a file has a schema but never rode the protocol.
+     */
+    schemaVersion: number;
+
+    /**
+     * What this snapshot proves. A consumer degrades against this rather than
+     * guessing from a field's emptiness, because an empty list and an
+     * uncollected one look identical on the wire.
+     */
+    capabilities: string[];
+
+    /** What built the snapshot. */
+    producer: IProducer;
+
+    /** The inputs that decide which files are in the program at all. */
+    universe: IUniverse;
+
+    /** One entry per file the program loaded, ordered by file. */
+    sources: ISourceDigest[];
+  }
+
+  /** Identifies the binary and the checker behind the facts. */
+  export interface IProducer {
+    /** The `ttscgraph` build version, as `--version` prints it. */
+    ttscgraph: string;
+
+    /** The TypeScript version typescript-go implements. */
+    typescript: string;
+  }
+
+  /**
+   * The build universe: the inputs that decide which files the program
+   * contains, as opposed to what is inside them. A change to any of them can
+   * add or drop whole files, so a consumer reusing facts across snapshots must
+   * treat a universe change as invalidating everything.
+   */
+  export interface IUniverse {
+    /**
+     * The tsconfig chain — the project's config and everything it extends.
+     *
+     * It stays an input regardless of what any source contains: compiler
+     * options change the meaning of code the checker resolves without any
+     * source file changing.
+     */
+    configs: IFileDigest[];
+
+    /**
+     * The resolved root file set, one entry per (config, file) pair. A root a
+     * config names but that does not exist is still listed: its absence is part
+     * of the fingerprint, and creating it later changes the program.
+     */
+    roots: IRootFile[];
+  }
+
+  /** A root file attributed to the config that named it. */
+  export interface IRootFile {
+    /** The tsconfig that named this root, project-relative. */
+    config: string;
+
+    /** The root file, project-relative. */
+    file: string;
+  }
+
+  /** A file and the hex-encoded SHA-256 of its on-disk bytes. */
+  export interface IFileDigest {
+    /** Project-relative. */
+    file: string;
+
+    /** Hex-encoded SHA-256. */
+    digest: string;
+  }
+
+  /**
+   * The manifest entry for one source file the program loaded.
+   *
+   * Two digests, because "the bytes the checker read" and "the bytes on disk"
+   * are not always the same string and a consumer needs to know which one it
+   * compares against. They diverge when a source-preamble plugin injects text
+   * ahead of the file before tsgo parses it, which a real plugin project does on
+   * every build.
+   */
+  export interface ISourceDigest {
+    /** Project-relative. */
+    file: string;
+
+    /**
+     * Hex-encoded SHA-256 of the text the checker resolved against — the ground
+     * truth for the facts. Every node, edge, and span attributed to this file
+     * was computed from these bytes.
+     */
+    checkerDigest: string;
+
+    /**
+     * Hex-encoded SHA-256 of the file's on-disk bytes at snapshot time, or `""`
+     * when it could not be read: it vanished mid-load, or it is a virtual source
+     * with no on-disk identity.
+     *
+     * This is the one a consumer that opens the file itself can reproduce. When
+     * it equals `checkerDigest`, a matching read proves byte-identity with the
+     * facts. When it does not, the checker saw augmented text and that proof is
+     * simply not available for this file — which is a thing to report, not to
+     * paper over.
+     */
+    diskDigest: string;
+  }
+
+  /** One compiler diagnostic from the generation that produced the facts. */
+  export interface IDiagnostic {
+    /** Project-relative. */
+    file: string;
+
+    /** 1-based line. */
+    line: number;
+
+    /** 1-based column. */
+    column: number;
+
+    /** The TypeScript diagnostic code, such as 2322. */
+    code: number;
+
+    /** Whether the finding fails a build. */
+    category: "error" | "warning";
+
+    /** The diagnostic text, without the code prefix. */
+    message: string;
+  }
+
   /**
    * A node as the builder sends it: the graph node, minus the file paths inside
    * its spans, which the loader puts back from the node's own `file`.

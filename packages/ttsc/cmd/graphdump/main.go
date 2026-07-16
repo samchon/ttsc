@@ -50,7 +50,23 @@ func run() int {
 
   g := graph.Build(prog)
   ignored := graph.GitIgnoredFiles(root, g)
-  data, err := graph.MarshalDump(g, root, *tsconfig, ignored, graph.SourceTexts(prog), *pretty)
+  texts := graph.SourceTexts(prog)
+  // The viewer pipeline reduces nodes and edges and never asks whether the build
+  // universe moved, so this tool does not pay to fingerprint it. It still names
+  // its producer and digests what the checker read, and it declares exactly that
+  // — a reader learns the universe is absent rather than inferring it is empty.
+  // The shipped `ttscgraph dump` is the one that proves the whole contract.
+  data, err := graph.MarshalDump(g, root, *tsconfig, ignored, texts, graph.DumpOrigin{
+    Provenance: graph.NewProvenance(
+      root,
+      graph.Producer{Ttscgraph: "graphdump", Typescript: graph.TypescriptVersion()},
+      []string{graph.CapabilitySourceDigests},
+      nil,
+      nil,
+      texts,
+      nil,
+    ),
+  }, *pretty)
   if err != nil {
     fmt.Fprintf(os.Stderr, "graphdump: %v\n", err)
     return 1
