@@ -189,6 +189,22 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
   provenance := origin.Provenance
   provenance.SchemaVersion = DumpSchemaVersion
 
+  // A nil slice encodes as JSON null, and null is not an empty list: a reader
+  // validating `string[]` rejects it, and a reader that does not would have to
+  // guess which of the two the producer meant. Every list on the wire is a list.
+  if provenance.Capabilities == nil {
+    provenance.Capabilities = []string{}
+  }
+  if provenance.Sources == nil {
+    provenance.Sources = []SourceDigest{}
+  }
+  if provenance.Universe.Configs == nil {
+    provenance.Universe.Configs = []FileDigest{}
+  }
+  if provenance.Universe.Roots == nil {
+    provenance.Universe.Roots = []RootFile{}
+  }
+
   diagnostics := origin.Diagnostics
   if diagnostics == nil {
     diagnostics = []Diagnostic{}
