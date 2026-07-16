@@ -323,6 +323,21 @@ export async function assertPrepareSnapshotCompactsWorkerFiles(): Promise<void> 
 }
 
 /**
+ * Asserts preparing a snapshot for a nonexistent project root touches nothing:
+ * Metro verifies the root exists before running, so such a base can never be a
+ * working setup, and `withTtsc` must not materialize directory trees at
+ * arbitrary filesystem paths as a side effect.
+ */
+export async function assertPrepareSnapshotSkipsNonexistentRoot(): Promise<void> {
+  const missing = path.join(
+    TestProject.tmpdir("ttsc-metro-missing-"),
+    "does-not-exist",
+  );
+  await prepareSnapshot(missing);
+  assert.equal(fs.existsSync(missing), false);
+}
+
+/**
  * Asserts compaction heals a corrupt worker snapshot: the unparseable file is
  * swept and the epoch id changes, so keys that might have depended on the lost
  * recordings are orphaned while later runs return to a stable key instead of

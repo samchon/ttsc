@@ -198,7 +198,14 @@ function nonce(): string {
  */
 export function prepareSnapshot(projectRoot: string | undefined): void {
   try {
-    const directory = snapshotDirectory(resolveFingerprintBase(projectRoot));
+    const base = resolveFingerprintBase(projectRoot);
+    // A nonexistent base can never be a working Metro setup (Metro verifies
+    // the project root exists), so preparing a snapshot there would only
+    // materialize directory trees at arbitrary paths.
+    if (!fs.existsSync(base)) {
+      return;
+    }
+    const directory = snapshotDirectory(base);
     fs.mkdirSync(directory, { recursive: true });
     // Read the worker files strictly before the main file (see the module doc
     // comment): a concurrent compactor deletes a worker file only after the

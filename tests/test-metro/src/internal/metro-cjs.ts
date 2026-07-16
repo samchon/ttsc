@@ -1,3 +1,4 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 
@@ -34,7 +35,12 @@ export async function assertCjsBuildLoadsAndRuns(): Promise<void> {
   try {
     const index = nodeRequire(TestMetroRuntime.libPath("index", "js"));
     assert.equal(typeof index.withTtsc, "function");
-    const config = index.withTtsc({ transformer: {} });
+    // A real temp-dir projectRoot keeps the snapshot preparation out of the
+    // suite's own working directory.
+    const config = index.withTtsc({
+      projectRoot: TestProject.tmpdir("ttsc-metro-cjs-"),
+      transformer: {},
+    });
     assert.match(config.transformer.babelTransformerPath, /transformer\.js$/);
 
     const transformer = nodeRequire(

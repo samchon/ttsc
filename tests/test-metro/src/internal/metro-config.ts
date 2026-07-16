@@ -1,8 +1,18 @@
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
 import { TestMetroRuntime } from "./metro-runtime";
+
+/**
+ * A real temp-dir `projectRoot` for config passthrough cases: `withTtsc`
+ * prepares the snapshot under the project root (falling back to the working
+ * directory), so a config without one would write into the suite's own tree.
+ */
+function tempProjectRoot(): string {
+  return TestProject.tmpdir("ttsc-metro-config-");
+}
 
 /**
  * Run `body` with `TTSC_METRO_OPTIONS` saved and restored, so config-level env
@@ -30,7 +40,10 @@ async function withCleanEnv(body: () => Promise<void>): Promise<void> {
 export async function assertWithTtscSetsBabelTransformerPath(): Promise<void> {
   await withCleanEnv(async () => {
     const { withTtsc } = await TestMetroRuntime.loadIndex();
-    const config = withTtsc({ transformer: {} });
+    const config = withTtsc({
+      projectRoot: tempProjectRoot(),
+      transformer: {},
+    });
     const target = config.transformer.babelTransformerPath;
     assert.equal(typeof target, "string");
     assert.equal(path.isAbsolute(target), true);
@@ -48,7 +61,7 @@ export async function assertWithTtscPreservesExistingConfig(): Promise<void> {
   await withCleanEnv(async () => {
     const { withTtsc } = await TestMetroRuntime.loadIndex();
     const base = {
-      projectRoot: "/workspace/app",
+      projectRoot: tempProjectRoot(),
       resolver: { sourceExts: ["ts", "tsx"] },
       transformer: {
         minifierPath: "metro-minify-terser",
@@ -81,8 +94,9 @@ export async function assertWithTtscPublishesWorkerEnv(): Promise<void> {
     const { ENV_KEY } = await TestMetroRuntime.loadOptions();
     const { withTtsc } = await TestMetroRuntime.loadIndex();
 
+    const projectRoot = tempProjectRoot();
     withTtsc(
-      { transformer: {} },
+      { projectRoot, transformer: {} },
       { project: "tsconfig.build.json", exclude: ["__tests__"] },
     );
     assert.deepEqual(JSON.parse(process.env[ENV_KEY] as string), {
@@ -91,7 +105,7 @@ export async function assertWithTtscPublishesWorkerEnv(): Promise<void> {
     });
 
     // No options still publishes an explicit (empty) payload, never undefined.
-    withTtsc({ transformer: {} });
+    withTtsc({ projectRoot, transformer: {} });
     assert.equal(process.env[ENV_KEY], "{}");
   });
 }
@@ -104,8 +118,9 @@ export async function assertWithTtscPublishesWorkerEnv(): Promise<void> {
 export async function assertWithTtscAddsTransformerWhenAbsent(): Promise<void> {
   await withCleanEnv(async () => {
     const { withTtsc } = await TestMetroRuntime.loadIndex();
-    const config = withTtsc({ projectRoot: "/workspace/app" });
-    assert.equal(config.projectRoot, "/workspace/app");
+    const projectRoot = tempProjectRoot();
+    const config = withTtsc({ projectRoot });
+    assert.equal(config.projectRoot, projectRoot);
     assert.equal(typeof config.transformer.babelTransformerPath, "string");
     assert.match(config.transformer.babelTransformerPath, /transformer\.js$/);
   });
