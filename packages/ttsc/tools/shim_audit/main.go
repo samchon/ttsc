@@ -90,6 +90,19 @@ var shimDirs = map[string]string{
   "vfs/osvfs":        "vfs/osvfs",
 }
 
+// auditOnlyInternal lists upstream internal packages that shim sources
+// reference — go:linkname targets and blank imports that compile them into
+// consumer binaries — without owning a shim directory of their own. They are
+// loaded for type information so the shim import scan can resolve them; their
+// exported surface then enters the ratcheted reachable-gap scan like any other
+// loaded package, so unneeded helpers are accepted into baseline.json rather
+// than silently skipped.
+var auditOnlyInternal = []string{
+  // shim/compiler/incremental.go linknames the incremental engine's
+  // reference-graph functions (getReferencedFiles, fileAffectsGlobalScope).
+  "execute/incremental",
+}
+
 // reachable holds, per upstream package suffix, the set of upstream symbol names
 // the shim makes nameable (selector references + linkname targets).
 type reachable map[string]map[string]bool
@@ -522,6 +535,10 @@ func loadInner(anchorDir string) (map[string]*packages.Package, error) {
   var full []string
   expected := map[string]bool{}
   for _, suffix := range shimDirs {
+    full = append(full, internalPrefix+suffix)
+    expected[suffix] = true
+  }
+  for _, suffix := range auditOnlyInternal {
     full = append(full, internalPrefix+suffix)
     expected[suffix] = true
   }

@@ -6,6 +6,7 @@ import {
 } from "../../plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscCompilerDiagnostic } from "../../structures/ITtscCompilerDiagnostic";
+import type { ITtscCompilerTransformation } from "../../structures/ITtscCompilerTransformation";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscParsedProjectConfig";
 import type { TtscBuildResult } from "../../structures/internal/TtscBuildResult";
@@ -41,8 +42,10 @@ import { outputText, spawnNative } from "./spawnNative";
  */
 export function transformProjectInMemory(options: ITtscCompilerContext): {
   dependencies?: Record<string, string[]>;
+  graph?: ITtscCompilerTransformation.IReferenceGraph;
   result: TtscBuildResult;
   typescript: Record<string, string>;
+  volatile?: string[];
 } {
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const project = readProjectConfig({
@@ -74,8 +77,10 @@ function transformProjectWithNativeHost(
   project: ITtscParsedProjectConfig,
 ): {
   dependencies?: Record<string, string[]>;
+  graph?: ITtscCompilerTransformation.IReferenceGraph;
   result: TtscBuildResult;
   typescript: Record<string, string>;
+  volatile?: string[];
 } {
   const binary = buildNativeCompiler({
     cacheBaseDir: project.root,
@@ -101,9 +106,7 @@ function transformProjectWithNativeHost(
     outputText(res.stderr),
   );
   return {
-    ...(output.dependencies === undefined
-      ? {}
-      : { dependencies: output.dependencies }),
+    ...envelopeSideChannels(output),
     result: {
       diagnostics: output.diagnostics,
       status: res.status ?? 1,
@@ -120,8 +123,10 @@ function transformProjectWithPlugins(
   project: ITtscParsedProjectConfig,
 ): {
   dependencies?: Record<string, string[]>;
+  graph?: ITtscCompilerTransformation.IReferenceGraph;
   result: TtscBuildResult;
   typescript: Record<string, string>;
+  volatile?: string[];
 } {
   const loaded = loadProjectPlugins({
     binary: resolveBinary(options) ?? "",
@@ -159,9 +164,7 @@ function transformProjectWithPlugins(
   if (transformers.length === 0) {
     const transformed = transformProjectWithNativeHost(options, project);
     return {
-      ...(transformed.dependencies === undefined
-        ? {}
-        : { dependencies: transformed.dependencies }),
+      ...envelopeSideChannels(transformed),
       result: appendBuildOutput(checked, transformed.result),
       typescript: transformed.typescript,
     };
@@ -197,11 +200,32 @@ function transformProjectWithPlugins(
     stderr: outputText(res.stderr),
   };
   return {
+    ...envelopeSideChannels(output),
+    result: appendBuildOutput(checked, result),
+    typescript: output.typescript,
+  };
+}
+
+/**
+ * Collect the optional advisory envelope fields (`dependencies`, `graph`,
+ * `volatile`) into a spreadable object, omitting absent fields so downstream
+ * result shapes stay free of `undefined` keys.
+ */
+function envelopeSideChannels(output: {
+  dependencies?: Record<string, string[]>;
+  graph?: ITtscCompilerTransformation.IReferenceGraph;
+  volatile?: string[];
+}): {
+  dependencies?: Record<string, string[]>;
+  graph?: ITtscCompilerTransformation.IReferenceGraph;
+  volatile?: string[];
+} {
+  return {
     ...(output.dependencies === undefined
       ? {}
       : { dependencies: output.dependencies }),
-    result: appendBuildOutput(checked, result),
-    typescript: output.typescript,
+    ...(output.graph === undefined ? {} : { graph: output.graph }),
+    ...(output.volatile === undefined ? {} : { volatile: output.volatile }),
   };
 }
 
@@ -368,10 +392,10 @@ function nativePluginEnv(
  * treated as a protocol error and throws with the stderr/stdout context. JSON
  * parse errors are also wrapped with the same context message.
  *
- * The optional `dependencies` field (per-file consulted-source lists, see
- * `ITtscCompilerTransformation`) is forwarded when well-formed; entries that
- * are not string arrays are dropped rather than failing the transform — the
- * field is advisory watch metadata, not output.
+ * The optional `dependencies`, `graph`, and `volatile` fields (see
+ * `ITtscCompilerTransformation`) are forwarded when well-formed; entries that
+ * do not match the expected shape are dropped rather than failing the transform
+ * — the fields are advisory invalidation metadata, not output.
  */
 function parseNativeTransformOutput(
   stdout: string,
@@ -379,13 +403,17 @@ function parseNativeTransformOutput(
 ): {
   dependencies?: Record<string, string[]>;
   diagnostics: ITtscCompilerDiagnostic[];
+  graph?: ITtscCompilerTransformation.IReferenceGraph;
   typescript: Record<string, string>;
+  volatile?: string[];
 } {
   try {
     const parsed = JSON.parse(stdout) as {
       dependencies?: Record<string, string[]>;
       diagnostics?: ITtscCompilerDiagnostic[];
+      graph?: ITtscCompilerTransformation.IReferenceGraph;
       typescript?: Record<string, string>;
+      volatile?: string[];
     };
     if (!isTextRecord(parsed.typescript)) {
       throw new Error(
@@ -393,8 +421,12 @@ function parseNativeTransformOutput(
       );
     }
     const dependencies = parseDependencyLists(parsed.dependencies);
+    const graph = parseReferenceGraph(parsed.graph);
+    const volatile = parseFileList(parsed.volatile);
     return {
       ...(dependencies === undefined ? {} : { dependencies }),
+      ...(graph === undefined ? {} : { graph }),
+      ...(volatile === undefined ? {} : { volatile }),
       diagnostics: Array.isArray(parsed.diagnostics) ? parsed.diagnostics : [],
       typescript: parsed.typescript,
     };
@@ -432,6 +464,51 @@ function parseDependencyLists(
     }
   }
   return Object.keys(output).length === 0 ? undefined : output;
+}
+
+/**
+ * Normalize the optional `graph` envelope section with the same tolerance as
+ * `dependencies`: non-object sections are dropped, edge entries that are not
+ * string arrays are dropped, and non-string list members are filtered. A
+ * section carrying nothing usable collapses to `undefined`.
+ */
+function parseReferenceGraph(
+  value: unknown,
+): ITtscCompilerTransformation.IReferenceGraph | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const section = value as {
+    configs?: unknown;
+    edges?: unknown;
+    globals?: unknown;
+  };
+  const edges = parseDependencyLists(section.edges) ?? {};
+  const globals = parseFileList(section.globals) ?? [];
+  const configs = parseFileList(section.configs) ?? [];
+  if (
+    Object.keys(edges).length === 0 &&
+    globals.length === 0 &&
+    configs.length === 0
+  ) {
+    return undefined;
+  }
+  return { configs, edges, globals };
+}
+
+/**
+ * Normalize an optional string-list envelope field (`volatile`, and the
+ * `globals`/`configs` graph sections), or `undefined` when absent or carrying
+ * nothing usable.
+ */
+function parseFileList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const files = value.filter(
+    (entry): entry is string => typeof entry === "string" && entry.length !== 0,
+  );
+  return files.length === 0 ? undefined : files;
 }
 
 /** Type guard: true when `value` is a non-null, non-array object of strings. */

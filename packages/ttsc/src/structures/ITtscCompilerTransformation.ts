@@ -14,6 +14,42 @@ export type ITtscCompilerTransformation =
   | ITtscCompilerTransformation.IException;
 
 export namespace ITtscCompilerTransformation {
+  /**
+   * Host-owned reference graph of the transformed program, mirroring the
+   * envelope's optional `graph` section.
+   *
+   * The graph is the language-semantic input bound of the transform under `tsc
+   * --incremental` semantics: any symbol a file can reference is reachable
+   * through its import/reference closure or is ambient. Bundler adapters
+   * register, per transformed file `F`, the reachability closure of
+   * {@link edges} from `F` together with {@link globals} and {@link configs}, so
+   * persistent caches and watch graphs invalidate soundly without per-plugin
+   * dependency reporting.
+   *
+   * Keys and values follow the same convention as {@link ISuccess.typescript}:
+   * project-relative slash paths, falling back to absolute slash paths outside
+   * the project root.
+   */
+  export interface IReferenceGraph {
+    /**
+     * Direct resolved references per file: imports, re-exports, `///
+     * <reference>` targets, and type reference directives — type-only edges
+     * included. Direct edges only; consumers compute transitive reachability
+     * themselves.
+     */
+    edges: Record<string, string[]>;
+
+    /**
+     * Files contributing to the global scope (ambient declaration files, script
+     * files, global augmentations, `typeRoots` entries). A change to any of
+     * them can affect every file in the program.
+     */
+    globals: string[];
+
+    /** The project tsconfig followed by its `extends` ancestry. */
+    configs: string[];
+  }
+
   /** Successful source-to-source transformation result. */
   export interface ISuccess {
     /** Indicates that transformation completed without diagnostics. */
@@ -44,6 +80,26 @@ export namespace ITtscCompilerTransformation {
      * invalidation. ttsc passes the paths through verbatim.
      */
     dependencies?: Record<string, string[]>;
+
+    /**
+     * Host-owned reference graph of the transformed program.
+     *
+     * Optional: only present when the transform host stamped a `graph` section
+     * into its stdout envelope (the built-in native host and the linked-plugin
+     * host always do; external sidecars adopt through the driver SDK).
+     * Malformed sections are dropped, never fatal — the field is advisory
+     * invalidation metadata, not output.
+     */
+    graph?: IReferenceGraph;
+
+    /**
+     * Transformed files (keyed like {@link typescript}) whose output depends on
+     * non-file inputs (environment, time, network) as declared by the transform
+     * plugin via the envelope's optional `volatile` list. No file-dependency
+     * scheme can represent such inputs, so consumers must exclude these files
+     * from caching instead of watching more files.
+     */
+    volatile?: string[];
   }
 
   /** Source-to-source transformation result that completed with diagnostics. */
@@ -69,6 +125,19 @@ export namespace ITtscCompilerTransformation {
      * transform did not complete its pass.
      */
     dependencies?: Record<string, string[]>;
+
+    /**
+     * Host-owned reference graph. Same shape and semantics as
+     * {@link ISuccess.graph}; may be absent when diagnostics prevented the host
+     * from loading the program.
+     */
+    graph?: IReferenceGraph;
+
+    /**
+     * Volatile transformed files. Same shape and semantics as
+     * {@link ISuccess.volatile}.
+     */
+    volatile?: string[];
   }
 
   /** Unexpected host-level error during transformation. */

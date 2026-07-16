@@ -259,8 +259,10 @@ interface ProjectResult {
 
 interface ProjectTransformation {
   dependencies?: Record<string, string[]>;
+  graph?: ITtscCompilerTransformation.IReferenceGraph;
   result: TtscBuildResult;
   typescript: Record<string, string>;
+  volatile?: string[];
 }
 
 function runProject(task: () => ProjectResult): ITtscCompilerResult {
@@ -371,20 +373,24 @@ function toCompilerResult(project: ProjectResult): ITtscCompilerResult {
 function toCompilerTransformation(
   project: ProjectTransformation,
 ): ITtscCompilerTransformation {
-  const { dependencies, result, typescript } = project;
-  const dependencyField = dependencies === undefined ? {} : { dependencies };
+  const { dependencies, graph, result, typescript, volatile } = project;
+  const advisoryFields = {
+    ...(dependencies === undefined ? {} : { dependencies }),
+    ...(graph === undefined ? {} : { graph }),
+    ...(volatile === undefined ? {} : { volatile }),
+  };
   if (result.status === 0 && !hasErrorDiagnostics(result.diagnostics)) {
     return {
       ...(result.diagnostics.length === 0
         ? {}
         : { diagnostics: result.diagnostics }),
-      ...dependencyField,
+      ...advisoryFields,
       type: "success",
       typescript,
     };
   }
   return {
-    ...dependencyField,
+    ...advisoryFields,
     diagnostics:
       result.diagnostics.length === 0
         ? [createProcessDiagnostic(result)]

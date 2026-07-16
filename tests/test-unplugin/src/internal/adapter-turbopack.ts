@@ -28,35 +28,48 @@ async function runTurbopackLoaderWithContext(props: {
   source: string;
   options?: unknown;
   omitAddDependency?: boolean;
-}): Promise<{ content: string; dependencies: string[] }> {
+}): Promise<{
+  cacheableCalls: boolean[];
+  content: string;
+  dependencies: string[];
+}> {
   const loader = await TestUnpluginRuntime.loadUnpluginAdapter("turbopack");
+  const cacheableCalls: boolean[] = [];
   const dependencies: string[] = [];
-  return new Promise<{ content: string; dependencies: string[] }>(
-    (resolve, reject) => {
-      const context: Record<string, unknown> = {
-        resourcePath: props.resourcePath,
-        getOptions: () => props.options,
-        async:
-          () =>
-          (error?: unknown, content?: string): void => {
-            if (error !== undefined && error !== null) {
-              reject(error instanceof Error ? error : new Error(String(error)));
-              return;
-            }
-            resolve({ content: content ?? "", dependencies });
-          },
+  return new Promise<{
+    cacheableCalls: boolean[];
+    content: string;
+    dependencies: string[];
+  }>((resolve, reject) => {
+    const context: Record<string, unknown> = {
+      resourcePath: props.resourcePath,
+      getOptions: () => props.options,
+      cacheable: function (this: unknown, flag: boolean): void {
+        // Capture `this` binding: the loader must call cacheable bound to the
+        // webpack loader context, not the transform hooks object.
+        assert.equal(this, context, "cacheable lost its context binding");
+        cacheableCalls.push(flag);
+      },
+      async:
+        () =>
+        (error?: unknown, content?: string): void => {
+          if (error !== undefined && error !== null) {
+            reject(error instanceof Error ? error : new Error(String(error)));
+            return;
+          }
+          resolve({ cacheableCalls, content: content ?? "", dependencies });
+        },
+    };
+    if (props.omitAddDependency !== true) {
+      context.addDependency = function (this: unknown, file: string): void {
+        // Capture `this` binding: the loader must call addDependency bound to
+        // the webpack loader context, not the transform hooks object.
+        assert.equal(this, context, "addDependency lost its context binding");
+        dependencies.push(file);
       };
-      if (props.omitAddDependency !== true) {
-        context.addDependency = function (this: unknown, file: string): void {
-          // Capture `this` binding: the loader must call addDependency bound to
-          // the webpack loader context, not the transform hooks object.
-          assert.equal(this, context, "addDependency lost its context binding");
-          dependencies.push(file);
-        };
-      }
-      loader.call(context, props.source);
-    },
-  );
+    }
+    loader.call(context, props.source);
+  });
 }
 
 /**
@@ -233,8 +246,54 @@ async function assertTurbopackLoaderTransformsWithoutAddDependency(): Promise<vo
   assert.deepEqual(dependencies, []);
 }
 
+/**
+ * Asserts the loader marks a plugin-declared volatile module uncacheable
+ * through the webpack loader contract's `cacheable(false)`, and its negative
+ * twin: an ordinary transform never toggles cacheability.
+ *
+ * A volatile module's output depends on non-file inputs, which no
+ * `fileDependencies` snapshot can represent; `cacheable(false)` is the only
+ * loader-level channel that excludes it from caching.
+ */
+async function assertTurbopackLoaderMarksVolatileModulesUncacheable(): Promise<void> {
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  const volatileRun = await runTurbopackLoaderWithContext({
+    resourcePath: TestUnpluginProject.mainFile(root),
+    source: TestUnpluginProject.mainSource(root),
+    options: {
+      plugins: [
+        {
+          transform: "./plugin.cjs",
+          name: "fixture",
+          operation: "emit-volatile",
+          volatile: ["src/main.ts"],
+        },
+      ],
+    },
+  });
+  assert.match(volatileRun.content, /"PLUGIN:\d+"/);
+  assert.deepEqual(volatileRun.cacheableCalls, [false]);
+
+  const hermeticRun = await runTurbopackLoaderWithContext({
+    resourcePath: TestUnpluginProject.mainFile(root),
+    source: TestUnpluginProject.mainSource(root),
+    options: {
+      plugins: [
+        {
+          transform: "./plugin.cjs",
+          name: "fixture",
+          operation: "go-uppercase",
+        },
+      ],
+    },
+  });
+  TestUnpluginProject.assertTransformedToPlugin(hermeticRun.content);
+  assert.deepEqual(hermeticRun.cacheableCalls, []);
+}
+
 export {
   assertTurbopackLoaderForwardsRuleOptions,
+  assertTurbopackLoaderMarksVolatileModulesUncacheable,
   assertTurbopackLoaderPassesThroughFilteredPaths,
   assertTurbopackLoaderRegistersDependenciesOnCacheHit,
   assertTurbopackLoaderRegistersNoDependenciesWithoutReport,

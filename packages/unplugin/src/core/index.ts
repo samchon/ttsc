@@ -68,11 +68,24 @@ const unpluginFactory: UnpluginFactory<
         return undefined;
       }
       return transformTtsc(file, source, options, aliases, transformCache, {
-        // Register plugin-reported dependencies (the transform envelope's
-        // `dependencies` lists) so type-only inputs invalidate this module
-        // in watch mode; bundlers erase type-only imports from their own
-        // module graph and would otherwise serve stale generated code.
+        // Register the derived watch inputs (plugin-reported `dependencies`
+        // unioned with the host-owned reference graph) so type-only inputs
+        // invalidate this module in watch mode and persistent caches;
+        // bundlers erase type-only imports from their own module graph and
+        // would otherwise serve stale generated code.
         addWatchFile: (watched) => this.addWatchFile(watched),
+        // A module the plugin declared volatile depends on non-file inputs,
+        // which no file-dependency snapshot can represent; mark it
+        // uncacheable where the bundler exposes that control.
+        markVolatile: () => {
+          const native = this.getNativeBuildContext?.();
+          if (
+            native?.framework === "webpack" ||
+            native?.framework === "rspack"
+          ) {
+            native.loaderContext?.cacheable?.(false);
+          }
+        },
       });
     },
   };

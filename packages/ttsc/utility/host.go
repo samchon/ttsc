@@ -41,9 +41,14 @@ type hostOptions struct {
 // transformResult is the JSON envelope written to stdout by RunTransform.
 // TypeScript maps relative output key → printer output; Diagnostics is
 // reserved for future plugin diagnostics (currently always empty/omitted).
+// Graph carries the host-owned reference graph (direct resolved reference
+// edges, global-scope files, tsconfig extends chain) keyed like TypeScript,
+// so cache layers can register every file whose content can influence a
+// transformed module without per-plugin reporting.
 type transformResult struct {
-  Diagnostics []any             `json:"diagnostics,omitempty"`
-  TypeScript  map[string]string `json:"typescript"`
+  Diagnostics []any                  `json:"diagnostics,omitempty"`
+  TypeScript  map[string]string      `json:"typescript"`
+  Graph       *driver.TransformGraph `json:"graph,omitempty"`
 }
 
 // RunCheck validates the project and linked plugin configuration without
@@ -130,12 +135,17 @@ func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
     return 2
   }
   defer prog.Close()
+  // Compute the reference graph before linked plugins run: plugin hooks
+  // mutate parsed ASTs in place (e.g. @ttsc/paths rewrites import
+  // specifiers), and the graph must describe the original source's resolved
+  // references — the transform's inputs — not the mutated output.
+  graph := driver.NewTransformGraph(prog, opts.cwd)
   if err := prog.ApplyLinkedPlugins(); err != nil {
     fmt.Fprintln(opts.stderr, err)
     return 2
   }
   printer := shimprinter.NewPrinter(shimprinter.PrinterOptions{}, shimprinter.PrintHandlers{}, nil)
-  out := transformResult{TypeScript: map[string]string{}}
+  out := transformResult{TypeScript: map[string]string{}, Graph: graph}
   for _, file := range prog.SourceFiles() {
     text := shimprinter.EmitSourceFile(printer, file)
     out.TypeScript[apiOutputKey(opts.cwd, file.FileName())] = text
@@ -406,17 +416,9 @@ func isSourcePreambleOutputTarget(fileName string) bool {
 
 // apiOutputKey converts an absolute fileName to a path relative to cwd for use
 // as the JSON key in RunTransform output. Falls back to the slash-normalized
-// absolute path when the file lives outside the project root.
+// absolute path when the file lives outside the project root. Delegates to
+// the driver so every envelope section (typescript, graph) shares one key
+// implementation and consumers can join sections by key.
 func apiOutputKey(cwd, fileName string) string {
-  rel, err := filepath.Rel(cwd, fileName)
-  if err != nil || isOutsideRelativePath(rel) {
-    return filepath.ToSlash(fileName)
-  }
-  return filepath.ToSlash(rel)
-}
-
-// isOutsideRelativePath reports whether rel escapes the project root (starts
-// with ".." or is exactly "..").
-func isOutsideRelativePath(rel string) bool {
-  return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
+  return driver.TransformOutputKey(cwd, fileName)
 }

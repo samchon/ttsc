@@ -302,9 +302,11 @@ const options: TtscUnpluginOptions = {
 - `compilerOptions`: temporary override layered on the selected project config.
 - `plugins`: direct `ttsc` plugin list override, or `false` to disable plugins.
 
-### Watch Mode and HMR
+### Cache and Watch Invalidation
 
-Transform plugins may report, per file, the source files they consulted (the transform envelope's `dependencies` field, see the [plugin protocol](https://ttsc.dev/docs/development/concepts/protocol#transform)). The adapter registers each reported path with the bundler via `addWatchFile`, so editing a type that only a generated validator depends on invalidates the module in watch mode even though the bundler erased the type-only import from its graph.
+The transform host reports the program's reference graph (the transform envelope's `graph` section: per-file direct resolved references with type-only edges included, global-scope files, and the tsconfig `extends` chain — see the [plugin protocol](https://ttsc.dev/docs/development/concepts/protocol#transform)). Per transformed file, the adapter registers the graph's reachability closure, the globals, and the configs with the bundler via `addWatchFile`, so editing a type that only a generated validator depends on invalidates the module — in watch mode, in webpack's filesystem cache, and in Turbopack's `fileDependencies` — even though the bundler erased the type-only import from its own graph.
+
+Transform plugins may additionally report, per file, the source files they consulted (the envelope's `dependencies` field); the adapter registers those as watch files too, union semantics. Files a plugin declares `volatile` (output depending on non-file inputs such as environment or time) bypass the adapter's transform cache and are marked uncacheable where the bundler exposes that control.
 
 ## Sponsors
 

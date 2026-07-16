@@ -343,6 +343,46 @@ function writeArrayTransformPlugin(root: string) {
   );
 }
 
+/**
+ * Write a transform plugin whose envelope mixes malformed and well-formed
+ * advisory fields (`graph`, `volatile`), so API tests can pin the
+ * drop-malformed-keep-valid tolerance the protocol requires for advisory
+ * invalidation metadata.
+ */
+function writeMalformedAdvisoryTransformPlugin(root: string) {
+  fs.writeFileSync(
+    path.join(root, "plugin.cjs"),
+    'module.exports = { name: "malformed-advisory-fixture", source: "./plugin-go" };\n',
+    "utf8",
+  );
+  fs.mkdirSync(path.join(root, "plugin-go"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "plugin-go", "go.mod"),
+    "module example.com/malformedadvisoryfixture\n\ngo 1.26\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(root, "plugin-go", "main.go"),
+    [
+      "package main",
+      "",
+      "import (",
+      '\t"fmt"',
+      '\t"os"',
+      ")",
+      "",
+      "func main() {",
+      '\tif len(os.Args) > 1 && os.Args[1] == "transform" {',
+      '\t\tfmt.Println(`{"typescript":{"src/main.ts":"export const value = 1;\\n"},"graph":{"edges":{"src/main.ts":["src/good.d.ts"],"src/bad.ts":"not-a-list","src/worse.ts":[1,2]},"globals":"not-a-list","configs":["tsconfig.json",42]},"volatile":{"not":"a-list"}}`)',
+      "\t\treturn",
+      "\t}",
+      "}",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+}
+
 function writeCompilerPlugin(root: string) {
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
@@ -415,9 +455,17 @@ function writeCompilerPluginBackend(pluginRoot: string) {
       "\treturn 0",
       "}",
       "",
+      "type graphSection struct {",
+      '\tEdges map[string][]string `json:"edges"`',
+      '\tGlobals []string `json:"globals"`',
+      '\tConfigs []string `json:"configs"`',
+      "}",
+      "",
       "type transformResult struct {",
       '\tTypeScript map[string]string `json:"typescript"`',
       '\tDependencies map[string][]string `json:"dependencies,omitempty"`',
+      '\tGraph *graphSection `json:"graph,omitempty"`',
+      '\tVolatile []string `json:"volatile,omitempty"`',
       "}",
       "",
       "func transformSource(args []string) int {",
@@ -437,7 +485,16 @@ function writeCompilerPluginBackend(pluginRoot: string) {
       "\t// Report a consulted-source list the way a type-driven plugin would,",
       "\t// so API tests can pin the envelope's optional dependencies field.",
       '\tdeps := map[string][]string{"src/main.ts": {"src/consulted.d.ts"}}',
-      '\tdata, err := json.Marshal(transformResult{TypeScript: map[string]string{"src/main.ts": output}, Dependencies: deps})',
+      "\t// Stamp a reference graph and a volatile list the way a driver-SDK",
+      "\t// host would, so API tests can pin the envelope's optional graph and",
+      "\t// volatile fields end to end.",
+      "\tgraph := &graphSection{",
+      '\t\tEdges: map[string][]string{"src/main.ts": {"src/mytype.ts"}},',
+      '\t\tGlobals: []string{"src/ambient.d.ts"},',
+      '\t\tConfigs: []string{"tsconfig.json"},',
+      "\t}",
+      '\tvolatile := []string{"src/volatile.ts"}',
+      '\tdata, err := json.Marshal(transformResult{TypeScript: map[string]string{"src/main.ts": output}, Dependencies: deps, Graph: graph, Volatile: volatile})',
       "\tif err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
       "\tfmt.Fprintln(os.Stdout, string(data))",
       "\treturn 0",
@@ -481,6 +538,7 @@ export {
   writeBrokenTransformPlugin,
   writeCompilerPlugin,
   writeCompilerPluginBackend,
+  writeMalformedAdvisoryTransformPlugin,
   writeMinimalGoPlugin,
   writePackageCompilerPlugin,
   writePackageSourcePlugin,

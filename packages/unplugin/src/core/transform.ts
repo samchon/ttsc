@@ -60,6 +60,15 @@ export interface TtscCachedProjectTransform {
   projectRoot: string;
   /** Raw compiler output returned by {@link TtscCompiler.transform}. */
   result: ITtscCompilerTransformation;
+  /**
+   * Absolute path of the generated temp-dir tsconfig this compile ran against,
+   * when an alias/compiler-options overlay required one. The compiler reports
+   * it in the envelope's `graph.configs` chain, but it is disposed right after
+   * the compile, so registering it as a watch input would invalidate every
+   * bundler cache snapshot on the next build; watch derivation must skip
+   * exactly this path.
+   */
+  temporaryTsconfig?: string;
 }
 
 /**
@@ -85,12 +94,22 @@ export function createTtscTransformCache(): TtscTransformCache {
  */
 export interface TtscTransformHooks {
   /**
-   * Invoked once per absolute dependency path the plugin reported for the
-   * transformed file (`dependencies` in the transform envelope). Adapters
-   * forward this to the bundler's `addWatchFile` so type-only inputs
-   * participate in HMR invalidation.
+   * Invoked once per absolute watch-input path derived for the transformed file
+   * `F`: the plugin-reported `dependencies[F]` list unioned with the host-owned
+   * reference graph's contribution — the reachability closure of `graph.edges`
+   * from `F`, the `graph.globals` files, and the `graph.configs` chain.
+   * Adapters forward this to the bundler's `addWatchFile` so type-only inputs
+   * participate in watch-mode and persistent-cache invalidation.
    */
   addWatchFile?: (file: string) => void;
+  /**
+   * Invoked when the plugin declared the transformed file volatile (the
+   * envelope's `volatile` list): its output depends on non-file inputs that no
+   * file-dependency snapshot can represent. Adapters should mark the module
+   * uncacheable where the bundler exposes that control (e.g. a webpack loader
+   * context's `cacheable(false)`).
+   */
+  markVolatile?: () => void;
 }
 
 /**
@@ -150,7 +169,17 @@ export async function transformTtsc(
     // A rejected in-flight generation must not stay cached: evict it (only if
     // it is still the current entry) so a later call re-runs the transform.
     const cached = await awaitOrEvict(cache, key, transformed);
-    if (matchesCachedSource(cached, file, source)) {
+    if (
+      // A file the plugin declared volatile must never be served from the
+      // cache: its output depends on non-file inputs, so the input-hash
+      // snapshot cannot prove freshness. Fall through to a fresh transform.
+      !isVolatileFile({
+        file,
+        projectRoot: cached.projectRoot,
+        result: cached.result,
+      }) &&
+      matchesCachedSource(cached, file, source)
+    ) {
       reportSuccessDiagnostics(cached.result);
       // A resolved `"exception"` / `"failure"` envelope makes this throw; that
       // is a failed generation too, so evict before surfacing it.
@@ -159,10 +188,11 @@ export async function transformTtsc(
         projectRoot: cached.projectRoot,
         result: cached.result,
       });
-      notifyFileDependencies(hooks, {
+      notifyWatchInputs(hooks, {
         file,
         projectRoot: cached.projectRoot,
         result: cached.result,
+        temporaryTsconfig: cached.temporaryTsconfig,
       });
       return createTransformResult(source, code);
     }
@@ -182,14 +212,21 @@ export async function transformTtsc(
     cache?.set(key, transformed);
   }
   const generation = transformed;
-  const { projectRoot, result } = await awaitOrEvict(cache, key, generation);
+  const { projectRoot, result, temporaryTsconfig } = await awaitOrEvict(
+    cache,
+    key,
+    generation,
+  );
   reportSuccessDiagnostics(result);
   const code = selectOrEvict(cache, key, generation, {
     file,
     projectRoot,
     result,
   });
-  notifyFileDependencies(hooks, { file, projectRoot, result });
+  notifyWatchInputs(hooks, { file, projectRoot, result, temporaryTsconfig });
+  if (isVolatileFile({ file, projectRoot, result })) {
+    hooks?.markVolatile?.();
+  }
   return createTransformResult(source, code);
 }
 
@@ -256,29 +293,153 @@ function evictGeneration(
 }
 
 /**
- * Forward the plugin-reported dependency list for `file` to the adapter's
- * `addWatchFile` hook.
+ * Forward every derived watch input for `file` to the adapter's `addWatchFile`
+ * hook: the plugin-reported `dependencies[file]` list unioned with the
+ * host-owned reference graph's contribution (`reach(edges, file)`, `globals`,
+ * `configs`).
  *
- * The transform envelope's `dependencies` keys mirror the `typescript` keys
- * (project-relative); values may be project-relative or absolute. Every path is
- * absolutized against the project root and deduplicated, and the file itself is
- * dropped; the bundler already watches the module it transforms.
+ * Envelope keys mirror the `typescript` keys (project-relative); values may be
+ * project-relative or absolute. Every path is absolutized against the project
+ * root and deduplicated; the file itself is dropped (the bundler already
+ * watches the module it transforms), and so is the disposed temp-dir tsconfig
+ * (see {@link TtscCachedProjectTransform.temporaryTsconfig}).
  */
-function notifyFileDependencies(
+function notifyWatchInputs(
   hooks: TtscTransformHooks | undefined,
   props: {
     file: string;
     projectRoot: string;
     result: ITtscCompilerTransformation;
+    temporaryTsconfig?: string;
   },
 ): void {
   const addWatchFile = hooks?.addWatchFile;
   if (addWatchFile === undefined) {
     return;
   }
-  for (const dependency of selectFileDependencies(props)) {
-    addWatchFile(dependency);
+  for (const input of selectWatchInputs(props)) {
+    addWatchFile(input);
   }
+}
+
+/**
+ * Derive the absolute, deduplicated watch-input list for a single file:
+ * `dependencies[file] ∪ reach(edges, file) ∪ globals ∪ configs`. Union
+ * semantics on purpose — the plugin-reported list can only widen the host-owned
+ * bound, never narrow it. Returns an empty list on exceptions.
+ */
+function selectWatchInputs(props: {
+  file: string;
+  projectRoot: string;
+  result: ITtscCompilerTransformation;
+  temporaryTsconfig?: string;
+}): string[] {
+  const output: string[] = [];
+  const seen = new Set<string>();
+  const excluded = new Set(
+    props.temporaryTsconfig === undefined
+      ? [props.file]
+      : [props.file, path.resolve(props.temporaryTsconfig)],
+  );
+  for (const absolute of [
+    ...selectFileDependencies(props),
+    ...selectGraphInputs(props),
+  ]) {
+    if (excluded.has(absolute) || seen.has(absolute)) {
+      continue;
+    }
+    seen.add(absolute);
+    output.push(absolute);
+  }
+  return output;
+}
+
+/**
+ * Flatten the host-owned reference graph for one file into absolute paths: the
+ * reachability closure of `edges` starting at the file, plus every global-scope
+ * file and the config chain. Flattening direct edges into a per-file list
+ * happens here — at the adapter boundary — because bundler `fileDependencies`
+ * snapshots are flat; the protocol itself carries only direct edges. Returns an
+ * empty list on exceptions or without a graph.
+ */
+function selectGraphInputs(props: {
+  file: string;
+  projectRoot: string;
+  result: ITtscCompilerTransformation;
+}): string[] {
+  if (props.result.type === "exception") {
+    return [];
+  }
+  const graph = props.result.graph;
+  if (graph === undefined) {
+    return [];
+  }
+  const output: string[] = [];
+  const edges = new Map<string, string[]>();
+  for (const [source, targets] of Object.entries(graph.edges ?? {})) {
+    if (!Array.isArray(targets)) {
+      continue;
+    }
+    edges.set(
+      path.resolve(props.projectRoot, source),
+      targets
+        .filter(
+          (target): target is string =>
+            typeof target === "string" && target.length !== 0,
+        )
+        .map((target) => path.resolve(props.projectRoot, target)),
+    );
+  }
+  const visited = new Set<string>([props.file]);
+  const queue = [props.file];
+  while (queue.length !== 0) {
+    const current = queue.pop()!;
+    for (const target of edges.get(current) ?? []) {
+      if (visited.has(target)) {
+        continue;
+      }
+      visited.add(target);
+      queue.push(target);
+      output.push(target);
+    }
+  }
+  for (const listed of [graph.globals, graph.configs]) {
+    if (!Array.isArray(listed)) {
+      continue;
+    }
+    for (const entry of listed) {
+      if (typeof entry !== "string" || entry.length === 0) {
+        continue;
+      }
+      output.push(path.resolve(props.projectRoot, entry));
+    }
+  }
+  return output;
+}
+
+/**
+ * Report whether the plugin declared `file` volatile: its output depends on
+ * non-file inputs (environment, time, network), so neither the project
+ * transform cache nor a bundler's persistent cache may replay it.
+ */
+function isVolatileFile(props: {
+  file: string;
+  projectRoot: string;
+  result: ITtscCompilerTransformation;
+}): boolean {
+  if (props.result.type === "exception") {
+    return false;
+  }
+  const volatile = props.result.volatile;
+  if (!Array.isArray(volatile)) {
+    return false;
+  }
+  return volatile.some(
+    (entry) =>
+      typeof entry === "string" &&
+      entry.length !== 0 &&
+      path.resolve(props.projectRoot, entry) === props.file,
+  );
 }
 
 /**
@@ -386,8 +547,9 @@ export function createTransformResult(
  * module itself or a sibling the plugin reads) invalidates the entry and forces
  * a re-transform. Out-of-walk inputs a plugin pulls in (`node_modules`
  * declarations, sibling-package sources) are not seen here; adapters invalidate
- * on those through the reported `dependencies` → `addWatchFile` → the bundler's
- * next `buildStart` cache clear.
+ * on those through the derived watch inputs (the host-owned `graph` union the
+ * reported `dependencies`) → `addWatchFile` → the bundler's next `buildStart`
+ * cache clear.
  *
  * Both this snapshot and {@link collectInputHashes} draw their keys from the
  * exact same {@link collectProjectInputHashes} walk, so the two always agree on
@@ -552,6 +714,12 @@ async function transformProject(props: {
       }),
       projectRoot,
       result,
+      // Remember the generated temp-dir tsconfig (disposed below) so watch
+      // derivation can drop it from the envelope's config chain; a registered
+      // but deleted file would invalidate every persistent-cache snapshot.
+      ...(configured.path === props.tsconfig
+        ? {}
+        : { temporaryTsconfig: configured.path }),
     };
   } finally {
     configured.dispose();

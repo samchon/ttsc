@@ -1,5 +1,6 @@
 import type { TtscUnpluginOptions } from "./core/options";
 import { resolveOptions } from "./core/options";
+import type { TtscTransformHooks } from "./core/transform";
 import {
   createTtscTransformCache,
   isDeclarationFile,
@@ -29,6 +30,13 @@ export interface TtscTurbopackLoaderContext {
    * build that predates the method) still loads.
    */
   addDependency?(file: string): void;
+  /**
+   * Toggle result cacheability. Part of the webpack loader context contract;
+   * called with `false` when the ttsc plugin declared the module volatile
+   * (output depends on non-file inputs), so the bundler never replays a cached
+   * result for it. Optional so a minimal stub context still loads.
+   */
+  cacheable?(flag: boolean): void;
 }
 
 /** Matches any path segment that is a `node_modules` directory (cross-platform). */
@@ -79,19 +87,29 @@ export default function turbopack(
     callback(undefined, source);
     return;
   }
-  // Forward plugin-reported dependencies into Turbopack's `fileDependencies`
-  // set so editing a type-only input a transform consulted re-runs this loader.
+  // Forward the derived watch inputs (plugin-reported dependencies plus the
+  // host-owned reference graph) into Turbopack's `fileDependencies` set so
+  // editing a type-only input a transform consulted re-runs this loader.
   // `addDependency` is bound so the webpack loader context stays `this` inside
   // it; the hook fires on cache hits too, which is required because the shared
-  // transform cache lives for the worker lifetime across requests.
+  // transform cache lives for the worker lifetime across requests. A module
+  // the plugin declared volatile is marked uncacheable through the same loader
+  // contract.
   const addDependency = this.addDependency?.bind(this);
+  const cacheable = this.cacheable?.bind(this);
+  const hooks: TtscTransformHooks = {
+    ...(addDependency === undefined ? {} : { addWatchFile: addDependency }),
+    ...(cacheable === undefined
+      ? {}
+      : { markVolatile: () => cacheable(false) }),
+  };
   transformTtsc(
     file,
     source,
     resolveOptions(this.getOptions?.() ?? {}),
     undefined,
     transformCache,
-    addDependency === undefined ? undefined : { addWatchFile: addDependency },
+    Object.keys(hooks).length === 0 ? undefined : hooks,
   ).then(
     (result) => callback(undefined, result?.code ?? source),
     (error) => callback(error),
