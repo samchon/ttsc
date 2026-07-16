@@ -63,7 +63,7 @@ export default function TtscWebsiteLandingLintAsCompileError() {
                     key={note}
                     className="rounded-xl border border-[#c7dff4] bg-white px-3 py-2"
                   >
-                    <p className="text-xs font-medium text-[#405f7a]">{note}</p>
+                    <p className="text-sm font-medium text-[#405f7a]">{note}</p>
                   </div>
                 ))}
               </div>
@@ -74,11 +74,11 @@ export default function TtscWebsiteLandingLintAsCompileError() {
                 <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-400/60" />
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/60" />
-                <span className="ml-3 font-mono text-[11px] text-blue-200">
+                <span className="ml-3 font-mono text-xs text-blue-200">
                   $ npx ttsc --noEmit
                 </span>
               </div>
-              <pre className="overflow-x-auto p-5 font-mono text-[12px] leading-[1.7] text-blue-50 md:p-7 md:text-[13px]">
+              <pre className="overflow-x-auto p-5 font-mono text-[13px] leading-[1.7] text-blue-50 md:p-7 md:text-sm">
                 {DIAGNOSTIC.map((d, i) => (
                   <div key={i} className="mb-3">
                     <span className="text-blue-300">{d.path}</span>

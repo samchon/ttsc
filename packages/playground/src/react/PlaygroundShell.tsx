@@ -647,13 +647,46 @@ export function PlaygroundShell({
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-white text-[#102a43]">
-      {/* ── Toolbar ── */}
-      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[#c7dff4] bg-[#f7fbff] px-4 py-2.5">
-        {brand}
-        <span className="text-[#9db6cb]">/</span>
-        <span className="text-sm text-[#526b82]">Playground</span>
+      {sourceFromURL && (
+        <div className="shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-1.5 font-mono text-[11px] text-amber-800">
+          Source loaded from share URL. Hit Reset to return to the default
+          example.
+        </div>
+      )}
 
-        <div className="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto">
+      {shareWarn && (
+        <div className="shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-1.5 font-mono text-[11px] text-amber-800">
+          {shareWarn}
+        </div>
+      )}
+
+      <div className="flex shrink-0 flex-wrap items-center gap-0 border-b border-[#c7dff4] bg-white">
+        {brand ? (
+          <div className="flex items-center gap-2 border-r border-[#c7dff4] px-4 py-2">
+            {brand}
+            <span className="text-[#9db6cb]">/</span>
+            <span className="text-sm text-[#526b82]">Playground</span>
+          </div>
+        ) : null}
+        {(
+          [
+            { id: "javascript", label: "Compiled JS" },
+            { id: "lint", label: "Lint" },
+          ] as { id: Tab; label: string }[]
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setTarget(tab.id)}
+            className={`px-4 py-2 text-[12px] font-mono border-b-2 transition-colors ${
+              target === tab.id
+                ? "border-[#3178c6] text-[#235a97]"
+                : "border-transparent text-slate-400 hover:text-[#3178c6]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+        <div className="ml-auto flex w-full items-center justify-end gap-2 border-t border-[#d8e7f4] px-4 py-1.5 sm:w-auto sm:border-t-0 sm:pl-0">
           <ExamplePicker
             examples={examples}
             onPick={onPickExample}
@@ -677,47 +710,6 @@ export function PlaygroundShell({
           >
             {shareToast ? "Copied ✓" : "Share"}
           </button>
-        </div>
-      </div>
-
-      {sourceFromURL && (
-        <div className="shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-1.5 font-mono text-[11px] text-amber-800">
-          Source loaded from share URL. Hit Reset to return to the default
-          example.
-        </div>
-      )}
-
-      {shareWarn && (
-        <div className="shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-1.5 font-mono text-[11px] text-amber-800">
-          {shareWarn}
-        </div>
-      )}
-
-      <div className="flex shrink-0 items-center gap-0 border-b border-[#c7dff4] bg-white">
-        {(
-          [
-            { id: "javascript", label: "Compiled JS" },
-            { id: "lint", label: "Lint" },
-          ] as { id: Tab; label: string }[]
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setTarget(tab.id)}
-            className={`px-4 py-2 text-[12px] font-mono border-b-2 transition-colors ${
-              target === tab.id
-                ? "border-[#3178c6] text-[#235a97]"
-                : "border-transparent text-slate-400 hover:text-[#3178c6]"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-        <div className="ml-auto px-4 font-mono text-[10px] text-slate-400">
-          {bootPhase === "booting"
-            ? "booting wasm…"
-            : running
-              ? "compiling…"
-              : "ready"}
         </div>
       </div>
 

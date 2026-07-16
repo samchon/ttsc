@@ -32,7 +32,7 @@ export default function TtscWebsiteLandingSponsors() {
             >
               Sponsor ttsc
             </a>
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#6b8297]">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#6b8297]">
               Thank you for your support
             </p>
           </div>

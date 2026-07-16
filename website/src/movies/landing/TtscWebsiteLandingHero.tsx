@@ -56,7 +56,7 @@ export default function TtscWebsiteLandingHero() {
 
       <div className="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:items-center">
         <div>
-          <p className="mb-6 font-mono text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-100">
+          <p className="mb-6 font-mono text-xs font-semibold uppercase tracking-[0.24em] text-blue-100">
             TypeScript-Go toolchain
           </p>
           <h1 className="text-[78px] font-black leading-[0.84] tracking-normal text-white sm:text-[112px] md:text-[150px]">
@@ -82,7 +82,7 @@ export default function TtscWebsiteLandingHero() {
                 <p className="mt-3 text-sm font-semibold leading-tight text-blue-50">
                   {claim.label}
                 </p>
-                <p className="mt-2 text-xs leading-relaxed text-blue-100">
+                <p className="mt-2 text-sm leading-relaxed text-blue-100">
                   {claim.detail}
                 </p>
               </div>
@@ -115,7 +115,7 @@ export default function TtscWebsiteLandingHero() {
               <span className="h-2.5 w-2.5 rounded-full bg-amber-300/70" />
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-300/70" />
             </div>
-            <code className="font-mono text-[11px] text-blue-200">
+            <code className="font-mono text-xs text-blue-200">
               compiler path
             </code>
           </div>
@@ -124,7 +124,7 @@ export default function TtscWebsiteLandingHero() {
             {FLOW.map((item, index) => (
               <div key={item.name} className="grid grid-cols-[28px_1fr] gap-3">
                 <div className="flex flex-col items-center">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-md border border-blue-300/40 bg-blue-400/15 font-mono text-[11px] font-semibold text-blue-200">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md border border-blue-300/40 bg-blue-400/15 font-mono text-xs font-semibold text-blue-200">
                     {index + 1}
                   </span>
                   {index !== FLOW.length - 1 && (
@@ -141,7 +141,7 @@ export default function TtscWebsiteLandingHero() {
             ))}
           </div>
 
-          <div className="border-t border-white/10 bg-[#173f66] p-4 font-mono text-[12px] leading-relaxed">
+          <div className="border-t border-white/10 bg-[#173f66] p-4 font-mono text-[13px] leading-relaxed">
             <p>
               <span className="text-blue-200">src/index.ts:3:7 - </span>
               <span className="text-red-300">error </span>

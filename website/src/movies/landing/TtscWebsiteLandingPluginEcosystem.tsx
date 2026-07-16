@@ -69,7 +69,7 @@ export default function TtscWebsiteLandingPluginEcosystem() {
                   rel="noopener noreferrer"
                   className="group rounded-2xl border border-[#c7dff4] bg-[#f7fbff] p-6 transition-all hover:-translate-y-1 hover:border-[#72afe6] hover:shadow-[0_16px_40px_rgba(49,120,198,0.12)]"
                 >
-                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#6b8297]">
+                  <p className="font-mono text-xs uppercase tracking-[0.18em] text-[#6b8297]">
                     {plugin.tag}
                   </p>
                   <code className="mt-4 block font-mono text-3xl font-black text-[#235a97] transition-colors group-hover:text-[#3178c6]">
@@ -86,7 +86,7 @@ export default function TtscWebsiteLandingPluginEcosystem() {
 
         <TtscWebsiteLandingFadeIn delay={120}>
           <div className="mt-12 border-t border-[#dceaf7] pt-8">
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#6b8297]">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-[#6b8297]">
               First-party utility plugins
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -99,7 +99,7 @@ export default function TtscWebsiteLandingPluginEcosystem() {
                   <code className="font-mono text-sm font-bold text-[#235a97] transition-colors group-hover:text-[#3178c6]">
                     {utility.name}
                   </code>
-                  <p className="mt-2 text-xs leading-relaxed text-[#60778e]">
+                  <p className="mt-2 text-sm leading-relaxed text-[#60778e]">
                     {utility.text}
                   </p>
                 </a>

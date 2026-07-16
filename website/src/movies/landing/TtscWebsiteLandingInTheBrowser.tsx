@@ -52,7 +52,7 @@ export default function TtscWebsiteLandingInTheBrowser() {
                     key={step}
                     className="flex items-center justify-between rounded-xl border border-[#d2e4f4] bg-[#f7fbff] px-4 py-3"
                   >
-                    <span className="font-mono text-[11px] font-bold text-[#3178c6]">
+                    <span className="font-mono text-xs font-bold text-[#3178c6]">
                       0{index + 1}
                     </span>
                     <span className="text-sm font-medium text-[#405f7a]">
@@ -62,7 +62,7 @@ export default function TtscWebsiteLandingInTheBrowser() {
                 ))}
               </div>
               <div className="mt-4 rounded-xl border border-[#235a97] bg-[#102a43] p-4">
-                <p className="font-mono text-[12px] text-sky-300">
+                <p className="font-mono text-[13px] text-sky-300">
                   globalThis.ttsc.build()
                 </p>
                 <p className="mt-2 text-sm text-blue-50">

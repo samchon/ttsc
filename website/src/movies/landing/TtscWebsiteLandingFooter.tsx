@@ -32,10 +32,10 @@ export default function TtscWebsiteLandingFooter() {
             <p className="mb-2 font-mono text-base font-bold text-white">
               ttsc
             </p>
-            <p className="text-xs leading-relaxed text-blue-100">
+            <p className="text-sm leading-relaxed text-blue-100">
               TypeScript-Go compiler, runner, lint, code graph, and plugin host.
             </p>
-            <p className="mt-4 font-mono text-[11px] tracking-wider text-blue-200">
+            <p className="mt-4 font-mono text-xs tracking-wider text-blue-200">
               From the author of{" "}
               <a
                 href="https://typia.io"
@@ -60,7 +60,7 @@ export default function TtscWebsiteLandingFooter() {
 
           {/* Learn */}
           <div>
-            <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-blue-200">
+            <p className="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-blue-200">
               Learn
             </p>
             <ul className="space-y-2.5">
@@ -79,7 +79,7 @@ export default function TtscWebsiteLandingFooter() {
 
           {/* Use */}
           <div>
-            <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-blue-200">
+            <p className="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-blue-200">
               Use
             </p>
             <ul className="space-y-2.5">
@@ -98,7 +98,7 @@ export default function TtscWebsiteLandingFooter() {
 
           {/* Build */}
           <div>
-            <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-blue-200">
+            <p className="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-blue-200">
               Build
             </p>
             <ul className="space-y-2.5">
@@ -118,7 +118,7 @@ export default function TtscWebsiteLandingFooter() {
 
         {/* Bottom row */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-blue-300/40 pt-8">
-          <p className="font-mono text-[11px] tracking-wider text-blue-200">
+          <p className="font-mono text-xs tracking-wider text-blue-200">
             MIT 2026 ·{" "}
             <a
               href="https://github.com/samchon"
@@ -134,7 +134,7 @@ export default function TtscWebsiteLandingFooter() {
               href="https://github.com/samchon/ttsc/blob/master/LICENSE"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-[11px] tracking-wider text-blue-200 transition-colors hover:text-white"
+              className="font-mono text-xs tracking-wider text-blue-200 transition-colors hover:text-white"
             >
               MIT
             </a>
@@ -143,7 +143,7 @@ export default function TtscWebsiteLandingFooter() {
               href="https://www.npmjs.com/package/ttsc"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-[11px] tracking-wider text-blue-200 transition-colors hover:text-white"
+              className="font-mono text-xs tracking-wider text-blue-200 transition-colors hover:text-white"
             >
               npm
             </a>

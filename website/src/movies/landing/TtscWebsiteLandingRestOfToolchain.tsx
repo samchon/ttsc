@@ -75,10 +75,10 @@ export default function TtscWebsiteLandingRestOfToolchain() {
                   key={stage}
                   className="border-l-2 border-[#9fc7eb] bg-[#f7fbff] px-3 py-2"
                 >
-                  <p className="font-mono text-[11px] font-bold text-[#3178c6]">
+                  <p className="font-mono text-xs font-bold text-[#3178c6]">
                     0{index + 1}
                   </p>
-                  <p className="mt-2 text-xs font-medium text-[#405f7a]">
+                  <p className="mt-2 text-sm font-medium text-[#405f7a]">
                     {stage}
                   </p>
                 </div>
@@ -109,10 +109,10 @@ export default function TtscWebsiteLandingRestOfToolchain() {
                 <p className="mt-3 text-sm font-semibold text-[#102a43]">
                   {card.tagline}
                 </p>
-                <p className="mt-3 text-xs leading-relaxed text-[#60778e]">
+                <p className="mt-3 text-sm leading-relaxed text-[#60778e]">
                   {card.description}
                 </p>
-                <p className="mt-auto pt-6 font-mono text-[11px] text-[#6b8297] group-hover:text-[#3178c6]">
+                <p className="mt-auto pt-6 font-mono text-xs text-[#6b8297] group-hover:text-[#3178c6]">
                   {card.meta}
                 </p>
               </a>
