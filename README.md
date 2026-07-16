@@ -113,55 +113,21 @@ On the agent-cost benchmark, Claude agents answer reading zero files, cutting to
 
 A plugin hooks the compile to add checks, transforms, or type-driven code generation, all driven by the types the checker has already resolved. It runs on every `ttsc` build and `ttsx` run, with no extra step.
 
-[typia](https://typia.io) is the canonical one. You write a type and call `typia.is<T>()`; at build time the transform reads that type:
+[typia](https://typia.io) is the canonical one. Ask it for a validator of any type, and the transform writes the implementation at build time:
 
 ```ts
-import typia, { tags } from "typia";
-import { v4 } from "uuid";
+import typia from "typia";
 
-const matched: boolean = typia.is<IMember>({
-  id: v4(),
-  email: "samchon.github@gmail.com",
-  age: 30,
-});
-console.log(matched); // true
-
-interface IMember {
-  id: string & tags.Format<"uuid">;
-  email: string & tags.Format<"email">;
-  age: number &
-    tags.Type<"uint32"> &
-    tags.ExclusiveMinimum<19> &
-    tags.Maximum<100>;
-}
+export const isStringArray = typia.createIs<string[]>();
 ```
 
-There is no schema to keep in sync and no decorator to add. The call compiles to a dedicated validator, inlined into the emit:
+No schema, no decorator. The call compiles to a plain function:
 
 ```js
-import typia from "typia";
-import * as __typia_transform__isFormatEmail from "typia/lib/internal/_isFormatEmail";
-import * as __typia_transform__isFormatUuid from "typia/lib/internal/_isFormatUuid";
-import * as __typia_transform__isTypeUint32 from "typia/lib/internal/_isTypeUint32";
-import { v4 } from "uuid";
-
-const matched = (() => {
-  const _io0 = (input) =>
-    "string" === typeof input.id &&
-    __typia_transform__isFormatUuid._isFormatUuid(input.id) &&
-    "string" === typeof input.email &&
-    __typia_transform__isFormatEmail._isFormatEmail(input.email) &&
-    "number" === typeof input.age &&
-    __typia_transform__isTypeUint32._isTypeUint32(input.age) &&
-    19 < input.age &&
-    input.age <= 100;
-  return (input) => "object" === typeof input && null !== input && _io0(input);
-})()({
-  id: v4(),
-  email: "samchon.github@gmail.com",
-  age: 30,
-});
-console.log(matched); // true
+export const isStringArray = (() => {
+  return (input) =>
+    Array.isArray(input) && input.every((elem) => "string" === typeof elem);
+})();
 ```
 
 Utility plugins shipped in this repository:
