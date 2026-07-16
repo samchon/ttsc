@@ -188,8 +188,12 @@ function nonce(): string {
 /**
  * Prepare the snapshot for a new run. Called from `withTtsc` in the single
  * Metro config process, before any worker exists: creates the main snapshot
- * (fresh epoch id) when missing or corrupt, and compacts leftover worker files
- * into it. Never throws — an unwritable cache directory leaves the snapshot
+ * (fresh epoch id) when missing or corrupt, compacts leftover worker files into
+ * it, and sweeps unparseable worker files plus crash-leftover temp files. An
+ * unparseable worker file's recordings are unrecoverable, so its removal mints
+ * a fresh epoch id — every key that might have depended on the lost recordings
+ * is soundly orphaned, and later runs stabilize instead of degrading to a nonce
+ * forever. Never throws — an unwritable cache directory leaves the snapshot
  * unreadable and `getCacheKey` degrades to a nonce.
  */
 export function prepareSnapshot(projectRoot: string | undefined): void {
@@ -203,7 +207,7 @@ export function prepareSnapshot(projectRoot: string | undefined): void {
     const workers = readWorkerFiles(directory);
     const main = readMainDocument(directory);
     const files = new Set(main?.files ?? []);
-    let volatile =
+    const volatile =
       workers.entries.length === 0
         ? (main?.volatile ?? false)
         : // Worker files carry the previous run's fresh observations, so they
@@ -217,11 +221,18 @@ export function prepareSnapshot(projectRoot: string | undefined): void {
     }
     writeSnapshotDocument(path.join(directory, MAIN_SNAPSHOT), {
       files: [...files].sort(),
-      id: main?.id ?? randomBytes(16).toString("hex"),
+      id:
+        workers.corruptPaths.length === 0
+          ? (main?.id ?? randomBytes(16).toString("hex"))
+          : randomBytes(16).toString("hex"),
       version: SNAPSHOT_VERSION,
       volatile,
     });
-    for (const file of workers.paths) {
+    for (const file of [
+      ...workers.paths,
+      ...workers.corruptPaths,
+      ...listTemporaryFiles(directory),
+    ]) {
       try {
         fs.rmSync(file, { force: true });
       } catch {
@@ -235,6 +246,31 @@ export function prepareSnapshot(projectRoot: string | undefined): void {
 }
 
 /**
+ * Crash-leftover temp files from the atomic writer, swept at compaction. Only
+ * files older than a day qualify: a young temp file may belong to a live writer
+ * in a concurrently running Metro instance, and deleting it mid-write would
+ * silently drop that writer's recordings.
+ */
+function listTemporaryFiles(directory: string): string[] {
+  const horizon = Date.now() - 24 * 60 * 60 * 1000;
+  try {
+    return fs
+      .readdirSync(directory)
+      .filter((name) => name.endsWith(".tmp"))
+      .map((name) => path.join(directory, name))
+      .filter((file) => {
+        try {
+          return fs.statSync(file).mtimeMs < horizon;
+        } catch {
+          return false;
+        }
+      });
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Read the unioned snapshot state, or `undefined` when the main snapshot is
  * missing or any snapshot file is corrupt (a torn or foreign write means the
  * recorded set cannot be trusted, so the caller degrades to a nonce).
@@ -243,7 +279,7 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
   const directory = snapshotDirectory(base);
   // Worker files strictly before the main file — see the module doc comment.
   const workers = readWorkerFiles(directory);
-  if (workers.corrupt) {
+  if (workers.corruptPaths.length !== 0) {
     return undefined;
   }
   const main = readMainDocument(directory);
@@ -312,7 +348,6 @@ export function createSnapshotRecorder(): {
     if (!state.dirty) {
       return;
     }
-    state.dirty = false;
     try {
       const directory = snapshotDirectory(base);
       fs.mkdirSync(directory, { recursive: true });
@@ -324,6 +359,9 @@ export function createSnapshotRecorder(): {
           volatile: state.volatile,
         },
       );
+      // Cleared only on success so a transient write failure retries on the
+      // next recording instead of silently dropping the observed state.
+      state.dirty = false;
     } catch {
       // An unwritable snapshot leaves the main snapshot unreadable or stale;
       // getCacheKey degrades to a nonce rather than serving stale output.
@@ -365,10 +403,11 @@ function snapshotDirectory(base: string): string {
 /**
  * Read every worker snapshot file in `directory`. A file that disappears
  * mid-read was compacted (merged into the main snapshot first) and is skipped;
- * a file that exists but does not parse marks the result corrupt.
+ * a file that exists but does not parse is reported in `corruptPaths` so
+ * readers can degrade to a nonce and the compactor can sweep it.
  */
 function readWorkerFiles(directory: string): {
-  corrupt: boolean;
+  corruptPaths: string[];
   entries: SnapshotDocument[];
   paths: string[];
 } {
@@ -376,11 +415,11 @@ function readWorkerFiles(directory: string): {
   try {
     names = fs.readdirSync(directory);
   } catch {
-    return { corrupt: false, entries: [], paths: [] };
+    return { corruptPaths: [], entries: [], paths: [] };
   }
   const entries: SnapshotDocument[] = [];
   const paths: string[] = [];
-  let corrupt = false;
+  const corruptPaths: string[] = [];
   for (const name of names) {
     if (!name.startsWith(WORKER_SNAPSHOT_PREFIX) || !name.endsWith(".json")) {
       continue;
@@ -394,13 +433,13 @@ function readWorkerFiles(directory: string): {
     }
     const parsed = parseSnapshotDocument(text);
     if (parsed === undefined) {
-      corrupt = true;
+      corruptPaths.push(file);
       continue;
     }
     entries.push(parsed);
     paths.push(file);
   }
-  return { corrupt, entries, paths };
+  return { corruptPaths, entries, paths };
 }
 
 function readMainDocument(directory: string): SnapshotDocument | undefined {

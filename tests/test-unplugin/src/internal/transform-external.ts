@@ -185,6 +185,53 @@ export async function assertCacheInvalidatesThroughExternalGraphEdge(): Promise<
 }
 
 /**
+ * Asserts invalidation covers the in-root ignored-directory class: a
+ * `node_modules` declaration lives under the project root yet the walk skips
+ * the segment, so only the external validation can see it — the everyday shape
+ * of a dependency's hand-edited or reinstalled type declarations.
+ */
+export async function assertCacheInvalidatesOnNodeModulesDeclarationChange(): Promise<void> {
+  const { resolveOptions, transformTtsc, createTtscTransformCache } =
+    await TestUnpluginRuntime.loadUnpluginApi();
+  const root = TestUnpluginProject.createProject({ plugins: [] });
+  const declaration = path.join(
+    root,
+    "node_modules",
+    "fixture-types",
+    "types.d.ts",
+  );
+  fs.mkdirSync(path.dirname(declaration), { recursive: true });
+  fs.writeFileSync(declaration, "declare const first: string;\n", "utf8");
+  const options = resolveOptions({
+    plugins: emitGraphPlugins({
+      edges: { "src/main.ts": ["node_modules/fixture-types/types.d.ts"] },
+    }),
+  });
+  const cache = createTtscTransformCache();
+
+  const before = await transformTtsc(
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
+    options,
+    undefined,
+    cache,
+  );
+  assert.ok(before);
+  const generation = cacheEntry(cache);
+
+  fs.writeFileSync(declaration, "declare const second: string;\n", "utf8");
+  const after = await transformTtsc(
+    TestUnpluginProject.mainFile(root),
+    TestUnpluginProject.mainSource(root),
+    options,
+    undefined,
+    cache,
+  );
+  assert.ok(after);
+  assert.notStrictEqual(cacheEntry(cache), generation);
+}
+
+/**
  * Asserts the disposed temp-dir tsconfig never joins the external validation
  * universe. A `compilerOptions` overlay compiles through a generated tsconfig
  * that the host's config chain reports and that is deleted right after the

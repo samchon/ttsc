@@ -323,6 +323,30 @@ export async function assertPrepareSnapshotCompactsWorkerFiles(): Promise<void> 
 }
 
 /**
+ * Asserts compaction heals a corrupt worker snapshot: the unparseable file is
+ * swept and the epoch id changes, so keys that might have depended on the lost
+ * recordings are orphaned while later runs return to a stable key instead of
+ * degrading to a nonce forever.
+ */
+export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<void> {
+  const root = createBareProject();
+  await prepareSnapshot(root);
+  const identity = readMainSnapshot(root).id;
+  const corrupt = path.join(
+    snapshotDirectory(root),
+    "graph-inputs.worker-torn.json",
+  );
+  fs.writeFileSync(corrupt, "{ torn", "utf8");
+  // Until compaction, the unreadable recordings force the nonce degradation.
+  assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
+  await prepareSnapshot(root);
+  assert.equal(fs.existsSync(corrupt), false);
+  assert.notEqual(readMainSnapshot(root).id, identity);
+  // Healed: runs share a stable key again.
+  assert.equal(await cacheKeyForRun(root), await cacheKeyForRun(root));
+}
+
+/**
  * Asserts the transformer records only out-of-walk inputs into the worker
  * snapshot: an in-project dependency is already covered by the project-walk
  * half of the fingerprint, and recording it would only bloat the snapshot.
