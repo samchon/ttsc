@@ -14,7 +14,7 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 
 ## Setup
 
-Install `ttsc` and the native TypeScript compiler:
+`ttsc` is a drop-in `tsc`. Same `tsconfig.json`, same flags, same output.
 
 ```bash
 npm install -D ttsc typescript
@@ -27,7 +27,7 @@ npx ttsc --noEmit       # check only
 npx ttsc --watch        # rebuild on save
 ```
 
-`ttsc` reads the `tsconfig.json` you already have. Setup for bundlers, React Native, VS Code, and coding agents is in the [Setup guide](https://ttsc.dev/docs/setup):
+That is the whole core. Everything else is one page each:
 
 - [Bundlers (Vite, webpack, Next.js, ...)](https://ttsc.dev/docs/setup/unplugin)
 - [React Native / Expo (Metro)](https://ttsc.dev/docs/setup/metro)
@@ -35,7 +35,9 @@ npx ttsc --watch        # rebuild on save
 
 ## Lint
 
-`@ttsc/lint` folds ESLint's job and Prettier's job into the compile you already run. One `lint.config.ts`, one pass, one exit code.
+Delete ESLint and Prettier. The compiler does both now.
+
+`@ttsc/lint` runs your lint rules and your formatter inside the type-check. One config, one pass, one exit code.
 
 ```bash
 npm install -D @ttsc/lint
@@ -59,7 +61,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-A lint violation arrives as a compiler diagnostic, in the same stream as a type error, so the CI step that already runs `ttsc --noEmit` gates lint for free:
+Now a `var` fails the build like any type error:
 
 ```ts
 // src/index.ts
@@ -80,16 +82,20 @@ src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const inst
   ~~~~~~~~~~~~~~
 ```
 
+Clean it up in place:
+
 ```bash
-npx ttsc fix      # apply every fixable lint violation + format edits
+npx ttsc fix      # every fixable lint violation + format edits
 npx ttsc format   # format edits only, never changes behavior
 ```
 
-The full rule catalog and every `format` key are in the [Lint & Format guide](https://ttsc.dev/docs/lint).
+The rule catalog and every `format` key live in the [Lint & Format guide](https://ttsc.dev/docs/lint).
 
 ## Graph
 
-`@ttsc/graph` is an MCP server that hands a coding agent a compiler-resolved graph of your project: what calls what, what a change would touch, where to start reading. Without it, an agent rebuilds that picture by opening files and chasing imports, spending tokens on every hop. With it, the agent asks the type checker.
+Your agent greps. That is the problem.
+
+`@ttsc/graph` gives it the compiler's own map of your project over MCP: what calls what, what a change touches, where to start. It stops opening files to guess, and asks the type checker instead.
 
 ![Median tokens on the shared onboarding question, lower is better](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.6-terra.svg)
 
@@ -97,7 +103,7 @@ The full rule catalog and every `format` key are in the [Lint & Format guide](ht
 npm install -D ttsc @ttsc/graph typescript
 ```
 
-Point your agent's MCP client at it. For Claude Code, a `.mcp.json` in the project root:
+Point your MCP client at it. For Claude Code, a `.mcp.json` in the project root:
 
 ```json
 {
@@ -110,7 +116,9 @@ Point your agent's MCP client at it. For Claude Code, a `.mcp.json` in the proje
 }
 ```
 
-On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. The design and per-repository numbers are in the [Code Graph guide](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
+The payoff: on the agent-cost benchmark, Claude answers reading zero files. Tokens drop by roughly 90%, tool calls by 93% to 96%.
+
+See the [Code Graph guide](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
 
 ## Plugins
 
