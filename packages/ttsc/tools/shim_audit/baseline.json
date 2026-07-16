@@ -678,6 +678,8 @@
     "FUNC|diagnosticwriter|TryClearScreen",
     "FUNC|diagnosticwriter|WriteFormatDiagnostic",
     "FUNC|diagnosticwriter|WriteFormatDiagnostics",
+    "FUNC|execute/incremental|ComputeHash",
+    "FUNC|execute/incremental|GetMTime",
     "FUNC|printer|FormatGeneratedName",
     "FUNC|printer|GetDefaultIndentSize",
     "FUNC|printer|GetEmitContext",
