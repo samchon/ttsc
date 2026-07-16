@@ -263,8 +263,7 @@ func (p *program) runLintCycle(engine *Engine) []*Finding {
   }
   files := p.userSourceFiles()
   if p.projectCycle == nil {
-    cycle := engine.evaluateProject(p.identity, files, p.checker)
-    p.projectCycle = &cycle
+    p.projectCycle = engine.evaluateProject(p.identity, files, p.checker)
   }
   fileFindings := engine.runFiles(files, p.checker, p.projectCycle.results, p.cwd)
   return append(p.projectCycle.finalize(), fileFindings...)

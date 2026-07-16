@@ -670,7 +670,7 @@ func (guardedFileRule) Check(ctx *rule.Context, node *ast.Node) {
 }
 ```
 
-`SetState` stores one arbitrary Go value without interpretation or serialization. File rules receive the same interface value in that loaded Program cycle. The host drops its ownership with the cycle, so separate public API projects and later watch or LSP rebuilds receive different state and reporter objects.
+`SetState` stores one arbitrary Go value without interpretation or serialization. File rules receive the same interface value in that loaded Program cycle. The host does not carry it into another cycle: separate public API projects and later watch or LSP rebuilds rerun the project check with a new reporter. A contributor that needs a fresh state object creates it during each check.
 
 Each `ProjectResult` value is a snapshot of status and findings at the time of the call and carries the contributor's exact state value without copying its contents. Evaluated results also carry live `Report` and `Fail` methods until file dispatch finishes. Call `ctx.ProjectResult(name)` again when a helper needs to observe a failure reported earlier in the dispatch. Once dispatch finishes, a retained result can no longer mutate the cycle. `absent`, `off`, and `not_evaluated` results have nil state and inert mutation methods.
 

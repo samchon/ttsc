@@ -149,7 +149,7 @@ func init() { rule.Register(independentAST{}) }
  *    structured project diagnostic has `file: null`.
  * 3. Publish the JIT failure over LSP, then clear it with a clean loaded cycle.
  * 4. Trigger two watch cycles and assert each prints one finding with a distinct
- *    state-owned lifecycle id.
+ *    state-carried lifecycle id.
  */
 export const test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch =
   async (): Promise<void> => {

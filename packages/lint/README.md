@@ -1210,7 +1210,7 @@ func (guardedFileRule) Check(ctx *rule.Context, node *ast.Node) {
 
 `ProjectResult` is a snapshot of the current status and findings, while its `Report` and `Fail` methods remain live until file dispatch finishes. Call `ctx.ProjectResult(name)` again to observe a failure reported by an earlier helper. Equal messages are deduplicated, distinct messages are sorted, and finalized project findings stay ahead of file findings. `absent`, `off`, and `not_evaluated` results expose no state and their mutation methods do nothing.
 
-State belongs to one loaded Program cycle. A watch or LSP rebuild receives a new value and reporter, and a reporter retained past file dispatch is inert. The host synchronizes status changes and finding deduplication across concurrent files. The contributor must synchronize mutable data inside its own state value.
+State belongs to one loaded Program cycle. The host does not carry it into a watch or LSP rebuild: the new project check attaches that cycle's value and receives a new reporter. A reporter retained past file dispatch is inert. The host synchronizes status changes and finding deduplication across concurrent files. The contributor must create any required fresh state and synchronize mutable data inside its own value.
 
 Project rules use the normal `rules` map and `extends` order, but only global config entries may configure them. Any entry that contains `files`, including `files: []` or an `off` value, is rejected. Global `ignores` remain source-file filters rather than project-rule selectors. A later bare severity preserves the last explicit tuple options while replacing severity.
 

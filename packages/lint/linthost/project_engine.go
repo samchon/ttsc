@@ -151,9 +151,9 @@ func (e *Engine) evaluateProject(
   identity publicrule.ProjectIdentity,
   files []*shimast.SourceFile,
   checker *shimchecker.Checker,
-) projectCycle {
+) *projectCycle {
   results := &projectCycleResults{byName: map[string]projectCycleResult{}}
-  cycle := projectCycle{results: results}
+  cycle := &projectCycle{results: results}
   names := allProjectRuleNames()
   if len(names) == 0 {
     return cycle
