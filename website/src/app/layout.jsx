@@ -73,13 +73,13 @@ export default async function RootLayout(props) {
         <meta name="og:type" content="website" />
         <meta name="og:site_name" content="ttsc" />
         <meta name="og:url" content="https://ttsc.dev" />
-        <meta name="og:image" content="https://ttsc.dev/og-blue.png" />
+        <meta name="og:image" content="https://ttsc.dev/og.jpg" />
         <meta name="og:title" content="ttsc — TypeScript-Go toolchain" />
         <meta name="og:description" content={description} />
         {/* TWITTER */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:site" content="@SamchonGithub" />
-        <meta name="twitter:image" content="https://ttsc.dev/og-blue.png" />
+        <meta name="twitter:image" content="https://ttsc.dev/og.jpg" />
         <meta name="twitter:title" content="ttsc — TypeScript-Go toolchain" />
         <meta name="twitter:description" content={description} />
         {process.env.NODE_ENV === "production" ? (

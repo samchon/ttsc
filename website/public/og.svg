@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1774" height="887" viewBox="0 0 1774 887">
+  <rect width="1774" height="887" fill="#ffffff"/>
+
+  <!-- Left brand area -->
+  <rect x="0" y="0" width="1100" height="296" fill="#1264d8"/>
+  <text id="brand" x="552" y="139" fill="#ffffff" font-family="Arial, sans-serif" font-size="250" font-weight="800" letter-spacing="-2" text-anchor="middle" dominant-baseline="central">TTSC</text>
+  <rect x="0" y="296" width="1100" height="110" fill="#ffffff" stroke="#1264d8" stroke-width="2"/>
+  <text id="subtitle" x="550" y="350" font-family="Arial, sans-serif" font-size="58" font-weight="700" letter-spacing="-1" text-anchor="middle" dominant-baseline="central"><tspan fill="#1264d8">typescript-go</tspan><tspan fill="#0b2b55"> toolchain</tspan></text>
+
+  <!-- Six product tiles -->
+  <rect x="0" y="406" width="367" height="240" fill="#1264d8" stroke="#1264d8" stroke-width="2"/>
+  <rect x="367" y="406" width="366" height="240" fill="#eaf4ff" stroke="#1264d8" stroke-width="2"/>
+  <rect x="733" y="406" width="367" height="240" fill="#ffffff" stroke="#1264d8" stroke-width="2"/>
+  <rect x="0" y="646" width="367" height="241" fill="#ffffff" stroke="#1264d8" stroke-width="2"/>
+  <rect x="367" y="646" width="366" height="241" fill="#1264d8" stroke="#1264d8" stroke-width="2"/>
+  <rect x="733" y="646" width="367" height="241" fill="#eaf4ff" stroke="#1264d8" stroke-width="2"/>
+
+  <!-- Top row icons: common center Y=480, common label Y=584 -->
+  <text x="183.5" y="480" fill="#ffffff" font-family="Consolas, monospace" font-size="88" font-weight="700" text-anchor="middle" dominant-baseline="central">&gt;_</text>
+  <text x="183.5" y="584" fill="#ffffff" font-family="Arial, sans-serif" font-size="54" font-weight="700" text-anchor="middle" dominant-baseline="central">ttsc</text>
+
+  <path d="M522 438 L594 480 L522 522 Z" fill="#0b2b55"/>
+  <text x="550" y="584" fill="#0b2b55" font-family="Arial, sans-serif" font-size="54" font-weight="700" text-anchor="middle" dominant-baseline="central">ttsx</text>
+
+  <g fill="none" stroke="#0b2b55" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M916.5 442 L916.5 516 M916.5 462 L866.5 510 M916.5 462 L966.5 510"/>
+    <circle cx="916.5" cy="442" r="13" fill="#ffffff"/>
+    <circle cx="866.5" cy="510" r="13" fill="#ffffff"/>
+    <circle cx="916.5" cy="516" r="13" fill="#ffffff"/>
+    <circle cx="966.5" cy="510" r="13" fill="#ffffff"/>
+  </g>
+  <text x="916.5" y="584" fill="#0b2b55" font-family="Arial, sans-serif" font-size="54" font-weight="700" text-anchor="middle" dominant-baseline="central">graph</text>
+
+  <!-- Bottom row icons: common center Y=720, common label Y=824 -->
+  <path d="M137 719 L174 752 L236 686" fill="none" stroke="#1264d8" stroke-width="13" stroke-linecap="square" stroke-linejoin="miter"/>
+  <text x="183.5" y="824" fill="#0b2b55" font-family="Arial, sans-serif" font-size="54" font-weight="700" text-anchor="middle" dominant-baseline="central">lint</text>
+
+  <text x="550" y="734" fill="#ffffff" font-family="Consolas, monospace" font-size="50" font-weight="700" text-anchor="middle" dominant-baseline="central">{ typia }</text>
+  <text x="550" y="824" fill="#ffffff" font-family="Arial, sans-serif" font-size="54" font-weight="700" text-anchor="middle" dominant-baseline="central">plugin</text>
+
+  <g fill="none" stroke="#0b2b55" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter">
+    <rect x="880.5" y="680" width="72" height="72"/>
+    <path d="M898 706 H936 M898 728 H930"/>
+    <circle cx="950" cy="742" r="10" fill="#1264d8" stroke="#eaf4ff" stroke-width="5"/>
+  </g>
+  <text x="916.5" y="824" fill="#0b2b55" font-family="Arial, sans-serif" font-size="54" font-weight="700" text-anchor="middle" dominant-baseline="central">LSP</text>
+
+  <!-- Right benefit tiles -->
+  <rect x="1100" y="0" width="674" height="296" fill="#ffffff" stroke="#1264d8" stroke-width="2"/>
+  <rect x="1100" y="296" width="674" height="295" fill="#0b2b55" stroke="#1264d8" stroke-width="2"/>
+  <rect x="1100" y="591" width="674" height="296" fill="#1264d8" stroke="#1264d8" stroke-width="2"/>
+
+  <!-- Speedometer -->
+  <g fill="none" stroke="#1264d8" stroke-width="10" stroke-linecap="square">
+    <path d="M1182 207 A88 88 0 1 1 1338 207"/>
+    <path d="M1198 119 L1212 132 M1248 91 V112 M1302 119 L1288 132 M1325 165 L1305 169 M1195 165 L1215 169"/>
+    <path d="M1260 165 L1305 122"/>
+    <circle cx="1260" cy="165" r="13" fill="#1264d8"/>
+  </g>
+  <text x="1415" y="102" fill="#1264d8" font-family="Arial, sans-serif" font-size="110" font-weight="800" dominant-baseline="central">10x</text>
+  <text x="1415" y="190" fill="#0b2b55" font-family="Arial, sans-serif" font-size="46" font-weight="700" dominant-baseline="central">faster than</text>
+  <text x="1415" y="246" fill="#1264d8" font-family="Arial, sans-serif" font-size="46" font-weight="700" dominant-baseline="central">ts-node</text>
+
+  <!-- Claude Code token graph -->
+  <g fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1260 369 V515 M1260 398 L1198 487 M1260 398 L1322 487"/>
+    <circle cx="1260" cy="369" r="15" fill="#0b2b55"/>
+    <circle cx="1198" cy="487" r="15" fill="#0b2b55"/>
+    <circle cx="1260" cy="515" r="15" fill="#0b2b55"/>
+    <circle cx="1322" cy="487" r="15" fill="#0b2b55"/>
+  </g>
+  <text x="1415" y="387" fill="#ffffff" font-family="Arial, sans-serif" font-size="110" font-weight="800" dominant-baseline="central">10x</text>
+  <text x="1415" y="475" fill="#ffffff" font-family="Arial, sans-serif" font-size="46" font-weight="700" dominant-baseline="central">Fewer tokens</text>
+  <text x="1415" y="531" fill="#8fc5ff" font-family="Arial, sans-serif" font-size="46" font-weight="700" dominant-baseline="central">Claude Code</text>
+
+  <!-- Lint speed -->
+  <path d="M1267 633 L1194 751 H1249 L1225 843 L1328 706 H1273 Z" fill="none" stroke="#ffffff" stroke-width="13" stroke-linejoin="miter"/>
+  <text x="1415" y="682" fill="#ffffff" font-family="Arial, sans-serif" font-size="110" font-weight="800" dominant-baseline="central">800x</text>
+  <text x="1415" y="770" fill="#ffffff" font-family="Arial, sans-serif" font-size="46" font-weight="700" dominant-baseline="central">faster than</text>
+  <text x="1415" y="826" fill="#8fc5ff" font-family="Arial, sans-serif" font-size="46" font-weight="700" dominant-baseline="central">ESLint</text>
+</svg>
