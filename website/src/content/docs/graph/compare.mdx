@@ -68,7 +68,7 @@ A capable graph is no use if the agent never calls it, and the four tools take v
 
 > One approach adds a tool to the agent's hand. Another replaces part of the workflow with its own.
 
-`@ttsc/graph` exposes one tool. What to do inside it is chosen by a typed request, not by picking from a menu, and a first-class `escape` lets the agent bail out when the graph is not the right source. Its instructions state a condition (use it when the answer depends on TypeScript symbols, calls, or types) and never tell the agent to call it instead of reading files. The rationale for this shape is the [Design](/docs/graph/design) page.
+`@ttsc/graph` exposes one tool. What to do inside it is chosen by a typed request, not by picking from a menu, and a first-class `escape` lets the agent bail out when the graph is not the right source. Its instructions state a condition (use it when the answer depends on TypeScript symbols, calls, or types) and never tell the agent to call it instead of reading files. The rationale for this shape is in the [launch post](/blog/i-made-ts-compiler-graph-mcp).
 
 `codegraph` also leads with a single tool, `codegraph_explore`, with the rest enabled only through the `CODEGRAPH_MCP_TOOLS` variable, so it avoids a large surface. It leans the other way on instructions: it tells the agent to "call `codegraph_explore` before you Read," to reach for it on almost any question, and not to "re-verify them with grep" ([`server-instructions.ts`](https://github.com/colbymchenry/codegraph/blob/main/src/mcp/server-instructions.ts)). Firm guidance keeps the tool from being ignored, at the cost of firing on questions a graph cannot answer.
 
@@ -76,7 +76,7 @@ A capable graph is no use if the agent never calls it, and the four tools take v
 
 `serena` has the broadest surface, over forty tools documented and around twenty-seven active by default ([tools](https://oraios.github.io/serena/01-about/035_tools.html)), spanning retrieval, symbolic editing, memory, and project management. To get the agent to use them over its own read and edit loop, serena's recommended Claude Code setup goes furthest of the four. It launches Claude Code with a serena-supplied replacement system prompt (`claude --system-prompt="$(serena prompts print-cc-system-prompt-override)"`) and recommends disabling Claude Code's own built-in tools, naming `replace_string_in_file`, `apply_patch`, `list_dir`, `file_search`, and `grep_search` ([Claude Code setup](https://oraios.github.io/serena/02-usage/030_clients.html)). Its reasoning is that Claude Code's built-in tool descriptions run about sixteen thousand tokens and bias the model so strongly toward the built-ins that it is otherwise hard to get it to reach for serena at all. The breadth is deliberate, since serena aims to handle reading and editing, not only orientation.
 
-`@ttsc/graph` reaches adoption from the other direction: by the shape of the tool, a typed chain of thought inside a single call, rather than the loudness of the prompt. That mechanism is the [Design](/docs/graph/design) page.
+`@ttsc/graph` reaches adoption from the other direction: by the shape of the tool, a typed chain of thought inside a single call, rather than the loudness of the prompt. That mechanism is the subject of the [launch post](/blog/i-made-ts-compiler-graph-mcp).
 
 ### 2.4. Setup and freshness
 
@@ -90,7 +90,7 @@ This is where `@ttsc/graph` gives up the most. It is TypeScript only, because a 
 
 Inside TypeScript, the trade runs the other way. `@ttsc/graph` spends its narrow scope on depth: a resolved graph and an architecture and impact projection, in one index. It trades breadth for depth on purpose, which is the opposite bet from the multi-language tools.
 
-For how these choices play out in measured token cost, see the [Benchmark](/docs/benchmark/graph). For why `@ttsc/graph` makes them, see [Design](/docs/graph/design).
+For how these choices play out in measured token cost, see the [Benchmark](/docs/benchmark/graph). For why `@ttsc/graph` makes them, see the [launch post](/blog/i-made-ts-compiler-graph-mcp).
 
 ## 3. Sources
 

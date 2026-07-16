@@ -46,7 +46,7 @@ What the colors and sizes mean, and what the viewer leaves out.
 
 Nodes are colored by declaration kind and sized by how many other declarations connect to them, so the load-bearing symbols stand out.
 
-Edges are colored by family. The graph itself distinguishes finer relationship kinds (the full set is in [Design](/docs/graph/design#24-edge-kinds)); the viewer folds them into three so the picture stays readable:
+Edges are colored by family. The graph itself distinguishes finer relationship kinds (the full set is typed in [`ITtscGraphEdge.ts`](https://github.com/samchon/ttsc/blob/master/packages/graph/src/structures/ITtscGraphEdge.ts)); the viewer folds them into three so the picture stays readable:
 
 - **value-call**: a runtime use. Covers `calls`, `instantiates` (`new T()`), `renders` (a JSX component), and `accesses` (a property read or write).
 - **type-ref**: a type-position reference (a parameter, return, property, or alias type).
