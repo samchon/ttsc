@@ -34,9 +34,9 @@ const TABS: { id: BenchmarkTab; label: string }[] = [
 ];
 
 const panelClass =
-  "overflow-hidden rounded-md border border-[#262b36] bg-[#0f1115] shadow-[0_12px_30px_rgba(0,0,0,0.22)]";
+  "overflow-hidden rounded-xl border border-[#c7dff4] bg-white shadow-[0_14px_38px_rgba(49,120,198,0.10)]";
 const panelHeaderClass =
-  "flex flex-wrap items-end justify-between gap-2 border-b border-[#262b36] bg-[#121620] px-4 py-3";
+  "flex flex-wrap items-end justify-between gap-2 border-b border-[#c7dff4] bg-[#f2f8fe] px-4 py-3";
 
 export default function TtscWebsiteBenchmarkDashboard() {
   const [report, setReport] = useState<BenchmarkReport | null>(null);
@@ -74,24 +74,24 @@ export default function TtscWebsiteBenchmarkDashboard() {
 
   if (error)
     return (
-      <p className="not-prose my-6 rounded-md border border-[#262b36] bg-[#0f1115] px-4 py-3 font-mono text-[12px] text-neutral-400">
+      <p className="not-prose my-6 rounded-xl border border-[#c7dff4] bg-white px-4 py-3 font-mono text-[12px] text-slate-500">
         Could not load benchmark data ({error}).
       </p>
     );
 
   if (!report)
     return (
-      <p className="not-prose my-6 rounded-md border border-[#262b36] bg-[#0f1115] px-4 py-3 font-mono text-[12px] text-neutral-400">
+      <p className="not-prose my-6 rounded-xl border border-[#c7dff4] bg-white px-4 py-3 font-mono text-[12px] text-slate-500">
         Loading benchmark results…
       </p>
     );
 
   return (
-    <div className="not-prose my-6 space-y-5">
+    <div className="ttsc-benchmark not-prose my-6 space-y-5">
       <Snapshot report={report} />
       <nav
         aria-label="Benchmark views"
-        className="flex gap-1 overflow-x-auto rounded-md border border-[#262b36] bg-[#0f1115] p-1"
+        className="flex gap-1 overflow-x-auto rounded-xl border border-[#c7dff4] bg-white p-1.5 shadow-[0_8px_24px_rgba(49,120,198,0.08)]"
       >
         {TABS.map((tab) => {
           const active = activeTab === tab.id;
@@ -101,8 +101,8 @@ export default function TtscWebsiteBenchmarkDashboard() {
               type="button"
               className={`shrink-0 rounded px-3 py-1.5 text-[13px] font-medium ${
                 active
-                  ? "bg-[#202838] text-neutral-50 shadow-sm"
-                  : "text-neutral-400 hover:bg-[#171d28] hover:text-neutral-100"
+                  ? "bg-[#3178c6] text-white shadow-[0_5px_14px_rgba(49,120,198,0.24)]"
+                  : "text-slate-500 hover:bg-[#eaf4ff] hover:text-[#235a97]"
               }`}
               onClick={() => {
                 setActiveTab(tab.id);
@@ -165,27 +165,27 @@ function Snapshot({ report }: { report: BenchmarkReport }) {
 
   return (
     <section className={panelClass}>
-      <div className="border-b border-[#262b36] bg-[#121620] px-4 py-3">
-        <h2 className="text-base font-semibold text-neutral-50">
+      <div className="border-b border-[#c7dff4] bg-[#f2f8fe] px-4 py-3">
+        <h2 className="text-base font-semibold text-[#102a43]">
           Benchmark Snapshot
         </h2>
-        <p className="mt-1 text-[13px] text-neutral-400">
+        <p className="mt-1 text-[13px] text-slate-500">
           Prepared-clone wall-clock timings. Ratios use the fastest command time
           per cell from the generated benchmark JSON.
         </p>
       </div>
-      <dl className="grid grid-cols-2 gap-px bg-[#262b36] xl:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-px bg-[#c7dff4] xl:grid-cols-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-[#0f1115] px-4 py-3">
-            <dt className="font-mono text-[11px] uppercase text-neutral-500">
+          <div key={stat.label} className="bg-white px-4 py-3">
+            <dt className="font-mono text-[11px] uppercase text-slate-500">
               {stat.label}
             </dt>
-            <dd className="mt-1 text-sm font-semibold text-neutral-50">
+            <dd className="mt-1 text-sm font-semibold text-[#102a43]">
               {stat.value}
             </dd>
             {stat.note ? (
               <dd
-                className="mt-1 truncate text-[11px] text-neutral-500"
+                className="mt-1 truncate text-[11px] text-slate-500"
                 title={stat.note}
               >
                 {stat.note}
@@ -213,7 +213,7 @@ function SummaryTab({ report }: { report: BenchmarkReport }) {
           description="Each row picks the project that posts the biggest measured speedup for that operation."
           suffix={`${[build, check, lint, format].filter(Boolean).length} fields`}
         />
-        <div className="divide-y divide-[#252b36]">
+        <div className="divide-y divide-[#d8e7f4]">
           {build ? (
             <ProjectOperationRows
               project={build.project}
@@ -265,7 +265,7 @@ function OperationTab({
           description={description}
           suffix={`${projects.length.toLocaleString()} projects`}
         />
-        <div className="divide-y divide-[#252b36]">
+        <div className="divide-y divide-[#d8e7f4]">
           {projects.length > 0 ? (
             projects.map((project) => (
               <ProjectOperationRows
@@ -275,7 +275,7 @@ function OperationTab({
               />
             ))
           ) : (
-            <p className="px-4 py-4 text-[12px] text-neutral-500">
+            <p className="px-4 py-4 text-[12px] text-slate-500">
               No comparable measurements recorded for this view.
             </p>
           )}
@@ -389,7 +389,7 @@ function LintMatrix({
         description={description}
         suffix={`${projects.length.toLocaleString()} projects`}
       />
-      <div className="divide-y divide-[#252b36]">
+      <div className="divide-y divide-[#d8e7f4]">
         {projects.length > 0 ? (
           projects.map((project) => (
             <ProjectLintRows
@@ -399,7 +399,7 @@ function LintMatrix({
             />
           ))
         ) : (
-          <p className="px-4 py-4 text-[12px] text-neutral-500">
+          <p className="px-4 py-4 text-[12px] text-slate-500">
             No comparable lint measurements recorded for this view.
           </p>
         )}
@@ -485,18 +485,18 @@ function ProjectLabel({
           {title}
         </p>
       ) : null}
-      <p className="font-mono text-sm font-semibold text-neutral-100">
+      <p className="font-mono text-sm font-semibold text-[#102a43]">
         {project.name}
       </p>
-      <p className="mt-1 text-[11px] text-neutral-500">
+      <p className="mt-1 text-[11px] text-slate-500">
         {project.files.toLocaleString()} files
       </p>
       {project.typescript ? (
-        <p className="mt-1 break-all font-mono text-[10px] text-neutral-500">
+        <p className="mt-1 break-all font-mono text-[10px] text-slate-500">
           legacy TS {project.typescript}
         </p>
       ) : null}
-      <p className="mt-2 font-mono text-[11px] text-neutral-400">
+      <p className="mt-2 font-mono text-[11px] text-slate-600">
         baseline: {formatDuration(baselineMs)}
       </p>
       {bestFactor !== undefined ? (
@@ -508,7 +508,7 @@ function ProjectLabel({
           >
             {formatMultiplier(bestFactor)}
           </div>
-          <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-neutral-500">
+          <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-500">
             best
           </div>
         </div>
@@ -538,23 +538,23 @@ function DurationBar({
     <div className="py-1.5">
       <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p
-          className="min-w-0 flex-1 break-all font-mono text-[11px] text-neutral-400"
+          className="min-w-0 flex-1 break-all font-mono text-[11px] text-slate-600"
           title={label}
         >
           {label}
         </p>
         <div className="flex shrink-0 items-baseline gap-2 font-mono text-[11px]">
-          <span className="text-neutral-400">{formatDuration(ms)}</span>
+          <span className="text-slate-600">{formatDuration(ms)}</span>
           <span
             className={
-              baseline ? "text-neutral-500" : "font-semibold text-emerald-300"
+              baseline ? "text-slate-500" : "font-semibold text-emerald-700"
             }
           >
             {ratio}
           </span>
         </div>
       </div>
-      <div className="h-5 w-full rounded bg-[#171d28]">
+      <div className="h-5 w-full rounded bg-[#e7f0f8]">
         <div
           className={`h-full rounded ${color}`}
           style={{ width: `${widthPct}%` }}
@@ -595,13 +595,13 @@ function StackedDurationBar({
     <div className="py-1.5">
       <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p
-          className="min-w-0 flex-1 break-all font-mono text-[11px] text-neutral-400"
+          className="min-w-0 flex-1 break-all font-mono text-[11px] text-slate-600"
           title={labelTooltip}
         >
           {label}
         </p>
         <div className="flex shrink-0 items-baseline gap-2 font-mono text-[11px]">
-          <span className="text-neutral-400">{formatDuration(totalMs)}</span>
+          <span className="text-slate-600">{formatDuration(totalMs)}</span>
           {lintRatio ? (
             <>
               <span className="font-semibold text-sky-300">
@@ -612,18 +612,18 @@ function StackedDurationBar({
               </span>
             </>
           ) : (
-            <span className="text-neutral-500">{ratio}</span>
+            <span className="text-slate-500">{ratio}</span>
           )}
         </div>
       </div>
-      <p className="mb-1.5 break-words font-mono text-[10px] text-neutral-500">
+      <p className="mb-1.5 break-words font-mono text-[10px] text-slate-500">
         (
         {segments
           .map((segment) => `${segment.label} ${formatDuration(segment.ms)}`)
           .join(" + ")}
         )
       </p>
-      <div className="h-6 w-full rounded bg-[#171d28]">
+      <div className="h-6 w-full rounded bg-[#e7f0f8]">
         <div
           className="flex h-full overflow-hidden rounded"
           style={{ width: `${widthPct}%` }}
@@ -659,12 +659,10 @@ function TableHeader({
   return (
     <div className={panelHeaderClass}>
       <div>
-        <h2 className="text-base font-semibold text-neutral-50">{title}</h2>
-        <p className="mt-1 text-[13px] text-neutral-400">{description}</p>
+        <h2 className="text-base font-semibold text-[#102a43]">{title}</h2>
+        <p className="mt-1 text-[13px] text-slate-500">{description}</p>
       </div>
-      <p className="font-mono text-[11px] uppercase text-neutral-500">
-        {suffix}
-      </p>
+      <p className="font-mono text-[11px] uppercase text-slate-500">{suffix}</p>
     </div>
   );
 }
@@ -958,15 +956,15 @@ function HeroRatio({
         >
           {formatMultiplier(winner.factor)}
         </div>
-        <div className="mt-1 font-mono text-[11px] uppercase tracking-wider text-neutral-500">
+        <div className="mt-1 font-mono text-[11px] uppercase tracking-wider text-slate-500">
           {scope} winner
         </div>
       </div>
-      <div className="text-[13px] text-neutral-300 md:ml-6">
-        <div className="font-semibold text-neutral-50">
+      <div className="text-[13px] text-slate-600 md:ml-6">
+        <div className="font-semibold text-[#102a43]">
           {winner.project.name}
         </div>
-        <div className="mt-0.5 text-neutral-400">{winner.label}</div>
+        <div className="mt-0.5 text-slate-500">{winner.label}</div>
       </div>
     </section>
   );
@@ -1128,7 +1126,7 @@ function FormatTab({ report }: { report: BenchmarkReport }) {
           description="Prettier (legacy) vs ttsc format (ttsc-lint), single-threaded and default."
           suffix={`${projects.length.toLocaleString()} projects`}
         />
-        <div className="divide-y divide-[#252b36]">
+        <div className="divide-y divide-[#d8e7f4]">
           {projects.length > 0 ? (
             projects.map((project) => (
               <ProjectFormatRows
@@ -1137,7 +1135,7 @@ function FormatTab({ report }: { report: BenchmarkReport }) {
               />
             ))
           ) : (
-            <p className="px-4 py-4 text-[12px] text-neutral-500">
+            <p className="px-4 py-4 text-[12px] text-slate-500">
               No comparable format measurements recorded for this view.
             </p>
           )}

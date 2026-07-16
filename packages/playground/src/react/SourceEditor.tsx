@@ -45,8 +45,7 @@ export function SourceEditor({
     tsd.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.ESNext,
       module: monaco.languages.typescript.ModuleKind.ESNext,
-      moduleResolution:
-        monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
       esModuleInterop: DEFAULT_PLAYGROUND_COMPILER_OPTIONS.esModuleInterop,
       strict: DEFAULT_PLAYGROUND_COMPILER_OPTIONS.strict,
       experimentalDecorators:
@@ -73,7 +72,7 @@ export function SourceEditor({
     <Editor
       height="100%"
       defaultLanguage="typescript"
-      theme="vs-dark"
+      theme="vs"
       value={value}
       onChange={(v) => onChange(v ?? "")}
       onMount={handleMount}

@@ -51,18 +51,18 @@ const STAGES = [
 
 export default function TtscWebsiteLandingRestOfToolchain() {
   return (
-    <section className="relative overflow-hidden bg-neutral-950 px-6 py-24 md:py-32">
+    <section className="relative overflow-hidden bg-white px-6 py-24 md:py-32">
       <div className="relative mx-auto max-w-6xl">
         <TtscWebsiteLandingFadeIn>
           <TtscWebsiteLandingSectionEyebrow label="Toolchain" />
           <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <div>
-              <h2 className="text-3xl font-bold leading-[1.08] tracking-tight text-white md:text-5xl">
+              <h2 className="text-3xl font-bold leading-[1.08] tracking-tight text-[#102a43] md:text-5xl">
                 One compiler path, not a pile of wrappers.
               </h2>
-              <p className="mt-5 max-w-2xl text-base leading-relaxed text-neutral-400">
+              <p className="mt-5 max-w-2xl text-base leading-relaxed text-[#526b82]">
                 Keep the existing{" "}
-                <code className="font-mono text-neutral-200">
+                <code className="font-mono font-semibold text-[#235a97]">
                   tsconfig.json
                 </code>
                 . The same project graph feeds the CLI, runner, linter, editor,
@@ -73,12 +73,12 @@ export default function TtscWebsiteLandingRestOfToolchain() {
               {STAGES.map((stage, index) => (
                 <div
                   key={stage}
-                  className="rounded-lg border border-neutral-800 bg-black/35 p-3"
+                  className="rounded-xl border border-[#c7dff4] bg-[#f7fbff] p-3"
                 >
-                  <p className="font-mono text-[11px] text-cyan-300">
+                  <p className="font-mono text-[11px] font-bold text-[#3178c6]">
                     0{index + 1}
                   </p>
-                  <p className="mt-2 text-xs font-medium text-neutral-300">
+                  <p className="mt-2 text-xs font-medium text-[#405f7a]">
                     {stage}
                   </p>
                 </div>
@@ -93,27 +93,30 @@ export default function TtscWebsiteLandingRestOfToolchain() {
               <a
                 key={card.name}
                 href={card.href}
-                className="group flex min-h-[230px] flex-col rounded-lg border border-neutral-800 bg-neutral-950 p-5 transition-colors hover:border-cyan-300/45"
+                className="group flex min-h-[230px] flex-col rounded-2xl border border-[#d2e4f4] bg-white p-5 shadow-[0_10px_34px_rgba(49,120,198,0.07)] transition-all hover:-translate-y-1 hover:border-[#72afe6] hover:shadow-[0_18px_44px_rgba(49,120,198,0.14)]"
                 style={
                   card.accent
-                    ? { borderColor: "rgba(54, 226, 238, 0.38)" }
+                    ? {
+                        borderColor: "rgba(49, 120, 198, 0.55)",
+                        background: "linear-gradient(145deg, #ffffff, #eef6ff)",
+                      }
                     : undefined
                 }
               >
                 <code
                   className={`font-mono text-base font-bold ${
-                    card.accent ? "text-cyan-300" : "text-white"
+                    card.accent ? "text-[#3178c6]" : "text-[#235a97]"
                   }`}
                 >
                   {card.name}
                 </code>
-                <p className="mt-3 text-sm font-semibold text-neutral-300">
+                <p className="mt-3 text-sm font-semibold text-[#102a43]">
                   {card.tagline}
                 </p>
-                <p className="mt-3 text-xs leading-relaxed text-neutral-500">
+                <p className="mt-3 text-xs leading-relaxed text-[#60778e]">
                   {card.description}
                 </p>
-                <p className="mt-auto pt-6 font-mono text-[11px] text-neutral-500 group-hover:text-cyan-300">
+                <p className="mt-auto pt-6 font-mono text-[11px] text-[#6b8297] group-hover:text-[#3178c6]">
                   {card.meta}
                 </p>
               </a>

@@ -10,6 +10,59 @@
    path. */
 @source "../../node_modules/@ttsc/playground/lib/**/*.js";
 
+:root {
+  --ttsc-blue: #3178c6;
+  --ttsc-blue-deep: #235a97;
+  --ttsc-blue-ink: #102a43;
+  --ttsc-blue-soft: #eaf4ff;
+  --ttsc-blue-wash: #f7fbff;
+  --ttsc-blue-border: #c7dff4;
+  --ttsc-muted: #526b82;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: #ffffff;
+  color: var(--ttsc-blue-ink);
+}
+
+.ttsc-site-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--ttsc-blue-ink);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.ttsc-site-logo-mark {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: flex-end;
+  justify-content: flex-end;
+  border-radius: 0.35rem;
+  padding: 0.18rem;
+  background: var(--ttsc-blue);
+  color: white;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 6px 18px rgba(49, 120, 198, 0.2);
+}
+
+.ttsc-landing {
+  color: var(--ttsc-blue-ink);
+}
+
+.ttsc-landing ::selection {
+  background: rgba(49, 120, 198, 0.22);
+}
+
 /* ── Landing page: full-bleed canvas ── */
 :has(.ttsc-landing) article {
   max-width: 100% !important;

@@ -104,7 +104,7 @@ export default function TtscWebsitePlaygroundShell() {
       brand={
         <a
           href="/"
-          className="font-mono text-sm font-bold text-white hover:text-blue-400 transition-colors"
+          className="font-mono text-sm font-bold text-[#235a97] transition-colors hover:text-[#3178c6]"
         >
           ttsc
         </a>

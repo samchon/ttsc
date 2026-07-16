@@ -24,9 +24,7 @@ export default function TtscWebsiteBenchmarkSpeedupBar({
   return (
     <div className="not-prose">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          {speedup.label}
-        </p>
+        <p className="text-sm font-semibold text-[#102a43]">{speedup.label}</p>
         <p className="font-mono text-[11px] text-neutral-500">
           {speedup.detail}
         </p>
@@ -48,7 +46,7 @@ export default function TtscWebsiteBenchmarkSpeedupBar({
       </div>
 
       <p className="mt-2 font-mono text-[11px] text-neutral-500">
-        <span className="font-bold text-cyan-600 dark:text-cyan-300">
+        <span className="font-bold text-[#3178c6]">
           {TtscWebsiteBenchmarkFormat.formatMultiplier(speedup.factor)}
         </span>{" "}
         {faster ? "faster" : "of baseline"}
@@ -73,28 +71,22 @@ function BarRow({
     <div className="flex items-center gap-3">
       <code
         className={`w-24 shrink-0 truncate text-right font-mono text-[11px] ${
-          isFast
-            ? "font-bold text-cyan-700 dark:text-cyan-300"
-            : "text-neutral-500"
+          isFast ? "font-bold text-[#235a97]" : "text-neutral-500"
         }`}
         title={tool}
       >
         {tool}
       </code>
-      <div className="relative h-6 flex-1 overflow-hidden rounded bg-neutral-200/70 dark:bg-neutral-800/70">
+      <div className="relative h-6 flex-1 overflow-hidden rounded bg-[#e7f0f8]">
         <div
           className={`flex h-full items-center justify-end rounded px-2 transition-[width] duration-700 ${
             isFast
-              ? "bg-gradient-to-r from-cyan-500 to-cyan-400 dark:from-cyan-500 dark:to-cyan-300"
-              : "bg-neutral-400 dark:bg-neutral-600"
+              ? "bg-gradient-to-r from-[#235a97] to-[#4d9adb]"
+              : "bg-[#8aa6bd]"
           }`}
           style={{ width: `${widthPct}%` }}
         >
-          <span
-            className={`font-mono text-[11px] font-semibold tabular-nums ${
-              isFast ? "text-cyan-950" : "text-white dark:text-neutral-200"
-            }`}
-          >
+          <span className="font-mono text-[11px] font-semibold tabular-nums text-white">
             {TtscWebsiteBenchmarkFormat.formatDuration(ms)}
           </span>
         </div>

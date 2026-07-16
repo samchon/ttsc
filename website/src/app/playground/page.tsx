@@ -7,7 +7,7 @@ const TtscWebsitePlaygroundShell = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex items-center justify-center w-full h-[calc(100vh-64px)] text-neutral-400 font-mono text-sm">
+      <div className="flex h-[calc(100vh-64px)] w-full items-center justify-center bg-[#f7fbff] font-mono text-sm text-slate-500">
         Loading playground…
       </div>
     ),

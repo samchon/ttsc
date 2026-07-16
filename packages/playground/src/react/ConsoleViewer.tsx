@@ -15,7 +15,7 @@ export function ConsoleViewer({
 }: ConsoleViewerProps) {
   if (messages.length === 0)
     return (
-      <div className="h-full w-full flex items-center justify-center text-neutral-600 font-mono text-[11px] px-4 text-center">
+      <div className="flex h-full w-full items-center justify-center px-4 text-center font-mono text-[11px] text-slate-400">
         {empty}
       </div>
     );
@@ -24,7 +24,7 @@ export function ConsoleViewer({
       {messages.map((msg, i) => (
         <div
           key={i}
-          className="py-1 border-b border-neutral-900/70 last:border-b-0 flex gap-2"
+          className="flex gap-2 border-b border-[#d8e7f4] py-1 last:border-b-0"
         >
           <span
             className={`shrink-0 text-[10px] uppercase tracking-wider w-12 ${typeColor(
@@ -33,7 +33,7 @@ export function ConsoleViewer({
           >
             {msg.type}
           </span>
-          <span className="flex-1 break-words whitespace-pre-wrap text-neutral-200">
+          <span className="flex-1 whitespace-pre-wrap break-words text-slate-700">
             {(Array.isArray(msg.value) ? msg.value : [msg.value]).map(
               (arg, idx) => (
                 <span key={idx}>
@@ -52,33 +52,33 @@ export function ConsoleViewer({
 function typeColor(type: IConsoleMessage["type"]): string {
   switch (type) {
     case "error":
-      return "text-red-400";
+      return "text-red-600";
     case "warn":
-      return "text-yellow-400";
+      return "text-amber-600";
     case "info":
-      return "text-sky-400";
+      return "text-sky-700";
     case "debug":
-      return "text-fuchsia-400";
+      return "text-fuchsia-700";
     case "dir":
     case "table":
-      return "text-cyan-400";
+      return "text-cyan-700";
     default:
-      return "text-emerald-400";
+      return "text-emerald-700";
   }
 }
 
 function formatValue(value: unknown, depth = 0): JSX.Element {
   if (typeof value === "string")
-    return <span className="text-amber-200">{JSON.stringify(value)}</span>;
+    return <span className="text-amber-700">{JSON.stringify(value)}</span>;
   if (typeof value === "number")
-    return <span className="text-purple-300">{String(value)}</span>;
+    return <span className="text-purple-700">{String(value)}</span>;
   if (typeof value === "boolean")
-    return <span className="text-sky-300">{String(value)}</span>;
-  if (value === null) return <span className="text-neutral-500">null</span>;
+    return <span className="text-sky-700">{String(value)}</span>;
+  if (value === null) return <span className="text-slate-500">null</span>;
   if (value === undefined)
-    return <span className="text-neutral-500">undefined</span>;
+    return <span className="text-slate-500">undefined</span>;
   if (typeof value === "function")
-    return <span className="text-neutral-500">[Function]</span>;
+    return <span className="text-slate-500">[Function]</span>;
   if (Array.isArray(value))
     return (
       <span>
@@ -94,21 +94,21 @@ function formatValue(value: unknown, depth = 0): JSX.Element {
     );
   if (value instanceof Error)
     return (
-      <span className="text-red-300">
+      <span className="text-red-700">
         {value.name}: {value.message}
       </span>
     );
   try {
     const entries = Object.entries(value as Record<string, unknown>);
     if (entries.length === 0) return <span>{"{}"}</span>;
-    if (depth > 4) return <span className="text-neutral-500">[...]</span>;
+    if (depth > 4) return <span className="text-slate-500">[...]</span>;
     return (
       <span>
         {"{"}
         {entries.map(([k, v], idx) => (
           <span key={k}>
             {idx > 0 ? ", " : " "}
-            <span className="text-blue-300">{k}</span>:{" "}
+            <span className="text-[#3178c6]">{k}</span>:{" "}
             {formatValue(v, depth + 1)}
           </span>
         ))}

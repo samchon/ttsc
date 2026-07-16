@@ -22,10 +22,10 @@ export default function TtscWebsiteBenchmarkProjectCard({
   const headline = TtscWebsiteBenchmarkFormat.headlineSpeedup(speedups);
 
   return (
-    <article className="not-prose flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900/40">
-      <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
+    <article className="not-prose flex flex-col overflow-hidden rounded-xl border border-[#b9d5ee] bg-white shadow-[0_12px_30px_rgba(49,120,198,0.08)]">
+      <div className="flex items-start justify-between gap-4 border-b border-[#b9d5ee] bg-[#f7fbff] px-5 py-4">
         <div>
-          <h3 className="font-mono text-base font-bold text-neutral-900 dark:text-neutral-100">
+          <h3 className="font-mono text-base font-bold text-[#102a43]">
             {project.name}
           </h3>
           <p className="mt-1 font-mono text-[11px] text-neutral-500">
@@ -34,7 +34,7 @@ export default function TtscWebsiteBenchmarkProjectCard({
         </div>
         {headline ? (
           <div className="shrink-0 text-right">
-            <p className="font-mono text-3xl font-black leading-none text-cyan-600 dark:text-cyan-300">
+            <p className="font-mono text-3xl font-black leading-none text-[#3178c6]">
               {TtscWebsiteBenchmarkFormat.formatMultiplier(headline.factor)}
             </p>
             <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-500">

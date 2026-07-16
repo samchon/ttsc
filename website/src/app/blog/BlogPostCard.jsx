@@ -13,7 +13,7 @@ export default function BlogPostCard({ post }) {
   return (
     <Link href={post.route} className="ttsc-blog-card">
       <img
-        src={frontMatter.ogImage ?? "/og.jpg"}
+        src={frontMatter.ogImage ?? "/og-blue.png"}
         alt={frontMatter.title ?? "Blog cover image"}
         className="ttsc-blog-card-image"
       />

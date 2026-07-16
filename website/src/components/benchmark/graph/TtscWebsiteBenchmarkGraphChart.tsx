@@ -16,7 +16,7 @@ function CrownMark({ active }: { active: boolean }) {
   return (
     <span
       className={`inline-flex h-3 w-3 shrink-0 items-center justify-center ${
-        active ? "text-[#36e2ee]" : "text-transparent"
+        active ? "text-[#3178c6]" : "text-transparent"
       }`}
       aria-hidden="true"
     >
@@ -52,9 +52,7 @@ function toolReduction(row: ReductionRow, tool: ReductionTool): number | null {
 
 function reductionText(reduction: number | null): string {
   if (reduction === null) return "No data";
-  return reduction >= 0
-    ? `${reduction}% saved`
-    : `${-reduction}% over`;
+  return reduction >= 0 ? `${reduction}% saved` : `${-reduction}% over`;
 }
 
 interface TokenDomain {
@@ -191,18 +189,18 @@ function ReductionTooltip({
   const reduction = toolReduction(row, tool);
   if (!tool.metrics)
     return (
-      <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 rounded-md border border-[#2a313e] bg-[#090b10] p-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45)] group-hover:block">
-        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+      <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 rounded-lg border border-[#b9d5ee] bg-white p-3 text-left shadow-[0_18px_45px_rgba(49,120,198,0.18)] group-hover:block">
+        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
           {row.label} / {tool.label}
         </p>
-        <p className="mt-2 text-[12px] font-medium text-neutral-300">
+        <p className="mt-2 text-[12px] font-medium text-slate-700">
           No published measurement.
         </p>
       </div>
     );
 
   return (
-    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-80 rounded-md border border-[#2a313e] bg-[#090b10] p-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45)] group-hover:block">
+    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-80 rounded-lg border border-[#b9d5ee] bg-white p-3 text-left shadow-[0_18px_45px_rgba(49,120,198,0.18)] group-hover:block">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
         style={{
@@ -211,10 +209,10 @@ function ReductionTooltip({
       />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+          <p className="truncate font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
             {row.label}
           </p>
-          <p className="mt-1 text-[12px] font-semibold text-neutral-100">
+          <p className="mt-1 text-[12px] font-semibold text-slate-800">
             {tool.label}
           </p>
         </div>
@@ -226,8 +224,8 @@ function ReductionTooltip({
         </span>
       </div>
 
-      <div className="mt-3 rounded border border-[#1c2230] bg-[#0e1117] p-2 font-mono text-[10px]">
-        <div className="grid grid-cols-[3.25rem_1fr_1fr] gap-x-2 uppercase tracking-[0.12em] text-neutral-600">
+      <div className="mt-3 rounded border border-[#d2e4f4] bg-[#f7fbff] p-2 font-mono text-[10px]">
+        <div className="grid grid-cols-[3.25rem_1fr_1fr] gap-x-2 uppercase tracking-[0.12em] text-slate-400">
           <span />
           <span className="text-right">baseline</span>
           <span className="text-right">tool</span>
@@ -237,20 +235,20 @@ function ReductionTooltip({
             key={metric.label}
             className="mt-1 grid grid-cols-[3.25rem_1fr_1fr] items-baseline gap-x-2"
           >
-            <span className="uppercase tracking-[0.12em] text-neutral-600">
+            <span className="uppercase tracking-[0.12em] text-slate-400">
               {metric.label}
             </span>
-            <span className="text-right tabular-nums text-neutral-400">
+            <span className="text-right tabular-nums text-slate-500">
               {metric.base}
             </span>
-            <span className="text-right tabular-nums text-neutral-200">
+            <span className="text-right tabular-nums text-slate-700">
               {metric.value}
               {deltaText(metric.delta) ? (
                 <span
                   className={`ml-1 ${
                     metric.delta !== null && metric.delta > 0
                       ? "text-rose-400"
-                      : "text-[#36e2ee]"
+                      : "text-[#3178c6]"
                   }`}
                 >
                   {deltaText(metric.delta)}
@@ -261,13 +259,13 @@ function ReductionTooltip({
         ))}
       </div>
       {row.baseline.costEstimated || tool.metrics.costEstimated ? (
-        <p className="mt-2 font-mono text-[10px] text-neutral-500">
+        <p className="mt-2 font-mono text-[10px] text-slate-500">
           ~ cost estimated from tokens at API list prices (Codex reports no
           cost)
         </p>
       ) : null}
       {tool.setupMs !== undefined ? (
-        <p className="mt-2 font-mono text-[10px] text-neutral-500">
+        <p className="mt-2 font-mono text-[10px] text-slate-500">
           index setup: {TtscWebsiteBenchmarkGraphData.fmtSecs(tool.setupMs)}
         </p>
       ) : null}
@@ -288,10 +286,7 @@ export default function TtscWebsiteBenchmarkGraphChart({
   rows: ReductionRow[];
   aside?: string;
 }) {
-  const { domain } = useMemo(
-    () => ({ domain: tokenDomain(rows) }),
-    [rows],
-  );
+  const { domain } = useMemo(() => ({ domain: tokenDomain(rows) }), [rows]);
 
   return (
     <section
@@ -303,7 +298,7 @@ export default function TtscWebsiteBenchmarkGraphChart({
         description={description}
         aside={aside}
       />
-      <p className="border-b border-[#222834] px-5 py-2.5 font-mono text-[11px] text-neutral-400">
+      <p className="border-b border-[#c7dff4] px-5 py-2.5 font-mono text-[11px] text-slate-500">
         lower is better
       </p>
       <div className="space-y-1.5 px-3 py-3">
@@ -318,15 +313,17 @@ export default function TtscWebsiteBenchmarkGraphChart({
                 // Alternating bands so each case reads as a block, matching the
                 // Time-to-answer chart.
                 backgroundColor:
-                  index % 2 === 0 ? "rgba(17,26,36,0.6)" : "rgba(17,26,36,0.25)",
+                  index % 2 === 0
+                    ? "rgba(232,242,251,0.72)"
+                    : "rgba(247,251,255,0.72)",
               }}
             >
               <div className="flex items-baseline justify-between gap-3 pb-0.5">
-                <span className="truncate text-[13px] font-semibold text-neutral-100">
+                <span className="truncate text-[13px] font-semibold text-slate-800">
                   {row.label}
                 </span>
                 {row.meta ? (
-                  <span className="shrink-0 font-mono text-[11px] text-neutral-400">
+                  <span className="shrink-0 font-mono text-[11px] text-slate-500">
                     {row.meta}
                   </span>
                 ) : null}
@@ -336,28 +333,28 @@ export default function TtscWebsiteBenchmarkGraphChart({
                 <span
                   className={`inline-flex w-32 shrink-0 items-center gap-1 truncate font-mono text-[11px] ${
                     baselineBest
-                      ? "font-semibold text-neutral-100"
-                      : "text-neutral-400"
+                      ? "font-semibold text-slate-800"
+                      : "text-slate-500"
                   }`}
                 >
                   <CrownMark active={baselineBest} />
                   <span className="truncate">baseline</span>
                 </span>
                 <div
-                  className={`relative h-3.5 flex-1 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ${
+                  className={`relative h-3.5 flex-1 overflow-hidden rounded-full bg-[#e7f0f8] ring-1 ring-inset ${
                     baselineBest
-                      ? "shadow-[0_0_14px_rgba(54,226,238,0.16)] ring-[#d7f9ff]/70"
-                      : "ring-white/[0.04]"
+                      ? "shadow-[0_0_14px_rgba(49,120,198,0.18)] ring-[#72afe6]/70"
+                      : "ring-[#c7dff4]"
                   }`}
                 >
                   <div
-                    className="absolute top-0 h-full rounded-full bg-[#6f7787]"
+                    className="absolute top-0 h-full rounded-full bg-[#94a3b8]"
                     style={tokenBarStyle(row.baseline.tokens, domain)}
                   />
                 </div>
                 <span
                   className={`w-24 shrink-0 whitespace-nowrap text-right font-mono text-[11px] tabular-nums ${
-                    baselineBest ? "text-neutral-50" : "text-neutral-200"
+                    baselineBest ? "text-[#102a43]" : "text-slate-700"
                   }`}
                 >
                   {tokenUsageText(row.baseline.tokens)}
@@ -383,10 +380,10 @@ export default function TtscWebsiteBenchmarkGraphChart({
                       <span className="truncate">{tool.label}</span>
                     </span>
                     <div
-                      className={`relative h-3.5 flex-1 overflow-hidden rounded-full bg-[#161b24] ring-1 ring-inset ${
+                      className={`relative h-3.5 flex-1 overflow-hidden rounded-full bg-[#e7f0f8] ring-1 ring-inset ${
                         best
-                          ? "shadow-[0_0_14px_rgba(54,226,238,0.16)] ring-[#d7f9ff]/70"
-                          : "ring-white/[0.04]"
+                          ? "shadow-[0_0_14px_rgba(49,120,198,0.18)] ring-[#72afe6]/70"
+                          : "ring-[#c7dff4]"
                       }`}
                     >
                       <div
@@ -394,18 +391,21 @@ export default function TtscWebsiteBenchmarkGraphChart({
                           missing ? "opacity-25" : ""
                         }`}
                         style={{
-                          ...tokenBarStyle(tool.metrics?.tokens ?? null, domain),
-                          background: missing ? "#303644" : tool.fill,
+                          ...tokenBarStyle(
+                            tool.metrics?.tokens ?? null,
+                            domain,
+                          ),
+                          background: missing ? "#d3e0ec" : tool.fill,
                         }}
                       />
                     </div>
                     <span
                       className={`w-24 shrink-0 whitespace-nowrap text-right font-mono text-[11px] font-medium tabular-nums ${
                         best
-                          ? "text-[#36e2ee]"
+                          ? "text-[#3178c6]"
                           : reduction !== null && reduction < 0
                             ? "text-rose-400"
-                            : "text-neutral-300"
+                            : "text-slate-600"
                       }`}
                     >
                       {tool.metrics ? reductionText(reduction) : "no data"}

@@ -21,14 +21,14 @@ function StatCard({
   accent?: boolean;
 }) {
   return (
-    <div className="group relative bg-[#0c0e13] px-4 py-4 transition-colors hover:bg-[#0f1219]">
+    <div className="group relative bg-white px-4 py-4 transition-colors hover:bg-[#f7fbff]">
       {accent ? (
         <span
           className="pointer-events-none absolute inset-y-3 left-0 w-px"
           style={{ background: TtscWebsiteBenchmarkGraphUi.ACCENT }}
         />
       ) : null}
-      <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-neutral-500">
+      <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500">
         {label}
       </dt>
       <dd className="mt-2 flex items-baseline gap-1">
@@ -37,20 +37,20 @@ function StatCard({
           style={
             accent
               ? { color: TtscWebsiteBenchmarkGraphUi.ACCENT }
-              : { color: "#f5f5f5" }
+              : { color: "#102a43" }
           }
         >
           {value}
         </span>
         {unit ? (
-          <span className="font-mono text-[12px] font-medium text-neutral-500">
+          <span className="font-mono text-[12px] font-medium text-slate-500">
             {unit}
           </span>
         ) : null}
       </dd>
       {note ? (
         <dd
-          className="mt-2 truncate font-mono text-[10px] text-neutral-500"
+          className="mt-2 truncate font-mono text-[10px] text-slate-500"
           title={note}
         >
           {note}
@@ -154,14 +154,14 @@ function TtscWebsiteBenchmarkGraphStructuralPanel({
         description="Node and edge counts plus the share of symbol-bearing source files with at least one resolved cross-file edge."
       />
 
-      <dl className="grid grid-cols-2 gap-px bg-[#1a1f29] xl:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-px bg-[#b9d5ee] xl:grid-cols-4">
         {stats.map((stat) => (
           <StatCard key={stat.label} {...stat} />
         ))}
       </dl>
 
       {timingStats.length > 0 ? (
-        <dl className="grid grid-cols-2 gap-px border-t border-[#1a1f29] bg-[#1a1f29] sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-px border-t border-[#b9d5ee] bg-[#b9d5ee] sm:grid-cols-4">
           {timingStats.map((stat) => (
             <StatCard key={stat.label} {...stat} />
           ))}
