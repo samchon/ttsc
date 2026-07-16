@@ -68,16 +68,17 @@ func installProjectResultFileRuleTestDouble(t *testing.T, fileRule projectResult
 }
 
 // TestProjectRuleResultsReachPublicFileContext verifies a contributor file rule
-// observes every project-result state after project checks finalize.
+// observes every project-result state after project checks complete.
 //
 // A missing registration is not success, and an explicit off declaration is
 // different from a registered rule that was never configured. The failed rule
 // deliberately reports the same message twice so this test also pins the
-// cycle-scoped reporter's deterministic deduplication.
+// cycle-scoped reporter's deterministic deduplication. A panicking project
+// check remains isolated as one deterministic failed result.
 //
-//  1. Install failed, off, not-evaluated, and passed project rules.
+//  1. Install failed, off, not-evaluated, panicking, and passed project rules.
 //  2. Run one public file contributor after the project cycle.
-//  3. Assert all five states and one detached, deduplicated project finding.
+//  3. Assert all six states and two detached, deterministic project findings.
 func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
   const (
     absentName       = "project-test/absent"
@@ -85,6 +86,7 @@ func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
     fileRuleName     = "project-test/file-observer"
     notEvaluatedName = "project-test/not-evaluated"
     offName          = "project-test/off"
+    panickedName     = "project-test/panicked"
     passedName       = "project-test/passed"
   )
 
@@ -98,13 +100,19 @@ func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
   })
   installProjectRuleTestDouble(t, projectRuleTestDouble{name: offName})
   installProjectRuleTestDouble(t, projectRuleTestDouble{name: notEvaluatedName})
+  installProjectRuleTestDouble(t, projectRuleTestDouble{
+    name: panickedName,
+    check: func(*publicrule.ProjectContext) {
+      panic("project check boom")
+    },
+  })
   installProjectRuleTestDouble(t, projectRuleTestDouble{name: passedName})
 
   observed := map[string]publicrule.ProjectRuleResult{}
   installProjectResultFileRuleTestDouble(t, projectResultFileRuleTestDouble{
     name: fileRuleName,
     check: func(ctx *publicrule.Context) {
-      for _, name := range []string{absentName, failedName, notEvaluatedName, offName, passedName} {
+      for _, name := range []string{absentName, failedName, notEvaluatedName, offName, panickedName, passedName} {
         observed[name] = ctx.ProjectResult(name)
       }
       for _, name := range []string{absentName, notEvaluatedName, offName} {
@@ -118,6 +126,7 @@ func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
     failedName:   SeverityError,
     fileRuleName: SeverityError,
     offName:      SeverityOff,
+    panickedName: SeverityError,
     passedName:   SeverityWarn,
   })
   findings := engine.Run([]*shimast.SourceFile{parseTS(t, "export const value = 1;\n")}, nil)
@@ -127,6 +136,7 @@ func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
     failedName:       publicrule.ProjectRuleFailed,
     notEvaluatedName: publicrule.ProjectRuleNotEvaluated,
     offName:          publicrule.ProjectRuleOff,
+    panickedName:     publicrule.ProjectRuleFailed,
     passedName:       publicrule.ProjectRulePassed,
   }
   for name, status := range expected {
@@ -143,7 +153,11 @@ func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
   if got := len(observed[failedName].Findings); got != 1 {
     t.Fatalf("failed result should retain one deduplicated finding, got %d", got)
   }
-  if got := len(findings); got != 2 || findings[0].File != nil || findings[0].Rule != failedName || findings[1].File == nil || findings[1].Rule != fileRuleName {
-    t.Fatalf("project finding should be emitted once before file findings: %#v", findings)
+  panicked := observed[panickedName]
+  if got := len(panicked.Findings); got != 1 || panicked.Findings[0].Message != `Project rule "project-test/panicked" panicked while checking this Program: project check boom. Report this to the rule's author.` {
+    t.Fatalf("panicking result should retain one deterministic finding: %#v", panicked.Findings)
+  }
+  if got := len(findings); got != 3 || findings[0].File != nil || findings[0].Rule != failedName || findings[1].File != nil || findings[1].Rule != panickedName || findings[2].File == nil || findings[2].Rule != fileRuleName {
+    t.Fatalf("project findings should be sorted before file findings: %#v", findings)
   }
 }
