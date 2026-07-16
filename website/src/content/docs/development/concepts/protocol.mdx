@@ -365,13 +365,29 @@ Project-wide source transform used by `ttsc.transform()` and in-memory callers. 
   },
   "dependencies": {
     "src/main.ts": ["src/types.ts"]
-  }
+  },
+  "graph": {
+    "edges": { "src/main.ts": ["src/types.ts"] },
+    "globals": ["src/ambient.d.ts"],
+    "configs": ["tsconfig.json", "tsconfig.base.json"]
+  },
+  "volatile": ["src/generated-from-env.ts"]
 }
 ```
 
 Each value in `typescript` is written to disk **verbatim**. The host does not re-parse or re-render. If your plugin mutated the AST, you must run a printer over the file before placing its text in the map; the canonical path is `shimprinter.NewPrinter(...)` → `shimprinter.EmitSourceFile(printer, file)`. Returning `file.Text()` after AST mutation will silently round-trip the original source. See `packages/ttsc/utility/host.go::RunTransform` for the reference implementation.
 
 `dependencies` is optional advisory metadata: per transformed file (same keys as `typescript`), the source files whose content influenced that output beyond the file itself — for a type-driven generator, the declaration files it read through the Checker. Paths may be project-relative or absolute; the host passes them through verbatim on `ttsc.transform()` results, and `@ttsc/unplugin` registers them as bundler watch files so type-only inputs invalidate the module in HMR. Dev-mode bundlers erase type-only imports from their module graph, so without this field an edit to a consulted type serves stale generated code until a cold restart. Omit the field (or a file's entry) when there is nothing to report; malformed entries are dropped, never fatal.
+
+`graph` is the host-owned reference graph of the loaded program — the language-semantic input bound of any type-driven transform under `tsc --incremental` semantics (any symbol a file can reference is reachable through its import/reference closure or is ambient). Unlike `dependencies`, it requires no per-plugin reporting: `driver.NewTransformGraph(prog, cwd)` computes it from the Program, the built-in native host and the linked-plugin generic host stamp it automatically, and an executable sidecar adds the one field to its own envelope (see [Reference → Driver API](/docs/development/reference/driver-api#reference-graph)). Keys and values follow the `typescript` key convention:
+
+- `edges`: per file, its **direct** resolved references — imports, re-exports, `/// <reference>` targets, type reference directives, type-only edges included. Direct edges are the minimal sufficient statistic (`tsbuildinfo` stores `referencedMap` the same way); consumers that need a flat per-file list compute the reachability closure themselves.
+- `globals`: files contributing to the global scope (ambient declaration files, script files, global augmentations, `typeRoots` entries); a change to any of them can affect every file.
+- `configs`: the project tsconfig followed by its `extends` ancestry.
+
+`@ttsc/unplugin` registers, per transformed file `F`, `reach(edges, F) ∪ globals ∪ configs ∪ dependencies[F]` as watch files — union semantics, so a plugin's `dependencies` can only widen the host-owned bound. This is what makes webpack filesystem caches (what Next.js persists under `.next/cache`), watch graphs, and Turbopack `fileDependencies` invalidate soundly by default when a type-only input changes. Malformed sections degrade to fewer registrations, never a failed build.
+
+`volatile` is the hermeticity declaration: the transformed files (same keys as `typescript`) whose output depends on non-file inputs — environment variables, time, network. No file-dependency scheme can represent such inputs, so consumers exclude these files from caching instead of watching more paths: `@ttsc/unplugin` bypasses its project transform cache for them and marks the module uncacheable where the bundler exposes that control (webpack/rspack loader `cacheable(false)`). Declare volatility only when the output genuinely is non-hermetic; a spurious declaration disables caching for that file on every build. Malformed entries are dropped, never fatal.
 
 For leaf-text mutations (string-literal, identifier, numeric-literal `.Text`), the printer reads original source text via `getTextOfNode` when the node is non-synthesized and has a parent. See [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes) for the synthesize-flag invariant the rewrite must follow.
 

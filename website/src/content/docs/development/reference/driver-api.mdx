@@ -63,6 +63,26 @@ This is the one ttsc-layered phase that observes emit at all; everything else a 
 
 When the project configures `outDir`, every driver emit lane (`EmitAll`, `EmitAllRaw`, `EmitFile`, `EmitWithPluginTransformers`) skips any output whose computed path would land outside it (outside `declarationDir` too, when set; `.tsbuildinfo` is exempt because its default home is next to the tsconfig). A forced emit past the `TS6059` rootDir check would otherwise resolve an out-of-`rootDir` source (typically a dependency package's raw `.ts` entry reached by package self-reference) to a `.js` right next to the dependency's own source, polluting a sibling package's tree. Skipped files behave exactly like `node_modules` externals: no write, no diagnostic, and your `WriteFile` callback never sees them.
 
+## Reference graph
+
+```go
+out := transformResult{TypeScript: map[string]string{}}
+for _, file := range prog.SourceFiles() {
+    out.TypeScript[driver.TransformOutputKey(cwd, file.FileName())] = text
+}
+out.Graph = driver.NewTransformGraph(prog, cwd) // stamp the graph section
+```
+
+`NewTransformGraph(prog, cwd)` computes the loaded program's reference graph under `tsc --incremental` semantics and returns the `graph` envelope section (`edges`, `globals`, `configs`) documented in [Plugin protocol → Transform](/docs/development/concepts/protocol#transform):
+
+- `Edges` maps each file to its direct resolved references — imports, re-exports, `/// <reference>` targets, type reference directives, type-only edges included — exactly the per-file `referencedMap` entry tsgo's own incremental engine stores in `tsbuildinfo`.
+- `Globals` lists the files contributing to the global scope (ambient declaration files, script files, global augmentations, `typeRoots` entries).
+- `Configs` lists the project tsconfig followed by its `extends` ancestry.
+
+Keys use `TransformOutputKey(cwd, fileName)` — the same convention as the envelope's `typescript` map (project-relative slash paths, absolute slash paths outside the project root) — so consumers can join the sections by key. The embedded `bundled:///` standard library is excluded; it is not a filesystem input.
+
+Stamp the returned struct into your `transform` stdout envelope. The built-in native host (`ttsc api-transform`) and the linked-plugin generic host already do, so linked transform packages inherit graph emission for free; an executable sidecar that encodes its own envelope adds the one field above. `@ttsc/unplugin` consumes the section to register bundler watch files, which is what keeps webpack filesystem caches and watch graphs from serving stale generated code when a type-only input changes.
+
 ## Diagnostics
 
 ```go
