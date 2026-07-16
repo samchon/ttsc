@@ -20,6 +20,12 @@ type apiTransformResult struct {
   // Program facade, keyed the same way api-compile keys emitted files.
   Diagnostics []apiCompileDiagnostic `json:"diagnostics,omitempty"`
   TypeScript  map[string]string      `json:"typescript"`
+  // Graph is the host-owned reference graph of the loaded program (direct
+  // resolved reference edges, global-scope files, tsconfig extends chain),
+  // keyed like TypeScript. Consumers use it to register every file whose
+  // content can influence a transformed module, so bundler caches invalidate
+  // soundly without per-plugin reporting.
+  Graph *driver.TransformGraph `json:"graph,omitempty"`
 }
 
 // runAPITransform implements the `api-transform` sub-command. It loads the
@@ -63,8 +69,14 @@ func runAPITransform(args []string) int {
     return 2
   }
   typescript := map[string]string{}
+  var graph *driver.TransformGraph
   if prog != nil {
     defer prog.Close()
+    // Compute the reference graph before SourceFiles() runs linked plugin
+    // hooks: those mutate parsed ASTs in place, and the graph must describe
+    // the original source's resolved references — the transform's inputs —
+    // not the mutated output.
+    graph = driver.NewTransformGraph(prog, cwd)
     for _, file := range prog.SourceFiles() {
       typescript[apiOutputKey(cwd, file.FileName())] = file.Text()
     }
@@ -74,6 +86,7 @@ func runAPITransform(args []string) int {
   result := apiTransformResult{
     Diagnostics: make([]apiCompileDiagnostic, 0, len(diags)),
     TypeScript:  typescript,
+    Graph:       graph,
   }
   for _, diag := range diags {
     result.Diagnostics = append(result.Diagnostics, toAPICompileDiagnostic(diag))

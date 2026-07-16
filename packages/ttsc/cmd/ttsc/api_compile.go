@@ -10,8 +10,6 @@ import (
   "encoding/json"
   "flag"
   "fmt"
-  "path/filepath"
-  "strings"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
 
@@ -146,16 +144,8 @@ func toAPICompileDiagnostic(diag driver.Diagnostic) apiCompileDiagnostic {
 // generated file. Files inside cwd use a slash-separated relative path (the
 // API contract). Files outside cwd — rare, e.g. a monorepo output rooted
 // above the project — are returned as an absolute slash path instead.
+// Delegates to the driver so every envelope section (typescript, graph)
+// shares one key implementation and consumers can join sections by key.
 func apiOutputKey(cwd, fileName string) string {
-  if rel, err := filepath.Rel(cwd, fileName); err == nil && !isOutsideRelativePath(rel) {
-    return filepath.ToSlash(rel)
-  }
-  return filepath.ToSlash(fileName)
-}
-
-// isOutsideRelativePath reports whether the result of filepath.Rel points
-// above the base directory (starts with ".."), meaning the file lives outside
-// the project root and cannot safely be expressed as a project-relative path.
-func isOutsideRelativePath(rel string) bool {
-  return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
+  return driver.TransformOutputKey(cwd, fileName)
 }
