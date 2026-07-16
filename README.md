@@ -25,18 +25,18 @@ npx ttsx src/index.ts   # run a file, type-checked first
 npx ttsc                # build
 npx ttsc --noEmit       # check only
 npx ttsc --watch        # rebuild on save
-npx ttsc format         # format source files in place
+npx ttsc format         # format in place
 ```
 
-`ttsc` reads the `tsconfig.json` you already have, same fields as `tsc`. Setup for the other surfaces is in the guide:
+`ttsc` reads the `tsconfig.json` you already have. Setup for bundlers, React Native, VS Code, and coding agents is in the [Setup guide](https://ttsc.dev/docs/setup):
 
-- [Bundlers](https://ttsc.dev/docs/setup/unplugin): `@ttsc/unplugin` adapters for Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Turbopack, Farm, and Bun.
-- [React Native / Expo](https://ttsc.dev/docs/setup/metro): `@ttsc/metro`, the Metro transformer.
-- [VS Code](https://ttsc.dev/docs/setup/vscode): editor diagnostics that match your build, plus format on save.
+- [Bundlers (Vite, webpack, Next.js, ...)](https://ttsc.dev/docs/setup/unplugin)
+- [React Native / Expo (Metro)](https://ttsc.dev/docs/setup/metro)
+- [VS Code extension](https://ttsc.dev/docs/setup/vscode)
 
 ## Lint
 
-`@ttsc/lint` folds ESLint's job and Prettier's job into the compile: one `lint.config.ts`, one pass, one exit code. A lint violation fails the build through the same stream as a type error.
+`@ttsc/lint` folds ESLint's job and Prettier's job into the compile you already run. One `lint.config.ts`, one pass, one exit code.
 
 ```ts
 // lint.config.ts
@@ -56,7 +56,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-A violation arrives as a compiler diagnostic, in the same stream as a type error:
+A lint violation arrives as a compiler diagnostic, in the same stream as a type error, so the CI step that already runs `ttsc --noEmit` gates lint for free:
 
 ```ts
 // src/index.ts
@@ -77,13 +77,18 @@ src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const inst
   ~~~~~~~~~~~~~~
 ```
 
-`npx ttsc fix` applies every fixable violation plus format edits; `npx ttsc format` applies only the edits that cannot change behavior. The rule catalog and the format keys are in [Lint & Format](https://ttsc.dev/docs/lint).
+```bash
+npx ttsc fix      # apply every fixable lint violation + format edits
+npx ttsc format   # format edits only, never changes behavior
+```
+
+The full rule catalog and every `format` key are in the [Lint & Format guide](https://ttsc.dev/docs/lint).
 
 ## Graph
 
-`@ttsc/graph` hands a coding agent a checker-resolved graph of your project, over MCP. It answers what relates to a symbol and what a change affects straight from the type checker, so the agent stops grepping and re-reading files.
+`@ttsc/graph` is an MCP server that hands a coding agent a compiler-resolved graph of your project: what calls what, what a change would touch, where to start reading. Without it, an agent rebuilds that picture by opening files and chasing imports, spending tokens on every hop. With it, the agent asks the type checker.
 
-![@ttsc/graph agent token usage on TypeORM, baseline versus graph](https://ttsc.dev/benchmark/meetup-graph-token-usage.svg)
+![Token usage on the agent-cost benchmark, lower is better](https://ttsc.dev/benchmark/meetup-graph-token-usage.svg)
 
 ```bash
 npm install -D ttsc @ttsc/graph typescript
@@ -102,23 +107,11 @@ Point your agent's MCP client at it. For Claude Code, a `.mcp.json` in the proje
 }
 ```
 
-On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. See [Code Graph](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
+On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. The design and per-repository numbers are in the [Code Graph guide](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
 
 ## Plugins
 
-Plugins let libraries add compile-time checks, transforms, and type-driven code generation to normal `ttsc` and `ttsx` runs.
-
-```bash
-# compile
-npx ttsc
-
-# execute
-npx ttsx src/index.ts
-```
-
-### Transform Example
-
-A transform uses TypeScript types to generate JavaScript before runtime.
+Plugins let libraries add compile-time checks, transforms, and type-driven code generation to normal `ttsc` and `ttsx` runs. A transform uses TypeScript types to generate JavaScript before runtime:
 
 ```ts
 import typia, { tags } from "typia";
@@ -141,7 +134,7 @@ interface IMember {
 }
 ```
 
-The transform replaces `typia.is<IMember>()` with dedicated JavaScript checks at build time:
+At build time, the transform replaces `typia.is<IMember>()` with dedicated JavaScript checks:
 
 ```js
 import typia from "typia";
@@ -169,9 +162,7 @@ const matched = (() => {
 console.log(matched); // true
 ```
 
-### List of Plugins
-
-`ttsc` ships a few small utility plugins in this repository.
+Utility plugins shipped in this repository:
 
 - [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners.
 - [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): lints and formats TypeScript source.
@@ -181,12 +172,12 @@ console.log(matched); // true
 - [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.
 - [`@ttsc/metro`](https://github.com/samchon/ttsc/tree/master/packages/metro): runs `ttsc` plugins inside Metro for React Native and Expo.
 
-Plugin authors should start from the [`Guide Documents`](https://ttsc.dev/docs).
-
-Ecosystem plugins are listed below; PRs adding `ttsc` plugins are welcome.
+Ecosystem plugins; PRs adding yours are welcome:
 
 - [`nestia`](https://github.com/samchon/nestia): generates NestJS routes, OpenAPI, and SDKs.
 - [`typia`](https://github.com/samchon/typia): generates validators, serializers, and type-driven runtime code.
+
+To write one, start from [Plugin Development](https://ttsc.dev/docs/development).
 
 ## Sponsors
 
