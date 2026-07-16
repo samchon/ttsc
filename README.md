@@ -14,10 +14,10 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 
 ## Setup
 
-Install `ttsc`, `@ttsc/lint`, and the native TypeScript compiler:
+Install `ttsc` and the native TypeScript compiler:
 
 ```bash
-npm install -D ttsc @ttsc/lint typescript
+npm install -D ttsc typescript
 ```
 
 ```bash
@@ -25,7 +25,6 @@ npx ttsx src/index.ts   # run a file, type-checked first
 npx ttsc                # build
 npx ttsc --noEmit       # check only
 npx ttsc --watch        # rebuild on save
-npx ttsc format         # format in place
 ```
 
 `ttsc` reads the `tsconfig.json` you already have. Setup for bundlers, React Native, VS Code, and coding agents is in the [Setup guide](https://ttsc.dev/docs/setup):
@@ -37,6 +36,10 @@ npx ttsc format         # format in place
 ## Lint
 
 `@ttsc/lint` folds ESLint's job and Prettier's job into the compile you already run. One `lint.config.ts`, one pass, one exit code.
+
+```bash
+npm install -D @ttsc/lint
+```
 
 ```ts
 // lint.config.ts
