@@ -4,17 +4,26 @@ const CLAIMS = [
   {
     value: "10x",
     label: "faster type checks",
-    detail: "Up to 10x faster than JavaScript tsc through TypeScript-Go.",
+    detail:
+      "TypeScript-Go checks natively, in parallel. JavaScript tsc does neither.",
   },
   {
     value: "800x",
     label: "faster lint loop",
-    detail: "Measured on the VS Code fixture against ESLint.",
+    detail:
+      "Rules reuse the AST and types the compiler already built. ESLint parses it all again.",
+  },
+  {
+    value: "90%",
+    label: "fewer agent tokens",
+    detail:
+      "Agents read one compiler-resolved graph over MCP instead of crawling source files.",
   },
   {
     value: "type-safe",
     label: "script execution",
-    detail: "ttsx checks the project before Node receives the entrypoint.",
+    detail:
+      "ttsx type-checks the whole project before Node receives the entrypoint.",
   },
 ] as const;
 
@@ -68,13 +77,13 @@ export default function TtscWebsiteLandingHero() {
             Let plugins see the same types the compiler sees.
           </p>
 
-          <div className="mt-8 grid border-y border-white/25 sm:grid-cols-3">
+          <div className="mt-8 grid border-y border-white/25 sm:grid-cols-2">
             {CLAIMS.map((claim, index) => (
               <div
                 key={claim.value}
                 className={`py-5 sm:px-5 ${
-                  index === 0 ? "sm:pl-0" : "sm:border-l sm:border-white/20"
-                }`}
+                  index % 2 === 0 ? "sm:pl-0" : "sm:border-l sm:border-white/20"
+                } ${index >= 2 ? "sm:border-t sm:border-white/20" : ""}`}
               >
                 <p className="whitespace-nowrap font-mono text-[26px] font-black leading-none text-white md:text-[30px]">
                   {claim.value}
