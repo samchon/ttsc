@@ -14,11 +14,13 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 
 ## Setup
 
-`ttsc` is a drop-in `tsc`. Same `tsconfig.json`, same flags, same output.
+`ttsc` is a drop-in replacement for `tsc`. It reads the same `tsconfig.json`, takes the same flags, and emits the same JavaScript, so you can swap it into an existing project and CI keeps working.
 
 ```bash
 npm install -D ttsc typescript
 ```
+
+`typescript` sits on that line because `ttsc` runs on the native TypeScript-Go compiler, which the TypeScript team versions separately. You pin it, and `ttsc` picks it up from `node_modules`.
 
 ```bash
 npx ttsx src/index.ts   # run a file, type-checked first
@@ -27,7 +29,9 @@ npx ttsc --noEmit       # check only
 npx ttsc --watch        # rebuild on save
 ```
 
-That is the whole core. Everything else is one page each:
+`ttsx` runs a file directly, like `tsx` or `ts-node`, but it type-checks the whole project first. A type error stops the run before anything executes.
+
+That is the core. Bundlers, React Native, and the editor each have a one-page guide:
 
 - [Bundlers (Vite, webpack, Next.js, ...)](https://ttsc.dev/docs/setup/unplugin)
 - [React Native / Expo (Metro)](https://ttsc.dev/docs/setup/metro)
@@ -35,13 +39,13 @@ That is the whole core. Everything else is one page each:
 
 ## Lint
 
-Delete ESLint and Prettier. The compiler does both now.
-
-`@ttsc/lint` runs your lint rules and your formatter inside the type-check. One config, one pass, one exit code.
+`@ttsc/lint` folds ESLint's job and Prettier's job into the compile you already run. One `lint.config.ts`, one pass over the source, one exit code.
 
 ```bash
 npm install -D @ttsc/lint
 ```
+
+Rules and formatting share the config. Three severities: `"error"` fails the build, `"warning"` prints, `"off"` disables.
 
 ```ts
 // lint.config.ts
@@ -61,7 +65,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-Now a `var` fails the build like any type error:
+A violation is not a separate report. It arrives as a compiler diagnostic, in the same stream as a type error:
 
 ```ts
 // src/index.ts
@@ -82,20 +86,22 @@ src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const inst
   ~~~~~~~~~~~~~~
 ```
 
-Clean it up in place:
+So the CI step that already runs `ttsc --noEmit` gates lint too, with no second job to drift out of sync. Clean up in place:
 
 ```bash
 npx ttsc fix      # every fixable lint violation + format edits
 npx ttsc format   # format edits only, never changes behavior
 ```
 
-The rule catalog and every `format` key live in the [Lint & Format guide](https://ttsc.dev/docs/lint).
+The rule catalog and every `format` key are in the [Lint & Format guide](https://ttsc.dev/docs/lint).
 
 ## Graph
 
-Your agent greps. That is the problem.
+Ask a coding agent how something works, and on its own it reads one file, follows an import, reads the next, and repeats. Every hop spends tokens, and the relationships it infers are guesses from whatever text it happened to open.
 
-`@ttsc/graph` gives it the compiler's own map of your project over MCP: what calls what, what a change touches, where to start. It stops opening files to guess, and asks the type checker instead.
+`@ttsc/graph` replaces that crawl with the compiler's own map, served over MCP. The agent asks one tool what calls what, what a change would touch, and where to start.
+
+Every edge is resolved by the type checker, so path aliases, monorepo boundaries, and barrel re-exports all land on the real declaration, not the text that looked close.
 
 ![Median tokens on the shared onboarding question, lower is better](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.6-terra.svg)
 
@@ -116,7 +122,7 @@ Point your MCP client at it. For Claude Code, a `.mcp.json` in the project root:
 }
 ```
 
-The payoff: on the agent-cost benchmark, Claude answers reading zero files. Tokens drop by roughly 90%, tool calls by 93% to 96%.
+On the agent-cost benchmark, Claude answers reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%.
 
 See the [Code Graph guide](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
 
