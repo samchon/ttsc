@@ -669,7 +669,6 @@
     "FUNC|core|ResolveConfigFileNameOfProjectReference",
     "FUNC|core|ShouldRewriteModuleSpecifier",
     "FUNC|core|UTF16Len",
-    "FUNC|core|Version",
     "FUNC|core|VersionMajorMinor",
     "FUNC|core|WithRequestID",
     "FUNC|diagnosticwriter|FormatDiagnosticWithColorAndContext",

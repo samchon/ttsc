@@ -137,8 +137,8 @@ export namespace ITtscGraphDump {
    * Two digests, because "the bytes the checker read" and "the bytes on disk"
    * are not always the same string and a consumer needs to know which one it
    * compares against. They diverge when a source-preamble plugin injects text
-   * ahead of the file before tsgo parses it, which a real plugin project does on
-   * every build.
+   * ahead of the file before tsgo parses it, which a real plugin project does
+   * on every build.
    */
   export interface ISourceDigest {
     /** Project-relative. */
@@ -153,8 +153,8 @@ export namespace ITtscGraphDump {
 
     /**
      * Hex-encoded SHA-256 of the file's on-disk bytes at snapshot time, or `""`
-     * when it could not be read: it vanished mid-load, or it is a virtual source
-     * with no on-disk identity.
+     * when it could not be read: it vanished mid-load, or it is a virtual
+     * source with no on-disk identity.
      *
      * This is the one a consumer that opens the file itself can reproduce. When
      * it equals `checkerDigest`, a matching read proves byte-identity with the

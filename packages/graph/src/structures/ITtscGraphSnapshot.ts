@@ -20,8 +20,8 @@ export interface ITtscGraphSnapshot {
    * It rides every frame rather than a handshake. The binary and this package
    * version independently — the session runs whichever `ttscgraph` the target
    * project installed, or whatever `TTSC_GRAPH_BINARY` points at — so a
-   * mismatched pair is reachable, and before this field nothing detected it: the
-   * first symptom was a misparsed dump or a silently absent value.
+   * mismatched pair is reachable, and before this field nothing detected it:
+   * the first symptom was a misparsed dump or a silently absent value.
    */
   protocolVersion: number;
 

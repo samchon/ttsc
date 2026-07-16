@@ -86,9 +86,10 @@ export function loadGraph(
  *
  * The version is read before the shape: a dump from another schema is entitled
  * to another shape, so asserting first would report the mismatch as a field
- * complaint about a contract that producer never agreed to. A dump also outlives
- * the process that wrote it — this is the one-shot path, and the JSON on disk
- * may be from any build — so the version is the first question to ask of it.
+ * complaint about a contract that producer never agreed to. A dump also
+ * outlives the process that wrote it — this is the one-shot path, and the JSON
+ * on disk may be from any build — so the version is the first question to ask
+ * of it.
  */
 function parseDump(json: string): ITtscGraphDump {
   let value: unknown;
