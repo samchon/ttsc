@@ -188,4 +188,4 @@ If the wasm registers plugins other than typia / `@ttsc/lint`, pass `typiaPlugin
 
 ## Documents
 
-See the [hosted playground guide](https://ttsc.dev/docs/ttsc/playground) for the consumer-facing tour of the ttsc.dev playground this package powers.
+See the [hosted playground guide](https://ttsc.dev/docs/playground) for the consumer-facing tour of the ttsc.dev playground this package powers.

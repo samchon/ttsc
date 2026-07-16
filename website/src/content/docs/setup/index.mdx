@@ -1,0 +1,222 @@
+import { Tabs } from "nextra/components";
+
+# Getting Started
+
+`ttsc` is a TypeScript compiler that also runs plugins: lint rules, formatters, and type-driven code generators like [typia](https://typia.io), all inside the pass that type-checks your code.
+
+## Install
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D ttsc typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D ttsc typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D ttsc typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d ttsc typescript
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+`typescript` is the TypeScript-Go native compiler that `ttsc` runs on; the TypeScript team versions it separately, so you pin it in your project and `ttsc` picks it up from `node_modules`.
+
+## Run a file
+
+```bash
+npx ttsx src/index.ts
+```
+
+`ttsx` runs TypeScript directly, like `tsx` or `ts-node`, except it type-checks the whole project first and applies your plugins. A type error stops the run before anything executes.
+
+## Build
+
+```bash
+npx ttsc            # type-check + emit
+npx ttsc --noEmit   # check only, nothing written (the CI form)
+npx ttsc --watch    # rebuild on save
+```
+
+`ttsc` reads the `tsconfig.json` you already have, same fields, same meaning as `tsc`. [CLI & Scripts](/docs/setup/ttsc) wires the commands into package.json scripts and CI.
+
+## [Lint & Format](/docs/setup/lint)
+
+`@ttsc/lint` folds linting and formatting into the compile, so a lint violation fails the build through the same pipe as a type error.
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D @ttsc/lint
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D @ttsc/lint
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D @ttsc/lint
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d @ttsc/lint
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Drop a `lint.config.ts` next to `tsconfig.json`:
+
+```ts
+// lint.config.ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+    "typescript/no-explicit-any": "warning",
+  },
+} satisfies ITtscLintConfig;
+```
+
+`npx ttsc fix` applies every fixable violation, and a `format` block (keys mirror `.prettierrc`) turns on `npx ttsc format`. Severities, rule options, and the catalog are in [Lint & Format](/docs/setup/lint).
+
+## [Coding Agents (MCP)](/docs/setup/graph)
+
+`@ttsc/graph` hands Claude Code, or any MCP client, a compiler-resolved graph of your project, so the agent asks the type checker instead of grepping.
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D @ttsc/graph
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D @ttsc/graph
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D @ttsc/graph
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d @ttsc/graph
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Register it in your agent's MCP config. For Claude Code, a `.mcp.json` in the project root:
+
+```json
+{
+  "mcpServers": {
+    "ttsc-graph": {
+      "command": "npx",
+      "args": ["-y", "@ttsc/graph"]
+    }
+  }
+}
+```
+
+On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90%. Details in [Coding Agents](/docs/setup/graph).
+
+## [VS Code Plugin](/docs/setup/vscode)
+
+The extension shows your build's diagnostics live in the editor: TypeScript-Go errors, lint violations, and plugin diagnostics, matching what `npx ttsc` says in CI.
+
+```bash
+npx @ttsc/vscode
+```
+
+Or search `ttsc` in the Marketplace and pick the one by `samchon`. Format on save, driven by the same `lint.config.ts`, is a two-line settings entry described in [VS Code Plugin](/docs/setup/vscode).
+
+## [Unplugin (Bundlers)](/docs/setup/unplugin)
+
+When Vite, webpack, or Next.js owns your build, `@ttsc/unplugin` runs the same plugin pass inside the bundler, reading the same `tsconfig.json` and `lint.config.ts`.
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+```ts
+// vite.config.ts
+import ttsc from "@ttsc/unplugin/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [ttsc()],
+});
+```
+
+Adapters ship for Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Turbopack, Farm, and Bun. Every adapter is in [Unplugin (Bundlers)](/docs/setup/unplugin).
+
+## [Metro (React Native)](/docs/setup/metro)
+
+React Native and Expo bundle with Metro, which Babel-transpiles every file and never runs TypeScript transformers. `@ttsc/metro` is a Metro transformer that runs the plugin pass first, then delegates to your existing Expo or React-Native transformer.
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d @ttsc/metro
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+```js
+// metro.config.js (Expo)
+const { getDefaultConfig } = require("expo/metro-config");
+const { withTtsc } = require("@ttsc/metro");
+
+module.exports = withTtsc(getDefaultConfig(__dirname));
+```
+
+Bare React Native, options, and the v1 caveats are in [Metro (React Native)](/docs/setup/metro).

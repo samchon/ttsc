@@ -1,0 +1,196 @@
+import { Tabs } from "nextra/components";
+
+# Unplugin (Bundlers)
+
+When a bundler owns your build, the `ttsc` CLI never runs, and neither would your plugins. `@ttsc/unplugin` runs the same plugin pass from inside the bundler. It reads the same `tsconfig.json` and the same `lint.config.ts`, so there is no second configuration to drift out of date.
+
+Adapters ship for Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Turbopack, Farm, and Bun. The import path is always `@ttsc/unplugin/<bundler>`. React Native and Expo bundle with Metro, which is not an unplugin target; that is a separate package with its own page, [Metro (React Native)](/docs/setup/metro).
+
+## Install
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D ttsc typescript @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D ttsc typescript @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D ttsc typescript @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d ttsc typescript @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Then register the adapter that matches your bundler.
+
+## Vite
+
+```ts
+// vite.config.ts
+import ttsc from "@ttsc/unplugin/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [ttsc()],
+});
+```
+
+## Rollup
+
+```ts
+// rollup.config.ts
+import ttsc from "@ttsc/unplugin/rollup";
+
+export default {
+  input: "src/index.ts",
+  output: { dir: "dist", format: "esm" },
+  plugins: [ttsc()],
+};
+```
+
+One caveat worth knowing before it costs you an afternoon: the adapter emits transformed **TypeScript**, not JavaScript, and plain Rollup does not compile TypeScript itself. Add an esbuild- or swc-based plugin after `ttsc()`, or the build fails parsing type syntax. Bundlers that strip types on their own (Vite, Rolldown, esbuild, Bun) need no such step.
+
+## Rolldown
+
+```ts
+// rolldown.config.ts
+import ttsc from "@ttsc/unplugin/rolldown";
+
+export default {
+  input: "src/index.ts",
+  output: { dir: "dist", format: "esm" },
+  plugins: [ttsc()],
+};
+```
+
+Same shape as Rollup, but Rolldown ships its own TypeScript transform, so the downstream compile step Rollup needs does not apply here.
+
+## esbuild
+
+```ts
+import { build } from "esbuild";
+import ttsc from "@ttsc/unplugin/esbuild";
+
+await build({
+  entryPoints: ["src/index.ts"],
+  outdir: "dist",
+  bundle: true,
+  plugins: [ttsc()],
+});
+```
+
+## webpack
+
+```js
+// webpack.config.mjs
+import ttsc from "@ttsc/unplugin/webpack";
+
+export default {
+  entry: "./src/index.ts",
+  plugins: [ttsc()],
+};
+```
+
+## Rspack
+
+```js
+import ttsc from "@ttsc/unplugin/rspack";
+
+export default { entry: "./src/index.ts", plugins: [ttsc()] };
+```
+
+## Next.js
+
+```js
+// next.config.mjs
+import withTtsc from "@ttsc/unplugin/next";
+
+export default withTtsc({
+  /* your Next config */
+});
+```
+
+`withTtsc` covers the webpack path. On Turbopack (`next dev --turbopack`), use the loader rules below instead.
+
+## Turbopack
+
+Turbopack has no JS plugin API, but it runs webpack loaders through `turbopack.rules`, and a ttsc transform is loader-shaped: TypeScript source in, transformed source out. Reference the standalone loader by module name (do not call it):
+
+```js
+// next.config.mjs
+export default {
+  turbopack: {
+    rules: {
+      "*.ts": { loaders: ["@ttsc/unplugin/turbopack"] },
+      "*.tsx": { loaders: ["@ttsc/unplugin/turbopack"] },
+    },
+  },
+};
+```
+
+Options go through the rule's `options` object: `{ loader: "@ttsc/unplugin/turbopack", options: { project: "tsconfig.build.json" } }`.
+
+## Farm
+
+```ts
+import ttsc from "@ttsc/unplugin/farm";
+import { defineConfig } from "@farmfe/core";
+
+export default defineConfig({ plugins: [ttsc()] });
+```
+
+## Bun
+
+```ts
+import ttsc from "@ttsc/unplugin/bun";
+
+await Bun.build({
+  entrypoints: ["./src/index.ts"],
+  outdir: "./dist",
+  plugins: [ttsc()],
+});
+```
+
+For the Bun **runtime**, `bun run`, `bun test`, or any `bun <entry>.ts` with no bundling step, register the transform on Bun's module loader with `@ttsc/unplugin/bun-register`. Add a `bunfig.toml` preload once:
+
+```toml
+preload = ["@ttsc/unplugin/bun-register"]
+```
+
+Now every `bun run` / `bun test` applies your `ttsc` plugins as files are imported, with plugin options from the nearest `tsconfig.json`. To pass options, or register imperatively, call it from your own preload module instead:
+
+```ts
+// bun-preload.ts   (bunfig.toml: preload = ["./bun-preload.ts"])
+import { register } from "@ttsc/unplugin/bun-register";
+
+register({ project: "tsconfig.build.json" });
+```
+
+## Options
+
+Most projects need none: the adapter finds `tsconfig.json` on its own, and your plugins and `lint.config.ts` apply unchanged. Three options layer on top:
+
+- `project` points at a non-default config file, resolved from `process.cwd()`:
+
+```ts
+ttsc({
+  project: "tsconfig.build.json",
+});
+```
+
+- `compilerOptions` overrides compiler settings for this build without another config file.
+- `plugins` replaces the project's plugin list entirely; `plugins: false` disables them.
+
+## CLI or bundler?
+
+Whichever tool owns the build runs the pass. A plain Node library builds with `npx ttsc`. A frontend behind Vite or webpack builds through `@ttsc/unplugin`. A monorepo with both uses both, one per package. The plugin pass is identical everywhere, and diagnostics show up wherever the bundler surfaces them.

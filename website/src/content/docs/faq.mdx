@@ -1,4 +1,4 @@
-# 💬 FAQ
+# FAQ
 
 ## Is `ttsc` a fork of TypeScript?
 
@@ -12,7 +12,7 @@ No. `ttsc` is a separate binary built on top of `typescript` (the official TypeS
 
 ## How fast is `ttsc` compared to `tsc`?
 
-`ttsc` runs on the native TypeScript 7 compiler, and `@ttsc/lint` adds a marginal cost (a single AST pass shared with the type-check, so no second parse) rather than the separate `tsc + eslint + prettier --check` stack. Speedups are measured against the legacy stack on real repositories; see the [benchmark guide](/docs/benchmark/performance) for per-project ratios.
+`ttsc` runs on the native TypeScript-Go compiler, and `@ttsc/lint` adds a marginal cost (a single AST pass shared with the type-check, so no second parse) rather than the separate `tsc + eslint + prettier --check` stack. Speedups are measured against the legacy stack on real repositories; see the [benchmark guide](/docs/benchmark/performance) for per-project ratios.
 
 ## Can I use `ttsc` with my existing `tsc` setup?
 
@@ -33,7 +33,7 @@ No, `ttsc` works without it. But the whole point of the toolchain is the pair. W
 3. Run `npx ttsc fix` once to apply all autofixes (lint and format) across the project.
 4. Commit, then delete `.eslintrc.*` and `.prettierrc.*` and the `eslint` / `prettier` devDependencies.
 
-Most ESLint stylistic rules have direct `@ttsc/lint` equivalents (`no-var`, `prefer-const`, `eqeqeq`, etc.). Plugin-shipped ESLint rules (`eslint-plugin-react-hooks`, `eslint-plugin-import`, etc.) don't yet have `@ttsc/lint` counterparts, for those, the native rule set is being built out rule by rule.
+Most ESLint stylistic rules have direct `@ttsc/lint` equivalents (`no-var`, `prefer-const`, `eqeqeq`, etc.). Plugin-shipped ESLint rules (`eslint-plugin-react-hooks`, `eslint-plugin-import`, etc.) don't yet have `@ttsc/lint` counterparts. For those, the native rule set is being built out rule by rule.
 
 ## Will my existing `eslint` plugins work?
 
@@ -59,12 +59,12 @@ The one place `ttsx` will trip you up: when you actually **wanted** to run code 
 
 ## What about Deno / Bun?
 
-- **Bun**: supported as a bundler integration via `@ttsc/unplugin/bun`. See [Bundlers](/docs/ttsc/bundler).
+- **Bun**: supported as a bundler integration via `@ttsc/unplugin/bun`. See [Bundlers](/docs/setup/unplugin).
 - **Deno**: not directly supported. Deno has its own type-check pipeline.
 
 ## What's the relationship to `typia` and `nestia`?
 
-Both are independent projects that ship as `ttsc` plugins. `typia` produces runtime validators from your TypeScript types; `nestia` wraps NestJS with `typia`-backed controllers and SDK generation. Neither is part of `ttsc`, they live in their own repos and follow their own release schedules.
+Both are independent projects that ship as `ttsc` plugins. `typia` produces runtime validators from your TypeScript types; `nestia` wraps NestJS with `typia`-backed controllers and SDK generation. Neither is part of `ttsc`; they live in their own repos and follow their own release schedules.
 
 ## Does the VS Code extension work without a Marketplace install?
 
@@ -85,7 +85,7 @@ code --install-extension samchon.ttsc
 1. Confirm `ttsc` is installed in the project: `npx ttsc --version`.
 2. Confirm the same plugin diagnostics appear in the CLI: `npx ttsc --noEmit -p <selected tsconfig>`.
 3. Make sure the plugin config is discoverable from the selected project root or set `configFile` in the tsconfig plugin entry.
-4. Save the file before checking plugin diagnostics or running `ttsc: Fix all lint issues` / `ttsc: Format document`. TypeScript-Go diagnostics are live; plugin diagnostics and those commands use the saved project state. Format-on-save is the exception, it formats the live editor buffer.
+4. Save the file before checking plugin diagnostics or running `ttsc: Fix all lint issues` / `ttsc: Format document`. TypeScript-Go diagnostics are live; plugin diagnostics and those commands use the saved project state. Format-on-save is the exception: it formats the live editor buffer.
 5. Open **View → Output**, pick **ttsc** from the dropdown, and read the server log.
 6. Run **ttsc: Restart language server** from the command palette.
 7. Set `ttsc.trace.server` to `"verbose"` in VS Code settings, then read **View → Output → ttsc (trace)** if the server log is empty.
@@ -120,4 +120,4 @@ It's the build tool for `typia` and `nestia`, both of which are. It's still v1. 
 
 - [Setup](/docs/setup): get a working `ttsc` install first.
 - [TTSC · Compile](/docs/ttsc/compile): every flag and subcommand.
-- [Lint & Prettier](/docs/lint): the rule catalog and `lint.config.ts` reference.
+- [Lint & Format](/docs/lint): the rule catalog and `lint.config.ts` reference.

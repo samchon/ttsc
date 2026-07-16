@@ -1,0 +1,68 @@
+import { Tabs } from "nextra/components";
+import TtscWebsiteBenchmarkGraphCommon from "../../../components/benchmark/graph/TtscWebsiteBenchmarkGraphCommon";
+
+# Coding Agents
+
+`@ttsc/graph` is an MCP server that hands your coding agent a compiler-resolved graph of the project: what calls what, what a change would touch, where to start reading. Without it, an agent reconstructs that picture by opening files and chasing imports, spending tokens on every hop and guessing at the relationships. With it, the agent asks the type checker.
+
+Median tokens on the shared onboarding question, against no MCP and the three comparators; lower is better:
+
+<TtscWebsiteBenchmarkGraphCommon summary />
+
+## Install
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D ttsc @ttsc/graph typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D ttsc @ttsc/graph typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D ttsc @ttsc/graph typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d ttsc @ttsc/graph typescript
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+`@ttsc/graph` resolves the native `ttscgraph` binary from the `ttsc` platform package installed in the project it graphs, which is why `ttsc` is on that line.
+
+## Connect an agent
+
+For Claude Code, a `.mcp.json` in the project root:
+
+```json
+{
+  "mcpServers": {
+    "ttsc-graph": {
+      "command": "npx",
+      "args": ["-y", "@ttsc/graph"]
+    }
+  }
+}
+```
+
+Any other MCP client works the same way, the command is always `npx -y @ttsc/graph`. Start the agent from the project root so the server finds your `tsconfig.json`, or name the project explicitly with `--cwd` and `--tsconfig`.
+
+That is the whole setup. The agent picks the tool up from the MCP handshake, and the usage guidance travels in the `initialize` response, so the server never writes into your `CLAUDE.md`, `AGENTS.md`, or any other file in your repository.
+
+## What you get back
+
+The agent gains one tool, `inspect_typescript_graph`, and stops fanning out across files. Because the graph comes from the real checker, the edges are right exactly where text search guesses: `workspace:*` dependencies, path aliases, barrel re-exports.
+
+It pays measurable rent. Across both lanes of the agent-cost benchmark, the shared onboarding prompt and codegraph's own per-repository questions, Claude agents answer reading zero source files, with median token cuts of 87% to 92% and tool-call cuts of 93% to 96%. The method and per-repository numbers are in the [benchmark](/docs/benchmark/graph).
+
+## Next
+
+- [Code Graph](/docs/graph): what the graph answers and why an agent needs it.
+- [Comparison](/docs/graph/compare): how it differs from codegraph, codebase-memory-mcp, and serena.
+- [3D Viewer](/docs/graph/viewer): the benchmark repositories rendered as navigable graphs, in your browser.

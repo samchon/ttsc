@@ -1,5 +1,6 @@
 "use client";
 
+import TtscWebsiteLandingCodeGraph from "./TtscWebsiteLandingCodeGraph";
 import TtscWebsiteLandingFooter from "./TtscWebsiteLandingFooter";
 import TtscWebsiteLandingHero from "./TtscWebsiteLandingHero";
 import TtscWebsiteLandingInTheBrowser from "./TtscWebsiteLandingInTheBrowser";
@@ -14,6 +15,7 @@ export default function TtscWebsiteLandingMovie() {
       <TtscWebsiteLandingHero />
       <TtscWebsiteLandingRestOfToolchain />
       <TtscWebsiteLandingLintAsCompileError />
+      <TtscWebsiteLandingCodeGraph />
       <TtscWebsiteLandingPluginEcosystem />
       <TtscWebsiteLandingInTheBrowser />
       <TtscWebsiteLandingSponsors />

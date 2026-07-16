@@ -1,0 +1,56 @@
+# CLI & Scripts
+
+`ttsc` compiles, `ttsx` runs. This page wires them into package.json scripts and CI; the full flag reference is in [Compiler (ttsc)](/docs/ttsc/compile) and [Execute (ttsx)](/docs/ttsc/execute).
+
+## package.json scripts
+
+```jsonc
+// package.json
+{
+  "scripts": {
+    "build": "ttsc",
+    "dev": "ttsc --watch",
+    "check": "ttsc --noEmit",
+    "fix": "ttsc fix",
+    "format": "ttsc format",
+    "start": "ttsx src/index.ts"
+  }
+}
+```
+
+`ttsc` reads `tsconfig.json` from the current directory. A different config is `-p tsconfig.build.json`, a different output directory is `--outDir build`.
+
+`fix` applies every fixable lint violation plus format edits, then re-checks. `format` applies only the edits that cannot change behavior, so it is safe for a pre-commit hook.
+
+## Watch mode
+
+```bash
+npx ttsc --watch
+```
+
+Re-compiles on save. Add `--preserveWatchOutput` to keep your scrollback.
+
+The watcher snapshots source directories at startup: a directory created later needs a restart, and `lib`, `dist`, `node_modules`, and `.git` are never watched.
+
+## CI
+
+```yaml
+- run: npx ttsc --noEmit
+```
+
+Type errors and lint violations fail the same step, so there is no second lint job drifting out of sync with the build.
+
+Go-source plugins compile to native binaries once, then live in a cache. Cache the directories that `ttsc cache paths --json` prints, and warm them with `ttsc prepare`, so CI stops rebuilding them every run.
+
+## One-off scripts with ttsx
+
+`ttsx` is for the file you want to run, not ship: seeders, migrations, experiments. It type-checks the whole project first, then executes natively, so a broken script fails at the check instead of halfway through your database.
+
+Arguments after `--` go to the script untouched, and `-r` preloads modules Node-style:
+
+```bash
+npx ttsx src/server.ts -- --port 3000
+npx ttsx -r dotenv/config src/index.ts
+```
+
+Workspace dependencies that ship raw TypeScript load fine; the module hooks behind that are in [Execute (ttsx)](/docs/ttsc/execute).

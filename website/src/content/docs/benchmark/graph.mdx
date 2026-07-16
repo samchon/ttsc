@@ -32,7 +32,7 @@ Switch projects with the tabs. Each chart row is one measured model.
 
 The charts above measure what a _question_ costs once a tool is ready. This one adds the readiness itself. Each bar is the two waits a developer actually sits through, in the order they are paid: the cold index build (the faded segment), then the LLM answering with that index in hand (the solid one). A tool that cuts an agent's token bill and then spends four minutes indexing, and three more re-searching what it indexed, has moved the cost rather than removed it.
 
-The wait is not evenly distributed. On VS Code's three million lines, `codegraph` spends **twelve minutes** building and `serena` almost five, where `@ttsc/graph` — which reads the graph the TypeScript compiler has to build anyway — takes under thirty seconds.
+The wait is not evenly distributed. On VS Code's three million lines, `codegraph` spends **twelve minutes** building and `serena` almost five, where `@ttsc/graph`, which reads the graph the TypeScript compiler has to build anyway, takes under thirty seconds.
 
 Every tool is given the index its own documentation prescribes: `codegraph init`, `codebase-memory-mcp index_repository` in its default `full` mode (the mode the token charts above also ran), and `serena project index`, which serena recommends for larger projects. Repositories are ordered by the size of the program each index was built from.
 
@@ -48,7 +48,7 @@ This is one person's benchmark over a bounded set of scenarios. The [launch post
 
 ## What is compared
 
-`@ttsc/graph` exposes one typed MCP tool. Its request and result contract is on the [Design](/docs/graph/design) page, with the live type sources.
+`@ttsc/graph` exposes one typed MCP tool. Its request and result contract lives in the typed sources under [`packages/graph/src/structures`](https://github.com/samchon/ttsc/tree/master/packages/graph/src/structures).
 
 The three comparators run from their own published entry points. They stay separate arms rather than folding into one story, since each resolves and returns a graph differently.
 

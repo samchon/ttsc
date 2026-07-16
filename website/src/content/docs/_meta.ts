@@ -13,6 +13,7 @@ const meta: MetaRecord = {
   "-- authoring": { type: "separator", title: "🧰 Authoring" },
   development: "Plugin Development",
   wasm: "WASM Module",
+  playground: "Playground",
 
   "-- appendix": { type: "separator", title: "🔗 Appendix" },
   benchmark: "Benchmark",
