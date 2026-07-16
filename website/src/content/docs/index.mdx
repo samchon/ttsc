@@ -1,155 +1,222 @@
-![banner of ttsc](/og.jpg)
+import { Tabs } from "nextra/components";
 
-<span
-  style={{
-    display: "flex",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: "6px",
-  }}
->
-  {[
-    [
-      "MIT License",
-      "https://img.shields.io/badge/license-MIT-blue.svg",
-      "https://github.com/samchon/ttsc/blob/master/LICENSE",
-    ],
-    [
-      "NPM Version",
-      "https://img.shields.io/npm/v/ttsc.svg",
-      "https://www.npmjs.com/package/ttsc",
-    ],
-    [
-      "NPM Downloads",
-      "https://img.shields.io/npm/dm/ttsc.svg",
-      "https://www.npmjs.com/package/ttsc",
-    ],
-    [
-      "Build Status",
-      "https://github.com/samchon/ttsc/workflows/test/badge.svg",
-      "https://github.com/samchon/ttsc/actions?query=workflow%3Atest",
-    ],
-    [
-      "Guide Documents",
-      "https://img.shields.io/badge/Guide-Documents-forestgreen",
-      "https://ttsc.dev/docs",
-    ],
-    [
-      "Discord",
-      "https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ",
-      "https://discord.gg/E94XhzrUCZ",
-    ],
-  ].map(([alt, image, url]) => (
-    <a href={url} style={{ marginTop: "20px" }} key={alt}>
-      <img src={image} alt={alt} />
-    </a>
-  ))}
-</span>
+# Getting Started
 
-A `typescript-go` toolchain for compiler-powered plugins and type-safe execution.
+`ttsc` is a TypeScript compiler that also runs plugins: lint rules, formatters, and type-driven code generators like [typia](https://typia.io), all inside the pass that type-checks your code.
 
-- **`ttsc`**: build, check, and transform.
-- **`ttsx`**: execute TypeScript with type checking.
-- **`@ttsc/lint`**: lint violations as compiler errors.
-- **`@ttsc/graph`**: MCP code graph that reduces agent token usage.
-- **plugin support**: compiler-powered libraries, such as `typia`.
+## Install
 
-## Setup
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D ttsc typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D ttsc typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D ttsc typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d ttsc typescript
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+`typescript` is the TypeScript-Go native compiler that `ttsc` runs on; the TypeScript team versions it separately, so you pin it in your project and `ttsc` picks it up from `node_modules`.
+
+## Run a file
 
 ```bash
-npm install -D ttsc typescript
+npx ttsx src/index.ts
 ```
+
+`ttsx` runs TypeScript directly, like `tsx` or `ts-node`, except it type-checks the whole project first and applies your plugins. A type error stops the run before anything executes.
+
+## Build
 
 ```bash
-npx ttsx src/index.ts   # run a file, type-checked first
-npx ttsc                # build
-npx ttsc --noEmit       # check only
+npx ttsc            # type-check + emit
+npx ttsc --noEmit   # check only, nothing written (the CI form)
+npx ttsc --watch    # rebuild on save
 ```
 
-[Setup](/docs/setup) continues from here: lint and format, bundlers, React Native, VS Code, and coding agents.
+`ttsc` reads the `tsconfig.json` you already have, same fields, same meaning as `tsc`. [CLI & Scripts](/docs/setup/ttsc) wires the commands into package.json scripts and CI.
 
-## Plugins
+## [Lint & Format](/docs/setup/lint)
 
-Plugins let libraries add compile-time checks, transforms, and type-driven code generation to normal `ttsc` and `ttsx` runs. Here is [typia](https://typia.io):
+`@ttsc/lint` folds linting and formatting into the compile, so a lint violation fails the build through the same pipe as a type error.
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D @ttsc/lint
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D @ttsc/lint
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D @ttsc/lint
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d @ttsc/lint
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Drop a `lint.config.ts` next to `tsconfig.json`:
 
 ```ts
-import typia, { tags } from "typia";
-import { v4 } from "uuid";
+// lint.config.ts
+import type { ITtscLintConfig } from "@ttsc/lint";
 
-const matched: boolean = typia.is<IMember>({
-  id: v4(),
-  email: "samchon.github@gmail.com",
-  age: 30,
-});
-console.log(matched); // true
+export default {
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+    "typescript/no-explicit-any": "warning",
+  },
+} satisfies ITtscLintConfig;
+```
 
-interface IMember {
-  id: string & tags.Format<"uuid">;
-  email: string & tags.Format<"email">;
-  age: number &
-    tags.Type<"uint32"> &
-    tags.ExclusiveMinimum<19> &
-    tags.Maximum<100>;
+`npx ttsc fix` applies every fixable violation, and a `format` block (keys mirror `.prettierrc`) turns on `npx ttsc format`. Severities, rule options, and the catalog are in [Lint & Format](/docs/setup/lint).
+
+## [Coding Agents (MCP)](/docs/setup/graph)
+
+`@ttsc/graph` hands Claude Code, or any MCP client, a compiler-resolved graph of your project, so the agent asks the type checker instead of grepping.
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D @ttsc/graph
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D @ttsc/graph
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D @ttsc/graph
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d @ttsc/graph
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Register it in your agent's MCP config. For Claude Code, a `.mcp.json` in the project root:
+
+```json
+{
+  "mcpServers": {
+    "ttsc-graph": {
+      "command": "npx",
+      "args": ["-y", "@ttsc/graph"]
+    }
+  }
 }
 ```
 
-At build time, the transform replaces `typia.is<IMember>()` with a dedicated validator:
+On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90%. Details in [Coding Agents](/docs/setup/graph).
 
-```js
-import typia from "typia";
-import * as __typia_transform__isFormatEmail from "typia/lib/internal/_isFormatEmail";
-import * as __typia_transform__isFormatUuid from "typia/lib/internal/_isFormatUuid";
-import * as __typia_transform__isTypeUint32 from "typia/lib/internal/_isTypeUint32";
-import { v4 } from "uuid";
+## [VS Code Plugin](/docs/setup/vscode)
 
-const matched = (() => {
-  const _io0 = (input) =>
-    "string" === typeof input.id &&
-    __typia_transform__isFormatUuid._isFormatUuid(input.id) &&
-    "string" === typeof input.email &&
-    __typia_transform__isFormatEmail._isFormatEmail(input.email) &&
-    "number" === typeof input.age &&
-    __typia_transform__isTypeUint32._isTypeUint32(input.age) &&
-    19 < input.age &&
-    input.age <= 100;
-  return (input) => "object" === typeof input && null !== input && _io0(input);
-})()({
-  id: v4(),
-  email: "samchon.github@gmail.com",
-  age: 30,
-});
-console.log(matched); // true
+The extension shows your build's diagnostics live in the editor: TypeScript-Go errors, lint violations, and plugin diagnostics, matching what `npx ttsc` says in CI.
+
+```bash
+npx @ttsc/vscode
 ```
 
-### List of Plugins
+Or search `ttsc` in the Marketplace and pick the one by `samchon`. Format on save, driven by the same `lint.config.ts`, is a two-line settings entry described in [VS Code Plugin](/docs/setup/vscode).
 
-Utility plugins shipped in this repository:
+## [Unplugin (Bundlers)](/docs/setup/unplugin)
 
-- [`@ttsc/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner): adds `@packageDocumentation` JSDoc banners.
-- [`@ttsc/lint`](https://github.com/samchon/ttsc/tree/master/packages/lint): lints and formats TypeScript source.
-- [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph): MCP server exposing a checker-resolved code graph to coding agents.
-- [`@ttsc/paths`](https://github.com/samchon/ttsc/tree/master/packages/paths): rewrites source path aliases so JS and declaration emit receive relative imports.
-- [`@ttsc/strip`](https://github.com/samchon/ttsc/tree/master/packages/strip): removes configured calls and `debugger` statements.
-- [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin): runs `ttsc` plugins inside bundlers supported by `unplugin`.
-- [`@ttsc/metro`](https://github.com/samchon/ttsc/tree/master/packages/metro): runs `ttsc` plugins inside Metro for React Native and Expo.
+When Vite, webpack, or Next.js owns your build, `@ttsc/unplugin` runs the same plugin pass inside the bundler, reading the same `tsconfig.json` and `lint.config.ts`.
 
-Ecosystem plugins; PRs adding yours are welcome:
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+</Tabs>
 
-- [`nestia`](https://github.com/samchon/nestia): generates NestJS routes, OpenAPI, and SDKs.
-- [`typia`](https://github.com/samchon/typia): generates validators, serializers, and type-driven runtime code.
+```ts
+// vite.config.ts
+import ttsc from "@ttsc/unplugin/vite";
+import { defineConfig } from "vite";
 
-To write one, start from [Plugin Development](/docs/development).
+export default defineConfig({
+  plugins: [ttsc()],
+});
+```
 
-## Sponsors
+Adapters ship for Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Turbopack, Farm, and Bun. Every adapter is in [Unplugin (Bundlers)](/docs/setup/unplugin).
 
-[![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
+## [Metro (React Native)](/docs/setup/metro)
 
-Thanks for your support.
+React Native and Expo bundle with Metro, which Babel-transpiles every file and never runs TypeScript transformers. `@ttsc/metro` is a Metro transformer that runs the plugin pass first, then delegates to your existing Expo or React-Native transformer.
 
-Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d @ttsc/metro
+    ```
+  </Tabs.Tab>
+</Tabs>
 
-## References
+```js
+// metro.config.js (Expo)
+const { getDefaultConfig } = require("expo/metro-config");
+const { withTtsc } = require("@ttsc/metro");
 
-- TypeScript runners: [`ts-node`](https://github.com/TypeStrong/ts-node) and [`tsx`](https://github.com/privatenumber/tsx)
-- Transformer tooling: [`ttypescript`](https://github.com/cevek/ttypescript) and [`ts-patch`](https://github.com/nonara/ts-patch)
-- Inspired by: [`typical`](https://github.com/elliots/typical), [`tsgonest`](https://github.com/tsgonest/tsgonest) and [`codegraph`](https://github.com/colbymchenry/codegraph).
+module.exports = withTtsc(getDefaultConfig(__dirname));
+```
+
+Bare React Native, options, and the v1 caveats are in [Metro (React Native)](/docs/setup/metro).
