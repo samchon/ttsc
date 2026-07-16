@@ -111,7 +111,9 @@ On the agent-cost benchmark, Claude agents answer reading zero files, cutting to
 
 ## Plugins
 
-Plugins let a library add compile-time checks, transforms, and type-driven code generation to ordinary `ttsc` and `ttsx` runs. [typia](https://typia.io), for example, turns a TypeScript type into a runtime validator at build time:
+A plugin hooks the compile to add checks, transforms, or type-driven code generation, all driven by the types the checker has already resolved. It runs on every `ttsc` build and `ttsx` run, with no extra step.
+
+[typia](https://typia.io) is the canonical one. You write a type and call `typia.is<T>()`; at build time the transform reads that type:
 
 ```ts
 import typia, { tags } from "typia";
@@ -134,7 +136,7 @@ interface IMember {
 }
 ```
 
-At build time, the transform replaces `typia.is<IMember>()` with dedicated JavaScript checks:
+There is no schema to keep in sync and no decorator to add. The call compiles to a dedicated validator, inlined into the emit:
 
 ```js
 import typia from "typia";
@@ -177,7 +179,7 @@ Ecosystem plugins; PRs adding yours are welcome:
 - [`nestia`](https://github.com/samchon/nestia): generates NestJS routes, OpenAPI, and SDKs.
 - [`typia`](https://github.com/samchon/typia): generates validators, serializers, and type-driven runtime code.
 
-To write one, start from [Plugin Development](https://ttsc.dev/docs/development).
+To write your own, start from [Plugin Development](https://ttsc.dev/docs/development).
 
 ## Sponsors
 
