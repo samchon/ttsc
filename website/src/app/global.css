@@ -24,6 +24,14 @@ html {
   color-scheme: light;
 }
 
+/* Badge rows: shields.io images are wrapped in links, but Tailwind/Nextra
+   Preflight resets `img` to `display: block`, so each badge would stack on
+   its own line. Keep linked inline images inline (the banner is not a link,
+   so it stays block). */
+:is(.nextra-content, article) a img {
+  display: inline-block;
+}
+
 body {
   background: #ffffff;
   color: var(--ttsc-blue-ink);
