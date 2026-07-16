@@ -12,6 +12,38 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 - [**`@ttsc/graph`**](https://github.com/samchon/ttsc/tree/master/packages/graph): MCP code graph that reduces agent token usage.
 - **plugin support**: compiler-powered libraries, such as `typia`.
 
+## Guide Documents
+
+- [Introduction](https://ttsc.dev/docs)
+- Setup
+  - [Getting Started](https://ttsc.dev/docs/setup)
+  - [CLI & Scripts](https://ttsc.dev/docs/setup/ttsc)
+  - [Lint & Format](https://ttsc.dev/docs/setup/lint)
+  - [Bundlers (unplugin)](https://ttsc.dev/docs/setup/unplugin)
+  - [React Native (Metro)](https://ttsc.dev/docs/setup/metro)
+  - [VS Code](https://ttsc.dev/docs/setup/vscode)
+  - [Coding Agents (MCP)](https://ttsc.dev/docs/setup/graph)
+- Compiler
+  - [Compile (ttsc)](https://ttsc.dev/docs/ttsc/compile)
+  - [Execute (ttsx)](https://ttsc.dev/docs/ttsc/execute)
+  - [Flags](https://ttsc.dev/docs/ttsc/flags)
+- Lint & Format
+  - [Overview](https://ttsc.dev/docs/lint)
+  - [Setup](https://ttsc.dev/docs/lint/setup)
+  - [Format](https://ttsc.dev/docs/lint/format)
+  - [Rules](https://ttsc.dev/docs/lint/rules)
+- Code Graph (MCP)
+  - [Overview](https://ttsc.dev/docs/graph)
+  - [Comparison](https://ttsc.dev/docs/graph/compare)
+  - [3D Viewer](https://ttsc.dev/docs/graph/viewer)
+- Benchmark
+  - [Overview](https://ttsc.dev/docs/benchmark)
+  - [Code Graph](https://ttsc.dev/docs/benchmark/graph)
+  - [Compiler Performance](https://ttsc.dev/docs/benchmark/performance)
+- [Plugin Development](https://ttsc.dev/docs/development)
+- [Playground](https://ttsc.dev/docs/playground)
+- [FAQ](https://ttsc.dev/docs/faq)
+
 ## Setup
 
 ### Install
