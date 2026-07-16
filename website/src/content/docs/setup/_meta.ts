@@ -1,7 +1,7 @@
 import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
-  index: "Getting Started",
+  index: "Overview",
   ttsc: "CLI & Scripts",
   lint: "Lint & Format",
   graph: "Code Graph (MCP)",
