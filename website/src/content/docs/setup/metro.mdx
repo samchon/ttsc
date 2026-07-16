@@ -1,0 +1,82 @@
+import { Tabs } from "nextra/components";
+
+# Metro (React Native)
+
+React Native and Expo bundle with Metro, which transpiles each file with Babel. Babel strips TypeScript types and never runs TypeScript transformers, so neither the `ttsc` CLI nor `@ttsc/unplugin` can reach the build. `@ttsc/metro` is the adapter for that world: a Metro custom transformer that runs the `ttsc` plugin pass (typia, nestia, ...) on each TypeScript file, then hands the result to your existing Expo or React-Native Babel transformer.
+
+## Install
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D ttsc typescript @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D ttsc typescript @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D ttsc typescript @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d ttsc typescript @ttsc/metro
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## Wrap your Metro config
+
+For Expo:
+
+```js
+// metro.config.js
+const { getDefaultConfig } = require("expo/metro-config");
+const { withTtsc } = require("@ttsc/metro");
+
+module.exports = withTtsc(getDefaultConfig(__dirname));
+```
+
+For bare React Native, the only change is where the default config comes from:
+
+```js
+// metro.config.js
+const { getDefaultConfig } = require("@react-native/metro-config");
+const { withTtsc } = require("@ttsc/metro");
+
+module.exports = withTtsc(getDefaultConfig(__dirname));
+```
+
+`withTtsc` sets `transformer.babelTransformerPath` and leaves the rest of your config untouched. It auto-detects the upstream Babel transformer to delegate to: `@expo/metro-config/babel-transformer` for Expo, then `@react-native/metro-babel-transformer`, then the legacy `metro-react-native-babel-transformer`.
+
+## Options
+
+By default `@ttsc/metro` finds the nearest `tsconfig.json` from the file being transformed and runs the plugins configured there, the standard `ttsc` model. If that is what you want, wrapping the default config is the whole setup.
+
+Options are the second argument and mirror `@ttsc/unplugin`, plus a few Metro-specific knobs:
+
+```js
+module.exports = withTtsc(getDefaultConfig(__dirname), {
+  project: "tsconfig.build.json",
+  plugins: [{ transform: "typia/lib/transform" }],
+  exclude: ["__tests__"],
+});
+```
+
+- `project`: the `tsconfig.json` the transformer should read, resolved from `process.cwd()`.
+- `compilerOptions`: a temporary overlay layered on the selected project config.
+- `plugins`: an explicit plugin list override, or `false` to disable project plugins.
+- `upstreamTransformer`: an explicit module path for the Babel transformer to delegate to, when auto-detection is not what you want.
+- `include` / `exclude`: substring patterns against the project-relative path, selecting which files run through the `ttsc` pass. Only `.ts`/`.tsx`/`.cts`/`.mts` are candidates; declaration and JavaScript files always pass straight through.
+
+Options travel from the Metro config process to its worker processes through an environment variable, so they must stay JSON-serialisable: substring patterns, not `RegExp`.
+
+## Caveats (v1)
+
+- **Cost model.** The transform core type-checks the whole project and caches the result per process. Metro runs a multi-process worker pool, so the project compiles once per worker, on that worker's first file. A resident incremental compiler shared across workers is the planned fix, tracked in [#255](https://github.com/samchon/ttsc/issues/255).
+- **Cache invalidation.** Metro keys its transform cache on per-file content, but a `ttsc` transform can depend on a type in another file. Editing that type does not change the dependent file's content, so Metro may serve a stale transform. After changing `tsconfig`, plugin configuration, or a depended-upon type, restart with `--reset-cache`.
+- **Type errors fail the build.** The pass type-checks, and a project type error surfaces as a Metro build error, matching every other `ttsc` integration.

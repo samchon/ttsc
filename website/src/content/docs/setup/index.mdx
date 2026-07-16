@@ -182,4 +182,41 @@ export default defineConfig({
 });
 ```
 
-Adapters ship for Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Turbopack, Farm, and Bun; React Native and Expo go through `@ttsc/metro`. Every adapter is in [Unplugin (Bundlers)](/docs/setup/unplugin).
+Adapters ship for Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Turbopack, Farm, and Bun. Every adapter is in [Unplugin (Bundlers)](/docs/setup/unplugin).
+
+## [Metro (React Native)](/docs/setup/metro)
+
+React Native and Expo bundle with Metro, which Babel-transpiles every file and never runs TypeScript transformers. `@ttsc/metro` is a Metro transformer that runs the plugin pass first, then delegates to your existing Expo or React-Native transformer.
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d @ttsc/metro
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+```js
+// metro.config.js (Expo)
+const { getDefaultConfig } = require("expo/metro-config");
+const { withTtsc } = require("@ttsc/metro");
+
+module.exports = withTtsc(getDefaultConfig(__dirname));
+```
+
+Bare React Native, options, and the v1 caveats are in [Metro (React Native)](/docs/setup/metro).

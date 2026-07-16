@@ -7,5 +7,6 @@ const meta: MetaRecord = {
   graph: "Code Graph (MCP)",
   vscode: "VS Code Plugin",
   unplugin: "Unplugin (Bundlers)",
+  metro: "Metro (React Native)",
 };
 export default meta;
