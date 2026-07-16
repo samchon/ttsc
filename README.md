@@ -91,7 +91,7 @@ The full rule catalog and every `format` key are in the [Lint & Format guide](ht
 
 `@ttsc/graph` is an MCP server that hands a coding agent a compiler-resolved graph of your project: what calls what, what a change would touch, where to start reading. Without it, an agent rebuilds that picture by opening files and chasing imports, spending tokens on every hop. With it, the agent asks the type checker.
 
-![Token usage on the agent-cost benchmark, lower is better](https://ttsc.dev/benchmark/meetup-graph-token-usage.svg)
+![Median tokens on the shared onboarding question, lower is better](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.6-terra.svg)
 
 ```bash
 npm install -D ttsc @ttsc/graph typescript
