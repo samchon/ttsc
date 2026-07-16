@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { cacheEntry } from "./transform-external";
 import { emitGraphPlugins } from "./transform-graph";
 
 /**
@@ -251,10 +252,4 @@ export async function assertCompletenessKeepsExternalCacheValidation(): Promise<
   );
   assert.ok(after);
   assert.notStrictEqual(cacheEntry(cache), generation);
-}
-
-/** The single cached generation object, for cache-identity assertions. */
-function cacheEntry(cache: Map<string, unknown>): unknown {
-  assert.equal(cache.size, 1);
-  return [...cache.values()][0];
 }

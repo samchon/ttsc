@@ -101,6 +101,10 @@ export namespace ITtscCompilerTransformation {
      * entries contribute to one file, the envelope's author may list it only if
      * every contributing entry declared its own list complete for it.
      *
+     * The config chain a listed file keeps is {@link graph}'s, so a host that
+     * declares completeness should stamp {@link graph} too; without it a listed
+     * file retains no universal input at all.
+     *
      * Optional, and never required for correctness: an envelope without this
      * field keeps the sound host-owned bound. A file that is both listed here
      * and in {@link volatile} keeps the union, since the two claims contradict
