@@ -19,6 +19,7 @@ coverage/
 # AI assistant data
 .claude/
 .discussions/
+.playwright-mcp/
 
 # Local Go workspace overlays
 go.work
