@@ -66,11 +66,16 @@ When the project configures `outDir`, every driver emit lane (`EmitAll`, `EmitAl
 ## Reference graph
 
 ```go
-out := transformResult{TypeScript: map[string]string{}}
+// Compute the graph before plugin hooks mutate ASTs; edges must describe
+// the transform's inputs, not its output.
+graph := driver.NewTransformGraph(prog, cwd)
+
+printer := shimprinter.NewPrinter(shimprinter.PrinterOptions{}, shimprinter.PrintHandlers{}, nil)
+out := transformResult{TypeScript: map[string]string{}, Graph: graph}
 for _, file := range prog.SourceFiles() {
-    out.TypeScript[driver.TransformOutputKey(cwd, file.FileName())] = text
+    out.TypeScript[driver.TransformOutputKey(cwd, file.FileName())] =
+        shimprinter.EmitSourceFile(printer, file)
 }
-out.Graph = driver.NewTransformGraph(prog, cwd) // stamp the graph section
 ```
 
 `NewTransformGraph(prog, cwd)` computes the loaded program's reference graph under `tsc --incremental` semantics and returns the `graph` envelope section (`edges`, `globals`, `configs`) documented in [Plugin protocol → Transform](/docs/development/concepts/protocol#transform):
