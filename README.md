@@ -14,13 +14,11 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 
 ## Setup
 
-`ttsc` is a drop-in replacement for `tsc`. It reads the same `tsconfig.json`, takes the same flags, and emits the same JavaScript, so you can swap it into an existing project and CI keeps working.
+`ttsc` is a drop-in replacement for `tsc`. It reads the same `tsconfig.json`, takes the same flags, and emits the same JavaScript, then runs your plugins in the pass that type-checks the project.
 
 ```bash
 npm install -D ttsc typescript
 ```
-
-`typescript` sits on that line because `ttsc` runs on the native TypeScript-Go compiler, which the TypeScript team versions separately. You pin it, and `ttsc` picks it up from `node_modules`.
 
 ```bash
 npx ttsx src/index.ts   # run a file, type-checked first
@@ -29,23 +27,19 @@ npx ttsc --noEmit       # check only
 npx ttsc --watch        # rebuild on save
 ```
 
-`ttsx` runs a file directly, like `tsx` or `ts-node`, but it type-checks the whole project first. A type error stops the run before anything executes.
+`ttsx` runs a file the way `tsx` or `ts-node` does, but it type-checks the whole project first, so a type error stops the run before anything executes.
 
-That is the core. Bundlers, React Native, and the editor each have a one-page guide:
-
-- [Bundlers (Vite, webpack, Next.js, ...)](https://ttsc.dev/docs/setup/unplugin)
-- [React Native / Expo (Metro)](https://ttsc.dev/docs/setup/metro)
-- [VS Code extension](https://ttsc.dev/docs/setup/vscode)
+That covers the CLI. The integrations each have a short guide: [bundlers](https://ttsc.dev/docs/setup/unplugin) for Vite, webpack, and Next.js; [Metro](https://ttsc.dev/docs/setup/metro) for React Native and Expo; the [VS Code extension](https://ttsc.dev/docs/setup/vscode) for live editor diagnostics.
 
 ## Lint
 
-`@ttsc/lint` folds ESLint's job and Prettier's job into the compile you already run. One `lint.config.ts`, one pass over the source, one exit code.
+`@ttsc/lint` replaces ESLint and Prettier with rules that run inside the type-check. It shares one AST pass with the compiler, so linting and formatting add almost nothing to the build you already run.
+
+Configuration is a single file. Each rule takes `"error"`, `"warning"`, or `"off"`, and the `format` block mirrors `.prettierrc`.
 
 ```bash
 npm install -D @ttsc/lint
 ```
-
-Rules and formatting share the config. Three severities: `"error"` fails the build, `"warning"` prints, `"off"` disables.
 
 ```ts
 // lint.config.ts
@@ -65,7 +59,7 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-A violation is not a separate report. It arrives as a compiler diagnostic, in the same stream as a type error:
+Violations surface as compiler diagnostics, in the same stream as type errors, so the CI step that already runs `ttsc --noEmit` gates lint without a second job:
 
 ```ts
 // src/index.ts
@@ -86,22 +80,13 @@ src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const inst
   ~~~~~~~~~~~~~~
 ```
 
-So the CI step that already runs `ttsc --noEmit` gates lint too, with no second job to drift out of sync. Clean up in place:
-
-```bash
-npx ttsc fix      # every fixable lint violation + format edits
-npx ttsc format   # format edits only, never changes behavior
-```
-
-The rule catalog and every `format` key are in the [Lint & Format guide](https://ttsc.dev/docs/lint).
+Clean the project in place with `ttsc fix` (lint autofixes plus formatting) or `ttsc format` (formatting only, which never changes behavior). The rule catalog and every `format` key are in the [Lint & Format guide](https://ttsc.dev/docs/lint).
 
 ## Graph
 
-Ask a coding agent how something works, and on its own it reads one file, follows an import, reads the next, and repeats. Every hop spends tokens, and the relationships it infers are guesses from whatever text it happened to open.
+`@ttsc/graph` is an MCP server that gives a coding agent a compiler-resolved graph of your project: what calls what, what a change would touch, and where to start reading. Without it, an agent rebuilds that map by opening files and following imports, spending tokens on every hop and guessing at the edges it cannot see.
 
-`@ttsc/graph` replaces that crawl with the compiler's own map, served over MCP. The agent asks one tool what calls what, what a change would touch, and where to start.
-
-Every edge is resolved by the type checker, so path aliases, monorepo boundaries, and barrel re-exports all land on the real declaration, not the text that looked close.
+Because the graph comes from the real type checker, the relationships a text search gets wrong are exact here: `tsconfig` path aliases, cross-package calls in a monorepo, and barrel re-exports all resolve to the true declaration.
 
 ![Median tokens on the shared onboarding question, lower is better](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.6-terra.svg)
 
@@ -109,7 +94,7 @@ Every edge is resolved by the type checker, so path aliases, monorepo boundaries
 npm install -D ttsc @ttsc/graph typescript
 ```
 
-Point your MCP client at it. For Claude Code, a `.mcp.json` in the project root:
+Register it with your MCP client. For Claude Code, a `.mcp.json` in the project root:
 
 ```json
 {
@@ -122,13 +107,11 @@ Point your MCP client at it. For Claude Code, a `.mcp.json` in the project root:
 }
 ```
 
-On the agent-cost benchmark, Claude answers reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%.
-
-See the [Code Graph guide](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
+On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. The design and per-repository numbers are in the [Code Graph guide](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
 
 ## Plugins
 
-Plugins let libraries add compile-time checks, transforms, and type-driven code generation to normal `ttsc` and `ttsx` runs. A transform uses TypeScript types to generate JavaScript before runtime:
+Plugins let a library add compile-time checks, transforms, and type-driven code generation to ordinary `ttsc` and `ttsx` runs. [typia](https://typia.io), for example, turns a TypeScript type into a runtime validator at build time:
 
 ```ts
 import typia, { tags } from "typia";
@@ -203,49 +186,6 @@ To write one, start from [Plugin Development](https://ttsc.dev/docs/development)
 Thanks for your support.
 
 Your [donation](https://github.com/sponsors/samchon) encourages `ttsc` development.
-
-## Guide Documents
-
-### 🏠 Home
-
-- [Introduction](https://ttsc.dev/docs)
-- Setup
-  - [CLI & Scripts](https://ttsc.dev/docs/setup/ttsc)
-  - [Lint & Format](https://ttsc.dev/docs/setup/lint)
-  - [Bundlers (unplugin)](https://ttsc.dev/docs/setup/unplugin)
-  - [React Native (Metro)](https://ttsc.dev/docs/setup/metro)
-  - [VS Code](https://ttsc.dev/docs/setup/vscode)
-  - [Coding Agents (MCP)](https://ttsc.dev/docs/setup/graph)
-
-### 📖 Features
-
-- Compiler
-  - [Compile (ttsc)](https://ttsc.dev/docs/ttsc/compile)
-  - [Execute (ttsx)](https://ttsc.dev/docs/ttsc/execute)
-  - [Flags](https://ttsc.dev/docs/ttsc/flags)
-- Lint & Format
-  - [Overview](https://ttsc.dev/docs/lint)
-  - [Setup](https://ttsc.dev/docs/lint/setup)
-  - [Format](https://ttsc.dev/docs/lint/format)
-  - [Rules](https://ttsc.dev/docs/lint/rules)
-- Code Graph (MCP)
-  - [Overview](https://ttsc.dev/docs/graph)
-  - [Comparison](https://ttsc.dev/docs/graph/compare)
-  - [3D Viewer](https://ttsc.dev/docs/graph/viewer)
-
-### 🧰 Authoring
-
-- [Plugin Development](https://ttsc.dev/docs/development)
-- [WASM Module](https://ttsc.dev/docs/wasm)
-- [Playground](https://ttsc.dev/docs/playground)
-
-### 🔗 Appendix
-
-- Benchmark
-  - [Overview](https://ttsc.dev/docs/benchmark)
-  - [Code Graph](https://ttsc.dev/docs/benchmark/graph)
-  - [Compiler Performance](https://ttsc.dev/docs/benchmark/performance)
-- [FAQ](https://ttsc.dev/docs/faq)
 
 ## References
 
