@@ -74,10 +74,19 @@ For each TypeScript file Metro asks to transform:
 
 The plugin contract, `tsconfig` discovery, and per-build cache are identical to every other `ttsc` bundler integration.
 
+## Cache invalidation
+
+Metro keys its transform cache on each file's own content plus one static transformer key, and its babel-transformer contract has no per-file dependency registration. A `ttsc` transform can depend on a _type_ in another file, so `@ttsc/metro` folds a project fingerprint into that static key: every input file under the project root, plus the reference-graph inputs outside it (`node_modules` declarations, monorepo sibling sources, out-of-root tsconfig `extends` ancestry) recorded under `node_modules/.cache/ttsc-metro`. Editing any of them re-keys the next run, so `metro bundle` and dev-server starts pick up cross-file type changes without `--reset-cache`.
+
+The granularity is project-level by necessity: Metro evaluates the transformer key once per run, so any fingerprinted change re-transforms every file on the next run. What remains outside the mechanism's reach:
+
+- **Within a running dev server**, Metro re-transforms only files its watcher reports changed. Editing a type in file B updates a dependent file A on A's next transform — save A, or restart the dev server (no `--reset-cache` needed).
+- **Files a plugin declares `volatile`** depend on non-file inputs that no fingerprint can represent; while a volatile declaration is recorded, cross-run cache reuse is disabled entirely.
+- **If `node_modules/.cache` is unwritable**, the recorded input set is unknown, and cross-run cache reuse is disabled rather than made unsound.
+
 ## Caveats (v1)
 
 - **Cost model.** This release reuses `@ttsc/unplugin`'s transform core, which type-checks the whole `tsconfig` project and caches the result per process. Metro runs transforms in a multi-process worker pool, so the project is compiled once per worker (on that worker's first file). A resident, incremental, per-file compiler shared across workers is the planned optimization, tracked in [samchon/ttsc#255](https://github.com/samchon/ttsc/issues/255).
-- **Cache invalidation.** Metro keys its transform cache on per-file content plus a static transformer key. A `ttsc` transform can depend on a _type_ in another file; editing that type does not change the dependent file's content, so Metro may serve a stale transform. After changing `tsconfig`/plugin configuration or a depended-upon type, restart Metro with `--reset-cache`.
 - **Type errors fail the build.** The `ttsc` pass type-checks; a project type error surfaces as a Metro build error, matching the other `ttsc` bundler integrations.
 
 ## Sponsors

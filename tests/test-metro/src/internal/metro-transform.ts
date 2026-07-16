@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { createBareProject, prepareSnapshot } from "./metro-cache";
 import { TestMetroRuntime } from "./metro-runtime";
 
 const ROOT = "/workspace/app";
@@ -273,21 +274,25 @@ export async function assertGatesByIncludeAndExclude(): Promise<void> {
 
 /**
  * Asserts `getCacheKey` is a stable 64-char hex digest, equal across calls for
- * the same options and different when the options differ.
+ * the same options and different when the options differ. The project carries a
+ * prepared snapshot: key stability is only guaranteed on the `withTtsc` setup
+ * path (without a snapshot the key soundly folds a per-run nonce).
  */
 export async function assertCacheKeyIsDeterministicAndOptionSensitive(): Promise<void> {
+  const root = createBareProject();
+  await prepareSnapshot(root);
   const fake = TestMetroRuntime.fakeUpstreamPathOnDisk();
   const first = await TestMetroRuntime.withTransformerEnv(
     { upstreamTransformer: fake, exclude: ["a"] },
-    (mod) => mod.getCacheKey(),
+    (mod) => mod.getCacheKey({ projectRoot: root }),
   );
   const repeat = await TestMetroRuntime.withTransformerEnv(
     { upstreamTransformer: fake, exclude: ["a"] },
-    (mod) => mod.getCacheKey(),
+    (mod) => mod.getCacheKey({ projectRoot: root }),
   );
   const other = await TestMetroRuntime.withTransformerEnv(
     { upstreamTransformer: fake, exclude: ["b"] },
-    (mod) => mod.getCacheKey(),
+    (mod) => mod.getCacheKey({ projectRoot: root }),
   );
   assert.equal(typeof first, "string");
   assert.equal(first.length, 64);
@@ -297,18 +302,22 @@ export async function assertCacheKeyIsDeterministicAndOptionSensitive(): Promise
 
 /**
  * Asserts `getCacheKey` forwards Metro's arguments to the upstream
- * `getCacheKey` (so a `projectRoot`/babelrc change busts the key) and still
- * produces a valid key when the upstream exposes no `getCacheKey`.
+ * `getCacheKey` (so a babelrc-lookup change busts the key) and still produces a
+ * valid key when the upstream exposes no `getCacheKey`. The two keys share one
+ * snapshot-backed `projectRoot`, so only the upstream's contribution can differ
+ * — the fingerprint ignores `enableBabelRCLookup`.
  */
 export async function assertCacheKeyForwardsAndFoldsUpstreamKey(): Promise<void> {
+  const root = createBareProject();
+  await prepareSnapshot(root);
   const fake = TestMetroRuntime.fakeUpstreamPathOnDisk();
   const keyA = await TestMetroRuntime.withTransformerEnv(
     { upstreamTransformer: fake },
-    (mod) => mod.getCacheKey({ projectRoot: "/a" }),
+    (mod) => mod.getCacheKey({ projectRoot: root, enableBabelRCLookup: true }),
   );
   const keyB = await TestMetroRuntime.withTransformerEnv(
     { upstreamTransformer: fake },
-    (mod) => mod.getCacheKey({ projectRoot: "/b" }),
+    (mod) => mod.getCacheKey({ projectRoot: root, enableBabelRCLookup: false }),
   );
   // Forwarded args reach the upstream getCacheKey → different inputs, different key.
   assert.notEqual(keyA, keyB);
@@ -317,7 +326,7 @@ export async function assertCacheKeyForwardsAndFoldsUpstreamKey(): Promise<void>
   const noKey = TestMetroRuntime.fakeUpstreamWithoutCacheKeyOnDisk();
   const keyC = await TestMetroRuntime.withTransformerEnv(
     { upstreamTransformer: noKey },
-    (mod) => mod.getCacheKey({ projectRoot: "/a" }),
+    (mod) => mod.getCacheKey({ projectRoot: root, enableBabelRCLookup: true }),
   );
   assert.equal(typeof keyC, "string");
   assert.equal(keyC.length, 64);

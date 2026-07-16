@@ -30,6 +30,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { prepareSnapshot } from "./core/fingerprint";
 import type { TtscMetroOptions } from "./core/options";
 import { ENV_KEY, serializeOptions } from "./core/options";
 
@@ -69,6 +70,13 @@ export function withTtsc<T extends MetroConfigLike>(
   options: TtscMetroOptions = {},
 ): T {
   process.env[ENV_KEY] = serializeOptions(options);
+  // Prepare the reference-graph snapshot backing the transformer's cache-key
+  // fingerprint (see `core/fingerprint.ts`). This runs in the single Metro
+  // config process before any worker exists, so it is the race-free moment to
+  // mint the snapshot epoch and compact the previous run's worker files.
+  prepareSnapshot(
+    typeof config.projectRoot === "string" ? config.projectRoot : undefined,
+  );
   return {
     ...config,
     transformer: {
