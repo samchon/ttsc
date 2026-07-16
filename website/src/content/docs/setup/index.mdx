@@ -1,6 +1,39 @@
+import { Tabs } from "nextra/components";
+
 # Setup
 
 One toolchain, several surfaces. Each page here wires `ttsc` into one of them, and each is individually complete: its own install line, its own config, its own verification.
+
+## The common base
+
+Every surface starts from the same two packages:
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D ttsc typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D ttsc typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D ttsc typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d ttsc typescript
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+`ttsc` reads the `tsconfig.json` you already have, and `npx ttsc` builds where `npx tsc` did. Each page below adds its own package on top of this base.
+
+## Pick your surface
 
 - [CLI & Scripts](/docs/setup/ttsc): package.json scripts, watch mode, and CI with plugin-binary caching.
 - [Lint & Format](/docs/setup/lint): `lint.config.ts`, severities, and the format block.

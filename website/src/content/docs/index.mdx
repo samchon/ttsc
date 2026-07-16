@@ -4,6 +4,8 @@ import { Tabs } from "nextra/components";
 
 `ttsc` is a TypeScript compiler that also runs plugins: lint rules, formatters, and type-driven code generators like [typia](https://typia.io), all inside the pass that type-checks your code.
 
+This page takes you from an empty directory to a working build, with a taste of every integration. Each section ends with a link to its full guide, and the chapter map at the bottom covers the rest of the documentation.
+
 ## Install
 
 <Tabs items={["npm", "pnpm", "yarn", "bun"]}>
@@ -220,3 +222,13 @@ module.exports = withTtsc(getDefaultConfig(__dirname));
 ```
 
 Bare React Native, options, and the v1 caveats are in [Metro (React Native)](/docs/setup/metro).
+
+## Where next
+
+- [Setup](/docs/setup): every integration above, one complete page each.
+- [TTSC](/docs/ttsc): the compiler and the runner in depth, every subcommand and flag.
+- [Lint & Format](/docs/lint): the rule catalog and every `format` key.
+- [Code Graph (MCP)](/docs/graph): what the graph answers, the comparison, and the 3D viewer.
+- [Plugin Ecosystem](/docs/plugins): typia, nestia, and the utility plugins shipped here.
+- [Benchmark](/docs/benchmark): compiler performance and agent cost, measured.
+- [FAQ](/docs/faq): migration notes and gotchas.
