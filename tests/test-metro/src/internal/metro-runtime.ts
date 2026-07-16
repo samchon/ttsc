@@ -43,6 +43,14 @@ export namespace TestMetroRuntime {
     return import(libUrl("core/upstream"));
   }
 
+  /**
+   * Load the internal fingerprint module (`prepareSnapshot`,
+   * `computeProjectFingerprint`, `readSnapshotState`).
+   */
+  export async function loadFingerprint(): Promise<any> {
+    return import(libUrl("core/fingerprint"));
+  }
+
   // The transformer keeps module-level singletons (resolved options + transform
   // cache), exactly as Metro loads it once per worker. To exercise distinct
   // option sets across cases, each load is cache-busted with a unique query so

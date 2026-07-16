@@ -4,8 +4,11 @@ import { createUnplugin } from "unplugin";
 import type { TtscUnpluginOptions } from "./options";
 import { resolveOptions } from "./options";
 import {
+  collectExternalInputHashes,
+  collectProjectInputHashes,
   createTtscTransformCache,
   isDeclarationFile,
+  isProjectWalkPath,
   stripQuery,
   transformTtsc,
 } from "./transform";
@@ -99,7 +102,15 @@ export type {
   TtscUnpluginOptions,
 } from "./options";
 export type { TtscTransformHooks } from "./transform";
-export { createTtscTransformCache, resolveOptions, transformTtsc, unplugin };
+export {
+  collectExternalInputHashes,
+  collectProjectInputHashes,
+  createTtscTransformCache,
+  isProjectWalkPath,
+  resolveOptions,
+  transformTtsc,
+  unplugin,
+};
 
 export default unplugin;
 

@@ -10,8 +10,10 @@
  *
  * The ttsc pass reuses `@ttsc/unplugin`'s `transformTtsc`, so the plugin
  * contract, tsconfig discovery, and per-build cache are identical to every
- * other bundler integration. See the package README for the v1 cost model and
- * the cross-file cache-invalidation caveat.
+ * other bundler integration. Cross-file cache invalidation rides the project
+ * fingerprint {@link getCacheKey} folds into Metro's static transformer key (see
+ * `core/fingerprint.ts`); the package README covers the v1 cost model and the
+ * remaining watch-session boundary.
  */
 import {
   createTtscTransformCache,
@@ -22,6 +24,11 @@ import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import {
+  computeProjectFingerprint,
+  createSnapshotRecorder,
+  stableStringify,
+} from "./core/fingerprint";
 import type { ResolvedTtscMetroOptions } from "./core/options";
 import { resolveOptionsFromEnv } from "./core/options";
 import { resolveUpstreamTransformer } from "./core/upstream";
@@ -45,6 +52,7 @@ const DECLARATION = /\.d\.[cm]?ts$/;
 let resolved: ResolvedTtscMetroOptions | undefined;
 let unpluginOptions: ReturnType<typeof resolveOptions> | undefined;
 const cache = createTtscTransformCache();
+const snapshotRecorder = createSnapshotRecorder();
 
 /** Lazily resolve the worker-side options (from {@link resolveOptionsFromEnv}). */
 function options(): ResolvedTtscMetroOptions {
@@ -106,12 +114,33 @@ export async function transform(params: {
   let transformedSrc = params.src;
   try {
     unpluginOptions ??= resolveOptions(opts.ttsc);
+    const projectRoot =
+      typeof params.options.projectRoot === "string"
+        ? params.options.projectRoot
+        : undefined;
+    const explicitProject =
+      typeof opts.ttsc.project === "string" ? opts.ttsc.project : undefined;
     const result = await transformTtsc(
       resolveAbsoluteFilename(params.filename, params.options),
       params.src,
       unpluginOptions,
       undefined,
       cache,
+      {
+        // Metro offers no per-file dependency registration, so the derived
+        // watch inputs (plugin-reported dependencies unioned with the
+        // reference graph's reach, globals, and configs) feed the snapshot
+        // that the next run's getCacheKey re-hashes instead. Fires on cache
+        // hits too, so a worker that never recompiled still records the
+        // inputs backing the outputs it serves.
+        addWatchFile: (input) =>
+          snapshotRecorder.record({ explicitProject, input, projectRoot }),
+        // A volatile declaration means the output depends on non-file inputs
+        // that no file fingerprint can represent; the snapshot marks it and
+        // getCacheKey degrades to a per-run nonce (no cross-run reuse).
+        markVolatile: () =>
+          snapshotRecorder.recordVolatile({ explicitProject, projectRoot }),
+      },
     );
     if (result !== undefined && typeof result.code === "string") {
       transformedSrc = result.code;
@@ -131,15 +160,25 @@ export async function transform(params: {
 /**
  * Metro transform-cache key.
  *
- * Metro already content-hashes each file, so this only has to invalidate when
- * the transformer itself changes: package version + resolved options + the
- * upstream transformer's own key (forwarded Metro's args, e.g. `projectRoot`,
- * so a `babel.config.js` change still busts the cache). Resolving the upstream
- * is deliberately non-fatal here: a missing peer must not crash cache-key
- * computation. NOTE: this does not encode the tsconfig / plugin configuration
- * or cross-file type dependencies, so after editing those (or a depended-upon
- * type) run Metro with `--reset-cache`. See the README "Caveats" and
- * samchon/ttsc#255.
+ * Metro calls this once per run (dev-server start or cold `metro bundle`), on
+ * the main process, and folds the result into every file's per-content cache
+ * key. It must therefore incorporate every input that can influence a
+ * transform's output beyond the file's own content:
+ *
+ * - The transformer identity: package version + resolved options + the upstream
+ *   transformer's own key (forwarded Metro's args, e.g. `projectRoot`, so a
+ *   `babel.config.js` change still busts the cache);
+ * - The project fingerprint (see `core/fingerprint.ts`): every input file under
+ *   the project walk (tsconfig, plugin configs, type-only siblings) plus the
+ *   recorded out-of-walk reference-graph members from previous transforms
+ *   (`node_modules` declarations, monorepo sibling sources, out-of-root config
+ *   ancestry).
+ *
+ * A change to any fingerprinted input re-keys every transformed file —
+ * project-level granularity, forced by Metro's single static key — replacing
+ * the former manual `--reset-cache` step. Resolving the upstream is
+ * deliberately non-fatal here: a missing peer must not crash cache-key
+ * computation. See the README "Caveats" and samchon/ttsc#721.
  */
 export function getCacheKey(...args: unknown[]): string {
   const opts = options();
@@ -157,7 +196,32 @@ export function getCacheKey(...args: unknown[]): string {
   if (upstreamKey.length !== 0) {
     hash.update(upstreamKey);
   }
+  hash.update(
+    computeProjectFingerprint({
+      explicitProject:
+        typeof opts.ttsc.project === "string" ? opts.ttsc.project : undefined,
+      projectRoot: cacheKeyProjectRoot(args),
+    }),
+  );
   return hash.digest("hex");
+}
+
+/**
+ * Extract Metro's `projectRoot` from the cache-key options
+ * (`metro-transform-worker` calls `getCacheKey({ projectRoot,
+ * enableBabelRCLookup })`). Defensive against foreign callers: anything but a
+ * non-empty string yields `undefined` and the fingerprint falls back to the
+ * working directory.
+ */
+function cacheKeyProjectRoot(args: unknown[]): string | undefined {
+  const first = args[0];
+  if (typeof first !== "object" || first === null) {
+    return undefined;
+  }
+  const projectRoot = (first as Record<string, unknown>).projectRoot;
+  return typeof projectRoot === "string" && projectRoot.length !== 0
+    ? projectRoot
+    : undefined;
 }
 
 /**
@@ -229,21 +293,4 @@ function packageVersion(): string {
   } catch {
     return "0";
   }
-}
-
-/**
- * JSON-serialise with object keys sorted recursively, so two semantically equal
- * option sets always hash to the same cache key regardless of property order.
- */
-function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(stableStringify).join(",")}]`;
-  }
-  if (value !== null && typeof value === "object") {
-    return `{${Object.entries(value)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value);
 }
