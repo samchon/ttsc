@@ -60,6 +60,7 @@ const (
 var fullSnapshotCapabilities = []string{
   graph.CapabilityUniverse,
   graph.CapabilitySourceDigests,
+  graph.CapabilityDiskDigests,
   graph.CapabilityDiagnostics,
 }
 

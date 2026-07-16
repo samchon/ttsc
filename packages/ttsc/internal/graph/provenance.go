@@ -25,6 +25,14 @@ const (
   // CapabilitySourceDigests means Sources covers every file the program
   // loaded, each with the digest of the text the checker read.
   CapabilitySourceDigests = "sourceDigests"
+  // CapabilityDiskDigests means Sources also carries each file's on-disk
+  // digest, so an empty one genuinely means the file could not be read.
+  //
+  // It is separate from CapabilitySourceDigests because a producer can know
+  // what the checker read without having hashed the disk, and the two claims
+  // fail differently: without this, an empty diskDigest is "did not look",
+  // which a consumer would otherwise read as "vanished or virtual".
+  CapabilityDiskDigests = "diskDigests"
   // CapabilityDiagnostics means Diagnostics is the compiler's complete
   // findings for this generation, as opposed to not having been collected.
   CapabilityDiagnostics = "diagnostics"
@@ -152,6 +160,10 @@ type SourceDigest struct {
   // time, or "" when the file could not be read — it vanished mid-load, or it
   // is a virtual source with no on-disk identity. An empty Disk means a
   // consumer cannot reproduce this file's bytes and must not claim it did.
+  //
+  // Read this only when the snapshot declares CapabilityDiskDigests. Without
+  // that claim every Disk is empty because the producer never hashed the disk,
+  // which is a different fact from a file that could not be read.
   Disk string `json:"diskDigest"`
 }
 

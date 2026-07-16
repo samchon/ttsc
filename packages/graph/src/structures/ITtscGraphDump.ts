@@ -67,6 +67,13 @@ export namespace ITtscGraphDump {
      * What this snapshot proves. A consumer degrades against this rather than
      * guessing from a field's emptiness, because an empty list and an
      * uncollected one look identical on the wire.
+     *
+     * The known members are `universe`, `sourceDigests`, `diskDigests`, and
+     * `diagnostics`. The type stays `string[]` rather than a union of those on
+     * purpose: a union would make `typia.assert` reject a newer producer for
+     * naming a capability this client has not heard of, turning "proves more
+     * than you know about" into a hard failure. An unknown capability is
+     * exactly the case a consumer should ignore.
      */
     capabilities: string[];
 
@@ -161,6 +168,10 @@ export namespace ITtscGraphDump {
      * facts. When it does not, the checker saw augmented text and that proof is
      * simply not available for this file — which is a thing to report, not to
      * paper over.
+     *
+     * Read it only when `provenance.capabilities` lists `diskDigests`. Without
+     * that claim every one of these is empty because the producer never hashed
+     * the disk, which is a different fact from a file that could not be read.
      */
     diskDigest: string;
   }
