@@ -101,13 +101,11 @@ Your coding agent answers from the compiler, spending roughly 90% fewer tokens.
 
 `@ttsc/graph` is an MCP server that gives the agent a compiler-resolved graph of your project: what calls what, what a change would touch, and where to start reading. The agent asks the type checker instead of grepping and re-reading files.
 
-![Median tokens on the shared onboarding question, lower is better](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.6-terra.svg)
+Register it with your MCP client. For Claude Code, a `.mcp.json` in the project root:
 
 ```bash
 npm install -D ttsc @ttsc/graph typescript
 ```
-
-Register it with your MCP client. For Claude Code, a `.mcp.json` in the project root:
 
 ```json
 {
@@ -121,6 +119,8 @@ Register it with your MCP client. For Claude Code, a `.mcp.json` in the project 
 ```
 
 On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. The design and per-repository numbers are in the [Code Graph guide](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
+
+![Median tokens on the shared onboarding question, lower is better](https://ttsc.dev/benchmark/svg/graph-common-codex-gpt-5.6-terra.svg)
 
 ## Plugins
 
