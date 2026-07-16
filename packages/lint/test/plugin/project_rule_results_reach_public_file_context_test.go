@@ -107,6 +107,9 @@ func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
       for _, name := range []string{absentName, failedName, notEvaluatedName, offName, passedName} {
         observed[name] = ctx.ProjectResult(name)
       }
+      for _, name := range []string{absentName, notEvaluatedName, offName} {
+        observed[name].Report("inactive result must stay inert")
+      }
       ctx.Report(ctx.File.AsNode(), "file observer ran")
     },
   })
@@ -129,6 +132,12 @@ func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
   for name, status := range expected {
     if got := observed[name].Status; got != status {
       t.Fatalf("ProjectResult(%q): want %q, got %q", name, status, got)
+    }
+  }
+  for _, name := range []string{absentName, notEvaluatedName, offName} {
+    result := observed[name]
+    if result.State != nil || len(result.Findings) != 0 {
+      t.Fatalf("inactive ProjectResult(%q) exposed state or findings: %#v", name, result)
     }
   }
   if got := len(observed[failedName].Findings); got != 1 {

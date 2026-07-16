@@ -240,8 +240,8 @@ func NewContext(
   return NewContextWithProjectResults(file, checker, severity, options, reporter, nil)
 }
 
-// NewContextWithProjectResults constructs a file-rule Context with the
-// finalized project state for the same loaded Program cycle.
+// NewContextWithProjectResults constructs a file-rule Context with the live
+// project results for the same loaded Program cycle.
 func NewContextWithProjectResults(
   file *shimast.SourceFile,
   checker *shimchecker.Checker,
@@ -260,7 +260,7 @@ func NewContextWithProjectResults(
   }
 }
 
-// ProjectResult returns the finalized state for a named project rule in this
+// ProjectResult returns a current snapshot for a named project rule in this
 // file's Program cycle. Missing registrations return ProjectRuleAbsent.
 func (c *Context) ProjectResult(name string) ProjectRuleResult {
   if c == nil || c.results == nil {

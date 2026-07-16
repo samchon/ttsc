@@ -694,7 +694,7 @@ func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) 
     currentDirectory, _ = os.Getwd()
   }
   fileFindings := e.runFiles(files, checker, cycle.results, currentDirectory)
-  return append(cycle.findings, fileFindings...)
+  return append(cycle.finalize(), fileFindings...)
 }
 
 func (e *Engine) runFiles(

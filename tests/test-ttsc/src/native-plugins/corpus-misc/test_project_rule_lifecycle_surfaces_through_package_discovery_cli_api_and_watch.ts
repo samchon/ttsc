@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import { TtscCompiler } from "ttsc";
 
 import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
@@ -14,11 +15,28 @@ import {
   tsgoBinary,
   ttscBin,
 } from "../../internal/plugin-corpus";
+import {
+  TtscserverClient,
+  initializeTtscserverClient,
+  shutdownTtscserverClient,
+} from "../../internal/ttscserver";
+
+type PublishDiagnosticsParams = {
+  uri: string;
+  diagnostics?: {
+    code?: unknown;
+    message?: string;
+    source?: string;
+  }[];
+};
 
 const guardContributor = `package guard
 
 import (
   "fmt"
+  "os"
+  "path/filepath"
+  "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   "github.com/samchon/ttsc/packages/lint/rule"
@@ -26,20 +44,39 @@ import (
 
 type projectGuard struct{}
 
+type projectBinding struct {
+  identity rule.ProjectIdentity
+  marker string
+  sources int
+}
+
 func (projectGuard) Name() string { return "guard/project" }
 func (projectGuard) Check(ctx *rule.ProjectContext) {
-  message := fmt.Sprintf(
+  ctx.SetState(&projectBinding{
+    identity: ctx.Identity,
+    marker: filepath.Join(ctx.Identity.PhysicalProjectRoot, "guard-state.txt"),
+    sources: len(ctx.Sources),
+  })
+}
+
+func (binding *projectBinding) Revalidate() error {
+  marker, err := os.ReadFile(binding.marker)
+  if err != nil {
+    return err
+  }
+  if strings.TrimSpace(string(marker)) != "blocked" {
+    return nil
+  }
+  return fmt.Errorf(
     "project blocked logical=%s physical=%s invocation=%s lifecycle=%s explicit=%s origin=%s sources=%d",
-    ctx.Identity.LogicalConfigPath,
-    ctx.Identity.PhysicalConfigPath,
-    ctx.Identity.InvocationCwd,
-    ctx.Identity.LifecycleID,
-    ctx.Identity.ExplicitProjectRoot,
-    ctx.Identity.PluginConfigOrigin,
-    len(ctx.Sources),
+    binding.identity.LogicalConfigPath,
+    binding.identity.PhysicalConfigPath,
+    binding.identity.InvocationCwd,
+    binding.identity.LifecycleID,
+    binding.identity.ExplicitProjectRoot,
+    binding.identity.PluginConfigOrigin,
+    binding.sources,
   )
-  ctx.Report(message)
-  ctx.Report(message)
 }
 
 type guardedProjectIO struct{}
@@ -47,11 +84,21 @@ type guardedProjectIO struct{}
 func (guardedProjectIO) Name() string { return "guard/project-io" }
 func (guardedProjectIO) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindSourceFile} }
 func (guardedProjectIO) Check(ctx *rule.Context, node *shimast.Node) {
-  switch ctx.ProjectResult("guard/project").Status {
+  result := ctx.ProjectResult("guard/project")
+  switch result.Status {
   case rule.ProjectRuleAbsent, rule.ProjectRuleOff, rule.ProjectRuleFailed:
     return
   }
-  ctx.Report(node, "project I/O should have been skipped")
+  binding, ok := result.State.(*projectBinding)
+  if !ok {
+    result.Report("project binding missing from live result")
+    return
+  }
+  if err := binding.Revalidate(); err != nil {
+    result.Report(err.Error())
+    result.Report(err.Error())
+    return
+  }
 }
 
 type independentAST struct{}
@@ -88,20 +135,21 @@ func init() { rule.Register(independentAST{}) }
 `;
 
 /**
- * Verifies project rules retain one lifecycle and identity contract through
- * package-discovered CLI, public API, and watch executions.
+ * Verifies project rules retain one live lifecycle and identity contract
+ * through package-discovered CLI, public API, LSP, and watch executions.
  *
  * The fixture has no `compilerOptions.plugins`; `@ttsc/lint` is discovered from
  * package metadata, then its config contributes a project rule plus guarded and
  * independent file rules. The project is selected through a junction/symlink so
  * the contributor can prove logical and physical paths remain distinct.
  *
- * 1. Run CLI and assert one deduplicated project finding precedes independent file
- *    findings while the guarded project-I/O rule returns early.
+ * 1. Run CLI and assert a file helper turns passed project state into one
+ *    deduplicated finding ordered before independent file findings.
  * 2. Run the public API with explicit root/config-origin channels and assert its
  *    structured project diagnostic has `file: null`.
- * 3. Trigger two watch cycles and assert each prints one finding with a distinct
- *    host-owned lifecycle id.
+ * 3. Publish the JIT failure over LSP, then clear it with a clean loaded cycle.
+ * 4. Trigger two watch cycles and assert each prints one finding with a distinct
+ *    state-owned lifecycle id.
  */
 export const test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch =
   async (): Promise<void> => {
@@ -169,6 +217,8 @@ module.exports = {
     const physicalConfig = fs.realpathSync(
       path.join(physicalRoot, "tsconfig.json"),
     );
+    const guardState = path.join(physicalRoot, "guard-state.txt");
+    fs.writeFileSync(guardState, "blocked\n");
     const env = {
       PATH: goPath(),
       TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
@@ -194,6 +244,11 @@ module.exports = {
     );
     assert.match(cli.stderr, /\[guard\/ast\].*remained independent/s);
     assert.match(cli.stderr, /\[unrelated\/ast\].*remained independent/s);
+    assert.equal(
+      cli.stderr.indexOf("[guard/project]") < cli.stderr.indexOf("[guard/ast]"),
+      true,
+      `finalized project finding should precede file findings\n${cli.stderr}`,
+    );
 
     const api = new TtscCompiler({
       binary: tsgoBinary,
@@ -218,6 +273,68 @@ module.exports = {
       projectDiagnostic?.messageText.includes(`origin=${logicalRoot}`),
       true,
     );
+
+    const file = path.join(physicalRoot, "src", "main.ts");
+    const uri = pathToFileURL(path.join(logicalRoot, "src", "main.ts")).href;
+    const secondFile = path.join(physicalRoot, "src", "second.ts");
+    const secondURI = pathToFileURL(
+      path.join(logicalRoot, "src", "second.ts"),
+    ).href;
+    fs.writeFileSync(secondFile, "export const second = 2;\n");
+    const configURI = pathToFileURL(logicalConfig).href;
+    const client = TtscserverClient.startLauncher(logicalRoot, {
+      env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
+    });
+    try {
+      await initializeTtscserverClient(client, logicalRoot);
+      const failedPublication =
+        client.waitForNotification<PublishDiagnosticsParams>(
+          "textDocument/publishDiagnostics",
+          (params) =>
+            (params.diagnostics ?? []).some(
+              (diagnostic) => diagnostic.code === "guard/project",
+            ),
+          60_000,
+        );
+      client.notify("textDocument/didOpen", {
+        textDocument: {
+          uri,
+          languageId: "typescript",
+          version: 1,
+          text: fs.readFileSync(file, "utf8"),
+        },
+      });
+      const failedParams = await failedPublication;
+      assert.equal(failedParams.uri, configURI);
+      assert.equal(
+        failedParams.diagnostics?.filter(
+          (diagnostic) => diagnostic.code === "guard/project",
+        ).length,
+        1,
+      );
+
+      fs.writeFileSync(guardState, "clean\n");
+      const cleanPublication =
+        client.waitForNotification<PublishDiagnosticsParams>(
+          "textDocument/publishDiagnostics",
+          (params) =>
+            params.uri === configURI && (params.diagnostics ?? []).length === 0,
+          60_000,
+        );
+      client.notify("textDocument/didOpen", {
+        textDocument: {
+          uri: secondURI,
+          languageId: "typescript",
+          version: 1,
+          text: fs.readFileSync(secondFile, "utf8"),
+        },
+      });
+      await cleanPublication;
+    } finally {
+      await shutdownTtscserverClient(client);
+    }
+
+    fs.writeFileSync(guardState, "blocked\n");
 
     const child = child_process.spawn(
       process.execPath,
