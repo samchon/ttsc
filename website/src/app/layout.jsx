@@ -17,16 +17,23 @@ export const metadata = {
 
 const navbar = (
   <Navbar
-    logo={<span style={{ fontWeight: 700 }}>ttsc</span>}
+    logo={
+      <span className="ttsc-site-logo">
+        <span className="ttsc-site-logo-mark" aria-hidden="true">
+          TS
+        </span>
+        <span>ttsc</span>
+      </span>
+    }
     projectLink="https://github.com/samchon/ttsc"
   />
 );
 
 const footer = (
   <Footer>
-    <span className="text-xs text-neutral-500">
+    <span className="text-xs text-slate-500">
       MIT 2026 ·{" "}
-      <a href="https://github.com/samchon" className="hover:text-white">
+      <a href="https://github.com/samchon" className="hover:text-[#3178c6]">
         Jeongho Nam
       </a>
     </span>
@@ -47,7 +54,10 @@ const clarityScript = `
 export default async function RootLayout(props) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
-      <Head>
+      <Head
+        color={{ hue: 211, saturation: 60, lightness: 48 }}
+        backgroundColor={{ light: "#ffffff", dark: "#ffffff" }}
+      >
         {/* FEEDS */}
         <link
           rel="alternate"
@@ -58,18 +68,18 @@ export default async function RootLayout(props) {
         {/* ICONS */}
         <link rel="manifest" href="/favicon/site.webmanifest" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="theme-color" content="#3178c6" />
         {/* OG */}
         <meta name="og:type" content="website" />
         <meta name="og:site_name" content="ttsc" />
         <meta name="og:url" content="https://ttsc.dev" />
-        <meta name="og:image" content="https://ttsc.dev/og.jpg" />
+        <meta name="og:image" content="https://ttsc.dev/og-blue.png" />
         <meta name="og:title" content="ttsc — TypeScript-Go toolchain" />
         <meta name="og:description" content={description} />
         {/* TWITTER */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:site" content="@SamchonGithub" />
-        <meta name="twitter:image" content="https://ttsc.dev/og.jpg" />
+        <meta name="twitter:image" content="https://ttsc.dev/og-blue.png" />
         <meta name="twitter:title" content="ttsc — TypeScript-Go toolchain" />
         <meta name="twitter:description" content={description} />
         {process.env.NODE_ENV === "production" ? (
@@ -85,7 +95,8 @@ export default async function RootLayout(props) {
           docsRepositoryBase="https://github.com/samchon/ttsc/tree/master/website"
           sidebar={{ autoCollapse: false, defaultMenuCollapseLevel: 1 }}
           nextThemes={{
-            defaultTheme: "dark",
+            defaultTheme: "light",
+            forcedTheme: "light",
           }}
           darkMode={false}
           footer={footer}

@@ -9,16 +9,16 @@ const SPONSORS_URL = "https://github.com/sponsors/samchon";
 
 export default function TtscWebsiteLandingSponsors() {
   return (
-    <section className="relative overflow-hidden border-t border-neutral-900 bg-neutral-950 px-6 py-24 md:py-32">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/40 to-transparent" />
+    <section className="relative overflow-hidden border-t border-[#c7dff4] bg-white px-6 py-24 md:py-32">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-[#3178c6] to-transparent" />
 
       <div className="relative mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
         <TtscWebsiteLandingFadeIn>
           <TtscWebsiteLandingSectionEyebrow label="Sponsors" />
-          <h2 className="max-w-xl text-3xl font-bold leading-[1.08] tracking-tight text-white md:text-5xl">
+          <h2 className="max-w-xl text-3xl font-bold leading-[1.08] tracking-tight text-[#102a43] md:text-5xl">
             Built with help from people who keep the work moving.
           </h2>
-          <p className="mt-5 max-w-2xl text-base leading-relaxed text-neutral-400">
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-[#526b82]">
             Sponsor support funds the quiet work behind ttsc: TypeScript-Go
             upgrades, platform binaries, plugin compatibility, documentation,
             and the playground.
@@ -28,11 +28,11 @@ export default function TtscWebsiteLandingSponsors() {
               href={SPONSORS_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full bg-white px-7 py-3 text-sm font-semibold text-black transition-all duration-300 hover:shadow-[0_0_44px_rgba(54,226,238,0.28)]"
+              className="rounded-full bg-[#3178c6] px-7 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(49,120,198,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#235a97]"
             >
               Sponsor ttsc
             </a>
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-neutral-600">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#6b8297]">
               Thank you for your support
             </p>
           </div>
@@ -43,7 +43,7 @@ export default function TtscWebsiteLandingSponsors() {
             href={SPONSORS_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="block rounded-lg border border-neutral-800 bg-black/35 p-5 transition-colors hover:border-cyan-300/45"
+            className="block rounded-2xl border border-[#c7dff4] bg-[#f7fbff] p-5 shadow-[0_16px_44px_rgba(49,120,198,0.10)] transition-colors hover:border-[#72afe6]"
             aria-label="View ttsc sponsors on GitHub Sponsors"
           >
             <img

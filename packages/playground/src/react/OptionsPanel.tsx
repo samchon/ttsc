@@ -62,7 +62,7 @@ export function OptionsPanel({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#102a43]/35 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -70,19 +70,19 @@ export function OptionsPanel({
         role="dialog"
         aria-modal="true"
         aria-labelledby="playground-options-title"
-        className="w-[480px] max-w-[90vw] rounded-2xl border border-neutral-800 bg-neutral-950 shadow-[0_30px_80px_rgba(0,0,0,0.7)]"
+        className="w-[480px] max-w-[90vw] rounded-2xl border border-[#b9d5ee] bg-white shadow-[0_30px_80px_rgba(35,90,151,0.25)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800/70">
+        <div className="flex items-center justify-between border-b border-[#c7dff4] bg-[#f7fbff] px-6 py-4">
           <h2
             id="playground-options-title"
-            className="text-base font-semibold text-white"
+            className="text-base font-semibold text-[#102a43]"
           >
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-neutral-500 hover:text-white transition-colors"
+            className="text-slate-400 transition-colors hover:text-[#235a97]"
             aria-label="Close options"
           >
             ✕
@@ -90,7 +90,7 @@ export function OptionsPanel({
         </div>
         <div className="p-6 space-y-6">
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-neutral-600 mb-3">
+            <div className="mb-3 font-mono text-[10px] uppercase tracking-wider text-slate-500">
               Plugins
             </div>
             <div className="space-y-3">
@@ -106,10 +106,10 @@ export function OptionsPanel({
                     className="mt-1 w-4 h-4 accent-blue-500"
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-mono text-neutral-100 group-hover:text-white transition-colors">
+                    <div className="font-mono text-sm text-slate-800 transition-colors group-hover:text-[#235a97]">
                       {t.label}
                     </div>
-                    <div className="text-[11px] text-neutral-500 leading-snug">
+                    <div className="text-[11px] leading-snug text-slate-500">
                       {t.description}
                     </div>
                   </div>
@@ -118,10 +118,10 @@ export function OptionsPanel({
             </div>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-neutral-800/70 flex justify-end">
+        <div className="flex justify-end border-t border-[#c7dff4] bg-[#f7fbff] px-6 py-4">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-mono text-neutral-900 bg-white rounded-md hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-shadow"
+            className="rounded-md bg-[#3178c6] px-4 py-2 font-mono text-xs text-white transition-colors hover:bg-[#235a97]"
           >
             Done
           </button>

@@ -14,12 +14,12 @@ const { LINK_COLORS, NODE_COLORS, buildFileTree, kindsIn, searchNodes } =
   TtscWebsiteGraphViewerModel;
 
 const rowClass =
-  "flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left font-mono text-[11px] transition-colors hover:bg-[#13171f]";
+  "flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left font-mono text-[11px] transition-colors hover:bg-[#eaf4ff]";
 
 function Chevron({ open }: { open: boolean }) {
   return (
     <span
-      className={`inline-block w-3 shrink-0 text-center text-neutral-600 transition-transform ${
+      className={`inline-block w-3 shrink-0 text-center text-slate-400 transition-transform ${
         open ? "rotate-90" : ""
       }`}
       aria-hidden="true"
@@ -31,7 +31,7 @@ function Chevron({ open }: { open: boolean }) {
 
 function CountBadge({ count }: { count: number }) {
   return (
-    <span className="ml-auto shrink-0 pl-1 text-[10px] tabular-nums text-neutral-600">
+    <span className="ml-auto shrink-0 pl-1 text-[10px] tabular-nums text-slate-400">
       {count.toLocaleString()}
     </span>
   );
@@ -64,8 +64,8 @@ function FileTreeRow({
         type="button"
         className={`${rowClass} ${
           active
-            ? "bg-[#1b212c] text-neutral-50 ring-1 ring-inset ring-[#2a313e]"
-            : "text-neutral-400"
+            ? "bg-[#eaf4ff] text-[#235a97] ring-1 ring-inset ring-[#b9d5ee]"
+            : "text-slate-600"
         }`}
         style={{ paddingLeft: `${6 + depth * 12}px` }}
         title={entry.path}
@@ -157,10 +157,10 @@ export default function TtscWebsiteGraphViewerSidebar({
 
   return (
     <aside
-      className="flex w-64 shrink-0 flex-col border-r border-[#222834] bg-[#0b0d12]"
+      className="flex w-64 shrink-0 flex-col border-r border-[#c7dff4] bg-[#f7fbff]"
       style={{ height }}
     >
-      <div className="flex shrink-0 gap-1 border-b border-[#222834] px-2 py-1.5">
+      <div className="flex shrink-0 gap-1 border-b border-[#c7dff4] px-2 py-1.5">
         {(["files", "symbols"] as const).map((candidate) => (
           <button
             key={candidate}
@@ -168,8 +168,8 @@ export default function TtscWebsiteGraphViewerSidebar({
             onClick={() => onTab(candidate)}
             className={`rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors ${
               tab === candidate
-                ? "bg-[#1b212c] text-neutral-50 ring-1 ring-inset ring-[#2a313e]"
-                : "text-neutral-400 hover:bg-[#13171f] hover:text-neutral-100"
+                ? "bg-[#3178c6] text-white shadow-[0_4px_12px_rgba(49,120,198,0.20)]"
+                : "text-slate-500 hover:bg-[#eaf4ff] hover:text-[#235a97]"
             }`}
           >
             {candidate === "files" ? "Files" : "Symbols"}
@@ -179,7 +179,7 @@ export default function TtscWebsiteGraphViewerSidebar({
           <button
             type="button"
             onClick={onClearSpotlight}
-            className="ml-auto rounded-md px-2 py-1 font-mono text-[10px] text-[#36e2ee] hover:bg-[#13171f]"
+            className="ml-auto rounded-md px-2 py-1 font-mono text-[10px] text-[#3178c6] hover:bg-[#eaf4ff]"
             title="Clear the spotlight"
           >
             clear spotlight
@@ -189,7 +189,7 @@ export default function TtscWebsiteGraphViewerSidebar({
 
       {tab === "files" ? (
         <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-          <p className="px-1.5 pb-1.5 font-mono text-[10px] text-neutral-600">
+          <p className="px-1.5 pb-1.5 font-mono text-[10px] text-slate-400">
             files in the reduced graph; click to spotlight one in the view
           </p>
           {tree.map((entry) => (
@@ -212,7 +212,7 @@ export default function TtscWebsiteGraphViewerSidebar({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search symbols…"
-              className="w-full rounded-md border border-[#2a313e] bg-[#0c0e13] px-2 py-1.5 font-mono text-[11px] text-neutral-100 placeholder:text-neutral-600 focus:border-[#36e2ee66] focus:outline-none"
+              className="w-full rounded-md border border-[#b9d5ee] bg-white px-2 py-1.5 font-mono text-[11px] text-slate-800 placeholder:text-slate-400 focus:border-[#3178c6] focus:outline-none"
             />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
@@ -225,37 +225,37 @@ export default function TtscWebsiteGraphViewerSidebar({
                     onClick={() => onPickNode(node)}
                     className={`${rowClass} ${
                       selectedId === node.id
-                        ? "bg-[#1b212c] text-neutral-50 ring-1 ring-inset ring-[#2a313e]"
-                        : "text-neutral-300"
+                        ? "bg-[#eaf4ff] text-[#235a97] ring-1 ring-inset ring-[#b9d5ee]"
+                        : "text-slate-700"
                     }`}
                     title={`${node.kind} · ${node.file}`}
                   >
                     <span
                       className="inline-block h-2 w-2 shrink-0 rounded-full"
                       style={{
-                        background: NODE_COLORS[node.kind] ?? "#8b97a8",
+                        background: NODE_COLORS[node.kind] ?? "#64748b",
                       }}
                     />
                     <span className="truncate">{node.name}</span>
-                    <span className="ml-auto shrink-0 truncate pl-1 text-[10px] text-neutral-600">
+                    <span className="ml-auto shrink-0 truncate pl-1 text-[10px] text-slate-400">
                       {node.kind}
                     </span>
                   </button>
                 ))
               ) : (
-                <p className="px-1.5 py-2 font-mono text-[11px] text-neutral-600">
+                <p className="px-1.5 py-2 font-mono text-[11px] text-slate-400">
                   No symbol matched.
                 </p>
               )
             ) : (
-              <p className="px-1.5 py-2 font-mono text-[10px] text-neutral-600">
+              <p className="px-1.5 py-2 font-mono text-[10px] text-slate-400">
                 Type to find a class, function, or type; picking one flies the
                 camera to it.
               </p>
             )}
           </div>
-          <div className="shrink-0 space-y-2 border-t border-[#222834] p-2">
-            <p className="font-mono text-[10px] text-neutral-600">
+          <div className="shrink-0 space-y-2 border-t border-[#c7dff4] p-2">
+            <p className="font-mono text-[10px] text-slate-400">
               spotlight by kind / edge family
             </p>
             <div className="flex flex-wrap gap-1">
@@ -268,13 +268,13 @@ export default function TtscWebsiteGraphViewerSidebar({
                     onClick={() => onToggleKind(kind)}
                     className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors ${
                       on
-                        ? "border-[#36e2ee66] bg-[#0d1a1d] text-neutral-50"
-                        : "border-[#1c2230] bg-transparent text-neutral-400 hover:border-[#2a313e]"
+                        ? "border-[#72afe6] bg-[#eaf4ff] text-[#235a97]"
+                        : "border-[#d2e4f4] bg-transparent text-slate-500 hover:border-[#9fc7eb]"
                     }`}
                   >
                     <span
                       className="inline-block h-1.5 w-1.5 rounded-full"
-                      style={{ background: NODE_COLORS[kind] ?? "#8b97a8" }}
+                      style={{ background: NODE_COLORS[kind] ?? "#64748b" }}
                     />
                     {kind}
                   </button>
@@ -291,8 +291,8 @@ export default function TtscWebsiteGraphViewerSidebar({
                     onClick={() => onToggleEdgeKind(kind)}
                     className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors ${
                       on
-                        ? "border-[#36e2ee66] bg-[#0d1a1d] text-neutral-50"
-                        : "border-[#1c2230] bg-transparent text-neutral-400 hover:border-[#2a313e]"
+                        ? "border-[#72afe6] bg-[#eaf4ff] text-[#235a97]"
+                        : "border-[#d2e4f4] bg-transparent text-slate-500 hover:border-[#9fc7eb]"
                     }`}
                   >
                     <span

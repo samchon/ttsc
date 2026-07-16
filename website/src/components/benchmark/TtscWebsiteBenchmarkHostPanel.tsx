@@ -39,22 +39,22 @@ export default function TtscWebsiteBenchmarkHostPanel({
   ];
 
   return (
-    <section className="not-prose overflow-hidden rounded-md border border-[#262b36] bg-[#0f1115] shadow-[0_12px_30px_rgba(0,0,0,0.22)]">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-[#262b36] bg-[#121620] px-4 py-3">
+    <section className="not-prose overflow-hidden rounded-xl border border-[#c7dff4] bg-white shadow-[0_14px_38px_rgba(49,120,198,0.10)]">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-[#c7dff4] bg-[#f2f8fe] px-4 py-3">
         <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-sky-300">
           Measurement host
         </p>
-        <p className="font-mono text-[11px] text-neutral-500">
+        <p className="font-mono text-[11px] text-slate-500">
           measured {measuredLabel}
         </p>
       </div>
-      <dl className="grid grid-cols-2 gap-px bg-[#262b36] sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-px bg-[#c7dff4] sm:grid-cols-4">
         {specs.map((spec) => (
-          <div key={spec.label} className="bg-[#0f1115] px-4 py-3">
-            <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-neutral-500">
+          <div key={spec.label} className="bg-white px-4 py-3">
+            <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500">
               {spec.label}
             </dt>
-            <dd className="mt-1 text-sm font-semibold text-neutral-100">
+            <dd className="mt-1 text-sm font-semibold text-[#102a43]">
               {spec.value}
             </dd>
           </div>

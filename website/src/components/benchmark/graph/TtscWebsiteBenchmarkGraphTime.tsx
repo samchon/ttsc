@@ -10,8 +10,8 @@ import useTtscWebsiteBenchmarkGraphData from "./useTtscWebsiteBenchmarkGraphData
 type AgentCell = ITtscWebsiteBenchmarkGraph.AgentCell;
 type Report = ITtscWebsiteBenchmarkGraph.Report;
 
-const BASELINE_FILL = "linear-gradient(90deg, #6b7280, #4b5563)";
-const BASELINE_TEXT = "#9ca3af";
+const BASELINE_FILL = "linear-gradient(90deg, #94a3b8, #64748b)";
+const BASELINE_TEXT = "#64748b";
 
 const TOOLS = [
   {
@@ -142,33 +142,36 @@ function TimeTooltip({
 }) {
   const build = bar.buildMs ?? 0;
   return (
-    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 rounded-md border border-[#2a313e] bg-[#090b10] p-3 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45)] group-hover:block">
+    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 rounded-lg border border-[#b9d5ee] bg-white p-3 text-left shadow-[0_18px_45px_rgba(49,120,198,0.18)] group-hover:block">
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
         style={{
           background: `linear-gradient(to right, transparent, ${tool.text}99, transparent)`,
         }}
       />
-      <p className="truncate font-mono text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+      <p className="truncate font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">
         {row.label}
       </p>
-      <p className="mt-1 text-[12px] font-semibold" style={{ color: tool.text }}>
+      <p
+        className="mt-1 text-[12px] font-semibold"
+        style={{ color: tool.text }}
+      >
         {tool.label}
       </p>
       <div className="mt-2 space-y-1 font-mono text-[11px] tabular-nums">
         <div className="flex justify-between gap-4">
-          <span className="text-neutral-500">index build</span>
-          <span className="text-neutral-300">
+          <span className="text-slate-500">index build</span>
+          <span className="text-slate-700">
             {build > 0 ? fmtCompact(build) : "none"}
           </span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="text-neutral-500">LLM answering</span>
-          <span className="text-neutral-300">{fmtCompact(bar.answerMs)}</span>
+          <span className="text-slate-500">LLM answering</span>
+          <span className="text-slate-700">{fmtCompact(bar.answerMs)}</span>
         </div>
-        <div className="flex justify-between gap-4 border-t border-[#1c2230] pt-1">
-          <span className="text-neutral-500">first answer</span>
-          <span className="text-neutral-100">
+        <div className="flex justify-between gap-4 border-t border-[#d2e4f4] pt-1">
+          <span className="text-slate-500">first answer</span>
+          <span className="text-slate-800">
             {fmtCompact(build + bar.answerMs)}
           </span>
         </div>
@@ -182,7 +185,7 @@ function CrownMark({ active }: { active: boolean }) {
   return (
     <span
       className={`inline-flex h-3 w-3 shrink-0 items-center justify-center ${
-        active ? "text-[#36e2ee]" : "text-transparent"
+        active ? "text-[#3178c6]" : "text-transparent"
       }`}
       aria-hidden="true"
     >
@@ -225,7 +228,10 @@ function Bars({
         const total = build + bar.answerMs;
         const best = total === bestTotal;
         return (
-          <div key={bar.tool} className="group relative flex items-center gap-2">
+          <div
+            key={bar.tool}
+            className="group relative flex items-center gap-2"
+          >
             <span
               className={`inline-flex w-32 shrink-0 items-center gap-1 truncate font-mono text-[12px] ${
                 best ? "font-semibold" : ""
@@ -236,12 +242,12 @@ function Bars({
               <span className="truncate">{tool.label}</span>
             </span>
             <div
-              className={`relative flex-1 overflow-hidden rounded-sm bg-[#0c0e13] ring-1 ring-inset ${
+              className={`relative flex-1 overflow-hidden rounded-sm bg-[#e7f0f8] ring-1 ring-inset ${
                 thick ? "h-7" : "h-4"
               } ${
                 best
-                  ? "shadow-[0_0_14px_rgba(54,226,238,0.16)] ring-[#d7f9ff]/70"
-                  : "ring-white/[0.04]"
+                  ? "shadow-[0_0_14px_rgba(49,120,198,0.18)] ring-[#72afe6]/70"
+                  : "ring-[#c7dff4]"
               }`}
             >
               {/* Rectangular two-tone: the faded index / solid LLM split must
@@ -267,7 +273,7 @@ function Bars({
             </div>
             <span
               className={`w-28 shrink-0 text-right font-mono text-[13px] tabular-nums ${
-                best ? "text-neutral-50" : "text-neutral-200"
+                best ? "text-[#102a43]" : "text-slate-700"
               }`}
             >
               {fmtCompact(build)} / {fmtCompact(bar.answerMs)}
@@ -286,23 +292,27 @@ function Bars({
  */
 function ShadeLegend() {
   return (
-    <div className="flex items-center gap-3 border-b border-[#1c212b] px-5 py-2.5">
+    <div className="flex items-center gap-3 border-b border-[#d8e7f4] px-5 py-2.5">
       <span className="flex h-5 overflow-hidden rounded-sm font-mono text-[10px] font-bold leading-5">
-        <span className="relative flex items-center px-2 text-neutral-100">
+        <span className="relative flex items-center px-2 text-slate-800">
           <span
             className="absolute inset-0 opacity-40"
-            style={{ background: TtscWebsiteBenchmarkGraphUi.TTSC_FILL as string }}
+            style={{
+              background: TtscWebsiteBenchmarkGraphUi.TTSC_FILL as string,
+            }}
           />
           <span className="relative">index</span>
         </span>
         <span
-          className="flex items-center px-2 text-[#0b0f14]"
-          style={{ background: TtscWebsiteBenchmarkGraphUi.TTSC_FILL as string }}
+          className="flex items-center px-2 text-white"
+          style={{
+            background: TtscWebsiteBenchmarkGraphUi.TTSC_FILL as string,
+          }}
         >
           LLM
         </span>
       </span>
-      <span className="text-[12px] text-neutral-300">
+      <span className="text-[12px] text-slate-600">
         faded = index build, solid = LLM answering — each bar is labelled index
         / LLM
       </span>
@@ -374,15 +384,17 @@ export default function TtscWebsiteBenchmarkGraphTime({
               // Alternating bands, like the SVG chart, so each project reads as
               // a block before the eye starts picking tools out of it.
               backgroundColor:
-                index % 2 === 0 ? "rgba(17,26,36,0.6)" : "rgba(17,26,36,0.25)",
+                index % 2 === 0
+                  ? "rgba(232,242,251,0.72)"
+                  : "rgba(247,251,255,0.72)",
             }}
           >
             <div className="flex items-baseline justify-between gap-3">
-              <span className="font-mono text-[13px] font-semibold text-neutral-100">
+              <span className="font-mono text-[13px] font-semibold text-slate-800">
                 {row.label}
               </span>
               {row.lines > 0 ? (
-                <span className="font-mono text-[12px] tabular-nums text-neutral-400">
+                <span className="font-mono text-[12px] tabular-nums text-slate-500">
                   {row.lines.toLocaleString()} lines
                 </span>
               ) : null}

@@ -15,7 +15,6 @@ import type { IPlaygroundDependencyProgress } from "../structures/IPlaygroundDep
 import type { IPlaygroundShellProps } from "../structures/IPlaygroundShellProps";
 import type { ITransformOptions } from "../structures/ITransformOptions";
 import { ConsoleViewer } from "./ConsoleViewer";
-import { createCompilerClient } from "./createCompilerClient";
 import { DEFAULT_OPTION_TOGGLES } from "./DEFAULT_OPTION_TOGGLES";
 import { DependencyProgressModal } from "./DependencyProgressModal";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
@@ -24,6 +23,7 @@ import { LintPane } from "./LintPane";
 import { OptionsPanel } from "./OptionsPanel";
 import { ResultViewer } from "./ResultViewer";
 import { SourceEditor } from "./SourceEditor";
+import { createCompilerClient } from "./createCompilerClient";
 
 const DEFAULT_OPTIONS: ITransformOptions = {
   typia: true,
@@ -64,9 +64,7 @@ export function PlaygroundShell({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [shareToast, setShareToast] = useState(false);
-  const [consoleMessages, setConsoleMessages] = useState<IConsoleMessage[]>(
-    [],
-  );
+  const [consoleMessages, setConsoleMessages] = useState<IConsoleMessage[]>([]);
   const [executing, setExecuting] = useState(false);
   const [bootError, setBootError] = useState<unknown>(null);
   const [bootPhase, setBootPhase] = useState<"booting" | "ready" | "failed">(
@@ -284,8 +282,7 @@ export function PlaygroundShell({
           }, 2400);
           return error;
         } finally {
-          if (dependencyAbort.current === abort)
-            dependencyAbort.current = null;
+          if (dependencyAbort.current === abort) dependencyAbort.current = null;
         }
       });
       dependencyInstallChain.current = task.then(() => {});
@@ -302,11 +299,7 @@ export function PlaygroundShell({
   // pane is rendered. Re-running the wasm-heavy pipeline on every tab
   // click would burn multiple seconds of work per click.
   const run = useCallback(
-    async (
-      input: string,
-      opts: ITransformOptions,
-      version: number,
-    ) => {
+    async (input: string, opts: ITransformOptions, version: number) => {
       const epoch = ++compileEpoch.current;
       setRunning(true);
       try {
@@ -544,7 +537,12 @@ export function PlaygroundShell({
     // React state, so including `source` here would re-create the
     // callback per keystroke and propagate into the global keydown
     // useEffect, churning event-listener add/remove every character.
-  }, [createCompilerService, executeBundle, installDependenciesForSource, options]);
+  }, [
+    createCompilerService,
+    executeBundle,
+    installDependenciesForSource,
+    options,
+  ]);
 
   const allDiagnostics = useMemo(() => {
     const fromCompile: ICompilerService.IDiagnostic[] = [];
@@ -602,10 +600,10 @@ export function PlaygroundShell({
 
   if (bootPhase === "failed") {
     return (
-      <div className="flex flex-col h-screen w-full items-center justify-center bg-neutral-950 text-neutral-200 gap-5 px-6 text-center">
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-5 bg-[#f7fbff] px-6 text-center text-[#102a43]">
         <span className="text-red-400 text-3xl">⚠</span>
         <h1 className="text-lg font-mono">Playground failed to boot.</h1>
-        <pre className="max-w-xl text-[12px] font-mono text-neutral-400 whitespace-pre-wrap break-words">
+        <pre className="max-w-xl whitespace-pre-wrap break-words font-mono text-[12px] text-slate-500">
           {(() => {
             const e = bootError;
             if (e instanceof Error) return `${e.name}: ${e.message}`;
@@ -639,7 +637,7 @@ export function PlaygroundShell({
               }
             })();
           }}
-          className="px-5 py-2 text-xs font-mono text-neutral-900 bg-white rounded-md hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-shadow"
+          className="rounded-md bg-[#3178c6] px-5 py-2 font-mono text-xs text-white shadow-[0_8px_22px_rgba(49,120,198,0.24)] transition-colors hover:bg-[#235a97]"
         >
           Retry
         </button>
@@ -648,54 +646,28 @@ export function PlaygroundShell({
   }
 
   return (
-    <div className="flex flex-col h-screen w-full bg-neutral-950 text-neutral-200 overflow-hidden">
-      {/* ── Toolbar ── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-neutral-800/70 bg-neutral-950 shrink-0">
-        {brand}
-        <span className="text-neutral-700">/</span>
-        <span className="text-sm text-neutral-400">Playground</span>
-
-        <div className="ml-auto flex items-center gap-2">
-          <ExamplePicker
-            examples={examples}
-            onPick={onPickExample}
-            groupLabels={exampleGroupLabels}
-          />
-          <button
-            onClick={() => setOptionsOpen((v) => !v)}
-            className="px-3 py-1.5 text-xs font-mono text-neutral-300 border border-neutral-800 rounded-md hover:border-neutral-600 hover:bg-neutral-900 transition-colors"
-          >
-            Options
-          </button>
-          <button
-            onClick={onReset}
-            className="px-3 py-1.5 text-xs font-mono text-neutral-400 hover:text-neutral-200 transition-colors"
-          >
-            Reset
-          </button>
-          <button
-            onClick={onShare}
-            className="px-3 py-1.5 text-xs font-mono text-neutral-900 bg-white rounded-md hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-shadow"
-          >
-            {shareToast ? "Copied ✓" : "Share"}
-          </button>
-        </div>
-      </div>
-
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-white text-[#102a43]">
       {sourceFromURL && (
-        <div className="shrink-0 px-4 py-1.5 text-[11px] font-mono text-amber-200 bg-amber-500/10 border-b border-amber-700/40">
+        <div className="shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-1.5 font-mono text-[11px] text-amber-800">
           Source loaded from share URL. Hit Reset to return to the default
           example.
         </div>
       )}
 
       {shareWarn && (
-        <div className="shrink-0 px-4 py-1.5 text-[11px] font-mono text-amber-200 bg-amber-500/10 border-b border-amber-700/40">
+        <div className="shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-1.5 font-mono text-[11px] text-amber-800">
           {shareWarn}
         </div>
       )}
 
-      <div className="flex items-center gap-0 border-b border-neutral-800/70 bg-neutral-950 shrink-0">
+      <div className="flex shrink-0 flex-wrap items-center gap-0 border-b border-[#c7dff4] bg-white">
+        {brand ? (
+          <div className="flex items-center gap-2 border-r border-[#c7dff4] px-4 py-2">
+            {brand}
+            <span className="text-[#9db6cb]">/</span>
+            <span className="text-sm text-[#526b82]">Playground</span>
+          </div>
+        ) : null}
         {(
           [
             { id: "javascript", label: "Compiled JS" },
@@ -707,29 +679,47 @@ export function PlaygroundShell({
             onClick={() => setTarget(tab.id)}
             className={`px-4 py-2 text-[12px] font-mono border-b-2 transition-colors ${
               target === tab.id
-                ? "text-white border-blue-400"
-                : "text-neutral-500 border-transparent hover:text-neutral-300"
+                ? "border-[#3178c6] text-[#235a97]"
+                : "border-transparent text-slate-400 hover:text-[#3178c6]"
             }`}
           >
             {tab.label}
           </button>
         ))}
-        <div className="ml-auto px-4 text-[10px] font-mono text-neutral-600">
-          {bootPhase === "booting"
-            ? "booting wasm…"
-            : running
-              ? "compiling…"
-              : "ready"}
+        <div className="ml-auto flex w-full items-center justify-end gap-2 border-t border-[#d8e7f4] px-4 py-1.5 sm:w-auto sm:border-t-0 sm:pl-0">
+          <ExamplePicker
+            examples={examples}
+            onPick={onPickExample}
+            groupLabels={exampleGroupLabels}
+          />
+          <button
+            onClick={() => setOptionsOpen((v) => !v)}
+            className="rounded-md border border-[#b9d5ee] bg-white px-3 py-1.5 font-mono text-xs text-[#235a97] transition-colors hover:border-[#3178c6] hover:bg-[#eaf4ff]"
+          >
+            Options
+          </button>
+          <button
+            onClick={onReset}
+            className="px-3 py-1.5 font-mono text-xs text-slate-500 transition-colors hover:text-[#235a97]"
+          >
+            Reset
+          </button>
+          <button
+            onClick={onShare}
+            className="rounded-md bg-[#3178c6] px-3 py-1.5 font-mono text-xs text-white shadow-[0_6px_16px_rgba(49,120,198,0.22)] transition-colors hover:bg-[#235a97]"
+          >
+            {shareToast ? "Copied ✓" : "Share"}
+          </button>
         </div>
       </div>
 
       <div className="flex flex-1 min-h-0 flex-col md:flex-row">
-        <div className="flex-1 min-w-0 md:border-r border-neutral-800/70 flex flex-col h-1/2 md:h-full">
-          <div className="flex items-center justify-between px-4 py-1.5 border-b border-neutral-800/70 bg-neutral-950">
-            <span className="text-[11px] font-mono text-neutral-500">
+        <div className="flex h-1/2 min-w-0 flex-1 flex-col border-[#c7dff4] md:h-full md:border-r">
+          <div className="flex items-center justify-between border-b border-[#c7dff4] bg-[#eef6ff] px-4 py-1.5">
+            <span className="font-mono text-[11px] text-slate-500">
               src/playground.ts
             </span>
-            <span className="text-[10px] font-mono text-neutral-700">
+            <span className="font-mono text-[10px] text-slate-400">
               {source.split("\n").length} lines
             </span>
           </div>
@@ -742,14 +732,14 @@ export function PlaygroundShell({
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 flex flex-col h-1/2 md:h-full border-t md:border-t-0 border-neutral-800/70">
-          <div className="flex items-center justify-between px-4 py-1.5 border-b border-neutral-800/70 bg-neutral-950">
-            <span className="text-[11px] font-mono text-neutral-500">
+        <div className="flex h-1/2 min-w-0 flex-1 flex-col border-t border-[#c7dff4] md:h-full md:border-t-0">
+          <div className="flex items-center justify-between border-b border-[#c7dff4] bg-[#eef6ff] px-4 py-1.5">
+            <span className="font-mono text-[11px] text-slate-500">
               {target === "javascript"
                 ? resultCaption(options)
                 : "lint diagnostics"}
             </span>
-            <span className="text-[10px] font-mono text-neutral-700">
+            <span className="font-mono text-[10px] text-slate-400">
               {result?.type === "error" ? "error" : ""}
             </span>
           </div>
@@ -774,22 +764,22 @@ export function PlaygroundShell({
       </div>
 
       {bundleError && (
-        <div className="shrink-0 px-4 py-1.5 text-[11px] font-mono text-red-300 bg-red-500/10 border-t border-red-700/40">
+        <div className="shrink-0 border-t border-red-300 bg-red-50 px-4 py-1.5 font-mono text-[11px] text-red-700">
           Bundle failed — {bundleError}
         </div>
       )}
 
       {executeBundle && (
-        <div className="shrink-0 border-t border-neutral-800/70 bg-neutral-950 flex flex-col h-48">
-          <div className="flex items-center justify-between px-4 py-1.5 border-b border-neutral-800/70">
-            <span className="text-[11px] font-mono text-neutral-500">
+        <div className="flex h-48 shrink-0 flex-col border-t border-[#c7dff4] bg-[#f7fbff]">
+          <div className="flex items-center justify-between border-b border-[#d8e7f4] px-4 py-1.5">
+            <span className="font-mono text-[11px] text-slate-500">
               console output
             </span>
             <div className="flex items-center gap-2">
               {consoleMessages.length > 0 && (
                 <button
                   onClick={() => setConsoleMessages([])}
-                  className="px-2 py-1 text-[10px] font-mono text-neutral-500 hover:text-neutral-200 transition-colors"
+                  className="px-2 py-1 font-mono text-[10px] text-slate-500 transition-colors hover:text-[#235a97]"
                 >
                   Clear
                 </button>
@@ -797,7 +787,7 @@ export function PlaygroundShell({
               <button
                 onClick={onExecute}
                 disabled={executing}
-                className="px-3 py-1 text-[11px] font-mono text-neutral-900 bg-emerald-400 rounded-md hover:bg-emerald-300 transition-colors disabled:opacity-50"
+                className="rounded-md bg-[#3178c6] px-3 py-1 font-mono text-[11px] text-white transition-colors hover:bg-[#235a97] disabled:opacity-50"
                 title="Cmd/Ctrl+Enter"
               >
                 ▶ {executing ? "Executing…" : "Execute"}

@@ -15,19 +15,19 @@ export function DiagnosticsPanel({
 
   if (diagnostics.length === 0)
     return (
-      <div className="shrink-0 px-4 py-2 border-t border-neutral-800/70 bg-neutral-950 flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3 border-t border-[#c7dff4] bg-[#eef6ff] px-4 py-2">
         <span className="text-emerald-400 text-xs">●</span>
-        <span className="text-[12px] font-mono text-neutral-400">
+        <span className="font-mono text-[12px] text-slate-600">
           0 errors · 0 warnings
         </span>
       </div>
     );
 
   return (
-    <div className="shrink-0 border-t border-neutral-800/70 bg-neutral-950">
+    <div className="shrink-0 border-t border-[#c7dff4] bg-[#eef6ff]">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="w-full px-4 py-2 flex items-center gap-3 hover:bg-neutral-900/50 transition-colors text-left"
+        className="flex w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-[#e1effc]"
       >
         <span
           className={`text-xs ${
@@ -36,20 +36,20 @@ export function DiagnosticsPanel({
         >
           ●
         </span>
-        <span className="text-[12px] font-mono text-neutral-300">
+        <span className="font-mono text-[12px] text-slate-700">
           {errorCount} error{errorCount === 1 ? "" : "s"} · {warnCount} warning
           {warnCount === 1 ? "" : "s"}
         </span>
-        <span className="ml-auto text-[10px] font-mono text-neutral-600">
+        <span className="ml-auto font-mono text-[10px] text-slate-400">
           {expanded ? "▲ collapse" : "▼ expand"}
         </span>
       </button>
       {expanded && (
-        <div className="border-t border-neutral-800/70 max-h-48 overflow-auto">
+        <div className="max-h-48 overflow-auto border-t border-[#c7dff4]">
           {diagnostics.map((d, i) => (
             <div
               key={i}
-              className="px-4 py-2 flex gap-3 text-[12px] font-mono border-b border-neutral-900 last:border-b-0"
+              className="flex gap-3 border-b border-[#d8e7f4] px-4 py-2 font-mono text-[12px] last:border-b-0"
             >
               <span
                 className={`shrink-0 ${
@@ -58,13 +58,13 @@ export function DiagnosticsPanel({
               >
                 {d.severity === "error" ? "✗" : "!"}
               </span>
-              <span className="shrink-0 text-neutral-500 w-16">
+              <span className="w-16 shrink-0 text-slate-500">
                 {d.line}:{d.column}
               </span>
-              <span className="shrink-0 text-neutral-600 w-16">
+              <span className="w-16 shrink-0 text-slate-400">
                 {d.code ?? ""}
               </span>
-              <span className="text-neutral-200">{d.message}</span>
+              <span className="text-slate-700">{d.message}</span>
             </div>
           ))}
         </div>

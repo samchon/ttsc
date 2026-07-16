@@ -14,11 +14,11 @@ type ViewerNode = ITtscWebsiteGraphViewer.Node;
 
 const { LINK_COLORS, NODE_COLORS, linkKey } = TtscWebsiteGraphViewerModel;
 
-// Dimmed nodes must stay clearly visible against the #0a0c10 background: a
+// Dimmed nodes must stay clearly visible against the pale-blue background: a
 // spotlight grays the rest out, it never makes them look removed.
-const DIMMED_NODE = "#434c5c";
-const DIMMED_LINK = "#ffffff14";
-const SELECTED_NODE = "#f5f8ff";
+const DIMMED_NODE = "#b8c8d8";
+const DIMMED_LINK = "#d5e2ee";
+const SELECTED_NODE = "#102a43";
 
 /** A handle the React shell uses to drive the imperative scene. */
 export interface GraphScene {
@@ -62,7 +62,7 @@ export async function createGraphScene(
   const width = container.clientWidth || 800;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0c10);
+  scene.background = new THREE.Color(0xf7fbff);
   scene.add(new THREE.AmbientLight(0xffffff, 2));
   const key = new THREE.DirectionalLight(0xffffff, 0.8);
   key.position.set(1, 1, 1);
@@ -85,14 +85,14 @@ export async function createGraphScene(
   // restarting the force simulation.
   let highlight: ViewerHighlight | null = null;
   const nodeColor = () => (node: ViewerNode) => {
-    if (!highlight) return NODE_COLORS[node.kind] ?? "#8b97a8";
+    if (!highlight) return NODE_COLORS[node.kind] ?? "#64748b";
     if (node.id === highlight.selectedId) return SELECTED_NODE;
     if (highlight.neighborIds.has(node.id))
-      return NODE_COLORS[node.kind] ?? "#8b97a8";
+      return NODE_COLORS[node.kind] ?? "#64748b";
     return DIMMED_NODE;
   };
   const linkColor = () => (link: ViewerLink) => {
-    const base = LINK_COLORS[link.kind] ?? "#ffffff55";
+    const base = LINK_COLORS[link.kind] ?? "#94a3b8";
     if (!highlight) return base;
     return highlight.linkKeys.has(
       linkKey(endpointId(link.source), endpointId(link.target)),
@@ -146,7 +146,7 @@ export async function createGraphScene(
   // Hover: raycast the node objects (each carries __data) for a tooltip.
   const tooltip = document.createElement("div");
   tooltip.style.cssText =
-    "position:absolute;display:none;pointer-events:none;z-index:10;max-width:22rem;padding:4px 7px;border-radius:6px;background:#0c0e13ee;border:1px solid #2a313e;font:11px ui-monospace,monospace;color:#e6edf3";
+    "position:absolute;display:none;pointer-events:none;z-index:10;max-width:22rem;padding:4px 7px;border-radius:6px;background:#fffffff2;border:1px solid #b9d5ee;box-shadow:0 12px 30px rgba(49,120,198,.16);font:11px ui-monospace,monospace;color:#102a43";
   container.appendChild(tooltip);
 
   const raycaster = new THREE.Raycaster();
@@ -185,7 +185,7 @@ export async function createGraphScene(
     tooltip.style.top = `${event.clientY - rect.top + 12}px`;
     tooltip.innerHTML =
       `${escapeHtml(hoverNode.name)}<br/>` +
-      `<span style="color:#8b97a8">${escapeHtml(hoverNode.kind)} · ${escapeHtml(hoverNode.file)}</span>`;
+      `<span style="color:#64748b">${escapeHtml(hoverNode.kind)} · ${escapeHtml(hoverNode.file)}</span>`;
   };
   const onPointerLeave = () => {
     hoverNode = null;

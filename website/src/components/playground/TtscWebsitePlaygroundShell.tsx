@@ -101,14 +101,6 @@ export default function TtscWebsitePlaygroundShell() {
       }}
       staticEditorLibs={typiaTypes as Record<string, string>}
       executeBundle={executeBundle}
-      brand={
-        <a
-          href="/"
-          className="font-mono text-sm font-bold text-white hover:text-blue-400 transition-colors"
-        >
-          ttsc
-        </a>
-      }
       resultCaption={(options) =>
         options.typia
           ? "dist/playground.js"

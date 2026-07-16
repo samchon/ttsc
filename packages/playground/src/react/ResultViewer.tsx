@@ -9,8 +9,8 @@ interface ResultViewerProps {
 }
 
 /**
- * Read-only Monaco pane used to render the compiled / transformed output
- * with a copy button. Wraps `<Editor readOnly>` and adds the toast UI.
+ * Read-only Monaco pane used to render the compiled / transformed output with a
+ * copy button. Wraps `<Editor readOnly>` and adds the toast UI.
  */
 export function ResultViewer({ language, value }: ResultViewerProps) {
   const [copied, setCopied] = useState(false);
@@ -39,7 +39,7 @@ export function ResultViewer({ language, value }: ResultViewerProps) {
       {value && (
         <button
           onClick={onCopy}
-          className="absolute top-2 right-3 z-10 px-2 py-1 text-[10px] font-mono text-neutral-300 bg-neutral-900/80 border border-neutral-700 rounded-md hover:bg-neutral-800 transition-colors"
+          className="absolute right-3 top-2 z-10 rounded-md border border-[#b9d5ee] bg-white/90 px-2 py-1 font-mono text-[10px] text-[#235a97] shadow-sm transition-colors hover:bg-[#eaf4ff]"
         >
           {copied ? "Copied ✓" : "Copy"}
         </button>
@@ -47,7 +47,7 @@ export function ResultViewer({ language, value }: ResultViewerProps) {
       <Editor
         height="100%"
         language={language}
-        theme="vs-dark"
+        theme="vs"
         value={value}
         path={`output.${
           language === "typescript"

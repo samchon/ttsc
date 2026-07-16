@@ -10,20 +10,21 @@ const SVG_DIR = path.join(OUT_DIR, "svg");
 const PNG_DIR = path.join(OUT_DIR, "png");
 
 const COLORS = {
-  background: "#05070b",
-  panel: "#0b111a",
-  axis: "#64748b",
-  grid: "#1f2937",
-  label: "#cbd5e1",
-  title: "#f8fafc",
-  legend: "#111827",
-  legendBorder: "#334155",
-  muted: "#94a3b8",
-  worse: "#fb7185",
-  // Winner treatment, mirroring the React chart: a cyan crown glyph left of the
-  // value label, plus a near-white border/halo the length of the winning bar.
-  crown: "#36e2ee",
-  ring: "#d7f9ff",
+  background: "#ffffff",
+  panel: "#f7fbff",
+  axis: "#94a3b8",
+  grid: "#d8e7f4",
+  label: "#526b82",
+  title: "#102a43",
+  legend: "#eef6ff",
+  legendBorder: "#c7dff4",
+  muted: "#64748b",
+  worse: "#be123c",
+  track: "#e7f0f8",
+  // Winner treatment, mirroring the React chart: a blue crown glyph left of the
+  // value label, plus a pale-blue border/halo the length of the winning bar.
+  crown: "#3178c6",
+  ring: "#72afe6",
 };
 
 // The same crown the React chart draws (CrownMark, viewBox 0 0 16 16), scaled
@@ -42,23 +43,23 @@ const TOOLS = [
     key: "ttsc-graph",
     sample: "graph",
     label: "@ttsc/graph",
-    color: "#22d3ee",
+    color: "#3178c6",
   },
-  { key: "codegraph", sample: "graph", label: "codegraph", color: "#f59e0b" },
+  { key: "codegraph", sample: "graph", label: "codegraph", color: "#d97706" },
   {
     key: "codebase-memory",
     sample: "graph",
     label: "codebase-memory",
-    color: "#a3e635",
+    color: "#15803d",
   },
-  { key: "serena", sample: "graph", label: "serena", color: "#f472b6" },
+  { key: "serena", sample: "graph", label: "serena", color: "#7e22ce" },
 ];
 
 const INDEX_TOOLS = [
-  { key: "ttsc-graph", label: "@ttsc/graph", color: "#22d3ee" },
-  { key: "codegraph", label: "codegraph", color: "#f59e0b" },
-  { key: "codebase-memory", label: "codebase-memory", color: "#4ade80" },
-  { key: "serena", label: "serena", color: "#e879f9" },
+  { key: "ttsc-graph", label: "@ttsc/graph", color: "#3178c6" },
+  { key: "codegraph", label: "codegraph", color: "#d97706" },
+  { key: "codebase-memory", label: "codebase-memory", color: "#15803d" },
+  { key: "serena", label: "serena", color: "#7e22ce" },
 ];
 
 const REPO_LABELS = {
@@ -232,7 +233,7 @@ function render(rows, title) {
   const groupsSvg = groups
     .map(({ row, index, y, height: gh }) => {
       const lowest = minTokens(row);
-      const band = `<rect x="${margin - 8}" y="${y.toFixed(1)}" width="${(width - 2 * margin + 16).toFixed(1)}" height="${gh.toFixed(1)}" rx="10" style="fill:#111a24;fill-opacity:${index % 2 === 0 ? 0.55 : 0.25}"/>`;
+      const band = `<rect x="${margin - 8}" y="${y.toFixed(1)}" width="${(width - 2 * margin + 16).toFixed(1)}" height="${gh.toFixed(1)}" rx="10" style="fill:#e8f2fb;fill-opacity:${index % 2 === 0 ? 0.8 : 0.4}"/>`;
       const header = `<text x="${nameX}" y="${(y + 30).toFixed(1)}" style="fill:${COLORS.title};font-size:22px;font-weight:700">${escapeXml(row.label)}</text>`;
       const bars = row.values
         .map((value, vi) => {
@@ -242,7 +243,9 @@ function render(rows, title) {
           const isBaseline = value.key === "baseline";
           const hasData = value.value > 0;
           const isBest = hasData && value.value === lowest;
-          const dataW = hasData ? Math.max(3, (value.value / max) * barFull) : 0;
+          const dataW = hasData
+            ? Math.max(3, (value.value / max) * barFull)
+            : 0;
           const rx = (barHeight / 2).toFixed(1);
           const saved = hasData ? pctSaved(row.baseline, value.value) : 0;
           const label = isBaseline
@@ -252,7 +255,7 @@ function render(rows, title) {
               : saved >= 0
                 ? `${saved}% saved`
                 : `${-saved}% over`;
-          const nameColor = isBaseline ? "#9aa3b2" : value.color;
+          const nameColor = isBaseline ? "#64748b" : value.color;
           const valueColor = isBaseline
             ? COLORS.label
             : !hasData
@@ -267,12 +270,14 @@ function render(rows, title) {
             : "";
           const trackStroke = isBest
             ? `stroke:${COLORS.ring};stroke-width:1.6`
-            : `stroke:#ffffff;stroke-opacity:0.05;stroke-width:1`;
+            : `stroke:#c7dff4;stroke-width:1`;
           const track = `<rect x="${barLeft}" y="${rowTop.toFixed(1)}" width="${barFull.toFixed(1)}" height="${barHeight}" rx="${rx}" style="fill:${COLORS.track};${trackStroke}"/>`;
           const bar = hasData
             ? `<rect x="${barLeft}" y="${rowTop.toFixed(1)}" width="${dataW.toFixed(1)}" height="${barHeight}" rx="${rx}" style="fill:${value.color}"/>`
             : "";
-          const crown = isBest ? crownMark(nameX - 22, cy - 8, 16, COLORS.crown) : "";
+          const crown = isBest
+            ? crownMark(nameX - 22, cy - 8, 16, COLORS.crown)
+            : "";
           return `${glow}${track}${bar}${crown}
     <text x="${nameX}" y="${baseY}" style="fill:${nameColor};font-size:17px${isBest ? ";font-weight:700" : ""}">${escapeXml(value.label)}</text>
     <text x="${valueRight}" y="${baseY}" style="fill:${valueColor};font-size:17px;font-weight:${isBest ? 700 : 500};text-anchor:end">${escapeXml(label)}</text>`;
@@ -516,7 +521,7 @@ function renderIndex(index) {
     .map((tick) => {
       const x = chart.left + (tick / max) * plotWidth;
       return [
-        `  <line x1="${x.toFixed(1)}" y1="${chart.top}" x2="${x.toFixed(1)}" y2="${chart.bottom}" stroke="#1f2937" stroke-width="1"/>`,
+        `  <line x1="${x.toFixed(1)}" y1="${chart.top}" x2="${x.toFixed(1)}" y2="${chart.bottom}" stroke="#d8e7f4" stroke-width="1"/>`,
         `  <text x="${x.toFixed(1)}" y="${chart.bottom + 22}" fill="#94a3b8" font-size="12" text-anchor="middle">${escapeXml(fmtBuildMs(tick))}</text>`,
       ].join("\n");
     })
@@ -527,7 +532,7 @@ function renderIndex(index) {
       const center = chart.top + rowIndex * rowHeight + rowHeight / 2;
       const groupTop = center - (INDEX_TOOLS.length * barStep) / 2;
       const lines = [
-        `  <text x="${chart.left - 12}" y="${(center - 4).toFixed(1)}" fill="#e2e8f0" font-size="13" text-anchor="end">${escapeXml(row.label)}</text>`,
+        `  <text x="${chart.left - 12}" y="${(center - 4).toFixed(1)}" fill="#102a43" font-size="13" text-anchor="end">${escapeXml(row.label)}</text>`,
         `  <text x="${chart.left - 12}" y="${(center + 12).toFixed(1)}" fill="#64748b" font-size="10" text-anchor="end">${row.scale.lines.toLocaleString()} lines</text>`,
       ];
       row.values.forEach((value, i) => {
@@ -548,15 +553,15 @@ function renderIndex(index) {
   const legend = INDEX_TOOLS.map((tool, i) =>
     [
       `  <rect x="${160 + i * 200}" y="80" width="12" height="12" fill="${tool.color}" rx="2"/>`,
-      `  <text x="${178 + i * 200}" y="90" fill="#cbd5f5" font-size="12">${escapeXml(tool.label)}</text>`,
+      `  <text x="${178 + i * 200}" y="90" fill="#526b82" font-size="12">${escapeXml(tool.label)}</text>`,
     ].join("\n"),
   ).join("\n");
 
   return [
     `<?xml version="1.0" encoding="utf-8" standalone="no"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" version="1.1" role="img" aria-label="${escapeXml(title)}">`,
-    ` <rect width="${width}" height="${height}" fill="#0b0f14"/>`,
-    ` <text x="40" y="46" fill="#f8fafc" font-size="22" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
+    ` <rect width="${width}" height="${height}" fill="#ffffff"/>`,
+    ` <text x="40" y="46" fill="#102a43" font-size="22" font-weight="bold" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(title)}</text>`,
     ` <text x="40" y="68" fill="#64748b" font-size="13" font-family="DejaVu Sans, Arial, sans-serif">${escapeXml(host)}</text>`,
     ` <text x="40" y="${height - 22}" fill="#64748b" font-size="11" font-family="DejaVu Sans, Arial, sans-serif">Every tool builds the index its own documentation prescribes; repositories are ordered by the size of the program each was built from.</text>`,
     legend,
@@ -639,7 +644,7 @@ function renderTime(index, cells) {
       const bestTotal = Math.min(
         ...row.values.map((value) => value.buildMs + value.answerMs),
       );
-      const band = `<rect x="${margin - 8}" y="${y.toFixed(1)}" width="${(width - 2 * margin + 16).toFixed(1)}" height="${gh.toFixed(1)}" rx="10" style="fill:#111a24;fill-opacity:${gi % 2 === 0 ? 0.55 : 0.25}"/>`;
+      const band = `<rect x="${margin - 8}" y="${y.toFixed(1)}" width="${(width - 2 * margin + 16).toFixed(1)}" height="${gh.toFixed(1)}" rx="10" style="fill:#e8f2fb;fill-opacity:${gi % 2 === 0 ? 0.8 : 0.4}"/>`;
       const header = `<text x="${nameX}" y="${(y + 30).toFixed(1)}" style="fill:${COLORS.title};font-size:22px;font-weight:700">${escapeXml(row.label)}</text>
    <text x="${valueRight}" y="${(y + 29).toFixed(1)}" style="fill:#94a3b8;font-size:15px;text-anchor:end">${row.scale.lines.toLocaleString()} lines</text>`;
       const bars = row.values
@@ -651,7 +656,7 @@ function renderTime(index, cells) {
           const answerW = (value.answerMs / max) * barFull;
           const isBest = value.buildMs + value.answerMs === bestTotal;
           const timeLabel = `${fmtCompact(value.buildMs)} / ${fmtCompact(value.answerMs)}`;
-          const nameColor = value.key === "baseline" ? "#9aa3b2" : value.color;
+          const nameColor = value.key === "baseline" ? "#64748b" : value.color;
           // Rectangular track + segments: cold time bars stay square so the
           // faded index / solid LLM split reads as a clean vertical seam. Pill
           // rounding would round short segments into blobs and blur the divide.
@@ -660,7 +665,7 @@ function renderTime(index, cells) {
             : "";
           const trackStroke = isBest
             ? `stroke:${COLORS.ring};stroke-width:1.6`
-            : `stroke:#ffffff;stroke-opacity:0.05;stroke-width:1`;
+            : `stroke:#c7dff4;stroke-width:1`;
           const track = `<rect x="${barLeft}" y="${rowTop.toFixed(1)}" width="${barFull.toFixed(1)}" height="${barHeight}" rx="2" style="fill:${COLORS.track};${trackStroke}"/>`;
           const buildSeg =
             value.buildMs > 0
@@ -672,7 +677,7 @@ function renderTime(index, cells) {
             : "";
           return `${glow}${track}${buildSeg}${answerSeg}${crown}
     <text x="${nameX}" y="${baseY}" style="fill:${nameColor};font-size:${fontSize}px${isBest ? ";font-weight:700" : ""}">${escapeXml(value.label)}</text>
-    <text x="${valueRight}" y="${baseY}" style="fill:#e2e8f0;font-size:${fontSize}px;font-weight:${isBest ? 700 : 500};text-anchor:end">${escapeXml(timeLabel)}</text>`;
+    <text x="${valueRight}" y="${baseY}" style="fill:#526b82;font-size:${fontSize}px;font-weight:${isBest ? 700 : 500};text-anchor:end">${escapeXml(timeLabel)}</text>`;
         })
         .join("\n    ");
       return `${band}
@@ -683,10 +688,10 @@ function renderTime(index, cells) {
 
   // Worked-example key: the same two-tone bar the chart draws, so the reader
   // learns which shade is which wait by seeing it once.
-  const shade = `<rect x="${margin}" y="70" width="62" height="24" rx="4" style="fill:#22d3ee;fill-opacity:0.35"/>
- <text x="${margin + 31}" y="87" style="fill:#e2e8f0;font-size:13px;font-weight:700;text-anchor:middle">index</text>
- <rect x="${margin + 62}" y="70" width="52" height="24" rx="4" style="fill:#22d3ee"/>
- <text x="${margin + 88}" y="87" style="fill:#0b0f14;font-size:13px;font-weight:700;text-anchor:middle">LLM</text>
+  const shade = `<rect x="${margin}" y="70" width="62" height="24" rx="4" style="fill:#3178c6;fill-opacity:0.35"/>
+ <text x="${margin + 31}" y="87" style="fill:#102a43;font-size:13px;font-weight:700;text-anchor:middle">index</text>
+ <rect x="${margin + 62}" y="70" width="52" height="24" rx="4" style="fill:#3178c6"/>
+ <text x="${margin + 88}" y="87" style="fill:#ffffff;font-size:13px;font-weight:700;text-anchor:middle">LLM</text>
  <text x="${margin + 128}" y="88" style="fill:${COLORS.muted};font-size:15px">faded = index build, solid = LLM answering — each bar is labelled index / LLM</text>`;
 
   return `<?xml version="1.0" encoding="utf-8" standalone="no"?>
@@ -703,8 +708,8 @@ function renderTime(index, cells) {
  * Compact seconds for the in-chart labels: "30s", "5s", "0.4s", "732s".
  *
  * One unit, no space, because the label carries two of these plus punctuation
- * and sits beside a bar; "(732s / 41s)" reads in a glance where
- * "12.2 min / 41 s" makes the reader convert units before comparing.
+ * and sits beside a bar; "(732s / 41s)" reads in a glance where "12.2 min / 41
+ * s" makes the reader convert units before comparing.
  */
 function fmtCompact(ms) {
   const seconds = ms / 1000;

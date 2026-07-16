@@ -23,7 +23,7 @@ export async function generateMetadata(props) {
     metadata.description ??
     "Engineering notes, releases, and deep dives from ttsc.";
   const image =
-    frontMatter.ogImage ?? metadata.ogImage ?? "https://ttsc.dev/og.jpg";
+    frontMatter.ogImage ?? metadata.ogImage ?? "https://ttsc.dev/og-blue.png";
   const url = `https://ttsc.dev/blog/${params.slug}/`;
 
   return {

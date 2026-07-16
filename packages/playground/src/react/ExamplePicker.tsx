@@ -52,19 +52,19 @@ export function ExamplePicker({
       <button
         data-playground-examples-toggle
         onClick={() => setOpen((v) => !v)}
-        className="px-3 py-1.5 text-xs font-mono text-neutral-300 border border-neutral-800 rounded-md hover:border-neutral-600 hover:bg-neutral-900 transition-colors"
+        className="rounded-md border border-[#b9d5ee] bg-white px-3 py-1.5 font-mono text-xs text-[#235a97] transition-colors hover:border-[#3178c6] hover:bg-[#eaf4ff]"
         title="Cmd/Ctrl+K"
       >
         Examples ▾
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 rounded-lg border border-neutral-800 bg-neutral-950 shadow-[0_10px_40px_rgba(0,0,0,0.6)] z-10 overflow-hidden">
+        <div className="absolute right-0 top-full z-10 mt-2 w-80 overflow-hidden rounded-xl border border-[#b9d5ee] bg-white shadow-[0_14px_42px_rgba(49,120,198,0.18)]">
           {Object.entries(grouped).map(([group, items]) => (
             <div
               key={group}
-              className="border-b border-neutral-900 last:border-b-0"
+              className="border-b border-[#d8e7f4] last:border-b-0"
             >
-              <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-neutral-600">
+              <div className="bg-[#f7fbff] px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-slate-500">
                 {groupLabels?.[group] ?? group}
               </div>
               {items.map((item) => (
@@ -74,12 +74,12 @@ export function ExamplePicker({
                     onPick(item.id);
                     setOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-neutral-900 transition-colors"
+                  className="w-full px-3 py-2 text-left transition-colors hover:bg-[#eaf4ff]"
                 >
-                  <div className="text-[12px] font-mono text-neutral-100">
+                  <div className="font-mono text-[12px] text-[#102a43]">
                     {item.title}
                   </div>
-                  <div className="text-[10px] text-neutral-500 mt-0.5 leading-snug">
+                  <div className="mt-0.5 text-[10px] leading-snug text-slate-500">
                     {item.description}
                   </div>
                 </button>

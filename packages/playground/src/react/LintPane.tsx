@@ -15,10 +15,10 @@ export function LintPane({
 }) {
   if (diagnostics.length === 0)
     return (
-      <div className="flex flex-col items-center justify-center h-full text-neutral-500 font-mono text-sm gap-2">
+      <div className="flex h-full flex-col items-center justify-center gap-2 font-mono text-sm text-slate-500">
         <span className="text-emerald-400 text-xl">✓</span>
         <span>No lint diagnostics.</span>
-        <span className="text-[10px] text-neutral-600 max-w-xs text-center">
+        <span className="max-w-xs text-center text-[10px] text-slate-400">
           {emptyHint}
         </span>
       </div>
@@ -28,7 +28,7 @@ export function LintPane({
       {diagnostics.map((d, i) => (
         <div
           key={i}
-          className="flex gap-3 p-3 rounded-md bg-neutral-900/60 border border-neutral-800/80"
+          className="flex gap-3 rounded-lg border border-[#d2e4f4] bg-[#f7fbff] p-3"
         >
           <span
             className={`mt-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
@@ -40,14 +40,14 @@ export function LintPane({
             {d.severity}
           </span>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-500 mb-1">
+            <div className="mb-1 flex items-center gap-2 font-mono text-[11px] text-slate-500">
               <span>{d.code}</span>
               <span>·</span>
               <span>
                 {d.line}:{d.column}
               </span>
             </div>
-            <div className="text-[13px] text-neutral-200 font-mono">
+            <div className="font-mono text-[13px] text-slate-700">
               {d.message}
             </div>
           </div>

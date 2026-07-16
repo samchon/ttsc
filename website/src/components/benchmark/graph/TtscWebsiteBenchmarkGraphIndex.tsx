@@ -95,7 +95,7 @@ function Bars({ row, max }: { row: IndexRow; max: number }) {
             >
               {tool.label}
             </span>
-            <div className="relative h-3 flex-1 overflow-hidden rounded-sm bg-[#0c0e13]">
+            <div className="relative h-3 flex-1 overflow-hidden rounded-sm bg-[#e7f0f8]">
               {build.ms === null ? null : (
                 <span
                   className="absolute inset-y-0 left-0 rounded-sm"
@@ -103,7 +103,7 @@ function Bars({ row, max }: { row: IndexRow; max: number }) {
                 />
               )}
             </div>
-            <span className="w-20 shrink-0 text-right font-mono text-[11px] tabular-nums text-neutral-300">
+            <span className="w-20 shrink-0 text-right font-mono text-[11px] tabular-nums text-slate-700">
               {build.ms === null
                 ? build.failed === true
                   ? "failed"
@@ -163,10 +163,10 @@ export default function TtscWebsiteBenchmarkGraphIndex() {
         {rows.map((row) => (
           <div key={row.project} className="space-y-1.5">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="font-mono text-[12px] text-neutral-200">
+              <span className="font-mono text-[12px] font-semibold text-[#102a43]">
                 {row.label}
               </span>
-              <span className="font-mono text-[10px] tabular-nums text-neutral-500">
+              <span className="font-mono text-[10px] tabular-nums text-slate-500">
                 {row.files.toLocaleString()} files ·{" "}
                 {row.lines.toLocaleString()} lines
               </span>
@@ -174,22 +174,22 @@ export default function TtscWebsiteBenchmarkGraphIndex() {
             <Bars row={row} max={max} />
           </div>
         ))}
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-1 border-t border-[#1a1f29] pt-3 font-mono text-[10px] text-neutral-500 sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-1 border-t border-[#b9d5ee] pt-3 font-mono text-[10px] text-slate-500 sm:grid-cols-4">
           <div>
             <dt className="uppercase tracking-[0.16em]">CPU</dt>
-            <dd className="text-neutral-300">{data.host.cpu}</dd>
+            <dd className="text-slate-700">{data.host.cpu}</dd>
           </div>
           <div>
             <dt className="uppercase tracking-[0.16em]">Cores</dt>
-            <dd className="text-neutral-300">{data.host.cores}</dd>
+            <dd className="text-slate-700">{data.host.cores}</dd>
           </div>
           <div>
             <dt className="uppercase tracking-[0.16em]">RAM</dt>
-            <dd className="text-neutral-300">{data.host.ramGB} GB</dd>
+            <dd className="text-slate-700">{data.host.ramGB} GB</dd>
           </div>
           <div>
             <dt className="uppercase tracking-[0.16em]">OS</dt>
-            <dd className="text-neutral-300">{data.host.os}</dd>
+            <dd className="text-slate-700">{data.host.os}</dd>
           </div>
         </dl>
       </div>

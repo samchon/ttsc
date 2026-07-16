@@ -22,16 +22,16 @@ type BenchmarkThreading = ITtscWebsiteBenchmark.Threading;
 // Style tokens, mirrored with the graph benchmark panels.
 // ---------------------------------------------------------------------------
 
-const ACCENT = "#36e2ee";
+const ACCENT = "#3178c6";
 
 const panelClass =
-  "overflow-hidden rounded-lg border border-[#222834] bg-[#0c0e13] shadow-[0_24px_60px_rgba(0,0,0,0.35)]";
+  "overflow-hidden rounded-xl border border-[#c7dff4] bg-white shadow-[0_18px_48px_rgba(49,120,198,0.11)]";
 
 function Eyebrow({ label }: { label: string }) {
   return (
     <p className="font-mono text-[11px] uppercase tracking-[0.22em]">
       <span style={{ color: ACCENT }}>[</span>
-      <span className="mx-2 text-neutral-400">{label}</span>
+      <span className="mx-2 text-slate-500">{label}</span>
       <span style={{ color: ACCENT }}>]</span>
     </p>
   );
@@ -253,26 +253,26 @@ function Bar({
     <div className="flex items-center gap-3">
       <code
         className={`w-24 shrink-0 truncate text-right font-mono text-[10px] ${
-          accent ? "font-bold" : "text-neutral-500"
+          accent ? "font-bold" : "text-slate-500"
         }`}
         style={accent ? { color: ACCENT } : undefined}
         title={label}
       >
         {label}
       </code>
-      <div className="relative h-5 flex-1 overflow-hidden rounded bg-[#161b24] ring-1 ring-inset ring-white/[0.04]">
+      <div className="relative h-5 flex-1 overflow-hidden rounded bg-[#e7f0f8] ring-1 ring-inset ring-[#c7dff4]">
         <div
           className="h-full rounded"
           style={{
             width: `${pct}%`,
             background: accent
-              ? `linear-gradient(90deg, ${ACCENT}, #19b6c9)`
-              : "#4b5563",
+              ? `linear-gradient(90deg, ${ACCENT}, #6aa9e1)`
+              : "#94a3b8",
             boxShadow: accent ? `0 0 8px ${ACCENT}44` : undefined,
           }}
         />
       </div>
-      <span className="w-16 shrink-0 text-right font-mono text-[10px] tabular-nums text-neutral-300">
+      <span className="w-16 shrink-0 text-right font-mono text-[10px] tabular-nums text-slate-600">
         {formatDuration(ms)}
       </span>
     </div>
@@ -286,9 +286,9 @@ function SpeedupRow({ stat, files }: { stat: HeadlineStat; files: number }) {
   );
 
   return (
-    <div className="space-y-2.5 rounded-md border border-[#1c2230] bg-[#0e1117] px-3.5 py-3">
+    <div className="space-y-2.5 rounded-lg border border-[#d2e4f4] bg-[#f7fbff] px-3.5 py-3">
       <div className="flex items-baseline justify-between">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-wide text-neutral-300">
+        <p className="font-mono text-[11px] font-medium uppercase tracking-wide text-slate-700">
           {stat.op}
         </p>
         <p
@@ -304,7 +304,7 @@ function SpeedupRow({ stat, files }: { stat: HeadlineStat; files: number }) {
         <Bar label={stat.fastLabel} ms={stat.fastMs} pct={fastPct} accent />
       </div>
 
-      <p className="font-mono text-[10px] text-neutral-500">
+      <p className="font-mono text-[10px] text-slate-500">
         {stat.note} · vscode · {files.toLocaleString()} files
       </p>
     </div>
@@ -317,7 +317,7 @@ function SpeedupRow({ stat, files }: { stat: HeadlineStat; files: number }) {
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <p className="not-prose my-6 rounded-lg border border-[#222834] bg-[#0c0e13] px-4 py-3 font-mono text-[12px] text-neutral-400">
+    <p className="not-prose my-6 rounded-xl border border-[#c7dff4] bg-white px-4 py-3 font-mono text-[12px] text-slate-500">
       {children}
     </p>
   );
@@ -367,7 +367,7 @@ export default function TtscWebsiteBenchmarkPerformanceSummary() {
     <div className="not-prose my-6">
       <section className={panelClass}>
         {/* Header */}
-        <div className="relative flex flex-wrap items-start justify-between gap-3 overflow-hidden border-b border-[#222834] bg-gradient-to-b from-[#13171f] to-[#0e1116] px-5 py-4">
+        <div className="relative flex flex-wrap items-start justify-between gap-3 overflow-hidden border-b border-[#c7dff4] bg-gradient-to-b from-[#f7fbff] to-[#eef6ff] px-5 py-4">
           <div
             className="pointer-events-none absolute inset-x-0 top-0 h-px"
             style={{
@@ -376,10 +376,10 @@ export default function TtscWebsiteBenchmarkPerformanceSummary() {
           />
           <div>
             <Eyebrow label="Compiler performance" />
-            <h2 className="mt-2.5 text-[17px] font-semibold tracking-tight text-neutral-50">
+            <h2 className="mt-2.5 text-[17px] font-semibold tracking-tight text-[#102a43]">
               vscode — 6,093 TypeScript files
             </h2>
-            <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-neutral-400">
+            <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-slate-500">
               Build, type-check, lint and format wall-clock time: the legacy tsc
               / eslint / prettier toolchain versus ttsc backed by TypeScript-Go.
               Bars show the minimum across {report.runs ?? 5} runs.
@@ -392,7 +392,7 @@ export default function TtscWebsiteBenchmarkPerformanceSummary() {
             >
               {formatMultiplier(bestFactor)}
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-500">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">
               peak speedup
             </span>
           </div>

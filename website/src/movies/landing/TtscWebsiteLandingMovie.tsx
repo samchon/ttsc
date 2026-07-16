@@ -10,7 +10,7 @@ import TtscWebsiteLandingSponsors from "./TtscWebsiteLandingSponsors";
 
 export default function TtscWebsiteLandingMovie() {
   return (
-    <div className="ttsc-landing text-white bg-neutral-950 min-h-screen">
+    <div className="ttsc-landing min-h-screen bg-white text-[#102a43]">
       <TtscWebsiteLandingHero />
       <TtscWebsiteLandingRestOfToolchain />
       <TtscWebsiteLandingLintAsCompileError />

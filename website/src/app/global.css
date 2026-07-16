@@ -10,6 +10,182 @@
    path. */
 @source "../../node_modules/@ttsc/playground/lib/**/*.js";
 
+:root {
+  --ttsc-blue: #3178c6;
+  --ttsc-blue-deep: #235a97;
+  --ttsc-blue-ink: #102a43;
+  --ttsc-blue-soft: #eaf4ff;
+  --ttsc-blue-wash: #f7fbff;
+  --ttsc-blue-border: #c7dff4;
+  --ttsc-muted: #526b82;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: #ffffff;
+  color: var(--ttsc-blue-ink);
+}
+
+.ttsc-site-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--ttsc-blue-ink);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.ttsc-site-logo-mark {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: flex-end;
+  justify-content: flex-end;
+  border-radius: 0.35rem;
+  padding: 0.18rem;
+  background: var(--ttsc-blue);
+  color: white;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 6px 18px rgba(49, 120, 198, 0.2);
+}
+
+.ttsc-landing {
+  color: var(--ttsc-blue-ink);
+}
+
+.ttsc-landing ::selection {
+  background: rgba(49, 120, 198, 0.22);
+}
+
+/* Every surface shares one TypeScript-blue navigation bar. */
+.nextra-navbar-blur {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: linear-gradient(
+    110deg,
+    var(--ttsc-blue-deep) 0%,
+    var(--ttsc-blue) 58%,
+    #2b6db3 100%
+  ) !important;
+  box-shadow: 0 8px 24px rgba(35, 90, 151, 0.18);
+}
+
+.nextra-navbar,
+.nextra-navbar a,
+.nextra-navbar button {
+  color: var(--ttsc-blue-wash) !important;
+}
+
+.nextra-navbar nav > div a[aria-current="true"] {
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.nextra-navbar input {
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.13) !important;
+  color: white !important;
+}
+
+.nextra-navbar input::placeholder {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.nextra-navbar kbd {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: rgba(255, 255, 255, 0.84) !important;
+}
+
+.nextra-navbar .ttsc-site-logo {
+  color: white !important;
+}
+
+.nextra-navbar .ttsc-site-logo-mark {
+  background: white;
+  color: var(--ttsc-blue);
+  box-shadow: none;
+}
+
+body:has(.ttsc-docs-page-marker) .nextra-sidebar {
+  border-right: 1px solid var(--ttsc-blue-border);
+  background: linear-gradient(
+    180deg,
+    #f2f8ff 0%,
+    var(--ttsc-blue-wash) 48%,
+    white 100%
+  );
+}
+
+body:has(.ttsc-docs-page-marker) :is(.nextra-sidebar, .nextra-mobile-nav) a,
+body:has(.ttsc-docs-page-marker)
+  :is(.nextra-sidebar, .nextra-mobile-nav)
+  button {
+  color: var(--ttsc-blue-ink) !important;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+body:has(.ttsc-docs-page-marker)
+  .nextra-sidebar
+  > div
+  > div
+  > ul
+  > li
+  > :is(a, button),
+body:has(.ttsc-docs-page-marker)
+  .nextra-mobile-nav
+  > ul
+  > li
+  > div
+  > ul
+  > li
+  > :is(a, button) {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+body:has(.ttsc-docs-page-marker)
+  :is(.nextra-sidebar, .nextra-mobile-nav)
+  li.active
+  > a {
+  background: var(--ttsc-blue) !important;
+  color: white !important;
+  box-shadow: 0 7px 18px rgba(49, 120, 198, 0.2);
+}
+
+body:has(.ttsc-docs-page-marker)
+  :is(.nextra-sidebar, .nextra-mobile-nav)
+  li:not(.active)
+  > a:hover,
+body:has(.ttsc-docs-page-marker)
+  :is(.nextra-sidebar, .nextra-mobile-nav)
+  li:not(.active)
+  > button:hover {
+  background: #e3f1ff !important;
+  color: var(--ttsc-blue-deep) !important;
+}
+
+body:has(.ttsc-docs-page-marker)
+  :is(.nextra-sidebar, .nextra-mobile-nav)
+  li[class*="font-semibold"]:not(.active) {
+  color: var(--ttsc-blue-deep) !important;
+}
+
+body:has(.ttsc-docs-page-marker)
+  :is(.nextra-sidebar, .nextra-mobile-nav)
+  ul
+  ul::before {
+  background: var(--ttsc-blue-border) !important;
+}
+
 /* ── Landing page: full-bleed canvas ── */
 :has(.ttsc-landing) article {
   max-width: 100% !important;

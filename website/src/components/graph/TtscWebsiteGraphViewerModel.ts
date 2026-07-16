@@ -22,19 +22,19 @@ const NODE_KIND_ORDER: readonly string[] = [
 ];
 
 const NODE_COLORS: Record<string, string> = {
-  class: "#36e2ee",
-  interface: "#6ea8ff",
-  function: "#3fb950",
-  method: "#2bb673",
-  type: "#f5b042",
-  enum: "#c792ea",
-  variable: "#8b97a8",
+  class: "#3178c6",
+  interface: "#2563eb",
+  function: "#15803d",
+  method: "#0f766e",
+  type: "#b45309",
+  enum: "#7e22ce",
+  variable: "#64748b",
 };
 
 const LINK_COLORS: Record<string, string> = {
-  "value-call": "#3fb950",
-  "type-ref": "#f5b042",
-  heritage: "#6ea8ff",
+  "value-call": "#15803d",
+  "type-ref": "#b45309",
+  heritage: "#2563eb",
 };
 
 const LINK_KIND_LABEL: Record<string, string> = {

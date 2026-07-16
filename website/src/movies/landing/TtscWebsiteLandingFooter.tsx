@@ -24,24 +24,24 @@ const BUILD = [
 
 export default function TtscWebsiteLandingFooter() {
   return (
-    <footer className="relative border-t border-neutral-900 bg-neutral-950 py-16 px-6">
+    <footer className="relative border-t border-[#235a97] bg-[#235a97] px-6 py-16 text-white">
       <div className="max-w-5xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           {/* Brand */}
           <div>
-            <p className="font-mono text-base font-bold text-white mb-2">
+            <p className="mb-2 font-mono text-base font-bold text-white">
               ttsc
             </p>
-            <p className="text-xs text-neutral-500 leading-relaxed">
+            <p className="text-sm leading-relaxed text-blue-100">
               TypeScript-Go compiler, runner, lint, code graph, and plugin host.
             </p>
-            <p className="text-[11px] text-neutral-600 mt-4 font-mono tracking-wider">
+            <p className="mt-4 font-mono text-xs tracking-wider text-blue-200">
               From the author of{" "}
               <a
                 href="https://typia.io"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-neutral-500 hover:text-cyan-300 transition-colors"
+                className="text-white transition-colors hover:text-blue-100"
               >
                 typia
               </a>{" "}
@@ -50,7 +50,7 @@ export default function TtscWebsiteLandingFooter() {
                 href="https://nestia.io"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-neutral-500 hover:text-cyan-300 transition-colors"
+                className="text-white transition-colors hover:text-blue-100"
               >
                 nestia
               </a>
@@ -60,7 +60,7 @@ export default function TtscWebsiteLandingFooter() {
 
           {/* Learn */}
           <div>
-            <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-neutral-600 mb-4">
+            <p className="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-blue-200">
               Learn
             </p>
             <ul className="space-y-2.5">
@@ -68,7 +68,7 @@ export default function TtscWebsiteLandingFooter() {
                 <li key={l.name}>
                   <a
                     href={l.href}
-                    className="text-sm text-neutral-400 hover:text-white transition-colors"
+                    className="text-sm text-blue-100 transition-colors hover:text-white"
                   >
                     {l.name}
                   </a>
@@ -79,7 +79,7 @@ export default function TtscWebsiteLandingFooter() {
 
           {/* Use */}
           <div>
-            <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-neutral-600 mb-4">
+            <p className="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-blue-200">
               Use
             </p>
             <ul className="space-y-2.5">
@@ -87,7 +87,7 @@ export default function TtscWebsiteLandingFooter() {
                 <li key={l.name}>
                   <a
                     href={l.href}
-                    className="text-sm text-neutral-400 hover:text-white transition-colors"
+                    className="text-sm text-blue-100 transition-colors hover:text-white"
                   >
                     {l.name}
                   </a>
@@ -98,7 +98,7 @@ export default function TtscWebsiteLandingFooter() {
 
           {/* Build */}
           <div>
-            <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-neutral-600 mb-4">
+            <p className="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-blue-200">
               Build
             </p>
             <ul className="space-y-2.5">
@@ -106,7 +106,7 @@ export default function TtscWebsiteLandingFooter() {
                 <li key={l.name}>
                   <a
                     href={l.href}
-                    className="text-sm text-neutral-400 hover:text-white transition-colors"
+                    className="text-sm text-blue-100 transition-colors hover:text-white"
                   >
                     {l.name}
                   </a>
@@ -117,14 +117,14 @@ export default function TtscWebsiteLandingFooter() {
         </div>
 
         {/* Bottom row */}
-        <div className="pt-8 border-t border-neutral-900 flex flex-wrap items-center justify-between gap-4">
-          <p className="text-[11px] text-neutral-600 font-mono tracking-wider">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-blue-300/40 pt-8">
+          <p className="font-mono text-xs tracking-wider text-blue-200">
             MIT 2026 ·{" "}
             <a
               href="https://github.com/samchon"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-neutral-300 transition-colors"
+              className="transition-colors hover:text-white"
             >
               Jeongho Nam
             </a>
@@ -134,16 +134,16 @@ export default function TtscWebsiteLandingFooter() {
               href="https://github.com/samchon/ttsc/blob/master/LICENSE"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[11px] text-neutral-600 hover:text-neutral-300 transition-colors font-mono tracking-wider"
+              className="font-mono text-xs tracking-wider text-blue-200 transition-colors hover:text-white"
             >
               MIT
             </a>
-            <span className="text-neutral-800">·</span>
+            <span className="text-blue-300">·</span>
             <a
               href="https://www.npmjs.com/package/ttsc"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[11px] text-neutral-600 hover:text-neutral-300 transition-colors font-mono tracking-wider"
+              className="font-mono text-xs tracking-wider text-blue-200 transition-colors hover:text-white"
             >
               npm
             </a>

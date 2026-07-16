@@ -41,64 +41,64 @@ const NOTES = [
 
 export default function TtscWebsiteLandingLintAsCompileError() {
   return (
-    <section className="relative overflow-hidden bg-neutral-950 px-6 py-24 md:py-32">
+    <section className="relative overflow-hidden bg-[#eef6ff] px-6 py-24 md:py-32">
       <div className="relative mx-auto max-w-6xl">
         <TtscWebsiteLandingFadeIn>
           <TtscWebsiteLandingSectionEyebrow label="Diagnostics" />
           <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
             <div>
-              <h2 className="text-3xl font-bold leading-[1.08] tracking-tight text-white md:text-5xl">
+              <h2 className="text-3xl font-bold leading-[1.08] tracking-tight text-[#102a43] md:text-5xl">
                 Type errors and lint errors should look like one failure.
               </h2>
-              <p className="mt-5 max-w-xl text-base leading-relaxed text-neutral-400">
-                <code className="font-mono text-neutral-200">ttsc</code> can
-                print rule violations as TS diagnostics. Local runs, CI, and the
-                editor all point at the same file, line, and rule.
+              <p className="mt-5 max-w-xl text-base leading-relaxed text-[#526b82]">
+                <code className="font-mono font-semibold text-[#235a97]">
+                  ttsc
+                </code>{" "}
+                can print rule violations as TS diagnostics. Local runs, CI, and
+                the editor all point at the same file, line, and rule.
               </p>
               <div className="mt-8 grid grid-cols-2 gap-2">
                 {NOTES.map((note) => (
                   <div
                     key={note}
-                    className="rounded-lg border border-neutral-800 bg-black/35 px-3 py-2"
+                    className="rounded-xl border border-[#c7dff4] bg-white px-3 py-2"
                   >
-                    <p className="text-xs font-medium text-neutral-300">
-                      {note}
-                    </p>
+                    <p className="text-sm font-medium text-[#405f7a]">{note}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-lg border border-neutral-800 bg-[#090909]">
-              <div className="flex items-center gap-2 border-b border-neutral-800 bg-[#0d0d0d] px-4 py-2.5">
+            <div className="overflow-hidden rounded-2xl border border-[#235a97] bg-[#102a43] shadow-[0_24px_60px_rgba(35,90,151,0.22)]">
+              <div className="flex items-center gap-2 border-b border-[#3f6f99] bg-[#173f66] px-4 py-2.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-400/60" />
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/60" />
-                <span className="ml-3 font-mono text-[11px] text-neutral-500">
+                <span className="ml-3 font-mono text-xs text-blue-200">
                   $ npx ttsc --noEmit
                 </span>
               </div>
-              <pre className="overflow-x-auto p-5 font-mono text-[12px] leading-[1.7] text-neutral-300 md:p-7 md:text-[13px]">
+              <pre className="overflow-x-auto p-5 font-mono text-[13px] leading-[1.7] text-blue-50 md:p-7 md:text-sm">
                 {DIAGNOSTIC.map((d, i) => (
                   <div key={i} className="mb-3">
-                    <span className="text-neutral-500">{d.path}</span>
-                    <span className="text-neutral-700"> - </span>
+                    <span className="text-blue-300">{d.path}</span>
+                    <span className="text-blue-500"> - </span>
                     <span className={d.tone}>error </span>
-                    <span className="text-cyan-300">{d.code}</span>
-                    <span className="text-neutral-300">: {d.message}</span>
+                    <span className="text-sky-300">{d.code}</span>
+                    <span className="text-blue-50">: {d.message}</span>
                   </div>
                 ))}
                 {"\n"}
                 {SOURCE_LINES.map((s, i) => (
-                  <div key={i} className="text-neutral-400">
-                    <span className="select-none text-neutral-600">
+                  <div key={i} className="text-blue-100">
+                    <span className="select-none text-blue-400">
                       {s.line ? `${s.line}  ` : "   "}
                     </span>
                     {s.text}
                     {s.underline && (
                       <>
                         {"\n"}
-                        <span className="select-none text-neutral-600">
+                        <span className="select-none text-blue-400">
                           {"   "}
                         </span>
                         <span className="text-red-400">{s.underline}</span>
@@ -107,7 +107,7 @@ export default function TtscWebsiteLandingLintAsCompileError() {
                   </div>
                 ))}
                 {"\n"}
-                <span className="text-neutral-500">
+                <span className="text-blue-300">
                   Found 3 errors in the same file.
                 </span>
               </pre>
