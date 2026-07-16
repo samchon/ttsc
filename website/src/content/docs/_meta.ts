@@ -1,7 +1,7 @@
 import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
-  index: "🙋🏻‍♂️ Getting Started",
+  index: "🙋🏻‍♂️ Introduction",
   setup: "📦 Setup",
 
   "-- features": { type: "separator", title: "📖 Features" },
