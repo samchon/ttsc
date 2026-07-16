@@ -7,13 +7,19 @@ import { ITtscGraphSpan } from "./ITtscGraphSpan";
  * wire contract between the Go fact-builder and the TypeScript graph engine.
  *
  * It is the complete graph with none of the per-response caps the MCP tools
- * apply: every node and edge the build resolved. The server parses each changed
- * native snapshot (typia-validated) into an in-memory resident graph and reuses
- * that warm model while project inputs stay unchanged; the bundled 3D viewer
- * reduces the same dump.
+ * apply: every node and edge the build resolved, plus the `provenance` that
+ * says which program resolved them. The server parses each changed native
+ * snapshot (typia-validated) into an in-memory resident graph and reuses that
+ * warm model while project inputs stay unchanged; the bundled 3D viewer reduces
+ * the same dump.
  *
- * Paths in `project` and `tsconfig` are absolute; `file` fields on nodes and
- * edges are project-relative.
+ * `project` is absolute. Every other path is relative to it — `tsconfig`, and
+ * the `file` fields on nodes, edges, diagnostics, and the provenance manifest.
+ *
+ * Two kinds of path fall outside the project and so cannot be relative to it: a
+ * dependency keeps its `node_modules/`-relative tail, which is what makes a
+ * dependency leaf readable, and anything else the compiler loaded keeps the
+ * identity the compiler gave it — a virtual lib stays `bundled:///…`.
  */
 export interface ITtscGraphDump {
   /** Absolute path of the project root the graph was built for. */
