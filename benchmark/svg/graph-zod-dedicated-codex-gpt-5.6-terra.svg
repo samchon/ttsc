@@ -7,62 +7,62 @@
   </style>
  </defs>
  <g>
-  <path d="M 0 440 L 1040 440 L 1040 0 L 0 0 z" style="fill:#05070b"/>
-  <text x="136" y="30" style="fill:#f8fafc;font-size:19px;font-weight:600">Zod — median tokens (dedicated prompt)</text>
-  <text x="136" y="52" style="fill:#94a3b8;font-size:13px">Codex GPT-5.6 terra. Lower is better; percentage is versus the no-MCP baseline.</text>
-  <path d="M 136 72 L 1016 72 L 1016 372 L 136 372 z" style="fill:#0b111a"/>
+  <path d="M 0 440 L 1040 440 L 1040 0 L 0 0 z" style="fill:#ffffff"/>
+  <text x="136" y="30" style="fill:#102a43;font-size:19px;font-weight:600">Zod — median tokens (dedicated prompt)</text>
+  <text x="136" y="52" style="fill:#64748b;font-size:13px">Codex GPT-5.6 terra. Lower is better; percentage is versus the no-MCP baseline.</text>
+  <path d="M 136 72 L 1016 72 L 1016 372 L 136 372 z" style="fill:#f7fbff"/>
   <g>
-   <path d="M 136.000 72 L 136.000 372" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-   <text x="136.000" y="390" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">0</text>
+   <path d="M 136.000 72 L 136.000 372" style="fill:none;stroke:#d8e7f4;stroke-width:0.7"/>
+   <text x="136.000" y="390" style="fill:#526b82;font-size:13px;text-anchor:middle">0</text>
   </g>
   <g>
-   <path d="M 356.000 72 L 356.000 372" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-   <text x="356.000" y="390" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">250k</text>
+   <path d="M 356.000 72 L 356.000 372" style="fill:none;stroke:#d8e7f4;stroke-width:0.7"/>
+   <text x="356.000" y="390" style="fill:#526b82;font-size:13px;text-anchor:middle">250k</text>
   </g>
   <g>
-   <path d="M 576.000 72 L 576.000 372" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-   <text x="576.000" y="390" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">500k</text>
+   <path d="M 576.000 72 L 576.000 372" style="fill:none;stroke:#d8e7f4;stroke-width:0.7"/>
+   <text x="576.000" y="390" style="fill:#526b82;font-size:13px;text-anchor:middle">500k</text>
   </g>
   <g>
-   <path d="M 796.000 72 L 796.000 372" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-   <text x="796.000" y="390" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">750k</text>
+   <path d="M 796.000 72 L 796.000 372" style="fill:none;stroke:#d8e7f4;stroke-width:0.7"/>
+   <text x="796.000" y="390" style="fill:#526b82;font-size:13px;text-anchor:middle">750k</text>
   </g>
   <g>
-   <path d="M 1016.000 72 L 1016.000 372" style="fill:none;stroke:#1f2937;stroke-width:0.7"/>
-   <text x="1016.000" y="390" style="fill:#cbd5e1;font-size:13px;text-anchor:middle">1M</text>
+   <path d="M 1016.000 72 L 1016.000 372" style="fill:none;stroke:#d8e7f4;stroke-width:0.7"/>
+   <text x="1016.000" y="390" style="fill:#526b82;font-size:13px;text-anchor:middle">1M</text>
   </g>
-  <path d="M 136 372 L 1016 372" style="fill:none;stroke:#64748b;stroke-width:0.8"/>
-  <path d="M 136 72 L 136 372" style="fill:none;stroke:#64748b;stroke-width:0.8"/>
-  <text x="576.000" y="416" style="fill:#cbd5e1;font-size:14px;text-anchor:middle">Tokens</text>
-  <line x1="752.254" y1="72" x2="752.254" y2="372" style="stroke:#64748b;stroke-width:1;stroke-dasharray:4 4"/>
-   <text x="756.254" y="86" style="fill:#94a3b8;font-size:12.5px">no-MCP baseline</text>
+  <path d="M 136 372 L 1016 372" style="fill:none;stroke:#94a3b8;stroke-width:0.8"/>
+  <path d="M 136 72 L 136 372" style="fill:none;stroke:#94a3b8;stroke-width:0.8"/>
+  <text x="576.000" y="416" style="fill:#526b82;font-size:14px;text-anchor:middle">Tokens</text>
+  <line x1="752.254" y1="72" x2="752.254" y2="372" style="stroke:#94a3b8;stroke-width:1;stroke-dasharray:4 4"/>
+   <text x="756.254" y="86" style="fill:#64748b;font-size:12.5px">no-MCP baseline</text>
   <g>
-    <text x="128" y="106.000" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">baseline</text>
+    <text x="128" y="106.000" style="fill:#102a43;font-size:15px;font-weight:600;text-anchor:end">baseline</text>
     <rect x="136" y="87.000" width="616.254" height="30" style="fill:#94a3b8"/>
-    <text x="760.254" y="106.000" style="fill:#cbd5e1;font-size:14px">700k</text>
+    <text x="760.254" y="106.000" style="fill:#526b82;font-size:14px">700k</text>
    </g>
    <g>
-    <text x="128" y="166.000" style="fill:#f8fafc;font-size:15px;font-weight:700;text-anchor:end">@ttsc/graph</text>
-    <rect x="134.000" y="145.000" width="38.859" height="34.000" rx="17.000" style="fill:none;stroke:#d7f9ff;stroke-opacity:0.28;stroke-width:3"/><rect x="136" y="147.000" width="34.859" height="30" rx="15.000" style="fill:#22d3ee;stroke:#d7f9ff;stroke-width:1.4"/><g transform="translate(178.86 154.00) scale(1.000)" style="fill:none;stroke:#36e2ee;stroke-width:1.5">
+    <text x="128" y="166.000" style="fill:#102a43;font-size:15px;font-weight:700;text-anchor:end">@ttsc/graph</text>
+    <rect x="134.000" y="145.000" width="38.859" height="34.000" rx="17.000" style="fill:none;stroke:#72afe6;stroke-opacity:0.28;stroke-width:3"/><rect x="136" y="147.000" width="34.859" height="30" rx="15.000" style="fill:#3178c6;stroke:#72afe6;stroke-width:1.4"/><g transform="translate(178.86 154.00) scale(1.000)" style="fill:none;stroke:#3178c6;stroke-width:1.5">
     <path d="M2.5 5.5 5.4 8l2.6-4 2.6 4 2.9-2.5-.8 6H3.3l-.8-6Z" style="stroke-linejoin:round"/>
     <path d="M3.5 12.5 h9" style="stroke-linecap:round"/>
    </g>
-    <text x="200.859" y="166.000" style="fill:#22d3ee;font-size:14px;font-weight:700">40k (-94%)</text>
+    <text x="200.859" y="166.000" style="fill:#3178c6;font-size:14px;font-weight:700">40k (-94%)</text>
    </g>
    <g>
-    <text x="128" y="226.000" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">codegraph</text>
-    <rect x="136" y="207.000" width="230.590" height="30" style="fill:#f59e0b"/>
-    <text x="374.590" y="226.000" style="fill:#f59e0b;font-size:14px">262k (-63%)</text>
+    <text x="128" y="226.000" style="fill:#102a43;font-size:15px;font-weight:600;text-anchor:end">codegraph</text>
+    <rect x="136" y="207.000" width="230.590" height="30" style="fill:#d97706"/>
+    <text x="374.590" y="226.000" style="fill:#d97706;font-size:14px">262k (-63%)</text>
    </g>
    <g>
-    <text x="128" y="286.000" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">codebase-memory</text>
-    <rect x="136" y="267.000" width="568.240" height="30" style="fill:#a3e635"/>
-    <text x="712.240" y="286.000" style="fill:#a3e635;font-size:14px">646k (-8%)</text>
+    <text x="128" y="286.000" style="fill:#102a43;font-size:15px;font-weight:600;text-anchor:end">codebase-memory</text>
+    <rect x="136" y="267.000" width="568.240" height="30" style="fill:#15803d"/>
+    <text x="712.240" y="286.000" style="fill:#15803d;font-size:14px">646k (-8%)</text>
    </g>
    <g>
-    <text x="128" y="346.000" style="fill:#f8fafc;font-size:15px;font-weight:600;text-anchor:end">serena</text>
-    <rect x="136" y="327.000" width="336.579" height="30" style="fill:#f472b6"/>
-    <text x="480.579" y="346.000" style="fill:#f472b6;font-size:14px">382k (-45%)</text>
+    <text x="128" y="346.000" style="fill:#102a43;font-size:15px;font-weight:600;text-anchor:end">serena</text>
+    <rect x="136" y="327.000" width="336.579" height="30" style="fill:#7e22ce"/>
+    <text x="480.579" y="346.000" style="fill:#7e22ce;font-size:14px">382k (-45%)</text>
    </g>
  </g>
 </svg>
