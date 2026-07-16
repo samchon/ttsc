@@ -263,11 +263,10 @@ func (p *program) runLintCycle(engine *Engine) []*Finding {
   }
   files := p.userSourceFiles()
   if p.projectCycle == nil {
-    cycle := engine.evaluateProject(p.identity, files, p.checker)
-    p.projectCycle = &cycle
+    p.projectCycle = engine.evaluateProject(p.identity, files, p.checker)
   }
-  projectFindings := append([]*Finding(nil), p.projectCycle.findings...)
-  return append(projectFindings, engine.runFiles(files, p.checker, p.projectCycle.results, p.cwd)...)
+  fileFindings := engine.runFiles(files, p.checker, p.projectCycle.results, p.cwd)
+  return append(p.projectCycle.finalize(), fileFindings...)
 }
 
 // close drops the standalone lint checker. Safe to call on a nil receiver and

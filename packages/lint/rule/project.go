@@ -39,16 +39,59 @@ type ProjectFinding struct {
   Message string
 }
 
-// ProjectRuleResult is the finalized, read-only view of one named project
-// rule. Findings is returned as a defensive copy by host result readers.
+// ProjectRuleResult is one snapshot of a named project rule in the current
+// Program cycle. State is the contributor-owned value attached during the
+// project check; the host neither interprets nor synchronizes its contents.
+// Findings is returned as a defensive copy by host result readers.
+//
+// Evaluated results retain a cycle-scoped failure channel through file-rule
+// dispatch. Call Report or Fail immediately before a guarded operation, then
+// call Context.ProjectResult again when the updated status is needed. Absent,
+// off, and not-evaluated results have no state or live failure channel.
 type ProjectRuleResult struct {
   Status   ProjectRuleStatus
+  State    any
   Findings []ProjectFinding
+
+  reporter ProjectReporter
 }
 
-// ProjectResultReader supplies finalized project state to later file-rule
-// contexts. Hosts return ProjectRuleAbsent for names with no registered
-// project rule.
+// NewProjectRuleResult constructs one host-owned project-result snapshot.
+// Contributor code normally receives this value from Context.ProjectResult
+// and does not construct it.
+func NewProjectRuleResult(
+  status ProjectRuleStatus,
+  state any,
+  findings []ProjectFinding,
+  reporter ProjectReporter,
+) ProjectRuleResult {
+  return ProjectRuleResult{
+    Status:   status,
+    State:    state,
+    Findings: append([]ProjectFinding(nil), findings...),
+    reporter: reporter,
+  }
+}
+
+// Fail marks this evaluated project result failed without adding a finding.
+// It is a no-op after file dispatch or for a result that was not evaluated.
+func (r ProjectRuleResult) Fail() {
+  if r.reporter != nil {
+    r.reporter.Fail()
+  }
+}
+
+// Report records one project finding and marks this evaluated result failed.
+// Equal messages are deduplicated by the host. It is a no-op after file
+// dispatch or for a result that was not evaluated.
+func (r ProjectRuleResult) Report(message string) {
+  if r.reporter != nil {
+    r.reporter.Report(message)
+  }
+}
+
+// ProjectResultReader supplies live project state to later file-rule contexts.
+// Hosts return ProjectRuleAbsent for names with no registered project rule.
 type ProjectResultReader interface {
   ProjectResult(name string) ProjectRuleResult
 }
@@ -77,7 +120,12 @@ type ProjectContext struct {
   Severity Severity
   Options  json.RawMessage
 
-  reporter ProjectReporter
+  reporter    ProjectReporter
+  stateSetter projectStateSetter
+}
+
+type projectStateSetter interface {
+  SetState(state any)
 }
 
 // NewProjectContext constructs the context a host passes to ProjectRule.Check.
@@ -91,13 +139,15 @@ func NewProjectContext(
   reporter ProjectReporter,
 ) *ProjectContext {
   copiedSources := append([]*shimast.SourceFile(nil), sources...)
+  stateSetter, _ := reporter.(projectStateSetter)
   return &ProjectContext{
-    Identity: identity,
-    Sources:  copiedSources,
-    Checker:  checker,
-    Severity: severity,
-    Options:  append(json.RawMessage(nil), options...),
-    reporter: reporter,
+    Identity:    identity,
+    Sources:     copiedSources,
+    Checker:     checker,
+    Severity:    severity,
+    Options:     append(json.RawMessage(nil), options...),
+    reporter:    reporter,
+    stateSetter: stateSetter,
   }
 }
 
@@ -108,6 +158,17 @@ func (c *ProjectContext) DecodeOptions(out interface{}) error {
     return nil
   }
   return json.Unmarshal(c.Options, out)
+}
+
+// SetState attaches one contributor-owned value to this rule's evaluated
+// result. The exact value is returned to file rules in the same Program cycle;
+// contributors own any synchronization needed inside it. The host does not
+// serialize the value or retain it for a later watch or LSP rebuild.
+func (c *ProjectContext) SetState(state any) {
+  if c == nil || c.stateSetter == nil || c.Severity == SeverityOff {
+    return
+  }
+  c.stateSetter.SetState(state)
 }
 
 // Fail marks the current project rule failed without adding a diagnostic.

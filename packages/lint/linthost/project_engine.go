@@ -3,6 +3,7 @@ package linthost
 import (
   "fmt"
   "sort"
+  "sync"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
@@ -10,7 +11,13 @@ import (
 )
 
 type projectCycleResults struct {
-  byName map[string]publicrule.ProjectRuleResult
+  byName map[string]projectCycleResult
+}
+
+type projectCycleResult struct {
+  status   publicrule.ProjectRuleStatus
+  severity Severity
+  reporter *projectReporter
 }
 
 func (r *projectCycleResults) ProjectResult(name string) publicrule.ProjectRuleResult {
@@ -21,28 +28,44 @@ func (r *projectCycleResults) ProjectResult(name string) publicrule.ProjectRuleR
   if !ok {
     return publicrule.ProjectRuleResult{Status: publicrule.ProjectRuleAbsent}
   }
-  result.Findings = append([]publicrule.ProjectFinding(nil), result.Findings...)
-  return result
+  if result.reporter == nil {
+    return publicrule.ProjectRuleResult{Status: result.status}
+  }
+  return result.reporter.snapshot()
 }
 
 type projectCycle struct {
-  findings []*Finding
-  results  *projectCycleResults
+  finalizeOnce sync.Once
+  findings     []*Finding
+  results      *projectCycleResults
 }
 
 type projectReporter struct {
+  mu       sync.Mutex
+  active   bool
   failed   bool
   messages map[string]struct{}
+  state    any
 }
 
 func (r *projectReporter) Fail() {
-  if r != nil {
+  if r == nil {
+    return
+  }
+  r.mu.Lock()
+  defer r.mu.Unlock()
+  if r.active {
     r.failed = true
   }
 }
 
 func (r *projectReporter) Report(message string) {
   if r == nil {
+    return
+  }
+  r.mu.Lock()
+  defer r.mu.Unlock()
+  if !r.active {
     return
   }
   r.failed = true
@@ -52,13 +75,85 @@ func (r *projectReporter) Report(message string) {
   r.messages[message] = struct{}{}
 }
 
+func (r *projectReporter) SetState(state any) {
+  if r == nil {
+    return
+  }
+  r.mu.Lock()
+  defer r.mu.Unlock()
+  if r.active {
+    r.state = state
+  }
+}
+
+func (r *projectReporter) snapshot() publicrule.ProjectRuleResult {
+  return r.snapshotLocked(false)
+}
+
+func (r *projectReporter) snapshotAndClose() publicrule.ProjectRuleResult {
+  return r.snapshotLocked(true)
+}
+
+func (r *projectReporter) snapshotLocked(close bool) publicrule.ProjectRuleResult {
+  if r == nil {
+    return publicrule.ProjectRuleResult{Status: publicrule.ProjectRuleAbsent}
+  }
+  r.mu.Lock()
+  defer r.mu.Unlock()
+  if close {
+    r.active = false
+  }
+  messages := make([]string, 0, len(r.messages))
+  for message := range r.messages {
+    messages = append(messages, message)
+  }
+  sort.Strings(messages)
+  status := publicrule.ProjectRulePassed
+  if r.failed {
+    status = publicrule.ProjectRuleFailed
+  }
+  findings := make([]publicrule.ProjectFinding, 0, len(messages))
+  for _, message := range messages {
+    findings = append(findings, publicrule.ProjectFinding{Message: message})
+  }
+  return publicrule.NewProjectRuleResult(status, r.state, findings, r)
+}
+
+func (c *projectCycle) finalize() []*Finding {
+  if c == nil || c.results == nil {
+    return nil
+  }
+  c.finalizeOnce.Do(func() {
+    names := make([]string, 0, len(c.results.byName))
+    for name := range c.results.byName {
+      names = append(names, name)
+    }
+    sort.Strings(names)
+    for _, name := range names {
+      entry := c.results.byName[name]
+      if entry.reporter == nil {
+        continue
+      }
+      result := entry.reporter.snapshotAndClose()
+      for _, finding := range result.Findings {
+        c.findings = append(c.findings, &Finding{
+          Rule:     name,
+          Severity: entry.severity,
+          Message:  finding.Message,
+        })
+      }
+    }
+  })
+  return append([]*Finding(nil), c.findings...)
+}
+
 func (e *Engine) evaluateProject(
   identity publicrule.ProjectIdentity,
   files []*shimast.SourceFile,
   checker *shimchecker.Checker,
-) projectCycle {
-  results := &projectCycleResults{byName: map[string]publicrule.ProjectRuleResult{}}
-  cycle := projectCycle{results: results}
+) *projectCycle {
+  results := &projectCycleResults{byName: map[string]projectCycleResult{}}
+  cycle := &projectCycle{results: results}
   names := allProjectRuleNames()
   if len(names) == 0 {
     return cycle
@@ -68,11 +163,11 @@ func (e *Engine) evaluateProject(
   for _, name := range names {
     setting := e.projectSettings[name]
     if !setting.Declared {
-      results.byName[name] = publicrule.ProjectRuleResult{Status: publicrule.ProjectRuleNotEvaluated}
+      results.byName[name] = projectCycleResult{status: publicrule.ProjectRuleNotEvaluated}
       continue
     }
     if setting.Severity == SeverityOff {
-      results.byName[name] = publicrule.ProjectRuleResult{Status: publicrule.ProjectRuleOff}
+      results.byName[name] = projectCycleResult{status: publicrule.ProjectRuleOff}
       continue
     }
     adapter, exists := registeredProjectRules[name]
@@ -83,7 +178,7 @@ func (e *Engine) evaluateProject(
       sources = e.projectSources(files)
       sourcesResolved = true
     }
-    reporter := &projectReporter{}
+    reporter := &projectReporter{active: true}
     context := publicrule.NewProjectContext(
       identity,
       sources,
@@ -93,25 +188,10 @@ func (e *Engine) evaluateProject(
       reporter,
     )
     runProjectRuleCheck(adapter, context, reporter)
-    messages := make([]string, 0, len(reporter.messages))
-    for message := range reporter.messages {
-      messages = append(messages, message)
+    results.byName[name] = projectCycleResult{
+      severity: setting.Severity,
+      reporter: reporter,
     }
-    sort.Strings(messages)
-    status := publicrule.ProjectRulePassed
-    if reporter.failed {
-      status = publicrule.ProjectRuleFailed
-    }
-    result := publicrule.ProjectRuleResult{Status: status}
-    for _, message := range messages {
-      result.Findings = append(result.Findings, publicrule.ProjectFinding{Message: message})
-      cycle.findings = append(cycle.findings, &Finding{
-        Rule:     name,
-        Severity: setting.Severity,
-        Message:  message,
-      })
-    }
-    results.byName[name] = result
   }
   return cycle
 }

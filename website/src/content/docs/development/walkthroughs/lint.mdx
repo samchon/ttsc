@@ -642,7 +642,39 @@ func (noCycles) Check(ctx *rule.ProjectContext) {
 func init() { rule.RegisterProject(noCycles{}) }
 ```
 
-The host runs each project rule once per Program, before file rules, even when `ctx.Sources` is empty. `ctx.Identity` keeps the caller's logical config and root spelling separate from the real paths used by the compiler, and also carries the invocation cwd, optional explicit project root, plugin-config origin, and lifecycle id. `ctx.Report` records a project finding and fails the rule; `ctx.Fail` fails it silently. A later file rule reads the finalized state through `ctx.ProjectResult(name)`, whose status is one of `absent`, `off`, `not_evaluated`, `passed`, or `failed`.
+The host runs each project rule once per Program, before file rules, even when `ctx.Sources` is empty. `ctx.Identity` keeps the caller's logical config and root spelling separate from the real paths used by the compiler, and also carries the invocation cwd, optional explicit project root, plugin-config origin, and lifecycle id. `ctx.Report` records a project finding and fails the rule; `ctx.Fail` fails it silently. A later file rule reads the same cycle through `ctx.ProjectResult(name)`, whose status is one of `absent`, `off`, `not_evaluated`, `passed`, or `failed`.
+
+Attach contributor-owned state when file rules must reuse the exact project binding selected during preflight:
+
+```go
+type projectBinding struct { /* contributor-owned fields */ }
+
+func (projectGuard) Check(ctx *rule.ProjectContext) {
+  ctx.SetState(loadProjectBinding(ctx.Identity))
+}
+
+func (guardedFileRule) Check(ctx *rule.Context, node *ast.Node) {
+  result := ctx.ProjectResult("demo/project-guard")
+  if result.Status != rule.ProjectRulePassed {
+    return
+  }
+  binding, ok := result.State.(*projectBinding)
+  if !ok {
+    return
+  }
+  if err := binding.Revalidate(); err != nil {
+    result.Report(err.Error())
+    return
+  }
+  useGuardedResource(binding, node)
+}
+```
+
+`SetState` stores one arbitrary Go value without interpretation or serialization. File rules receive the same interface value in that loaded Program cycle. The host does not carry it into another cycle: separate public API projects and later watch or LSP rebuilds rerun the project check with a new reporter. A contributor that needs a fresh state object creates it during each check.
+
+Each `ProjectResult` value is a snapshot of status and findings at the time of the call and carries the contributor's exact state value without copying its contents. Evaluated results also carry live `Report` and `Fail` methods until file dispatch finishes. Call `ctx.ProjectResult(name)` again when a helper needs to observe a failure reported earlier in the dispatch. Once dispatch finishes, a retained result can no longer mutate the cycle. `absent`, `off`, and `not_evaluated` results have nil state and inert mutation methods.
+
+The host serializes status transitions, deduplicates equal messages, and sorts distinct messages before finalization, including when AST-only file rules dispatch concurrently. Project findings are finalized after all file rules return but are placed before file findings in CLI, API, watch, and LSP results. The contributor owns synchronization for mutable fields inside its state value; the host only synchronizes the result wrapper.
 
 Project contributors follow the same options compatibility boundary as file contributors. They accept options by default, while a genuinely optionless implementation can add `AcceptsTtscLintOptions() bool { return false }` to reject accidental payloads.
 
