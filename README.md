@@ -29,7 +29,11 @@ npx ttsc --watch        # rebuild on save
 
 `ttsx` runs a file the way `tsx` or `ts-node` does, but it type-checks the whole project first, so a type error stops the run before anything executes.
 
-That covers the CLI. The integrations each have a short guide: [bundlers](https://ttsc.dev/docs/setup/unplugin) for Vite, webpack, and Next.js; [Metro](https://ttsc.dev/docs/setup/metro) for React Native and Expo; the [VS Code extension](https://ttsc.dev/docs/setup/vscode) for live editor diagnostics.
+That covers the CLI. The integrations each have a short guide:
+
+- [Bundlers](https://ttsc.dev/docs/setup/unplugin): Vite, webpack, Next.js, and the other unplugin targets.
+- [Metro](https://ttsc.dev/docs/setup/metro): React Native and Expo.
+- [VS Code extension](https://ttsc.dev/docs/setup/vscode): live editor diagnostics.
 
 ## Lint
 
@@ -80,7 +84,14 @@ src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const inst
   ~~~~~~~~~~~~~~
 ```
 
-Clean the project in place with `ttsc fix` (lint autofixes plus formatting) or `ttsc format` (formatting only, which never changes behavior). The rule catalog and every `format` key are in the [Lint & Format guide](https://ttsc.dev/docs/lint).
+Clean the project in place:
+
+```bash
+npx ttsc fix      # lint autofixes + format edits
+npx ttsc format   # format edits only, never changes behavior
+```
+
+The rule catalog and every `format` key are in the [Lint & Format guide](https://ttsc.dev/docs/lint).
 
 ## Graph
 
