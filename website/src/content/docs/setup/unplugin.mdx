@@ -45,10 +45,11 @@ export default defineConfig({
 });
 ```
 
-## Rollup / Rolldown
+## Rollup
 
 ```ts
-import ttsc from "@ttsc/unplugin/rollup"; // or "@ttsc/unplugin/rolldown"
+// rollup.config.ts
+import ttsc from "@ttsc/unplugin/rollup";
 
 export default {
   input: "src/index.ts",
@@ -57,7 +58,22 @@ export default {
 };
 ```
 
-One caveat worth knowing before it costs you an afternoon: the adapter emits transformed **TypeScript**, not JavaScript. Vite, esbuild, and Bun strip types on their own, so nothing to do there. Plain Rollup does not, so add an esbuild- or swc-based plugin after `ttsc()`, or the build fails parsing type syntax.
+One caveat worth knowing before it costs you an afternoon: the adapter emits transformed **TypeScript**, not JavaScript, and plain Rollup does not compile TypeScript itself. Add an esbuild- or swc-based plugin after `ttsc()`, or the build fails parsing type syntax. Bundlers that strip types on their own (Vite, Rolldown, esbuild, Bun) need no such step.
+
+## Rolldown
+
+```ts
+// rolldown.config.ts
+import ttsc from "@ttsc/unplugin/rolldown";
+
+export default {
+  input: "src/index.ts",
+  output: { dir: "dist", format: "esm" },
+  plugins: [ttsc()],
+};
+```
+
+Same shape as Rollup, but Rolldown ships its own TypeScript transform, so the downstream compile step Rollup needs does not apply here.
 
 ## esbuild
 
