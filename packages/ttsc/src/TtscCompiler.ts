@@ -259,6 +259,7 @@ interface ProjectResult {
 
 interface ProjectTransformation {
   dependencies?: Record<string, string[]>;
+  dependenciesComplete?: string[];
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   result: TtscBuildResult;
   typescript: Record<string, string>;
@@ -373,9 +374,17 @@ function toCompilerResult(project: ProjectResult): ITtscCompilerResult {
 function toCompilerTransformation(
   project: ProjectTransformation,
 ): ITtscCompilerTransformation {
-  const { dependencies, graph, result, typescript, volatile } = project;
+  const {
+    dependencies,
+    dependenciesComplete,
+    graph,
+    result,
+    typescript,
+    volatile,
+  } = project;
   const advisoryFields = {
     ...(dependencies === undefined ? {} : { dependencies }),
+    ...(dependenciesComplete === undefined ? {} : { dependenciesComplete }),
     ...(graph === undefined ? {} : { graph }),
     ...(volatile === undefined ? {} : { volatile }),
   };

@@ -42,6 +42,7 @@ import { outputText, spawnNative } from "./spawnNative";
  */
 export function transformProjectInMemory(options: ITtscCompilerContext): {
   dependencies?: Record<string, string[]>;
+  dependenciesComplete?: string[];
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   result: TtscBuildResult;
   typescript: Record<string, string>;
@@ -77,6 +78,7 @@ function transformProjectWithNativeHost(
   project: ITtscParsedProjectConfig,
 ): {
   dependencies?: Record<string, string[]>;
+  dependenciesComplete?: string[];
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   result: TtscBuildResult;
   typescript: Record<string, string>;
@@ -123,6 +125,7 @@ function transformProjectWithPlugins(
   project: ITtscParsedProjectConfig,
 ): {
   dependencies?: Record<string, string[]>;
+  dependenciesComplete?: string[];
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   result: TtscBuildResult;
   typescript: Record<string, string>;
@@ -207,16 +210,19 @@ function transformProjectWithPlugins(
 }
 
 /**
- * Collect the optional advisory envelope fields (`dependencies`, `graph`,
- * `volatile`) into a spreadable object, omitting absent fields so downstream
- * result shapes stay free of `undefined` keys.
+ * Collect the optional advisory envelope fields (`dependencies`,
+ * `dependenciesComplete`, `graph`, `volatile`) into a spreadable object,
+ * omitting absent fields so downstream result shapes stay free of `undefined`
+ * keys.
  */
 function envelopeSideChannels(output: {
   dependencies?: Record<string, string[]>;
+  dependenciesComplete?: string[];
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   volatile?: string[];
 }): {
   dependencies?: Record<string, string[]>;
+  dependenciesComplete?: string[];
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   volatile?: string[];
 } {
@@ -224,6 +230,9 @@ function envelopeSideChannels(output: {
     ...(output.dependencies === undefined
       ? {}
       : { dependencies: output.dependencies }),
+    ...(output.dependenciesComplete === undefined
+      ? {}
+      : { dependenciesComplete: output.dependenciesComplete }),
     ...(output.graph === undefined ? {} : { graph: output.graph }),
     ...(output.volatile === undefined ? {} : { volatile: output.volatile }),
   };
@@ -392,16 +401,21 @@ function nativePluginEnv(
  * treated as a protocol error and throws with the stderr/stdout context. JSON
  * parse errors are also wrapped with the same context message.
  *
- * The optional `dependencies`, `graph`, and `volatile` fields (see
- * `ITtscCompilerTransformation`) are forwarded when well-formed; entries that
- * do not match the expected shape are dropped rather than failing the transform
- * — the fields are advisory invalidation metadata, not output.
+ * The optional `dependencies`, `dependenciesComplete`, `graph`, and `volatile`
+ * fields (see `ITtscCompilerTransformation`) are forwarded when well-formed;
+ * entries that do not match the expected shape are dropped rather than failing
+ * the transform — the fields are advisory invalidation metadata, not output.
+ *
+ * Dropping a malformed `dependenciesComplete` member is the safe direction on
+ * purpose: an unlisted file keeps the sound host-owned bound, so a garbled
+ * declaration costs over-invalidation, never a stale output.
  */
 function parseNativeTransformOutput(
   stdout: string,
   stderr: string,
 ): {
   dependencies?: Record<string, string[]>;
+  dependenciesComplete?: string[];
   diagnostics: ITtscCompilerDiagnostic[];
   graph?: ITtscCompilerTransformation.IReferenceGraph;
   typescript: Record<string, string>;
@@ -410,6 +424,7 @@ function parseNativeTransformOutput(
   try {
     const parsed = JSON.parse(stdout) as {
       dependencies?: Record<string, string[]>;
+      dependenciesComplete?: string[];
       diagnostics?: ITtscCompilerDiagnostic[];
       graph?: ITtscCompilerTransformation.IReferenceGraph;
       typescript?: Record<string, string>;
@@ -421,10 +436,12 @@ function parseNativeTransformOutput(
       );
     }
     const dependencies = parseDependencyLists(parsed.dependencies);
+    const dependenciesComplete = parseFileList(parsed.dependenciesComplete);
     const graph = parseReferenceGraph(parsed.graph);
     const volatile = parseFileList(parsed.volatile);
     return {
       ...(dependencies === undefined ? {} : { dependencies }),
+      ...(dependenciesComplete === undefined ? {} : { dependenciesComplete }),
       ...(graph === undefined ? {} : { graph }),
       ...(volatile === undefined ? {} : { volatile }),
       diagnostics: Array.isArray(parsed.diagnostics) ? parsed.diagnostics : [],
@@ -497,9 +514,9 @@ function parseReferenceGraph(
 }
 
 /**
- * Normalize an optional string-list envelope field (`volatile`, and the
- * `globals`/`configs` graph sections), or `undefined` when absent or carrying
- * nothing usable.
+ * Normalize an optional string-list envelope field (`dependenciesComplete`,
+ * `volatile`, and the `globals`/`configs` graph sections), or `undefined` when
+ * absent or carrying nothing usable.
  */
 function parseFileList(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {

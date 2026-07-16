@@ -79,6 +79,8 @@ Options travel from the Metro config process to its worker processes through an 
 
 Metro keys its transform cache on each file's own content plus one static transformer key evaluated once per run, and its babel-transformer contract offers no per-file dependency registration. A `ttsc` transform can depend on a type declared in another file, so `@ttsc/metro` folds a project fingerprint into the static key: every input file under the project root, plus the [reference-graph](/docs/development/reference/driver-api#reference-graph) inputs outside it (`node_modules` declarations, monorepo sibling sources, out-of-root tsconfig `extends` ancestry), which the transformer records under `node_modules/.cache/ttsc-metro` as it runs. Editing any fingerprinted input re-keys the next run, so `metro bundle` and dev-server starts pick up cross-file type changes, `tsconfig` edits, and plugin configuration changes without `--reset-cache`.
 
+The recorded out-of-walk set follows what the transform core derives per file, so a plugin that declares its reported dependency list [complete](/docs/development/concepts/protocol#dependency-completeness) for a file narrows what that file contributes to the fingerprint. Files under the project root are walked regardless of any declaration.
+
 The granularity is project-level because Metro's contract admits nothing finer: one key per run means any fingerprinted change re-transforms every file on the next run. Two behaviors sit outside the mechanism's reach:
 
 - **Within a running dev server**, Metro re-transforms only files its watcher reports changed, so editing a type in file B refreshes a dependent file A on A's next transform. Save A, or restart the dev server; no `--reset-cache` is needed in either case.
