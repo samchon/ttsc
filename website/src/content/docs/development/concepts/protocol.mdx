@@ -394,7 +394,7 @@ For leaf-text mutations (string-literal, identifier, numeric-literal `.Text`), t
 
 #### Dependency completeness
 
-`dependenciesComplete` is the opt-in narrowing contract. It lists transformed files (same keys as `typescript`) for which the envelope's `dependencies[F]` entry is **complete**: every input to `typescript[F]` beyond `F` itself and the universal `graph.configs` chain appears in that entry. For a listed file a consumer derives `dependencies[F] ∪ graph.configs` instead of the union above, dropping `reach(edges, F) ∪ globals`. Nothing else changes: the field is per file, so an envelope may list some files and not others, and every unlisted file keeps the union.
+`dependenciesComplete` is the opt-in narrowing contract. It lists transformed files (same keys as `typescript`) for which the envelope's `dependencies[F]` entry is **complete**: every input to `typescript[F]` beyond `F` itself and the universal `graph.configs` chain appears in that entry. For a listed file a consumer derives `dependencies[F] ∪ graph.configs` rather than the default `reach(edges, F) ∪ globals ∪ configs ∪ dependencies[F]`. Nothing else changes: the field is per file, so an envelope may list some files and not others, and every unlisted file keeps the union.
 
 The narrowing exists because the host-owned bound is sound but coarse. Any file reachable through `F`'s import closure re-runs `F`'s loader, even when the transform never consulted it. A plugin that knows exactly which declarations it read (a Checker-driven generator's per-file consulted-declaration list) can report that set precisely, and this field is how it tells consumers the set is exhaustive.
 
