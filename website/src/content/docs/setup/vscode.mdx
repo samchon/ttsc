@@ -1,0 +1,57 @@
+# VS Code
+
+The extension shows your build's diagnostics in the editor. It reads the project's own `ttsc`, `typescript`, and plugin config, so what you see while typing is what `npx ttsc` will say in CI, including lint violations from `@ttsc/lint` and diagnostics from any other LSP-capable plugin.
+
+It needs VS Code 1.94 or later and a workspace with a `tsconfig.json` (or `jsconfig.json`).
+
+## Install
+
+Search `ttsc` in the Marketplace and pick the extension by `samchon`, or install from a shell:
+
+```bash
+npx @ttsc/vscode
+```
+
+That wraps the `code` CLI; the direct form is `code --install-extension samchon.ttsc`. If `code` is not on your `PATH`, run **Shell Command: Install 'code' command in PATH** from the command palette first.
+
+## What it adds
+
+- TypeScript-Go hover, navigation, completions, and diagnostics.
+- `@ttsc/lint` diagnostics and code actions, including fix-all and format.
+- Command palette entries: `ttsc: Fix all lint issues`, `ttsc: Format document`, `ttsc: Restart language server`.
+- Multi-root workspaces, each folder keeping its own `ttsc`, `typescript`, and plugin config.
+
+## Format on save
+
+Point the default formatter at the extension in `.vscode/settings.json`:
+
+```jsonc
+{
+  "[typescript][typescriptreact]": {
+    "editor.defaultFormatter": "samchon.ttsc",
+    "editor.formatOnSave": true
+  }
+}
+```
+
+It formats the live buffer on every save, using the `format` block from your `lint.config.ts`. Lint fixes stay off-save by default, because a lint fix can change what code means and a save should not. Opt in if you want them anyway:
+
+```jsonc
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll.ttsc": "explicit"
+  }
+}
+```
+
+## When nothing shows up
+
+Work through these in order:
+
+1. Confirm the workspace has a `tsconfig.json` or `jsconfig.json`.
+2. Confirm `ttsc` resolves in the project: `npx ttsc --version`.
+3. Confirm the project itself checks: `npx ttsc --noEmit`.
+4. Open **View → Output**, pick **ttsc** from the dropdown, and read the server log.
+5. For full LSP tracing, set `ttsc.trace.server` to `"verbose"` and reload the window.
+
+The full reference, including the uninstall command, is in the [`@ttsc/vscode` README](https://github.com/samchon/ttsc/tree/master/packages/vscode).

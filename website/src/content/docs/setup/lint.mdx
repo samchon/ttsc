@@ -1,0 +1,95 @@
+import { Tabs } from "nextra/components";
+
+# Lint & Format
+
+`@ttsc/lint` folds ESLint's job and Prettier's job into the compile you already run. No plugin resolution ceremony, no formatter fighting the linter: one config file, one pass, one exit code.
+
+## Install
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D ttsc @ttsc/lint typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D ttsc @ttsc/lint typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D ttsc @ttsc/lint typescript
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d ttsc @ttsc/lint typescript
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## The config file
+
+Drop a `lint.config.ts` next to `tsconfig.json`:
+
+```ts
+// lint.config.ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+    "eqeqeq": "error",
+    "typescript/no-explicit-any": "warning",
+  },
+  format: {
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: "all",
+  },
+} satisfies ITtscLintConfig;
+```
+
+Three severities: `"error"` fails the build, `"warning"` prints, `"off"` disables. Rules with options take an ESLint-style tuple, `["error", { "allowElseIf": false }]`.
+
+The `format` block configures the formatter and its keys mirror `.prettierrc`. Its mere presence (even an empty `format: {}`) enables `ttsc format` at Prettier defaults; it does not fail the build on formatting unless you set `format.severity`.
+
+## See it fail
+
+```ts
+// src/index.ts
+var count = 3;
+let total = count;
+```
+
+```text
+$ npx ttsc --noEmit
+src/index.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
+
+2 let total = count;
+      ~~~~~~~~~~~~~
+
+src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
+
+1 var count = 3;
+  ~~~~~~~~~~~~~~
+```
+
+Lint violations arrive as compiler diagnostics, in the same stream as type errors, with the rule name in brackets. The CI step that already runs `ttsc --noEmit` now gates lint too, for free.
+
+## Cleaning up
+
+```bash
+npx ttsc fix      # apply every fixable lint violation + format edits, then re-check
+npx ttsc format   # format edits only, never changes behavior
+```
+
+In the editor, the [VS Code extension](/docs/setup/vscode) surfaces the same diagnostics live and formats on save with this same `format` block.
+
+## Next
+
+- [Lint Setup](/docs/lint/setup): `ignores`, `configFile`, config discovery, and caching.
+- [Format](/docs/lint/format): every `format` key and the rules it drives.
+- [Rules](/docs/lint/rules): the full rule catalog.

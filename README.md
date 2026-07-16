@@ -149,7 +149,7 @@ Point your agent's MCP client at it. For Claude Code:
 }
 ```
 
-On codegraph's own agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by 77% to 86% and tool calls by 94% to 95%. See [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
+On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. See [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
 
 Your agent picks the tools up from the MCP handshake and uses them on its own. See [Setup](https://ttsc.dev/docs/setup#coding-agents-ttscgraph) for the full walk-through.
 
@@ -217,47 +217,6 @@ const matched = (() => {
 });
 console.log(matched); // true
 ```
-
-## Programmatic API
-
-Embed `ttsc` from another Node tool with the `TtscCompiler` class:
-
-```ts
-import { TtscCompiler } from "ttsc";
-
-const compiler = new TtscCompiler({ cwd: "./project" });
-const result = compiler.compile();
-
-if (result.type === "success") {
-  for (const [path, text] of Object.entries(result.output)) {
-    // path is project-relative ("dist/index.js", "dist/index.d.ts", ...)
-    console.log(path, text.length);
-  }
-} else if (result.type === "failure") {
-  for (const d of result.diagnostics) {
-    console.error(`${d.file}:${d.line}:${d.character} ${d.messageText}`);
-  }
-}
-```
-
-When one process transforms a project's files repeatedly (a watch server, an editor, a codegen tool), `TtscService` keeps the compiler host warm instead of recompiling per call. It compiles the project once, then answers per-file transform requests, and reflects in-memory edits through `updateFile`:
-
-```ts
-import { TtscService } from "ttsc";
-
-const service = new TtscService({ cwd: "./project" });
-try {
-  const code = await service.transformFile("src/index.ts");
-  await service.updateFile("src/index.ts", "export const x: number = 2;\n");
-  const next = await service.transformFile("src/index.ts");
-} finally {
-  service.dispose();
-}
-```
-
-`TtscService` runs through the linked-plugin host, so the project must declare at least one transform-stage plugin.
-
-See the [Programmatic API guide](https://ttsc.dev/docs/ttsc/api) for the full lifecycle, plugin overrides, and patterns. For browser embedding, see [`@ttsc/wasm`](https://github.com/samchon/ttsc/tree/master/packages/wasm) and the higher-level [`@ttsc/playground`](https://github.com/samchon/ttsc/tree/master/packages/playground) package.
 
 ### List of Plugins
 

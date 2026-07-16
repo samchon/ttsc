@@ -1,0 +1,118 @@
+import { Tabs } from "nextra/components";
+
+# Bundlers
+
+When a bundler owns your build, the `ttsc` CLI never runs, and neither would your plugins. `@ttsc/unplugin` runs the same plugin pass from inside the bundler. It reads the same `tsconfig.json` and the same `lint.config.ts`, so there is no second configuration to drift out of date.
+
+## Install
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D ttsc typescript @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D ttsc typescript @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D ttsc typescript @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d ttsc typescript @ttsc/unplugin
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Then add the adapter that matches your bundler. Two examples below; the pattern is always `@ttsc/unplugin/<bundler>`.
+
+## Vite
+
+```ts
+// vite.config.ts
+import ttsc from "@ttsc/unplugin/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [ttsc()],
+});
+```
+
+## Next.js
+
+```js
+// next.config.mjs
+import withTtsc from "@ttsc/unplugin/next";
+
+export default withTtsc({
+  /* your Next config */
+});
+```
+
+`withTtsc` covers the webpack path. Running `next dev --turbopack`? Turbopack has no JS plugin API, but it accepts the standalone loader through `turbopack.rules`; the exact block is in [Bundler integration](/docs/ttsc/bundler#turbopack).
+
+## The other eight
+
+Adapters ship for Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Turbopack, Farm, and Bun. Import the matching entrypoint (`@ttsc/unplugin/webpack`, `@ttsc/unplugin/esbuild`, and so on) and register it the way that bundler registers plugins.
+
+One caveat worth knowing before it costs you an afternoon: the adapter emits transformed TypeScript, not JavaScript. Vite, esbuild, and Bun strip types on their own, so nothing to do there. Plain Rollup does not, so add an esbuild- or swc-based plugin after `ttsc()`, or the build fails parsing type syntax.
+
+Every adapter, the option set, and watch-mode behavior: [Bundler integration](/docs/ttsc/bundler).
+
+## React Native / Expo
+
+Metro is not an unplugin target, so it has its own package. `@ttsc/metro` is a Metro transformer that runs the plugin pass on each TypeScript file, then hands the result to your existing Expo or React-Native Babel transformer.
+
+<Tabs items={["npm", "pnpm", "yarn", "bun"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install -D ttsc typescript @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add -D ttsc typescript @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add -D ttsc typescript @ttsc/metro
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    bun add -d ttsc typescript @ttsc/metro
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+```js
+// metro.config.js (Expo)
+const { getDefaultConfig } = require("expo/metro-config");
+const { withTtsc } = require("@ttsc/metro");
+
+module.exports = withTtsc(getDefaultConfig(__dirname));
+```
+
+For bare React Native, wrap `getDefaultConfig` from `@react-native/metro-config` instead. Same `tsconfig.json`, same `lint.config.ts`, same plugins. The options and the v1 caveats are in [Bundler integration](/docs/ttsc/bundler#react-native--expo-metro).
+
+## Options
+
+Most projects need none: the adapter finds `tsconfig.json` on its own. To point at a different config file:
+
+```ts
+ttsc({
+  project: "tsconfig.build.json",
+});
+```
+
+`compilerOptions` overrides settings without another config file, and `plugins` replaces the project's plugin list. The full set is in the [`@ttsc/unplugin` README](https://github.com/samchon/ttsc/tree/master/packages/unplugin#configuration).
+
+## CLI or bundler?
+
+Whichever tool owns the build runs the pass. A plain Node library builds with `npx ttsc`. A frontend behind Vite or webpack builds through `@ttsc/unplugin`. A monorepo with both uses both, one per package. React Native builds through `@ttsc/metro`. The plugin pass is identical everywhere, and diagnostics show up wherever the bundler surfaces them.
