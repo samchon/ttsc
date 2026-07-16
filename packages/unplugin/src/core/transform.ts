@@ -52,6 +52,20 @@ export interface TtscTransformAlias {
  */
 export interface TtscCachedProjectTransform {
   /**
+   * SHA-256 hash of every input the compiler reported outside the project walk
+   * (keyed by absolute path), captured at the time of the transform.
+   *
+   * The project walk cannot see files outside the project root or under ignored
+   * directories (`node_modules` declarations, monorepo sibling sources,
+   * out-of-root tsconfig `extends` ancestry), yet the host-owned reference
+   * graph proves they are transform inputs. Long-lived hosts that never clear
+   * the cache between builds (Metro workers, the Turbopack loader, Bun) would
+   * otherwise replay a project transform computed against a stale out-of-walk
+   * input for the whole process lifetime; per-build hosts clear the cache on
+   * `buildStart` and never replay across edits.
+   */
+  externalInputHashes?: Record<string, string>;
+  /**
    * SHA-256 hash of each project-relative input path at the time of the
    * transform.
    */
@@ -545,11 +559,12 @@ export function createTransformResult(
  * in-memory source, then compares the snapshot against the one captured when
  * the result was produced. Any input under the project root changing (the
  * module itself or a sibling the plugin reads) invalidates the entry and forces
- * a re-transform. Out-of-walk inputs a plugin pulls in (`node_modules`
- * declarations, sibling-package sources) are not seen here; adapters invalidate
- * on those through the derived watch inputs (the host-owned `graph` union the
- * reported `dependencies`) → `addWatchFile` → the bundler's next `buildStart`
- * cache clear.
+ * a re-transform. Out-of-walk inputs the compiler reported (`node_modules`
+ * declarations, sibling-package sources, out-of-root config ancestry) are
+ * validated through {@link TtscCachedProjectTransform.externalInputHashes};
+ * adapters additionally register them as derived watch inputs (the host-owned
+ * `graph` union the reported `dependencies`) → `addWatchFile` → the bundler's
+ * next `buildStart` cache clear.
  *
  * Both this snapshot and {@link collectInputHashes} draw their keys from the
  * exact same {@link collectProjectInputHashes} walk, so the two always agree on
@@ -567,7 +582,22 @@ function matchesCachedSource(
   const currentKey = toProjectKey(cached.projectRoot, file);
   const currentHashes = collectProjectInputHashes(cached.projectRoot);
   currentHashes[currentKey] = hashText(source);
-  return sameHashes(cached.inputHashes, currentHashes);
+  if (!sameHashes(cached.inputHashes, currentHashes)) {
+    return false;
+  }
+  // Re-hash the out-of-walk inputs the compiler reported for this generation
+  // over exactly the recorded key universe, so an edit to a `node_modules`
+  // declaration or a monorepo sibling source invalidates the entry even in a
+  // host that never clears the cache between builds. A new out-of-walk input
+  // cannot appear without some recorded input changing first: a new reference
+  // edge requires editing an in-walk source, and a new global or config file
+  // requires a tsconfig or package manifest change, both of which the project
+  // walk above already detects.
+  const externalHashes = cached.externalInputHashes ?? {};
+  return sameHashes(
+    externalHashes,
+    collectExternalInputHashes(Object.keys(externalHashes)),
+  );
 }
 
 /**
@@ -596,7 +626,13 @@ function collectInputHashes(props: {
   return hashes;
 }
 
-function collectProjectInputHashes(
+/**
+ * Hash every input file under `projectRoot` (the same walk universe
+ * {@link matchesCachedSource} validates against), keyed by project-relative
+ * slash path. Exported so hosts without a per-build boundary (`@ttsc/metro`)
+ * can fold the identical input universe into their own cache fingerprints.
+ */
+export function collectProjectInputHashes(
   projectRoot: string,
 ): Record<string, string> {
   const hashes: Record<string, string> = {};
@@ -644,6 +680,110 @@ function listProjectInputFiles(root: string): string[] {
   }
   out.sort();
   return out;
+}
+
+/**
+ * Report whether an absolute `file` belongs to the project walk universe of
+ * `root`: it lies under `root` and no segment of the relative path (including
+ * the basename) is an ignored directory name. The predicate mirrors
+ * {@link listProjectInputFiles} exactly, so "walk-visible" here means "hashed by
+ * {@link collectProjectInputHashes}". Anything else is an out-of-walk input that
+ * only the reference graph can prove relevant.
+ */
+export function isProjectWalkPath(root: string, file: string): boolean {
+  const relative = path.relative(path.resolve(root), path.resolve(file));
+  if (
+    relative.length === 0 ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    return false;
+  }
+  return relative
+    .split(path.sep)
+    .every((segment) => !isIgnoredProjectDirectory(segment));
+}
+
+/**
+ * Hash a list of absolute out-of-walk input paths: content SHA-256 for a
+ * readable file, a stable `missing` marker otherwise. The marker is state, not
+ * an error — a recorded input disappearing (or reappearing) must change the
+ * comparison exactly like a content edit. Exported so `@ttsc/metro` can re-hash
+ * its recorded snapshot with identical semantics at cache-key time.
+ */
+export function collectExternalInputHashes(
+  paths: readonly string[],
+): Record<string, string> {
+  const hashes: Record<string, string> = {};
+  for (const file of paths) {
+    try {
+      hashes[file] = hashText(fs.readFileSync(file));
+    } catch {
+      hashes[file] = "missing";
+    }
+  }
+  return hashes;
+}
+
+/**
+ * Derive the absolute out-of-walk input set of a whole project transform: the
+ * union of every reference-graph member (edge keys and targets, globals, the
+ * config chain) and every plugin-reported dependency, minus everything the
+ * project walk already hashes and the disposed temp-dir tsconfig. These are the
+ * inputs {@link matchesCachedSource}'s walk cannot see.
+ */
+function selectExternalInputPaths(props: {
+  projectRoot: string;
+  result: ITtscCompilerTransformation;
+  temporaryTsconfig?: string;
+}): string[] {
+  if (props.result.type === "exception") {
+    return [];
+  }
+  const members: string[] = [];
+  const graph = props.result.graph;
+  if (graph !== undefined) {
+    for (const [source, targets] of Object.entries(graph.edges ?? {})) {
+      members.push(source);
+      if (Array.isArray(targets)) {
+        members.push(...targets);
+      }
+    }
+    for (const listed of [graph.globals, graph.configs]) {
+      if (Array.isArray(listed)) {
+        members.push(...listed);
+      }
+    }
+  }
+  for (const entries of Object.values(props.result.dependencies ?? {})) {
+    if (Array.isArray(entries)) {
+      members.push(...entries);
+    }
+  }
+  const excluded =
+    props.temporaryTsconfig === undefined
+      ? undefined
+      : path.resolve(props.temporaryTsconfig);
+  const output: string[] = [];
+  const seen = new Set<string>();
+  for (const member of members) {
+    if (typeof member !== "string" || member.length === 0) {
+      continue;
+    }
+    const absolute = path.resolve(props.projectRoot, member);
+    if (
+      absolute === excluded ||
+      seen.has(absolute) ||
+      isProjectWalkPath(props.projectRoot, absolute)
+    ) {
+      continue;
+    }
+    seen.add(absolute);
+    output.push(absolute);
+  }
+  output.sort();
+  return output;
 }
 
 function isIgnoredProjectDirectory(name: string): boolean {
@@ -706,7 +846,15 @@ async function transformProject(props: {
       projectRoot,
       tsconfig: configured.path,
     }).transform();
+    const temporaryTsconfig =
+      configured.path === props.tsconfig ? undefined : configured.path;
     return {
+      // Capture the out-of-walk input hashes while the generation is fresh so
+      // cache validation can re-check them; computed before dispose so the
+      // exclusion of the temp-dir tsconfig is the only reason it never keys.
+      externalInputHashes: collectExternalInputHashes(
+        selectExternalInputPaths({ projectRoot, result, temporaryTsconfig }),
+      ),
       inputHashes: collectInputHashes({
         currentFile: props.currentFile,
         currentSource: props.currentSource,
@@ -717,9 +865,7 @@ async function transformProject(props: {
       // Remember the generated temp-dir tsconfig (disposed below) so watch
       // derivation can drop it from the envelope's config chain; a registered
       // but deleted file would invalidate every persistent-cache snapshot.
-      ...(configured.path === props.tsconfig
-        ? {}
-        : { temporaryTsconfig: configured.path }),
+      ...(temporaryTsconfig === undefined ? {} : { temporaryTsconfig }),
     };
   } finally {
     configured.dispose();

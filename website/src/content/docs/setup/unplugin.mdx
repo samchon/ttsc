@@ -197,6 +197,8 @@ Bundlers invalidate a module only when its registered inputs change, and they er
 
 This works for every adapter automatically when the transform host emits the envelope's `graph` section — the built-in host and linked plugins always do; executable sidecar plugins adopt through the [driver SDK](/docs/development/reference/driver-api#reference-graph). Plugins whose output additionally depends on non-file inputs declare those files [`volatile`](/docs/development/concepts/protocol#transform), which excludes them from caching entirely.
 
+The transform cache validates against the same input set: every file under the project root plus the graph-reported inputs outside it. Hosts that keep one cache for the process lifetime instead of per build (Metro workers, the Turbopack loader, Bun) therefore recompile when an out-of-project input such as a `node_modules` declaration or a monorepo sibling source changes, not only on in-project edits.
+
 ## CLI or bundler?
 
 Whichever tool owns the build runs the pass. A plain Node library builds with `npx ttsc`. A frontend behind Vite or webpack builds through `@ttsc/unplugin`. A monorepo with both uses both, one per package. The plugin pass is identical everywhere, and diagnostics show up wherever the bundler surfaces them.

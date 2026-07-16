@@ -308,6 +308,8 @@ The transform host reports the program's reference graph (the transform envelope
 
 Transform plugins may additionally report, per file, the source files they consulted (the envelope's `dependencies` field); the adapter registers those as watch files too, union semantics. Files a plugin declares `volatile` (output depending on non-file inputs such as environment or time) bypass the adapter's transform cache and are marked uncacheable where the bundler exposes that control.
 
+The transform cache itself validates against the same input set: every file under the project root plus the graph-reported inputs outside it (`node_modules` declarations, monorepo sibling sources, out-of-root `extends` ancestry). Hosts that keep one cache for the process lifetime instead of per build (Metro workers, the Turbopack loader, Bun) therefore recompile when any of those inputs changes, not only in-project ones.
+
 ## Sponsors
 
 [![Sponsors](https://raw.githubusercontent.com/samchon/sponsor-images/refs/heads/master/public/circle.svg)](https://github.com/sponsors/samchon)
