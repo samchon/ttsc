@@ -21,8 +21,16 @@ const MYTYPE_V2 = "export interface MyType { id: string; age: number }\n";
  * its module graph), while the fixture plugin's output embeds the file's
  * content. `withGraph` toggles the producer emitting the reference graph edge —
  * the invalidation channel under test.
+ *
+ * `declareComplete` additionally declares `src/main.ts`'s dependency list
+ * complete (samchon/ttsc#720) while the producer reports no dependencies at
+ * all, which is the under-declaration defect: the plugin genuinely reads
+ * `src/mytype.ts` but vouches for a list that omits it.
  */
-function createTypeEdgeProject(withGraph: boolean): string {
+function createTypeEdgeProject(
+  withGraph: boolean,
+  declareComplete = false,
+): string {
   const plugins: unknown[] = [
     {
       transform: "./plugin.cjs",
@@ -37,6 +45,14 @@ function createTypeEdgeProject(withGraph: boolean): string {
       name: "graph",
       operation: "emit-graph",
       edges: { "src/main.ts": ["src/mytype.ts"] },
+    });
+  }
+  if (declareComplete) {
+    plugins.push({
+      transform: "./plugin.cjs",
+      name: "completeness",
+      operation: "declare-complete",
+      complete: ["src/main.ts"],
     });
   }
   const root = TestUnpluginProject.createProject({
@@ -155,6 +171,36 @@ async function assertWebpackFilesystemCacheServesStaleWithoutGraph(): Promise<vo
 }
 
 /**
+ * Asserts the defect surface of the completeness contract (samchon/ttsc#720):
+ * an under-declared complete list makes webpack's kept filesystem cache serve
+ * stale generated code, exactly as if no graph existed.
+ *
+ * The producer here emits the reference graph edge, so
+ * {@link assertWebpackFilesystemCacheRebuildsThroughTypeOnlyEdge} proves the
+ * same project rebuilds soundly. The only difference is the declaration: the
+ * plugin vouches that `src/main.ts`'s reported dependency list is complete
+ * while reporting nothing, even though it reads `src/mytype.ts`. The host
+ * honors the claim, drops the graph edge, and the loader never re-runs. This is
+ * the responsibility transfer made observable: the platform behaves as
+ * documented, and the stale output is the plugin's bug.
+ */
+async function assertWebpackFilesystemCacheServesStaleForUnderDeclaredComplete(): Promise<void> {
+  const root = createTypeEdgeProject(true, true);
+  const config = await createWebpackConfig(root);
+
+  const first = await buildOnce(config);
+  assert.match(first, /ID: STRING/);
+
+  fs.writeFileSync(path.join(root, "src", "mytype.ts"), MYTYPE_V2, "utf8");
+  const second = await buildOnce(config);
+  assert.doesNotMatch(
+    second,
+    /AGE: NUMBER/,
+    "an under-declared complete list must drop the graph edge: the host does not audit the declaration",
+  );
+}
+
+/**
  * Asserts watch-mode invalidation: a running webpack watcher re-runs the
  * consumer's loader when a file reachable only through a type-only graph edge
  * changes. Polling watch keeps the scenario deterministic across platforms.
@@ -240,6 +286,7 @@ async function assertWebpackWatchRebuildsThroughTypeOnlyEdge(): Promise<void> {
 
 export {
   assertWebpackFilesystemCacheRebuildsThroughTypeOnlyEdge,
+  assertWebpackFilesystemCacheServesStaleForUnderDeclaredComplete,
   assertWebpackFilesystemCacheServesStaleWithoutGraph,
   assertWebpackWatchRebuildsThroughTypeOnlyEdge,
 };
