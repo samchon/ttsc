@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-strip",
-  "version": "0.19.0",
+  "version": "0.19.1",
   "description": "@ttsc/strip project-shape feature tests.",
   "type": "module",
   "scripts": {
