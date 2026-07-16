@@ -80,7 +80,7 @@ Metro keys its transform cache on each file's own content plus one static transf
 
 The granularity is project-level by necessity: Metro evaluates the transformer key once per run, so any fingerprinted change re-transforms every file on the next run. What remains outside the mechanism's reach:
 
-- **Within a running dev server**, Metro re-transforms only files its watcher reports changed. Editing a type in file B updates a dependent file A on A's next transform — save A, or restart the dev server (no `--reset-cache` needed).
+- **Within a running dev server**, Metro re-transforms only files its watcher reports changed. Editing a type in file B updates a dependent file A on A's next transform: save A, or restart the dev server (no `--reset-cache` needed).
 - **Files a plugin declares `volatile`** depend on non-file inputs that no fingerprint can represent; while a volatile declaration is recorded, cross-run cache reuse is disabled entirely.
 - **If `node_modules/.cache` is unwritable**, the recorded input set is unknown, and cross-run cache reuse is disabled rather than made unsound.
 
