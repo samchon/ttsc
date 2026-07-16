@@ -56,11 +56,34 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
-`npx ttsc fix` applies every fixable violation; `npx ttsc format` applies format edits only. The rule catalog and the format keys are in [Lint & Format](https://ttsc.dev/docs/lint).
+A violation arrives as a compiler diagnostic, in the same stream as a type error:
+
+```ts
+// src/index.ts
+var count = 3;
+let total = count;
+```
+
+```text
+$ npx ttsc --noEmit
+src/index.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
+
+2 let total = count;
+      ~~~~~~~~~~~~~
+
+src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
+
+1 var count = 3;
+  ~~~~~~~~~~~~~~
+```
+
+`npx ttsc fix` applies every fixable violation plus format edits; `npx ttsc format` applies only the edits that cannot change behavior. The rule catalog and the format keys are in [Lint & Format](https://ttsc.dev/docs/lint).
 
 ## Graph
 
 `@ttsc/graph` hands a coding agent a checker-resolved graph of your project, over MCP. It answers what relates to a symbol and what a change affects straight from the type checker, so the agent stops grepping and re-reading files.
+
+![@ttsc/graph agent token usage on TypeORM, baseline versus graph](https://ttsc.dev/benchmark/meetup-graph-token-usage.svg)
 
 ```bash
 npm install -D ttsc @ttsc/graph typescript
