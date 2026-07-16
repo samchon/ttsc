@@ -151,7 +151,7 @@ Point your agent's MCP client at it. For Claude Code:
 
 On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. See [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
 
-Your agent picks the tools up from the MCP handshake and uses them on its own. See [Setup](https://ttsc.dev/docs/setup#coding-agents-ttscgraph) for the full walk-through.
+Your agent picks the tools up from the MCP handshake and uses them on its own. See [Setup → Coding Agents](https://ttsc.dev/docs/setup/graph) for the full walk-through.
 
 ## Plugins
 

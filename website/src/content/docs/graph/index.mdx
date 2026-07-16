@@ -7,11 +7,11 @@ import TtscWebsiteGraphViewer3D from "../../../components/graph/TtscWebsiteGraph
 
 It runs `ttscgraph`, a native binary that keeps the type-checked project and resulting graph resident in memory. Before each graph operation it checks the config, root-file set, module-resolution inputs, and source contents. An unchanged project reuses the warm graph, a content-only edit updates the resident compiler incrementally, and config, file-addition, deletion, or resolution changes trigger a safe reload. Every relationship it reports is the current compiler's own answer, not a guess from reading text.
 
-## 1. Why an agent needs it
+## Why an agent needs it
 
 What the graph saves an agent, and what that looks like in tokens.
 
-### 1.1. The crawl it replaces
+### The crawl it replaces
 
 ![A file-by-file source crawl collapsing into a compiler-built graph index](/blog/images/source-crawl-vs-compiler-index.png)
 
@@ -21,7 +21,7 @@ Ask an agent how something works and, without the graph, it reconstructs the pic
 
 The graph hands it the answer up front through one MCP tool, `inspect_typescript_graph`. The agent chooses one request branch per call: `tour`, `overview`, `entrypoints`, `lookup`, `trace`, `details`, or `escape`. The agent stops fanning out across files.
 
-### 1.2. The token cost
+### The token cost
 
 Here is the median token cost on the shared onboarding question, `@ttsc/graph` against no MCP and the three comparators. Lower is better, and it stays flat as the repository grows.
 
@@ -29,11 +29,11 @@ Here is the median token cost on the shared onboarding question, `@ttsc/graph` a
 
 The [full benchmark](/docs/benchmark/graph) has every model, the per-repository prompts, the structural coverage, and the method.
 
-## 2. What the graph answers
+## What the graph answers
 
 The questions it resolves, and the edges only a compiler gets right.
 
-### 2.1. Structure, flow, and impact
+### Structure, flow, and impact
 
 The graph answers the questions an agent actually asks, all from the same checker-resolved facts:
 
@@ -45,7 +45,7 @@ The graph answers the questions an agent actually asks, all from the same checke
 
 A tree-sitter graph has no types and resolves edges by guessing from text. An editor's language server has types but no architecture projection. Only a graph built on the real checker holds the resolved structure and the affected set in one place. Every node and edge is resolved by the compiler, so an agent never mistakes inference for fact.
 
-### 2.2. What only the compiler can resolve
+### What only the compiler can resolve
 
 A text search or a tree-sitter parse stops where the syntax stops. A real type checker does not. So these edges are correct where a text tool can only guess:
 
@@ -55,11 +55,11 @@ A text search or a tree-sitter parse stops where the syntax stops. A real type c
 - **Your code vs the world.** Anything in `node_modules` or a `.d.ts` is reported as an outside boundary, not walked into. The graph stays your code.
 - **Generated code stays out of the way.** A source file your `.gitignore` covers, such as a Prisma client or other codegen emitted as `.ts`, is de-ranked: it never dominates a broad or keyword match, though it stays reachable as an edge target and by its exact name. The graph surfaces what you wrote, not what a generator did.
 
-## 3. Get started
+## Get started
 
 Install, connect an agent, and where to read next.
 
-### 3.1. Install and connect
+### Install and connect
 
 `@ttsc/graph` resolves the native binary from the `ttsc` platform package installed in the project it graphs, so install `ttsc` alongside it. When you launch from an unrelated directory and name the project with `--cwd`, the binary is resolved from that target project, not from the launcher's working directory.
 
@@ -84,7 +84,7 @@ Start the agent from your project root so the server finds your `tsconfig.json`,
 
 Your agent picks the tool up from the MCP handshake and calls it when it needs to. The full setup walk-through is in [Setup → Coding Agents](/docs/setup/graph).
 
-### 3.2. Where to next
+### Where to next
 
 - [Comparison](/docs/graph/compare): how it differs from codegraph, codebase-memory-mcp, and serena.
 - [Launch post](/blog/i-made-ts-compiler-graph-mcp): the design story, why it is one tool over an index, and where the numbers hold or break down.
