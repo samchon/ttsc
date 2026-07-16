@@ -9,7 +9,7 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 - **`ttsc`**: build, check, and transform.
 - **`ttsx`**: execute TypeScript with type checking.
 - [**`@ttsc/lint`**](https://github.com/samchon/ttsc/tree/master/packages/lint): lint violations as compiler errors.
-- [**`@ttsc/graph`**](https://github.com/samchon/ttsc/tree/master/packages/graph): MCP code graph that reduce token usage.
+- [**`@ttsc/graph`**](https://github.com/samchon/ttsc/tree/master/packages/graph): MCP code graph that reduces agent token usage.
 - **plugin support**: compiler-powered libraries, such as `typia`.
 
 ## Setup
