@@ -46,129 +46,59 @@ A `typescript-go` toolchain for compiler-powered plugins and type-safe execution
 
 ## Setup
 
-### Install
-
 Install `ttsc`, `@ttsc/lint`, and the native TypeScript compiler:
 
 ```bash
 npm install -D ttsc @ttsc/lint typescript
 ```
 
-### Commands
-
-Run TypeScript directly with `ttsx` (CLI command):
-
 ```bash
-npx ttsx src/index.ts
+npx ttsx src/index.ts   # run a file, type-checked first
+npx ttsc                # build
+npx ttsc --noEmit       # check only
+npx ttsc --watch        # rebuild on save
+npx ttsc format         # format source files in place
 ```
 
-Build, check, or watch the project with `ttsc`:
+`ttsc` reads the `tsconfig.json` you already have, same fields as `tsc`. Setup for the other surfaces is in the guide:
 
-```bash
-npx ttsc
-npx ttsc --noEmit
-npx ttsc --watch
-```
+- [Bundlers](https://ttsc.dev/docs/setup/unplugin): `@ttsc/unplugin` adapters for Vite, Rollup, Rolldown, esbuild, webpack, Rspack, Next.js, Turbopack, Farm, and Bun.
+- [React Native / Expo](https://ttsc.dev/docs/setup/metro): `@ttsc/metro`, the Metro transformer.
+- [VS Code](https://ttsc.dev/docs/setup/vscode): editor diagnostics that match your build, plus format on save.
 
-Rewrite source files in place with the `@ttsc/lint` format rules:
+## Lint
 
-```bash
-npx ttsc format
-```
-
-### Bundlers
-
-Use `@ttsc/unplugin` when a bundler owns your build.
-
-It runs `ttsc` plugins inside supported bundlers.
-
-```bash
-npm install -D ttsc @ttsc/lint typescript
-npm install -D @ttsc/unplugin
-```
-
-Minimal Vite setup:
+`@ttsc/lint` folds ESLint's job and Prettier's job into the compile: one `lint.config.ts`, one pass, one exit code. A lint violation fails the build through the same stream as a type error.
 
 ```ts
-// vite.config.ts
-import ttsc from "@ttsc/unplugin/vite";
-import { defineConfig } from "vite";
+// lint.config.ts
+import type { ITtscLintConfig } from "@ttsc/lint";
 
-export default defineConfig({
-  plugins: [ttsc()],
-});
+export default {
+  rules: {
+    "no-var": "error",
+    "prefer-const": "error",
+    "typescript/no-explicit-any": "warning",
+  },
+  format: {
+    printWidth: 100,
+    singleQuote: true,
+    trailingComma: "all",
+  },
+} satisfies ITtscLintConfig;
 ```
 
-Supported bundlers:
+`npx ttsc fix` applies every fixable violation; `npx ttsc format` applies format edits only. The rule catalog and the format keys are in [Lint & Format](https://ttsc.dev/docs/lint).
 
-- Vite
-- Rollup
-- Rolldown
-- esbuild
-- Webpack
-- Rspack
-- Next.js
-- Turbopack
-- Farm
-- Bun
+## Graph
 
-See [`@ttsc/unplugin`](https://github.com/samchon/ttsc/tree/master/packages/unplugin) for full setup and adapter options.
-
-### React Native / Expo
-
-React Native and Expo bundle with Metro, so the `ttsc` CLI and `@ttsc/unplugin` never run. `@ttsc/metro` is a Metro transformer that runs `ttsc` plugins on each TypeScript file, then hands the result to your existing Expo or React-Native Babel transformer.
-
-```bash
-npm install -D ttsc @ttsc/lint typescript
-npm install -D @ttsc/metro
-```
-
-Wrap your Metro config (CommonJS, the standard for `metro.config.js`):
-
-```js
-// metro.config.js (Expo)
-const { getDefaultConfig } = require("expo/metro-config");
-const { withTtsc } = require("@ttsc/metro");
-
-module.exports = withTtsc(getDefaultConfig(__dirname));
-```
-
-For bare React Native, wrap `getDefaultConfig` from `@react-native/metro-config` instead. See [`@ttsc/metro`](https://github.com/samchon/ttsc/tree/master/packages/metro) for options and the v1 caveats.
-
-### VS Code Extension
-
-Install the VS Code extension for live TypeScript-Go editor features plus saved-state ttsc plugin diagnostics and actions.
-
-Install it from the VS Code Marketplace by searching `ttsc`, or run:
-
-```bash
-npx @ttsc/vscode
-```
-
-Then turn on format-on-save in `.vscode/settings.json`:
-
-```jsonc
-"[typescript][typescriptreact]": {
-  "editor.defaultFormatter": "samchon.ttsc",
-  "editor.formatOnSave": true
-}
-```
-
-Lint fixes stay off-save by default; opt in with `"editor.codeActionsOnSave": { "source.fixAll.ttsc": "explicit" }`.
-
-See [`@ttsc/vscode`](https://github.com/samchon/ttsc/tree/master/packages/vscode) for requirements and settings.
-
-### Coding Agents (MCP)
-
-`@ttsc/graph` gives a coding agent a checker-resolved graph of your project, over MCP.
-
-It answers what relates to a symbol and what a change affects, straight from the type checker, so the agent stops grepping and re-reading files.
+`@ttsc/graph` hands a coding agent a checker-resolved graph of your project, over MCP. It answers what relates to a symbol and what a change affects straight from the type checker, so the agent stops grepping and re-reading files.
 
 ```bash
 npm install -D ttsc @ttsc/graph typescript
 ```
 
-Point your agent's MCP client at it. For Claude Code:
+Point your agent's MCP client at it. For Claude Code, a `.mcp.json` in the project root:
 
 ```json
 {
@@ -181,9 +111,7 @@ Point your agent's MCP client at it. For Claude Code:
 }
 ```
 
-On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. See [`@ttsc/graph`](https://github.com/samchon/ttsc/tree/master/packages/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
-
-Your agent picks the tools up from the MCP handshake and uses them on its own. See [Setup → Coding Agents](https://ttsc.dev/docs/setup/graph) for the full walk-through.
+On the agent-cost benchmark, Claude agents answer reading zero files, cutting tokens by roughly 90% and tool calls by 93% to 96%. See [Code Graph](https://ttsc.dev/docs/graph) and the [benchmark](https://ttsc.dev/docs/benchmark/graph).
 
 ## Plugins
 
