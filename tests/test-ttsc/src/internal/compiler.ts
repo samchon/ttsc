@@ -345,9 +345,9 @@ function writeArrayTransformPlugin(root: string) {
 
 /**
  * Write a transform plugin whose envelope mixes malformed and well-formed
- * advisory fields (`graph`, `volatile`), so API tests can pin the
- * drop-malformed-keep-valid tolerance the protocol requires for advisory
- * invalidation metadata.
+ * advisory fields (`graph`, `dependenciesComplete`, `volatile`), so API tests
+ * can pin the drop-malformed-keep-valid tolerance the protocol requires for
+ * advisory invalidation metadata.
  */
 function writeMalformedAdvisoryTransformPlugin(root: string) {
   fs.writeFileSync(
@@ -373,7 +373,7 @@ function writeMalformedAdvisoryTransformPlugin(root: string) {
       "",
       "func main() {",
       '\tif len(os.Args) > 1 && os.Args[1] == "transform" {',
-      '\t\tfmt.Println(`{"typescript":{"src/main.ts":"export const value = 1;\\n"},"graph":{"edges":{"src/main.ts":["src/good.d.ts"],"src/bad.ts":"not-a-list","src/worse.ts":[1,2]},"globals":"not-a-list","configs":["tsconfig.json",42]},"volatile":{"not":"a-list"}}`)',
+      '\t\tfmt.Println(`{"typescript":{"src/main.ts":"export const value = 1;\\n"},"graph":{"edges":{"src/main.ts":["src/good.d.ts"],"src/bad.ts":"not-a-list","src/worse.ts":[1,2]},"globals":"not-a-list","configs":["tsconfig.json",42]},"dependenciesComplete":["src/main.ts",42,""],"volatile":{"not":"a-list"}}`)',
       "\t\treturn",
       "\t}",
       "}",
@@ -464,6 +464,7 @@ function writeCompilerPluginBackend(pluginRoot: string) {
       "type transformResult struct {",
       '\tTypeScript map[string]string `json:"typescript"`',
       '\tDependencies map[string][]string `json:"dependencies,omitempty"`',
+      '\tDependenciesComplete []string `json:"dependenciesComplete,omitempty"`',
       '\tGraph *graphSection `json:"graph,omitempty"`',
       '\tVolatile []string `json:"volatile,omitempty"`',
       "}",
@@ -494,7 +495,11 @@ function writeCompilerPluginBackend(pluginRoot: string) {
       '\t\tConfigs: []string{"tsconfig.json"},',
       "\t}",
       '\tvolatile := []string{"src/volatile.ts"}',
-      '\tdata, err := json.Marshal(transformResult{TypeScript: map[string]string{"src/main.ts": output}, Dependencies: deps, Graph: graph, Volatile: volatile})',
+      "\t// Declare the reported dependency list complete the way a precise",
+      "\t// producer would, so API tests can pin the envelope's optional",
+      "\t// dependenciesComplete field.",
+      '\tcomplete := []string{"src/main.ts"}',
+      '\tdata, err := json.Marshal(transformResult{TypeScript: map[string]string{"src/main.ts": output}, Dependencies: deps, DependenciesComplete: complete, Graph: graph, Volatile: volatile})',
       "\tif err != nil { fmt.Fprintln(os.Stderr, err); return 2 }",
       "\tfmt.Fprintln(os.Stdout, string(data))",
       "\treturn 0",

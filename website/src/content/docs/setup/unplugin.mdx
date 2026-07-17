@@ -197,6 +197,8 @@ Bundlers invalidate a module only when its registered inputs change, and they er
 
 This works for every adapter automatically when the transform host emits the envelope's `graph` section — the built-in host and linked plugins always do; executable sidecar plugins adopt through the [driver SDK](/docs/development/reference/driver-api#reference-graph). Plugins whose output additionally depends on non-file inputs declare those files [`volatile`](/docs/development/concepts/protocol#transform), which excludes them from caching entirely.
 
+A plugin that knows exactly which declarations it consulted can go the other way and declare its reported list [complete](/docs/development/concepts/protocol#dependency-completeness) for a file. The adapter then registers only that list plus the tsconfig chain for it, so a change to a file the transform never read stops re-running the loader. Nothing is required of you: the field is per file and opt-in per plugin, and a plugin that never declares it keeps the sound default above.
+
 The transform cache validates against the same input set: every file under the project root plus the graph-reported inputs outside it. Hosts that keep one cache for the process lifetime instead of per build (Metro workers, the Turbopack loader, Bun) therefore recompile when an out-of-project input such as a `node_modules` declaration or a monorepo sibling source changes, not only on in-project edits.
 
 ## CLI or bundler?

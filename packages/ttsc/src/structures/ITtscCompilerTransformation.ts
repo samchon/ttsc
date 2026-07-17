@@ -82,6 +82,37 @@ export namespace ITtscCompilerTransformation {
     dependencies?: Record<string, string[]>;
 
     /**
+     * Transformed files (keyed like {@link typescript}) whose
+     * {@link dependencies} entry the transform host declares **complete**: every
+     * input beyond the file itself and the universal
+     * {@link IReferenceGraph.configs} chain is listed there.
+     *
+     * The declaration narrows invalidation. For a listed file a consumer uses
+     * `dependencies[F] ∪ graph.configs` instead of the union with the
+     * host-owned `reach(graph.edges, F) ∪ graph.globals` bound, so a change to
+     * a file the transform never consulted no longer re-runs it. Unlisted files
+     * keep the union, so a mixed envelope composes per file.
+     *
+     * This is a responsibility transfer, not a hint: an omission makes the
+     * consumer serve stale output, and that is a defect of the declaring plugin
+     * rather than of the host. Producers list a file only when the reported set
+     * is derived from what the transform actually consulted (a Checker-driven
+     * generator's per-file consulted-declaration list). When several plugin
+     * entries contribute to one file, the envelope's author may list it only if
+     * every contributing entry declared its own list complete for it.
+     *
+     * The config chain a listed file keeps is {@link graph}'s, so a host that
+     * declares completeness should stamp {@link graph} too; without it a listed
+     * file retains no universal input at all.
+     *
+     * Optional, and never required for correctness: an envelope without this
+     * field keeps the sound host-owned bound. A file that is both listed here
+     * and in {@link volatile} keeps the union, since the two claims contradict
+     * and the conservative one wins.
+     */
+    dependenciesComplete?: string[];
+
+    /**
      * Host-owned reference graph of the transformed program.
      *
      * Optional: only present when the transform host stamped a `graph` section
@@ -125,6 +156,13 @@ export namespace ITtscCompilerTransformation {
      * transform did not complete its pass.
      */
     dependencies?: Record<string, string[]>;
+
+    /**
+     * Files whose reported dependency list the host declares complete. Same
+     * shape and semantics as {@link ISuccess.dependenciesComplete}; may be
+     * partial when the transform did not complete its pass.
+     */
+    dependenciesComplete?: string[];
 
     /**
      * Host-owned reference graph. Same shape and semantics as
