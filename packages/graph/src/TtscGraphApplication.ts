@@ -1,6 +1,7 @@
 import { TtscGraphMemory } from "./model/TtscGraphMemory";
 import {
   RESULT_AUDIT,
+  RESULT_AUDIT_DETAILS,
   RESULT_AUDIT_ESCAPE,
   RESULT_AUDIT_SELECTION,
 } from "./server/resultAudit";
@@ -90,9 +91,11 @@ export class TtscGraphApplication implements ITtscGraphApplication {
         };
       }
       case "details": {
+        // details' identity is complete and its fan-out is a slice, which is
+        // not the walk-bounded-and-marked shape RESULT_AUDIT states.
         const r = runDetails(graph, props.request);
         return {
-          audit: RESULT_AUDIT,
+          audit: RESULT_AUDIT_DETAILS,
           next: r.next,
           result: r.result,
         };
