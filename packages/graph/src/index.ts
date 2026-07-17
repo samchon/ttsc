@@ -9,6 +9,7 @@ import { runView } from "./view";
 /** What a graph result says about where its facts came from. */
 export {
   RESULT_AUDIT,
+  RESULT_AUDIT_DETAILS,
   RESULT_AUDIT_ESCAPE,
   RESULT_AUDIT_SELECTION,
 } from "./server/resultAudit";
