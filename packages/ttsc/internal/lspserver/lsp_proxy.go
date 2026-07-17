@@ -1750,6 +1750,42 @@ func (p *Proxy) pluginCodeActionKinds() []string {
   return nil
 }
 
+// pluginCompletionHints returns the corpus a plugin published, or nil when the
+// source does not offer one.
+//
+// Optional-interface assertion for the same reason CodeActionKinds uses it: a
+// PluginSource that predates this — NullPluginSource included — must keep
+// compiling and must contribute nothing rather than break.
+func (p *Proxy) pluginCompletionHints() []LSPCompletionHint {
+  type completionHintSource interface {
+    CompletionHints() []LSPCompletionHint
+  }
+  if source, ok := p.source.(completionHintSource); ok {
+    return source.CompletionHints()
+  }
+  return nil
+}
+
+// pluginCompletionTriggerCharacters returns the characters that should wake the
+// editor for a plugin hint.
+//
+// The last character of each After is what the user types to reach the hint, so
+// that is what must be advertised. These are MERGED into whatever tsgo already
+// advertises, never substituted: tsgo's own list drives its completion, and
+// replacing it would silence the compiler's suggestions to make room for a
+// plugin's.
+func (p *Proxy) pluginCompletionTriggerCharacters() []string {
+  hints := p.pluginCompletionHints()
+  characters := make([]string, 0, len(hints))
+  for _, hint := range hints {
+    if hint.After == "" {
+      continue
+    }
+    characters = append(characters, hint.After[len(hint.After)-1:])
+  }
+  return characters
+}
+
 func (p *Proxy) setUpstreamCodeActionProvider(value any) {
   provides := true
   if boolValue, ok := value.(bool); ok {
