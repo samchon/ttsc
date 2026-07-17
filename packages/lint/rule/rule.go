@@ -198,6 +198,42 @@ type TextEdit struct {
   Text string
 }
 
+// Suggestion is one of several candidate fixes offered for a finding, each with
+// its own title. It exists for the case `ReportFix` cannot serve: when a rule
+// knows more than one valid repair and cannot pick among them for the author.
+//
+// The distinction is the same one the built-in rules already draw and, until
+// now, kept to themselves. A fix is imposed; a suggestion is chosen. A rule that
+// found three valid renames must either impose one arbitrarily through
+// `ReportFix` or describe the three in prose and offer none — both worse than
+// letting the editor present the choice, which is what the built-ins do through
+// this shape and contributors could not reach.
+//
+// Edits within one Suggestion follow the same non-overlap policy as `TextEdit`
+// in a `ReportFix` call.
+type Suggestion struct {
+  // Title is what the editor shows for this choice, e.g. "Rename to `frames`".
+  Title string
+  // Edits apply this suggestion. Empty means the suggestion is a label with no
+  // edit — a "did you mean" the author acts on by hand.
+  Edits []TextEdit
+}
+
+// SuggestionReporter is the optional half of the reporter a host implements to
+// carry suggestions. A host that does not implement it still receives the
+// finding through `Reporter`, without the choices — the same graceful
+// degradation `FixReporter` gives autofixes.
+//
+// It is separate from `FixReporter` rather than folded into it because the two
+// answer different questions: `ReportFix` offers the one right rewrite, this
+// offers a choice among several. A rule reaches it through
+// `Context.ReportSuggestion` / `ReportRangeSuggestion`; it is not called
+// directly.
+type SuggestionReporter interface {
+  ReportSuggestion(node *shimast.Node, message string, suggestions ...Suggestion)
+  ReportRangeSuggestion(pos, end int, message string, suggestions ...Suggestion)
+}
+
 // Context is the per-(file, rule) handle the engine passes to `Check`.
 // The `Reporter` is supplied by the host when constructing the context;
 // contributors call `ctx.Report` / `ctx.ReportRange` directly through
@@ -340,6 +376,48 @@ func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit
     return
   }
   fixer.ReportRangeFix(pos, end, message, edits...)
+}
+
+// ReportSuggestion records a finding at the node's range with a choice of
+// candidate fixes. A host that does not implement `SuggestionReporter` receives
+// the diagnostic without the choices, so design the rule so the message alone is
+// useful — the same best-effort contract as `ReportFix`.
+//
+// Use this over `ReportFix` only when there genuinely is a choice. One correct
+// rewrite is a fix; imposing it is the right thing. Several valid rewrites is a
+// suggestion; imposing one arbitrarily is not.
+func (c *Context) ReportSuggestion(node *shimast.Node, message string, suggestions ...Suggestion) {
+  if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
+    return
+  }
+  if len(suggestions) == 0 {
+    c.reporter.Report(node, message)
+    return
+  }
+  suggester, ok := c.reporter.(SuggestionReporter)
+  if !ok {
+    c.reporter.Report(node, message)
+    return
+  }
+  suggester.ReportSuggestion(node, message, suggestions...)
+}
+
+// ReportRangeSuggestion records a finding at an explicit byte range with a
+// choice of candidate fixes. See `ReportSuggestion`.
+func (c *Context) ReportRangeSuggestion(pos, end int, message string, suggestions ...Suggestion) {
+  if c == nil || c.reporter == nil || c.Severity == SeverityOff {
+    return
+  }
+  if len(suggestions) == 0 {
+    c.reporter.ReportRange(pos, end, message)
+    return
+  }
+  suggester, ok := c.reporter.(SuggestionReporter)
+  if !ok {
+    c.reporter.ReportRange(pos, end, message)
+    return
+  }
+  suggester.ReportRangeSuggestion(pos, end, message, suggestions...)
 }
 
 var registry []Rule
