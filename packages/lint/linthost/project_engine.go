@@ -1,6 +1,7 @@
 package linthost
 
 import (
+  "encoding/json"
   "fmt"
   "sort"
   "sync"
@@ -18,6 +19,11 @@ type projectCycleResult struct {
   status   publicrule.ProjectRuleStatus
   severity Severity
   reporter *projectReporter
+  // identity and options are the configuration this rule ran under, retained so
+  // a later consumer of its state — a hint corpus, say — can be handed the same
+  // context Check saw without the rule stashing a copy inside its own state.
+  identity publicrule.ProjectIdentity
+  options  json.RawMessage
 }
 
 func (r *projectCycleResults) ProjectResult(name string) publicrule.ProjectRuleResult {
@@ -191,6 +197,8 @@ func (e *Engine) evaluateProject(
     results.byName[name] = projectCycleResult{
       severity: setting.Severity,
       reporter: reporter,
+      identity: identity,
+      options:  setting.Options,
     }
   }
   return cycle
