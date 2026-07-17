@@ -66,6 +66,45 @@ func (g *Graph) putLiterals(checker *shimchecker.Checker, path string, statement
   if values, ok := literalValues(declared); ok {
     node.Literals = values
   }
+  if kind == NodeEnum {
+    node.EnumMembers = enumMembers(declared)
+  }
+}
+
+// enumMembers pairs each of an enum's members with the value it carries, as the
+// checker resolved them.
+//
+// The names are the half a caller writes. `literals` answers what values the
+// enum admits, which is the question a serializer asks, but the code says
+// `Colors.Red` and never `"red"` — so an enum whose node the graph already
+// holds still sent a caller to the file to learn what to type (#738). Both
+// halves come out of the same constituents, so the pairing is the checker's and
+// not a zip of two lists that could drift.
+//
+// A member whose value the checker could not fold to a constant still has a
+// name, and the name is the part this is for, so it is listed with an empty
+// value rather than taking the enum's whole outline down with it.
+func enumMembers(t *shimchecker.Type) []EnumMember {
+  constituents := []*shimchecker.Type{t}
+  if t.Flags()&shimchecker.TypeFlagsUnion != 0 {
+    constituents = t.Types()
+  }
+  out := make([]EnumMember, 0, len(constituents))
+  for _, constituent := range constituents {
+    symbol := constituent.Symbol()
+    if symbol == nil || symbol.Name == "" {
+      continue
+    }
+    member := EnumMember{Name: symbol.Name}
+    if value, ok := literalValue(constituent); ok {
+      member.Value = value
+    }
+    out = append(out, member)
+  }
+  if len(out) == 0 {
+    return nil
+  }
+  return out
 }
 
 // literalValues renders every constituent of t in TypeScript source form,
