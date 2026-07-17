@@ -362,11 +362,25 @@ func (s *NativePluginSource) discoverCompletionHints() {
   for _, plugin := range s.plugins {
     body, err := s.run(plugin, "lsp-hints")
     if err != nil {
-      s.log("%v", err)
+      // Silent, unlike every other discovery failure here. A plugin that does
+      // not know this verb rejects it as an unknown command, and that is the
+      // common case rather than the exceptional one: every plugin built before
+      // this channel existed, forever. Logging it would print an error per
+      // plugin per session for an optional feature nobody asked those plugins
+      // for — the same reasoning that makes CompletionHints an optional
+      // interface rather than a PluginSource method.
+      //
+      // The cost is that a plugin genuinely broken while producing hints also
+      // goes quiet. That is the right trade: its hints are absent either way,
+      // and the alternative is punishing every well-behaved old plugin to catch
+      // a rare new one.
       continue
     }
     var published []LSPCompletionHint
     if err := json.Unmarshal(body, &published); err != nil {
+      // Not silent. A plugin that answered and answered wrongly implements the
+      // verb and got it wrong, which is worth saying — unlike one that never
+      // implemented it at all.
       s.log("ttscserver: %s lsp-hints returned invalid JSON: %v", pluginLabel(plugin), err)
       continue
     }
