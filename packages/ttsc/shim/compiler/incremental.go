@@ -11,8 +11,8 @@ import (
   _ "unsafe"
 
   innerast "github.com/microsoft/typescript-go/internal/ast"
-  innercompiler "github.com/microsoft/typescript-go/internal/compiler"
   "github.com/microsoft/typescript-go/internal/collections"
+  innercompiler "github.com/microsoft/typescript-go/internal/compiler"
   "github.com/microsoft/typescript-go/internal/tspath"
 
   // The linknamed symbols below live in the incremental package; the blank
