@@ -14,6 +14,15 @@ type projectRuleAdapter struct {
   inner          publicrule.ProjectRule
   name           string
   acceptsOptions bool
+  // declinesTypeChecker records an explicit opt-out, so the zero value keeps
+  // the conservative default: a rule that never spoke still receives a checker.
+  //
+  // The negative spelling is deliberate. Adapters are constructed directly in
+  // several test helpers rather than through inspectProjectContributor, and a
+  // positive needsTypeChecker field would make those zero values silently deny
+  // a checker to a rule that reads one — the unsafe direction, reached by
+  // forgetting rather than by deciding.
+  declinesTypeChecker bool
 }
 
 var registeredProjectRules = map[string]projectRuleAdapter{}
@@ -65,7 +74,16 @@ func inspectProjectContributor(project publicrule.ProjectRule) (adapter projectR
   if optionsRule, ok := project.(publicrule.OptionsRule); ok {
     adapter.acceptsOptions = optionsRule.AcceptsTtscLintOptions()
   }
+  if typeAware, ok := project.(publicrule.TypeAwareRule); ok {
+    adapter.declinesTypeChecker = !typeAware.NeedsTypeChecker()
+  }
   return adapter, nil
+}
+
+// projectRuleNeedsTypeChecker reports whether a registered project rule wants a
+// live checker. An unknown name and a rule that never spoke both answer true.
+func projectRuleNeedsTypeChecker(name string) bool {
+  return !registeredProjectRules[name].declinesTypeChecker
 }
 
 func allProjectRuleNames() []string {

@@ -529,7 +529,11 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
         fmt.Errorf("@ttsc/lint: invalid options for rule %q: rule does not accept options", name),
       )
     }
-    if setting.Declared && setting.Severity != SeverityOff {
+    // A project rule shares the engine-wide checker decision with every file
+    // rule, so one that declines the checker must not drag the whole run onto
+    // the serial walk. An unmarked rule keeps the conservative default.
+    if setting.Declared && setting.Severity != SeverityOff &&
+      projectRuleNeedsTypeChecker(name) {
       eng.needsTypeChecker = true
     }
   }
