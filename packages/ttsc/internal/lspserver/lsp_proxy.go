@@ -36,6 +36,7 @@ const (
   methodFormatting         = "textDocument/formatting"
   methodDocumentSymbol     = "textDocument/documentSymbol"
   methodReferences         = "textDocument/references"
+  methodCompletion         = "textDocument/completion"
 )
 
 // formatDocumentCommand is the ttsc-owned workspace command that the lint
@@ -102,8 +103,11 @@ type Proxy struct {
   upstreamWriteMu sync.Mutex // serializes writes to upstreamIn
   asyncErrCh      chan error
 
-  pendingMu                sync.Mutex
-  pendingActions           map[string]pendingCodeActionRequest
+  pendingMu      sync.Mutex
+  pendingActions map[string]pendingCodeActionRequest
+  // pendingCompletions holds the plugin items computed for a forwarded
+  // completion request, keyed by request id, until upstream answers it.
+  pendingCompletions       map[string][]LSPCompletionItem
   pendingAugmentingActions map[string]struct{}
   pendingLocalActions      map[string]struct{}
   pendingCommands          map[string]struct{}
@@ -324,6 +328,8 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     if env.IsRequest() {
       return p.handleReferencesRequest(env)
     }
+  case methodCompletion:
+    return p.handleCompletionRequest(env)
   case methodCancelRequest:
     // $/cancelRequest names an in-flight id the editor has given up on.
     // The proxy drops any pending codeAction entry for that id so the
@@ -369,6 +375,10 @@ func (p *Proxy) forgetCancelledRequest(env Envelope) {
   delete(p.pendingLocalActions, key)
   delete(p.pendingCommands, key)
   delete(p.pendingInitialize, key)
+  // Completion is cancelled constantly — every keystroke supersedes the last
+  // request — so a pending entry that outlived its cancel would leak per
+  // character typed.
+  delete(p.pendingCompletions, key)
 }
 
 func (p *Proxy) handleCodeActionRequest(env Envelope) (bool, error) {
@@ -938,7 +948,14 @@ func (p *Proxy) augmentUpstream(env Envelope, body []byte) []byte {
     if pendingInitialize {
       delete(p.pendingInitialize, key)
     }
+    completions, hasCompletions := p.pendingCompletions[key]
+    if hasCompletions {
+      delete(p.pendingCompletions, key)
+    }
     p.pendingMu.Unlock()
+    if hasCompletions {
+      return mergeCompletionResponse(body, completions)
+    }
     if pendingInitialize {
       if augmented, augOk := p.augmentInitializeResult(env); augOk {
         return augmented
@@ -1631,6 +1648,21 @@ func (p *Proxy) augmentInitializeResult(env Envelope) ([]byte, bool) {
     }
     provider["commands"] = mergeCommandIDs(provider["commands"], commands)
     caps["executeCommandProvider"] = provider
+    changed = true
+  }
+  // Merge the plugin's trigger characters into tsgo's completionProvider
+  // rather than replacing it. tsgo already advertises `.`, `"`, `'`, backtick,
+  // `/`, `@`, `<`, and `#`, and that list is what wakes its own completion —
+  // substituting a plugin's would silence the compiler's suggestions to make
+  // room for a rule's. When upstream advertises nothing, synthesize the
+  // provider so the editor asks at all.
+  if triggers := p.pluginCompletionTriggerCharacters(); len(triggers) > 0 {
+    provider, _ := caps["completionProvider"].(map[string]any)
+    if provider == nil {
+      provider = map[string]any{}
+    }
+    provider["triggerCharacters"] = mergeCommandIDs(provider["triggerCharacters"], triggers)
+    caps["completionProvider"] = provider
     changed = true
   }
   // Advertise documentFormattingProvider when ttsc owns the document

@@ -63,6 +63,12 @@ type NativePluginSource struct {
 
   commandIDs      []string
   codeActionKinds []string
+
+  // completionHints is filled by a background fetch, so it needs a lock the
+  // static verbs do not: the proxy reads it from the completion path while
+  // discovery may still be writing it.
+  hintsMu         sync.RWMutex
+  completionHints []LSPCompletionHint
   owners          map[string]NativeLSPPluginEntry
   logMu           sync.Mutex
 }
@@ -140,6 +146,11 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
     owners:             map[string]NativeLSPPluginEntry{},
   }
   source.discoverCommandIDs()
+  // The corpus fetch loads a Program, so it runs off the construction path.
+  // Blocking here would delay initialize — and therefore the editor's first
+  // response — for a feature most projects do not use. Until it lands,
+  // CompletionHints answers nil and the editor sees exactly what it sees today.
+  go source.discoverCompletionHints()
   return source, nil
 }
 
@@ -315,6 +326,62 @@ func (s *NativePluginSource) CommandIDs() []string {
 }
 
 // CodeActionKinds returns the action kinds discovered from LSP-capable sidecars.
+// CompletionHints returns the corpus plugins published, or nil until it has
+// been fetched.
+//
+// Nil while loading is deliberate and is the whole reason the fetch is
+// asynchronous. Unlike lsp-command-ids and lsp-code-action-kinds — which ignore
+// their arguments and never build a Program — lsp-hints must load one, because
+// a corpus is a projection of what a project rule's Check found. Paying that on
+// the initialize path would delay every editor session for a feature most
+// projects do not use, and paying it on the first completion would freeze the
+// popup. Answering "no hints yet" degrades honestly: the editor still gets
+// tsgo's completion, and ours appear once they exist.
+func (s *NativePluginSource) CompletionHints() []LSPCompletionHint {
+  if s == nil {
+    return nil
+  }
+  s.hintsMu.RLock()
+  defer s.hintsMu.RUnlock()
+  if len(s.completionHints) == 0 {
+    return nil
+  }
+  out := make([]LSPCompletionHint, len(s.completionHints))
+  copy(out, s.completionHints)
+  return out
+}
+
+// discoverCompletionHints fetches every plugin's corpus.
+//
+// A separate pass from discoverCommandIDs rather than another step inside it.
+// That loop abandons the rest of a plugin's discovery on any error, so folding
+// hints in would mean a plugin whose corpus failed also lost its code action
+// kinds — one optional feature taking down a working one.
+func (s *NativePluginSource) discoverCompletionHints() {
+  hints := []LSPCompletionHint{}
+  for _, plugin := range s.plugins {
+    body, err := s.run(plugin, "lsp-hints")
+    if err != nil {
+      s.log("%v", err)
+      continue
+    }
+    var published []LSPCompletionHint
+    if err := json.Unmarshal(body, &published); err != nil {
+      s.log("ttscserver: %s lsp-hints returned invalid JSON: %v", pluginLabel(plugin), err)
+      continue
+    }
+    for _, hint := range published {
+      if hint.Scope == "" || hint.After == "" || len(hint.Items) == 0 {
+        continue
+      }
+      hints = append(hints, hint)
+    }
+  }
+  s.hintsMu.Lock()
+  s.completionHints = hints
+  s.hintsMu.Unlock()
+}
+
 func (s *NativePluginSource) CodeActionKinds() []string {
   if s == nil || len(s.codeActionKinds) == 0 {
     return nil
