@@ -66,7 +66,7 @@ export namespace ITtscGraphDetails {
     /**
      * Maximum direct execution and type references per group.
      *
-     * @default 1
+     * @default 2
      */
     dependencyLimit?: number;
 

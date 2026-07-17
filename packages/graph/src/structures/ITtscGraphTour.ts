@@ -66,7 +66,7 @@ export namespace ITtscGraphTour {
      * Central entrypoints to seed the tour. Raise only when the question names
      * several public paths that must all appear in one answer.
      *
-     * @default 4
+     * @default 5
      */
     limit?: number;
 
