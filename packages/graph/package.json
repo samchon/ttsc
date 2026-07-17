@@ -22,6 +22,9 @@
     "@typia/mcp": "catalog:samchon",
     "typia": "catalog:samchon"
   },
+  "peerDependencies": {
+    "ttsc": "workspace:*"
+  },
   "keywords": [
     "ttsc",
     "mcp",

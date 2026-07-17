@@ -49,6 +49,19 @@ func Checker_getRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerche
   return checkerGetRegularTypeOfLiteralType(recv, t)
 }
 
+// ValueToString renders a literal type's value in TypeScript source form: a
+// string as a double-quoted, escaped literal, a number, boolean, or bigint as
+// the way it is written. It is the checker's own renderer, so a consumer
+// enumerating a literal union reports the values the way the compiler prints
+// them, including numeric formatting and string escaping it should not re-derive.
+//
+// It panics on a value it does not handle — notably the nil a computed enum
+// member carries — so a caller holding a `LiteralType.Value()` must reject nil
+// before calling this.
+func ValueToString(value any) string {
+  return innerchecker.ValueToString(value)
+}
+
 // Checker_typeToStringFullyQualified formats a type with the same stable,
 // alias-aware flags TypeScript uses in diagnostics that name union members.
 // Keeping the flag bundle inside the shim avoids leaking checker-internal enum

@@ -145,8 +145,26 @@ export namespace ITtscGraphDetails {
     /** Concrete nodes that implement or override this interface/base member. */
     implementedBy?: IReference[];
 
-    /** String literal values from the signature. */
+    /**
+     * The values a type alias or enum admits, in TypeScript source form (`"a"`,
+     * `1`, `true`, `null`) — the checker's resolved union members, not the
+     * quoted tokens that happened to fit in `signature`.
+     *
+     * Complete unless `literalsTruncated` says otherwise, and absent when the
+     * type has no enumerable value set. A `signature` is capped at the
+     * declaration head, so for a union or enum written across several lines
+     * this is the field that carries the members.
+     */
     literals?: string[];
+
+    /**
+     * True when `literals` was cut to the response cap; the values listed
+     * stand, but they are a prefix of the set rather than all of it.
+     *
+     * `literals` claims to be the whole type, so the one case where it is not
+     * has to say so. Read the declaration for the rest.
+     */
+    literalsTruncated?: boolean;
 
     /**
      * Owned symbol or top-level property outline a consumer reaches for on a

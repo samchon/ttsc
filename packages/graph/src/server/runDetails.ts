@@ -13,6 +13,11 @@ import { IRunnerOutput, resultNext } from "./resultNext";
 
 // A signature is the declaration head up to the body brace: a handful of lines.
 const MAX_SIGNATURE_LINES = 4;
+// A value set is the answer to "what may this be", so it is listed rather than
+// sampled: the cap is high enough that a real union or enum arrives whole, and
+// exists only so a type expanded from a template literal cannot flood a
+// response. Past it, literalsTruncated says so and the declaration has the rest.
+const MAX_LITERALS = 60;
 // A doc summary is one sentence; the rest of the comment is the file's to keep.
 const MAX_DOC_CHARS = 200;
 // Neighbor lists are a map, not a dump; keep them scannable.
@@ -101,7 +106,6 @@ export function runDetails(
     if (sig !== undefined) detail.signature = sig;
     const doc = docOf(graph.project, node);
     if (doc !== undefined) detail.doc = doc;
-    const signatureLiterals = literalSummaries(sig);
     const decorators = decoratorsOf(node);
     if (decorators !== undefined) detail.decorators = decorators;
     const implementation = evidenceCoordinatesOf(node.implementation);
@@ -150,8 +154,11 @@ export function runDetails(
       );
       if (list.length > 0) detail.members = list;
     }
-    if (signatureLiterals.length > 0)
-      detail.literals = signatureLiterals.slice(0, 6);
+    const literals = node.literals ?? [];
+    if (literals.length > 0) {
+      detail.literals = literals.slice(0, MAX_LITERALS);
+      if (literals.length > MAX_LITERALS) detail.literalsTruncated = true;
+    }
     if (wantNeighbors) {
       detail.dependsOn = refs(
         graph,
@@ -427,30 +434,6 @@ function incomingDependencyRefs(
     if (out.length >= limit) break;
   }
   return out;
-}
-
-function literalSummaries(text: string | undefined): string[] {
-  if (text === undefined) return [];
-  const out: string[] = [];
-  for (const match of text.matchAll(/(["'`])((?:\\.|(?!\1).){1,80})\1/g)) {
-    const value = cleanLiteral(match[2]);
-    if (value !== undefined && !out.includes(value)) out.push(value);
-    if (out.length >= 20) break;
-  }
-  return out;
-}
-
-function cleanLiteral(value: string | undefined): string | undefined {
-  const text = value?.replace(/\s+/g, " ").trim();
-  if (
-    text === undefined ||
-    text === "" ||
-    text.length > 40 ||
-    /^[{}()[\],.:;]+$/.test(text)
-  ) {
-    return undefined;
-  }
-  return text;
 }
 
 function bound(

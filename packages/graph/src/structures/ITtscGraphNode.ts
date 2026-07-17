@@ -64,6 +64,19 @@ export interface ITtscGraphNode {
   modifiers?: TtscGraphNodeModifier[];
 
   /**
+   * The complete value set of a type alias or enum whose declared type the
+   * checker resolved to literals, each in TypeScript source form (`"a"`, `1`,
+   * `true`, `null`).
+   *
+   * Present only when every constituent is enumerable, so the list is the whole
+   * type and never a sample of it: `type T = Kind | string` admits values no
+   * list can name and carries none. It is resolved from the type, not read off
+   * the declaration, so indirection (`type I = Kind | 'f'`) is followed and the
+   * answer does not depend on how the declaration is wrapped.
+   */
+  literals?: string[];
+
+  /**
    * Decorators written on this declaration, in source order: raw facts
    * (`@Controller`, `@Get`) a consumer interprets without re-parsing source.
    */
