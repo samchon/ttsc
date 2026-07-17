@@ -267,7 +267,8 @@ function compileSourcePlugin(opts: {
             .join(", ")}`;
     process.stderr.write(
       `ttsc: building ${opts.label} "${opts.pluginName}" from ${opts.source}${extra} ` +
-        `(this runs once per cache key and can take several minutes on a cold Go cache)\n`,
+        `(this runs once per cache key and can take several minutes on a cold Go cache) ` +
+        `See https://ttsc.dev/docs/ttsc/compile#plugin-cache to persist it across builds.\n`,
     );
   }
 
