@@ -28,4 +28,7 @@ func TestBoundariesEntryPointRejectsNonEntryImport(t *testing.T) {
     "src/domain/internal.ts": "export {};",
   })
   assertSingleBoundaryFinding(t, ruleName, findings, `entry point`)
+  // The element's entry patterns are what a legal import must go through, and
+  // the rule holds them when it reports, so the message names them.
+  assertSingleBoundaryFinding(t, ruleName, findings, `Allowed here: index.ts.`)
 }

@@ -59,7 +59,10 @@ func (boundariesElementTypes) Check(ctx *Context, node *shimast.Node) {
     }
     message := fmt.Sprintf("Import from boundary element %q is not allowed in %q.", target.Type, source.Type)
     if rule != nil && rule.Message != "" {
+      // A user wrote this; appending to it would be presumptuous.
       message = rule.Message
+    } else if rule != nil {
+      message += describeBoundaryAllowed(rule.Allow)
     }
     reportBoundaryDependency(ctx, dep, message)
   }
@@ -80,6 +83,8 @@ func (boundariesExternal) Check(ctx *Context, node *shimast.Node) {
     message := fmt.Sprintf("External dependency %q is not allowed.", dep.specifier)
     if opts.Message != "" {
       message = opts.Message
+    } else {
+      message += describeBoundaryAllowed(opts.Allow)
     }
     reportBoundaryDependency(ctx, dep, message)
   }
@@ -109,7 +114,11 @@ func (boundariesEntryPoint) Check(ctx *Context, node *shimast.Node) {
     if matchBoundaryElementLocalPattern(target.Entry, target) {
       continue
     }
-    reportBoundaryDependency(ctx, dep, fmt.Sprintf("Import %q through an allowed boundary entry point.", target.RelativePath))
+    reportBoundaryDependency(ctx, dep, fmt.Sprintf(
+      "Import %q through an allowed boundary entry point.%s",
+      target.RelativePath,
+      describeBoundaryAllowed(target.Entry),
+    ))
   }
 }
 
@@ -157,7 +166,11 @@ func (boundariesNoUnknown) Check(ctx *Context, node *shimast.Node) {
     if classifyBoundaryFile(targetPath, opts.Elements) != nil {
       continue
     }
-    reportBoundaryDependency(ctx, dep, fmt.Sprintf("Imported file %q does not match any configured boundary element.", boundaryDisplayPath(targetPath)))
+    reportBoundaryDependency(ctx, dep, fmt.Sprintf(
+      "Imported file %q does not match any configured boundary element.%s",
+      boundaryDisplayPath(targetPath),
+      describeBoundaryElements(opts.Elements),
+    ))
   }
 }
 
@@ -458,6 +471,71 @@ func resolveBoundaryImport(sourceFileName, specifier string) (string, bool) {
     }
   }
   return "", false
+}
+
+// describeBoundaryAllowed renders a set of allowed patterns as a clause a
+// message can append, or "" when there is nothing to name.
+//
+// A boundary rule computes what would be acceptable in order to decide, then
+// reports only that the code is wrong — leaving the reader to open lint.config
+// to learn what is allowed. Naming the set closes that gap for the cost of a
+// join, and matches what unicorn/import-style and prevent-abbreviations already
+// do. An empty set returns "" rather than an empty list, because a deny-only
+// policy has no allowed set to offer and "allowed here: " with nothing after it
+// is worse than silence.
+func describeBoundaryAllowed(patterns boundaryStringList) string {
+  if len(patterns) == 0 {
+    return ""
+  }
+  items := make([]string, 0, len(patterns))
+  for _, pattern := range patterns {
+    if pattern == "" {
+      continue
+    }
+    items = append(items, pattern)
+  }
+  if len(items) == 0 {
+    return ""
+  }
+  // Truncate rather than print a wall. A message that scrolls off the line is
+  // its own failure, and the first several patterns are enough to orient.
+  const limit = 6
+  suffix := ""
+  if len(items) > limit {
+    suffix = ", ..."
+    items = items[:limit]
+  }
+  return " Allowed here: " + strings.Join(items, ", ") + suffix + "."
+}
+
+// describeBoundaryElements names the configured element types, for a
+// "does not match any element" message that would otherwise make the reader
+// go find the list themselves. Phrased as "Configured elements" rather than
+// "Allowed", because no-unknown is about which elements exist, not which imports
+// a policy permits.
+func describeBoundaryElements(elements []boundaryElement) string {
+  types := make([]string, 0, len(elements))
+  seen := map[string]struct{}{}
+  for _, element := range elements {
+    if element.Type == "" {
+      continue
+    }
+    if _, ok := seen[element.Type]; ok {
+      continue
+    }
+    seen[element.Type] = struct{}{}
+    types = append(types, element.Type)
+  }
+  if len(types) == 0 {
+    return ""
+  }
+  const limit = 6
+  suffix := ""
+  if len(types) > limit {
+    suffix = ", ..."
+    types = types[:limit]
+  }
+  return " Configured elements: " + strings.Join(types, ", ") + suffix + "."
 }
 
 func reportBoundaryDependency(ctx *Context, dep boundaryDependency, message string) {
