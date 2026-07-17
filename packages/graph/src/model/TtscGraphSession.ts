@@ -5,6 +5,7 @@ import typia from "typia";
 import { ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
 import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
+import { DUMP_SCHEMA_VERSION } from "./loadGraph";
 import { TtscGraphMemory } from "./TtscGraphMemory";
 
 /**
@@ -226,6 +227,32 @@ export class TtscGraphSession {
       );
       return;
     }
+    // The envelope's version is not the body's, and only the envelope has been
+    // held to one so far. A producer can speak this protocol and still carry a
+    // dump from another schema — the two move apart the moment a node field is
+    // added without the frame around it changing — and then the facts that field
+    // holds are silently absent rather than refused. `literals` is exactly that
+    // shape: an older producer resolves no value set, so a union comes back
+    // looking like a type with no members. Hold the body to its own number too,
+    // once the frame is understood.
+    if (
+      response.dump !== undefined &&
+      response.dump.provenance.schemaVersion !== DUMP_SCHEMA_VERSION
+    ) {
+      // Session-wide, for the same reason the protocol mismatch above is: it is
+      // the wrong binary, not one bad frame.
+      this.failPending(
+        new Error(
+          `@ttsc/graph: ttscgraph sends dump schema v${String(
+            response.dump.provenance.schemaVersion,
+          )}, this client reads v${String(DUMP_SCHEMA_VERSION)}. ` +
+            "Install a matching `ttsc` (the binary resolves from the target " +
+            "project, or from TTSC_GRAPH_BINARY).",
+        ),
+      );
+      return;
+    }
+
     const pending = this.pending.get(response.id);
     if (pending === undefined) return;
     this.pending.delete(response.id);
