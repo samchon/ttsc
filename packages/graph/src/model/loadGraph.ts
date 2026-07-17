@@ -12,6 +12,16 @@ import { TtscGraphMemory } from "./TtscGraphMemory";
 const MAX_DUMP_BYTES = 1024 * 1024 * 1024;
 
 /**
+ * The dump schema version this client reads.
+ *
+ * Keep it equal to `DumpSchemaVersion` in
+ * `packages/ttsc/internal/graph/provenance.go`. The two are hand-synchronized,
+ * and `dump_schema_version_matches_the_typescript_client_test.go` reads this
+ * constant out of this file and fails if the pair drifts.
+ */
+const DUMP_SCHEMA_VERSION = 1;
+
+/**
  * Build the resident {@link TtscGraphMemory} for a project by running `ttscgraph
  * dump` once and loading its JSON. This is the one-shot path for direct callers
  * and the viewer. The MCP server uses `TtscGraphSession` instead so source
@@ -73,6 +83,13 @@ export function loadGraph(
  * {@link ITtscGraphDump} shape so a malformed or stale dump fails loudly here
  * rather than producing wrong answers downstream, and the schema version is
  * checked so an incompatible producer is refused.
+ *
+ * The version is read before the shape: a dump from another schema is entitled
+ * to another shape, so asserting first would report the mismatch as a field
+ * complaint about a contract that producer never agreed to. A dump also
+ * outlives the process that wrote it — this is the one-shot path, and the JSON
+ * on disk may be from any build — so the version is the first question to ask
+ * of it.
  */
 function parseDump(json: string): ITtscGraphDump {
   let value: unknown;
@@ -83,6 +100,20 @@ function parseDump(json: string): ITtscGraphDump {
       `@ttsc/graph: dump output is not valid JSON: ${
         error instanceof Error ? error.message : String(error)
       }`,
+    );
+  }
+  const version: number | undefined = typia.is<{
+    provenance: { schemaVersion: number };
+  }>(value)
+    ? value.provenance.schemaVersion
+    : undefined;
+  if (version !== DUMP_SCHEMA_VERSION) {
+    throw new Error(
+      `@ttsc/graph: ttscgraph dump is schema ${
+        version === undefined ? "unknown" : `v${String(version)}`
+      }, this client reads v${String(DUMP_SCHEMA_VERSION)}. ` +
+        "Install a matching `ttsc` (the binary resolves from the target " +
+        "project, or from TTSC_GRAPH_BINARY).",
     );
   }
   return typia.assert<ITtscGraphDump>(value);

@@ -46,7 +46,7 @@ export function main(): void {
   defer func() { _ = prog.Close() }()
 
   g := Build(prog)
-  data, err := MarshalDump(g, root, "tsconfig.json", nil, SourceTexts(prog), false)
+  data, err := MarshalDump(g, root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{}, false)
   if err != nil {
     t.Fatalf("MarshalDump: %v", err)
   }

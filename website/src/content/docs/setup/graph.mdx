@@ -36,6 +36,14 @@ Median tokens on the shared onboarding question, against no MCP and the three co
 
 `@ttsc/graph` resolves the native `ttscgraph` binary from the `ttsc` platform package installed in the project it graphs, which is why `ttsc` is on that line.
 
+Keep the two versions together. They talk over a versioned protocol, and because the binary comes from the target project — or from `TTSC_GRAPH_BINARY`, if you point it at a build of your own — the pair can end up mismatched. When it does, the server says so and stops:
+
+```
+@ttsc/graph: ttscgraph speaks serve protocol v2, this client speaks v1.
+```
+
+Upgrading both packages together clears it. The check is there so a mismatch is a sentence rather than a wrong answer.
+
 ## Connect an agent
 
 For Claude Code, a `.mcp.json` in the project root:

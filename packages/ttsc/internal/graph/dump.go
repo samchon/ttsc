@@ -17,7 +17,6 @@ import (
 //   - internal node kinds map straight through (NodeTypeAlias is already "type");
 //   - one EdgeValueCall splits by Origin into "calls" / "instantiates" /
 //     "renders", and EdgeHeritage into "extends" / "implements";
-//   - every edge is tagged checker-resolved / high (the graph's whole contract);
 //   - byte spans become 1-based line/col Evidence ranges;
 //   - decorator facts ride on their target node;
 //   - file paths are project-relative and the output is sorted, so the dump is
@@ -84,21 +83,46 @@ type DumpEdge struct {
   Evidence *DumpEvidence `json:"evidence,omitempty"`
 }
 
-// Dump is the IGraphDump envelope: the project it was built for and the full
-// node and edge sets with none of the MCP response caps.
+// Dump is the IGraphDump envelope: the project it was built for, the evidence
+// about the program that produced it, and the full node and edge sets with none
+// of the MCP response caps.
 type Dump struct {
-  Project  string     `json:"project"`
-  Tsconfig string     `json:"tsconfig"`
-  Nodes    []DumpNode `json:"nodes"`
-  Edges    []DumpEdge `json:"edges"`
+  Project  string `json:"project"`
+  Tsconfig string `json:"tsconfig"`
+  // Provenance proves the rest of this dump came from one Program. It rides the
+  // body rather than the serve envelope so a dump written to a file by the
+  // one-shot command keeps its evidence, and so a consumer holding only the
+  // parsed dump never has to ask where it came from.
+  Provenance Provenance `json:"provenance"`
+  // Diagnostics are the compiler's findings for the same program generation
+  // that produced Nodes and Edges. Empty means the program had none, not that
+  // they were not collected; the producer states that in its capabilities.
+  Diagnostics []Diagnostic `json:"diagnostics"`
+  Nodes       []DumpNode   `json:"nodes"`
+  Edges       []DumpEdge   `json:"edges"`
+}
+
+// DumpOrigin is the snapshot evidence a caller attaches to a dump: who built it
+// and what the same program generation had to say about the code. It is a
+// separate struct because only the commands that own a compiler session can
+// produce it, while the graph projection below is pure.
+type DumpOrigin struct {
+  // Provenance identifies the producing program. NewDump always stamps the
+  // schema version itself, so a caller cannot publish a wrong one.
+  Provenance Provenance
+
+  // Diagnostics are the compiler findings for the producing generation, or nil
+  // when the caller did not collect them.
+  Diagnostics []Diagnostic
 }
 
 // NewDump projects a built graph onto the export shape. project is the absolute
 // project root used to relativize file paths and node ids; ignored is the
 // git-ignored source set (nil for a non-git project); sources maps a source
 // file's path to its text so byte spans become line/col evidence (nil omits
-// evidence).
-func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string) Dump {
+// evidence); origin is the snapshot evidence that proves where the facts came
+// from.
+func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin) Dump {
   ctx := newDumpContext(project, sources)
 
   // Decorators ride on their target node; group by the internal node id before
@@ -160,18 +184,46 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
     return edges[i].Kind < edges[j].Kind
   })
 
+  // The schema version describes this code, not the caller's belief about it,
+  // so stamp it here rather than trusting what came in.
+  provenance := origin.Provenance
+  provenance.SchemaVersion = DumpSchemaVersion
+
+  // A nil slice encodes as JSON null, and null is not an empty list: a reader
+  // validating `string[]` rejects it, and a reader that does not would have to
+  // guess which of the two the producer meant. Every list on the wire is a list.
+  if provenance.Capabilities == nil {
+    provenance.Capabilities = []string{}
+  }
+  if provenance.Sources == nil {
+    provenance.Sources = []SourceDigest{}
+  }
+  if provenance.Universe.Configs == nil {
+    provenance.Universe.Configs = []FileDigest{}
+  }
+  if provenance.Universe.Roots == nil {
+    provenance.Universe.Roots = []RootFile{}
+  }
+
+  diagnostics := origin.Diagnostics
+  if diagnostics == nil {
+    diagnostics = []Diagnostic{}
+  }
+
   return Dump{
-    Project:  project,
-    Tsconfig: tsconfig,
-    Nodes:    nodes,
-    Edges:    edges,
+    Project:     project,
+    Tsconfig:    tsconfig,
+    Provenance:  provenance,
+    Diagnostics: diagnostics,
+    Nodes:       nodes,
+    Edges:       edges,
   }
 }
 
 // MarshalDump serializes a built graph to the export JSON, indented when pretty.
 // See NewDump for the parameters.
-func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, pretty bool) ([]byte, error) {
-  d := NewDump(g, project, tsconfig, ignored, sources)
+func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin, pretty bool) ([]byte, error) {
+  d := NewDump(g, project, tsconfig, ignored, sources, origin)
   if pretty {
     return json.MarshalIndent(d, "", "  ")
   }
@@ -186,13 +238,13 @@ func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, so
 // string. On VS Code the document is 323 MB, so the conversion was a second full
 // copy of it held live beside the first — half a gigabyte of peak heap that
 // bought nothing, because the bytes were already exactly what stdout wanted.
-func EncodeDump(w io.Writer, g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, pretty bool) error {
+func EncodeDump(w io.Writer, g *Graph, project, tsconfig string, ignored map[string]bool, sources map[string]string, origin DumpOrigin, pretty bool) error {
   buffered := bufio.NewWriterSize(w, 1<<20)
   encoder := json.NewEncoder(buffered)
   if pretty {
     encoder.SetIndent("", "  ")
   }
-  if err := encoder.Encode(NewDump(g, project, tsconfig, ignored, sources)); err != nil {
+  if err := encoder.Encode(NewDump(g, project, tsconfig, ignored, sources, origin)); err != nil {
     return err
   }
   return buffered.Flush()
