@@ -11,6 +11,30 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      # `pnpm run build` cross-compiles every platform package in one job: seven
+      # GOOS/GOARCH pairs, each producing a tsgo-sized ttsc and ttscserver, each
+      # filling its own Go build cache. v0.19.2 died on the seventh of them with
+      # "no space left on device" while linking ttscserver.exe for win32-x64 —
+      # after the tag was pushed and before anything published, which is the
+      # worst place to run out of anything.
+      #
+      # The runner ships ~25 GB of toolchains this build never uses. Reclaiming
+      # them is cheaper and less fragile than teaching the build to prune its own
+      # cache mid-flight, which would trade disk for a slower link on every
+      # platform. `df` on both sides so the next person to hit this can see the
+      # headroom in the log instead of inferring it from a crash.
+      - name: Free runner disk space
+        run: |
+          df -h /
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/local/.ghcup \
+            /opt/ghc \
+            /usr/share/dotnet \
+            /usr/share/swift
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          df -h /
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v6
         with:
