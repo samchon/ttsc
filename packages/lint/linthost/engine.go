@@ -107,6 +107,17 @@ func ruleNeedsTypeChecker(r Rule) bool {
   return ok && tr.NeedsTypeChecker()
 }
 
+// ruleDiagnosticTags returns the diagnostic tags a rule classifies its findings
+// with, or nil when the rule implements no marker or returns none. Read once per
+// (file, rule) at dispatch and copied onto every finding the rule produces.
+func ruleDiagnosticTags(r Rule) []publicrule.DiagnosticTag {
+  tagged, ok := r.(publicrule.TaggedRule)
+  if !ok {
+    return nil
+  }
+  return tagged.DiagnosticTags()
+}
+
 func ruleAcceptsOptions(r Rule) bool {
   acceptor, ok := r.(ruleOptionsAcceptor)
   return ok && acceptor.AcceptsTtscLintOptions()
@@ -139,6 +150,7 @@ type Context struct {
 
   rule           Rule
   isFormat       bool
+  tags           []publicrule.DiagnosticTag
   quarantined    bool
   collect        func(*Finding)
   projectResults publicrule.ProjectResultReader
@@ -216,6 +228,10 @@ type Finding struct {
   Fix         []TextEdit
   Suggestions []Suggestion
   IsFormat    bool
+  // Tags classify what the finding is (unnecessary, deprecated), for an editor
+  // to render it distinctively. Populated from the rule's TaggedRule marker at
+  // dispatch, so every finding a tagged rule produces carries its tags.
+  Tags []publicrule.DiagnosticTag
 
   engineFailure bool
 }
@@ -262,6 +278,7 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
     Message:  message,
     Fix:      cloneTextEdits(edits),
     IsFormat: c.isFormat,
+    Tags:     c.tags,
   })
 }
 
@@ -282,6 +299,7 @@ func (c *Context) ReportSuggestion(node *shimast.Node, message string, title str
     Message:     message,
     Suggestions: newSuggestions(title, edits),
     IsFormat:    c.isFormat,
+    Tags:        c.tags,
   })
 }
 
@@ -309,6 +327,7 @@ func (c *Context) ReportFixSuggestions(
     Fix:         cloneTextEdits(fix),
     Suggestions: cloneSuggestions(suggestions),
     IsFormat:    c.isFormat,
+    Tags:        c.tags,
   })
 }
 
@@ -348,6 +367,7 @@ func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit
     Message:  message,
     Fix:      cloneTextEdits(edits),
     IsFormat: c.isFormat,
+    Tags:     c.tags,
   })
 }
 
@@ -368,6 +388,7 @@ func (c *Context) ReportRangeSuggestion(pos, end int, message string, title stri
     Message:     message,
     Suggestions: newSuggestions(title, edits),
     IsFormat:    c.isFormat,
+    Tags:        c.tags,
   })
 }
 
@@ -869,6 +890,7 @@ func (e *Engine) runFile(
             Options:          options,
             rule:             rule,
             isFormat:         isFormatRule(rule),
+            tags:             ruleDiagnosticTags(rule),
             collect:          collect,
             projectResults:   results,
             fileMemo:         memo,

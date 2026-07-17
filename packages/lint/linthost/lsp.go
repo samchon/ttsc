@@ -56,6 +56,7 @@ type lspDiagnostic struct {
   CodeDescription *lspCodeDescription `json:"codeDescription,omitempty"`
   Source          string              `json:"source,omitempty"`
   Message         string              `json:"message"`
+  Tags            []int               `json:"tags,omitempty"`
 }
 
 // lspCodeDescription mirrors the proxy's LSPCodeDescription: a docs URL for the
@@ -430,7 +431,29 @@ func findingToLSPDiagnostic(finding *Finding) lspDiagnostic {
     Code:     finding.Rule,
     Source:   "@ttsc/lint",
     Message:  finding.Message,
+    Tags:     lspDiagnosticTags(finding.Tags),
   }
+}
+
+// lspDiagnosticTags converts the rule-supplied tags to their integer wire
+// values, dropping any the wire does not define so a future rule.DiagnosticTag
+// value cannot ship an integer no editor understands. Returns nil for an empty
+// set, keeping the omitempty field absent rather than an empty array.
+func lspDiagnosticTags(tags []publicrule.DiagnosticTag) []int {
+  if len(tags) == 0 {
+    return nil
+  }
+  out := make([]int, 0, len(tags))
+  for _, tag := range tags {
+    switch tag {
+    case publicrule.DiagnosticTagUnnecessary, publicrule.DiagnosticTagDeprecated:
+      out = append(out, int(tag))
+    }
+  }
+  if len(out) == 0 {
+    return nil
+  }
+  return out
 }
 
 func lspRangeForFinding(finding *Finding) lspRange {

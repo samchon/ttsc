@@ -47,8 +47,12 @@ type LSPDiagnostic struct {
   Severity        LSPDiagnosticSeverity `json:"severity,omitempty"`
   Code            any                   `json:"code,omitempty"`
   CodeDescription *LSPCodeDescription   `json:"codeDescription,omitempty"`
-  Source          string                `json:"source,omitempty"`
-  Message         string                `json:"message"`
+  // Tags classify the diagnostic (1 = unnecessary, 2 = deprecated). Carried
+  // through so a plugin's tag is not silently dropped when the proxy re-encodes
+  // the diagnostic — the same truncation codeDescription had to be rescued from.
+  Tags    []int  `json:"tags,omitempty"`
+  Source  string `json:"source,omitempty"`
+  Message string `json:"message"`
 }
 
 // LSPCodeDescription is the LSP CodeDescription type: a documentation URL for a

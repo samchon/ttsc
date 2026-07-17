@@ -112,6 +112,44 @@ type DeclarationFileRule interface {
   VisitsDeclarationFiles() bool
 }
 
+// DiagnosticTag classifies what a finding IS, orthogonally to how severe it is.
+// The values match the LSP DiagnosticTag enum, and an editor renders them
+// distinctively: unnecessary code is greyed out, deprecated code struck through.
+type DiagnosticTag int
+
+const (
+  // DiagnosticTagUnnecessary marks code that is safe to delete — an unused
+  // import, an unreachable branch. The editor fades it.
+  //
+  // This is a claim about what the code is, not how bad it is, and the
+  // distinction bites: "unnecessary" says "remove this." A finding that means
+  // "this is not done yet" is the opposite and must never carry it, or the
+  // editor tells the author to delete the work they have not finished. Tag by
+  // what deletion would mean, never by severity.
+  DiagnosticTagUnnecessary DiagnosticTag = 1
+  // DiagnosticTagDeprecated marks code that still works but should be migrated
+  // away from. The editor strikes it through.
+  DiagnosticTagDeprecated DiagnosticTag = 2
+)
+
+// TaggedRule is an optional marker a rule implements to classify its findings
+// with DiagnosticTags. Every finding the rule produces carries the returned
+// tags — the rule-level grain fits the rules that want this, since a rule that
+// flags unused code flags only unused code.
+//
+// It is separate from severity on purpose. Severity is how much a finding
+// matters and is the user's to configure; a tag is what the finding is and is
+// the rule's to state. A host that does not read tags loses the greying, not the
+// diagnostic — the same graceful degradation the other optional markers give.
+//
+// Return nil, or do not implement it, for a rule whose findings are neither
+// unnecessary nor deprecated. Most findings are neither, and guessing wrong is
+// worse than saying nothing: a spurious Unnecessary tells the author to delete
+// correct code.
+type TaggedRule interface {
+  DiagnosticTags() []DiagnosticTag
+}
+
 // TypeAwareRule is an optional marker contributors implement to declare
 // whether their rule reads `Context.Checker`. The host cannot infer a
 // third-party rule's shape, so a contributor that does not implement this
