@@ -9,16 +9,30 @@ import { assert, fs, path, workspaceRoot } from "../../internal/toolchain";
  * negative twin is the publication commands themselves: their positions in the
  * workflow text must all come after the preflight invocation.
  *
- * 1. Read the release workflow.
+ * Order is a property of what the workflow runs, so the comments come out
+ * first. #726 documented the runner's disk reclaim in prose that names
+ * `pnpm run build`, several lines above the step that invokes it, and a raw
+ * text scan read that sentence as the build itself and reported it running
+ * before the preflight. The workflow was correct and this gate was not. Prose
+ * about a command is not the command, and a gate that cannot tell them apart
+ * fails on the next comment that mentions one.
+ *
+ * 1. Read the release workflow and drop its comment lines.
  * 2. Locate the preflight invocation and each publication command.
- * 3. Assert the preflight appears exactly once and strictly before the Marketplace
- *    publish, the npm publish, and the first credential use.
+ * 3. Assert the preflight appears exactly once and strictly before the build,
+ *    the Marketplace publish, the npm publish, and the first credential use.
  */
 export const test_release_workflow_runs_preflight_before_publication = () => {
-  const workflow = fs.readFileSync(
+  const source = fs.readFileSync(
     path.join(workspaceRoot, ".github", "workflows", "release.yml"),
     "utf8",
   );
+  // A `#` opening a line is a YAML comment; one inside a value is not, and no
+  // step this gate looks for is written on a commented line.
+  const workflow = source
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .join("\n");
 
   const preflight = workflow.indexOf("scripts/release-preflight.cjs");
   assert.notEqual(preflight, -1, "release-preflight.cjs step is missing");
