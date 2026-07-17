@@ -7,6 +7,51 @@ import (
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
+// RunLSPHints prints the editor-completion corpus every project rule published
+// for this project, as JSON.
+//
+// Unlike the other LSP verbs this takes no `--uri`: a corpus describes the
+// Program, not a document. It does load a Program, because a corpus is a
+// projection of what a project rule's Check found — which is why the caller is
+// expected to ask once and cache rather than ask per request.
+//
+// An empty corpus is a successful answer. A project with no hint-publishing rule
+// is the common case, and a caller must be able to tell it apart from a failure;
+// a nonzero exit here would read as "the project is broken".
+func RunLSPHints(args []string) int {
+  opts, ok := parseLSPCommandOptions("lsp-hints", args)
+  if !ok {
+    return 2
+  }
+  rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+  engine := NewEngineWithResolver(rules)
+  if err := engine.ConfigError(); err != nil {
+    fmt.Fprintln(os.Stderr, err)
+    return 2
+  }
+  prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
+    forceNoEmit:      true,
+    needsRuleChecker: engine.NeedsTypeChecker(),
+    projectIdentity:  opts.projectIdentity,
+  })
+  if err != nil {
+    fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
+    return 2
+  }
+  defer prog.close()
+  if len(parseDiags) > 0 {
+    // The project does not parse right now. Rules never ran, so there is no
+    // corpus — but these are tsgo's diagnostics to own, and failing here would
+    // make an editor treat a syntax error mid-typing as a broken plugin.
+    return writeJSON([]publicrule.Hint{})
+  }
+  return writeJSON(collectProjectHints(prog.runProjectCycle(engine)))
+}
+
 // collectProjectHints gathers the editor-completion corpus every declared
 // project rule published for this Program.
 //
