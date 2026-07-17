@@ -150,21 +150,30 @@ export namespace ITtscGraphDetails {
      * `1`, `true`, `null`) — the checker's resolved union members, not the
      * quoted tokens that happened to fit in `signature`.
      *
-     * Complete unless `literalsTruncated` says otherwise, and absent when the
-     * type has no enumerable value set. A `signature` is capped at the
-     * declaration head, so for a union or enum written across several lines
-     * this is the field that carries the members.
+     * Complete unless `truncated` names it, and absent when the type has no
+     * enumerable value set. A `signature` is capped at the declaration head, so
+     * for a union or enum written across several lines this is the field that
+     * carries the members.
      */
     literals?: string[];
 
     /**
-     * True when `literals` was cut to the response cap; the values listed
-     * stand, but they are a prefix of the set rather than all of it.
+     * The fields on this node whose lists were cut, named: `["calls",
+     * "members"]`. Absent when everything returned is whole.
      *
-     * `literals` claims to be the whole type, so the one case where it is not
-     * has to say so. Read the declaration for the rest.
+     * What is listed is still exact — a cut list holds real neighbors, real
+     * members, real values — but it is a prefix, not the set. The audit says a
+     * result is bounded only where `truncated` says, so this is where it says
+     * it, and `calls: [2 refs]` on a symbol that calls forty is the case it
+     * exists for: the payload is identical either way, and nothing else
+     * distinguishes them.
+     *
+     * The cut is this response's, not the graph's. Raise the matching request
+     * limit (`dependencyLimit`, `memberLimit`, `neighborLimit`) to see more of
+     * a named field, or `trace` when the question is a flow rather than a
+     * neighbor list; the graph holds all of it either way.
      */
-    literalsTruncated?: boolean;
+    truncated?: string[];
 
     /**
      * Owned symbol or top-level property outline a consumer reaches for on a

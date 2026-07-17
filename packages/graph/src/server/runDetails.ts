@@ -16,7 +16,8 @@ const MAX_SIGNATURE_LINES = 4;
 // A value set is the answer to "what may this be", so it is listed rather than
 // sampled: the cap is high enough that a real union or enum arrives whole, and
 // exists only so a type expanded from a template literal cannot flood a
-// response. Past it, literalsTruncated says so and the declaration has the rest.
+// response. Past it, `truncated` names the field and the declaration has the
+// rest.
 const MAX_LITERALS = 60;
 // A doc summary is one sentence; the rest of the comment is the file's to keep.
 const MAX_DOC_CHARS = 200;
@@ -118,63 +119,64 @@ export function runDetails(
         endLine: span.endLine,
       };
     }
-    const calls = dependencyRefs(
-      graph,
-      node,
-      executionKinds,
-      dependencyLimit,
-      includeExternal,
+    // Every list below is capped, and the caller cannot see a cap from the
+    // payload: two refs on a symbol that calls forty look exactly like two refs
+    // on a symbol that calls two. Each field that lost something names itself
+    // here, and the audit's "bounded only where `truncated` says" becomes true
+    // of this result instead of aspirational.
+    const truncated: string[] = [];
+    const keep = <T>(field: string, list: ICut<T>): T[] => {
+      if (list.truncated) truncated.push(field);
+      return list.items;
+    };
+
+    const calls = keep(
+      "calls",
+      dependencyRefs(graph, node, executionKinds, dependencyLimit, includeExternal),
     );
     if (calls.length > 0) detail.calls = calls;
-    const types = dependencyRefs(
-      graph,
-      node,
-      typeKinds,
-      dependencyLimit,
-      includeExternal,
+    const types = keep(
+      "types",
+      dependencyRefs(graph, node, typeKinds, dependencyLimit, includeExternal),
     );
     if (types.length > 0) detail.types = types;
-    const implementedBy = incomingDependencyRefs(
-      graph,
-      node,
-      implementationKinds,
-      dependencyLimit,
-      includeExternal,
+    const implementedBy = keep(
+      "implementedBy",
+      incomingDependencyRefs(
+        graph,
+        node,
+        implementationKinds,
+        dependencyLimit,
+        includeExternal,
+      ),
     );
     if (implementedBy.length > 0) detail.implementedBy = implementedBy;
     if (CONTAINER_KINDS.has(node.kind)) {
-      const list = members(graph, node, memberLimit);
+      const list = keep("members", members(graph, node, memberLimit));
       if (list.length > 0) detail.members = list;
     }
     if (node.kind === "variable" && detail.sourceSpan !== undefined) {
-      const list = objectLiteralMembers(
-        graph.project,
-        detail.sourceSpan,
-        memberLimit,
+      const list = keep(
+        "members",
+        objectLiteralMembers(graph.project, detail.sourceSpan, memberLimit),
       );
       if (list.length > 0) detail.members = list;
     }
-    const literals = node.literals ?? [];
-    if (literals.length > 0) {
-      detail.literals = literals.slice(0, MAX_LITERALS);
-      if (literals.length > MAX_LITERALS) detail.literalsTruncated = true;
-    }
+    const literals = keep("literals", cut(node.literals ?? [], MAX_LITERALS));
+    if (literals.length > 0) detail.literals = literals;
     if (wantNeighbors) {
-      detail.dependsOn = refs(
-        graph,
-        graph.outgoing(node.id),
-        "to",
-        neighborLimit,
-        includeExternal,
+      detail.dependsOn = keep(
+        "dependsOn",
+        refs(graph, graph.outgoing(node.id), "to", neighborLimit, includeExternal),
       );
-      detail.dependedOnBy = refs(
-        graph,
-        graph.incoming(node.id),
-        "from",
-        neighborLimit,
-        includeExternal,
+      detail.dependedOnBy = keep(
+        "dependedOnBy",
+        refs(graph, graph.incoming(node.id), "from", neighborLimit, includeExternal),
       );
     }
+    // A field that lost nothing is not named, and a node that lost nothing
+    // carries no marker at all: `truncated` present has to mean something.
+    if (truncated.length > 0) detail.truncated = [...new Set(truncated)];
     nodes.push(detail);
   }
   return {
@@ -208,12 +210,18 @@ function members(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
   limit: number,
-): ITtscGraphDetails.IMember[] {
-  const out: ITtscGraphDetails.IMember[] = [];
+): ICut<ITtscGraphDetails.IMember> {
+  // Count the owned set from the edges, then build only the page returned. A
+  // member's signature is a file read, so building the ones the cap drops would
+  // pay for a class's whole member list to answer with six of it.
+  const owned: ITtscGraphNode[] = [];
   for (const edge of graph.outgoing(node.id)) {
     if (edge.kind !== "contains") continue;
     const member = graph.node(edge.to);
     if (member === undefined) continue;
+    owned.push(member);
+  }
+  const items = owned.slice(0, limit).map((member) => {
     const m: ITtscGraphDetails.IMember = {
       name: member.qualifiedName ?? member.name,
       kind: member.kind,
@@ -223,21 +231,21 @@ function members(
     if (sig !== undefined) m.signature = sig;
     const decorators = decoratorsOf(member);
     if (decorators !== undefined) m.decorators = decorators;
-    out.push(m);
-    if (out.length >= limit) break;
-  }
-  return out;
+    return m;
+  });
+  return { items, truncated: owned.length > limit };
 }
 
 function objectLiteralMembers(
   project: string,
   span: Pick<ITtscGraphEvidence, "file" | "startLine" | "endLine">,
   limit: number,
-): ITtscGraphDetails.IMember[] {
-  if (span.endLine === undefined) return [];
-  if (span.endLine - span.startLine > MAX_OBJECT_MEMBER_LINES) return [];
+): ICut<ITtscGraphDetails.IMember> {
+  const none = { items: [], truncated: false };
+  if (span.endLine === undefined) return none;
+  if (span.endLine - span.startLine > MAX_OBJECT_MEMBER_LINES) return none;
   const lines = fileLines(project, span.file);
-  if (lines === undefined) return [];
+  if (lines === undefined) return none;
   const start = Math.max(0, span.startLine - 1);
   const end = Math.min(lines.length - 1, span.endLine - 1);
   const members: ITtscGraphDetails.IMember[] = [];
@@ -248,11 +256,11 @@ function objectLiteralMembers(
     const text = stripStrings(raw);
     const before = depth;
     if (entered && before === 1) {
+      // The scan runs the literal's whole span rather than stopping at the cap,
+      // so the count behind the page is real. It is bounded by
+      // MAX_OBJECT_MEMBER_LINES and reads no file the page did not already.
       const member = objectMemberOf(raw, i + 1);
-      if (member !== undefined) {
-        members.push(member);
-        if (members.length >= limit) break;
-      }
+      if (member !== undefined) members.push(member);
     }
     for (const char of text) {
       if (char === "{") {
@@ -263,7 +271,7 @@ function objectLiteralMembers(
       }
     }
   }
-  return members;
+  return cut(members, limit);
 }
 
 function objectMemberOf(
@@ -316,7 +324,7 @@ function refs(
   end: "to" | "from",
   limit: number,
   includeExternal: boolean,
-): ITtscGraphDetails.IReference[] {
+): ICut<ITtscGraphDetails.IReference> {
   const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
   for (const edge of edges) {
     if (STRUCTURAL_KINDS.has(edge.kind)) continue;
@@ -336,12 +344,10 @@ function refs(
     ranked.push({ ref, rank: refRank(ref, edge) });
   }
   ranked.sort((a, b) => a.rank - b.rank);
-  const out: ITtscGraphDetails.IReference[] = [];
-  for (const item of ranked) {
-    out.push(item.ref);
-    if (out.length >= limit) break;
-  }
-  return out;
+  return cut(
+    ranked.map((item) => item.ref),
+    limit,
+  );
 }
 
 const executionKinds = new Set([
@@ -359,7 +365,7 @@ function dependencyRefs(
   kinds: ReadonlySet<string>,
   limit: number,
   includeExternal: boolean,
-): ITtscGraphDetails.IReference[] {
+): ICut<ITtscGraphDetails.IReference> {
   const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
   for (const edge of graph.outgoing(node.id)) {
     if (!kinds.has(edge.kind)) continue;
@@ -383,16 +389,20 @@ function dependencyRefs(
     });
   }
   ranked.sort((a, b) => a.rank - b.rank);
-  const out: ITtscGraphDetails.IReference[] = [];
+  const unique: ITtscGraphDetails.IReference[] = [];
   const seen = new Set<string>();
   for (const item of ranked) {
     const key = `${item.ref.relation}:${item.ref.id}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push(item.ref);
-    if (out.length >= limit) break;
+    unique.push(item.ref);
   }
-  return out;
+  // Dedup runs to the end instead of stopping at the limit: reaching the limit
+  // is not the same fact as there being more, and a node with exactly `limit`
+  // neighbors is whole. Marking that one would be a lie in the direction the
+  // marker exists to prevent. Every ref was built by the loop above already, so
+  // counting the rest costs nothing new.
+  return cut(unique, limit);
 }
 
 function incomingDependencyRefs(
@@ -401,7 +411,7 @@ function incomingDependencyRefs(
   kinds: ReadonlySet<string>,
   limit: number,
   includeExternal: boolean,
-): ITtscGraphDetails.IReference[] {
+): ICut<ITtscGraphDetails.IReference> {
   const ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }> = [];
   for (const edge of graph.incoming(node.id)) {
     if (!kinds.has(edge.kind)) continue;
@@ -424,16 +434,34 @@ function incomingDependencyRefs(
     });
   }
   ranked.sort((a, b) => a.rank - b.rank);
-  const out: ITtscGraphDetails.IReference[] = [];
+  const unique: ITtscGraphDetails.IReference[] = [];
   const seen = new Set<string>();
   for (const item of ranked) {
     const key = `${item.ref.relation}:${item.ref.id}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push(item.ref);
-    if (out.length >= limit) break;
+    unique.push(item.ref);
   }
-  return out;
+  // Dedup runs to the end instead of stopping at the limit: reaching the limit
+  // is not the same fact as there being more, and a node with exactly `limit`
+  // neighbors is whole. Marking that one would be a lie in the direction the
+  // marker exists to prevent. Every ref was built by the loop above already, so
+  // counting the rest costs nothing new.
+  return cut(unique, limit);
+}
+
+/**
+ * A list as this response carries it: cut to `limit`, and saying whether the
+ * cut took anything. `truncated` is false for a list that fit exactly, so the
+ * marker means "there is more", never "the cap was reached".
+ */
+interface ICut<T> {
+  items: T[];
+  truncated: boolean;
+}
+
+function cut<T>(items: T[], limit: number): ICut<T> {
+  return { items: items.slice(0, limit), truncated: items.length > limit };
 }
 
 function bound(
@@ -594,6 +622,13 @@ export function docOf(
  * The declaration signature: the head of the declaration up to and including
  * the line that opens its body (`{`), or the single declaration line when there
  * is no brace, capped so a wrapped signature cannot run away.
+ *
+ * It never runs past the declaration's own span. The stop used to be the brace,
+ * the trailing semicolon, or the line cap, and a declaration ending in none of
+ * them read its neighbors instead: an enum member ends in a comma, so `VIEW`
+ * came back as itself plus the two members after it and the closing brace. The
+ * span is the fact that says where the declaration ends, and it was already on
+ * the node.
  */
 export function signatureOf(
   project: string,
@@ -604,12 +639,12 @@ export function signatureOf(
     evidence === undefined ? undefined : fileLines(project, evidence.file);
   if (lines === undefined || evidence === undefined) return undefined;
   const start = Math.max(0, evidence.startLine - 1);
+  const last =
+    evidence.endLine === undefined
+      ? lines.length - 1
+      : Math.min(lines.length - 1, evidence.endLine - 1);
   const out: string[] = [];
-  for (
-    let i = start;
-    i < lines.length && out.length < MAX_SIGNATURE_LINES;
-    i++
-  ) {
+  for (let i = start; i <= last && out.length < MAX_SIGNATURE_LINES; i++) {
     const line = lines[i];
     if (line === undefined) break;
     out.push(line);

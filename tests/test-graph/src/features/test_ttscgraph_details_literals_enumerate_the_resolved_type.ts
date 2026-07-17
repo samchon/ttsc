@@ -14,7 +14,7 @@ interface DetailsResult {
     kind: string;
     signature?: string;
     literals?: string[];
-    literalsTruncated?: boolean;
+    truncated?: string[];
   }[];
   unknown: string[];
 }
@@ -166,10 +166,12 @@ export const test_ttscgraph_details_literals_enumerate_the_resolved_type =
         undefined,
         `a union widened by string reports no value set: ${JSON.stringify(literalsOf("Widened"))}`,
       );
-      // None of these are truncated, so the marker must stay off.
+      // None of these are truncated, so no node names `literals` as cut.
       assert.ok(
-        details.nodes.every((node) => node.literalsTruncated !== true),
-        "no value set here is capped, so nothing is marked truncated",
+        details.nodes.every(
+          (node) => !(node.truncated ?? []).includes("literals"),
+        ),
+        "no value set here is capped, so none is marked truncated",
       );
     } finally {
       client.endStdin();

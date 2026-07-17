@@ -12,7 +12,8 @@ interface DetailsResult {
   nodes: {
     name: string;
     literals?: string[];
-    literalsTruncated?: boolean;
+    calls?: unknown[];
+    truncated?: string[];
   }[];
 }
 
@@ -113,11 +114,12 @@ export const test_ttscgraph_details_marks_a_capped_literal_set_truncated =
         60,
         `the value set is cut to the response cap: ${String(big.literals?.length)}`,
       );
-      // The claim `literals` makes is completeness, so the exception is stated.
-      assert.strictEqual(
-        big.literalsTruncated,
-        true,
-        "a cut value set says it was cut",
+      // The claim `literals` makes is completeness, so the exception is stated,
+      // and it names the field rather than saying "something here was cut".
+      assert.deepStrictEqual(
+        big.truncated,
+        ["literals"],
+        `a cut value set names itself: ${JSON.stringify(big.truncated)}`,
       );
       // What survives the cut is still the type's own values, in source form.
       assert.ok(
@@ -133,8 +135,10 @@ export const test_ttscgraph_details_marks_a_capped_literal_set_truncated =
         ['"x"', '"y"'],
         `an uncapped value set is complete: ${JSON.stringify(small?.literals)}`,
       );
+      // A node that lost nothing carries no marker at all, so `truncated`
+      // present always means something was cut.
       assert.strictEqual(
-        small?.literalsTruncated,
+        small?.truncated,
         undefined,
         "an uncapped value set is not marked truncated",
       );
