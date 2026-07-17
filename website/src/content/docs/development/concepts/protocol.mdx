@@ -366,6 +366,7 @@ Project-wide source transform used by `ttsc.transform()` and in-memory callers. 
   "dependencies": {
     "src/main.ts": ["src/types.ts"]
   },
+  "dependenciesComplete": ["src/main.ts"],
   "graph": {
     "edges": { "src/main.ts": ["src/types.ts"] },
     "globals": ["src/ambient.d.ts"],
@@ -377,7 +378,7 @@ Project-wide source transform used by `ttsc.transform()` and in-memory callers. 
 
 Each value in `typescript` is written to disk **verbatim**. The host does not re-parse or re-render. If your plugin mutated the AST, you must run a printer over the file before placing its text in the map; the canonical path is `shimprinter.NewPrinter(...)` → `shimprinter.EmitSourceFile(printer, file)`. Returning `file.Text()` after AST mutation will silently round-trip the original source. See `packages/ttsc/utility/host.go::RunTransform` for the reference implementation.
 
-`dependencies` is optional advisory metadata: per transformed file (same keys as `typescript`), the source files whose content influenced that output beyond the file itself — for a type-driven generator, the declaration files it read through the Checker. Paths may be project-relative or absolute; the host passes them through verbatim on `ttsc.transform()` results, and `@ttsc/unplugin` registers them as bundler watch files so type-only inputs invalidate the module in HMR. Dev-mode bundlers erase type-only imports from their module graph, so without this field an edit to a consulted type serves stale generated code until a cold restart. Omit the field (or a file's entry) when there is nothing to report; malformed entries are dropped, never fatal.
+`dependencies` is optional advisory metadata: per transformed file (same keys as `typescript`), the source files whose content influenced that output beyond the file itself — for a type-driven generator, the declaration files it read through the Checker. Paths may be project-relative or absolute; the host passes them through verbatim on `ttsc.transform()` results, and `@ttsc/unplugin` registers them as bundler watch files so type-only inputs invalidate the module in HMR. Dev-mode bundlers erase type-only imports from their module graph, so without this field an edit to a consulted type serves stale generated code until a cold restart. Omit the field (or a file's entry) when there is nothing to report; malformed entries are dropped, never fatal. A producer whose list is exhaustive for a file can additionally declare it [complete](#dependency-completeness), which narrows invalidation instead of widening it.
 
 `graph` is the host-owned reference graph of the loaded program — the language-semantic input bound of any type-driven transform under `tsc --incremental` semantics (any symbol a file can reference is reachable through its import/reference closure or is ambient). Unlike `dependencies`, it requires no per-plugin reporting: `driver.NewTransformGraph(prog, cwd)` computes it from the Program, the built-in native host and the linked-plugin generic host stamp it automatically, and an executable sidecar adds the one field to its own envelope (see [Reference → Driver API](/docs/development/reference/driver-api#reference-graph)). Keys and values follow the `typescript` key convention:
 
@@ -385,11 +386,30 @@ Each value in `typescript` is written to disk **verbatim**. The host does not re
 - `globals`: files contributing to the global scope (ambient declaration files, script files, global augmentations, `typeRoots` entries); a change to any of them can affect every file.
 - `configs`: the project tsconfig followed by its `extends` ancestry.
 
-`@ttsc/unplugin` registers, per transformed file `F`, `reach(edges, F) ∪ globals ∪ configs ∪ dependencies[F]` as watch files — union semantics, so a plugin's `dependencies` can only widen the host-owned bound. This is what makes webpack filesystem caches (what Next.js persists under `.next/cache`), watch graphs, and Turbopack `fileDependencies` invalidate soundly by default when a type-only input changes. Malformed sections degrade to fewer registrations, never a failed build.
+`@ttsc/unplugin` registers, per transformed file `F`, `reach(edges, F) ∪ globals ∪ configs ∪ dependencies[F]` as watch files — union semantics, so a plugin's `dependencies` can only widen the host-owned bound unless the same envelope declares that file's list [complete](#dependency-completeness). This is what makes webpack filesystem caches (what Next.js persists under `.next/cache`), watch graphs, and Turbopack `fileDependencies` invalidate soundly by default when a type-only input changes. Malformed sections degrade to fewer registrations, never a failed build.
 
 `volatile` is the hermeticity declaration: the transformed files (same keys as `typescript`) whose output depends on non-file inputs — environment variables, time, network. No file-dependency scheme can represent such inputs, so consumers exclude these files from caching instead of watching more paths: `@ttsc/unplugin` bypasses its project transform cache for them and marks the module uncacheable where the bundler exposes that control (webpack/rspack loader `cacheable(false)`). Declare volatility only when the output genuinely is non-hermetic; a spurious declaration disables caching for that file on every build. Malformed entries are dropped, never fatal.
 
 For leaf-text mutations (string-literal, identifier, numeric-literal `.Text`), the printer reads original source text via `getTextOfNode` when the node is non-synthesized and has a parent. See [Recipes → Mutating leaf-text nodes](/docs/development/authoring/recipes#mutating-leaf-text-nodes) for the synthesize-flag invariant the rewrite must follow.
+
+#### Dependency completeness
+
+`dependenciesComplete` is the opt-in narrowing contract. It lists transformed files (same keys as `typescript`) for which the envelope's `dependencies[F]` entry is **complete**: every input to `typescript[F]` beyond `F` itself and the universal `graph.configs` chain appears in that entry. For a listed file a consumer derives `dependencies[F] ∪ graph.configs` rather than the default `reach(edges, F) ∪ globals ∪ configs ∪ dependencies[F]`. Nothing else changes: the field is per file, so an envelope may list some files and not others, and every unlisted file keeps the union.
+
+The narrowing exists because the host-owned bound is sound but coarse. Any file reachable through `F`'s import closure re-runs `F`'s loader, even when the transform never consulted it. A plugin that knows exactly which declarations it read (a Checker-driven generator's per-file consulted-declaration list) can report that set precisely, and this field is how it tells consumers the set is exhaustive.
+
+**The declaration transfers responsibility.** This is the Bazel declared-inputs model: an input missing from a complete list is not registered, so the consumer serves stale generated code after that input changes, and the defect belongs to the declaring plugin rather than to the host. Only declare a file complete when the reported list is derived from what the transform actually consulted, never from a hand-maintained list. No producer needs the field for correctness. Omitting it keeps the sound host-owned bound, which is why it is the default and why deleting one line restores it.
+
+The rules a producer must satisfy:
+
+- **Configs stay universal.** `graph.configs` remains an input of every file, listed or not. Compiler options reach generated code through the host, not through any file a plugin reads, so no consulted-declaration list can represent them. The chain comes from this same envelope's `graph` section, so stamp `graph` when you declare completeness. An envelope that declares a file complete without a graph leaves nothing universal behind, and a tsconfig edit stops invalidating it.
+- **Globals do not stay universal.** For a listed file the `graph.globals` set is dropped like `reach(edges, F)`. Global-scope files are ordinary declaration files that a Checker-driven producer lists like any other, so a complete list must contain every ambient file it consulted. Keeping them universal would leave `@types/*` churn re-running every listed file, which is most of what the narrowing is for.
+- **Completeness is per (plugin, file).** One `transform` invocation produces one envelope even when several plugin entries share the host, so the declaration is the envelope author's aggregate claim. When more than one entry contributes to a file, list it only if every contributing entry declared its own list complete for it; the consumer cannot attribute entries in `dependencies[F]` back to the entry that reported them, and it honors the envelope's claim as written.
+- **Volatile wins.** A file in both `dependenciesComplete` and `volatile` claims both "my inputs are exactly these files" and "my inputs include something that is not a file". Consumers keep the union for it and bypass caching. Declare one or the other.
+
+Malformed members are dropped, never fatal. Dropping is safe in one direction only, and this is that direction: an unlisted file falls back to the host-owned bound, so a garbled declaration costs over-invalidation instead of stale output.
+
+There is no host-side audit of a complete list. Verifying it would require computing the reachability the declaration exists to avoid, which would cost exactly what it saves. Diagnose a suspected under-declaration by removing the field: if the stale output goes away, the reported list is missing an input.
 
 ### `build`
 

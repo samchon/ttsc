@@ -111,9 +111,12 @@ export interface TtscTransformHooks {
    * Invoked once per absolute watch-input path derived for the transformed file
    * `F`: the plugin-reported `dependencies[F]` list unioned with the host-owned
    * reference graph's contribution — the reachability closure of `graph.edges`
-   * from `F`, the `graph.globals` files, and the `graph.configs` chain.
-   * Adapters forward this to the bundler's `addWatchFile` so type-only inputs
-   * participate in watch-mode and persistent-cache invalidation.
+   * from `F`, the `graph.globals` files, and the `graph.configs` chain — or,
+   * for a file the envelope declared `dependenciesComplete`, only
+   * `dependencies[F]` and the universal `graph.configs` chain. Adapters forward
+   * this to the bundler's `addWatchFile` so type-only inputs participate in
+   * watch-mode and persistent-cache invalidation. See {@link selectWatchInputs}
+   * for the exact derivation.
    */
   addWatchFile?: (file: string) => void;
   /**
@@ -337,10 +340,23 @@ function notifyWatchInputs(
 }
 
 /**
- * Derive the absolute, deduplicated watch-input list for a single file:
- * `dependencies[file] ∪ reach(edges, file) ∪ globals ∪ configs`. Union
- * semantics on purpose — the plugin-reported list can only widen the host-owned
- * bound, never narrow it. Returns an empty list on exceptions.
+ * Derive the absolute, deduplicated watch-input list for a single file.
+ *
+ * By default the derivation is a union: `dependencies[file] ∪ reach(edges,
+ * file) ∪ globals ∪ configs`. The plugin-reported list can only widen the
+ * host-owned language-semantic bound, never narrow it.
+ *
+ * An envelope that lists `file` in `dependenciesComplete` narrows it to
+ * `dependencies[file] ∪ configs`: the plugin declared its reported list the
+ * complete input set for that file, which transfers responsibility for the
+ * dropped `reach(edges, file) ∪ globals` bound to the plugin (see the protocol
+ * page's completeness contract). The config chain stays universal regardless,
+ * because compiler options reach generated code through the host rather than
+ * through any file a plugin could consult. A file the plugin also declared
+ * volatile keeps the baseline: the two declarations contradict, so the
+ * conservative one wins.
+ *
+ * Returns an empty list on exceptions.
  */
 function selectWatchInputs(props: {
   file: string;
@@ -357,7 +373,10 @@ function selectWatchInputs(props: {
   );
   for (const absolute of [
     ...selectFileDependencies(props),
-    ...selectGraphInputs(props),
+    ...selectGraphInputs({
+      ...props,
+      complete: declaresCompleteDependencies(props) && !isVolatileFile(props),
+    }),
   ]) {
     if (excluded.has(absolute) || seen.has(absolute)) {
       continue;
@@ -369,14 +388,21 @@ function selectWatchInputs(props: {
 }
 
 /**
- * Flatten the host-owned reference graph for one file into absolute paths: the
- * reachability closure of `edges` starting at the file, plus every global-scope
- * file and the config chain. Flattening direct edges into a per-file list
- * happens here — at the adapter boundary — because bundler `fileDependencies`
- * snapshots are flat; the protocol itself carries only direct edges. Returns an
- * empty list on exceptions or without a graph.
+ * Flatten the host-owned reference graph for one file into absolute paths.
+ *
+ * The full contribution is the reachability closure of `edges` starting at the
+ * file, plus every global-scope file and the config chain. Flattening direct
+ * edges into a per-file list happens here — at the adapter boundary — because
+ * bundler `fileDependencies` snapshots are flat; the protocol itself carries
+ * only direct edges.
+ *
+ * `complete` drops the reach and globals halves, keeping only the universal
+ * config chain: the caller established that the plugin declared its own
+ * `dependencies[file]` list the complete replacement for them. Returns an empty
+ * list on exceptions or without a graph.
  */
 function selectGraphInputs(props: {
+  complete: boolean;
   file: string;
   projectRoot: string;
   result: ITtscCompilerTransformation;
@@ -389,23 +415,42 @@ function selectGraphInputs(props: {
     return [];
   }
   const output: string[] = [];
+  if (!props.complete) {
+    output.push(...selectReachableEdges(props.projectRoot, props.file, graph));
+    output.push(...selectListedFiles(props.projectRoot, graph.globals));
+  }
+  output.push(...selectListedFiles(props.projectRoot, graph.configs));
+  return output;
+}
+
+/**
+ * Walk the reachability closure of the graph's direct `edges` from `file`,
+ * returning the absolute path of every file reached (the starting file itself
+ * excluded, even when a cycle points back at it).
+ */
+function selectReachableEdges(
+  projectRoot: string,
+  file: string,
+  graph: ITtscCompilerTransformation.IReferenceGraph,
+): string[] {
   const edges = new Map<string, string[]>();
   for (const [source, targets] of Object.entries(graph.edges ?? {})) {
     if (!Array.isArray(targets)) {
       continue;
     }
     edges.set(
-      path.resolve(props.projectRoot, source),
+      path.resolve(projectRoot, source),
       targets
         .filter(
           (target): target is string =>
             typeof target === "string" && target.length !== 0,
         )
-        .map((target) => path.resolve(props.projectRoot, target)),
+        .map((target) => path.resolve(projectRoot, target)),
     );
   }
-  const visited = new Set<string>([props.file]);
-  const queue = [props.file];
+  const output: string[] = [];
+  const visited = new Set<string>([file]);
+  const queue = [file];
   while (queue.length !== 0) {
     const current = queue.pop()!;
     for (const target of edges.get(current) ?? []) {
@@ -417,16 +462,24 @@ function selectGraphInputs(props: {
       output.push(target);
     }
   }
-  for (const listed of [graph.globals, graph.configs]) {
-    if (!Array.isArray(listed)) {
+  return output;
+}
+
+/**
+ * Absolutize one graph string list (`globals`, `configs`), skipping members a
+ * malformed envelope section may carry. Duplicates survive; the caller
+ * deduplicates the merged list.
+ */
+function selectListedFiles(projectRoot: string, listed: unknown): string[] {
+  if (!Array.isArray(listed)) {
+    return [];
+  }
+  const output: string[] = [];
+  for (const entry of listed) {
+    if (typeof entry !== "string" || entry.length === 0) {
       continue;
     }
-    for (const entry of listed) {
-      if (typeof entry !== "string" || entry.length === 0) {
-        continue;
-      }
-      output.push(path.resolve(props.projectRoot, entry));
-    }
+    output.push(path.resolve(projectRoot, entry));
   }
   return output;
 }
@@ -444,11 +497,40 @@ function isVolatileFile(props: {
   if (props.result.type === "exception") {
     return false;
   }
-  const volatile = props.result.volatile;
-  if (!Array.isArray(volatile)) {
+  return declaresFile(props.result.volatile, props);
+}
+
+/**
+ * Report whether the envelope declared `dependencies[file]` complete, i.e. the
+ * plugin took responsibility for that file's whole input set beyond the file
+ * itself and the universal config chain. Callers must still keep the baseline
+ * for a file the same envelope declared volatile.
+ */
+function declaresCompleteDependencies(props: {
+  file: string;
+  projectRoot: string;
+  result: ITtscCompilerTransformation;
+}): boolean {
+  if (props.result.type === "exception") {
     return false;
   }
-  return volatile.some(
+  return declaresFile(props.result.dependenciesComplete, props);
+}
+
+/**
+ * Report whether one of the envelope's transformed-file lists (`volatile`,
+ * `dependenciesComplete`) names `file`. Members are keyed like `typescript`, so
+ * a project-relative and an absolute spelling of the same file both match; a
+ * malformed member is ignored rather than fatal.
+ */
+function declaresFile(
+  listed: unknown,
+  props: { file: string; projectRoot: string },
+): boolean {
+  if (!Array.isArray(listed)) {
+    return false;
+  }
+  return listed.some(
     (entry) =>
       typeof entry === "string" &&
       entry.length !== 0 &&
@@ -732,6 +814,15 @@ export function collectExternalInputHashes(
  * config chain) and every plugin-reported dependency, minus everything the
  * project walk already hashes and the disposed temp-dir tsconfig. These are the
  * inputs {@link matchesCachedSource}'s walk cannot see.
+ *
+ * A `dependenciesComplete` declaration deliberately does not narrow this set,
+ * unlike the per-file watch derivation. This cache replays one whole envelope,
+ * so its validity condition is the union over every file the envelope carries
+ * rather than one file's inputs; a miss here costs a re-transform, never a
+ * stale output; and it is the layer that re-runs the plugin's analysis, which
+ * is how a widened declaration is ever learned. The narrowing that matters
+ * lands at the bundler boundary through {@link selectWatchInputs}, which is what
+ * feeds persistent caches and watch graphs.
  */
 function selectExternalInputPaths(props: {
   projectRoot: string;
