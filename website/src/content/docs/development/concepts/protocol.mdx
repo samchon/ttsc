@@ -153,8 +153,11 @@ When the user runs `ttsc format`, `ttsc` invokes the same check-stage plugins wi
 | `lsp-diagnostics` | Print separate document and project diagnostic sets for `--uri`. |
 | `lsp-code-actions` | Print LSP code actions for `--uri`, `--range-json`, and `--context-json`. |
 | `lsp-execute-command` | Print a `changes`-map `WorkspaceEdit` or JSON `null` for `--command` and `--arguments-json`. |
+| `lsp-hints` | Print a JSON array of completion hints the sidecar's rules published. Takes no `--uri`: a corpus describes the Program, not a document. |
 
 The host also passes `--cwd`, `--tsconfig`, and `--plugins-json` to each LSP verb. LSP sidecars currently compute diagnostics, code actions, and commands from the saved project state: they receive document URIs and reload the project from the selected tsconfig. Commands still return a `WorkspaceEdit`; the editor applies that edit only if the touched documents remain clean. While a document is dirty, `ttscserver` suppresses plugin diagnostics and code actions. For owned commands, the proxy also records the document generation when the request starts and returns JSON `null` if a dirty, saved, or closed document changed before the sidecar returned an edit for it.
+
+A sidecar that does not implement `lsp-hints` rejects it as an unknown command, and the host treats that as "no hints" rather than a failure — every sidecar predating the verb answers that way, so logging it would print an error per plugin per session. A sidecar that answers with invalid JSON is logged, because it implemented the verb and got it wrong. Unlike `lsp-command-ids` and `lsp-code-action-kinds`, which ignore their arguments and never build a Program, `lsp-hints` loads one — a corpus is a projection of what a project rule's `Check` found. The host therefore fetches it once in the background rather than on the `initialize` path, and answers from memory until then.
 
 When `capabilities.projectContextArgs` is enabled, the host also passes `--project-context-json`. The JSON object separates `invocationCwd`, `logicalConfigPath`, and `logicalProjectRoot` from `physicalConfigPath` and `physicalProjectRoot`; it may also contain `explicitProjectRoot` and `pluginConfigOrigin`. A project lifecycle id is minted by the native Program host.
 
