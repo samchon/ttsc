@@ -50,11 +50,21 @@ type lspRangeWire struct {
 }
 
 type lspDiagnostic struct {
-  Range    lspRange `json:"range"`
-  Severity int      `json:"severity,omitempty"`
-  Code     string   `json:"code,omitempty"`
-  Source   string   `json:"source,omitempty"`
-  Message  string   `json:"message"`
+  Range           lspRange            `json:"range"`
+  Severity        int                 `json:"severity,omitempty"`
+  Code            string              `json:"code,omitempty"`
+  CodeDescription *lspCodeDescription `json:"codeDescription,omitempty"`
+  Source          string              `json:"source,omitempty"`
+  Message         string              `json:"message"`
+}
+
+// lspCodeDescription mirrors the proxy's LSPCodeDescription: a docs URL for the
+// diagnostic's Code. The lint sidecar leaves it unset today — no vetted mapping
+// from a rule name to its docs page exists — but the field is present so a
+// future source (a rule-supplied URL, or a maintained rule-to-page table) has a
+// wire to travel on without the proxy dropping it.
+type lspCodeDescription struct {
+  Href string `json:"href"`
 }
 
 type lspCommand struct {
