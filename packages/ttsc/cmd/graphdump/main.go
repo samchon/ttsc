@@ -61,7 +61,9 @@ func run() int {
   data, err := graph.MarshalDump(g, root, *tsconfig, ignored, texts, graph.DumpOrigin{
     Provenance: graph.NewProvenance(
       root,
-      graph.Producer{Ttscgraph: "graphdump", Typescript: graph.TypescriptVersion()},
+      // No version: this tool is built from the tree on demand and never
+      // stamped, and an invented one would be worse than an absent one.
+      graph.Producer{Tool: "graphdump", Typescript: graph.TypescriptVersion()},
       []string{graph.CapabilitySourceDigests},
       nil,
       nil,

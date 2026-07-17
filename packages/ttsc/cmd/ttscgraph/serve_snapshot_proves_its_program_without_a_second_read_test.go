@@ -58,6 +58,9 @@ func TestServeSnapshotProvesItsProgramWithoutASecondRead(t *testing.T) {
   if provenance.SchemaVersion != graph.DumpSchemaVersion {
     t.Fatalf("dump schema version %d, want %d", provenance.SchemaVersion, graph.DumpSchemaVersion)
   }
+  if provenance.Producer.Tool != "ttscgraph" {
+    t.Fatalf("provenance names producer %q, want ttscgraph", provenance.Producer.Tool)
+  }
   if provenance.Producer.Typescript == "" {
     t.Fatal("provenance did not name the TypeScript version behind the facts")
   }

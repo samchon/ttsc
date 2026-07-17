@@ -93,10 +93,25 @@ export namespace ITtscGraphDump {
     sources: ISourceDigest[];
   }
 
-  /** Identifies the binary and the checker behind the facts. */
+  /**
+   * Identifies the binary and the checker behind the facts.
+   *
+   * `tool` and `version` are separate because more than one binary can produce
+   * a dump and they do not share a version line — the shipped `ttscgraph` is
+   * stamped at release, the internal viewer tool is not versioned at all — so
+   * folding the name in would hand a consumer that parses a version a tool
+   * name.
+   */
   export interface IProducer {
-    /** The `ttscgraph` build version, as `--version` prints it. */
-    ttscgraph: string;
+    /** The producing binary's name, such as `ttscgraph`. */
+    tool: string;
+
+    /**
+     * The producing binary's build version, as its `--version` prints it. A
+     * local build reports the dev placeholder; a tool that carries no version
+     * reports `""`.
+     */
+    version: string;
 
     /** The TypeScript version typescript-go implements. */
     typescript: string;

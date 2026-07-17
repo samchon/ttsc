@@ -75,10 +75,20 @@ type Provenance struct {
 }
 
 // Producer identifies what built a snapshot.
+//
+// Tool and Version are two fields rather than one because more than one binary
+// in this repository can produce a dump, and they do not share a version line:
+// the shipped `ttscgraph` is stamped at release, while the internal viewer tool
+// is not versioned at all. Folding the name into the version field would hand a
+// consumer that parses a version the string "graphdump".
 type Producer struct {
-  // Ttscgraph is the ttscgraph binary's build version, as `--version` prints
-  // it. It is stamped at release; a local build reports the dev placeholder.
-  Ttscgraph string `json:"ttscgraph"`
+  // Tool is the producing binary's name, such as "ttscgraph".
+  Tool string `json:"tool"`
+
+  // Version is the producing binary's build version, as its `--version` prints
+  // it. It is stamped at release; a local build reports the dev placeholder, and
+  // a tool that carries no version reports "".
+  Version string `json:"version"`
 
   // Typescript is the TypeScript version typescript-go implements, in the form
   // `tsc --version` prints.

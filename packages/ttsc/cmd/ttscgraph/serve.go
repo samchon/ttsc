@@ -353,7 +353,8 @@ func (s *graphSession) buildDump() graph.Dump {
 // serveProducer names this binary and the checker it links.
 func serveProducer() graph.Producer {
   return graph.Producer{
-    Ttscgraph:  version,
+    Tool:       "ttscgraph",
+    Version:    version,
     Typescript: graph.TypescriptVersion(),
   }
 }
