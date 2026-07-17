@@ -5,9 +5,15 @@ import path from "node:path";
  * Resolve the per-platform `ttscgraph` binary, or `null` when it cannot be
  * located.
  *
- * `ttsc` is a peer the user installs alongside `@ttsc/graph` (not a dependency
- * of this launcher), so resolution starts from the user's project, not from
- * this package's own tree.
+ * `ttsc` is a peer dependency pinned to this package's own version, installed
+ * alongside `@ttsc/graph` in the user's project rather than nested under this
+ * launcher, so resolution starts from the user's project, not from this
+ * package's own tree.
+ *
+ * The pin is what keeps the two halves of the graph in step. `literals` and the
+ * rest of the node facts are resolved by the Go builder and ride the dump, so a
+ * newer `@ttsc/graph` reading an older `ttscgraph` would find those fields
+ * simply absent and answer from a graph missing facts it believes are there.
  *
  * Resolution order:
  *

@@ -69,6 +69,7 @@ type DumpNode struct {
   Exported       bool            `json:"exported,omitempty"`
   Closure        bool            `json:"closure,omitempty"`
   Modifiers      []string        `json:"modifiers,omitempty"`
+  Literals       []string        `json:"literals,omitempty"`
   Evidence       *DumpEvidence   `json:"evidence,omitempty"`
   Implementation *DumpEvidence   `json:"implementation,omitempty"`
   Decorators     []DumpDecorator `json:"decorators,omitempty"`
@@ -148,16 +149,19 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
       name, qualified = ctx.rel(name), ""
     }
     nodes = append(nodes, DumpNode{
-      ID:             ctx.relID(n.ID),
-      Kind:           string(n.Kind),
-      Name:           name,
-      QualifiedName:  qualified,
-      File:           ctx.rel(n.File),
-      External:       n.External,
-      Ignored:        ignored[n.File],
-      Exported:       n.Exported,
-      Closure:        n.Closure,
-      Modifiers:      n.Modifiers,
+      ID:            ctx.relID(n.ID),
+      Kind:          string(n.Kind),
+      Name:          name,
+      QualifiedName: qualified,
+      File:          ctx.rel(n.File),
+      External:      n.External,
+      Ignored:       ignored[n.File],
+      Exported:      n.Exported,
+      Closure:       n.Closure,
+      Modifiers:     n.Modifiers,
+      // Uncapped, like every other fact here: the dump is the whole graph and
+      // the MCP layer is what applies a response cap and marks it.
+      Literals:       n.Literals,
       Evidence:       withoutFile(ctx.evidence(n.File, n.Pos, n.End)),
       Implementation: ctx.evidence(n.ImplementationFile, n.ImplementationPos, n.ImplementationEnd),
       Decorators:     decByNode[n.ID],

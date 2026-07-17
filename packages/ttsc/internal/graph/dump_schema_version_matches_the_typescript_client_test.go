@@ -29,7 +29,7 @@ func TestDumpSchemaVersionMatchesTheTypescriptClient(t *testing.T) {
   // The checkout is CRLF on Windows, and a line-anchored match would never
   // see the end of a line that ends in a carriage return.
   source = bytes.ReplaceAll(source, []byte("\r\n"), []byte("\n"))
-  match := regexp.MustCompile(`(?m)^const DUMP_SCHEMA_VERSION = (\d+);$`).FindSubmatch(source)
+  match := regexp.MustCompile(`(?m)^(?:export )?const DUMP_SCHEMA_VERSION = (\d+);$`).FindSubmatch(source)
   if match == nil {
     t.Fatalf("no `const DUMP_SCHEMA_VERSION = <n>;` in %s; if it moved, this gate must follow it", reader)
   }
