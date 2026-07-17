@@ -39,6 +39,13 @@ export enum Implicit {
   Second,
 }
 
+// Two members, one value: a type folds these together, a declaration does not.
+export enum Dup {
+  A = 'x',
+  B = 'x',
+  C = 'y',
+}
+
 export class Cls {
   public value = 1;
 }
@@ -80,6 +87,24 @@ export class Cls {
     t.Fatalf("implicitly numbered enum did not pair its members: %v", implicit.EnumMembers)
   }
 
+  // Two members carrying one value. The declared type folds them into a single
+  // constituent — a type is a set — so reading the list off the type reports A
+  // and C and drops B, silently, which is #732's defect from #732's instinct:
+  // taking a declaration fact from a type. The list is the declaration's.
+  dup := graph.Nodes[nodeID(path, "Dup", NodeEnum)]
+  if dup == nil {
+    t.Fatalf("missing Dup; nodes: %v", nodeIDSet(graph))
+  }
+  if names := memberNames(dup.EnumMembers); len(names) != 3 ||
+    names[0] != "A" || names[1] != "B" || names[2] != "C" {
+    t.Fatalf("a member sharing another's value was dropped: %v", names)
+  }
+  // And the value set is right to say `"x"` once: two members, two names, but
+  // the values they admit really are two.
+  if len(dup.Literals) != 2 {
+    t.Fatalf("the value set should hold each distinct value once: %v", dup.Literals)
+  }
+
   // The line this fix holds: the members are facts on the enum, not nodes of
   // their own. A node per member would index what grep already answers.
   for id := range graph.Nodes {
@@ -95,4 +120,12 @@ export class Cls {
     len(cls.EnumMembers) != 0 {
     t.Fatalf("a class node carried enum members: %v", cls)
   }
+}
+
+func memberNames(members []EnumMember) []string {
+  out := make([]string, 0, len(members))
+  for _, member := range members {
+    out = append(out, member.Name)
+  }
+  return out
 }

@@ -85,6 +85,12 @@ export const test_ttscgraph_details_answers_an_enum_with_its_member_names =
         "  Second,",
         "}",
         "",
+        "// Two members, one value: a type folds these, a declaration does not.",
+        "export enum Dup {",
+        "  A = 'x',",
+        "  B = 'x',",
+        "}",
+        "",
         "export class Cls {",
         "  public run(): void {}",
         "}",
@@ -105,7 +111,10 @@ export const test_ttscgraph_details_answers_an_enum_with_its_member_names =
         name: "inspect_typescript_graph",
         arguments: graphArguments({
           thinking: "What are these enums and what may I write?",
-          request: { type: "details", handles: ["Colors", "Implicit", "Cls"] },
+          request: {
+            type: "details",
+            handles: ["Colors", "Implicit", "Dup", "Cls"],
+          },
         }),
       })) as ToolResult;
 
@@ -139,6 +148,23 @@ export const test_ttscgraph_details_answers_an_enum_with_its_member_names =
         nodeOf("Implicit")?.members?.map((m) => m.signature),
         ["First = 0", "Second = 1"],
         `implicit members pair with resolved values: ${JSON.stringify(nodeOf("Implicit")?.members)}`,
+      );
+
+      // Two members, one value. The declared type folds them into one
+      // constituent — a type is a set — so a member list read off the type
+      // would report `A` and lose `B`, silently, which is the defect this whole
+      // area exists to be rid of. The list is the declaration's; the value set
+      // is right to hold `"x"` once.
+      const dup = nodeOf("Dup");
+      assert.deepStrictEqual(
+        dup?.members?.map((m) => m.name),
+        ["Dup.A", "Dup.B"],
+        `a member sharing another's value is still listed: ${JSON.stringify(dup?.members)}`,
+      );
+      assert.deepStrictEqual(
+        dup?.literals,
+        ['"x"'],
+        `the value set holds each distinct value once: ${JSON.stringify(dup?.literals)}`,
       );
 
       // The negative twin: a class's outline comes from its member nodes and is
