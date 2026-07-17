@@ -152,6 +152,15 @@ export function runDetails(
       );
       if (list.length > 0) detail.members = list;
     }
+    // An enum's members ride on its own node rather than on `contains` edges,
+    // because they are not nodes: the outline above finds nothing for an enum
+    // and always did. Its signature stops at the `{`, so without this the one
+    // kind whose entire content is its member list answered with none of it.
+    // Uncapped like every other identity list — the members are the enum.
+    if (node.kind === "enum") {
+      const list = enumMembers(node, memberLimit);
+      if (list.length > 0) detail.members = list;
+    }
     if (node.literals !== undefined && node.literals.length > 0) {
       detail.literals = node.literals;
     }
@@ -223,6 +232,28 @@ function members(
     if (out.length >= limit) break;
   }
   return out;
+}
+
+/**
+ * An enum's members, owner-qualified so the name reads the way the code writes
+ * it, with the value each carries as its signature.
+ *
+ * The name is why this exists. `literals` answers what values the enum admits,
+ * but a caller writes `Colors.Red` and never `"red"`, so an enum the graph
+ * already held sent a caller that had named it to the file for the one fact it
+ * came for (#738).
+ */
+function enumMembers(
+  node: ITtscGraphNode,
+  limit: number,
+): ITtscGraphDetails.IMember[] {
+  return (node.enumMembers ?? []).slice(0, limit).map((member) => ({
+    name: `${node.qualifiedName ?? node.name}.${member.name}`,
+    kind: "property",
+    ...(member.value !== undefined
+      ? { signature: `${member.name} = ${member.value}` }
+      : {}),
+  }));
 }
 
 function objectLiteralMembers(

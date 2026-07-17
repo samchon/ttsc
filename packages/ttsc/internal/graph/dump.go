@@ -56,6 +56,15 @@ type DumpDecorator struct {
   Arguments []DumpDecoratorArgument `json:"arguments"`
 }
 
+// DumpEnumMember is one member of an enum on the wire: the name a caller writes
+// and the value it carries. `value` is omitted for a member the checker could
+// not fold to a constant — the name still stands, and the name is what a caller
+// asking about the enum came for.
+type DumpEnumMember struct {
+  Name  string `json:"name"`
+  Value string `json:"value,omitempty"`
+}
+
 // DumpNode is the wire shape of a graph node. Lowercase json keys are the
 // contract; the Go field names are not.
 type DumpNode struct {
@@ -69,7 +78,8 @@ type DumpNode struct {
   Exported       bool            `json:"exported,omitempty"`
   Closure        bool            `json:"closure,omitempty"`
   Modifiers      []string        `json:"modifiers,omitempty"`
-  Literals       []string        `json:"literals,omitempty"`
+  Literals       []string         `json:"literals,omitempty"`
+  EnumMembers    []DumpEnumMember `json:"enumMembers,omitempty"`
   Evidence       *DumpEvidence   `json:"evidence,omitempty"`
   Implementation *DumpEvidence   `json:"implementation,omitempty"`
   Decorators     []DumpDecorator `json:"decorators,omitempty"`
@@ -162,6 +172,7 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
       // Uncapped, like every other fact here: the dump is the whole graph and
       // the MCP layer is what applies a response cap and marks it.
       Literals:       n.Literals,
+      EnumMembers:    dumpEnumMembers(n.EnumMembers),
       Evidence:       withoutFile(ctx.evidence(n.File, n.Pos, n.End)),
       Implementation: ctx.evidence(n.ImplementationFile, n.ImplementationPos, n.ImplementationEnd),
       Decorators:     decByNode[n.ID],
@@ -222,6 +233,19 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
     Nodes:       nodes,
     Edges:       edges,
   }
+}
+
+// dumpEnumMembers projects an enum's members onto the wire shape, nil for a
+// node that declares none so the key stays off every other kind.
+func dumpEnumMembers(members []EnumMember) []DumpEnumMember {
+  if len(members) == 0 {
+    return nil
+  }
+  out := make([]DumpEnumMember, 0, len(members))
+  for _, member := range members {
+    out = append(out, DumpEnumMember{Name: member.Name, Value: member.Value})
+  }
+  return out
 }
 
 // MarshalDump serializes a built graph to the export JSON, indented when pretty.

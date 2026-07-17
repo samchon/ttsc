@@ -24,7 +24,7 @@ const MAX_DUMP_BYTES = 1024 * 1024 * 1024;
  * body's are independent, so a producer can speak this protocol and still send a
  * body from another schema.
  */
-export const DUMP_SCHEMA_VERSION = 2;
+export const DUMP_SCHEMA_VERSION = 3;
 
 /**
  * Build the resident {@link TtscGraphMemory} for a project by running `ttscgraph
