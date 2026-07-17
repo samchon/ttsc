@@ -239,16 +239,15 @@ func NewProvenance(
     return relRoots[i].File < relRoots[j].File
   })
 
-  declared := capabilities
-  if declared == nil {
-    declared = []string{}
-  }
-  sorted := append([]string{}, declared...)
-  sort.Strings(sorted)
+  // Copy before sorting: the caller's slice is a shared package-level constant,
+  // and sorting in place would reorder it under every other reader. The copy of
+  // a nil is an empty list, which is what the wire wants anyway.
+  declared := append([]string{}, capabilities...)
+  sort.Strings(declared)
 
   return Provenance{
     SchemaVersion: DumpSchemaVersion,
-    Capabilities:  sorted,
+    Capabilities:  declared,
     Producer:      producer,
     Universe:      Universe{Configs: relConfigs, Roots: relRoots},
     Sources:       sources,
