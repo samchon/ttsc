@@ -241,6 +241,31 @@ func (r contextReporter) ReportRangeFix(pos, end int, message string, edits ...r
   r.ctx.ReportRangeFix(pos, end, message, toInternalTextEdits(edits)...)
 }
 
+// ReportSuggestion and ReportRangeSuggestion satisfy rule.SuggestionReporter,
+// so a contributor can offer a choice of fixes — the surface built-in rules
+// already had internally and contributors could not reach.
+func (r contextReporter) ReportSuggestion(node *shimast.Node, message string, suggestions ...rule.Suggestion) {
+  r.ctx.ReportFixSuggestions(node, message, nil, toInternalSuggestions(suggestions)...)
+}
+
+func (r contextReporter) ReportRangeSuggestion(pos, end int, message string, suggestions ...rule.Suggestion) {
+  r.ctx.ReportRangeSuggestions(pos, end, message, toInternalSuggestions(suggestions)...)
+}
+
+func toInternalSuggestions(suggestions []rule.Suggestion) []Suggestion {
+  if len(suggestions) == 0 {
+    return nil
+  }
+  out := make([]Suggestion, len(suggestions))
+  for i, suggestion := range suggestions {
+    out[i] = Suggestion{
+      Title: suggestion.Title,
+      Edits: toInternalTextEdits(suggestion.Edits),
+    }
+  }
+  return out
+}
+
 func toInternalTextEdits(edits []rule.TextEdit) []TextEdit {
   if len(edits) == 0 {
     return nil

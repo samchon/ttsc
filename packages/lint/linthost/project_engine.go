@@ -184,11 +184,20 @@ func (e *Engine) evaluateProject(
       sources = e.projectSources(files)
       sourcesResolved = true
     }
+    // A rule that declared it needs no checker is handed none, matching the
+    // TypeAwareRule contract that the host is free to leave it nil. Passing one
+    // anyway would let such a rule read the checker and keep working while its
+    // own declaration says it does not — until the day the engine acts on that
+    // declaration and the rule faults far from the marker that caused it.
+    ruleChecker := checker
+    if adapter.declinesTypeChecker {
+      ruleChecker = nil
+    }
     reporter := &projectReporter{active: true}
     context := publicrule.NewProjectContext(
       identity,
       sources,
-      checker,
+      ruleChecker,
       publicrule.Severity(setting.Severity),
       setting.Options,
       reporter,

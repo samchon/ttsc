@@ -467,6 +467,23 @@ ctx.ReportFix(node, "use const",
 
 Designing fixes that emit one contiguous edit per finding is the safest pattern. `no-import-type-side-effects` is the one production rule that emits multiple edits per finding, and it carefully constructs the edits to be non-overlapping by position.
 
+## A rule with a choice of fixes: `ReportSuggestion`
+
+`ReportFix` imposes one rewrite. When a rule knows several valid repairs and cannot choose among them for the author — three plausible renames for an abbreviation, two types that could replace a banned one — it offers them instead, and the editor presents the choice:
+
+```go
+ctx.ReportSuggestion(node, "avoid the abbreviation `frm`",
+  rule.Suggestion{Title: "Rename to `frames`", Edits: []rule.TextEdit{{Pos: p, End: e, Text: "frames"}}},
+  rule.Suggestion{Title: "Rename to `framework`", Edits: []rule.TextEdit{{Pos: p, End: e, Text: "framework"}}},
+)
+```
+
+There is a `ReportRangeSuggestion` for a sub-token range, mirroring `ReportRangeFix`.
+
+The distinction is not cosmetic: a fix is applied automatically in a `ttsc fix` pass, a suggestion never is. Suggestions are surfaced only in an editor, as code actions the author invokes. A `Suggestion` with empty `Edits` is a label — a "did you mean" the author acts on by hand.
+
+Like `ReportFix`, this degrades gracefully: a host that does not implement `SuggestionReporter` still receives the diagnostic, without the choices. Design the rule so the message alone is useful, and reach for suggestions only when there genuinely is a choice — a single correct rewrite is a fix, and imposing it is the right thing.
+
 ## Fix cascade (`linthost/fix.go`)
 
 `ttsc fix` is more than "apply edits and exit." The host runs a _cascading_ pass loop:
@@ -679,6 +696,14 @@ Each `ProjectResult` value is a snapshot of status and findings at the time of t
 The host serializes status transitions, deduplicates equal messages, and sorts distinct messages before finalization, including when AST-only file rules dispatch concurrently. Project findings are finalized after all file rules return but are placed before file findings in CLI, API, watch, and LSP results. The contributor owns synchronization for mutable fields inside its state value; the host only synchronizes the result wrapper.
 
 Project contributors follow the same options compatibility boundary as file contributors. They accept options by default, while a genuinely optionless implementation can add `AcceptsTtscLintOptions() bool { return false }` to reject accidental payloads.
+
+The same boundary applies to the checker. A `ProjectContext` carries a live `Checker`, so a declared project rule is treated as type-aware and the engine creates the standalone checker for it. That decision is engine-wide rather than per-rule: one type-aware project rule also puts every file rule in the run on the serial walk, so a project rule that reads only `ctx.Sources` or the filesystem would silently spend a file rule's own `NeedsTypeChecker() bool { return false }`. Such a rule can add the same marker to opt out, and it then receives a nil `ctx.Checker`:
+
+```go
+func (noCycles) NeedsTypeChecker() bool { return false }
+```
+
+Returning `true` is equivalent to not implementing the marker. A project rule that returns `false` must not read `ctx.Checker`.
 
 ## Editor hints from a project rule
 

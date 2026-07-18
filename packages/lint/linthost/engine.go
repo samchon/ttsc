@@ -371,6 +371,27 @@ func (c *Context) ReportRangeSuggestion(pos, end int, message string, title stri
   })
 }
 
+// ReportRangeSuggestions records a finding at an explicit range with several
+// candidate suggestions. It is the range counterpart of ReportFixSuggestions,
+// added so the public contributor surface can offer a choice at a sub-token
+// range and not only at a whole node.
+func (c *Context) ReportRangeSuggestions(pos, end int, message string, suggestions ...Suggestion) {
+  if c.Severity == SeverityOff || c.File == nil {
+    return
+  }
+  pos, end = shimdw.NormalizeLintRange(c.File, pos, end)
+  c.collect(&Finding{
+    Rule:        c.rule.Name(),
+    Severity:    c.Severity,
+    File:        c.File,
+    Pos:         pos,
+    End:         end,
+    Message:     message,
+    Suggestions: cloneSuggestions(suggestions),
+    IsFormat:    c.isFormat,
+  })
+}
+
 // cloneTextEdits returns a shallow copy of `edits` so that the caller's
 // variadic slice cannot be mutated through the stored Finding. Returns nil
 // when the input is empty, keeping the Finding.Fix field nil rather than
@@ -529,7 +550,11 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
         fmt.Errorf("@ttsc/lint: invalid options for rule %q: rule does not accept options", name),
       )
     }
-    if setting.Declared && setting.Severity != SeverityOff {
+    // A project rule shares the engine-wide checker decision with every file
+    // rule, so one that declines the checker must not drag the whole run onto
+    // the serial walk. An unmarked rule keeps the conservative default.
+    if setting.Declared && setting.Severity != SeverityOff &&
+      projectRuleNeedsTypeChecker(name) {
       eng.needsTypeChecker = true
     }
   }
