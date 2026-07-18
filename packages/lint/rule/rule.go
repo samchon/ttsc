@@ -128,8 +128,12 @@ type DeclarationFileRule interface {
 // preserving the engine's parallel file walk. Returning `true` is equivalent
 // to not implementing the interface at all. A rule that returns `false` must
 // not read `Context.Checker`: the host is free to leave it nil.
+//
+// The method name is domain-specific so an unrelated generic method on an
+// existing contributor cannot opt out by accident. ProjectRule implementations
+// may use the same marker; the serial walk it governs is engine-wide, so one
+// type-aware project rule serializes every file rule in the run.
 type TypeAwareRule interface {
-  Rule
   NeedsTypeChecker() bool
 }
 

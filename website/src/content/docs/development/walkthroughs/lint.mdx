@@ -678,6 +678,14 @@ The host serializes status transitions, deduplicates equal messages, and sorts d
 
 Project contributors follow the same options compatibility boundary as file contributors. They accept options by default, while a genuinely optionless implementation can add `AcceptsTtscLintOptions() bool { return false }` to reject accidental payloads.
 
+The same boundary applies to the checker. A `ProjectContext` carries a live `Checker`, so a declared project rule is treated as type-aware and the engine creates the standalone checker for it. That decision is engine-wide rather than per-rule: one type-aware project rule also puts every file rule in the run on the serial walk, so a project rule that reads only `ctx.Sources` or the filesystem would silently spend a file rule's own `NeedsTypeChecker() bool { return false }`. Such a rule can add the same marker to opt out, and it then receives a nil `ctx.Checker`:
+
+```go
+func (noCycles) NeedsTypeChecker() bool { return false }
+```
+
+Returning `true` is equivalent to not implementing the marker. A project rule that returns `false` must not read `ctx.Checker`.
+
 Configure a project rule in the same `rules` map, but only in entries without `files`:
 
 ```ts
