@@ -26,4 +26,7 @@ func TestBoundariesNoUnknownRejectsUnknownImportTarget(t *testing.T) {
     "src/shared/util.ts": "export {};",
   })
   assertSingleBoundaryFinding(t, ruleName, findings, `does not match any configured boundary element`)
+  // The rule holds the configured element types at the moment it reports, so
+  // the message names them rather than leaving the reader to open lint.config.
+  assertSingleBoundaryFinding(t, ruleName, findings, `Configured elements: app, domain.`)
 }
