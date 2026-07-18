@@ -34,15 +34,31 @@ const (
   LSPDiagnosticSeverityHint LSPDiagnosticSeverity = 4
 )
 
-// LSPDiagnostic is the minimal subset of the LSP Diagnostic type
-// ttscserver injects into outgoing publishDiagnostics. omitempty is set
-// on optional fields so the merged JSON stays close to what tsgo emits.
+// LSPDiagnostic is the subset of the LSP Diagnostic type ttscserver injects
+// into outgoing publishDiagnostics. omitempty is set on optional fields so the
+// merged JSON stays close to what tsgo emits.
+//
+// The proxy decodes each sidecar diagnostic into this struct and re-encodes it,
+// so a field absent here is silently dropped on the way to the editor. Every
+// LSP Diagnostic field a producer might set must therefore appear, or the proxy
+// truncates it.
 type LSPDiagnostic struct {
-  Range    LSPRange              `json:"range"`
-  Severity LSPDiagnosticSeverity `json:"severity,omitempty"`
-  Code     any                   `json:"code,omitempty"`
-  Source   string                `json:"source,omitempty"`
-  Message  string                `json:"message"`
+  Range           LSPRange              `json:"range"`
+  Severity        LSPDiagnosticSeverity `json:"severity,omitempty"`
+  Code            any                   `json:"code,omitempty"`
+  CodeDescription *LSPCodeDescription   `json:"codeDescription,omitempty"`
+  Source          string                `json:"source,omitempty"`
+  Message         string                `json:"message"`
+}
+
+// LSPCodeDescription is the LSP CodeDescription type: a documentation URL for a
+// diagnostic's Code. Editors render the Code as a link to Href, so a rule name
+// in the Problems panel can lead to the rule's docs. The proxy carries whatever
+// a sidecar supplies; it does not synthesize the URL, because no reliable
+// rule-name-to-page mapping exists (rule prefixes like `solid-js` and `format`
+// have no matching docs page, and core rules have no prefix at all).
+type LSPCodeDescription struct {
+  Href string `json:"href"`
 }
 
 // LSPCodeAction is the minimal Code Action shape ttscserver returns from
