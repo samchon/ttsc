@@ -231,6 +231,7 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
     proxyErr = proxy.Run(serverCtx)
   }()
   wg.Wait()
+  proxy.shutdownResidentPlugins()
 
   for _, err := range []error{serverErr, proxyErr} {
     if err == nil {

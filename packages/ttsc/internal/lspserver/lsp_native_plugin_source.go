@@ -65,6 +65,14 @@ type NativePluginSource struct {
   codeActionKinds []string
   owners          map[string]NativeLSPPluginEntry
   logMu           sync.Mutex
+
+  // residentMu guards the resident-daemon table below. A resident sidecar keeps
+  // a warm Program across verbs, so lsp-diagnostics / lsp-code-actions reuse it
+  // instead of respawning per verb; serveUnsupported remembers a sidecar that
+  // predates lsp-serve so the source stops retrying it and stays on exec.
+  residentMu       sync.Mutex
+  residents        map[string]*residentSidecar
+  serveUnsupported map[string]bool
 }
 
 type limitedBuffer struct {
@@ -385,6 +393,17 @@ func (s *NativePluginSource) pluginOwnsCommand(plugin NativeLSPPluginEntry, comm
 }
 
 func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, args ...string) ([]byte, error) {
+  // Route the Program-loading read verbs through the plugin's resident daemon so
+  // a warm Program is reused across verbs. serveRun returns served=false for a
+  // sidecar that predates lsp-serve or a transport failure, falling back to the
+  // spawn-per-verb path below with no behavior change. The static discovery
+  // verbs (lsp-command-ids / lsp-code-action-kinds) and lsp-execute-command stay
+  // on exec by design.
+  if command == serveVerbDiagnostics || command == serveVerbCodeActions {
+    if body, served, err := s.serveRun(plugin, command, args); served {
+      return body, err
+    }
+  }
   return s.runWithStdin(plugin, command, nil, args...)
 }
 
