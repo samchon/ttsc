@@ -1,4 +1,8 @@
-import { RESULT_AUDIT, RESULT_AUDIT_SELECTION } from "@ttsc/graph";
+import {
+  RESULT_AUDIT,
+  RESULT_AUDIT_DETAILS,
+  RESULT_AUDIT_SELECTION,
+} from "@ttsc/graph";
 import { TestProject } from "@ttsc/testing";
 
 import { TtsgraphClient, assert } from "../internal/ttsgraph";
@@ -32,8 +36,9 @@ const graphArguments = (props: {
 /**
  * Verifies each operation's `audit` matches how its result was actually
  * selected: the ranked shortlists (`lookup`, `entrypoints`, `tour`) declare the
- * selection audit, while the exact operations (`trace`, `details`, `overview`)
- * declare the strong fact-verification audit.
+ * selection audit, the walks from a named handle (`trace`, `overview`) declare
+ * the strong fact-verification audit, and `details` declares its own — its
+ * result is a complete identity plus a fan-out slice, not one bounded whole.
  *
  * One global audit used to claim every result contained nothing "matched,
  * ranked, guessed, or inferred," was complete, and should not prompt a second
@@ -49,8 +54,9 @@ const graphArguments = (props: {
  *    handlers, so a broad query yields a ranked, bounded, truncated shortlist.
  * 2. Drive every request branch over MCP.
  * 3. Assert the ranked branches carry {@link RESULT_AUDIT_SELECTION} plus the
- *    ranking/truncation metadata that justifies it, and the exact branches
- *    carry {@link RESULT_AUDIT}, and that the two audits are distinct.
+ *    ranking/truncation metadata that justifies it, `trace` and `overview` carry
+ *    {@link RESULT_AUDIT}, `details` carries {@link RESULT_AUDIT_DETAILS}, and
+ *    the audits are distinct.
  */
 export const test_ttscgraph_result_audit_matches_selection_semantics =
   async (): Promise<void> => {
@@ -92,10 +98,10 @@ export const test_ttscgraph_result_audit_matches_selection_semantics =
       ].join("\n"),
     });
 
-    assert.notEqual(
-      RESULT_AUDIT,
-      RESULT_AUDIT_SELECTION,
-      "the exact and selection audits must be distinct constants",
+    assert.equal(
+      new Set([RESULT_AUDIT, RESULT_AUDIT_SELECTION, RESULT_AUDIT_DETAILS]).size,
+      3,
+      "the exact, selection, and details audits must be distinct constants",
     );
 
     const client = TtsgraphClient.start(root);
@@ -204,8 +210,8 @@ export const test_ttscgraph_result_audit_matches_selection_semantics =
       const details = await call({ type: "details", handles: ["Service.run"] });
       assert.equal(
         details.structuredContent?.audit,
-        RESULT_AUDIT,
-        `details resolves named handles and must carry the exact audit: ${JSON.stringify(details.structuredContent)}`,
+        RESULT_AUDIT_DETAILS,
+        `details resolves a named handle into a complete identity and a fan-out slice, so it carries its own audit: ${JSON.stringify(details.structuredContent)}`,
       );
 
       const overview = await call({ type: "overview", aspect: "all" });
