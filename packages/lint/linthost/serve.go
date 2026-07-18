@@ -87,6 +87,35 @@ func (c *residentProgramCache) invalidate() {
 
 func noopClose() {}
 
+// applyChanges incrementally updates every cached Program for the changed files,
+// or drops an entry for a full reload when a changed path is not one of its
+// source files — a config edit, or a new or removed file, which tsgo's
+// per-file UpdateProgram cannot express and a fresh load handles correctly.
+func (c *residentProgramCache) applyChanges(paths []string) {
+  if len(paths) == 0 {
+    return
+  }
+  c.mu.Lock()
+  defer c.mu.Unlock()
+  for key, prog := range c.entries {
+    fullReload := false
+    for _, path := range paths {
+      if prog.sourceFileByPath(path) == nil {
+        fullReload = true
+        break
+      }
+    }
+    if fullReload {
+      prog.close()
+      delete(c.entries, key)
+      continue
+    }
+    for _, path := range paths {
+      prog.applyChange(path)
+    }
+  }
+}
+
 // acquireProgram returns the Program an LSP verb should lint over, plus the
 // close func the verb must defer. Outside a resident daemon (residentPrograms
 // nil) it builds a fresh Program exactly as before and returns its real close,
@@ -119,9 +148,16 @@ type serveLSPRequest struct {
   URI         string `json:"uri,omitempty"`
   RangeJSON   string `json:"rangeJson,omitempty"`
   ContextJSON string `json:"contextJson,omitempty"`
-  // Invalidate drops the warm Program before serving. The client sends it when
-  // a document changed on disk, so the request that carries it rebuilds.
+  // Invalidate drops the warm Program before serving. The client sends it for a
+  // change it cannot localize, so the request that carries it rebuilds.
   Invalidate bool `json:"invalidate,omitempty"`
+  // Changed carries document URIs that changed on disk (a didSave), so the warm
+  // Program is updated incrementally — re-parsing only those files — before
+  // serving, instead of rebuilt from scratch. The sidecar owns the URI-to-path
+  // conversion so the spelling matches its own source-file names. A file the
+  // Program does not already hold as a source (a config edit, a new or removed
+  // file) drops the entry for a full reload instead.
+  Changed []string `json:"changed,omitempty"`
 }
 
 // serveLSPResponse is the reply to one request: the verb's JSON result verbatim
@@ -194,6 +230,15 @@ func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Enco
   }
   if req.Invalidate {
     residentPrograms.invalidate()
+  }
+  if len(req.Changed) > 0 {
+    paths := make([]string, 0, len(req.Changed))
+    for _, uri := range req.Changed {
+      if path, err := filePathFromURI(uri); err == nil {
+        paths = append(paths, path)
+      }
+    }
+    residentPrograms.applyChanges(paths)
   }
   opts := *base
   opts.uri = req.URI

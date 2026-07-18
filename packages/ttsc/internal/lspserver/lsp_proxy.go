@@ -293,13 +293,16 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
   case methodDidSave:
     if env.IsNotification() {
       p.invalidateSymbolProvider()
-      p.invalidateResidentPlugins()
+      p.invalidateResidentPlugins(env)
       p.publishPluginDiagnosticsForDocumentNotification(env)
     }
   case methodDidChange:
     if env.IsNotification() {
       p.invalidateSymbolProvider()
-      p.invalidateResidentPlugins()
+      // No resident invalidation on didChange: the buffer is dirty but disk is
+      // unchanged, so the warm Program (built from disk) stays valid, and plugin
+      // diagnostics and code actions are suppressed while dirty anyway. didSave
+      // updates the Program incrementally once the edit reaches disk.
       p.cacheDidChangeText(env)
       if err := p.markDocumentDirty(env); err != nil {
         return false, err
@@ -1883,16 +1886,30 @@ func (p *Proxy) invalidateSymbolProvider() {
   }
 }
 
-// invalidateResidentPlugins tells a resident plugin source to drop its warm
-// Program before the next verb, because a document changed. Optional-interface
-// assertion for the same reason pluginCodeActionKinds uses one: a PluginSource
-// without a resident daemon (NullPluginSource, or one built before this) is
-// simply unaffected.
-func (p *Proxy) invalidateResidentPlugins() {
-  type residentInvalidator interface{ InvalidateResidentPrograms() }
-  if source, ok := p.source.(residentInvalidator); ok {
-    source.InvalidateResidentPrograms()
+// invalidateResidentPlugins tells a resident plugin source that a document
+// changed on disk, passing the saved document's URI so the daemon can update
+// that file incrementally; an unparseable notification falls back to a full
+// invalidation. Optional-interface assertion for the same reason
+// pluginCodeActionKinds uses one: a PluginSource without a resident daemon
+// (NullPluginSource, or one built before this) is simply unaffected.
+func (p *Proxy) invalidateResidentPlugins(env Envelope) {
+  type residentInvalidator interface {
+    InvalidateResidentPrograms(...string)
   }
+  source, ok := p.source.(residentInvalidator)
+  if !ok {
+    return
+  }
+  var params struct {
+    TextDocument struct {
+      URI string `json:"uri"`
+    } `json:"textDocument"`
+  }
+  if len(env.Params) > 0 && json.Unmarshal(env.Params, &params) == nil && params.TextDocument.URI != "" {
+    source.InvalidateResidentPrograms(params.TextDocument.URI)
+    return
+  }
+  source.InvalidateResidentPrograms()
 }
 
 // shutdownResidentPlugins kills any resident plugin daemons on server teardown.

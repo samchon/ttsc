@@ -295,6 +295,57 @@ func (p *program) close() {
   p.checker = nil
 }
 
+// sourceFileByPath returns the resident Program's source file whose name matches
+// absPath (slash-normalized), or nil when the Program has no such file. Mirrors
+// how driver.Program.SourceFile resolves a path over SourceFiles().
+func (p *program) sourceFileByPath(absPath string) *shimast.SourceFile {
+  if p == nil || p.tsProgram == nil {
+    return nil
+  }
+  normalized := filepath.ToSlash(absPath)
+  for _, file := range p.tsProgram.SourceFiles() {
+    if file == nil {
+      continue
+    }
+    if filepath.ToSlash(file.FileName()) == normalized {
+      return file
+    }
+  }
+  return nil
+}
+
+// applyChange incrementally updates the resident Program for one changed file:
+// tsgo re-parses only that file and reuses every other file's AST, and the
+// standalone lint checker is rebuilt over the new Program. It mirrors
+// driver.Session.Apply, adapted to lint's standalone serial checker (lint cannot
+// borrow tsgo's pooled checker — see loadProgram). The caller has already
+// confirmed absPath is a known source file; a config edit or a new/removed file
+// is handled by a full reload upstream, not here. tsgo returns a rebuilt Program
+// when the edit reshaped the import graph, and that rebuilt Program is still
+// correct, so the reused flag is not consulted.
+func (p *program) applyChange(absPath string) {
+  if p == nil || p.tsProgram == nil {
+    return
+  }
+  name := absPath
+  if file := p.sourceFileByPath(absPath); file != nil {
+    name = file.FileName()
+  }
+  fs := bundled.WrapFS(cachedvfs.From(osvfs.FS()))
+  host := shimcompiler.NewCompilerHost(p.cwd, fs, bundled.LibPath(), nil, nil)
+  changed := shimtspath.ToPath(name, p.cwd, fs.UseCaseSensitiveFileNames())
+  newProg, _ := p.tsProgram.UpdateProgram(changed, host, nil)
+  if newProg != nil {
+    p.tsProgram = newProg
+    if p.checker != nil {
+      p.checker, _ = shimchecker.NewChecker(newProg, nil)
+    }
+  }
+  // The prior cycle described the pre-edit Program; drop it so the next verb
+  // re-evaluates its rules over the updated ASTs.
+  p.projectCycle = nil
+}
+
 // userSourceFiles returns the tsconfig-selected source files the lint engine
 // owns. The tsconfig file list is the boundary: imported libraries, generated
 // output, and JSON modules may still appear in Program.SourceFiles(), but lint
