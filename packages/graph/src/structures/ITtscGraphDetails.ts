@@ -49,22 +49,24 @@ export namespace ITtscGraphDetails {
     neighbors?: boolean;
 
     /**
-     * Maximum dependencies and dependents per side when `neighbors:true`. Above
-     * a few is usually overfetch; call `trace` for flow instead.
+     * Dependencies and dependents per side when `neighbors:true`. A small
+     * orientation slice by default; what uses a symbol grows with its
+     * popularity, so `trace` answers the whole "who uses this".
      *
      * @default 2
      */
     neighborLimit?: number;
 
     /**
-     * Maximum owned members for a container or object literal.
-     *
-     * @default 6
+     * Owned members for a container or object literal. The complete outline by
+     * default — a class's members and an enum's are the symbol itself, so they
+     * are not sampled. Pass a number to cap.
      */
     memberLimit?: number;
 
     /**
-     * Maximum direct execution and type references per group.
+     * Direct execution and type references per group. A small orientation slice
+     * by default; `trace` follows the whole fan-out.
      *
      * @default 2
      */
@@ -146,25 +148,15 @@ export namespace ITtscGraphDetails {
     implementedBy?: IReference[];
 
     /**
-     * The values a type alias or enum admits, in TypeScript source form (`"a"`,
-     * `1`, `true`, `null`) — the checker's resolved union members, not the
-     * quoted tokens that happened to fit in `signature`.
+     * The complete value set a type alias or enum admits, in TypeScript source
+     * form (`"a"`, `1`, `true`, `null`) — the checker's resolved union members,
+     * not the quoted tokens that happened to fit in `signature`.
      *
-     * Complete unless `literalsTruncated` says otherwise, and absent when the
-     * type has no enumerable value set. A `signature` is capped at the
-     * declaration head, so for a union or enum written across several lines
-     * this is the field that carries the members.
+     * Absent when the type has no enumerable value set. A `signature` is capped
+     * at the declaration head, so for a union or enum written across several
+     * lines this is the field that carries the members.
      */
     literals?: string[];
-
-    /**
-     * True when `literals` was cut to the response cap; the values listed
-     * stand, but they are a prefix of the set rather than all of it.
-     *
-     * `literals` claims to be the whole type, so the one case where it is not
-     * has to say so. Read the declaration for the rest.
-     */
-    literalsTruncated?: boolean;
 
     /**
      * Owned symbol or top-level property outline a consumer reaches for on a

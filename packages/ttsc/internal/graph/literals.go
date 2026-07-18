@@ -20,8 +20,10 @@ import (
 //
 // Enums come here too, and they need it more. An enum's members are not nodes
 // of their own — the build pass records member nodes for classes and interfaces
-// only — so `literals` is the only place an enum's values reach a consumer at
-// all.
+// only — so its node is the only place anything about them can ride. It carries
+// two facts, and they are not the same fact: the value set the enum admits,
+// deduped because a type is a set, and the members it declares, which is the
+// list a caller writes from and which nothing folds.
 func (g *Graph) collectLiterals(checker *shimchecker.Checker, file *shimast.SourceFile) {
   if file.Statements == nil {
     return
@@ -66,6 +68,54 @@ func (g *Graph) putLiterals(checker *shimchecker.Checker, path string, statement
   if values, ok := literalValues(declared); ok {
     node.Literals = values
   }
+  if kind == NodeEnum {
+    node.EnumMembers = enumMembers(checker, statement)
+  }
+}
+
+// enumMembers pairs each member an enum declares with the value it carries.
+//
+// The names are the half a caller writes. `literals` answers which values the
+// enum admits, the question a serializer asks, but the code says `Colors.Red`
+// and never `"red"` — so an enum whose node the graph already held still sent a
+// caller to the file to learn what to type (#738).
+//
+// The list comes from the declaration, not from the declared type's
+// constituents, and that is not a detail. A type is a set, so the checker folds
+// two members carrying one value into one constituent: `enum Dup { A = 'x', B =
+// 'x' }` resolves to a single type, and reading names off it reports `A` and
+// loses `B` — the same silent under-report as #732, out of the same instinct to
+// take a declaration fact from a type. The value set really is one value, which
+// is why `literals` is right to say `"x"` once; the member list is two members,
+// and only the declaration says so.
+//
+// Each member's value still comes from the checker, per member, so an implicit
+// `First` reports 0 with nothing reading the source. A member the checker
+// cannot fold to a constant keeps its name and drops its value, because the
+// name is the part this is for.
+func enumMembers(checker *shimchecker.Checker, statement *shimast.Node) []EnumMember {
+  declaration := statement.AsEnumDeclaration()
+  if declaration == nil || declaration.Members == nil {
+    return nil
+  }
+  out := make([]EnumMember, 0, len(declaration.Members.Nodes))
+  for _, node := range declaration.Members.Nodes {
+    symbol := node.Symbol()
+    if symbol == nil || symbol.Name == "" {
+      continue
+    }
+    member := EnumMember{Name: symbol.Name}
+    if t := shimchecker.Checker_getTypeOfSymbol(checker, symbol); t != nil {
+      if value, ok := literalValue(t); ok {
+        member.Value = value
+      }
+    }
+    out = append(out, member)
+  }
+  if len(out) == 0 {
+    return nil
+  }
+  return out
 }
 
 // literalValues renders every constituent of t in TypeScript source form,
