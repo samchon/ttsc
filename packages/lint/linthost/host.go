@@ -257,6 +257,23 @@ func resolveProjectPathAncestor(target string) (string, bool) {
   }
 }
 
+// runProjectCycle evaluates the project rules alone and returns the cycle,
+// without walking a single file.
+//
+// A consumer wanting only what project rules produced — a hint corpus, say —
+// should not pay for the file walk that produces findings it will throw away.
+// The cycle is memoized on the program exactly as runLintCycle memoizes it, so
+// asking for hints and then linting the same program evaluates each rule once.
+func (p *program) runProjectCycle(engine *Engine) *projectCycle {
+  if p == nil || engine == nil {
+    return nil
+  }
+  if p.projectCycle == nil {
+    p.projectCycle = engine.evaluateProject(p.identity, p.userSourceFiles(), p.checker)
+  }
+  return p.projectCycle
+}
+
 func (p *program) runLintCycle(engine *Engine) []*Finding {
   if p == nil || engine == nil {
     return nil

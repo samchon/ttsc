@@ -16,7 +16,7 @@
 | `build` | `ttsc build` | Same as `check`, plus tsgo's emit pipeline if `--noEmit` is not set. |
 | `transform` | `@ttsc/unplugin` and programmatic API | Single-file emit. Lint still runs over every user source file in the Program. No user-facing `ttsc transform` command, the host spawns this verb when a bundler adapter or `ttsc.transform()` API call needs single-file output. |
 
-The VS Code path also uses the LSP sidecar verbs because `@ttsc/lint` sets `capabilities.lsp`: `lsp-command-ids`, `lsp-code-action-kinds`, `lsp-diagnostics`, `lsp-code-actions`, and `lsp-execute-command`.
+The VS Code path also uses the LSP sidecar verbs because `@ttsc/lint` sets `capabilities.lsp`: `lsp-command-ids`, `lsp-code-action-kinds`, `lsp-diagnostics`, `lsp-code-actions`, `lsp-execute-command`, and `lsp-hints`.
 
 The minimum consumer wiring:
 
@@ -127,7 +127,8 @@ func run(args []string) int {
     return 0
   case "check", "fix", "format", "build", "transform",
        "lsp-command-ids", "lsp-code-action-kinds",
-       "lsp-diagnostics", "lsp-code-actions", "lsp-execute-command":
+       "lsp-diagnostics", "lsp-code-actions", "lsp-execute-command",
+       "lsp-hints":
   default:
     fmt.Fprintf(os.Stderr, "@ttsc/lint: unknown command %q\n", args[0])
     return 2
@@ -144,6 +145,7 @@ func run(args []string) int {
   case "lsp-diagnostics":       return RunLSPDiagnostics(args[1:])
   case "lsp-code-actions":      return RunLSPCodeActions(args[1:])
   case "lsp-execute-command":   return RunLSPExecuteCommand(args[1:])
+  case "lsp-hints":             return RunLSPHints(args[1:])
   }
   return 2
 }
@@ -704,6 +706,43 @@ func (noCycles) NeedsTypeChecker() bool { return false }
 ```
 
 Returning `true` is equivalent to not implementing the marker. A project rule that returns `false` must not read `ctx.Checker`.
+
+## Editor hints from a project rule
+
+A project rule that indexed something an editor could complete against can publish that index as a completion corpus, by implementing `rule.HintRule`:
+
+```go
+func (myRule) Hints(ctx *rule.HintContext) []rule.Hint {
+  index, ok := ctx.State.(*myIndex)
+  if !ok || index == nil {
+    return nil
+  }
+  hints := []rule.Hint{}
+  for _, section := range index.Sections {
+    hints = append(hints, rule.Hint{
+      Insert: section.Anchor,
+      Detail: section.Title,
+      Trigger: rule.HintTrigger{
+        Scope: rule.HintScopeJSDoc,
+        After: "@evidence docs/spec.md#",
+      },
+    })
+  }
+  return hints
+}
+```
+
+The corpus travels; the rule does not. The lint engine is a separate process that reloads the Program on every invocation, so nothing can ask a rule a question per keystroke — which is why a trigger is declarative data rather than the Go predicate the API obviously wants. A closure does not survive the process boundary.
+
+`Hints` is pull, not push: the host calls it at most once per Program, always after `Check`, and only when a consumer asks for the corpus — never during `ttsc check`. It is not called unless the rule passed and published state, so a rule configured `off` publishes nothing with no code of its own, and a rule's options shape its corpus for free because the corpus is a projection of the state `Check` built under them.
+
+A trigger applies when the cursor sits inside `Scope` and the line prefix contains `After`; the text following the last occurrence of `After` is what the editor filters on. **`After` must end exactly where the completed token begins** — `"@evidence "` with its trailing space, not `"@evidence"` — or the token swallows the separator and nothing filters. When several triggers match one line the longest `After` wins and only its hints are offered, which is what lets a corpus be layered: `"@"`, `"@evidence "`, and `"@evidence docs/spec.md#"` can all be published at once without the broad one drowning the narrow ones.
+
+Slice order is the ranking. The corpus outlives the process, so there is no other channel; return what should be offered first, first.
+
+ttscserver fetches the corpus once, in the background, and answers from memory. It merges its trigger characters into whatever tsgo advertised rather than replacing them, and appends its items to tsgo's completion response rather than answering in its place. Until the fetch lands the corpus is empty and the editor sees exactly what it sees without the plugin.
+
+Only `ProjectRule` may publish hints. File rules run in a parallel walk, so their hints would rank nondeterministically, and a corpus keyed to one file cannot answer a keystroke in another.
 
 Configure a project rule in the same `rules` map, but only in entries without `files`:
 

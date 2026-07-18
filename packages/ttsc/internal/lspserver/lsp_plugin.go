@@ -170,6 +170,39 @@ type PluginSource interface {
 // LSP server is hosted without any ttsc plugin pipeline (smoke tests,
 // docs build). It returns no diagnostics/actions and no command ids so the
 // proxy still exercises its merge paths even with no plugin activity.
+// LSPCompletionHint is one group of completion items a plugin offers, together
+// with the declarative rule saying where they apply.
+//
+// The rule has to be data rather than a callback because the plugin that
+// produced it is a subprocess that has already exited. Asking it per keystroke
+// would mean a process spawn and a Program reload per character; the corpus
+// therefore travels once and the proxy answers from memory.
+type LSPCompletionHint struct {
+  // Scope names the syntactic region the cursor must sit in.
+  Scope string `json:"scope"`
+  // After is a literal the line prefix must contain. The text following its
+  // LAST occurrence is what the editor filters on and what Insert replaces.
+  //
+  // Deliberately a literal and not a pattern. A regex would be unvalidatable at
+  // discovery time, and the one shipped example of plugin-supplied regex driving
+  // completion — Tailwind's experimental.classRegex — is a documented source of
+  // editor hangs. When several hints match one line the longest After wins, and
+  // that alone is enough to layer a corpus.
+  After string `json:"after"`
+  // Items are offered in slice order; the proxy derives the sort key from it.
+  Items []LSPCompletionItem `json:"items"`
+}
+
+// LSPCompletionItem is one plugin-contributed completion.
+//
+// Fully resolved on arrival: there is no completionItem/resolve round trip,
+// because resolving would require asking a rule that no longer exists.
+type LSPCompletionItem struct {
+  Insert string `json:"insert"`
+  Label  string `json:"label,omitempty"`
+  Detail string `json:"detail,omitempty"`
+}
+
 type NullPluginSource struct{}
 
 // Diagnostics returns no plugin diagnostics.
