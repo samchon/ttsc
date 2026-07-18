@@ -44,6 +44,19 @@ func assertSingleBoundaryFinding(t *testing.T, ruleName string, findings []*Find
   }
 }
 
+// assertBoundaryFindingExcludes fails if the single finding's message contains
+// forbidden. It exists so a deny-only policy can prove it does NOT sprout an
+// allowed-set clause — an over-match a positive assertion cannot catch.
+func assertBoundaryFindingExcludes(t *testing.T, ruleName string, findings []*Finding, forbidden string) {
+  t.Helper()
+  if len(findings) != 1 {
+    t.Fatalf("%s: want one finding, got %d (%+v)", ruleName, len(findings), findings)
+  }
+  if strings.Contains(findings[0].Message, forbidden) {
+    t.Fatalf("%s: message must not contain %q, got %q", ruleName, forbidden, findings[0].Message)
+  }
+}
+
 func runBoundaryRuleProgram(
   t *testing.T,
   ruleName string,
