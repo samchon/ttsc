@@ -50,9 +50,15 @@ type LSPDiagnostic struct {
   // Tags classify the diagnostic (1 = unnecessary, 2 = deprecated). Carried
   // through so a plugin's tag is not silently dropped when the proxy re-encodes
   // the diagnostic — the same truncation codeDescription had to be rescued from.
-  Tags    []int  `json:"tags,omitempty"`
-  Source  string `json:"source,omitempty"`
-  Message string `json:"message"`
+  Tags []int `json:"tags,omitempty"`
+  // Data is opaque state the producer attaches to the diagnostic. The editor
+  // preserves it and hands it back on a codeAction request whose context
+  // includes this diagnostic, so a rule can recover what it computed without
+  // recomputing it. Carried through unread — like the other optional fields, an
+  // absent one it did not round-trip would be a silent truncation.
+  Data    json.RawMessage `json:"data,omitempty"`
+  Source  string          `json:"source,omitempty"`
+  Message string          `json:"message"`
 }
 
 // LSPCodeDescription is the LSP CodeDescription type: a documentation URL for a
