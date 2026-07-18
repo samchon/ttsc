@@ -64,6 +64,32 @@ export interface ITtscGraphNode {
   modifiers?: TtscGraphNodeModifier[];
 
   /**
+   * The complete value set of a type alias or enum whose declared type the
+   * checker resolved to literals, each in TypeScript source form (`"a"`, `1`,
+   * `true`, `null`).
+   *
+   * Present only when every constituent is enumerable, so the list is the whole
+   * type and never a sample of it: `type T = Kind | string` admits values no
+   * list can name and carries none. It is resolved from the type, not read off
+   * the declaration, so indirection (`type I = Kind | 'f'`) is followed and the
+   * answer does not depend on how the declaration is wrapped.
+   */
+  literals?: string[];
+
+  /**
+   * What an enum declares, in checker order: the name a caller writes and the
+   * value it carries. Absent on every other kind.
+   *
+   * `literals` says which values the enum admits, which is what a serializer
+   * asks. The code says `Colors.Red`, so the names are the other half, and
+   * without them a caller that had already named the enum still had to open the
+   * file to learn what to type. The members are not nodes — `Colors.Red` is a
+   * string a grep finds exactly — so this fills in the node the graph already
+   * holds instead of minting one per member.
+   */
+  enumMembers?: ITtscGraphNode.IEnumMember[];
+
+  /**
    * Decorators written on this declaration, in source order: raw facts
    * (`@Controller`, `@Get`) a consumer interprets without re-parsing source.
    */
@@ -77,4 +103,18 @@ export interface ITtscGraphNode {
    * function assignment separate from its declaration.
    */
   implementation?: ITtscGraphEvidence;
+}
+export namespace ITtscGraphNode {
+  /** One member of an enum: the name a caller writes and the value it carries. */
+  export interface IEnumMember {
+    /** The member's own name, unqualified (`Red` on `Colors.Red`). */
+    name: string;
+
+    /**
+     * The value it carries, in TypeScript source form (`"red"`, `1`). Absent
+     * for a computed member the checker could not fold to a constant; the name
+     * still stands.
+     */
+    value?: string;
+  }
 }

@@ -58,6 +58,32 @@ type Node struct {
   // the declaration's combined modifier flags during the build pass and emitted
   // for projections that filter on visibility and shape.
   Modifiers []string
+  // Literals is the complete value set of a type alias or enum whose declared
+  // type the checker resolved to literals, each rendered in TypeScript source
+  // form ("a", 1, true, null). It is set only when every constituent is
+  // enumerable, so a present list is the whole type and never a sample of it;
+  // a union that mixes in `string`, a type parameter, or a computed enum member
+  // has no complete answer and gets none.
+  //
+  // It is a checker fact because nothing else is sound. The value set was read
+  // off the declaration's source text for a while, which made the answer a
+  // function of line wrapping rather than of the type: a union written one
+  // member per line reported the members that fit in the snippet, an enum
+  // written across lines reported nothing at all, and `type I = Kind | 'f'`
+  // reported `'f'` while the members reaching it through `Kind` vanished (#732).
+  // The checker has already resolved every one of them, indirection included.
+  Literals []string
+  // EnumMembers is what an enum declares, in checker order: the name a caller
+  // writes and the value it carries. Empty for every other kind.
+  //
+  // The enum's node was always here and had nothing in it. `literals` says what
+  // values the enum admits, which answers a serializer; the code says
+  // `Colors.Red`, so a caller that had already named the enum still opened the
+  // file to learn what to type (#738). The members are not nodes of their own —
+  // `Colors.Red` is a literal string a grep finds exactly, and minting a node
+  // per member would grow the graph and put leaves into tour flows to index
+  // what grep already does. This fills in the node that exists instead.
+  EnumMembers []EnumMember
   // Pos and End bound the declaration in its source file (byte offsets). They
   // are for display, never identity, so an edit that shifts them does not re-key
   // the node.
@@ -66,6 +92,14 @@ type Node struct {
   ImplementationFile string
   ImplementationPos  int
   ImplementationEnd  int
+}
+
+// EnumMember is one member of an enum: the name a caller writes and the value
+// it carries, in TypeScript source form. Value is empty when the checker could
+// not fold the member's initializer to a constant.
+type EnumMember struct {
+  Name  string
+  Value string
 }
 
 // EdgeKind classifies a relationship between two nodes.
