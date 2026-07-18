@@ -46,7 +46,7 @@ export function main(): void {
   g := Build(prog)
   sources := SourceTexts(prog)
 
-  data, err := MarshalDump(g, root, "tsconfig.json", nil, sources, false)
+  data, err := MarshalDump(g, root, "tsconfig.json", nil, sources, DumpOrigin{}, false)
   if err != nil {
     t.Fatalf("MarshalDump: %v", err)
   }
@@ -138,17 +138,31 @@ export function main(): void {
       t.Fatalf("dump leaked Go field name %s:\n%s", leaked, s)
     }
   }
-  // The dump carries no ceremony keys: it is wholly checker-resolved, so it has
-  // no per-edge trust flags and no schema version to negotiate. It also carries
-  // no keys the schema stopped promising: no inlined evidence text and no
-  // diagnostics array.
-  for _, gone := range []string{`"schemaVersion"`, `"provenance":`, `"confidence":`, `"text":`, `"diagnostics":`} {
+  // Every edge is checker-resolved by construction, so no record carries a
+  // per-edge trust flag saying so — that is the `provenance`/`confidence` pair
+  // 6d74a88c3 removed, and it stays removed. The dump's own `provenance` is a
+  // different thing at a different level: it describes the one program that
+  // produced every record, which no record can state about itself.
+  //
+  // No source body text rides the wire either. The manifest names its fields
+  // `checkerDigest` and `diskDigest` precisely so a digest can never be read as
+  // the text it stands for.
+  for _, gone := range []string{`"confidence":`, `"text":`} {
     if strings.Contains(s, gone) {
       t.Fatalf("dump still emits removed key %s:\n%s", gone, s)
     }
   }
+  for _, edge := range dump.Edges {
+    encoded, err := json.Marshal(edge)
+    if err != nil {
+      t.Fatalf("marshal edge %s->%s: %v", edge.From, edge.To, err)
+    }
+    if strings.Contains(string(encoded), `"provenance"`) {
+      t.Fatalf("edge regained a per-edge trust flag:\n%s", encoded)
+    }
+  }
 
-  pretty, err := MarshalDump(g, root, "tsconfig.json", nil, sources, true)
+  pretty, err := MarshalDump(g, root, "tsconfig.json", nil, sources, DumpOrigin{}, true)
   if err != nil {
     t.Fatalf("MarshalDump pretty: %v", err)
   }

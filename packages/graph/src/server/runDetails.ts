@@ -15,17 +15,20 @@ import { IRunnerOutput, resultNext } from "./resultNext";
 const MAX_SIGNATURE_LINES = 4;
 // A doc summary is one sentence; the rest of the comment is the file's to keep.
 const MAX_DOC_CHARS = 200;
-// Neighbor lists are a map, not a dump; keep them scannable.
+// An object literal's outline is scanned from source, so a runaway literal is
+// bounded here; the members it does find are not capped.
+const MAX_OBJECT_MEMBER_LINES = 300;
+// A symbol's fan-out — what it calls, what names it in a type, what depends on
+// it — scales with how popular it is, not with the symbol: a central type is
+// named in a thousand places, and returning all of them is a hundred thousand
+// tokens of "who uses this", which is a trace/impact question, not "what is
+// this". So fan-out is a small default slice; identity (members, literals) is
+// not, because a class's members and a union's values are the symbol itself and
+// are bounded by the declaration.
 const DEFAULT_NEIGHBORS = 2;
 const MAX_NEIGHBORS = 3;
-// A container outline can be long; default to a scannable first page.
-const DEFAULT_MEMBERS = 6;
-const MAX_MEMBERS = 8;
-// Direct dependency groups are orientation slices, not full fan-out dumps.
 const DEFAULT_DEPENDENCIES = 2;
 const MAX_DEPENDENCIES = 4;
-// Object literal outlines are navigation aids, not source excerpts.
-const MAX_OBJECT_MEMBER_LINES = 300;
 // Structural relationships are navigation, not the dependency picture details is for.
 const STRUCTURAL_KINDS = new Set<string>(["contains", "exports", "imports"]);
 // Kinds whose value is their member outline, not implementation text.
@@ -47,17 +50,17 @@ export function runDetails(
   graph: TtscGraphMemory,
   props: ITtscGraphDetails.IRequest,
 ): IRunnerOutput<ITtscGraphDetails> {
-  const neighborLimit = bound(
-    props.neighborLimit,
-    DEFAULT_NEIGHBORS,
-    1,
-    MAX_NEIGHBORS,
-  );
-  const memberLimit = bound(props.memberLimit, DEFAULT_MEMBERS, 1, MAX_MEMBERS);
-  const dependencyLimit = bound(
+  // Identity is the whole answer. The caller named this handle to learn what it
+  // is, and a class's members or a union's values are the symbol itself — cut
+  // them and the model reads the file for the rest, the read this index exists
+  // to remove. So `memberLimit` and `literals` default to unlimited. Fan-out
+  // does not: what names or uses a symbol is bounded by its popularity, not by
+  // it, so those stay a small slice with `trace` for the rest.
+  const memberLimit = limitOf(props.memberLimit);
+  const neighborLimit = capOf(props.neighborLimit, DEFAULT_NEIGHBORS, MAX_NEIGHBORS);
+  const dependencyLimit = capOf(
     props.dependencyLimit,
     DEFAULT_DEPENDENCIES,
-    1,
     MAX_DEPENDENCIES,
   );
   const wantNeighbors = props.neighbors === true;
@@ -101,7 +104,6 @@ export function runDetails(
     if (sig !== undefined) detail.signature = sig;
     const doc = docOf(graph.project, node);
     if (doc !== undefined) detail.doc = doc;
-    const signatureLiterals = literalSummaries(sig);
     const decorators = decoratorsOf(node);
     if (decorators !== undefined) detail.decorators = decorators;
     const implementation = evidenceCoordinatesOf(node.implementation);
@@ -150,8 +152,18 @@ export function runDetails(
       );
       if (list.length > 0) detail.members = list;
     }
-    if (signatureLiterals.length > 0)
-      detail.literals = signatureLiterals.slice(0, 6);
+    // An enum's members ride on its own node rather than on `contains` edges,
+    // because they are not nodes: the outline above finds nothing for an enum
+    // and always did. Its signature stops at the `{`, so without this the one
+    // kind whose entire content is its member list answered with none of it.
+    // Uncapped like every other identity list — the members are the enum.
+    if (node.kind === "enum") {
+      const list = enumMembers(node, memberLimit);
+      if (list.length > 0) detail.members = list;
+    }
+    if (node.literals !== undefined && node.literals.length > 0) {
+      detail.literals = node.literals;
+    }
     if (wantNeighbors) {
       detail.dependsOn = refs(
         graph,
@@ -220,6 +232,28 @@ function members(
     if (out.length >= limit) break;
   }
   return out;
+}
+
+/**
+ * An enum's members, owner-qualified so the name reads the way the code writes
+ * it, with the value each carries as its signature.
+ *
+ * The name is why this exists. `literals` answers what values the enum admits,
+ * but a caller writes `Colors.Red` and never `"red"`, so an enum the graph
+ * already held sent a caller that had named it to the file for the one fact it
+ * came for (#738).
+ */
+function enumMembers(
+  node: ITtscGraphNode,
+  limit: number,
+): ITtscGraphDetails.IMember[] {
+  return (node.enumMembers ?? []).slice(0, limit).map((member) => ({
+    name: `${node.qualifiedName ?? node.name}.${member.name}`,
+    kind: "property",
+    ...(member.value !== undefined
+      ? { signature: `${member.name} = ${member.value}` }
+      : {}),
+  }));
 }
 
 function objectLiteralMembers(
@@ -328,13 +362,11 @@ function refs(
     if (evidence !== undefined) ref.evidence = evidence;
     ranked.push({ ref, rank: refRank(ref, edge) });
   }
+  // Ranked so a caller that does throttle (the tour) keeps the strongest refs,
+  // not the ones nearest the top of a file. Uncapped, `limit` is Infinity and
+  // the sort is just a stable order.
   ranked.sort((a, b) => a.rank - b.rank);
-  const out: ITtscGraphDetails.IReference[] = [];
-  for (const item of ranked) {
-    out.push(item.ref);
-    if (out.length >= limit) break;
-  }
-  return out;
+  return ranked.map((item) => item.ref).slice(0, limit);
 }
 
 const executionKinds = new Set([
@@ -375,17 +407,7 @@ function dependencyRefs(
       rank: refRank(ref, edge),
     });
   }
-  ranked.sort((a, b) => a.rank - b.rank);
-  const out: ITtscGraphDetails.IReference[] = [];
-  const seen = new Set<string>();
-  for (const item of ranked) {
-    const key = `${item.ref.relation}:${item.ref.id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(item.ref);
-    if (out.length >= limit) break;
-  }
-  return out;
+  return rankedRefs(ranked, limit);
 }
 
 function incomingDependencyRefs(
@@ -416,6 +438,14 @@ function incomingDependencyRefs(
       rank: refRank(ref, edge),
     });
   }
+  return rankedRefs(ranked, limit);
+}
+
+/** Sort by rank, drop duplicate (relation, id) pairs, and cut to `limit`. */
+function rankedRefs(
+  ranked: Array<{ ref: ITtscGraphDetails.IReference; rank: number }>,
+  limit: number,
+): ITtscGraphDetails.IReference[] {
   ranked.sort((a, b) => a.rank - b.rank);
   const out: ITtscGraphDetails.IReference[] = [];
   const seen = new Set<string>();
@@ -429,38 +459,26 @@ function incomingDependencyRefs(
   return out;
 }
 
-function literalSummaries(text: string | undefined): string[] {
-  if (text === undefined) return [];
-  const out: string[] = [];
-  for (const match of text.matchAll(/(["'`])((?:\\.|(?!\1).){1,80})\1/g)) {
-    const value = cleanLiteral(match[2]);
-    if (value !== undefined && !out.includes(value)) out.push(value);
-    if (out.length >= 20) break;
-  }
-  return out;
+/**
+ * An identity list's cap: none by default, honored when a caller passes one.
+ * details answers a named handle's own shape in full — its members, its values —
+ * so the default is unlimited; the tour passes an explicit number to embed a
+ * compact slice of its own.
+ */
+function limitOf(value: number | undefined): number {
+  return value === undefined || !Number.isFinite(value)
+    ? Infinity
+    : Math.max(1, Math.floor(value));
 }
 
-function cleanLiteral(value: string | undefined): string | undefined {
-  const text = value?.replace(/\s+/g, " ").trim();
-  if (
-    text === undefined ||
-    text === "" ||
-    text.length > 40 ||
-    /^[{}()[\],.:;]+$/.test(text)
-  ) {
-    return undefined;
-  }
-  return text;
-}
-
-function bound(
-  value: number | undefined,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
+/**
+ * A fan-out list's cap: a small default, clamped to a ceiling. What names or
+ * uses a symbol grows with its popularity, not with the symbol, so the whole
+ * list is a trace/impact answer and details returns an orientation slice.
+ */
+function capOf(value: number | undefined, fallback: number, max: number): number {
   const n = value === undefined || !Number.isFinite(value) ? fallback : value;
-  return Math.max(min, Math.min(max, Math.floor(n)));
+  return Math.max(1, Math.min(max, Math.floor(n)));
 }
 
 /**
@@ -611,6 +629,13 @@ export function docOf(
  * The declaration signature: the head of the declaration up to and including
  * the line that opens its body (`{`), or the single declaration line when there
  * is no brace, capped so a wrapped signature cannot run away.
+ *
+ * It never runs past the declaration's own span. The stop used to be the brace,
+ * the trailing semicolon, or the line cap, and a declaration ending in none of
+ * them read its neighbors instead: an enum member ends in a comma, so `VIEW`
+ * came back as itself plus the two members after it and the closing brace. The
+ * span is the fact that says where the declaration ends, and it was already on
+ * the node.
  */
 export function signatureOf(
   project: string,
@@ -621,12 +646,12 @@ export function signatureOf(
     evidence === undefined ? undefined : fileLines(project, evidence.file);
   if (lines === undefined || evidence === undefined) return undefined;
   const start = Math.max(0, evidence.startLine - 1);
+  const last =
+    evidence.endLine === undefined
+      ? lines.length - 1
+      : Math.min(lines.length - 1, evidence.endLine - 1);
   const out: string[] = [];
-  for (
-    let i = start;
-    i < lines.length && out.length < MAX_SIGNATURE_LINES;
-    i++
-  ) {
+  for (let i = start; i <= last && out.length < MAX_SIGNATURE_LINES; i++) {
     const line = lines[i];
     if (line === undefined) break;
     out.push(line);

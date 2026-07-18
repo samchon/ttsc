@@ -7,11 +7,17 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// addEdges resolves the relationships between the declaration nodes Build
-// recorded. It walks each source file again and, for every class or interface,
-// resolves its heritage bases through the checker (unwrapping barrel re-exports
-// to the real declaration) and links the declaration to that base, materializing
-// an external boundary-leaf node when the base lives in node_modules or a `.d.ts`.
+// addEdges is the checker pass over the declaration nodes Build recorded. It
+// walks each source file again and, for every class or interface, resolves its
+// heritage bases through the checker (unwrapping barrel re-exports to the real
+// declaration) and links the declaration to that base, materializing an external
+// boundary-leaf node when the base lives in node_modules or a `.d.ts`.
+//
+// Not everything it resolves is an edge. A fact that belongs to one declaration
+// rather than to a pair of them rides on its own node: a decorator on the target
+// it annotates, a literal value set on the type that admits it. Both need the
+// same checker and the same walk, so they are resolved here and written to the
+// node the build pass keyed.
 func (g *Graph) addEdges(prog *driver.Program) {
   checker := prog.Checker
   for _, file := range prog.SourceFiles() {
@@ -19,6 +25,7 @@ func (g *Graph) addEdges(prog *driver.Program) {
     g.collectHeritage(checker, file)
     g.collectCalls(checker, file)
     g.collectTypeRefs(checker, file)
+    g.collectLiterals(checker, file)
     if file.Statements != nil {
       g.collectDecorators(file.FileName(), file.Statements.Nodes)
     }

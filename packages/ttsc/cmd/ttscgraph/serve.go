@@ -22,16 +22,91 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
 )
 
+// serveProtocolVersion is the version of the newline-delimited serve envelope.
+// It moves when a field is added, removed, or given a new meaning.
+//
+// Every response carries it, rather than a handshake establishing it once. The
+// binary and the npm package version independently — @ttsc/graph resolves
+// whichever ttscgraph the target project installed — so a mismatched pair is
+// reachable, and a per-response version lets the client fail fast on the first
+// frame it reads without spending a round-trip to learn the version it is about
+// to be told anyway. It also keeps the protocol stateless: a response is
+// self-describing even when read from a log.
+const serveProtocolVersion = 1
+
+// serveModes are the computation modes Snapshot can report, plus the error mode
+// the transport adds. A consumer branches on these to report honestly what the
+// producer did rather than inferring it from a generation counter.
+const (
+  // serveModeInitial is the first snapshot of a session.
+  serveModeInitial = "initial"
+  // serveModeReload is a full program reload: the build universe moved.
+  serveModeReload = "reload"
+  // serveModeUnchanged is no change since the last snapshot; no dump rides it.
+  serveModeUnchanged = "unchanged"
+  // serveModeIncremental is edits applied onto the reused resident program.
+  serveModeIncremental = "incremental"
+  // serveModeRebuild is edits applied but the program could not be reused.
+  serveModeRebuild = "rebuild"
+  // serveModeError is a request that produced no snapshot. It is a transport
+  // mode, not a computation mode: it exists so mode is never absent, because a
+  // field that disappears on the error path cannot be relied on.
+  serveModeError = "error"
+)
+
+// fullSnapshotCapabilities is what a snapshot from a resident compiler session
+// proves. Both commands that own a real Program declare all three; the constant
+// exists so the envelope's claim and the dump's claim cannot drift apart.
+var fullSnapshotCapabilities = []string{
+  graph.CapabilityUniverse,
+  graph.CapabilitySourceDigests,
+  graph.CapabilityDiskDigests,
+  graph.CapabilityDiagnostics,
+}
+
+// serveCapabilities is what this server can prove, answered before a consumer
+// has a dump to inspect — an `unchanged` response carries no dump, and a client
+// negotiating on the first frame has not parsed one yet. It mirrors what every
+// dump this server publishes declares for itself.
+var serveCapabilities = fullSnapshotCapabilities
+
 type serveRequest struct {
   ID int `json:"id"`
 }
 
 type serveResponse struct {
-  Dump    *graph.Dump `json:"dump,omitempty"`
-  Error   string      `json:"error,omitempty"`
-  ID      int         `json:"id"`
-  Mode    string      `json:"mode,omitempty"`
-  Changed bool        `json:"changed"`
+  Dump *graph.Dump `json:"dump,omitempty"`
+  // Error is set when the request produced no snapshot; Mode is then
+  // serveModeError.
+  Error string `json:"error,omitempty"`
+  ID    int    `json:"id"`
+  // ProtocolVersion is serveProtocolVersion on every response, including error
+  // responses: a client that cannot parse the rest still learns why.
+  ProtocolVersion int `json:"protocolVersion"`
+  // Mode is always present. It was omitempty, which meant the one field that
+  // distinguishes a reuse from a full rebuild silently vanished exactly when a
+  // consumer most wanted to report what happened.
+  Mode         string   `json:"mode"`
+  Capabilities []string `json:"capabilities"`
+  Changed      bool     `json:"changed"`
+}
+
+// newServeResponse stamps the fields every response owes the client, so no exit
+// from the serve loop can forget one.
+func newServeResponse(id int) serveResponse {
+  return serveResponse{
+    ID:              id,
+    ProtocolVersion: serveProtocolVersion,
+    Capabilities:    serveCapabilities,
+  }
+}
+
+// errorResponse is a response that carries no snapshot.
+func errorResponse(id int, message string) serveResponse {
+  response := newServeResponse(id)
+  response.Mode = serveModeError
+  response.Error = message
+  return response
 }
 
 type graphSession struct {
@@ -42,7 +117,17 @@ type graphSession struct {
   auxStates    map[string]diskState
   sourceHashes map[string][sha256.Size]byte
   rootFiles    []string
-  initialized  bool
+  // diskDigests is the published disk evidence for the current generation, kept
+  // beside sourceHashes because the two answer different questions: one decides
+  // whether to invalidate, the other is what the snapshot tells a consumer.
+  diskDigests map[string]string
+  // configDigests and roots are the build-universe fingerprint for the current
+  // generation, captured from the same parse that produced configHashes and
+  // rootFiles so the published evidence and the invalidation state can never
+  // describe different loads.
+  configDigests []graph.FileDigest
+  roots         []graph.RootFile
+  initialized   bool
 }
 
 func newGraphSession(cwd, tsconfig string) (*graphSession, error) {
@@ -64,7 +149,7 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
   if !s.initialized {
     dump := s.buildDump()
     s.initialized = true
-    return &dump, "initial", true, nil
+    return &dump, serveModeInitial, true, nil
   }
 
   configChanged, err := hashesChanged(s.configHashes)
@@ -76,7 +161,7 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
       return nil, "", false, err
     }
     dump := s.buildDump()
-    return &dump, "reload", true, nil
+    return &dump, serveModeReload, true, nil
   }
 
   if diskStatesChanged(s.auxStates) {
@@ -84,7 +169,7 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
       return nil, "", false, err
     }
     dump := s.buildDump()
-    return &dump, "reload", true, nil
+    return &dump, serveModeReload, true, nil
   }
 
   roots, err := projectRootFiles(s.compiler.Program(), true)
@@ -96,7 +181,7 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
       return nil, "", false, err
     }
     dump := s.buildDump()
-    return &dump, "reload", true, nil
+    return &dump, serveModeReload, true, nil
   }
 
   changed, deleted, err := changedSources(s.sourceHashes)
@@ -108,20 +193,20 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
       return nil, "", false, err
     }
     dump := s.buildDump()
-    return &dump, "reload", true, nil
+    return &dump, serveModeReload, true, nil
   }
   if len(changed) == 0 {
-    return nil, "unchanged", false, nil
+    return nil, serveModeUnchanged, false, nil
   }
   if s.compiler.Program().HasLinkedProgramPlugins() {
     if err := s.reload(); err != nil {
       return nil, "", false, err
     }
     dump := s.buildDump()
-    return &dump, "reload", true, nil
+    return &dump, serveModeReload, true, nil
   }
 
-  mode := "incremental"
+  mode := serveModeIncremental
   paths := make([]string, 0, len(changed))
   for path := range changed {
     paths = append(paths, path)
@@ -129,7 +214,7 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
   sort.Strings(paths)
   for _, path := range paths {
     if reused := s.compiler.Apply(path, changed[path]); !reused {
-      mode = "rebuild"
+      mode = serveModeRebuild
     }
     current, exists := s.compiler.SourceText(path)
     expected := driver.ApplySourcePreambleToFile(path, changed[path], s.compiler.Program().SourcePreamble)
@@ -138,7 +223,7 @@ func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
         return nil, "", false, err
       }
       dump := s.buildDump()
-      return &dump, "reload", true, nil
+      return &dump, serveModeReload, true, nil
     }
   }
   if err := s.captureState(); err != nil {
@@ -182,7 +267,7 @@ func (s *graphSession) captureState() error {
   if err != nil {
     return err
   }
-  sourceHashes, err := hashProgramSources(program)
+  sourceHashes, diskDigests, err := hashProgramSources(program)
   if err != nil {
     return err
   }
@@ -191,8 +276,35 @@ func (s *graphSession) captureState() error {
   s.configHashes = configHashes
   s.auxStates = captureDiskStates(compactSortedStrings(inputs))
   s.sourceHashes = sourceHashes
+  s.diskDigests = diskDigests
   s.rootFiles = projectRootFilesFromConfigs(configs, false)
+  s.configDigests = fileDigests(configHashes)
+  s.roots = rootFileEntries(s.rootFiles)
   return nil
+}
+
+// fileDigests projects a path-to-hash map onto the wire's file/digest pairs.
+func fileDigests(hashes map[string][sha256.Size]byte) []graph.FileDigest {
+  out := make([]graph.FileDigest, 0, len(hashes))
+  for path, hash := range hashes {
+    out = append(out, graph.FileDigest{File: path, Digest: graph.Digest(hash)})
+  }
+  return out
+}
+
+// rootFileEntries splits the internal config\x00file root encoding back into the
+// pair it stands for. The joined form exists only so the root set compares with
+// slices.Equal; it is not a shape to publish.
+func rootFileEntries(roots []string) []graph.RootFile {
+  out := make([]graph.RootFile, 0, len(roots))
+  for _, root := range roots {
+    config, file, found := strings.Cut(root, "\x00")
+    if !found {
+      continue
+    }
+    out = append(out, graph.RootFile{Config: config, File: file})
+  }
+  return out
 }
 
 // missingRootInputs returns config root files absent from the loaded program.
@@ -214,13 +326,37 @@ func missingRootInputs(configs []*shimtsoptions.ParsedCommandLine, sourceHashes 
 func (s *graphSession) buildDump() graph.Dump {
   program := s.compiler.Program()
   built := graph.Build(program)
+  // One texts map feeds both the spans and the manifest digests, so the bytes a
+  // span points into are provably the bytes the manifest attests to.
+  texts := graph.SourceTexts(program)
   return graph.NewDump(
     built,
     s.cwd,
     s.tsconfig,
     graph.GitIgnoredFiles(s.cwd, built),
-    graph.SourceTexts(program),
+    texts,
+    graph.DumpOrigin{
+      Provenance: graph.NewProvenance(
+        s.cwd,
+        serveProducer(),
+        fullSnapshotCapabilities,
+        s.configDigests,
+        s.roots,
+        texts,
+        s.diskDigests,
+      ),
+      Diagnostics: graph.NewDiagnostics(program, s.cwd),
+    },
   )
+}
+
+// serveProducer names this binary and the checker it links.
+func serveProducer() graph.Producer {
+  return graph.Producer{
+    Tool:       "ttscgraph",
+    Version:    version,
+    Typescript: graph.TypescriptVersion(),
+  }
 }
 
 func configFiles(configs []*shimtsoptions.ParsedCommandLine) []string {
@@ -311,8 +447,22 @@ func invalidProjectError(diags []driver.Diagnostic) error {
   return fmt.Errorf("ttscgraph: invalid project: %s", strings.Join(messages, "; "))
 }
 
-func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, error) {
+// hashProgramSources returns two maps keyed by absolute source path.
+//
+// The first is the invalidation state: the hash the next snapshot compares
+// against to decide whether a file moved. It is deliberately not always the
+// file's disk hash — a file that raced the load is recorded under its resident
+// text so the comparison is guaranteed to miss and force a revisit.
+//
+// The second is the source manifest's disk evidence: the hex digest of the bytes
+// actually read from disk, present only when the read succeeded. These are
+// separate values because the first is a sentinel chosen to control the next
+// comparison and the second is a fact published to a consumer. Publishing the
+// sentinel would tell a consumer that a file it is about to read hashes to
+// something it can never reproduce.
+func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, map[string]string, error) {
   hashes := make(map[string][sha256.Size]byte)
+  digests := make(map[string]string)
   for _, source := range program.TSProgram.SourceFiles() {
     // Virtual sources (tsgo's `bundled:///` libs) have no on-disk identity;
     // real project files always carry an absolute path.
@@ -334,9 +484,13 @@ func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, 
     }
     content, err := os.ReadFile(source.FileName())
     if err != nil {
-      return nil, fmt.Errorf("ttscgraph: read %s: %w", source.FileName(), err)
+      return nil, nil, fmt.Errorf("ttscgraph: read %s: %w", source.FileName(), err)
     }
     rawHash := sha256.Sum256(content)
+    // The bytes were read, so their digest is a fact regardless of whether they
+    // match what the checker holds. When they do not, the manifest's text and
+    // disk digests disagree, which is precisely what a consumer needs to see.
+    digests[source.FileName()] = graph.Digest(rawHash)
     expected := driver.ApplySourcePreambleToFile(source.FileName(), string(content), program.SourcePreamble)
     if source.Text() == expected {
       hashes[source.FileName()] = rawHash
@@ -346,7 +500,7 @@ func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, 
       hashes[source.FileName()] = sha256.Sum256([]byte(source.Text()))
     }
   }
-  return hashes, nil
+  return hashes, digests, nil
 }
 
 func hashFiles(paths []string) (map[string][sha256.Size]byte, error) {
@@ -833,22 +987,37 @@ func serveSnapshots(input io.Reader, output io.Writer, cwd, tsconfig string) int
     }
     var request serveRequest
     if err := json.Unmarshal([]byte(line), &request); err != nil {
-      _ = encoder.Encode(serveResponse{Error: fmt.Sprintf("invalid request: %v", err)})
-      continue
+      // A response is addressed by id, and an unparseable line has no id to
+      // address it to. Replying with the zero id answered nobody: the client
+      // drops a frame matching no pending request, so the caller's promise
+      // never settled and the graph call hung forever.
+      //
+      // There is no recoverable reading of this. The client is the only writer
+      // and it writes nothing but {"id":N}, so a line it cannot produce means
+      // the stream is not the protocol. Fail it: the exit carries this stderr
+      // to the client, which rejects every pending request with it — an
+      // outcome, where the dropped frame was silence.
+      fmt.Fprintf(stderr, "ttscgraph: unaddressable serve request: %v\n", err)
+      return 1
     }
     if session == nil {
       created, err := newGraphSession(cwd, tsconfig)
       if err != nil {
-        _ = encoder.Encode(serveResponse{ID: request.ID, Error: err.Error()})
+        _ = encoder.Encode(errorResponse(request.ID, err.Error()))
         continue
       }
       session = created
     }
     dump, mode, changed, err := session.Snapshot()
-    response := serveResponse{ID: request.ID, Dump: dump, Mode: mode, Changed: changed}
+    response := newServeResponse(request.ID)
+    response.Dump = dump
+    response.Mode = mode
+    response.Changed = changed
     if err != nil {
       response.Error = err.Error()
       response.Dump = nil
+      response.Mode = serveModeError
+      response.Changed = false
     }
     if err := encoder.Encode(response); err != nil {
       fmt.Fprintf(stderr, "ttscgraph: write serve response: %v\n", err)

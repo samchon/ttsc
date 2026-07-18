@@ -17,6 +17,7 @@ export * from "./ITtscGraphOverview";
 export * from "./ITtscGraphLookup";
 export * from "./ITtscGraphNext";
 export * from "./ITtscGraphTrace";
+export * from "./ITtscGraphSnapshot";
 export * from "./ITtscGraphSpan";
 export * from "./ITtscGraphTour";
 export * from "./TtscGraphEdgeKind";

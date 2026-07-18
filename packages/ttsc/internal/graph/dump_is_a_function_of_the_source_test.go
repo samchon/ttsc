@@ -63,7 +63,7 @@ func dumpBytes(t *testing.T, root string) []byte {
   }
   defer func() { _ = prog.Close() }()
 
-  data, err := MarshalDump(Build(prog), root, "tsconfig.json", nil, SourceTexts(prog), false)
+  data, err := MarshalDump(Build(prog), root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{}, false)
   if err != nil {
     t.Fatalf("MarshalDump: %v", err)
   }

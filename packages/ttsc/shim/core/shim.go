@@ -50,6 +50,11 @@ const (
   JsxEmitReactJSXDev = innercore.JsxEmitReactJSXDev
 )
 
+// Version reports the TypeScript compiler version typescript-go implements, in
+// the same form `tsc --version` prints. A graph snapshot publishes it so a
+// consumer can tell which checker resolved the facts it is reading.
+func Version() string { return innercore.Version() }
+
 // NewTextRange constructs a closed/open [pos, end) text range.
 func NewTextRange(pos, end int) TextRange { return innercore.NewTextRange(pos, end) }
 

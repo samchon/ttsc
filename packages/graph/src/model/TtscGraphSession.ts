@@ -4,19 +4,22 @@ import typia from "typia";
 
 import { ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
-import { ITtscGraphDump } from "../structures/ITtscGraphDump";
+import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
+import { DUMP_SCHEMA_VERSION } from "./loadGraph";
 import { TtscGraphMemory } from "./TtscGraphMemory";
 
-interface SessionResponse {
-  id: number;
-  changed: boolean;
-  mode?: "initial" | "unchanged" | "incremental" | "rebuild" | "reload";
-  dump?: unknown;
-  error?: string;
-}
+/**
+ * The serve protocol version this client speaks.
+ *
+ * Keep it equal to `serveProtocolVersion` in
+ * `packages/ttsc/cmd/ttscgraph/serve.go`. The two are hand-synchronized, and
+ * `serve_protocol_version_matches_the_typescript_client_test.go` reads this
+ * constant out of this file and fails if the pair drifts.
+ */
+const PROTOCOL_VERSION = 1;
 
 interface Pending {
-  resolve: (response: SessionResponse) => void;
+  resolve: (response: ITtscGraphSnapshot) => void;
   reject: (error: Error) => void;
 }
 
@@ -93,6 +96,8 @@ export class TtscGraphSession {
   }
 
   private async refresh(): Promise<TtscGraphMemory> {
+    // The protocol version and the envelope shape were both settled in onLine,
+    // before this frame was ever routed here.
     const response = await this.request();
     if (response.error !== undefined) {
       throw new Error(`@ttsc/graph: ${response.error}`);
@@ -100,11 +105,10 @@ export class TtscGraphSession {
     if (response.changed) {
       if (response.dump === undefined) {
         throw new Error(
-          `@ttsc/graph: native ${response.mode ?? "changed"} response omitted its dump`,
+          `@ttsc/graph: native ${response.mode} response omitted its dump`,
         );
       }
-      const dump = typia.assert<ITtscGraphDump>(response.dump);
-      this.current = TtscGraphMemory.from(dump);
+      this.current = TtscGraphMemory.from(response.dump);
     }
     if (this.current === undefined) {
       throw new Error(
@@ -114,10 +118,10 @@ export class TtscGraphSession {
     return this.current;
   }
 
-  private request(): Promise<SessionResponse> {
+  private request(): Promise<ITtscGraphSnapshot> {
     const child = this.ensureChild();
     const id = ++this.nextId;
-    return new Promise<SessionResponse>((resolve, reject) => {
+    return new Promise<ITtscGraphSnapshot>((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
       child.stdin.write(`${JSON.stringify({ id })}\n`, (error) => {
         if (error === null || error === undefined) return;
@@ -169,9 +173,9 @@ export class TtscGraphSession {
   }
 
   private onLine(line: string): void {
-    let response: SessionResponse;
+    let parsed: unknown;
     try {
-      response = JSON.parse(line) as SessionResponse;
+      parsed = JSON.parse(line);
     } catch (error) {
       this.failPending(
         new Error(
@@ -180,6 +184,75 @@ export class TtscGraphSession {
       );
       return;
     }
+
+    // Read the version before the shape, because a server speaking another
+    // version is entitled to a different shape. Asserting first would report
+    // that mismatch as a field complaint — "expected string at $input.mode" —
+    // about a contract the other side never agreed to, which is the misparse
+    // this field exists to prevent. Ask what protocol it is first, then hold it
+    // to that protocol.
+    const version: number | undefined = typia.is<{ protocolVersion: number }>(
+      parsed,
+    )
+      ? parsed.protocolVersion
+      : undefined;
+    if (version !== PROTOCOL_VERSION) {
+      // Session-wide: a version mismatch is not one bad frame, it is the wrong
+      // binary, and every request against it is equally doomed.
+      this.failPending(
+        new Error(
+          `@ttsc/graph: ttscgraph speaks serve protocol ${
+            version === undefined ? "an unknown version" : `v${String(version)}`
+          }, this client speaks v${String(PROTOCOL_VERSION)}. ` +
+            "Install a matching `ttsc` (the binary resolves from the target " +
+            "project, or from TTSC_GRAPH_BINARY).",
+        ),
+      );
+      return;
+    }
+
+    let response: ITtscGraphSnapshot;
+    try {
+      // Validate the envelope, not just the dump it carries. The dump was
+      // typia-asserted while the envelope around it was a bare cast, so the
+      // fields the client actually branches on — the mode, and the id that
+      // routes the frame — were the unchecked ones. Anything added to the
+      // envelope belongs on this side of that line.
+      response = typia.assert<ITtscGraphSnapshot>(parsed);
+    } catch (error) {
+      this.failPending(
+        new Error(
+          `@ttsc/graph: native session returned an unreadable response: ${asError(error).message}`,
+        ),
+      );
+      return;
+    }
+    // The envelope's version is not the body's, and only the envelope has been
+    // held to one so far. A producer can speak this protocol and still carry a
+    // dump from another schema — the two move apart the moment a node field is
+    // added without the frame around it changing — and then the facts that field
+    // holds are silently absent rather than refused. `literals` is exactly that
+    // shape: an older producer resolves no value set, so a union comes back
+    // looking like a type with no members. Hold the body to its own number too,
+    // once the frame is understood.
+    if (
+      response.dump !== undefined &&
+      response.dump.provenance.schemaVersion !== DUMP_SCHEMA_VERSION
+    ) {
+      // Session-wide, for the same reason the protocol mismatch above is: it is
+      // the wrong binary, not one bad frame.
+      this.failPending(
+        new Error(
+          `@ttsc/graph: ttscgraph sends dump schema v${String(
+            response.dump.provenance.schemaVersion,
+          )}, this client reads v${String(DUMP_SCHEMA_VERSION)}. ` +
+            "Install a matching `ttsc` (the binary resolves from the target " +
+            "project, or from TTSC_GRAPH_BINARY).",
+        ),
+      );
+      return;
+    }
+
     const pending = this.pending.get(response.id);
     if (pending === undefined) return;
     this.pending.delete(response.id);

@@ -111,6 +111,41 @@ steps:
 
 Run `npx ttsc cache paths --json` to discover the exact directories instead of hardcoding them: the `cacheableRoots` field lists the minimal set a CI cache must persist (it adds `TTSC_GO_CACHE_DIR`/`GOCACHE` when either points outside the ttsc cache root). This works the same for pnpm, yarn, bun, and npm workspaces.
 
+### Persisting the cache in containers
+
+A container image build (Docker, Google Cloud Build, Cloud Run) is not a persistent runner: each build starts from a clean filesystem, so a source plugin recompiles cold on every deploy unless the compiled binary is carried forward. This is a different mechanism from the split-CI recipe above. There the cache is a directory persisted with `actions/cache`; here it has to travel inside the image build, as a build layer or a build-scoped cache.
+
+Warm the binary in its own layer, ordered before the app source is copied, and pin `TTSC_CACHE_DIR` at a stable absolute path whose basename is `ttsc`, so `ttsc clean` still owns its `plugins/` and `go-build/`:
+
+```dockerfile
+FROM node:24
+WORKDIR /app
+ENV TTSC_CACHE_DIR=/root/.cache/ttsc
+COPY package*.json ./
+RUN npm ci
+COPY tsconfig*.json ./
+RUN npx ttsc prepare        # the cold Go build happens here, once
+COPY . .
+RUN npm run build           # the bundler build reuses the warm cache
+```
+
+`ttsc prepare` builds whatever `tsconfig.json` declares, so `tsconfig.json` must be copied before it runs, or the build fails to find a project. A bundler build through `@ttsc/unplugin` reads the same tsconfig, so the warmed binary is the exact one the later build looks up. If `prepare` prints `no source plugins found`, the plugin is declared only in the bundler config; add it to `tsconfig.json` `compilerOptions.plugins` so both steps compute the same content key.
+
+An ephemeral builder (Google Cloud Build, most CI Docker builds) discards its local layer and BuildKit cache between builds, so the warm layer is reused only through a cache that outlives the build: a registry-backed layer cache (`docker build --cache-from <pushed-image> --build-arg BUILDKIT_INLINE_CACHE=1`, then deploy the built image) or a bucket-backed cache. A bare `RUN --mount=type=cache` or plain layer caching starts empty on every fresh build VM and silently recompiles. `gcloud run deploy --source` passes no cache flag and, under buildpacks, offers no layer to hold the binary; to reuse it you must take over the build (`gcloud builds submit` with a registry cache, or a prebuilt base image) rather than deploy from source.
+
+On GitHub Actions, `docker/build-push-action` reaches the same registry-backed cache through the Actions cache backend. Set `cache-to: type=gha,mode=max` so the intermediate `ttsc prepare` layer is exported, not only the final image: the default `mode=min` caches just the last layer, so the plugin recompiles on every run.
+
+```yaml
+- uses: docker/setup-buildx-action@v3
+- uses: docker/build-push-action@v6
+  with:
+    context: .
+    cache-from: type=gha
+    cache-to: type=gha,mode=max
+```
+
+Verify the cache actually hit: on the second build the cold-build line (`ttsc: building source plugin ... this runs once per cache key`) must not appear, and `npx ttsc cache paths --json` reports the directories that hold the binary.
+
 ## See also
 
 - [TTSC · `ttsx` runner](/docs/ttsc/execute): same compile, then runs the result.
