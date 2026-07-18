@@ -94,6 +94,7 @@ type contributorMetadata struct {
   visits                 []shimast.Kind
   visitsDeclarationFiles bool
   needsTypeChecker       bool
+  diagnosticTags         []rule.DiagnosticTag
 }
 
 // inspectContributor evaluates the public rule metadata behind a recover
@@ -124,6 +125,9 @@ func inspectContributor(contributor rule.Rule) (metadata contributorMetadata, er
   if typeAware, ok := contributor.(rule.TypeAwareRule); ok {
     metadata.needsTypeChecker = typeAware.NeedsTypeChecker()
   }
+  if tagged, ok := contributor.(rule.TaggedRule); ok {
+    metadata.diagnosticTags = tagged.DiagnosticTags()
+  }
   if optionsRule, ok := contributor.(rule.OptionsRule); ok {
     metadata.acceptsOptions = optionsRule.AcceptsTtscLintOptions()
   }
@@ -142,6 +146,7 @@ func newContributorAdapter(metadata contributorMetadata) contributorAdapter {
     visits:                 metadata.visits,
     visitsDeclarationFiles: metadata.visitsDeclarationFiles,
     needsTypeChecker:       metadata.needsTypeChecker,
+    diagnosticTags:         metadata.diagnosticTags,
   }
 }
 
@@ -159,6 +164,7 @@ type contributorAdapter struct {
   visits                 []shimast.Kind
   visitsDeclarationFiles bool
   needsTypeChecker       bool
+  diagnosticTags         []rule.DiagnosticTag
 }
 
 // AcceptsTtscLintOptions preserves the public contributor contract:
@@ -188,6 +194,14 @@ func (a contributorAdapter) NeedsTypeChecker() bool {
 // marker-override policy is applied once in inspectContributor.
 func (a contributorAdapter) VisitsDeclarationFiles() bool {
   return a.visitsDeclarationFiles
+}
+
+// DiagnosticTags forwards the contributor's rule.TaggedRule classification so
+// the host reads it through the same assertion path as a built-in tagged rule.
+// Without this the wrapping adapter would hide the marker and every
+// contributor's tags would silently vanish.
+func (a contributorAdapter) DiagnosticTags() []rule.DiagnosticTag {
+  return a.diagnosticTags
 }
 
 // formatContributorAdapter is the FormatRule-tagged variant of
