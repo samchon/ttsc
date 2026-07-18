@@ -50,13 +50,31 @@ type lspRangeWire struct {
 }
 
 type lspDiagnostic struct {
-  Range           lspRange            `json:"range"`
-  Severity        int                 `json:"severity,omitempty"`
-  Code            string              `json:"code,omitempty"`
-  CodeDescription *lspCodeDescription `json:"codeDescription,omitempty"`
-  Source          string              `json:"source,omitempty"`
-  Message         string              `json:"message"`
-  Tags            []int               `json:"tags,omitempty"`
+  Range              lspRange                `json:"range"`
+  Severity           int                     `json:"severity,omitempty"`
+  Code               string                  `json:"code,omitempty"`
+  CodeDescription    *lspCodeDescription     `json:"codeDescription,omitempty"`
+  Source             string                  `json:"source,omitempty"`
+  Message            string                  `json:"message"`
+  Tags               []int                   `json:"tags,omitempty"`
+  RelatedInformation []lspRelatedInformation `json:"relatedInformation,omitempty"`
+}
+
+// lspLocation is the LSP Location: a URI plus a range inside it. The lint
+// sidecar only ever emits locations in the file being linted, so the URI is
+// always that file's, but the field is present because LSP requires it on every
+// related location.
+type lspLocation struct {
+  URI   string   `json:"uri"`
+  Range lspRange `json:"range"`
+}
+
+// lspRelatedInformation is one entry of a diagnostic's relatedInformation: a
+// secondary location the finding points at, with a message naming the link. The
+// editor renders each as a clickable line under the diagnostic.
+type lspRelatedInformation struct {
+  Location lspLocation `json:"location"`
+  Message  string      `json:"message"`
 }
 
 // lspCodeDescription mirrors the proxy's LSPCodeDescription: a docs URL for the
@@ -455,13 +473,41 @@ func filterFindingsForPath(findings []*Finding, target string) []*Finding {
 
 func findingToLSPDiagnostic(finding *Finding) lspDiagnostic {
   return lspDiagnostic{
-    Range:    lspRangeForFinding(finding),
-    Severity: lspSeverity(finding.Severity),
-    Code:     finding.Rule,
-    Source:   "@ttsc/lint",
-    Message:  finding.Message,
-    Tags:     lspDiagnosticTags(finding.Tags),
+    Range:              lspRangeForFinding(finding),
+    Severity:           lspSeverity(finding.Severity),
+    Code:               finding.Rule,
+    Source:             "@ttsc/lint",
+    Message:            finding.Message,
+    Tags:               lspDiagnosticTags(finding.Tags),
+    RelatedInformation: lspRelatedInformationForFinding(finding),
   }
+}
+
+// lspRelatedInformationForFinding renders the finding's related locations. Each
+// location lives in the finding's own file, so it resolves the byte ranges
+// against that file's text and stamps the file's URI onto every entry. Returns
+// nil for a finding with no related locations, keeping the omitempty field
+// absent rather than an empty array.
+func lspRelatedInformationForFinding(finding *Finding) []lspRelatedInformation {
+  if finding == nil || len(finding.RelatedInformation) == 0 || finding.File == nil {
+    return nil
+  }
+  text := finding.File.Text()
+  uri := fileURL(finding.File.FileName())
+  out := make([]lspRelatedInformation, 0, len(finding.RelatedInformation))
+  for _, item := range finding.RelatedInformation {
+    out = append(out, lspRelatedInformation{
+      Location: lspLocation{
+        URI: uri,
+        Range: lspRange{
+          Start: byteOffsetToLSPPosition(text, item.Pos),
+          End:   byteOffsetToLSPPosition(text, item.End),
+        },
+      },
+      Message: item.Message,
+    })
+  }
+  return out
 }
 
 // lspDiagnosticTags converts the rule-supplied tags to their integer wire

@@ -775,6 +775,10 @@ ctx.ReportFix(node, "drop TODO comment", rule.TextEdit{
 
 For more autofix shapes, [`rule/astutil`](https://github.com/samchon/ttsc/tree/master/packages/lint/rule/astutil) ships four byte-oriented helpers built-in rules already use: `NodeText`, `KeywordStart`, `FindKeyword`, `TokenRange`.
 
+### Pointing at a second location
+
+A finding can name a related source location with `ctx.ReportRelated(node, message, related...)` (or `ctx.ReportRangeRelated`), passing `rule.RelatedInformation{ Pos, End, Message }` values. The editor renders each as a clickable line beneath the diagnostic — this is how the built-in `no-redeclare` leads "'x' is already defined." to where `x` was first declared. `ReportRelated` shares `ReportFix`'s contract: it forwards to the host's `RelatedReporter` via a type assertion and, on a host that predates it, degrades to a plain `Report` so the diagnostic still lands without the locations. The `Pos`/`End` offsets index the file being linted and the host attaches that file's URI, so a related location stays within the finding's own file; a cross-file location would need a URI the rule API does not yet carry.
+
 ## Config object and per-file overrides
 
 The TypeScript-side config surface is a plain object. Use `satisfies ITtscLintConfig` for type checking:

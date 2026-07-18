@@ -56,9 +56,24 @@ type LSPDiagnostic struct {
   // includes this diagnostic, so a rule can recover what it computed without
   // recomputing it. Carried through unread — like the other optional fields, an
   // absent one it did not round-trip would be a silent truncation.
-  Data    json.RawMessage `json:"data,omitempty"`
-  Source  string          `json:"source,omitempty"`
-  Message string          `json:"message"`
+  Data json.RawMessage `json:"data,omitempty"`
+  // RelatedInformation are secondary locations the diagnostic points at, each
+  // with its own message — the editor renders them as clickable lines under the
+  // diagnostic. Carried through so a sidecar's related locations survive the
+  // proxy's re-encode, the same truncation the other optional fields had to be
+  // rescued from.
+  RelatedInformation []LSPDiagnosticRelatedInformation `json:"relatedInformation,omitempty"`
+  Source             string                            `json:"source,omitempty"`
+  Message            string                            `json:"message"`
+}
+
+// LSPDiagnosticRelatedInformation is one entry of a diagnostic's
+// relatedInformation: a secondary location with a message. It reuses the
+// package's LSPLocation (a URI plus a range). The proxy does not read it — it
+// exists so the field is not dropped on re-encode.
+type LSPDiagnosticRelatedInformation struct {
+  Location LSPLocation `json:"location"`
+  Message  string      `json:"message"`
 }
 
 // LSPCodeDescription is the LSP CodeDescription type: a documentation URL for a

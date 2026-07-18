@@ -218,6 +218,43 @@ type FixReporter interface {
   ReportRangeFix(pos, end int, message string, edits ...TextEdit)
 }
 
+// RelatedReporter is the optional extension a host implements to receive a
+// finding's related source locations. Like FixReporter, the public
+// `rule.Context` type-asserts against this shape, so any host whose reporter
+// exposes both methods opts into related locations without depending on a
+// private interface name. A host that does not implement it loses the related
+// locations, not the diagnostic — the same graceful degradation the other
+// optional reporter extensions give.
+//
+// Rule production code does NOT touch RelatedReporter directly — call
+// `ctx.ReportRelated` / `ctx.ReportRangeRelated`, and the host's reporter
+// receives the locations. The only place a contributor sees this interface is in
+// test code that fakes the reporter: such a fake must implement BOTH `Reporter`
+// AND `RelatedReporter` to observe the locations, because Go interface
+// satisfaction is all-or-nothing. Declaring `var _ rule.RelatedReporter =
+// &myFake{}` compile-checks the fake covers the related surface.
+type RelatedReporter interface {
+  ReportRelated(node *shimast.Node, message string, related ...RelatedInformation)
+  ReportRangeRelated(pos, end int, message string, related ...RelatedInformation)
+}
+
+// RelatedInformation is a secondary source location a finding points at, paired
+// with a message naming the connection. LSP renders each as its own clickable
+// line beneath the diagnostic, so "'x' is already defined." can lead the reader
+// to the first definition instead of only naming it.
+//
+// Pos/End are byte offsets into the CURRENT file — the same offsets a shim AST
+// node exposes and `ReportRange` consumes — so a related location lives in the
+// file the finding is in, and the host fills in that file's URI. A location in
+// ANOTHER file would need a URI this API does not yet carry, and is a separate
+// extension left deliberately out of scope so the same-file case ships without
+// waiting on it.
+type RelatedInformation struct {
+  Pos     int
+  End     int
+  Message string
+}
+
 // TextEdit is one byte-range replacement offered by an autofixable finding.
 // Positions use the same byte offsets as shim AST nodes and must point inside
 // the current source file. An empty `Text` deletes the range; positions are
@@ -460,6 +497,45 @@ func (c *Context) ReportRangeSuggestion(pos, end int, message string, suggestion
     return
   }
   suggester.ReportRangeSuggestion(pos, end, message, suggestions...)
+}
+
+// ReportRelated records a finding at the given node's source range with related
+// source locations. Older hosts that do not implement RelatedReporter receive
+// the diagnostic without them, so design the rule to read well from the message
+// alone. With no related locations it is exactly `Report`.
+func (c *Context) ReportRelated(node *shimast.Node, message string, related ...RelatedInformation) {
+  if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
+    return
+  }
+  if len(related) == 0 {
+    c.reporter.Report(node, message)
+    return
+  }
+  reporter, ok := c.reporter.(RelatedReporter)
+  if !ok {
+    c.reporter.Report(node, message)
+    return
+  }
+  reporter.ReportRelated(node, message, related...)
+}
+
+// ReportRangeRelated records a finding at an explicit byte range with related
+// source locations. Falls back to a plain range finding on a host without
+// RelatedReporter, and equals `ReportRange` when no related locations are given.
+func (c *Context) ReportRangeRelated(pos, end int, message string, related ...RelatedInformation) {
+  if c == nil || c.reporter == nil || c.Severity == SeverityOff {
+    return
+  }
+  if len(related) == 0 {
+    c.reporter.ReportRange(pos, end, message)
+    return
+  }
+  reporter, ok := c.reporter.(RelatedReporter)
+  if !ok {
+    c.reporter.ReportRange(pos, end, message)
+    return
+  }
+  reporter.ReportRangeRelated(pos, end, message, related...)
 }
 
 var registry []Rule
