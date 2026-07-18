@@ -232,6 +232,11 @@ type Finding struct {
   // to render it distinctively. Populated from the rule's TaggedRule marker at
   // dispatch, so every finding a tagged rule produces carries its tags.
   Tags []publicrule.DiagnosticTag
+  // RelatedInformation are secondary locations this finding points at, each with
+  // a message. Positions are byte offsets into File — already normalized against
+  // it at report time — so the LSP renderer resolves them against File's text
+  // and attaches File's own URI.
+  RelatedInformation []publicrule.RelatedInformation
 
   engineFailure bool
 }
@@ -412,6 +417,69 @@ func (c *Context) ReportRangeSuggestions(pos, end int, message string, suggestio
     IsFormat:    c.isFormat,
     Tags:        c.tags,
   })
+}
+
+// ReportRelated records a node-scoped finding with related source locations.
+// Each related location's Pos/End is normalized against the current file — the
+// same bounding a range finding gets — so a rule that miscomputed an offset
+// cannot point the editor outside the file.
+func (c *Context) ReportRelated(node *shimast.Node, message string, related ...publicrule.RelatedInformation) {
+  if c.Severity == SeverityOff || node == nil {
+    return
+  }
+  pos, end := c.nodeFindingRange(node)
+  c.collect(&Finding{
+    Rule:               c.rule.Name(),
+    Severity:           c.Severity,
+    File:               c.File,
+    Pos:                pos,
+    End:                end,
+    Message:            message,
+    RelatedInformation: c.normalizeRelated(related),
+    IsFormat:           c.isFormat,
+    Tags:               c.tags,
+  })
+}
+
+// ReportRangeRelated records an explicit-range finding with related source
+// locations. Both the primary range and each related range are normalized
+// against the current file.
+func (c *Context) ReportRangeRelated(pos, end int, message string, related ...publicrule.RelatedInformation) {
+  if c.Severity == SeverityOff || c.File == nil {
+    return
+  }
+  pos, end = shimdw.NormalizeLintRange(c.File, pos, end)
+  c.collect(&Finding{
+    Rule:               c.rule.Name(),
+    Severity:           c.Severity,
+    File:               c.File,
+    Pos:                pos,
+    End:                end,
+    Message:            message,
+    RelatedInformation: c.normalizeRelated(related),
+    IsFormat:           c.isFormat,
+    Tags:               c.tags,
+  })
+}
+
+// normalizeRelated copies the caller's related locations and bounds each range
+// to the current file, so the stored Finding owns its slice and every position
+// is already safe for the renderer. Returns nil for an empty input, keeping the
+// Finding field nil rather than a zero-length slice.
+func (c *Context) normalizeRelated(related []publicrule.RelatedInformation) []publicrule.RelatedInformation {
+  if len(related) == 0 {
+    return nil
+  }
+  out := make([]publicrule.RelatedInformation, 0, len(related))
+  for _, item := range related {
+    pos, end := shimdw.NormalizeLintRange(c.File, item.Pos, item.End)
+    out = append(out, publicrule.RelatedInformation{
+      Pos:     pos,
+      End:     end,
+      Message: item.Message,
+    })
+  }
+  return out
 }
 
 // cloneTextEdits returns a shallow copy of `edits` so that the caller's

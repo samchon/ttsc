@@ -1,6 +1,10 @@
 package linthost
 
-import shimast "github.com/microsoft/typescript-go/shim/ast"
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
+)
 
 // noRedeclare: reject declaring the same binding more than once in the
 // same scope. The second declaration silently overwrites the first;
@@ -32,8 +36,13 @@ func (noRedeclare) Check(ctx *Context, node *shimast.Node) {
 
   report := func(name string, declNode *shimast.Node) {
     if prior, exists := seen[name]; exists {
-      _ = prior
-      ctx.Report(declNode, "'"+name+"' is already defined.")
+      priorPos, priorEnd := ctx.nodeFindingRange(prior)
+      ctx.ReportRelated(declNode, "'"+name+"' is already defined.",
+        publicrule.RelatedInformation{
+          Pos:     priorPos,
+          End:     priorEnd,
+          Message: "'" + name + "' was first defined here.",
+        })
       return
     }
     seen[name] = declNode

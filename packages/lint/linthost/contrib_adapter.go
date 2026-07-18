@@ -280,6 +280,24 @@ func toInternalSuggestions(suggestions []rule.Suggestion) []Suggestion {
   return out
 }
 
+func (r contextReporter) ReportRelated(node *shimast.Node, message string, related ...rule.RelatedInformation) {
+  r.ctx.ReportRelated(node, message, related...)
+}
+
+func (r contextReporter) ReportRangeRelated(pos, end int, message string, related ...rule.RelatedInformation) {
+  r.ctx.ReportRangeRelated(pos, end, message, related...)
+}
+
+// contextReporter must satisfy the optional reporter extensions whole, since the
+// public Context type-asserts against each: a signature drift here would
+// silently drop the rule back to the plain-diagnostic fallback instead of
+// failing the build.
+var (
+  _ rule.FixReporter        = contextReporter{}
+  _ rule.SuggestionReporter = contextReporter{}
+  _ rule.RelatedReporter    = contextReporter{}
+)
+
 func toInternalTextEdits(edits []rule.TextEdit) []TextEdit {
   if len(edits) == 0 {
     return nil
