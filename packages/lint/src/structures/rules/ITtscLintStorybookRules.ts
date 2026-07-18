@@ -66,6 +66,9 @@ export interface ITtscLintStorybookRules {
    * character, so the title collapses into a single sidebar entry instead of
    * nested folders.
    *
+   * Tagged `Deprecated`: the separator is superseded rather than broken, and
+   * the story still renders, so an editor strikes the title through.
+   *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/hierarchy-separator.md
    */
   "storybook/hierarchy-separator"?: TtscLintRuleSetting;
@@ -99,6 +102,10 @@ export interface ITtscLintStorybookRules {
    * The explicit value adds boilerplate and drifts from the export when one
    * side is renamed without the other.
    *
+   * Tagged `Unnecessary`: both reported shapes — the `name` / `storyName`
+   * property and a `Story.storyName = ...` assignment — span exactly the
+   * annotation whose deletion resolves the finding, so an editor greys it out.
+   *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-redundant-story-name.md
    */
   "storybook/no-redundant-story-name"?: TtscLintRuleSetting;
@@ -106,6 +113,11 @@ export interface ITtscLintStorybookRules {
   /**
    * Reject direct imports from Storybook renderer packages (`@storybook/react`,
    * etc.); use the user-facing package surface.
+   *
+   * The diagnostic names the framework packages that replace the renderer, and
+   * offers each as an editor suggestion that rewrites the module specifier.
+   * None is applied automatically: which one is right depends on the project's
+   * bundler, which the import does not state.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-renderer-packages.md
    */
@@ -117,6 +129,10 @@ export interface ITtscLintStorybookRules {
    * Storybook 7 removed it in favour of CSF default-export metadata; remaining
    * uses block the migration to CSF3 and the modern indexer.
    *
+   * Tagged `Deprecated`: an editor strikes the import specifier through, since
+   * the instruction is to migrate off the builder rather than to delete the
+   * import and leave the calls below it unresolved.
+   *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-stories-of.md
    */
   "storybook/no-stories-of"?: TtscLintRuleSetting;
@@ -127,6 +143,9 @@ export interface ITtscLintStorybookRules {
    *
    * CSF3 derives the title from the file path, so an explicit `title` is
    * redundant and drifts from the on-disk layout when files are moved.
+   *
+   * Tagged `Unnecessary`: the reported range is the property itself, and
+   * removing it is the resolution, so an editor greys it out.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-title-property-in-meta.md
    */

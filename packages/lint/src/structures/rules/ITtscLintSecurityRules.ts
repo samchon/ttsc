@@ -67,6 +67,11 @@ export interface ITtscLintSecurityRules {
    * Detect `new Buffer(input)` constructions with non-literal input —
    * historical source of allocation-disclosure bugs.
    *
+   * Tagged `Deprecated` (Node DEP0005). The three successors — `Buffer.from`,
+   * `Buffer.alloc`, `Buffer.allocUnsafe` — are offered as editor suggestions
+   * and none is applied automatically: which one is correct depends on the
+   * argument, which this rule fires precisely because it cannot read.
+   *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-new-buffer.md
    */
   "security/detect-new-buffer"?: TtscLintRuleSetting;
@@ -137,6 +142,10 @@ export interface ITtscLintSecurityRules {
    *
    * Tokens, session ids, and key material must use `crypto.randomBytes` (or Web
    * Crypto's `getRandomValues`) instead.
+   *
+   * Tagged `Deprecated` (Node DEP0115) and autofixable: the member name alone
+   * is rewritten to `randomBytes`, which is the same function on every release
+   * that still exposes the alias.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-pseudoRandomBytes.md
    */

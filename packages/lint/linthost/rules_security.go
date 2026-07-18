@@ -6,6 +6,7 @@ import (
   "unicode/utf8"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 const securityRulePrefix = "security/"
@@ -149,6 +150,14 @@ func (securityDetectEvalWithExpression) Check(ctx *Context, node *shimast.Node) 
 type securityDetectNewBuffer struct{}
 
 func (securityDetectNewBuffer) Name() string { return securityRulePrefix + "detect-new-buffer" }
+
+// DiagnosticTags strikes `new Buffer(...)` through. The constructor has been
+// deprecated since Node v6 (DEP0005) and still works, so the reported
+// expression is live code to migrate rather than dead code to delete, and the
+// whole reported range is the deprecated construct.
+func (securityDetectNewBuffer) DiagnosticTags() []publicrule.DiagnosticTag {
+  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
+}
 func (securityDetectNewBuffer) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindNewExpression}
 }
@@ -158,9 +167,54 @@ func (securityDetectNewBuffer) Check(ctx *Context, node *shimast.Node) {
     return
   }
   bindings := ctx.securityBindings()
-  if !isSecurityStaticExpression(expr.Arguments.Nodes[0], bindings, nil) {
-    ctx.Report(node, "Found new Buffer with a non-literal argument.")
+  if isSecurityStaticExpression(expr.Arguments.Nodes[0], bindings, nil) {
+    return
   }
+  message := "Found new Buffer with a non-literal argument."
+  replacements := securityNewBufferReplacements(ctx.File, node, expr)
+  if len(replacements) == 0 {
+    ctx.Report(node, message)
+    return
+  }
+  ctx.ReportFixSuggestions(node, message, nil, replacements...)
+}
+
+// securityNewBufferReplacements offers the three successors `new Buffer` was
+// split into, and imposes none of them.
+//
+// Which one is correct depends on what the argument turns out to be —
+// `Buffer.from` for a string, array, or buffer; `Buffer.alloc` for a
+// zero-filled size; `Buffer.allocUnsafe` for an uninitialized size — and this
+// rule fires precisely when the argument is not a literal, so the source
+// cannot say. Picking one automatically is how the deprecated constructor's
+// original hazard comes back: applying `Buffer.allocUnsafe` to what was really
+// a string silently allocates uninitialized heap memory.
+//
+// Each edit replaces the `new Buffer` span up to the end of the callee and
+// leaves the argument list untouched. Returns nil when that span cannot be
+// bounded, which downgrades the caller to a plain diagnostic.
+func securityNewBufferReplacements(
+  file *shimast.SourceFile,
+  node *shimast.Node,
+  expr *shimast.NewExpression,
+) []Suggestion {
+  pos, _ := tokenRange(file, node)
+  if pos < 0 || expr.Expression == nil {
+    return nil
+  }
+  end := expr.Expression.End()
+  if end <= pos || end > len(file.Text()) {
+    return nil
+  }
+  successors := []string{"Buffer.from", "Buffer.alloc", "Buffer.allocUnsafe"}
+  suggestions := make([]Suggestion, 0, len(successors))
+  for _, successor := range successors {
+    suggestions = append(suggestions, Suggestion{
+      Title: "Replace with `" + successor + "`.",
+      Edits: []TextEdit{{Pos: pos, End: end, Text: successor}},
+    })
+  }
+  return suggestions
 }
 
 type securityDetectNoCSRFBeforeMethodOverride struct{}
@@ -307,14 +361,50 @@ type securityDetectPseudoRandomBytes struct{}
 func (securityDetectPseudoRandomBytes) Name() string {
   return securityRulePrefix + "detect-pseudoRandomBytes"
 }
+
+// DiagnosticTags strikes `crypto.pseudoRandomBytes` through. Node deprecated
+// it in favor of `crypto.randomBytes` (DEP0115) but the alias still resolves
+// and still returns bytes, so the reported range is a working API reference to
+// migrate, not dead code, and the range is exactly the member access that
+// names it.
+func (securityDetectPseudoRandomBytes) DiagnosticTags() []publicrule.DiagnosticTag {
+  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
+}
 func (securityDetectPseudoRandomBytes) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
 func (securityDetectPseudoRandomBytes) Check(ctx *Context, node *shimast.Node) {
   obj, prop, ok := propertyAccessParts(node)
-  if ok && prop == "pseudoRandomBytes" && identifierText(obj) == "crypto" {
-    ctx.Report(node, "Found crypto.pseudoRandomBytes which is not cryptographically strong.")
+  if !ok || prop != "pseudoRandomBytes" || identifierText(obj) != "crypto" {
+    return
   }
+  message := "Found crypto.pseudoRandomBytes which is not cryptographically strong. Use `crypto.randomBytes` instead."
+  ctx.ReportFix(node, message, securityRandomBytesEdits(ctx.File, node)...)
+}
+
+// securityRandomBytesEdits renames the member being accessed to `randomBytes`
+// and touches nothing else.
+//
+// The rewrite is imposed rather than suggested because there is one successor
+// and it is the same function: `crypto.pseudoRandomBytes` is an alias of
+// `crypto.randomBytes` in every Node release that still exposes it, so the
+// edit cannot change behavior, and on the older releases where the two did
+// differ it can only strengthen the result.
+//
+// Only the member name is replaced, so `crypto.pseudoRandomBytes` passed
+// around as a value — not just called — is repaired the same way. Returns nil
+// when the name token cannot be located, which downgrades the caller to a
+// plain diagnostic.
+func securityRandomBytesEdits(file *shimast.SourceFile, node *shimast.Node) []TextEdit {
+  access := node.AsPropertyAccessExpression()
+  if access == nil {
+    return nil
+  }
+  pos, end := tokenRange(file, access.Name())
+  if pos < 0 {
+    return nil
+  }
+  return []TextEdit{{Pos: pos, End: end, Text: "randomBytes"}}
 }
 
 type securityDetectUnsafeRegex struct{}

@@ -1,0 +1,65 @@
+package linthost
+
+import "testing"
+
+// TestFixSolidImportsRewritesSoleSpecifierModule verifies `solid/imports`
+// names the canonical module it already computed and rewrites the specifier
+// when that rewrite moves nothing else.
+//
+// The rule looked the correct entry point up in `solidPreferredSource` and
+// then reported a message that did not say which symbol or which module it
+// meant. Naming both is the point; the autofix is deliberately narrower than
+// the message, because rewriting the module specifier moves every binding in
+// the declaration. Only a declaration whose sole binding is the misplaced
+// specifier can be repaired that way — anything else needs the import block
+// split, which is not a one-token edit.
+//
+//  1. Fix `import { render } from "solid-js"`, whose sole binding belongs to
+//     `solid-js/web`, and assert the module is rewritten and the message names
+//     the symbol and the module.
+//  2. Assert a single-quoted specifier keeps its quotes, proving only the text
+//     between them is replaced.
+//  3. Assert the negative twins report without a fix: a declaration with a
+//     second specifier, and one with a default binding.
+//  4. Assert an already-canonical import reports nothing at all.
+func TestFixSolidImportsRewritesSoleSpecifierModule(t *testing.T) {
+  source := "import { render } from \"solid-js\";\nrender();\n"
+  assertFixSnapshot(
+    t,
+    "solid/imports",
+    source,
+    "import { render } from \"solid-js/web\";\nrender();\n",
+  )
+  _, _, findings := runRuleFindingsSnapshot(t, "solid/imports", source, nil)
+  if len(findings) != 1 {
+    t.Fatalf("findings = %d, want 1 (%+v)", len(findings), findings)
+  }
+  expected := "Import `render` from `solid-js/web`."
+  if findings[0].Message != expected {
+    t.Fatalf("message:\nwant %q\ngot  %q", expected, findings[0].Message)
+  }
+
+  assertFixSnapshot(
+    t,
+    "solid/imports",
+    "import { createStore } from 'solid-js';\ncreateStore();\n",
+    "import { createStore } from 'solid-js/store';\ncreateStore();\n",
+  )
+
+  assertNoFixSnapshot(
+    t,
+    "solid/imports",
+    "import { createSignal, render } from \"solid-js\";\nrender(createSignal);\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "solid/imports",
+    "import Solid, { render } from \"solid-js\";\nrender(Solid);\n",
+  )
+
+  assertRuleSkipsSource(
+    t,
+    "solid/imports",
+    "import { createSignal } from \"solid-js\";\ncreateSignal();\n",
+  )
+}

@@ -80,6 +80,8 @@ const tree = <button onclick="save">save</button>;
 
 Route each Solid export to the correct entry point (`solid-js`, `solid-js/web`, or `solid-js/store`) and merge duplicate imports from the same entry.
 
+The diagnostic names the symbol and the entry point it belongs to (``Import `render` from `solid-js/web`.``). Autofixable only when the misplaced specifier is the declaration's sole binding, because rewriting the module specifier moves every binding in that declaration: `import { render } from "solid-js"` is repaired in place, while `import { createSignal, render } from "solid-js"` keeps its diagnostic — `createSignal` belongs to the module as written, and separating the two means splitting the import block rather than editing one token.
+
 Example:
 
 ```tsx
@@ -227,6 +229,8 @@ const handler = new Proxy({}, {});
 
 Reject React-style dependency arrays in Solid tracked scopes (`createEffect(() => ..., [deps])`).
 
+The finding is tagged `Unnecessary`, so an editor greys the array out: Solid tracks dependencies automatically, the array is inert, and the reported range is the array literal alone — deleting exactly what is faded is the whole resolution.
+
 Example:
 
 ```tsx
@@ -241,6 +245,10 @@ createEffect(() => {}, []);
 ### `solid/no-react-specific-props`
 
 Reject React-specific JSX props such as `className` and `htmlFor`, Solid uses `class` and `for`.
+
+`className` and `htmlFor` are autofixed: the rename is 1:1 and only the name token is rewritten, so the value — a string, an expression container, or nothing at all — survives untouched. The `key` arm stays diagnostic-only. A Solid DOM element does not consume `key`, so its resolution is a deletion rather than a rename, and the deletion has to take the surrounding whitespace with it to leave valid JSX.
+
+That split is also why the rule carries no diagnostic tag. `Unnecessary` is read once per rule, so tagging it for the `key` arm would fade the two findings that only need renaming.
 
 Example:
 

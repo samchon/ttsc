@@ -12,6 +12,7 @@ import (
   "unicode"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 type storybookAwaitInteractions struct{}
@@ -89,6 +90,14 @@ func (storybookDefaultExports) Check(ctx *Context, node *shimast.Node) {
 type storybookHierarchySeparator struct{}
 
 func (storybookHierarchySeparator) Name() string { return "storybook/hierarchy-separator" }
+
+// DiagnosticTags strikes the title through: `|` is Storybook's superseded
+// hierarchy separator, and a title that uses it still renders — Storybook
+// keeps reading it — so the finding is exactly "this still works, migrate off
+// it", never "delete this title".
+func (storybookHierarchySeparator) DiagnosticTags() []publicrule.DiagnosticTag {
+  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
+}
 func (storybookHierarchySeparator) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
@@ -140,6 +149,15 @@ func (storybookMetaSatisfiesType) Check(ctx *Context, node *shimast.Node) {
 type storybookNoRedundantStoryName struct{}
 
 func (storybookNoRedundantStoryName) Name() string { return "storybook/no-redundant-story-name" }
+
+// DiagnosticTags greys the redundant annotation out. Both arms of this rule
+// report an annotation that restates the name Storybook already derives from
+// the export identifier — the object property in one, the `Story.storyName =`
+// assignment in the other — and each is reported at exactly the range whose
+// deletion is the whole resolution.
+func (storybookNoRedundantStoryName) DiagnosticTags() []publicrule.DiagnosticTag {
+  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagUnnecessary}
+}
 func (storybookNoRedundantStoryName) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
@@ -181,14 +199,79 @@ func (storybookNoRendererPackages) Check(ctx *Context, node *shimast.Node) {
   if decl == nil {
     return
   }
-  if _, ok := storybookRendererPackages[storybookLiteralString(decl.ModuleSpecifier)]; ok {
-    ctx.Report(node, "Do not import Storybook renderer packages directly. Use a framework package instead.")
+  frameworks, ok := storybookRendererPackages[storybookLiteralString(decl.ModuleSpecifier)]
+  if !ok || len(frameworks) == 0 {
+    return
   }
+  message := "Do not import Storybook renderer packages directly. Use a framework package instead: " +
+    storybookDisjunction(frameworks) + "."
+  pos, end, quoted := storybookQuotedTextRange(ctx.File, decl.ModuleSpecifier)
+  if !quoted {
+    ctx.Report(node, message)
+    return
+  }
+  suggestions := make([]Suggestion, 0, len(frameworks))
+  for _, framework := range frameworks {
+    suggestions = append(suggestions, Suggestion{
+      Title: "Import from `" + framework + "`.",
+      Edits: []TextEdit{{Pos: pos, End: end, Text: framework}},
+    })
+  }
+  ctx.ReportFixSuggestions(node, message, nil, suggestions...)
+}
+
+// storybookDisjunction renders a package list the way upstream's
+// `Intl.ListFormat("en-US", {type: "disjunction"})` does: "a", "a or b",
+// "a, b, or c".
+func storybookDisjunction(items []string) string {
+  quoted := make([]string, 0, len(items))
+  for _, item := range items {
+    quoted = append(quoted, "`"+item+"`")
+  }
+  switch len(quoted) {
+  case 0:
+    return ""
+  case 1:
+    return quoted[0]
+  case 2:
+    return quoted[0] + " or " + quoted[1]
+  default:
+    return strings.Join(quoted[:len(quoted)-1], ", ") + ", or " + quoted[len(quoted)-1]
+  }
+}
+
+// storybookQuotedTextRange returns the byte range of the text inside a string
+// literal's quotes, so a rewrite replaces the contents and leaves the
+// surrounding quote characters exactly as the author wrote them. Reports false
+// for anything that is not a plainly quoted literal, such as a
+// parse-recovered node with no closing quote.
+func storybookQuotedTextRange(file *shimast.SourceFile, node *shimast.Node) (int, int, bool) {
+  pos, end := tokenRange(file, node)
+  if pos < 0 || end-pos < 2 {
+    return 0, 0, false
+  }
+  src := file.Text()
+  quote := src[pos]
+  if quote != '"' && quote != '\'' {
+    return 0, 0, false
+  }
+  if src[end-1] != quote {
+    return 0, 0, false
+  }
+  return pos + 1, end - 1, true
 }
 
 type storybookNoStoriesOf struct{}
 
 func (storybookNoStoriesOf) Name() string { return "storybook/no-stories-of" }
+
+// DiagnosticTags strikes the `storiesOf` import specifier through. The builder
+// API is deprecated in favor of CSF but still runs, and the whole reported
+// range is the specifier that names it, so migration — not deletion — is the
+// instruction the editor should render.
+func (storybookNoStoriesOf) DiagnosticTags() []publicrule.DiagnosticTag {
+  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
+}
 func (storybookNoStoriesOf) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindImportSpecifier}
 }
@@ -202,6 +285,14 @@ func (storybookNoStoriesOf) Check(ctx *Context, node *shimast.Node) {
 type storybookNoTitlePropertyInMeta struct{}
 
 func (storybookNoTitlePropertyInMeta) Name() string { return "storybook/no-title-property-in-meta" }
+
+// DiagnosticTags greys the `title` property out. CSF3 derives a story's title
+// from the file's location on disk, so the property is dead weight rather than
+// a wrong value, and the reported range is the property itself: removing
+// exactly what the editor fades is the resolution.
+func (storybookNoTitlePropertyInMeta) DiagnosticTags() []publicrule.DiagnosticTag {
+  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagUnnecessary}
+}
 func (storybookNoTitlePropertyInMeta) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
