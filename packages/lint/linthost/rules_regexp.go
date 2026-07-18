@@ -18,12 +18,38 @@ import (
 type regexpSourceRule struct {
   name  string
   check func(regexpLiteralParts) bool
+  // repair turns an accepted finding into the correction the check already
+  // located. A rule without one stays diagnostic-only.
+  repair func(regexpLiteralParts) regexpRepair
 }
 
 type regexpLiteralParts struct {
+  // start is the literal's offset in the source file. Repairs are computed in
+  // literal-relative coordinates and lifted onto the file through it.
+  start   int
   raw     string
   pattern string
   flags   string
+}
+
+// patternOffset is where the pattern begins inside `raw`, past the opening `/`.
+func (regexpLiteralParts) patternOffset() int { return 1 }
+
+// flagsOffset is where the flag run begins inside `raw`, past the closing `/`.
+func (parts regexpLiteralParts) flagsOffset() int { return len(parts.pattern) + 2 }
+
+// regexpRepair is the correction a regexp rule computed for one literal.
+//
+// Its edits are relative to the literal's own text, so a rule never handles
+// file coordinates; `Check` validates and lifts the whole repair in one place.
+type regexpRepair struct {
+  // message replaces regexpRuleMessage when non-empty, for a rule whose
+  // finding can name the exact thing it located.
+  message string
+  // fix is the one correct rewrite, applied by `ttsc fix`.
+  fix []TextEdit
+  // suggestions are competing rewrites only the author can choose between.
+  suggestions []Suggestion
 }
 
 func (r regexpSourceRule) Name() string { return r.name }
@@ -35,7 +61,80 @@ func (r regexpSourceRule) Check(ctx *Context, node *shimast.Node) {
   if !ok || r.check == nil || !r.check(parts) {
     return
   }
-  ctx.Report(node, regexpRuleMessage(r.name))
+  message := regexpRuleMessage(r.name)
+  if r.repair == nil {
+    ctx.Report(node, message)
+    return
+  }
+  repair := r.repair(parts)
+  if repair.message != "" {
+    message = repair.message
+  }
+  suggestions := make([]Suggestion, 0, len(repair.suggestions))
+  for _, suggestion := range repair.suggestions {
+    edits := parts.acceptEdits(suggestion.Edits)
+    if len(edits) == 0 {
+      continue
+    }
+    suggestions = append(suggestions, Suggestion{Title: suggestion.Title, Edits: edits})
+  }
+  ctx.ReportFixSuggestions(node, message, parts.acceptEdits(repair.fix), suggestions...)
+}
+
+// acceptEdits validates one candidate rewrite of this literal and lifts it into
+// file coordinates, or returns nil to leave the finding without that edit.
+//
+// The gate is the compiler's own regexp parser applied to the rewritten literal
+// as a whole. Every repair here is a splice into live regex syntax, where a
+// locally correct edit can still leave a pattern the engine rejects: `/{1,}/`
+// carries no atom, so its brace run is an Annex B literal rather than a
+// quantifier, and rewriting it to `/+/` yields "nothing to repeat". Rules stay
+// free to compute the ideal edit and cannot emit one that fails to parse.
+//
+// Validity is not equivalence. That a rewrite still parses says nothing about
+// whether it matches the same strings, so preserving semantics remains each
+// rule's own burden -- this only keeps a syntactically broken edit off disk.
+func (parts regexpLiteralParts) acceptEdits(edits []TextEdit) []TextEdit {
+  rewritten, ok := applyRegexpLiteralEdits(parts.raw, edits)
+  if !ok || rewritten == parts.raw {
+    return nil
+  }
+  if !shimscanner.IsValidRegularExpressionLiteral(rewritten) {
+    return nil
+  }
+  shifted := make([]TextEdit, 0, len(edits))
+  for _, edit := range edits {
+    shifted = append(shifted, TextEdit{
+      Pos:  parts.start + edit.Pos,
+      End:  parts.start + edit.End,
+      Text: edit.Text,
+    })
+  }
+  return shifted
+}
+
+// applyRegexpLiteralEdits splices literal-relative edits into `raw`. It reports
+// false for an empty, out-of-bounds, or overlapping edit set rather than
+// producing text from a half-applied rewrite.
+func applyRegexpLiteralEdits(raw string, edits []TextEdit) (string, bool) {
+  if len(edits) == 0 {
+    return "", false
+  }
+  ordered := make([]TextEdit, len(edits))
+  copy(ordered, edits)
+  sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Pos < ordered[j].Pos })
+  boundary := 0
+  for _, edit := range ordered {
+    if edit.Pos < boundary || edit.End < edit.Pos || edit.End > len(raw) {
+      return "", false
+    }
+    boundary = edit.End
+  }
+  out := raw
+  for i := len(ordered) - 1; i >= 0; i-- {
+    out = out[:ordered[i].Pos] + ordered[i].Text + out[ordered[i].End:]
+  }
+  return out, true
 }
 
 type regexpNoUselessEscapeAlias struct{}
@@ -53,8 +152,11 @@ func (regexpNoUselessEscapeAlias) Check(ctx *Context, node *shimast.Node) {
 }
 
 func parseRegexpLiteralParts(ctx *Context, node *shimast.Node) (regexpLiteralParts, bool) {
+  // `nodeText` and `tokenRange` skip the same leading trivia, so the text a
+  // repair reasons about always begins at exactly `start` in the file.
+  start, _ := tokenRange(ctx.File, node)
   raw := nodeText(ctx.File, node)
-  if len(raw) < 2 || raw[0] != '/' {
+  if start < 0 || len(raw) < 2 || raw[0] != '/' {
     return regexpLiteralParts{}, false
   }
   closing := strings.LastIndexByte(raw, '/')
@@ -62,6 +164,7 @@ func parseRegexpLiteralParts(ctx *Context, node *shimast.Node) (regexpLiteralPar
     return regexpLiteralParts{}, false
   }
   return regexpLiteralParts{
+    start:   start,
     raw:     raw,
     pattern: raw[1:closing],
     flags:   raw[closing+1:],
@@ -184,40 +287,34 @@ func regexpHasEmptyCharacterClass(parts regexpLiteralParts) bool {
   return false
 }
 
-func regexpHasZeroQuantifier(parts regexpLiteralParts) bool {
-  return scanRegexpQuantifiers(parts.pattern, func(min, max int, hasComma bool) bool {
-    return min == 0 && (!hasComma || max == 0)
-  })
+func regexpQuantifierIsZero(quantifier regexpQuantifier) bool {
+  return quantifier.min == 0 && (!quantifier.hasComma || quantifier.max == 0)
 }
 
-func regexpHasUselessTwoNumsQuantifier(parts regexpLiteralParts) bool {
-  return scanRegexpQuantifiers(parts.pattern, func(min, max int, hasComma bool) bool {
-    return hasComma && min == max && min >= 0
-  })
+func regexpQuantifierIsTwoNums(quantifier regexpQuantifier) bool {
+  return quantifier.hasComma && quantifier.min == quantifier.max && quantifier.min >= 0
 }
 
-func regexpHasUselessQuantifier(parts regexpLiteralParts) bool {
-  return scanRegexpQuantifiers(parts.pattern, func(min, max int, hasComma bool) bool {
-    return !hasComma && min == 1 && max == -1
-  })
+func regexpQuantifierIsUseless(quantifier regexpQuantifier) bool {
+  return !quantifier.hasComma && quantifier.min == 1 && quantifier.max == -1
 }
 
-func regexpHasPlusQuantifierCandidate(parts regexpLiteralParts) bool {
-  return scanRegexpQuantifiers(parts.pattern, func(min, max int, hasComma bool) bool {
-    return hasComma && min == 1 && max == -1
-  })
+func regexpQuantifierIsPlus(quantifier regexpQuantifier) bool {
+  return quantifier.hasComma && quantifier.min == 1 && quantifier.max == -1
 }
 
-func regexpHasStarQuantifierCandidate(parts regexpLiteralParts) bool {
-  return scanRegexpQuantifiers(parts.pattern, func(min, max int, hasComma bool) bool {
-    return hasComma && min == 0 && max == -1
-  })
+func regexpQuantifierIsStar(quantifier regexpQuantifier) bool {
+  return quantifier.hasComma && quantifier.min == 0 && quantifier.max == -1
 }
 
-func regexpHasQuestionQuantifierCandidate(parts regexpLiteralParts) bool {
-  return scanRegexpQuantifiers(parts.pattern, func(min, max int, hasComma bool) bool {
-    return hasComma && min == 0 && max == 1
-  })
+func regexpQuantifierIsQuestion(quantifier regexpQuantifier) bool {
+  return quantifier.hasComma && quantifier.min == 0 && quantifier.max == 1
+}
+
+func regexpQuantifierCheck(accept func(regexpQuantifier) bool) func(regexpLiteralParts) bool {
+  return func(parts regexpLiteralParts) bool {
+    return scanRegexpQuantifiers(parts.pattern, accept)
+  }
 }
 
 func regexpNeedsUnicodeFlag(parts regexpLiteralParts) bool {
@@ -229,11 +326,75 @@ func regexpNeedsUnicodeSetsFlag(parts regexpLiteralParts) bool {
 }
 
 func regexpFlagsUnsorted(parts regexpLiteralParts) bool {
-  sorted := []byte(parts.flags)
+  return regexpSortedFlags(parts.flags) != parts.flags
+}
+
+func regexpSortedFlags(flags string) string {
+  sorted := []byte(flags)
   sort.SliceStable(sorted, func(i, j int) bool {
     return regexpFlagOrder(sorted[i]) < regexpFlagOrder(sorted[j])
   })
-  return string(sorted) != parts.flags
+  return string(sorted)
+}
+
+// regexpSortFlagsRepair hands back the sorted flag string the check already
+// built to decide the finding. A permutation of the flag run cannot change what
+// the literal matches, so this is a fix rather than a suggestion.
+func regexpSortFlagsRepair(parts regexpLiteralParts) regexpRepair {
+  return regexpRepair{fix: []TextEdit{parts.flagEdit(regexpSortedFlags(parts.flags))}}
+}
+
+// flagEdit replaces this literal's whole flag run.
+func (parts regexpLiteralParts) flagEdit(flags string) TextEdit {
+  return TextEdit{
+    Pos:  parts.flagsOffset(),
+    End:  parts.flagsOffset() + len(parts.flags),
+    Text: flags,
+  }
+}
+
+// regexpFlagsWith inserts `flag` at its canonical `dgimsuvy` position without
+// reordering the flags already present, so adding one flag never silently does
+// `regexp/sort-flags`' job on an unsorted literal.
+func regexpFlagsWith(flags string, flag byte) string {
+  if strings.IndexByte(flags, flag) >= 0 {
+    return flags
+  }
+  order := regexpFlagOrder(flag)
+  for i := 0; i < len(flags); i++ {
+    if regexpFlagOrder(flags[i]) > order {
+      return flags[:i] + string(flag) + flags[i:]
+    }
+  }
+  return flags + string(flag)
+}
+
+// regexpUnicodeFlagRepair offers `u` and `v` as competing suggestions.
+//
+// Both satisfy the rule and neither is the obvious answer: `u` is the widely
+// supported mode, `v` the stricter ES2024 superset. Both also change what the
+// pattern matches -- surrogate pairs stop being two independent code units --
+// so this is never applied automatically by `ttsc fix`.
+func regexpUnicodeFlagRepair(parts regexpLiteralParts) regexpRepair {
+  return regexpRepair{suggestions: []Suggestion{
+    {Title: "Add the `u` flag.", Edits: []TextEdit{parts.flagEdit(regexpFlagsWith(parts.flags, 'u'))}},
+    {Title: "Add the `v` flag.", Edits: []TextEdit{parts.flagEdit(regexpFlagsWith(parts.flags, 'v'))}},
+  }}
+}
+
+// regexpUnicodeSetsFlagRepair offers the single `v` rewrite, replacing `u`
+// where the literal already carries it. It stays a suggestion for the same
+// reason as regexpUnicodeFlagRepair: `v` is a stricter mode with its own
+// matching semantics, not a spelling of the existing pattern.
+func regexpUnicodeSetsFlagRepair(parts regexpLiteralParts) regexpRepair {
+  title, flags := "Add the `v` flag.", parts.flags
+  if strings.IndexByte(flags, 'u') >= 0 {
+    title = "Replace the `u` flag with `v`."
+    flags = strings.Replace(flags, "u", "", 1)
+  }
+  return regexpRepair{suggestions: []Suggestion{
+    {Title: title, Edits: []TextEdit{parts.flagEdit(regexpFlagsWith(flags, 'v'))}},
+  }}
 }
 
 func regexpFlagOrder(flag byte) int {
@@ -257,22 +418,65 @@ func regexpFlagOrder(flag byte) int {
 // A literal the parser rejects yields no finding at all: the rule tells people
 // to delete a flag, so it stays silent whenever it cannot see the whole pattern.
 func regexpHasUselessFlag(parts regexpLiteralParts) bool {
+  return regexpUselessFlags(parts) != ""
+}
+
+// regexpUselessFlags returns every flag the literal carries that its own
+// pattern can never exercise, in canonical order.
+func regexpUselessFlags(parts regexpLiteralParts) string {
   ignoreCase := strings.Contains(parts.flags, "i")
   multiline := strings.Contains(parts.flags, "m")
   if !ignoreCase && !multiline {
-    return false
+    return ""
   }
   parsed, err := regexParseLiteral(parts.raw)
   if err != nil {
-    return false
+    return ""
   }
+  useless := make([]byte, 0, 2)
   if ignoreCase && !regexpNodeIsCaseVariant(parsed.Body, strings.ContainsAny(parts.flags, "uv")) {
-    return true
+    useless = append(useless, 'i')
   }
   if multiline && !regexpNodeHasLineAnchor(parsed.Body) {
-    return true
+    useless = append(useless, 'm')
   }
-  return false
+  return string(useless)
+}
+
+// regexpUselessFlagRepair deletes the dead flags the analysis named. The
+// analysis is one-sided -- anything it cannot settle counts as using the flag
+// -- so a flag it does reach here is provably inert and the deletion is a fix
+// rather than a suggestion.
+func regexpUselessFlagRepair(parts regexpLiteralParts) regexpRepair {
+  useless := regexpUselessFlags(parts)
+  if useless == "" {
+    return regexpRepair{}
+  }
+  var edits []TextEdit
+  for i := 0; i < len(parts.flags); i++ {
+    if strings.IndexByte(useless, parts.flags[i]) < 0 {
+      continue
+    }
+    edits = append(edits, TextEdit{
+      Pos: parts.flagsOffset() + i,
+      End: parts.flagsOffset() + i + 1,
+    })
+  }
+  return regexpRepair{message: regexpUselessFlagMessage(useless), fix: edits}
+}
+
+// regexpUselessFlagMessage names the flags rather than leaving the reader to
+// rediscover which one the analysis found inert. Only `i` and `m` are ever
+// judged, so the list is one or two entries.
+func regexpUselessFlagMessage(useless string) string {
+  quoted := make([]string, 0, len(useless))
+  for i := 0; i < len(useless); i++ {
+    quoted = append(quoted, "`"+string(useless[i])+"`")
+  }
+  if len(quoted) == 1 {
+    return "Unexpected useless regular expression flag " + quoted[0] + "."
+  }
+  return "Unexpected useless regular expression flags " + strings.Join(quoted, " and ") + "."
 }
 
 func regexpHasPreferD(parts regexpLiteralParts) bool {
@@ -341,7 +545,22 @@ func scanRegexpPattern(pattern string, visit func(pattern string, i int) bool) b
   return false
 }
 
-func scanRegexpQuantifiers(pattern string, visit func(min, max int, hasComma bool) bool) bool {
+// regexpQuantifier is one `{...}` count quantifier located in a pattern.
+//
+// The span travels with the bounds because every quantifier-shorthand rule in
+// this family answers "is this quantifier redundant?" and "what replaces it?"
+// from the same scan.
+type regexpQuantifier struct {
+  // start and end bracket `{`..`}` inclusive-exclusive, relative to the
+  // pattern rather than to the whole literal.
+  start    int
+  end      int
+  min      int
+  max      int
+  hasComma bool
+}
+
+func scanRegexpQuantifiers(pattern string, visit func(regexpQuantifier) bool) bool {
   return scanRegexpPattern(pattern, func(pattern string, i int) bool {
     if pattern[i] != '{' {
       return false
@@ -365,8 +584,79 @@ func scanRegexpQuantifiers(pattern string, visit func(min, max int, hasComma boo
     } else {
       min = parseRegexpQuantifierNumber(body)
     }
-    return min >= 0 && visit(min, max, hasComma)
+    return min >= 0 && visit(regexpQuantifier{
+      start:    i,
+      end:      end + 1,
+      min:      min,
+      max:      max,
+      hasComma: hasComma,
+    })
   })
+}
+
+// regexpQuantifierRepair builds the repair shared by the quantifier-shorthand
+// rules: every `{...}` the rule accepts is rewritten by `rewrite`, and the
+// whole set travels as one atomic fix so a literal is never half-canonicalized.
+//
+// `rewrite` may decline an individual quantifier whose neighbours make the
+// rewrite unsafe; the remaining ones still apply.
+func regexpQuantifierRepair(
+  accept func(regexpQuantifier) bool,
+  rewrite func(pattern string, quantifier regexpQuantifier) (string, bool),
+) func(regexpLiteralParts) regexpRepair {
+  return func(parts regexpLiteralParts) regexpRepair {
+    var edits []TextEdit
+    scanRegexpQuantifiers(parts.pattern, func(quantifier regexpQuantifier) bool {
+      if !accept(quantifier) {
+        return false
+      }
+      if text, ok := rewrite(parts.pattern, quantifier); ok {
+        edits = append(edits, TextEdit{
+          Pos:  parts.patternOffset() + quantifier.start,
+          End:  parts.patternOffset() + quantifier.end,
+          Text: text,
+        })
+      }
+      return false
+    })
+    return regexpRepair{fix: edits}
+  }
+}
+
+// regexpQuantifierSymbol rewrites a count quantifier to its one-character
+// shorthand. `{1,}` and `+` bind identically, so a trailing lazy `?` survives
+// the swap unchanged.
+func regexpQuantifierSymbol(symbol string) func(string, regexpQuantifier) (string, bool) {
+  return func(string, regexpQuantifier) (string, bool) { return symbol, true }
+}
+
+// regexpQuantifierExactCount collapses `{n,n}` to `{n}`. The braces stay, so
+// nothing can fuse with a neighbouring token.
+func regexpQuantifierExactCount(_ string, quantifier regexpQuantifier) (string, bool) {
+  return "{" + strconv.Itoa(quantifier.min) + "}", true
+}
+
+// regexpQuantifierDrop deletes a `{1}` that repeats its atom exactly once.
+//
+// Two following characters make the deletion unsafe, and neither is caught by
+// re-parsing the result, because both rewrites still parse:
+//
+//   - `?`, `*`, `+`, or `{`: the braces are the quantifier and the `?` in
+//     `/a{1}?/` only makes it lazy, so dropping them turns "exactly one" into
+//     "zero or one".
+//   - A digit: the braces separate a backreference or octal escape from a
+//     digit, and `/\1{1}2/` would fuse into `\12`, backreference twelve.
+func regexpQuantifierDrop(pattern string, quantifier regexpQuantifier) (string, bool) {
+  if quantifier.end >= len(pattern) {
+    return "", true
+  }
+  switch next := pattern[quantifier.end]; {
+  case next == '?', next == '*', next == '+', next == '{':
+    return "", false
+  case next >= '0' && next <= '9':
+    return "", false
+  }
+  return "", true
 }
 
 func parseRegexpQuantifierNumber(text string) int {
@@ -385,7 +675,20 @@ func parseRegexpQuantifierNumber(text string) int {
   return value
 }
 
-func walkRegexpCharacterClasses(pattern string, visit func(content string) bool) bool {
+// regexpClassSpan is one character class located in a pattern.
+type regexpClassSpan struct {
+  // start and end bracket `[`..`]` inclusive-exclusive, relative to the
+  // pattern rather than to the whole literal.
+  start   int
+  end     int
+  content string
+}
+
+// walkRegexpCharacterClassSpans visits every character class in source order,
+// stopping early when visit returns true and reporting whether it did. A `[`
+// that opens no class -- an escaped bracket, or one with no closing `]` -- is
+// skipped, which is what keeps `/\[0-9]/` from being read as a digit class.
+func walkRegexpCharacterClassSpans(pattern string, visit func(regexpClassSpan) bool) bool {
   for i := 0; i < len(pattern); i++ {
     if pattern[i] == '\\' {
       i++
@@ -401,7 +704,7 @@ func walkRegexpCharacterClasses(pattern string, visit func(content string) bool)
         continue
       }
       if pattern[j] == ']' {
-        if visit(pattern[start:j]) {
+        if visit(regexpClassSpan{start: i, end: j + 1, content: pattern[start:j]}) {
           return true
         }
         i = j
@@ -410,6 +713,47 @@ func walkRegexpCharacterClasses(pattern string, visit func(content string) bool)
     }
   }
   return false
+}
+
+func walkRegexpCharacterClasses(pattern string, visit func(content string) bool) bool {
+  return walkRegexpCharacterClassSpans(pattern, func(span regexpClassSpan) bool {
+    return visit(span.content)
+  })
+}
+
+// regexpClassShorthandRepair rewrites every character class spelled exactly as
+// one of `spellings` into `shorthand`.
+//
+// The shorthand always begins with a backslash, so it cannot fuse with the
+// atom before it the way a bare character could, and it is a complete atom, so
+// a following quantifier keeps applying to the same thing.
+//
+// The class walk is stricter than the substring test that decides the finding:
+// it will not see a spelled-out class nested inside a `v`-mode class, so such a
+// literal is reported without a fix rather than rewritten through a bracket
+// that is not the class boundary.
+func regexpClassShorthandRepair(
+  shorthand string,
+  spellings ...string,
+) func(regexpLiteralParts) regexpRepair {
+  return func(parts regexpLiteralParts) regexpRepair {
+    var edits []TextEdit
+    walkRegexpCharacterClassSpans(parts.pattern, func(span regexpClassSpan) bool {
+      for _, spelling := range spellings {
+        if span.content != spelling {
+          continue
+        }
+        edits = append(edits, TextEdit{
+          Pos:  parts.patternOffset() + span.start,
+          End:  parts.patternOffset() + span.end,
+          Text: shorthand,
+        })
+        break
+      }
+      return false
+    })
+    return regexpRepair{fix: edits}
+  }
 }
 
 func classHasRange(content string) bool {
@@ -611,16 +955,66 @@ func init() {
   }})
   Register(regexpSourceRule{name: "regexp/no-useless-character-class", check: regexpHasUselessCharacterClass})
   Register(regexpNoUselessEscapeAlias{})
-  Register(regexpSourceRule{name: "regexp/no-useless-flag", check: regexpHasUselessFlag})
-  Register(regexpSourceRule{name: "regexp/no-useless-quantifier", check: regexpHasUselessQuantifier})
-  Register(regexpSourceRule{name: "regexp/no-useless-two-nums-quantifier", check: regexpHasUselessTwoNumsQuantifier})
-  Register(regexpSourceRule{name: "regexp/no-zero-quantifier", check: regexpHasZeroQuantifier})
-  Register(regexpSourceRule{name: "regexp/prefer-d", check: regexpHasPreferD})
-  Register(regexpSourceRule{name: "regexp/prefer-plus-quantifier", check: regexpHasPlusQuantifierCandidate})
-  Register(regexpSourceRule{name: "regexp/prefer-question-quantifier", check: regexpHasQuestionQuantifierCandidate})
-  Register(regexpSourceRule{name: "regexp/prefer-star-quantifier", check: regexpHasStarQuantifierCandidate})
-  Register(regexpSourceRule{name: "regexp/prefer-w", check: regexpHasPreferW})
-  Register(regexpSourceRule{name: "regexp/require-unicode-regexp", check: regexpNeedsUnicodeFlag})
-  Register(regexpSourceRule{name: "regexp/require-unicode-sets-regexp", check: regexpNeedsUnicodeSetsFlag})
-  Register(regexpSourceRule{name: "regexp/sort-flags", check: regexpFlagsUnsorted})
+  Register(regexpSourceRule{
+    name:   "regexp/no-useless-flag",
+    check:  regexpHasUselessFlag,
+    repair: regexpUselessFlagRepair,
+  })
+  Register(regexpSourceRule{
+    name:   "regexp/no-useless-quantifier",
+    check:  regexpQuantifierCheck(regexpQuantifierIsUseless),
+    repair: regexpQuantifierRepair(regexpQuantifierIsUseless, regexpQuantifierDrop),
+  })
+  Register(regexpSourceRule{
+    name:   "regexp/no-useless-two-nums-quantifier",
+    check:  regexpQuantifierCheck(regexpQuantifierIsTwoNums),
+    repair: regexpQuantifierRepair(regexpQuantifierIsTwoNums, regexpQuantifierExactCount),
+  })
+  // `regexp/no-zero-quantifier` stays diagnostic-only: `{0}` says the atom
+  // never matches, so the correction is to delete the atom or repair the
+  // bound, and the rule computes neither.
+  Register(regexpSourceRule{
+    name:  "regexp/no-zero-quantifier",
+    check: regexpQuantifierCheck(regexpQuantifierIsZero),
+  })
+  Register(regexpSourceRule{
+    name:   "regexp/prefer-d",
+    check:  regexpHasPreferD,
+    repair: regexpClassShorthandRepair("\\d", "0-9"),
+  })
+  Register(regexpSourceRule{
+    name:   "regexp/prefer-plus-quantifier",
+    check:  regexpQuantifierCheck(regexpQuantifierIsPlus),
+    repair: regexpQuantifierRepair(regexpQuantifierIsPlus, regexpQuantifierSymbol("+")),
+  })
+  Register(regexpSourceRule{
+    name:   "regexp/prefer-question-quantifier",
+    check:  regexpQuantifierCheck(regexpQuantifierIsQuestion),
+    repair: regexpQuantifierRepair(regexpQuantifierIsQuestion, regexpQuantifierSymbol("?")),
+  })
+  Register(regexpSourceRule{
+    name:   "regexp/prefer-star-quantifier",
+    check:  regexpQuantifierCheck(regexpQuantifierIsStar),
+    repair: regexpQuantifierRepair(regexpQuantifierIsStar, regexpQuantifierSymbol("*")),
+  })
+  Register(regexpSourceRule{
+    name:   "regexp/prefer-w",
+    check:  regexpHasPreferW,
+    repair: regexpClassShorthandRepair("\\w", "A-Za-z0-9_", "a-zA-Z0-9_"),
+  })
+  Register(regexpSourceRule{
+    name:   "regexp/require-unicode-regexp",
+    check:  regexpNeedsUnicodeFlag,
+    repair: regexpUnicodeFlagRepair,
+  })
+  Register(regexpSourceRule{
+    name:   "regexp/require-unicode-sets-regexp",
+    check:  regexpNeedsUnicodeSetsFlag,
+    repair: regexpUnicodeSetsFlagRepair,
+  })
+  Register(regexpSourceRule{
+    name:   "regexp/sort-flags",
+    check:  regexpFlagsUnsorted,
+    repair: regexpSortFlagsRepair,
+  })
 }

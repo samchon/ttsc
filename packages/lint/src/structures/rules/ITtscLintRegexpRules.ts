@@ -103,7 +103,8 @@ export interface ITtscLintRegexpRules {
   /**
    * Reject regex flags that the literal does not exercise — `i` on a pattern
    * with no case-variable character, `m` on a pattern with no `^`/`$`
-   * assertion.
+   * assertion. Autofixable: the diagnostic names the dead flags and the
+   * fix deletes exactly those, leaving the live ones in place.
    *
    * Cleans up flag combos that suggest behavior the pattern can never trigger.
    * A character is case-variable wherever it sits, so `/[a-z]/i` keeps its flag
@@ -121,12 +122,18 @@ export interface ITtscLintRegexpRules {
    * (`/a{1}/`), `?` on patterns already matching the empty string
    * (`/(?:a+|b*)?/`), and quantifiers on non-consuming atoms (`/(?:\b)+/`).
    *
+   * Autofixable for the constant-one count, except where the next character
+   * would change the meaning of the deletion: a lazy marker (`/a{1}?/` is
+   * "exactly one", not optional) or a digit (`/\1{1}2/` would fuse into
+   * backreference twelve).
+   *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/no-useless-quantifier.html
    */
   "regexp/no-useless-quantifier"?: TtscLintRuleSetting;
 
   /**
    * Reject equal min/max quantifiers (`/a{2,2}/`) in favor of `/a{2}/`.
+   * Autofixable.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/no-useless-two-nums-quantifier.html
    */
@@ -136,42 +143,45 @@ export interface ITtscLintRegexpRules {
    * Reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`) — the atom never
    * matches, so the quantifier is either dead code or a typo for `{1,…}`.
    *
-   * The fix is normally to delete the atom or correct the upper bound.
+   * Diagnostic-only: the correction is to delete the atom or repair the
+   * bound, and which one was meant is not recoverable from the source.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/no-zero-quantifier.html
    */
   "regexp/no-zero-quantifier"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `\d` over `[0-9]` in regex literals.
+   * Prefer `\d` over `[0-9]` in regex literals. Autofixable.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/prefer-d.html
    */
   "regexp/prefer-d"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `+` over `{1,}` in regex literals.
+   * Prefer `+` over `{1,}` in regex literals. Autofixable.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/prefer-plus-quantifier.html
    */
   "regexp/prefer-plus-quantifier"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `?` over `{0,1}` in regex literals.
+   * Prefer `?` over `{0,1}` in regex literals. Autofixable; a lazy `{0,1}`
+   * correctly becomes `??`.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/prefer-question-quantifier.html
    */
   "regexp/prefer-question-quantifier"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `*` over `{0,}` in regex literals.
+   * Prefer `*` over `{0,}` in regex literals. Autofixable.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/prefer-star-quantifier.html
    */
   "regexp/prefer-star-quantifier"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `\w` over `[A-Za-z0-9_]` in regex literals.
+   * Prefer `\w` over `[A-Za-z0-9_]` in regex literals. Autofixable for both
+   * accepted spellings.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/prefer-w.html
    */
@@ -180,6 +190,9 @@ export interface ITtscLintRegexpRules {
   /**
    * Require regex literals to use the `u` or `v` flag, so Unicode-property
    * escapes and surrogate-pair handling stay predictable.
+   *
+   * Offers `u` and `v` as editor suggestions rather than an automatic fix:
+   * both satisfy the rule, and both change what the pattern matches.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/require-unicode-regexp.html
    */
@@ -191,7 +204,8 @@ export interface ITtscLintRegexpRules {
    * stricter escape rules on top of `u`.
    *
    * Choose this over `require-unicode-regexp` only on engines that ship
-   * ES2024-era regex.
+   * ES2024-era regex. Offers one editor suggestion, which replaces an
+   * existing `u` because the two flags are mutually exclusive.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/require-unicode-sets-regexp.html
    */
@@ -201,7 +215,8 @@ export interface ITtscLintRegexpRules {
    * Require regex flags to appear in canonical alphabetical order (`dgimsuvy`).
    *
    * Stable ordering keeps diffs small and lets readers compare flag sets at a
-   * glance.
+   * glance. Autofixable: a permutation of a flag run cannot change what the
+   * literal matches.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/sort-flags.html
    */

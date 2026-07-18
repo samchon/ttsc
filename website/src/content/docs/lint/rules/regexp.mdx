@@ -8,6 +8,12 @@ Some rules duplicate (and supersede) the regex-related rules in [Core](./core); 
 
 Source: [`eslint-plugin-regexp`](https://github.com/ota-meshi/eslint-plugin-regexp) (MIT).
 
+## Corrections
+
+A rule in this family offers an automatic fix only where the rewrite provably matches the same strings — reordering flags, swapping a count quantifier for its shorthand, deleting a flag the pattern cannot exercise. Where the correction changes what the literal matches, or where more than one repair is valid, the rule offers editor suggestions instead; `ttsc fix` and `source.fixAll.ttsc` never apply those.
+
+Every candidate rewrite is re-parsed by the compiler's own regexp parser before it is offered. A regex repair is a splice into live syntax, so an edit that is locally right can still leave a pattern the engine rejects: `/{1,}/` has no atom in front of the brace run, which makes it four literal characters rather than a quantifier, and rewriting it would produce `/+/`. Such a literal keeps its diagnostic and is left untouched. A rule may also decline an individual edit whose neighbours make it unsafe even though the result would parse — see [`regexp/no-useless-quantifier`](#rule-regexp-no-useless-quantifier).
+
 ## Rule index
 
 Each rule name links to the detailed section below.
@@ -187,6 +193,8 @@ A character is case-variable when the `i` flag widens what it matches, wherever 
 
 Undecidable patterns are left alone rather than reported: a Unicode property escape (`/\p{Nd}/iu`), a backreference (`i` makes the backreference comparison itself case-insensitive, so `/(.)\1/i` genuinely needs the flag), and a `v`-mode set-notation class all count as using the flag.
 
+The diagnostic names the dead flags, and the autofix deletes exactly those, leaving the live flags in place (`/\d+/gim` becomes `/\d+/g`). Because the analysis is one-sided — anything it cannot settle counts as using the flag — a flag it does report is provably inert.
+
 Example:
 
 ```ts
@@ -203,6 +211,11 @@ const liveLowercaseRange = /[a-z]/i;
 
 Reject quantifiers that do not change the match, constant-one counts (`/a{1}/`), `?` on patterns already matching the empty string (`/(?:a+|b*)?/`), and quantifiers on non-consuming atoms (`/(?:\b)+/`).
 
+Autofixable for the constant-one count: `/a{1}b/` becomes `/ab/`. Two following characters make the deletion unsafe, and both still parse afterwards, so the rule declines the edit and reports only:
+
+- A lazy or nested marker (`?`, `*`, `+`, `{`). `/a{1}?/` is "exactly one, lazily"; dropping the braces would leave the optional `/a?/`.
+- A digit. `/\1{1}2/` would fuse into `\12`, backreference twelve rather than backreference one followed by a literal `2`.
+
 Example:
 
 ```ts
@@ -214,7 +227,7 @@ const value = /a{1}/;
 
 ### `regexp/no-useless-two-nums-quantifier`
 
-Reject equal min/max quantifiers (`/a{2,2}/`) in favor of `/a{2}/`.
+Reject equal min/max quantifiers (`/a{2,2}/`) in favor of `/a{2}/`. Autofixable; the braces stay in place, so the count collapses without exposing the atom to its neighbours.
 
 Example:
 
@@ -229,7 +242,7 @@ const value = /a{2,2}/;
 
 Reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`), the atom never matches, so the quantifier is either dead code or a typo for `{1,...}`.
 
-The fix is normally to delete the atom or correct the upper bound.
+Diagnostic-only, unlike the rest of the quantifier family. The correction is to delete the atom or repair the bound, and which one was meant is not recoverable from the source; deleting only the braces would turn "never" into "once".
 
 Example:
 
@@ -242,7 +255,9 @@ const value = /a{0}/;
 
 ### `regexp/prefer-d`
 
-Prefer `\d` over `[0-9]` in regex literals.
+Prefer `\d` over `[0-9]` in regex literals. Autofixable; every spelled-out digit class in the literal is rewritten in one edit. `\d` is defined as exactly `[0-9]` under every flag combination.
+
+The fix is located by walking real character classes, so a literal whose bracket is escaped (`/\[0-9]/`, which contains no class at all) keeps its diagnostic without being rewritten.
 
 Example:
 
@@ -255,7 +270,7 @@ const digit = /[0-9]/;
 
 ### `regexp/prefer-plus-quantifier`
 
-Prefer `+` over `{1,}` in regex literals.
+Prefer `+` over `{1,}` in regex literals. Autofixable; `+` and `{1,}` bind identically, so a trailing lazy marker survives the swap (`/a{1,}?/` becomes `/a+?/`).
 
 Example:
 
@@ -268,7 +283,7 @@ const value = /a{1,}/;
 
 ### `regexp/prefer-question-quantifier`
 
-Prefer `?` over `{0,1}` in regex literals.
+Prefer `?` over `{0,1}` in regex literals. Autofixable. `?` is both the shorthand and the lazy marker, so a lazy `{0,1}` correctly stutters: `/a{0,1}?/` becomes `/a??/`.
 
 Example:
 
@@ -281,7 +296,7 @@ const value = /a{0,1}/;
 
 ### `regexp/prefer-star-quantifier`
 
-Prefer `*` over `{0,}` in regex literals.
+Prefer `*` over `{0,}` in regex literals. Autofixable, on the same terms as [`regexp/prefer-plus-quantifier`](#rule-regexp-prefer-plus-quantifier).
 
 Example:
 
@@ -294,7 +309,7 @@ const value = /a{0,}/;
 
 ### `regexp/prefer-w`
 
-Prefer `\w` over `[A-Za-z0-9_]` in regex literals.
+Prefer `\w` over `[A-Za-z0-9_]` in regex literals. Autofixable for both accepted spellings (`[A-Za-z0-9_]` and `[a-zA-Z0-9_]`). `\w` matches the same set under every flag combination, including `iu`, where the flag widens the shorthand and the spelled-out class to the same two extra code points.
 
 Example:
 
@@ -308,6 +323,8 @@ const word = /[A-Za-z0-9_]/;
 ### `regexp/require-unicode-regexp`
 
 Require regex literals to use the `u` or `v` flag, so Unicode-property escapes and surrogate-pair handling stay predictable.
+
+Offers `u` and `v` as editor suggestions rather than an automatic fix: both satisfy the rule, and both change what the pattern matches, since a surrogate pair stops being two independent code units. The flag is inserted at its canonical position instead of appended, so adding it does not leave a run that [`regexp/sort-flags`](#rule-regexp-sort-flags) immediately re-reports. A pattern that is only legal without a Unicode flag (`/\-/`, whose `\-` is an identity escape the stricter modes reject) is reported with no suggestion at all.
 
 Example:
 
@@ -324,6 +341,8 @@ Require regex literals to use the `v` flag specifically, the stricter Unicode-se
 
 Choose this over `require-unicode-regexp` only on engines that ship ES2024-era regex.
 
+Offers one editor suggestion, for the same reason as its sibling: `v` is a stricter matching mode, not a respelling. Because `u` and `v` are mutually exclusive, the suggestion replaces an existing `u` (`/a/giu` becomes `/a/giv`) rather than appending.
+
 Example:
 
 ```ts
@@ -339,9 +358,14 @@ Require regex flags to appear in canonical alphabetical order (`dgimsuvy`).
 
 Stable ordering keeps diffs small and lets readers compare flag sets at a glance.
 
+Autofixable: the sorted run the check already built to decide the finding is what gets written back. A permutation of a flag run cannot change what the literal matches.
+
 Example:
 
 ```ts
 // reports: regexp/sort-flags (error)
-const value = /a/im;
+const value = /a/mi;
+
+// not reported: `im` is already the canonical order
+const sorted = /a/im;
 ```
