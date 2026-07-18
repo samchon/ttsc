@@ -9,7 +9,9 @@ import "testing"
 // and older engines can break — the safe choice is to keep bracket
 // syntax for reserved-word keys, mirroring ESLint's
 // `allowKeywords: false` mode. This pin is independent of the main
-// rewrite branch and exercises the "detect but skip fix" arm.
+// rewrite branch and exercises the "detect but impose nothing" arm; the
+// rewrite is still offered as an opt-in suggestion, pinned by
+// `TestDotNotationOffersReservedWordCollapseAsSuggestion`.
 //
 // 1. Snapshot `box["class"]`.
 // 2. Enable `dot-notation`.

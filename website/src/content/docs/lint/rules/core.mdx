@@ -376,9 +376,11 @@ function trailing(b: number, a?: number): number {
 
 Prefer dot access (`obj.value`) over bracket access (`obj["value"]`) when the string key is a valid JavaScript identifier.
 
-Bracket access remains accepted for reserved words, dynamic keys, or keys containing characters that cannot appear in an identifier.
+Bracket access remains accepted for dynamic keys or keys containing characters that cannot appear in an identifier.
 
-The autofix inserts a space after a bare decimal-integer receiver (`5["toString"]` becomes `5 .toString`) so the dot is not lexed as the number's decimal point, and declines the rewrite when a comment sits inside the bracket span rather than deleting it.
+The autofix inserts a space after a bare decimal-integer receiver (`5["toString"]` becomes `5 .toString`) so the dot is not lexed as the number's decimal point.
+
+Two cases are reported without an autofix and offer the rewrite as an editor suggestion instead: a comment inside the bracket span (applying the suggestion deletes that comment), and a reserved-word key such as `box["class"]` (valid on modern targets, but bracket access is kept by default because minifiers and older engines can break on it).
 
 Example:
 
@@ -397,6 +399,8 @@ const kept = box["not-valid-key"];
 Require strict equality operators `===` / `!==` over `==` / `!=`.
 
 Loose equality performs implicit type coercion that frequently hides bugs.
+
+The operator is autofixed only when both operands are provably the same type (two same-kind literals, or a `typeof` comparison). Otherwise tightening the comparison can change what the program computes, so the rewrite is offered as an editor suggestion the author opts into rather than being applied by `ttsc fix`.
 
 Example:
 
@@ -1393,7 +1397,7 @@ Allow specific builtins with the `exceptions` option:
 
 Reject `.bind(thisArg)` on an arrow function or on a regular function whose own scope never reads `this`. A nested arrow inherits the enclosing regular function's receiver and therefore counts as a use, while a nested regular function owns a separate receiver. Calls with arguments after `thisArg` and calls that spread their arguments remain unchanged because they can perform partial application.
 
-Dot, static computed, and optional member/call forms are recognized. The autofix removes the bind syntax only when evaluating `thisArg` is side-effect-free and no comment lies inside the discarded ranges; other findings remain diagnostic-only.
+Dot, static computed, and optional member/call forms are recognized. The autofix removes the bind syntax only when evaluating `thisArg` is side-effect-free and no comment lies inside the discarded ranges. A comment in those ranges downgrades the removal to an editor suggestion (applying it deletes the comment), while an effectful `thisArg` stays diagnostic-only because removing the bind would also remove an evaluation the program performs.
 
 Example:
 
@@ -1409,6 +1413,8 @@ const partial = ((value: number) => value).bind(null, 1);
 ### `no-extra-boolean-cast`
 
 Reject redundant boolean casts such as `!!Boolean(x)`, `if (Boolean(x))`, or `Boolean(!!x)`.
+
+The autofix splices the inner expression over the whole cast, parenthesizing it where precedence requires. When a comment sits inside the replaced span the splice would delete it, so the rewrite is offered as an editor suggestion instead of being applied automatically.
 
 Example:
 
@@ -2638,7 +2644,7 @@ const value = "ab\cdef";
 
 ### `no-useless-rename`
 
-Reject `{ x: x }` destructuring renames that bind back to the same name. Autofixable.
+Reject `{ x: x }` destructuring renames that bind back to the same name. Autofixable, except when a comment sits between the two names: deleting the rename tail would delete the comment, so the collapse is offered as an editor suggestion instead.
 
 Example:
 
@@ -2713,7 +2719,7 @@ function f(scope: Record<string, unknown>) {
 
 ### `object-shorthand`
 
-Reject `{ foo: foo }` and similar object-literal shorthand candidates in favor of `{ foo }`. Autofixable.
+Reject `{ foo: foo }` and similar object-literal shorthand candidates in favor of `{ foo }`. Autofixable, except when a comment sits between the key and the value: deleting the `: value` tail would delete the comment, so the collapse is offered as an editor suggestion instead.
 
 Example:
 
@@ -2937,6 +2943,8 @@ f.apply(null, args);
 ### `prefer-template`
 
 Prefer template literals over string concatenation when any operand is non-literal.
+
+The autofix rewrites the whole `+` chain as one template literal. A comment in an operator seam has nowhere to go in the rebuilt literal, so that case is reported without an autofix and the rendered literal is offered as an editor suggestion (applying it discards the seam comment).
 
 Example:
 

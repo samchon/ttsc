@@ -86,8 +86,9 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
 //     result, as do explicit parentheses around the cast itself.
 //   - Comments. The splice keeps only the inner expression's text, so a
 //     comment anywhere else in the replaced span (`!Boolean(/* why */ ok)`)
-//     would be silently deleted. The fix is declined — report only — when
-//     the replaced span contains a comment outside the kept text.
+//     would be silently deleted. Imposing that loss is unacceptable, so the
+//     same edit is offered as an opt-in suggestion instead: the author sees
+//     the title, chooses it, and reviews the result.
 func reportBooleanCastFix(ctx *Context, node, inner *shimast.Node, message string) {
   if inner == nil {
     ctx.Report(node, message)
@@ -105,17 +106,23 @@ func reportBooleanCastFix(ctx *Context, node, inner *shimast.Node, message strin
     ctx.Report(node, message)
     return
   }
-  if hasCommentBetween(src, editPos, keepStart) ||
-    hasCommentBetween(src, keepEnd, node.End()) {
-    ctx.Report(node, message)
-    return
-  }
   text := src[keepStart:keepEnd]
   if floor, bounded := booleanContextPrecedenceFloor(node); bounded &&
     shimast.GetExpressionPrecedence(inner) <= floor {
     text = "(" + text + ")"
   }
-  ctx.ReportFix(node, message, TextEdit{Pos: editPos, End: node.End(), Text: text})
+  edit := TextEdit{Pos: editPos, End: node.End(), Text: text}
+  if hasCommentBetween(src, editPos, keepStart) ||
+    hasCommentBetween(src, keepEnd, node.End()) {
+    ctx.ReportSuggestion(
+      node,
+      message,
+      "Remove the redundant cast, discarding the comment inside it.",
+      edit,
+    )
+    return
+  }
+  ctx.ReportFix(node, message, edit)
 }
 
 // booleanContextPrecedenceFloor returns the precedence at or below which a
@@ -239,21 +246,29 @@ func (eqeqeq) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
+// reportEqeqeq reports the loose operator and rewrites it to `replacement`.
+// The rewrite is imposed only when `isEqeqeqAutoFixSafe` proves both operands
+// share a type, because tightening a genuinely mixed-type comparison changes
+// what the program computes. That is a judgement only the author can make, so
+// the same edit is still offered as an opt-in suggestion whose title names the
+// behavior change rather than being discarded.
 func reportEqeqeq(ctx *Context, operator *shimast.Node, expr *shimast.BinaryExpression, message, replacement string) {
   pos, end := tokenRange(ctx.File, operator)
   if pos < 0 {
     pos, end = operator.Pos(), operator.End()
   }
+  edit := TextEdit{Pos: pos, End: end, Text: replacement}
   if isEqeqeqAutoFixSafe(expr) {
-    ctx.ReportRangeFix(
-      pos,
-      end,
-      message,
-      TextEdit{Pos: pos, End: end, Text: replacement},
-    )
+    ctx.ReportRangeFix(pos, end, message, edit)
     return
   }
-  ctx.ReportRange(pos, end, message)
+  ctx.ReportRangeSuggestion(
+    pos,
+    end,
+    message,
+    "Replace with `"+replacement+"`, which changes the result when the operands differ in type.",
+    edit,
+  )
 }
 
 func isEqeqeqAutoFixSafe(expr *shimast.BinaryExpression) bool {

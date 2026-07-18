@@ -9,8 +9,10 @@ import "testing"
 //
 // The fix replaces the whole `+` chain span with one template literal, so a
 // comment anywhere inside (`"hi " + /* keep */ who`) would be erased. ESLint's
-// prefer-template declines via `commentsExistBetween`; the port reports the
-// concatenation but offers no edit. The negative twin — the same concatenation
+// prefer-template declines via `commentsExistBetween`; the port imposes no edit
+// either and routes the rendered literal to the opt-in suggestion channel
+// instead (pinned by `TestPreferTemplateOffersWithheldTemplateAsSuggestion`).
+// The negative twin — the same concatenation
 // with no comment — must still become a template literal, proving the guard is
 // scoped to the comment.
 //
