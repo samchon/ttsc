@@ -83,9 +83,9 @@ function rewriteId(id, root) {
 
 /**
  * Collapse the fine-grained wire kinds `ttscgraph dump` emits (calls,
- * instantiates, renders, accesses, type_ref, extends, implements) into the
- * three display families the viewer colors and its legend name. An unknown kind
- * passes through and renders with the fallback color.
+ * instantiates, renders, accesses, type_ref, extends, implements, overrides)
+ * into the three display families the viewer colors and its legend name. An
+ * unknown kind passes through and renders with the fallback color.
  */
 const DISPLAY_KIND = {
   calls: "value-call",
@@ -95,6 +95,7 @@ const DISPLAY_KIND = {
   type_ref: "type-ref",
   extends: "heritage",
   implements: "heritage",
+  overrides: "heritage",
 };
 
 function displayKind(kind) {

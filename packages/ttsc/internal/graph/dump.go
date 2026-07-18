@@ -16,7 +16,8 @@ import (
 //
 //   - internal node kinds map straight through (NodeTypeAlias is already "type");
 //   - one EdgeValueCall splits by Origin into "calls" / "instantiates" /
-//     "renders", and EdgeHeritage into "extends" / "implements";
+//     "renders", EdgeHeritage into "extends" / "implements", and
+//     EdgeMemberRelation into "implements" / "overrides";
 //   - byte spans become 1-based line/col Evidence ranges;
 //   - decorator facts ride on their target node;
 //   - file paths are project-relative and the output is sorted, so the dump is
@@ -310,6 +311,8 @@ func wireEdgeKind(kind EdgeKind, origin string) string {
       return "extends"
     }
     return "implements"
+  case EdgeMemberRelation:
+    return origin
   default:
     return string(kind)
   }

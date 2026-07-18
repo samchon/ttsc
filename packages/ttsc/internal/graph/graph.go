@@ -109,6 +109,13 @@ const (
   // EdgeHeritage is an `extends` / `implements` relationship from a class or
   // interface to a base it derives from.
   EdgeHeritage EdgeKind = "heritage"
+  // EdgeMemberRelation is a checker-verified relationship from a directly
+  // declared member to the directly declared base member it implements or
+  // overrides. Origin is "implements" or "overrides" and becomes the wire
+  // kind. Keeping this separate from EdgeHeritage prevents a member fact from
+  // being confused with the syntactic container clause that led the checker to
+  // compare the two types.
+  EdgeMemberRelation EdgeKind = "member-relation"
   // EdgeValueCall is a runtime use from one declaration of the function, method,
   // or constructor it invokes: a call, a `new T()`, a `<Component/>` JSX use, or
   // a tagged-template tag. Uses of a dependency's method are not modeled (the
@@ -142,7 +149,8 @@ type Edge struct {
   // (calls / instantiates / renders, extends / implements) without the
   // MCP-facing model losing the distinction. It is "" for kinds that need no
   // split (type-ref, value-access). For EdgeValueCall it is "call", "new",
-  // "jsx", or "tagged"; for EdgeHeritage it is "extends" or "implements".
+  // "jsx", or "tagged"; for EdgeHeritage it is "extends" or "implements";
+  // for EdgeMemberRelation it is "implements" or "overrides".
   Origin string
   Pos    int
   End    int

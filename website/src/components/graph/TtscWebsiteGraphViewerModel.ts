@@ -40,7 +40,7 @@ const LINK_COLORS: Record<string, string> = {
 const LINK_KIND_LABEL: Record<string, string> = {
   "value-call": "value-call (runtime use)",
   "type-ref": "type-ref",
-  heritage: "heritage (extends / implements)",
+  heritage: "heritage (extends / implements / overrides)",
 };
 
 // ---------------------------------------------------------------------------

@@ -14,7 +14,7 @@ import (
 // field is added, removed, or given a new meaning, independently of the serve
 // envelope's protocol version: a one-shot `ttscgraph dump` written to a file has
 // a schema but never rode the protocol.
-const DumpSchemaVersion = 3
+const DumpSchemaVersion = 4
 
 // The capabilities a snapshot can declare. Each names one class of evidence a
 // consumer may rely on when, and only when, the snapshot lists it.
