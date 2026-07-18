@@ -16,6 +16,12 @@ const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 
 const packages = [
+  // The LSP proxy's own package. Its tests live beside it rather than under
+  // ./test because they cover unexported logic — the resident-daemon client
+  // decides when a warm Program is reused versus a spawn falls back, and
+  // exporting that to test it would put an internal decision on the public
+  // surface.
+  "./internal/lspserver",
   "./test/cli",
   "./test/ttscserver",
   "./test/platform",
