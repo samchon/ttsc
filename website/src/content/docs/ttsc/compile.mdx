@@ -133,6 +133,17 @@ RUN npm run build           # the bundler build reuses the warm cache
 
 An ephemeral builder (Google Cloud Build, most CI Docker builds) discards its local layer and BuildKit cache between builds, so the warm layer is reused only through a cache that outlives the build: a registry-backed layer cache (`docker build --cache-from <pushed-image> --build-arg BUILDKIT_INLINE_CACHE=1`, then deploy the built image) or a bucket-backed cache. A bare `RUN --mount=type=cache` or plain layer caching starts empty on every fresh build VM and silently recompiles. `gcloud run deploy --source` passes no cache flag and, under buildpacks, offers no layer to hold the binary; to reuse it you must take over the build (`gcloud builds submit` with a registry cache, or a prebuilt base image) rather than deploy from source.
 
+On GitHub Actions, `docker/build-push-action` reaches the same registry-backed cache through the Actions cache backend. Set `cache-to: type=gha,mode=max` so the intermediate `ttsc prepare` layer is exported, not only the final image: the default `mode=min` caches just the last layer, so the plugin recompiles on every run.
+
+```yaml
+- uses: docker/setup-buildx-action@v3
+- uses: docker/build-push-action@v6
+  with:
+    context: .
+    cache-from: type=gha
+    cache-to: type=gha,mode=max
+```
+
 Verify the cache actually hit: on the second build the cold-build line (`ttsc: building source plugin ... this runs once per cache key`) must not appear, and `npx ttsc cache paths --json` reports the directories that hold the binary.
 
 ## See also
