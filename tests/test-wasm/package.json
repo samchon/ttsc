@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-wasm",
-  "version": "0.19.2",
+  "version": "0.19.3",
   "description": "@ttsc/wasm MemFS mutation and boot-lifecycle feature tests.",
   "type": "module",
   "scripts": {

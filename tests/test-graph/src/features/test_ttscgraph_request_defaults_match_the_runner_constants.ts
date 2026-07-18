@@ -60,9 +60,22 @@ export const test_ttscgraph_request_defaults_match_the_runner_constants = () => 
   const trace = read("src", "structures", "ITtscGraphTrace.ts");
   const entrypoints = read("src", "structures", "ITtscGraphEntrypoints.ts");
 
+  // memberLimit has no numeric default on purpose: an identity list is returned
+  // whole, so it is uncapped and the runner reads it through `limitOf`
+  // (unlimited when omitted). Pin that invariant rather than a default that no
+  // longer exists — a re-added `@default` on it would be the cap creeping back.
+  assert.strictEqual(
+    documentedDefault(details, "memberLimit"),
+    undefined,
+    "memberLimit must stay uncapped: an identity list is not sampled",
+  );
+  assert.ok(
+    /memberLimit\s*=\s*limitOf\(/.test(runDetails),
+    "runDetails must apply memberLimit through limitOf (unlimited by default)",
+  );
+
   for (const testCase of [
     { field: "neighborLimit", schema: details, runner: runDetails, constant: "DEFAULT_NEIGHBORS" },
-    { field: "memberLimit", schema: details, runner: runDetails, constant: "DEFAULT_MEMBERS" },
     { field: "dependencyLimit", schema: details, runner: runDetails, constant: "DEFAULT_DEPENDENCIES" },
     { field: "limit", schema: tour, runner: runTour, constant: "DEFAULT_LIMIT" },
     { field: "limit", schema: lookup, runner: runLookup, constant: "DEFAULT_LIMIT" },

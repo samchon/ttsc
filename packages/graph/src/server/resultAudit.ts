@@ -47,14 +47,18 @@
  * payload, and told it to stop where the shortlist's coverage was exactly what
  * needed judging.
  *
- * So there are two audits. {@link RESULT_AUDIT} covers the operations that walk
- * from an explicit handle or structure (`trace`, `details`, `overview`): the
- * result is what the graph holds for what you named, bounded only where
- * `truncated` says. {@link RESULT_AUDIT_SELECTION} covers the ranked shortlists
- * (`lookup`, `entrypoints`, `tour`): it keeps the same fact-verification and
- * adds that the _selection_ is heuristic, so whether the shortlist covers the
- * question is the caller's to judge — and a follow-up request or a read of a
- * cited span is a sound next step, not a failure to trust the result.
+ * So the audits split by what the reader must judge. {@link RESULT_AUDIT}
+ * covers the walks from an explicit handle or structure (`trace`, `overview`):
+ * the result is what the graph holds for what you named, bounded where
+ * `truncated` says. {@link RESULT_AUDIT_DETAILS} covers `details`, whose result
+ * is not one bounded whole but two halves — a symbol's own shape, returned
+ * complete, and its fan-out, returned as a slice with `trace` for the rest — so
+ * it names which half to trust outright and which to follow. {@link
+ * RESULT_AUDIT_SELECTION} covers the ranked shortlists (`lookup`, `entrypoints`,
+ * `tour`): it keeps the same fact-verification and adds that the _selection_ is
+ * heuristic, so whether the shortlist covers the question is the caller's to
+ * judge — and a follow-up request or a read of a cited span is a sound next
+ * step, not a failure to trust the result.
  *
  * Keep both narrow, and keep the stop-or-continue decision with the result's
  * `next`, so neither contradicts a partial result that legitimately asks for
@@ -102,6 +106,41 @@ judge — if the top of it does not, refining the query, raising the limit, or r
 span is a sound next step, not a failure to trust the result.
 
 Follow \`next\` for where that leaves the question.
+`.trim();
+
+/**
+ * The audit for `details`, whose contract is not the other exact operations'.
+ *
+ * `trace` walks and marks where the walk was cut with `truncated`; `details`
+ * does not walk. It resolves a named handle, and its result splits in two. What
+ * a symbol *is* — its members, its values, its signature — is bounded by the
+ * declaration and returned whole, so the old "trust it, do not open the file"
+ * is finally true of it rather than contradicted by a capped member list. What
+ * a symbol *reaches or is reached by* — its calls, its type references, its
+ * implementers, its dependents — is bounded by how widely it is used, not by
+ * the symbol, so returning it whole is a `trace`/impact answer of a thousand
+ * refs in a "what is this" call. That half is a short orientation slice, and
+ * the audit has to say which half is which so the reader trusts the complete
+ * one and reaches for `trace` on the other, instead of reading the file for a
+ * member list that is already here.
+ */
+export const RESULT_AUDIT_DETAILS: string = `
+AUDITED BEFORE RETURNING. READ FIRST.
+
+The server assembled this \`result\`, then checked it: every fact in it — each name, span,
+edge, signature, member, and value — was taken back to the type-checked program for the
+snapshot this call synced to, and resolved there, so for this snapshot a fact here cannot be
+wrong.
+
+This is the structure the graph holds for the handles you named. What a symbol is — its
+members, its values, its signature — is complete: trust it and do not open the file to read
+what is already here. What a symbol reaches or is reached by — its calls, its type
+references, its implementers, and under \`neighbors\` its dependents — is a short orientation
+slice, not the whole set, because that grows with how widely a symbol is used; \`trace\`
+follows it in full.
+
+Follow \`next\`: answer from this result, and re-call the graph only when it says inspect, or
+after you edit the source.
 `.trim();
 
 /** The escape branch carries no graph facts, so it claims none. */

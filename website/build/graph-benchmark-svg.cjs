@@ -148,9 +148,28 @@ for (const combo of combos.values()) {
   }
 }
 // The index axis: what readiness costs before a tool can answer anything. It
-// is not a token chart, so it renders on its own scale (wall clock).
+// is not a token chart, so it renders on its own scale (wall clock). Alongside
+// the grid across every repo, each indexed project gets a single-repo variant
+// (graph-time-to-answer-<repo>) — the same two-tone bar, its own scale — for
+// embeds that want one repository rather than the whole grid.
 if (report.index && (report.index.cells ?? []).length > 0) {
   writeSvg("graph-time-to-answer.svg", renderTime(report.index, allCells));
+  for (const project of new Set(
+    report.index.cells.map((cell) => cell.project),
+  )) {
+    if (!TOOLS.some((tool) => medianAnswerMs(allCells, project, tool.key) > 0))
+      continue;
+    const scoped = {
+      ...report.index,
+      cells: report.index.cells.filter((cell) => cell.project === project),
+    };
+    writeSvg(
+      `graph-time-to-answer-${project}.svg`,
+      renderTime(scoped, allCells, {
+        title: `${REPO_LABELS[project] ?? project} — cold time to a first answer (lower is better)`,
+      }),
+    );
+  }
 }
 
 const pngs = writePngs();
@@ -579,7 +598,7 @@ function renderIndex(index) {
 // It is the other half of the trade a context-saving tool is making. A tool that
 // cuts an agent's token bill and then spends four minutes indexing and three
 // more re-searching what it indexed has moved the cost, not removed it.
-function renderTime(index, cells) {
+function renderTime(index, cells, opts = {}) {
   const rows = [...new Set(index.cells.map((cell) => cell.project))]
     .map((project) => ({
       project,
@@ -619,7 +638,7 @@ function renderTime(index, cells) {
   const titleBlock = 132;
   const fontSize = single ? 18 : 17;
   const crownSize = single ? 18 : 16;
-  const title = "Cold time to a first answer (lower is better)";
+  const title = opts.title ?? "Cold time to a first answer (lower is better)";
 
   const max = niceMax(
     Math.max(
