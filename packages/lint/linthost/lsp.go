@@ -133,18 +133,29 @@ type lspCommandOptions struct {
   projectIdentity publicrule.ProjectIdentity
 }
 
-// RunLSPCommandIDs prints the workspace/executeCommand ids owned by @ttsc/lint.
-func RunLSPCommandIDs([]string) int {
-  return writeJSON([]string{
+// lspCommandIDs is the workspace/executeCommand ids owned by @ttsc/lint, shared
+// by the one-shot verb and the resident lsp-serve loop.
+func lspCommandIDs() []string {
+  return []string{
     commandLintFixAll,
     commandLintApplySuggestion,
     commandFormatDocument,
-  })
+  }
+}
+
+// lspCodeActionKinds is the CodeActionKind values @ttsc/lint may return.
+func lspCodeActionKinds() []string {
+  return []string{"quickfix.ttsc", "source.fixAll.ttsc", "source.format"}
+}
+
+// RunLSPCommandIDs prints the workspace/executeCommand ids owned by @ttsc/lint.
+func RunLSPCommandIDs([]string) int {
+  return writeJSON(lspCommandIDs())
 }
 
 // RunLSPCodeActionKinds prints the CodeActionKind values @ttsc/lint may return.
 func RunLSPCodeActionKinds([]string) int {
-  return writeJSON([]string{"quickfix.ttsc", "source.fixAll.ttsc", "source.format"})
+  return writeJSON(lspCodeActionKinds())
 }
 
 // RunLSPDiagnostics prints lint diagnostics for one file URI as LSP JSON.
@@ -153,12 +164,23 @@ func RunLSPDiagnostics(args []string) int {
   if !ok {
     return 2
   }
+  result, code := computeLSPDiagnostics(opts)
+  if code != 0 {
+    return code
+  }
+  return writeJSON(result)
+}
+
+// computeLSPDiagnostics builds the diagnostics result for one file URI. Split
+// from RunLSPDiagnostics so the resident lsp-serve loop can produce the same
+// result against a warm Program without re-parsing per verb.
+func computeLSPDiagnostics(opts *lspCommandOptions) (lspDiagnosticsResult, int) {
   findings, prog, closeProgram, code := lspFindings(opts, false)
   if closeProgram != nil {
     defer closeProgram()
   }
   if code != 0 {
-    return code
+    return lspDiagnosticsResult{}, code
   }
   result := lspDiagnosticsResult{Document: []lspDiagnostic{}}
   for _, finding := range filterFindingsForPath(findings, mustFilePathFromURI(opts.uri)) {
@@ -174,7 +196,7 @@ func RunLSPDiagnostics(args []string) int {
     }
     result.Project = publication
   }
-  return writeJSON(result)
+  return result, 0
 }
 
 // RunLSPCodeActions prints code actions available for one file URI/range.
@@ -183,6 +205,17 @@ func RunLSPCodeActions(args []string) int {
   if !ok {
     return 2
   }
+  actions, code := computeLSPCodeActions(opts)
+  if code != 0 {
+    return code
+  }
+  return writeJSON(actions)
+}
+
+// computeLSPCodeActions builds the code actions for one file URI/range. Split
+// from RunLSPCodeActions so the resident lsp-serve loop reuses it over a warm
+// Program.
+func computeLSPCodeActions(opts *lspCommandOptions) ([]lspCodeAction, int) {
   acceptsLint := acceptsActionKind(opts.contextJSON, "source.fixAll.ttsc")
   acceptsQuickFix := acceptsActionKind(opts.contextJSON, "quickfix.ttsc")
   acceptsFormat := acceptsActionKind(opts.contextJSON, "source.format")
@@ -191,20 +224,20 @@ func RunLSPCodeActions(args []string) int {
     acceptsQuickFix = false
   }
   if !acceptsLint && !acceptsQuickFix && !acceptsFormat {
-    return writeJSON([]lspCodeAction{})
+    return []lspCodeAction{}, 0
   }
   if lspProjectTargetHasSegment(opts, "node_modules") {
-    return writeJSON([]lspCodeAction{})
+    return []lspCodeAction{}, 0
   }
   if lspProjectTargetOutsideCwd(opts) {
-    return writeJSON([]lspCodeAction{})
+    return []lspCodeAction{}, 0
   }
   findings, _, closeProgram, code := lspFindings(opts, acceptsFormat)
   if closeProgram != nil {
     defer closeProgram()
   }
   if code != 0 {
-    return code
+    return nil, code
   }
   findings = filterFindingsForPath(findings, mustFilePathFromURI(opts.uri))
   lintFindings := filterLintFindings(findings)
@@ -238,7 +271,7 @@ func RunLSPCodeActions(args []string) int {
       },
     })
   }
-  return writeJSON(actions)
+  return actions, 0
 }
 
 // RunLSPExecuteCommand returns a WorkspaceEdit for a lint-owned command.
@@ -357,21 +390,17 @@ func lspFindings(opts *lspCommandOptions, includeFormatDefaults bool) ([]*Findin
     fmt.Fprintln(os.Stderr, err)
     return nil, nil, nil, 2
   }
-  prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
-    forceNoEmit:      true,
-    needsRuleChecker: engine.NeedsTypeChecker(),
-    projectIdentity:  opts.projectIdentity,
-  })
+  prog, parseDiags, closeProgram, err := acquireProgram(opts, engine.NeedsTypeChecker())
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
     return nil, nil, nil, 2
   }
   if len(parseDiags) > 0 {
     // tsgo already owns parse diagnostics in the upstream LSP process.
-    return nil, prog, prog.close, 0
+    return nil, prog, closeProgram, 0
   }
   findings := prog.runLintCycle(engine)
-  return findings, prog, prog.close, 0
+  return findings, prog, closeProgram, 0
 }
 
 // loadLSPCommandRules constructs the resolver shared by every LSP command

@@ -293,11 +293,13 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
   case methodDidSave:
     if env.IsNotification() {
       p.invalidateSymbolProvider()
+      p.invalidateResidentPlugins()
       p.publishPluginDiagnosticsForDocumentNotification(env)
     }
   case methodDidChange:
     if env.IsNotification() {
       p.invalidateSymbolProvider()
+      p.invalidateResidentPlugins()
       p.cacheDidChangeText(env)
       if err := p.markDocumentDirty(env); err != nil {
         return false, err
@@ -1878,6 +1880,28 @@ func (p *Proxy) shouldAnswerReferencesLocally() bool {
 func (p *Proxy) invalidateSymbolProvider() {
   if p.symbolProvider != nil {
     p.symbolProvider.Invalidate()
+  }
+}
+
+// invalidateResidentPlugins tells a resident plugin source to drop its warm
+// Program before the next verb, because a document changed. Optional-interface
+// assertion for the same reason pluginCodeActionKinds uses one: a PluginSource
+// without a resident daemon (NullPluginSource, or one built before this) is
+// simply unaffected.
+func (p *Proxy) invalidateResidentPlugins() {
+  type residentInvalidator interface{ InvalidateResidentPrograms() }
+  if source, ok := p.source.(residentInvalidator); ok {
+    source.InvalidateResidentPrograms()
+  }
+}
+
+// shutdownResidentPlugins kills any resident plugin daemons on server teardown.
+// The children also exit on their own when the parent closes their stdin at
+// process exit, so this is the graceful path, not the only one.
+func (p *Proxy) shutdownResidentPlugins() {
+  type residentShutdown interface{ shutdownResidents() }
+  if source, ok := p.source.(residentShutdown); ok {
+    source.shutdownResidents()
   }
 }
 
