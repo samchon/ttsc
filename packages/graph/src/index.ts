@@ -20,7 +20,11 @@ export {
 // found under that project's installed `ttsc`.
 export { resolveGraphBinary } from "./resolveGraphBinary";
 export { loadGraph } from "./model/loadGraph";
-export { TtscGraphSession } from "./model/TtscGraphSession";
+export {
+  TtscGraphSession,
+  type TtscGraphRequestOptions,
+  type TtscGraphSessionOptions,
+} from "./model/TtscGraphSession";
 
 // The server version reported in the MCP handshake; read from this package.
 const VERSION: string = (require("../package.json") as { version: string })

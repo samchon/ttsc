@@ -7,6 +7,8 @@ import TtscWebsiteGraphViewer3D from "../../../components/graph/TtscWebsiteGraph
 
 It runs `ttscgraph`, a native binary that keeps the type-checked project and resulting graph resident in memory. Before each graph operation it checks the config, root-file set, module-resolution inputs, and source contents. An unchanged project reuses the warm graph, a content-only edit updates the resident compiler incrementally, and config, file-addition, deletion, or resolution changes trigger a safe reload. Every relationship it reports is the current compiler's own answer, not a guess from reading text.
 
+Each native snapshot request has a five-minute deadline by default. This is more than ten times the 29-second cold index measured for the three-million-line VS Code fixture, so a valid cold compiler is not treated as stalled. A timeout terminates that native process, clears its pending request, and lets the next call start a fresh session. Programmatic users can set `requestTimeoutMs` on `TtscGraphSession`, or pass an `AbortSignal` to `session.graph({ signal })`; explicit cancellation follows the same clean-restart path.
+
 ## Why an agent needs it
 
 What the graph saves an agent, and what that looks like in tokens.
