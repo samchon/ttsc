@@ -42,21 +42,17 @@ export function resolveGraphHandle(
   const byId = graph.node(handle);
   if (byId !== undefined) return { node: byId };
 
-  const byName = resolveGraphName(graph, handle, candidateLimit);
+  const byName = resolveGraphName(graph, handle);
   if (byName.node !== undefined || byName.candidates !== undefined)
     return rank(graph, byName, candidateLimit);
 
-  const byFile = resolveFileQualified(graph, handle, candidateLimit);
+  const byFile = resolveFileQualified(graph, handle);
   if (byFile.node !== undefined || byFile.candidates !== undefined)
     return rank(graph, byFile, candidateLimit);
 
   const symbol = symbolPartOf(handle) ?? memberPartOf(handle);
   if (symbol !== undefined)
-    return rank(
-      graph,
-      resolveGraphName(graph, symbol, candidateLimit),
-      candidateLimit,
-    );
+    return rank(graph, resolveGraphName(graph, symbol), candidateLimit);
   return {};
 }
 
@@ -88,11 +84,10 @@ function symbolPartOf(handle: string): string | undefined {
 function resolveGraphName(
   graph: TtscGraphMemory,
   name: string,
-  candidateLimit: number,
 ): IResolvedGraphHandle {
   const exact = graph.symbols(name);
   if (exact.length === 1) return { node: exact[0] };
-  if (exact.length > 1) return { candidates: exact.slice(0, candidateLimit) };
+  if (exact.length > 1) return { candidates: [...exact] };
 
   if (name.includes(".")) {
     const suffix = `.${name}`;
@@ -102,7 +97,7 @@ function resolveGraphName(
     );
     if (suffixMatches.length === 1) return { node: suffixMatches[0] };
     if (suffixMatches.length > 1) {
-      return { candidates: suffixMatches.slice(0, candidateLimit) };
+      return { candidates: suffixMatches };
     }
   }
   return {};
@@ -117,7 +112,6 @@ function resolveGraphName(
 function resolveFileQualified(
   graph: TtscGraphMemory,
   handle: string,
-  candidateLimit: number,
 ): IResolvedGraphHandle {
   const dot = handle.indexOf(".");
   if (dot <= 0) return {};
@@ -128,8 +122,7 @@ function resolveFileQualified(
     .symbols(name)
     .filter((node) => fileStem(node.file) === stem);
   if (matches.length === 1) return { node: matches[0] };
-  if (matches.length > 1)
-    return { candidates: matches.slice(0, candidateLimit) };
+  if (matches.length > 1) return { candidates: matches };
   return {};
 }
 
@@ -153,10 +146,20 @@ function rank(
   candidateLimit: number,
 ): IResolvedGraphHandle {
   if (resolved.candidates === undefined) return resolved;
-  const ranked = [...resolved.candidates]
-    .sort((a, b) => candidateScore(graph, b) - candidateScore(graph, a))
-    .slice(0, candidateLimit);
+  const ranked = resolved.candidates
+    .map((node) => ({ node, score: candidateScore(graph, node) }))
+    .sort((a, b) => {
+      const score = b.score - a.score;
+      return score !== 0 ? score : compareIdentity(a.node.id, b.node.id);
+    })
+    .slice(0, candidateLimit)
+    .map(({ node }) => node);
   return { candidates: ranked };
+}
+
+/** Compare position-invariant ids without locale-dependent collation. */
+function compareIdentity(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function candidateScore(graph: TtscGraphMemory, node: ITtscGraphNode): number {
