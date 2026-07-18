@@ -31,11 +31,12 @@ const (
 // serveClientRequest mirrors linthost's serveLSPRequest: the base project
 // options travel as the daemon's argv, only the per-verb fields per request.
 type serveClientRequest struct {
-  Verb        string `json:"verb"`
-  URI         string `json:"uri,omitempty"`
-  RangeJSON   string `json:"rangeJson,omitempty"`
-  ContextJSON string `json:"contextJson,omitempty"`
-  Invalidate  bool   `json:"invalidate,omitempty"`
+  Verb        string   `json:"verb"`
+  URI         string   `json:"uri,omitempty"`
+  RangeJSON   string   `json:"rangeJson,omitempty"`
+  ContextJSON string   `json:"contextJson,omitempty"`
+  Invalidate  bool     `json:"invalidate,omitempty"`
+  Changed     []string `json:"changed,omitempty"`
 }
 
 // serveClientResponse mirrors linthost's serveLSPResponse: the verb's JSON
@@ -54,9 +55,13 @@ type residentSidecar struct {
   stdin      io.WriteCloser
   stdout     *bufio.Reader
   everServed bool
-  // invalidate piggybacks a "drop the warm Program" onto the next request, set
-  // when the editor signals a document changed on disk.
+  // invalidate piggybacks a full "drop the warm Program" onto the next request,
+  // set for a change the proxy cannot localize.
   invalidate bool
+  // changed piggybacks the document URIs that changed on disk onto the next
+  // request, so the daemon updates the warm Program incrementally rather than
+  // rebuilding it.
+  changed []string
 }
 
 // serveRun routes a serve-able verb through the plugin's resident daemon.
@@ -122,6 +127,10 @@ func (sc *residentSidecar) call(s *NativePluginSource, plugin NativeLSPPluginEnt
   if sc.invalidate {
     req.Invalidate = true
     sc.invalidate = false
+  }
+  if len(sc.changed) > 0 {
+    req.Changed = sc.changed
+    sc.changed = nil
   }
   line, err := json.Marshal(req)
   if err != nil {
@@ -213,12 +222,13 @@ func (sc *residentSidecar) kill() {
   sc.stdout = nil
 }
 
-// InvalidateResidentPrograms tells every live resident daemon to drop its warm
-// Program before the next request, because a document in the project changed on
-// disk. It is the resident analog of rebuilding a fresh Program per verb, and
-// mirrors how the proxy already invalidates the symbol provider on the same
-// editor signals.
-func (s *NativePluginSource) InvalidateResidentPrograms() {
+// InvalidateResidentPrograms tells every live resident daemon that documents
+// changed on disk, so the next request refreshes the warm Program before
+// serving. Given the changed URIs, the daemon updates those files incrementally;
+// given none, it drops the whole Program (a change the proxy could not
+// localize). It mirrors how the proxy already invalidates the symbol provider on
+// the same editor signals.
+func (s *NativePluginSource) InvalidateResidentPrograms(changedURIs ...string) {
   if s == nil {
     return
   }
@@ -230,7 +240,11 @@ func (s *NativePluginSource) InvalidateResidentPrograms() {
   s.residentMu.Unlock()
   for _, sc := range residents {
     sc.mu.Lock()
-    sc.invalidate = true
+    if len(changedURIs) > 0 {
+      sc.changed = append(sc.changed, changedURIs...)
+    } else {
+      sc.invalidate = true
+    }
     sc.mu.Unlock()
   }
 }
