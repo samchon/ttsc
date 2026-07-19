@@ -50,7 +50,14 @@ function build(target: { dir: string; name: string; tarballName: string }) {
   const out = path.join(outputDir, `${target.tarballName}.tgz`);
   fs.rmSync(out, { force: true });
 
-  const result = cp.spawnSync("pnpm", ["pack", "--out", out], {
+  const pack =
+    process.platform === "win32"
+      ? {
+          command: process.env.ComSpec ?? "cmd.exe",
+          args: ["/d", "/s", "/c", "pnpm", "pack", "--out", out],
+        }
+      : { command: "pnpm", args: ["pack", "--out", out] };
+  const result = cp.spawnSync(pack.command, pack.args, {
     cwd: target.dir,
     encoding: "utf8",
     windowsHide: true,
