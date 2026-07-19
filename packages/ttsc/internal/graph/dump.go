@@ -66,24 +66,35 @@ type DumpEnumMember struct {
   Value string `json:"value,omitempty"`
 }
 
+// DumpObjectMember is one direct object-literal member carried on its variable
+// node. Line and Signature are rendered from the same Program-owned source text
+// as the node evidence, so the outline cannot race a later disk write.
+type DumpObjectMember struct {
+  Name      string `json:"name"`
+  Kind      string `json:"kind"`
+  Line      int    `json:"line,omitempty"`
+  Signature string `json:"signature,omitempty"`
+}
+
 // DumpNode is the wire shape of a graph node. Lowercase json keys are the
 // contract; the Go field names are not.
 type DumpNode struct {
-  ID             string          `json:"id"`
-  Kind           string          `json:"kind"`
-  Name           string          `json:"name"`
-  QualifiedName  string          `json:"qualifiedName,omitempty"`
-  File           string          `json:"file"`
-  External       bool            `json:"external"`
-  Ignored        bool            `json:"ignored,omitempty"`
-  Exported       bool            `json:"exported,omitempty"`
-  Closure        bool            `json:"closure,omitempty"`
-  Modifiers      []string        `json:"modifiers,omitempty"`
-  Literals       []string         `json:"literals,omitempty"`
-  EnumMembers    []DumpEnumMember `json:"enumMembers,omitempty"`
-  Evidence       *DumpEvidence   `json:"evidence,omitempty"`
-  Implementation *DumpEvidence   `json:"implementation,omitempty"`
-  Decorators     []DumpDecorator `json:"decorators,omitempty"`
+  ID             string             `json:"id"`
+  Kind           string             `json:"kind"`
+  Name           string             `json:"name"`
+  QualifiedName  string             `json:"qualifiedName,omitempty"`
+  File           string             `json:"file"`
+  External       bool               `json:"external"`
+  Ignored        bool               `json:"ignored,omitempty"`
+  Exported       bool               `json:"exported,omitempty"`
+  Closure        bool               `json:"closure,omitempty"`
+  Modifiers      []string           `json:"modifiers,omitempty"`
+  Literals       []string           `json:"literals,omitempty"`
+  EnumMembers    []DumpEnumMember   `json:"enumMembers,omitempty"`
+  ObjectMembers  []DumpObjectMember `json:"objectMembers,omitempty"`
+  Evidence       *DumpEvidence      `json:"evidence,omitempty"`
+  Implementation *DumpEvidence      `json:"implementation,omitempty"`
+  Decorators     []DumpDecorator    `json:"decorators,omitempty"`
 }
 
 // DumpEdge is the wire shape of a graph edge. Lowercase json keys are the
@@ -174,6 +185,7 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
       // the MCP layer is what applies a response cap and marks it.
       Literals:       n.Literals,
       EnumMembers:    dumpEnumMembers(n.EnumMembers),
+      ObjectMembers:  ctx.objectMembers(n),
       Evidence:       withoutFile(ctx.evidence(n.File, n.Pos, n.End)),
       Implementation: ctx.evidence(n.ImplementationFile, n.ImplementationPos, n.ImplementationEnd),
       Decorators:     decByNode[n.ID],
@@ -247,6 +259,35 @@ func dumpEnumMembers(members []EnumMember) []DumpEnumMember {
     out = append(out, DumpEnumMember{Name: member.Name, Value: member.Value})
   }
   return out
+}
+
+// objectMembers projects AST-owned object member identity and snapshot-owned
+// display text. A missing source omits only line/signature; identity still came
+// from the AST and therefore remains sound.
+func (c *dumpContext) objectMembers(node *Node) []DumpObjectMember {
+  if len(node.ObjectMembers) == 0 {
+    return nil
+  }
+  out := make([]DumpObjectMember, 0, len(node.ObjectMembers))
+  for _, member := range node.ObjectMembers {
+    dumped := DumpObjectMember{
+      Name: member.Name,
+      Kind: objectMemberWireKind(member.Kind),
+    }
+    if evidence := c.evidence(node.File, member.Pos, member.End); evidence != nil {
+      dumped.Line = evidence.StartLine
+    }
+    dumped.Signature = c.objectMemberSignature(node.File, member)
+    out = append(out, dumped)
+  }
+  return out
+}
+
+func objectMemberWireKind(kind NodeKind) string {
+  if kind == NodeMethod {
+    return "method"
+  }
+  return "property"
 }
 
 // MarshalDump serializes a built graph to the export JSON, indented when pretty.
@@ -422,6 +463,46 @@ func (c *dumpContext) evidence(file string, pos, end int) *DumpEvidence {
     ev.EndLine, ev.EndCol = ls.at(end)
   }
   return ev
+}
+
+// objectMemberSignature reproduces the compact one-line outline details has
+// historically returned, but slices it from Program-owned text while the dump
+// is built instead of reopening the live file later.
+func (c *dumpContext) objectMemberSignature(file string, member ObjectMember) string {
+  pos, end := member.Pos, member.SignatureEnd
+  if pos < 0 || end <= pos || c.sources == nil {
+    return ""
+  }
+  text, ok := c.sources[file]
+  if !ok || pos > len(text) {
+    return ""
+  }
+  pos = firstCodeOffset(text, pos)
+  if end > len(text) {
+    end = len(text)
+  }
+  if member.SignatureTokenLen > 0 {
+    end = firstCodeOffset(text, end)
+    end = min(end+member.SignatureTokenLen, len(text))
+  }
+  if pos >= end {
+    return ""
+  }
+  if !member.SignatureBoundary {
+    if lineEnd := strings.IndexByte(text[pos:end], '\n'); lineEnd >= 0 {
+      end = pos + lineEnd
+    }
+  }
+  if pos >= end {
+    return ""
+  }
+  signature := strings.TrimSuffix(strings.Join(strings.Fields(text[pos:end]), " "), ",")
+  const maxObjectMemberSignatureRunes = 160
+  runes := []rune(signature)
+  if len(runes) > maxObjectMemberSignatureRunes {
+    signature = string(runes[:maxObjectMemberSignatureRunes-3]) + "..."
+  }
+  return signature
 }
 
 // firstCodeOffset advances past leading trivia: whitespace, // line comments,

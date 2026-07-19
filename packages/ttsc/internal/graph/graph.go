@@ -84,6 +84,12 @@ type Node struct {
   // per member would grow the graph and put leaves into tour flows to index
   // what grep already does. This fills in the node that exists instead.
   EnumMembers []EnumMember
+  // ObjectMembers is the direct, statically named outline of an object literal
+  // assigned to this variable. It is captured from the compiler AST, in source
+  // order, so comments and lexical trivia cannot change member identity. The
+  // positions point into the same Program-owned source snapshot NewDump uses to
+  // render the compact signature and line carried on the wire.
+  ObjectMembers []ObjectMember
   // Pos and End bound the declaration in its source file (byte offsets). They
   // are for display, never identity, so an edit that shifts them does not re-key
   // the node.
@@ -100,6 +106,24 @@ type Node struct {
 type EnumMember struct {
   Name  string
   Value string
+}
+
+// ObjectMember is one direct, statically named property, method, or accessor of
+// an object-literal variable. A spread has no declaration name of its own and a
+// dynamic computed key cannot be named soundly, so neither fabricates a member.
+type ObjectMember struct {
+  Name string
+  Kind NodeKind
+  Pos  int
+  End  int
+  // SignatureEnd is the AST boundary before a nested value body. When the
+  // boundary lands at an opening token's full start, SignatureTokenLen says how
+  // many source bytes belong to the outline (`{`, `[`, or `class`). A true
+  // SignatureBoundary permits whitespace-normalizing a multiline declaration
+  // through that safe endpoint; otherwise the outline stops at its first line.
+  SignatureEnd      int
+  SignatureBoundary bool
+  SignatureTokenLen int
 }
 
 // EdgeKind classifies a relationship between two nodes.

@@ -20,11 +20,11 @@ const MAX_DUMP_BYTES = 1024 * 1024 * 1024;
  * constant out of this file and fails if the pair drifts.
  *
  * Exported because the resident session reads the same dump body over the serve
- * protocol and has to hold it to the same number: the envelope's version and the
- * body's are independent, so a producer can speak this protocol and still send a
- * body from another schema.
+ * protocol and has to hold it to the same number: the envelope's version and
+ * the body's are independent, so a producer can speak this protocol and still
+ * send a body from another schema.
  */
-export const DUMP_SCHEMA_VERSION = 4;
+export const DUMP_SCHEMA_VERSION = 5;
 
 /**
  * Build the resident {@link TtscGraphMemory} for a project by running `ttscgraph

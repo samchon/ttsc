@@ -1,6 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
-
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { ITtscGraphDecorator } from "../structures/ITtscGraphDecorator";
 import { ITtscGraphDetails } from "../structures/ITtscGraphDetails";
@@ -15,9 +12,6 @@ import { IRunnerOutput, resultNext } from "./resultNext";
 const MAX_SIGNATURE_LINES = 4;
 // A doc summary is one sentence; the rest of the comment is the file's to keep.
 const MAX_DOC_CHARS = 200;
-// An object literal's outline is scanned from source, so a runaway literal is
-// bounded here; the members it does find are not capped.
-const MAX_OBJECT_MEMBER_LINES = 300;
 // A symbol's fan-out — what it calls, what names it in a type, what depends on
 // it — scales with how popular it is, not with the symbol: a central type is
 // named in a thousand places, and returning all of them is a hundred thousand
@@ -57,7 +51,11 @@ export function runDetails(
   // does not: what names or uses a symbol is bounded by its popularity, not by
   // it, so those stay a small slice with `trace` for the rest.
   const memberLimit = limitOf(props.memberLimit);
-  const neighborLimit = capOf(props.neighborLimit, DEFAULT_NEIGHBORS, MAX_NEIGHBORS);
+  const neighborLimit = capOf(
+    props.neighborLimit,
+    DEFAULT_NEIGHBORS,
+    MAX_NEIGHBORS,
+  );
   const dependencyLimit = capOf(
     props.dependencyLimit,
     DEFAULT_DEPENDENCIES,
@@ -100,9 +98,9 @@ export function runDetails(
       file: node.file,
     };
     if (node.evidence?.startLine) detail.line = node.evidence.startLine;
-    const sig = signatureOf(graph.project, node);
+    const sig = signatureOf(graph, node);
     if (sig !== undefined) detail.signature = sig;
-    const doc = docOf(graph.project, node);
+    const doc = docOf(graph, node);
     if (doc !== undefined) detail.doc = doc;
     const decorators = decoratorsOf(node);
     if (decorators !== undefined) detail.decorators = decorators;
@@ -144,12 +142,8 @@ export function runDetails(
       const list = members(graph, node, memberLimit);
       if (list.length > 0) detail.members = list;
     }
-    if (node.kind === "variable" && detail.sourceSpan !== undefined) {
-      const list = objectLiteralMembers(
-        graph.project,
-        detail.sourceSpan,
-        memberLimit,
-      );
+    if (node.kind === "variable") {
+      const list = objectLiteralMembers(node, memberLimit);
       if (list.length > 0) detail.members = list;
     }
     // An enum's members ride on its own node rather than on `contains` edges,
@@ -224,7 +218,7 @@ function members(
       kind: member.kind,
     };
     if (member.evidence?.startLine) m.line = member.evidence.startLine;
-    const sig = signatureOf(graph.project, member);
+    const sig = signatureOf(graph, member);
     if (sig !== undefined) m.signature = sig;
     const decorators = decoratorsOf(member);
     if (decorators !== undefined) m.decorators = decorators;
@@ -257,83 +251,15 @@ function enumMembers(
 }
 
 function objectLiteralMembers(
-  project: string,
-  span: Pick<ITtscGraphEvidence, "file" | "startLine" | "endLine">,
+  node: ITtscGraphNode,
   limit: number,
 ): ITtscGraphDetails.IMember[] {
-  if (span.endLine === undefined) return [];
-  if (span.endLine - span.startLine > MAX_OBJECT_MEMBER_LINES) return [];
-  const lines = fileLines(project, span.file);
-  if (lines === undefined) return [];
-  const start = Math.max(0, span.startLine - 1);
-  const end = Math.min(lines.length - 1, span.endLine - 1);
-  const members: ITtscGraphDetails.IMember[] = [];
-  let depth = 0;
-  let entered = false;
-  for (let i = start; i <= end; i++) {
-    const raw = lines[i] ?? "";
-    const text = stripStrings(raw);
-    const before = depth;
-    if (entered && before === 1) {
-      const member = objectMemberOf(raw, i + 1);
-      if (member !== undefined) {
-        members.push(member);
-        if (members.length >= limit) break;
-      }
-    }
-    for (const char of text) {
-      if (char === "{") {
-        depth++;
-        entered = true;
-      } else if (char === "}") {
-        depth = Math.max(0, depth - 1);
-      }
-    }
-  }
-  return members;
-}
-
-function objectMemberOf(
-  line: string,
-  lineNumber: number,
-): ITtscGraphDetails.IMember | undefined {
-  const text = line.trim();
-  if (
-    text === "" ||
-    text.startsWith("//") ||
-    text.startsWith("/*") ||
-    text.startsWith("*")
-  ) {
-    return undefined;
-  }
-  const property = /^(['"]?)([A-Za-z_$][\w$-]*)\1\s*\??\s*:/.exec(text);
-  if (property !== null) {
-    return {
-      name: property[2]!,
-      kind: "property",
-      line: lineNumber,
-      signature: signatureLine(text),
-    };
-  }
-  const method =
-    /^(?:async\s+)?(?:get\s+|set\s+)?([A-Za-z_$][\w$-]*)\s*\(/.exec(text);
-  if (method !== null) {
-    return {
-      name: method[1]!,
-      kind: "method",
-      line: lineNumber,
-      signature: signatureLine(text),
-    };
-  }
-  return undefined;
-}
-
-function signatureLine(text: string): string {
-  return text.replace(/\s+/g, " ").replace(/,$/, "");
-}
-
-function stripStrings(line: string): string {
-  return line.replace(/\/\/.*$/, "").replace(/(['"`])(?:\\.|(?!\1).)*\1/g, "");
+  return (node.objectMembers ?? []).slice(0, limit).map((member) => ({
+    name: member.name,
+    kind: member.kind,
+    ...(member.line !== undefined ? { line: member.line } : {}),
+    ...(member.signature !== undefined ? { signature: member.signature } : {}),
+  }));
 }
 
 /** Map dependency edges to references on their far endpoint, dropping structure. */
@@ -461,8 +387,8 @@ function rankedRefs(
 
 /**
  * An identity list's cap: none by default, honored when a caller passes one.
- * details answers a named handle's own shape in full — its members, its values —
- * so the default is unlimited; the tour passes an explicit number to embed a
+ * details answers a named handle's own shape in full — its members, its values
+ * — so the default is unlimited; the tour passes an explicit number to embed a
  * compact slice of its own.
  */
 function limitOf(value: number | undefined): number {
@@ -476,7 +402,11 @@ function limitOf(value: number | undefined): number {
  * uses a symbol grows with its popularity, not with the symbol, so the whole
  * list is a trace/impact answer and details returns an orientation slice.
  */
-function capOf(value: number | undefined, fallback: number, max: number): number {
+function capOf(
+  value: number | undefined,
+  fallback: number,
+  max: number,
+): number {
   const n = value === undefined || !Number.isFinite(value) ? fallback : value;
   return Math.max(1, Math.min(max, Math.floor(n)));
 }
@@ -564,16 +494,6 @@ function evidenceCoordinatesOf(
   };
 }
 
-/** Read a file's lines once, or undefined when it cannot be read. */
-function fileLines(project: string, file: string): string[] | undefined {
-  if (file === "") return undefined;
-  try {
-    return fs.readFileSync(path.join(project, file), "utf8").split(/\r?\n/);
-  } catch {
-    return undefined;
-  }
-}
-
 /**
  * What the declaration says it is: the first sentence of the doc comment
  * written above it.
@@ -587,12 +507,12 @@ function fileLines(project: string, file: string): string[] | undefined {
  * symbol with what it is for is doing an index's job.
  */
 export function docOf(
-  project: string,
+  graph: TtscGraphMemory,
   node: ITtscGraphNode,
 ): string | undefined {
   const evidence = node.evidence;
   const lines =
-    evidence === undefined ? undefined : fileLines(project, evidence.file);
+    evidence === undefined ? undefined : graph.source.lines(evidence.file);
   if (lines === undefined || evidence === undefined) return undefined;
   let index = evidence.startLine - 2;
   while (index >= 0 && (lines[index] ?? "").trim() === "") index--;
@@ -638,12 +558,12 @@ export function docOf(
  * the node.
  */
 export function signatureOf(
-  project: string,
+  graph: TtscGraphMemory,
   node: ITtscGraphNode,
 ): string | undefined {
   const evidence = node.evidence;
   const lines =
-    evidence === undefined ? undefined : fileLines(project, evidence.file);
+    evidence === undefined ? undefined : graph.source.lines(evidence.file);
   if (lines === undefined || evidence === undefined) return undefined;
   const start = Math.max(0, evidence.startLine - 1);
   const last =
