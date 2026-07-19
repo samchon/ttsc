@@ -384,24 +384,96 @@ func (s *NativePluginSource) discoverCompletionHints() {
       // a rare new one.
       continue
     }
-    var published []LSPCompletionHint
-    if err := json.Unmarshal(body, &published); err != nil {
+    published, err := decodeNativeCompletionHints(body)
+    if err != nil {
       // Not silent. A plugin that answered and answered wrongly implements the
       // verb and got it wrong, which is worth saying — unlike one that never
       // implemented it at all.
       s.log("ttscserver: %s lsp-hints returned invalid JSON: %v", pluginLabel(plugin), err)
       continue
     }
-    for _, hint := range published {
-      if hint.Scope == "" || hint.After == "" || len(hint.Items) == 0 {
-        continue
-      }
-      hints = append(hints, hint)
-    }
+    hints = append(hints, published...)
   }
   s.hintsMu.Lock()
   s.completionHints = hints
   s.hintsMu.Unlock()
+}
+
+// decodeNativeCompletionHints accepts both generations of the lsp-hints wire.
+//
+// @ttsc/lint publishes one flat rule.Hint per item, with the scope and trigger
+// nested under `trigger`. The first proxy implementation instead documented a
+// grouped response with `scope`, `after`, and `items` at the top level. Flat
+// entries are grouped here by trigger so the proxy keeps its efficient matching
+// shape, while grouped responses remain valid for existing third-party
+// sidecars. The first occurrence of a trigger fixes its group position and each
+// later occurrence appends in publication order, preserving rule ranking.
+func decodeNativeCompletionHints(body []byte) ([]LSPCompletionHint, error) {
+  var entries []json.RawMessage
+  if err := json.Unmarshal(body, &entries); err != nil {
+    return nil, err
+  }
+
+  type triggerKey struct {
+    scope string
+    after string
+  }
+  flatGroups := map[triggerKey]int{}
+  hints := make([]LSPCompletionHint, 0, len(entries))
+  for _, entry := range entries {
+    var fields map[string]json.RawMessage
+    if err := json.Unmarshal(entry, &fields); err != nil {
+      return nil, err
+    }
+    if _, grouped := fields["items"]; grouped {
+      var hint LSPCompletionHint
+      if err := json.Unmarshal(entry, &hint); err != nil {
+        return nil, err
+      }
+      hint.Items = usableNativeCompletionItems(hint.Items)
+      if hint.Scope == "" || hint.After == "" || len(hint.Items) == 0 {
+        continue
+      }
+      hints = append(hints, hint)
+      continue
+    }
+
+    var flat struct {
+      LSPCompletionItem
+      Trigger struct {
+        Scope string `json:"scope"`
+        After string `json:"after"`
+      } `json:"trigger"`
+    }
+    if err := json.Unmarshal(entry, &flat); err != nil {
+      return nil, err
+    }
+    if flat.Insert == "" || flat.Trigger.Scope == "" || flat.Trigger.After == "" {
+      continue
+    }
+    key := triggerKey{scope: flat.Trigger.Scope, after: flat.Trigger.After}
+    index, exists := flatGroups[key]
+    if !exists {
+      index = len(hints)
+      flatGroups[key] = index
+      hints = append(hints, LSPCompletionHint{
+        Scope: flat.Trigger.Scope,
+        After: flat.Trigger.After,
+      })
+    }
+    hints[index].Items = append(hints[index].Items, flat.LSPCompletionItem)
+  }
+  return hints, nil
+}
+
+func usableNativeCompletionItems(items []LSPCompletionItem) []LSPCompletionItem {
+  kept := make([]LSPCompletionItem, 0, len(items))
+  for _, item := range items {
+    if item.Insert != "" {
+      kept = append(kept, item)
+    }
+  }
+  return kept
 }
 
 func (s *NativePluginSource) CodeActionKinds() []string {
