@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-playground",
-  "version": "0.19.3",
+  "version": "0.19.4",
   "description": "@ttsc/playground worker plugin-failure, npm-discovery, and sandbox feature tests.",
   "type": "module",
   "scripts": {
