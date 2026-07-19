@@ -55,31 +55,60 @@ function posix(p: string): string {
   return p.replace(/\\/g, "/");
 }
 
-/** An absolute path (POSIX or Windows drive); relative dumps skip rerooting. */
+/** Absolute POSIX, Windows drive, or UNC path; relative dumps skip rerooting. */
 function isAbsolute(p: string): boolean {
   return /^(?:[A-Za-z]:)?\//.test(posix(p));
 }
 
-function commonRoot(files: string[]): string {
-  if (files.length === 0) return "";
-  let parts = posix(files[0]!).split("/");
-  for (const file of files.slice(1)) {
-    const other = posix(file).split("/");
+function isWindowsPath(p: string): boolean {
+  const normalized = posix(p);
+  return /^[A-Za-z]:(?:\/|$)/.test(normalized) || normalized.startsWith("//");
+}
+
+function directoryOf(file: string): string {
+  const normalized = posix(file).replace(/\/+$/, "");
+  const slash = normalized.lastIndexOf("/");
+  if (slash < 0) return "";
+  return slash === 0 ? "/" : normalized.slice(0, slash);
+}
+
+function commonRoot(directories: string[]): string {
+  if (directories.length === 0) return "";
+  let parts = posix(directories[0]!).split("/");
+  const caseInsensitive = directories.every(isWindowsPath);
+  for (const directory of directories.slice(1)) {
+    const other = posix(directory).split("/");
     let i = 0;
-    while (i < parts.length && i < other.length && parts[i] === other[i]) i++;
+    while (
+      i < parts.length &&
+      i < other.length &&
+      (caseInsensitive
+        ? parts[i]!.toLowerCase() === other[i]!.toLowerCase()
+        : parts[i] === other[i])
+    )
+      i++;
     parts = parts.slice(0, i);
     if (parts.length === 0) break;
   }
   return parts.join("/");
 }
 
-// An empty root means the dump's paths are already project-relative (the
-// current `ttscgraph dump` contract); they pass through structure-intact.
-function relativize(abs: string, root: string): string {
+// A null root means the dump's paths are already project-relative (the current
+// `ttscgraph dump` contract); they pass through structure-intact.
+function relativize(abs: string, root: string | null): string {
   const a = posix(abs);
-  const r = posix(root).replace(/\/+$/, "");
-  if (!r) return a;
-  if (a === r || a.startsWith(r + "/"))
+  if (root === null) return a;
+  const normalizedRoot = posix(root);
+  const r = normalizedRoot === "/" ? "/" : normalizedRoot.replace(/\/+$/, "");
+  const caseInsensitive = isWindowsPath(a) && isWindowsPath(r);
+  const comparedPath = caseInsensitive ? a.toLowerCase() : a;
+  const comparedRoot = caseInsensitive ? r.toLowerCase() : r;
+  if (
+    comparedRoot &&
+    (comparedRoot === "/" ||
+      comparedPath === comparedRoot ||
+      comparedPath.startsWith(comparedRoot + "/"))
+  )
     return a.slice(r.length).replace(/^\/+/, "");
   const nm = a.lastIndexOf("node_modules/");
   if (nm >= 0) return a.slice(nm);
@@ -87,7 +116,7 @@ function relativize(abs: string, root: string): string {
   return slash >= 0 ? a.slice(slash + 1) : a;
 }
 
-function rewriteId(id: string, root: string): string {
+function rewriteId(id: string, root: string | null): string {
   const hash = id.indexOf("#");
   if (hash < 0) return id;
   return relativize(id.slice(0, hash), root) + id.slice(hash);
@@ -139,8 +168,8 @@ export function reduce(
   const projectFiles = raw.nodes.filter((n) => !n.external).map((n) => n.file);
   const root =
     projectFiles.length > 0 && isAbsolute(projectFiles[0]!)
-      ? commonRoot(projectFiles)
-      : "";
+      ? commonRoot(projectFiles.map(directoryOf))
+      : null;
 
   const liveIds = new Set(keptByExternal.map((n) => n.id));
   const liveEdges = raw.edges.filter(
