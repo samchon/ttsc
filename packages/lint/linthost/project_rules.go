@@ -27,6 +27,35 @@ type projectRuleAdapter struct {
 
 var registeredProjectRules = map[string]projectRuleAdapter{}
 
+// registerBuiltInProjectCompanion attaches a project lifecycle to an existing
+// built-in file rule. Both halves deliberately share one public rule name and
+// therefore one config setting: the file rule keeps reporting source ranges,
+// while the project companion can publish finished state for consumers such as
+// editor hints.
+//
+// Contributor rules remain single-lifecycle registrations. Their collision
+// checks in registerProjectContributors still reject a file/project name pair,
+// because only built-ins can be audited together as one rule implementation.
+func registerBuiltInProjectCompanion(project publicrule.ProjectRule) {
+  adapter, err := inspectProjectContributor(project)
+  if err != nil {
+    panic(fmt.Sprintf("@ttsc/lint: invalid built-in project companion: %v", err))
+  }
+  if adapter.name == "" {
+    panic("@ttsc/lint: built-in project companion has an empty name")
+  }
+  if LookupRule(adapter.name) == nil {
+    panic(fmt.Sprintf("@ttsc/lint: built-in project companion %q has no file rule", adapter.name))
+  }
+  if _, builtIn := builtInRuleCodes[adapter.name]; !builtIn {
+    panic(fmt.Sprintf("@ttsc/lint: project companion %q is not a built-in rule", adapter.name))
+  }
+  if _, exists := registeredProjectRules[adapter.name]; exists {
+    panic(fmt.Sprintf("@ttsc/lint: project rule %q registered twice", adapter.name))
+  }
+  registeredProjectRules[adapter.name] = adapter
+}
+
 func registerProjectContributors() {
   projects := publicrule.RegisteredProjects()
   adapters := make([]projectRuleAdapter, 0, len(projects))

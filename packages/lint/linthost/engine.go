@@ -669,11 +669,11 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
     }
   }
   for _, name := range config.ActiveRuleNames() {
-    if _, isProjectRule := registeredProjectRules[name]; isProjectRule {
-      continue
-    }
     rule, ok := registered.rules[name]
     if !ok {
+      if _, isProjectRule := registeredProjectRules[name]; isProjectRule {
+        continue
+      }
       eng.unknown = append(eng.unknown, name)
       continue
     }

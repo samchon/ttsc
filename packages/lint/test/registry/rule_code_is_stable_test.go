@@ -119,7 +119,15 @@ func TestRuleCodesAreUniqueAcrossCompleteRegistry(t *testing.T) {
   allNames := append(fileRuleNames, allProjectRuleNames()...)
   sort.Strings(allNames)
   activeCodes := make(map[int32]string, len(allNames))
+  seenNames := make(map[string]struct{}, len(allNames))
   for _, name := range allNames {
+    // A built-in project companion is a second lifecycle for the same public
+    // rule identity, so it must resolve to the same ledger entry rather than
+    // count as a diagnostic-code collision with itself.
+    if _, seen := seenNames[name]; seen {
+      continue
+    }
+    seenNames[name] = struct{}{}
     code := RuleCode(name)
     if code < rulecode.Minimum || code >= rulecode.MaximumExclusive {
       t.Fatalf("active rule %q has out-of-range code %d", name, code)
