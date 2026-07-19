@@ -158,7 +158,8 @@ type RuleResolver interface {
   RuleOptions(name string) json.RawMessage
   // ResolveProjectRules folds global declarations for registered project-rule
   // names. A mention under a files selector is rejected because project state
-  // has no file identity.
+  // has no file identity, except when the same built-in name also owns a file
+  // rule; that scoped declaration remains exclusively file-local.
   ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error)
 }
 
@@ -517,8 +518,10 @@ func (s *ConfigStore) EnabledRuleConfig() RuleConfig {
 }
 
 // ResolveProjectRules folds the extends-expanded entries base-first. Only
-// global entries participate; any project-rule mention under files is an
-// invalid configuration, including off declarations and option tuples.
+// global entries participate. A project-only rule mentioned under files is an
+// invalid configuration, including off declarations and option tuples. A
+// built-in companion sharing a file-rule name ignores that scoped declaration
+// so the file rule can retain its existing per-file configuration.
 func (s *ConfigStore) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
   out := make(map[string]ProjectRuleSetting, len(names))
   wanted := make(map[string]string, len(names))
@@ -540,6 +543,13 @@ func (s *ConfigStore) ResolveProjectRules(names []string) (map[string]ProjectRul
         continue
       }
       if entry.HasFilesSelector {
+        // A built-in project companion shares its public name with a file
+        // rule. Keep the file-scoped declaration for that file rule, but do
+        // not turn it into project-wide state: only a global declaration can
+        // activate the companion and its consumers.
+        if LookupRule(name) != nil {
+          continue
+        }
         return nil, fmt.Errorf(
           "@ttsc/lint: project rule %q cannot be configured in an entry with files",
           name,

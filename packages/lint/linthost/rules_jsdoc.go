@@ -1,14 +1,67 @@
 package linthost
 
 import (
+  "sort"
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 type jsdocLintRule struct {
   name  string
   check func(*Context, string, parsedJSDocBlock)
+}
+
+type jsdocCheckTagNamesHintRule struct{}
+
+type jsdocCheckTagNamesHintState struct{}
+
+func (jsdocCheckTagNamesHintRule) Name() string { return "jsdoc/check-tag-names" }
+func (jsdocCheckTagNamesHintRule) Check(ctx *publicrule.ProjectContext) {
+  ctx.SetState(jsdocCheckTagNamesHintState{})
+}
+func (jsdocCheckTagNamesHintRule) AcceptsTtscLintOptions() bool { return false }
+func (jsdocCheckTagNamesHintRule) NeedsTypeChecker() bool       { return false }
+func (jsdocCheckTagNamesHintRule) Hints(ctx *publicrule.HintContext) []publicrule.Hint {
+  if ctx == nil {
+    return nil
+  }
+  if _, ok := ctx.State.(jsdocCheckTagNamesHintState); !ok {
+    return nil
+  }
+  tags := make([]string, 0, len(knownJSDocTags))
+  for tag := range knownJSDocTags {
+    tags = append(tags, tag)
+  }
+  sort.Strings(tags)
+  hints := make([]publicrule.Hint, 0, len(tags))
+  for _, tag := range tags {
+    hints = append(hints, publicrule.Hint{
+      Insert: tag,
+      Detail: jsdocTagHintDetail(tag),
+      Trigger: publicrule.HintTrigger{
+        Scope: publicrule.HintScopeJSDoc,
+        After: "@",
+      },
+    })
+  }
+  return hints
+}
+
+func jsdocTagHintDetail(tag string) string {
+  normalized := strings.ToLower(tag)
+  if canonical, alias := jsdocTagSynonyms[normalized]; alias {
+    return "alias for @" + canonical
+  }
+  if _, typed := jsdocTagsWithType[normalized]; typed {
+    return "accepts a type"
+  }
+  if _, empty := emptyJSDocTags[normalized]; empty {
+    return "no content"
+  }
+  return "JSDoc tag"
 }
 
 func (r jsdocLintRule) Name() string { return r.name }
@@ -488,6 +541,7 @@ func checkJSDocEmptyTags(ctx *Context, _ string, block parsedJSDocBlock) {
 
 func init() {
   Register(jsdocLintRule{name: "jsdoc/check-tag-names", check: checkJSDocTagNames})
+  registerBuiltInProjectCompanion(jsdocCheckTagNamesHintRule{})
   Register(jsdocLintRule{name: "jsdoc/check-values", check: checkJSDocCheckValues})
   Register(jsdocLintRule{name: "jsdoc/empty-tags", check: checkJSDocEmptyTags})
   Register(jsdocLintRule{name: "jsdoc/no-types", check: checkJSDocNoTypes})
