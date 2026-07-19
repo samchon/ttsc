@@ -55,6 +55,12 @@ type LSPProjectDiagnostics = lspserver.LSPProjectDiagnostics
 // LSPDiagnosticsResult separates document and project plugin diagnostics.
 type LSPDiagnosticsResult = lspserver.LSPDiagnosticsResult
 
+// LSPCompletionHint is the driver-level alias for lspserver.LSPCompletionHint.
+type LSPCompletionHint = lspserver.LSPCompletionHint
+
+// LSPCompletionItem is the driver-level alias for lspserver.LSPCompletionItem.
+type LSPCompletionItem = lspserver.LSPCompletionItem
+
 // LSPSymbolKind is the driver-level alias for lspserver.LSPSymbolKind.
 type LSPSymbolKind = lspserver.LSPSymbolKind
 
@@ -73,6 +79,12 @@ type SymbolProvider = lspserver.SymbolProvider
 // It is the public seam downstream pipelines implement to contribute
 // diagnostics, code actions, and workspace commands to the LSP proxy.
 type PluginSource = lspserver.PluginSource
+
+// CompletionHintSource is the optional extension a PluginSource implements to
+// contribute editor completion hints to the LSP proxy.
+type CompletionHintSource interface {
+  CompletionHints() []LSPCompletionHint
+}
 
 // NullPluginSource is the driver-level alias for lspserver.NullPluginSource.
 type NullPluginSource = lspserver.NullPluginSource

@@ -37,6 +37,7 @@ const (
   methodDocumentSymbol     = "textDocument/documentSymbol"
   methodReferences         = "textDocument/references"
   methodCompletion         = "textDocument/completion"
+  methodCompletionResolve  = "completionItem/resolve"
 )
 
 // formatDocumentCommand is the ttsc-owned workspace command that the lint
@@ -107,7 +108,7 @@ type Proxy struct {
   pendingActions map[string]pendingCodeActionRequest
   // pendingCompletions holds the plugin items computed for a forwarded
   // completion request, keyed by request id, until upstream answers it.
-  pendingCompletions       map[string][]LSPCompletionItem
+  pendingCompletions       map[string]pendingCompletionRequest
   pendingAugmentingActions map[string]struct{}
   pendingLocalActions      map[string]struct{}
   pendingCommands          map[string]struct{}
@@ -335,6 +336,8 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     }
   case methodCompletion:
     return p.handleCompletionRequest(env)
+  case methodCompletionResolve:
+    return p.handleCompletionResolveRequest(env)
   case methodCancelRequest:
     // $/cancelRequest names an in-flight id the editor has given up on.
     // The proxy drops any pending codeAction entry for that id so the
@@ -959,7 +962,7 @@ func (p *Proxy) augmentUpstream(env Envelope, body []byte) []byte {
     }
     p.pendingMu.Unlock()
     if hasCompletions {
-      return mergeCompletionResponse(body, completions)
+      return mergeCompletionResponseWithRequest(body, completions)
     }
     if pendingInitialize {
       if augmented, augOk := p.augmentInitializeResult(env); augOk {
@@ -1818,7 +1821,8 @@ func (p *Proxy) pluginCompletionTriggerCharacters() []string {
     if hint.After == "" {
       continue
     }
-    characters = append(characters, hint.After[len(hint.After)-1:])
+    trigger, _ := utf8.DecodeLastRuneInString(hint.After)
+    characters = append(characters, string(trigger))
   }
   return characters
 }
