@@ -118,7 +118,7 @@ function nodeOf(
   };
   if (node.evidence?.startLine !== undefined)
     out.line = node.evidence.startLine;
-  const signature = signatureOf(graph.project, node);
+  const signature = signatureOf(graph, node);
   if (signature !== undefined) out.signature = signature;
   const decorators = decoratorsOf(node);
   if (decorators !== undefined) out.decorators = decorators;

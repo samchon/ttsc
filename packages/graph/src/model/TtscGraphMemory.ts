@@ -4,16 +4,18 @@ import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
+import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
 
 /**
  * The in-memory resident graph the MCP tools answer from.
  *
  * It loads one `ttscgraph dump` — the checker-resolved fact graph — then
  * synthesizes the structural relationships the dump deliberately leaves to this
- * layer: `file` container nodes, the `contains` ownership tree, and `exports`
- * edges, plus class/interface member implementation edges and the refinement of
- * a class-member `variable` to a `property`. Every tool call is then a lookup
- * or a traversal over the indexes built here; nothing recompiles.
+ * layer: `file` container nodes and the `contains` ownership tree, plus the
+ * refinement of a class-member `variable` to a `property`. Export and member
+ * implementation relationships are checker facts already present in the dump.
+ * Every tool call is then a lookup or traversal over the indexes built here;
+ * nothing recompiles.
  */
 export class TtscGraphMemory {
   private readonly byId: Map<string, ITtscGraphNode>;
@@ -26,17 +28,21 @@ export class TtscGraphMemory {
   readonly project: string;
   /** Every node, raw plus synthesized (file containers). */
   readonly nodes: readonly ITtscGraphNode[];
-  /** Every edge, raw plus synthesized (contains, exports). */
+  /** Every edge, raw plus synthesized containment. */
   readonly edges: readonly ITtscGraphEdge[];
+  /** Provenance-gated source display facts cached for this exact snapshot. */
+  readonly source: TtscGraphSourceReader;
 
   private constructor(
     project: string,
     nodes: ITtscGraphNode[],
     edges: ITtscGraphEdge[],
+    provenance: ITtscGraphDump.IProvenance,
   ) {
     this.project = project;
     this.nodes = nodes;
     this.edges = edges;
+    this.source = new TtscGraphSourceReader(project, provenance);
 
     this.byId = new Map(nodes.map((n) => [n.id, n]));
     this.byNameIndex = new Map();
@@ -63,7 +69,7 @@ export class TtscGraphMemory {
   /** Build a model from a parsed dump, synthesizing structural relationships. */
   static from(dump: ITtscGraphDump): TtscGraphMemory {
     const { nodes, edges } = synthesize(dump);
-    return new TtscGraphMemory(dump.project, nodes, edges);
+    return new TtscGraphMemory(dump.project, nodes, edges, dump.provenance);
   }
 
   /** The node with this id, or undefined. */
@@ -149,8 +155,8 @@ function basename(file: string): string {
 
 /**
  * Derive the structural layer from a dump's faithful facts: refine class-member
- * variables to properties, add a `file` node per workspace source, and connect
- * the `contains` ownership tree and `exports` surface.
+ * variables to properties, add a `file` node per workspace source, connect the
+ * `contains` ownership tree, and re-anchor compiler-owned `exports` edges.
  */
 function synthesize(dump: ITtscGraphDump): {
   nodes: ITtscGraphNode[];

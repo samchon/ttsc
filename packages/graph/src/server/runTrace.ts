@@ -595,7 +595,7 @@ function summary(
   }
   if (depth !== undefined) out.depth = depth;
   if (withSignature) {
-    const sig = signatureOf(graph.project, node);
+    const sig = signatureOf(graph, node);
     if (sig !== undefined) out.signature = sig;
   }
   if (withRoles) {

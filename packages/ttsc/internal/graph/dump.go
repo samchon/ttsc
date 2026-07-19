@@ -66,24 +66,35 @@ type DumpEnumMember struct {
   Value string `json:"value,omitempty"`
 }
 
+// DumpObjectMember is one direct object-literal member carried on its variable
+// node. Line and Signature are rendered from the same Program-owned source text
+// as the node evidence, so the outline cannot race a later disk write.
+type DumpObjectMember struct {
+  Name      string `json:"name"`
+  Kind      string `json:"kind"`
+  Line      int    `json:"line,omitempty"`
+  Signature string `json:"signature,omitempty"`
+}
+
 // DumpNode is the wire shape of a graph node. Lowercase json keys are the
 // contract; the Go field names are not.
 type DumpNode struct {
-  ID             string          `json:"id"`
-  Kind           string          `json:"kind"`
-  Name           string          `json:"name"`
-  QualifiedName  string          `json:"qualifiedName,omitempty"`
-  File           string          `json:"file"`
-  External       bool            `json:"external"`
-  Ignored        bool            `json:"ignored,omitempty"`
-  Exported       bool            `json:"exported,omitempty"`
-  Closure        bool            `json:"closure,omitempty"`
-  Modifiers      []string        `json:"modifiers,omitempty"`
-  Literals       []string         `json:"literals,omitempty"`
-  EnumMembers    []DumpEnumMember `json:"enumMembers,omitempty"`
-  Evidence       *DumpEvidence   `json:"evidence,omitempty"`
-  Implementation *DumpEvidence   `json:"implementation,omitempty"`
-  Decorators     []DumpDecorator `json:"decorators,omitempty"`
+  ID             string             `json:"id"`
+  Kind           string             `json:"kind"`
+  Name           string             `json:"name"`
+  QualifiedName  string             `json:"qualifiedName,omitempty"`
+  File           string             `json:"file"`
+  External       bool               `json:"external"`
+  Ignored        bool               `json:"ignored,omitempty"`
+  Exported       bool               `json:"exported,omitempty"`
+  Closure        bool               `json:"closure,omitempty"`
+  Modifiers      []string           `json:"modifiers,omitempty"`
+  Literals       []string           `json:"literals,omitempty"`
+  EnumMembers    []DumpEnumMember   `json:"enumMembers,omitempty"`
+  ObjectMembers  []DumpObjectMember `json:"objectMembers,omitempty"`
+  Evidence       *DumpEvidence      `json:"evidence,omitempty"`
+  Implementation *DumpEvidence      `json:"implementation,omitempty"`
+  Decorators     []DumpDecorator    `json:"decorators,omitempty"`
 }
 
 // DumpEdge is the wire shape of a graph edge. Lowercase json keys are the
@@ -174,6 +185,7 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
       // the MCP layer is what applies a response cap and marks it.
       Literals:       n.Literals,
       EnumMembers:    dumpEnumMembers(n.EnumMembers),
+      ObjectMembers:  ctx.objectMembers(n),
       Evidence:       withoutFile(ctx.evidence(n.File, n.Pos, n.End)),
       Implementation: ctx.evidence(n.ImplementationFile, n.ImplementationPos, n.ImplementationEnd),
       Decorators:     decByNode[n.ID],
@@ -247,6 +259,35 @@ func dumpEnumMembers(members []EnumMember) []DumpEnumMember {
     out = append(out, DumpEnumMember{Name: member.Name, Value: member.Value})
   }
   return out
+}
+
+// objectMembers projects AST-owned object member identity and snapshot-owned
+// display text. A missing source omits only line/signature; identity still came
+// from the AST and therefore remains sound.
+func (c *dumpContext) objectMembers(node *Node) []DumpObjectMember {
+  if len(node.ObjectMembers) == 0 {
+    return nil
+  }
+  out := make([]DumpObjectMember, 0, len(node.ObjectMembers))
+  for _, member := range node.ObjectMembers {
+    dumped := DumpObjectMember{
+      Name: member.Name,
+      Kind: objectMemberWireKind(member.Kind),
+    }
+    if evidence := c.evidence(node.File, member.Pos, member.End); evidence != nil {
+      dumped.Line = evidence.StartLine
+    }
+    dumped.Signature = c.objectMemberSignature(node.File, member)
+    out = append(out, dumped)
+  }
+  return out
+}
+
+func objectMemberWireKind(kind NodeKind) string {
+  if kind == NodeMethod {
+    return "method"
+  }
+  return "property"
 }
 
 // MarshalDump serializes a built graph to the export JSON, indented when pretty.
@@ -422,6 +463,176 @@ func (c *dumpContext) evidence(file string, pos, end int) *DumpEvidence {
     ev.EndLine, ev.EndCol = ls.at(end)
   }
   return ev
+}
+
+// objectMemberSignature reproduces the compact outline details has historically
+// returned, but slices it from Program-owned text while the dump is built
+// instead of reopening the live file later.
+func (c *dumpContext) objectMemberSignature(file string, member ObjectMember) string {
+  pos, end := member.Pos, member.SignatureEnd
+  if pos < 0 || end <= pos || c.sources == nil {
+    return ""
+  }
+  text, ok := c.sources[file]
+  if !ok || pos > len(text) {
+    return ""
+  }
+  pos = firstCodeOffset(text, pos)
+  if end > len(text) {
+    end = len(text)
+  }
+  if member.SignatureTokenLen > 0 {
+    end = firstCodeOffset(text, end)
+    end = min(end+member.SignatureTokenLen, len(text))
+  }
+  if pos >= end {
+    return ""
+  }
+  if pos >= end {
+    return ""
+  }
+  signature := strings.TrimSuffix(compactObjectMemberSignature(text[pos:end]), ",")
+  const maxObjectMemberSignatureRunes = 160
+  runes := []rune(signature)
+  if len(runes) > maxObjectMemberSignatureRunes {
+    signature = string(runes[:maxObjectMemberSignatureRunes-3]) + "..."
+  }
+  return signature
+}
+
+// compactObjectMemberSignature collapses trivia outside lexical values while
+// leaving quoted strings, template literals, regular expressions, and comments
+// byte-for-byte intact. A display outline may be compact, but changing literal
+// whitespace would change the declaration it claims to quote.
+func compactObjectMemberSignature(text string) string {
+  var out strings.Builder
+  pendingSpace := false
+  for i := 0; i < len(text); {
+    if isSignatureWhitespace(text[i]) {
+      pendingSpace = out.Len() > 0
+      i++
+      continue
+    }
+    if pendingSpace {
+      out.WriteByte(' ')
+      pendingSpace = false
+    }
+
+    end := i + 1
+    switch text[i] {
+    case '\'', '"':
+      end = quotedSourceEnd(text, i, text[i])
+    case '`':
+      end = templateSourceEnd(text, i)
+    case '/':
+      switch {
+      case i+1 < len(text) && text[i+1] == '/':
+        end = lineCommentEnd(text, i)
+      case i+1 < len(text) && text[i+1] == '*':
+        end = blockCommentEnd(text, i)
+      default:
+        if candidate := regularExpressionEnd(text, i); candidate > i {
+          end = candidate
+        }
+      }
+    }
+    out.WriteString(text[i:end])
+    i = end
+  }
+  return strings.TrimSpace(out.String())
+}
+
+func isSignatureWhitespace(ch byte) bool {
+  switch ch {
+  case ' ', '\t', '\r', '\n', '\v', '\f':
+    return true
+  default:
+    return false
+  }
+}
+
+func quotedSourceEnd(text string, start int, quote byte) int {
+  escaped := false
+  for i := start + 1; i < len(text); i++ {
+    if escaped {
+      escaped = false
+      continue
+    }
+    if text[i] == '\\' {
+      escaped = true
+      continue
+    }
+    if text[i] == quote {
+      return i + 1
+    }
+  }
+  return len(text)
+}
+
+// templateSourceEnd returns the last unescaped backtick in the member span.
+// This deliberately treats substitutions and nested templates as one protected
+// lexical region: preserving a little extra spacing is safer than compacting
+// whitespace that belongs to either template's value.
+func templateSourceEnd(text string, start int) int {
+  end := len(text)
+  for i := len(text) - 1; i > start; i-- {
+    if text[i] == '`' && !sourceByteEscaped(text, i) {
+      return i + 1
+    }
+  }
+  return end
+}
+
+func sourceByteEscaped(text string, pos int) bool {
+  slashes := 0
+  for i := pos - 1; i >= 0 && text[i] == '\\'; i-- {
+    slashes++
+  }
+  return slashes%2 == 1
+}
+
+func lineCommentEnd(text string, start int) int {
+  if end := strings.IndexByte(text[start:], '\n'); end >= 0 {
+    return start + end + 1
+  }
+  return len(text)
+}
+
+func blockCommentEnd(text string, start int) int {
+  if end := strings.Index(text[start+2:], "*/"); end >= 0 {
+    return start + 2 + end + 2
+  }
+  return len(text)
+}
+
+// regularExpressionEnd conservatively protects a slash-delimited region when
+// one closes on the same source line. Division can look the same without parser
+// context; preserving its spaces is harmless, while compacting a real regular
+// expression would change its pattern.
+func regularExpressionEnd(text string, start int) int {
+  escaped := false
+  inClass := false
+  for i := start + 1; i < len(text); i++ {
+    switch {
+    case text[i] == '\n' || text[i] == '\r':
+      return start
+    case escaped:
+      escaped = false
+    case text[i] == '\\':
+      escaped = true
+    case text[i] == '[':
+      inClass = true
+    case text[i] == ']':
+      inClass = false
+    case text[i] == '/' && !inClass:
+      i++
+      for i < len(text) && ((text[i] >= 'a' && text[i] <= 'z') || (text[i] >= 'A' && text[i] <= 'Z')) {
+        i++
+      }
+      return i
+    }
+  }
+  return start
 }
 
 // firstCodeOffset advances past leading trivia: whitespace, // line comments,

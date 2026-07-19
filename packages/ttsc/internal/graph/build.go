@@ -114,6 +114,7 @@ func collectVariables(g *Graph, path string, statement *shimast.Node) {
   }
   for _, binding := range list.Declarations.Nodes {
     addNode(g, path, binding, NodeVariable)
+    g.collectObjectMembers(path, binding)
     collectClosures(g, path, binding)
   }
 }

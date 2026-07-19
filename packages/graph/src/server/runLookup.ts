@@ -88,7 +88,7 @@ export function runLookup(
   for (const hit of hits) {
     const node = graph.node(hit.id);
     if (node === undefined) continue;
-    const sig = signatureOf(graph.project, node);
+    const sig = signatureOf(graph, node);
     if (sig !== undefined) hit.signature = sig;
   }
   return {
