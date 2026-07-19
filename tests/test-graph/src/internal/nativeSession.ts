@@ -3,7 +3,7 @@ import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
-const DUMP_SCHEMA_VERSION = 3;
+const DUMP_SCHEMA_VERSION = 4;
 let fakeBinary: string | undefined;
 
 export interface NativeSessionFixture {
