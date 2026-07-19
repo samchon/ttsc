@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@ttsc/test-graph",
-  "version": "0.19.3",
+  "version": "0.19.4",
   "description": "@ttsc/graph MCP server end-to-end tests.",
   "type": "module",
   "scripts": {
