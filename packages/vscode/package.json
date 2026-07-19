@@ -1,7 +1,7 @@
 {
   "name": "@ttsc/vscode",
   "displayName": "ttsc",
-  "description": "Show ttsc plugin diagnostics in VS Code, with @ttsc/lint errors, fix-all actions, and formatter support.",
+  "description": "TypeScript-Go and ttsc plugin diagnostics, completions, lint actions, and formatting for VS Code.",
   "version": "0.19.4",
   "publisher": "samchon",
   "icon": "images/icon.png",

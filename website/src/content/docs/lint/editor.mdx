@@ -1,0 +1,113 @@
+# Lint in VS Code
+
+This page is for `@ttsc/lint` users who want compiler, lint, and contributor-plugin assistance in one VS Code session.
+
+The `@ttsc/vscode` extension starts one `ttscserver` for the selected project. That server forwards TypeScript-Go language features and merges the editor features published by `@ttsc/lint` and its contributor rules into the same LSP stream.
+
+| Editor feature | Provider |
+| --- | --- |
+| TypeScript and JavaScript hover, navigation, completion, and diagnostics | TypeScript-Go |
+| Lint diagnostics, suggestions, fix-all actions, and formatting | `@ttsc/lint` |
+| Rule-published completion, such as known JSDoc tags or project-indexed document anchors | A lint project rule that publishes completion hints |
+
+The editor does not start a separate ESLint language server or maintain a second rule config. It resolves the project's own `ttsc`, `typescript`, `tsconfig.json`, plugins, and `lint.config.*`.
+
+## Install the editor path
+
+Install the project dependencies, then install the extension:
+
+```bash
+npm install -D ttsc typescript @ttsc/lint
+npx @ttsc/vscode
+```
+
+The extension also ships through the VS Code Marketplace as `samchon.ttsc`. See [Setup → VS Code](/docs/setup/vscode) for the direct `code --install-extension` form, formatter settings, multi-root behavior, and server tracing.
+
+## Complete a valid JSDoc tag
+
+Enable the built-in `jsdoc/check-tag-names` rule in the global rules map:
+
+```ts
+// lint.config.ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+
+export default {
+  rules: {
+    "jsdoc/check-tag-names": "error",
+    "no-var": "error",
+  },
+  format: {
+    singleQuote: true,
+    trailingComma: "all",
+  },
+} satisfies ITtscLintConfig;
+```
+
+Open a TypeScript file and start a JSDoc tag:
+
+```ts
+/**
+ * Greets one user.
+ * @par
+ */
+export function greet(name: string): string {
+  return `Hello, ${name}`;
+}
+```
+
+With the cursor after `@par`, VS Code offers `param` from the same tag set that `jsdoc/check-tag-names` validates. Select it, then finish the line as `@param name user name`. You can also press Ctrl+Space to request completion explicitly.
+
+Use the completion inside a TypeScript `/** ... */` JSDoc block. Decorators, line comments, and Markdown documents are outside the supported scope.
+
+Completion uses the live editor buffer, so it remains available while the file is dirty. The rule's completion corpus is discovered in the background when the language server starts. If you have just enabled the rule or changed inputs that shape a contributor's project index, run **ttsc: Restart language server** to force a fresh discovery.
+
+## See the same rule reject a typo
+
+Leave an unknown tag such as `@parm` in the JSDoc block and save the file. `jsdoc/check-tag-names` publishes its finding beside TypeScript-Go diagnostics through the same Problems panel and source underline.
+
+Plugin diagnostics and code actions use the saved project state. Save before relying on a new lint diagnostic or invoking a lint action. TypeScript-Go language features and project-rule completion continue to use the live buffer, while format-on-save formats that live buffer as part of the save.
+
+## Suggestions, fixes, and format
+
+Rules can offer suggestions for repairs that require a choice. Put the cursor on the diagnostic and open **Quick Fix** to select one. Suggestions are editor-only actions and never run automatically during `ttsc fix`.
+
+Automatic fixes are available through **ttsc: Fix all lint issues** or the `source.fixAll.ttsc` code action. To run fix-all explicitly on save:
+
+```jsonc
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll.ttsc": "explicit"
+  }
+}
+```
+
+Formatting is a separate write operation. Set `samchon.ttsc` as the default formatter to use the same `format` block from `lint.config.*` in VS Code and `ttsc format`:
+
+```jsonc
+{
+  "[typescript][typescriptreact]": {
+    "editor.defaultFormatter": "samchon.ttsc",
+    "editor.formatOnSave": true
+  }
+}
+```
+
+See [Format](/docs/lint/format) for every supported key and the fallback to VS Code indentation and line-ending settings when no `format` block exists.
+
+## Contributor project indexes
+
+`jsdoc/check-tag-names` publishes a fixed set of known tags. A contributor project rule can publish completions from the state it indexed for the loaded Program. `ttscserver` appends those items to TypeScript-Go's completion response instead of replacing it.
+
+The feature originated from work on [`@samchon/evidence`](https://github.com/samchon/evidence). Its [`feat/editor-hints`](https://github.com/samchon/evidence/tree/feat/editor-hints) development branch shows a richer external use: a project index describing JSDoc citation tags, document paths, and section anchors. That package has its own release schedule and is not part of the `ttsc` distribution.
+
+Plugin authors can implement this channel through [`rule.HintRule`](/docs/development/walkthroughs/lint#editor-hints-from-a-project-rule). Editor embedders can implement the driver-level [`CompletionHintSource`](/docs/development/reference/driver-api#hosting-ttscserver).
+
+## Troubleshooting completion
+
+1. Confirm the workspace has a `tsconfig.json` and resolves `ttsc`: `npx ttsc --version`.
+2. Confirm `jsdoc/check-tag-names` is enabled in the global rules map.
+3. Put the cursor inside a `/** ... */` block in a TypeScript file, then press Ctrl+Space after `@`.
+4. Run **ttsc: Restart language server** after changing the rule config or a contributor's indexed project inputs.
+5. Open **View → Output → ttsc** for the server log. Set `ttsc.trace.server` to `"verbose"` when the normal log is not enough.
+
+For general extension startup and project-selection failures, continue with the [VS Code troubleshooting checklist](/docs/faq#vs-code-doesnt-show-typescript-go-or-plugin-diagnostics-whats-wrong).
