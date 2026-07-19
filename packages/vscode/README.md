@@ -4,9 +4,9 @@
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/samchon/ttsc/blob/master/LICENSE) [![NPM Version](https://img.shields.io/npm/v/@ttsc/vscode.svg)](https://www.npmjs.com/package/@ttsc/vscode) [![NPM Downloads](https://img.shields.io/npm/dm/@ttsc/vscode.svg)](https://www.npmjs.com/package/@ttsc/vscode) [![Build Status](https://github.com/samchon/ttsc/workflows/test/badge.svg)](https://github.com/samchon/ttsc/actions?query=workflow%3Atest) [![Guide Documents](https://img.shields.io/badge/Guide-Documents-forestgreen)](https://ttsc.dev/docs) [![Discord Badge](https://img.shields.io/badge/discord-samchon-d91965?style=flat&labelColor=5866f2&logo=discord&logoColor=white&link=https://discord.gg/E94XhzrUCZ)](https://discord.gg/E94XhzrUCZ)
 
-Bring [`ttsc`](https://ttsc.dev) plugin diagnostics into VS Code.
+Bring TypeScript-Go and supported [`ttsc`](https://ttsc.dev) plugin features into one VS Code session.
 
-When `@ttsc/lint` or another LSP-capable `ttsc` plugin like `typia` reports a compile-time diagnostic, this extension shows it in the editor next to normal TypeScript errors.
+The extension keeps TypeScript-Go completion and diagnostics in one `ttscserver` stream with `@ttsc/lint` diagnostics, suggestions, fix-all actions, formatting, and completion published by lint project rules.
 
 Use it when the project already runs `ttsc`. Add `@ttsc/lint` when you also want lint diagnostics, fix-all actions, and formatting in the editor.
 
@@ -102,13 +102,16 @@ Lint fixes stay off-save by default because they can change code meaning. Run `t
 ## What it adds
 
 - TypeScript-Go diagnostics, hover, navigation, and completions.
-- `@ttsc/lint` diagnostics and code actions, including `source.fixAll.ttsc`.
+- `@ttsc/lint` diagnostics, suggestions, code actions, and `source.fixAll.ttsc`.
+- JSDoc completion from a built-in lint rule and project-indexed completion from contributor rules that publish it.
 - Diagnostics reported by other LSP-capable `ttsc` plugins.
 - `ttsc: Fix all lint issues`, `ttsc: Format document`, and `ttsc: Restart language server` in the command palette.
 - Format on save with the `format` block from `lint.config.*`.
 - Multi-root workspace support. Each package can use its own `ttsc`, `typescript`, `tsconfig.json`, and `lint.config.*`.
 
 Save the file before relying on lint diagnostics or running the command-palette lint and format commands. Format-on-save works on the live editor buffer.
+
+Completion uses the live editor buffer. Enable `jsdoc/check-tag-names` to try built-in lint completion inside a `/** ... */` block. The [Lint in VS Code guide](https://ttsc.dev/docs/lint/editor) covers that workflow and contributor project indexes.
 
 ## Troubleshooting
 
@@ -119,6 +122,8 @@ No diagnostics? Work through these in order:
 3. Confirm the project itself checks: `npx ttsc --noEmit`.
 4. Open **View → Output → ttsc** and read the server log.
 5. For full LSP tracing, set `ttsc.trace.server` to `"verbose"` and reload the window.
+
+If diagnostics work but lint completion does not, press Ctrl+Space after `@` inside a JSDoc block and run `ttsc: Restart language server` after changing the lint config or project-indexed inputs.
 
 ## Sponsors
 

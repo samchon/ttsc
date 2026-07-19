@@ -35,6 +35,10 @@ experimental/nestia/
 # Benchmark results — an ephemeral artifact, never committed.
 experimental/benchmark/.work/
 
+# Promotional media. Rendered locally, published as GitHub-hosted attachments,
+# and referenced by URL from the website. The binaries never enter the repository.
+/.media/
+
 # Stray native sanity binary from `go build ./cmd/ttsc-wasm` (host build).
 packages/wasm/ttsc-wasm
 

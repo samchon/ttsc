@@ -180,7 +180,28 @@ Do not derive an injected import binding with `NewGeneratedNameForNode(moduleSpe
 
 These symbols are for embedders of `ttscserver`, **not for plugin authors**. Skip this section unless you are building a `ttsc`-aware editor extension.
 
-`ttscserver` is a process wrapper around the project-selected `tsc --lsp --stdio` binary. Resolve `typescript` in the user project, pass its absolute executable path as `TsgoBinary`, and keep plugin diagnostics, code actions, and `executeCommand` handlers in your `PluginSource`. `CommandIDs()` is the ownership gate: the proxy calls `ExecuteCommand()` only for ids returned there. Returning a nil `WorkspaceEdit` is a valid handled no-op. `ErrCommandNotHandled` is only for commands not listed by `CommandIDs()`; if `ExecuteCommand()` returns it for an advertised id, the proxy returns an LSP error instead of forwarding upstream. Implement an optional `CodeActionKinds() []string` method on the same source when your actions should be advertised in the initialize result. The shipped VS Code extension is the reference client for TypeScript-Go plus the built-in lint/format command bridge; it suppresses those two wrapper-owned command ids while leaving other plugin command ids advertised through `vscode-languageclient`. Because VS Code command ids are global, the extension also sets `ExecuteCommandIDPrefix` per project root so custom plugin commands from multiple roots do not collide; the proxy maps prefixed ids back before calling `ExecuteCommand()`. If an embedder relies on `vscode-languageclient` to register advertised plugin commands, it must still apply any returned `changes`-map `WorkspaceEdit`; the languageclient command handler only invokes `workspace/executeCommand`.
+`ttscserver` is a process wrapper around the project-selected `tsc --lsp --stdio` binary. Resolve `typescript` in the user project, pass its absolute executable path as `TsgoBinary`, and keep plugin diagnostics, code actions, and `executeCommand` handlers in your `PluginSource`. `CommandIDs()` is the ownership gate: the proxy calls `ExecuteCommand()` only for ids returned there. Returning a nil `WorkspaceEdit` is a valid handled no-op. `ErrCommandNotHandled` is only for commands not listed by `CommandIDs()`; if `ExecuteCommand()` returns it for an advertised id, the proxy returns an LSP error instead of forwarding upstream. Implement an optional `CodeActionKinds() []string` method on the same source when your actions should be advertised in the initialize result. Implement `driver.CompletionHintSource` when the source also publishes an in-memory completion corpus. The shipped VS Code extension is the reference client for TypeScript-Go plus the built-in lint/format command bridge; it suppresses those two wrapper-owned command ids while leaving other plugin command ids advertised through `vscode-languageclient`. Because VS Code command ids are global, the extension also sets `ExecuteCommandIDPrefix` per project root so custom plugin commands from multiple roots do not collide; the proxy maps prefixed ids back before calling `ExecuteCommand()`. If an embedder relies on `vscode-languageclient` to register advertised plugin commands, it must still apply any returned `changes`-map `WorkspaceEdit`; the languageclient command handler only invokes `workspace/executeCommand`.
+
+`CompletionHintSource.CompletionHints()` returns `[]driver.LSPCompletionHint`. Each group names a JSDoc-scoped literal in `After` and an ordered list of `LSPCompletionItem` values. The proxy matches the corpus against the live document, appends the matching items to TypeScript-Go's completion response, and keeps TypeScript-Go's own items. The items are fully resolved plain-text insertions with optional labels and short details; they do not use `completionItem/resolve`.
+
+```go
+type source struct {
+    driver.NullPluginSource
+}
+
+var _ driver.CompletionHintSource = (*source)(nil)
+
+func (s *source) CompletionHints() []driver.LSPCompletionHint {
+    return []driver.LSPCompletionHint{{
+        Scope: "jsdoc",
+        After: "@",
+        Items: []driver.LSPCompletionItem{{
+            Insert: "example",
+            Detail: "project tag",
+        }},
+    }}
+}
+```
 
 `LSPServerOptions.Upstream` is an invocation-scoped dependency for controlled embedders and tests. Its zero value selects the production runner and enforces the absolute `TsgoBinary` contract. A custom `LSPUpstream` carries its runner and optional validator together; a custom validator without a custom runner is rejected with `ErrLSPUpstreamRunnerRequired`. `RunLSPServer` captures that pair before it starts the proxy and upstream goroutines, so concurrent servers cannot replace each other's execution path.
 
@@ -201,6 +222,7 @@ err := driver.RunLSPServer(context.Background(), driver.LSPServerOptions{
 | Symbol | Purpose |
 | --- | --- |
 | `PluginSource` interface, `NullPluginSource` | The seam downstream pipelines implement to feed ttsc plugins into the LSP. |
+| `CompletionHintSource`, `LSPCompletionHint`, `LSPCompletionItem` | Optional completion corpus contributed alongside a `PluginSource`. |
 | `NativePluginSource`, `NewNativePluginSource`, `NativePluginManifest` | Sidecar-backed `PluginSource` implementation used by the shipped `ttscserver` launcher. |
 | `RunLSPServer`, `LSPServerOptions`, `LSPUpstream`, `ErrLSPUpstreamRunnerRequired`, `ErrCommandNotHandled` | Host-side entry points and invocation-scoped upstream dependency. |
 | `LSPDocumentVersion`, `LSPDiagnostic`, `LSPCodeAction`, `LSPRange`, `LSPWorkspaceEdit` | Wire types in the LSP envelope. |

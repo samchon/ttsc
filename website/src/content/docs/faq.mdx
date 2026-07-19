@@ -90,6 +90,16 @@ code --install-extension samchon.ttsc
 6. Run **ttsc: Restart language server** from the command palette.
 7. Set `ttsc.trace.server` to `"verbose"` in VS Code settings, then read **View → Output → ttsc (trace)** if the server log is empty.
 
+## VS Code shows lint diagnostics but no lint completion: what's wrong?
+
+1. Confirm the rule that owns the completion is enabled globally. To test the built-in path, set `"jsdoc/check-tag-names": "error"` in the top-level `rules` map.
+2. Put the cursor inside a real `/** ... */` block in a TypeScript file. Decorators, line comments, and Markdown files are outside the supported scope.
+3. Press Ctrl+Space after `@` to request completion explicitly.
+4. Run **ttsc: Restart language server** after changing the lint config or the project inputs a contributor rule indexes.
+5. Open **View → Output → ttsc** and enable `ttsc.trace.server: "verbose"` if completion still stays empty.
+
+The [Lint in VS Code](/docs/lint/editor) guide explains which features use the live buffer and which use saved project state.
+
 ## Does it work in a monorepo?
 
 Yes. Each package has its own `tsconfig.json` and its own `lint.config.ts`. `ttsc` reads from the directory it's invoked in (or `-p path/to/tsconfig.json`). `pnpm` / `npm` / `yarn` workspaces all work.

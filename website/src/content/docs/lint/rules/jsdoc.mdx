@@ -40,6 +40,8 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 
 Reject unknown JSDoc block-tag names. Catches typos like `@returs` or `@parm`.
 
+When this rule is enabled in the global rules map, the VS Code extension completes the same known tag names inside `/** ... */` blocks. A `files`-scoped setting still validates matching files, but it does not publish a project-wide completion corpus. See [Lint in VS Code](/docs/lint/editor) for a runnable example.
+
 Example:
 
 ```ts

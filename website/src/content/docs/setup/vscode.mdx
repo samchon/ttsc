@@ -1,6 +1,6 @@
 # VS Code
 
-The extension shows your build's diagnostics in the editor. It reads the project's own `ttsc`, `typescript`, and plugin config, so what you see while typing is what `npx ttsc` will say in CI, including lint violations from `@ttsc/lint` and diagnostics from any other LSP-capable plugin.
+The extension brings TypeScript-Go and supported `ttsc` plugin features into one editor session. It reads the project's own `ttsc`, `typescript`, and plugin config, so the lint diagnostics you see in VS Code match what `npx ttsc` reports in CI.
 
 It needs VS Code 1.94 or later and a workspace with a `tsconfig.json` (or `jsconfig.json`).
 
@@ -17,9 +17,12 @@ That wraps the `code` CLI; the direct form is `code --install-extension samchon.
 ## What it adds
 
 - TypeScript-Go hover, navigation, completions, and diagnostics.
-- `@ttsc/lint` diagnostics and code actions, including fix-all and format.
+- `@ttsc/lint` diagnostics, suggestions, fix-all actions, and format.
+- JSDoc completion from a built-in lint rule and project-indexed completion from contributor rules that publish it.
 - Command palette entries: `ttsc: Fix all lint issues`, `ttsc: Format document`, `ttsc: Restart language server`.
 - Multi-root workspaces, each folder keeping its own `ttsc`, `typescript`, and plugin config.
+
+The [Lint in VS Code](/docs/lint/editor) guide walks through the single-server workflow with a runnable JSDoc completion example.
 
 ## Format on save
 
@@ -54,4 +57,4 @@ Work through these in order:
 4. Open **View → Output**, pick **ttsc** from the dropdown, and read the server log.
 5. For full LSP tracing, set `ttsc.trace.server` to `"verbose"` and reload the window.
 
-The full reference, including the uninstall command, is in the [`@ttsc/vscode` README](https://github.com/samchon/ttsc/tree/master/packages/vscode).
+The full extension reference, including the uninstall command, is in the [`@ttsc/vscode` README](https://github.com/samchon/ttsc/tree/master/packages/vscode). See [Lint in VS Code](/docs/lint/editor) for completion, diagnostics, suggestions, fixes, and formatting in one workflow.
