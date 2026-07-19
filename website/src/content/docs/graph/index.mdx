@@ -62,7 +62,7 @@ A text search or a tree-sitter parse stops where the syntax stops. A real type c
 - **Generated code stays out of the way.** A source file your `.gitignore` covers, such as a Prisma client or other codegen emitted as `.ts`, is de-ranked: it never dominates a broad or keyword match, though it stays reachable as an edge target and by its exact name. The graph surfaces what you wrote, not what a generator did.
 - **Object-literal ownership.** `details` lists direct, statically named properties in declaration order. Spread properties do not promote names from another object, dynamic computed names are omitted, and nested members stay with their nested object.
 
-Source-derived display text is fail-closed. The server reuses a file only when its current bytes match the compiler snapshot digest; a missing digest, read failure, or mismatch omits the optional text instead of mixing live-disk content into older graph facts.
+Source-derived display text is fail-closed. The snapshot manifest covers every source the checker loaded, including outside `.d.ts` boundary leaves and virtual compiler libraries. The server reuses a disk file only when its current bytes match the compiler snapshot digest; a missing digest, read failure, or mismatch omits the optional text instead of mixing live-disk content into older graph facts.
 
 ## Get started
 

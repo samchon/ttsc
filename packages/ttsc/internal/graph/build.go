@@ -28,12 +28,20 @@ func Build(prog *driver.Program) *Graph {
   return g
 }
 
-// SourceTexts maps each program source file to its text — the evidence input
-// NewDump needs to turn a node or edge byte span into a line/column.
+// SourceTexts maps every program source to the resident checker text.
+// Declaration and virtual bundled files are included because external graph
+// leaves still carry facts and spans the source manifest must attest to.
 func SourceTexts(prog *driver.Program) map[string]string {
-  files := prog.SourceFiles()
+  if prog == nil || prog.TSProgram == nil {
+    return map[string]string{}
+  }
+  _ = prog.ApplyLinkedPlugins()
+  files := prog.TSProgram.SourceFiles()
   out := make(map[string]string, len(files))
   for _, file := range files {
+    if file == nil {
+      continue
+    }
     out[file.FileName()] = file.Text()
   }
   return out
