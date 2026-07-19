@@ -36,7 +36,7 @@ npx @ttsc/graph dump --tsconfig tsconfig.json > graph.json
 
 `dump` prints the whole graph as JSON: every node and edge the build resolved, with none of the per-response caps the MCP tool applies. It is the same export the MCP server loads at startup, so what you dump is exactly what the agent queries.
 
-That file is what "Load your own JSON" above accepts. The viewer reduces it client-side before rendering (the exact reduction is in [What is left out](#what-is-left-out)) so a large project stays legible. It also takes an already-reduced payload, so a graph you trimmed yourself loads as-is.
+That file is what "Load your own JSON" above accepts. The viewer reduces it client-side before rendering (the exact reduction is in [What is left out](#what-is-left-out)) so a large project stays legible. Current dumps keep their project-relative file structure; legacy dumps that contain absolute paths are rerooted at their shared source directory. The viewer also takes an already-reduced payload, so a graph you trimmed yourself loads as-is.
 
 ## Reading the graph
 
