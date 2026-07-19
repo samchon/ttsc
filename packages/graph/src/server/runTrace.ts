@@ -151,12 +151,12 @@ export function runTrace(
       focus,
       includeExternal,
     );
+    const hasPath = found !== null;
     const path = found?.path ?? [];
     const hops = found?.hops ?? [];
-    const junctions =
-      hops.length > 0
-        ? []
-        : junctionsBetween(graph, start.node.id, target.node.id, focus);
+    const junctions = hasPath
+      ? []
+      : junctionsBetween(graph, start.node.id, target.node.id, focus);
     return {
       result: {
         ...base,
@@ -167,28 +167,29 @@ export function runTrace(
         steps: traceSteps(graph, hops),
         ...(junctions.length > 0 ? { junctions } : {}),
       },
-      // An empty path is a fact, not an answer, and the old message called it
+      // A missing path is a fact, not an answer, and the old message called it
       // one: "its path nodes and evidence ranges are what the graph holds
-      // between the two ends" — of a result that held nothing. The two ends do
-      // not call each other, which in an event-driven codebase is the common
+      // between the two ends" — of a result that held nothing. `findPath` uses
+      // null for that state; zero hops is instead the valid path
+      // from a node to itself. Distinct nodes without a path do not call each
+      // other, which in an event-driven codebase is the common
       // case: a pointer handler emits, an emitter's `emit()` runs listeners a
       // registration put in an array, and no call edge crosses that array. The
       // callers of the target are the way across, and the graph has them, so
       // say which call to make instead of handing back an empty result dressed
       // as the answer. Excalidraw's tour spent eleven calls finding this out.
-      next:
-        hops.length > 0
-          ? pathNext
-          : junctions.length > 0
-            ? resultNext(
-                "inspect",
-                "No call path runs between the two ends — a callback stands between them (an event emitter, a subscription, a lifecycle hook), and no call edge crosses one. `junctions` names the symbols both ends touch, which is the seam: trace the junction to see who registers on it and who fires it.",
-                "trace",
-              )
-            : resultNext(
-                "outside",
-                "No call path runs from the start to the target and they touch nothing in common, so the graph holds no connection between them.",
-              ),
+      next: hasPath
+        ? pathNext
+        : junctions.length > 0
+          ? resultNext(
+              "inspect",
+              "No call path runs between the two ends — a callback stands between them (an event emitter, a subscription, a lifecycle hook), and no call edge crosses one. `junctions` names the symbols both ends touch, which is the seam: trace the junction to see who registers on it and who fires it.",
+              "trace",
+            )
+          : resultNext(
+              "outside",
+              "No call path runs from the start to the target and they touch nothing in common, so the graph holds no connection between them.",
+            ),
     };
   }
 
@@ -203,24 +204,37 @@ export function runTrace(
   while (queue.length > 0) {
     const next: Array<{ id: string; depth: number }> = [];
     for (const { id, depth } of queue) {
+      const candidates = traceEdges(graph, id, reverse, focus);
       if (depth >= maxDepth) {
-        truncated = true;
+        // Reaching the configured boundary does not itself omit data. The
+        // response is truncated only when the selected walk has another hop
+        // (and, for an unseen endpoint, another node) beyond the boundary.
+        if (
+          candidates.some(
+            (edge) =>
+              eligibleTraceEndpoint(
+                graph,
+                edge,
+                reverse,
+                focus,
+                includeExternal,
+              ) !== undefined,
+          )
+        )
+          truncated = true;
         continue;
       }
-      const edges = orderedEdges(
-        graph,
-        reverse
-          ? graph.incoming(id)
-          : [...graph.outgoing(id), ...dispatchEdges(graph, id, focus)],
-        direction,
-        reverse,
-      );
+      const edges = orderedEdges(graph, candidates, direction, reverse);
       for (const edge of edges) {
-        if (!traversable(edge.kind, focus)) continue;
-        const otherId = reverse ? edge.from : edge.to;
-        const other = graph.node(otherId);
-        if (other === undefined || other.kind === "file") continue;
-        if (!includeExternal && isExternalNode(other)) continue;
+        const endpoint = eligibleTraceEndpoint(
+          graph,
+          edge,
+          reverse,
+          focus,
+          includeExternal,
+        );
+        if (endpoint === undefined) continue;
+        const { otherId, other } = endpoint;
         const hop: ITtscGraphTrace.IHop = {
           from: edge.from,
           to: edge.to,
@@ -270,6 +284,43 @@ export function runTrace(
       "Steps, hops, reached nodes, and evidence ranges are the flow the graph holds from this start.",
     ),
   };
+}
+
+interface ITraceEndpoint {
+  otherId: string;
+  other: ITtscGraphNode;
+}
+
+/** Candidate edges in the selected direction before focus and node policy. */
+function traceEdges(
+  graph: TtscGraphMemory,
+  id: string,
+  reverse: boolean,
+  focus: ITtscGraphTrace.IRequest["focus"],
+): readonly ITtscGraphEdge[] {
+  return reverse
+    ? graph.incoming(id)
+    : [...graph.outgoing(id), ...dispatchEdges(graph, id, focus)];
+}
+
+/**
+ * The endpoint the selected open trace would represent if no result bound
+ * stopped it. The depth probe and traversal share this decision so focus,
+ * external nodes, file nodes, and direction cannot disagree about omission.
+ */
+function eligibleTraceEndpoint(
+  graph: TtscGraphMemory,
+  edge: ITtscGraphEdge,
+  reverse: boolean,
+  focus: ITtscGraphTrace.IRequest["focus"],
+  includeExternal: boolean,
+): ITraceEndpoint | undefined {
+  if (!traversable(edge.kind, focus)) return undefined;
+  const otherId = reverse ? edge.from : edge.to;
+  const other = graph.node(otherId);
+  if (other === undefined || other.kind === "file") return undefined;
+  if (!includeExternal && isExternalNode(other)) return undefined;
+  return { otherId, other };
 }
 
 function traceSteps(

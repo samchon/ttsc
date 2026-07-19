@@ -17,7 +17,7 @@ export interface ITtscGraphTrace {
   /** Unique nodes reached (excluding the start), each with its depth and roles. */
   reached: ITtscGraphTrace.INode[];
 
-  /** True when the trace hit its node or depth cap; the returned flow stands. */
+  /** In an open trace, true when a bound omitted an eligible node or hop. */
   truncated: boolean;
 
   /** The resolved `to` target, when a path was requested. */
