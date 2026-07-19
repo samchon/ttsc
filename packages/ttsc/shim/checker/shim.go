@@ -28,6 +28,106 @@ type ElementFlags = innerchecker.ElementFlags
 type Program = innerchecker.Program
 type Tracer = innerchecker.Tracer
 
+//go:linkname checkerNewAnonymousType github.com/microsoft/typescript-go/internal/checker.(*Checker).newAnonymousType
+func checkerNewAnonymousType(
+  recv *innerchecker.Checker,
+  symbol *innerast.Symbol,
+  members innerast.SymbolTable,
+  callSignatures []*innerchecker.Signature,
+  constructSignatures []*innerchecker.Signature,
+  indexInfos []*innerchecker.IndexInfo,
+) *innerchecker.Type
+
+//go:linkname checkerGetTargetSymbol github.com/microsoft/typescript-go/internal/checker.(*Checker).getTargetSymbol
+func checkerGetTargetSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerast.Symbol
+
+//go:linkname checkerIsPrototypeProperty github.com/microsoft/typescript-go/internal/checker.isPrototypeProperty
+func checkerIsPrototypeProperty(symbol *innerast.Symbol) bool
+
+//go:linkname checkerArePropertiesAbstractOrInterface github.com/microsoft/typescript-go/internal/checker.(*Checker).arePropertiesAbstractOrInterface
+func checkerArePropertiesAbstractOrInterface(
+  recv *innerchecker.Checker,
+  base *innerast.Symbol,
+  baseDeclarationFlags innerast.ModifierFlags,
+) bool
+
+// Checker_isPropertyAssignableTo asks the upstream assignability relater about
+// exactly one source/target property pair. The anonymous types retain the
+// original property symbols, so propertyRelatedTo still enforces instantiated
+// generic types, overloads, optionality, and private/protected declaration
+// origins without an unrelated sibling member participating in the result.
+func Checker_isPropertyAssignableTo(
+  recv *innerchecker.Checker,
+  sourceProperty *innerast.Symbol,
+  targetProperty *innerast.Symbol,
+) bool {
+  if recv == nil || sourceProperty == nil || targetProperty == nil ||
+    sourceProperty.Name == "" || sourceProperty.Name != targetProperty.Name {
+    return false
+  }
+  source := checkerNewAnonymousType(
+    recv,
+    nil,
+    innerast.SymbolTable{sourceProperty.Name: sourceProperty},
+    nil,
+    nil,
+    nil,
+  )
+  target := checkerNewAnonymousType(
+    recv,
+    nil,
+    innerast.SymbolTable{targetProperty.Name: targetProperty},
+    nil,
+    nil,
+    nil,
+  )
+  return source != nil && target != nil && recv.IsTypeAssignableTo(source, target)
+}
+
+// Checker_isValidClassMemberOverridePair applies the class-only member-kind
+// boundary from checkKindsOfPropertyMemberOverrides to one exact pair. Ordinary
+// structural assignability permits more shapes than a class extends clause:
+// notably a concrete property/accessor cannot be replaced by a method, while a
+// base method may be replaced by a function-valued property.
+func Checker_isValidClassMemberOverridePair(
+  recv *innerchecker.Checker,
+  derivedProperty *innerast.Symbol,
+  baseProperty *innerast.Symbol,
+) bool {
+  if recv == nil || derivedProperty == nil || baseProperty == nil {
+    return false
+  }
+  derived := checkerGetTargetSymbol(recv, derivedProperty)
+  base := checkerGetTargetSymbol(recv, baseProperty)
+  if derived == nil || base == nil || derived == base {
+    return false
+  }
+
+  baseDeclarationFlags := innerchecker.GetDeclarationModifierFlagsFromSymbol(base)
+  basePropertyFlags := base.Flags & innerast.SymbolFlagsPropertyOrAccessor
+  derivedPropertyFlags := derived.Flags & innerast.SymbolFlagsPropertyOrAccessor
+  if basePropertyFlags != 0 && derivedPropertyFlags != 0 {
+    // A direct class base member cannot be a mapped property. The upstream
+    // mapped-property exception therefore has no member declaration this
+    // direct-pair API could publish; assignment declarations and abstract /
+    // interface members are the two applicable exceptions.
+    if derived.ValueDeclaration != nil && innerast.IsBinaryExpression(derived.ValueDeclaration) ||
+      checkerArePropertiesAbstractOrInterface(recv, base, baseDeclarationFlags) {
+      return true
+    }
+    overriddenInstanceProperty := basePropertyFlags != innerast.SymbolFlagsProperty &&
+      derivedPropertyFlags == innerast.SymbolFlagsProperty
+    overriddenInstanceAccessor := basePropertyFlags == innerast.SymbolFlagsProperty &&
+      derivedPropertyFlags != innerast.SymbolFlagsProperty
+    return !overriddenInstanceProperty && !overriddenInstanceAccessor
+  }
+  if checkerIsPrototypeProperty(base) {
+    return checkerIsPrototypeProperty(derived) ||
+      derived.Flags&innerast.SymbolFlagsProperty != 0
+  }
+  return false
+}
+
 // NewChecker creates a checker that owns its complete type graph for program.
 // The returned mutex is the upstream checker-pool synchronization primitive;
 // callers that share the checker must serialize access through it.

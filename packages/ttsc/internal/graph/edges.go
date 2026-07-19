@@ -122,8 +122,173 @@ func (g *Graph) heritageEdges(checker *shimchecker.Checker, path string, node *s
         continue
       }
       g.addEdgeAt(from, to, EdgeHeritage, origin, base.Expression.Pos(), base.Expression.End())
+      g.memberRelationEdges(checker, node, kind, typeNode, target, origin)
     }
   }
+}
+
+// memberRelationEdges records the directly declared member pairs that a
+// heritage clause makes checker-valid. The TypeScript loader used to infer
+// these from equal names after the dump was built. That made an authoritative
+// edge even when the checker rejected the container relation, and a method /
+// property kind guard could not repair it: same-kind signatures can be
+// incompatible while a method can validly satisfy a function-valued property.
+//
+// Each pair is checked independently. A whole-container assignability gate
+// would let one broken sibling erase a valid relation in the same partially
+// edited class. The pair query retains the checker's instantiated property
+// symbols, so optionality, overloads, and private/protected declaration origins
+// still use upstream propertyRelatedTo semantics.
+func (g *Graph) memberRelationEdges(
+  checker *shimchecker.Checker,
+  derivedDeclaration *shimast.Node,
+  derivedKind NodeKind,
+  baseTypeNode *shimast.Node,
+  baseTarget *Target,
+  heritageOrigin string,
+) {
+  if checker == nil || derivedDeclaration == nil || baseTypeNode == nil || baseTarget == nil || baseTarget.External {
+    return
+  }
+  derivedSymbol := derivedDeclaration.Symbol()
+  if derivedSymbol == nil || baseTarget.Symbol == nil {
+    return
+  }
+  derivedType := checker.GetDeclaredTypeOfSymbol(derivedSymbol)
+  baseType := checker.GetTypeFromTypeNode(baseTypeNode)
+  if derivedType == nil || baseType == nil {
+    return
+  }
+
+  derivedMembers := declaredTypeMembers(derivedSymbol)
+  baseMembers := declaredTypeMembers(baseTarget.Symbol)
+
+  relation := "overrides"
+  if heritageOrigin == "implements" {
+    relation = "implements"
+  }
+  for _, derivedMember := range derivedMembers {
+    derivedMemberSymbol := derivedMember.Symbol()
+    if derivedMemberSymbol == nil || derivedMemberSymbol.Name == "" ||
+      shimast.GetCombinedModifierFlags(derivedMember)&shimast.ModifierFlagsStatic != 0 ||
+      derivedMember.Kind == shimast.KindConstructor {
+      continue
+    }
+
+    derivedProperty := checker.GetPropertyOfType(derivedType, derivedMemberSymbol.Name)
+    baseProperty := checker.GetPropertyOfType(baseType, derivedMemberSymbol.Name)
+    if derivedProperty == nil || baseProperty == nil ||
+      !propertyRootsAt(checker, derivedProperty, derivedMemberSymbol) {
+      continue
+    }
+    baseMember := directMemberForProperty(checker, baseProperty, baseMembers)
+    if baseMember == nil ||
+      !shimchecker.Checker_isPropertyAssignableTo(checker, derivedProperty, baseProperty) {
+      continue
+    }
+    if relation == "overrides" && derivedKind == NodeClass &&
+      !shimchecker.Checker_isValidClassMemberOverridePair(checker, derivedProperty, baseProperty) {
+      continue
+    }
+
+    from := graphMemberNodeID(g, derivedMember)
+    to := graphMemberNodeID(g, baseMember)
+    if from == "" || to == "" {
+      continue
+    }
+    evidence := derivedMember.Name()
+    if evidence == nil {
+      evidence = derivedMember
+    }
+    g.addEdgeAt(from, to, EdgeMemberRelation, relation, evidence.Pos(), evidence.End())
+  }
+}
+
+// declaredTypeMembers returns the members written on every class/interface
+// declaration merged into symbol. The checker sees that merged type as one
+// surface, so choosing one representative declaration would omit valid pairs
+// contributed by another declaration even though both graph nodes already
+// exist.
+func declaredTypeMembers(symbol *shimast.Symbol) []*shimast.Node {
+  if symbol == nil {
+    return nil
+  }
+  var members []*shimast.Node
+  for _, declaration := range symbol.Declarations {
+    members = append(members, classMembers(declaration)...)
+  }
+  return members
+}
+
+// directMemberForProperty maps an instantiated/transient checker property back
+// to the immediate base declaration the graph owns. An inherited property has a
+// different root symbol and is deliberately omitted, preserving the dump's
+// direct-member policy.
+func directMemberForProperty(
+  checker *shimchecker.Checker,
+  property *shimast.Symbol,
+  members []*shimast.Node,
+) *shimast.Node {
+  for _, member := range members {
+    symbol := member.Symbol()
+    if symbol == nil || symbol.Name == "" ||
+      shimast.GetCombinedModifierFlags(member)&shimast.ModifierFlagsStatic != 0 ||
+      member.Kind == shimast.KindConstructor {
+      continue
+    }
+    if propertyRootsAt(checker, property, symbol) {
+      return member
+    }
+  }
+  return nil
+}
+
+func propertyRootsAt(checker *shimchecker.Checker, property, declaration *shimast.Symbol) bool {
+  if checker == nil || property == nil || declaration == nil {
+    return false
+  }
+  for _, root := range checker.GetRootSymbols(property) {
+    if root == declaration {
+      return true
+    }
+  }
+  return false
+}
+
+// graphMemberNodeID returns the existing graph node for a class or interface
+// member. It never materializes a new endpoint: member relations stay within
+// the same workspace-owned member surface Build already records.
+func graphMemberNodeID(g *Graph, member *shimast.Node) string {
+  if g == nil || member == nil || member.Symbol() == nil {
+    return ""
+  }
+  kind := NodeKind("")
+  switch {
+  case isMethodMember(member.Kind):
+    kind = NodeMethod
+  case isPropertyMember(member.Kind):
+    kind = NodeVariable
+  default:
+    return ""
+  }
+  file := shimast.GetSourceFileOfNode(member)
+  name := methodName(member.Symbol())
+  if file == nil || name == "" {
+    return ""
+  }
+  id := nodeID(file.FileName(), name, kind)
+  stored, ok := g.Nodes[id]
+  if !ok {
+    return ""
+  }
+  for _, declaration := range member.Symbol().Declarations {
+    declarationFile := shimast.GetSourceFileOfNode(declaration)
+    if declarationFile != nil && declarationFile.FileName() == stored.File &&
+      declaration.Pos() == stored.Pos && declaration.End() == stored.End {
+      return id
+    }
+  }
+  return ""
 }
 
 // collectCalls records a value-call edge from each declaration to every function,

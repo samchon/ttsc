@@ -5,16 +5,34 @@ import { resolveGraphLauncher, resolveTtscgraphBinary } from "./ttsgraph";
 export interface GraphDump {
   project: string;
   tsconfig: string;
+  diagnostics: GraphDiagnostic[];
   nodes: GraphNode[];
   edges: GraphEdge[];
+}
+
+export interface GraphDiagnostic {
+  file: string;
+  line: number;
+  column: number;
+  code: number;
+  category: string;
+  message: string;
 }
 
 export interface GraphNode {
   id: string;
   kind: string;
   name: string;
+  qualifiedName?: string;
   file: string;
   external: boolean;
+  evidence?: {
+    file?: string;
+    startLine?: number;
+    startCol?: number;
+    endLine?: number;
+    endCol?: number;
+  };
 }
 
 export interface GraphEdge {
