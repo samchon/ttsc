@@ -204,22 +204,37 @@ export function runTrace(
   while (queue.length > 0) {
     const next: Array<{ id: string; depth: number }> = [];
     for (const { id, depth } of queue) {
-      const edges = eligibleTraceEdges(
-        graph,
-        id,
-        direction,
-        reverse,
-        focus,
-        includeExternal,
-      );
+      const candidates = traceEdges(graph, id, reverse, focus);
       if (depth >= maxDepth) {
         // Reaching the configured boundary does not itself omit data. The
         // response is truncated only when the selected walk has another hop
         // (and, for an unseen endpoint, another node) beyond the boundary.
-        if (edges.length > 0) truncated = true;
+        if (
+          candidates.some(
+            (edge) =>
+              eligibleTraceEndpoint(
+                graph,
+                edge,
+                reverse,
+                focus,
+                includeExternal,
+              ) !== undefined,
+          )
+        )
+          truncated = true;
         continue;
       }
-      for (const { edge, otherId, other } of edges) {
+      const edges = orderedEdges(graph, candidates, direction, reverse);
+      for (const edge of edges) {
+        const endpoint = eligibleTraceEndpoint(
+          graph,
+          edge,
+          reverse,
+          focus,
+          includeExternal,
+        );
+        if (endpoint === undefined) continue;
+        const { otherId, other } = endpoint;
         const hop: ITtscGraphTrace.IHop = {
           from: edge.from,
           to: edge.to,
@@ -271,44 +286,41 @@ export function runTrace(
   };
 }
 
-interface IEligibleTraceEdge {
-  edge: ITtscGraphEdge;
+interface ITraceEndpoint {
   otherId: string;
   other: ITtscGraphNode;
 }
 
-/**
- * Edges the selected open trace would represent if no result bound stopped it.
- * The depth-boundary probe and traversal must share this policy so focus,
- * external nodes, file nodes, dispatch, and direction cannot disagree about
- * whether content was actually omitted.
- */
-function eligibleTraceEdges(
+/** Candidate edges in the selected direction before focus and node policy. */
+function traceEdges(
   graph: TtscGraphMemory,
   id: string,
-  direction: string,
+  reverse: boolean,
+  focus: ITtscGraphTrace.IRequest["focus"],
+): readonly ITtscGraphEdge[] {
+  return reverse
+    ? graph.incoming(id)
+    : [...graph.outgoing(id), ...dispatchEdges(graph, id, focus)];
+}
+
+/**
+ * The endpoint the selected open trace would represent if no result bound
+ * stopped it. The depth probe and traversal share this decision so focus,
+ * external nodes, file nodes, and direction cannot disagree about omission.
+ */
+function eligibleTraceEndpoint(
+  graph: TtscGraphMemory,
+  edge: ITtscGraphEdge,
   reverse: boolean,
   focus: ITtscGraphTrace.IRequest["focus"],
   includeExternal: boolean,
-): IEligibleTraceEdge[] {
-  const edges = orderedEdges(
-    graph,
-    reverse
-      ? graph.incoming(id)
-      : [...graph.outgoing(id), ...dispatchEdges(graph, id, focus)],
-    direction,
-    reverse,
-  );
-  const eligible: IEligibleTraceEdge[] = [];
-  for (const edge of edges) {
-    if (!traversable(edge.kind, focus)) continue;
-    const otherId = reverse ? edge.from : edge.to;
-    const other = graph.node(otherId);
-    if (other === undefined || other.kind === "file") continue;
-    if (!includeExternal && isExternalNode(other)) continue;
-    eligible.push({ edge, otherId, other });
-  }
-  return eligible;
+): ITraceEndpoint | undefined {
+  if (!traversable(edge.kind, focus)) return undefined;
+  const otherId = reverse ? edge.from : edge.to;
+  const other = graph.node(otherId);
+  if (other === undefined || other.kind === "file") return undefined;
+  if (!includeExternal && isExternalNode(other)) return undefined;
+  return { otherId, other };
 }
 
 function traceSteps(
