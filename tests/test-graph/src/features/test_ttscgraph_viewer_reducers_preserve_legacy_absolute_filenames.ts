@@ -86,8 +86,7 @@ const assertProjection = (
 };
 
 /**
- * Verifies graph viewer reducers: legacy absolute paths retain source
- * filenames.
+ * Verifies graph viewer reducers: legacy paths retain filenames.
  *
  * Locks the legacy reroot boundary shared by the package, website, and fixture
  * reducers. The root must be a source directory rather than a complete file;
@@ -128,6 +127,11 @@ export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
         expected: ["only.ts"],
       },
       {
+        name: "POSIX filesystem-root file",
+        files: ["/only.ts"],
+        expected: ["only.ts"],
+      },
+      {
         name: "repeated nodes in one POSIX file",
         files: ["/work/src/only.ts", "/work/src/only.ts"],
         expected: ["only.ts", "only.ts"],
@@ -146,6 +150,11 @@ export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
         name: "case-insensitive Windows drive",
         files: ["C:\\Work\\src\\alpha.ts", "c:\\work\\SRC\\nested\\beta.ts"],
         expected: ["alpha.ts", "nested/beta.ts"],
+      },
+      {
+        name: "case-insensitive Windows drive root",
+        files: ["C:\\alpha.ts", "c:\\beta.ts"],
+        expected: ["alpha.ts", "beta.ts"],
       },
       {
         name: "case-insensitive Windows UNC share",

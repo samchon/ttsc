@@ -14,7 +14,7 @@ function posix(p: string): string {
   return p.replace(/\\/g, "/");
 }
 
-/** An absolute path (POSIX or Windows drive); relative dumps skip rerooting. */
+/** Absolute POSIX, Windows drive, or UNC path; relative dumps skip rerooting. */
 function isAbsolute(p: string): boolean {
   return /^(?:[A-Za-z]:)?\//.test(posix(p));
 }
