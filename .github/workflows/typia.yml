@@ -22,8 +22,9 @@ jobs:
     timeout-minutes: 60
     env:
       # Only build + pack the current platform (ttsc-linux-x64) — typia's
-      # overrides below pull in ttsc.tgz + ttsc-linux-x64.tgz only. The full
-      # cross-platform matrix takes ~20 min for tarballs we never consume.
+      # overrides below pull in ttsc.tgz, unplugin.tgz, and the current native
+      # package. The full cross-platform matrix takes ~20 min for tarballs we
+      # never consume.
       TTSC_TARBALLS_CURRENT: "1"
     steps:
       - uses: actions/checkout@v4
@@ -69,13 +70,22 @@ jobs:
           const file = "pnpm-workspace.yaml";
           const entries = [
             "  ttsc: file:../tarballs/ttsc.tgz",
+            "  \"@ttsc/unplugin\": file:../tarballs/unplugin.tgz",
             "  \"@ttsc/linux-x64\": file:../tarballs/ttsc-linux-x64.tgz",
           ].join("\n");
           const text = fs.readFileSync(file, "utf8");
-          if (text.includes("file:../tarballs/ttsc.tgz")) process.exit(0);
+          const localTarballs = entries.split("\n").map((entry) => entry.trim());
+          const present = localTarballs.filter((entry) => text.includes(entry));
+          if (present.length === localTarballs.length) process.exit(0);
+          if (present.length !== 0) {
+            throw new Error(`partial local-tarball overrides: ${present.join(", ")}`);
+          }
           const merged = /^overrides:[ \t]*$/m.test(text)
             ? text.replace(/^overrides:[ \t]*$/m, (line) => line + "\n" + entries)
             : text.replace(/\s*$/, "") + "\n\noverrides:\n" + entries + "\n";
+          for (const entry of localTarballs) {
+            if (!merged.includes(entry)) throw new Error(`missing local override: ${entry}`);
+          }
           fs.writeFileSync(file, merged);
           '
 
