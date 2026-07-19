@@ -19,7 +19,7 @@ func (g *Graph) collectObjectMembers(path string, declaration *shimast.Node) {
     return
   }
   node := g.Nodes[nodeID(path, qualifiedName(declaration.Symbol()), NodeVariable)]
-  if node == nil {
+  if node == nil || node.Pos != declaration.Pos() || node.End != declaration.End() {
     return
   }
   members := make([]ObjectMember, 0, len(object.Properties.Nodes))

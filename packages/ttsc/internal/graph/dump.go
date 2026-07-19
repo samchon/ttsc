@@ -465,9 +465,9 @@ func (c *dumpContext) evidence(file string, pos, end int) *DumpEvidence {
   return ev
 }
 
-// objectMemberSignature reproduces the compact one-line outline details has
-// historically returned, but slices it from Program-owned text while the dump
-// is built instead of reopening the live file later.
+// objectMemberSignature reproduces the compact outline details has historically
+// returned, but slices it from Program-owned text while the dump is built
+// instead of reopening the live file later.
 func (c *dumpContext) objectMemberSignature(file string, member ObjectMember) string {
   pos, end := member.Pos, member.SignatureEnd
   if pos < 0 || end <= pos || c.sources == nil {
@@ -488,21 +488,151 @@ func (c *dumpContext) objectMemberSignature(file string, member ObjectMember) st
   if pos >= end {
     return ""
   }
-  if !member.SignatureBoundary {
-    if lineEnd := strings.IndexByte(text[pos:end], '\n'); lineEnd >= 0 {
-      end = pos + lineEnd
-    }
-  }
   if pos >= end {
     return ""
   }
-  signature := strings.TrimSuffix(strings.Join(strings.Fields(text[pos:end]), " "), ",")
+  signature := strings.TrimSuffix(compactObjectMemberSignature(text[pos:end]), ",")
   const maxObjectMemberSignatureRunes = 160
   runes := []rune(signature)
   if len(runes) > maxObjectMemberSignatureRunes {
     signature = string(runes[:maxObjectMemberSignatureRunes-3]) + "..."
   }
   return signature
+}
+
+// compactObjectMemberSignature collapses trivia outside lexical values while
+// leaving quoted strings, template literals, regular expressions, and comments
+// byte-for-byte intact. A display outline may be compact, but changing literal
+// whitespace would change the declaration it claims to quote.
+func compactObjectMemberSignature(text string) string {
+  var out strings.Builder
+  pendingSpace := false
+  for i := 0; i < len(text); {
+    if isSignatureWhitespace(text[i]) {
+      pendingSpace = out.Len() > 0
+      i++
+      continue
+    }
+    if pendingSpace {
+      out.WriteByte(' ')
+      pendingSpace = false
+    }
+
+    end := i + 1
+    switch text[i] {
+    case '\'', '"':
+      end = quotedSourceEnd(text, i, text[i])
+    case '`':
+      end = templateSourceEnd(text, i)
+    case '/':
+      switch {
+      case i+1 < len(text) && text[i+1] == '/':
+        end = lineCommentEnd(text, i)
+      case i+1 < len(text) && text[i+1] == '*':
+        end = blockCommentEnd(text, i)
+      default:
+        if candidate := regularExpressionEnd(text, i); candidate > i {
+          end = candidate
+        }
+      }
+    }
+    out.WriteString(text[i:end])
+    i = end
+  }
+  return strings.TrimSpace(out.String())
+}
+
+func isSignatureWhitespace(ch byte) bool {
+  switch ch {
+  case ' ', '\t', '\r', '\n', '\v', '\f':
+    return true
+  default:
+    return false
+  }
+}
+
+func quotedSourceEnd(text string, start int, quote byte) int {
+  escaped := false
+  for i := start + 1; i < len(text); i++ {
+    if escaped {
+      escaped = false
+      continue
+    }
+    if text[i] == '\\' {
+      escaped = true
+      continue
+    }
+    if text[i] == quote {
+      return i + 1
+    }
+  }
+  return len(text)
+}
+
+// templateSourceEnd returns the last unescaped backtick in the member span.
+// This deliberately treats substitutions and nested templates as one protected
+// lexical region: preserving a little extra spacing is safer than compacting
+// whitespace that belongs to either template's value.
+func templateSourceEnd(text string, start int) int {
+  end := len(text)
+  for i := len(text) - 1; i > start; i-- {
+    if text[i] == '`' && !sourceByteEscaped(text, i) {
+      return i + 1
+    }
+  }
+  return end
+}
+
+func sourceByteEscaped(text string, pos int) bool {
+  slashes := 0
+  for i := pos - 1; i >= 0 && text[i] == '\\'; i-- {
+    slashes++
+  }
+  return slashes%2 == 1
+}
+
+func lineCommentEnd(text string, start int) int {
+  if end := strings.IndexByte(text[start:], '\n'); end >= 0 {
+    return start + end + 1
+  }
+  return len(text)
+}
+
+func blockCommentEnd(text string, start int) int {
+  if end := strings.Index(text[start+2:], "*/"); end >= 0 {
+    return start + 2 + end + 2
+  }
+  return len(text)
+}
+
+// regularExpressionEnd conservatively protects a slash-delimited region when
+// one closes on the same source line. Division can look the same without parser
+// context; preserving its spaces is harmless, while compacting a real regular
+// expression would change its pattern.
+func regularExpressionEnd(text string, start int) int {
+  escaped := false
+  inClass := false
+  for i := start + 1; i < len(text); i++ {
+    switch {
+    case text[i] == '\n' || text[i] == '\r':
+      return start
+    case escaped:
+      escaped = false
+    case text[i] == '\\':
+      escaped = true
+    case text[i] == '[':
+      inClass = true
+    case text[i] == ']':
+      inClass = false
+    case text[i] == '/' && !inClass:
+      i++
+      for i < len(text) && ((text[i] >= 'a' && text[i] <= 'z') || (text[i] >= 'A' && text[i] <= 'Z')) {
+        i++
+      }
+      return i
+    }
+  }
+  return start
 }
 
 // firstCodeOffset advances past leading trivia: whitespace, // line comments,
