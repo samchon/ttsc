@@ -753,13 +753,22 @@ function dispatchEdges(
   if (declaration === undefined || hasDeclarationBody(graph, declaration))
     return [];
   const out: ITtscGraphEdge[] = [];
+  // Per implementation, not per relation. A class may name one base in two
+  // heritage clauses — `class Impl extends Base implements Base` is legal — and
+  // the producer records the member pair once per clause, as `overrides` and as
+  // `implements`. That is one implementation and one crossing: emitting it
+  // twice would repeat the hop and count the same class twice against the hub
+  // cut.
+  const dispatched = new Set<string>();
   for (const edge of relations) {
+    if (dispatched.has(edge.from)) continue;
     const implementation = graph.node(edge.from);
     if (
       implementation === undefined ||
       !hasDeclarationBody(graph, implementation)
     )
       continue;
+    dispatched.add(edge.from);
     out.push({
       from: id,
       to: edge.from,

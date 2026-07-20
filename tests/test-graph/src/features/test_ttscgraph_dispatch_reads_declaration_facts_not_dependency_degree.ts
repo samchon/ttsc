@@ -36,8 +36,8 @@ interface TraceResult {
  *    arithmetic, thrown literal) behind an interface member, an abstract
  *    method, and an ambient `declare class` member, plus two concrete bases
  *    with overrides that differ only in one statement, an abstract member
- *    standing between an interface and its concrete class, and an overload
- *    set.
+ *    standing between an interface and its concrete class, one implementation
+ *    named in two heritage clauses, and an overload set.
  * 2. Trace forward from each caller through the real MCP launcher, and request the
  *    same continuation in path mode.
  * 3. Assert every genuinely bodyless declaration dispatches to its dependency-
@@ -134,6 +134,18 @@ export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degr
         "",
         "export function callShape(shape: Shape): number {",
         "  return shape.area();",
+        "}",
+        "",
+        "export abstract class Twice {",
+        "  public abstract emit(): void;",
+        "}",
+        "",
+        "export class OnlyOnce extends Twice implements Twice {",
+        "  public emit(): void {}",
+        "}",
+        "",
+        "export function callTwice(twice: Twice): void {",
+        "  twice.emit();",
         "}",
         "",
         "declare class Native {",
@@ -268,6 +280,10 @@ export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degr
       // never be the destination of a hop that claims to name what runs.
       const abstractCandidate = await forward("callShape");
       assert.ok(
+        abstractCandidate.reached.some((node) => node.name === "Shape.area"),
+        `the walk stands on the interface member: ${abstractCandidate.reached.map((n) => n.name).join(", ")}`,
+      );
+      assert.ok(
         !dispatchedIn(abstractCandidate).includes("BaseShape.area"),
         `an abstract member is never a dispatch destination: ${JSON.stringify(abstractCandidate.hops)}`,
       );
@@ -275,6 +291,17 @@ export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degr
       assert.ok(
         dispatchedIn(abstractIntermediate).includes("Square.area"),
         `and the concrete override below it still is: ${JSON.stringify(abstractIntermediate.hops)}`,
+      );
+
+      // One implementation named in two heritage clauses is one implementation.
+      // The producer records the member pair once per clause, as `overrides`
+      // and as `implements`, so a walk over relations would cross to the same
+      // body twice and count one class twice against the hub cut.
+      const twoRelations = await forward("callTwice");
+      assert.deepEqual(
+        dispatchedIn(twoRelations),
+        ["OnlyOnce.emit"],
+        `a doubly related implementation is dispatched to once: ${JSON.stringify(twoRelations.hops)}`,
       );
 
       const ambient = await forward("callNative");
