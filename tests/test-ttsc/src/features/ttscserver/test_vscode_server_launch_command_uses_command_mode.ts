@@ -60,6 +60,7 @@ export const test_vscode_server_launch_command_uses_command_mode = () => {
     cmd: {
       args: string[];
       command: string;
+      commandShimEnvironment?: NodeJS.ProcessEnv;
       windowsVerbatimArguments?: boolean;
     };
     js: { args: string[]; command: string; windowsVerbatimArguments?: boolean };
@@ -101,6 +102,17 @@ export const test_vscode_server_launch_command_uses_command_mode = () => {
   assert.equal(parsed.cmd.args[1], "/s");
   assert.equal(parsed.cmd.args[2], "/c");
   const cmdPayload = parsed.cmd.args[3] ?? "";
-  assert.match(cmdPayload, /^""C:\\\\Tools & SDK\\\\ttscserver\.cmd"/);
-  assert.match(cmdPayload, /"--cwd=/);
+  assert.equal(
+    cmdPayload,
+    '"%TTSC_VSCODE_COMMAND_SHIM_ARG_0% %TTSC_VSCODE_COMMAND_SHIM_ARG_1% %TTSC_VSCODE_COMMAND_SHIM_ARG_2% %TTSC_VSCODE_COMMAND_SHIM_ARG_3% %TTSC_VSCODE_COMMAND_SHIM_ARG_4% %TTSC_VSCODE_COMMAND_SHIM_ARG_5%"',
+  );
+  assert.deepEqual(parsed.cmd.commandShimEnvironment, {
+    TTSC_VSCODE_COMMAND_SHIM_ARG_0: `"${cmdLauncher}"`,
+    TTSC_VSCODE_COMMAND_SHIM_ARG_1: '"--stdio"',
+    TTSC_VSCODE_COMMAND_SHIM_ARG_2: `"--cwd=${cwd}"`,
+    TTSC_VSCODE_COMMAND_SHIM_ARG_3:
+      '"--suppress-execute-command-ids=ttsc.lint.fixAll,ttsc.format.document"',
+    TTSC_VSCODE_COMMAND_SHIM_ARG_4: `"--execute-command-id-prefix=${parsed.prefix}"`,
+    TTSC_VSCODE_COMMAND_SHIM_ARG_5: `"--tsconfig=${tsconfig}"`,
+  });
 };

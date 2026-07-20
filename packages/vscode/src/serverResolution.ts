@@ -28,6 +28,7 @@ export type ServerProcessOptions = {
 export type ServerLaunchCommand = {
   args: string[];
   command: string;
+  commandShimEnvironment?: NodeJS.ProcessEnv;
   // True only for the Windows `.cmd`/`.bat` command-shim launch path, whose
   // `args` are already a single fully quoted `/c` payload. Non-command launchers
   // omit it so their argument arrays keep Node's default escaping.
@@ -167,9 +168,11 @@ export function createServerLaunchCommand(
     return { command: process.execPath, args: [launcher, ...args] };
   }
   if (platform === "win32" && isWindowsCommandLauncher(launcher)) {
+    const commandShim = createWindowsCommandShim([launcher, ...args]);
     return {
       command: env.ComSpec || "cmd.exe",
-      args: ["/d", "/s", "/c", quoteWindowsCommand([launcher, ...args])],
+      args: ["/d", "/s", "/c", commandShim.payload],
+      commandShimEnvironment: commandShim.environment,
       windowsVerbatimArguments: true,
     };
   }
@@ -200,13 +203,13 @@ export function createServerExecutable(
     args: launch.args,
     options:
       options && launch.windowsVerbatimArguments
-        ? { ...options, windowsVerbatimArguments: true }
+        ? {
+            ...options,
+            env: { ...options.env, ...launch.commandShimEnvironment },
+            windowsVerbatimArguments: true,
+          }
         : options,
   };
-}
-
-export function quoteWindowsCommand(args: readonly string[]): string {
-  return `"${args.map(quoteWindowsArg).join(" ")}"`;
 }
 
 export function createDocumentSelectorPattern<T>(
@@ -420,8 +423,27 @@ function isWindowsCommandLauncher(launcher: string): boolean {
   return [".cmd", ".bat"].includes(path.extname(launcher).toLowerCase());
 }
 
+function createWindowsCommandShim(args: readonly string[]): {
+  environment: NodeJS.ProcessEnv;
+  payload: string;
+} {
+  const prefix = "TTSC_VSCODE_COMMAND_SHIM_ARG_";
+  const environment = Object.fromEntries(
+    args.map((arg, index) => [prefix + index, quoteWindowsArg(arg)]),
+  );
+  return {
+    environment,
+    // cmd expands every placeholder exactly once. The environment values are
+    // already Windows-command-line arguments, so their literal `%` segments do
+    // not expand again and their quotes continue to protect shell metacharacters.
+    payload: `"${args.map((_, index) => `%${prefix}${index}%`).join(" ")}"`,
+  };
+}
+
 function quoteWindowsArg(arg: string): string {
-  return `"${String(arg).replace(/"/g, '\\"').replace(/%/g, "%%")}"`;
+  return `"${String(arg)
+    .replace(/(\\*)"/g, "$1$1\\\"")
+    .replace(/(\\*)$/, "$1$1")}"`;
 }
 
 /**

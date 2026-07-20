@@ -22,15 +22,19 @@ function createCodeCommand(
 ) {
   if (platform === "win32") {
     const launcher = findWindowsCodeCommand(env, deps);
+    const commandShim = createWindowsCommandShim([launcher, ...args]);
     return {
       command: env.ComSpec || "cmd.exe",
-      args: ["/d", "/s", "/c", quoteWindowsCommand([launcher, ...args])],
+      args: ["/d", "/s", "/c", commandShim.payload],
       // The `/c` payload is already fully quoted. Node's Windows spawn escapes
       // each arg again unless told not to, turning `""code.cmd" ...` into
       // `"\"\"code.cmd\" ...\""`, which cmd.exe sees as one un-runnable token
       // after the CVE-2024-27980 argument-escaping change. Pass the payload
       // verbatim so cmd's `/s` strips the outer quotes and runs `code.cmd ...`.
-      options: { windowsVerbatimArguments: true },
+      options: {
+        env: { ...env, ...commandShim.environment },
+        windowsVerbatimArguments: true,
+      },
     };
   }
   return { command: "code", args, options: {} };
@@ -78,12 +82,24 @@ function findWindowsCodeCommand(env = process.env, deps = {}) {
   return candidates.find((candidate) => existsSync(candidate)) ?? "code.cmd";
 }
 
-function quoteWindowsCommand(args) {
-  return `"${args.map(quoteWindowsArg).join(" ")}"`;
+function createWindowsCommandShim(args) {
+  const prefix = "TTSC_VSCODE_COMMAND_SHIM_ARG_";
+  const environment = Object.fromEntries(
+    args.map((arg, index) => [prefix + index, quoteWindowsArg(arg)]),
+  );
+  return {
+    environment,
+    // cmd expands every placeholder exactly once. The environment values are
+    // already Windows-command-line arguments, so their literal `%` segments do
+    // not expand again and their quotes continue to protect shell metacharacters.
+    payload: `"${args.map((_, index) => `%${prefix}${index}%`).join(" ")}"`,
+  };
 }
 
 function quoteWindowsArg(arg) {
-  return `"${String(arg).replace(/"/g, '\\"').replace(/%/g, "%%")}"`;
+  return `"${String(arg)
+    .replace(/(\\*)"/g, "$1$1\\\"")
+    .replace(/(\\*)$/, "$1$1")}"`;
 }
 
 function spawnCode(args, vsixForFallback) {
@@ -160,5 +176,4 @@ module.exports = {
   findWindowsCodeCommand,
   findVsix,
   main,
-  quoteWindowsCommand,
 };

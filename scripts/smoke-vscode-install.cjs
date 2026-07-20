@@ -65,6 +65,7 @@ function run(command, args, options = {}) {
     cwd: options.cwd ?? process.cwd(),
     encoding: "utf8",
     stdio: options.capture ? "pipe" : "inherit",
+    env: options.env,
     windowsHide: true,
     windowsVerbatimArguments: options.windowsVerbatimArguments,
   });

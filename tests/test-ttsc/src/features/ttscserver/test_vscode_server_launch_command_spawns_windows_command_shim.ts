@@ -15,7 +15,7 @@ import path from "node:path";
  * must receive every LSP argument verbatim, while the negative twin — the same
  * command without the flag — must not.
  *
- * 1. Build launcher, cwd, and tsconfig paths containing spaces and `&`.
+ * 1. Build launcher, cwd, and tsconfig paths containing spaces, `&`, `%`, and `^`.
  * 2. Assert only the `.cmd`/`.bat` executables carry `windowsVerbatimArguments`.
  * 3. On Windows, spawn a recording `.cmd` and `.bat` with the exact executable
  *    options and confirm the recorded args equal the expected LSP args.
@@ -44,7 +44,23 @@ export const test_vscode_server_launch_command_spawns_windows_command_shim =
     )}).href);
 
     const base = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-vscode-launch-"));
-    const dir = path.join(base, "Tools & SDK (x86)");
+    const recorder = path.join(base, "record-argv.cjs");
+    const sentinel = "TTSC_VSCODE_PERCENT_SENTINEL";
+    process.env[sentinel] = "EXPANDED";
+    process.env.TTSC_VSCODE_TEST_NODE = process.execPath;
+    process.env.TTSC_VSCODE_TEST_RECORDER = recorder;
+    fs.writeFileSync(
+      recorder,
+      [
+        'const fs = require("node:fs");',
+        'fs.writeFileSync(process.env.TTSC_VSCODE_TEST_RECORD, JSON.stringify(process.argv.slice(2)));',
+        "",
+      ].join("\\n"),
+    );
+    const dir = path.join(
+      base,
+      "Tools & SDK (x86) 100% %" + sentinel + "% ^",
+    );
     const cwd = path.join(dir, "my project");
     fs.mkdirSync(cwd, { recursive: true });
     const tsconfig = path.join(cwd, "tsconfig.json");
@@ -67,30 +83,22 @@ export const test_vscode_server_launch_command_spawns_windows_command_shim =
     };
     const expectedArgs = build(path.join(cwd, "server.exe")).args;
 
-    const recorder = (record) =>
-      [
-        "@echo off",
-        "setlocal enabledelayedexpansion",
-        'break>"' + record + '"',
-        ":loop",
-        'if "%~1"=="" goto :done',
-        'set "arg=%~1"',
-        '>>"' + record + '" echo(!arg!',
-        "shift",
-        "goto :loop",
-        ":done",
-        "endlocal",
-        "exit /b 0",
-        "",
-      ].join("\\r\\n");
     const readRecord = (record) =>
       fs.existsSync(record)
-        ? fs.readFileSync(record, "utf8").split(/\\r?\\n/).filter(Boolean)
+        ? JSON.parse(fs.readFileSync(record, "utf8"))
         : null;
     const runShim = (ext) => {
       const launcher = path.join(dir, "server." + ext);
-      const record = path.join(dir, "record-" + ext + ".txt");
-      fs.writeFileSync(launcher, recorder(record));
+      const record = path.join(base, "record-" + ext + ".json");
+      process.env.TTSC_VSCODE_TEST_RECORD = record;
+      fs.writeFileSync(
+        launcher,
+        [
+          "@echo off",
+          '"%TTSC_VSCODE_TEST_NODE%" "%TTSC_VSCODE_TEST_RECORDER%" %*',
+          "",
+        ].join("\\r\\n"),
+      );
       const exec = build(launcher);
       if (fs.existsSync(record)) fs.rmSync(record);
       const verbatim = spawnSync(exec.command, exec.args, Object.assign(
@@ -165,6 +173,9 @@ export const test_vscode_server_launch_command_spawns_windows_command_shim =
     assert.equal(parsed.shape.native, null);
 
     if (parsed.platform !== "win32") {
+      console.log(
+        "Skipped Windows command-shim child-argv assertions: cmd.exe is unavailable.",
+      );
       assert.equal(parsed.spawn, null);
       return;
     }
