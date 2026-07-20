@@ -1,6 +1,15 @@
 import { TestProject } from "@ttsc/testing";
+import fs from "node:fs";
+import { createRequire } from "node:module";
 
 import { TtsgraphClient, assert } from "../internal/ttsgraph";
+
+const graphPackage = JSON.parse(
+  fs.readFileSync(
+    createRequire(import.meta.url).resolve("@ttsc/graph/package.json"),
+    "utf8",
+  ),
+) as { version: string };
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -184,11 +193,19 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         protocolVersion: "2025-06-18",
         capabilities: {},
         clientInfo: { name: "test-graph", version: "0.0.0" },
-      })) as { serverInfo?: { name?: string }; instructions?: string };
+      })) as {
+        serverInfo?: { name?: string; version?: string };
+        instructions?: string;
+      };
       assert.equal(
         init.serverInfo?.name,
         "ttsc-graph",
         "initialize returns the server name",
+      );
+      assert.equal(
+        init.serverInfo?.version,
+        graphPackage.version,
+        "initialize reports the installed graph package version",
       );
       assert.ok(
         typeof init.instructions === "string" && init.instructions.length > 0,

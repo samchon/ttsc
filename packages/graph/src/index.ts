@@ -1,6 +1,10 @@
 import { spawnSync } from "node:child_process";
-import path from "node:path";
 
+import {
+  PROJECT_OPTIONS,
+  parseLauncherOptions,
+  projectOptions,
+} from "./launcherArgs";
 import { ensureExecutable } from "./nativeExecutable";
 import { resolveGraphBinary } from "./resolveGraphBinary";
 import { startServer } from "./server/startServer";
@@ -30,27 +34,11 @@ export {
 const VERSION: string = (require("../package.json") as { version: string })
   .version;
 
-/**
- * The project root and tsconfig to build the graph for, from the `--cwd` /
- * `--tsconfig` flags (the same ones `ttscgraph dump` accepts). Defaults are the
- * process working directory and `tsconfig.json`.
- */
-function parseProjectArgs(argv: readonly string[]): {
-  cwd: string;
-  tsconfig: string;
-} {
-  let cwd = process.cwd();
-  let tsconfig = "tsconfig.json";
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]!;
-    if (arg === "--cwd" && i + 1 < argv.length) cwd = argv[++i]!;
-    else if (arg.startsWith("--cwd=")) cwd = arg.slice("--cwd=".length);
-    else if (arg === "--tsconfig" && i + 1 < argv.length) tsconfig = argv[++i]!;
-    else if (arg.startsWith("--tsconfig="))
-      tsconfig = arg.slice("--tsconfig=".length);
-  }
-  return { cwd: path.resolve(cwd), tsconfig };
-}
+const DUMP_OPTIONS = [
+  { key: "cwd", flags: ["--cwd", "-cwd"], kind: "value" },
+  { key: "tsconfig", flags: ["--tsconfig", "-tsconfig"], kind: "value" },
+  { key: "pretty", flags: ["--pretty", "-pretty"], kind: "boolean" },
+] as const;
 
 /**
  * Run the `@ttsc/graph` launcher.
@@ -67,9 +55,11 @@ export function runGraph(
   argv: readonly string[] = process.argv.slice(2),
 ): number | void {
   if (argv[0] === "view") return runView(argv.slice(1));
-  if (argv[0] === "dump") return runDump(argv);
+  if (argv[0] === "dump") return runDump(argv.slice(1));
 
-  const { cwd, tsconfig } = parseProjectArgs(argv);
+  const { cwd, tsconfig } = projectOptions(
+    parseLauncherOptions(argv, PROJECT_OPTIONS),
+  );
   void startServer({ cwd, tsconfig, version: VERSION }).catch(
     (error: unknown) => {
       process.stderr.write(
@@ -87,7 +77,7 @@ export function runGraph(
 function runDump(argv: readonly string[]): number {
   // Resolve the native binary from the target project the caller named with
   // `--cwd`, not from wherever the launcher process happened to start.
-  const { cwd } = parseProjectArgs(argv);
+  const { cwd } = projectOptions(parseLauncherOptions(argv, DUMP_OPTIONS));
   const binary = resolveGraphBinary(process.env, cwd);
   if (binary === null) {
     process.stderr.write(
@@ -98,7 +88,7 @@ function runDump(argv: readonly string[]): number {
     return 1;
   }
   ensureExecutable(binary);
-  const result = spawnSync(binary, [...argv], {
+  const result = spawnSync(binary, ["dump", ...argv], {
     stdio: "inherit",
     windowsHide: true,
   });

@@ -3,6 +3,12 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
+import {
+  nonNegativeIntegerOption,
+  parseLauncherOptions,
+  positiveIntegerOption,
+  projectOptions,
+} from "./launcherArgs";
 import { ensureExecutable } from "./nativeExecutable";
 import { type RawDump, reduce } from "./reduce";
 import { resolveGraphBinary } from "./resolveGraphBinary";
@@ -16,30 +22,26 @@ interface ViewOptions {
 }
 
 function parseViewArgs(argv: readonly string[]): ViewOptions {
-  const opts: ViewOptions = {
-    cwd: process.cwd(),
-    tsconfig: "tsconfig.json",
-    port: 0,
-    open: true,
-    maxNodes: 1200,
+  const values = parseLauncherOptions(argv, [
+    { key: "cwd", flags: ["--cwd"], kind: "value" },
+    { key: "tsconfig", flags: ["--tsconfig", "-p"], kind: "value" },
+    { key: "port", flags: ["--port"], kind: "value" },
+    { key: "open", flags: ["--no-open"], kind: "flag" },
+    { key: "max_nodes", flags: ["--max-nodes"], kind: "value" },
+  ]);
+  const project = projectOptions(values);
+  return {
+    ...project,
+    port:
+      values.has("port") === true
+        ? nonNegativeIntegerOption(values, "port", 65_535)
+        : 0,
+    open: values.get("open") !== true,
+    maxNodes:
+      values.has("max_nodes") === true
+        ? positiveIntegerOption(values, "max_nodes", Number.MAX_SAFE_INTEGER)
+        : 1200,
   };
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]!;
-    if (arg === "--cwd") opts.cwd = argv[++i] ?? opts.cwd;
-    else if (arg.startsWith("--cwd=")) opts.cwd = arg.slice("--cwd=".length);
-    else if (arg === "--tsconfig" || arg === "-p")
-      opts.tsconfig = argv[++i] ?? opts.tsconfig;
-    else if (arg.startsWith("--tsconfig="))
-      opts.tsconfig = arg.slice("--tsconfig=".length);
-    else if (arg === "--port") opts.port = Number(argv[++i]);
-    else if (arg.startsWith("--port="))
-      opts.port = Number(arg.slice("--port=".length));
-    else if (arg === "--no-open") opts.open = false;
-    else if (arg === "--max-nodes") opts.maxNodes = Number(argv[++i]);
-    else if (arg.startsWith("--max-nodes="))
-      opts.maxNodes = Number(arg.slice("--max-nodes=".length));
-  }
-  return opts;
 }
 
 /**
