@@ -307,8 +307,14 @@ function parseCachePathsArgs(argv: readonly string[]): {
   const rest = [...argv];
   while (rest.length !== 0) {
     const token = rest.shift()!;
-    const [flag, inlineValue] = splitInlineFlag(token);
-    switch (flag) {
+    const [rawFlag, inlineValue] = splitInlineFlag(token);
+    const flag = resolveFlagSpec(rawFlag);
+    if (flag?.subcommands.includes("cache") !== true) {
+      throw new Error(
+        `ttsc: cache paths does not support ${JSON.stringify(token)}`,
+      );
+    }
+    switch (flag.name) {
       case "--json":
         if (inlineValue !== undefined) {
           throw new Error("ttsc: --json does not take a value");
@@ -316,15 +322,13 @@ function parseCachePathsArgs(argv: readonly string[]): {
         out.json = true;
         break;
       case "--cache-dir":
-        out.cacheDir = readCachePathsValue(flag, inlineValue, rest);
+        out.cacheDir = readCachePathsValue(flag.name, inlineValue, rest);
         break;
       case "--cwd":
-        out.cwd = readCachePathsValue(flag, inlineValue, rest);
+        out.cwd = readCachePathsValue(flag.name, inlineValue, rest);
         break;
-      case "-p":
-      case "--project":
       case "--tsconfig":
-        out.tsconfig = readCachePathsValue(flag, inlineValue, rest);
+        out.tsconfig = readCachePathsValue(flag.name, inlineValue, rest);
         break;
       default:
         throw new Error(

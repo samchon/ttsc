@@ -26,6 +26,7 @@
 export type TtscSubcommand =
   | "ttsc"
   | "build"
+  | "cache"
   | "check"
   | "fix"
   | "format"
@@ -221,6 +222,7 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
       "ttsc",
       "ttsx",
       "build",
+      "cache",
       "check",
       "fix",
       "format",
@@ -237,6 +239,7 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
       "ttsc",
       "ttsx",
       "build",
+      "cache",
       "check",
       "fix",
       "format",
@@ -336,6 +339,7 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
       "ttsc",
       "ttsx",
       "build",
+      "cache",
       "check",
       "fix",
       "format",
@@ -344,6 +348,13 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     ],
     consumedBy: ["launcher"],
     description: "Override the runner and source-plugin cache root.",
+  },
+  {
+    name: "--json",
+    kind: "boolean",
+    subcommands: ["cache"],
+    consumedBy: ["launcher"],
+    description: "Print cache paths as JSON.",
   },
 
   // -------------------------------------------------------------------------
