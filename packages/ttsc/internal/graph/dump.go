@@ -421,17 +421,15 @@ func (c *dumpContext) rel(file string) string {
 // both relativize. Every other node is named by a symbol, which passes through
 // untouched.
 func (c *dumpContext) relID(id string) string {
-  hash := strings.Index(id, "#")
-  if hash < 0 {
+  parts, ok := parseNodeID(id)
+  if !ok {
     return id
   }
-  head, tail := c.rel(id[:hash]), id[hash+1:]
-  suffix := ":" + string(NodeModule)
-  if strings.HasSuffix(tail, suffix) {
-    name := strings.TrimSuffix(tail, suffix)
-    return head + "#" + c.rel(name) + suffix
+  name := parts.name
+  if parts.kind == NodeModule {
+    name = c.rel(name)
   }
-  return head + "#" + tail
+  return nodeID(c.rel(parts.path), name, parts.kind)
 }
 
 // evidence builds the line/col span for a byte range in file, or nil when the
@@ -637,15 +635,6 @@ func withoutFile(ev *DumpEvidence) *DumpEvidence {
   }
   ev.File = ""
   return ev
-}
-
-// nodeFile recovers the source file path embedded in a node id
-// ("path#qualifiedName:kind"); "" for an id without a path.
-func nodeFile(id string) string {
-  if hash := strings.Index(id, "#"); hash >= 0 {
-    return id[:hash]
-  }
-  return ""
 }
 
 // lineStarts holds the byte offset of each line's start, so an offset maps to a

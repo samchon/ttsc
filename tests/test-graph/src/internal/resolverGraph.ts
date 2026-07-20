@@ -3,7 +3,7 @@ import path from "node:path";
 
 export interface ResolverGraphNode {
   id: string;
-  kind: "class" | "method";
+  kind: "class" | "method" | "variable" | "property";
   name: string;
   qualifiedName?: string;
   file: string;
@@ -14,10 +14,10 @@ export interface ResolverGraphNode {
 interface ResolverGraphEdge {
   from: string;
   to: string;
-  kind: "calls" | "exports";
+  kind: "calls" | "contains" | "exports";
 }
 
-interface GraphMemory {
+export interface GraphMemory {
   node(id: string): ResolverGraphNode | undefined;
   nodes: readonly ResolverGraphNode[];
   outgoing(id: string): readonly ResolverGraphEdge[];
@@ -63,10 +63,19 @@ export function resolveSyntheticGraph(
   candidateLimit = 12,
   edges: ResolverGraphEdge[] = [],
 ): ResolvedGraphHandle {
+  const graph = createSyntheticGraph(nodes, edges);
+  return resolveGraphHandle(graph, handle, candidateLimit);
+}
+
+/** Build the package's real memory indexes from a compact synthetic dump. */
+export function createSyntheticGraph(
+  nodes: ResolverGraphNode[],
+  edges: ResolverGraphEdge[] = [],
+): GraphMemory {
   const graph = TtscGraphMemory.from({
     project: "C:/synthetic-graph",
     nodes,
     edges,
   });
-  return resolveGraphHandle(graph, handle, candidateLimit);
+  return graph;
 }

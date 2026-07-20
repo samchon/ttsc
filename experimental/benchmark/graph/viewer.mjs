@@ -105,9 +105,47 @@ function relativize(abs, root) {
  * a stable key and every edge endpoint (also an id) relativizes identically.
  */
 function rewriteId(id, root) {
-  const hash = id.indexOf("#");
+  const hash = graphNodeIdHash(id);
   if (hash < 0) return id;
-  return relativize(id.slice(0, hash), root) + id.slice(hash);
+  return (
+    escapeGraphNodeIdPart(relativize(unescapeGraphNodeIdPart(id.slice(0, hash)), root)) +
+    id.slice(hash)
+  );
+}
+
+function escapeGraphNodeIdPart(value) {
+  return value.replaceAll("\\", "\\\\").replaceAll("#", "\\#");
+}
+
+function unescapeGraphNodeIdPart(value) {
+  let result = "";
+  for (let index = 0; index < value.length; index++) {
+    const next = value[index + 1];
+    if (value[index] === "\\" && next !== undefined) {
+      if (next === "#" || (next === "\\" && !legacyUNCStart(value, index))) {
+        result += next;
+        index++;
+        continue;
+      }
+    }
+    result += value[index];
+  }
+  return result;
+}
+
+function legacyUNCStart(value, index) {
+  return index === 0 && value.length > 2 && value[2] !== "\\" && value[2] !== "#";
+}
+
+function graphNodeIdHash(id) {
+  for (let index = 0; index < id.length; index++) {
+    if (id[index] !== "#") continue;
+    let slashes = 0;
+    for (let slash = index - 1; slash >= 0 && id[slash] === "\\"; slash--)
+      slashes++;
+    if (slashes % 2 === 0) return index;
+  }
+  return -1;
 }
 
 /**
