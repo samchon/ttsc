@@ -50,6 +50,17 @@ test("Go build cache keys every effective input and rejects corrupt state", () =
       current({ environment: { GOOS: "js", GOARCH: "wasm64" } }).isCurrent(),
       false,
     );
+    assert.equal(
+      current({
+        execFileSync: fakeGo({
+          command: fixture.command,
+          goMod: fixture.goMod,
+          goVersion: "go1.26.5",
+          goWork: fixture.goWork,
+        }),
+      }).isCurrent(),
+      false,
+    );
     assert.equal(current({ force: true }).isCurrent(), false);
 
     record();
@@ -112,6 +123,7 @@ function createFixture() {
     root,
     options,
     bridge,
+    command,
     embed,
     goMod,
     goSource,
@@ -122,7 +134,7 @@ function createFixture() {
   };
 }
 
-function fakeGo({ command, goMod, goWork }) {
+function fakeGo({ command, goMod, goVersion = "go1.26.4", goWork }) {
   return (_command, args) => {
     if (args[0] === "list" && args[1] === "-deps") {
       return `${JSON.stringify({
@@ -137,7 +149,7 @@ function fakeGo({ command, goMod, goWork }) {
     }
     if (args[0] === "env") {
       return JSON.stringify({
-        GOVERSION: "go1.26.4",
+        GOVERSION: goVersion,
         GOOS: "js",
         GOARCH: "wasm",
         GOFLAGS: "",
