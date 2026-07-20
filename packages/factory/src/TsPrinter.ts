@@ -22,6 +22,7 @@ import {
   join,
   line,
   printDocToString,
+  raw,
   softline,
 } from "./internal/doc";
 import { NodeFlags, SyntaxKind } from "./syntax";
@@ -116,7 +117,7 @@ export class TsPrinter {
     close: string,
     opts: {
       space?: boolean;
-      trailingComma?: boolean;
+      trailingComma?: TrailingComma;
       forceBreak?: boolean;
     } = {},
   ): Doc {
@@ -126,7 +127,11 @@ export class TsPrinter {
       concat([
         open,
         indent(concat([ln, join(concat([",", line]), items)])),
-        opts.trailingComma ? ifBreak(",") : "",
+        opts.trailingComma === "always"
+          ? ","
+          : opts.trailingComma === "onBreak"
+            ? ifBreak(",")
+            : "",
         ln,
         close,
       ]),
@@ -191,28 +196,78 @@ export class TsPrinter {
           args.map((a) => this.emit(a)),
           ">",
           {
-            trailingComma: false,
+            trailingComma: "never",
           },
         )
       : "";
   }
 
   /**
-   * Whether a broken parameter list / binding pattern may append a synthetic
-   * trailing comma after its last element.
+   * Trailing-comma policy for a parameter list or binding pattern.
    *
-   * A trailing comma after a rest element (`...rest`) is a syntax error (TS1013
-   * / V8 `SyntaxError`), and one after a trailing elision (`OmittedExpression`)
-   * is not cosmetic: `[a, ,]` parses to one more hole than `[a, ]`, so the flat
-   * and broken layouts of the same node would disagree. Call arguments and
-   * array / object literals are unaffected — a trailing comma after a spread is
-   * legal there.
+   * A comma the printer adds only because a group broke must never change
+   * whether the text parses, nor what it parses to. After a rest element
+   * (`...rest`) it changes the first: a trailing comma there is a syntax error
+   * (TS1013 / V8 `SyntaxError`). After a trailing elision it changes the
+   * second: `[a, ,]` has one more hole than `[a, ]`, so the flat and broken
+   * layouts of the same node would disagree. A binding pattern is the one place
+   * where dropping that hole is lossless, since a trailing hole binds nothing;
+   * {@link literalTrailingComma} materializes it instead, because in an array
+   * literal the hole is a value.
    */
-  private listTrailingComma(nodes: readonly Node[]): boolean {
+  private listTrailingComma(nodes: readonly Node[]): TrailingComma {
     const last: Node | undefined = nodes[nodes.length - 1];
-    if (last === undefined) return true;
-    if (last.kind === "OmittedExpression") return false;
-    return !("dotDotDotToken" in last && last.dotDotDotToken !== undefined);
+    if (last === undefined) return "onBreak";
+    if (last.kind === "OmittedExpression") return "never";
+    return "dotDotDotToken" in last && last.dotDotDotToken !== undefined
+      ? "never"
+      : "onBreak";
+  }
+
+  /**
+   * Trailing-comma policy for a call or `new` argument list.
+   *
+   * A trailing `OmittedExpression` prints as nothing, so the list already ends
+   * in the separator comma of its last real argument: `f(a, )`, which is what
+   * the legacy printer emits too and parses as one argument. Adding the break
+   * comma on top produces `f(a, ,)`, which is a syntax error. A trailing spread
+   * is unaffected — a comma after it is legal in an argument list.
+   */
+  private argsTrailingComma(args: readonly Expression[]): TrailingComma {
+    const last: Expression | undefined = args[args.length - 1];
+    return last !== undefined && last.kind === "OmittedExpression"
+      ? "never"
+      : "onBreak";
+  }
+
+  /**
+   * Trailing-comma policy for an array or object literal.
+   *
+   * Two positions make the comma load-bearing rather than cosmetic.
+   *
+   * A trailing elision is a **value**: the comma is the token that materializes
+   * the hole, so `["a", ]` has one element and `["a", ,]` has two. The legacy
+   * printer emits it in every layout, so this printer emits it in every layout
+   * too; leaving it to the break would make the same node mean different things
+   * at different widths.
+   *
+   * A destructuring **assignment target** is the same node kind as an rvalue
+   * literal, but ECMAScript forbids a comma after its `AssignmentRestElement` /
+   * `AssignmentRestProperty`: `[a, ...rest,] = source` is a syntax error, while
+   * the identical rvalue `[a, ...rest,]` is legal. Only the target position
+   * suppresses it, so the rvalue twin keeps its break comma.
+   */
+  private literalTrailingComma(
+    elements: readonly Node[],
+    assignmentTarget: boolean,
+  ): TrailingComma {
+    const last: Node | undefined = elements[elements.length - 1];
+    if (last === undefined) return "onBreak";
+    if (last.kind === "OmittedExpression") return "always";
+    return assignmentTarget &&
+      (last.kind === "SpreadElement" || last.kind === "SpreadAssignment")
+      ? "never"
+      : "onBreak";
   }
 
   private params(params: readonly Node[]): Doc {
@@ -232,7 +287,7 @@ export class TsPrinter {
       args.map((a) => this.expressionForDisallowedComma(a)),
       ")",
       {
-        trailingComma: true,
+        trailingComma: this.argsTrailingComma(args),
       },
     );
   }
@@ -277,6 +332,51 @@ export class TsPrinter {
       : "";
   }
 
+  /**
+   * Lay out a JSX element's or fragment's children.
+   *
+   * A line break between JSX children is not cosmetic. JSX deletes a
+   * whitespace-only text child that contains a newline and trims
+   * whitespace-carrying-a-newline off both edges of every other text child, so
+   * a break introduced only because the group did not fit changes what the
+   * component renders: `<div>Hello there, {name}!</div>` becomes
+   * `Hello there,NAME!`, and the separator in `<div>{a} {b}</div>` disappears
+   * outright.
+   *
+   * Children are therefore laid out across lines only when the break survives
+   * that transformation unchanged: every text child must carry non-whitespace
+   * content, must not begin or end with whitespace, and must not sit next to
+   * another text child, since inserting a newline between two of them would
+   * merge into one text with a space in the middle. Otherwise the children are
+   * emitted verbatim on one line, whatever `printWidth` says — width may choose
+   * a layout, never a meaning.
+   */
+  private jsxChildren(
+    open: Doc,
+    children: readonly Node[],
+    close: Doc,
+  ): Doc {
+    if (!this.jsxChildrenMayBreak(children))
+      return concat([open, concat(children.map((c) => this.emit(c))), close]);
+    return group(
+      concat([
+        open,
+        indent(concat(children.map((c) => concat([softline, this.emit(c)])))),
+        softline,
+        close,
+      ]),
+    );
+  }
+
+  private jsxChildrenMayBreak(children: readonly Node[]): boolean {
+    return children.every(
+      (child, index) =>
+        child.kind !== "JsxText" ||
+        (isBreakSafeJsxText(child.text) &&
+          children[index + 1]?.kind !== "JsxText"),
+    );
+  }
+
   private optType(type: Node | undefined): Doc {
     return type ? concat([": ", this.emit(type)]) : "";
   }
@@ -285,8 +385,16 @@ export class TsPrinter {
     return body ? concat([" ", this.emit(body)]) : ";";
   }
 
-  private emit(node: Node): Doc {
-    const body: Doc = this.emitNode(node);
+  /**
+   * @param assignmentTarget Whether `node` occupies destructuring
+   *   assignment-target position, where an array or object literal is a pattern
+   *   rather than a value. The flag is set by the assignment and `for…in` /
+   *   `for…of` cases, forwarded by every node that is transparent to it (a
+   *   spread, a property's initializer, a parenthesis, an `=` default), and
+   *   dropped by every other node.
+   */
+  private emit(node: Node, assignmentTarget: boolean = false): Doc {
+    const body: Doc = this.emitNode(node, assignmentTarget);
     const leading: SynthesizedComment[] | undefined =
       getSyntheticLeadingComments(node);
     const trailing: SynthesizedComment[] | undefined =
@@ -338,7 +446,7 @@ export class TsPrinter {
     ]);
   }
 
-  private emitNode(node: Node): Doc {
+  private emitNode(node: Node, assignmentTarget: boolean): Doc {
     switch (node.kind) {
       /* names & tokens */
       case "Identifier":
@@ -350,7 +458,7 @@ export class TsPrinter {
       case "Token":
         return node.token;
       case "Decorator":
-        return concat(["@", this.leftSideExpression(node.expression)]);
+        return concat(["@", this.leftSideExpression(node.expression, false)]);
 
       /* literals */
       case "StringLiteral":
@@ -364,18 +472,29 @@ export class TsPrinter {
       case "ArrayLiteralExpression":
         return this.delim(
           "[",
-          node.elements.map((e) => this.expressionForDisallowedComma(e)),
+          node.elements.map((e) =>
+            this.expressionForDisallowedComma(e, assignmentTarget),
+          ),
           "]",
-          { trailingComma: true, forceBreak: node.multiLine === true },
+          {
+            trailingComma: this.literalTrailingComma(
+              node.elements,
+              assignmentTarget,
+            ),
+            forceBreak: node.multiLine === true,
+          },
         );
       case "ObjectLiteralExpression":
         return this.delim(
           "{",
-          node.properties.map((p) => this.emit(p)),
+          node.properties.map((p) => this.emit(p, assignmentTarget)),
           "}",
           {
             space: true,
-            trailingComma: true,
+            trailingComma: this.literalTrailingComma(
+              node.properties,
+              assignmentTarget,
+            ),
             forceBreak: node.multiLine === true,
           },
         );
@@ -383,7 +502,7 @@ export class TsPrinter {
         return concat([
           this.emit(node.name),
           ": ",
-          this.expressionForDisallowedComma(node.initializer),
+          this.expressionForDisallowedComma(node.initializer, assignmentTarget),
         ]);
       case "ShorthandPropertyAssignment":
         return concat([
@@ -400,24 +519,24 @@ export class TsPrinter {
       case "SpreadAssignment":
         return concat([
           "...",
-          this.expressionForDisallowedComma(node.expression),
+          this.expressionForDisallowedComma(node.expression, assignmentTarget),
         ]);
       case "PropertyAccessExpression":
         return concat([
-          this.leftSideExpression(node.expression),
+          this.leftSideExpression(node.expression, false),
           ".",
           this.emit(node.name),
         ]);
       case "ElementAccessExpression":
         return concat([
-          this.leftSideExpression(node.expression),
+          this.leftSideExpression(node.expression, false),
           "[",
           this.expressionForDisallowedComma(node.argumentExpression),
           "]",
         ]);
       case "CallExpression":
         return concat([
-          this.leftSideExpression(node.expression),
+          this.leftSideExpression(node.expression, false),
           this.typeArguments(node.typeArguments),
           this.args(node.arguments),
         ]);
@@ -429,11 +548,19 @@ export class TsPrinter {
           this.args(node.arguments ?? []),
         ]);
       case "ParenthesizedExpression":
-        return concat(["(", this.emit(node.expression), ")"]);
+        return concat(["(", this.emit(node.expression, assignmentTarget), ")"]);
       case "BinaryExpression":
+        // the left side of `=` is a destructuring assignment target, both for a
+        // top-level assignment and for a `[a = init]` default inside one
         return group(
           concat([
-            this.binaryOperand(node.operator, node.left, true),
+            this.binaryOperand(
+              node.operator,
+              node.left,
+              true,
+              undefined,
+              node.operator === SyntaxKind.EqualsToken,
+            ),
             " ",
             node.operator,
             indent(
@@ -501,11 +628,11 @@ export class TsPrinter {
           this.emit(node.type),
         ]);
       case "NonNullExpression":
-        return concat([this.leftSideExpression(node.expression), "!"]);
+        return concat([this.leftSideExpression(node.expression, false), "!"]);
       case "SpreadElement":
         return concat([
           "...",
-          this.expressionForDisallowedComma(node.expression),
+          this.expressionForDisallowedComma(node.expression, assignmentTarget),
         ]);
       case "AwaitExpression":
         return concat(["await ", this.prefixUnaryOperand(node.expression)]);
@@ -543,7 +670,7 @@ export class TsPrinter {
           node.elements.map((e) => this.emit(e)),
           "]",
           {
-            trailingComma: true,
+            trailingComma: "onBreak",
           },
         );
       case "ParenthesizedTypeNode":
@@ -564,8 +691,11 @@ export class TsPrinter {
       case "TypeQueryNode":
         return concat(["typeof ", this.emit(node.exprName)]);
       case "ExpressionWithTypeArguments":
+        // heritage clauses take a LeftHandSideExpression: `class A extends
+        // (X || Y) {}` does not parse without the parentheses, and a bare comma
+        // sequence silently becomes two base classes
         return concat([
-          this.emit(node.expression),
+          this.leftSideExpression(node.expression, false),
           this.typeArguments(node.typeArguments),
         ]);
       case "PropertySignature":
@@ -840,7 +970,7 @@ export class TsPrinter {
           "{",
           node.elements.map((e) => this.emit(e)),
           "}",
-          { space: true, trailingComma: true },
+          { space: true, trailingComma: "onBreak" },
         );
       case "ImportSpecifier":
         return concat([
@@ -868,7 +998,7 @@ export class TsPrinter {
           "{",
           node.elements.map((e) => this.emit(e)),
           "}",
-          { space: true, trailingComma: true },
+          { space: true, trailingComma: "onBreak" },
         );
       case "ExportSpecifier":
         return concat([
@@ -914,7 +1044,7 @@ export class TsPrinter {
       case "ForInStatement":
         return concat([
           "for (",
-          this.emit(node.initializer),
+          this.emit(node.initializer, true),
           " in ",
           this.emit(node.expression),
           ") ",
@@ -925,7 +1055,7 @@ export class TsPrinter {
           "for ",
           node.awaitModifier ? "await " : "",
           "(",
-          this.emit(node.initializer),
+          this.emit(node.initializer, true),
           " of ",
           this.emit(node.expression),
           ") ",
@@ -1195,7 +1325,7 @@ export class TsPrinter {
         ]);
       case "TaggedTemplateExpression":
         return concat([
-          this.leftSideExpression(node.tag),
+          this.leftSideExpression(node.tag, false),
           this.typeArguments(node.typeArguments),
           this.emit(node.template),
         ]);
@@ -1276,13 +1406,13 @@ export class TsPrinter {
         ]);
       case "PropertyAccessChain":
         return concat([
-          this.leftSideExpression(node.expression),
+          this.leftSideExpression(node.expression, true),
           node.questionDotToken ? "?." : ".",
           this.emit(node.name),
         ]);
       case "ElementAccessChain":
         return concat([
-          this.leftSideExpression(node.expression),
+          this.leftSideExpression(node.expression, true),
           node.questionDotToken ? "?." : "",
           "[",
           this.expressionForDisallowedComma(node.argumentExpression),
@@ -1290,27 +1420,20 @@ export class TsPrinter {
         ]);
       case "CallChain":
         return concat([
-          this.leftSideExpression(node.expression),
+          this.leftSideExpression(node.expression, true),
           node.questionDotToken ? "?." : "",
           this.typeArguments(node.typeArguments),
           this.args(node.arguments),
         ]);
       case "NonNullChain":
-        return concat([this.leftSideExpression(node.expression), "!"]);
+        return concat([this.leftSideExpression(node.expression, true), "!"]);
 
       /* jsx */
       case "JsxElement":
-        return group(
-          concat([
-            this.emit(node.openingElement),
-            indent(
-              concat(
-                node.children.map((c) => concat([softline, this.emit(c)])),
-              ),
-            ),
-            softline,
-            this.emit(node.closingElement),
-          ]),
+        return this.jsxChildren(
+          this.emit(node.openingElement),
+          node.children,
+          this.emit(node.closingElement),
         );
       case "JsxSelfClosingElement":
         return concat([
@@ -1331,24 +1454,19 @@ export class TsPrinter {
       case "JsxClosingElement":
         return concat(["</", this.emit(node.tagName), ">"]);
       case "JsxFragment":
-        return group(
-          concat([
-            this.emit(node.openingFragment),
-            indent(
-              concat(
-                node.children.map((c) => concat([softline, this.emit(c)])),
-              ),
-            ),
-            softline,
-            this.emit(node.closingFragment),
-          ]),
+        return this.jsxChildren(
+          this.emit(node.openingFragment),
+          node.children,
+          this.emit(node.closingFragment),
         );
       case "JsxOpeningFragment":
         return "<>";
       case "JsxClosingFragment":
         return "</>";
       case "JsxText":
-        return node.text;
+        // the one node emitted as unquoted source text: its trailing spaces are
+        // rendered content, so they must survive the layout engine's line trim
+        return raw(node.text);
       case "JsxAttribute":
         return node.initializer === undefined
           ? this.emit(node.name)
@@ -1626,16 +1744,63 @@ export class TsPrinter {
       : concat(["(", this.emit(expression), ")"]);
   }
 
-  private expressionForDisallowedComma(expression: Expression): Doc {
+  private expressionForDisallowedComma(
+    expression: Expression,
+    assignmentTarget: boolean = false,
+  ): Doc {
     return this.expressionPrecedence(expression) > ExpressionPrecedence.Comma
-      ? this.emit(expression)
+      ? this.emit(expression, assignmentTarget)
       : this.parenthesizedExpression(expression);
   }
 
-  private leftSideExpression(expression: Expression): Doc {
-    return this.isLeftHandSideExpression(expression)
-      ? this.emit(expression)
-      : this.parenthesizedExpression(expression);
+  /**
+   * Emit an operand the grammar requires to be a `LeftHandSideExpression`,
+   * mirroring the legacy parenthesizer's
+   * `parenthesizeLeftSideOfAccess(expression, optionalChain)`.
+   *
+   * `optionalChain` is the **consuming** node's own chain-ness, not the
+   * operand's. An optional chain may be emitted bare only when the node
+   * consuming it continues the same chain: `a?.b?.()` is one chain, while
+   * `(a?.b)()` is a plain call on the chain's value. Emitting the second as
+   * `a?.b()` re-parses as the first, which stops throwing on a nullish head,
+   * and in `new`, tagged-template and decorator position it does not compile at
+   * all.
+   */
+  private leftSideExpression(
+    expression: Expression,
+    optionalChain: boolean,
+  ): Doc {
+    return this.leftSideNeedsParentheses(expression, optionalChain)
+      ? this.parenthesizedExpression(expression)
+      : this.emit(expression);
+  }
+
+  /**
+   * Whether {@link leftSideExpression} wraps this operand.
+   *
+   * The legacy rule also parenthesizes an argument-less `new` here, because it
+   * prints `new X` bare and `new X.y` would re-parse with `y` on the target.
+   * This printer always emits the argument list, so `new X().y` already says
+   * what the tree says and needs no wrapper.
+   */
+  private leftSideNeedsParentheses(
+    expression: Expression,
+    optionalChain: boolean,
+  ): boolean {
+    if (!this.isLeftHandSideExpression(expression)) return true;
+    return !optionalChain && this.isOptionalChain(expression);
+  }
+
+  private isOptionalChain(expression: Expression): boolean {
+    switch (expression.kind) {
+      case "CallChain":
+      case "ElementAccessChain":
+      case "NonNullChain":
+      case "PropertyAccessChain":
+        return true;
+      default:
+        return false;
+    }
   }
 
   private newExpressionTarget(expression: Expression): Doc {
@@ -1648,21 +1813,76 @@ export class TsPrinter {
    * Whether a `new` target must be parenthesized to keep its call arguments
    * from re-binding to the `new` — mirroring the legacy printer's
    * `parenthesizeExpressionOfNew`. A `new` target is grammatically a
-   * `MemberExpression`, so a call anywhere on the target's left spine (not just
-   * a direct one: `new (f().bar)()`, `new (a.b().c)()`) would otherwise
-   * re-parse with the call's arguments consumed by the `new` — a different
-   * program. Argument-less `new` on the spine is kept parenthesized for
-   * continuity with the direct case, though this printer always prints an
-   * argument list, which already disambiguates it.
+   * `MemberExpression`, so a call anywhere on the target's printed left spine
+   * (not just a direct one: `new (f().bar)()`, `new (a.b().c)()`) would
+   * otherwise re-parse with the call's arguments consumed by the `new` — a
+   * different program. Argument-less `new` on the spine is kept parenthesized
+   * for continuity with the direct case, though this printer always prints an
+   * argument list, which already disambiguates it. Anything else falls back to
+   * the shared left-side rule, which is what parenthesizes an optional-chain
+   * target (`new (a?.b)()`, TS1209 without it).
    */
   private newExpressionTargetNeedsParentheses(expression: Expression): boolean {
-    if (!this.isLeftHandSideExpression(expression)) return true;
-    const leftmost: Expression = this.leftmostExpression(expression, true);
-    return (
-      leftmost.kind === "CallExpression" ||
-      leftmost.kind === "CallChain" ||
-      (leftmost.kind === "NewExpression" && leftmost.arguments === undefined)
-    );
+    const leftmost: Expression | undefined =
+      this.leftmostPrintedExpression(expression);
+    if (leftmost !== undefined) {
+      if (leftmost.kind === "CallExpression" || leftmost.kind === "CallChain")
+        return true;
+      if (leftmost.kind === "NewExpression")
+        return leftmost.arguments === undefined;
+    }
+    return this.leftSideNeedsParentheses(expression, false);
+  }
+
+  /**
+   * The node whose own text opens `expression`'s printed form, or `undefined`
+   * when that text opens with a printer-inserted `(`.
+   *
+   * The legacy factory parenthesizes each operand as it builds the node, so its
+   * `getLeftmostExpression` walk halts on the resulting
+   * `ParenthesizedExpression`. This printer decides the same parentheses at
+   * emit time instead, so the walk has to ask {@link leftSideNeedsParentheses}
+   * the same question directly; otherwise `new` re-wraps a target whose call is
+   * already behind parentheses, and `new (f?.()).bar()` comes out as
+   * `new ((f?.()).bar)()`. Calls halt the walk, matching the legacy
+   * `stopAtCallExpressions` mode this predicate is the only user of.
+   */
+  private leftmostPrintedExpression(
+    expression: Expression,
+  ): Expression | undefined {
+    switch (expression.kind) {
+      case "CallExpression":
+      case "CallChain":
+        return expression;
+      case "ElementAccessExpression":
+      case "NonNullExpression":
+      case "PropertyAccessExpression":
+        return this.leftmostPrintedLeftSide(expression.expression, false);
+      case "ElementAccessChain":
+      case "NonNullChain":
+      case "PropertyAccessChain":
+        return this.leftmostPrintedLeftSide(expression.expression, true);
+      case "TaggedTemplateExpression":
+        return this.leftmostPrintedLeftSide(expression.tag, false);
+      case "AsExpression":
+      case "SatisfiesExpression":
+        return this.leftmostPrintedExpression(expression.expression);
+      case "BinaryExpression":
+        return this.leftmostPrintedExpression(expression.left);
+      case "ConditionalExpression":
+        return this.leftmostPrintedExpression(expression.condition);
+      default:
+        return expression;
+    }
+  }
+
+  private leftmostPrintedLeftSide(
+    operand: Expression,
+    optionalChain: boolean,
+  ): Expression | undefined {
+    return this.leftSideNeedsParentheses(operand, optionalChain)
+      ? undefined
+      : this.leftmostPrintedExpression(operand);
   }
 
   private prefixUnaryOperand(operand: Expression, operator?: SyntaxKind): Doc {
@@ -1728,6 +1948,7 @@ export class TsPrinter {
     operand: Expression,
     isLeftSide: boolean,
     leftOperand?: Expression,
+    assignmentTarget: boolean = false,
   ): Doc {
     return this.binaryOperandNeedsParentheses(
       operator,
@@ -1736,7 +1957,7 @@ export class TsPrinter {
       leftOperand,
     )
       ? this.parenthesizedExpression(operand)
-      : this.emit(operand);
+      : this.emit(operand, assignmentTarget);
   }
 
   private binaryOperandNeedsParentheses(
@@ -2014,20 +2235,18 @@ export class TsPrinter {
 
   /**
    * Walk to the expression's leftmost node — the one that starts its printed
-   * text. With `stopAtCall`, calls terminate the walk instead of being walked
-   * through, matching the legacy `getLeftmostExpression`'s
-   * `stopAtCallExpressions` mode used by the `new`-target parenthesizer.
+   * text — matching the legacy `getLeftmostExpression`.
+   *
+   * Used by the statement, concise-body and export-default predicates, which
+   * ask only whether the text opens with a `function`, `class` or `{` token.
+   * The `new`-target predicate needs the printed left edge instead and uses
+   * {@link leftmostPrintedExpression}.
    */
-  private leftmostExpression(
-    expression: Expression,
-    stopAtCall: boolean = false,
-  ): Expression {
+  private leftmostExpression(expression: Expression): Expression {
     switch (expression.kind) {
+      case "AsExpression":
       case "CallExpression":
       case "CallChain":
-        if (stopAtCall) return expression;
-        return this.leftmostExpression(expression.expression, stopAtCall);
-      case "AsExpression":
       case "ElementAccessExpression":
       case "ElementAccessChain":
       case "NonNullExpression":
@@ -2035,13 +2254,13 @@ export class TsPrinter {
       case "PropertyAccessExpression":
       case "PropertyAccessChain":
       case "SatisfiesExpression":
-        return this.leftmostExpression(expression.expression, stopAtCall);
+        return this.leftmostExpression(expression.expression);
       case "BinaryExpression":
-        return this.leftmostExpression(expression.left, stopAtCall);
+        return this.leftmostExpression(expression.left);
       case "ConditionalExpression":
-        return this.leftmostExpression(expression.condition, stopAtCall);
+        return this.leftmostExpression(expression.condition);
       case "TaggedTemplateExpression":
-        return this.leftmostExpression(expression.tag, stopAtCall);
+        return this.leftmostExpression(expression.tag);
       default:
         return expression;
     }
@@ -2224,6 +2443,19 @@ const escapeTemplateText = (text: string): string =>
     .replace(/\r\n/g, "\\r\\n")
     .replace(/\r/g, "\\r");
 
+/**
+ * Whether a JSX text child means the same thing with a line break and
+ * indentation around it.
+ *
+ * JSX drops a whitespace-only child that contains a newline and trims an edge
+ * whose whitespace contains one, so only a child with non-whitespace content
+ * and no edge whitespace survives being moved onto its own line. Newlines
+ * *inside* the text are unaffected, because JSX collapses each interior line
+ * break to a single space in either layout.
+ */
+const isBreakSafeJsxText = (text: string): boolean =>
+  text.length !== 0 && !/^\s/.test(text) && !/\s$/.test(text);
+
 const escapeString = (text: string, singleQuote?: boolean): string => {
   const escaped: string = text
     .replace(/\\/g, "\\\\")
@@ -2261,6 +2493,15 @@ const ExpressionPrecedence = {
 
 type ExpressionPrecedence =
   (typeof ExpressionPrecedence)[keyof typeof ExpressionPrecedence];
+
+/**
+ * Whether a delimited list may end with a comma, and in which layout.
+ *
+ * `"onBreak"` is the cosmetic default: the comma appears only when the group
+ * breaks. `"always"` and `"never"` are for the lists where the comma is part of
+ * the program rather than its layout.
+ */
+type TrailingComma = "never" | "onBreak" | "always";
 
 const Associativity = {
   Left: "left",

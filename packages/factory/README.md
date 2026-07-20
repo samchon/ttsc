@@ -89,6 +89,8 @@ factory.createCallExpression(id("foo"), undefined, [a, b]); // foo(a, b)
 // )
 ```
 
+`printWidth` picks a layout, never a meaning. The break-time trailing comma is dropped where it would change the program (after the rest element of a destructuring assignment target, or after an argument-list hole), and it is written in both layouts where it is a value (the hole in `["a", "b", ,]`). JSX children stay on one line whenever a break would delete a whitespace-only child or trim the significant edge space off a text child, so the same tree renders the same text at every width.
+
 ### Comments
 
 Attach leading / trailing comments with the legacy `ts.addSyntheticLeadingComment` family. The printer renders them in place — multi-line bodies re-indent with their node, so JSDoc on a nested member stays aligned.

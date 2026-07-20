@@ -12,6 +12,7 @@
  */
 export type Doc =
   | string
+  | { type: "raw"; text: string }
   | { type: "concat"; parts: Doc[] }
   | { type: "line" }
   | { type: "softline" }
@@ -22,6 +23,16 @@ export type Doc =
 
 /** Concatenate documents. */
 export const concat = (parts: Doc[]): Doc => ({ type: "concat", parts });
+/**
+ * Literal text whose trailing whitespace is content, not layout.
+ *
+ * {@link printDocToString} strips spaces and tabs from the end of a line before
+ * writing a newline, which is right for generated code and wrong for the one
+ * node emitted as unquoted source text, `JsxText`: a trimmed trailing space
+ * there deletes a JSX separator and changes what the component renders. Text
+ * emitted through this node is never trimmed.
+ */
+export const raw = (text: string): Doc => ({ type: "raw", text });
 /** A group: printed flat when it fits, broken otherwise. */
 export const group = (doc: Doc, shouldBreak: boolean = false): Doc => ({
   type: "group",
@@ -100,6 +111,9 @@ const fits = (next: Cmd, rest: readonly Cmd[], remaining: number): boolean => {
       continue;
     }
     switch (doc.type) {
+      case "raw":
+        width -= doc.text.length;
+        break;
       case "concat":
         for (let i = doc.parts.length - 1; i >= 0; i--)
           cmds.push([ind, mode, doc.parts[i]!]);
@@ -143,21 +157,30 @@ export const printDocToString = (
   const { printWidth, newLine, indent: tab } = options;
   const out: string[] = [];
   let pos = 0;
+  // whether the tail of `out` is raw text, whose trailing whitespace is content
+  let rawTail = false;
   const cmds: Cmd[] = [[0, MODE_BREAK, doc]];
   const newlineTo = (ind: number): void => {
-    if (out.length)
+    if (out.length && !rawTail)
       out[out.length - 1] = out[out.length - 1]!.replace(/[ \t]+$/, "");
     out.push(newLine + tab.repeat(ind));
     pos = tab.length * ind;
+    rawTail = false;
   };
   while (cmds.length) {
     const [ind, mode, d] = cmds.pop()!;
     if (typeof d === "string") {
       out.push(d);
       pos += d.length;
+      rawTail = false;
       continue;
     }
     switch (d.type) {
+      case "raw":
+        out.push(d.text);
+        pos += d.text.length;
+        rawTail = true;
+        break;
       case "concat":
         for (let i = d.parts.length - 1; i >= 0; i--)
           cmds.push([ind, mode, d.parts[i]!]);
