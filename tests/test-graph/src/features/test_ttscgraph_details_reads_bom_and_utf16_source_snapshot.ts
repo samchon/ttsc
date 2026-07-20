@@ -120,6 +120,7 @@ export const test_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
       }
     } finally {
       client.endStdin();
-      await client.waitForExit();
+      const code = await client.waitForExit();
+      assert.equal(code, 0, client.stderrText());
     }
   };
