@@ -51,6 +51,7 @@ export const test_compiler_client_fences_connection_generations = async () => {
   };
   const gates: IGate[] = [];
   const records = new Map<object, IRecord>();
+  const throwOnClose = new Set<number>();
   let nextId = 0;
   const recordOf = (connector: object): IRecord => {
     let record = records.get(connector);
@@ -71,7 +72,9 @@ export const test_compiler_client_fences_connection_generations = async () => {
     return { connectorId: recordOf(this).id };
   };
   prototype.close = async function (): Promise<void> {
-    recordOf(this).closeCount++;
+    const record = recordOf(this);
+    record.closeCount++;
+    if (throwOnClose.has(record.id)) throw new Error("close failed");
   };
   const waitForGates = async (count: number): Promise<void> => {
     for (let attempt = 0; attempt < 20 && gates.length < count; attempt++)
@@ -124,14 +127,32 @@ export const test_compiler_client_fences_connection_generations = async () => {
     await connection;
     await Promise.all([concurrentClient.reset(), concurrentClient.reset()]);
 
+    // A failed current generation clears the cache and closes its connector, so
+    // retry remains possible without orphaning the failed Worker. reset() also
+    // continues through a close failure.
+    const retryClient = createCompilerClient({ workerUrl: "worker.js" });
+    await retryClient.reset();
+    const failureStart = gates.length;
+    const failed = retryClient.connect();
+    await waitForGates(failureStart + 1);
+    gates[failureStart]!.reject(new Error("normal boot failure"));
+    await assert.rejects(failed, /normal boot failure/);
+    const retried = retryClient.connect();
+    await waitForGates(failureStart + 2);
+    gates[failureStart + 1]!.resolve();
+    const retryDriver = await retried;
+    throwOnClose.add(retryDriver.connectorId);
+    await retryClient.reset();
+
     const counts = [...records.values()].map((record) => record.closeCount);
     assert.deepEqual(
       counts,
-      [1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1],
       "each allocated connector must remain reachable until one close",
     );
     assert.deepEqual(bDriver, { connectorId: 2 });
     assert.deepEqual(secondBDriver, { connectorId: 4 });
+    assert.deepEqual(retryDriver, { connectorId: 7 });
   } finally {
     prototype.close = originals.close;
     prototype.connect = originals.connect;

@@ -19,6 +19,7 @@ export function createCompilerClient(options: ICreateCompilerClientOptions): {
 } {
   type Connection = {
     connector: WorkerConnector<null, null, null>;
+    close(): Promise<void>;
     promise: Promise<ICompilerService>;
   };
   let current: Connection | null = null;
@@ -30,14 +31,22 @@ export function createCompilerClient(options: ICreateCompilerClientOptions): {
         null,
         null,
       );
+      let closePromise: Promise<void> | null = null;
       const connection = {} as Connection;
       current = connection;
       connection.connector = connector;
+      connection.close = () =>
+        (closePromise ??= Promise.resolve()
+          .then(() => connector.close())
+          .catch(() => {}));
       connection.promise = Promise.resolve()
         .then(() => connector.connect(options.workerUrl))
         .then(() => connector.getDriver() as unknown as ICompilerService)
-        .catch((error: unknown) => {
-          if (current === connection) current = null;
+        .catch(async (error: unknown) => {
+          if (current === connection) {
+            current = null;
+            await connection.close();
+          }
           throw error;
         });
       return connection.promise;
@@ -51,7 +60,7 @@ export function createCompilerClient(options: ICreateCompilerClientOptions): {
       } catch {
         // A rejected connection never became usable.
       }
-      await invalidated.connector.close().catch(() => {});
+      await invalidated.close();
     },
   };
 }
