@@ -85,16 +85,28 @@ func ModuleResolutionPredecessors(
   context ModuleResolutionContext,
 ) []string {
   candidates := ModuleResolutionCandidates(configs, directory, cwd, specifier, context)
-  output := make([]string, 0, len(candidates))
-  for _, candidate := range candidates {
+  for index, candidate := range candidates {
     if sameCandidatePath(candidate, resolvedFileName, caseSensitive) {
-      return compactStringsInOrder(output)
+      return compactStringsInOrder(candidates[:index])
     }
-    output = append(output, candidate)
+  }
+  // The winner is not spelled the way this search spells it. The compiler
+  // resolves a `node_modules` package through the real path, so its selected
+  // target can arrive symlink-resolved — and on Windows expanded out of an 8.3
+  // short name such as `RUNNER~1` — while every candidate carries the importing
+  // file's spelling. Ask the filesystem which candidate is that file instead of
+  // discarding the whole search.
+  //
+  // This second pass runs only when the first found nothing, so a program whose
+  // spellings already agree pays nothing for it.
+  for index, candidate := range candidates {
+    if sameExistingPath(candidate, resolvedFileName) {
+      return compactStringsInOrder(candidates[:index])
+    }
   }
   // Never widen freshness to candidates whose precedence relative to the
-  // compiler's selected target we could not prove. A symlink-rewritten or
-  // otherwise non-enumerated winner remains covered by its realized graph edge.
+  // compiler's selected target we could not prove. A winner that is genuinely
+  // outside this search remains covered by its realized graph edge.
   return nil
 }
 
@@ -172,29 +184,15 @@ func sameCandidatePath(left, right string, caseSensitive bool) bool {
   left = filepath.Clean(left)
   right = filepath.Clean(right)
   if caseSensitive {
-    if left == right {
-      return true
-    }
-  } else if strings.EqualFold(left, right) {
-    return true
+    return left == right
   }
-  return sameExistingPath(left, right)
+  return strings.EqualFold(left, right)
 }
 
 // sameExistingPath reports whether two spellings name the same existing
-// filesystem object.
-//
-// A spelling comparison is not enough to locate the compiler's selected target
-// among the enumerated candidates. The compiler resolves a `node_modules`
-// package through the real path, so its `ResolvedFileName` can arrive
-// symlink-resolved — and on Windows expanded out of an 8.3 short name such as
-// `RUNNER~1` — while every candidate carries the importing file's spelling.
-// When the winner cannot be found, ModuleResolutionPredecessors discards the
-// whole predecessor list, and a resident session then watches nothing for that
-// import: a superseding candidate can appear and no consumer notices.
-//
-// Only a candidate that exists can be the winner, so the cheap `os.Stat` on
-// left fails first for the speculative majority that does not exist yet.
+// filesystem object. A path that does not exist answers false, so a
+// speculative candidate costs one failing `os.Stat` and never reaches the
+// second call.
 func sameExistingPath(left, right string) bool {
   leftInfo, err := os.Stat(left)
   if err != nil {
@@ -214,9 +212,20 @@ func sameExistingPath(left, right string) bool {
 // case-insensitive or short-name-bearing filesystem. A missed stop walks every
 // remaining ancestor up to the volume root and watches probes the compiler
 // would never consult.
+//
+// Two spellings of one directory still share a final component up to case
+// unless that component is itself shortened, so the mismatching levels — every
+// level below the stop — are rejected without touching the filesystem. A stop
+// missed by the remaining heuristic costs breadth, never a wrong answer: the
+// extra ancestors are appended after the correct ones, so a predecessor list
+// cut at the winner is unaffected.
 func reachedWalkStop(current, stop string) bool {
-  if current == filepath.Clean(stop) {
+  stop = filepath.Clean(stop)
+  if current == stop {
     return true
+  }
+  if !strings.EqualFold(filepath.Base(current), filepath.Base(stop)) {
+    return false
   }
   return sameExistingPath(current, stop)
 }
