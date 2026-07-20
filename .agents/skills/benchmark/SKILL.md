@@ -19,6 +19,10 @@ Read both only when changing shared fixture infrastructure or a surface that aff
 - Preserve the workload defined by the selected procedure. A faster result obtained by compiling, linting, formatting, indexing, or reading less input is not an optimization.
 - Treat a surprising result as evidence that the change is not yet understood. Inspect the raw report or trace before accepting, explaining away, or patching around it.
 
+## Benchmark Improvement Campaigns
+
+When benchmark evidence leads to multiple published issues and the user authorizes repeated issue-to-pull-request implementation, use the issue-campaign skill with this skill. This skill owns workload integrity, measurement, fixture handling, and result publication. The issue-campaign skill owns issue publication, regrouping every published and unclaimed dependency-ready node into cohesive batches, active claim stability, implementation, and Post-Campaign Cleanup.
+
 ## Temporary Asset Cleanup
 
 Each benchmark run must own an exact temporary root. Place run-only worktrees, cloned repositories, indexes, Go build caches, and Go temporary directories below it. For Go commands, set `GOCACHE` and `GOTMPDIR` to run-specific directories rather than the user's shared Go cache or system temp directory.
