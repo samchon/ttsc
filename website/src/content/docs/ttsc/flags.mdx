@@ -21,8 +21,8 @@ one layer and silently disappears at the next boundary.
 | --- | --- | --- | --- | --- | --- | --- |
 | `--help` | `-h` | boolean | ttsc, ttsx, build, check, fix, format | launcher | terminal, consumed-not-forwarded | Show command help and exit. |
 | `--version` | `-v` | boolean | ttsc, ttsx | launcher | terminal, consumed-not-forwarded | Print the launcher version and exit. |
-| `--tsconfig` | `-p`, `--project` | value | ttsc, ttsx, build, check, fix, format, prepare, clean | launcher, host, lint | - | Resolve project settings from this tsconfig. |
-| `--cwd` | - | value | ttsc, ttsx, build, check, fix, format, prepare, clean | launcher, host, lint | - | Resolve project-relative paths from this directory. |
+| `--tsconfig` | `-p`, `--project` | value | ttsc, ttsx, build, cache, check, fix, format, prepare, clean | launcher, host, lint | - | Resolve project settings from this tsconfig. |
+| `--cwd` | - | value | ttsc, ttsx, build, cache, check, fix, format, prepare, clean | launcher, host, lint | - | Resolve project-relative paths from this directory. |
 | `--emit` | - | boolean | ttsc, build, check | launcher, runBuild, host, lint | - | Force emitted files during build. |
 | `--noEmit` | - | boolean | ttsc, build, check | launcher, runBuild, host, lint | shadow | Force analysis-only build with no file writes. |
 | `--outDir` | - | value | ttsc, build, check | launcher, host, lint | - | Override compilerOptions.outDir for this invocation. |
@@ -31,7 +31,8 @@ one layer and silently disappears at the next boundary.
 | `--quiet` | - | boolean | ttsc, build, check, fix, format | launcher, host, lint | - | Keep build output quiet (default). |
 | `--verbose` | - | boolean | ttsc, build, check, fix, format | launcher, host, lint | - | Print the build summary and emitted files. |
 | `--binary` | - | value | ttsc, ttsx, build, check, fix, format, prepare, clean | launcher | consumed-not-forwarded | Use an explicit tsgo binary. |
-| `--cache-dir` | - | value | ttsc, ttsx, build, check, fix, format, prepare, clean | launcher | consumed-not-forwarded | Override the runner and source-plugin cache root. |
+| `--cache-dir` | - | value | ttsc, ttsx, build, cache, check, fix, format, prepare, clean | launcher | consumed-not-forwarded | Override the runner and source-plugin cache root. |
+| `--json` | - | boolean | cache | launcher | consumed-not-forwarded | Print cache paths as JSON. |
 | `--singleThreaded` | - | boolean | ttsc, ttsx, build, check, fix, format | launcher, runBuild, tsgo, host, lint | capability: threadingArgs | Run TypeScript-Go single-threaded (one checker). |
 | `--checkers` | - | value | ttsc, ttsx, build, check, fix, format | launcher, runBuild, tsgo, host, lint | capability: threadingArgs | Type-checker pool size (default: TypeScript-Go's). |
 | `--require` | `-r` | value | ttsx | launcher | repeatable, consumed-not-forwarded | Preload a module before the entrypoint (ttsx; repeatable). |
