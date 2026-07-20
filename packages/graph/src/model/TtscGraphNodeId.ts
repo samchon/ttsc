@@ -19,7 +19,7 @@ export function parseTtscGraphNodeId(
   const tail = id.slice(hash + 1);
   if (tail === "") return undefined;
   const colon = tail.lastIndexOf(":");
-  if (colon === tail.length - 1) return undefined;
+  if (colon === 0 || colon === tail.length - 1) return undefined;
   return {
     path: unescapeGraphNodeIdPart(id.slice(0, hash)),
     name: unescapeGraphNodeIdPart(colon < 0 ? tail : tail.slice(0, colon)),
