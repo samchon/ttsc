@@ -69,8 +69,9 @@ import (
 
 const internalPrefix = "github.com/microsoft/typescript-go/internal/"
 
-// shimDirs maps each shim directory to its upstream internal package suffix.
-// Kept explicit (rather than globbed) so a new shim dir is a conscious add.
+// shimDirs maps each full re-export shim directory to its upstream internal
+// package suffix. Kept explicit (rather than globbed) so a new shim dir is a
+// conscious add.
 var shimDirs = map[string]string{
   "ast":              "ast",
   "bundled":          "bundled",
@@ -88,6 +89,13 @@ var shimDirs = map[string]string{
   "vfs":              "vfs",
   "vfs/cachedvfs":    "vfs/cachedvfs",
   "vfs/osvfs":        "vfs/osvfs",
+}
+
+// linknameShimDirs maps deliberately partial go:linkname bridges. They are
+// scanned for their actual references and are covered by the directory gate,
+// but do not claim to re-export every public symbol in the upstream package.
+var linknameShimDirs = map[string]string{
+  "astnav": "astnav",
 }
 
 // auditOnlyInternal lists upstream internal packages that shim sources
@@ -202,12 +210,12 @@ var linknameRe = regexp.MustCompile(`(?m)^//go:linkname\s+\S+\s+` +
 func scanShimReachable(shimRoot string) (reachable, error) {
   r := reachable{}
   fset := token.NewFileSet()
-  for dir := range shimDirs {
+  scanDir := func(dir string) error {
     paths, _ := filepath.Glob(filepath.Join(shimRoot, dir, "*.go"))
     for _, p := range paths {
       src, err := os.ReadFile(p)
       if err != nil {
-        return nil, err
+        return err
       }
       // linkname directives live in comments, so scan raw text too.
       for _, m := range linknameRe.FindAllStringSubmatch(string(src), -1) {
@@ -215,7 +223,7 @@ func scanShimReachable(shimRoot string) (reachable, error) {
       }
       f, err := parser.ParseFile(fset, p, src, parser.SkipObjectResolution)
       if err != nil {
-        return nil, fmt.Errorf("%s: %w", p, err)
+        return fmt.Errorf("%s: %w", p, err)
       }
       // alias map: local import name -> internal pkg suffix
       alias := map[string]string{}
@@ -245,6 +253,17 @@ func scanShimReachable(shimRoot string) (reachable, error) {
         }
         return true
       })
+    }
+    return nil
+  }
+  for dir := range shimDirs {
+    if err := scanDir(dir); err != nil {
+      return nil, err
+    }
+  }
+  for dir := range linknameShimDirs {
+    if err := scanDir(dir); err != nil {
+      return nil, err
     }
   }
   return r, nil
@@ -489,10 +508,11 @@ func hasShimSource(dir string) bool {
 }
 
 // checkShimDirCoverage fails if any sub-directory of the shim root (at ANY
-// depth) that contains non-test Go source is not registered in shimDirs. This
-// keeps the audit's package list honest: a newly-added shim — including a
-// NESTED package like vfs/osvfs that a non-recursive, immediate-children scan
-// would miss — cannot escape the gate by omission.
+// depth) that contains non-test Go source is not registered as either a full
+// re-export or an intentionally partial go:linkname bridge. This keeps the
+// audit's package list honest: a newly-added shim — including a NESTED package
+// like vfs/osvfs that a non-recursive, immediate-children scan would miss —
+// cannot escape the gate by omission.
 func checkShimDirCoverage(shimRoot string) error {
   var unmapped []string
   var walk func(dir, rel string) error
@@ -509,7 +529,7 @@ func checkShimDirCoverage(shimRoot string) error {
       if rel != "" {
         childRel = rel + "/" + e.Name()
       }
-      if _, ok := shimDirs[childRel]; !ok && hasShimSource(filepath.Join(dir, e.Name())) {
+      if !isRegisteredShimDir(childRel) && hasShimSource(filepath.Join(dir, e.Name())) {
         unmapped = append(unmapped, childRel)
       }
       if err := walk(filepath.Join(dir, e.Name()), childRel); err != nil {
@@ -523,10 +543,18 @@ func checkShimDirCoverage(shimRoot string) error {
   }
   if len(unmapped) > 0 {
     sort.Strings(unmapped)
-    return fmt.Errorf("shim dir(s) not registered in shimDirs (would escape the audit): %s\n"+
-      "  add them to shimDirs in tools/shim_audit/main.go", strings.Join(unmapped, ", "))
+    return fmt.Errorf("shim dir(s) not registered for audit coverage: %s\n"+
+      "  add a full re-export to shimDirs or a deliberate bridge to linknameShimDirs in tools/shim_audit/main.go", strings.Join(unmapped, ", "))
   }
   return nil
+}
+
+func isRegisteredShimDir(dir string) bool {
+  if _, ok := shimDirs[dir]; ok {
+    return true
+  }
+  _, ok := linknameShimDirs[dir]
+  return ok
 }
 
 // loadInner loads the upstream internal packages via go/types, anchored in a
@@ -784,8 +812,8 @@ func main() {
   shimRoot := flag.String("shim", "./shim", "shim root directory")
   flag.Parse()
 
-  // A shim directory that is not registered in shimDirs would silently escape
-  // every check — close that hole before doing anything else.
+  // A shim directory that is not registered for audit coverage would silently
+  // escape every check — close that hole before doing anything else.
   if err := checkShimDirCoverage(*shimRoot); err != nil {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(2)
