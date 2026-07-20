@@ -740,7 +740,9 @@ A trigger applies when the cursor sits inside `Scope` and the line prefix contai
 
 Slice order is the ranking. The corpus outlives the process, so there is no other channel; return what should be offered first, first.
 
-ttscserver fetches the corpus once, in the background, and answers from memory. It merges its trigger characters into whatever tsgo advertised rather than replacing them, and appends its items to tsgo's completion response rather than answering in its place. Until the fetch lands the corpus is empty and the editor sees exactly what it sees without the plugin.
+ttscserver fetches the corpus in the background and answers from memory. It merges its trigger characters into whatever tsgo advertised rather than replacing them, and appends its items to tsgo's completion response rather than answering in its place. Until the first fetch lands the corpus is empty and the editor sees exactly what it sees without the plugin.
+
+The corpus is refetched after a saved document, a configuration change, or a watched-file change, so a rule enabled mid-session or an index rebuilt from a saved file reaches the editor without restarting the server. The previous corpus keeps answering completion until the new one is stored. Trigger characters are the exception: they were merged into the `initialize` response the editor already holds, so a trigger character published for the first time by a later fetch needs a restart before the editor opens completion on it — its items are still reachable through explicit completion, and the server logs the character to the editor's output channel.
 
 Only `ProjectRule` may publish hints. File rules run in a parallel walk, so their hints would rank nondeterministically, and a corpus keyed to one file cannot answer a keystroke in another.
 

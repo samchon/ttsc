@@ -86,6 +86,24 @@ type CompletionHintSource interface {
   CompletionHints() []LSPCompletionHint
 }
 
+// CompletionHintRefresher is the optional extension a CompletionHintSource
+// implements when its corpus can change during a session. The proxy calls it
+// after a saved document, a configuration change, or a watched-file change, and
+// expects the call to return immediately: the source owns the scheduling and the
+// staleness rules, and completion keeps reading the previous corpus until the
+// new one is stored.
+type CompletionHintRefresher interface {
+  RefreshCompletionHints()
+}
+
+// CompletionHintObserverSource is the optional extension a CompletionHintSource
+// implements to tell the proxy that a refresh finished. The proxy uses it to
+// detect a completion trigger character that appeared after the initialize
+// response was already sent.
+type CompletionHintObserverSource interface {
+  SetCompletionHintsObserver(observer func())
+}
+
 // NullPluginSource is the driver-level alias for lspserver.NullPluginSource.
 type NullPluginSource = lspserver.NullPluginSource
 

@@ -59,7 +59,9 @@ With the cursor after `@par`, VS Code offers `param` from the same tag set that 
 
 Use the completion inside a TypeScript `/** ... */` JSDoc block. Decorators, line comments, Markdown documents, and text inside string, template, or regular expression literals are outside the supported scope. A literal that contains the characters `/**`, such as `const example = "/** @par"`, is literal text and stays outside it too.
 
-Completion uses the live editor buffer, so it remains available while the file is dirty. The rule's completion corpus is discovered in the background when the language server starts. If you have just enabled the rule or changed inputs that shape a contributor's project index, run **ttsc: Restart language server** to force a fresh discovery.
+Completion uses the live editor buffer, so it remains available while the file is dirty. The rule's completion corpus is discovered in the background when the language server starts, and rediscovered after you save a file, change the editor configuration, or change a watched file. Enabling a rule or changing a contributor's indexed inputs therefore reaches the editor on the next save, without a restart. Discovery runs in the background, so the new items appear a moment after the save rather than during it.
+
+One case still needs **ttsc: Restart language server**: a rule that publishes completion after a character the session never advertised. The server merges each corpus trigger character into TypeScript-Go's list while answering `initialize`, and a corpus discovered later cannot change a response the editor already has. The items themselves still work — press Ctrl+Space, or type a character the session already advertised, such as `@` inside a JSDoc block. When this happens the server writes a note naming the character to **View → Output → ttsc**.
 
 ## See the same rule reject a typo
 
@@ -113,7 +115,7 @@ The completion above is published by one rule. Most rules assist through diagnos
 1. Confirm the workspace has a `tsconfig.json` and resolves `ttsc`: `npx ttsc --version`.
 2. Confirm `jsdoc/check-tag-names` is enabled in the global rules map.
 3. Put the cursor inside a `/** ... */` block in a TypeScript file, then press Ctrl+Space after `@`.
-4. Run **ttsc: Restart language server** after changing the rule config or a contributor's indexed project inputs.
+4. Save the file after changing the rule config or a contributor's indexed project inputs; the corpus is rediscovered in the background on save. Restart the language server only for a completion trigger character the session never advertised, which the **ttsc** output channel names when it happens.
 5. Open **View → Output → ttsc** for the server log. Set `ttsc.trace.server` to `"verbose"` when the normal log is not enough.
 
 For general extension startup and project-selection failures, continue with the [VS Code troubleshooting checklist](/docs/faq#vs-code-doesnt-show-typescript-go-or-plugin-diagnostics-whats-wrong).

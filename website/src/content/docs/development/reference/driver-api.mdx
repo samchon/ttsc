@@ -184,6 +184,10 @@ These symbols are for embedders of `ttscserver`, **not for plugin authors**. Ski
 
 `CompletionHintSource.CompletionHints()` returns `[]driver.LSPCompletionHint`. Each group names a JSDoc-scoped literal in `After` and an ordered list of `LSPCompletionItem` values. The proxy matches the corpus against the live document, appends the matching items to TypeScript-Go's completion response, and keeps TypeScript-Go's own items. The items are fully resolved plain-text insertions with optional labels and short details; they do not use `completionItem/resolve`.
 
+Implement `driver.CompletionHintRefresher` when the corpus can change during a session. The proxy calls `RefreshCompletionHints()` after `textDocument/didSave`, after `workspace/didChangeConfiguration`, and after a `workspace/didChangeWatchedFiles` that reports at least one change or params the proxy cannot read. It never calls it on `textDocument/didChange`, and never for a watched-file notification whose `changes` array is empty. The call must return immediately and rediscover in the background; `CompletionHints()` keeps answering the previous corpus until the new one is stored, so completion is never blocked and never sees a partially rebuilt corpus. `NativePluginSource` implements this by re-running `lsp-hints`, coalescing concurrent requests into one queued rerun, stamping each run with an increasing generation so a slow run cannot overwrite a newer one, and keeping each plugin's last successful corpus when that plugin's refresh fails.
+
+Trigger characters are the one part of the corpus a refresh cannot deliver. They are merged into the `initialize` response, so a character discovered later never reaches a client that already received it. `client/registerCapability` is not used for this: `vscode-languageclient` implements a dynamic completion registration as a second provider beside the static one, which would offer every TypeScript-Go item twice. The proxy instead sends one `window/logMessage` naming the character, and the hint stays reachable through explicit completion. Implement `driver.CompletionHintObserverSource` if your source wants the proxy to perform that check after its own refreshes.
+
 ```go
 type source struct {
     driver.NullPluginSource
@@ -223,6 +227,7 @@ err := driver.RunLSPServer(context.Background(), driver.LSPServerOptions{
 | --- | --- |
 | `PluginSource` interface, `NullPluginSource` | The seam downstream pipelines implement to feed ttsc plugins into the LSP. |
 | `CompletionHintSource`, `LSPCompletionHint`, `LSPCompletionItem` | Optional completion corpus contributed alongside a `PluginSource`. |
+| `CompletionHintRefresher`, `CompletionHintObserverSource` | Optional mid-session rediscovery of that corpus and its completion callback. |
 | `NativePluginSource`, `NewNativePluginSource`, `NativePluginManifest` | Sidecar-backed `PluginSource` implementation used by the shipped `ttscserver` launcher. |
 | `RunLSPServer`, `LSPServerOptions`, `LSPUpstream`, `ErrLSPUpstreamRunnerRequired`, `ErrCommandNotHandled` | Host-side entry points and invocation-scoped upstream dependency. |
 | `LSPDocumentVersion`, `LSPDiagnostic`, `LSPCodeAction`, `LSPRange`, `LSPWorkspaceEdit` | Wire types in the LSP envelope. |

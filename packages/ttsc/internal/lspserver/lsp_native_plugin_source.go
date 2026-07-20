@@ -66,11 +66,27 @@ type NativePluginSource struct {
 
   // completionHints is filled by a background fetch, so it needs a lock the
   // static verbs do not: the proxy reads it from the completion path while
-  // discovery may still be writing it.
+  // discovery may still be writing it. It is the flattened publication-order
+  // view of pluginHints, materialized on every store so the completion path
+  // copies a ready slice instead of rebuilding one per keystroke.
   hintsMu         sync.RWMutex
   completionHints []LSPCompletionHint
-  owners          map[string]NativeLSPPluginEntry
-  logMu           sync.Mutex
+  // pluginHints keeps each producer's corpus separately, keyed by plugin
+  // identity, so one plugin's refresh cannot disturb another's. A producer's
+  // entry changes only when that producer answers successfully: a refresh that
+  // failed to run leaves the last known-good corpus in place rather than
+  // blanking a working corpus over a transient spawn failure.
+  pluginHints map[string]completionHintRecord
+  // hintsObserver is told after every completed refresh cycle so the proxy can
+  // react to a corpus that changed mid-session. Nil for any host that did not
+  // register one.
+  hintsObserver func()
+  // hintsRefresh serializes and coalesces corpus refreshes. A refresh loads a
+  // Program per plugin, so scheduling one per editor event without coalescing
+  // would stack process spawns behind each other.
+  hintsRefresh coalescingRefresh
+  owners       map[string]NativeLSPPluginEntry
+  logMu        sync.Mutex
 
   // residentMu guards the resident-daemon table below. A resident sidecar keeps
   // a warm Program across verbs, so lsp-diagnostics / lsp-code-actions reuse it
@@ -158,7 +174,11 @@ func NewNativePluginSource(opts NativePluginSourceOptions) (*NativePluginSource,
   // Blocking here would delay initialize — and therefore the editor's first
   // response — for a feature most projects do not use. Until it lands,
   // CompletionHints answers nil and the editor sees exactly what it sees today.
-  go source.discoverCompletionHints()
+  //
+  // The first fetch goes through the same scheduler every later refresh uses,
+  // so startup and mid-session rediscovery share one generation counter and one
+  // coalescing rule rather than racing as two independent writers.
+  source.RefreshCompletionHints()
   return source, nil
 }
 
@@ -333,7 +353,6 @@ func (s *NativePluginSource) CommandIDs() []string {
   return out
 }
 
-// CodeActionKinds returns the action kinds discovered from LSP-capable sidecars.
 // CompletionHints returns the corpus plugins published, or nil until it has
 // been fetched.
 //
@@ -345,6 +364,11 @@ func (s *NativePluginSource) CommandIDs() []string {
 // projects do not use, and paying it on the first completion would freeze the
 // popup. Answering "no hints yet" degrades honestly: the editor still gets
 // tsgo's completion, and ours appear once they exist.
+//
+// The same reasoning carries to refresh. It answers the last known-good corpus
+// while a rediscovery scheduled by RefreshCompletionHints is running, so
+// completion never blocks on a producer and never observes a half-cleared
+// corpus.
 func (s *NativePluginSource) CompletionHints() []LSPCompletionHint {
   if s == nil {
     return nil
@@ -359,14 +383,58 @@ func (s *NativePluginSource) CompletionHints() []LSPCompletionHint {
   return out
 }
 
-// discoverCompletionHints fetches every plugin's corpus.
+// RefreshCompletionHints schedules one asynchronous corpus rediscovery.
+//
+// The corpus is a projection of what a project rule's Check found, so it goes
+// stale the moment the rule's inputs change: a saved contributor-indexed
+// document, a rule enabled in `lint.config.*`, a watched file rewritten outside
+// the editor. Without this the corpus stayed a session snapshot and only a
+// language-server restart could replace it.
+//
+// Asynchronous for the same reason the first fetch is (see CompletionHints):
+// the editor event that schedules a refresh must not wait for a Program load.
+// Concurrent requests coalesce into at most one queued rerun, so a save storm
+// costs one extra refresh rather than one per notification, and the previous
+// corpus keeps answering completion until the new one lands.
+func (s *NativePluginSource) RefreshCompletionHints() {
+  if s == nil || len(s.plugins) == 0 {
+    return
+  }
+  s.hintsRefresh.schedule(s.discoverCompletionHints)
+}
+
+// SetCompletionHintsObserver registers fn to run after each completed refresh
+// cycle. The proxy uses it to notice a trigger character that appeared after
+// the initialize response was already sent. A nil fn clears the observer.
+func (s *NativePluginSource) SetCompletionHintsObserver(fn func()) {
+  if s == nil {
+    return
+  }
+  s.hintsMu.Lock()
+  defer s.hintsMu.Unlock()
+  s.hintsObserver = fn
+}
+
+// completionHintRecord is one producer's corpus and the refresh generation that
+// produced it. The generation is what keeps a slow refresh from overwriting a
+// newer one: plugin fetches run sequentially inside a cycle, but two cycles can
+// still be in flight when a scheduled refresh outlives its successor's start.
+type completionHintRecord struct {
+  hints      []LSPCompletionHint
+  generation uint64
+}
+
+// discoverCompletionHints fetches every plugin's corpus for one generation.
 //
 // A separate pass from discoverCommandIDs rather than another step inside it.
 // That loop abandons the rest of a plugin's discovery on any error, so folding
 // hints in would mean a plugin whose corpus failed also lost its code action
 // kinds — one optional feature taking down a working one.
-func (s *NativePluginSource) discoverCompletionHints() {
-  hints := []LSPCompletionHint{}
+//
+// Each plugin's result is stored as it arrives instead of after the whole pass,
+// so a fast producer's fresh corpus reaches the editor without waiting on a slow
+// one, and a producer that failed keeps serving what it last published.
+func (s *NativePluginSource) discoverCompletionHints(generation uint64) {
   for _, plugin := range s.plugins {
     body, err := s.run(plugin, "lsp-hints")
     if err != nil {
@@ -381,7 +449,8 @@ func (s *NativePluginSource) discoverCompletionHints() {
       // The cost is that a plugin genuinely broken while producing hints also
       // goes quiet. That is the right trade: its hints are absent either way,
       // and the alternative is punishing every well-behaved old plugin to catch
-      // a rare new one.
+      // a rare new one. Refresh strengthens that trade rather than weakening it:
+      // a logged failure would now print per save instead of per session.
       continue
     }
     published, err := decodeNativeCompletionHints(body)
@@ -392,11 +461,69 @@ func (s *NativePluginSource) discoverCompletionHints() {
       s.log("ttscserver: %s lsp-hints returned invalid JSON: %v", pluginLabel(plugin), err)
       continue
     }
-    hints = append(hints, published...)
+    s.storeCompletionHints(plugin, generation, published)
   }
+  s.notifyCompletionHintsObserver()
+}
+
+// storeCompletionHints replaces one producer's corpus and rebuilds the flattened
+// snapshot the completion path reads.
+//
+// A successful answer is the only thing that changes a producer's corpus, and an
+// empty successful answer clears it — that is how a disabled rule's items stop
+// being offered. An older generation is dropped: refresh cycles are scheduled by
+// editor events, and the last event's answer is the one the user is waiting for.
+func (s *NativePluginSource) storeCompletionHints(plugin NativeLSPPluginEntry, generation uint64, hints []LSPCompletionHint) {
+  key := pluginKey(plugin)
   s.hintsMu.Lock()
-  s.completionHints = hints
-  s.hintsMu.Unlock()
+  defer s.hintsMu.Unlock()
+  if existing, ok := s.pluginHints[key]; ok && generation < existing.generation {
+    return
+  }
+  if s.pluginHints == nil {
+    s.pluginHints = map[string]completionHintRecord{}
+  }
+  s.pluginHints[key] = completionHintRecord{hints: hints, generation: generation}
+  s.completionHints = s.flattenCompletionHintsLocked()
+}
+
+// flattenCompletionHintsLocked concatenates every producer's corpus in manifest
+// order. Order is load-bearing twice over: the proxy resolves overlapping hints
+// by publication order, and the editor ranks the items it is handed. Iterating
+// the manifest rather than the map keeps that order identical across refreshes,
+// which a Go map's randomized range would not. The caller holds hintsMu.
+func (s *NativePluginSource) flattenCompletionHintsLocked() []LSPCompletionHint {
+  hints := []LSPCompletionHint{}
+  seen := make(map[string]struct{}, len(s.plugins))
+  for _, plugin := range s.plugins {
+    key := pluginKey(plugin)
+    if _, duplicate := seen[key]; duplicate {
+      continue
+    }
+    seen[key] = struct{}{}
+    hints = append(hints, s.pluginHints[key].hints...)
+  }
+  return hints
+}
+
+// notifyCompletionHintsObserver runs the registered observer outside hintsMu:
+// the observer reads the corpus back through CompletionHints, and holding the
+// lock across it would deadlock on the RLock.
+func (s *NativePluginSource) notifyCompletionHintsObserver() {
+  s.hintsMu.RLock()
+  observer := s.hintsObserver
+  s.hintsMu.RUnlock()
+  if observer != nil {
+    observer()
+  }
+}
+
+// pluginKey identifies one manifest entry. It matches the identity
+// pluginOwnsCommand compares, so a manifest carrying the same binary under two
+// stages keeps two independent corpora instead of overwriting one with the
+// other.
+func pluginKey(plugin NativeLSPPluginEntry) string {
+  return plugin.Binary + "\x00" + plugin.Name + "\x00" + plugin.Stage
 }
 
 // decodeNativeCompletionHints accepts both generations of the lsp-hints wire.
@@ -476,6 +603,7 @@ func usableNativeCompletionItems(items []LSPCompletionItem) []LSPCompletionItem 
   return kept
 }
 
+// CodeActionKinds returns the action kinds discovered from LSP-capable sidecars.
 func (s *NativePluginSource) CodeActionKinds() []string {
   if s == nil || len(s.codeActionKinds) == 0 {
     return nil

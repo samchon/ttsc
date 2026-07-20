@@ -45,7 +45,18 @@ const (
   // `**/{tsconfig,jsconfig}*.json`, which its documentSelector excludes, so
   // those edits can reach ttsc through no other notification.
   methodDidChangeWatchedFiles = "workspace/didChangeWatchedFiles"
+  // methodDidChangeConfiguration is the editor's own settings changing. The
+  // proxy forwards it untouched and reads it only as a signal that a plugin's
+  // completion corpus may have gone stale, since a rule can be enabled there.
+  methodDidChangeConfiguration = "workspace/didChangeConfiguration"
+  // methodLogMessage carries server-side notices to the editor's output
+  // channel. The proxy uses it for state the user has to act on and no other
+  // LSP message can express.
+  methodLogMessage = "window/logMessage"
 )
+
+// lspMessageTypeInfo is the LSP MessageType for an informational log message.
+const lspMessageTypeInfo = 3
 
 // formatDocumentCommand is the ttsc-owned workspace command that the lint
 // sidecar advertises for whole-document formatting. The textDocument/formatting
@@ -125,6 +136,15 @@ type Proxy struct {
   upstreamCodeActionProvider     bool
   upstreamDocumentSymbolProvider bool
   upstreamReferencesProvider     bool
+  // initializeAnswered records that the editor has received the augmented
+  // capabilities, which is what makes a later trigger character "late".
+  initializeAnswered bool
+  // advertisedCompletionTriggers is the trigger set the editor was told about:
+  // tsgo's own characters plus whatever the corpus contributed at that moment.
+  // A refresh that produces a trigger outside this set cannot reach the editor
+  // without a restart, so the proxy says so once per character.
+  advertisedCompletionTriggers map[string]struct{}
+  reportedCompletionTriggers   map[string]struct{}
 
   diagnosticsMu               sync.Mutex
   upstreamDiagnostics         map[string]cachedDiagnostics
@@ -173,7 +193,7 @@ func NewProxy(opts ProxyOptions) *Proxy {
   if source == nil {
     source = NullPluginSource{}
   }
-  return &Proxy{
+  proxy := &Proxy{
     editorIn:                       opts.EditorIn,
     editorOut:                      opts.EditorOut,
     upstreamIn:                     opts.UpstreamIn,
@@ -199,6 +219,16 @@ func NewProxy(opts ProxyOptions) *Proxy {
     dirtyVersions:                  make(map[string]*int),
     documentText:                   make(map[string]string),
   }
+  // Optional-interface assertion for the same reason pluginCompletionHints uses
+  // one: a source that publishes no corpus, NullPluginSource included, simply
+  // never reports one changing.
+  type completionHintObserverSource interface {
+    SetCompletionHintsObserver(func())
+  }
+  if observed, ok := source.(completionHintObserverSource); ok {
+    observed.SetCompletionHintsObserver(proxy.completionHintsRefreshed)
+  }
+  return proxy
 }
 
 // Run drives both pump goroutines until they return. Pumps return when
@@ -302,7 +332,16 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     if env.IsNotification() {
       p.invalidateSymbolProvider()
       p.invalidateResidentPlugins(env)
+      p.refreshPluginCompletionHints()
       p.publishPluginDiagnosticsForDocumentNotification(env)
+    }
+  case methodDidChangeConfiguration:
+    if env.IsNotification() {
+      // A rule can be enabled from editor settings, so the corpus may have gone
+      // stale. Watched-file changes schedule the same refresh, but from inside
+      // invalidateForWatchedFileChanges, which knows whether anything actually
+      // changed.
+      p.refreshPluginCompletionHints()
     }
   case methodDidChange:
     if env.IsNotification() {
@@ -310,7 +349,9 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
       // No resident invalidation on didChange: the buffer is dirty but disk is
       // unchanged, so the warm Program (built from disk) stays valid, and plugin
       // diagnostics and code actions are suppressed while dirty anyway. didSave
-      // updates the Program incrementally once the edit reaches disk.
+      // updates the Program incrementally once the edit reaches disk. No corpus
+      // refresh either, for the same reason plus a sharper one: a refresh spawns
+      // a sidecar per plugin, and completion is on the live-buffer hot path.
       p.cacheDidChangeText(env)
       if err := p.markDocumentDirty(env); err != nil {
         return false, err
@@ -1796,7 +1837,13 @@ func (p *Proxy) augmentInitializeResult(env Envelope) ([]byte, bool) {
   // substituting a plugin's would silence the compiler's suggestions to make
   // room for a rule's. When upstream advertises nothing, synthesize the
   // provider so the editor asks at all.
-  if triggers := p.pluginCompletionTriggerCharacters(); len(triggers) > 0 {
+  triggers := p.pluginCompletionTriggerCharacters()
+  // Record what the editor ends up being told before the merge rewrites it, so a
+  // corpus that arrives after this response can tell whether its trigger already
+  // reached the client. Recorded on every initialize, including the one where
+  // the corpus is still empty.
+  p.rememberAdvertisedCompletionTriggers(caps["completionProvider"], triggers)
+  if len(triggers) > 0 {
     provider, _ := caps["completionProvider"].(map[string]any)
     if provider == nil {
       provider = map[string]any{}
@@ -1959,6 +2006,121 @@ func (p *Proxy) pluginCompletionTriggerCharacters() []string {
   return characters
 }
 
+// refreshPluginCompletionHints asks the source to rediscover its corpus after an
+// editor event that can invalidate it. Optional-interface assertion for the same
+// reason pluginCompletionHints uses one: a source with no corpus to refresh —
+// NullPluginSource, or one built before this — is simply unaffected.
+//
+// The call returns immediately; the source owns the scheduling, coalescing, and
+// staleness rules, so the editor's notification is never held behind a plugin.
+func (p *Proxy) refreshPluginCompletionHints() {
+  type completionHintRefresher interface {
+    RefreshCompletionHints()
+  }
+  if source, ok := p.source.(completionHintRefresher); ok {
+    source.RefreshCompletionHints()
+  }
+}
+
+// completionHintsRefreshed runs after the source finishes a corpus refresh.
+//
+// Items from the new corpus need nothing here: completion reads the corpus per
+// request, so a refreshed corpus is live the moment it is stored. Trigger
+// characters are the exception. They were merged into the initialize response,
+// which the editor has already consumed, and LSP's only way to change them
+// afterwards is client/registerCapability — which in VS Code adds a SECOND
+// completion provider beside the static one instead of amending it, so every
+// item tsgo returns would be offered twice. Rather than corrupt the compiler's
+// own list to advertise a character, the proxy says once, per character, that
+// this one needs a restart. Everything else about the hint already works: the
+// items appear on Ctrl+Space and after any trigger the editor already knows.
+func (p *Proxy) completionHintsRefreshed() {
+  for _, character := range p.takeUnadvertisedCompletionTriggers() {
+    p.reportAsyncError(p.writeLateCompletionTriggerNotice(character))
+  }
+}
+
+// takeUnadvertisedCompletionTriggers returns the corpus trigger characters the
+// editor was never told about, marking each as reported so a later refresh that
+// still carries it stays quiet. Nothing is reported before the editor has the
+// initialize response, because until then every trigger is still in time.
+func (p *Proxy) takeUnadvertisedCompletionTriggers() []string {
+  triggers := p.pluginCompletionTriggerCharacters()
+  if len(triggers) == 0 {
+    return nil
+  }
+  p.capabilityMu.Lock()
+  defer p.capabilityMu.Unlock()
+  if !p.initializeAnswered {
+    return nil
+  }
+  var late []string
+  for _, character := range triggers {
+    if _, advertised := p.advertisedCompletionTriggers[character]; advertised {
+      continue
+    }
+    if _, reported := p.reportedCompletionTriggers[character]; reported {
+      continue
+    }
+    if p.reportedCompletionTriggers == nil {
+      p.reportedCompletionTriggers = map[string]struct{}{}
+    }
+    p.reportedCompletionTriggers[character] = struct{}{}
+    late = append(late, character)
+  }
+  return late
+}
+
+// rememberAdvertisedCompletionTriggers records the completion trigger set the
+// editor is about to receive: upstream tsgo's characters plus the ones the
+// corpus contributed while initialize was in flight. Recorded even when the
+// corpus added nothing, because that is exactly the session where a later
+// refresh has something new to say.
+func (p *Proxy) rememberAdvertisedCompletionTriggers(upstream any, added []string) {
+  advertised := map[string]struct{}{}
+  if provider, ok := upstream.(map[string]any); ok {
+    if existing, ok := provider["triggerCharacters"].([]any); ok {
+      for _, value := range existing {
+        if character, ok := value.(string); ok && character != "" {
+          advertised[character] = struct{}{}
+        }
+      }
+    }
+  }
+  for _, character := range added {
+    if character != "" {
+      advertised[character] = struct{}{}
+    }
+  }
+  p.capabilityMu.Lock()
+  defer p.capabilityMu.Unlock()
+  p.advertisedCompletionTriggers = advertised
+  p.initializeAnswered = true
+}
+
+// writeLateCompletionTriggerNotice tells the editor's output channel that one
+// trigger character arrived too late to be advertised. window/logMessage rather
+// than window/showMessage: this is a state the user may want to act on, not an
+// interruption of what they are doing.
+func (p *Proxy) writeLateCompletionTriggerNotice(character string) error {
+  params, err := json.Marshal(map[string]any{
+    "type": lspMessageTypeInfo,
+    "message": fmt.Sprintf(
+      "ttscserver: a plugin now publishes completion after %q, which was not advertised when this session started. "+
+        "The items are available on explicit completion (Ctrl+Space); restart the language server to have the editor open them on that character.",
+      character,
+    ),
+  })
+  if err != nil {
+    return nil
+  }
+  body, err := json.Marshal(Envelope{JSONRPC: "2.0", Method: methodLogMessage, Params: params})
+  if err != nil {
+    return nil
+  }
+  return p.writeEditorFrame(body)
+}
+
 func (p *Proxy) setUpstreamCodeActionProvider(value any) {
   provides := true
   if boolValue, ok := value.(bool); ok {
@@ -2104,11 +2266,14 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) error {
   if len(env.Params) == 0 || json.Unmarshal(env.Params, &params) != nil {
     p.invalidateSymbolProvider()
     p.invalidateResidentPluginsForURIs()
+    p.refreshPluginCompletionHints()
     return nil
   }
   if len(params.Changes) == 0 {
     // The editor reported no change; dropping warm state here would throw away
-    // the residency the daemon exists to provide for nothing.
+    // the residency the daemon exists to provide for nothing. A corpus refresh
+    // is skipped for the same reason and at higher cost: it spawns a sidecar
+    // per plugin, each loading its own Program.
     return nil
   }
   uris := make([]string, 0, len(params.Changes))
@@ -2130,6 +2295,9 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) error {
   } else {
     p.invalidateResidentPluginsForURIs(uris...)
   }
+  // A completion corpus projects the whole Program, so it cannot be invalidated
+  // per URI the way the resident daemon's is: any reported change can change it.
+  p.refreshPluginCompletionHints()
   for _, uri := range deleted {
     if err := p.withdrawPluginDiagnosticsForDeletedDocument(uri); err != nil {
       return err
