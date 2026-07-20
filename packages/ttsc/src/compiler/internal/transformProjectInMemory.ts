@@ -488,6 +488,12 @@ function parseDependencyLists(
  * `dependencies`: non-object sections are dropped, edge entries that are not
  * string arrays are dropped, and non-string list members are filtered. A
  * section carrying nothing usable collapses to `undefined`.
+ *
+ * `candidates` is the one optional member, so an empty one is left off the
+ * result instead of being materialized as `{}`. The host omits the key when it
+ * has no superseding candidate to report, and a consumer that narrows on the
+ * declared optional type must see the same shape whether it reads the decoded
+ * envelope or the wire.
  */
 function parseReferenceGraph(
   value: unknown,
@@ -513,7 +519,9 @@ function parseReferenceGraph(
   ) {
     return undefined;
   }
-  return { candidates, configs, edges, globals };
+  return Object.keys(candidates).length === 0
+    ? { configs, edges, globals }
+    : { candidates, configs, edges, globals };
 }
 
 /**
