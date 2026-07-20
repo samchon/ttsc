@@ -109,7 +109,7 @@ type TtscMode = "build" | "check" | "fix" | "format";
 
 function runCompatibleBuild(argv: readonly string[], mode: TtscMode): number {
   const checkOnly = mode !== "build";
-  const options = normalizeBuildOptions(parseBuildArgs(argv, checkOnly));
+  const options = normalizeBuildOptions(parseBuildArgs(argv));
   if (mode === "fix") {
     if (options.emit === true) {
       throw new Error("ttsc: fix and --emit are mutually exclusive");
@@ -137,16 +137,17 @@ function runCompatibleBuild(argv: readonly string[], mode: TtscMode): number {
     }
     return runWatch(options, checkOnly);
   }
-  if (options.files.length !== 0) {
+  const buildOptions = checkOnly ? { ...options, emit: false } : options;
+  if (buildOptions.files.length !== 0) {
     if (mode === "fix") {
       throw new Error("ttsc: fix requires a project, not single-file mode");
     }
     if (mode === "format") {
       throw new Error("ttsc: format requires a project, not single-file mode");
     }
-    return runSingleFile(options);
+    return runSingleFile(buildOptions);
   }
-  const result = runBuild(checkOnly ? { ...options, emit: false } : options);
+  const result = runBuild(buildOptions);
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return result.status;
@@ -414,7 +415,7 @@ function parseProjectArgs(argv: readonly string[]) {
   };
 }
 
-function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
+function parseBuildArgs(argv: readonly string[]) {
   const result = parseFlags({
     argv,
     errorPrefix: "ttsc:",
@@ -427,17 +428,15 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
     subcommand: "build",
   });
   // Defaults: pinned by the previous hand-parser. `quiet` defaults true,
-  // `--verbose` flips it to false; `emit` defaults `undefined` in build
-  // mode (let tsconfig decide) and `false` in check/fix/format mode.
+  // `--verbose` flips it to false; `emit` defaults `undefined` so the resolved
+  // project controls ordinary build mode. `runCompatibleBuild` applies the
+  // check/fix/format no-emit decision before either execution lane runs.
   const verbose = getBoolean(result, "--verbose");
   const quietFlag = getBoolean(result, "--quiet");
   const quiet = verbose === true ? false : (quietFlag ?? true);
   const explicitEmit = getBoolean(result, "--emit");
   const explicitNoEmit = getBoolean(result, "--noEmit");
-  let emit: boolean | undefined;
-  if (explicitEmit === true) emit = true;
-  else if (explicitNoEmit === true) emit = false;
-  if (emit === undefined && checkOnly) emit = false;
+  const emit = resolveExplicitEmit(explicitEmit, explicitNoEmit);
 
   // `isPositional: looksLikeInputFile` guarantees every `result.positional`
   // token is a TypeScript input file; forwarded flag values already live in
@@ -464,6 +463,21 @@ function parseBuildArgs(argv: readonly string[], checkOnly: boolean) {
     tsconfig: getString(result, "--tsconfig"),
     watch: getBoolean(result, "--watch") === true,
   };
+}
+
+/**
+ * Collapse the two launcher-owned emit switches into the tri-state consumed by
+ * `runBuild` and the single-file lane. A specified boolean is significant even
+ * when it is `false`: `--emit=false` is analysis-only and `--noEmit=false`
+ * explicitly overrides a project's `noEmit`. `--emit` retains precedence when
+ * callers supply both switches, matching the legacy true-only resolution.
+ */
+function resolveExplicitEmit(
+  explicitEmit: boolean | undefined,
+  explicitNoEmit: boolean | undefined,
+): boolean | undefined {
+  if (explicitEmit !== undefined) return explicitEmit;
+  return explicitNoEmit === undefined ? undefined : !explicitNoEmit;
 }
 
 /**
@@ -557,12 +571,15 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
   }
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const file = path.resolve(cwd, options.files[0]!);
-  const out = resolveSingleFileOut({
-    cliOutDir: options.outDir,
-    cwd,
-    file,
-    tsconfig: options.tsconfig,
-  });
+  const emit = singleFileShouldEmit(options, cwd, file);
+  const out = emit
+    ? resolveSingleFileOut({
+        cliOutDir: options.outDir,
+        cwd,
+        file,
+        tsconfig: options.tsconfig,
+      })
+    : undefined;
   const text = runSingleFileEmit({
     binary: options.binary,
     checkers: options.checkers,
@@ -573,12 +590,35 @@ function runSingleFile(options: ReturnType<typeof parseBuildArgs>): number {
     singleThreaded: options.singleThreaded,
     tsconfig: options.tsconfig,
   });
-  if (!fs.existsSync(out)) {
+  if (out !== undefined && !fs.existsSync(out)) {
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, text, "utf8");
   }
-  process.stdout.write(`${path.relative(cwd, out) || path.basename(out)}\n`);
+  if (out !== undefined) {
+    process.stdout.write(`${path.relative(cwd, out) || path.basename(out)}\n`);
+  }
   return 0;
+}
+
+/**
+ * Resolve the same effective emit decision used by the project lane before
+ * entering the single-file compatibility path. The compatibility path still
+ * emits into a private temporary directory to obtain transformed text and
+ * diagnostics, but only this boundary is allowed to write into the user's
+ * tree.
+ */
+function singleFileShouldEmit(
+  options: ReturnType<typeof parseBuildArgs>,
+  cwd: string,
+  file: string,
+): boolean {
+  if (options.emit !== undefined) return options.emit;
+  const project = readProjectConfig({
+    cwd,
+    file,
+    tsconfig: options.tsconfig,
+  });
+  return project.compilerOptions.noEmit !== true;
 }
 
 function resolveSingleFileOut(opts: {
@@ -683,7 +723,7 @@ function runWatch(
   const cwd = path.resolve(options.cwd ?? process.cwd());
   let topology: WatchTopology | undefined;
   const invocation = {
-    ...options,
+    ...(checkOnly ? { ...options, emit: false } : options),
     cwd,
     onWatchInputs: (inputs: readonly string[]) => {
       topology?.setExtraInputs(inputs);
