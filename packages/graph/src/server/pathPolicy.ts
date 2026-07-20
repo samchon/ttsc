@@ -9,6 +9,15 @@ export function isExternalNode(node: ITtscGraphNode): boolean {
   );
 }
 
+/**
+ * True for a `.d.ts` declaration file. Every declaration such a file holds is
+ * ambient by construction, so none of them carries a body the graph can walk
+ * into, whether or not the `declare` keyword is written out.
+ */
+export function isDeclarationFile(file: string): boolean {
+  return /\.d\.[cm]?ts$/.test(file);
+}
+
 /** True for tests, examples, fixtures, generated output, and build artifacts. */
 export function isSupportPath(file: string): boolean {
   return (
@@ -20,7 +29,7 @@ export function isSupportPath(file: string): boolean {
     ) ||
     /\.(test|spec)\.[cm]?tsx?$/.test(file) ||
     /(^|\/)typings\.[cm]?ts$/.test(file) ||
-    /\.d\.[cm]?ts$/.test(file) ||
+    isDeclarationFile(file) ||
     /(^|\/)(dist|build|coverage|generated|__generated__)\//.test(file)
   );
 }

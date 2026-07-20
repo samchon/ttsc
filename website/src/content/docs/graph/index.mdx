@@ -49,6 +49,10 @@ When a handle names several declarations, the graph scores every match by export
 
 In path mode, tracing a symbol to itself is a complete one-node path with no hops. In an open trace, `truncated` means an eligible node or relationship was left out by the depth, node, or hop bound. Reaching the configured depth on a leaf, or seeing only relationships excluded by the selected focus or external-node policy, remains complete.
 
+When path mode finds nothing, it says which of two things happened. A walk that ran the eligible graph out reports that the graph holds no connection between the two ends. A walk that stopped on the requested `maxDepth` with graph still ahead of it reports the bound and how to continue, because a boundary is a fact about the request, not about the code.
+
+A call that lands on a declaration with no body of its own (an interface member, an abstract method, an ambient declaration) continues into the implementations that run, as a `dispatches` hop cited at the implementation. Bodilessness is read from the declaration, so an implementation that calls nothing is still the code that runs, and a concrete method that has a body is the destination rather than a stop on the way to its own override. Reverse and impact traces cross the same seam the other way, so changing an implementation reaches the declaration it implements and everything that calls that declaration.
+
 A tree-sitter graph has no types and resolves edges by guessing from text. An editor's language server has types but no architecture projection. Only a graph built on the real checker holds the resolved structure and the affected set in one place. Every node and edge is resolved by the compiler, so an agent never mistakes inference for fact.
 
 ### What only the compiler can resolve
