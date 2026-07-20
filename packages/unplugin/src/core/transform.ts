@@ -53,7 +53,7 @@ export interface TtscTransformAlias {
 export interface TtscCachedProjectTransform {
   /**
    * SHA-256 hash of every input the compiler reported outside the project walk
-   * (keyed by absolute path), captured at the time of the transform.
+   * (keyed by filesystem identity), captured at the time of the transform.
    *
    * The project walk cannot see files outside the project root or under ignored
    * directories (`node_modules` declarations, monorepo sibling sources,
@@ -65,6 +65,12 @@ export interface TtscCachedProjectTransform {
    * `buildStart` and never replay across edits.
    */
   externalInputHashes?: Record<string, string>;
+  /**
+   * Original absolute spellings of {@link externalInputHashes} inputs. These
+   * stay separate from their identity keys so validation reads the paths the
+   * compiler reported rather than a normalized replacement spelling.
+   */
+  externalInputPaths?: string[];
   /**
    * SHA-256 hash of each project-relative input path at the time of the
    * transform.
@@ -100,6 +106,9 @@ export type TtscTransformCache = Map<
 export function createTtscTransformCache(): TtscTransformCache {
   return new Map();
 }
+
+/** Cached case-insensitivity probes for existing macOS filesystem locations. */
+const CASE_INSENSITIVE_FILESYSTEMS = new Map<string, boolean>();
 
 /**
  * Hooks the bundler adapter passes into {@link transformTtsc} so transform
@@ -368,8 +377,11 @@ function selectWatchInputs(props: {
   const seen = new Set<string>();
   const excluded = new Set(
     props.temporaryTsconfig === undefined
-      ? [props.file]
-      : [props.file, path.resolve(props.temporaryTsconfig)],
+      ? [pathIdentityKey(props.file)]
+      : [
+          pathIdentityKey(props.file),
+          pathIdentityKey(props.temporaryTsconfig),
+        ],
   );
   for (const absolute of [
     ...selectFileDependencies(props),
@@ -378,10 +390,11 @@ function selectWatchInputs(props: {
       complete: declaresCompleteDependencies(props) && !isVolatileFile(props),
     }),
   ]) {
-    if (excluded.has(absolute) || seen.has(absolute)) {
+    const identity = pathIdentityKey(absolute);
+    if (excluded.has(identity) || seen.has(identity)) {
       continue;
     }
-    seen.add(absolute);
+    seen.add(identity);
     output.push(absolute);
   }
   return output;
@@ -438,26 +451,29 @@ function selectReachableEdges(
     if (!Array.isArray(targets)) {
       continue;
     }
-    edges.set(
-      path.resolve(projectRoot, source),
-      targets
+    const identity = pathIdentityKey(path.resolve(projectRoot, source));
+    const entries = edges.get(identity) ?? [];
+    entries.push(
+      ...targets
         .filter(
           (target): target is string =>
             typeof target === "string" && target.length !== 0,
         )
         .map((target) => path.resolve(projectRoot, target)),
     );
+    edges.set(identity, entries);
   }
   const output: string[] = [];
-  const visited = new Set<string>([file]);
+  const visited = new Set<string>([pathIdentityKey(file)]);
   const queue = [file];
   while (queue.length !== 0) {
     const current = queue.pop()!;
-    for (const target of edges.get(current) ?? []) {
-      if (visited.has(target)) {
+    for (const target of edges.get(pathIdentityKey(current)) ?? []) {
+      const identity = pathIdentityKey(target);
+      if (visited.has(identity)) {
         continue;
       }
-      visited.add(target);
+      visited.add(identity);
       queue.push(target);
       output.push(target);
     }
@@ -534,7 +550,8 @@ function declaresFile(
     (entry) =>
       typeof entry === "string" &&
       entry.length !== 0 &&
-      path.resolve(props.projectRoot, entry) === props.file,
+      pathIdentityKey(path.resolve(props.projectRoot, entry)) ===
+        pathIdentityKey(props.file),
   );
 }
 
@@ -560,7 +577,10 @@ function selectFileDependencies(props: {
   let entries = dependencies[key];
   if (entries === undefined) {
     for (const [candidate, candidateEntries] of Object.entries(dependencies)) {
-      if (path.resolve(props.projectRoot, candidate) === props.file) {
+      if (
+        pathIdentityKey(path.resolve(props.projectRoot, candidate)) ===
+        pathIdentityKey(props.file)
+      ) {
         entries = candidateEntries;
         break;
       }
@@ -576,10 +596,11 @@ function selectFileDependencies(props: {
       continue;
     }
     const absolute = path.resolve(props.projectRoot, entry);
-    if (absolute === props.file || seen.has(absolute)) {
+    const identity = pathIdentityKey(absolute);
+    if (identity === pathIdentityKey(props.file) || seen.has(identity)) {
       continue;
     }
-    seen.add(absolute);
+    seen.add(identity);
     output.push(absolute);
   }
   return output;
@@ -678,7 +699,9 @@ function matchesCachedSource(
   const externalHashes = cached.externalInputHashes ?? {};
   return sameHashes(
     externalHashes,
-    collectExternalInputHashes(Object.keys(externalHashes)),
+    collectExternalInputHashes(
+      cached.externalInputPaths ?? Object.keys(externalHashes),
+    ),
   );
 }
 
@@ -773,7 +796,7 @@ function listProjectInputFiles(root: string): string[] {
  * only the reference graph can prove relevant.
  */
 export function isProjectWalkPath(root: string, file: string): boolean {
-  const relative = path.relative(path.resolve(root), path.resolve(file));
+  const relative = path.relative(pathIdentityKey(root), pathIdentityKey(file));
   if (
     relative.length === 0 ||
     relative === ".." ||
@@ -789,7 +812,9 @@ export function isProjectWalkPath(root: string, file: string): boolean {
 
 /**
  * Hash a list of absolute out-of-walk input paths: content SHA-256 for a
- * readable file, a stable `missing` marker otherwise. The marker is state, not
+ * readable file, a stable `missing` marker otherwise. Keys use filesystem
+ * identity so case-only spellings share one snapshot entry, while reads retain
+ * the original path supplied by the compiler. The marker is state, not
  * an error — a recorded input disappearing (or reappearing) must change the
  * comparison exactly like a content edit. Exported so `@ttsc/metro` can re-hash
  * its recorded snapshot with identical semantics at cache-key time.
@@ -799,10 +824,14 @@ export function collectExternalInputHashes(
 ): Record<string, string> {
   const hashes: Record<string, string> = {};
   for (const file of paths) {
+    const identity = pathIdentityKey(file);
+    if (identity in hashes) {
+      continue;
+    }
     try {
-      hashes[file] = hashText(fs.readFileSync(file));
+      hashes[identity] = hashText(fs.readFileSync(file));
     } catch {
-      hashes[file] = "missing";
+      hashes[identity] = "missing";
     }
   }
   return hashes;
@@ -855,7 +884,7 @@ function selectExternalInputPaths(props: {
   const excluded =
     props.temporaryTsconfig === undefined
       ? undefined
-      : path.resolve(props.temporaryTsconfig);
+      : pathIdentityKey(props.temporaryTsconfig);
   const output: string[] = [];
   const seen = new Set<string>();
   for (const member of members) {
@@ -863,14 +892,15 @@ function selectExternalInputPaths(props: {
       continue;
     }
     const absolute = path.resolve(props.projectRoot, member);
+    const identity = pathIdentityKey(absolute);
     if (
-      absolute === excluded ||
-      seen.has(absolute) ||
+      identity === excluded ||
+      seen.has(identity) ||
       isProjectWalkPath(props.projectRoot, absolute)
     ) {
       continue;
     }
-    seen.add(absolute);
+    seen.add(identity);
     output.push(absolute);
   }
   output.sort();
@@ -939,13 +969,17 @@ async function transformProject(props: {
     }).transform();
     const temporaryTsconfig =
       configured.path === props.tsconfig ? undefined : configured.path;
+    const externalInputPaths = selectExternalInputPaths({
+      projectRoot,
+      result,
+      temporaryTsconfig,
+    });
     return {
       // Capture the out-of-walk input hashes while the generation is fresh so
       // cache validation can re-check them; computed before dispose so the
       // exclusion of the temp-dir tsconfig is the only reason it never keys.
-      externalInputHashes: collectExternalInputHashes(
-        selectExternalInputPaths({ projectRoot, result, temporaryTsconfig }),
-      ),
+      externalInputHashes: collectExternalInputHashes(externalInputPaths),
+      externalInputPaths,
       inputHashes: collectInputHashes({
         currentFile: props.currentFile,
         currentSource: props.currentSource,
@@ -1181,7 +1215,7 @@ function createTransformCacheKey(props: {
     aliasPaths: props.aliasPaths,
     compilerOptions: props.compilerOptions,
     plugins: props.plugins,
-    tsconfig: path.resolve(props.tsconfig),
+    tsconfig: pathIdentityKey(props.tsconfig),
   });
 }
 
@@ -1257,7 +1291,10 @@ function selectTransformedSource(props: {
   }
   // Slow path: resolve each candidate to an absolute path for comparison.
   for (const [candidate, source] of Object.entries(props.result.typescript)) {
-    if (path.resolve(props.projectRoot, candidate) === props.file) {
+    if (
+      pathIdentityKey(path.resolve(props.projectRoot, candidate)) ===
+      pathIdentityKey(props.file)
+    ) {
       return source;
     }
   }
@@ -1357,7 +1394,65 @@ function resolveTsconfig(file: string, tsconfig?: string): string {
 }
 
 function toProjectKey(root: string, file: string): string {
-  return normalizePath(path.relative(root, file));
+  return normalizePath(
+    path.relative(pathIdentityKey(root), pathIdentityKey(file)),
+  );
+}
+
+/**
+ * Build a comparison key for a path without changing the spelling handed to a
+ * filesystem or bundler. Windows is case-insensitive; macOS is probed per
+ * existing filesystem location so case-sensitive volumes keep distinct paths.
+ */
+export function pathIdentityKey(file: string): string {
+  const absolute = path.resolve(file);
+  return filesystemIsCaseInsensitive(absolute)
+    ? absolute.toLowerCase()
+    : absolute;
+}
+
+function filesystemIsCaseInsensitive(file: string): boolean {
+  if (process.platform === "win32") {
+    return true;
+  }
+  if (process.platform !== "darwin") {
+    return false;
+  }
+  let existing = file;
+  while (!fs.existsSync(existing)) {
+    const parent = path.dirname(existing);
+    if (parent === existing) {
+      return false;
+    }
+    existing = parent;
+  }
+  let resolved: string;
+  try {
+    resolved = fs.realpathSync.native(existing);
+  } catch {
+    return false;
+  }
+  const cached = CASE_INSENSITIVE_FILESYSTEMS.get(resolved);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const alternate = togglePathCase(resolved);
+  const insensitive = alternate !== undefined && fs.existsSync(alternate);
+  CASE_INSENSITIVE_FILESYSTEMS.set(resolved, insensitive);
+  return insensitive;
+}
+
+function togglePathCase(file: string): string | undefined {
+  for (let index = file.length - 1; index >= 0; --index) {
+    const character = file[index]!;
+    if (character >= "a" && character <= "z") {
+      return `${file.slice(0, index)}${character.toUpperCase()}${file.slice(index + 1)}`;
+    }
+    if (character >= "A" && character <= "Z") {
+      return `${file.slice(0, index)}${character.toLowerCase()}${file.slice(index + 1)}`;
+    }
+  }
+  return undefined;
 }
 
 function normalizePath(file: string): string {
