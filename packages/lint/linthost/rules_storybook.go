@@ -91,10 +91,10 @@ type storybookHierarchySeparator struct{}
 
 func (storybookHierarchySeparator) Name() string { return "storybook/hierarchy-separator" }
 
-// DiagnosticTags strikes the title through: `|` is Storybook's superseded
+// DiagnosticTags strikes the separator through: `|` is Storybook's superseded
 // hierarchy separator, and a title that uses it still renders — Storybook
 // keeps reading it — so the finding is exactly "this still works, migrate off
-// it", never "delete this title".
+// it", never "delete this title property".
 func (storybookHierarchySeparator) DiagnosticTags() []publicrule.DiagnosticTag {
   return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
 }
@@ -106,11 +106,72 @@ func (storybookHierarchySeparator) Check(ctx *Context, node *shimast.Node) {
   if meta == nil || meta.Object == nil {
     return
   }
-  prop, value, ok := storybookObjectProperty(meta.Object, "title")
+  _, value, ok := storybookObjectProperty(meta.Object, "title")
   if !ok || !strings.Contains(storybookLiteralString(value), "|") {
     return
   }
-  ctx.Report(prop, "Deprecated hierarchy separator in title property.")
+  pos, end, ok := storybookLiteralPipeRange(ctx.File, value)
+  if !ok {
+    return
+  }
+  ctx.ReportRange(pos, end, "Deprecated hierarchy separator in title property.")
+}
+
+// storybookLiteralPipeRange returns the raw source range of one `|` that the
+// parser decoded from a title literal. The tagged diagnostic must cover the
+// deprecated separator itself, not the still-live title property around it.
+//
+// A pipe can be written directly or as an active `\\|`, `\\x7C`, `\\u007C`, or
+// `\\u{7C}` escape. Every spelling below evaluates to the same separator, and
+// reporting its complete raw escape keeps the editor range valid for each.
+func storybookLiteralPipeRange(file *shimast.SourceFile, node *shimast.Node) (int, int, bool) {
+  pos, end := tokenRange(file, node)
+  if pos < 0 {
+    return 0, 0, false
+  }
+  src := file.Text()
+  for index := pos; index < end; {
+    if src[index] == '|' {
+      return index, index + 1, true
+    }
+    if src[index] != '\\' {
+      index++
+      continue
+    }
+    start := index
+    for index < end && src[index] == '\\' {
+      index++
+    }
+    if (index-start)%2 == 0 || index >= end {
+      continue
+    }
+    active := index - 1
+    switch src[index] {
+    case '|':
+      return active, index + 1, true
+    case 'x':
+      if index+2 < end && hexDigit(src[index+1])*16+hexDigit(src[index+2]) == int('|') {
+        return active, index + 3, true
+      }
+    case 'u':
+      if index+1 < end && src[index+1] == '{' {
+        close := index + 2
+        value := 0
+        for close < end && hexDigit(src[close]) >= 0 {
+          value = value*16 + hexDigit(src[close])
+          close++
+        }
+        if close > index+2 && close < end && src[close] == '}' && value == int('|') {
+          return active, close + 1, true
+        }
+      } else if index+4 < end &&
+        hexDigit(src[index+1])*4096+hexDigit(src[index+2])*256+hexDigit(src[index+3])*16+hexDigit(src[index+4]) == int('|') {
+        return active, index + 5, true
+      }
+    }
+    index++
+  }
+  return 0, 0, false
 }
 
 type storybookMetaInlineProperties struct{}
@@ -278,7 +339,11 @@ func (storybookNoStoriesOf) Visits() []shimast.Kind {
 func (storybookNoStoriesOf) Check(ctx *Context, node *shimast.Node) {
   spec := node.AsImportSpecifier()
   if spec != nil && storybookImportSpecifierImportedName(spec) == "storiesOf" {
-    ctx.Report(node, "storiesOf is deprecated and should not be used.")
+    reported := spec.Name()
+    if spec.PropertyName != nil {
+      reported = spec.PropertyName
+    }
+    ctx.Report(reported, "storiesOf is deprecated and should not be used.")
   }
 }
 

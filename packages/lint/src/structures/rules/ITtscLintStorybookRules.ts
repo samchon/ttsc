@@ -67,7 +67,7 @@ export interface ITtscLintStorybookRules {
    * nested folders.
    *
    * Tagged `Deprecated`: the separator is superseded rather than broken, and
-   * the story still renders, so an editor strikes the title through.
+   * the story still renders, so an editor strikes that separator through.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/hierarchy-separator.md
    */

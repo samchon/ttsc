@@ -18,9 +18,10 @@ import (
 // not a deprecated API; it is the wrong layer to import from, and striking it
 // through would misstate why it is reported.
 //
-//  1. Report a `storiesOf` import specifier and a piped meta title, asserting
-//     each finding carries one Deprecated tag.
-//  2. Assert each range covers the deprecated construct itself.
+//  1. Report ordinary and aliased `storiesOf` imports plus direct and escaped
+//     piped meta titles, asserting each finding carries one Deprecated tag.
+//  2. Assert each range covers the deprecated construct itself, never its
+//     live alias or title property.
 //  3. Assert the negative twin `storybook/no-renderer-packages` reports
 //     untagged.
 func TestStorybookLegacyApiFindingsTagDeprecated(t *testing.T) {
@@ -35,9 +36,19 @@ func TestStorybookLegacyApiFindingsTagDeprecated(t *testing.T) {
       marker: "storiesOf",
     },
     {
+      rule:   "storybook/no-stories-of",
+      source: "import { storiesOf as legacyStories } from \"@storybook/react\";\nlegacyStories(\"Atoms/Button\", module);\n",
+      marker: "storiesOf",
+    },
+    {
       rule:   "storybook/hierarchy-separator",
       source: "export default {\n  title: \"Atoms|Button\",\n  component: Button,\n};\nexport const Primary = {};\n",
-      marker: "title: \"Atoms|Button\"",
+      marker: "|",
+    },
+    {
+      rule:   "storybook/hierarchy-separator",
+      source: "export default {\n  title: \"Atoms\\u007CButton\",\n  component: Button,\n};\nexport const Primary = {};\n",
+      marker: "\\u007C",
     },
   }
   for _, testCase := range cases {
@@ -49,8 +60,8 @@ func TestStorybookLegacyApiFindingsTagDeprecated(t *testing.T) {
     if len(finding.Tags) != 1 || finding.Tags[0] != publicrule.DiagnosticTagDeprecated {
       t.Fatalf("%s: tags = %v, want [Deprecated]", testCase.rule, finding.Tags)
     }
-    // `storiesOf` also appears in the call below the import; the first
-    // occurrence is the import specifier the rule reports.
+    // `storiesOf` can also appear in the call below the import; the first
+    // occurrence is the imported API the rule reports.
     start := strings.Index(testCase.source, testCase.marker)
     if start < 0 {
       t.Fatalf("%s: marker %q missing from source", testCase.rule, testCase.marker)
