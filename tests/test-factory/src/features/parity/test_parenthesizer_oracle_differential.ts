@@ -79,6 +79,11 @@ const operands: Operand[] = [
     legacy: () => lid("a"),
   },
   {
+    name: "partially emitted identifier",
+    ttsc: () => f.createPartiallyEmittedExpression(id("a")),
+    legacy: () => l.createPartiallyEmittedExpression(lid("a")),
+  },
+  {
     name: "logical or",
     ttsc: () => f.createBinaryExpression(id("X"), SyntaxKind.BarBarToken, id("Y")),
     legacy: () =>
@@ -472,6 +477,7 @@ const requiredProductions: readonly string[] = [
   "CallExpression",
   "NewExpression",
   "NonNullExpression",
+  "PartiallyEmittedExpression",
   "TaggedTemplateExpression",
   "PostfixUnaryExpression",
   "Decorator",
