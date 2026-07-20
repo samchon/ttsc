@@ -527,10 +527,9 @@ function findPath(
   while (queue.length > 0) {
     const next: Array<{ id: string; depth: number }> = [];
     for (const { id, depth } of queue) {
-      const candidates = [
-        ...graph.outgoing(id),
-        ...dispatchEdges(graph, id, focus),
-      ];
+      // The forward step the open trace would take, built in one place so the
+      // two walks cannot disagree about what a step follows.
+      const candidates = traceEdges(graph, id, false, focus);
       if (depth >= maxDepth) {
         if (
           candidates.some(
