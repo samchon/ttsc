@@ -32,7 +32,7 @@ Keeping `packages/ttsc/shim/*` synced with typescript-go and complete for plugin
 
 ### Documentation
 
-README and website guide authoring rules, `.agents/skills/documentation/SKILL.md`. Read before writing or modifying documentation.
+README, website-guide, and agent-instruction writing rules, `.agents/skills/documentation/SKILL.md`. Read before writing or modifying documentation.
 
 ### Issue Campaigns
 

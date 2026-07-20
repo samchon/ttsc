@@ -4,7 +4,7 @@ Read this document in full when the user authorizes implementation pull requests
 
 ## Flow
 
-- [Cancel Campaign CI After Every Push](#cancel-campaign-ci-after-every-push)
+- [Cancel Implementation-Wave CI](#cancel-implementation-wave-ci)
 - [Admit And Reserve A Pull Request Wave](#admit-and-reserve-a-pull-request-wave)
 - [Keep Working While Commands Run](#keep-working-while-commands-run)
 - [Implement And Revalidate A Batch](#implement-and-revalidate-a-batch)
@@ -19,7 +19,7 @@ Three rules govern the entire implementation phase:
 - Do not run `pnpm format` during discovery, issue publication, or implementation. Post-Campaign Cleanup owns the repository-wide formatter result.
 - Never disable repository Actions or any workflow for a campaign. After every implementation-wave push and pull-request creation, immediately start cancellation only for runs caused by that campaign commit. Keep the cancellation record current and complete it before merge, but do not make local development wait for it.
 
-## Cancel Campaign CI After Every Push
+## Cancel Implementation-Wave CI
 
 Repository-wide Actions and workflow settings must remain unchanged. Before the first push, record `gh api repos/{owner}/{repo}/actions/permissions` and `gh workflow list --all --limit 1000 --json id,name,path,state` in `.wiki/<campaign>/ci-state.md` so the lead can prove the campaign did not alter them.
 
