@@ -11,13 +11,19 @@ const ttscDir = path.join(root, "packages", "ttsc");
 const wasmDir = path.join(root, "packages", "wasm");
 const wasmExecRunner = path.join(__dirname, "go-wasm-exec.cjs");
 const workdir = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-wasm-go-work-"));
+let fixtureRoot;
 
 try {
+  const fixtureParent = path.join(root, "node_modules", ".cache");
+  fs.mkdirSync(fixtureParent, { recursive: true });
+  fixtureRoot = fs.mkdtempSync(path.join(fixtureParent, "ttsc-wasm-fixture-"));
   const goWork = path.join(workdir, "go.work");
   writeGoWork(goWork);
-  const goroot = cp.execFileSync("go", ["env", "GOROOT"], {
-    encoding: "utf8",
-  }).trim();
+  const goroot = cp
+    .execFileSync("go", ["env", "GOROOT"], {
+      encoding: "utf8",
+    })
+    .trim();
   const wasmExec = path.join(goroot, "lib", "wasm", "wasm_exec_node.js");
   const result = cp.spawnSync(
     "go",
@@ -35,6 +41,7 @@ try {
         GOOS: "js",
         GOARCH: "wasm",
         GOWORK: goWork,
+        TTSC_WASM_TEST_ROOT: toWasmAbsolutePath(fixtureRoot),
         PATH: fs.existsSync(goRoot)
           ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
           : process.env.PATH,
@@ -44,9 +51,21 @@ try {
     },
   );
   if (result.error) throw result.error;
-  if (result.status !== 0) process.exit(result.status ?? 1);
+  if (result.status !== 0) process.exitCode = result.status ?? 1;
 } finally {
+  if (fixtureRoot !== undefined) {
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  }
   fs.rmSync(workdir, { recursive: true, force: true });
+}
+
+function toWasmAbsolutePath(location) {
+  const normalized = location.split(path.sep).join("/");
+  if (process.platform !== "win32") return normalized;
+  if (!/^[A-Za-z]:\//.test(normalized)) {
+    throw new Error(`unsupported Windows wasm test path: ${location}`);
+  }
+  return normalized.slice(2);
 }
 
 function writeGoWork(location) {
