@@ -311,7 +311,15 @@ function resolvePackageManifestTsconfig(
   // and it used to be swallowed here: the read returned `undefined`, the caller
   // fell back to Node entrypoint resolution, and the user learned nothing about
   // the file that actually broke. Report it instead.
-  const field = (readJsonFile(manifestPath) as { tsconfig?: unknown }).tsconfig;
+  //
+  // A manifest that parses to something other than an object carries no
+  // `tsconfig` field to read, so it falls back rather than throwing on a
+  // property access.
+  const manifest = readJsonFile(manifestPath);
+  const field =
+    typeof manifest === "object" && manifest !== null
+      ? (manifest as { tsconfig?: unknown }).tsconfig
+      : undefined;
   if (typeof field !== "string" || field.length === 0) {
     return undefined;
   }

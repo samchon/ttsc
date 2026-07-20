@@ -59,7 +59,6 @@ npx ttsc clean                      # drop the plugin cache
 | `ttsc clean` | Delete the plugin binary cache and ttsc-owned Go build cache. |
 | `ttsc version` | Print the CLI version. |
 | `ttsc help` | Print help. |
-| `ttsc --init` | Write a starter `tsconfig.json`. Works in a directory that has no project yet, so it is the first command in a fresh package. |
 
 ## Flags
 
@@ -79,8 +78,9 @@ npx ttsc clean                      # drop the plugin cache
 | `--cache-dir <dir>` | Cache root for compiled plugins, resolved relative to `--cwd` when not absolute. Defaults to the workspace-local `node_modules/.cache/ttsc`. |
 | `--singleThreaded` | Run TypeScript-Go single-threaded, one checker, serial parse/check/emit. Mirrors `tsc --singleThreaded`. |
 | `--checkers <n>` | Type-checker pool size. Mirrors `tsc --checkers`; defaults to TypeScript-Go's own default. |
+| `--init` | Write a starter `tsconfig.json` and exit. Works in a directory that has no project yet, so it is the first thing you can run in a fresh package. |
 
-Flag names are matched the way `tsc` matches them: case-insensitively, with one or two leading dashes. `--noEmit`, `--noemit`, and `-noEmit` all select the same flag, so a CI script or a Windows shell that spells a flag differently gets the behaviour it asked for instead of a silently forwarded flag `ttsc` did not recognize.
+Flag names are matched the way `tsc` matches them: case-insensitively, with one or two leading dashes. `--noEmit`, `--noemit`, and `-noEmit` all select the same flag, so a CI script or a shell that spells a flag differently still gets the flag it asked for instead of one `ttsc` forwards without recognizing.
 
 Any flag `ttsc` does not own is forwarded as-is to `tsc`, so classic `tsc` compilerOptions work on the command line too, `ttsc --strict src/main.ts`, `ttsc --target es2020`, `ttsc --listFiles`. The usual home for `target`, `module`, `strict`, `lib`, and friends is still `tsconfig.json`; the CLI form just overrides it for one run. On a project that configures a ttsc plugin, the forwarded flag still reaches the in-process compiler, though tsc's reporting flags (`--listFiles`, `--showConfig`, …) only print on a plain, plugin-free build.
 
