@@ -17,8 +17,9 @@ import "testing"
 //  1. Fix `import { render } from "solid-js"`, whose sole binding belongs to
 //     `solid-js/web`, and assert the module is rewritten and the message names
 //     the symbol and the module.
-//  2. Assert a single-quoted specifier keeps its quotes, proving only the text
-//     between them is replaced.
+//  2. Assert an aliased specifier still resolves from its imported name, and a
+//     single-quoted specifier keeps its quotes, proving only source text inside
+//     the quotes is replaced.
 //  3. Assert the negative twins report without a fix: a declaration with a
 //     second specifier, and one with a default binding.
 //  4. Assert an already-canonical import reports nothing at all.
@@ -44,6 +45,12 @@ func TestFixSolidImportsRewritesSoleSpecifierModule(t *testing.T) {
     "solid/imports",
     "import { createStore } from 'solid-js';\ncreateStore();\n",
     "import { createStore } from 'solid-js/store';\ncreateStore();\n",
+  )
+  assertFixSnapshot(
+    t,
+    "solid/imports",
+    "import { render as mount } from \"solid-js\";\nmount();\n",
+    "import { render as mount } from \"solid-js/web\";\nmount();\n",
   )
 
   assertNoFixSnapshot(

@@ -14,7 +14,7 @@ import "testing"
 // to guess that span.
 //
 //  1. Fix a `<label>` carrying both React prop names and assert both are
-//     renamed while their values survive untouched.
+//     renamed while string, expression, and bare boolean shapes survive.
 //  2. Assert a `key` prop reports without applying any edit.
 //  3. Assert the negative twins stay silent: the same element written with
 //     Solid's own `class` and `for`, and `className` on a component, which is
@@ -26,6 +26,13 @@ func TestFixSolidNoReactSpecificPropsRenamesReactProps(t *testing.T) {
     "main.tsx",
     "import { createSignal } from \"solid-js\";\n\nexport const App = () => <label className=\"a\" htmlFor={id()} />;\n",
     "import { createSignal } from \"solid-js\";\n\nexport const App = () => <label class=\"a\" for={id()} />;\n",
+  )
+  assertFixSnapshotFile(
+    t,
+    "solid/no-react-specific-props",
+    "main.tsx",
+    "import { createSignal } from \"solid-js\";\n\nexport const App = () => <label className htmlFor />;\n",
+    "import { createSignal } from \"solid-js\";\n\nexport const App = () => <label class for />;\n",
   )
 
   keyed := "import { createSignal } from \"solid-js\";\n\nexport const App = () => <div key=\"k\" />;\n"
