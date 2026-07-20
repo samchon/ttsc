@@ -24,6 +24,9 @@ func TestCommandRewritesOnlyUnshadowedRequire(t *testing.T) {
     "src/loader.ts": `declare function require(id: string): { message: string };
 export const loaded = require("@lib/message").message;
 `,
+    "src/unbound.ts": `// @ts-nocheck
+export const loaded = require("@lib/message").message;
+`,
     "src/parameter.ts": `export const value = (require: (id: string) => string): string => require("@lib/message");
 `,
     "src/local.ts": `export function value(): string {
@@ -47,6 +50,10 @@ export const value = require("@lib/message");
   if !strings.Contains(loader, `require("./lib/message.cjs")`) {
     t.Fatalf("ambient loader did not rewrite:\n%s", loader)
   }
+  unbound := readFile(t, filepath.Join(root, "dist", "unbound.js"))
+  if !strings.Contains(unbound, `require("./lib/message.cjs")`) {
+    t.Fatalf("unbound loader did not rewrite:\n%s", unbound)
+  }
   for _, file := range []string{"parameter.js", "local.js", "imported.js"} {
     output := readFile(t, filepath.Join(root, "dist", file))
     if !strings.Contains(output, `@lib/message`) {
@@ -60,11 +67,13 @@ const parameter = await import("./parameter.js");
 const local = await import("./local.js");
 const imported = await import("./imported.js");
 const loader = await import("./loader.js");
+const unbound = await import("./unbound.js");
 process.stdout.write(JSON.stringify([
   parameter.value((id) => id),
   local.value(),
   imported.value,
   loader.loaded,
+  unbound.loaded,
 ]));
 `)
   command := exec.Command("node", "runner.mjs")
@@ -73,7 +82,7 @@ process.stdout.write(JSON.stringify([
   if err != nil {
     t.Fatalf("emitted require cases did not run: %v\n%s", err, output)
   }
-  if got, want := strings.TrimSpace(string(output)), `["@lib/message","local:@lib/message","imported:@lib/message","ok"]`; got != want {
+  if got, want := strings.TrimSpace(string(output)), `["@lib/message","local:@lib/message","imported:@lib/message","ok","ok"]`; got != want {
     t.Fatalf("emitted require results mismatch: got %s, want %s", got, want)
   }
 }
