@@ -26,6 +26,7 @@ These four are never acceptable; choosing any one means the approach is already 
 
 ## Work Rules
 
+- Choose the principled course. Time, difficulty, and the breadth of consequences require more careful analysis and validation; they never justify a workaround, a narrowed fix, or a weaker acceptance standard.
 - Match existing conventions. Before adding a file, function, or test, open a nearby peer and mirror its naming, location, and code style, don't create parallel structures.
 - Respect existing package boundaries. Don't hardcode consumer-specific behavior into the compiler host.
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
