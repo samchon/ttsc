@@ -27,11 +27,13 @@ export const test_collect_external_package_names_reads_template_substitutions =
       'const string = `${"import(\\"string-ghost\\")"}`;',
       'const regex = `${/require\\("regex-ghost"\\)/.test("x")}`;',
       'const regexBrace = `${/}/.test("x") ? require("after-regex") : null}`;',
+      'const division = `${value / 2 ? require("after-division") : null}`;',
       "const computed = `${import(`computed-${name}`)}`;",
       'obj.require("method-ghost");',
     ].join("\n");
 
     assert.deepEqual(collectExternalPackageNames(source, []), [
+      "after-division",
       "after-regex",
       "inside-import",
       "inside-require",

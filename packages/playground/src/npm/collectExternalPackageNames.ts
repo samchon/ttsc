@@ -260,18 +260,26 @@ function tokenize(source: string): Token[] {
 
 function findTemplateSubstitutionEnd(source: string, start: number): number {
   let depth = 1;
+  let previous: Token | undefined;
+  const isIdentifierStart = (character: string): boolean =>
+    /[A-Za-z_$]/.test(character);
+  const isIdentifierPart = (character: string): boolean =>
+    /[A-Za-z0-9_$]/.test(character);
   for (let i = start; i < source.length; i++) {
     const c = source[i]!;
+    if (/\s/.test(c)) continue;
     if (c === "\\") {
       i++;
       continue;
     }
     if (c === "'" || c === '"') {
       i = skipQuoted(source, i, c);
+      previous = { kind: "string", value: "" };
       continue;
     }
     if (c === "`") {
       i = skipTemplate(source, i);
+      previous = { kind: "other" };
       continue;
     }
     if (c === "/" && source[i + 1] === "/") {
@@ -286,21 +294,41 @@ function findTemplateSubstitutionEnd(source: string, start: number): number {
       i++;
       continue;
     }
-    if (c === "/" && isRegexAllowed(tokenize(source.slice(start, i)))) {
+    if (c === "/" && isRegexAllowedAfter(previous)) {
       i = skipRegularExpression(source, i, (character) =>
         /[A-Za-z0-9_$]/.test(character),
       );
       i--;
+      previous = { kind: "other" };
+      continue;
+    }
+    if (isIdentifierStart(c)) {
+      let end = i + 1;
+      while (end < source.length && isIdentifierPart(source[end]!)) end++;
+      previous = { kind: "word", value: source.slice(i, end) };
+      i = end - 1;
+      continue;
+    }
+    if (c >= "0" && c <= "9") {
+      let end = i + 1;
+      while (end < source.length && /[0-9a-fA-FxXoObBeE._]/.test(source[end]!))
+        end++;
+      previous = { kind: "other" };
+      i = end - 1;
       continue;
     }
     if (c === "{") depth++;
     else if (c === "}" && --depth === 0) return i;
+    previous = { kind: "punct", value: c };
   }
   return source.length;
 }
 
 function isRegexAllowed(tokens: readonly Token[]): boolean {
-  const previous = tokens[tokens.length - 1];
+  return isRegexAllowedAfter(tokens[tokens.length - 1]);
+}
+
+function isRegexAllowedAfter(previous: Token | undefined): boolean {
   if (!previous) return true;
   if (previous.kind === "string" || previous.kind === "other") return false;
   if (previous.kind === "word")
