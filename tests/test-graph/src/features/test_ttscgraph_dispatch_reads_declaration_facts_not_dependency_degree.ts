@@ -35,12 +35,15 @@ interface TraceResult {
  * 1. Materialize implementations that name nothing (empty, literal, local
  *    arithmetic, thrown literal) behind an interface member, an abstract
  *    method, and an ambient `declare class` member, plus two concrete bases
- *    with overrides that differ only in one statement, plus an overload set.
+ *    with overrides that differ only in one statement, an abstract member
+ *    standing between an interface and its concrete class, and an overload
+ *    set.
  * 2. Trace forward from each caller through the real MCP launcher, and request the
  *    same continuation in path mode.
  * 3. Assert every genuinely bodyless declaration dispatches to its dependency-
  *    free implementation, that neither concrete base is promoted through its
- *    override, and that `focus: "types"` still synthesizes nothing.
+ *    override, that no bodyless candidate is admitted as an implementation, and
+ *    that `focus: "types"` still synthesizes nothing.
  */
 export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degree =
   async () => {
@@ -113,6 +116,24 @@ export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degr
         "",
         "export class QuietTask extends Task {",
         "  public perform(): void {}",
+        "}",
+        "",
+        "export interface Shape {",
+        "  area(): number;",
+        "}",
+        "",
+        "export abstract class BaseShape implements Shape {",
+        "  public abstract area(): number;",
+        "}",
+        "",
+        "export class Square extends BaseShape {",
+        "  public area(): number {",
+        "    return 4;",
+        "  }",
+        "}",
+        "",
+        "export function callShape(shape: Shape): number {",
+        "  return shape.area();",
         "}",
         "",
         "declare class Native {",
@@ -239,6 +260,21 @@ export const test_ttscgraph_dispatch_reads_declaration_facts_not_dependency_degr
       assert.ok(
         dispatchedIn(abstractTask).includes("QuietTask.perform"),
         `an abstract method dispatches to a dependency-free override: ${JSON.stringify(abstractTask.hops)}`,
+      );
+
+      // The other half of the same predicate: a candidate that is itself
+      // bodyless is not an implementation. An abstract member standing between
+      // an interface and the concrete class is that candidate, and it must
+      // never be the destination of a hop that claims to name what runs.
+      const abstractCandidate = await forward("callShape");
+      assert.ok(
+        !dispatchedIn(abstractCandidate).includes("BaseShape.area"),
+        `an abstract member is never a dispatch destination: ${JSON.stringify(abstractCandidate.hops)}`,
+      );
+      const abstractIntermediate = await forward("BaseShape.area");
+      assert.ok(
+        dispatchedIn(abstractIntermediate).includes("Square.area"),
+        `and the concrete override below it still is: ${JSON.stringify(abstractIntermediate.hops)}`,
       );
 
       const ambient = await forward("callNative");

@@ -741,12 +741,19 @@ function dispatchEdges(
   focus: ITtscGraphTrace.IRequest["focus"],
 ): ITtscGraphEdge[] {
   if (focus === "types") return [];
+  // The checker relations first: almost no node has one, and reading a
+  // declaration's own facts walks its ownership chain, which is work worth
+  // doing only where there is something to dispatch to.
+  let relations: ITtscGraphEdge[] | undefined;
+  for (const edge of graph.incoming(id)) {
+    if (DISPATCH_KINDS.has(edge.kind)) (relations ??= []).push(edge);
+  }
+  if (relations === undefined) return [];
   const declaration = graph.node(id);
   if (declaration === undefined || hasDeclarationBody(graph, declaration))
     return [];
   const out: ITtscGraphEdge[] = [];
-  for (const edge of graph.incoming(id)) {
-    if (!DISPATCH_KINDS.has(edge.kind)) continue;
+  for (const edge of relations) {
     const implementation = graph.node(edge.from);
     if (
       implementation === undefined ||
