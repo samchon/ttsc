@@ -3,7 +3,7 @@ import { ITtscGraphEdge } from "../structures/ITtscGraphEdge";
 import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphTrace } from "../structures/ITtscGraphTrace";
-import { isExternalNode, isTestPath } from "./pathPolicy";
+import { isDeclarationFile, isExternalNode, isTestPath } from "./pathPolicy";
 import { resolveGraphHandle } from "./resolveHandle";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { edgeEvidenceOf, signatureOf } from "./runDetails";
@@ -20,15 +20,23 @@ const MAX_OPEN_DEPTH = 8;
 const MAX_OPEN_NODES = 32;
 const MAX_IMPACT_DEPTH = 4;
 const MAX_IMPACT_NODES = 16;
+// Path mode walks further than an open trace because it is looking for one
+// named end, not building a picture. The cap is the one the request contract
+// publishes for path mode.
+const MAX_PATH_DEPTH = 12;
 const MAX_HOPS_PER_NODE = 2;
 const MAX_STEPS = 12;
-const EXECUTION_KINDS = new Set<string>([
-  "calls",
-  "instantiates",
-  "accesses",
-  "renders",
-]);
 const DISPATCH_KINDS = new Set<string>(["overrides", "implements"]);
+// A declaration whose kind is a type surface never carries a body, and an
+// external leaf carries one the graph deliberately does not hold.
+const BODYLESS_KINDS = new Set<string>([
+  "interface",
+  "type",
+  "external_symbol",
+]);
+// `abstract` and `declare` are the two keywords that take the body away from a
+// declaration that would otherwise have to have one.
+const BODYLESS_MODIFIERS = new Set<string>(["abstract", "declare"]);
 // An interface the codebase implements everywhere — a disposable, a listener, a
 // lifecycle hook — is not a step in one flow, and naming its implementors is a
 // dump of the codebase rather than an answer. Past this many, the declaration
@@ -143,20 +151,26 @@ export function runTrace(
         ),
       };
     }
-    const found = findPath(
+    const pathDepth = bound(props.maxDepth, MAX_PATH_DEPTH, 1, MAX_PATH_DEPTH);
+    const search = findPath(
       graph,
       start.node.id,
       target.node.id,
-      bound(props.maxDepth, 12, 1, 12),
+      pathDepth,
       focus,
       includeExternal,
     );
-    const hasPath = found !== null;
-    const path = found?.path ?? [];
-    const hops = found?.hops ?? [];
-    const junctions = hasPath
-      ? []
-      : junctionsBetween(graph, start.node.id, target.node.id, focus);
+    const hasPath = search.found !== undefined;
+    const path = search.found?.path ?? [];
+    const hops = search.found?.hops ?? [];
+    // Junctions explain an absence, so they are only computed once absence is
+    // established: a walk the depth bound stopped has not established one, and
+    // presenting a shared symbol as "the seam" when a direct call path may run
+    // past the bound sends the caller to a seam that is not there.
+    const junctions =
+      hasPath || search.bounded
+        ? []
+        : junctionsBetween(graph, start.node.id, target.node.id, focus);
     return {
       result: {
         ...base,
@@ -169,27 +183,31 @@ export function runTrace(
       },
       // A missing path is a fact, not an answer, and the old message called it
       // one: "its path nodes and evidence ranges are what the graph holds
-      // between the two ends" — of a result that held nothing. `findPath` uses
-      // null for that state; zero hops is instead the valid path
-      // from a node to itself. Distinct nodes without a path do not call each
-      // other, which in an event-driven codebase is the common
-      // case: a pointer handler emits, an emitter's `emit()` runs listeners a
+      // between the two ends" — of a result that held nothing. `findPath` says
+      // which fact it is; zero hops is instead the valid path from a node to
+      // itself. A walk the depth bound stopped establishes nothing at all, so
+      // it reports the bound. A walk that ran out of eligible graph did
+      // establish an absence, and distinct nodes without a path do not call
+      // each other, which in an event-driven codebase is the common case: a
+      // pointer handler emits, an emitter's `emit()` runs listeners a
       // registration put in an array, and no call edge crosses that array. The
       // callers of the target are the way across, and the graph has them, so
       // say which call to make instead of handing back an empty result dressed
       // as the answer. Excalidraw's tour spent eleven calls finding this out.
       next: hasPath
         ? pathNext
-        : junctions.length > 0
-          ? resultNext(
-              "inspect",
-              "No call path runs between the two ends — a callback stands between them (an event emitter, a subscription, a lifecycle hook), and no call edge crosses one. `junctions` names the symbols both ends touch, which is the seam: trace the junction to see who registers on it and who fires it.",
-              "trace",
-            )
-          : resultNext(
-              "outside",
-              "No call path runs from the start to the target and they touch nothing in common, so the graph holds no connection between them.",
-            ),
+        : search.bounded
+          ? resultNext("inspect", boundedPathReason(pathDepth), "trace")
+          : junctions.length > 0
+            ? resultNext(
+                "inspect",
+                "No call path runs between the two ends — a callback stands between them (an event emitter, a subscription, a lifecycle hook), and no call edge crosses one. `junctions` names the symbols both ends touch, which is the seam: trace the junction to see who registers on it and who fires it.",
+                "trace",
+              )
+            : resultNext(
+                "outside",
+                "No call path runs from the start to the target and they touch nothing in common, so the graph holds no connection between them.",
+              ),
     };
   }
 
@@ -298,9 +316,13 @@ function traceEdges(
   reverse: boolean,
   focus: ITtscGraphTrace.IRequest["focus"],
 ): readonly ITtscGraphEdge[] {
-  return reverse
-    ? graph.incoming(id)
-    : [...graph.outgoing(id), ...dispatchEdges(graph, id, focus)];
+  const edges = reverse ? graph.incoming(id) : graph.outgoing(id);
+  const dispatched = reverse
+    ? reverseDispatchEdges(graph, id, focus)
+    : dispatchEdges(graph, id, focus);
+  // Nothing to add is the common case, and a walk visits the nodes with the
+  // largest edge lists, so hand back the stored list rather than a copy of it.
+  return dispatched.length === 0 ? edges : [...edges, ...dispatched];
 }
 
 /**
@@ -340,11 +362,6 @@ function traceSteps(
   });
 }
 
-/**
- * The shortest dependency path from `startId` to `targetId` over real (non-
- * structural) forward edges, breadth-first, or null when `targetId` is not
- * reachable within maxDepth. Returns the nodes in order and the hops between.
- */
 /**
  * The symbols both ends of an unreachable path touch.
  *
@@ -433,6 +450,57 @@ function touchedBy(
   return touched;
 }
 
+/**
+ * What to say when the depth bound, not the graph, ended a path search.
+ *
+ * The caller asked a bounded question and the old answer returned a claim about
+ * the whole graph — "they touch nothing in common, so the graph holds no
+ * connection between them" — which is the worst thing an index can say wrongly:
+ * the caller stops asking and either reads files or concludes the dependency is
+ * not there. So report the boundary, and make the continuation one the caller
+ * can actually take. At the 12-hop ceiling there is no larger `maxDepth` to
+ * retry with, and a message that only invites one would be a dead end of its
+ * own; two bounded walks from opposite ends cover twice the distance and are
+ * requests the tool already answers.
+ */
+function boundedPathReason(depth: number): string {
+  return (
+    `No path was found within the requested depth of ${depth}, but the walk stopped on that bound with eligible graph still ahead of it. ` +
+    `This is a boundary, not an absence: the two ends may be connected further out, and nothing here says they are not. ` +
+    (depth < MAX_PATH_DEPTH
+      ? `Re-run the same path request with a larger \`maxDepth\` (up to ${MAX_PATH_DEPTH}).`
+      : `\`maxDepth\` is already at its ${MAX_PATH_DEPTH}-hop maximum, so close the gap from both ends: trace forward from the start, trace the target with \`direction: "reverse"\`, then request the path between a symbol both results name.`)
+  );
+}
+
+/**
+ * What a bounded shortest-path walk learned: the path when it found one, and
+ * otherwise whether the walk was stopped by the caller's depth bound or ran the
+ * eligible graph out. The two are not the same answer and the caller must not
+ * be told the second when only the first happened.
+ */
+interface IPathSearch {
+  /** The shortest eligible path and its hops, when one was found. */
+  found?: { path: ITtscGraphNode[]; hops: ITtscGraphTrace.IHop[] };
+
+  /**
+   * True when the walk stopped at `maxDepth` with an eligible, unvisited node
+   * still ahead of it, so nothing was proven about the two ends.
+   */
+  bounded: boolean;
+}
+
+/**
+ * The shortest dependency path from `startId` to `targetId` over real (non-
+ * structural) forward edges, breadth-first, within `maxDepth` hops.
+ *
+ * When no path is found, the walk reports whether the bound stopped it. A
+ * boundary is a fact about the request; absence is a fact about the graph, and
+ * a search that never reached the far side of its own bound has not established
+ * one. Eligibility is the open trace's, so a frontier made only of nodes the
+ * selected focus, the external-node policy, a file node, or an earlier visit
+ * already excluded is not a frontier and the walk is exhausted.
+ */
 function findPath(
   graph: TtscGraphMemory,
   startId: string,
@@ -440,10 +508,11 @@ function findPath(
   maxDepth: number,
   focus: ITtscGraphTrace.IRequest["focus"],
   includeExternal: boolean,
-): { path: ITtscGraphNode[]; hops: ITtscGraphTrace.IHop[] } | null {
+): IPathSearch {
   const startNode = graph.node(startId);
-  if (startNode === undefined) return null;
-  if (startId === targetId) return { path: [startNode], hops: [] };
+  if (startNode === undefined) return { bounded: false };
+  if (startId === targetId)
+    return { found: { path: [startNode], hops: [] }, bounded: false };
   const parent = new Map<
     string,
     {
@@ -453,21 +522,35 @@ function findPath(
     }
   >();
   const visited = new Set<string>([startId]);
+  let bounded = false;
   let queue: Array<{ id: string; depth: number }> = [{ id: startId, depth: 0 }];
   while (queue.length > 0) {
     const next: Array<{ id: string; depth: number }> = [];
     for (const { id, depth } of queue) {
-      if (depth >= maxDepth) continue;
-      for (const edge of [
-        ...graph.outgoing(id),
-        ...dispatchEdges(graph, id, focus),
-      ]) {
-        if (!traversable(edge.kind, focus)) continue;
-        const otherId = edge.to;
-        if (visited.has(otherId)) continue;
-        const other = graph.node(otherId);
-        if (other === undefined || other.kind === "file") continue;
-        if (!includeExternal && isExternalNode(other)) continue;
+      // The forward step the open trace would take, built in one place so the
+      // two walks cannot disagree about what a step follows.
+      const candidates = traceEdges(graph, id, false, focus);
+      if (depth >= maxDepth) {
+        if (
+          candidates.some(
+            (edge) =>
+              pathEndpoint(graph, edge, focus, includeExternal, visited) !==
+              undefined,
+          )
+        )
+          bounded = true;
+        continue;
+      }
+      for (const edge of candidates) {
+        const endpoint = pathEndpoint(
+          graph,
+          edge,
+          focus,
+          includeExternal,
+          visited,
+        );
+        if (endpoint === undefined) continue;
+        const otherId = endpoint.otherId;
         visited.add(otherId);
         const evidence = edgeEvidenceOf(edge);
         parent.set(otherId, {
@@ -503,14 +586,42 @@ function findPath(
               hop.evidence = parentEdge.evidence;
             hops.push(hop);
           }
-          return { path, hops };
+          return { found: { path, hops }, bounded };
         }
         next.push({ id: otherId, depth: depth + 1 });
       }
     }
     queue = next;
   }
-  return null;
+  return { bounded };
+}
+
+/**
+ * The node a path expansion would represent, or undefined when the selected
+ * policy or an earlier visit excludes it. The expansion and the boundary probe
+ * share this decision, so what the walk would have followed and what counts as
+ * unexplored graph beyond the bound cannot disagree.
+ *
+ * A path walk is always forward and, unlike the open trace, a node it already
+ * reached is not a continuation: the shortest path to it is already known, so a
+ * second arrival adds nothing to explore.
+ */
+function pathEndpoint(
+  graph: TtscGraphMemory,
+  edge: ITtscGraphEdge,
+  focus: ITtscGraphTrace.IRequest["focus"],
+  includeExternal: boolean,
+  visited: ReadonlySet<string>,
+): ITraceEndpoint | undefined {
+  const endpoint = eligibleTraceEndpoint(
+    graph,
+    edge,
+    false,
+    focus,
+    includeExternal,
+  );
+  if (endpoint === undefined || visited.has(endpoint.otherId)) return undefined;
+  return endpoint;
 }
 
 function orderedEdges(
@@ -632,13 +743,35 @@ function dispatchEdges(
   id: string,
   focus: ITtscGraphTrace.IRequest["focus"],
 ): ITtscGraphEdge[] {
-  if (focus === "types" || hasExecutionBody(graph, id)) return [];
-  const out: ITtscGraphEdge[] = [];
+  if (focus === "types") return [];
+  // The checker relations first: almost no node has one, and reading a
+  // declaration's own facts walks its ownership chain, which is work worth
+  // doing only where there is something to dispatch to.
+  let relations: ITtscGraphEdge[] | undefined;
   for (const edge of graph.incoming(id)) {
-    if (!DISPATCH_KINDS.has(edge.kind)) continue;
+    if (DISPATCH_KINDS.has(edge.kind)) (relations ??= []).push(edge);
+  }
+  if (relations === undefined) return [];
+  const declaration = graph.node(id);
+  if (declaration === undefined || hasDeclarationBody(graph, declaration))
+    return [];
+  const out: ITtscGraphEdge[] = [];
+  // Per implementation, not per relation. A class may name one base in two
+  // heritage clauses — `class Impl extends Base implements Base` is legal — and
+  // the producer records the member pair once per clause, as `overrides` and as
+  // `implements`. That is one implementation and one crossing: emitting it
+  // twice would repeat the hop and count the same class twice against the hub
+  // cut.
+  const dispatched = new Set<string>();
+  for (const edge of relations) {
+    if (dispatched.has(edge.from)) continue;
     const implementation = graph.node(edge.from);
-    if (implementation === undefined || !hasExecutionBody(graph, edge.from))
+    if (
+      implementation === undefined ||
+      !hasDeclarationBody(graph, implementation)
+    )
       continue;
+    dispatched.add(edge.from);
     out.push({
       from: id,
       to: edge.from,
@@ -649,11 +782,106 @@ function dispatchEdges(
   return out.length >= DISPATCH_HUB ? [] : out;
 }
 
-/** Whether the declaration has a body: something it calls, reads, or renders. */
-function hasExecutionBody(graph: TtscGraphMemory, id: string): boolean {
-  for (const edge of graph.outgoing(id))
-    if (EXECUTION_KINDS.has(edge.kind)) return true;
+/**
+ * The declaration a change to this implementation is a change to.
+ *
+ * `dispatches` is one fact and both directions have to see it. Forward, a call
+ * that lands on a bodyless declaration continues in the implementation that
+ * runs; reverse, a change to that implementation is a change every caller of
+ * the declaration feels — and `impact` is the query an agent runs _before_
+ * editing a method. The checker relation is oriented implementation-to-base, so
+ * from the implementation it is an outgoing edge and a reverse walk, which only
+ * reads incoming edges, never sees it. Both halves of the path are one step
+ * away in a direction the traversal does not take.
+ *
+ * The synthetic edge is the forward one, unchanged, so eligibility, checker
+ * validity, and the hub cut cannot drift apart between the two directions: ask
+ * the base what it dispatches to, and keep the edges that land here.
+ */
+function reverseDispatchEdges(
+  graph: TtscGraphMemory,
+  id: string,
+  focus: ITtscGraphTrace.IRequest["focus"],
+): ITtscGraphEdge[] {
+  if (focus === "types") return [];
+  const out: ITtscGraphEdge[] = [];
+  const bases = new Set<string>();
+  for (const edge of graph.outgoing(id)) {
+    if (!DISPATCH_KINDS.has(edge.kind) || bases.has(edge.to)) continue;
+    bases.add(edge.to);
+    for (const dispatch of dispatchEdges(graph, edge.to, focus))
+      if (dispatch.to === id) out.push(dispatch);
+  }
+  return out;
+}
+
+/**
+ * Whether the declaration this node stands for has a body of its own.
+ *
+ * Having a body and naming a modeled dependency are different facts. Counting
+ * outgoing `calls`/`accesses`/`instantiates`/`renders` edges measures the
+ * second and answers as though it were the first, and it is wrong in both
+ * directions: an implementation whose body returns a literal, throws, or only
+ * moves locals around has degree zero and was refused as a dispatch target,
+ * while a concrete base method was promoted through its own override the moment
+ * its body stopped naming anything the graph models. Two graphs identical in
+ * every declaration fact then answered differently because of one statement
+ * inside a body.
+ *
+ * So read the declaration instead. A type surface has no body; `abstract` and
+ * `declare` take it away; an interface member and anything inside an ambient
+ * container never had one; a `.d.ts` declaration is ambient whether or not the
+ * keyword is written; and an external leaf has a body the graph deliberately
+ * does not hold. Everything else is a concrete declaration, which is a real
+ * destination and is never promoted through an override, whatever it calls.
+ */
+function hasDeclarationBody(
+  graph: TtscGraphMemory,
+  node: ITtscGraphNode,
+): boolean {
+  if (BODYLESS_KINDS.has(node.kind)) return false;
+  if (isExternalNode(node)) return false;
+  if (isDeclarationFile(node.file)) return false;
+  if (hasBodylessModifier(node)) return false;
+  return !inBodylessContainer(graph, node);
+}
+
+function hasBodylessModifier(node: ITtscGraphNode): boolean {
+  return node.modifiers?.some((m) => BODYLESS_MODIFIERS.has(m)) === true;
+}
+
+/**
+ * Whether an owner up the `contains` tree makes this declaration bodyless: an
+ * interface, or an ambient container. A member writes no keyword of its own —
+ * `declare` on a class or namespace is not repeated on what it holds — so the
+ * fact lives on the owner and the walk has to go get it.
+ */
+function inBodylessContainer(
+  graph: TtscGraphMemory,
+  node: ITtscGraphNode,
+): boolean {
+  const seen = new Set<string>([node.id]);
+  let current: ITtscGraphNode | undefined = node;
+  while (current !== undefined) {
+    const container: ITtscGraphNode | undefined = containerOf(graph, current);
+    if (container === undefined || container.kind === "file") return false;
+    if (seen.has(container.id)) return false;
+    seen.add(container.id);
+    if (container.kind === "interface" || hasBodylessModifier(container))
+      return true;
+    current = container;
+  }
   return false;
+}
+
+/** The declaration that owns this one, through the synthesized ownership tree. */
+function containerOf(
+  graph: TtscGraphMemory,
+  node: ITtscGraphNode,
+): ITtscGraphNode | undefined {
+  for (const edge of graph.incoming(node.id))
+    if (edge.kind === "contains") return graph.node(edge.from);
+  return undefined;
 }
 
 /** An edge the trace should follow: a real dependency, not a structural edge. */
