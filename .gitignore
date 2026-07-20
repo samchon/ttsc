@@ -12,6 +12,7 @@ coverage/
 # Local caches and package archives
 .cache/
 .turbo/
+.campaign-tmp/
 *.tgz
 *.tsbuildinfo
 *.log

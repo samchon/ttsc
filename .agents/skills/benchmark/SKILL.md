@@ -19,6 +19,12 @@ Read both only when changing shared fixture infrastructure or a surface that aff
 - Preserve the workload defined by the selected procedure. A faster result obtained by compiling, linting, formatting, indexing, or reading less input is not an optimization.
 - Treat a surprising result as evidence that the change is not yet understood. Inspect the raw report or trace before accepting, explaining away, or patching around it.
 
+## Temporary Asset Cleanup
+
+Each benchmark run must own an exact temporary root. Place run-only worktrees, cloned repositories, indexes, Go build caches, and Go temporary directories below it. For Go commands, set `GOCACHE` and `GOTMPDIR` to run-specific directories rather than the user's shared Go cache or system temp directory.
+
+After a run, retry, aborted attempt, or completed benchmark campaign, preserve the report and any user-authorized fixture change, then remove the run's exact temporary root. First confirm no process still uses it, then verify the directory is absent. Never recursively clean shared `GOCACHE`, `GOMODCACHE`, `GOPATH`, or a broad temp directory. A `--keep-...` option or another explicit user retention request is the only exception; record the retained path and reason.
+
 ## Fixture Changes
 
 Benchmark setup resets local fixture clones to their upstream branch tips. Edit the fixture repository itself, not a clone under a benchmark work directory.
