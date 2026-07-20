@@ -166,7 +166,7 @@ export const test_ttscserver_answers_typescript_go_language_requests =
         )
         .catch((error: unknown) => {
           throw new Error(
-            `hover was never answered (server→client requests answered: ${JSON.stringify(client.serverRequestMethods())}): ${
+            `hover was never answered (server→client requests received: ${JSON.stringify(client.serverRequestMethods())}): ${
               error instanceof Error ? (error.stack ?? error.message) : error
             }`,
           );

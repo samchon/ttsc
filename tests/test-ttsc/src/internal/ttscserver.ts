@@ -237,9 +237,11 @@ export class TtscserverClient {
   }
 
   /**
-   * Methods of the server→client requests answered so far, in arrival order.
+   * Methods of the server→client requests received so far, in arrival order.
    * Tests use it to pin that the handshake the upstream server blocks on
-   * actually happened rather than inferring it from a feature that worked.
+   * actually happened rather than inferring it from a feature that worked. A
+   * request that arrives after the shutdown sequence closed stdin is recorded
+   * here too, even though there is no longer anyone to answer it.
    */
   serverRequestMethods(): readonly string[] {
     return [...this.serverRequests];
@@ -357,7 +359,8 @@ export class TtscserverClient {
       // still arrive here, and there is no longer anyone waiting on the answer.
       return;
     }
-    const responder = SERVER_REQUEST_RESPONDERS[message.method] ?? (() => null);
+    const responder =
+      SERVER_REQUEST_RESPONDERS.get(message.method) ?? (() => null);
     try {
       this.send({
         jsonrpc: "2.0",
@@ -401,15 +404,21 @@ export class TtscserverClient {
  * to decode: `workspace/configuration` must return one settings object per
  * requested item, and `workspace/applyEdit` must report whether the edit was
  * applied — these tests never apply one, so they decline it truthfully.
+ *
+ * A Map rather than an object literal: the key is a method name straight off
+ * the wire, and an object lookup would resolve `constructor` or `toString` to
+ * an inherited function and answer with whatever it returned.
  */
-const SERVER_REQUEST_RESPONDERS: Record<string, (params: any) => unknown> = {
-  "client/registerCapability": () => null,
-  "client/unregisterCapability": () => null,
-  "window/workDoneProgress/create": () => null,
-  "workspace/applyEdit": () => ({ applied: false }),
-  "workspace/configuration": (params) =>
-    ((params?.items ?? []) as unknown[]).map(() => ({})),
-};
+const SERVER_REQUEST_RESPONDERS = new Map<string, (params: any) => unknown>([
+  ["client/registerCapability", () => null],
+  ["client/unregisterCapability", () => null],
+  ["window/workDoneProgress/create", () => null],
+  ["workspace/applyEdit", () => ({ applied: false })],
+  [
+    "workspace/configuration",
+    (params: any) => ((params?.items ?? []) as unknown[]).map(() => ({})),
+  ],
+]);
 
 export async function initializeTtscserverClient(
   client: TtscserverClient,
