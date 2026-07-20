@@ -1463,6 +1463,13 @@ function sourceBuildWorkspaceReplacements(
  * `/` (the workspace convention) and then delegate to
  * {@link autoQuoteGoModToken}, which mirrors `modfile.AutoQuote`.
  *
+ * Separator normalization is itself a quoting trigger. A Windows UNC
+ * (`\\server\share\...`) or extended-length (`\\?\C:\...`) path normalizes into
+ * a token that starts with `//`, and the modfile lexer reads `//` as a line
+ * comment wherever it appears. Emitted bare, such a token turns its whole
+ * `use`/`replace` line into a comment: `go` exits 0, reports nothing, and the
+ * overlay module simply disappears from the workspace.
+ *
  * Exported for unit tests.
  */
 export function formatGoWorkPath(p: string): string {
@@ -1473,9 +1480,9 @@ export function formatGoWorkPath(p: string): string {
  * Quote `token` for a `go.mod`/`go.work` line exactly as
  * `golang.org/x/mod/modfile`'s `AutoQuote` does: return it unchanged when it is
  * already a clean bare token, otherwise return its Go double-quoted form so the
- * value round-trips through the modfile lexer. A space-free path is therefore
- * emitted byte-for-byte as before; only tokens that would otherwise
- * mis-tokenize are quoted.
+ * value round-trips through the modfile lexer. A clean bare token is therefore
+ * emitted byte-for-byte as before; only tokens that would otherwise be split
+ * or interpreted as comments are quoted.
  *
  * Exported for unit tests.
  */
@@ -1506,11 +1513,11 @@ function mustQuoteGoModToken(s: string): boolean {
       }
       continue;
     }
-    if (!isGoGraphic(ch)) {
+    if (!isGoPrintable(ch)) {
       return true;
     }
   }
-  return s === "" || s === "//" || s === "/*";
+  return s === "" || s.includes("//") || s.includes("/*");
 }
 
 // Mirror `strconv.Quote`: wrap in double quotes, backslash-escape `"` and `\`,
@@ -1561,13 +1568,6 @@ function escapeGoRune(ch: string): string {
       return `\\U${cp.toString(16).padStart(8, "0")}`;
     }
   }
-}
-
-// `unicode.IsGraphic`: categories L, M, N, P, S, Zs (all spacing).
-const GO_GRAPHIC_RE = /^[\p{L}\p{M}\p{N}\p{P}\p{S}\p{Zs}]$/u;
-
-function isGoGraphic(ch: string): boolean {
-  return GO_GRAPHIC_RE.test(ch);
 }
 
 // `strconv.IsPrint`: the graphic categories except that the ONLY spacing
