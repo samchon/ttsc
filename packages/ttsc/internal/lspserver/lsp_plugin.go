@@ -79,9 +79,10 @@ type LSPDiagnosticRelatedInformation struct {
 // LSPCodeDescription is the LSP CodeDescription type: a documentation URL for a
 // diagnostic's Code. Editors render the Code as a link to Href, so a rule name
 // in the Problems panel can lead to the rule's docs. The proxy carries whatever
-// a sidecar supplies; it does not synthesize the URL, because no reliable
-// rule-name-to-page mapping exists (rule prefixes like `solid-js` and `format`
-// have no matching docs page, and core rules have no prefix at all).
+// a sidecar supplies; it does not synthesize the URL, because only the producer
+// knows what its own Code values mean. @ttsc/lint derives one per rule family
+// in packages/lint/linthost/rule_docs.go and leaves it unset where no vetted
+// page exists.
 type LSPCodeDescription struct {
   Href string `json:"href"`
 }
