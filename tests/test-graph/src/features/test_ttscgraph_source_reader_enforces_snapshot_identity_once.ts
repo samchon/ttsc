@@ -26,8 +26,8 @@ interface SourceReaderConstructor {
   ): SourceReader;
 }
 
-const digest = (text: string): string =>
-  createHash("sha256").update(text, "utf8").digest("hex");
+const digest = (value: string | Buffer): string =>
+  createHash("sha256").update(value).digest("hex");
 
 /**
  * Verifies the graph source reader returns one immutable checker-identical
@@ -36,16 +36,16 @@ const digest = (text: string): string =>
  * A request-only line cache reduces repeated `readFileSync` calls but can still
  * mix graph facts with bytes written after the native snapshot. It is also
  * unsound for a source-preamble project: the disk digest can match even though
- * the checker resolved augmented text. The reader must compare the bytes it
- * actually read with `checkerDigest`, then freeze and cache that adjudication
- * for the lifetime of its `TtscGraphMemory` snapshot.
+ * the checker resolved augmented text. The reader must prove the bytes it read
+ * against `diskDigest`, then prove its decoded text against `checkerDigest` and
+ * freeze that adjudication for the lifetime of its `TtscGraphMemory` snapshot.
  *
  * 1. Read one checker-identical file twice and assert one physical read plus an
  *    immutable, reused line array.
- * 2. Mutate a file after its provenance was captured and assert the mismatch is
- *    rejected and cached even if the disk later reverts.
- * 3. Model a source-preamble divergence and an I/O failure, asserting neither can
- *    be presented as checker text and neither is retried.
+ * 2. Mutate a file and re-encode another after provenance capture, asserting text
+ *    and raw-byte mismatches are rejected and cached.
+ * 3. Model preamble, virtual, capability, and I/O failures, asserting none can be
+ *    presented as checker text or retried.
  * 4. Build the minimal synthetic memory used by internal resolver tests and assert
  *    an absent provenance manifest fails closed without crashing.
  */
@@ -71,7 +71,7 @@ export const test_ttscgraph_source_reader_enforces_snapshot_identity_once =
           {
             file: "src/stable.ts",
             checkerDigest: digest(stable),
-            diskDigest: digest(stable),
+            diskDigest: digest(Buffer.from(stable, "utf8")),
           },
         ],
       },
@@ -98,7 +98,7 @@ export const test_ttscgraph_source_reader_enforces_snapshot_identity_once =
           {
             file: "src/mutated.ts",
             checkerDigest: digest(before),
-            diskDigest: digest(before),
+            diskDigest: digest(Buffer.from(before, "utf8")),
           },
         ],
       },
@@ -120,6 +120,35 @@ export const test_ttscgraph_source_reader_enforces_snapshot_identity_once =
     );
     assert.equal(mutationReads, 1, "digest mismatches are cached as failures");
 
+    const reencoded = "export const reencoded = true;\n";
+    let reencodedReads = 0;
+    const reencodedReader = new Reader(
+      "C:/project",
+      {
+        capabilities: ["sourceDigests", "diskDigests"],
+        sources: [
+          {
+            file: "src/reencoded.ts",
+            checkerDigest: digest(reencoded),
+            diskDigest: digest(Buffer.from(reencoded, "utf8")),
+          },
+        ],
+      },
+      () => {
+        reencodedReads++;
+        return Buffer.concat([
+          Buffer.from([0xef, 0xbb, 0xbf]),
+          Buffer.from(reencoded, "utf8"),
+        ]);
+      },
+    );
+    assert.equal(
+      reencodedReader.lines("src/reencoded.ts"),
+      undefined,
+      "same decoded text with different raw bytes is not this snapshot",
+    );
+    assert.equal(reencodedReads, 1, "raw-byte mismatches are not retried");
+
     const disk = "export const disk = true;\n";
     const checker = "declare const injected: number;\n" + disk;
     let preambleReads = 0;
@@ -131,7 +160,7 @@ export const test_ttscgraph_source_reader_enforces_snapshot_identity_once =
           {
             file: "src/preamble.ts",
             checkerDigest: digest(checker),
-            diskDigest: digest(disk),
+            diskDigest: digest(Buffer.from(disk, "utf8")),
           },
         ],
       },
@@ -147,8 +176,8 @@ export const test_ttscgraph_source_reader_enforces_snapshot_identity_once =
     );
     assert.equal(preambleReads, 1);
 
-    let failureReads = 0;
-    const failureReader = new Reader(
+    let missingCapabilityReads = 0;
+    const missingCapabilityReader = new Reader(
       "C:/project",
       {
         capabilities: ["sourceDigests"],
@@ -157,6 +186,64 @@ export const test_ttscgraph_source_reader_enforces_snapshot_identity_once =
             file: "src/missing.ts",
             checkerDigest: digest("missing"),
             diskDigest: "",
+          },
+        ],
+      },
+      () => {
+        missingCapabilityReads++;
+        return Buffer.from("missing", "utf8");
+      },
+    );
+    assert.equal(
+      missingCapabilityReader.lines("src/missing.ts"),
+      undefined,
+      "a snapshot without disk digests stays conservative",
+    );
+    assert.equal(
+      missingCapabilityReads,
+      0,
+      "a missing disk-digest capability fails closed before disk I/O",
+    );
+
+    let virtualReads = 0;
+    const virtualReader = new Reader(
+      "C:/project",
+      {
+        capabilities: ["sourceDigests", "diskDigests"],
+        sources: [
+          {
+            file: "bundled:///lib.d.ts",
+            checkerDigest: digest("declare const bundled: true;\n"),
+            diskDigest: "",
+          },
+        ],
+      },
+      () => {
+        virtualReads++;
+        return Buffer.from("declare const bundled: true;\n", "utf8");
+      },
+    );
+    assert.equal(
+      virtualReader.lines("bundled:///lib.d.ts"),
+      undefined,
+      "virtual sources without a disk digest remain unverifiable",
+    );
+    assert.equal(
+      virtualReads,
+      0,
+      "an empty disk digest fails closed before disk I/O",
+    );
+
+    let failureReads = 0;
+    const failureReader = new Reader(
+      "C:/project",
+      {
+        capabilities: ["sourceDigests", "diskDigests"],
+        sources: [
+          {
+            file: "src/missing.ts",
+            checkerDigest: digest("missing"),
+            diskDigest: digest(Buffer.from("missing", "utf8")),
           },
         ],
       },
