@@ -364,6 +364,9 @@ type securityDetectPseudoRandomBytes struct{}
 func (securityDetectPseudoRandomBytes) Name() string {
   return securityRulePrefix + "detect-pseudoRandomBytes"
 }
+func (securityDetectPseudoRandomBytes) NeedsTypeChecker() bool {
+  return true
+}
 func (securityDetectPseudoRandomBytes) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
@@ -379,7 +382,8 @@ func (securityDetectPseudoRandomBytes) Check(ctx *Context, node *shimast.Node) {
     return
   }
   bindings := ctx.securityBindings()
-  if isNodeCryptoModule(bindings.Modules[identifierText(obj)]) {
+  module := bindings.Modules[identifierText(obj)]
+  if isNodeCryptoModule(module) && securityValueBindingModule(ctx, obj) == module {
     ctx.ReportFix(node, message, edits...)
     return
   }
@@ -390,9 +394,11 @@ func (securityDetectPseudoRandomBytes) Check(ctx *Context, node *shimast.Node) {
 // and touches nothing else.
 //
 // The caller imposes the rewrite only when the existing security binding table
-// proves the object is Node's `crypto` module. A name-only match can be a local
-// application object, so that shape receives the same edit as an opt-in
-// suggestion instead.
+// and the TypeScript checker agree that this exact object reference resolves
+// to Node's `crypto` module. The identity check matters when an imported name
+// is shadowed by a parameter or block-local declaration. A name-only match can
+// be a local application object, so that shape receives the same edit as an
+// opt-in suggestion instead.
 //
 // Only the member name is replaced, so `crypto.pseudoRandomBytes` passed
 // around as a value — not just called — is repaired the same way. Returns nil
@@ -412,6 +418,142 @@ func securityRandomBytesEdits(file *shimast.SourceFile, node *shimast.Node) []Te
 
 func isNodeCryptoModule(module string) bool {
   return module == "crypto" || module == "node:crypto"
+}
+
+// securityValueBindingModule resolves an identifier in value position and
+// returns the module named by that exact binding's declaration.
+//
+// The security binding table is intentionally file-wide and text-keyed because
+// most security rules are syntax-only. That table can establish that a file
+// declares a Node module binding named `crypto`, but it cannot distinguish a
+// same-named parameter or block-local declaration at one use site. An
+// automatic edit needs the stronger statement, so this helper asks the
+// checker whether the use resolves to the import or require declaration. A
+// CommonJS script can resolve the use to lib.dom's global `crypto` even while a
+// top-level `const crypto = require("crypto")` is the runtime binding; that
+// shape is accepted only when the checker finds no different declaration in
+// the current file. Missing checker data or any other declaration shape is not
+// proof and returns the empty string.
+func securityValueBindingModule(ctx *Context, identifier *shimast.Node) string {
+  if ctx == nil || ctx.File == nil {
+    return ""
+  }
+  target := canonicalValueSymbol(ctx, identifier)
+  if target == nil {
+    return ""
+  }
+  if module := securityRequiredModuleFromDeclaration(target.ValueDeclaration); module != "" {
+    return module
+  }
+  for _, declaration := range target.Declarations {
+    if module := securityRequiredModuleFromDeclaration(declaration); module != "" {
+      return module
+    }
+  }
+
+  module := ""
+  topLevelRequire := ""
+  walkDescendants(ctx.File.AsNode(), func(candidate *shimast.Node) {
+    if module != "" || candidate == nil {
+      return
+    }
+    switch candidate.Kind {
+    case shimast.KindImportDeclaration:
+      imported := candidate.AsImportDeclaration()
+      if imported == nil || imported.ImportClause == nil {
+        return
+      }
+      clause := imported.ImportClause.AsImportClause()
+      if clause == nil {
+        return
+      }
+      if canonicalValueSymbol(ctx, clause.Name()) == target {
+        module = stringLiteralText(imported.ModuleSpecifier)
+        return
+      }
+      if clause.NamedBindings == nil || clause.NamedBindings.Kind != shimast.KindNamespaceImport {
+        return
+      }
+      namespace := clause.NamedBindings.AsNamespaceImport()
+      if namespace != nil && canonicalValueSymbol(ctx, namespace.Name()) == target {
+        module = stringLiteralText(imported.ModuleSpecifier)
+      }
+    case shimast.KindVariableDeclaration:
+      variable := candidate.AsVariableDeclaration()
+      if variable == nil {
+        return
+      }
+      name := variable.Name()
+      required, ok := requireExpressionModule(variable.Initializer)
+      if !ok || identifierText(name) != identifierText(identifier) {
+        return
+      }
+      if name != nil && name.Kind == shimast.KindIdentifier &&
+        canonicalValueSymbol(ctx, name) == target {
+        module = required
+        return
+      }
+      if securityTopLevelVariableDeclaration(candidate) {
+        topLevelRequire = required
+      }
+    }
+  })
+  if module == "" && topLevelRequire != "" &&
+    !securitySymbolHasDeclarationInFile(target, ctx.File) {
+    module = topLevelRequire
+  }
+  return module
+}
+
+func securityRequiredModuleFromDeclaration(declaration *shimast.Node) string {
+  for current := declaration; current != nil && current.Kind != shimast.KindSourceFile; current = current.Parent {
+    if current.Kind != shimast.KindVariableDeclaration {
+      continue
+    }
+    variable := current.AsVariableDeclaration()
+    if variable == nil {
+      return ""
+    }
+    module, _ := requireExpressionModule(variable.Initializer)
+    return module
+  }
+  return ""
+}
+
+func securityTopLevelVariableDeclaration(declaration *shimast.Node) bool {
+  if declaration == nil || declaration.Kind != shimast.KindVariableDeclaration {
+    return false
+  }
+  list := declaration.Parent
+  if list == nil || list.Kind != shimast.KindVariableDeclarationList {
+    return false
+  }
+  statement := list.Parent
+  return statement != nil && statement.Kind == shimast.KindVariableStatement &&
+    statement.Parent != nil && statement.Parent.Kind == shimast.KindSourceFile
+}
+
+func securitySymbolHasDeclarationInFile(symbol *shimast.Symbol, file *shimast.SourceFile) bool {
+  if symbol == nil || file == nil {
+    return false
+  }
+  belongs := func(declaration *shimast.Node) bool {
+    for current := declaration; current != nil; current = current.Parent {
+      if current.Kind == shimast.KindSourceFile {
+        return current == file.AsNode()
+      }
+    }
+    return false
+  }
+  if belongs(symbol.ValueDeclaration) {
+    return true
+  }
+  for _, declaration := range symbol.Declarations {
+    if belongs(declaration) {
+      return true
+    }
+  }
+  return false
 }
 
 type securityDetectUnsafeRegex struct{}
