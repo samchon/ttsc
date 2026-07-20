@@ -21,6 +21,7 @@ const keep = new Set([
   "PATHEXT",
   "SystemRoot",
   "TEMP",
+  "TTSC_WASM_TEST_ROOT",
   "TMP",
   "USERPROFILE",
 ]);
@@ -28,5 +29,9 @@ for (const key of Object.keys(process.env)) {
   if (!keep.has(key)) delete process.env[key];
 }
 
-process.argv = [process.argv[0], path.resolve(wasmExec), ...process.argv.slice(3)];
+process.argv = [
+  process.argv[0],
+  path.resolve(wasmExec),
+  ...process.argv.slice(3),
+];
 require(process.argv[1]);
