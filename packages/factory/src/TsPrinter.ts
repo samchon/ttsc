@@ -1739,9 +1739,20 @@ export class TsPrinter {
    * re-associate — matching the legacy printer's parenthesizer rules.
    */
   private parenthesizedExpression(expression: Expression): Doc {
-    return expression.kind === "ParenthesizedExpression"
+    return this.skipPartiallyEmittedExpressions(expression).kind ===
+      "ParenthesizedExpression"
       ? this.emit(expression)
       : concat(["(", this.emit(expression), ")"]);
+  }
+
+  /**
+   * The partial-emission wrapper carries transform provenance but emits no
+   * syntax of its own, so every grammar predicate must inspect its inner node.
+   */
+  private skipPartiallyEmittedExpressions(expression: Expression): Expression {
+    while (expression.kind === "PartiallyEmittedExpression")
+      expression = expression.expression;
+    return expression;
   }
 
   private expressionForDisallowedComma(
@@ -1792,6 +1803,7 @@ export class TsPrinter {
   }
 
   private isOptionalChain(expression: Expression): boolean {
+    expression = this.skipPartiallyEmittedExpressions(expression);
     switch (expression.kind) {
       case "CallChain":
       case "ElementAccessChain":
@@ -1850,6 +1862,7 @@ export class TsPrinter {
   private leftmostPrintedExpression(
     expression: Expression,
   ): Expression | undefined {
+    expression = this.skipPartiallyEmittedExpressions(expression);
     switch (expression.kind) {
       case "CallExpression":
       case "CallChain":
@@ -1966,43 +1979,53 @@ export class TsPrinter {
     isLeftSide: boolean,
     leftOperand?: Expression,
   ): boolean {
-    if (operand.kind === "ParenthesizedExpression") return false;
+    const emittedOperand: Expression = this.skipPartiallyEmittedExpressions(
+      operand,
+    );
+    if (emittedOperand.kind === "ParenthesizedExpression") return false;
     if (
       operator === SyntaxKind.AsteriskAsteriskToken &&
       isLeftSide &&
-      this.expressionPrecedence(operand) === ExpressionPrecedence.Unary
+      this.expressionPrecedence(emittedOperand) === ExpressionPrecedence.Unary
     )
       return true;
     if (
-      operand.kind === "BinaryExpression" &&
-      this.mixingBinaryOperatorsRequiresParentheses(operator, operand.operator)
+      emittedOperand.kind === "BinaryExpression" &&
+      this.mixingBinaryOperatorsRequiresParentheses(
+        operator,
+        emittedOperand.operator,
+      )
     )
       return true;
 
     const operatorPrecedence: ExpressionPrecedence =
       this.binaryOperatorPrecedence(operator);
     const operandPrecedence: ExpressionPrecedence =
-      this.expressionPrecedence(operand);
+      this.expressionPrecedence(emittedOperand);
     if (operandPrecedence < operatorPrecedence) return true;
     if (operandPrecedence > operatorPrecedence) return false;
 
     if (isLeftSide)
       return this.binaryOperatorAssociativity(operator) === Associativity.Right;
-    if (operand.kind === "BinaryExpression" && operand.operator === operator) {
+    if (
+      emittedOperand.kind === "BinaryExpression" &&
+      emittedOperand.operator === operator
+    ) {
       if (this.operatorHasAssociativeProperty(operator)) return false;
       if (
         operator === SyntaxKind.PlusToken &&
         leftOperand !== undefined &&
         this.literalKindOfBinaryPlusOperand(leftOperand) !== undefined &&
         this.literalKindOfBinaryPlusOperand(leftOperand) ===
-          this.literalKindOfBinaryPlusOperand(operand)
+          this.literalKindOfBinaryPlusOperand(emittedOperand)
       )
         return false;
     }
-    return this.expressionAssociativity(operand) === Associativity.Left;
+    return this.expressionAssociativity(emittedOperand) === Associativity.Left;
   }
 
   private expressionPrecedence(expression: Expression): ExpressionPrecedence {
+    expression = this.skipPartiallyEmittedExpressions(expression);
     switch (expression.kind) {
       case "CommaListExpression":
         return ExpressionPrecedence.Comma;
@@ -2045,6 +2068,7 @@ export class TsPrinter {
   }
 
   private expressionAssociativity(expression: Expression): Associativity {
+    expression = this.skipPartiallyEmittedExpressions(expression);
     switch (expression.kind) {
       case "NewExpression":
         return expression.arguments === undefined
@@ -2162,6 +2186,7 @@ export class TsPrinter {
   private literalKindOfBinaryPlusOperand(
     expression: Expression,
   ): string | undefined {
+    expression = this.skipPartiallyEmittedExpressions(expression);
     switch (expression.kind) {
       case "StringLiteral":
       case "NumericLiteral":
@@ -2187,6 +2212,7 @@ export class TsPrinter {
   }
 
   private isLeftHandSideExpression(expression: Expression): boolean {
+    expression = this.skipPartiallyEmittedExpressions(expression);
     switch (expression.kind) {
       case "ArrowFunction":
       case "ClassExpression":
@@ -2243,6 +2269,7 @@ export class TsPrinter {
    * {@link leftmostPrintedExpression}.
    */
   private leftmostExpression(expression: Expression): Expression {
+    expression = this.skipPartiallyEmittedExpressions(expression);
     switch (expression.kind) {
       case "AsExpression":
       case "CallExpression":
@@ -2270,6 +2297,7 @@ export class TsPrinter {
     operator: SyntaxKind | undefined,
     operand: Expression,
   ): boolean {
+    operand = this.skipPartiallyEmittedExpressions(operand);
     if (operator === undefined || operand.kind !== "PrefixUnaryExpression")
       return false;
     return (
