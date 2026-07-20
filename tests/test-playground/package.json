@@ -12,6 +12,7 @@
     "@ttsc/testing": "workspace:*",
     "@ttsc/wasm": "workspace:*",
     "@types/node": "catalog:utils",
+    "tgrid": "^1.0.3",
     "typescript": "catalog:typescript"
   }
 }

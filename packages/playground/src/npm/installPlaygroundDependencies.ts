@@ -5,6 +5,7 @@ import { BUILT_IN_PLAYGROUND_PACKAGES } from "./BUILT_IN_PLAYGROUND_PACKAGES";
 import {
   DECLARATION_FILE_REGEXP,
   type IQueueItem,
+  type IVersionRequest,
   downloadTarball,
   enqueuePackageDependencies,
   fetchNpmMetadata,
@@ -43,8 +44,9 @@ export async function installPlaygroundDependencies(
   const installed = new Set(options.installedPackages ?? []);
   const maxPackages = options.maxPackages ?? DEFAULT_MAX_PACKAGES;
   const queue: IQueueItem[] = [];
-  const queued = new Set<string>();
-  const done = new Set<string>();
+  const queued = new Map<string, IQueueItem>();
+  const done = new Map<string, string>();
+  const metadataByName = new Map<string, Parameters<typeof selectVersion>[0]>();
   const result: IPlaygroundDependencyInstallResult = {
     packages: [],
     compilerFiles: {},
@@ -53,11 +55,39 @@ export async function installPlaygroundDependencies(
   };
 
   const enqueue = (item: IQueueItem): void => {
-    if (ignored.has(item.name) || installed.has(item.name)) return;
-    if (queued.has(item.name) || done.has(item.name)) return;
-    queued.add(item.name);
-    queue.push(item);
-    report("queued", item, `Queued ${item.name}`);
+    const normalized = normalizeRegistryRequest(item);
+    if (ignored.has(normalized.name)) return;
+    const known = queued.get(normalized.name);
+    if (known) {
+      if (known.registryName !== normalized.registryName) {
+        throw new Error(
+          `Conflicting npm aliases for ${normalized.name}: ${known.registryName} and ${normalized.registryName}.`,
+        );
+      }
+      known.requests ??= [toVersionRequest(known)];
+      known.requests.push(toVersionRequest(normalized));
+      known.optional &&= normalized.optional;
+      const completed = done.get(normalized.name);
+      const metadata = metadataByName.get(normalized.name);
+      if (completed !== undefined && metadata) {
+        // A dependency can discover an additional range after this package has
+        // already been installed. Pin the installed version into the combined
+        // solve so a compatible late constraint is accepted, but a range that
+        // rejects the mounted version fails instead of being silently lost.
+        selectQueuedVersion(metadata, known, [completed]);
+      } else if (completed !== undefined && !known.optional) {
+        // An optional 404 may later be reached through a required edge. Retry
+        // that edge so the required dependency cannot remain silently absent.
+        done.delete(normalized.name);
+        queue.push(known);
+      }
+      return;
+    }
+    if (installed.has(normalized.name)) return;
+    normalized.requests = [toVersionRequest(normalized)];
+    queued.set(normalized.name, normalized);
+    queue.push(normalized);
+    report("queued", normalized, `Queued ${normalized.name}`);
   };
 
   const report = (
@@ -77,7 +107,7 @@ export async function installPlaygroundDependencies(
   };
 
   for (const name of packageNames) {
-    enqueue({ name, range: "latest", optional: false });
+    enqueue({ name, range: "*", optional: false, requester: "source" });
   }
 
   for (let index = 0; index < queue.length; index++) {
@@ -94,23 +124,24 @@ export async function installPlaygroundDependencies(
     report("resolve", item, `Resolving ${item.name}`);
     const metadata = await fetchNpmMetadata(
       fetchImpl,
-      item.name,
+      item.registryName ?? item.name,
       item.optional,
       options.signal,
     );
     throwIfAborted(options.signal);
     if (!metadata) {
-      done.add(item.name);
+      done.set(item.name, "");
       report("skip", item, `Skipped optional ${item.name}`);
       continue;
     }
 
-    const version = selectVersion(metadata, item.range);
+    metadataByName.set(item.name, metadata);
+    const version = selectQueuedVersion(metadata, item);
     const versionMetadata = metadata.versions[version];
     const tarball = versionMetadata?.dist?.tarball;
     if (!versionMetadata || !tarball) {
       if (item.optional) {
-        done.add(item.name);
+        done.set(item.name, version);
         report("skip", item, `Skipped optional ${item.name}`);
         continue;
       }
@@ -144,20 +175,63 @@ export async function installPlaygroundDependencies(
       declarationCount,
     });
 
-    done.add(item.name);
+    done.set(item.name, version);
     installed.add(item.name);
     report("done", item, `Installed ${item.name}@${version}`, version);
 
-    enqueuePackageDependencies(packageJson, enqueue);
+    enqueuePackageDependencies(packageJson, enqueue, item.name);
     if (declarationCount === 0 && !item.name.startsWith("@types/")) {
       enqueue({
         name: toTypesPackageName(item.name),
-        range: "latest",
+        range: "*",
         optional: true,
+        requester: item.name,
       });
     }
   }
 
   report("done", null, "Dependency install complete");
   return result;
+}
+
+function normalizeRegistryRequest(item: IQueueItem): IQueueItem {
+  if (!item.range.startsWith("npm:"))
+    return { ...item, registryName: item.name };
+  const match = /^npm:((?:@[^/]+\/)?[^@/]+)(?:@(.+))?$/.exec(item.range);
+  if (!match) {
+    throw new Error(
+      `Unsupported npm alias ${JSON.stringify(item.range)} for ${item.name}.`,
+    );
+  }
+  return {
+    ...item,
+    registryName: match[1]!,
+    range: match[2] || "*",
+  };
+}
+
+function toVersionRequest(item: IQueueItem): IVersionRequest {
+  return { range: item.range, requester: item.requester };
+}
+
+function selectQueuedVersion(
+  metadata: Parameters<typeof selectVersion>[0],
+  item: IQueueItem,
+  extraRanges: readonly string[] = [],
+): string {
+  const requests = item.requests ?? [toVersionRequest(item)];
+  const ranges = [...requests.map((request) => request.range), ...extraRanges];
+  try {
+    return selectVersion(metadata, ranges);
+  } catch (error) {
+    if (requests.length < 2) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    const requestedBy = requests
+      .map(
+        ({ requester, range }) =>
+          `${requester} requests ${JSON.stringify(range)}`,
+      )
+      .join("; ");
+    throw new Error(`${message} Requested by ${requestedBy}.`);
+  }
 }

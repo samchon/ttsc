@@ -9,72 +9,58 @@ import type { ICreateCompilerClientOptions } from "../structures/ICreateCompiler
  * UI-side singleton: connect to the playground worker over tgrid and return the
  * typed `ICompilerService` driver.
  *
- * The promise is cached; the first call boots, every subsequent call shares the
- * same connection. If the boot rejects the cache is cleared so the next call
- * retries — otherwise every retry would resolve to the same rejection.
+ * One connection generation owns the cached promise and connector. A reset
+ * invalidates that generation before awaiting it, so a late settlement cannot
+ * replace a newer connection or clear its retry state.
  */
 export function createCompilerClient(options: ICreateCompilerClientOptions): {
   connect(): Promise<ICompilerService>;
   reset(): Promise<void>;
 } {
-  let connectionPromise: Promise<ICompilerService> | null = null;
-  // Track the active connector AND the in-flight connector promise so
-  // reset() can dispose either one — disposing only the resolved
-  // `activeConnector` leaks the connector when reset() is called during
-  // an in-flight `await connector.connect(...)` (the connector reference
-  // exists but isn't yet assigned to activeConnector).
-  let activeConnector: WorkerConnector<null, null, null> | null = null;
-  let pendingConnector: Promise<WorkerConnector<null, null, null>> | null =
-    null;
+  type Connection = {
+    connector: WorkerConnector<null, null, null>;
+    close(): Promise<void>;
+    promise: Promise<ICompilerService>;
+  };
+  let current: Connection | null = null;
 
   return {
     connect(): Promise<ICompilerService> {
-      if (connectionPromise) return connectionPromise;
+      if (current) return current.promise;
       const connector: WorkerConnector<null, null, null> = new WorkerConnector(
         null,
         null,
       );
-      const connectPromise = connector
-        .connect(options.workerUrl)
-        .then(() => connector);
-      pendingConnector = connectPromise;
-      connectionPromise = (async () => {
-        try {
-          await connectPromise;
-        } catch (err) {
-          connectionPromise = null;
-          if (pendingConnector === connectPromise) pendingConnector = null;
-          throw err;
-        }
-        if (pendingConnector === connectPromise) pendingConnector = null;
-        activeConnector = connector;
-        return connector.getDriver() as unknown as ICompilerService;
-      })();
-      return connectionPromise;
+      let closePromise: Promise<void> | null = null;
+      const connection = {} as Connection;
+      current = connection;
+      connection.connector = connector;
+      connection.close = () =>
+        (closePromise ??= Promise.resolve()
+          .then(() => connector.close())
+          .catch(() => {}));
+      connection.promise = Promise.resolve()
+        .then(() => connector.connect(options.workerUrl))
+        .then(() => connector.getDriver() as unknown as ICompilerService)
+        .catch(async (error: unknown) => {
+          if (current === connection) {
+            current = null;
+            await connection.close();
+          }
+          throw error;
+        });
+      return connection.promise;
     },
     async reset(): Promise<void> {
-      const inflight = pendingConnector;
-      const active = activeConnector;
-      connectionPromise = null;
-      pendingConnector = null;
-      activeConnector = null;
-      // Swallow close errors: the worker is already being torn down,
-      // and a Retry that fails to close cleanly should not block the
-      // next connect attempt. Cover both code paths — the in-flight
-      // connector (await it first, then close) and the resolved active
-      // connector. Either may be null; both may be the same instance
-      // after a successful connect().
-      if (inflight) {
-        try {
-          const c = await inflight;
-          if (c !== active) await c.close().catch(() => {});
-        } catch {
-          // connect() rejected — nothing to close.
-        }
+      const invalidated = current;
+      current = null;
+      if (!invalidated) return;
+      try {
+        await invalidated.promise;
+      } catch {
+        // A rejected connection never became usable.
       }
-      if (active) {
-        await active.close().catch(() => {});
-      }
+      await invalidated.close();
     },
   };
 }

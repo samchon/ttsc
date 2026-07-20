@@ -14,7 +14,7 @@ import { createSandboxRequire } from "../../../../packages/playground/lib/src/sa
  *
  * 1. Root string, `"."`-table, and bare condition map all load the same CJS entry
  *    and return its exports.
- * 2. `require` is preferred over `default` in a condition map (CJS precedence).
+ * 2. Active `require` / `default` conditions are selected in manifest order.
  * 3. Negative twin: an ESM-only root condition map with no CJS-compatible target
  *    and no main/index fallback still fails, naming the requested package.
  */
@@ -44,10 +44,32 @@ export const test_create_sandbox_require_supports_commonjs_root_exports =
       value: "ok",
     });
 
-    // require is preferred over default: only the require target exists.
+    // `require` is selected because it is the first active manifest condition.
     assert.deepEqual(
       load({ require: "./entry.cjs", default: "./missing.mjs" }),
       { value: "ok" },
+    );
+
+    // Reordering two active conditions deliberately changes the selected branch;
+    // this proves the resolver reads package.json key order rather than a fixed
+    // `require ?? default` priority expression.
+    assert.deepEqual(
+      createSandboxRequire(
+        {
+          "ordered/package.json": JSON.stringify({
+            exports: {
+              default: "./default.cjs",
+              require: "./require.cjs",
+              node: "./node.cjs",
+            },
+          }),
+          "ordered/default.cjs": "module.exports = { value: 'default' };",
+          "ordered/require.cjs": "module.exports = { value: 'require' };",
+          "ordered/node.cjs": "module.exports = { value: 'node' };",
+        },
+        { console },
+      )("ordered"),
+      { value: "default" },
     );
 
     // Negative twin: ESM-only root with no CJS target and no main/index fails,

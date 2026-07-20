@@ -25,11 +25,35 @@ export const test_create_sandbox_require_preserves_fallback_resolution = () => {
         exports: { "./sub": "./dist/sub.js" },
       }),
       "s/dist/sub.js": "module.exports = { v: 'sub' };",
+      "s/sub.js": "module.exports = { v: 'private-direct-path' };",
       // wildcard subpath export
       "w/package.json": JSON.stringify({
-        exports: { "./feat/*": "./src/feat/*.js" },
+        exports: {
+          "./feat/*": "./src/feat/*.js",
+          "./feat/deep/*": "./src/deep/*.js",
+        },
       }),
       "w/src/feat/x.js": "module.exports = { v: 'wild' };",
+      "w/src/deep/x.js": "module.exports = { v: 'deep-wild' };",
+      // array fallback, null blocker, and inactive condition target
+      "a/package.json": JSON.stringify({
+        exports: { "./entry": ["./missing.js", "./available.js"] },
+      }),
+      "a/available.js": "module.exports = { v: 'array' };",
+      "blocked/package.json": JSON.stringify({ exports: { "./x": null } }),
+      "blocked/x.js": "module.exports = { v: 'private' };",
+      "conditions/package.json": JSON.stringify({
+        exports: {
+          "./entry": {
+            node: "./node.js",
+            import: "./import.mjs",
+            default: "./default.js",
+          },
+        },
+      }),
+      "conditions/node.js": "module.exports = { v: 'node' };",
+      "conditions/import.mjs": "export default { v: 'import' };",
+      "conditions/default.js": "module.exports = { v: 'default' };",
       // scoped package, main fallback
       "@sc/pkg/package.json": JSON.stringify({ main: "./main.js" }),
       "@sc/pkg/main.js": "module.exports = { v: 'scoped' };",
@@ -52,6 +76,17 @@ export const test_create_sandbox_require_preserves_fallback_resolution = () => {
     { v: "wild" },
     "wildcard subpath export",
   );
+  assert.deepEqual(
+    require("w/feat/deep/x"),
+    { v: "deep-wild" },
+    "the longest wildcard prefix wins",
+  );
+  assert.deepEqual(require("a/entry"), { v: "array" }, "array fallback");
+  assert.deepEqual(
+    require("conditions/entry"),
+    { v: "default" },
+    "node/import conditions stay inactive in the browser sandbox",
+  );
   assert.deepEqual(require("@sc/pkg"), { v: "scoped" }, "scoped package name");
   assert.deepEqual(require("r"), { v: 42 }, "relative sibling require");
   assert.deepEqual(require("j"), { v: "json" }, "JSON module");
@@ -60,5 +95,10 @@ export const test_create_sandbox_require_preserves_fallback_resolution = () => {
   assert.throws(
     () => require("totally-absent"),
     /require\("totally-absent"\) is not available/,
+  );
+  assert.throws(
+    () => require("blocked/x"),
+    /require\("blocked\/x"\) is not available/,
+    "a declared null export must block packed private files",
   );
 };

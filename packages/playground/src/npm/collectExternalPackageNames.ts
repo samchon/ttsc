@@ -152,14 +152,6 @@ function tokenize(source: string): Token[] {
 
   // A `/` opens a regex only in operator/statement position — never right after
   // a value (identifier, number, string, template, regex, `)` or `]`).
-  const regexAllowed = (): boolean => {
-    const prev = tokens[tokens.length - 1];
-    if (!prev) return true;
-    if (prev.kind === "string" || prev.kind === "other") return false;
-    if (prev.kind === "word") return REGEX_PRECEDING_KEYWORDS.has(prev.value);
-    return prev.value !== ")" && prev.value !== "]";
-  };
-
   let i = 0;
   while (i < n) {
     const c = source[i]!;
@@ -189,25 +181,8 @@ function tokenize(source: string): Token[] {
       continue;
     }
     // Regular-expression literal.
-    if (c === "/" && regexAllowed()) {
-      i++;
-      let inClass = false;
-      while (i < n) {
-        const d = source[i];
-        if (d === "\\") {
-          i += 2;
-          continue;
-        }
-        if (d === "\n") break;
-        if (d === "[") inClass = true;
-        else if (d === "]") inClass = false;
-        else if (d === "/" && !inClass) {
-          i++;
-          break;
-        }
-        i++;
-      }
-      while (i < n && isIdPart(source[i]!)) i++; // flags
+    if (c === "/" && isRegexAllowed(tokens)) {
+      i = skipRegularExpression(source, i, isIdPart);
       tokens.push({ kind: "other" });
       continue;
     }
@@ -233,29 +208,26 @@ function tokenize(source: string): Token[] {
       tokens.push({ kind: "string", value });
       continue;
     }
-    // Template literal. Contents (including `${...}` expressions) are treated as
-    // opaque: a template specifier is not statically resolvable.
+    // Template quasis are opaque, but `${...}` substitutions are executable
+    // JavaScript and must receive the same lexical treatment as top-level code.
     if (c === "`") {
       i++;
-      let depth = 0;
       while (i < n) {
         const d = source[i];
         if (d === "\\") {
           i += 2;
           continue;
         }
-        if (depth === 0 && d === "`") {
+        if (d === "`") {
           i++;
           break;
         }
         if (d === "$" && source[i + 1] === "{") {
-          depth++;
-          i += 2;
-          continue;
-        }
-        if (depth > 0 && d === "}") {
-          depth--;
-          i++;
+          const start = i + 2;
+          const end = findTemplateSubstitutionEnd(source, start);
+          tokens.push({ kind: "other" }, ...tokenize(source.slice(start, end)));
+          tokens.push({ kind: "other" });
+          i = end < n ? end + 1 : end;
           continue;
         }
         i++;
@@ -284,4 +256,133 @@ function tokenize(source: string): Token[] {
     i++;
   }
   return tokens;
+}
+
+function findTemplateSubstitutionEnd(source: string, start: number): number {
+  let depth = 1;
+  let previous: Token | undefined;
+  const isIdentifierStart = (character: string): boolean =>
+    /[A-Za-z_$]/.test(character);
+  const isIdentifierPart = (character: string): boolean =>
+    /[A-Za-z0-9_$]/.test(character);
+  for (let i = start; i < source.length; i++) {
+    const c = source[i]!;
+    if (/\s/.test(c)) continue;
+    if (c === "\\") {
+      i++;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      i = skipQuoted(source, i, c);
+      previous = { kind: "string", value: "" };
+      continue;
+    }
+    if (c === "`") {
+      i = skipTemplate(source, i);
+      previous = { kind: "other" };
+      continue;
+    }
+    if (c === "/" && source[i + 1] === "/") {
+      i += 2;
+      while (i < source.length && source[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && source[i + 1] === "*") {
+      i += 2;
+      while (i < source.length && !(source[i] === "*" && source[i + 1] === "/"))
+        i++;
+      i++;
+      continue;
+    }
+    if (c === "/" && isRegexAllowedAfter(previous)) {
+      i = skipRegularExpression(source, i, (character) =>
+        /[A-Za-z0-9_$]/.test(character),
+      );
+      i--;
+      previous = { kind: "other" };
+      continue;
+    }
+    if (isIdentifierStart(c)) {
+      let end = i + 1;
+      while (end < source.length && isIdentifierPart(source[end]!)) end++;
+      previous = { kind: "word", value: source.slice(i, end) };
+      i = end - 1;
+      continue;
+    }
+    if (c >= "0" && c <= "9") {
+      let end = i + 1;
+      while (end < source.length && /[0-9a-fA-FxXoObBeE._]/.test(source[end]!))
+        end++;
+      previous = { kind: "other" };
+      i = end - 1;
+      continue;
+    }
+    if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return i;
+    previous = { kind: "punct", value: c };
+  }
+  return source.length;
+}
+
+function isRegexAllowed(tokens: readonly Token[]): boolean {
+  return isRegexAllowedAfter(tokens[tokens.length - 1]);
+}
+
+function isRegexAllowedAfter(previous: Token | undefined): boolean {
+  if (!previous) return true;
+  if (previous.kind === "string" || previous.kind === "other") return false;
+  if (previous.kind === "word")
+    return REGEX_PRECEDING_KEYWORDS.has(previous.value);
+  return previous.value !== ")" && previous.value !== "]";
+}
+
+function skipRegularExpression(
+  source: string,
+  start: number,
+  isIdentifierPart: (character: string) => boolean,
+): number {
+  let index = start + 1;
+  let inClass = false;
+  while (index < source.length) {
+    const character = source[index];
+    if (character === "\\") {
+      index += 2;
+      continue;
+    }
+    if (character === "\n") break;
+    if (character === "[") inClass = true;
+    else if (character === "]") inClass = false;
+    else if (character === "/" && !inClass) {
+      index++;
+      break;
+    }
+    index++;
+  }
+  while (index < source.length && isIdentifierPart(source[index]!)) index++;
+  return index;
+}
+
+function skipQuoted(source: string, start: number, quote: string): number {
+  for (let i = start + 1; i < source.length; i++) {
+    if (source[i] === "\\") {
+      i++;
+      continue;
+    }
+    if (source[i] === quote || source[i] === "\n") return i;
+  }
+  return source.length;
+}
+
+function skipTemplate(source: string, start: number): number {
+  for (let i = start + 1; i < source.length; i++) {
+    if (source[i] === "\\") {
+      i++;
+      continue;
+    }
+    if (source[i] === "`") return i;
+    if (source[i] === "$" && source[i + 1] === "{") {
+      i = findTemplateSubstitutionEnd(source, i + 2);
+    }
+  }
+  return source.length;
 }

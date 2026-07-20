@@ -8,7 +8,9 @@ While package files are being resolved, downloaded, unpacked, and installed, the
 
 ## Package Support
 
-The dependency loader starts from bare imports, dynamic imports, and `require("package")` calls in the source. It installs the imported package, its registry dependencies, non-optional peer dependencies, and a matching `@types/*` package when the package itself does not ship declarations.
+The dependency loader starts from bare imports, dynamic imports, and `require("package")` calls in executable source, including template substitutions. It installs the imported package, its registry dependencies, non-optional peer dependencies, and a matching `@types/*` package when the package itself does not ship declarations. Every installed version must satisfy its declared npm range. An npm alias resolves its declared target and stays mounted under the alias name.
+
+Node builtins, in either bare or `node:` form, are never requested from npm. The Execute sandbox treats a package `exports` map as its public boundary and evaluates the first applicable `require` or `default` condition in manifest order. It does not activate Node-only or ESM-only conditions.
 
 The `typia` packages used by the default examples remain bundled because the wasm-side typia adapter must match the exact typia source version linked into the playground compiler.
 

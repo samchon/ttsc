@@ -1,3 +1,5 @@
+import { maxSatisfying, satisfies, valid, validRange } from "semver";
+
 // Internal npm-registry helpers used by `installPlaygroundDependencies`.
 // Grouped in one file because every helper is privately coupled to the tar
 // + version-resolve + tarball-extract flow; splitting them per the public
@@ -37,6 +39,14 @@ export interface IQueueItem {
   name: string;
   range: string;
   optional: boolean;
+  requester: string;
+  registryName?: string;
+  requests?: IVersionRequest[];
+}
+
+export interface IVersionRequest {
+  range: string;
+  requester: string;
 }
 
 export type FetchLike = (
@@ -79,19 +89,43 @@ export async function fetchNpmMetadata(
   return (await response.json()) as INpmMetadata;
 }
 
-export function selectVersion(metadata: INpmMetadata, range: string): string {
+export function selectVersion(
+  metadata: INpmMetadata,
+  ranges: readonly string[] | string,
+): string {
   const versions = metadata.versions;
-  if (versions[range]) return range;
-  const tag = metadata["dist-tags"]?.[range];
-  if (tag && versions[tag]) return tag;
-  const normalized = range.replace(/^[~^<>= ]+/, "").trim();
-  if (normalized && versions[normalized]) return normalized;
-  const latest = metadata["dist-tags"]?.latest;
-  if (latest && versions[latest]) return latest;
-  const all = Object.keys(versions).sort(compareVersionDesc);
-  const fallback = all[0];
-  if (!fallback) throw new Error(`No versions found for ${metadata.name}.`);
-  return fallback;
+  const requested = Array.isArray(ranges) ? ranges : [ranges];
+  const semverRanges = requested.filter((range) => validRange(range) !== null);
+  const tags = requested.filter((range) => validRange(range) === null);
+  const taggedVersions = new Set<string>();
+  for (const tag of tags) {
+    const version = metadata["dist-tags"]?.[tag];
+    if (!version || !versions[version]) {
+      throw new Error(
+        `No npm dist-tag ${JSON.stringify(tag)} exists for ${metadata.name}.`,
+      );
+    }
+    taggedVersions.add(version);
+  }
+  if (taggedVersions.size > 1) {
+    throw new Error(
+      `Conflicting npm tags for ${metadata.name}: ${requested.join(", ")}.`,
+    );
+  }
+
+  const candidates = Object.keys(versions).filter(
+    (version) =>
+      valid(version) !== null &&
+      semverRanges.every((range) => satisfies(version, range)) &&
+      (taggedVersions.size === 0 || taggedVersions.has(version)),
+  );
+  const selected = maxSatisfying(candidates, "*");
+  if (selected) return selected;
+  throw new Error(
+    `No version of ${metadata.name} satisfies ${requested
+      .map((range) => JSON.stringify(range))
+      .join(", ")}.`,
+  );
 }
 
 export async function downloadTarball(
@@ -136,7 +170,7 @@ export async function unpackNpmTarball(
       continue;
     }
     if (type === "x") {
-      paxPath = parsePaxPath(decoder.decode(body));
+      paxPath = parsePaxPath(body);
       continue;
     }
     if (type !== "0" && type !== "\0") {
@@ -213,9 +247,11 @@ export function enqueuePackageDependencies(
     peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   },
   enqueue: (item: IQueueItem) => void,
+  requester: string,
 ): void {
   for (const [name, range] of Object.entries(packageJson.dependencies ?? {})) {
-    if (isRegistryRange(range)) enqueue({ name, range, optional: false });
+    if (isRegistryRange(range))
+      enqueue({ name, range, optional: false, requester });
   }
   for (const [name, range] of Object.entries(
     packageJson.peerDependencies ?? {},
@@ -228,7 +264,7 @@ export function enqueuePackageDependencies(
     // silent skip that leaves the wasm-side compile reporting a generic
     // "Cannot find module" with no breadcrumb back to the dep installer.
     if (!optional && isRegistryRange(range))
-      enqueue({ name, range, optional: false });
+      enqueue({ name, range, optional: false, requester });
   }
 }
 
@@ -256,19 +292,32 @@ function parseOctal(bytes: Uint8Array): number {
   return text ? Number.parseInt(text, 8) : 0;
 }
 
-function parsePaxPath(text: string): string | null {
-  let rest = text;
-  while (rest.length > 0) {
-    const space = rest.indexOf(" ");
-    if (space < 0) return null;
-    const length = Number(rest.slice(0, space));
-    if (!Number.isFinite(length) || length <= space) return null;
-    const record = rest.slice(space + 1, length - 1);
+function parsePaxPath(bytes: Uint8Array): string | null {
+  const decoder = new TextDecoder();
+  let offset = 0;
+  let path: string | null = null;
+  while (offset < bytes.length) {
+    let space = offset;
+    while (space < bytes.length && bytes[space] !== 0x20) space++;
+    if (space === bytes.length) throw new Error("Invalid PAX header length.");
+    const lengthText = decoder.decode(bytes.subarray(offset, space));
+    if (!/^[1-9][0-9]*$/.test(lengthText))
+      throw new Error("Invalid PAX header length.");
+    const length = Number(lengthText);
+    const end = offset + length;
+    if (
+      !Number.isSafeInteger(length) ||
+      length <= space - offset + 1 ||
+      end > bytes.length ||
+      bytes[end - 1] !== 0x0a
+    )
+      throw new Error("Invalid PAX header record.");
+    const record = decoder.decode(bytes.subarray(space + 1, end - 1));
     const eq = record.indexOf("=");
-    if (eq > 0 && record.slice(0, eq) === "path") return record.slice(eq + 1);
-    rest = rest.slice(length);
+    if (eq > 0 && record.slice(0, eq) === "path") path = record.slice(eq + 1);
+    offset = end;
   }
-  return null;
+  return path;
 }
 
 function stripTarRoot(path: string): string {
@@ -278,15 +327,4 @@ function stripTarRoot(path: string): string {
     return normalized.slice("package/".length);
   const slash = normalized.indexOf("/");
   return slash < 0 ? normalized : normalized.slice(slash + 1);
-}
-
-function compareVersionDesc(a: string, b: string): number {
-  const pa = a.split(/[.-]/).map((part) => Number.parseInt(part, 10));
-  const pb = b.split(/[.-]/).map((part) => Number.parseInt(part, 10));
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const av = Number.isFinite(pa[i]) ? pa[i]! : 0;
-    const bv = Number.isFinite(pb[i]) ? pb[i]! : 0;
-    if (av !== bv) return bv - av;
-  }
-  return b.localeCompare(a);
 }
