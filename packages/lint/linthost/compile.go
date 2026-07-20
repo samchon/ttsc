@@ -455,9 +455,9 @@ func filterKnownFlags(args []string, known map[string]bool) []string {
   return out
 }
 
-// collectDiagnostics merges tsgo typecheck diagnostics with the lint
-// engine's findings. The renderer takes the two slices and walks them in
-// source order, so we don't need to interleave here.
+// collectDiagnostics collects tsgo typecheck diagnostics and lint findings
+// for the shared renderer. FormatMixedDiagnostics establishes one source
+// order across those independent producer slices.
 func collectDiagnostics(prog *program, engine *Engine) ([]*shimast.Diagnostic, []*shimdw.LintDiagnostic, error) {
   astDiags, lintDiags, _, err := collectDiagnosticsTimed(prog, engine)
   return astDiags, lintDiags, err

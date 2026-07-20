@@ -75,15 +75,17 @@ let total = count;
 
 ```text
 $ npx ttsc --noEmit
-src/index.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
-
-2 let total = count;
-      ~~~~~~~~~~~~~
-
 src/index.ts:1:1 - error TS11966: [no-var] Unexpected var, use let or const instead.
 
 1 var count = 3;
-  ~~~~~~~~~~~~~~
+  ~~~
+
+src/index.ts:2:5 - error TS17397: [prefer-const] Use const instead of let.
+
+2 let total = count;
+    ~~~~~
+
+Found 2 errors in the same file, starting at: src/index.ts:1
 ```
 
 Clean the project in place:

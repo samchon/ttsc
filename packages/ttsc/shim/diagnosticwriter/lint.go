@@ -12,7 +12,10 @@
 package diagnosticwriter
 
 import (
+  "cmp"
   "io"
+  "slices"
+  "strings"
 
   "github.com/microsoft/typescript-go/internal/ast"
   "github.com/microsoft/typescript-go/internal/diagnostics"
@@ -166,7 +169,54 @@ func FormatMixedDiagnostics(
     },
     NewLine: "\n",
   }
+  slices.SortFunc(all, compareMixedDiagnostics)
   inner.FormatDiagnosticsWithColorAndContext(output, all, options)
   inner.WriteErrorSummaryText(output, all, options)
   return errors
+}
+
+// compareMixedDiagnostics imposes one deterministic source order on tsgo and
+// lint diagnostics before the upstream renderer consumes them. The renderer
+// intentionally writes its input order, while the two producers have separate
+// collection paths; ordering here keeps neither producer's traversal visible
+// in CLI output.
+func compareMixedDiagnostics(a, b inner.Diagnostic) int {
+  if c := strings.Compare(mixedDiagnosticFileName(a), mixedDiagnosticFileName(b)); c != 0 {
+    return c
+  }
+  if c := cmp.Compare(a.Pos(), b.Pos()); c != 0 {
+    return c
+  }
+  if c := cmp.Compare(a.End(), b.End()); c != 0 {
+    return c
+  }
+  if c := cmp.Compare(a.Code(), b.Code()); c != 0 {
+    return c
+  }
+  if c := cmp.Compare(a.Category(), b.Category()); c != 0 {
+    return c
+  }
+  if c := strings.Compare(a.Localize(locale.Default), b.Localize(locale.Default)); c != 0 {
+    return c
+  }
+  if c := compareMixedDiagnosticLists(a.MessageChain(), b.MessageChain()); c != 0 {
+    return c
+  }
+  return compareMixedDiagnosticLists(a.RelatedInformation(), b.RelatedInformation())
+}
+
+func mixedDiagnosticFileName(d inner.Diagnostic) string {
+  if file := d.File(); file != nil {
+    return file.FileName()
+  }
+  return ""
+}
+
+func compareMixedDiagnosticLists(a, b []inner.Diagnostic) int {
+  for i := 0; i < len(a) && i < len(b); i++ {
+    if c := compareMixedDiagnostics(a[i], b[i]); c != 0 {
+      return c
+    }
+  }
+  return cmp.Compare(len(a), len(b))
 }
