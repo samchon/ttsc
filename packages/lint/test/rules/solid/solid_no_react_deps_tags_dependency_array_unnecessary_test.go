@@ -52,6 +52,7 @@ func TestSolidNoReactDepsTagsDependencyArrayUnnecessary(t *testing.T) {
   for _, imported := range []string{
     "import { createMemo as memo } from \"solid-js\";\n\nmemo(() => 1, [first]);\n",
     "import * as Solid from \"solid-js\";\n\nSolid.createEffect(() => {}, [first]);\n",
+    "import * as Solid from \"solid-js/universal\";\n\nSolid.createEffect(() => {}, [first]);\n",
   } {
     _, _, importedFindings := runRuleFindingsSnapshot(t, "solid/no-react-deps", imported, nil)
     if len(importedFindings) != 1 ||

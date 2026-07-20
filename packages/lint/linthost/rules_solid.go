@@ -159,7 +159,7 @@ func (s *solidState) collectImport(node *shimast.Node) {
     return
   }
   source := stringLiteralText(decl.ModuleSpecifier)
-  if isSolidSource(source) {
+  if isSolidModuleSource(source) {
     s.hasSolid = true
   }
   if decl.ImportClause == nil {
@@ -211,7 +211,7 @@ func (s *solidState) collectImport(node *shimast.Node) {
     }
     s.declared[local] = true
     s.importedFrom[local] = source
-    if isSolidSource(source) {
+    if isSolidModuleSource(source) {
       s.solidImport[local] = imported
     }
   }
@@ -578,7 +578,7 @@ func (s *solidState) solidTrackedCallName(call *shimast.CallExpression) string {
     return ""
   }
   access := expr.AsPropertyAccessExpression()
-  if access == nil || !isSolidSource(s.importedFrom[identifierText(access.Expression)]) {
+  if access == nil || !isSolidModuleSource(s.importedFrom[identifierText(access.Expression)]) {
     return ""
   }
   return identifierText(access.Name())
@@ -1187,6 +1187,10 @@ func solidPreferredSource(name string) string {
 
 func isSolidSource(source string) bool {
   return source == "solid-js" || source == "solid-js/web" || source == "solid-js/store"
+}
+
+func isSolidModuleSource(source string) bool {
+  return source == "solid-js" || strings.HasPrefix(source, "solid-js/")
 }
 
 func solidIsDOMTag(name string) bool {
