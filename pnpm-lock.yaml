@@ -184,7 +184,7 @@ importers:
         specifier: '*'
         version: 0.86.0(@babel/core@7.29.7)
       '@ttsc/unplugin':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../unplugin
       metro-react-native-babel-transformer:
         specifier: '*'

@@ -98,7 +98,7 @@
     "unplugin": "^2.3.11"
   },
   "peerDependencies": {
-    "ttsc": "workspace:*"
+    "ttsc": "workspace:^"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.2",
