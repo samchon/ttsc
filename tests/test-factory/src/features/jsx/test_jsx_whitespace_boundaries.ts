@@ -2,7 +2,7 @@ import { TestValidator } from "@nestia/e2e";
 import factory, { type JsxChild, TsPrinter } from "@ttsc/factory";
 
 import { str } from "../../internal/helpers";
-import { jsxChildren } from "../../internal/oracle";
+import { jsxChildren, jsxEmit } from "../../internal/oracle";
 
 const element = (
   tag: string,
@@ -54,6 +54,9 @@ const expression = (name: string) =>
  * 1. Build each boundary shape.
  * 2. Print it at `printWidth` 200, 80, 40 and 10.
  * 3. Assert every width transpiles to the same `children` argument.
+ * 4. Assert the two shapes that have no `children` argument to compare: a
+ *    childless element, whose whole emitted call must match across widths, and
+ *    the breakable text child, whose layout must actually break.
  */
 export const test_jsx_whitespace_boundaries = (): void => {
   const cases: [string, JsxChild][] = [
@@ -119,6 +122,18 @@ export const test_jsx_whitespace_boundaries = (): void => {
       1,
     );
   }
+
+  // an element with no children at all has no `children` argument to compare,
+  // so the whole emitted call is the observable
+  TestValidator.equals(
+    "a childless element emits the same call at every width",
+    new Set(
+      [200, 5].map((printWidth) =>
+        jsxEmit(new TsPrinter({ printWidth }).print(element("div", []))),
+      ),
+    ).size,
+    1,
+  );
 
   // the positive twin: with nothing to lose at its edges, the text child breaks
   TestValidator.equals(

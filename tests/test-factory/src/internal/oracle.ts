@@ -109,22 +109,7 @@ export const assertOracle = (
  * this is the observable that a width-driven line break must not change.
  */
 export const jsxChildren = (text: string): string => {
-  const output: ts.TranspileOutput = ts.transpileModule(text, {
-    compilerOptions: {
-      jsx: ts.JsxEmit.ReactJSX,
-      target: ts.ScriptTarget.ESNext,
-    },
-    fileName: "case.tsx",
-    reportDiagnostics: true,
-  });
-  const diagnostics: readonly ts.Diagnostic[] = output.diagnostics ?? [];
-  if (diagnostics.length !== 0)
-    throw new Error(
-      `printed JSX does not transpile: ${JSON.stringify(text)} :: ${diagnostics
-        .map((d) => ts.flattenDiagnosticMessageText(d.messageText, " "))
-        .join(" | ")}`,
-    );
-  const file: ts.SourceFile = parseClean(output.outputText, ts.ScriptKind.JS);
+  const file: ts.SourceFile = parseClean(transpileJsx(text), ts.ScriptKind.JS);
   let children: string | undefined;
   const visit = (node: ts.Node): void => {
     if (
@@ -143,6 +128,32 @@ export const jsxChildren = (text: string): string => {
       `printed JSX produced no children argument: ${JSON.stringify(text)}`,
     );
   return children;
+};
+
+/**
+ * {@link structure} of the whole transpiled module, for JSX shapes that
+ * legitimately have no `children` argument at all.
+ */
+export const jsxEmit = (text: string): string =>
+  signature(parseClean(transpileJsx(text), ts.ScriptKind.JS));
+
+const transpileJsx = (text: string): string => {
+  const output: ts.TranspileOutput = ts.transpileModule(text, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.ReactJSX,
+      target: ts.ScriptTarget.ESNext,
+    },
+    fileName: "case.tsx",
+    reportDiagnostics: true,
+  });
+  const diagnostics: readonly ts.Diagnostic[] = output.diagnostics ?? [];
+  if (diagnostics.length !== 0)
+    throw new Error(
+      `printed JSX does not transpile: ${JSON.stringify(text)} :: ${diagnostics
+        .map((d) => ts.flattenDiagnosticMessageText(d.messageText, " "))
+        .join(" | ")}`,
+    );
+  return output.outputText;
 };
 
 /**

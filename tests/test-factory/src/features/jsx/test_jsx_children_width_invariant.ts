@@ -38,9 +38,10 @@ const expression = (name: string) =>
  * what the JSX runtime is actually handed — not the printed characters, since
  * the whole point is that the characters are allowed to move.
  *
- * 1. Build the four whitespace-carrying shapes: text before an expression, a
- *    whitespace-only separator between two expressions in an element and in a
- *    fragment, and text on both sides of an expression.
+ * 1. Build the whitespace-carrying shapes: text before an expression, a
+ *    whitespace-only separator between two expressions in an element, the same
+ *    in a fragment, text on both sides of an expression, and a fragment nested
+ *    in an element.
  * 2. Print each at `printWidth` 200, 80, 40 and 10 and transpile every layout.
  * 3. Assert all four widths yield one and the same `children` argument.
  */
