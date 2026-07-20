@@ -196,7 +196,7 @@ func (pr *Provider) References(uri string, pos lspserver.LSPPosition, includeDec
   }
   if includeDeclaration {
     declText := sources[target.File]
-    add(target.File, firstCodeOffset(declText, target.Pos), target.End)
+    add(target.File, graph.FirstCodeOffset(declText, target.Pos), target.End)
   }
   return locations, nil
 }
@@ -241,7 +241,7 @@ func buildSymbol(n *graph.Node, childrenOf map[string][]*graph.Node, text string
 }
 
 func nodeToSymbol(n *graph.Node, text string) lspserver.LSPDocumentSymbol {
-  start := firstCodeOffset(text, n.Pos)
+  start := graph.FirstCodeOffset(text, n.Pos)
   end := n.End
   if end < start {
     end = start
@@ -423,40 +423,6 @@ func uriFromFile(path string) string {
   return (&url.URL{Scheme: "file", Path: slashed}).String()
 }
 
-// firstCodeOffset advances past leading trivia (whitespace, // and /* */
-// comments) so a declaration span starts at the keyword rather than its doc
-// comment or indentation. It mirrors the graph dump's own trivia skip.
-func firstCodeOffset(text string, pos int) int {
-  if pos < 0 {
-    return 0
-  }
-  i := pos
-  for i < len(text) {
-    switch {
-    case text[i] == ' ' || text[i] == '\t' || text[i] == '\r' || text[i] == '\n':
-      i++
-    case text[i] == '/' && i+1 < len(text) && text[i+1] == '/':
-      i += 2
-      for i < len(text) && text[i] != '\n' {
-        i++
-      }
-    case text[i] == '/' && i+1 < len(text) && text[i+1] == '*':
-      i += 2
-      for i+1 < len(text) && !(text[i] == '*' && text[i+1] == '/') {
-        i++
-      }
-      if i+1 < len(text) {
-        i += 2
-      } else {
-        i = len(text)
-      }
-    default:
-      return i
-    }
-  }
-  return i
-}
-
 // offsetToPosition converts a byte offset into an LSP Position (0-based line,
 // UTF-16 code-unit column). The column unit is the session's negotiated
 // PositionEncodingKind, which the proxy's constrainInitializePositionEncoding
@@ -468,19 +434,12 @@ func offsetToPosition(text string, offset int) lspserver.LSPPosition {
   if offset > len(text) {
     offset = len(text)
   }
-  line := 0
-  lineStart := 0
-  for i := 0; i < offset; {
-    r, size := utf8.DecodeRuneInString(text[i:])
-    if size == 0 {
-      break
-    }
-    if r == '\n' {
-      line++
-      lineStart = i + size
-    }
-    i += size
+  starts := graph.ECMALineStarts(text)
+  line := sort.Search(len(starts), func(i int) bool { return starts[i] > offset }) - 1
+  if line < 0 {
+    line = 0
   }
+  lineStart := starts[line]
   character := 0
   for i := lineStart; i < offset; {
     r, size := utf8.DecodeRuneInString(text[i:])
@@ -506,46 +465,27 @@ func lspPositionToOffset(text string, pos lspserver.LSPPosition) (int, bool) {
   if pos.Line < 0 || pos.Character < 0 {
     return 0, false
   }
-  i := 0
-  line := 0
-  for line < pos.Line {
-    if i >= len(text) {
-      return len(text), false
-    }
-    r, size := utf8.DecodeRuneInString(text[i:])
-    if size == 0 {
-      return len(text), false
-    }
-    if r == '\r' {
-      i += size
-      if i < len(text) && text[i] == '\n' {
-        i++
-      }
-      line++
-      continue
-    }
-    if r == '\n' {
-      i += size
-      line++
-      continue
-    }
-    i += size
+  starts := graph.ECMALineStarts(text)
+  if pos.Line >= len(starts) {
+    return len(text), false
   }
+  i := starts[pos.Line]
+  lineEnd := graph.LineEnd(text, starts, pos.Line)
   units := 0
   for units < pos.Character {
-    if i >= len(text) {
+    if i >= lineEnd {
       return len(text), false
     }
     r, size := utf8.DecodeRuneInString(text[i:])
     if size == 0 {
       return len(text), false
-    }
-    if r == '\n' || r == '\r' {
-      return i, false
     }
     n := utf16.RuneLen(r)
     if n <= 0 {
       n = 1
+    }
+    if units+n > pos.Character {
+      return i, false
     }
     units += n
     i += size

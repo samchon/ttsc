@@ -38,7 +38,6 @@
     "ESCAPE|checker|UnionType",
     "ESCAPE|checker|UniqueESSymbolType",
     "ESCAPE|checker|VerbosityContext",
-    "ESCAPE|core|ECMALineStarts",
     "ESCAPE|core|LimitedSemaphore",
     "ESCAPE|core|ModuleDetectionKind",
     "ESCAPE|core|ModuleResolutionKind",

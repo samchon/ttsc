@@ -456,7 +456,7 @@ func (c *dumpContext) evidence(file string, pos, end int) *DumpEvidence {
   // leading whitespace and doc comments before the token. Advance to the first
   // code character so the line/column point at the declaration, not its banner
   // or its indentation.
-  pos = firstCodeOffset(text, pos)
+  pos = FirstCodeOffset(text, pos)
   sl, sc := ls.at(pos)
   ev := &DumpEvidence{File: c.rel(file), StartLine: sl, StartCol: sc}
   if end > pos && end <= len(text) {
@@ -477,12 +477,12 @@ func (c *dumpContext) objectMemberSignature(file string, member ObjectMember) st
   if !ok || pos > len(text) {
     return ""
   }
-  pos = firstCodeOffset(text, pos)
+  pos = FirstCodeOffset(text, pos)
   if end > len(text) {
     end = len(text)
   }
   if member.SignatureTokenLen > 0 {
-    end = firstCodeOffset(text, end)
+    end = FirstCodeOffset(text, end)
     end = min(end+member.SignatureTokenLen, len(text))
   }
   if pos >= end {
@@ -508,9 +508,9 @@ func compactObjectMemberSignature(text string) string {
   var out strings.Builder
   pendingSpace := false
   for i := 0; i < len(text); {
-    if isSignatureWhitespace(text[i]) {
+    if width := sourceWhitespaceWidth(text, i); width > 0 {
       pendingSpace = out.Len() > 0
-      i++
+      i += width
       continue
     }
     if pendingSpace {
@@ -527,7 +527,7 @@ func compactObjectMemberSignature(text string) string {
     case '/':
       switch {
       case i+1 < len(text) && text[i+1] == '/':
-        end = lineCommentEnd(text, i)
+        end = LineCommentEnd(text, i)
       case i+1 < len(text) && text[i+1] == '*':
         end = blockCommentEnd(text, i)
       default:
@@ -540,15 +540,6 @@ func compactObjectMemberSignature(text string) string {
     i = end
   }
   return strings.TrimSpace(out.String())
-}
-
-func isSignatureWhitespace(ch byte) bool {
-  switch ch {
-  case ' ', '\t', '\r', '\n', '\v', '\f':
-    return true
-  default:
-    return false
-  }
 }
 
 func quotedSourceEnd(text string, start int, quote byte) int {
@@ -591,13 +582,6 @@ func sourceByteEscaped(text string, pos int) bool {
   return slashes%2 == 1
 }
 
-func lineCommentEnd(text string, start int) int {
-  if end := strings.IndexByte(text[start:], '\n'); end >= 0 {
-    return start + end + 1
-  }
-  return len(text)
-}
-
 func blockCommentEnd(text string, start int) int {
   if end := strings.Index(text[start+2:], "*/"); end >= 0 {
     return start + 2 + end + 2
@@ -614,7 +598,7 @@ func regularExpressionEnd(text string, start int) int {
   inClass := false
   for i := start + 1; i < len(text); i++ {
     switch {
-    case text[i] == '\n' || text[i] == '\r':
+    case lineTerminatorWidth(text, i) > 0:
       return start
     case escaped:
       escaped = false
@@ -633,38 +617,6 @@ func regularExpressionEnd(text string, start int) int {
     }
   }
   return start
-}
-
-// firstCodeOffset advances past leading trivia: whitespace, // line comments,
-// and /* */ block comments from pos to the first code byte, or len(text) if
-// the rest is all trivia. It mirrors how a token's real start is found, so an
-// evidence span lands on the declaration rather than the comment above it.
-func firstCodeOffset(text string, pos int) int {
-  i := pos
-  for i < len(text) {
-    switch {
-    case text[i] == ' ' || text[i] == '\t' || text[i] == '\r' || text[i] == '\n':
-      i++
-    case text[i] == '/' && i+1 < len(text) && text[i+1] == '/':
-      i += 2
-      for i < len(text) && text[i] != '\n' {
-        i++
-      }
-    case text[i] == '/' && i+1 < len(text) && text[i+1] == '*':
-      i += 2
-      for i+1 < len(text) && !(text[i] == '*' && text[i+1] == '/') {
-        i++
-      }
-      if i+1 < len(text) {
-        i += 2
-      } else {
-        i = len(text)
-      }
-    default:
-      return i
-    }
-  }
-  return i
 }
 
 // edgeEvidence is the evidence range for an edge's source expression.
@@ -701,14 +653,7 @@ func nodeFile(id string) string {
 type lineStarts []int
 
 func newLineStarts(text string) lineStarts {
-  starts := make(lineStarts, 1, 1+strings.Count(text, "\n"))
-  starts[0] = 0
-  for i := 0; i < len(text); i++ {
-    if text[i] == '\n' {
-      starts = append(starts, i+1)
-    }
-  }
-  return starts
+  return lineStarts(ECMALineStarts(text))
 }
 
 // at returns the 1-based line and column of a byte offset.
