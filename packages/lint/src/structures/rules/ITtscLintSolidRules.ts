@@ -36,8 +36,8 @@ export interface ITtscLintSolidRules {
    *
    * Autofixable only when the misplaced specifier is its declaration's sole
    * binding: rewriting the module specifier moves every binding in that
-   * declaration, so a declaration with a second specifier or a default
-   * binding keeps its diagnostic instead.
+   * declaration, so a declaration with a second specifier or a default binding
+   * keeps its diagnostic instead.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/imports.md
    */
@@ -122,8 +122,8 @@ export interface ITtscLintSolidRules {
    *
    * The two renames are autofixed by rewriting the name token alone, so the
    * value survives untouched. The `key` arm stays diagnostic-only: a Solid DOM
-   * element does not consume `key`, so its resolution is a deletion that has
-   * to take the surrounding whitespace with it.
+   * element does not consume `key`, so its resolution is a deletion that has to
+   * take the surrounding whitespace with it.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/no-react-specific-props.md
    */
