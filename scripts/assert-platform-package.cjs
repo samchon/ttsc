@@ -76,11 +76,13 @@ function inspectPackageDir(dir) {
       failures.push(`${manifest.name}: missing executable ${rel}`);
       continue;
     }
-    const mode = fs.statSync(file).mode & 0o777;
-    if (platform.os !== "win32" && !hasExecutableMode(mode)) {
-      failures.push(
-        `${manifest.name}: ${rel} has mode ${formatMode(mode)}, expected executable mode`,
-      );
+    if (platform.os !== "win32") {
+      const mode = fs.statSync(file).mode & 0o777;
+      if (!hasExecutableMode(mode)) {
+        failures.push(
+          `${manifest.name}: ${rel} has mode ${formatMode(mode)}, expected executable mode`,
+        );
+      }
     }
   }
 }

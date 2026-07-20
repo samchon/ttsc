@@ -46,11 +46,15 @@ export const test_platform_package_windows_contents_require_base_executables =
       const emptyTarball = path.join(root, "empty.tgz");
       writeWindowsSourcePackage(emptySource, []);
       writeWindowsTarball(emptyTarball, []);
-      assertMissing(script, emptySource, "missing executable bin/ttsc.exe");
-      assertMissing(
+      assertAllBaseExecutablesMissing(
+        script,
+        emptySource,
+        "missing executable",
+      );
+      assertAllBaseExecutablesMissing(
         script,
         emptyTarball,
-        "tarball missing executable bin/ttsc.exe",
+        "tarball missing executable",
       );
 
       const withoutGofmt = windowsBaseExecutables.filter(
@@ -93,12 +97,19 @@ export const test_platform_package_windows_contents_require_base_executables =
       assertAccepted(script, baseOnlyTarball);
 
       const arm64Source = path.join(root, "arm64-source");
+      const arm64Tarball = path.join(root, "arm64.tgz");
       writeWindowsSourcePackage(
         arm64Source,
         windowsBaseExecutables,
         "@ttsc/win32-arm64",
       );
+      writeWindowsTarball(
+        arm64Tarball,
+        windowsBaseExecutables,
+        "@ttsc/win32-arm64",
+      );
       assertAccepted(script, arm64Source);
+      assertAccepted(script, arm64Tarball);
 
       const nonPlatform = path.join(root, "non-platform");
       writeWindowsSourcePackage(nonPlatform, [], "@ttsc/example");
@@ -112,6 +123,18 @@ function assertMissing(script: string, target: string, expected: string): void {
   const result = runVerifier(script, target);
   assert.equal(result.status, 1, result.stderr);
   assert.ok(result.stderr.includes(expected), result.stderr);
+}
+
+function assertAllBaseExecutablesMissing(
+  script: string,
+  target: string,
+  prefix: string,
+): void {
+  const result = runVerifier(script, target);
+  assert.equal(result.status, 1, result.stderr);
+  for (const rel of windowsBaseExecutables) {
+    assert.ok(result.stderr.includes(`${prefix} ${rel}`), result.stderr);
+  }
 }
 
 function assertAccepted(script: string, target: string): void {
