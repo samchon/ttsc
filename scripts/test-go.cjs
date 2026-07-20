@@ -23,6 +23,7 @@ const runners = [
 // runner harness and the project Layout contract.
 const harnessTests = [
   path.join(__dirname, "ci", "go-test-runners.test.cjs"),
+  path.join(__dirname, "ci", "website-compiler-module.test.cjs"),
   path.join(__dirname, "assert-project-layout.test.cjs"),
 ];
 
