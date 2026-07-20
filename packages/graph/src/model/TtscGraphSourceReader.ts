@@ -83,7 +83,9 @@ export class TtscGraphSourceReader {
       return undefined;
     }
 
-    const lines: readonly string[] = Object.freeze(text.split(/\r?\n/));
+    const lines: readonly string[] = Object.freeze(
+      text.split(/\r\n|[\n\r\u2028\u2029]/u),
+    );
     this.cache.set(key, lines);
     return lines;
   }

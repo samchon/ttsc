@@ -1,3 +1,5 @@
+// gen_shims:hand-maintained
+//
 // Package core re-exports the subset of typescript-go's internal/core types
 // and constants that plugins and the ttsc driver need. It provides compiler
 // options, script-kind discrimination, tri-state booleans, and text-range
@@ -19,6 +21,10 @@ type Tristate = innercore.Tristate
 
 // TextPos is a zero-based byte offset into a source file's text.
 type TextPos = innercore.TextPos
+
+// ECMALineStarts holds the byte offset of every source line the compiler
+// recognizes under ECMAScript's line-terminator rules.
+type ECMALineStarts = innercore.ECMALineStarts
 
 // TextRange is a half-open [Pos, End) byte range inside a source file.
 type TextRange = innercore.TextRange
@@ -54,6 +60,12 @@ const (
 // the same form `tsc --version` prints. A graph snapshot publishes it so a
 // consumer can tell which checker resolved the facts it is reading.
 func Version() string { return innercore.Version() }
+
+// ComputeECMALineStarts applies the compiler's LF, CRLF, CR, LS, and PS line
+// model to UTF-8 source text.
+func ComputeECMALineStarts(text string) ECMALineStarts {
+  return innercore.ComputeECMALineStarts(text)
+}
 
 // NewTextRange constructs a closed/open [pos, end) text range.
 func NewTextRange(pos, end int) TextRange { return innercore.NewTextRange(pos, end) }
