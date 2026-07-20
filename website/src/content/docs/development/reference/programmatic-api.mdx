@@ -136,10 +136,16 @@ In that case the parent cache root itself is never removed (it may be shared wit
 ```ts
 import { TtscService } from "ttsc";
 
-const service = new TtscService({ cwd: "/abs/path/to/project" });
+const service = new TtscService(
+  { cwd: "/abs/path/to/project" },
+  { requestTimeoutMs: 60_000 },
+);
 try {
   // The file's post-plugin TypeScript, or undefined when it is not in the program.
-  const code = await service.transformFile("src/index.ts");
+  const request = new AbortController();
+  const code = await service.transformFile("src/index.ts", {
+    signal: request.signal,
+  });
 
   // Apply an unsaved edit and re-transform; a later transformFile reflects it.
   const ok = await service.updateFile("src/index.ts", "export const x: number = 2;\n");
@@ -150,11 +156,13 @@ try {
 }
 ```
 
-The constructor takes the same [`ITtscCompilerContext`](#context-options) and launches the host synchronously; the host compiles in the background, so the first `transformFile` resolves once that compile lands.
+The constructor takes the same [`ITtscCompilerContext`](#context-options), followed by optional `{ requestTimeoutMs }`, and launches the host synchronously; the host compiles in the background, so the first `transformFile` resolves once that compile lands. The request deadline defaults to five minutes. It must be a positive integer no greater than Node's maximum timer duration (2,147,483,647 ms).
 
 - `transformFile(name)` → `Promise<string | undefined>`. The file's post-plugin TypeScript source. A relative `name` resolves against the project root. Resolves `undefined` when the file is outside the compiled program. Rejects when the project failed to compile, carrying the host's diagnostics in the rejection.
 - `updateFile(name, content)` → `Promise<boolean>`. Apply new in-memory content for a file and re-transform. Returns whether the rebuild succeeded; `false` means the edit did not compile and the previous transform is still in effect.
 - `dispose()`. Terminate the resident host and reject any in-flight requests. Always call it (use `try`/`finally`) so the host process does not leak.
+
+Pass `{ signal }` as the optional final argument to `transformFile` or `updateFile` to cancel one call. A request that exceeds `requestTimeoutMs` rejects with a timeout error. Passing an already-aborted signal rejects only that call before it enters the host's FIFO. Once a request has been written, a timeout or cancellation retires the host because a later reply could no longer be safely paired. Any concurrent requests reject with a distinct host-retirement error. `TtscService` then fails closed: later calls reject with that error rather than respawning a host. Construct a new service when the caller wants a fresh resident program.
 
 `undefined` and `false` are the service's domain negatives — a genuinely absent file and an edit that did not compile. A reply the host could never validly send (a malformed line, a non-object, or a well-formed object of the wrong operation shape) is a protocol failure, not a negative result: the call rejects rather than collapsing to `undefined`/`false`, and a corrupt line can no longer be mispaired with a later request.
 

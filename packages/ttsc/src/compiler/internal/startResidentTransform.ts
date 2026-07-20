@@ -4,7 +4,10 @@ import { loadProjectPlugins } from "../../plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext";
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import { readProjectConfig } from "./project/readProjectConfig";
-import { ResidentTransformProcess } from "./residentTransformProcess";
+import {
+  normalizeRequestTimeoutMs,
+  ResidentTransformProcess,
+} from "./residentTransformProcess";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";
 import {
@@ -21,6 +24,11 @@ import {
 export interface StartedResidentTransform {
   process: ResidentTransformProcess;
   projectRoot: string;
+}
+
+/** Construction controls owned by the resident request client. */
+export interface StartResidentTransformOptions {
+  requestTimeoutMs?: number;
 }
 
 /**
@@ -40,7 +48,9 @@ export interface StartedResidentTransform {
  */
 export function startResidentTransform(
   context: ITtscCompilerContext,
+  options: StartResidentTransformOptions = {},
 ): StartedResidentTransform {
+  const requestTimeoutMs = normalizeRequestTimeoutMs(options.requestTimeoutMs);
   const cwd = path.resolve(context.cwd ?? process.cwd());
   const project = readProjectConfig({
     cwd,
@@ -80,6 +90,7 @@ export function startResidentTransform(
     binary: host.binary,
     cwd: project.root,
     env: residentEnv(context, tsgoBinary, loaded.nativePlugins),
+    requestTimeoutMs,
   });
   return { process: resident, projectRoot: project.root };
 }

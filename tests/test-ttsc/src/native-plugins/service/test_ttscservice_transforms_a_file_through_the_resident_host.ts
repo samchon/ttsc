@@ -30,17 +30,21 @@ export const test_ttscservice_transforms_a_file_through_the_resident_host =
   async () => {
     const root = TestProject.copyProject("ttsc-utility-plugins");
     TestUtilityPlugins.seedPackages(root);
-    const service = new TtscService({
-      binary: tsgo,
-      cwd: root,
-      env: {
-        PATH: TestUtilityPlugins.goPath(),
-        TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-resident-"),
+    const service = new TtscService(
+      {
+        binary: tsgo,
+        cwd: root,
+        env: {
+          PATH: TestUtilityPlugins.goPath(),
+          TTSC_CACHE_DIR: TestProject.tmpdir("ttsc-resident-"),
+        },
       },
-    });
+      { requestTimeoutMs: 30_000 },
+    );
     try {
       const first = await service.transformFile(
         path.join(root, "src", "main.ts"),
+        { signal: new AbortController().signal },
       );
       assert.ok(first, "resident host returned no output for src/main.ts");
       // The banner is a source-preamble plugin, so its block must appear in the
