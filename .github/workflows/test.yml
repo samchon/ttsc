@@ -72,6 +72,13 @@ jobs:
               scope: test-ttsc,
             }
           - {
+              name: "ttsx node 22.15",
+              node: "22.15.0",
+              build: "pnpm --filter ttsc build",
+              run: "pnpm --filter @ttsc/test-ttsc start -- --include=commonjs_loads_prefix_only_node_builtins",
+              dir: features/ttsx-runtime,
+            }
+          - {
               name: "ttsc native corpus-source",
               run: "pnpm --filter @ttsc/test-ttsc start",
               dir: native-plugins/corpus-source,
@@ -203,7 +210,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.x
+          node-version: ${{ matrix.node || '24.x' }}
 
       - uses: actions/setup-go@v5
         with:
