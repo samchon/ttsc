@@ -123,7 +123,7 @@ No diagnostics? Work through these in order:
 4. Open **View → Output → ttsc** and read the server log.
 5. For full LSP tracing, set `ttsc.trace.server` to `"verbose"` and reload the window.
 
-If diagnostics work but lint completion does not, press Ctrl+Space after `@` inside a JSDoc block and run `ttsc: Restart language server` after changing the lint config or project-indexed inputs.
+If diagnostics work but lint completion does not, press Ctrl+Space after `@` inside a JSDoc block. After changing the lint config or project-indexed inputs, save the file: the completion corpus is rediscovered in the background on save. `ttsc: Restart language server` is still needed for a completion trigger character the session never advertised, which the **ttsc** output channel names when it appears.
 
 ## Sponsors
 

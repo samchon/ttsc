@@ -31,7 +31,7 @@ func TestLSPHintsAbsenceIsNotAnError(t *testing.T) {
     },
   }
 
-  source.discoverCompletionHints()
+  source.discoverCompletionHints(1)
 
   if hints := source.CompletionHints(); len(hints) != 0 {
     t.Errorf("a plugin that could not answer contributed %d hints", len(hints))
