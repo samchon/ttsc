@@ -14,6 +14,7 @@ const runners = [
   "test-go-ttsc.cjs",
   "test-go-transformer.cjs",
   "test-go-utility-plugins.cjs",
+  "test-go-wasm.cjs",
   "test-go-lint.cjs",
   "test-go-graph.cjs",
 ];

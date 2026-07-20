@@ -83,18 +83,21 @@ export interface ITtscApi {
     opts: ITtscSnapshotHandle & { file?: string },
   ): Promise<ITtscResult>;
 
-  /** Return the deepest AST node whose range covers `position` (byte offset). */
+  /**
+   * Return the syntax token touching `position` (byte offset), including
+   * punctuation. Returns `{node: null}` for whitespace and comments.
+   */
   getNodeAtPosition(opts: ITtscPositionQuery): Promise<ITtscResult>;
 
   /**
-   * Run the TypeScript-Go type checker against the node at `position` and
-   * return its printed type string + flags. Returns `{type: null}` when there
-   * is no node at that position.
+   * Resolve the token at `position` and return the enclosing TypeScript-Go
+   * semantic node's printed type string + flags. Returns `{type: null}` when
+   * the position has no token or no type-bearing token.
    */
   getTypeAtPosition(opts: ITtscPositionQuery): Promise<ITtscResult>;
 
   /**
-   * Resolve the symbol the node at `position` refers to, including up to 16
+   * Resolve the symbol the token at `position` refers to, including up to 16
    * declaration sites. Returns `{symbol: null}` when no symbol is bound.
    */
   getSymbolAtPosition(opts: ITtscPositionQuery): Promise<ITtscResult>;
