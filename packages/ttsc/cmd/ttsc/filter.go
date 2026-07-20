@@ -59,12 +59,20 @@ func filterHostArgs(args []string) []string {
   return filtered
 }
 
-// splitFlagName strips the leading `--` from a flag argument and reports
-// whether the argument carries an inline value (`--foo=value`).
+// splitFlagName strips the leading `--` from a flag argument, lower-cases the
+// result, and reports whether the argument carries an inline value
+// (`--foo=value`).
+//
+// Lower-casing is the same normalization `normalizeFlagToken` in
+// `packages/ttsc/src/flags/schema.ts` applies, and the generated
+// `HostFlagAllowList` keys are produced by it. TypeScript's option parser
+// matches option names case-insensitively, so keying this lookup on the exact
+// spelling would make the Go layer stop recognising a flag the launcher and the
+// compiler both resolve.
 func splitFlagName(arg string) (string, bool) {
   name := strings.TrimPrefix(arg, "--")
   if i := strings.IndexByte(name, '='); i != -1 {
-    return name[:i], true
+    return strings.ToLower(name[:i]), true
   }
-  return name, false
+  return strings.ToLower(name), false
 }

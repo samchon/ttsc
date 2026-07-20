@@ -11,7 +11,11 @@
 // The schema is the spec; behaviour at every layer boundary is determined by
 // the FlagSpec attributes, not by ad-hoc `if (arg === "--foo")` branches.
 import type { AnySubcommand, FlagSpec, ValueValidator } from "./schema";
-import { FLAG_BY_NAME, flagsForSubcommand } from "./schema";
+import {
+  flagsForSubcommand,
+  normalizeFlagToken,
+  resolveFlagSpec,
+} from "./schema";
 
 /**
  * Per-subcommand parse result. `values` is keyed by the canonical flag name
@@ -22,6 +26,16 @@ import { FLAG_BY_NAME, flagsForSubcommand } from "./schema";
 export interface ParseResult {
   /** Canonical flag name → resolved value. */
   readonly values: ReadonlyMap<string, string | boolean | number>;
+  /**
+   * Canonical flag name → every accepted value, in argv order. Populated only
+   * for flags declared `repeatable` in `FLAG_SCHEMA` (`ttsx -r a -r b`), where
+   * the last-value-wins `values` entry is not the whole answer. Read it through
+   * `getStringList`.
+   */
+  readonly repeated: ReadonlyMap<
+    string,
+    readonly (string | boolean | number)[]
+  >;
   /** Flags the engine did not consume — forwarded to tsgo. */
   readonly passthrough: readonly string[];
   /** Bare non-flag positional arguments, in original order. */
@@ -73,6 +87,10 @@ export interface ParseOptions {
    * arity from the flag itself (it has no schema for a truly unknown flag); the
    * predicate is the only signal that separates a forwarded value from a real
    * input file, and both callers key it on the TypeScript source extension.
+   *
+   * Every path that can move a bare token out of `positional` consults it: the
+   * main loop below and `forwardKnownButUnaccepted`, which answers the same
+   * question for a schema-known flag this subcommand does not accept.
    */
   readonly isPositional?: (token: string) => boolean;
 }
@@ -96,11 +114,14 @@ export function parseFlags(opts: ParseOptions): ParseResult {
     // flag at the launcher boundary (the RC-1 / RC-2 class the schema
     // is meant to make impossible).
     if (!flag.consumedBy.includes("launcher")) continue;
-    accepted.set(flag.name, flag);
-    for (const alias of flag.aliases ?? []) accepted.set(alias, flag);
+    accepted.set(normalizeFlagToken(flag.name), flag);
+    for (const alias of flag.aliases ?? []) {
+      accepted.set(normalizeFlagToken(alias), flag);
+    }
   }
 
   const values = new Map<string, string | boolean | number>();
+  const repeated = new Map<string, (string | boolean | number)[]>();
   const passthrough: string[] = [];
   const positional: string[] = [];
   const tail: string[] = [];
@@ -130,42 +151,61 @@ export function parseFlags(opts: ParseOptions): ParseResult {
       continue;
     }
 
-    // `--foo=value` / `-p=value` form: split before resolving against the
-    // schema. Both long (`--foo`) and short (`-p`) aliases support the
-    // inline-value shape — without splitting the short form, `-p=value`
-    // would fall through as an unknown token and be forwarded to tsgo,
-    // bypassing the launcher's own consumer (e.g. plugin discovery against
-    // the wrong project root).
-    const equalsIndex = current.startsWith("-") ? current.indexOf("=") : -1;
-    const token = equalsIndex === -1 ? current : current.slice(0, equalsIndex);
-    const inlineValue =
-      equalsIndex === -1 ? undefined : current.slice(equalsIndex + 1);
-
-    const flag = accepted.get(token);
-    if (flag !== undefined) {
-      consumeFlag(values, flag, token, inlineValue, head, opts.errorPrefix);
-      continue;
-    }
-
-    // Token IS a known flag but is not accepted by THIS subcommand. The
-    // engine forwards it to tsgo just like an unknown flag — the same
-    // policy the bare-lane parser applied (RC-1 prevention).
-    const globalFlag = FLAG_BY_NAME.get(token);
-    if (globalFlag !== undefined) {
-      forwardKnownButUnaccepted(
-        passthrough,
-        globalFlag,
-        current,
-        inlineValue,
-        head,
-      );
-      continue;
-    }
-
-    // Truly unknown `-`-prefixed token: forward to tsgo verbatim. This
-    // is what makes `ttsc --strict file.ts` work — ttsc does not need to
-    // re-implement every tsgo flag.
+    // Only a `-`-prefixed token can name a flag. Bare tokens are input files
+    // and flag values; resolving one against the schema would let the `all` of
+    // `--target all` masquerade as `--all` now that the lookup is dash- and
+    // case-insensitive.
     if (current.startsWith("-")) {
+      // `--foo=value` / `-p=value` form: split before resolving against the
+      // schema. Both long (`--foo`) and short (`-p`) aliases support the
+      // inline-value shape — without splitting the short form, `-p=value`
+      // would fall through as an unknown token and be forwarded to tsgo,
+      // bypassing the launcher's own consumer (e.g. plugin discovery against
+      // the wrong project root).
+      const equalsIndex = current.indexOf("=");
+      const token =
+        equalsIndex === -1 ? current : current.slice(0, equalsIndex);
+      const inlineValue =
+        equalsIndex === -1 ? undefined : current.slice(equalsIndex + 1);
+
+      // Resolution is by flag identity, not by exact spelling: `--NOEMIT` and
+      // `-noEmit` are the same option to the compiler ttsc forwards to, so they
+      // must be the same option here. Otherwise a case variant of a ttsc-owned
+      // flag falls through to the escape hatch below and tsgo honours it while
+      // every ttsc-side consumer stays silent.
+      const flag = accepted.get(normalizeFlagToken(token));
+      if (flag !== undefined) {
+        consumeFlag(
+          values,
+          repeated,
+          flag,
+          token,
+          inlineValue,
+          head,
+          opts.errorPrefix,
+        );
+        continue;
+      }
+
+      // Token IS a known flag but is not accepted by THIS subcommand. The
+      // engine forwards it to tsgo just like an unknown flag — the same
+      // policy the bare-lane parser applied (RC-1 prevention).
+      const globalFlag = resolveFlagSpec(token);
+      if (globalFlag !== undefined) {
+        forwardKnownButUnaccepted(
+          passthrough,
+          globalFlag,
+          current,
+          inlineValue,
+          head,
+          opts.isPositional,
+        );
+        continue;
+      }
+
+      // Truly unknown `-`-prefixed token: forward to tsgo verbatim. This
+      // is what makes `ttsc --strict file.ts` work — ttsc does not need to
+      // re-implement every tsgo flag.
       passthrough.push(current);
       continue;
     }
@@ -194,7 +234,7 @@ export function parseFlags(opts: ParseOptions): ParseResult {
     for (const token of remainder) sink.push(token);
   }
 
-  return { values, passthrough, positional, tail };
+  return { values, repeated, passthrough, positional, tail };
 }
 
 /**
@@ -204,12 +244,20 @@ export function parseFlags(opts: ParseOptions): ParseResult {
  */
 function consumeFlag(
   values: Map<string, string | boolean | number>,
+  repeated: Map<string, (string | boolean | number)[]>,
   flag: FlagSpec,
   token: string,
   inlineValue: string | undefined,
   rest: string[],
   errorPrefix: string,
 ): void {
+  const record = (value: string | boolean | number): void => {
+    values.set(flag.name, value);
+    if (flag.repeatable !== true) return;
+    const list = repeated.get(flag.name);
+    if (list === undefined) repeated.set(flag.name, [value]);
+    else list.push(value);
+  };
   if (flag.kind === "boolean") {
     if (inlineValue !== undefined) {
       // `--flag=false` / `--flag=true` inline form. Anything other than
@@ -224,7 +272,7 @@ function consumeFlag(
           )}`,
         );
       }
-      values.set(flag.name, literal);
+      record(literal);
       return;
     }
     // Space form `--flag true` / `--flag false`: peek the next token and
@@ -236,11 +284,11 @@ function consumeFlag(
       const peek = parseBooleanLiteral(rest[0]!);
       if (peek !== undefined) {
         rest.shift();
-        values.set(flag.name, peek);
+        record(peek);
         return;
       }
     }
-    values.set(flag.name, true);
+    record(true);
     return;
   }
 
@@ -249,10 +297,10 @@ function consumeFlag(
       ? inlineValue
       : takeValueToken(token, rest, errorPrefix);
   if (flag.validator === "positiveInt") {
-    values.set(flag.name, validatePositiveInt(token, raw, errorPrefix));
+    record(validatePositiveInt(token, raw, errorPrefix));
     return;
   }
-  values.set(flag.name, raw);
+  record(raw);
 }
 
 /**
@@ -320,6 +368,14 @@ function validatePositiveInt(
  * accept. The launcher will hand it to tsgo (or to native sidecars via
  * `--tsgo-args`); without this branch the parser would lose the value token of
  * a `--flag value` pair.
+ *
+ * `isPositional` is the same predicate the main loop applies, and applying it
+ * here is what makes the file's own claim true — that the two value-resolution
+ * paths agree, and that the predicate is the only signal separating a forwarded
+ * value from a real input. Without it this branch took the next bare token on
+ * behalf of a flag that does not own it, so `ttsc --pretty a.ts` lost `a.ts`
+ * out of `positional` and silently switched from single-file mode to project
+ * mode (issue #663's failure shape, reached through the sibling branch).
  */
 function forwardKnownButUnaccepted(
   passthrough: string[],
@@ -327,6 +383,7 @@ function forwardKnownButUnaccepted(
   original: string,
   inlineValue: string | undefined,
   rest: string[],
+  isPositional: ((token: string) => boolean) | undefined,
 ): void {
   passthrough.push(original);
   // Boolean flags carry no value. `--foo=value` already encodes the value
@@ -337,6 +394,7 @@ function forwardKnownButUnaccepted(
   }
   if (rest.length === 0) return;
   if (rest[0]!.startsWith("-")) return;
+  if (isPositional !== undefined && isPositional(rest[0]!)) return;
   passthrough.push(rest.shift()!);
 }
 
@@ -372,6 +430,19 @@ export function getString(
   const value = result.values.get(flag);
   if (typeof value === "string") return value;
   return undefined;
+}
+
+/**
+ * Return every string value accepted for a `repeatable` flag, in argv order.
+ *
+ * `values` keeps only the last occurrence, which is the wrong answer for a flag
+ * whose whole point is repetition (`ttsx -r a -r b` preloads both). Returns an
+ * empty array when the flag never appeared.
+ */
+export function getStringList(result: ParseResult, flag: string): string[] {
+  return (result.repeated.get(flag) ?? []).filter(
+    (value): value is string => typeof value === "string",
+  );
 }
 
 /** Return the numeric value of `flag` or `undefined` if not present. */

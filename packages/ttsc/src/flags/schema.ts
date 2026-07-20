@@ -131,6 +131,26 @@ export interface FlagSpec {
   readonly terminal?: boolean;
 
   /**
+   * `true` when a `terminal` flag's meaning does not presuppose a resolved
+   * project, so ttsc must answer it before project resolution runs (`--init`
+   * writes the starter tsconfig, `--all` and `-?` print tsgo's help). Without
+   * this split `ttsc --init` failed with "could not find tsconfig.json …" in
+   * the only directory where it is useful.
+   *
+   * `--showConfig` and `--listFilesOnly` are terminal but deliberately NOT
+   * project-free: both describe a project, so failing without one is correct.
+   */
+  readonly projectFree?: boolean;
+
+  /**
+   * `true` when every occurrence of a repeated `value` flag counts rather than
+   * the last one winning (`ttsx -r a -r b` preloads both). The engine keeps the
+   * last value in `ParseResult.values` for callers that want a single answer
+   * and records the complete ordered list in `ParseResult.repeated`.
+   */
+  readonly repeatable?: boolean;
+
+  /**
    * `true` when ttsc may add this flag to tsgo internally and post-process the
    * output. If the user also forwards the same flag, ttsc keeps the
    * user-visible behaviour (no double-print, no swallowed output). The shadow
@@ -354,9 +374,10 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     name: "--require",
     aliases: ["-r"],
     kind: "value",
+    repeatable: true,
     subcommands: ["ttsx"],
     consumedBy: ["launcher"],
-    description: "Preload a module before the entrypoint (ttsx).",
+    description: "Preload a module before the entrypoint (ttsx; repeatable).",
   },
   {
     name: "--no-plugins",
@@ -382,8 +403,14 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
       "Print the list of emitted files (forwarded to tsgo; ttsc keeps the lines when forwarded).",
   },
   {
+    // tsgo declares `--pretty` as `type: boolean`, so it occupies one argv
+    // token and consumes a following one only when that token is the literal
+    // `true` or `false` — the shape the engine's boolean branch implements.
+    // Declaring it `value` made the forwarding path swallow whatever followed,
+    // so `ttsc --pretty a.ts` lost its input file and silently switched to
+    // project mode.
     name: "--pretty",
-    kind: "value",
+    kind: "boolean",
     subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
     consumedBy: ["tsgo"],
     forwardTo: "tsgo",
@@ -435,6 +462,7 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     consumedBy: ["tsgo"],
     forwardTo: "tsgo",
     terminal: true,
+    projectFree: true,
     description: "Print the full tsgo CLI help and exit.",
   },
   {
@@ -444,7 +472,23 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     consumedBy: ["tsgo"],
     forwardTo: "tsgo",
     terminal: true,
+    projectFree: true,
     description: "Write a starter tsconfig.json and exit (forwarded to tsgo).",
+  },
+  {
+    // tsgo's short synonym for `--help`. ttsc owns `--help` / `-h` itself (the
+    // launcher prints its own help), so `-?` is declared as its own tsgo-only
+    // row rather than as an alias — that keeps `ttsc -?` printing tsgo's help
+    // while putting the token inside the schema, where the terminal and
+    // project-free classifications are derived from.
+    name: "-?",
+    kind: "boolean",
+    subcommands: ["ttsc", "build", "check"],
+    consumedBy: ["tsgo"],
+    forwardTo: "tsgo",
+    terminal: true,
+    projectFree: true,
+    description: "Print the tsgo CLI help and exit (forwarded to tsgo).",
   },
 
   // -------------------------------------------------------------------------
@@ -512,10 +556,50 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
 ];
 
 /**
- * Lookup of `name` and every alias → its canonical FlagSpec. Built once at
- * module load so the parsing engine has O(1) flag resolution.
+ * Normalize a CLI token to the identity the compiler ttsc wraps resolves it by:
+ * one or two leading dashes removed, the remainder lower-cased.
+ *
+ * TypeScript's option parser — legacy `tsc` and native tsgo alike — strips a
+ * `--` or `-` prefix and matches the rest case-insensitively, so `--noEmit`,
+ * `--noemit`, `--NOEMIT`, and `-noEmit` all name the same option to the tool
+ * ttsc forwards to. The launcher used to key its index on the exact spelling,
+ * so a case variant of a ttsc-owned flag fell through the unknown-flag escape
+ * hatch: tsgo honoured it and every ttsc-side consumer of the same flag never
+ * fired, with no diagnostic.
+ *
+ * This is the single normalization. Everything that resolves a token against
+ * `FLAG_SCHEMA` — the parsing engine, the terminal / shadow / project-free
+ * classifications, and the generated Go allow-lists — keys off this function,
+ * so no two layers can disagree about which flag a spelling names.
  */
-export const FLAG_BY_NAME: ReadonlyMap<string, FlagSpec> = buildFlagIndex();
+export function normalizeFlagToken(token: string): string {
+  return token.replace(/^--?/, "").toLowerCase();
+}
+
+/**
+ * Resolve a raw argv token to the flag it names, or `undefined` when the schema
+ * claims no such flag.
+ *
+ * Accepts every spelling the compiler accepts — any casing, one or two leading
+ * dashes — plus the inline `--flag=value` form, whose value is not part of the
+ * identity. A token without a leading dash is never a flag: bare tokens are
+ * input files and flag values, and resolving them here would let a value like
+ * the `all` of `--target all` masquerade as `--all`.
+ */
+export function resolveFlagSpec(token: string): FlagSpec | undefined {
+  if (!token.startsWith("-")) return undefined;
+  const equalsIndex = token.indexOf("=");
+  const name = equalsIndex === -1 ? token : token.slice(0, equalsIndex);
+  return FLAG_BY_TOKEN.get(normalizeFlagToken(name));
+}
+
+/**
+ * Lookup of every declared spelling → its canonical FlagSpec, keyed by
+ * {@link normalizeFlagToken}. Built once at module load so the parsing engine
+ * has O(1) flag resolution. Prefer {@link resolveFlagSpec}, which applies the
+ * normalization for the caller.
+ */
+export const FLAG_BY_TOKEN: ReadonlyMap<string, FlagSpec> = buildFlagIndex();
 
 function buildFlagIndex(): ReadonlyMap<string, FlagSpec> {
   const index = new Map<string, FlagSpec>();
@@ -530,38 +614,21 @@ function buildFlagIndex(): ReadonlyMap<string, FlagSpec> {
 
 function register(
   index: Map<string, FlagSpec>,
-  key: string,
+  spelling: string,
   flag: FlagSpec,
 ): void {
+  // Two spellings that normalize to one identity would make the schema
+  // ambiguous, so the collision fails loudly at module load rather than
+  // resolving to whichever row was declared last.
+  const key = normalizeFlagToken(spelling);
   const existing = index.get(key);
   if (existing && existing !== flag) {
     throw new Error(
-      `ttsc flag schema: duplicate token ${JSON.stringify(key)} claimed by ${existing.name} and ${flag.name}`,
+      `ttsc flag schema: duplicate token ${JSON.stringify(spelling)} claimed by ${existing.name} and ${flag.name}`,
     );
   }
   index.set(key, flag);
 }
-
-/**
- * Terminal flags as a derived set. Used by `runBuild.ts` to skip the pre-emit
- * pass when one is present.
- */
-export const TERMINAL_FLAGS: ReadonlySet<string> = new Set(
-  FLAG_SCHEMA.flatMap((flag) =>
-    flag.terminal === true ? [flag.name, ...(flag.aliases ?? [])] : [],
-  ),
-);
-
-/**
- * `internalShadow: true` flags as a derived set. Used by `runBuild.ts` to
- * detect a user-forwarded copy of a flag ttsc adds internally so the
- * post-processor does not eat the user's output.
- */
-export const INTERNAL_SHADOW_FLAGS: ReadonlySet<string> = new Set(
-  FLAG_SCHEMA.flatMap((flag) =>
-    flag.internalShadow === true ? [flag.name, ...(flag.aliases ?? [])] : [],
-  ),
-);
 
 /** Tokens (canonical name + aliases) accepted in `subcommand`. */
 export function flagsForSubcommand(subcommand: AnySubcommand): FlagSpec[] {
@@ -581,9 +648,13 @@ export function buildGoAllowList(layer: "host" | "lint"): Map<string, boolean> {
     if (!flag.consumedBy.includes(layer)) continue;
     const takesValue = flag.kind === "value" || flag.kind === "valueOptional";
     for (const name of [flag.name, ...(flag.aliases ?? [])]) {
-      const key = name.replace(/^--?/, "");
-      // The Go side strips the leading dashes; if two flags collide on the
-      // stripped key (e.g. `-p` vs `--project`), use the value-taking shape.
+      // Keyed by the one normalization the runtime token lookup uses, so the
+      // generated allow-lists and `resolveFlagSpec` cannot recognise different
+      // spellings. The Go consumers apply the same normalization before the
+      // lookup (`strings.ToLower` on the dash-stripped name).
+      const key = normalizeFlagToken(name);
+      // If two flags collide on the normalized key (e.g. `-p` vs `--project`),
+      // use the value-taking shape.
       const existing = out.get(key);
       if (existing !== undefined && existing !== takesValue) {
         throw new Error(

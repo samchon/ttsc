@@ -12,6 +12,7 @@ import {
   getString,
   parseFlags,
 } from "../../flags/parser";
+import { resolveFlagSpec } from "../../flags/schema";
 import {
   isPathWithin,
   legacyGlobalCacheTargets,
@@ -41,13 +42,17 @@ export function runTtsc(
     }
 
     const [command, ...rest] = argv as [string, ...string[]];
-    switch (command) {
-      case "-h":
+    // A leading flag is dispatched by its schema identity, so every spelling the
+    // compiler accepts (`--HELP`, `-Version`) reaches the same branch instead of
+    // falling through to the build lane where nothing reads it back out.
+    // `resolveFlagSpec` ignores dash-less tokens, so the bare `help` / `version`
+    // subcommand words below keep their own meaning.
+    const leadingFlag = resolveFlagSpec(command)?.name;
+    switch (leadingFlag ?? command) {
       case "--help":
       case "help":
         printHelp();
         return 0;
-      case "-v":
       case "--version":
       case "version":
         process.stdout.write(`${getCompilerVersionText()}\n`);
@@ -66,8 +71,7 @@ export function runTtsc(
         return runClean(rest);
       case "prepare":
         return runPrepare(rest);
-      case "-p":
-      case "--project":
+      case "--tsconfig":
         return runCompatibleBuild(argv, "build");
       default:
         if (isBuildAlias(command)) {

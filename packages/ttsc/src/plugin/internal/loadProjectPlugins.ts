@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { findNearestGoMod } from "../../compiler/internal/paths";
+import { readJsonFile } from "../../compiler/internal/project/readConfigJson";
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
 import type { ITtscPlugin } from "../../structures/ITtscPlugin";
 import type { ITtscPluginContributor } from "../../structures/ITtscPluginContributor";
@@ -541,11 +542,17 @@ function findNearestPackageJson(location: string): string | undefined {
   }
 }
 
+/**
+ * Read a package manifest, or `undefined` when the file is absent or is not a
+ * JSON object. A malformed manifest throws naming the file: these are usually
+ * files the user did not author, which makes an unattributed `JSON.parse`
+ * message worse here than anywhere else.
+ */
 function readPackageManifest(file: string): PackageManifest | undefined {
   if (!fs.existsSync(file)) {
     return undefined;
   }
-  const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
+  const parsed = readJsonFile(file);
   return isRecord(parsed) ? (parsed as PackageManifest) : undefined;
 }
 

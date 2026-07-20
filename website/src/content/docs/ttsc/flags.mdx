@@ -34,16 +34,17 @@ one layer and silently disappears at the next boundary.
 | `--cache-dir` | - | value | ttsc, ttsx, build, check, fix, format, prepare, clean | launcher | consumed-not-forwarded | Override the runner and source-plugin cache root. |
 | `--singleThreaded` | - | boolean | ttsc, ttsx, build, check, fix, format | launcher, runBuild, tsgo, host, lint | capability: threadingArgs | Run TypeScript-Go single-threaded (one checker). |
 | `--checkers` | - | value | ttsc, ttsx, build, check, fix, format | launcher, runBuild, tsgo, host, lint | capability: threadingArgs | Type-checker pool size (default: TypeScript-Go's). |
-| `--require` | `-r` | value | ttsx | launcher | consumed-not-forwarded | Preload a module before the entrypoint (ttsx). |
+| `--require` | `-r` | value | ttsx | launcher | repeatable, consumed-not-forwarded | Preload a module before the entrypoint (ttsx; repeatable). |
 | `--no-plugins` | - | boolean | ttsx | launcher | consumed-not-forwarded | Build the project without ttsc plugins (ttsx). |
 | `--listEmittedFiles` | - | boolean | ttsc, build, check | runBuild, tsgo | shadow | Print the list of emitted files (forwarded to tsgo; ttsc keeps the lines when forwarded). |
-| `--pretty` | - | value | ttsc, ttsx, build, check, fix, format | tsgo | shadow | Toggle tsgo pretty-printed diagnostics (forwarded to tsgo). |
+| `--pretty` | - | boolean | ttsc, ttsx, build, check, fix, format | tsgo | shadow | Toggle tsgo pretty-printed diagnostics (forwarded to tsgo). |
 | `--diagnostics` | - | boolean | ttsc, ttsx, build, check, fix, format | runBuild, tsgo, lint | capability: diagnosticsTiming | Print compiler performance information; plugin-backed ttsc runs add plugin wall-clock timings. |
 | `--extendedDiagnostics` | - | boolean | ttsc, ttsx, build, check, fix, format | runBuild, tsgo, lint | capability: diagnosticsTiming | Print detailed compiler performance information; plugin-backed ttsc runs add plugin wall-clock timings. |
 | `--showConfig` | - | boolean | ttsc, build, check | tsgo | terminal | Print the resolved tsconfig and exit (forwarded to tsgo). |
 | `--listFilesOnly` | - | boolean | ttsc, build, check | tsgo | terminal | Print the project file list and exit (forwarded to tsgo). |
-| `--all` | - | boolean | ttsc, build, check | tsgo | terminal | Print the full tsgo CLI help and exit. |
-| `--init` | - | boolean | ttsc, build, check | tsgo | terminal | Write a starter tsconfig.json and exit (forwarded to tsgo). |
+| `--all` | - | boolean | ttsc, build, check | tsgo | terminal, project-free | Print the full tsgo CLI help and exit. |
+| `--init` | - | boolean | ttsc, build, check | tsgo | terminal, project-free | Write a starter tsconfig.json and exit (forwarded to tsgo). |
+| `-?` | - | boolean | ttsc, build, check | tsgo | terminal, project-free | Print the tsgo CLI help and exit (forwarded to tsgo). |
 | `--tsgo-args` | - | value | ttsc, build, check, fix, format, prepare, clean | host, lint | - | JSON-encoded tsgo passthrough argv (internal: emitted by runBuild). |
 | `--plugins-json` | - | value | build, check, fix, format | host, lint | - | JSON-encoded ttsc plugin manifest (internal: emitted by runBuild). |
 | `--project-context-json` | - | value | build, check, fix, format | lint | - | JSON-encoded lexical and physical project identity (internal: emitted by runBuild). |
@@ -59,10 +60,17 @@ one layer and silently disappears at the next boundary.
 - **Consumed by** lists every layer that reads the flag into its own option
   struct. A flag without a Consumed-by entry is forwarded verbatim to tsgo.
 - **Notes** marks structural attributes: `terminal` (the flag asks tsgo
-  to print and exit), `shadow` (ttsc adds the flag internally; post-
-  processing must not eat a user-forwarded copy), and `capability: ...`
-  (the flag is delivered to native check-stage hosts that opt in via the
-  matching `ITtscPluginCapabilities` field).
+  to print and exit), `project-free` (a terminal flag ttsc answers without
+  resolving a project, so it works in a directory that has no tsconfig yet),
+  `repeatable` (every occurrence counts, not just the last),
+  `shadow` (ttsc adds the flag internally; post-processing must not eat a
+  user-forwarded copy), and `capability: ...` (the flag is delivered to
+  native check-stage hosts that opt in via the matching
+  `ITtscPluginCapabilities` field).
+
+Flag names are matched the way the compiler matches them: case-insensitively,
+with one or two leading dashes. `--noemit`, `--NoEmit`, and `-noEmit` are
+the same flag to ttsc because they are the same option to tsgo.
 
 Unknown `-`-prefixed flags are forwarded to tsgo without registration in
 the schema, so adding a flag is only needed for flags ttsc itself consumes,

@@ -434,7 +434,12 @@ func filterKnownFlags(args []string, known map[string]bool) []string {
     if index := strings.Index(name, "="); index >= 0 {
       name = name[:index]
     }
-    needsValue, ok := known[name]
+    // Lower-cased to match the one normalization the schema uses when it
+    // generates this allow-list (`normalizeFlagToken` in
+    // packages/ttsc/src/flags/schema.ts): TypeScript's option parser matches
+    // names case-insensitively, so an exact-spelling lookup here would stop
+    // recognising a flag the launcher already resolved.
+    needsValue, ok := known[strings.ToLower(name)]
     if !ok {
       if !hasValue && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
         i++
