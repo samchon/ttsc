@@ -149,10 +149,17 @@ ${rows}
 - **Consumed by** lists every layer that reads the flag into its own option
   struct. A flag without a Consumed-by entry is forwarded verbatim to tsgo.
 - **Notes** marks structural attributes: \`terminal\` (the flag asks tsgo
-  to print and exit), \`shadow\` (ttsc adds the flag internally; post-
-  processing must not eat a user-forwarded copy), and \`capability: ...\`
-  (the flag is delivered to native check-stage hosts that opt in via the
-  matching \`ITtscPluginCapabilities\` field).
+  to print and exit), \`project-free\` (a terminal flag ttsc answers without
+  resolving a project, so it works in a directory that has no tsconfig yet),
+  \`repeatable\` (every occurrence counts, not just the last),
+  \`shadow\` (ttsc adds the flag internally; post-processing must not eat a
+  user-forwarded copy), and \`capability: ...\` (the flag is delivered to
+  native check-stage hosts that opt in via the matching
+  \`ITtscPluginCapabilities\` field).
+
+Flag names are matched the way the compiler matches them: case-insensitively,
+with one or two leading dashes. \`--noemit\`, \`--NoEmit\`, and \`-noEmit\` are
+the same flag to ttsc because they are the same option to tsgo.
 
 Unknown \`-\`-prefixed flags are forwarded to tsgo without registration in
 the schema, so adding a flag is only needed for flags ttsc itself consumes,
@@ -178,6 +185,8 @@ function layerLabel(layer: FlagLayer): string {
 function renderNotes(flag: FlagSpec): string {
   const tags: string[] = [];
   if (flag.terminal === true) tags.push("terminal");
+  if (flag.projectFree === true) tags.push("project-free");
+  if (flag.repeatable === true) tags.push("repeatable");
   if (flag.internalShadow === true) tags.push("shadow");
   if (flag.nativeCapability !== undefined) {
     tags.push(`capability: ${flag.nativeCapability}`);

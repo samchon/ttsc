@@ -5,6 +5,7 @@ import path from "node:path";
 import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectPluginConfig";
 import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITtscParsedProjectConfig";
 import type { ITtscProjectLocatorOptions } from "../../../structures/internal/ITtscProjectLocatorOptions";
+import { readJsonFile, readJsoncFile } from "./readConfigJson";
 import { resolveProjectIdentity } from "./resolveProjectConfig";
 
 /**
@@ -101,7 +102,7 @@ function readResolvedCompilerOptions(
   }
   seen.add(canonical);
   try {
-    const parsed = parseJsonc(fs.readFileSync(canonical, "utf8")) as {
+    const parsed = readJsoncFile(canonical) as {
       extends?: unknown;
       compilerOptions?: Record<string, unknown> & {
         outDir?: unknown;
@@ -272,9 +273,10 @@ function resolveExtendsConfig(tsconfig: string, specifier: string): string {
 /**
  * When `specifier` names a bare package root, resolve the config file its
  * `package.json#tsconfig` field selects (anchored at the package directory).
- * Returns `undefined` when the specifier is a subpath, the manifest is
- * unresolvable/unparsable, or it declares no `tsconfig` field, so the caller
- * falls back to Node entrypoint resolution.
+ * Returns `undefined` when the specifier is a subpath, the manifest cannot be
+ * resolved at all, or it declares no `tsconfig` field, so the caller falls back
+ * to Node entrypoint resolution. A manifest that resolves but does not parse
+ * throws, naming the file.
  */
 function resolvePackageManifestTsconfig(
   resolver: NodeRequire,
@@ -286,19 +288,30 @@ function resolvePackageManifestTsconfig(
   let manifestPath: string;
   try {
     manifestPath = resolver.resolve(`${specifier}/package.json`);
-  } catch {
+  } catch (error) {
+    // Node parses a package's manifest while resolving into it, so a malformed
+    // preset manifest fails here rather than at the read below. Swallowing it
+    // is what turned a broken manifest into the confusing downstream
+    // "Cannot find module 'example-preset.json'" from the `extends` fallback,
+    // which names a file that was never the problem. Node's own message names
+    // the real one, so report it in ttsc's voice instead of continuing.
+    if (
+      (error as NodeJS.ErrnoException | undefined)?.code ===
+      "ERR_INVALID_PACKAGE_CONFIG"
+    ) {
+      throw new Error(
+        `ttsc: failed to parse the package manifest of ${JSON.stringify(specifier)}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
     return undefined;
   }
-  let field: unknown;
-  try {
-    field = (
-      JSON.parse(stripLeadingBom(fs.readFileSync(manifestPath, "utf8"))) as {
-        tsconfig?: unknown;
-      }
-    ).tsconfig;
-  } catch {
-    return undefined;
-  }
+  // A manifest that exists but does not parse is a real configuration error,
+  // and it used to be swallowed here: the read returned `undefined`, the caller
+  // fell back to Node entrypoint resolution, and the user learned nothing about
+  // the file that actually broke. Report it instead.
+  const field = (readJsonFile(manifestPath) as { tsconfig?: unknown }).tsconfig;
   if (typeof field !== "string" || field.length === 0) {
     return undefined;
   }
@@ -348,139 +361,4 @@ function isRelativeSpecifier(specifier: string): boolean {
     specifier.startsWith(".\\") ||
     specifier.startsWith("..\\")
   );
-}
-
-/**
- * Parse a JSONC (JSON with Comments) string by stripping comments and trailing
- * commas before handing off to `JSON.parse`.
- */
-function parseJsonc(input: string): unknown {
-  return JSON.parse(stripTrailingCommas(stripComments(stripLeadingBom(input))));
-}
-
-function stripLeadingBom(input: string): string {
-  return input.charCodeAt(0) === 0xfeff ? input.slice(1) : input;
-}
-
-/**
- * Remove `//` line comments and `/* block comments *\/` from a JSONC string.
- * Correctly handles strings that contain comment-like character sequences by
- * tracking string boundaries and escape characters.
- */
-function stripComments(input: string): string {
-  let output = "";
-  let inBlockComment = false;
-  let inLineComment = false;
-  let inString = false;
-  let quote = "";
-  let escape = false;
-
-  for (let i = 0; i < input.length; i += 1) {
-    const current = input[i]!;
-    const next = input[i + 1];
-
-    if (inBlockComment) {
-      if (current === "*" && next === "/") {
-        inBlockComment = false;
-        i += 1;
-      }
-      continue;
-    }
-    if (inLineComment) {
-      if (current === "\n") {
-        inLineComment = false;
-        output += current;
-      }
-      continue;
-    }
-    if (inString) {
-      output += current;
-      if (escape) {
-        escape = false;
-      } else if (current === "\\") {
-        escape = true;
-      } else if (current === quote) {
-        inString = false;
-        quote = "";
-      }
-      continue;
-    }
-
-    if (current === '"' || current === "'") {
-      inString = true;
-      quote = current;
-      output += current;
-      continue;
-    }
-    if (current === "/" && next === "/") {
-      inLineComment = true;
-      i += 1;
-      continue;
-    }
-    if (current === "/" && next === "*") {
-      inBlockComment = true;
-      i += 1;
-      continue;
-    }
-    output += current;
-  }
-  return output;
-}
-
-/**
- * Remove trailing commas before `}` or `]` from a JSON string (after comments
- * have already been stripped). Handles string boundaries and escape characters
- * to avoid removing commas inside string values.
- */
-function stripTrailingCommas(input: string): string {
-  let output = "";
-  let inString = false;
-  let quote = "";
-  let escape = false;
-
-  for (let i = 0; i < input.length; i += 1) {
-    const current = input[i]!;
-    if (inString) {
-      output += current;
-      if (escape) {
-        escape = false;
-      } else if (current === "\\") {
-        escape = true;
-      } else if (current === quote) {
-        inString = false;
-        quote = "";
-      }
-      continue;
-    }
-
-    if (current === '"' || current === "'") {
-      inString = true;
-      quote = current;
-      output += current;
-      continue;
-    }
-    if (current === ",") {
-      const next = nextNonWhitespace(input, i + 1);
-      if (next === "}" || next === "]") {
-        continue;
-      }
-    }
-    output += current;
-  }
-  return output;
-}
-
-/**
- * Return the first non-whitespace character at or after position `from` in
- * `input`, or `undefined` when only whitespace remains. Used by
- * `stripTrailingCommas` to detect whether a comma is trailing.
- */
-function nextNonWhitespace(input: string, from: number): string | undefined {
-  for (let i = from; i < input.length; i += 1) {
-    const current = input[i]!;
-    if (/\s/.test(current) === false) {
-      return current;
-    }
-  }
-  return undefined;
 }

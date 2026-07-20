@@ -7,8 +7,10 @@ import {
   getBoolean,
   getNumber,
   getString,
+  getStringList,
   parseFlags,
 } from "../../flags/parser";
+import { resolveFlagSpec } from "../../flags/schema";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { prepareExecution } from "./prepareExecution";
 import { resolveCacheDir } from "./resolveCacheDir";
@@ -111,10 +113,13 @@ function parseCLI(argv: readonly string[]) {
         : token,
   );
   // Terminal flags (--help / --version) short-circuit before parsing so
-  // ttsx prints help text even when the entry file is missing.
+  // ttsx prints help text even when the entry file is missing. Resolved
+  // through the schema so every spelling the compiler accepts (`--HELP`,
+  // `-Version`) reaches the same branch.
   for (const token of rewritten) {
-    if (token === "-h" || token === "--help") return "help" as const;
-    if (token === "-v" || token === "--version") return "version" as const;
+    const flag = resolveFlagSpec(token)?.name;
+    if (flag === "--help") return "help" as const;
+    if (flag === "--version") return "version" as const;
   }
   const result = parseFlags({
     argv: rewritten,
@@ -145,34 +150,20 @@ function parseCLI(argv: readonly string[]) {
   // which MUST NOT reach tsgo.
   const postEntryArgs: string[] = [...result.tail];
 
-  const preload: string[] = [];
-  // `--require` accepts repeated values; the schema engine writes the
-  // LAST one into `values`, so reconstruct the full list by scanning the
-  // raw argv. Mirrors the legacy parser's `preload.push(takeValue(...))`
-  // behaviour.
+  // `--require` is declared `repeatable`, so the engine records every accepted
+  // value in argv order and the launcher reads the list straight off the parse
+  // result.
   //
-  // Stop the rescue scan at the first token that begins tail mode —
-  // either the entry file or the `--` separator. Without this guard,
-  // `ttsx entry.ts -r preload.cjs` would BOTH preload `preload.cjs` AND
-  // forward `-r preload.cjs` to the entry's argv, double-effecting the
-  // module load. The schema engine already routes post-entry tokens to
-  // `result.tail`; the rescue scan must respect the same boundary.
-  const scanEnd = rewritten.findIndex(
-    (token) => looksLikeEntryFile(token) || token === "--",
-  );
-  const scanLimit = scanEnd === -1 ? rewritten.length : scanEnd;
-  for (let i = 0; i < scanLimit; i += 1) {
-    const token = rewritten[i]!;
-    if (token === "-r" || token === "--require") {
-      const value = rewritten[i + 1];
-      if (value !== undefined && !value.startsWith("-")) {
-        preload.push(value);
-        i += 1;
-      }
-    } else if (token.startsWith("--require=")) {
-      preload.push(token.slice("--require=".length));
-    }
-  }
+  // This replaces a second, hand-written scan over raw argv that re-derived the
+  // pre-entry boundary with `looksLikeEntryFile`. Applied to raw tokens that
+  // predicate cannot tell an entry from a `--require` value carrying a
+  // TypeScript extension, nor from an inline `--require=<x>.ts` token, so the
+  // scan stopped before the tokens it existed to collect and preloads were
+  // dropped silently. The engine already owns that boundary:
+  // `forwardAfterFirstPositional` routes every post-entry token to
+  // `result.tail` without parsing it, so `ttsx entry.ts -r preload.cjs` still
+  // forwards the pair to the program instead of preloading it.
+  const preload = getStringList(result, "--require");
 
   return {
     binary: getString(result, "--binary"),

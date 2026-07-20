@@ -1,7 +1,14 @@
-// CI gate: re-run gen-flags.mts and fail if any generated file changed on
-// disk relative to the committed copy. Mirrors the pattern used by the
-// gen_shims tool — committed output is the spec, drift means someone edited
-// a generated file by hand without updating schema.ts.
+// CI gate for the flag schema, in two phases.
+//
+// 1. Re-run gen-flags.mts and fail if any generated file changed on disk
+//    relative to the committed copy. Mirrors the pattern used by the gen_shims
+//    tool — committed output is the spec, drift means someone edited a
+//    generated file by hand without updating schema.ts.
+// 2. Run check-flag-kinds.mts, which fails when a declared `kind` contradicts
+//    the arity the compiler ttsc forwards to implements. Phase 1 only proves
+//    the layers agree with the schema; phase 2 proves the schema agrees with
+//    the tool, which is the half that let `--pretty` ship declared as a
+//    value-taking flag and swallow the input file after it.
 
 "use strict";
 
@@ -68,6 +75,18 @@ function main() {
   }
 
   process.stdout.write("ttsc flag schema: generated output matches schema.\n");
+
+  const kinds = child.spawnSync(
+    process.execPath,
+    ["--experimental-strip-types", path.join(here, "check-flag-kinds.mts")],
+    { stdio: "inherit" },
+  );
+  if (kinds.error) {
+    throw kinds.error;
+  }
+  if (kinds.status !== 0) {
+    process.exit(kinds.status ?? 1);
+  }
 }
 
 function snapshot(files) {

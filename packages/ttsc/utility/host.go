@@ -264,12 +264,18 @@ func filterHostArgs(args []string) []string {
   return filtered
 }
 
-// flagName strips the leading "--" from a flag argument and reports whether
-// the flag carries an inline value (i.e. the argument contains "=").
+// flagName strips the leading "--" from a flag argument, lower-cases the
+// result, and reports whether the flag carries an inline value (i.e. the
+// argument contains "=").
+//
+// Lower-casing is the same normalization `normalizeFlagToken` in
+// packages/ttsc/src/flags/schema.ts applies, and the generated
+// HostFlagAllowList keys are produced by it, so this layer recognises exactly
+// the spellings the launcher and the compiler do.
 func flagName(arg string) (string, bool) {
   name := strings.TrimPrefix(arg, "--")
   before, _, found := strings.Cut(name, "=")
-  return before, found
+  return strings.ToLower(before), found
 }
 
 // loadUtilityProgram parses plugins JSON, sets the linked-plugin environment

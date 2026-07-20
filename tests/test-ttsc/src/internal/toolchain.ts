@@ -187,6 +187,31 @@ function resolveTsgoBinary() {
 }
 
 /**
+ * Asserts that no `tsconfig.json` / `jsconfig.json` exists in `root` or any of
+ * its ancestors.
+ *
+ * `resolveProjectConfig` discovers a project by walking upwards, so a fixture
+ * created inside a project tree silently resolves that ancestor's config. A
+ * case that means to exercise the no-project lane would then pass while proving
+ * nothing. Call this first in every such fixture so the vacuity fails loudly.
+ */
+function assertNoProjectAbove(root: string): void {
+  let current = path.resolve(root);
+  while (true) {
+    for (const name of ["tsconfig.json", "jsconfig.json"]) {
+      assert.equal(
+        fs.existsSync(path.join(current, name)),
+        false,
+        `fixture is not project-free: ${path.join(current, name)} exists`,
+      );
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return;
+    current = parent;
+  }
+}
+
+/**
  * Walks up from `start` until a directory containing `pnpm-workspace.yaml` is
  * found. Throws if no workspace root is found before reaching the filesystem
  * root.
@@ -208,6 +233,7 @@ function findWorkspaceRoot(start: string): string {
 export {
   __dirname,
   assert,
+  assertNoProjectAbove,
   child_process,
   createFakeNativePreview,
   createProject,

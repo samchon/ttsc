@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { INTERNAL_SHADOW_FLAGS, TERMINAL_FLAGS } from "../../flags/schema";
+import { resolveFlagSpec } from "../../flags/schema";
 import {
   hasProjectPluginEntries,
   loadProjectPlugins,
@@ -80,15 +80,17 @@ function hasEnabledPassthroughFlag(
   const passthrough = options.passthrough ?? [];
   for (let i = 0; i < passthrough.length; i++) {
     const token = passthrough[i]!;
-    if (token.startsWith(`${flag}=`)) {
-      return token.slice(flag.length + 1).toLowerCase() !== "false";
+    // Identity, not spelling: the user forwards their own casing and ttsc must
+    // read `--DIAGNOSTICS` the way tsgo does.
+    if (resolveFlagSpec(token)?.name !== flag) continue;
+    const equalsIndex = token.indexOf("=");
+    if (equalsIndex !== -1) {
+      return token.slice(equalsIndex + 1).toLowerCase() !== "false";
     }
-    if (token === flag) {
-      if (i + 1 < passthrough.length && isBooleanLiteral(passthrough[i + 1]!)) {
-        return passthrough[i + 1]!.toLowerCase() !== "false";
-      }
-      return true;
+    if (i + 1 < passthrough.length && isBooleanLiteral(passthrough[i + 1]!)) {
+      return passthrough[i + 1]!.toLowerCase() !== "false";
     }
+    return true;
   }
   return false;
 }
@@ -188,6 +190,8 @@ function runBuildTimed(
   options: RunBuildOptions,
   timing: BuildTiming,
 ): TtscBuildResult {
+  const projectFree = runProjectFreeTerminalFlag(options);
+  if (projectFree !== null) return projectFree;
   const setupStartedAt = process.hrtime.bigint();
   const execution = resolveExecutionContext(options);
   if (
@@ -325,6 +329,60 @@ function runBuildTimed(
 }
 
 /**
+ * Answer a forwarded terminal flag whose meaning precedes a project, when no
+ * project can be resolved.
+ *
+ * `ttsc --init` exists to write the starter `tsconfig.json`, and `ttsc --all` /
+ * `ttsc -?` only print tsgo's help — none of them needs a project, yet all
+ * three died in project resolution because that layer ran first and
+ * unconditionally. The classification is `FLAG_SCHEMA`'s (`terminal` +
+ * `projectFree`), so marking a further flag project-free needs no edit here.
+ *
+ * A resolvable project keeps the established lane untouched: the build path
+ * still forwards the flag with `-p <tsconfig>` from the project root, so `ttsc
+ * --init` inside an existing project still reports tsgo's TS5054 instead of
+ * writing a second config into the current directory. Returns `null` when this
+ * lane does not apply.
+ */
+function runProjectFreeTerminalFlag(
+  options: RunBuildOptions,
+): TtscBuildResult | null {
+  if (!forwardsProjectFreeTerminalTsgoFlag(options)) return null;
+  if (options.resolvedProject !== undefined) return null;
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  try {
+    readProjectConfig({
+      cwd,
+      projectRoot: options.projectRoot,
+      tsconfig: options.tsconfig,
+    });
+    return null;
+  } catch {
+    // No project here: the flag's meaning does not presuppose one, so forward
+    // it to tsgo from the invocation directory instead of failing.
+  }
+  const tsgo = resolveTsgo({ ...options, cwd });
+  const res = spawnNative(tsgo.binary, [...(options.passthrough ?? [])], {
+    cwd,
+    env: mergeEnv(options.env),
+    encoding: "utf8",
+  });
+  if (res.error) {
+    throw new Error(
+      `ttsc: failed to spawn ${tsgo.binary}: ${res.error.message}`,
+    );
+  }
+  return normalizeBuildOutput(
+    {
+      status: res.status ?? 1,
+      stdout: outputText(res.stdout),
+      stderr: outputText(res.stderr),
+    },
+    cwd,
+  );
+}
+
+/**
  * A tsconfig-level `noEmit: true` is an analysis-only build unless the user
  * explicitly asks `ttsc --emit` to override it. Treat it like CLI `--noEmit`
  * before composing tsgo/native-host arguments so ttsc does not add emit-only
@@ -412,11 +470,17 @@ function createPluginFailureTypecheckOptions(
   const passthrough: string[] = [];
   for (let i = 0; i < (options.passthrough?.length ?? 0); i++) {
     const token = options.passthrough![i]!;
-    if (token === "--pretty") {
-      if (isBooleanLiteral(options.passthrough![i + 1] ?? "")) i++;
+    if (resolveFlagSpec(token)?.name === "--pretty") {
+      // `--pretty` is boolean: it owns a following token only when that token
+      // is the literal `true`/`false`, and the inline form carries its own.
+      if (
+        !token.includes("=") &&
+        isBooleanLiteral(options.passthrough![i + 1] ?? "")
+      ) {
+        i++;
+      }
       continue;
     }
-    if (token.startsWith("--pretty=")) continue;
     passthrough.push(token);
   }
   return {
@@ -509,31 +573,42 @@ function diagnosticHeadline(message: string): string {
 }
 
 /**
- * Tsgo CLI flags that make `tsgo` print something and exit instead of building
- * (`--showConfig`, `--listFilesOnly`, `--help`, …). ttsc must not add
- * build-only guard flags around these because the forwarded flag asks tsgo to
- * print something and exit instead of compiling the project.
- *
- * Schema-derived: the set is computed from `FLAG_SCHEMA[*].terminal === true`,
- * not hand-maintained next to runBuild. Adding a new terminal flag now means
- * editing `schema.ts` and re-running `pnpm format` — every layer learns about
- * it automatically.
- */
-const TERMINAL_TSGO_FLAGS: ReadonlySet<string> = (() => {
-  // Mirror the legacy hand-list: schema's terminal flags ∪ the `-?` alias
-  // tsgo accepts (kept here because it is a tsgo synonym, not a ttsc flag).
-  const out = new Set<string>(TERMINAL_FLAGS);
-  out.add("-?");
-  return out;
-})();
-
-/**
- * Report whether the caller forwarded a print-and-exit tsgo flag, so ttsc can
+ * Report whether the caller forwarded a print-and-exit tsgo flag
+ * (`--showConfig`, `--listFilesOnly`, `--all`, `--init`, `-?`), so ttsc can
  * avoid adding compile-only flags to a command that is not going to compile.
+ *
+ * Schema-derived, and resolved by flag identity rather than by exact spelling:
+ * `resolveFlagSpec` applies the one normalization the parsing engine and the
+ * generated Go allow-lists use, so `--showconfig` classifies exactly like
+ * `--showConfig`. Adding a new terminal flag means editing `schema.ts` and
+ * re-running `pnpm run gen:flags`; this predicate needs no edit, and it grows
+ * no normalization of its own for the next consumer to forget.
  */
 function forwardsTerminalTsgoFlag(options: TtscCommonOptions): boolean {
   return (
-    options.passthrough?.some((flag) => TERMINAL_TSGO_FLAGS.has(flag)) ?? false
+    options.passthrough?.some(
+      (token) => resolveFlagSpec(token)?.terminal === true,
+    ) ?? false
+  );
+}
+
+/**
+ * Report whether the caller forwarded a terminal flag whose meaning does not
+ * presuppose a resolved project (`--init`, `--all`, `-?`).
+ *
+ * Derived from `FLAG_SCHEMA[*].projectFree`, through the same identity
+ * resolution as every other classification — never a literal list of flag names
+ * beside this branch, which is the shape that let terminal-flag awareness exist
+ * in one layer and be missing from the layer above it.
+ */
+function forwardsProjectFreeTerminalTsgoFlag(
+  options: TtscCommonOptions,
+): boolean {
+  return (
+    options.passthrough?.some((token) => {
+      const flag = resolveFlagSpec(token);
+      return flag?.terminal === true && flag.projectFree === true;
+    }) ?? false
   );
 }
 
@@ -553,18 +628,16 @@ function forwardsInternalShadowFlag(
   options: TtscCommonOptions,
   flag: string,
 ): boolean {
-  if (!INTERNAL_SHADOW_FLAGS.has(flag)) return false;
   const passthrough = options.passthrough;
   if (passthrough === undefined) return false;
-  // Match both the bare form (`--pretty`) and the inline-value form
-  // (`--pretty=true`). The launcher's parser preserves these shapes
-  // verbatim, so a tolerant prefix compare is what we want — `passthrough`
-  // never holds a stray substring that happens to start with the flag
-  // because parser positional/passthrough sinks split on whitespace.
-  const inlinePrefix = `${flag}=`;
-  return passthrough.some(
-    (token) => token === flag || token.startsWith(inlinePrefix),
-  );
+  // Resolution covers the bare form (`--pretty`), the inline-value form
+  // (`--pretty=true`), and every casing tsgo accepts (`--PRETTY`) — the
+  // launcher forwards the user's own spelling verbatim, so comparing raw
+  // strings would miss a spelling tsgo honours.
+  return passthrough.some((token) => {
+    const spec = resolveFlagSpec(token);
+    return spec?.internalShadow === true && spec.name === flag;
+  });
 }
 
 /**
@@ -953,12 +1026,8 @@ function nativeTsgoPassthroughArgs(
 }
 
 function isDiagnosticsPassthroughFlag(token: string): boolean {
-  return (
-    token === "--diagnostics" ||
-    token.startsWith("--diagnostics=") ||
-    token === "--extendedDiagnostics" ||
-    token.startsWith("--extendedDiagnostics=")
-  );
+  const name = resolveFlagSpec(token)?.name;
+  return name === "--diagnostics" || name === "--extendedDiagnostics";
 }
 
 function isBooleanLiteral(token: string): boolean {
