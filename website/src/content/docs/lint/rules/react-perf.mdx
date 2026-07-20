@@ -71,6 +71,19 @@ const Child = (props: { onClick: () => void }) => (
 const a = <Child onClick={() => JSON.stringify("click")} />;
 ```
 
+<figure className="rule-clip">
+  <video
+    controls
+    muted
+    loop
+    playsInline
+    preload="none"
+    aria-label="react-perf/jsx-no-new-function-as-prop: the diagnostic this rule reports"
+  >
+    <source src="https://github.com/user-attachments/assets/85f20ad6-6cdf-45b9-abc5-eab49400439b" type="video/mp4" />
+  </video>
+</figure>
+
 <a id="rule-react-perf-jsx-no-new-object-as-prop"></a>
 
 ### `react-perf/jsx-no-new-object-as-prop`
@@ -95,6 +108,19 @@ const Child = (props: { style: object }) => <div style={props.style} />;
 // reports: react-perf/jsx-no-new-object-as-prop (error)
 const a = <Child style={{ color: "red" }} />;
 ```
+
+<figure className="rule-clip">
+  <video
+    controls
+    muted
+    loop
+    playsInline
+    preload="none"
+    aria-label="react-perf/jsx-no-new-object-as-prop: the diagnostic this rule reports"
+  >
+    <source src="https://github.com/user-attachments/assets/c7e9691a-43e3-44d8-b53b-8f170f8563e5" type="video/mp4" />
+  </video>
+</figure>
 
 <a id="rule-react-perf-jsx-no-jsx-as-prop"></a>
 
