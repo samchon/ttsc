@@ -389,10 +389,11 @@ const positionEncodingUTF16 = "utf-16"
 // proxy to the client — is the encoding every ttsc-owned conversion counts.
 //
 // It is deliberately a no-op for any envelope that is not an initialize request,
-// for a client that offers no encoding list (the LSP default is already UTF-16),
-// and for a client that offers UTF-16 alone: those sessions are forwarded byte
-// for byte as before. A client offering anything else has its list replaced
-// rather than filtered, so no third encoding can be selected either.
+// and for any offer that names no encoding other than UTF-16: an absent, null,
+// empty, or UTF-16-only list already means UTF-16, and rewriting it to say the
+// same thing would change bytes on the wire for nothing. Every other offer has
+// its list replaced rather than filtered, so no third encoding can be selected
+// either.
 func constrainInitializePositionEncoding(env Envelope, body []byte) []byte {
   if env.Method != methodInitialize || !env.IsRequest() || len(env.Params) == 0 {
     return body
