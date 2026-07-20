@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+import child_process from "node:child_process";
 
 import {
   assert,
@@ -9,7 +10,7 @@ import {
 } from "../../internal/source-build";
 
 /**
- * Verifies writeGoWork quotes go.work paths that contain spaces (#394).
+ * Verifies writeGoWork quotes unsafe go.work workspace paths (#394, #857).
  *
  * `writeGoWork` emitted `use`/`replace` paths unquoted, so an overlay resolved
  * under a directory with a space — the common `C:\Users\John Smith\...` /
@@ -17,19 +18,35 @@ import {
  * into extra tokens, and `go` failed to parse it. The emitter now quotes each
  * path via `modfile.AutoQuote`. This drives the real build pipeline (fake `go`)
  * and inspects the generated `go.work` to pin both directives, plus a
- * space-free twin that must stay unquoted so the fix never over-quotes.
+ * space-free twin that must stay unquoted so the fix never over-quotes. A
+ * namespaced Windows path (or a POSIX double-slash spelling of the same local
+ * directory) also proves a normalized comment-prefix path survives a real
+ * `go work edit -json` parse.
  *
  * 1. Build a plugin whose overlays are a ttsc-module dir under a `"space dir"`
  *    path and a space-free shim dir.
  * 2. Capture the `go.work` the builder hands to `go build`.
- * 3. Assert the spaced path is quoted in both `use` and `replace`, and the
- *    space-free path stays bare.
+ * 3. Assert the spaced path is quoted in both `use` and `replace`, the
+ *    space-free path stays bare, and the normalized comment-prefix path is
+ *    quoted in `use`.
+ * 4. Parse the captured workspace with the real Go modfile tool and assert it
+ *    retains that `use` entry.
  */
 export const test_writegowork_quotes_workspace_paths_with_spaces = () => {
   const root = TestProject.tmpdir("ttsc-gowork-spaces-");
   const source = path.join(root, "plugin");
   const spacedOverlay = path.join(root, "space dir", "ttsc");
   const bareOverlay = path.join(root, "nospace", "shim");
+  const commentPrefixBase = path.join(root, "comment-prefix", "shim");
+  const commentPrefixOverlay =
+    process.platform === "win32"
+      ? path.toNamespacedPath(commentPrefixBase)
+      : `/${commentPrefixBase}`;
+
+  writeFile(
+    path.join(root, "go.mod"),
+    "module example.com/workspace\n\ngo 1.26\n",
+  );
 
   writeFile(
     path.join(source, "go.mod"),
@@ -47,8 +64,13 @@ export const test_writegowork_quotes_workspace_paths_with_spaces = () => {
     "module github.com/microsoft/typescript-go/shim/foo\n\ngo 1.26\n",
   );
   writeFile(path.join(bareOverlay, "foo.go"), "package foo\n");
+  writeFile(
+    path.join(commentPrefixBase, "go.mod"),
+    "module example.com/comment-prefix\n\ngo 1.26\n",
+  );
+  writeFile(path.join(commentPrefixBase, "shim.go"), "package shim\n");
 
-  const capture = path.join(root, "captured-go.work");
+  const capture = path.join(root, "go.work");
   const fakeGo = createGoWorkCapturingGoBinary(root);
 
   const previousGo = process.env.TTSC_GO_BINARY;
@@ -58,7 +80,7 @@ export const test_writegowork_quotes_workspace_paths_with_spaces = () => {
   try {
     buildSourcePlugin({
       baseDir: root,
-      overlayDirs: [spacedOverlay, bareOverlay],
+      overlayDirs: [spacedOverlay, bareOverlay, commentPrefixOverlay],
       pluginName: "gowork-spaces",
       source,
       quiet: true,
@@ -73,6 +95,7 @@ export const test_writegowork_quotes_workspace_paths_with_spaces = () => {
   const goWork = fs.readFileSync(capture, "utf8");
   const spaced = spacedOverlay.replace(/\\/g, "/");
   const bare = bareOverlay.replace(/\\/g, "/");
+  const commentPrefix = commentPrefixOverlay.replace(/\\/g, "/");
 
   // The spaced overlay must appear quoted in the `use` block and the `replace`
   // directive, and must never appear as a bare (unquoted) token.
@@ -100,6 +123,31 @@ export const test_writegowork_quotes_workspace_paths_with_spaces = () => {
   assert.ok(
     !goWork.includes(`"${bare}"`),
     `go.work must not quote the space-free path:\n${goWork}`,
+  );
+
+  assert.ok(
+    goWork.includes(`\n\t"${commentPrefix}"\n`),
+    `go.work should quote the comment-prefix use path:\n${goWork}`,
+  );
+
+  const parsed = child_process.spawnSync("go", ["work", "edit", "-json"], {
+    cwd: root,
+    encoding: "utf8",
+    env: { ...process.env, GOWORK: capture },
+    windowsHide: true,
+  });
+  if (parsed.error) throw parsed.error;
+  assert.equal(
+    parsed.status,
+    0,
+    `go work edit -json should parse generated go.work:\n${parsed.stderr || parsed.stdout}`,
+  );
+  const workspace = JSON.parse(parsed.stdout) as {
+    Use?: readonly { DiskPath?: string }[];
+  };
+  assert.ok(
+    workspace.Use?.some((entry) => entry.DiskPath === commentPrefix),
+    `go work edit -json should retain ${commentPrefix}:\n${parsed.stdout}`,
   );
 };
 
