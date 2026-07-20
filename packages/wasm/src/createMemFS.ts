@@ -64,6 +64,12 @@ function normalize(p: string): string {
  * `globalThis.fs` before loading `wasm_exec.js`) and convenience helpers
  * (`writeFile`, `readFile`, `mkdirp`, …) for seeding source files and reading
  * compiler output without touching the real filesystem.
+ *
+ * Every successful mutation leaves a valid tree: `/` stays a directory, each
+ * proper ancestor of a node exists and is a directory, and a file has no
+ * descendants. An operation that cannot satisfy that throws (`writeFile`,
+ * `mkdirp`) or reports a POSIX error through its callback, having changed no
+ * node, byte, or descriptor.
  */
 export function createMemFS(): IMemFSHost {
   const nodes = new Map<string, INode>();
@@ -176,32 +182,39 @@ export function createMemFS(): IMemFSHost {
     }
   }
 
-  /**
-   * Validate the ancestor chain of normalized path `norm` and report the
-   * ancestors that do not exist yet, root-first.
-   *
-   * An ancestor that exists as a file makes `norm` impossible: a file has no
-   * descendants, so creating one below it would leave a node map that is not a
-   * tree. Validation is deliberately separate from creation so a caller can
-   * reject before touching anything, and so a rejected operation never leaves
-   * half a directory chain behind.
-   */
-  function missingAncestors(norm: string, syscall: string): string[] {
-    const segments = norm.split("/").filter(Boolean);
-    segments.pop();
-    const missing: string[] = [];
+  /** Root-to-leaf path of every segment of `norm` (`/a/b` → `["/a", "/a/b"]`). */
+  function pathChain(norm: string): string[] {
+    const chain: string[] = [];
     let cursor = "";
-    for (const seg of segments) {
+    for (const seg of norm.split("/").filter(Boolean)) {
       cursor += "/" + seg;
-      const existing = nodes.get(cursor);
-      if (!existing) missing.push(cursor);
+      chain.push(cursor);
+    }
+    return chain;
+  }
+
+  /**
+   * Validate that every path in root-to-leaf `chain` is or can become a
+   * directory, and report the ones that do not exist yet.
+   *
+   * A segment that exists as a file makes everything below it impossible: a
+   * file has no descendants, so creating one there would leave a node map that
+   * is not a tree. Validation is deliberately separate from creation so every
+   * caller can reject before touching anything, and so a rejected operation
+   * never leaves half a directory chain behind.
+   */
+  function missingDirs(chain: string[], syscall: string): string[] {
+    const missing: string[] = [];
+    for (const path of chain) {
+      const existing = nodes.get(path);
+      if (!existing) missing.push(path);
       else if (existing.kind !== "dir")
-        throw new MemFSError("ENOTDIR", syscall, cursor);
+        throw new MemFSError("ENOTDIR", syscall, path);
     }
     return missing;
   }
 
-  /** Materialize the ancestor directories `missingAncestors` reported. */
+  /** Materialize the directories `missingDirs` reported. */
   function createDirs(paths: string[]): void {
     for (const path of paths)
       nodes.set(path, {
@@ -260,6 +273,9 @@ export function createMemFS(): IMemFSHost {
    * writes exactly there without disturbing the cursor (POSIX `pwrite`), and
    * `position: null` writes at the cursor and advances it. A write that starts
    * past end-of-file zero-fills the gap rather than silently relocating.
+   *
+   * A zero-byte write changes nothing at all, so a cursor sitting past
+   * end-of-file cannot extend the file by writing nothing into it.
    */
   function writeThroughDescriptor(
     entry: IDescriptor,
@@ -277,6 +293,7 @@ export function createMemFS(): IMemFSHost {
       : (position ?? entry.position);
     if (!Number.isInteger(start) || start < 0)
       throw new MemFSError("EINVAL", syscall, entry.path);
+    if (view.byteLength === 0) return 0;
     const end = start + view.byteLength;
     if (end > node.data.byteLength) node.data = resizeFileData(node.data, end);
     node.data.set(view, start);
@@ -314,28 +331,16 @@ export function createMemFS(): IMemFSHost {
   }
 
   function mkdirp(p: string): void {
-    const segments = normalize(p).split("/").filter(Boolean);
-    let cursor = "";
-    for (const seg of segments) {
-      cursor += "/" + seg;
-      const existing = nodes.get(cursor);
-      if (!existing) {
-        nodes.set(cursor, {
-          kind: "dir",
-          data: new Uint8Array(),
-          mtimeMs: Date.now(),
-        });
-      } else if (existing.kind !== "dir") {
-        throw new MemFSError("ENOTDIR", "mkdir", cursor);
-      }
-    }
+    // Validate the whole chain before creating any of it: a rejected mkdirp
+    // must not leave the prefix it had already walked past behind.
+    createDirs(missingDirs(pathChain(normalize(p)), "mkdir"));
   }
 
   function writeFile(p: string, data: string | Uint8Array): void {
     const norm = normalize(p);
     // Resolve left to right the way POSIX does: an impossible ancestor is
     // reported before the target, and both are checked before any mutation.
-    const missing = missingAncestors(norm, "open");
+    const missing = missingDirs(pathChain(norm).slice(0, -1), "open");
     const existing = assertFileTarget(norm, "open");
     const bytes =
       typeof data === "string" ? encoder.encode(data) : new Uint8Array(data);
@@ -521,7 +526,7 @@ export function createMemFS(): IMemFSHost {
           if (directoryOnly) throw new MemFSError("ENOTDIR", "open", norm);
           // Creating the missing ancestor chain is the documented job of
           // `writeFile` and `mkdirp`; the low-level `open` never promised it.
-          const missing = missingAncestors(norm, "open");
+          const missing = missingDirs(pathChain(norm).slice(0, -1), "open");
           if (missing.length > 0)
             throw new MemFSError("ENOENT", "open", missing[0]!);
           node = { kind: "file", data: new Uint8Array(), mtimeMs: Date.now() };

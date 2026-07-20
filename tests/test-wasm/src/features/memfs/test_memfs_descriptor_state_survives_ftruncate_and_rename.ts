@@ -42,6 +42,16 @@ export const test_memfs_descriptor_state_survives_ftruncate_and_rename =
       "abcd",
     );
     await callMutation((cb) => host.fs.ftruncate(fd, 1, cb));
+
+    // Boundary: writing nothing from a cursor past end-of-file must not
+    // resize the file up to that cursor.
+    const empty = await writeFdText(host.fs, fd, "", null);
+    TestValidator.equals(
+      "a zero-byte write changes nothing",
+      { ...empty, text: host.readFileText("/f.txt") },
+      { code: null, n: 0, text: "a" },
+    );
+
     const afterTruncate = await writeFdText(host.fs, fd, "Z", null);
     TestValidator.equals(
       "a cursor beyond end-of-file zero-fills the gap",
