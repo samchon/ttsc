@@ -100,13 +100,17 @@ For the base endpoints, `raw.result` is a JSON string. Use `parseResult<T>` at t
 
 - Use absolute virtual paths for files and `cwd`, for example `/work`.
 - `tsconfig` is relative to `cwd` and defaults to `tsconfig.json`.
-- `host.writeFile` creates parent directories automatically; `host.mkdirp` exists when you need to create directories without writing a file.
+- `host.writeFile` creates parent directories automatically; `host.mkdirp` exists when you need to create directories without writing a file. The low-level `fs.open` never does: with `O_CREAT` it requires the parent directory to exist already and fails with `ENOENT` otherwise.
 - `host.writeFile` copies `Uint8Array` input, and `host.readFile` returns a copy. Call `writeFile` again when you want to replace stored bytes.
+- A file never replaces a directory. `host.writeFile` and `fs.open` with `O_TRUNC` throw or return `EISDIR` for a directory target — including `/` — and `ENOTDIR` when an ancestor of the path is a file, so a conflicting file map is reported instead of stranding the directory's descendants.
 - `host.readFileText` reads emitted or transformed virtual files if your plugin writes into the MemFS.
 - `host.stdout.buffer` and `host.stderr.buffer` capture direct writes to fd 1 and fd 2. Call `host.resetStdio()` when you intentionally inspect those buffers across separate runs.
 - The filesystem is memory-only. Recreate the project tree from UI state before each compile, or serialize calls that mutate the same paths.
-- Mutations enforce POSIX-style invariants: renaming a directory moves its whole subtree (and follows open descriptors), `rmdir` requires an empty directory, `unlink` refuses directories, and `truncate`/`ftruncate` resize file bytes — zero-filling any growth — or reject an invalid path, descriptor, or length. A mutation that cannot satisfy its contract returns an error instead of partially changing the tree.
+- Mutations enforce POSIX-style invariants: renaming a directory moves its whole subtree (and follows open descriptors), `rmdir` requires an empty directory, `unlink` refuses directories, and `truncate`/`ftruncate` resize file bytes — zero-filling any growth — or reject an invalid path, descriptor, or length. A mutation that cannot satisfy its contract returns an error instead of partially changing the tree, and a rejected `fs.open` allocates no descriptor.
+- Descriptors carry the access mode and `O_APPEND` flag they were opened with. A read-only descriptor rejects writes and a write-only descriptor rejects reads with `EBADF`, `O_CREAT | O_EXCL` on an existing path returns `EEXIST`, and `O_DIRECTORY` on a regular file returns `ENOTDIR`. Directories open read-only, which is what Go's `os.ReadDir` needs.
+- Writes follow Node's offset rules: `position: null` writes at the descriptor cursor and advances it, an explicit position overwrites there without moving the cursor, a write past end-of-file zero-fills the gap, and an `O_APPEND` descriptor always writes at the end. An unknown or closed descriptor fails with `EBADF` and changes nothing — only fd 1 and fd 2 reach the capture buffers.
 - Symlinks and hardlinks are intentionally unsupported. Treat the project as a flat virtual workspace.
+- `fs.pipe2` is a JavaScript-only shim. Go's wasm `os.Pipe()` returns `ENOSYS` under the pinned toolchain without crossing the `globalThis.fs` bridge, so a custom Go/wasm host cannot reach it; wasm output is captured through fd 1 and fd 2 and through the Go-side `host.InvokePlugin` invocation buffers.
 
 The ttsc.dev playground writes one `/work` project per request, serializes all compile/lint/bundle calls, and reuses a single booted wasm for the whole Worker lifetime.
 
