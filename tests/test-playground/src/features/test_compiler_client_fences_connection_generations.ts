@@ -141,6 +141,11 @@ export const test_compiler_client_fences_connection_generations = async () => {
     await waitForGates(failureStart + 2);
     gates[failureStart + 1]!.resolve();
     const retryDriver = await retried;
+    assert.ok(
+      "connectorId" in retryDriver &&
+        typeof retryDriver.connectorId === "number",
+      "the controlled driver must expose its numeric connector marker",
+    );
     throwOnClose.add(retryDriver.connectorId);
     await retryClient.reset();
 
