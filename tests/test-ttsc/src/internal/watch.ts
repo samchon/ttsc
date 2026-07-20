@@ -14,7 +14,7 @@ export class WatchSession {
   private output = "";
 
   public constructor(root: string, options: { env?: NodeJS.ProcessEnv } = {}) {
-    this.child = child_process.spawn(
+    const child = child_process.spawn(
       process.execPath,
       [ttscBin, "--watch", "--cwd", root],
       {
@@ -29,6 +29,12 @@ export class WatchSession {
         windowsHide: true,
       },
     );
+    const { stderr, stdout } = child;
+    if (stdout === null || stderr === null) {
+      child.kill();
+      throw new Error("ttsc --watch must expose piped stdout and stderr");
+    }
+    this.child = child;
     const onChunk = (chunk: Buffer): void => {
       this.output += chunk.toString("utf8");
       this.builds = (
@@ -36,8 +42,8 @@ export class WatchSession {
       ).length;
       for (const listener of this.listeners) listener();
     };
-    this.child.stdout.on("data", onChunk);
-    this.child.stderr.on("data", onChunk);
+    stdout.on("data", onChunk);
+    stderr.on("data", onChunk);
   }
 
   /** Wait until at least `count` build completions have been observed. */
