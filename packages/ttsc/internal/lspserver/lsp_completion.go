@@ -59,31 +59,6 @@ func completionHintApplies(
   return strings.Contains(linePrefix, hint.After)
 }
 
-// cursorInJSDoc reports whether an offset sits inside a `/** */` block.
-//
-// A plain backward scan for the nearest `/**` or `*/`, which is enough because
-// the question is only ever asked about the cursor. It deliberately does not
-// parse: the proxy holds text, not a tree, and reaching for tsgo's parser here
-// would put a round trip on the keystroke path — the exact cost this design
-// exists to avoid.
-//
-// Line comments are not considered: `// @evidence` is not a doc comment and a
-// tag there means nothing to the rule that published the hint.
-func cursorInJSDoc(text string, offset int) bool {
-  if offset < 0 || offset > len(text) {
-    return false
-  }
-  head := text[:offset]
-  open := strings.LastIndex(head, "/**")
-  if open == -1 {
-    return false
-  }
-  close := strings.LastIndex(head, "*/")
-  // `/**` is itself followed by no `*/` yet, or the last close precedes the
-  // last open — either way the cursor is still inside the block.
-  return close < open
-}
-
 // linePrefixAt returns the text from the start of the cursor's line up to the
 // cursor.
 //
