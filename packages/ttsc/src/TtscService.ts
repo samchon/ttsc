@@ -4,6 +4,18 @@ import type { ResidentTransformProcess } from "./compiler/internal/residentTrans
 import { startResidentTransform } from "./compiler/internal/startResidentTransform";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
 
+/** Construction controls for the resident transform request lifecycle. */
+export interface TtscServiceOptions {
+  /** Maximum time one transform or update request may await the host's reply. */
+  requestTimeoutMs?: number;
+}
+
+/** Per-call controls for a resident transform or update request. */
+export interface TtscServiceRequestOptions {
+  /** Abort this call before it receives a reply. */
+  signal?: AbortSignal;
+}
+
 /**
  * Resident, incremental transform service for the `ttsc` TypeScript-Go
  * pipeline.
@@ -37,14 +49,20 @@ export class TtscService {
    * host. The context is the same shape {@link TtscCompiler} accepts; it is not
    * replaceable per call.
    */
-  public constructor(context: ITtscCompilerContext = {}) {
-    const started = startResidentTransform({
-      ...context,
-      env: context.env ? { ...context.env } : undefined,
-      plugins: Array.isArray(context.plugins)
-        ? [...context.plugins]
-        : context.plugins,
-    });
+  public constructor(
+    context: ITtscCompilerContext = {},
+    options: TtscServiceOptions = {},
+  ) {
+    const started = startResidentTransform(
+      {
+        ...context,
+        env: context.env ? { ...context.env } : undefined,
+        plugins: Array.isArray(context.plugins)
+          ? [...context.plugins]
+          : context.plugins,
+      },
+      options,
+    );
     this.resident = started.process;
     this.projectRoot = started.projectRoot;
   }
@@ -57,10 +75,14 @@ export class TtscService {
    * Rejects when the resident host failed to compile the project; the rejection
    * carries the host's diagnostics so callers can surface a real build error.
    */
-  public async transformFile(fileName: string): Promise<string | undefined> {
+  public async transformFile(
+    fileName: string,
+    options: TtscServiceRequestOptions = {},
+  ): Promise<string | undefined> {
     const reply = await this.resident.request(
       { file: this.absolutePath(fileName) },
       "transform",
+      options,
     );
     // The resident client already validated the reply shape (boolean `found`,
     // string `typescript` when found), so a malformed or wrong-shape reply
@@ -78,10 +100,15 @@ export class TtscService {
    * did not compile and the previous transform is still in effect. A relative
    * `fileName` is resolved against the project root.
    */
-  public async updateFile(fileName: string, content: string): Promise<boolean> {
+  public async updateFile(
+    fileName: string,
+    content: string,
+    options: TtscServiceRequestOptions = {},
+  ): Promise<boolean> {
     const reply = await this.resident.request(
       { content, update: this.absolutePath(fileName) },
       "update",
+      options,
     );
     // The resident client validated the reply carries a boolean `updated`, so a
     // malformed or wrong-shape reply rejected instead of collapsing to `false`.
