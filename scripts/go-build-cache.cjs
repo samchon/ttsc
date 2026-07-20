@@ -89,6 +89,7 @@ function createInputIdentity({
       "env",
       "-json",
       "GOVERSION",
+      "GOROOT",
       "GOOS",
       "GOARCH",
       "GOFLAGS",
@@ -97,6 +98,7 @@ function createInputIdentity({
       "GOWORK",
     ]),
   );
+  addToolchainBinaryIdentity(toolchain);
   const files = new Set([path.resolve(__filename)]);
 
   for (const pkg of packages) {
@@ -138,6 +140,25 @@ function createInputIdentity({
     hash: digest(stableJson(payload)),
     payload,
   };
+}
+
+function addToolchainBinaryIdentity(toolchain) {
+  const goroot = toolchain.GOROOT;
+  delete toolchain.GOROOT;
+  if (!goroot) return;
+  const executable = path.join(
+    goroot,
+    "bin",
+    process.platform === "win32" ? "go.exe" : "go",
+  );
+  try {
+    toolchain.goBinarySha256 = fileDigest(executable);
+  } catch {
+    // `go env` supplied a toolchain root, but the compiler binary vanished
+    // before its identity could be read. Keep the miss deterministic instead
+    // of reusing an artifact built by an unknown compiler.
+    toolchain.goBinarySha256 = null;
+  }
 }
 
 function parseJsonStream(source) {
