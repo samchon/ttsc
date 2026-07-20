@@ -358,8 +358,10 @@ function runProjectFreeTerminalFlag(
     });
     return null;
   } catch {
-    // No project here: the flag's meaning does not presuppose one, so forward
-    // it to tsgo from the invocation directory instead of failing.
+    // Any resolution failure takes this branch, not only "not found": a
+    // malformed config and an explicitly named missing `-p` path are equally
+    // beside the point for a flag whose meaning does not presuppose a project.
+    // Forward it to tsgo from the invocation directory instead of failing.
   }
   const tsgo = resolveTsgo({ ...options, cwd });
   const res = spawnNative(tsgo.binary, [...(options.passthrough ?? [])], {

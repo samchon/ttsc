@@ -100,29 +100,23 @@ function parseCLI(argv: readonly string[]) {
   // tokens (entry file + flag values that aren't `.ts`) and a passthrough
   // list mirroring the pre-schema behaviour.
   //
-  // Order pin: ttsx accepts `-P` as an alias for `--project`. The schema
-  // declares `-p` for ttsc; ttsx's lowercase shape would collide on `-p`
-  // → `--tsconfig`, so the legacy `-P` (uppercase) is treated as `--project`
-  // via a manual rewrite before the engine sees argv. We preserve the
-  // historical behaviour and emit a structural error otherwise.
-  const rewritten = argv.map((token) =>
-    token === "-P"
-      ? "--project"
-      : token.startsWith("-P=")
-        ? `--project=${token.slice("-P=".length)}`
-        : token,
-  );
+  // The legacy uppercase `-P` spelling ttsx has always accepted needs no
+  // rewrite: the engine resolves a token to the flag the compiler resolves it
+  // to, so `-P` and `-P=<file>` reach `--tsconfig` by the same rule that makes
+  // `-p` reach it. A textual pre-rewrite here would be a second rule for a job
+  // the engine owns.
+  //
   // Terminal flags (--help / --version) short-circuit before parsing so
   // ttsx prints help text even when the entry file is missing. Resolved
   // through the schema so every spelling the compiler accepts (`--HELP`,
   // `-Version`) reaches the same branch.
-  for (const token of rewritten) {
+  for (const token of argv) {
     const flag = resolveFlagSpec(token)?.name;
     if (flag === "--help") return "help" as const;
     if (flag === "--version") return "version" as const;
   }
   const result = parseFlags({
-    argv: rewritten,
+    argv,
     errorPrefix: "ttsx:",
     forwardAfterFirstPositional: true,
     honorDoubleDashSeparator: true,

@@ -17,7 +17,14 @@ import fs from "node:fs";
  * actually edited rather than in a shortened intermediate string.
  */
 
-/** Read and parse a strict-JSON configuration file, naming it on failure. */
+/**
+ * Read and parse a strict-JSON configuration file (`package.json`), naming it
+ * on failure.
+ *
+ * A leading UTF-8 BOM is accepted, matching the tsconfig reader that closed
+ * issue #216: the two readers are consulted for the same project and
+ * disagreeing about a byte order mark would only surprise the user who hit it.
+ */
 export function readJsonFile(file: string): unknown {
   const text = stripLeadingBom(fs.readFileSync(file, "utf8"));
   try {
@@ -42,10 +49,10 @@ export function readJsoncFile(file: string): unknown {
 
 /**
  * Parse a JSONC string by blanking comments and trailing commas before handing
- * off to `JSON.parse`. Exported for the readers' own unit coverage; callers
- * that hold a path should use {@link readJsoncFile} so failures are attributed.
+ * off to `JSON.parse`. Callers hold a path, so they go through
+ * {@link readJsoncFile} and their failures are attributed.
  */
-export function parseJsonc(input: string): unknown {
+function parseJsonc(input: string): unknown {
   return JSON.parse(stripTrailingCommas(stripComments(stripLeadingBom(input))));
 }
 
