@@ -14,8 +14,8 @@ import (
 // interleaved candidate list would turn the creation of an irrelevant index
 // file into a full program reload and erase the bounded-freshness guarantee.
 //
-//  1. Load an extensionless import that resolves directly to value.js.
-//  2. Create only the lower-priority value/index.ts candidate.
+//  1. Load an extensionless commonjs import that resolves directly to value.js.
+//  2. Create only lower-priority value/index.ts and value.mts candidates.
 //  3. Assert the resident session remains unchanged, then create value.ts and
 //     assert the strictly higher-priority candidate does reload it.
 func TestServeSessionKeepsLowerPriorityModuleCandidateUnchanged(t *testing.T) {
@@ -45,6 +45,15 @@ func TestServeSessionKeepsLowerPriorityModuleCandidateUnchanged(t *testing.T) {
   }
   if dump != nil || mode != serveModeUnchanged || changed {
     t.Fatalf("lower-priority index = dump:%v mode:%q changed:%v", dump != nil, mode, changed)
+  }
+
+  writeGraphFile(t, filepath.Join(root, "src", "value.mts"), "export function winner(): void {}\n")
+  dump, mode, changed, err = session.Snapshot()
+  if err != nil {
+    t.Fatal(err)
+  }
+  if dump != nil || mode != serveModeUnchanged || changed {
+    t.Fatalf("commonjs-lower-priority .mts = dump:%v mode:%q changed:%v", dump != nil, mode, changed)
   }
 
   writeGraphFile(t, filepath.Join(root, "src", "value.ts"), "export function winner(): void {}\nexport function typescriptWinner(): void {}\n")

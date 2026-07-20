@@ -94,21 +94,43 @@ func sameCandidatePath(left, right string, caseSensitive bool) bool {
   return strings.EqualFold(left, right)
 }
 
-// FileCandidates lists the ordered file and directory probes for base.
+// FileCandidates lists the ordered file and directory probes for base. The
+// suffix family follows the module specifier's explicit extension, matching the
+// resolver's extension branch instead of treating every source kind as a
+// possible predecessor.
 func FileCandidates(base string) []string {
-  extension := strings.ToLower(filepath.Ext(base))
-  if extension == ".js" || extension == ".jsx" || extension == ".mjs" || extension == ".cjs" {
-    base = strings.TrimSuffix(base, filepath.Ext(base))
-  }
+  base, suffixes := fileCandidateBaseAndSuffixes(base)
   candidates := []string{}
-  for _, suffix := range []string{".ts", ".tsx", ".mts", ".cts", ".d.ts", ".d.mts", ".d.cts", ".js", ".jsx", ".mjs", ".cjs", ".json"} {
+  for _, suffix := range suffixes {
     candidates = append(candidates, base+suffix)
   }
   candidates = append(candidates, filepath.Join(base, "package.json"))
-  for _, suffix := range []string{".ts", ".tsx", ".mts", ".cts", ".d.ts", ".d.mts", ".d.cts", ".js", ".jsx", ".mjs", ".cjs", ".json"} {
+  for _, suffix := range suffixes {
     candidates = append(candidates, filepath.Join(base, "index"+suffix))
   }
   return candidates
+}
+
+func fileCandidateBaseAndSuffixes(base string) (string, []string) {
+  lower := strings.ToLower(base)
+  switch {
+  case strings.HasSuffix(lower, ".d.mts"):
+    return base[:len(base)-len(".d.mts")], []string{".mts", ".d.mts", ".mjs"}
+  case strings.HasSuffix(lower, ".mjs"), strings.HasSuffix(lower, ".mts"):
+    return base[:len(base)-len(filepath.Ext(base))], []string{".mts", ".d.mts", ".mjs"}
+  case strings.HasSuffix(lower, ".d.cts"):
+    return base[:len(base)-len(".d.cts")], []string{".cts", ".d.cts", ".cjs"}
+  case strings.HasSuffix(lower, ".cjs"), strings.HasSuffix(lower, ".cts"):
+    return base[:len(base)-len(filepath.Ext(base))], []string{".cts", ".d.cts", ".cjs"}
+  case strings.HasSuffix(lower, ".tsx"), strings.HasSuffix(lower, ".jsx"):
+    return base[:len(base)-len(filepath.Ext(base))], []string{".tsx", ".ts", ".d.ts", ".jsx", ".js"}
+  case strings.HasSuffix(lower, ".d.ts"):
+    return base[:len(base)-len(".d.ts")], []string{".ts", ".tsx", ".d.ts", ".js", ".jsx"}
+  case strings.HasSuffix(lower, ".ts"), strings.HasSuffix(lower, ".js"):
+    return base[:len(base)-len(filepath.Ext(base))], []string{".ts", ".tsx", ".d.ts", ".js", ".jsx"}
+  default:
+    return base, []string{".ts", ".tsx", ".d.ts", ".js", ".jsx"}
+  }
 }
 
 // TypeReferenceCandidates lists the probes used for a triple-slash type
