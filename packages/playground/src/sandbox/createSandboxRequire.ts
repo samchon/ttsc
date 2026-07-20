@@ -30,6 +30,12 @@ interface ISandboxRequireOptions {
     | Record<string, (...args: unknown[]) => void>;
 }
 
+// The sandbox evaluates CommonJS through a `require` wrapper in a browser. It
+// therefore activates `require`; `default` is always available as the portable
+// fallback. `node` and `import` stay inactive because the sandbox supplies
+// neither Node's runtime nor an ESM evaluator.
+const ACTIVE_EXPORT_CONDITIONS = new Set(["require", "default"]);
+
 /**
  * Build a sandboxed `require` function over a runtime pack. Resolves typia /
  * `@typia/*` / randexp specifiers from the pack; throws on anything else so the
@@ -50,6 +56,35 @@ export function createSandboxRequire(
     return null;
   };
 
+  const packageDeclaresExports = (pkg: string): boolean => {
+    const key = `${pkg}/package.json`;
+    if (!has(key)) return false;
+    try {
+      return Object.prototype.hasOwnProperty.call(
+        JSON.parse(pack[key]!) as IPackJson,
+        "exports",
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  const resolveExportTarget = (
+    pkg: string,
+    target: unknown,
+    replacement = "",
+  ): string | null => {
+    const candidates = conditionalExportTargets(target);
+    if (!candidates) return null;
+    for (const candidate of candidates) {
+      const resolved = `${pkg}/${stripDotSlash(
+        candidate.split("*").join(replacement),
+      )}`;
+      if (has(resolved)) return resolved;
+    }
+    return null;
+  };
+
   // Read package.json from pack and resolve via main/exports.
   const resolvePackageEntry = (
     pkg: string,
@@ -66,12 +101,8 @@ export function createSandboxRequire(
     if (subpath === null) {
       // bare "name": honor the root `exports` entry (string, subpath table
       // "." key, or bare condition map) → CJS target, else main, else index.
-      const root = rootExportTarget(pj.exports);
-      const r = pickConditionalExport(root);
-      if (r) {
-        const resolved = `${pkg}/${stripDotSlash(r)}`;
-        return has(resolved) ? resolved : null;
-      }
+      if (pj.exports !== undefined)
+        return resolveExportTarget(pkg, rootExportTarget(pj.exports));
       if (typeof pj.main === "string") {
         return tryPaths(
           `${pkg}/${stripDotSlash(pj.main)}`,
@@ -87,25 +118,26 @@ export function createSandboxRequire(
     }
     // Subpath: honor exports["./subpath"] or exports["./subpath/*"] patterns.
     const exportsAny = pj.exports;
-    if (typeof exportsAny === "object" && exportsAny !== null) {
+    if (
+      exportsAny !== undefined &&
+      typeof exportsAny === "object" &&
+      exportsAny !== null
+    ) {
       const entries = exportsAny as Record<string, unknown>;
       // Exact match first.
-      const exact = entries[`./${subpath}`];
-      const ex = pickConditionalExport(exact);
-      if (ex) {
-        const resolved = `${pkg}/${stripDotSlash(ex)}`;
-        if (has(resolved)) return resolved;
-      }
-      // Wildcard match.
-      for (const [pattern, target] of Object.entries(entries)) {
+      const exactKey = `./${subpath}`;
+      if (Object.prototype.hasOwnProperty.call(entries, exactKey))
+        return resolveExportTarget(pkg, entries[exactKey]);
+      // Node resolves the most-specific wildcard, not insertion order.
+      const patterns = Object.entries(entries)
+        .filter(([pattern]) => pattern.endsWith("/*"))
+        .sort(([a], [b]) => b.length - a.length);
+      for (const [pattern, target] of patterns) {
         if (!pattern.endsWith("/*")) continue;
         const prefix = pattern.slice(2, -1); // strip "./" and trailing "*"
         if (!subpath.startsWith(prefix)) continue;
         const rest = subpath.slice(prefix.length);
-        const targetStr = pickConditionalExport(target);
-        if (!targetStr) continue;
-        const resolved = `${pkg}/${stripDotSlash(targetStr.replace("*", rest))}`;
-        if (has(resolved)) return resolved;
+        return resolveExportTarget(pkg, target, rest);
       }
     }
     return null;
@@ -136,7 +168,10 @@ export function createSandboxRequire(
     if (subpath === null) {
       return resolvePackageEntry(pkg, null);
     }
-    // First try direct paths (covers the common typia/lib/internal/X case).
+    // A declared exports map is the public boundary. Only packages without one
+    // retain the historical packed-file fallback.
+    if (packageDeclaresExports(pkg)) return resolvePackageEntry(pkg, subpath);
+    // First try direct paths (covers packages that do not declare exports).
     const direct = tryPaths(
       `${pkg}/${subpath}`,
       `${pkg}/${subpath}.js`,
@@ -220,8 +255,8 @@ export function createSandboxRequire(
 
 /**
  * Reduce a `package.json` `exports` field to the value describing its ROOT
- * (".") entry, ready for {@link pickConditionalExport}. Node accepts three valid
- * root shapes and they must all resolve consistently:
+ * (".") entry, ready for {@link conditionalExportTargets}. Node accepts three
+ * valid root shapes and they must all resolve consistently:
  *
  * - A bare string target — `"exports": "./index.cjs"`;
  * - A subpath table keyed by "." — `{ ".": <target>, "./sub": ... }`;
@@ -243,14 +278,22 @@ function rootExportTarget(exports: unknown): unknown {
   return hasSubpathKey ? obj["."] : obj;
 }
 
-function pickConditionalExport(value: unknown): string | null {
-  if (typeof value === "string") return value;
+function conditionalExportTargets(value: unknown): string[] | null {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) {
+    const candidates: string[] = [];
+    for (const target of value) {
+      const resolved = conditionalExportTargets(target);
+      if (resolved) candidates.push(...resolved);
+    }
+    return candidates.length === 0 ? null : candidates;
+  }
   if (value && typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    // Prefer require (CJS) > default > node.
-    const pick = obj.require ?? obj.default ?? obj.node;
-    if (typeof pick === "string") return pick;
-    if (pick && typeof pick === "object") return pickConditionalExport(pick);
+    for (const [condition, target] of Object.entries(obj)) {
+      if (!ACTIVE_EXPORT_CONDITIONS.has(condition)) continue;
+      return conditionalExportTargets(target);
+    }
   }
   return null;
 }

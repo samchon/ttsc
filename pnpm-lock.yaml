@@ -225,6 +225,9 @@ importers:
       lz-string:
         specifier: ^1.5.0
         version: 1.5.0
+      semver:
+        specifier: ^7.8.1
+        version: 7.8.1
     devDependencies:
       '@monaco-editor/react':
         specifier: ^4.6.0
@@ -238,6 +241,9 @@ importers:
       '@types/react':
         specifier: ^18.3.1
         version: 18.3.29
+      '@types/semver':
+        specifier: ^7.7.1
+        version: 7.7.1
       monaco-editor:
         specifier: ^0.52.0
         version: 0.52.2
@@ -523,6 +529,9 @@ importers:
       '@types/node':
         specifier: catalog:utils
         version: 25.9.1
+      tgrid:
+        specifier: ^1.0.3
+        version: 1.2.1
       typescript:
         specifier: catalog:typescript
         version: 7.0.2
@@ -3074,6 +3083,9 @@ packages:
 
   '@types/sarif@2.1.7':
     resolution: {integrity: sha512-kRz0VEkJqWLf1LLVN4pT1cg1Z9wAuvI6L97V3m2f5B76Tg8d413ddvLBPTEHAZJlnn4XSvu0FkZtViCQGVyrXQ==}
+
+  '@types/semver@7.7.1':
+    resolution: {integrity: sha512-FmgJfu+MOcQ370SD0ev7EI8TlCAfKYU+B4m5T3yXc1CiRN94g/SZPtsCkk506aUDtlMnFZvasDwHHUcZUEaYuA==}
 
   '@types/send@0.17.6':
     resolution: {integrity: sha512-Uqt8rPBE8SY0RK8JB1EzVOIZ32uqy8HwdxCnoCOsYrvnswqmFZ/k+9Ikidlk/ImhsdvBsloHbAlewb2IEBV/Og==}
@@ -9635,6 +9647,8 @@ snapshots:
   '@types/retry@0.12.2': {}
 
   '@types/sarif@2.1.7': {}
+
+  '@types/semver@7.7.1': {}
 
   '@types/send@0.17.6':
     dependencies:

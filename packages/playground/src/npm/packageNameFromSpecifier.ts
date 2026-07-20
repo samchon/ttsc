@@ -1,15 +1,22 @@
 const BUILTIN_MODULES = new Set([
   "assert",
+  "async_hooks",
   "buffer",
   "child_process",
+  "cluster",
   "console",
   "constants",
   "crypto",
+  "dgram",
+  "diagnostics_channel",
   "dns",
+  "domain",
   "events",
   "fs",
   "http",
+  "http2",
   "https",
+  "inspector",
   "module",
   "net",
   "os",
@@ -19,14 +26,19 @@ const BUILTIN_MODULES = new Set([
   "punycode",
   "querystring",
   "readline",
+  "repl",
   "stream",
   "string_decoder",
+  "sys",
   "timers",
   "tls",
+  "trace_events",
   "tty",
   "url",
   "util",
+  "v8",
   "vm",
+  "wasi",
   "worker_threads",
   "zlib",
 ]);
@@ -38,6 +50,10 @@ const BUILTIN_MODULES = new Set([
  * built-in modules — the caller doesn't install those from npm.
  */
 export function packageNameFromSpecifier(specifier: string): string | null {
+  const nodePrefixed = specifier.startsWith("node:");
+  const bare = nodePrefixed ? specifier.slice("node:".length) : specifier;
+  const first = bare.split("/")[0];
+  if (first && BUILTIN_MODULES.has(first)) return null;
   if (
     specifier.startsWith("#") ||
     specifier.startsWith(".") ||
@@ -45,9 +61,6 @@ export function packageNameFromSpecifier(specifier: string): string | null {
     /^[a-z][a-z0-9+.-]*:/i.test(specifier)
   )
     return null;
-  const bare = specifier.startsWith("node:") ? specifier.slice(5) : specifier;
-  const first = bare.split("/")[0];
-  if (first && BUILTIN_MODULES.has(first)) return null;
   if (bare.startsWith("@")) {
     const firstSlash = bare.indexOf("/");
     if (firstSlash < 0) return null;
