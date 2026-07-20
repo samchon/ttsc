@@ -18,10 +18,12 @@ const runners = [
   "test-go-graph.cjs",
 ];
 
-// Unit tests for the runner harness itself (the flatten collision guard and
-// this aggregation). Run first so a broken harness is reported before the long
-// Go suites execute, and so both CI Go lanes (ubuntu + windows) cover them.
-const harnessTest = path.join(__dirname, "ci", "go-test-runners.test.cjs");
+// Fast Node checks run before the long Go suites so both CI Go lanes cover the
+// runner harness and the project Layout contract.
+const harnessTests = [
+  path.join(__dirname, "ci", "go-test-runners.test.cjs"),
+  path.join(__dirname, "assert-project-layout.test.cjs"),
+];
 
 // runAll invokes every entry through `spawn` and returns the list that failed.
 // `spawn` is injected so the meta-test can assert each runner is invoked even
@@ -49,8 +51,10 @@ function spawnRunner(runner) {
 
 if (require.main === module) {
   const failed = [];
-  if (spawnNode(["--test", harnessTest]) !== 0) {
-    failed.push("ci/go-test-runners.test.cjs");
+  for (const test of harnessTests) {
+    if (spawnNode(["--test", test]) !== 0) {
+      failed.push(path.relative(__dirname, test));
+    }
   }
   failed.push(...runAll(runners, spawnRunner));
   if (failed.length > 0) {

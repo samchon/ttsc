@@ -171,6 +171,7 @@ The service is resident within one process. It does not share a host across sepa
 | `cwd` | Working directory. Defaults to `process.cwd()`. |
 | `tsconfig` | Path to a project config file. Relative paths resolve against `cwd`. Omit to auto-discover the nearest tsconfig. |
 | `projectRoot` | Override the project root used for plugin resolution and cache anchoring. Most callers leave this unset. |
+| `pluginConfigDir` | Directory that anchors plugin config-file discovery and relative `configFile` resolution. Omit to use the resolved tsconfig's directory. Relative paths resolve against `cwd`. |
 | `binary` | Pin a specific TypeScript-Go binary. For test rigs and embedded toolchains; normal callers omit it. |
 | `env` | Extra environment variables merged over `process.env` for child compiler processes. |
 | `cacheDir` | Root for compiled ttsc artifacts. Relative paths resolve against `cwd`. Defaults to `TTSC_CACHE_DIR`, else the workspace-local `node_modules/.cache/ttsc`. |
