@@ -224,7 +224,9 @@ func (storybookNoRedundantStoryName) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
 func (storybookNoRedundantStoryName) Check(ctx *Context, node *shimast.Node) {
+  namedExports := map[string]bool{}
   for _, story := range storybookNamedExports(ctx.File) {
+    namedExports[story.Name] = true
     if story.Init == nil || story.Init.Kind != shimast.KindObjectLiteralExpression {
       continue
     }
@@ -249,13 +251,19 @@ func (storybookNoRedundantStoryName) Check(ctx *Context, node *shimast.Node) {
       return
     }
     objectName, propName := storybookPropertyAccessParts(expr.Left)
-    if propName == "storyName" && storybookLiteralString(expr.Right) == storybookNameFromExport(objectName) {
-      if child.Parent == nil || child.Parent.Kind != shimast.KindExpressionStatement {
+    if namedExports[objectName] &&
+      propName == "storyName" &&
+      storybookLiteralString(expr.Right) == storybookNameFromExport(objectName) {
+      if child.Parent == nil ||
+        child.Parent.Kind != shimast.KindExpressionStatement ||
+        child.Parent.Parent == nil ||
+        child.Parent.Parent.Kind != shimast.KindSourceFile {
         return
       }
       // The Unnecessary tag is rule-wide. Only a standalone assignment can be
       // removed as a whole; an assignment nested in another expression still
-      // contributes its value and cannot truthfully be marked removable.
+      // contributes its value, while one in a nested scope can refer to a
+      // same-named shadow instead of the exported story.
       ctx.Report(child.Parent, "Named exports should not use a redundant story name annotation.")
     }
   })
