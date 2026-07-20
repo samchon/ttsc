@@ -10,7 +10,7 @@ import { families } from "./catalog.mjs";
 
 const CHOICES = {
   boundaries: ["boundaries/element-types", "boundaries/no-private"],
-  core: ["no-var", "no-async-promise-executor"],
+  core: ["no-var", "object-shorthand"],
   cypress: ["cypress/no-force", "cypress/unsafe-to-chain-command"],
   functional: ["functional/immutable-data", "functional/no-let"],
   jest: ["jest/no-focused-tests", "jest/no-conditional-expect"],
@@ -44,7 +44,7 @@ const CHOICES = {
   ],
   typescript: [
     "typescript/no-floating-promises",
-    "typescript/no-unnecessary-condition",
+    "typescript/no-wrapper-object-types",
   ],
   unicorn: [
     "unicorn/prefer-node-protocol",
