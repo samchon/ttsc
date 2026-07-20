@@ -107,15 +107,21 @@ func (storybookHierarchySeparator) Check(ctx *Context, node *shimast.Node) {
   if meta == nil || meta.Object == nil {
     return
   }
-  _, value, ok := storybookObjectProperty(meta.Object, "title")
+  prop, value, ok := storybookObjectProperty(meta.Object, "title")
   if !ok || !strings.Contains(storybookLiteralString(value), "|") {
     return
   }
-  pos, end, ok := storybookLiteralPipeRange(ctx.File, value)
-  if !ok {
+  const message = "Deprecated hierarchy separator in title property."
+  pos, end, located := storybookLiteralPipeRange(ctx.File, value)
+  if !located {
+    // The decoded title carries the separator, so the finding is real even when
+    // the raw spelling that produced it cannot be bounded. Report the property
+    // rather than dropping the diagnostic: a wider strikethrough is an
+    // imprecision, a missing diagnostic is a rule that stopped working.
+    ctx.Report(prop, message)
     return
   }
-  ctx.ReportRange(pos, end, "Deprecated hierarchy separator in title property.")
+  ctx.ReportRange(pos, end, message)
 }
 
 // storybookLiteralPipeRange returns the raw source range of one `|` that the
@@ -273,6 +279,12 @@ func (storybookNoRedundantStoryName) Check(ctx *Context, node *shimast.Node) {
 // object property. A PropertyAssignment node stops before its trailing comma;
 // when one is present, include it (and any trivia before it) so deleting
 // exactly the faded `Unnecessary` range leaves valid object syntax.
+//
+// A comment sitting between the property and its comma is therefore faded with
+// them. That is deliberate, not an oversight: the alternative — stopping at the
+// comment and leaving the comma behind — produces `{ /* note */, }`, which does
+// not parse. Only one of the two can hold, and a range whose deletion always
+// leaves valid syntax is the contract the Unnecessary tag makes.
 func storybookRemovablePropertyRange(file *shimast.SourceFile, property *shimast.Node) (int, int, bool) {
   pos, end := tokenRange(file, property)
   if pos < 0 {
