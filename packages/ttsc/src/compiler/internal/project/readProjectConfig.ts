@@ -19,6 +19,7 @@ const PATH_OPTIONS = new Set(["baseUrl", "declarationDir", "rootDir"]);
  * projected into `ITtscParsedProjectConfig`.
  */
 type ResolvedCompilerOptions = {
+  configPaths: string[];
   options: Record<string, unknown>;
   /** Directory of the tsconfig that last declared each option key. */
   optionBaseDirs: Record<string, string>;
@@ -46,6 +47,7 @@ export function readProjectConfig(
   const root = identity.physicalProjectRoot;
   const compilerOptions = readResolvedCompilerOptions(tsconfig);
   return {
+    configPaths: compilerOptions.configPaths,
     compilerOptions: {
       ...compilerOptions.options,
       outDir: compilerOptions.outDir,
@@ -135,6 +137,7 @@ function readResolvedCompilerOptions(
       ? ownPlugins.filter(isProjectPluginConfig)
       : base.plugins;
     return {
+      configPaths: uniquePaths([...base.configPaths, canonical]),
       optionBaseDirs,
       options,
       outDir:
@@ -175,6 +178,7 @@ function resolveBaseCompilerOptions(
   }
   if (!Array.isArray(extended)) {
     return {
+      configPaths: [],
       optionBaseDirs: {},
       options: {},
       pluginBaseDirs: [],
@@ -183,6 +187,7 @@ function resolveBaseCompilerOptions(
     };
   }
   let merged: ResolvedCompilerOptions = {
+    configPaths: [],
     optionBaseDirs: {},
     options: {},
     pluginBaseDirs: [],
@@ -198,6 +203,7 @@ function resolveBaseCompilerOptions(
       seen,
     );
     merged = {
+      configPaths: uniquePaths([...merged.configPaths, ...current.configPaths]),
       optionBaseDirs: {
         ...merged.optionBaseDirs,
         ...current.optionBaseDirs,
@@ -215,6 +221,10 @@ function resolveBaseCompilerOptions(
     };
   }
   return merged;
+}
+
+function uniquePaths(paths: readonly string[]): string[] {
+  return [...new Set(paths)];
 }
 
 /**

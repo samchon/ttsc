@@ -30,7 +30,7 @@ npx ttsc --watch
 
 Re-compiles on save. Add `--preserveWatchOutput` to keep your scrollback.
 
-The watcher snapshots source directories at startup: a directory created later needs a restart, and `lib`, `dist`, `node_modules`, and `.git` are never watched.
+The watcher follows the compiler's resolved program inputs. New included folders and referenced config or declaration inputs join the session as the project changes, while compiler output and cache products do not trigger another build.
 
 ## CI
 

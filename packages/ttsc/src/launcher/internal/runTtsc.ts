@@ -22,6 +22,7 @@ import {
 import type { TtscBuildOptions } from "../../structures/internal/TtscBuildOptions";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
+import { WatchTopology } from "./watchTopology";
 
 /**
  * CLI entry point for `ttsc`. Dispatches argv to the appropriate build lane
@@ -680,9 +681,13 @@ function runWatch(
   checkOnly: boolean,
 ): number {
   const cwd = path.resolve(options.cwd ?? process.cwd());
+  let topology: WatchTopology | undefined;
   const invocation = {
     ...options,
     cwd,
+    onWatchInputs: (inputs: readonly string[]) => {
+      topology?.setExtraInputs(inputs);
+    },
     quiet: true,
   };
   const root = path.dirname(
@@ -700,6 +705,7 @@ function runWatch(
 
   const runOnce = () => {
     running = true;
+    let completed = false;
     try {
       if (!options.preserveWatchOutput) {
         process.stdout.write("\x1bc");
@@ -725,6 +731,7 @@ function runWatch(
               return result.status;
             })();
       lastStatus = status;
+      completed = true;
       process.stdout.write(
         `[ttsc] ${status === 0 ? "watch build complete" : "watch build failed"}\n`,
       );
@@ -734,6 +741,19 @@ function runWatch(
       process.stdout.write(`[ttsc] watch build failed\n`);
     } finally {
       running = false;
+      if (completed) {
+        try {
+          // A filesystem event can arrive after the build reports completion
+          // but before this synchronous cleanup reaches its re-resolution.
+          // Notify for a membership change here as well, otherwise that new
+          // input is silently absorbed into the watch set without a rebuild.
+          topology?.refresh(true);
+        } catch (error) {
+          process.stderr.write(
+            `[ttsc] watch error on ${path.relative(cwd, root) || "."}: ${formatError(error)}\n`,
+          );
+        }
+      }
     }
     if (rerun) {
       rerun = false;
@@ -749,23 +769,20 @@ function runWatch(
     timer = setTimeout(runOnce, 60);
   };
 
-  const directories = collectWatchDirectories(root);
-  const watchers = directories.map((dir) => {
-    const watcher = fs.watch(dir, { persistent: true }, () => trigger());
-    // Without an error handler Node rethrows watcher errors as uncaught
-    // exceptions, which would crash the session. inotify limits (ENOSPC) and
-    // transient FS errors should be logged while the session stays alive.
-    watcher.on("error", (err) => {
+  topology = new WatchTopology(invocation, {
+    onError: (location, error) => {
       process.stderr.write(
-        `[ttsc] watch error on ${path.relative(cwd, dir) || "."}: ${formatError(err)}\n`,
+        `[ttsc] watch error on ${path.relative(cwd, location) || "."}: ${formatError(error)}\n`,
       );
-    });
-    return watcher;
+    },
+    onInputChange: trigger,
+    onTopologyChange: trigger,
   });
+  topology.refresh(false);
 
   const close = () => {
     if (timer) clearTimeout(timer);
-    for (const watcher of watchers) watcher.close();
+    topology?.close();
   };
   process.on("SIGINT", () => {
     close();
@@ -795,29 +812,6 @@ function runWatch(
 // non-zero (or non-finite) status collapses to 1 so the session signals failure.
 function toExitCode(status: number): number {
   return Number.isInteger(status) && status >= 0 && status <= 255 ? status : 1;
-}
-
-function collectWatchDirectories(root: string): string[] {
-  const out: string[] = [];
-  const stack: string[] = [root];
-  while (stack.length !== 0) {
-    const current = stack.pop()!;
-    out.push(current);
-    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-      if (
-        entry.name === "node_modules" ||
-        entry.name === ".git" ||
-        entry.name === "lib" ||
-        entry.name === "dist"
-      ) {
-        continue;
-      }
-      if (entry.isDirectory()) {
-        stack.push(path.join(current, entry.name));
-      }
-    }
-  }
-  return out;
 }
 
 function formatError(error: unknown): string {
