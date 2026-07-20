@@ -63,6 +63,32 @@ const OUTSIDE_BLOCK = { character: 0, line: 5 };
 const TYPED = "par";
 
 /**
+ * What the client tells the server it can render.
+ *
+ * A previous revision sent `capabilities: {}`, and no completion request in the
+ * session was ever answered — not even at a caret the proxy leaves untouched
+ * and forwards to TypeScript-Go. A language server is entitled to serve nothing
+ * to a client that has not said it understands completion, so the request has
+ * to come from a client that has.
+ */
+const CLIENT_CAPABILITIES = {
+  textDocument: {
+    completion: {
+      completionItem: {
+        insertReplaceSupport: true,
+        labelDetailsSupport: true,
+        resolveSupport: { properties: ["detail", "documentation"] },
+        snippetSupport: false,
+      },
+      contextSupport: true,
+      dynamicRegistration: false,
+    },
+    hover: { contentFormat: ["markdown", "plaintext"] },
+    synchronization: { didSave: true, dynamicRegistration: false },
+  },
+};
+
+/**
  * Verifies rule-published completion reaches an editor from the live buffer.
  *
  * Every existing test for this channel stops at a package boundary: the matcher
@@ -114,7 +140,7 @@ export const test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus =
       // test: the launcher builds project plugins before spawning the server,
       // so a cold `@ttsc/lint` build is charged entirely to this request.
       await client.request("initialize", {
-        capabilities: {},
+        capabilities: CLIENT_CAPABILITIES,
         processId: process.pid,
         rootUri: pathToFileURL(project.tmpdir).href,
       });
@@ -164,12 +190,33 @@ export const test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus =
       // back — with items, with null, it does not matter. Without this probe a
       // silent session and an empty corpus produce the same failure, and the two
       // have nothing to do with each other.
+      // Ask TypeScript-Go something it alone owns first. A hover reply proves
+      // the upstream server is alive and serving this document, which separates
+      // "completion is not answered" from "nothing upstream is answered".
+      let alive: string;
+      try {
+        await client.request(
+          "textDocument/hover",
+          { position: { character: 4, line: 0 }, textDocument: { uri } },
+          REQUEST_TIMEOUT,
+        );
+        alive = "upstream answered hover";
+      } catch (error) {
+        alive = `upstream never answered hover: ${
+          error instanceof Error ? error.message : String(error)
+        }`;
+      }
+
       const probeStart = Date.now();
       let probe: string;
       try {
         const response = await client.request<CompletionResponse>(
           "textDocument/completion",
-          { position: { character: 0, line: 0 }, textDocument: { uri } },
+          {
+            context: { triggerKind: 1 },
+            position: { character: 0, line: 0 },
+            textDocument: { uri },
+          },
           REQUEST_TIMEOUT,
         );
         const shape = Array.isArray(response)
@@ -198,7 +245,11 @@ export const test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus =
           items = published(
             await client.request<CompletionResponse>(
               "textDocument/completion",
-              { position: CARET, textDocument: { uri } },
+              {
+                context: { triggerKind: 1 },
+                position: CARET,
+                textDocument: { uri },
+              },
               REQUEST_TIMEOUT,
             ),
           );
@@ -212,7 +263,7 @@ export const test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus =
         if (items.length > 0) break;
         assert.ok(
           Date.now() < deadline,
-          `no rule-published completion after ${attempts} requests in ${CORPUS_TIMEOUT}ms (last: ${last}) — ${probe}`,
+          `no rule-published completion after ${attempts} requests in ${CORPUS_TIMEOUT}ms (last: ${last}) — ${alive}; ${probe}`,
         );
         await sleep(POLL_INTERVAL);
       }
@@ -266,7 +317,11 @@ export const test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus =
         published(
           await client.request<CompletionResponse>(
             "textDocument/completion",
-            { position: OUTSIDE_BLOCK, textDocument: { uri } },
+            {
+              context: { triggerKind: 1 },
+              position: OUTSIDE_BLOCK,
+              textDocument: { uri },
+            },
             REQUEST_TIMEOUT,
           ),
         ),
