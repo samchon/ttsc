@@ -2,23 +2,15 @@
 //
 // Usage: node build/build-wasm.cjs [--force]
 //
-// Behavior:
-//   * Skips the Go build when `dist/ttsc.wasm` is newer than every .go file
-//     under `packages/{ttsc,wasm}/`. Pass `--force` or set
-//     `TTSC_WASM_FORCE=1` to rebuild unconditionally.
-//   * Hard failure if the Go toolchain is missing.
-//
-// Outputs:
-//   * packages/wasm/dist/ttsc.wasm
-//   * packages/wasm/dist/wasm_exec.js
-//
-// Downstream consumers (the website, plugin-author playgrounds) point their
-// own bundle pipelines at `node_modules/@ttsc/wasm/dist/wasm_exec.js` and
-// build their own .wasm against the same Go module.
+// The cache records a content identity for every effective Go dependency,
+// module manifest, build flag, toolchain bridge, and published shim artifact.
+// It never accepts a partially staged publication directory as a cache hit.
 
 const cp = require("child_process");
 const fs = require("fs");
 const path = require("path");
+
+const { createGoBuildCache } = require("../../../scripts/go-build-cache.cjs");
 
 const packageRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
@@ -31,96 +23,60 @@ const wasmOut = path.join(outDir, "ttsc.wasm");
 const wasmExecOut = path.join(outDir, "wasm_exec.js");
 const goModPath = path.join(packageRoot, "go.mod");
 const publishedGoModOut = path.join(outDir, "go.mod");
-const forceRebuild =
-  process.argv.includes("--force") || !!process.env.TTSC_WASM_FORCE;
-
-fs.mkdirSync(outDir, { recursive: true });
-
-function hasGoToolchain() {
-  try {
-    cp.execSync("go env GOROOT", { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-}
+const cachePath = path.join(outDir, ".ttsc-wasm-build.json");
+const buildArguments = [
+  "go",
+  "build",
+  "-trimpath",
+  "-ldflags",
+  "-s -w",
+  "-o",
+  wasmOut,
+  "./cmd/ttsc-wasm",
+];
+const buildEnvironment = { GOOS: "js", GOARCH: "wasm" };
 
 function locateWasmExec() {
-  if (!hasGoToolchain()) return null;
-  const goroot =
-    process.env.GOROOT ??
-    cp.execSync("go env GOROOT", { encoding: "utf8" }).trim();
+  let goroot;
+  try {
+    goroot =
+      process.env.GOROOT ??
+      cp.execFileSync("go", ["env", "GOROOT"], { encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
   // Go 1.24+ ships wasm_exec.js under lib/wasm/. Older releases kept it
   // under misc/wasm/. Try both so the build works across Go installs.
-  const candidates = [
+  for (const candidate of [
     path.join(goroot, "lib", "wasm", "wasm_exec.js"),
     path.join(goroot, "misc", "wasm", "wasm_exec.js"),
-  ];
-  for (const candidate of candidates) {
+  ]) {
     if (fs.existsSync(candidate)) return candidate;
   }
   return null;
 }
 
-function newestMtime(...roots) {
-  let max = 0;
-  for (const root of roots) {
-    if (!root || !fs.existsSync(root)) continue;
-    walk(root, (_file, stat) => {
-      if (stat.mtimeMs > max) max = stat.mtimeMs;
-    });
-  }
-  return max;
-}
-
-function walk(root, visit) {
-  const stack = [root];
-  while (stack.length) {
-    const cur = stack.pop();
-    let stat;
-    try {
-      stat = fs.statSync(cur);
-    } catch {
-      continue;
-    }
-    if (stat.isDirectory()) {
-      const base = path.basename(cur);
-      if (
-        base === "node_modules" ||
-        base === ".ttsc" ||
-        base === ".git" ||
-        base === "lib" ||
-        base === "dist"
-      )
-        continue;
-      for (const entry of fs.readdirSync(cur)) {
-        stack.push(path.join(cur, entry));
-      }
-    } else if (stat.isFile() && cur.endsWith(".go")) {
-      visit(cur, stat);
-    }
-  }
+function createCacheOptions({ force, wasmExecSrc }) {
+  return {
+    artifactPaths: [wasmOut, wasmExecOut, publishedGoModOut, vendorShimDir],
+    buildArguments,
+    cachePath,
+    cwd: packageRoot,
+    dependencyPackages: ["./cmd/ttsc-wasm"],
+    environment: buildEnvironment,
+    extraFiles: [__filename, goModPath, wasmExecSrc],
+    force,
+    inputDirectories: [shimSrc],
+  };
 }
 
 function buildWasm() {
   console.log(`build/build-wasm.cjs: building ${wasmOut}`);
-  cp.execFileSync(
-    "go",
-    [
-      "build",
-      "-trimpath",
-      "-ldflags",
-      "-s -w",
-      "-o",
-      wasmOut,
-      "./cmd/ttsc-wasm",
-    ],
-    {
-      cwd: packageRoot,
-      env: { ...process.env, GOOS: "js", GOARCH: "wasm" },
-      stdio: "inherit",
-    },
-  );
+  cp.execFileSync("go", buildArguments.slice(1), {
+    cwd: packageRoot,
+    env: { ...process.env, ...buildEnvironment },
+    stdio: "inherit",
+  });
 }
 
 // Mirror packages/ttsc/shim/* into packages/wasm/shim-vendor/shim/* so the
@@ -141,7 +97,7 @@ function vendorShim() {
   fs.mkdirSync(vendorShimDir, { recursive: true });
   copyTree(shimSrc, vendorShimDir);
   console.log(
-    `build/build-wasm.cjs: vendored shim/* → ${path.relative(packageRoot, vendorShimDir)}`,
+    `build/build-wasm.cjs: vendored shim/* -> ${path.relative(packageRoot, vendorShimDir)}`,
   );
 }
 
@@ -159,18 +115,14 @@ function copyTree(src, dst) {
   }
 }
 
-// Rewrite go.mod so the published copy points at ./shim-vendor/shim/* instead of
-// ../ttsc/shim/*. The `replace github.com/samchon/ttsc/packages/ttsc => ...`
-// line is dropped: consumers of the published tarball who want to compile
-// their own wasm binary must supply that module themselves (documented in
-// README.md). The working-tree go.mod is untouched.
+// Rewrite go.mod so the published copy points at ./shim-vendor/shim/* instead
+// of ../ttsc/shim/*. The ../ttsc consumer-module replacement is intentionally
+// removed: consumers compiling their own wasm binary supply it themselves.
 function rewritePublishedGoMod() {
-  const src = fs.readFileSync(goModPath, "utf8");
-  const lines = src.split(/\r?\n/);
+  const lines = fs.readFileSync(goModPath, "utf8").split(/\r?\n/);
   const out = [];
   for (const line of lines) {
     const trimmed = line.trim();
-    // Drop the ../ttsc consumer-module replace (handled at consumer side).
     if (
       /^github\.com\/samchon\/ttsc\/packages\/ttsc\s+=>\s+\.\.\/ttsc\b/.test(
         trimmed,
@@ -178,63 +130,63 @@ function rewritePublishedGoMod() {
     ) {
       continue;
     }
-    // Rewrite each shim replace from ../ttsc/shim/X to ./shim-vendor/shim/X.
     const shimMatch = trimmed.match(
       /^(github\.com\/microsoft\/typescript-go\/shim\/[A-Za-z0-9_/]+)\s+=>\s+\.\.\/ttsc\/shim\/([A-Za-z0-9_/]+)$/,
     );
     if (shimMatch) {
       const indent = line.match(/^\s*/)[0];
-      out.push(`${indent}${shimMatch[1]} => ./shim-vendor/shim/${shimMatch[2]}`);
+      out.push(
+        `${indent}${shimMatch[1]} => ./shim-vendor/shim/${shimMatch[2]}`,
+      );
       continue;
     }
     out.push(line);
   }
   fs.writeFileSync(publishedGoModOut, out.join("\n"));
   console.log(
-    `build/build-wasm.cjs: emitted published go.mod → ${path.relative(packageRoot, publishedGoModOut)}`,
+    `build/build-wasm.cjs: emitted published go.mod -> ${path.relative(packageRoot, publishedGoModOut)}`,
   );
 }
 
-const wasmExecSrc = locateWasmExec();
-
-if (!forceRebuild && fs.existsSync(wasmOut)) {
-  const wasmMtime = fs.statSync(wasmOut).mtimeMs;
-  const sourceMtime = newestMtime(packageRoot, ttscDir);
-  if (sourceMtime > 0 && wasmMtime >= sourceMtime) {
+function main() {
+  fs.mkdirSync(outDir, { recursive: true });
+  const wasmExecSrc = locateWasmExec();
+  if (!wasmExecSrc) {
+    throw new Error(
+      "build/build-wasm.cjs: wasm_exec.js not located. Install Go 1.24+.",
+    );
+  }
+  const cache = createGoBuildCache(
+    createCacheOptions({
+      force: process.argv.includes("--force") || !!process.env.TTSC_WASM_FORCE,
+      wasmExecSrc,
+    }),
+  );
+  if (cache.isCurrent()) {
     console.log(
       `build/build-wasm.cjs: cached ttsc.wasm is up to date (${(
         fs.statSync(wasmOut).size /
         1024 /
         1024
-      ).toFixed(2)} MiB) — skipping rebuild`,
+      ).toFixed(2)} MiB) -> skipping rebuild`,
     );
-    if (wasmExecSrc && !fs.existsSync(wasmExecOut)) {
-      fs.copyFileSync(wasmExecSrc, wasmExecOut);
-    }
-    // Even on cache hit, refresh the vendored shim + published go.mod so
-    // `pnpm pack` always sees up-to-date publish artifacts.
-    vendorShim();
-    rewritePublishedGoMod();
     return;
   }
-}
 
-if (!wasmExecSrc) {
-  console.error(
-    "build/build-wasm.cjs: wasm_exec.js not located. Install Go 1.24+.",
+  vendorShim();
+  rewritePublishedGoMod();
+  buildWasm();
+  fs.copyFileSync(wasmExecSrc, wasmExecOut);
+  cache.write();
+  console.log(
+    `build/build-wasm.cjs: done. ttsc.wasm = ${(
+      fs.statSync(wasmOut).size /
+      1024 /
+      1024
+    ).toFixed(2)} MiB`,
   );
-  process.exit(1);
 }
 
-vendorShim();
-rewritePublishedGoMod();
-buildWasm();
-fs.copyFileSync(wasmExecSrc, wasmExecOut);
+if (require.main === module) main();
 
-console.log(
-  `build/build-wasm.cjs: done. ttsc.wasm = ${(
-    fs.statSync(wasmOut).size /
-    1024 /
-    1024
-  ).toFixed(2)} MiB`,
-);
+module.exports = { createCacheOptions, locateWasmExec };
