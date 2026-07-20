@@ -38,6 +38,7 @@ const DUMP_OPTIONS = [
   { key: "cwd", flags: ["--cwd", "-cwd"], kind: "value" },
   { key: "tsconfig", flags: ["--tsconfig", "-tsconfig"], kind: "value" },
   { key: "pretty", flags: ["--pretty", "-pretty"], kind: "boolean" },
+  { key: "help", flags: ["--help", "-help", "-h"], kind: "flag" },
 ] as const;
 
 /**

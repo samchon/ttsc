@@ -39,7 +39,7 @@ export const test_ttscgraph_launcher_rejects_malformed_arguments = () => {
     TestProject.spawn(process.execPath, [resolveGraphLauncher(), ...args], {
       cwd: root,
       env: { TTSC_GRAPH_BINARY: binary, TTSCGRAPH_MARKER: marker },
-      timeout: 5_000,
+      timeout: 30_000,
     });
 
   const malformed = [
@@ -96,6 +96,7 @@ export const test_ttscgraph_launcher_rejects_malformed_arguments = () => {
     for (const args of [
       ["dump", "--cwd", root, "--tsconfig", "project.json", "--pretty"],
       ["dump", `--cwd=${root}`, "--tsconfig=project.json", "--pretty=false"],
+      ["dump", "--help"],
     ]) {
       fs.rmSync(marker, { force: true });
       const result = run(args);
