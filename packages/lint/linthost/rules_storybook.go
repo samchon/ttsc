@@ -12,6 +12,7 @@ import (
   "unicode"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
@@ -230,7 +231,12 @@ func (storybookNoRedundantStoryName) Check(ctx *Context, node *shimast.Node) {
     for _, propName := range []string{"name", "storyName"} {
       prop, value, ok := storybookObjectProperty(story.Init, propName)
       if ok && storybookLiteralString(value) == storybookNameFromExport(story.Name) {
-        ctx.Report(prop, "Named exports should not use a redundant story name annotation.")
+        pos, end, removable := storybookRemovablePropertyRange(ctx.File, prop)
+        if removable {
+          ctx.ReportRange(pos, end, "Named exports should not use a redundant story name annotation.")
+        } else {
+          ctx.Report(prop, "Named exports should not use a redundant story name annotation.")
+        }
       }
     }
   }
@@ -244,9 +250,30 @@ func (storybookNoRedundantStoryName) Check(ctx *Context, node *shimast.Node) {
     }
     objectName, propName := storybookPropertyAccessParts(expr.Left)
     if propName == "storyName" && storybookLiteralString(expr.Right) == storybookNameFromExport(objectName) {
-      ctx.Report(child, "Named exports should not use a redundant story name annotation.")
+      reported := child
+      if child.Parent != nil && child.Parent.Kind == shimast.KindExpressionStatement {
+        reported = child.Parent
+      }
+      ctx.Report(reported, "Named exports should not use a redundant story name annotation.")
     }
   })
+}
+
+// storybookRemovablePropertyRange returns the complete removable grain of an
+// object property. A PropertyAssignment node stops before its trailing comma;
+// when one is present, include it (and any trivia before it) so deleting
+// exactly the faded `Unnecessary` range leaves valid object syntax.
+func storybookRemovablePropertyRange(file *shimast.SourceFile, property *shimast.Node) (int, int, bool) {
+  pos, end := tokenRange(file, property)
+  if pos < 0 {
+    return 0, 0, false
+  }
+  source := file.Text()
+  comma := shimscanner.SkipTrivia(source, end)
+  if comma < len(source) && source[comma] == ',' {
+    end = comma + 1
+  }
+  return pos, end, true
 }
 
 type storybookNoRendererPackages struct{}
@@ -338,7 +365,9 @@ func (storybookNoStoriesOf) Visits() []shimast.Kind {
 }
 func (storybookNoStoriesOf) Check(ctx *Context, node *shimast.Node) {
   spec := node.AsImportSpecifier()
-  if spec != nil && storybookImportSpecifierImportedName(spec) == "storiesOf" {
+  if spec != nil &&
+    storybookImportSpecifierImportedName(spec) == "storiesOf" &&
+    isStorybookStoriesOfModule(storybookImportSpecifierModule(node)) {
     reported := spec.Name()
     if spec.PropertyName != nil {
       reported = spec.PropertyName
@@ -367,7 +396,12 @@ func (storybookNoTitlePropertyInMeta) Check(ctx *Context, node *shimast.Node) {
     return
   }
   if prop, _, ok := storybookObjectProperty(meta.Object, "title"); ok {
-    ctx.Report(prop, "CSF3 does not need a title in meta.")
+    pos, end, removable := storybookRemovablePropertyRange(ctx.File, prop)
+    if removable {
+      ctx.ReportRange(pos, end, "CSF3 does not need a title in meta.")
+    } else {
+      ctx.Report(prop, "CSF3 does not need a title in meta.")
+    }
   }
 }
 
@@ -524,6 +558,16 @@ var storybookRendererPackages = map[string][]string{
   "@storybook/svelte":         {"@storybook/svelte-vite", "@storybook/svelte-webpack5", "@storybook/sveltekit"},
   "@storybook/vue3":           {"@storybook/vue3-vite", "@storybook/vue3-webpack5"},
   "@storybook/web-components": {"@storybook/web-components-vite", "@storybook/web-components-webpack5"},
+}
+
+var storybookStoriesOfModules = []string{
+  "@storybook/react",
+  "@storybook/vue",
+  "@storybook/vue3",
+  "@storybook/angular",
+  "@storybook/svelte",
+  "@storybook/html",
+  "@storybook/web-components",
 }
 
 func storybookDefaultMeta(file *shimast.SourceFile) *storybookMetaInfo {
@@ -912,7 +956,30 @@ func storybookDescriptorsMatch(descriptors []storybookDescriptor, name string) b
 }
 
 func storybookHasStoriesOfImport(file *shimast.SourceFile) bool {
-  return storybookHasNamedImport(file, "storiesOf", "@storybook/react", "@storybook/vue", "@storybook/vue3", "@storybook/angular", "@storybook/svelte", "@storybook/html", "@storybook/web-components")
+  return storybookHasNamedImport(file, "storiesOf", storybookStoriesOfModules...)
+}
+
+func isStorybookStoriesOfModule(module string) bool {
+  for _, candidate := range storybookStoriesOfModules {
+    if module == candidate {
+      return true
+    }
+  }
+  return false
+}
+
+func storybookImportSpecifierModule(node *shimast.Node) string {
+  for current := node; current != nil; current = current.Parent {
+    if current.Kind != shimast.KindImportDeclaration {
+      continue
+    }
+    decl := current.AsImportDeclaration()
+    if decl == nil {
+      return ""
+    }
+    return storybookLiteralString(decl.ModuleSpecifier)
+  }
+  return ""
 }
 
 func storybookHasNamedImport(file *shimast.SourceFile, name string, modules ...string) bool {

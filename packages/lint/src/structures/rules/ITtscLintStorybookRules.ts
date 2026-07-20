@@ -103,8 +103,9 @@ export interface ITtscLintStorybookRules {
    * side is renamed without the other.
    *
    * Tagged `Unnecessary`: both reported shapes — the `name` / `storyName`
-   * property and a `Story.storyName = ...` assignment — span exactly the
-   * annotation whose deletion resolves the finding, so an editor greys it out.
+   * property and a `Story.storyName = ...` assignment — span the complete
+   * removable annotation, including its trailing comma or semicolon, so an
+   * editor greys out a range whose deletion leaves valid syntax.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-redundant-story-name.md
    */
@@ -144,8 +145,9 @@ export interface ITtscLintStorybookRules {
    * CSF3 derives the title from the file path, so an explicit `title` is
    * redundant and drifts from the on-disk layout when files are moved.
    *
-   * Tagged `Unnecessary`: the reported range is the property itself, and
-   * removing it is the resolution, so an editor greys it out.
+   * Tagged `Unnecessary`: the reported range is the complete removable
+   * property, including a trailing comma when present, so deleting the faded
+   * range is the resolution and leaves valid object syntax.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-title-property-in-meta.md
    */

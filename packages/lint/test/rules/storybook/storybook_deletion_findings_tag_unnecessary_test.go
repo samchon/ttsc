@@ -20,29 +20,39 @@ import (
 //
 //  1. Report a CSF3 `title` in meta and both arms of the redundant-story-name
 //     rule, asserting each finding carries one Unnecessary tag.
-//  2. Assert each tagged range covers exactly the annotation to delete — the
-//     property or the assignment expression — and nothing around it.
+//  2. Delete each tagged range and assert the source left behind is valid
+//     object/statement syntax, including first- and last-property boundaries.
 //  3. Assert the negative twin `storybook/csf-component` reports untagged.
 func TestStorybookDeletionFindingsTagUnnecessary(t *testing.T) {
   cases := []struct {
-    rule   string
-    source string
-    marker string
+    rule      string
+    source    string
+    marker    string
+    remaining string
   }{
     {
-      rule:   "storybook/no-title-property-in-meta",
-      source: "export default {\n  title: \"Atoms/Button\",\n  component: Button,\n};\nexport const Primary = {};\n",
-      marker: "title: \"Atoms/Button\"",
+      rule:      "storybook/no-title-property-in-meta",
+      source:    "export default {\n  title: \"Atoms/Button\",\n  component: Button,\n};\nexport const Primary = {};\n",
+      marker:    "title: \"Atoms/Button\",",
+      remaining: "export default {\n  \n  component: Button,\n};\nexport const Primary = {};\n",
     },
     {
-      rule:   "storybook/no-redundant-story-name",
-      source: "export default { component: Button };\nexport const Primary = {\n  name: \"Primary\",\n};\n",
-      marker: "name: \"Primary\"",
+      rule:      "storybook/no-redundant-story-name",
+      source:    "export default { component: Button };\nexport const Primary = {\n  name: \"Primary\",\n};\n",
+      marker:    "name: \"Primary\",",
+      remaining: "export default { component: Button };\nexport const Primary = {\n  \n};\n",
     },
     {
-      rule:   "storybook/no-redundant-story-name",
-      source: "export default { component: Button };\nexport const Primary = {};\nPrimary.storyName = \"Primary\";\n",
-      marker: "Primary.storyName = \"Primary\"",
+      rule:      "storybook/no-redundant-story-name",
+      source:    "export default { component: Button };\nexport const Primary = {};\nPrimary.storyName = \"Primary\";\n",
+      marker:    "Primary.storyName = \"Primary\";",
+      remaining: "export default { component: Button };\nexport const Primary = {};\n\n",
+    },
+    {
+      rule:      "storybook/no-title-property-in-meta",
+      source:    "export default {\n  component: Button,\n  title: \"Atoms/Button\"\n};\nexport const Primary = {};\n",
+      marker:    "title: \"Atoms/Button\"",
+      remaining: "export default {\n  component: Button,\n  \n};\nexport const Primary = {};\n",
     },
   }
   for _, testCase := range cases {
@@ -64,6 +74,15 @@ func TestStorybookDeletionFindingsTagUnnecessary(t *testing.T) {
         start,
         start+len(testCase.marker),
         testCase.marker,
+      )
+    }
+    remaining := testCase.source[:finding.Pos] + testCase.source[finding.End:]
+    if remaining != testCase.remaining {
+      t.Fatalf(
+        "%s: deleting tagged range\nwant %q\ngot  %q",
+        testCase.rule,
+        testCase.remaining,
+        remaining,
       )
     }
   }

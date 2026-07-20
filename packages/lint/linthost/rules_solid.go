@@ -159,7 +159,7 @@ func (s *solidState) collectImport(node *shimast.Node) {
     return
   }
   source := stringLiteralText(decl.ModuleSpecifier)
-  if strings.HasPrefix(source, "solid-js") {
+  if isSolidSource(source) {
     s.hasSolid = true
   }
   if decl.ImportClause == nil {
@@ -174,7 +174,22 @@ func (s *solidState) collectImport(node *shimast.Node) {
     s.importedFrom[name] = source
   }
   bindings := clause.NamedBindings
-  if bindings == nil || bindings.Kind != shimast.KindNamedImports {
+  if bindings == nil {
+    return
+  }
+  if bindings.Kind == shimast.KindNamespaceImport {
+    namespace := bindings.AsNamespaceImport()
+    if namespace == nil {
+      return
+    }
+    local := identifierText(namespace.Name())
+    if local != "" {
+      s.declared[local] = true
+      s.importedFrom[local] = source
+    }
+    return
+  }
+  if bindings.Kind != shimast.KindNamedImports {
     return
   }
   named := bindings.AsNamedImports()
@@ -196,7 +211,7 @@ func (s *solidState) collectImport(node *shimast.Node) {
     }
     s.declared[local] = true
     s.importedFrom[local] = source
-    if strings.HasPrefix(source, "solid-js") {
+    if isSolidSource(source) {
       s.solidImport[local] = imported
     }
   }
@@ -532,7 +547,7 @@ func (s *solidState) reportReactDeps(ctx *Context) {
     if call == nil || call.Arguments == nil || len(call.Arguments.Nodes) != 2 {
       continue
     }
-    name := s.callName(call)
+    name := s.solidTrackedCallName(call)
     if name != "createEffect" && name != "createMemo" {
       continue
     }
@@ -542,6 +557,31 @@ func (s *solidState) reportReactDeps(ctx *Context) {
       ctx.Report(second, "Solid automatically tracks dependencies; remove React-style dependency arrays.")
     }
   }
+}
+
+// solidTrackedCallName returns the canonical Solid name only when the call is
+// proven to come from a Solid module binding. The rule carries an
+// `Unnecessary` tag, so a same-named local helper cannot be treated as a Solid
+// primitive merely because the file imports some other Solid symbol.
+func (s *solidState) solidTrackedCallName(call *shimast.CallExpression) string {
+  if call == nil {
+    return ""
+  }
+  expr := stripParens(call.Expression)
+  if expr == nil {
+    return ""
+  }
+  if name := identifierText(expr); name != "" {
+    return s.solidImport[name]
+  }
+  if expr.Kind != shimast.KindPropertyAccessExpression {
+    return ""
+  }
+  access := expr.AsPropertyAccessExpression()
+  if access == nil || !isSolidSource(s.importedFrom[identifierText(access.Expression)]) {
+    return ""
+  }
+  return identifierText(access.Name())
 }
 
 func (s *solidState) reportProxyAPIs(ctx *Context) {

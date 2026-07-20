@@ -23,7 +23,7 @@ import (
 //  2. Assert each range covers the deprecated construct itself, never its
 //     live alias or title property.
 //  3. Assert the negative twin `storybook/no-renderer-packages` reports
-//     untagged.
+//     untagged, and a same-named import from an application module is silent.
 func TestStorybookLegacyApiFindingsTagDeprecated(t *testing.T) {
   cases := []struct {
     rule   string
@@ -102,4 +102,10 @@ func TestStorybookLegacyApiFindingsTagDeprecated(t *testing.T) {
   if len(findings[0].Tags) != 0 {
     t.Fatalf("no-renderer-packages tags = %v, want none", findings[0].Tags)
   }
+
+  assertRuleSkipsSource(
+    t,
+    "storybook/no-stories-of",
+    "import { storiesOf } from \"./story-dsl\";\nstoriesOf(\"Atoms/Button\", module);\n",
+  )
 }

@@ -128,9 +128,9 @@ eval(userInput);
 
 Detect `new Buffer(input)` constructions with non-literal input, historical source of allocation-disclosure bugs.
 
-The finding is tagged `Deprecated`, so an editor strikes the construction through: the constructor has been deprecated since Node v6 (DEP0005) and still works, so the reported expression is live code to migrate.
-
 The three APIs that replaced it are offered as editor suggestions: `Buffer.from`, `Buffer.alloc`, and `Buffer.allocUnsafe`. None is applied automatically. Which one is correct depends on what the argument turns out to be, and this rule fires precisely when the argument is not a literal, so the source cannot say. Choosing for the author is how the constructor's original hazard returns: `Buffer.allocUnsafe` applied to what was really a string hands back uninitialized heap memory.
+
+The finding stays untagged even though Node deprecated its global constructor in DEP0005. This rule mirrors the upstream syntax-only match, which can also report a user-defined constructor named `Buffer`; a rule-level `Deprecated` tag would stamp that application constructor too.
 
 Example:
 
@@ -245,7 +245,9 @@ Detect `crypto.pseudoRandomBytes`, which produces values that are not cryptograp
 
 Tokens, session ids, and key material must use `crypto.randomBytes` (or Web Crypto's `getRandomValues`) instead.
 
-The finding is tagged `Deprecated`. Node deprecated the name in DEP0115 and the alias still resolves. The rename is autofixed. There is exactly one successor and it is the same function, so the rewrite cannot change behavior on any release that still exposes the alias, and on the older releases where the two genuinely differed it can only strengthen the result. Only the member name is replaced, so the API is repaired whether it is called or passed around as a value.
+Node deprecated the name in DEP0115 and the member name alone is rewritten to `randomBytes`, so the API is repaired whether it is called or passed around as a value. The rename is automatic when the source proves `crypto` is an import or require of Node's `crypto` / `node:crypto` module. A name-only match gets the same edit as an editor suggestion instead, because a local application object can also be named `crypto`.
+
+The rule stays untagged for that same reason. Diagnostic tags are rule-level, so `Deprecated` would also strike through a reported member on a user-defined `crypto` object.
 
 Example:
 

@@ -181,7 +181,7 @@ Reject `name` metadata on a story when it matches Storybook's auto-derived name 
 
 The explicit value adds boilerplate and drifts from the export when one side is renamed without the other.
 
-The finding is tagged `Unnecessary`, so an editor greys the annotation out. Both shapes the rule reports are covered: the `name` / `storyName` property inside the story object and a `Story.storyName = ...` assignment. Each is reported at exactly the range whose deletion resolves the finding.
+The finding is tagged `Unnecessary`, so an editor greys the annotation out. Both shapes the rule reports are covered: the `name` / `storyName` property inside the story object and a `Story.storyName = ...` assignment. The removable range includes a property's trailing comma or an assignment's semicolon, so deleting exactly what is faded leaves valid syntax.
 
 Example:
 
@@ -253,7 +253,7 @@ Reject the `title` property in CSF meta when the project uses Storybook's auto-t
 
 CSF3 derives the title from the file path, so an explicit `title` is redundant and drifts from the on-disk layout when files are moved.
 
-The finding is tagged `Unnecessary`, so an editor greys the property out; the reported range is the property itself, and removing it is the resolution.
+The finding is tagged `Unnecessary`, so an editor greys the complete removable property out, including its trailing comma when present. Removing exactly the faded range is the resolution and leaves valid object syntax.
 
 Example:
 

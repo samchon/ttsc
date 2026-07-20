@@ -6,7 +6,6 @@ import (
   "unicode/utf8"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
-  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 const securityRulePrefix = "security/"
@@ -150,14 +149,6 @@ func (securityDetectEvalWithExpression) Check(ctx *Context, node *shimast.Node) 
 type securityDetectNewBuffer struct{}
 
 func (securityDetectNewBuffer) Name() string { return securityRulePrefix + "detect-new-buffer" }
-
-// DiagnosticTags strikes `new Buffer(...)` through. The constructor has been
-// deprecated since Node v6 (DEP0005) and still works, so the reported
-// expression is live code to migrate rather than dead code to delete, and the
-// whole reported range is the deprecated construct.
-func (securityDetectNewBuffer) DiagnosticTags() []publicrule.DiagnosticTag {
-  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
-}
 func (securityDetectNewBuffer) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindNewExpression}
 }
@@ -373,15 +364,6 @@ type securityDetectPseudoRandomBytes struct{}
 func (securityDetectPseudoRandomBytes) Name() string {
   return securityRulePrefix + "detect-pseudoRandomBytes"
 }
-
-// DiagnosticTags strikes `crypto.pseudoRandomBytes` through. Node deprecated
-// it in favor of `crypto.randomBytes` (DEP0115) but the alias still resolves
-// and still returns bytes, so the reported range is a working API reference to
-// migrate, not dead code, and the range is exactly the member access that
-// names it.
-func (securityDetectPseudoRandomBytes) DiagnosticTags() []publicrule.DiagnosticTag {
-  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
-}
 func (securityDetectPseudoRandomBytes) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindPropertyAccessExpression}
 }
@@ -391,17 +373,26 @@ func (securityDetectPseudoRandomBytes) Check(ctx *Context, node *shimast.Node) {
     return
   }
   message := "Found crypto.pseudoRandomBytes which is not cryptographically strong. Use `crypto.randomBytes` instead."
-  ctx.ReportFix(node, message, securityRandomBytesEdits(ctx.File, node)...)
+  edits := securityRandomBytesEdits(ctx.File, node)
+  if len(edits) == 0 {
+    ctx.Report(node, message)
+    return
+  }
+  bindings := ctx.securityBindings()
+  if isNodeCryptoModule(bindings.Modules[identifierText(obj)]) {
+    ctx.ReportFix(node, message, edits...)
+    return
+  }
+  ctx.ReportSuggestion(node, message, "Replace with `crypto.randomBytes`.", edits...)
 }
 
 // securityRandomBytesEdits renames the member being accessed to `randomBytes`
 // and touches nothing else.
 //
-// The rewrite is imposed rather than suggested because there is one successor
-// and it is the same function: `crypto.pseudoRandomBytes` is an alias of
-// `crypto.randomBytes` in every Node release that still exposes it, so the
-// edit cannot change behavior, and on the older releases where the two did
-// differ it can only strengthen the result.
+// The caller imposes the rewrite only when the existing security binding table
+// proves the object is Node's `crypto` module. A name-only match can be a local
+// application object, so that shape receives the same edit as an opt-in
+// suggestion instead.
 //
 // Only the member name is replaced, so `crypto.pseudoRandomBytes` passed
 // around as a value — not just called — is repaired the same way. Returns nil
@@ -417,6 +408,10 @@ func securityRandomBytesEdits(file *shimast.SourceFile, node *shimast.Node) []Te
     return nil
   }
   return []TextEdit{{Pos: pos, End: end, Text: "randomBytes"}}
+}
+
+func isNodeCryptoModule(module string) bool {
+  return module == "crypto" || module == "node:crypto"
 }
 
 type securityDetectUnsafeRegex struct{}
