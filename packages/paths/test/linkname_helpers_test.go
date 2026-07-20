@@ -6,6 +6,7 @@ package paths_test
 
 import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
 
   _ "github.com/samchon/ttsc/packages/paths/driver"
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -13,6 +14,7 @@ import (
 )
 
 type pathsRewriter struct {
+  checker     *shimchecker.Checker
   basePath    string
   jsxPreserve bool
   outDir      string
@@ -33,10 +35,10 @@ func pathsNewRewriter(prog *driver.Program) *pathsRewriter
 func pathsApply(r *pathsRewriter, file *shimast.SourceFile)
 
 //go:linkname pathsVisitModuleSpecifiers github.com/samchon/ttsc/packages/paths/driver.visitModuleSpecifiers
-func pathsVisitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node))
+func pathsVisitModuleSpecifiers(file *shimast.SourceFile, checker *shimchecker.Checker, visit func(*shimast.Node))
 
 //go:linkname pathsIsModuleSpecifierCall github.com/samchon/ttsc/packages/paths/driver.isModuleSpecifierCall
-func pathsIsModuleSpecifierCall(call *shimast.CallExpression) bool
+func pathsIsModuleSpecifierCall(checker *shimchecker.Checker, call *shimast.CallExpression) bool
 
 //go:linkname pathsRewrite github.com/samchon/ttsc/packages/paths/driver.(*rewriter).rewrite
 func pathsRewrite(r *pathsRewriter, fromSource string, specifier string) (string, bool)

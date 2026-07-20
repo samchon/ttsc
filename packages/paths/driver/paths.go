@@ -6,6 +6,7 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimchecker "github.com/microsoft/typescript-go/shim/checker"
   shimcore "github.com/microsoft/typescript-go/shim/core"
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
 
@@ -32,6 +33,7 @@ func (plugin) ApplyProgram(prog *driver.Program, _ driver.PluginContext) error {
 // rewriter holds the resolved tsconfig paths configuration used to rewrite
 // module specifiers across an entire program.
 type rewriter struct {
+  checker     *shimchecker.Checker
   basePath    string
   jsxPreserve bool
   outDir      string
@@ -60,6 +62,7 @@ func newRewriter(prog *driver.Program) *rewriter {
   if prog == nil || prog.ParsedConfig == nil || prog.ParsedConfig.ParsedConfig == nil || prog.ParsedConfig.ParsedConfig.CompilerOptions == nil {
     return out
   }
+  out.checker = prog.Checker
   options := prog.ParsedConfig.ParsedConfig.CompilerOptions
   cwd := prog.Host.GetCurrentDirectory()
   out.basePath = filepath.Clean(options.GetPathsBasePath(cwd))
@@ -104,7 +107,7 @@ func (r *rewriter) apply(file *shimast.SourceFile) {
   if r == nil || file == nil || len(r.patterns) == 0 {
     return
   }
-  visitModuleSpecifiers(file.AsNode(), func(lit *shimast.Node) {
+  visitModuleSpecifiers(file, r.checker, func(lit *shimast.Node) {
     if lit == nil || lit.Kind != shimast.KindStringLiteral {
       return
     }
@@ -118,16 +121,16 @@ func (r *rewriter) apply(file *shimast.SourceFile) {
   })
 }
 
-// visitModuleSpecifiers recursively walks the AST rooted at node, calling
-// visit for every string-literal module specifier it finds. Covered nodes
-// include import/export declarations, require() calls, dynamic import()
-// expressions, import-equals declarations, and import-type nodes.
+// visitModuleSpecifiers recursively walks file, calling visit for every
+// string-literal module reference it finds. Syntax identifies candidates, then
+// SourceFile and Checker facts exclude declarations and calls whose literal is
+// not actually a module reference in the containing file.
 //
 // The recursion runs through one closure created per walk, not one per node:
 // handing ForEachChild a fresh closure at every node would allocate once per
 // AST node across the whole program on every apply pass.
-func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
-  if node == nil {
+func visitModuleSpecifiers(file *shimast.SourceFile, checker *shimchecker.Checker, visit func(*shimast.Node)) {
+  if file == nil {
     return
   }
   var walk func(node *shimast.Node) bool
@@ -152,24 +155,24 @@ func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
       }
     case shimast.KindModuleDeclaration:
       decl := node.AsModuleDeclaration()
-      if decl != nil {
+      if file.ExternalModuleIndicator != nil && decl != nil {
         visit(decl.Name())
       }
     case shimast.KindCallExpression:
       call := node.AsCallExpression()
-      if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+      if isModuleSpecifierCall(checker, call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
         visit(call.Arguments.Nodes[0])
       }
     }
     node.ForEachChild(walk)
     return false
   }
-  walk(node)
+  walk(file.AsNode())
 }
 
 // isModuleSpecifierCall reports whether call is a dynamic import() or a
-// CommonJS require() expression.
-func isModuleSpecifierCall(call *shimast.CallExpression) bool {
+// CommonJS require() expression that resolves to the module loader.
+func isModuleSpecifierCall(checker *shimchecker.Checker, call *shimast.CallExpression) bool {
   if call == nil || call.Expression == nil {
     return false
   }
@@ -177,10 +180,26 @@ func isModuleSpecifierCall(call *shimast.CallExpression) bool {
   case shimast.KindImportKeyword:
     return true
   case shimast.KindIdentifier:
-    return call.Expression.Text() == "require"
+    return call.Expression.Text() == "require" && isModuleLoader(checker, call.Expression)
   default:
     return false
   }
+}
+
+// isModuleLoader reports whether expression names the CommonJS loader rather
+// than a parameter, local, or imported binding named require. An unresolved
+// bare require is the runtime CommonJS global; declared loaders are ambient.
+func isModuleLoader(checker *shimchecker.Checker, expression *shimast.Node) bool {
+  if checker == nil || expression == nil {
+    return false
+  }
+  symbol := checker.GetSymbolAtLocation(expression)
+  if symbol == nil {
+    return true
+  }
+  return symbol.Flags&shimast.SymbolFlagsAlias == 0 &&
+    symbol.ValueDeclaration != nil &&
+    symbol.ValueDeclaration.Flags&shimast.NodeFlagsAmbient != 0
 }
 
 // rewrite resolves specifier from fromSource using the tsconfig paths table and
