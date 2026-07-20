@@ -51,10 +51,11 @@ Batching follows these rules:
 The agent assigned an admitted batch reserves its surface before installing dependencies or writing implementation code:
 
 1. Create one isolated worktree and topic branch.
-2. Create one implementation-free claim commit with `git commit --allow-empty`.
-3. Push the branch, start its exact-SHA cancellation record, and immediately open a draft claim pull request that overviews the batch scope and links every batched issue. This is an empty reservation pull request, not a request to wait for setup or validation.
-4. Start the pull-request-triggered cancellation record, mark verification as pending, and record the batch, worktree, branch, issues, pull request, and cancellation records in the campaign knowledge base.
-5. Start `pnpm install` asynchronously in the worktree, then begin the source, consequence-surface, and test-design work immediately.
+2. Create `<worktree>/.campaign-tmp/go-cache` and `<worktree>/.campaign-tmp/go-tmp`. Every Go command for that batch must set `GOCACHE` and `GOTMPDIR` to those exact directories. Do not reuse the user's global Go cache or temp directory for campaign-only build assets.
+3. Create one implementation-free claim commit with `git commit --allow-empty`.
+4. Push the branch, start its exact-SHA cancellation record, and immediately open a draft claim pull request that overviews the batch scope and links every batched issue. This is an empty reservation pull request, not a request to wait for setup or validation.
+5. Start the pull-request-triggered cancellation record, mark verification as pending, and record the batch, worktree, branch, issues, pull request, cancellation records, and scoped Go temporary paths in the campaign knowledge base.
+6. Start `pnpm install` asynchronously in the worktree, then begin the source, consequence-surface, and test-design work immediately.
 
 The draft pull request reserves the whole batch before code is written, preventing another contributor from starting overlapping work.
 
@@ -100,8 +101,11 @@ After a pull request merges:
 2. Confirm the worktree has no unpushed or uncommitted work worth preserving.
 3. Run `git worktree remove --force <path>` so ignored build artifacts are deleted too.
 4. Verify the directory no longer exists.
-5. Run `git worktree prune` and delete the local topic branch.
-6. Confirm `git worktree list --porcelain` contains no record of the removed path.
+5. Verify `<path>/.campaign-tmp/go-cache` and `<path>/.campaign-tmp/go-tmp` are gone with the worktree. If the batch recorded another exact Go temporary path, first confirm no command still refers to it, remove only that path, and verify it no longer exists.
+6. Run `git worktree prune` and delete the local topic branch.
+7. Confirm `git worktree list --porcelain` contains no record of the removed path.
+
+Never recursively clean a user's shared `GOCACHE`, `GOMODCACHE`, `GOPATH`, or system temp directory. They can contain another worktree's active build inputs. A worktree that Git has deregistered but failed to delete is still unfinished: after confirming it has no `.git` metadata, no live process, and no retained evidence, remove that exact directory and its recorded scoped Go temporary paths, then verify their absence.
 
 If an assignment ends without a merge, first record retained evidence and confirm the remaining contents are disposable. Then remove its worktree and local branch by the same standard.
 
