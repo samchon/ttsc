@@ -172,9 +172,53 @@ func sameCandidatePath(left, right string, caseSensitive bool) bool {
   left = filepath.Clean(left)
   right = filepath.Clean(right)
   if caseSensitive {
-    return left == right
+    if left == right {
+      return true
+    }
+  } else if strings.EqualFold(left, right) {
+    return true
   }
-  return strings.EqualFold(left, right)
+  return sameExistingPath(left, right)
+}
+
+// sameExistingPath reports whether two spellings name the same existing
+// filesystem object.
+//
+// A spelling comparison is not enough to locate the compiler's selected target
+// among the enumerated candidates. The compiler resolves a `node_modules`
+// package through the real path, so its `ResolvedFileName` can arrive
+// symlink-resolved — and on Windows expanded out of an 8.3 short name such as
+// `RUNNER~1` — while every candidate carries the importing file's spelling.
+// When the winner cannot be found, ModuleResolutionPredecessors discards the
+// whole predecessor list, and a resident session then watches nothing for that
+// import: a superseding candidate can appear and no consumer notices.
+//
+// Only a candidate that exists can be the winner, so the cheap `os.Stat` on
+// left fails first for the speculative majority that does not exist yet.
+func sameExistingPath(left, right string) bool {
+  leftInfo, err := os.Stat(left)
+  if err != nil {
+    return false
+  }
+  rightInfo, err := os.Stat(right)
+  if err != nil {
+    return false
+  }
+  return os.SameFile(leftInfo, rightInfo)
+}
+
+// reachedWalkStop reports whether an upward `node_modules` walk has arrived at
+// the directory it must not pass. The walk starts from the importing file's
+// directory as the compiler spells it and stops at the project root as the
+// caller spells it, and the two need not agree character for character on a
+// case-insensitive or short-name-bearing filesystem. A missed stop walks every
+// remaining ancestor up to the volume root and watches probes the compiler
+// would never consult.
+func reachedWalkStop(current, stop string) bool {
+  if current == filepath.Clean(stop) {
+    return true
+  }
+  return sameExistingPath(current, stop)
 }
 
 // FileCandidates lists the ordered file and directory probes for base. The
@@ -276,7 +320,7 @@ func TypeReferenceCandidates(configs []*tsoptions.ParsedCommandLine, directory, 
   }
   for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
     candidates = append(candidates, FileCandidates(filepath.Join(current, "node_modules", "@types", filepath.FromSlash(name)))...)
-    if current == filepath.Clean(cwd) || filepath.Dir(current) == current {
+    if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
       return candidates
     }
   }
@@ -302,7 +346,7 @@ func ModuleResolutionCandidates(configs []*tsoptions.ParsedCommandLine, director
     for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
       fromManifest, _ := packageManifestCandidates(current, specifier, context)
       candidates = append(candidates, fromManifest...)
-      if current == filepath.Clean(cwd) || filepath.Dir(current) == current {
+      if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
         return candidates
       }
     }
@@ -319,7 +363,7 @@ func ModuleResolutionCandidates(configs []*tsoptions.ParsedCommandLine, director
     }
     candidates = append(candidates, filepath.Join(root, "package.json"))
     candidates = append(candidates, fromManifest...)
-    if current == filepath.Clean(cwd) || filepath.Dir(current) == current {
+    if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
       break
     }
   }
