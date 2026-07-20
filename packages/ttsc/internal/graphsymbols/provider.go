@@ -458,7 +458,9 @@ func firstCodeOffset(text string, pos int) int {
 }
 
 // offsetToPosition converts a byte offset into an LSP Position (0-based line,
-// UTF-16 code-unit column).
+// UTF-16 code-unit column). The column unit is the session's negotiated
+// PositionEncodingKind, which the proxy's constrainInitializePositionEncoding
+// pins to UTF-16 for every ttscserver session.
 func offsetToPosition(text string, offset int) lspserver.LSPPosition {
   if offset < 0 {
     offset = 0
@@ -495,9 +497,11 @@ func offsetToPosition(text string, offset int) lspserver.LSPPosition {
   return lspserver.LSPPosition{Line: line, Character: character}
 }
 
-// lspPositionToOffset converts an LSP Position (0-based line, UTF-16 column)
-// into a byte offset. It returns (offset, false) when the position points past
-// the end of the text so the caller can treat it as "no symbol here".
+// lspPositionToOffset converts an LSP Position (0-based line, UTF-16 column —
+// the encoding the proxy's constrainInitializePositionEncoding pins for every
+// ttscserver session) into a byte offset. It returns (offset, false) when the
+// position points past the end of the text so the caller can treat it as "no
+// symbol here".
 func lspPositionToOffset(text string, pos lspserver.LSPPosition) (int, bool) {
   if pos.Line < 0 || pos.Character < 0 {
     return 0, false

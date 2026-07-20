@@ -38,6 +38,13 @@ const (
   methodReferences         = "textDocument/references"
   methodCompletion         = "textDocument/completion"
   methodCompletionResolve  = "completionItem/resolve"
+
+  // methodDidChangeWatchedFiles is the only notification an editor sends for a
+  // file it does not have open: a tsconfig edit, a generated file, a branch
+  // switch. The repository's own VS Code client registers a watcher for
+  // `**/{tsconfig,jsconfig}*.json`, which its documentSelector excludes, so
+  // those edits can reach ttsc through no other notification.
+  methodDidChangeWatchedFiles = "workspace/didChangeWatchedFiles"
 )
 
 // formatDocumentCommand is the ttsc-owned workspace command that the lint
@@ -260,7 +267,7 @@ func (p *Proxy) pumpEditorToUpstream(_ context.Context) error {
     if handled {
       continue
     }
-    if err := p.writeUpstreamFrame(body); err != nil {
+    if err := p.writeUpstreamFrame(constrainInitializePositionEncoding(env, body)); err != nil {
       return err
     }
   }
@@ -314,6 +321,13 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
       p.evictDocumentText(env)
       p.clearDocumentDiagnostics(env)
     }
+  case methodDidChangeWatchedFiles:
+    if env.IsNotification() {
+      // Refresh before the notification reaches tsgo, so no read that races
+      // this frame can still be answered from the pre-change snapshot. The
+      // notification itself keeps flowing upstream.
+      p.invalidateForWatchedFileChanges(env)
+    }
   case methodExecuteCommand:
     if env.IsRequest() {
       return p.tryExecuteCommand(env)
@@ -346,6 +360,92 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     p.forgetCancelledRequest(env)
   }
   return false, nil
+}
+
+// positionEncodingUTF16 is the one LSP PositionEncodingKind ttscserver speaks.
+//
+// LSP 3.17 negotiates the encoding of `Position.character` per session: the
+// client offers `general.positionEncodings`, the server picks one, and every
+// position on that session is counted in the winner. tsgo selects `utf-8`
+// whenever a client offers it, but ttsc computes positions of its own — the
+// incremental buffer cache, plugin completion, the lint sidecar's diagnostic,
+// fix, suggestion and formatting ranges, and the graph symbol provider — and
+// every one of those counts UTF-16 code units. Because the sidecar protocol
+// carries no encoding field, a session negotiated as `utf-8` would put tsgo's
+// half of each response on byte columns and ttsc's half on UTF-16 columns.
+//
+// ttscserver therefore settles the negotiation instead of tracking it, and
+// constrains the session to UTF-16 (see constrainInitializePositionEncoding).
+// UTF-16 is the LSP default and the encoding every conforming client supports,
+// so no client loses a capability; what is given up is tsgo's byte-oriented fast
+// path, which costs one line scan per converted position inside tsgo.
+const positionEncodingUTF16 = "utf-16"
+
+// constrainInitializePositionEncoding narrows the client's position-encoding
+// offer to UTF-16 before the initialize request is forwarded upstream, so the
+// encoding tsgo selects — and therefore the one it advertises back through the
+// proxy to the client — is the encoding every ttsc-owned conversion counts.
+//
+// It is deliberately a no-op for any envelope that is not an initialize request,
+// for a client that offers no encoding list (the LSP default is already UTF-16),
+// and for a client that offers UTF-16 alone: those sessions are forwarded byte
+// for byte as before. A client offering anything else has its list replaced
+// rather than filtered, so no third encoding can be selected either.
+func constrainInitializePositionEncoding(env Envelope, body []byte) []byte {
+  if env.Method != methodInitialize || !env.IsRequest() || len(env.Params) == 0 {
+    return body
+  }
+  params := map[string]json.RawMessage{}
+  if json.Unmarshal(env.Params, &params) != nil {
+    return body
+  }
+  capabilities := map[string]json.RawMessage{}
+  if raw, ok := params["capabilities"]; !ok || json.Unmarshal(raw, &capabilities) != nil {
+    return body
+  }
+  general := map[string]json.RawMessage{}
+  if raw, ok := capabilities["general"]; !ok || json.Unmarshal(raw, &general) != nil {
+    return body
+  }
+  raw, ok := general["positionEncodings"]
+  if !ok {
+    return body
+  }
+  var offered []string
+  if json.Unmarshal(raw, &offered) != nil {
+    return body
+  }
+  if len(offered) == 1 && offered[0] == positionEncodingUTF16 {
+    return body
+  }
+  constrained, err := json.Marshal([]string{positionEncodingUTF16})
+  if err != nil {
+    return body
+  }
+  // Re-encode only the subtree that changed: every sibling value stays the
+  // client's original bytes, so a large or unusually shaped initialize payload
+  // reaches tsgo exactly as it was sent.
+  general["positionEncodings"] = constrained
+  encodedGeneral, err := json.Marshal(general)
+  if err != nil {
+    return body
+  }
+  capabilities["general"] = encodedGeneral
+  encodedCapabilities, err := json.Marshal(capabilities)
+  if err != nil {
+    return body
+  }
+  params["capabilities"] = encodedCapabilities
+  encodedParams, err := json.Marshal(params)
+  if err != nil {
+    return body
+  }
+  env.Params = encodedParams
+  encoded, err := json.Marshal(env)
+  if err != nil {
+    return body
+  }
+  return encoded
 }
 
 func (p *Proxy) rememberInitializeRequest(env Envelope) {
@@ -1046,6 +1146,19 @@ func (p *Proxy) publishPluginDiagnosticsForDidOpen(env Envelope) error {
     return nil
   }
   p.markDocumentClean(params.TextDocument.URI)
+  // A clean open is a disk-snapshot boundary, not merely a diagnostics trigger.
+  // The buffer equalling disk right now says nothing about when the warm Program
+  // and the symbol graph last read that file: the document may have been closed
+  // across a branch switch, a `git pull`, a generator run, or an edit in a second
+  // editor. Refresh both compiler-backed caches for this document before the
+  // asynchronous Diagnostics call below is scheduled, so the published findings
+  // describe the text the editor just opened.
+  //
+  // The dirty branch above deliberately does not invalidate: it publishes an
+  // empty set and reports nothing until the buffer reaches disk, so there is no
+  // stale answer to prevent.
+  p.invalidateSymbolProvider()
+  p.invalidateResidentPluginsForURIs(params.TextDocument.URI)
   generation, projectGeneration := p.nextDiagnosticsGenerations(params.TextDocument.URI)
   go p.publishMergedPluginDiagnostics(params.TextDocument.URI, params.TextDocument.Version, false, generation, projectGeneration)
   return nil
@@ -1310,11 +1423,13 @@ type lspRangeWire struct {
 
 // lspPositionToByteOffset converts an LSP Position into a byte offset into text.
 //
-// LSP Position.character is a UTF-16 code-unit offset (not a byte or rune
-// offset): a rune in the astral planes (>= U+10000) counts as two UTF-16 code
-// units. The walk advances line by line over '\n' and '\r\n' endings to the
-// target line, then advances `character` UTF-16 code units within that line and
-// returns the corresponding byte index.
+// LSP Position.character is counted in the session's negotiated
+// PositionEncodingKind, which constrainInitializePositionEncoding pins to UTF-16
+// for every ttscserver session — so it is a UTF-16 code-unit offset here, not a
+// byte or rune offset: a rune in the astral planes (>= U+10000) counts as two
+// UTF-16 code units. The walk advances line by line over '\n' and '\r\n' endings
+// to the target line, then advances `character` UTF-16 code units within that
+// line and returns the corresponding byte index.
 //
 // Decision on out-of-range positions: when line/character point past the end of
 // the text the function returns (len, false) rather than clamping — the caller
@@ -1897,10 +2012,7 @@ func (p *Proxy) invalidateSymbolProvider() {
 // pluginCodeActionKinds uses one: a PluginSource without a resident daemon
 // (NullPluginSource, or one built before this) is simply unaffected.
 func (p *Proxy) invalidateResidentPlugins(env Envelope) {
-  type residentInvalidator interface {
-    InvalidateResidentPrograms(...string)
-  }
-  source, ok := p.source.(residentInvalidator)
+  source, ok := p.residentInvalidator()
   if !ok {
     return
   }
@@ -1914,6 +2026,124 @@ func (p *Proxy) invalidateResidentPlugins(env Envelope) {
     return
   }
   source.InvalidateResidentPrograms()
+}
+
+// residentInvalidator is the optional capability a PluginSource exposes to
+// refresh its warm compiler state. Optional-interface assertion for the same
+// reason pluginCodeActionKinds uses one: a PluginSource without a resident
+// daemon (NullPluginSource, or one built before this) is simply unaffected.
+type residentInvalidator interface {
+  InvalidateResidentPrograms(...string)
+}
+
+func (p *Proxy) residentInvalidator() (residentInvalidator, bool) {
+  source, ok := p.source.(residentInvalidator)
+  return source, ok
+}
+
+// invalidateResidentPluginsForURIs names the documents that changed on disk so
+// the daemon updates exactly those files incrementally. Calling it with no URI
+// is the deliberate full-reload request for a change the host cannot localize.
+func (p *Proxy) invalidateResidentPluginsForURIs(uris ...string) {
+  if source, ok := p.residentInvalidator(); ok {
+    source.InvalidateResidentPrograms(uris...)
+  }
+}
+
+// LSP FileChangeType. Only `changed` names an edit to a file whose place in the
+// project is unchanged; created and deleted both reshape the root set, which a
+// per-file UpdateProgram cannot express.
+const (
+  fileChangeTypeCreated = 1
+  fileChangeTypeChanged = 2
+  fileChangeTypeDeleted = 3
+)
+
+// invalidateForWatchedFileChanges refreshes both compiler-backed caches for a
+// workspace/didChangeWatchedFiles batch, which is the only notification carrying
+// an on-disk change to a file the editor does not have open.
+//
+// A batch the proxy can localize — every entry a plain `changed` event on a file
+// that is not project configuration — travels as changed URIs so the daemon
+// re-parses just those files. Anything else drops the warm Program wholesale:
+// a created or deleted file changes the root set, and a tsconfig/jsconfig edit
+// changes the compiler options and the file selection, neither of which a
+// per-file update can express. A batch the proxy cannot decode is treated the
+// same conservative way, because an unread change is indistinguishable from an
+// unlocalizable one.
+func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) {
+  var params struct {
+    Changes []struct {
+      URI  string `json:"uri"`
+      Type *int   `json:"type"`
+    } `json:"changes"`
+  }
+  if len(env.Params) == 0 || json.Unmarshal(env.Params, &params) != nil {
+    p.invalidateSymbolProvider()
+    p.invalidateResidentPluginsForURIs()
+    return
+  }
+  if len(params.Changes) == 0 {
+    // The editor reported no change; dropping warm state here would throw away
+    // the residency the daemon exists to provide for nothing.
+    return
+  }
+  uris := make([]string, 0, len(params.Changes))
+  localizable := true
+  for _, change := range params.Changes {
+    if !watchedFileChangeIsLocalizable(change.URI, change.Type) {
+      localizable = false
+      continue
+    }
+    uris = append(uris, change.URI)
+  }
+  p.invalidateSymbolProvider()
+  if !localizable || len(uris) == 0 {
+    p.invalidateResidentPluginsForURIs()
+    return
+  }
+  p.invalidateResidentPluginsForURIs(uris...)
+}
+
+// watchedFileChangeIsLocalizable reports whether one watched-file entry can be
+// delivered to the resident daemon as a changed URI, rather than forcing it to
+// drop the warm Program and reload.
+func watchedFileChangeIsLocalizable(uri string, changeType *int) bool {
+  if uri == "" || changeType == nil {
+    return false
+  }
+  switch *changeType {
+  case fileChangeTypeChanged:
+    // A configuration edit can change the compiler options and the selected root
+    // files at once, which is not a single-file update however it is spelled.
+    return !isProjectConfigURI(uri)
+  case fileChangeTypeCreated, fileChangeTypeDeleted:
+    // The root set moved, which tsgo's per-file UpdateProgram cannot express.
+    return false
+  default:
+    // A FileChangeType outside the enum LSP defines.
+    return false
+  }
+}
+
+// isProjectConfigURI reports whether uri names a TypeScript project
+// configuration file — `tsconfig.json`, `jsconfig.json`, and the
+// `tsconfig.<name>.json` spellings the VS Code client watches. Such an edit can
+// change the compiler options and the root file set at once, so it is never
+// localizable to a single source file.
+func isProjectConfigURI(uri string) bool {
+  path := uri
+  if parsed, err := url.Parse(uri); err == nil && parsed.Path != "" {
+    path = parsed.Path
+  }
+  name := strings.ToLower(path)
+  if index := strings.LastIndexAny(name, "/\\"); index >= 0 {
+    name = name[index+1:]
+  }
+  if !strings.HasSuffix(name, ".json") {
+    return false
+  }
+  return strings.HasPrefix(name, "tsconfig") || strings.HasPrefix(name, "jsconfig")
 }
 
 // shutdownResidentPlugins kills any resident plugin daemons on server teardown.

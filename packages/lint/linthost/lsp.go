@@ -1405,6 +1405,17 @@ func filePathFromURI(raw string) (string, error) {
   return abs, nil
 }
 
+// byteOffsetToLSPPosition converts a byte offset in the linted file into the LSP
+// Position the editor is given for it: a 0-based line and a column counted in
+// UTF-16 code units.
+//
+// UTF-16 is the LSP default, and it is also the only encoding a ttscserver
+// session ever negotiates: the proxy narrows the client's
+// `general.positionEncodings` offer to UTF-16 before the initialize request
+// reaches tsgo (constrainInitializePositionEncoding in
+// packages/ttsc/internal/lspserver/lsp_proxy.go), so tsgo's own ranges and the
+// ranges this sidecar emits for the same line agree. The sidecar protocol
+// carries no encoding field precisely because there is nothing to negotiate.
 func byteOffsetToLSPPosition(text string, offset int) lspPosition {
   if offset < 0 {
     offset = 0
