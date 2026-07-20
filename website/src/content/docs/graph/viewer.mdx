@@ -24,7 +24,7 @@ npx @ttsc/graph view
 
 `view` builds your project's graph, reduces it, and opens this viewer in your browser from a local port. Nothing leaves your machine.
 
-It resolves the project from the working directory and `tsconfig.json` by default; `--cwd`, `--tsconfig`, `--port`, `--max-nodes`, and `--no-open` override that. Like the MCP server, it needs `ttsc` installed so the native `ttscgraph` binary is present.
+It resolves the project from the working directory and `tsconfig.json` by default; `--cwd`, `--tsconfig`, `--port`, `--max-nodes`, and `--no-open` override that. `--port` accepts an integer from 0 through 65,535, and `--max-nodes` accepts a positive integer. A missing, malformed, or unknown option stops before the graph is built. Like the MCP server, it needs `ttsc` installed so the native `ttscgraph` binary is present.
 
 ### Export the graph as JSON
 

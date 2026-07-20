@@ -28,11 +28,21 @@ export function createServer(
   graph: TtscGraphSource,
   version: string,
 ): McpServer {
-  void version;
-  return createMcpServer(
+  const server = createMcpServer(
     typia.llm.controller<ITtscGraphApplication>(
       "ttsc-graph",
       new TtscGraphApplication(graph),
     ),
   );
+  // @typia/mcp 13.1.0 exposes no class-controller version option. The MCP SDK
+  // keeps the initialize implementation on its public inner Server, so update
+  // that already-constructed implementation before any transport connects.
+  const inner = server.server as unknown as {
+    _serverInfo?: { version: string };
+  };
+  if (inner._serverInfo === undefined) {
+    throw new Error("@ttsc/graph: MCP SDK omitted the server implementation");
+  }
+  inner._serverInfo.version = version;
+  return server;
 }
