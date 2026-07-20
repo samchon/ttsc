@@ -50,7 +50,7 @@ func TestLSPHintsRefreshScheduledByEditorEvents(t *testing.T) {
     `{"jsonrpc":"2.0","method":"workspace/didChangeWatchedFiles"}`,
   }
   for index, body := range refreshing {
-    handleEditorFrame(t, proxy, body)
+    handleHintRefreshEditorFrame(t, proxy, body)
     if got := source.refreshes.Load(); got != int64(index+1) {
       t.Fatalf("after %s the source had been refreshed %d times, want %d", body, got, index+1)
     }
@@ -67,7 +67,7 @@ func TestLSPHintsRefreshScheduledByEditorEvents(t *testing.T) {
     `{"jsonrpc":"2.0","id":7,"method":"textDocument/completion","params":{"textDocument":{"uri":"file:///a.ts"},"position":{"line":0,"character":0}}}`,
   }
   for _, body := range quiet {
-    handleEditorFrame(t, proxy, body)
+    handleHintRefreshEditorFrame(t, proxy, body)
   }
   if got := source.refreshes.Load(); got != int64(len(refreshing)) {
     t.Fatalf(
@@ -78,7 +78,7 @@ func TestLSPHintsRefreshScheduledByEditorEvents(t *testing.T) {
   }
 }
 
-func handleEditorFrame(t *testing.T, proxy *Proxy, body string) {
+func handleHintRefreshEditorFrame(t *testing.T, proxy *Proxy, body string) {
   t.Helper()
   env, err := ParseEnvelope([]byte(body))
   if err != nil {
