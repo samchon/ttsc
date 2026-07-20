@@ -7,7 +7,7 @@ const args = process.argv.slice(2);
 const sourceMode = args.includes("--source");
 const targets = args.filter((arg) => !arg.startsWith("--"));
 const failures = [];
-const baseExecutablePaths = [
+const posixBaseExecutablePaths = [
   "bin/ttsc",
   "bin/ttscserver",
   "bin/ttscgraph",
@@ -19,7 +19,7 @@ const minimumExecutablePaths = [
   "bin/go/bin/go",
   "bin/go/bin/gofmt",
 ];
-const requiredExecutableConfigPaths = baseExecutablePaths.map(
+const requiredExecutableConfigPaths = posixBaseExecutablePaths.map(
   (rel) => `./${rel}`,
 );
 
@@ -64,21 +64,25 @@ function inspectPackageDir(dir) {
   const manifestPath = path.join(dir, "package.json");
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   const platform = platformFromPackageName(manifest.name);
-  if (platform === null || platform.os === "win32") return;
+  if (platform === null) return;
 
-  const executablePaths = requiredExecutablePaths(dir);
-  inspectExecutablePublishConfig(manifest, executablePaths);
+  const executablePaths = requiredExecutablePaths(dir, platform);
+  if (platform.os !== "win32") {
+    inspectExecutablePublishConfig(manifest, executablePaths);
+  }
   for (const rel of executablePaths) {
     const file = path.join(dir, rel);
     if (!fs.existsSync(file)) {
       failures.push(`${manifest.name}: missing executable ${rel}`);
       continue;
     }
-    const mode = fs.statSync(file).mode & 0o777;
-    if (!hasExecutableMode(mode)) {
-      failures.push(
-        `${manifest.name}: ${rel} has mode ${formatMode(mode)}, expected executable mode`,
-      );
+    if (platform.os !== "win32") {
+      const mode = fs.statSync(file).mode & 0o777;
+      if (!hasExecutableMode(mode)) {
+        failures.push(
+          `${manifest.name}: ${rel} has mode ${formatMode(mode)}, expected executable mode`,
+        );
+      }
     }
   }
 }
@@ -92,16 +96,20 @@ function inspectTarball(file) {
   }
   const manifest = JSON.parse(packageJson.content.toString("utf8"));
   const platform = platformFromPackageName(manifest.name);
-  if (platform === null || platform.os === "win32") return;
+  if (platform === null) return;
 
-  for (const rel of requiredExecutablePathsFromEntries(entries, manifest)) {
+  for (const rel of requiredExecutablePathsFromEntries(
+    entries,
+    manifest,
+    platform,
+  )) {
     const name = `package/${rel}`;
     const entry = entries.get(name);
     if (!entry) {
       failures.push(`${manifest.name}: tarball missing executable ${rel}`);
       continue;
     }
-    if (!hasExecutableMode(entry.mode)) {
+    if (platform.os !== "win32" && !hasExecutableMode(entry.mode)) {
       failures.push(
         `${manifest.name}: tarball ${rel} has mode ${formatMode(entry.mode)}, expected executable mode`,
       );
@@ -135,8 +143,9 @@ function inspectExecutablePublishConfig(manifest, executablePaths) {
   }
 }
 
-function requiredExecutablePaths(packageDir) {
-  const paths = [...baseExecutablePaths];
+function requiredExecutablePaths(packageDir, platform) {
+  const paths = baseExecutablePaths(platform);
+  if (platform.os === "win32") return paths;
   const toolDir = path.join(packageDir, "bin", "go", "pkg", "tool");
   if (fs.existsSync(toolDir)) {
     for (const file of walkFiles(toolDir)) {
@@ -146,9 +155,10 @@ function requiredExecutablePaths(packageDir) {
   return paths;
 }
 
-function requiredExecutablePathsFromEntries(entries, manifest) {
+function requiredExecutablePathsFromEntries(entries, manifest, platform) {
+  if (platform.os === "win32") return baseExecutablePaths(platform);
   const configured = configuredExecutablePaths(manifest);
-  const paths = configured ?? [...baseExecutablePaths];
+  const paths = configured ?? baseExecutablePaths(platform);
   for (const rel of minimumExecutablePaths) {
     if (!paths.includes(rel)) paths.push(rel);
   }
@@ -163,6 +173,11 @@ function requiredExecutablePathsFromEntries(entries, manifest) {
     }
   }
   return paths;
+}
+
+function baseExecutablePaths(platform) {
+  const suffix = platform.os === "win32" ? ".exe" : "";
+  return posixBaseExecutablePaths.map((rel) => `${rel}${suffix}`);
 }
 
 function configuredExecutablePaths(manifest) {
