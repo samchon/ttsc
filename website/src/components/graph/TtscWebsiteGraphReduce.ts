@@ -81,8 +81,9 @@ function relativize(abs: string, root: string | null): string {
 }
 
 /**
- * A node id is `<path>#<name>:<kind>`; rewrite only the path prefix so ids stay
- * a stable key and every edge endpoint (also an id) relativizes identically.
+ * A node id quotes `#` and `\\` inside its `<path>#<name>:<kind>` components.
+ * Rewrite only the decoded path so ids stay stable keys and every edge endpoint
+ * (also an id) relativizes identically.
  */
 function rewriteId(id: string, root: string | null): string {
   const hash = graphNodeIdHash(id);
