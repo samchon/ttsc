@@ -48,6 +48,19 @@ export namespace ITtscCompilerTransformation {
 
     /** The project tsconfig followed by its `extends` ancestry. */
     configs: string[];
+
+    /**
+     * Resolution candidates that would outrank the selected target, keyed by
+     * importing file. The compiler already resolved the import to a graph edge;
+     * a listed path can be absent now or can be an existing unsuccessful probe,
+     * and its appearance or change can alter that edge without editing the
+     * importer or a recorded file.
+     *
+     * Hosts watch and hash these paths in addition to realized graph members.
+     * A candidate strictly below the selected target is deliberately absent:
+     * its creation cannot change resolution and must not invalidate a cache.
+     */
+    candidates?: Record<string, string[]>;
   }
 
   /** Successful source-to-source transformation result. */

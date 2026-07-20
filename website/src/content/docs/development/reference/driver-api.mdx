@@ -83,6 +83,7 @@ for _, file := range prog.SourceFiles() {
 - `Edges` maps each file to its direct resolved references — imports, re-exports, `/// <reference>` targets, type reference directives, type-only edges included — exactly the per-file `referencedMap` entry tsgo's own incremental engine stores in `tsbuildinfo`.
 - `Globals` lists the files contributing to the global scope (ambient declaration files, script files, global augmentations, `typeRoots` entries).
 - `Configs` lists the project tsconfig followed by its `extends` ancestry.
+- `Candidates` maps each importing file to resolution probes that would outrank its selected module target. Bundlers watch and hash these paths so creating or changing one reloads an otherwise unchanged program. Lower-priority paths are excluded.
 
 Keys use `TransformOutputKey(cwd, fileName)` — the same convention as the envelope's `typescript` map (project-relative slash paths, absolute slash paths outside the project root) — so consumers can join the sections by key. The embedded `bundled:///` standard library is excluded; it is not a filesystem input.
 
