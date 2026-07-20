@@ -1,12 +1,14 @@
 import {
   assert,
-  child_process,
   commonJsProject,
   fs,
-  nativeBinary,
   path,
-  tsgoBinary,
   ttscBin,
+} from "../../internal/compiler-corpus";
+import {
+  child_process,
+  nativeBinary,
+  tsgoBinary,
 } from "../../internal/toolchain";
 
 /**
