@@ -67,6 +67,13 @@ export interface ITtscLintSecurityRules {
    * Detect `new Buffer(input)` constructions with non-literal input —
    * historical source of allocation-disclosure bugs.
    *
+   * The three successors — `Buffer.from`, `Buffer.alloc`, `Buffer.allocUnsafe`
+   * — are offered as editor suggestions and none is applied automatically:
+   * which one is correct depends on the argument, which this rule fires
+   * precisely because it cannot read. The rule stays untagged because its
+   * upstream-compatible name match also admits a user-defined constructor named
+   * `Buffer`.
+   *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-new-buffer.md
    */
   "security/detect-new-buffer"?: TtscLintRuleSetting;
@@ -137,6 +144,12 @@ export interface ITtscLintSecurityRules {
    *
    * Tokens, session ids, and key material must use `crypto.randomBytes` (or Web
    * Crypto's `getRandomValues`) instead.
+   *
+   * The member name alone is rewritten to `randomBytes`. The edit is automatic
+   * when the object is proven to be an import or require of Node `crypto`, and
+   * an editor suggestion otherwise, because a local application object can also
+   * be named `crypto`. That name-based diagnostic surface also keeps the rule
+   * untagged.
    *
    * @reference https://github.com/eslint-community/eslint-plugin-security/blob/main/docs/rules/detect-pseudoRandomBytes.md
    */
