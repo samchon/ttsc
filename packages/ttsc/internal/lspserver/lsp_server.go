@@ -148,7 +148,10 @@ func defaultUpstreamRunner(ctx context.Context, in io.Reader, out io.Writer, opt
 // RunLSPServer starts an upstream `tsgo --lsp --stdio` process and the byte-level
 // proxy, blocking until either side returns. The first non-graceful
 // error wins; ErrFrameClosed and context cancellation are treated as
-// clean shutdown so editor close sequences do not look like crashes.
+// clean shutdown so editor close sequences do not look like crashes. Once the
+// editor has sent `exit`, an upstream runner failure joins that set: the
+// upstream is required to terminate at that point, so its status no longer
+// describes the session (see Proxy.editorRequestedExit).
 //
 // The lifecycle is:
 //
@@ -232,6 +235,14 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
   }()
   wg.Wait()
   proxy.shutdownResidentPlugins()
+
+  if proxy.editorRequestedExit() {
+    // The editor asked the server to quit, so the upstream process ending is
+    // the point rather than a fault. See Proxy.editorRequestedExit for why its
+    // status is not a reliable signal at that moment. Proxy errors still
+    // surface: those are ttsc's own.
+    serverErr = nil
+  }
 
   for _, err := range []error{serverErr, proxyErr} {
     if err == nil {

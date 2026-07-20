@@ -14,6 +14,10 @@ import { resolveTtscserverBinary } from "../../../../packages/ttsc/lib/launcher/
  * for editors), drives a real stdio handshake, and exposes typed
  * request/notification helpers so individual feature files stay focused on the
  * assertion.
+ *
+ * It answers server→client requests as an editor does; see
+ * {@link SERVER_REQUEST_RESPONDERS} for why that is a correctness requirement
+ * rather than politeness.
  */
 export class TtscserverClient {
   private readonly child: ChildProcessWithoutNullStreams;
@@ -28,6 +32,7 @@ export class TtscserverClient {
     }
   >();
   private notificationListeners = new Map<string, ((params: any) => void)[]>();
+  private serverRequests: string[] = [];
   private nextId = 1;
   private exited: Promise<{
     code: number | null;
@@ -82,6 +87,12 @@ export class TtscserverClient {
     this.child.stderr.on("data", (chunk: Buffer) => {
       // Drain stderr so upstream tsgo logs do not block the pipe.
       this.stderr = (this.stderr + chunk.toString("utf8")).slice(-65536);
+    });
+    this.child.stdin.on("error", () => {
+      // A write that loses the race with the child's exit (EPIPE) must not
+      // become an uncaught exception that takes down the whole suite process.
+      // A dead child is already reported through the `close` handler below,
+      // which rejects every pending request with the collected stderr.
     });
     this.child.stdout.on("data", (chunk: Buffer) => this.onData(chunk));
     this.exited = new Promise((resolve) => {
@@ -225,6 +236,17 @@ export class TtscserverClient {
     return this.stderr;
   }
 
+  /**
+   * Methods of the server→client requests received so far, in arrival order.
+   * Tests use it to pin that the handshake the upstream server blocks on
+   * actually happened rather than inferring it from a feature that worked. A
+   * request that arrives after the shutdown sequence closed stdin is recorded
+   * here too, even though there is no longer anyone to answer it.
+   */
+  serverRequestMethods(): readonly string[] {
+    return [...this.serverRequests];
+  }
+
   forceClose(): void {
     if (!this.child.killed) {
       this.child.stdin.end();
@@ -286,8 +308,7 @@ export class TtscserverClient {
 
   private dispatch(message: any): void {
     if (typeof message.id !== "undefined" && message.method) {
-      // Server→client request. ttscserver currently sends no such
-      // requests we need to answer for these tests; ignore.
+      this.answerServerRequest(message);
       return;
     }
     if (typeof message.id !== "undefined") {
@@ -314,6 +335,53 @@ export class TtscserverClient {
     }
   }
 
+  /**
+   * Answer a request the server sent to its client.
+   *
+   * Every LSP client owes a response to every server→client request, and this
+   * one is load-bearing rather than a courtesy: TypeScript-Go issues
+   * `client/registerCapability` from inside its `initialized` handler, which
+   * runs on its dispatch loop, and it blocks there until the reply arrives. A
+   * client that drops the request therefore still sees `initialize` answered
+   * and still receives everything ttscserver publishes on its own, while every
+   * request the proxy forwards — hover, completion, symbols — queues behind a
+   * dispatch loop that never advances again (#863).
+   */
+  private answerServerRequest(message: {
+    id: number | string;
+    method: string;
+    params?: any;
+  }): void {
+    this.serverRequests.push(message.method);
+    if (this.child.stdin.writableEnded || this.child.stdin.destroyed) {
+      // The shutdown sequence already closed the write side. tsgo keeps
+      // registering file watchers in the background, so a late request can
+      // still arrive here, and there is no longer anyone waiting on the answer.
+      return;
+    }
+    const responder =
+      SERVER_REQUEST_RESPONDERS.get(message.method) ?? (() => null);
+    try {
+      this.send({
+        jsonrpc: "2.0",
+        id: message.id,
+        result: responder(message.params),
+      });
+    } catch (error) {
+      // A responder that throws must still unblock the server: a JSON-RPC
+      // error response ends the wait just as a result does, and the failure
+      // stays visible in the message the server logs.
+      this.send({
+        jsonrpc: "2.0",
+        id: message.id,
+        error: {
+          code: -32603,
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  }
+
   private rejectPending(error: Error): void {
     for (const pending of this.pending.values()) {
       if (pending.timer !== undefined) clearTimeout(pending.timer);
@@ -322,6 +390,35 @@ export class TtscserverClient {
     this.pending.clear();
   }
 }
+
+/**
+ * Results for the server→client requests this client knows how to answer,
+ * shaped the way the LSP specification defines each one.
+ *
+ * A method missing from the table is answered with `null`, which is the valid
+ * result for the client requests that carry no payload (the message and
+ * progress lifecycles among them) and, more importantly, keeps an unknown
+ * future request from stalling the server the way an unanswered one would.
+ *
+ * The two entries whose result is not `null` are the ones a `null` would fail
+ * to decode: `workspace/configuration` must return one settings object per
+ * requested item, and `workspace/applyEdit` must report whether the edit was
+ * applied — these tests never apply one, so they decline it truthfully.
+ *
+ * A Map rather than an object literal: the key is a method name straight off
+ * the wire, and an object lookup would resolve `constructor` or `toString` to
+ * an inherited function and answer with whatever it returned.
+ */
+const SERVER_REQUEST_RESPONDERS = new Map<string, (params: any) => unknown>([
+  ["client/registerCapability", () => null],
+  ["client/unregisterCapability", () => null],
+  ["window/workDoneProgress/create", () => null],
+  ["workspace/applyEdit", () => ({ applied: false })],
+  [
+    "workspace/configuration",
+    (params: any) => ((params?.items ?? []) as unknown[]).map(() => ({})),
+  ],
+]);
 
 export async function initializeTtscserverClient(
   client: TtscserverClient,
