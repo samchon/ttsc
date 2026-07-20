@@ -25,6 +25,8 @@ const harnessTests = [
   path.join(__dirname, "ci", "go-test-runners.test.cjs"),
   path.join(__dirname, "ci", "website-compiler-module.test.cjs"),
   path.join(__dirname, "assert-project-layout.test.cjs"),
+  path.join(__dirname, "go-build-cache.test.cjs"),
+  path.join(__dirname, "go-build-cache-builders.test.cjs"),
 ];
 
 // runAll invokes every entry through `spawn` and returns the list that failed.
