@@ -14,6 +14,10 @@ import { resolveTtscserverBinary } from "../../../../packages/ttsc/lib/launcher/
  * for editors), drives a real stdio handshake, and exposes typed
  * request/notification helpers so individual feature files stay focused on the
  * assertion.
+ *
+ * It answers server→client requests as an editor does; see
+ * {@link SERVER_REQUEST_RESPONDERS} for why that is a correctness requirement
+ * rather than politeness.
  */
 export class TtscserverClient {
   private readonly child: ChildProcessWithoutNullStreams;
@@ -28,6 +32,7 @@ export class TtscserverClient {
     }
   >();
   private notificationListeners = new Map<string, ((params: any) => void)[]>();
+  private serverRequests: string[] = [];
   private nextId = 1;
   private exited: Promise<{
     code: number | null;
@@ -225,6 +230,15 @@ export class TtscserverClient {
     return this.stderr;
   }
 
+  /**
+   * Methods of the server→client requests answered so far, in arrival order.
+   * Tests use it to pin that the handshake the upstream server blocks on
+   * actually happened rather than inferring it from a feature that worked.
+   */
+  serverRequestMethods(): readonly string[] {
+    return [...this.serverRequests];
+  }
+
   forceClose(): void {
     if (!this.child.killed) {
       this.child.stdin.end();
@@ -286,8 +300,7 @@ export class TtscserverClient {
 
   private dispatch(message: any): void {
     if (typeof message.id !== "undefined" && message.method) {
-      // Server→client request. ttscserver currently sends no such
-      // requests we need to answer for these tests; ignore.
+      this.answerServerRequest(message);
       return;
     }
     if (typeof message.id !== "undefined") {
@@ -314,6 +327,46 @@ export class TtscserverClient {
     }
   }
 
+  /**
+   * Answer a request the server sent to its client.
+   *
+   * Every LSP client owes a response to every server→client request, and this
+   * one is load-bearing rather than a courtesy: TypeScript-Go issues
+   * `client/registerCapability` from inside its `initialized` handler, which
+   * runs on its dispatch loop, and it blocks there until the reply arrives. A
+   * client that drops the request therefore still sees `initialize` answered
+   * and still receives everything ttscserver publishes on its own, while every
+   * request the proxy forwards — hover, completion, symbols — queues behind a
+   * dispatch loop that never advances again (#863).
+   */
+  private answerServerRequest(message: {
+    id: number | string;
+    method: string;
+    params?: any;
+  }): void {
+    this.serverRequests.push(message.method);
+    const responder = SERVER_REQUEST_RESPONDERS[message.method] ?? (() => null);
+    try {
+      this.send({
+        jsonrpc: "2.0",
+        id: message.id,
+        result: responder(message.params),
+      });
+    } catch (error) {
+      // A responder that throws must still unblock the server: a JSON-RPC
+      // error response ends the wait just as a result does, and the failure
+      // stays visible in the message the server logs.
+      this.send({
+        jsonrpc: "2.0",
+        id: message.id,
+        error: {
+          code: -32603,
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  }
+
   private rejectPending(error: Error): void {
     for (const pending of this.pending.values()) {
       if (pending.timer !== undefined) clearTimeout(pending.timer);
@@ -322,6 +375,29 @@ export class TtscserverClient {
     this.pending.clear();
   }
 }
+
+/**
+ * Results for the server→client requests this client knows how to answer,
+ * shaped the way the LSP specification defines each one.
+ *
+ * A method missing from the table is answered with `null`, which is the valid
+ * result for the client requests that carry no payload (the message and
+ * progress lifecycles among them) and, more importantly, keeps an unknown
+ * future request from stalling the server the way an unanswered one would.
+ *
+ * The two entries whose result is not `null` are the ones a `null` would fail
+ * to decode: `workspace/configuration` must return one settings object per
+ * requested item, and `workspace/applyEdit` must report whether the edit was
+ * applied — these tests never apply one, so they decline it truthfully.
+ */
+const SERVER_REQUEST_RESPONDERS: Record<string, (params: any) => unknown> = {
+  "client/registerCapability": () => null,
+  "client/unregisterCapability": () => null,
+  "window/workDoneProgress/create": () => null,
+  "workspace/applyEdit": () => ({ applied: false }),
+  "workspace/configuration": (params) =>
+    ((params?.items ?? []) as unknown[]).map(() => ({})),
+};
 
 export async function initializeTtscserverClient(
   client: TtscserverClient,
