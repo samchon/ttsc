@@ -27,7 +27,7 @@ npx ttsc --watch
 
 Re-compiles on save. Pass `--preserveWatchOutput` to keep your scrollback.
 
-The watch loop snapshots the source directories once at startup, so directories created after that are not picked up until you restart. Directories named `lib` or `dist` are skipped, along with `node_modules` and `.git`, so source roots under those names are not watched.
+The watcher follows TypeScript-Go's resolved program inputs instead of guessing from directory names. It reconciles the set after each build and when directory topology changes, so newly included folders, `extends` configs, project references, loaded declarations, and selected Go plugin sources join the running session. Compiler output and cache products are not inputs, so an emit-mode build stays quiet until a real input changes.
 
 ## Other day-to-day commands
 

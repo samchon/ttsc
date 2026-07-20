@@ -27,6 +27,12 @@ type RunBuildOptions = TtscBuildOptions & {
   skipDiagnosticsCheck?: boolean;
   forceListEmittedFiles?: boolean;
   /**
+   * Receives selected native-plugin source roots after the project resolves.
+   * The watch launcher uses these roots to invalidate a sidecar when its Go
+   * implementation changes between rebuilds.
+   */
+  onWatchInputs?: (inputs: readonly string[]) => void;
+  /**
    * Emit an external source map from the direct tsgo build lane even when the
    * project configures none. Set by the ttsx runtime builds so a served emit
    * carries a map to inline under the source URL (issue #353). Applied only to
@@ -194,6 +200,12 @@ function runBuildTimed(
   if (projectFree !== null) return projectFree;
   const setupStartedAt = process.hrtime.bigint();
   const execution = resolveExecutionContext(options);
+  options.onWatchInputs?.(
+    execution.nativePlugins.flatMap((plugin) => [
+      plugin.source,
+      ...(plugin.contributors?.map((contributor) => contributor.source) ?? []),
+    ]),
+  );
   if (
     execution.nativePlugins.length > 0 ||
     execution.pluginSetupFailure !== undefined

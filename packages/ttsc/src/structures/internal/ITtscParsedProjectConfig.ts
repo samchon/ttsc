@@ -3,6 +3,8 @@ import type { ITtscProjectIdentity } from "./ITtscProjectIdentity";
 
 /** Resolved project config subset used inside the ttsc host. */
 export interface ITtscParsedProjectConfig {
+  /** Every resolved tsconfig/jsconfig in the inherited `extends` chain. */
+  configPaths: readonly string[];
   /** Compiler options after extends inheritance has been applied. */
   compilerOptions: {
     /** Absolute output directory when configured. */
