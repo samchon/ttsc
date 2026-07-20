@@ -6,6 +6,7 @@ Read this document in full when the user authorizes implementation pull requests
 
 - [Cancel Campaign CI After Every Push](#cancel-campaign-ci-after-every-push)
 - [Plan And Claim A Pull Request Wave](#plan-and-claim-a-pull-request-wave)
+- [Never Idle On A Long Command](#never-idle-on-a-long-command)
 - [Implement And Revalidate A Batch](#implement-and-revalidate-a-batch)
 - [Remove Every Finished Worktree](#remove-every-finished-worktree)
 - [While Campaign CI Is Cancelled](#while-campaign-ci-is-cancelled)
@@ -52,6 +53,25 @@ The agent assigned a batch claims it as its first action, before writing any cod
 5. Mark verification as pending, and record the batch, worktree, branch, issues, pull request, and cancelled run IDs in the campaign knowledge base.
 
 The draft pull request reserves the whole batch before code is written, preventing another contributor from starting overlapping work.
+
+## Never Idle On A Long Command
+
+Start every long command in the background and keep working. Idle waiting is the campaign's largest avoidable cost, and parallel batches multiply it: an agent that watches `pnpm install`, a build, or a suite finish before doing anything else spends most of its wall clock producing nothing.
+
+Overlap by default:
+
+- **Claim before setup finishes.** The claim commit, push, cancellation gate, and draft pull request need no installed dependencies, and claiming first is what reserves the surface while setup runs.
+- **Read and implement against the source tree.** Reading the batch's issues, mapping the consequence surface, and writing the change need the repository, not `node_modules`.
+- **Fill a verification wait with work that does not consume its result.** The next test, the next issue in the batch, the pull-request record, or the gate table for a push already made are all independent of the command in flight.
+- **Batch the dependent work.** When several checks must run, start them together rather than serially discovering that each needs the previous one's environment.
+
+These must never be overlapped, because overlapping them destroys the evidence they exist to produce:
+
+- **A Self-Review round must not race a change.** The review skill requires one complete round over a final surface and a restart whenever anything changes, so a round begun while the code can still move is not a round at all. Prepare its inputs early — the base-to-head diff inventory, consequence-surface notes, the list of generated artifacts to re-check — and open the round once the batch stops changing.
+- **A merge must not precede its evidence.** Local verification is the only gate a CI-suspended campaign has, so a result that lands after the merge proves nothing about what was merged.
+- **The cancellation gate is a barrier, not a slow command.** [Cancel Campaign CI After Every Push](#cancel-campaign-ci-after-every-push) already forbids continuing while a gate is unresolved; nothing in this section relaxes that. Poll it to completion before doing anything else.
+
+Report wall-clock honestly when a wait was unavoidable, such as a toolchain download or a suite with no narrower subset. An unavoidable wait is a fact; an unexamined one is a habit.
 
 ## Implement And Revalidate A Batch
 

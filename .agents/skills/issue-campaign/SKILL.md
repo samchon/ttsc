@@ -59,6 +59,6 @@ Use tables for repeated case mappings. Read the rendered issue back and keep its
 
 ## Develop And Repeat The Campaign
 
-Read [development.md](development.md) in full when the user authorizes implementation pull requests or ends a campaign that entered implementation. It owns per-push campaign CI cancellation, DAG-based batching, claim pull requests, implementation waves, worktree cleanup, renewed discovery, the no-format rule, and Post-Campaign Cleanup. Do not continue after a push until its cancellation gate passes.
+Read [development.md](development.md) in full when the user authorizes implementation pull requests or ends a campaign that entered implementation. It owns per-push campaign CI cancellation, DAG-based batching, claim pull requests, implementation waves, the concurrency discipline that keeps an agent from idling on a long command, worktree cleanup, renewed discovery, the no-format rule, and Post-Campaign Cleanup. Do not continue after a push until its cancellation gate passes.
 
 An audit or issue-publication-only campaign does not load this campaign's [implementation procedure](development.md) or mutate repository Actions.
