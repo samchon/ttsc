@@ -8,8 +8,8 @@ import path from "node:path";
  * Pack `@ttsc/unplugin` exactly as it would be published and return the packed
  * `package.json`.
  *
- * `pnpm pack` is offline and deterministic, and it rewrites the `workspace:*`
- * protocol to the concrete version a real consumer's package manager sees — the
+ * `pnpm pack` is offline and deterministic, and it rewrites `workspace:^` to
+ * the concrete caret range a real consumer's package manager sees — the
  * published dependency contract. Reading that manifest (rather than the source
  * one) is what proves the contract a clean install would receive, without a
  * network install.
@@ -54,9 +54,10 @@ function readPackedManifest(): Record<string, any> {
  * validates, or warns about it — while staying external (never a bundled second
  * compiler copy).
  *
- * 1. Pack the package as it would be published (rewriting `workspace:*`).
- * 2. Assert `ttsc` is declared as a required peer dependency with a concrete
- *    version — no leaked `workspace:` protocol a consumer cannot resolve.
+ * 1. Pack the package as it would be published (rewriting `workspace:^`).
+ * 2. Assert `ttsc` is declared as a required peer dependency with a concrete caret
+ *    range — no leaked `workspace:` protocol or exact pin a consumer cannot
+ *    upgrade through.
  * 3. Assert `ttsc` is not also a bundled runtime `dependencies` entry.
  */
 async function assertPackedManifestDeclaresTtscHost(): Promise<void> {
@@ -94,7 +95,9 @@ function assertCompatibleCaretRange(range: string, dependency: string): void {
     match,
     `${dependency} must publish a concrete caret range, received ${JSON.stringify(range)}`,
   );
-  const [major, minor, patch] = match.slice(1).map(Number);
+  const major = Number(match[1]!);
+  const minor = Number(match[2]!);
+  const patch = Number(match[3]!);
   const lower: [number, number, number] = [major, minor, patch];
   const upper: [number, number, number] =
     major > 0
@@ -124,10 +127,7 @@ function compareVersions(
   left: [number, number, number],
   right: [number, number, number],
 ): number {
-  for (let index = 0; index < left.length; ++index) {
-    if (left[index] !== right[index]) return left[index] - right[index];
-  }
-  return 0;
+  return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
 }
 
 export { assertPackedManifestDeclaresTtscHost };

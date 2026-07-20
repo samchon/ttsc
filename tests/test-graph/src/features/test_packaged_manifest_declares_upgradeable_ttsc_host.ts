@@ -77,7 +77,9 @@ function assertCompatibleCaretRange(range: string, dependency: string): void {
     match,
     `${dependency} must publish a caret range, received ${range}`,
   );
-  const [major, minor, patch] = match.slice(1).map(Number);
+  const major = Number(match[1]!);
+  const minor = Number(match[2]!);
+  const patch = Number(match[3]!);
   const lower: [number, number, number] = [major, minor, patch];
   const upper: [number, number, number] =
     major > 0
@@ -99,8 +101,5 @@ function compareVersions(
   left: [number, number, number],
   right: [number, number, number],
 ): number {
-  for (let index = 0; index < left.length; ++index) {
-    if (left[index] !== right[index]) return left[index] - right[index];
-  }
-  return 0;
+  return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
 }
