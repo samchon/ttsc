@@ -4,8 +4,9 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// formatTrailingComma adds trailing commas to multi-line lists. Mirrors
-// prettier's `trailingComma: "all"` default, *not* a tunable.
+// formatTrailingComma normalizes trailing commas on governed lists. It adds a
+// comma to a multi-line list when the configured mode permits one and removes
+// an existing comma when that mode forbids one.
 //
 // Scope (intentionally narrower than the closing-brace surface of TS):
 //
@@ -14,6 +15,7 @@ import (
 //   - CallExpression / NewExpression   `foo(a, b)` / `new Foo(a, b)`
 //   - NamedImports / NamedExports      `import { a, b } from "x"`
 //   - TupleType                        `[A, B]` at the type level
+//   - EnumDeclaration                  `enum E { A, B }`
 //   - Function parameter lists         `function foo(a, b) {}` etc.,
 //     including interface call/construct/method signatures and
 //     `(a, b) => …` / `new (a, b) => …` function/constructor type
@@ -29,11 +31,11 @@ import (
 //   - JSX attribute lists. Prettier does not apply trailing commas there
 //     either.
 //
-// Rest parameters (`...rest`) are explicitly skipped: ECMAScript forbids
-// a trailing comma after a rest element (TS1013), so the rule must not
-// insert one even when the rest parameter is the multi-line list's last
-// element. The same restriction applies to rest binding patterns, which
-// the rule does not visit at all.
+// Rest parameters (`...rest`) are explicitly skipped only when adding a
+// comma: ECMAScript forbids a trailing comma after a rest element (TS1013).
+// A legacy comma is not syntactically valid, so there is nothing for the
+// removal path to preserve. The same restriction applies to rest binding
+// patterns, which the rule does not visit at all.
 //
 // Destructuring assignment TARGETS are the one array/object-literal shape
 // where the same rest restriction bites: `({ a, ...rest } = obj)` and
@@ -69,6 +71,7 @@ func (formatTrailingComma) Visits() []shimast.Kind {
     shimast.KindNamedImports,
     shimast.KindNamedExports,
     shimast.KindTupleType,
+    shimast.KindEnumDeclaration,
     shimast.KindFunctionDeclaration,
     shimast.KindFunctionExpression,
     shimast.KindArrowFunction,
@@ -95,9 +98,6 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
   if mode == "" {
     mode = "all"
   }
-  if mode == "none" {
-    return
-  }
   switch node.Kind {
   case shimast.KindArrayLiteralExpression:
     arr := node.AsArrayLiteralExpression()
@@ -107,7 +107,7 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
     if isRestAssignmentTargetLiteral(node) {
       return
     }
-    considerTrailingComma(ctx, arr.Elements, node.End()-1)
+    normalizeTrailingComma(ctx, arr.Elements, node.End()-1, mode != "none")
   case shimast.KindObjectLiteralExpression:
     obj := node.AsObjectLiteralExpression()
     if obj == nil {
@@ -116,11 +116,8 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
     if isRestAssignmentTargetLiteral(node) {
       return
     }
-    considerTrailingComma(ctx, obj.Properties, node.End()-1)
+    normalizeTrailingComma(ctx, obj.Properties, node.End()-1, mode != "none")
   case shimast.KindCallExpression:
-    if mode == "es5" {
-      return // prettier's es5 mode skips call arguments
-    }
     call := node.AsCallExpression()
     if call == nil {
       return
@@ -133,149 +130,110 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
       // same exception so the two rules agree on the reflowed shape.
       return
     }
-    considerTrailingComma(ctx, call.Arguments, node.End()-1)
+    normalizeTrailingComma(ctx, call.Arguments, node.End()-1, mode == "all")
   case shimast.KindNewExpression:
-    if mode == "es5" {
-      return
-    }
     ne := node.AsNewExpression()
     if ne == nil || ne.Arguments == nil {
       return
     }
-    considerTrailingComma(ctx, ne.Arguments, node.End()-1)
+    normalizeTrailingComma(ctx, ne.Arguments, node.End()-1, mode == "all")
   case shimast.KindNamedImports:
     named := node.AsNamedImports()
     if named == nil {
       return
     }
-    considerTrailingComma(ctx, named.Elements, node.End()-1)
+    normalizeTrailingComma(ctx, named.Elements, node.End()-1, mode != "none")
   case shimast.KindNamedExports:
     named := node.AsNamedExports()
     if named == nil {
       return
     }
-    considerTrailingComma(ctx, named.Elements, node.End()-1)
+    normalizeTrailingComma(ctx, named.Elements, node.End()-1, mode != "none")
   case shimast.KindTupleType:
-    if mode == "es5" {
-      return // tuple types are type-level; ES5 mode is runtime-only
-    }
     tup := node.AsTupleTypeNode()
     if tup == nil {
       return
     }
-    considerTrailingComma(ctx, tup.Elements, node.End()-1)
-  case shimast.KindFunctionDeclaration:
-    if mode == "es5" {
+    normalizeTrailingComma(ctx, tup.Elements, node.End()-1, mode != "none")
+  case shimast.KindEnumDeclaration:
+    decl := node.AsEnumDeclaration()
+    if decl == nil {
       return
     }
+    normalizeTrailingComma(ctx, decl.Members, node.End()-1, mode != "none")
+  case shimast.KindFunctionDeclaration:
     fn := node.AsFunctionDeclaration()
     if fn == nil {
       return
     }
-    considerFunctionParameterComma(ctx, fn.Parameters)
+    normalizeFunctionParameterComma(ctx, fn.Parameters, mode == "all")
   case shimast.KindFunctionExpression:
-    if mode == "es5" {
-      return
-    }
     fn := node.AsFunctionExpression()
     if fn == nil {
       return
     }
-    considerFunctionParameterComma(ctx, fn.Parameters)
+    normalizeFunctionParameterComma(ctx, fn.Parameters, mode == "all")
   case shimast.KindArrowFunction:
-    if mode == "es5" {
-      return
-    }
     fn := node.AsArrowFunction()
     if fn == nil {
       return
     }
-    considerFunctionParameterComma(ctx, fn.Parameters)
+    normalizeFunctionParameterComma(ctx, fn.Parameters, mode == "all")
   case shimast.KindMethodDeclaration:
-    if mode == "es5" {
-      return
-    }
     fn := node.AsMethodDeclaration()
     if fn == nil {
       return
     }
-    considerFunctionParameterComma(ctx, fn.Parameters)
+    normalizeFunctionParameterComma(ctx, fn.Parameters, mode == "all")
   case shimast.KindConstructor:
-    if mode == "es5" {
-      return
-    }
     fn := node.AsConstructorDeclaration()
     if fn == nil {
       return
     }
-    considerFunctionParameterComma(ctx, fn.Parameters)
+    normalizeFunctionParameterComma(ctx, fn.Parameters, mode == "all")
   case shimast.KindGetAccessor:
-    if mode == "es5" {
-      return
-    }
     fn := node.AsGetAccessorDeclaration()
     if fn == nil {
       return
     }
-    considerFunctionParameterComma(ctx, fn.Parameters)
+    normalizeFunctionParameterComma(ctx, fn.Parameters, mode == "all")
   case shimast.KindSetAccessor:
-    if mode == "es5" {
-      return
-    }
     fn := node.AsSetAccessorDeclaration()
     if fn == nil {
       return
     }
-    considerFunctionParameterComma(ctx, fn.Parameters)
+    normalizeFunctionParameterComma(ctx, fn.Parameters, mode == "all")
   case shimast.KindMethodSignature:
-    if mode == "es5" {
-      return
-    }
     sig := node.AsMethodSignatureDeclaration()
     if sig == nil {
       return
     }
-    considerFunctionParameterComma(ctx, sig.Parameters)
+    normalizeFunctionParameterComma(ctx, sig.Parameters, mode == "all")
   case shimast.KindCallSignature:
-    if mode == "es5" {
-      return
-    }
     sig := node.AsCallSignatureDeclaration()
     if sig == nil {
       return
     }
-    considerFunctionParameterComma(ctx, sig.Parameters)
+    normalizeFunctionParameterComma(ctx, sig.Parameters, mode == "all")
   case shimast.KindConstructSignature:
-    if mode == "es5" {
-      return
-    }
     sig := node.AsConstructSignatureDeclaration()
     if sig == nil {
       return
     }
-    considerFunctionParameterComma(ctx, sig.Parameters)
+    normalizeFunctionParameterComma(ctx, sig.Parameters, mode == "all")
   case shimast.KindFunctionType:
-    if mode == "es5" {
-      return
-    }
     ft := node.AsFunctionTypeNode()
     if ft == nil {
       return
     }
-    considerFunctionParameterComma(ctx, ft.Parameters)
+    normalizeFunctionParameterComma(ctx, ft.Parameters, mode == "all")
   case shimast.KindConstructorType:
-    if mode == "es5" {
-      return
-    }
     ct := node.AsConstructorTypeNode()
     if ct == nil {
       return
     }
-    considerFunctionParameterComma(ctx, ct.Parameters)
+    normalizeFunctionParameterComma(ctx, ct.Parameters, mode == "all")
   case shimast.KindTypeParameter:
-    if mode == "es5" {
-      return // type parameters postdate ES5; prettier es5 skips them
-    }
     if node.Parent == nil {
       return
     }
@@ -288,7 +246,7 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
     if closePos < 0 {
       return
     }
-    considerTrailingComma(ctx, list, closePos)
+    normalizeTrailingComma(ctx, list, closePos, mode != "none")
   }
 }
 
@@ -303,9 +261,10 @@ func isDynamicImportCall(call *shimast.CallExpression) bool {
     call.Expression.Kind == shimast.KindImportKeyword
 }
 
-// considerTrailingComma reports a fix when the bracket-delimited list is
-// multi-line and missing its trailing comma. `closeBracketPos` points at
-// the closing punctuation byte itself (e.g. the `]` of an array literal).
+// normalizeTrailingComma aligns one bracket-delimited list with the configured
+// policy. `closeBracketPos` points at its closing punctuation (for example the
+// `]` of an array literal). Addition stays limited to multi-line lists, as
+// Prettier does, while removal also handles a pre-existing single-line comma.
 //
 // "Multi-line" means the close bracket sits on a different line from the
 // last element's end, not just "the list contains a newline somewhere".
@@ -316,7 +275,7 @@ func isDynamicImportCall(call *shimast.CallExpression) bool {
 // but `}` and `)` collapse onto one line; inserting `,)` there would be
 // stylistically wrong and, for parameter rest-paths nearby, can shift
 // later diagnostics.
-func considerTrailingComma(ctx *Context, list *shimast.NodeList, closeBracketPos int) {
+func normalizeTrailingComma(ctx *Context, list *shimast.NodeList, closeBracketPos int, want bool) {
   if list == nil || len(list.Nodes) == 0 {
     return
   }
@@ -328,10 +287,20 @@ func considerTrailingComma(ctx *Context, list *shimast.NodeList, closeBracketPos
   if closeBracketPos < 0 || closeBracketPos >= len(src) {
     return
   }
-  if !rangeSpansMultipleLines(src, last.End(), closeBracketPos) {
+  comma := trailingCommaPos(src, last.End(), closeBracketPos)
+  if comma >= 0 {
+    if want {
+      return
+    }
+    ctx.ReportRangeFix(
+      comma,
+      comma+1,
+      "Trailing comma is not allowed by this trailingComma mode.",
+      TextEdit{Pos: comma, End: comma + 1, Text: ""},
+    )
     return
   }
-  if rangeHasTrailingComma(src, last.End(), closeBracketPos) {
+  if !want || !rangeSpansMultipleLines(src, last.End(), closeBracketPos) {
     return
   }
   ctx.ReportRangeFix(
@@ -352,11 +321,11 @@ func considerTrailingComma(ctx *Context, list *shimast.NodeList, closeBracketPos
 // a TS1013 syntax error. The rule peeks the last element's
 // DotDotDotToken and bails when set, since the rest must remain the
 // terminal element with no following comma.
-func considerFunctionParameterComma(ctx *Context, list *shimast.NodeList) {
+func normalizeFunctionParameterComma(ctx *Context, list *shimast.NodeList, want bool) {
   if list == nil || len(list.Nodes) == 0 {
     return
   }
-  if lastParameterIsRest(list) {
+  if want && lastParameterIsRest(list) {
     return
   }
   src := ctx.File.Text()
@@ -364,7 +333,7 @@ func considerFunctionParameterComma(ctx *Context, list *shimast.NodeList) {
   if closePos < 0 {
     return
   }
-  considerTrailingComma(ctx, list, closePos)
+  normalizeTrailingComma(ctx, list, closePos, want)
 }
 
 // isRestAssignmentTargetLiteral reports whether node is an object- or
@@ -494,11 +463,10 @@ func rangeSpansMultipleLines(src string, a, b int) bool {
   return false
 }
 
-// rangeHasTrailingComma scans the source between the last item's end and
-// the close bracket. Returns true if a `,` is the first non-whitespace,
-// non-comment byte. Comments after the trailing comma still count as
-// "comma present".
-func rangeHasTrailingComma(src string, start, end int) bool {
+// trailingCommaPos returns the offset of the comma immediately following a
+// list's final item, skipping whitespace and comments. It deliberately does
+// not scan through another token, so it cannot remove an item separator.
+func trailingCommaPos(src string, start, end int) int {
   if start < 0 {
     start = 0
   }
@@ -508,7 +476,7 @@ func rangeHasTrailingComma(src string, start, end int) bool {
   for i := start; i < end; {
     c := src[i]
     if c == ',' {
-      return true
+      return i
     }
     if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
       i++
@@ -532,9 +500,9 @@ func rangeHasTrailingComma(src string, start, end int) bool {
         continue
       }
     }
-    return false
+    return -1
   }
-  return false
+  return -1
 }
 
 func init() {

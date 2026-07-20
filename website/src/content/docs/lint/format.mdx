@@ -35,9 +35,9 @@ Presence of the block (even empty `format: {}`) configures the format rules at P
 | `semi` | Insert trailing semicolons on ASI-terminated statements. |
 | `singleQuote` | Convert quoted strings to the preferred quote style. |
 | `arrowParens` | Add or remove parens around a single arrow parameter. |
-| `bracketSpacing` | Spaces inside object and named-import/export braces. |
-| `quoteProps` | Quote or unquote object property keys. |
-| `trailingComma` | Add trailing commas to multi-line lists. |
+| `bracketSpacing` | Spaces inside object, type, and import-attribute braces. |
+| `quoteProps` | Quote or unquote object keys and type or method members. |
+| `trailingComma` | Normalize trailing commas on governed lists. |
 | `printWidth`, `tabWidth`, `useTabs`, `endOfLine` | Prettier-style line reflow. |
 | `sortImports` (opt-in) | Sort named specifiers and erased type-only imports. Runtime declaration sorting requires `unsafeSortRuntimeImports`. |
 | `jsDoc` (on by default) | Normalize JSDoc blocks toward [prettier-plugin-jsdoc](https://github.com/hosseinmd/prettier-plugin-jsdoc). |
@@ -78,15 +78,15 @@ Parentheses around a single arrow-function parameter. `"always"` (default) keeps
 
 ### `bracketSpacing`
 
-Inner spaces in single-line braces. `true` (default) keeps the space inside object literals, destructuring patterns, named imports/exports, and type literals (`{ a }`); `false` removes it (`{a}`). Block, class, interface, and enum braces are unaffected. Driven by `format.bracketSpacing`.
+Inner spaces in single-line braces. `true` (default) keeps the space inside object literals, destructuring patterns, named imports/exports, type literals, mapped types, and import attributes (`{ a }`); `false` removes it (`{a}`). Block, class, interface, and enum braces are unaffected. Driven by `format.bracketSpacing`.
 
 ### `quoteProps`
 
-Quoting of object-literal property keys. `"as-needed"` (default) unquotes keys that are valid identifiers, keeping `"__proto__"` and non-identifier or numeric keys quoted; `"consistent"` keeps every key quoted when any one of them needs quotes; `"preserve"` leaves quoting untouched. Driven by `format.quoteProps`.
+Quoting of object keys, class method names, and interface or type-literal members. `"as-needed"` (default) unquotes keys that are valid identifiers. `"consistent"` quotes every identifier key in an object when a sibling needs quotes. `"preserve"` leaves quoting untouched. ttsc deliberately keeps `"__proto__"` and non-ASCII identifier keys quoted: unlike Prettier, unquoting them can change runtime semantics or exceed ttsc's conservative identifier policy. Driven by `format.quoteProps`.
 
 ### `trailingComma`
 
-Enforce trailing commas in **multiline** literals, object literals, array literals, function parameter lists, function call arguments, and import/export specifier lists. Single-line literals are untouched. Driven by `format.trailingComma`.
+Normalize trailing commas in literals, object literals, array literals, function parameter lists, function call arguments, import/export specifier lists, tuple types, type-parameter declarations, and enum members. The formatter adds a comma only to multiline lists. It removes an existing governed comma under `"none"`, and under `"es5"` from call, `new`, and parameter lists. Driven by `format.trailingComma`.
 
 A trailing comma is never inserted after a rest element (`...rest`), where the grammar forbids one: rest parameters, and destructuring **assignment targets** that end in a rest such as `({ a, ...rest } = obj)` or `[a, ...rest] = arr`. A real value literal with a trailing spread (`{ a, ...o }`, `[a, ...rest]`) and a non-rest assignment target (`{ a, b } = obj`) still receive one. The `printWidth` reflow honors the same rule.
 

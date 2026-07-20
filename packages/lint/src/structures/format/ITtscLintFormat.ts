@@ -61,28 +61,32 @@ export interface ITtscLintFormat {
    * Pad the inside of single-line braces with one space. Mirrors Prettier's
    * `bracketSpacing`. `true` (the default) gives `{ x: 1 }`, `import { foo }`;
    * `false` gives `{x: 1}`, `import {foo}`. Applies to object literals, object
-   * destructuring patterns, named imports/exports, and type literals; block,
-   * class, interface, and enum braces are unaffected.
+   * destructuring patterns, named imports/exports, type literals, mapped
+   * types, and import attributes; block, class, interface, and enum braces
+   * are unaffected.
    *
    * @default true
    */
   bracketSpacing?: boolean;
 
   /**
-   * Quoting policy for object-literal property keys. Mirrors Prettier's
-   * `quoteProps`. `"as-needed"` (the default) removes quotes from a key that is
-   * a valid identifier (`{ "foo": 1 }` becomes `{ foo: 1 }`), keeping them on
-   * non-identifier or numeric keys (`"bar-baz"`, `"123"`). `"consistent"` keeps
-   * every key quoted when any one of them requires quotes. `"preserve"` never
-   * changes quoting.
+   * Quoting policy for object-literal keys plus class-method and type-member
+   * names. Mirrors Prettier's `quoteProps`. `"as-needed"` (the default) removes
+   * quotes from a key that is a valid identifier (`{ "foo": 1 }` becomes
+   * `{ foo: 1 }`), keeping them on non-identifier or numeric keys (`"bar-baz"`,
+   * `"123"`). `"consistent"` quotes every object-literal identifier key when a
+   * sibling requires quotes. `"preserve"` never changes quoting. ttsc keeps
+   * `"__proto__"` and non-ASCII identifier keys quoted because unquoting can
+   * change runtime semantics or exceed its conservative identifier policy.
    *
    * @default "as-needed"
    */
   quoteProps?: "as-needed" | "consistent" | "preserve";
 
   /**
-   * Trailing-comma policy. Mirrors Prettier's `trailingComma`. The `"none"`
-   * mode disables the rule's edits.
+   * Trailing-comma policy. Mirrors Prettier's `trailingComma`. `"none"` removes
+   * an existing governed trailing comma, `"es5"` keeps it on ES5-level lists,
+   * and `"all"` also keeps it on calls and parameter lists.
    *
    * @default "all"
    */
