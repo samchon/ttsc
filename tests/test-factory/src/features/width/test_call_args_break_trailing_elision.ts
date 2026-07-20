@@ -112,6 +112,13 @@ export const test_call_args_break_trailing_elision = (): void => {
       /,\s*,/.test(broken),
       false,
     );
+    // the elision prints as nothing, so the line it would have occupied must
+    // collapse rather than survive as indentation
+    TestValidator.equals(
+      `${title} broken leaves no trailing whitespace`,
+      broken.split("\n").filter((line) => /[ \t]$/.test(line)),
+      [],
+    );
   }
 
   // negative twin: a trailing spread keeps the break comma, which is legal

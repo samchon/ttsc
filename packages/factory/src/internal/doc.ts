@@ -170,9 +170,13 @@ export const printDocToString = (
   while (cmds.length) {
     const [ind, mode, d] = cmds.pop()!;
     if (typeof d === "string") {
-      out.push(d);
-      pos += d.length;
-      rawTail = false;
+      // an empty string contributes nothing but would become the tail that
+      // `newlineTo` trims, hiding the real end of the line behind it
+      if (d.length !== 0) {
+        out.push(d);
+        pos += d.length;
+        rawTail = false;
+      }
       continue;
     }
     switch (d.type) {

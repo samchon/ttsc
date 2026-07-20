@@ -47,6 +47,9 @@ const expression = (name: string) =>
  * element that is nothing but whitespace, text that already contains its own
  * newlines, two text children side by side, an opening tag wider than
  * `printWidth`, and an outer element that breaks over an inner one that fits.
+ * The text child with no edge whitespace is the positive twin: it is the one
+ * shape the guard is supposed to let break, so it also asserts that the layout
+ * really does break.
  *
  * 1. Build each boundary shape.
  * 2. Print it at `printWidth` 200, 80, 40 and 10.
@@ -55,6 +58,10 @@ const expression = (name: string) =>
 export const test_jsx_whitespace_boundaries = (): void => {
   const cases: [string, JsxChild][] = [
     ["whitespace-only element", element("div", [text(" ")])],
+    [
+      "text with no edge whitespace, which may break",
+      element("div", [text("HelloHelloHelloHelloHelloHelloHello")]),
+    ],
     [
       "text carrying its own newlines",
       element("div", [text("firstLineOfTheText\nsecondLineOfTheText")]),
@@ -112,4 +119,13 @@ export const test_jsx_whitespace_boundaries = (): void => {
       1,
     );
   }
+
+  // the positive twin: with nothing to lose at its edges, the text child breaks
+  TestValidator.equals(
+    "a text child with no edge whitespace still breaks",
+    new TsPrinter({ printWidth: 10 })
+      .print(element("div", [text("HelloHelloHelloHelloHelloHelloHello")]))
+      .includes("\n"),
+    true,
+  );
 };

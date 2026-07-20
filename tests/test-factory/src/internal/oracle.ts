@@ -109,14 +109,22 @@ export const assertOracle = (
  * this is the observable that a width-driven line break must not change.
  */
 export const jsxChildren = (text: string): string => {
-  const emitted: string = ts.transpileModule(text, {
+  const output: ts.TranspileOutput = ts.transpileModule(text, {
     compilerOptions: {
       jsx: ts.JsxEmit.ReactJSX,
       target: ts.ScriptTarget.ESNext,
     },
+    fileName: "case.tsx",
     reportDiagnostics: true,
-  }).outputText;
-  const file: ts.SourceFile = parseClean(emitted, ts.ScriptKind.JS);
+  });
+  const diagnostics: readonly ts.Diagnostic[] = output.diagnostics ?? [];
+  if (diagnostics.length !== 0)
+    throw new Error(
+      `printed JSX does not transpile: ${JSON.stringify(text)} :: ${diagnostics
+        .map((d) => ts.flattenDiagnosticMessageText(d.messageText, " "))
+        .join(" | ")}`,
+    );
+  const file: ts.SourceFile = parseClean(output.outputText, ts.ScriptKind.JS);
   let children: string | undefined;
   const visit = (node: ts.Node): void => {
     if (
@@ -130,7 +138,11 @@ export const jsxChildren = (text: string): string => {
     ts.forEachChild(node, visit);
   };
   visit(file);
-  return children ?? "<no children>";
+  if (children === undefined)
+    throw new Error(
+      `printed JSX produced no children argument: ${JSON.stringify(text)}`,
+    );
+  return children;
 };
 
 /**

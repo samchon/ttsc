@@ -280,6 +280,11 @@ const consumers: Consumer[] = [
       ),
   },
   {
+    name: "typeof operand",
+    ttsc: (o) => statement(f.createTypeOfExpression(o)),
+    legacy: (o) => legacyStatement(l.createTypeOfExpression(o)),
+  },
+  {
     name: "decorator",
     ttsc: (o) =>
       f.createClassDeclaration([f.createDecorator(o)], "A", undefined, undefined, []),
@@ -482,6 +487,7 @@ const requiredProductions: readonly string[] = [
   "ConditionalExpression",
   "AsExpression",
   "AwaitExpression",
+  "TypeOfExpression",
   "ObjectLiteralExpression",
 ];
 

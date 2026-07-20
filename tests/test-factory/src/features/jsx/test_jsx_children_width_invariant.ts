@@ -97,10 +97,5 @@ export const test_jsx_children_width_invariant = (): void => {
       new Set(rendered).size,
       1,
     );
-    TestValidator.equals(
-      `${title} has children at all`,
-      rendered[0] !== "<no children>",
-      true,
-    );
   }
 };
