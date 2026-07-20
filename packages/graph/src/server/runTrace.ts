@@ -316,9 +316,13 @@ function traceEdges(
   reverse: boolean,
   focus: ITtscGraphTrace.IRequest["focus"],
 ): readonly ITtscGraphEdge[] {
-  return reverse
-    ? [...graph.incoming(id), ...reverseDispatchEdges(graph, id, focus)]
-    : [...graph.outgoing(id), ...dispatchEdges(graph, id, focus)];
+  const edges = reverse ? graph.incoming(id) : graph.outgoing(id);
+  const dispatched = reverse
+    ? reverseDispatchEdges(graph, id, focus)
+    : dispatchEdges(graph, id, focus);
+  // Nothing to add is the common case, and a walk visits the nodes with the
+  // largest edge lists, so hand back the stored list rather than a copy of it.
+  return dispatched.length === 0 ? edges : [...edges, ...dispatched];
 }
 
 /**
