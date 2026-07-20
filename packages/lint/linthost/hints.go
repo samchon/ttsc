@@ -13,7 +13,8 @@ import (
 // Unlike the other LSP verbs this takes no `--uri`: a corpus describes the
 // Program, not a document. It does load a Program, because a corpus is a
 // projection of what a project rule's Check found — which is why the caller is
-// expected to ask once and cache rather than ask per request.
+// expected to cache the answer and ask again only when the Program's inputs
+// changed, never per editor request.
 //
 // An empty corpus is a successful answer. A project with no hint-publishing rule
 // is the common case, and a caller must be able to tell it apart from a failure;
