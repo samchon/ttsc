@@ -304,7 +304,7 @@ const options: TtscUnpluginOptions = {
 
 ### Cache and Watch Invalidation
 
-The transform graph also records missing module-resolution candidates that would outrank a selected target. The adapter registers candidates for importers in the transformed file's reachability closure, so creating a higher-priority module target invalidates watch and persistent caches without an importer or tsconfig edit.
+The transform graph also records module-resolution candidates that would outrank a selected target. The adapter registers candidates for importers in the transformed file's reachability closure, so creating or changing a higher-priority probe invalidates watch and persistent caches without an importer or tsconfig edit.
 
 The transform host reports the program's reference graph (the transform envelope's `graph` section: per-file direct resolved references with type-only edges included, global-scope files, and the tsconfig `extends` chain — see the [plugin protocol](https://ttsc.dev/docs/development/concepts/protocol#transform)). Per transformed file, the adapter registers the graph's reachability closure, the globals, and the configs with the bundler via `addWatchFile`, so editing a type that only a generated validator depends on invalidates the module — in watch mode, in webpack's filesystem cache, and in Turbopack's `fileDependencies` — even though the bundler erased the type-only import from its own graph.
 

@@ -406,8 +406,8 @@ function selectWatchInputs(props: {
 }
 
 /**
- * Return the missing module-resolution paths that can supersede a currently
- * resolved module reachable from `file`. They remain host-owned even when a
+ * Return the module-resolution paths that can supersede a currently resolved
+ * module reachable from `file`. They remain host-owned even when a
  * plugin declares `dependenciesComplete`: plugin code cannot vouch for a
  * compiler resolution change that occurs without any plugin input changing.
  */
@@ -931,9 +931,9 @@ export function collectExternalInputHashes(
  * union of every reference-graph member (edge keys and targets, globals, the
  * config chain) and every plugin-reported dependency, minus everything the
  * project walk already hashes and the disposed temp-dir tsconfig. These are the
- * inputs {@link matchesCachedSource}'s walk cannot see. Missing resolution
- * candidates remain in this set even under the project root: the first walk
- * cannot hash a file that has not been created yet.
+ * inputs {@link matchesCachedSource}'s walk cannot see. Resolution candidates
+ * that are still missing remain in this set even under the project root: the
+ * first walk cannot hash a file that has not been created yet.
  *
  * A `dependenciesComplete` declaration deliberately does not narrow this set,
  * unlike the per-file watch derivation. This cache replays one whole envelope,

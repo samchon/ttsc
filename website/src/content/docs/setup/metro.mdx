@@ -77,7 +77,7 @@ Options travel from the Metro config process to its worker processes through an 
 
 ## Cache invalidation
 
-A missing module-resolution candidate that would outrank a selected target is recorded as a missing fingerprint input, including when it lies under the project root. Creating that file changes the next Metro cache key even though the first project walk could not hash a path that did not yet exist.
+A module-resolution candidate that would outrank a selected target is recorded as a fingerprint input. A missing candidate remains recorded even when it lies under the project root, so creating it changes the next Metro cache key even though the first project walk could not hash a path that did not yet exist. Existing unsuccessful probes are already part of the ordinary project walk or the recorded out-of-walk set.
 
 Metro keys its transform cache on each file's own content plus one static transformer key evaluated once per run, and its babel-transformer contract offers no per-file dependency registration. A `ttsc` transform can depend on a type declared in another file, so `@ttsc/metro` folds a project fingerprint into the static key: every input file under the project root, plus the [reference-graph](/docs/development/reference/driver-api#reference-graph) inputs outside it (`node_modules` declarations, monorepo sibling sources, out-of-root tsconfig `extends` ancestry), which the transformer records under `node_modules/.cache/ttsc-metro` as it runs. Editing any fingerprinted input re-keys the next run, so `metro bundle` and dev-server starts pick up cross-file type changes, `tsconfig` edits, and plugin configuration changes without `--reset-cache`.
 

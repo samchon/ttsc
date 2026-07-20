@@ -30,9 +30,10 @@ const bundledScheme = "bundled:///"
 //     declaration files, script files, global augmentations, `typeRoots`
 //     entries). A change to any of them can affect every file.
 //   - Configs lists the project tsconfig followed by its `extends` ancestry.
-//   - Candidates maps each importing file to the missing resolution probes
-//     that precede its selected module target. They are a separate class from
-//     resolved edges: creating one changes the meaning of an unchanged import.
+//   - Candidates maps each importing file to the resolution probes that precede
+//     its selected module target. They are a separate class from resolved
+//     edges: a probe's file appearing or changing can change an unchanged
+//     import's meaning.
 //
 // Keys and values use the same convention as the envelope's `typescript`
 // map: project-relative slash paths, falling back to slash-normalized
