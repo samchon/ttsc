@@ -21,7 +21,8 @@ import {
  * 3. Assert each output equals the value Go would emit for the same token.
  */
 export const test_gomod_token_quoting_mirrors_go_autoquote = () => {
-  const NBSP = " "; // U+00A0: a Zs (graphic) space that is not ASCII space.
+  const NBSP = String.fromCodePoint(0x00a0);
+  const IDEOGRAPHIC_SPACE = String.fromCodePoint(0x3000);
 
   // [input, expected] where expected is exactly what modfile.AutoQuote emits.
   const autoQuoteCases: readonly [string, string][] = [
@@ -34,7 +35,6 @@ export const test_gomod_token_quoting_mirrors_go_autoquote = () => {
     [".", "."],
     ["café", "café"], // lone Unicode letter is graphic → not forced.
     ["a😀b", "a😀b"], // lone astral symbol is graphic → not forced.
-    [`a${NBSP}b`, `a${NBSP}b`], // NBSP is Zs (graphic) → not forced.
     ["(", "("], // a lone bracket/comma is a legal bare token.
     [")", ")"],
     [",", ","],
@@ -49,6 +49,8 @@ export const test_gomod_token_quoting_mirrors_go_autoquote = () => {
     ["", '""'], // empty string is not a valid bare token.
     ["//", '"//"'], // a line comment opener must be quoted to be a token.
     ["/*", '"/*"'], // a block comment opener too.
+    ["a//b", '"a//b"'], // an embedded line-comment opener too.
+    ["a/*b", '"a/*b"'], // an embedded block-comment opener too.
 
     // strconv.Quote escape forms (control runes force quoting on their own).
     ["a\tb", '"a\\tb"'], // \t
@@ -60,6 +62,8 @@ export const test_gomod_token_quoting_mirrors_go_autoquote = () => {
     ["a\x07b", '"a\\ab"'], // \a (bell)
     ["a\x01b", '"a\\x01b"'], // \xNN for other C0 controls
     ["a\x7fb", '"a\\x7fb"'], // \x7f for DEL
+    [`a${NBSP}b`, '"a\\u00a0b"'], // non-ASCII Zs is not printable.
+    [`a${IDEOGRAPHIC_SPACE}b`, '"a\\u3000b"'], // neither is U+3000.
     [`a ${NBSP}`, '"a \\u00a0"'], // \uNNNN: NBSP is not printable inside a quote.
     [String.fromCodePoint(0x10ffff), '"\\U0010ffff"'], // \UNNNNNNNN for astral non-printable.
 
@@ -81,6 +85,9 @@ export const test_gomod_token_quoting_mirrors_go_autoquote = () => {
   const formatCases: readonly [string, string][] = [
     ["C:\\Users\\John Smith\\proj", '"C:/Users/John Smith/proj"'],
     ["C:\\Users\\jsmith\\proj", "C:/Users/jsmith/proj"],
+    [String.raw`\\server\share\proj`, '"//server/share/proj"'],
+    [String.raw`\\?\C:\Users\x\proj`, '"//?/C:/Users/x/proj"'],
+    [String.raw`C:\Users\x\\y\proj`, '"C:/Users/x//y/proj"'],
     ["/Users/John Smith/x", '"/Users/John Smith/x"'],
     ["/home/user/x", "/home/user/x"],
     [".", "."],
