@@ -94,6 +94,8 @@ function createInputIdentity({
       "GOARCH",
       "GOFLAGS",
       "GOEXPERIMENT",
+      "GOTOOLCHAIN",
+      "GOWASM",
       "CGO_ENABLED",
       "GOWORK",
     ]),
