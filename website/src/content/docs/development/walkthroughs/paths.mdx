@@ -4,7 +4,7 @@
 
 This page is also the canonical reference for **leaf-text AST mutation**, changing a string literal's `Text` field correctly. The invariant lives in three lines of code at the heart of `rewriter.apply`.
 
-If [`@ttsc/strip`](/docs/development/walkthroughs/strip) felt manageable, this should too. The new ideas are: read tsconfig fields through the driver, walk every syntactic shape that holds a module specifier, and the synthesize-flag rule.
+If [`@ttsc/strip`](/docs/development/walkthroughs/strip) felt manageable, this should too. The new ideas are: read tsconfig fields through the driver, walk each syntactic shape that can hold a module specifier, confirm that the literal is a module reference in its containing file, and apply the synthesize-flag rule.
 
 ## What it does for the consumer
 
@@ -77,7 +77,7 @@ Everything below is in [`packages/paths/driver/paths.go`](https://github.com/sam
 
 1. **Build the rewriter** from the loaded Program. This is where tsconfig paths, `rootDir`, `outDir`, and the source-file index get cached.
 2. **Sort patterns by specificity** so `@lib/foo/*` wins before `@lib/*` for the same specifier.
-3. **For each file**, walk every node and find string literals that are module specifiers.
+3. **For each file**, walk every node and select only string literals that are module references in that file.
 4. **Resolve the specifier** to a source file inside the Program.
 5. **Compute the relative output path** from the rewriter's source file to the target's emitted JS.
 6. **Mutate the string literal's `Text`**: with the synthesize-flag invariant.
@@ -86,6 +86,7 @@ Everything below is in [`packages/paths/driver/paths.go`](https://github.com/sam
 
 ```go
 type rewriter struct {
+  checker     *shimchecker.Checker
   basePath    string
   jsxPreserve bool
   outDir      string
@@ -106,6 +107,7 @@ func newRewriter(prog *driver.Program) *rewriter {
     prog.ParsedConfig.ParsedConfig.CompilerOptions == nil {
     return out
   }
+  out.checker = prog.Checker
   options := prog.ParsedConfig.ParsedConfig.CompilerOptions
   cwd := prog.Host.GetCurrentDirectory()
   out.basePath = filepath.Clean(options.GetPathsBasePath(cwd))
@@ -187,14 +189,14 @@ func patternPrefixLength(pattern string) int {
 
 The order is tsc's `matchPatternOrExact` contract: an exact pattern (no `*`) always wins, and among wildcards the longest literal _prefix_ wins — `@lib/foo/*` (prefix 9) beats `@lib/*` (prefix 5). Ranking by total literal length instead would let a long-suffix pattern like `*-styles` capture a specifier that tsc's module resolution routes through `@app/*`, and the rewrite would then disagree with the type checker.
 
-### 3. Walk every node that could hold a module specifier
+### 3. Walk every node that could hold a module reference
 
 ```go
 func (r *rewriter) apply(file *shimast.SourceFile) {
   if r == nil || file == nil || len(r.patterns) == 0 {
     return
   }
-  visitModuleSpecifiers(file.AsNode(), func(lit *shimast.Node) {
+  visitModuleSpecifiers(file, r.checker, func(lit *shimast.Node) {
     if lit == nil || lit.Kind != shimast.KindStringLiteral {
       return
     }
@@ -211,11 +213,11 @@ func (r *rewriter) apply(file *shimast.SourceFile) {
 
 This three-line tail is the synthesize-flag rule for leaf-text mutations, the most consequential lines on the page. Discussion in [§6 below](#6-mutating-a-string-literal--the-synthesize-flag-invariant).
 
-The visitor:
+The visitor uses syntax to find candidate literals, then the source file and checker to keep only module references:
 
 ```go
-func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
-  if node == nil {
+func visitModuleSpecifiers(file *shimast.SourceFile, checker *shimchecker.Checker, visit func(*shimast.Node)) {
+  if file == nil {
     return
   }
   var walk func(node *shimast.Node) bool
@@ -240,22 +242,22 @@ func visitModuleSpecifiers(node *shimast.Node, visit func(*shimast.Node)) {
       }
     case shimast.KindModuleDeclaration:
       decl := node.AsModuleDeclaration()
-      if decl != nil {
+      if file.ExternalModuleIndicator != nil && decl != nil {
         visit(decl.Name())
       }
     case shimast.KindCallExpression:
       call := node.AsCallExpression()
-      if isModuleSpecifierCall(call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
+      if isModuleSpecifierCall(checker, call) && call.Arguments != nil && len(call.Arguments.Nodes) > 0 {
         visit(call.Arguments.Nodes[0])
       }
     }
     node.ForEachChild(walk)
     return false
   }
-  walk(node)
+  walk(file.AsNode())
 }
 
-func isModuleSpecifierCall(call *shimast.CallExpression) bool {
+func isModuleSpecifierCall(checker *shimchecker.Checker, call *shimast.CallExpression) bool {
   if call == nil || call.Expression == nil {
     return false
   }
@@ -263,23 +265,37 @@ func isModuleSpecifierCall(call *shimast.CallExpression) bool {
   case shimast.KindImportKeyword:
     return true
   case shimast.KindIdentifier:
-    return call.Expression.Text() == "require"
+    return call.Expression.Text() == "require" && isModuleLoader(checker, call.Expression)
   default:
     return false
   }
 }
+
+func isModuleLoader(checker *shimchecker.Checker, expression *shimast.Node) bool {
+  if checker == nil || expression == nil {
+    return false
+  }
+  symbol := checker.GetSymbolAtLocation(expression)
+  if symbol == nil {
+    return true
+  }
+  return symbol.Flags&shimast.SymbolFlagsAlias == 0 &&
+    symbol.ValueDeclaration != nil &&
+    symbol.ValueDeclaration.Flags&shimast.NodeFlagsAmbient != 0
+}
 ```
 
-Six syntactic positions hold a module specifier in TypeScript. The visitor enumerates each one explicitly because the field name and depth differ per kind:
+Six syntactic positions can contain a module-specifier literal. Syntax locates the candidate; the two marked rows also require semantic classification because TypeScript gives the same shape different meanings in different files and scopes:
 
-| Source | Kind | Where the literal hides |
-| --- | --- | --- |
-| `import x from "pkg"` | `ImportDeclaration` | `.ModuleSpecifier` |
-| `export { x } from "pkg"` | `ExportDeclaration` | `.ModuleSpecifier` |
-| `import x = require("pkg")` | `ImportEqualsDeclaration` | `.ModuleReference.AsExternalModuleReference().Expression` |
-| `type T = import("pkg").T` | `ImportType` | `.Argument.AsLiteralTypeNode().Literal` |
-| `declare module "pkg" {}` | `ModuleDeclaration` | `.Name()` (a `StringLiteral` only for the ambient `declare module "pkg"` form; `namespace foo {}` / `module foo {}` resolve to an `Identifier` and are filtered out by the `KindStringLiteral` check inside `apply`) |
-| `require("pkg")` / `import("pkg")` | `CallExpression` | `.Arguments.Nodes[0]` |
+| Source | Kind | Literal location | Rewrite condition |
+| --- | --- | --- | --- |
+| `import x from "pkg"` | `ImportDeclaration` | `.ModuleSpecifier` | Always |
+| `export { x } from "pkg"` | `ExportDeclaration` | `.ModuleSpecifier` | Always |
+| `import x = require("pkg")` | `ImportEqualsDeclaration` | `.ModuleReference.AsExternalModuleReference().Expression` | Always |
+| `type T = import("pkg").T` | `ImportType` | `.Argument.AsLiteralTypeNode().Literal` | Always |
+| `declare module "pkg" {}` | `ModuleDeclaration` | `.Name()` | Only when the containing `SourceFile` is an external module, where the declaration augments that module. A global ambient declaration in a script stays unchanged. `namespace foo {}` and `module foo {}` have `Identifier` names and are still filtered out by `apply`. |
+| `import("pkg")` | `CallExpression` | `.Arguments.Nodes[0]` | Always |
+| `require("pkg")` | `CallExpression` | `.Arguments.Nodes[0]` | Only when the identifier resolves to the module loader, not to a parameter, local, or imported binding. |
 
 After the switch, `node.ForEachChild` recurses into every child. This is what makes the visitor catch deeply-nested cases like `function f(x = await import("pkg")) {}`. The `CallExpression` is buried inside parameter default initializers, but every node still gets visited because we always recurse.
 
@@ -469,7 +485,7 @@ When in doubt, set both. The cost is zero and the failure mode is silent.
 
 ## Pulling it together
 
-`rewriter` is the only shipped transform in this tour that needs project-wide Program facts beyond the source file currently being visited. Its constructor caches the Program's `ParsedConfig.CompilerOptions`, `SourceFiles`, and the `Paths` map; everything else is a pure function of those four facts and the input specifier string.
+`rewriter` is the only shipped transform in this tour that needs project-wide Program facts beyond the source file currently being visited. Its constructor caches the Program's `ParsedConfig.CompilerOptions`, `SourceFiles`, `Checker`, and `Paths` map; everything else is a pure function of those facts and the input specifier string.
 
 The pattern generalizes to any plugin that needs to query _project-level_ information:
 
@@ -484,7 +500,7 @@ The pattern generalizes to any plugin that needs to query _project-level_ inform
 
 - The pattern of caching tsconfig facts on a constructor-built struct (`rewriter`). Avoids re-querying for every node.
 - The pattern-precedence sort. Whenever you read a user-supplied map keyed on globs or patterns, copy this idiom: pull entries into a slice, then `sort.SliceStable` into the upstream tool's own precedence order. This makes resolution deterministic across runs and keeps it in agreement with the resolver you are mirroring.
-- The visitor that enumerates every module-specifier kind. If your plugin cares about module specifiers, this is the exhaustive list as of TypeScript 5.x.
+- The syntax enumeration plus semantic gates. Do not infer a module reference from node kind or identifier text alone. Use `SourceFile` and `Checker` facts when TypeScript gives a construct different meanings.
 - The synthesize-flag invariant. Read it once; tattoo it.
 
 **Do not copy:**

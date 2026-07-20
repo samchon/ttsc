@@ -23,10 +23,10 @@ func TestRewriterHelpersCoverResolutionEdges(t *testing.T) {
   }
   pathsApply(nil, nil)
   pathsApply(&pathsRewriter{}, nil)
-  pathsVisitModuleSpecifiers(nil, func(*shimast.Node) {
+  pathsVisitModuleSpecifiers(nil, nil, func(*shimast.Node) {
     t.Fatal("nil node should not be visited")
   })
-  if pathsIsModuleSpecifierCall(nil) {
+  if pathsIsModuleSpecifierCall(nil, nil) {
     t.Fatal("nil call should not be a module specifier call")
   }
 

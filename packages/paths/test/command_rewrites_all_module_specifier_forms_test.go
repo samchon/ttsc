@@ -34,6 +34,8 @@ type Box = import("@types/box").Box;
 declare module "@ambient/thing" { export const ambient: string; }
 declare function fn(value: string): void;
 declare const obj: { require(id: string): void };
+namespace UntouchedNamespace {}
+declare module "@unmatched/name" {}
 fn("@lib/message");
 obj.require("@lib/message");
 export const value = message;
@@ -67,6 +69,9 @@ void load;
   }
   if !strings.Contains(main, `obj.require("@lib/message")`) {
     t.Fatalf("property access call should stay untouched:\n%s", main)
+  }
+  if !strings.Contains(main, `namespace UntouchedNamespace`) || !strings.Contains(main, `module "@unmatched/name"`) {
+    t.Fatalf("non-module and unmatched declarations should stay untouched:\n%s", main)
   }
 
   localNoRootDir := seedProject(t, map[string]string{
