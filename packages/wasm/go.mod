@@ -8,6 +8,7 @@ go 1.26
 // public proxy cannot resolve the in-tree shim modules.
 replace (
 	github.com/microsoft/typescript-go/shim/ast => ../ttsc/shim/ast
+	github.com/microsoft/typescript-go/shim/astnav => ../ttsc/shim/astnav
 	github.com/microsoft/typescript-go/shim/bundled => ../ttsc/shim/bundled
 	github.com/microsoft/typescript-go/shim/checker => ../ttsc/shim/checker
 	github.com/microsoft/typescript-go/shim/compiler => ../ttsc/shim/compiler
@@ -27,6 +28,7 @@ replace (
 
 require (
 	github.com/microsoft/typescript-go/shim/ast v0.0.0
+	github.com/microsoft/typescript-go/shim/astnav v0.0.0
 	github.com/microsoft/typescript-go/shim/compiler v0.0.0
 	github.com/microsoft/typescript-go/shim/scanner v0.0.0
 	github.com/samchon/ttsc/packages/ttsc v0.0.0

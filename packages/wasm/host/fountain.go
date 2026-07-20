@@ -28,6 +28,7 @@ import (
   "syscall/js"
 
   "github.com/microsoft/typescript-go/shim/ast"
+  "github.com/microsoft/typescript-go/shim/astnav"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -291,28 +292,31 @@ func jsGetDiagnostics(this js.Value, args []js.Value) any {
 }
 
 // jsGetNodeAtPosition({handle, path, position}) → Promise<ITtscResult>.
-// `position` is a byte offset into the source text (the same coordinate the
-// AST uses internally). JS callers that have a UTF-16 line/character pair
-// should resolve it to a byte offset before calling (the @ttsc/playground
-// helper does this).
+// Returns the token touching the byte offset, including punctuation.
+// Whitespace and comments return `{node: null}`. JS callers with a UTF-16
+// line/character pair must resolve it to a byte offset first.
 func jsGetNodeAtPosition(this js.Value, args []js.Value) any {
   return withSnapshotPosition(args, func(_ *snapshotEntry, file *ast.SourceFile, pos int) any {
-    node := ast.GetNodeAtPosition(file, pos, false)
+    node := tokenAtPosition(file, pos)
     return fountainOK(GetNodeAtPositionResult{Node: nodeInfoOf(node)})
   })
 }
 
 // jsGetTypeAtPosition({handle, path, position}) → Promise<ITtscResult>.
-// Resolves the node at position via GetNodeAtPosition and asks the Program's
-// pinned single checker for its type. Returns `{type: null}` when there is no
-// node at that position or no checker is available.
+// Resolves the touching token, then asks the Program's pinned single checker
+// for the enclosing semantic AST node. Returns `{type: null}` when no token
+// has type semantics, including whitespace, comments, and punctuation.
 func jsGetTypeAtPosition(this js.Value, args []js.Value) any {
   return withSnapshotPosition(args, func(entry *snapshotEntry, file *ast.SourceFile, pos int) any {
-    node := ast.GetNodeAtPosition(file, pos, false)
-    if node == nil || entry.prog.Checker == nil {
+    node := tokenAtPosition(file, pos)
+    if !hasTypeAtLocation(node) || entry.prog.Checker == nil {
       return fountainOK(GetTypeAtPositionResult{Type: nil})
     }
-    t := entry.prog.Checker.GetTypeAtLocation(node)
+    semanticNode := ast.GetNodeAtPosition(file, pos, false)
+    if semanticNode == nil {
+      return fountainOK(GetTypeAtPositionResult{Type: nil})
+    }
+    t := entry.prog.Checker.GetTypeAtLocation(semanticNode)
     if t == nil {
       return fountainOK(GetTypeAtPositionResult{Type: nil})
     }
@@ -326,11 +330,11 @@ func jsGetTypeAtPosition(this js.Value, args []js.Value) any {
 }
 
 // jsGetSymbolAtPosition({handle, path, position}) → Promise<ITtscResult>.
-// Returns `{symbol: null}` when the node at position has no associated
-// symbol (e.g. punctuation, whitespace).
+// Returns `{symbol: null}` when the touching token has no associated symbol,
+// including punctuation, whitespace, and comments.
 func jsGetSymbolAtPosition(this js.Value, args []js.Value) any {
   return withSnapshotPosition(args, func(entry *snapshotEntry, file *ast.SourceFile, pos int) any {
-    node := ast.GetNodeAtPosition(file, pos, false)
+    node := tokenAtPosition(file, pos)
     if node == nil || entry.prog.Checker == nil {
       return fountainOK(GetSymbolAtPositionResult{Symbol: nil})
     }
@@ -374,9 +378,9 @@ func withSnapshot(args []js.Value, fn func(*snapshotEntry, js.Value) any) any {
 
 // withSnapshotPosition is the shared envelope for the 3 position-bound
 // fountain verbs. Same read-lock lifecycle as withSnapshot, plus parses
-// {path, position} and bounds-checks position against the file length so an
-// out-of-range offset reaches `ast.GetNodeAtPosition` only as a clean
-// error response instead of an internal panic.
+// {path, position} and bounds-checks position against the file length. A
+// position must address an existing byte, so the offset at end-of-file is
+// rejected before it can reach AST navigation.
 func withSnapshotPosition(args []js.Value, fn func(*snapshotEntry, *ast.SourceFile, int) any) any {
   return withSnapshot(args, func(entry *snapshotEntry, opts js.Value) any {
     path := stringProp(opts, "path")
@@ -395,11 +399,36 @@ func withSnapshotPosition(args []js.Value, fn func(*snapshotEntry, *ast.SourceFi
     if file == nil {
       return errorResponse(2, fmt.Sprintf("host: file %q not found in snapshot", path))
     }
-    if pos > len(file.Text()) {
-      return errorResponse(2, fmt.Sprintf("host: \"position\" %d exceeds file length %d", pos, len(file.Text())))
+    if pos >= len(file.Text()) {
+      return errorResponse(2, fmt.Sprintf("host: \"position\" %d is outside file length %d", pos, len(file.Text())))
     }
     return fn(entry, file, pos)
   })
+}
+
+// tokenAtPosition resolves the exact token at pos. GetTouchingToken returns a
+// containing AST node when a gap has no token, so preserve the fountain
+// contract by filtering that fallback out explicitly.
+func tokenAtPosition(file *ast.SourceFile, pos int) *ast.Node {
+  node := astnav.GetTouchingToken(file, pos)
+  if node == nil || !ast.IsTokenKind(node.Kind) {
+    return nil
+  }
+  return node
+}
+
+// hasTypeAtLocation mirrors the public checker entrypoint's semantic cases.
+// It deliberately excludes punctuation tokens, whose checker fallback is the
+// error type even though a cursor query has no meaningful type answer.
+func hasTypeAtLocation(node *ast.Node) bool {
+  return node != nil && (ast.IsPartOfTypeNode(node) ||
+    ast.IsExpressionNode(node) ||
+    ast.IsTypeDeclaration(node) ||
+    ast.IsTypeDeclarationName(node) ||
+    ast.IsBindingElement(node) ||
+    ast.IsDeclaration(node) ||
+    ast.IsDeclarationNameOrImportPropertyName(node) ||
+    ast.IsBindingPattern(node))
 }
 
 // resolveSnapshotFile finds a SourceFile by path, accepting either an

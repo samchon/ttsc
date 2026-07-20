@@ -279,6 +279,49 @@ func IsElementAccessExpression(node *Node) bool {
   return innerast.IsElementAccessExpression(node)
 }
 
+// IsTokenKind reports whether kind represents a lexical syntax token.
+func IsTokenKind(kind Kind) bool {
+  return innerast.IsTokenKind(kind)
+}
+
+// IsExpressionNode reports whether node has expression semantics in its
+// enclosing syntax context.
+func IsExpressionNode(node *Node) bool {
+  return innerast.IsExpressionNode(node)
+}
+
+// IsTypeDeclaration reports whether node declares a type-level symbol.
+func IsTypeDeclaration(node *Node) bool {
+  return innerast.IsTypeDeclaration(node)
+}
+
+// IsTypeDeclarationName reports whether node is the name of a type-level
+// declaration.
+func IsTypeDeclarationName(node *Node) bool {
+  return innerast.IsTypeDeclarationName(node)
+}
+
+// IsBindingElement reports whether node is one element of a binding pattern.
+func IsBindingElement(node *Node) bool {
+  return innerast.IsBindingElement(node)
+}
+
+// IsDeclaration reports whether node is a declaration syntax node.
+func IsDeclaration(node *Node) bool {
+  return innerast.IsDeclaration(node)
+}
+
+// IsDeclarationNameOrImportPropertyName reports whether node names a
+// declaration or the property side of an import or export specifier.
+func IsDeclarationNameOrImportPropertyName(node *Node) bool {
+  return innerast.IsDeclarationNameOrImportPropertyName(node)
+}
+
+// IsBindingPattern reports whether node is an object or array binding pattern.
+func IsBindingPattern(node *Node) bool {
+  return innerast.IsBindingPattern(node)
+}
+
 // GetSourceFileOfNode walks up the parent chain to return the SourceFile that
 // owns the given node. Linked from the internal package via go:linkname because
 // the function is unexported there.
@@ -286,9 +329,11 @@ func IsElementAccessExpression(node *Node) bool {
 //go:linkname GetSourceFileOfNode github.com/microsoft/typescript-go/internal/ast.GetSourceFileOfNode
 func GetSourceFileOfNode(node *innerast.Node) *innerast.SourceFile
 
-// GetNodeAtPosition returns the deepest AST node whose range covers position
-// in file. When includeJSDoc is true the search descends into JSDoc sub-trees.
-// Linked from the internal package via go:linkname.
+// GetNodeAtPosition returns the deepest non-token AST node whose range covers
+// position in file. When includeJSDoc is true the search descends into JSDoc
+// sub-trees. Cursor-facing callers that need the exact token should use
+// astnav.GetTouchingToken instead. Linked from the internal package via
+// go:linkname.
 //
 //go:linkname GetNodeAtPosition github.com/microsoft/typescript-go/internal/ast.GetNodeAtPosition
 func GetNodeAtPosition(file *innerast.SourceFile, position int, includeJSDoc bool) *innerast.Node

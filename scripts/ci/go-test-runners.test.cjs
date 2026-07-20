@@ -101,3 +101,10 @@ test("the orchestrator still lists the graph runner that used to be skipped", ()
     "test-go-graph.cjs must stay in the aggregated runner list",
   );
 });
+
+test("the orchestrator runs the js/wasm host suite", () => {
+  assert.ok(
+    runners.includes("test-go-wasm.cjs"),
+    "test-go-wasm.cjs must exercise the public wasm host API",
+  );
+});

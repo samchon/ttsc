@@ -1,4 +1,4 @@
-/** AST node shape returned by `getNodeAtPosition`. */
+/** Syntax-token shape returned by `getNodeAtPosition`. */
 export interface ITtscNodeInfo {
   /** Numeric `ast.Kind` from TypeScript-Go. */
   kind: number;

@@ -140,7 +140,7 @@ try {
     await api.getTypeAtPosition({
       handle,
       path: "src/index.ts",
-      position: 18, // byte offset of `x`
+      position: 13, // byte offset of `x`
     }),
   );
   console.log(typeAt?.type?.text); // → "number"
@@ -163,7 +163,9 @@ Verbs and payload types:
 | `getTypeAtPosition({ handle, path, position })` | `ITtscTypeAtPositionResult` `{ type }` |
 | `getSymbolAtPosition({ handle, path, position })` | `ITtscSymbolAtPositionResult` `{ symbol }` |
 
-`position` is a **byte offset** into the source text. The same coordinate TypeScript-Go uses internally. JS callers that have a UTF-16 `(line, character)` pair (e.g. From Monaco) must convert it before calling.
+`getNodeAtPosition` returns the syntax token touching `position`, including punctuation. `getTypeAtPosition` resolves that token to its enclosing semantic AST node, while `getSymbolAtPosition` queries the token directly. Both return `null` when there is no semantic answer. Whitespace and comments return `null` for all three verbs.
+
+`position` is a **byte offset** into the source text and must satisfy `0 <= position < UTF-8 byte length of sourceText`. The same coordinate TypeScript-Go uses internally. JS callers that have a UTF-16 `(line, character)` pair (e.g. From Monaco) must convert it before calling.
 
 **Lifecycle:** JS owns the handle. The wasm keeps the program (parsed AST, checker pool lease, every source file) alive until you call `releaseSnapshot`. Leaking handles leaks memory in the wasm linear heap.
 
