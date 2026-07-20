@@ -228,7 +228,8 @@ function selectQueuedVersion(
     const message = error instanceof Error ? error.message : String(error);
     const requestedBy = requests
       .map(
-        ({ requester, range }) => `${requester} requests ${JSON.stringify(range)}`,
+        ({ requester, range }) =>
+          `${requester} requests ${JSON.stringify(range)}`,
       )
       .join("; ");
     throw new Error(`${message} Requested by ${requestedBy}.`);
