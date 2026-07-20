@@ -556,6 +556,105 @@ func assertNoFixSnapshot(t *testing.T, ruleName, source string) {
   }
 }
 
+// assertSuggestionSnapshot verifies a rule withholds its automatic fix and
+// offers the same rewrite as one titled, opt-in suggestion instead.
+//
+// The suggestion channel exists for an edit that is correct but lossy or
+// behavior-changing, so both halves have to hold at once: `ttsc fix` and
+// source.fixAll must still change nothing, while the advertised edits must
+// produce `expected` once the author selects them. Asserting only the first
+// half would pass for a rule that dropped the edit entirely, which is the
+// regression this helper exists to catch.
+//
+//  1. Run one rule over `source` and require exactly one finding.
+//  2. Assert it carries no automatic fix and exactly one suggestion titled
+//     `title`, and that the automatic pass leaves the source untouched.
+//  3. Apply the suggestion's own edits and compare the result exactly.
+func assertSuggestionSnapshot(t *testing.T, ruleName, source, title, expected string) {
+  t.Helper()
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
+  if len(findings) != 1 {
+    t.Fatalf("%s: findings = %d, want 1 (%+v)", ruleName, len(findings), findings)
+  }
+  finding := findings[0]
+  if len(finding.Fix) != 0 {
+    t.Fatalf("%s: automatic fix must stay withheld, got %+v", ruleName, finding.Fix)
+  }
+  if len(finding.Suggestions) != 1 {
+    t.Fatalf(
+      "%s: suggestions = %d, want 1 (%+v)",
+      ruleName,
+      len(finding.Suggestions),
+      finding.Suggestions,
+    )
+  }
+  suggestion := finding.Suggestions[0]
+  if suggestion.Title != title {
+    t.Fatalf("%s: suggestion title:\nwant %q\ngot  %q", ruleName, title, suggestion.Title)
+  }
+  if unchanged, applied := applyFindingFixesToText(source, findings); applied != 0 || unchanged != source {
+    t.Fatalf(
+      "%s: automatic pass must change nothing: applied=%d got %q",
+      ruleName,
+      applied,
+      unchanged,
+    )
+  }
+  got, applied := applyFindingFixesToText(source, []*Finding{{Fix: suggestion.Edits}})
+  if applied != len(suggestion.Edits) {
+    t.Fatalf(
+      "%s: applied %d of %d suggestion edits",
+      ruleName,
+      applied,
+      len(suggestion.Edits),
+    )
+  }
+  if got != expected {
+    t.Fatalf("%s suggested source mismatch:\nwant %q\ngot  %q", ruleName, expected, got)
+  }
+}
+
+// assertReportOnlySnapshot verifies a rule reports but offers the author
+// nothing at all — neither an automatic fix nor an opt-in suggestion.
+//
+// It is the counter-assertion to `assertSuggestionSnapshot`. Where a rewrite
+// is withheld because applying it would change what the program does, routing
+// it to the suggestion channel is wrong, not merely cautious;
+// `assertNoFixSnapshot` alone cannot tell that apart from a correctly offered
+// suggestion because suggestion edits never reach the fix applier.
+//
+//  1. Run one rule over `source` and require at least one finding.
+//  2. Assert no finding carries a fix or a suggestion.
+//  3. Assert the automatic pass leaves the source byte-for-byte intact.
+func assertReportOnlySnapshot(t *testing.T, ruleName, source string) {
+  t.Helper()
+  _, _, findings := runRuleFindingsSnapshot(t, ruleName, source, nil)
+  if len(findings) == 0 {
+    t.Fatalf("%s: expected at least one finding", ruleName)
+  }
+  for index, finding := range findings {
+    if len(finding.Fix) != 0 {
+      t.Fatalf("%s: finding %d carries a fix: %+v", ruleName, index, finding.Fix)
+    }
+    if len(finding.Suggestions) != 0 {
+      t.Fatalf(
+        "%s: finding %d carries a suggestion: %+v",
+        ruleName,
+        index,
+        finding.Suggestions,
+      )
+    }
+  }
+  if unchanged, applied := applyFindingFixesToText(source, findings); applied != 0 || unchanged != source {
+    t.Fatalf(
+      "%s: automatic pass must change nothing: applied=%d got %q",
+      ruleName,
+      applied,
+      unchanged,
+    )
+  }
+}
+
 // assertRuleSkipsSource asserts the rule emits zero findings for the input.
 // Distinguished from `assertNoFixSnapshot`: the latter requires at least one
 // finding (and asserts no fix is applied); this helper is for cases where the

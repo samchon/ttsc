@@ -8,8 +8,10 @@ import "testing"
 //
 // The fix deletes from the key name's end through the initializer's end, so a
 // comment there (`{ x: /* keep */ x }`) would be erased. ESLint's
-// object-shorthand declines via `commentsExistBetween`; the port reports the
-// shorthand candidate but offers no edit. The negative twin — the same property
+// object-shorthand declines via `commentsExistBetween`; the port imposes no
+// edit either and routes the collapse to the opt-in suggestion channel instead
+// (pinned by `TestObjectShorthandOffersWithheldCollapseAsSuggestion`).
+// The negative twin — the same property
 // with no comment — must still collapse to `{ x }`, proving the guard is scoped
 // to the comment.
 //

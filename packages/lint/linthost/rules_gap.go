@@ -540,13 +540,6 @@ func (dotNotation) Check(ctx *Context, node *shimast.Node) {
     return
   }
   message := "Use dot notation instead of a string literal property access."
-  // Conservative: keep reserved words as bracket access. Modern JS accepts
-  // `obj.class`/`obj.if`/etc. syntactically but mixing them with member
-  // expression syntax is jarring and can confuse minifiers and older runtimes.
-  if isReservedWord(key) {
-    ctx.Report(node, message)
-    return
-  }
   src := ctx.File.Text()
   // Determine where the bracket access begins. With an optional chain
   // (`obj?.["foo"]`) the `?.` token already separates object from access, so
@@ -575,18 +568,34 @@ func (dotNotation) Check(ctx *Context, node *shimast.Node) {
     ctx.Report(node, message)
     return
   }
+  edit := TextEdit{Pos: replaceFrom, End: node.End(), Text: replacement}
+  switch {
   // A comment inside the replaced `[…]` tail (`p1 /* keep */ ["foo"]`) would be
-  // silently deleted by the splice. Decline to a report-only diagnostic,
-  // matching ESLint dot-notation's `commentsExistBetween` guard.
-  if hasCommentBetween(src, replaceFrom, node.End()) {
-    ctx.Report(node, message)
-    return
+  // silently deleted by the splice, so it is never imposed — matching ESLint
+  // dot-notation's `commentsExistBetween` guard. The rewrite itself is still
+  // correct, so it is offered as an opt-in suggestion that names the loss.
+  case hasCommentBetween(src, replaceFrom, node.End()):
+    ctx.ReportSuggestion(
+      node,
+      message,
+      "Use dot notation, discarding the comment inside the brackets.",
+      edit,
+    )
+  // Conservative: keep reserved words as bracket access. Modern JS accepts
+  // `obj.class`/`obj.if`/etc. syntactically but mixing them with member
+  // expression syntax is jarring and can confuse minifiers and older runtimes.
+  // ESLint's default `allowKeywords: true` does rewrite them, so the edit is
+  // offered as an opt-in suggestion rather than withheld outright.
+  case isReservedWord(key):
+    ctx.ReportSuggestion(
+      node,
+      message,
+      "Use dot notation for the reserved word `"+key+"`.",
+      edit,
+    )
+  default:
+    ctx.ReportFix(node, message, edit)
   }
-  ctx.ReportFix(
-    node,
-    message,
-    TextEdit{Pos: replaceFrom, End: node.End(), Text: replacement},
-  )
 }
 
 // isDecimalIntegerLiteralText reports whether raw is a numeric literal written

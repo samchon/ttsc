@@ -9,7 +9,9 @@ import "testing"
 // The fix replaces the range from the receiver's end through the closing
 // bracket, so a comment there (`p1 /* keep */ ["foo"]`) would vanish after
 // `ttsc lint fix`. ESLint's dot-notation declines via `commentsExistBetween`;
-// the port reports the diagnostic but offers no edit. The negative twin — the
+// the port imposes no edit either and routes the rewrite to the opt-in
+// suggestion channel instead (pinned by
+// `TestDotNotationOffersWithheldBracketCollapseAsSuggestion`). The negative twin — the
 // same access with no comment — must still rewrite, proving the guard is scoped
 // to the comment and not a blanket suppression.
 //

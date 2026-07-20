@@ -8,8 +8,9 @@ import "testing"
 //
 // The fix keeps only the argument's own text, so a comment ahead of it
 // inside the call would be silently deleted (#362). Upstream ESLint's fixer
-// bails out on comment loss; the port declines the same way and leaves the
-// finding report-only.
+// bails out on comment loss; the port declines the same way and offers the
+// splice as an opt-in suggestion instead, pinned by
+// `TestNoExtraBooleanCastOffersWithheldSpliceAsSuggestion`.
 //
 // 1. Snapshot `const z = !Boolean(/* why */ ok);` source.
 // 2. Run `no-extra-boolean-cast` through the fix applier.

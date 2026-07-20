@@ -185,11 +185,20 @@ func (noExtraBind) Check(ctx *Context, node *shimast.Node) {
     return
   }
 
-  edits := noExtraBindFixEdits(ctx, node, call, member, receiver)
-  if len(edits) == 0 {
-    ctx.Report(node, "The function binding is unnecessary.")
-  } else {
-    ctx.ReportFix(node, "The function binding is unnecessary.", edits...)
+  message := "The function binding is unnecessary."
+  edits, imposable := noExtraBindFixEdits(ctx, node, call, member, receiver)
+  switch {
+  case len(edits) == 0:
+    ctx.Report(node, message)
+  case imposable:
+    ctx.ReportFix(node, message, edits...)
+  default:
+    ctx.ReportSuggestion(
+      node,
+      message,
+      "Remove the unnecessary binding, discarding the comment inside it.",
+      edits...,
+    )
   }
 }
 
@@ -296,22 +305,28 @@ func noExtraBindThisBelongsToFunction(node, root *shimast.Node) bool {
 
 // noExtraBindFixEdits removes the member access and its one-argument call as
 // separate ranges. Parentheses and comments before the member operator remain
-// byte-for-byte intact. The fix is withheld when evaluating the receiver may
-// have effects or when any comment lies inside discarded syntax.
+// byte-for-byte intact.
+//
+// No edit exists at all when the removal would change what the program does —
+// evaluating the receiver may have effects — or when the ranges are degenerate;
+// both return `(nil, false)`. When the edit is well-formed but a comment lies
+// inside the discarded syntax, it returns `(edits, false)`: imposing silent
+// comment loss is unacceptable, yet the caller can still offer the removal as
+// an opt-in suggestion. Only `(edits, true)` may be applied automatically.
 func noExtraBindFixEdits(
   ctx *Context,
   callNode *shimast.Node,
   call *shimast.CallExpression,
   member *shimast.Node,
   receiver *shimast.Node,
-) []TextEdit {
+) (edits []TextEdit, imposable bool) {
   if ctx == nil || ctx.File == nil || callNode == nil || call == nil || call.Expression == nil || member == nil ||
     !noExtraBindReceiverIsSideEffectFree(receiver) {
-    return nil
+    return nil, false
   }
   parts, ok := referenceMemberParts(member)
   if !ok || parts.object == nil {
-    return nil
+    return nil, false
   }
 
   src := ctx.File.Text()
@@ -320,15 +335,12 @@ func noExtraBindFixEdits(
   callStart := shimscanner.SkipTrivia(src, call.Expression.End())
   callEnd := callNode.End()
   if memberStart < 0 || memberStart >= memberEnd || memberEnd > callStart || callStart >= callEnd || callEnd > len(src) {
-    return nil
-  }
-  if hasCommentBetween(src, memberStart, callEnd) {
-    return nil
+    return nil, false
   }
   return []TextEdit{
     {Pos: memberStart, End: memberEnd, Text: ""},
     {Pos: callStart, End: callEnd, Text: ""},
-  }
+  }, !hasCommentBetween(src, memberStart, callEnd)
 }
 
 func noExtraBindReceiverIsSideEffectFree(node *shimast.Node) bool {
@@ -1312,19 +1324,22 @@ func reportUselessRenameFix(ctx *Context, node, propertyName, name *shimast.Node
     ctx.Report(node, message)
     return
   }
+  edit := TextEdit{Pos: propertyName.End(), End: name.End(), Text: ""}
   // A comment between the two names (`{ a as /* c */ a }`) sits inside the
-  // deleted rename tail; dropping it would be silent data loss, so decline to
-  // a report-only diagnostic. Mirrors ESLint no-useless-rename's
-  // `commentsExistBetween` guard.
+  // deleted rename tail; imposing that loss is unacceptable, so the autofix
+  // declines. Mirrors ESLint no-useless-rename's `commentsExistBetween` guard.
+  // The collapse is still what the author wants, so the same edit is offered
+  // as an opt-in suggestion whose title states that the comment goes with it.
   if hasCommentBetween(ctx.File.Text(), propertyName.End(), name.End()) {
-    ctx.Report(node, message)
+    ctx.ReportSuggestion(
+      node,
+      message,
+      "Remove the redundant rename, discarding the comment inside it.",
+      edit,
+    )
     return
   }
-  ctx.ReportFix(
-    node,
-    message,
-    TextEdit{Pos: propertyName.End(), End: name.End(), Text: ""},
-  )
+  ctx.ReportFix(node, message, edit)
 }
 
 // objectShorthand: `{ x: x }` → `{ x }`.
@@ -1351,17 +1366,20 @@ func (objectShorthand) Check(ctx *Context, node *shimast.Node) {
   // that range.
   //
   // A comment inside that range (`{ x: /* c */ x }`) would be dropped by the
-  // deletion, so decline to a report-only diagnostic. Mirrors ESLint
-  // object-shorthand's `commentsExistBetween` guard.
+  // deletion, so the autofix declines. Mirrors ESLint object-shorthand's
+  // `commentsExistBetween` guard. The shorthand rewrite is still correct, so
+  // the same edit is offered as an opt-in suggestion that names the loss.
+  edit := TextEdit{Pos: prop.Name().End(), End: prop.Initializer.End(), Text: ""}
   if hasCommentBetween(ctx.File.Text(), prop.Name().End(), prop.Initializer.End()) {
-    ctx.Report(node, "Expected property shorthand.")
+    ctx.ReportSuggestion(
+      node,
+      "Expected property shorthand.",
+      "Use property shorthand, discarding the comment before the value.",
+      edit,
+    )
     return
   }
-  ctx.ReportFix(
-    node,
-    "Expected property shorthand.",
-    TextEdit{Pos: prop.Name().End(), End: prop.Initializer.End(), Text: ""},
-  )
+  ctx.ReportFix(node, "Expected property shorthand.", edit)
 }
 
 // operatorAssignment: `x = x + 1` → `x += 1`.
@@ -1494,21 +1512,24 @@ func (preferTemplate) Check(ctx *Context, node *shimast.Node) {
     ctx.Report(node, message)
     return
   }
+  edit := TextEdit{Pos: editPos, End: node.End(), Text: template}
   // A comment in an operator seam (`"a" + /* c */ b`) is dropped by the
-  // template rebuild, so decline to a report-only diagnostic. Mirrors ESLint
+  // template rebuild, so the autofix declines and the rendered literal is
+  // offered as an opt-in suggestion that names the loss. Mirrors ESLint
   // prefer-template's `commentsExistBetween` guard. Only the seams are scanned:
   // operand interiors are copied verbatim (their comments survive) and string
   // contents are cooked, so scanning the whole span would misread a `//` or
   // `/*` inside a string literal (`"https://" + host`) as a comment.
   if concatOperandSeamsHaveComment(src, operands) {
-    ctx.Report(node, message)
+    ctx.ReportSuggestion(
+      node,
+      message,
+      "Use a template literal, discarding the comments between the operands.",
+      edit,
+    )
     return
   }
-  ctx.ReportFix(
-    node,
-    message,
-    TextEdit{Pos: editPos, End: node.End(), Text: template},
-  )
+  ctx.ReportFix(node, message, edit)
 }
 
 // concatOperandSeamsHaveComment reports whether a comment sits in any seam

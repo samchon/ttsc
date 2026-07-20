@@ -127,6 +127,8 @@ Formatter behavior is configured separately through the top-level `format` block
 
 Suggestion-only rewrites, including removing an ordinary non-thenable `await`, replacing `@ts-ignore`, and adding a Unicode flag for `regexp/require-unicode-regexp` / `regexp/require-unicode-sets-regexp`, are available through `quickfix.ttsc`; `ttsc fix` and source fix-all do not apply them.
 
+A rule that computes a valid rewrite but refuses to impose it also offers that rewrite as a suggestion rather than dropping it. This covers `no-extra-boolean-cast`, `dot-notation`, `object-shorthand`, `no-useless-rename`, `prefer-template`, and `no-extra-bind` when a comment sits inside the span the edit replaces (the suggestion discards that comment, and its title says so), `dot-notation` on a reserved-word key, and `eqeqeq` when the operands are not provably the same type (the suggestion changes runtime behavior, and its title says so). Nothing in this group is ever applied by `ttsc fix` or source fix-all.
+
 ## See also
 
 - [Format](/docs/lint/format): the format rule set (including print-width reflow).
