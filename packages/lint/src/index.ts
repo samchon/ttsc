@@ -223,10 +223,10 @@ function resolveConfigFileContributors(
   if (!configPath || !fs.existsSync(configPath)) return [];
 
   const entries = readConfigPluginEntries(configPath, context);
-  // Dedup on the Go-subpackage form (post hyphen→underscore transform)
-  // so two namespaces that collapse to the same Go identifier surface
-  // here instead of as the contributor validator's opaque
-  // `duplicate name "a_b"` error.
+  assertContributorNamespacesDoNotCollide(entries, configPath);
+  // Dedup exact repeated namespaces on the Go-subpackage form. Config-array
+  // folding can surface the same namespace more than once; that existing
+  // behavior stays intact after distinct namespaces are rejected above.
   const occupied = new Set<string>();
   const out: TtscPluginContributor[] = [];
   for (const entry of entries) {
@@ -236,6 +236,37 @@ function resolveConfigFileContributors(
     out.push({ name: goName, source: entry.source });
   }
   return out;
+}
+
+function assertContributorNamespacesDoNotCollide(
+  entries: ConfigPluginEntry[],
+  configPath: string,
+): void {
+  const namespacesByGoName = new Map<string, Set<string>>();
+  for (const entry of entries) {
+    const goName = goSubpackageName(entry.namespace);
+    let namespaces = namespacesByGoName.get(goName);
+    if (namespaces === undefined) {
+      namespaces = new Set<string>();
+      namespacesByGoName.set(goName, namespaces);
+    }
+    namespaces.add(entry.namespace);
+  }
+  const collisions = [...namespacesByGoName]
+    .map(([goName, namespaces]) => [goName, [...namespaces].sort()] as const)
+    .filter(([, namespaces]) => namespaces.length > 1)
+    .sort(([left], [right]) => left.localeCompare(right));
+  if (collisions.length === 0) return;
+
+  const details = collisions
+    .map(
+      ([goName, namespaces]) =>
+        `${namespaces.map((namespace) => JSON.stringify(namespace)).join(", ")} all normalize to ${JSON.stringify(goName)}`,
+    )
+    .join("; ");
+  throw new Error(
+    `@ttsc/lint: lint config ${configPath} contributor namespaces collide after Go normalization: ${details}`,
+  );
 }
 
 /**
