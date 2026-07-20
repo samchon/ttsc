@@ -17,13 +17,13 @@ Three rules govern the entire implementation phase:
 
 - Local tests, lead verification, and solo Self-Review are the implementation gates.
 - Do not run `pnpm format` during discovery, issue publication, or implementation. Post-Campaign Cleanup owns the repository-wide formatter result.
-- Never disable repository Actions or any workflow for a campaign. After every campaign push and pull-request creation, immediately start cancellation only for runs caused by that campaign commit. Keep the cancellation record current and complete it before merge, but do not make local development wait for it.
+- Never disable repository Actions or any workflow for a campaign. After every implementation-wave push and pull-request creation, immediately start cancellation only for runs caused by that campaign commit. Keep the cancellation record current and complete it before merge, but do not make local development wait for it.
 
 ## Cancel Campaign CI After Every Push
 
 Repository-wide Actions and workflow settings must remain unchanged. Before the first push, record `gh api repos/{owner}/{repo}/actions/permissions` and `gh workflow list --all --limit 1000 --json id,name,path,state` in `.wiki/<campaign>/ci-state.md` so the lead can prove the campaign did not alter them.
 
-Every push gets a cancellation record. Start it immediately in a background supervisor rather than leaving an implementation agent to poll it:
+Every implementation-wave push gets a cancellation record. Start it immediately in a background supervisor rather than leaving an implementation agent to poll it:
 
 1. Record the campaign branch and pushed commit SHA.
 2. List runs for that exact SHA with `gh run list --commit <sha> --limit 100 --json databaseId,headBranch,headSha,status,conclusion,url`.
@@ -31,7 +31,7 @@ Every push gets a cancellation record. Start it immediately in a background supe
 4. Poll again because push, pull-request, chained, and ruleset runs can appear after the first query. Continue until two consecutive polls find no new run and every observed run is terminal; every run observed as active must end `cancelled`, while a run already terminal when first observed is only recorded.
 5. Record the run IDs and final states in `.wiki/<campaign>/ci-state.md`. If enumeration, cancellation, or readback fails, surface the failure and suspend later remote mutations and merge until it is repaired.
 
-Opening or updating a pull request can enqueue additional runs for the already-pushed SHA. Start the same background record immediately after pull-request creation and after any operation that retriggers checks. The exact-SHA boundary is mandatory: never cancel unrelated contributors' runs.
+Opening or updating an implementation pull request can enqueue additional runs for the already-pushed SHA. Start the same background record immediately after pull-request creation and after any operation that retriggers checks. The exact-SHA boundary is mandatory: never cancel unrelated contributors' runs.
 
 A live cancellation record does not block reading source, changing code, writing tests, starting local commands, committing, or Self-Review. It is a merge gate, not an excuse to idle. The initial claim push and the immediately following claim pull request are one reservation transaction, so opening that pull request does not wait for the first poll. Before merge, read every campaign SHA record back and require the final terminal state described above.
 
@@ -128,8 +128,8 @@ Run this phase only after the user ends the campaign, every campaign pull reques
 3. Run `pnpm format` once against the integrated repository.
 4. If formatting produces no diff, report that no cleanup pull request was needed and stop.
 5. If formatting changes files, create a dedicated topic branch containing the formatter result and only directly necessary fixes.
-6. Commit and push under the pull-request skill, pass the exact-SHA cancellation gate, open the Post-Campaign Cleanup pull request, and pass the gate again for pull-request-triggered runs.
-7. Diagnose any locally reproducible failure, fix it, commit, push, and cancel the new commit's runs by the same gate.
+6. Commit, push, and open the Post-Campaign Cleanup pull request under the pull-request skill. This is an ordinary pull request: resume its check loop instead of cancelling its runs.
+7. Diagnose any locally reproducible failure, fix it, commit, push, and resume the ordinary check loop.
 8. Merge once required checks pass: with explicit user authorization, or on a standing autonomous mandate without a separate request.
 9. If cleanup used the main checkout, return it to `master`, pull with `git pull --ff-only origin master`, and delete the local cleanup branch.
 10. If cleanup used an auxiliary worktree, remove it and its branch under Remove Every Finished Worktree, then pull `master` in the main checkout.

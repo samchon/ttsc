@@ -36,7 +36,7 @@ Concise and clear means:
 - Give each paragraph one job. Separate purpose, rule, rationale, procedure, and consequence when combining them obscures the action.
 - Use structure to compress meaning: ordered lists for procedures, bullets for choices and checks, tables for repeated mappings, and code blocks for exact commands.
 - State the rule before its reason. Use a negative rule only when it prevents a named failure the affirmative rule does not already exclude.
-- Point to source documentation instead of paraphrasing it.
+- Link to website guides, READMEs, or source comments instead of paraphrasing them.
 
 ## Prose line breaks
 
