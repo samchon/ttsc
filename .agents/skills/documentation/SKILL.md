@@ -1,6 +1,6 @@
 ---
 name: documentation
-description: Defines README and website-guide structure, audience, prose formatting, and voice for ttsc. Use before writing, modifying, renaming, or moving repository documentation.
+description: Defines README, website-guide, and agent-instruction structure, concise prose, and voice for ttsc. Use before writing, modifying, renaming, or moving repository documentation.
 ---
 
 # Documentation
@@ -24,6 +24,19 @@ Organize the tree by audience:
 Package guides may cover full options, recipes, troubleshooting, compatibility, and migration. Plugin-author guides may cover protocols, Go APIs, testing, publishing, and internals.
 
 Keep one audience and task per page. Update the matching `_meta.ts` whenever a guide is added, renamed, or moved.
+
+## Agent Instructions
+
+`AGENTS.md` and `SKILL.md` files are operational documents for humans and agents. Keep only the product-wide contract in `AGENTS.md`, the always-applicable procedure in `SKILL.md`, and conditional detail in a linked sibling document.
+
+Concise and clear means:
+
+- Include the context needed to act correctly. Do not make the reader infer prerequisites, exceptions, reasons, or stop conditions merely to shorten the document.
+- State each rule at its owning document and link to it elsewhere. Remove repeated wording, not necessary substance.
+- Give each paragraph one job. Separate purpose, rule, rationale, procedure, and consequence when combining them obscures the action.
+- Use structure to compress meaning: ordered lists for procedures, bullets for choices and checks, tables for repeated mappings, and code blocks for exact commands.
+- State the rule before its reason. Use a negative rule only when it prevents a named failure the affirmative rule does not already exclude.
+- Link to website guides, READMEs, or source comments instead of paraphrasing them.
 
 ## Prose line breaks
 
