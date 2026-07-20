@@ -5,6 +5,7 @@ import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
 import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
+import { ttscGraphNodeIdPath } from "./TtscGraphNodeId";
 
 /**
  * The in-memory resident graph the MCP tools answer from.
@@ -119,10 +120,20 @@ function keyOf(node: ITtscGraphNode): string {
   return node.qualifiedName ?? node.name;
 }
 
-/** The owner key of a dotted key (`A.B.c` -> `A.B`), or "" for a top-level key. */
-function ownerKey(key: string): string {
-  const dot = key.lastIndexOf(".");
-  return dot >= 0 ? key.slice(0, dot) : "";
+/**
+ * The owner key derived from facts the producer serialized separately.
+ *
+ * A quoted member named `"a.b"` has Name `a.b` and QualifiedName `Box.a.b`.
+ * Cutting the qualified name at its last dot invents owner `Box.a`; removing
+ * the exact `.${name}` suffix instead preserves the producer's real boundary.
+ */
+function ownerKey(node: ITtscGraphNode): string | undefined {
+  if (node.qualifiedName === undefined || node.qualifiedName === node.name)
+    return undefined;
+  const suffix = `.${node.name}`;
+  if (!node.qualifiedName.endsWith(suffix)) return undefined;
+  const owner = node.qualifiedName.slice(0, -suffix.length);
+  return owner === "" ? undefined : owner;
 }
 
 /** A file's id and node name from its project-relative path. */
@@ -144,8 +155,7 @@ function spanIn(span: ITtscGraphSpan, file: string): ITtscGraphEvidence {
  * file node's id is the path itself.
  */
 function fileOfNodeId(id: string): string {
-  const hash = id.indexOf("#");
-  return hash === -1 ? id : id.slice(0, hash);
+  return ttscGraphNodeIdPath(id) ?? id;
 }
 
 function basename(file: string): string {
@@ -213,8 +223,8 @@ function synthesize(dump: ITtscGraphDump): {
     if (!node.external) byFileKey.set(node.file + "\0" + keyOf(node), node);
   }
   const owner = (node: ITtscGraphNode): ITtscGraphNode | undefined => {
-    const parent = ownerKey(keyOf(node));
-    if (parent === "") return undefined;
+    const parent = ownerKey(node);
+    if (parent === undefined) return undefined;
     return byFileKey.get(node.file + "\0" + parent);
   };
 

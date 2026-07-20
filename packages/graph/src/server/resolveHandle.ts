@@ -1,4 +1,5 @@
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
+import { parseTtscGraphNodeId } from "../model/TtscGraphNodeId";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { exportFanIn } from "./exportSurface";
 import { isSupportPath } from "./pathPolicy";
@@ -73,12 +74,7 @@ function memberPartOf(handle: string): string | undefined {
 
 /** The symbol an id-shaped handle names: `dir/file.ts#Class.method:kind`. */
 function symbolPartOf(handle: string): string | undefined {
-  const hash = handle.lastIndexOf("#");
-  if (hash < 0) return undefined;
-  const symbol = handle.slice(hash + 1);
-  const kind = symbol.lastIndexOf(":");
-  const name = kind < 0 ? symbol : symbol.slice(0, kind);
-  return name.length > 0 ? name : undefined;
+  return parseTtscGraphNodeId(handle)?.name;
 }
 
 function resolveGraphName(

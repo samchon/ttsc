@@ -1,6 +1,8 @@
 package graph
 
 import (
+  "strings"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
@@ -214,7 +216,103 @@ type edgeKey struct {
 }
 
 // nodeID builds the position-invariant identity for a symbol named name,
-// declared as kind in the source file at path.
+// declared as kind in the source file at path. The visible grammar remains
+// path#name:kind, but path and name quote a literal backslash and hash so a
+// consumer never has to guess which hash separates the two components.
 func nodeID(path string, name string, kind NodeKind) string {
-  return path + "#" + name + ":" + string(kind)
+  return escapeNodeIDPart(path) + "#" + escapeNodeIDPart(name) + ":" + string(kind)
+}
+
+// nodeIDParts are the structured facts carried by a symbol id. File nodes are
+// raw paths rather than symbol ids, so parseNodeID deliberately rejects them.
+type nodeIDParts struct {
+  path string
+  name string
+  kind NodeKind
+}
+
+// parseNodeID recovers the structured path, name, and kind from an id emitted
+// by nodeID. It also accepts older ids whose ordinary components were not
+// escaped, so a newer reader can still consume a pre-codec dump.
+func parseNodeID(id string) (nodeIDParts, bool) {
+  hash := nodeIDHash(id)
+  if hash < 0 {
+    return nodeIDParts{}, false
+  }
+  tail := id[hash+1:]
+  colon := strings.LastIndex(tail, ":")
+  if colon <= 0 || colon == len(tail)-1 {
+    return nodeIDParts{}, false
+  }
+  return nodeIDParts{
+    path: unescapeNodeIDPart(id[:hash]),
+    name: unescapeNodeIDPart(tail[:colon]),
+    kind: NodeKind(tail[colon+1:]),
+  }, true
+}
+
+// nodeFile recovers the raw source path embedded in a symbol id. An id without
+// a symbol component is a file id, and therefore has no node-file component.
+func nodeFile(id string) string {
+  parts, ok := parseNodeID(id)
+  if !ok {
+    return ""
+  }
+  return parts.path
+}
+
+// NodeFile is the graph-symbol provider's shared view of the node-id grammar.
+// Keeping the parser here prevents its LSP path comparison from drifting from
+// the dump producer's edge-evidence lookup.
+func NodeFile(id string) string {
+  return nodeFile(id)
+}
+
+func escapeNodeIDPart(value string) string {
+  value = strings.ReplaceAll(value, "\\", "\\\\")
+  return strings.ReplaceAll(value, "#", "\\#")
+}
+
+func unescapeNodeIDPart(value string) string {
+  var out strings.Builder
+  out.Grow(len(value))
+  for i := 0; i < len(value); i++ {
+    if value[i] == '\\' && i+1 < len(value) {
+      next := value[i+1]
+      if next == '#' || (next == '\\' && !legacyUNCStart(value, i)) {
+        i++
+      }
+    }
+    out.WriteByte(value[i])
+  }
+  return out.String()
+}
+
+// legacyUNCStart distinguishes an older raw UNC path (\\server) from a new
+// codec spelling (\\\\server). The former predates backslash escaping and must
+// remain readable by a current consumer.
+func legacyUNCStart(value string, index int) bool {
+  return index == 0 && len(value) > 2 && value[2] != '\\' && value[2] != '#'
+}
+
+func nodeIDHash(id string) int {
+  for i := 0; i < len(id); i++ {
+    if id[i] != '#' {
+      continue
+    }
+    if i == 0 || id[i-1] != '\\' || escapedBackslash(id, i-1) {
+      return i
+    }
+  }
+  return -1
+}
+
+// escapedBackslash reports whether slash is itself escaped by the run before
+// it. Only an odd run quotes the following hash.
+func escapedBackslash(id string, slash int) bool {
+  count := 0
+  for i := slash; i >= 0 && id[i] == '\\'; i-- {
+    count++
+  }
+  return count%2 == 0
 }

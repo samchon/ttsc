@@ -188,7 +188,7 @@ func (pr *Provider) References(uri string, pos lspserver.LSPPosition, includeDec
     if e.To != target.ID || isStructuralEdge(e.Kind) {
       continue
     }
-    f := nodeFile(e.From)
+    f := graph.NodeFile(e.From)
     if f == "" {
       continue
     }
@@ -322,7 +322,7 @@ func targetNodeAt(g *graph.Graph, file string, offset int) *graph.Node {
     return best
   }
   for _, e := range g.Edges {
-    if !pathsEqual(nodeFile(e.From), file) {
+    if !pathsEqual(graph.NodeFile(e.From), file) {
       continue
     }
     if offset >= e.Pos && offset < e.End {
@@ -357,15 +357,6 @@ func sortNodes(nodes []*graph.Node) {
     }
     return nodes[i].Name < nodes[j].Name
   })
-}
-
-// nodeFile recovers the source file path embedded in a node id
-// ("path#name:kind"); "" for an id without a path.
-func nodeFile(id string) string {
-  if hash := strings.Index(id, "#"); hash >= 0 {
-    return id[:hash]
-  }
-  return ""
 }
 
 // fileFromURI maps a file:// uri onto the source map key for the same file,
