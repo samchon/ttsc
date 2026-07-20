@@ -69,6 +69,7 @@ Two things must never be overlapped, because overlapping them destroys the evide
 
 - **A Self-Review round must not race a change.** The review skill requires one complete round over a final surface and a restart whenever anything changes, so a round begun while the code can still move is not a round at all. Prepare its inputs early — the base-to-head diff inventory, consequence-surface notes, the list of generated artifacts to re-check — and open the round once the batch stops changing.
 - **A merge must not precede its evidence.** Local verification is the only gate a CI-suspended campaign has, so a result that lands after the merge proves nothing about what was merged.
+- **The cancellation gate is a barrier, not a slow command.** [Cancel Campaign CI After Every Push](#cancel-campaign-ci-after-every-push) already forbids continuing while a gate is unresolved; nothing in this section relaxes that. Poll it to completion before doing anything else.
 
 Report wall-clock honestly when a wait was unavoidable, such as a toolchain download or a suite with no narrower subset. An unavoidable wait is a fact; an unexamined one is a habit.
 
