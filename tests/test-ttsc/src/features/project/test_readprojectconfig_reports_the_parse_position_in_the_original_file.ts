@@ -65,6 +65,15 @@ export const test_readprojectconfig_reports_the_parse_position_in_the_original_f
       );
     }
 
+    // Boundary: valid JSON that is not an object parses, and the reader reports
+    // no options rather than failing. Attribution is about parse failures, so
+    // this shape must stay outside it.
+    fs.writeFileSync(file, `"not an object"`, "utf8");
+    assert.deepEqual(
+      readProjectConfig({ tsconfig: file }).compilerOptions.plugins,
+      [],
+    );
+
     // Negative twin: the length-preserving rewrite must not change what parses.
     // Comments, a trailing comma, and a leading BOM together — the shapes the
     // JSONC cases and closed issue #216 pinned.
