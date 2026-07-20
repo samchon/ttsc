@@ -496,21 +496,24 @@ function parseReferenceGraph(
     return undefined;
   }
   const section = value as {
+    candidates?: unknown;
     configs?: unknown;
     edges?: unknown;
     globals?: unknown;
   };
+  const candidates = parseDependencyLists(section.candidates) ?? {};
   const edges = parseDependencyLists(section.edges) ?? {};
   const globals = parseFileList(section.globals) ?? [];
   const configs = parseFileList(section.configs) ?? [];
   if (
+    Object.keys(candidates).length === 0 &&
     Object.keys(edges).length === 0 &&
     globals.length === 0 &&
     configs.length === 0
   ) {
     return undefined;
   }
-  return { configs, edges, globals };
+  return { candidates, configs, edges, globals };
 }
 
 /**

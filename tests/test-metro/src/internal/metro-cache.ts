@@ -431,6 +431,33 @@ export async function assertTransformerRecordsVolatileDeclarations(): Promise<vo
 }
 
 /**
+ * Verifies the two-run resolution-precedence transition inside the project
+ * walk. The candidate is absent during run one, so the ordinary project walk
+ * cannot hash it; the transform layer still delivers it through addWatchFile,
+ * and the recorder must retain that missing path. Creating only that file
+ * before run two must therefore change Metro's cache key.
+ */
+export async function assertCacheKeyChangesWhenSupersedingCandidateAppears(): Promise<void> {
+  const root = createBareProject();
+  const candidate = path.join(root, "src", "generated.ts");
+  const { createSnapshotRecorder } = await TestMetroRuntime.loadFingerprint();
+
+  await prepareSnapshot(root);
+  const firstWorker = createSnapshotRecorder();
+  firstWorker.record({
+    input: candidate,
+    projectRoot: root,
+  });
+  assert.deepEqual(workerSnapshotFiles(root), [candidate]);
+
+  await prepareSnapshot(root);
+  const before = await cacheKeyForRun(root);
+  fs.writeFileSync(candidate, "export const generated = true;\n", "utf8");
+  const after = await cacheKeyForRun(root);
+  assert.notEqual(after, before);
+}
+
+/**
  * Asserts a clean transformed file records the observation that a previous
  * volatile declaration is gone.
  *

@@ -392,7 +392,8 @@ Project-wide source transform used by `ttsc.transform()` and in-memory callers. 
   "graph": {
     "edges": { "src/main.ts": ["src/types.ts"] },
     "globals": ["src/ambient.d.ts"],
-    "configs": ["tsconfig.json", "tsconfig.base.json"]
+    "configs": ["tsconfig.json", "tsconfig.base.json"],
+    "candidates": { "src/main.ts": ["src/generated.ts"] }
   },
   "volatile": ["src/generated-from-env.ts"]
 }
@@ -407,6 +408,9 @@ Each value in `typescript` is written to disk **verbatim**. The host does not re
 - `edges`: per file, its **direct** resolved references — imports, re-exports, `/// <reference>` targets, type reference directives, type-only edges included. Direct edges are the minimal sufficient statistic (`tsbuildinfo` stores `referencedMap` the same way); consumers that need a flat per-file list compute the reachability closure themselves.
 - `globals`: files contributing to the global scope (ambient declaration files, script files, global augmentations, `typeRoots` entries); a change to any of them can affect every file.
 - `configs`: the project tsconfig followed by its `extends` ancestry.
+- `candidates`: per importer, missing paths that precede its selected module target in TypeScript-Go's resolution order. Creating one changes the meaning of an unchanged import, so consumers watch and hash it. Paths below the selected target are omitted and do not invalidate a cache.
+
+For each transformed file, `@ttsc/unplugin` also registers the `candidates` of every importer in its `edges` reachability closure. Candidates remain host-owned even when a plugin declares complete dependencies because a plugin cannot vouch for a compiler-resolution change that occurs without any plugin input changing.
 
 `@ttsc/unplugin` registers, per transformed file `F`, `reach(edges, F) ∪ globals ∪ configs ∪ dependencies[F]` as watch files — union semantics, so a plugin's `dependencies` can only widen the host-owned bound unless the same envelope declares that file's list [complete](#dependency-completeness). This is what makes webpack filesystem caches (what Next.js persists under `.next/cache`), watch graphs, and Turbopack `fileDependencies` invalidate soundly by default when a type-only input changes. Malformed sections degrade to fewer registrations, never a failed build.
 

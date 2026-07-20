@@ -193,6 +193,8 @@ ttsc({
 
 ## Cache and watch invalidation
 
+The compiler also reports missing module-resolution candidates that would outrank a selected target. `@ttsc/unplugin` registers candidates belonging to importers in a transformed file's reference closure, so creating a higher-priority file invalidates the transform even when neither the importer nor its tsconfig changed.
+
 Bundlers invalidate a module only when its registered inputs change, and they erase type-only imports from their module graphs — but a type-driven transform's output depends on the files where the consulted types are declared. `@ttsc/unplugin` closes that gap by registering, per transformed file, the compiler-reported reference closure (type-only edges included), the files contributing to the global scope, and the tsconfig `extends` chain as watch files. Webpack filesystem caches (what Next.js persists under `.next/cache`), watch-mode rebuilds, and Turbopack `fileDependencies` all consume that registration, so editing a type another file's generated code depends on rebuilds the consumer without deleting any cache.
 
 This works for every adapter automatically when the transform host emits the envelope's `graph` section — the built-in host and linked plugins always do; executable sidecar plugins adopt through the [driver SDK](/docs/development/reference/driver-api#reference-graph). Plugins whose output additionally depends on non-file inputs declare those files [`volatile`](/docs/development/concepts/protocol#transform), which excludes them from caching entirely.

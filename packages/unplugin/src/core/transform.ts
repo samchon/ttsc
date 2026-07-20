@@ -112,17 +112,20 @@ const CASE_INSENSITIVE_FILESYSTEMS = new Map<string, boolean>();
 
 /**
  * Hooks the bundler adapter passes into {@link transformTtsc} so transform
- * side-channels (currently the plugin-reported dependency list) reach the
- * bundler without leaking extra fields on the returned `TransformResult`.
+ * side-channels (plugin-reported dependencies and host resolution candidates)
+ * reach the bundler without leaking extra fields on the returned
+ * `TransformResult`.
  */
 export interface TtscTransformHooks {
   /**
    * Invoked once per absolute watch-input path derived for the transformed file
    * `F`: the plugin-reported `dependencies[F]` list unioned with the host-owned
    * reference graph's contribution — the reachability closure of `graph.edges`
-   * from `F`, the `graph.globals` files, and the `graph.configs` chain — or,
+   * from `F`, the `graph.globals` files, the `graph.configs` chain, and missing
+   * higher-priority `graph.candidates` — or,
    * for a file the envelope declared `dependenciesComplete`, only
-   * `dependencies[F]` and the universal `graph.configs` chain. Adapters forward
+   * `dependencies[F]`, `graph.candidates`, and the universal `graph.configs`
+   * chain. Adapters forward
    * this to the bundler's `addWatchFile` so type-only inputs participate in
    * watch-mode and persistent-cache invalidation. See {@link selectWatchInputs}
    * for the exact derivation.
@@ -322,7 +325,7 @@ function evictGeneration(
  * Forward every derived watch input for `file` to the adapter's `addWatchFile`
  * hook: the plugin-reported `dependencies[file]` list unioned with the
  * host-owned reference graph's contribution (`reach(edges, file)`, `globals`,
- * `configs`).
+ * `configs`, and resolution candidates).
  *
  * Envelope keys mirror the `typescript` keys (project-relative); values may be
  * project-relative or absolute. Every path is absolutized against the project
@@ -353,7 +356,8 @@ function notifyWatchInputs(
  *
  * By default the derivation is a union: `dependencies[file] ∪ reach(edges,
  * file) ∪ globals ∪ configs`. The plugin-reported list can only widen the
- * host-owned language-semantic bound, never narrow it.
+ * host-owned language-semantic bound, never narrow it. Resolution candidates
+ * remain part of that host-owned bound in both modes.
  *
  * An envelope that lists `file` in `dependenciesComplete` narrows it to
  * `dependencies[file] ∪ configs`: the plugin declared its reported list the
@@ -389,6 +393,7 @@ function selectWatchInputs(props: {
       ...props,
       complete: declaresCompleteDependencies(props) && !isVolatileFile(props),
     }),
+    ...selectResolutionCandidateInputs(props),
   ]) {
     const identity = pathIdentityKey(absolute);
     if (excluded.has(identity) || seen.has(identity)) {
@@ -396,6 +401,42 @@ function selectWatchInputs(props: {
     }
     seen.add(identity);
     output.push(absolute);
+  }
+  return output;
+}
+
+/**
+ * Return the missing module-resolution paths that can supersede a currently
+ * resolved module reachable from `file`. They remain host-owned even when a
+ * plugin declares `dependenciesComplete`: plugin code cannot vouch for a
+ * compiler resolution change that occurs without any plugin input changing.
+ */
+function selectResolutionCandidateInputs(props: {
+  file: string;
+  projectRoot: string;
+  result: ITtscCompilerTransformation;
+}): string[] {
+  if (props.result.type === "exception") {
+    return [];
+  }
+  const graph = props.result.graph;
+  if (graph === undefined || graph.candidates === undefined) {
+    return [];
+  }
+  const reachable = new Set(
+    selectReachableSources(props.projectRoot, props.file, graph).map(
+      pathIdentityKey,
+    ),
+  );
+  const output: string[] = [];
+  for (const [source, candidates] of Object.entries(graph.candidates)) {
+    if (
+      !reachable.has(pathIdentityKey(path.resolve(props.projectRoot, source))) ||
+      !Array.isArray(candidates)
+    ) {
+      continue;
+    }
+    output.push(...selectListedFiles(props.projectRoot, candidates));
   }
   return output;
 }
@@ -476,6 +517,54 @@ function selectReachableEdges(
       visited.add(identity);
       queue.push(target);
       output.push(target);
+    }
+  }
+  return output;
+}
+
+/**
+ * Return the source files whose direct graph edges are reachable from `file`,
+ * including `file` itself. Resolution candidates belong to importers rather
+ * than targets, so this is intentionally distinct from selectReachableEdges.
+ */
+function selectReachableSources(
+  projectRoot: string,
+  file: string,
+  graph: ITtscCompilerTransformation.IReferenceGraph,
+): string[] {
+  const edges = new Map<string, string[]>();
+  const spellings = new Map<string, string>();
+  for (const [source, targets] of Object.entries(graph.edges ?? {})) {
+    if (!Array.isArray(targets)) {
+      continue;
+    }
+    const absolute = path.resolve(projectRoot, source);
+    const identity = pathIdentityKey(absolute);
+    spellings.set(identity, absolute);
+    const entries = edges.get(identity) ?? [];
+    entries.push(
+      ...targets
+        .filter(
+          (target): target is string =>
+            typeof target === "string" && target.length !== 0,
+        )
+        .map((target) => path.resolve(projectRoot, target)),
+    );
+    edges.set(identity, entries);
+  }
+  const output = [file];
+  const visited = new Set<string>([pathIdentityKey(file)]);
+  const queue = [file];
+  while (queue.length !== 0) {
+    const current = queue.pop()!;
+    for (const target of edges.get(pathIdentityKey(current)) ?? []) {
+      const identity = pathIdentityKey(target);
+      if (visited.has(identity)) {
+        continue;
+      }
+      visited.add(identity);
+      queue.push(target);
+      output.push(spellings.get(identity) ?? target);
     }
   }
   return output;
@@ -842,7 +931,9 @@ export function collectExternalInputHashes(
  * union of every reference-graph member (edge keys and targets, globals, the
  * config chain) and every plugin-reported dependency, minus everything the
  * project walk already hashes and the disposed temp-dir tsconfig. These are the
- * inputs {@link matchesCachedSource}'s walk cannot see.
+ * inputs {@link matchesCachedSource}'s walk cannot see. Missing resolution
+ * candidates remain in this set even under the project root: the first walk
+ * cannot hash a file that has not been created yet.
  *
  * A `dependenciesComplete` declaration deliberately does not narrow this set,
  * unlike the per-file watch derivation. This cache replays one whole envelope,
@@ -862,6 +953,7 @@ function selectExternalInputPaths(props: {
     return [];
   }
   const members: string[] = [];
+  const resolutionCandidates = new Set<string>();
   const graph = props.result.graph;
   if (graph !== undefined) {
     for (const [source, targets] of Object.entries(graph.edges ?? {})) {
@@ -873,6 +965,19 @@ function selectExternalInputPaths(props: {
     for (const listed of [graph.globals, graph.configs]) {
       if (Array.isArray(listed)) {
         members.push(...listed);
+      }
+    }
+    for (const candidates of Object.values(graph.candidates ?? {})) {
+      if (!Array.isArray(candidates)) {
+        continue;
+      }
+      for (const candidate of candidates) {
+        if (typeof candidate !== "string" || candidate.length === 0) {
+          continue;
+        }
+        const absolute = path.resolve(props.projectRoot, candidate);
+        members.push(candidate);
+        resolutionCandidates.add(pathIdentityKey(absolute));
       }
     }
   }
@@ -893,10 +998,12 @@ function selectExternalInputPaths(props: {
     }
     const absolute = path.resolve(props.projectRoot, member);
     const identity = pathIdentityKey(absolute);
+    const missingCandidate =
+      resolutionCandidates.has(identity) && !fs.existsSync(absolute);
     if (
       identity === excluded ||
       seen.has(identity) ||
-      isProjectWalkPath(props.projectRoot, absolute)
+      (!missingCandidate && isProjectWalkPath(props.projectRoot, absolute))
     ) {
       continue;
     }

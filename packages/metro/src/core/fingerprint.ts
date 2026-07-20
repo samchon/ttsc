@@ -305,13 +305,13 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
 }
 
 /**
- * Recorder held by each Metro worker. Collects the out-of-walk inputs derived
- * for every transformed file (the plugin-reported dependencies unioned with the
- * reference graph's reach, globals, and configs — delivered through the
- * transform core's `addWatchFile` hook) plus any volatile declaration, and
- * persists them to this worker's uniquely named snapshot file whenever the
- * observed state changes. A clean in-walk transform also writes a document so
- * it can clear a volatile declaration from an earlier run. The unique name
+ * Recorder held by each Metro worker. It persists out-of-walk watch inputs and
+ * missing in-walk paths delivered through the transform core's `addWatchFile`
+ * hook, plus any volatile declaration. Existing in-walk files stay covered by
+ * the project walk; a missing path must be retained because its creation is a
+ * state change that the initial walk could not hash. A clean in-walk transform
+ * also writes a document so it can clear a volatile declaration from an earlier
+ * run. The unique name
  * makes worker writes race-free;
  * `withTtsc` compacts the files on the next run.
  */
@@ -388,7 +388,8 @@ export function createSnapshotRecorder(): {
       state.observed = true;
       if (
         state.files.has(input) ||
-        state.roots.some((root) => isProjectWalkPath(root, input))
+        (fs.existsSync(input) &&
+          state.roots.some((root) => isProjectWalkPath(root, input)))
       ) {
         // Even when every input belongs to the project walk, the worker must
         // publish that it performed a clean transform. Otherwise an old main
