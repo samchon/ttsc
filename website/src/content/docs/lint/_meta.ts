@@ -4,6 +4,7 @@ const meta: MetaRecord = {
   index: "Overview",
   setup: "Setup",
   editor: "VS Code",
+  videos: "Video library",
   format: "Format",
   rules: "Rules",
 };

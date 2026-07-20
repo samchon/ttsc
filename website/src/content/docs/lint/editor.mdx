@@ -102,6 +102,10 @@ The feature originated from work on [`@samchon/evidence`](https://github.com/sam
 
 Plugin authors can implement this channel through [`rule.HintRule`](/docs/development/walkthroughs/lint#editor-hints-from-a-project-rule). Editor embedders can implement the driver-level [`CompletionHintSource`](/docs/development/reference/driver-api#hosting-ttscserver).
 
+## See the rest of the catalog
+
+The completion above is published by one rule. Most rules assist through diagnostics, suggestions, and fixes instead, and not every rule publishes completion. The [video library](/docs/lint/videos) shows two rules from each of the 21 families and what each one puts in front of you.
+
 ## Troubleshooting completion
 
 1. Confirm the workspace has a `tsconfig.json` and resolves `ttsc`: `npx ttsc --version`.

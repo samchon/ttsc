@@ -1,0 +1,9 @@
+{
+  "name": "ttsc-media-tools",
+  "private": true,
+  "type": "module",
+  "description": "Local-only media rendering and publishing toolchain. Never part of the ttsc workspace.",
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
