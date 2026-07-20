@@ -119,6 +119,7 @@ function createInputIdentity({
   }
   if (toolchain.GOWORK && toolchain.GOWORK !== "off") {
     addIfFile(files, toolchain.GOWORK);
+    addIfFile(files, path.join(path.dirname(toolchain.GOWORK), "go.work.sum"));
   }
   for (const file of extraFiles) files.add(path.resolve(file));
   for (const directory of inputDirectories) addDirectory(files, directory);

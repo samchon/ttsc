@@ -36,6 +36,7 @@ test("Go build cache keys every effective input and rejects corrupt state", () =
     );
     invalidates(fixture.goSum, "example.test/dependency v1.0.1 h1:changed\n");
     invalidates(fixture.goWork, "go 1.26\n\nuse ./other-module\n");
+    invalidates(fixture.goWorkSum, "example.test/dependency v1.0.1 h1:changed\n");
     invalidates(
       fixture.dependencySource,
       "package dependency\nfunc Version() int { return 2 }\n",
@@ -124,6 +125,7 @@ function createFixture() {
   const goMod = path.join(module, "go.mod");
   const goSum = path.join(module, "go.sum");
   const goWork = path.join(root, "go.work");
+  const goWorkSum = path.join(root, "go.work.sum");
   const goSource = path.join(command, "main.go");
   const dependencySource = path.join(dependency, "dependency.go");
   const embed = path.join(command, "schema.json");
@@ -139,6 +141,7 @@ function createFixture() {
   fs.writeFileSync(goMod, "module example.test/cache\ngo 1.26\n");
   fs.writeFileSync(goSum, "example.test/dependency v1.0.0 h1:original\n");
   fs.writeFileSync(goWork, "go 1.26\n\nuse ./module\n");
+  fs.writeFileSync(goWorkSum, "example.test/dependency v1.0.0 h1:original\n");
   fs.writeFileSync(goSource, "package main\nfunc main() { println(1) }\n");
   fs.writeFileSync(
     dependencySource,
@@ -175,6 +178,7 @@ function createFixture() {
     goSource,
     goSum,
     goWork,
+    goWorkSum,
     goroot,
     shimSource,
     shimOutput,
