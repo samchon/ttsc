@@ -152,6 +152,23 @@ export const test_expression_union_coverage = (): void => {
       ),
     ],
     [
+      "nested partial comma sequence keeps binary precedence",
+      f.createExpressionStatement(
+        f.createAdd(
+          partial(partial(f.createCommaListExpression([id("a"), id("b")]))),
+          id("c"),
+        ),
+      ),
+      l.createExpressionStatement(
+        l.createAdd(
+          legacyPartial(
+            legacyPartial(l.createCommaListExpression([lid("a"), lid("b")])),
+          ),
+          lid("c"),
+        ),
+      ),
+    ],
+    [
       "partial object literal keeps expression-statement parentheses",
       f.createExpressionStatement(partial(f.createObjectLiteralExpression([]))),
       l.createExpressionStatement(
