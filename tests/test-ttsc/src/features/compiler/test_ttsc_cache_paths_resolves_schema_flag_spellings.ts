@@ -61,6 +61,17 @@ export const test_ttsc_cache_paths_resolves_schema_flag_spellings = () => {
   assert.notEqual(jsonValue.status, 0);
   assert.match(jsonValue.stderr, /--json does not take a value/);
 
+  const spacedJsonValue = spawn(
+    ttscBin,
+    ["cache", "paths", "--json", "false"],
+    { cwd: root },
+  );
+  assert.notEqual(spacedJsonValue.status, 0);
+  assert.match(
+    spacedJsonValue.stderr,
+    /cache paths does not support "false"/,
+  );
+
   const unknown = spawn(
     ttscBin,
     ["cache", "paths", "--not-a-real-cache-option"],
