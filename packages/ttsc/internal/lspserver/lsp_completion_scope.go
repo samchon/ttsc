@@ -86,7 +86,7 @@ func lexicalScopeAt(text string, offset int) lexicalScope {
   // remembers the enclosing depth per open `${`, so the `}` that ends an
   // interpolation is told apart from the `}` that ends an object literal in it.
   braces := 0
-  templateBraces := []int{}
+  var templateBraces []int
   // last is the most recent significant code byte. It is the only context the
   // `/` ambiguity needs: division after a value, a regex literal otherwise.
   last := byte(0)
@@ -172,7 +172,9 @@ func lexicalScopeAt(text string, offset int) lexicalScope {
         index++
       }
     case lexicalScopeLineComment:
-      if symbol == '\n' {
+      // CR ends a line for TypeScript too, so a CR-only buffer cannot leave the
+      // rest of the file inside one `//`.
+      if symbol == '\n' || symbol == '\r' {
         scope = lexicalScopeCode
       }
       index++
@@ -246,6 +248,10 @@ func regexAllowedAfter(head string, last byte) bool {
     return false
   case last == '"' || last == '\'' || last == '`':
     return false
+  case last == '/':
+    // The byte a completed regex literal leaves behind. A literal is a value,
+    // so what follows it divides.
+    return false
   default:
     return true
   }
@@ -259,6 +265,11 @@ func regexKeywordPrecedes(head string) bool {
   start := end
   for start > 0 && isIdentifierByte(head[start-1]) {
     start--
+  }
+  if start > 0 && head[start-1] == '.' {
+    // `in`, `of`, `new`, and the rest are legal property names, and a member
+    // access is a value: `obj.in / 2` divides.
+    return false
   }
   switch head[start:end] {
   case "await", "case", "delete", "do", "else", "in", "instanceof", "new",

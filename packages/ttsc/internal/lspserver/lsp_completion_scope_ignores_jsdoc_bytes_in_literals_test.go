@@ -31,6 +31,10 @@ func TestLSPCompletionScopeIgnoresJSDocBytesInLiterals(t *testing.T) {
     {name: "empty block comment", text: "/**/ @par", want: lexicalScopeCode},
     {name: "plain block comment", text: "/* @par", want: lexicalScopeBlockComment},
     {name: "line comment", text: "// /** @par", want: lexicalScopeLineComment},
+    // CR ends a line for TypeScript, so a CR-only buffer must not leave the
+    // rest of the file inside one `//`.
+    {name: "line comment ended by a lone cr", text: "// note\r/** @par", want: lexicalScopeJSDoc},
+    {name: "line comment ended by crlf", text: "// note\r\n/** @par", want: lexicalScopeJSDoc},
     {name: "no delimiter", text: "const x = 1; @par", want: lexicalScopeCode},
 
     {name: "double quoted string", text: "const x = \"/** @par", want: lexicalScopeString},
@@ -65,6 +69,10 @@ func TestLSPCompletionScopeIgnoresJSDocBytesInLiterals(t *testing.T) {
     // The negative twin: `/` after a value divides, and reading it as a literal
     // would swallow the block that follows.
     {name: "division is not a regex", text: "const ratio = a / b; /** @par", want: lexicalScopeJSDoc},
+    // A keyword is a legal property name, and a member access is a value.
+    {name: "keyword as a property name divides", text: "const n = obj.in / 2; /** @par", want: lexicalScopeJSDoc},
+    // What follows a completed literal divides, flags or not.
+    {name: "division after a flagless regex", text: "const n = /re/ / 2; /** @par", want: lexicalScopeJSDoc},
   }
 
   for _, entry := range cases {
