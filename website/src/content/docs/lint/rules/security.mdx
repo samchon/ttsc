@@ -245,6 +245,8 @@ Detect `crypto.pseudoRandomBytes`, which produces values that are not cryptograp
 
 Tokens, session ids, and key material must use `crypto.randomBytes` (or Web Crypto's `getRandomValues`) instead.
 
+Type-aware via the Checker, which resolves the object at the use site so an automatic rewrite never lands on a shadowed binding. Enabling this rule puts the whole run on the checker path; the diagnostic itself stays name-based and still reports without one.
+
 Node deprecated the name in DEP0115 and the member name alone is rewritten to `randomBytes`, so the API is repaired whether it is called or passed around as a value. The rename is automatic when the source proves `crypto` is an import or require of Node's `crypto` / `node:crypto` module. A name-only match gets the same edit as an editor suggestion instead, because a local application object can also be named `crypto`.
 
 The rule stays untagged for that same reason. Diagnostic tags are rule-level, so `Deprecated` would also strike through a reported member on a user-defined `crypto` object.

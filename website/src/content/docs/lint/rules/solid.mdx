@@ -229,6 +229,8 @@ const handler = new Proxy({}, {});
 
 Reject React-style dependency arrays in Solid tracked scopes (`createEffect(() => ..., [deps])`).
 
+Type-aware via the Checker. The tag below claims the array is dead, so the callee has to be the Solid primitive itself rather than a same-named local helper or a shadowing parameter, and only symbol resolution can say that. Enabling this rule puts the whole run on the checker path.
+
 The finding is tagged `Unnecessary`, so an editor greys the array out: Solid tracks dependencies automatically, the array is inert, and the reported range is the array literal alone. Deleting exactly what is faded is the whole resolution.
 
 Example:

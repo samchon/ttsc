@@ -108,6 +108,11 @@ export interface ITtscLintSolidRules {
    * Reject React-style dependency arrays in Solid tracked scopes
    * (`createEffect(() => ..., [deps])`).
    *
+   * Type-aware via the Checker. The tag below claims the array is dead, so the
+   * callee has to be the Solid primitive itself rather than a same-named local
+   * or a shadowing parameter, and only symbol resolution can say that. Enabling
+   * this rule therefore puts the whole run on the checker path.
+   *
    * Tagged `Unnecessary`: the reported range is the array literal alone, and
    * Solid tracks dependencies automatically, so deleting it is the whole
    * resolution and an editor greys it out.

@@ -145,6 +145,11 @@ export interface ITtscLintSecurityRules {
    * Tokens, session ids, and key material must use `crypto.randomBytes` (or Web
    * Crypto's `getRandomValues`) instead.
    *
+   * Type-aware via the Checker, which resolves the object at the use site so an
+   * automatic rewrite is never applied to a shadowed binding. Enabling this
+   * rule therefore puts the whole run on the checker path. The diagnostic
+   * itself stays name-based, so it still reports without one.
+   *
    * The member name alone is rewritten to `randomBytes`. The edit is automatic
    * when the object is proven to be an import or require of Node `crypto`, and
    * an editor suggestion otherwise, because a local application object can also
