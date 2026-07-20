@@ -310,7 +310,9 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  * reference graph's reach, globals, and configs — delivered through the
  * transform core's `addWatchFile` hook) plus any volatile declaration, and
  * persists them to this worker's uniquely named snapshot file whenever the
- * observed state grows. The unique name makes worker writes race-free;
+ * observed state changes. A clean in-walk transform also writes a document so
+ * it can clear a volatile declaration from an earlier run. The unique name
+ * makes worker writes race-free;
  * `withTtsc` compacts the files on the next run.
  */
 export function createSnapshotRecorder(): {
@@ -328,6 +330,7 @@ export function createSnapshotRecorder(): {
   interface BaseState {
     dirty: boolean;
     files: Set<string>;
+    observed: boolean;
     roots: string[];
     volatile: boolean;
   }
@@ -343,6 +346,7 @@ export function createSnapshotRecorder(): {
       state = {
         dirty: false,
         files: new Set(),
+        observed: false,
         roots: fingerprintRoots(base, explicitProject),
         volatile: false,
       };
@@ -380,10 +384,19 @@ export function createSnapshotRecorder(): {
       const base = resolveFingerprintBase(props.projectRoot);
       const state = stateFor(props.projectRoot, props.explicitProject);
       const input = path.resolve(props.input);
+      const firstObservation = !state.observed;
+      state.observed = true;
       if (
         state.files.has(input) ||
         state.roots.some((root) => isProjectWalkPath(root, input))
       ) {
+        // Even when every input belongs to the project walk, the worker must
+        // publish that it performed a clean transform. Otherwise an old main
+        // snapshot with `volatile: true` remains sticky forever.
+        if (firstObservation) {
+          state.dirty = true;
+          flush(base, state);
+        }
         return;
       }
       state.files.add(input);

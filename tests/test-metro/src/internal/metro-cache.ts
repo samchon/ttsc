@@ -431,6 +431,44 @@ export async function assertTransformerRecordsVolatileDeclarations(): Promise<vo
 }
 
 /**
+ * Asserts a clean transformed file records the observation that a previous
+ * volatile declaration is gone.
+ *
+ * The worker recorder used to write only an out-of-walk path or a positive
+ * volatile declaration. A later ordinary transform whose graph contribution
+ * stayed inside the project walk therefore wrote no worker document, leaving
+ * the prior main snapshot's `volatile: true` value sticky forever. This models
+ * two fresh Metro workers at the recorder boundary, avoiding an unrelated
+ * native compiler invocation while exercising the persisted state transition.
+ */
+export async function assertCleanTransformClearsVolatileSnapshot(): Promise<void> {
+  const root = createBareProject();
+  const options = {
+    upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
+  };
+  const { createSnapshotRecorder } = await TestMetroRuntime.loadFingerprint();
+
+  await prepareSnapshot(root);
+  const volatileWorker = createSnapshotRecorder();
+  volatileWorker.recordVolatile({ projectRoot: root });
+  await prepareSnapshot(root);
+  assert.equal(readMainSnapshot(root).volatile, true);
+
+  const cleanWorker = createSnapshotRecorder();
+  cleanWorker.record({
+    input: path.join(root, "src", "app.ts"),
+    projectRoot: root,
+  });
+  await prepareSnapshot(root);
+
+  assert.equal(readMainSnapshot(root).volatile, false);
+  assert.equal(
+    await cacheKeyForRun(root, options),
+    await cacheKeyForRun(root, options),
+  );
+}
+
+/**
  * Asserts `withTtsc` prepares the snapshot epoch in the config process: the
  * main snapshot exists with a random id before any worker or `getCacheKey`
  * call, which is what keeps unchanged projects on a stable key from the second
