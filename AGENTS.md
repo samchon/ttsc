@@ -36,11 +36,15 @@ README, website-guide, and agent-instruction writing rules, `.agents/skills/docu
 
 ### Issue Campaigns
 
-Repository-wide issue discovery, lead-verified issue writing, CI-suspended DAG-batched implementation, and cleanup, `.agents/skills/issue-campaign/SKILL.md`. Read when the user asks for a broad audit, many issue candidates, or an issue-to-implementation campaign; do not use it for one already-defined issue.
+Default solo repository-wide issue discovery, issue publication, one CI-validated implementation pull request per cycle, and renewed discovery, `.agents/skills/issue-campaign/SKILL.md`. Read when the user asks for a broad audit, many issue candidates, or an issue-to-implementation campaign without explicitly requesting parallel agents; do not use it for one already-defined issue.
 
 ### Review
 
-Solo review, team Review Cycle, research review, and exhaustive issue-discovery rounds, `.agents/skills/review/SKILL.md`. Every agent inspects the whole declared surface independently, and rounds continue until a complete pass produces no sound improvement or meaningful issue candidate. Self-Review and any unqualified review request are always solo.
+Default solo Self-Review, unqualified review, and exhaustive issue-discovery rounds, `.agents/skills/review/SKILL.md`. The reviewer inspects the whole declared surface and repeats fresh rounds until a complete pass produces no sound improvement or meaningful issue candidate.
+
+### Multi-Agent Workflows
+
+Explicitly parallel review and issue-campaign variants live under one entry point, `.agents/skills/multi-agent/SKILL.md`. Read it only when the user explicitly asks for a team, parallel, or multi-agent workflow. Multi-agent issue campaigns parallelize discovery and implementation by default and switch to solo implementation only on an explicit discovery-only parallel request; Self-Review remains solo.
 
 ### Discussion
 
@@ -50,9 +54,9 @@ Structured multi-agent topic discussion with persistent research notes and trans
 
 Branch, commit, pull request, check, and merge flow, `.agents/skills/pull-request/SKILL.md`. Read when the user explicitly asks to open, submit, update, or merge a pull request, or when a standing autonomous mandate authorizes end-to-end delivery; never open, push, or propose one on unprompted initiative.
 
-### Benchmark
+### Benchmark Measurement
 
-Benchmark runners, fixture repositories, measurement integrity, and publication, `.agents/skills/benchmark/SKILL.md`. Read before running, modifying, or publishing benchmark results.
+Benchmark runners, fixture repositories, measurement integrity, and publication, `.agents/skills/benchmark/SKILL.md`. Read before running, modifying, or publishing benchmark results. `ttsc` has no benchmark-campaign skill; benchmark-driven issue-to-implementation work enters the issue-campaign skill.
 
 ## Maintenance
 
@@ -72,5 +76,6 @@ Update AGENTS.md only for repository-contract changes: a new skill area, a renam
 - **Core in SKILL.md, conditional topics as sibling documents.** Keep always-applicable procedure in SKILL.md. Move a topic needed only under a specific condition to a one-level-deep sibling document and link it with that read condition.
 - **Two trigger surfaces, one scope.** The frontmatter description is the full trigger contract, including exclusions. The AGENTS.md pointer mirrors that scope more briefly. Correct the frontmatter first when the scope changes.
 - **Create or merge.** Add a skill when a substantial repository concern would otherwise inflate AGENTS.md beyond an index. Merge sibling concerns when they share most of their structure.
+- **Repository skill files only.** Keep repository skills to `SKILL.md` and conditionally loaded sibling documents. Do not add `agents/openai.yaml` UI metadata or separate `multi-agent-*` skills.
 - **Headings are plain.** No chapter numbers in skill or AGENTS.md headings. Use descriptive titles.
-- **Current set.** The repository skills are `project`, `development`, `typescript-go-sync`, `documentation`, `issue-campaign`, `review`, `discussion`, `pull-request`, and `benchmark`.
+- **Current set.** The repository skills are `project`, `development`, `typescript-go-sync`, `documentation`, `issue-campaign`, `review`, `multi-agent`, `discussion`, `pull-request`, and `benchmark`.

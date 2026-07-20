@@ -21,17 +21,17 @@ Read both only when changing shared fixture infrastructure or a surface that aff
 
 ## Benchmark Improvement Campaigns
 
-When benchmark evidence leads to multiple published issues and the user authorizes repeated issue-to-pull-request implementation, use the issue-campaign skill with this skill. This skill owns workload integrity, measurement, fixture handling, and result publication. The issue-campaign skill owns issue publication, regrouping every published and unclaimed dependency-ready node into cohesive batches, active claim stability, implementation, and Post-Campaign Cleanup.
+When benchmark evidence leads to multiple published issues and the user authorizes repeated issue-to-pull-request implementation, use the issue-campaign skill with this skill. This skill owns workload integrity, measurement, fixture handling, and result publication. The applicable issue-campaign workflow owns issue publication, implementation topology, claim stability, CI, review, cleanup, and renewed discovery. The default is the solo workflow; use the multi-agent workflow only on an explicit parallel request.
 
 ## Temporary Asset Cleanup
 
-Each benchmark run must own an exact temporary root. Place run-only worktrees, cloned repositories, indexes, Go build caches, and Go temporary directories below it. For Go commands, set `GOCACHE` and `GOTMPDIR` to run-specific directories rather than the user's shared Go cache or system temp directory.
+Each benchmark run must own an exact temporary root. A solo run uses the current checkout and existing fixture checkouts; do not create a clone or worktree. Place run-only indexes, Go build caches, and Go temporary directories below the exact root. For Go commands, set `GOCACHE` and `GOTMPDIR` to run-specific directories rather than the user's shared Go cache or system temp directory.
 
-After a run, retry, aborted attempt, or completed benchmark campaign, preserve the report and any user-authorized fixture change, then remove the run's exact temporary root. First confirm no process still uses it, then verify the directory is absent. Never recursively clean shared `GOCACHE`, `GOMODCACHE`, `GOPATH`, or a broad temp directory. A `--keep-...` option or another explicit user retention request is the only exception; record the retained path and reason.
+After a run, retry, aborted attempt, or completed benchmark-driven campaign, preserve the report and any user-authorized fixture change, then remove the run's exact temporary root. First confirm no process still uses it, then verify the directory is absent. Never recursively clean shared `GOCACHE`, `GOMODCACHE`, `GOPATH`, or a broad temp directory. A `--keep-...` option or another explicit user retention request is the only exception; record the retained path and reason.
 
 ## Fixture Changes
 
-Benchmark setup resets local fixture clones to their upstream branch tips. Edit the fixture repository itself, not a clone under a benchmark work directory.
+Benchmark setup resets existing local fixture checkouts to their upstream branch tips. Edit the fixture repository itself, not a new clone under a benchmark work directory.
 
 Finish every fixture change before pushing it:
 
