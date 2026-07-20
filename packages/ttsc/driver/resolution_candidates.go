@@ -417,9 +417,6 @@ func compilerOptionCandidates(configs []*tsoptions.ParsedCommandLine, specifier 
       continue
     }
     options := parsed.ParsedConfig.CompilerOptions
-    if options.BaseUrl != "" {
-      candidates = append(candidates, FileCandidates(filepath.Join(options.BaseUrl, filepath.FromSlash(specifier)))...)
-    }
     if options.Paths == nil {
       continue
     }
