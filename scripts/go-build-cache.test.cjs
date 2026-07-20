@@ -54,6 +54,7 @@ test("Go build cache keys every effective input and rejects corrupt state", () =
       "package shim\nconst Version = 1\n",
     );
     invalidates(fixture.goBinary, "go compiler v2\n");
+    invalidates(fixture.goToolCompiler, "go compile tool v2\n");
 
     record();
     assert.equal(
@@ -72,6 +73,7 @@ test("Go build cache keys every effective input and rejects corrupt state", () =
           command: fixture.command,
           dependency: fixture.dependency,
           goMod: fixture.goMod,
+          goToolDir: fixture.goToolDir,
           goWasm: "satconv",
           goWork: fixture.goWork,
           goroot: fixture.goroot,
@@ -85,6 +87,7 @@ test("Go build cache keys every effective input and rejects corrupt state", () =
           command: fixture.command,
           dependency: fixture.dependency,
           goMod: fixture.goMod,
+          goToolDir: fixture.goToolDir,
           goVersion: "go1.26.5",
           goWork: fixture.goWork,
           goroot: fixture.goroot,
@@ -116,11 +119,13 @@ function createFixture() {
   const shimSourceRoot = path.join(root, "shim-source");
   const shimOutputRoot = path.join(output, "shim");
   const goroot = path.join(root, "go");
+  const goToolDir = path.join(goroot, "pkg", "tool", "fixture");
   fs.mkdirSync(command, { recursive: true });
   fs.mkdirSync(dependency, { recursive: true });
   fs.mkdirSync(shimSourceRoot, { recursive: true });
   fs.mkdirSync(shimOutputRoot, { recursive: true });
   fs.mkdirSync(path.join(goroot, "bin"), { recursive: true });
+  fs.mkdirSync(goToolDir, { recursive: true });
 
   const goMod = path.join(module, "go.mod");
   const goSum = path.join(module, "go.sum");
@@ -138,6 +143,10 @@ function createFixture() {
     "bin",
     process.platform === "win32" ? "go.exe" : "go",
   );
+  const goToolCompiler = path.join(
+    goToolDir,
+    process.platform === "win32" ? "compile.exe" : "compile",
+  );
   fs.writeFileSync(goMod, "module example.test/cache\ngo 1.26\n");
   fs.writeFileSync(goSum, "example.test/dependency v1.0.0 h1:original\n");
   fs.writeFileSync(goWork, "go 1.26\n\nuse ./module\n");
@@ -153,6 +162,7 @@ function createFixture() {
   fs.writeFileSync(shimSource, "package shim\nconst Version = 1\n");
   fs.writeFileSync(shimOutput, "package shim\nconst Version = 1\n");
   fs.writeFileSync(goBinary, "go compiler v1\n");
+  fs.writeFileSync(goToolCompiler, "go compile tool v1\n");
 
   const options = {
     artifactPaths: [wasm, bridge, shimOutputRoot],
@@ -163,7 +173,14 @@ function createFixture() {
     environment: { GOOS: "js", GOARCH: "wasm" },
     extraFiles: [bridge],
     inputDirectories: [shimSourceRoot],
-    execFileSync: fakeGo({ command, dependency, goMod, goWork, goroot }),
+    execFileSync: fakeGo({
+      command,
+      dependency,
+      goMod,
+      goToolDir,
+      goWork,
+      goroot,
+    }),
   };
   return {
     root,
@@ -174,6 +191,8 @@ function createFixture() {
     dependencySource,
     embed,
     goBinary,
+    goToolDir,
+    goToolCompiler,
     goMod,
     goSource,
     goSum,
@@ -190,6 +209,7 @@ function fakeGo({
   command,
   dependency,
   goMod,
+  goToolDir,
   goWasm = "",
   goVersion = "go1.26.4",
   goWork,
@@ -220,6 +240,7 @@ function fakeGo({
         GOFLAGS: "",
         GOEXPERIMENT: "",
         GOTOOLCHAIN: "auto",
+        GOTOOLDIR: goToolDir,
         GOWASM: goWasm,
         CGO_ENABLED: "0",
         GOWORK: goWork,

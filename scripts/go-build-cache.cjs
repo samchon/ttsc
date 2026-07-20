@@ -95,6 +95,7 @@ function createInputIdentity({
       "GOFLAGS",
       "GOEXPERIMENT",
       "GOTOOLCHAIN",
+      "GOTOOLDIR",
       "GOWASM",
       "CGO_ENABLED",
       "GOWORK",
@@ -147,7 +148,9 @@ function createInputIdentity({
 
 function addToolchainBinaryIdentity(toolchain) {
   const goroot = toolchain.GOROOT;
+  const goToolDir = toolchain.GOTOOLDIR;
   delete toolchain.GOROOT;
+  delete toolchain.GOTOOLDIR;
   if (!goroot) return;
   const executable = path.join(
     goroot,
@@ -162,6 +165,29 @@ function addToolchainBinaryIdentity(toolchain) {
     // of reusing an artifact built by an unknown compiler.
     toolchain.goBinarySha256 = null;
   }
+  if (!goToolDir) return;
+  try {
+    toolchain.goToolDirectorySha256 = directoryDigest(goToolDir);
+  } catch {
+    // The compiler driver may still be present when an incomplete toolchain
+    // loses its compile/link programs. Treat that transition as a cache miss.
+    toolchain.goToolDirectorySha256 = null;
+  }
+}
+
+function directoryDigest(directory) {
+  const files = new Set();
+  addDirectory(files, directory);
+  return digest(
+    stableJson(
+      [...files]
+        .sort()
+        .map((file) => ({
+          path: path.relative(directory, file).replaceAll(path.sep, "/"),
+          sha256: fileDigest(file),
+        })),
+    ),
+  );
 }
 
 function parseJsonStream(source) {
