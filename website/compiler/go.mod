@@ -12,6 +12,7 @@ go 1.26
 // also lists this module, but its replaces are independent.
 replace (
 	github.com/microsoft/typescript-go/shim/ast => ../../packages/ttsc/shim/ast
+	github.com/microsoft/typescript-go/shim/astnav => ../../packages/ttsc/shim/astnav
 	github.com/microsoft/typescript-go/shim/bundled => ../../packages/ttsc/shim/bundled
 	github.com/microsoft/typescript-go/shim/checker => ../../packages/ttsc/shim/checker
 	github.com/microsoft/typescript-go/shim/compiler => ../../packages/ttsc/shim/compiler
@@ -48,6 +49,7 @@ require (
 	github.com/mackerelio/go-osstat v0.2.7 // indirect
 	github.com/microsoft/typescript-go v0.0.0-20260429010842-56ab4af42157 // indirect
 	github.com/microsoft/typescript-go/shim/ast v0.0.0 // indirect
+	github.com/microsoft/typescript-go/shim/astnav v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/bundled v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/checker v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/core v0.0.0 // indirect
