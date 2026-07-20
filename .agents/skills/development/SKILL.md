@@ -32,7 +32,7 @@ These four are never acceptable; choosing any one means the approach is already 
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
 - When code behavior changes, update the matching page under `website/src/content/docs/` in the same change.
-- Run `pnpm format` before every ordinary commit and stage the result; never commit unformatted output. The sole exception is an active issue campaign: campaign issue pull requests must not run the repository-wide formatter, and the issue-campaign skill performs one dedicated Post-Campaign Cleanup format pull request after the campaign ends.
+- Run `pnpm format` before every ordinary commit and stage the result; never commit unformatted output. A solo issue campaign formats its unified cycle pull request. The sole exception is an active multi-agent issue campaign implementation batch: its detailed procedure owns the repository-wide formatter result and integrated cleanup.
 
 ## Consequence Analysis
 
