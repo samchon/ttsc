@@ -67,6 +67,8 @@ Leave an unknown tag such as `@parm` in the JSDoc block and save the file. `jsdo
 
 Plugin diagnostics and code actions use the saved project state. Save before relying on a new lint diagnostic or invoking a lint action. TypeScript-Go language features and project-rule completion continue to use the live buffer, while format-on-save formats that live buffer as part of the save.
 
+"Saved project state" means the project as it is on disk right now, not as it was when the language server started. A file that changed on disk while it was closed is re-read when you open it, and a `tsconfig.json` or `jsconfig.json` edit is picked up from the editor's file watcher, so a branch switch, a `git pull`, a generator run, or a config change takes effect without restarting the language server. Only an unsaved buffer is excluded, which is why a save is still what publishes your own edits.
+
 ## Suggestions, fixes, and format
 
 Rules can offer suggestions for repairs that require a choice. Put the cursor on the diagnostic and open **Quick Fix** to select one. Suggestions are editor-only actions and never run automatically during `ttsc fix`.
