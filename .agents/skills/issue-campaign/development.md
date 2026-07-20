@@ -65,7 +65,7 @@ Overlap by default:
 - **Fill a verification wait with work that does not consume its result.** The next test, the next issue in the batch, the pull-request record, or the gate table for a push already made are all independent of the command in flight.
 - **Batch the dependent work.** When several checks must run, start them together rather than serially discovering that each needs the previous one's environment.
 
-Two things must never be overlapped, because overlapping them destroys the evidence they exist to produce:
+These must never be overlapped, because overlapping them destroys the evidence they exist to produce:
 
 - **A Self-Review round must not race a change.** The review skill requires one complete round over a final surface and a restart whenever anything changes, so a round begun while the code can still move is not a round at all. Prepare its inputs early — the base-to-head diff inventory, consequence-surface notes, the list of generated artifacts to re-check — and open the round once the batch stops changing.
 - **A merge must not precede its evidence.** Local verification is the only gate a CI-suspended campaign has, so a result that lands after the merge proves nothing about what was merged.
