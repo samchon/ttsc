@@ -38,7 +38,7 @@
     "src"
   ],
   "dependencies": {
-    "@ttsc/unplugin": "workspace:*"
+    "@ttsc/unplugin": "workspace:^"
   },
   "peerDependencies": {
     "@expo/metro-config": "*",

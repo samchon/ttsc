@@ -23,7 +23,7 @@
     "typia": "catalog:samchon"
   },
   "peerDependencies": {
-    "ttsc": "workspace:*"
+    "ttsc": "workspace:^"
   },
   "keywords": [
     "ttsc",

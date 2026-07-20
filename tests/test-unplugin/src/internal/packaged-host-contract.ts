@@ -72,6 +72,7 @@ async function assertPackedManifestDeclaresTtscHost(): Promise<void> {
     /^workspace:/,
     "workspace protocol leaked into the published ttsc spec",
   );
+  assertCompatibleCaretRange(peer, "ttsc");
   assert.notEqual(
     manifest.peerDependenciesMeta?.ttsc?.optional,
     true,
@@ -82,6 +83,48 @@ async function assertPackedManifestDeclaresTtscHost(): Promise<void> {
     undefined,
     "ttsc must stay external, not a bundled runtime dependency",
   );
+}
+
+function assertCompatibleCaretRange(range: string, dependency: string): void {
+  const match = /^\^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/.exec(range);
+  assert.ok(
+    match,
+    `${dependency} must publish a concrete caret range, received ${JSON.stringify(range)}`,
+  );
+  const [major, minor, patch] = match.slice(1).map(Number);
+  const lower: [number, number, number] = [major, minor, patch];
+  const upper: [number, number, number] =
+    major > 0
+      ? [major + 1, 0, 0]
+      : minor > 0
+        ? [0, minor + 1, 0]
+        : [0, 0, patch + 1];
+  const accepts = (candidate: [number, number, number]): boolean =>
+    compareVersions(candidate, lower) >= 0 &&
+    compareVersions(candidate, upper) < 0;
+
+  if (minor > 0 || major > 0) {
+    assert.equal(
+      accepts([major, minor, patch + 1]),
+      true,
+      `${dependency} must admit its next compatible patch`,
+    );
+  }
+  assert.equal(
+    accepts(upper),
+    false,
+    `${dependency} must reject its next incompatible boundary`,
+  );
+}
+
+function compareVersions(
+  left: [number, number, number],
+  right: [number, number, number],
+): number {
+  for (let index = 0; index < left.length; ++index) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return 0;
 }
 
 export { assertPackedManifestDeclaresTtscHost };
