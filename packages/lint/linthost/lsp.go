@@ -1405,6 +1405,17 @@ func filePathFromURI(raw string) (string, error) {
   return abs, nil
 }
 
+// byteOffsetToLSPPosition converts a byte offset in the linted file into the LSP
+// Position the editor is given for it: a 0-based line and a column counted in
+// UTF-16 code units.
+//
+// UTF-16 is both the LSP default and the encoding the sidecar protocol fixes:
+// the host settles the session's PositionEncodingKind negotiation on UTF-16 so a
+// sidecar always emits UTF-16 columns and always receives them, which is why no
+// request or response on this wire carries an encoding field. The compiler's own
+// ranges for a line and the ranges emitted here therefore agree. See the LSP
+// sidecar verb section of
+// website/src/content/docs/development/concepts/protocol.mdx.
 func byteOffsetToLSPPosition(text string, offset int) lspPosition {
   if offset < 0 {
     offset = 0

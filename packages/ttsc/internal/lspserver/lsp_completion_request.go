@@ -123,6 +123,12 @@ func (p *Proxy) completionItemsFor(env Envelope) pendingCompletionRequest {
   }
 }
 
+// utf16Length measures a filter in the units the replace range is expressed in.
+//
+// The range travels back to the client as `Position.character`, counted in the
+// session's negotiated PositionEncodingKind, which
+// constrainInitializePositionEncoding pins to UTF-16 for every ttscserver
+// session.
 func utf16Length(text string) int {
   units := 0
   for _, symbol := range text {
@@ -137,10 +143,11 @@ func utf16Length(text string) int {
 
 // offsetForPosition converts an LSP line/character to a byte offset.
 //
-// LSP counts characters in UTF-16 code units by default, so a line holding an
-// emoji or a CJK character past the BMP would land the cursor mid-token if
-// counted as bytes. The conversion walks the line's runes and spends the
-// position's UTF-16 budget as it goes.
+// LSP counts characters in the session's negotiated PositionEncodingKind, which
+// constrainInitializePositionEncoding pins to UTF-16 for every ttscserver
+// session, so a line holding an emoji or a CJK character past the BMP would land
+// the cursor mid-token if counted as bytes. The conversion walks the line's runes
+// and spends the position's UTF-16 budget as it goes.
 func offsetForPosition(text string, line int, character int) (int, bool) {
   offset := 0
   for current := 0; current < line; current++ {
