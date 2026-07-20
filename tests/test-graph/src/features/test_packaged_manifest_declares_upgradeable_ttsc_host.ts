@@ -14,7 +14,7 @@ import path from "node:path";
  *
  * 1. Pack @ttsc/graph and extract its published package manifest.
  * 2. Assert the required ttsc peer is a concrete caret range that admits the next
- *    compatible patch.
+ *    compatible patch, while an exact pin is rejected.
  * 3. Assert the range rejects its next incompatible semver boundary and ttsc
  *    remains external to the graph package.
  */
@@ -36,6 +36,11 @@ export const test_packaged_manifest_declares_upgradeable_ttsc_host = () => {
     "published graph must not bundle a second ttsc runtime",
   );
   assertCompatibleCaretRange(peer, "ttsc");
+  assert.throws(
+    () => assertCompatibleCaretRange(peer.slice(1), "ttsc"),
+    /caret range/,
+    "an exact ttsc pin must not satisfy the upgradeable-host contract",
+  );
 };
 
 function readPackedManifest(): Record<string, any> {

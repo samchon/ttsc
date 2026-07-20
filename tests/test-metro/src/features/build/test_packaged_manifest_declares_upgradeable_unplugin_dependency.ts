@@ -15,7 +15,7 @@ import path from "node:path";
  *
  * 1. Pack @ttsc/metro and extract its published package manifest.
  * 2. Assert @ttsc/unplugin is a concrete caret runtime dependency that admits the
- *    next compatible patch.
+ *    next compatible patch, while an exact pin is rejected.
  * 3. Assert that range rejects its next incompatible semver boundary.
  */
 export const test_packaged_manifest_declares_upgradeable_unplugin_dependency =
@@ -27,6 +27,11 @@ export const test_packaged_manifest_declares_upgradeable_unplugin_dependency =
       "published Metro manifest needs an @ttsc/unplugin runtime dependency",
     );
     assertCompatibleCaretRange(dependency, "@ttsc/unplugin");
+    assert.throws(
+      () => assertCompatibleCaretRange(dependency.slice(1), "@ttsc/unplugin"),
+      /caret range/,
+      "an exact @ttsc/unplugin pin must not satisfy the upgradeable dependency contract",
+    );
   };
 
 function readPackedManifest(): Record<string, any> {

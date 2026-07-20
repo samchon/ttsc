@@ -74,6 +74,11 @@ async function assertPackedManifestDeclaresTtscHost(): Promise<void> {
     "workspace protocol leaked into the published ttsc spec",
   );
   assertCompatibleCaretRange(peer, "ttsc");
+  assert.throws(
+    () => assertCompatibleCaretRange(peer.slice(1), "ttsc"),
+    /caret range/,
+    "an exact ttsc pin must not satisfy the upgradeable-host contract",
+  );
   assert.notEqual(
     manifest.peerDependenciesMeta?.ttsc?.optional,
     true,
