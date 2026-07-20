@@ -53,6 +53,11 @@ export function specs() {
     }
     return {
       ...clip,
+      // Only a rule the catalog documents as autofixable can show the
+      // lightbulb. Most rules cannot: a finding about a missing await or an
+      // inaccessible control is a judgement, not a mechanical rewrite, which is
+      // why the fixable rules cluster in the syntax-shaped families.
+      fix: clip.autofixable ? "source.fixAll.ttsc" : undefined,
       message: captured[clip.rule] ?? clip.description,
       messageSource: captured[clip.rule] ? "ttsc check" : "rule catalog",
     };
