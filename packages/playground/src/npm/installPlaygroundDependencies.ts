@@ -5,6 +5,7 @@ import { BUILT_IN_PLAYGROUND_PACKAGES } from "./BUILT_IN_PLAYGROUND_PACKAGES";
 import {
   DECLARATION_FILE_REGEXP,
   type IQueueItem,
+  type IVersionRequest,
   downloadTarball,
   enqueuePackageDependencies,
   fetchNpmMetadata,
@@ -63,8 +64,8 @@ export async function installPlaygroundDependencies(
           `Conflicting npm aliases for ${normalized.name}: ${known.registryName} and ${normalized.registryName}.`,
         );
       }
-      known.ranges ??= [known.range];
-      known.ranges.push(normalized.range);
+      known.requests ??= [toVersionRequest(known)];
+      known.requests.push(toVersionRequest(normalized));
       known.optional &&= normalized.optional;
       const completed = done.get(normalized.name);
       const metadata = metadataByName.get(normalized.name);
@@ -73,7 +74,7 @@ export async function installPlaygroundDependencies(
         // already been installed. Pin the installed version into the combined
         // solve so a compatible late constraint is accepted, but a range that
         // rejects the mounted version fails instead of being silently lost.
-        selectVersion(metadata, [...known.ranges, completed]);
+        selectQueuedVersion(metadata, known, [completed]);
       } else if (completed !== undefined && !known.optional) {
         // An optional 404 may later be reached through a required edge. Retry
         // that edge so the required dependency cannot remain silently absent.
@@ -83,7 +84,7 @@ export async function installPlaygroundDependencies(
       return;
     }
     if (installed.has(normalized.name)) return;
-    normalized.ranges = [normalized.range];
+    normalized.requests = [toVersionRequest(normalized)];
     queued.set(normalized.name, normalized);
     queue.push(normalized);
     report("queued", normalized, `Queued ${normalized.name}`);
@@ -135,7 +136,7 @@ export async function installPlaygroundDependencies(
     }
 
     metadataByName.set(item.name, metadata);
-    const version = selectVersion(metadata, item.ranges ?? [item.range]);
+    const version = selectQueuedVersion(metadata, item);
     const versionMetadata = metadata.versions[version];
     const tarball = versionMetadata?.dist?.tarball;
     if (!versionMetadata || !tarball) {
@@ -178,12 +179,13 @@ export async function installPlaygroundDependencies(
     installed.add(item.name);
     report("done", item, `Installed ${item.name}@${version}`, version);
 
-    enqueuePackageDependencies(packageJson, enqueue);
+    enqueuePackageDependencies(packageJson, enqueue, item.name);
     if (declarationCount === 0 && !item.name.startsWith("@types/")) {
       enqueue({
         name: toTypesPackageName(item.name),
         range: "*",
         optional: true,
+        requester: item.name,
       });
     }
   }
@@ -206,4 +208,29 @@ function normalizeRegistryRequest(item: IQueueItem): IQueueItem {
     registryName: match[1]!,
     range: match[2] || "*",
   };
+}
+
+function toVersionRequest(item: IQueueItem): IVersionRequest {
+  return { range: item.range, requester: item.requester };
+}
+
+function selectQueuedVersion(
+  metadata: Parameters<typeof selectVersion>[0],
+  item: IQueueItem,
+  extraRanges: readonly string[] = [],
+): string {
+  const requests = item.requests ?? [toVersionRequest(item)];
+  const ranges = [...requests.map((request) => request.range), ...extraRanges];
+  try {
+    return selectVersion(metadata, ranges);
+  } catch (error) {
+    if (requests.length < 2) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    const requestedBy = requests
+      .map(
+        ({ requester, range }) => `${requester} requests ${JSON.stringify(range)}`,
+      )
+      .join("; ");
+    throw new Error(`${message} Requested by ${requestedBy}.`);
+  }
 }

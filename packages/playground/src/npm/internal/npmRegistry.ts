@@ -39,9 +39,14 @@ export interface IQueueItem {
   name: string;
   range: string;
   optional: boolean;
+  requester: string;
   registryName?: string;
-  ranges?: string[];
-  requester?: string;
+  requests?: IVersionRequest[];
+}
+
+export interface IVersionRequest {
+  range: string;
+  requester: string;
 }
 
 export type FetchLike = (
@@ -242,9 +247,11 @@ export function enqueuePackageDependencies(
     peerDependenciesMeta?: Record<string, { optional?: boolean }>;
   },
   enqueue: (item: IQueueItem) => void,
+  requester: string,
 ): void {
   for (const [name, range] of Object.entries(packageJson.dependencies ?? {})) {
-    if (isRegistryRange(range)) enqueue({ name, range, optional: false });
+    if (isRegistryRange(range))
+      enqueue({ name, range, optional: false, requester });
   }
   for (const [name, range] of Object.entries(
     packageJson.peerDependencies ?? {},
@@ -257,7 +264,7 @@ export function enqueuePackageDependencies(
     // silent skip that leaves the wasm-side compile reporting a generic
     // "Cannot find module" with no breadcrumb back to the dep installer.
     if (!optional && isRegistryRange(range))
-      enqueue({ name, range, optional: false });
+      enqueue({ name, range, optional: false, requester });
   }
 }
 

@@ -178,7 +178,7 @@ export const test_npm_registry_respects_manifest_constraints = async () => {
         return new Response(lateConstraintTarballs.get(name)!);
       },
     }),
-    /No version of a satisfies/,
+    /No version of a satisfies .*Requested by root requests "\^1"; b requests "\^2"\./,
   );
 };
 
