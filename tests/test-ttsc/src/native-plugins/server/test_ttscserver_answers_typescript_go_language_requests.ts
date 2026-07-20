@@ -82,10 +82,10 @@ const CLIENT_CAPABILITIES = {
  *    TypeScript-Go's own providers survive ttsc's rewrite of the result.
  * 2. Open the file and wait for the `@ttsc/lint` `no-var` finding, so the ttsc
  *    half is known to be answering before the upstream half is asked anything.
- * 3. Assert `client/registerCapability` was answered — the handshake the whole
- *    upstream stream hangs on.
- * 4. Ask hover, documentSymbol, and completion, and assert each comes back with
+ * 3. Ask hover, documentSymbol, and completion, and assert each comes back with
  *    TypeScript-Go's own answer rather than merely coming back.
+ * 4. Assert `client/registerCapability` was answered, the handshake the whole
+ *    upstream stream hangs on.
  */
 export const test_ttscserver_answers_typescript_go_language_requests =
   async () => {
@@ -150,24 +150,41 @@ export const test_ttscserver_answers_typescript_go_language_requests =
       });
       await ready;
 
-      // 3. The handshake the upstream stream depends on. Asserting it directly
-      // means a regression names the cause instead of reporting three timeouts.
-      assert.ok(
-        client.serverRequestMethods().includes("client/registerCapability"),
-        `tsgo registers its configuration watcher from initialized and blocks until the client replies: ${JSON.stringify(client.serverRequestMethods())}`,
-      );
-
-      // 4. Hover. Nothing about it is ttsc's: the proxy neither intercepts nor
+      // 3. Hover. Nothing about it is ttsc's: the proxy neither intercepts nor
       // enriches it, so the reply is TypeScript-Go's checker talking.
-      const hover = await client.request<Hover>(
-        "textDocument/hover",
-        { position: HOVER_POSITION, textDocument: { uri } },
-        REQUEST_TIMEOUT,
-      );
+      //
+      // The wait above cannot order this: the finding it waits for comes from
+      // ttsc's own sidecar, not from TypeScript-Go, so it says nothing about
+      // whether the upstream dispatch loop ever advanced. The failure message
+      // therefore carries the handshake that decides it, and a hang here reads
+      // as "the registration was never answered" rather than a bare timeout.
+      const hover = await client
+        .request<Hover>(
+          "textDocument/hover",
+          { position: HOVER_POSITION, textDocument: { uri } },
+          REQUEST_TIMEOUT,
+        )
+        .catch((error: unknown) => {
+          throw new Error(
+            `hover was never answered (server→client requests answered: ${JSON.stringify(client.serverRequestMethods())}): ${
+              error instanceof Error ? (error.stack ?? error.message) : error
+            }`,
+          );
+        });
       assert.match(
         hoverText(hover),
         /legacy: number/,
         `hover must carry tsgo's inferred type: ${JSON.stringify(hover)}`,
+      );
+
+      // 4. The handshake that let step 3 happen at all. tsgo issues it from its
+      // `initialized` handler and parks the loop that dispatches every later
+      // request until the client replies, so an answered hover proves it was
+      // answered; asserting it makes the mechanism explicit rather than
+      // incidental.
+      assert.ok(
+        client.serverRequestMethods().includes("client/registerCapability"),
+        `an answered hover implies the registration was answered: ${JSON.stringify(client.serverRequestMethods())}`,
       );
 
       // 5. documentSymbol. The proxy owns a handler for this method and

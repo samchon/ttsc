@@ -12,6 +12,7 @@ import (
   "path/filepath"
   "strings"
   "sync"
+  "sync/atomic"
   "unicode/utf16"
   "unicode/utf8"
 )
@@ -38,6 +39,7 @@ const (
   methodReferences         = "textDocument/references"
   methodCompletion         = "textDocument/completion"
   methodCompletionResolve  = "completionItem/resolve"
+  methodExit               = "exit"
 
   // methodDidChangeWatchedFiles is the only notification an editor sends for a
   // file it does not have open: a tsconfig edit, a generated file, a branch
@@ -110,6 +112,12 @@ type Proxy struct {
   writeMu         sync.Mutex // serializes WriteFrame calls to editorOut
   upstreamWriteMu sync.Mutex // serializes writes to upstreamIn
   asyncErrCh      chan error
+
+  // editorExit records that the editor sent the LSP `exit` notification.
+  // RunLSPServer reads it to decide whether a failed upstream process is a
+  // fault to report or the expected end of an editor-requested shutdown; see
+  // editorRequestedExit.
+  editorExit atomic.Bool
 
   pendingMu      sync.Mutex
   pendingActions map[string]pendingCodeActionRequest
@@ -354,6 +362,10 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
     return p.handleCompletionRequest(env)
   case methodCompletionResolve:
     return p.handleCompletionResolveRequest(env)
+  case methodExit:
+    if env.IsNotification() {
+      p.editorExit.Store(true)
+    }
   case methodCancelRequest:
     // $/cancelRequest names an in-flight id the editor has given up on.
     // The proxy drops any pending codeAction entry for that id so the
@@ -463,6 +475,20 @@ func offersEncodingOtherThanUTF16(offered []string) bool {
     }
   }
   return false
+}
+
+// editorRequestedExit reports whether the editor sent the LSP `exit`
+// notification.
+//
+// After `exit` the upstream process is required to terminate, and the status it
+// terminates with is not ttscserver's to report. tsgo makes that distinction
+// load-bearing rather than theoretical: its `exit` handler returns io.EOF, which
+// cancels its dispatch loop, and whether its process ends 0 or 1 depends on
+// whether that cancellation or the closed stdin reaches its errgroup first. The
+// editor sees the same clean quit either way, so ttscserver must not turn one
+// side of that race into a failed server.
+func (p *Proxy) editorRequestedExit() bool {
+  return p.editorExit.Load()
 }
 
 func (p *Proxy) rememberInitializeRequest(env Envelope) {

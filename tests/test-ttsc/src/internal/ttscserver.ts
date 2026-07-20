@@ -88,6 +88,12 @@ export class TtscserverClient {
       // Drain stderr so upstream tsgo logs do not block the pipe.
       this.stderr = (this.stderr + chunk.toString("utf8")).slice(-65536);
     });
+    this.child.stdin.on("error", () => {
+      // A write that loses the race with the child's exit (EPIPE) must not
+      // become an uncaught exception that takes down the whole suite process.
+      // A dead child is already reported through the `close` handler below,
+      // which rejects every pending request with the collected stderr.
+    });
     this.child.stdout.on("data", (chunk: Buffer) => this.onData(chunk));
     this.exited = new Promise((resolve) => {
       this.child.on("close", (code, signal) => {
@@ -345,6 +351,12 @@ export class TtscserverClient {
     params?: any;
   }): void {
     this.serverRequests.push(message.method);
+    if (this.child.stdin.writableEnded || this.child.stdin.destroyed) {
+      // The shutdown sequence already closed the write side. tsgo keeps
+      // registering file watchers in the background, so a late request can
+      // still arrive here, and there is no longer anyone waiting on the answer.
+      return;
+    }
     const responder = SERVER_REQUEST_RESPONDERS[message.method] ?? (() => null);
     try {
       this.send({

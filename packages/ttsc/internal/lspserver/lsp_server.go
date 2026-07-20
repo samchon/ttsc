@@ -233,6 +233,14 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
   wg.Wait()
   proxy.shutdownResidentPlugins()
 
+  if proxy.editorRequestedExit() {
+    // The editor asked the server to quit, so the upstream process ending is
+    // the point rather than a fault. See Proxy.editorRequestedExit for why its
+    // status is not a reliable signal at that moment. Proxy errors still
+    // surface: those are ttsc's own.
+    serverErr = nil
+  }
+
   for _, err := range []error{serverErr, proxyErr} {
     if err == nil {
       continue
