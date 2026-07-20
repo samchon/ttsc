@@ -28,14 +28,17 @@ import (
 //  3. Assert RunLSPServer returns nil rather than the runner's error.
 func TestLSPServerFoldsUpstreamErrorAfterEditorExit(t *testing.T) {
   sentinel := errors.New("tsgo --lsp --stdio: exit status 1")
+  // Returned when the runner's stream ends before any exit arrives. It must be
+  // an error RunLSPServer reports rather than folds: ErrFrameClosed is folded
+  // unconditionally, so returning the raw read error would let this test pass
+  // without the exit ever having been seen.
+  missed := errors.New("the exit notification never reached the runner")
   failAfterExit := func(_ context.Context, in io.Reader, _ io.Writer, _ driver.LSPServerOptions) error {
     fr := driver.NewFrameReader(in)
     for {
       _, body, err := fr.Read()
       if err != nil {
-        // The editor stream closed without an exit ever arriving; report the
-        // read failure so a broken test cannot pass as a folded exit.
-        return err
+        return missed
       }
       env, parseErr := driver.ParseEnvelope(body)
       if parseErr == nil && env.Method == "exit" {
