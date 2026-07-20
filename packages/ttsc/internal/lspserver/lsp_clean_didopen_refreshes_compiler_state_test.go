@@ -6,23 +6,38 @@ import (
   "os"
   "path/filepath"
   "strings"
+  "sync"
   "testing"
 )
 
 // recordingResidentSource is a PluginSource that also implements the resident
 // invalidator, recording every InvalidateResidentPrograms call so a test can
 // assert both that an invalidation happened and how it was localized.
+//
+// A clean open schedules its diagnostics on a goroutine that holds this same
+// source, so the recording is mutex-guarded: the assertions below read it while
+// that goroutine may still be running.
 type recordingResidentSource struct {
   NullPluginSource
+  mu    sync.Mutex
   calls [][]string
 }
 
 func (s *recordingResidentSource) InvalidateResidentPrograms(uris ...string) {
+  s.mu.Lock()
+  defer s.mu.Unlock()
   s.calls = append(s.calls, append([]string(nil), uris...))
 }
 
+func (s *recordingResidentSource) recorded() [][]string {
+  s.mu.Lock()
+  defer s.mu.Unlock()
+  return append([][]string(nil), s.calls...)
+}
+
 // recordingSymbolProvider counts Invalidate calls; the two answer methods are
-// never reached by these notification tests.
+// never reached by these notification tests. Invalidate is only ever called from
+// the notification path, which is the test's own goroutine.
 type recordingSymbolProvider struct{ invalidations int }
 
 func (p *recordingSymbolProvider) DocumentSymbols(string) ([]LSPDocumentSymbol, error) {
@@ -99,11 +114,11 @@ func TestLSPCleanDidOpenRefreshesCompilerState(t *testing.T) {
   if symbols.invalidations != 1 {
     t.Errorf("clean didOpen symbol invalidations = %d, want 1", symbols.invalidations)
   }
-  if len(plugins.calls) != 1 {
-    t.Fatalf("clean didOpen resident invalidations = %d, want 1", len(plugins.calls))
+  if len(plugins.recorded()) != 1 {
+    t.Fatalf("clean didOpen resident invalidations = %d, want 1", len(plugins.recorded()))
   }
-  if len(plugins.calls[0]) != 1 || plugins.calls[0][0] != cleanURI {
-    t.Errorf("clean didOpen resident invalidation = %v, want the opened uri %q", plugins.calls[0], cleanURI)
+  if len(plugins.recorded()[0]) != 1 || plugins.recorded()[0][0] != cleanURI {
+    t.Errorf("clean didOpen resident invalidation = %v, want the opened uri %q", plugins.recorded()[0], cleanURI)
   }
 
   dirty := filepath.Join(dir, "dirty.ts")
@@ -123,7 +138,7 @@ func TestLSPCleanDidOpenRefreshesCompilerState(t *testing.T) {
   if symbols.invalidations != 1 {
     t.Errorf("dirty didOpen refreshed the symbol provider: invalidations = %d, want 1", symbols.invalidations)
   }
-  if len(plugins.calls) != 1 {
-    t.Errorf("dirty didOpen refreshed the resident daemon: calls = %v, want only the clean open's", plugins.calls)
+  if len(plugins.recorded()) != 1 {
+    t.Errorf("dirty didOpen refreshed the resident daemon: calls = %v, want only the clean open's", plugins.recorded())
   }
 }

@@ -326,7 +326,9 @@ func (p *Proxy) handleEditorEnvelope(env Envelope, body []byte) (bool, error) {
       // Refresh before the notification reaches tsgo, so no read that races
       // this frame can still be answered from the pre-change snapshot. The
       // notification itself keeps flowing upstream.
-      p.invalidateForWatchedFileChanges(env)
+      if err := p.invalidateForWatchedFileChanges(env); err != nil {
+        return false, err
+      }
     }
   case methodExecuteCommand:
     if env.IsRequest() {
@@ -415,7 +417,8 @@ func constrainInitializePositionEncoding(env Envelope, body []byte) []byte {
   if json.Unmarshal(raw, &offered) != nil {
     return body
   }
-  if len(offered) == 1 && offered[0] == positionEncodingUTF16 {
+  if !offersEncodingOtherThanUTF16(offered) {
+    // Absent, null, empty, and UTF-16-only offers all already mean UTF-16.
     return body
   }
   constrained, err := json.Marshal([]string{positionEncodingUTF16})
@@ -446,6 +449,19 @@ func constrainInitializePositionEncoding(env Envelope, body []byte) []byte {
     return body
   }
   return encoded
+}
+
+// offersEncodingOtherThanUTF16 reports whether a client's position-encoding
+// offer could select anything but UTF-16. An absent, null, or empty list already
+// means the LSP default, so those offers are left exactly as the client wrote
+// them rather than rewritten to say the same thing.
+func offersEncodingOtherThanUTF16(offered []string) bool {
+  for _, encoding := range offered {
+    if encoding != positionEncodingUTF16 {
+      return true
+    }
+  }
+  return false
 }
 
 func (p *Proxy) rememberInitializeRequest(env Envelope) {
@@ -2071,7 +2087,13 @@ const (
 // per-file update can express. A batch the proxy cannot decode is treated the
 // same conservative way, because an unread change is indistinguishable from an
 // unlocalizable one.
-func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) {
+//
+// A deleted document additionally withdraws whatever ttsc last published for it,
+// because refreshing the Program alone would leave the findings on screen: an
+// open document's content belongs to the client rather than to disk, so the
+// compiler has no reason to republish for that URI and trigger the merge that
+// would replace them.
+func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) error {
   var params struct {
     Changes []struct {
       URI  string `json:"uri"`
@@ -2081,16 +2103,20 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) {
   if len(env.Params) == 0 || json.Unmarshal(env.Params, &params) != nil {
     p.invalidateSymbolProvider()
     p.invalidateResidentPluginsForURIs()
-    return
+    return nil
   }
   if len(params.Changes) == 0 {
     // The editor reported no change; dropping warm state here would throw away
     // the residency the daemon exists to provide for nothing.
-    return
+    return nil
   }
   uris := make([]string, 0, len(params.Changes))
+  deleted := make([]string, 0, len(params.Changes))
   localizable := true
   for _, change := range params.Changes {
+    if change.URI != "" && change.Type != nil && *change.Type == fileChangeTypeDeleted {
+      deleted = append(deleted, change.URI)
+    }
     if !watchedFileChangeIsLocalizable(change.URI, change.Type) {
       localizable = false
       continue
@@ -2100,9 +2126,37 @@ func (p *Proxy) invalidateForWatchedFileChanges(env Envelope) {
   p.invalidateSymbolProvider()
   if !localizable || len(uris) == 0 {
     p.invalidateResidentPluginsForURIs()
-    return
+  } else {
+    p.invalidateResidentPluginsForURIs(uris...)
   }
-  p.invalidateResidentPluginsForURIs(uris...)
+  for _, uri := range deleted {
+    if err := p.withdrawPluginDiagnosticsForDeletedDocument(uri); err != nil {
+      return err
+    }
+  }
+  return nil
+}
+
+// withdrawPluginDiagnosticsForDeletedDocument removes ttsc's findings for a
+// document that no longer exists on disk and republishes what remains, so a
+// deleted file cannot keep a plugin squiggle from the last time it was linted.
+//
+// Upstream diagnostics are left in place: the compiler owns its own answer for
+// the same document, and the editor may legitimately keep showing it while the
+// buffer is still open. Bumping the diagnostic generation discards any in-flight
+// computation started against the pre-deletion Program. A document ttsc never
+// published for is a no-op, which is the ordinary case.
+func (p *Proxy) withdrawPluginDiagnosticsForDeletedDocument(uri string) error {
+  p.writeMu.Lock()
+  defer p.writeMu.Unlock()
+  p.diagnosticsMu.Lock()
+  defer p.diagnosticsMu.Unlock()
+  if len(p.pluginDiagnostics[uri].diagnostics) == 0 {
+    return nil
+  }
+  delete(p.pluginDiagnostics, uri)
+  p.diagnosticGeneration[uri]++
+  return WriteFrame(p.editorOut, p.publishDiagnosticsBody(uri, nil, p.mergedDiagnosticsLocked(uri)))
 }
 
 // watchedFileChangeIsLocalizable reports whether one watched-file entry can be

@@ -69,6 +69,16 @@ func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
         `{"capabilities":{"general":{"markdown":{"parser":"marked"}}}}}`,
     },
     {
+      name: "an empty offer already means the LSP default",
+      body: `{"jsonrpc":"2.0","id":1,"method":"initialize","params":` +
+        `{"capabilities":{"general":{"positionEncodings":[]}}}}`,
+    },
+    {
+      name: "a null offer already means the LSP default",
+      body: `{"jsonrpc":"2.0","id":1,"method":"initialize","params":` +
+        `{"capabilities":{"general":{"positionEncodings":null}}}}`,
+    },
+    {
       name: "no general capabilities at all",
       body: `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}`,
     },
