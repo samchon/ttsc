@@ -46,6 +46,7 @@ if (!fs.existsSync(ttsxBinary)) {
   );
 }
 const tsgoBinary = resolveTsgoBinary();
+const prettierModule = resolvePrettierModule();
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-lint-go-test-"));
 try {
@@ -88,6 +89,8 @@ try {
         : process.env.PATH,
       TTSC_TSGO_BINARY: process.env.TTSC_TSGO_BINARY ?? tsgoBinary,
       TTSC_TTSX_BINARY: ttsxBinary,
+      TTSC_PRETTIER_MODULE:
+        process.env.TTSC_PRETTIER_MODULE ?? prettierModule,
     },
     stdio: "inherit",
     windowsHide: true,
@@ -98,6 +101,17 @@ try {
   process.exit(result.status ?? 1);
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
+}
+
+function resolvePrettierModule() {
+  try {
+    return require.resolve("prettier", { paths: [root] });
+  } catch (error) {
+    throw new Error(
+      `ttsc lint Go tests need the pinned prettier module: ${error.message}`,
+      { cause: error },
+    );
+  }
 }
 
 function resolveTsgoBinary() {
