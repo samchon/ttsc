@@ -8,9 +8,9 @@ import "testing"
 // `/**` is three ordinary bytes. A string, a template, a regex class, and a line
 // comment can all contain them, and a backward search for the nearest opener
 // calls every one of those positions a doc comment — which is how
-// `const example = "/** @par"` came to be offered JSDoc tag completions. The
-// cases below are chosen so each one fails under that backward search or under a
-// scanner that drops one of its recovery rules.
+// `const example = "/** @par"` came to be offered JSDoc tag completions. Every
+// impostor below is a position that search answered wrongly; every real block
+// below is what stops a replacement from passing by refusing everything.
 //
 //  1. Put the cursor after JSDoc-shaped bytes in every token kind that can hold
 //     them.
@@ -52,6 +52,9 @@ func TestLSPCompletionScopeIgnoresJSDocBytesInLiterals(t *testing.T) {
     {name: "escaped quote inside string", text: "const x = 'it\\'s /** @par", want: lexicalScopeString},
     // An escaped backslash does end it, so the block that follows is real.
     {name: "escaped backslash ends the string", text: "const x = \"a\\\\\" /** @par", want: lexicalScopeJSDoc},
+    // A backslash before CRLF is one line continuation, so the string keeps
+    // going and the line-end recovery must not fire on that `\n`.
+    {name: "escaped crlf continues the string", text: "const s = \"a\\\r\nb /** @par", want: lexicalScopeString},
     {name: "block after a string holding the opener", text: "const x = \"/**\";\n/** @par", want: lexicalScopeJSDoc},
     // A `*/` inside a string closes nothing, so the block after it still opens.
     {name: "block after a string holding the terminator", text: "const x = \"*/\";\n/** @par", want: lexicalScopeJSDoc},
@@ -91,7 +94,8 @@ func TestLSPCompletionScopeIgnoresJSDocBytesInLiterals(t *testing.T) {
     t.Errorf("a cursor before the opener is in %s, want code", got)
   }
   // A cursor inside a terminated regex literal is inside the literal, not in
-  // the comment its bytes spell.
+  // the comment its bytes spell. Offset 15 is the second `*` of the character
+  // class, the byte a backward search reads as an open doc comment.
   if got := lexicalScopeAt("const re = /[/**]/; @par", 15); got != lexicalScopeRegex {
     t.Errorf("a cursor inside a regex literal is in %s, want regex", got)
   }
