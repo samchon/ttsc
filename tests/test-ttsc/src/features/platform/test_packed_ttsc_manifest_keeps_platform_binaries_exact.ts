@@ -95,7 +95,7 @@ function assertExactPlatformVersion(
   const spec = value as string;
   assert.match(
     spec,
-    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/,
+    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/,
     `${dependency} must publish an exact version, not a range`,
   );
   assert.equal(

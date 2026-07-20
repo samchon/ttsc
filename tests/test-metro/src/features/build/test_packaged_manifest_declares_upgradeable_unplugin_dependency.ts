@@ -60,7 +60,10 @@ function readPackedManifest(): Record<string, any> {
 }
 
 function assertCompatibleCaretRange(range: string, dependency: string): void {
-  const match = /^\^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/.exec(range);
+  const match =
+    /^\^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.exec(
+      range,
+    );
   assert.ok(
     match,
     `${dependency} must publish a caret range, received ${range}`,

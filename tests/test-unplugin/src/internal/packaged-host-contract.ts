@@ -86,7 +86,10 @@ async function assertPackedManifestDeclaresTtscHost(): Promise<void> {
 }
 
 function assertCompatibleCaretRange(range: string, dependency: string): void {
-  const match = /^\^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/.exec(range);
+  const match =
+    /^\^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.exec(
+      range,
+    );
   assert.ok(
     match,
     `${dependency} must publish a concrete caret range, received ${JSON.stringify(range)}`,
