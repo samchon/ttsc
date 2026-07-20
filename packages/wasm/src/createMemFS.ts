@@ -72,19 +72,52 @@ export function createMemFS(): IMemFSHost {
   const stdout = { buffer: "" };
   const stderr = { buffer: "" };
 
-  const fdTable = new Map<
-    number,
-    { path: string; position: number; isStdout?: boolean; isStderr?: boolean }
-  >();
+  /**
+   * One open descriptor.
+   *
+   * `readable`, `writable`, and `append` are the access mode and `O_APPEND`
+   * flag captured at `open`; without them no read or write below can tell an
+   * allowed operation from a forbidden one. `position` is the cursor a
+   * `position: null` read or write uses and advances, exactly as Node's `fs`
+   * defines it.
+   */
+  interface IDescriptor {
+    path: string;
+    position: number;
+    readable: boolean;
+    writable: boolean;
+    append: boolean;
+    isStdout?: boolean;
+    isStderr?: boolean;
+  }
+  const fdTable = new Map<number, IDescriptor>();
   let nextFd = 100;
   // Reserve 1/2 for stdout/stderr writeSync routing.
-  fdTable.set(1, { path: "/dev/stdout", position: 0, isStdout: true });
-  fdTable.set(2, { path: "/dev/stderr", position: 0, isStderr: true });
+  fdTable.set(1, {
+    path: "/dev/stdout",
+    position: 0,
+    readable: false,
+    writable: true,
+    append: true,
+    isStdout: true,
+  });
+  fdTable.set(2, {
+    path: "/dev/stderr",
+    position: 0,
+    readable: false,
+    writable: true,
+    append: true,
+    isStderr: true,
+  });
 
   // Pipe state. fs.pipe2 mints a pair of fds backed by a shared queue;
   // writes append, reads consume. The state is keyed by fd so a single Map
   // lookup in read/write/close can detect "this is a pipe end" without
   // changing the existing fdTable entries.
+  //
+  // These fds only ever come from a direct JavaScript `fs.pipe2` call. Go's
+  // wasm `os.Pipe` returns ENOSYS without crossing the `globalThis.fs` bridge,
+  // so the Go runtime never reaches this state — see IWasmExecFS.pipe2.
   interface IPipeState {
     buffers: Uint8Array[];
     pendingReaders: Array<{
@@ -143,21 +176,55 @@ export function createMemFS(): IMemFSHost {
     }
   }
 
-  /** Silently create any missing ancestor directories for path `p`. */
-  function ensureParentDirs(p: string): void {
-    const segments = normalize(p).split("/").filter(Boolean);
+  /**
+   * Validate the ancestor chain of normalized path `norm` and report the
+   * ancestors that do not exist yet, root-first.
+   *
+   * An ancestor that exists as a file makes `norm` impossible: a file has no
+   * descendants, so creating one below it would leave a node map that is not a
+   * tree. Validation is deliberately separate from creation so a caller can
+   * reject before touching anything, and so a rejected operation never leaves
+   * half a directory chain behind.
+   */
+  function missingAncestors(norm: string, syscall: string): string[] {
+    const segments = norm.split("/").filter(Boolean);
     segments.pop();
+    const missing: string[] = [];
     let cursor = "";
     for (const seg of segments) {
       cursor += "/" + seg;
-      if (!nodes.has(cursor)) {
-        nodes.set(cursor, {
-          kind: "dir",
-          data: new Uint8Array(),
-          mtimeMs: Date.now(),
-        });
-      }
+      const existing = nodes.get(cursor);
+      if (!existing) missing.push(cursor);
+      else if (existing.kind !== "dir")
+        throw new MemFSError("ENOTDIR", syscall, cursor);
     }
+    return missing;
+  }
+
+  /** Materialize the ancestor directories `missingAncestors` reported. */
+  function createDirs(paths: string[]): void {
+    for (const path of paths)
+      nodes.set(path, {
+        kind: "dir",
+        data: new Uint8Array(),
+        mtimeMs: Date.now(),
+      });
+  }
+
+  /**
+   * Validate that normalized path `norm` may hold a regular file, returning the
+   * node already there when one exists.
+   *
+   * A directory is never silently replaced by a file — including the root,
+   * which is a directory node like any other. POSIX answers `EISDIR`, and
+   * overwriting the node here would strand every descendant in the map behind a
+   * path `readdir` can no longer walk.
+   */
+  function assertFileTarget(norm: string, syscall: string): INode | undefined {
+    const existing = nodes.get(norm);
+    if (existing && existing.kind !== "file")
+      throw new MemFSError("EISDIR", syscall, norm);
+    return existing;
   }
 
   /** Absolute parent directory of a normalized path (`/` for a top-level path). */
@@ -183,6 +250,39 @@ export function createMemFS(): IMemFSHost {
     const next = new Uint8Array(length);
     next.set(data.subarray(0, Math.min(length, data.byteLength)));
     return next;
+  }
+
+  /**
+   * Write `view` through descriptor `entry` and return the bytes stored.
+   *
+   * Three offsets are possible and only one of them is right per call: an
+   * `O_APPEND` descriptor always writes at end-of-file, an explicit `position`
+   * writes exactly there without disturbing the cursor (POSIX `pwrite`), and
+   * `position: null` writes at the cursor and advances it. A write that starts
+   * past end-of-file zero-fills the gap rather than silently relocating.
+   */
+  function writeThroughDescriptor(
+    entry: IDescriptor,
+    view: Uint8Array,
+    position: number | null,
+    syscall: string,
+  ): number {
+    if (!entry.writable) throw new MemFSError("EBADF", syscall, entry.path);
+    const node = nodes.get(entry.path);
+    if (!node) throw new MemFSError("ENOENT", syscall, entry.path);
+    if (node.kind !== "file")
+      throw new MemFSError("EISDIR", syscall, entry.path);
+    const start = entry.append
+      ? node.data.byteLength
+      : (position ?? entry.position);
+    if (!Number.isInteger(start) || start < 0)
+      throw new MemFSError("EINVAL", syscall, entry.path);
+    const end = start + view.byteLength;
+    if (end > node.data.byteLength) node.data = resizeFileData(node.data, end);
+    node.data.set(view, start);
+    node.mtimeMs = Date.now();
+    if (position === null || entry.append) entry.position = end;
+    return view.byteLength;
   }
 
   /**
@@ -233,10 +333,19 @@ export function createMemFS(): IMemFSHost {
 
   function writeFile(p: string, data: string | Uint8Array): void {
     const norm = normalize(p);
-    ensureParentDirs(norm);
+    // Resolve left to right the way POSIX does: an impossible ancestor is
+    // reported before the target, and both are checked before any mutation.
+    const missing = missingAncestors(norm, "open");
+    const existing = assertFileTarget(norm, "open");
     const bytes =
       typeof data === "string" ? encoder.encode(data) : new Uint8Array(data);
-    nodes.set(norm, { kind: "file", data: bytes, mtimeMs: Date.now() });
+    createDirs(missing);
+    // Overwriting keeps the same node so descriptors already pointing at this
+    // file observe the replacement instead of a detached predecessor.
+    if (existing) {
+      existing.data = bytes;
+      existing.mtimeMs = Date.now();
+    } else nodes.set(norm, { kind: "file", data: bytes, mtimeMs: Date.now() });
   }
 
   function readFile(p: string): Uint8Array | null {
@@ -334,40 +443,19 @@ export function createMemFS(): IMemFSHost {
           console.error("[wasm]", line);
         return buf.length;
       }
-      // Open-file fds (>= 100): append to the underlying file. Browser-hosted
-      // tools use this path for ordinary virtual files and explicit outputs.
+      // Open-file fds (>= 100): write at the descriptor cursor, the way Node's
+      // own `writeSync` without a position does. Browser-hosted tools use this
+      // path for ordinary virtual files and explicit outputs.
+      //
+      // An unknown or already-closed fd throws instead of being diverted into
+      // the captured stderr: reporting the byte count of a write nobody
+      // performed made the caller continue on a false success and quietly
+      // contaminated a diagnostic channel consumers read.
       const entry = fdTable.get(fd);
-      if (entry) {
-        const node = nodes.get(entry.path);
-        if (node && node.kind === "file") {
-          // subarray(0) is a zero-copy view over the full incoming buffer; the
-          // bytes are copied into `next` before writeSync returns.
-          const incoming = buf.subarray(0);
-          const existing = node.data;
-          const next = new Uint8Array(
-            existing.byteLength + incoming.byteLength,
-          );
-          next.set(existing, 0);
-          next.set(incoming, existing.byteLength);
-          node.data = next;
-          node.mtimeMs = Date.now();
-          entry.position = next.byteLength;
-          return incoming.byteLength;
-        }
-      }
-      // Unknown fd. Fall back to the stderr buffer so the bytes aren't lost
-      // entirely (and surface as a console.error so the regression is
-      // visible to whoever's looking).
-      stderr.buffer += decoder.decode(buf);
-      // eslint-disable-next-line no-console
-      console.error(
-        "[wasm] writeSync to unknown fd " +
-          fd +
-          " (" +
-          buf.byteLength +
-          " bytes); routed to stderr buffer",
-      );
-      return buf.length;
+      if (!entry) throw new MemFSError("EBADF", "write");
+      // subarray(0) is a zero-copy view over the full incoming buffer; the
+      // bytes are copied into the node before writeSync returns.
+      return writeThroughDescriptor(entry, buf.subarray(0), null, "write");
     },
 
     write(fd, buf, offset, length, position, callback) {
@@ -390,44 +478,82 @@ export function createMemFS(): IMemFSHost {
           callback(null, length);
           return;
         }
-        if (position !== null && position !== 0) {
-          callback(new MemFSError("ESPIPE", "write"), 0);
+        const view = buf.subarray(offset, offset + length);
+        // The stdout/stderr capture buffers are streams, not files: they have
+        // no seekable offset, so an explicit position is meaningless on them.
+        if (fd === 1 || fd === 2) {
+          if (position !== null && position !== 0)
+            throw new MemFSError("ESPIPE", "write");
+          callback(null, this.writeSync(fd, view));
           return;
         }
-        const view = buf.subarray(offset, offset + length);
-        const written = this.writeSync(fd, view);
-        callback(null, written);
+        const entry = fdTable.get(fd);
+        if (!entry) throw new MemFSError("EBADF", "write");
+        callback(null, writeThroughDescriptor(entry, view, position, "write"));
       } catch (err) {
         callback(err as NodeJS.ErrnoException, 0);
       }
     },
 
+    // Every rejection happens before the first mutation and before a
+    // descriptor is minted, so a refused open leaves neither a half-created
+    // node nor a leaked fd behind.
     open(p, flags, _mode, callback) {
-      const norm = normalize(p);
-      const node = nodes.get(norm);
-      const creating = (flags & (this.constants.O_CREAT ?? 0)) !== 0;
-      if (!node) {
-        if (!creating) {
-          callback(new MemFSError("ENOENT", "open", norm), -1);
-          return;
+      try {
+        const norm = normalize(p);
+        const creating = (flags & (this.constants.O_CREAT ?? 0)) !== 0;
+        const exclusive = (flags & (this.constants.O_EXCL ?? 0)) !== 0;
+        const truncating = (flags & (this.constants.O_TRUNC ?? 0)) !== 0;
+        const appending = (flags & (this.constants.O_APPEND ?? 0)) !== 0;
+        const directoryOnly = (flags & (this.constants.O_DIRECTORY ?? 0)) !== 0;
+        // The access mode is the low bits of `flags`: absent both means
+        // read-only, and `O_RDWR` alongside `O_WRONLY` still grants both.
+        const writeOnly = (flags & (this.constants.O_WRONLY ?? 0)) !== 0;
+        const readWrite = (flags & (this.constants.O_RDWR ?? 0)) !== 0;
+        const writable = writeOnly || readWrite;
+        const readable = !writeOnly || readWrite;
+
+        let node = nodes.get(norm);
+        if (!node) {
+          if (!creating) throw new MemFSError("ENOENT", "open", norm);
+          // `open` can only ever create a regular file, so a caller demanding a
+          // directory cannot be satisfied by creating one.
+          if (directoryOnly) throw new MemFSError("ENOTDIR", "open", norm);
+          // Creating the missing ancestor chain is the documented job of
+          // `writeFile` and `mkdirp`; the low-level `open` never promised it.
+          const missing = missingAncestors(norm, "open");
+          if (missing.length > 0)
+            throw new MemFSError("ENOENT", "open", missing[0]!);
+          node = { kind: "file", data: new Uint8Array(), mtimeMs: Date.now() };
+          nodes.set(norm, node);
+        } else {
+          if (creating && exclusive)
+            throw new MemFSError("EEXIST", "open", norm);
+          if (node.kind === "dir") {
+            // A directory opens read-only — Go stats the fd and lists the path
+            // that way. Writing to it or truncating it would turn it into a
+            // file and orphan every descendant.
+            if (writable || truncating)
+              throw new MemFSError("EISDIR", "open", norm);
+          } else if (directoryOnly)
+            throw new MemFSError("ENOTDIR", "open", norm);
         }
-        ensureParentDirs(norm);
-        nodes.set(norm, {
-          kind: "file",
-          data: new Uint8Array(),
-          mtimeMs: Date.now(),
+        if (truncating) {
+          node.data = new Uint8Array();
+          node.mtimeMs = Date.now();
+        }
+        const fd = nextFd++;
+        fdTable.set(fd, {
+          path: norm,
+          position: 0,
+          readable,
+          writable,
+          append: appending,
         });
+        callback(null, fd);
+      } catch (err) {
+        callback(err as NodeJS.ErrnoException, -1);
       }
-      const fd = nextFd++;
-      fdTable.set(fd, { path: norm, position: 0 });
-      if ((flags & (this.constants.O_TRUNC ?? 0)) !== 0) {
-        nodes.set(norm, {
-          kind: "file",
-          data: new Uint8Array(),
-          mtimeMs: Date.now(),
-        });
-      }
-      callback(null, fd);
     },
 
     close(fd, callback) {
@@ -475,16 +601,29 @@ export function createMemFS(): IMemFSHost {
         callback(new MemFSError("EBADF", "read"), 0);
         return;
       }
+      // A write-only descriptor is not a readable one. POSIX answers EBADF for
+      // an operation the descriptor's access mode never granted.
+      if (!entry.readable) {
+        callback(new MemFSError("EBADF", "read", entry.path), 0);
+        return;
+      }
       const node = nodes.get(entry.path);
       if (!node || node.kind !== "file") {
         callback(new MemFSError("ENOENT", "read", entry.path), 0);
         return;
       }
       const start = position ?? entry.position;
+      if (!Number.isInteger(start) || start < 0) {
+        callback(new MemFSError("EINVAL", "read", entry.path), 0);
+        return;
+      }
       const end = Math.min(start + length, node.data.byteLength);
       const slice = node.data.subarray(start, end);
       buffer.set(slice, offset);
-      if (position === null) entry.position = end;
+      // The cursor advances by the bytes actually read. Assigning `end` would
+      // rewind a cursor already past end-of-file (after `ftruncate`, say) back
+      // onto live bytes and make the next sequential write overwrite them.
+      if (position === null) entry.position = start + slice.byteLength;
       callback(null, slice.byteLength);
     },
 
@@ -521,9 +660,9 @@ export function createMemFS(): IMemFSHost {
     },
 
     fstat(fd, callback) {
-      // fstat against a pipe end returns a synthetic file-stat. Go's
-      // os.Pipe-backed File uses fstat at construction time to populate
-      // Stat_t; without this it errors and falls back to invalid fds.
+      // fstat against a pipe end returns a synthetic file-stat so a direct
+      // JavaScript caller that wraps the fd in a file-like abstraction can
+      // populate its stat fields. A pipe end has no node in the tree.
       if (pipes.has(fd)) {
         callback(
           null,
