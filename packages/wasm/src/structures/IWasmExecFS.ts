@@ -135,10 +135,20 @@ export interface IWasmExecFS {
     callback: (err: NodeJS.ErrnoException | null) => void,
   ): void;
   /**
-   * `pipe2` is what Go's wasm `os.Pipe()` calls. Returns two fds: a read end
-   * and a write end. The host's stdout/stderr capture currently uses MemFS temp
-   * files, but this keeps direct pipe callers compatible with the wasm fs
-   * surface.
+   * JavaScript-only pipe emulation. Returns two fds: a read end and a write
+   * end.
+   *
+   * Installing this does **not** make Go's wasm `os.Pipe()` work. Under the
+   * pinned Go toolchain neither `GOOS=js` nor `GOOS=wasip1` has pipes:
+   * `os.Pipe` returns an `ENOSYS` syscall error and `syscall.Pipe` returns
+   * `ENOSYS`, and neither one crosses the `globalThis.fs` bridge, so no
+   * JavaScript method is ever consulted. A custom Go/wasm host cannot reach
+   * this shim.
+   *
+   * The host captures wasm output without pipes: process-level writes to fd 1
+   * and fd 2 land in `stdout.buffer` and `stderr.buffer` through `writeSync`,
+   * and a plugin's output is collected by the Go-side `host.InvokePlugin` into
+   * invocation-owned in-process buffers.
    */
   pipe2(
     flags: number,
