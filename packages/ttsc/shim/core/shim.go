@@ -15,6 +15,12 @@ type CompilerOptions = innercore.CompilerOptions
 // JsxEmit is the parsed compilerOptions.jsx mode.
 type JsxEmit = innercore.JsxEmit
 
+// ModuleResolutionKind selects TypeScript-Go's module resolver.
+type ModuleResolutionKind = innercore.ModuleResolutionKind
+
+// ResolutionMode is the CommonJS or ESM lookup mode for one module use.
+type ResolutionMode = innercore.ResolutionMode
+
 // Tristate is a three-valued boolean: TSFalse, TSTrue, or TSUnknown. Used by
 // CompilerOptions fields that can be explicitly unset.
 type Tristate = innercore.Tristate
@@ -54,6 +60,35 @@ const (
   JsxEmitReact       = innercore.JsxEmitReact
   JsxEmitReactJSX    = innercore.JsxEmitReactJSX
   JsxEmitReactJSXDev = innercore.JsxEmitReactJSXDev
+
+  // ModuleKind* constants enumerate every configured output module format.
+  ModuleKindNone     = innercore.ModuleKindNone
+  ModuleKindCommonJS = innercore.ModuleKindCommonJS
+  ModuleKindAMD      = innercore.ModuleKindAMD
+  ModuleKindUMD      = innercore.ModuleKindUMD
+  ModuleKindSystem   = innercore.ModuleKindSystem
+  ModuleKindES2015   = innercore.ModuleKindES2015
+  ModuleKindES2020   = innercore.ModuleKindES2020
+  ModuleKindES2022   = innercore.ModuleKindES2022
+  ModuleKindESNext   = innercore.ModuleKindESNext
+  ModuleKindNode16   = innercore.ModuleKindNode16
+  ModuleKindNode18   = innercore.ModuleKindNode18
+  ModuleKindNode20   = innercore.ModuleKindNode20
+  ModuleKindNodeNext = innercore.ModuleKindNodeNext
+  ModuleKindPreserve = innercore.ModuleKindPreserve
+
+  // ResolutionMode* constants classify a single module-specifier lookup.
+  ResolutionModeNone     = innercore.ResolutionModeNone
+  ResolutionModeCommonJS = innercore.ResolutionModeCommonJS
+  ResolutionModeESM      = innercore.ResolutionModeESM
+
+  // ModuleResolutionKind* constants enumerate every TypeScript-Go resolver.
+  ModuleResolutionKindUnknown  = innercore.ModuleResolutionKindUnknown
+  ModuleResolutionKindClassic  = innercore.ModuleResolutionKindClassic
+  ModuleResolutionKindNode10   = innercore.ModuleResolutionKindNode10
+  ModuleResolutionKindNode16   = innercore.ModuleResolutionKindNode16
+  ModuleResolutionKindNodeNext = innercore.ModuleResolutionKindNodeNext
+  ModuleResolutionKindBundler  = innercore.ModuleResolutionKindBundler
 )
 
 // Version reports the TypeScript compiler version typescript-go implements, in

@@ -614,6 +614,15 @@ func auxiliaryInputs(program *driver.Program, configs []*shimtsoptions.ParsedCom
       inputs = append(inputs, driver.TypeReferenceCandidates(configs, directory, cwd, reference.FileName)...)
     }
     for _, specifier := range driver.SourceModuleSpecifiers(source) {
+      context := driver.ModuleResolutionContext{
+        Mode: program.TSProgram.GetModeForUsageLocation(source, specifier),
+      }
+      for _, parsed := range configs {
+        if parsed != nil && parsed.ParsedConfig != nil && parsed.ParsedConfig.CompilerOptions != nil {
+          context.Options = parsed.ParsedConfig.CompilerOptions
+          break
+        }
+      }
       resolved := program.TSProgram.GetResolvedModuleFromModuleSpecifier(source, specifier)
       if resolved != nil && resolved.IsResolved() {
         inputs = append(inputs, driver.ModuleResolutionPredecessors(
@@ -623,10 +632,11 @@ func auxiliaryInputs(program *driver.Program, configs []*shimtsoptions.ParsedCom
           specifier.Text(),
           resolved.ResolvedFileName,
           program.FS.UseCaseSensitiveFileNames(),
+          context,
         )...)
         continue
       }
-      inputs = append(inputs, driver.ModuleResolutionCandidates(configs, directory, cwd, specifier.Text())...)
+      inputs = append(inputs, driver.ModuleResolutionCandidates(configs, directory, cwd, specifier.Text(), context)...)
     }
   }
   // Config `types` entries request type packages without any source syntax, so

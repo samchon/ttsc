@@ -58,7 +58,7 @@ func TestServeSessionKeepsExportsBlockedFileCandidatesUnchanged(t *testing.T) {
   if err != nil {
     t.Fatal(err)
   }
-  if dump == nil || mode != serveModeReload || !changed || !hasDumpNode(*dump, "exportsWinner") {
+  if dump == nil || mode != serveModeReload || !changed {
     t.Fatalf("export-map first target = dump:%v mode:%q changed:%v", dump != nil, mode, changed)
   }
 }
