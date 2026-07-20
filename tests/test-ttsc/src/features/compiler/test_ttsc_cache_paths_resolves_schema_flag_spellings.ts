@@ -12,12 +12,12 @@ import {
  * normalizes every schema-owned spelling. A CI script with `--JSON`, `--Cwd`,
  * or `-P` therefore failed only on this subcommand. This drives the real
  * launcher so canonical and case-variant spellings reach the same cache path
- * calculation while the command keeps its strict value and unknown-option
- * boundary.
+ * calculation while the command keeps its strict value, command-scope, and
+ * unknown-option boundaries.
  *
  * 1. Create a project and compare canonical cache options with case variants and `-P`.
  * 2. Assert that every supported spelling returns the same JSON path record.
- * 3. Assert `--json` values and unknown options still fail at the cache command boundary.
+ * 3. Assert `--json` values, non-cache schema flags, and unknown options still fail at the cache command boundary.
  */
 export const test_ttsc_cache_paths_resolves_schema_flag_spellings = () => {
   const root = createProject({
@@ -70,6 +70,17 @@ export const test_ttsc_cache_paths_resolves_schema_flag_spellings = () => {
   assert.match(
     spacedJsonValue.stderr,
     /cache paths does not support "false"/,
+  );
+
+  const unsupportedSchemaFlag = spawn(
+    ttscBin,
+    ["cache", "paths", "--binary", "tsgo"],
+    { cwd: root },
+  );
+  assert.notEqual(unsupportedSchemaFlag.status, 0);
+  assert.match(
+    unsupportedSchemaFlag.stderr,
+    /cache paths does not support "--binary"/,
   );
 
   const unknown = spawn(
