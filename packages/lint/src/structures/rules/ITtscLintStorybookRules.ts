@@ -103,9 +103,9 @@ export interface ITtscLintStorybookRules {
    * side is renamed without the other.
    *
    * Tagged `Unnecessary`: both reported shapes — the `name` / `storyName`
-   * property and a `Story.storyName = ...` assignment — span the complete
-   * removable annotation, including its trailing comma or semicolon, so an
-   * editor greys out a range whose deletion leaves valid syntax.
+   * property and a standalone `Story.storyName = ...` assignment — span the
+   * complete removable annotation, including its trailing comma or semicolon,
+   * so an editor greys out a range whose deletion leaves valid syntax.
    *
    * @reference https://github.com/storybookjs/eslint-plugin-storybook/blob/main/docs/rules/no-redundant-story-name.md
    */

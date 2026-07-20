@@ -22,7 +22,9 @@ import (
 //     rule, asserting each finding carries one Unnecessary tag.
 //  2. Delete each tagged range and assert the source left behind is valid
 //     object/statement syntax, including first- and last-property boundaries.
-//  3. Assert the negative twin `storybook/csf-component` reports untagged.
+//  3. Keep an assignment nested in another expression silent because its value
+//     is live and a rule-wide Unnecessary tag would be false.
+//  4. Assert the negative twin `storybook/csf-component` reports untagged.
 func TestStorybookDeletionFindingsTagUnnecessary(t *testing.T) {
   cases := []struct {
     rule      string
@@ -86,6 +88,12 @@ func TestStorybookDeletionFindingsTagUnnecessary(t *testing.T) {
       )
     }
   }
+
+  assertRuleSkipsSource(
+    t,
+    "storybook/no-redundant-story-name",
+    "export default { component: Button };\nexport const Primary = {};\nconst derived = Primary.storyName = \"Primary\";\nconsole.log(derived);\n",
+  )
 
   incomplete := "export default {\n  title: \"Atoms/Button\",\n};\nexport const Primary = {};\n"
   _, _, findings := runRuleFindingsSnapshot(t, "storybook/csf-component", incomplete, nil)

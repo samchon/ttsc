@@ -214,9 +214,9 @@ func (storybookNoRedundantStoryName) Name() string { return "storybook/no-redund
 
 // DiagnosticTags greys the redundant annotation out. Both arms of this rule
 // report an annotation that restates the name Storybook already derives from
-// the export identifier — the object property in one, the `Story.storyName =`
-// assignment in the other — and each is reported at exactly the range whose
-// deletion is the whole resolution.
+// the export identifier — the object property in one, the standalone
+// `Story.storyName =` assignment in the other — and each is reported at
+// exactly the range whose deletion is the whole resolution.
 func (storybookNoRedundantStoryName) DiagnosticTags() []publicrule.DiagnosticTag {
   return []publicrule.DiagnosticTag{publicrule.DiagnosticTagUnnecessary}
 }
@@ -250,11 +250,13 @@ func (storybookNoRedundantStoryName) Check(ctx *Context, node *shimast.Node) {
     }
     objectName, propName := storybookPropertyAccessParts(expr.Left)
     if propName == "storyName" && storybookLiteralString(expr.Right) == storybookNameFromExport(objectName) {
-      reported := child
-      if child.Parent != nil && child.Parent.Kind == shimast.KindExpressionStatement {
-        reported = child.Parent
+      if child.Parent == nil || child.Parent.Kind != shimast.KindExpressionStatement {
+        return
       }
-      ctx.Report(reported, "Named exports should not use a redundant story name annotation.")
+      // The Unnecessary tag is rule-wide. Only a standalone assignment can be
+      // removed as a whole; an assignment nested in another expression still
+      // contributes its value and cannot truthfully be marked removable.
+      ctx.Report(child.Parent, "Named exports should not use a redundant story name annotation.")
     }
   })
 }
