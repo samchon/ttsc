@@ -27,6 +27,7 @@ Graph MCP work has an additional contract in [graph.md](graph.md). Read it befor
 - `packages/playground`: `@ttsc/playground`, reusable Web Worker + React shell built on `@ttsc/wasm`. Exports `createWorkerCompiler` (worker-side `ICompilerService` factory), `PlaygroundShell` (Tailwind 4 React component), runtime npm dependency installer, typia source/runtime pack helpers, and Monaco editor wrappers. Consumed by `website/` and `typia/website/`.
 - `packages/factory`: `@ttsc/factory`, a hand-written, zero-dependency TypeScript AST factory and width-aware printer (no `typescript` import) for source-code generation that survives the tsgo migration. Standalone published library; nothing else in the workspace depends on it yet.
 - `packages/unplugin`: bundler adapters.
+- `packages/metro`: React Native and Expo Metro adapter built on `@ttsc/unplugin`.
 - `packages/vscode`: VS Code extension that wires `vscode-languageclient` to ttscserver, exposes the built-in lint/format command bridge, and lets other plugin command ids execute through the language client with editor-applied `WorkspaceEdit`s.
 - `packages/ttsc-*`: per-platform packages (native helper + bundled Go SDK). Each ships both the `ttsc` helper and the `ttscserver` binary.
 - `tests/projects`: project-shaped fixtures copied into temp dirs by `TestProject.copyProject`.
