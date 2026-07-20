@@ -49,7 +49,7 @@ func TestFixSecurityDetectNewBufferOffersThreeSuccessors(t *testing.T) {
       t.Fatalf("suggestion %d title = %q, want %q", index, suggestion.Title, want.title)
     }
     rewritten, applied := applyFindingFixesToText(source, []*Finding{{Fix: suggestion.Edits}})
-    if applied != 1 || rewritten != want.result {
+    if applied != 2 || rewritten != want.result {
       t.Fatalf("suggestion %d: applied=%d\nwant %q\ngot  %q", index, applied, want.result, rewritten)
     }
   }
