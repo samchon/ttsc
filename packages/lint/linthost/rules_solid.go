@@ -31,6 +31,9 @@ func (r solidRule) DiagnosticTags() []publicrule.DiagnosticTag {
   }
   return nil
 }
+func (r solidRule) NeedsTypeChecker() bool {
+  return r.name == "no-react-deps"
+}
 
 func (r solidRule) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
@@ -101,6 +104,7 @@ type solidState struct {
   declared     map[string]bool
   importedFrom map[string]string
   solidImport  map[string]string
+  solidSymbols map[string]*shimast.Symbol
   signals      map[string]bool
 }
 
@@ -109,6 +113,7 @@ func collectSolidState(ctx *Context) *solidState {
     declared:     map[string]bool{},
     importedFrom: map[string]string{},
     solidImport:  map[string]string{},
+    solidSymbols: map[string]*shimast.Symbol{},
     signals:      map[string]bool{},
   }
   if ctx == nil || ctx.File == nil {
@@ -119,7 +124,7 @@ func collectSolidState(ctx *Context) *solidState {
       continue
     }
     state.imports = append(state.imports, stmt)
-    state.collectImport(stmt)
+    state.collectImport(ctx, stmt)
   }
   walkDescendants(ctx.File.AsNode(), func(child *shimast.Node) {
     if child == nil {
@@ -153,7 +158,7 @@ func collectSolidState(ctx *Context) *solidState {
   return state
 }
 
-func (s *solidState) collectImport(node *shimast.Node) {
+func (s *solidState) collectImport(ctx *Context, node *shimast.Node) {
   decl := node.AsImportDeclaration()
   if decl == nil {
     return
@@ -172,6 +177,9 @@ func (s *solidState) collectImport(node *shimast.Node) {
   if name := identifierText(clause.Name()); name != "" {
     s.declared[name] = true
     s.importedFrom[name] = source
+    if isSolidModuleSource(source) {
+      s.solidSymbols[name] = canonicalValueSymbol(ctx, clause.Name())
+    }
   }
   bindings := clause.NamedBindings
   if bindings == nil {
@@ -186,6 +194,9 @@ func (s *solidState) collectImport(node *shimast.Node) {
     if local != "" {
       s.declared[local] = true
       s.importedFrom[local] = source
+      if isSolidModuleSource(source) {
+        s.solidSymbols[local] = canonicalValueSymbol(ctx, namespace.Name())
+      }
     }
     return
   }
@@ -213,6 +224,7 @@ func (s *solidState) collectImport(node *shimast.Node) {
     s.importedFrom[local] = source
     if isSolidModuleSource(source) {
       s.solidImport[local] = imported
+      s.solidSymbols[local] = canonicalValueSymbol(ctx, spec.Name())
     }
   }
 }
@@ -547,7 +559,7 @@ func (s *solidState) reportReactDeps(ctx *Context) {
     if call == nil || call.Arguments == nil || len(call.Arguments.Nodes) != 2 {
       continue
     }
-    name := s.solidTrackedCallName(call)
+    name := s.solidTrackedCallName(ctx, call)
     if name != "createEffect" && name != "createMemo" {
       continue
     }
@@ -563,8 +575,8 @@ func (s *solidState) reportReactDeps(ctx *Context) {
 // proven to come from a Solid module binding. The rule carries an
 // `Unnecessary` tag, so a same-named local helper cannot be treated as a Solid
 // primitive merely because the file imports some other Solid symbol.
-func (s *solidState) solidTrackedCallName(call *shimast.CallExpression) string {
-  if call == nil {
+func (s *solidState) solidTrackedCallName(ctx *Context, call *shimast.CallExpression) string {
+  if ctx == nil || call == nil {
     return ""
   }
   expr := stripParens(call.Expression)
@@ -572,13 +584,23 @@ func (s *solidState) solidTrackedCallName(call *shimast.CallExpression) string {
     return ""
   }
   if name := identifierText(expr); name != "" {
+    if s.solidSymbols[name] == nil || canonicalValueSymbol(ctx, expr) != s.solidSymbols[name] {
+      return ""
+    }
     return s.solidImport[name]
   }
   if expr.Kind != shimast.KindPropertyAccessExpression {
     return ""
   }
   access := expr.AsPropertyAccessExpression()
-  if access == nil || !isSolidModuleSource(s.importedFrom[identifierText(access.Expression)]) {
+  if access == nil {
+    return ""
+  }
+  object := stripParens(access.Expression)
+  local := identifierText(object)
+  if !isSolidModuleSource(s.importedFrom[local]) ||
+    s.solidSymbols[local] == nil ||
+    canonicalValueSymbol(ctx, object) != s.solidSymbols[local] {
     return ""
   }
   return identifierText(access.Name())

@@ -22,8 +22,9 @@ import (
 //  1. Report a `createEffect` dependency array and assert one Unnecessary tag.
 //  2. Assert the tagged range is the array literal alone, not the whole call.
 //  3. Prove aliased and namespace Solid imports retain the same classification.
-//  4. Keep a same-named local helper and a similarly named custom module
-//     silent, so only proven Solid calls inherit the tag.
+//  4. Keep a same-named local helper, shadowed named and namespace imports, and
+//     a similarly named custom module silent, so only the exact Solid binding
+//     inherits the tag.
 //  5. Assert the negative twin `solid/no-react-specific-props` reports both
 //     `className` and `key` with no tags at all.
 func TestSolidNoReactDepsTagsDependencyArrayUnnecessary(t *testing.T) {
@@ -64,6 +65,8 @@ func TestSolidNoReactDepsTagsDependencyArrayUnnecessary(t *testing.T) {
 
   for _, unrelated := range []string{
     "import { createSignal } from \"solid-js\";\n\nfunction createEffect(run: () => void, deps: unknown[]) { run(); }\ncreateEffect(() => {}, [first]);\n",
+    "import { createEffect } from \"solid-js\";\n\nfunction run(createEffect: (callback: () => void, deps: unknown[]) => void) {\n  createEffect(() => {}, [first]);\n}\nconsole.log(run);\n",
+    "import * as Solid from \"solid-js\";\n\nfunction run(Solid: { createEffect(callback: () => void, deps: unknown[]): void }) {\n  Solid.createEffect(() => {}, [first]);\n}\nconsole.log(run);\n",
     "import { createEffect } from \"solid-js-testing\";\n\ncreateEffect(() => {}, [first]);\n",
   } {
     assertRuleSkipsSource(t, "solid/no-react-deps", unrelated)
