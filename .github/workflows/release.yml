@@ -49,6 +49,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Preflight - validate release tag and package versions
         run: node scripts/release-preflight.cjs
+      - name: Preflight - verify public Marketplace channel
+        run: node scripts/assert-marketplace-version.cjs --extension samchon.ttsc --timeout-ms 60000 --interval-ms 5000
       - name: Build all packages
         run: pnpm run build
       - name: Assert dist/ttsc.wasm exists and is >10MB
@@ -79,6 +81,8 @@ jobs:
         run: SKIP_BUILD=1 bash scripts/publish-vscode-marketplace.sh
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      - name: Verify VS Code Marketplace serves release
+        run: node scripts/assert-marketplace-version.cjs --extension samchon.ttsc --version "${GITHUB_REF_NAME#v}" --timeout-ms 300000 --interval-ms 10000
       - name: Publish to npm
         run: pnpm run package:latest:publish
   wasm-smoke:

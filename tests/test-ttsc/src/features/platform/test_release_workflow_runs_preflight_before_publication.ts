@@ -1,26 +1,25 @@
 import { assert, fs, path, workspaceRoot } from "../../internal/toolchain";
 
 /**
- * Verifies the release workflow runs the preflight gate before any publication.
+ * Verifies release gates surround Marketplace publication before npm.
  *
- * Locks the ordering in `.github/workflows/release.yml`. The preflight script
- * is only a real gate if it executes before the first external mutation, so a
- * future edit that moves publication ahead of the preflight must fail here. The
- * negative twin is the publication commands themselves: their positions in the
- * workflow text must all come after the preflight invocation.
+ * Locks the ordering in `.github/workflows/release.yml`. Public Marketplace
+ * readiness must be proven before build or credential use, and the tagged
+ * version must be anonymously served after Marketplace publication but before
+ * the irreversible npm publication.
  *
  * Order is a property of what the workflow runs, so the comments come out
- * first. #726 documented the runner's disk reclaim in prose that names
- * `pnpm run build`, several lines above the step that invokes it, and a raw
- * text scan read that sentence as the build itself and reported it running
- * before the preflight. The workflow was correct and this gate was not. Prose
- * about a command is not the command, and a gate that cannot tell them apart
- * fails on the next comment that mentions one.
+ * first. #726 documented the runner's disk reclaim in prose that names `pnpm
+ * run build`, several lines above the step that invokes it, and a raw text scan
+ * read that sentence as the build itself and reported it running before the
+ * preflight. The workflow was correct and this gate was not. Prose about a
+ * command is not the command, and a gate that cannot tell them apart fails on
+ * the next comment that mentions one.
  *
  * 1. Read the release workflow and drop its comment lines.
- * 2. Locate the preflight invocation and each publication command.
- * 3. Assert the preflight appears exactly once and strictly before the build,
- *    the Marketplace publish, the npm publish, and the first credential use.
+ * 2. Locate both preflights, both publications, and the exact-version gate.
+ * 3. Assert readiness precedes every mutation and exact verification sits strictly
+ *    between Marketplace and npm publication.
  */
 export const test_release_workflow_runs_preflight_before_publication = () => {
   const source = fs.readFileSync(
@@ -42,6 +41,26 @@ export const test_release_workflow_runs_preflight_before_publication = () => {
     "release-preflight.cjs must be invoked exactly once",
   );
 
+  const marketplaceProbe = "scripts/assert-marketplace-version.cjs";
+  const readiness = workflow.indexOf(marketplaceProbe);
+  const exactVersion = workflow.indexOf(marketplaceProbe, readiness + 1);
+  assert.notEqual(readiness, -1, "Marketplace readiness gate is missing");
+  assert.notEqual(
+    exactVersion,
+    -1,
+    "Marketplace exact-version gate is missing",
+  );
+  assert.equal(
+    workflow.indexOf(marketplaceProbe, exactVersion + 1),
+    -1,
+    "Marketplace probe must be invoked exactly twice",
+  );
+  assert.match(
+    workflow.slice(exactVersion, workflow.indexOf("\n", exactVersion)),
+    /--version "\$\{GITHUB_REF_NAME#v\}"/,
+    "post-publish gate must query the tagged release version",
+  );
+
   const marketplacePublish = workflow.indexOf("publish-vscode-marketplace.sh");
   const npmPublish = workflow.indexOf("package:latest:publish");
   const credential = workflow.indexOf("VSCE_PAT");
@@ -55,8 +74,20 @@ export const test_release_workflow_runs_preflight_before_publication = () => {
   ] as Array<[string, number]>) {
     assert.notEqual(index, -1, `expected to find ${label} step`);
     assert.ok(
-      preflight < index,
-      `preflight (index ${preflight}) must run before ${label} (index ${index})`,
+      readiness < index,
+      `readiness (index ${readiness}) must run before ${label} (index ${index})`,
     );
   }
+  assert.ok(
+    preflight < readiness,
+    "deterministic release preflight must run before public readiness",
+  );
+  assert.ok(
+    marketplacePublish < exactVersion,
+    "exact-version gate must run after Marketplace publication",
+  );
+  assert.ok(
+    exactVersion < npmPublish,
+    "exact-version gate must run before npm publication",
+  );
 };
