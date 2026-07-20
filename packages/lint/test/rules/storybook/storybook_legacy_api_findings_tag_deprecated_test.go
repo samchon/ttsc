@@ -18,8 +18,8 @@ import (
 // not a deprecated API; it is the wrong layer to import from, and striking it
 // through would misstate why it is reported.
 //
-//  1. Report ordinary and aliased `storiesOf` imports plus direct and escaped
-//     piped meta titles, asserting each finding carries one Deprecated tag.
+//  1. Report ordinary and aliased `storiesOf` imports plus direct and every
+//     supported escaped piped meta title, asserting one Deprecated tag each.
 //  2. Assert each range covers the deprecated construct itself, never its
 //     live alias or title property.
 //  3. Assert the negative twin `storybook/no-renderer-packages` reports
@@ -49,6 +49,21 @@ func TestStorybookLegacyApiFindingsTagDeprecated(t *testing.T) {
       rule:   "storybook/hierarchy-separator",
       source: "export default {\n  title: \"Atoms\\u007CButton\",\n  component: Button,\n};\nexport const Primary = {};\n",
       marker: "\\u007C",
+    },
+    {
+      rule:   "storybook/hierarchy-separator",
+      source: "export default {\n  title: \"Atoms\\x7CButton\",\n  component: Button,\n};\nexport const Primary = {};\n",
+      marker: "\\x7C",
+    },
+    {
+      rule:   "storybook/hierarchy-separator",
+      source: "export default {\n  title: \"Atoms\\u{7C}Button\",\n  component: Button,\n};\nexport const Primary = {};\n",
+      marker: "\\u{7C}",
+    },
+    {
+      rule:   "storybook/hierarchy-separator",
+      source: "export default {\n  title: \"Atoms\\|Button\",\n  component: Button,\n};\nexport const Primary = {};\n",
+      marker: "\\|",
     },
   }
   for _, testCase := range cases {
