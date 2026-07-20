@@ -190,28 +190,40 @@ func (securityDetectNewBuffer) Check(ctx *Context, node *shimast.Node) {
 // original hazard comes back: applying `Buffer.allocUnsafe` to what was really
 // a string silently allocates uninitialized heap memory.
 //
-// Each edit replaces the `new Buffer` span up to the end of the callee and
-// leaves the argument list untouched. Returns nil when that span cannot be
-// bounded, which downgrades the caller to a plain diagnostic.
+// Each edit removes `new` and replaces the callee while leaving the argument
+// list untouched. It consumes only whitespace immediately after `new`, so a
+// comment between `new` and `Buffer` stays in the source. Returns nil when
+// those token ranges cannot be bounded, which downgrades the caller to a plain
+// diagnostic.
 func securityNewBufferReplacements(
   file *shimast.SourceFile,
   node *shimast.Node,
   expr *shimast.NewExpression,
 ) []Suggestion {
   pos, _ := tokenRange(file, node)
-  if pos < 0 || expr.Expression == nil {
+  calleePos, calleeEnd := tokenRange(file, expr.Expression)
+  if pos < 0 || expr.Expression == nil || calleePos < pos+len("new") {
     return nil
   }
-  end := expr.Expression.End()
-  if end <= pos || end > len(file.Text()) {
+  src := file.Text()
+  newEnd := pos + len("new")
+  if newEnd > len(src) || src[pos:newEnd] != "new" || calleeEnd <= calleePos {
     return nil
+  }
+  removeEnd := newEnd
+  for removeEnd < calleePos &&
+    (src[removeEnd] == ' ' || src[removeEnd] == '\t' || src[removeEnd] == '\r' || src[removeEnd] == '\n') {
+    removeEnd++
   }
   successors := []string{"Buffer.from", "Buffer.alloc", "Buffer.allocUnsafe"}
   suggestions := make([]Suggestion, 0, len(successors))
   for _, successor := range successors {
     suggestions = append(suggestions, Suggestion{
       Title: "Replace with `" + successor + "`.",
-      Edits: []TextEdit{{Pos: pos, End: end, Text: successor}},
+      Edits: []TextEdit{
+        {Pos: pos, End: removeEnd, Text: ""},
+        {Pos: calleePos, End: calleeEnd, Text: successor},
+      },
     })
   }
   return suggestions

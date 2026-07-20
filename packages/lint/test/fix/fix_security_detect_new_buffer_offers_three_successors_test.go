@@ -13,10 +13,11 @@ import "testing"
 // recreate the constructor's original hazard — `Buffer.allocUnsafe` on what
 // was really a string hands back uninitialized heap memory.
 //
-//  1. Report `new Buffer(input)` and assert three suggestions, each replacing
-//     the `new Buffer` span while leaving the argument list intact.
+//  1. Report `new Buffer(input)` and assert three suggestions, each removing
+//     `new`, rewriting the callee, and leaving the argument list intact.
 //  2. Assert no automatic edit is applied, so `ttsc fix` leaves the call.
-//  3. Assert the negative twins stay silent: a literal argument, which the
+//  3. Assert a comment between `new` and `Buffer` survives every suggestion.
+//  4. Assert the negative twins stay silent: a literal argument, which the
 //     rule exempts, and a different constructor.
 func TestFixSecurityDetectNewBufferOffersThreeSuccessors(t *testing.T) {
   source := "const buffer = new Buffer(input);\nconsole.log(buffer);\n"
@@ -55,6 +56,22 @@ func TestFixSecurityDetectNewBufferOffersThreeSuccessors(t *testing.T) {
   automatic, applied := applyFindingFixesToText(source, findings)
   if applied != 0 || automatic != source {
     t.Fatalf("automatic edits changed source: applied=%d source=%q", applied, automatic)
+  }
+
+  commented := "const buffer = new /* user chooses the allocation */ Buffer(input);\nconsole.log(buffer);\n"
+  _, _, commentedFindings := runRuleFindingsSnapshot(t, "security/detect-new-buffer", commented, nil)
+  if len(commentedFindings) != 1 || len(commentedFindings[0].Suggestions) != len(expected) {
+    t.Fatalf("commented suggestions = %+v", commentedFindings)
+  }
+  for index, want := range []string{
+    "const buffer = /* user chooses the allocation */ Buffer.from(input);\nconsole.log(buffer);\n",
+    "const buffer = /* user chooses the allocation */ Buffer.alloc(input);\nconsole.log(buffer);\n",
+    "const buffer = /* user chooses the allocation */ Buffer.allocUnsafe(input);\nconsole.log(buffer);\n",
+  } {
+    rewritten, applied := applyFindingFixesToText(commented, []*Finding{{Fix: commentedFindings[0].Suggestions[index].Edits}})
+    if applied != 2 || rewritten != want {
+      t.Fatalf("commented suggestion %d: applied=%d\nwant %q\ngot  %q", index, applied, want, rewritten)
+    }
   }
 
   assertRuleSkipsSource(
