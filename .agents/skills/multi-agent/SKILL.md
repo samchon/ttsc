@@ -16,6 +16,8 @@ This skill is the single entry point for every explicitly parallel review or cam
 
 Do not load this skill for Self-Review, an unqualified review, or a campaign that does not explicitly request parallel agents.
 
+A solo campaign's per-commit early-warning pass is not this topology and does not enter here. Parallel review gives several reviewers the same whole declared surface for independent passes that the lead adjudicates. The early-warning pass gives one reader one commit's slice to report on while the author keeps implementing, and the author's own whole-surface round before merge is still the gate. Its cadence lives in [solo campaign development](../issue-campaign/development.md#implement-and-write-tests) and its naming rule in the [review skill](../review/SKILL.md#early-warning-is-not-self-review).
+
 ## Shared Parallelism Rules
 
 - Use the smallest number of agents that adds independent evidence or owns immediately executable disjoint work. Available thread capacity is not a reason to create an agent.

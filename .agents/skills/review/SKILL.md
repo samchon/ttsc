@@ -31,6 +31,16 @@ Self-Review and an unqualified review request use this solo workflow:
 
 Self-Review does not authorize creating, pushing, updating, or merging a pull request. If the user separately requests one of those actions, follow the pull-request skill.
 
+## Early Warning Is Not Self-Review
+
+An author implementing a long branch may run a per-commit early-warning pass: one subagent reads a commit as it lands and reports candidates while the author keeps implementing. It reads and reports only, so it delegates nothing the Non-Negotiable Review Law governs. It never edits, commits, pushes, or settles a design question, and its report is evidence the author still has to reproduce. [Solo campaign development](../issue-campaign/development.md#implement-and-write-tests) owns that cadence.
+
+The law's first sentence keeps its exact meaning, and all four rules still bind the author's own round unchanged. No number of per-commit passes counts toward whole-surface coverage or stands in for the complete round over the base-to-head diff before merge.
+
+Never call the early-warning pass a Self-Review. Under the gate's name it reads as the gate already run, and the whole-surface round quietly disappears, which is the failure the fresh-start rule exists to prevent.
+
+A commit-sized reader also cannot see what exists only between commits: a document or issue asserting a verification the code never performs, a helper reimplemented next to one that already lives in the same package, a string match that can never fire because of how the target file is stored. Each one is consistent inside the commit that introduced it and becomes visible only across the whole diff.
+
 ## Solo Issue Discovery Rounds
 
 Use these rounds only through the solo issue-campaign skill.
