@@ -111,12 +111,7 @@ const LINT_GO_RUNNER = "scripts/test-go-lint.cjs";
  * suite that exists is discovered whether or not anyone remembered it.
  */
 function goTestDirectories(dir, out) {
-  let entries;
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return out;
-  }
+  const entries = readDirectoryEntries(dir);
   let hasTest = false;
   for (const entry of entries) {
     if (entry.isDirectory()) {
@@ -128,6 +123,19 @@ function goTestDirectories(dir, out) {
   }
   if (hasTest) out.push(path.relative(root, dir).split(path.sep).join("/"));
   return out;
+}
+
+/**
+ * `fs.readdirSync` with file types, or an empty list when the directory is
+ * absent. The three discovery walks share it so a missing root is a finding
+ * this file reports rather than an exception it raises.
+ */
+function readDirectoryEntries(dir) {
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
 }
 
 /** Directories that hold e2e workspace packages named `test-*`. */
@@ -145,13 +153,7 @@ const NODE_TEST_ROOTS = ["scripts", "website", "packages"];
  * someone forgot to add would have run nowhere and reported nothing.
  */
 function nodeTestFiles(dir, out) {
-  let entries;
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return out;
-  }
-  for (const entry of entries) {
+  for (const entry of readDirectoryEntries(dir)) {
     if (entry.isDirectory()) {
       if (
         entry.name === "node_modules" ||
@@ -187,9 +189,11 @@ function discoverOwners() {
   // its lane kept this gate green and a second suite added beside it would
   // have been claimed by nothing.
   for (const dir of E2E_ROOTS)
-    for (const entry of fs.readdirSync(path.join(root, dir), {
-      withFileTypes: true,
-    }))
+    // Absent directory yields nothing, matching the two walkers above. A root
+    // that disappears should make its claims read as stale, which the second
+    // half of the invariant reports precisely; crashing here would replace that
+    // report with a stack trace.
+    for (const entry of readDirectoryEntries(path.join(root, dir)))
       if (entry.isDirectory() && entry.name.startsWith("test-"))
         owners.push(`e2e:${dir}/${entry.name}`);
   for (const root_ of NODE_TEST_ROOTS)
