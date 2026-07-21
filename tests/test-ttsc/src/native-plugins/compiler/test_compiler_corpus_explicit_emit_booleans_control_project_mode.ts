@@ -23,11 +23,9 @@ export const test_compiler_corpus_explicit_emit_booleans_control_project_mode =
     const disabledRoot = commonJsProject({
       "src/main.ts": `export const value: number = 1;\n`,
     });
-    const disabled = spawn(
-      ttscBin,
-      ["--cwd", disabledRoot, "--emit=false"],
-      { cwd: disabledRoot },
-    );
+    const disabled = spawn(ttscBin, ["--cwd", disabledRoot, "--emit=false"], {
+      cwd: disabledRoot,
+    });
     assert.equal(disabled.status, 0, disabled.stderr);
     assert.equal(
       fs.existsSync(path.join(disabledRoot, "dist", "main.js")),
@@ -40,11 +38,9 @@ export const test_compiler_corpus_explicit_emit_booleans_control_project_mode =
       },
       { compilerOptions: { noEmit: true } },
     );
-    const enabled = spawn(
-      ttscBin,
-      ["--cwd", enabledRoot, "--noEmit=false"],
-      { cwd: enabledRoot },
-    );
+    const enabled = spawn(ttscBin, ["--cwd", enabledRoot, "--noEmit=false"], {
+      cwd: enabledRoot,
+    });
     assert.equal(enabled.status, 0, enabled.stderr);
     assert.equal(
       fs.existsSync(path.join(enabledRoot, "dist", "main.js")),

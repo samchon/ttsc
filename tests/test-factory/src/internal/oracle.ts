@@ -14,7 +14,7 @@ import ts from "ts-legacy";
  * Comparing the two texts byte for byte would compare formatting, not meaning
  * (the legacy printer writes `class A extends B {\n}` and a space before a
  * template tag). {@link structure} therefore reduces printed text to what the
- * program *means*: the parsed node-kind tree, with parentheses removed and
+ * program _means_: the parsed node-kind tree, with parentheses removed and
  * optional-chain membership recorded, so `a?.b()` and `(a?.b)()` — the same
  * characters modulo one pair of parentheses, but different programs — do not
  * compare equal.
@@ -55,7 +55,7 @@ export const parseDiagnostics = (file: ts.SourceFile): string[] =>
  * Structural signature of printed source: the node-kind tree with
  * `ParenthesizedExpression` elided and optional-chain membership marked.
  *
- * Eliding parentheses is what makes the comparison a *meaning* comparison
+ * Eliding parentheses is what makes the comparison a _meaning_ comparison
  * rather than a formatting one; marking chain membership is what keeps it from
  * being blind to the difference the parentheses make, since `(a?.b)()` parses
  * to a call that is not part of the chain and `a?.b()` to one that is.
@@ -83,8 +83,8 @@ export const signature = (node: ts.Node): string => {
 };
 
 /**
- * Assert that `printed` means what the legacy printer's own output for
- * `oracle` means.
+ * Assert that `printed` means what the legacy printer's own output for `oracle`
+ * means.
  */
 export const assertOracle = (
   title: string,
@@ -221,7 +221,9 @@ const isOptionalChain = (node: ts.Node): boolean => {
     ts.isElementAccessExpression(node) ||
     ts.isCallExpression(node)
   )
-    return node.questionDotToken !== undefined || isOptionalChain(node.expression);
+    return (
+      node.questionDotToken !== undefined || isOptionalChain(node.expression)
+    );
   if (ts.isNonNullExpression(node)) return isOptionalChain(node.expression);
   return false;
 };

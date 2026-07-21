@@ -1,3 +1,6 @@
+import type { JsxElement } from "../jsx/JsxElement";
+import type { JsxFragment } from "../jsx/JsxFragment";
+import type { JsxSelfClosingElement } from "../jsx/JsxSelfClosingElement";
 import type { Identifier } from "../names/Identifier";
 import type { Token } from "../names/Token";
 import type { ArrayLiteralExpression } from "./ArrayLiteralExpression";
@@ -39,9 +42,6 @@ import type { TypeAssertion } from "./TypeAssertion";
 import type { TypeOfExpression } from "./TypeOfExpression";
 import type { VoidExpression } from "./VoidExpression";
 import type { YieldExpression } from "./YieldExpression";
-import type { JsxElement } from "../jsx/JsxElement";
-import type { JsxFragment } from "../jsx/JsxFragment";
-import type { JsxSelfClosingElement } from "../jsx/JsxSelfClosingElement";
 
 /**
  * Any expression node.

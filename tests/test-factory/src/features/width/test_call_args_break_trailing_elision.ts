@@ -19,10 +19,9 @@ const tiny = new TsPrinter({ printWidth: 20 });
  * fine until its arguments grew past `printWidth`. The boundary this pins is
  * that the fix must not leave two commas on separate lines either.
  *
- * 1. Print a call and a `new` whose last argument is an elision, flat and
- *    broken.
- * 2. Assert every layout parses, compiles in V8, and keeps one argument — the
- *    same count the legacy printer's text yields.
+ * 1. Print a call and a `new` whose last argument is an elision, flat and broken.
+ * 2. Assert every layout parses, compiles in V8, and keeps one argument — the same
+ *    count the legacy printer's text yields.
  * 3. Assert an argument list ending in a spread still gains its break comma.
  */
 export const test_call_args_break_trailing_elision = (): void => {
@@ -86,7 +85,11 @@ export const test_call_args_break_trailing_elision = (): void => {
     const flat: string = wide.print(node);
     const broken: string = tiny.print(node);
     const expected: string = printLegacy(oracle);
-    TestValidator.equals(`${title} broken layout breaks`, broken.includes("\n"), true);
+    TestValidator.equals(
+      `${title} broken layout breaks`,
+      broken.includes("\n"),
+      true,
+    );
     for (const [layout, text] of [
       ["flat", flat],
       ["broken", broken],
@@ -135,5 +138,9 @@ export const test_call_args_break_trailing_elision = (): void => {
     spread.includes("...remainingArgumentNames,"),
     true,
   );
-  TestValidator.equals("trailing spread compiles", syntaxErrorOf(spread), undefined);
+  TestValidator.equals(
+    "trailing spread compiles",
+    syntaxErrorOf(spread),
+    undefined,
+  );
 };

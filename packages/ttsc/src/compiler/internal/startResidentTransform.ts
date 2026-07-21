@@ -5,8 +5,8 @@ import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext
 import type { ITtscLoadedNativePlugin } from "../../structures/internal/ITtscLoadedNativePlugin";
 import { readProjectConfig } from "./project/readProjectConfig";
 import {
-  normalizeRequestTimeoutMs,
   ResidentTransformProcess,
+  normalizeRequestTimeoutMs,
 } from "./residentTransformProcess";
 import { resolveBinary } from "./resolveBinary";
 import { resolveTsgo } from "./resolveTsgo";

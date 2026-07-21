@@ -50,9 +50,7 @@ export const test_ttscgraph_source_reader_matches_ecmascript_line_terminators =
       ).href
     )) as { TtscGraphSourceReader: SourceReaderConstructor };
     const details = (await import(
-      pathToFileURL(
-        path.join(graphRoot, "lib", "server", "runDetails.js"),
-      ).href
+      pathToFileURL(path.join(graphRoot, "lib", "server", "runDetails.js")).href
     )) as {
       docOf(graph: never, node: never): string | undefined;
       signatureOf(graph: never, node: never): string | undefined;
@@ -98,27 +96,39 @@ export const test_ttscgraph_source_reader_matches_ecmascript_line_terminators =
       ]);
       const graph = { source: reader };
       assert.equal(
-        details.signatureOf(graph as never, {
-          evidence: { file, startLine: 2, endLine: 2 },
-        } as never),
+        details.signatureOf(
+          graph as never,
+          {
+            evidence: { file, startLine: 2, endLine: 2 },
+          } as never,
+        ),
         "export const alpha = 1;",
       );
       assert.equal(
-        details.docOf(graph as never, {
-          evidence: { file, startLine: 2, endLine: 2 },
-        } as never),
+        details.docOf(
+          graph as never,
+          {
+            evidence: { file, startLine: 2, endLine: 2 },
+          } as never,
+        ),
         "first",
       );
       assert.equal(
-        details.signatureOf(graph as never, {
-          evidence: { file, startLine: 4, endLine: 4 },
-        } as never),
+        details.signatureOf(
+          graph as never,
+          {
+            evidence: { file, startLine: 4, endLine: 4 },
+          } as never,
+        ),
         "export const beta = 2;",
       );
       assert.equal(
-        details.docOf(graph as never, {
-          evidence: { file, startLine: 4, endLine: 4 },
-        } as never),
+        details.docOf(
+          graph as never,
+          {
+            evidence: { file, startLine: 4, endLine: 4 },
+          } as never,
+        ),
         "second",
       );
     }

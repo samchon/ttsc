@@ -39,14 +39,14 @@ const legacyExtendsClass = (expression: ts.Expression) =>
  * `ExpressionWithTypeArguments` was the one expression-operand position still
  * emitted with a raw `this.emit`, so `class A extends (X || Y) {}` printed
  * without its parentheses and did not compile (TS1005), while a parenthesized
- * comma sequence silently became *two* base classes — a single `extends`
- * entry turning into two. Every `extends` and `implements` clause on a class
+ * comma sequence silently became _two_ base classes — a single `extends` entry
+ * turning into two. Every `extends` and `implements` clause on a class
  * declaration, class expression or interface funnels through this one branch.
  * Expectations come from the legacy printer's output for the same tree.
  *
- * 1. Print a class `extends` clause over each non-left-hand-side expression
- *    shape, and assert the printed text parses and means what the oracle's
- *    text means.
+ * 1. Print a class `extends` clause over each non-left-hand-side expression shape,
+ *    and assert the printed text parses and means what the oracle's text
+ *    means.
  * 2. Repeat the comma sequence through `implements`, a class expression and an
  *    interface, since all four share the branch.
  * 3. Assert the negative twins — a call and a qualified name — stay bare.
@@ -178,7 +178,11 @@ export const test_heritage_expression_parentheses = (): void => {
     baseCount(commaExtends),
     1,
   );
-  assertOracle("comma sequence", commaExtends, legacyExtendsClass(legacyComma()));
+  assertOracle(
+    "comma sequence",
+    commaExtends,
+    legacyExtendsClass(legacyComma()),
+  );
 
   const implementsClass: string = wide.print(
     factory.createClassDeclaration(
@@ -209,7 +213,10 @@ export const test_heritage_expression_parentheses = (): void => {
       [
         ts.factory.createHeritageClause(ts.SyntaxKind.ImplementsKeyword, [
           ts.factory.createExpressionWithTypeArguments(lid("P"), undefined),
-          ts.factory.createExpressionWithTypeArguments(legacyComma(), undefined),
+          ts.factory.createExpressionWithTypeArguments(
+            legacyComma(),
+            undefined,
+          ),
         ]),
       ],
       [],
@@ -306,7 +313,9 @@ export const test_heritage_expression_parentheses = (): void => {
   TestValidator.equals(
     "mixin call stays bare",
     wide.print(
-      extendsClass(factory.createCallExpression(id("mixin"), undefined, [id("Base")])),
+      extendsClass(
+        factory.createCallExpression(id("mixin"), undefined, [id("Base")]),
+      ),
     ),
     "class A extends mixin(Base) {}",
   );

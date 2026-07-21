@@ -2,9 +2,9 @@
 package astnav
 
 import (
-	"github.com/microsoft/typescript-go/internal/ast"
-	_ "github.com/microsoft/typescript-go/internal/astnav"
-	_ "unsafe"
+  "github.com/microsoft/typescript-go/internal/ast"
+  _ "github.com/microsoft/typescript-go/internal/astnav"
+  _ "unsafe"
 )
 
 // GetTouchingToken returns the token touching position in sourceFile. When

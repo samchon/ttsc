@@ -11,9 +11,7 @@ export interface ITtscGraphNodeId {
  * The producer quotes `#` and `\\` inside path and name. This reader also
  * accepts pre-codec ordinary ids, so a current package can read an older dump.
  */
-export function parseTtscGraphNodeId(
-  id: string,
-): ITtscGraphNodeId | undefined {
+export function parseTtscGraphNodeId(id: string): ITtscGraphNodeId | undefined {
   const hash = graphNodeIdHash(id);
   if (hash < 0) return undefined;
   const tail = id.slice(hash + 1);
@@ -63,10 +61,7 @@ function unescapeGraphNodeIdPart(value: string): string {
 
 function legacyUNCStart(value: string, index: number): boolean {
   return (
-    index === 0 &&
-    value.length > 2 &&
-    value[2] !== "\\" &&
-    value[2] !== "#"
+    index === 0 && value.length > 2 && value[2] !== "\\" && value[2] !== "#"
   );
 }
 

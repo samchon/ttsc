@@ -6,7 +6,8 @@ import {
 } from "../../internal/toolchain";
 
 /**
- * Verifies `ttsc cache paths` resolves every supported flag through the shared schema identity.
+ * Verifies `ttsc cache paths` resolves every supported flag through the shared
+ * schema identity.
  *
  * `cache paths` used to compare raw flag text even though the main launcher
  * normalizes every schema-owned spelling. A CI script with `--JSON`, `--Cwd`,
@@ -15,9 +16,11 @@ import {
  * calculation while the command keeps its strict value, command-scope, and
  * unknown-option boundaries.
  *
- * 1. Create a project and compare canonical cache options with case variants and `-P`.
+ * 1. Create a project and compare canonical cache options with case variants and
+ *    `-P`.
  * 2. Assert that every supported spelling returns the same JSON path record.
- * 3. Assert `--json` values, non-cache schema flags, and unknown options still fail at the cache command boundary.
+ * 3. Assert `--json` values, non-cache schema flags, and unknown options still
+ *    fail at the cache command boundary.
  */
 export const test_ttsc_cache_paths_resolves_schema_flag_spellings = () => {
   const root = createProject({
@@ -33,19 +36,14 @@ export const test_ttsc_cache_paths_resolves_schema_flag_spellings = () => {
 
   const caseVariants = spawn(
     ttscBin,
-    [
-      "cache",
-      "paths",
-      "--JSON",
-      "--Cwd",
-      root,
-      "--CACHE-DIR",
-      ".cache",
-    ],
+    ["cache", "paths", "--JSON", "--Cwd", root, "--CACHE-DIR", ".cache"],
     { cwd: root },
   );
   assert.equal(caseVariants.status, 0, caseVariants.stderr);
-  assert.deepEqual(JSON.parse(caseVariants.stdout), JSON.parse(canonical.stdout));
+  assert.deepEqual(
+    JSON.parse(caseVariants.stdout),
+    JSON.parse(canonical.stdout),
+  );
 
   const projectAlias = spawn(
     ttscBin,
@@ -67,10 +65,7 @@ export const test_ttsc_cache_paths_resolves_schema_flag_spellings = () => {
     { cwd: root },
   );
   assert.notEqual(spacedJsonValue.status, 0);
-  assert.match(
-    spacedJsonValue.stderr,
-    /cache paths does not support "false"/,
-  );
+  assert.match(spacedJsonValue.stderr, /cache paths does not support "false"/);
 
   const unsupportedSchemaFlag = spawn(
     ttscBin,

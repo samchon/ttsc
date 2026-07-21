@@ -25,7 +25,10 @@ const loadReducer = async (
   );
   const module = (await import(
     pathToFileURL(path.join(repository, relativePath)).href
-  )) as { reduce?: Reducer["reduce"]; default?: { reduce?: Reducer["reduce"] } };
+  )) as {
+    reduce?: Reducer["reduce"];
+    default?: { reduce?: Reducer["reduce"] };
+  };
   const reduce = exported === "named" ? module.reduce : module.default?.reduce;
   if (reduce === undefined) assert.fail(`${relativePath} exports reduce()`);
   return { reduce };

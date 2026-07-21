@@ -26,7 +26,7 @@ const target = (multiLine?: boolean): Expression =>
  * destructuring assignment target is represented, and ECMAScript forbids a
  * comma after an `AssignmentRestElement`. The width-break comma therefore
  * decided whether the printed text ran at all — with ordinary identifiers, at
- * the *default* `printWidth`, so the same generator emitted working code while
+ * the _default_ `printWidth`, so the same generator emitted working code while
  * its names were short and a `SyntaxError` once they grew. Every route into
  * target position is covered, because the flag is threaded from the emitting
  * site rather than read off a parent link.
@@ -87,7 +87,11 @@ export const test_array_target_break_rest_no_trailing_comma = (): void => {
   for (const [title, node] of cases) {
     const flat: string = wide.print(node);
     const broken: string = tiny.print(node);
-    TestValidator.equals(`${title} flat compiles`, syntaxErrorOf(flat), undefined);
+    TestValidator.equals(
+      `${title} flat compiles`,
+      syntaxErrorOf(flat),
+      undefined,
+    );
     TestValidator.equals(
       `${title} broken compiles`,
       syntaxErrorOf(broken),

@@ -54,9 +54,9 @@ const graphArguments = (props: {
  *    handlers, so a broad query yields a ranked, bounded, truncated shortlist.
  * 2. Drive every request branch over MCP.
  * 3. Assert the ranked branches carry {@link RESULT_AUDIT_SELECTION} plus the
- *    ranking/truncation metadata that justifies it, `trace` and `overview` carry
- *    {@link RESULT_AUDIT}, `details` carries {@link RESULT_AUDIT_DETAILS}, and
- *    the audits are distinct.
+ *    ranking/truncation metadata that justifies it, `trace` and `overview`
+ *    carry {@link RESULT_AUDIT}, `details` carries {@link RESULT_AUDIT_DETAILS},
+ *    and the audits are distinct.
  */
 export const test_ttscgraph_result_audit_matches_selection_semantics =
   async (): Promise<void> => {
@@ -99,7 +99,8 @@ export const test_ttscgraph_result_audit_matches_selection_semantics =
     });
 
     assert.equal(
-      new Set([RESULT_AUDIT, RESULT_AUDIT_SELECTION, RESULT_AUDIT_DETAILS]).size,
+      new Set([RESULT_AUDIT, RESULT_AUDIT_SELECTION, RESULT_AUDIT_DETAILS])
+        .size,
       3,
       "the exact, selection, and details audits must be distinct constants",
     );

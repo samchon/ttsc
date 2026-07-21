@@ -18,8 +18,8 @@ import (
 // 3. Execute the emitted modules and assert each shadowed call returns its original value.
 func TestCommandRewritesOnlyUnshadowedRequire(t *testing.T) {
   root := seedProject(t, map[string]string{
-    "package.json":       `{"type":"module"}` + "\n",
-    "tsconfig.json":      `{"compilerOptions":{"target":"ES2022","module":"nodenext","moduleResolution":"nodenext","strict":true,"paths":{"@lib/*":["./src/lib/*"]},"outDir":"dist","rootDir":"src"},"include":["src"]}`,
+    "package.json":        `{"type":"module"}` + "\n",
+    "tsconfig.json":       `{"compilerOptions":{"target":"ES2022","module":"nodenext","moduleResolution":"nodenext","strict":true,"paths":{"@lib/*":["./src/lib/*"]},"outDir":"dist","rootDir":"src"},"include":["src"]}`,
     "src/lib/message.cts": `export const message = "ok";` + "\n",
     "src/loader.ts": `declare function require(id: string): { message: string };
 export const loaded = require("@lib/message").message;

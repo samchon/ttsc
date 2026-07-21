@@ -41,18 +41,18 @@ const legacyElementChain = (): ts.Expression =>
  *
  * Pins `TsPrinter.leftSideExpression`'s `optionalChain` argument, which is the
  * consuming node's chain-ness, not the operand's. Emitting `(a?.b)()` as
- * `a?.b()` re-parses the call *into* the chain, so a nullish head stops
+ * `a?.b()` re-parses the call _into_ the chain, so a nullish head stops
  * throwing and quietly evaluates to `undefined`; in `new`, tagged-template and
- * decorator position the same omission does not compile at all (TS1209,
- * TS1358, TS1146). Every expectation below is the legacy printer's own output
- * for the same tree, taken through the differential oracle rather than from
- * this printer.
+ * decorator position the same omission does not compile at all (TS1209, TS1358,
+ * TS1146). Every expectation below is the legacy printer's own output for the
+ * same tree, taken through the differential oracle rather than from this
+ * printer.
  *
  * 1. Print each non-optional consumer over each optional-chain node kind.
- * 2. Assert the printed text means what the legacy printer's text means, and
- *    pin the exact string where the two printers also agree on spacing.
- * 3. Assert the negative twins — a consumer that continues the same chain, and
- *    a postfix update, which the legacy parenthesizer does not guard — stay
+ * 2. Assert the printed text means what the legacy printer's text means, and pin
+ *    the exact string where the two printers also agree on spacing.
+ * 3. Assert the negative twins — a consumer that continues the same chain, and a
+ *    postfix update, which the legacy parenthesizer does not guard — stay
  *    bare.
  */
 export const test_optional_chain_operand_parentheses = (): void => {

@@ -44,9 +44,12 @@ const operands: Operand[] = [
   },
   {
     name: "non-null chain",
-    ttsc: () => f.createNonNullChain(f.createPropertyAccessChain(id("a"), qd(), "b")),
+    ttsc: () =>
+      f.createNonNullChain(f.createPropertyAccessChain(id("a"), qd(), "b")),
     legacy: () =>
-      l.createNonNullChain(l.createPropertyAccessChain(lid("a"), lqd(), lid("b"))),
+      l.createNonNullChain(
+        l.createPropertyAccessChain(lid("a"), lqd(), lid("b")),
+      ),
   },
   {
     name: "chain whose head is a chain",
@@ -85,14 +88,21 @@ const operands: Operand[] = [
   },
   {
     name: "logical or",
-    ttsc: () => f.createBinaryExpression(id("X"), SyntaxKind.BarBarToken, id("Y")),
+    ttsc: () =>
+      f.createBinaryExpression(id("X"), SyntaxKind.BarBarToken, id("Y")),
     legacy: () =>
       l.createBinaryExpression(lid("X"), ts.SyntaxKind.BarBarToken, lid("Y")),
   },
   {
     name: "conditional",
     ttsc: () =>
-      f.createConditionalExpression(id("c"), undefined, id("X"), undefined, id("Y")),
+      f.createConditionalExpression(
+        id("c"),
+        undefined,
+        id("X"),
+        undefined,
+        id("Y"),
+      ),
     legacy: () =>
       l.createConditionalExpression(
         lid("c"),
@@ -123,9 +133,23 @@ const operands: Operand[] = [
   {
     name: "arrow function",
     ttsc: () =>
-      f.createArrowFunction(undefined, undefined, [], undefined, undefined, id("x")),
+      f.createArrowFunction(
+        undefined,
+        undefined,
+        [],
+        undefined,
+        undefined,
+        id("x"),
+      ),
     legacy: () =>
-      l.createArrowFunction(undefined, undefined, [], undefined, undefined, lid("x")),
+      l.createArrowFunction(
+        undefined,
+        undefined,
+        [],
+        undefined,
+        undefined,
+        lid("x"),
+      ),
   },
   {
     name: "assignment",
@@ -134,7 +158,8 @@ const operands: Operand[] = [
   },
   {
     name: "comma sequence",
-    ttsc: () => f.createBinaryExpression(id("a"), SyntaxKind.CommaToken, id("B")),
+    ttsc: () =>
+      f.createBinaryExpression(id("a"), SyntaxKind.CommaToken, id("B")),
     legacy: () =>
       l.createBinaryExpression(lid("a"), ts.SyntaxKind.CommaToken, lid("B")),
   },
@@ -216,12 +241,15 @@ const consumers: Consumer[] = [
   {
     name: "property access",
     ttsc: (o) => statement(f.createPropertyAccessExpression(o, "c")),
-    legacy: (o) => legacyStatement(l.createPropertyAccessExpression(o, lid("c"))),
+    legacy: (o) =>
+      legacyStatement(l.createPropertyAccessExpression(o, lid("c"))),
   },
   {
     name: "element access",
     ttsc: (o) =>
-      statement(f.createElementAccessExpression(o, f.createNumericLiteral("1"))),
+      statement(
+        f.createElementAccessExpression(o, f.createNumericLiteral("1")),
+      ),
     legacy: (o) =>
       legacyStatement(
         l.createElementAccessExpression(o, l.createNumericLiteral("1")),
@@ -254,12 +282,15 @@ const consumers: Consumer[] = [
   {
     name: "property chain",
     ttsc: (o) => statement(f.createPropertyAccessChain(o, qd(), "c")),
-    legacy: (o) => legacyStatement(l.createPropertyAccessChain(o, lqd(), lid("c"))),
+    legacy: (o) =>
+      legacyStatement(l.createPropertyAccessChain(o, lqd(), lid("c"))),
   },
   {
     name: "element chain",
     ttsc: (o) =>
-      statement(f.createElementAccessChain(o, qd(), f.createNumericLiteral("1"))),
+      statement(
+        f.createElementAccessChain(o, qd(), f.createNumericLiteral("1")),
+      ),
     legacy: (o) =>
       legacyStatement(
         l.createElementAccessChain(o, lqd(), l.createNumericLiteral("1")),
@@ -292,7 +323,13 @@ const consumers: Consumer[] = [
   {
     name: "decorator",
     ttsc: (o) =>
-      f.createClassDeclaration([f.createDecorator(o)], "A", undefined, undefined, []),
+      f.createClassDeclaration(
+        [f.createDecorator(o)],
+        "A",
+        undefined,
+        undefined,
+        [],
+      ),
     legacy: (o) =>
       l.createClassDeclaration(
         [l.createDecorator(o)],
@@ -310,7 +347,8 @@ const consumers: Consumer[] = [
   {
     name: "class implements",
     ttsc: (o) => heritage(SyntaxKind.ImplementsKeyword, [id("P"), o]),
-    legacy: (o) => legacyHeritage(ts.SyntaxKind.ImplementsKeyword, [lid("P"), o]),
+    legacy: (o) =>
+      legacyHeritage(ts.SyntaxKind.ImplementsKeyword, [lid("P"), o]),
   },
   {
     name: "class extends with type arguments",
@@ -389,11 +427,25 @@ const consumers: Consumer[] = [
     name: "arrow concise body",
     ttsc: (o) =>
       statement(
-        f.createArrowFunction(undefined, undefined, [], undefined, undefined, o),
+        f.createArrowFunction(
+          undefined,
+          undefined,
+          [],
+          undefined,
+          undefined,
+          o,
+        ),
       ),
     legacy: (o) =>
       legacyStatement(
-        l.createArrowFunction(undefined, undefined, [], undefined, undefined, o),
+        l.createArrowFunction(
+          undefined,
+          undefined,
+          [],
+          undefined,
+          undefined,
+          o,
+        ),
       ),
   },
 ];
@@ -449,7 +501,9 @@ const legacyHeritage = (
         expressions.map((e) =>
           l.createExpressionWithTypeArguments(
             e,
-            typeArguments ? [l.createTypeReferenceNode("T", undefined)] : undefined,
+            typeArguments
+              ? [l.createTypeReferenceNode("T", undefined)]
+              : undefined,
           ),
         ),
       ),
@@ -510,10 +564,10 @@ const requiredProductions: readonly string[] = [
  * `(a?.b)()`.
  *
  * 1. Build every consumer-over-operand pair with both factories.
- * 2. Assert the generated corpus actually contains every required production,
- *    so a grammar gap fails rather than passing vacuously.
- * 3. Assert each printed text parses cleanly and reduces to the same structure
- *    as the oracle's text.
+ * 2. Assert the generated corpus actually contains every required production, so a
+ *    grammar gap fails rather than passing vacuously.
+ * 3. Assert each printed text parses cleanly and reduces to the same structure as
+ *    the oracle's text.
  */
 export const test_parenthesizer_oracle_differential = (): void => {
   const generated: Set<string> = new Set();
@@ -560,7 +614,11 @@ export const test_parenthesizer_oracle_differential = (): void => {
   TestValidator.equals(
     "object literal base with type arguments round-trips",
     wide.print(
-      heritage(SyntaxKind.ExtendsKeyword, [f.createObjectLiteralExpression([])], true),
+      heritage(
+        SyntaxKind.ExtendsKeyword,
+        [f.createObjectLiteralExpression([])],
+        true,
+      ),
     ),
     "class A extends ({})<T> {}",
   );

@@ -56,7 +56,7 @@ jobs:
             }
           - {
               name: typecheck,
-              run: "pnpm run check:flags && node --test packages/ttsc/scripts/check-flags.test.cjs && node --test scripts/ci/test-owners.test.cjs && pnpm run test:typecheck",
+              run: "pnpm run check:flags && node --test packages/ttsc/scripts/check-flags.test.cjs && node --test scripts/ci/test-owners.test.cjs && node scripts/ci/format-check.cjs && pnpm run test:typecheck",
             }
           - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
           # test-playground exercises the @ttsc/playground worker plugin-failure

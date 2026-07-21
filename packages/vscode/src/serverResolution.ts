@@ -442,7 +442,7 @@ function createWindowsCommandShim(args: readonly string[]): {
 
 function quoteWindowsArg(arg: string): string {
   return `"${String(arg)
-    .replace(/(\\*)"/g, "$1$1\\\"")
+    .replace(/(\\*)"/g, '$1$1\\"')
     .replace(/(\\*)$/, "$1$1")}"`;
 }
 

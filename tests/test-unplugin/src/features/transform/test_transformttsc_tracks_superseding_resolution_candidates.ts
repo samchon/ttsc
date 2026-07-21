@@ -55,11 +55,7 @@ export const test_transformttsc_tracks_superseding_resolution_candidates =
     assert.equal(cache.size, 1);
     const firstGeneration = [...cache.values()][0];
 
-    fs.writeFileSync(
-      candidate,
-      "export function winner(): void {}\n",
-      "utf8",
-    );
+    fs.writeFileSync(candidate, "export function winner(): void {}\n", "utf8");
     const second = await transformTtsc(
       file,
       fs.readFileSync(file, "utf8"),
