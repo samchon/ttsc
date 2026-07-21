@@ -139,7 +139,7 @@ func fastPathForcesBreak(node *shimast.Node) bool {
   if node == nil {
     return false
   }
-  if callForcesFunctionBreak(node) || arrayForcesBreak(node) {
+  if callForcesFunctionBreak(node) || arrayForcesBreak(node) || blockForcesBreak(node) {
     return true
   }
   var children []*shimast.Node
@@ -156,6 +156,11 @@ func fastPathForcesBreak(node *shimast.Node) bool {
     if a := node.AsArrayLiteralExpression(); a != nil && a.Elements != nil {
       children = a.Elements.Nodes
     }
+  case shimast.KindArrowFunction, shimast.KindFunctionExpression:
+    // A callback's body is part of the subtree a reflow of the call prints, so
+    // a block written on one line inside it must deny the fast path the same
+    // way a force-breaking array does.
+    children = append(children, functionLikeBody(node))
   case shimast.KindObjectLiteralExpression:
     // A force-breaking array/object nested in an object PROPERTY value
     // (`{ m: [[1, 2], [3, 4]] }`) must also deny the fast path: the value
@@ -164,10 +169,20 @@ func fastPathForcesBreak(node *shimast.Node) bool {
     // would stay flat where Prettier breaks them.
     if o := node.AsObjectLiteralExpression(); o != nil && o.Properties != nil {
       for _, p := range o.Properties.Nodes {
-        if p != nil && p.Kind == shimast.KindPropertyAssignment {
+        if p == nil {
+          continue
+        }
+        switch p.Kind {
+        case shimast.KindPropertyAssignment:
           if pa := p.AsPropertyAssignment(); pa != nil && pa.Initializer != nil {
             children = append(children, pa.Initializer)
           }
+        case shimast.KindMethodDeclaration,
+          shimast.KindGetAccessor,
+          shimast.KindSetAccessor:
+          // A shorthand method's body is not an initializer, so the property
+          // walk above never saw it and `{ m() { return 1; } }` stayed flat.
+          children = append(children, functionLikeBody(p))
         }
       }
     }
@@ -178,6 +193,59 @@ func fastPathForcesBreak(node *shimast.Node) bool {
     }
   }
   return false
+}
+
+// blockForcesBreak reports whether `node` is a block that Prettier always
+// expands: its printer emits a hardline after `{` for ANY non-empty block, so a
+// block written on one line is never a shape Prettier produces, whatever the
+// width says.
+//
+// `printBlock` already emits that hardline. The fast path was returning first —
+// the node fits, so nothing reflowed — which is why `run(() => { a(); b(); })`
+// and `{ m() { return 1; } }` survived `ttsc format` unchanged. Denying the
+// fast path is the whole fix; the printer produces the right shape once it runs.
+//
+// An empty block is exempt because Prettier keeps `{}` on one line, and a block
+// already spanning lines never reaches this: `sliceContainsNewline` denies the
+// fast path for it anyway, and reflowing it is byte-identical.
+func blockForcesBreak(node *shimast.Node) bool {
+  if node == nil || node.Kind != shimast.KindBlock {
+    return false
+  }
+  block := node.AsBlock()
+  return block != nil && block.Statements != nil && len(block.Statements.Nodes) > 0
+}
+
+// functionLikeBody returns the body of an arrow, function expression, or object
+// method, or nil when it has none. A concise arrow body (`() => x`) is returned
+// as well: it is an ordinary expression the recursion classifies like any other.
+func functionLikeBody(node *shimast.Node) *shimast.Node {
+  if node == nil {
+    return nil
+  }
+  switch node.Kind {
+  case shimast.KindArrowFunction:
+    if arrow := node.AsArrowFunction(); arrow != nil {
+      return arrow.Body
+    }
+  case shimast.KindFunctionExpression:
+    if fn := node.AsFunctionExpression(); fn != nil {
+      return fn.Body
+    }
+  case shimast.KindMethodDeclaration:
+    if m := node.AsMethodDeclaration(); m != nil {
+      return m.Body
+    }
+  case shimast.KindGetAccessor:
+    if g := node.AsGetAccessorDeclaration(); g != nil {
+      return g.Body
+    }
+  case shimast.KindSetAccessor:
+    if s := node.AsSetAccessorDeclaration(); s != nil {
+      return s.Body
+    }
+  }
+  return nil
 }
 
 // isConciselyPrintedArray reports whether an array should use Prettier's
