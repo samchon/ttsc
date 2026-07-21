@@ -19,14 +19,12 @@ class WithMethods {
   }
 }
 
-// Positive: `await` lives inside a nested non-async function — does not
-// count for the outer async function.
+// Positive: `await` lives inside a nested function — it does not count for
+// the outer async function, which returns nothing that would exempt it.
 // expect: typescript/require-await error
-async function nestedAwaitInsideClosure(): Promise<number> {
-  const inner = (): Promise<number> => {
-    return getPromise();
-  };
-  return inner();
+async function nestedAwaitInsideClosure(): Promise<void> {
+  const inner = async (): Promise<number> => await getPromise();
+  void inner;
 }
 
 // Negative: async function with `await` in its body.
@@ -57,3 +55,20 @@ JSON.stringify({
   syncFunction,
   asyncGenerator,
 });
+
+// Negative: no `await`, but the function returns a promise. Upstream exempts
+// these — marking the function `async` forwards the inner promise to callers
+// rather than leaving a refactor artifact behind.
+async function forwardsPromise(): Promise<number> {
+  return getPromise();
+}
+
+// Negative: `for await` awaits every step of the iteration, though it is
+// spelled as a for-of carrying an await modifier rather than as an await
+// expression.
+async function forAwaitLoop(source: AsyncIterable<number>): Promise<void> {
+  for await (const value of source) void value;
+}
+
+void forwardsPromise;
+void forAwaitLoop;
