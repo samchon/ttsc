@@ -126,8 +126,12 @@ func assertRuleCorpusCaseWithKind(
   for _, exp := range expected {
     rules[exp.Rule] = exp.Severity
   }
-  file := parseTSFile(t, "/virtual/"+filepath.ToSlash(relativeFile), source)
-  findings := newRuleCorpusEngine(t, relativeFile, source, rules).Run([]*shimast.SourceFile{file}, nil)
+  engine := newRuleCorpusEngine(t, relativeFile, source, rules)
+  // A type-aware rule handed a nil checker cannot resolve anything and reports
+  // nothing, so the corpus would measure the harness rather than the rule. The
+  // engine already knows which lane its rule set needs; ask it, exactly as the
+  // snapshot helpers do.
+  file, findings := runRuleCorpusEngine(t, engine, relativeFile, source)
   actual := normalizeRuleFindings(file, findings)
   if len(actual) != len(expected) {
     t.Fatalf("%s: want %v, got %v", relativeFile, expected, actual)
@@ -196,6 +200,45 @@ func recordExpectedBehavioralWitnesses(
 // Go mirror of the TypeScript corpus runner's `[severity, options]` rule
 // entries). Options for a rule the fixture never expects a finding from are
 // a fixture bug and fail loudly, as does a payload the engine rejects.
+// runRuleCorpusEngine runs one corpus fixture on the lane its rule set requires
+// and returns the parsed file the findings are keyed against.
+//
+// The source-only lane keeps the cheap parsed-file path most fixtures need. A
+// rule set containing a type-aware rule is materialized as a real project so the
+// Checker exists; the same text is parsed separately as the line oracle, which
+// is sound because the two hold identical bytes.
+func runRuleCorpusEngine(
+  t *testing.T,
+  engine *Engine,
+  relativeFile, source string,
+) (*shimast.SourceFile, []*Finding) {
+  t.Helper()
+  if !engine.NeedsTypeChecker() {
+    file := parseTSFile(t, "/virtual/"+filepath.ToSlash(relativeFile), source)
+    return file, engine.Run([]*shimast.SourceFile{file}, nil)
+  }
+  fileName := filepath.Base(relativeFile)
+  root := seedLintProjectFile(t, fileName, source)
+  engine.SetCurrentDirectory(root)
+  program, diagnostics, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
+    forceNoEmit:      true,
+    needsRuleChecker: true,
+  })
+  if program != nil {
+    defer program.close()
+  }
+  if err != nil {
+    t.Fatalf("%s: loadProgram: %v", relativeFile, err)
+  }
+  if len(diagnostics) != 0 {
+    t.Fatalf("%s: loadProgram diagnostics: %+v", relativeFile, diagnostics)
+  }
+  if program == nil || program.checker == nil {
+    t.Fatalf("%s: loadProgram returned no checker for a type-aware rule set", relativeFile)
+  }
+  return parseTSFile(t, filepath.Join(root, "src", fileName), source), program.runLintCycle(engine)
+}
+
 func newRuleCorpusEngine(t *testing.T, relativeFile, source string, rules RuleConfig) *Engine {
   t.Helper()
   options := parseRuleOptionsDirectives(t, relativeFile, source)

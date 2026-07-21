@@ -59,7 +59,7 @@ void pointless;
   if got := strings.Count(stderr, "[typescript/require-await]"); got != 1 {
     t.Fatalf("expected 1 finding, got %d:\n%s", got, stderr)
   }
-  if !diagnosticOutputContains(stderr, "main.ts:17:") {
+  if !diagnosticOutputContains(stderr, "main.ts:16:") {
     t.Fatalf("the function that neither awaits nor returns a promise must report:\n%s", stderr)
   }
   for _, line := range []string{"main.ts:3:", "main.ts:8:", "main.ts:11:"} {
