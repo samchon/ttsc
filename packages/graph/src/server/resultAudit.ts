@@ -143,6 +143,27 @@ Follow \`next\`: answer from this result, and re-call the graph only when it say
 after you edit the source.
 `.trim();
 
+/**
+ * The details audit for a result whose member list a caller cap truncated.
+ *
+ * The unconditional text tells the reader a symbol's members are complete and
+ * not to open the file for them. After `memberLimit` cuts the list that is
+ * false, and it is the one claim a caller cannot check from the result: the
+ * members that were removed left nothing behind to notice. So the claim is
+ * withdrawn for exactly that half and everything else the audit verifies is
+ * kept.
+ */
+export const RESULT_AUDIT_DETAILS_CAPPED: string = RESULT_AUDIT_DETAILS.replace(
+  // Matched by shape rather than by exact spelling: this file is stored with
+  // CRLF, so a literal "
+" in the needle never matches the template literal's
+  // real line breaks and the replacement would silently do nothing.
+  /What a symbol is[sS]*?what is already here./,
+  "What a symbol is — its values and its signature — is complete. Its member list was cut to " +
+    "the `memberLimit` you asked for, so it is a slice, not the whole set: re-request with a " +
+    "larger cap for the rest.",
+);
+
 /** The escape branch carries no graph facts, so it claims none. */
 export const RESULT_AUDIT_ESCAPE: string =
   "This escape carries no graph facts to audit.";

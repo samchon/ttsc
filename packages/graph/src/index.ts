@@ -14,6 +14,7 @@ import { runView } from "./view";
 export {
   RESULT_AUDIT,
   RESULT_AUDIT_DETAILS,
+  RESULT_AUDIT_DETAILS_CAPPED,
   RESULT_AUDIT_ESCAPE,
   RESULT_AUDIT_SELECTION,
 } from "./server/resultAudit";
