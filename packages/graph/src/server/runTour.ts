@@ -13,7 +13,7 @@ import { resolveGraphHandle } from "./resolveHandle";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, docOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
-import { runTrace } from "./runTrace";
+import { hasDeclarationBody, runTrace } from "./runTrace";
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 5;
@@ -561,13 +561,17 @@ function computeCentrality(graph: TtscGraphMemory): Map<string, number> {
 
   const invoked = (id: string): string[] => {
     const out: string[] = [];
-    let hasBody = false;
     for (const edge of graph.outgoing(id)) {
-      if (!INVOKE_KINDS.has(edge.kind)) continue;
-      hasBody = true;
-      out.push(edge.to);
+      if (INVOKE_KINDS.has(edge.kind)) out.push(edge.to);
     }
-    if (!hasBody) {
+    // Whether the declaration has a body is a declaration fact, not an edge
+    // count. A concrete method that returns a literal, does local arithmetic or
+    // throws has a body and no invocation edges at all, and counting edges
+    // ranked it as though it were an abstract member — then walked its
+    // implementations as if the call had to dispatch. `runTrace` stopped using
+    // that proxy in #828; this was the second copy of it.
+    const node = graph.node(id);
+    if (node !== undefined && !hasDeclarationBody(graph, node)) {
       for (const edge of graph.incoming(id)) {
         if (DISPATCH_KINDS.has(edge.kind)) out.push(edge.from);
       }

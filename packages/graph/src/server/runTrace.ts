@@ -889,7 +889,7 @@ function reverseDispatchEdges(
  * does not hold. Everything else is a concrete declaration, which is a real
  * destination and is never promoted through an override, whatever it calls.
  */
-function hasDeclarationBody(
+export function hasDeclarationBody(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
 ): boolean {
