@@ -45,7 +45,8 @@ func TestSolidImportsRelocatesAMisroutedSpecifier(t *testing.T) {
     },
     {
       // Preferring the destination over the in-place rewrite is what keeps this
-      // from becoming a second `solid-js/web` declaration.
+      // from becoming a second `solid-js/web` declaration. The emptied
+      // declaration goes with it, line break included.
       "a sole binding joins an existing destination rather than duplicating it",
       "import { render } from \"solid-js\";\nimport { hydrate } from \"solid-js/web\";\nJSON.stringify({ render, hydrate });\n",
       "import { hydrate, render } from \"solid-js/web\";\nJSON.stringify({ render, hydrate });\n",

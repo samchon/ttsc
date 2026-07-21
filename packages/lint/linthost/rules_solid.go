@@ -391,32 +391,37 @@ func solidImportSourceEdits(
   if clause == nil || named == nil || named.Elements == nil || file == nil {
     return nil
   }
-  sole := clause.Name() == nil && len(named.Elements.Nodes) == 1
+  // "Alone" means alone among the NAMED bindings. A default binding beside them
+  // does not make the specifier a sibling of anything, but it does decide how
+  // much has to be cut, which is why the two are tracked apart.
+  alone := len(named.Elements.Nodes) == 1
+  bare := clause.Name() == nil
   // The destination is consulted BEFORE the in-place rewrite, or the rewrite
   // wins on a file that already imports from the correct module and leaves two
   // declarations of it — the duplicate the rule's own description promises to
-  // avoid. `import { render, hydrate } from "solid-js"` converged that way in
-  // two passes.
+  // avoid.
   if destination != nil {
     insert, ok := solidAppendPoint(file, destination)
     if !ok {
       return nil
     }
-    cut, text, ok := solidBindingCut(file, clause, named, specNode, sole)
+    cut, text, ok := solidBindingCut(file, clause, named, specNode)
     if !ok {
       return nil
     }
     // Disjoint: the cut lies in this declaration and the append in another.
     return []TextEdit{cut, {Pos: insert, End: insert, Text: ", " + text}}
   }
-  if sole {
+  if alone && bare {
+    // The declaration IS the import, so retarget it where it stands. The
+    // narrowest edit available, and the only one the rule used to make.
     pos, end, ok := solidQuotedTextRange(file, moduleSpecifier)
     if !ok {
       return nil
     }
     return []TextEdit{{Pos: pos, End: end, Text: correct}}
   }
-  cut, text, ok := solidBindingCut(file, clause, named, specNode, false)
+  cut, text, ok := solidBindingCut(file, clause, named, specNode)
   if !ok {
     return nil
   }
@@ -437,41 +442,63 @@ func solidImportSourceEdits(
 }
 
 // solidBindingCut removes the misrouted specifier from its declaration and
-// reports the text removed.
+// reports the text removed, in whichever of three shapes the declaration is.
 //
-// Two shapes. With siblings it cuts the specifier and one comma. Alone beside a
-// DEFAULT binding (`import Solid, { render } from "solid-js"`) the braces go
-// too, because `import Solid, {} from` is not what anyone meant: the cut runs
-// from the end of the default name through the closing brace, taking the comma
-// that joined them. That shape had no fix at all before, and it is a row in the
-// issue's acceptance table.
+// With named siblings it takes the specifier and one comma. Alone beside a
+// DEFAULT binding it takes the braces too, because `import Solid, {} from` is
+// not what anyone meant. Alone with no default the specifier IS the whole
+// declaration, so the declaration goes — leaving `import {} from "solid-js";`
+// behind would be a statement importing nothing.
 func solidBindingCut(
   file *shimast.SourceFile,
   clause *shimast.ImportClause,
   named *shimast.NamedImports,
   specNode *shimast.Node,
-  sole bool,
 ) (TextEdit, string, bool) {
-  if !sole {
+  if len(named.Elements.Nodes) > 1 {
     return solidSpecifierCut(file, named, specNode)
   }
-  name := clause.Name()
-  if name == nil {
-    // Sole binding with no default: the caller rewrites the module specifier
-    // instead, so there is nothing here to cut.
-    return TextEdit{}, "", false
-  }
   pos, end := tokenRange(file, specNode)
-  if pos < 0 || end < pos {
+  if pos < 0 || end < pos || end > len(file.Text()) {
     return TextEdit{}, "", false
   }
   text := file.Text()[pos:end]
-  from := name.End()
-  to := named.AsNode().End()
-  if from < 0 || to > len(file.Text()) || from >= to {
+  if name := clause.Name(); name != nil {
+    from := name.End()
+    to := named.AsNode().End()
+    if from < 0 || to > len(file.Text()) || from >= to {
+      return TextEdit{}, "", false
+    }
+    return TextEdit{Pos: from, End: to}, text, true
+  }
+  from, to, ok := solidDeclarationRange(file, clause)
+  if !ok {
     return TextEdit{}, "", false
   }
   return TextEdit{Pos: from, End: to}, text, true
+}
+
+// solidDeclarationRange bounds the whole import declaration owning `clause`,
+// including the line break after it so removing the declaration does not leave
+// a blank line where it stood.
+func solidDeclarationRange(file *shimast.SourceFile, clause *shimast.ImportClause) (int, int, bool) {
+  node := clause.AsNode()
+  if node == nil || node.Parent == nil {
+    return 0, 0, false
+  }
+  text := file.Text()
+  pos := shimscanner.SkipTrivia(text, node.Parent.Pos())
+  end := node.Parent.End()
+  if pos < 0 || end < pos || end > len(text) {
+    return 0, 0, false
+  }
+  if end < len(text) && text[end] == '\r' {
+    end++
+  }
+  if end < len(text) && text[end] == '\n' {
+    end++
+  }
+  return pos, end, true
 }
 
 // solidSpecifierCut removes one specifier from a named-import list along with
