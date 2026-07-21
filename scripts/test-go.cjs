@@ -9,6 +9,10 @@
 const cp = require("node:child_process");
 const path = require("node:path");
 
+const { HARNESS_TESTS } = require("./ci/test-owners.cjs");
+
+const root = path.resolve(__dirname, "..");
+
 const runners = [
   "test-go-driver.cjs",
   "test-go-ttsc.cjs",
@@ -22,13 +26,15 @@ const runners = [
 
 // Fast Node checks run before the long Go suites so both CI Go lanes cover the
 // runner harness and the project Layout contract.
-const harnessTests = [
-  path.join(__dirname, "ci", "go-test-runners.test.cjs"),
-  path.join(__dirname, "ci", "website-compiler-module.test.cjs"),
-  path.join(__dirname, "assert-project-layout.test.cjs"),
-  path.join(__dirname, "go-build-cache.test.cjs"),
-  path.join(__dirname, "go-build-cache-builders.test.cjs"),
-];
+//
+// Derived from the ownership map rather than listed here. A literal array is
+// the finite list `scripts/ci/test-owners.cjs` exists to replace: a sixth entry
+// someone forgot to add would have run nowhere and reported nothing, which is
+// the failure #622 produced and #806 was filed to end. Claiming a file in that
+// map is now the single act that both runs it and proves it runs.
+const harnessTests = HARNESS_TESTS.map((relative) =>
+  path.join(root, ...relative.split("/")),
+);
 
 // runAll invokes every entry through `spawn` and returns the list that failed.
 // `spawn` is injected so the meta-test can assert each runner is invoked even
