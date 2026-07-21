@@ -95,7 +95,8 @@ const assertProjection = (
  *
  * 1. Load all three production reducer copies through Node's TypeScript loader.
  * 2. Exercise single-file, repeated-file, nested, POSIX, drive, and UNC paths.
- * 3. Assert IDs and files retain basenames while package/website filters differ.
+ * 3. Assert IDs and files retain their spellings, and that both copies apply the
+ *    same git-ignored drop policy.
  */
 export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
   async (): Promise<void> => {
@@ -223,20 +224,24 @@ export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
       ],
     };
 
+    // Both copies drop git-ignored generated code, and report how much they
+    // dropped. This assertion used to record the package copy keeping it "by
+    // design", which was the divergence #835 named: the package copy's own doc
+    // comment, the shipped guide, and the two sibling copies all said the
+    // authored graph is what a view shows, and only the code disagreed.
     const packageResult = reducers[0]!.reduce(policyDump);
     const websiteResult = reducers[1]!.reduce(policyDump);
-    assert.deepEqual(
-      [packageResult.counts.nodes, packageResult.counts.links],
-      [2, 2],
-      "package reducer keeps ignored nodes by design",
-    );
-    assert.deepEqual(
-      [
-        websiteResult.counts.nodes,
-        websiteResult.counts.links,
-        websiteResult.counts.droppedIgnored,
-      ],
-      [1, 1, 1],
-      "website reducer drops ignored nodes by design",
-    );
+    for (const [name, result] of [
+      ["package", packageResult],
+      ["website", websiteResult],
+    ] as const)
+      assert.deepEqual(
+        [
+          result.counts.nodes,
+          result.counts.links,
+          result.counts.droppedIgnored,
+        ],
+        [1, 1, 1],
+        `${name} reducer drops ignored nodes and reports the drop`,
+      );
   };

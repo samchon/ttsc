@@ -717,22 +717,28 @@ function isTourTraceNode(
 }
 
 /**
- * The hops a flow keeps, with the hub cut applied only where it belongs.
+ * The hops a flow keeps: the hub cut is presentation, and presentation may not
+ * destroy the flow's evidence.
  *
- * The cut exists so a fan-in hub does not turn a runtime chain into a listing,
- * and that is true of a hub the chain merely passes through. It is not true of
- * the hub the chain _ends at_: a database commit, a message send, an audit
- * write and a DOM commit all have the hub's degree shape — called from many
- * sites, calling nothing onward — and each is the point where the flow performs
- * its work. Deleting it at exactly that point is what the tour used to do, and
- * with eleven callers the flow survived while a twelfth erased it.
+ * Degree cannot tell a logger from a database commit. Both are called from many
+ * sites and call nothing onward, so no threshold on `isSharedUtility` separates
+ * the noise the cut exists to remove from the point where a runtime flow does
+ * its work. The cut therefore keeps deciding what is noise, and gives way in
+ * the exact two shapes where deleting a node would destroy the flow rather than
+ * tidy it:
  *
- * So a hop into a shared utility is dropped only when the flow continues past
- * it. That is also what removes the two structural faults the same filter
- * caused: a flow can no longer be emptied by the cut, because a terminal hop is
- * never dropped, and a step can no longer dangle from a node the flow says it
- * never reached, because the node list is derived from the hops that survived
- * rather than filtered independently.
+ * - A hub the flow continues past keeps its inbound hop. Dropping it left the
+ *   outbound step narrating a chain from a node the same flow reported it never
+ *   reached.
+ * - A cut that would remove every hop is not applied at all. A flow whose only
+ *   hop lands on a hub was discarded whole, so eleven callers kept the flow and
+ *   a twelfth erased it — the graph said the same thing in both cases.
+ *
+ * A genuine leaf helper is unaffected: it sits beside other hops that survive,
+ * so the cut still removes it and the flow still reads as a chain. The node
+ * list is derived from the hops that survive rather than filtered beside them,
+ * which is what makes the dangling step impossible rather than merely
+ * unlikely.
  */
 function tourHops(
   graph: TtscGraphMemory,
@@ -740,9 +746,10 @@ function tourHops(
 ): ITtscGraphTrace.IHop[] {
   const eligible = hops.filter((hop) => isTourHop(graph, hop));
   const departures = new Set(eligible.map((hop) => hop.from));
-  return eligible.filter(
-    (hop) => !isSharedUtility(graph, hop.to) || !departures.has(hop.to),
+  const kept = eligible.filter(
+    (hop) => !isSharedUtility(graph, hop.to) || departures.has(hop.to),
   );
+  return kept.length === 0 ? eligible : kept;
 }
 
 function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {

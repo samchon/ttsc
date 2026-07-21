@@ -50,7 +50,9 @@ const OWNERSHIP = {
   "go:packages/ttsc/cmd/ttscgraph": "scripts/test-go-graph.cjs",
   "go:packages/ttsc/internal/graphsymbols": "scripts/test-go-graph.cjs",
   "go:packages/ttsc/shim/ast/test": "scripts/test-go-shim.cjs",
-  "go:packages/ttsc/tools/shim_audit": "scripts/test-go-shim.cjs",
+  // Its own Go module with its own runner, called by the shim-audit lane. The
+  // point of this map is to name who runs a suite, and something already did.
+  "go:packages/ttsc/tools/shim_audit": "scripts/shim-audit-test.cjs",
 
   // ---- Go: the utility plugins and the rest ----
   "go:packages/banner/test": "scripts/test-go-utility-plugins.cjs",

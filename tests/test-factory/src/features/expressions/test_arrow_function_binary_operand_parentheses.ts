@@ -66,11 +66,11 @@ export const test_arrow_function_binary_operand_parentheses = (): void => {
   TestValidator.equals(
     "left comma stays bare",
     print(factory.createComma(arrow(), id("y"))),
-    "() => x , y",
+    "() => x, y",
   );
   TestValidator.equals(
     "right comma stays bare",
     print(factory.createComma(id("y"), arrow())),
-    "y , () => x",
+    "y, () => x",
   );
 };

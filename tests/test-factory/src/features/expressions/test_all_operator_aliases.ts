@@ -37,7 +37,7 @@ export const test_all_operator_aliases = (): void => {
     [factory.createLessThanEquals, "a <= b"],
     [factory.createGreaterThan, "a > b"],
     [factory.createGreaterThanEquals, "a >= b"],
-    [factory.createComma, "a , b"],
+    [factory.createComma, "a, b"],
     [factory.createAssignment, "a = b"],
   ];
   for (const [fn, expected] of binary)

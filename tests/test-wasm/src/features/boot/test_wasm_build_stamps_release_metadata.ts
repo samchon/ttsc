@@ -42,20 +42,26 @@ export const test_wasm_build_stamps_release_metadata = (): void => {
   };
 
   const stamp = build.buildStamp();
-  TestValidator.equals("version is stamped")(stamp.version !== "0.0.0-dev")(
+  TestValidator.equals(
+    "version is stamped",
+    stamp.version !== "0.0.0-dev",
     true,
   );
-  TestValidator.equals("commit is stamped")(stamp.commit !== "dev")(true);
-  TestValidator.equals("date is stamped")(stamp.date !== "unknown")(true);
+  TestValidator.equals("commit is stamped", stamp.commit !== "dev", true);
+  TestValidator.equals("date is stamped", stamp.date !== "unknown", true);
 
   const ldflags = build.buildArguments.join(" ");
   for (const field of ["version", "commit", "date"])
-    TestValidator.equals(`-X names ${field}`)(
+    TestValidator.equals(
+      `-X names ${field}`,
       ldflags.includes(`-X ${build.hostPackage}.${field}=`),
-    )(true);
+      true,
+    );
 
   const again = build.buildStamp();
-  TestValidator.equals("the stamp repeats, so the build cache can hit")(again)(
+  TestValidator.equals(
+    "the stamp repeats, so the build cache can hit",
+    again,
     stamp,
   );
 };

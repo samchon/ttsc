@@ -14,6 +14,7 @@
 // wrapper is the specification and `gofmt` alone is not.
 
 const cp = require("node:child_process");
+const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..", "..");
@@ -47,20 +48,31 @@ function prettierDrift() {
     '"**/*.mdx"',
   ]);
   if (result.error) throw result.error;
+  // `--list-different` exits 0 when nothing differs and 1 when something does.
+  // Anything else is prettier failing to run, and an empty stdout from a
+  // failure is indistinguishable from a clean tree — a gate that reports clean
+  // because it never ran is the condition this file exists to end.
+  if (result.status !== 0 && result.status !== 1)
+    throw new Error(
+      `prettier --list-different exited ${result.status}, so no formatting was checked:\n${result.stderr ?? ""}`,
+    );
   return (result.stdout ?? "").split("\n").filter((line) => line.trim() !== "");
 }
 
 function goDrift() {
   const drift = [];
   for (const file of tracked("*.go")) {
+    const current = fs.readFileSync(path.join(root, file), "utf8");
     const formatted = run("bash", ["./.vscode/gofmt-2spaces.sh"], {
-      input: require("node:fs").readFileSync(path.join(root, file), "utf8"),
+      input: current,
     });
-    if (formatted.status !== 0) continue;
-    const current = require("node:fs").readFileSync(
-      path.join(root, file),
-      "utf8",
-    );
+    // The wrapper exits non-zero only when gofmt cannot parse the file or is
+    // not installed. Skipping either would let an unparseable file, or a lane
+    // with no Go toolchain, pass this check silently.
+    if (formatted.status !== 0)
+      throw new Error(
+        `.vscode/gofmt-2spaces.sh exited ${formatted.status} on ${file}:\n${formatted.stderr ?? ""}`,
+      );
     if (
       formatted.stdout.replace(/\r\n/g, "\n") !== current.replace(/\r\n/g, "\n")
     )

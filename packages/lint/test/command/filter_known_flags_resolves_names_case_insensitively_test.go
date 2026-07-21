@@ -16,10 +16,10 @@ import (
 // while the generated keys are normalized would drop a flag the launcher and
 // the compiler both resolve, silently taking the following token with it.
 //
-// 1. Filter a case-variant value flag, a case-variant boolean flag, and an
-//    unknown flag against a normalized allow-list.
-// 2. Assert both known flags survive with their value adjacency intact.
-// 3. Assert the unknown flag is still dropped together with its value.
+//  1. Filter a case-variant value flag, a case-variant boolean flag, and an
+//     unknown flag against a normalized allow-list.
+//  2. Assert both known flags survive with their value adjacency intact.
+//  3. Assert the unknown flag is still dropped together with its value.
 func TestFilterKnownFlagsResolvesNamesCaseInsensitively(t *testing.T) {
   got := filterKnownFlags([]string{
     "--EMIT",

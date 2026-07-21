@@ -33,7 +33,10 @@ export const test_ttscgraph_audit_claims_only_what_the_server_does =
       ["details", RESULT_AUDIT_DETAILS],
       ["details capped", RESULT_AUDIT_DETAILS_CAPPED],
     ];
-    for (const [name, audit] of audits) {
+    for (const [name, raw] of audits) {
+      // The constants are prose hard-wrapped for display, so a phrase can span
+      // a line break. Assert on the sentence, not on where it happens to wrap.
+      const audit = raw.replace(/\s+/g, " ");
       for (const claim of [
         "verified them again",
         "then checked it",
