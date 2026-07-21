@@ -362,10 +362,13 @@ function traceEdges(
 
 /** A dispatch fanout split into what the walk follows and what a bound withheld. */
 interface IDispatchSelection {
-  selected: ITtscGraphEdge[];
-  omitted: ITtscGraphEdge[];
+  readonly selected: readonly ITtscGraphEdge[];
+  readonly omitted: readonly ITtscGraphEdge[];
 }
 
+// Returned by every no-dispatch path rather than allocated per call, which is
+// why the lists above are readonly: one shared value that anything could push
+// onto would leak a hop from one node's walk into another's.
 const NO_DISPATCH: IDispatchSelection = { selected: [], omitted: [] };
 
 /**

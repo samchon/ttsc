@@ -231,14 +231,15 @@ func declaredTypeMembers(symbol *shimast.Symbol) []*shimast.Node {
   return members
 }
 
-// directMemberForProperty maps an instantiated/transient checker property back
-// to the immediate base declaration the graph owns. An inherited property has a
-// different root symbol and is deliberately omitted, preserving the dump's
-// direct-member policy.
 // inheritedMemberForProperty resolves the declaration a base type inherits
-// rather than declares, by following the property back to the symbol it roots
-// at. Static members and constructors are excluded for the same reason they are
-// excluded from the direct scan: neither participates in a member relation.
+// rather than declares, by following the property to the symbol it roots at.
+//
+// It is the fallback for what directMemberForProperty below cannot see. A
+// heritage clause names one type and the member may be declared further up:
+// `interface Child extends Root {}` with `class W implements Child` roots
+// `W.execute` at `Root.execute`, which `Child`'s own member list does not hold.
+// Static members and constructors are skipped for the same reason the direct
+// scan skips them — neither participates in a member relation.
 func inheritedMemberForProperty(
   checker *shimchecker.Checker,
   property *shimast.Symbol,
@@ -262,6 +263,10 @@ func inheritedMemberForProperty(
   return nil
 }
 
+// directMemberForProperty maps an instantiated or transient checker property
+// back to the declaration the named base type itself owns. It answers nothing
+// for a property the base only inherits, which is what
+// inheritedMemberForProperty above then resolves.
 func directMemberForProperty(
   checker *shimchecker.Checker,
   property *shimast.Symbol,
