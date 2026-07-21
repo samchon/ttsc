@@ -171,13 +171,12 @@ export namespace ITtscGraphApplication {
      *
      * The audit is operation-aware. For the walks from a named handle (`trace`,
      * `overview`) it reports the result as the structure the graph holds,
-     * bounded where `truncated` says. For `details` it reports the two halves
-     * of a resolved symbol: its own shape returned whole, its fan-out returned
-     * as a slice with `trace` for the rest. For the ranked operations
-     * (`lookup`, `entrypoints`, `tour`) it adds that the selection is heuristic
-     * — matched, scored, ranked, and limited against the question — so the
-     * facts are verified but the shortlist's coverage is the caller's to
-     * judge.
+     * bounded where `truncated` says. For `details` it reports the two halves of
+     * a resolved symbol: its own shape returned whole, its fan-out returned as a
+     * slice with `trace` for the rest. For the ranked operations (`lookup`,
+     * `entrypoints`, `tour`) it adds that the selection is heuristic — matched,
+     * scored, ranked, and limited against the question — so the facts are
+     * verified but the shortlist's coverage is the caller's to judge.
      */
     audit: string;
 

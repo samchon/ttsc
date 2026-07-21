@@ -285,7 +285,12 @@ export function reduce(
       rawEdges: raw.edges.length,
       nodes: nodes.length,
       links: links.length,
-      droppedExternal: raw.nodes.filter((n) => n.external).length,
+      // Each counter reports what its own filter dropped, and reports zero when
+      // that filter was turned off. The two are disjoint: an external node is
+      // counted as external whether or not it is also ignored.
+      droppedExternal: keepExternal
+        ? 0
+        : raw.nodes.filter((n) => n.external).length,
       droppedIgnored: keepIgnored
         ? 0
         : raw.nodes.filter((n) => n.ignored && !n.external).length,
