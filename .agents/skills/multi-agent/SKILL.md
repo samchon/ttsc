@@ -27,3 +27,5 @@ Do not load this skill for Self-Review, an unqualified review, or a campaign tha
 - Self-Review remains solo for every author and every implementation branch.
 - Create worktrees only for parallel implementation batches and their integrated cleanup. Solo implementation and review use the current checkout.
 - Remove every finished worktree, local branch, process, and assignment-owned temporary asset before declaring its assignment complete.
+
+The solo campaign's [commit early-warning pass](../review/SKILL.md#commit-early-warning-pass) is a different topology and relaxes neither the full-surface rule nor the solo Self-Review rule above. A parallel review gives several reviewers the entire declared surface independently and the lead adjudicates their findings. The pass gives one read-only reader one commit's slice, reports candidates to the author who is still implementing, and leaves that author's own whole-surface round as the gate. A batch implementation agent here runs no pass, because agents do not re-delegate; the carve-out in the solo development procedure belongs to a solo campaign's main agent.

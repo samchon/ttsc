@@ -13,7 +13,7 @@ Read this document in full when the user authorizes implementation pull requests
 
 Four rules govern the implementation phase:
 
-- The main agent performs all implementation, test authoring, CI diagnosis, review, and cleanup. Do not spawn or delegate to a subagent.
+- The main agent performs all implementation, test authoring, CI diagnosis, review, and cleanup. Spawn no subagent except the read-only [commit early-warning pass](#implement-and-write-tests).
 - Put every accepted, implementation-ready issue in the current cycle into one pull request. The issue DAG controls implementation order inside that pull request, not pull-request count.
 - Work in the current checkout and one topic branch. Do not create a clone or worktree for a solo campaign or its Self-Review.
 - The pull request's ordinary CI and a clean solo Self-Review are the acceptance gates. Repair every red CI lane in that same pull request, even when the failure predates the campaign or is unrelated to its original issues.
@@ -59,6 +59,10 @@ Implement without interruption. Write each piece's tests as that piece lands ins
 Close each issue from the commit that earns it. End the commit message with one `Close #n: <issue title>` line per resolved issue, so a commit that resolves several issues carries several lines. GitHub matches the keyword and the number and ignores the title tail, so the line closes the issue normally while the log stays legible without opening each number.
 
 Post a pull-request comment after each commit naming what that commit landed and which issues it resolved. The comment is the running ledger for a reader who does not read the diff, not a closing mechanism: GitHub closes an issue only from a commit message or the pull-request body.
+
+Once a commit lands, the main agent may spawn one read-only subagent as a commit early-warning pass over that commit and keep implementing while it runs. The pass reads that one commit and reports candidates. It never edits, commits, pushes, or makes an implementation decision. Its value is timing: a defect named while that code is the newest thing written costs little to correct, and nothing has been built on top of it yet.
+
+The pass never reduces the [Self-Review](#validate-with-ci-and-self-review) that gates the merge. A reader holding one commit cannot see what appears only across files: a helper that duplicates one the package already has, a document claiming a verification that the component it describes does not perform, or a replacement whose needle cannot match because the file on disk uses CRLF. The main agent's own complete round over the whole base-to-head diff is what finds those, and no number of passes substitutes for it. The [review skill](../review/SKILL.md#commit-early-warning-pass) owns that boundary and the name the pass must not take.
 
 Each issue remains an evidence and acceptance unit inside the combined diff. Keep its positive, negative, boundary, and regression cases identifiable. Near-100% coverage of changed behavior is required; a green happy path is not completion.
 
