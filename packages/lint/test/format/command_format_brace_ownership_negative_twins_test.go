@@ -54,11 +54,17 @@ func TestCommandFormatBraceOwnershipNegativeTwins(t *testing.T) {
         "  }\n" +
         "}\n",
     },
-    // An expression-nested block is print-width's frame. Splitting its body
-    // while its `}` is ceded is what produced the stranded hybrid, so both
-    // rules leave the whole block alone.
-    {"object-literal-method", "export const o = { m() { return 1; } };\n"},
-    {"callback-body", "run(() => { a(); b(); });\n"},
+    // A block whose brace-line gap carries a comment. Both new claims walk
+    // back over spaces and tabs only, so a comment bounds the run and cannot
+    // be swallowed; this asserts that rather than leaving it incidental.
+    {
+      "comment-before-claimed-brace",
+      "export function f() {\n  a(); /* trailing */\n}\n",
+    },
+    {
+      "line-comment-above-claimed-brace",
+      "export function f() {\n  a(); // trailing\n}\n",
+    },
   } {
     t.Run(tc.name, func(t *testing.T) {
       root := seedLintProject(t, tc.source)
@@ -79,6 +85,73 @@ func TestCommandFormatBraceOwnershipNegativeTwins(t *testing.T) {
         t.Fatalf("source must survive unchanged:\ngot  %q\nwant %q", string(got), tc.source)
       }
     })
+  }
+}
+
+// TestCommandFormatLeavesExpressionNestedOneLineBlockWhole records a divergence
+// from Prettier that this ownership split deliberately does not close.
+//
+// Prettier's block printer puts a hardline after `{` for any non-empty block,
+// so it expands both of these. `format/indent` cedes an expression-nested
+// block's `}` to `format/print-width`, and `format/statement-split` now cedes
+// the matching body, because splitting a body whose brace no rule can restore
+// is exactly what produced the stranded hybrid #856 is about. Leaving the block
+// whole is therefore correct for THIS pair of rules and still short of the
+// oracle: `format/print-width` does not force-break a non-empty block in
+// expression position, which is the remaining half and is tracked by #922.
+//
+// These are recorded rather than asserted as parity so the gap stays visible.
+func TestCommandFormatLeavesExpressionNestedOneLineBlockWhole(t *testing.T) {
+  for _, tc := range []struct {
+    name   string
+    source string
+  }{
+    {"object-literal-method", "export const o = { m() { return 1; } };\n"},
+    {"callback-body", "run(() => { a(); b(); });\n"},
+  } {
+    t.Run(tc.name, func(t *testing.T) {
+      root := seedLintProject(t, tc.source)
+      seedLintConfig(t, root, map[string]any{"format": map[string]any{}})
+      main := filepath.Join(root, "src", "main.ts")
+
+      code, _, stderr := captureCommandOutput(t, func() int {
+        return run([]string{"format", "--cwd", root, "--plugins-json", lintManifest(t)})
+      })
+      if code != 0 || strings.Contains(stderr, "did not converge") {
+        t.Fatalf("format did not converge: code=%d stderr=%q", code, stderr)
+      }
+      got, err := os.ReadFile(main)
+      if err != nil {
+        t.Fatalf("ReadFile: %v", err)
+      }
+      if string(got) != tc.source {
+        t.Fatalf(
+          "an expression-nested block must be left whole, not half-split:\ngot  %q\nwant %q",
+          string(got), tc.source,
+        )
+      }
+    })
+  }
+}
+
+// TestCommandCheckReportsTheMalformedBraceItUsedToBless pins the second
+// invariant #856 states: `ttsc check` must not call a formatting state clean
+// that `ttsc format` would not produce.
+//
+// While the stranded brace had no owner, the mangled form was `ttsc format`'s
+// own fixed point, so `check` with `format.severity: "error"` exited 0 on it —
+// a CI job that ran `format` then `check` stayed green on a malformed tree.
+// Now that a rule owns the brace, the same input is a finding.
+func TestCommandCheckReportsTheMalformedBraceItUsedToBless(t *testing.T) {
+  root := seedLintProject(t, "export function go(n: number) {\n  if (n > 0) {\n    return 1; } else {\n    return 2; }\n}\n")
+  seedLintConfig(t, root, map[string]any{
+    "format": map[string]any{"severity": "error"},
+  })
+  code, _, stderr := captureCommandOutput(t, func() int {
+    return run([]string{"check", "--cwd", root, "--plugins-json", lintManifest(t)})
+  })
+  if code == 0 || !strings.Contains(stderr, "format/indent") {
+    t.Fatalf("check must report the stranded brace: code=%d stderr=%q", code, stderr)
   }
 }
 

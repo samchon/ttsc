@@ -167,15 +167,29 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
         }
       }
       if stranded {
-        // A frame that begins on the brace's own line is still whole (`{ x }`,
-        // `{}`, `interface Gamma {}`, `class C { m() {} }` before anything has
-        // split): Prettier leaves an empty one alone, and for the rest the
-        // cascade has not yet broken the body out, so there is nothing to be
-        // consistent with. Once another pass moves the body onto its own lines
-        // the frame spans lines, this test stops holding, and the brace is
-        // claimed then. Measured on the frame node rather than its `{` so a
-        // class, interface, switch `CaseBlock`, or type literal — whose `}` is
-        // not a Block's — is judged the same way.
+        // An empty body is `{}` in Prettier however its header wrapped, so a
+        // `}` whose only preceding content on the line is its own `{` is never
+        // this rule's to move. Checked first, and independently of the frame
+        // span below: `format/declaration-header` deliberately GLUES `{}` to
+        // the last line of a broken class or interface header, and that head
+        // starts lines above the brace, so the span test alone would unglue on
+        // the next pass exactly what that rule just gathered.
+        if bodyIsEmptyAtBrace(src, lineStart, closeBrace) {
+          return
+        }
+        // A frame that begins on the brace's own line is still whole
+        // (`{ x }`, `class C { m() {} }` before anything has split): the
+        // cascade has not broken the body out yet, so there is nothing for the
+        // brace to be consistent with. Once another pass moves the body onto
+        // its own lines the frame spans lines, this test stops holding, and
+        // the brace is claimed then.
+        //
+        // Measured on the frame node, which for a Block, ModuleBlock,
+        // CaseBlock, or type literal IS its `{`, and for a class or interface
+        // is the first byte of the declaration. The declaration start is never
+        // below its own `{`, so a body that has been broken out still reads as
+        // spanning; the one shape where the two differ — a wrapped header over
+        // a one-line body — is a shape Prettier expands as well.
         if start := shimscanner.SkipTrivia(src, block.Pos()); start < 0 ||
           start > len(src) || lineStartOffset(src, start) == lineStart {
           return
@@ -235,7 +249,7 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
       // stalled on it. Breaking it out is what lets the statement split and the
       // brace pass see the multi-line frame they act on.
       pos := shimscanner.SkipTrivia(src, header.Pos())
-      if breakOntoOwnLine(src, header, pos, want, layout, &edits) {
+      if breakOntoOwnLine(src, header, pos, depth, want, layout, &edits) {
         return
       }
       decorators := header.Decorators()
@@ -615,6 +629,43 @@ func reindentHeaderLine(src string, pos int, want string, edits *[]TextEdit) {
   *edits = append(*edits, TextEdit{Pos: lineStart, End: pos, Text: want})
 }
 
+// bodyIsEmptyAtBrace reports whether the only thing before `closeBrace` on its
+// line, past horizontal whitespace, is the `{` that opened the same body.
+func bodyIsEmptyAtBrace(src string, lineStart int, closeBrace int) bool {
+  probe := closeBrace
+  for probe > lineStart && (src[probe-1] == ' ' || src[probe-1] == '\t') {
+    probe--
+  }
+  return probe > 0 && src[probe-1] == '{'
+}
+
+// frameLineIsWhereDepthSays reports whether the line a frame opens on is
+// indented to exactly the depth the block model computes for it. It is
+// typeLiteralIndentCeded's test, generalized: when it does not hold, some other
+// owner (a printer reflow, a wrapped initializer, a chain continuation) placed
+// the frame, and a member indented to `layout.indent(memberDepth)` would land
+// at a column unrelated to its own `{`.
+func frameLineIsWhereDepthSays(
+  src string,
+  frame *shimast.Node,
+  frameDepth int,
+  layout formatLayout,
+) bool {
+  if frame == nil {
+    return false
+  }
+  open := shimscanner.SkipTrivia(src, frame.Pos())
+  if open < 0 || open > len(src) {
+    return false
+  }
+  lineStart := lineStartOffset(src, open)
+  i := lineStart
+  for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
+    i++
+  }
+  return src[lineStart:i] == layout.indent(frameDepth)
+}
+
 // breakOntoOwnLine moves a member or clause header that shares its line with
 // earlier content down to a line of its own at `want`, and reports whether it
 // emitted that edit. It replaces the run of spaces and tabs before the header
@@ -627,10 +678,17 @@ func reindentHeaderLine(src string, pos int, want string, edits *[]TextEdit) {
 // breaking its members out would reformat conforming source. The type
 // literal's own `}` is not exempt: a member already on its own line above a
 // stranded `}` is a shape Prettier does not produce either way.
+//
+// A frame whose own line is not at the column the depth model computes is
+// exempt too. `want` is derived from block nesting alone, so under a wrapped
+// initializer (`const C: Ctor =\n  class { m() {} };`) it names a column
+// shallower than the `{` the member belongs to, and breaking there would place
+// the member left of its own frame.
 func breakOntoOwnLine(
   src string,
   header *shimast.Node,
   pos int,
+  depth int,
   want string,
   layout formatLayout,
   edits *[]TextEdit,
@@ -639,6 +697,9 @@ func breakOntoOwnLine(
     return false
   }
   if header.Parent != nil && header.Parent.Kind == shimast.KindTypeLiteral {
+    return false
+  }
+  if !frameLineIsWhereDepthSays(src, header.Parent, depth-1, layout) {
     return false
   }
   lineStart := lineStartOffset(src, pos)
