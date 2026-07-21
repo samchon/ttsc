@@ -23,6 +23,17 @@ export {
 // project other than its own process directory names it once and the binary is
 // found under that project's installed `ttsc`.
 export { resolveGraphBinary } from "./resolveGraphBinary";
+/**
+ * The viewer reduction the `view` command runs before serving a payload.
+ *
+ * Exported because it is one of three copies of the same pure transform — the
+ * website's uploaded-dump viewer and the benchmark viewer hold the others — and
+ * a shared policy that cannot be measured from outside the package drifts. It
+ * already did: two of them filtered git-ignored generated code and this one did
+ * not.
+ */
+export { reduce } from "./reduce";
+export type { RawDump, RawEdge, RawNode, ViewerPayload } from "./reduce";
 export { loadGraph } from "./model/loadGraph";
 export {
   TtscGraphSession,

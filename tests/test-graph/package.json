@@ -13,5 +13,8 @@
     "@types/node": "catalog:utils",
     "ttsc": "workspace:*",
     "typescript": "catalog:typescript"
+  },
+  "dependencies": {
+    "@ttsc/graph": "workspace:^"
   }
 }

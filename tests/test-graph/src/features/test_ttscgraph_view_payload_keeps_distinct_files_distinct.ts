@@ -1,4 +1,5 @@
-import { reduce } from "../../../../packages/graph/src/reduce";
+import { reduce } from "@ttsc/graph";
+
 import { assert } from "../internal/ttsgraph";
 
 /**

@@ -165,9 +165,14 @@ export const test_ttscgraph_viewer_reducers_preserve_legacy_absolute_filenames =
         expected: ["alpha.ts", "nested/beta.ts"],
       },
       {
+        // On a case-sensitive filesystem `/work` and `/Work` are different
+        // roots, so there is no common directory to relativize against. The
+        // projection keeps both spellings whole: collapsing them to their
+        // basenames gave two distinct files one viewer id, and the reduction
+        // rewrites node ids with this string (#822).
         name: "case-sensitive unrelated POSIX roots",
         files: ["/work/src/alpha.ts", "/Work/src/nested/beta.ts"],
-        expected: ["alpha.ts", "beta.ts"],
+        expected: ["/work/src/alpha.ts", "/Work/src/nested/beta.ts"],
       },
       {
         name: "current project-relative paths",
