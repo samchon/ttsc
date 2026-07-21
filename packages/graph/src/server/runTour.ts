@@ -132,7 +132,7 @@ export function runTour(
     }).result;
     const start = trace.start;
     if (start === undefined) continue;
-    const hops = tourHops(graph, trace.hops);
+    const hops = tourHops(graph, trace.hops, named.has(id));
     if (hops.length === 0) continue;
     // The node list follows the hops rather than being filtered beside them.
     // Filtering the two independently is what let a step name a node the same
@@ -718,38 +718,45 @@ function isTourTraceNode(
 
 /**
  * The hops a flow keeps: the hub cut is presentation, and presentation may not
- * destroy the flow's evidence.
+ * delete the answer to what the caller asked.
  *
  * Degree cannot tell a logger from a database commit. Both are called from many
  * sites and call nothing onward, so no threshold on `isSharedUtility` separates
  * the noise the cut exists to remove from the point where a runtime flow does
  * its work. The cut therefore keeps deciding what is noise, and gives way in
- * the exact two shapes where deleting a node would destroy the flow rather than
- * tidy it:
+ * two shapes:
  *
- * - A hub the flow continues past keeps its inbound hop. Dropping it left the
- *   outbound step narrating a chain from a node the same flow reported it never
- *   reached.
- * - A cut that would remove every hop is not applied at all. A flow whose only
- *   hop lands on a hub was discarded whole, so eleven callers kept the flow and
- *   a twelfth erased it — the graph said the same thing in both cases.
+ * - A hub the flow continues past keeps its inbound hop, always. Dropping it left
+ *   the outbound step narrating a chain from a node the same flow reported it
+ *   never reached, which is incoherent whatever that node means.
+ * - A cut that would remove every hop is not applied when the caller NAMED this
+ *   flow's start. `start -> commitTransaction` and `caller0 -> log` are the
+ *   same shape and nothing in the graph separates them, but the caller naming
+ *   `start` is a fact about what was asked, and emptying that flow answers the
+ *   question with nothing. Eleven callers kept the flow and a twelfth erased
+ *   it: that discontinuity is the defect, not the tidying.
  *
- * A genuine leaf helper is unaffected: it sits beside other hops that survive,
- * so the cut still removes it and the flow still reads as a chain. The node
- * list is derived from the hops that survive rather than filtered beside them,
- * which is what makes the dangling step impossible rather than merely
- * unlikely.
+ * A flow the tour volunteered gets no such reprieve. When its whole story is
+ * one hop into a shared helper, the tour is choosing what to show and can
+ * choose something else, so discarding it spends the slot on a seed that says
+ * more — which is what the cut was written for. That is why a wrapper whose
+ * body is a single `log()` call does not become a flow of its own.
+ *
+ * The node list is derived from the hops that survive rather than filtered
+ * beside them, which is what makes the dangling step impossible rather than
+ * merely unlikely.
  */
 function tourHops(
   graph: TtscGraphMemory,
   hops: readonly ITtscGraphTrace.IHop[],
+  startWasNamed: boolean,
 ): ITtscGraphTrace.IHop[] {
   const eligible = hops.filter((hop) => isTourHop(graph, hop));
   const departures = new Set(eligible.map((hop) => hop.from));
   const kept = eligible.filter(
     (hop) => !isSharedUtility(graph, hop.to) || departures.has(hop.to),
   );
-  return kept.length === 0 ? eligible : kept;
+  return kept.length === 0 && startWasNamed ? eligible : kept;
 }
 
 function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
