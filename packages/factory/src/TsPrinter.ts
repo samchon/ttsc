@@ -2485,15 +2485,77 @@ const escapeTemplateText = (text: string): string =>
 const isBreakSafeJsxText = (text: string): boolean =>
   text.length !== 0 && !/^\s/.test(text) && !/\s$/.test(text);
 
+/**
+ * Escape a string literal's text so the printed program holds the value the AST
+ * carries.
+ *
+ * The old set was the backslash, LF, CR, TAB and the active quote. Everything
+ * else was emitted raw, which is three separate hazards rather than a cosmetic
+ * gap: a C0 control or DEL lands in the generated file as itself; U+2028 and
+ * U+2029 terminate a string literal in any JavaScript engine predating ES2019,
+ * so the emitted program does not parse; and a lone surrogate becomes U+FFFD
+ * the moment the text is written as UTF-8, so the generated program holds a
+ * different string than the caller built.
+ *
+ * Iterated by code point rather than matched by a pattern. That is what makes
+ * the surrogate case fall out instead of needing a rule: a well-formed pair
+ * arrives as one two-unit string and passes through, and a lone surrogate
+ * arrives as a single unit whose code point is in the surrogate range.
+ */
 const escapeString = (text: string, singleQuote?: boolean): string => {
-  const escaped: string = text
-    .replace(/\\/g, "\\\\")
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "\\r")
-    .replace(/\t/g, "\\t");
-  return singleQuote === true
-    ? `'${escaped.replace(/'/g, "\\'")}'`
-    : `"${escaped.replace(/"/g, '\\"')}"`;
+  const quote = singleQuote === true ? "'" : '"';
+  let escaped = "";
+  for (const ch of text) {
+    if (ch === "\\") {
+      escaped += "\\\\";
+      continue;
+    }
+    if (ch === quote) {
+      escaped += "\\" + ch;
+      continue;
+    }
+    // The inactive quote is ordinary text and stays as written.
+    const code = ch.codePointAt(0) ?? 0;
+    const lone = code >= 0xd800 && code <= 0xdfff;
+    if (
+      ch.length === 2 ||
+      (code >= 0x20 &&
+        code !== 0x7f &&
+        code !== 0x2028 &&
+        code !== 0x2029 &&
+        !lone)
+    ) {
+      escaped += ch;
+      continue;
+    }
+    switch (code) {
+      case 0x08:
+        escaped += "\\b";
+        continue;
+      case 0x09:
+        escaped += "\\t";
+        continue;
+      case 0x0a:
+        escaped += "\\n";
+        continue;
+      case 0x0b:
+        escaped += "\\v";
+        continue;
+      case 0x0c:
+        escaped += "\\f";
+        continue;
+      case 0x0d:
+        escaped += "\\r";
+        continue;
+      default:
+        break;
+    }
+    escaped +=
+      code > 0xff
+        ? "\\u" + code.toString(16).padStart(4, "0")
+        : "\\x" + code.toString(16).padStart(2, "0");
+  }
+  return `${quote}${escaped}${quote}`;
 };
 
 const ExpressionPrecedence = {
