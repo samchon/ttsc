@@ -104,6 +104,17 @@ func (formatStatementSplit) Check(ctx *Context, node *shimast.Node) {
     if stmt.Kind == shimast.KindBlock && firstStatementAfterCaseLabel(stmt) {
       return
     }
+    // A statement sharing its line with the `{` that opened its own block,
+    // where that block sits in expression position, has no brace owner:
+    // format/indent cedes such a block's `}` to format/print-width, so
+    // breaking the body out here would strand the brace on the last statement
+    // and make that hybrid the cascade's fixed point — the one shape neither
+    // rule can undo. Leave the block whole and let the printer decide whether
+    // it reflows. The two rules read the same predicate, so they cede the same
+    // blocks.
+    if indentCededToReflow(stmt) && sharesLineWithBlockOpenBrace(src, stmt, start) {
+      return
+    }
     // The gap between the previous statement and this one must be pure
     // whitespace. A `//` or `/*` anywhere from the previous statement's
     // end to this one would be eaten by the replacement, so abstain. The
@@ -128,6 +139,23 @@ func (formatStatementSplit) Check(ctx *Context, node *shimast.Node) {
     "Each statement must begin on its own line.",
     edits...,
   )
+}
+
+// sharesLineWithBlockOpenBrace reports whether `start`, the first byte of a
+// statement, sits on the same physical line as the `{` of the Block that
+// directly contains it. It is the test for "this block is still written on one
+// line", which is the state in which splitting the body out would strand the
+// closing brace.
+func sharesLineWithBlockOpenBrace(src string, stmt *shimast.Node, start int) bool {
+  block := stmt.Parent
+  if block == nil || block.Kind != shimast.KindBlock {
+    return false
+  }
+  open := shimscanner.SkipTrivia(src, block.Pos())
+  if open < 0 || open >= len(src) || src[open] != '{' {
+    return false
+  }
+  return lineStartOffset(src, open) == lineStartOffset(src, start)
 }
 
 // gapHasComment reports whether the byte range [start, end) contains the
