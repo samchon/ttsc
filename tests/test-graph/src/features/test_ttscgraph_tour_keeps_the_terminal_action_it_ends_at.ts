@@ -37,6 +37,71 @@ const tourOf = (result: ToolResult): TourResult => {
   return value.result;
 };
 
+const TSCONFIG = JSON.stringify(
+  {
+    compilerOptions: {
+      target: "ES2022",
+      module: "commonjs",
+      strict: true,
+      rootDir: "src",
+      outDir: "dist",
+    },
+    include: ["src"],
+  },
+  null,
+  2,
+);
+
+/** Eleven callers, so a twelfth call site puts the target at the threshold. */
+const callersOf = (name: string, target: string): string[] =>
+  Array.from({ length: 11 }, (_unused, index) =>
+    [
+      `export function ${name}${index}(): void {`,
+      `  ${target}();`,
+      "}",
+      "",
+    ].join("\n"),
+  );
+
+/** Ask the resident server for a tour of `source`, seeded on `names`. */
+const tourOfProject = async (
+  source: string,
+  names: string[],
+): Promise<TourResult> => {
+  const root = TestProject.createProject({
+    "tsconfig.json": TSCONFIG,
+    "src/app.ts": source,
+  });
+  const client = TtsgraphClient.start(root);
+  try {
+    await client.request("initialize", {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "test-graph", version: "0.0.0" },
+    });
+    client.notify("notifications/initialized", {});
+    return tourOf(
+      (await client.request("tools/call", {
+        name: "inspect_typescript_graph",
+        arguments: graphArguments({
+          thinking: `I'm new here; show me what ${names.join(" and ")} do.`,
+          request: { type: "tour", reinterpretations: names },
+        }),
+      })) as ToolResult,
+    );
+  } finally {
+    client.endStdin();
+    await client.waitForExit();
+  }
+};
+
+/** Every symbol every flow says it reached, plus every flow's start. */
+const reachedNames = (tour: TourResult): string[] =>
+  tour.primaryFlow.flatMap((flow) => [
+    flow.start.name,
+    ...flow.reached.map((node) => node.name),
+  ]);
+
 /**
  * Verifies the hub cut cannot empty a flow or leave a step dangling.
  *
@@ -44,135 +109,82 @@ const tourOf = (result: ToolResult): TourResult => {
  * execution onward. A shared type or leaf helper has that shape, and so does
  * every terminal action — a commit, a send, an audit write — which is the point
  * where the flow performs its work. Degree cannot tell the two apart, so the
- * cut therefore decides only what is noise, and the two shapes where deleting a
- * node would destroy the flow are handled without deciding: a hop into a node
- * the flow continues past is never removed, and a flow the cut would empty is
- * demoted rather than deleted — held back, then told only when the tour
- * finishes with nothing else to say.
+ * cut decides only what is noise and the two shapes where deleting a node would
+ * destroy the flow are handled without deciding:
  *
- * Both shapes are built here at exactly the threshold, twelve in-edges.
- * `auditWrite` is a whole flow's only hop, which used to be discarded whole:
- * eleven callers kept the flow and a twelfth erased it. `commitTx` sits
- * mid-chain, where the hop into it was removed while the hop out of it survived
- * and narrated a step from a node the same flow reported it never reached.
+ * - A hop into a node the flow continues past is never removed, so no step
+ *   narrates a chain from a node the same flow says it never reached;
+ * - A flow the cut would empty is demoted rather than deleted — held back, and
+ *   told only when the tour finishes with nothing else to say.
  *
- * The negative twin lives in `test_ttscgraph_serves_graph_tools_over_mcp`: a
- * `log` helper with these same degrees is cut from the chain it sits in, and
- * the one-line wrapper whose whole flow is a call to it never displaces a real
- * chain, because that flow is demoted and the tour has others to tell.
+ * Each shape needs its own project, which is the point of demotion: a sole-hop
+ * terminal action is told **because** its tour has no other flow, and it must
+ * not displace one. The negative twin is in
+ * `test_ttscgraph_serves_graph_tools_over_mcp`, where a `log` helper with these
+ * same degrees sits in a tour that has real chains to tell, and stays absent.
  *
- * 1. Build a project with a sole-hop terminal action and a mid-chain one, each at
- *    twelve in-edges.
- * 2. Ask for a tour seeded on both entrypoints.
- * 3. Assert the sole-hop flow keeps its endpoint, and that every step in every
- *    flow starts at a symbol that flow says it reached.
+ * 1. Tour a project whose only flow is one hop into a terminal action at twelve
+ *    in-edges, and assert the action survives.
+ * 2. Tour a project where a hub of the same degree sits mid-chain, and assert the
+ *    hop INTO it is the surviving step.
+ * 3. Assert in both that every step starts at a symbol its flow reached.
  */
 export const test_ttscgraph_tour_keeps_the_terminal_action_it_ends_at =
   async () => {
-    // Eleven each; `Service.handle` and `Service.report` are the twelfth, which
-    // puts both actions exactly at the `in >= 12` threshold.
-    const callersOf = (name: string, target: string) =>
-      Array.from({ length: 11 }, (_unused, index) =>
-        [
-          `export function ${name}${index}(): void {`,
-          `  ${target}();`,
-          "}",
-          "",
-        ].join("\n"),
-      );
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        // Terminal: called from many sites, calls nothing onward.
+    // Eleven callers plus `Service.handle` put `auditWrite` at exactly twelve,
+    // and nothing in this project drives a longer chain, so the whole tour is
+    // hop-into-a-hub. Eleven callers kept the flow and a twelfth erased it.
+    const terminal = await tourOfProject(
+      [
         "export function auditWrite(): void {}",
-        "export function flushBuffer(): void {}",
-        // `commitTx`: the same fan-in as `auditWrite` with one outgoing
-        // execution edge, so it is still a hub by degree and the flow continues
-        // past it.
-        "export function commitTx(): void {",
-        "  flushBuffer();",
-        "}",
         "",
         ...callersOf("auditCaller", "auditWrite"),
-        ...callersOf("commitCaller", "commitTx"),
         "export class Service {",
         "  public handle(): void {",
         "    auditWrite();",
         "  }",
+        "}",
+        "",
+      ].join("\n"),
+      ["Service.handle"],
+    );
+    assert.ok(
+      reachedNames(terminal).includes("auditWrite"),
+      `a flow whose only hop lands on a terminal action must survive: ${JSON.stringify(terminal.primaryFlow)}`,
+    );
+
+    // `commitTx` carries the same fan-in with one outgoing execution edge, so
+    // it is still a hub by degree and the flow continues past it.
+    const midChain = await tourOfProject(
+      [
+        "export function flushBuffer(): void {}",
+        "export function commitTx(): void {",
+        "  flushBuffer();",
+        "}",
+        "",
+        ...callersOf("commitCaller", "commitTx"),
+        "export class Service {",
         "  public report(): void {",
         "    commitTx();",
         "  }",
         "}",
         "",
       ].join("\n"),
-    });
+      ["Service.report"],
+    );
+    // Asserted on the step, not on `reached`: `reached` is derived from BOTH
+    // endpoints of every kept hop, so `commitTx` appears there even when only
+    // the hop OUT of it survived — which is the incoherent shape this rule
+    // exists to prevent, and an assertion that cannot see it proves nothing.
+    const steps = midChain.primaryFlow.flatMap((flow) => flow.steps);
+    assert.ok(
+      steps.some((step) => step.includes("-> commitTx")),
+      `a hub the flow continues past must keep its inbound hop: ${steps.join(" | ")}`,
+    );
 
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
-      const result = (await client.request("tools/call", {
-        name: "inspect_typescript_graph",
-        arguments: graphArguments({
-          thinking:
-            "I'm new here; show me what Service.handle and Service.report do.",
-          // `reinterpretations` is a required field, and naming the two
-          // entrypoints keeps the flows under test deterministic rather than
-          // dependent on structural ranking in a fixture built with two equal
-          // peaks. It must not be load-bearing: the rule under test does not
-          // read the caller's names, and a version that did would pass here
-          // while still erasing an unnamed flow, which is the defect.
-          request: {
-            type: "tour",
-            reinterpretations: ["Service.handle", "Service.report"],
-          },
-        }),
-      })) as ToolResult;
-
-      const tour = tourOf(result);
-      assert.ok(
-        tour.primaryFlow.length > 0,
-        "the hub cut must not empty every flow",
-      );
-      const names = tour.primaryFlow.flatMap((flow) =>
-        flow.reached.map((node) => node.name),
-      );
-      // The sole hop of its flow: cutting it left nothing, and the whole flow
-      // was discarded rather than shortened.
-      assert.ok(
-        names.includes("auditWrite"),
-        `the terminal action a flow's only hop lands on must survive: ${names.join(", ")}`,
-      );
-      // Mid-chain: the flow continues past it, so the hop INTO it stays. This
-      // asserts the step, not the reached set — `reached` is derived from both
-      // endpoints of every kept hop, so `commitTx` appears there even when only
-      // the hop out of it survived, which is the incoherent shape.
-      const steps = tour.primaryFlow.flatMap((flow) => flow.steps);
-      assert.ok(
-        steps.some((step) => step.includes("-> commitTx")),
-        `a hub the flow continues past must keep its inbound hop: ${steps.join(" | ")}`,
-      );
-
-      // Every step names two symbols; both have to be reachable as handles in
-      // the same flow, which is what a dangling step breaks.
+    // Every step names two symbols, and both have to be reachable as handles in
+    // the same flow. A dangling step is what breaks that.
+    for (const tour of [terminal, midChain])
       for (const flow of tour.primaryFlow) {
         const reached = new Set([
           flow.start.name,
@@ -187,8 +199,4 @@ export const test_ttscgraph_tour_keeps_the_terminal_action_it_ends_at =
           );
         }
       }
-    } finally {
-      client.endStdin();
-      await client.waitForExit();
-    }
   };
