@@ -47,18 +47,18 @@
  * payload, and told it to stop where the shortlist's coverage was exactly what
  * needed judging.
  *
- * So the audits split by what the reader must judge. {@link RESULT_AUDIT}
- * covers the walks from an explicit handle or structure (`trace`, `overview`):
- * the result is what the graph holds for what you named, bounded where
- * `truncated` says. {@link RESULT_AUDIT_DETAILS} covers `details`, whose result
- * is not one bounded whole but two halves — a symbol's own shape, returned
- * complete, and its fan-out, returned as a slice with `trace` for the rest — so
- * it names which half to trust outright and which to follow. {@link
- * RESULT_AUDIT_SELECTION} covers the ranked shortlists (`lookup`, `entrypoints`,
- * `tour`): it keeps the same fact-verification and adds that the _selection_ is
- * heuristic, so whether the shortlist covers the question is the caller's to
- * judge — and a follow-up request or a read of a cited span is a sound next
- * step, not a failure to trust the result.
+ * So the audits split by what the reader must judge. {@link RESULT_AUDIT} covers
+ * the walks from an explicit handle or structure (`trace`, `overview`): the
+ * result is what the graph holds for what you named, bounded where `truncated`
+ * says. {@link RESULT_AUDIT_DETAILS} covers `details`, whose result is not one
+ * bounded whole but two halves — a symbol's own shape, returned complete, and
+ * its fan-out, returned as a slice with `trace` for the rest — so it names
+ * which half to trust outright and which to follow.
+ * {@link RESULT_AUDIT_SELECTION} covers the ranked shortlists (`lookup`,
+ * `entrypoints`, `tour`): it keeps the same fact-verification and adds that the
+ * _selection_ is heuristic, so whether the shortlist covers the question is the
+ * caller's to judge — and a follow-up request or a read of a cited span is a
+ * sound next step, not a failure to trust the result.
  *
  * Keep both narrow, and keep the stop-or-continue decision with the result's
  * `next`, so neither contradicts a partial result that legitimately asks for
@@ -113,10 +113,10 @@ Follow \`next\` for where that leaves the question.
  *
  * `trace` walks and marks where the walk was cut with `truncated`; `details`
  * does not walk. It resolves a named handle, and its result splits in two. What
- * a symbol *is* — its members, its values, its signature — is bounded by the
+ * a symbol _is_ — its members, its values, its signature — is bounded by the
  * declaration and returned whole, so the old "trust it, do not open the file"
  * is finally true of it rather than contradicted by a capped member list. What
- * a symbol *reaches or is reached by* — its calls, its type references, its
+ * a symbol _reaches or is reached by_ — its calls, its type references, its
  * implementers, its dependents — is bounded by how widely it is used, not by
  * the symbol, so returning it whole is a `trace`/impact answer of a thousand
  * refs in a "what is this" call. That half is a short orientation slice, and
@@ -154,11 +154,11 @@ after you edit the source.
  * kept.
  */
 export const RESULT_AUDIT_DETAILS_CAPPED: string = RESULT_AUDIT_DETAILS.replace(
-  // Matched by shape rather than by exact spelling: this file is stored with
-  // CRLF, so a literal "
-" in the needle never matches the template literal's
-  // real line breaks and the replacement would silently do nothing.
-  /What a symbol is[sS]*?what is already here./,
+  // Matched by shape rather than by exact spelling. This file is stored with
+  // CRLF, so a needle carrying a plain newline never matches the template
+  // literal's real line breaks and the replacement would silently do nothing —
+  // the capped audit would come out identical to the uncapped one.
+  /What a symbol is[\s\S]*?what is already here\./,
   "What a symbol is — its values and its signature — is complete. Its member list was cut to " +
     "the `memberLimit` you asked for, so it is a slice, not the whole set: re-request with a " +
     "larger cap for the rest.",
