@@ -9,6 +9,7 @@ export interface RawNode {
   kind: string;
   file: string;
   external?: boolean;
+  ignored?: boolean;
 }
 
 export interface RawEdge {
@@ -45,6 +46,7 @@ export interface ViewerPayload {
     nodes: number;
     links: number;
     droppedExternal: number;
+    droppedIgnored: number;
     droppedByCap: number;
   };
   nodes: ViewerNode[];
@@ -120,8 +122,9 @@ function rewriteId(id: string, root: string | null): string {
   const hash = graphNodeIdHash(id);
   if (hash < 0) return id;
   return (
-    escapeGraphNodeIdPart(relativize(unescapeGraphNodeIdPart(id.slice(0, hash)), root)) +
-    id.slice(hash)
+    escapeGraphNodeIdPart(
+      relativize(unescapeGraphNodeIdPart(id.slice(0, hash)), root),
+    ) + id.slice(hash)
   );
 }
 
@@ -146,7 +149,9 @@ function unescapeGraphNodeIdPart(value: string): string {
 }
 
 function legacyUNCStart(value: string, index: number): boolean {
-  return index === 0 && value.length > 2 && value[2] !== "\\" && value[2] !== "#";
+  return (
+    index === 0 && value.length > 2 && value[2] !== "\\" && value[2] !== "#"
+  );
 }
 
 function graphNodeIdHash(id: string): number {
@@ -198,30 +203,44 @@ export function reduce(
   {
     maxNodes = 1200,
     keepExternal = false,
-  }: { maxNodes?: number; keepExternal?: boolean } = {},
+    keepIgnored = false,
+  }: {
+    maxNodes?: number;
+    keepExternal?: boolean;
+    keepIgnored?: boolean;
+  } = {},
 ): ViewerPayload {
-  const keptByExternal = raw.nodes.filter((n) => keepExternal || !n.external);
+  // Drop external boundary leaves and git-ignored generated code (a Prisma
+  // client and the like, tagged `ignored` by the dump) so the authored graph is
+  // not buried under codegen. The cap is by degree, and generated clients are
+  // large and densely connected, so leaving them in does not merely add noise:
+  // they outrank authored code for the surviving slots.
+  const keep = (n: RawNode) =>
+    (keepExternal || !n.external) && (keepIgnored || !n.ignored);
+  const keptByBoundary = raw.nodes.filter(keep);
   // Reroot only absolute paths (the legacy dump contract); a current dump's
   // paths are already project-relative and keep their structure as-is.
-  const projectFiles = raw.nodes.filter((n) => !n.external).map((n) => n.file);
+  const projectFiles = raw.nodes
+    .filter((n) => !n.external && !n.ignored)
+    .map((n) => n.file);
   const root =
     projectFiles.length > 0 && isAbsolute(projectFiles[0]!)
       ? commonRoot(projectFiles.map(directoryOf))
       : null;
 
-  const liveIds = new Set(keptByExternal.map((n) => n.id));
+  const liveIds = new Set(keptByBoundary.map((n) => n.id));
   const liveEdges = raw.edges.filter(
     (e) => liveIds.has(e.from) && liveIds.has(e.to),
   );
 
-  const degree = degreeOf(keptByExternal, liveEdges);
-  let kept = keptByExternal;
+  const degree = degreeOf(keptByBoundary, liveEdges);
+  let kept = keptByBoundary;
   let droppedByCap = 0;
   if (kept.length > maxNodes) {
     kept = [...kept]
       .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0))
       .slice(0, maxNodes);
-    droppedByCap = keptByExternal.length - kept.length;
+    droppedByCap = keptByBoundary.length - kept.length;
   }
 
   const keptIds = new Set(kept.map((n) => n.id));
@@ -256,7 +275,10 @@ export function reduce(
       rawEdges: raw.edges.length,
       nodes: nodes.length,
       links: links.length,
-      droppedExternal: raw.nodes.length - keptByExternal.length,
+      droppedExternal: raw.nodes.filter((n) => n.external).length,
+      droppedIgnored: keepIgnored
+        ? 0
+        : raw.nodes.filter((n) => n.ignored && !n.external).length,
       droppedByCap,
     },
     nodes,
