@@ -34,7 +34,7 @@ Different packages, invariants, or validation lanes do not split the solo cycle.
 
 An issue whose only predecessor is another issue in the same cycle is implementation-ready for this purpose. Order the edits through the DAG instead of deferring it to another pull request.
 
-Difficulty never removes an issue from the cycle. When a resolution needs a judgment call about design, invariant ownership, or an acceptable behavior change, settle it from the issue's evidence and implement that decision here. Proved duplicate, invalid premise, out of scope, and external blocker stay the only dispositions that take an issue out of the cycle.
+Difficulty never removes an issue from the cycle. When a resolution needs a judgment call about design, invariant ownership, or an acceptable behavior change, settle it from the issue's evidence and implement that decision inside the cycle. A proved duplicate, an invalid premise, an out-of-scope finding, and an external blocker remain the only dispositions that remove one.
 
 ## Claim The Complete Cycle
 
@@ -46,7 +46,7 @@ Claim the whole cycle before implementation:
 4. Reference every cycle issue by number, mark verification pending, and state that the pull request owns the complete accepted cycle.
 5. Record the checkout, branch, pull request, head SHA, issue set, and external temporary-asset ledger in `.wiki`.
 
-Reference the issues in the claim body, and keep every closing keyword out of it. The body is written before any code exists, so a claim-time closing list closes whatever the cycle later drops, defers, or disproves and buries the analysis those issues carry. The cycle's closing set is the union of the commit trailers, which makes the merge close exactly what landed.
+Reference the issues in the claim body, and keep every closing keyword out of it. The body is written before any code exists, so a claim-time closing list closes whatever the cycle later drops, defers, or disproves, burying the analysis those issues carry. The cycle's closing set is the union of the [commit closing lines](#implement-and-write-tests), which makes the merge close exactly what landed.
 
 The empty pull request prevents overlapping contributor work before code is written. Measure official duration from its GitHub `createdAt` timestamp through `mergedAt`, including implementation, CI, review, fixes, rebases, and merge.
 
