@@ -1,6 +1,17 @@
 name: experimental
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/experimental.yml"
+      - "experimental/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
   pull_request:
     paths:
       - ".github/workflows/experimental.yml"

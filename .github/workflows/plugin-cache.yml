@@ -7,6 +7,17 @@ name: plugin-cache
 # second package rebuilds the plugin or if anything is written to a global cache.
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/plugin-cache.yml"
+      - "scripts/ci/plugin-cache-persistence.mjs"
+      - "packages/ttsc/**"
+      - "tests/projects/go-source-plugin/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
   pull_request:
     paths:
       - ".github/workflows/plugin-cache.yml"
