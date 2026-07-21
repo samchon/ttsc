@@ -7,9 +7,9 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * which evaluates both operands and yields the right one.
  *
  * Shorthand for {@link createBinaryExpression} with the `CommaToken` operator.
- * The printer treats the comma like any other binary operator and surrounds it
- * with a single space on each side, so the output has a space before the
- * comma.
+ * The comma attaches to the operand before it, the way every other producer
+ * writes it — {@link createCommaListExpression}, the legacy printer, and
+ * Prettier all emit `a, b`.
  *
  * Given operands `a` and `b`, the printer emits:
  *

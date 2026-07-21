@@ -339,8 +339,8 @@ export class TsPrinter {
    * whitespace-only text child that contains a newline and trims
    * whitespace-carrying-a-newline off both edges of every other text child, so
    * a break introduced only because the group did not fit changes what the
-   * component renders: `<div>Hello there, {name}!</div>` becomes
-   * `Hello there,NAME!`, and the separator in `<div>{a} {b}</div>` disappears
+   * component renders: `<div>Hello there, {name}!</div>` becomes `Hello
+   * there,NAME!`, and the separator in `<div>{a} {b}</div>` disappears
    * outright.
    *
    * Children are therefore laid out across lines only when the break survives
@@ -351,11 +351,7 @@ export class TsPrinter {
    * emitted verbatim on one line, whatever `printWidth` says — width may choose
    * a layout, never a meaning.
    */
-  private jsxChildren(
-    open: Doc,
-    children: readonly Node[],
-    close: Doc,
-  ): Doc {
+  private jsxChildren(open: Doc, children: readonly Node[], close: Doc): Doc {
     if (!this.jsxChildrenMayBreak(children))
       return concat([open, concat(children.map((c) => this.emit(c))), close]);
     return group(
@@ -561,7 +557,13 @@ export class TsPrinter {
               undefined,
               node.operator === SyntaxKind.EqualsToken,
             ),
-            " ",
+            // Every operator but the comma is written with a space on each
+            // side. The comma is punctuation that attaches to what precedes it:
+            // `CommaListExpression` joins with ", ", the legacy printer and the
+            // repository's pinned Prettier both emit `a, b`, and this factory's
+            // own JSDoc for `createComma` shows `(a, b)`. Only the printer
+            // disagreed, with `a , b`.
+            node.operator === SyntaxKind.CommaToken ? "" : " ",
             node.operator,
             indent(
               concat([
@@ -1855,8 +1857,8 @@ export class TsPrinter {
    * `ParenthesizedExpression`. This printer decides the same parentheses at
    * emit time instead, so the walk has to ask {@link leftSideNeedsParentheses}
    * the same question directly; otherwise `new` re-wraps a target whose call is
-   * already behind parentheses, and `new (f?.()).bar()` comes out as
-   * `new ((f?.()).bar)()`. Calls halt the walk, matching the legacy
+   * already behind parentheses, and `new (f?.()).bar()` comes out as `new
+   * ((f?.()).bar)()`. Calls halt the walk, matching the legacy
    * `stopAtCallExpressions` mode this predicate is the only user of.
    */
   private leftmostPrintedExpression(
@@ -1979,9 +1981,8 @@ export class TsPrinter {
     isLeftSide: boolean,
     leftOperand?: Expression,
   ): boolean {
-    const emittedOperand: Expression = this.skipPartiallyEmittedExpressions(
-      operand,
-    );
+    const emittedOperand: Expression =
+      this.skipPartiallyEmittedExpressions(operand);
     if (emittedOperand.kind === "ParenthesizedExpression") return false;
     if (
       operator === SyntaxKind.AsteriskAsteriskToken &&
@@ -2478,7 +2479,7 @@ const escapeTemplateText = (text: string): string =>
  * JSX drops a whitespace-only child that contains a newline and trims an edge
  * whose whitespace contains one, so only a child with non-whitespace content
  * and no edge whitespace survives being moved onto its own line. Newlines
- * *inside* the text are unaffected, because JSX collapses each interior line
+ * _inside_ the text are unaffected, because JSX collapses each interior line
  * break to a single space in either layout.
  */
 const isBreakSafeJsxText = (text: string): boolean =>
