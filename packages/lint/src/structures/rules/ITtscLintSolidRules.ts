@@ -35,10 +35,10 @@ export interface ITtscLintSolidRules {
    * it belongs, joining an existing import from that entry when the file
    * already has one. The diagnostic names the symbol and its entry point.
    *
-   * Autofixable only when the misplaced specifier is its declaration's sole
-   * binding: rewriting the module specifier moves every binding in that
-   * declaration, so a declaration with a second specifier or a default binding
-   * keeps its diagnostic instead.
+   * Autofixable. A specifier that stands alone has its declaration's module
+   * specifier rewritten; one with siblings, or one beside a default binding, is
+   * cut out and relocated. A type-only declaration relocates into a type-only
+   * one, never into a value import.
    *
    * @reference https://github.com/solidjs-community/eslint-plugin-solid/blob/main/packages/eslint-plugin-solid/docs/imports.md
    */

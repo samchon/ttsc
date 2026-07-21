@@ -8,11 +8,14 @@ import "testing"
 //
 // The rule looked the correct entry point up in `solidPreferredSource` and
 // then reported a message that did not say which symbol or which module it
-// meant. Naming both is the point; the autofix is deliberately narrower than
-// the message, because rewriting the module specifier moves every binding in
-// the declaration. Only a declaration whose sole binding is the misplaced
-// specifier can be repaired that way — anything else needs the import block
-// split, which is not a one-token edit.
+// meant. Naming both is the point.
+//
+// This case owns the narrowest repair: a declaration whose sole binding is the
+// misplaced specifier is fixed by rewriting the module specifier, moving no
+// other text. The shapes that need the specifier cut out and relocated are
+// pinned by `solid_imports_relocates_a_misrouted_specifier_test.go`; they used
+// to be negative twins here, asserting the absence of a fix that the rule now
+// has.
 //
 //  1. Fix `import { render } from "solid-js"`, whose sole binding belongs to
 //     `solid-js/web`, and assert the module is rewritten and the message names
@@ -51,17 +54,6 @@ func TestFixSolidImportsRewritesSoleSpecifierModule(t *testing.T) {
     "solid/imports",
     "import { render as mount } from \"solid-js\";\nmount();\n",
     "import { render as mount } from \"solid-js/web\";\nmount();\n",
-  )
-
-  assertNoFixSnapshot(
-    t,
-    "solid/imports",
-    "import { createSignal, render } from \"solid-js\";\nrender(createSignal);\n",
-  )
-  assertNoFixSnapshot(
-    t,
-    "solid/imports",
-    "import Solid, { render } from \"solid-js\";\nrender(Solid);\n",
   )
 
   assertRuleSkipsSource(

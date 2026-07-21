@@ -82,7 +82,7 @@ Route each Solid export to the correct entry point (`solid-js`, `solid-js/web`, 
 
 Autofixable. A specifier that stands alone has its declaration's module specifier rewritten; one with siblings is cut out and either appended to an existing import from the correct entry or given a synthesized one.
 
-The diagnostic names the symbol and the entry point it belongs to (``Import `render` from `solid-js/web`.``). Autofixable only when the misplaced specifier is the declaration's sole binding, because rewriting the module specifier moves every binding in that declaration: `import { render } from "solid-js"` is repaired in place, while `import { createSignal, render } from "solid-js"` keeps its diagnostic. `createSignal` belongs to the module as written, and separating the two means splitting the import block rather than editing one token.
+The diagnostic names the symbol and the entry point it belongs to (``Import `render` from `solid-js/web`.``). The fix relocates the specifier rather than dragging its neighbours along: `import { render } from "solid-js"` has its module specifier rewritten in place, while `import { createSignal, render } from "solid-js"` keeps `createSignal` where it belongs and moves `render` out — into an existing import from the correct entry when the file has one, otherwise into a synthesized declaration above. A type-only declaration stays type-only on both ends.
 
 Example:
 

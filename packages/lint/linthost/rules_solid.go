@@ -316,35 +316,28 @@ func (s *solidState) reportImports(ctx *Context) {
         decl.ModuleSpecifier,
         correct,
         specNode,
-        s.solidNamedImportFrom(correct),
+        s.solidNamedImportFrom(correct, clause.IsTypeOnly),
       )
       ctx.ReportFix(specNode, message, edits...)
     }
   }
 }
 
-// solidImportSourceEdits rewrites the declaration's module specifier to
-// `correct`, but only when this specifier is the declaration's sole binding.
-//
-// A declaration that also carries a default binding or further named
-// specifiers cannot be repaired by rewriting the specifier: the other symbols
-// belong to the module as written and would be dragged along with it. Moving
-// one specifier out of such a declaration means splitting it, which is a
-// rewrite of the import block rather than of one token, so those findings stay
-// diagnostic-only and the message names the module instead.
-//
-// Only the text between the quotes is replaced, so the file's quote style
-// survives. Returns nil when the specifier is not a plainly quoted literal,
-// which downgrades the caller to a plain diagnostic.
 // solidNamedImportFrom returns the file's named-import list for `source`, or
 // nil when the file has none. It is how the fix finds a declaration to move a
 // misrouted specifier INTO, which is what upstream's `appendImports` does and
 // what the rule's published description means by merging.
 //
 // A declaration carrying a default binding is skipped: appending there is legal
-// but rewrites a line the user did not ask about, and the synthesized-import
-// path below covers the case without touching it.
-func (s *solidState) solidNamedImportFrom(source string) *shimast.NamedImports {
+// but rewrites a line the user did not ask about, and the synthesized path
+// covers the case without touching it.
+//
+// `typeOnly` must match the declaration the specifier is leaving. A value
+// import appended into `import type { … }` becomes unusable as a value
+// (TS1361), and a type import appended into a value declaration survives into
+// the emitted JavaScript under `verbatimModuleSyntax`. Neither is a formatting
+// difference, so the two kinds never share a destination.
+func (s *solidState) solidNamedImportFrom(source string, typeOnly bool) *shimast.NamedImports {
   for _, node := range s.imports {
     decl := node.AsImportDeclaration()
     if decl == nil || decl.ImportClause == nil {
@@ -354,7 +347,8 @@ func (s *solidState) solidNamedImportFrom(source string) *shimast.NamedImports {
       continue
     }
     clause := decl.ImportClause.AsImportClause()
-    if clause == nil || clause.Name() != nil || clause.NamedBindings == nil ||
+    if clause == nil || clause.Name() != nil || clause.IsTypeOnly != typeOnly ||
+      clause.NamedBindings == nil ||
       clause.NamedBindings.Kind != shimast.KindNamedImports {
       continue
     }
@@ -397,33 +391,87 @@ func solidImportSourceEdits(
   if clause == nil || named == nil || named.Elements == nil || file == nil {
     return nil
   }
-  if clause.Name() == nil && len(named.Elements.Nodes) == 1 {
+  sole := clause.Name() == nil && len(named.Elements.Nodes) == 1
+  // The destination is consulted BEFORE the in-place rewrite, or the rewrite
+  // wins on a file that already imports from the correct module and leaves two
+  // declarations of it — the duplicate the rule's own description promises to
+  // avoid. `import { render, hydrate } from "solid-js"` converged that way in
+  // two passes.
+  if destination != nil {
+    insert, ok := solidAppendPoint(file, destination)
+    if !ok {
+      return nil
+    }
+    cut, text, ok := solidBindingCut(file, clause, named, specNode, sole)
+    if !ok {
+      return nil
+    }
+    // Disjoint: the cut lies in this declaration and the append in another.
+    return []TextEdit{cut, {Pos: insert, End: insert, Text: ", " + text}}
+  }
+  if sole {
     pos, end, ok := solidQuotedTextRange(file, moduleSpecifier)
     if !ok {
       return nil
     }
     return []TextEdit{{Pos: pos, End: end, Text: correct}}
   }
-  cut, text, ok := solidSpecifierCut(file, named, specNode)
+  cut, text, ok := solidBindingCut(file, clause, named, specNode, false)
   if !ok {
     return nil
-  }
-  if destination != nil {
-    insert, ok := solidAppendPoint(file, destination)
-    if !ok {
-      return nil
-    }
-    // The two edits are disjoint: the cut lies inside this declaration's brace
-    // list and the append lies inside another declaration's.
-    return []TextEdit{cut, {Pos: insert, End: insert, Text: ", " + text}}
   }
   declaration, ok := solidDeclarationStart(file, clause)
   if !ok {
     return nil
   }
   quote := solidQuoteCharacter(file, moduleSpecifier)
-  line := "import { " + text + " } from " + quote + correct + quote + ";\n"
+  // A type-only declaration synthesizes a type-only one. Dropping the keyword
+  // emits a runtime import under `verbatimModuleSyntax` for a symbol that has
+  // no runtime existence.
+  keyword := "import "
+  if clause.IsTypeOnly {
+    keyword = "import type "
+  }
+  line := keyword + "{ " + text + " } from " + quote + correct + quote + ";\n"
   return []TextEdit{{Pos: declaration, End: declaration, Text: line}, cut}
+}
+
+// solidBindingCut removes the misrouted specifier from its declaration and
+// reports the text removed.
+//
+// Two shapes. With siblings it cuts the specifier and one comma. Alone beside a
+// DEFAULT binding (`import Solid, { render } from "solid-js"`) the braces go
+// too, because `import Solid, {} from` is not what anyone meant: the cut runs
+// from the end of the default name through the closing brace, taking the comma
+// that joined them. That shape had no fix at all before, and it is a row in the
+// issue's acceptance table.
+func solidBindingCut(
+  file *shimast.SourceFile,
+  clause *shimast.ImportClause,
+  named *shimast.NamedImports,
+  specNode *shimast.Node,
+  sole bool,
+) (TextEdit, string, bool) {
+  if !sole {
+    return solidSpecifierCut(file, named, specNode)
+  }
+  name := clause.Name()
+  if name == nil {
+    // Sole binding with no default: the caller rewrites the module specifier
+    // instead, so there is nothing here to cut.
+    return TextEdit{}, "", false
+  }
+  pos, end := tokenRange(file, specNode)
+  if pos < 0 || end < pos {
+    return TextEdit{}, "", false
+  }
+  text := file.Text()[pos:end]
+  from := name.End()
+  to := named.AsNode().End()
+  if from < 0 || to > len(file.Text()) || from >= to {
+    return TextEdit{}, "", false
+  }
+  return TextEdit{Pos: from, End: to}, text, true
 }
 
 // solidSpecifierCut removes one specifier from a named-import list along with

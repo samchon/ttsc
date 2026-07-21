@@ -85,8 +85,8 @@ const tourOfProject = async (
 };
 
 const SELF_RECURSIVE = [
-  "export function retry(): void {",
-  "  retry();",
+  "export function attempt(): void {",
+  "  attempt();",
   "}",
   "",
 ].join("\n");
@@ -115,16 +115,22 @@ const REAL_FLOW = [
  * flow behind it. Recursion is ordinary — a retry loop, a tree walk, a parser's
  * descent — so this was not an exotic input.
  *
+ * The recursive function is named `attempt` on purpose. Dump nodes are sorted
+ * by id, so a name that sorts AFTER `handle` puts the empty candidate last,
+ * where it poisons nothing and the test passes against the unfixed code.
+ * `attempt` sorts first, which is the ordering the defect needs.
+ *
  * 1. Tour a project holding a self-recursive function and a real two-hop chain.
  * 2. Assert the real chain is reported.
  * 3. Assert no flow was published with an empty `reached`.
- * 4. Tour the same project without the self-recursive function and assert the real
- *    chain is reported identically, so its presence changes nothing.
+ * 4. Tour the same project without the self-recursive function and assert it
+ *    reports the same set of non-empty flows, so the recursion changes nothing
+ *    about what the tour says.
  */
 export const test_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed =
   async () => {
     const withRecursion = await tourOfProject(`${SELF_RECURSIVE}${REAL_FLOW}`, [
-      "retry",
+      "attempt",
       "handle",
     ]);
 
@@ -144,12 +150,20 @@ export const test_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed =
       );
 
     // The negative twin, and the reason the assertions above prove anything:
-    // the same project without the recursion must give the same real flow, so
-    // the recursion's presence is what is being measured rather than the
-    // fixture happening to rank `handle` first.
+    // the same project without the recursion must report the same flows, so the
+    // recursion's presence is what is measured rather than the fixture
+    // happening to rank the chain first.
     const withoutRecursion = await tourOfProject(REAL_FLOW, ["handle"]);
-    assert.ok(
-      reaches(withoutRecursion, "work"),
-      `the control project must report the same chain: ${JSON.stringify(withoutRecursion.primaryFlow)}`,
+    const shape = (tour: TourResult): string =>
+      JSON.stringify(
+        tour.primaryFlow.map((flow) => [
+          flow.start.name,
+          flow.reached.map((node) => node.name).sort(),
+        ]),
+      );
+    assert.equal(
+      shape(withRecursion),
+      shape(withoutRecursion),
+      "the self-edge must not change which flows the tour reports",
     );
   };
