@@ -56,7 +56,7 @@ Work through the DAG on the claimed topic branch. Analyze the full consequence a
 
 Implement without interruption. Write each piece's tests as that piece lands instead of leaving the tests for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI is read once per settled head](#validate-with-ci-and-self-review).
 
-One early-warning subagent may read a commit while implementation continues. Spawn it after the commit lands, hand it that commit's diff and the repository instructions it needs, and keep implementing without waiting for its report. It reads and reports candidates; it never edits, commits, pushes, or settles a design question, which is why it leaves the rule above intact.
+One early-warning subagent may read a commit while implementation continues. Spawn it after the commit lands, hand it that commit's diff and the repository instructions it needs, and keep implementing without waiting for its report. It reads and reports candidates; it never edits, commits, pushes, or settles a design question, so every implementation, test, CI diagnosis, review, and cleanup decision stays with the main agent.
 
 Run the pass for timing, not for coverage. A defect named while the commit is the newest thing written costs little to correct and carries nothing built on top of it yet. Treat each reported candidate as any other evidence: reproduce it first, then fix it in a later commit on the same branch, and record a disproved one so it is not rediscovered.
 

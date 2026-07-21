@@ -33,13 +33,13 @@ Self-Review does not authorize creating, pushing, updating, or merging a pull re
 
 ## Early Warning Is Not Self-Review
 
-An author implementing a long branch may run a per-commit early-warning pass: one subagent reads a commit as it lands and reports candidates while the author keeps implementing. It reads and reports only, so it delegates nothing the Non-Negotiable Review Law governs. It never edits, commits, pushes, or settles a design question, and its report is evidence the author still has to reproduce. [Solo campaign development](../issue-campaign/development.md#implement-and-write-tests) owns that cadence.
+A per-commit early-warning pass is a different activity under a different name, not a review under this skill. One subagent reads a commit as it lands and reports candidates while the author keeps implementing. It reads and reports only: it never edits, commits, pushes, or settles a design question, and its report is evidence the author still has to reproduce. [Solo campaign development](../issue-campaign/development.md#implement-and-write-tests) authorizes and bounds that cadence.
 
-The law's first sentence keeps its exact meaning, and all four rules still bind the author's own round unchanged. No number of per-commit passes counts toward whole-surface coverage or stands in for the complete round over the base-to-head diff before merge.
+Because the pass decides nothing, it delegates nothing the Non-Negotiable Review Law governs. The law's prohibition on spawning a subagent and delegating a concern keeps its exact meaning, and all four rules still bind the author's own round unchanged. No number of per-commit passes counts toward whole-surface coverage or stands in for the complete round over the base-to-head diff before merge.
 
-Never call the early-warning pass a Self-Review. Under the gate's name it reads as the gate already run, and the whole-surface round quietly disappears, which is the failure the fresh-start rule exists to prevent.
+Never call the early-warning pass a Self-Review. A reader who sees the gate's name concludes the gate already ran, and the whole-surface round then disappears without anyone deciding to drop it, which is the failure the fresh-start rule exists to prevent.
 
-A commit-sized reader also cannot see what exists only between commits: a document or issue asserting a verification the code never performs, a helper reimplemented next to one that already lives in the same package, a string match that can never fire because of how the target file is stored. Each one is consistent inside the commit that introduced it and becomes visible only across the whole diff.
+A commit-sized reader also cannot see what appears only across files and commits: a document or issue asserting a verification the code never performs, a helper reimplemented next to one that already lives in the same package, a string match that can never fire because of how the target file is stored. Each one is consistent inside the commit that introduced it and becomes visible only over the whole diff.
 
 ## Solo Issue Discovery Rounds
 

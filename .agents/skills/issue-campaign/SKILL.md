@@ -5,7 +5,7 @@ description: "Defines the default solo repository-wide issue campaign for ttsc: 
 
 # Issue Campaign
 
-An issue campaign is a repeatable solo sequence of exhaustive discovery, issue publication, one unified implementation pull request, and renewed discovery. The main agent owns every phase and delegates no decision, edit, or review round to a subagent. Implementation may run one read-only [per-commit early-warning pass](development.md#implement-and-write-tests) alongside it.
+An issue campaign is a repeatable solo sequence of exhaustive discovery, issue publication, one unified implementation pull request, and renewed discovery. The main agent owns every phase and delegates no decision, edit, or review round to a subagent. The only subagent it may spawn is the read-only [per-commit early-warning pass](development.md#implement-and-write-tests), which reads a landed commit while implementation continues.
 
 Use the [multi-agent skill](../multi-agent/SKILL.md) and its issue-campaign procedure instead only when the user explicitly asks for a parallel or multi-agent issue campaign.
 
