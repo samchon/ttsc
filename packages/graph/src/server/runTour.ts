@@ -132,10 +132,14 @@ export function runTour(
     }).result;
     const start = trace.start;
     if (start === undefined) continue;
-    const hops = trace.hops.filter((hop) => isTourHop(graph, hop));
+    const hops = tourHops(graph, trace.hops);
     if (hops.length === 0) continue;
-    const reached = trace.reached.filter((node) =>
-      isTourTraceNode(graph, node),
+    // The node list follows the hops rather than being filtered beside them.
+    // Filtering the two independently is what let a step name a node the same
+    // flow reported it had never reached.
+    const touched = new Set(hops.flatMap((hop) => [hop.from, hop.to]));
+    const reached = trace.reached.filter(
+      (node) => touched.has(node.id) && isTourTraceNode(graph, node),
     );
     const landed = new Set(reached.map((node) => node.id));
     if (told.some((earlier) => overlaps(landed, earlier))) continue;
@@ -709,10 +713,35 @@ function isTourTraceNode(
   graph: TtscGraphMemory,
   node: ITtscGraphTrace.INode,
 ): boolean {
-  return (
-    graph.node(node.id)?.closure !== true &&
-    !isNoisePath(node.file) &&
-    !isSharedUtility(graph, node.id)
+  return graph.node(node.id)?.closure !== true && !isNoisePath(node.file);
+}
+
+/**
+ * The hops a flow keeps, with the hub cut applied only where it belongs.
+ *
+ * The cut exists so a fan-in hub does not turn a runtime chain into a listing,
+ * and that is true of a hub the chain merely passes through. It is not true of
+ * the hub the chain _ends at_: a database commit, a message send, an audit
+ * write and a DOM commit all have the hub's degree shape — called from many
+ * sites, calling nothing onward — and each is the point where the flow performs
+ * its work. Deleting it at exactly that point is what the tour used to do, and
+ * with eleven callers the flow survived while a twelfth erased it.
+ *
+ * So a hop into a shared utility is dropped only when the flow continues past
+ * it. That is also what removes the two structural faults the same filter
+ * caused: a flow can no longer be emptied by the cut, because a terminal hop is
+ * never dropped, and a step can no longer dangle from a node the flow says it
+ * never reached, because the node list is derived from the hops that survived
+ * rather than filtered independently.
+ */
+function tourHops(
+  graph: TtscGraphMemory,
+  hops: readonly ITtscGraphTrace.IHop[],
+): ITtscGraphTrace.IHop[] {
+  const eligible = hops.filter((hop) => isTourHop(graph, hop));
+  const departures = new Set(eligible.map((hop) => hop.from));
+  return eligible.filter(
+    (hop) => !isSharedUtility(graph, hop.to) || !departures.has(hop.to),
   );
 }
 
@@ -726,8 +755,7 @@ function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
     to.closure !== true &&
     !STRUCTURAL_KINDS.has(hop.kind) &&
     !isNoisePath(from.file) &&
-    !isNoisePath(to.file) &&
-    !isSharedUtility(graph, hop.to)
+    !isNoisePath(to.file)
   );
 }
 
