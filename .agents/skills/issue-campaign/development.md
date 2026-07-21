@@ -56,7 +56,9 @@ Work through the DAG on the claimed topic branch. Analyze the full consequence a
 
 Implement without interruption. Write each piece's tests as that piece lands instead of saving a test pass for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI is read once per settled head](#validate-with-ci-and-self-review).
 
-Give each commit message a `Closes #n` trailer for every issue that commit resolves, then post a pull-request comment naming what the commit landed and which issues it resolved. GitHub closes an issue from a commit message or the pull-request body and never from a comment: the trailer attaches each closing to the change that earned it, and the comment is the running ledger a reader follows without reading the diff.
+Close each issue from the commit that earns it. End the commit message with one `Close #n: <issue title>` line per resolved issue, so a commit that resolves several issues carries several lines. GitHub matches the keyword and the number and reads the title tail as free text, which keeps the log legible without opening each issue.
+
+Post a pull-request comment after each commit naming what that commit landed and which issues it resolved. The comment is the running ledger for a reader who does not read the diff, never a closing mechanism: GitHub closes an issue from a commit message or the pull-request body and never from a comment.
 
 Each issue remains an evidence and acceptance unit inside the combined diff. Keep its positive, negative, boundary, and regression cases identifiable. Near-100% coverage of changed behavior is required; a green happy path is not completion.
 
