@@ -147,6 +147,13 @@ func (noNamespace) Check(ctx *Context, node *shimast.Node) {
   if decl.Name().Kind == shimast.KindStringLiteral {
     return
   }
+  // Skip `declare global { … }`. It is spelled with the `global` keyword
+  // rather than `namespace`/`module`, and it is the only way to augment a
+  // global interface — ES module syntax has no equivalent, so the advice this
+  // rule gives cannot be followed. Upstream exempts it for the same reason.
+  if decl.Keyword == shimast.KindGlobalKeyword {
+    return
+  }
   ctx.Report(node, "ES2015 module syntax is preferred over namespaces.")
 }
 
