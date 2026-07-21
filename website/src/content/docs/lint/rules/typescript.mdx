@@ -645,6 +645,8 @@ Type-aware via the Checker. A floating promise loses its rejection channel and r
 
 The scalar defaults ignore structural thenables, async IIFEs remain checked, and `void` is an explicit escape hatch. `checkThenables`, `ignoreIIFE`, `ignoreVoid`, `allowForKnownSafeCalls`, and `allowForKnownSafePromises` expose the upstream option boundary through typed rule tuples.
 
+`checkThenables` selects what the rule examines, exactly as upstream does: it defaults to `false`, and turning it on reports more rather than less. Left off, a structural thenable is outside the rule entirely — neither a floating thenable nor a handled chain on one is reported. So a configuration carried over from a typescript-eslint project produces the same findings here.
+
 Acceptable sinks are `await`, a callable rejection handler, assignment, the configured `void` escape, and `return`.
 
 Example:
