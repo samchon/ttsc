@@ -158,18 +158,21 @@ func isClauseGapByte(c byte) bool {
 }
 
 // visualWidth returns the display-column width of `s`: a tab expands to a flat
-// `tabWidth` columns and every other rune is charged its display width via
-// runeWidth (combining marks 0, wide East-Asian/emoji 2), matching displayWidth.
-// The only approximation left is the flat tab expansion (no tab-stop rounding),
-// which never changes a real clause-join decision.
+// `tabWidth` columns and everything else is charged by displayWidth, which is
+// Prettier's own measurement. The only approximation left is the flat tab
+// expansion (no tab-stop rounding), which never changes a real clause-join
+// decision.
+//
+// Split on tabs rather than walked per rune, because displayWidth is not a sum
+// over runes: an emoji sequence is measured whole, and splitting it would
+// charge its parts.
 func visualWidth(s string, tabWidth int) int {
   width := 0
-  for _, r := range s {
-    if r == '\t' {
+  for i, segment := range strings.Split(s, "\t") {
+    if i > 0 {
       width += tabWidth
-      continue
     }
-    width += runeWidth(r)
+    width += displayWidth(segment)
   }
   return width
 }
