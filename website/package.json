@@ -15,7 +15,7 @@
     "build:benchmark:png": "node build/graph-benchmark-svg.cjs --png",
     "charts:png": "node build/svg-to-png.cjs",
     "prepare": "pnpm run build:benchmark:graph",
-    "postbuild": "pnpm run test:rss-autodiscovery && pnpm run build:pagefind && pnpm run build:sitemap",
+    "postbuild": "pnpm run test:rss-autodiscovery && pnpm run test:typia-dependency-graph && pnpm run build:pagefind && pnpm run build:sitemap",
     "build:pagefind": "pagefind --site .next/server/app --output-path out/_pagefind",
     "build:sitemap": "next-sitemap",
     "deploy": "node build/deploy.cjs",

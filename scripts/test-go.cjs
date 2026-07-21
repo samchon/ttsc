@@ -17,6 +17,7 @@ const runners = [
   "test-go-wasm.cjs",
   "test-go-lint.cjs",
   "test-go-graph.cjs",
+  "test-go-shim.cjs",
 ];
 
 // Fast Node checks run before the long Go suites so both CI Go lanes cover the
