@@ -44,9 +44,11 @@ const tourOf = (result: ToolResult): TourResult => {
  * execution onward. A shared type or leaf helper has that shape, and so does
  * every terminal action — a commit, a send, an audit write — which is the point
  * where the flow performs its work. Degree cannot tell the two apart, so the
- * cut stays and yields in the two shapes where it would destroy the flow rather
- * than tidy it: it never removes every hop, and it never removes a hop into a
- * node the flow continues past.
+ * cut therefore decides only what is noise, and the two shapes where deleting a
+ * node would destroy the flow are handled without deciding: a hop into a node
+ * the flow continues past is never removed, and a flow the cut would empty is
+ * demoted rather than deleted — held back, then told only when the tour
+ * finishes with nothing else to say.
  *
  * Both shapes are built here at exactly the threshold, twelve in-edges.
  * `auditWrite` is a whole flow's only hop, which used to be discarded whole:
@@ -55,8 +57,9 @@ const tourOf = (result: ToolResult): TourResult => {
  * and narrated a step from a node the same flow reported it never reached.
  *
  * The negative twin lives in `test_ttscgraph_serves_graph_tools_over_mcp`: a
- * `log` helper with these same degrees, sitting beside five sibling hops that
- * survive, is still cut.
+ * `log` helper with these same degrees is cut from the chain it sits in, and
+ * the one-line wrapper whose whole flow is a call to it never displaces a real
+ * chain, because that flow is demoted and the tour has others to tell.
  *
  * 1. Build a project with a sole-hop terminal action and a mid-chain one, each at
  *    twelve in-edges.
@@ -95,9 +98,10 @@ export const test_ttscgraph_tour_keeps_the_terminal_action_it_ends_at =
       "src/app.ts": [
         // Terminal: called from many sites, calls nothing onward.
         "export function auditWrite(): void {}",
-        // Mid-chain: the same fan-in, one outgoing execution edge, so it is
-        // still a hub by degree and the flow continues past it.
         "export function flushBuffer(): void {}",
+        // `commitTx`: the same fan-in as `auditWrite` with one outgoing
+        // execution edge, so it is still a hub by degree and the flow continues
+        // past it.
         "export function commitTx(): void {",
         "  flushBuffer();",
         "}",
@@ -130,10 +134,12 @@ export const test_ttscgraph_tour_keeps_the_terminal_action_it_ends_at =
         arguments: graphArguments({
           thinking:
             "I'm new here; show me what Service.handle and Service.report do.",
-          // `reinterpretations` is a required field. Naming the two entrypoints
-          // is how a caller says which machinery the question is about, and it
-          // makes the flows under test deterministic rather than dependent on
-          // structural ranking in a fixture built to have two equal peaks.
+          // `reinterpretations` is a required field, and naming the two
+          // entrypoints keeps the flows under test deterministic rather than
+          // dependent on structural ranking in a fixture built with two equal
+          // peaks. It must not be load-bearing: the rule under test does not
+          // read the caller's names, and a version that did would pass here
+          // while still erasing an unnamed flow, which is the defect.
           request: {
             type: "tour",
             reinterpretations: ["Service.handle", "Service.report"],
@@ -155,11 +161,14 @@ export const test_ttscgraph_tour_keeps_the_terminal_action_it_ends_at =
         names.includes("auditWrite"),
         `the terminal action a flow's only hop lands on must survive: ${names.join(", ")}`,
       );
-      // Mid-chain: the flow continues past it, so the hop into it stays and the
-      // step out of it has both ends represented.
+      // Mid-chain: the flow continues past it, so the hop INTO it stays. This
+      // asserts the step, not the reached set — `reached` is derived from both
+      // endpoints of every kept hop, so `commitTx` appears there even when only
+      // the hop out of it survived, which is the incoherent shape.
+      const steps = tour.primaryFlow.flatMap((flow) => flow.steps);
       assert.ok(
-        names.includes("commitTx"),
-        `a hub the flow continues past must keep its inbound hop: ${names.join(", ")}`,
+        steps.some((step) => step.includes("-> commitTx")),
+        `a hub the flow continues past must keep its inbound hop: ${steps.join(" | ")}`,
       );
 
       // Every step names two symbols; both have to be reachable as handles in
