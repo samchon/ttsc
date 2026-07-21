@@ -316,7 +316,7 @@ func (s *solidState) reportImports(ctx *Context) {
         decl.ModuleSpecifier,
         correct,
         specNode,
-        s.solidNamedImportFrom(correct, clause.IsTypeOnly),
+        s.solidNamedImportFrom(correct, clause.IsTypeOnly()),
       )
       ctx.ReportFix(specNode, message, edits...)
     }
@@ -347,7 +347,7 @@ func (s *solidState) solidNamedImportFrom(source string, typeOnly bool) *shimast
       continue
     }
     clause := decl.ImportClause.AsImportClause()
-    if clause == nil || clause.Name() != nil || clause.IsTypeOnly != typeOnly ||
+    if clause == nil || clause.Name() != nil || clause.IsTypeOnly() != typeOnly ||
       clause.NamedBindings == nil ||
       clause.NamedBindings.Kind != shimast.KindNamedImports {
       continue
@@ -429,7 +429,7 @@ func solidImportSourceEdits(
   // emits a runtime import under `verbatimModuleSyntax` for a symbol that has
   // no runtime existence.
   keyword := "import "
-  if clause.IsTypeOnly {
+  if clause.IsTypeOnly() {
     keyword = "import type "
   }
   line := keyword + "{ " + text + " } from " + quote + correct + quote + ";\n"
