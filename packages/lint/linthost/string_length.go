@@ -21,15 +21,30 @@ func stringLength(s string) int {
 // GB12/GB13, keeping long combining and regional-indicator runs linear.
 func graphemeCount(s string) int {
   count := 0
+  forEachGraphemeCluster(s, func(string) { count++ })
+  return count
+}
+
+// forEachGraphemeCluster invokes visit once per extended grapheme cluster, in
+// order, with the cluster's own text. It shares the segmenter with
+// graphemeCount so a measurement that needs the cluster's content (display
+// width, which charges an emoji cluster as one unit) and a measurement that
+// needs only their number can never disagree about where a boundary is. Each
+// cluster is a slice of s, so the walk allocates nothing.
+func forEachGraphemeCluster(s string, visit func(cluster string)) {
   var segmenter graphemeSegmenter
-  for _, current := range s {
+  start := 0
+  for index, current := range s {
     properties := graphemeProperties(current)
-    if segmenter.hasBoundaryBefore(properties) {
-      count++
+    if segmenter.hasBoundaryBefore(properties) && index > start {
+      visit(s[start:index])
+      start = index
     }
     segmenter.consume(properties)
   }
-  return count
+  if start < len(s) {
+    visit(s[start:])
+  }
 }
 
 type graphemeRuneProperties struct {
@@ -188,20 +203,7 @@ func lookupIndicConjunctBreakClass(r rune) indicConjunctBreakClass {
 }
 
 func isExtendedPictographic(r rune) bool {
-  lo, hi := 0, len(extendedPictographicRanges)
-  for lo < hi {
-    middle := int(uint(lo+hi) >> 1)
-    candidate := extendedPictographicRanges[middle]
-    switch {
-    case r < candidate.lo:
-      hi = middle
-    case r > candidate.hi:
-      lo = middle + 1
-    default:
-      return true
-    }
-  }
-  return false
+  return inUnicodeRanges(extendedPictographicRanges[:], r)
 }
 
 func isGraphemeControlClass(class graphemeBreakClass) bool {
