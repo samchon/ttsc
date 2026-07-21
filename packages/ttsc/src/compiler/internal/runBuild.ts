@@ -805,9 +805,7 @@ function verboseBuildSummary(
       lines.push(`  + ${path.relative(execution.cwd, file) || file}`);
     }
   }
-  return lines.join("
-") + "
-";
+  return `${lines.join("\n")}\n`;
 }
 
 /** Build the argument list for a direct `tsgo` build invocation. */
