@@ -1060,7 +1060,8 @@ export interface ITtscLintTypeScriptRules {
   "typescript/require-array-sort-compare"?: TtscLintRuleSetting;
 
   /**
-   * Reject `async` functions whose body contains no `await` expression.
+   * Reject `async` functions that have no `await` expression and return no
+   * promise.
    *
    * An async function with no `await` only inflates the return type to
    * `Promise<T>` without doing any asynchronous work; collapse it to a sync

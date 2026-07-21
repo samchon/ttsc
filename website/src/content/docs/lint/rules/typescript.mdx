@@ -94,7 +94,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 ### Require
 
 - [`typescript/require-array-sort-compare`](#rule-typescript-require-array-sort-compare): Require `arr.sort()` and `arr.toSorted()` calls to pass an explicit `compareFunction`.
-- [`typescript/require-await`](#rule-typescript-require-await): Reject `async` functions whose body contains no `await` expression.
+- [`typescript/require-await`](#rule-typescript-require-await): Reject `async` functions that have no `await` expression and return no promise.
 
 ### Consistency
 
@@ -1869,7 +1869,7 @@ numbers.sort();
 
 ### `typescript/require-await`
 
-Reject `async` functions whose body contains no `await` expression.
+Reject `async` functions that have no `await` expression and return no promise.
 
 An async function with no `await` only inflates the return type to `Promise<T>` without doing any asynchronous work; collapse it to a sync function.
 
