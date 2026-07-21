@@ -152,16 +152,26 @@ export function runTour(
     if (start === undefined) continue;
     const { kept: hops, demotable } = tourHops(graph, trace.hops);
     if (hops.length === 0) {
-      if (demoted === undefined && demotable.length > 0)
+      // Held back under the same rule the published path uses: a candidate that
+      // reached nothing is not a flow, so it is not worth holding either.
+      const demotedReach =
+        demotable.length === 0 ? [] : reachedOf(graph, trace, demotable);
+      if (demoted === undefined && demotedReach.length > 0)
         demoted = {
           start,
           hops: demotable,
-          reached: reachedOf(graph, trace, demotable),
+          reached: demotedReach,
           truncated: trace.truncated === true,
         };
       continue;
     }
     const reached = reachedOf(graph, trace, hops);
+    // A flow that reached nothing is not a flow. It can still have a hop —
+    // `runTrace` records a back-edge to the start without adding a node,
+    // because the start travels separately — so `hops.length` does not answer
+    // this. What a flow is for is the handles a caller goes on with, and this
+    // one has none.
+    if (reached.length === 0) continue;
     const landed = new Set(reached.map((node) => node.id));
     if (told.some((earlier) => overlaps(landed, earlier))) continue;
     told.push(landed);
@@ -730,11 +740,20 @@ function flowSeedIdsOf(seeds: ITtscGraphNode[]): string[] {
  * twice. Overlap is measured against the smaller flow, so a short chain fully
  * contained in a longer one counts as told, which is what a sibling entry
  * (`parse` beside `safeParse`) actually is.
+ *
+ * Neither side matches when it is empty, and the two are empty for different
+ * reasons. An empty CANDIDATE reached nothing, so it is not a flow at all and
+ * the caller settles it before asking here. An empty TOLD would mean the tour
+ * had published a flow that reached nothing; it cannot now, and while it could,
+ * this function reported every later candidate as a synonym of that emptiness.
+ * One directly self-recursive function — a retry loop, a tree walk, a parser's
+ * descent — produced exactly that set, and the tour lost every real flow ranked
+ * after it.
  */
 function overlaps(candidate: Set<string>, told: Set<string>): boolean {
+  if (candidate.size === 0 || told.size === 0) return false;
   const smaller = candidate.size <= told.size ? candidate : told;
   const larger = smaller === candidate ? told : candidate;
-  if (smaller.size === 0) return true;
   let shared = 0;
   for (const id of smaller) if (larger.has(id)) shared++;
   return shared / smaller.size >= FLOW_OVERLAP;
