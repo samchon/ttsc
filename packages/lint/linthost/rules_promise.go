@@ -862,6 +862,14 @@ func analyzeFloatingPromiseCall(
   var nonPromiseReceivers []*shimchecker.Type
   sawPromiseReceiver := false
   sawUnsafePromiseReceiver := false
+  // A thenable receiver the option leaves out of scope is not the same as a
+  // receiver that is not promise-like at all. Upstream's `checkThenables`
+  // decides which types the rule examines — "whether to check all Thenables,
+  // not just the built-in Promise type" — so with the option off a thenable is
+  // outside the rule, not an unhandled promise. Collapsing the two is what made
+  // `false` the strict setting here and `true` the lenient one, the exact
+  // inversion of the option this borrows its name from.
+  sawOutOfScopeThenable := false
   receiverIsOptional := floatingPromisePropertyAccessIsOptional(call.Expression)
   for _, part := range promiseUnionParts(apparent) {
     if part == nil {
@@ -875,15 +883,26 @@ func analyzeFloatingPromiseCall(
       sawPromiseReceiver = true
       continue
     }
-    if isNativePromiseInstanceLike(ctx.Checker, part) ||
-      (options.CheckThenables && isCatchableThenableAtLocation(ctx.Checker, receiver, part)) {
+    if isNativePromiseInstanceLike(ctx.Checker, part) {
       sawPromiseReceiver = true
       sawUnsafePromiseReceiver = true
+      continue
+    }
+    if isCatchableThenableAtLocation(ctx.Checker, receiver, part) {
+      if options.CheckThenables {
+        sawPromiseReceiver = true
+        sawUnsafePromiseReceiver = true
+        continue
+      }
+      sawOutOfScopeThenable = true
       continue
     }
     nonPromiseReceivers = append(nonPromiseReceivers, part)
   }
   if !sawPromiseReceiver {
+    if sawOutOfScopeThenable && len(nonPromiseReceivers) == 0 {
+      return floatingPromiseResult{}
+    }
     return floatingPromiseResult{unhandled: callResultIsFloating}
   }
 
