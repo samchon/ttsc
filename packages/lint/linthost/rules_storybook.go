@@ -12,6 +12,8 @@ import (
   "unicode"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 type storybookAwaitInteractions struct{}
@@ -89,6 +91,14 @@ func (storybookDefaultExports) Check(ctx *Context, node *shimast.Node) {
 type storybookHierarchySeparator struct{}
 
 func (storybookHierarchySeparator) Name() string { return "storybook/hierarchy-separator" }
+
+// DiagnosticTags strikes the separator through: `|` is Storybook's superseded
+// hierarchy separator, and a title that uses it still renders — Storybook
+// keeps reading it — so the finding is exactly "this still works, migrate off
+// it", never "delete this title property".
+func (storybookHierarchySeparator) DiagnosticTags() []publicrule.DiagnosticTag {
+  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
+}
 func (storybookHierarchySeparator) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
@@ -101,7 +111,74 @@ func (storybookHierarchySeparator) Check(ctx *Context, node *shimast.Node) {
   if !ok || !strings.Contains(storybookLiteralString(value), "|") {
     return
   }
-  ctx.Report(prop, "Deprecated hierarchy separator in title property.")
+  const message = "Deprecated hierarchy separator in title property."
+  pos, end, located := storybookLiteralPipeRange(ctx.File, value)
+  if !located {
+    // The decoded title carries the separator, so the finding is real even when
+    // the raw spelling that produced it cannot be bounded. Report the property
+    // rather than dropping the diagnostic: a wider strikethrough is an
+    // imprecision, a missing diagnostic is a rule that stopped working.
+    ctx.Report(prop, message)
+    return
+  }
+  ctx.ReportRange(pos, end, message)
+}
+
+// storybookLiteralPipeRange returns the raw source range of one `|` that the
+// parser decoded from a title literal. The tagged diagnostic must cover the
+// deprecated separator itself, not the still-live title property around it.
+//
+// A pipe can be written directly or as an active `\\|`, `\\x7C`, `\\u007C`, or
+// `\\u{7C}` escape. Every spelling below evaluates to the same separator, and
+// reporting its complete raw escape keeps the editor range valid for each.
+func storybookLiteralPipeRange(file *shimast.SourceFile, node *shimast.Node) (int, int, bool) {
+  pos, end := tokenRange(file, node)
+  if pos < 0 {
+    return 0, 0, false
+  }
+  src := file.Text()
+  for index := pos; index < end; {
+    if src[index] == '|' {
+      return index, index + 1, true
+    }
+    if src[index] != '\\' {
+      index++
+      continue
+    }
+    start := index
+    for index < end && src[index] == '\\' {
+      index++
+    }
+    if (index-start)%2 == 0 || index >= end {
+      continue
+    }
+    active := index - 1
+    switch src[index] {
+    case '|':
+      return active, index + 1, true
+    case 'x':
+      if index+2 < end && hexDigit(src[index+1])*16+hexDigit(src[index+2]) == int('|') {
+        return active, index + 3, true
+      }
+    case 'u':
+      if index+1 < end && src[index+1] == '{' {
+        close := index + 2
+        value := 0
+        for close < end && hexDigit(src[close]) >= 0 {
+          value = value*16 + hexDigit(src[close])
+          close++
+        }
+        if close > index+2 && close < end && src[close] == '}' && value == int('|') {
+          return active, close + 1, true
+        }
+      } else if index+4 < end &&
+        hexDigit(src[index+1])*4096+hexDigit(src[index+2])*256+hexDigit(src[index+3])*16+hexDigit(src[index+4]) == int('|') {
+        return active, index + 5, true
+      }
+    }
+    index++
+  }
+  return 0, 0, false
 }
 
 type storybookMetaInlineProperties struct{}
@@ -140,18 +217,34 @@ func (storybookMetaSatisfiesType) Check(ctx *Context, node *shimast.Node) {
 type storybookNoRedundantStoryName struct{}
 
 func (storybookNoRedundantStoryName) Name() string { return "storybook/no-redundant-story-name" }
+
+// DiagnosticTags greys the redundant annotation out. Both arms of this rule
+// report an annotation that restates the name Storybook already derives from
+// the export identifier — the object property in one, the standalone
+// `Story.storyName =` assignment in the other — and each is reported at
+// exactly the range whose deletion is the whole resolution.
+func (storybookNoRedundantStoryName) DiagnosticTags() []publicrule.DiagnosticTag {
+  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagUnnecessary}
+}
 func (storybookNoRedundantStoryName) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
 func (storybookNoRedundantStoryName) Check(ctx *Context, node *shimast.Node) {
+  namedExports := map[string]bool{}
   for _, story := range storybookNamedExports(ctx.File) {
+    namedExports[story.Name] = true
     if story.Init == nil || story.Init.Kind != shimast.KindObjectLiteralExpression {
       continue
     }
     for _, propName := range []string{"name", "storyName"} {
       prop, value, ok := storybookObjectProperty(story.Init, propName)
       if ok && storybookLiteralString(value) == storybookNameFromExport(story.Name) {
-        ctx.Report(prop, "Named exports should not use a redundant story name annotation.")
+        pos, end, removable := storybookRemovablePropertyRange(ctx.File, prop)
+        if removable {
+          ctx.ReportRange(pos, end, "Named exports should not use a redundant story name annotation.")
+        } else {
+          ctx.Report(prop, "Named exports should not use a redundant story name annotation.")
+        }
       }
     }
   }
@@ -164,10 +257,45 @@ func (storybookNoRedundantStoryName) Check(ctx *Context, node *shimast.Node) {
       return
     }
     objectName, propName := storybookPropertyAccessParts(expr.Left)
-    if propName == "storyName" && storybookLiteralString(expr.Right) == storybookNameFromExport(objectName) {
-      ctx.Report(child, "Named exports should not use a redundant story name annotation.")
+    if namedExports[objectName] &&
+      propName == "storyName" &&
+      storybookLiteralString(expr.Right) == storybookNameFromExport(objectName) {
+      if child.Parent == nil ||
+        child.Parent.Kind != shimast.KindExpressionStatement ||
+        child.Parent.Parent == nil ||
+        child.Parent.Parent.Kind != shimast.KindSourceFile {
+        return
+      }
+      // The Unnecessary tag is rule-wide. Only a standalone assignment can be
+      // removed as a whole; an assignment nested in another expression still
+      // contributes its value, while one in a nested scope can refer to a
+      // same-named shadow instead of the exported story.
+      ctx.Report(child.Parent, "Named exports should not use a redundant story name annotation.")
     }
   })
+}
+
+// storybookRemovablePropertyRange returns the complete removable grain of an
+// object property. A PropertyAssignment node stops before its trailing comma;
+// when one is present, include it (and any trivia before it) so deleting
+// exactly the faded `Unnecessary` range leaves valid object syntax.
+//
+// A comment sitting between the property and its comma is therefore faded with
+// them. That is deliberate, not an oversight: the alternative — stopping at the
+// comment and leaving the comma behind — produces `{ /* note */, }`, which does
+// not parse. Only one of the two can hold, and a range whose deletion always
+// leaves valid syntax is the contract the Unnecessary tag makes.
+func storybookRemovablePropertyRange(file *shimast.SourceFile, property *shimast.Node) (int, int, bool) {
+  pos, end := tokenRange(file, property)
+  if pos < 0 {
+    return 0, 0, false
+  }
+  source := file.Text()
+  comma := shimscanner.SkipTrivia(source, end)
+  if comma < len(source) && source[comma] == ',' {
+    end = comma + 1
+  }
+  return pos, end, true
 }
 
 type storybookNoRendererPackages struct{}
@@ -181,27 +309,106 @@ func (storybookNoRendererPackages) Check(ctx *Context, node *shimast.Node) {
   if decl == nil {
     return
   }
-  if _, ok := storybookRendererPackages[storybookLiteralString(decl.ModuleSpecifier)]; ok {
-    ctx.Report(node, "Do not import Storybook renderer packages directly. Use a framework package instead.")
+  frameworks, ok := storybookRendererPackages[storybookLiteralString(decl.ModuleSpecifier)]
+  if !ok || len(frameworks) == 0 {
+    return
   }
+  message := "Do not import Storybook renderer packages directly. Use a framework package instead: " +
+    storybookDisjunction(frameworks) + "."
+  pos, end, quoted := storybookQuotedTextRange(ctx.File, decl.ModuleSpecifier)
+  if !quoted {
+    ctx.Report(node, message)
+    return
+  }
+  suggestions := make([]Suggestion, 0, len(frameworks))
+  for _, framework := range frameworks {
+    suggestions = append(suggestions, Suggestion{
+      Title: "Import from `" + framework + "`.",
+      Edits: []TextEdit{{Pos: pos, End: end, Text: framework}},
+    })
+  }
+  ctx.ReportFixSuggestions(node, message, nil, suggestions...)
+}
+
+// storybookDisjunction renders a package list the way upstream's
+// `Intl.ListFormat("en-US", {type: "disjunction"})` does: "a", "a or b",
+// "a, b, or c".
+func storybookDisjunction(items []string) string {
+  quoted := make([]string, 0, len(items))
+  for _, item := range items {
+    quoted = append(quoted, "`"+item+"`")
+  }
+  switch len(quoted) {
+  case 0:
+    return ""
+  case 1:
+    return quoted[0]
+  case 2:
+    return quoted[0] + " or " + quoted[1]
+  default:
+    return strings.Join(quoted[:len(quoted)-1], ", ") + ", or " + quoted[len(quoted)-1]
+  }
+}
+
+// storybookQuotedTextRange returns the byte range of the text inside a string
+// literal's quotes, so a rewrite replaces the contents and leaves the
+// surrounding quote characters exactly as the author wrote them. Reports false
+// for anything that is not a plainly quoted literal, such as a
+// parse-recovered node with no closing quote.
+func storybookQuotedTextRange(file *shimast.SourceFile, node *shimast.Node) (int, int, bool) {
+  pos, end := tokenRange(file, node)
+  if pos < 0 || end-pos < 2 {
+    return 0, 0, false
+  }
+  src := file.Text()
+  quote := src[pos]
+  if quote != '"' && quote != '\'' {
+    return 0, 0, false
+  }
+  if src[end-1] != quote {
+    return 0, 0, false
+  }
+  return pos + 1, end - 1, true
 }
 
 type storybookNoStoriesOf struct{}
 
 func (storybookNoStoriesOf) Name() string { return "storybook/no-stories-of" }
+
+// DiagnosticTags strikes the `storiesOf` import specifier through. The builder
+// API is deprecated in favor of CSF but still runs, and the whole reported
+// range is the specifier that names it, so migration — not deletion — is the
+// instruction the editor should render.
+func (storybookNoStoriesOf) DiagnosticTags() []publicrule.DiagnosticTag {
+  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagDeprecated}
+}
 func (storybookNoStoriesOf) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindImportSpecifier}
 }
 func (storybookNoStoriesOf) Check(ctx *Context, node *shimast.Node) {
   spec := node.AsImportSpecifier()
-  if spec != nil && storybookImportSpecifierImportedName(spec) == "storiesOf" {
-    ctx.Report(node, "storiesOf is deprecated and should not be used.")
+  if spec != nil &&
+    storybookImportSpecifierImportedName(spec) == "storiesOf" &&
+    isStorybookStoriesOfModule(storybookImportSpecifierModule(node)) {
+    reported := spec.Name()
+    if spec.PropertyName != nil {
+      reported = spec.PropertyName
+    }
+    ctx.Report(reported, "storiesOf is deprecated and should not be used.")
   }
 }
 
 type storybookNoTitlePropertyInMeta struct{}
 
 func (storybookNoTitlePropertyInMeta) Name() string { return "storybook/no-title-property-in-meta" }
+
+// DiagnosticTags greys the `title` property out. CSF3 derives a story's title
+// from the file's location on disk, so the property is dead weight rather than
+// a wrong value, and the reported range is the property itself: removing
+// exactly what the editor fades is the resolution.
+func (storybookNoTitlePropertyInMeta) DiagnosticTags() []publicrule.DiagnosticTag {
+  return []publicrule.DiagnosticTag{publicrule.DiagnosticTagUnnecessary}
+}
 func (storybookNoTitlePropertyInMeta) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
@@ -211,7 +418,12 @@ func (storybookNoTitlePropertyInMeta) Check(ctx *Context, node *shimast.Node) {
     return
   }
   if prop, _, ok := storybookObjectProperty(meta.Object, "title"); ok {
-    ctx.Report(prop, "CSF3 does not need a title in meta.")
+    pos, end, removable := storybookRemovablePropertyRange(ctx.File, prop)
+    if removable {
+      ctx.ReportRange(pos, end, "CSF3 does not need a title in meta.")
+    } else {
+      ctx.Report(prop, "CSF3 does not need a title in meta.")
+    }
   }
 }
 
@@ -368,6 +580,16 @@ var storybookRendererPackages = map[string][]string{
   "@storybook/svelte":         {"@storybook/svelte-vite", "@storybook/svelte-webpack5", "@storybook/sveltekit"},
   "@storybook/vue3":           {"@storybook/vue3-vite", "@storybook/vue3-webpack5"},
   "@storybook/web-components": {"@storybook/web-components-vite", "@storybook/web-components-webpack5"},
+}
+
+var storybookStoriesOfModules = []string{
+  "@storybook/react",
+  "@storybook/vue",
+  "@storybook/vue3",
+  "@storybook/angular",
+  "@storybook/svelte",
+  "@storybook/html",
+  "@storybook/web-components",
 }
 
 func storybookDefaultMeta(file *shimast.SourceFile) *storybookMetaInfo {
@@ -756,7 +978,30 @@ func storybookDescriptorsMatch(descriptors []storybookDescriptor, name string) b
 }
 
 func storybookHasStoriesOfImport(file *shimast.SourceFile) bool {
-  return storybookHasNamedImport(file, "storiesOf", "@storybook/react", "@storybook/vue", "@storybook/vue3", "@storybook/angular", "@storybook/svelte", "@storybook/html", "@storybook/web-components")
+  return storybookHasNamedImport(file, "storiesOf", storybookStoriesOfModules...)
+}
+
+func isStorybookStoriesOfModule(module string) bool {
+  for _, candidate := range storybookStoriesOfModules {
+    if module == candidate {
+      return true
+    }
+  }
+  return false
+}
+
+func storybookImportSpecifierModule(node *shimast.Node) string {
+  for current := node; current != nil; current = current.Parent {
+    if current.Kind != shimast.KindImportDeclaration {
+      continue
+    }
+    decl := current.AsImportDeclaration()
+    if decl == nil {
+      return ""
+    }
+    return storybookLiteralString(decl.ModuleSpecifier)
+  }
+  return ""
 }
 
 func storybookHasNamedImport(file *shimast.SourceFile, name string, modules ...string) bool {

@@ -85,16 +85,28 @@ func ModuleResolutionPredecessors(
   context ModuleResolutionContext,
 ) []string {
   candidates := ModuleResolutionCandidates(configs, directory, cwd, specifier, context)
-  output := make([]string, 0, len(candidates))
-  for _, candidate := range candidates {
+  for index, candidate := range candidates {
     if sameCandidatePath(candidate, resolvedFileName, caseSensitive) {
-      return compactStringsInOrder(output)
+      return compactStringsInOrder(candidates[:index])
     }
-    output = append(output, candidate)
+  }
+  // The winner is not spelled the way this search spells it. The compiler
+  // resolves a `node_modules` package through the real path, so its selected
+  // target can arrive symlink-resolved — and on Windows expanded out of an 8.3
+  // short name such as `RUNNER~1` — while every candidate carries the importing
+  // file's spelling. Ask the filesystem which candidate is that file instead of
+  // discarding the whole search.
+  //
+  // This second pass runs only when the first found nothing, so a program whose
+  // spellings already agree pays nothing for it.
+  for index, candidate := range candidates {
+    if sameExistingPath(candidate, resolvedFileName) {
+      return compactStringsInOrder(candidates[:index])
+    }
   }
   // Never widen freshness to candidates whose precedence relative to the
-  // compiler's selected target we could not prove. A symlink-rewritten or
-  // otherwise non-enumerated winner remains covered by its realized graph edge.
+  // compiler's selected target we could not prove. A winner that is genuinely
+  // outside this search remains covered by its realized graph edge.
   return nil
 }
 
@@ -175,6 +187,47 @@ func sameCandidatePath(left, right string, caseSensitive bool) bool {
     return left == right
   }
   return strings.EqualFold(left, right)
+}
+
+// sameExistingPath reports whether two spellings name the same existing
+// filesystem object. A path that does not exist answers false, so a
+// speculative candidate costs one failing `os.Stat` and never reaches the
+// second call.
+func sameExistingPath(left, right string) bool {
+  leftInfo, err := os.Stat(left)
+  if err != nil {
+    return false
+  }
+  rightInfo, err := os.Stat(right)
+  if err != nil {
+    return false
+  }
+  return os.SameFile(leftInfo, rightInfo)
+}
+
+// reachedWalkStop reports whether an upward `node_modules` walk has arrived at
+// the directory it must not pass. The walk starts from the importing file's
+// directory as the compiler spells it and stops at the project root as the
+// caller spells it, and the two need not agree character for character on a
+// case-insensitive or short-name-bearing filesystem. A missed stop walks every
+// remaining ancestor up to the volume root and watches probes the compiler
+// would never consult.
+//
+// Two spellings of one directory still share a final component up to case
+// unless that component is itself shortened, so the mismatching levels — every
+// level below the stop — are rejected without touching the filesystem. A stop
+// missed by the remaining heuristic costs breadth, never a wrong answer: the
+// extra ancestors are appended after the correct ones, so a predecessor list
+// cut at the winner is unaffected.
+func reachedWalkStop(current, stop string) bool {
+  stop = filepath.Clean(stop)
+  if current == stop {
+    return true
+  }
+  if !strings.EqualFold(filepath.Base(current), filepath.Base(stop)) {
+    return false
+  }
+  return sameExistingPath(current, stop)
 }
 
 // FileCandidates lists the ordered file and directory probes for base. The
@@ -276,7 +329,7 @@ func TypeReferenceCandidates(configs []*tsoptions.ParsedCommandLine, directory, 
   }
   for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
     candidates = append(candidates, FileCandidates(filepath.Join(current, "node_modules", "@types", filepath.FromSlash(name)))...)
-    if current == filepath.Clean(cwd) || filepath.Dir(current) == current {
+    if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
       return candidates
     }
   }
@@ -302,7 +355,7 @@ func ModuleResolutionCandidates(configs []*tsoptions.ParsedCommandLine, director
     for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
       fromManifest, _ := packageManifestCandidates(current, specifier, context)
       candidates = append(candidates, fromManifest...)
-      if current == filepath.Clean(cwd) || filepath.Dir(current) == current {
+      if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
         return candidates
       }
     }
@@ -319,7 +372,7 @@ func ModuleResolutionCandidates(configs []*tsoptions.ParsedCommandLine, director
     }
     candidates = append(candidates, filepath.Join(root, "package.json"))
     candidates = append(candidates, fromManifest...)
-    if current == filepath.Clean(cwd) || filepath.Dir(current) == current {
+    if reachedWalkStop(current, cwd) || filepath.Dir(current) == current {
       break
     }
   }

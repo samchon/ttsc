@@ -78,10 +78,9 @@ type lspRelatedInformation struct {
 }
 
 // lspCodeDescription mirrors the proxy's LSPCodeDescription: a docs URL for the
-// diagnostic's Code. The lint sidecar leaves it unset today — no vetted mapping
-// from a rule name to its docs page exists — but the field is present so a
-// future source (a rule-supplied URL, or a maintained rule-to-page table) has a
-// wire to travel on without the proxy dropping it.
+// diagnostic's Code, which editors surface as the link on the rule id in the
+// Problems panel. ruleDocumentationURL derives the href per rule family (see
+// rule_docs.go); rules with no vetted page leave the whole field absent.
 type lspCodeDescription struct {
   Href string `json:"href"`
 }
@@ -476,6 +475,7 @@ func findingToLSPDiagnostic(finding *Finding) lspDiagnostic {
     Range:              lspRangeForFinding(finding),
     Severity:           lspSeverity(finding.Severity),
     Code:               finding.Rule,
+    CodeDescription:    lspCodeDescriptionForRule(finding.Rule),
     Source:             "@ttsc/lint",
     Message:            finding.Message,
     Tags:               lspDiagnosticTags(finding.Tags),

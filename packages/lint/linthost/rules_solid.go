@@ -4,6 +4,7 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
 type solidRule struct {
@@ -11,6 +12,29 @@ type solidRule struct {
 }
 
 func (r solidRule) Name() string { return "solid/" + r.name }
+
+// DiagnosticTags marks `solid/no-react-deps` findings as unnecessary code so an
+// editor greys the dependency array out.
+//
+// The rule reports the dependency-array literal and nothing around it, and
+// Solid tracks dependencies automatically, so the array is inert: deleting
+// exactly the reported range is the whole resolution, which is what greying
+// tells the author to do.
+//
+// The marker is rule-level, so a rule whose findings do not all mean "delete
+// this" cannot take it. `solid/no-react-specific-props` is the near miss — its
+// `key` arm does mean deletion, but its `className` and `htmlFor` arms mean
+// "rename this", and one tag cannot say both.
+func (r solidRule) DiagnosticTags() []publicrule.DiagnosticTag {
+  if r.name == "no-react-deps" {
+    return []publicrule.DiagnosticTag{publicrule.DiagnosticTagUnnecessary}
+  }
+  return nil
+}
+func (r solidRule) NeedsTypeChecker() bool {
+  return r.name == "no-react-deps"
+}
+
 func (r solidRule) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindSourceFile}
 }
@@ -80,6 +104,7 @@ type solidState struct {
   declared     map[string]bool
   importedFrom map[string]string
   solidImport  map[string]string
+  solidSymbols map[string]*shimast.Symbol
   signals      map[string]bool
 }
 
@@ -88,6 +113,7 @@ func collectSolidState(ctx *Context) *solidState {
     declared:     map[string]bool{},
     importedFrom: map[string]string{},
     solidImport:  map[string]string{},
+    solidSymbols: map[string]*shimast.Symbol{},
     signals:      map[string]bool{},
   }
   if ctx == nil || ctx.File == nil {
@@ -98,7 +124,7 @@ func collectSolidState(ctx *Context) *solidState {
       continue
     }
     state.imports = append(state.imports, stmt)
-    state.collectImport(stmt)
+    state.collectImport(ctx, stmt)
   }
   walkDescendants(ctx.File.AsNode(), func(child *shimast.Node) {
     if child == nil {
@@ -132,13 +158,13 @@ func collectSolidState(ctx *Context) *solidState {
   return state
 }
 
-func (s *solidState) collectImport(node *shimast.Node) {
+func (s *solidState) collectImport(ctx *Context, node *shimast.Node) {
   decl := node.AsImportDeclaration()
   if decl == nil {
     return
   }
   source := stringLiteralText(decl.ModuleSpecifier)
-  if strings.HasPrefix(source, "solid-js") {
+  if isSolidModuleSource(source) {
     s.hasSolid = true
   }
   if decl.ImportClause == nil {
@@ -151,9 +177,30 @@ func (s *solidState) collectImport(node *shimast.Node) {
   if name := identifierText(clause.Name()); name != "" {
     s.declared[name] = true
     s.importedFrom[name] = source
+    if isSolidModuleSource(source) {
+      s.solidSymbols[name] = canonicalValueSymbol(ctx, clause.Name())
+    }
   }
   bindings := clause.NamedBindings
-  if bindings == nil || bindings.Kind != shimast.KindNamedImports {
+  if bindings == nil {
+    return
+  }
+  if bindings.Kind == shimast.KindNamespaceImport {
+    namespace := bindings.AsNamespaceImport()
+    if namespace == nil {
+      return
+    }
+    local := identifierText(namespace.Name())
+    if local != "" {
+      s.declared[local] = true
+      s.importedFrom[local] = source
+      if isSolidModuleSource(source) {
+        s.solidSymbols[local] = canonicalValueSymbol(ctx, namespace.Name())
+      }
+    }
+    return
+  }
+  if bindings.Kind != shimast.KindNamedImports {
     return
   }
   named := bindings.AsNamedImports()
@@ -175,8 +222,9 @@ func (s *solidState) collectImport(node *shimast.Node) {
     }
     s.declared[local] = true
     s.importedFrom[local] = source
-    if strings.HasPrefix(source, "solid-js") {
+    if isSolidModuleSource(source) {
       s.solidImport[local] = imported
+      s.solidSymbols[local] = canonicalValueSymbol(ctx, spec.Name())
     }
   }
 }
@@ -255,11 +303,69 @@ func (s *solidState) reportImports(ctx *Context) {
           imported = identifierText(spec.Name())
         }
       }
-      if correct := solidPreferredSource(imported); correct != "" && correct != source {
-        ctx.Report(specNode, "Import Solid API from its canonical module.")
+      correct := solidPreferredSource(imported)
+      if correct == "" || correct == source {
+        continue
       }
+      message := "Import `" + imported + "` from `" + correct + "`."
+      edits := solidImportSourceEdits(ctx.File, clause, named, decl.ModuleSpecifier, correct)
+      ctx.ReportFix(specNode, message, edits...)
     }
   }
+}
+
+// solidImportSourceEdits rewrites the declaration's module specifier to
+// `correct`, but only when this specifier is the declaration's sole binding.
+//
+// A declaration that also carries a default binding or further named
+// specifiers cannot be repaired by rewriting the specifier: the other symbols
+// belong to the module as written and would be dragged along with it. Moving
+// one specifier out of such a declaration means splitting it, which is a
+// rewrite of the import block rather than of one token, so those findings stay
+// diagnostic-only and the message names the module instead.
+//
+// Only the text between the quotes is replaced, so the file's quote style
+// survives. Returns nil when the specifier is not a plainly quoted literal,
+// which downgrades the caller to a plain diagnostic.
+func solidImportSourceEdits(
+  file *shimast.SourceFile,
+  clause *shimast.ImportClause,
+  named *shimast.NamedImports,
+  moduleSpecifier *shimast.Node,
+  correct string,
+) []TextEdit {
+  if clause == nil || clause.Name() != nil || named == nil || named.Elements == nil {
+    return nil
+  }
+  if len(named.Elements.Nodes) != 1 {
+    return nil
+  }
+  pos, end, ok := solidQuotedTextRange(file, moduleSpecifier)
+  if !ok {
+    return nil
+  }
+  return []TextEdit{{Pos: pos, End: end, Text: correct}}
+}
+
+// solidQuotedTextRange returns the byte range of the text inside a string
+// literal's quotes, so a rewrite replaces the contents and leaves the
+// surrounding quote characters exactly as the author wrote them. Reports false
+// for anything that is not a plainly quoted literal, such as a
+// parse-recovered node with no closing quote.
+func solidQuotedTextRange(file *shimast.SourceFile, node *shimast.Node) (int, int, bool) {
+  pos, end := tokenRange(file, node)
+  if pos < 0 || end-pos < 2 {
+    return 0, 0, false
+  }
+  src := file.Text()
+  quote := src[pos]
+  if quote != '"' && quote != '\'' {
+    return 0, 0, false
+  }
+  if src[end-1] != quote {
+    return 0, 0, false
+  }
+  return pos + 1, end - 1, true
 }
 
 func (s *solidState) reportNoDestructure(ctx *Context) {
@@ -386,13 +492,47 @@ func (s *solidState) reportReactSpecificProps(ctx *Context) {
     }
     switch solidJSXAttrName(attr) {
     case "className":
-      ctx.Report(attr, "Use Solid's `class` prop instead of `className`.")
+      ctx.ReportFix(
+        attr,
+        "Use Solid's `class` prop instead of `className`.",
+        solidAttrRenameEdits(ctx.File, attr, "class")...,
+      )
     case "htmlFor":
-      ctx.Report(attr, "Use Solid's `for` prop instead of `htmlFor`.")
+      ctx.ReportFix(
+        attr,
+        "Use Solid's `for` prop instead of `htmlFor`.",
+        solidAttrRenameEdits(ctx.File, attr, "for")...,
+      )
     case "key":
       ctx.Report(attr, "DOM elements in Solid do not need React-style `key` props.")
     }
   }
+}
+
+// solidAttrRenameEdits rewrites a JSX attribute's name token and nothing else.
+//
+// `className` and `class` mean the same thing to a Solid DOM element, as do
+// `htmlFor` and `for`, so the rename is a pure 1:1 substitution and safe to
+// impose. Leaving the value untouched is what makes it safe for every value
+// shape at once: a string, an expression container, and a shorthand boolean
+// attribute all keep whatever follows the name.
+//
+// The `key` arm has no counterpart here on purpose. Solid DOM elements do not
+// consume `key` at all, so the resolution is deletion, not a rename, and the
+// deletion has to take the surrounding whitespace with it to leave valid JSX.
+//
+// Returns nil when the name token cannot be located, which downgrades the
+// caller to a plain diagnostic.
+func solidAttrRenameEdits(file *shimast.SourceFile, attrNode *shimast.Node, name string) []TextEdit {
+  attr := attrNode.AsJsxAttribute()
+  if attr == nil {
+    return nil
+  }
+  pos, end := tokenRange(file, attr.Name())
+  if pos < 0 {
+    return nil
+  }
+  return []TextEdit{{Pos: pos, End: end, Text: name}}
 }
 
 func (s *solidState) reportUnknownNamespaces(ctx *Context) {
@@ -419,7 +559,7 @@ func (s *solidState) reportReactDeps(ctx *Context) {
     if call == nil || call.Arguments == nil || len(call.Arguments.Nodes) != 2 {
       continue
     }
-    name := s.callName(call)
+    name := s.solidTrackedCallName(ctx, call)
     if name != "createEffect" && name != "createMemo" {
       continue
     }
@@ -429,6 +569,41 @@ func (s *solidState) reportReactDeps(ctx *Context) {
       ctx.Report(second, "Solid automatically tracks dependencies; remove React-style dependency arrays.")
     }
   }
+}
+
+// solidTrackedCallName returns the canonical Solid name only when the call is
+// proven to come from a Solid module binding. The rule carries an
+// `Unnecessary` tag, so a same-named local helper cannot be treated as a Solid
+// primitive merely because the file imports some other Solid symbol.
+func (s *solidState) solidTrackedCallName(ctx *Context, call *shimast.CallExpression) string {
+  if ctx == nil || call == nil {
+    return ""
+  }
+  expr := stripParens(call.Expression)
+  if expr == nil {
+    return ""
+  }
+  if name := identifierText(expr); name != "" {
+    if s.solidSymbols[name] == nil || canonicalValueSymbol(ctx, expr) != s.solidSymbols[name] {
+      return ""
+    }
+    return s.solidImport[name]
+  }
+  if expr.Kind != shimast.KindPropertyAccessExpression {
+    return ""
+  }
+  access := expr.AsPropertyAccessExpression()
+  if access == nil {
+    return ""
+  }
+  object := stripParens(access.Expression)
+  local := identifierText(object)
+  if !isSolidModuleSource(s.importedFrom[local]) ||
+    s.solidSymbols[local] == nil ||
+    canonicalValueSymbol(ctx, object) != s.solidSymbols[local] {
+    return ""
+  }
+  return identifierText(access.Name())
 }
 
 func (s *solidState) reportProxyAPIs(ctx *Context) {
@@ -1034,6 +1209,10 @@ func solidPreferredSource(name string) string {
 
 func isSolidSource(source string) bool {
   return source == "solid-js" || source == "solid-js/web" || source == "solid-js/store"
+}
+
+func isSolidModuleSource(source string) bool {
+  return source == "solid-js" || strings.HasPrefix(source, "solid-js/")
 }
 
 func solidIsDOMTag(name string) bool {

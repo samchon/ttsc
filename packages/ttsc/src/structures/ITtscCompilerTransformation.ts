@@ -56,9 +56,13 @@ export namespace ITtscCompilerTransformation {
      * and its appearance or change can alter that edge without editing the
      * importer or a recorded file.
      *
-     * Hosts watch and hash these paths in addition to realized graph members.
-     * A candidate strictly below the selected target is deliberately absent:
-     * its creation cannot change resolution and must not invalidate a cache.
+     * Hosts watch and hash these paths in addition to realized graph members. A
+     * candidate strictly below the selected target is deliberately absent: its
+     * creation cannot change resolution and must not invalidate a cache.
+     *
+     * A host with nothing to report leaves the whole property out rather than
+     * sending an empty map, so `undefined` and "no superseding candidate" are
+     * the same observation on the wire and after decoding.
      */
     candidates?: Record<string, string[]>;
   }
