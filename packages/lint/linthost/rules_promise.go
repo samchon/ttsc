@@ -988,42 +988,13 @@ func floatingPromiseMethodCall(call *shimast.CallExpression) (*shimast.Node, str
 // `Promise<void> | undefined` looking like a real receiver, and the rule
 // reported a chain that ends in a callable rejection handler.
 //
-// The walk deliberately does not strip parentheses as it descends. A
-// parenthesized sub-expression ends the chain — `(maybe?.run()).catch(handler)`
-// really can throw — so that shape must keep its nullish branch.
+// `containsOptionalChain` already walks exactly this shape for
+// `no-non-null-asserted-optional-chain`: it descends property, element, and
+// call links, and stops at any other node kind. Stopping there is what makes a
+// parenthesized sub-expression end the chain — `(maybe?.run()).catch(handler)`
+// really can throw, so that shape must keep its nullish branch.
 func floatingPromisePropertyAccessIsOptional(node *shimast.Node) bool {
-  current := stripParens(node)
-  for current != nil {
-    switch current.Kind {
-    case shimast.KindPropertyAccessExpression:
-      access := current.AsPropertyAccessExpression()
-      if access == nil {
-        return false
-      }
-      if access.QuestionDotToken != nil {
-        return true
-      }
-      current = access.Expression
-    case shimast.KindElementAccessExpression:
-      access := current.AsElementAccessExpression()
-      if access == nil {
-        return false
-      }
-      if access.QuestionDotToken != nil {
-        return true
-      }
-      current = access.Expression
-    case shimast.KindCallExpression:
-      call := current.AsCallExpression()
-      if call == nil {
-        return false
-      }
-      current = call.Expression
-    default:
-      return false
-    }
-  }
-  return false
+  return containsOptionalChain(stripParens(node))
 }
 
 // floatingPromiseMethodReturnIsUnhandled determines what a non-Promise
