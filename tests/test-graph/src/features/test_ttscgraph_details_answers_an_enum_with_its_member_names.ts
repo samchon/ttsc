@@ -50,11 +50,11 @@ const detailsOf = (result: ToolResult): DetailsResult => {
  * describe, and a caller that had already named it opened the file anyway,
  * which is the grep this index exists to remove (#738).
  *
- * 1. Materialize a project with a string enum, an implicitly numbered enum, and
- *    a class beside them.
+ * 1. Materialize a project with a string enum, an implicitly numbered enum, and a
+ *    class beside them.
  * 2. Ask the MCP server for `details` on all three.
- * 3. Assert each enum answers with names and values, and that the class's
- *    outline is unaffected.
+ * 3. Assert each enum answers with names and values, and that the class's outline
+ *    is unaffected.
  */
 export const test_ttscgraph_details_answers_an_enum_with_its_member_names =
   async () => {

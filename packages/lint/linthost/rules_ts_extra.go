@@ -548,9 +548,18 @@ func (tripleSlashReference) Check(ctx *Context, node *shimast.Node) {
 // noArrayDelete: `delete arr[0]` leaves a sparse hole. Use `splice`.
 type noArrayDelete struct{}
 
-func (noArrayDelete) Name() string           { return "typescript/no-array-delete" }
+func (noArrayDelete) Name() string { return "typescript/no-array-delete" }
+
+// NeedsTypeChecker is what makes this rule correct rather than approximate.
+// The construct it rejects and the construct it must leave alone are spelled
+// identically — `delete target[key]` — and only the target's type tells them
+// apart.
+func (noArrayDelete) NeedsTypeChecker() bool { return true }
 func (noArrayDelete) Visits() []shimast.Kind { return []shimast.Kind{shimast.KindDeleteExpression} }
 func (noArrayDelete) Check(ctx *Context, node *shimast.Node) {
+  if ctx.Checker == nil {
+    return
+  }
   del := node.AsDeleteExpression()
   if del == nil || del.Expression == nil {
     return
@@ -559,15 +568,20 @@ func (noArrayDelete) Check(ctx *Context, node *shimast.Node) {
     return
   }
   access := del.Expression.AsElementAccessExpression()
-  if access == nil || access.ArgumentExpression == nil {
+  if access == nil || access.Expression == nil || access.ArgumentExpression == nil {
     return
   }
-  // Numeric subscript ⇒ likely-array delete. (Object delete via
-  // numeric key is rare.)
-  switch access.ArgumentExpression.Kind {
-  case shimast.KindNumericLiteral, shimast.KindIdentifier:
-    ctx.Report(node, "Using delete with an array expression is unsafe.")
+  // The target's type is the whole question. `delete record[key]` on a
+  // `Record<string, T>` or an index signature is the correct way to remove an
+  // entry, while the same syntax on an array leaves a sparse hole. The
+  // subscript's syntactic shape says nothing about which one this is: the rule
+  // used to require a numeric literal or an identifier, which both reported
+  // every `delete record[key]` and missed `delete array[next()]`.
+  target := ctx.Checker.GetTypeAtLocation(access.Expression)
+  if target == nil || !noForInArrayIsArrayLike(ctx.Checker, target) {
+    return
   }
+  ctx.Report(node, "Using delete with an array expression is unsafe.")
 }
 
 // consistentTypeImports: `import { Foo } from "./types"` where Foo is

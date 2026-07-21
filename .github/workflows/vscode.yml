@@ -1,6 +1,18 @@
 name: vscode
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/vscode.yml"
+      - "packages/vscode/**"
+      - "scripts/assert-vscode-package.cjs"
+      - "scripts/smoke-vscode-install.cjs"
+      - "tests/test-ttsc/src/features/ttscserver/test_vscode_install_script_uses_windows_command_shim.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
   pull_request:
     paths:
       - ".github/workflows/vscode.yml"

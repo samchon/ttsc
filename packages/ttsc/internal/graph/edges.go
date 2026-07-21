@@ -182,6 +182,17 @@ func (g *Graph) memberRelationEdges(
       continue
     }
     baseMember := directMemberForProperty(checker, baseProperty, baseMembers)
+    if baseMember == nil {
+      // The heritage clause names one type; the member may live further up.
+      // `interface Child extends Root {}` with `class W implements Child`
+      // resolves `W.execute` against `Root.execute`, and the program compiles
+      // with no diagnostic — but the immediate base declares nothing, so
+      // requiring a directly declared member dropped a relation the checker
+      // had already established. Execution tracing follows these edges to
+      // reach an implementation, so the missing edge ends the trace at the
+      // abstract declaration.
+      baseMember = inheritedMemberForProperty(checker, baseProperty)
+    }
     if baseMember == nil ||
       !shimchecker.Checker_isPropertyAssignableTo(checker, derivedProperty, baseProperty) {
       continue
@@ -220,10 +231,42 @@ func declaredTypeMembers(symbol *shimast.Symbol) []*shimast.Node {
   return members
 }
 
-// directMemberForProperty maps an instantiated/transient checker property back
-// to the immediate base declaration the graph owns. An inherited property has a
-// different root symbol and is deliberately omitted, preserving the dump's
-// direct-member policy.
+// inheritedMemberForProperty resolves the declaration a base type inherits
+// rather than declares, by following the property to the symbol it roots at.
+//
+// It is the fallback for what directMemberForProperty below cannot see. A
+// heritage clause names one type and the member may be declared further up:
+// `interface Child extends Root {}` with `class W implements Child` roots
+// `W.execute` at `Root.execute`, which `Child`'s own member list does not hold.
+// Static members and constructors are skipped for the same reason the direct
+// scan skips them — neither participates in a member relation.
+func inheritedMemberForProperty(
+  checker *shimchecker.Checker,
+  property *shimast.Symbol,
+) *shimast.Node {
+  if checker == nil || property == nil {
+    return nil
+  }
+  for _, root := range checker.GetRootSymbols(property) {
+    if root == nil {
+      continue
+    }
+    for _, declaration := range root.Declarations {
+      if declaration == nil ||
+        shimast.GetCombinedModifierFlags(declaration)&shimast.ModifierFlagsStatic != 0 ||
+        declaration.Kind == shimast.KindConstructor {
+        continue
+      }
+      return declaration
+    }
+  }
+  return nil
+}
+
+// directMemberForProperty maps an instantiated or transient checker property
+// back to the declaration the named base type itself owns. It answers nothing
+// for a property the base only inherits, which is what
+// inheritedMemberForProperty above then resolves.
 func directMemberForProperty(
   checker *shimchecker.Checker,
   property *shimast.Symbol,

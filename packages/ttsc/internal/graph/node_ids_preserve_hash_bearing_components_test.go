@@ -1,8 +1,8 @@
 package graph
 
 import (
-	"path/filepath"
-	"testing"
+  "path/filepath"
+  "testing"
 )
 
 // TestNodeIDsPreserveHashBearingComponents verifies graph identity: quoted
@@ -17,25 +17,25 @@ import (
 //  2. Relativize the hash-bearing id as the dump does.
 //  3. Recover its raw file component and assert the escaped wire spelling.
 func TestNodeIDsPreserveHashBearingComponents(t *testing.T) {
-	if got, want := nodeID("src/main.ts", "main", NodeFunction), "src/main.ts#main:function"; got != want {
-		t.Fatalf("ordinary id = %q, want %q", got, want)
-	}
-	if got, want := nodeID(`C:\work\a#b\main.ts`, "label:part", NodeVariable), `C:\\work\\a\#b\\main.ts#label:part:variable`; got != want {
-		t.Fatalf("escaped id = %q, want %q", got, want)
-	} else if parts, ok := parseNodeID(got); !ok || parts.path != `C:\work\a#b\main.ts` || parts.name != "label:part" {
-		t.Fatalf("decoded id = %#v, %t; want raw path and name", parts, ok)
-	}
+  if got, want := nodeID("src/main.ts", "main", NodeFunction), "src/main.ts#main:function"; got != want {
+    t.Fatalf("ordinary id = %q, want %q", got, want)
+  }
+  if got, want := nodeID(`C:\work\a#b\main.ts`, "label:part", NodeVariable), `C:\\work\\a\#b\\main.ts#label:part:variable`; got != want {
+    t.Fatalf("escaped id = %q, want %q", got, want)
+  } else if parts, ok := parseNodeID(got); !ok || parts.path != `C:\work\a#b\main.ts` || parts.name != "label:part" {
+    t.Fatalf("decoded id = %#v, %t; want raw path and name", parts, ok)
+  }
 
-	root := filepath.Join(t.TempDir(), "a#b")
-	file := filepath.Join(root, "src#generated", "main#file.ts")
-	id := nodeID(file, "Counter.#count", NodeVariable)
-	context := newDumpContext(root, nil)
-	got := context.relID(id)
-	want := "src\\#generated/main\\#file.ts#Counter.\\#count:variable"
-	if got != want {
-		t.Fatalf("relativized id = %q, want %q", got, want)
-	}
-	if file := nodeFile(got); file != "src#generated/main#file.ts" {
-		t.Fatalf("decoded file = %q, want raw hash-bearing relative path", file)
-	}
+  root := filepath.Join(t.TempDir(), "a#b")
+  file := filepath.Join(root, "src#generated", "main#file.ts")
+  id := nodeID(file, "Counter.#count", NodeVariable)
+  context := newDumpContext(root, nil)
+  got := context.relID(id)
+  want := "src\\#generated/main\\#file.ts#Counter.\\#count:variable"
+  if got != want {
+    t.Fatalf("relativized id = %q, want %q", got, want)
+  }
+  if file := nodeFile(got); file != "src#generated/main#file.ts" {
+    t.Fatalf("decoded file = %q, want raw hash-bearing relative path", file)
+  }
 }

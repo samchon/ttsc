@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "@ttsc/factory";
+import factory, { SyntaxKind } from "@ttsc/factory";
 
 import { id, print } from "../../internal/helpers";
 
@@ -15,7 +15,7 @@ export const test_import_named = (): void => {
       factory.createImportDeclaration(
         undefined,
         factory.createImportClause(
-          false,
+          undefined,
           undefined,
           factory.createNamedImports([
             factory.createImportSpecifier(false, undefined, "a"),

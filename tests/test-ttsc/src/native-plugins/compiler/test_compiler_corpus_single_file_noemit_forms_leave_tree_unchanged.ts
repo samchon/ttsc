@@ -18,31 +18,21 @@ const cases = [
   },
   {
     name: "--emit=false",
-    argv: (root: string) => [
-      "--cwd",
-      root,
-      "--emit=false",
-      "src/main.ts",
-    ],
+    argv: (root: string) => ["--cwd", root, "--emit=false", "src/main.ts"],
   },
   {
     name: "--noEmit=true",
-    argv: (root: string) => [
-      "--cwd",
-      root,
-      "--noEmit=true",
-      "src/main.ts",
-    ],
+    argv: (root: string) => ["--cwd", root, "--noEmit=true", "src/main.ts"],
   },
 ] as const;
 
 /**
  * Verifies compiler corpus: single-file no-emit forms leave the tree unchanged.
  *
- * `runSingleFileEmit` needs a private temporary emit to return transformed text,
- * but none of the analysis-only forms may turn that text into a user-visible
- * output. The four forms cover the command alias and both boolean spellings at
- * the launcher boundary.
+ * `runSingleFileEmit` needs a private temporary emit to return transformed
+ * text, but none of the analysis-only forms may turn that text into a
+ * user-visible output. The four forms cover the command alias and both boolean
+ * spellings at the launcher boundary.
  *
  * 1. Materialize an otherwise-emitting CommonJS project for each no-emit form.
  * 2. Run that form with one TypeScript input file.

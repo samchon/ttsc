@@ -42,14 +42,7 @@ async function watchWithoutWriting(
   const output = path.join(root, "dist", "main.js");
   const child = child_process.spawn(
     process.execPath,
-    [
-      ttscBin,
-      ...mode,
-      "--preserveWatchOutput",
-      "--cwd",
-      root,
-      "src/main.ts",
-    ],
+    [ttscBin, ...mode, "--preserveWatchOutput", "--cwd", root, "src/main.ts"],
     {
       cwd: root,
       env: {

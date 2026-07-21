@@ -329,9 +329,14 @@ function runBuildTimed(
   }
 
   const args = createTsgoBuildArgs(execution, buildOptions, {
+    // `--verbose` promises the emitted-file list on every lane, and the list
+    // only exists if tsgo is asked for it. ttsc adds the flag for itself here
+    // exactly as it does for `forceListEmittedFiles`, and strips the raw
+    // `TSFILE:` lines back out below.
     listEmittedFiles:
       buildOptions.emit !== false &&
-      buildOptions.forceListEmittedFiles === true,
+      (buildOptions.forceListEmittedFiles === true ||
+        buildOptions.quiet === false),
     noEmitOnError:
       buildOptions.emit !== false &&
       buildOptions.skipDiagnosticsCheck !== true &&
@@ -763,10 +768,44 @@ function runTsgoBuild(
   if (emittedFiles.length !== 0 && !userListedEmitted) {
     result.stdout = stripEmittedFileLines(result.stdout);
   }
+  if (options.quiet === false) {
+    result.stdout += verboseBuildSummary(execution, options, emittedFiles);
+  }
   return normalizeBuildOutput(
     { ...result, emittedFiles },
     execution.projectRoot,
   );
+}
+
+/**
+ * The `--verbose` summary for the direct-tsgo lane, in the shape
+ * `cmd/ttsc/build.go` already prints on the native-host lane.
+ *
+ * Verbosity is a launcher-owned presentation concern: which lane `runBuild`
+ * selects is an implementation detail the user cannot see, so a documented flag
+ * must not change meaning with it. This lane never consumed `quiet` at all,
+ * which is why the flag was silent on every project without a ttsc plugin.
+ *
+ * `sites=0` is a fact about this lane rather than a placeholder: it runs
+ * precisely when the project declares no native plugin. A build that emitted
+ * nothing prints the header and `emitted=0 files`, so the summary never claims
+ * files that were not written.
+ */
+function verboseBuildSummary(
+  execution: ReturnType<typeof resolveExecutionContext>,
+  options: RunBuildOptions,
+  emittedFiles: readonly string[],
+): string {
+  const lines = [
+    `// ttsc: tsconfig=${execution.tsconfig} cwd=${execution.cwd} sites=0 emit=${options.emit !== false}`,
+  ];
+  if (options.emit !== false) {
+    lines.push(`// ttsc: emitted=${emittedFiles.length} files`);
+    for (const file of emittedFiles) {
+      lines.push(`  + ${path.relative(execution.cwd, file) || file}`);
+    }
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 /** Build the argument list for a direct `tsgo` build invocation. */

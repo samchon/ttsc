@@ -19,12 +19,20 @@ const jsxElement = (): Expression =>
   );
 const legacyJsxElement = (): ts.Expression =>
   l.createJsxElement(
-    l.createJsxOpeningElement(lid("Item"), undefined, l.createJsxAttributes([])),
+    l.createJsxOpeningElement(
+      lid("Item"),
+      undefined,
+      l.createJsxAttributes([]),
+    ),
     [],
     l.createJsxClosingElement(lid("Item")),
   );
 const jsxSelfClosingElement = (): Expression =>
-  f.createJsxSelfClosingElement(id("Item"), undefined, f.createJsxAttributes([]));
+  f.createJsxSelfClosingElement(
+    id("Item"),
+    undefined,
+    f.createJsxAttributes([]),
+  );
 const legacyJsxSelfClosingElement = (): ts.Expression =>
   l.createJsxSelfClosingElement(
     lid("Item"),
@@ -49,12 +57,20 @@ const legacyPartial = (expression: ts.Expression): ts.Expression =>
   l.createPartiallyEmittedExpression(expression);
 
 /**
- * Verifies expression union coverage: printable JSX and partial wrappers reach every parenthesizer predicate.
+ * Verifies expression union coverage: printable JSX and partial wrappers reach
+ * every parenthesizer predicate.
  *
- * `PartiallyEmittedExpression` prints only its inner expression, so treating the wrapper as a primary expression loses parentheses around comma sequences, optional chains, objects, functions, and call-based `new` targets. The public union must also admit every JSX expression form the printer has always rendered. Each expected program comes from the pinned legacy factory and printer, never from this printer's own output.
+ * `PartiallyEmittedExpression` prints only its inner expression, so treating
+ * the wrapper as a primary expression loses parentheses around comma sequences,
+ * optional chains, objects, functions, and call-based `new` targets. The public
+ * union must also admit every JSX expression form the printer has always
+ * rendered. Each expected program comes from the pinned legacy factory and
+ * printer, never from this printer's own output.
  *
- * 1. Pass each newly admitted expression through `createExpressionStatement` and compare JSX output with the legacy printer in TSX mode.
- * 2. Place partial wrappers in left-side, precedence, statement, and new-target contexts, then compare parsed structures with the legacy oracle.
+ * 1. Pass each newly admitted expression through `createExpressionStatement` and
+ *    compare JSX output with the legacy printer in TSX mode.
+ * 2. Place partial wrappers in left-side, precedence, statement, and new-target
+ *    contexts, then compare parsed structures with the legacy oracle.
  */
 export const test_expression_union_coverage = (): void => {
   const expressions: readonly Expression[] = [

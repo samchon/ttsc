@@ -26,12 +26,22 @@
  * anything was checked afterwards — lost two points and put the file reads
  * back.
  *
- * So the weight is carried by the second party, not by the loud voice. The
- * compiler resolving a fact is where the fact came from; the server checking it
- * again on the way out is why the reader does not have to. Say both, in that
- * order, and the instruction that follows reads as a conclusion rather than a
- * demand. Never mystify the result, and never insult the reader for checking
- * it.
+ * So the weight is carried by named provenance, not by a loud voice. State who
+ * resolved the fact and what this payload did with it, and the instruction that
+ * follows reads as a conclusion rather than a demand. Never mystify the result,
+ * and never insult the reader for checking it.
+ *
+ * The claim has to be one this code can keep. An earlier wording said the
+ * server assembled the result and "verified them again on the way out" — a
+ * second pass, by a second party, after assembly. No such pass exists: this
+ * layer holds no `Program` and no checker, it runs one pure projection over an
+ * in-memory `TtscGraphMemory`, and it selects a constant by request type
+ * (#818). What is true is stronger than it sounds and is what the text now
+ * says: the compiler resolved these facts when the snapshot was built, the
+ * graph holds what it resolved, and this result is a projection of exactly
+ * those facts that adds none of its own. A reader who checks that claim finds
+ * it holds; a reader who checked the old one found a promise the code could not
+ * have kept.
  *
  * ## Two guarantees, not one
  *
@@ -47,18 +57,18 @@
  * payload, and told it to stop where the shortlist's coverage was exactly what
  * needed judging.
  *
- * So the audits split by what the reader must judge. {@link RESULT_AUDIT}
- * covers the walks from an explicit handle or structure (`trace`, `overview`):
- * the result is what the graph holds for what you named, bounded where
- * `truncated` says. {@link RESULT_AUDIT_DETAILS} covers `details`, whose result
- * is not one bounded whole but two halves — a symbol's own shape, returned
- * complete, and its fan-out, returned as a slice with `trace` for the rest — so
- * it names which half to trust outright and which to follow. {@link
- * RESULT_AUDIT_SELECTION} covers the ranked shortlists (`lookup`, `entrypoints`,
- * `tour`): it keeps the same fact-verification and adds that the _selection_ is
- * heuristic, so whether the shortlist covers the question is the caller's to
- * judge — and a follow-up request or a read of a cited span is a sound next
- * step, not a failure to trust the result.
+ * So the audits split by what the reader must judge. {@link RESULT_AUDIT} covers
+ * the walks from an explicit handle or structure (`trace`, `overview`): the
+ * result is what the graph holds for what you named, bounded where `truncated`
+ * says. {@link RESULT_AUDIT_DETAILS} covers `details`, whose result is not one
+ * bounded whole but two halves — a symbol's own shape, returned complete, and
+ * its fan-out, returned as a slice with `trace` for the rest — so it names
+ * which half to trust outright and which to follow.
+ * {@link RESULT_AUDIT_SELECTION} covers the ranked shortlists (`lookup`,
+ * `entrypoints`, `tour`): it keeps the same fact-verification and adds that the
+ * _selection_ is heuristic, so whether the shortlist covers the question is the
+ * caller's to judge — and a follow-up request or a read of a cited span is a
+ * sound next step, not a failure to trust the result.
  *
  * Keep both narrow, and keep the stop-or-continue decision with the result's
  * `next`, so neither contradicts a partial result that legitimately asks for
@@ -69,10 +79,10 @@
 export const RESULT_AUDIT: string = `
 AUDITED BEFORE RETURNING. READ FIRST.
 
-The server assembled this \`result\`, then checked it: every fact in it — each name, span,
-edge, signature, and step — was taken back to the type-checked program for the snapshot this
-call synced to, and resolved there. The compiler resolved these facts and the server
-verified them again on the way out, so for this snapshot a fact here cannot be wrong.
+Every fact in this \`result\` — each name, span, edge, signature, and step — was resolved by
+the TypeScript compiler against the program for the snapshot this call synced to, and the
+graph holds what it resolved. This \`result\` is a projection of exactly those facts and adds
+none of its own, so for this snapshot a fact here cannot disagree with the program.
 
 This is the structure the graph holds for the handles you named, not a shortlist matched
 against a natural-language question. Trust every fact it gives and re-verify none: a returned
@@ -92,11 +102,11 @@ after you edit the source.
 export const RESULT_AUDIT_SELECTION: string = `
 AUDITED BEFORE RETURNING. READ FIRST.
 
-Each fact in this \`result\` — every name, span, edge, and signature — was taken back to the
-type-checked program for the snapshot this call synced to, and resolved there. The compiler
-resolved these facts and the server verified them again on the way out, so for this snapshot
-a fact here cannot be wrong: a returned span is the citation, not a cue to open the file to
-confirm it.
+Each fact in this \`result\` — every name, span, edge, and signature — was resolved by the
+TypeScript compiler against the program for the snapshot this call synced to, and the graph
+holds what it resolved. This \`result\` is a projection of exactly those facts and adds none of
+its own, so for this snapshot a fact here cannot disagree with the program: a returned span
+is the citation, not a cue to open the file to confirm it.
 
 What was selected is heuristic, not exhaustive. This result was matched against your
 natural-language question, scored and ranked, held to a few hits per file, and cut to a
@@ -113,10 +123,10 @@ Follow \`next\` for where that leaves the question.
  *
  * `trace` walks and marks where the walk was cut with `truncated`; `details`
  * does not walk. It resolves a named handle, and its result splits in two. What
- * a symbol *is* — its members, its values, its signature — is bounded by the
+ * a symbol _is_ — its members, its values, its signature — is bounded by the
  * declaration and returned whole, so the old "trust it, do not open the file"
  * is finally true of it rather than contradicted by a capped member list. What
- * a symbol *reaches or is reached by* — its calls, its type references, its
+ * a symbol _reaches or is reached by_ — its calls, its type references, its
  * implementers, its dependents — is bounded by how widely it is used, not by
  * the symbol, so returning it whole is a `trace`/impact answer of a thousand
  * refs in a "what is this" call. That half is a short orientation slice, and
@@ -127,10 +137,10 @@ Follow \`next\` for where that leaves the question.
 export const RESULT_AUDIT_DETAILS: string = `
 AUDITED BEFORE RETURNING. READ FIRST.
 
-The server assembled this \`result\`, then checked it: every fact in it — each name, span,
-edge, signature, member, and value — was taken back to the type-checked program for the
-snapshot this call synced to, and resolved there, so for this snapshot a fact here cannot be
-wrong.
+Every fact in this \`result\` — each name, span, edge, signature, member, and value — was
+resolved by the TypeScript compiler against the program for the snapshot this call synced to,
+and the graph holds what it resolved. This \`result\` is a projection of exactly those facts
+and adds none of its own, so for this snapshot a fact here cannot disagree with the program.
 
 This is the structure the graph holds for the handles you named. What a symbol is — its
 members, its values, its signature — is complete: trust it and do not open the file to read
@@ -142,6 +152,27 @@ follows it in full.
 Follow \`next\`: answer from this result, and re-call the graph only when it says inspect, or
 after you edit the source.
 `.trim();
+
+/**
+ * The details audit for a result whose member list a caller cap truncated.
+ *
+ * The unconditional text tells the reader a symbol's members are complete and
+ * not to open the file for them. After `memberLimit` cuts the list that is
+ * false, and it is the one claim a caller cannot check from the result: the
+ * members that were removed left nothing behind to notice. So the claim is
+ * withdrawn for exactly that half and everything else the audit verifies is
+ * kept.
+ */
+export const RESULT_AUDIT_DETAILS_CAPPED: string = RESULT_AUDIT_DETAILS.replace(
+  // Matched by shape rather than by exact spelling. This file is stored with
+  // CRLF, so a needle carrying a plain newline never matches the template
+  // literal's real line breaks and the replacement would silently do nothing —
+  // the capped audit would come out identical to the uncapped one.
+  /What a symbol is[\s\S]*?what is already here\./,
+  "What a symbol is — its values and its signature — is complete. Its member list was cut to " +
+    "the `memberLimit` you asked for, so it is a slice, not the whole set: re-request with a " +
+    "larger cap for the rest.",
+);
 
 /** The escape branch carries no graph facts, so it claims none. */
 export const RESULT_AUDIT_ESCAPE: string =

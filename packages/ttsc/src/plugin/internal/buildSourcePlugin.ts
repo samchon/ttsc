@@ -1481,8 +1481,8 @@ export function formatGoWorkPath(p: string): string {
  * `golang.org/x/mod/modfile`'s `AutoQuote` does: return it unchanged when it is
  * already a clean bare token, otherwise return its Go double-quoted form so the
  * value round-trips through the modfile lexer. A clean bare token is therefore
- * emitted byte-for-byte as before; only tokens that would otherwise be split
- * or interpreted as comments are quoted.
+ * emitted byte-for-byte as before; only tokens that would otherwise be split or
+ * interpreted as comments are quoted.
  *
  * Exported for unit tests.
  */

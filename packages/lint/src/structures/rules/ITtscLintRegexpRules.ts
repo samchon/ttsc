@@ -103,8 +103,8 @@ export interface ITtscLintRegexpRules {
   /**
    * Reject regex flags that the literal does not exercise — `i` on a pattern
    * with no case-variable character, `m` on a pattern with no `^`/`$`
-   * assertion. Autofixable: the diagnostic names the dead flags and the
-   * fix deletes exactly those, leaving the live ones in place.
+   * assertion. Autofixable: the diagnostic names the dead flags and the fix
+   * deletes exactly those, leaving the live ones in place.
    *
    * Cleans up flag combos that suggest behavior the pattern can never trigger.
    * A character is case-variable wherever it sits, so `/[a-z]/i` keeps its flag
@@ -143,8 +143,8 @@ export interface ITtscLintRegexpRules {
    * Reject zero-repeat quantifiers (`/a{0}/`, `/a{0,0}/`) — the atom never
    * matches, so the quantifier is either dead code or a typo for `{1,…}`.
    *
-   * Diagnostic-only: the correction is to delete the atom or repair the
-   * bound, and which one was meant is not recoverable from the source.
+   * Diagnostic-only: the correction is to delete the atom or repair the bound,
+   * and which one was meant is not recoverable from the source.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/no-zero-quantifier.html
    */
@@ -191,8 +191,8 @@ export interface ITtscLintRegexpRules {
    * Require regex literals to use the `u` or `v` flag, so Unicode-property
    * escapes and surrogate-pair handling stay predictable.
    *
-   * Offers `u` and `v` as editor suggestions rather than an automatic fix:
-   * both satisfy the rule, and both change what the pattern matches.
+   * Offers `u` and `v` as editor suggestions rather than an automatic fix: both
+   * satisfy the rule, and both change what the pattern matches.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/require-unicode-regexp.html
    */
@@ -204,8 +204,8 @@ export interface ITtscLintRegexpRules {
    * stricter escape rules on top of `u`.
    *
    * Choose this over `require-unicode-regexp` only on engines that ship
-   * ES2024-era regex. Offers one editor suggestion, which replaces an
-   * existing `u` because the two flags are mutually exclusive.
+   * ES2024-era regex. Offers one editor suggestion, which replaces an existing
+   * `u` because the two flags are mutually exclusive.
    *
    * @reference https://ota-meshi.github.io/eslint-plugin-regexp/rules/require-unicode-sets-regexp.html
    */

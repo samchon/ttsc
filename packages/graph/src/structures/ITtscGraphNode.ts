@@ -106,6 +106,20 @@ export interface ITtscGraphNode {
    */
   decorators?: ITtscGraphDecorator[];
 
+  /**
+   * The declaration head, cut by the producer where the compiler says the body
+   * opens.
+   *
+   * Absent when the producer could not bound the head, in which case a consumer
+   * falls back to reading the declaration span. That fallback is a line scan,
+   * and a physical line is not a declaration boundary: it leaks implementation
+   * text when a declaration shares its line with its body, and it stops early
+   * when the head itself contains a brace — a type-literal parameter, an object
+   * return type, a destructured parameter. Prefer this field wherever it is
+   * present.
+   */
+  signature?: string;
+
   /** The declaration span, for display and signatures. */
   evidence?: ITtscGraphEvidence;
 

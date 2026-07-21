@@ -56,8 +56,8 @@ const detailsOf = (result: ToolResult): DetailsResult => {
  * 1. Materialize a class of 20 members and a union of 20 literals, plus 20
  *    functions that all reference the class in a parameter type.
  * 2. Ask `details` for the class (with neighbors) and the union.
- * 3. Assert every member and value comes back, and that the 20 inbound
- *    references are capped to the fan-out slice.
+ * 3. Assert every member and value comes back, and that the 20 inbound references
+ *    are capped to the fan-out slice.
  */
 export const test_ttscgraph_details_gives_whole_identity_and_caps_fan_out =
   async () => {

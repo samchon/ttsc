@@ -67,12 +67,7 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
     mod.createCodeCommand(args, "win32", { ComSpec: "cmd" }, noCodeCmd),
     {
       command: "cmd",
-      args: [
-        "/d",
-        "/s",
-        "/c",
-        payload,
-      ],
+      args: ["/d", "/s", "/c", payload],
       options: {
         env: {
           ComSpec: "cmd",
@@ -99,12 +94,7 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
   assert.equal(mod.findWindowsCodeCommand(env, deps), codeCmd);
   assert.deepEqual(mod.createCodeCommand(args, "win32", env, deps), {
     command: "cmd",
-    args: [
-      "/d",
-      "/s",
-      "/c",
-      payload,
-    ],
+    args: ["/d", "/s", "/c", payload],
     options: {
       env: {
         ...env,
@@ -151,7 +141,7 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
       recorder,
       [
         'const fs = require("node:fs");',
-        'fs.writeFileSync(process.env.TTSC_VSCODE_TEST_RECORD, JSON.stringify(process.argv.slice(2)));',
+        "fs.writeFileSync(process.env.TTSC_VSCODE_TEST_RECORD, JSON.stringify(process.argv.slice(2)));",
         "",
       ].join("\n"),
     );
@@ -185,10 +175,7 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
       windowsHide: true,
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(
-      JSON.parse(fs.readFileSync(record, "utf8")),
-      actualArgs,
-    );
+    assert.deepEqual(JSON.parse(fs.readFileSync(record, "utf8")), actualArgs);
   } finally {
     fs.rmSync(base, { recursive: true, force: true });
   }

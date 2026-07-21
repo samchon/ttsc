@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import factory from "@ttsc/factory";
+import factory, { SyntaxKind } from "@ttsc/factory";
 
 import { id, print } from "../../internal/helpers";
 
@@ -16,7 +16,7 @@ export const test_import_combinations = (): void => {
       factory.createImportDeclaration(
         undefined,
         factory.createImportClause(
-          false,
+          undefined,
           id("def"),
           factory.createNamedImports([
             factory.createImportSpecifier(false, undefined, "a"),
@@ -33,7 +33,7 @@ export const test_import_combinations = (): void => {
       factory.createImportDeclaration(
         undefined,
         factory.createImportClause(
-          false,
+          undefined,
           undefined,
           factory.createNamespaceImport("ns"),
         ),
@@ -48,7 +48,7 @@ export const test_import_combinations = (): void => {
       factory.createImportDeclaration(
         undefined,
         factory.createImportClause(
-          true,
+          SyntaxKind.TypeKeyword,
           undefined,
           factory.createNamedImports([
             factory.createImportSpecifier(false, undefined, "T"),
@@ -64,7 +64,7 @@ export const test_import_combinations = (): void => {
     print(
       factory.createImportDeclaration(
         undefined,
-        factory.createImportClause(true, id("T"), undefined),
+        factory.createImportClause(SyntaxKind.TypeKeyword, id("T"), undefined),
         "mod",
       ),
     ),

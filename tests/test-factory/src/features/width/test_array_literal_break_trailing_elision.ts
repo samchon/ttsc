@@ -38,15 +38,19 @@ const arity = (text: string): number => {
  *
  * 1. Print an array literal ending in an elision flat, broken, and with
  *    `multiLine: true`.
- * 2. Assert every layout re-parses to the same arity as the legacy printer's
- *    text for the same tree, and means the same thing structurally.
+ * 2. Assert every layout re-parses to the same arity as the legacy printer's text
+ *    for the same tree, and means the same thing structurally.
  * 3. Assert the boundary cases — a lone hole and an interior hole — behave the
  *    same way.
  */
 export const test_array_literal_break_trailing_elision = (): void => {
   const trailing = (multiLine?: boolean): Expression =>
     factory.createArrayLiteralExpression(
-      [str("alphaAlphaAlpha"), str("bravoBravoBravo"), factory.createOmittedExpression()],
+      [
+        str("alphaAlphaAlpha"),
+        str("bravoBravoBravo"),
+        factory.createOmittedExpression(),
+      ],
       multiLine,
     );
   const legacyTrailing = (multiLine?: boolean): ts.Expression =>
@@ -64,21 +68,33 @@ export const test_array_literal_break_trailing_elision = (): void => {
   );
   TestValidator.equals("oracle arity", arity(oracle), 3);
 
-  const flat: string = wide.print(factory.createExpressionStatement(trailing()));
-  const broken: string = tiny.print(factory.createExpressionStatement(trailing()));
+  const flat: string = wide.print(
+    factory.createExpressionStatement(trailing()),
+  );
+  const broken: string = tiny.print(
+    factory.createExpressionStatement(trailing()),
+  );
   const forced: string = wide.print(
     factory.createExpressionStatement(trailing(true)),
   );
   TestValidator.equals("flat stays on one line", flat.includes("\n"), false);
   TestValidator.equals("broken layout breaks", broken.includes("\n"), true);
-  TestValidator.equals("multiLine breaks at any width", forced.includes("\n"), true);
+  TestValidator.equals(
+    "multiLine breaks at any width",
+    forced.includes("\n"),
+    true,
+  );
   for (const [title, text] of [
     ["flat", flat],
     ["broken", broken],
     ["multiLine", forced],
   ] as const)
     TestValidator.equals(`${title} arity`, arity(text), arity(oracle));
-  TestValidator.equals("flat means what the oracle means", structure(flat), structure(oracle));
+  TestValidator.equals(
+    "flat means what the oracle means",
+    structure(flat),
+    structure(oracle),
+  );
   TestValidator.equals(
     "broken means what the oracle means",
     structure(broken),
@@ -113,6 +129,14 @@ export const test_array_literal_break_trailing_elision = (): void => {
         str("bravoBravoBravo"),
       ]),
     );
-  TestValidator.equals("interior hole flat arity", arity(wide.print(interior())), 3);
-  TestValidator.equals("interior hole broken arity", arity(tiny.print(interior())), 3);
+  TestValidator.equals(
+    "interior hole flat arity",
+    arity(wide.print(interior())),
+    3,
+  );
+  TestValidator.equals(
+    "interior hole broken arity",
+    arity(tiny.print(interior())),
+    3,
+  );
 };

@@ -11,6 +11,11 @@ import { id, print } from "../../internal/helpers";
  * access, template spans, object members, and initializers they otherwise look
  * like separators and change the generated program shape.
  *
+ * The expectations spell the comma `a, b`, the way every other producer writes
+ * it. They read `a , b` until #834: the printer surrounded the comma with a
+ * space on each side like any other binary operator, and this file recorded
+ * that output rather than the parenthesization it exists to pin.
+ *
  * 1. Build comma expressions in every delimited expression context.
  * 2. Build parameter, binding, and variable initializers with comma values.
  * 3. Assert each context emits parentheses around the comma expression.
@@ -21,12 +26,12 @@ export const test_comma_expression_parentheses = (): void => {
   TestValidator.equals(
     "array element",
     print(factory.createArrayLiteralExpression([comma()])),
-    "[(a , b)]",
+    "[(a, b)]",
   );
   TestValidator.equals(
     "call argument",
     print(factory.createCallExpression(id("fn"), undefined, [comma()])),
-    "fn((a , b))",
+    "fn((a, b))",
   );
   TestValidator.equals(
     "arrow body",
@@ -40,12 +45,12 @@ export const test_comma_expression_parentheses = (): void => {
         comma(),
       ),
     ),
-    "() => (a , b)",
+    "() => (a, b)",
   );
   TestValidator.equals(
     "element access argument",
     print(factory.createElementAccessExpression(id("obj"), comma())),
-    "obj[(a , b)]",
+    "obj[(a, b)]",
   );
   TestValidator.equals(
     "template span",
@@ -54,7 +59,7 @@ export const test_comma_expression_parentheses = (): void => {
         factory.createTemplateSpan(comma(), factory.createTemplateTail("")),
       ]),
     ),
-    "`${(a , b)}`",
+    "`${(a, b)}`",
   );
   TestValidator.equals(
     "object property",
@@ -63,7 +68,7 @@ export const test_comma_expression_parentheses = (): void => {
         factory.createPropertyAssignment("x", comma()),
       ]),
     ),
-    "{ x: (a , b) }",
+    "{ x: (a, b) }",
   );
   TestValidator.equals(
     "parameter initializer",
@@ -77,12 +82,12 @@ export const test_comma_expression_parentheses = (): void => {
         comma(),
       ),
     ),
-    "x = (a , b)",
+    "x = (a, b)",
   );
   TestValidator.equals(
     "binding initializer",
     print(factory.createBindingElement(undefined, undefined, "x", comma())),
-    "x = (a , b)",
+    "x = (a, b)",
   );
   TestValidator.equals(
     "variable initializer",
@@ -102,6 +107,6 @@ export const test_comma_expression_parentheses = (): void => {
         ),
       ),
     ),
-    "const x = (a , b);",
+    "const x = (a, b);",
   );
 };

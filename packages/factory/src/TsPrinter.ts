@@ -339,8 +339,8 @@ export class TsPrinter {
    * whitespace-only text child that contains a newline and trims
    * whitespace-carrying-a-newline off both edges of every other text child, so
    * a break introduced only because the group did not fit changes what the
-   * component renders: `<div>Hello there, {name}!</div>` becomes
-   * `Hello there,NAME!`, and the separator in `<div>{a} {b}</div>` disappears
+   * component renders: `<div>Hello there, {name}!</div>` becomes `Hello
+   * there,NAME!`, and the separator in `<div>{a} {b}</div>` disappears
    * outright.
    *
    * Children are therefore laid out across lines only when the break survives
@@ -351,11 +351,7 @@ export class TsPrinter {
    * emitted verbatim on one line, whatever `printWidth` says — width may choose
    * a layout, never a meaning.
    */
-  private jsxChildren(
-    open: Doc,
-    children: readonly Node[],
-    close: Doc,
-  ): Doc {
+  private jsxChildren(open: Doc, children: readonly Node[], close: Doc): Doc {
     if (!this.jsxChildrenMayBreak(children))
       return concat([open, concat(children.map((c) => this.emit(c))), close]);
     return group(
@@ -561,7 +557,13 @@ export class TsPrinter {
               undefined,
               node.operator === SyntaxKind.EqualsToken,
             ),
-            " ",
+            // Every operator but the comma is written with a space on each
+            // side. The comma is punctuation that attaches to what precedes it:
+            // `CommaListExpression` joins with ", ", the legacy printer and the
+            // repository's pinned Prettier both emit `a, b`, and this factory's
+            // own JSDoc for `createComma` shows `(a, b)`. Only the printer
+            // disagreed, with `a , b`.
+            node.operator === SyntaxKind.CommaToken ? "" : " ",
             node.operator,
             indent(
               concat([
@@ -963,7 +965,13 @@ export class TsPrinter {
         const named: Doc[] = [];
         if (node.name) named.push(this.emit(node.name));
         if (node.namedBindings) named.push(this.emit(node.namedBindings));
-        return concat([node.isTypeOnly ? "type " : "", join(", ", named)]);
+        // The phase modifier is the keyword itself, so it prints as written —
+        // `type` and `defer` both reach here, where a boolean could only ever
+        // have produced the first.
+        return concat([
+          node.phaseModifier ? `${node.phaseModifier} ` : "",
+          join(", ", named),
+        ]);
       }
       case "NamedImports":
         return this.delim(
@@ -1176,7 +1184,17 @@ export class TsPrinter {
       case "ModuleDeclaration":
         return concat([
           this.modifiers(node.modifiers, true),
-          node.name.kind === "StringLiteral" ? "module " : "namespace ",
+          // A string-literal name is always `module "…"`; the flag says nothing
+          // there. For an identifier the flag is what chooses, which is the
+          // upstream rule and the one `createModuleDeclaration` documents:
+          // `namespace A` with `NodeFlags.Namespace`, `module A` without it.
+          // The printer used to read the name kind alone, so an identifier
+          // always printed `namespace` and the flag it published was inert.
+          node.name.kind === "StringLiteral"
+            ? "module "
+            : node.flags === NodeFlags.Namespace
+              ? "namespace "
+              : "module ",
           this.emit(node.name),
           node.body ? concat([" ", this.emit(node.body)]) : ";",
         ]);
@@ -1284,6 +1302,22 @@ export class TsPrinter {
           node.isTypeOf ? "typeof " : "",
           "import(",
           this.emit(node.argument),
+          // An import type spells its attributes as a second call argument —
+          // `import("m", { with: { … } }).T` — not as the trailing `with { … }`
+          // an import declaration uses, so the elements are wrapped here rather
+          // than emitted through the attributes node's own form.
+          node.attributes && node.attributes.elements.length > 0
+            ? concat([
+                ", { ",
+                node.attributes.token,
+                ": { ",
+                join(
+                  ", ",
+                  node.attributes.elements.map((e) => this.emit(e)),
+                ),
+                " } }",
+              ])
+            : "",
           ")",
           node.qualifier ? concat([".", this.emit(node.qualifier)]) : "",
           this.typeArguments(node.typeArguments),
@@ -1703,6 +1737,10 @@ export class TsPrinter {
             ? concat([this.emit(node.importClause), " from "])
             : "",
           this.emit(node.moduleSpecifier),
+          // `@import { a } from "m" with { type: "json" }` — the same trailing
+          // form an import declaration uses, which is why the attributes node
+          // emits itself here rather than being unwrapped.
+          node.attributes ? concat([" ", this.emit(node.attributes)]) : "",
           this.jsDocComment(node.comment),
         ]);
       case "JSDocTemplateTag":
@@ -1855,8 +1893,8 @@ export class TsPrinter {
    * `ParenthesizedExpression`. This printer decides the same parentheses at
    * emit time instead, so the walk has to ask {@link leftSideNeedsParentheses}
    * the same question directly; otherwise `new` re-wraps a target whose call is
-   * already behind parentheses, and `new (f?.()).bar()` comes out as
-   * `new ((f?.()).bar)()`. Calls halt the walk, matching the legacy
+   * already behind parentheses, and `new (f?.()).bar()` comes out as `new
+   * ((f?.()).bar)()`. Calls halt the walk, matching the legacy
    * `stopAtCallExpressions` mode this predicate is the only user of.
    */
   private leftmostPrintedExpression(
@@ -1979,9 +2017,8 @@ export class TsPrinter {
     isLeftSide: boolean,
     leftOperand?: Expression,
   ): boolean {
-    const emittedOperand: Expression = this.skipPartiallyEmittedExpressions(
-      operand,
-    );
+    const emittedOperand: Expression =
+      this.skipPartiallyEmittedExpressions(operand);
     if (emittedOperand.kind === "ParenthesizedExpression") return false;
     if (
       operator === SyntaxKind.AsteriskAsteriskToken &&
@@ -2478,21 +2515,83 @@ const escapeTemplateText = (text: string): string =>
  * JSX drops a whitespace-only child that contains a newline and trims an edge
  * whose whitespace contains one, so only a child with non-whitespace content
  * and no edge whitespace survives being moved onto its own line. Newlines
- * *inside* the text are unaffected, because JSX collapses each interior line
+ * _inside_ the text are unaffected, because JSX collapses each interior line
  * break to a single space in either layout.
  */
 const isBreakSafeJsxText = (text: string): boolean =>
   text.length !== 0 && !/^\s/.test(text) && !/\s$/.test(text);
 
+/**
+ * Escape a string literal's text so the printed program holds the value the AST
+ * carries.
+ *
+ * The old set was the backslash, LF, CR, TAB and the active quote. Everything
+ * else was emitted raw, which is three separate hazards rather than a cosmetic
+ * gap: a C0 control or DEL lands in the generated file as itself; U+2028 and
+ * U+2029 terminate a string literal in any JavaScript engine predating ES2019,
+ * so the emitted program does not parse; and a lone surrogate becomes U+FFFD
+ * the moment the text is written as UTF-8, so the generated program holds a
+ * different string than the caller built.
+ *
+ * Iterated by code point rather than matched by a pattern. That is what makes
+ * the surrogate case fall out instead of needing a rule: a well-formed pair
+ * arrives as one two-unit string and passes through, and a lone surrogate
+ * arrives as a single unit whose code point is in the surrogate range.
+ */
 const escapeString = (text: string, singleQuote?: boolean): string => {
-  const escaped: string = text
-    .replace(/\\/g, "\\\\")
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "\\r")
-    .replace(/\t/g, "\\t");
-  return singleQuote === true
-    ? `'${escaped.replace(/'/g, "\\'")}'`
-    : `"${escaped.replace(/"/g, '\\"')}"`;
+  const quote = singleQuote === true ? "'" : '"';
+  let escaped = "";
+  for (const ch of text) {
+    if (ch === "\\") {
+      escaped += "\\\\";
+      continue;
+    }
+    if (ch === quote) {
+      escaped += "\\" + ch;
+      continue;
+    }
+    // The inactive quote is ordinary text and stays as written.
+    const code = ch.codePointAt(0) ?? 0;
+    const lone = code >= 0xd800 && code <= 0xdfff;
+    if (
+      ch.length === 2 ||
+      (code >= 0x20 &&
+        code !== 0x7f &&
+        code !== 0x2028 &&
+        code !== 0x2029 &&
+        !lone)
+    ) {
+      escaped += ch;
+      continue;
+    }
+    switch (code) {
+      case 0x08:
+        escaped += "\\b";
+        continue;
+      case 0x09:
+        escaped += "\\t";
+        continue;
+      case 0x0a:
+        escaped += "\\n";
+        continue;
+      case 0x0b:
+        escaped += "\\v";
+        continue;
+      case 0x0c:
+        escaped += "\\f";
+        continue;
+      case 0x0d:
+        escaped += "\\r";
+        continue;
+      default:
+        break;
+    }
+    escaped +=
+      code > 0xff
+        ? "\\u" + code.toString(16).padStart(4, "0")
+        : "\\x" + code.toString(16).padStart(2, "0");
+  }
+  return `${quote}${escaped}${quote}`;
 };
 
 const ExpressionPrecedence = {

@@ -12,8 +12,8 @@ const { parseTtscGraphNodeId } = require(
 };
 
 /**
- * Verifies node identity parsing: an id with an empty symbol component is not
- * a readable graph identity.
+ * Verifies node identity parsing: an id with an empty symbol component is not a
+ * readable graph identity.
  *
  * The Go producer rejects `path#:kind`; accepting it in the TypeScript reader
  * would make malformed stale handles silently enter the symbol lookup path.

@@ -81,7 +81,11 @@ export const test_object_target_break_rest_no_trailing_comma = (): void => {
   for (const [title, node] of cases) {
     const flat: string = wide.print(node);
     const broken: string = tiny.print(node);
-    TestValidator.equals(`${title} flat compiles`, syntaxErrorOf(flat), undefined);
+    TestValidator.equals(
+      `${title} flat compiles`,
+      syntaxErrorOf(flat),
+      undefined,
+    );
     TestValidator.equals(
       `${title} broken compiles`,
       syntaxErrorOf(broken),
@@ -113,5 +117,9 @@ export const test_object_target_break_rest_no_trailing_comma = (): void => {
     rvalue.includes("...remainingDestructuredBindings,"),
     true,
   );
-  TestValidator.equals("rvalue twin compiles", syntaxErrorOf(rvalue), undefined);
+  TestValidator.equals(
+    "rvalue twin compiles",
+    syntaxErrorOf(rvalue),
+    undefined,
+  );
 };

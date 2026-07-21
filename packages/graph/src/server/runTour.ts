@@ -13,7 +13,7 @@ import { resolveGraphHandle } from "./resolveHandle";
 import { IRunnerOutput, resultNext } from "./resultNext";
 import { decoratorsOf, docOf, runDetails, signatureOf } from "./runDetails";
 import { runEntrypoints } from "./runEntrypoints";
-import { runTrace } from "./runTrace";
+import { hasDeclarationBody, runTrace } from "./runTrace";
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 5;
@@ -110,6 +110,24 @@ export function runTour(
   // so keep the first and walk on to one that tells something else.
   const primaryFlow: ITtscGraphTour.IFlow[] = [];
   const told: Set<string>[] = [];
+  // A flow whose every hop the hub cut would remove is demoted, not deleted.
+  // Deleting it is what #809 reports: eleven callers kept the flow and a
+  // twelfth erased it, so the tour answered a question about a terminal action
+  // with nothing. Telling it regardless is what the cut was written against: a
+  // one-line wrapper around a logger became one of the tour's four flows.
+  //
+  // Demotion settles both without a rule that can tell a commit from a logger,
+  // which the graph cannot: the flow is held back, and told only if the tour
+  // finishes with nothing else to say. The first such candidate is kept because
+  // the seeds arrive ranked.
+  let demoted:
+    | {
+        start: ITtscGraphTrace.INode;
+        hops: ITtscGraphTrace.IHop[];
+        reached: ITtscGraphTrace.INode[];
+        truncated: boolean;
+      }
+    | undefined;
 
   for (const id of flowSeedIdsOf(
     tourSeedsOf(
@@ -132,11 +150,18 @@ export function runTour(
     }).result;
     const start = trace.start;
     if (start === undefined) continue;
-    const hops = trace.hops.filter((hop) => isTourHop(graph, hop));
-    if (hops.length === 0) continue;
-    const reached = trace.reached.filter((node) =>
-      isTourTraceNode(graph, node),
-    );
+    const { kept: hops, demotable } = tourHops(graph, trace.hops);
+    if (hops.length === 0) {
+      if (demoted === undefined && demotable.length > 0)
+        demoted = {
+          start,
+          hops: demotable,
+          reached: reachedOf(graph, trace, demotable),
+          truncated: trace.truncated === true,
+        };
+      continue;
+    }
+    const reached = reachedOf(graph, trace, hops);
     const landed = new Set(reached.map((node) => node.id));
     if (told.some((earlier) => overlaps(landed, earlier))) continue;
     told.push(landed);
@@ -159,6 +184,16 @@ export function runTour(
       ...(trace.truncated ? { truncated: true } : {}),
     });
   }
+
+  if (primaryFlow.length === 0 && demoted !== undefined)
+    primaryFlow.push({
+      start: flowStartOf(demoted.start),
+      steps: demoted.hops
+        .slice(0, MAX_FLOW_ANCHORS)
+        .map((hop) => flowStepOf(graph, hop)),
+      reached: demoted.reached.map(traceNodeOf),
+      ...(demoted.truncated ? { truncated: true } : {}),
+    });
 
   const details =
     seedIds.length === 0
@@ -561,13 +596,17 @@ function computeCentrality(graph: TtscGraphMemory): Map<string, number> {
 
   const invoked = (id: string): string[] => {
     const out: string[] = [];
-    let hasBody = false;
     for (const edge of graph.outgoing(id)) {
-      if (!INVOKE_KINDS.has(edge.kind)) continue;
-      hasBody = true;
-      out.push(edge.to);
+      if (INVOKE_KINDS.has(edge.kind)) out.push(edge.to);
     }
-    if (!hasBody) {
+    // Whether the declaration has a body is a declaration fact, not an edge
+    // count. A concrete method that returns a literal, does local arithmetic or
+    // throws has a body and no invocation edges at all, and counting edges
+    // ranked it as though it were an abstract member — then walked its
+    // implementations as if the call had to dispatch. `runTrace` stopped using
+    // that proxy in #828; this was the second copy of it.
+    const node = graph.node(id);
+    if (node !== undefined && !hasDeclarationBody(graph, node)) {
       for (const edge of graph.incoming(id)) {
         if (DISPATCH_KINDS.has(edge.kind)) out.push(edge.from);
       }
@@ -705,11 +744,59 @@ function isTourTraceNode(
   graph: TtscGraphMemory,
   node: ITtscGraphTrace.INode,
 ): boolean {
-  return (
-    graph.node(node.id)?.closure !== true &&
-    !isNoisePath(node.file) &&
-    !isSharedUtility(graph, node.id)
+  return graph.node(node.id)?.closure !== true && !isNoisePath(node.file);
+}
+
+/**
+ * The hops a flow keeps, and the hops it would keep if the cut were not
+ * applied.
+ *
+ * Degree cannot tell a logger from a database commit. Both are called from many
+ * sites and call nothing onward, so no threshold on `isSharedUtility` separates
+ * the noise the cut exists to remove from the point where a runtime flow does
+ * its work. Rather than guess, this returns both readings and lets the caller
+ * demote instead of delete.
+ *
+ * A hub the flow continues past always keeps its inbound hop. Dropping it left
+ * the outbound step narrating a chain from a node the same flow reported it
+ * never reached, which is incoherent whatever that node means, so this one is
+ * not a judgement call and is applied unconditionally.
+ *
+ * `demotable` is non-empty exactly when the cut would empty the flow — when
+ * every hop it has lands on a hub. That is the shape the caller holds back and
+ * tells only if the tour finishes with nothing else, so a wrapper around a
+ * logger never displaces a real chain and a lone terminal action is never
+ * erased.
+ */
+/**
+ * The nodes a flow reached, derived from the hops that survived.
+ *
+ * Deriving it rather than filtering it beside them is what makes a dangling
+ * step impossible: a step can only name endpoints of a kept hop, and every such
+ * endpoint is here. Filtering the two independently is what let a step narrate
+ * a chain from a node the same flow reported it had never reached.
+ */
+function reachedOf(
+  graph: TtscGraphMemory,
+  trace: ITtscGraphTrace,
+  hops: readonly ITtscGraphTrace.IHop[],
+): ITtscGraphTrace.INode[] {
+  const touched = new Set(hops.flatMap((hop) => [hop.from, hop.to]));
+  return trace.reached.filter(
+    (node) => touched.has(node.id) && isTourTraceNode(graph, node),
   );
+}
+
+function tourHops(
+  graph: TtscGraphMemory,
+  hops: readonly ITtscGraphTrace.IHop[],
+): { kept: ITtscGraphTrace.IHop[]; demotable: ITtscGraphTrace.IHop[] } {
+  const eligible = hops.filter((hop) => isTourHop(graph, hop));
+  const departures = new Set(eligible.map((hop) => hop.from));
+  const kept = eligible.filter(
+    (hop) => !isSharedUtility(graph, hop.to) || departures.has(hop.to),
+  );
+  return { kept, demotable: kept.length === 0 ? eligible : [] };
 }
 
 function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
@@ -722,8 +809,7 @@ function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
     to.closure !== true &&
     !STRUCTURAL_KINDS.has(hop.kind) &&
     !isNoisePath(from.file) &&
-    !isNoisePath(to.file) &&
-    !isSharedUtility(graph, hop.to)
+    !isNoisePath(to.file)
   );
 }
 
@@ -739,8 +825,15 @@ function isTourHop(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): boolean {
 // "top few percent of hubs" band regardless of project size, while the absolute
 // floor makes it a no-op on small graphs that have no genuine hub. The `out <= 1`
 // guard keeps thin pass-throughs out but never prunes a real branching step.
+//
+// The fan-in counted is EXECUTION fan-in. `realDegree` also counts `type_ref`,
+// `extends`, `decorates`, and `tests`, and a widely referenced type or a
+// widely decorated symbol is not a call hub: a `Config` class named in twelve
+// parameter positions and constructed once was read as a hub and cut out of the
+// flow that constructs it. Popularity as a name is not popularity as a call.
 function isSharedUtility(graph: TtscGraphMemory, id: string): boolean {
-  return realDegree(graph, id).in >= 12 && executionDegree(graph, id).out <= 1;
+  const execution = executionDegree(graph, id);
+  return execution.in >= 12 && execution.out <= 1;
 }
 
 function flowStepOf(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): string {
@@ -765,24 +858,6 @@ function flowStepOf(graph: TtscGraphMemory, hop: ITtscGraphTrace.IHop): string {
  */
 function touchesClosure(graph: TtscGraphMemory, id: string): boolean {
   return graph.node(id)?.closure === true;
-}
-
-function realDegree(
-  graph: TtscGraphMemory,
-  id: string,
-): {
-  in: number;
-  out: number;
-} {
-  let incoming = 0;
-  let outgoing = 0;
-  for (const edge of graph.outgoing(id))
-    if (!STRUCTURAL_KINDS.has(edge.kind) && !touchesClosure(graph, edge.to))
-      outgoing++;
-  for (const edge of graph.incoming(id))
-    if (!STRUCTURAL_KINDS.has(edge.kind) && !touchesClosure(graph, edge.from))
-      incoming++;
-  return { in: incoming, out: outgoing };
 }
 
 function executionDegree(

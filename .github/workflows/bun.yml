@@ -1,6 +1,17 @@
 name: bun
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/bun.yml"
+      - "experimental/test-unplugin/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
   pull_request:
     paths:
       - ".github/workflows/bun.yml"

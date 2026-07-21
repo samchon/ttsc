@@ -32,8 +32,8 @@ const expression = (name: string) =>
  *
  * 1. Print `<div>{a}{b}</div>` narrow and assert it breaks onto separate lines,
  *    gains no `{" "}`, and still transpiles to the same two children.
- * 2. Emit a `JsxText` immediately before a hard line break and assert its
- *    trailing space survives, which is the raw-text exemption itself.
+ * 2. Emit a `JsxText` immediately before a hard line break and assert its trailing
+ *    space survives, which is the raw-text exemption itself.
  * 3. Print a narrow call, object literal and binary expression.
  * 4. Assert no line of that output ends in a space or tab.
  */
@@ -88,7 +88,10 @@ export const test_jsx_break_without_text_children = (): void => {
         factory.createParenthesizedExpression(
           factory.createObjectLiteralExpression([
             factory.createPropertyAssignment("firstPropertyName", str("alpha")),
-            factory.createPropertyAssignment("secondPropertyName", str("bravo")),
+            factory.createPropertyAssignment(
+              "secondPropertyName",
+              str("bravo"),
+            ),
           ]),
         ),
       ),

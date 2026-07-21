@@ -63,20 +63,17 @@ function delay(ms: number): Promise<void> {
  * other pending calls receive the host-retirement error.
  *
  * 1. Reject invalid deadlines and preserve a delayed reply within the bound.
- * 2. Time out two pipelined requests, clear their pending state, and fail a
- *    later call closed.
+ * 2. Time out two pipelined requests, clear their pending state, and fail a later
+ *    call closed.
  * 3. Preserve cancellation before write as one caller's concern, then prove an
  *    in-flight cancellation retires a shared host without leaving another
  *    pending request behind.
- * 4. Deliver a synthetic late protocol line after retirement and prove it
- *    cannot settle a later caller; dispose remains idempotent after timeout.
+ * 4. Deliver a synthetic late protocol line after retirement and prove it cannot
+ *    settle a later caller; dispose remains idempotent after timeout.
  */
 export const test_residenttransformprocess_request_bounds = async () => {
   for (const value of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
-    assert.throws(
-      () => spawnStub(SILENT_STUB, value),
-      /requestTimeoutMs/,
-    );
+    assert.throws(() => spawnStub(SILENT_STUB, value), /requestTimeoutMs/);
   }
   assert.throws(
     () => spawnStub(SILENT_STUB, 2_147_483_648),
@@ -128,9 +125,10 @@ export const test_residenttransformprocess_request_bounds = async () => {
     controller.abort("caller stopped before write");
     try {
       await assert.rejects(
-        () => proc.request({ file: "cancelled.ts" }, "transform", {
-          signal: controller.signal,
-        }),
+        () =>
+          proc.request({ file: "cancelled.ts" }, "transform", {
+            signal: controller.signal,
+          }),
         (error: Error) =>
           error.name === "AbortError" &&
           /caller stopped before write/.test(error.message),

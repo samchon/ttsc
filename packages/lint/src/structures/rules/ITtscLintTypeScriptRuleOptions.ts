@@ -73,7 +73,16 @@ export interface ITtscLintTypeScriptNoFloatingPromisesRuleOptions {
   allowForKnownSafeCalls?: readonly TtscLintTypeOrValueSpecifier[];
   /** Promise types whose values may be discarded safely. */
   allowForKnownSafePromises?: readonly TtscLintTypeOrValueSpecifier[];
-  /** Also inspect catchable structural thenables. Defaults to `false`. */
+  /**
+   * Check all thenables, not just the built-in `Promise` type. Defaults to
+   * `false`, matching `@typescript-eslint/no-floating-promises`.
+   *
+   * The option selects what the rule examines, so turning it on reports more.
+   * Left off, a structural thenable is outside the rule entirely: neither a
+   * floating one nor a handled chain on one is reported. A configuration
+   * carried over from typescript-eslint therefore produces the same findings
+   * here.
+   */
   checkThenables?: boolean;
   /**
    * Ignore immediately invoked function-expression results. Defaults to

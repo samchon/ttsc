@@ -14,7 +14,7 @@ export const test_full_module = (): void => {
   const importDecl = factory.createImportDeclaration(
     undefined,
     factory.createImportClause(
-      false,
+      undefined,
       undefined,
       factory.createNamedImports([
         factory.createImportSpecifier(false, undefined, "Base"),

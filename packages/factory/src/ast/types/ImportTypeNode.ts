@@ -1,3 +1,4 @@
+import type { ImportAttributes } from "../imports/ImportAttributes";
 import type { EntityName } from "../names/EntityName";
 import type { TypeNode } from "./TypeNode";
 
@@ -14,6 +15,9 @@ export interface ImportTypeNode {
 
   /** Argument. */
   argument: TypeNode;
+
+  /** The `with { … }` import attributes, if any. */
+  attributes?: ImportAttributes;
 
   /** Qualifier. */
   qualifier?: EntityName;

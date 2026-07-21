@@ -1,6 +1,7 @@
 import type {
   Expression,
   Identifier,
+  ImportAttributes,
   ImportClause,
   JSDocComment,
   JSDocImportTag,
@@ -27,6 +28,7 @@ import { createIdentifier } from "../names/createIdentifier";
  * @param tagName The tag name; defaults to `import`.
  * @param importClause The import clause, if any.
  * @param moduleSpecifier The module specifier.
+ * @param attributes The `with { … }` import attributes, if any.
  * @param comment The trailing comment, if any.
  * @returns The created {@link JSDocImportTag}.
  */
@@ -34,11 +36,13 @@ export const createJSDocImportTag = (
   tagName: Identifier | undefined,
   importClause: ImportClause | undefined,
   moduleSpecifier: Expression,
-  comment?: string | readonly JSDocComment[],
+  attributes?: ImportAttributes,
+  comment?: readonly JSDocComment[],
 ): JSDocImportTag =>
   make("JSDocImportTag", {
     tagName: tagName ?? createIdentifier("import"),
     importClause,
     moduleSpecifier,
+    attributes,
     comment,
   });

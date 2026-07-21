@@ -1,6 +1,17 @@
 name: source-map
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/source-map.yml"
+      - "experimental/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
   pull_request:
     paths:
       - ".github/workflows/source-map.yml"

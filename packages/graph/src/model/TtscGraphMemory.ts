@@ -4,8 +4,8 @@ import { ITtscGraphEvidence } from "../structures/ITtscGraphEvidence";
 import { ITtscGraphNode } from "../structures/ITtscGraphNode";
 import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
-import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
 import { ttscGraphNodeIdPath } from "./TtscGraphNodeId";
+import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
 
 /**
  * The in-memory resident graph the MCP tools answer from.

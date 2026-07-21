@@ -51,6 +51,10 @@ export function runDetails(
   // does not: what names or uses a symbol is bounded by its popularity, not by
   // it, so those stay a small slice with `trace` for the rest.
   const memberLimit = limitOf(props.memberLimit);
+  // True once any handle's member list is cut by the cap above. It travels with
+  // the result so the audit can withdraw the completeness claim for exactly
+  // that half — a caller cannot notice the cut from the result itself.
+  let membersCapped = false;
   const neighborLimit = capOf(
     props.neighborLimit,
     DEFAULT_NEIGHBORS,
@@ -139,12 +143,19 @@ export function runDetails(
     );
     if (implementedBy.length > 0) detail.implementedBy = implementedBy;
     if (CONTAINER_KINDS.has(node.kind)) {
-      const list = members(graph, node, memberLimit);
-      if (list.length > 0) detail.members = list;
+      // Read one past the cap so the cut is observable. Without it a full list
+      // and a truncated one are the same value, and the audit went on claiming
+      // the members were whole.
+      const list = members(graph, node, memberLimit + 1);
+      if (list.length > memberLimit) membersCapped = true;
+      const shown = list.slice(0, memberLimit);
+      if (shown.length > 0) detail.members = shown;
     }
     if (node.kind === "variable") {
-      const list = objectLiteralMembers(node, memberLimit);
-      if (list.length > 0) detail.members = list;
+      const list = objectLiteralMembers(node, memberLimit + 1);
+      if (list.length > memberLimit) membersCapped = true;
+      const shown = list.slice(0, memberLimit);
+      if (shown.length > 0) detail.members = shown;
     }
     // An enum's members ride on its own node rather than on `contains` edges,
     // because they are not nodes: the outline above finds nothing for an enum
@@ -152,8 +163,10 @@ export function runDetails(
     // kind whose entire content is its member list answered with none of it.
     // Uncapped like every other identity list — the members are the enum.
     if (node.kind === "enum") {
-      const list = enumMembers(node, memberLimit);
-      if (list.length > 0) detail.members = list;
+      const list = enumMembers(node, memberLimit + 1);
+      if (list.length > memberLimit) membersCapped = true;
+      const shown = list.slice(0, memberLimit);
+      if (shown.length > 0) detail.members = shown;
     }
     if (node.literals !== undefined && node.literals.length > 0) {
       detail.literals = node.literals;
@@ -177,6 +190,7 @@ export function runDetails(
     nodes.push(detail);
   }
   return {
+    ...(membersCapped ? { membersCapped: true } : {}),
     result: {
       type: "details",
       nodes,
@@ -561,6 +575,16 @@ export function signatureOf(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
 ): string | undefined {
+  // The producer cuts the head where the compiler says the body opens, so when
+  // it supplied one there is nothing left to infer. The scan below only runs
+  // where it could not: it reads whole physical lines and stops at the first one
+  // holding a `{`, which leaks implementation text when a declaration shares its
+  // line with its body and stops early when the head itself contains a brace.
+  if (node.signature !== undefined && node.signature !== "") {
+    const capped = node.signature.split("\n").slice(0, MAX_SIGNATURE_LINES);
+    const head = capped.join("\n").trim();
+    if (head !== "") return head;
+  }
   const evidence = node.evidence;
   const lines =
     evidence === undefined ? undefined : graph.source.lines(evidence.file);

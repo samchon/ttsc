@@ -94,7 +94,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 ### Require
 
 - [`typescript/require-array-sort-compare`](#rule-typescript-require-array-sort-compare): Require `arr.sort()` and `arr.toSorted()` calls to pass an explicit `compareFunction`.
-- [`typescript/require-await`](#rule-typescript-require-await): Reject `async` functions whose body contains no `await` expression.
+- [`typescript/require-await`](#rule-typescript-require-await): Reject `async` functions that have no `await` expression and return no promise.
 
 ### Consistency
 
@@ -419,6 +419,8 @@ Reject `delete arr[i]` against array elements.
 
 `delete` leaves a hole; use `arr.splice` to shrink the array.
 
+Type-aware via the Checker. `delete target[key]` is spelled identically whether the target is an array or a `Record` / index-signature object, and on the latter it is the correct way to remove an entry — so the target's type is the only thing that separates them, and the subscript's syntactic shape says nothing.
+
 Example:
 
 ```ts
@@ -644,6 +646,8 @@ Reject discarded built-in Promises, invalid rejection-handler chains, and Promis
 Type-aware via the Checker. A floating promise loses its rejection channel and runs out of order with surrounding code. A `.catch` or second `.then` argument handles rejection only when it is callable; `.finally` preserves the receiver chain's handled state.
 
 The scalar defaults ignore structural thenables, async IIFEs remain checked, and `void` is an explicit escape hatch. `checkThenables`, `ignoreIIFE`, `ignoreVoid`, `allowForKnownSafeCalls`, and `allowForKnownSafePromises` expose the upstream option boundary through typed rule tuples.
+
+`checkThenables` selects what the rule examines, exactly as upstream does: it defaults to `false`, and turning it on reports more rather than less. Left off, a structural thenable is outside the rule entirely — neither a floating thenable nor a handled chain on one is reported. So a configuration carried over from a typescript-eslint project produces the same findings here.
 
 Acceptable sinks are `await`, a callable rejection handler, assignment, the configured `void` escape, and `return`.
 
@@ -1865,9 +1869,11 @@ numbers.sort();
 
 ### `typescript/require-await`
 
-Reject `async` functions whose body contains no `await` expression.
+Reject `async` functions that have no `await` expression and return no promise.
 
 An async function with no `await` only inflates the return type to `Promise<T>` without doing any asynchronous work; collapse it to a sync function.
+
+Type-aware via the Checker, which upstream uses for the same purpose: a function that returns a promise is accepted without an `await`, because marking it `async` states the contract for callers and forwards the inner promise. A `for await` loop counts as an await — it is spelled as a for-of carrying an await modifier rather than as an await expression.
 
 Async generators are accepted as long as they have at least one `yield`.
 

@@ -61,9 +61,9 @@ export interface ITtscLintFormat {
    * Pad the inside of single-line braces with one space. Mirrors Prettier's
    * `bracketSpacing`. `true` (the default) gives `{ x: 1 }`, `import { foo }`;
    * `false` gives `{x: 1}`, `import {foo}`. Applies to object literals, object
-   * destructuring patterns, named imports/exports, type literals, mapped
-   * types, and import attributes; block, class, interface, and enum braces
-   * are unaffected.
+   * destructuring patterns, named imports/exports, type literals, mapped types,
+   * and import attributes; block, class, interface, and enum braces are
+   * unaffected.
    *
    * @default true
    */
@@ -72,8 +72,8 @@ export interface ITtscLintFormat {
   /**
    * Quoting policy for object-literal keys plus class-method and type-member
    * names. Mirrors Prettier's `quoteProps`. `"as-needed"` (the default) removes
-   * quotes from a key that is a valid identifier (`{ "foo": 1 }` becomes
-   * `{ foo: 1 }`), keeping them on non-identifier or numeric keys (`"bar-baz"`,
+   * quotes from a key that is a valid identifier (`{ "foo": 1 }` becomes `{
+   * foo: 1 }`), keeping them on non-identifier or numeric keys (`"bar-baz"`,
    * `"123"`). `"consistent"` quotes every object-literal identifier key when a
    * sibling requires quotes. `"preserve"` never changes quoting. ttsc keeps
    * `"__proto__"` and non-ASCII identifier keys quoted because unquoting can

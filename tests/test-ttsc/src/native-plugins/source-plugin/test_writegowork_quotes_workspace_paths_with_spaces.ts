@@ -20,15 +20,15 @@ import {
  * and inspects the generated `go.work` to pin both directives, plus a
  * space-free twin that must stay unquoted so the fix never over-quotes. A
  * namespaced Windows path (or a POSIX double-slash spelling of the same local
- * directory) also proves a normalized comment-prefix path survives a real
- * `go work edit -json` parse.
+ * directory) also proves a normalized comment-prefix path survives a real `go
+ * work edit -json` parse.
  *
  * 1. Build a plugin whose overlays are a ttsc-module dir under a `"space dir"`
  *    path and a space-free shim dir.
  * 2. Capture the `go.work` the builder hands to `go build`.
- * 3. Assert the spaced path is quoted in both `use` and `replace`, the
- *    space-free path stays bare, and the normalized comment-prefix path is
- *    quoted in `use`.
+ * 3. Assert the spaced path is quoted in both `use` and `replace`, the space-free
+ *    path stays bare, and the normalized comment-prefix path is quoted in
+ *    `use`.
  * 4. Parse the captured workspace with the real Go modfile tool and assert it
  *    retains that `use` entry.
  */

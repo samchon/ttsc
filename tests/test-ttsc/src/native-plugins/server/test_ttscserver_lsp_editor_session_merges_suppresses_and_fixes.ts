@@ -74,8 +74,8 @@ const FIXED = SAVED.replace("var legacy", "let legacy");
  * didChange → didSave → codeAction → executeCommand would leave every existing
  * test green while the editor showed nothing.
  *
- * 1. Materialize a `@ttsc/lint` project with a `no-var` violation, handshake,
- *    and assert ttsc's command ids and action kinds are merged into tsgo's
+ * 1. Materialize a `@ttsc/lint` project with a `no-var` violation, handshake, and
+ *    assert ttsc's command ids and action kinds are merged into tsgo's
  *    advertised capabilities rather than replacing them.
  * 2. Open the file and assert the lint diagnostic underlines the `var` keyword;
  *    edit the buffer and assert the dirty publish drops the finding; save and

@@ -365,11 +365,7 @@ export class ResidentTransformProcess {
 /** Validate and normalize the caller-visible resident request deadline. */
 export function normalizeRequestTimeoutMs(requestTimeoutMs?: number): number {
   const value = requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
-  if (
-    !Number.isSafeInteger(value) ||
-    value <= 0 ||
-    value > MAX_TIMER_MS
-  ) {
+  if (!Number.isSafeInteger(value) || value <= 0 || value > MAX_TIMER_MS) {
     throw new TypeError(
       `ttsc: requestTimeoutMs must be an integer between 1 and ${String(MAX_TIMER_MS)}`,
     );

@@ -862,6 +862,14 @@ func analyzeFloatingPromiseCall(
   var nonPromiseReceivers []*shimchecker.Type
   sawPromiseReceiver := false
   sawUnsafePromiseReceiver := false
+  // A thenable receiver the option leaves out of scope is not the same as a
+  // receiver that is not promise-like at all. Upstream's `checkThenables`
+  // decides which types the rule examines — "whether to check all Thenables,
+  // not just the built-in Promise type" — so with the option off a thenable is
+  // outside the rule, not an unhandled promise. Collapsing the two is what made
+  // `false` the strict setting here and `true` the lenient one, the exact
+  // inversion of the option this borrows its name from.
+  sawOutOfScopeThenable := false
   receiverIsOptional := floatingPromisePropertyAccessIsOptional(call.Expression)
   for _, part := range promiseUnionParts(apparent) {
     if part == nil {
@@ -875,15 +883,26 @@ func analyzeFloatingPromiseCall(
       sawPromiseReceiver = true
       continue
     }
-    if isNativePromiseInstanceLike(ctx.Checker, part) ||
-      (options.CheckThenables && isCatchableThenableAtLocation(ctx.Checker, receiver, part)) {
+    if isNativePromiseInstanceLike(ctx.Checker, part) {
       sawPromiseReceiver = true
       sawUnsafePromiseReceiver = true
+      continue
+    }
+    if isCatchableThenableAtLocation(ctx.Checker, receiver, part) {
+      if options.CheckThenables {
+        sawPromiseReceiver = true
+        sawUnsafePromiseReceiver = true
+        continue
+      }
+      sawOutOfScopeThenable = true
       continue
     }
     nonPromiseReceivers = append(nonPromiseReceivers, part)
   }
   if !sawPromiseReceiver {
+    if sawOutOfScopeThenable && len(nonPromiseReceivers) == 0 {
+      return floatingPromiseResult{}
+    }
     return floatingPromiseResult{unhandled: callResultIsFloating}
   }
 
@@ -959,20 +978,23 @@ func floatingPromiseMethodCall(call *shimast.CallExpression) (*shimast.Node, str
   return receiver, method, true
 }
 
+// floatingPromisePropertyAccessIsOptional reports whether a null or undefined
+// branch of the receiver's type is unreachable at this access.
+//
+// The guard is not only the access's own `?.`. An optional chain short-circuits
+// as a whole, so in `maybe?.run().catch(handler)` the `.catch` access is never
+// evaluated when `maybe` is nullish, even though it carries no `?.` of its own.
+// Reading only the outermost token left the `undefined` branch of
+// `Promise<void> | undefined` looking like a real receiver, and the rule
+// reported a chain that ends in a callable rejection handler.
+//
+// `containsOptionalChain` already walks exactly this shape for
+// `no-non-null-asserted-optional-chain`: it descends property, element, and
+// call links, and stops at any other node kind. Stopping there is what makes a
+// parenthesized sub-expression end the chain — `(maybe?.run()).catch(handler)`
+// really can throw, so that shape must keep its nullish branch.
 func floatingPromisePropertyAccessIsOptional(node *shimast.Node) bool {
-  node = stripParens(node)
-  if node == nil {
-    return false
-  }
-  switch node.Kind {
-  case shimast.KindPropertyAccessExpression:
-    access := node.AsPropertyAccessExpression()
-    return access != nil && access.QuestionDotToken != nil
-  case shimast.KindElementAccessExpression:
-    access := node.AsElementAccessExpression()
-    return access != nil && access.QuestionDotToken != nil
-  }
-  return false
+  return containsOptionalChain(stripParens(node))
 }
 
 // floatingPromiseMethodReturnIsUnhandled determines what a non-Promise

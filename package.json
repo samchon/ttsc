@@ -26,7 +26,8 @@
     "coverage:go": "node scripts/test-go-coverage.cjs",
     "test:features": "pnpm --filter \"./tests/test-*\" -r --workspace-concurrency=1 start",
     "test:go": "node scripts/test-go.cjs",
-    "test:typecheck": "node scripts/test-typecheck.cjs"
+    "test:typecheck": "node scripts/test-typecheck.cjs",
+    "check:format": "node scripts/ci/format-check.cjs"
   },
   "repository": {
     "type": "git",

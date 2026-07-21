@@ -30,8 +30,5 @@ export const test_compiler_corpus_single_file_noemit_preserves_diagnostics =
     );
     assert.notEqual(result.status, 0, "invalid TypeScript must fail");
     assert.match(`${result.stdout}${result.stderr}`, /TS2322/);
-    assert.equal(
-      fs.existsSync(path.join(root, "dist", "broken.js")),
-      false,
-    );
+    assert.equal(fs.existsSync(path.join(root, "dist", "broken.js")), false);
   };

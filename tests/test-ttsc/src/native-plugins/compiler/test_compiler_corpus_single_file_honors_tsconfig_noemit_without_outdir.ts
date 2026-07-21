@@ -8,11 +8,13 @@ import {
 } from "../../internal/compiler-corpus";
 
 /**
- * Verifies compiler corpus: single-file mode honors tsconfig noEmit without outDir.
+ * Verifies compiler corpus: single-file mode honors tsconfig noEmit without
+ * outDir.
  *
- * Without an `outDir`, the compatibility lane's fallback would write a JavaScript
- * sibling beside the source. A resolved `noEmit` must suppress that write, while
- * explicit `--emit` retains the project lane's documented override.
+ * Without an `outDir`, the compatibility lane's fallback would write a
+ * JavaScript sibling beside the source. A resolved `noEmit` must suppress that
+ * write, while explicit `--emit` retains the project lane's documented
+ * override.
  *
  * 1. Materialize a no-emit project without an output directory.
  * 2. Run one positional file and assert its JavaScript sibling is absent.
@@ -42,11 +44,9 @@ export const test_compiler_corpus_single_file_honors_tsconfig_noemit_without_out
     assert.equal(fs.existsSync(output), false);
     assert.equal(suppressed.stdout.includes("main.js"), false);
 
-    const override = spawn(
-      ttscBin,
-      ["--cwd", root, "--emit", "src/main.ts"],
-      { cwd: root },
-    );
+    const override = spawn(ttscBin, ["--cwd", root, "--emit", "src/main.ts"], {
+      cwd: root,
+    });
     assert.equal(override.status, 0, override.stderr);
     assert.equal(fs.existsSync(output), true);
   };

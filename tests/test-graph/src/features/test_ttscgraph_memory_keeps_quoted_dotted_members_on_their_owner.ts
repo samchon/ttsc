@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 
 import {
-  createSyntheticGraph,
   type ResolverGraphNode,
+  createSyntheticGraph,
 } from "../internal/resolverGraph";
 
 /**
@@ -39,8 +39,8 @@ export const test_ttscgraph_memory_keeps_quoted_dotted_members_on_their_owner =
     const property = graph.nodes.find((node) => node.id === member.id);
     assert.strictEqual(property?.kind, "property");
     assert.ok(
-      graph.incoming(member.id).some(
-        (edge) => edge.kind === "contains" && edge.from === box.id,
-      ),
+      graph
+        .incoming(member.id)
+        .some((edge) => edge.kind === "contains" && edge.from === box.id),
     );
   };

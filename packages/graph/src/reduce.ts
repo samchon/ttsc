@@ -9,6 +9,7 @@ export interface RawNode {
   kind: string;
   file: string;
   external?: boolean;
+  ignored?: boolean;
 }
 
 export interface RawEdge {
@@ -45,6 +46,7 @@ export interface ViewerPayload {
     nodes: number;
     links: number;
     droppedExternal: number;
+    droppedIgnored: number;
     droppedByCap: number;
   };
   nodes: ViewerNode[];
@@ -111,17 +113,24 @@ function relativize(abs: string, root: string | null): string {
   )
     return a.slice(r.length).replace(/^\/+/, "");
   const nm = a.lastIndexOf("node_modules/");
+  // A package tail is a deliberate normalization: the same dependency reached
+  // through two roots is one thing to look at.
   if (nm >= 0) return a.slice(nm);
-  const slash = a.lastIndexOf("/");
-  return slash >= 0 ? a.slice(slash + 1) : a;
+  // Anything else keeps its whole path. Collapsing to the basename made the
+  // projection non-injective, and node ids are rewritten with it, so two
+  // declarations in two files could become one viewer node and an edge could
+  // resolve back to the wrong end. A longer label is a cosmetic cost; a
+  // collided id is a wrong picture.
+  return a;
 }
 
 function rewriteId(id: string, root: string | null): string {
   const hash = graphNodeIdHash(id);
   if (hash < 0) return id;
   return (
-    escapeGraphNodeIdPart(relativize(unescapeGraphNodeIdPart(id.slice(0, hash)), root)) +
-    id.slice(hash)
+    escapeGraphNodeIdPart(
+      relativize(unescapeGraphNodeIdPart(id.slice(0, hash)), root),
+    ) + id.slice(hash)
   );
 }
 
@@ -146,7 +155,9 @@ function unescapeGraphNodeIdPart(value: string): string {
 }
 
 function legacyUNCStart(value: string, index: number): boolean {
-  return index === 0 && value.length > 2 && value[2] !== "\\" && value[2] !== "#";
+  return (
+    index === 0 && value.length > 2 && value[2] !== "\\" && value[2] !== "#"
+  );
 }
 
 function graphNodeIdHash(id: string): number {
@@ -198,30 +209,48 @@ export function reduce(
   {
     maxNodes = 1200,
     keepExternal = false,
-  }: { maxNodes?: number; keepExternal?: boolean } = {},
+    keepIgnored = false,
+  }: {
+    maxNodes?: number;
+    keepExternal?: boolean;
+    keepIgnored?: boolean;
+  } = {},
 ): ViewerPayload {
-  const keptByExternal = raw.nodes.filter((n) => keepExternal || !n.external);
+  // Drop external boundary leaves and git-ignored generated code (a Prisma
+  // client and the like, tagged `ignored` by the dump) so the authored graph is
+  // not buried under codegen. The cap is by degree, and generated clients are
+  // large and densely connected, so leaving them in does not merely add noise:
+  // they outrank authored code for the surviving slots.
+  const keep = (n: RawNode) =>
+    (keepExternal || !n.external) && (keepIgnored || !n.ignored);
+  const keptByBoundary = raw.nodes.filter(keep);
   // Reroot only absolute paths (the legacy dump contract); a current dump's
   // paths are already project-relative and keep their structure as-is.
-  const projectFiles = raw.nodes.filter((n) => !n.external).map((n) => n.file);
+  const projectFiles = raw.nodes
+    .filter((n) => !n.external && !n.ignored)
+    .map((n) => n.file);
   const root =
     projectFiles.length > 0 && isAbsolute(projectFiles[0]!)
-      ? commonRoot(projectFiles.map(directoryOf))
+      ? // A dump may mix path forms from one valid project: in-project sources
+        // are relative, package sources carry a node_modules tail, and other
+        // out-of-project sources stay absolute. Mixing those into one common
+        // root yields the empty string, so only absolute directories vote.
+        commonRoot(projectFiles.filter(isAbsolute).map(directoryOf))
       : null;
 
-  const liveIds = new Set(keptByExternal.map((n) => n.id));
+  const liveIds = new Set(keptByBoundary.map((n) => n.id));
   const liveEdges = raw.edges.filter(
     (e) => liveIds.has(e.from) && liveIds.has(e.to),
   );
 
-  const degree = degreeOf(keptByExternal, liveEdges);
-  let kept = keptByExternal;
+  const degree = degreeOf(keptByBoundary, liveEdges);
+  let kept = keptByBoundary;
   let droppedByCap = 0;
   if (kept.length > maxNodes) {
     kept = [...kept]
       .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0))
       .slice(0, maxNodes);
-    droppedByCap = keptByExternal.length - kept.length;
+    droppedByCap = keptByBoundary.length - kept.length;
   }
 
   const keptIds = new Set(kept.map((n) => n.id));
@@ -256,7 +285,15 @@ export function reduce(
       rawEdges: raw.edges.length,
       nodes: nodes.length,
       links: links.length,
-      droppedExternal: raw.nodes.length - keptByExternal.length,
+      // Each counter reports what its own filter dropped, and reports zero when
+      // that filter was turned off. The two are disjoint: an external node is
+      // counted as external whether or not it is also ignored.
+      droppedExternal: keepExternal
+        ? 0
+        : raw.nodes.filter((n) => n.external).length,
+      droppedIgnored: keepIgnored
+        ? 0
+        : raw.nodes.filter((n) => n.ignored && !n.external).length,
       droppedByCap,
     },
     nodes,

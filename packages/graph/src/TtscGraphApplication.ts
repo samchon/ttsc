@@ -2,6 +2,7 @@ import { TtscGraphMemory } from "./model/TtscGraphMemory";
 import {
   RESULT_AUDIT,
   RESULT_AUDIT_DETAILS,
+  RESULT_AUDIT_DETAILS_CAPPED,
   RESULT_AUDIT_ESCAPE,
   RESULT_AUDIT_SELECTION,
 } from "./server/resultAudit";
@@ -95,7 +96,10 @@ export class TtscGraphApplication implements ITtscGraphApplication {
         // not the walk-bounded-and-marked shape RESULT_AUDIT states.
         const r = runDetails(graph, props.request);
         return {
-          audit: RESULT_AUDIT_DETAILS,
+          audit:
+            r.membersCapped === true
+              ? RESULT_AUDIT_DETAILS_CAPPED
+              : RESULT_AUDIT_DETAILS,
           next: r.next,
           result: r.result,
         };

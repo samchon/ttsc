@@ -222,7 +222,28 @@ export function runTrace(
   while (queue.length > 0) {
     const next: Array<{ id: string; depth: number }> = [];
     for (const { id, depth } of queue) {
-      const candidates = traceEdges(graph, id, reverse, focus);
+      const { edges: candidates, omitted } = traceEdges(
+        graph,
+        id,
+        reverse,
+        focus,
+      );
+      // A hop the hub bound withheld is omitted whatever the depth budget does
+      // next, so the flag is set before the boundary check consumes the step.
+      if (
+        !truncated &&
+        omitted.some(
+          (edge) =>
+            eligibleTraceEndpoint(
+              graph,
+              edge,
+              reverse,
+              focus,
+              includeExternal,
+            ) !== undefined,
+        )
+      )
+        truncated = true;
       if (depth >= maxDepth) {
         // Reaching the configured boundary does not itself omit data. The
         // response is truncated only when the selected walk has another hop
@@ -309,21 +330,46 @@ interface ITraceEndpoint {
   other: ITtscGraphNode;
 }
 
-/** Candidate edges in the selected direction before focus and node policy. */
+/**
+ * Candidate edges in the selected direction before focus and node policy,
+ * together with the dispatch hops a bound withheld.
+ *
+ * The two have to travel together. A hub-suppressed fanout used to arrive as an
+ * empty dispatch list, which reads exactly like "this declaration dispatches to
+ * nothing", and the caller then reported a complete result while eligible hops
+ * had been dropped.
+ */
 function traceEdges(
   graph: TtscGraphMemory,
   id: string,
   reverse: boolean,
   focus: ITtscGraphTrace.IRequest["focus"],
-): readonly ITtscGraphEdge[] {
+): { edges: readonly ITtscGraphEdge[]; omitted: readonly ITtscGraphEdge[] } {
   const edges = reverse ? graph.incoming(id) : graph.outgoing(id);
   const dispatched = reverse
     ? reverseDispatchEdges(graph, id, focus)
     : dispatchEdges(graph, id, focus);
   // Nothing to add is the common case, and a walk visits the nodes with the
   // largest edge lists, so hand back the stored list rather than a copy of it.
-  return dispatched.length === 0 ? edges : [...edges, ...dispatched];
+  return {
+    edges:
+      dispatched.selected.length === 0
+        ? edges
+        : [...edges, ...dispatched.selected],
+    omitted: dispatched.omitted,
+  };
 }
+
+/** A dispatch fanout split into what the walk follows and what a bound withheld. */
+interface IDispatchSelection {
+  readonly selected: readonly ITtscGraphEdge[];
+  readonly omitted: readonly ITtscGraphEdge[];
+}
+
+// Returned by every no-dispatch path rather than allocated per call, which is
+// why the lists above are readonly: one shared value that anything could push
+// onto would leak a hop from one node's walk into another's.
+const NO_DISPATCH: IDispatchSelection = { selected: [], omitted: [] };
 
 /**
  * The endpoint the selected open trace would represent if no result bound
@@ -529,7 +575,7 @@ function findPath(
     for (const { id, depth } of queue) {
       // The forward step the open trace would take, built in one place so the
       // two walks cannot disagree about what a step follows.
-      const candidates = traceEdges(graph, id, false, focus);
+      const { edges: candidates } = traceEdges(graph, id, false, focus);
       if (depth >= maxDepth) {
         if (
           candidates.some(
@@ -742,8 +788,8 @@ function dispatchEdges(
   graph: TtscGraphMemory,
   id: string,
   focus: ITtscGraphTrace.IRequest["focus"],
-): ITtscGraphEdge[] {
-  if (focus === "types") return [];
+): IDispatchSelection {
+  if (focus === "types") return NO_DISPATCH;
   // The checker relations first: almost no node has one, and reading a
   // declaration's own facts walks its ownership chain, which is work worth
   // doing only where there is something to dispatch to.
@@ -751,10 +797,10 @@ function dispatchEdges(
   for (const edge of graph.incoming(id)) {
     if (DISPATCH_KINDS.has(edge.kind)) (relations ??= []).push(edge);
   }
-  if (relations === undefined) return [];
+  if (relations === undefined) return NO_DISPATCH;
   const declaration = graph.node(id);
   if (declaration === undefined || hasDeclarationBody(graph, declaration))
-    return [];
+    return NO_DISPATCH;
   const out: ITtscGraphEdge[] = [];
   // Per implementation, not per relation. A class may name one base in two
   // heritage clauses — `class Impl extends Base implements Base` is legal — and
@@ -779,7 +825,12 @@ function dispatchEdges(
       ...(edge.evidence !== undefined ? { evidence: edge.evidence } : {}),
     });
   }
-  return out.length >= DISPATCH_HUB ? [] : out;
+  // Above the hub cut the fanout stops being a trace and starts being a
+  // listing, so the walk does not follow it — but the hops are real and their
+  // absence is an omission the caller has to be able to report.
+  return out.length >= DISPATCH_HUB
+    ? { selected: [], omitted: out }
+    : { selected: out, omitted: [] };
 }
 
 /**
@@ -802,17 +853,23 @@ function reverseDispatchEdges(
   graph: TtscGraphMemory,
   id: string,
   focus: ITtscGraphTrace.IRequest["focus"],
-): ITtscGraphEdge[] {
-  if (focus === "types") return [];
-  const out: ITtscGraphEdge[] = [];
+): IDispatchSelection {
+  if (focus === "types") return NO_DISPATCH;
+  const selected: ITtscGraphEdge[] = [];
+  const omitted: ITtscGraphEdge[] = [];
   const bases = new Set<string>();
   for (const edge of graph.outgoing(id)) {
     if (!DISPATCH_KINDS.has(edge.kind) || bases.has(edge.to)) continue;
     bases.add(edge.to);
-    for (const dispatch of dispatchEdges(graph, edge.to, focus))
-      if (dispatch.to === id) out.push(dispatch);
+    const fanout = dispatchEdges(graph, edge.to, focus);
+    for (const dispatch of fanout.selected)
+      if (dispatch.to === id) selected.push(dispatch);
+    // The base's fanout is bounded as a whole, so a reverse walk that lands on
+    // a suppressed sibling has the same omission to report as the forward one.
+    for (const dispatch of fanout.omitted)
+      if (dispatch.to === id) omitted.push(dispatch);
   }
-  return out;
+  return { selected, omitted };
 }
 
 /**
@@ -835,7 +892,7 @@ function reverseDispatchEdges(
  * does not hold. Everything else is a concrete declaration, which is a real
  * destination and is never promoted through an override, whatever it calls.
  */
-function hasDeclarationBody(
+export function hasDeclarationBody(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
 ): boolean {

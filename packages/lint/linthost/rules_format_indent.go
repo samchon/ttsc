@@ -150,13 +150,69 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
         return
       }
       lineStart := lineStartOffset(src, closeBrace)
-      // The `}` must be the first non-whitespace byte on its line; a brace
-      // sharing a line with content (`} else {`, `{ x }`) is not this
-      // rule's to move.
+      // A `}` sharing its line with content splits into two cases, and
+      // abstaining on both is what let the cascade converge on a malformed
+      // block. When the block opened on this same line it is a one-line block
+      // the cascade left whole (`{ x }`), and the brace is not this rule's to
+      // move. When the block opened earlier, the statement split already broke
+      // the body onto its own lines and stranded the brace at the end of the
+      // last statement — a hybrid Prettier never produces, and a fixed point,
+      // because nothing else claimed that brace. This rule takes it, so the two
+      // stay edit-disjoint within a pass instead of both abstaining.
+      stranded := false
       for i := lineStart; i < closeBrace; i++ {
         if src[i] != ' ' && src[i] != '\t' {
+          stranded = true
+          break
+        }
+      }
+      if stranded {
+        // An empty body is `{}` in Prettier however its header wrapped, so a
+        // `}` whose only preceding content on the line is its own `{` is never
+        // this rule's to move. Checked first, and independently of the frame
+        // span below: `format/declaration-header` deliberately GLUES `{}` to
+        // the last line of a broken class or interface header, and that head
+        // starts lines above the brace, so the span test alone would unglue on
+        // the next pass exactly what that rule just gathered.
+        if bodyIsEmptyAtBrace(src, lineStart, closeBrace) {
           return
         }
+        // A frame that begins on the brace's own line is still whole
+        // (`{ x }`, `class C { m() {} }` before anything has split): the
+        // cascade has not broken the body out yet, so there is nothing for the
+        // brace to be consistent with. Once another pass moves the body onto
+        // its own lines the frame spans lines, this test stops holding, and
+        // the brace is claimed then.
+        //
+        // Measured on the frame node, which for a Block, ModuleBlock,
+        // CaseBlock, or type literal IS its `{`, and for a class or interface
+        // is the first byte of the declaration. The declaration start is never
+        // below its own `{`, so a body that has been broken out still reads as
+        // spanning; the one shape where the two differ — a wrapped header over
+        // a one-line body — is a shape Prettier expands as well.
+        if start := shimscanner.SkipTrivia(src, block.Pos()); start < 0 ||
+          start > len(src) || lineStartOffset(src, start) == lineStart {
+          return
+        }
+        if indentCededToReflow(block) || cededUnderBracelessBody(block) ||
+          typeLiteralIndentCeded(src, block, ownerDepth, layout) ||
+          cededUnderWrappedFunctionExpression(src, block) ||
+          cededByChainedArrowAncestor(block) {
+          return
+        }
+        // Replace the run of spaces and tabs before the brace rather than
+        // inserting beside it, so a re-run finds the brace already alone on its
+        // line and this branch never fires twice.
+        gap := closeBrace
+        for gap > lineStart && (src[gap-1] == ' ' || src[gap-1] == '\t') {
+          gap--
+        }
+        edits = append(edits, TextEdit{
+          Pos:  gap,
+          End:  closeBrace,
+          Text: layout.eol + layout.indent(ownerDepth),
+        })
+        return
       }
       // indentCededToReflow walks block.Parent upward, the same ancestor
       // chain a body statement would, so a callback / expression-nested
@@ -186,11 +242,21 @@ func (formatIndent) Check(ctx *Context, node *shimast.Node) {
         return
       }
       want := layout.indent(depth)
+      // A member or clause label sharing a line with the `{` that opened its
+      // body, or with the member before it, is the other half of the stranded
+      // brace: nothing else claims it, so a flat `class C { m() { … } }` or
+      // `switch (n) { case 1: … }` had no first edit and the whole cascade
+      // stalled on it. Breaking it out is what lets the statement split and the
+      // brace pass see the multi-line frame they act on.
+      pos := shimscanner.SkipTrivia(src, header.Pos())
+      if breakOntoOwnLine(src, header, pos, depth, want, layout, &edits) {
+        return
+      }
       decorators := header.Decorators()
       if len(decorators) == 0 {
         // Undecorated member: header.Pos() is the declaration's first byte,
         // so its line is the only one to align.
-        reindentHeaderLine(src, shimscanner.SkipTrivia(src, header.Pos()), want, &edits)
+        reindentHeaderLine(src, pos, want, &edits)
         return
       }
       // A decorated member spans multiple physical lines when its decorators
@@ -561,6 +627,91 @@ func reindentHeaderLine(src string, pos int, want string, edits *[]TextEdit) {
     return
   }
   *edits = append(*edits, TextEdit{Pos: lineStart, End: pos, Text: want})
+}
+
+// bodyIsEmptyAtBrace reports whether the only thing before `closeBrace` on its
+// line, past horizontal whitespace, is the `{` that opened the same body.
+func bodyIsEmptyAtBrace(src string, lineStart int, closeBrace int) bool {
+  probe := closeBrace
+  for probe > lineStart && (src[probe-1] == ' ' || src[probe-1] == '\t') {
+    probe--
+  }
+  return probe > 0 && src[probe-1] == '{'
+}
+
+// frameLineIsWhereDepthSays reports whether the line a frame opens on is
+// indented to exactly the depth the block model computes for it. It is
+// typeLiteralIndentCeded's test, generalized: when it does not hold, some other
+// owner (a printer reflow, a wrapped initializer, a chain continuation) placed
+// the frame, and a member indented to `layout.indent(memberDepth)` would land
+// at a column unrelated to its own `{`.
+func frameLineIsWhereDepthSays(
+  src string,
+  frame *shimast.Node,
+  frameDepth int,
+  layout formatLayout,
+) bool {
+  if frame == nil {
+    return false
+  }
+  open := shimscanner.SkipTrivia(src, frame.Pos())
+  if open < 0 || open > len(src) {
+    return false
+  }
+  lineStart := lineStartOffset(src, open)
+  i := lineStart
+  for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
+    i++
+  }
+  return src[lineStart:i] == layout.indent(frameDepth)
+}
+
+// breakOntoOwnLine moves a member or clause header that shares its line with
+// earlier content down to a line of its own at `want`, and reports whether it
+// emitted that edit. It replaces the run of spaces and tabs before the header
+// rather than inserting beside it, so a re-run finds the header already alone
+// on its line and this never fires twice.
+//
+// A type-literal member is exempt. Prettier expands a class or interface body
+// unconditionally, but an object TYPE keeps the author's shape when the source
+// wrote no line break after `{` — `type T = { a: number }` stays one line — so
+// breaking its members out would reformat conforming source. The type
+// literal's own `}` is not exempt: a member already on its own line above a
+// stranded `}` is a shape Prettier does not produce either way.
+//
+// A frame whose own line is not at the column the depth model computes is
+// exempt too. `want` is derived from block nesting alone, so under a wrapped
+// initializer (`const C: Ctor =\n  class { m() {} };`) it names a column
+// shallower than the `{` the member belongs to, and breaking there would place
+// the member left of its own frame.
+func breakOntoOwnLine(
+  src string,
+  header *shimast.Node,
+  pos int,
+  depth int,
+  want string,
+  layout formatLayout,
+  edits *[]TextEdit,
+) bool {
+  if pos < 0 || pos > len(src) {
+    return false
+  }
+  if header.Parent != nil && header.Parent.Kind == shimast.KindTypeLiteral {
+    return false
+  }
+  if !frameLineIsWhereDepthSays(src, header.Parent, depth-1, layout) {
+    return false
+  }
+  lineStart := lineStartOffset(src, pos)
+  gap := pos
+  for gap > lineStart && (src[gap-1] == ' ' || src[gap-1] == '\t') {
+    gap--
+  }
+  if gap == lineStart {
+    return false
+  }
+  *edits = append(*edits, TextEdit{Pos: gap, End: pos, Text: layout.eol + want})
+  return true
 }
 
 // memberDeclarationStart returns the byte offset where a decorated member's

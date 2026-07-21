@@ -311,9 +311,8 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  * the project walk; a missing path must be retained because its creation is a
  * state change that the initial walk could not hash. A clean in-walk transform
  * also writes a document so it can clear a volatile declaration from an earlier
- * run. The unique name
- * makes worker writes race-free;
- * `withTtsc` compacts the files on the next run.
+ * run. The unique name makes worker writes race-free; `withTtsc` compacts the
+ * files on the next run.
  */
 export function createSnapshotRecorder(): {
   record: (props: {

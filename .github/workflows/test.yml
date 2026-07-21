@@ -1,6 +1,19 @@
 name: test
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/test.yml"
+      - "config/**"
+      - "experimental/**"
+      - "scripts/**"
+      - "packages/**"
+      - "tests/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
   pull_request:
     paths:
       - ".github/workflows/test.yml"
@@ -43,7 +56,7 @@ jobs:
             }
           - {
               name: typecheck,
-              run: "pnpm run check:flags && node --test packages/ttsc/scripts/check-flags.test.cjs && pnpm run test:typecheck",
+              run: "pnpm run check:flags && node --test packages/ttsc/scripts/check-flags.test.cjs && node --test scripts/ci/test-owners.test.cjs && node scripts/ci/format-check.cjs && pnpm run test:typecheck",
             }
           - { name: banner, run: "pnpm --filter @ttsc/test-banner start" }
           # test-playground exercises the @ttsc/playground worker plugin-failure
@@ -55,6 +68,14 @@ jobs:
               name: playground,
               build: "pnpm --filter @ttsc/wasm build:ts && pnpm --filter @ttsc/playground build",
               run: "pnpm --filter @ttsc/test-playground start",
+            }
+          # test-wasm stubs Go, fetch and WebAssembly through its own boot
+          # harness, so it needs the wasm TypeScript surface and no Go→WASM
+          # binary — the same shape as the playground lane above.
+          - {
+              name: wasm,
+              build: "pnpm --filter @ttsc/wasm build:ts",
+              run: "pnpm --filter @ttsc/test-wasm start",
             }
           - { name: factory, run: "pnpm --filter @ttsc/test-factory start" }
           - { name: paths, run: "pnpm --filter @ttsc/test-paths start" }

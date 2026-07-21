@@ -122,13 +122,12 @@ export interface TtscTransformHooks {
    * `F`: the plugin-reported `dependencies[F]` list unioned with the host-owned
    * reference graph's contribution — the reachability closure of `graph.edges`
    * from `F`, the `graph.globals` files, the `graph.configs` chain, and missing
-   * higher-priority `graph.candidates` — or,
-   * for a file the envelope declared `dependenciesComplete`, only
-   * `dependencies[F]`, `graph.candidates`, and the universal `graph.configs`
-   * chain. Adapters forward
-   * this to the bundler's `addWatchFile` so type-only inputs participate in
-   * watch-mode and persistent-cache invalidation. See {@link selectWatchInputs}
-   * for the exact derivation.
+   * higher-priority `graph.candidates` — or, for a file the envelope declared
+   * `dependenciesComplete`, only `dependencies[F]`, `graph.candidates`, and the
+   * universal `graph.configs` chain. Adapters forward this to the bundler's
+   * `addWatchFile` so type-only inputs participate in watch-mode and
+   * persistent-cache invalidation. See {@link selectWatchInputs} for the exact
+   * derivation.
    */
   addWatchFile?: (file: string) => void;
   /**
@@ -382,10 +381,7 @@ function selectWatchInputs(props: {
   const excluded = new Set(
     props.temporaryTsconfig === undefined
       ? [pathIdentityKey(props.file)]
-      : [
-          pathIdentityKey(props.file),
-          pathIdentityKey(props.temporaryTsconfig),
-        ],
+      : [pathIdentityKey(props.file), pathIdentityKey(props.temporaryTsconfig)],
   );
   for (const absolute of [
     ...selectFileDependencies(props),
@@ -407,9 +403,9 @@ function selectWatchInputs(props: {
 
 /**
  * Return the module-resolution paths that can supersede a currently resolved
- * module reachable from `file`. They remain host-owned even when a
- * plugin declares `dependenciesComplete`: plugin code cannot vouch for a
- * compiler resolution change that occurs without any plugin input changing.
+ * module reachable from `file`. They remain host-owned even when a plugin
+ * declares `dependenciesComplete`: plugin code cannot vouch for a compiler
+ * resolution change that occurs without any plugin input changing.
  */
 function selectResolutionCandidateInputs(props: {
   file: string;
@@ -431,7 +427,9 @@ function selectResolutionCandidateInputs(props: {
   const output: string[] = [];
   for (const [source, candidates] of Object.entries(graph.candidates)) {
     if (
-      !reachable.has(pathIdentityKey(path.resolve(props.projectRoot, source))) ||
+      !reachable.has(
+        pathIdentityKey(path.resolve(props.projectRoot, source)),
+      ) ||
       !Array.isArray(candidates)
     ) {
       continue;
@@ -903,10 +901,10 @@ export function isProjectWalkPath(root: string, file: string): boolean {
  * Hash a list of absolute out-of-walk input paths: content SHA-256 for a
  * readable file, a stable `missing` marker otherwise. Keys use filesystem
  * identity so case-only spellings share one snapshot entry, while reads retain
- * the original path supplied by the compiler. The marker is state, not
- * an error — a recorded input disappearing (or reappearing) must change the
- * comparison exactly like a content edit. Exported so `@ttsc/metro` can re-hash
- * its recorded snapshot with identical semantics at cache-key time.
+ * the original path supplied by the compiler. The marker is state, not an error
+ * — a recorded input disappearing (or reappearing) must change the comparison
+ * exactly like a content edit. Exported so `@ttsc/metro` can re-hash its
+ * recorded snapshot with identical semantics at cache-key time.
  */
 export function collectExternalInputHashes(
   paths: readonly string[],

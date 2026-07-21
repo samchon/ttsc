@@ -49,7 +49,7 @@ const utf16be = (text: string): Buffer =>
  * 1. Materialize equivalent exported functions as UTF-8 BOM, UTF-16LE, and
  *    UTF-16BE files.
  * 2. Ask the real resident `ttscgraph` server for all three declaration details.
- * 3. Assert each result contains its compiler-aligned signature and doc.
+ * 3. Assert each result carries its compiler-aligned signature head and doc.
  */
 export const test_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
   async () => {
@@ -108,8 +108,15 @@ export const test_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
       for (const name of names) {
         const node = details.nodes.find((candidate) => candidate.name === name);
         assert.ok(node, `details resolves ${name}: ${JSON.stringify(details)}`);
-        assert.ok(
-          node.signature?.includes(`export function ${name}(): string {`),
+        // The head, and only the head. This assertion used to require the
+        // body's opening `{` to be present, which recorded the line-scan leak
+        // #814 removed: a signature is now cut where the compiler says the body
+        // opens. The decoding this test is about is proven by the head arriving
+        // intact from a BOM / UTF-16 source, not by how much of the body rides
+        // along with it.
+        assert.equal(
+          node.signature,
+          `export function ${name}(): string`,
           `details keeps ${name}'s signature: ${JSON.stringify(node)}`,
         );
         assert.equal(
