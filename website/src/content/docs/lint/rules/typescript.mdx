@@ -419,6 +419,8 @@ Reject `delete arr[i]` against array elements.
 
 `delete` leaves a hole; use `arr.splice` to shrink the array.
 
+Type-aware via the Checker. `delete target[key]` is spelled identically whether the target is an array or a `Record` / index-signature object, and on the latter it is the correct way to remove an entry — so the target's type is the only thing that separates them, and the subscript's syntactic shape says nothing.
+
 Example:
 
 ```ts

@@ -189,6 +189,11 @@ export interface ITtscLintTypeScriptRules {
    *
    * `delete` leaves a hole; use `arr.splice` to shrink the array.
    *
+   * Type-aware via the Checker. `delete target[key]` is spelled identically
+   * whether the target is an array or a `Record` / index-signature object, and
+   * on the latter it is the correct way to remove an entry, so only the
+   * target's type separates the two.
+   *
    * @reference https://typescript-eslint.io/rules/no-array-delete
    */
   "typescript/no-array-delete"?: TtscLintRuleSetting;
