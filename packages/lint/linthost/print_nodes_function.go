@@ -100,6 +100,66 @@ func printFunctionLike(ctx *PrintContext, node, body *shimast.Node) (Doc, bool) 
   return Concat(prefix, bodyDoc), prefixCovered && bodyCovered
 }
 
+// printObjectMember renders one member of an object literal by slicing its
+// head verbatim and dispatching what follows.
+//
+// A member is the same shape as a function expression — a signature the printer
+// keeps as written, then a body it lays out — so it goes through
+// printFunctionLike. A shorthand method's body starts at its `{`, an accessor's
+// likewise, and a property assignment's "body" is its initializer, which makes
+// `m: () => { … }` reflow through the arrow printer instead of freezing.
+//
+// Without this every member printed verbatim, so an object literal held a
+// single-line slice no enclosing reflow could break into: `{ m() { return 1; }
+// }` had no hardline to honour however the layout was forced, which is why
+// denying the print-width fast path for it changed nothing.
+//
+// The second return value is the `covered` flag: see PrintNode.
+func printObjectMember(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
+  if node == nil {
+    return Doc{}, true
+  }
+  body := objectMemberBody(node)
+  if body == nil {
+    // A shorthand property (`{ a }`), a spread (`{ ...rest }`), or a member
+    // whose body the parser did not produce. There is nothing to lay out, so
+    // the source bytes round-trip.
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
+  // A comment between the head and the body would sit inside the verbatim
+  // prefix and survive, but one after the body's close brace would not, so the
+  // same guard the sibling printers use applies here.
+  if listHasInterItemComments(ctx, node) {
+    return verbatim(ctx, node), false
+  }
+  return printFunctionLike(ctx, node, body)
+}
+
+// objectMemberBody returns the part of an object-literal member the printer
+// lays out — a callable member's block, or a property assignment's initializer
+// — or nil when the member has neither.
+func objectMemberBody(node *shimast.Node) *shimast.Node {
+  switch node.Kind {
+  case shimast.KindPropertyAssignment:
+    if p := node.AsPropertyAssignment(); p != nil {
+      return p.Initializer
+    }
+  case shimast.KindMethodDeclaration:
+    if m := node.AsMethodDeclaration(); m != nil {
+      return m.Body
+    }
+  case shimast.KindGetAccessor:
+    if g := node.AsGetAccessorDeclaration(); g != nil {
+      return g.Body
+    }
+  case shimast.KindSetAccessor:
+    if s := node.AsSetAccessorDeclaration(); s != nil {
+      return s.Body
+    }
+  }
+  return nil
+}
+
 // printParenthesizedExpression renders `( expr )`. The parentheses are
 // fixed punctuation; the inner expression is dispatched so a call or
 // object literal wrapped in parens still reflows.
