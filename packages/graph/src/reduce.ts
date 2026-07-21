@@ -113,9 +113,15 @@ function relativize(abs: string, root: string | null): string {
   )
     return a.slice(r.length).replace(/^\/+/, "");
   const nm = a.lastIndexOf("node_modules/");
+  // A package tail is a deliberate normalization: the same dependency reached
+  // through two roots is one thing to look at.
   if (nm >= 0) return a.slice(nm);
-  const slash = a.lastIndexOf("/");
-  return slash >= 0 ? a.slice(slash + 1) : a;
+  // Anything else keeps its whole path. Collapsing to the basename made the
+  // projection non-injective, and node ids are rewritten with it, so two
+  // declarations in two files could become one viewer node and an edge could
+  // resolve back to the wrong end. A longer label is a cosmetic cost; a
+  // collided id is a wrong picture.
+  return a;
 }
 
 function rewriteId(id: string, root: string | null): string {
@@ -225,7 +231,11 @@ export function reduce(
     .map((n) => n.file);
   const root =
     projectFiles.length > 0 && isAbsolute(projectFiles[0]!)
-      ? commonRoot(projectFiles.map(directoryOf))
+      ? // A dump may mix path forms from one valid project: in-project sources
+        // are relative, package sources carry a node_modules tail, and other
+        // out-of-project sources stay absolute. Mixing those into one common
+        // root yields the empty string, so only absolute directories vote.
+        commonRoot(projectFiles.filter(isAbsolute).map(directoryOf))
       : null;
 
   const liveIds = new Set(keptByBoundary.map((n) => n.id));
