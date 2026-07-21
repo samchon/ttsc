@@ -4,6 +4,7 @@ import (
   "strings"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
@@ -308,7 +309,15 @@ func (s *solidState) reportImports(ctx *Context) {
         continue
       }
       message := "Import `" + imported + "` from `" + correct + "`."
-      edits := solidImportSourceEdits(ctx.File, clause, named, decl.ModuleSpecifier, correct)
+      edits := solidImportSourceEdits(
+        ctx.File,
+        clause,
+        named,
+        decl.ModuleSpecifier,
+        correct,
+        specNode,
+        s.solidNamedImportFrom(correct),
+      )
       ctx.ReportFix(specNode, message, edits...)
     }
   }
@@ -327,24 +336,181 @@ func (s *solidState) reportImports(ctx *Context) {
 // Only the text between the quotes is replaced, so the file's quote style
 // survives. Returns nil when the specifier is not a plainly quoted literal,
 // which downgrades the caller to a plain diagnostic.
+// solidNamedImportFrom returns the file's named-import list for `source`, or
+// nil when the file has none. It is how the fix finds a declaration to move a
+// misrouted specifier INTO, which is what upstream's `appendImports` does and
+// what the rule's published description means by merging.
+//
+// A declaration carrying a default binding is skipped: appending there is legal
+// but rewrites a line the user did not ask about, and the synthesized-import
+// path below covers the case without touching it.
+func (s *solidState) solidNamedImportFrom(source string) *shimast.NamedImports {
+  for _, node := range s.imports {
+    decl := node.AsImportDeclaration()
+    if decl == nil || decl.ImportClause == nil {
+      continue
+    }
+    if stringLiteralText(decl.ModuleSpecifier) != source {
+      continue
+    }
+    clause := decl.ImportClause.AsImportClause()
+    if clause == nil || clause.Name() != nil || clause.NamedBindings == nil ||
+      clause.NamedBindings.Kind != shimast.KindNamedImports {
+      continue
+    }
+    if named := clause.NamedBindings.AsNamedImports(); named != nil &&
+      named.Elements != nil && len(named.Elements.Nodes) > 0 {
+      return named
+    }
+  }
+  return nil
+}
+
+// solidImportSourceEdits relocates one misrouted specifier to its canonical
+// module.
+//
+// Three shapes, because a specifier can be alone or not and the destination can
+// exist or not:
+//
+//  1. The specifier is the declaration's only binding, so the declaration IS the
+//     import: rewrite its module specifier in place. The narrowest edit, and the
+//     only one the rule used to make.
+//  2. The specifier has siblings and a declaration from the correct source
+//     already exists: cut the specifier out and append it there, which is the
+//     merge the rule's description promises and upstream's `appendImports`
+//     performs.
+//  3. The specifier has siblings and no such declaration exists: cut it out and
+//     synthesize one directly above the declaration it left.
+//
+// Returning nil for every shape but the first is what made the rule report the
+// most ordinary import in a Solid file — `import { createEffect, render } from
+// "solid-js"` — with a message and no fix.
 func solidImportSourceEdits(
   file *shimast.SourceFile,
   clause *shimast.ImportClause,
   named *shimast.NamedImports,
   moduleSpecifier *shimast.Node,
   correct string,
+  specNode *shimast.Node,
+  destination *shimast.NamedImports,
 ) []TextEdit {
-  if clause == nil || clause.Name() != nil || named == nil || named.Elements == nil {
+  if clause == nil || named == nil || named.Elements == nil || file == nil {
     return nil
   }
-  if len(named.Elements.Nodes) != 1 {
-    return nil
+  if clause.Name() == nil && len(named.Elements.Nodes) == 1 {
+    pos, end, ok := solidQuotedTextRange(file, moduleSpecifier)
+    if !ok {
+      return nil
+    }
+    return []TextEdit{{Pos: pos, End: end, Text: correct}}
   }
-  pos, end, ok := solidQuotedTextRange(file, moduleSpecifier)
+  cut, text, ok := solidSpecifierCut(file, named, specNode)
   if !ok {
     return nil
   }
-  return []TextEdit{{Pos: pos, End: end, Text: correct}}
+  if destination != nil {
+    insert, ok := solidAppendPoint(file, destination)
+    if !ok {
+      return nil
+    }
+    // The two edits are disjoint: the cut lies inside this declaration's brace
+    // list and the append lies inside another declaration's.
+    return []TextEdit{cut, {Pos: insert, End: insert, Text: ", " + text}}
+  }
+  declaration, ok := solidDeclarationStart(file, clause)
+  if !ok {
+    return nil
+  }
+  quote := solidQuoteCharacter(file, moduleSpecifier)
+  line := "import { " + text + " } from " + quote + correct + quote + ";\n"
+  return []TextEdit{{Pos: declaration, End: declaration, Text: line}, cut}
+}
+
+// solidSpecifierCut removes one specifier from a named-import list along with
+// the comma that joined it, and reports the text it removed so a caller can put
+// it somewhere else.
+//
+// The comma taken is the one BEFORE the specifier when it has a predecessor,
+// and the one after when it is first. Taking the wrong side leaves either a
+// leading or a doubled comma, both of which are parse errors rather than
+// cosmetic damage.
+func solidSpecifierCut(
+  file *shimast.SourceFile,
+  named *shimast.NamedImports,
+  specNode *shimast.Node,
+) (TextEdit, string, bool) {
+  nodes := named.Elements.Nodes
+  index := -1
+  for i, node := range nodes {
+    if node == specNode {
+      index = i
+      break
+    }
+  }
+  if index < 0 || len(nodes) < 2 {
+    return TextEdit{}, "", false
+  }
+  pos, end := tokenRange(file, specNode)
+  if pos < 0 || end < pos {
+    return TextEdit{}, "", false
+  }
+  text := file.Text()[pos:end]
+  src := file.Text()
+  if index > 0 {
+    previousEnd := nodes[index-1].End()
+    if previousEnd < 0 || previousEnd > pos {
+      return TextEdit{}, "", false
+    }
+    return TextEdit{Pos: previousEnd, End: end}, text, true
+  }
+  nextPos := shimscanner.SkipTrivia(src, nodes[index+1].Pos())
+  if nextPos < end || nextPos > len(src) {
+    return TextEdit{}, "", false
+  }
+  return TextEdit{Pos: pos, End: nextPos}, text, true
+}
+
+// solidAppendPoint returns the offset just past a named-import list's last
+// specifier, where a relocated one is appended.
+func solidAppendPoint(file *shimast.SourceFile, named *shimast.NamedImports) (int, bool) {
+  nodes := named.Elements.Nodes
+  if len(nodes) == 0 {
+    return 0, false
+  }
+  end := nodes[len(nodes)-1].End()
+  if end < 0 || end > len(file.Text()) {
+    return 0, false
+  }
+  return end, true
+}
+
+// solidDeclarationStart returns the offset of the `import` keyword owning
+// `clause`, which is where a synthesized declaration is inserted so it lands on
+// its own line directly above.
+func solidDeclarationStart(file *shimast.SourceFile, clause *shimast.ImportClause) (int, bool) {
+  node := clause.AsNode()
+  if node == nil || node.Parent == nil {
+    return 0, false
+  }
+  pos := shimscanner.SkipTrivia(file.Text(), node.Parent.Pos())
+  if pos < 0 || pos > len(file.Text()) {
+    return 0, false
+  }
+  return pos, true
+}
+
+// solidQuoteCharacter returns the quote the file already used for this module
+// specifier, so a synthesized import matches the surrounding style instead of
+// fighting `format/quotes`.
+func solidQuoteCharacter(file *shimast.SourceFile, moduleSpecifier *shimast.Node) string {
+  pos, end := tokenRange(file, moduleSpecifier)
+  if pos < 0 || end-pos < 2 {
+    return "\""
+  }
+  if quote := file.Text()[pos]; quote == '\'' || quote == '"' {
+    return string(quote)
+  }
+  return "\""
 }
 
 // solidQuotedTextRange returns the byte range of the text inside a string

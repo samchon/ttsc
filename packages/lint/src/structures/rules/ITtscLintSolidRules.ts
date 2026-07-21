@@ -31,8 +31,9 @@ export interface ITtscLintSolidRules {
 
   /**
    * Route each Solid export to the correct entry point (`solid-js`,
-   * `solid-js/web`, or `solid-js/store`) and merge duplicate imports from the
-   * same entry. The diagnostic names the symbol and its entry point.
+   * `solid-js/web`, or `solid-js/store`) and relocate a misrouted one to where
+   * it belongs, joining an existing import from that entry when the file
+   * already has one. The diagnostic names the symbol and its entry point.
    *
    * Autofixable only when the misplaced specifier is its declaration's sole
    * binding: rewriting the module specifier moves every binding in that
