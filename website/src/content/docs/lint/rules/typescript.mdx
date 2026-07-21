@@ -1873,6 +1873,8 @@ Reject `async` functions whose body contains no `await` expression.
 
 An async function with no `await` only inflates the return type to `Promise<T>` without doing any asynchronous work; collapse it to a sync function.
 
+Type-aware via the Checker, which upstream uses for the same purpose: a function that returns a promise is accepted without an `await`, because marking it `async` states the contract for callers and forwards the inner promise. A `for await` loop counts as an await — it is spelled as a for-of carrying an await modifier rather than as an await expression.
+
 Async generators are accepted as long as they have at least one `yield`.
 
 Example:

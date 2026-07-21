@@ -6,7 +6,7 @@
 //
 // Implemented here:
 //   - typescript/require-await
-//     (AST-only; async function with no `await` in its body)
+//     (type-aware; async function with no `await` that also returns no promise)
 //   - typescript/use-unknown-in-catch-callback-variable
 //     (type-aware; `.catch(err)` / `.then(_, err)` must annotate `unknown`)
 //   - typescript/only-throw-error
@@ -24,13 +24,20 @@ import (
 // refactor artifact. typescript-eslint:
 // https://typescript-eslint.io/rules/require-await/
 //
-// AST-only. The walker stops at nested function-like boundaries so an
+// The walker stops at nested function-like boundaries so an
 // `await` inside an inner non-async closure does not count toward the
 // outer function. Async generators are exempt — they satisfy the
 // async-keyword contract through `yield`.
 type requireAwait struct{}
 
 func (requireAwait) Name() string { return "typescript/require-await" }
+
+// NeedsTypeChecker: upstream states the rule as "async functions which do not
+// return promises and have no await expression", and that it "uses type
+// information to allow promise-returning functions to be marked as async
+// without containing an await expression". Whether a returned expression is
+// thenable is not visible in the syntax.
+func (requireAwait) NeedsTypeChecker() bool { return true }
 func (requireAwait) Visits() []shimast.Kind {
   return []shimast.Kind{
     shimast.KindFunctionDeclaration,
@@ -51,6 +58,9 @@ func (requireAwait) Check(ctx *Context, node *shimast.Node) {
     return
   }
   if requireAwaitBodyHasAwait(body) {
+    return
+  }
+  if requireAwaitReturnsThenable(ctx, body) {
     return
   }
   startPos := keywordStart(ctx.File, node, "async")
@@ -98,6 +108,16 @@ func requireAwaitBodyHasAwait(body *shimast.Node) bool {
     if n.Kind == shimast.KindAwaitExpression {
       found = true
       return
+    }
+    // `for await (const x of source)` awaits every step of the iteration. It
+    // is spelled as a for-of carrying an await modifier rather than as an
+    // AwaitExpression, so a walker that looks only for the expression form
+    // reports a function whose sole suspend point is the loop.
+    if n.Kind == shimast.KindForOfStatement {
+      if stmt := n.AsForInOrOfStatement(); stmt != nil && stmt.AwaitModifier != nil {
+        found = true
+        return
+      }
     }
     n.ForEachChild(func(child *shimast.Node) bool {
       walk(child)
@@ -265,4 +285,62 @@ func init() {
   Register(requireAwait{})
   Register(useUnknownInCatchCallbackVariable{})
   Register(onlyThrowError{})
+}
+
+// requireAwaitReturnsThenable reports whether the function body hands a
+// thenable back to its caller.
+//
+// Upstream exempts these deliberately: `async function f() { return g() }`
+// marks the async contract for callers and forwards the inner promise, which
+// is a use of `async` rather than a leftover from a refactor. The walk stops at
+// nested function-like scopes for the same reason the await walk does — an
+// inner closure's `return` belongs to that closure.
+//
+// A concise arrow body (`async () => g()`) is the returned expression itself
+// rather than a block, and is classified directly.
+func requireAwaitReturnsThenable(ctx *Context, body *shimast.Node) bool {
+  if ctx == nil || ctx.Checker == nil || body == nil {
+    return false
+  }
+  if body.Kind != shimast.KindBlock {
+    return requireAwaitExpressionIsThenable(ctx, body)
+  }
+  thenable := false
+  var walk func(*shimast.Node)
+  walk = func(n *shimast.Node) {
+    if thenable || n == nil {
+      return
+    }
+    if n != body && isFunctionLikeKind(n) {
+      return
+    }
+    if n.Kind == shimast.KindReturnStatement {
+      if stmt := n.AsReturnStatement(); stmt != nil && requireAwaitExpressionIsThenable(ctx, stmt.Expression) {
+        thenable = true
+        return
+      }
+    }
+    n.ForEachChild(func(child *shimast.Node) bool {
+      walk(child)
+      return false
+    })
+  }
+  walk(body)
+  return thenable
+}
+
+// requireAwaitExpressionIsThenable classifies one returned expression with the
+// same awaitability test `await-thenable` uses, so the two rules agree on what
+// counts as a promise. Anything the classifier does not rule out entirely is
+// treated as thenable: the exemption must not depend on proving a union is
+// thenable in every branch.
+func requireAwaitExpressionIsThenable(ctx *Context, expr *shimast.Node) bool {
+  if expr == nil {
+    return false
+  }
+  t := ctx.Checker.GetTypeAtLocation(expr)
+  if t == nil {
+    return false
+  }
+  return classifyPromiseAwaitability(ctx.Checker, expr, t) != promiseAwaitabilityNever
 }

@@ -1065,7 +1065,12 @@ export interface ITtscLintTypeScriptRules {
    * An async function with no `await` only inflates the return type to
    * `Promise<T>` without doing any asynchronous work; collapse it to a sync
    * function. Async generators are accepted as long as they have at least one
-   * `yield`.
+   * `yield`, and a `for await` loop counts as an await.
+   *
+   * Type-aware via the Checker, which upstream uses for the same purpose: a
+   * function that returns a promise is accepted without an `await`, because
+   * marking it `async` states the contract for callers and forwards the inner
+   * promise rather than leaving a refactor artifact behind.
    *
    * @reference https://typescript-eslint.io/rules/require-await
    */
