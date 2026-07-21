@@ -978,18 +978,50 @@ func floatingPromiseMethodCall(call *shimast.CallExpression) (*shimast.Node, str
   return receiver, method, true
 }
 
+// floatingPromisePropertyAccessIsOptional reports whether a null or undefined
+// branch of the receiver's type is unreachable at this access.
+//
+// The guard is not only the access's own `?.`. An optional chain short-circuits
+// as a whole, so in `maybe?.run().catch(handler)` the `.catch` access is never
+// evaluated when `maybe` is nullish, even though it carries no `?.` of its own.
+// Reading only the outermost token left the `undefined` branch of
+// `Promise<void> | undefined` looking like a real receiver, and the rule
+// reported a chain that ends in a callable rejection handler.
+//
+// The walk deliberately does not strip parentheses as it descends. A
+// parenthesized sub-expression ends the chain — `(maybe?.run()).catch(handler)`
+// really can throw — so that shape must keep its nullish branch.
 func floatingPromisePropertyAccessIsOptional(node *shimast.Node) bool {
-  node = stripParens(node)
-  if node == nil {
-    return false
-  }
-  switch node.Kind {
-  case shimast.KindPropertyAccessExpression:
-    access := node.AsPropertyAccessExpression()
-    return access != nil && access.QuestionDotToken != nil
-  case shimast.KindElementAccessExpression:
-    access := node.AsElementAccessExpression()
-    return access != nil && access.QuestionDotToken != nil
+  current := stripParens(node)
+  for current != nil {
+    switch current.Kind {
+    case shimast.KindPropertyAccessExpression:
+      access := current.AsPropertyAccessExpression()
+      if access == nil {
+        return false
+      }
+      if access.QuestionDotToken != nil {
+        return true
+      }
+      current = access.Expression
+    case shimast.KindElementAccessExpression:
+      access := current.AsElementAccessExpression()
+      if access == nil {
+        return false
+      }
+      if access.QuestionDotToken != nil {
+        return true
+      }
+      current = access.Expression
+    case shimast.KindCallExpression:
+      call := current.AsCallExpression()
+      if call == nil {
+        return false
+      }
+      current = call.Expression
+    default:
+      return false
+    }
   }
   return false
 }
