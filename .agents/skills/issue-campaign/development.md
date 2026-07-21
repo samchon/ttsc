@@ -46,7 +46,7 @@ Claim the whole cycle before implementation:
 4. Reference every cycle issue by number, mark verification pending, and state that the pull request owns the complete accepted cycle.
 5. Record the checkout, branch, pull request, head SHA, issue set, and external temporary-asset ledger in `.wiki`.
 
-Reference the issues in the claim body, and keep every closing keyword out of it. The body is written before any code exists, so a claim-time closing list closes whatever the cycle later drops, defers, or disproves, burying the analysis those issues carry. The cycle's closing set is the union of the [commit closing lines](#implement-and-write-tests), which makes the merge close exactly what landed.
+Keep every closing keyword out of the claim body. The body is written before any code exists, so a claim-time closing list closes whatever the cycle later drops, defers, or disproves, burying the analysis those issues carry. The cycle's closing set is the union of the [commit closing lines](#implement-and-write-tests), which makes the merge close exactly what landed.
 
 The empty pull request prevents overlapping contributor work before code is written. Measure official duration from its GitHub `createdAt` timestamp through `mergedAt`, including implementation, CI, review, fixes, rebases, and merge.
 
@@ -56,9 +56,9 @@ Work through the DAG on the claimed topic branch. Analyze the full consequence a
 
 Implement without interruption. Write each piece's tests as that piece lands instead of saving a test pass for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI is read once per settled head](#validate-with-ci-and-self-review).
 
-Close each issue from the commit that earns it. End the commit message with one `Close #n: <issue title>` line per resolved issue, so a commit that resolves several issues carries several lines. GitHub matches the keyword and the number and reads the title tail as free text, which keeps the log legible without opening each issue.
+Close each issue from the commit that earns it. End the commit message with one `Close #n: <issue title>` line per resolved issue, so a commit that resolves several issues carries several lines. GitHub matches the keyword and the number and ignores the title tail, so the line closes the issue normally while the log stays legible without opening each number.
 
-Post a pull-request comment after each commit naming what that commit landed and which issues it resolved. The comment is the running ledger for a reader who does not read the diff, never a closing mechanism: GitHub closes an issue from a commit message or the pull-request body and never from a comment.
+Post a pull-request comment after each commit naming what that commit landed and which issues it resolved. The comment is the running ledger for a reader who does not read the diff, not a closing mechanism: GitHub closes an issue only from a commit message or the pull-request body.
 
 Each issue remains an evidence and acceptance unit inside the combined diff. Keep its positive, negative, boundary, and regression cases identifiable. Near-100% coverage of changed behavior is required; a green happy path is not completion.
 
