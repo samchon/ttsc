@@ -34,6 +34,8 @@ Different packages, invariants, or validation lanes do not split the solo cycle.
 
 An issue whose only predecessor is another issue in the same cycle is implementation-ready for this purpose. Order the edits through the DAG instead of deferring it to another pull request.
 
+Difficulty never removes an issue from the cycle. When a resolution needs a judgment call about design, invariant ownership, or an acceptable behavior change, settle it from the issue's evidence and implement that decision here. Proved duplicate, invalid premise, out of scope, and external blocker stay the only dispositions that take an issue out of the cycle.
+
 ## Claim The Complete Cycle
 
 Claim the whole cycle before implementation:
@@ -50,6 +52,8 @@ The empty pull request prevents overlapping contributor work before code is writ
 
 Work through the DAG on the claimed topic branch. Analyze the full consequence and case surface across every issue before editing, then implement the complete cycle and its tests.
 
+Implement without interruption. Write each piece's tests as that piece lands instead of saving a test pass for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI is read once per settled head](#validate-with-ci-and-self-review).
+
 Each issue remains an evidence and acceptance unit inside the combined diff. Keep its positive, negative, boundary, and regression cases identifiable. Near-100% coverage of changed behavior is required; a green happy path is not completion.
 
 Follow the development skill for test shape and narrow-then-broad local evidence. Do not treat a local build or test result as a substitute for the pull request's ordinary CI acceptance gate. After the source, tests, documentation, fixtures, and generated consequences are ready, run `pnpm format` and include its integrated result in the same pull request.
@@ -59,6 +63,8 @@ If implementation disproves, narrows, or externally blocks an issue, reopen the 
 ## Validate With CI And Self-Review
 
 Commit and push the formatted integrated snapshot, then let every ordinary pull-request check run. Start solo Self-Review immediately over that exact base-to-head diff while CI executes.
+
+Read CI once per settled head. It gates the cycle, not each commit: every pull-request workflow sets `cancel-in-progress`, so the next push cancels an intermediate commit's run and waiting on that run stalls implementation for a discarded result.
 
 CI and review are independent gates:
 
