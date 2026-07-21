@@ -182,6 +182,17 @@ func (g *Graph) memberRelationEdges(
       continue
     }
     baseMember := directMemberForProperty(checker, baseProperty, baseMembers)
+    if baseMember == nil {
+      // The heritage clause names one type; the member may live further up.
+      // `interface Child extends Root {}` with `class W implements Child`
+      // resolves `W.execute` against `Root.execute`, and the program compiles
+      // with no diagnostic — but the immediate base declares nothing, so
+      // requiring a directly declared member dropped a relation the checker
+      // had already established. Execution tracing follows these edges to
+      // reach an implementation, so the missing edge ends the trace at the
+      // abstract declaration.
+      baseMember = inheritedMemberForProperty(checker, baseProperty)
+    }
     if baseMember == nil ||
       !shimchecker.Checker_isPropertyAssignableTo(checker, derivedProperty, baseProperty) {
       continue
@@ -224,6 +235,33 @@ func declaredTypeMembers(symbol *shimast.Symbol) []*shimast.Node {
 // to the immediate base declaration the graph owns. An inherited property has a
 // different root symbol and is deliberately omitted, preserving the dump's
 // direct-member policy.
+// inheritedMemberForProperty resolves the declaration a base type inherits
+// rather than declares, by following the property back to the symbol it roots
+// at. Static members and constructors are excluded for the same reason they are
+// excluded from the direct scan: neither participates in a member relation.
+func inheritedMemberForProperty(
+  checker *shimchecker.Checker,
+  property *shimast.Symbol,
+) *shimast.Node {
+  if checker == nil || property == nil {
+    return nil
+  }
+  for _, root := range checker.GetRootSymbols(property) {
+    if root == nil {
+      continue
+    }
+    for _, declaration := range root.Declarations {
+      if declaration == nil ||
+        shimast.GetCombinedModifierFlags(declaration)&shimast.ModifierFlagsStatic != 0 ||
+        declaration.Kind == shimast.KindConstructor {
+        continue
+      }
+      return declaration
+    }
+  }
+  return nil
+}
+
 func directMemberForProperty(
   checker *shimchecker.Checker,
   property *shimast.Symbol,
