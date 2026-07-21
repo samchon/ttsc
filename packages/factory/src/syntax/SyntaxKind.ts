@@ -28,6 +28,13 @@ export enum SyntaxKind {
   FalseKeyword = "false",
   ThisKeyword = "this",
 
+  // import phase modifiers — the two keywords that may precede an import
+  // clause's bindings. Upstream types them as
+  // `ImportPhaseModifierSyntaxKind = TypeKeyword | DeferKeyword`, and
+  // `createImportClause` takes one where this factory used to take a boolean.
+  TypeKeyword = "type",
+  DeferKeyword = "defer",
+
   // modifiers
   ExportKeyword = "export",
   DefaultKeyword = "default",

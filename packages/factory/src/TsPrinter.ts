@@ -965,7 +965,13 @@ export class TsPrinter {
         const named: Doc[] = [];
         if (node.name) named.push(this.emit(node.name));
         if (node.namedBindings) named.push(this.emit(node.namedBindings));
-        return concat([node.isTypeOnly ? "type " : "", join(", ", named)]);
+        // The phase modifier is the keyword itself, so it prints as written —
+        // `type` and `defer` both reach here, where a boolean could only ever
+        // have produced the first.
+        return concat([
+          node.phaseModifier ? `${node.phaseModifier} ` : "",
+          join(", ", named),
+        ]);
       }
       case "NamedImports":
         return this.delim(
