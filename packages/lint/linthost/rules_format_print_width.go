@@ -315,7 +315,15 @@ func trailingLineWidth(src string, end int, tabWidth int) int {
     tabWidth = 2
   }
   lineEnd := trailingSuffixEnd(src, end)
-  return displayWidthFromColumn(src[end:lineEnd], tabWidth, 0)
+  col := 0
+  for _, r := range src[end:lineEnd] {
+    if r == '\t' {
+      col += tabWidth - (col % tabWidth)
+    } else {
+      col += runeWidth(r)
+    }
+  }
+  return col
 }
 
 // trailingSuffixEnd returns the byte offset where the node's un-movable
@@ -368,9 +376,14 @@ func maxLineWidth(text string, startingColumn, trailingWidth, tabWidth int) int 
   lines := strings.Split(text, "\n")
   widest := 0
   for i, line := range lines {
-    // A `\r` left by a CRLF split charges nothing: clusterWidth reads it as
-    // the control character it is.
-    width := displayWidthFromColumn(line, tabWidth, 0)
+    width := 0
+    for _, r := range line {
+      if r == '\t' {
+        width += tabWidth - (width % tabWidth)
+      } else if r != '\r' {
+        width += runeWidth(r)
+      }
+    }
     if i == 0 {
       width += startingColumn
     }
@@ -396,7 +409,15 @@ func leadingColumn(src string, pos int, tabWidth int) int {
     tabWidth = 2
   }
   lineStart := lineStartOffset(src, pos)
-  return displayWidthFromColumn(src[lineStart:pos], tabWidth, 0)
+  col := 0
+  for _, r := range src[lineStart:pos] {
+    if r == '\t' {
+      col += tabWidth - (col % tabWidth)
+    } else {
+      col += runeWidth(r)
+    }
+  }
+  return col
 }
 
 // lineLeadingIndent returns the visual column of the first non-blank

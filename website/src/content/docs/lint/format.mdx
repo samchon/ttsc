@@ -178,7 +178,7 @@ The mirror **first-argument hugging** keeps a leading block-bodied callback on t
 
 A ternary (conditional expression) is reflowed too: Prettier's indented staircase, with a nested ternary in the consequent position parenthesized when the chain stays on one line.
 
-Width is measured in **display columns** (Prettier's `getStringWidth`), not UTF-8 bytes. Text is segmented into Unicode extended grapheme clusters; an emoji cluster costs two columns whole, however many code points it holds, and every other cluster is charged by the East_Asian_Width of its base character. So a Hangul or CJK identifier is charged its true width, `👨‍👩‍👧` and `👋🏽` cost two columns rather than eight and four, and a combining mark costs nothing. The property data is the Unicode 16.0.0 database, not an approximation of it. One deviation is deliberate: a tab counts as one column here, where Prettier counts zero.
+Width is measured in **display columns** (Prettier's `getStringWidth`), not UTF-8 bytes: a wide East Asian or emoji code point counts as two columns, so a Hangul or CJK identifier is charged its true width.
 
 #### What it does NOT touch (yet)
 

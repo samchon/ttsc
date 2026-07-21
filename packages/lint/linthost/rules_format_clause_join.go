@@ -158,20 +158,19 @@ func isClauseGapByte(c byte) bool {
 }
 
 // visualWidth returns the display-column width of `s`: a tab expands to a flat
-// `tabWidth` columns and every other extended grapheme cluster is charged its
-// display width via clusterWidth (combining marks 0, wide East Asian and emoji
-// clusters 2), matching displayWidth. The only approximation left is the flat
-// tab expansion (no tab-stop rounding), which never changes a real clause-join
-// decision.
+// `tabWidth` columns and every other rune is charged its display width via
+// runeWidth (combining marks 0, wide East-Asian/emoji 2), matching displayWidth.
+// The only approximation left is the flat tab expansion (no tab-stop rounding),
+// which never changes a real clause-join decision.
 func visualWidth(s string, tabWidth int) int {
   width := 0
-  forEachGraphemeCluster(s, func(cluster string) {
-    if cluster == "\t" {
+  for _, r := range s {
+    if r == '\t' {
       width += tabWidth
-      return
+      continue
     }
-    width += clusterWidth(cluster)
-  })
+    width += runeWidth(r)
+  }
   return width
 }
 
