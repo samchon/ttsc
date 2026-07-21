@@ -1178,7 +1178,17 @@ export class TsPrinter {
       case "ModuleDeclaration":
         return concat([
           this.modifiers(node.modifiers, true),
-          node.name.kind === "StringLiteral" ? "module " : "namespace ",
+          // A string-literal name is always `module "…"`; the flag says nothing
+          // there. For an identifier the flag is what chooses, which is the
+          // upstream rule and the one `createModuleDeclaration` documents:
+          // `namespace A` with `NodeFlags.Namespace`, `module A` without it.
+          // The printer used to read the name kind alone, so an identifier
+          // always printed `namespace` and the flag it published was inert.
+          node.name.kind === "StringLiteral"
+            ? "module "
+            : node.flags === NodeFlags.Namespace
+              ? "namespace "
+              : "module ",
           this.emit(node.name),
           node.body ? concat([" ", this.emit(node.body)]) : ";",
         ]);

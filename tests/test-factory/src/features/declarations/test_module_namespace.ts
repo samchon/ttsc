@@ -24,8 +24,11 @@ export const test_module_namespace = (): void => {
       NodeFlags.Const,
     ),
   );
+  // No flag is the legacy `module A` form, which is what upstream emits for an
+  // identifier name without `NodeFlags.Namespace`. `test_namespace_flag` covers
+  // the flagged spelling.
   TestValidator.equals(
-    "namespace",
+    "module keyword without the namespace flag",
     print(
       factory.createModuleDeclaration(
         [mod(SyntaxKind.ExportKeyword)],
@@ -33,7 +36,7 @@ export const test_module_namespace = (): void => {
         factory.createModuleBlock([constX]),
       ),
     ),
-    ["export namespace App {", "  const x = 1;", "}"].join("\n"),
+    ["export module App {", "  const x = 1;", "}"].join("\n"),
   );
   TestValidator.equals(
     "module string name",
