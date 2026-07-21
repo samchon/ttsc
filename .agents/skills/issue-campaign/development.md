@@ -58,6 +58,8 @@ Implement without interruption. Write each piece's tests as that piece lands ins
 
 Close each issue from the commit that earns it. End the commit message with one `Close #n: <issue title>` line per resolved issue, so a commit that resolves several issues carries several lines. GitHub matches the keyword and the number and ignores the title tail, so the line closes the issue normally while the log stays legible without opening each number.
 
+A revert inside the pull request must drop the closing keyword with the code. When a later commit reverts one that carried a `Close #n` line, write the reverting commit without that phrase and remove any `Closes #n` line for that issue from the pull-request body. A squash merge concatenates every commit message in the pull request into the merge commit body, so GitHub reads the reverted commit's keyword there and closes an issue whose fix no longer exists at `HEAD`.
+
 Post a pull-request comment after each commit naming what that commit landed and which issues it resolved. The comment is the running ledger for a reader who does not read the diff, not a closing mechanism: GitHub closes an issue only from a commit message or the pull-request body.
 
 Once a commit lands, the main agent may spawn one read-only subagent as a commit early-warning pass over that commit and keep implementing while it runs. The pass reads that one commit and reports candidates. It never edits, commits, pushes, or makes an implementation decision. Its value is timing: a defect named while that code is the newest thing written costs little to correct, and nothing has been built on top of it yet.
@@ -97,9 +99,11 @@ Do not merge a head whose green checks belong to an older SHA or whose clean rev
 
 Merge only with user authorization, including a campaign-local standing authorization that explicitly covers merge.
 
+Before merging, reconcile the closing keywords against what survives at `HEAD`. `git log origin/master..HEAD` still shows a reverted commit's subject, so read the whole range and confirm every issue the merge will close has a surviving fix.
+
 After merge:
 
-1. Verify GitHub records the pull request as merged into the intended target and every linked issue has the correct final state.
+1. Verify GitHub records the pull request as merged into the intended target and every linked issue has the correct final state. Reopen any issue the squash merge closed without a surviving fix, and comment that the merge closed it mechanically.
 2. Confirm the checkout has no unpushed or uncommitted work worth preserving.
 3. Switch back to the target branch, pull with `git pull --ff-only`, and delete the local topic branch.
 4. For every assignment-created external path, confirm no live process or other assignment uses it, preserve required evidence, delete only the exact proven path, and verify it is absent.
