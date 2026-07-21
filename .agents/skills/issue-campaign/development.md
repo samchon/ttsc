@@ -58,7 +58,7 @@ Implement without interruption. Write each piece's tests as that piece lands ins
 
 Close each issue from the commit that earns it. End the commit message with one `Close #n: <issue title>` line per resolved issue, so a commit that resolves several issues carries several lines. GitHub matches the keyword and the number and ignores the title tail, so the line closes the issue normally while the log stays legible without opening each number.
 
-A revert inside the pull request must drop the closing keyword with the code. When a later commit reverts one that carried a `Close #n` line, write the reverting commit without that phrase and remove any `Closes #n` line for that issue from the pull-request body. A squash merge concatenates every commit message in the pull request into the merge commit body, so GitHub reads the reverted commit's keyword there and closes an issue whose fix no longer exists at `HEAD`.
+A revert inside the pull request must not carry the closing keyword forward: `git revert` quotes the original subject, so rewrite its default `Revert "Close #n: ..."` without the closing phrase, and drop any `Closes #n` line for that issue from the pull-request body. That does not spare the issue by itself. A squash merge concatenates every commit message into the merge commit body, where the reverted commit's own `Close #n` line still sits, so the merge closes an issue whose fix no longer exists at `HEAD` and [the merge gate](#merge-and-clean-up) has to reopen it.
 
 Post a pull-request comment after each commit naming what that commit landed and which issues it resolved. The comment is the running ledger for a reader who does not read the diff, not a closing mechanism: GitHub closes an issue only from a commit message or the pull-request body.
 
@@ -99,7 +99,7 @@ Do not merge a head whose green checks belong to an older SHA or whose clean rev
 
 Merge only with user authorization, including a campaign-local standing authorization that explicitly covers merge.
 
-Before merging, reconcile the closing keywords against what survives at `HEAD`. `git log origin/master..HEAD` still shows a reverted commit's subject, so read the whole range and confirm every issue the merge will close has a surviving fix.
+Before merging, reconcile the closing keywords against what survives at `HEAD`. `git log origin/master..HEAD` shows every message the squash will concatenate, including commits a later one reverted, so read the whole range and confirm each issue the merge will close has a surviving fix.
 
 After merge:
 
