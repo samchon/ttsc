@@ -43,8 +43,10 @@ Claim the whole cycle before implementation:
 1. Use the current checkout, update the target branch with `git pull --ff-only`, and create one topic branch. Do not create a clone or worktree.
 2. Create one implementation-free commit with `git commit --allow-empty`.
 3. Push the branch and open one draft pull request.
-4. Link every cycle issue, mark verification pending, and state that the pull request owns the complete accepted cycle.
+4. Reference every cycle issue by number, mark verification pending, and state that the pull request owns the complete accepted cycle.
 5. Record the checkout, branch, pull request, head SHA, issue set, and external temporary-asset ledger in `.wiki`.
+
+Reference the issues in the claim body, and keep every closing keyword out of it. The body is written before any code exists, so a claim-time closing list closes whatever the cycle later drops, defers, or disproves and buries the analysis those issues carry. The cycle's closing set is the union of the commit trailers, which makes the merge close exactly what landed.
 
 The empty pull request prevents overlapping contributor work before code is written. Measure official duration from its GitHub `createdAt` timestamp through `mergedAt`, including implementation, CI, review, fixes, rebases, and merge.
 
@@ -53,6 +55,8 @@ The empty pull request prevents overlapping contributor work before code is writ
 Work through the DAG on the claimed topic branch. Analyze the full consequence and case surface across every issue before editing, then implement the complete cycle and its tests.
 
 Implement without interruption. Write each piece's tests as that piece lands instead of saving a test pass for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI is read once per settled head](#validate-with-ci-and-self-review).
+
+Give each commit message a `Closes #n` trailer for every issue that commit resolves, then post a pull-request comment naming what the commit landed and which issues it resolved. GitHub closes an issue from a commit message or the pull-request body and never from a comment: the trailer attaches each closing to the change that earned it, and the comment is the running ledger a reader follows without reading the diff.
 
 Each issue remains an evidence and acceptance unit inside the combined diff. Keep its positive, negative, boundary, and regression cases identifiable. Near-100% coverage of changed behavior is required; a green happy path is not completion.
 
