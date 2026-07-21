@@ -407,16 +407,39 @@ func putDeclaredNode(g *Graph, path, name string, kind NodeKind, declaration *sh
     }
   }
   g.Nodes[id] = &Node{
-    ID:        id,
-    Name:      name,
-    Simple:    simpleName(declaration.Symbol()),
-    Kind:      kind,
-    File:      path,
-    Pos:       declaration.Pos(),
-    End:       declaration.End(),
-    Modifiers: declarationModifiers(declaration),
+    ID:           id,
+    Name:         name,
+    Simple:       simpleName(declaration.Symbol()),
+    Kind:         kind,
+    File:         path,
+    Pos:          declaration.Pos(),
+    End:          declaration.End(),
+    SignatureEnd: declarationSignatureEnd(declaration),
+    Modifiers:    declarationModifiers(declaration),
   }
   g.bodyNodes[id] = hasBody
+}
+
+// declarationSignatureEnd is the offset where a declaration's head ends, or 0
+// when this declaration has no body to bound.
+//
+// It reuses the boundary walk the object-member outline already uses, which
+// stops at the construct that opens a body — a block, an object or array
+// literal, a class expression, or an arrow's `=>`. Reusing it keeps one
+// definition of "where the head ends" for both outlines rather than two that
+// can disagree.
+//
+// A boundary at or before the declaration's own start, or past its end, is no
+// boundary; those report 0 and leave the consumer on its existing behavior.
+func declarationSignatureEnd(declaration *shimast.Node) int {
+  if declaration == nil {
+    return 0
+  }
+  boundary, found := sourceBodyBoundary(declaration)
+  if !found || boundary.end <= declaration.Pos() || boundary.end > declaration.End() {
+    return 0
+  }
+  return boundary.end
 }
 
 // declarationModifiers maps a declaration's combined modifier flags onto the

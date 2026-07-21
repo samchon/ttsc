@@ -79,10 +79,17 @@ type DumpObjectMember struct {
 // DumpNode is the wire shape of a graph node. Lowercase json keys are the
 // contract; the Go field names are not.
 type DumpNode struct {
-  ID             string             `json:"id"`
-  Kind           string             `json:"kind"`
-  Name           string             `json:"name"`
-  QualifiedName  string             `json:"qualifiedName,omitempty"`
+  ID            string `json:"id"`
+  Kind          string `json:"kind"`
+  Name          string `json:"name"`
+  QualifiedName string `json:"qualifiedName,omitempty"`
+  // Signature is the declaration head, cut where the compiler says the body
+  // opens. A consumer that reconstructed it by scanning physical lines both
+  // leaked implementation text when a declaration shared its line with its body
+  // and stopped early when the head itself contained a brace — a type-literal
+  // parameter, an object return type, a destructured parameter. Neither is a
+  // guess the consumer can win, so the producer renders it here.
+  Signature      string             `json:"signature,omitempty"`
   File           string             `json:"file"`
   External       bool               `json:"external"`
   Ignored        bool               `json:"ignored,omitempty"`
@@ -186,6 +193,7 @@ func NewDump(g *Graph, project, tsconfig string, ignored map[string]bool, source
       Literals:       n.Literals,
       EnumMembers:    dumpEnumMembers(n.EnumMembers),
       ObjectMembers:  ctx.objectMembers(n),
+      Signature:      ctx.declarationSignature(n),
       Evidence:       withoutFile(ctx.evidence(n.File, n.Pos, n.End)),
       Implementation: ctx.evidence(n.ImplementationFile, n.ImplementationPos, n.ImplementationEnd),
       Decorators:     decByNode[n.ID],
@@ -461,6 +469,26 @@ func (c *dumpContext) evidence(file string, pos, end int) *DumpEvidence {
     ev.EndLine, ev.EndCol = ls.at(end)
   }
   return ev
+}
+
+// declarationSignature renders a declaration's head from the same
+// Program-owned source text as its evidence, so the outline cannot race a later
+// disk write. Empty when the producer could not bound the head, which leaves the
+// consumer on its existing line scan rather than handing it a wrong cut.
+func (c *dumpContext) declarationSignature(n *Node) string {
+  if n == nil || n.SignatureEnd <= n.Pos || c.sources == nil {
+    return ""
+  }
+  text, ok := c.sources[n.File]
+  if !ok {
+    return ""
+  }
+  pos := FirstCodeOffset(text, n.Pos)
+  end := min(n.SignatureEnd, len(text))
+  if pos >= end {
+    return ""
+  }
+  return strings.TrimSpace(text[pos:end])
 }
 
 // objectMemberSignature reproduces the compact outline details has historically

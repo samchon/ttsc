@@ -575,6 +575,16 @@ export function signatureOf(
   graph: TtscGraphMemory,
   node: ITtscGraphNode,
 ): string | undefined {
+  // The producer cuts the head where the compiler says the body opens, so when
+  // it supplied one there is nothing left to infer. The scan below only runs
+  // where it could not: it reads whole physical lines and stops at the first one
+  // holding a `{`, which leaks implementation text when a declaration shares its
+  // line with its body and stops early when the head itself contains a brace.
+  if (node.signature !== undefined && node.signature !== "") {
+    const capped = node.signature.split("\n").slice(0, MAX_SIGNATURE_LINES);
+    const head = capped.join("\n").trim();
+    if (head !== "") return head;
+  }
   const evidence = node.evidence;
   const lines =
     evidence === undefined ? undefined : graph.source.lines(evidence.file);

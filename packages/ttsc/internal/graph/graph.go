@@ -95,8 +95,16 @@ type Node struct {
   // Pos and End bound the declaration in its source file (byte offsets). They
   // are for display, never identity, so an edit that shifts them does not re-key
   // the node.
-  Pos                int
-  End                int
+  Pos int
+  End int
+  // SignatureEnd bounds the declaration head — everything up to where the body
+  // opens. A consumer that guessed the boundary by scanning physical lines both
+  // leaked implementation text when a declaration shared its line with its body
+  // and stopped early when the head itself contained a brace, because a line is
+  // not a declaration boundary and a brace is not always a body. The compiler
+  // knows where the body starts, so it says so here. Zero when the declaration
+  // has no body to bound, in which case the whole declaration is the head.
+  SignatureEnd       int
   ImplementationFile string
   ImplementationPos  int
   ImplementationEnd  int
