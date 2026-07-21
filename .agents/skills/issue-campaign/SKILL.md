@@ -39,7 +39,15 @@ Treat the development skill's [Forbidden](../development/SKILL.md#forbidden) sec
 
 Do not stop after finding enough work for a pull request. Complete the entire scope, adjudicate the full candidate pool, and publish only the surviving issues when authorized.
 
-After the cycle pull request merges, begin a fresh full-scope round against the integrated repository. Earlier rounds are not coverage. The campaign ends only when a complete fresh round produces no meaningful issue candidate after fact-checking and no accepted issue remains unresolved.
+### Every Round Is Full-Scope
+
+Every round re-audits the entire declared scope against the current integrated state. A round is never partitioned: not by package, concern, or validation lane, not by the areas the last cycle happened to touch, and not by splitting the scope across rounds so that each one covers a slice. A merged cycle changes the state every earlier conclusion rested on, so what an earlier round read is not coverage for this one. The [review skill's Non-Negotiable Review Law](../review/SKILL.md#non-negotiable-review-law) states the same rule for every round and review the campaign runs.
+
+### Discovery Ends Only On An Empty Round
+
+A merged cycle does not end the campaign. It produces one more round: begin a fresh full-scope round against the integrated repository. Discovery continues cycle after cycle, with no round limit, and ends only when one complete fresh round produces no meaningful issue candidate after fact-checking and no accepted issue remains unresolved.
+
+Report the campaign complete only from a round that actually came up empty. Ending after a cycle that merely felt thorough leaves the issues the next round would have found unrecorded.
 
 ## Vet And Publish Issues
 
