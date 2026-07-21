@@ -121,6 +121,12 @@ func dispatchNode(ctx *PrintContext, node *shimast.Node) (Doc, bool, bool) {
   case shimast.KindConditionalExpression:
     doc, covered := printConditionalExpression(ctx, node)
     return doc, covered, true
+  case shimast.KindPropertyAssignment,
+    shimast.KindMethodDeclaration,
+    shimast.KindGetAccessor,
+    shimast.KindSetAccessor:
+    doc, covered := printObjectMember(ctx, node)
+    return doc, covered, true
   }
   return Doc{}, false, false
 }
