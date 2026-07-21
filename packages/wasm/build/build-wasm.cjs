@@ -24,12 +24,59 @@ const wasmExecOut = path.join(outDir, "wasm_exec.js");
 const goModPath = path.join(packageRoot, "go.mod");
 const publishedGoModOut = path.join(outDir, "go.mod");
 const cachePath = path.join(outDir, ".ttsc-wasm-build.json");
+const hostPackage = "github.com/samchon/ttsc/packages/wasm/host";
+
+// Read a git fact, or undefined outside a checkout (a published tarball build).
+function gitFact(args) {
+  try {
+    return cp
+      .execFileSync("git", args, {
+        cwd: repoRoot,
+        encoding: "utf8",
+        windowsHide: true,
+      })
+      .trim();
+  } catch {
+    return undefined;
+  }
+}
+
+// The build metadata `api.version()` answers with.
+//
+// Without these the published binary reports the compile-time defaults
+// (`0.0.0-dev` / `dev` / `unknown`), so the one API whose purpose is to
+// identify which wasm is running identifies nothing — and the documentation
+// tells consumers to copy the base artifact verbatim, so that is the binary
+// almost everyone deploys.
+//
+// `date` is the commit's date rather than the build's. The native platform
+// script stamps build time, but this build is content-cached: a value that
+// changes every run would be a build flag that never repeats, so the cache
+// could never hit. A commit date identifies the artifact just as well and keeps
+// the build reproducible.
+function buildStamp() {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
+  );
+  return {
+    version: manifest.version ?? "0.0.0-dev",
+    commit: gitFact(["rev-parse", "--short=12", "HEAD"]) ?? "unknown",
+    date: gitFact(["show", "-s", "--format=%cI", "HEAD"]) ?? "unknown",
+  };
+}
+
+const stamp = buildStamp();
 const buildArguments = [
   "go",
   "build",
   "-trimpath",
   "-ldflags",
-  "-s -w",
+  [
+    "-s -w",
+    `-X ${hostPackage}.version=${stamp.version}`,
+    `-X ${hostPackage}.commit=${stamp.commit}`,
+    `-X ${hostPackage}.date=${stamp.date}`,
+  ].join(" "),
   "-o",
   wasmOut,
   "./cmd/ttsc-wasm",
@@ -189,4 +236,10 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { createCacheOptions, locateWasmExec };
+module.exports = {
+  buildArguments,
+  buildStamp,
+  createCacheOptions,
+  hostPackage,
+  locateWasmExec,
+};
