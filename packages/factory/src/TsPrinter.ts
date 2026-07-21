@@ -1302,6 +1302,22 @@ export class TsPrinter {
           node.isTypeOf ? "typeof " : "",
           "import(",
           this.emit(node.argument),
+          // An import type spells its attributes as a second call argument —
+          // `import("m", { with: { … } }).T` — not as the trailing `with { … }`
+          // an import declaration uses, so the elements are wrapped here rather
+          // than emitted through the attributes node's own form.
+          node.attributes && node.attributes.elements.length > 0
+            ? concat([
+                ", { ",
+                node.attributes.token,
+                ": { ",
+                join(
+                  ", ",
+                  node.attributes.elements.map((e) => this.emit(e)),
+                ),
+                " } }",
+              ])
+            : "",
           ")",
           node.qualifier ? concat([".", this.emit(node.qualifier)]) : "",
           this.typeArguments(node.typeArguments),
@@ -1721,6 +1737,10 @@ export class TsPrinter {
             ? concat([this.emit(node.importClause), " from "])
             : "",
           this.emit(node.moduleSpecifier),
+          // `@import { a } from "m" with { type: "json" }` — the same trailing
+          // form an import declaration uses, which is why the attributes node
+          // emits itself here rather than being unwrapped.
+          node.attributes ? concat([" ", this.emit(node.attributes)]) : "",
           this.jsDocComment(node.comment),
         ]);
       case "JSDocTemplateTag":
