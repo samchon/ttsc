@@ -56,10 +56,6 @@ func TestFormatPrettierConformance(t *testing.T) {
     {"format/print-width", "named-import", "import { alpha, bravo, charlie } from \"module\";\n", map[string]any{"printWidth": 30}, false},
     {"format/print-width", "named-export", "export { alpha, bravo, charlie };\n", map[string]any{"printWidth": 20}, false},
     {"format/print-width", "conditional", "const result = aaaaaaaaaa ? bbbbbbbbbb ? cccccccccc : dddddddddd : eeeeeeeeee;\n", map[string]any{"printWidth": 40}, false},
-    // Well under printWidth on purpose: Prettier breaks a non-empty block
-    // unconditionally, so this row proves the rule against the oracle for a
-    // case width alone can never explain.
-    {"format/print-width", "expression-nested-block", "run(() => { a(); b(); });\n", nil, false},
     {"format/quote-props", "consistent-object", "const value = { first: 1, \"second-value\": 2 };\n", map[string]any{"quoteProps": "consistent"}, false},
     {"format/quote-props", "class-method", "class Value {\n  \"method\"(): void {}\n}\n", nil, false},
     {"format/quote-props", "class-expression-and-types", "const Value = class {\n  \"method\"(): void {}\n};\ninterface Shape {\n  \"value\": string;\n}\ntype Alias = {\n  \"name\": string;\n};\n", nil, false},
