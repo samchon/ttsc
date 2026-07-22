@@ -221,11 +221,15 @@ function isBarePackageRoot(specifier: string): boolean {
 }
 
 /**
- * Try an on-disk `extends` location as-is and with `.json` appended. A
- * directory is never a config file and must not be expanded to `tsconfig.json`.
+ * Try an on-disk `extends` location as-is and, unless it already ends in
+ * `.json`, with that extension appended. A directory is never a config file
+ * and cannot be expanded to `tsconfig.json` or a double `.json` suffix.
  */
 function resolveExistingExtendsPath(location: string): string | null {
-  for (const candidate of new Set([location, `${location}.json`])) {
+  const candidates = location.endsWith(".json")
+    ? [location]
+    : [location, `${location}.json`];
+  for (const candidate of candidates) {
     if (isFile(candidate)) {
       return resolveRealPath(candidate);
     }

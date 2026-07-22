@@ -43,4 +43,22 @@ export const test_transformttsc_alias_overlay_resolves_extends_as_a_file =
 
     fs.unlinkSync(path.join(root, "config.json"));
     assert.deepEqual(readEffectiveTsconfigPaths(tsconfig), {});
+
+    fs.writeFileSync(
+      path.join(root, "explicit.json.json"),
+      JSON.stringify({
+        compilerOptions: { paths: { "double/*": ["./double/*"] } },
+      }),
+      "utf8",
+    );
+    fs.writeFileSync(
+      tsconfig,
+      JSON.stringify({ extends: "../explicit.json", compilerOptions: {} }),
+      "utf8",
+    );
+    assert.deepEqual(
+      readEffectiveTsconfigPaths(tsconfig),
+      {},
+      "an explicit .json target must not probe a double suffix",
+    );
   };

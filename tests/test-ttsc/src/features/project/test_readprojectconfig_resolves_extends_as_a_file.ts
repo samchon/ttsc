@@ -40,4 +40,20 @@ export const test_readprojectconfig_resolves_extends_as_a_file = () => {
     /extended tsconfig not found/,
     "a directory must neither be read as JSON nor expanded to tsconfig.json",
   );
+
+  fs.writeFileSync(
+    path.join(root, "explicit.json.json"),
+    JSON.stringify({ compilerOptions: { outDir: "double-suffix-output" } }),
+    "utf8",
+  );
+  fs.writeFileSync(
+    tsconfig,
+    JSON.stringify({ extends: "../explicit.json", compilerOptions: {} }),
+    "utf8",
+  );
+  assert.throws(
+    () => readProjectConfig({ tsconfig }),
+    /extended tsconfig not found/,
+    "an explicit .json target must not probe a double suffix",
+  );
 };
