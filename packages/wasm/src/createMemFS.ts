@@ -81,14 +81,15 @@ export function createMemFS(): IMemFSHost {
   /**
    * One open descriptor.
    *
-   * `readable`, `writable`, and `append` are the access mode and `O_APPEND`
-   * flag captured at `open`; without them no read or write below can tell an
-   * allowed operation from a forbidden one. `position` is the cursor a
-   * `position: null` read or write uses and advances, exactly as Node's `fs`
-   * defines it.
+   * `node` retains the object opened even after its pathname is unlinked or
+   * replaced. `readable`, `writable`, and `append` are the access mode and
+   * `O_APPEND` flag captured at `open`; without them no descriptor mutation can
+   * distinguish an allowed operation from a forbidden one. `position` is the
+   * cursor a `position: null` read or write uses and advances.
    */
   interface IDescriptor {
     path: string;
+    node?: INode;
     position: number;
     readable: boolean;
     writable: boolean;
@@ -284,7 +285,7 @@ export function createMemFS(): IMemFSHost {
     syscall: string,
   ): number {
     if (!entry.writable) throw new MemFSError("EBADF", syscall, entry.path);
-    const node = nodes.get(entry.path);
+    const node = entry.node;
     if (!node) throw new MemFSError("ENOENT", syscall, entry.path);
     if (node.kind !== "file")
       throw new MemFSError("EISDIR", syscall, entry.path);
@@ -550,6 +551,7 @@ export function createMemFS(): IMemFSHost {
         const fd = nextFd++;
         fdTable.set(fd, {
           path: norm,
+          node,
           position: 0,
           readable,
           writable,
@@ -612,7 +614,7 @@ export function createMemFS(): IMemFSHost {
         callback(new MemFSError("EBADF", "read", entry.path), 0);
         return;
       }
-      const node = nodes.get(entry.path);
+      const node = entry.node;
       if (!node || node.kind !== "file") {
         callback(new MemFSError("ENOENT", "read", entry.path), 0);
         return;
@@ -642,7 +644,17 @@ export function createMemFS(): IMemFSHost {
 
     mkdir(p, _perm, callback) {
       try {
-        mkdirp(p);
+        const norm = normalize(p);
+        if (nodes.has(norm)) throw new MemFSError("EEXIST", "mkdir", norm);
+        const parent = nodes.get(parentDir(norm));
+        if (!parent) throw new MemFSError("ENOENT", "mkdir", parentDir(norm));
+        if (parent.kind !== "dir")
+          throw new MemFSError("ENOTDIR", "mkdir", parentDir(norm));
+        nodes.set(norm, {
+          kind: "dir",
+          data: new Uint8Array(),
+          mtimeMs: Date.now(),
+        });
         callback(null);
       } catch (err) {
         callback(err as NodeJS.ErrnoException);
@@ -688,7 +700,8 @@ export function createMemFS(): IMemFSHost {
         return;
       }
       try {
-        callback(null, statSync(entry.path));
+        if (!entry.node) throw new MemFSError("ENOENT", "fstat", entry.path);
+        callback(null, makeStats(entry.node));
       } catch (err) {
         callback(
           err as NodeJS.ErrnoException,
@@ -857,7 +870,11 @@ export function createMemFS(): IMemFSHost {
         callback(new MemFSError("EINVAL", "ftruncate"));
         return;
       }
-      const node = nodes.get(entry.path);
+      if (!entry.writable) {
+        callback(new MemFSError("EBADF", "ftruncate", entry.path));
+        return;
+      }
+      const node = entry.node;
       if (!node || node.kind !== "file") {
         callback(new MemFSError("EINVAL", "ftruncate", entry.path));
         return;

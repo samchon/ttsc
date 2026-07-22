@@ -278,7 +278,12 @@ export function enqueuePackageDependencies(
 }
 
 function isRegistryRange(range: string): boolean {
-  return !/^(file:|link:|workspace:|portal:|git\+|github:|https?:)/.test(range);
+  if (range.startsWith("npm:")) return true;
+  if (validRange(range) !== null) return true;
+  // npm accepts a dist-tag only when it is a non-empty URI-component-safe
+  // token. Git, hosted, URL, and local-path specs all require punctuation that
+  // encodeURIComponent escapes, so they cannot fall through as fake tags.
+  return range.length > 0 && encodeURIComponent(range) === range;
 }
 
 export function toTypesPackageName(packageName: string): string {

@@ -1164,7 +1164,74 @@ function selectExportTarget(exportsField: unknown, subpath: string): unknown {
     // Conditions object: the whole value is the `.` target.
     return subpath === "." ? exportsField : undefined;
   }
-  return subpath in record ? record[subpath] : undefined;
+  if (Object.prototype.hasOwnProperty.call(record, subpath)) {
+    return record[subpath];
+  }
+  const patterns = Object.keys(record)
+    .filter((key) => exportPatternReplacement(key, subpath) !== undefined)
+    .sort(compareExportPatternKeys);
+  if (patterns.length === 0) {
+    return undefined;
+  }
+  const pattern = patterns[0]!;
+  return substituteExportTarget(
+    record[pattern],
+    exportPatternReplacement(pattern, subpath)!,
+  );
+}
+
+/** Capture the middle of one valid single-star exports key. */
+function exportPatternReplacement(
+  pattern: string,
+  subpath: string,
+): string | undefined {
+  const star = pattern.indexOf("*");
+  if (
+    !pattern.startsWith("./") ||
+    star === -1 ||
+    pattern.indexOf("*", star + 1) !== -1
+  ) {
+    return undefined;
+  }
+  const prefix = pattern.slice(0, star);
+  const suffix = pattern.slice(star + 1);
+  if (
+    subpath.length < prefix.length + suffix.length ||
+    !subpath.startsWith(prefix) ||
+    !subpath.endsWith(suffix)
+  ) {
+    return undefined;
+  }
+  return subpath.slice(prefix.length, subpath.length - suffix.length);
+}
+
+/** Node exports patterns rank longer prefixes, then longer full keys, first. */
+function compareExportPatternKeys(left: string, right: string): number {
+  const leftPrefix = left.indexOf("*");
+  const rightPrefix = right.indexOf("*");
+  if (leftPrefix !== rightPrefix) {
+    return rightPrefix - leftPrefix;
+  }
+  return right.length - left.length;
+}
+
+/** Substitute the selected pattern capture into every string target branch. */
+function substituteExportTarget(target: unknown, replacement: string): unknown {
+  if (typeof target === "string") {
+    return target.split("*").join(replacement);
+  }
+  if (Array.isArray(target)) {
+    return target.map((entry) => substituteExportTarget(entry, replacement));
+  }
+  if (typeof target !== "object" || target === null) {
+    return target;
+  }
+  return Object.fromEntries(
+    Object.entries(target).map(([condition, value]) => [
+      condition,
+      substituteExportTarget(value, replacement),
+    ]),
+  );
 }
 
 /** True when condition key `condition` appears anywhere in a (nested) target. */

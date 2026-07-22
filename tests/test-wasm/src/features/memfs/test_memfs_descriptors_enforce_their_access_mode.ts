@@ -2,6 +2,7 @@ import { TestValidator } from "@nestia/e2e";
 import { createMemFS } from "@ttsc/wasm";
 
 import {
+  callMutation,
   expectFsError,
   openFd,
   openResult,
@@ -45,6 +46,14 @@ export const test_memfs_descriptors_enforce_their_access_mode =
       { code: "EBADF", n: 0, text: "abc" },
     );
     TestValidator.equals(
+      "a read-only descriptor rejects ftruncate without moving its cursor",
+      {
+        code: await expectFsError((cb) => host.fs.ftruncate(readOnly, 1, cb)),
+        text: host.readFileText("/f.txt"),
+      },
+      { code: "EBADF", text: "abc" },
+    );
+    TestValidator.equals(
       "a write-only descriptor rejects reads",
       await expectFsError((cb) =>
         host.fs.read(writeOnly, new Uint8Array(1), 0, 1, null, cb),
@@ -54,19 +63,20 @@ export const test_memfs_descriptors_enforce_their_access_mode =
 
     // Positive twins: the granted directions still work.
     TestValidator.equals(
-      "a read-only descriptor still reads",
+      "a rejected ftruncate leaves the read-only cursor unchanged",
       await readFdText(host.fs, readOnly, 3),
       "abc",
     );
     const allowedWrite = await writeFdText(host.fs, readWrite, "X", 0);
+    await callMutation((cb) => host.fs.ftruncate(writeOnly, 2, cb));
     TestValidator.equals(
-      "a read-write descriptor reads and writes",
+      "writable descriptors still write and truncate",
       {
         ...allowedWrite,
         text: host.readFileText("/f.txt"),
         read: await readFdText(host.fs, readWrite, 3),
       },
-      { code: null, n: 1, text: "Xbc", read: "Xbc" },
+      { code: null, n: 1, text: "Xb", read: "Xb" },
     );
 
     // A directory opens read-only only; a write mode would replace it.

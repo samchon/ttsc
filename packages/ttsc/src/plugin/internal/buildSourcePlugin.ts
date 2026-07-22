@@ -1762,24 +1762,58 @@ function goToolchainNotFoundMessage(pluginName: string): string {
   );
 }
 
-function spawnGoTool(
+export function spawnGoTool(
   goBinary: string,
   args: readonly string[],
   options: SpawnSyncOptionsWithStringEncoding,
 ): SpawnSyncReturns<string> {
-  const shell = shouldSpawnGoToolThroughShell(goBinary);
-  // Under shell:true (a Windows .cmd/.bat wrapper) Node does not quote the
-  // command, so a wrapper at a path containing a space would be split by cmd.
-  // Quote it here; the go arguments ttsc passes never contain spaces, and
-  // quoting a space-free path is harmless.
-  return spawnSync(shell ? `"${goBinary}"` : goBinary, [...args], {
-    ...options,
-    shell,
-  });
+  if (!shouldSpawnGoToolThroughShell(goBinary)) {
+    return spawnSync(goBinary, [...args], options);
+  }
+  const inheritedEnv = options.env ?? process.env;
+  const shim = createWindowsGoCommandShim([goBinary, ...args]);
+  return spawnSync(
+    inheritedEnv.ComSpec ?? inheritedEnv.COMSPEC ?? "cmd.exe",
+    ["/d", "/s", "/c", shim.payload],
+    {
+      ...options,
+      env: { ...inheritedEnv, ...shim.environment },
+      shell: false,
+      // The /c payload is already one fully quoted Windows command line.
+      windowsVerbatimArguments: true,
+    },
+  );
 }
 
 function shouldSpawnGoToolThroughShell(goBinary: string): boolean {
   return process.platform === "win32" && /\.(?:bat|cmd)$/i.test(goBinary);
+}
+
+/** Pass volatile cmd wrapper arguments through one-pass environment expansion. */
+function createWindowsGoCommandShim(args: readonly string[]): {
+  environment: NodeJS.ProcessEnv;
+  payload: string;
+} {
+  const prefix = `TTSC_GO_COMMAND_SHIM_${crypto
+    .randomBytes(8)
+    .toString("hex")
+    .toUpperCase()}_ARG_`;
+  const environment = Object.fromEntries(
+    args.map((arg, index) => [prefix + index, quoteWindowsCommandArg(arg)]),
+  );
+  return {
+    environment,
+    // cmd expands each placeholder exactly once. Percent-shaped text inside an
+    // expanded value is not scanned as a second environment reference.
+    payload: `"${args.map((_, index) => `%${prefix}${index}%`).join(" ")}"`,
+  };
+}
+
+/** Quote one argv value for the Windows command-line parser used by cmd. */
+function quoteWindowsCommandArg(arg: string): string {
+  return `"${String(arg)
+    .replace(/(\\*)"/g, '$1$1\\"')
+    .replace(/(\\*)$/, "$1$1")}"`;
 }
 
 function goBuildEnv(
