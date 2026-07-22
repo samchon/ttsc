@@ -263,7 +263,7 @@ func printBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if block == nil || block.Statements == nil {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
-  hasComment := nodeHasNonItemComment(ctx, node, block.Statements.Nodes)
+  hasComment := blockHasNonStatementComment(ctx, node, block.Statements.Nodes)
   if len(block.Statements.Nodes) == 0 {
     if hasComment {
       // A one-line comment-only block is non-empty to Prettier: keep the
@@ -355,7 +355,7 @@ func rangeHasNewline(src string, start, end int) bool {
 // blankLineBetweenStatements reports whether the source gap between the
 // end of one block statement and the start of the next contains a blank
 // line — two or more newlines. printBlock uses it to keep a single
-// user-authored blank line between statements. nodeHasNonItemComment
+// user-authored blank line between statements. blockHasNonStatementComment
 // has already guaranteed the gap holds no comment when the block is
 // covered, so the gap is pure whitespace and counting newlines suffices.
 func blankLineBetweenStatements(src string, prevEnd, nextPos int) bool {
@@ -417,6 +417,13 @@ func nodeHasNonItemComment(ctx *PrintContext, node *shimast.Node, items []*shima
     }
   }
   return false
+}
+
+// blockHasNonStatementComment is the block-specific name retained for callers
+// and focused tests; switch printers use the generalized item-range helper
+// directly for clauses and statements.
+func blockHasNonStatementComment(ctx *PrintContext, node *shimast.Node, stmts []*shimast.Node) bool {
+  return nodeHasNonItemComment(ctx, node, stmts)
 }
 
 // printExpressionStatement renders an `expr;` statement. The expression
