@@ -7,7 +7,7 @@ import (
   "strings"
   "testing"
 
-  "github.com/samchon/ttsc/packages/banner/driver/windowsjunction"
+  "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
 func TestWindowsJunctionTreatsPathsAsData(t *testing.T) {

@@ -12,8 +12,8 @@ import (
   "strings"
   "time"
 
-  "github.com/samchon/ttsc/packages/banner/driver/windowsjunction"
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
 // configLoaderTimeout caps subprocesses that evaluate user-supplied banner

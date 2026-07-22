@@ -17,7 +17,7 @@ import (
   "sync"
   "time"
 
-  "github.com/samchon/ttsc/packages/lint/linthost/windowsjunction"
+  "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
 // configLoaderTimeout caps every `ttsx`/`node -e` subprocess that

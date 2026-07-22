@@ -16,17 +16,13 @@ const (
 
 // Create makes link a directory junction that points to target.
 func Create(link, target string) error {
-  // mklink is a cmd.exe builtin. Keep paths out of the command text so legal
-  // filename characters such as &, ^, %, and parentheses are data rather than
-  // shell syntax. Percent expansion substitutes each variable once; percent
-  // sequences inside its value are not recursively expanded.
-  cmd := exec.Command(
-    "cmd.exe",
-    "/d",
-    "/v:off",
-    "/s",
-    "/c",
-    `mklink /J "%TTSC_WINDOWS_JUNCTION_LINK%" "%TTSC_WINDOWS_JUNCTION_TARGET%"`,
+  // mklink is a cmd.exe builtin. Feed a constant command over stdin and use
+  // delayed environment expansion so Go never has to quote a command string
+  // for cmd.exe. Delayed values are substituted after cmd has classified the
+  // command's metacharacters, keeping every character in each path as data.
+  cmd := exec.Command("cmd.exe", "/d", "/q", "/v:on")
+  cmd.Stdin = strings.NewReader(
+    "mklink /J \"!TTSC_WINDOWS_JUNCTION_LINK!\" \"!TTSC_WINDOWS_JUNCTION_TARGET!\"\r\nexit /b !errorlevel!\r\n",
   )
   cmd.Env = append(
     os.Environ(),

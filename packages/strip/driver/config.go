@@ -12,8 +12,8 @@ import (
   "strings"
   "time"
 
-  "github.com/samchon/ttsc/packages/strip/driver/windowsjunction"
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
 // configLoaderTimeout caps every `ttsx`/`node -e` subprocess that evaluates a
