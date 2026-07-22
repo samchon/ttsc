@@ -514,20 +514,17 @@ func anyLeadingItemBreaks(items []Doc) bool {
   return false
 }
 
-// shouldHugLastArgument reports whether the final entry of `args` is a
-// shape Prettier keeps hugging the closing paren: an object or array
-// literal, a function expression, or an arrow function whose body is a
-// block, an object literal, or an array literal. Hugging only applies
-// when that argument is genuinely the last one; a callback in the
-// middle of the list does not trigger the shape.
+// shouldHugLastArgument reports whether the final entry of `args` is a shape
+// Prettier keeps attached to the call's opening line: an object or array
+// literal, a function expression, or an arrow function whose body has an
+// expandable layout. A block/object/array body also hugs the closing paren; a
+// call/conditional/JSX body breaks after `=>` and closes the outer list on its
+// own line. Hugging only applies when the argument is genuinely last.
 //
-// An arrow with any other expression body (`(x) => x.id`) is
-// deliberately excluded. Such a body carries no internal break point,
-// so the hugging shape — a flat `Concat` with no Group — would pin the
-// whole call to one line even when that line overflows printWidth.
-// Routing it through the normal list shape instead lets the argument
-// list explode onto its own line when the call does not fit, which is
-// what Prettier does.
+// An arrow with any other expression body (`(x) => x.id`) is deliberately
+// excluded. It carries no internal break point, so the hugging shape would pin
+// the whole call to one line even when it overflows printWidth. The normal list
+// shape can instead explode that argument onto its own line.
 func shouldHugLastArgument(args []*shimast.Node) bool {
   if len(args) == 0 {
     return false
@@ -558,11 +555,11 @@ func shouldHugLastArgument(args []*shimast.Node) bool {
   return true
 }
 
-// lastArgHuggableShape reports whether `node` is the shape Prettier keeps
-// hugging the closing paren: an object/array literal, a function expression,
-// or an arrow whose body is a block, object, or array. An expression-bodied
-// arrow (`(x) => x.id`) is excluded: it has no internal break point, so the
-// flat hugging Concat would pin an overflowing call to one line.
+// lastArgHuggableShape reports whether `node` has a Prettier-style expandable
+// last-argument layout. Objects, arrays, and functions expand internally; an
+// arrow with a call/conditional/JSX body can break immediately after `=>`.
+// Other concise arrows (`(x) => x.id`) have no internal break point and are
+// excluded so an overflowing call can use the ordinary exploded list.
 func lastArgHuggableShape(last *shimast.Node) bool {
   switch last.Kind {
   case shimast.KindFunctionExpression:

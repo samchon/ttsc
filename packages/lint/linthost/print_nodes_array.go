@@ -130,14 +130,13 @@ func arrayForcesBreak(node *shimast.Node) bool {
   return arrayShouldForceBreak(arr.Elements.Nodes)
 }
 
-// fastPathForcesBreak reports whether `node`, OR a force-breaking node nested
-// within the subtree a reflow of `node` would print (its call/new arguments and
-// array elements, recursively), must explode even though it fits flat. Prettier
-// breaks such a descendant — an array `shouldBreak` or a function-composition
-// call/new — when the enclosing node reflows; ttsc's print-width fast path
-// returns first while the descendant abstains via hasReflowAncestor, leaving
-// both flat (`new Map([["a", 1], ["b", 2]])`, `foo([[1, 2], [3, 4]])`). So the
-// fast path must consult this, not only the visited node itself.
+// fastPathForcesBreak reports whether `node`, or a force-breaking node nested
+// within the subtree its structured printer reaches, must explode even though
+// the outer source fits flat. It follows call/new arguments, array elements,
+// function bodies, conditional parts, parenthesized expressions, and printable
+// object-member bodies. The forced descendant can be a same-kind composite
+// array, a function-composition call, or a non-empty block. Without the walk,
+// the outer node's fast path would return before the descendant could deny it.
 func fastPathForcesBreak(node *shimast.Node, src string) bool {
   if node == nil {
     return false
