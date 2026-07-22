@@ -97,7 +97,7 @@ test("the factory publication entry points load from built artifacts", () => {
       [
         'import factory, { SyntaxKind, TsPrinter } from "@ttsc/factory";',
         'if (typeof factory.createIdentifier !== "function") throw new Error("missing default factory");',
-        'if (typeof SyntaxKind.Identifier !== "number") throw new Error("missing SyntaxKind");',
+        'if (SyntaxKind.StringKeyword !== "string") throw new Error("missing SyntaxKind");',
         'if (typeof TsPrinter !== "function") throw new Error("missing TsPrinter");',
       ].join("\n"),
     );
@@ -116,7 +116,8 @@ test("the factory publication entry points load from built artifacts", () => {
       [
         'import factory, { SyntaxKind, TsPrinter } from "@ttsc/factory";',
         'const identifier = factory.createIdentifier("value");',
-        "const kind: SyntaxKind = identifier.kind;",
+        'if (identifier.kind !== "Identifier") throw new Error("missing identifier discriminant");',
+        "const kind: SyntaxKind = SyntaxKind.StringKeyword;",
         "const printer: TsPrinter = new TsPrinter();",
         "void kind;",
         "void printer;",
@@ -163,8 +164,8 @@ function assertFactorySurface(exports, label) {
     `${label} omits the default factory`,
   );
   assert.equal(
-    typeof exports.SyntaxKind.Identifier,
-    "number",
+    exports.SyntaxKind.StringKeyword,
+    "string",
     `${label} omits SyntaxKind`,
   );
   assert.equal(
