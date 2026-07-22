@@ -29,10 +29,17 @@ func (diagnosticsApplyErrorPlugin) ApplyProgram(*driver.Program, driver.PluginCo
 // no file or code (`driver: nil program`), and every read-only consumer of a
 // program's findings goes through it.
 //
+// The cached outcome is read, never forced. Forcing it here would move when the
+// apply happens, and diagnostics computed against a mutated tree carry positions
+// that need not map into the original source text — the diagnostic writer walks
+// that text to render context and panics on the mismatch. Every real consumer
+// reads source files before asking for diagnostics, so the cache is warm by
+// then; `SourceFiles` below is that step, not a contrivance.
+//
 //  1. Register a linked plugin whose ApplyProgram fails.
-//  2. Ask the program for its diagnostics.
-//  3. Assert the failure is among them, as an error, and that the compiler's own
-//     findings still follow it.
+//  2. Read the program's source files, as every consumer of this does.
+//  3. Ask for diagnostics, and assert the failure is among them as an error,
+//     with the compiler's own findings still beside it.
 func TestDriverDiagnosticsReportAFailedPluginApply(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"diagnostics-apply-error","stage":"transform","config":{}}]`)
@@ -57,6 +64,9 @@ func TestDriverDiagnosticsReportAFailedPluginApply(t *testing.T) {
     t.Fatalf("unexpected load diagnostics: %#v", diags)
   }
   defer prog.Close()
+
+  // What a consumer does first, and what warms the cached apply outcome.
+  _ = prog.SourceFiles()
 
   found := false
   typecheck := 0
@@ -104,6 +114,7 @@ func TestDriverDiagnosticsStaySilentWhenPluginsApply(t *testing.T) {
   }
   defer prog.Close()
 
+  _ = prog.SourceFiles()
   for _, diagnostic := range prog.Diagnostics() {
     if strings.Contains(diagnostic.Message, "linked plugins failed to apply") {
       t.Fatalf("a clean apply must report nothing: %s", diagnostic.Message)

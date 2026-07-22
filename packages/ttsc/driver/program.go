@@ -578,14 +578,25 @@ func (p *Program) Diagnostics() []Diagnostic {
   // untransformed program with nothing to say about it, while `ttsc build` on
   // the same project reported the failure.
   //
-  // The apply is cached, so asking here costs nothing a caller was not going to
-  // pay, and the answer cannot differ between callers. `driver: nil program`
-  // above is the precedent for a driver-level entry with no file or code.
+  // The cached outcome is read, never forced. Calling `ApplyLinkedPlugins`
+  // here would move WHEN the apply happens: diagnostics would then be computed
+  // against the mutated tree, whose nodes carry positions that need not map
+  // into the original source text, and the diagnostic writer walks that text to
+  // render context. It panics on the mismatch.
+  //
+  // Reading the cache costs nothing and is enough for the consumers this is
+  // for: `SourceTexts` and `SourceFiles` run the apply, and both graph entry
+  // points call them before asking for diagnostics. A caller that has not
+  // applied yet has nothing to report, which is correct — the plugins have not
+  // failed, they have not run.
+  //
+  // `driver: nil program` above is the precedent for a driver-level entry with
+  // no file or code.
   var out []Diagnostic
-  if err := p.ApplyLinkedPlugins(); err != nil {
+  if p.pluginsApplied && p.pluginsApplyErr != nil {
     out = append(out, Diagnostic{
       Severity: SeverityError,
-      Message:  "driver: linked plugins failed to apply: " + err.Error(),
+      Message:  "driver: linked plugins failed to apply: " + p.pluginsApplyErr.Error(),
     })
   }
   ctx := context.Background()
