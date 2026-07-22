@@ -8,8 +8,15 @@ import {
 } from "../../internal/callbackFs";
 
 /**
- * The low-level mkdir callback creates one directory and preserves mkdirp
- * semantics.
+ * Verifies MemFS: low-level mkdir creates exactly one directory.
+ *
+ * Delegating the callback API to `mkdirp` created missing ancestors and treated
+ * existing targets as success. The low-level operation must reject before any
+ * mutation while the host convenience helper stays recursive and idempotent.
+ *
+ * 1. Create normalized children beneath an existing parent.
+ * 2. Attempt missing-parent, file-parent, existing-target, and root cases.
+ * 3. Assert exact error codes, atomic state, and unchanged `mkdirp` behavior.
  */
 export const test_memfs_low_level_mkdir_creates_one_directory =
   async (): Promise<void> => {

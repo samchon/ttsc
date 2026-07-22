@@ -7,7 +7,18 @@ import {
 } from "../../../../packages/playground/lib/src/npm/internal/npmRegistry.js";
 import { createTarball } from "../internal/tarball";
 
-/** Unsupported npm source specs never become registry dist-tag requests. */
+/**
+ * Verifies playground: npm source specs never become registry requests.
+ *
+ * Prefix-only classification sent valid path, archive, URL, git, and hosted
+ * specs to the dist-tag branch. The browser installer must enqueue only its
+ * supported registry grammar while supported siblings still install.
+ *
+ * 1. Mix every unsupported source family with ranges, tags, and an alias.
+ * 2. Assert only supported dependency names enter the queue.
+ * 3. Install a tarball carrying the same mix through a fake registry.
+ * 4. Assert no unsupported name triggers a metadata request.
+ */
 export const test_npm_registry_skips_every_non_registry_spec_family =
   async () => {
     const skipped: Record<string, string> = {

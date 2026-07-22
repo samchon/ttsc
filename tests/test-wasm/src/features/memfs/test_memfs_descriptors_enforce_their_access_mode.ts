@@ -20,15 +20,13 @@ const O_TRUNC = 512;
  * mode granted.
  *
  * The descriptor record stored just a path and an offset, so a read-only
- * descriptor accepted writes and a write-only descriptor accepted reads. Both
- * reported success, which is worse than a refusal: the caller keeps a handle it
- * believes is restricted while the file changes underneath it.
+ * descriptor accepted writes and a write-only descriptor accepted reads. A
+ * later gap also let read-only descriptors truncate the file. These operations
+ * must fail before changing bytes, mtime, or the shared cursor.
  *
  * 1. Open the same file read-only, write-only, and read-write.
- * 2. Drive a write through the read-only fd and a read through the write-only fd,
- *    then exercise both directions on the read-write fd.
- * 3. Assert the forbidden operations return `EBADF` with zero bytes and no byte
- *    change, and that the permitted ones still work.
+ * 2. Reject read-only write and truncate plus write-only read operations.
+ * 3. Assert `EBADF`, unchanged bytes and cursor, and permitted mutations.
  */
 export const test_memfs_descriptors_enforce_their_access_mode =
   async (): Promise<void> => {

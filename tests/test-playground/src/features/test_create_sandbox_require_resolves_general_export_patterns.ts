@@ -3,8 +3,15 @@ import assert from "node:assert/strict";
 import { createSandboxRequire } from "../../../../packages/playground/lib/src/sandbox/createSandboxRequire.js";
 
 /**
- * The Execute sandbox follows Node's exact and general single-star exports
- * rules.
+ * Verifies playground: sandbox require resolves general exports patterns.
+ *
+ * The sandbox recognized only trailing `/*`, so suffix-bearing Node patterns
+ * appeared private after the compiler had accepted them. The resolver must rank
+ * one-star keys by Node specificity and preserve null boundaries.
+ *
+ * 1. Define exact, overlapping, suffix, repeated-target, empty, and null cases.
+ * 2. Require matching package subpaths through the sandbox.
+ * 3. Assert the selected exports and rejected boundaries.
  */
 export const test_create_sandbox_require_resolves_general_export_patterns =
   () => {

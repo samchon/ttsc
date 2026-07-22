@@ -6,7 +6,15 @@ import (
   "testing"
 )
 
-// TestRewriterLookupSourceHonorsHostCaseSensitivity pins canonical lookup keys.
+// Verifies paths: source lookup follows the compiler host's case sensitivity.
+//
+// The rewriter once stored and queried case-preserving keys even when the host
+// treated case-only paths as identical. Canonical keys must still return the
+// Program's original normalized source spelling.
+//
+// 1. Seed exact, extensionless, explicit-extension, and index source paths.
+// 2. Query case-only variants through sensitive and insensitive rewriters.
+// 3. Assert only the insensitive host resolves each original source path.
 func TestRewriterLookupSourceHonorsHostCaseSensitivity(t *testing.T) {
   root := filepath.ToSlash(filepath.Join(t.TempDir(), "Repo"))
   sources := []string{

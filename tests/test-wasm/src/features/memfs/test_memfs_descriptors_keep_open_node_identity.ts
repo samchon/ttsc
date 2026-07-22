@@ -23,8 +23,15 @@ function fstatSize(fs: IWasmExecFS, fd: number): Promise<number> {
 }
 
 /**
- * Open descriptors retain their node when unlink or replacement rename changes
- * names.
+ * Verifies MemFS: open descriptors retain identity across namespace changes.
+ *
+ * Path-only descriptors either disappeared after unlink or retargeted to a
+ * replacement rename destination. Each fd must retain its opened node while the
+ * namespace independently removes or replaces names.
+ *
+ * 1. Unlink an open file, then read, write, truncate, and stat through its fd.
+ * 2. Rename one open file over another open file.
+ * 3. Mutate both fds and assert their bytes remain distinct after close.
  */
 export const test_memfs_descriptors_keep_open_node_identity =
   async (): Promise<void> => {

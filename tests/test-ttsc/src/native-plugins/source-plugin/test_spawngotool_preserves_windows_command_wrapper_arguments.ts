@@ -1,11 +1,33 @@
 import { TestProject } from "@ttsc/testing";
 
-import { spawnGoTool } from "../../../../../packages/ttsc/lib/plugin/internal/buildSourcePlugin.js";
+import {
+  spawnGoTool,
+  windowsGoCommandArgs,
+} from "../../../../../packages/ttsc/lib/plugin/internal/buildSourcePlugin.js";
 import { assert, fs, path } from "../../internal/source-build";
 
-/** Windows command wrappers receive literal paths and argv through cmd.exe. */
+/**
+ * Verifies source plugins: Windows command wrappers receive literal argv.
+ *
+ * `cmd.exe` expands percent references and, when enabled, delayed exclamation
+ * references even inside quoted command text. The source-plugin launcher must
+ * disable delayed expansion and pass every volatile value through one-pass
+ * environment indirection without mutating the caller's environment.
+ *
+ * 1. Assert the production cmd argument plan explicitly contains `/v:off`.
+ * 2. Put a fake `go.cmd` under a path containing expansion and shell syntax.
+ * 3. Run every Go subcommand shape with hostile argv and capture what arrived.
+ * 4. Assert every byte and caller-owned environment entry is preserved.
+ */
 export const test_spawngotool_preserves_windows_command_wrapper_arguments =
   () => {
+    assert.deepEqual(windowsGoCommandArgs("payload"), [
+      "/d",
+      "/v:off",
+      "/s",
+      "/c",
+      "payload",
+    ]);
     if (process.platform !== "win32") return;
 
     const root = TestProject.tmpdir("ttsc-go-command-shim-");

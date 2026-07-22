@@ -1770,11 +1770,16 @@ export function spawnGoTool(
   if (!shouldSpawnGoToolThroughShell(goBinary)) {
     return spawnSync(goBinary, [...args], options);
   }
+  // Preserve the native spawn ENOENT contract before cmd.exe becomes the
+  // actual child process. The callers use that code for the install guidance.
+  if (path.isAbsolute(goBinary) && !fs.existsSync(goBinary)) {
+    return spawnSync(goBinary, [...args], options);
+  }
   const inheritedEnv = options.env ?? process.env;
   const shim = createWindowsGoCommandShim([goBinary, ...args]);
   return spawnSync(
     inheritedEnv.ComSpec ?? inheritedEnv.COMSPEC ?? "cmd.exe",
-    ["/d", "/v:off", "/s", "/c", shim.payload],
+    windowsGoCommandArgs(shim.payload),
     {
       ...options,
       env: { ...inheritedEnv, ...shim.environment },
@@ -1783,6 +1788,11 @@ export function spawnGoTool(
       windowsVerbatimArguments: true,
     },
   );
+}
+
+/** Build the fixed cmd.exe switch sequence for one already quoted payload. */
+export function windowsGoCommandArgs(payload: string): string[] {
+  return ["/d", "/v:off", "/s", "/c", payload];
 }
 
 function shouldSpawnGoToolThroughShell(goBinary: string): boolean {

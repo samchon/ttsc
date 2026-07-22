@@ -11,7 +11,18 @@ import {
   workspaceRoot,
 } from "../../internal/plugin-corpus";
 
-/** A ttsc-condition subpath pattern selects and substitutes its descriptor. */
+/**
+ * Verifies plugin corpus: ttsc resolves a patterned descriptor export.
+ *
+ * Exact-only export selection fell through to the runtime branch for valid
+ * single-star subpaths, reintroducing the plugin self-hosting cycle. The
+ * private `ttsc` condition must select and substitute the runtime-free
+ * descriptor.
+ *
+ * 1. Package a plugin with patterned `ttsc` and default export targets.
+ * 2. Compile through the real source-plugin corpus entrypoint.
+ * 3. Assert the descriptor transform ran and the runtime branch did not load.
+ */
 export const test_plugin_ttsc_export_condition_resolves_pattern_descriptor =
   () => {
     const root = commonJsProject({

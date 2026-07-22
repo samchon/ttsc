@@ -7,8 +7,15 @@ import { TestPaths } from "../internal/TestPaths";
 import { SHARED_PLUGIN_CACHE_DIR } from "../internal/plugin-cache";
 
 /**
- * Windows resolves paths aliases with the same case-insensitive identity as
- * tsgo.
+ * Verifies paths: Windows aliases use the compiler host's file identity.
+ *
+ * The plugin used case-preserving map keys after tsgo had already accepted a
+ * case-only target, leaving the alias in emitted JavaScript. Source lookup must
+ * canonicalize every exact, extension, and index candidate with the host rule.
+ *
+ * 1. Create lowercase sources and uppercase exact and extensionless aliases.
+ * 2. Compile the project through the real Windows ttsc and paths plugin.
+ * 3. Assert every alias becomes the relative emitted JavaScript path.
  */
 export const test_paths_rewrites_case_only_targets_on_windows = () => {
   if (process.platform !== "win32") return;
