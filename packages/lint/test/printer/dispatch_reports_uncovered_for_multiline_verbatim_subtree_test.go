@@ -29,7 +29,7 @@ import (
 //  2. Dispatch the CallExpression through PrintNode.
 //  3. Assert the returned `covered` flag is false.
 func TestDispatchReportsUncoveredForMultilineVerbatimSubtree(t *testing.T) {
-  file := parseTS(t, "run(() => {\n  if (k) {\n    a();\n  }\n});\n")
+  file := parseTS(t, "run(() => {\n  switch (k) {\n    case 1:\n      a();\n  }\n});\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)
   ctx := NewPrintContext(file, DefaultPrintOptions())
   _, covered := PrintNode(ctx, node)

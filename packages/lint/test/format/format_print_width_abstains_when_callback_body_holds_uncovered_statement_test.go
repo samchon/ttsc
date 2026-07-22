@@ -27,6 +27,6 @@ func TestFormatPrintWidthAbstainsWhenCallbackBodyHoldsUncoveredStatement(t *test
   assertRuleSkipsSource(
     t,
     "format/print-width",
-    "const x = new Singleton(\n  () => {\n        if (ready) {\n          start();\n        }\n  },\n);\n",
+    "const x = new Singleton(\n  () => {\n        switch (ready) {\n          case 1:\n            start();\n        }\n  },\n);\n",
   )
 }
