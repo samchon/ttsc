@@ -157,15 +157,13 @@ func (formatPrintWidth) Check(ctx *Context, node *shimast.Node) {
   // the per-byte comment scan in hasNonChildComments. Charging that
   // cost only on nodes that actually overflow keeps the hot path on
   // well-formatted code allocation- and scan-free.
-  // A call/new with two or more callback arguments explodes regardless of width
-  // (Prettier's multiple-callback rule), and an array of same-kind multi-child
-  // arrays/objects explodes under Prettier's shouldBreak heuristic — even when
-  // such a node is nested inside an otherwise-fitting call/new/array. So a flat
-  // one-line node containing either shape still needs a reflow. fastPathForcesBreak
-  // walks the reflow subtree; skip the fast path for it so the printer's
-  // ForceBreak produces the exploded shape. Everything else that fits flat is
-  // byte-identical after reflow, so the fast path stands.
-  if !fastPathForcesBreak(node) &&
+  // Some layouts break regardless of width: function composition, same-kind
+  // nested arrays/objects, and any non-empty expression-position block. Such a
+  // shape can sit below a fitting call, array, conditional, object member, or
+  // parenthesized expression, so fastPathForcesBreak walks the whole subtree the
+  // structured printer can reach. Skip the fast path when it finds one; every
+  // other fitting flat node is byte-identical after reflow.
+  if !fastPathForcesBreak(node, src) &&
     !sliceContainsNewline(src, start, end) &&
     printOpts.StartingColumn+displayWidth(src[start:end])+trailingWidth <= printOpts.PrintWidth {
     return

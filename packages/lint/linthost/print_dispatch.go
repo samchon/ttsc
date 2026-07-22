@@ -127,6 +127,24 @@ func dispatchNode(ctx *PrintContext, node *shimast.Node) (Doc, bool, bool) {
     shimast.KindSetAccessor:
     doc, covered := printObjectMember(ctx, node)
     return doc, covered, true
+  case shimast.KindForStatement,
+    shimast.KindForOfStatement,
+    shimast.KindForInStatement,
+    shimast.KindWhileStatement,
+    shimast.KindIfStatement,
+    shimast.KindTryStatement,
+    shimast.KindSwitchStatement:
+    doc, covered := printControlFlowStatement(ctx, node)
+    return doc, covered, true
+  case shimast.KindCaseBlock:
+    doc, covered := printSwitchCaseBlock(ctx, node)
+    return doc, covered, true
+  case shimast.KindVariableStatement:
+    doc, covered := printVariableStatement(ctx, node)
+    return doc, covered, true
+  case shimast.KindThrowStatement:
+    doc, covered := printThrowStatement(ctx, node)
+    return doc, covered, true
   }
   return Doc{}, false, false
 }

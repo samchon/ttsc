@@ -57,7 +57,49 @@ func printArrowFunction(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if arrow == nil || arrow.Body == nil {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
+  if arrowBodyBreaksAfterArrow(arrow.Body) {
+    return printArrowWithBreakableExpressionBody(ctx, node, arrow.Body)
+  }
   return printFunctionLike(ctx, node, arrow.Body)
+}
+
+// arrowBodyBreaksAfterArrow reports the expression-body shapes for which
+// Prettier can keep an arrow hugged to a call's opening line and break after
+// `=>`. Object and array bodies already carry their own group and use the
+// ordinary arrow printer; these shapes need a group owned by the arrow itself.
+func arrowBodyBreaksAfterArrow(body *shimast.Node) bool {
+  if body == nil {
+    return false
+  }
+  switch body.Kind {
+  case shimast.KindCallExpression,
+    shimast.KindConditionalExpression,
+    shimast.KindJsxElement,
+    shimast.KindJsxSelfClosingElement,
+    shimast.KindJsxFragment:
+    return true
+  }
+  return false
+}
+
+// printArrowWithBreakableExpressionBody renders a concise arrow as one group
+// with a Line immediately after `=>`. Flat mode emits the ordinary space;
+// broken mode places the expression one indentation level below the arrow.
+func printArrowWithBreakableExpressionBody(ctx *PrintContext, node, body *shimast.Node) (Doc, bool) {
+  nodeStart := shimscanner.SkipTrivia(ctx.Source, node.Pos())
+  bodyStart := shimscanner.SkipTrivia(ctx.Source, body.Pos())
+  if nodeStart < 0 || bodyStart < nodeStart || bodyStart > len(ctx.Source) {
+    return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+  }
+  prefix := strings.TrimRight(ctx.Source[nodeStart:bodyStart], " \t\r\n")
+  if strings.Contains(prefix, "\n") || !strings.HasSuffix(prefix, "=>") {
+    return printFunctionLike(ctx, node, body)
+  }
+  bodyDoc, covered := PrintNode(ctx, body)
+  return Group(
+    Text(prefix),
+    Indent(ctx.indentUnit(), Line(), bodyDoc),
+  ), covered
 }
 
 // printFunctionExpression renders a `function` expression. Like the
@@ -224,8 +266,27 @@ func printBlock(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   hasComment := blockHasNonStatementComment(ctx, node, block.Statements.Nodes)
   if len(block.Statements.Nodes) == 0 {
     if hasComment {
-      // `{ /* … */ }` — not collapsible without dropping the comment.
-      return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+      // A one-line comment-only block is non-empty to Prettier: keep the
+      // comment and give it the same hardline layout as a statement. A
+      // multi-line comment body keeps its original columns and therefore
+      // remains uncovered.
+      start := shimscanner.SkipTrivia(ctx.Source, node.Pos())
+      end := node.End()
+      if start < 0 || end <= start+1 || end > len(ctx.Source) ||
+        ctx.Source[start] != '{' || ctx.Source[end-1] != '}' {
+        return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
+      }
+      rawInner := ctx.Source[start+1 : end-1]
+      inner := strings.TrimSpace(rawInner)
+      if inner == "" || strings.ContainsAny(rawInner, "\r\n") {
+        return verbatim(ctx, node), false
+      }
+      return Concat(
+        Text("{"),
+        Indent(ctx.indentUnit(), Hardline(), Text(inner)),
+        Hardline(),
+        Text("}"),
+      ), true
     }
     return Text("{}"), true
   }
@@ -314,30 +375,29 @@ func blankLineBetweenStatements(src string, prevEnd, nextPos int) bool {
   return false
 }
 
-// blockHasNonStatementComment reports whether the block's byte range
-// holds a `//` or `/*` outside every statement's token range. The block
-// printer joins statements with bare Hardlines that have no slot for
-// inter-statement trivia, so a stray comment would be dropped by a
-// reflow. Detecting it lets printBlock report the block uncovered and
-// the formatPrintWidth rule abstain.
+// nodeHasNonItemComment reports whether the node's byte range holds a `//` or
+// `/*` outside every supplied item's token range. Block and switch printers
+// join their items with minted Hardlines that have no slot for inter-item
+// trivia, so a stray comment would be dropped by a reflow. Detecting it lets
+// the printer report the node uncovered and the formatPrintWidth rule abstain.
 //
 // The scan mirrors rules_format_print_width.go::hasNonChildComments:
 // comment-shaped bytes inside a complete statement token range (string
 // literals, nested comments) are masked, so only genuine
 // inter-statement comments surface.
-func blockHasNonStatementComment(ctx *PrintContext, node *shimast.Node, stmts []*shimast.Node) bool {
+func nodeHasNonItemComment(ctx *PrintContext, node *shimast.Node, items []*shimast.Node) bool {
   start := shimscanner.SkipTrivia(ctx.Source, node.Pos())
   end := node.End()
   if start < 0 || end < start || end > len(ctx.Source) {
     return false
   }
   type span struct{ pos, end int }
-  ranges := make([]span, 0, len(stmts))
-  for _, stmt := range stmts {
-    if stmt == nil {
+  ranges := make([]span, 0, len(items))
+  for _, item := range items {
+    if item == nil {
       continue
     }
-    ranges = append(ranges, span{shimscanner.SkipTrivia(ctx.Source, stmt.Pos()), stmt.End()})
+    ranges = append(ranges, span{shimscanner.SkipTrivia(ctx.Source, item.Pos()), item.End()})
   }
   inStatement := func(i int) bool {
     for _, r := range ranges {
@@ -357,6 +417,13 @@ func blockHasNonStatementComment(ctx *PrintContext, node *shimast.Node, stmts []
     }
   }
   return false
+}
+
+// blockHasNonStatementComment is the block-specific name retained for callers
+// and focused tests; switch printers use the generalized item-range helper
+// directly for clauses and statements.
+func blockHasNonStatementComment(ctx *PrintContext, node *shimast.Node, stmts []*shimast.Node) bool {
+  return nodeHasNonItemComment(ctx, node, stmts)
 }
 
 // printExpressionStatement renders an `expr;` statement. The expression

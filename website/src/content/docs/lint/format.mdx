@@ -161,6 +161,9 @@ Trailing `//` line comments do not count against the budget. A line comment runs
 | Named imports | `import { alpha, bravo, charlie } from "x";` | multi-line specifier list |
 | Named exports | `export { alpha, bravo, charlie };` | multi-line specifier list |
 | `import type { … }` | preserves the `type` modifier | same |
+| Non-empty callback or function body | `run(() => { first(); second(); });` | body statements on indented lines |
+| Object member body | `const value = { method() { return 1; } };` | object and method body expanded, with the object trailing comma |
+| Control-flow statement in a reflowed body | one-line `if`, `for`, `while`, `try`, or `switch` | headers preserved; every controlled block expanded |
 
 A call or `new` whose **last argument** is a function, arrow function, object literal, or (non-numeric) array literal keeps that argument _hugging_ the parentheses, Prettier's last-argument hugging, instead of exploding the whole argument list. The callback body is re-indented to its new column:
 
@@ -175,6 +178,7 @@ The mirror **first-argument hugging** keeps a leading block-bodied callback on t
 - A call with **two or more callback arguments** explodes one per line even when it fits (`promise.then(() => a, () => b)`), Prettier's function-composition rule; decorators are exempt.
 - A **test call** (`it` / `test` / `describe` and their focus/skip variants) keeps its callback hugged even when the description string runs past `printWidth`.
 - A **concisely-printed numeric array** packs as many elements per line as fit (Prettier's fill), and an array whose elements are all same-kind multi-element arrays or objects breaks one element per line even when it fits.
+- A trailing arrow whose expression body is a call, conditional, or JSX expression can stay hugged while breaking immediately after `=>`.
 
 A ternary (conditional expression) is reflowed too: Prettier's indented staircase, with a nested ternary in the consequent position parenthesized when the chain stays on one line.
 
@@ -196,9 +200,9 @@ For every uncovered shape the rule produces zero findings and zero edits.
 #### Limitations
 
 - Comments between members of a covered list make the rule abstain. Inline-comment handling is on the roadmap.
-- No Prettier magic-trailing-comma hint. Aside from object-wrap preservation (an object written with a newline after `{` stays expanded) and the same-kind array-of-arrays/objects force-break described above, width is the deciding factor.
+- No Prettier magic-trailing-comma hint. Object-wrap preservation, same-kind arrays of arrays or objects, function composition, and non-empty blocks can force a break even when the flat form fits.
 - Long chained call sites like `someLong.chained.call(a, b)` only reflow the argument list; the callee chain is not split. Chain-aware printing is on the roadmap.
-- A callback body that contains a statement the printer does not yet cover, a multi-line `if`, `switch`, or assignment. Makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
+- A callback body that contains a genuinely uncovered multi-line statement makes the enclosing call abstain. The call is left byte-identical rather than half-reflowed.
 - The rule never inserts or removes blank lines between top-level statements.
 
 ## Key interactions

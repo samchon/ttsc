@@ -88,52 +88,6 @@ func TestCommandFormatBraceOwnershipNegativeTwins(t *testing.T) {
   }
 }
 
-// TestCommandFormatLeavesExpressionNestedOneLineBlockWhole records a divergence
-// from Prettier that this ownership split deliberately does not close.
-//
-// Prettier's block printer puts a hardline after `{` for any non-empty block,
-// so it expands both of these. `format/indent` cedes an expression-nested
-// block's `}` to `format/print-width`, and `format/statement-split` now cedes
-// the matching body, because splitting a body whose brace no rule can restore
-// is exactly what produced the stranded hybrid #856 is about. Leaving the block
-// whole is therefore correct for THIS pair of rules and still short of the
-// oracle: `format/print-width` does not force-break a non-empty block in
-// expression position, which is the remaining half and is tracked by #922.
-//
-// These are recorded rather than asserted as parity so the gap stays visible.
-func TestCommandFormatLeavesExpressionNestedOneLineBlockWhole(t *testing.T) {
-  for _, tc := range []struct {
-    name   string
-    source string
-  }{
-    {"object-literal-method", "export const o = { m() { return 1; } };\n"},
-    {"callback-body", "run(() => { a(); b(); });\n"},
-  } {
-    t.Run(tc.name, func(t *testing.T) {
-      root := seedLintProject(t, tc.source)
-      seedLintConfig(t, root, map[string]any{"format": map[string]any{}})
-      main := filepath.Join(root, "src", "main.ts")
-
-      code, _, stderr := captureCommandOutput(t, func() int {
-        return run([]string{"format", "--cwd", root, "--plugins-json", lintManifest(t)})
-      })
-      if code != 0 || strings.Contains(stderr, "did not converge") {
-        t.Fatalf("format did not converge: code=%d stderr=%q", code, stderr)
-      }
-      got, err := os.ReadFile(main)
-      if err != nil {
-        t.Fatalf("ReadFile: %v", err)
-      }
-      if string(got) != tc.source {
-        t.Fatalf(
-          "an expression-nested block must be left whole, not half-split:\ngot  %q\nwant %q",
-          string(got), tc.source,
-        )
-      }
-    })
-  }
-}
-
 // TestCommandCheckReportsTheMalformedBraceItUsedToBless pins the second
 // invariant #856 states: `ttsc check` must not call a formatting state clean
 // that `ttsc format` would not produce.

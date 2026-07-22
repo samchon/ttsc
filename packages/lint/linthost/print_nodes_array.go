@@ -1,7 +1,10 @@
 package linthost
 
 import (
+  "strings"
+
   shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 )
 
 // printArrayLiteral renders an ArrayLiteralExpression with width-aware
@@ -127,19 +130,18 @@ func arrayForcesBreak(node *shimast.Node) bool {
   return arrayShouldForceBreak(arr.Elements.Nodes)
 }
 
-// fastPathForcesBreak reports whether `node`, OR a force-breaking node nested
-// within the subtree a reflow of `node` would print (its call/new arguments and
-// array elements, recursively), must explode even though it fits flat. Prettier
-// breaks such a descendant — an array `shouldBreak` or a function-composition
-// call/new — when the enclosing node reflows; ttsc's print-width fast path
-// returns first while the descendant abstains via hasReflowAncestor, leaving
-// both flat (`new Map([["a", 1], ["b", 2]])`, `foo([[1, 2], [3, 4]])`). So the
-// fast path must consult this, not only the visited node itself.
-func fastPathForcesBreak(node *shimast.Node) bool {
+// fastPathForcesBreak reports whether `node`, or a force-breaking node nested
+// within the subtree its structured printer reaches, must explode even though
+// the outer source fits flat. It follows call/new arguments, array elements,
+// function bodies, conditional parts, parenthesized expressions, and printable
+// object-member bodies. The forced descendant can be a same-kind composite
+// array, a function-composition call, or a non-empty block. Without the walk,
+// the outer node's fast path would return before the descendant could deny it.
+func fastPathForcesBreak(node *shimast.Node, src string) bool {
   if node == nil {
     return false
   }
-  if callForcesFunctionBreak(node) || arrayForcesBreak(node) {
+  if callForcesFunctionBreak(node) || arrayForcesBreak(node) || blockForcesBreak(node, src) {
     return true
   }
   var children []*shimast.Node
@@ -156,6 +158,16 @@ func fastPathForcesBreak(node *shimast.Node) bool {
     if a := node.AsArrayLiteralExpression(); a != nil && a.Elements != nil {
       children = a.Elements.Nodes
     }
+  case shimast.KindArrowFunction, shimast.KindFunctionExpression:
+    children = append(children, functionLikeBody(node))
+  case shimast.KindConditionalExpression:
+    if conditional := node.AsConditionalExpression(); conditional != nil {
+      children = append(children, conditional.Condition, conditional.WhenTrue, conditional.WhenFalse)
+    }
+  case shimast.KindParenthesizedExpression:
+    if parenthesized := node.AsParenthesizedExpression(); parenthesized != nil {
+      children = append(children, parenthesized.Expression)
+    }
   case shimast.KindObjectLiteralExpression:
     // A force-breaking array/object nested in an object PROPERTY value
     // (`{ m: [[1, 2], [3, 4]] }`) must also deny the fast path: the value
@@ -164,20 +176,81 @@ func fastPathForcesBreak(node *shimast.Node) bool {
     // would stay flat where Prettier breaks them.
     if o := node.AsObjectLiteralExpression(); o != nil && o.Properties != nil {
       for _, p := range o.Properties.Nodes {
-        if p != nil && p.Kind == shimast.KindPropertyAssignment {
-          if pa := p.AsPropertyAssignment(); pa != nil && pa.Initializer != nil {
-            children = append(children, pa.Initializer)
-          }
+        if p == nil {
+          continue
+        }
+        switch p.Kind {
+        case shimast.KindPropertyAssignment,
+          shimast.KindMethodDeclaration,
+          shimast.KindGetAccessor,
+          shimast.KindSetAccessor:
+          children = append(children, functionLikeBody(p))
         }
       }
     }
   }
   for _, ch := range children {
-    if fastPathForcesBreak(ch) {
+    if fastPathForcesBreak(ch, src) {
       return true
     }
   }
   return false
+}
+
+// blockForcesBreak reports whether `node` is a block Prettier expands even
+// when it fits: one carrying a statement or a comment. Whitespace-only `{}` is
+// the empty negative twin and remains flat.
+func blockForcesBreak(node *shimast.Node, src string) bool {
+  if node == nil || node.Kind != shimast.KindBlock {
+    return false
+  }
+  block := node.AsBlock()
+  if block == nil || block.Statements == nil {
+    return false
+  }
+  if len(block.Statements.Nodes) > 0 {
+    return true
+  }
+  start := shimscanner.SkipTrivia(src, node.Pos())
+  end := node.End()
+  return start >= 0 && end > start+1 && end <= len(src) &&
+    src[start] == '{' && src[end-1] == '}' &&
+    strings.TrimSpace(src[start+1:end-1]) != ""
+}
+
+// functionLikeBody returns the part of an arrow, function expression, or
+// object member that an enclosing reflow prints structurally.
+func functionLikeBody(node *shimast.Node) *shimast.Node {
+  if node == nil {
+    return nil
+  }
+  switch node.Kind {
+  case shimast.KindArrowFunction:
+    if arrow := node.AsArrowFunction(); arrow != nil {
+      return arrow.Body
+    }
+  case shimast.KindFunctionExpression:
+    if function := node.AsFunctionExpression(); function != nil {
+      return function.Body
+    }
+  case shimast.KindPropertyAssignment:
+    if property := node.AsPropertyAssignment(); property != nil {
+      return property.Initializer
+    }
+  case shimast.KindMethodDeclaration:
+    if method := node.AsMethodDeclaration(); method != nil {
+      return method.Body
+    }
+  case shimast.KindGetAccessor:
+    if accessor := node.AsGetAccessorDeclaration(); accessor != nil {
+      return accessor.Body
+    }
+  case shimast.KindSetAccessor:
+    if accessor := node.AsSetAccessorDeclaration(); accessor != nil {
+      return accessor.Body
+    }
+  }
+  return nil
 }
 
 // isConciselyPrintedArray reports whether an array should use Prettier's

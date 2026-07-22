@@ -52,14 +52,17 @@ type listShape struct {
   Items    []Doc
   Space    bool // emit a space after OPEN / before CLOSE in flat mode
   AddComma bool // emit a trailing comma in broken mode
-  // HugLast keeps the final item attached to the parens instead of
-  // exploding the whole list. It is set by the call/new argument
-  // printer when the last argument is a callback or object literal —
-  // see printArgList. When true, the last item is emitted directly
-  // against OPEN…CLOSE with no leading/trailing soft break, so a
-  // multi-line callback body does not force every preceding argument
-  // onto its own line.
+  // HugLast keeps the final item attached to OPEN instead of exploding the
+  // whole list. Ordinarily it also stays against CLOSE, so a multi-line
+  // callback body does not force preceding arguments onto separate lines.
+  // HugLastBreakClose supplies the expression-bodied-arrow exception.
   HugLast bool
+  // HugLastBreakClose keeps an expression-bodied trailing arrow attached to
+  // OPEN through its `=>`, but finishes a broken argument list with the
+  // optional trailing comma and CLOSE on a fresh line. Unlike a block-bodied
+  // callback, the arrow's expression does not own the call's closing line:
+  // `run(() =>\n  nested(),\n)`. Requires HugLast.
+  HugLastBreakClose bool
   // HugFirst keeps the FIRST item attached to the open paren and flows
   // the remaining simple items after it, the mirror of HugLast. The
   // call-argument printer sets it for the two-argument
@@ -274,8 +277,9 @@ func printListPlain(ctx *PrintContext, shape listShape) Doc {
 
 // printListHuggingLast renders the "last-argument hugging" shape that
 // Prettier uses for `foo(a, b, () => { … })`: the leading items flow
-// comma-separated and the final item stays attached to the closing
-// paren instead of being pushed onto its own indented line.
+// comma-separated and the final item stays attached to the opening line
+// instead of being pushed onto its own indented line. Most expandable items
+// hug CLOSE too; an expression-bodied arrow uses HugLastBreakClose.
 //
 //  hugged: OPEN a, b, OPEN-of-last … CLOSE-of-last CLOSE
 //
@@ -308,7 +312,15 @@ func printListHuggingLast(ctx *PrintContext, shape listShape) Doc {
   for _, item := range lead {
     parts = append(parts, item, Text(", "))
   }
-  parts = append(parts, last, Text(shape.CloseTok))
+  parts = append(parts, last)
+  if shape.HugLastBreakClose {
+    if shape.AddComma {
+      parts = append(parts, Text(","))
+    }
+    parts = append(parts, Hardline(), Text(shape.CloseTok))
+  } else {
+    parts = append(parts, Text(shape.CloseTok))
+  }
   return Concat(parts...)
 }
 
