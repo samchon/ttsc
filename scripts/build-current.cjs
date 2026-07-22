@@ -6,10 +6,6 @@ const root = path.resolve(__dirname, "..");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformDir = path.join(root, "packages", `ttsc-${platformKey}`);
 
-if (!fs.existsSync(path.join(platformDir, "package.json"))) {
-  throw new Error(`Unsupported current platform package: ttsc-${platformKey}`);
-}
-
 // The platform package carries the native ttsc compiler binary; it is marked
 // PLATFORM and always built before any package whose own build runs `ttsc`
 // (e.g. @ttsc/graph, lint-contributor-demo).
@@ -27,6 +23,7 @@ const SCOPES = {
   // WASM build.
   full: [
     "ttsc",
+    "@ttsc/factory",
     "@ttsc/banner",
     "@ttsc/lint",
     "@ttsc/unplugin",
@@ -63,26 +60,34 @@ const SCOPES = {
   ],
 };
 
-const scope = process.env.TTSC_BUILD_SCOPE || "full";
-const plan = SCOPES[scope];
-if (plan === undefined) {
-  throw new Error(
-    `Unknown TTSC_BUILD_SCOPE "${scope}"; expected one of ${Object.keys(SCOPES).join(", ")}`,
-  );
-}
-
-for (const target of plan) {
-  if (target === PLATFORM) {
-    run(
-      ["--dir", platformDir, "build"],
-      scope === "experimental" ? { TTSC_PLATFORM_BUILD_TARGETS: "ttsc" } : {},
+function main() {
+  if (!fs.existsSync(path.join(platformDir, "package.json"))) {
+    throw new Error(
+      `Unsupported current platform package: ttsc-${platformKey}`,
     );
-  } else if (typeof target === "object") {
-    // `{ filter, script }` — build a package via a non-default script (e.g.
-    // @ttsc/wasm's `build:ts`, which skips the heavy Go→WASM binary build).
-    run(["--filter", target.filter, target.script]);
-  } else {
-    run(["--filter", target, "build"]);
+  }
+
+  const scope = process.env.TTSC_BUILD_SCOPE || "full";
+  const plan = SCOPES[scope];
+  if (plan === undefined) {
+    throw new Error(
+      `Unknown TTSC_BUILD_SCOPE "${scope}"; expected one of ${Object.keys(SCOPES).join(", ")}`,
+    );
+  }
+
+  for (const target of plan) {
+    if (target === PLATFORM) {
+      run(
+        ["--dir", platformDir, "build"],
+        scope === "experimental" ? { TTSC_PLATFORM_BUILD_TARGETS: "ttsc" } : {},
+      );
+    } else if (typeof target === "object") {
+      // `{ filter, script }` — build a package via a non-default script (e.g.
+      // @ttsc/wasm's `build:ts`, which skips the heavy Go→WASM binary build).
+      run(["--filter", target.filter, target.script]);
+    } else {
+      run(["--filter", target, "build"]);
+    }
   }
 }
 
@@ -110,3 +115,7 @@ function pnpmCommand(args) {
   }
   return ["cmd.exe", ["/d", "/s", "/c", "pnpm", ...args]];
 }
+
+if (require.main === module) main();
+
+module.exports = { PLATFORM, SCOPES };

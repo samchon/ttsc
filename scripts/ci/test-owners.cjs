@@ -83,6 +83,7 @@ const OWNERSHIP = {
   // the files are claimed here and the array is derived from the claim.
   "node:packages/ttsc/scripts/check-flags.test.cjs":
     "test.yml lanes: typecheck, windows-go",
+  "node:scripts/ci/factory-package.test.cjs": "test.yml lane: factory",
   "node:scripts/ci/test-owners.test.cjs": "test.yml lane: typecheck",
   "node:scripts/ci/go-test-runners.test.cjs": "scripts/test-go.cjs harness",
   "node:scripts/ci/website-compiler-module.test.cjs":
