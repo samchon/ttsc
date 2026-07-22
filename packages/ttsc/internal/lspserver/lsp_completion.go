@@ -9,29 +9,35 @@ const completionScopeJSDoc = "jsdoc"
 // matchCompletionHints returns the items that apply at a cursor, and the prefix
 // the editor should filter them against.
 //
-// The longest matching After wins and only its items are offered. That single
-// rule is what lets a corpus be layered without a query language: "@",
-// "@evidence ", and "@evidence docs/spec.md#" can all be published at once, and
-// the most specific one that matches is the one the user is actually inside.
-// Equal-length triggers merge, because two rules answering the same position is
-// a real thing and neither owns it.
+// The cursor-nearest matching After wins; at the same occurrence, the longest
+// trigger wins. That lets a corpus be layered without a query language while
+// ensuring a later trigger is never eclipsed by an earlier, longer one. Rules
+// merge only when they name the same trigger at the winning occurrence.
 func matchCompletionHints(
   hints []LSPCompletionHint,
   linePrefix string,
   inJSDoc bool,
 ) (items []LSPCompletionItem, filter string) {
-  best := -1
+  bestStart := -1
+  bestLength := -1
+  bestAfter := ""
   for _, hint := range hints {
     if !completionHintApplies(hint, linePrefix, inJSDoc) {
       continue
     }
-    if len(hint.After) < best {
+    start := strings.LastIndex(linePrefix, hint.After)
+    if start < bestStart || (start == bestStart && len(hint.After) < bestLength) {
       continue
     }
-    if len(hint.After) > best {
-      best = len(hint.After)
+    if start > bestStart || len(hint.After) > bestLength {
+      bestStart = start
+      bestLength = len(hint.After)
+      bestAfter = hint.After
       items = nil
-      filter = linePrefix[strings.LastIndex(linePrefix, hint.After)+len(hint.After):]
+      filter = linePrefix[start+len(hint.After):]
+    }
+    if start != bestStart || hint.After != bestAfter {
+      continue
     }
     items = append(items, hint.Items...)
   }
