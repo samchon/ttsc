@@ -1164,7 +1164,11 @@ function selectExportTarget(exportsField: unknown, subpath: string): unknown {
     // Conditions object: the whole value is the `.` target.
     return subpath === "." ? exportsField : undefined;
   }
-  if (Object.prototype.hasOwnProperty.call(record, subpath)) {
+  if (
+    Object.prototype.hasOwnProperty.call(record, subpath) &&
+    !subpath.includes("*") &&
+    !subpath.endsWith("/")
+  ) {
     return record[subpath];
   }
   const patterns = Object.keys(record)
@@ -1196,7 +1200,7 @@ function exportPatternReplacement(
   const prefix = pattern.slice(0, star);
   const suffix = pattern.slice(star + 1);
   if (
-    subpath.length < prefix.length + suffix.length ||
+    subpath.length < pattern.length ||
     !subpath.startsWith(prefix) ||
     !subpath.endsWith(suffix)
   ) {

@@ -17,6 +17,7 @@ export const test_create_sandbox_require_resolves_general_export_patterns =
             "./features/*.js": "./dist/suffixed/*.cjs",
             "./features/special-*.js": "./dist/special/*.cjs",
             "./twice/*.js": "./dist/twice/*/*.cjs",
+            "./empty/*.js": "./dist/empty/*.cjs",
             "./private/*.js": null,
           },
         }),
@@ -31,6 +32,7 @@ export const test_create_sandbox_require_resolves_general_export_patterns =
           "module.exports = { value: 'special' };",
         "patterns/dist/twice/tool/tool.cjs":
           "module.exports = { value: 'twice' };",
+        "patterns/dist/empty/.cjs": "module.exports = { value: 'empty' };",
         "patterns/private/secret.js": "module.exports = { value: 'private' };",
       },
       { console },
@@ -45,6 +47,10 @@ export const test_create_sandbox_require_resolves_general_export_patterns =
       value: "plain-css",
     });
     assert.deepEqual(require("patterns/twice/tool.js"), { value: "twice" });
+    assert.throws(
+      () => require("patterns/empty/.js"),
+      /require\("patterns\/empty\/\.js"\) is not available/,
+    );
     assert.throws(
       () => require("patterns/private/secret.js"),
       /require\("patterns\/private\/secret\.js"\) is not available/,

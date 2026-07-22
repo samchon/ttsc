@@ -126,7 +126,11 @@ export function createSandboxRequire(
       const entries = exportsAny as Record<string, unknown>;
       // Exact match first.
       const exactKey = `./${subpath}`;
-      if (Object.prototype.hasOwnProperty.call(entries, exactKey))
+      if (
+        Object.prototype.hasOwnProperty.call(entries, exactKey) &&
+        !exactKey.includes("*") &&
+        !exactKey.endsWith("/")
+      )
         return resolveExportTarget(pkg, entries[exactKey]);
       // Node resolves the most-specific wildcard, not insertion order.
       const patterns = Object.entries(entries)
@@ -278,7 +282,7 @@ function exportPatternReplacement(
   const prefix = pattern.slice(0, star);
   const suffix = pattern.slice(star + 1);
   if (
-    subpath.length < prefix.length + suffix.length ||
+    subpath.length < pattern.length ||
     !subpath.startsWith(prefix) ||
     !subpath.endsWith(suffix)
   ) {

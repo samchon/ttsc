@@ -26,10 +26,14 @@ export const test_npm_registry_skips_every_non_registry_spec_family =
       "from-hosted": "owner/repo",
       "from-relative": "./local",
       "from-parent": "../local",
+      "from-dot": ".",
+      "from-dot-name": ".local",
       "from-absolute": "/local",
       "from-home": "~/local",
       "from-drive": "C:\\local",
       "from-unc": "\\\\server\\share",
+      "from-tgz": "archive.tgz",
+      "from-tar-gz": "archive.tar.gz",
       "from-malformed": "not a tag",
     };
     const queued: string[] = [];
