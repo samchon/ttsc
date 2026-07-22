@@ -1,5 +1,8 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const path = require("node:path");
+
+const extractedChecksumFile = ".ttsc-go-sdk-sha256";
 
 /** Find the official SHA-256 for one Go release archive. */
 function findGoArchiveChecksum(downloads, version, archive) {
@@ -32,8 +35,54 @@ function verifyGoArchiveChecksum(file, expected) {
   }
 }
 
+/** Verify a cache entry or replace it only after the replacement verifies. */
+function verifyOrReplaceGoArchive(archive, expected, temporary, download) {
+  if (fs.existsSync(archive)) {
+    try {
+      verifyGoArchiveChecksum(archive, expected);
+      return false;
+    } catch {
+      // The temporary download is verified before replacing this cache entry.
+    }
+  }
+  try {
+    download(temporary);
+    verifyGoArchiveChecksum(temporary, expected);
+    fs.rmSync(archive, { force: true, recursive: true });
+    fs.renameSync(temporary, archive);
+    return true;
+  } finally {
+    fs.rmSync(temporary, { force: true });
+  }
+}
+
+/** Return whether an extracted SDK was produced from the verified archive. */
+function hasVerifiedGoExtraction(extractDir, goBinary, checksum) {
+  if (!fs.existsSync(goBinary)) return false;
+  try {
+    const recorded = fs
+      .readFileSync(path.join(extractDir, extractedChecksumFile), "utf8")
+      .trim();
+    return recorded === checksum;
+  } catch {
+    return false;
+  }
+}
+
+/** Bind a successfully extracted SDK to the archive checksum that produced it. */
+function recordVerifiedGoExtraction(extractDir, checksum) {
+  fs.writeFileSync(
+    path.join(extractDir, extractedChecksumFile),
+    `${checksum}\n`,
+    "utf8",
+  );
+}
+
 module.exports = {
   findGoArchiveChecksum,
+  hasVerifiedGoExtraction,
+  recordVerifiedGoExtraction,
   sha256File,
   verifyGoArchiveChecksum,
+  verifyOrReplaceGoArchive,
 };

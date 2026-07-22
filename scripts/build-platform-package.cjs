@@ -5,7 +5,9 @@ const zlib = require("node:zlib");
 
 const {
   findGoArchiveChecksum,
-  verifyGoArchiveChecksum,
+  hasVerifiedGoExtraction,
+  recordVerifiedGoExtraction,
+  verifyOrReplaceGoArchive,
 } = require("./go-sdk-integrity.cjs");
 const { resolveGoTarget } = require("./platform-target.cjs");
 
@@ -210,7 +212,7 @@ function ensureDownloadedGoRoot() {
   const url = `https://go.dev/dl/${archive}`;
   const checksum = fetchGoArchiveChecksum(cacheRoot, version, archive);
   ensureVerifiedGoArchive(archivePath, url, checksum);
-  if (fs.existsSync(goBinary)) return goroot;
+  if (hasVerifiedGoExtraction(extractDir, goBinary, checksum)) return goroot;
 
   fs.rmSync(extractDir, { recursive: true, force: true });
   fs.mkdirSync(extractDir, { recursive: true });
@@ -226,6 +228,7 @@ function ensureDownloadedGoRoot() {
       `build-platform-package: downloaded Go compiler missing: ${goBinary}`,
     );
   }
+  recordVerifiedGoExtraction(extractDir, checksum);
   return goroot;
 }
 
@@ -266,31 +269,13 @@ function fetchGoArchiveChecksum(cacheRoot, version, archive) {
 }
 
 function ensureVerifiedGoArchive(archivePath, url, checksum) {
-  if (fs.existsSync(archivePath)) {
-    try {
-      verifyGoArchiveChecksum(archivePath, checksum);
-      return;
-    } catch (error) {
-      console.warn(
-        `Discarding cached Go compiler archive ${archivePath}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
-
   const temporary = `${archivePath}.${process.pid}.${Date.now()}.download`;
-  try {
+  verifyOrReplaceGoArchive(archivePath, checksum, temporary, (target) => {
     console.log(`Downloading Go compiler ${url}`);
-    cp.execFileSync("curl", ["-L", "--fail", "-o", temporary, url], {
+    cp.execFileSync("curl", ["-L", "--fail", "-o", target, url], {
       stdio: "inherit",
     });
-    verifyGoArchiveChecksum(temporary, checksum);
-    fs.rmSync(archivePath, { force: true, recursive: true });
-    fs.renameSync(temporary, archivePath);
-  } finally {
-    fs.rmSync(temporary, { force: true });
-  }
+  });
 }
 
 function readGoVersion() {
