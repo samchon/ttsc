@@ -117,7 +117,14 @@ type Token =
   | { kind: "string"; value: string }
   // A punctuation token; compound forms are retained where lexical state or
   // module-call recognition depends on them.
-  | { kind: "punct"; value: string }
+  | {
+      kind: "punct";
+      value: string;
+      /** Whether a slash after this closing delimiter begins a regex literal. */
+      regexAllowedAfter?: boolean;
+      /** Whether this closes a function parameter list for an expression. */
+      functionBodyIsExpression?: boolean;
+    }
   // An opaque value token — number, template literal, or regular-expression
   // literal — whose contents can never be a static specifier.
   | { kind: "other" };
@@ -142,6 +149,139 @@ const REGEX_PRECEDING_KEYWORDS = new Set([
   "throw",
 ]);
 
+const CONTROL_HEADER_KEYWORDS = new Set(["if", "while", "for", "with"]);
+const BLOCK_PRECEDING_KEYWORDS = new Set(["else", "try", "finally", "do"]);
+
+interface IParenContext {
+  kind: "control" | "function" | "normal";
+  functionIsExpression?: boolean;
+}
+
+/**
+ * Retain just enough delimiter context to distinguish a regex statement after
+ * a control header or block from division after an expression value. The
+ * collector is not a parser: this state only decides whether a following slash
+ * is opaque regex text or executable code worth scanning for module calls.
+ */
+class LexicalContext {
+  public readonly tokens: Token[] = [];
+
+  private readonly parens: IParenContext[] = [];
+  private readonly braces: boolean[] = [];
+  private pendingFunctionExpression: boolean | undefined;
+  private pendingClassExpression: boolean | undefined;
+
+  public isRegexAllowed(): boolean {
+    return isRegexAllowedAfter(this.tokens[this.tokens.length - 1]);
+  }
+
+  public pushWord(value: string): void {
+    if (value === "function")
+      this.pendingFunctionExpression = isExpressionPosition(this.tokens);
+    else if (value === "class")
+      this.pendingClassExpression = isExpressionPosition(this.tokens);
+    this.tokens.push({ kind: "word", value });
+  }
+
+  public pushOther(): void {
+    this.tokens.push({ kind: "other" });
+  }
+
+  public pushPunct(value: string): void {
+    if (value === "(") {
+      const functionIsExpression = this.pendingFunctionExpression;
+      this.pendingFunctionExpression = undefined;
+      this.parens.push(
+        functionIsExpression === undefined
+          ? {
+              kind: isControlHeader(this.tokens) ? "control" : "normal",
+            }
+          : { kind: "function", functionIsExpression },
+      );
+      this.tokens.push({ kind: "punct", value });
+      return;
+    }
+    if (value === ")") {
+      const context = this.parens.pop();
+      this.tokens.push({
+        kind: "punct",
+        value,
+        regexAllowedAfter: context?.kind === "control",
+        functionBodyIsExpression:
+          context?.kind === "function"
+            ? context.functionIsExpression
+            : undefined,
+      });
+      return;
+    }
+    if (value === "{") {
+      this.braces.push(this.braceAllowsRegexAfter());
+      this.pendingClassExpression = undefined;
+      this.tokens.push({ kind: "punct", value });
+      return;
+    }
+    if (value === "}") {
+      this.tokens.push({
+        kind: "punct",
+        value,
+        regexAllowedAfter: this.braces.pop() ?? false,
+      });
+      return;
+    }
+    this.tokens.push({ kind: "punct", value });
+  }
+
+  private braceAllowsRegexAfter(): boolean {
+    const previous = this.tokens[this.tokens.length - 1];
+    if (this.pendingClassExpression !== undefined)
+      return !this.pendingClassExpression;
+    if (
+      previous?.kind === "punct" &&
+      previous.value === ")" &&
+      previous.functionBodyIsExpression !== undefined
+    )
+      return !previous.functionBodyIsExpression;
+    if (!previous) return true;
+    if (previous.kind === "word")
+      return BLOCK_PRECEDING_KEYWORDS.has(previous.value);
+    if (previous.kind !== "punct") return false;
+    if (previous.value === ")") return previous.regexAllowedAfter === true;
+    return (
+      previous.value === ";" ||
+      previous.value === "{" ||
+      previous.value === "}"
+    );
+  }
+}
+
+function isControlHeader(tokens: readonly Token[]): boolean {
+  const previous = tokens[tokens.length - 1];
+  if (previous?.kind === "word" && CONTROL_HEADER_KEYWORDS.has(previous.value))
+    return true;
+  const beforePrevious = tokens[tokens.length - 2];
+  return (
+    previous?.kind === "word" &&
+    previous.value === "await" &&
+    beforePrevious?.kind === "word" &&
+    beforePrevious.value === "for"
+  );
+}
+
+function isExpressionPosition(tokens: readonly Token[]): boolean {
+  const previous = tokens[tokens.length - 1];
+  if (!previous) return false;
+  if (previous.kind === "word")
+    return REGEX_PRECEDING_KEYWORDS.has(previous.value);
+  if (previous.kind !== "punct") return false;
+  return ![
+    ")",
+    "]",
+    "}",
+    "++",
+    "--",
+  ].includes(previous.value);
+}
+
 /**
  * Lexically tokenize `source` into the coarse token stream the specifier
  * collector needs. Comments are dropped; strings, templates, regex literals,
@@ -149,7 +289,8 @@ const REGEX_PRECEDING_KEYWORDS = new Set([
  * grammar match.
  */
 function tokenize(source: string): Token[] {
-  const tokens: Token[] = [];
+  const context = new LexicalContext();
+  const tokens = context.tokens;
   const n = source.length;
   const isIdStart = (c: string): boolean =>
     (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_" || c === "$";
@@ -188,20 +329,17 @@ function tokenize(source: string): Token[] {
       continue;
     }
     // Regular-expression literal.
-    if (c === "/" && isRegexAllowed(tokens)) {
+    if (c === "/" && context.isRegexAllowed()) {
       i = skipRegularExpression(source, i, isIdPart);
-      tokens.push({ kind: "other" });
+      context.pushOther();
       continue;
     }
     // String literal.
     if (c === '"' || c === "'") {
       const quoted = readQuotedString(source, i, c);
       i = quoted.end;
-      tokens.push(
-        quoted.value === null
-          ? { kind: "other" }
-          : { kind: "string", value: quoted.value },
-      );
+      if (quoted.value === null) context.pushOther();
+      else tokens.push({ kind: "string", value: quoted.value });
       continue;
     }
     // Template quasis are opaque, but `${...}` substitutions are executable
@@ -221,21 +359,22 @@ function tokenize(source: string): Token[] {
         if (d === "$" && source[i + 1] === "{") {
           const start = i + 2;
           const end = findTemplateSubstitutionEnd(source, start);
-          tokens.push({ kind: "other" }, ...tokenize(source.slice(start, end)));
-          tokens.push({ kind: "other" });
+          context.pushOther();
+          tokens.push(...tokenize(source.slice(start, end)));
+          context.pushOther();
           i = end < n ? end + 1 : end;
           continue;
         }
         i++;
       }
-      tokens.push({ kind: "other" });
+      context.pushOther();
       continue;
     }
     // Identifier / keyword.
     if (isIdStart(c)) {
       let j = i + 1;
       while (j < n && isIdPart(source[j]!)) j++;
-      tokens.push({ kind: "word", value: source.slice(i, j) });
+      context.pushWord(source.slice(i, j));
       i = j;
       continue;
     }
@@ -243,24 +382,24 @@ function tokenize(source: string): Token[] {
     if (isDigit(c) || (c === "." && isDigit(source[i + 1] ?? ""))) {
       let j = i + 1;
       while (j < n && /[0-9a-fA-FxXoObBeE._]/.test(source[j]!)) j++;
-      tokens.push({ kind: "other" });
+      context.pushOther();
       i = j;
       continue;
     }
     // Compound punctuation whose identity affects the following slash or
     // direct optional-call recognition.
     if ((c === "+" || c === "-") && source[i + 1] === c) {
-      tokens.push({ kind: "punct", value: c + c });
+      context.pushPunct(c + c);
       i += 2;
       continue;
     }
     if (c === "?" && source[i + 1] === "." && !isDigit(source[i + 2] ?? "")) {
-      tokens.push({ kind: "punct", value: "?." });
+      context.pushPunct("?.");
       i += 2;
       continue;
     }
     // Single punctuation character.
-    tokens.push({ kind: "punct", value: c });
+    context.pushPunct(c);
     i++;
   }
   return tokens;
@@ -268,7 +407,7 @@ function tokenize(source: string): Token[] {
 
 function findTemplateSubstitutionEnd(source: string, start: number): number {
   let depth = 1;
-  let previous: Token | undefined;
+  const context = new LexicalContext();
   const isIdentifierStart = (character: string): boolean =>
     /[A-Za-z_$]/.test(character);
   const isIdentifierPart = (character: string): boolean =>
@@ -282,12 +421,12 @@ function findTemplateSubstitutionEnd(source: string, start: number): number {
     }
     if (c === "'" || c === '"') {
       i = skipQuoted(source, i, c);
-      previous = { kind: "string", value: "" };
+      context.tokens.push({ kind: "string", value: "" });
       continue;
     }
     if (c === "`") {
       i = skipTemplate(source, i);
-      previous = { kind: "other" };
+      context.pushOther();
       continue;
     }
     if (c === "/" && source[i + 1] === "/") {
@@ -302,18 +441,18 @@ function findTemplateSubstitutionEnd(source: string, start: number): number {
       i++;
       continue;
     }
-    if (c === "/" && isRegexAllowedAfter(previous)) {
+    if (c === "/" && context.isRegexAllowed()) {
       i = skipRegularExpression(source, i, (character) =>
         /[A-Za-z0-9_$]/.test(character),
       );
       i--;
-      previous = { kind: "other" };
+      context.pushOther();
       continue;
     }
     if (isIdentifierStart(c)) {
       let end = i + 1;
       while (end < source.length && isIdentifierPart(source[end]!)) end++;
-      previous = { kind: "word", value: source.slice(i, end) };
+      context.pushWord(source.slice(i, end));
       i = end - 1;
       continue;
     }
@@ -321,12 +460,12 @@ function findTemplateSubstitutionEnd(source: string, start: number): number {
       let end = i + 1;
       while (end < source.length && /[0-9a-fA-FxXoObBeE._]/.test(source[end]!))
         end++;
-      previous = { kind: "other" };
+      context.pushOther();
       i = end - 1;
       continue;
     }
     if ((c === "+" || c === "-") && source[i + 1] === c) {
-      previous = { kind: "punct", value: c + c };
+      context.pushPunct(c + c);
       i++;
       continue;
     }
@@ -335,13 +474,13 @@ function findTemplateSubstitutionEnd(source: string, start: number): number {
       source[i + 1] === "." &&
       !/[0-9]/.test(source[i + 2] ?? "")
     ) {
-      previous = { kind: "punct", value: "?." };
+      context.pushPunct("?.");
       i++;
       continue;
     }
     if (c === "{") depth++;
     else if (c === "}" && --depth === 0) return i;
-    previous = { kind: "punct", value: c };
+    context.pushPunct(c);
   }
   return source.length;
 }
@@ -355,8 +494,9 @@ function isRegexAllowedAfter(previous: Token | undefined): boolean {
   if (previous.kind === "string" || previous.kind === "other") return false;
   if (previous.kind === "word")
     return REGEX_PRECEDING_KEYWORDS.has(previous.value);
+  if (previous.value === ")" || previous.value === "}")
+    return previous.regexAllowedAfter === true;
   return (
-    previous.value !== ")" &&
     previous.value !== "]" &&
     previous.value !== "++" &&
     previous.value !== "--"
