@@ -11,10 +11,11 @@ import (
 // for this project, as JSON.
 //
 // Unlike the other LSP verbs this takes no `--uri`: a corpus describes the
-// Program, not a document. It does load a Program, because a corpus is a
-// projection of what a project rule's Check found — which is why the caller is
-// expected to cache the answer and ask again only when the Program's inputs
-// changed, never per editor request.
+// Program, not a document. It loads a Program only when the resolved config
+// declares a rule that can publish one, because a corpus is a projection of what
+// a project rule's Check found — which is why the caller is expected to cache
+// the answer and ask again only when the Program's inputs changed, never per
+// editor request.
 //
 // An empty corpus is a successful answer. A project with no hint-publishing rule
 // is the common case, and a caller must be able to tell it apart from a failure;
@@ -24,33 +25,92 @@ func RunLSPHints(args []string) int {
   if !ok {
     return 2
   }
+  hints, code := computeLSPHints(opts)
+  if code != 0 {
+    return code
+  }
+  return writeJSON(hints)
+}
+
+// computeLSPHints builds the corpus for one project. Split from RunLSPHints so
+// the resident lsp-serve loop reuses it over a warm Program, the same split
+// computeLSPDiagnostics and computeLSPCodeActions already take.
+func computeLSPHints(opts *lspCommandOptions) ([]publicrule.Hint, int) {
   rules, err := loadRules(opts.pluginsJSON, opts.cwd, opts.tsconfig)
   if err != nil {
     fmt.Fprintln(os.Stderr, err)
-    return 2
+    return nil, 2
   }
   engine := NewEngineWithResolver(rules)
   if err := engine.ConfigError(); err != nil {
     fmt.Fprintln(os.Stderr, err)
-    return 2
+    return nil, 2
   }
-  prog, parseDiags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
-    forceNoEmit:      true,
-    needsRuleChecker: engine.NeedsTypeChecker(),
-    projectIdentity:  opts.projectIdentity,
-  })
+  publishes, needsChecker := engine.hasHintPublisher()
+  if !publishes {
+    // Nothing the config declared can publish a corpus, so there is no
+    // projection to take and the Program is never built. A project with no
+    // hint-publishing rule is the common case, and it used to pay a full parse
+    // and bind — and a checker build, when any unrelated file rule was
+    // type-aware — to arrive at this same empty answer.
+    return []publicrule.Hint{}, 0
+  }
+  prog, parseDiags, closeProgram, err := acquireProgram(opts, needsChecker)
+  if closeProgram != nil {
+    defer closeProgram()
+  }
   if err != nil {
     fmt.Fprintf(os.Stderr, "@ttsc/lint: %v\n", err)
-    return 2
+    return nil, 2
   }
-  defer prog.close()
-  if len(parseDiags) > 0 {
+  if prog == nil || len(parseDiags) > 0 {
     // The project does not parse right now. Rules never ran, so there is no
     // corpus — but these are tsgo's diagnostics to own, and failing here would
-    // make an editor treat a syntax error mid-typing as a broken plugin.
-    return writeJSON([]publicrule.Hint{})
+    // make an editor treat a syntax error mid-typing as a broken plugin. A nil
+    // Program without diagnostics reaches the same answer rather than a JSON
+    // null, which a caller decoding an array would read as a broken plugin too.
+    return []publicrule.Hint{}, 0
   }
-  return writeJSON(collectProjectHints(prog.runProjectCycle(engine)))
+  return collectProjectHints(prog.runProjectCycle(engine)), 0
+}
+
+// hasHintPublisher reports whether any declared project rule can publish a
+// corpus, and whether serving those rules needs a type checker.
+//
+// Both answers come from the registration table and the resolved config, so
+// they are available before a Program exists — which is the point. A rule that
+// the config never declared, or turned off, cannot contribute to the corpus,
+// and collectProjectHints would skip it after the Program was built anyway.
+//
+// The checker answer is deliberately narrower than Engine.NeedsTypeChecker.
+// That flag is engine-wide, so one type-aware *file* rule would make this verb
+// build a checker no corpus reads. Here a checker is requested only when a rule
+// that actually publishes hints declined to say it needs none — the same
+// conservative default projectRuleNeedsTypeChecker applies everywhere else.
+func (e *Engine) hasHintPublisher() (publishes bool, needsChecker bool) {
+  if e == nil {
+    return false, false
+  }
+  for _, name := range allProjectRuleNames() {
+    setting := e.projectSettings[name]
+    if !setting.Declared || setting.Severity == SeverityOff {
+      continue
+    }
+    adapter, registered := registeredProjectRules[name]
+    if !registered {
+      continue
+    }
+    if _, publisher := adapter.inner.(publicrule.HintRule); !publisher {
+      continue
+    }
+    publishes = true
+    if projectRuleNeedsTypeChecker(name) {
+      // Every publisher's need is folded in rather than returning early: one
+      // rule declining a checker does not spare a sibling that reads one.
+      needsChecker = true
+    }
+  }
+  return publishes, needsChecker
 }
 
 // collectProjectHints gathers the editor-completion corpus every declared

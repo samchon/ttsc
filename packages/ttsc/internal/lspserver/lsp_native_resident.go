@@ -18,14 +18,15 @@ import (
 // the caller falls back to a fresh spawn.
 const residentRequestTimeout = nativePluginCommandTimeout
 
-// serveVerbDiagnostics and serveVerbCodeActions are the only verbs routed to the
-// resident daemon. lsp-command-ids / lsp-code-action-kinds run once at startup
-// and never load a Program (routing them would spawn the daemon on the
-// initialize path); lsp-execute-command is user-initiated and keeps its
-// spawn-per-verb path.
+// serveVerbDiagnostics, serveVerbCodeActions, and serveVerbHints are the verbs
+// routed to the resident daemon: the three that load a Program.
+// lsp-command-ids / lsp-code-action-kinds run once at startup and never load one
+// (routing them would spawn the daemon on the initialize path);
+// lsp-execute-command is user-initiated and keeps its spawn-per-verb path.
 const (
   serveVerbDiagnostics = "lsp-diagnostics"
   serveVerbCodeActions = "lsp-code-actions"
+  serveVerbHints       = "lsp-hints"
 )
 
 // serveClientRequest mirrors linthost's serveLSPRequest: the base project

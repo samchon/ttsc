@@ -43,10 +43,20 @@ func completionHintApplies(
   linePrefix string,
   inJSDoc bool,
 ) bool {
+  return completionHintCouldApply(hint, linePrefix) && inJSDoc
+}
+
+// completionHintCouldApply reports every part of a hint's admission that does
+// not depend on where the cursor sits lexically: that the hint has something to
+// offer, that its scope is one this host knows, and that its trigger literal is
+// on the current line.
+//
+// Split out because the remaining condition is the expensive one. Deciding the
+// cursor's scope scans the document from byte zero, while all of this reads one
+// line, so a caller can find out whether that scan can change any answer before
+// paying for it.
+func completionHintCouldApply(hint LSPCompletionHint, linePrefix string) bool {
   if hint.After == "" || len(hint.Items) == 0 {
-    return false
-  }
-  if hint.Scope == completionScopeJSDoc && !inJSDoc {
     return false
   }
   if hint.Scope != completionScopeJSDoc {
@@ -57,6 +67,22 @@ func completionHintApplies(
     return false
   }
   return strings.Contains(linePrefix, hint.After)
+}
+
+// anyCompletionHintCouldApply reports whether the cursor's lexical scope can
+// change any hint's answer here, and therefore whether it is worth deciding.
+//
+// When it answers false, completionHintApplies refuses every hint on grounds
+// the scope cannot rescue, so the document scan behind that decision would
+// produce an answer nothing reads. That is the overwhelmingly common case while
+// typing: a corpus triggers on "@" or "@evidence ", and most lines hold neither.
+func anyCompletionHintCouldApply(hints []LSPCompletionHint, linePrefix string) bool {
+  for _, hint := range hints {
+    if completionHintCouldApply(hint, linePrefix) {
+      return true
+    }
+  }
+  return false
 }
 
 // linePrefixAt returns the text from the start of the cursor's line up to the

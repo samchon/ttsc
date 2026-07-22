@@ -35,26 +35,49 @@ func newResidentProgramCache() *residentProgramCache {
   return &residentProgramCache{entries: map[string]*program{}}
 }
 
+// residentProgramKey identifies one cached Program. The checker suffix keeps a
+// checker-free Program from being handed to a verb whose rules read one.
+func residentProgramKey(opts *lspCommandOptions, needsChecker bool) string {
+  key := opts.cwd + "\x00" + opts.tsconfig + "\x00"
+  if needsChecker {
+    key += "checker"
+  }
+  return key
+}
+
 // acquire returns a warm Program for the key, building and caching it on a miss.
 // On a hit it resets the memoized project cycle so the caller's engine — which
 // may differ from the engine that first warmed this Program (a lint verb versus
 // a format verb) — re-evaluates its own project and file rules over the reused
 // ASTs and checker. The returned close func is a no-op: a cached Program
 // outlives the verb and is released only by invalidate or daemon exit.
+//
+// One project keeps one Program. A checker-bearing Program answers a verb that
+// needs no checker, and a verb that does need one releases the checker-free
+// entry it supersedes, so the daemon's memory does not depend on which verb the
+// editor happened to ask for first.
 func (c *residentProgramCache) acquire(
   opts *lspCommandOptions,
   needsChecker bool,
 ) (*program, []*shimast.Diagnostic, func(), error) {
-  key := opts.cwd + "\x00" + opts.tsconfig + "\x00"
-  if needsChecker {
-    key += "checker"
-  }
+  key := residentProgramKey(opts, needsChecker)
   c.mu.Lock()
   defer c.mu.Unlock()
   if prog, ok := c.entries[key]; ok {
     // Drop the prior verb's project-cycle memo so this verb's engine re-runs.
     prog.projectCycle = nil
     return prog, nil, noopClose, nil
+  }
+  if !needsChecker {
+    // A Program that has a checker satisfies a verb that needs none. Without
+    // this the daemon would hold two Programs for one project as soon as a
+    // checker-free verb (lsp-hints, whose publishers declined a checker) joined
+    // a checker-bearing one (lsp-diagnostics with a type-aware rule enabled) —
+    // doubling the memory the resident cache exists to bound.
+    if prog, ok := c.entries[residentProgramKey(opts, true)]; ok {
+      prog.projectCycle = nil
+      return prog, nil, noopClose, nil
+    }
   }
   prog, diags, err := loadProgram(opts.cwd, opts.tsconfig, loadProgramOptions{
     forceNoEmit:      true,
@@ -68,6 +91,18 @@ func (c *residentProgramCache) acquire(
     // A project that does not parse right now (a save mid-edit) is not cached —
     // the next verb rebuilds. tsgo owns these diagnostics upstream anyway.
     return prog, diags, noopClose, nil
+  }
+  if needsChecker {
+    // The checker-free entry for this project, if one exists, is now redundant:
+    // every verb that could use it can use this one. Releasing it here is what
+    // keeps the invariant at one Program per project in both arrival orders.
+    // Requests are served serially by the RunLSPServe loop, so no verb still
+    // holds the Program being closed.
+    plain := residentProgramKey(opts, false)
+    if previous, ok := c.entries[plain]; ok {
+      previous.close()
+      delete(c.entries, plain)
+    }
   }
   c.entries[key] = prog
   return prog, nil, noopClose, nil
@@ -173,12 +208,12 @@ type serveLSPResponse struct {
 // cache and answers newline-delimited verb requests read from in by writing one
 // JSON reply per line to out, until in reaches EOF.
 //
-// Only the read verbs run resident here: lsp-diagnostics and lsp-code-actions
-// (the hot path, one per save and one per cursor) reuse the warm Program;
-// lsp-command-ids and lsp-code-action-kinds answer their static lists; an
-// invalidate control drops the Program. lsp-execute-command is deliberately
-// left to the spawn-per-verb path — it is user-initiated and its temp-workspace
-// fix cascade does not fit the resident cache.
+// Only the read verbs run resident here. lsp-diagnostics and lsp-hints (one per
+// save) and lsp-code-actions (one per cursor) are the hot path and reuse the
+// warm Program; lsp-command-ids and lsp-code-action-kinds answer their static
+// lists; an invalidate control drops the Program. lsp-execute-command is
+// deliberately left to the spawn-per-verb path — it is user-initiated and its
+// temp-workspace fix cascade does not fit the resident cache.
 //
 // in and out are explicit so the loop is testable; dispatch wires them to
 // os.Stdin and os.Stdout.
@@ -250,6 +285,9 @@ func handleServeLSPLine(line string, base *lspCommandOptions, encoder *json.Enco
     encodeServeResult(encoder, result, code)
   case "lsp-code-actions":
     result, code := computeLSPCodeActions(&opts)
+    encodeServeResult(encoder, result, code)
+  case "lsp-hints":
+    result, code := computeLSPHints(&opts)
     encodeServeResult(encoder, result, code)
   case "lsp-command-ids":
     encodeServeResult(encoder, lspCommandIDs(), 0)

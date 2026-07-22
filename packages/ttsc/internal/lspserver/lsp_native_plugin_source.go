@@ -685,6 +685,19 @@ func (s *NativePluginSource) run(plugin NativeLSPPluginEntry, command string, ar
       return body, err
     }
   }
+  if command == serveVerbHints {
+    // Hints join the daemon on a weaker condition than the other two: the
+    // answer is used only when it arrives without error. A sidecar built after
+    // the daemon landed but before this verb joined it answers lsp-serve and
+    // rejects lsp-hints as an unknown verb, which reaches this side as a
+    // nonzero code — indistinguishable over this protocol from a rule that
+    // failed. Falling back to the spawn path on any nonzero reply keeps that
+    // sidecar's corpus working, and a project whose hints genuinely fail pays
+    // one extra spawn to fail there too, exactly as it did before.
+    if body, served, err := s.serveRun(plugin, command, args); served && err == nil {
+      return body, nil
+    }
+  }
   return s.runWithStdin(plugin, command, nil, args...)
 }
 
