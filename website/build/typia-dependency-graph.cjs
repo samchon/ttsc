@@ -27,10 +27,12 @@ function createTypiaDependencyGraph(options = {}) {
   const typiaManifest = readManifest(typiaRoot);
   const expectedVersion =
     options.expectedVersion ??
-    (options.typiaRoot ? typiaManifest.version : readExactTypiaPin(repoRoot));
+    (options.typiaRoot
+      ? typiaManifest.version
+      : readExactTypiaResolution(repoRoot));
   if (typiaManifest.version !== expectedVersion) {
     throw new Error(
-      `[typia-graph] installed typia ${typiaManifest.version} does not match exact workspace pin ${expectedVersion}`,
+      `[typia-graph] installed typia ${typiaManifest.version} does not match exact lockfile resolution ${expectedVersion}`,
     );
   }
   const goAdapterRoot = path.join(typiaRoot, "native", "adapter");
@@ -384,20 +386,36 @@ function readManifest(root) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-function readExactTypiaPin(repoRoot) {
-  const workspace = fs.readFileSync(
-    path.join(repoRoot, "pnpm-workspace.yaml"),
+function readExactTypiaResolution(repoRoot) {
+  const lockfile = fs.readFileSync(
+    path.join(repoRoot, "pnpm-lock.yaml"),
     "utf8",
   );
-  const samchon =
-    workspace.match(/\n  samchon:\r?\n([\s\S]*?)(?:\n  [a-zA-Z]|$)/)?.[1] ?? "";
-  const version = samchon.match(/^    typia:\s+['"]?([^'"\s#]+)['"]?/m)?.[1];
+  const catalogs = readIndentedYamlBlock(lockfile, "catalogs", 0);
+  const samchon = readIndentedYamlBlock(catalogs, "samchon", 2);
+  const typia = readIndentedYamlBlock(samchon, "typia", 4);
+  const version = typia.match(/^      version:\s+['"]?([^'"\s#]+)['"]?/m)?.[1];
   if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
     throw new Error(
-      `[typia-graph] catalogs.samchon.typia must be one exact version, found ${JSON.stringify(version)}`,
+      `[typia-graph] catalogs.samchon.typia must have one exact lockfile resolution, found ${JSON.stringify(version)}`,
     );
   }
   return version;
+}
+
+function readIndentedYamlBlock(text, key, indent) {
+  const lines = text.split(/\r?\n/);
+  const header = `${" ".repeat(indent)}${key}:`;
+  const start = lines.findIndex((line) => line === header);
+  if (start === -1) return "";
+  let end = start + 1;
+  while (end < lines.length) {
+    const line = lines[end];
+    const lineIndent = line.length - line.trimStart().length;
+    if (line.trim() !== "" && lineIndent <= indent) break;
+    end += 1;
+  }
+  return lines.slice(start + 1, end).join("\n");
 }
 
 function splitPackageSpecifier(specifier) {

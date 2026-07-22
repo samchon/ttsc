@@ -10,6 +10,30 @@ const {
 } = require("../build/typia-dependency-graph.cjs");
 
 test("Typia browser packs derive one fail-fast dependency graph", async (t) => {
+  await t.test("workspace aliases use the exact lockfile resolution", () => {
+    const fixture = createRepositoryFixture();
+    try {
+      const graph = createTypiaDependencyGraph({
+        websiteRoot: fixture.websiteRoot,
+      });
+      assert.equal(graph.version, "1.2.3");
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  await t.test("a stale install fails against the lockfile resolution", () => {
+    const fixture = createRepositoryFixture({ installedVersion: "1.2.2" });
+    try {
+      assert.throws(
+        () => createTypiaDependencyGraph({ websiteRoot: fixture.websiteRoot }),
+        /installed typia 1\.2\.2 does not match exact lockfile resolution 1\.2\.3/,
+      );
+    } finally {
+      fs.rmSync(fixture.repoRoot, { recursive: true, force: true });
+    }
+  });
+
   await t.test("the real install owns Go, source, runtime, and types", () => {
     const websiteRoot = path.resolve(__dirname, "..");
     const graph = createTypiaDependencyGraph({ websiteRoot });
@@ -192,6 +216,41 @@ function createFixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-typia-graph-"));
   fs.mkdirSync(path.join(root, "node_modules"), { recursive: true });
   return root;
+}
+
+function createRepositoryFixture({ installedVersion = "1.2.3" } = {}) {
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-typia-repo-"));
+  const websiteRoot = path.join(repoRoot, "website");
+  fs.mkdirSync(websiteRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(repoRoot, "pnpm-workspace.yaml"),
+    [
+      "packages:",
+      "  - website",
+      "catalogs:",
+      "  samchon:",
+      "    typia: &typia ^1.2.0",
+      "    '@typia/interface': *typia",
+      "",
+    ].join("\n"),
+  );
+  fs.writeFileSync(
+    path.join(repoRoot, "pnpm-lock.yaml"),
+    [
+      "lockfileVersion: '9.0'",
+      "catalogs:",
+      "  samchon:",
+      "    typia:",
+      "      specifier: ^1.2.0",
+      "      version: 1.2.3",
+      "",
+    ].join("\n"),
+  );
+  writePackage(websiteRoot, "typia", {
+    source: "export const value = 1;\n",
+    version: installedVersion,
+  });
+  return { repoRoot, websiteRoot };
 }
 
 function fixtureGraph(fixture) {
