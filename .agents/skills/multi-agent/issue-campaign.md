@@ -10,11 +10,12 @@ A multi-agent issue campaign parallelizes both discovery and implementation by d
 
 Switch to parallel discovery with solo implementation only when the user explicitly requests that combination. In that mode:
 
-1. Run Parallel Discovery and let the lead complete candidate adjudication and authorized publication.
-2. Stop every discovery agent before implementation begins.
-3. Read the base issue campaign's [solo development procedure](../issue-campaign/development.md).
-4. Put every implementation-ready issue into its one empty-claim pull request, use the current checkout without a worktree, run `pnpm format`, validate through ordinary CI, and complete solo Self-Review while CI runs.
-5. Apply that procedure's implementation, CI, merge, branch cleanup, and temporary-asset rules, but return here for the next parallel discovery round instead of switching to solo discovery.
+1. Run Parallel Discovery repeatedly against the recorded pre-development integrated state until one complete parallel round is empty. Let the lead adjudicate every round and publish accepted issues when authorized.
+2. Stop every discovery agent only after the empty-round development gate passes.
+3. If the gate passes with no accepted issue, skip implementation and evaluate [Completion](#completion).
+4. Otherwise read the base issue campaign's [solo development procedure](../issue-campaign/development.md).
+5. Put every implementation-ready issue into its one empty-claim pull request, use the current checkout without a worktree, run `pnpm format`, validate through ordinary CI, and complete solo Self-Review while CI runs.
+6. Apply that procedure's implementation, CI, merge, branch cleanup, and temporary-asset rules, but return here for the next parallel discovery round instead of switching to solo discovery.
 
 Do not infer solo implementation from quota concerns, a small issue count, or the fact that the lead performs publication. Only the user's explicit phase boundary selects it.
 
@@ -24,9 +25,11 @@ Use [review.md](review.md)'s Parallel Issue Discovery Rounds. Every discovery ag
 
 Pool raw candidates in `.wiki`, then reproduce and combine, split, rewrite, reject, or defer them before publication. Parallel discovery changes evidence breadth, not publication authority.
 
+Keep implementation closed while any meaningful candidate survives a round. Accumulate accepted issues, end the current discovery team, and run another complete parallel full-scope round against the same recorded pre-development integrated state. Begin implementation only after one complete team round is empty and the accumulated accepted issue set is nonempty.
+
 ## Build Coarse Implementation Batches
 
-When implementation is also parallel, recompute the published-issue DAG before every wave. Form the smallest number of maximal cohesive batches that dependency readiness and ownership permit.
+When implementation is also parallel, first confirm the empty-round discovery gate and freeze the accumulated accepted issue set. Recompute the published-issue DAG before every wave. Form the smallest number of maximal cohesive batches that dependency readiness and ownership permit.
 
 Group issues only when they are ready on the same frontier, share an architectural owner or root invariant, overlap in consequence surface, use mostly the same verification, and remain understandable and reversible as one diff. Split for a named dependency, external blocker, repository or target-branch boundary, independent release contract, incompatible verification owner, destructive file overlap, or lost issue-level attribution.
 
@@ -73,6 +76,6 @@ After every parallel implementation batch is resolved and its worktree and exter
 
 ## Completion
 
-After the selected implementation flow is resolved, run another complete parallel full-scope discovery round against the integrated repository.
+After the selected implementation flow is resolved, start the next cycle against the integrated repository. Repeat complete parallel full-scope rounds against that state until a full team round is empty, accumulating every accepted issue before any new implementation begins.
 
 The campaign succeeds only when every reviewer completes the whole scope, no meaningful candidate survives lead verification, no accepted issue remains unresolved, and every campaign worktree and assignment-owned temporary asset is removed. Report an external blocker as blocked, not complete.

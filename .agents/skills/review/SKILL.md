@@ -48,10 +48,12 @@ Use these rounds only through the solo issue-campaign skill.
 3. Reopen each candidate from primary evidence, reproduce it, verify ownership and provenance, and trace its complete consequence surface.
 4. Record accept, partial acceptance, rewrite, combine, split, reject, or defer. Keep the disposition and reason in the knowledge base so later passes do not rediscover a rejected premise as new.
 5. Publish only the surviving adjudicated form when the campaign is authorized to publish.
-6. If any meaningful candidate survives, finish the authorized issue and implementation flow, then begin another fresh full-scope round over the integrated state.
-7. End discovery only when one complete fresh round over the entire scope produces no meaningful candidate after fact-checking.
+6. If any meaningful candidate survives, complete its authorized adjudication and publication, keep implementation closed, and begin another complete fresh full-scope round against the same recorded pre-development integrated state.
+7. Repeat step 6 without a round limit. Candidate rechecks, sampled areas, and the completed work from earlier rounds do not count toward the next round.
+8. End the cycle's discovery phase only when one complete fresh round over the entire scope produces no meaningful candidate after fact-checking. Hand every implementation-ready accepted issue accumulated across the preceding nonempty rounds to the cycle's unified development pull request.
+9. After that pull request merges, start the next cycle's discovery saturation from the new integrated state. End the campaign only when an empty round leaves no accepted campaign issue unresolved.
 
-An unresolved accepted issue, external blocker, or incomplete implementation prevents a successful campaign conclusion. Report it as blocked or active rather than treating it as a clean round.
+An empty round can open development while accepted issues remain, but an unresolved accepted issue, external blocker, or incomplete implementation prevents a successful campaign conclusion. Report the campaign as blocked or active rather than complete.
 
 ## Explicit Multi-Agent Reviews
 
