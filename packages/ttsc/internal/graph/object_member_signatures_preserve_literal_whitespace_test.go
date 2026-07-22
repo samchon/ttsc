@@ -40,7 +40,10 @@ func TestObjectMemberSignaturesPreserveLiteralWhitespace(t *testing.T) {
   defer func() { _ = prog.Close() }()
 
   graph := Build(prog)
-  dump := NewDump(graph, root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{})
+  dump, err := NewDump(graph, root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{})
+  if err != nil {
+    t.Fatal(err)
+  }
   signatures := map[string]string{}
   for _, node := range dump.Nodes {
     if node.ID != "src/main.ts#shape:variable" {

@@ -60,7 +60,6 @@ func run() int {
   // `ttscgraph dump` is the one that proves the whole contract.
   data, err := graph.MarshalDump(g, root, *tsconfig, ignored, texts, graph.DumpOrigin{
     Provenance: graph.NewProvenance(
-      root,
       // No version: this tool is built from the tree on demand and never
       // stamped, and an invented one would be worse than an absent one.
       graph.Producer{Tool: "graphdump", Typescript: graph.TypescriptVersion()},

@@ -121,7 +121,10 @@ export const shape = (({
     }
   }
 
-  dump := NewDump(graph, root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{})
+  dump, err := NewDump(graph, root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{})
+  if err != nil {
+    t.Fatal(err)
+  }
   var dumped *DumpNode
   for i := range dump.Nodes {
     if dump.Nodes[i].ID == "src/main.ts#shape:variable" {

@@ -47,7 +47,10 @@ export const enum Mode {
   defer func() { _ = prog.Close() }()
 
   g := Build(prog)
-  dump := NewDump(g, root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{})
+  dump, err := NewDump(g, root, "tsconfig.json", nil, SourceTexts(prog), DumpOrigin{})
+  if err != nil {
+    t.Fatal(err)
+  }
 
   byID := make(map[string]DumpNode, len(dump.Nodes))
   for _, n := range dump.Nodes {

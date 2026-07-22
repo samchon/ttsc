@@ -3,7 +3,7 @@ import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
-const DUMP_SCHEMA_VERSION = 5;
+const DUMP_SCHEMA_VERSION = 6;
 let fakeBinary: string | undefined;
 
 export interface NativeSessionFixture {
@@ -16,6 +16,7 @@ export function createNativeSessionFixture(options: {
   requestTimeoutMs: number;
   stderr?: string;
   delayMs?: number;
+  schemaVersion?: number;
 }): NativeSessionFixture {
   const root = TestProject.tmpdir("ttscgraph-native-session-");
   fs.writeFileSync(
@@ -24,7 +25,7 @@ export function createNativeSessionFixture(options: {
       mode: options.mode,
       stderr: options.stderr ?? "",
       delayMs: options.delayMs ?? 0,
-      schemaVersion: DUMP_SCHEMA_VERSION,
+      schemaVersion: options.schemaVersion ?? DUMP_SCHEMA_VERSION,
     }),
     "utf8",
   );

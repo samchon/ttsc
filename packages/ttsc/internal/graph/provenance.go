@@ -14,7 +14,7 @@ import (
 // field is added, removed, or given a new meaning, independently of the serve
 // envelope's protocol version: a one-shot `ttscgraph dump` written to a file has
 // a schema but never rode the protocol.
-const DumpSchemaVersion = 5
+const DumpSchemaVersion = 6
 
 // The capabilities a snapshot can declare. Each names one class of evidence a
 // consumer may rely on when, and only when, the snapshot lists it.
@@ -119,16 +119,16 @@ type Universe struct {
 // references mean two configs can name the same file, and they are not the same
 // input, so the pair is the unit rather than the bare path.
 type RootFile struct {
-  // Config is the tsconfig that named this root, project-relative.
+  // Config is the tsconfig that named this root, in the dump's path vocabulary.
   Config string `json:"config"`
 
-  // File is the root file, project-relative.
+  // File is the root file, in the dump's path vocabulary.
   File string `json:"file"`
 }
 
 // FileDigest pairs a file with the SHA-256 of its bytes, hex-encoded.
 type FileDigest struct {
-  // File is project-relative.
+  // File uses the dump's path vocabulary.
   File string `json:"file"`
 
   // Digest is the hex-encoded SHA-256 of the file's on-disk bytes.
@@ -159,7 +159,7 @@ type FileDigest struct {
 // Both are digests. Neither is text: the wire never carries a file's bytes, and
 // the field names say digest so that stays true by reading.
 type SourceDigest struct {
-  // File is project-relative.
+  // File uses the dump's path vocabulary.
   File string `json:"file"`
 
   // Checker is the hex-encoded SHA-256 of the text the checker resolved
@@ -180,7 +180,7 @@ type SourceDigest struct {
 // Diagnostic is one compiler diagnostic riding the snapshot that produced the
 // facts. Positions are 1-based, matching what tsgo reports.
 type Diagnostic struct {
-  // File is project-relative.
+  // File uses the dump's path vocabulary.
   File string `json:"file"`
 
   // Line is the 1-based line.
@@ -207,13 +207,14 @@ func Digest(sum [sha256.Size]byte) string { return hex.EncodeToString(sum[:]) }
 // implements.
 func TypescriptVersion() string { return shimcore.Version() }
 
-// NewProvenance assembles the evidence for a snapshot. project relativizes every
-// path; texts maps a source file's absolute path to the text the checker read
-// (as SourceTexts returns it); disk maps a source file's absolute path to the
-// hex digest of its on-disk bytes, and a path absent from it is reported with an
-// empty Disk. configs and roots come from the same capture that produced texts.
+// NewProvenance assembles the evidence for a snapshot while retaining the
+// compiler's physical paths. NewDump projects those paths together with every
+// node, edge, span, and diagnostic through its one cached schema-v6 mapper.
+// texts maps a source file's path to the text the checker read (as SourceTexts
+// returns it); disk maps that path to the hex digest of its on-disk bytes, and
+// a path absent from it is reported with an empty Disk. configs and roots come
+// from the same capture that produced texts.
 func NewProvenance(
-  project string,
   producer Producer,
   capabilities []string,
   configs []FileDigest,
@@ -221,32 +222,31 @@ func NewProvenance(
   texts map[string]string,
   disk map[string]string,
 ) Provenance {
-  ctx := newDumpContext(project, nil)
   sources := make([]SourceDigest, 0, len(texts))
   for path, text := range texts {
     sources = append(sources, SourceDigest{
-      File:    ctx.rel(path),
+      File:    path,
       Checker: Digest(sha256.Sum256([]byte(text))),
       Disk:    disk[path],
     })
   }
   sort.Slice(sources, func(i, j int) bool { return sources[i].File < sources[j].File })
 
-  relConfigs := make([]FileDigest, 0, len(configs))
+  capturedConfigs := make([]FileDigest, 0, len(configs))
   for _, config := range configs {
-    relConfigs = append(relConfigs, FileDigest{File: ctx.rel(config.File), Digest: config.Digest})
+    capturedConfigs = append(capturedConfigs, FileDigest{File: config.File, Digest: config.Digest})
   }
-  sort.Slice(relConfigs, func(i, j int) bool { return relConfigs[i].File < relConfigs[j].File })
+  sort.Slice(capturedConfigs, func(i, j int) bool { return capturedConfigs[i].File < capturedConfigs[j].File })
 
-  relRoots := make([]RootFile, 0, len(roots))
+  capturedRoots := make([]RootFile, 0, len(roots))
   for _, root := range roots {
-    relRoots = append(relRoots, RootFile{Config: ctx.rel(root.Config), File: ctx.rel(root.File)})
+    capturedRoots = append(capturedRoots, RootFile{Config: root.Config, File: root.File})
   }
-  sort.Slice(relRoots, func(i, j int) bool {
-    if relRoots[i].Config != relRoots[j].Config {
-      return relRoots[i].Config < relRoots[j].Config
+  sort.Slice(capturedRoots, func(i, j int) bool {
+    if capturedRoots[i].Config != capturedRoots[j].Config {
+      return capturedRoots[i].Config < capturedRoots[j].Config
     }
-    return relRoots[i].File < relRoots[j].File
+    return capturedRoots[i].File < capturedRoots[j].File
   })
 
   // Copy before sorting: the caller's slice is a shared package-level constant,
@@ -259,32 +259,90 @@ func NewProvenance(
     SchemaVersion: DumpSchemaVersion,
     Capabilities:  declared,
     Producer:      producer,
-    Universe:      Universe{Configs: relConfigs, Roots: relRoots},
+    Universe:      Universe{Configs: capturedConfigs, Roots: capturedRoots},
     Sources:       sources,
   }
 }
 
-// NewDiagnostics projects the resident program's compiler diagnostics onto the
-// wire shape, relativized against project and ordered by file, line, column,
-// then code so a snapshot is byte-stable.
+// NewDiagnostics projects the resident program's compiler diagnostics while
+// retaining physical file identities. NewDump maps and re-sorts them with the
+// rest of the snapshot so every path uses one vocabulary.
 //
 // This is one Program.Diagnostics() call over the already-warm checker rather
 // than a second compile, but it is not free: it forces the semantic check of
 // every file the graph would otherwise only have bound. Callers that do not
 // publish diagnostics should not call it.
-func NewDiagnostics(prog *driver.Program, project string) []Diagnostic {
-  ctx := newDumpContext(project, nil)
+func NewDiagnostics(prog *driver.Program) []Diagnostic {
   raw := prog.Diagnostics()
   out := make([]Diagnostic, 0, len(raw))
   for _, diagnostic := range raw {
     out = append(out, Diagnostic{
-      File:     ctx.rel(diagnostic.File),
+      File:     diagnostic.File,
       Line:     diagnostic.Line,
       Column:   diagnostic.Column,
       Code:     int(diagnostic.Code),
       Category: diagnosticCategory(diagnostic.Severity),
       Message:  diagnostic.Message,
     })
+  }
+  sort.Slice(out, func(i, j int) bool {
+    if out[i].File != out[j].File {
+      return out[i].File < out[j].File
+    }
+    if out[i].Line != out[j].Line {
+      return out[i].Line < out[j].Line
+    }
+    if out[i].Column != out[j].Column {
+      return out[i].Column < out[j].Column
+    }
+    return out[i].Code < out[j].Code
+  })
+  return out
+}
+
+// provenance maps every path-bearing provenance field through the dump's one
+// mapper and sorts on the resulting wire identity.
+func (c *dumpContext) provenance(value Provenance) Provenance {
+  sources := make([]SourceDigest, 0, len(value.Sources))
+  for _, source := range value.Sources {
+    sources = append(sources, SourceDigest{
+      File:    c.rel(source.File),
+      Checker: source.Checker,
+      Disk:    source.Disk,
+    })
+  }
+  sort.Slice(sources, func(i, j int) bool { return sources[i].File < sources[j].File })
+
+  configs := make([]FileDigest, 0, len(value.Universe.Configs))
+  for _, config := range value.Universe.Configs {
+    configs = append(configs, FileDigest{File: c.rel(config.File), Digest: config.Digest})
+  }
+  sort.Slice(configs, func(i, j int) bool { return configs[i].File < configs[j].File })
+
+  roots := make([]RootFile, 0, len(value.Universe.Roots))
+  for _, root := range value.Universe.Roots {
+    roots = append(roots, RootFile{Config: c.rel(root.Config), File: c.rel(root.File)})
+  }
+  sort.Slice(roots, func(i, j int) bool {
+    if roots[i].Config != roots[j].Config {
+      return roots[i].Config < roots[j].Config
+    }
+    return roots[i].File < roots[j].File
+  })
+
+  value.Capabilities = append([]string{}, value.Capabilities...)
+  value.Sources = sources
+  value.Universe = Universe{Configs: configs, Roots: roots}
+  return value
+}
+
+// diagnostics maps and orders compiler findings after they join the dump, not
+// in their constructor, so they cannot drift onto a second path vocabulary.
+func (c *dumpContext) diagnostics(values []Diagnostic) []Diagnostic {
+  out := make([]Diagnostic, 0, len(values))
+  for _, diagnostic := range values {
+    diagnostic.File = c.rel(diagnostic.File)
+    out = append(out, diagnostic)
   }
   sort.Slice(out, func(i, j int) bool {
     if out[i].File != out[j].File {

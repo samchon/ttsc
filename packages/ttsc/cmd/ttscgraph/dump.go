@@ -105,7 +105,6 @@ func dumpOrigin(prog *driver.Program, cwd string, texts map[string]string) (grap
   }
   return graph.DumpOrigin{
     Provenance: graph.NewProvenance(
-      cwd,
       serveProducer(),
       fullSnapshotCapabilities,
       fileDigests(configHashes),
@@ -113,6 +112,6 @@ func dumpOrigin(prog *driver.Program, cwd string, texts map[string]string) (grap
       texts,
       diskDigests,
     ),
-    Diagnostics: graph.NewDiagnostics(prog, cwd),
+    Diagnostics: graph.NewDiagnostics(prog),
   }, nil
 }
