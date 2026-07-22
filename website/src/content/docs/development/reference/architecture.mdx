@@ -70,6 +70,9 @@ npx ttsc clean
 npx ttsc clean --cache-dir /tmp/ttsc-cache
 ```
 
+An explicit `--cache-dir` is removed wholesale and must name a directory dedicated to ttsc.
+The command refuses a filesystem root or any directory that equals or contains the project, so values such as `.`, `..`, and a workspace ancestor cannot turn cache cleanup into project deletion.
+
 The cache is content-addressed, so it is not tied to a package-manager layout: npm installs, pnpm virtual-store paths, and workspace packages share a binary whenever the source plugin, contributors, ttsc overlay, Go toolchain content, platform, and build environment produce the same cache key.
 
 `ttsc` updates a small last-used marker whenever a binary is reused. Once per day it opportunistically prunes default-cache entries unused for 30 days and trims the cache by least-recently-used order when it grows beyond the size budget. Explicit `--cache-dir` and `TTSC_CACHE_DIR` caches are not garbage-collected automatically because callers usually use them for CI or test isolation.

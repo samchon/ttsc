@@ -13,6 +13,7 @@ import {
   parseFlags,
 } from "../../flags/parser";
 import { resolveFlagSpec } from "../../flags/schema";
+import { assertSafeExplicitCacheDirectory } from "../../internal/assertSafeExplicitCacheDirectory";
 import {
   isPathWithin,
   legacyGlobalCacheTargets,
@@ -195,12 +196,18 @@ function runClean(argv: readonly string[]): number {
   const options = parseProjectArgs(argv);
   const cwd = path.resolve(options.cwd ?? process.cwd());
   const projectRoot = resolveCleanProjectRoot(cwd, options.tsconfig);
-  const targets = options.cacheDir
+  const explicitCacheDir = options.cacheDir
+    ? path.resolve(cwd, options.cacheDir)
+    : undefined;
+  if (explicitCacheDir !== undefined) {
+    assertSafeExplicitCacheDirectory(projectRoot, explicitCacheDir);
+  }
+  const targets = explicitCacheDir
     ? // Explicit `ttsc clean --cache-dir X`: the user names X as the cache to
       // remove for this command, so remove it wholesale plus the legacy
       // project-local caches.
       [
-        path.resolve(cwd, options.cacheDir),
+        explicitCacheDir,
         path.join(projectRoot, "node_modules", ".ttsc"),
         path.join(projectRoot, ".ttsc"),
       ]
