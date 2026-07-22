@@ -11,7 +11,7 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
     const root = TestProject.tmpdir("ttsc-go-command-shim-");
     const wrapperRoot = path.join(
       root,
-      "%TTSC_GO_EXPANDS% literal %% & (parentheses) ^ caret",
+      "%TTSC_GO_EXPANDS% literal %% & (parentheses) ^ caret !TTSC_GO_DELAYED!",
     );
     fs.mkdirSync(wrapperRoot, { recursive: true });
     const capture = path.join(root, "argv.jsonl");
@@ -41,7 +41,18 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
 
     const commands = [
       ["version"],
-      ["env", "-json", "GOOS", "%SET_VALUE%", "%%", "%", "%UNKNOWN%"],
+      [
+        "env",
+        "-json",
+        "GOOS",
+        "%SET_VALUE%",
+        "%%",
+        "%",
+        "%UNKNOWN%",
+        "!SET_VALUE!",
+        "!",
+        "!UNKNOWN!",
+      ],
       ["mod", "edit", "-json", "space value", "&", "(value)", "^"],
       ["build", "-o", path.join(wrapperRoot, '%OUTPUT% & "quoted" \\'), "."],
     ];
@@ -49,6 +60,7 @@ export const test_spawngotool_preserves_windows_command_wrapper_arguments =
       ...process.env,
       TTSC_GO_ARGV_CAPTURE: capture,
       TTSC_GO_CALLER_SENTINEL: "preserved",
+      TTSC_GO_DELAYED: "WRONG_DIRECTORY",
       TTSC_GO_EXPANDS: "WRONG_DIRECTORY",
       TTSC_GO_TEST_NODE: process.execPath,
       SET_VALUE: "WRONG_ARGUMENT",

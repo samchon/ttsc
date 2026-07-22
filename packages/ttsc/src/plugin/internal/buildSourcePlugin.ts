@@ -1774,7 +1774,7 @@ export function spawnGoTool(
   const shim = createWindowsGoCommandShim([goBinary, ...args]);
   return spawnSync(
     inheritedEnv.ComSpec ?? inheritedEnv.COMSPEC ?? "cmd.exe",
-    ["/d", "/s", "/c", shim.payload],
+    ["/d", "/v:off", "/s", "/c", shim.payload],
     {
       ...options,
       env: { ...inheritedEnv, ...shim.environment },
