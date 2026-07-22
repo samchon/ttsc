@@ -52,10 +52,33 @@ func cursorInJSDoc(text string, offset int) bool {
 // It is deliberately smaller than a parser: the scope scanner needs only to
 // skip opaque regex text correctly, never to validate the surrounding program.
 type regexContext struct {
-  kind   regexPredecessor
-  last   byte
-  parens []bool
+  kind regexPredecessor
+  last byte
+
+  lastAdjacent bool
+  word               string
+  previousWord       string
+  beforePreviousWord string
+  wordMember   bool
+  previousMember bool
+  wordExpression bool
+  previousExpression bool
+
+  pendingFunction bool
+  functionExpression bool
+  functionBody bool
+  functionBodyExpression bool
+  pendingClass bool
+  classExpression bool
+
+  parens []regexParen
   braces []bool
+}
+
+type regexParen struct {
+  control bool
+  function bool
+  expression bool
 }
 
 type regexPredecessor int
@@ -68,40 +91,69 @@ const (
   regexPredecessorControlHeader
 )
 
-func (context *regexContext) allowedAfter(head string) bool {
+func (context *regexContext) allowedAfter() bool {
   switch context.kind {
   case regexPredecessorValue:
     return false
   case regexPredecessorWord:
-    return regexKeywordPrecedes(head)
+    word, member := context.lastWord()
+    return regexKeywordPrecedes(word, member)
   default:
     return true
   }
 }
-
 func (context *regexContext) writeValue(symbol byte) {
+  context.finishWord()
   context.kind = regexPredecessorValue
   context.last = symbol
+  context.lastAdjacent = true
 }
 
-func (context *regexContext) writeCode(head string, symbol byte) {
+func (context *regexContext) separator() {
+  context.finishWord()
+  context.lastAdjacent = false
+}
+
+func (context *regexContext) writeCode(symbol byte) {
+  if isIdentifierByte(symbol) {
+    if context.word == "" {
+      context.wordExpression = context.expressionPosition()
+      context.wordMember = context.last == '.'
+    }
+    context.word += string(symbol)
+    context.kind = regexPredecessorWord
+    context.last = symbol
+    context.lastAdjacent = true
+    return
+  }
+  context.finishWord()
   switch symbol {
   case '(':
-    context.parens = append(context.parens, controlHeaderPrecedes(head))
+    paren := regexParen{control: context.controlHeaderPrecedes()}
+    if context.pendingFunction {
+      paren.function = true
+      paren.expression = context.functionExpression
+      context.pendingFunction = false
+    }
+    context.parens = append(context.parens, paren)
     context.kind = regexPredecessorOperator
   case ')':
-    controlHeader := false
+    paren := regexParen{}
     if depth := len(context.parens); depth > 0 {
-      controlHeader = context.parens[depth-1]
+      paren = context.parens[depth-1]
       context.parens = context.parens[:depth-1]
     }
-    if controlHeader {
+    if paren.function {
+      context.functionBody = true
+      context.functionBodyExpression = paren.expression
+    }
+    if paren.control {
       context.kind = regexPredecessorControlHeader
     } else {
       context.kind = regexPredecessorValue
     }
   case '{':
-    context.braces = append(context.braces, context.blockPrecedes(head))
+    context.braces = append(context.braces, context.blockPrecedes())
     context.kind = regexPredecessorOperator
   case '}':
     block := false
@@ -117,22 +169,27 @@ func (context *regexContext) writeCode(head string, symbol byte) {
   case ']':
     context.kind = regexPredecessorValue
   case '+', '-':
-    if context.last == symbol {
+    if context.lastAdjacent && context.last == symbol {
       context.kind = regexPredecessorValue
     } else {
       context.kind = regexPredecessorOperator
     }
   default:
-    if isIdentifierByte(symbol) {
-      context.kind = regexPredecessorWord
-    } else {
-      context.kind = regexPredecessorOperator
-    }
+    context.kind = regexPredecessorOperator
   }
   context.last = symbol
+  context.lastAdjacent = true
 }
 
-func (context *regexContext) blockPrecedes(head string) bool {
+func (context *regexContext) blockPrecedes() bool {
+  if context.pendingClass {
+    context.pendingClass = false
+    return !context.classExpression
+  }
+  if context.functionBody {
+    context.functionBody = false
+    return !context.functionBodyExpression
+  }
   if context.kind == regexPredecessorControlHeader {
     return true
   }
@@ -140,7 +197,8 @@ func (context *regexContext) blockPrecedes(head string) bool {
     return true
   }
   if context.kind == regexPredecessorWord {
-    switch trailingIdentifier(head) {
+    word, _ := context.lastWord()
+    switch word {
     case "do", "else", "finally", "try":
       return true
     }
@@ -148,17 +206,59 @@ func (context *regexContext) blockPrecedes(head string) bool {
   return context.last == ';' || context.last == '{' || context.last == '}'
 }
 
-func controlHeaderPrecedes(head string) bool {
-  word := trailingIdentifier(head)
+func (context *regexContext) controlHeaderPrecedes() bool {
+  word, _ := context.lastWord()
   switch word {
   case "if", "while", "for", "with", "switch", "catch":
     return true
   case "await":
-    head = head[:len(head)-len(word)]
-    return trailingIdentifier(head) == "for"
+    return context.beforePreviousWord == "for"
   default:
     return false
   }
+}
+
+func (context *regexContext) expressionPosition() bool {
+  switch context.kind {
+  case regexPredecessorStart, regexPredecessorControlHeader:
+    return false
+  case regexPredecessorValue:
+    return false
+  case regexPredecessorWord:
+    word, member := context.lastWord()
+    if word == "async" {
+      return context.previousExpression
+    }
+    return regexKeywordPrecedes(word, member)
+  default:
+    return context.last != ';' && context.last != '{' && context.last != '}'
+  }
+}
+
+func (context *regexContext) finishWord() {
+  if context.word == "" {
+    return
+  }
+  if context.word == "function" {
+    context.pendingFunction = true
+    context.functionExpression = context.wordExpression
+  } else if context.word == "class" {
+    context.pendingClass = true
+    context.classExpression = context.wordExpression
+  }
+  context.beforePreviousWord = context.previousWord
+  context.previousWord = context.word
+  context.previousMember = context.wordMember
+  context.previousExpression = context.wordExpression
+  context.word = ""
+  context.wordMember = false
+}
+
+func (context *regexContext) lastWord() (string, bool) {
+  if context.word != "" {
+    return context.word, context.wordMember
+  }
+  return context.previousWord, context.previousMember
 }
 
 // lexicalScopeAt reports the scope of the byte at offset, scanning forward from
@@ -220,6 +320,7 @@ func lexicalScopeAt(text string, offset int) lexicalScope {
         }
         switch {
         case next == '*':
+          regex.separator()
           // `/**/` is an empty block comment, not a JSDoc block; TypeScript
           // reads the third `*` as part of the terminator.
           if index+2 < len(text) && text[index+2] == '*' &&
@@ -230,6 +331,7 @@ func lexicalScopeAt(text string, offset int) lexicalScope {
           }
           index += 2
         case next == '/':
+          regex.separator()
           scope = lexicalScopeLineComment
           index += 2
         default:
@@ -238,12 +340,12 @@ func lexicalScopeAt(text string, offset int) lexicalScope {
           // such as `/["'/*]/` from opening a string or a comment that the
           // source never wrote.
           end := -1
-          if regex.allowedAfter(text[:index]) {
+          if regex.allowedAfter() {
             end = regexLiteralEnd(text, index)
           }
           if end == -1 {
             // Division, or no terminator before the line ended.
-            regex.writeCode(text[:index], symbol)
+            regex.writeCode(symbol)
             index++
             break
           }
@@ -264,7 +366,7 @@ func lexicalScopeAt(text string, offset int) lexicalScope {
         index++
       case '{':
         braces++
-        regex.writeCode(text[:index], symbol)
+        regex.writeCode(symbol)
         index++
       case '}':
         if braces > 0 {
@@ -274,13 +376,15 @@ func lexicalScopeAt(text string, offset int) lexicalScope {
           templateBraces = templateBraces[:depth-1]
           scope = lexicalScopeTemplate
         }
-        regex.writeCode(text[:index], symbol)
+        regex.writeCode(symbol)
         index++
       default:
         // Every whitespace byte is below `' '`, and so is every control byte
         // that could not precede a regex either.
         if symbol > ' ' {
-          regex.writeCode(text[:index], symbol)
+          regex.writeCode(symbol)
+        } else {
+          regex.separator()
         }
         index++
       }
@@ -289,6 +393,7 @@ func lexicalScopeAt(text string, offset int) lexicalScope {
       // rest of the file inside one `//`.
       if symbol == '\n' || symbol == '\r' {
         scope = lexicalScopeCode
+        regex.separator()
       }
       index++
     case lexicalScopeBlockComment, lexicalScopeJSDoc:
@@ -308,6 +413,7 @@ func lexicalScopeAt(text string, offset int) lexicalScope {
         index++
       case symbol == '\n' || symbol == '\r':
         scope = lexicalScopeCode
+        regex.separator()
         index++
       default:
         index++
@@ -324,7 +430,7 @@ func lexicalScopeAt(text string, offset int) lexicalScope {
         templateBraces = append(templateBraces, braces)
         braces = 0
         scope = lexicalScopeCode
-        regex.writeCode(text[:index], '{')
+        regex.writeCode('{')
         index += 2
       default:
         index++
@@ -344,39 +450,19 @@ func escapeWidth(text string, index int) int {
   return 2
 }
 
-func regexKeywordPrecedes(head string) bool {
-  end := len(head)
-  for end > 0 && isSpaceByte(head[end-1]) {
-    end--
-  }
-  start := end
-  for start > 0 && isIdentifierByte(head[start-1]) {
-    start--
-  }
-  if start > 0 && head[start-1] == '.' {
+func regexKeywordPrecedes(word string, member bool) bool {
+  if member {
     // `in`, `of`, `new`, and the rest are legal property names, and a member
     // access is a value: `obj.in / 2` divides.
     return false
   }
-  switch head[start:end] {
+  switch word {
   case "await", "case", "delete", "do", "else", "in", "instanceof", "new",
     "of", "return", "throw", "typeof", "void", "yield":
     return true
   default:
     return false
   }
-}
-
-func trailingIdentifier(head string) string {
-  end := len(head)
-  for end > 0 && isSpaceByte(head[end-1]) {
-    end--
-  }
-  start := end
-  for start > 0 && isIdentifierByte(head[start-1]) {
-    start--
-  }
-  return head[start:end]
 }
 
 // regexLiteralEnd returns the offset just past a regular expression literal
@@ -422,9 +508,4 @@ func isIdentifierByte(symbol byte) bool {
     // text; either way it is not an operator that could precede a regex.
     return symbol >= 0x80
   }
-}
-
-func isSpaceByte(symbol byte) bool {
-  return symbol == ' ' || symbol == '\t' || symbol == '\r' || symbol == '\n' ||
-    symbol == '\v' || symbol == '\f'
 }

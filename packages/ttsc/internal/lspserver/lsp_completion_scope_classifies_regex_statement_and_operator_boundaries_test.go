@@ -12,10 +12,15 @@ func TestLSPCompletionScopeClassifiesRegexStatementAndOperatorBoundaries(t *test
     want lexicalScope
   }{
     {"if header", "if (ok) /[/** @tag]/.test(value)", lexicalScopeCode},
+    {"commented if header", "if /* c */ (ok) /[/** @tag]/.test(value)", lexicalScopeCode},
     {"while header", "while (ok) /[/** @tag]/.test(value)", lexicalScopeCode},
     {"for header", "for (; ok;) /[/** @tag]/.test(value)", lexicalScopeCode},
     {"with header", "with (scope) /[/** @tag]/.test(value)", lexicalScopeCode},
     {"regex after division", "const value = left / /[/** @tag]/.source", lexicalScopeCode},
+    {"regex after spaced unary plus", "const value = left + +/[/** @tag]/.source", lexicalScopeCode},
+    {"regex after commented return", "return /* c */ /[/** @tag]/.test(value)", lexicalScopeCode},
+    {"function declaration block", "function f() {} /[/** @tag]/.test(value)", lexicalScopeCode},
+    {"class declaration block", "class C {} /[/** @tag]/.test(value)", lexicalScopeCode},
     {"division after regex", "const value = /ok/ / 2; /** @tag", lexicalScopeJSDoc},
     {"comment after expression", "const value = 1; /** @tag", lexicalScopeJSDoc},
     {"template interpolation", "const value = `${(() => { if (ok) /[/** @tag]/.test(value); return value; })()}`; /** @tag", lexicalScopeJSDoc},
