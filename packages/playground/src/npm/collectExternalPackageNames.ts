@@ -320,7 +320,8 @@ function isExpressionPosition(tokens: readonly Token[]): boolean {
   let index = tokens.length - 1;
   // `async function` inherits the context before `async`: it is a declaration
   // at a statement boundary and an expression after an assignment or return.
-  if (tokens[index]?.kind === "word" && tokens[index]?.value === "async")
+  const latest = tokens[index];
+  if (latest?.kind === "word" && latest.value === "async")
     index--;
   const previous = tokens[index];
   if (!previous) return false;
