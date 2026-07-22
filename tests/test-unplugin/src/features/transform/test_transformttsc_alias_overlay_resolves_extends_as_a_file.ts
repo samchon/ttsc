@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { readEffectiveTsconfigPaths } from "../../../../packages/unplugin/lib/core/tsconfigPaths.js";
+import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/lib/core/tsconfigPaths.js";
 
 /**
  * The alias overlay must mirror TypeScript's file-only `extends` lookup so a
