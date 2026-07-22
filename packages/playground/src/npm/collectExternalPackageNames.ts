@@ -149,7 +149,14 @@ const REGEX_PRECEDING_KEYWORDS = new Set([
   "throw",
 ]);
 
-const CONTROL_HEADER_KEYWORDS = new Set(["if", "while", "for", "with"]);
+const CONTROL_HEADER_KEYWORDS = new Set([
+  "if",
+  "while",
+  "for",
+  "with",
+  "switch",
+  "catch",
+]);
 const BLOCK_PRECEDING_KEYWORDS = new Set(["else", "try", "finally", "do"]);
 
 interface IParenContext {
@@ -268,7 +275,12 @@ function isControlHeader(tokens: readonly Token[]): boolean {
 }
 
 function isExpressionPosition(tokens: readonly Token[]): boolean {
-  const previous = tokens[tokens.length - 1];
+  let index = tokens.length - 1;
+  // `async function` inherits the context before `async`: it is a declaration
+  // at a statement boundary and an expression after an assignment or return.
+  if (tokens[index]?.kind === "word" && tokens[index]?.value === "async")
+    index--;
+  const previous = tokens[index];
   if (!previous) return false;
   if (previous.kind === "word")
     return REGEX_PRECEDING_KEYWORDS.has(previous.value);
@@ -277,6 +289,8 @@ function isExpressionPosition(tokens: readonly Token[]): boolean {
     ")",
     "]",
     "}",
+    ";",
+    "{",
     "++",
     "--",
   ].includes(previous.value);
@@ -483,10 +497,6 @@ function findTemplateSubstitutionEnd(source: string, start: number): number {
     context.pushPunct(c);
   }
   return source.length;
-}
-
-function isRegexAllowed(tokens: readonly Token[]): boolean {
-  return isRegexAllowedAfter(tokens[tokens.length - 1]);
 }
 
 function isRegexAllowedAfter(previous: Token | undefined): boolean {
