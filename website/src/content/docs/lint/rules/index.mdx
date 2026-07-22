@@ -123,7 +123,7 @@ Formatter behavior is configured separately through the top-level `format` block
 - `typescript/no-unnecessary-type-constraint`, `typescript/prefer-namespace-keyword`, `no-useless-escape`
 - `typescript/no-import-type-side-effects` (hoists inline `type` modifiers)
 - `regexp/sort-flags`, `regexp/no-useless-flag`, `regexp/prefer-d`, `regexp/prefer-w`, and the quantifier shorthands `regexp/prefer-plus-quantifier`, `regexp/prefer-star-quantifier`, `regexp/prefer-question-quantifier`, `regexp/no-useless-two-nums-quantifier`, `regexp/no-useless-quantifier`
-- `security/detect-pseudoRandomBytes` (only for a proven Node `crypto` import or require), `solid/no-react-specific-props` (the `className` and `htmlFor` renames), `solid/imports` (only when the misplaced specifier is its declaration's sole binding)
+- `security/detect-pseudoRandomBytes` (only for a proven Node `crypto` import or require), `solid/no-react-specific-props` (the `className` and `htmlFor` renames), `solid/imports`
 - Every format rule
 
 Suggestion-only rewrites, including removing an ordinary non-thenable `await`, replacing `@ts-ignore`, adding a Unicode flag for `regexp/require-unicode-regexp` / `regexp/require-unicode-sets-regexp`, choosing a `new Buffer` successor for `security/detect-new-buffer`, renaming an unproven name-only `crypto.pseudoRandomBytes` match, and choosing a framework package for `storybook/no-renderer-packages`, are available through `quickfix.ttsc`; `ttsc fix` and source fix-all do not apply them.
