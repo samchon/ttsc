@@ -77,7 +77,10 @@ jobs:
               build: "pnpm --filter @ttsc/wasm build:ts",
               run: "pnpm --filter @ttsc/test-wasm start",
             }
-          - { name: factory, run: "pnpm --filter @ttsc/test-factory start" }
+          - {
+              name: factory,
+              run: "node --test scripts/ci/factory-package.test.cjs && pnpm --filter @ttsc/test-factory start",
+            }
           - { name: paths, run: "pnpm --filter @ttsc/test-paths start" }
           - { name: strip, run: "pnpm --filter @ttsc/test-strip start" }
           # test-lint and test-ttsc build real Go plugin binaries; those

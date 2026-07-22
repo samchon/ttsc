@@ -13,6 +13,7 @@ import (
   "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
+  "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
 // configLoaderTimeout caps every `ttsx`/`node -e` subprocess that evaluates a
@@ -541,11 +542,7 @@ func stripLinkNearestNodeModules(tempDir, sourceDir string) error {
 
 // stripCreateWindowsJunction creates a directory junction on Windows.
 func stripCreateWindowsJunction(link, target string) error {
-  cmd := exec.Command("cmd", "/c", "mklink", "/J", link, target)
-  if out, err := cmd.CombinedOutput(); err != nil {
-    return fmt.Errorf("mklink /J failed: %v: %s", err, strings.TrimSpace(string(out)))
-  }
-  return nil
+  return windowsjunction.Create(link, target)
 }
 
 // stripRelativeImportSpecifier computes the ESM import specifier for location

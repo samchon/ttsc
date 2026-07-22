@@ -119,7 +119,7 @@ Removes the cache directories owned by this compiler's context. Returns the list
 compiler.clean();
 ```
 
-When the context sets an explicit `cacheDir`, `clean()` removes that directory **wholesale** (plus the legacy `node_modules/.ttsc` and `.ttsc` caches) — the same contract as `ttsc clean --cache-dir <dir>` on the CLI. An explicit `cacheDir` names a directory dedicated to ttsc, so nothing is left behind.
+When the context sets an explicit `cacheDir`, `clean()` removes that directory **wholesale** (plus the legacy `node_modules/.ttsc` and `.ttsc` caches) — the same contract as `ttsc clean --cache-dir <dir>` on the CLI. An explicit `cacheDir` must name a directory dedicated to ttsc. `clean()` refuses a filesystem root or any directory that equals or contains the project before removing anything, so values such as `.`, `..`, and a workspace ancestor are rejected.
 
 Otherwise — the default workspace-local `node_modules/.cache/ttsc`, or a root resolved from `TTSC_CACHE_DIR` — it removes only the ttsc-owned pieces:
 

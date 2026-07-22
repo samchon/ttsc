@@ -127,6 +127,8 @@ The typia pack itself is built by the site (typically with a `pack-typia-sources
 
 When the user types `import {v4} from "uuid"`, the shell auto-fetches `uuid` (and its transitive deps) from the npm registry, unpacks the tgz in the browser, and mounts the files into the wasm MemFS, no proxy server needed.
 
+Discovery covers static quoted specifiers in imports, exports, dynamic imports, `require(...)`, and direct `require?.(...)` calls, using their cooked JavaScript string values while ignoring comments, regular expressions, template quasis, and computed arguments.
+
 ```ts
 import {
   collectExternalPackageNames,
@@ -139,6 +141,10 @@ const installed = await installPlaygroundDependencies(names, {
 });
 // mount installed.compilerFiles into the wasm MemFS via service.installDependencies
 ```
+
+For an additive edit, pass the prior call's `resolvedDependencies` as `installedDependencies`; the installer validates every new range against the mounted registry identity and exact version, and it returns only newly downloaded tarballs in `packages` plus the complete updated exact state in `resolvedDependencies`.
+
+When a direct source import is removed, solve the complete current root list without `installedDependencies` and atomically replace the compiler, editor, and runtime file maps so files from the obsolete graph cannot survive.
 
 `PlaygroundShell` wires this automatically on every keystroke, debounced 900 ms, with an abort signal on source change.
 

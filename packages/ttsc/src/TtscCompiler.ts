@@ -6,6 +6,7 @@ import { resolveProjectConfig } from "./compiler/internal/project/resolveProject
 import { resolveBinary } from "./compiler/internal/resolveBinary";
 import { createProcessDiagnostic } from "./compiler/internal/runBuild";
 import { transformProjectInMemory } from "./compiler/internal/transformProjectInMemory";
+import { assertSafeExplicitCacheDirectory } from "./internal/assertSafeExplicitCacheDirectory";
 import { resolveCleanTargets } from "./plugin/internal/buildSourcePlugin";
 import { loadProjectPlugins } from "./plugin/internal/loadProjectPlugins";
 import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
@@ -91,7 +92,9 @@ export class TtscCompiler {
    * project-local caches. A user-provided `GOCACHE` is never removed. The cache
    * location comes from this instance's `cacheDir` and environment
    * (`TTSC_CACHE_DIR` / `TTSC_GO_CACHE_DIR`), defaulting to
-   * `<workspaceRoot>/node_modules/.cache/ttsc`.
+   * `<workspaceRoot>/node_modules/.cache/ttsc`. An explicit cache directory
+   * that equals or contains the project, or names a filesystem root, is
+   * rejected before any directory is removed.
    *
    * @returns Cache directories that were removed.
    */
@@ -103,6 +106,7 @@ export class TtscCompiler {
     ];
     const explicitCacheDir = this.resolveCacheDir();
     if (explicitCacheDir !== undefined) {
+      assertSafeExplicitCacheDirectory(projectRoot, explicitCacheDir);
       // An explicit constructor `cacheDir` names the cache directory for this
       // instance — exactly like `ttsc clean --cache-dir X` on the CLI — so
       // remove it wholesale plus the legacy project-local caches. This keeps
