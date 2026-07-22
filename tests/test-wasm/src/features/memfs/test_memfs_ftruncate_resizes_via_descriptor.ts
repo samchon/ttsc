@@ -12,10 +12,9 @@ import { callMutation, expectFsError, openFd } from "../../internal/callbackFs";
  * file: the reserved stdout/stderr fds and unknown fds. The pre-fix version was
  * a no-op, so a descriptor-based truncate left the file unchanged.
  *
- * 1. Seed `/t.txt`="abcdef" and open it, then ftruncate the descriptor to 3.
- * 2. Read the file back and attempt ftruncate on an unknown fd, the stdout fd, and
- *    a negative length.
- * 3. Assert the file shrank to "abc" and each invalid call carries its code.
+ * 1. Seed `/t.txt`="abcdef", then shrink its descriptor to 3 and grow it to 5.
+ * 2. Read the bytes and reject unknown, stdout, and negative-length calls.
+ * 3. Assert shrink, zero-filled growth, and each invalid descriptor code.
  */
 export const test_memfs_ftruncate_resizes_via_descriptor =
   async (): Promise<void> => {
@@ -28,6 +27,13 @@ export const test_memfs_ftruncate_resizes_via_descriptor =
       "descriptor truncate shrinks the file",
       host.readFileText("/t.txt"),
       "abc",
+    );
+    await callMutation((cb) => host.fs.ftruncate(fd, 5, cb));
+    const grown = host.readFile("/t.txt");
+    TestValidator.equals(
+      "descriptor truncate zero-extends the file",
+      grown === null ? null : [...grown],
+      [97, 98, 99, 0, 0],
     );
 
     const codes = {

@@ -1,5 +1,5 @@
 import { TestValidator } from "@nestia/e2e";
-import { createMemFS } from "@ttsc/wasm";
+import { type IWasmExecFS, createMemFS } from "@ttsc/wasm";
 
 import {
   callMutation,
@@ -14,6 +14,12 @@ import {
 const O_WRONLY = 1;
 const O_RDWR = 2;
 const O_TRUNC = 512;
+
+function fstatMtime(fs: IWasmExecFS, fd: number): Promise<number> {
+  return new Promise<number>((resolve, reject) =>
+    fs.fstat(fd, (err, stats) => (err ? reject(err) : resolve(stats.mtimeMs))),
+  );
+}
 
 /**
  * Verifies a MemFS descriptor only permits the operations its `open` access
@@ -43,13 +49,23 @@ export const test_memfs_descriptors_enforce_their_access_mode =
       { ...rejectedWrite, text: host.readFileText("/f.txt") },
       { code: "EBADF", n: 0, text: "abc" },
     );
+    const readOnlyMtime = await fstatMtime(host.fs, readOnly);
+    while (Date.now() <= readOnlyMtime)
+      await new Promise((resolve) => setTimeout(resolve, 1));
     TestValidator.equals(
       "a read-only descriptor rejects ftruncate without moving its cursor",
       {
+        beforeMtime: readOnlyMtime,
         code: await expectFsError((cb) => host.fs.ftruncate(readOnly, 1, cb)),
+        afterMtime: await fstatMtime(host.fs, readOnly),
         text: host.readFileText("/f.txt"),
       },
-      { code: "EBADF", text: "abc" },
+      {
+        beforeMtime: readOnlyMtime,
+        code: "EBADF",
+        afterMtime: readOnlyMtime,
+        text: "abc",
+      },
     );
     TestValidator.equals(
       "a write-only descriptor rejects reads",
