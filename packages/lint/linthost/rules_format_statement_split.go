@@ -61,11 +61,29 @@ func (formatStatementSplit) Check(ctx *Context, node *shimast.Node) {
   layout := loadFormatLayout(ctx)
   src := ctx.File.Text()
   var edits []TextEdit
+  scannedCommentLists := map[*shimast.Node]bool{}
+  commentLists := map[*shimast.Node]bool{}
   forEachStatementInList(ctx.File, func(stmt *shimast.Node, depth int) {
     // Empty statements (`;`) carry no content. Splitting each one onto
     // its own line only multiplies blank-ish noise, so abstain.
     if stmt.Kind == shimast.KindEmptyStatement {
       return
+    }
+    // Preflight the whole immediate statement list before splitting any one
+    // entry. Otherwise an early statement can move before a later boundary
+    // comment makes that later statement abstain, leaving a half-formatted
+    // list (`case 1:\n  f(); /* keep */ break;`). The structured printer also
+    // abstains on this boundary, so statement-split must preserve the same
+    // all-or-nothing safety floor.
+    if indentCededToReflow(stmt) {
+      parent := stmt.Parent
+      if parent != nil && !scannedCommentLists[parent] {
+        scannedCommentLists[parent] = true
+        commentLists[parent] = statementListHasInterStatementComment(src, parent)
+      }
+      if parent != nil && commentLists[parent] {
+        return
+      }
     }
     start := shimscanner.SkipTrivia(src, stmt.Pos())
     if start <= 0 || start > len(src) {
@@ -139,6 +157,41 @@ func (formatStatementSplit) Check(ctx *Context, node *shimast.Node) {
     "Each statement must begin on its own line.",
     edits...,
   )
+}
+
+// statementListHasInterStatementComment reports whether a block, module,
+// source file, or switch clause has a comment between two consecutive
+// statements. Prefix comments remain owned by the existing per-statement gap
+// guard; suffix comments do not affect a split. Scanning every interior gap up
+// front prevents an edit before one boundary from partially formatting a list
+// whose later boundary is intentionally immutable.
+func statementListHasInterStatementComment(src string, parent *shimast.Node) bool {
+  if parent == nil {
+    return false
+  }
+  var statements []*shimast.Node
+  switch parent.Kind {
+  case shimast.KindSourceFile, shimast.KindBlock, shimast.KindModuleBlock:
+    statements = parent.Statements()
+  case shimast.KindCaseClause, shimast.KindDefaultClause:
+    clause := parent.AsCaseOrDefaultClause()
+    if clause != nil && clause.Statements != nil {
+      statements = clause.Statements.Nodes
+    }
+  default:
+    return false
+  }
+  for i := 1; i < len(statements); i++ {
+    previous, next := statements[i-1], statements[i]
+    if previous == nil || next == nil {
+      continue
+    }
+    nextStart := shimscanner.SkipTrivia(src, next.Pos())
+    if gapHasComment(src, previous.End(), nextStart) {
+      return true
+    }
+  }
+  return false
 }
 
 // sharesLineWithBlockOpenBrace reports whether `start`, the first byte of a
