@@ -33,6 +33,9 @@
  *
  * - No readable snapshot (first run, wiped cache dir, unwritable filesystem)
  *   folds a random nonce: that run shares no cache entries with any other run.
+ * - A failed snapshot write persists the pending observation beside the snapshot
+ *   directory. While any such recovery document exists, readers fold a nonce;
+ *   successful compaction merges it and mints a fresh epoch.
  * - A recreated snapshot carries a fresh epoch id, so it can never alias a key
  *   from an older epoch whose recorded set is unknown.
  * - A plugin-declared volatile output (non-file inputs; unrepresentable in any
@@ -56,11 +59,17 @@ const SNAPSHOT_VERSION = 1;
 /** Snapshot directory segments under the fingerprint base directory. */
 const SNAPSHOT_DIRECTORY = ["node_modules", ".cache", "ttsc-metro"];
 
+/** Recovery-document prefix in the parent cache directory. */
+const UNHEALTHY_SNAPSHOT_PREFIX = "ttsc-metro.unhealthy-";
+
 /** Main snapshot file name (epoch id + compacted recorded inputs). */
 const MAIN_SNAPSHOT = "graph-inputs.json";
 
 /** Worker snapshot file prefix; each worker appends a unique suffix. */
 const WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-";
+
+/** Prefix used after a compactor atomically claims an immutable worker file. */
+const CLAIMED_WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-claimed-";
 
 /** Union of the snapshot state readable on disk. */
 interface SnapshotState {
@@ -79,6 +88,17 @@ interface SnapshotDocument {
   version: number;
   volatile: boolean;
 }
+
+/** Snapshot documents discovered during one directory scan. */
+interface SnapshotDocuments {
+  corruptPaths: string[];
+  entries: SnapshotDocument[];
+  paths: string[];
+  readable: boolean;
+}
+
+/** Bases whose latest observation is not yet durable in the main snapshot. */
+const unhealthySnapshots = new Set<string>();
 
 /**
  * Resolve the base directory both fingerprint sides agree on: Metro's
@@ -193,12 +213,20 @@ function nonce(): string {
  * unparseable worker file's recordings are unrecoverable, so its removal mints
  * a fresh epoch id — every key that might have depended on the lost recordings
  * is soundly orphaned, and later runs stabilize instead of degrading to a nonce
- * forever. Never throws — an unwritable cache directory leaves the snapshot
- * unreadable and `getCacheKey` degrades to a nonce.
+ * forever. A failed rewrite leaves a recovery document outside the snapshot
+ * directory so `getCacheKey` degrades to a nonce until a later compaction
+ * succeeds. If an older readable main exists and neither location is writable,
+ * preparation throws instead of authorizing stale reuse.
  */
 export function prepareSnapshot(projectRoot: string | undefined): void {
+  const base = resolveFingerprintBase(projectRoot);
+  let hadReadableMain = false;
+  let pending: SnapshotDocument = {
+    files: [],
+    version: SNAPSHOT_VERSION,
+    volatile: false,
+  };
   try {
-    const base = resolveFingerprintBase(projectRoot);
     // A nonexistent base can never be a working Metro setup (Metro verifies
     // the project root exists), so preparing a snapshot there would only
     // materialize directory trees at arbitrary paths.
@@ -211,33 +239,47 @@ export function prepareSnapshot(projectRoot: string | undefined): void {
     // comment): a concurrent compactor deletes a worker file only after the
     // merged main is renamed into place, so whatever this enumeration misses
     // is already inside the main read below.
+    claimWorkerFiles(directory);
+    const recovery = readUnhealthySnapshots(base);
     const workers = readWorkerFiles(directory);
+    if (!recovery.readable || !workers.readable) {
+      throw new Error("Unable to enumerate Metro snapshot state.");
+    }
     const main = readMainDocument(directory);
+    hadReadableMain = main !== undefined && typeof main.id === "string";
     const files = new Set(main?.files ?? []);
+    const observations = [...recovery.entries, ...workers.entries];
     const volatile =
-      workers.entries.length === 0
+      observations.length === 0
         ? (main?.volatile ?? false)
         : // Worker files carry the previous run's fresh observations, so they
           // own the volatile verdict: a removed volatile declaration must be
           // able to clear the sticky flag.
-          workers.entries.some((entry) => entry.volatile);
-    for (const entry of workers.entries) {
+          observations.some((entry) => entry.volatile);
+    for (const entry of observations) {
       for (const file of entry.files) {
         files.add(file);
       }
     }
-    writeSnapshotDocument(path.join(directory, MAIN_SNAPSHOT), {
+    const recovering =
+      unhealthySnapshots.has(base) ||
+      recovery.paths.length !== 0 ||
+      recovery.corruptPaths.length !== 0;
+    pending = {
       files: [...files].sort(),
       id:
-        workers.corruptPaths.length === 0
+        !recovering && workers.corruptPaths.length === 0
           ? (main?.id ?? randomBytes(16).toString("hex"))
           : randomBytes(16).toString("hex"),
       version: SNAPSHOT_VERSION,
       volatile,
-    });
+    };
+    writeSnapshotDocument(path.join(directory, MAIN_SNAPSHOT), pending);
     for (const file of [
-      ...workers.paths,
-      ...workers.corruptPaths,
+      ...workers.paths.filter(isClaimedWorkerSnapshot),
+      ...workers.corruptPaths.filter(isClaimedWorkerSnapshot),
+      ...recovery.paths,
+      ...recovery.corruptPaths,
       ...listTemporaryFiles(directory),
     ]) {
       try {
@@ -247,8 +289,25 @@ export function prepareSnapshot(projectRoot: string | undefined): void {
         // lost, and the next compaction retries.
       }
     }
-  } catch {
-    // Snapshot maintenance must never break the Metro config process.
+    const remainingRecovery = readUnhealthySnapshots(base);
+    if (
+      remainingRecovery.readable &&
+      remainingRecovery.paths.length === 0 &&
+      remainingRecovery.corruptPaths.length === 0
+    ) {
+      unhealthySnapshots.delete(base);
+    }
+  } catch (snapshotError) {
+    try {
+      persistUnhealthySnapshot(base, pending);
+    } catch (recoveryError) {
+      if (hadReadableMain || hasReadableMainSnapshot(base)) {
+        throw new AggregateError(
+          [snapshotError, recoveryError],
+          "Unable to persist Metro snapshot state or its recovery record.",
+        );
+      }
+    }
   }
 }
 
@@ -283,10 +342,21 @@ function listTemporaryFiles(directory: string): string[] {
  * recorded set cannot be trusted, so the caller degrades to a nonce).
  */
 export function readSnapshotState(base: string): SnapshotState | undefined {
+  if (unhealthySnapshots.has(base)) {
+    return undefined;
+  }
+  const recovery = readUnhealthySnapshots(base);
+  if (
+    !recovery.readable ||
+    recovery.paths.length !== 0 ||
+    recovery.corruptPaths.length !== 0
+  ) {
+    return undefined;
+  }
   const directory = snapshotDirectory(base);
   // Worker files strictly before the main file — see the module doc comment.
   const workers = readWorkerFiles(directory);
-  if (workers.corruptPaths.length !== 0) {
+  if (!workers.readable || workers.corruptPaths.length !== 0) {
     return undefined;
   }
   const main = readMainDocument(directory);
@@ -358,23 +428,32 @@ export function createSnapshotRecorder(): {
     if (!state.dirty) {
       return;
     }
+    const document: SnapshotDocument = {
+      files: [...state.files].sort(),
+      version: SNAPSHOT_VERSION,
+      volatile: state.volatile,
+    };
     try {
       const directory = snapshotDirectory(base);
       fs.mkdirSync(directory, { recursive: true });
       writeSnapshotDocument(
         path.join(directory, `${WORKER_SNAPSHOT_PREFIX}${suffix}.json`),
-        {
-          files: [...state.files].sort(),
-          version: SNAPSHOT_VERSION,
-          volatile: state.volatile,
-        },
+        document,
       );
       // Cleared only on success so a transient write failure retries on the
       // next recording instead of silently dropping the observed state.
       state.dirty = false;
-    } catch {
-      // An unwritable snapshot leaves the main snapshot unreadable or stale;
-      // getCacheKey degrades to a nonce rather than serving stale output.
+    } catch (snapshotError) {
+      try {
+        persistUnhealthySnapshot(base, document);
+      } catch (recoveryError) {
+        if (hasReadableMainSnapshot(base)) {
+          throw new AggregateError(
+            [snapshotError, recoveryError],
+            "Unable to persist a Metro snapshot observation or its recovery record.",
+          );
+        }
+      }
     }
   }
 
@@ -393,7 +472,7 @@ export function createSnapshotRecorder(): {
         // Even when every input belongs to the project walk, the worker must
         // publish that it performed a clean transform. Otherwise an old main
         // snapshot with `volatile: true` remains sticky forever.
-        if (firstObservation) {
+        if (firstObservation || state.dirty) {
           state.dirty = true;
           flush(base, state);
         }
@@ -407,6 +486,7 @@ export function createSnapshotRecorder(): {
       const base = resolveFingerprintBase(props.projectRoot);
       const state = stateFor(props.projectRoot, props.explicitProject);
       if (state.volatile) {
+        flush(base, state);
         return;
       }
       state.volatile = true;
@@ -420,6 +500,88 @@ function snapshotDirectory(base: string): string {
   return path.join(base, ...SNAPSHOT_DIRECTORY);
 }
 
+function snapshotCacheDirectory(base: string): string {
+  return path.dirname(snapshotDirectory(base));
+}
+
+function hasReadableMainSnapshot(base: string): boolean {
+  const main = readMainDocument(snapshotDirectory(base));
+  return main !== undefined && typeof main.id === "string";
+}
+
+/**
+ * Persist a failed observation where a read-only snapshot directory cannot hide
+ * it.
+ */
+function persistUnhealthySnapshot(
+  base: string,
+  document: SnapshotDocument,
+): void {
+  unhealthySnapshots.add(base);
+  const directory = snapshotCacheDirectory(base);
+  fs.mkdirSync(directory, { recursive: true });
+  writeSnapshotDocument(
+    path.join(
+      directory,
+      `${UNHEALTHY_SNAPSHOT_PREFIX}${process.pid.toString(36)}-${randomBytes(8).toString("hex")}.json`,
+    ),
+    document,
+  );
+}
+
+function readUnhealthySnapshots(base: string): SnapshotDocuments {
+  return readSnapshotFiles(
+    snapshotCacheDirectory(base),
+    UNHEALTHY_SNAPSHOT_PREFIX,
+  );
+}
+
+/**
+ * Move each live worker document to a unique immutable name before reading it.
+ * A concurrent worker publishes its next cumulative document at the original
+ * name, so deleting the claimed copy after the main write can never erase a
+ * newer observation. Claimed names still match the reader prefix, keeping the
+ * worker-before-main visibility invariant during compaction.
+ */
+function claimWorkerFiles(directory: string): void {
+  let names: string[];
+  try {
+    names = fs.readdirSync(directory);
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return;
+    }
+    throw error;
+  }
+  const claim = `${process.pid.toString(36)}-${randomBytes(6).toString("hex")}`;
+  for (const name of names) {
+    if (
+      !name.startsWith(WORKER_SNAPSHOT_PREFIX) ||
+      name.startsWith(CLAIMED_WORKER_SNAPSHOT_PREFIX) ||
+      !name.endsWith(".json")
+    ) {
+      continue;
+    }
+    try {
+      fs.renameSync(
+        path.join(directory, name),
+        path.join(
+          directory,
+          `${CLAIMED_WORKER_SNAPSHOT_PREFIX}${claim}-${name.slice(WORKER_SNAPSHOT_PREFIX.length)}`,
+        ),
+      );
+    } catch (error) {
+      if (!isMissingFileError(error)) {
+        throw error;
+      }
+    }
+  }
+}
+
+function isClaimedWorkerSnapshot(file: string): boolean {
+  return path.basename(file).startsWith(CLAIMED_WORKER_SNAPSHOT_PREFIX);
+}
+
 /**
  * Read every worker snapshot file in `directory`. A file that disappears
  * mid-read was compacted (merged into the main snapshot first) and is skipped;
@@ -430,25 +592,41 @@ function readWorkerFiles(directory: string): {
   corruptPaths: string[];
   entries: SnapshotDocument[];
   paths: string[];
+  readable: boolean;
 } {
+  return readSnapshotFiles(directory, WORKER_SNAPSHOT_PREFIX);
+}
+
+function readSnapshotFiles(
+  directory: string,
+  prefix: string,
+): SnapshotDocuments {
   let names: string[];
   try {
     names = fs.readdirSync(directory);
-  } catch {
-    return { corruptPaths: [], entries: [], paths: [] };
+  } catch (error) {
+    return {
+      corruptPaths: [],
+      entries: [],
+      paths: [],
+      readable: isMissingFileError(error),
+    };
   }
   const entries: SnapshotDocument[] = [];
   const paths: string[] = [];
   const corruptPaths: string[] = [];
   for (const name of names) {
-    if (!name.startsWith(WORKER_SNAPSHOT_PREFIX) || !name.endsWith(".json")) {
+    if (!name.startsWith(prefix) || !name.endsWith(".json")) {
       continue;
     }
     const file = path.join(directory, name);
     let text: string;
     try {
       text = fs.readFileSync(file, "utf8");
-    } catch {
+    } catch (error) {
+      if (!isMissingFileError(error)) {
+        corruptPaths.push(file);
+      }
       continue;
     }
     const parsed = parseSnapshotDocument(text);
@@ -459,7 +637,16 @@ function readWorkerFiles(directory: string): {
     entries.push(parsed);
     paths.push(file);
   }
-  return { corruptPaths, entries, paths };
+  return { corruptPaths, entries, paths, readable: true };
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "ENOENT"
+  );
 }
 
 function readMainDocument(directory: string): SnapshotDocument | undefined {
@@ -499,8 +686,8 @@ function parseSnapshotDocument(text: string): SnapshotDocument | undefined {
 /** Write a snapshot document atomically (unique temp file, then rename). */
 function writeSnapshotDocument(file: string, document: SnapshotDocument): void {
   const temp = `${file}.${randomBytes(6).toString("hex")}.tmp`;
-  fs.writeFileSync(temp, JSON.stringify(document), "utf8");
   try {
+    fs.writeFileSync(temp, JSON.stringify(document), "utf8");
     fs.renameSync(temp, file);
   } catch (error) {
     fs.rmSync(temp, { force: true });

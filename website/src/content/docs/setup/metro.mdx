@@ -86,7 +86,8 @@ The recorded out-of-walk set follows what the transform core derives per file, s
 The granularity is project-level because Metro's contract admits nothing finer: one key per run means any fingerprinted change re-transforms every file on the next run. Two behaviors sit outside the mechanism's reach:
 
 - **Within a running dev server**, Metro re-transforms only files its watcher reports changed, so editing a type in file B refreshes a dependent file A on A's next transform. Save A, or restart the dev server; no `--reset-cache` is needed in either case.
-- **Files a plugin declares [`volatile`](/docs/development/concepts/protocol#transform)** depend on non-file inputs no fingerprint can represent; while a volatile declaration is recorded, cross-run cache reuse is disabled entirely. The same sound fallback applies when `node_modules/.cache` is unwritable.
+- **Files a plugin declares [`volatile`](/docs/development/concepts/protocol#transform)** depend on non-file inputs no fingerprint can represent; while a volatile declaration is recorded, cross-run cache reuse is disabled entirely.
+- **If snapshot persistence fails**, a recovery document beside `node_modules/.cache/ttsc-metro` makes every later key non-reusable until the pending observations are compacted under a fresh epoch; if an older readable snapshot exists and neither the snapshot nor recovery location is writable, the transform fails instead of authorizing stale reuse.
 
 ## Caveats (v1)
 

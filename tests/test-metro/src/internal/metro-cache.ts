@@ -32,6 +32,34 @@ function snapshotDirectory(root: string): string {
   return path.dirname(mainSnapshotPath(root));
 }
 
+/** Parent cache directory where failed snapshot writes leave recovery files. */
+function snapshotCacheDirectory(root: string): string {
+  return path.dirname(snapshotDirectory(root));
+}
+
+/** List durable recovery documents left by failed snapshot writes. */
+function listSnapshotRecoveryFiles(root: string): string[] {
+  const directory = snapshotCacheDirectory(root);
+  if (!fs.existsSync(directory)) {
+    return [];
+  }
+  return fs
+    .readdirSync(directory)
+    .filter(
+      (name) =>
+        name.startsWith("ttsc-metro.unhealthy-") && name.endsWith(".json"),
+    )
+    .map((name) => path.join(directory, name));
+}
+
+/** Whether chmod can enforce the controlled write failures used below. */
+function canEnforceReadOnlyDirectory(): boolean {
+  return (
+    process.platform !== "win32" &&
+    !(typeof process.getuid === "function" && process.getuid() === 0)
+  );
+}
+
 /** Parse the main snapshot document, failing the test when absent. */
 function readMainSnapshot(root: string): {
   files: string[];
@@ -280,6 +308,121 @@ export async function assertCacheKeyFoldsNonceWithoutReadableSnapshot(): Promise
   const second = await cacheKeyForRun(root);
   assert.equal(first.length, 64);
   assert.notEqual(first, second);
+}
+
+/**
+ * Asserts a failed worker write cannot leave a readable old main snapshot in
+ * charge of cache reuse. The worker persists its pending observation beside the
+ * read-only snapshot directory, every key nonces while that recovery file
+ * exists, and a later successful retry plus compaction restores a stable key
+ * under a fresh epoch.
+ */
+export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promise<void> {
+  if (!canEnforceReadOnlyDirectory()) {
+    return;
+  }
+  const root = createBareProject();
+  const external = path.join(
+    TestProject.tmpdir("ttsc-metro-unwritable-worker-"),
+    "external.d.ts",
+  );
+  fs.writeFileSync(external, "declare const recovered: true;\n", "utf8");
+  await prepareSnapshot(root);
+  const originalIdentity = readMainSnapshot(root).id;
+  const originalKey = await cacheKeyForRun(root);
+  const { createSnapshotRecorder } = await TestMetroRuntime.loadFingerprint();
+  const recorder = createSnapshotRecorder();
+
+  fs.chmodSync(snapshotDirectory(root), 0o555);
+  try {
+    recorder.record({ input: external, projectRoot: root });
+    assert.deepEqual(listWorkerSnapshots(root), []);
+    assert.equal(listSnapshotRecoveryFiles(root).length, 1);
+    assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
+  } finally {
+    fs.chmodSync(snapshotDirectory(root), 0o755);
+  }
+
+  // The same observation retries because the failed publication stayed dirty.
+  recorder.record({ input: external, projectRoot: root });
+  assert.deepEqual(workerSnapshotFiles(root), [external]);
+  await prepareSnapshot(root);
+
+  const recovered = readMainSnapshot(root);
+  assert.notEqual(recovered.id, originalIdentity);
+  assert.ok(recovered.files.includes(external));
+  assert.deepEqual(listWorkerSnapshots(root), []);
+  assert.deepEqual(listSnapshotRecoveryFiles(root), []);
+  const firstRecoveredKey = await cacheKeyForRun(root);
+  assert.equal(firstRecoveredKey, await cacheKeyForRun(root));
+  assert.notEqual(firstRecoveredKey, originalKey);
+}
+
+/**
+ * Asserts a failed main-snapshot rewrite follows the same durable degradation:
+ * pending worker files remain represented in a recovery document, the old
+ * readable main cannot authorize reuse, and recovery compacts under a new id.
+ */
+export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): Promise<void> {
+  if (!canEnforceReadOnlyDirectory()) {
+    return;
+  }
+  const root = createBareProject();
+  const external = path.join(root, "..", "compaction-input.d.ts");
+  await prepareSnapshot(root);
+  const originalIdentity = readMainSnapshot(root).id;
+  fs.writeFileSync(
+    path.join(snapshotDirectory(root), "graph-inputs.worker-test.json"),
+    JSON.stringify({ files: [external], version: 1, volatile: false }),
+    "utf8",
+  );
+
+  fs.chmodSync(snapshotDirectory(root), 0o555);
+  try {
+    await prepareSnapshot(root);
+    assert.equal(readMainSnapshot(root).id, originalIdentity);
+    assert.equal(listSnapshotRecoveryFiles(root).length, 1);
+    assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
+  } finally {
+    fs.chmodSync(snapshotDirectory(root), 0o755);
+  }
+
+  await prepareSnapshot(root);
+  const recovered = readMainSnapshot(root);
+  assert.notEqual(recovered.id, originalIdentity);
+  assert.ok(recovered.files.includes(external));
+  assert.deepEqual(listWorkerSnapshots(root), []);
+  assert.deepEqual(listSnapshotRecoveryFiles(root), []);
+  assert.equal(await cacheKeyForRun(root), await cacheKeyForRun(root));
+}
+
+/**
+ * Asserts snapshot maintenance fails closed when neither the primary snapshot
+ * directory nor its parent recovery location can accept a write. Returning
+ * normally would let another process trust the still-readable old main file.
+ */
+export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): Promise<void> {
+  if (!canEnforceReadOnlyDirectory()) {
+    return;
+  }
+  const root = createBareProject();
+  await prepareSnapshot(root);
+  const cacheDirectory = snapshotCacheDirectory(root);
+  fs.chmodSync(snapshotDirectory(root), 0o555);
+  fs.chmodSync(cacheDirectory, 0o555);
+  try {
+    await assert.rejects(prepareSnapshot(root), {
+      message: "Unable to persist Metro snapshot state or its recovery record.",
+      name: "AggregateError",
+    });
+  } finally {
+    fs.chmodSync(cacheDirectory, 0o755);
+    fs.chmodSync(snapshotDirectory(root), 0o755);
+  }
+
+  await prepareSnapshot(root);
+  assert.deepEqual(listSnapshotRecoveryFiles(root), []);
+  assert.equal(await cacheKeyForRun(root), await cacheKeyForRun(root));
 }
 
 /**
