@@ -60,6 +60,12 @@ type listShape struct {
   // multi-line callback body does not force every preceding argument
   // onto its own line.
   HugLast bool
+  // HugLastBreakClose keeps an expression-bodied trailing arrow attached to
+  // OPEN through its `=>`, but finishes a broken argument list with the
+  // optional trailing comma and CLOSE on a fresh line. Unlike a block-bodied
+  // callback, the arrow's expression does not own the call's closing line:
+  // `run(() =>\n  nested(),\n)`. Requires HugLast.
+  HugLastBreakClose bool
   // HugFirst keeps the FIRST item attached to the open paren and flows
   // the remaining simple items after it, the mirror of HugLast. The
   // call-argument printer sets it for the two-argument
@@ -308,7 +314,15 @@ func printListHuggingLast(ctx *PrintContext, shape listShape) Doc {
   for _, item := range lead {
     parts = append(parts, item, Text(", "))
   }
-  parts = append(parts, last, Text(shape.CloseTok))
+  parts = append(parts, last)
+  if shape.HugLastBreakClose {
+    if shape.AddComma {
+      parts = append(parts, Text(","))
+    }
+    parts = append(parts, Hardline(), Text(shape.CloseTok))
+  } else {
+    parts = append(parts, Text(shape.CloseTok))
+  }
   return Concat(parts...)
 }
 

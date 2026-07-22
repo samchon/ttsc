@@ -206,15 +206,17 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
     forceFnBreak = false
   }
   hugFirst := !hugLast && !forceFnBreak && shouldHugFirstArgument(ctx, list.Nodes)
+  hugLastBreakClose := hugLast && lastArgumentBreaksAfterArrow(list.Nodes)
   shape := listShape{
-    OpenTok:      "(",
-    CloseTok:     ")",
-    Items:        items,
-    Space:        false,
-    AddComma:     addComma,
-    HugLast:      hugLast,
-    HugLastForce: forceHugLast,
-    HugFirst:     hugFirst,
+    OpenTok:           "(",
+    CloseTok:          ")",
+    Items:             items,
+    Space:             false,
+    AddComma:          addComma,
+    HugLast:           hugLast,
+    HugLastBreakClose: hugLastBreakClose,
+    HugLastForce:      forceHugLast,
+    HugFirst:          hugFirst,
     // A non-empty array second argument reaches HugFirst only via the
     // React-hook deps branch of shouldHugFirstArgument; let that deps array
     // break one-per-line instead of being pinned flat on the close line.
@@ -226,6 +228,18 @@ func printArgList(ctx *PrintContext, list *shimast.NodeList, addComma bool, deco
     BlankBefore:   blankBeforeItems(ctx.Source, list.Nodes),
   }
   return printList(ctx, shape), covered
+}
+
+// lastArgumentBreaksAfterArrow reports the trailing arrow shape whose hugged
+// layout keeps the opening line through `=>` but leaves the call's closing
+// parenthesis on its own line after the expression body.
+func lastArgumentBreaksAfterArrow(args []*shimast.Node) bool {
+  if len(args) == 0 || args[len(args)-1] == nil ||
+    args[len(args)-1].Kind != shimast.KindArrowFunction {
+    return false
+  }
+  arrow := args[len(args)-1].AsArrowFunction()
+  return arrow != nil && arrowBodyBreaksAfterArrow(arrow.Body)
 }
 
 // testCalleePatterns is Prettier's exact testCallCalleePatterns set (the dotted

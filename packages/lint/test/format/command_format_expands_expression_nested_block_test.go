@@ -49,6 +49,11 @@ func TestCommandFormatExpandsExpressionNestedBlock(t *testing.T) {
       "export const fn = ready\n  ? () => {\n      a();\n    }\n  : () => {\n      b();\n    };\n",
     },
     {
+      "parenthesized-object-body",
+      "run(() => ({ m() { return 1; } }));\n",
+      "run(() => ({\n  m() {\n    return 1;\n  },\n}));\n",
+    },
+    {
       "call-bodied-arrow",
       "run(() => foo(() => { a(); }));\n",
       "run(() =>\n  foo(() => {\n    a();\n  }),\n);\n",

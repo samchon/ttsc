@@ -165,6 +165,10 @@ func fastPathForcesBreak(node *shimast.Node, src string) bool {
     if conditional := node.AsConditionalExpression(); conditional != nil {
       children = append(children, conditional.Condition, conditional.WhenTrue, conditional.WhenFalse)
     }
+  case shimast.KindParenthesizedExpression:
+    if parenthesized := node.AsParenthesizedExpression(); parenthesized != nil {
+      children = append(children, parenthesized.Expression)
+    }
   case shimast.KindObjectLiteralExpression:
     // A force-breaking array/object nested in an object PROPERTY value
     // (`{ m: [[1, 2], [3, 4]] }`) must also deny the fast path: the value

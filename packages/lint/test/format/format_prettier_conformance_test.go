@@ -69,6 +69,7 @@ func TestFormatPrettierConformance(t *testing.T) {
     {"format/print-width", "expression-block-callback", "run(() => { first(); second(); });\n", nil, false},
     {"format/print-width", "expression-block-array-element", "export const callbacks = [() => { run(); }];\n", nil, false},
     {"format/print-width", "expression-block-conditional-arm", "export const callback = ready ? () => { start(); } : () => { stop(); };\n", nil, false},
+    {"format/print-width", "expression-block-parenthesized-object-body", "run(() => ({ method() { return 1; } }));\n", nil, false},
     {"format/print-width", "expression-block-call-bodied-arrow", "run(() => nested(() => { work(); }));\n", nil, false},
     {"format/print-width", "expression-block-comment-only", "run(() => { /* keep */ });\n", nil, false},
     {"format/quote-props", "consistent-object", "const value = { first: 1, \"second-value\": 2 };\n", map[string]any{"quoteProps": "consistent"}, false},
