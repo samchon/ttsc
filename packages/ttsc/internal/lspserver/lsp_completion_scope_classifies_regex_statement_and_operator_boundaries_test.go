@@ -21,6 +21,7 @@ func TestLSPCompletionScopeClassifiesRegexStatementAndOperatorBoundaries(t *test
     {"regex after commented return", "return /* c */ /[/** @tag]/.test(value)", lexicalScopeCode},
     {"function declaration block", "function f() {} /[/** @tag]/.test(value)", lexicalScopeCode},
     {"class declaration block", "class C {} /[/** @tag]/.test(value)", lexicalScopeCode},
+    {"member named like a control keyword", "const value = object.if() / 2; /** @tag", lexicalScopeJSDoc},
     {"division after regex", "const value = /ok/ / 2; /** @tag", lexicalScopeJSDoc},
     {"comment after expression", "const value = 1; /** @tag", lexicalScopeJSDoc},
     {"template interpolation", "const value = `${(() => { if (ok) /[/** @tag]/.test(value); return value; })()}`; /** @tag", lexicalScopeJSDoc},

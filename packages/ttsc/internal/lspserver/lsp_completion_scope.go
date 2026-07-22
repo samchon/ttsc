@@ -207,7 +207,10 @@ func (context *regexContext) blockPrecedes() bool {
 }
 
 func (context *regexContext) controlHeaderPrecedes() bool {
-  word, _ := context.lastWord()
+  word, member := context.lastWord()
+  if member {
+    return false
+  }
   switch word {
   case "if", "while", "for", "with", "switch", "catch":
     return true
