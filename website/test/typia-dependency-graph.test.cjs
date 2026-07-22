@@ -6,10 +6,36 @@ const test = require("node:test");
 
 const {
   createTypiaDependencyGraph,
+  readExactTypiaPin,
   rewriteSourceManifest,
 } = require("../build/typia-dependency-graph.cjs");
 
 test("Typia browser packs derive one fail-fast dependency graph", async (t) => {
+  await t.test("an anchored catalog still requires one exact version", () => {
+    const repoRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), "ttsc-typia-catalog-"),
+    );
+    const workspace = path.join(repoRoot, "pnpm-workspace.yaml");
+    try {
+      fs.writeFileSync(
+        workspace,
+        ["catalogs:", "  samchon:", "    typia: &typia 13.2.0", ""].join("\n"),
+      );
+      assert.equal(readExactTypiaPin(repoRoot), "13.2.0");
+
+      fs.writeFileSync(
+        workspace,
+        ["catalogs:", "  samchon:", "    typia: &typia ^13.2.0", ""].join("\n"),
+      );
+      assert.throws(
+        () => readExactTypiaPin(repoRoot),
+        /must be one exact version, found "\^13\.2\.0"/,
+      );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   await t.test("the real install owns Go, source, runtime, and types", () => {
     const websiteRoot = path.resolve(__dirname, "..");
     const graph = createTypiaDependencyGraph({ websiteRoot });

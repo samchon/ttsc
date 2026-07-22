@@ -391,7 +391,9 @@ function readExactTypiaPin(repoRoot) {
   );
   const samchon =
     workspace.match(/\n  samchon:\r?\n([\s\S]*?)(?:\n  [a-zA-Z]|$)/)?.[1] ?? "";
-  const version = samchon.match(/^    typia:\s+['"]?([^'"\s#]+)['"]?/m)?.[1];
+  const version = samchon.match(
+    /^    typia:\s+(?:&[^\s#]+\s+)?['"]?([^'"\s#]+)['"]?/m,
+  )?.[1];
   if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
     throw new Error(
       `[typia-graph] catalogs.samchon.typia must be one exact version, found ${JSON.stringify(version)}`,
@@ -463,5 +465,6 @@ function slash(value) {
 module.exports = {
   createTypiaDependencyGraph,
   parseModuleSpecifiers,
+  readExactTypiaPin,
   rewriteSourceManifest,
 };
